@@ -283,41 +283,48 @@ export default function AiChatDetail() {
 
   return (
     <ThemeRoot className="flex flex-col h-screen bg-background">
-      <View className="p-[24rpx] bg-card flex-shrink-0">
-        <Text className="text-[36rpx] font-semibold text-foreground">
+      {/* 对齐 RN ChatScreen header:无卡片底 + 底部描边 + 标题 20dp/600 */}
+      <View className="flex flex-row items-center justify-between px-[24rpx] py-[24rpx] border-b-[2rpx] border-border flex-shrink-0">
+        <Text className="text-[40rpx] font-semibold text-foreground">
           {t('aiChatDetail.title')}
         </Text>
       </View>
       <ScrollView scrollY className="flex-1 min-h-0" scrollTop={scrollTop} scrollWithAnimation>
         {loading ? (
-          <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center py-[96rpx]">
+            <Text className="text-center text-muted-foreground text-[28rpx]">
               {t('common.loading')}
             </Text>
           </View>
         ) : error ? (
-          <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center py-[96rpx]">
+            <Text className="text-center text-muted-foreground text-[28rpx]">
               {tt('aiChatDetail.loadFailed', '加载失败')}
             </Text>
             <View
-              className="mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[26rpx]"
+              className="mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary rounded-[24rpx] flex items-center justify-center"
               onClick={loadData}
             >
-              <Text>{t('common.retry')}</Text>
+              <Text className="text-[28rpx] text-primary-foreground">{t('common.retry')}</Text>
             </View>
           </View>
         ) : messages.length ? (
-          <View className="p-[24rpx]">
+          <View className="px-[24rpx] py-[24rpx]">
+            {/* 对齐 RN ChatScreen list:paddingHorizontal 12dp/paddingVertical 12dp/气泡间距 10dp */}
             {messages.map((msg) => (
               <View
                 key={msg.id}
-                className={`flex mb-[24rpx] ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex mb-[20rpx] ${msg.role === 'user' ? 'justify-end items-end' : 'justify-start items-start'}`}
               >
+                {/* 对齐 RN 气泡:user = surface.muted/radius 12dp;ai = surface.light+描边/radius 15dp */}
                 <View
-                  className={`max-w-[70%] py-[20rpx] px-[24rpx] rounded-[12rpx] ${msg.role === 'user' ? 'bg-primary' : 'bg-card'}`}
+                  className={`max-w-[80%] px-[20rpx] py-[20rpx] ${
+                    msg.role === 'user'
+                      ? 'bg-muted rounded-[24rpx]'
+                      : 'bg-card border-[2rpx] border-border rounded-[30rpx]'
+                  }`}
                 >
-                  <Text className="text-[28rpx] leading-[1.5] break-words text-foreground">
+                  <Text className="text-[32rpx] leading-[44rpx] break-words text-foreground">
                     {msg.content ||
                       (msg.role === 'assistant' && sending
                         ? tt('aiChatDetail.thinking', '思考中…')
@@ -328,8 +335,8 @@ export default function AiChatDetail() {
             ))}
           </View>
         ) : (
-          <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center py-[96rpx]">
+            <Text className="text-center text-muted-foreground text-[28rpx]">
               {t('aiChatDetail.empty')}
             </Text>
           </View>
@@ -337,29 +344,29 @@ export default function AiChatDetail() {
       </ScrollView>
 
       {inputError ? (
-        <View className="px-[24rpx] py-[8rpx] bg-card">
-          <Text className="text-[24rpx] text-destructive">{inputError}</Text>
+        <View className="px-[32rpx] pb-[16rpx]">
+          <Text className="text-[28rpx] text-destructive">{inputError}</Text>
         </View>
       ) : null}
 
       {inputFiles.length > 0 ? (
-        <View className="flex flex-row flex-wrap gap-[12rpx] px-[24rpx] py-[12rpx] bg-card">
+        <View className="flex flex-row flex-wrap gap-[16rpx] px-[16rpx] py-[16rpx]">
           {inputFiles.map((f) => (
             <View
               key={f.id}
-              className="relative w-[96rpx] h-[96rpx] rounded-[8rpx] bg-muted flex items-center justify-center"
+              className="relative w-[144rpx] h-[144rpx] rounded-[24rpx] bg-[var(--color-border)] overflow-hidden flex items-center justify-center"
             >
               <Text
-                className="text-[20rpx] text-foreground px-[8rpx] text-center"
+                className="text-[18rpx] text-muted-foreground px-[8rpx] text-center"
                 numberOfLines={1}
               >
                 {f.filename || f.type}
               </Text>
               <View
-                className="absolute -top-[8rpx] -right-[8rpx] w-[32rpx] h-[32rpx] rounded-full bg-destructive flex items-center justify-center"
+                className="absolute top-[5rpx] right-[5rpx] w-[30rpx] h-[30rpx] rounded-full bg-[var(--color-danger)] flex items-center justify-center"
                 onClick={() => handleRemoveFile(f.id)}
               >
-                <Text className="text-[20rpx] text-white leading-none">×</Text>
+                <Text className="text-[24rpx] font-bold leading-none text-[var(--color-danger-foreground)]">×</Text>
               </View>
             </View>
           ))}
@@ -367,30 +374,32 @@ export default function AiChatDetail() {
       ) : null}
 
       {isInputFullscreen ? (
-        <View className="flex flex-row items-center justify-between px-[24rpx] py-[12rpx] bg-card border-t border-border">
+        <View className="flex flex-row items-center justify-between px-[32rpx] py-[24rpx] border-b-[2rpx] border-border">
           <View onClick={handleFullscreenToggle}>
-            <Text className="text-[26rpx] text-foreground">
+            <Text className="text-[32rpx] text-muted-foreground mr-[24rpx]">
               ← {t('messageInput.fullscreenBack')}
             </Text>
           </View>
-          <Text className="text-[22rpx] text-muted-foreground">
+          <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
             {t('messageInput.fullscreenHint')}
           </Text>
         </View>
       ) : null}
 
       {isVoiceMode ? (
-        <View className="flex flex-col items-center px-[24rpx] py-[32rpx] bg-card">
-          <Text className="text-[24rpx] text-muted-foreground mb-[12rpx]">
+        <View className="flex flex-col items-center px-[20rpx] pt-[10rpx] pb-[20rpx] border-t-[2rpx] border-border">
+          <Text className="text-[24rpx] text-[var(--color-text-tertiary)] mb-[12rpx]">
             {isRecording ? t('messageInput.recording') : t('messageInput.voiceHint')}
           </Text>
           <View
-            className={`w-full py-[24rpx] rounded-[12rpx] flex items-center justify-center ${isRecording ? 'bg-destructive' : 'bg-muted'}`}
+            className="w-full py-[24rpx] rounded-[24rpx] bg-muted flex items-center justify-center"
             onTouchStart={() => setIsRecording(true)}
             onTouchEnd={() => setIsRecording(false)}
             onTouchCancel={() => setIsRecording(false)}
           >
-            <Text className="text-[28rpx] text-foreground">
+            <Text
+              className={`text-[28rpx] ${isRecording ? 'text-[var(--color-success-deep-text)]' : 'text-muted-foreground'}`}
+            >
               {isRecording
                 ? tt('messageInput.releaseToSend', '松开发送')
                 : tt('messageInput.holdToSpeak', '按住说话')}
@@ -398,58 +407,27 @@ export default function AiChatDetail() {
           </View>
         </View>
       ) : (
-        <View className="flex items-center px-[24rpx] py-[16rpx] bg-card flex-shrink-0 gap-[12rpx]">
+        <View className="px-[20rpx] pt-[10rpx] pb-[20rpx] border-t-[2rpx] border-border flex-shrink-0">
+          {/* 对齐 RN MessageInput inputRow:胶囊描边容器(radius 15dp,聚焦态 border primary) */}
           <View
-            className="w-[64rpx] h-[64rpx] flex items-center justify-center rounded-[8rpx] bg-muted"
-            onClick={handleVoiceToggle}
+            className={`flex flex-row items-end rounded-[30rpx] border-[2rpx] bg-card px-[30rpx] py-[12rpx] gap-[20rpx] ${isInputFocused ? 'border-primary' : 'border-border'}`}
           >
-            <LineIcon
-              name="mic"
-              size={28}
-              color="var(--color-muted-foreground)"
-            />
-          </View>
-          <View
-            className="w-[64rpx] h-[64rpx] flex items-center justify-center rounded-[8rpx] bg-muted"
-            onClick={handleAddImage}
-          >
-            <Text className="text-[28rpx] text-foreground">+</Text>
-          </View>
-          {isInputFocused ? (
             <View
-              className="w-[64rpx] h-[64rpx] flex items-center justify-center rounded-[8rpx] bg-muted"
-              onClick={handleFullscreenToggle}
+              className="w-[48rpx] h-[48rpx] flex items-center justify-center shrink-0"
+              onClick={handleVoiceToggle}
             >
-              <LineIcon
-                name="maximize"
-                size={24}
-                color="var(--color-muted-foreground)"
-              />
+              <LineIcon name="mic" size={20} color="var(--color-muted-foreground)" />
             </View>
-          ) : null}
-          {isInputFocused ? (
             <View
-              className="w-[64rpx] h-[64rpx] flex items-center justify-center rounded-[8rpx] bg-muted"
-              onClick={handleAddFile}
+              className={`flex-1 flex items-center ${isInputFullscreen ? 'min-h-[400rpx]' : 'min-h-[80rpx]'}`}
             >
-              <LineIcon
-                name="paperclip"
-                size={28}
-                color="var(--color-muted-foreground)"
-              />
-            </View>
-          ) : null}
-          <View
-            className={`flex-1 h-[72rpx] px-[24rpx] text-[28rpx] bg-background rounded-[12rpx] flex items-center ${isInputFullscreen ? 'min-h-[200rpx]' : ''}`}
-          >
-            <View className="flex-1">
               {/* Taro Input 组件:支持 onInput / onFocus / onBlur / onConfirm + i18n placeholder */}
               <Input
-                className="w-full h-[72rpx] text-[28rpx] bg-transparent text-foreground"
+                className="w-full h-[80rpx] text-[36rpx] bg-transparent text-foreground"
                 type="text"
                 value={inputValue}
                 placeholder={tt('aiChatDetail.inputPlaceholder', '输入消息…')}
-                placeholderClass="text-muted-foreground"
+                placeholderClass="text-[var(--color-text-tertiary)]"
                 onInput={handleInputChange}
                 onFocus={handleInputFocus}
                 onBlur={handleInputBlur}
@@ -458,24 +436,47 @@ export default function AiChatDetail() {
                 disabled={sending}
               />
             </View>
-            {inputValue.length > 0 && !sending ? (
+            <View className="flex flex-row items-end gap-[8rpx] shrink-0">
+              {isInputFocused ? (
+                <View
+                  className="w-[48rpx] h-[48rpx] flex items-center justify-center"
+                  onClick={handleFullscreenToggle}
+                >
+                  <LineIcon name="maximize" size={20} color="var(--color-muted-foreground)" />
+                </View>
+              ) : null}
+              {isInputFocused ? (
+                <View
+                  className="w-[48rpx] h-[48rpx] flex items-center justify-center"
+                  onClick={handleAddFile}
+                >
+                  <LineIcon name="paperclip" size={20} color="var(--color-muted-foreground)" />
+                </View>
+              ) : (
+                <View
+                  className="w-[48rpx] h-[48rpx] flex items-center justify-center"
+                  onClick={handleAddImage}
+                >
+                  <Text className="text-[32rpx] text-muted-foreground leading-none">+</Text>
+                </View>
+              )}
+              {inputValue.length > 0 && !sending ? (
+                <View
+                  className="w-[48rpx] h-[48rpx] flex items-center justify-center"
+                  onClick={handleClear}
+                >
+                  <Text className="text-[24rpx] text-muted-foreground leading-none">×</Text>
+                </View>
+              ) : null}
               <View
-                className="w-[40rpx] h-[40rpx] flex items-center justify-center rounded-md bg-muted ml-[8rpx]"
-                onClick={handleClear}
+                className={`px-[28rpx] py-[16rpx] rounded-[30rpx] min-w-[100rpx] flex items-center justify-center ${!inputValue.trim() || sending ? 'bg-[var(--color-text-tertiary)]' : 'bg-primary'}`}
+                onClick={sendMessage}
               >
-                <Text className="text-[24rpx] text-muted-foreground leading-none">×</Text>
+                <Text className="text-[28rpx] font-semibold text-primary-foreground">
+                  {sending ? tt('aiChatDetail.sending', '发送中…') : t('chat.send')}
+                </Text>
               </View>
-            ) : null}
-          </View>
-          <View
-            className={`px-[32rpx] h-[72rpx] rounded-[12rpx] flex-shrink-0 flex items-center justify-center ${!inputValue.trim() || sending ? 'bg-muted' : 'bg-primary'}`}
-            onClick={sendMessage}
-          >
-            <Text
-              className={`text-[28rpx] ${!inputValue.trim() || sending ? 'text-muted-foreground' : 'text-foreground'}`}
-            >
-              {sending ? tt('aiChatDetail.sending', '发送中…') : t('chat.send')}
-            </Text>
+            </View>
           </View>
         </View>
       )}

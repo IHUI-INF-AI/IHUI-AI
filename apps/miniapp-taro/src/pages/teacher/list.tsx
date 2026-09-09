@@ -8,6 +8,7 @@ import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getTeacherList, type Teacher } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 export default function TeacherList() {
   const { t } = useI18n()
@@ -67,62 +68,88 @@ export default function TeacherList() {
 
   return (
     <ThemeRoot>
+      {/* 对齐 RN TeacherListScreen container:bg surface.bg */}
       <View className="min-h-screen bg-background">
-        <View className="p-3">
+        {/* 搜索栏(RN searchWrap:row+center gap16 margin24 h72 胶囊36 px24 bg card) */}
+        <View className="m-3 flex items-center gap-2 h-[72rpx] px-3 rounded-full bg-card">
+          <LineIcon name="search" size={32} color="var(--color-text-tertiary)" />
           <Input
-            className="h-9 px-3 bg-card rounded-lg text-sm"
+            className="flex-1 text-sm text-foreground"
             placeholder={t('teacher.list.searchPlaceholder')}
+            placeholderStyle="color: var(--color-text-tertiary)"
             value={keyword}
             onInput={(e) => setKeyword(e.detail.value)}
             onConfirm={onSearch}
           />
         </View>
         {list.length > 0 && (
-          <View className="px-3">
+          <View className="px-3 pb-[40rpx]">
             {list.map((item) => (
               <View
                 key={item.id}
-                className="flex bg-card rounded-2xl p-3 mb-3"
+                className="flex items-center gap-3 bg-card rounded-lg p-3 mb-3"
+                hoverClass="opacity-[0.85]"
+                hoverStayTime={120}
                 onClick={() => goDetail(item.id)}
               >
-                <Image
-                  className="w-[120rpx] h-[120rpx] rounded-md bg-muted flex-shrink-0"
-                  src={item.avatar || '/static/default-avatar.png'}
-                  mode="aspectFill"
-                />
-                <View className="flex-1 ml-3">
-                  <View className="flex items-center gap-2">
-                    <Text className="text-base text-foreground font-semibold">{item.name}</Text>
+                {item.avatar ? (
+                  <Image
+                    className="w-[120rpx] h-[120rpx] rounded-full bg-muted flex-shrink-0"
+                    src={item.avatar}
+                    mode="aspectFill"
+                  />
+                ) : (
+                  <View className="w-[120rpx] h-[120rpx] rounded-full bg-muted flex-shrink-0 flex items-center justify-center">
+                    <Text className="text-[44rpx] font-semibold text-muted-foreground">
+                      {item.name.slice(0, 1)}
+                    </Text>
+                  </View>
+                )}
+                <View className="flex-1 min-w-0">
+                  <View className="flex items-center gap-1.5">
+                    <Text className="text-base text-foreground font-semibold line-clamp-1 min-w-0 flex-shrink">
+                      {item.name}
+                    </Text>
                     {item.title && (
-                      <Text className="text-xs text-primary bg-[var(--color-muted)] px-1.5 py-0.5 rounded">
-                        {item.title}
-                      </Text>
+                      <View className="flex-shrink min-w-0 bg-[var(--color-muted)] px-1.5 py-0.5 rounded">
+                        <Text className="text-[22rpx] text-muted-foreground line-clamp-1">
+                          {item.title}
+                        </Text>
+                      </View>
                     )}
                   </View>
-                  <Text className="block text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                    {item.intro}
+                  {item.intro ? (
+                    <Text className="block text-[26rpx] leading-[36rpx] text-muted-foreground mt-1 line-clamp-2">
+                      {item.intro}
+                    </Text>
+                  ) : null}
+                  <Text className="block text-xs text-[var(--color-text-tertiary)] mt-1">
+                    {t('teacher.list.courseCount', { n: item.courses || 0 })} ·{' '}
+                    {t('teacher.list.studentCount', { n: item.students || 0 })}
                   </Text>
-                  <View className="flex gap-3 mt-1.5">
-                    <Text className="text-xs text-muted-foreground">
-                      {t('teacher.list.courseCount', { n: item.courses || 0 })}
-                    </Text>
-                    <Text className="text-xs text-muted-foreground">
-                      {t('teacher.list.studentCount', { n: item.students || 0 })}
-                    </Text>
-                  </View>
                 </View>
+                <LineIcon
+                  name="chevron-right"
+                  size={36}
+                  color="var(--color-text-tertiary)"
+                  className="flex-shrink-0"
+                />
               </View>
             ))}
           </View>
         )}
         {!loading && list.length === 0 && (
-          <View className="text-center py-16 text-muted-foreground text-sm">
-            <Text>{t('teacher.list.empty')}</Text>
+          <View className="flex items-center justify-center py-[120rpx]">
+            <Text className="text-sm text-[var(--color-text-tertiary)]">
+              {t('teacher.list.empty')}
+            </Text>
           </View>
         )}
         {loading && (
-          <View className="text-center py-16 text-muted-foreground text-sm">
-            <Text>{t('common.loading')}</Text>
+          <View className="flex items-center justify-center py-[120rpx]">
+            <Text className="text-sm text-[var(--color-text-tertiary)]">
+              {t('common.loading')}
+            </Text>
           </View>
         )}
       </View>

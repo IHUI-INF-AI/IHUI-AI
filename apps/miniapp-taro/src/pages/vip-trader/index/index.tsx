@@ -290,7 +290,7 @@ export default function VipTraderIndexPage() {
                     <LineIcon
                       name={f.icon as IconName}
                       size={36}
-                      color="var(--color-muted-foreground)"
+                      color="var(--color-foreground)"
                     />
                   </View>
                   <View className="feature-content">

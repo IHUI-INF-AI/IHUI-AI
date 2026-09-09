@@ -34,40 +34,44 @@
   color: var(--color-foreground);
 }
 
-/* ===== 分类 Tab ===== */
+/* ===== 分类 Tab(对齐 RN SingleTypeBar:categoryBar py8/px10/gap8 bg surface.card
+   + typeItem py6/px12/radius8/border border.light/bg surface.light
+   + typeItemActive bg brand.DEFAULT + typeText 14/600 text.secondary→primary-foreground)===== */
 .tabs {
   white-space: nowrap;
-  padding: 0 24rpx 20rpx;
+  padding: 16rpx 20rpx;
+  background: var(--color-card);
 }
 .tab {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   height: 64rpx;
-  padding: 0 28rpx;
-  margin-right: 12rpx;
-  background: var(--color-card);
+  padding: 12rpx 24rpx;
+  margin-right: 16rpx;
+  background: var(--color-surface-light);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 16rpx;
   vertical-align: middle;
 }
 .tab-active {
-  background: var(--color-border);
-  border-color: var(--color-primary);
+  background: var(--color-brand);
+  border-color: var(--color-brand);
 }
 .tab-label {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--color-muted-foreground);
+  font-weight: 600;
 }
 .tab-active .tab-label {
-  color: var(--color-primary);
+  color: var(--color-primary-foreground);
   font-weight: 600;
 }
 
 /* ===== 置顶新闻 ===== */
 .pinned {
   position: relative;
-  margin: 0 24rpx 20rpx;
+  margin: 0 20rpx 24rpx;
   padding: 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-ring);
@@ -125,36 +129,26 @@
   color: var(--color-primary);
 }
 
-/* ===== 新闻列表 ===== */
+/* ===== 新闻列表(对齐 RN SquareScreen 卡片:listContent px10/py12 + itemGap 12
+   + card radius12/padding12/bg surface.light/border 1px)===== */
 .list {
-  padding: 0 24rpx;
+  padding: 24rpx 20rpx;
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: 24rpx;
 }
 .item {
   display: flex;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: 24rpx;
   padding: 24rpx;
 }
 .item-read {
   opacity: 0.7;
 }
-.cover {
-  width: 200rpx;
-  height: 140rpx;
-  border-radius: var(--radius-md);
-  flex-shrink: 0;
-  background: var(--color-background);
-}
 .body {
   flex: 1;
-  margin-left: 20rpx;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
   min-width: 0;
 }
 .title-row {
@@ -171,18 +165,20 @@
 }
 .title {
   flex: 1;
-  font-size: 28rpx;
+  font-size: 32rpx;
+  line-height: 44rpx;
   color: var(--color-foreground);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* content gap 6 → 12rpx;metaRow/sourceText 自身 marginTop 4 → +8rpx */
 .summary {
-  font-size: 22rpx;
+  font-size: 28rpx;
   color: var(--color-muted-foreground);
-  margin-top: 8rpx;
-  line-height: 1.4;
+  margin-top: 12rpx;
+  line-height: 40rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -191,29 +187,33 @@
 }
 .meta {
   display: flex;
+  align-items: center;
   gap: 16rpx;
-  margin-top: 8rpx;
+  margin-top: 20rpx;
 }
 .time,
 .views {
-  font-size: 22rpx;
-  color: var(--color-muted-foreground);
+  font-size: 24rpx;
+  line-height: 28rpx;
+  color: var(--color-text-tertiary);
 }
 .source {
-  font-size: 22rpx;
-  color: var(--color-primary);
+  font-size: 24rpx;
+  line-height: 28rpx;
+  color: var(--color-text-tertiary);
+  margin-top: 20rpx;
 }
 
-/* ===== 状态 ===== */
+/* ===== 状态(对齐 RN centerWrap padding 24 + emptyText 16px/text.secondary)===== */
 .empty,
 .loading,
 .no-more {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 80rpx 0;
+  padding: 48rpx 0;
   color: var(--color-muted-foreground);
-  font-size: 26rpx;
+  font-size: 32rpx;
 }
 .empty-icon {
   font-size: 56rpx;

@@ -240,12 +240,11 @@ iframe#webpack-dev-server-client-overlay {
   --color-rank-gold: #ffd700;
   --color-rank-silver: #c0c0c0;
   --color-rank-bronze: #cd7f32;
-  --color-link: #000000;
-  --color-link-bg: #f5f5f5;
+  --color-link: #ff6b35;
+  --color-link-bg: rgba(255, 107, 53, 0.08);
   --color-wechat-green: #4cd964;
   --color-chat-bubble-user: #95ec69;
   --color-brand-orange: #ff6b35;
-  /* 品牌橙渐变(2026-09-07 立,复刻旧App渐变主按钮形态,仅作CTA/头部点缀;命名与 tokens.css 一致以便自动同步) */
   --color-brand-orange-grad-from: #ffb27d;
   --color-brand-orange-grad-to: #ff6b35;
   --color-brand: #000000;
@@ -269,9 +268,33 @@ iframe#webpack-dev-server-client-overlay {
   --color-info-tint-strong: rgba(14, 165, 233, 0.25);
   --color-pink-tint: rgba(236, 72, 153, 0.3);
   --color-gold-tint: rgba(255, 215, 0, 0.3);
+  --color-vip-gold-tint: rgba(255, 215, 0, 0.18);
   --color-brand-orange-tint: rgba(255, 107, 53, 0.12);
   --color-brand-orange-tint-strong: rgba(255, 107, 53, 0.3);
   --color-warm-bg: #fff4e6;
+  --color-text-tertiary: #a3a3a3;
+  --color-text-medium: #404040;
+  --color-border-medium: #d4d4d4;
+  --color-brand-orange-light: #fff7ed;
+  --color-surface-dark: #262626;
+  --color-vip-card: #262626;
+  --color-success-deep-text: #065f46;
+  --color-success-light: #ecfdf5;
+  --color-warning-amber-light: #fef3c7;
+  --color-warning-amber-text: #92400e;
+  --color-warning-light: #fffbeb;
+  --color-danger-light: #fee2e2;
+  --color-danger-bright: #f87171;
+  --color-surface-light: #ffffff;
+  --color-warning-amber: #f59e0b;
+  --color-track-active-bg: rgba(248, 249, 252, 0.65);
+  --color-model-type-text: #1888ee;
+  --color-model-type-text-bg: #e8f4fd;
+  --color-model-type-image: #c41e7a;
+  --color-model-type-image-bg: #fde8f5;
+  --color-model-type-av: #2e7d32;
+  --color-model-type-av-bg: #e8f5e9;
+  --color-agent-name: #517bff;
   --chart-1: #3b82f6;
   --chart-2: #10b981;
   --chart-3: #f59e0b;
@@ -337,6 +360,19 @@ iframe#webpack-dev-server-client-overlay {
   --color-black-90: rgba(0, 0, 0, 0.9);
   --color-black-95: rgba(0, 0, 0, 0.95);
 }
+/* ===== 业务品牌色(自动同步自 tokens.css 独立 :root 块,勿手动编辑)===== */
+:root {
+  --color-miniapp-green: linear-gradient(135deg, #07c160, #06ad56);
+  --color-miniapp-green-dark: #06ad56;
+  --color-miniapp-green-darker: #059a4c;
+  --color-miniapp-green-darkest: #048040;
+  --color-miniapp-green-foreground: #ffffff;
+  --color-rank-avatar-start: #6366f1;
+  --color-rank-avatar-end: #8b5cf6;
+  --color-rank-top1-bg: rgba(245, 158, 11, 0.04);
+  --color-payment-purple-start: #667eea;
+  --color-payment-purple-end: #764ba2;
+}
 .dark {
   --color-background: hsl(0 0% 14%);
   --color-foreground: hsl(0 0% 98%);
@@ -369,15 +405,15 @@ iframe#webpack-dev-server-client-overlay {
   --color-streamed-container-bg-hover: hsl(0 0% 22%);
   --chart-text: #64748b;
   --chart-axis: #1e293b;
-  --color-link: #ffffff;
-  --color-link-bg: #262626;
+  --color-link: #ff8e53;
+  --color-link-bg: rgba(255, 138, 101, 0.14);
   --color-wechat-green: #4cd964;
   --color-chat-bubble-user: #4cd964;
   --color-brand-orange: #ff8e53;
-  /* 品牌橙渐变暗色覆盖(柔和橙) */
+  --color-brand-orange-foreground: #ffffff;
+  --color-brand: #ffffff;
   --color-brand-orange-grad-from: #ff9a5b;
   --color-brand-orange-grad-to: #ff8e53;
-  --color-brand: #ffffff;
   --color-notification-bg: rgba(245, 158, 11, 0.15);
   --color-notification-text: hsl(38 85% 70%);
   --color-gold: #e6c986;
@@ -398,6 +434,29 @@ iframe#webpack-dev-server-client-overlay {
   --color-brand-orange-tint: rgba(255, 138, 101, 0.16);
   --color-brand-orange-tint-strong: rgba(255, 138, 101, 0.32);
   --color-warm-bg: rgba(250, 204, 21, 0.14);
+  --color-text-tertiary: #737373;
+  --color-text-medium: #d4d4d4;
+  --color-border-medium: #525252;
+  --color-surface-dark: #171717;
+  --color-vip-card: #262626;
+  --color-brand-orange-light: #431407;
+  --color-success-deep-text: #86efac;
+  --color-success-light: #052e16;
+  --color-warning-amber-light: #78350f;
+  --color-warning-amber-text: #fbbf24;
+  --color-warning-light: #451a03;
+  --color-danger-light: #7f1d1d;
+  --color-danger-bright: #ef4444;
+  --color-surface-light: #ffffff;
+  --color-warning-amber: #fbbf24;
+  --color-track-active-bg: rgba(248, 249, 252, 0.65);
+  --color-model-type-text: #1888ee;
+  --color-model-type-text-bg: #e8f4fd;
+  --color-model-type-image: #c41e7a;
+  --color-model-type-image-bg: #fde8f5;
+  --color-model-type-av: #2e7d32;
+  --color-model-type-av-bg: #e8f5e9;
+  --color-agent-name: #517bff;
 }
 
 /* ===== 通用工具类 ===== */

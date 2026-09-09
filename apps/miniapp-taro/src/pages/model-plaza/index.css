@@ -4,131 +4,167 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
+/* 样式对齐 RN SharedModelPlazaScreen(packages/app/src/features/model-plaza/ModelPlazaScreen.tsx)。
+ * 尺寸换算:rpx(N) → N rpx;RN raw 数字(dp) → N*2 rpx。颜色全部走语义 token。 */
+
+/* RN container bg surface.muted */
 .model-plaza-page {
   min-height: 100vh;
-  background: var(--color-background);
-  padding-bottom: 40rpx;
+  background: var(--color-muted);
+  padding-bottom: 64rpx;
 }
 
-/* ===== 顶部标题栏 ===== */
+/* ===== 顶部导航(RN header:paddingH 16 paddingT 12 paddingB 8 bg surface.bg)===== */
 .page-header {
-  padding: 24rpx 30rpx;
-  background: var(--color-card);
+  padding: 24rpx 32rpx 16rpx;
+  background: var(--color-background);
 }
 .page-title {
-  font-size: 36rpx;
-  font-weight: 600;
-  color: var(--color-primary);
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
 }
 
-/* ===== 厂商分类横向滚动 ===== */
+/* ===== 厂商分类(RN providerSection:bg surface.muted paddingT 10 paddingB 6)===== */
 .provider-section {
-  background: var(--color-card);
-  padding: 16rpx 0 24rpx;
+  background: var(--color-muted);
+  padding: 20rpx 0 12rpx;
+}
+/* RN sectionLabel:fontSize 14 text.secondary marginBottom 8 marginH 12 */
+.section-label {
+  display: block;
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  margin: 0 24rpx 16rpx;
 }
 .provider-tabs {
   width: 100%;
   white-space: nowrap;
 }
+/* RN providerScrollContent:paddingH 12 gap 8 paddingV 6 */
 .provider-tabs-inner {
   display: inline-flex;
   gap: 16rpx;
-  padding: 4rpx 24rpx;
+  padding: 12rpx 24rpx;
 }
+/* RN providerTab:paddingH 14 height 36 radius 16 bg surface.bg + shadowSoft(0 2rpx 8rpx rgba(0,0,0,0.04));
+ * active bg rgba(0,0,0,0.08) → --color-black-8 */
 .provider-tab {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 12rpx;
-  padding: 16rpx 28rpx;
-  font-size: 26rpx;
-  color: var(--color-muted-foreground);
-  background: var(--color-secondary);
-  border-radius: var(--radius-md);
-  border: 1rpx solid transparent;
+  padding: 0 28rpx;
+  height: 72rpx;
+  border-radius: 32rpx;
+  background: var(--color-background);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
   transition: all 0.2s ease;
 }
 .provider-tab.active {
-  color: var(--color-primary);
-  background: var(--color-border);
-  border: 1rpx solid var(--color-ring);
+  background: var(--color-black-8);
+}
+/* RN providerTabIcon:18x18 radius 9 色块圆;小程序用 LineIcon,圆底取中性 token(厂商品牌色未 token 化) */
+.provider-icon-wrap {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 18rpx;
+  background: var(--color-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 .provider-icon {
-  font-size: 28rpx;
+  font-size: 20rpx;
 }
+/* RN providerText:fontSize 16 text.secondary;active brand + 600 */
 .provider-name {
-  font-size: 26rpx;
+  font-size: 32rpx;
+  color: var(--color-muted-foreground);
   flex-shrink: 0;
 }
+.provider-tab.active .provider-name {
+  color: var(--color-primary);
+  font-weight: 600;
+}
 
-/* ===== 厂商头部 ===== */
+/* ===== 厂商头部(RN providerHeader:marginH 12 paddingH 12 paddingV 14 bg surface.bg radius 10 + shadowCard)===== */
 .provider-header {
-  padding: 28rpx 24rpx 20rpx;
-  background: var(--color-card);
-  margin: 16rpx 20rpx 0;
-  border-radius: var(--radius-md);
-  border: 1rpx solid var(--color-border);
+  padding: 28rpx 24rpx;
+  background: var(--color-background);
+  margin: 0 24rpx 24rpx;
+  border-radius: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 .provider-header .provider-name {
   display: block;
-  font-size: 32rpx;
+  font-size: 40rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 8rpx;
+  margin-bottom: 0;
 }
+/* RN providerMeta:marginTop 4 fontSize 14 text.tertiary */
 .provider-meta {
   display: block;
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
+  margin-top: 8rpx;
+  font-size: 28rpx;
+  color: var(--color-text-tertiary);
 }
 
-/* ===== type tab ===== */
+/* ===== 类型 tab(RN typeTabs:gap 8 paddingH 12 paddingV 10 bg surface.muted;
+ * typeTab:paddingH 14 height 34 radius 16 bg surface.bg + shadowSoft;active rgba(0,0,0,0.08))===== */
 .type-tabs {
   display: flex;
   gap: 16rpx;
-  padding: 20rpx 24rpx 8rpx;
-  flex-wrap: wrap;
+  padding: 20rpx 24rpx;
+  background: var(--color-muted);
 }
 .type-tab {
-  padding: 12rpx 28rpx;
-  font-size: 26rpx;
+  padding: 0 28rpx;
+  height: 68rpx;
+  line-height: 68rpx;
+  font-size: 32rpx;
   color: var(--color-muted-foreground);
-  background: var(--color-card);
-  border-radius: var(--radius-sm);
-  border: 1rpx solid var(--color-border);
+  background: var(--color-background);
+  border-radius: 32rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
   transition: all 0.2s ease;
 }
 .type-tab.active {
+  background: var(--color-black-8);
   color: var(--color-primary);
-  background: var(--color-border);
-  border: 1rpx solid var(--color-ring);
+  font-weight: 600;
 }
 
-/* ===== 模型卡片列表 ===== */
+/* ===== 模型卡片列表(RN listBody:paddingH 10 paddingT 12 paddingB 32;separator 12)===== */
 .model-list {
-  padding: 16rpx 20rpx 0;
+  padding: 24rpx 20rpx 0;
 }
+/* RN modelCard:padding 12 radius 10 bg surface.bg + shadowCard */
 .model-card {
-  background: var(--color-card);
-  border-radius: var(--radius-md);
+  background: var(--color-background);
+  border-radius: 20rpx;
   padding: 24rpx;
   margin-bottom: 24rpx;
   display: flex;
   flex-direction: column;
-  border: 1rpx solid var(--color-border);
-  transition: transform 0.2s ease;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 .model-card:active {
   transform: scale(0.98);
 }
+/* RN cardTop:row space-between marginBottom 8 */
 .card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16rpx;
 }
+/* RN modelName:flex1 fontSize 16 600 text.primary */
 .model-name {
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 600;
   color: var(--color-foreground);
   flex: 1;
@@ -136,61 +172,64 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* RN typeBadge:paddingH 7 paddingV 3 radius 4 marginL 8;文字 12 600,配色走模型类型 token(明暗同值) */
 .model-type-tag {
-  font-size: 22rpx;
-  padding: 4rpx 14rpx;
-  border-radius: var(--radius-sm);
+  font-size: 24rpx;
+  font-weight: 600;
+  padding: 6rpx 14rpx;
+  border-radius: 8rpx;
   flex-shrink: 0;
-  margin-left: 12rpx;
+  margin-left: 16rpx;
 }
 .model-type-tag.type-text {
-  background: var(--color-border);
-  color: var(--color-primary);
+  background: var(--color-model-type-text-bg);
+  color: var(--color-model-type-text);
 }
 .model-type-tag.type-image {
-  background: var(--color-muted);
-  color: var(--chart-6);
+  background: var(--color-model-type-image-bg);
+  color: var(--color-model-type-image);
 }
 .model-type-tag.type-av {
-  background: var(--color-accent);
-  /* custom color: 原 #b89dff 紫色品牌色已收敛为品牌黑 (--color-primary) */
-  color: var(--color-primary);
+  background: var(--color-model-type-av-bg);
+  color: var(--color-model-type-av);
 }
 
-/* 价格行 */
+/* 价格行(RN priceRow:gap 6 marginBottom 6 wrap) */
 .card-price {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
-  margin-bottom: 12rpx;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4rpx;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
 }
+/* RN priceLabel:fontSize 14 text.tertiary */
 .price-label {
-  color: var(--color-muted-foreground);
-  margin-right: 4rpx;
+  font-size: 28rpx;
+  color: var(--color-text-tertiary);
 }
+/* RN priceValue:fontSize 14 600 brand */
 .price-value {
+  font-size: 28rpx;
   color: var(--color-primary);
-  font-weight: 500;
-  margin-right: 8rpx;
+  font-weight: 600;
 }
+/* RN priceDivider:fontSize 14 border.medium marginH 6 */
 .price-divider {
-  margin: 0 8rpx;
-  color: var(--color-muted-foreground);
-  opacity: 0.5;
+  font-size: 28rpx;
+  color: var(--color-border-medium);
+  margin: 0 12rpx;
 }
+/* RN priceExtra:fontSize 12 text.tertiary */
 .price-extra {
-  font-size: 22rpx;
-  color: var(--color-muted-foreground);
-  margin-left: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-text-tertiary);
 }
 
+/* 描述(RN cardDesc:fontSize 14 text.secondary lineHeight 18 marginBottom 6,2 行截断) */
 .card-desc {
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--color-muted-foreground);
-  line-height: 1.5;
+  line-height: 36rpx;
   margin-bottom: 12rpx;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -199,39 +238,38 @@
   -webkit-box-orient: vertical;
 }
 
-.card-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10rpx;
-  margin-bottom: 12rpx;
-}
-.tag-item {
-  font-size: 22rpx;
-  color: var(--color-muted-foreground);
-  background: var(--color-secondary);
-  padding: 4rpx 12rpx;
-  border-radius: var(--radius-sm);
-}
-
-.card-footer {
+/* 标签行(RN cardTagRow:row wrap gap 6;payMode marginLeft auto 右对齐) */
+.card-tag-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
 }
-.pay-mode {
-  font-size: 22rpx;
+/* RN cardTag:paddingH 6 paddingV 3 radius 3 bg surface.muted */
+.tag-item {
+  font-size: 24rpx;
   color: var(--color-muted-foreground);
+  background: var(--color-muted);
+  padding: 6rpx 12rpx;
+  border-radius: 6rpx;
+}
+/* RN payMode:marginLeft auto fontSize 12 text.tertiary */
+.pay-mode {
+  margin-left: auto;
+  font-size: 24rpx;
+  color: var(--color-text-tertiary);
 }
 
-/* 状态文案 */
+/* 状态文案(RN empty:center paddingVertical 48;emptyText fontSize 14 text.tertiary) */
 .state-wrap {
-  padding: 80rpx 24rpx;
+  padding: 96rpx 24rpx;
   text-align: center;
 }
 .state-wrap.small {
   padding: 32rpx 24rpx;
 }
 .state-text {
-  color: var(--color-muted-foreground);
-  font-size: 26rpx;
+  color: var(--color-text-tertiary);
+  font-size: 28rpx;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

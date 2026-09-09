@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getAbout } from '@/api'
+import LineIcon from '@/components/LineIcon'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface AboutInfo {
@@ -45,6 +46,13 @@ export default function AboutIndexPage() {
 
   const navigate = useCallback((url: string) => {
     Taro.navigateTo({ url })
+  }, [])
+
+  // 返回(对齐 RN AboutScreen header ChevronLeft onPress goBack;页面栈为空时回退到「我的」)
+  const goBack = useCallback(() => {
+    Taro.navigateBack({
+      fail: () => Taro.switchTab({ url: '/pages/user/index' }),
+    })
   }, [])
 
   const menus = useMemo<MenuItem[]>(
@@ -99,7 +107,17 @@ export default function AboutIndexPage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background pb-[60rpx]">
+      {/* 对齐 RN AboutScreen container:bg surface.bg;custom 导航补状态栏 safe-area */}
+      <View className="min-h-screen bg-background pt-[calc(env(safe-area-inset-top)+8rpx)]">
+        {/* 顶部导航(对齐 RN AboutScreen header:ChevronLeft 40rpx/foreground + 标题 40rpx/700,gap 8 padding 20/24) */}
+        <View className="flex items-center gap-[8rpx] px-[20rpx] py-[24rpx]">
+          {/* hitSlop 8dp → p 16rpx + 负 margin 抵消,扩大点击区不改视觉间距 */}
+          <View className="p-[16rpx] -m-[16rpx]" onClick={goBack}>
+            <LineIcon name="chevron-left" size={40} color="var(--color-foreground)" />
+          </View>
+          <Text className="text-[40rpx] font-bold text-foreground">关于我们</Text>
+        </View>
+
         {info.name ? (
           <View className="pt-[80rpx] pb-[60rpx] text-center bg-card">
             <Image
@@ -122,15 +140,17 @@ export default function AboutIndexPage() {
           </Text>
         </View>
 
+        {/* 合规条目卡(对齐 RN sectionCard:白卡圆角 16rpx,条目分隔线 1rpx border.light) */}
         <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
           {menus.map((m, idx) => (
             <View
               key={m.key}
-              className={`flex items-center justify-between py-[28rpx] px-[24rpx] active:bg-muted${idx < menus.length - 1 ? ' mb-[12rpx]' : ''}`}
+              className={`flex items-center justify-between py-[28rpx] px-[24rpx] active:bg-muted${idx > 0 ? ' border-t border-border' : ''}`}
               onClick={() => navigate(m.url)}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">{m.label}</Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[30rpx] text-foreground flex-1">{m.label}</Text>
+              {/* 对齐 RN ChevronRight:rpx(24)/text.tertiary/strokeWidth 2 */}
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
           ))}
         </View>

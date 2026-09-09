@@ -846,7 +846,7 @@ export default function Community() {
                 <LineIcon
                   name="chevron-up"
                   size={32}
-                  color="var(--color-primary)"
+                  color="var(--color-muted-foreground)"
                 />
               </View>
             </View>

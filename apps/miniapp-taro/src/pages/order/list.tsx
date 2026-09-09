@@ -19,58 +19,71 @@ type OrderItem = Order & {
   description?: string
 }
 
+// 状态徽章色(对齐 RN SharedOrderScreen statusColors:浅底深字 token)
+// - pending/refunding: warning.amberLight/amberText
+// - paid/completed: success.light/deepText
+// - cancelled/failed: danger.light/danger.DEFAULT
+// - refunded/未知: surface.muted/text.tertiary
 const STATUS_MAP: Record<string, { type: string; textKey: string; badge: string }> = {
   pending: {
     type: 'pending',
     textKey: 'order.status.pending',
-    badge: 'bg-warning text-warning-foreground',
+    badge: 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]',
   },
-  paid: { type: 'paid', textKey: 'order.status.paid', badge: 'bg-info text-info-foreground' },
+  paid: {
+    type: 'paid',
+    textKey: 'order.status.paid',
+    badge: 'bg-[var(--color-success-light)] text-[var(--color-success-deep-text)]',
+  },
   cancelled: {
     type: 'cancelled',
     textKey: 'order.status.cancelled',
-    badge: 'bg-muted text-muted-foreground',
+    badge: 'bg-[var(--color-danger-light)] text-[var(--color-danger)]',
   },
   refunding: {
     type: 'refunding',
     textKey: 'order.status.refunding',
-    badge: 'bg-warning text-warning-foreground',
+    badge: 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]',
   },
   refunded: {
     type: 'refunded',
     textKey: 'order.status.refunded',
-    badge: 'bg-destructive text-destructive-foreground',
+    badge: 'bg-muted text-[var(--color-text-tertiary)]',
   },
   completed: {
     type: 'completed',
     textKey: 'order.status.completed',
-    badge: 'bg-success text-success-foreground',
+    badge: 'bg-[var(--color-success-light)] text-[var(--color-success-deep-text)]',
   },
   failed: {
     type: 'failed',
     textKey: 'order.status.failed',
-    badge: 'bg-destructive text-destructive-foreground',
+    badge: 'bg-[var(--color-danger-light)] text-[var(--color-danger)]',
   },
   '0': {
     type: 'pending',
     textKey: 'order.status.pending',
-    badge: 'bg-warning text-warning-foreground',
+    badge: 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]',
   },
-  '1': { type: 'paid', textKey: 'order.status.paid', badge: 'bg-info text-info-foreground' },
+  '1': {
+    type: 'paid',
+    textKey: 'order.status.paid',
+    badge: 'bg-[var(--color-success-light)] text-[var(--color-success-deep-text)]',
+  },
   '2': {
     type: 'completed',
     textKey: 'order.status.completed',
-    badge: 'bg-success text-success-foreground',
+    badge: 'bg-[var(--color-success-light)] text-[var(--color-success-deep-text)]',
   },
   '3': {
     type: 'cancelled',
     textKey: 'order.status.cancelled',
-    badge: 'bg-muted text-muted-foreground',
+    badge: 'bg-[var(--color-danger-light)] text-[var(--color-danger)]',
   },
   '4': {
     type: 'refunded',
     textKey: 'order.status.refunded',
-    badge: 'bg-destructive text-destructive-foreground',
+    badge: 'bg-muted text-[var(--color-text-tertiary)]',
   },
 }
 
@@ -114,7 +127,11 @@ export default function OrderList() {
   const loadingRef = useRef(false)
 
   const statusInfo = (s: string) =>
-    STATUS_MAP[s] || { type: s, textKey: '', badge: 'bg-muted text-muted-foreground' }
+    STATUS_MAP[s] || {
+      type: s,
+      textKey: '',
+      badge: 'bg-muted text-[var(--color-text-tertiary)]',
+    }
 
   const load = async (reset = false) => {
     if (loadingRef.current) return
@@ -199,11 +216,15 @@ export default function OrderList() {
 
   return (
     <View className="min-h-screen bg-background">
-      <View className="flex items-center bg-card px-[24rpx] py-[20rpx]">
-        <View className="w-[80rpx] text-[40rpx] text-foreground" onClick={goBack}>
+      {/* 头部(对齐 RN header:paddingH 20rpx / paddingV 24rpx / gap 24rpx / 返回 32rpx text.medium / 标题 40rpx 600) */}
+      <View className="flex items-center gap-[24rpx] bg-card px-[20rpx] py-[24rpx]">
+        <View
+          className="w-[80rpx] text-[32rpx] text-[var(--color-text-medium)]"
+          onClick={goBack}
+        >
           <Text>‹</Text>
         </View>
-        <Text className="flex-1 text-center text-[32rpx] text-foreground font-semibold">
+        <Text className="flex-1 text-center text-[40rpx] text-foreground font-semibold">
           {tt('order.list.title', '我的订单')}
         </Text>
         <View className="w-[80rpx] text-right text-[26rpx] text-primary" onClick={toggleSearch}>
@@ -213,11 +234,17 @@ export default function OrderList() {
         </View>
       </View>
 
-      <View className="flex mx-[24rpx] mt-[16rpx] bg-muted rounded-lg overflow-hidden">
+      {/* Tab 胶囊(对齐 RN tabs:白底胶囊 paddingH 28rpx / paddingV 12rpx / 圆角 24rpx / 28rpx,
+          选中黑底白字) */}
+      <View className="flex flex-row gap-[16rpx] px-[20rpx] py-[16rpx]">
         {TABS.map((tab) => (
           <Text
             key={tab.value}
-            className={`flex-1 text-center text-[36rpx] py-[20rpx] ${status === tab.value ? 'bg-card text-primary font-semibold' : 'text-muted-foreground'}`}
+            className={`px-[28rpx] py-[12rpx] rounded-[24rpx] text-[28rpx] ${
+              status === tab.value
+                ? 'bg-primary text-primary-foreground font-semibold'
+                : 'bg-card text-muted-foreground'
+            }`}
             onClick={() => switchTab(tab.value)}
           >
             {tt(tab.labelKey, tab.fallback)}
@@ -226,9 +253,9 @@ export default function OrderList() {
       </View>
 
       {showSearch && (
-        <View className="px-[24rpx] py-[16rpx] bg-background">
+        <View className="px-[20rpx] py-[8rpx] bg-background">
           <Input
-            className="h-[64rpx] px-[24rpx] bg-card rounded-lg text-[26rpx]"
+            className="h-[80rpx] px-[24rpx] bg-card rounded-[20rpx] text-[28rpx] border-[2rpx] border-border"
             placeholder={tt('order.list.searchPlaceholder', '搜索我的订单')}
             value={keyword}
             onInput={(e) => onSearchInput(e.detail.value)}
@@ -238,7 +265,7 @@ export default function OrderList() {
       )}
 
       {filtered.length > 0 && (
-        <View className="p-[24rpx]">
+        <View className="p-[20rpx]">
           {filtered.map((o) => {
             const info = statusInfo(o.status as string)
             const img = o.images && o.images.length > 0 ? o.images[0] : ''
@@ -248,33 +275,51 @@ export default function OrderList() {
             const refundTimeText = o.refundTime ? formatTimestamp(o.refundTime) : ''
             return (
               <ThemeRoot key={o.id}>
+                {/* 订单卡(对齐 RN card:padding 24rpx / 圆角 24rpx / 2rpx 描边 / 白底 / mb 24rpx;
+                    内部对齐 cardBodyRow:商品图 260rpx + 右侧 info[cardHead → metaRow → amountRow]) */}
                 <View
-                  className="bg-card rounded-2xl border border-border p-[24rpx] mb-[24rpx]"
+                  className="bg-card rounded-[24rpx] border-[2rpx] border-border p-[24rpx] mb-[24rpx]"
                   onClick={() => goDetail(o.id)}
                 >
-                  <View className="flex justify-between items-center">
-                    <Text className="text-[24rpx] text-muted-foreground">
-                      {tt('order.list.orderNo', '订单号')}：{orderNoText}
-                    </Text>
-                    <Text
-                      className={`inline-flex items-center h-[48rpx] px-[24rpx] rounded-md text-[24rpx] font-medium ${info.badge}`}
-                    >
-                      {info.textKey ? t(info.textKey) : o.status}
-                    </Text>
-                  </View>
-                  <View className="flex mt-[8rpx]">
+                  <View className="flex gap-[24rpx]">
                     {img ? (
                       <Image
-                        className="w-[130rpx] h-[130rpx] rounded-md bg-background"
+                        className="w-[260rpx] h-[260rpx] rounded-[20rpx] bg-card"
                         src={img}
                         mode="aspectFill"
                         lazyLoad
                       />
                     ) : null}
-                    <View className={`flex-1 ${img ? 'ml-[20rpx]' : ''}`}>
-                      <Text className="block text-[32rpx] text-foreground font-bold">
-                        {productName}
-                      </Text>
+                    <View className="flex-1 min-w-0">
+                      <View className="flex justify-between items-center gap-[16rpx]">
+                        <Text
+                          className="flex-1 text-[32rpx] text-foreground font-semibold"
+                          numberOfLines={1}
+                        >
+                          {productName}
+                        </Text>
+                        <Text
+                          className={`px-[12rpx] py-[4rpx] rounded-[8rpx] text-[22rpx] font-medium ${info.badge}`}
+                        >
+                          {info.textKey ? t(info.textKey) : o.status}
+                        </Text>
+                      </View>
+                      <View className="flex justify-between mt-[16rpx]">
+                        <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                          {tt('order.list.orderNo', '订单号')}：{orderNoText}
+                        </Text>
+                        <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                          {createTimeText}
+                        </Text>
+                      </View>
+                      <View className="flex justify-between items-end mt-[16rpx]">
+                        <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                          {refundTimeText
+                            ? `${tt('order.list.refundTime', '退款时间')}：${refundTimeText}`
+                            : ''}
+                        </Text>
+                        <Text className="text-[36rpx] text-foreground font-bold">¥{o.amount}</Text>
+                      </View>
                       {o.description ? (
                         <Text className="block text-[24rpx] text-muted-foreground mt-[12rpx] line-clamp-2">
                           {o.description}
@@ -282,24 +327,11 @@ export default function OrderList() {
                       ) : null}
                     </View>
                   </View>
-                  <View className="flex justify-between items-end mt-[20rpx]">
-                    <View className="flex flex-col">
-                      <Text className="text-[22rpx] text-muted-foreground">
-                        {tt('order.list.orderTime', '下单时间')}：{createTimeText}
-                      </Text>
-                      {refundTimeText ? (
-                        <Text className="text-[22rpx] text-muted-foreground mt-[8rpx]">
-                          {tt('order.list.refundTime', '退款时间')}：{refundTimeText}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Text className="text-[36rpx] text-destructive font-bold">¥{o.amount}</Text>
-                  </View>
                   {(o.status === 'pending' || o.status === 'paid') && (
                     <View className="flex justify-end mt-[20rpx]">
                       {o.status === 'pending' && (
                         <Text
-                          className="inline-block text-[24rpx] text-white bg-primary px-[32rpx] py-[10rpx] rounded-md"
+                          className="inline-block text-[24rpx] text-primary-foreground bg-primary px-[32rpx] py-[10rpx] rounded-md"
                           onClick={(e) => {
                             e.stopPropagation()
                             goPay(o)
@@ -328,8 +360,8 @@ export default function OrderList() {
         </View>
       )}
       {filtered.length === 0 && !loading && (
-        <View className="text-center py-[120rpx] text-muted-foreground">
-          <Text>
+        <View className="flex flex-col items-center py-[96rpx] text-muted-foreground">
+          <Text className="text-[28rpx]">
             {keyword
               ? tt('order.list.notFound', '未找到相关订单')
               : tt('order.list.empty', '暂无订单')}
@@ -337,8 +369,8 @@ export default function OrderList() {
         </View>
       )}
       {loading && (
-        <View className="text-center py-[120rpx] text-muted-foreground">
-          <Text>{tt('common.loading', '加载中...')}</Text>
+        <View className="flex flex-col items-center py-[96rpx] text-muted-foreground">
+          <Text className="text-[28rpx]">{tt('common.loading', '加载中...')}</Text>
         </View>
       )}
     </View>

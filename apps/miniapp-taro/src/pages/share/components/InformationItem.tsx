@@ -97,12 +97,15 @@ export default function InformationItem({
           />
         </View>
       ) : null}
+      {/* 卡片(对齐 RN SquareScreen card:圆角 12 → 24rpx / padding 12 → 24rpx / 描边 border-light 1 → 2rpx;
+          RN 卡底 surface.light 在暗色下白底不可读,按语义修正为 --color-card) */}
       <View
         style={{
           flex: 1,
-          padding: rpx(10),
-          marginBottom: rpx(25),
-          borderRadius: rpx(20),
+          padding: rpx(24),
+          marginBottom: rpx(24),
+          borderRadius: rpx(24),
+          border: '2rpx solid var(--color-border)',
           background: 'var(--color-card)',
         }}
         onClick={() => onClick?.(item)}
@@ -113,60 +116,84 @@ export default function InformationItem({
               fontSize: rpx(26),
               color: TIMELINE_COLOR,
               display: 'block',
-              marginBottom: rpx(8),
+              marginBottom: rpx(12),
             }}
           >
             {item.date}
           </Text>
         ) : null}
+        {/* 标题(对齐 RN title:fontSize 16 → 32rpx / lineHeight 22 → 44rpx / 字重 600) */}
         <Text
           style={{
-            fontSize: rpx(28),
-            fontWeight: 'bold',
+            fontSize: rpx(32),
+            lineHeight: '44rpx',
+            fontWeight: '600',
             color: 'var(--color-foreground)',
             display: 'block',
-            marginBottom: rpx(6),
+            marginBottom: rpx(12),
           }}
         >
           {item.title}
         </Text>
+        {/* 摘要(对齐 RN summary:fontSize 14 → 28rpx / lineHeight 20 → 40rpx / text.secondary) */}
         {item.content ? (
           <Text
             style={{
-              fontSize: rpx(26),
+              fontSize: rpx(28),
               color: 'var(--color-muted-foreground)',
-              lineHeight: 1.6,
+              lineHeight: '40rpx',
               display: 'block',
             }}
           >
             {item.content}
           </Text>
         ) : null}
+        {/* meta 行(对齐 RN metaRow:marginTop 4 → 8rpx / gap 8 → 16rpx;
+            来源对齐 RN categoryBadge/authorBadge 描边徽章(24rpx/600/foreground);
+            浏览数对齐 RN metaText(text.tertiary → --color-text-tertiary,24rpx)) */}
         <View
           style={{
             display: 'flex',
             flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginTop: rpx(10),
+            marginTop: rpx(8),
           }}
         >
-          <View style={{ display: 'flex', flexDirection: 'row', gap: rpx(8) }}>
+          <View
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: rpx(16),
+            }}
+          >
             {item.source ? (
-              <Text
+              <View
                 style={{
-                  fontSize: rpx(22),
-                  color: 'var(--color-muted-foreground)',
+                  padding: `${rpx(8)} ${rpx(16)}`,
+                  borderRadius: rpx(16),
+                  border: '2rpx solid var(--color-border-medium)',
                 }}
               >
-                {item.source}
-              </Text>
+                <Text
+                  style={{
+                    fontSize: rpx(24),
+                    lineHeight: '28rpx',
+                    fontWeight: '600',
+                    color: 'var(--color-foreground)',
+                  }}
+                >
+                  {item.source}
+                </Text>
+              </View>
             ) : null}
             {typeof item.views === 'number' ? (
               <Text
                 style={{
-                  fontSize: rpx(22),
-                  color: 'var(--color-muted-foreground)',
+                  fontSize: rpx(24),
+                  lineHeight: '28rpx',
+                  color: 'var(--color-text-tertiary)',
                 }}
               >
                 {item.views} {tt('shareInformationItem.z1', '浏览')}

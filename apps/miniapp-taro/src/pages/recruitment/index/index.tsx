@@ -105,7 +105,9 @@ export default function RecruitmentIndexPage() {
   return (
     <ThemeRoot>
       <View className="min-h-[100vh] bg-background pb-[140rpx]">
-        <View className="relative w-full h-[320rpx] bg-primary overflow-hidden">
+        {/* RN: 全屏背景图 + 白色居中标题(fontSize 16dp=32rpx, bold, color surface.light)。
+            无 banner 时的兜底底色用 surface-dark(明暗恒深色),保证白字在暗色下仍可读 */}
+        <View className="relative w-full h-[320rpx] bg-[var(--color-surface-dark)] overflow-hidden">
           {info.banner ? (
             <Image
               className="absolute top-0 left-0 w-full h-full"
@@ -113,11 +115,11 @@ export default function RecruitmentIndexPage() {
               mode="aspectFill"
             />
           ) : null}
-          <View className="relative z-[1] px-[30rpx] py-[80rpx] flex flex-col">
-            <Text className="text-[44rpx] font-bold text-foreground">
+          <View className="relative z-[1] px-[30rpx] py-[80rpx] flex flex-col items-center">
+            <Text className="text-[32rpx] font-bold text-[var(--color-surface-light)] text-center">
               {info.title || t('recruitment.defaultTitle')}
             </Text>
-            <Text className="mt-[16rpx] text-[26rpx] text-[var(--color-scrim-foreground)]">
+            <Text className="mt-[16rpx] text-[26rpx] text-[var(--color-scrim-foreground)] text-center">
               {t('recruitment.subtitle')}
             </Text>
           </View>
@@ -194,9 +196,11 @@ export default function RecruitmentIndexPage() {
           </View>
         </View>
 
-        <View className="fixed bottom-0 left-0 w-full px-[30rpx] py-[20rpx] box-border bg-card [box-shadow:0_-2rpx_12rpx_var(--color-black-6)]">
+        {/* RN buyWrap/buyBtn: width 125dp=250rpx, height 42dp=84rpx, radius 8dp=16rpx,
+            bg danger.bright, 文字 17dp=34rpx bold color surface.light */}
+        <View className="fixed bottom-0 left-0 w-full px-[30rpx] py-[20rpx] box-border bg-card [box-shadow:0_-2rpx_12rpx_var(--color-black-6)] flex justify-center">
           <View
-            className={`h-[88rpx] bg-primary text-foreground text-[32rpx] [border-radius:44rpx] flex items-center justify-center${submitting ? ' opacity-60' : ''}`}
+            className={`w-[250rpx] h-[84rpx] bg-[var(--color-danger-bright)] text-[var(--color-surface-light)] text-[34rpx] font-bold rounded-[16rpx] flex items-center justify-center${submitting ? ' opacity-60' : ''}`}
             onClick={onApply}
           >
             <Text>{submitting ? t('recruitment.submitting') : t('recruitment.apply')}</Text>

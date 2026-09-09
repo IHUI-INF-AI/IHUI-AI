@@ -4,12 +4,15 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
-/* VIP 页 — 浅色 amber 语言(对齐 web 端 vip 主页,2026-09-03 亮色化)
-   表面一律用 token(亮/暗自动跟随);amber 仅作点缀(边框/淡底/图标/徽章),
-   主 CTA 黑底白字。头部 vip_back.png 为深色背景素材,图上方保留白字保证可读。 */
+/* VIP 页 — 视觉对齐 RN 端 VipScreen(mobile-rn + @ihui/rn-app 共享屏,2026-09-08)
+   金色 = RN vip token(--color-vip-gold-start #FFD700,明暗同值)仅作 VIP 身份标识
+   (价格徽章/头部价格);主 CTA/底部价格对齐 RN planAmount/subscribeButton 品牌橙;
+   会员状态卡对齐 SharedVipScreen membershipCard(深灰 var(--color-vip-card) + 白字)。
+   表面/文字全 token 化,暗色经语义 token 自动适配。头部 vip_back.png 为深色背景素材,
+   图上方保留白字。 */
 
 .vip-page {
-  --vip-gold: var(--color-warning);
+  --vip-gold: var(--color-vip-gold-start);
   --vip-text: var(--color-foreground);
   --vip-text-muted: var(--color-muted-foreground);
   --vip-border: var(--color-border);
@@ -43,7 +46,7 @@
 }
 .title {
   font-size: 48rpx;
-  font-weight: bold;
+  font-weight: 600;
   margin-bottom: 16rpx;
   color: var(--color-white-98);
   text-shadow: 0 2rpx 10rpx var(--color-black-30);
@@ -59,35 +62,45 @@
   gap: 20rpx;
 }
 .current-price {
-  font-size: 64rpx;
-  font-weight: bold;
+  /* 对齐 RN SharedVipScreen priceText:24dp→48rpx / 700 / VIP 金 */
+  font-size: 48rpx;
+  font-weight: 700;
   color: var(--vip-gold);
 }
 
-/* ===== 状态行(等级 + 介绍入口 + 到期) ===== */
+/* ===== 会员状态卡(对齐 RN SharedVipScreen membershipCard:
+   深灰 var(--color-vip-card) / marginH 16dp→32rpx / mt 16dp→32rpx /
+   padding 14dp→28rpx / 圆角 12dp→24rpx,白字层级) ===== */
 .status-bar {
+  margin: 32rpx 32rpx 0;
+  padding: 28rpx;
+  background: var(--color-vip-card);
+  border-radius: 24rpx;
+}
+.status-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24rpx 40rpx 0;
 }
 .status-level {
-  font-size: 28rpx;
-  color: var(--vip-gold);
+  /* 对齐 RN membershipLevel:20dp→40rpx / 600 / 恒白 */
+  font-size: 40rpx;
   font-weight: 600;
+  color: var(--color-white-98);
 }
 .intro-link {
-  font-size: 24rpx;
-  color: var(--vip-text);
+  /* 对齐 RN membershipLabel:14dp→28rpx / white 80% */
+  font-size: 28rpx;
+  color: var(--color-white-80);
   padding: 8rpx 20rpx;
-  background: var(--vip-card-bg);
-  border: 1px solid var(--vip-border);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--color-white-30);
+  border-radius: 16rpx;
 }
 .expire-row {
-  padding: 8rpx 40rpx 0;
+  /* 对齐 RN membershipMeta:mt 8dp→16rpx / 12dp→24rpx / white 70% */
+  margin-top: 16rpx;
   font-size: 24rpx;
-  color: var(--vip-text-muted);
+  color: var(--color-white-70);
 }
 
 /* ===== 特权列表(垂直 6 项) ===== */
@@ -134,9 +147,11 @@
   min-width: 0;
 }
 .feature-title {
-  font-size: 28rpx;
+  /* 对齐 RN cardLevelName:16dp→32rpx / 600 */
+  font-size: 32rpx;
   color: var(--vip-text);
   margin-bottom: 8rpx;
+  font-weight: 600;
   display: block;
 }
 .feature-desc {
@@ -145,12 +160,13 @@
   display: block;
 }
 .feature-tag {
+  /* 对齐 RN SharedVipScreen currentBadge:金底 + gray.800 深字(var(--color-vip-card)) */
   padding: 4rpx 16rpx;
   background: var(--vip-gold);
   border-radius: var(--radius-md);
   font-size: 20rpx;
-  color: var(--color-primary-foreground);
-  font-weight: bold;
+  color: var(--color-vip-card);
+  font-weight: 600;
   flex-shrink: 0;
 }
 .more-btn {
@@ -164,24 +180,25 @@
   border-radius: var(--radius-md);
 }
 
-/* ===== 套餐卡 + 自动续费 + 会员说明 ===== */
+/* ===== 套餐卡 + 自动续费 + 会员说明(对齐 RN planCard:mt 20rpx / marginH 32rpx / padding 28rpx) ===== */
 .plans-card {
-  margin: 0 24rpx 24rpx;
-  padding: 32rpx;
+  margin: 20rpx 32rpx 24rpx;
+  padding: 28rpx;
   background: var(--vip-card-bg);
   border: 1px solid var(--vip-border);
   border-radius: var(--radius-lg);
 }
 
-/* VipPriceSelector 浅色覆盖(组件用 Tailwind 类 + CSS 变量,不可改组件,父级覆盖) */
+/* VipPriceSelector 浅色覆盖(组件用 Tailwind 类 + CSS 变量,不可改组件,父级覆盖)
+   选中态对齐 RN 品牌橙强调:brand-orange 边框 + brand-orange-light 浅底 */
 .vip-page .border-yellow-400 {
-  border-color: var(--color-warning);
+  border-color: var(--color-brand-orange);
 }
 .vip-page .bg-yellow-50 {
-  background: var(--color-gold-muted);
+  background: var(--color-brand-orange-light);
 }
 .vip-page .text-yellow-700 {
-  color: var(--color-warning);
+  color: var(--color-brand-orange);
 }
 .vip-page .border-border {
   border-color: var(--vip-border);
@@ -215,11 +232,11 @@
   flex-shrink: 0;
 }
 .auto-check.checked {
-  background: var(--color-warning);
-  border-color: var(--color-warning);
+  background: var(--color-brand-orange);
+  border-color: var(--color-brand-orange);
 }
 .auto-mark {
-  color: var(--color-primary-foreground);
+  color: var(--color-white-98);
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1;
@@ -232,7 +249,7 @@
 .manage-link {
   margin-top: 12rpx;
   font-size: 22rpx;
-  color: var(--vip-gold);
+  color: var(--color-link);
 }
 .member-desc {
   margin-top: 24rpx;
@@ -273,27 +290,31 @@
   align-items: baseline;
 }
 .symbol {
+  /* 对齐 RN planAmount 颜色:brandAccent.DEFAULT → var(--color-brand-orange) */
   font-size: 32rpx;
-  color: var(--vip-gold);
+  color: var(--color-brand-orange);
   margin-right: 4rpx;
-  font-weight: bold;
+  font-weight: 600;
 }
 .number {
-  font-size: 56rpx;
-  font-weight: bold;
-  color: var(--vip-gold);
+  /* 对齐 RN planAmount:22dp→44rpx / 700 / 品牌橙 */
+  font-size: 44rpx;
+  font-weight: 700;
+  color: var(--color-brand-orange);
 }
 .buy-btn {
+  /* 对齐 RN subscribeButton:高 36dp→72rpx / 圆角 8dp→16rpx / 品牌橙底白字 13dp→26rpx 600 */
   flex: 1;
-  padding: 20rpx 48rpx;
-  background: var(--color-primary);
-  border-radius: var(--radius-xl);
-  font-size: 32rpx;
-  color: var(--color-primary-foreground);
-  font-weight: bold;
+  height: 72rpx;
+  line-height: 72rpx;
+  padding: 0 48rpx;
+  background: var(--color-brand-orange);
+  border-radius: var(--radius-lg);
+  font-size: 26rpx;
+  color: var(--color-white-98);
+  font-weight: 600;
   border: none;
   text-align: center;
-  line-height: 1.4;
 }
 .buy-btn::after {
   border: none;
@@ -323,9 +344,10 @@
   padding: 40rpx;
 }
 .pp-title {
+  /* 对齐 RN BottomPopup popupTitle:text.primary */
   font-size: 36rpx;
   font-weight: 700;
-  color: var(--vip-gold);
+  color: var(--vip-text);
   text-align: center;
   margin-bottom: 24rpx;
 }
@@ -374,8 +396,9 @@
   margin-bottom: 12rpx;
 }
 .pp-plan-price {
+  /* 对齐 RN BottomPopup 金额色:brandAccent.DEFAULT → var(--color-brand-orange) */
   font-size: 56rpx;
-  color: var(--vip-gold);
+  color: var(--color-brand-orange);
   font-weight: 700;
   margin-bottom: 8rpx;
 }
@@ -397,15 +420,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--vip-card-bg);
+  background: var(--color-card);
   flex-shrink: 0;
 }
 .pp-checkbox.checked {
-  background: var(--color-warning);
-  border-color: var(--color-warning);
+  /* 对齐 RN 弹窗强调色语言:brandAccent → var(--color-brand-orange) */
+  background: var(--color-brand-orange);
+  border-color: var(--color-brand-orange);
 }
 .pp-check-mark {
-  color: var(--color-primary-foreground);
+  color: var(--color-white-98);
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1;
@@ -424,8 +448,9 @@
   border: 1px solid var(--vip-border);
 }
 .pp-pay-item.active {
-  background: var(--color-gold-muted);
-  border-color: var(--color-warning);
+  /* 选中态对齐 RN brandAccent.light 浅底 + brandAccent 描边 */
+  background: var(--color-brand-orange-light);
+  border-color: var(--color-brand-orange);
 }
 .pp-pay-icon {
   width: 64rpx;
@@ -454,7 +479,7 @@
 }
 .pp-pay-check {
   font-size: 32rpx;
-  color: var(--vip-gold);
+  color: var(--color-brand-orange);
   font-weight: 700;
 }
 .pp-success-icon {
@@ -463,9 +488,9 @@
   line-height: 96rpx;
   text-align: center;
   margin: 0 auto 24rpx;
-  background: var(--color-warning);
+  background: var(--color-success);
   border-radius: var(--radius-lg);
-  color: var(--color-primary-foreground);
+  color: var(--color-success-foreground);
   font-size: 48rpx;
   font-weight: 700;
 }

@@ -215,28 +215,38 @@ export default function PlazaIndex() {
     setShowBottom(false)
   }, [])
 
+  // 对齐 RN 共享 PlazaScreen card:cover 固定高 160dp→320rpx(aspectFill)/标题 16dp→32rpx 600 两行截断/
+  // 描述 14dp→28rpx 三行截断/cardMeta 头像 fallback 24dp→48rpx + 作者 14dp→28rpx/状态字 11dp→22rpx
   const renderCard = (item: PlazaItem) => (
     <ThemeRoot>
-      <View className="pza-card" onClick={() => onItemClick(item)}>
-        {item.coverUrl ? <Image className="pza-cover" src={item.coverUrl} mode="widthFix" /> : null}
+      <View
+        className="pza-card"
+        hoverClass="pza-card-pressed"
+        onClick={() => onItemClick(item)}
+      >
+        {item.coverUrl ? (
+          <Image className="pza-cover" src={item.coverUrl} mode="aspectFill" />
+        ) : null}
         <View className="pza-info">
           <Text className="pza-title">{item.title || tt('plaza.index.untitled', '未命名')}</Text>
           {item.desc ? <Text className="pza-desc">{item.desc}</Text> : null}
           <View className="pza-meta">
+            <View className="pza-avatar">
+              <Text className="pza-avatar-text">
+                {(item.author || tt('plaza.index.anonymous', '匿名')).trim().slice(0, 1)}
+              </Text>
+            </View>
             <Text className="pza-author">{item.author || tt('plaza.index.anonymous', '匿名')}</Text>
-            <Text className="pza-status">{statusText(item.status)}</Text>
+            <Text className={`pza-status${item.status === 2 ? ' done' : ''}`}>
+              {statusText(item.status)}
+            </Text>
           </View>
           <View className="pza-tags">
             {item.track ? <Text className="pza-track">{item.track}</Text> : null}
             {(item.attention ?? 0) > 0 ? (
-              <View className="pza-attention" style={{ display: 'flex', alignItems: 'center' }}>
-                <LineIcon
-                  name="heart"
-                  size={22}
-                  color="var(--color-brand)"
-                  style={{ marginRight: '6rpx' }}
-                />
-                <Text>{item.attention}</Text>
+              <View className="pza-attention">
+                <LineIcon name="heart" size={28} color="var(--color-brand-orange)" />
+                <Text className="pza-attention-count">{item.attention}</Text>
               </View>
             ) : null}
           </View>
@@ -347,7 +357,7 @@ export default function PlazaIndex() {
                 {TRACKS.map((tr) => (
                   <View
                     key={tr.key || 'all'}
-                    className={`pza-track${track === tr.key ? ' active' : ''}`}
+                    className={`pza-chip${track === tr.key ? ' active' : ''}`}
                     onClick={() => onTrackSelect(tr.key)}
                   >
                     <Text>

@@ -181,13 +181,15 @@ export default function CoursePlanet() {
   if (loading && allList.length === 0) {
     return (
       <ThemeRoot>
-        <View className="min-h-screen bg-background">
-          <View className="p-[24rpx] bg-card">
+        {/* 对齐 RN CoursePlanetScreen:root 底色 brandAccent.light → --color-brand-orange-light */}
+        <View className="min-h-screen bg-[var(--color-brand-orange-light)]">
+          {/* 对齐 RN NavBar:bg surface.card / 高 44dp→88rpx / 底边框 border.light */}
+          <View className="h-[88rpx] flex items-center px-[24rpx] bg-card border-b border-border">
             <Text className="text-[36rpx] font-semibold text-foreground">
               {t('coursePlanet.title')}
             </Text>
           </View>
-          <View className="p-[24rpx]">
+          <View className="p-[20rpx]">
             <Text className="block text-center text-muted-foreground py-[80rpx]">
               {t('common.loading')}
             </Text>
@@ -200,18 +202,19 @@ export default function CoursePlanet() {
   if (error && allList.length === 0) {
     return (
       <ThemeRoot>
-        <View className="min-h-screen bg-background">
-          <View className="p-[24rpx] bg-card">
+        <View className="min-h-screen bg-[var(--color-brand-orange-light)]">
+          <View className="h-[88rpx] flex items-center px-[24rpx] bg-card border-b border-border">
             <Text className="text-[36rpx] font-semibold text-foreground">
               {t('coursePlanet.title')}
             </Text>
           </View>
-          <View className="p-[24rpx]">
-            <Text className="block text-center text-muted-foreground py-[40rpx]">
+          <View className="p-[20rpx]">
+            {/* 对齐 RN errorText:12dp→24rpx / danger.DEFAULT / 居中 / paddingY rpx(16) */}
+            <Text className="block text-center text-[24rpx] text-[var(--color-danger)] py-[16rpx]">
               {tt('coursePlanet.loadFailed', '加载失败')}
             </Text>
             <Text
-              className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]"
+              className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary text-primary-foreground text-center rounded-[12rpx] text-[28rpx]"
               onClick={loadData}
             >
               {t('common.retry')}
@@ -224,18 +227,21 @@ export default function CoursePlanet() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background">
-        <View className="p-[24rpx] bg-card">
+      {/* 对齐 RN root 底色 brandAccent.light → --color-brand-orange-light;scrollContent padding rpx(20) */}
+      <View className="min-h-screen bg-[var(--color-brand-orange-light)]">
+        {/* 对齐 RN NavBar:bg surface.card / 高 44dp→88rpx / 底边框 border.light */}
+        <View className="h-[88rpx] flex items-center px-[24rpx] bg-card border-b border-border">
           <Text className="text-[36rpx] font-semibold text-foreground">
             {t('coursePlanet.title')}
           </Text>
         </View>
-        <ScrollView scrollX className="whitespace-nowrap bg-card">
-          <View className="whitespace-nowrap py-[16rpx] px-[24rpx]">
+        {/* 分类筛选(RN 对应 list 变体 tabBar 视觉:文字 12dp→24rpx/600,选中 bg primary + primary-foreground,未选中 text.tertiary,圆角 12dp→24rpx) */}
+        <ScrollView scrollX className="whitespace-nowrap bg-transparent">
+          <View className="whitespace-nowrap py-[16rpx] px-[20rpx]">
             {CATEGORY_KEYS.map((cat) => (
               <Text
                 key={cat.key}
-                className={`inline-block py-[12rpx] px-[32rpx] mr-[16rpx] text-[26rpx] text-muted-foreground bg-background rounded-[8rpx] ${activeCategory === cat.key ? 'text-foreground bg-primary font-semibold' : ''}`}
+                className={`inline-block py-[12rpx] px-[32rpx] mr-[16rpx] text-[24rpx] font-semibold text-[var(--color-text-tertiary)] bg-card rounded-[24rpx] ${activeCategory === cat.key ? 'text-primary-foreground bg-primary' : ''}`}
                 onClick={() => onCategoryChange(cat.key)}
               >
                 {tt(cat.label, cat.key)}
@@ -244,12 +250,13 @@ export default function CoursePlanet() {
           </View>
         </ScrollView>
         {displayList.length > 0 && (
-          <View className="px-[24rpx] mb-[16rpx]">
+          <View className="px-[20rpx] mb-[16rpx]">
             <SectionHeader title={tt('coursePlanet.featured', '精选推荐')} showMore={false} />
           </View>
         )}
         {displayList.length > 0 && (
-          <View className="px-[24rpx] mb-[24rpx]">
+          <View className="px-[20rpx] mb-[24rpx]">
+            {/* 对齐 RN swiper 变体:高 144dp / 圆角 30dp→60rpx(className 覆盖组件默认 rounded-lg) */}
             <Carousel
               variant="course"
               items={displayList.slice(0, 5).map((item) => ({ img: item.coverUrl || '' }))}
@@ -260,27 +267,29 @@ export default function CoursePlanet() {
               }))}
               autoplay
               interval={4000}
-              height={300}
+              height={144}
+              className="rounded-[60rpx]"
               onItemClick={(_item, idx) => onItemClick(displayList[idx]?.id ?? '')}
             />
           </View>
         )}
-        <View className="p-[24rpx]">
+        <View className="p-[20rpx]">
           {displayList.length ? (
             displayList.map((item) => (
               <View
                 key={item.id}
-                className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"
+                className="flex bg-card rounded-[24rpx] border border-border overflow-hidden mb-[24rpx]"
                 onClick={() => onItemClick(item.id)}
               >
+                {/* 对齐 RN list 变体 thumbWrap:100×80dp→200×160rpx,bg surface.muted,直角(随卡片圆角裁切) */}
                 {item.coverUrl ? (
                   <Image
-                    className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted"
+                    className="w-[200rpx] h-[160rpx] flex-shrink-0 bg-muted"
                     src={item.coverUrl}
                     mode="aspectFill"
                   />
                 ) : (
-                  <View className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted flex items-center justify-center">
+                  <View className="w-[200rpx] h-[160rpx] flex-shrink-0 bg-muted flex items-center justify-center">
                     <LineIcon
                       name="book-open"
                       size={48}
@@ -288,7 +297,8 @@ export default function CoursePlanet() {
                     />
                   </View>
                 )}
-                <View className="flex-1 ml-[16rpx] flex flex-col justify-between min-h-[130rpx]">
+                {/* 对齐 RN infoWrap:paddingH 12dp→24rpx / paddingV 8dp→16rpx / justify-between */}
+                <View className="flex-1 px-[24rpx] py-[16rpx] flex flex-col justify-between min-h-[160rpx]">
                   <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2">
                     {item.title}
                   </Text>
@@ -299,14 +309,16 @@ export default function CoursePlanet() {
                   ) : null}
                   <View className="flex items-center justify-between mt-[8rpx]">
                     {item.price !== null && item.price !== undefined ? (
-                      <Text className="text-[32rpx] text-destructive font-bold">
+                      <Text
+                        className={`text-[24rpx] font-semibold ${item.price === 0 ? 'text-success' : 'text-foreground'}`}
+                      >
                         {item.price === 0
                           ? tt('coursePlanet.free', '免费')
                           : `¥${item.price.toFixed(2)}`}
                       </Text>
                     ) : null}
                     {item.students !== null && item.students !== undefined ? (
-                      <Text className="text-[22rpx] text-muted-foreground">
+                      <Text className="text-[24rpx] text-muted-foreground">
                         {item.students} {tt('coursePlanet.studentsUnit', '人学习')}
                       </Text>
                     ) : null}

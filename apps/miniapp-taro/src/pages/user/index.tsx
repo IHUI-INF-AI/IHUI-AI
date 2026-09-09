@@ -979,19 +979,22 @@ export default function UserIndex() {
           </View>
         ) : null}
 
-        {/* ===== 会员权益卡片（对齐原项目 membership-benefits-container：箭头旋转动画 + bounce 动画） ===== */}
+        {/* ===== 会员权益卡片(对齐 RN ProfileScreen membershipHeader:标题 + chevron-down 旋转) ===== */}
         {!isshow ? (
-          <View className="membership-benefits-container mx-[20rpx] mt-[24rpx] mb-0">
-            {/* 箭头头部：点击展开/收起（对齐原项目 membership-benefits-header @click="toggleMembershipBenefits"） */}
+          <View className="membership-benefits-container mx-[20rpx] mt-[16rpx] mb-0">
+            {/* 折叠头:点击展开/收起(对齐 RN membershipHeaderText + membershipArrow) */}
             <View className="membership-benefits-header" onClick={toggleBenefits}>
+              <Text className="membership-benefits-title">
+                {tf('user.membershipBenefits', '会员权益')}
+              </Text>
               <View className={`membership-benefits-arrow ${showBenefits ? 'arrow-rotate' : ''}`}>
-                  <LineIcon
-                    className="arrow-icon"
-                    name="chevron-right"
-                    size={40}
-                    color="var(--color-muted-foreground)"
-                  />
-                </View>
+                <LineIcon
+                  className="arrow-icon"
+                  name="chevron-down"
+                  size={48}
+                  color="var(--color-muted-foreground)"
+                />
+              </View>
             </View>
             {/* 会员权益内容（对齐原项目 membership-benefits-content v-show="showMembershipBenefits"） */}
             {showBenefits ? (
@@ -1020,11 +1023,11 @@ export default function UserIndex() {
           <View className="content-list">
             {/* 加载状态(对齐原项目 contentLoading) */}
             {contentLoading ? (
-              <View className="py-[40rpx] flex items-center justify-center">
+              <View className="py-[96rpx] flex items-center justify-center">
                 <Text
                   style={{
-                    fontSize: rpx(26),
-                    color: 'var(--color-muted-foreground, var(--color-muted-foreground))',
+                    fontSize: rpx(28),
+                    color: 'var(--color-muted-foreground)',
                   }}
                 >
                   {tf('common.loading', '加载中...')}
@@ -1035,11 +1038,11 @@ export default function UserIndex() {
             {activeTab === 1 && (
               <View>
                 {textContentList.length === 0 ? (
-                  <View className="py-[120rpx] flex items-center justify-center">
+                  <View className="py-[96rpx] flex items-center justify-center">
                     <Text
                       style={{
-                        fontSize: rpx(26),
-                        color: 'var(--color-muted-foreground, var(--color-muted-foreground))',
+                        fontSize: rpx(28),
+                        color: 'var(--color-muted-foreground)',
                       }}
                     >
                       {tf('user.empty.text', '暂无文本内容')}
@@ -1049,13 +1052,13 @@ export default function UserIndex() {
                   textContentList.map((item, index) => (
                     <View
                       key={index}
-                      className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-text"
+                      className="bg-card rounded-[20rpx] p-[28rpx] border border-border user-content-text"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
-                        <Text className="text-[28rpx] font-semibold text-foreground">
+                        <Text className="text-[32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
+                        <Text className="text-[24rpx] text-muted-foreground">{item.time}</Text>
                       </View>
                       {renderMarkdown(item.content)}
                     </View>
@@ -1068,11 +1071,11 @@ export default function UserIndex() {
             {activeTab === 2 && (
               <View>
                 {imageContentList.length === 0 ? (
-                  <View className="py-[120rpx] flex items-center justify-center">
+                  <View className="py-[96rpx] flex items-center justify-center">
                     <Text
                       style={{
-                        fontSize: rpx(26),
-                        color: 'var(--color-muted-foreground, var(--color-muted-foreground))',
+                        fontSize: rpx(28),
+                        color: 'var(--color-muted-foreground)',
                       }}
                     >
                       {tf('user.empty.image', '暂无图片内容')}
@@ -1082,21 +1085,22 @@ export default function UserIndex() {
                   imageContentList.map((item, index) => (
                     <View
                       key={index}
-                      className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-image"
+                      className="bg-card rounded-[20rpx] p-[28rpx] border border-border user-content-image"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
-                        <Text className="text-[28rpx] font-semibold text-foreground">
+                        <Text className="text-[32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
+                        <Text className="text-[24rpx] text-muted-foreground">{item.time}</Text>
                       </View>
-                      <View className="flex flex-row flex-wrap" style={{ gap: rpx(8) }}>
+                      {/* 纵向单列大图(对齐 RN imageColumn gap rpx(16) + imageColumnImg 高 200dp)*/}
+                      <View className="flex flex-col" style={{ gap: rpx(16) }}>
                         {(item.imageList || []).map((imgUrl, imgIdx) => (
                           <Image
                             key={imgIdx}
                             src={imgUrl}
                             mode="aspectFill"
-                            style={{ width: rpx(200), height: rpx(200), borderRadius: rpx(12) }}
+                            style={{ width: '100%', height: rpx(400), borderRadius: rpx(16) }}
                             onClick={() => previewImage(imgUrl, item.imageList)}
                           />
                         ))}
@@ -1111,11 +1115,11 @@ export default function UserIndex() {
             {activeTab === 3 && (
               <View>
                 {videoContentList.length === 0 ? (
-                  <View className="py-[120rpx] flex items-center justify-center">
+                  <View className="py-[96rpx] flex items-center justify-center">
                     <Text
                       style={{
-                        fontSize: rpx(26),
-                        color: 'var(--color-muted-foreground, var(--color-muted-foreground))',
+                        fontSize: rpx(28),
+                        color: 'var(--color-muted-foreground)',
                       }}
                     >
                       {tf('user.empty.video', '暂无视频内容')}
@@ -1125,16 +1129,16 @@ export default function UserIndex() {
                   videoContentList.map((item, index) => (
                     <View
                       key={index}
-                      className="mb-[20rpx] bg-card rounded-lg overflow-hidden border border-border shadow-sm user-content-video"
+                      className="bg-card rounded-[20rpx] overflow-hidden border border-border user-content-video"
                     >
                       <View className="flex-row items-center justify-between p-[24rpx] pb-[12rpx]">
-                        <Text className="text-[28rpx] font-semibold text-foreground">
+                        <Text className="text-[32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
+                        <Text className="text-[24rpx] text-muted-foreground">{item.time}</Text>
                       </View>
                       <View
-                        className="relative mx-[24rpx] mb-[24rpx] rounded-lg overflow-hidden bg-muted"
+                        className="relative mx-[24rpx] mb-[24rpx] rounded-[16rpx] overflow-hidden bg-muted"
                         style={{ height: rpx(400) }}
                         onClick={() => openVideoPlayer(item.videoUrl)}
                       >
@@ -1167,11 +1171,11 @@ export default function UserIndex() {
             {activeTab === 4 && (
               <View>
                 {audioContentList.length === 0 ? (
-                  <View className="py-[120rpx] flex items-center justify-center">
+                  <View className="py-[96rpx] flex items-center justify-center">
                     <Text
                       style={{
-                        fontSize: rpx(26),
-                        color: 'var(--color-muted-foreground, var(--color-muted-foreground))',
+                        fontSize: rpx(28),
+                        color: 'var(--color-muted-foreground)',
                       }}
                     >
                       {tf('user.empty.audio', '暂无音频内容')}
@@ -1181,26 +1185,26 @@ export default function UserIndex() {
                   audioContentList.map((item, index) => (
                     <View
                       key={index}
-                      className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-audio"
+                      className="bg-card rounded-[20rpx] p-[28rpx] border border-border user-content-audio"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
-                        <Text className="text-[28rpx] font-semibold text-foreground">
+                        <Text className="text-[32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
+                        <Text className="text-[24rpx] text-muted-foreground">{item.time}</Text>
                       </View>
                       <View className="flex-row items-center gap-[12rpx]">
-                        {/* 播放/暂停按钮 */}
+                        {/* 播放/暂停按钮(对齐 RN audioPlayBtn 36dp→72rpx 圆角 16rpx) */}
                         <View
-                          className="w-[48rpx] h-[48rpx] rounded-full flex items-center justify-center"
+                          className="w-[72rpx] h-[72rpx] rounded-[16rpx] flex items-center justify-center"
                           style={{ background: 'var(--color-primary)', flexShrink: 0 }}
                           onClick={() => toggleAudioPlay(index, item.audioUrl)}
                         >
                           <LineIcon
                                 name={audioPlayStates[index] ? 'pause' : 'play'}
-                                size={36}
+                                size={32}
                                 color="var(--color-primary-foreground)"
-                                className="w-[36rpx] h-[36rpx]"
+                                className="w-[32rpx] h-[32rpx]"
                               />
                         </View>
                         {/* 进度条 */}
@@ -1216,9 +1220,9 @@ export default function UserIndex() {
                             onChange={(e) => onAudioProgressChange(index, e)}
                           />
                         </View>
-                        {/* 当前时间 */}
+                        {/* 当前时间(对齐 RN audioTime fontSize 12dp) */}
                         <Text
-                          className="text-[22rpx] text-muted-foreground"
+                          className="text-[24rpx] text-muted-foreground"
                           style={{ flexShrink: 0, width: rpx(80), textAlign: 'right' }}
                         >
                           {formatAudioTime(audioCurrentTime[index] || 0)}
@@ -1293,10 +1297,14 @@ export default function UserIndex() {
           />
         </View>
 
-        {/* ===== 视频播放弹窗（对齐原项目 showVideoPlayer，使用 VideoPlayer 组件） ===== */}
+        {/* ===== 视频播放弹窗(对齐 RN videoModalOverlay/videoModalClose) ===== */}
         {showVideoPlayer ? (
           <View className="fixed inset-0 z-[2000] flex items-center justify-center">
-            <View className="absolute inset-0 bg-black/80" onClick={closeVideoPlayer} />
+            <View
+              className="absolute inset-0"
+              style={{ background: 'var(--color-black-90)' }}
+              onClick={closeVideoPlayer}
+            />
             <View className="relative w-[90%] rounded-lg overflow-hidden">
               <VideoPlayer src={currentVideoUrl} controls onError={closeVideoPlayer} />
               {/* 关闭按钮用 CoverView(对齐原项目 cover-view 层级兼容,小程序原生 video 层级最高) */}
@@ -1305,11 +1313,11 @@ export default function UserIndex() {
                   position: 'absolute',
                   top: 0,
                   right: 0,
-                  width: '60rpx',
-                  height: '60rpx',
-                  background: 'var(--color-black-50)',
-                  borderTopRightRadius: '8rpx',
-                  borderBottomLeftRadius: '8rpx',
+                  width: '80rpx',
+                  height: '80rpx',
+                  background: 'var(--color-white-18)',
+                  borderTopRightRadius: '24rpx',
+                  borderBottomLeftRadius: '24rpx',
                   zIndex: 10,
                 }}
                 onClick={closeVideoPlayer}
@@ -1317,9 +1325,9 @@ export default function UserIndex() {
                 <CoverView
                   style={{
                     color: 'var(--color-white-98)',
-                    fontSize: '40rpx',
+                    fontSize: '60rpx',
                     fontWeight: 'bold',
-                    lineHeight: '60rpx',
+                    lineHeight: '80rpx',
                     textAlign: 'center',
                   }}
                 >
@@ -1334,9 +1342,9 @@ export default function UserIndex() {
         {showSharePopup ? (
           <View className="share-popup-mask" onClick={closeSharePopup}>
             <View className="share-popup-content" onClick={(e) => e.stopPropagation()}>
-              {/* 关闭按钮 */}
+              {/* 关闭按钮(对齐 RN sharePopupCloseText) */}
               <View className="share-popup-close" onClick={closeSharePopup}>
-                <Text className="text-white text-[28rpx]">×</Text>
+                <Text className="share-popup-close-text">×</Text>
               </View>
               {/* 分享卡片预览 */}
               <View className="share-popup-image">

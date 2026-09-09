@@ -131,31 +131,34 @@ export default function TopicListPage() {
       <View className="min-h-screen bg-background flex flex-col">
         <NavBar title={tt('topic.list.pageTitle', '话题')} showBack />
         <ScrollView scrollY className="flex-1 box-border">
-          <View className="p-[24rpx] pb-[60rpx]">
-            {/* 搜索栏 */}
-            <View className="flex items-center h-[72rpx] px-[20rpx] bg-card rounded-[12rpx] mb-[20rpx]">
+          {/* 对齐 RN TopicListScreen:listContent paddingBottom rpx(40) */}
+          <View className="p-[24rpx] pb-[40rpx]">
+            {/* 搜索栏对齐 RN searchWrap:margin 24 / mb 20 / h 72 / px 20 / radius 24 / bg card */}
+            <View className="flex items-center h-[72rpx] px-[20rpx] bg-card rounded-[24rpx] mb-[20rpx]">
+              {/* RN Search size 16dp→32rpx / color text.tertiary */}
               <LineIcon
                 name="search"
-                size={28}
-                className="mr-[12rpx] shrink-0"
-                color="var(--color-muted-foreground)"
+                size={32}
+                className="mr-[16rpx] shrink-0"
+                color="var(--color-text-tertiary)"
               />
               <Input
                 className="flex-1 text-[28rpx] text-foreground"
                 value={searchText}
                 placeholder={tt('topic.list.searchPlaceholder', '搜索话题')}
+                placeholderClass="text-[var(--color-text-tertiary)]"
                 onInput={(e) => setSearchText(e.detail.value)}
                 onConfirm={onSearch}
                 confirmType="search"
               />
             </View>
 
-            {/* 分类 tab */}
+            {/* 分类 tab 对齐 RN tab:radius 20dp(rpx)→20rpx / bg card;active bg muted + text.primary */}
             <View className="flex gap-[16rpx] mb-[20rpx]">
               {tabs.map((tab) => (
                 <View
                   key={tab.key}
-                  className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] rounded-[10rpx] ${activeTab === tab.key ? 'text-primary bg-primary/10 font-semibold' : 'text-muted-foreground bg-card'}`}
+                  className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] rounded-[20rpx] ${activeTab === tab.key ? 'text-foreground bg-muted font-semibold' : 'text-[var(--color-text-tertiary)] bg-card'}`}
                   onClick={() => switchTab(tab.key)}
                 >
                   <Text>{tt(tab.label, tab.fb)}</Text>
@@ -163,13 +166,14 @@ export default function TopicListPage() {
               ))}
             </View>
 
-            {/* 话题列表 */}
+            {/* 话题列表对齐 RN card:mx 24(外层 padding)/mb 16 / p 24 / radius 16 / bg card;pressed 0.85 */}
             {list.length > 0 ? (
               <View className="flex flex-col gap-[16rpx]">
                 {list.map((item) => (
                   <View
                     key={item.id}
                     className="flex items-center bg-card rounded-[16rpx] p-[24rpx]"
+                    hoverClass="opacity-85"
                     onClick={() => goDetail(item.id)}
                   >
                     {item.coverUrl ? (
@@ -180,72 +184,78 @@ export default function TopicListPage() {
                       />
                     ) : (
                       <View className="w-[100rpx] h-[100rpx] rounded-[12rpx] bg-muted shrink-0 flex items-center justify-center">
-                        <Text className="text-[40rpx] font-bold text-primary">#</Text>
+                        {/* RN coverHash:fontSize 20dp→40rpx / 700 / text.primary→foreground */}
+                        <Text className="text-[40rpx] font-bold text-foreground">#</Text>
                       </View>
                     )}
                     <View className="flex-1 ml-[24rpx] min-w-0">
-                      <Text className="block text-[30rpx] text-primary font-semibold">
+                      <Text className="block text-[30rpx] text-foreground font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
                         #{item.name}
                       </Text>
                       {item.description ? (
-                        <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+                        <Text className="block text-[24rpx] text-[var(--color-text-tertiary)] mt-[8rpx] overflow-hidden text-ellipsis whitespace-nowrap">
                           {item.description}
                         </Text>
                       ) : null}
                       <View className="flex gap-[16rpx] mt-[8rpx]">
-                        <Text className="text-[22rpx] text-muted-foreground">
+                        <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
                           {tt('topic.list.participants', '{n} 人参与', {
                             n: item.participantCount || 0,
                           })}
                         </Text>
-                        <Text className="text-[22rpx] text-muted-foreground">
+                        <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
                           {tt('topic.list.posts', '{n} 篇内容', { n: item.count || 0 })}
                         </Text>
                       </View>
                     </View>
-                    <Text className="text-[32rpx] text-muted-foreground ml-[16rpx] shrink-0">
-                      ›
-                    </Text>
+                    {/* RN ChevronRight size 18dp→36rpx / color text.tertiary */}
+                    <LineIcon
+                      name="chevron-right"
+                      size={36}
+                      className="ml-[16rpx] shrink-0"
+                      color="var(--color-text-tertiary)"
+                    />
                   </View>
                 ))}
               </View>
             ) : null}
 
-            {/* 状态提示 */}
+            {/* 状态提示对齐 RN center:py 120rpx / gap 16;字 13dp→26rpx text.tertiary */}
             {list.length === 0 && !loading && !error ? (
-              <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
+              <View className="flex flex-col items-center py-[120rpx] text-[var(--color-text-tertiary)] text-[26rpx]">
                 <Text>{tt('topic.list.empty', '暂无话题')}</Text>
               </View>
             ) : null}
 
             {error && !loading ? (
               <View
-                className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]"
+                className="flex flex-col items-center py-[120rpx] text-[var(--color-text-tertiary)] text-[26rpx]"
                 onClick={() => load(true)}
               >
-                <Text className="text-[26rpx] text-destructive">
+                <Text className="text-[26rpx] text-[var(--color-danger)]">
                   {tt('topic.list.loadFailed', '加载失败')}
                 </Text>
-                <Text className="text-[26rpx] text-primary mt-[12rpx]">
+                <Text className="text-[26rpx] text-foreground mt-[12rpx]">
                   {tt('topic.list.retry', '点击重试')}
                 </Text>
               </View>
             ) : null}
 
             {loading ? (
-              <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
+              <View className="flex flex-col items-center py-[120rpx] text-[var(--color-text-tertiary)] text-[26rpx]">
                 <Text>{tt('topic.list.loading', '加载中…')}</Text>
               </View>
             ) : null}
 
+            {/* 加载更多对齐 RN footer:py 24rpx / 字 26rpx text.tertiary */}
             {loadingMore ? (
-              <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
+              <View className="flex flex-col items-center py-[24rpx] text-[var(--color-text-tertiary)] text-[26rpx]">
                 <Text>{tt('topic.list.loadingMore', '加载中…')}</Text>
               </View>
             ) : null}
 
             {!loading && !loadingMore && !hasMore && list.length > 0 ? (
-              <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
+              <View className="flex flex-col items-center py-[24rpx] text-[var(--color-text-tertiary)] text-[26rpx]">
                 <Text>{tt('topic.list.noMore', '没有更多了')}</Text>
               </View>
             ) : null}

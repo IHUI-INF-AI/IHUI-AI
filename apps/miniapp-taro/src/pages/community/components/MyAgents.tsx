@@ -66,7 +66,6 @@ export default function MyAgents({ myAgents }: MyAgentsProps) {
               key={agent.id || index}
               className="my-item"
               onClick={() => navigateTo(agent, index)}
-              style={{ borderRadius: '25rpx' }}
             >
               {agent.agentAvatar ? (
                 <Image className="agent-avatar" src={agent.agentAvatar} mode="aspectFill" />

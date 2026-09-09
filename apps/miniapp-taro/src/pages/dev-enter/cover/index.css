@@ -4,34 +4,42 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
-/* dev-enter/cover - 开发者详情页(对标 plaza/developer.vue) */
+/* dev-enter/cover - 开发者详情页(对齐 RN DeveloperScreen,视觉唯一标准)
+   换算: RN rpx(N)→N rpx(1:1);RN raw dp M→M*2 rpx
+   颜色映射: surface.bg→--color-background / surface.card→--color-card /
+   surface.muted→--color-muted / text.primary→--color-foreground /
+   text.secondary→--color-muted-foreground / brand.DEFAULT→--color-primary /
+   danger.bright→--color-danger-bright */
 .dev-cover-page {
   min-height: 100vh;
+  /* RN shell/scrollContent: bg surface.bg,padding rpx(20),paddingBottom rpx(48) */
   background: var(--color-background);
-  padding: 24rpx;
+  padding: 20rpx;
+  padding-bottom: 48rpx;
   box-sizing: border-box;
 }
 
-/* ===== 用户信息卡 ===== */
+/* ===== 用户信息卡(RN headerCard: bg surface.card,radius 12dp=24rpx,padding rpx(28)) ===== */
 .dc-header-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40rpx 24rpx 32rpx;
+  padding: 28rpx;
   background: var(--color-card);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
+  border-radius: 24rpx;
   margin-bottom: 20rpx;
 }
+/* RN logo: 64dp=128rpx 正圆(radius 32dp=64rpx);logoBody mb rpx(16) */
 .dc-avatar {
-  width: 160rpx;
-  height: 160rpx;
-  border-radius: var(--radius-2xl);
-  margin-bottom: 20rpx;
-  background: var(--color-secondary);
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 64rpx;
+  margin-bottom: 16rpx;
+  background: var(--color-muted);
 }
+/* RN userName: 17dp=34rpx 600 text.primary,mb rpx(16) */
 .dc-nickname {
-  font-size: 32rpx;
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: 16rpx;
@@ -53,116 +61,124 @@
   font-size: 20rpx;
   color: var(--color-muted-foreground);
 }
+/* RN entryBtn: py rpx(10) px rpx(40),radius 8dp=16rpx,bg brand(→primary);
+   文字色 RN surface.light 在暗色 primary(白底)上不可读,按语义修正为 primary-foreground */
 .dc-become-btn {
-  padding: 16rpx 48rpx;
-  background: var(--color-border);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-primary);
-  color: var(--color-primary);
-  font-size: 26rpx;
+  padding: 10rpx 40rpx;
+  background: var(--color-primary);
+  border-radius: 16rpx;
+  color: var(--color-primary-foreground);
+  font-size: 28rpx;
   font-weight: 600;
   text-align: center;
 }
 .dc-become-btn:active {
-  background: var(--color-border);
+  opacity: 0.8; /* RN activeOpacity 0.8 */
 }
 
-/* ===== 3 个功能入口 ===== */
+/* ===== 3 个功能入口(RN devList: bg surface.card,radius 12dp=24rpx,paddingVertical rpx(24)) ===== */
 .dc-entry-list {
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  padding: 24rpx 16rpx;
+  padding: 24rpx 0;
   background: var(--color-card);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
+  border-radius: 24rpx;
   margin-bottom: 20rpx;
-  gap: 12rpx;
 }
 .dc-entry-item {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12rpx 8rpx;
-  gap: 12rpx;
+  gap: 8rpx; /* RN devItem gap rpx(8) */
 }
 .dc-entry-item:active {
-  background: var(--color-secondary);
-  border-radius: var(--radius-md);
+  opacity: 0.7; /* RN activeOpacity 0.7 */
 }
+/* RN iconBody: 48dp=96rpx 正圆,bg surface.muted */
 .dc-entry-icon {
   width: 96rpx;
   height: 96rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-secondary);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
+  background: var(--color-muted);
+  border-radius: 48rpx;
 }
 .dc-entry-emoji {
-  font-size: 44rpx;
+  font-size: 56rpx; /* RN devIcon 28dp=56rpx */
   line-height: 1;
 }
 .dc-entry-text {
-  font-size: 24rpx;
+  font-size: 26rpx; /* RN devItemText 13dp=26rpx */
   color: var(--color-foreground);
   text-align: center;
 }
 
-/* ===== 开发者账号信息卡 ===== */
+/* ===== 开发者账号信息卡(RN infoCard: bg surface.card,radius 12dp=24rpx,padding rpx(24)) ===== */
 .dc-account-card {
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
+  border-radius: 24rpx;
   margin-bottom: 20rpx;
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
 }
+/* RN infoTitle: 15dp=30rpx 600 text.primary,mb rpx(12) */
+.dc-account-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: 12rpx;
+}
+/* RN infoRow: paddingVertical rpx(8) */
 .dc-account-row {
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
-  gap: 16rpx;
+  padding: 8rpx 0;
 }
+/* RN infoLabel: width 76dp=152rpx,13dp=26rpx,text.secondary */
 .dc-account-label {
+  width: 152rpx;
+  flex-shrink: 0;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+/* RN infoValue: flex 1,13dp=26rpx,text.primary,numberOfLines 1 */
+.dc-account-value {
   flex: 1;
-  font-size: 28rpx;
-  font-weight: 500;
+  font-size: 26rpx;
   color: var(--color-foreground);
-  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+/* RN 到期时间行: label/value 均 danger.bright */
 .dc-expire-text {
-  color: var(--color-destructive);
+  color: var(--color-danger-bright);
 }
+/* RN infoCopy: 12dp=24rpx,brand(→primary),px 4dp=8rpx,纯文字无底色 */
 .dc-copy-btn {
   flex-shrink: 0;
-  padding: 8rpx 20rpx;
-  background: var(--color-secondary);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
+  padding: 0 8rpx;
   font-size: 24rpx;
   color: var(--color-primary);
 }
 .dc-copy-btn:active {
-  background: var(--color-border);
+  opacity: 0.7;
 }
+/* RN infoRenew: 12dp=24rpx,danger.bright,600,px 4dp=8rpx,纯文字 */
 .dc-renew-btn {
   flex-shrink: 0;
-  padding: 8rpx 24rpx;
-  background: var(--color-border);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-primary);
+  padding: 0 8rpx;
   font-size: 24rpx;
-  color: var(--color-primary);
+  color: var(--color-danger-bright);
   font-weight: 600;
 }
 .dc-renew-btn:active {
-  background: var(--color-border);
+  opacity: 0.7;
 }
 
 /* ===== 开发者须知 + 继续接单 ===== */
@@ -192,52 +208,61 @@
   opacity: 0.85;
 }
 
-/* ===== FAQ 列表 ===== */
+/* ===== 问题解答区(RN unDeveloper: gap rpx(16),问题卡纵向整行堆叠) ===== */
 .dc-faq-section {
   display: flex;
   flex-direction: column;
+  gap: 16rpx;
   margin-bottom: 24rpx;
 }
+/* RN unTitle: 15dp=30rpx 600 text.primary,mb rpx(8) */
 .dc-faq-title {
-  font-size: 26rpx;
+  font-size: 30rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 20rpx;
-  padding: 0 8rpx;
+  margin-bottom: 8rpx;
 }
 .dc-faq-grid {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 16rpx;
 }
+/* RN problemCard: bg surface.card,radius 12dp=24rpx,padding rpx(24) */
 .dc-faq-item {
-  width: calc(50% - 8rpx);
+  width: 100%;
   box-sizing: border-box;
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
+  border-radius: 24rpx;
   display: flex;
   flex-direction: column;
-  gap: 12rpx;
 }
 .dc-faq-item:active {
-  background: var(--color-secondary);
+  opacity: 0.8; /* RN activeOpacity 0.8 */
 }
+/* RN problemTitle: 15dp=30rpx 600,mb rpx(8) */
 .dc-faq-item-title {
-  font-size: 26rpx;
+  font-size: 30rpx;
   font-weight: 600;
   color: var(--color-foreground);
+  margin-bottom: 8rpx;
 }
+/* RN problemContext: 13dp=26rpx text.secondary,mb rpx(16) */
 .dc-faq-item-context {
-  font-size: 22rpx;
+  font-size: 26rpx;
   color: var(--color-muted-foreground);
   line-height: 1.5;
+  margin-bottom: 16rpx;
 }
+/* RN problemBtn: py rpx(8) px rpx(24),radius 6dp=12rpx,bg brand(→primary);
+   文字 surface.light 暗色按语义修正为 primary-foreground */
 .dc-faq-item-btn {
-  font-size: 24rpx;
-  color: var(--color-primary);
+  align-self: flex-start;
+  padding: 8rpx 24rpx;
+  background: var(--color-primary);
+  border-radius: 12rpx;
+  color: var(--color-primary-foreground);
+  font-size: 26rpx; /* 13dp */
   font-weight: 500;
 }
 

@@ -225,9 +225,11 @@ export default function DeveloperIndex() {
 
   return (
     <ThemeRoot>
+      {/* RN shell: bg surface.bg */}
       <View className="min-h-screen bg-background flex flex-col">
-        <View className="px-[30rpx] py-[20rpx] bg-card">
-          <Text className="text-[36rpx] font-bold text-foreground">
+        {/* RN NavBar: 高 44dp=88rpx,bg surface.card,底部描边,标题居中 18dp=36rpx semibold */}
+        <View className="h-[88rpx] flex items-center justify-center bg-card border-b border-[var(--color-border)]">
+          <Text className="text-[36rpx] font-semibold text-foreground">
             {tt('developer.index.myAgents', '我的智能体')}
           </Text>
         </View>
@@ -247,45 +249,73 @@ export default function DeveloperIndex() {
           <Text className="text-[40rpx] text-primary-foreground opacity-80">›</Text>
         </View>
 
-        <View className="flex mx-[20rpx] p-[8rpx] bg-muted rounded-[12rpx]">
+        {/* RN headTabBar: px 20rpx py 16rpx gap 16rpx;tab px 24rpx py 10rpx radius 8dp=16rpx
+            bg surface.muted;激活 bg brand(→primary)+白字 14dp=28rpx(RN 恒黑底白字,暗色按语义 primary-foreground 修正) */}
+        <View className="flex flex-row px-[20rpx] py-[16rpx] gap-[16rpx]">
           {STATUS_TABS.map((tab) => (
             <View
               key={tab.id}
-              className={`flex-1 h-[56rpx] leading-[56rpx] text-center text-[28rpx] text-foreground rounded-[8rpx]${mainTabActive(tab.id) ? ' bg-card font-semibold' : ''}`}
+              className={`px-[24rpx] py-[10rpx] rounded-[16rpx] bg-muted${mainTabActive(tab.id) ? ' bg-primary' : ''}`}
               onClick={() => onChangeStatus(tab.id)}
             >
-              <Text>{tt(tab.key, tab.name)}</Text>
+              <Text
+                className={
+                  mainTabActive(tab.id)
+                    ? 'text-[28rpx] text-primary-foreground font-semibold'
+                    : 'text-[28rpx] text-muted-foreground'
+                }
+              >
+                {tt(tab.key, tab.name)}
+              </Text>
             </View>
           ))}
         </View>
 
-        <View className="mx-[20rpx] my-[20rpx] px-[24rpx] bg-card rounded-[12rpx]">
+        {/* RN searchRow: gap 12rpx px 20rpx pb 8rpx;输入框 h 38dp=76rpx radius 8dp=16rpx
+            描边 1dp=2rpx bg card;搜索钮 h 76rpx px 20rpx radius 16rpx bg brand(→primary) 白字 */}
+        <View className="flex items-center gap-[12rpx] px-[20rpx] pb-[8rpx]">
           <Input
-            className="h-[72rpx] text-[28rpx] text-foreground"
+            className="flex-1 h-[76rpx] rounded-[16rpx] border border-[var(--color-border)] bg-card px-[16rpx] text-[28rpx] text-foreground"
             type="text"
             placeholder={tt('developer.index.searchPlaceholder', '搜索智能体名称')}
             value={search}
             onInput={(e) => setSearch(e.detail.value)}
             onConfirm={onSearchConfirm}
           />
+          <View
+            className="h-[76rpx] px-[20rpx] rounded-[16rpx] bg-primary flex items-center justify-center"
+            onClick={onSearchConfirm}
+          >
+            <Text className="text-[28rpx] font-semibold text-primary-foreground">搜索</Text>
+          </View>
         </View>
 
+        {/* RN subTabBar: px 20rpx pb 12rpx gap 12rpx;tab px 16rpx py 6rpx radius 6dp=12rpx;
+            激活 bg surface.muted + brand 字(→primary) 13dp=26rpx */}
         {showSubTabs ? (
-          <View className="flex mx-[20rpx] mb-[12rpx] gap-[36rpx]">
+          <View className="flex flex-row px-[20rpx] pb-[12rpx] gap-[12rpx]">
             {SUB_TABS.map((tab) => (
               <View
                 key={tab.id}
-                className={`text-[28rpx] text-muted-foreground py-[8rpx]${status === tab.id ? ' text-primary font-semibold' : ''}`}
+                className={`px-[16rpx] py-[6rpx] rounded-[12rpx]${status === tab.id ? ' bg-muted' : ''}`}
                 onClick={() => onChangeStatus(tab.id)}
               >
-                <Text>{tt(tab.key, tab.name)}</Text>
+                <Text
+                  className={
+                    status === tab.id
+                      ? 'text-[26rpx] text-primary font-semibold'
+                      : 'text-[26rpx] text-muted-foreground'
+                  }
+                >
+                  {tt(tab.key, tab.name)}
+                </Text>
               </View>
             ))}
           </View>
         ) : null}
 
         <ScrollView
-          className="flex-1 h-0 px-[20rpx] pb-[20rpx]"
+          className="flex-1 h-0 px-[20rpx] pb-[32rpx]"
           scrollY
           lowerThreshold={50}
           onScrollToLower={onScrollToLower}
@@ -298,41 +328,44 @@ export default function DeveloperIndex() {
             list.map((agent) => (
               <View
                 key={String(agent.agent_id ?? agent.id)}
-                className="flex items-center bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
+                className="flex items-center bg-card border border-[var(--color-border-medium)] rounded-[30rpx] p-[20rpx] mb-[18rpx]"
               >
+                {/* RN avatar: rpx(184)/2 dp → 184rpx,radius 8dp=16rpx */}
                 <Image
-                  className="w-[80rpx] h-[80rpx] rounded-[8rpx] bg-background flex-shrink-0"
+                  className="w-[184rpx] h-[184rpx] rounded-[16rpx] bg-muted flex-shrink-0"
                   src={agent.agent_avatar || '/static/default-agent.png'}
                   mode="aspectFill"
                 />
-                <View className="flex-1 ml-[20rpx] min-w-0">
-                  <Text className="block text-[30rpx] text-foreground font-medium mb-[8rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+                <View className="flex-1 ml-[18rpx] min-w-0">
+                  <Text className="block text-[32rpx] text-[var(--color-agent-name)] overflow-hidden text-ellipsis whitespace-nowrap">
                     {agent.agent_name || tt('developer.index.unnamedAgent', '未命名智能体')}
                   </Text>
                   {agent.prologue ? (
-                    <Text className="block text-[24rpx] text-muted-foreground mb-[8rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+                    <Text className="block text-[24rpx] text-[var(--color-text-medium)] leading-[36rpx] mt-[8rpx] [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden">
                       {agent.prologue}
                     </Text>
                   ) : null}
-                  <Text className="text-[24rpx] text-muted-foreground">
+                  <Text className="text-[24rpx] text-[var(--color-text-medium)]">
                     {tt('developer.index.typeLabel', '类型')}：{getTypeText(agent)}
                   </Text>
                 </View>
-                <View className="flex flex-col items-end gap-[12rpx] flex-shrink-0 ml-[16rpx]">
+                <View className="flex flex-col items-end gap-[10rpx] flex-shrink-0 ml-[16rpx]">
                   <Text className={agentStatusClass(agent.status ?? status)}>
                     {statusText(agent.status ?? status)}
                   </Text>
-                  <View className="flex gap-[16rpx]">
+                  <View className="flex items-center gap-[16rpx]">
+                    {/* RN setBtn: px 16rpx py 6rpx radius 6dp=12rpx bg brand(→primary) 白字 12dp=24rpx */}
                     <Text
-                      className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-primary bg-info/[0.1]"
+                      className="text-[24rpx] px-[16rpx] py-[6rpx] rounded-[12rpx] text-primary-foreground bg-primary font-medium"
                       onClick={() => onEdit(agent)}
                     >
                       {status === 2
                         ? tt('developer.index.editBtn2', '修改')
                         : tt('developer.index.editBtn', '设置')}
                     </Text>
+                    {/* RN offlineBtn: 14dp=28rpx brandAccent(→brand-orange) 下划线文字钮 */}
                     <Text
-                      className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-destructive bg-destructive/[0.1]"
+                      className="text-[28rpx] text-[var(--color-brand-orange)] font-medium underline"
                       onClick={() => onDelete(agent)}
                     >
                       {tt('developer.index.deleteBtn', '删除')}
@@ -347,7 +380,7 @@ export default function DeveloperIndex() {
             </Text>
           )}
           {list.length > 0 && !hasMore ? (
-            <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
+            <Text className="block text-center text-[24rpx] text-[var(--color-text-tertiary)] py-[16rpx]">
               {tt('developer.index.noMore', '没有更多了')}
             </Text>
           ) : null}
