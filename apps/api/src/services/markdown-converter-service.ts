@@ -23,12 +23,14 @@
  * - convertToMarkdownDetailed(path) 返回 { markdown, error? },供路由层给出具体文案
  */
 
-import { readFileSync, existsSync } from 'node:fs'
-import { extname } from 'node:path'
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs'
+import { extname, join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import { inflateRawSync } from 'node:zlib'
 import mammoth from 'mammoth'
 import * as XLSX from '@e965/xlsx'
 import { logger } from '../utils/logger.js'
+import { MAX_FILE_SIZE } from './document-parser.js'
 
 // ============================================================================
 // anydoc 主路径
@@ -39,6 +41,21 @@ interface AnydocModule {
   toMarkdown: (path: string) => Promise<string>
   toMarkdownBytes: (bytes: Uint8Array, format?: string | null) => Promise<string>
   formatFromPath: (path: string) => string | null
+  formatFromBytes: (bytes: Uint8Array) => string | null
+  toDocument: (bytes: Uint8Array, format?: string | null) => Promise<AnydocDocument>
+}
+
+/** anydoc 文档模型(与 Python 绑定字段对应)。 */
+interface AnydocAsset {
+  id: number
+  mediaType: string
+  originPart: string
+  data: Buffer
+}
+interface AnydocDocument {
+  assets: AnydocAsset[]
+  blocks: unknown[]
+  notes: unknown[]
 }
 
 /** anydoc 转换错误(带 code 的 Error)。 */
@@ -85,6 +102,52 @@ const ANYDOC_EXTS = new Set([
   '.csv',
   '.pdf',
 ])
+
+/** 支持 toDocument 文档模型的扩展名(pdf 无文档模型,仅 to_markdown 直出)。 */
+const ANYDOC_DOCUMENT_EXTS = new Set([
+  '.doc',
+  '.docx',
+  '.ppt',
+  '.pptx',
+  '.xls',
+  '.xlsx',
+  '.xlsm',
+  '.ods',
+  '.odt',
+  '.odp',
+  '.rtf',
+  '.epub',
+])
+
+/** 资产 mediaType -> 落盘扩展名(未知图片 .img,其余 .bin)。 */
+const MEDIA_EXTENSIONS: Record<string, string> = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/bmp': '.bmp',
+  'image/svg+xml': '.svg',
+  'image/tiff': '.tif',
+  'image/x-icon': '.ico',
+  'image/avif': '.avif',
+  'image/heic': '.heic',
+  'image/heif': '.heif',
+  'application/pdf': '.pdf',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/octet-stream': '.bin',
+}
+
+/** 按 MIME 推导资产落盘扩展名。 */
+function assetExtension(mediaType: string): string {
+  if (!mediaType) return '.bin'
+  const mt = mediaType.toLowerCase()
+  if (MEDIA_EXTENSIONS[mt]) return MEDIA_EXTENSIONS[mt]
+  if (mt.startsWith('image/')) return '.img'
+  if (mt.startsWith('audio/')) return '.bin'
+  return '.bin'
+}
 
 /** 把 anydoc 错误码翻译为面向用户的中文文案。 */
 function describeAnydocError(e: unknown): string {
@@ -420,9 +483,11 @@ export async function convertToMarkdownDetailed(
         if (diskExt) {
           md = await anydoc.toMarkdown(filePath)
         } else {
-          // 落盘文件无后缀:读字节,按原始文件名显式指定格式
-          const fmt = anydoc.formatFromPath(originalName ?? filePath)
-          md = await anydoc.toMarkdownBytes(new Uint8Array(readFileSync(filePath)), fmt)
+          // 落盘文件无后缀:读字节,优先 formatFromBytes 字节探测,再回退原始文件名格式
+          const bytes = new Uint8Array(readFileSync(filePath))
+          const fmt =
+            anydoc.formatFromBytes?.(bytes) ?? anydoc.formatFromPath(originalName ?? filePath) ?? null
+          md = await anydoc.toMarkdownBytes(bytes, fmt)
         }
         if (md && md.trim()) return { markdown: md }
         // 输出为空视为失败,继续降级
@@ -462,5 +527,118 @@ export async function convertToMarkdownDetailed(
 export async function convertToMarkdown(filePath: string): Promise<string> {
   const result = await convertToMarkdownDetailed(filePath)
   return result.markdown
+}
+
+// ============================================================================
+// 内嵌资产提取(extractDocumentAssets)
+// ============================================================================
+
+/** 提取出的单个资产。 */
+export interface ExtractedAsset {
+  id: number
+  mediaType: string
+  originPart: string
+  /** 落盘扩展名(不含点,根据 MIME 推导;未知图片 image)。 */
+  extension: string
+  size: number
+  /** 落盘后在 writeToDir 内的文件名(自生成 UUID,绝不复用服务器 originPart,防路径穿越)。 */
+  filename: string
+}
+
+export interface ExtractAssetsResult {
+  assets: ExtractedAsset[]
+  /** pdf 等无文档模型格式:true 且 assets 为空,供前端提示"该格式不支持内嵌图片"。 */
+  unsupported?: boolean
+  /** 失败时的中文文案。 */
+  error?: string
+}
+
+/**
+ * 提取文档内嵌图片/对象资产并落盘到 writeToDir。
+ *
+ * @param filePath 源文件磁盘路径
+ * @param originalName 原始文件名(可选;落盘名常为无后缀 UUID,用于格式判定/字节探测兜底)
+ * @param writeToDir 资产落盘目录(路由层传 UPLOAD_DIR,并据此生成公开 URL)
+ */
+export async function extractDocumentAssets(
+  filePath: string,
+  originalName?: string,
+  writeToDir?: string,
+): Promise<ExtractAssetsResult> {
+  if (!filePath || !existsSync(filePath)) {
+    return { assets: [], error: '文件不存在或路径无效' }
+  }
+  const ext = extname(originalName && extname(originalName) ? originalName : filePath).toLowerCase()
+  const diskExt = extname(filePath).toLowerCase()
+
+  // .txt/.md 等纯文本无文档模型
+  if (!ANYDOC_DOCUMENT_EXTS.has(ext) && ext !== '.pdf') {
+    return { assets: [], error: `不支持资产提取的文件类型: ${ext || '(无后缀)'}` }
+  }
+  // pdf 仅支持 to_markdown,无文档模型:明确提示不支持
+  if (ext === '.pdf') {
+    return { assets: [], unsupported: true }
+  }
+
+  const anydoc = await loadAnydoc()
+  if (!anydoc) {
+    return { assets: [], error: '文档解析引擎不可用(anydoc 模块加载失败),请检查部署依赖' }
+  }
+
+  let bytes: Buffer
+  try {
+    bytes = readFileSync(filePath)
+  } catch (e) {
+    return { assets: [], error: `文件读取失败: ${(e as Error).message}` }
+  }
+  // to_document 会全量载入内存:超出上限直接拒绝
+  if (bytes.length > MAX_FILE_SIZE) {
+    const mb = Math.floor(MAX_FILE_SIZE / 1024 / 1024)
+    return { assets: [], error: `文件超过 ${mb}MB 上限,无法提取内嵌资产` }
+  }
+
+  // 格式判定:磁盘有后缀优先;否则 formatFromBytes 字节探测;仍 null 回退原始文件名;再空则报错
+  let fmt: string | null = null
+  if (diskExt) {
+    fmt = anydoc.formatFromPath(filePath)
+  }
+  if (!fmt) {
+    fmt = anydoc.formatFromBytes?.(new Uint8Array(bytes)) ?? null
+  }
+  if (!fmt) {
+    fmt = anydoc.formatFromPath(originalName ?? filePath)
+  }
+  if (!fmt) {
+    return { assets: [], error: '无法识别文件格式,请为文件保留正确扩展名后重试' }
+  }
+
+  let doc: AnydocDocument
+  try {
+    doc = await anydoc.toDocument(new Uint8Array(bytes), fmt)
+  } catch (e) {
+    return { assets: [], error: describeAnydocError(e) }
+  }
+
+  const assets = doc.assets ?? []
+  const outDir = writeToDir
+  if (outDir && !existsSync(outDir)) mkdirSync(outDir, { recursive: true })
+
+  const out: ExtractedAsset[] = []
+  for (const a of assets) {
+    const extName = assetExtension(a.mediaType)
+    // 自生成文件名,绝不复用 originPart(其可能含路径穿越载荷)
+    const filename = `${randomUUID()}${extName}`
+    const target = outDir ? join(outDir, filename) : ''
+    if (outDir) writeFileSync(target, a.data)
+    out.push({
+      id: a.id,
+      mediaType: a.mediaType,
+      originPart: a.originPart,
+      extension: extName.replace(/^\./, '') || 'bin',
+      size: a.data?.length ?? 0,
+      filename,
+    })
+  }
+  return { assets: out }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
