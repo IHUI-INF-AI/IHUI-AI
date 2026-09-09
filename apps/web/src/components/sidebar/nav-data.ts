@@ -410,13 +410,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/models', labelKey: 'models', icon: Bot, children: MODELS_CHILDREN },
       { href: '/agents', labelKey: 'agents', icon: Bot },
       { href: '/agent-workbench', labelKey: 'agentWorkbench', icon: Activity },
-      // Agent Canvas 可视化任务编排(dynamicLabel 绕过 i18n 消息文件,直接显示英文产品名)
-      {
-        href: '/agent-canvas',
-        labelKey: 'agentCanvas',
-        icon: Network,
-        dynamicLabel: 'Agent Canvas',
-      },
+      { href: '/agent-canvas', labelKey: 'agentCanvas', icon: Network },
       {
         href: '/ai-world',
         labelKey: 'aiWorld',
