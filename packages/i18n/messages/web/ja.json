@@ -1936,7 +1936,7 @@
           "noData": "がありません",
           "noPaperSelected": "にをしてください",
           "optionsJsonError": "JSONエラー：{msg}",
-          "optionsPlaceholder": "[{\"key\":\"A\",\"text\":\"1\"}]",
+          "optionsPlaceholder": "['{'\"key\":\"A\",\"text\":\"1\"'}']",
           "paperRequired": "にをしてください",
           "save": "保存",
           "selectPaper": "を",
@@ -1968,7 +1968,7 @@
           "noDataWithType": "{type}がありません",
           "optionsJson": "(JSON)",
           "optionsJsonError": "JSONエラー：{message}",
-          "optionsPlaceholder": "[{\"key\":\"A\",\"text\":\"1\"}]",
+          "optionsPlaceholder": "['{'\"key\":\"A\",\"text\":\"1\"'}']",
           "paperRequired": "にをしてください",
           "save": "保存",
           "score": "スコア",
@@ -4702,7 +4702,8 @@
           "salesInvalid": "販売数は負の値にできません",
           "stockInvalid": "在庫は負の値にできません",
           "typeRequired": "商品タイプを入力してください"
-        }
+        },
+        "exportBtn": "エクスポート"
       },
       "withdrawals": {
         "allStatus": "すべてのステータス",
@@ -4895,7 +4896,7 @@
       "exportSuccess": "エクスポート成功",
       "exportTab": "エクスポート",
       "importFailed": "失敗 {count} 件",
-      "importHint": "JSONファイルを選択してスキルをインポート（ファイル形式: { skills: [...] }）",
+      "importHint": "JSONファイルを選択してスキルをインポート（ファイル形式: '{' skills: [...] '}'）",
       "importPartial": "インポート完了:成功 {success} 件、失敗 {failed} 件",
       "importSuccess": "インポート成功 {count} 件のスキル",
       "importTab": "インポート",
@@ -6204,7 +6205,7 @@
       "colType": "タイプ",
       "config": "設定",
       "configHint": "有効な JSON オブジェクトを入力してください",
-      "configPlaceholder": "'{'\"host\": \"smtp.example.com\", \"port\": 587'}'",
+      "configPlaceholder": "'''{'''\"host\": \"smtp.example.com\", \"port\": 587'''}'''",
       "confirmDelete": "削除の確認",
       "createChannel": "新規チャネル",
       "delete": "削除",
@@ -6961,7 +6962,12 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -6978,7 +6984,12 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -7605,7 +7616,7 @@
     "importJsonEmpty": "JSONデータを貼り付けてください",
     "importJsonInvalid": "JSON形式が無効です",
     "importNameRequired": "name フィールドがありません",
-    "importPlaceholder": "'{'\n  \"name\": \"my-skill\",\n  \"description\": \"...\",\n  \"icon\": \"wand2\",\n  \"category\": \"ai-top\",\n  \"tags\": [],\n  \"promptTemplate\": \"...\",\n  \"sourceUrl\": \"\"\n'}'",
+    "importPlaceholder": "'''{'''\n  \"name\": \"my-skill\",\n  \"description\": \"...\",\n  \"icon\": \"wand2\",\n  \"category\": \"ai-top\",\n  \"tags\": [],\n  \"promptTemplate\": \"...\",\n  \"sourceUrl\": \"\"\n'''}'''",
     "importSuccess": "{name} をインポートしました",
     "importTitle": "AIスキルをインポート",
     "importing": "インポート中…",
@@ -8957,32 +8968,58 @@
     "commands": {
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"],
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI", "chat"],
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"],
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search", "search"],
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"],
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ],
         "label": "設定"
       }
     },
@@ -9168,7 +9205,11 @@
     "forbidden": "禁止访问",
     "forgotPassword": "忘记密码",
     "login": "登录",
-    "status": "状态"
+    "status": "状态",
+    "export": "エクスポート",
+    "add": "追加",
+    "submit": "送信",
+    "error": "エラー"
   },
   "contactPage": {
     "addressTitle": "会社住所",
@@ -9596,7 +9637,7 @@
   "developerPricingPage": {
     "cardDesc": "モデル価格と課金ルール",
     "cardLabel": "API 価格",
-    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      { \"role\": \"user\", \"content\": \"こんにちは、自己紹介してください\" }\n    ],\n    \"temperature\": 0.7\n  }'",
+    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '''{'\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      '{' \"role\": \"user\", \"content\": \"こんにちは、自己紹介してください\" '}'\n    ],\n    \"temperature\": 0.7\n  '}'''",
     "codeNode": "import OpenAI from 'openai'\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: 'https://api.ihui-ai.com/v1',\n})\n\nconst completion = await client.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'user', content: 'こんにちは、自己紹介してください' },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// コスト追跡\nconst usage = completion.usage\nconsole.log(`使用量:${usage.total_tokens} トークン`)",
     "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"こんにちは、自己紹介してください\"},\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# コスト追跡\nusage = response.usage\nprint(f\"使用量:{usage.total_tokens} トークン\")",
     "colCurrency": "通貨",
@@ -10809,25 +10850,37 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"],
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"],
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"],
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"],
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -10961,19 +11014,31 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -11326,7 +11391,8 @@
     "failed": "送信に失敗しました、後でもう一度お試しください",
     "content": "フィードバック内容",
     "contact": "連絡先",
-    "submit": "送信"
+    "submit": "送信",
+    "subtitle": "お客様のフィードバックは製品の改善に役立ちます。"
   },
   "fields": {
     "applyTime": "申請時間",
@@ -11641,7 +11707,10 @@
     "toc": "目次",
     "updatedAt": "しいしい",
     "viewCount": "{count}",
-    "loading": "読み込み中..."
+    "loading": "読み込み中...",
+    "subtitle": "ガイド・よくある質問・ヘルプ記事を探す",
+    "searchPlaceholder": "ヘルプ記事を検索",
+    "allArticles": "すべての記事"
   },
   "home": {
     "announcement": {
@@ -13465,7 +13534,15 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -14219,17 +14296,17 @@
         "enterprise": {
           "description": "200M トークン枠、専用モデルチャネル、無制限 API トークン、専任アカウントマネージャー、永久ログ、SLA 99.95%。",
           "name": "エンタープライズ",
-          "price": 999
+          "price": "999"
         },
         "pro": {
           "description": "15M トークン枠、全モデル、20 個の API トークン、優先サポート、90 日間の呼び出しログ。",
           "name": "プロ",
-          "price": 99
+          "price": "99"
         },
         "starter": {
           "description": "1M トークン枠、基本モデル、5 個の API トークン、コミュニティサポート。",
           "name": "スターター",
-          "price": 9.9
+          "price": "9.9"
         }
       }
     },
@@ -16573,7 +16650,12 @@
   },
   "searchHistory": {
     "clearAll": "クリアて",
-    "subtitle": "のなドキュメントとAPIリファレンス"
+    "subtitle": "のなドキュメントとAPIリファレンス",
+    "title": "検索履歴",
+    "loading": "読み込み中...",
+    "empty": "検索履歴はありません",
+    "resultCount": "検索結果 {count} 件",
+    "delete": "削除"
   },
   "securityAuditPage": {
     "colDesc": "説明",
@@ -17275,7 +17357,31 @@
     "version": "バージョン",
     "usageRules": "利用規約",
     "notificationsLoadFailed": "設定の読み込みに失敗しました",
-    "privacyLoadFailed": "設定の読み込みに失敗しました"
+    "privacyLoadFailed": "設定の読み込みに失敗しました",
+    "accountDeletionCancelSuccess": "アカウント削除をキャンセルしました",
+    "accountDeletionStatusScheduled": "アカウント削除が予約されました",
+    "accountDeletionConfirm": "アカウント削除の確認",
+    "accountDeletionPhoneLabel": "電話番号",
+    "accountDeletionSubmitting": "送信中...",
+    "connectedAccountsUnbind": "連携解除",
+    "connectedAccountsBind": "連携する",
+    "connectedAccountsLoading": "読み込み中...",
+    "connectedAccountsCancel": "キャンセル",
+    "exportJsonDesc": "プロフィールやチャット履歴などの JSON ファイルをエクスポート",
+    "download": "ダウンロード",
+    "exportRecreate": "再生成",
+    "notificationsSaveSuccess": "通知設定を保存しました",
+    "notificationsDesc": "アプリ内・メール通知の設定",
+    "emailNotifDesc": "重要な通知をメールで受け取る",
+    "themeLight": "ライト",
+    "themeDark": "ダーク",
+    "langEn": "English",
+    "preferencesDesc": "テーマ・言語・通知などの共通設定",
+    "sidebar": "サイドバー",
+    "privacySaveSuccess": "プライバシー設定を保存しました",
+    "adTrackingDesc": "広告配信と効果測定を許可",
+    "personalizedRecommendationDesc": "利用状況に基づくパーソナライズ推奨",
+    "privacyDesc": "データ共有とパーソナライズを管理"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 生成",
@@ -18014,7 +18120,7 @@
       "itemReviewed": "IHUI AI スマートカスタマーサービス Agent",
       "reviewBody": "IHUI AI スマートカスタマーサービスを 3 ヶ月導入した結果、人間の日次対応件数は 800 から 240 へ減少(70% 削減)。夜間・休日の問い合わせは 100% AI が対応し、顧客満足度は 4.1 から 4.7 へ上昇。ナレッジベースが WeChat/Web/ミニプログラム全チャネルで回答を一貫させ、複雑ケースは AI 提案付きでシームレスに人間へエスカレーション。サポートチームは本来判断力を要するチケットに集中できるようになりました。",
       "reviewRating": {
-        "ratingValue": 4.8
+        "ratingValue": "4.8"
       }
     }
   },
@@ -18113,7 +18219,10 @@
       },
       "title": "通知",
       "viewList": "リストビュー",
-      "viewTimeline": "タイムラインビュー"
+      "viewTimeline": "タイムラインビュー",
+      "unreadCount": "{count} 件の未読",
+      "loading": "読み込み中...",
+      "noData": "メッセージはありません"
     },
     "profile": {
       "accountInfo": "アカウント",
@@ -18211,7 +18320,8 @@
       "sourcePC": "ＰＣ",
       "subtitle": "より多くの機能を利用するために実名認証を完了してください",
       "success": "のにしました",
-      "title": "実名認証"
+      "title": "実名認証",
+      "loading": "読み込み中..."
     },
     "resource": {
       "empty": "データがありません",
@@ -18285,7 +18395,12 @@
       "renewNow": "すぐ",
       "renewTitle": "サブスクリプション",
       "success": "にしました",
-      "wechat": "微信支付"
+      "wechat": "微信支付",
+      "title": "サブスクリプション",
+      "subtitle": "会員サブスクリプションを管理",
+      "loading": "読み込み中...",
+      "activated": "有効",
+      "notSubscribed": "未購読"
     },
     "subtitle": "個人情報、コンテンツ、インタラクションを管理",
     "title": "個人センター"
@@ -20875,17 +20990,30 @@
   "legal": {
     "title": "法律信息",
     "serviceSpecificTerms": {
-      "title": "服务特定条款"
+      "title": "服务特定条款",
+      "lastUpdated": "最終更新"
     },
     "supportedRegions": {
-      "title": "支持地区"
+      "title": "支持地区",
+      "lastUpdated": "最終更新",
+      "intro": "当社のサービスの提供範囲は、各国・地域の現地の法令により異なる場合があります。詳細は以下の通りです。",
+      "supportedTitle": "対応地域",
+      "restrictedTitle": "制限地域",
+      "restrictedIntro": "以下の地域のユーザーは本サービスの一部または全部をご利用いただけない場合があります。",
+      "paymentTitle": "お支払い方法",
+      "paymentIntro": "対応するお支払い方法は地域によって異なる場合があります。",
+      "languageTitle": "表示言語",
+      "languageIntro": "本サービスは複数の表示言語に対応しており、表示言語はお住まいの地域によって異なる場合があります。"
     },
     "terms": {
-      "title": "服务条款"
+      "title": "服务条款",
+      "lastUpdated": "最終更新"
     },
     "usagePolicy": {
-      "title": "使用政策"
-    }
+      "title": "使用政策",
+      "lastUpdated": "最終更新"
+    },
+    "backToHome": "ホームに戻る"
   },
   "mcpProjects": {
     "title": "MCP 项目",
@@ -21058,34 +21186,41 @@
     "refresh": "更新",
     "notFound": "声紋が見つかりません"
   },
-    "webToolsPage": {
-      "title": "ウェブツール",
-      "subtitle": "URL を貼り付けて本文を読み取り / サイトマップ生成 / フィールド抽出(Firecrawl 融合)。",
-      "tool_fetch_readable": "本文読取",
-      "tool_map_site": "サイトマップ",
-      "tool_extract_web": "構造化抽出",
-      "urlPlaceholder": "https://example.com/page",
-      "run": "実行",
-      "running": "実行中...",
-      "maxChars": "最大文字数",
-      "includeLinks": "リンクを保持",
-      "maxLinks": "最大リンク数",
-      "sameDomainOnly": "同ドメインのみ",
-      "fieldsLabel": "フィールド schema(1 行に 1 個:名前:型)",
-      "fieldsPlaceholder": "title: string\nprice: number",
-      "fieldsHint": "抽出は LLM 優先(失敗時ヒューリスティックにフォールバック)。見つからない項目は結果に含まれません。",
-      "errorRequired": "対象 URL を入力してください",
-      "errorFields": "schema 書式エラー:各行は 名前:型",
-      "errorFailed": "ツール実行に失敗しました",
-      "copy": "コピー",
-      "copied": "コピー済み",
-      "metaRendered": "JS 描画済み",
-      "metaTruncated": "切り詰め済み",
-      "metaSourceLlm": "LLM 抽出",
-      "metaSourceHeuristic": "ヒューリスティック抽出",
-      "metaTokens": "トークン {total}(入力 {prompt} / 出力 {completion})",
-      "field": "フィールド",
-      "value": "値",
-      "confidence": "信頼度"
-    }
+  "webToolsPage": {
+    "title": "ウェブツール",
+    "subtitle": "URL を貼り付けて本文を読み取り / サイトマップ生成 / フィールド抽出(Firecrawl 融合)。",
+    "tool_fetch_readable": "本文読取",
+    "tool_map_site": "サイトマップ",
+    "tool_extract_web": "構造化抽出",
+    "urlPlaceholder": "https://example.com/page",
+    "run": "実行",
+    "running": "実行中...",
+    "maxChars": "最大文字数",
+    "includeLinks": "リンクを保持",
+    "maxLinks": "最大リンク数",
+    "sameDomainOnly": "同ドメインのみ",
+    "fieldsLabel": "フィールド schema(1 行に 1 個:名前:型)",
+    "fieldsPlaceholder": "title: string\nprice: number",
+    "fieldsHint": "抽出は LLM 優先(失敗時ヒューリスティックにフォールバック)。見つからない項目は結果に含まれません。",
+    "errorRequired": "対象 URL を入力してください",
+    "errorFields": "schema 書式エラー:各行は 名前:型",
+    "errorFailed": "ツール実行に失敗しました",
+    "copy": "コピー",
+    "copied": "コピー済み",
+    "metaRendered": "JS 描画済み",
+    "metaTruncated": "切り詰め済み",
+    "metaSourceLlm": "LLM 抽出",
+    "metaSourceHeuristic": "ヒューリスティック抽出",
+    "metaTokens": "トークン {total}(入力 {prompt} / 出力 {completion})",
+    "field": "フィールド",
+    "value": "値",
+    "confidence": "信頼度"
+  },
+  "earnings": {
+    "title": "収益",
+    "subtitle": "収益の明細と精算を確認",
+    "configureByok": "BYOK を設定",
+    "configureByokDesc": "独自の API キー（BYOK）を使用してコストを削減し、利用上限を引き上げます。",
+    "loading": "読み込み中..."
+  }
 }

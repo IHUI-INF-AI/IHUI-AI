@@ -3399,3 +3399,13 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-09) **agent_step_recorder 归一化保留 model**:`_normalize_step` 此前丢弃 model 字段导致账本侧 `s.get("model")` 永远为空,补 `"model"` 归一化项。
 - [x] ✅(2026-09-09) **extract_web 降级费用可见性**:`_extract_via_llm` 全 null/非 JSON/空回复时不再返回 None 丢弃 usage,改为 `{fields:{}, usage, model}`;extract_web 降级启发式时结果带 `llm_usage/llm_model/llm_fallback`(网关异常仍无 usage 不带)。花了的钱不允许凭空消失。
 - [x] ✅(2026-09-09) **验证**:专项 test_tool_llm_usage_accounting(映射 3 态/管线兜底 2 态/recorder→ledger 端到端)+ web_crawl_tools 语义更新用例;专项+记账回归 103 passed;受影响模块定向回归(agent_loop_v2/conversation/step_evidence/step_recorder/cost_accounting/mcp_server/capability_market/web_tools_router/document_tools/media_tasks)366 passed。
+
+## F6-F8 第六轮:全站 i18n 根治——构建期 INVALID_MESSAGE 清零(2026-09-09 完成 ✅)
+
+> 触发:用户要求"完美细致完整毫无遗漏"。第六轮发现前五轮 i18n 对账只覆盖了 media-tasks/voices 两页,存在系统性盲区:① 对账脚本对含点键只查字面量不递归解析嵌套(大量误报);② 构建日志 web-build-20260909-2/3/4 连续出现 8/8/4 次 next-intl INVALID_MESSAGE,五轮均未追查。本轮全站根治。
+
+- [x] ✅(2026-09-09) **全站 i18n 精确审计脚本**:变量名配对 useTranslations('ns') × t('key') 字面量 × 五语,正确递归解析点分嵌套路径 + NON-LEAF(对象被当字符串调)检测;覆盖 apps/web/app 全部 page/layout、apps/miniapp-taro/src、packages/ui-react+app(shared 消息消费方)。终态:web 0 缺失 0 非叶,taro 0 问题,shared 0 问题(扫 7280 文件)。
+- [x] ✅(2026-09-09) **补齐真实缺失键**:修正审计后真实缺失 320 (键×语言) 组合,经 4 个并行 agent 分域翻译(adminTools/admin/models/user/publish/settings/edu 系/realname 实名认证/oAuthCallbackPage 等 20+ 域),保序合并只新增不覆盖既有值(kept_existing 812 处差值一律保留线上既有译文)。
+- [x] ✅(2026-09-09) **ICU 裸花括号根治(INVALID_MESSAGE 真凶)**:6 个消息值含裸 `{`/`}`(aiSkillsPage.importPlaceholder、developerPricingPage.codeCurl、admin.edu.exam 两个 optionsPlaceholder、admin.skillBatch.importHint、adminTools.notificationChannels.configPlaceholder),ICU 解析必炸;已按 ICU 引号规则转义('{'/'}')× 五语,构建日志 INVALID_MESSAGE 8 → 0。
+- [x] ✅(2026-09-09) **两处 NON-LEAF 代码修复**:models/prompts 页 t('prompts.history')(对象)改 t('prompts.history.title');admin/shop/products 页导出按钮 t('products.export')(列头映射对象)改新增叶键 products.exportBtn(导出/匯出/Export/エクスポート/내보내기)。
+- [x] ✅(2026-09-09) **验证**:web tsc 0 错误;重建后 INVALID_MESSAGE 0;消息文件统一序列化(保序+短数组紧凑),JSON 五语全部合法;提交推送三仓。

@@ -1936,7 +1936,7 @@
           "noData": "暫無題目",
           "noPaperSelected": "請先選擇試卷",
           "optionsJsonError": "選項JSON錯誤：{msg}",
-          "optionsPlaceholder": "[{\"key\":\"A\",\"text\":\"選項一\"}]",
+          "optionsPlaceholder": "['{'\"key\":\"A\",\"text\":\"選項一\"'}']",
           "paperRequired": "請先選擇試卷",
           "save": "保存",
           "selectPaper": "選擇試卷",
@@ -1968,7 +1968,7 @@
           "noDataWithType": "暫無{type}",
           "optionsJson": "選項 (JSON)",
           "optionsJsonError": "選項JSON錯誤：{message}",
-          "optionsPlaceholder": "[{\"key\":\"A\",\"text\":\"選項一\"}]",
+          "optionsPlaceholder": "['{'\"key\":\"A\",\"text\":\"選項一\"'}']",
           "paperRequired": "請先選擇試卷",
           "save": "保存",
           "score": "分值",
@@ -4702,7 +4702,8 @@
           "salesInvalid": "銷量不能為負數",
           "stockInvalid": "庫存不能為負數",
           "typeRequired": "請輸入商品類型"
-        }
+        },
+        "exportBtn": "匯出"
       },
       "withdrawals": {
         "allStatus": "全部狀態",
@@ -4895,7 +4896,7 @@
       "exportSuccess": "導出成功",
       "exportTab": "導出",
       "importFailed": "失敗 {count} 個",
-      "importHint": "選擇 JSON 文件導入技能(文件格式: { skills: [...] })",
+      "importHint": "選擇 JSON 文件導入技能(文件格式: '{' skills: [...] '}')",
       "importPartial": "導入完成:成功 {success} 個,失敗 {failed} 個",
       "importSuccess": "成功導入 {count} 個技能",
       "importTab": "導入",
@@ -6204,7 +6205,7 @@
       "colType": "類型",
       "config": "配置",
       "configHint": "請輸入有效的 JSON 對象",
-      "configPlaceholder": "'{'\"host\": \"smtp.example.com\", \"port\": 587'}'",
+      "configPlaceholder": "'''{'''\"host\": \"smtp.example.com\", \"port\": 587'''}'''",
       "confirmDelete": "確認刪除",
       "createChannel": "新建渠道",
       "delete": "刪除",
@@ -6961,7 +6962,12 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -6978,7 +6984,12 @@
         "考試焦慮",
         "家庭環境影響"
       ],
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"]
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ]
     },
     "result": {
       "failed": "AI 分析失敗",
@@ -7605,7 +7616,7 @@
     "importJsonEmpty": "請粘貼 JSON 數據",
     "importJsonInvalid": "JSON 格式無效",
     "importNameRequired": "缺少 name 字段",
-    "importPlaceholder": "'{'\n  \"name\": \"my-skill\",\n  \"description\": \"...\",\n  \"icon\": \"wand2\",\n  \"category\": \"ai-top\",\n  \"tags\": [],\n  \"promptTemplate\": \"...\",\n  \"sourceUrl\": \"\"\n'}'",
+    "importPlaceholder": "'''{'''\n  \"name\": \"my-skill\",\n  \"description\": \"...\",\n  \"icon\": \"wand2\",\n  \"category\": \"ai-top\",\n  \"tags\": [],\n  \"promptTemplate\": \"...\",\n  \"sourceUrl\": \"\"\n'''}'''",
     "importSuccess": "已導入 {name}",
     "importTitle": "導入 AI Skill",
     "importing": "導入中…",
@@ -8957,32 +8968,58 @@
     "commands": {
       "ai-world": {
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI", "chat"],
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 對話"
       },
       "drama": {
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "視頻", "AI", "drama"],
+        "keywords": [
+          "短劇",
+          "視頻",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短劇"
       },
       "profile": {
         "description": "管理個人資料和設置",
-        "keywords": ["個人", "資料", "設置"],
+        "keywords": [
+          "個人",
+          "資料",
+          "設置"
+        ],
         "label": "個人中心"
       },
       "search": {
         "description": "全局內容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系統偏好與配置",
-        "keywords": ["設置", "偏好", "配置"],
+        "keywords": [
+          "設置",
+          "偏好",
+          "配置"
+        ],
         "label": "系統設置"
       }
     },
@@ -9168,7 +9205,11 @@
     "forbidden": "禁止訪問",
     "forgotPassword": "忘記密碼",
     "login": "登錄",
-    "status": "狀態"
+    "status": "狀態",
+    "export": "匯出",
+    "add": "新增",
+    "submit": "提交",
+    "error": "錯誤"
   },
   "contactPage": {
     "addressTitle": "公司地址",
@@ -9596,7 +9637,7 @@
   "developerPricingPage": {
     "cardDesc": "模型價格與計費規則",
     "cardLabel": "API 定價",
-    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      { \"role\": \"user\", \"content\": \"你好,介紹一下自己\" }\n    ],\n    \"temperature\": 0.7\n  }'",
+    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '''{'\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      '{' \"role\": \"user\", \"content\": \"你好,介紹一下自己\" '}'\n    ],\n    \"temperature\": 0.7\n  '}'''",
     "codeNode": "import OpenAI from 'openai'\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: 'https://api.ihui-ai.com/v1',\n})\n\nconst completion = await client.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'user', content: '你好,介紹一下自己' },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// 費用追蹤\nconst usage = completion.usage\nconsole.log(`本次消耗:${usage.total_tokens} tokens`)",
     "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"你好,介紹一下自己\"},\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# 費用追蹤\nusage = response.usage\nprint(f\"本次消耗:{usage.total_tokens} tokens\")",
     "colCurrency": "貨幣",
@@ -10809,25 +10850,37 @@
       "quadrants": [
         {
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"],
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "復雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"],
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顧問"
         },
         {
           "description": "簡單決策 + 復雜執行,處理跨系統復雜任務",
-          "examples": ["會議安排", "審批流程"],
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ],
           "tag": "Q3",
           "title": "執行專家"
         },
         {
           "description": "復雜決策 + 復雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"],
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ],
           "tag": "Q4",
           "title": "全能專家"
         }
@@ -10961,19 +11014,31 @@
       "items": [
         {
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"],
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"],
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ],
           "tag": "MODULE 02",
           "title": "線上社群"
         },
         {
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"],
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ],
           "tag": "MODULE 03",
           "title": "AI專業服務"
         }
@@ -11326,7 +11391,8 @@
     "content": "回饋內容",
     "contact": "聯絡方式",
     "submitting": "提交中…",
-    "submit": "提交"
+    "submit": "提交",
+    "subtitle": "您的回饋將幫助我們持續改善產品"
   },
   "fields": {
     "applyTime": "申請時間",
@@ -11641,7 +11707,10 @@
     "updatedAt": "更新於",
     "viewCount": "{count} 次瀏覽",
     "title": "說明中心",
-    "loading": "載入中..."
+    "loading": "載入中...",
+    "subtitle": "尋找使用指南、常見問題與幫助文章",
+    "searchPlaceholder": "搜尋幫助文章",
+    "allArticles": "全部文章"
   },
   "home": {
     "announcement": {
@@ -13465,7 +13534,15 @@
       "title": "Top 5 頁面",
       "visitsHeader": "訪問數"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -14201,7 +14278,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社區支持"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社區支持"
+        ]
       }
     },
     "productSchema": {
@@ -14214,17 +14296,17 @@
         "enterprise": {
           "description": "200M tokens 額度,專屬模型通道,無限 API 令牌,專屬客戶經理,調用日誌永久,SLA 99.95%。",
           "name": "企業包",
-          "price": 999
+          "price": "999"
         },
         "pro": {
           "description": "15M tokens 額度,全部模型可用,20 個 API 令牌,優先技術支持,調用日誌 90 天。",
           "name": "專業包",
-          "price": 99
+          "price": "99"
         },
         "starter": {
           "description": "1M tokens 額度,基礎模型可用,5 個 API 令牌,社區支持。",
           "name": "入門包",
-          "price": 9.9
+          "price": "9.9"
         }
       }
     },
@@ -15392,12 +15474,24 @@
       "enterprise": {
         "contactSales": "聯系銷售",
         "cta": "聯系銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "審計日誌", "專屬技術支持"],
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "審計日誌",
+          "專屬技術支持"
+        ],
         "name": "企業版"
       },
       "free": {
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個客戶端", "API 訪問", "社區支持"],
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個客戶端",
+          "API 訪問",
+          "社區支持"
+        ],
         "name": "免費版"
       },
       "pro": {
@@ -16556,7 +16650,12 @@
   },
   "searchHistory": {
     "clearAll": "清空",
-    "subtitle": "最近的搜索記錄"
+    "subtitle": "最近的搜索記錄",
+    "title": "搜尋紀錄",
+    "loading": "載入中...",
+    "empty": "暫無搜尋紀錄",
+    "resultCount": "共 {count} 筆",
+    "delete": "刪除"
   },
   "securityAuditPage": {
     "colDesc": "描述",
@@ -16690,7 +16789,13 @@
     "cards": {
       "consulting": {
         "desc": "架構諮詢 / 技術選型 / 代碼 review",
-        "features": ["視頻會議 / 遠程桌面", "2 小時起", "故障排查", "增值稅發票", "響應 SLA 24h"],
+        "features": [
+          "視頻會議 / 遠程桌面",
+          "2 小時起",
+          "故障排查",
+          "增值稅發票",
+          "響應 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技術諮詢",
         "unit": "/小時"
@@ -17252,7 +17357,31 @@
     "usageRules": "使用規範",
     "connectedAccountsUnbindSuccess": "解綁成功",
     "notificationsLoadFailed": "通知加載失敗",
-    "privacyLoadFailed": "隱私設置加載失敗"
+    "privacyLoadFailed": "隱私設置加載失敗",
+    "accountDeletionCancelSuccess": "註銷申請已取消",
+    "accountDeletionStatusScheduled": "帳號註銷已預約",
+    "accountDeletionConfirm": "確認註銷帳號",
+    "accountDeletionPhoneLabel": "手機號",
+    "accountDeletionSubmitting": "提交中...",
+    "connectedAccountsUnbind": "解除綁定",
+    "connectedAccountsBind": "綁定",
+    "connectedAccountsLoading": "載入中...",
+    "connectedAccountsCancel": "取消",
+    "exportJsonDesc": "匯出個人資料、聊天記錄等資料的 JSON 檔案",
+    "download": "下載",
+    "exportRecreate": "重新產生",
+    "notificationsSaveSuccess": "通知設定已儲存",
+    "notificationsDesc": "管理站內與郵件通知偏好",
+    "emailNotifDesc": "透過郵件接收重要通知",
+    "themeLight": "淺色",
+    "themeDark": "深色",
+    "langEn": "English",
+    "preferencesDesc": "主題、語言與通知等通用偏好",
+    "sidebar": "側邊欄",
+    "privacySaveSuccess": "隱私設定已儲存",
+    "adTrackingDesc": "允許廣告投放與效果衡量",
+    "personalizedRecommendationDesc": "根據你的行為推薦個人化內容",
+    "privacyDesc": "管理資料共享與個人化推薦"
   },
   "shareContentPage": {
     "aiGenerated": "智匯 AI 生成",
@@ -17991,7 +18120,7 @@
       "itemReviewed": "智匯 AI 智能客服 Agent",
       "reviewBody": "接入智匯 AI 智能客服 3 個月,人工客服日均接待量從 800 降至 240(降幅 70%),夜間與節假日諮詢 100% 由 AI 處理,客戶滿意度從 4.1 提升到 4.7。統一知識庫讓所有渠道(微信/網頁/小程序)答案一致,人機協同把復雜問題無縫轉人工並附 AI 推薦答復,客服團隊終於把時間花在真正需要判斷力的工單上。",
       "reviewRating": {
-        "ratingValue": 4.8
+        "ratingValue": "4.8"
       }
     }
   },
@@ -18090,7 +18219,10 @@
       },
       "title": "消息通知",
       "viewList": "列表視圖",
-      "viewTimeline": "時間線視圖"
+      "viewTimeline": "時間線視圖",
+      "unreadCount": "{count} 則未讀",
+      "loading": "載入中...",
+      "noData": "暫無訊息"
     },
     "profile": {
       "accountInfo": "賬號信息",
@@ -18188,7 +18320,8 @@
       "sourcePC": "PC",
       "subtitle": "完成實名認證以解鎖更多功能",
       "success": "實名認證已提交，請等待審核",
-      "title": "實名認證"
+      "title": "實名認證",
+      "loading": "載入中..."
     },
     "resource": {
       "empty": "目前還沒有數據",
@@ -18262,7 +18395,12 @@
       "renewNow": "立即續費",
       "renewTitle": "續費訂閱",
       "success": "續費請求已發起",
-      "wechat": "微信支付"
+      "wechat": "微信支付",
+      "title": "訂閱",
+      "subtitle": "管理你的會員訂閱",
+      "loading": "載入中...",
+      "activated": "已啟用",
+      "notSubscribed": "未訂閱"
     },
     "subtitle": "管理個人信息、內容與互動",
     "title": "個人中心"
@@ -20852,17 +20990,30 @@
   "legal": {
     "title": "法律信息",
     "serviceSpecificTerms": {
-      "title": "服務特定條款"
+      "title": "服務特定條款",
+      "lastUpdated": "最近更新"
     },
     "supportedRegions": {
-      "title": "支援的國家與地區"
+      "title": "支援的國家與地區",
+      "lastUpdated": "最近更新",
+      "intro": "我們服務的可用範圍會因所在國家/地區的當地法規而有所不同，詳情如下。",
+      "supportedTitle": "支援的地區",
+      "restrictedTitle": "限制地區",
+      "restrictedIntro": "以下地區的使用者可能無法使用本服務的全部或部分功能。",
+      "paymentTitle": "支付方式",
+      "paymentIntro": "不同地區支援的支付方式可能有所不同。",
+      "languageTitle": "介面語言",
+      "languageIntro": "本服務支援多種介面語言，實際顯示語言可能因您所在地區而異。"
     },
     "terms": {
-      "title": "服務條款"
+      "title": "服務條款",
+      "lastUpdated": "最近更新"
     },
     "usagePolicy": {
-      "title": "使用政策"
-    }
+      "title": "使用政策",
+      "lastUpdated": "最近更新"
+    },
+    "backToHome": "返回首頁"
   },
   "mcpProjects": {
     "title": "MCP 項目",
@@ -21035,34 +21186,41 @@
     "refresh": "重新整理",
     "notFound": "未找到該聲紋"
   },
-    "webToolsPage": {
-      "title": "網頁工具",
-      "subtitle": "貼入 URL,一鍵讀取正文 / 產生站點地圖 / 按欄位抽取結構化資料(Firecrawl 能力融合)。",
-      "tool_fetch_readable": "讀取正文",
-      "tool_map_site": "站點地圖",
-      "tool_extract_web": "結構化抽取",
-      "urlPlaceholder": "https://example.com/page",
-      "run": "執行",
-      "running": "執行中...",
-      "maxChars": "正文字數上限",
-      "includeLinks": "保留正文連結",
-      "maxLinks": "連結數上限",
-      "sameDomainOnly": "僅同網域連結",
-      "fieldsLabel": "欄位 schema(每行一條:欄位名:類型)",
-      "fieldsPlaceholder": "title: string\nprice: number",
-      "fieldsHint": "抽取走 LLM 優先通道(失敗自動降級啟發式);找不到的欄位不會出現在結果中。",
-      "errorRequired": "請輸入目標網頁 URL",
-      "errorFields": "欄位 schema 格式有誤:每行需為 欄位名:類型",
-      "errorFailed": "工具執行失敗",
-      "copy": "複製",
-      "copied": "已複製",
-      "metaRendered": "經 JS 渲染",
-      "metaTruncated": "已截斷",
-      "metaSourceLlm": "LLM 抽取",
-      "metaSourceHeuristic": "啟發式抽取",
-      "metaTokens": "tokens {total}(入 {prompt} / 出 {completion})",
-      "field": "欄位",
-      "value": "值",
-      "confidence": "信心度"
-    }
+  "webToolsPage": {
+    "title": "網頁工具",
+    "subtitle": "貼入 URL,一鍵讀取正文 / 產生站點地圖 / 按欄位抽取結構化資料(Firecrawl 能力融合)。",
+    "tool_fetch_readable": "讀取正文",
+    "tool_map_site": "站點地圖",
+    "tool_extract_web": "結構化抽取",
+    "urlPlaceholder": "https://example.com/page",
+    "run": "執行",
+    "running": "執行中...",
+    "maxChars": "正文字數上限",
+    "includeLinks": "保留正文連結",
+    "maxLinks": "連結數上限",
+    "sameDomainOnly": "僅同網域連結",
+    "fieldsLabel": "欄位 schema(每行一條:欄位名:類型)",
+    "fieldsPlaceholder": "title: string\nprice: number",
+    "fieldsHint": "抽取走 LLM 優先通道(失敗自動降級啟發式);找不到的欄位不會出現在結果中。",
+    "errorRequired": "請輸入目標網頁 URL",
+    "errorFields": "欄位 schema 格式有誤:每行需為 欄位名:類型",
+    "errorFailed": "工具執行失敗",
+    "copy": "複製",
+    "copied": "已複製",
+    "metaRendered": "經 JS 渲染",
+    "metaTruncated": "已截斷",
+    "metaSourceLlm": "LLM 抽取",
+    "metaSourceHeuristic": "啟發式抽取",
+    "metaTokens": "tokens {total}(入 {prompt} / 出 {completion})",
+    "field": "欄位",
+    "value": "值",
+    "confidence": "信心度"
+  },
+  "earnings": {
+    "title": "收益",
+    "subtitle": "查看您的收益明細與結算情況",
+    "configureByok": "設定 BYOK",
+    "configureByokDesc": "使用您自己的 API 金鑰（BYOK）以降低成本並提升呼叫額度。",
+    "loading": "載入中..."
+  }
 }
