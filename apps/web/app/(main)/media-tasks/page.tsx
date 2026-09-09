@@ -46,6 +46,12 @@ interface MediaTaskStats {
 
 const PAGE_SIZE = 10
 
+/** 在途状态集(2026-09-09 收尾修复):与后端 _STATUS_IN_FLIGHT 保持一致,
+ *  轮询/取消按钮/状态过滤统一按此判断,不再只认 processing。 */
+const STATUS_IN_FLIGHT: readonly string[] = ['processing', 'accepted', 'submitted', 'pending']
+
+const isInFlight = (status: string): boolean => STATUS_IN_FLIGHT.includes(status)
+
 const KIND_ICONS: Record<string, typeof Film> = {
   video: Film,
   music: Music,
@@ -62,6 +68,9 @@ const KIND_CLASS: Record<string, string> = {
 
 const STATUS_CLASS: Record<string, string> = {
   processing: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  accepted: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  submitted: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  pending: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
   succeeded: 'bg-green-500/10 text-green-600 dark:text-green-400',
   failed: 'bg-red-500/10 text-red-600 dark:text-red-400',
   cancelled: 'bg-muted text-muted-foreground',
@@ -69,6 +78,9 @@ const STATUS_CLASS: Record<string, string> = {
 
 const STATUS_LABEL_KEY: Record<string, string> = {
   processing: 'statusBadgeProcessing',
+  accepted: 'statusBadgeProcessing',
+  submitted: 'statusBadgeProcessing',
+  pending: 'statusBadgeProcessing',
   succeeded: 'statusBadgeSucceeded',
   failed: 'statusBadgeFailed',
   cancelled: 'statusBadgeCancelled',
@@ -151,7 +163,7 @@ export default function MediaTasksPage() {
       ),
     refetchInterval: (q) => {
       const items = q.state.data?.data?.items ?? []
-      return items.some((task) => task.status === 'processing') ? 5000 : false
+      return items.some((task) => isInFlight(task.status)) ? 5000 : false
     },
   })
 
@@ -259,7 +271,7 @@ export default function MediaTasksPage() {
 
   const statusFilters = [
     { key: '', label: t('statusAll') },
-    { key: 'processing', label: t('statusProcessing') },
+    { key: STATUS_IN_FLIGHT.join(','), label: t('statusProcessing') },
     { key: 'succeeded', label: t('statusSucceeded') },
     { key: 'failed,cancelled', label: t('statusFailedCancelled') },
   ]
