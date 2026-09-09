@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1070852736956",
+    "project_id": "ihui-aizhs",
+    "storage_bucket": "ihui-aizhs.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1070852736956:android:7aa7a322ab483b4f43cdb9",
+        "android_client_info": {
+          "package_name": "top.aizhs.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC8KI6ExaHkel0V9OXC6PPGtNb5lhkJj8c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

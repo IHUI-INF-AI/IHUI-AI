@@ -26,6 +26,10 @@ if TYPE_CHECKING:
 
 from .exec_policy import PolicyDecision, RuleDecision, evaluate as exec_policy_evaluate
 
+# 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
+from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
+from .merge3 import merge3_for_edit
+
 # 语义压缩回捞层(只读检索工具):复用 vector_memory 单例做语义回捞
 from .context_recall import context_recall
 
@@ -266,6 +270,8 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     "configure_automation_task",
     # 2026-07-24 file_edit:写文件操作(精细编辑),必须 admin
     "file_edit",
+    # 1-2(2026-09-08):resolve_conflict 也写盘(按块落盘解决结果),必须 admin
+    "resolve_conflict",
     # computer_* 系列:控制电脑是高危操作,需 admin
     "computer_screenshot_screen", "computer_mouse_move", "computer_mouse_click",
     "computer_keyboard_type", "computer_mouse_scroll", "computer_keyboard_press",
@@ -289,6 +295,49 @@ _ADMIN_ONLY_TOOLS: set[str] = {
 def _get_agent_control_secret() -> str:
     from ..core.config import settings
     return settings.agent_control_internal_secret or os.environ.get("AGENT_CONTROL_INTERNAL_SECRET", "")
+
+# ---------------------------------------------------------------------------
+# 1-2 补丁冲突处理:文件 base 版本跟踪(3-way merge 的公共祖先)
+# ---------------------------------------------------------------------------
+# read_file / write_file / file_edit 成功后记录「agent 视角的最新内容」;
+# file_edit 匹配失败(0 命中)且 old_string 在 base 中存在时,判定为
+# 「快照之后被外部修改」→ 走 merge3 三方合并(干净合并 / 冲突块)。
+# 内存 dict(resolved_path → content),上限 256 文件(超限淘汰最旧)。
+_FILE_BASE_CONTENT: dict[str, str] = {}
+_FILE_BASE_MAX = 256
+
+
+def _normalize_eol(text: str) -> str:
+    """EOL 归一化:CRLF → LF(1-2 生产修复)。
+
+    read_file 文本模式经 universal newlines 得到 LF 视角,而 Windows
+    编辑器/工具写盘常为 CRLF;若 base(LF)与磁盘内容(CRLF)直接进
+    merge3 逐行比较,会整文件误判为单侧全改。base 存储与 merge3
+    计算统一用 LF,写盘前再按磁盘原行尾风格还原。
+    """
+    return text.replace("\r\n", "\n")
+
+
+def _restore_eol(text: str, original: str) -> str:
+    """按磁盘原行尾风格还原合并结果:原文件 CRLF 则 LF → CRLF,否则保持 LF。"""
+    if "\r\n" in original:
+        return text.replace("\r\n", "\n").replace("\n", "\r\n")
+    return text
+
+
+def _record_file_base(resolved_path: str, content: str) -> None:
+    """记录/刷新文件的 base 版本(agent 视角最新内容,统一 LF 归一化存储)。"""
+    normalized = _normalize_eol(content)
+    if resolved_path in _FILE_BASE_CONTENT:
+        _FILE_BASE_CONTENT.pop(resolved_path)
+    _FILE_BASE_CONTENT[resolved_path] = normalized
+    while len(_FILE_BASE_CONTENT) > _FILE_BASE_MAX:
+        _FILE_BASE_CONTENT.pop(next(iter(_FILE_BASE_CONTENT)))
+
+
+def _reset_file_base_store() -> None:
+    """清空 base 版本跟踪(测试隔离用)。"""
+    _FILE_BASE_CONTENT.clear()
 
 
 def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
@@ -868,6 +917,8 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
             }
         with open(resolved_path, encoding="utf-8") as f:
             content = f.read()
+        # 1-2:记录 base 版本(agent 视角),供 file_edit 3-way merge 判断并发修改
+        _record_file_base(resolved_path, content)
         return {"tool": "read_file", "path": resolved_path, "content": content, "ok": True}
     except Exception as e:
         return {"tool": "read_file", "path": resolved_path, "content": "", "ok": False, "error": str(e)}
@@ -929,6 +980,8 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
     try:
         with open(resolved_path, "w", encoding="utf-8") as f:
             f.write(content)
+        # 1-2:写盘后刷新 base(agent 视角最新内容)
+        _record_file_base(resolved_path, content)
         return {"tool": "write_file", "path": resolved_path, "bytes_written": len(content.encode("utf-8")), "ok": True}
     except Exception as e:
         return {"tool": "write_file", "path": resolved_path, "ok": False, "error": str(e)}
@@ -977,12 +1030,40 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
         return _err("BINARY_FILE", f"文件非 UTF-8: {e}")
 
     count = content.count(old_string)
+    strategy = "direct"
     if count == 0:
-        return _err("NOT_FOUND", "未找到要替换的字符串", match_count=0)
-    if not replace_all and count >= 2:
+        # 1-2 3-way merge:old_string 在磁盘内容 0 命中,但在 base(agent 上次
+        # 看到的版本)中存在 → 快照后文件被外部修改。尝试三方合并:
+        # 干净合并 → 自动应用;双侧修改冲突 → 返回 CONFLICT(不写盘),
+        # 由 resolve_conflict 工具按块决策(局部拒绝)。
+        base = _FILE_BASE_CONTENT.get(resolved_path)
+        if base is not None and old_string in base:
+            # 1-2 EOL 归一化:base 统一 LF 存储,磁盘内容归一化后参与合并,
+            # 避免 CRLF/LF 行尾差异导致整文件误判(合并结果写盘前按磁盘风格还原)
+            current_lf = _normalize_eol(content)
+            mr = merge3_for_edit(base, current_lf, old_string, new_string, replace_all=replace_all)
+            if mr.clean:
+                new_content = _restore_eol(mr.merged, content)
+                strategy = "auto_merged_3way"
+                replaced_count = base.count(old_string) if replace_all else 1
+            else:
+                return _err(
+                    "CONFLICT",
+                    (
+                        f"检测到并发修改冲突:old_string 在磁盘当前内容中 0 命中,"
+                        f"但 base 版本存在,3-way merge 产生 {mr.conflict_count()} 个冲突块"
+                        f"(文件未修改)。可调用 resolve_conflict 工具,携带相同的 "
+                        f"file_path/old_string/new_string 与 choices 数组"
+                        f"(每冲突块 'ours'=采用本次修改 / 'theirs'=保留磁盘现状)按块决策。"
+                    ),
+                    conflict_count=mr.conflict_count(),
+                    strategy="3way_merge",
+                )
+        else:
+            return _err("NOT_FOUND", "未找到要替换的字符串", match_count=0)
+    elif not replace_all and count >= 2:
         return _err("AMBIGUOUS_MATCH", f"找到 {count} 处匹配,需指定 replace_all=true 或提供更长上下文", match_count=count)
-
-    if replace_all:
+    elif replace_all:
         new_content = content.replace(old_string, new_string)
         replaced_count = count
     else:
@@ -1010,9 +1091,106 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
 
     diff = list(difflib.unified_diff(content.splitlines(keepends=True),
                 new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
+    # 1-2:写盘后刷新 base(agent 视角最新内容)
+    _record_file_base(resolved_path, new_content)
     return {"tool": "file_edit", "ok": True, "file_path": resolved_path,
             "replaced_count": replaced_count, "backup_path": backup_path,
+            "strategy": strategy,
             "diff_preview": "".join(diff[:20])}
+
+
+async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
+    """resolve_conflict:按块解决 file_edit 报告的 3-way merge 冲突(1-2 局部拒绝)。
+
+    与触发 CONFLICT 的 file_edit 携带相同 file_path/old_string/new_string;
+    choices 按冲突块顺序指定 'ours'(采用 agent 修改)/'theirs'(保留磁盘
+    现状=拒绝该块修改)。choices 不足的块缺省 'ours'。
+    """
+    def _err(code: str, msg: str, **extra: Any) -> dict[str, Any]:
+        return {"tool": "resolve_conflict", "file_path": resolved_path, "ok": False,
+                "error": msg, "errorCode": code, **extra}
+
+    path = arguments.get("file_path", "")
+    old_string = arguments.get("old_string", "")
+    new_string = arguments.get("new_string", "")
+    choices_raw = arguments.get("choices", [])
+    replace_all = bool(arguments.get("replace_all", False))
+    choices = [str(c) for c in choices_raw] if isinstance(choices_raw, list) else []
+
+    if not old_string:
+        return {"tool": "resolve_conflict", "file_path": path, "ok": False,
+                "error": "old_string 不能为空", "errorCode": "INVALID_ARGUMENT"}
+
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return {"tool": "resolve_conflict", "file_path": path, "ok": False,
+                "error": info, "errorCode": "PATH_NOT_ALLOWED"}
+    resolved_path = info
+
+    try:
+        if not os.path.isfile(resolved_path):
+            return _err("FILE_NOT_FOUND", "文件不存在")
+        if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
+            return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
+        with open(resolved_path, "rb") as f:
+            raw = f.read()
+    except OSError as e:
+        return _err("IO_ERROR", str(e))
+
+    try:
+        content = raw.decode("utf-8")
+    except (UnicodeDecodeError, ValueError) as e:
+        return _err("BINARY_FILE", f"文件非 UTF-8: {e}")
+
+    base = _FILE_BASE_CONTENT.get(resolved_path)
+    if base is None or old_string not in base:
+        return _err(
+            "NO_BASE_VERSION",
+            "无该文件的 base 版本(或 old_string 不在 base 中),无法按块解决冲突;请先 read_file 后重试 file_edit",
+        )
+
+    # 1-2 EOL 归一化:base 统一 LF 存储,磁盘内容归一化后参与合并;
+    # 结果按磁盘原行尾风格还原后写盘
+    resolved = _merge3_resolve_conflicts(
+        base, _normalize_eol(content), old_string, new_string, choices, replace_all=replace_all
+    )
+    if not resolved.get("ok"):
+        return _err("MERGE_FAILED", str(resolved.get("error", "合并失败")))
+
+    final_content = _restore_eol(str(resolved["content"]), content)
+    applied = list(resolved.get("applied", []))
+    backup_path = resolved_path + ".bak"
+    try:
+        with open(backup_path, "wb") as bf:
+            bf.write(raw)
+        with open(resolved_path, "wb") as wf:
+            wf.write(final_content.encode("utf-8"))
+    except OSError as e:
+        # 失败回滚:恢复磁盘原内容
+        try:
+            with open(resolved_path, "wb") as rf:
+                rf.write(raw)
+        except OSError:
+            pass
+        try:
+            os.remove(backup_path)
+        except OSError:
+            pass
+        return _err("IO_ERROR", str(e))
+
+    # 1-2:写盘后刷新 base(冲突已解决,agent 视角最新内容)
+    _record_file_base(resolved_path, final_content)
+    rejected = sum(1 for a in applied if a.get("choice") == "theirs")
+    return {
+        "tool": "resolve_conflict",
+        "ok": True,
+        "file_path": resolved_path,
+        "conflicts": int(resolved.get("conflicts", 0)),
+        "resolved": len(applied),
+        "rejected_hunks": rejected,
+        "backup_path": backup_path,
+        "applied_choices": applied,
+    }
 
 
 async def _drain_stream(
@@ -2715,7 +2893,7 @@ def _get_schedule_redis() -> Any:
 
         # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
         # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
-        client = redis.Redis.from_url(url, decode_responses=True, protocol=2)
+        client = redis.Redis.from_url(url, decode_responses=True, protocol=2, socket_connect_timeout=2)
         client.ping()
         _SCHEDULE_REDIS = client
         logger.info("[schedule_task] Redis 连接成功: %s", url)
@@ -2947,6 +3125,9 @@ _IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
 # 2026-09-05 video_generation(可灵/即梦真实视频任务)落地支持
 _VIDEO_EXTENSIONS = (".mp4",)
 _MAX_VIDEO_BYTES = 200 * 1024 * 1024  # 200MB
+# 音乐生成 save_path(2026-09-08 token6688 music 工具用)
+_AUDIO_EXTENSIONS = (".mp3", ".wav", ".ogg", ".flac")
+_MAX_AUDIO_BYTES = 50 * 1024 * 1024  # 50MB(Suno 风格成曲一般 3~8MB)
 
 
 def _validate_video_save_path(save_path: str) -> tuple[bool, str, str | None]:
@@ -2976,6 +3157,37 @@ async def _persist_video_to_disk(
         with open(path_obj, "wb") as f:
             f.write(video_bytes)
         return True, str(path_obj), len(video_bytes), None
+    except OSError:
+        return False, "", 0, "WRITE_FAILED"
+
+
+def _validate_audio_save_path(save_path: str) -> tuple[bool, str, str | None]:
+    """校验音频 save_path:工作区白名单 + 后缀(.mp3/.wav/.ogg/.flac)。"""
+    if not save_path or not isinstance(save_path, str):
+        return False, "", "MISSING_PARAMS"
+    ext = os.path.splitext(save_path)[1].lower()
+    if ext not in _AUDIO_EXTENSIONS:
+        return False, "", "INVALID_EXTENSION"
+    ok, info = _validate_path_in_workspace(save_path)
+    if not ok:
+        return False, info, "PATH_NOT_ALLOWED"
+    return True, info, None
+
+
+async def _persist_audio_to_disk(
+    audio_bytes: bytes, save_path: str
+) -> tuple[bool, str, int, str | None]:
+    """将音频字节写入磁盘 save_path(50MB 上限,父目录自动 mkdir)。"""
+    if len(audio_bytes) > _MAX_AUDIO_BYTES:
+        return False, "", 0, "AUDIO_TOO_LARGE"
+    try:
+        from pathlib import Path
+
+        path_obj = Path(save_path)
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+        with open(path_obj, "wb") as f:
+            f.write(audio_bytes)
+        return True, str(path_obj), len(audio_bytes), None
     except OSError:
         return False, "", 0, "WRITE_FAILED"
 
@@ -3028,11 +3240,16 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
 
     from ..core.config import settings
 
+    import os as _os
+
+    def _os_environ_get(key: str, default: str = "") -> str:
+        return _os.environ.get(key, default)
+
     prompt = arguments.get("prompt", "")
     size = arguments.get("size", "1024x1024")
     quality = arguments.get("quality", "standard")
     style = arguments.get("style", "natural")
-    provider = arguments.get("provider", "stepfun")
+    provider = arguments.get("provider")  # None=自动:token6688(已配置则首选)→ stepfun → agnes
     save_path = arguments.get("save_path")
 
     if not prompt or not isinstance(prompt, str):
@@ -3041,38 +3258,56 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
             "saved_path": None,
         }
+    stepfun_cfg = settings.get_provider_config("stepfun")
+    agnes_cfg = settings.get_provider_config("agnes")
+    t6688_cfg_probe = settings.get_provider_config("token6688")
+    t6688_key_probe = t6688_cfg_probe.api_key or _os_environ_get("TOKEN6688_API_KEY", "")
+    if provider is None:
+        # 自动选择(2026-09-08:只填 token6688 一个 key 时图片即可用)
+        if t6688_key_probe:
+            provider = "token6688"
+        elif stepfun_cfg.api_key:
+            provider = "stepfun"
+        elif agnes_cfg.api_key:
+            provider = "agnes"
+        else:
+            provider = "stepfun"
     # 2026-09-05 真实化:kling/jimeng 走 providers 包原生真实适配器
     # (可灵 JWT / 即梦 Ark Bearer + 视觉服务 V4 签名),不走 OpenAI 风格 HTTP
     if provider in ("kling", "jimeng"):
         return await _tool_image_generation_native(prompt, provider, size, save_path, arguments)
-    if provider not in ("stepfun", "agnes"):
+    if provider not in ("stepfun", "agnes", "token6688"):
         return {
             "tool": "image_generation", "ok": False,
-            "error": f"未知 provider: {provider}(允许 stepfun/agnes/kling/jimeng)",
+            "error": f"未知 provider: {provider}(允许 stepfun/agnes/token6688/kling/jimeng)",
             "errorCode": "INVALID_PROVIDER", "saved_path": None,
         }
 
     # 选 provider(优先用户指定;若未配置 api_key 则降级尝试另一个)
     # 阶段 3 主体(2026-07-26):扁平字段已删除,统一走 get_provider_config
-    stepfun_cfg = settings.get_provider_config("stepfun")
-    agnes_cfg = settings.get_provider_config("agnes")
     if provider == "token6688":
         # 2026-09-08:Token6688 聚合网关(单 key 全模态),OpenAI images 协议
-        import os as _os
-        t6688_cfg = settings.get_provider_config("token6688")
-        t6688_base = (t6688_cfg.api_base or _os.environ.get("TOKEN6688_BASE_URL", "https://k.token6688.com")).rstrip("/")
+        t6688_base = (t6688_cfg_probe.api_base or _os_environ_get("TOKEN6688_BASE_URL", "https://k.token6688.com")).rstrip("/")
         if not t6688_base.endswith("/v1"):
             t6688_base += "/v1"
-        api_key = t6688_cfg.api_key or _os.environ.get("TOKEN6688_API_KEY", "")
+        api_key = t6688_key_probe
         api_base = t6688_base
-        model = _os.environ.get("TOKEN6688_IMAGE_MODEL", "gpt-image-1")
+        model = _os_environ_get("TOKEN6688_IMAGE_MODEL", "gpt-image-2")
     elif provider == "stepfun":
         api_key, api_base, model = stepfun_cfg.api_key, stepfun_cfg.api_base or "https://api.stepfun.com/step_plan/v1", "step-1v-8k"
     else:
         api_key, api_base, model = agnes_cfg.api_key, agnes_cfg.api_base or "https://apihub.agnes-ai.com/v1", "agnes-image-v1"
 
     if not api_key:
-        if provider == "stepfun" and agnes_cfg.api_key:
+        if provider == "token6688" and (stepfun_cfg.api_key or agnes_cfg.api_key):
+            # token6688 未配置 → 降级 stepfun → agnes
+            if stepfun_cfg.api_key:
+                api_key, api_base, model = stepfun_cfg.api_key, stepfun_cfg.api_base or "https://api.stepfun.com/step_plan/v1", "step-1v-8k"
+                provider = "stepfun"
+            else:
+                api_key, api_base, model = agnes_cfg.api_key, agnes_cfg.api_base or "https://apihub.agnes-ai.com/v1", "agnes-image-v1"
+                provider = "agnes"
+        elif provider == "stepfun" and agnes_cfg.api_key:
             api_key, api_base, model = agnes_cfg.api_key, agnes_cfg.api_base or "https://apihub.agnes-ai.com/v1", "agnes-image-v1"
             provider = "agnes"
         elif provider == "agnes" and stepfun_cfg.api_key:
@@ -3096,7 +3331,8 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
 
     endpoint = f"{api_base}/images/generations"
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        # timeout 90s:官方同步出图 40-50s 且 40s 后发保活字节,60s 会误断
+        async with httpx.AsyncClient(timeout=90.0) as client:
             resp = await client.post(
                 endpoint,
                 json={"prompt": prompt, "model": model, "size": size, "n": 1},
@@ -3110,6 +3346,16 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
                 "errorCode": "PROVIDER_ERROR",
             }
         data = resp.json()
+        # ⚠ 官方指南:同步端点 40s 后发保活字节,HTTP 状态码已固定 200,
+        # 生成失败也改不回 4xx → 必须检查 body.error(token6688)
+        body_err = data.get("error")
+        if body_err:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "saved_path": None,
+                "error": str(body_err.get("message") or body_err)[:300],
+                "errorCode": "PROVIDER_ERROR",
+            }
         items = data.get("data") or []
         if not items:
             return {
@@ -3395,6 +3641,9 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
                 prompt, str(arguments.get("model") or ""),
                 duration=duration, wait=False,
                 image=arguments.get("image"),
+                mode=arguments.get("mode") or None,
+                resolution=arguments.get("resolution") or None,
+                aspect_ratio=arguments.get("aspect_ratio") or None,
             )
         except Exception as e:  # noqa: BLE001
             # token6688 提交失败 → 落回原编排(自动降级其他厂商)
@@ -3510,6 +3759,338 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "message": f"视频已生成(provider={used_provider}, model={used_model}"
                    + (f", saved={saved_path}" if saved_path else "") + ")",
+    }
+
+
+async def _tool_music_generation(arguments: dict[str, Any]) -> dict[str, Any]:
+    """music_generation: 生成音乐(token6688 Suno 风格,2026-09-08 落地)。
+
+    复用 Token6688Provider.generate_music(POST /v1/audio/generations 扁平形状
+    → 轮询 GET /v1/tasks/{task_id} 读 output_url)。防卡死同视频模式:
+    - 提交后限时轮询(MUSIC_TOOL_WAIT_S 默认 150s,音乐官方耗时约 1~5 分钟)
+    - 窗口内完成直接返回成片;超时返回 submitted+task_id,
+      用户稍后带 task_id 再问一次即可取件(查询模式无需 prompt)
+    - 支持 mode=song/instrumental(纯音乐)、lyrics/style/title/vocal_gender
+    - 支持 save_path 下载落地(.mp3/.wav/.ogg/.flac,工作区白名单,50MB 上限)
+    未配置 token6688 key 时返回 PROVIDER_NOT_CONFIGURED,如实告知用户。
+    """
+    from datetime import datetime, timezone
+
+    prompt = arguments.get("prompt", "")
+    mode = arguments.get("mode", "song")
+    save_path = arguments.get("save_path")
+    # 查询模式:只传 task_id 不传 prompt(对话里"歌好了吗"直接取件)
+    _query_task_id = str(arguments.get("task_id") or "").strip()
+
+    if _query_task_id:
+        prompt = prompt if isinstance(prompt, str) else ""
+    elif not prompt or not isinstance(prompt, str):
+        return {
+            "tool": "music_generation", "ok": False,
+            "error": "缺少 prompt 参数(或传 task_id 查询已有任务)", "errorCode": "MISSING_PARAMS",
+            "audio_url": None,
+        }
+    if mode not in ("song", "instrumental"):
+        mode = "song"
+
+    from .video_generation import _instantiate as _video_instantiate
+    inst = _video_instantiate("token6688")
+    if inst is None:
+        return {
+            "tool": "music_generation", "ok": False,
+            "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688),音乐生成不可用",
+            "errorCode": "PROVIDER_NOT_CONFIGURED", "audio_url": None,
+        }
+
+    # ---- 查询模式 ----
+    if _query_task_id:
+        st = await inst.get_task_status(_query_task_id)
+        if st.get("ok") and st.get("video_url"):
+            return {
+                "tool": "music_generation", "ok": True, "completed": True,
+                "task_id": _query_task_id, "provider": "token6688",
+                "audio_url": st["video_url"], "status": st["status"],
+                "message": "音乐已生成完成",
+            }
+        if st.get("failed"):
+            return {
+                "tool": "music_generation", "ok": False, "task_id": _query_task_id,
+                "provider": "token6688", "audio_url": None, "status": st["status"],
+                "error": st.get("error") or "音乐任务失败", "errorCode": "TASK_FAILED",
+            }
+        return {
+            "tool": "music_generation", "ok": True, "completed": False,
+            "task_id": _query_task_id, "provider": "token6688", "audio_url": None,
+            "status": st["status"], "progress": st.get("progress"),
+            "message": f"音乐仍在生成中(status={st['status']}),请稍后再问一次(带同一 task_id)",
+        }
+
+    # ---- 提交 + 限时轮询 ----
+    try:
+        submitted = await inst.generate_music(
+            prompt,
+            mode=mode,
+            lyrics=arguments.get("lyrics"),
+            style=arguments.get("style"),
+            title=arguments.get("title"),
+            vocal_gender=arguments.get("vocal_gender"),
+            version=arguments.get("version"),
+            operation=str(arguments.get("operation") or "generate"),
+            negative_tags=arguments.get("negative_tags"),
+            model=str(arguments.get("model") or "music"),
+            wait=False,
+        )
+    except Exception as e:  # noqa: BLE001
+        return {
+            "tool": "music_generation", "ok": False, "prompt": prompt,
+            "provider": "token6688", "audio_url": None,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+        }
+    remote_id = str(submitted.get("task_id") or "")
+    if not remote_id:
+        return {
+            "tool": "music_generation", "ok": False, "prompt": prompt,
+            "provider": "token6688", "audio_url": None,
+            "error": "网关响应缺少 task_id", "errorCode": "PROVIDER_ERROR",
+        }
+
+    wait_s = max(30, int(os.environ.get("MUSIC_TOOL_WAIT_S", "150")))
+    import asyncio as _asyncio
+
+    deadline = time.monotonic() + wait_s
+    while time.monotonic() < deadline:
+        await _asyncio.sleep(5)
+        st = await inst.get_task_status(remote_id)
+        if st.get("ok") and st.get("video_url"):
+            audio_url = st["video_url"]
+            # ---- save_path 落地(可选)----
+            saved_path: str | None = None
+            file_size_bytes = 0
+            if save_path:
+                import httpx
+
+                ok_path, resolved, err_code = _validate_audio_save_path(save_path)
+                if not ok_path:
+                    return {
+                        "tool": "music_generation", "ok": True, "prompt": prompt,
+                        "provider": "token6688", "task_id": remote_id,
+                        "audio_url": audio_url, "saved_path": None,
+                        "errorCode": err_code,
+                        "message": f"音乐已生成,但 save_path 校验失败: {err_code}",
+                    }
+                audio_bytes = await _download_media_bytes(audio_url, httpx)
+                if audio_bytes is not None:
+                    ok_w, sp, sz, werr = await _persist_audio_to_disk(audio_bytes, resolved)
+                    if ok_w:
+                        saved_path, file_size_bytes = sp, sz
+            return {
+                "tool": "music_generation", "ok": True, "prompt": prompt,
+                "provider": "token6688", "model": submitted.get("model", ""),
+                "task_id": remote_id, "audio_url": audio_url,
+                "saved_path": saved_path, "file_size_bytes": file_size_bytes,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "message": "音乐生成完成"
+                           + (f",saved={saved_path}" if saved_path else ""),
+            }
+        if st.get("failed"):
+            return {
+                "tool": "music_generation", "ok": False, "prompt": prompt,
+                "provider": "token6688", "task_id": remote_id,
+                "audio_url": None, "error": st.get("error") or "音乐任务失败",
+                "errorCode": "TASK_FAILED",
+            }
+    # 超时窗口:返回 submitted+task_id,用户稍后取件(防对话卡死)
+    return {
+        "tool": "music_generation", "ok": True, "submitted": True,
+        "prompt": prompt, "provider": "token6688",
+        "model": submitted.get("model", ""), "task_id": remote_id,
+        "audio_url": None,
+        "message": (
+            f"音乐生成任务已提交(token6688 网关),官方耗时约 1~5 分钟。"
+            f"已等待 {wait_s}s 未完成——请稍后让我查询进度"
+            f"(我会用 task_id={remote_id} 拿成曲链接)。"
+            "任务已计费,请勿重复提交同一 prompt。"
+        ),
+    }
+
+
+async def _tool_token6688_model_info(arguments: dict[str, Any]) -> dict[str, Any]:
+    """token6688_model_info: 模型信息查询(估价/参数/跨渠道价;2026-09-08 文档校准新增)。
+
+    - action=estimate:提交前估价(POST /v1/pricing-estimate;参数与提交完全一致才准,
+      带参考视频必须给 video_total_duration_sec,否则估价不含参考视频费)
+    - action=params:单模型参数详情(GET /v1/skills/models/{model},免鉴权;
+      枚举合法值在 options[].value —— 发 value 不发界面显示名,否则参数不生效)
+    - action=pricing:跨渠道价格(GET /v1/skills/models/{model}/pricing,免鉴权)
+    """
+    action = str(arguments.get("action") or "estimate").lower()
+    model = str(arguments.get("model") or "").strip()
+    if not model:
+        return {
+            "tool": "token6688_model_info", "ok": False,
+            "error": "缺少 model 参数(如 seedance-2-5 / music / gpt-image-2)",
+            "errorCode": "MISSING_PARAMS",
+        }
+    from .video_generation import _instantiate as _video_instantiate
+
+    inst = _video_instantiate("token6688")
+    if inst is None:
+        return {
+            "tool": "token6688_model_info", "ok": False,
+            "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688)",
+            "errorCode": "PROVIDER_NOT_CONFIGURED",
+        }
+    try:
+        if action == "params":
+            data = await inst.get_model_params(model)
+            params_summary = []
+            for p in data.get("params") or []:
+                if not isinstance(p, dict):
+                    continue
+                opts = p.get("options") or []
+                params_summary.append({
+                    "name": p.get("name"),
+                    "label": p.get("label"),
+                    "default": next((o.get("value") for o in opts if o.get("is_default")), None),
+                    "allowed_values": [o.get("value") for o in opts],
+                })
+            return {
+                "tool": "token6688_model_info", "ok": True, "action": "params",
+                "model": model, "display_name": data.get("display_name"),
+                "capabilities": data.get("capabilities"),
+                "params": params_summary, "raw": data,
+            }
+        if action == "pricing":
+            data = await inst.get_model_pricing(model)
+            return {
+                "tool": "token6688_model_info", "ok": True, "action": "pricing",
+                "model": model, "channel_groups": data.get("channel_groups"), "raw": data,
+            }
+        if action == "estimate":
+            prompt = str(arguments.get("prompt") or "")
+            params_in = arguments.get("params") if isinstance(arguments.get("params"), dict) else {}
+            data = await inst.estimate_pricing(model, prompt, params=params_in or None)
+            return {
+                "tool": "token6688_model_info", "ok": True, "action": "estimate",
+                "model": model,
+                "effective_total_rmb": data.get("effective_total_rmb"),
+                "max_effective_total_rmb": data.get("max_effective_total_rmb"),
+                "price_basis": data.get("price_basis"),
+                "raw": data,
+            }
+        return {
+            "tool": "token6688_model_info", "ok": False,
+            "error": f"未知 action: {action}(允许 estimate/params/pricing)", "errorCode": "BAD_PARAMS",
+        }
+    except Exception as e:  # noqa: BLE001
+        return {
+            "tool": "token6688_model_info", "ok": False, "model": model,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+        }
+
+
+async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
+    """voice_tts: 文本转语音(对话内朗读/配音/播报,2026-09-08 落地)。
+
+    - engine=edge(默认):微软 edge-tts,零 key 零成本,中文质量高(白名单音色)
+    - engine=token6688:聚合网关 /v1/audio/speech(OpenAI 同构,单 key;
+      voice 可传官方音色 alloy/echo/fable/onyx/nova/shimmer 或声纹库 voice_id 克隆音色)
+    - 同步接口直接出音频,无任务轮询;audio_url 为 data URI(前端 <audio> 直接播放)
+    - 支持 save_path 落地(.mp3/.wav/.ogg/.flac,工作区白名单,50MB 上限)
+    """
+    import base64 as _base64
+    from datetime import datetime, timezone
+
+    text = arguments.get("text", "")
+    if not isinstance(text, str) or not text.strip():
+        return {
+            "tool": "voice_tts", "ok": False,
+            "error": "缺少 text 参数", "errorCode": "MISSING_PARAMS", "audio_url": None,
+        }
+    text = text.strip()
+    if len(text) > 2000:
+        return {
+            "tool": "voice_tts", "ok": False,
+            "error": f"text 超长({len(text)}>2000 字符),请分段合成", "errorCode": "TEXT_TOO_LONG",
+            "audio_url": None,
+        }
+    engine = str(arguments.get("engine") or "edge").lower()
+    save_path = arguments.get("save_path")
+
+    audio = b""
+    content_type = "audio/mpeg"
+    used_voice = ""
+    provider_name = ""
+
+    if engine == "token6688":
+        from .video_generation import _instantiate as _video_instantiate
+
+        inst = _video_instantiate("token6688")
+        if inst is None:
+            return {
+                "tool": "voice_tts", "ok": False,
+                "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688);可改用 engine=edge(零成本)",
+                "errorCode": "PROVIDER_NOT_CONFIGURED", "audio_url": None,
+            }
+        used_voice = str(arguments.get("voice") or "alloy")
+        provider_name = "token6688"
+        try:
+            audio, content_type = await inst.tts(
+                text, voice=used_voice,
+                speed=float(arguments.get("speed") or 1.0),
+                response_format=str(arguments.get("response_format") or "mp3"),
+            )
+        except Exception as e:  # noqa: BLE001
+            return {
+                "tool": "voice_tts", "ok": False, "provider": provider_name,
+                "error": str(e)[:300], "errorCode": "PROVIDER_ERROR", "audio_url": None,
+            }
+    elif engine == "edge":
+        used_voice = str(arguments.get("voice") or "zh-CN-XiaoxiaoNeural")
+        provider_name = "edge-tts"
+        try:
+            import edge_tts
+
+            communicate = edge_tts.Communicate(text, voice=used_voice)
+            chunks: list[bytes] = []
+            async for chunk in communicate.stream():
+                if chunk.get("type") == "audio":
+                    chunks.append(chunk["data"])
+            if not chunks:
+                raise RuntimeError("edge-tts 未返回音频数据")
+            audio = b"".join(chunks)
+        except Exception as e:  # noqa: BLE001
+            return {
+                "tool": "voice_tts", "ok": False, "provider": provider_name,
+                "error": f"edge-tts 不可达或失败: {e}"[:300], "errorCode": "ENGINE_ERROR",
+                "audio_url": None,
+            }
+    else:
+        return {
+            "tool": "voice_tts", "ok": False,
+            "error": f"未知 engine: {engine}(允许 edge/token6688)", "errorCode": "BAD_PARAMS",
+            "audio_url": None,
+        }
+
+    # ---- save_path 落地(可选)----
+    saved_path: str | None = None
+    file_size_bytes = len(audio)
+    if save_path:
+        ok_path, resolved, err_code = _validate_audio_save_path(save_path)
+        if ok_path:
+            ok_w, sp, sz, werr = await _persist_audio_to_disk(audio, resolved)
+            if ok_w:
+                saved_path, file_size_bytes = sp, sz
+
+    # data URI 直播给前端 <audio>(文本≤2000 字符,mp3 通常 <2MB)
+    audio_url = f"data:{content_type or 'audio/mpeg'};base64,{_base64.b64encode(audio).decode()}"
+    return {
+        "tool": "voice_tts", "ok": True,
+        "provider": provider_name, "engine": engine, "voice": used_voice,
+        "text_chars": len(text), "file_size_bytes": file_size_bytes,
+        "audio_url": audio_url, "saved_path": saved_path,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "message": "语音合成完成" + (f",saved={saved_path}" if saved_path else ""),
     }
 
 
@@ -4347,6 +4928,25 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="resolve_conflict",
+        description="按块解决 file_edit 报告的 3-way merge 冲突(局部拒绝):choices 按冲突块顺序指定 'ours'(采用 agent 修改)/'theirs'(保留磁盘现状=拒绝该块修改),不足缺省 ours",
+        input_schema={
+            "type": "object",
+            "required": ["file_path", "old_string", "new_string"],
+            "properties": {
+                "file_path": {"type": "string", "description": "文件绝对路径,必须与触发冲突的 file_edit 一致"},
+                "old_string": {"type": "string", "minLength": 1, "description": "与触发冲突的 file_edit 相同的 old_string"},
+                "new_string": {"type": "string", "description": "与触发冲突的 file_edit 相同的 new_string"},
+                "choices": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": ["ours", "theirs"]},
+                    "description": "按冲突块顺序的决策列表:'ours'=采用 agent 修改,'theirs'=保留磁盘现状(拒绝该块)",
+                },
+                "replace_all": {"type": "boolean", "default": False},
+            },
+        },
+    ),
+    MCPTool(
         name="run_command",
         description="运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,白名单: git/ls/cat/echo/python/node/npm/pnpm/ruff/mypy/pytest 等,禁止 rm/mv/cp/curl/重定向/管道)。支持 sandbox_backend 切换 local/docker/ssh,支持 env 透传(禁止覆盖 PATH/HOME),cwd 校验工作区,超时 kill 进程并返回 partial_output",
         input_schema={
@@ -4999,7 +5599,23 @@ _TOOLS: list[MCPTool] = [
                 },
                 "image": {
                     "type": "string",
-                    "description": "可选,图生视频首帧图片(URL 或 base64)",
+                    "description": "可选,图生视频首帧图片(URL 或 base64;本地文件请先给 URL,多模态输入只收公网直链)",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["text-to-video", "first-frame", "reference", "first-last", "edit", "extend"],
+                    "description": "可选,生成模式(token6688 枚举值,默认按有无 image 自动:text-to-video/first-frame);"
+                    "reference=参考生成,first-last=首尾帧,edit=视频编辑,extend=续写。发枚举值,勿发界面显示名",
+                },
+                "resolution": {
+                    "type": "string",
+                    "enum": ["480p", "720p", "1080p"],
+                    "description": "可选,清晰度(token6688,默认随模型)",
+                },
+                "aspect_ratio": {
+                    "type": "string",
+                    "enum": ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+                    "description": "可选,画面比例(token6688)",
                 },
                 "negative_prompt": {
                     "type": "string",
@@ -5011,6 +5627,159 @@ _TOOLS: list[MCPTool] = [
                 },
             },
             "required": [],
+        },
+    ),
+    MCPTool(
+        name="music_generation",
+        description=(
+            "生成音乐/歌曲(Suno 风格,token6688 名创AI 网关单 key 可用),返回成曲音频 URL。"
+            "支持 mode=song(带人声歌曲)/instrumental(纯音乐配乐),可选歌词 lyrics、"
+            "曲风 style(如 EDM/民谣/古风/流行)、标题 title、人声 gender(vocal_gender)。"
+            "长任务防卡死:提交后限时等待(默认 150s),窗口内完成直接返回成曲;"
+            "超时返回 submitted+task_id——用户稍后追问时只传 task_id(不传 prompt)即可取件。"
+            "支持 save_path 下载落地(.mp3/.wav/.ogg/.flac,工作区白名单,50MB 上限)。"
+            "需 .env 配置 TOKEN6688_API_KEY;未配置时返回 PROVIDER_NOT_CONFIGURED。"
+            "外部 API 调用 + 计费。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "音乐/歌曲描述(首次提交必填;查询模式可省)"},
+                "task_id": {
+                    "type": "string",
+                    "description": "可选,查询模式:传入此前提交返回的 task_id 查询进度/取件成曲,无需 prompt",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["song", "instrumental"],
+                    "description": "song=带人声歌曲(默认);instrumental=纯音乐/配乐",
+                    "default": "song",
+                },
+                "lyrics": {
+                    "type": "string",
+                    "description": "可选,自定义歌词(mode=song 时);不传则由模型根据 prompt 创作",
+                },
+                "style": {
+                    "type": "string",
+                    "description": "可选,曲风(如 EDM/民谣/古风/流行/摇滚/爵士)",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "可选,歌曲标题",
+                },
+                "vocal_gender": {
+                    "type": "string",
+                    "enum": ["auto", "m", "f"],
+                    "description": "可选,人声性别(mode=song 时;auto=自动/m=男声/f=女声,官方枚举值)",
+                    "default": "auto",
+                },
+                "operation": {
+                    "type": "string",
+                    "enum": ["generate", "extend", "cover", "lyrics", "stems", "stems_all"],
+                    "description": "可选,操作类型:generate=生成(默认)/extend=续写(需 continue_at)/"
+                    "cover=翻唱/lyrics=仅写词/stems=分轨",
+                    "default": "generate",
+                },
+                "negative_tags": {
+                    "type": "string",
+                    "description": "可选,排除的风格标签(不想要的元素)",
+                },
+                "version": {
+                    "type": "string",
+                    "enum": ["chirp-v5-5", "chirp-v5", "chirp-v4-5+", "chirp-v4-5", "chirp-v4", "chirp-v3-5"],
+                    "description": "可选,Suno 模型版本(不传落平台默认)",
+                },
+                "model": {
+                    "type": "string",
+                    "description": "可选,模型(默认 music)",
+                    "default": "music",
+                },
+                "save_path": {
+                    "type": "string",
+                    "description": "可选,绝对路径,下载成曲落地(需工作区白名单内,后缀 .mp3/.wav/.ogg/.flac,50MB 上限)",
+                },
+            },
+            "required": [],
+        },
+    ),
+    MCPTool(
+        name="voice_tts",
+        description=(
+            "文本转语音/朗读/配音(对话内直接出音频,前端内嵌播放器可播)。"
+            "engine=edge(默认,微软 edge-tts,零 key 零成本,中文推荐 zh-CN-XiaoxiaoNeural)或 "
+            "engine=token6688(聚合网关单 key,voice 可选 alloy/echo/fable/onyx/nova/shimmer "
+            "或声纹库 voice_id 克隆音色;需 TOKEN6688_API_KEY,未配置时返回 PROVIDER_NOT_CONFIGURED)。"
+            "同步接口无任务轮询;text≤2000 字符,超长请分段。"
+            "支持 save_path 落地(.mp3/.wav/.ogg/.flac,工作区白名单,50MB 上限)。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "text": {"type": "string", "description": "要合成的文本(≤2000 字符,超长分段)"},
+                "engine": {
+                    "type": "string",
+                    "enum": ["edge", "token6688"],
+                    "description": "edge=零成本默认;token6688=聚合网关(单 key,支持声纹克隆)",
+                    "default": "edge",
+                },
+                "voice": {
+                    "type": "string",
+                    "description": "音色:edge 引擎用 zh-CN-XiaoxiaoNeural 等 edge 白名单;"
+                    "token6688 引擎用 alloy/echo/fable/onyx/nova/shimmer 或声纹库 voice_id",
+                },
+                "speed": {
+                    "type": "number",
+                    "description": "可选,语速倍率(token6688 引擎,0.25~4.0,默认 1.0)",
+                    "default": 1.0,
+                },
+                "response_format": {
+                    "type": "string",
+                    "enum": ["mp3", "opus", "aac", "flac", "wav", "pcm"],
+                    "description": "可选,音频格式(token6688 引擎,默认 mp3)",
+                    "default": "mp3",
+                },
+                "save_path": {
+                    "type": "string",
+                    "description": "可选,绝对路径,音频落地(需工作区白名单内,后缀 .mp3/.wav/.ogg/.flac,50MB 上限)",
+                },
+            },
+            "required": ["text"],
+        },
+    ),
+    MCPTool(
+        name="token6688_model_info",
+        description=(
+            "查询 token6688(名创AI 网关)模型信息,三合一:"
+            "action=estimate 提交前估价(默认;参数与提交完全一致才准,带参考视频必须传"
+            " video_total_duration_sec,否则估价不含参考视频费——官方真实客诉估 4.5 实扣 7.3);"
+            "action=params 查单模型参数合法值(枚举参数必须发 value 不是界面显示名,"
+            "否则被忽略落默认档);action=pricing 查跨渠道价格(按秒/按次、各渠道均价)。"
+            "用户问'生成要多少钱''这个模型有哪些参数''哪个渠道便宜'时使用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string",
+                    "description": "模型 ID(如 seedance-2-5 / music / gpt-image-2 / tts-1-hd)",
+                },
+                "action": {
+                    "type": "string",
+                    "enum": ["estimate", "params", "pricing"],
+                    "description": "estimate=估价(默认)/params=参数详情/pricing=跨渠道价格",
+                    "default": "estimate",
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "action=estimate 时的生成提示词(与提交一致)",
+                },
+                "params": {
+                    "type": "object",
+                    "description": "action=estimate 时的生成参数(信封形状,如 {duration:15, mode:'text-to-video'};"
+                    "带参考视频必须含 video_total_duration_sec)",
+                },
+            },
+            "required": ["model"],
         },
     ),
     MCPTool(
@@ -5146,8 +5915,11 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="parse_document",
         description=(
-            "解析本地文档为可注入上下文的文本(支持 txt/md/csv/json/pdf/docx/xlsx)。"
-            "用于阅读上传文档、抽取表格、总结文件内容。仅限项目工作区内文件,敏感文件(密钥类)拒绝。"
+            "解析本地文档为可注入上下文的文本/Markdown,支持 15 种格式:"
+            "txt/md/csv/json/pdf/docx/doc/pptx/ppt/xls/xlsx/odt/ods/odp/rtf/epub"
+            "(办公文档经 Firecrawl anydoc 引擎高保真提取标题/表格/列表)。"
+            "用于阅读上传文档、抽取表格、总结文件内容、解析电子书。"
+            "仅限项目工作区内文件,敏感文件(密钥类)拒绝。"
         ),
         input_schema={
             "type": "object",
@@ -5345,6 +6117,9 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # ===== 视频生成(2026-09-05 新增;2026-09-07 补注册——工具已定义但漏入此表,
     # _TOOLS 53 vs _TOOL_HANDLERS 52 失配,test_tools_count_matches_registry 拦截)=====
     "video_generation": _tool_video_generation,
+    "music_generation": _tool_music_generation,
+    "voice_tts": _tool_voice_tts,
+    "token6688_model_info": _tool_token6688_model_info,
     # ===== AI 自动控制浏览器(12 个)=====
     "browser_screenshot": _make_agent_control_handler("browser", "screenshot"),
     "browser_click_element": _make_agent_control_handler("browser", "click_element"),
@@ -5390,6 +6165,8 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # ===== 后台任务工具(Phase 1 第 6 项 · 2026-09-02 立)=====
     "run_in_background": _tool_run_in_background,
     "bg_task_status": _tool_bg_task_status,
+    # ===== 补丁冲突处理(1-2 · 2026-09-08):3-way merge 局部拒绝 =====
+    "resolve_conflict": _tool_resolve_conflict,
 }
 
 

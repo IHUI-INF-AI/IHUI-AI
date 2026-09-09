@@ -81,6 +81,18 @@ class TestConstants:
         assert _EXT_TO_LANG[".rs"] == "rust"
         assert _EXT_TO_LANG[".java"] == "java"
 
+    def test_ext_to_lang_markdown_mappings(self):
+        """2026-09-08: .md/.markdown 恒映射 markdown;二进制文档格式仅在 anydoc 可用时映射。"""
+        assert _EXT_TO_LANG[".md"] == "markdown"
+        assert _EXT_TO_LANG[".markdown"] == "markdown"
+        for ext in [".docx", ".doc", ".pptx", ".ppt", ".xlsx", ".xls",
+                    ".odt", ".ods", ".odp", ".rtf", ".epub", ".pdf"]:
+            assert ext in codebase_indexer._DOC_EXTS
+            if codebase_indexer._ANYDOC_OK:
+                assert _EXT_TO_LANG[ext] == "markdown"
+            else:
+                assert ext not in _EXT_TO_LANG
+
     def test_ext_to_lang_all_lowercase_values(self):
         for ext, lang in _EXT_TO_LANG.items():
             assert ext.startswith(".")
@@ -596,12 +608,17 @@ class TestCollectCodeFiles:
         assert len(files) == 1
 
     def test_skips_non_code_files(self, tmp_path):
+        # 2026-09-08 变更:.md/.markdown 纳入索引(language="markdown"),不再被跳过;
+        # data.json 等未映射格式仍然跳过
         (tmp_path / "README.md").write_text("# title")
         (tmp_path / "data.json").write_text("{}")
         (tmp_path / "main.py").write_text("x = 1")
         idx = CodebaseIndexer.__new__(CodebaseIndexer)
         files = idx._collect_code_files(tmp_path)
-        assert len(files) == 1
+        assert len(files) == 2
+        langs = {p.name: lang for p, lang in files}
+        assert langs["main.py"] == "python"
+        assert langs["README.md"] == "markdown"
 
     def test_returns_path_objects(self, tmp_path):
         (tmp_path / "main.py").write_text("x = 1")
@@ -946,7 +963,7 @@ class TestIndexRepository:
         idx._api_base_url = "http://localhost:8801"
         captured_chunks = []
 
-        async def fake_write(repo_id, chunks, token):
+        async def fake_write(repo_id, chunks, token=None, internal_user_id=None):
             captured_chunks.extend(chunks)
             return {}
 
@@ -1013,7 +1030,7 @@ class TestIndexFile:
         idx._api_base_url = "http://localhost:8801"
         captured_chunks = []
 
-        async def fake_write(repo_id, chunks, token):
+        async def fake_write(repo_id, chunks, token=None, internal_user_id=None):
             captured_chunks.extend(chunks)
             return {}
 
@@ -1033,7 +1050,7 @@ class TestIndexFile:
         idx._api_base_url = "http://localhost:8801"
         captured_chunks = []
 
-        async def fake_write(repo_id, chunks, token):
+        async def fake_write(repo_id, chunks, token=None, internal_user_id=None):
             captured_chunks.extend(chunks)
             return {}
 
@@ -1066,7 +1083,7 @@ class TestIndexFile:
         idx._api_base_url = "http://localhost:8801"
         captured_chunks = []
 
-        async def fake_write(repo_id, chunks, token):
+        async def fake_write(repo_id, chunks, token=None, internal_user_id=None):
             captured_chunks.extend(chunks)
             return {}
 
@@ -1256,4 +1273,128 @@ class TestGlobalSingleton:
         monkeypatch.delenv("API_SERVICE_URL", raising=False)
         idx = CodebaseIndexer()
         assert idx._api_base_url == "http://localhost:8801"
+
+
+# ============================================================
+# 13. anydoc 文档格式索引(2026-09-08 立)
+# ============================================================
+
+
+class TestAnydocDocumentIndexing:
+    """文档格式(docx/pdf/pptx 等)经 anydoc 抽取 Markdown 后入索引。"""
+
+    def _make_docx(self, path: Path) -> None:
+        """构造最小合法 docx(含标题/加粗/表格)。"""
+        import zipfile
+
+        ct = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+            "</Types>"
+        )
+        rels = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+            "</Relationships>"
+        )
+        doc = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            "<w:body><w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>Indexer Doc Test</w:t></w:r></w:p>"
+            "<w:p><w:r><w:t>body paragraph</w:t></w:r></w:p></w:body></w:document>"
+        )
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("[Content_Types].xml", ct)
+            zf.writestr("_rels/.rels", rels)
+            zf.writestr("word/document.xml", doc)
+
+    @pytest.mark.skipif(not codebase_indexer._ANYDOC_OK, reason="anydoc 未安装")
+    def test_extract_document_markdown_docx(self, tmp_path):
+        docx = tmp_path / "doc.docx"
+        self._make_docx(docx)
+        content = codebase_indexer._extract_document_markdown(docx)
+        assert "Indexer Doc Test" in content
+        assert "body paragraph" in content
+
+    @pytest.mark.skipif(not codebase_indexer._ANYDOC_OK, reason="anydoc 未安装")
+    def test_extract_document_markdown_raises_for_garbage(self, tmp_path):
+        """损坏的文档文件应抛异常(调用方跳过并记 error)。"""
+        bad = tmp_path / "bad.docx"
+        bad.write_bytes(b"PK\x03\x04not-a-real-docx")
+        with pytest.raises(Exception):
+            codebase_indexer._extract_document_markdown(bad)
+
+    @pytest.mark.skipif(not codebase_indexer._ANYDOC_OK, reason="anydoc 未安装")
+    def test_extract_requires_anydoc(self, tmp_path):
+        """_extract_document_markdown 在 _anydoc 为 None 时报 RuntimeError。"""
+        f = tmp_path / "a.docx"
+        f.write_bytes(b"x")
+        with patch.object(codebase_indexer, "_anydoc", None):
+            with pytest.raises(RuntimeError):
+                codebase_indexer._extract_document_markdown(f)
+
+    @pytest.mark.skipif(not codebase_indexer._ANYDOC_OK, reason="anydoc 未安装")
+    @pytest.mark.asyncio
+    async def test_index_file_docx_end_to_end(self, tmp_path):
+        """index_file 对 docx:抽取 Markdown → markdown 语言切片 → 写入。"""
+        docx = tmp_path / "doc.docx"
+        self._make_docx(docx)
+        idx = CodebaseIndexer.__new__(CodebaseIndexer)
+        idx._tree_sitter_available = False
+        idx._api_base_url = "http://localhost:8801"
+        captured_chunks = []
+
+        async def fake_write(repo_id, chunks, token=None, internal_user_id=None):
+            captured_chunks.extend(chunks)
+            return {}
+
+        with patch.object(idx, "_generate_embeddings_batch",
+                          new=AsyncMock(return_value=0)):
+            with patch.object(idx, "_write_to_api", new=fake_write):
+                result = await idx.index_file(str(docx), "repo-1")
+        assert result.errors == []
+        assert result.files_indexed == 1
+        assert len(captured_chunks) >= 1
+        assert all(c.language == "markdown" for c in captured_chunks)
+        assert all("Indexer Doc Test" in c.content or "body paragraph" in c.content
+                   for c in captured_chunks)
+
+    @pytest.mark.skipif(not codebase_indexer._ANYDOC_OK, reason="anydoc 未安装")
+    def test_collect_code_files_includes_docx(self, tmp_path):
+        (tmp_path / "main.py").write_text("x = 1")
+        (tmp_path / "doc.docx").write_bytes(b"PK\x03\x04fake")
+        (tmp_path / "report.pdf").write_bytes(b"%PDF-1.4 fake")
+        idx = CodebaseIndexer.__new__(CodebaseIndexer)
+        files = idx._collect_code_files(tmp_path)
+        by_name = {p.name: lang for p, lang in files}
+        assert by_name["main.py"] == "python"
+        assert by_name["doc.docx"] == "markdown"
+        assert by_name["report.pdf"] == "markdown"
+
+    @pytest.mark.asyncio
+    async def test_index_repository_doc_error_recorded(self, tmp_path):
+        """index_repository:损坏文档抽取失败 → 记 error 且不中断其他文件。"""
+        (tmp_path / "main.py").write_text("def foo():\n    pass\n")
+        (tmp_path / "bad.docx").write_bytes(b"PK\x03\x04broken")
+        idx = CodebaseIndexer.__new__(CodebaseIndexer)
+        idx._tree_sitter_available = False
+        idx._api_base_url = "http://localhost:8801"
+
+        with patch.object(idx, "_generate_embeddings_batch",
+                          new=AsyncMock(return_value=0)), \
+             patch.object(idx, "_write_to_api", new=AsyncMock(return_value={})), \
+             patch.object(idx, "_save_snapshot"), \
+             patch.object(idx, "_load_snapshot", return_value={}):
+            if codebase_indexer._ANYDOC_OK:
+                result = await idx.index_repository(str(tmp_path), "repo-1", incremental=False)
+                assert result.files_indexed == 1  # main.py 正常
+                assert any("bad.docx" in e for e in result.errors)
+            else:
+                # 无 anydoc:文档格式不收集,行为同旧版
+                result = await idx.index_repository(str(tmp_path), "repo-1", incremental=False)
+                assert result.errors == []
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

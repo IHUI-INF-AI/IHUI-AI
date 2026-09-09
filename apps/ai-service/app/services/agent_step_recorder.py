@@ -16,6 +16,9 @@ Step 结构(append_step 入参缺省字段由 recorder 归一化):
     step_index / type(tool|message|plan) / tool_name / input_summary /
     result_summary / status(ok|error) / tokens / tokens_in / tokens_out /
     duration_ms / cost / http_summary / at
+可解释性证据字段(1-5,2026-09-08 立,缺省回填,原样保留供回放审计):
+    input(原始入参,None=未提供) / decision / reason /
+    diff / test / rollback(均为 None=未推导)
 
 存储:与 cloud_run_store / mcp_store 同款 —— 进程内 dict[run_id -> steps]
 + 每次变更全量写回 data/step_records.json(ai-service 数据目录),进程重启可恢复;
@@ -97,6 +100,13 @@ def _normalize_step(step: dict[str, Any], idx: int) -> dict[str, Any]:
         "cost": round(_to_num(step.get("cost")), 6),
         "http_summary": str(step.get("http_summary") or ""),
         "at": str(step.get("at") or _now_iso()),
+        # 1-5 可解释性证据(2026-09-08 立):缺省回填,原样保留供回放审计
+        "input": step.get("input"),
+        "decision": str(step.get("decision") or ""),
+        "reason": str(step.get("reason") or ""),
+        "diff": step.get("diff"),
+        "test": step.get("test"),
+        "rollback": step.get("rollback"),
     }
 
 

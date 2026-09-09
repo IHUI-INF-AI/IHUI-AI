@@ -47,9 +47,10 @@ def test_default_port():
     assert Settings().port == 8803
 
 
-def test_default_host():
-    """host 默认为 '0.0.0.0'。"""
-    assert Settings().host == "0.0.0.0"
+def test_default_host(monkeypatch):
+    """host 默认为 '0.0.0.0'(隔离 .env/conftest 导入链同步的 HOST env)。"""
+    monkeypatch.delenv("HOST", raising=False)
+    assert Settings(_env_file=None).host == "0.0.0.0"
 
 
 def test_default_log_level():
@@ -67,9 +68,10 @@ def test_default_node_env():
     assert Settings().node_env == "development"
 
 
-def test_default_cors_origin():
-    """cors_origin 默认指向 web 端口 8801。"""
-    assert Settings().cors_origin == "http://localhost:8801"
+def test_default_cors_origin(monkeypatch):
+    """cors_origin 默认空(fail-closed:任何环境禁止 "*",部署须显式配置;对齐 config.py 现默认)。"""
+    monkeypatch.delenv("CORS_ORIGIN", raising=False)
+    assert Settings(_env_file=None).cors_origin == ""
 
 
 def test_default_database_url(monkeypatch):
@@ -88,9 +90,10 @@ def test_default_redis_url(monkeypatch):
     assert s.redis_url == ""
 
 
-def test_default_litellm_model():
-    """litellm_model 默认为 stepfun/step-router-v1(2026-07-24 从 step-3.7-flash 升级)。"""
-    assert Settings().litellm_model == "stepfun/step-router-v1"
+def test_default_litellm_model(monkeypatch):
+    """litellm_model 默认为 stepfun/step-router-v1(2026-07-24 从 step-3.7-flash 升级;隔离 env)。"""
+    monkeypatch.delenv("LITELLM_MODEL", raising=False)
+    assert Settings(_env_file=None).litellm_model == "stepfun/step-router-v1"
 
 
 def test_default_chat_history_window():
@@ -127,9 +130,9 @@ def test_default_jwt_public_paths():
 
 
 def test_default_openai_provider_config_empty(monkeypatch):
-    """openai provider 配置默认空(阶段 3 主体:LLM_PROVIDERS 未配置时 api_key 为空字符串)。"""
+    """openai provider 配置默认空(阶段 3 主体:LLM_PROVIDERS 未配置时 api_key 为空字符串;隔离 env)。"""
     monkeypatch.delenv("LLM_PROVIDERS", raising=False)
-    assert Settings().get_provider_config("openai").api_key == ""
+    assert Settings(_env_file=None).get_provider_config("openai").api_key == ""
 
 
 def test_default_anthropic_provider_config_empty(monkeypatch):
