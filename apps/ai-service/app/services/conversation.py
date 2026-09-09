@@ -81,6 +81,18 @@ _MEDIA_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(r"朗读|读出来|念出来|配(个|段|一)?音|语音合成|转语音|播报|文字转语音|文本转语音"),
         re.compile(r"\b(text to speech|read (it |this )?aloud|speak (it )?out)\b", re.IGNORECASE),
     ),
+    # 声纹克隆(2026-09-09 深能力补齐):上传参考音频克隆音色/列声纹库/查声纹详情
+    "token6688_voice_clone": (
+        re.compile(r"(克隆|复刻|复制)(一)?(下|个)?(我的|自己的|他|她)?(声音|音色|嗓音|声线)"),
+        re.compile(r"(我的|自己的|这个|这段|他的|她的)?(声音|音色|嗓音|声线)(克隆|复刻|复制|保存|上传|训练|学习)"),
+        # "把我的声音做成音色 / 把这段录音变成我的声音" 结构
+        re.compile(r"(把|将)?(我的|自己的|他|她|这段|这个)?(声音|嗓音|声线|录音)(做|变|转|克隆|复刻)(成|为)?(我的)?(音色|声音|声线|嗓音)"),
+        # "上传这段录音做声纹 / 用这段音频克隆声音" 结构
+        re.compile(r"(上传|用|拿)(一)?(这|那)?(段|个|条)?(录音|音频|声音|语音)?(来)?(做|当|作为|克隆|训练|合成)(一)?(个)?(声纹|音色|声音|克隆)"),
+        # "我的声纹库有哪些 / 声音库列表" 结构
+        re.compile(r"(我的|自己的)?(声纹|声音|音色)(库|列表)?(有哪些|都有什么|有什么|查一下|看看|列一下|显示|查看|列出来)"),
+        re.compile(r"\b(voice ?clone|clone (my )?voice|upload (a )?voice|voice list)\b", re.IGNORECASE),
+    ),
     # ---- 2026-09-09 全模态深度适配:理解/转写/账务 三类深能力入对话路由 ----
     "vision_analyze": (
         re.compile(r"(看|瞧|识别|分析|描述|解读)(一)?下?这(张|个|幅)?(图|图片|照片|截图|漫画|海报)"),
@@ -126,8 +138,8 @@ _MEDIA_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
 # 形式直接嵌入回复(对话即所得,前端无需二次处理;data URI 超长禁止回贴)。
 _MEDIA_RENDER_PROMPT = (
     "媒体生成工具结果渲染规范(务必遵守):\n"
-    "- image_generation 成功且 image_url 是 http(s) 链接:必须在回复中用 ![图片](image_url) "
-    "原样嵌入,让用户直接看到图片\n"
+    "- image_generation / image_edit 成功且 image_url 是 http(s) 链接:必须在回复中用 "
+    "![图片](image_url) 原样嵌入,让用户直接看到图片(改图结果同样处理)\n"
     "- video_generation 成功且 video_url 是 http(s) 链接:用 [▶️ 观看视频](video_url) 嵌入\n"
     "- music_generation 成功且 audio_url 是 http(s) 链接:用 [🎧 播放音乐](audio_url) 嵌入\n"
     "- voice_tts 的 audio_url 是 data URI(base64,超长):绝不要把 base64 内容贴进回复,"
@@ -151,6 +163,8 @@ _MEDIA_CHAIN_PROMPT = (
     "可复用上轮 image_generation 的 image_url;改前可先 vision_analyze 确认原图内容)\n"
     "- 取消长任务:用户说'取消/别做了'且记忆里有 task_id 时,调 token6688_cancel_task "
     "取消在途任务,严禁编造 task_id\n"
+    "- 声纹克隆:用户要'克隆我的声音/上传声音做音色'时,调 token6688_voice_clone "
+    "(action=upload,支持 path/url/data_uri),成功后把 voice_id 用于 voice_tts(engine=token6688)朗读\n"
     "- 价目问答:用户问'生成视频/图片要多少钱'时,调 token6688_model_info 查价目与参数,"
     "再按结果如实作答\n"
     "- 长任务取件:会话历史(含 media_context)里出现 task_id 时,用户问"
@@ -211,7 +225,7 @@ def _media_artifact_summary(tool_calls: list[ToolCallRecord]) -> str:
             continue
         r = tc.result or {}
         entry: dict[str, Any] = {}
-        if tc.tool in ("image_generation", "video_generation", "music_generation"):
+        if tc.tool in ("image_generation", "image_edit", "video_generation", "music_generation"):
             for src, dst in _MEDIA_RESULT_FIELDS:
                 v = r.get(src)
                 if isinstance(v, (str, int, float)) and v != "":
@@ -222,6 +236,12 @@ def _media_artifact_summary(tool_calls: list[ToolCallRecord]) -> str:
             entry = {"voice": r.get("voice", ""), "engine": r.get("engine", "")}
             if r.get("saved_path"):
                 entry["saved_path"] = r["saved_path"]
+        elif tc.tool == "token6688_voice_clone":
+            # 声纹克隆产物记忆(2026-09-09):voice_id 是下轮 voice_tts 复用克隆音色的钥匙,
+            # 必须入记忆,否则"用刚才克隆的声音朗读"会断链
+            vid = r.get("voice_id")
+            if vid:
+                entry = {"voice_id": vid}
         elif tc.tool == "vision_analyze":
             desc = str(r.get("analysis") or "")[:200]
             if desc:
@@ -380,6 +400,8 @@ class ConversationService:
             "token6688_balance": ["余额", "额度", "还剩多少", "balance", "credit"],
             # 图片编辑(2026-09-09 深度适配二):说"改这张图/去水印"时编辑已有图
             "image_edit": ["改图", "修图", "去水印", "抠图", "换背景", "编辑图片", "图片编辑", "扩图", "局部重绘", "edit image", "retouch"],
+            # 声纹克隆(2026-09-09 深能力补齐):说"克隆我的声音/上传声音"时管理声纹库
+            "token6688_voice_clone": ["克隆声音", "克隆音色", "复刻声音", "我的声音", "声纹", "声音库", "上传声音", "voice clone", "clone voice"],
             # 任务取消(2026-09-09 深度适配二):说"取消这个任务"时撤销长任务
             "token6688_cancel_task": ["取消任务", "取消生成", "停止生成", "撤销任务", "别做了", "cancel", "stop task"],
             # 模型价目(2026-09-09 深度适配二):说"生成视频多少钱"时查价目/参数
