@@ -118,7 +118,7 @@ export function Drawer({
       <button
         type="button"
         aria-label={t('close')}
-        className="absolute inset-0 cursor-default bg-black/80 animate-in fade-in-0"
+        className="absolute inset-0 cursor-default bg-black/80 animate-in fade-in-0 duration-(--duration-unified) ease-unified"
         onClick={onClose}
       />
       <div
@@ -129,7 +129,9 @@ export function Drawer({
         className={cn(
           'absolute bg-background shadow-lg',
           sideMap[side],
-          isHorizontal ? 'animate-in slide-in-from-right' : 'animate-in slide-in-from-bottom',
+          isHorizontal
+            ? 'animate-in slide-in-from-right duration-(--duration-unified) ease-unified'
+            : 'animate-in slide-in-from-bottom duration-(--duration-unified) ease-unified',
           className,
         )}
         style={{

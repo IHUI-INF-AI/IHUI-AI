@@ -15,7 +15,7 @@ const DrawerClose = DialogPrimitive.Close
 
 const drawerSideVariants = cva(
   // 2026-07-31 移动端适配:left/right 在 < sm 时占 w-[90vw] 充分利用移动端视口
-  'fixed z-modal flex flex-col bg-background shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out',
+  'fixed z-modal flex flex-col bg-background shadow-lg transition data-[state=closed]:duration-(--duration-unified) data-[state=open]:duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out',
   {
     variants: {
       side: {
@@ -43,7 +43,7 @@ const DrawerContent = React.forwardRef<
   DrawerContentProps
 >(({ side = 'right', className, children, ...props }, ref) => (
   <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-(--duration-unified) data-[state=closed]:ease-unified" />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(drawerSideVariants({ side }), className)}
