@@ -245,4 +245,27 @@ export async function convertFileToMarkdown(
     timeoutMs: 120_000,
   })
 }
+
+/** 提取出的文档内嵌资产(前端栅格展示用)。 */
+export interface ExtractedFileAsset {
+  id: number
+  mediaType: string
+  originPart: string
+  extension: string
+  size: number
+  url: string
+}
+
+/**
+ * POST /api/files/:id/extract-assets — 提取文档内嵌图片/对象资产。
+ * 支持 doc/docx/pptx/xls/xlsx/ods/odt/odp/rtf/epub;pdf 返回 unsupported:true。
+ */
+export async function extractFileAssets(
+  fileId: string,
+): Promise<ApiResult<{ assets: ExtractedFileAsset[]; unsupported: boolean; fileName: string }>> {
+  return fetchApi(`/api/files/${encodeURIComponent(fileId)}/extract-assets`, {
+    method: 'POST',
+    timeoutMs: 120_000,
+  })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
