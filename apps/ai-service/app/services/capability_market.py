@@ -36,12 +36,13 @@ _NETWORK_TOOLS: frozenset[str] = frozenset(
         "fetch_url",
         "screenshot_url",
         "image_generation",
+        "image_edit",
         "video_generation",
         "music_generation",
+        "voice_tts",
         "review_pr",
     }
 )
-
 
 @dataclass
 class CapabilityParam:
@@ -92,6 +93,7 @@ _CATEGORY_RULES: list[tuple[str, str]] = [
     ("search_web", "web"),
     ("fetch_url", "web"),
     ("image_generation", "media"),
+    ("image_edit", "media"),
     ("video_generation", "media"),
     ("music_generation", "media"),
     ("voice_tts", "media"),
