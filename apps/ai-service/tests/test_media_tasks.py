@@ -285,6 +285,41 @@ async def test_rest_media_task_cancel_unconfigured(monkeypatch):
     upd.assert_awaited_once()
 
 
+async def test_rest_media_task_cancel_terminal_409(monkeypatch):
+    """取消守卫(2026-09-09 收尾):已终态任务 → 409,不翻转状态、不调取消。"""
+    monkeypatch.setattr(
+        "app.routers.media_tasks.get_media_task",
+        AsyncMock(return_value={"task_id": "t-done", "provider": "token6688", "status": "succeeded"}),
+    )
+    upd = AsyncMock(return_value=True)
+    monkeypatch.setattr("app.routers.media_tasks.update_media_task", upd)
+    app = _make_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/api/media/tasks/t-done/cancel")
+    assert resp.status_code == 409
+    assert "已终态" in resp.json()["detail"]
+    upd.assert_not_awaited()
+
+
+async def test_rest_media_task_cancel_pending_ok(monkeypatch):
+    """取消守卫(2026-09-09 收尾):pending 在途任务仍可正常取消置 cancelled。"""
+    monkeypatch.setattr(
+        "app.routers.media_tasks.get_media_task",
+        AsyncMock(return_value={"task_id": "t-p", "provider": "token6688", "status": "pending"}),
+    )
+    upd = AsyncMock(return_value=True)
+    monkeypatch.setattr("app.routers.media_tasks.update_media_task", upd)
+    app = _make_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/api/media/tasks/t-p/cancel")
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+    upd.assert_awaited_once()
+    args, kwargs = upd.call_args
+    assert args[0] == "t-p"
+    assert kwargs.get("status") == "cancelled"
+
+
 # ---------------------------------------------------------------------------
 # 删除/清理(2026-09-09 F1):单条删除 + 批量清理(只删终态,在途保留)
 # ---------------------------------------------------------------------------
