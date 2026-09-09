@@ -64,6 +64,9 @@ _MEDIA_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(r"(做|生成|制作|来|拍|帮我做)(一)?(个|段|部|条)?[^。]{0,8}视频"),
         re.compile(r"(视频|短片|动画片?|火柴人|MV)的?(生成|制作)|出片|视频生成"),
         re.compile(r"\b(make|generate|create) (a )?video\b", re.IGNORECASE),
+        # 任务取件查询(2026-09-09):长任务提交后"视频好了吗"带 task_id 查询模式取件
+        re.compile(r"(视频|视频任务|片子)(好了吗|好了没|好了么|做完了吗|生成完了吗|出来了吗)"),
+        re.compile(r"出片(了吗|了没|了么)"),
     ),
     "music_generation": (
         re.compile(r"(写|做|来|创作|生成|帮我写)(一)?首?(歌|曲|音乐)"),
@@ -71,10 +74,63 @@ _MEDIA_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(r"(生成|制作|做|来)(一)?(个|段|首)?(音乐|配乐|背景音乐|BGM|纯音乐)"),
         re.compile(r"配乐|背景音乐|BGM|作曲|编曲|主题曲"),
         re.compile(r"\b(make|write|generate|compose) (a )?(song|music)\b", re.IGNORECASE),
+        # 任务取件查询(2026-09-09):音乐长任务"歌好了吗"
+        re.compile(r"(歌|音乐|音乐任务|曲子)(好了吗|好了没|好了么|做完了吗|生成完了吗|出来了吗)"),
     ),
     "voice_tts": (
         re.compile(r"朗读|读出来|念出来|配(个|段|一)?音|语音合成|转语音|播报|文字转语音|文本转语音"),
         re.compile(r"\b(text to speech|read (it |this )?aloud|speak (it )?out)\b", re.IGNORECASE),
+    ),
+    # 声纹克隆(2026-09-09 深能力补齐):上传参考音频克隆音色/列声纹库/查声纹详情
+    "token6688_voice_clone": (
+        re.compile(r"(克隆|复刻|复制)(一)?(下|个)?(我的|自己的|他|她)?(声音|音色|嗓音|声线)"),
+        re.compile(r"(我的|自己的|这个|这段|他的|她的)?(声音|音色|嗓音|声线)(克隆|复刻|复制|保存|上传|训练|学习)"),
+        # "把我的声音做成音色 / 把这段录音变成我的声音" 结构
+        re.compile(r"(把|将)?(我的|自己的|他|她|这段|这个)?(声音|嗓音|声线|录音)(做|变|转|克隆|复刻)(成|为)?(我的)?(音色|声音|声线|嗓音)"),
+        # "上传这段录音做声纹 / 用这段音频克隆声音" 结构
+        re.compile(r"(上传|用|拿)(一)?(这|那)?(段|个|条)?(录音|音频|声音|语音)?(来)?(做|当|作为|克隆|训练|合成)(一)?(个)?(声纹|音色|声音|克隆)"),
+        # "我的声纹库有哪些 / 声音库列表" 结构
+        re.compile(r"(我的|自己的)?(声纹|声音|音色)(库|列表)?(有哪些|都有什么|有什么|查一下|看看|列一下|显示|查看|列出来)"),
+        re.compile(r"\b(voice ?clone|clone (my )?voice|upload (a )?voice|voice list)\b", re.IGNORECASE),
+    ),
+    # ---- 2026-09-09 全模态深度适配:理解/转写/账务 三类深能力入对话路由 ----
+    "vision_analyze": (
+        re.compile(r"(看|瞧|识别|分析|描述|解读)(一)?下?这(张|个|幅)?(图|图片|照片|截图|漫画|海报)"),
+        re.compile(r"这(张|个|幅)?(图|图片|照片|截图)(里|中|上)?(有|是|画|写|说|讲|啥|什么)"),
+        re.compile(r"(识别|提取|读取)(一)?下?(图|图里|图中|图片|截图)(里|中)?的?(文字|字|二维码|人脸|物体|内容)"),
+        re.compile(r"(分析|描述|解释)(一)?下?(这|该)?(张|个|幅)?(图|图片|照片|截图)"),
+        re.compile(r"\b(describe|analyze|what('?s| is) in) (this|the) (image|picture|photo|screenshot)\b", re.IGNORECASE),
+    ),
+    "audio_transcription": (
+        re.compile(r"(录音|音频|语音|这段话|唱的?)(给)?(转|翻译|识别|听写|变成|写成)(成)?(文字|文本|字幕)"),
+        re.compile(r"(转|识别|听写|提取)(成)?(文字|文本|字幕)"),
+        re.compile(r"听写|转写"),  # ASR 专用词,独立强信号无误触
+        re.compile(r"\b(transcribe|speech[- ]to[- ]text|audio[- ]to[- ]text)\b", re.IGNORECASE),
+    ),
+    "token6688_balance": (
+        re.compile(r"(账户|账号|平台)?(余额|额度)(还剩|剩|多少|查询|查一下|还有|够不够|够吗)"),
+        re.compile(r"(查询|查一下|看看|问一下)(一)?下?(账户|账号|平台)?(余额|额度)"),
+        re.compile(r"还剩多少(钱|额度|余额|积分|金额)"),
+        re.compile(r"\b(how much (balance|credit)|check balance)\b", re.IGNORECASE),
+    ),
+    # ---- 2026-09-09 全模态深度适配(二):改图 / 取消长任务 / 模型价目问答 ----
+    "image_edit": (
+        re.compile(r"(把|帮|给)?(我|这)?(张|个|幅)?(图|图片|照片|头像|封面)(给|帮我)?(改|编辑|修|换|去掉|去个|去除|加上|加个|改成|改成是|转成|变|P|修一下|处理)"),
+        re.compile(r"(改|修|编辑|处理|调整|美化)(一)?下?(这|那)?(张|个|幅)?(图|图片|照片|头像|封面)"),
+        re.compile(r"(去|去掉|移除|删掉|清除|抹去)(一)?(下)?(这)?(张)?(图|图片|照片)?(里|中|上)?的?(水印|背景|文字|logo|人物|物体)"),
+        re.compile(r"(扩图|局部重绘|改图|修图|图片编辑|编辑图片|去水印|抠图|换背景|改背景|调色)"),
+        re.compile(r"\b(edit|modify|retouch|photoshop|remove (watermark|background|text)) (this|the|my) (image|picture|photo)\b", re.IGNORECASE),
+    ),
+    "token6688_cancel_task": (
+        re.compile(r"(取消|撤销|停止|别要了|不要了|终止)(一)?(下)?(这个|那个|视频|音乐|图片|任务|生成|出片|歌曲)"),
+        re.compile(r"(视频|音乐|任务|出片|歌曲)(取消|撤销|停止|别做了|不要了|终止)"),
+        re.compile(r"\b(cancel|stop|abort) (the )?(task|video|music|generation)\b", re.IGNORECASE),
+    ),
+    "token6688_model_info": (
+        re.compile(r"(生成|做|做一段|做一首|画|出一)(这|那|一)?(个)?(视频|图片|音乐|歌)要?(多|大概)?(少钱|多少钱|贵不贵|什么价|价格|费用)"),
+        re.compile(r"(模型|这个模型|这个工具)的?(价格|费用|参数|参数有哪些|多少钱|怎么收费)"),
+        re.compile(r"(查|看看|问一下|帮我查)(一)?下?(模型|生成|这个)?(价格|价目|费用|参数|多少钱)"),
+        re.compile(r"\b(how much (does it |)cost|price|pricing|params?)\b", re.IGNORECASE),
     ),
 }
 
@@ -82,8 +138,8 @@ _MEDIA_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
 # 形式直接嵌入回复(对话即所得,前端无需二次处理;data URI 超长禁止回贴)。
 _MEDIA_RENDER_PROMPT = (
     "媒体生成工具结果渲染规范(务必遵守):\n"
-    "- image_generation 成功且 image_url 是 http(s) 链接:必须在回复中用 ![图片](image_url) "
-    "原样嵌入,让用户直接看到图片\n"
+    "- image_generation / image_edit 成功且 image_url 是 http(s) 链接:必须在回复中用 "
+    "![图片](image_url) 原样嵌入,让用户直接看到图片(改图结果同样处理)\n"
     "- video_generation 成功且 video_url 是 http(s) 链接:用 [▶️ 观看视频](video_url) 嵌入\n"
     "- music_generation 成功且 audio_url 是 http(s) 链接:用 [🎧 播放音乐](audio_url) 嵌入\n"
     "- voice_tts 的 audio_url 是 data URI(base64,超长):绝不要把 base64 内容贴进回复,"
@@ -91,6 +147,65 @@ _MEDIA_RENDER_PROMPT = (
     "- 返回 submitted=true 且带 task_id(视频/音乐长任务):明确告知任务已提交与预计耗时,"
     "提醒用户稍后让你用该 task_id 查询取件,严禁谎称已完成\n"
     "- ok=false 时如实告知失败原因与已尝试的 provider,不要编造链接"
+)
+
+# 跨模态链式编排 + 任务取件指引(2026-09-09 全模态深度适配):
+# 让 LLM 会把媒体工具串起来用(图生视频/先理解后生成),并会用记忆里的
+# task_id 完成长任务取件("视频好了吗"→ 带上轮 task_id 调查询模式)。
+_MEDIA_CHAIN_PROMPT = (
+    "跨模态链式编排(把媒体工具串起来完成复杂任务,务必善用):\n"
+    "- 图生视频:用户要'让这张图动起来/把图做成视频'时,先调 image_generation 拿到 "
+    "image_url,再把该 URL 作为 video_generation 的 image 参数提交(mode=first-frame);"
+    "用户已给图片 URL 或上轮产物里有 image_url 时直接复用,不要重复生成\n"
+    "- 先理解后生成:涉及用户提供的图片内容时,先 vision_analyze 理解,再按理解结果调用生成类工具\n"
+    "- 转写后加工:先 audio_transcription 拿到文本,再做朗读/翻译/总结等后续工具调用\n"
+    "- 改图:用户要'改/修/去水印/换背景'时用 image_edit(需待编辑图 URL/data URI,"
+    "可复用上轮 image_generation 的 image_url;改前可先 vision_analyze 确认原图内容)\n"
+    "- 取消长任务:用户说'取消/别做了'且记忆里有 task_id 时,调 token6688_cancel_task "
+    "取消在途任务,严禁编造 task_id\n"
+    "- 声纹克隆:用户要'克隆我的声音/上传声音做音色'时,调 token6688_voice_clone "
+    "(action=upload,支持 path/url/data_uri),成功后把 voice_id 用于 voice_tts(engine=token6688)朗读\n"
+    "- 价目问答:用户问'生成视频/图片要多少钱'时,调 token6688_model_info 查价目与参数,"
+    "再按结果如实作答\n"
+    "- 长任务取件:会话历史(含 media_context)里出现 task_id 时,用户问"
+    "'视频/音乐好了吗'直接带该 task_id 调对应工具(只传 task_id 即查询模式),"
+    "严禁编造 task_id,严禁谎称已完成;完成后按渲染规范嵌入链接"
+)
+
+# ---- 2026-09-09 Firecrawl web 网络能力对话自动路由(极致融合补齐)----
+# 强信号正则:命中 URL 抓取/整站/结构化抽取意图 → 无条件注入对应只读 web 工具。
+# 仅含 fetch_readable / map_site / extract_web(crawl_site 递归爬取重操作,刻意在
+# _ADMIN_ONLY_TOOLS,普通对话 user_role=0 不可调,故不进自动路由)。
+_WEB_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    "fetch_readable": (
+        re.compile(r"https?://\S+", re.IGNORECASE),
+        re.compile(r"(读取|抓取|看看|看下|阅读|总结|概括|讲讲|介绍一下)(这|该|那个|这个)?(网页|网站|页面|网页内容|文章|博客|新闻|网址|链接)"),
+        re.compile(r"(这|那个|这个|该)(篇|个|张)?(网页|网站|页面|文章|博客|新闻|内容)讲(了|着|的|什么|的是)"),
+        re.compile(r"\b(fetch|read|parse|scrape)( this| the)? (url|page|webpage|site|article|link)\b", re.IGNORECASE),
+    ),
+    "map_site": (
+        re.compile(r"(这|该|这个)(网站|站点|域名|网址)的?的?(结构|链接|页面|导航|有哪些|都有什么|目录|子页面|收录)"),
+        re.compile(r"(看看|探查|了解|摸清|查看)(一)?(下)?(这个)?(网站|站点|域名)的?(结构|链接|页面|地图|有哪些|全貌)"),
+        re.compile(r"(网站|站点|网址)?(地图|结构|链接|页面)?(是|有哪些|列一下|给我看|找一找|扫描一下)"),
+        re.compile(r"\b(map|sitemap|site ?map|list (all )?urls? of) (this|the) (site|website|domain)\b", re.IGNORECASE),
+    ),
+    "extract_web": (
+        re.compile(r"(提取|抽取|爬取|抓取|结构化|整理)(一)?(下)?(这|该|那个|这个)?(网页|网站|页面|网站里|页面里)的?(字段|价格|产品|信息|数据|表格|列表|参数|规格)"),
+        re.compile(r"(从|在|把)(这|该|那个)?(网页|网站|页面)里(提取|抽取|扒|拿到|整理)(出)?(字段|价格|产品|信息|数据|一句话|要点)"),
+        re.compile(r"(把|将)(这|该|那个|这个)?(网页|网站|页面)的?(字段|价格|信息|数据|内容|产品|规格|参数)(抽|提取|抽取|扒|整理)(出来|一下)?"),
+        re.compile(r"帮我(列|整理|提取)出?(这|该)?(网页|网站|页面上)?的?(标题|价格|联系方式|信息|内容)"),
+        re.compile(r"\b(extract|scrape) (structured )?(data|fields|info|prices?) from (this|the) (page|site)\b", re.IGNORECASE),
+    ),
+}
+
+# 网页工具结果呈现规范:注入 system,让 LLM 把抓取到的正文/链接/结构化结果以可读方式呈现。
+_WEB_RENDER_PROMPT = (
+    "网页抓取工具结果呈现规范(务必遵守):\n"
+    "- fetch_readable 成功:把 content 正文提炼成要点向用户汇报,标明来源 URL;"
+    "不要原文整段搬运超长内容,truncated=true 时如实说明已截断\n"
+    "- map_site 成功:以列表形式汇报重点链接(带锚文本),link_count 说明收录规模\n"
+    "- extract_web 成功:逐字段列出抽取结果(字段=值);confidence 低(<0.5)的字段提醒『抽取置信度不高』\n"
+    "- ok=false 时如实告知失败原因(SSRF_BLOCKED/FETCH_FAILED 等),不要编造网页内容"
 )
 
 
@@ -119,6 +234,70 @@ async def _execute_tool_call(
         result = retry_result
         duration_ms += retry_ms
     return result, duration_ms
+
+
+# ---------------------------------------------------------------------------
+# 媒体产物记忆延续(2026-09-09 全模态深度适配):
+# 把本轮媒体工具的关键产物(task_id/媒体 URL/转写与理解文本摘录)压成一条
+# 短 JSON 摘要写入会话记忆 → 下一轮"视频好了吗/再画一张类似的"LLM 能从
+# history 里看到 task_id/image_url 接上上下文。data URI 超长绝不入库。
+# ---------------------------------------------------------------------------
+_MEDIA_RESULT_FIELDS: tuple[tuple[str, str], ...] = (
+    ("task_id", "task_id"),
+    ("image_url", "image_url"),
+    ("video_url", "video_url"),
+    ("audio_url", "audio_url"),
+    ("saved_path", "saved_path"),
+    ("status", "status"),
+    ("provider", "provider"),
+)
+
+
+def _media_artifact_summary(tool_calls: list[ToolCallRecord]) -> str:
+    """提取本轮成功媒体工具的产物摘要;无媒体产物返回空串(不写记忆)。"""
+    items: list[dict[str, Any]] = []
+    for tc in tool_calls:
+        if not tc.ok:
+            continue
+        r = tc.result or {}
+        entry: dict[str, Any] = {}
+        if tc.tool in ("image_generation", "image_edit", "video_generation", "music_generation"):
+            for src, dst in _MEDIA_RESULT_FIELDS:
+                v = r.get(src)
+                if isinstance(v, (str, int, float)) and v != "":
+                    if src == "audio_url" and str(v).startswith("data:"):
+                        v = "[data-uri-omitted]"  # voice/music data URI 超长不入库
+                    entry[dst] = v
+        elif tc.tool == "voice_tts":
+            entry = {"voice": r.get("voice", ""), "engine": r.get("engine", "")}
+            if r.get("saved_path"):
+                entry["saved_path"] = r["saved_path"]
+        elif tc.tool == "token6688_voice_clone":
+            # 声纹克隆产物记忆(2026-09-09):voice_id 是下轮 voice_tts 复用克隆音色的钥匙,
+            # 必须入记忆,否则"用刚才克隆的声音朗读"会断链
+            vid = r.get("voice_id")
+            if vid:
+                entry = {"voice_id": vid}
+        elif tc.tool == "vision_analyze":
+            desc = str(r.get("analysis") or "")[:200]
+            if desc:
+                entry = {"analysis_excerpt": desc}
+        elif tc.tool == "audio_transcription":
+            t = str(r.get("text") or "")[:200]
+            if t:
+                entry = {"transcript_excerpt": t}
+        if entry:
+            entry["tool"] = tc.tool
+            items.append(entry)
+    if not items:
+        return ""
+    return json.dumps(
+        {
+            "media_context": items,
+            "_hint": "上一轮媒体工具产物;带 task_id 的未完成任务用该 id 调对应工具查询取件",
+        },
+        ensure_ascii=False,
+    )[:1200]
 
 
 def _resolve_user_id(sid: str) -> str:
@@ -249,6 +428,20 @@ class ConversationService:
                 "画", "绘图", "插画", "海报", "头像", "生成图片", "生成一张", "画一张",
                 "画个", "来一张图", "封面图", "图标", "logo", "image", "draw", "poster",
             ],
+            # 图片理解(2026-09-09 全模态深度适配):说"看看/识别这张图"时触发视觉分析
+            "vision_analyze": ["看看图", "识别图", "图片里", "图中", "这张图", "截图分析", "识图"],
+            # 语音转文字(2026-09-09):说"录音转文字/听写"时触发本地 whisper 转写
+            "audio_transcription": ["转文字", "转成文字", "听写", "转写", "语音识别", "录音转", "transcribe"],
+            # 余额查询(2026-09-09):说"还剩多少额度"时查 token6688 账户
+            "token6688_balance": ["余额", "额度", "还剩多少", "balance", "credit"],
+            # 图片编辑(2026-09-09 深度适配二):说"改这张图/去水印"时编辑已有图
+            "image_edit": ["改图", "修图", "去水印", "抠图", "换背景", "编辑图片", "图片编辑", "扩图", "局部重绘", "edit image", "retouch"],
+            # 声纹克隆(2026-09-09 深能力补齐):说"克隆我的声音/上传声音"时管理声纹库
+            "token6688_voice_clone": ["克隆声音", "克隆音色", "复刻声音", "我的声音", "声纹", "声音库", "上传声音", "voice clone", "clone voice"],
+            # 任务取消(2026-09-09 深度适配二):说"取消这个任务"时撤销长任务
+            "token6688_cancel_task": ["取消任务", "取消生成", "停止生成", "撤销任务", "别做了", "cancel", "stop task"],
+            # 模型价目(2026-09-09 深度适配二):说"生成视频多少钱"时查价目/参数
+            "token6688_model_info": ["多少钱", "什么价", "价格", "费用", "怎么收费", "参数有哪些", "模型参数", "pricing", "how much"],
         }
 
     # =========================================================================
@@ -306,6 +499,7 @@ class ConversationService:
             t0 = time.monotonic()
             tools: list[dict[str, Any]] = []
             media_tools: list[str] = []
+            web_tools: list[str] = []
             if allowed_tools is not None:
                 tools = self._filter_tools(allowed_tools)
             elif intent.needs_tool and intent.suggested_tools:
@@ -318,13 +512,16 @@ class ConversationService:
                 # 全模态自动路由(2026-09-08):intent 未判 needs_tool 但媒体强信号命中
                 # → 直接注入对应媒体工具(自动切换多模态调用)
                 media_tools = self._media_intent_tools(user_input)
-                if media_tools:
-                    tools = self._filter_tools(media_tools)
-            # intent 已选工具时补并媒体预路由命中项(去重),防 LLM 分类漏判媒体模态
-            if allowed_tools is None and not media_tools:
+                # Firecrawl web 自动路由(2026-09-09 极致融合补齐):URL 抓取/整站/结构化意图
+                web_tools = self._web_intent_tools(user_input)
+                if media_tools or web_tools:
+                    tools = self._filter_tools(media_tools + web_tools)
+            # intent 已选工具时补并媒体/web 预路由命中项(去重),防 LLM 分类漏判
+            if allowed_tools is None and not (media_tools or web_tools):
                 media_tools = self._media_intent_tools(user_input)
+                web_tools = self._web_intent_tools(user_input)
                 existing = {t.get("function", {}).get("name") for t in tools}
-                extra = [m for m in media_tools if m not in existing]
+                extra = [m for m in media_tools + web_tools if m not in existing]
                 if extra:
                     tools.extend(self._filter_tools(extra))
             trace.append({
@@ -333,6 +530,7 @@ class ConversationService:
                 "tool_count": len(tools),
                 "tool_names": [t.get("function", {}).get("name") for t in tools],
                 **({"media_routed": media_tools} if media_tools else {}),
+                **({"web_routed": web_tools} if web_tools else {}),
             })
 
             # 4. 加载历史上下文
@@ -352,7 +550,11 @@ class ConversationService:
                 # 媒体工具在场 → 追加 Markdown 渲染规范(图/音/视频对话即所得)
                 _media_set = set(_MEDIA_INTENT_PATTERNS)
                 if any(t.get("function", {}).get("name") in _media_set for t in tools):
-                    guidance += "\n\n" + _MEDIA_RENDER_PROMPT
+                    guidance += "\n\n" + _MEDIA_RENDER_PROMPT + "\n\n" + _MEDIA_CHAIN_PROMPT
+                # 网页工具在场 → 追加网页内容呈现规范(2026-09-09 极致融合补齐)
+                _web_set = set(_WEB_INTENT_PATTERNS)
+                if any(t.get("function", {}).get("name") in _web_set for t in tools):
+                    guidance += "\n\n" + _WEB_RENDER_PROMPT
                 messages.append({"role": "system", "content": guidance})
             # P0:用户画像 + 跨会话记忆注入(孤岛能力打通,与 v2 的 L1-1 记忆闭环一致;
             # 失败/拿不到 user_id 均降级不阻塞对话)
@@ -624,6 +826,15 @@ class ConversationService:
                 await memory_store.add(sid, "assistant", final_response)
             except Exception as e:
                 logger.warning("memory_store.add assistant 响应失败: %s", e)
+            # 6.1 媒体产物记忆延续(2026-09-09 全模态深度适配):
+            # 把本轮成功媒体工具的 task_id/媒体 URL/文本摘录压成一条摘要写入
+            # 记忆(assistant role,history 读取可见)→ 下一轮取件/续作能接上下文。
+            try:
+                media_note = _media_artifact_summary(tool_calls)
+                if media_note:
+                    await memory_store.add(sid, "assistant", media_note)
+            except Exception as e:
+                logger.warning("媒体产物摘要写入记忆失败(降级,不阻塞): %s", e)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -799,6 +1010,21 @@ class ConversationService:
         """
         out: list[str] = []
         for tool, patterns in _MEDIA_INTENT_PATTERNS.items():
+            if any(p.search(text) for p in patterns):
+                out.append(tool)
+        return out
+
+    @staticmethod
+    def _web_intent_tools(text: str) -> list[str]:
+        """Firecrawl web 网络意图预路由(2026-09-09 极致融合补齐):命中 URL 抓取/整站/
+        结构化抽取强信号 → 注入对应只读 web 工具(fetch_readable/map_site/extract_web)。
+
+        刻意不含 crawl_site(递归爬取重操作, 在 _ADMIN_ONLY_TOOLS, 普通对话 user_role=0
+        不可调)。与 _media_intent_tools 同语义: 命中即并入 tool loop 工具集, 不受 LLM
+        意图分类质量影响。
+        """
+        out: list[str] = []
+        for tool, patterns in _WEB_INTENT_PATTERNS.items():
             if any(p.search(text) for p in patterns):
                 out.append(tool)
         return out

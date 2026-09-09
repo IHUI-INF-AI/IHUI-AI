@@ -26,7 +26,7 @@ import logging
 import os
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.core.db import get_db_conn
@@ -36,6 +36,7 @@ from app.services.video_generation import (
     generate_video,
     handle_token6688_callback,
 )
+from .media_tasks import _scoped_user_uuid, _user_scope
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -73,10 +74,19 @@ async def video_generate(req: GenRequest) -> dict[str, Any]:
 
 
 @router.post("/video/task")
-async def video_task(req: TaskRequest) -> dict[str, Any]:
-    """入队一个视频任务(accepted),由后台 worker 异步出片。"""
+async def video_task(
+    req: TaskRequest,
+    scope: tuple[str, bool] = Depends(_user_scope),
+) -> dict[str, Any]:
+    """入队一个视频任务(accepted),由后台 worker 异步出片。
+
+    2026-09-09 P0 越权收敛(与 media_tasks 同款):user_uuid 此前客户端可控
+    (默认 "system",可冒充他人入队),现非 admin 强制取当前 JWT 用户。
+    """
     import uuid as _uuid
 
+    user_id, is_admin = scope
+    effective_user = ((req.user_uuid or "").strip() or user_id) if is_admin else user_id
     task_id = req.task_id or str(_uuid.uuid4())
     conn = await get_db_conn()
     try:
@@ -85,7 +95,7 @@ async def video_task(req: TaskRequest) -> dict[str, Any]:
             "(task_id, user_uuid, chat_id, status, message) "
             "VALUES ($1, $2, $3, 'accepted', $4) RETURNING id, status",
             task_id,
-            req.user_uuid or "system",
+            effective_user,
             req.chat_id,
             req.prompt,
         )
@@ -96,7 +106,12 @@ async def video_task(req: TaskRequest) -> dict[str, Any]:
 
 
 @router.get("/video/tasks/{task_id}")
-async def video_task_status(task_id: str) -> dict[str, Any]:
+async def video_task_status(
+    task_id: str,
+    scope: tuple[str, bool] = Depends(_user_scope),
+) -> dict[str, Any]:
+    """任务详情。2026-09-09 P0:此前无归属校验,任何登录用户可看他人任务(含产物 URL);
+    现非 admin 只能看自己的,不归属 404 不泄露存在性(与 media_tasks 详情同策略)。"""
     conn = await get_db_conn()
     try:
         rows = await conn.fetch(
@@ -109,6 +124,9 @@ async def video_task_status(task_id: str) -> dict[str, Any]:
     if not rows:
         raise HTTPException(status_code=404, detail="任务不存在")
     row = dict(rows[0])
+    user_id, is_admin = scope
+    if not is_admin and (row.get("user_uuid") or "") != user_id:
+        raise HTTPException(status_code=404, detail="任务不存在")
     result = row.get("result")
     if result:
         try:
@@ -116,6 +134,66 @@ async def video_task_status(task_id: str) -> dict[str, Any]:
         except (ValueError, TypeError):
             pass
     return {"ok": True, "data": row}
+
+
+@router.get("/video/tasks")
+async def video_task_list(
+    user_uuid: str | None = None,
+    status: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+    scope: tuple[str, bool] = Depends(_user_scope),
+) -> dict[str, Any]:
+    """媒体任务列表:按 user_uuid / status 过滤,倒序返回。
+
+    - user_uuid 缺省查全部;status 逗号分隔多值(accepted/processing/succeeded/failed)
+    - 用于"我的进行中媒体任务"一览与取消入口
+    - 2026-09-09 P0 越权收敛:非 admin 强制按当前用户过滤(此前 user_uuid 可选、
+      缺省查全平台,与 media_tasks 修复前同类 IDOR)
+    """
+    user_uuid = _scoped_user_uuid(user_uuid, scope)
+    limit = max(1, min(limit, 100))
+    offset = max(0, offset)
+    where: list[str] = []
+    params: list[Any] = []
+    if user_uuid:
+        params.append(user_uuid)
+        where.append(f"user_uuid=${len(params)}")
+    if status:
+        statuses = [s.strip() for s in status.split(",") if s.strip()]
+        if statuses:
+            params.append(statuses)
+            where.append(f"status = ANY(${len(params)})")
+    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+    conn = await get_db_conn()
+    try:
+        rows = await conn.fetch(
+            f"SELECT id, task_id, user_uuid, chat_id, status, message, result, created_at, updated_at "
+            f"FROM video_generation_tasks {where_sql} ORDER BY id DESC LIMIT $%d OFFSET $%d"
+            % (len(params) + 1, len(params) + 2),
+            *params,
+            limit,
+            offset,
+        )
+        total = await conn.fetchval(
+            f"SELECT count(*) FROM video_generation_tasks {where_sql}", *params
+        )
+    finally:
+        await conn.close()
+    items: list[dict[str, Any]] = []
+    for r in rows:
+        d = dict(r)
+        result = d.get("result")
+        if result:
+            try:
+                d["result"] = json.loads(result)
+            except (ValueError, TypeError):
+                pass
+        items.append(d)
+    return {
+        "ok": True,
+        "data": {"items": items, "total": total or 0, "limit": limit, "offset": offset},
+    }
 
 
 @router.get("/video/providers")
@@ -137,11 +215,29 @@ async def video_providers() -> dict[str, Any]:
 
 
 @router.post("/video/token6688-cancel/{task_id}")
-async def video_token6688_cancel(task_id: str) -> dict[str, Any]:
+async def video_token6688_cancel(
+    task_id: str,
+    scope: tuple[str, bool] = Depends(_user_scope),
+) -> dict[str, Any]:
     """取消 token6688 在途异步任务(DELETE /v1/tasks/{id} 优先,/cancel 兜底)。
 
     ⚠ 官方未收录取消端点:ok=false 时如实带原因(unsupported/not_found),不抛 500。
+    2026-09-09 P0 越权收敛:此前任何登录用户可取消任意 provider 任务;现按本地表
+    task_id 校验归属,非 admin 仅可取消自己的;本地无匹配行(纯远端 id)非 admin
+    一律 404,不泄露 provider 取消能力。
     """
+    user_id, is_admin = scope
+    conn = await get_db_conn()
+    try:
+        owner = await conn.fetchval(
+            "SELECT user_uuid FROM video_generation_tasks WHERE task_id=$1 "
+            "ORDER BY id DESC LIMIT 1",
+            task_id,
+        )
+    finally:
+        await conn.close()
+    if not is_admin and (owner or "") != user_id:
+        raise HTTPException(status_code=404, detail="任务不存在")
     from ..core.config import settings
     from ..providers.token6688_provider import Token6688Provider
 
@@ -188,9 +284,10 @@ async def token6688_callback(request: Request) -> dict[str, Any]:
             )
             raise HTTPException(status_code=401, detail="签名校验失败")
     else:
-        logger.warning(
-            "[video] token6688 回调未配置 TOKEN6688_CALLBACK_SECRET,跳过验签(建议配置)",
-        )
+        # 2026-09-09 P0 fail-closed:密钥为空时此前"跳过验签继续处理"=匿名可伪造
+        # 任务终态(公开白名单端点)。现拒绝处理;配 key 后必须同步配回调密钥。
+        logger.error("[video] token6688 回调拒绝: TOKEN6688_CALLBACK_SECRET 未配置(fail-closed)")
+        raise HTTPException(status_code=503, detail="回调密钥未配置,拒绝处理")
     event = request.headers.get("X-TokenGo-Event", "")
     try:
         snapshot = json.loads(body or b"{}")

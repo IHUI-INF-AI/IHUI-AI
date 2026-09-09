@@ -11,5 +11,16 @@
 
 from .chart_tools import generate_chart
 from .document_tools import parse_document
+from .document_asset_tools import document_tables, extract_document_assets
+from .web_crawl_tools import crawl_site, extract_web, fetch_readable, map_site
 
-__all__ = ["generate_chart", "parse_document"]
+__all__ = [
+    "generate_chart",
+    "parse_document",
+    "extract_document_assets",
+    "document_tables",
+    "fetch_readable",
+    "map_site",
+    "crawl_site",
+    "extract_web",
+]
