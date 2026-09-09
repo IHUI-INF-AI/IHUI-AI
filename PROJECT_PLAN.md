@@ -3380,3 +3380,13 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-09) **后端薄接口 POST /api/web-tools/call**(新 `app/routers/web_tools.py`,main.py 挂载 /api):工具白名单 fetch_readable/map_site/extract_web(各 60s/60s/90s 独立超时),形参逐项收敛不透传任意 dict;crawl_site 维持 _ADMIN_ONLY_TOOLS 刻意不在 HTTP 层开放。测试 6 用例(白名单拒绝/缺 fields 400/形参收敛/500 映射等)。
 - [x] ✅(2026-09-09) **前端 /web-tools 操作页**(`app/(main)/web-tools/page.tsx`,<250 行):工具三 Tab + URL 输入 + 按工具参数表单(max_chars/include_links/max_links/同域开关/fields schema 文本域) + 结果面板(markdown 复制/链接列表/字段-值-置信度表格 + 耗时/rendered/来源/tokens 元信息);next.config.ts 加 `/api/web-tools/*` → 8803 直连 rewrite;nav-data.ts 加"网页工具"导航项;五语言 i18n(nav.webTools + webToolsPage 28 键 × 5,文本注入零格式噪声)。
 - [x] ✅(2026-09-09) **验证**:ai-service 专项 39 passed(web_crawl_tools + web_tools_router);受影响模块定向回归 350 passed;web tsc --noEmit 0 错误;生产 8803 重启后 /health ok + 端点冒烟;commit 已推送 GitHub/Gitee/GitCode 三仓。
+
+## extract_web LLM 费用真入账闭环(2026-09-09 第六轮完成 ✅)
+
+> 触发:第五轮自审发现"llm_usage 透出 ≠ 入账"假闭环——对话主链路 `_maybe_record_step` 根本不记 tokens、`_normalize_step` 归一化丢弃 model 字段、降级启发式时已消耗的 token 凭空消失。本轮三处根治 + 端到端验证。
+
+- [x] ✅(2026-09-09) **agent_loop_v2 工具 step 记账映射**:新增 `_tool_llm_usage_fields()` 把工具结果内嵌 `llm_usage/llm_model` 映射为 step 顶层 `tokens_in/tokens_out/tokens/model`,`cost_ledger.sync_from_recorder` 聚合自此真正入账(此前永远为 0)。
+- [x] ✅(2026-09-09) **guarded_tool_pipeline 兜底补记**:调用方未计 token 而 fn 结果自带 llm_usage 时补齐 tokens 三元组 + model;调用方已显式计 token 时不覆盖。
+- [x] ✅(2026-09-09) **agent_step_recorder 归一化保留 model**:`_normalize_step` 此前丢弃 model 字段导致账本侧 `s.get("model")` 永远为空,补 `"model"` 归一化项。
+- [x] ✅(2026-09-09) **extract_web 降级费用可见性**:`_extract_via_llm` 全 null/非 JSON/空回复时不再返回 None 丢弃 usage,改为 `{fields:{}, usage, model}`;extract_web 降级启发式时结果带 `llm_usage/llm_model/llm_fallback`(网关异常仍无 usage 不带)。花了的钱不允许凭空消失。
+- [x] ✅(2026-09-09) **验证**:专项 test_tool_llm_usage_accounting(映射 3 态/管线兜底 2 态/recorder→ledger 端到端)+ web_crawl_tools 语义更新用例;专项+记账回归 103 passed;受影响模块定向回归(agent_loop_v2/conversation/step_evidence/step_recorder/cost_accounting/mcp_server/capability_market/web_tools_router/document_tools/media_tasks)366 passed。
