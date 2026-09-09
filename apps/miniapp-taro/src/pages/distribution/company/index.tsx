@@ -8,7 +8,6 @@ import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getDistributionInfo, getDistributionTeam } from '@/api'
-import './index.css'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface CompanyInfo {
@@ -68,106 +67,148 @@ export default function CompanyPage() {
 
   const navigateTo = (url: string) => Taro.navigateTo({ url })
 
+  /* 对齐 RN TeamScreen(packages/app 共享屏):标题 24dp→48rpx bold、统计卡 success.light 底、
+     成员卡 surface.bg 底 + 描边 24rpx 圆角 + 44dp→88rpx 圆头像;小程序特有菜单卡沿用 RN 卡片语言 */
   return (
-    <ThemeRoot className="cp-page">
-      <View className="cp-header">
-        <Text className="cp-header-title">{t('distribution.company.title')}</Text>
-        <Text className="cp-header-level">
+    <ThemeRoot className="min-h-screen bg-background pb-[64rpx]">
+      {/* 对齐 RN TeamScreen header:title 24dp→48rpx bold + 副标题 14dp→28rpx secondary */}
+      <View className="px-[20rpx] pt-[20rpx] pb-[24rpx]">
+        <Text className="block text-[48rpx] font-bold text-foreground">
+          {t('distribution.company.title')}
+        </Text>
+        <Text className="block text-[28rpx] text-muted-foreground mt-[16rpx]">
           {t('distribution.company.level', { n: info.level })}
         </Text>
-        <View className="cp-stats">
-          <View className="cp-stat">
-            <Text className="cp-stat-num">¥{info.totalCommission}</Text>
-            <Text className="cp-stat-label">{t('distribution.company.totalEarnings')}</Text>
+      </View>
+
+      {/* 对齐 RN TeamScreen statsCard:success.light 底 + 20dp→40rpx bold success 数值 + deepText 标签 */}
+      <View className="mx-[20rpx] rounded-[24rpx] p-[28rpx] bg-[var(--color-success-light)]">
+        <View className="flex flex-row justify-between">
+          <View className="flex-1 flex flex-col items-center">
+            <Text className="text-[40rpx] font-bold text-[var(--color-success)]">
+              ¥{info.totalCommission}
+            </Text>
+            <Text className="text-[20rpx] text-[var(--color-success-deep-text)] mt-[16rpx] text-center">
+              {t('distribution.company.totalEarnings')}
+            </Text>
           </View>
-          <View className="cp-stat">
-            <Text className="cp-stat-num">¥{info.available}</Text>
-            <Text className="cp-stat-label">{t('distribution.company.available')}</Text>
+          <View className="flex-1 flex flex-col items-center">
+            <Text className="text-[40rpx] font-bold text-[var(--color-success)]">
+              ¥{info.available}
+            </Text>
+            <Text className="text-[20rpx] text-[var(--color-success-deep-text)] mt-[16rpx] text-center">
+              {t('distribution.company.available')}
+            </Text>
           </View>
-          <View className="cp-stat">
-            <Text className="cp-stat-num">{info.teamCount}</Text>
-            <Text className="cp-stat-label">{t('distribution.company.teamMembers')}</Text>
+          <View className="flex-1 flex flex-col items-center">
+            <Text className="text-[40rpx] font-bold text-[var(--color-success)]">
+              {info.teamCount}
+            </Text>
+            <Text className="text-[20rpx] text-[var(--color-success-deep-text)] mt-[16rpx] text-center">
+              {t('distribution.company.teamMembers')}
+            </Text>
           </View>
         </View>
       </View>
 
-      <View className="cp-team-card">
-        <View className="cp-team-header">
-          <Text className="cp-team-title">{t('distribution.company.teamMembers')}</Text>
-          <Text className="cp-team-count">
+      {/* 对齐 RN TeamScreen listBody:padding 14dp→28rpx + 卡片间 8dp→16rpx */}
+      <View className="px-[20rpx] pt-[32rpx]">
+        <View className="flex flex-row items-center justify-between mb-[16rpx]">
+          <Text className="text-[28rpx] font-medium text-foreground">
+            {t('distribution.company.teamMembers')}
+          </Text>
+          <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
             {t('distribution.company.memberCount', { n: members.length })}
           </Text>
         </View>
         {loading ? (
-          <View>
+          <View className="flex flex-col gap-[16rpx]">
             {Array.from({ length: 3 }).map((_, i) => (
-              <View key={i} className="cp-loading-row">
-                <View className="cp-loading-avatar" />
-                <View className="cp-loading-bar" />
+              <View
+                key={i}
+                className="flex flex-row items-center rounded-[24rpx] border border-border p-[28rpx]"
+              >
+                <View className="w-[88rpx] h-[88rpx] rounded-full bg-[var(--color-muted)] flex-shrink-0" />
+                <View className="flex-1 ml-[20rpx] mr-[16rpx]">
+                  <View className="h-[24rpx] w-[60%] rounded-[8rpx] bg-[var(--color-muted)]" />
+                  <View className="h-[20rpx] w-[40%] rounded-[8rpx] bg-[var(--color-muted)] mt-[16rpx]" />
+                </View>
               </View>
             ))}
           </View>
         ) : members.length === 0 ? (
-          <View className="cp-empty">
-            <Text>{t('distribution.company.empty')}</Text>
+          <View className="py-[64rpx] text-center">
+            <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">
+              {t('distribution.company.empty')}
+            </Text>
           </View>
         ) : (
-          members.map((m) => (
-            <View
-              key={m.id}
-              className="cp-member"
-              onClick={() => navigateTo(`/pages/distribution/member-detail/index?id=${m.id}`)}
-            >
-              {m.avatar ? (
-                <Image className="cp-member-avatar" src={m.avatar} mode="aspectFill" />
-              ) : (
-                <View className="cp-member-avatar">
-                  <Text>{m.nickname.charAt(0)}</Text>
+          <View className="flex flex-col gap-[16rpx]">
+            {members.map((m) => (
+              <View
+                key={m.id}
+                className="flex flex-row items-center rounded-[24rpx] border border-border bg-background p-[28rpx]"
+                onClick={() => navigateTo(`/pages/distribution/member-detail/index?id=${m.id}`)}
+                hoverClass="opacity-60">
+                {m.avatar ? (
+                  <Image
+                    className="w-[88rpx] h-[88rpx] rounded-full flex-shrink-0"
+                    src={m.avatar}
+                    mode="aspectFill"
+                  />
+                ) : (
+                  <View className="w-[88rpx] h-[88rpx] rounded-full bg-[var(--color-muted)] items-center justify-center flex-shrink-0">
+                    <Text className="text-[36rpx] font-semibold text-muted-foreground">
+                      {m.nickname.charAt(0)}
+                    </Text>
+                  </View>
+                )}
+                <View className="flex-1 ml-[20rpx] mr-[16rpx] min-w-0">
+                  <Text className="block text-[32rpx] font-semibold text-foreground truncate">
+                    {m.nickname}
+                  </Text>
+                  <Text className="block text-[22rpx] text-[var(--color-text-tertiary)] mt-[16rpx] truncate">
+                    {t('distribution.company.joinTime', { time: m.joinTime })}
+                  </Text>
                 </View>
-              )}
-              <View className="cp-member-info">
-                <Text className="cp-member-name">{m.nickname}</Text>
-                <Text className="cp-member-time">
-                  {t('distribution.company.joinTime', { time: m.joinTime })}
+                <Text className="px-[12rpx] py-[2rpx] rounded-[16rpx] bg-card text-[20rpx] text-muted-foreground flex-shrink-0">
+                  V{m.level}
                 </Text>
               </View>
-              <Text className="cp-member-level">V{m.level}</Text>
-            </View>
-          ))
+            ))}
+          </View>
         )}
       </View>
 
-      <View className="cp-menu-card">
-        <View className="cp-menu-grid">
-          <View className="cp-menu-item" onClick={() => navigateTo('/pages/distribution/team')}>
-            <LineIcon
-              className="cp-menu-icon"
-              name="users"
-              size={40}
-              color="var(--color-muted-foreground)"
-            />
-            <Text className="cp-menu-label">{t('distribution.company.menuTeam')}</Text>
+      {/* 菜单卡 — 小程序特有导航入口(无 RN 对应),按 RN 卡片语言:白卡 + 描边 + 24rpx 圆角 */}
+      <View className="mx-[20rpx] mt-[24rpx] rounded-[24rpx] border border-border bg-card p-[28rpx]">
+        <View className="flex flex-row gap-[16rpx]">
+          <View
+            className="flex-1 flex flex-col items-center gap-[8rpx] py-[24rpx] rounded-[24rpx] bg-[var(--color-muted)]"
+            onClick={() => navigateTo('/pages/distribution/team')}
+            hoverClass="opacity-60">
+            <LineIcon name="users" size={40} color="var(--color-muted-foreground)" />
+            <Text className="text-[24rpx] text-foreground">
+              {t('distribution.company.menuTeam')}
+            </Text>
           </View>
           <View
-            className="cp-menu-item"
+            className="flex-1 flex flex-col items-center gap-[8rpx] py-[24rpx] rounded-[24rpx] bg-[var(--color-muted)]"
             onClick={() => navigateTo('/pages/distribution/commission')}
-          >
-            <LineIcon
-              className="cp-menu-icon"
-              name="wallet"
-              size={40}
-              color="var(--color-muted-foreground)"
-            />
-            <Text className="cp-menu-label">{t('distribution.company.menuCommission')}</Text>
+            hoverClass="opacity-60">
+            <LineIcon name="wallet" size={40} color="var(--color-muted-foreground)" />
+            <Text className="text-[24rpx] text-foreground">
+              {t('distribution.company.menuCommission')}
+            </Text>
           </View>
-          <View className="cp-menu-item" onClick={() => navigateTo('/pages/distribution/withdraw')}>
-            <LineIcon
-              className="cp-menu-icon"
-              name="wallet"
-              size={40}
-              color="var(--color-muted-foreground)"
-            />
-            <Text className="cp-menu-label">{t('distribution.company.menuWithdraw')}</Text>
+          <View
+            className="flex-1 flex flex-col items-center gap-[8rpx] py-[24rpx] rounded-[24rpx] bg-[var(--color-muted)]"
+            onClick={() => navigateTo('/pages/distribution/withdraw')}
+            hoverClass="opacity-60">
+            <LineIcon name="wallet" size={40} color="var(--color-muted-foreground)" />
+            <Text className="text-[24rpx] text-foreground">
+              {t('distribution.company.menuWithdraw')}
+            </Text>
           </View>
         </View>
       </View>

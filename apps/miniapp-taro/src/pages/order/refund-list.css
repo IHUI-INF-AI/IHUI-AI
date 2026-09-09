@@ -1,8 +1,14 @@
 /*
   © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
   Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‌‌​‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
+
+/* 对齐 RN SharedRefundHistoryScreen:
+   - 容器背景 surface.bg → var(--color-background)
+   - 列表 padding 28rpx / 卡片间距 24rpx(separator 12dp)
+   - 卡片 padding 28rpx / 圆角 32rpx(radius 16dp)/ 2rpx 描边(border.light)/ 白卡
+   - 金额 32rpx/600 danger、状态 28rpx、原因 28rpx secondary、时间 22rpx tertiary */
 
 .refund-page {
   display: flex;
@@ -11,7 +17,7 @@
   background: var(--color-background);
 }
 
-/* ===== 状态筛选 tab ===== */
+/* ===== 状态筛选 tab(RN 无此元素,小程序业务保留;样式沿用 token 卡片语言) ===== */
 .refund-tabs {
   flex-shrink: 0;
   display: flex;
@@ -45,15 +51,15 @@
 
 /* ===== 退款卡片 ===== */
 .refund-list {
-  padding: 8rpx 24rpx 40rpx;
+  padding: 28rpx;
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
+  gap: 24rpx;
 }
 .refund-card {
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 32rpx;
   padding: 28rpx;
 }
 .refund-card-head {
@@ -61,13 +67,14 @@
   align-items: center;
   justify-content: space-between;
 }
-.refund-order-no {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
+.refund-amount {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-danger);
 }
 .refund-status {
-  font-size: 24rpx;
-  font-weight: 600;
+  font-size: 28rpx;
+  font-weight: 500;
 }
 .refund-status-refunding {
   color: var(--color-warning);
@@ -76,15 +83,15 @@
   color: var(--color-success);
 }
 .refund-status-rejected {
-  color: var(--color-destructive);
+  color: var(--color-danger);
 }
 
 .refund-card-body {
   margin-top: 16rpx;
 }
 .refund-title {
-  font-size: 30rpx;
-  font-weight: 600;
+  font-size: 28rpx;
+  font-weight: 500;
   color: var(--color-foreground);
 }
 .refund-reason {
@@ -94,30 +101,35 @@
   gap: 12rpx;
 }
 .refund-reason-label {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
+  font-size: 22rpx;
+  color: var(--color-text-tertiary);
   flex-shrink: 0;
 }
 .refund-reason-text {
-  font-size: 24rpx;
-  color: var(--color-foreground);
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
   flex: 1;
 }
 
 .refund-card-foot {
-  margin-top: 20rpx;
+  margin-top: 16rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.refund-time {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
+.refund-order-no {
+  font-size: 22rpx;
+  color: var(--color-text-tertiary);
+  flex: 1;
+  margin-right: 16rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.refund-amount {
-  font-size: 34rpx;
-  font-weight: 700;
-  color: var(--color-destructive);
+.refund-time {
+  font-size: 22rpx;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
 }
 
 /* ===== 预计到账提示 ===== */
@@ -141,7 +153,7 @@
 }
 .refund-action-btn {
   padding: 10rpx 24rpx;
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--color-muted-foreground);
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
@@ -206,15 +218,15 @@
 .refund-step-time {
   margin-top: 6rpx;
   font-size: 22rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
 }
 
-/* ===== 状态文案 ===== */
+/* ===== 状态文案(对齐 RN center paddingVertical 48dp → 96rpx / 28rpx secondary) ===== */
 .refund-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 140rpx 0 80rpx;
+  padding: 96rpx 0;
 }
 .refund-empty-icon {
   font-size: 80rpx;
@@ -228,8 +240,8 @@
 .refund-no-more {
   display: block;
   text-align: center;
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--color-muted-foreground);
   padding: 40rpx 0;
 }
-/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‌‌​‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

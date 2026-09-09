@@ -43,7 +43,7 @@ export default function SectionHeader({
       <View className="flex items-center flex-shrink-0">
         {extra}
         {showMore && (
-          <View className="flex items-center ml-2" onClick={onMore}>
+          <View className="flex items-center ml-2" onClick={onMore} hoverClass="opacity-60">
             <Text className="text-[24rpx] text-primary">{moreLabel}</Text>
             <Text className="ml-1 text-[24rpx] text-primary">{'>'}</Text>
           </View>

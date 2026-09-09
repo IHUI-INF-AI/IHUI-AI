@@ -234,7 +234,7 @@ export default function VipTraderIndexPage() {
             <Text className={`trader-intro ${introExpanded ? 'trader-intro-expanded' : ''}`}>
               {TRADER_PROFILE.intro}
             </Text>
-            <View className="trader-intro-toggle" onClick={() => setIntroExpanded((v) => !v)}>
+            <View className="trader-intro-toggle" hoverClass="opacity-60" onClick={() => setIntroExpanded((v) => !v)}>
               <Text className="trader-intro-toggle-text">
                 {introExpanded
                   ? tt('vipTrader.collapse', '收起')
