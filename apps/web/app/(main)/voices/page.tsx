@@ -37,7 +37,10 @@ interface VoiceDetail {
   [key: string]: unknown
 }
 
-const STATUS_READY = new Set(['succeeded', 'success', 'completed', 'ready', 'active'])
+// 2026-09-09 收尾修复:成功/失败终态集合与后端 provider 对齐
+// (_TASK_OK_STATES/_TASK_FAIL_STATES, token6688_provider.py)。
+const STATUS_READY = new Set(['succeeded', 'success', 'completed', 'complete', 'done', 'ok', 'ready', 'active'])
+const STATUS_FAILED = new Set(['failed', 'fail', 'error', 'cancelled', 'canceled'])
 
 function voiceId(v: VoiceItem): string {
   return String(v.voice_id ?? v.id ?? '')
@@ -76,11 +79,13 @@ export default function VoicesPage() {
   const listQuery = useQuery({
     queryKey: ['voices'],
     queryFn: () => api<{ ok: boolean; voices: VoiceItem[]; count: number }>('/voice/voices'),
-    // 2026-09-09 F6:声纹克隆是异步任务,存在克隆中(非 ready)的声纹时 5s 自动轮询,
+    // 2026-09-09 F6:声纹克隆是异步任务,存在克隆中(非终态)的声纹时 5s 自动轮询,
     // 克隆完成后自动刷新出可试听/可用的新声纹,无需手动刷新。
+    // 2026-09-09 收尾修复:failed/error 等失败终态不再轮询(此前失败会 5s 无限轮询)。
     refetchInterval: (q) => {
       const items = q.state.data?.voices ?? []
-      return items.some((v) => !STATUS_READY.has(voiceStatus(v).toLowerCase())) ? 5000 : false
+      const isTerminal = (s: string) => STATUS_READY.has(s) || STATUS_FAILED.has(s)
+      return items.some((v) => !isTerminal(voiceStatus(v).toLowerCase())) ? 5000 : false
     },
   })
 
@@ -214,7 +219,9 @@ export default function VoicesPage() {
           <div className="divide-y divide-border/40">
             {voices.map((v) => {
               const id = voiceId(v)
-              const ready = STATUS_READY.has(voiceStatus(v).toLowerCase())
+              const status = voiceStatus(v).toLowerCase()
+              const ready = STATUS_READY.has(status)
+              const failed = STATUS_FAILED.has(status)
               const url = voiceUrl(v)
               const isExpanded = expanded === id
               return (
@@ -229,10 +236,13 @@ export default function VoicesPage() {
                         'inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
                         ready
                           ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+                          : failed
+                            ? 'bg-red-500/10 text-red-600 dark:text-red-400'
+                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
                       )}
                     >
-                      {ready ? t('statusReady') : t('statusProcessing')}
+                      {/* 2026-09-09 收尾修复:失败态不再误标"处理中"(三态徽章) */}
+                      {ready ? t('statusReady') : failed ? t('statusFailed') : t('statusProcessing')}
                     </span>
                     <span className="text-[11px] text-muted-foreground/60">{fmt(v.created_at)}</span>
                     {v.model ? (
