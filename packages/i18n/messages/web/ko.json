@@ -1936,7 +1936,7 @@
           "noData": "문제가 없습니다",
           "noPaperSelected": "먼저 시험지를 선택해 주세요",
           "optionsJsonError": "선택지 JSON 오류: {msg}",
-          "optionsPlaceholder": "[{\"key\":\"A\",\"text\":\"선택지 1\"}]",
+          "optionsPlaceholder": "['{'\"key\":\"A\",\"text\":\"선택지 1\"'}']",
           "paperRequired": "먼저 시험지를 선택하세요",
           "save": "저장",
           "selectPaper": "시험지 선택",
@@ -1968,7 +1968,7 @@
           "noDataWithType": "{type} 없음",
           "optionsJson": "선택지 (JSON)",
           "optionsJsonError": "옵션 JSON 오류: {message}",
-          "optionsPlaceholder": "[{\"key\":\"A\",\"text\":\"선택지 1\"}]",
+          "optionsPlaceholder": "['{'\"key\":\"A\",\"text\":\"선택지 1\"'}']",
           "paperRequired": "먼저 시험지를 선택하세요",
           "save": "저장",
           "score": "배점",
@@ -4702,7 +4702,8 @@
           "salesInvalid": "판매량은 음수일 수 없습니다",
           "stockInvalid": "재고는 음수일 수 없습니다",
           "typeRequired": "상품 유형을 입력해 주세요"
-        }
+        },
+        "exportBtn": "내보내기"
       },
       "withdrawals": {
         "allStatus": "전체 상태",
@@ -4895,7 +4896,7 @@
       "exportSuccess": "내보내기 성공",
       "exportTab": "내보내기",
       "importFailed": "실패 {count}개",
-      "importHint": "JSON 파일을 선택하여 스킬 가져오기(파일 형식: { skills: [...] })",
+      "importHint": "JSON 파일을 선택하여 스킬 가져오기(파일 형식: '{' skills: [...] '}')",
       "importPartial": "가져오기 완료:성공 {success}개, 실패 {failed}개",
       "importSuccess": "가져오기 성공 {count}개 스킬",
       "importTab": "가져오기",
@@ -6204,7 +6205,7 @@
       "colType": "유형",
       "config": "설정",
       "configHint": "유효한 JSON 객체를 입력하세요",
-      "configPlaceholder": "'{'\"host\": \"smtp.example.com\", \"port\": 587'}'",
+      "configPlaceholder": "'''{'''\"host\": \"smtp.example.com\", \"port\": 587'''}'''",
       "confirmDelete": "삭제 확인",
       "createChannel": "새 채널",
       "delete": "삭제",
@@ -6961,7 +6962,12 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
+      "classLevel": [
+        "우수(학급 상위 10%)",
+        "양호(10-30%)",
+        "보통(30-70%)",
+        "미흡(하위 30%)"
+      ],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -6978,7 +6984,12 @@
         "시험 불안",
         "가정 환경 영향"
       ],
-      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"]
+      "school": [
+        "주요 중학교",
+        "일반 중학교",
+        "국제 학교",
+        "사립 학교"
+      ]
     },
     "result": {
       "failed": "AI 분석 실패",
@@ -7605,7 +7616,7 @@
     "importJsonEmpty": "JSON 데이터를 붙여넣어주세요",
     "importJsonInvalid": "JSON 형식이 유효하지 않습니다",
     "importNameRequired": "name 필드가 없습니다",
-    "importPlaceholder": "'{'\n  \"name\": \"my-skill\",\n  \"description\": \"...\",\n  \"icon\": \"wand2\",\n  \"category\": \"ai-top\",\n  \"tags\": [],\n  \"promptTemplate\": \"...\",\n  \"sourceUrl\": \"\"\n'}'",
+    "importPlaceholder": "'''{'''\n  \"name\": \"my-skill\",\n  \"description\": \"...\",\n  \"icon\": \"wand2\",\n  \"category\": \"ai-top\",\n  \"tags\": [],\n  \"promptTemplate\": \"...\",\n  \"sourceUrl\": \"\"\n'''}'''",
     "importSuccess": "{name} 가져오기 완료",
     "importTitle": "AI 스킬 가져오기",
     "importing": "가져오는 중…",
@@ -8957,32 +8968,58 @@
     "commands": {
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"],
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ],
         "label": "AI 월드"
       },
       "chat": {
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI", "chat"],
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI",
+          "chat"
+        ],
         "label": "AI 채팅"
       },
       "drama": {
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI", "drama"],
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI",
+          "drama"
+        ],
         "label": "AI 드라마"
       },
       "profile": {
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"],
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ],
         "label": "프로필"
       },
       "search": {
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"],
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ],
         "label": "검색"
       },
       "settings": {
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"],
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ],
         "label": "설정"
       }
     },
@@ -9168,7 +9205,11 @@
     "forbidden": "금지된 접근",
     "forgotPassword": "비밀번호 분실",
     "login": "로그인",
-    "status": "상태"
+    "status": "상태",
+    "export": "내보내기",
+    "add": "추가",
+    "submit": "제출",
+    "error": "오류"
   },
   "contactPage": {
     "addressTitle": "회사 주소",
@@ -9596,7 +9637,7 @@
   "developerPricingPage": {
     "cardDesc": "모델 가격 및 청구 규칙",
     "cardLabel": "API 가격",
-    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      { \"role\": \"user\", \"content\": \"안녕하세요, 자기소개 부탁해요\" }\n    ],\n    \"temperature\": 0.7\n  }'",
+    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '''{'\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      '{' \"role\": \"user\", \"content\": \"안녕하세요, 자기소개 부탁해요\" '}'\n    ],\n    \"temperature\": 0.7\n  '}'''",
     "codeNode": "import OpenAI from 'openai'\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: 'https://api.ihui-ai.com/v1',\n})\n\nconst completion = await client.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'user', content: '안녕하세요, 자기소개 부탁해요' },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// 비용 추적\nconst usage = completion.usage\nconsole.log(`사용량: ${usage.total_tokens} 토큰`)",
     "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"안녕하세요, 자기소개 부탁해요\"},\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# 비용 추적\nusage = response.usage\nprint(f\"사용량: {usage.total_tokens} 토큰\")",
     "colCurrency": "통화",
@@ -10809,25 +10850,37 @@
       "quadrants": [
         {
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"],
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ],
           "tag": "Q1",
           "title": "효율적 어시스턴트"
         },
         {
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"],
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ],
           "tag": "Q2",
           "title": "스마트 어드바이저"
         },
         {
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"],
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ],
           "tag": "Q3",
           "title": "실행 전문가"
         },
         {
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"],
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ],
           "tag": "Q4",
           "title": "올라운드 전문가"
         }
@@ -10961,19 +11014,31 @@
       "items": [
         {
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"],
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ],
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티"
         },
         {
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"],
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ],
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티"
         },
         {
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"],
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ],
           "tag": "MODULE 03",
           "title": "AI 전문 서비스"
         }
@@ -11326,7 +11391,8 @@
     "content": "피드백 내용",
     "contact": "연락처",
     "submitting": "제출 중…",
-    "submit": "제출"
+    "submit": "제출",
+    "subtitle": "귀하의 피드백은 제품 개선에 도움이 됩니다."
   },
   "fields": {
     "applyTime": "신청 시간",
@@ -11641,7 +11707,10 @@
     "updatedAt": "업데이트시간",
     "viewCount": "{count}회 조회",
     "title": "AI인마음페이스테스트",
-    "loading": "설정( S)..."
+    "loading": "설정( S)...",
+    "subtitle": "가이드, FAQ, 도움말 찾기",
+    "searchPlaceholder": "도움말 검색",
+    "allArticles": "전체 글"
   },
   "home": {
     "announcement": {
@@ -13465,7 +13534,15 @@
       "title": "Top 5 페이지",
       "visitsHeader": "방문수"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ]
   },
   "models": {
     "aiNews": {
@@ -14201,7 +14278,12 @@
         ]
       },
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       }
     },
     "productSchema": {
@@ -14214,17 +14296,17 @@
         "enterprise": {
           "description": "200M 토큰 한도, 전용 모델 채널, 무제한 API 토큰, 전담 계정 매니저, 영구 호출 로그, SLA 99.95%.",
           "name": "엔터프라이즈",
-          "price": 999
+          "price": "999"
         },
         "pro": {
           "description": "15M 토큰 한도, 모든 모델, 20개 API 토큰, 우선 기술 지원, 90일 호출 로그.",
           "name": "프로",
-          "price": 99
+          "price": "99"
         },
         "starter": {
           "description": "1M 토큰 한도, 기본 모델, 5개 API 토큰, 커뮤니티 지원.",
           "name": "스타터",
-          "price": 9.9
+          "price": "9.9"
         }
       }
     },
@@ -14629,6 +14711,9 @@
     "adminThemePresets": "프리셋",
     "adminWorkflows": "워크플로우",
     "advancedAiTools": "고급 AI 도구",
+    "mediaTasks": "미디어 작업",
+    "webTools": "웹 도구",
+    "voices": "음성 라이브러리",
     "agentGovernance": "Agent Token 거버넌스",
     "agentWorkbench": "에이전트 워크벤치",
     "agentCanvas": "에이전트 캔버스",
@@ -15389,7 +15474,13 @@
       "enterprise": {
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"],
+        "features": [
+          "무제한 크레딧",
+          "사설 배포",
+          "SSO/SAML 2.0",
+          "감사 로그",
+          "전담 기술 지원"
+        ],
         "name": "기업판"
       },
       "free": {
@@ -16559,7 +16650,12 @@
   },
   "searchHistory": {
     "clearAll": "기록 모두 지우기",
-    "subtitle": "포괄적인의개발문서및API참조"
+    "subtitle": "포괄적인의개발문서및API참조",
+    "title": "검색 기록",
+    "loading": "불러오는 중...",
+    "empty": "검색 기록 없음",
+    "resultCount": "결과 {count} 건",
+    "delete": "삭제"
   },
   "securityAuditPage": {
     "colDesc": "설명",
@@ -17261,7 +17357,31 @@
     "usageRules": "이용 규칙",
     "connectedAccountsUnbindSuccess": "연결 해제 성공",
     "notificationsLoadFailed": "설정 불러오기 실패",
-    "privacyLoadFailed": "설정 불러오기 실패"
+    "privacyLoadFailed": "설정 불러오기 실패",
+    "accountDeletionCancelSuccess": "계정 삭제가 취소되었습니다",
+    "accountDeletionStatusScheduled": "계정 삭제 예약됨",
+    "accountDeletionConfirm": "계정 삭제 확인",
+    "accountDeletionPhoneLabel": "휴대전화 번호",
+    "accountDeletionSubmitting": "제출 중...",
+    "connectedAccountsUnbind": "연결 해제",
+    "connectedAccountsBind": "연결",
+    "connectedAccountsLoading": "로딩 중...",
+    "connectedAccountsCancel": "취소",
+    "exportJsonDesc": "프로필, 채팅 기록 등의 JSON 파일 내보내기",
+    "download": "다운로드",
+    "exportRecreate": "다시 생성",
+    "notificationsSaveSuccess": "알림 설정이 저장되었습니다",
+    "notificationsDesc": "앱 내 및 이메일 알림 설정",
+    "emailNotifDesc": "중요 알림을 이메일로 받기",
+    "themeLight": "라이트",
+    "themeDark": "다크",
+    "langEn": "English",
+    "preferencesDesc": "테마, 언어, 알림 등 일반 환경설정",
+    "sidebar": "사이드바",
+    "privacySaveSuccess": "개인정보 설정이 저장되었습니다",
+    "adTrackingDesc": "광고 게재 및 성과 측정 허용",
+    "personalizedRecommendationDesc": "활동 기반 개인화 추천",
+    "privacyDesc": "데이터 공유 및 개인화 관리"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 생성",
@@ -18000,7 +18120,7 @@
       "itemReviewed": "IHUI AI 스마트 고객 서비스 Agent",
       "reviewBody": "IHUI AI 스마트 고객 서비스를 3개월 도입한 결과, 상담원의 일일 응대 건수는 800건에서 240건으로 감소(70% 감소). 야간 및 공휴일 문의는 100% AI가 처리하며, 고객 만족도는 4.1에서 4.7로 상승했습니다. 통합 지식 베이스로 WeChat/웹/미니프로그램 모든 채널의 답변이 일관되고, 복잡한 케이스는 AI 추천 답변과 함께 상담원에게 매끄럽게 인계되어 지원 팀이 진정한 판단력이 필요한 티켓에 집중할 수 있게 되었습니다.",
       "reviewRating": {
-        "ratingValue": 4.8
+        "ratingValue": "4.8"
       }
     }
   },
@@ -18099,7 +18219,10 @@
       },
       "title": "알림",
       "viewList": "목록 보기",
-      "viewTimeline": "타임라인 보기"
+      "viewTimeline": "타임라인 보기",
+      "unreadCount": "{count}개의 안 읽음",
+      "loading": "로딩 중...",
+      "noData": "메시지 없음"
     },
     "profile": {
       "accountInfo": "계정 정보",
@@ -18197,7 +18320,8 @@
       "sourcePC": "ＰＣ",
       "subtitle": "더 많은 기능을 이용하려면 실명 인증을 완료하세요",
       "success": "인증 제출 성공",
-      "title": "실명 인증"
+      "title": "실명 인증",
+      "loading": "로딩 중..."
     },
     "resource": {
       "empty": "데이터가 없습니다",
@@ -18271,7 +18395,12 @@
       "renewNow": "지금 갱신",
       "renewTitle": "구독 갱신",
       "success": "갱신 성공",
-      "wechat": "위챗페이"
+      "wechat": "위챗페이",
+      "title": "구독",
+      "subtitle": "회원 구독 관리",
+      "loading": "로딩 중...",
+      "activated": "활성화됨",
+      "notSubscribed": "구독 안 함"
     },
     "subtitle": "개인정보, 콘텐츠, 상호작용 관리",
     "title": "개인 센터"
@@ -18634,7 +18763,12 @@
       "copy": "복사",
       "copied": "복사됨",
       "copyFailed": "복사에 실패했습니다. 텍스트를 선택해 수동으로 복사해 주세요",
-      "download": ".md 다운로드"
+      "download": ".md 다운로드",
+      "extractImages": "이미지 추출",
+      "extracting": "추출 중...",
+      "extractedImages": "추출된 이미지",
+      "extractedNone": "이 문서에는 추출할 수 있는 내장 이미지가 없습니다",
+      "assetNotSupported": "이 형식(PDF)은 내장 이미지 추출을 지원하지 않습니다"
     },
     "convertMarkdownFailed": "변환 실패",
     "convertToMarkdown": "Markdown으로 변환",
@@ -20856,17 +20990,30 @@
   "legal": {
     "title": "법적 정보",
     "serviceSpecificTerms": {
-      "title": "서비스별 약관"
+      "title": "서비스별 약관",
+      "lastUpdated": "최종 업데이트"
     },
     "supportedRegions": {
-      "title": "지원 국가 및 지역"
+      "title": "지원 국가 및 지역",
+      "lastUpdated": "최종 업데이트",
+      "intro": "서비스 이용 가능 범위는 국가 또는 지역의 현지 법규에 따라 다를 수 있습니다. 자세한 내용은 다음과 같습니다.",
+      "supportedTitle": "지원 지역",
+      "restrictedTitle": "제한 지역",
+      "restrictedIntro": "다음 지역의 사용자는 본 서비스의 전부 또는 일부를 이용하지 못할 수 있습니다.",
+      "paymentTitle": "결제 방식",
+      "paymentIntro": "지원하는 결제 방식은 지역에 따라 다를 수 있습니다.",
+      "languageTitle": "인터페이스 언어",
+      "languageIntro": "본 서비스는 여러 인터페이스 언어를 지원하며, 실제 표시 언어는 지역에 따라 다를 수 있습니다."
     },
     "terms": {
-      "title": "서비스 약관"
+      "title": "서비스 약관",
+      "lastUpdated": "최종 업데이트"
     },
     "usagePolicy": {
-      "title": "사용 정책"
-    }
+      "title": "사용 정책",
+      "lastUpdated": "최종 업데이트"
+    },
+    "backToHome": "홈으로"
   },
   "mcpProjects": {
     "title": "MCP 프로젝트",
@@ -20958,5 +21105,122 @@
     },
     "cancel": "취소",
     "save": "저장"
+  },
+  "mediaTasksPage": {
+    "cancelAllRemoteFailed": "{count}개 작업의 원격 취소에 실패했습니다(로컬은 취소 처리됨)",
+    "title": "미디어 작업",
+    "subtitle": "채팅에서 생성한 동영상/음악/음성/이미지 작업의 통합 진입점: 보기, 재생, 다운로드, 취소. 산출물이 준비되면 자동 새로고침.",
+    "refresh": "새로고침",
+    "loading": "불러오는 중...",
+    "empty": "미디어 작업이 없습니다. 채팅에서 동영상/음악/음성/이미지를 생성하면 여기에 기록됩니다.",
+    "loadFailed": "불러오기 실패",
+    "statusAll": "전체",
+    "statusProcessing": "처리 중",
+    "statusSucceeded": "완료",
+    "statusFailedCancelled": "실패/취소",
+    "kindAll": "전체 유형",
+    "kindVideo": "동영상",
+    "kindMusic": "음악",
+    "kindTts": "음성",
+    "kindImage": "이미지",
+    "statusBadgeProcessing": "처리 중",
+    "statusBadgeSucceeded": "완료",
+    "statusBadgeFailed": "실패",
+    "statusBadgeCancelled": "취소됨",
+    "cancel": "취소",
+    "cancelling": "취소 중",
+    "delete": "삭제",
+    "deleting": "삭제 중",
+    "deleteConfirm": "이 작업 기록을 삭제하시겠습니까? 로컬 기록만 삭제되며 상위 작업에는 영향을 주지 않습니다.",
+    "clearDone": "완료/실패 정리",
+    "clearing": "정리 중",
+    "clearConfirm": "완료/실패/취소된 작업 기록을 모두 정리하시겠습니까? 진행 중인 작업은 유지됩니다.",
+    "clearResult": "{deleted}건 정리, 진행 중 {kept}건 유지",
+    "download": "다운로드",
+    "playable": "재생 가능",
+    "taskId": "작업 ID",
+    "total": "총 {total}건",
+    "prev": "이전",
+    "next": "다음",
+    "pageInfo": "{page} / {pages} 페이지",
+    "statsTotal": "전체 작업",
+    "statsInflight": "처리 중",
+    "statsSucceeded": "완료",
+    "statsFailed": "실패",
+    "statsCancelled": "취소됨",
+    "cancelAll": "진행 중 전체 취소",
+    "cancellingAll": "취소 중...",
+    "cancelAllConfirm": "진행 중인 모든 작업을 취소하시겠습니까? 진행 중인 긴 작업이 종료됩니다.",
+    "cancelAllResult": "진행 중인 작업 {count}건을 취소했습니다",
+    "cancelAllNone": "진행 중인 작업이 없습니다"
+  },
+  "voicesPage": {
+    "playPreview": "미리듣기",
+    "hidePreview": "닫기",
+    "cloneSubmitted": "복제가 제출되었습니다. 완료 시 자동으로 새로고침됩니다",
+    "fileTooLarge": "파일이 공식 20MiB 한도를 초과했습니다",
+    "fileBadFormat": "MP3/M4A/WAV 형식만 지원합니다",
+    "title": "음성 라이브러리",
+    "subtitle": "클론 음성 관리: 참조 오디오를 업로드해 전용 음색을 생성하고, 채팅에서 voice_tts(engine=token6688, voice=음성ID)로 읽어주기를 사용할 수 있습니다.",
+    "loading": "불러오는 중...",
+    "empty": "음성이 없습니다. 깨끗한 사람 목소리(wav/mp3/m4a, 10~300초)를 업로드하면 전용 클론 음색을 만들 수 있습니다.",
+    "loadFailed": "불러오기 실패",
+    "unconfigured": "token6688이 구성되지 않아 음성 클론을 사용할 수 없습니다. ai-service/.env에서 TOKEN6688_API_KEY를 설정하세요.",
+    "count": "총 {count}건",
+    "upload": "참조 오디오 업로드",
+    "uploadHint": "wav/mp3/m4a 지원, 10~300초 깨끗한 목소리, 20MiB 이하",
+    "uploading": "업로드 중(클론은 비동기 처리)...",
+    "voiceId": "음성 ID",
+    "name": "이름",
+    "status": "상태",
+    "statusProcessing": "클론 중",
+    "statusReady": "사용 가능",
+    "statusFailed": "실패",
+    "createdAt": "생성 시간",
+    "previewUrl": "미리듣기 링크",
+    "actions": "작업",
+    "playable": "미리듣기",
+    "delete": "삭제",
+    "deleting": "삭제 중",
+    "deleteConfirm": "이 음성을 삭제하시겠습니까? 삭제 후에는 클론 TTS에 사용할 수 없습니다.",
+    "refresh": "새로고침",
+    "notFound": "음성을 찾을 수 없습니다"
+  },
+  "webToolsPage": {
+    "title": "웹 도구",
+    "subtitle": "URL을 붙여 넣어 본문 읽기 / 사이트맵 생성 / 필드 추출(Firecrawl 융합).",
+    "tool_fetch_readable": "본문 읽기",
+    "tool_map_site": "사이트맵",
+    "tool_extract_web": "구조화 추출",
+    "urlPlaceholder": "https://example.com/page",
+    "run": "실행",
+    "running": "실행 중...",
+    "maxChars": "최대 글자 수",
+    "includeLinks": "링크 유지",
+    "maxLinks": "최대 링크 수",
+    "sameDomainOnly": "같은 도메인만",
+    "fieldsLabel": "필드 스키마(한 줄에 하나:이름:타입)",
+    "fieldsPlaceholder": "title: string\nprice: number",
+    "fieldsHint": "추출은 LLM 우선(실패 시 휴리스틱 폴백). 찾지 못한 필드는 결과에 없습니다.",
+    "errorRequired": "대상 URL을 입력하세요",
+    "errorFields": "스키마 형식 오류:각 줄은 이름:타입",
+    "errorFailed": "도구 실행 실패",
+    "copy": "복사",
+    "copied": "복사됨",
+    "metaRendered": "JS 렌더링됨",
+    "metaTruncated": "잘림",
+    "metaSourceLlm": "LLM 추출",
+    "metaSourceHeuristic": "휴리스틱 추출",
+    "metaTokens": "토큰 {total}(입력 {prompt} / 출력 {completion})",
+    "field": "필드",
+    "value": "값",
+    "confidence": "신뢰도"
+  },
+  "earnings": {
+    "title": "수익",
+    "subtitle": "수익 내역 및 정산 확인",
+    "configureByok": "BYOK 설정",
+    "configureByokDesc": "직접 보유한 API 키(BYOK)를 사용하여 비용을 절감하고 할당량을 늘리세요.",
+    "loading": "불러오는 중..."
   }
 }
