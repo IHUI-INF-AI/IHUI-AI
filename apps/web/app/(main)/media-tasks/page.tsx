@@ -6,14 +6,15 @@
 
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, RefreshCw, Clapperboard, XCircle, PlayCircle, ImageIcon, Mic, Film, Music } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { Loader2, RefreshCw, Clapperboard, XCircle, PlayCircle, ImageIcon, Mic, Film, Music, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 
-/** 对话内媒体任务统一中心(2026-09-09 立)。
+/** 对话内媒体任务统一中心(2026-09-09 立,2026-09-09 E5 增下载/分页/i18n)。
  *  展示 /api/media/tasks 落库的 video/music/tts/image 任务,
- *  支持按状态/类型过滤、产物播放/预览、在途任务取消与刷新。 */
+ *  支持按状态/类型过滤、产物播放/预览/下载、在途任务取消与刷新、分页。 */
 
 interface MediaTaskResult {
   image_url?: string | null
@@ -34,51 +35,54 @@ interface MediaTask {
   updated_at: string
 }
 
-const KIND_META: Record<string, { label: string; icon: typeof Film; className: string }> = {
-  video: { label: '视频', icon: Film, className: 'bg-violet-500/10 text-violet-600 dark:text-violet-400' },
-  music: { label: '音乐', icon: Music, className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
-  tts: { label: '语音', icon: Mic, className: 'bg-sky-500/10 text-sky-600 dark:text-sky-400' },
-  image: { label: '图片', icon: ImageIcon, className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
+const PAGE_SIZE = 10
+
+const KIND_ICONS: Record<string, typeof Film> = {
+  video: Film,
+  music: Music,
+  tts: Mic,
+  image: ImageIcon,
 }
 
-const STATUS_META: Record<string, { label: string; className: string }> = {
-  processing: { label: '进行中', className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-  succeeded: { label: '已完成', className: 'bg-green-500/10 text-green-600 dark:text-green-400' },
-  failed: { label: '失败', className: 'bg-red-500/10 text-red-600 dark:text-red-400' },
-  cancelled: { label: '已取消', className: 'bg-muted text-muted-foreground' },
+const KIND_CLASS: Record<string, string> = {
+  video: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  music: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  tts: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+  image: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
 }
 
-const STATUS_FILTERS = [
-  { key: '', label: '全部' },
-  { key: 'processing', label: '进行中' },
-  { key: 'succeeded', label: '已完成' },
-  { key: 'failed,cancelled', label: '失败/取消' },
-]
+const STATUS_CLASS: Record<string, string> = {
+  processing: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  succeeded: 'bg-green-500/10 text-green-600 dark:text-green-400',
+  failed: 'bg-red-500/10 text-red-600 dark:text-red-400',
+  cancelled: 'bg-muted text-muted-foreground',
+}
 
-const KIND_FILTERS = [
-  { key: '', label: '全部类型' },
-  { key: 'video', label: '视频' },
-  { key: 'music', label: '音乐' },
-  { key: 'tts', label: '语音' },
-  { key: 'image', label: '图片' },
-]
+const STATUS_LABEL_KEY: Record<string, string> = {
+  processing: 'statusBadgeProcessing',
+  succeeded: 'statusBadgeSucceeded',
+  failed: 'statusBadgeFailed',
+  cancelled: 'statusBadgeCancelled',
+}
 
-function MediaTaskStatusBadge({ status }: { status: string }) {
-  const meta = STATUS_META[status] ?? { label: status, className: 'bg-muted text-muted-foreground' }
+function MediaTaskStatusBadge({ status, t }: { status: string; t: (key: string) => string }) {
+  const labelKey = STATUS_LABEL_KEY[status]
+  const label = labelKey ? t(labelKey) : status
   return (
-    <span className={cn('inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium', meta.className)}>
-      {meta.label}
+    <span className={cn('inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium', STATUS_CLASS[status] ?? 'bg-muted text-muted-foreground')}>
+      {label}
     </span>
   )
 }
 
-function MediaKindBadge({ kind }: { kind: string }) {
-  const meta = KIND_META[kind] ?? { label: kind, icon: PlayCircle, className: 'bg-muted text-muted-foreground' }
-  const Icon = meta.icon
+function MediaKindBadge({ kind, t }: { kind: string; t: (key: string) => string }) {
+  const labelKey = `kind${kind.charAt(0).toUpperCase()}${kind.slice(1)}`
+  const label = t(labelKey) === labelKey ? kind : t(labelKey)
+  const Icon = KIND_ICONS[kind] ?? PlayCircle
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium', meta.className)}>
+    <span className={cn('inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium', KIND_CLASS[kind] ?? 'bg-muted text-muted-foreground')}>
       <Icon className="h-3 w-3" />
-      {meta.label}
+      {label}
     </span>
   )
 }
@@ -106,6 +110,11 @@ function MediaResultPreview({ task }: { task: MediaTask }) {
   return null
 }
 
+function resultUrl(task: MediaTask): string | null {
+  const urls = task.result ?? {}
+  return urls.video_url || urls.audio_url || urls.image_url || null
+}
+
 async function api<T>(url: string, options: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error || 'Request failed')
@@ -113,25 +122,29 @@ async function api<T>(url: string, options: RequestInit & { timeoutMs?: number }
 }
 
 export default function MediaTasksPage() {
+  const t = useTranslations('mediaTasksPage')
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = React.useState('')
   const [kindFilter, setKindFilter] = React.useState('')
+  const [page, setPage] = React.useState(1)
   const [cancelling, setCancelling] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
 
   const listQuery = useQuery({
-    queryKey: ['media-tasks', statusFilter, kindFilter],
+    queryKey: ['media-tasks', statusFilter, kindFilter, page],
     queryFn: () =>
       api<{ ok: boolean; data: { items: MediaTask[]; total: number } }>(
-        `/media/tasks?limit=50${statusFilter ? `&status=${statusFilter}` : ''}${kindFilter ? `&kind=${kindFilter}` : ''}`,
+        `/media/tasks?limit=${PAGE_SIZE}&offset=${(page - 1) * PAGE_SIZE}${statusFilter ? `&status=${statusFilter}` : ''}${kindFilter ? `&kind=${kindFilter}` : ''}`,
       ),
     refetchInterval: (q) => {
       const items = q.state.data?.data?.items ?? []
-      return items.some((t) => t.status === 'processing') ? 5000 : false
+      return items.some((task) => task.status === 'processing') ? 5000 : false
     },
   })
 
   const tasks = listQuery.data?.data?.items ?? []
+  const total = listQuery.data?.data?.total ?? 0
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const cancelTask = async (taskId: string) => {
     setCancelling(taskId)
@@ -141,10 +154,10 @@ export default function MediaTasksPage() {
         `/media/tasks/${encodeURIComponent(taskId)}/cancel`,
         { method: 'POST' },
       )
-      if (res.data?.error) setError(`取消失败: ${res.data.error}`)
+      if (res.data?.error) setError(`${t('cancel')}失败: ${res.data.error}`)
       await queryClient.invalidateQueries({ queryKey: ['media-tasks'] })
     } catch (e) {
-      setError(`取消失败: ${e instanceof Error ? e.message : String(e)}`)
+      setError(`${t('cancel')}失败: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
       setCancelling(null)
     }
@@ -161,17 +174,35 @@ export default function MediaTasksPage() {
     return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
   }
 
+  const statusFilters = [
+    { key: '', label: t('statusAll') },
+    { key: 'processing', label: t('statusProcessing') },
+    { key: 'succeeded', label: t('statusSucceeded') },
+    { key: 'failed,cancelled', label: t('statusFailedCancelled') },
+  ]
+
+  const kindFilters = [
+    { key: '', label: t('kindAll') },
+    { key: 'video', label: t('kindVideo') },
+    { key: 'music', label: t('kindMusic') },
+    { key: 'tts', label: t('kindTts') },
+    { key: 'image', label: t('kindImage') },
+  ]
+
+  const switchFilter = (setter: (v: string) => void) => (v: string) => {
+    setter(v)
+    setPage(1)
+  }
+
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-6">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <Clapperboard className="h-6 w-6 text-primary" />
-            媒体任务
+            {t('title')}
           </h1>
-          <p className="text-xs text-muted-foreground">
-            对话内生成的视频/音乐/语音/图片任务统一入口:查看、播放、取消,产物就绪后自动刷新。
-          </p>
+          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button
           variant="outline"
@@ -180,18 +211,18 @@ export default function MediaTasksPage() {
           disabled={listQuery.isFetching}
         >
           <RefreshCw className={cn('mr-1 h-4 w-4', listQuery.isFetching && 'animate-spin')} />
-          刷新
+          {t('refresh')}
         </Button>
       </header>
 
       {/* 状态 + 类型过滤 */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-1">
-          {STATUS_FILTERS.map((f) => (
+          {statusFilters.map((f) => (
             <button
               key={f.key}
               type="button"
-              onClick={() => setStatusFilter(f.key)}
+              onClick={() => switchFilter(setStatusFilter)(f.key)}
               className={cn(
                 'rounded-full border px-2.5 py-1 text-xs transition-colors',
                 statusFilter === f.key
@@ -204,11 +235,11 @@ export default function MediaTasksPage() {
           ))}
         </div>
         <div className="flex flex-wrap gap-1">
-          {KIND_FILTERS.map((f) => (
+          {kindFilters.map((f) => (
             <button
               key={f.key}
               type="button"
-              onClick={() => setKindFilter(f.key)}
+              onClick={() => switchFilter(setKindFilter)(f.key)}
               className={cn(
                 'rounded-full border px-2.5 py-1 text-xs transition-colors',
                 kindFilter === f.key
@@ -232,7 +263,7 @@ export default function MediaTasksPage() {
         {listQuery.isLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            加载中...
+            {t('loading')}
           </div>
         ) : listQuery.error ? (
           <div className="m-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -241,20 +272,40 @@ export default function MediaTasksPage() {
         ) : tasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
             <Clapperboard className="h-8 w-8 opacity-40" />
-            <p className="text-sm">暂无媒体任务,在对话中生成视频/音乐/语音/图片后会自动记录在这里。</p>
+            <p className="text-sm">{t('empty')}</p>
           </div>
         ) : (
           <div className="divide-y divide-border/40">
             {tasks.map((task) => {
-              const hasResult = !!(task.result?.video_url || task.result?.audio_url || task.result?.image_url)
+              const url = resultUrl(task)
+              const hasResult = !!url
               return (
                 <div key={task.id} className="space-y-2 p-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <MediaKindBadge kind={task.kind} />
-                    <MediaTaskStatusBadge status={task.status} />
+                    <MediaKindBadge kind={task.kind} t={t} />
+                    <MediaTaskStatusBadge status={task.status} t={t} />
                     <span className="font-mono text-[11px] text-muted-foreground">{task.tool}</span>
                     <span className="text-[11px] text-muted-foreground/60">{fmt(task.created_at)}</span>
                     <div className="ml-auto flex items-center gap-1.5">
+                      {hasResult && (
+                        <>
+                          <span className="inline-flex items-center gap-1 text-[10px] text-green-600">
+                            <PlayCircle className="h-3 w-3" />
+                            {t('playable')}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-1.5 text-[10px]"
+                            asChild
+                          >
+                            <a href={url} download target="_blank" rel="noreferrer">
+                              <Download className="mr-1 h-3 w-3" />
+                              {t('download')}
+                            </a>
+                          </Button>
+                        </>
+                      )}
                       {task.status === 'processing' && task.task_id && (
                         <Button
                           variant="outline"
@@ -268,14 +319,8 @@ export default function MediaTasksPage() {
                           ) : (
                             <XCircle className="mr-1 h-3 w-3" />
                           )}
-                          取消
+                          {cancelling === task.task_id ? t('cancelling') : t('cancel')}
                         </Button>
-                      )}
-                      {hasResult && (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-green-600">
-                          <PlayCircle className="h-3 w-3" />
-                          可播放
-                        </span>
                       )}
                     </div>
                   </div>
@@ -284,7 +329,7 @@ export default function MediaTasksPage() {
                   )}
                   {task.task_id && (
                     <code className="block truncate rounded-sm bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                      task_id: {task.task_id}
+                      {t('taskId')}: {task.task_id}
                     </code>
                   )}
                   {hasResult && <MediaResultPreview task={task} />}
@@ -294,6 +339,36 @@ export default function MediaTasksPage() {
           </div>
         )}
       </div>
+
+      {/* 分页 */}
+      {!listQuery.isLoading && !listQuery.error && pages > 1 && (
+        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>{t('total', { total })}</span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[11px]"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="mr-0.5 h-3 w-3" />
+              {t('prev')}
+            </Button>
+            <span className="min-w-[5.5rem] text-center">{t('pageInfo', { page, pages })}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[11px]"
+              disabled={page >= pages}
+              onClick={() => setPage((p) => Math.min(pages, p + 1))}
+            >
+              {t('next')}
+              <ChevronRight className="ml-0.5 h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
