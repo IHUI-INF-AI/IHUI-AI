@@ -693,7 +693,7 @@ class Token6688Provider(OpenAIProvider):
         self,
         prompt: str,
         *,
-        model: str = "music",
+        model: str | None = None,
         mode: str = "song",
         lyrics: str | None = None,
         style: str | None = None,
@@ -741,6 +741,9 @@ class Token6688Provider(OpenAIProvider):
             raise ProviderError("Token6688 operation=cover 必填 cover_clip_id(被翻唱曲目 ID)", 400)
         if operation == "extend" and not continue_clip_id:
             raise ProviderError("Token6688 operation=extend 必填 continue_clip_id(被续写曲目 ID)", 400)
+        # 音乐模型可配:TOKEN6688_MUSIC_MODEL(默认 "music",官方 Suno 扁平形状固定 model 值)
+        if not model:
+            model = _env("TOKEN6688_MUSIC_MODEL", "music")
 
         body: dict[str, Any] = {
             "model": model, "prompt": prompt, "mode": mode, "operation": operation,

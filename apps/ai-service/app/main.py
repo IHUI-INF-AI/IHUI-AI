@@ -177,6 +177,16 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as e:
         logger.warning("[schema_check] 启动校验异常(忽略): %s", e)
 
+    # 媒体任务统一落库建表(2026-09-09 立;此前 ensure_table 从未被调用,
+    # media_tasks 表不存在导致对话内媒体工具落库静默失败。失败仅告警不阻塞启动)
+    try:
+        from app.services.media_tasks import ensure_table as _ensure_media_tasks_table
+
+        await _ensure_media_tasks_table()
+        logger.info("[media_tasks] media_tasks 表确认/创建完成")
+    except Exception as e:
+        logger.warning("[media_tasks] 建表异常(忽略,落库降级为不持久化): %s", e)
+
     # 启动自媒体定时任务调度器(由 SELF_MEDIA_CRON_ENABLED 环境变量控制开关,
     # 默认 false,显式开启后才挂载 asyncio task)
     from app.services.self_media_scheduler import self_media_scheduler
@@ -650,6 +660,9 @@ def create_app() -> FastAPI:
     # 图片编辑(TokenGo /v1/images/edits multipart,2026-09-08 补建)
     from app.routers import image_edit as image_edit_router
     app.include_router(image_edit_router.router, prefix="/api", tags=["image"])
+    # 媒体任务统一管理(对话内媒体工具落库的 media_tasks:列表/详情/取消,2026-09-09 立)
+    from app.routers import media_tasks as media_tasks_router
+    app.include_router(media_tasks_router.router, prefix="/api", tags=["media-tasks"])
     # Artifact 图表产物静态文件服务(签名 token 鉴权,2026-09-01 立,对标 Claude Artifacts)
     app.include_router(artifacts.router, prefix="/api", tags=["artifacts"])
     # 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)

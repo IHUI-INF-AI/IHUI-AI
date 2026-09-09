@@ -2860,6 +2860,8 @@ from .artifacts_store import (  # noqa: E402
 from ..tools import (  # noqa: E402
     generate_chart as _generate_chart,
     parse_document as _parse_document,
+    extract_document_assets as _extract_document_assets,
+    document_tables as _document_tables,
 )
 
 # 进程内调度任务列表(schedule_task 用,内存镜像;Redis 为持久化真相源)
@@ -4162,7 +4164,8 @@ async def _tool_music_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             version=arguments.get("version"),
             operation=str(arguments.get("operation") or "generate"),
             negative_tags=arguments.get("negative_tags"),
-            model=str(arguments.get("model") or "music"),
+            model=str(arguments.get("model") or "")
+            or os.environ.get("TOKEN6688_MUSIC_MODEL", "music"),
             wait=False,
         )
     except Exception as e:  # noqa: BLE001
@@ -4385,6 +4388,96 @@ async def _tool_token6688_cancel_task(arguments: dict[str, Any]) -> dict[str, An
         }
 
 
+async def _tool_token6688_upload_file(arguments: dict[str, Any]) -> dict[str, Any]:
+    """token6688_upload_file: 上传文件换 24h 有效公网 URL(POST /v1/files,≤50MB)。
+
+    多模态输入(视频参考素材 audios/videos、图编辑、声纹克隆参考音频)官方只收
+    URL,本地文件先走此接口拿 URL。入参二选一:
+    - path: 服务器本地文件路径(读取后上传)
+    - url:  远程 http(s) URL(先 SSRF 校验,再拉取转发)
+    purpose 可选(官方语义:assistants/voice 等)。
+    """
+    from .video_generation import _instantiate as _video_instantiate
+
+    path = str(arguments.get("path") or "").strip()
+    url = str(arguments.get("url") or "").strip()
+    purpose = str(arguments.get("purpose") or "").strip() or None
+    if not path and not url:
+        return {
+            "tool": "token6688_upload_file", "ok": False,
+            "error": "缺少入参:传 path(服务器本地路径)或 url(远程 http URL)",
+            "errorCode": "MISSING_PARAMS", "file_url": None,
+        }
+    import os
+
+    try:
+        if path:
+            if not os.path.isfile(path):
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": f"文件不存在: {path}", "errorCode": "FILE_NOT_FOUND",
+                    "file_url": None,
+                }
+            size = os.path.getsize(path)
+            if size > 50 * 1024 * 1024:
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": f"文件超过 50MB 上限({size} 字节)", "errorCode": "FILE_TOO_LARGE",
+                    "file_url": None,
+                }
+            with open(path, "rb") as _f:
+                data = _f.read()
+            filename = os.path.basename(path) or "file.bin"
+        else:
+            from .screenshot_service import _validate_url_ssrf
+
+            ok_ssrf, reason = _validate_url_ssrf(url)
+            if not ok_ssrf:
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": f"URL 不允许访问: {reason}", "errorCode": "SSRF_BLOCKED",
+                    "file_url": None,
+                }
+            import httpx as _httpx
+
+            try:
+                async with _httpx.AsyncClient(timeout=60, follow_redirects=True) as _c:
+                    _r = await _c.get(url)
+                    _r.raise_for_status()
+                    data = _r.content
+            except Exception as e:  # noqa: BLE001
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": f"拉取远程文件失败: {e}"[:300], "errorCode": "FETCH_FAILED",
+                    "file_url": None,
+                }
+            if len(data) > 50 * 1024 * 1024:
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": "远程文件超过 50MB 上限", "errorCode": "FILE_TOO_LARGE",
+                    "file_url": None,
+                }
+            filename = url.rsplit("/", 1)[-1][:200] or "file.bin"
+        inst = _video_instantiate("token6688")
+        if inst is None:
+            return {
+                "tool": "token6688_upload_file", "ok": False,
+                "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688)",
+                "errorCode": "PROVIDER_NOT_CONFIGURED", "file_url": None,
+            }
+        file_url = await inst.upload_file(data, filename, purpose=purpose)
+        return {
+            "tool": "token6688_upload_file", "ok": True,
+            "file_url": file_url, "filename": filename, "size": len(data),
+            "hint": "该 URL 24 小时内有效,可作为视频参考素材(videos/audios)/图编辑输入/声纹参考",
+        }
+    except Exception as e:  # noqa: BLE001
+        return {
+            "tool": "token6688_upload_file", "ok": False,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR", "file_url": None,
+        }
+
+
 _TTS_OPENAI_VOICES = frozenset({"alloy", "echo", "fable", "onyx", "nova", "shimmer"})
 
 
@@ -4461,6 +4554,11 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
 
     2026-09-08 全模态自动切换升级:engine=auto(新默认)按音色智能排序引擎链,
     失败自动互备(edge↔token6688),全失败才报错;显式 engine 仍单引擎。
+    2026-09-09 深度增强:
+    - 超长文本(2000<text≤5000)自动切 token6688 异步 TTS(/v1/audio/speech/async,
+      免长连接;返回 task_id + submitted=true,与视频/音乐长任务同构,可用 task_id 取件)
+    - task_id 查询模式:只传 task_id 时查询异步 TTS 任务状态,completed 返回公网 audio_url
+    - voice 支持声纹库 voice_id(克隆音色;engine=token6688 时直通)
     - edge:微软 edge-tts,零 key 零成本,中文质量高(白名单音色)
     - token6688:聚合网关 /v1/audio/speech(OpenAI 同构,单 key;
       voice 可传官方音色 alloy/echo/fable/onyx/nova/shimmer 或声纹库 voice_id 克隆音色)
@@ -4470,6 +4568,48 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
     import base64 as _base64
     from datetime import datetime, timezone
 
+    # ---- task_id 查询模式(2026-09-09):异步 TTS 取件 ----
+    query_task_id = str(arguments.get("task_id") or "").strip()
+    if query_task_id:
+        from .video_generation import _instantiate as _video_instantiate
+
+        inst = _video_instantiate("token6688")
+        if inst is None:
+            return {
+                "tool": "voice_tts", "ok": False, "task_id": query_task_id,
+                "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688),"
+                         "无法查询异步 TTS 任务",
+                "errorCode": "PROVIDER_NOT_CONFIGURED", "audio_url": None,
+            }
+        try:
+            st = await inst.get_task_status(query_task_id)
+        except Exception as e:  # noqa: BLE001
+            return {
+                "tool": "voice_tts", "ok": False, "task_id": query_task_id,
+                "error": f"查询异步 TTS 任务失败: {e}"[:300],
+                "errorCode": "PROVIDER_ERROR", "audio_url": None,
+            }
+        if st.get("failed"):
+            return {
+                "tool": "voice_tts", "ok": False, "task_id": query_task_id,
+                "status": st.get("status"), "error": st.get("error") or "异步 TTS 任务失败",
+                "errorCode": "TASK_FAILED", "audio_url": None,
+            }
+        audio_url = st.get("audio_url") or st.get("video_url") or ""
+        if st.get("ok") and audio_url:
+            return {
+                "tool": "voice_tts", "ok": True, "task_id": query_task_id,
+                "status": "completed", "audio_url": audio_url,
+                "provider": "token6688", "message": "异步 TTS 任务已完成",
+            }
+        return {
+            "tool": "voice_tts", "ok": True, "task_id": query_task_id,
+            "status": st.get("status") or "processing", "submitted": True,
+            "audio_url": None, "provider": "token6688",
+            "message": f"异步 TTS 任务处理中(status={st.get('status') or 'processing'}),"
+                       "请稍后带同一 task_id 查询取件",
+        }
+
     text = arguments.get("text", "")
     if not isinstance(text, str) or not text.strip():
         return {
@@ -4477,11 +4617,11 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "缺少 text 参数", "errorCode": "MISSING_PARAMS", "audio_url": None,
         }
     text = text.strip()
-    if len(text) > 2000:
+    if len(text) > 5000:
         return {
             "tool": "voice_tts", "ok": False,
-            "error": f"text 超长({len(text)}>2000 字符),请分段合成", "errorCode": "TEXT_TOO_LONG",
-            "audio_url": None,
+            "error": f"text 超长({len(text)}>5000 字符),请分段合成或缩短文本",
+            "errorCode": "TEXT_TOO_LONG", "audio_url": None,
         }
     engine = str(arguments.get("engine") or "auto").lower()
     if engine not in ("auto", "edge", "token6688"):
@@ -4491,6 +4631,50 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
             "errorCode": "BAD_PARAMS", "audio_url": None,
         }
     save_path = arguments.get("save_path")
+
+    # ---- 超长文本(>2000):自动切 token6688 异步 TTS(免长连接;产物为公网 URL)----
+    if len(text) > 2000:
+        from .video_generation import _instantiate as _video_instantiate
+
+        if engine == "edge":
+            return {
+                "tool": "voice_tts", "ok": False,
+                "error": f"text 超长({len(text)}>2000 字符),edge 引擎不支持超长合成;"
+                         "请改用 engine=auto / engine=token6688(异步 TTS,支持 ≤5000 字符)",
+                "errorCode": "TEXT_TOO_LONG", "audio_url": None,
+            }
+        inst = _video_instantiate("token6688")
+        if inst is None:
+            return {
+                "tool": "voice_tts", "ok": False,
+                "error": "text 超长需要 token6688 异步 TTS,但 token6688 未配置"
+                         "(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688);"
+                         "请配置 key 或把文本分段(每段 ≤2000 字符)走 edge",
+                "errorCode": "PROVIDER_NOT_CONFIGURED", "audio_url": None,
+            }
+        used_voice = str(arguments.get("voice") or "alloy")
+        try:
+            sub = await inst.tts_async(
+                text, voice=used_voice,
+                speed=float(arguments.get("speed") or 1.0),
+                response_format=str(arguments.get("response_format") or "mp3"),
+                wait=False,
+            )
+        except Exception as e:  # noqa: BLE001
+            return {
+                "tool": "voice_tts", "ok": False,
+                "error": f"token6688 异步 TTS 提交失败: {e}"[:300],
+                "errorCode": "PROVIDER_ERROR", "audio_url": None,
+            }
+        return {
+            "tool": "voice_tts", "ok": True, "provider": "token6688",
+            "engine": "token6688", "voice": used_voice,
+            "task_id": sub.get("task_id"), "submitted": True,
+            "status": "submitted", "text_chars": len(text),
+            "audio_url": None,
+            "message": f"超长文本已提交 token6688 异步 TTS(task_id={sub.get('task_id')}),"
+                       "完成后会返回公网语音链接;稍后问我'语音好了吗'带该 task_id 即可取件",
+        }
 
     chain = _tts_engine_chain(engine, str(arguments.get("voice") or ""))
     attempts: list[dict[str, str]] = []
@@ -4542,6 +4726,158 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
     if attempts:
         out["failover_attempts"] = attempts
     return out
+
+
+# ---------------------------------------------------------------------------
+# token6688_voice_clone(2026-09-09 全模态深度适配):对话内声纹克隆管理。
+# 官方声纹库端点(/v1/audio/voices):
+# - action=list    列我的声纹(voice_id/名称/时长等)
+# - action=upload  上传参考音频(本地路径 / http URL / base64 data URI)克隆音色
+#                  (官方硬限制:MP3/M4A/WAV,10~300s,<20MiB;异步任务轮询至终态)
+# - action=get     查单一声纹详情(克隆状态)
+# 克隆成功后把 voice_id 传给 voice_tts(engine=token6688)即可用克隆音色合成。
+# ---------------------------------------------------------------------------
+
+
+def _audio_source_from_args(
+    arguments: dict[str, Any],
+) -> tuple[bytes, str, str | None]:
+    """从工具入参解析音频字节:path / url / data URI 三选一。
+
+    Returns (audio_bytes, filename, error)。error 非 None 时前两者为空。
+    """
+    import base64 as _b64
+    import os as _os
+
+    path = str(arguments.get("path") or "").strip()
+    url = str(arguments.get("url") or "").strip()
+    data_uri = str(arguments.get("data_uri") or "").strip()
+    sources = sum(bool(v) for v in (path, url, data_uri))
+    if sources == 0:
+        return b"", "", "缺少入参:path / url / data_uri 至少传一个"
+    if sources > 1:
+        return b"", "", "path / url / data_uri 只能传一个"
+    if path:
+        if not _os.path.isfile(path):
+            return b"", "", f"文件不存在: {path}"
+        size = _os.path.getsize(path)
+        if size >= 20 * 1024 * 1024:
+            return b"", "", f"声纹参考音频 {size} 字节超过官方 <20MiB 硬限制"
+        try:
+            with open(path, "rb") as _f:
+                return _f.read(), _os.path.basename(path) or "ref.wav", None
+        except OSError as e:
+            return b"", "", f"读取文件失败: {e}"
+    if url:
+        from .screenshot_service import _validate_url_ssrf
+
+        ok_ssrf, reason = _validate_url_ssrf(url)
+        if not ok_ssrf:
+            return b"", "", f"URL 不允许访问: {reason}"
+        import httpx as _httpx
+
+        try:
+            with _httpx.Client(timeout=60, follow_redirects=True) as _c:
+                _r = _c.get(url)
+                _r.raise_for_status()
+                data = _r.content
+        except Exception as e:  # noqa: BLE001
+            return b"", "", f"拉取远程音频失败: {e}"[:300]
+        if len(data) >= 20 * 1024 * 1024:
+            return b"", "", "远程音频超过官方 <20MiB 硬限制"
+        return data, url.rsplit("/", 1)[-1][:200] or "ref.wav", None
+    # data URI:data:audio/mpeg;base64,....
+    # 2026-09-09 修复:partition 结果变量原命名为 _b64,遮蔽了 import base64 as _b64
+    # 的模块引用,导致 b64decode 抛 AttributeError → 永远"解码失败"。改名 _b64payload。
+    _head, _sep, _b64payload = data_uri.partition(",")
+    if not _sep or not _b64payload:
+        return b"", "", "data_uri 格式非法(应为 data:audio/xxx;base64,...)"
+    try:
+        data = _b64.b64decode(_b64payload)
+    except Exception:  # noqa: BLE001
+        data = b""
+    if not data:
+        return b"", "", "data_uri base64 解码失败或内容为空"
+    if len(data) >= 20 * 1024 * 1024:
+        return b"", "", "data_uri 音频超过官方 <20MiB 硬限制"
+    ext = "mp3"
+    if _head and "/" in _head:
+        _mime = _head.split(";", 1)[0].split("/", 1)[-1]
+        if _mime in ("wav", "wave", "m4a", "mp3"):
+            ext = "wav" if _mime == "wave" else _mime
+    return data, f"ref.{ext}", None
+
+
+async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, Any]:
+    """token6688_voice_clone: 声纹克隆管理(2026-09-09 全模态深度适配)。
+
+    - action=list: 列我的声纹库(voice_id 列表,克隆 TTS 直接传 voice_id)
+    - action=upload: 上传参考音频克隆音色(path / url / data_uri 三选一;
+      MP3/M4A/WAV,10~300s,<20MiB;异步任务轮询至终态,返回 voice_id)
+    - action=get: 查单一声纹(voice_id 必填)
+    用户说"克隆我的声音/用我的声音朗读/上传参考音频"时使用。
+    """
+    action = str(arguments.get("action") or "list").lower()
+    if action not in ("list", "upload", "get"):
+        return {
+            "tool": "token6688_voice_clone", "ok": False,
+            "error": f"未知 action: {action}(允许 list/upload/get)", "errorCode": "BAD_PARAMS",
+        }
+    from .video_generation import _instantiate as _video_instantiate
+
+    inst = _video_instantiate("token6688")
+    if inst is None:
+        return {
+            "tool": "token6688_voice_clone", "ok": False,
+            "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688)",
+            "errorCode": "PROVIDER_NOT_CONFIGURED",
+        }
+    try:
+        if action == "list":
+            voices = await inst.list_voices()
+            return {
+                "tool": "token6688_voice_clone", "ok": True, "action": "list",
+                "count": len(voices), "voices": voices,
+                "hint": "把某个 voice_id 传给 voice_tts(engine=token6688,voice=voice_id)即可克隆合成",
+            }
+        if action == "get":
+            voice_id = str(arguments.get("voice_id") or "").strip()
+            if not voice_id:
+                return {
+                    "tool": "token6688_voice_clone", "ok": False,
+                    "error": "缺少 voice_id(action=get 需要)", "errorCode": "MISSING_PARAMS",
+                }
+            data = await inst.get_voice(voice_id)
+            return {
+                "tool": "token6688_voice_clone", "ok": True, "action": "get",
+                "voice_id": voice_id, "voice": data, "raw": data,
+            }
+        # action == "upload"
+        audio, filename, err = _audio_source_from_args(arguments)
+        if err:
+            return {
+                "tool": "token6688_voice_clone", "ok": False,
+                "error": err, "errorCode": "BAD_PARAMS",
+            }
+        result = await inst.upload_voice(audio, filename)
+        voice_id = ""
+        v = result.get("voice")
+        if isinstance(v, dict):
+            voice_id = str(v.get("id") or v.get("voice_id") or "").strip()
+        if not voice_id:
+            voice_id = str(result.get("id") or result.get("voice_id") or "").strip()
+        return {
+            "tool": "token6688_voice_clone", "ok": True, "action": "upload",
+            "voice_id": voice_id or None, "voice": v if isinstance(v, dict) else None,
+            "filename": filename, "size": len(audio), "raw": result,
+            "hint": f"声纹克隆完成:voice_id={voice_id or '(见 voice 字段)'}。"
+                    "用 voice_tts(engine=token6688,voice=voice_id)即可用该音色合成",
+        }
+    except Exception as e:  # noqa: BLE001
+        return {
+            "tool": "token6688_voice_clone", "ok": False,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -6442,17 +6778,27 @@ _TOOLS: list[MCPTool] = [
             "engine=edge(默认,微软 edge-tts,零 key 零成本,中文推荐 zh-CN-XiaoxiaoNeural)或 "
             "engine=token6688(聚合网关单 key,voice 可选 alloy/echo/fable/onyx/nova/shimmer "
             "或声纹库 voice_id 克隆音色;需 TOKEN6688_API_KEY,未配置时返回 PROVIDER_NOT_CONFIGURED)。"
-            "同步接口无任务轮询;text≤2000 字符,超长请分段。"
+            "同步接口无任务轮询;text≤2000 字符走同步直出。"
+            "超长文本(2000<text≤5000)自动切 token6688 异步 TTS:返回 task_id + submitted=true,"
+            "稍后用同一 task_id 调本工具查询取件(completed 后 audio_url 为公网链接)。"
             "支持 save_path 落地(.mp3/.wav/.ogg/.flac,工作区白名单,50MB 上限)。"
         ),
         input_schema={
             "type": "object",
             "properties": {
-                "text": {"type": "string", "description": "要合成的文本(≤2000 字符,超长分段)"},
+                "text": {
+                    "type": "string",
+                    "description": "要合成的文本(≤2000 字符同步直出;2000<text≤5000 自动走 token6688 异步 TTS)",
+                },
+                "task_id": {
+                    "type": "string",
+                    "description": "可选,异步 TTS 任务 ID:只传 task_id 时查询任务状态并取件"
+                    "(completed 返回公网 audio_url;处理中返回 submitted=true)",
+                },
                 "engine": {
                     "type": "string",
                     "enum": ["edge", "token6688"],
-                    "description": "edge=零成本默认;token6688=聚合网关(单 key,支持声纹克隆)",
+                    "description": "edge=零成本默认;token6688=聚合网关(单 key,支持声纹克隆与超长异步 TTS)",
                     "default": "edge",
                 },
                 "voice": {
@@ -6476,7 +6822,7 @@ _TOOLS: list[MCPTool] = [
                     "description": "可选,绝对路径,音频落地(需工作区白名单内,后缀 .mp3/.wav/.ogg/.flac,50MB 上限)",
                 },
             },
-            "required": ["text"],
+            "required": [],
         },
     ),
     MCPTool(
@@ -6540,6 +6886,33 @@ _TOOLS: list[MCPTool] = [
                 },
             },
             "required": ["task_id"],
+        },
+    ),
+    MCPTool(
+        name="token6688_upload_file",
+        description=(
+            "上传文件换 24h 有效公网 URL(token6688 /v1/files,≤50MB)。"
+            "多模态输入官方只收 URL:视频参考素材(videos/audios)、图编辑输入、声纹克隆"
+            "参考音频等本地文件先走此工具拿 URL。入参二选一:path(服务器本地文件路径)"
+            "或 url(远程 http URL,过 SSRF 校验后拉取转发);purpose 可选。"
+            "用户提供本地/远端文件要求'把它作为参考视频/参考音频/素材'时,先调它上传。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "服务器本地文件路径(二选一;读取后上传,≤50MB)",
+                },
+                "url": {
+                    "type": "string",
+                    "description": "远程 http(s) URL(二选一;SSRF 校验后拉取转发,≤50MB)",
+                },
+                "purpose": {
+                    "type": "string",
+                    "description": "可选,官方用途语义(如 voice/assistants)",
+                },
+            },
         },
     ),
     MCPTool(
@@ -6733,6 +7106,41 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
+    MCPTool(
+        name="extract_document_assets",
+        description=(
+            "提取办公文档(Word/Excel/PPT/ODF/RTF/EPUB 等)内嵌的图片/对象等二进制资产,"
+            "落盘到项目临时目录并返回资产清单(含本地路径/相对路径/字节数/媒体类型)。"
+            "用于把 docx/xlsx/pptx 里的插图从文档中抢救出来供多模态使用。"
+            "基于 Firecrawl anydoc 的文档模型;PDF 无文档模型不支持资产提取。"
+            "仅限项目工作区内文件,敏感文件拒绝。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "文件绝对路径或相对项目根路径(不支持 pdf)"},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="document_tables",
+        description=(
+            "提取文档(Word/Excel/PPT/ODF/RTF/EPUB 等)中规范化数据表格,含合并单元格 span"
+            "展开,输出二维文本数组 headers/rows 及 GFM Markdown/CSV,供结构化入库或对话引用。"
+            "基于 Firecrawl anydoc 的文档模型;PDF 无文档模型不支持表格提取。"
+            "仅限项目工作区内文件,敏感文件拒绝。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "文件绝对路径或相对项目根路径(不支持 pdf)"},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    ),
     # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
     MCPTool(
         name="get_tool_schema",
@@ -6806,6 +7214,45 @@ _TOOLS: list[MCPTool] = [
                     "default": 20,
                 },
             },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="token6688_voice_clone",
+        description=(
+            "声纹克隆管理(2026-09-09 全模态深度适配):上传参考音频克隆音色、"
+            "列我的声纹库、查单一声纹详情。action=upload 支持 path / url / data_uri 三选一"
+            "(MP3/M4A/WAV,10~300s,<20MiB),异步任务轮询至终态返回 voice_id。"
+            "克隆成功后把 voice_id 传给 voice_tts(engine=token6688, voice=voice_id)"
+            "即可用克隆音色合成朗读。用户说'克隆我的声音/用我的声音朗读/上传参考音频'时使用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["list", "upload", "get"],
+                    "description": "list=列声纹库(默认)/upload=上传参考音频克隆/get=查单一声纹(需 voice_id)",
+                    "default": "list",
+                },
+                "path": {
+                    "type": "string",
+                    "description": "action=upload 时的本地音频绝对路径(工作区白名单内)",
+                },
+                "url": {
+                    "type": "string",
+                    "description": "action=upload 时的远程音频 http(s) URL(SSRF 校验)",
+                },
+                "data_uri": {
+                    "type": "string",
+                    "description": "action=upload 时的 data URI(如 data:audio/wav;base64,...)",
+                },
+                "voice_id": {
+                    "type": "string",
+                    "description": "action=get 时必填:声纹库 voice_id",
+                },
+            },
+            "required": [],
             "additionalProperties": False,
         },
     ),
@@ -6923,11 +7370,16 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "voice_tts": _tool_voice_tts,
     "token6688_model_info": _tool_token6688_model_info,
     "token6688_cancel_task": _tool_token6688_cancel_task,
+    # ===== 文件上传(2026-09-09 全模态深度适配;视频参考素材/声纹/改图输入先传文件拿 URL)=====
+    "token6688_upload_file": _tool_token6688_upload_file,
     # ===== 图片编辑(2026-09-09 全模态深度适配)=====
     "image_edit": _tool_image_edit,
     # ===== 语音转文字 + 余额查询(2026-09-09 全模态深度适配)=====
     "audio_transcription": _tool_audio_transcription,
     "token6688_balance": _tool_token6688_balance,
+    # ===== 声纹克隆(2026-09-09 全模态深度适配;补注册——handler 已存在但漏入此表,
+    # 导致对话链调工具永远"未知工具",test_tools_count_matches_registry 会拦截)=====
+    "token6688_voice_clone": _tool_token6688_voice_clone,
     # ===== AI 自动控制浏览器(12 个)=====
     "browser_screenshot": _make_agent_control_handler("browser", "screenshot"),
     "browser_click_element": _make_agent_control_handler("browser", "click_element"),
@@ -6970,6 +7422,9 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # ===== P0 新增工具(2026-09-01,竞品对标:图表生成 + 文档解析)=====
     "generate_chart": _generate_chart,
     "parse_document": _parse_document,
+    # ===== P1 文档资产/表格(2026-09-09,anydoc 文档模型极致融合)=====
+    "extract_document_assets": _extract_document_assets,
+    "document_tables": _document_tables,
     # ===== 后台任务工具(Phase 1 第 6 项 · 2026-09-02 立)=====
     "run_in_background": _tool_run_in_background,
     "bg_task_status": _tool_bg_task_status,
@@ -7207,6 +7662,20 @@ class MCPServer:
             result = await asyncio.wait_for(
                 handler(args_with_role), timeout=MCP_GLOBAL_TIMEOUT
             )
+            # 2026-09-09 媒体任务统一落库:对话内媒体工具(video/music/tts/image/改图)
+            # 提交即持久化到 media_tasks,支撑"我的媒体任务"查询/取消;DB 异常仅告警,
+            # 绝不阻断对话主流程(与 video_generation_tasks 并存:该表是 REST 视频任务队列)。
+            try:
+                from .media_tasks import persist_media_task
+
+                await persist_media_task(
+                    name,
+                    result if isinstance(result, dict) else {},
+                    user_uuid=user_id or "",
+                    chat_id=session_id or "",
+                )
+            except Exception:  # noqa: BLE001
+                logger.warning("[mcp] 媒体任务落库异常(忽略): tool=%s", name)
             # 0-2 出口统一输出护栏:token 上限截断(保持结构与控制字段完整)
             return _truncate_tool_output(result)
         except asyncio.TimeoutError:

@@ -14634,6 +14634,7 @@
     "adminThemePresets": "プリセット",
     "adminWorkflows": "ワークフロー",
     "advancedAiTools": "高度な AI ツール",
+    "mediaTasks": "メディアタスク",
     "agentGovernance": "Agent Token ガバナンス",
     "agentWorkbench": "エージェントワークベンチ",
     "agentCanvas": "エージェントキャンバス",
@@ -18645,7 +18646,12 @@
       "copy": "コピー",
       "copied": "コピーしました",
       "copyFailed": "コピーに失敗しました。テキストを選択して手動でコピーしてください",
-      "download": ".md をダウンロード"
+      "download": ".md をダウンロード",
+      "extractImages": "画像を抽出",
+      "extracting": "抽出中...",
+      "extractedImages": "抽出された画像",
+      "extractedNone": "このドキュメントには抽出可能な埋め込み画像がありません",
+      "assetNotSupported": "このフォーマット(PDF)は埋め込み画像抽出に対応していません"
     },
     "convertMarkdownFailed": "変換に失敗しました",
     "convertToMarkdown": "Markdown に変換",
