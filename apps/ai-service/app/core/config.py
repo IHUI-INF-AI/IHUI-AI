@@ -96,13 +96,15 @@ class Settings(BaseSettings):
     # 2026-09-01 新增:/api/artifacts/f/ — Artifact 图表产物静态文件服务。iframe 无法
     # 携带 Authorization header,文件访问端点用 URL 内嵌短期签名 token(30 分钟)鉴权,
     # 故该前缀放行 JWT;token 签发端点 /api/artifacts/token 不在白名单,仍走 JWT 保护。
+    # 2026-09-08 新增:/api/video/token6688-callback — TokenGo 官方终态 webhook,外部
+    # 平台主动 POST(无 JWT),鉴权靠 X-TokenGo-Signature HMAC 验签(见 routers/video.py)。
     # 运行时权威值在 ai-service/.env 的 JWT_PUBLIC_PATHS(pydantic 会覆盖本默认值)。
     jwt_public_paths: str = (
         "/api/health,/api/legacy/,/health,/metrics,"
         "/api/publish/scan-login/platforms,"
         "/api/admin/news/status,/api/admin/news/refresh-daily,/api/admin/news/publish-recent,"
         "/api/voice/stt,/api/voice/tts,/api/mcp,"
-        "/api/artifacts/f/"
+        "/api/artifacts/f/,/api/video/token6688-callback"
     )
     # agent_control 内部调用密钥(ai-service → api /execute,2026-07-22)
     agent_control_internal_secret: str = ""

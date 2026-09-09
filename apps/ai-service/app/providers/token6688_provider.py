@@ -42,6 +42,8 @@ TOKEN6688_TTS_PAYLOAD / TOKEN6688_STT_MODEL / TOKEN6688_EMBEDDING_MODEL
 from __future__ import annotations
 
 import asyncio
+import base64
+import copy
 import json
 import logging
 import os
@@ -91,6 +93,143 @@ class Token6688Provider(OpenAIProvider):
     def configured(self) -> bool:
         """key 是否已配置(video_generation 编排用)。"""
         return bool(self.api_key)
+
+    # ------------------------------------------------------------------
+    # 请求头/请求封装增强(2026-09-08 文档全量校准)
+    # ------------------------------------------------------------------
+    _SCHEDULE_STRATEGIES = {"balanced", "cost_first", "reliability_first", "latency_first"}
+
+    def _headers(self) -> dict[str, str]:
+        """覆盖:支持请求级调度策略 X-Schedule-Strategy(TOKEN6688_SCHEDULE_STRATEGY)。
+
+        官方:balanced(智能默认)/cost_first(价格优先)/reliability_first(稳定优先)/
+        latency_first(速度优先);固定渠道是严格路由不自动切换,需要容灾用调度策略。
+        """
+        headers = super()._headers()
+        strategy = _env("TOKEN6688_SCHEDULE_STRATEGY", "").strip()
+        if strategy and strategy in self._SCHEDULE_STRATEGIES:
+            headers["X-Schedule-Strategy"] = strategy
+        return headers
+
+    async def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        json: dict[str, Any] | None = None,
+        _retried: bool = False,
+    ) -> dict[str, Any]:
+        """覆盖:429/5xx 按 Retry-After 退避重试 1 次 + error.code/error.type 细化。
+
+        官方错误协议:{"error":{"code": "...", "message": "...", "type": "..."}}
+        —— 业务/参数类在 error.code,鉴权/计费/内容审核类在 error.type;
+        429 带 Retry-After 头(或响应体 retry_after 秒数);402=余额不足(整单预冻结)。
+        """
+        try:
+            return await super()._request(method, url, headers=headers, json=json)
+        except ProviderError as e:
+            status = getattr(e, "status_code", None) or 0
+            retriable = status == 429 or status >= 500
+            if not retriable or _retried:
+                raise self._enrich_error(e) from e
+            # 退避:Retry-After 头取不到时按 429→5s / 5xx→3s
+            delay = 5.0 if status == 429 else 3.0
+            logger.warning("Token6688 %s 于 %s,%ss 后重试 1 次", status, url, delay)
+            await asyncio.sleep(delay)
+            return await self._request(method, url, headers=headers, json=json, _retried=True)
+
+    @staticmethod
+    def _enrich_error(e: ProviderError) -> ProviderError:
+        """把官方 error.code/error.type 语义补进错误消息(402 余额/403 内容审核/429 限频)。"""
+        text = str(e)
+        if "insufficient_funds" in text or getattr(e, "status_code", 0) == 402:
+            return ProviderError(
+                f"Token6688 余额不足(insufficient_funds):异步任务按整单预冻结,请充值后重试。{text}", 402,
+            )
+        if "content_policy_violation" in text:
+            return ProviderError(f"Token6688 内容被安全策略拦截:请调整提示词后重试。{text}", 403)
+        if "rate_limit_error" in text:
+            return ProviderError(f"Token6688 触发限频:请按 Retry-After 退避后重试。{text}", 429)
+        return e
+
+    # ------------------------------------------------------------------
+    # 多模态输入归一化(官方:多模态输入只收 URL,本地/内联图片先经 /v1/files 换公网 URL)
+    # ------------------------------------------------------------------
+    async def _normalize_vision_inputs(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """把 messages 里 data: base64 图片 URI 换成 upload_file 公网 URL。
+
+        token6688 网关多模态输入只接受公网 URL(vision_analyze 本地文件/base64
+        场景直发 data URI 会被拒),在 provider 层统一归一化,所有对话调用方
+        (complete/astream/vision_analyze/带图对话)零改动受益。上传失败时保留
+        data URI 原样直发(上游若支持则不劣化)。返回深拷贝,不污染调用方消息。
+        """
+        has_data_uri = False
+        for msg in messages:
+            content = msg.get("content") if isinstance(msg, dict) else None
+            if not isinstance(content, list):
+                continue
+            for part in content:
+                if isinstance(part, dict) and part.get("type") == "image_url":
+                    url = (part.get("image_url") or {}).get("url")
+                    if isinstance(url, str) and url.startswith("data:") and ";base64," in url:
+                        has_data_uri = True
+                        break
+            if has_data_uri:
+                break
+        if not has_data_uri:
+            return messages
+
+        messages = copy.deepcopy(messages)
+        for msg in messages:
+            content = msg.get("content") if isinstance(msg, dict) else None
+            if not isinstance(content, list):
+                continue
+            for part in content:
+                if not (isinstance(part, dict) and part.get("type") == "image_url"):
+                    continue
+                inner = part.get("image_url")
+                if not isinstance(inner, dict):
+                    continue
+                url = inner.get("url")
+                if not (isinstance(url, str) and url.startswith("data:") and ";base64," in url):
+                    continue
+                header, b64 = url.split(";base64,", 1)
+                mime = header.split(":", 1)[-1].split(";", 1)[0] or "image/png"
+                ext = (mime.split("/", 1)[-1].split("+", 1)[0] or "png")[:8]
+                try:
+                    raw = base64.b64decode(b64)
+                    public_url = await self.upload_file(raw, f"vision-input.{ext}")
+                except (ValueError, ProviderError) as e:
+                    logger.warning("token6688 多模态图片转 URL 失败,保留 data URI 直发: %s", e)
+                    continue
+                inner["url"] = public_url
+        return messages
+
+    async def complete(
+        self,
+        messages: list[dict[str, Any]],
+        model: str,
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """非流式对话(先归一化多模态输入,再走 OpenAI 兼容协议)。"""
+        messages = await self._normalize_vision_inputs(messages)
+        return await super().complete(messages, model, tools=tools, **kwargs)
+
+    async def astream(
+        self,
+        messages: list[dict[str, Any]],
+        model: str,
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """流式对话(先归一化多模态输入,再走 OpenAI 兼容流式协议)。"""
+        messages = await self._normalize_vision_inputs(messages)
+        async for event in super().astream(messages, model, tools=tools, **kwargs):
+            yield event
 
     # ------------------------------------------------------------------
     # 模型清单(免鉴权 /v1/skills/models,112 模型;映射 OpenAI 风格供 model_sync)
@@ -333,12 +472,28 @@ class Token6688Provider(OpenAIProvider):
         title: str | None = None,
         vocal_gender: str | None = None,
         version: str | None = None,
+        operation: str = "generate",
+        negative_tags: str | None = None,
+        wait: bool = True,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """音乐生成(Suno 风格扁平形状),返回 {provider, model, task_id, audio_url}。"""
-        body: dict[str, Any] = {"model": model, "prompt": prompt, "mode": mode, "operation": "generate"}
+        """音乐生成(Suno 风格扁平形状),返回 {provider, model, task_id, audio_url}。
+
+        官方参数全景(/v1/skills/models/music 实测):
+        - mode ∈ {song(默认), instrumental};vocal_gender ∈ {auto, m, f}
+        - operation ∈ {generate, extend(续写), cover(翻唱), lyrics(仅写词),
+          stems/stems_all(分轨)};续写需 continue_at/continue_clip_id
+        - version ∈ {chirp-v5-5(最新), chirp-v5, chirp-v4-5+, ...};不传落平台默认
+        - style/style/negative_tags(排除风格)/title/lyrics
+        wait=False 时提交后不轮询,立即返回 {status: "submitted", task_id, poll_url}
+        (与 generate_video 同款防卡死模式;官方音乐生成耗时约 1~5 分钟)。
+        """
+        body: dict[str, Any] = {
+            "model": model, "prompt": prompt, "mode": mode, "operation": operation,
+        }
         for k, v in (("lyrics", lyrics), ("style", style), ("title", title),
-                     ("vocal_gender", vocal_gender), ("version", version)):
+                     ("vocal_gender", vocal_gender), ("version", version),
+                     ("negative_tags", negative_tags)):
             if v:
                 body[k] = v
         body.update(kwargs)
@@ -348,7 +503,16 @@ class Token6688Provider(OpenAIProvider):
         task_id = self._extract_task_id(data)
         if not task_id:
             raise ProviderError(f"Token6688 音乐响应无 task_id: {str(data)[:300]}", 502)
-        result = await self._poll_task(f"{self._api_base_v1()}/tasks/{task_id}")
+        poll_url = f"{self._api_base_v1()}/tasks/{task_id}"
+        if not wait:
+            return {
+                "provider": self.provider_code,
+                "model": model,
+                "task_id": task_id,
+                "status": "submitted",
+                "poll_url": poll_url,
+            }
+        result = await self._poll_task(poll_url)
         audio_url = result.get("output_url") or self._extract_media_url(result)
         if not audio_url:
             raise ProviderError(f"Token6688 音乐任务 {task_id} 完成但无 output_url: {str(result)[:300]}", 502)
@@ -409,6 +573,151 @@ class Token6688Provider(OpenAIProvider):
             "frozen": _num(data.get("frozen")),
             "raw": data,
         }
+
+    # ------------------------------------------------------------------
+    # 模型发现与估价(2026-09-08 文档校准;/v1/logical-models 与单模型 pricing 免鉴权)
+    # ------------------------------------------------------------------
+    async def get_model_params(self, model: str) -> dict[str, Any]:
+        """单模型功能与参数(GET /v1/skills/models/{model},免鉴权)。
+
+        返回 params **数组**:可选值在 options[].value(发参数值,不是界面显示名),
+        默认值标 options[].is_default —— 枚举参数发 value 才生效,发显示名会被
+        当无效值忽略落默认档(官方"参数不生效"客诉)。
+        """
+        return await self._request(
+            "GET", f"{self._api_base_v1()}/skills/models/{model}",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+        )
+
+    async def get_model_pricing(self, model: str) -> dict[str, Any]:
+        """模型跨渠道价格(GET /v1/skills/models/{model}/pricing,免鉴权)。
+
+        返回 channel_groups[]:含 base_price/billing_method(按秒/按次)/avg_response_seconds 等。
+        """
+        return await self._request(
+            "GET", f"{self._api_base_v1()}/skills/models/{model}/pricing",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+        )
+
+    async def list_logical_models(self) -> list[dict[str, Any]]:
+        """JSON-Schema 形态模型参数(GET /v1/logical-models,免鉴权)。
+
+        param_schema 对象带 enum/default 与 max_bytes/max_items(参考素材上限机读,
+        例 wan-3-0 视频 100MB、seedance-2-5-special 视频 200MB)。⚠ 与 skills/models
+        的 params 数组字段形态不同,别混用。
+        """
+        data = await self._request(
+            "GET", f"{self.base_url.rstrip('/')}/v1/logical-models",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+        )
+        return data.get("models") or []
+
+    async def estimate_pricing(
+        self, model: str, prompt: str, *, params: dict[str, Any] | None = None, **kwargs: Any,
+    ) -> dict[str, Any]:
+        """实时估价(POST /v1/pricing-estimate;参数与提交完全一致才准)。
+
+        ⚠ 带参考视频必须传 video_total_duration_sec(各段时长之和,秒),否则估价
+        不含参考视频费(官方真实客诉:估 4.5 实扣 7.3)。响应:
+        effective_total_rmb(当前策略实付)/ max_effective_total_rmb(故障切备用渠道上限)/
+        price_basis.output_rmb + reference_media_rmb。
+        """
+        body: dict[str, Any] = {"model": model, "prompt": prompt}
+        if params:
+            body["params"] = params  # 信封形状(与 media/generate 同)
+        body.update(kwargs)
+        return await self._request(
+            "POST", f"{self._api_base_v1()}/pricing-estimate", headers=self._headers(), json=body,
+        )
+
+    async def batch_estimate(self, estimates: list[dict[str, Any]]) -> dict[str, Any]:
+        """批量估价(POST /v1/pricing-estimate/batch,一次最多 100 个组合)。"""
+        return await self._request(
+            "POST", f"{self._api_base_v1()}/pricing-estimate/batch",
+            headers=self._headers(), json={"estimates": estimates},
+        )
+
+    async def get_voice(self, voice_id: str) -> dict[str, Any]:
+        """查询单一声纹(GET /v1/audio/voices/{voice_id})。"""
+        return await self._request(
+            "GET", f"{self._api_base_v1()}/audio/voices/{voice_id}", headers=self._headers(),
+        )
+
+    async def query_task_status_alt(self, task_id: str) -> dict[str, Any]:
+        """任务状态速查(GET /v1/skills/task-status?task_id=,等价 /v1/tasks/{id})。
+
+        ⚠ 此端点 status 是中文展示文案,state 是英文枚举 —— 与 /v1/tasks 相反。
+        """
+        return await self._request(
+            "GET", f"{self._api_base_v1()}/skills/task-status?task_id={task_id}",
+            headers=self._headers(),
+        )
+
+    async def media_generate(
+        self, model: str, prompt: str, *, params: dict[str, Any] | None = None, **kwargs: Any,
+    ) -> dict[str, Any]:
+        """视频/音频统一异步入口(POST /v1/media/generate,params 信封形状)。
+
+        与 /v1/videos/generations、/v1/audio/generations 能力等价但形状不同(信封)。
+        ⚠ image 走本路径是**同步**的(内部转 images/generations 阻塞 40-50s),不返 task_id。
+        返回 {provider, model, task_id?, status, media_url?}:提交即含 task_id(视频/音频)。
+        """
+        body: dict[str, Any] = {"model": model, "prompt": prompt, "params": params or {}}
+        body.update(kwargs)
+        data = await self._request(
+            "POST", f"{self._api_base_v1()}/media/generate", headers=self._headers(), json=body,
+        )
+        err = data.get("error")
+        if err:
+            raise ProviderError(f"Token6688 media/generate 失败: {err.get('message') or err}", 502)
+        task_id = self._extract_task_id(data)
+        media_url = self._extract_media_url(data)
+        if media_url and not task_id:
+            return {"provider": self.provider_code, "model": model, "status": "completed", "media_url": media_url, "raw": data}
+        if not task_id:
+            raise ProviderError(f"Token6688 media/generate 无 task_id: {str(data)[:300]}", 502)
+        return {
+            "provider": self.provider_code, "model": model, "task_id": task_id,
+            "status": "submitted", "poll_url": f"{self._api_base_v1()}/tasks/{task_id}", "raw": data,
+        }
+
+    async def tts_async(
+        self,
+        text: str,
+        *,
+        model: str | None = None,
+        voice: str = "alloy",
+        speed: float = 1.0,
+        response_format: str = "mp3",
+        wait: bool = True,
+    ) -> dict[str, Any]:
+        """声纹异步 TTS(POST /v1/audio/speech/async)→ task 轮询 → 公网语音 URL。
+
+        与同步 /v1/audio/speech(返音频字节)不同:本端点立即返 task_id,产物是
+        TokenGo CDN 公网 URL(适合长文本/免流量转发场景)。
+        """
+        used_model = model or _env("TOKEN6688_TTS_MODEL", "tts-1-hd")
+        payload: dict[str, Any] = {
+            "model": used_model, "input": text, "voice": voice,
+            "speed": speed, "response_format": response_format,
+        }
+        data = await self._request(
+            "POST", f"{self._api_base_v1()}/audio/speech/async", headers=self._headers(), json=payload,
+        )
+        task_id = self._extract_task_id(data)
+        if not task_id:
+            raise ProviderError(f"Token6688 speech/async 无 task_id: {str(data)[:300]}", 502)
+        poll_url = f"{self._api_base_v1()}/tasks/{task_id}"
+        if not wait:
+            return {
+                "provider": self.provider_code, "model": used_model, "task_id": task_id,
+                "status": "submitted", "poll_url": poll_url,
+            }
+        result = await self._poll_task(poll_url)
+        audio_url = result.get("output_url") or self._extract_media_url(result)
+        if not audio_url:
+            raise ProviderError(f"Token6688 TTS 任务 {task_id} 完成但无 output_url: {str(result)[:300]}", 502)
+        return {"provider": self.provider_code, "model": used_model, "task_id": task_id, "audio_url": audio_url}
 
     # ------------------------------------------------------------------
     # 视频生成(POST /v1/videos/generations 扁平形状 → GET /v1/tasks/{id} 轮询)
@@ -531,8 +840,18 @@ class Token6688Provider(OpenAIProvider):
             if ok:
                 return data
             if (is_final and state in _TASK_FAIL_STATES) or status in _TASK_FAIL_STATES:
+                # 官方失败分类:error_class ∈ content_blocked(审核未过,不计费)/
+                # rate_limit / vendor_model_unavailable / generation_failed(预冻结自动解冻)
+                err_class = str(data.get("error_class") or "").strip()
                 msg = str(data.get("error") or data.get("error_message") or data.get("message") or data)[:300]
-                raise ProviderError(f"Token6688 任务失败(status={status or state}): {msg}", 502)
+                hint = {
+                    "content_blocked": "内容审核未通过(未计费),请调整提示词/素材后重试",
+                    "rate_limit": "上游渠道限频,稍候重试",
+                    "vendor_model_unavailable": "上游模型临时不可用,可换模型重试",
+                    "generation_failed": "生成失败(预冻结金额已自动解冻),可直接重试",
+                }.get(err_class, "")
+                suffix = f" [{err_class}: {hint}]" if err_class else ""
+                raise ProviderError(f"Token6688 任务失败(status={status or state}){suffix}: {msg}", 502)
             if time.monotonic() > deadline:
                 raise ProviderError(
                     f"Token6688 任务轮询超时({max_wait:.0f}s, status={status or 'unknown'}): {poll_url}", 504,
@@ -558,12 +877,16 @@ class Token6688Provider(OpenAIProvider):
         failed = (is_final and state in _TASK_FAIL_STATES) or status in _TASK_FAIL_STATES
         return {
             "status": status or ("completed" if ok else ("failed" if failed else "processing")),
+            "status_zh": data.get("status_zh"),  # 官方中文展示文案(/v1/tasks 响应含)
+            "stage": data.get("stage"),  # downloading=产物转存 CDN 中,继续等(勿当终态)
             "is_final": is_final,
             "ok": ok,
             "failed": failed,
             "video_url": video_url,
             "progress": data.get("progress"),
             "error": str(data.get("error") or data.get("error_message") or "")[:300] or None,
+            "error_class": data.get("error_class"),  # content_blocked/rate_limit/vendor_model_unavailable/generation_failed
+            "actual_cost": data.get("actual_cost_micro_usd"),  # 实扣(微美元),失败不计费
             "raw": data,
         }
 

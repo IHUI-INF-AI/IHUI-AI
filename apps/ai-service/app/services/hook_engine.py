@@ -341,6 +341,10 @@ class HookEngine:
         # Redis 客户端(可选,降级内存)
         self._redis: Any = redis_client
         self._use_redis = redis_client is not None
+        # 2026-09-08:settings 探测只做一次(失败永久降级内存)。此前失败后
+        # _use_redis=False/_redis=None,下次调用会再走探测分支 → 每次操作
+        # 都重连(连接拒绝约 2s/次,110 次 DLQ 推送 ≈ 220s,直接卡死测试)。
+        self._redis_probed = redis_client is not None
         # 是否已从 Redis 加载配置(惰性,首次 emit 时触发)
         self._loaded = False
         # L5-9(2026-08-12):SSE 实时订阅器(单进程内存实现,event → [Queue])
@@ -389,11 +393,14 @@ class HookEngine:
         self._loaded = False  # 重置加载标记,下次 emit 重新加载
 
     async def _ensure_redis(self) -> Any:
-        """确保 Redis 客户端可用,惰性从 settings.redis_url 创建。"""
+        """确保 Redis 客户端可用,惰性从 settings.redis_url 创建(探测一次,失败永久降级)。"""
         if self._redis is not None:
             return self._redis
         if not self._use_redis:
-            # 尝试从 settings 创建(首次调用时)
+            if self._redis_probed:
+                return None
+            self._redis_probed = True
+            # 尝试从 settings 创建(仅首次调用)
             try:
                 from ..core.config import settings
                 if not settings.redis_url or aioredis is None:
@@ -401,7 +408,7 @@ class HookEngine:
                     return None
                 # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
                 # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
-                self._redis = aioredis.from_url(settings.redis_url, decode_responses=True, protocol=2)
+                self._redis = aioredis.from_url(settings.redis_url, decode_responses=True, protocol=2, socket_connect_timeout=2)
                 await self._redis.ping()
                 self._use_redis = True
                 logger.info("[hook_engine] Redis 已连接,启用持久化")

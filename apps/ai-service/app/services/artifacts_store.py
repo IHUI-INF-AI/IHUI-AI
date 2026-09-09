@@ -69,7 +69,7 @@ def _get_redis() -> Any:
             return None
         # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
         # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
-        client = redis.from_url(url, decode_responses=True, protocol=2)
+        client = redis.from_url(url, decode_responses=True, protocol=2, socket_connect_timeout=2)
         client.ping()
         _redis_client = client
         return _redis_client
@@ -201,7 +201,7 @@ class ArtifactsStore:
             try:
                 # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
                 # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
-                self._redis = aioredis.from_url(settings.redis_url, decode_responses=True, protocol=2)
+                self._redis = aioredis.from_url(settings.redis_url, decode_responses=True, protocol=2, socket_connect_timeout=2)
                 await self._redis.ping()
             except Exception as e:
                 logger.warning("ArtifactsStore Redis 不可用,降级为内存模式: %s", e)

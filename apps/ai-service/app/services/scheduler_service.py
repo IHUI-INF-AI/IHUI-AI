@@ -87,7 +87,7 @@ class TaskScheduler:
         redis_url = getattr(settings, "redis_url", "") or ""
         if redis_url:
             try:
-                self._redis = aioredis.from_url(redis_url, decode_responses=True)
+                self._redis = aioredis.from_url(redis_url, decode_responses=True, socket_connect_timeout=2)
                 await self._redis.ping()
                 logger.info("[scheduler_service] Redis connected")
             except Exception as e:
