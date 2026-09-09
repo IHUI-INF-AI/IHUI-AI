@@ -193,6 +193,11 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.self_media_scheduler import self_media_scheduler
     self_media_scheduler.start()
 
+    # 媒体产物/任务生命周期维护(2026-09-09 第八轮 P0 修复:tmp/charts TTL 清扫
+    # + 僵尸任务超时强失败),每小时一轮,全部 fail-open
+    from app.services.media_maintenance import media_maintenance
+    media_maintenance.start()
+
     # 启动资讯板块每日自动刷新调度器(由 NEWS_CRON_ENABLED 环境变量控制开关,
     # 默认 false,显式开启后才挂载 asyncio task + 消耗 LLM tokens)
     from app.services.news_scheduler import news_scheduler
@@ -489,6 +494,9 @@ async def lifespan(app: FastAPI) -> Any:
 
     await publish_scheduler.stop()
     await self_media_scheduler.stop()
+    # 关闭媒体维护循环(2026-09-09)
+    from app.services.media_maintenance import media_maintenance
+    await media_maintenance.stop()
     # 关闭资讯板块每日自动刷新调度器
     from app.services.news_scheduler import news_scheduler
     await news_scheduler.stop()

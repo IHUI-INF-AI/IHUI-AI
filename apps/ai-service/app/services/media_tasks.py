@@ -46,6 +46,12 @@ CREATE TABLE IF NOT EXISTS media_tasks (
 CREATE INDEX IF NOT EXISTS ix_media_tasks_user_uuid ON media_tasks (user_uuid);
 CREATE INDEX IF NOT EXISTS ix_media_tasks_task_id ON media_tasks (task_id);
 CREATE INDEX IF NOT EXISTS ix_media_tasks_kind_status ON media_tasks (kind, status);
+-- 2026-09-09 补索引:轮询/清扫查询(status+provider+created_at 过滤排序)与
+-- 用户列表(user_uuid 过滤 + id DESC 排序翻页)此前均走顺序扫描,随表增长劣化。
+CREATE INDEX IF NOT EXISTS ix_media_tasks_status_provider_created
+  ON media_tasks (status, provider, created_at);
+CREATE INDEX IF NOT EXISTS ix_media_tasks_user_id_desc
+  ON media_tasks (user_uuid, id DESC);
 -- 2026-09-09 修复:ON CONFLICT(task_id) 依赖唯一约束,此前无约束导致重复 task_id
 -- 永远走 INSERT 新行、UPDATE 分支不可达。部分唯一索引(空 task_id 不唯一)保证
 -- 同任务二次落库走 UPDATE 刷新状态/产物。

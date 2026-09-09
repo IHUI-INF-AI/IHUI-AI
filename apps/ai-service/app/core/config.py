@@ -104,7 +104,10 @@ class Settings(BaseSettings):
     jwt_public_paths: str = (
         "/api/health,/api/legacy/,/health,/metrics,"
         "/api/publish/scan-login/platforms,"
-        "/api/admin/news/status,/api/admin/news/refresh-daily,/api/admin/news/publish-recent,"
+        # 2026-09-09 P1 收权:refresh-daily/publish-recent 为匿名可触发 LLM 消耗
+        # + 批量发布的 POST,移出白名单改为 JWT 保护(内部触发走 news_scheduler,
+        # 全仓无匿名 HTTP 调用方)。/api/admin/news/status 为只读 GET 保留匿名。
+        "/api/admin/news/status,"
         "/api/voice/stt,/api/voice/tts,/api/mcp,"
         "/api/artifacts/f/,/api/video/token6688-callback,/api/media/tasks/callback"
     )
