@@ -82,12 +82,24 @@ export default function SecurityPage() {
     if (res.success) form.reset()
   }
 
+  // 2026-09-09 修复:倒计时 interval 登记到 ref,卸载时清理防孤儿 setState
+  const countdownTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  React.useEffect(() => {
+    const ref = countdownTimerRef
+    return () => {
+      if (ref.current) clearInterval(ref.current)
+      ref.current = null
+    }
+  }, [])
+
   const startCountdown = () => {
     setCodeCountdown(60)
-    const timer = setInterval(() => {
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
+    countdownTimerRef.current = setInterval(() => {
       setCodeCountdown((c) => {
         if (c <= 1) {
-          clearInterval(timer)
+          if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
+          countdownTimerRef.current = null
           return 0
         }
         return c - 1

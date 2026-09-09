@@ -324,13 +324,18 @@ async def generate_chart(arguments: dict[str, Any]) -> dict[str, Any]:
         out_dir.mkdir(parents=True, exist_ok=True)
         html_content = _render_html(title.strip(), option)
 
-        # 文件名: 时间戳 + slug(已存在则追加序号,保证不覆盖)
+        # 文件名: 时间戳 + slug + 随机段(已存在则追加序号,保证不覆盖)。
+        # 2026-09-09 P2 越权修复:纯时间戳+标题可被其他登录用户枚举猜测(配合
+        # /api/artifacts/token 换取签名 token 跨用户读图);随机段使新文件不可枚举。
+        import uuid as _uuid
+
         ts = datetime.now().strftime("%Y%m%d_%H%M")
         slug = _slugify(title.strip())
-        path = out_dir / f"{ts}_{slug}.html"
+        rand = _uuid.uuid4().hex[:8]
+        path = out_dir / f"{ts}_{slug}_{rand}.html"
         seq = 1
         while path.exists():
-            path = out_dir / f"{ts}_{slug}_{seq}.html"
+            path = out_dir / f"{ts}_{slug}_{rand}_{seq}.html"
             seq += 1
 
         try:
@@ -341,6 +346,19 @@ async def generate_chart(arguments: dict[str, Any]) -> dict[str, Any]:
                 "tool": tool_name, "ok": False, "errorCode": "WRITE_FAILED",
                 "message": f"图表文件写入失败: {exc}",
             }
+
+        # 归属 sidecar:<file>.owner 记录生成者 user_id(来自 mcp_server 注入的
+        # __user_id,LLM 不可控)。/api/artifacts/token 签发时校验,非本人 403。
+        user_id = str(arguments.get("__user_id") or "").strip()
+        if user_id:
+            try:
+                sidecar = Path(str(path) + ".owner")
+                sidecar.write_text(
+                    json.dumps({"user_id": user_id}, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+            except OSError as exc:  # noqa: PERF203
+                logger.warning("图表归属 sidecar 写入失败(不阻断): %s", exc)
 
         file_path = str(path).replace("\\", "/")
         try:
