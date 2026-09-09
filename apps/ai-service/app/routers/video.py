@@ -7,7 +7,8 @@
 - POST /api/video/task         异步入队(video_generation_tasks,由后台 worker 消费)
 - GET  /api/video/tasks/:id    查询任务
 - GET  /api/video/providers    已配置视频厂商
-- POST /api/video/token6688-callback  TokenGo 官方终态 webhook(验签 + 落终态)
+- POST /api/video/token6688-cancel/:task_id   取消 TokenGo 在途异步任务
+- POST /api/video/token6688-callback          TokenGo 官方终态 webhook(验签 + 落终态)
 
 TokenGo webhook 官方约定(2026-07-11 guide):
 - 提交时带 callback_url(+callback_secret),终态平台主动 POST 任务快照
@@ -133,6 +134,28 @@ async def video_providers() -> dict[str, Any]:
             },
         },
     }
+
+
+@router.post("/video/token6688-cancel/{task_id}")
+async def video_token6688_cancel(task_id: str) -> dict[str, Any]:
+    """取消 token6688 在途异步任务(DELETE /v1/tasks/{id} 优先,/cancel 兜底)。
+
+    ⚠ 官方未收录取消端点:ok=false 时如实带原因(unsupported/not_found),不抛 500。
+    """
+    from ..core.config import settings
+    from ..providers.token6688_provider import Token6688Provider
+
+    cfg = settings.get_provider_config("token6688")
+    if not cfg.api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="token6688 未配置:请在 .env 设置 TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688.api_key",
+        )
+    try:
+        result = await Token6688Provider(api_key=cfg.api_key, api_base=cfg.api_base).cancel_task(task_id)
+    except ProviderError as e:
+        raise HTTPException(status_code=e.status_code or 502, detail=str(e)) from None
+    return {"ok": True, "data": {"task_id": task_id, **result}}
 
 
 @router.post("/video/token6688-callback")
