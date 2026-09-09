@@ -395,6 +395,7 @@ async def cancel_media_tasks(
     *,
     task_ids: list[str] | None = None,
     kind: str | None = None,
+    user_uuid: str | None = None,
 ) -> dict[str, Any]:
     """批量取消在途媒体任务(2026-09-09 F8,任务中心"取消全部在途")。
 
@@ -402,6 +403,7 @@ async def cancel_media_tasks(
     - 只处理在途状态(_STATUS_IN_FLIGHT):已终态(succeeded/failed/cancelled)不动
     - task_ids 提供 → 只取消清单内的在途任务;否则取消全部在途任务
     - kind 提供(逗号分隔多值)→ 只取消该类型的在途任务
+    - user_uuid 提供 → 只取消该用户的任务(2026-09-09 P0 越权修复:非 admin 强制传)
     - 每个任务 best-effort 调 token6688 取消:未配置/失败仅记 remote_failed,
       不影响本地统一置 cancelled
     返回 {requested, cancelled, remote_failed:[{task_id, error}]} 供前端展示。
@@ -418,6 +420,9 @@ async def cancel_media_tasks(
         if kinds:
             params.append(kinds)
             where.append(f"kind = ANY(${len(params)})")
+    if user_uuid:
+        params.append(str(user_uuid))
+        where.append(f"user_uuid = ${len(params)}")
     where_sql = " AND ".join(where)
     conn = await get_db_conn()
     try:

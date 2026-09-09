@@ -21,7 +21,7 @@ import logging
 import os
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from ..services.media_tasks import (
     _STATUS_IN_FLIGHT,
@@ -37,6 +37,27 @@ from ..services.media_tasks import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _user_scope(request: Request) -> tuple[str, bool]:
+    """从 JWT 派生当前用户 (user_id, is_admin)(2026-09-09 P0 越权修复)。
+
+    此前媒体任务路由不校验身份且 user_uuid 可选,任何登录用户可查看/取消/删除
+    全平台所有人的任务(IDOR,与 llm.py P0-9 同类)。修复:普通用户强制按自身
+    过滤;admin(role_id>=1)可看全部。与 agent_runtime._get_current_user 同模式。
+    测试可通过 app.dependency_overrides 注入假身份。
+    """
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    role_id = getattr(request.state, "role_id", 0) or 0
+    return str(user_id), int(role_id) >= 1
+
+
+def _scoped_user_uuid(user_uuid: str | None, scope: tuple[str, bool]) -> str | None:
+    """非 admin 强制按当前用户过滤;admin 尊重显式传参(不传=查全部)。"""
+    user_id, is_admin = scope
+    return user_uuid if is_admin else user_id
 
 
 @router.post("/media/tasks/callback")
@@ -138,16 +159,21 @@ async def media_upload(
 
 @router.get("/media/tasks")
 async def media_task_list(
+    request_user: tuple[str, bool] = Depends(_user_scope),
     kind: str | None = None,
     status: str | None = None,
     user_uuid: str | None = None,
     limit: int = 20,
     offset: int = 0,
 ) -> dict[str, Any]:
-    """媒体任务列表:kind/status 支持逗号分隔多值(video/music/tts/image;processing/succeeded/failed/cancelled)。"""
+    """媒体任务列表:kind/status 支持逗号分隔多值(video/music/tts/image;processing/succeeded/failed/cancelled)。
+
+    2026-09-09 P0 越权修复:非 admin 强制按当前用户过滤(user_uuid 参数仅 admin 可用)。
+    """
     try:
         data = await query_media_tasks(
-            kind=kind, status=status, user_uuid=user_uuid, limit=limit, offset=offset,
+            kind=kind, status=status, user_uuid=_scoped_user_uuid(user_uuid, request_user),
+            limit=limit, offset=offset,
         )
     except Exception as e:  # noqa: BLE001
         logger.warning("[media_tasks] 列表查询失败: %s", e)
@@ -156,13 +182,17 @@ async def media_task_list(
 
 
 @router.get("/media/tasks/stats")
-async def media_tasks_stats(user_uuid: str | None = None) -> dict[str, Any]:
+async def media_tasks_stats(
+    request_user: tuple[str, bool] = Depends(_user_scope),
+    user_uuid: str | None = None,
+) -> dict[str, Any]:
     """媒体任务统计概览(2026-09-09 F7):按 kind 分组 + 全局在途/终态计数。
 
     任务中心顶部概览卡片消费(总数/在途/已完成/失败/已取消,及各类型明细)。
+    2026-09-09 P0 越权修复:非 admin 强制按当前用户统计。
     """
     try:
-        data = await media_task_stats(user_uuid=user_uuid)
+        data = await media_task_stats(user_uuid=_scoped_user_uuid(user_uuid, request_user))
     except Exception as e:  # noqa: BLE001
         logger.warning("[media_tasks] 统计查询失败: %s", e)
         raise HTTPException(status_code=500, detail=f"媒体任务统计异常: {e}") from e
@@ -170,10 +200,21 @@ async def media_tasks_stats(user_uuid: str | None = None) -> dict[str, Any]:
 
 
 @router.get("/media/tasks/{task_id}")
-async def media_task_detail(task_id: str) -> dict[str, Any]:
-    """媒体任务详情:库内记录;在途(processing)且 provider=token6688 时实时探测最新状态。"""
+async def media_task_detail(
+    task_id: str,
+    request_user: tuple[str, bool] = Depends(_user_scope),
+) -> dict[str, Any]:
+    """媒体任务详情:库内记录;在途且 provider=token6688 时实时探测最新状态。
+
+    2026-09-09 P0 越权修复:非 admin 只能看自己的任务(不归属按 404,不泄露存在性;
+    与 agent_runtime._require_session 同策略,历史 user_uuid='' 行不强制)。
+    """
     row = await get_media_task(task_id)
     if row is None:
+        raise HTTPException(status_code=404, detail="媒体任务不存在")
+    user_id, is_admin = request_user
+    owner = str(row.get("user_uuid") or "")
+    if owner and owner != user_id and not is_admin:
         raise HTTPException(status_code=404, detail="媒体任务不存在")
     if (
         row.get("status") in _STATUS_IN_FLIGHT
@@ -217,14 +258,19 @@ async def media_task_clear(
     kind: str | None = None,
     status: str | None = None,
     before: str | None = None,
+    request_user: tuple[str, bool] = Depends(_user_scope),
 ) -> dict[str, Any]:
     """批量清理已终态媒体任务记录(2026-09-09 F1)。
 
     只删 succeeded/failed/cancelled;在途任务(processing 等)一律保留,防收尾通道
     回写失败而任务消失。kind/status 逗号分隔多值;before=ISO 时间截点只删更早。
+    2026-09-09 P0 越权修复:非 admin 只能清理自己的记录。
     """
     try:
-        result = await clear_media_tasks(kind=kind, status=status, before=before)
+        result = await clear_media_tasks(
+            kind=kind, status=status, before=before,
+            user_uuid=_scoped_user_uuid(None, request_user),
+        )
     except Exception as e:  # noqa: BLE001
         logger.warning("[media_tasks] 批量清理失败: %s", e)
         raise HTTPException(status_code=500, detail=f"媒体任务清理异常: {e}") from e
@@ -232,8 +278,21 @@ async def media_task_clear(
 
 
 @router.delete("/media/tasks/{task_id}")
-async def media_task_delete(task_id: str) -> dict[str, Any]:
-    """删除单条媒体任务记录(2026-09-09 F1;仅删本地记录,长任务应先取消再删)。"""
+async def media_task_delete(
+    task_id: str,
+    request_user: tuple[str, bool] = Depends(_user_scope),
+) -> dict[str, Any]:
+    """删除单条媒体任务记录(2026-09-09 F1;仅删本地记录,长任务应先取消再删)。
+
+    2026-09-09 P0 越权修复:非 admin 不能删他人记录(不归属按 404)。
+    """
+    row = await get_media_task(task_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="媒体任务不存在")
+    user_id, is_admin = request_user
+    owner = str(row.get("user_uuid") or "")
+    if owner and owner != user_id and not is_admin:
+        raise HTTPException(status_code=404, detail="媒体任务不存在")
     try:
         deleted = await delete_media_task(task_id)
     except Exception as e:  # noqa: BLE001
@@ -245,15 +304,23 @@ async def media_task_delete(task_id: str) -> dict[str, Any]:
 
 
 @router.post("/media/tasks/{task_id}/cancel")
-async def media_task_cancel(task_id: str) -> dict[str, Any]:
+async def media_task_cancel(
+    task_id: str,
+    request_user: tuple[str, bool] = Depends(_user_scope),
+) -> dict[str, Any]:
     """取消在途媒体任务:优先调 token6688 取消端点,成功/不支持均如实返回并置 cancelled。
 
     2026-09-09 收尾修复:只允许取消在途任务(_STATUS_IN_FLIGHT),已终态任务
     (succeeded/failed/cancelled)返回 409,防止误点把终态任务翻转成 cancelled
     (与批量取消 cancel_media_tasks 的"只处理在途"语义一致)。
+    2026-09-09 P0 越权修复:非 admin 不能取消他人任务(不归属按 404)。
     """
     row = await get_media_task(task_id)
     if row is None:
+        raise HTTPException(status_code=404, detail="媒体任务不存在")
+    user_id, is_admin = request_user
+    owner = str(row.get("user_uuid") or "")
+    if owner and owner != user_id and not is_admin:
         raise HTTPException(status_code=404, detail="媒体任务不存在")
     if row.get("status") not in _STATUS_IN_FLIGHT:
         raise HTTPException(
@@ -292,12 +359,16 @@ async def media_task_cancel(task_id: str) -> dict[str, Any]:
 
 
 @router.post("/media/tasks/cancel")
-async def media_tasks_cancel_batch(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+async def media_tasks_cancel_batch(
+    payload: dict[str, Any] | None = None,
+    request_user: tuple[str, bool] = Depends(_user_scope),
+) -> dict[str, Any]:
     """批量取消在途媒体任务(2026-09-09 F8,任务中心"取消全部在途")。
 
     body(可选 JSON):{"task_ids": ["..."], "kind": "video"}。
     不传 task_ids → 取消全部在途任务;已终态任务永远不受影响。
     返回 {requested, cancelled, remote_failed} 供前端展示批量结果。
+    2026-09-09 P0 越权修复:非 admin 只能取消自己的在途任务。
     """
     task_ids: list[str] | None = None
     kind: str | None = None
@@ -309,7 +380,10 @@ async def media_tasks_cancel_batch(payload: dict[str, Any] | None = None) -> dic
         if isinstance(raw_kind, str) and raw_kind.strip():
             kind = raw_kind
     try:
-        result = await cancel_media_tasks(task_ids=task_ids, kind=kind)
+        result = await cancel_media_tasks(
+            task_ids=task_ids, kind=kind,
+            user_uuid=_scoped_user_uuid(None, request_user),
+        )
     except Exception as e:  # noqa: BLE001
         logger.warning("[media_tasks] 批量取消失败: %s", e)
         raise HTTPException(status_code=500, detail=f"媒体任务批量取消异常: {e}") from e
