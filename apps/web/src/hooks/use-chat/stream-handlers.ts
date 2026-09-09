@@ -26,6 +26,12 @@ export function createToolCallHandler(assistantMessageId: string) {
     serverSource?: 'builtin' | 'plugin' | 'mcp'
     serverId?: string
     serverName?: string
+    // 2026-09-09 媒体产物顶层扁平化透传:tool-result 事件携带时写入 tc,
+    // 驱动 ToolCallCard 渲染媒体产物 / 长任务"进行中"状态
+    image_url?: string
+    audio_url?: string
+    video_url?: string
+    task_id?: string
   }) => {
     if (event.type === 'tool-call-start') {
       startTimes.set(event.toolCallId, Date.now())
@@ -65,6 +71,11 @@ export function createToolCallHandler(assistantMessageId: string) {
       if (event.iteration !== undefined) updates.iteration = event.iteration
       // 后端 repeated: true 标记(同 tool_name + 同 args 已执行过,跳过实际调用)
       if (event.repeated === true) updates.repeated = true
+      // 2026-09-09 媒体产物顶层扁平化:写入 tc,驱动媒体渲染与长任务"进行中"状态
+      if (event.image_url !== undefined) updates.image_url = event.image_url
+      if (event.audio_url !== undefined) updates.audio_url = event.audio_url
+      if (event.video_url !== undefined) updates.video_url = event.video_url
+      if (event.task_id !== undefined) updates.task_id = event.task_id
       useChatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, updates)
 
       // tool-result 含 URL:延迟打开(仅当之前 args 没 url 时,result 含 url 的场景)
