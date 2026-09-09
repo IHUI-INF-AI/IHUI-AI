@@ -63,7 +63,7 @@ export default function QrCodeShare({
         {logoUrl && (
           <Image
             src={logoUrl}
-            className="absolute top-2 right-2 w-8 h-8 rounded-lg border-2 border-white"
+            className="absolute top-2 right-2 w-8 h-8 rounded-lg border-2 border-[var(--color-white-98)]"
             mode="aspectFill"
           />
         )}
@@ -80,7 +80,7 @@ export default function QrCodeShare({
         >
           {tt('wallet.recharge.success.shareFriend', '分享给好友')}
         </Button>
-        <Button className="flex-1 !bg-primary !text-white text-sm rounded-md" onClick={handleSave}>
+        <Button className="flex-1 !bg-primary !text-primary-foreground text-sm rounded-md" onClick={handleSave}>
           {tt('invite.saveImage', '保存图片')}
         </Button>
       </View>

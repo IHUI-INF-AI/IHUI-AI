@@ -27,7 +27,7 @@ export default function PasswordVisibilityToggle({
   label,
 }: PasswordVisibilityToggleProps): ReactElement {
   return (
-    <View className="password-toggle" onClick={onToggle}>
+    <View className="password-toggle" onClick={onToggle} hoverClass="opacity-60">
       {label ? <Text className="password-toggle-label">{label}</Text> : null}
       <LineIcon
         className="eye-icon"

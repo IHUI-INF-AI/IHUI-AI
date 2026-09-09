@@ -430,6 +430,7 @@ export default function InputArea({
                       className="flex items-center justify-center"
                       style={{ width: rpx(60), height: rpx(60), fontSize: rpx(32) }}
                       onClick={() => handleEmojiPick(e)}
+                      hoverClass="opacity-60"
                     >
                       <Text>{e}</Text>
                     </View>
@@ -464,6 +465,7 @@ export default function InputArea({
                   marginRight: mode === 'voice' ? '0' : rpx(20),
                 }}
                 onClick={toggleMode}
+                hoverClass="opacity-60"
               >
                 <Image
                   className="search-box1-img"
@@ -624,7 +626,7 @@ export default function InputArea({
                 }}
               >
                 {/* 附件按钮 search-box2:44rpx×44rpx,默认可见,isShowIcon 只控制旋转 */}
-                <View className="search-box2" onClick={handleUploadToggle}>
+                <View className="search-box2" onClick={handleUploadToggle} hoverClass="opacity-60">
                   <Image
                     className={cn('search-box2-img', isShowIcon ? 'rotate-icon' : '')}
                     src={searchAddPng}
@@ -667,10 +669,12 @@ export default function InputArea({
         <ScrollView scrollY className="h-48 mb-2">
           <View className="flex flex-wrap p-2">
             {EMOJI_LIST.map((e, i) => (
+              // 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈
               <View
                 key={i}
-                className="w-11 h-11 flex items-center justify-center text-2xl active:bg-muted"
+                className="w-11 h-11 flex items-center justify-center text-2xl"
                 onClick={() => handleEmojiPick(e)}
+                hoverClass="opacity-60"
               >
                 <Text>{e}</Text>
               </View>
@@ -681,9 +685,11 @@ export default function InputArea({
 
       <View className="flex items-center w-full">
         <View className="flex items-center mr-2 flex-shrink-0">
+          {/* 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈 */}
           <View
-            className={`w-9 h-9 flex items-center justify-center rounded-lg active:bg-muted ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
+            className={`w-9 h-9 flex items-center justify-center rounded-lg ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
             onClick={toggleMode}
+            hoverClass="opacity-60"
           >
             <Image
               src={mode === 'text' ? searchHuaPng : inputQiePng}
@@ -717,7 +723,7 @@ export default function InputArea({
           </View>
         ) : (
           <View
-            className={`flex-1 min-h-10 mx-2 rounded-2xl flex items-center justify-center text-sm ${recording ? 'bg-red-100 text-destructive' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
+            className={`flex-1 min-h-10 mx-2 rounded-2xl flex items-center justify-center text-sm ${recording ? 'bg-[var(--color-danger-light)] text-destructive' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
             onTouchStart={handleVoiceStart}
             onTouchEnd={handleVoiceEnd}
             onTouchCancel={handleVoiceCancel}
@@ -731,16 +737,18 @@ export default function InputArea({
         <View className="flex items-center ml-2 flex-shrink-0">
           {mode === 'text' ? (
             <Text
-              className={`w-9 h-9 leading-9 text-center text-xl rounded-lg active:bg-muted ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
+              className={`w-9 h-9 leading-9 text-center text-xl rounded-lg ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
               onClick={toggleEmoji}
             >
               😊
             </Text>
           ) : null}
           <View className="flex flex-col items-center ml-1">
+            {/* 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈 */}
             <View
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground active:bg-muted"
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground"
               onClick={handleUploadToggle}
+              hoverClass="opacity-60"
             >
               <Image src={searchAddPng} className="w-5 h-5" mode="aspectFit" />
             </View>
@@ -751,9 +759,11 @@ export default function InputArea({
         </View>
 
         {mode === 'text' ? (
+          // active:bg-primary 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈
           <View
-            className={`ml-2 px-4 h-9 leading-9 rounded-lg text-sm flex-shrink-0 ${canSend ? 'bg-primary text-white active:bg-primary' : 'bg-muted text-muted-foreground'}`}
+            className={`ml-2 px-4 h-9 leading-9 rounded-lg text-sm flex-shrink-0 ${canSend ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
             onClick={handleSend}
+            hoverClass="opacity-60"
           >
             <Text>{t('messageInput.send')}</Text>
           </View>

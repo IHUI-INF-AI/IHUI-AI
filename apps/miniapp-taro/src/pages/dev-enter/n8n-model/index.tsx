@@ -271,7 +271,7 @@ export default function N8nModel() {
                 key={v}
                 className={`nm-bool-opt ${p.defaultValue === v ? 'nm-bool-active' : ''}`}
                 onClick={() => setVal(v)}
-              >
+                hoverClass="opacity-60">
                 <Text>
                   {v === 'true'
                     ? tt('devEnter.n8nModel.booleanTrue', '是')
@@ -288,6 +288,7 @@ export default function N8nModel() {
         <ThemeRoot>
           <Textarea
             className="nm-field-textarea"
+            placeholderClass="text-[var(--color-text-tertiary)]"
             value={p.defaultValue}
             placeholder={tt('devEnter.n8nModel.paramDefaultPlaceholder', '请输入默认值')}
             onInput={(e) => setVal(e.detail.value)}
@@ -299,6 +300,7 @@ export default function N8nModel() {
       <ThemeRoot>
         <Input
           className="nm-field-input"
+          placeholderClass="text-[var(--color-text-tertiary)]"
           type={p.type === 'number' ? 'digit' : 'text'}
           value={p.defaultValue}
           placeholder={tt('devEnter.n8nModel.paramDefaultPlaceholder', '请输入默认值')}
@@ -329,6 +331,7 @@ export default function N8nModel() {
               </Text>
               <Input
                 className="nm-field-input"
+                placeholderClass="text-[var(--color-text-tertiary)]"
                 value={p.name}
                 placeholder={tt('devEnter.n8nModel.paramNamePlaceholder', '请输入参数名称')}
                 onInput={(e) => updateParam(which, index, { name: e.detail.value })}
@@ -340,6 +343,7 @@ export default function N8nModel() {
               </Text>
               <Textarea
                 className="nm-field-textarea"
+                placeholderClass="text-[var(--color-text-tertiary)]"
                 value={p.description}
                 placeholder={tt('devEnter.n8nModel.paramDescPlaceholder', '请输入参数描述')}
                 onInput={(e) => updateParam(which, index, { description: e.detail.value })}
@@ -360,7 +364,7 @@ export default function N8nModel() {
                         defaultValue: tp.value === 'boolean' ? 'true' : '',
                       })
                     }
-                  >
+                    hoverClass="opacity-60">
                     <Text>{tt(tp.key, tp.fb)}</Text>
                   </View>
                 ))}
@@ -374,7 +378,7 @@ export default function N8nModel() {
             </View>
           </View>
         ))}
-        <View className="nm-add-param" onClick={() => addParam(which)}>
+        <View className="nm-add-param" onClick={() => addParam(which)} hoverClass="opacity-60">
           <Text>+ {tt('devEnter.n8nModel.addParam', '添加参数')}</Text>
         </View>
       </View>
@@ -389,7 +393,7 @@ export default function N8nModel() {
           <View className="nm-header">
             <Text className="nm-title">{t('devEnter.n8nModel.title')}</Text>
             <Text className="nm-create-btn" onClick={onCreate}>
-              + {tt('devEnter.n8nModel.create', '新建')}
+              {tt('devEnter.n8nModel.create', '新建')}
             </Text>
           </View>
           <View className="nm-content">
@@ -401,12 +405,18 @@ export default function N8nModel() {
                   key={(item.id as string) || (item.name as string)}
                   className="nm-list-item"
                   onClick={() => onItemClick(item.id as string)}
-                >
-                  <Text>
+                  hoverClass="opacity-60">
+                  <Text className="nm-list-name text-ellipsis">
                     {(item.name as string) ||
                       (item.title as string) ||
                       t('devEnter.n8nModel.defaultName')}
                   </Text>
+                  {/* 对齐 RN cardDesc: 有描述时展示,两行截断 */}
+                  {(item.description as string) ? (
+                    <Text className="nm-list-desc text-ellipsis-2">
+                      {item.description as string}
+                    </Text>
+                  ) : null}
                 </View>
               ))
             ) : (
@@ -431,7 +441,7 @@ export default function N8nModel() {
         <ScrollView scrollY className="nm-body">
           {/* 头像 */}
           <Text className="nm-label">{tt('devEnter.n8nModel.avatarLabel', '智能体头像')}</Text>
-          <View className="nm-avatar-wrap" onClick={chooseAvatar}>
+          <View className="nm-avatar-wrap" onClick={chooseAvatar} hoverClass="opacity-60">
             {avatar ? (
               <Image className="nm-avatar" src={avatar} mode="aspectFill" />
             ) : (
@@ -447,6 +457,7 @@ export default function N8nModel() {
           <Text className="nm-label">{tt('devEnter.n8nModel.nameLabel', '智能体名称')}</Text>
           <Input
             className="nm-input"
+            placeholderClass="text-[var(--color-text-tertiary)]"
             maxlength={30}
             value={name}
             placeholder={tt('devEnter.n8nModel.namePlaceholder', '请输入智能体名称')}
@@ -457,6 +468,7 @@ export default function N8nModel() {
           <Text className="nm-label">{tt('devEnter.n8nModel.descLabel', '智能体描述')}</Text>
           <Textarea
             className="nm-textarea"
+            placeholderClass="text-[var(--color-text-tertiary)]"
             value={description}
             placeholder={tt('devEnter.n8nModel.descPlaceholder', '请输入智能体描述')}
             onInput={(e) => setDescription(e.detail.value)}
@@ -464,7 +476,7 @@ export default function N8nModel() {
 
           {/* n8n 备份文件 */}
           <Text className="nm-label">{tt('devEnter.n8nModel.n8nFileLabel', 'n8n 备份文件')}</Text>
-          <View className="nm-file-btn" onClick={chooseN8nFile}>
+          <View className="nm-file-btn" onClick={chooseN8nFile} hoverClass="opacity-60">
             <Text className="nm-file-text">
               {n8nFileName ||
                 tt('devEnter.n8nModel.n8nFilePlaceholder', '点击上传 n8n 备份 JSON 文件')}
@@ -483,6 +495,7 @@ export default function N8nModel() {
           <Text className="nm-label">{tt('devEnter.n8nModel.n8nUrlLabel', 'n8n 地址')}</Text>
           <Input
             className="nm-input"
+            placeholderClass="text-[var(--color-text-tertiary)]"
             maxlength={200}
             value={n8nUrl}
             placeholder={tt('devEnter.n8nModel.n8nUrlPlaceholder', '请输入 n8n 地址')}
@@ -501,7 +514,7 @@ export default function N8nModel() {
           <View
             className={`nm-submit ${submitting ? 'nm-submit-disabled' : ''}`}
             onClick={onSubmit}
-          >
+            hoverClass="opacity-60">
             <Text>
               {submitting
                 ? tt('devEnter.n8nModel.submitting', '创建中…')

@@ -105,18 +105,23 @@ export default function Avatar() {
   return (
     <ThemeRoot>
       <View className="avatar-page">
-        {/* ===== 当前头像预览 ===== */}
+        {/* ===== 当前头像预览(RN avatarWrap: 圆形头像 + 品牌色编辑徽章) ===== */}
         <View className="avatar-preview-wrap">
-          <View className="avatar-preview-box" onClick={previewAvatar}>
-            <Image
-              className="avatar-preview-img"
-              src={avatar || DEFAULT_AVATAR}
-              mode="aspectFill"
-            />
-            <View className="avatar-preview-tip">
-              <Text className="avatar-preview-tip-text">
-                {tt('user.avatar.tapPreview', '点击查看大图')}
-              </Text>
+          <View className="avatar-avatar-wrap" hoverClass="opacity-60" onClick={previewAvatar}>
+            <View className="avatar-preview-box">
+              <Image
+                className="avatar-preview-img"
+                src={avatar || DEFAULT_AVATAR}
+                mode="aspectFill"
+              />
+              <View className="avatar-preview-tip">
+                <Text className="avatar-preview-tip-text">
+                  {tt('user.avatar.tapPreview', '点击查看大图')}
+                </Text>
+              </View>
+            </View>
+            <View className="avatar-edit-badge">
+              <Text className="avatar-edit-badge-text">✎</Text>
             </View>
           </View>
           {nickname ? <Text className="avatar-nickname">{nickname}</Text> : null}

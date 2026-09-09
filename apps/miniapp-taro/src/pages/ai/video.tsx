@@ -221,46 +221,59 @@ export default function VideoPage() {
   }, [])
 
   return (
-    <ThemeRoot className="min-h-screen bg-background">
+    <ThemeRoot className="min-h-screen bg-[var(--color-screen-canvas)]">
       <ScrollView scrollY className="h-screen">
-        <View className="flex gap-2 px-3 py-3 bg-card">
+        <View className="flex gap-[16rpx] px-[24rpx] py-[24rpx]">
           {VENDORS.map((v) => (
             <View
               key={v.key}
-              className={`flex-1 py-2 text-center text-sm rounded-md transition-colors ${
-                vendor === v.key ? 'bg-primary text-white' : 'bg-muted text-foreground'
+              className={`flex-1 py-[12rpx] text-center rounded-[12rpx] ${
+                vendor === v.key
+                  ? 'bg-[var(--color-brand-orange)]'
+                  : 'bg-secondary'
               }`}
               onClick={() => setVendor(v.key)}
+              hoverClass="opacity-60"
             >
-              <Text className="block">{t(v.nameKey)}</Text>
+              <Text
+                className={`block text-[24rpx] ${vendor === v.key ? 'text-[var(--color-surface-light)]' : 'text-muted-foreground'}`}
+              >
+                {t(v.nameKey)}
+              </Text>
               {!v.available ? (
-                <Text className="block text-[20rpx] opacity-70">{t('ai.video.notAvailable')}</Text>
+                <Text className="block text-[20rpx] opacity-70 text-muted-foreground">
+                  {t('ai.video.notAvailable')}
+                </Text>
               ) : null}
             </View>
           ))}
         </View>
 
-        <View className="mx-3 mt-2 bg-card rounded-lg p-3">
-          <Text className="block text-xs text-muted-foreground mb-2">
+        <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-[16rpx] border border-border p-[24rpx]">
+          <Text className="block text-[24rpx] text-muted-foreground mb-[16rpx]">
             {t(currentVendor.descKey)}
           </Text>
           <Textarea
-            className="w-full min-h-[120rpx] p-2 text-sm bg-background rounded-md box-border"
+            className="w-full min-h-[192rpx] p-[24rpx] text-[24rpx] bg-transparent border border-border rounded-[12rpx] box-border"
             placeholder={t('ai.video.promptPlaceholder')}
             maxlength={500}
             value={prompt}
             onInput={(e) => setPrompt(e.detail.value)}
           />
-          <View className="flex gap-2 mt-3">
+          <View className="flex gap-[16rpx] mt-[24rpx]">
             {PARAMS.map((p) => (
               <View key={p.key} className="flex-1">
-                <Text className="block text-xs text-muted-foreground mb-1">{t(p.labelKey)}</Text>
-                <View className="flex gap-1">
+                <Text className="block text-[20rpx] text-muted-foreground mb-[8rpx]">
+                  {t(p.labelKey)}
+                </Text>
+                <View className="flex gap-[8rpx]">
                   {p.options.map((opt) => (
                     <Text
                       key={opt}
-                      className={`flex-1 py-1 text-center text-xs rounded ${
-                        params[p.key] === opt ? 'bg-primary text-white' : 'bg-muted text-foreground'
+                      className={`flex-1 py-[12rpx] text-center text-[20rpx] rounded-[12rpx] ${
+                        params[p.key] === opt
+                          ? 'bg-[var(--color-brand-orange)] text-[var(--color-surface-light)]'
+                          : 'bg-secondary text-muted-foreground'
                       }`}
                       onClick={() => setParams((prev) => ({ ...prev, [p.key]: opt }))}
                     >
@@ -272,7 +285,7 @@ export default function VideoPage() {
             ))}
           </View>
           <Button
-            className="mt-3 w-full text-sm rounded-md !bg-primary !text-white"
+            className="mt-[24rpx] w-full h-[88rpx] leading-[88rpx] rounded-[12rpx] text-[24rpx] font-medium bg-[var(--color-brand-orange)] text-[var(--color-surface-light)] disabled:opacity-60"
             disabled={!prompt || status === 'pending' || status === 'running'}
             onClick={onGenerate}
           >
@@ -281,25 +294,29 @@ export default function VideoPage() {
         </View>
 
         {status !== 'idle' && status !== 'failed' ? (
-          <View className="mx-3 mt-2 bg-card rounded-lg p-3">
-            <Text className="block text-sm font-medium text-foreground mb-2">{statusText}</Text>
+          <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-[16rpx] border border-border p-[24rpx]">
+            <Text className="block text-[28rpx] font-medium text-foreground mb-[16rpx]">
+              {statusText}
+            </Text>
             {resultUrl ? (
               <VideoPlayer src={resultUrl} />
             ) : (
-              <View className="h-[420rpx] flex items-center justify-center bg-black rounded-md">
-                <Text className="text-sm text-muted-foreground">{statusText}</Text>
+              <View className="h-[420rpx] flex items-center justify-center bg-[var(--color-black-90)] rounded-[12rpx]">
+                <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
+                  {statusText}
+                </Text>
               </View>
             )}
             {resultUrl ? (
-              <View className="flex gap-2 mt-3">
+              <View className="flex gap-[16rpx] mt-[24rpx]">
                 <Button
-                  className="flex-1 text-sm rounded-md !bg-muted !text-foreground"
+                  className="flex-1 h-[80rpx] leading-[80rpx] text-[24rpx] rounded-[12rpx] border border-border bg-transparent text-muted-foreground"
                   onClick={onDownload}
                 >
                   {t('ai.video.download')}
                 </Button>
                 <Button
-                  className="flex-1 text-sm rounded-md !bg-muted !text-foreground"
+                  className="flex-1 h-[80rpx] leading-[80rpx] text-[24rpx] rounded-[12rpx] border border-border bg-transparent text-muted-foreground"
                   onClick={onShare}
                   openType="share"
                 >
@@ -311,25 +328,26 @@ export default function VideoPage() {
         ) : null}
 
         {status === 'failed' ? (
-          <View className="mx-3 mt-2">
+          <View className="mx-[24rpx] mt-[16rpx]">
             <ErrorView title={t('ai.video.failed')} desc={errorMsg} onRetry={onGenerate} />
           </View>
         ) : null}
 
-        <View className="mx-3 mt-3 mb-6 bg-card rounded-lg p-3">
-          <Text className="block text-sm font-medium text-foreground mb-2">
+        <View className="mx-[24rpx] mt-[24rpx] mb-[48rpx] bg-card rounded-[16rpx] border border-border p-[24rpx]">
+          <Text className="block text-[28rpx] font-medium text-foreground mb-[16rpx]">
             {t('ai.video.history')}
           </Text>
           {history.length ? (
-            <View className="flex flex-col gap-2">
+            <View className="flex flex-col gap-[16rpx]">
               {history.map((h) => (
                 <View
                   key={h.id}
-                  className="flex items-center py-2 bg-background rounded-md px-2"
+                  className="flex items-center py-[16rpx] bg-background rounded-[12rpx] px-[16rpx]"
                   onClick={() => replayHistory(h)}
+                  hoverClass="opacity-60"
                 >
-                  <Text className="flex-1 text-xs text-foreground truncate">{h.prompt}</Text>
-                  <Text className="text-[20rpx] text-muted-foreground ml-2">
+                  <Text className="flex-1 text-[24rpx] text-foreground truncate">{h.prompt}</Text>
+                  <Text className="text-[20rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">
                     {t(VENDORS.find((v) => v.key === h.vendor)?.nameKey ?? '')} ·{' '}
                     {fmtTime(h.createdAt)}
                   </Text>

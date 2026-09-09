@@ -114,58 +114,78 @@ export default function NewsDetailPage() {
 
   return (
     <ThemeRoot>
+      {/* 页面底色对齐 RN shell/共享屏 surface.bg;内容布局对齐 SharedArticleDetailScreen */}
       <View className="min-h-screen bg-background pb-[140rpx]">
         <NavBar showBack />
         {loading ? (
-          <View className="text-center py-[120rpx] text-muted-foreground">
-            <Text>{tt('common.loading', '加载中…')}</Text>
+          <View className="flex items-center justify-center py-[240rpx]">
+            <Text className="text-[28rpx] text-muted-foreground">
+              {tt('common.loading', '加载中…')}
+            </Text>
           </View>
         ) : null}
 
         {!loading && news.title ? (
-          <View className="bg-card p-[32rpx] mb-[24rpx]">
-            <Text className="block text-[40rpx] text-foreground font-bold leading-[1.4]">
+          <View className="px-[20rpx] pt-[24rpx]">
+            <Text className="block text-[44rpx] text-foreground font-semibold leading-[1.4]">
               {news.title}
             </Text>
-            <View className="flex gap-[24rpx] mt-[24rpx] text-[22rpx] text-muted-foreground">
-              <Text>{news.createTime}</Text>
-              <Text>{tt('news.readCount', '{n}阅读', { n: news.views || 0 })}</Text>
+            {/* metaRow:发布时间(左)/阅读数(右),对齐 RN author + publishedAt */}
+            <View className="flex flex-row items-center justify-between mt-[12rpx] mb-[12rpx]">
+              <Text className="text-[28rpx] font-medium text-muted-foreground">
+                {news.createTime}
+              </Text>
+              <Text className="text-[22rpx] text-[color:var(--color-text-tertiary)]">
+                {tt('news.readCount', '{n}阅读', { n: news.views || 0 })}
+              </Text>
+            </View>
+            {/* statRow:阅读/点赞 chip(白底圆角),对齐 RN statRow */}
+            <View className="flex flex-row items-center gap-[16rpx] mb-[24rpx]">
+              <View className="flex flex-row items-center bg-card px-[16rpx] py-[4rpx] rounded-[16rpx]">
+                <Text className="text-[22rpx] text-muted-foreground">
+                  {tt('news.readCount', '{n}阅读', { n: news.views || 0 })}
+                </Text>
+              </View>
+              <View className="flex flex-row items-center gap-[8rpx] bg-card px-[16rpx] py-[4rpx] rounded-[16rpx]">
+                <LineIcon name="heart" size={11} color="var(--color-muted-foreground)" />
+                <Text className="text-[22rpx] text-muted-foreground">{likes}</Text>
+              </View>
+            </View>
+            {/* 正文:直接铺在页面底色上(RN content 无卡片) */}
+            <View className="text-[32rpx] text-[color:var(--color-text-medium)] leading-[44rpx]">
+              <RichText nodes={news.content} />
             </View>
           </View>
         ) : null}
 
-        {!loading && news.content ? (
-          <View className="bg-card p-[32rpx] text-[30rpx] text-foreground leading-[1.8] mb-[24rpx]">
-            <RichText nodes={news.content} />
-          </View>
-        ) : null}
-
         {!loading && related.length ? (
-          <View className="bg-card p-[32rpx]">
-            <Text className="block text-[30rpx] text-foreground font-semibold mb-[24rpx]">
+          <View className="px-[20rpx] mt-[24rpx]">
+            <Text className="block text-[30rpx] text-foreground font-semibold mb-[16rpx]">
               {tt('news.detail.related', '相关推荐')}
             </Text>
-            <View className="flex flex-col gap-[24rpx]">
+            <View className="flex flex-col gap-[16rpx]">
               {related.map((r) => (
                 <View
                   key={r.id}
-                  className="flex gap-[24rpx] p-[16rpx] bg-background rounded-[12rpx]"
+                  className="flex gap-[20rpx] p-[20rpx] bg-card rounded-[16rpx]"
                   onClick={() => goRelated(r.id)}
-                >
+                  hoverClass="opacity-60">
                   {r.coverUrl ? (
                     <Image
-                      className="w-[200rpx] h-[140rpx] rounded-[8rpx] shrink-0 bg-secondary"
+                      className="w-[192rpx] h-[120rpx] rounded-[12rpx] shrink-0 bg-secondary"
                       src={r.coverUrl}
                       mode="aspectFill"
                     />
                   ) : null}
-                  <View className="flex-1 flex flex-col justify-between py-[4rpx] min-w-0">
-                    <Text className="text-[26rpx] text-foreground font-medium leading-[1.4] line-clamp-2">
+                  <View className="flex-1 flex flex-col justify-between py-[2rpx] min-w-0">
+                    <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2">
                       {r.title}
                     </Text>
                     <View className="flex gap-[16rpx] mt-[12rpx]">
-                      <Text className="text-[22rpx] text-muted-foreground">{r.createTime}</Text>
-                      <Text className="text-[22rpx] text-muted-foreground">
+                      <Text className="text-[22rpx] text-[color:var(--color-text-tertiary)]">
+                        {r.createTime}
+                      </Text>
+                      <Text className="text-[22rpx] text-[color:var(--color-text-tertiary)]">
                         {tt('news.readCount', '{n}阅读', { n: r.views || 0 })}
                       </Text>
                     </View>
@@ -177,49 +197,49 @@ export default function NewsDetailPage() {
         ) : null}
 
         {!loading && !news.title ? (
-          <View className="text-center py-[120rpx] text-muted-foreground">
-            <Text>{tt('common.empty', '暂无数据')}</Text>
+          <View className="flex items-center justify-center py-[240rpx]">
+            <Text className="text-[28rpx] text-muted-foreground">
+              {tt('common.empty', '暂无数据')}
+            </Text>
           </View>
         ) : null}
 
+        {/* 底部操作栏:对齐 RN wrapper bottomBar(space-around + hairline 上边框 + 白底) */}
         {!loading && news.title ? (
-          <View className="fixed bottom-0 left-0 right-0 flex items-center bg-card px-[24rpx] pt-[16rpx] pb-[calc(16rpx+env(safe-area-inset-bottom,0))] shadow-[0_-2rpx_12rpx_var(--color-black-25)]">
-            <View
-              className={`flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] bg-transparent ${liked ? 'text-destructive' : 'text-muted-foreground'}`}
-              onClick={onLike}
-            >
+          <View className="fixed bottom-0 left-0 right-0 flex flex-row items-center justify-around bg-card border-t border-border pt-[16rpx] pb-[calc(20rpx+env(safe-area-inset-bottom,0))]">
+            <View className="flex flex-row items-center gap-[8rpx] bg-transparent" onClick={onLike} hoverClass="opacity-60">
               <LineIcon
                 name="heart"
-                size={32}
-                color={liked ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
+                size={18}
+                color={
+                  liked ? 'var(--color-danger-bright)' : 'var(--color-muted-foreground)'
+                }
               />
-              <Text className="text-[24rpx] leading-none">
+              <Text className="text-[26rpx] text-muted-foreground leading-none">
                 {likes > 0 ? likes : tt('news.detail.like', '点赞')}
               </Text>
             </View>
             <View
-              className="flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] text-muted-foreground bg-transparent"
+              className="flex flex-row items-center gap-[8rpx] bg-transparent"
               onClick={onComment}
-            >
+              hoverClass="opacity-60">
               <LineIcon
                 name="message-circle"
-                size={32}
+                size={18}
                 color="var(--color-muted-foreground)"
               />
-              <Text className="text-[24rpx] leading-none">
+              <Text className="text-[26rpx] text-muted-foreground leading-none">
                 {comments > 0 ? comments : tt('news.detail.comment', '评论')}
               </Text>
             </View>
             <View
-              className="flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] text-muted-foreground bg-transparent"
+              className="flex flex-row items-center gap-[8rpx] bg-transparent"
               onClick={onShare}
-            >
-              <LineIcon
-                name="share-2"
-                size={32}
-                color="var(--color-muted-foreground)"
-              />
-              <Text className="text-[24rpx] leading-none">{tt('news.detail.share', '分享')}</Text>
+              hoverClass="opacity-60">
+              <LineIcon name="share-2" size={18} color="var(--color-muted-foreground)" />
+              <Text className="text-[26rpx] text-muted-foreground leading-none">
+                {tt('news.detail.share', '分享')}
+              </Text>
             </View>
           </View>
         ) : null}

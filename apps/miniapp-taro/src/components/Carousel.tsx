@@ -115,7 +115,7 @@ export default function Carousel({
                   flex: '0 0 auto',
                 }}
                 onClick={() => onItemClick?.(item, index)}
-              >
+                hoverClass="opacity-60">
                 {hasImg ? (
                   <Image src={item.img} mode="aspectFill" className="h-full w-full" lazyLoad />
                 ) : null}
@@ -135,23 +135,23 @@ export default function Carousel({
                   </View>
                 ) : null}
                 {meta ? (
-                  <View className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+                  <View className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--color-black-60)] to-transparent p-3">
                     {meta.title ? (
-                      <Text className="block text-sm text-white line-clamp-1">{meta.title}</Text>
+                      <Text className="block text-sm text-[var(--color-white-98)] line-clamp-1">{meta.title}</Text>
                     ) : null}
                     {meta.isFree || meta.price !== undefined || meta.tag ? (
                       <View className="flex items-center gap-2 mt-1">
                         {meta.isFree ? (
-                          <Text className="text-xs text-white bg-success px-2 py-0.5 rounded-sm">
+                          <Text className="text-xs text-success-foreground bg-success px-2 py-0.5 rounded-sm">
                             {tt('course.free', '免费')}
                           </Text>
                         ) : meta.price !== undefined ? (
-                          <Text className="text-xs text-white bg-primary px-2 py-0.5 rounded-sm">
+                          <Text className="text-xs text-primary-foreground bg-primary px-2 py-0.5 rounded-sm">
                             ¥{meta.price}
                           </Text>
                         ) : null}
                         {meta.tag ? (
-                          <Text className="text-xs text-white/80">{meta.tag}</Text>
+                          <Text className="text-xs text-[var(--color-white-80)]">{meta.tag}</Text>
                         ) : null}
                       </View>
                     ) : null}

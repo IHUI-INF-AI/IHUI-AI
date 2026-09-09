@@ -4,58 +4,70 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
+/*
+  对齐 RN 端 packages/app/src/features/circle-create/CircleCreateScreen.tsx(共享屏,
+  经 apps/mobile-rn/src/screens/CircleCreateScreen.tsx 薄包装)。
+  注:小程序页为"圈内发布动态"富表单(内容/图片/话题/AIGC/可见范围),RN 共享屏为
+  简单表单(名称/简介);业务结构保留,视觉语言对齐共享表单屏:
+  - 页面底 surface.bg→--color-background / 输入块 surface.muted→--color-muted /
+    描边 border.light→--color-border / 圆角 12dp→24rpx
+  - 标签 label 14dp→28rpx text.secondary→--color-muted-foreground
+  - 输入字号 16dp→32rpx text.primary→--color-foreground
+  - 主按钮 brand.DEFAULT→--color-brand / 按钮字 surface.light→--color-primary-foreground
+  - 话题/选项 chip 对齐 PostCreateScreen pickBtn: radius 16dp→32rpx /
+    border.medium→--color-border-medium / bg surface.card→--color-card / 字 brand 色
+*/
 .cc-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 24rpx;
-  padding-bottom: 200rpx;
+  padding: 24rpx 20rpx 200rpx;
   box-sizing: border-box;
 }
 
-/* ===== 卡片 ===== */
+/* ===== 表单区块(对齐 RN input 块: bg surface.muted / border border.light / radius 12dp) ===== */
 .cc-card {
-  background: var(--color-card);
+  background: var(--color-muted);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: 24rpx;
   padding: 24rpx;
-  margin-bottom: 24rpx;
+  margin-bottom: 16rpx;
 }
 .cc-main {
-  padding: 28rpx 24rpx;
+  padding: 24rpx;
 }
 
-/* ===== 内容输入 ===== */
+/* ===== 内容输入(对齐 RN input: 16dp→32rpx / text.primary;textarea minH 120dp→240rpx) ===== */
 .cc-content {
   width: 100%;
-  min-height: 280rpx;
-  font-size: 30rpx;
+  min-height: 240rpx;
+  font-size: 32rpx;
   color: var(--color-foreground);
-  line-height: 1.7;
+  line-height: 1.5;
 }
 .cc-counter {
   display: flex;
   justify-content: flex-end;
   gap: 4rpx;
-  margin-top: 12rpx;
+  margin-top: 8rpx;
 }
 .cc-counter-num {
   font-size: 24rpx;
-  color: var(--color-primary);
+  color: var(--color-brand);
 }
 .cc-counter-max {
   font-size: 24rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
 }
 
-/* ===== 区块标题 ===== */
+/* ===== 区块标题(对齐 RN label: 14dp→28rpx / text.secondary→muted-foreground) ===== */
 .cc-section-title {
   display: block;
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--color-muted-foreground);
-  margin-bottom: 20rpx;
+  margin-bottom: 16rpx;
 }
 
-/* ===== 图片网格 ===== */
+/* ===== 图片网格(RN 无对应区块,保留既有结构;占位底对齐页面底色) ===== */
 .cc-images {
   display: flex;
   flex-wrap: wrap;
@@ -70,7 +82,7 @@
   width: 200rpx;
   height: 200rpx;
   border-radius: var(--radius-md);
-  background: var(--color-muted);
+  background: var(--color-background);
 }
 .cc-del {
   position: absolute;
@@ -85,9 +97,9 @@
   border-radius: var(--radius-md);
   z-index: 2;
 }
-/* custom color: #fff 白色图标在半透明黑色遮罩上,需始终保持白色,无对应 token */
+/* 深色遮罩上恒定浅字:--color-scrim-foreground(明暗同值白) */
 .cc-del-icon {
-  color: var(--color-foreground);
+  color: var(--color-scrim-foreground);
   font-size: 28rpx;
   line-height: 1;
 }
@@ -100,7 +112,7 @@
   justify-content: center;
   gap: 8rpx;
   background: var(--color-background);
-  border: 2rpx dashed var(--color-ring);
+  border: 2rpx dashed var(--color-border-medium);
   border-radius: var(--radius-md);
 }
 .cc-add-icon {
@@ -113,24 +125,23 @@
   color: var(--color-muted-foreground);
 }
 
-/* ===== 话题 ===== */
+/* ===== 话题 chip(对齐 PostCreateScreen pickBtn: radius 16dp→32rpx / border.medium /
+   bg surface.card / 字 brand 色 / 字号 12dp→24rpx) ===== */
 .cc-topic-chip {
   display: inline-flex;
   align-items: center;
   height: 56rpx;
-  padding: 0 20rpx;
+  padding: 0 24rpx;
   margin-right: 16rpx;
-  background: var(--color-background);
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border-medium);
+  border-radius: 32rpx;
   font-size: 24rpx;
-  color: var(--color-primary);
+  color: var(--color-brand);
   flex-shrink: 0;
 }
 .cc-topic-chip-active {
-  background: var(--color-border);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  border-color: var(--color-brand);
   margin-bottom: 16rpx;
 }
 .cc-topic-x {
@@ -140,7 +151,6 @@
 }
 .cc-topic-more {
   color: var(--color-muted-foreground);
-  border-color: var(--color-border);
 }
 .cc-topic-scroll {
   width: 100%;
@@ -152,13 +162,13 @@
   padding: 4rpx 0;
 }
 
-/* ===== AIGC 作品 ===== */
+/* ===== AIGC 作品(白底行浮于 muted 输入块上) ===== */
 .cc-aigc-pick {
   display: flex;
   align-items: center;
   height: 72rpx;
   padding: 0 24rpx;
-  background: var(--color-background);
+  background: var(--color-card);
   border-radius: var(--radius-md);
   font-size: 26rpx;
   color: var(--color-muted-foreground);
@@ -169,14 +179,14 @@
   justify-content: space-between;
   height: 72rpx;
   padding: 0 24rpx;
-  background: var(--color-border);
-  border: 2rpx solid var(--color-ring);
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border-medium);
   border-radius: var(--radius-md);
 }
 .cc-aigc-picked-title {
   flex: 1;
   font-size: 28rpx;
-  color: var(--color-primary);
+  color: var(--color-brand);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -237,7 +247,7 @@
   width: 96rpx;
   height: 96rpx;
   border-radius: var(--radius-md);
-  background: var(--color-muted);
+  background: var(--color-background);
   flex-shrink: 0;
 }
 .cc-aigc-option-title {
@@ -266,9 +276,10 @@
 .cc-row + .cc-row {
   margin-top: 8rpx;
 }
+/* 对齐 RN label: 14dp→28rpx / text.secondary */
 .cc-label {
   font-size: 28rpx;
-  color: var(--color-foreground);
+  color: var(--color-muted-foreground);
 }
 .cc-vis {
   display: flex;
@@ -276,22 +287,22 @@
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+/* 可见范围 chip 同话题 chip 样式(pickBtn 语言) */
 .cc-vis-chip {
   display: inline-flex;
   align-items: center;
   gap: 6rpx;
   height: 56rpx;
-  padding: 0 20rpx;
-  background: var(--color-background);
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  padding: 0 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border-medium);
+  border-radius: 32rpx;
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
 .cc-vis-chip.active {
-  background: var(--color-border);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
 }
 .cc-vis-icon {
   font-size: 24rpx;
@@ -300,13 +311,14 @@
   font-size: 24rpx;
 }
 
-/* ===== 底部发布按钮 ===== */
+/* ===== 底部发布按钮(对齐 RN submitBtn: radius 12dp→24rpx / bg brand.DEFAULT /
+   字 16dp→32rpx 600 surface.light→primary-foreground) ===== */
 .cc-footer {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 20rpx 32rpx;
+  padding: 20rpx 20rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   box-shadow: 0 -4rpx 16rpx var(--color-black-6);
@@ -314,16 +326,16 @@
 }
 .cc-btn {
   width: 100%;
-  height: 88rpx;
-  line-height: 88rpx;
-  background: var(--color-primary);
+  height: 92rpx;
+  line-height: 92rpx;
+  background: var(--color-brand);
   color: var(--color-primary-foreground);
-  border-radius: var(--radius-md);
+  border-radius: 24rpx;
   font-size: 32rpx;
   font-weight: 600;
 }
+/* 对齐 RN submitDisabled: bg text.tertiary */
 .cc-btn[disabled] {
-  background: var(--color-muted);
-  color: var(--color-muted-foreground);
+  background: var(--color-text-tertiary);
+  color: var(--color-card);
 }
-/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

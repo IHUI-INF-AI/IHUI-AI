@@ -91,7 +91,7 @@ export default function InterestTrackModal({
         alignItems: 'flex-end',
       }}
       onClick={onClose}
-    >
+      hoverClass="opacity-60">
       <View
         style={{
           position: 'absolute',
@@ -113,7 +113,7 @@ export default function InterestTrackModal({
           flexDirection: 'column',
         }}
         onClick={(e) => e.stopPropagation()}
-      >
+        hoverClass="opacity-60">
         {/* 头部 */}
         <View style={{ padding: `${rpx(32)} ${rpx(32)} ${rpx(16)}` }}>
           <Text
@@ -161,7 +161,7 @@ export default function InterestTrackModal({
                     gap: rpx(6),
                   }}
                   onClick={() => toggleTrack(track)}
-                >
+                  hoverClass="opacity-60">
                   <Text
                     style={{
                       fontSize: rpx(28),
@@ -202,7 +202,7 @@ export default function InterestTrackModal({
               textAlign: 'center',
             }}
             onClick={onClose}
-          >
+            hoverClass="opacity-60">
             <Text style={{ fontSize: rpx(28), color: 'var(--color-muted-foreground)' }}>
               {tt('shareInterestTrackModal.text1', '跳过')}
             </Text>
@@ -216,7 +216,7 @@ export default function InterestTrackModal({
               textAlign: 'center',
             }}
             onClick={handleConfirm}
-          >
+            hoverClass="opacity-60">
             <Text style={{ fontSize: rpx(28), color: 'var(--color-foreground)', fontWeight: 500 }}>
               {tt('tail.20', '确认选择{count}', {
                 count: selectedIds.size > 0 ? `(${selectedIds.size})` : '',

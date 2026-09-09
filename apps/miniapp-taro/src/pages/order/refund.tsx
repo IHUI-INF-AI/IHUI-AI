@@ -80,49 +80,52 @@ export default function OrderRefund() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background pt-[24rpx] pr-[24rpx] pb-[160rpx] pl-[24rpx]">
-        <View className="bg-card rounded-[16rpx] p-[32rpx]">
+      {/* 对齐 RN SharedOrderRefundScreen:背景 surface.bg(bg-background)、内容 padding 20rpx、
+          卡片 padding 24rpx / 圆角 24rpx / 2rpx 描边 / 白卡,金额 36rpx/600 success,
+          输入框 2rpx 描边 / 圆角 24rpx / bg surface.muted,提交按钮 h100rpx 圆角 24rpx */}
+      <View className="min-h-screen bg-background p-[20rpx] pb-[160rpx]">
+        <View className="rounded-[24rpx] border-[2rpx] border-border bg-card p-[24rpx]">
           <View className="text-[32rpx] font-semibold text-foreground mb-[24rpx]">
             {tt('order.refund.title', '申请退款')}
           </View>
           {loading ? (
-            <Text className="text-[26rpx] text-muted-foreground">
+            <Text className="text-[28rpx] text-muted-foreground">
               {tt('common.loading', '加载中…')}
             </Text>
           ) : (
-            <View className="flex flex-col gap-[20rpx]">
+            <View className="flex flex-col gap-[16rpx]">
               <View className="flex items-start justify-between gap-[24rpx]">
-                <Text className="text-[26rpx] text-muted-foreground shrink-0">
+                <Text className="text-[28rpx] text-muted-foreground shrink-0">
                   {tt('order.refund.orderNo', '订单号')}
                 </Text>
-                <Text className="text-[24rpx] text-muted-foreground text-right break-all">
+                <Text className="text-[28rpx] text-muted-foreground text-right break-all">
                   {orderNo}
                 </Text>
               </View>
               {order?.title ? (
                 <View className="flex items-start justify-between gap-[24rpx]">
-                  <Text className="text-[26rpx] text-muted-foreground shrink-0">
+                  <Text className="text-[28rpx] text-muted-foreground shrink-0">
                     {tt('order.refund.productLabel', '商品名称')}
                   </Text>
-                  <Text className="text-[26rpx] text-foreground text-right break-all">
+                  <Text className="text-[28rpx] text-foreground text-right break-all">
                     {order.title}
                   </Text>
                 </View>
               ) : null}
               <View className="flex items-start justify-between gap-[24rpx]">
-                <Text className="text-[26rpx] text-muted-foreground shrink-0">
+                <Text className="text-[28rpx] text-muted-foreground shrink-0">
                   {tt('order.refund.amountLabel', '订单金额')}
                 </Text>
-                <Text className="text-[26rpx] text-primary font-semibold text-right break-all">
+                <Text className="text-[36rpx] font-semibold text-[var(--color-success)] text-right break-all">
                   ¥{refundAmount.toFixed(2)}
                 </Text>
               </View>
               {order?.createTime ? (
                 <View className="flex items-start justify-between gap-[24rpx]">
-                  <Text className="text-[26rpx] text-muted-foreground shrink-0">
+                  <Text className="text-[28rpx] text-muted-foreground shrink-0">
                     {tt('order.refund.orderTimeLabel', '下单时间')}
                   </Text>
-                  <Text className="text-[26rpx] text-foreground text-right break-all">
+                  <Text className="text-[28rpx] text-foreground text-right break-all">
                     {order.createTime}
                   </Text>
                 </View>
@@ -131,20 +134,22 @@ export default function OrderRefund() {
           )}
         </View>
 
-        <View className="mt-[24rpx] bg-card rounded-[16rpx] p-[32rpx]">
-          <Text className="block text-[28rpx] text-foreground mb-[20rpx]">
+        <View className="mt-[24rpx] rounded-[24rpx] border-[2rpx] border-border bg-card p-[24rpx]">
+          <Text className="block text-[28rpx] font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.refundAmount', '退款金额')}
           </Text>
           <View className="flex items-center justify-between">
-            <Text className="text-[40rpx] font-bold text-primary">¥{refundAmount.toFixed(2)}</Text>
-            <Text className="text-[22rpx] text-warning px-[16rpx] py-[6rpx] bg-warning/[0.12] rounded-[8rpx]">
+            <Text className="text-[36rpx] font-semibold text-[var(--color-success)]">
+              ¥{refundAmount.toFixed(2)}
+            </Text>
+            <Text className="text-[22rpx] text-[var(--color-warning-amber-text)] px-[16rpx] py-[6rpx] bg-[var(--color-warning-amber-light)] rounded-[8rpx]">
               {tt('order.refund.amountReadOnly', '不可修改')}
             </Text>
           </View>
         </View>
 
-        <View className="mt-[24rpx] bg-card rounded-[16rpx] p-[32rpx]">
-          <Text className="block text-[28rpx] text-foreground mb-[20rpx]">
+        <View className="mt-[24rpx] rounded-[24rpx] border-[2rpx] border-border bg-card p-[24rpx]">
+          <Text className="block text-[28rpx] font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.reason', '退款原因')}
           </Text>
           <RadioGroup
@@ -160,12 +165,12 @@ export default function OrderRefund() {
           </RadioGroup>
         </View>
 
-        <View className="mt-[24rpx] bg-card rounded-[16rpx] p-[32rpx]">
-          <Text className="block text-[28rpx] text-foreground mb-[20rpx]">
+        <View className="mt-[24rpx] rounded-[24rpx] border-[2rpx] border-border bg-card p-[24rpx]">
+          <Text className="block text-[28rpx] font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.descLabel', '退款说明')}
           </Text>
           <Textarea
-            className="w-full min-h-[180rpx] p-[20rpx] bg-background rounded-[12rpx] text-[26rpx] text-foreground box-border"
+            className="w-full min-h-[160rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-[24rpx] border-[2rpx] border-border text-[32rpx] text-foreground box-border"
             value={desc}
             onInput={(e) => setDesc(e.detail.value)}
             placeholder={tt('order.refund.descPlaceholder', '请补充退款说明(选填)')}
@@ -173,12 +178,12 @@ export default function OrderRefund() {
           />
         </View>
 
-        <View className="mt-[24rpx] bg-card rounded-[16rpx] p-[32rpx]">
-          <Text className="block text-[28rpx] text-foreground mb-[20rpx]">
+        <View className="mt-[24rpx] rounded-[24rpx] border-[2rpx] border-border bg-card p-[24rpx]">
+          <Text className="block text-[28rpx] font-medium text-foreground mb-[20rpx]">
             {tt('order.refund.contactLabel', '联系方式')}
           </Text>
           <Input
-            className="w-full h-[80rpx] px-[20rpx] bg-background rounded-[12rpx] text-[26rpx] text-foreground box-border"
+            className="w-full h-[88rpx] py-[16rpx] px-[28rpx] bg-[var(--color-muted)] rounded-[24rpx] border-[2rpx] border-border text-[32rpx] text-foreground box-border"
             value={contact}
             onInput={(e) => setContact(e.detail.value)}
             placeholder={tt('order.refund.contactPlaceholder', '请输入手机号或邮箱')}
@@ -186,7 +191,9 @@ export default function OrderRefund() {
         </View>
 
         <Button
-          className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] rounded-[16rpx] text-[32rpx] text-center border-none p-0 ${disabled ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'}`}
+          className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] rounded-[24rpx] text-[32rpx] font-semibold text-center border-none p-0 ${
+            disabled ? 'opacity-50' : ''
+          } bg-primary text-primary-foreground`}
           disabled={disabled}
           loading={submitting}
           onClick={onSubmit}

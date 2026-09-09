@@ -54,20 +54,20 @@ export default function IcpRecord() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background pb-[48rpx]">
-        <View className="m-[24rpx] py-[32rpx] px-[24rpx] bg-card rounded-[16rpx] flex flex-col items-center gap-[12rpx]">
-          <Text className="text-[26rpx] text-muted-foreground">
+      <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx]">
+        <View className="bg-card rounded-[24rpx] border border-border p-[28rpx] mb-[24rpx]">
+          <Text className="block text-[28rpx] text-[var(--color-text-tertiary)] mb-[16rpx]">
             {tt('about.icpRecord.icpLabel', 'ICP备案/许可证号')}
           </Text>
-          <Text className="text-[34rpx] text-foreground font-semibold" onClick={copyIcpNo}>
+          <Text className="block text-[36rpx] text-foreground font-medium" onClick={copyIcpNo}>
             {ICP_NO}
           </Text>
-          <Text className="text-[22rpx] text-muted-foreground">
+          <Text className="block text-[22rpx] text-[var(--color-text-tertiary)] mt-[16rpx]">
             {tt('about.icpRecord.copyHint', '点击编号可复制')}
           </Text>
         </View>
 
-        <View className="m-[24rpx] px-[32rpx] bg-card rounded-[16rpx] flex flex-col gap-[8rpx]">
+        <View className="bg-card rounded-[24rpx] border border-border px-[28rpx] mb-[24rpx]">
           {info.map((item) => (
             <View key={item.label} className="flex justify-between items-center py-[28rpx]">
               <Text className="text-[28rpx] text-muted-foreground shrink-0">{item.label}</Text>
@@ -78,17 +78,17 @@ export default function IcpRecord() {
           ))}
         </View>
 
-        <View className="pt-[24rpx] px-[32rpx]">
+        <View className="pt-[8rpx] pb-[8rpx]">
           <Button
-            className="w-full bg-primary text-white rounded-[12rpx] text-[30rpx] leading-[80rpx]"
+            className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] rounded-[24rpx] text-[32rpx] font-semibold m-0 after:border-0"
             onClick={onQuery}
           >
             {tt('about.icpRecord.query', '前往工信部查询')}
           </Button>
         </View>
 
-        <View className="py-[24rpx] px-[32rpx]">
-          <Text className="text-[22rpx] text-muted-foreground leading-[1.7]">
+        <View className="py-[24rpx] px-[8rpx]">
+          <Text className="text-[22rpx] text-[var(--color-text-tertiary)] leading-[40rpx]">
             {tt('about.icpRecord.footer', '以上信息来自工信部备案查询系统')}
           </Text>
         </View>
