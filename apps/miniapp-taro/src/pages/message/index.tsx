@@ -368,7 +368,8 @@ export default function MessageIndex() {
     }
     return (
       <ThemeRoot>
-        <View className="p-[24rpx]">
+        {/* 对齐 RN MessageCenterScreen listBody(padding 10dp) */}
+        <View className="p-[20rpx]">
           <SearchBar
             value={keyword}
             placeholder={t('message.search')}
@@ -376,41 +377,50 @@ export default function MessageIndex() {
             onClear={() => setKeyword('')}
           />
           {loading ? (
-            <Text className="block text-center text-[28rpx] text-muted-foreground py-[60rpx]">
+            <Text className="block text-center text-[28rpx] text-muted-foreground py-[96rpx]">
               {t('common.loading')}
             </Text>
           ) : filtered.length ? (
-            filtered.map((room) => (
-              <View
-                key={(room.id || room.name) as string}
-                className="bg-card rounded-[12rpx] p-[24rpx] mb-[24rpx]"
-              >
-                <View className="flex-1 min-w-0">
-                  <View className="flex items-center">
-                    <Text className="block text-[30rpx] font-medium text-foreground mb-[8rpx]">
-                      {room.name || t('message.unnamedRoom')}
-                    </Text>
-                    {(room.unreadCount ?? room.unread ?? 0) > 0 && (
-                      <View className="ml-2">
-                        <UnreadBadge count={room.unreadCount ?? room.unread ?? 0} />
+            filtered.map((room) => {
+              const unread = room.unreadCount ?? room.unread ?? 0
+              return (
+                <View
+                  key={(room.id || room.name) as string}
+                  className="flex flex-row items-center py-[24rpx] px-[20rpx] rounded-[24rpx] gap-[24rpx]"
+                >
+                  {/* 头像(首字母占位,对齐 RN convAvatar 44dp/radius 10dp) */}
+                  <View className="relative shrink-0">
+                    <View className="w-[88rpx] h-[88rpx] rounded-[20rpx] bg-muted flex items-center justify-center">
+                      <Text className="text-[32rpx] font-semibold text-foreground">
+                        {(room.name || '?').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    {unread > 0 && (
+                      <View className="absolute -top-[8rpx] -right-[8rpx]">
+                        <UnreadBadge count={unread} />
                       </View>
                     )}
                   </View>
-                  <Text className="text-[26rpx] text-muted-foreground">
-                    {room.lastMessage || t('message.empty')}
-                  </Text>
+                  <View className="flex-1 min-w-0">
+                    <Text className="text-[30rpx] font-semibold text-foreground truncate">
+                      {room.name || t('message.unnamedRoom')}
+                    </Text>
+                    <Text className="mt-[4rpx] text-[26rpx] text-muted-foreground truncate">
+                      {room.lastMessage || t('message.empty')}
+                    </Text>
+                  </View>
+                  <MessageActions
+                    onMarkRead={() =>
+                      Taro.showToast({ title: t('message.markedRead'), icon: 'success' })
+                    }
+                    onPin={() => Taro.showToast({ title: t('message.pinned'), icon: 'success' })}
+                    onDelete={() => Taro.showToast({ title: t('message.deleted'), icon: 'success' })}
+                  />
                 </View>
-                <MessageActions
-                  onMarkRead={() =>
-                    Taro.showToast({ title: t('message.markedRead'), icon: 'success' })
-                  }
-                  onPin={() => Taro.showToast({ title: t('message.pinned'), icon: 'success' })}
-                  onDelete={() => Taro.showToast({ title: t('message.deleted'), icon: 'success' })}
-                />
-              </View>
-            ))
+              )
+            })
           ) : (
-            <Text className="block text-center text-[28rpx] text-muted-foreground py-[60rpx]">
+            <Text className="block text-center text-[28rpx] text-muted-foreground py-[96rpx]">
               {keyword ? t('message.notFound') : t('message.empty')}
             </Text>
           )}
@@ -462,7 +472,7 @@ export default function MessageIndex() {
 
         {showSettings && (
           <View
-            className="fixed inset-0 z-[2000] bg-black/50"
+            className="fixed inset-0 z-[2000] bg-[rgba(0,0,0,0.4)]"
             onClick={() => setShowSettings(false)}
           >
             <View

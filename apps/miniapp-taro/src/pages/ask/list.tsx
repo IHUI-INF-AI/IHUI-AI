@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Input, Image } from '@tarojs/components'
+import { View, Text, Input } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAskList, type Ask } from '@/api'
@@ -105,15 +105,9 @@ export default function AskListPage() {
             {list.map((a) => (
               <View key={a.id} className="item" onClick={() => goDetail(a.id)}>
                 <Text className="title">{a.title}</Text>
-                <Text className="content">{a.content}</Text>
+                {/* meta 行对齐 RN SharedAskListScreen:作者左 / 回答数右 */}
                 <View className="meta">
-                  <Image
-                    className="avatar"
-                    src={a.avatar || '/static/default-avatar.png'}
-                    mode="aspectFill"
-                  />
                   <Text className="author">{a.author}</Text>
-                  <Text className="time">{a.createTime}</Text>
                   <Text className={`answers${a.adopted ? ' adopted' : ''}`}>
                     {t('ask.answers', { n: a.answers || 0 })}
                   </Text>

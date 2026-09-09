@@ -340,7 +340,7 @@ export default function MemberIndexPage() {
                 className="member-crown"
                 name="gem"
                 size={40}
-                color="var(--color-muted-foreground)"
+                color="var(--color-vip-card)"
               />
               <Text className="member-permanent-text">
                 {tt('member.index.permanentActive', '您已是永久 VIP 会员')}

@@ -60,122 +60,155 @@ export default function SettingIndexPage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background">
+      {/* 根容器背景对齐 RN container(pageBg=surface.bg → --color-background);
+          上下留白对齐 body paddingTop 12dp→24rpx / paddingBottom 24dp→48rpx */}
+      <View className="min-h-screen bg-background pb-[48rpx] pt-[24rpx]">
         {user.nickname ? (
-          <View className="flex items-center py-[60rpx] px-[32rpx] bg-card">
+          <View className="mx-[20rpx] flex items-center gap-[24rpx] rounded-[16rpx] bg-muted p-[28rpx]">
+            {/* 头像对齐 RN avatar: 48dp→96rpx + 圆角 8dp→16rpx */}
             <Image
-              className="w-[120rpx] h-[120rpx] rounded-[8rpx] bg-background"
+              className="w-[96rpx] h-[96rpx] rounded-[16rpx] bg-background"
               src={user.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <View className="ml-[24rpx]">
+            <View className="min-w-0 flex-1">
+              {/* 昵称对齐 RN nickname: 16dp→32rpx semibold + text.primary */}
               <Text className="block text-[32rpx] text-foreground font-semibold">
                 {user.nickname}
               </Text>
-              <Text className="block mt-[8rpx] text-[24rpx] text-muted-foreground">
+              {/* 副行对齐 RN subText: 14dp→28rpx + text.secondary;间距对齐 userMeta gap 2dp→4rpx */}
+              <Text className="mt-[4rpx] block text-[28rpx] text-muted-foreground">
                 {user.phone || tt('setting.unboundPhone', '未绑定')}
               </Text>
             </View>
           </View>
         ) : null}
 
-        <View className="mt-[24rpx]">
-          <Text className="block px-[32rpx] pb-[16rpx] text-[24rpx] text-muted-foreground">
+        {/* 分组对齐 RN Section: 分组间距 body gap 16dp→32rpx;标题 14dp→28rpx(text.secondary) + 距卡片 gap 8dp→16rpx;
+            左右随 body paddingHorizontal 10dp→20rpx */}
+        <View className="mx-[20rpx] mt-[32rpx]">
+          <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
             {tt('setting.account', '账号与安全')}
           </Text>
-          <View className="flex flex-col gap-[16rpx] mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+          {/* sectionCard 对齐 RN: 圆角 8dp→16rpx + divider(border.light)背景 + 行间 hairline(2rpx)分隔 */}
+          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
+              className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/user/profile')}
             >
-              <Text>{tt('setting.profile', '个人资料')}</Text>
-              <Text className="text-muted-foreground">›</Text>
+              {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
+              <Text className="text-[32rpx] text-muted-foreground">
+                {tt('setting.profile', '个人资料')}
+              </Text>
+              {/* arrow 对齐 RN: 20dp→40rpx + text.tertiary */}
+              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
+              className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/account-cancel/index/index')}
             >
-              <Text>{tt('setting.accountCancel', '账号注销')}</Text>
-              <Text className="text-muted-foreground">›</Text>
+              <Text className="text-[32rpx] text-muted-foreground">
+                {tt('setting.accountCancel', '账号注销')}
+              </Text>
+              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
+              className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/notification')}
             >
-              <Text>{tt('setting.notificationSetting', '通知设置')}</Text>
-              <Text className="text-muted-foreground">›</Text>
+              <Text className="text-[32rpx] text-muted-foreground">
+                {tt('setting.notificationSetting', '通知设置')}
+              </Text>
+              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
           </View>
         </View>
 
-        <View className="mt-[24rpx]">
-          <Text className="block px-[32rpx] pb-[16rpx] text-[24rpx] text-muted-foreground">
+        <View className="mx-[20rpx] mt-[32rpx]">
+          <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
             {tt('setting.general', '通用')}
           </Text>
-          <View className="flex flex-col gap-[16rpx] mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
+              className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/cache')}
             >
-              <Text>{tt('setting.clearCache', '清除缓存')}</Text>
-              <Text className="text-muted-foreground">›</Text>
+              <Text className="text-[32rpx] text-muted-foreground">
+                {tt('setting.clearCache', '清除缓存')}
+              </Text>
+              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
+              className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/language')}
             >
-              <Text>{tt('setting.languageSetting', '语言设置')}</Text>
-              <Text className="text-muted-foreground">›</Text>
+              <Text className="text-[32rpx] text-muted-foreground">
+                {tt('setting.languageSetting', '语言设置')}
+              </Text>
+              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
+              className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/theme')}
             >
-              <Text>{tt('setting.themeSetting', '主题设置')}</Text>
-              <Text className="text-muted-foreground">›</Text>
+              <Text className="text-[32rpx] text-muted-foreground">
+                {tt('setting.themeSetting', '主题设置')}
+              </Text>
+              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
           </View>
         </View>
 
-        <View className="mt-[24rpx]">
-          <Text className="block px-[32rpx] pb-[16rpx] text-[24rpx] text-muted-foreground">
+        <View className="mx-[20rpx] mt-[32rpx]">
+          <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
             {tt('setting.other', '其他')}
           </Text>
-          <View className="flex flex-col gap-[16rpx] mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
+              className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/user/feedback')}
             >
-              <Text>{tt('setting.feedback', '意见反馈')}</Text>
-              <Text className="text-muted-foreground">›</Text>
+              <Text className="text-[32rpx] text-muted-foreground">
+                {tt('setting.feedback', '意见反馈')}
+              </Text>
+              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
+              className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/privacy')}
             >
-              <Text>{tt('setting.privacyPermission', '隐私与权限')}</Text>
-              <Text className="text-muted-foreground">›</Text>
+              <Text className="text-[32rpx] text-muted-foreground">
+                {tt('setting.privacyPermission', '隐私与权限')}
+              </Text>
+              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
+              className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/about/index')}
             >
-              <Text>{tt('setting.aboutUs', '关于我们')}</Text>
-              <Text className="text-muted-foreground">›</Text>
-            </View>
-            <View className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground opacity-[0.85]">
-              <Text>{tt('setting.version', '版本')}</Text>
-              <Text className="text-[26rpx] text-muted-foreground">{VERSION}</Text>
+              <Text className="text-[32rpx] text-muted-foreground">
+                {tt('setting.aboutUs', '关于我们')}
+              </Text>
+              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
           </View>
         </View>
 
+        {/* logoutBtn 对齐 RN: 高 50dp→100rpx + 圆角 8dp→16rpx + 卡面底色;
+            文字 16dp→32rpx semibold + danger(对齐 RN danger.DEFAULT,亮暗随 --color-danger);
+            上边距 logoutBtn marginTop 8dp + body gap 16dp = 24dp→48rpx */}
         <Button
-          className="mx-[32rpx] my-[60rpx] bg-card text-destructive rounded-[12rpx] text-[30rpx]"
+          className="mx-[20rpx] mt-[48rpx] flex h-[100rpx] items-center justify-center rounded-[16rpx] bg-card text-[32rpx] font-semibold dark:bg-muted"
+          style={{ color: 'var(--color-danger)' }}
           onClick={onLogout}
         >
           {tt('setting.logout', '退出登录')}
         </Button>
+
+        {/* versionText 对齐 RN: 独立居中行 + 12dp→24rpx + text.tertiary + marginTop 4dp→8rpx */}
+        <Text className="mt-[8rpx] block text-center text-[24rpx] text-[color:var(--color-text-tertiary)]">
+          {tt('setting.version', '版本')} {VERSION}
+        </Text>
       </View>
     </ThemeRoot>
   )

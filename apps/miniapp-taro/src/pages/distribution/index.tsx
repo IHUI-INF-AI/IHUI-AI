@@ -297,21 +297,18 @@ export default function DistributionIndex() {
           columnItems={columnItems}
         />
 
-        {/* FunctionBlockColumn */}
-        <View className="dist-card dist-menu">
+        {/* FunctionBlockColumn — 对齐 RN 双列卡片网格 */}
+        <View className="dist-menu">
           {menuItems.map((item, idx) => (
             <View key={idx} className="dist-menu-item" onClick={() => onMenuClick(item)}>
-              <Image
-                src={item.icon}
-                className="dist-menu-icon w-[40rpx] h-[40rpx]"
-                mode="aspectFit"
-              />
+              <View className="dist-menu-icon-box">
+                <Image
+                  src={item.icon}
+                  className="dist-menu-icon w-[40rpx] h-[40rpx]"
+                  mode="aspectFit"
+                />
+              </View>
               <Text className="dist-menu-label">{item.label}</Text>
-              <Image
-                src={bspappUrl('tabbar/home/zhong/right-arrow.png')}
-                className="dist-menu-arrow w-[24rpx] h-[24rpx]"
-                mode="aspectFit"
-              />
             </View>
           ))}
         </View>

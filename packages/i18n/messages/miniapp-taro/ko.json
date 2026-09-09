@@ -1010,6 +1010,16 @@
     "saveQrcode": "QR 코드 저장"
   },
   "exam": {
+    "tabs": {
+      "all": "전체",
+      "pending": "대기 중",
+      "completed": "완료됨"
+    },
+    "empty": {
+      "all": "시험이 없습니다",
+      "pending": "대기 중인 시험이 없습니다",
+      "completed": "시험 기록이 없습니다"
+    },
     "questions": "{n}문제",
     "minutes": "{n}분",
     "passScore": "합격 {n}",

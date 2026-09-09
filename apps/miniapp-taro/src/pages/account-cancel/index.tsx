@@ -20,56 +20,93 @@ const CONSEQUENCE_KEYS = [
   'accountCancel.consequence7',
 ]
 
+// 样式对齐 RN 共享 AccountCancelScreen(packages/app/src/features/account-cancel):
+// 尺寸换算 raw dp ×2 = rpx;颜色 tk.* → tokens.css 语义变量
 const INPUT_STYLE: CSSProperties = {
-  height: '72rpx',
-  background: 'var(--color-background)',
-  borderRadius: '8rpx',
-  padding: '0 20rpx',
-  fontSize: '28rpx',
+  height: '100rpx', // RN input height 50 → 100rpx
+  background: 'var(--color-muted)', // tk.surface.muted
+  borderRadius: '24rpx', // RN radius 12 → 24rpx
+  padding: '0 24rpx', // RN paddingHorizontal 12 → 24rpx
+  fontSize: '32rpx', // RN 16 → 32rpx
+  color: 'var(--color-foreground)', // tk.text.primary
+  border: '2rpx solid var(--color-border)', // RN borderWidth 1 + tk.border.light
   width: '100%',
   boxSizing: 'border-box',
 }
 
 const CODE_INPUT_STYLE: CSSProperties = {
   ...INPUT_STYLE,
-  paddingRight: '200rpx',
+  flex: 1,
+  minWidth: 0,
 }
 
 const SECTION_TITLE_STYLE: CSSProperties = {
   display: 'block',
-  fontSize: '28rpx',
+  fontSize: '32rpx', // RN label 16 → 32rpx
   fontWeight: 600,
-  color: 'var(--color-foreground)',
-  margin: '24rpx 0 12rpx',
+  color: 'var(--color-foreground)', // tk.text.primary
+  margin: '24rpx 0 16rpx', // fieldGroup gap 8 → 16rpx
 }
 
 const CONSEQUENCE_ITEM_STYLE: CSSProperties = {
   display: 'block',
-  fontSize: '26rpx',
-  color: 'var(--color-muted-foreground)',
-  lineHeight: '40rpx',
+  fontSize: '28rpx', // RN desc 14 → 28rpx
+  color: 'var(--color-muted-foreground)', // tk.text.secondary
+  lineHeight: '36rpx', // RN lineHeight 18 → 36rpx
+}
+
+// RN desc 卡片:tk.surface.light 底 + radius 12 → 24rpx + padding 12 → 24rpx
+const DESC_CARD_STYLE: CSSProperties = {
+  background: 'var(--color-surface-light)',
+  borderRadius: '24rpx',
+  padding: '24rpx',
+  marginBottom: '16rpx',
+}
+
+// 手机号只读展示盒:复用 RN input 视觉(muted 底 + 描边 + radius 24rpx)
+const PHONE_BOX_STYLE: CSSProperties = {
+  ...DESC_CARD_STYLE,
+  marginBottom: 0,
+  height: '100rpx',
+  padding: '0 24rpx',
+  display: 'flex',
+  alignItems: 'center',
+  background: 'var(--color-muted)',
+  border: '2rpx solid var(--color-border)',
+  boxSizing: 'border-box',
 }
 
 const CODE_BLOCK_STYLE: CSSProperties = {
-  position: 'relative',
+  display: 'flex',
+  alignItems: 'center',
+  marginBottom: 0,
 }
 
+// RN smsBtn:height 44 → 88rpx,brand 底(radius 12 → 24rpx);
+// 文字 RN 用 tk.surface.light(暗色下白底白字不可读)→ 语义修正为 --color-primary-foreground
 const SEND_CODE_BASE_STYLE: CSSProperties = {
-  position: 'absolute',
-  right: '40rpx',
-  top: '50%',
-  transform: 'translateY(-50%)',
-  fontSize: '26rpx',
-  color: 'var(--color-primary)',
+  height: '88rpx',
+  lineHeight: '88rpx',
+  padding: '0 24rpx',
+  marginLeft: '16rpx',
+  borderRadius: '24rpx',
+  background: 'var(--color-primary)',
+  fontSize: '28rpx', // RN 14 → 28rpx
+  fontWeight: 600,
+  color: 'var(--color-primary-foreground)',
+  textAlign: 'center',
+  flexShrink: 0,
+  boxSizing: 'border-box',
 }
 
 const SEND_CODE_DISABLED_STYLE: CSSProperties = {
   ...SEND_CODE_BASE_STYLE,
-  color: 'var(--color-muted-foreground)',
+  background: 'var(--color-muted)',
+  color: 'var(--color-text-tertiary)', // tk.text.tertiary
 }
 
 const PHONE_TEXT_STYLE: CSSProperties = {
-  fontSize: '30rpx',
+  fontSize: '32rpx', // RN input 16 → 32rpx
   color: 'var(--color-foreground)',
   fontWeight: 500,
 }
@@ -206,22 +243,22 @@ export default function AccountCancel() {
         : t('accountCancel.submit')
 
   return (
+    // 对齐 RN 共享 AccountCancelScreen:header(返回+标题)由原生导航栏承载;
+    // 内容区 padding 14 → 28rpx、底部 32 → 64rpx
     <ThemeRoot>
       <View className="min-h-screen bg-background">
-        <View className="p-[24rpx] bg-card">
-          <Text className="text-[36rpx] font-semibold text-foreground">
-            {t('accountCancel.title')}
-          </Text>
+        <View className="px-[20rpx] pt-[24rpx] pb-[24rpx]">
+          <Text className="text-[40rpx] font-bold text-foreground">{t('accountCancel.title')}</Text>
         </View>
-        <View className="p-[24rpx]">
+        <View className="p-[28rpx] pb-[64rpx]">
           {loading ? (
-            <Text className="text-center text-muted-foreground py-[80rpx]">
+            <Text className="text-center text-muted-foreground py-[96rpx] text-[28rpx]">
               {t('common.loading')}
             </Text>
           ) : info ? (
             <View>
               <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.consequenceTitle')}</Text>
-              <View className="p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
+              <View style={DESC_CARD_STYLE}>
                 {CONSEQUENCE_KEYS.map((k) => (
                   <Text key={k} style={CONSEQUENCE_ITEM_STYLE}>
                     · {t(k)}
@@ -230,17 +267,14 @@ export default function AccountCancel() {
               </View>
 
               <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.phoneLabel')}</Text>
-              <View className="p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
+              <View style={PHONE_BOX_STYLE}>
                 <Text style={PHONE_TEXT_STYLE}>
                   {phone ? maskedPhone : t('accountCancel.noPhone')}
                 </Text>
               </View>
 
               <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.codeLabel')}</Text>
-              <View
-                className="p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"
-                style={CODE_BLOCK_STYLE}
-              >
+              <View style={CODE_BLOCK_STYLE}>
                 <Input
                   style={CODE_INPUT_STYLE}
                   type="number"
@@ -258,24 +292,25 @@ export default function AccountCancel() {
               </View>
 
               <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.confirmLabel')}</Text>
-              <View className="p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
-                <Input
-                  style={INPUT_STYLE}
-                  placeholder={t('accountCancel.confirmPlaceholder')}
-                  value={confirmText}
-                  onInput={(e) => setConfirmText(e.detail.value)}
-                />
-              </View>
+              <Input
+                style={INPUT_STYLE}
+                placeholder={t('accountCancel.confirmPlaceholder')}
+                value={confirmText}
+                onInput={(e) => setConfirmText(e.detail.value)}
+              />
 
+              {/* 对齐 RN submitBtn:danger 底 + 白字,height 50 → 100rpx,radius 12 → 24rpx */}
               <View
-                className={`mt-[24rpx] p-[20rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]${canSubmit || confirmCountdown > 0 ? '' : ' opacity-60'}`}
+                className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-[var(--color-danger)]${canSubmit || confirmCountdown > 0 ? '' : ' opacity-60'}`}
                 onClick={onSubmit}
               >
-                <Text>{submitText}</Text>
+                <Text className="text-[36rpx] font-semibold text-[var(--color-danger-foreground)]">
+                  {submitText}
+                </Text>
               </View>
             </View>
           ) : (
-            <Text className="text-center text-muted-foreground py-[80rpx]">
+            <Text className="text-center text-muted-foreground py-[96rpx] text-[28rpx]">
               {t('accountCancel.noInfo')}
             </Text>
           )}
