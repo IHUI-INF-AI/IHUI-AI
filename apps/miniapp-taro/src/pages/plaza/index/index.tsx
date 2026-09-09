@@ -294,7 +294,7 @@ export default function PlazaIndex() {
               key={tab.key}
               className={`pza-tab${status === tab.key ? ' active' : ''}`}
               onClick={() => onStatusChange(tab.key)}
-            >
+              hoverClass="opacity-60">
               <Text>
                 {tt(tab.labelKey, tab.key === 0 ? '全部' : tab.key === 1 ? '进行中' : '已完成')}
               </Text>
@@ -333,7 +333,7 @@ export default function PlazaIndex() {
         </ScrollView>
 
         {/* 悬浮发布按钮 */}
-        <View className="pza-fab" onClick={onSetNeed}>
+        <View className="pza-fab" onClick={onSetNeed} hoverClass="opacity-60">
           <Text className="pza-fab-icon">+</Text>
         </View>
 
@@ -359,7 +359,7 @@ export default function PlazaIndex() {
                     key={tr.key || 'all'}
                     className={`pza-chip${track === tr.key ? ' active' : ''}`}
                     onClick={() => onTrackSelect(tr.key)}
-                  >
+                    hoverClass="opacity-60">
                     <Text>
                       {tt(
                         tr.labelKey,
@@ -421,7 +421,7 @@ export default function PlazaIndex() {
                 <View
                   className="pza-center-detail-btn"
                   onClick={() => onOpenDetail(detail.id ?? '')}
-                >
+                  hoverClass="opacity-60">
                   <Text className="pza-center-detail-text">
                     {tt('plaza.index.viewDetail', '查看详情')}
                   </Text>
@@ -445,7 +445,7 @@ export default function PlazaIndex() {
                   key={it.key}
                   className={`pza-sheet-item${identity === it.key ? ' active' : ''}`}
                   onClick={() => onIdentityChange(it.key)}
-                >
+                  hoverClass="opacity-60">
                   <Text>{tt(it.labelKey, it.key === 'demander' ? '需求方' : '开发者')}</Text>
                 </View>
               ))}

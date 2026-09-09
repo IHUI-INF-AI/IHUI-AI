@@ -33,9 +33,10 @@ export default function LessonComplete({
 
   return (
     <View className="fixed inset-0 z-[2000] flex items-center justify-center" onClick={onClose}>
-      <View className="absolute inset-0 bg-black/50" />
+      <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       <View
         className="relative bg-card rounded-xl mx-8 px-6 py-6 max-w-xs w-full text-center"
+        hoverClass="opacity-60"
         onClick={(e) => e.stopPropagation()}
       >
         <LineIcon
@@ -71,11 +72,11 @@ export default function LessonComplete({
         )}
 
         <View className="flex space-x-3">
-          <View className="flex-1 py-2.5 rounded-md bg-muted" onClick={onShare}>
+          <View className="flex-1 py-2.5 rounded-md bg-muted" hoverClass="opacity-60" onClick={onShare}>
             <Text className="text-sm text-foreground">{tt('lesson.share', '分享')}</Text>
           </View>
-          <View className="flex-1 py-2.5 rounded-md bg-primary" onClick={onContinue}>
-            <Text className="text-sm text-white">
+          <View className="flex-1 py-2.5 rounded-md bg-primary" onClick={onContinue} hoverClass="opacity-60">
+            <Text className="text-sm text-primary-foreground">
               {nextLessonTitle ? tt('lesson.continue', '继续学习') : tt('lesson.done', '完成')}
             </Text>
           </View>

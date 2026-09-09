@@ -30,7 +30,7 @@ export default function LikeFavoriteShare({
   const tt = useTt()
   return (
     <View className="flex items-center justify-around py-3 bg-card mt-2">
-      <View className="flex flex-col items-center" onClick={onLike}>
+      <View className="flex flex-col items-center" onClick={onLike} hoverClass="opacity-60">
         <LineIcon
           name="heart"
           size={36}
@@ -40,7 +40,7 @@ export default function LikeFavoriteShare({
           {likeCount > 0 ? likeCount : tt('action.like', '点赞')}
         </Text>
       </View>
-      <View className="flex flex-col items-center" onClick={onFavorite}>
+      <View className="flex flex-col items-center" onClick={onFavorite} hoverClass="opacity-60">
         <LineIcon
           name="star"
           size={36}
@@ -50,7 +50,7 @@ export default function LikeFavoriteShare({
           {favoriteCount > 0 ? favoriteCount : tt('action.favorite', '收藏')}
         </Text>
       </View>
-      <View className="flex flex-col items-center" onClick={onShare}>
+      <View className="flex flex-col items-center" onClick={onShare} hoverClass="opacity-60">
         <LineIcon name="share-2" size={36} color="var(--color-muted-foreground)" />
         <Text className="text-xs mt-0.5 text-muted-foreground">
           {shareCount > 0 ? shareCount : tt('action.share', '分享')}

@@ -164,7 +164,7 @@ export default function AnnouncementDetail() {
           <Text style={textStyles.error(tk)}>
             {error || tt('announcementDetail.empty', '公告不存在或已删除')}
           </Text>
-          <View style={viewStyles.btn(tk)} onTap={goBack}>
+          <View style={viewStyles.btn(tk)} onTap={goBack} hoverClass="opacity-60">
             <Text style={textStyles.btnText(tk)}>{tt('common.back', '返回')}</Text>
           </View>
         </View>
@@ -177,7 +177,7 @@ export default function AnnouncementDetail() {
       <View style={viewStyles.container(tk)}>
         <ScrollView scrollY style={viewStyles.bodyScroll()}>
           <View style={viewStyles.body()}>
-            <View style={viewStyles.backBtn()} onTap={goBack}>
+            <View style={viewStyles.backBtn()} onTap={goBack} hoverClass="opacity-60">
               <Text style={textStyles.back(tk)}>{tt('common.back', '返回')}</Text>
             </View>
             <Text style={textStyles.title(tk)}>{item.title}</Text>

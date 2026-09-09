@@ -225,18 +225,13 @@ export default function VoicePage() {
         {messages.map((m, i) => (
           <View
             key={i}
-            className={`flex mb-[32rpx] items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
+            className={`flex mb-[20rpx] items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
           >
             <View
-              className={`w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 ${m.role === 'user' ? 'bg-primary' : 'bg-[var(--color-wechat-green)]'}`}
-            >
-              {m.role === 'user' ? tt('ai.chatMessageItem.me', '我') : 'AI'}
-            </View>
-            <View
-              className={`max-w-[70%] mx-[20rpx] p-[20rpx] px-[24rpx] rounded-[16rpx] ${m.role === 'user' ? 'bg-primary' : 'bg-card'}`}
+              className={`max-w-[78%] mx-[20rpx] py-[20rpx] px-[28rpx] rounded-[32rpx] ${m.role === 'user' ? 'bg-[var(--color-brand)]' : 'bg-card'}`}
             >
               {m.isVoice ? (
-                <View className="flex items-center gap-[12rpx]" onClick={() => onPlayAudio(m, i)}>
+                <View className="flex items-center gap-[12rpx]" onClick={() => onPlayAudio(m, i)} hoverClass="opacity-60">
                   <LineIcon
                     name={playingIdx === i ? 'pause' : 'play'}
                     size={32}
@@ -256,17 +251,18 @@ export default function VoicePage() {
                   </View>
                 </View>
               ) : (
-                <Text className="text-[28rpx] leading-[1.6] text-foreground">{m.content}</Text>
+                <Text
+                  className={`text-[30rpx] leading-[40rpx] ${m.role === 'user' ? 'text-[var(--color-surface-light)]' : 'text-foreground'}`}
+                >
+                  {m.content}
+                </Text>
               )}
             </View>
           </View>
         ))}
         {loading ? (
-          <View className="flex mb-[32rpx] items-start">
-            <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 bg-[var(--color-wechat-green)]">
-              AI
-            </View>
-            <View className="max-w-[70%] mx-[20rpx] p-[20rpx] px-[24rpx] rounded-[16rpx] bg-card">
+          <View className="flex mb-[20rpx] items-start">
+            <View className="max-w-[78%] mx-[20rpx] py-[20rpx] px-[28rpx] rounded-[32rpx] bg-card">
               <View className="flex gap-[8rpx] items-center">
                 <Text className="text-[40rpx] text-muted-foreground animate-pulse">·</Text>
                 <Text
@@ -295,7 +291,7 @@ export default function VoicePage() {
           {SPEEDS.map((s) => (
             <Text
               key={s}
-              className={`py-[6rpx] px-[20rpx] bg-background rounded-[8rpx] text-[24rpx] text-muted-foreground ${speed === s ? 'bg-primary text-foreground' : ''}`}
+              className={`py-[12rpx] px-[20rpx] rounded-[16rpx] text-[24rpx] ${speed === s ? 'bg-[var(--color-surface-light)] border-[2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setSpeed(s)}
             >
               {tt(SPEED_KEY[s] ?? 'ai.voice.speed.normal', speedLabel[s])}
@@ -309,7 +305,7 @@ export default function VoicePage() {
           {TIMBRES.map((tb) => (
             <Text
               key={tb}
-              className={`py-[6rpx] px-[20rpx] bg-background rounded-[8rpx] text-[24rpx] text-muted-foreground ${timbre === tb ? 'bg-primary text-foreground' : ''}`}
+              className={`py-[12rpx] px-[20rpx] rounded-[16rpx] text-[24rpx] ${timbre === tb ? 'bg-[var(--color-surface-light)] border-[2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setTimbre(tb)}
             >
               {tt(TIMBRE_KEY[tb] ?? 'ai.voice.timbre.female', timbreLabel[tb])}
@@ -320,7 +316,7 @@ export default function VoicePage() {
 
       <View className="py-[24rpx] px-[32rpx] pb-[calc(24rpx+env(safe-area-inset-bottom))] bg-card">
         <View
-          className={`h-[120rpx] flex items-center justify-center gap-[16rpx] bg-background rounded-[16rpx] ${recording ? 'bg-destructive' : ''}`}
+          className={`h-[120rpx] flex items-center justify-center gap-[16rpx] rounded-[12rpx] ${recording ? 'bg-destructive' : 'bg-card'}`}
           onTouchStart={onStartRecord}
           onTouchEnd={onStopRecord}
           onTouchCancel={onStopRecord}
@@ -336,7 +332,9 @@ export default function VoicePage() {
               ))}
             </View>
           ) : null}
-          <Text className="text-[28rpx] text-foreground">
+          <Text
+            className={`text-[28rpx] ${recording ? 'text-[var(--color-danger-foreground)]' : 'text-foreground'}`}
+          >
             {recording
               ? `${tt('ai.voice.releaseToSend', '松开发送')} · ${fmtDuration(displayDuration)}`
               : tt('ai.voice.holdToSpeak', '按住说话')}

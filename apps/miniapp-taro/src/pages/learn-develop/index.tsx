@@ -175,6 +175,7 @@ export default function LearnDevelop() {
               <View
                 key={item.id}
                 className="flex bg-card rounded-[24rpx] border border-border overflow-hidden mb-[16rpx]"
+                hoverClass="opacity-60"
                 onClick={() => onItemClick(item.id)}
               >
                 {item.coverUrl ? (
@@ -218,6 +219,7 @@ export default function LearnDevelop() {
           {/* 学习排行榜入口(RN 无对应区,保留业务;卡片语言同上) */}
           <View
             className="flex items-center justify-between p-[28rpx] bg-card rounded-[24rpx] border border-border mt-[24rpx]"
+            hoverClass="opacity-60"
             onClick={onGoRank}
           >
             <View className="flex items-center">

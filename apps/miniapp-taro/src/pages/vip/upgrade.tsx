@@ -163,6 +163,7 @@ export default function UpgradePage() {
             <View
               key={p.id}
               className={`plan${selected === i ? ' active' : ''}`}
+              hoverClass="opacity-60"
               onClick={() => setSelected(i)}
             >
               {p.tag ? <View className="plan-tag">{p.tag}</View> : null}
@@ -184,34 +185,20 @@ export default function UpgradePage() {
         </View>
         <View className="rights" style={{ marginTop: '24rpx' }}>
           <View className="rights-title">{t('pay.selectMethod')}</View>
-          <View style={{ display: 'flex', gap: '16rpx', marginTop: '16rpx' }}>
+          <View className="pay-methods">
             <View
-              style={{
-                flex: 1,
-                padding: '20rpx 0',
-                textAlign: 'center',
-                borderRadius: '12rpx',
-                border: `2rpx solid ${payMethod === 'wechat' ? 'var(--color-warning)' : 'var(--color-border)'}`,
-                background:
-                  payMethod === 'wechat' ? 'var(--color-gold-muted)' : 'var(--color-card)',
-              }}
+              className={`pay-method${payMethod === 'wechat' ? ' active' : ''}`}
+              hoverClass="opacity-60"
               onClick={() => setPayMethod('wechat')}
             >
-              <Text style={{ fontSize: '28rpx' }}>{t('wallet.recharge.methodWechat')}</Text>
+              <Text className="pay-method-text">{t('wallet.recharge.methodWechat')}</Text>
             </View>
             <View
-              style={{
-                flex: 1,
-                padding: '20rpx 0',
-                textAlign: 'center',
-                borderRadius: '12rpx',
-                border: `2rpx solid ${payMethod === 'alipay' ? 'var(--color-warning)' : 'var(--color-border)'}`,
-                background:
-                  payMethod === 'alipay' ? 'var(--color-gold-muted)' : 'var(--color-card)',
-              }}
+              className={`pay-method${payMethod === 'alipay' ? ' active' : ''}`}
+              hoverClass="opacity-60"
               onClick={() => setPayMethod('alipay')}
             >
-              <Text style={{ fontSize: '28rpx' }}>{t('wallet.recharge.methodAlipay')}</Text>
+              <Text className="pay-method-text">{t('wallet.recharge.methodAlipay')}</Text>
             </View>
           </View>
         </View>

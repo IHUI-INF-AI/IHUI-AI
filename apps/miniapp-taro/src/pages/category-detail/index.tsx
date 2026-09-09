@@ -78,6 +78,7 @@ export default function CategoryDetailPage() {
           {/* RN tab: paddingHorizontal 10dp=20rpx, paddingVertical 6dp=12rpx, radius 6dp=12rpx, bg surface.card */}
           <View
             className="flex items-center px-[20rpx] py-[12rpx] rounded-[12rpx] bg-card"
+            hoverClass="opacity-60"
             onClick={toggleSort}
           >
             <Text className="text-[28rpx] text-muted-foreground">
@@ -108,6 +109,7 @@ export default function CategoryDetailPage() {
               <View
                 key={agent.id}
                 className="flex items-center gap-[24rpx] p-[24rpx] mb-[24rpx] bg-card border border-[var(--color-border)] rounded-[12rpx]"
+                hoverClass="opacity-60"
                 onClick={() => handleSelect(agent)}
               >
                 {agent.avatar ? (
