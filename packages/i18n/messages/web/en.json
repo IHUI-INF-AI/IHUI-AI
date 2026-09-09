@@ -21022,7 +21022,17 @@
     "total": "{total} total",
     "prev": "Previous",
     "next": "Next",
-    "pageInfo": "Page {page} / {pages}"
+    "pageInfo": "Page {page} / {pages}",
+    "statsTotal": "All tasks",
+    "statsInflight": "In progress",
+    "statsSucceeded": "Completed",
+    "statsFailed": "Failed",
+    "statsCancelled": "Cancelled",
+    "cancelAll": "Cancel all in-progress",
+    "cancellingAll": "Cancelling...",
+    "cancelAllConfirm": "Cancel all in-progress tasks? In-progress long tasks will be terminated.",
+    "cancelAllResult": "Cancelled {count} in-progress task(s)",
+    "cancelAllNone": "No in-progress tasks"
   },
   "voicesPage": {
     "title": "Voice Library",
