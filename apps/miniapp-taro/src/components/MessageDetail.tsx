@@ -58,7 +58,7 @@ export default function MessageDetail({
               <View
                 className={`px-3 py-2 rounded-2xl ${
                   msg.self
-                    ? 'bg-primary text-white rounded-tr-sm'
+                    ? 'bg-primary text-primary-foreground rounded-tr-sm'
                     : 'bg-card text-foreground rounded-tl-sm'
                 }`}
               >
@@ -81,10 +81,10 @@ export default function MessageDetail({
         />
         <View
           className={`ml-2 px-4 py-2 rounded-md text-sm ${
-            inputValue.trim() ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+            inputValue.trim() ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
           }`}
           onClick={() => inputValue.trim() && onSend()}
-        >
+          hoverClass="opacity-60">
           {tt('message.sendBtn', '发送')}
         </View>
       </View>

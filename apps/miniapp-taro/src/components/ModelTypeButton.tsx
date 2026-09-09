@@ -41,7 +41,7 @@ export default function ModelTypeButton({
       <View
         className={`ai-model-type-btn ${active ? 'active' : ''}`}
         onClick={() => onClick?.(type)}
-      >
+        hoverClass="opacity-60">
         {/* 图标(LineIcon 随主题着色,对齐 RN 端 lucide size 14dp → 28rpx)*/}
         <LineIcon
           name={icon}
@@ -61,7 +61,7 @@ export default function ModelTypeButton({
         active ? 'bg-primary/10 border border-primary/30' : 'bg-muted border border-transparent'
       }`}
       onClick={() => onClick?.(type)}
-    >
+      hoverClass="opacity-60">
       <LineIcon
         name={icon}
         size={40}
