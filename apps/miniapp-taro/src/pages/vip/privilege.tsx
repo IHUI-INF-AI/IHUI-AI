@@ -164,19 +164,19 @@ export default function PrivilegePage() {
 
         {/* 3 个入口卡片 */}
         <View className="entry-section">
-          <View className="entry-card" onClick={() => setPopup('level')}>
+          <View className="entry-card" hoverClass="opacity-70" onClick={() => setPopup('level')}>
             <View className="entry-icon">
               <LineIcon name="gem" size={32} color="var(--color-warning)" />
             </View>
             <Text className="entry-title">{tt('vip.privilege.levelIntro', '会员等级介绍')}</Text>
           </View>
-          <View className="entry-card" onClick={() => setPopup('trader')}>
+          <View className="entry-card" hoverClass="opacity-70" onClick={() => setPopup('trader')}>
             <View className="entry-icon">
               <LineIcon name="chevron-up" size={32} color="var(--color-warning)" />
             </View>
             <Text className="entry-title">{tt('vip.privilege.traderIntro', '操盘手介绍')}</Text>
           </View>
-          <View className="entry-card" onClick={() => setPopup('privateAdvisory')}>
+          <View className="entry-card" hoverClass="opacity-70" onClick={() => setPopup('privateAdvisory')}>
             <View className="entry-icon">
               <LineIcon name="radio" size={32} color="var(--color-warning)" />
             </View>
@@ -215,7 +215,7 @@ export default function PrivilegePage() {
         {/* 弹窗1: 会员等级介绍 */}
         {popup === 'level' && (
           <View className="popup-mask" onClick={() => setPopup(null)}>
-            <View className="popup-card" onClick={(e) => e.stopPropagation()}>
+            <View className="popup-card" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
               <View className="popup-header">
                 <Text className="popup-title">
                   {tt('vip.privilege.levelIntro', '会员等级介绍')}
@@ -275,7 +275,7 @@ export default function PrivilegePage() {
         {/* 弹窗2: 操盘手介绍 */}
         {popup === 'trader' && (
           <View className="popup-mask" onClick={() => setPopup(null)}>
-            <View className="popup-card" onClick={(e) => e.stopPropagation()}>
+            <View className="popup-card" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
               <View className="popup-header">
                 <Text className="popup-title">{tt('vip.privilege.traderIntro', '操盘手介绍')}</Text>
                 <Text className="popup-close" onClick={() => setPopup(null)}>
@@ -317,7 +317,7 @@ export default function PrivilegePage() {
         {/* 弹窗3: 私董会介绍 */}
         {popup === 'privateAdvisory' && (
           <View className="popup-mask" onClick={() => setPopup(null)}>
-            <View className="popup-card" onClick={(e) => e.stopPropagation()}>
+            <View className="popup-card" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
               <View className="popup-header">
                 <Text className="popup-title">
                   {tt('vip.privilege.privateAdvisory', '私董会权益')}

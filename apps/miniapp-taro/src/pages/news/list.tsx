@@ -203,7 +203,7 @@ export default function NewsListPage() {
             key={c.key}
             className={`tab${activeCategory === c.key ? ' tab-active' : ''}`}
             onClick={() => setActiveCategory(c.key)}
-          >
+            hoverClass="opacity-60">
             <Text className="tab-label">{c.label}</Text>
           </View>
         ))}
@@ -211,7 +211,7 @@ export default function NewsListPage() {
 
       {/* 置顶新闻 */}
       {pinnedVisible && pinned ? (
-        <View className="pinned" onClick={() => goDetail(pinned.id)}>
+        <View className="pinned" onClick={() => goDetail(pinned.id)} hoverClass="opacity-60">
           <View className="pinned-tag">
             <Text className="pinned-tag-text">{tt('news.pinned', '置顶')}</Text>
           </View>
@@ -242,7 +242,7 @@ export default function NewsListPage() {
                 <View
                   className={`item${isRead ? ' item-read' : ''}`}
                   onClick={() => goDetail(n.id)}
-                >
+                  hoverClass="opacity-60">
                   <View className="body">
                     <View className="title-row">
                       {!isRead ? <Text className="unread-dot" /> : null}

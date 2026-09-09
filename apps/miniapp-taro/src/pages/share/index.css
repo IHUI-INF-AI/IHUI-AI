@@ -316,7 +316,7 @@
   background: var(--color-brand-orange);
   border-radius: 8rpx;
   /* 对齐 RN elevation 2 / shadowOpacity 0.15 */
-  box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2rpx 4rpx var(--color-black-15);
   transition: all 0.2s ease;
 }
 

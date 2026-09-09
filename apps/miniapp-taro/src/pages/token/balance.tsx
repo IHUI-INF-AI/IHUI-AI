@@ -176,13 +176,13 @@ export default function TokenBalance() {
         <View
           className={`func-btn${activeButton === 'agent' ? ' active' : ''}`}
           onClick={takeAgent}
-        >
+          hoverClass="opacity-60">
           <Text>{tt('token.balance.agentConsume', '智能体消耗')}</Text>
         </View>
         <View
           className={`func-btn${activeButton === 'orders' ? ' active' : ''}`}
           onClick={takeOrders}
-        >
+          hoverClass="opacity-60">
           <Text>{tt('token.balance.ordersConsume', '大模型消耗')}</Text>
         </View>
       </View>
@@ -193,7 +193,7 @@ export default function TokenBalance() {
             key={b.value}
             className={`tab-item${type === b.value ? ' active' : ''}`}
             onClick={() => onTabChange(b.value)}
-          >
+            hoverClass="opacity-60">
             <Text>{tt(b.key, b.fb)}</Text>
           </View>
         ))}

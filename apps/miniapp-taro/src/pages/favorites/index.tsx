@@ -204,6 +204,7 @@ export default function FavoritesPage() {
           <View
             key={tab.key}
             className={`inline-flex items-center justify-center px-[28rpx] py-[12rpx] mr-[16rpx] rounded-[24rpx] ${activeTab === tab.key ? 'bg-primary' : 'bg-card'}`}
+            hoverClass="opacity-60"
             onClick={() => setActiveTab(tab.key)}
           >
             <Text
@@ -220,6 +221,7 @@ export default function FavoritesPage() {
         <View className="mt-[16rpx] flex items-center justify-between py-[16rpx] px-[20rpx] bg-card border-[2rpx] border-border rounded-[24rpx]">
           <View
             className="flex items-center"
+            hoverClass="opacity-60"
             onClick={() => {
               if (allChecked) {
                 setSelectedIds(new Set())
@@ -258,6 +260,7 @@ export default function FavoritesPage() {
                 <View
                   key={item.id}
                   className="flex items-center p-[24rpx] bg-background border-[2rpx] border-border rounded-[24rpx]"
+                  hoverClass="opacity-60"
                   onClick={() => (manageMode ? toggleSelect(item.id) : viewDetail(item))}
                 >
                   {manageMode ? (
@@ -325,7 +328,7 @@ export default function FavoritesPage() {
           <View
             className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-[24rpx]"
             onClick={goDiscover}
-          >
+            hoverClass="opacity-60">
             <Text className="text-primary-foreground text-[26rpx]">
               {tt('favorites.goDiscover', '去发现')}
             </Text>
