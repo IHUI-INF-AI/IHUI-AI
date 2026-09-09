@@ -302,6 +302,7 @@ export default function AccountCancel() {
               {/* 对齐 RN submitBtn:danger 底 + 白字,height 50 → 100rpx,radius 12 → 24rpx */}
               <View
                 className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-[var(--color-danger)]${canSubmit || confirmCountdown > 0 ? '' : ' opacity-60'}`}
+                hoverClass="opacity-60"
                 onClick={onSubmit}
               >
                 <Text className="text-[36rpx] font-semibold text-[var(--color-danger-foreground)]">

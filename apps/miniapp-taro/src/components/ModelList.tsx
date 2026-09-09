@@ -160,7 +160,7 @@ export default function ModelList({
           <View
             className={cn('ai-chu-row ai-slide-up', agentActive && 'ai-chu-row-active')}
             onClick={onAgentSelect}
-          >
+            hoverClass="opacity-60">
             <View className="flex items-center">
               {/* image_logo + chu-icon:对齐原项目 /static/images/default/mian_label.png */}
               <Image
@@ -215,7 +215,7 @@ export default function ModelList({
               className={cn('ai-chu-row ai-slide-up', selected && 'ai-chu-row-active')}
               style={{ animationDelay: `${index * 0.08}s` }}
               onClick={() => onSelect?.(model)}
-            >
+              hoverClass="opacity-60">
               <View className="flex items-center">
                 {/* 模型 logo:对齐原项目 image_logo + chu-icon 40rpx 圆角 8rpx
                     原项目用 :src="item.img"(动态),LlmModel 无 img 字段,保留首字母占位 */}
@@ -297,7 +297,7 @@ export default function ModelList({
             className="ai-chu-row"
             style={{ background: 'var(--color-muted)', marginTop: rpx(10) }}
             onClick={() => setHistoryExpanded((v) => !v)}
-          >
+            hoverClass="opacity-60">
             <Text style={{ fontSize: rpx(26), color: 'var(--color-foreground)' }}>
               {`${historyLabel(locale)} (${split.archivedCount})`}
             </Text>
@@ -323,7 +323,7 @@ export default function ModelList({
                       key={model.id}
                       className={cn('ai-chu-row', selected && 'ai-chu-row-active')}
                       onClick={() => onSelect?.(model)}
-                    >
+                      hoverClass="opacity-60">
                       <View className="flex items-center">
                         <View
                           className="flex items-center justify-center"
@@ -426,7 +426,7 @@ export default function ModelList({
               selected ? 'bg-muted' : 'bg-card hover:bg-muted'
             }`}
             onClick={() => onSelect?.(model)}
-          >
+            hoverClass="opacity-60">
             <View className="flex items-center justify-center w-10 h-10 mr-3 rounded-lg bg-muted">
               <Text className="text-sm font-medium text-muted-foreground">
                 {model.name.charAt(0)}
@@ -451,7 +451,7 @@ export default function ModelList({
         <View
           className="flex items-center justify-between px-3 py-2.5 mb-2 rounded-lg bg-muted"
           onClick={() => setHistoryExpanded((v) => !v)}
-        >
+          hoverClass="opacity-60">
           <Text className="text-sm text-foreground">
             {`${historyLabel(locale)} (${split.archivedCount})`}
           </Text>
@@ -480,7 +480,7 @@ export default function ModelList({
                       selected ? 'bg-muted' : 'bg-card hover:bg-muted'
                     }`}
                     onClick={() => onSelect?.(model)}
-                  >
+                    hoverClass="opacity-60">
                     <View className="flex items-center justify-center w-10 h-10 mr-3 rounded-lg bg-muted">
                       <Text className="text-sm font-medium text-muted-foreground">
                         {model.name.charAt(0)}

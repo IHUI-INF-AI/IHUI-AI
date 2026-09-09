@@ -72,44 +72,45 @@ export default function DistributionCommission() {
 
   return (
     <ThemeRoot className="min-h-screen bg-background">
-      <View className="mx-[24rpx] mt-[24rpx] bg-card rounded-[16rpx] p-[32rpx]">
-        <Text className="text-[24rpx] text-muted-foreground">
+      {/* 对齐 RN IncomeScreen summaryCard:白卡 + 次级标签 + 大号数值 */}
+      <View className="mx-[20rpx] mt-[20rpx] bg-card rounded-[24rpx] p-[28rpx]">
+        <Text className="text-[28rpx] text-muted-foreground">
           {t('distribution.commission.total')}
         </Text>
-        <Text className="block text-[64rpx] text-foreground font-bold mt-[8rpx]">
+        <Text className="block text-[40rpx] text-foreground font-bold mt-[16rpx]">
           ¥{totalCommission}
         </Text>
       </View>
       {list.length > 0 && (
-        <View className="p-[24rpx]">
+        <View className="mx-[20rpx] mt-[20rpx]">
           {list.map((r) => (
             <View
               key={r.id}
-              className="flex justify-between items-center bg-card p-[24rpx] mb-[24rpx] rounded-[16rpx]"
+              className="bg-card border border-border rounded-[24rpx] p-[24rpx] mb-[16rpx]"
             >
-              <View className="flex-1">
-                <Text className="block text-[28rpx] text-foreground">{r.type}</Text>
-                <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx]">
-                  {r.time}
-                  {r.nickname ? ` · ${r.nickname}` : ''}
+              <Text className="block text-[32rpx] font-semibold text-foreground">{r.type}</Text>
+              <Text className="block text-[22rpx] text-[var(--color-text-tertiary)] mt-[12rpx]">
+                {r.time}
+                {r.nickname ? ` · ${r.nickname}` : ''}
+              </Text>
+              <View className="flex justify-end mt-[16rpx]">
+                <Text
+                  className={`text-[32rpx] font-bold ${r.amount > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}`}
+                >
+                  {r.amount > 0 ? '+' : ''}¥{r.amount}
                 </Text>
               </View>
-              <Text
-                className={`text-[32rpx] font-semibold ${r.amount > 0 ? 'text-success' : 'text-destructive'}`}
-              >
-                {r.amount > 0 ? '+' : ''}¥{r.amount}
-              </Text>
             </View>
           ))}
         </View>
       )}
       {list.length === 0 && !loading && (
-        <View className="text-center py-[120rpx] text-muted-foreground">
+        <View className="text-center py-[120rpx] text-[28rpx] text-[var(--color-text-tertiary)]">
           <Text>{t('distribution.commission.empty')}</Text>
         </View>
       )}
       {loading && (
-        <View className="text-center py-[40rpx] text-muted-foreground">
+        <View className="text-center py-[40rpx] text-[28rpx] text-[var(--color-text-tertiary)]">
           <Text>{t('distribution.commission.loading')}</Text>
         </View>
       )}

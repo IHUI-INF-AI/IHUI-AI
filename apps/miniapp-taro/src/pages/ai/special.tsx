@@ -217,7 +217,7 @@ export default function SpecialModelsPage() {
   return (
     <View className="min-h-screen bg-background pb-[60rpx] box-border">
       {/* Banner */}
-      <View className="relative m-[24rpx] p-[32rpx] rounded-[16rpx] overflow-hidden bg-card">
+      <View className="relative mx-[20rpx] mt-[36rpx] mb-[24rpx] p-[32rpx] rounded-[30rpx] overflow-hidden bg-card">
         <View
           className="absolute top-0 left-0 right-0 bottom-0 z-0"
           style={{ background: 'var(--color-secondary)' }}
@@ -234,16 +234,17 @@ export default function SpecialModelsPage() {
           </Text>
         </View>
         <View
-          className="relative z-10 inline-flex items-center gap-[8rpx] mt-[24rpx] py-[12rpx] px-[20rpx] bg-primary/10 border border-primary rounded-[10rpx]"
+          className="relative z-10 inline-flex items-center gap-[8rpx] mt-[24rpx] py-[12rpx] px-[28rpx] bg-muted rounded-[16rpx]"
           onClick={goHistory}
+          hoverClass="opacity-60"
         >
           <LineIcon
             name="clock"
             size={26}
-            color="var(--color-primary)"
+            color="var(--color-foreground)"
             style={{ display: 'block' }}
           />
-          <Text className="text-[24rpx] text-primary">
+          <Text className="text-[26rpx] text-foreground">
             {tt('ai.special.history', '我的使用记录')}
           </Text>
         </View>
@@ -252,23 +253,24 @@ export default function SpecialModelsPage() {
       {/* 精选推荐 */}
       {featured.length > 0 ? (
         <View className="mx-[24rpx] mb-[24rpx]">
-          <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
+          <Text className="block text-[32rpx] font-semibold text-foreground mb-[16rpx]">
             {tt('ai.special.featured', '精选推荐')}
           </Text>
           <ScrollView scrollX className="whitespace-nowrap w-full" enhanced showScrollbar={false}>
             {featured.map((m) => (
               <View
                 key={`f-${m.key}`}
-                className="inline-flex flex-col items-center w-[200rpx] mr-[16rpx] py-[24rpx] px-[16rpx] bg-card border border-border rounded-[12rpx] align-top"
+                className="inline-flex flex-col items-center w-[200rpx] mr-[16rpx] py-[24rpx] px-[16rpx] bg-card border border-border rounded-[24rpx] align-top"
                 onClick={() => onEnter(m)}
+                hoverClass="opacity-60"
               >
-                <View className="w-[80rpx] h-[80rpx] flex items-center justify-center bg-background rounded-[12rpx]">
+                <View className="w-[80rpx] h-[80rpx] flex items-center justify-center bg-muted rounded-[24rpx]">
                   <Image src={m.icon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
                 </View>
                 <Text className="block mt-[12rpx] text-[26rpx] text-foreground font-medium max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
                   {m.name}
                 </Text>
-                <Text className="block mt-[4rpx] text-[22rpx] text-muted-foreground">
+                <Text className="block mt-[4rpx] text-[22rpx] text-[var(--color-text-tertiary)]">
                   {tt('ai.special.useCount', '{n} 次使用', { n: m.uses })}
                 </Text>
               </View>
@@ -285,12 +287,12 @@ export default function SpecialModelsPage() {
             return (
               <ThemeRoot
                 key={c.key}
-                className="inline-flex items-center gap-[6rpx] h-[64rpx] px-[24rpx] mr-[12rpx] bg-card border-[2rpx] rounded-[10rpx] align-middle ${active ? 'bg-primary/10 border-primary' : 'border-border'}"
+                className={`inline-flex items-center gap-[6rpx] h-[64rpx] px-[28rpx] mr-[12rpx] rounded-[16rpx] align-middle ${active ? 'bg-primary' : 'bg-muted'}`}
               >
-                <View key={c.key} onClick={() => setActiveCategory(c.key)}>
+                <View key={c.key} onClick={() => setActiveCategory(c.key)} hoverClass="opacity-60">
                   <Image src={c.icon} className="w-[32rpx] h-[32rpx]" mode="aspectFit" />
                   <Text
-                    className={`text-[26rpx] ${active ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
+                    className={`text-[26rpx] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-muted-foreground'}`}
                   >
                     {c.label}
                   </Text>
@@ -307,28 +309,29 @@ export default function SpecialModelsPage() {
           {filtered.map((m) => (
             <View
               key={m.key}
-              className="flex p-[24rpx] bg-card border border-border rounded-[12rpx]"
+              className="flex p-[28rpx] bg-card border border-border rounded-[24rpx]"
             >
-              <View className="w-[96rpx] h-[96rpx] flex items-center justify-center bg-background rounded-[12rpx] flex-shrink-0">
+              <View className="w-[96rpx] h-[96rpx] flex items-center justify-center bg-muted rounded-[24rpx] flex-shrink-0">
                 <Image src={m.icon} className="w-[56rpx] h-[56rpx]" mode="aspectFit" />
               </View>
               <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
                 <View className="flex items-center justify-between gap-[12rpx]">
-                  <Text className="text-[30rpx] font-semibold text-foreground flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                  <Text className="text-[32rpx] font-semibold text-foreground flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
                     {m.name}
                   </Text>
-                  <Text className="text-[22rpx] text-primary flex-shrink-0">
+                  <Text className="text-[22rpx] text-[var(--color-text-tertiary)] flex-shrink-0">
                     {tt('ai.special.useCount', '{n} 次使用', { n: m.uses })}
                   </Text>
                 </View>
-                <Text className="block mt-[8rpx] text-[24rpx] text-muted-foreground leading-[1.4]">
+                <Text className="block mt-[8rpx] text-[28rpx] text-muted-foreground leading-[36rpx]">
                   {m.desc}
                 </Text>
                 <View
-                  className="self-start mt-[16rpx] py-[10rpx] px-[28rpx] bg-primary/10 border border-primary rounded-[8rpx]"
+                  className="self-start mt-[16rpx] py-[8rpx] px-[20rpx] bg-primary rounded-[12rpx]"
                   onClick={() => onEnter(m)}
+                  hoverClass="opacity-60"
                 >
-                  <Text className="text-[24rpx] text-primary font-semibold">
+                  <Text className="text-[26rpx] text-[var(--color-surface-light)] font-semibold">
                     {tt('ai.special.useBtn', '立即使用')}
                   </Text>
                 </View>
@@ -352,6 +355,7 @@ export default function SpecialModelsPage() {
         <View
           className="flex flex-col items-center py-[80rpx] text-[26rpx] text-muted-foreground"
           onClick={() => void load(true)}
+          hoverClass="opacity-60"
         >
           <Image
             src={ICONS.tishiIcon}

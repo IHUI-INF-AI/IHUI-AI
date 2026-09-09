@@ -49,7 +49,7 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
         )}
 
         <View className="flex items-center justify-between mt-3">
-          <View className="flex items-center" onClick={onTeacherClick}>
+          <View className="flex items-center" hoverClass="opacity-60" onClick={onTeacherClick}>
             {data.teacherAvatar && (
               <Image
                 className="w-7 h-7 mr-2 rounded-md bg-muted"

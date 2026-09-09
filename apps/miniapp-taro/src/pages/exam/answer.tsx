@@ -4,7 +4,7 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Input, Textarea, Button } from '@tarojs/components'
+import { View, Text, Input, Textarea } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -130,7 +130,7 @@ export default function ExamAnswer() {
       return (
         <ThemeRoot>
           <Input
-            className="w-full text-sm text-foreground p-3 border border-[var(--color-border)] rounded-xl"
+            className="w-full py-[16rpx] px-[28rpx] border-[2rpx] border-[var(--color-border)] rounded-[24rpx] text-[32rpx] text-foreground"
             type="text"
             placeholder={t('exam.answer.answerPlaceholder')}
             value={typeof ans === 'string' ? ans : ''}
@@ -143,7 +143,7 @@ export default function ExamAnswer() {
       return (
         <ThemeRoot>
           <Textarea
-            className="w-full text-sm text-foreground p-3 border border-[var(--color-border)] rounded-xl min-h-[320rpx]"
+            className="w-full py-[16rpx] px-[28rpx] border-[2rpx] border-[var(--color-border)] rounded-[24rpx] text-[32rpx] text-foreground min-h-[320rpx]"
             placeholder={t('exam.answer.answerPlaceholder')}
             value={typeof ans === 'string' ? ans : ''}
             onInput={(e) => select(e.detail.value)}
@@ -163,25 +163,36 @@ export default function ExamAnswer() {
       const val: AnswerValue = current.type === 'judgment' ? i === 0 : i
       return (
         <ThemeRoot key={i}>
+          {/* 对齐 RN SharedExamQuestionScreen option:p28rpx 圆角24rpx 2rpx描边 mb16rpx;
+              选中 border/文字 success + bg success.light */}
           <View
             key={i}
-            className={`flex items-center p-3 border rounded-xl mb-2 ${
-              selected ? 'border-primary bg-[var(--color-muted)]' : 'border-[var(--color-border)]'
+            className={`flex items-center p-[28rpx] border-[2rpx] rounded-[24rpx] mb-[16rpx] ${
+              selected
+                ? 'border-[var(--color-success)] bg-[var(--color-success-light)]'
+                : 'border-[var(--color-border)]'
             }`}
+            hoverClass="opacity-60"
             onClick={() => select(val)}
           >
             <View
-              className={`w-7 h-7 leading-7 text-center border text-sm ${
-                isMulti ? 'rounded-md' : 'rounded-md'
-              } ${
+              className={`w-[56rpx] h-[56rpx] leading-[56rpx] text-center border-[2rpx] rounded-[12rpx] text-[28rpx] ${
                 selected
-                  ? 'border-primary bg-primary text-white'
-                  : 'border-muted text-muted-foreground'
+                  ? 'border-[var(--color-success)] text-[var(--color-success)]'
+                  : 'border-[var(--color-border)] text-[var(--color-text-medium)]'
               }`}
             >
               {current.type === 'judgment' ? (i === 0 ? '√' : '×') : String.fromCharCode(65 + i)}
             </View>
-            <Text className="flex-1 ml-3 text-sm text-foreground">{opt}</Text>
+            <Text
+              className={`flex-1 ml-[24rpx] text-[32rpx] ${
+                selected
+                  ? 'text-[var(--color-success)] font-medium'
+                  : 'text-[var(--color-text-medium)]'
+              }`}
+            >
+              {opt}
+            </Text>
           </View>
         </ThemeRoot>
       )
@@ -190,37 +201,61 @@ export default function ExamAnswer() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background">
-        <View className="flex justify-between p-3 bg-card">
-          <Text className="text-base text-destructive font-bold">{formatTime(remain)}</Text>
-          <Text className="text-sm text-muted-foreground">
+      {/* 对齐 RN SharedExamQuestionScreen:背景 surface.bg / 水平 padding 20rpx / 内容流内按钮行;
+          顶部计时条为小程序业务(自动交卷),进度对齐 RN progress(28rpx/600 success) */}
+      <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[64rpx]">
+        <View className="flex justify-between items-center">
+          <Text className="text-[32rpx] text-[var(--color-danger)] font-bold">
+            {formatTime(remain)}
+          </Text>
+          <Text className="text-[28rpx] text-[var(--color-success)] font-semibold">
             {currentIdx + 1}/{questions.length}
           </Text>
         </View>
 
         {current && (
-          <View className="m-3 p-4 bg-card rounded-2xl">
-            <Text className="text-base text-foreground font-semibold leading-relaxed">
+          <View>
+            <Text className="mt-[16rpx] block text-[36rpx] text-foreground font-semibold leading-relaxed">
               {currentIdx + 1}. {current.title}
             </Text>
-            <View className="mt-4">{renderAnswer()}</View>
+            <View className="mt-[32rpx]">{renderAnswer()}</View>
           </View>
         )}
 
-        <View className="fixed bottom-4 left-4 right-4 flex gap-3">
+        {/* 对齐 RN actionRow:mt32rpx / gap16rpx / navBtn h100rpx 圆角24rpx bg-card,
+            提交按钮 bg-primary 白字 32rpx/600;禁用 opacity 0.4 */}
+        <View className="mt-[32rpx] flex gap-[16rpx]">
           {currentIdx > 0 && (
-            <Button className="flex-1 bg-card text-foreground rounded-md text-sm" onClick={prev}>
-              {t('exam.answer.prev')}
-            </Button>
+            <View
+              className="h-[100rpx] flex-1 flex items-center justify-center rounded-[24rpx] bg-card"
+              hoverClass="opacity-60"
+              onClick={prev}
+            >
+              <Text className="text-[32rpx] text-[var(--color-text-medium)]">
+                {t('exam.answer.prev')}
+              </Text>
+            </View>
           )}
           {currentIdx < questions.length - 1 ? (
-            <Button className="flex-1 bg-primary text-white rounded-md text-sm" onClick={next}>
-              {t('exam.answer.next')}
-            </Button>
+            <View
+              className="h-[100rpx] flex-1 flex items-center justify-center rounded-[24rpx] bg-card"
+              hoverClass="opacity-60"
+              onClick={next}
+            >
+              <Text className="text-[32rpx] text-[var(--color-text-medium)]">
+                {t('exam.answer.next')}
+              </Text>
+            </View>
           ) : (
-            <Button className="flex-1 bg-primary text-white rounded-md text-sm" onClick={onSubmit}>
-              {t('exam.answer.submit')}
-            </Button>
+            <View
+              className="h-[100rpx] flex-1 flex items-center justify-center rounded-[24rpx] bg-primary"
+              hoverClass="opacity-60"
+              onClick={onSubmit}
+            >
+              <Text className="text-[32rpx] font-semibold text-primary-foreground">
+                {t('exam.answer.submit')}
+              </Text>
+            </View>
           )}
         </View>
       </View>

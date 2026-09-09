@@ -321,7 +321,7 @@ export default function TaskCenter() {
           onRefresherRefresh={() => void load(activeTab, true)}
         >
           <View style={viewStyles.header()}>
-            <View style={viewStyles.backBtn()} onTap={goBack}>
+            <View style={viewStyles.backBtn()} onTap={goBack} hoverClass="opacity-60">
               <Text style={textStyles.backText(tk)}>{tt('common.back', '返回')}</Text>
             </View>
             <Text style={textStyles.title(tk)}>{tt('taskCenter.title', '任务中心')}</Text>
@@ -334,7 +334,7 @@ export default function TaskCenter() {
             {TABS.map((tab) => {
               const active = tab === activeTab
               return (
-                <View key={tab} style={viewStyles.tab(tk, active)} onTap={() => switchTab(tab)}>
+                <View key={tab} style={viewStyles.tab(tk, active)} onTap={() => switchTab(tab)} hoverClass="opacity-60">
                   <Text style={textStyles.tab(tk, active)}>{tabLabel(tab)}</Text>
                 </View>
               )
@@ -344,7 +344,7 @@ export default function TaskCenter() {
           {error ? (
             <View style={viewStyles.errorBar()}>
               <Text style={textStyles.errorText(tk)}>{error}</Text>
-              <View onTap={() => void load(activeTab)}>
+              <View onTap={() => void load(activeTab)} hoverClass="opacity-60">
                 <Text style={textStyles.retryText(tk)}>{tt('taskCenter.retry', '重试')}</Text>
               </View>
             </View>
@@ -400,7 +400,7 @@ export default function TaskCenter() {
                       <View
                         style={viewStyles.actionBtn(tk, 'primary')}
                         onTap={() => void handleClaim(task)}
-                      >
+                        hoverClass="opacity-60">
                         <Text style={textStyles.actionBtnText(tk, 'primary')}>
                           {claimingId === task.id
                             ? tt('common.loading', '加载中...')
@@ -411,7 +411,7 @@ export default function TaskCenter() {
                       <View
                         style={viewStyles.actionBtn(tk, 'muted')}
                         onTap={() => handleAction(task)}
-                      >
+                        hoverClass="opacity-60">
                         <Text style={textStyles.actionBtnText(tk, 'muted')}>
                           {tt('taskCenter.goToDo', '去完成')}
                         </Text>

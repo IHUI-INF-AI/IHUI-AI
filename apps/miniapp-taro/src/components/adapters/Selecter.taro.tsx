@@ -279,7 +279,7 @@ export function Selecter({
                 key={index}
                 style={viewStyles.item(tk, active, disabled)}
                 onTap={() => !disabled && select(item, index)}
-              >
+                hoverClass="opacity-60">
                 <View style={viewStyles.ratioIcon(tk, active, iconSize.width, iconSize.height)} />
                 <Text style={textStyles.item(tk, active)}>{str}</Text>
               </View>
@@ -311,7 +311,7 @@ export function Selecter({
                   paddingRight: toRpx(10),
                 })}
                 onTap={() => selectVideo(it.val)}
-              >
+                hoverClass="opacity-60">
                 <Text style={textStyles.videoItem(tk, active)}>{it.label}</Text>
                 <Text style={textStyles.videoSub(tk)}>{it.sub}</Text>
               </View>
@@ -335,7 +335,7 @@ export function Selecter({
                 key={index}
                 style={viewStyles.item(tk, active, false)}
                 onTap={() => select(item, index)}
-              >
+                hoverClass="opacity-60">
                 <Text style={textStyles.item(tk, active)}>{name}</Text>
               </View>
             )
@@ -361,7 +361,7 @@ export function Selecter({
                     key={index}
                     style={viewStyles.item(tk, active, false)}
                     onTap={() => selectSize(obj, index)}
-                  >
+                    hoverClass="opacity-60">
                     <Text style={textStyles.item(tk, active)}>{label}</Text>
                   </View>
                 )
@@ -372,7 +372,7 @@ export function Selecter({
               <View
                 style={{ ...viewStyles.backBtn(), borderColor: tk.gray[500] }}
                 onTap={resetRatioSelection}
-              >
+                hoverClass="opacity-60">
                 <Text style={textStyles.backText(tk)}>
                   {tt('adaptersSelectertaro.back4', '← 返回')}
                 </Text>
@@ -391,7 +391,7 @@ export function Selecter({
                     key={index}
                     style={viewStyles.item(tk, active, false)}
                     onTap={() => selectRatio(item, index)}
-                  >
+                    hoverClass="opacity-60">
                     <Text style={textStyles.item(tk, active)}>
                       {ratioKey} ({resolution})
                     </Text>
@@ -425,7 +425,7 @@ export function Selecter({
               key={index}
               style={viewStyles.item(tk, active, false)}
               onTap={() => select(item, index)}
-            >
+              hoverClass="opacity-60">
               <Text style={textStyles.item(tk, active)}>{label}</Text>
             </View>
           )

@@ -8,7 +8,6 @@ import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/ta
 import { useState, useRef } from 'react'
 import * as api from '@/api'
 import { logger } from '@/utils/logger'
-import './index.css'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface OrderItem {
@@ -43,26 +42,27 @@ const TABS = (tt: TtFn): Tab[] => [
   },
 ]
 
+/* 对齐 RN DistributionOrderListScreen statusColor:已结算→success 底、待结算→tertiary 底,文字恒白 */
 const STATUS_LABELS = (tt: TtFn): Record<string, { key: string; fb: string; cls: string }> => ({
   settled: {
     key: 'distribution.orderList.settled',
     fb: tt('developer.income.settled', '已结算'),
-    cls: 'ol-status-settled',
+    cls: 'bg-[var(--color-success)] text-[var(--color-surface-light)]',
   },
   pending: {
     key: 'distribution.orderList.pending',
     fb: tt('distribution.pendingSettle', '待结算'),
-    cls: 'ol-status-pending',
+    cls: 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]',
   },
   paid: {
     key: 'distribution.orderList.settled',
     fb: tt('developer.income.settled', '已结算'),
-    cls: 'ol-status-settled',
+    cls: 'bg-[var(--color-success)] text-[var(--color-surface-light)]',
   },
   unpaid: {
     key: 'distribution.orderList.pending',
     fb: tt('distribution.pendingSettle', '待结算'),
-    cls: 'ol-status-pending',
+    cls: 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]',
   },
 })
 
@@ -153,81 +153,120 @@ export default function DistributionOrderList() {
 
   const totalCommission = list.reduce((sum, o) => sum + (Number(o.commission) || 0), 0)
 
+  /* 对齐 RN DistributionOrderListScreen(packages/app 共享屏):tab 胶囊 24rpx 圆角 active 品牌底,
+     订单卡 card 底 24rpx 圆角 + 28rpx padding;RN 卡片用 surface.light(恒白),暗色下不可读,
+     按语义 token 修正为 bg-card。小程序数据模型无买家/订单金额/佣金率字段,RN 对应行未渲染 */
   return (
-    <View className="ol-page">
-      <View className="ol-tabs">
-        {TABS(tt).map((tab) => (
-          <View
-            key={tab.value}
-            className={`ol-tab ${activeTab === tab.value ? 'ol-tab-active' : ''}`}
-            onClick={() => switchTab(tab.value)}
-          >
-            <Text>{tt(tab.labelKey, tab.fallback)}</Text>
-          </View>
-        ))}
+    <ThemeRoot className="min-h-screen bg-background pb-[48rpx]">
+      {/* 对齐 RN tabsBar/tabsRow:px 12dp→24rpx + gap 8dp→16rpx,tab py 6dp→12rpx */}
+      <View className="px-[24rpx] pt-[20rpx] pb-[24rpx]">
+        <View className="flex flex-row gap-[16rpx]">
+          {TABS(tt).map((tab) => (
+            <View
+              key={tab.value}
+              className={`flex-1 flex items-center justify-center py-[12rpx] rounded-[24rpx] ${activeTab === tab.value ? 'bg-primary' : 'bg-card'}`}
+              onClick={() => switchTab(tab.value)}
+              hoverClass="opacity-60">
+              <Text
+                className={`text-[28rpx] ${activeTab === tab.value ? 'text-[var(--color-primary-foreground)] font-semibold' : 'text-muted-foreground'}`}
+              >
+                {tt(tab.labelKey, tab.fallback)}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
 
-      <View className="ol-total">
-        {tt('distribution.orderList.totalCount', '共')} {list.length}{' '}
-        {tt('distribution.orderList.orders', '笔')},
-        {tt('distribution.orderList.commissionTotal', '佣金总额')}:¥{totalCommission}
+      {/* 总数行 — 小程序特有统计行,按 RN 文字层级着色 */}
+      <View className="mx-[20rpx] mb-[16rpx]">
+        <Text className="text-[28rpx] text-muted-foreground">
+          {tt('distribution.orderList.totalCount', '共')} {list.length}{' '}
+          {tt('distribution.orderList.orders', '笔')},
+          {tt('distribution.orderList.commissionTotal', '佣金总额')}:¥{totalCommission}
+        </Text>
       </View>
 
+      {/* 对齐 RN listContent:px 10dp→20rpx + gap 12dp→24rpx;订单卡 padding 14dp→28rpx gap 8dp→16rpx */}
       {list.length > 0 && (
-        <View className="ol-list">
+        <View className="px-[20rpx] flex flex-col gap-[24rpx]">
           {list.map((o) => {
             const statusInfo = STATUS_LABELS(tt)[o.status] || {
               key: '',
               fb: o.status,
-              cls: 'ol-status-pending',
+              cls: 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]',
             }
             return (
-              <ThemeRoot key={o.id} className="ol-card">
-                <View key={o.id} onClick={() => onItemClick(o.id)}>
-                  <View className="ol-card-header">
-                    <Text className="ol-order-no">
-                      {tt('distribution.orderList.orderNo', '订单号')}:{o.orderNo || '-'}
+              <View
+                key={o.id}
+                className="rounded-[24rpx] bg-card p-[28rpx] flex flex-col gap-[16rpx]"
+                onClick={() => onItemClick(o.id)}
+                hoverClass="opacity-60">
+                <View className="flex flex-row justify-between items-center gap-[16rpx]">
+                  <Text className="flex-1 text-[28rpx] text-foreground truncate">
+                    {tt('distribution.orderList.orderNo', '订单号')}:{o.orderNo || '-'}
+                  </Text>
+                  <Text
+                    className={`flex-shrink-0 px-[16rpx] py-[4rpx] rounded-[24rpx] text-[22rpx] ${statusInfo.cls}`}
+                  >
+                    {statusInfo.key ? tt(statusInfo.key, statusInfo.fb) : statusInfo.fb}
+                  </Text>
+                </View>
+                <Text className="text-[32rpx] font-semibold text-foreground">{o.product}</Text>
+                <View className="flex flex-row justify-between items-center">
+                  <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">
+                    {o.time || '-'}
+                  </Text>
+                  <View className="flex flex-row items-center gap-[8rpx]">
+                    <Text className="text-[22rpx] text-muted-foreground">
+                      {tt('distribution.orderList.commission', '佣金')}
                     </Text>
-                    <Text className={`ol-status ${statusInfo.cls}`}>
-                      {statusInfo.key ? tt(statusInfo.key, statusInfo.fb) : statusInfo.fb}
+                    <Text className="text-[32rpx] font-semibold text-[var(--color-danger)]">
+                      ¥{o.commission}
                     </Text>
-                  </View>
-                  <View className="ol-card-main">
-                    <Text className="ol-product-title">{o.product}</Text>
-                  </View>
-                  <View className="ol-card-footer">
-                    <Text className="ol-time">{o.time || '-'}</Text>
-                    <View className="ol-commission">
-                      <Text className="ol-label">
-                        {tt('distribution.orderList.commission', '佣金')}
-                      </Text>
-                      <Text className="ol-commission-amount">¥{o.commission}</Text>
-                    </View>
                   </View>
                 </View>
-              </ThemeRoot>
+              </View>
             )
           })}
         </View>
       )}
 
       {list.length === 0 && !loading && !error && (
-        <Text className="ol-empty">{t('distribution.orderList.empty')}</Text>
-      )}
-
-      {error && !loading && (
-        <View className="ol-error" onClick={() => load(true)}>
-          <Text className="ol-error-text">{tt('distribution.orderList.error', '加载失败')}</Text>
-          <Text className="ol-error-retry">{tt('distribution.orderList.retry', '点击重试')}</Text>
+        <View className="py-[96rpx] text-center">
+          <Text className="text-[32rpx] text-muted-foreground">
+            {t('distribution.orderList.empty')}
+          </Text>
         </View>
       )}
 
-      {loading && <Text className="ol-loading">{t('distribution.orderList.loading')}</Text>}
+      {error && !loading && (
+        <View className="flex flex-col items-center py-[48rpx] gap-[24rpx]">
+          <Text className="text-[28rpx] text-muted-foreground text-center">
+            {tt('distribution.orderList.error', '加载失败')}
+          </Text>
+          <View
+            className="px-[40rpx] h-[72rpx] rounded-[20rpx] bg-primary flex items-center justify-center"
+            onClick={() => load(true)}
+            hoverClass="opacity-60">
+            <Text className="text-[28rpx] font-medium text-[var(--color-primary-foreground)]">
+              {tt('distribution.orderList.retry', '点击重试')}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {loading && (
+        <Text className="block text-center text-[28rpx] text-[var(--color-text-tertiary)] py-[24rpx]">
+          {t('distribution.orderList.loading')}
+        </Text>
+      )}
 
       {!loading && !hasMore && list.length > 0 && (
-        <Text className="ol-no-more">{tt('distribution.orderList.noMore', '没有更多了')}</Text>
+        <Text className="block text-center text-[28rpx] text-[var(--color-text-tertiary)] py-[24rpx]">
+          {tt('distribution.orderList.noMore', '没有更多了')}
+        </Text>
       )}
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -4,11 +4,11 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
+/* 对齐 RN SharedAppTopupScreen(packages/app/src/features/app-topup):RN raw dp × 2 = rpx */
 .rc-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 24rpx;
-  padding-bottom: 160rpx;
+  padding-bottom: 24rpx;
 }
 
 .rc-loading-mask {
@@ -40,24 +40,30 @@
   }
 }
 
+/* 头部账户卡 — 对齐 RN balanceCard(brand 底 hero 卡:margin 10/padding 16/radius 16)
+   文字用 primary-foreground 语义对(RN 源值 surface.light 恒白在暗色 brand 白底上不可读) */
 .rc-user-card {
   display: flex;
   align-items: center;
-  padding: 24rpx 32rpx;
-  background: var(--color-card);
-  border-radius: var(--radius-lg);
+  margin: 20rpx;
+  padding: 32rpx;
+  border-radius: 32rpx;
+  background: var(--color-primary);
 }
 .rc-user-avatar {
   width: 80rpx;
   height: 80rpx;
-  border-radius: var(--radius-lg);
+  border-radius: 50%;
   background: var(--color-muted);
+}
+.dark .rc-user-avatar {
+  background: var(--color-black-10);
 }
 .rc-user-avatar--placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-primary);
+  color: var(--color-primary-foreground);
   font-size: 32rpx;
   font-weight: 700;
 }
@@ -68,51 +74,57 @@
 }
 .rc-user-name {
   font-size: 30rpx;
-  color: var(--color-foreground);
+  color: var(--color-primary-foreground);
   font-weight: 600;
 }
 .rc-user-sub {
-  margin-top: 6rpx;
+  margin-top: 8rpx;
   font-size: 24rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-primary-foreground);
+  opacity: 0.7;
 }
 
+/* 区块容器 — 对齐 RN section(透明底 + paddingHorizontal 10) */
 .rc-card {
-  margin-top: 24rpx;
-  padding: 32rpx;
-  background: var(--color-card);
-  border-radius: var(--radius-lg);
-  border: 2rpx solid var(--color-border);
+  padding: 0 20rpx;
+  margin-bottom: 24rpx;
+  background: transparent;
+  border: none;
 }
 .rc-section-title {
   display: block;
-  font-size: 28rpx;
+  font-size: 36rpx;
   color: var(--color-foreground);
   font-weight: 600;
   margin-bottom: 24rpx;
 }
+/* 金额档位 — 对齐 RN amountGrid(gap 10/mb 12)+ amountCard(30% 宽/paddingY 14/radius 12) */
 .rc-presets {
   display: flex;
   flex-wrap: wrap;
   gap: 20rpx;
+  margin-bottom: 24rpx;
 }
 .rc-preset {
-  width: 200rpx;
-  padding: 24rpx 0;
+  width: calc((100% - 40rpx) / 3);
+  box-sizing: border-box;
+  padding: 28rpx 0;
   text-align: center;
-  border-radius: var(--radius-md);
+  border-radius: 24rpx;
   border: 2rpx solid var(--color-border);
-  background: var(--color-secondary);
+  background: var(--color-card);
 }
 .rc-preset--active {
   border-color: var(--color-primary);
-  background: var(--color-border);
 }
 .rc-preset-text {
   display: block;
-  font-size: 36rpx;
+  font-size: 32rpx;
   color: var(--color-foreground);
-  font-weight: 700;
+  font-weight: 600;
+}
+.rc-preset--active .rc-preset-text {
+  color: var(--color-primary);
 }
 .rc-custom {
   margin-top: 24rpx;
@@ -123,32 +135,41 @@
   color: var(--color-muted-foreground);
   margin-bottom: 12rpx;
 }
+/* 自定义金额 — 对齐 RN customInput(bg muted/height 50/radius 12/fontSize 16) */
 .rc-input {
-  height: 80rpx;
-  padding: 0 24rpx;
-  font-size: 28rpx;
+  height: 100rpx;
+  padding: 0 28rpx;
+  font-size: 32rpx;
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-secondary);
+  border-radius: 24rpx;
+  background: var(--color-muted);
   color: var(--color-foreground);
+  box-sizing: border-box;
+  width: 100%;
 }
 .rc-input--active {
   border-color: var(--color-primary);
-  background: var(--color-border);
 }
+/* 充值比例提示 — 对齐 RN rateBox(边框白卡/内距 10/radius 12/gap 4,单行化) */
 .rc-token-tip {
   display: block;
-  margin-top: 20rpx;
+  margin-top: 24rpx;
+  padding: 20rpx;
+  border: 2rpx solid var(--color-border);
+  border-radius: 24rpx;
+  background: var(--color-card);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
+  box-sizing: border-box;
 }
 
+/* 限时活动 — 复用 RN 卡片语言(白卡 + border.light 描边 + radius 12) */
 .rc-activity {
-  margin-top: 24rpx;
-  border-radius: var(--radius-lg);
+  margin: 0 20rpx 24rpx;
+  border-radius: 24rpx;
   overflow: hidden;
   background: var(--color-card);
-  border: 2rpx solid var(--color-ring);
+  border: 2rpx solid var(--color-border);
 }
 .rc-activity-bg {
   width: 100%;
@@ -156,27 +177,27 @@
   display: block;
 }
 .rc-activity-body {
-  padding: 32rpx;
+  padding: 24rpx;
 }
 .rc-activity-title {
   display: block;
-  font-size: 30rpx;
-  color: var(--color-primary);
-  font-weight: 700;
+  font-size: 32rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
   margin-bottom: 16rpx;
 }
 .rc-activity-rule {
   display: block;
   font-size: 26rpx;
-  color: var(--color-foreground);
+  color: var(--color-muted-foreground);
   line-height: 1.6;
   white-space: pre-wrap;
   margin-bottom: 16rpx;
 }
 .rc-activity-rate {
   display: block;
-  font-size: 26rpx;
-  color: var(--color-muted-foreground);
+  font-size: 24rpx;
+  color: var(--color-text-tertiary);
   margin-bottom: 16rpx;
 }
 .rc-activity-input {
@@ -187,50 +208,56 @@
   margin-top: 20rpx;
   background: var(--color-primary);
   color: var(--color-primary-foreground);
-  border-radius: var(--radius-md);
-  font-size: 30rpx;
-  font-weight: 700;
+  border-radius: 24rpx;
+  font-size: 32rpx;
+  font-weight: 600;
 }
 
+/* 支付方式 — 对齐 RN payList(gap 10)+ payItem(padding 14/radius 12/选中 brand 描边) */
 .rc-method {
   display: flex;
   align-items: center;
-  padding: 16rpx 12rpx;
-  border-radius: var(--radius-md);
-  border: 2rpx solid transparent;
+  padding: 28rpx;
+  border-radius: 24rpx;
+  border: 2rpx solid var(--color-border);
+  background: var(--color-card);
+  margin-bottom: 20rpx;
 }
 .rc-method--active {
-  background: var(--color-border);
-  border-color: var(--color-ring);
+  border-color: var(--color-primary);
 }
 .rc-method-icon {
-  width: 60rpx;
-  height: 60rpx;
-  line-height: 60rpx;
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 56rpx;
   text-align: center;
-  border-radius: var(--radius-md);
-  font-size: 28rpx;
-  background: var(--color-muted);
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  color: var(--color-surface-light);
 }
 /* custom color: 微信支付绿 #09bb07 → --color-wechat-green;支付宝品牌蓝 #1677ff → --color-alipay-blue */
 .rc-method-icon--wx {
-  color: var(--color-wechat-green);
+  background: var(--color-wechat-green);
 }
 .rc-method-icon--ali {
-  color: var(--color-alipay-blue);
+  background: var(--color-alipay-blue);
 }
 .rc-method-name {
   flex: 1;
-  margin-left: 24rpx;
-  font-size: 28rpx;
+  margin-left: 20rpx;
+  font-size: 32rpx;
   color: var(--color-foreground);
+}
+.rc-method--active .rc-method-name {
+  color: var(--color-primary);
+  font-weight: 600;
 }
 .rc-radio {
   width: 36rpx;
   height: 36rpx;
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-secondary);
+  background: var(--color-card);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -240,21 +267,22 @@
   background: var(--color-primary);
 }
 .rc-radio-mark {
-  color: var(--color-background);
+  color: var(--color-primary-foreground);
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1;
 }
 
+/* 提交按钮 — 对齐 RN submitBtn(marginHorizontal 10/height 50/radius 12/brand 底) */
 .rc-submit {
-  position: fixed;
-  bottom: 32rpx;
-  left: 32rpx;
-  right: 32rpx;
+  margin: 20rpx 20rpx 24rpx;
+  height: 100rpx;
+  line-height: 100rpx;
   background: var(--color-primary);
   color: var(--color-primary-foreground);
-  border-radius: var(--radius-md);
-  font-size: 32rpx;
-  font-weight: 700;
+  border-radius: 24rpx;
+  font-size: 36rpx;
+  font-weight: 600;
+  padding: 0;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
