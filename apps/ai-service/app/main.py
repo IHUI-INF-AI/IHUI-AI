@@ -647,6 +647,9 @@ def create_app() -> FastAPI:
     # 视频生成(可灵/即梦/通义万相/混元,2026-09-08 补建)
     from app.routers import video as video_router
     app.include_router(video_router.router, prefix="/api", tags=["video"])
+    # 图片编辑(TokenGo /v1/images/edits multipart,2026-09-08 补建)
+    from app.routers import image_edit as image_edit_router
+    app.include_router(image_edit_router.router, prefix="/api", tags=["image"])
     # Artifact 图表产物静态文件服务(签名 token 鉴权,2026-09-01 立,对标 Claude Artifacts)
     app.include_router(artifacts.router, prefix="/api", tags=["artifacts"])
     # 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
