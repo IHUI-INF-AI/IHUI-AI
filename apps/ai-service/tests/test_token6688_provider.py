@@ -1298,21 +1298,26 @@ def test_callback_endpoint_valid_signature_200(monkeypatch):
     assert r.json() == {"ok": True, "matched": 0}  # 无在途行,幂等静默
 
 
-def test_callback_endpoint_no_secret_skips_verify(monkeypatch):
-    from app.services import video_generation as vg
-
+def test_callback_endpoint_no_secret_fail_closed(monkeypatch):
+    """密钥未配置 → 503 fail-closed,不再跳过验签继续处理(2026-09-09 P0)。"""
     monkeypatch.delenv("TOKEN6688_CALLBACK_SECRET", raising=False)
-    monkeypatch.setattr(vg, "get_db_conn", AsyncMock(return_value=_fake_conn([])))
     r = _cb_client().post("/api/video/token6688-callback", json=_cb_snapshot())
-    assert r.status_code == 200
+    assert r.status_code == 503
 
 
 def test_callback_endpoint_invalid_body_ok_false(monkeypatch):
-    monkeypatch.delenv("TOKEN6688_CALLBACK_SECRET", raising=False)
+    """配 secret + 合法签名但非法 JSON 体 → 200 ok=False(幂等确认)。"""
+    import hashlib as _h
+    import hmac as _hmac
+
+    secret = "sec"
+    monkeypatch.setenv("TOKEN6688_CALLBACK_SECRET", secret)
+    raw = b"not-json"
+    sig = "sha256=" + _hmac.new(secret.encode(), raw, _h.sha256).hexdigest()
     r = _cb_client().post(
         "/api/video/token6688-callback",
-        content=b"not-json",
-        headers={"Content-Type": "application/json"},
+        content=raw,
+        headers={"X-TokenGo-Signature": sig, "Content-Type": "application/json"},
     )
     assert r.status_code == 200
     assert r.json()["ok"] is False

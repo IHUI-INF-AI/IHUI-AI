@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -1062,7 +1063,15 @@ async def test_poll_failed_finalizes(monkeypatch):
 
 
 async def test_rest_callback_success(monkeypatch):
-    """回调端点:无 secret 配置时跳过验签,返回 matched=1。"""
+    """回调端点:配 secret + 合法签名 → 处理并返回 matched=1(fail-closed 后必须有签名)。"""
+    import hashlib as _h
+    import hmac as _hmac
+
+    secret = "test-secret"
+    monkeypatch.setenv("TOKEN6688_CALLBACK_SECRET", secret)
+    payload = {"task_id": "t-v1", "state": "success", "output_url": "https://x/v.mp4"}
+    raw = json.dumps(payload).encode()
+    sig = "sha256=" + _hmac.new(secret.encode(), raw, _h.sha256).hexdigest()
     monkeypatch.setattr(
         "app.routers.media_tasks.handle_media_callback",
         AsyncMock(return_value={"ok": True, "matched": 1}),
@@ -1071,7 +1080,8 @@ async def test_rest_callback_success(monkeypatch):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         resp = await ac.post(
             "/api/media/tasks/callback",
-            json={"task_id": "t-v1", "state": "success", "output_url": "https://x/v.mp4"},
+            content=raw,
+            headers={"X-TokenGo-Signature": sig, "Content-Type": "application/json"},
         )
     assert resp.status_code == 200
     body = resp.json()
@@ -1079,14 +1089,24 @@ async def test_rest_callback_success(monkeypatch):
     assert body["matched"] == 1
 
 
-async def test_rest_callback_bad_json():
-    """回调端点:非法 JSON 体 → 200 ok=False 不抛 500。"""
+async def test_rest_callback_bad_json(monkeypatch):
+    """回调端点:配 secret + 合法签名但非法 JSON 体 → 200 ok=False 不抛 500。"""
+    import hashlib as _h
+    import hmac as _hmac
+
+    secret = "test-secret"
+    monkeypatch.setenv("TOKEN6688_CALLBACK_SECRET", secret)
+    raw = b"not-json{{"
+    sig = "sha256=" + _hmac.new(secret.encode(), raw, _h.sha256).hexdigest()
     app = _make_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         resp = await ac.post(
             "/api/media/tasks/callback",
-            content=b"not-json{{",
-            headers={"Content-Type": "application/json"},
+            content=raw,
+            headers={
+                "X-TokenGo-Signature": sig,
+                "Content-Type": "application/json",
+            },
         )
     assert resp.status_code == 200
     assert resp.json()["ok"] is False
@@ -1339,3 +1359,15 @@ async def test_rest_media_tasks_cancel_batch_empty(monkeypatch):
     assert resp.json()["ok"] is True
     assert called.get("task_ids") is None
     assert called.get("kind") is None
+
+
+async def test_rest_media_tasks_callback_fail_closed(monkeypatch):
+    """REST 回调端点:密钥未配置时 fail-closed 503,不再跳过验签继续处理(2026-09-09 P0)。"""
+    monkeypatch.delenv("TOKEN6688_CALLBACK_SECRET", raising=False)
+    app = _make_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post(
+            "/api/media/tasks/callback",
+            json={"task_id": "t1", "state": "success"},
+        )
+    assert resp.status_code == 503
