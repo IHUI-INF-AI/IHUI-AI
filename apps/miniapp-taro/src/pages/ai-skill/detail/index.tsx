@@ -227,7 +227,7 @@ export default function AiSkillDetail() {
     <ThemeRoot>
       <View style={viewStyles.container(tk, isDark)}>
         <View style={viewStyles.header()}>
-          <View onTap={goBack}>
+          <View onTap={goBack} hoverClass="opacity-60">
             <Text style={textStyles.back(tk)}>{tt('common.back', '返回')}</Text>
           </View>
           <Text style={textStyles.headerTitle(tk)}>{skillName}</Text>
@@ -239,7 +239,7 @@ export default function AiSkillDetail() {
             {error ? (
               <View style={viewStyles.errorBox()}>
                 <Text style={textStyles.errorText(tk)}>{error}</Text>
-                <View style={viewStyles.retryBtn(tk)} onTap={retry}>
+                <View style={viewStyles.retryBtn(tk)} onTap={retry} hoverClass="opacity-60">
                   <Text style={textStyles.retryText(tk)}>{tt('aiSkillDetail.retry', '重试')}</Text>
                 </View>
               </View>

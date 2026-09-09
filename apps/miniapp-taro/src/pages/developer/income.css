@@ -4,7 +4,7 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
-/* 开发者收入页(对标原项目 model_income.vue) */
+/* 对齐 RN SharedModelIncomeScreen(packages/app/src/features/model-income):RN raw dp × 2 = rpx */
 
 .income-page {
   min-height: 100vh;
@@ -12,229 +12,207 @@
   font-family: 'AlimamaFangYuanTi', sans-serif;
 }
 
-/* 顶部导航 */
+/* 顶部导航 — 对齐 RN header(row/gap 12/paddingH 10/paddingV 12) */
 .income-header {
-  position: relative;
-  padding: 24rpx 30rpx;
-  background: var(--color-card);
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 24rpx;
+  padding: 24rpx 20rpx;
 }
 .income-back {
-  position: absolute;
-  left: 20rpx;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 44rpx;
-  color: var(--color-foreground);
-  padding: 0 20rpx;
+  font-size: 32rpx;
+  color: var(--color-text-medium);
+  padding: 0 8rpx;
   line-height: 1;
 }
 .income-title {
-  font-size: 34rpx;
+  font-size: 40rpx;
   font-weight: 600;
   color: var(--color-foreground);
 }
 
-/* 收入卡片:品牌中性渐变边框(原紫/黄渐变 rgba(209,158,255) 系靛渣,已收敛为 brand 灰阶) */
+/* 收入汇总卡 — 对齐 RN summaryCard(bg surface.muted/marginH 10/padding 12/radius 12) */
 .income-card-wrap {
-  width: calc(100vw - 36rpx);
-  margin: 20rpx 18rpx;
-  border-radius: var(--radius-md);
-  padding: 1rpx;
-  box-sizing: border-box;
-  background-image: linear-gradient(
-    307deg,
-    var(--color-brand-700) -2%,
-    var(--color-brand-400) 32%,
-    var(--color-brand-500) 41%,
-    var(--color-brand-300) 88%
-  );
-  overflow: hidden;
+  margin: 0 20rpx;
+  padding: 0;
+  background: none;
 }
 .income-card {
-  width: 100%;
-  border-radius: var(--radius-md);
-  padding: 24rpx 18rpx;
-  background-color: var(--color-card);
+  border-radius: 24rpx;
+  padding: 24rpx;
+  background-color: var(--color-muted);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
 }
 
+/* 累积收入行 — 对齐 RN sumTop(row/space-between)+ withdrawBtn(brand 底胶囊) */
 .income-card-top {
   display: flex;
   align-items: center;
   width: 100%;
-  margin-bottom: 13rpx;
 }
 .income-acc-label {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
-  flex: 1;
+  font-size: 28rpx;
+  color: var(--color-text-medium);
+  margin-right: 8rpx;
 }
 .income-acc-value {
   font-size: 36rpx;
   font-weight: 700;
   color: var(--color-foreground);
+  margin-right: 8rpx;
 }
 .income-acc-unit {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
+  font-size: 28rpx;
+  color: var(--color-text-medium);
+  margin-right: auto;
 }
 .income-withdraw-btn {
-  position: absolute;
-  top: 32rpx;
-  right: 40rpx;
-  font-size: 27rpx;
-  font-weight: 500;
-  color: var(--color-muted-foreground);
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-primary-foreground);
+  background: var(--color-primary);
+  padding: 12rpx 20rpx;
+  border-radius: 24rpx;
 }
 
+/* 可提现/已提现行 — 对齐 RN sumRow(marginTop 16)+ sumSubLabel/sumSubAmount */
 .income-stats-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   width: 100%;
-  margin-top: 18rpx;
+  margin-top: 32rpx;
 }
 .income-stat-item {
-  margin-right: 18rpx;
-}
-.income-stat-item:last-child {
-  margin-right: 0;
+  flex: 1;
 }
 .income-stat-label {
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--color-muted-foreground);
 }
 .income-stat-value {
+  display: block;
+  margin-top: 16rpx;
   font-size: 36rpx;
   font-weight: 700;
   color: var(--color-foreground);
 }
 
-/* 底部今日/待结算栏(对标原项目 card_bottom 浅灰背景) */
+/* 底部今日/待结算栏 — 对齐 RN sumFooter(marginTop 14/padding 10/radius 12/bg muted) */
 .income-card-bottom {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   width: 100%;
-  margin-top: 22rpx;
-  border-radius: var(--radius-sm);
+  margin-top: 28rpx;
+  border-radius: 24rpx;
   background: var(--color-muted);
-  height: 100rpx;
-  padding: 8rpx 21rpx;
+  padding: 20rpx;
   box-sizing: border-box;
 }
-.income-card-bottom .income-stat-item {
-  margin-right: 36rpx;
+.income-card-bottom .income-stat-label {
+  font-size: 22rpx;
+}
+.income-card-bottom .income-stat-value {
+  font-size: 32rpx;
+  font-weight: 600;
 }
 
-/* 平台不收费提示行 */
+/* 平台不收费提示行 — 对齐 RN tip(marginH 10/marginTop 10/fontSize 11/tertiary) */
 .income-fee-tip {
-  margin: 10rpx 0 10rpx 60rpx;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  box-sizing: border-box;
-  font-size: 20rpx;
-  color: var(--color-muted-foreground);
-}
-.income-fee-icon {
-  width: 35rpx;
-  height: 31rpx;
-  margin-right: 6rpx;
-  background: var(--color-primary);
-  border-radius: var(--radius-sm);
-  color: var(--color-primary-foreground);
-  font-size: 20rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  margin: 20rpx 20rpx 0;
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-text-tertiary);
 }
 
-/* 结算状态 tab(对标原项目 models_bar) */
+/* 结算状态 tab — 对齐 RN tabRow(marginH 10/mt 12/padding 4/radius 12/bg card)+ tabItem(flex 1/h 32) */
 .income-tabs {
-  width: calc(100% - 40rpx);
-  margin: 0 20rpx;
+  margin: 24rpx 20rpx 0;
   padding: 8rpx;
   box-sizing: border-box;
-  background: var(--color-muted);
-  border-radius: var(--radius-lg);
+  background: var(--color-card);
+  border-radius: 24rpx;
   display: flex;
   align-items: center;
-  justify-content: space-around;
 }
 .income-tab {
   box-sizing: border-box;
-  width: 150rpx;
-  height: 56rpx;
-  border-radius: var(--radius-lg);
+  flex: 1;
+  height: 64rpx;
+  border-radius: 24rpx;
   color: var(--color-muted-foreground);
-  font-size: 30rpx;
+  font-size: 28rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .income-tab.active {
-  background-color: var(--color-card);
-  color: var(--color-muted-foreground);
-  font-weight: 700;
+  background-color: var(--color-surface-light);
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+.dark .income-tab.active {
+  color: var(--color-background);
 }
 
-/* 收入明细列表 */
+/* 收入明细列表 — 对齐 RN card(padding 12/radius 12/border.light/白卡) */
 .income-list {
-  padding: 0 18rpx 40rpx;
+  padding: 24rpx 20rpx 40rpx;
 }
 .income-list-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: var(--color-card);
-  border-radius: var(--radius-md);
+  border: 2rpx solid var(--color-border);
+  border-radius: 24rpx;
   padding: 24rpx;
-  margin-bottom: 16rpx;
+  margin-bottom: 20rpx;
 }
 .income-item-title {
   display: block;
-  font-size: 28rpx;
+  font-size: 32rpx;
   color: var(--color-foreground);
-  margin-bottom: 8rpx;
-}
-.income-item-time {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
-}
-.income-item-amount {
-  font-size: 30rpx;
-  color: var(--color-success);
   font-weight: 600;
   margin-bottom: 8rpx;
 }
+.income-item-time {
+  font-size: 22rpx;
+  color: var(--color-text-tertiary);
+}
+.income-item-amount {
+  font-size: 32rpx;
+  color: var(--color-success);
+  font-weight: 700;
+  margin-bottom: 8rpx;
+}
+/* 状态徽章 — 对齐 RN cardStatus(纯彩色文字,无底色):settled=success/pending=warning */
 .income-item-badge {
   font-size: 22rpx;
-  padding: 4rpx 14rpx;
-  border-radius: var(--radius-sm);
+  font-weight: 600;
+  padding: 0;
+  border-radius: 0;
 }
 .income-item-badge.settled {
-  background: var(--color-success-tag-bg);
+  background: transparent;
   color: var(--color-success);
 }
 .income-item-badge.pending {
-  background: var(--color-warm-bg);
+  background: transparent;
   color: var(--color-warning);
 }
 
 .income-empty {
   display: block;
   text-align: center;
-  padding: 80rpx 0;
-  font-size: 26rpx;
+  padding: 96rpx 0;
+  font-size: 28rpx;
   color: var(--color-muted-foreground);
 }
 
-/* 提现明细列表 */
+/* 提现明细列表 — 复用 RN card 语言 */
 .cash-list {
   padding: 20rpx;
 }
@@ -243,39 +221,43 @@
   align-items: center;
   justify-content: space-between;
   background: var(--color-card);
-  border-radius: var(--radius-md);
+  border: 2rpx solid var(--color-border);
+  border-radius: 24rpx;
   padding: 24rpx;
-  margin-bottom: 16rpx;
+  margin-bottom: 20rpx;
 }
 
-/* 提现弹窗(对标原项目 popup_body) */
+/* 提现弹窗 — 对齐 RN modalMask(justify flex-end)+ modalBody(底部弹层/radius 16/padding 20) */
 .income-popup-mask {
   position: fixed;
   left: 0;
   top: 0;
   right: 0;
   bottom: 0;
-  background: var(--color-black-50);
+  background: var(--color-black-40);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: flex-end;
   z-index: 1000;
 }
+.dark .income-popup-mask {
+  background: var(--color-black-60);
+}
 .income-popup {
-  width: 600rpx;
+  width: 100%;
   background: var(--color-card);
-  border-radius: var(--radius-xl);
-  padding: 32rpx 40rpx;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 40rpx;
   display: flex;
   flex-direction: column;
 }
 .income-popup-title {
-  font-size: 30rpx;
+  font-size: 36rpx;
   font-weight: 600;
   color: var(--color-foreground);
 }
 .income-popup-sub {
-  font-size: 22rpx;
-  color: var(--color-muted-foreground);
+  font-size: 28rpx;
+  color: var(--color-text-tertiary);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

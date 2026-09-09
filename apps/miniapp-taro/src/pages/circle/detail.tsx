@@ -241,7 +241,7 @@ export default function CircleDetailPage() {
               ) : null}
 
               {data.aigcWork ? (
-                <View className="cd-aigc-card" onClick={goAigcDetail}>
+                <View className="cd-aigc-card" onClick={goAigcDetail} hoverClass="opacity-60">
                   {data.aigcWork.coverUrl ? (
                     <Image
                       className="cd-aigc-cover"
@@ -258,7 +258,7 @@ export default function CircleDetailPage() {
               ) : null}
 
               {data.topic ? (
-                <View className="cd-topic" onClick={() => goTopic(data.topic!.id)}>
+                <View className="cd-topic" onClick={() => goTopic(data.topic!.id)} hoverClass="opacity-60">
                   <Text className="cd-topic-text">#{data.topic.name}</Text>
                 </View>
               ) : null}
@@ -266,7 +266,7 @@ export default function CircleDetailPage() {
           ) : null}
 
           <View className="cd-actions">
-            <View className={`cd-action${liked ? ' active' : ''}`} onClick={onLike}>
+            <View className={`cd-action${liked ? ' active' : ''}`} onClick={onLike} hoverClass="opacity-60">
               <LineIcon
                 name="heart"
                 size={36}
@@ -284,16 +284,16 @@ export default function CircleDetailPage() {
               />
               <Text className="cd-action-num">{data.comments || 0}</Text>
             </View>
-            <View className={`cd-action${favorited ? ' active' : ''}`} onClick={onFavorite}>
+            <View className={`cd-action${favorited ? ' active' : ''}`} onClick={onFavorite} hoverClass="opacity-60">
               <LineIcon
                 name="star"
                 size={36}
                 className="cd-action-icon"
-                color={favorited ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
+                color={favorited ? 'var(--color-brand)' : 'var(--color-text-medium)'}
               />
               <Text className="cd-action-num">{data.favorites || 0}</Text>
             </View>
-            <View className="cd-action" onClick={onShare}>
+            <View className="cd-action" onClick={onShare} hoverClass="opacity-60">
               <LineIcon
                 name="share-2"
                 size={36}

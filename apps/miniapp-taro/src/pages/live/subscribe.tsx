@@ -13,9 +13,9 @@ import ThemeRoot from '@/components/ThemeRoot'
 const REMINDER_KEY = 'live_reminder_enabled'
 
 const STATUS_BADGE: Record<Live['status'], string> = {
-  upcoming: 'bg-warning/[0.12] text-warning',
-  living: 'bg-destructive/[0.12] text-destructive',
-  ended: 'bg-muted text-muted-foreground',
+  upcoming: 'bg-[var(--color-warning-tint)] text-[var(--color-warning)]',
+  living: 'bg-[var(--color-danger-tint)] text-[var(--color-danger)]',
+  ended: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
 }
 
 const STATUS_LABEL: Record<Live['status'], { key: string; fb: string }> = {
@@ -88,14 +88,16 @@ export default function LiveSubscribe() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
+      {/* 对齐 RN shared SubscriptionsScreen container(tk.surface.bg)+ listBody(padding 10 → 20rpx,paddingBottom 32 → 64rpx) */}
+      <View className="min-h-screen bg-[var(--color-background)] px-[20rpx] pt-[20rpx] pb-[64rpx] box-border">
         <View className="flex items-baseline text-[28rpx] text-foreground">
           <Text>{tt('live.subscribe.count', '已订阅')}</Text>
           <Text className="font-bold text-[40rpx] text-primary mx-[8rpx]">{list.length}</Text>
           <Text>{tt('live.subscribe.unit', '场')}</Text>
         </View>
 
-        <View className="mt-[20rpx] flex items-center justify-between p-[24rpx] bg-card border border-border rounded-[12rpx]">
+        {/* 开播前提醒卡片:对齐 RN card(p 12 → 24rpx,radius 12 → 24rpx,1px border.light → 2rpx var(--color-border)) */}
+        <View className="mt-[20rpx] flex items-center justify-between p-[24rpx] border-[2rpx] border-[var(--color-border)] rounded-[24rpx]">
           <View>
             <Text className="text-[28rpx] text-foreground">
               {tt('live.subscribe.reminder', '开播前提醒')}
@@ -108,37 +110,49 @@ export default function LiveSubscribe() {
         </View>
 
         {list.length > 0 ? (
-          <View className="mt-[24rpx] flex flex-col gap-[16rpx]">
+          /* 对齐 RN FlatList separator(height 12 → 24rpx) */
+          <View className="mt-[24rpx] flex flex-col gap-[24rpx]">
             {list.map((l) => (
+              /* 对齐 RN card:row + items-center,无卡片底色 */
               <View
                 key={l.id}
-                className="flex items-stretch p-[20rpx] bg-card border border-border rounded-[12rpx]"
+                className="flex items-center p-[24rpx] border-[2rpx] border-[var(--color-border)] rounded-[24rpx]"
               >
+                {/* 对齐 RN thumb(40dp → 80rpx,radius 24rpx,bg muted) */}
                 <Image
-                  className="w-[160rpx] h-[120rpx] shrink-0 bg-muted rounded-[8rpx]"
+                  className="w-[80rpx] h-[80rpx] shrink-0 bg-muted rounded-[24rpx]"
                   src={l.coverUrl}
                   mode="aspectFill"
                   onClick={() => goDetail(l.id)}
                 />
                 <View
-                  className="flex-1 min-w-0 ml-[20rpx] flex flex-col justify-between"
+                  className="flex-1 min-w-0 ml-[24rpx] flex flex-col"
                   onClick={() => goDetail(l.id)}
-                >
-                  <Text className="text-[28rpx] font-semibold text-foreground">{l.title}</Text>
+                  hoverClass="opacity-60">
+                  {/* 对齐 RN targetId(16dp → 32rpx semibold,单行截断) */}
+                  <Text className="overflow-hidden whitespace-nowrap text-ellipsis text-[32rpx] font-semibold text-foreground">
+                    {l.title}
+                  </Text>
+                  {/* 对齐 RN createdAt(14dp → 28rpx,text.secondary) */}
                   {l.anchor && (
-                    <Text className="text-[24rpx] text-muted-foreground">{l.anchor}</Text>
+                    <Text className="text-[28rpx] text-muted-foreground mt-[16rpx]">
+                      {l.anchor}
+                    </Text>
                   )}
                   {l.startTime && (
-                    <Text className="text-[24rpx] text-muted-foreground">{l.startTime}</Text>
+                    <Text className="text-[28rpx] text-muted-foreground mt-[16rpx]">
+                      {l.startTime}
+                    </Text>
                   )}
-                  <View className="flex items-center justify-between">
+                  <View className="flex items-center justify-between mt-[16rpx]">
                     <Text
-                      className={`px-[12rpx] py-[4rpx] rounded-[6rpx] text-[22rpx] ${STATUS_BADGE[l.status]}`}
+                      className={`px-[16rpx] py-[4rpx] rounded-[12rpx] text-[22rpx] ${STATUS_BADGE[l.status]}`}
                     >
                       {statusText(l.status)}
                     </Text>
+                    {/* 对齐 RN cancelBtn(px 12 → 24rpx,py 6 → 12rpx,radius 24rpx,border + 中性文字) */}
                     <Text
-                      className="px-[20rpx] py-[8rpx] text-[24rpx] text-destructive bg-destructive/[0.08] border-[2rpx] border-destructive/25 rounded-[8rpx]"
+                      className="px-[24rpx] py-[12rpx] text-[28rpx] font-semibold text-[var(--color-text-medium)] border-[2rpx] border-[var(--color-border)] rounded-[24rpx]"
                       onClick={(e) => {
                         e.stopPropagation()
                         onUnsubscribe(l.id)
@@ -152,12 +166,13 @@ export default function LiveSubscribe() {
             ))}
           </View>
         ) : (
-          <View className="flex flex-col items-center py-[120rpx]">
+          /* 对齐 RN center(paddingVertical 48 → 96rpx)+ muted(14 → 28rpx) */
+          <View className="flex flex-col items-center py-[96rpx]">
             <Text className="text-[28rpx] text-muted-foreground">
               {tt('live.subscribe.empty', '暂无订阅')}
             </Text>
             <Text
-              className="mt-[24rpx] px-[48rpx] py-[16rpx] text-[28rpx] text-primary bg-primary/10 border border-primary rounded-[8rpx]"
+              className="mt-[24rpx] text-[28rpx] font-semibold text-[var(--color-brand-orange)]"
               onClick={goDiscover}
             >
               {tt('live.subscribe.discover', '去发现直播')}
@@ -166,7 +181,7 @@ export default function LiveSubscribe() {
         )}
 
         {loading && (
-          <View className="text-center text-[26rpx] text-muted-foreground py-[60rpx]">
+          <View className="text-center text-[28rpx] text-muted-foreground py-[32rpx]">
             <Text>{tt('common.loading', '加载中…')}</Text>
           </View>
         )}

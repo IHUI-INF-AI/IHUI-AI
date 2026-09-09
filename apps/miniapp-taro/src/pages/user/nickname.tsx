@@ -116,10 +116,11 @@ export default function Nickname() {
             type="text"
             maxlength={MAX_LENGTH}
             placeholder={t('user.nickname.nicknamePlaceholder')}
+            placeholderClass="nick-placeholder"
             value={nickname}
             onInput={onInput}
           />
-          <View className="nick-random" onClick={fillRandom}>
+          <View className="nick-random" hoverClass="opacity-60" onClick={fillRandom}>
             <Text className="nick-random-text">
               {tt('user.nickname.randomNickname', '🎲 随机推荐昵称')}
             </Text>

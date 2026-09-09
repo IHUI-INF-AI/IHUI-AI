@@ -270,15 +270,8 @@ const TIERS: Tier[] = [
   },
 ]
 
-// 等级渐变背景 8 段色已收敛至 token(normal/silver 用品牌灰、gold 用品牌金、diamond 用信息蓝)
-const TIER_HEAD_CLASS: Record<string, string> = {
-  normal:
-    'bg-[linear-gradient(135deg,var(--color-brand-500),var(--color-brand-400))] text-primary-foreground',
-  silver:
-    'bg-[linear-gradient(135deg,var(--color-brand-300),var(--color-brand-200))] text-foreground',
-  gold: 'bg-[linear-gradient(135deg,var(--color-gold),var(--color-vip-gold-start))] text-foreground',
-  diamond: 'bg-[linear-gradient(135deg,var(--color-info),var(--color-info))] text-foreground',
-}
+// 等级头部底色对齐 RN 共享屏视觉语言(无彩色渐变,统一 surface.muted 底 + 前景文字)
+const TIER_HEAD_CLASS = 'bg-muted text-foreground'
 
 export default function BenefitsPage() {
   const { t } = useI18n()
@@ -313,30 +306,30 @@ export default function BenefitsPage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background p-[24rpx] pb-[48rpx]">
-        <View className="text-[30rpx] font-semibold text-foreground mt-[8rpx] mx-[8rpx] mb-[16rpx]">
+      <View className="min-h-screen bg-background p-[28rpx] pb-[64rpx]">
+        <View className="text-[32rpx] font-bold text-foreground mt-[8rpx] mb-[24rpx]">
           {tt('member.benefits.myBenefits', '我的专属权益')}
         </View>
         {loading ? (
-          <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-[28rpx]">
             <Text>{t('common.loading')}</Text>
           </View>
         ) : error ? (
-          <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-[28rpx]">
             <Text>{tt('member.benefits.loadFailed', '加载失败')}</Text>
             <Text
-              className="mt-[16rpx] px-[32rpx] py-[8rpx] text-[24rpx] text-primary"
+              className="mt-[16rpx] px-[32rpx] py-[8rpx] text-[28rpx] text-primary"
               onClick={load}
             >
               {t('common.retry')}
             </Text>
           </View>
         ) : list.length ? (
-          <View className="flex flex-wrap gap-[16rpx]">
+          <View className="flex flex-col gap-[24rpx]">
             {list.map((b) => (
               <View
                 key={b.id}
-                className="w-[calc(50%-8rpx)] bg-card rounded-[16rpx] py-[24rpx] px-[16rpx] text-center"
+                className="bg-card border border-[var(--color-border)] rounded-[24rpx] p-[28rpx]"
               >
                 {b.icon ? (
                   <Text className="block text-[48rpx]">{b.icon}</Text>
@@ -352,37 +345,40 @@ export default function BenefitsPage() {
                 {b.icon && isImagePath(b.icon) ? (
                   <Image src={b.icon} className="w-12 h-12 mx-auto mt-[8rpx]" mode="aspectFit" />
                 ) : null}
-                <Text className="block mt-[12rpx] text-[28rpx] font-semibold text-foreground">
+                <Text className="block mt-[12rpx] text-[32rpx] font-bold text-foreground">
                   {b.title}
                 </Text>
-                <Text className="block mt-[8rpx] text-[22rpx] text-muted-foreground">{b.desc}</Text>
+                <Text className="block mt-[16rpx] text-[28rpx] text-muted-foreground leading-[36rpx]">
+                  {b.desc}
+                </Text>
               </View>
             ))}
           </View>
         ) : (
-          <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-[28rpx]">
             <Text>{tt('member.benefits.empty', '暂无权益')}</Text>
           </View>
         )}
 
-        <View className="text-[30rpx] font-semibold text-foreground mt-[24rpx] mx-[8rpx] mb-[16rpx]">
+        <View className="text-[32rpx] font-bold text-foreground mt-[32rpx] mb-[24rpx]">
           {tt('member.benefits.tierCatalog', '等级权益')}
         </View>
         {TIERS.map((tier) => (
-          <View key={tier.key} className="bg-card rounded-[16rpx] overflow-hidden mb-[24rpx]">
-            <View
-              className={`flex items-center px-[32rpx] py-[24rpx] ${TIER_HEAD_CLASS[tier.key]}`}
-            >
+          <View
+            key={tier.key}
+            className="bg-card border border-[var(--color-border)] rounded-[24rpx] overflow-hidden mb-[24rpx]"
+          >
+            <View className={`flex items-center px-[28rpx] py-[24rpx] ${TIER_HEAD_CLASS}`}>
               {isImagePath(tier.icon) ? (
                 <Image src={tier.icon} className="w-6 h-6 mr-[16rpx]" mode="aspectFit" />
               ) : (
                 <Text className="text-[40rpx] mr-[16rpx]">{tier.icon}</Text>
               )}
-              <Text className="text-[30rpx] font-bold">{tt(tier.nk, tier.nf)}</Text>
+              <Text className="text-[32rpx] font-bold">{tt(tier.nk, tier.nf)}</Text>
             </View>
             <View className="py-[8rpx]">
               {tier.benefits.map((b, i) => (
-                <View key={i} className="flex items-center px-[32rpx] py-[20rpx]">
+                <View key={i} className="flex items-center px-[28rpx] py-[20rpx]">
                   {isImagePath(b.icon) ? (
                     <Image src={b.icon} className="w-5 h-5 flex-shrink-0" mode="aspectFit" />
                   ) : (
@@ -391,7 +387,7 @@ export default function BenefitsPage() {
                     </Text>
                   )}
                   <View className="flex-1 ml-[16rpx]">
-                    <Text className="block text-[28rpx] text-foreground font-medium">
+                    <Text className="block text-[28rpx] text-[var(--color-text-medium)] font-medium">
                       {tt(b.tk, b.tf)}
                     </Text>
                     <Text className="block mt-[6rpx] text-[22rpx] text-muted-foreground">

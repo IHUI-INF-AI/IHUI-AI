@@ -112,7 +112,7 @@ export default function AboutIndexPage() {
         {/* 顶部导航(对齐 RN AboutScreen header:ChevronLeft 40rpx/foreground + 标题 40rpx/700,gap 8 padding 20/24) */}
         <View className="flex items-center gap-[8rpx] px-[20rpx] py-[24rpx]">
           {/* hitSlop 8dp → p 16rpx + 负 margin 抵消,扩大点击区不改视觉间距 */}
-          <View className="p-[16rpx] -m-[16rpx]" onClick={goBack}>
+          <View className="p-[16rpx] -m-[16rpx]" onClick={goBack} hoverClass="opacity-60">
             <LineIcon name="chevron-left" size={40} color="var(--color-foreground)" />
           </View>
           <Text className="text-[40rpx] font-bold text-foreground">关于我们</Text>
@@ -145,9 +145,9 @@ export default function AboutIndexPage() {
           {menus.map((m, idx) => (
             <View
               key={m.key}
-              className={`flex items-center justify-between py-[28rpx] px-[24rpx] active:bg-muted${idx > 0 ? ' border-t border-border' : ''}`}
+              className={`flex items-center justify-between py-[28rpx] px-[24rpx]${idx > 0 ? ' border-t border-border' : ''}`}
               onClick={() => navigate(m.url)}
-            >
+              hoverClass="opacity-60">
               <Text className="text-[30rpx] text-foreground flex-1">{m.label}</Text>
               {/* 对齐 RN ChevronRight:rpx(24)/text.tertiary/strokeWidth 2 */}
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />

@@ -366,7 +366,7 @@ export function SettingsScreen({
   return (
     <View style={viewStyles.container(tk)}>
       <View style={viewStyles.header()}>
-        <View style={viewStyles.backBtn()} onTap={onBack}>
+        <View style={viewStyles.backBtn()} onTap={onBack} hoverClass="opacity-60">
           <Text style={textStyles.back(tk)}>{tr('common.back', '返回')}</Text>
         </View>
         <Text style={textStyles.title(tk)}>{tr('settings.title', '设置')}</Text>
@@ -374,7 +374,7 @@ export function SettingsScreen({
 
       <View style={viewStyles.body()}>
         {user && onEditProfile ? (
-          <View style={viewStyles.userCard(tk)} onTap={onEditProfile}>
+          <View style={viewStyles.userCard(tk)} onTap={onEditProfile} hoverClass="opacity-60">
             <View style={viewStyles.avatar(tk)}>
               <Text style={textStyles.avatarText(tk)}>
                 {user.nickname?.charAt(0).toUpperCase() || 'U'}
@@ -428,19 +428,19 @@ export function SettingsScreen({
         </Section>
 
         <Section title={tr('settings.account', '账户')} tk={tk}>
-          <View style={viewStyles.plainRow()} onTap={openPwdModal}>
+          <View style={viewStyles.plainRow()} onTap={openPwdModal} hoverClass="opacity-60">
             <Text style={textStyles.rowLabel(tk)}>{tr('settings.changePassword', '修改密码')}</Text>
             <Text style={textStyles.arrow(tk)}>{'›'}</Text>
           </View>
           {menuItems.map((item) => (
-            <View key={item.key} style={viewStyles.plainRow()} onTap={() => onMenuPress(item.key)}>
+            <View key={item.key} style={viewStyles.plainRow()} onTap={() => onMenuPress(item.key)} hoverClass="opacity-60">
               <Text style={textStyles.rowLabel(tk)}>{item.label}</Text>
               <Text style={textStyles.arrow(tk)}>{'›'}</Text>
             </View>
           ))}
         </Section>
 
-        <View style={viewStyles.logoutBtn(tk)} onTap={onLogoutPress}>
+        <View style={viewStyles.logoutBtn(tk)} onTap={onLogoutPress} hoverClass="opacity-60">
           <Text style={textStyles.logoutText(tk)}>{tr('profile.logout', '退出登录')}</Text>
         </View>
 
@@ -454,9 +454,8 @@ export function SettingsScreen({
       {pwdModalVisible ? (
         <View
           style={viewStyles.modalOverlay(tk)}
-          onTap={() => !changingPwd && setPwdModalVisible(false)}
-        >
-          <View style={viewStyles.modalCard(tk)} onTap={handleModalCardTap}>
+          onTap={() => !changingPwd && setPwdModalVisible(false)}>
+          <View style={viewStyles.modalCard(tk)} onTap={handleModalCardTap} hoverClass="opacity-60">
             <Text style={textStyles.modalTitle(tk)}>
               {tr('settings.changePassword', '修改密码')}
             </Text>
@@ -486,7 +485,7 @@ export function SettingsScreen({
                   opacity: changingPwd ? 0.5 : 1,
                 }}
                 onTap={() => !changingPwd && setPwdModalVisible(false)}
-              >
+                hoverClass="opacity-60">
                 <Text style={textStyles.modalBtnSecondaryText(tk)}>
                   {tr('common.cancel', '取消')}
                 </Text>
@@ -498,7 +497,7 @@ export function SettingsScreen({
                   opacity: changingPwd ? 0.5 : 1,
                 }}
                 onTap={changingPwd ? undefined : submitChangePassword}
-              >
+                hoverClass="opacity-60">
                 <Text style={textStyles.modalBtnPrimaryText(tk)}>
                   {changingPwd ? tr('common.loading', '加载中...') : tr('common.confirm', '确认')}
                 </Text>
@@ -542,7 +541,7 @@ function SelectRow({
   tk: RnThemeTokens
 }) {
   return (
-    <View style={viewStyles.plainRow()} onTap={onPress}>
+    <View style={viewStyles.plainRow()} onTap={onPress} hoverClass="opacity-60">
       <Text style={textStyles.rowLabel(tk)}>{label}</Text>
       {selected ? <Text style={textStyles.checkMark(tk)}>{'✓'}</Text> : null}
     </View>

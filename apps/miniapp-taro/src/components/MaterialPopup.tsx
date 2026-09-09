@@ -78,8 +78,10 @@ export default function MaterialPopup({
         <Text className="text-base font-semibold text-foreground dark:text-muted-foreground">
           {t('ai.materialPopup.title')}
         </Text>
+        {/* weapp 端不支持 CSS :active,active:bg-primary 为死样式,改用 hoverClass 提供按压反馈 */}
         <View
-          className="px-3 py-1 text-xs rounded-md bg-primary text-white active:bg-primary"
+          className="px-3 py-1 text-xs rounded-md bg-primary text-primary-foreground"
+          hoverClass="opacity-60"
           onClick={handleUploadClick}
         >
           <Text>＋ {t('ai.materialPopup.upload')}</Text>
@@ -90,7 +92,8 @@ export default function MaterialPopup({
         {TABS.map((tabItem) => (
           <View
             key={tabItem.key}
-            className={`inline-flex items-center px-3 py-1 mr-2 text-xs rounded-md ${tab === tabItem.key ? 'bg-primary text-white' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
+            className={`inline-flex items-center px-3 py-1 mr-2 text-xs rounded-md ${tab === tabItem.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
+            hoverClass="opacity-60"
             onClick={() => onTabChange?.(tabItem.key)}
           >
             <Image className="w-3 h-3 mr-1" src={tabItem.icon} mode="aspectFit" />
@@ -117,7 +120,9 @@ export default function MaterialPopup({
                 {items.map((item) => (
                   <View
                     key={item.id}
-                    className={`relative aspect-square rounded-lg overflow-hidden bg-muted active:opacity-80 ${selectedId === item.id ? 'ring-2 ring-primary' : ''}`}
+                    /* weapp 端不支持 CSS :active,active:opacity-80 为死样式,精确翻译为 hoverClass */
+                    className={`relative aspect-square rounded-lg overflow-hidden bg-muted ${selectedId === item.id ? 'ring-2 ring-primary' : ''}`}
+                    hoverClass="opacity-80"
                     onClick={() => onSelect?.(item)}
                   >
                     {item.thumbnail ? (
@@ -127,8 +132,8 @@ export default function MaterialPopup({
                         <Image className="w-8 h-8" src={icon('addPicter')} mode="aspectFit" />
                       </View>
                     )}
-                    <View className="absolute bottom-0 left-0 right-0 px-1 py-1 bg-black/40">
-                      <Text className="block text-xs text-white truncate">{item.title}</Text>
+                    <View className="absolute bottom-0 left-0 right-0 px-1 py-1 bg-[var(--color-black-40)]">
+                      <Text className="block text-xs text-[var(--color-white-98)] truncate">{item.title}</Text>
                     </View>
                   </View>
                 ))}
@@ -138,9 +143,9 @@ export default function MaterialPopup({
                 {items.map((item) => (
                   <View
                     key={item.id}
-                    className={`flex p-3 mb-2 rounded-xl active:bg-muted ${selectedId === item.id ? 'bg-primary/10 border border-primary' : 'bg-muted'}`}
+                    className={`flex p-3 mb-2 rounded-xl ${selectedId === item.id ? 'bg-primary/10 border border-primary' : 'bg-muted'}`}
                     onClick={() => onSelect?.(item)}
-                  >
+                    hoverClass="opacity-60">
                     <View className="w-12 h-12 mr-3 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                       {item.thumbnail ? null : (
                         <Image

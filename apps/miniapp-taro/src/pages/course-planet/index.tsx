@@ -279,6 +279,7 @@ export default function CoursePlanet() {
               <View
                 key={item.id}
                 className="flex bg-card rounded-[24rpx] border border-border overflow-hidden mb-[24rpx]"
+                hoverClass="opacity-60"
                 onClick={() => onItemClick(item.id)}
               >
                 {/* 对齐 RN list 变体 thumbWrap:100×80dp→200×160rpx,bg surface.muted,直角(随卡片圆角裁切) */}
