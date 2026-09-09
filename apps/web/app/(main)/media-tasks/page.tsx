@@ -481,7 +481,7 @@ export default function MediaTasksPage() {
                           </Button>
                         </>
                       )}
-                      {task.status === 'processing' && task.task_id && (
+                      {isInFlight(task.status) && task.task_id && (
                         <Button
                           variant="outline"
                           size="sm"
