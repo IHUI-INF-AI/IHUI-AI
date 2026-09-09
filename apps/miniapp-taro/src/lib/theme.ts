@@ -57,7 +57,7 @@ const THEME_CHROME: Record<
     navFront: '#000000',
     windowBg: '#f5f5f5',
     tabColor: '#A3A3A3',
-    tabSelected: '#000000',
+    tabSelected: '#ff6b35',
     tabBg: '#ffffff',
     tabBorder: 'white',
   },
@@ -66,7 +66,7 @@ const THEME_CHROME: Record<
     navFront: '#ffffff',
     windowBg: '#262626',
     tabColor: '#a3a3a3',
-    tabSelected: '#ffffff',
+    tabSelected: '#ff8e53',
     tabBg: '#1a1a1a',
     tabBorder: 'black',
   },
@@ -79,9 +79,9 @@ export function getThemePreference(): ThemePreference {
     const saved = Taro.getStorageSync(THEME_STORAGE_KEY)
     return THEME_PREFERENCES.includes(saved as ThemePreference)
       ? (saved as ThemePreference)
-      : 'auto'
+      : 'light'
   } catch {
-    return 'auto'
+    return 'light'
   }
 }
 

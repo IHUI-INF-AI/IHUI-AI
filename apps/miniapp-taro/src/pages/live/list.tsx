@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, useI18n } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro, {
   usePullDownRefresh,
   useReachBottom,
@@ -105,8 +105,10 @@ export default function LiveList() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen p-3">
-        <View className="flex mb-3 gap-2">
+      {/* 对齐 RN LiveScreen container(tk.surface.bg → var(--color-background))
+          + listBody(paddingHorizontal 10 → 20rpx, paddingVertical 16 → 32rpx) */}
+      <View className="min-h-screen bg-[var(--color-background)] px-[20rpx] pt-[32rpx] pb-[32rpx]">
+        <View className="flex mb-[24rpx] gap-[16rpx]">
           <View
             className="flex-1 bg-primary rounded-xl py-2.5 flex items-center justify-center"
             onClick={() => Taro.navigateTo({ url: '/pages/live/host/index' })}
@@ -130,7 +132,7 @@ export default function LiveList() {
             </Text>
           </View>
         </View>
-        <View className="flex mb-3 bg-card rounded-xl">
+        <View className="flex mb-[24rpx] bg-card rounded-xl">
           {tabs.map((tab) => (
             <View
               key={tab.key}
@@ -147,34 +149,45 @@ export default function LiveList() {
             {list.map((item) => (
               <View
                 key={item.id}
-                className="bg-card rounded-2xl overflow-hidden mb-3"
+                className="rounded-[12rpx] border border-[var(--color-border)] p-[28rpx] mb-[24rpx]"
                 onClick={() => goDetail(item.id)}
               >
-                <View className="relative w-full h-[320rpx]">
-                  <Image className="w-full h-full" src={item.coverUrl} mode="aspectFill" />
-
+                {/* 对齐 RN titleRow:标题(flex1, numberOfLines 1)+ 状态徽章 */}
+                <View className="flex items-center justify-between gap-[16rpx]">
+                  <Text className="flex-1 text-ellipsis text-[32rpx] font-semibold text-foreground">
+                    {item.title}
+                  </Text>
                   <View
-                    className={`absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-xs ${
+                    className={`px-[20rpx] py-[8rpx] rounded-[24rpx] ${
                       item.status === 'living'
-                        ? 'bg-destructive text-white'
+                        ? 'bg-[var(--color-danger)]'
                         : item.status === 'upcoming'
-                          ? 'bg-[var(--color-gold)] text-white'
-                          : 'bg-black/50 text-white'
+                          ? 'bg-[var(--color-warning-amber)]'
+                          : 'bg-[var(--color-text-tertiary)]'
                     }`}
                   >
-                    <Text>{statusText(item.status)}</Text>
+                    <Text className="text-[24rpx] text-[var(--color-primary-foreground)]">
+                      {statusText(item.status)}
+                    </Text>
                   </View>
                 </View>
-                <View className="p-2.5">
-                  <Text className="text-base text-foreground font-semibold">{item.title}</Text>
-                  <View className="flex justify-between mt-1.5">
-                    {item.anchor && <Text className="text-xs text-primary">{item.anchor}</Text>}
-                    {item.startTime && (
-                      <Text className="text-xs text-muted-foreground">{item.startTime}</Text>
-                    )}
-                  </View>
+                {/* 对齐 RN lecturer 行(marginTop 6 → 12rpx, 14px → 28rpx, text.medium) */}
+                {item.anchor ? (
+                  <Text className="block mt-[12rpx] text-[28rpx] text-[var(--color-text-medium)]">
+                    {item.anchor}
+                  </Text>
+                ) : null}
+                {/* 对齐 RN metaRow:开始时间 + 观看人数两端对齐(marginTop 8 → 16rpx, 12px → 24rpx, text.tertiary) */}
+                <View className="flex items-center justify-between mt-[16rpx]">
+                  {item.startTime ? (
+                    <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
+                      {item.startTime}
+                    </Text>
+                  ) : (
+                    <Text />
+                  )}
                   {item.watchCount !== undefined && (
-                    <Text className="block mt-1 text-xs text-muted-foreground">
+                    <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
                       {t('live.viewers', { n: item.watchCount })}
                     </Text>
                   )}
@@ -185,14 +198,14 @@ export default function LiveList() {
         )}
 
         {!loading && list.length === 0 && (
-          <View className="text-center py-16 text-muted-foreground text-sm">
-            <Text>{t('live.empty')}</Text>
+          <View className="flex flex-col items-center py-[96rpx]">
+            <Text className="text-[28rpx] text-muted-foreground">{t('live.empty')}</Text>
           </View>
         )}
 
         {loading && (
-          <View className="text-center py-16 text-muted-foreground text-sm">
-            <Text>{t('common.loading')}</Text>
+          <View className="flex flex-col items-center py-[96rpx]">
+            <Text className="text-[28rpx] text-muted-foreground">{t('common.loading')}</Text>
           </View>
         )}
       </View>

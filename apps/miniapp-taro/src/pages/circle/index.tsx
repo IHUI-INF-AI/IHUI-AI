@@ -260,29 +260,18 @@ export default function CircleIndexPage() {
                     </View>
                   ) : null}
                   <View className="ci-item-actions">
-                    <View
-                      className="ci-item-action"
-                      style={{ display: 'flex', alignItems: 'center' }}
-                    >
-                      <LineIcon
-                        name="heart"
-                        size={24}
-                        color="var(--color-muted-foreground)"
-                        style={{ marginRight: '6rpx' }}
-                      />
-                      <Text>{c.likes || 0}</Text>
+                    {/* 对齐 RN stat:Heart/MessageCircle 13dp→26rpx / color text.tertiary / gap 8 */}
+                    <View className="ci-item-action">
+                      <LineIcon name="heart" size={26} color="var(--color-text-tertiary)" />
+                      <Text className="ci-item-action-num">{c.likes || 0}</Text>
                     </View>
-                    <View
-                      className="ci-item-action"
-                      style={{ display: 'flex', alignItems: 'center' }}
-                    >
+                    <View className="ci-item-action">
                       <LineIcon
                         name="message-circle"
-                        size={24}
-                        color="var(--color-muted-foreground)"
-                        style={{ marginRight: '6rpx' }}
+                        size={26}
+                        color="var(--color-text-tertiary)"
                       />
-                      <Text>{c.comments || 0}</Text>
+                      <Text className="ci-item-action-num">{c.comments || 0}</Text>
                     </View>
                   </View>
                 </View>
@@ -302,7 +291,7 @@ export default function CircleIndexPage() {
           />
           <Text className="ci-empty-text">{tt('circle.empty', '暂无内容')}</Text>
           <View className="ci-empty-btn" onClick={goCreate}>
-            <Text>{tt('circle.index.goPublish', '去发布')}</Text>
+            <Text className="ci-empty-btn-text">{tt('circle.index.goPublish', '去发布')}</Text>
           </View>
         </View>
       ) : null}

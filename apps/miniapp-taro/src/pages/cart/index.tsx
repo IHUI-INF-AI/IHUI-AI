@@ -236,7 +236,7 @@ export default function Cart() {
                 className="empty-icon"
                 name="shopping-cart"
                 size={80}
-                color="var(--color-muted-foreground)"
+                color="var(--color-text-tertiary)"
               />
               <Text className="empty-text">{t('cart.empty')}</Text>
             </View>

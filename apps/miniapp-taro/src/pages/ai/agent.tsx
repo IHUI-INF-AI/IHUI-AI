@@ -297,9 +297,10 @@ export default function AgentPage() {
 
   return (
     <View className="min-h-screen bg-background">
-      {/* ===== 轮播图(对齐原项目 tools/index.vue Carousel 组件)===== */}
-      <View className="px-[20rpx] pt-[16rpx] pb-[8rpx]">
+      {/* ===== 轮播图(对齐原项目 tools/index.vue Carousel 组件;RN carouselWrap: mt18/mx20/圆角30rpx)===== */}
+      <View className="px-[20rpx] pt-[18rpx] pb-[8rpx]">
         <Carousel
+          className="rounded-[30rpx]"
           items={[
             {
               id: 'b1',
@@ -322,7 +323,7 @@ export default function AgentPage() {
           ]}
         />
       </View>
-      <View className="bg-card pb-2 sticky top-0 z-10">
+      <View className="bg-background pb-2 sticky top-0 z-10">
         <SearchBar
           value={keyword}
           placeholder={t('ai.agent.searchPlaceholder')}
@@ -330,8 +331,8 @@ export default function AgentPage() {
           onSearch={onSendQuery}
           onClear={() => setKeyword('')}
         />
-        {/* 快捷 Tab:全部 / 我的收藏 / 最近使用 */}
-        <View className="flex items-center px-3 pt-2">
+        {/* 快捷 Tab:全部 / 我的收藏 / 最近使用(对齐 RN AgentScreen tabBar:px24/pt20/pb16 + 药丸 px28/py12/圆角16rpx) */}
+        <View className="flex flex-row items-center px-[24rpx] pt-[20rpx] pb-[16rpx]">
           {quickTabs.map((tb) => {
             const active = quickTab === tb.key
             const badge =
@@ -343,12 +344,18 @@ export default function AgentPage() {
             return (
               <View
                 key={tb.key}
-                className={`flex-1 py-2 text-center text-sm ${active ? 'text-[var(--color-primary)] font-semibold' : 'text-muted-foreground'}`}
+                className={`flex flex-row items-center px-[28rpx] py-[12rpx] rounded-[16rpx] mr-[16rpx] ${active ? 'bg-[var(--color-brand)]' : 'bg-[var(--color-muted)]'}`}
                 onClick={() => onSwitchQuickTab(tb.key)}
               >
-                <Text>{tb.label}</Text>
+                <Text
+                  className={`text-[26rpx] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-[var(--color-muted-foreground)]'}`}
+                >
+                  {tb.label}
+                </Text>
                 {badge > 0 && (
-                  <Text className="ml-1 text-[20rpx] px-[6rpx] py-[1rpx] rounded bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+                  <Text
+                    className={`ml-[12rpx] text-[20rpx] px-[12rpx] py-[2rpx] rounded-full ${active ? 'bg-[var(--color-white-20)] text-[var(--color-surface-light)]' : 'bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]'}`}
+                  >
                     {badge}
                   </Text>
                 )}
@@ -366,10 +373,14 @@ export default function AgentPage() {
                   return (
                     <View
                       key={cat.key}
-                      className={`inline-block px-4 py-2 mr-2 rounded-lg text-sm ${active ? 'bg-[var(--color-primary)] text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
+                      className={`inline-block px-[28rpx] py-[12rpx] mr-[16rpx] rounded-[16rpx] ${active ? 'bg-[var(--color-brand)]' : 'bg-[var(--color-muted)]'}`}
                       onClick={() => setActiveCategory(cat.key)}
                     >
-                      <Text>{cat.label}</Text>
+                      <Text
+                        className={`text-[26rpx] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-[var(--color-muted-foreground)]'}`}
+                      >
+                        {cat.label}
+                      </Text>
                     </View>
                   )
                 })}
@@ -421,7 +432,7 @@ export default function AgentPage() {
                     src={agent.avatar || '/static/default-agent.png'}
                     mode="aspectFill"
                   />
-                  <View className="absolute top-0 left-0 px-[6rpx] py-[1rpx] rounded bg-[var(--color-gold)] text-white text-[20rpx]">
+                  <View className="absolute top-0 left-0 px-[6rpx] py-[1rpx] rounded bg-[var(--color-gold)] text-[var(--color-surface-light)] text-[20rpx]">
                     <Text>NO.{idx + 1}</Text>
                   </View>
                 </View>
@@ -454,61 +465,68 @@ export default function AgentPage() {
           }
         />
       ) : (
-        <View className="px-3 py-2">
+        <View className="px-[32rpx] py-[32rpx]">
           <Text className="block text-xs text-muted-foreground mb-2">
             {t('ai.agent.count', { n: filtered.length })}
           </Text>
           {filtered.map((agent) => {
             const rating = estimateRating(agent.uses)
             return (
-              <ThemeRoot key={agent.id} className="flex items-center bg-card rounded-lg p-3 mb-3">
-                <View key={agent.id} onClick={() => goDetail(agent.id)}>
+              <ThemeRoot key={agent.id}>
+                {/* 卡片对齐 RN SharedAgentScreen card:row/居中/内边距28rpx/圆角24rpx/白卡面/1px 描边 */}
+                <View
+                  className="flex flex-row items-center p-[28rpx] mb-[24rpx] rounded-[24rpx] bg-[var(--color-surface-light)] border border-[var(--color-border)]"
+                  onClick={() => goDetail(agent.id)}
+                >
                   <Image
-                    className="w-[100rpx] h-[100rpx] rounded-lg bg-muted"
+                    className="w-[96rpx] h-[96rpx] rounded-[24rpx] bg-muted"
                     src={agent.avatar || '/static/default-agent.png'}
                     mode="aspectFill"
                   />
-                  <View className="flex-1 ml-3 min-w-0">
-                    <View className="flex items-center">
-                      <Text className="text-[30rpx] text-foreground font-semibold truncate">
+                  <View className="flex-1 ml-[24rpx] min-w-0">
+                    <View className="flex flex-row items-center">
+                      <Text className="flex-1 text-[32rpx] text-foreground font-semibold truncate">
                         {agent.name}
                       </Text>
                       {agent.isVipExclusive && (
-                        <Text className="ml-2 text-[20rpx] px-[8rpx] py-[2rpx] rounded bg-[var(--color-gold-muted)] text-[var(--color-gold)]">
-                          VIP
-                        </Text>
+                        <View className="ml-[12rpx] px-[12rpx] py-[8rpx] rounded-[8rpx] bg-[var(--color-warning-amber)]">
+                          <Text className="text-[20rpx] text-[var(--color-surface-light)] font-semibold">
+                            VIP
+                          </Text>
+                        </View>
                       )}
                     </View>
                     {agent.desc && (
-                      <Text className="block text-[24rpx] text-muted-foreground mt-1 truncate">
+                      <Text className="line-clamp-2 mt-[16rpx] text-[28rpx] leading-[36rpx] text-muted-foreground">
                         {agent.desc}
                       </Text>
                     )}
-                    <View className="flex items-center mt-1">
+                    <View className="flex flex-row items-center mt-[16rpx]">
                       {agent.category && agent.category !== 'other' && (
-                        <Text className="text-[20rpx] px-[8rpx] py-[2rpx] mr-2 rounded bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+                        <Text className="text-[20rpx] px-[8rpx] py-[2rpx] mr-[12rpx] rounded-[8rpx] bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]">
                           {t(CATEGORY_KEY[agent.category] ?? 'ai.agentList.categories.other')}
                         </Text>
                       )}
                       {rating > 0 && (
-                        <View className="flex items-center mr-2">
+                        <View className="flex flex-row items-center mr-[12rpx]">
                           <LineIcon
                             name="star-fill"
                             size={22}
-                            color="var(--color-gold)"
+                            color="var(--color-text-tertiary)"
                             className="mr-[6rpx]"
                           />
-                          <Text className="text-[22rpx] text-[var(--color-gold)]">{rating.toFixed(1)}</Text>
+                          <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                            {rating.toFixed(1)}
+                          </Text>
                         </View>
                       )}
                       {agent.uses !== undefined && (
-                        <Text className="text-[22rpx] text-muted-foreground">
+                        <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
                           {t('ai.agentList.useCount', { n: agent.uses })}
                         </Text>
                       )}
                     </View>
                   </View>
-                  <Text className="text-muted-foreground ml-2">›</Text>
                 </View>
               </ThemeRoot>
             )

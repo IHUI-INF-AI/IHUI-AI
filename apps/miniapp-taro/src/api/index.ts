@@ -43,6 +43,8 @@ import {
   loginBySms as _loginBySms,
   loginByWechat as _loginByWechat,
   loginByPhone as _loginByPhone,
+  loginByEmailCode as _loginByEmailCode,
+  sendEmailCode as _sendEmailCode,
   sendSmsCode as _sendSmsCode,
   getBalance as _getBalance,
   createAlipayMiniappPayment as _createAlipayMiniappPayment,
@@ -94,6 +96,13 @@ export const sendSmsCode = (phone: string) => unwrapApi(_sendSmsCode(phone, 'log
 /** 手机号验证码登录 — POST /auth/login/sms (返回 LoginResult,user 为 UserInfo 扩展) */
 export const loginBySms = (phone: string, code: string) =>
   unwrapApi(_loginBySms(phone, code)) as Promise<LoginResult>
+
+/** 发送邮箱验证码 — POST /auth/email/code (对齐 RN 端 sendEmailCode 用法) */
+export const sendEmailCode = (email: string) => unwrapApi(_sendEmailCode(email, 'login'))
+
+/** 邮箱验证码登录 — POST /auth/login/email (对齐 RN 端 loginByEmailCode) */
+export const loginByEmailCode = (email: string, code: string) =>
+  unwrapApi(_loginByEmailCode(email, code)) as Promise<LoginResult>
 
 /** 手机号密码登录 — POST /auth/login/password (api-client 别名 loginByPhone) */
 export const loginByPassword = (phone: string, password: string) =>

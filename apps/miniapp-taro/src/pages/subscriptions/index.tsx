@@ -67,39 +67,45 @@ export default function SubscriptionsPage() {
   usePullDownRefresh(() => load(true).finally(() => Taro.stopPullDownRefresh()))
 
   return (
+    // 对齐 RN SubscriptionsScreen:根容器 surface.bg;header(返回+标题)由原生导航栏承载
     <View className="min-h-screen bg-background">
       {items.length === 0 && !loading && (
-        <View className="flex flex-col items-center justify-center py-[160rpx]">
+        <View className="flex flex-col items-center py-[96rpx]">
           <Text className="text-[28rpx] text-muted-foreground">{t('subscriptions.empty')}</Text>
         </View>
       )}
       {items.length > 0 && (
-        <View className="p-[24rpx]">
+        <View className="p-[20rpx] pb-[64rpx]">
           {items.map((item) => {
             const title = item.title || item.name || targetTypeLabel(item.targetType)
             const sub = item.description || targetTypeLabel(item.targetType)
             return (
               <ThemeRoot key={item.id}>
-                <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[24rpx] flex items-center justify-between">
-                  <View className="flex-1 min-w-0 mr-[24rpx] flex items-center">
-                    {item.cover ? (
-                      <Image
-                        className="w-[100rpx] h-[100rpx] rounded-[12rpx] mr-[20rpx] bg-muted"
-                        src={item.cover}
-                        mode="aspectFill"
-                      />
-                    ) : null}
-                    <View className="flex-1 min-w-0">
-                      <Text className="text-[30rpx] text-foreground font-semibold truncate block">
-                        {title}
-                      </Text>
-                      <Text className="text-[24rpx] text-muted-foreground mt-[8rpx] truncate block">
-                        {sub}
+                {/* 对齐 RN card:边框卡 + 40x40 thumb(radius 12→24rpx)+ 标题/副文字 + 描边取消按钮 */}
+                <View className="mb-[24rpx] flex items-center border-[2rpx] border-border rounded-[24rpx] bg-background p-[24rpx]">
+                  {item.cover ? (
+                    <Image
+                      className="w-[80rpx] h-[80rpx] rounded-[24rpx] bg-muted mr-[24rpx] flex-shrink-0"
+                      src={item.cover}
+                      mode="aspectFill"
+                    />
+                  ) : (
+                    <View className="w-[80rpx] h-[80rpx] rounded-[24rpx] bg-muted mr-[24rpx] flex items-center justify-center flex-shrink-0">
+                      <Text className="text-[28rpx] font-semibold text-foreground">
+                        {targetTypeLabel(item.targetType)}
                       </Text>
                     </View>
+                  )}
+                  <View className="flex-1 min-w-0">
+                    <Text className="text-[32rpx] font-semibold text-foreground truncate block">
+                      {title}
+                    </Text>
+                    <Text className="text-[28rpx] text-muted-foreground mt-[16rpx] truncate block">
+                      {sub}
+                    </Text>
                   </View>
                   <Text
-                    className="text-[26rpx] text-destructive px-[16rpx] py-[8rpx]"
+                    className="ml-[24rpx] border-[2rpx] border-border rounded-[24rpx] bg-background px-[24rpx] py-[12rpx] text-[28rpx] font-semibold text-[var(--color-text-medium)] flex-shrink-0"
                     onClick={() => handleCancel(item)}
                   >
                     {t('subscriptions.delete')}
@@ -108,15 +114,15 @@ export default function SubscriptionsPage() {
               </ThemeRoot>
             )
           })}
-          <View className="text-center py-[32rpx]">
+          <View className="flex items-center justify-center py-[32rpx]">
             {loading ? (
-              <Text className="text-[24rpx] text-muted-foreground">{t('common.loading')}</Text>
+              <Text className="text-[28rpx] text-muted-foreground">{t('common.loading')}</Text>
             ) : hasMore ? (
-              <Text className="text-[24rpx] text-muted-foreground">
+              <Text className="text-[28rpx] text-muted-foreground">
                 {t('subscriptions.loadMore')}
               </Text>
             ) : (
-              <Text className="text-[24rpx] text-muted-foreground">
+              <Text className="text-[28rpx] text-muted-foreground">
                 {t('subscriptions.noMore')}
               </Text>
             )}
@@ -124,7 +130,7 @@ export default function SubscriptionsPage() {
         </View>
       )}
       {loading && items.length === 0 && (
-        <View className="text-center py-[120rpx]">
+        <View className="flex flex-col items-center py-[96rpx]">
           <Text className="text-[28rpx] text-muted-foreground">{t('common.loading')}</Text>
         </View>
       )}

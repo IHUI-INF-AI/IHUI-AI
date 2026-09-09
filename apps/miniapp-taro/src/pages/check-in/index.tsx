@@ -109,7 +109,7 @@ const viewStyles = {
     width: '13%',
     aspectRatio: '1',
     borderRadius: toRpx(12),
-    borderWidth: '1px',
+    borderWidth: toRpx(1),
     borderStyle: 'solid',
     borderColor: signed ? tk.brand.DEFAULT : tk.border.light,
     backgroundColor: signed ? tk.brand.DEFAULT : tk.surface.bg,

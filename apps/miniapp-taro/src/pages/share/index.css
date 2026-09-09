@@ -7,9 +7,10 @@
 /* AI资讯分享页 - 浅色主题(背景/卡片走 design-tokens:var(--color-*)) */
 /* 历史深色科技风色板(#121217/#1F1F28/#00F2FF)已移除,勿回潮 */
 
+/* 页面根背景对齐 RN SquareScreen container:tk.surface.bg → --color-background(明 #F5F5F5 / 暗 #242424) */
 .share-page {
   min-height: 100vh;
-  background: var(--color-card);
+  background: var(--color-background);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -110,41 +111,40 @@
   opacity: 0.8;
 }
 
-/* ===== Tabs(对标原 TitleSwitch) ===== */
+/* ===== Tabs(对标原 TitleSwitch;视觉对齐 RN SquareScreen SingleTypeBar 分类胶囊:
+   categoryBar padding 8/10 → 16/20rpx,typeItem padding 6/12 → 12/24rpx、圆角 8 → 16rpx、
+   描边 1 → 2rpx,active 为 brand 底 + 对比白字) ===== */
 .share-tabs {
   display: flex;
+  align-items: center;
+  gap: 16rpx;
   background: var(--color-card);
-  padding: 0 24rpx;
-  border-bottom: 1rpx solid var(--color-border);
+  padding: 16rpx 20rpx;
 }
 .share-tab {
-  flex: 1;
+  padding: 12rpx 24rpx;
   text-align: center;
-  padding: 24rpx 0;
+  border-radius: 16rpx;
+  border: 2rpx solid var(--color-border);
+  background: var(--color-card);
   font-size: 28rpx;
+  font-weight: 600;
   color: var(--color-muted-foreground);
-  position: relative;
-  transition: color 0.2s;
+  transition: all 0.2s;
+}
+.share-tab:active {
+  opacity: 0.85;
 }
 .share-tab.active {
-  color: var(--color-primary);
-  font-weight: 600;
-}
-.share-tab.active::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: 48rpx;
-  height: 4rpx;
   background: var(--color-primary);
-  border-radius: 2rpx;
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground);
 }
 
-/* ===== 资讯列表 ===== */
+/* ===== 资讯列表(对齐 RN listContent:paddingHorizontal 10 → 20rpx,paddingVertical 12 → 24rpx;
+   底部 96rpx 为触底加载预留,非 RN 项) ===== */
 .share-list {
-  padding: 16rpx 24rpx 96rpx;
+  padding: 24rpx 20rpx 96rpx;
 }
 
 /* 搜索栏 */
@@ -170,9 +170,10 @@
   text-align: center;
   padding: 160rpx 0;
 }
+/* 对齐 RN emptyText:fontSize 16 → 32rpx,text.secondary → muted-foreground */
 .share-empty-text {
   color: var(--color-muted-foreground);
-  font-size: 26rpx;
+  font-size: 32rpx;
 }
 
 /* 加载动画 - 跳动圆点 */
@@ -296,15 +297,13 @@
   overflow: hidden;
 }
 
-/* ===== 回到顶部按钮(对齐原项目 toodown-wrapper/toodown) ===== */
+/* ===== 回到顶部按钮(对齐 RN SquareScreen backToTop:brand-orange 底 / 68rpx / 圆角8) ===== */
 .share-toodown-wrapper {
   position: fixed;
   left: 50%;
   bottom: 88rpx;
   z-index: 2;
   transform: translateX(-50%);
-  padding-top: 60rpx;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-muted));
 }
 
 .share-toodown {
@@ -314,7 +313,10 @@
   align-items: center;
   justify-content: center;
   margin: 0 auto;
+  background: var(--color-brand-orange);
   border-radius: 8rpx;
+  /* 对齐 RN elevation 2 / shadowOpacity 0.15 */
+  box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.15);
   transition: all 0.2s ease;
 }
 
@@ -322,14 +324,15 @@
   transform: scale(0.9);
 }
 
+/* 箭头对齐 RN backToTopIcon:'↑' 直向,fontSize 20 → 40rpx,无旋转 */
 .share-toodown-arrow {
-  font-size: 32rpx;
+  font-size: 40rpx;
+  font-weight: 600;
   color: var(--color-foreground);
-  transform: rotate(90deg);
   transition: transform 0.2s ease;
 }
 
 .share-toodown:active .share-toodown-arrow {
-  transform: rotate(90deg) scale(0.9);
+  transform: scale(0.9);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

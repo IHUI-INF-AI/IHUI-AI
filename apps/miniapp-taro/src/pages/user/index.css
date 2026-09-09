@@ -6,7 +6,7 @@
 
 /* ===== 用户页面样式 ===== */
 
-/* 分享弹窗遮罩 + 内容 */
+/* 分享弹窗遮罩 + 内容(对齐 RN sharePopupOverlay/sharePopupCard) */
 .share-popup-mask {
   position: fixed;
   inset: 0;
@@ -15,35 +15,45 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 48rpx;
 }
 
 .share-popup-content {
   background: var(--color-card);
-  border-radius: var(--radius-xl);
-  padding: 40rpx 32rpx;
-  width: 85%;
-  max-width: 600rpx;
+  border-radius: 24rpx;
+  padding: 40rpx;
+  width: 100%;
+  max-width: 640rpx;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .share-popup-close {
   position: absolute;
-  top: 16rpx;
-  right: 16rpx;
-  width: 48rpx;
-  height: 48rpx;
+  top: 20rpx;
+  right: 20rpx;
+  width: 60rpx;
+  height: 60rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: 16rpx;
   background: var(--color-muted);
+}
+
+.share-popup-close-text {
+  font-size: 44rpx;
+  line-height: 44rpx;
+  color: var(--color-muted-foreground);
 }
 
 .share-popup-image {
   width: 100%;
-  height: 360rpx;
-  border-radius: var(--radius-lg);
-  margin-bottom: 24rpx;
+  height: 480rpx;
+  border-radius: 16rpx;
+  margin-bottom: 28rpx;
   background: linear-gradient(135deg, var(--color-muted) 0%, var(--color-secondary) 100%);
   display: flex;
   flex-direction: column;
@@ -70,7 +80,7 @@
   height: 88rpx;
   line-height: 88rpx;
   text-align: center;
-  border-radius: var(--radius-lg);
+  border-radius: 16rpx;
   font-size: 28rpx;
   font-weight: 600;
   background: var(--color-primary, var(--color-primary));
@@ -102,7 +112,8 @@
   opacity: 0.8;
 }
 
-/* ===== 会员权益展开/收起样式（对齐原项目 membership-benefits） ===== */
+/* ===== 会员权益展开/收起样式(对齐 RN ProfileScreen membershipHeader:
+      卡片化折叠头 space-between + padding 20/24rpx + 圆角 16rpx)===== */
 .membership-benefits-container {
   margin-top: 0;
   margin-bottom: 0;
@@ -110,17 +121,25 @@
 
 .membership-benefits-header {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  padding: 0 20rpx;
-  background: transparent;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
   cursor: pointer;
   transition: all 0.3s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
 .membership-benefits-header:active {
-  background: transparent;
+  opacity: 0.8;
+}
+
+.membership-benefits-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
 }
 
 .membership-benefits-arrow {
@@ -130,28 +149,15 @@
   width: 60rpx;
   height: 60rpx;
   transition: transform 0.3s ease;
-  animation: bounce-arrow 1.5s ease-in-out infinite;
 }
 
 .membership-benefits-arrow .arrow-icon {
-  width: 40rpx;
-  height: 40rpx;
-  transform: rotate(-90deg);
+  transform: rotate(0deg);
   transition: transform 0.3s ease;
 }
 
 .membership-benefits-arrow.arrow-rotate .arrow-icon {
-  transform: rotate(90deg);
-}
-
-@keyframes bounce-arrow {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8rpx);
-  }
+  transform: rotate(180deg);
 }
 
 .membership-benefits-content {
@@ -170,7 +176,7 @@
   }
 }
 
-/* ===== 内容展示区域样式（对齐原项目 content-display-area） ===== */
+/* ===== 内容展示区域样式(对齐 RN contentDisplayArea:minHeight + marginBottom + 紧凑 padding)===== */
 .content-display-area {
   min-height: 200rpx;
   margin-bottom: 20rpx;
@@ -181,44 +187,6 @@
   display: flex;
   flex-direction: column;
   gap: 24rpx;
-}
-
-/* ===== 内容项渐变顶边装饰（对齐原项目 .content-item::before,L2033-2064） ===== */
-/* 按类型(text/image/video/audio)显示不同颜色的渐变顶边 */
-.user-content-text,
-.user-content-image,
-.user-content-video,
-.user-content-audio {
-  position: relative;
-}
-
-.user-content-text::before,
-.user-content-image::before,
-.user-content-video::before,
-.user-content-audio::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4rpx;
-  border-radius: var(--radius-xl) 20rpx 0 0;
-}
-
-.user-content-text::before {
-  background: var(--color-muted-foreground);
-}
-
-.user-content-image::before {
-  background: var(--color-info);
-}
-
-.user-content-video::before {
-  background: var(--color-success);
-}
-
-.user-content-audio::before {
-  background: var(--color-warning);
 }
 
 /* AlimamaFangYuanTi 字体(对齐原项目 font-family: "AlimamaFangYuanTi")

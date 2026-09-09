@@ -4,84 +4,154 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
+/* 样式对齐 RN SharedAigcListScreen(packages/app/src/features/aigc-list/AigcListScreen.tsx)。
+ * 尺寸换算:rpx(N) → N rpx;RN raw 数字(dp) → N*2 rpx。颜色全部走语义 token。 */
+
 .aigc-list-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding-bottom: 40rpx;
-  font-family: 'AlimamaFangYuanTi', sans-serif;
+  padding-bottom: 48rpx;
+  box-sizing: border-box;
 }
 
-/* ===== 顶部标题栏 ===== */
+/* ===== 顶部导航(RN header:paddingHorizontal 10 / paddingTop 48 / paddingBottom 8)=====
+ * 注:RN paddingTop 48dp 含状态栏避让,小程序有原生导航栏,顶部留 16rpx 即可 */
 .page-header {
-  position: relative;
-  padding: 24rpx 30rpx;
-  background: var(--color-card);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 16rpx 20rpx;
 }
 .back-btn {
-  position: absolute;
-  left: 16rpx;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 56rpx;
-  height: 56rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12rpx;
+  margin-left: -8rpx;
+  padding: 4rpx 8rpx;
 }
-.back-btn:active {
-  background: var(--color-secondary);
-}
-.back-icon {
-  font-size: 44rpx;
-  color: var(--color-foreground);
-  line-height: 1;
+.back-text {
+  font-size: 32rpx;
+  color: var(--color-muted-foreground);
 }
 .page-title {
-  font-size: 30rpx;
+  margin-top: 16rpx;
+  font-size: 44rpx;
   font-weight: 600;
   color: var(--color-foreground);
 }
+.page-subtitle {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+}
 
-/* ===== 分类按钮(对标原项目 fenlei_btn_list)===== */
+/* ===== 分类胶囊(RN categoryChip:padding 14/6 radius 12 bg surface.card;active bg brand)===== */
 .category-bar {
-  width: calc(100% - 20rpx);
-  padding: 10rpx 20rpx;
-  padding-top: 0;
-  margin: 0 20rpx 0 0;
-  box-sizing: border-box;
-  background: var(--color-card);
+  width: 100%;
+  background: var(--color-background);
 }
 .category-inner {
   display: inline-flex;
   flex-wrap: nowrap;
-  gap: 6rpx;
+  gap: 16rpx;
+  padding: 16rpx 20rpx;
 }
-.category-tab {
+.category-chip {
   flex: none;
-  color: var(--color-muted-foreground);
-  height: 44rpx;
-  padding: 0 8rpx 0 3rpx;
-  line-height: 44rpx;
-  border-radius: 8rpx;
-  border: 1rpx solid var(--color-border);
-  font-size: 26rpx;
+  padding: 12rpx 28rpx;
+  border-radius: 24rpx;
+  background: var(--color-card);
 }
-.category-tab.active {
-  color: var(--color-foreground);
-  font-weight: 700;
-  border: 1rpx solid var(--color-border);
-  background: var(--color-white-70);
-  box-shadow: 0 1rpx 3rpx var(--color-black-6);
+.category-chip.active {
+  background: var(--color-primary);
+}
+.category-text {
+  font-size: 28rpx;
+  color: var(--color-text-medium);
+}
+.category-chip.active .category-text {
+  color: var(--color-primary-foreground);
+  font-weight: 600;
 }
 
-/* ===== 内容区 ===== */
+/* ===== 内容区(RN list paddingHorizontal 12 / row gap+marginBottom 12)===== */
 .content-area {
   padding: 0;
 }
+.media-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24rpx;
+  padding: 0 24rpx;
+}
+.list-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding: 0 24rpx;
+}
+
+/* ===== 媒体卡片(RN mediaCard:flex1 radius12 border surface.light;cover 3:4)===== */
+.media-card {
+  width: calc((100% - 24rpx) / 2);
+  border-radius: 24rpx;
+  overflow: hidden;
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
+  box-sizing: border-box;
+}
+.media-cover-wrap {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  position: relative;
+  overflow: hidden;
+  background: var(--color-border);
+}
+.media-cover {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.fullscreen-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+.media-placeholder {
+  width: 100%;
+  height: 100%;
+  background: var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 视频徽章(RN videoBadge:top/left 8 padding 8/4 radius 12 rgba(0,0,0,0.55)) */
+.video-badge {
+  position: absolute;
+  top: 16rpx;
+  left: 16rpx;
+  padding: 8rpx 16rpx;
+  border-radius: 24rpx;
+  background: var(--color-scrim);
+  z-index: 2;
+}
+.video-badge-text {
+  font-size: 22rpx;
+  color: var(--color-surface-light);
+}
+.media-footer {
+  padding: 24rpx;
+}
+.card-title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== 空态/加载态(RN empty paddingVertical 60)===== */
 .state-wrap {
   padding: 120rpx 24rpx;
   text-align: center;
@@ -90,296 +160,108 @@
   padding: 32rpx 24rpx;
 }
 .state-text {
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
   font-size: 28rpx;
 }
 
-/* ===== 瀑布流双列布局(对标原项目 waterfall-container)===== */
-.waterfall {
-  display: flex;
-  padding: 20rpx 0;
-}
-.waterfall-col {
-  flex: 1;
-  padding: 0 10rpx;
-  display: flex;
-  flex-direction: column;
-}
-.waterfall-card {
-  margin-bottom: 20rpx;
-  border-radius: 15rpx;
-  overflow: hidden;
-  position: relative;
-  background: var(--color-card);
-}
-.waterfall-cover {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-.waterfall-video {
-  width: 100%;
-  height: 320rpx;
-  display: block;
-  background: var(--color-card);
-}
-.video-cover-wrap {
-  width: 100%;
-  position: relative;
-  overflow: hidden;
-  min-height: 400rpx;
-}
-.video-placeholder {
-  width: 100%;
-  height: 400rpx;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-muted));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-.placeholder-icon {
-  font-size: 80rpx;
-  opacity: 0.6;
-}
-.play-badge {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 80rpx;
-  height: 80rpx;
-  background: var(--color-black-50);
-  border-radius: 16rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.play-icon {
-  color: var(--color-foreground);
-  font-size: 32rpx;
-  margin-left: 4rpx;
-}
-/* 卡片底部信息(对标原项目 footer,absolute 覆盖在图片底部) */
-.card-info {
-  padding: 15rpx 20rpx;
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--color-white-20);
-}
-.card-title {
-  display: block;
-  font-size: 28rpx;
-  color: var(--color-foreground);
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.card-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 8rpx;
-}
-.card-author {
-  font-size: 22rpx;
-  color: var(--color-foreground);
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.card-likes {
-  font-size: 22rpx;
-  color: var(--color-foreground);
-  flex-shrink: 0;
-  margin-left: 12rpx;
-}
-
-/* ===== 列表布局(文本 + 音频)===== */
-.list-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 24rpx;
-  padding: 20rpx;
-}
-
-/* 文本卡片(对标原项目 content-item) */
+/* ===== 文本卡片(RN textCard:flex2 padding 14 radius 12 border)===== */
 .text-card {
-  background: var(--color-card);
-  border-radius: 10rpx;
+  width: 100%;
   padding: 28rpx;
-  box-sizing: border-box;
+  border-radius: 24rpx;
+  background: var(--color-card);
   border: 1rpx solid var(--color-border);
-  box-shadow: 0 4rpx 12rpx var(--color-black-6);
+  box-sizing: border-box;
 }
-.content-header {
+.card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20rpx;
-  padding-bottom: 16rpx;
 }
-.text-title {
-  flex: 1;
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--color-foreground);
-  letter-spacing: 0.02em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.text-time {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
+.card-time {
+  font-size: 22rpx;
+  color: var(--color-text-tertiary);
   margin-left: 16rpx;
   flex-shrink: 0;
 }
-.content-prompt {
-  width: 100%;
-  margin-bottom: 12rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 6rpx;
-}
-.prompt-label {
-  font-size: 26rpx;
-  color: var(--color-muted-foreground);
-}
-.prompt-context {
-  font-size: 26rpx;
-  color: var(--color-foreground);
-}
-.text-content {
+/* 提示词(RN promptText:marginTop 8 fontSize 14 brand 色,单行) */
+.prompt-text {
+  display: block;
+  margin-top: 16rpx;
   font-size: 28rpx;
-  color: var(--color-foreground);
-  line-height: 1.8;
-  letter-spacing: 0.02em;
-  white-space: pre-wrap;
-  word-break: break-all;
-  margin-bottom: 12rpx;
-}
-.text-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-/* 音频卡片(对标原项目 audio-card-item,两列网格) */
-.audio-card {
-  background: var(--color-card);
-  border-radius: 10rpx;
-  padding: 24rpx 16rpx;
-  box-sizing: border-box;
-  border: 1rpx solid var(--color-border);
-  box-shadow: 0 4rpx 12rpx var(--color-black-6);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.audio-record-wrap {
-  width: 100%;
-  max-width: 300rpx;
-  aspect-ratio: 1;
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 20rpx;
-}
-.audio-record {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-}
-.audio-record.rotating {
-  animation: aigc-audio-rotate 3s linear infinite;
-}
-@keyframes aigc-audio-rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-.audio-cover {
-  width: 66.66%;
-  aspect-ratio: 1;
-  display: block;
-  border-radius: 16rpx;
-}
-.audio-cover-placeholder {
-  width: 66.66%;
-  aspect-ratio: 1;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-muted));
-  border-radius: 16rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.audio-cover-icon {
-  font-size: 48rpx;
-}
-.audio-center-dot {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 24rpx;
-  height: 24rpx;
-  border-radius: 4rpx;
-  background: var(--color-white-90);
-  pointer-events: none;
-  z-index: 2;
-}
-.audio-play-btn {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 60rpx;
-  height: 60rpx;
-  background: var(--color-white-60);
-  border-radius: 16rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1rpx solid var(--color-white-40);
-  z-index: 3;
-  pointer-events: auto;
-}
-.audio-play-icon {
-  color: var(--color-foreground);
-  font-size: 24rpx;
-}
-.audio-info {
-  width: 100%;
-  text-align: center;
-  overflow: hidden;
-}
-.audio-title {
-  display: block;
-  font-size: 26rpx;
-  color: var(--color-foreground);
-  font-weight: 500;
-  text-align: center;
+  color: var(--color-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding-top: 8rpx;
 }
-.audio-time,
-.audio-progress-row,
+/* 正文(RN contentText:marginTop 8 fontSize 14 text.medium lineHeight 20,3 行截断) */
+.content-text {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  color: var(--color-text-medium);
+  line-height: 40rpx;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-all;
+}
+
+/* ===== 音频卡片(RN audioCard:flex2 横向 padding 14;cover 64x64 radius12)===== */
+.audio-card {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 28rpx;
+  border-radius: 24rpx;
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
+  box-sizing: border-box;
+}
+.audio-cover {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 24rpx;
+  overflow: hidden;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+.audio-cover-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.audio-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.audio-info {
+  flex: 1;
+  margin-left: 24rpx;
+  overflow: hidden;
+}
 .audio-duration {
-  display: none;
+  display: block;
+  margin-top: 16rpx;
+  font-size: 22rpx;
+  color: var(--color-text-tertiary);
+}
+/* 播放按钮(RN audioPlayBtn:marginTop 8 padding 10/4 radius 12 bg success.light;文字 brand 600) */
+.audio-play-btn {
+  margin-top: 16rpx;
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8rpx 20rpx;
+  border-radius: 24rpx;
+  background: var(--color-success-light);
+}
+.audio-play-icon {
+  color: var(--color-primary);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

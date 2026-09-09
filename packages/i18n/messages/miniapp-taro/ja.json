@@ -1010,6 +1010,16 @@
     "saveQrcode": "QRコードを保存"
   },
   "exam": {
+    "tabs": {
+      "all": "すべて",
+      "pending": "未完了",
+      "completed": "完了済み"
+    },
+    "empty": {
+      "all": "試験がありません",
+      "pending": "未完了の試験はありません",
+      "completed": "試験記録はありません"
+    },
     "questions": "{n} 問",
     "minutes": "{n} 分",
     "passScore": "合格 {n}",

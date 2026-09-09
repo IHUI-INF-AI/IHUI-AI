@@ -80,28 +80,26 @@ export default function AiCircle() {
   }, [])
 
   return (
-    <View className="min-h-screen bg-background pb-[120rpx]">
-      <View className="p-[24rpx] bg-card">
+    <View className="min-h-screen bg-background pb-[160rpx]">
+      <View className="p-[24rpx] bg-card border-b border-[var(--color-border)]">
         <Text className="text-[36rpx] font-semibold text-foreground">{t('aiCircle.title')}</Text>
       </View>
       <View className="p-[24rpx]">
         {loading ? (
-          <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center justify-center py-[120rpx] gap-[16rpx]">
+            <Text className="text-center text-[26rpx] text-[var(--color-text-tertiary)]">
               {t('common.loading')}
             </Text>
           </View>
         ) : error ? (
-          <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">
+          <View
+            className="flex flex-col items-center justify-center py-[120rpx] gap-[16rpx]"
+            onClick={() => loadData(true)}
+          >
+            <Text className="text-center text-[26rpx] text-[var(--color-danger)]">
               {tt('aiCircle.loadFailed', '加载失败')}
             </Text>
-            <View
-              className="mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[26rpx]"
-              onClick={() => loadData(true)}
-            >
-              <Text>{t('common.retry')}</Text>
-            </View>
+            <Text className="text-[26rpx] text-foreground">{t('common.retry')}</Text>
           </View>
         ) : list.length ? (
           <View className="flex flex-col gap-[16rpx]">
@@ -116,63 +114,53 @@ export default function AiCircle() {
               const comments = Number(item.comments || 0)
               const images = (item.images as string[]) || []
               return (
-                <ThemeRoot key={id} className="p-[24rpx] bg-card rounded-[12rpx]">
-                  <View key={id} onClick={() => onItemClick(id)}>
-                    <View className="flex items-center">
+                <ThemeRoot key={id} className="p-[24rpx] bg-card rounded-[16rpx]">
+                  <View key={id} onClick={() => onItemClick(id)} className="flex flex-col gap-[12rpx]">
+                    <View className="flex items-center gap-[16rpx]">
                       <Image
-                        className="w-[72rpx] h-[72rpx] rounded-[12rpx] bg-background flex-shrink-0"
+                        className="w-[56rpx] h-[56rpx] rounded-[28rpx] bg-[var(--color-muted)] flex-shrink-0"
                         src={avatar}
                         mode="aspectFill"
                       />
-                      <View className="flex-1 min-w-0 ml-[16rpx] flex flex-col">
-                        <Text className="text-[28rpx] font-semibold text-foreground">{author}</Text>
-                        {createTime ? (
-                          <Text className="text-[22rpx] text-muted-foreground mt-[4rpx]">
-                            {createTime}
-                          </Text>
-                        ) : null}
-                      </View>
+                      <Text className="flex-1 min-w-0 text-[26rpx] font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                        {author}
+                      </Text>
+                      {createTime ? (
+                        <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                          {createTime}
+                        </Text>
+                      ) : null}
                     </View>
                     {title ? (
-                      <Text className="block mt-[16rpx] text-[30rpx] font-semibold text-foreground">
+                      <Text className="block text-[30rpx] font-semibold text-foreground overflow-hidden text-ellipsis line-clamp-2">
                         {title}
                       </Text>
                     ) : null}
                     {content ? (
-                      <Text className="block mt-[12rpx] text-[26rpx] text-foreground line-clamp-4">
+                      <Text className="block text-[26rpx] leading-[38rpx] text-muted-foreground line-clamp-3">
                         {content}
                       </Text>
                     ) : null}
                     {images.length > 0 ? (
-                      <View className="flex gap-[12rpx] mt-[16rpx]">
+                      <View className="flex gap-[12rpx]">
                         {images.slice(0, 3).map((img, i) => (
                           <Image
                             key={i}
-                            className="w-[200rpx] h-[200rpx] rounded-[8rpx] bg-background"
+                            className="w-[200rpx] h-[200rpx] rounded-[12rpx] bg-[var(--color-muted)]"
                             src={img}
                             mode="aspectFill"
                           />
                         ))}
                       </View>
                     ) : null}
-                    <View className="flex items-center gap-[32rpx] mt-[16rpx]">
-                      <View className="flex items-center">
-                        <LineIcon
-                          name="heart"
-                          size={24}
-                          className="mr-[6rpx]"
-                          color="var(--color-muted-foreground)"
-                        />
-                        <Text className="text-[24rpx] text-muted-foreground">{likes}</Text>
+                    <View className="flex items-center gap-[32rpx]">
+                      <View className="flex items-center gap-[8rpx]">
+                        <LineIcon name="heart" size={26} color="var(--color-text-tertiary)" />
+                        <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">{likes}</Text>
                       </View>
-                      <View className="flex items-center">
-                        <LineIcon
-                          name="message-circle"
-                          size={24}
-                          className="mr-[6rpx]"
-                          color="var(--color-muted-foreground)"
-                        />
-                        <Text className="text-[24rpx] text-muted-foreground">{comments}</Text>
+                      <View className="flex items-center gap-[8rpx]">
+                        <LineIcon name="message-circle" size={26} color="var(--color-text-tertiary)" />
+                        <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">{comments}</Text>
                       </View>
                     </View>
                   </View>
@@ -181,29 +169,36 @@ export default function AiCircle() {
             })}
             {loadingMore ? (
               <View className="py-[24rpx] text-center">
-                <Text className="text-[24rpx] text-muted-foreground">{t('common.loading')}</Text>
+                <Text className="text-[26rpx] text-[var(--color-text-tertiary)]">
+                  {t('common.loading')}
+                </Text>
               </View>
             ) : !hasMore ? (
               <View className="py-[24rpx] text-center">
-                <Text className="text-[24rpx] text-muted-foreground">
+                <Text className="text-[26rpx] text-[var(--color-text-tertiary)]">
                   {tt('aiCircle.noMore', '没有更多了')}
                 </Text>
               </View>
             ) : null}
           </View>
         ) : (
-          <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center justify-center py-[120rpx] gap-[16rpx]">
+            <Text className="text-center text-[26rpx] text-[var(--color-text-tertiary)]">
               {t('aiCircle.empty')}
             </Text>
+            <View className="px-[40rpx] py-[16rpx] rounded-[32rpx] bg-primary" onClick={onPublish}>
+              <Text className="text-[26rpx] font-semibold text-[var(--color-card)]">
+                {t('aiCircle.post')}
+              </Text>
+            </View>
           </View>
         )}
       </View>
       <View
-        className="fixed right-[32rpx] bottom-[64rpx] w-[96rpx] h-[96rpx] bg-primary rounded-[16rpx] flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_var(--color-black-20)]"
+        className="fixed right-[48rpx] bottom-[64rpx] w-[104rpx] h-[104rpx] bg-primary rounded-[52rpx] flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_var(--color-black-20)]"
         onClick={onPublish}
       >
-        <Text className="text-[26rpx] text-foreground leading-[26rpx]">{t('aiCircle.post')}</Text>
+        <Text className="text-[26rpx] text-[var(--color-card)] leading-[26rpx]">{t('aiCircle.post')}</Text>
       </View>
     </View>
   )
