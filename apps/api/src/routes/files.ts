@@ -21,7 +21,7 @@ import {
 import { findTagsByTarget, attachTag, detachTag } from '../db/social-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { buildSchema } from '../utils/swagger.js'
-import { convertToMarkdownDetailed } from '../services/markdown-converter-service.js'
+import { convertToMarkdownDetailed, extractDocumentAssets } from '../services/markdown-converter-service.js'
 import {
   validateUploadFile,
   sanitizeFilename,
@@ -430,6 +430,59 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       }
 
       return reply.send(success({ markdown: result.markdown, fileName: file.name }))
+    },
+  )
+
+  // POST /files/:id/extract-assets - 提取文档内嵌图片/对象资产
+  server.post(
+    '/files/:id/extract-assets',
+    {
+      schema: buildSchema({
+        summary: '提取文档内嵌资产',
+        description:
+          '提取 doc/docx/pptx/xls/xlsx/ods/odt/odp/rtf/epub 内嵌图片等二进制资产并落盘到公开目录;返回可访问 URL 清单;pdf 返回 unsupported=true(无文档模型)',
+        tags: ['File'],
+        params: idParamSchema,
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const file = await findFileById(parsed.data.id)
+      if (!file) {
+        return reply.status(404).send(error(404, '文件不存在'))
+      }
+      if (!isAdmin(request) && !(await canAccessFile(userId, file))) {
+        return reply.status(403).send(error(403, '无权访问该文件'))
+      }
+
+      if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
+      const filePath = resolveDiskPath(file.path)
+      const result = await extractDocumentAssets(filePath, file.name, UPLOAD_DIR)
+      if (result.error) {
+        return reply.status(422).send(error(422, result.error))
+      }
+
+      const assets = result.assets.map((a) => ({
+        id: a.id,
+        mediaType: a.mediaType,
+        originPart: a.originPart,
+        extension: a.extension,
+        size: a.size,
+        url: resolvePublicUrl(a.filename),
+      }))
+
+      if (result.unsupported) {
+        return reply.send(success({ assets: [], unsupported: true, fileName: file.name }))
+      }
+      return reply.send(success({ assets, unsupported: false, fileName: file.name }))
     },
   )
 

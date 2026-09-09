@@ -100,6 +100,35 @@ def _fail(message: str) -> Dict[str, Any]:
     return {"tool": "parse_document", "ok": False, "message": message}
 
 
+# anydoc 探测出的 Format 字符串 -> 扩展名(仅带签名的容器;txt/md/json/csv 无格式返回 None)
+_SNIFF_FMT_EXT: Dict[str, str] = {
+    "docx": ".docx",
+    "doc": ".doc",
+    "pptx": ".pptx",
+    "ppt": ".ppt",
+    "xlsx": ".xlsx",
+    "xls": ".xls",
+    "ods": ".ods",
+    "odp": ".odp",
+    "odt": ".odt",
+    "rtf": ".rtf",
+    "epub": ".epub",
+    "pdf": ".pdf",
+}
+
+
+def _sniff_anydoc_ext(path: str) -> Tuple[Optional[str], Optional[str]]:
+    """用 anydoc 按文件字节探测真实容器格式, 返回 (规范扩展名, 错误)。"""
+    try:
+        with open(path, "rb") as f:
+            data: bytes = f.read()
+        fmt = _anydoc.format_from_bytes(data)
+        ext = _SNIFF_FMT_EXT.get(fmt or "") if fmt else None
+        return ext, None
+    except Exception as e:  # noqa: BLE001
+        return None, "格式探测失败: {}: {}".format(type(e).__name__, e)
+
+
 def _describe_anydoc_error(e: BaseException) -> str:
     """把 anydoc 异常翻译为面向用户的中文文案。"""
     name: str = type(e).__name__
@@ -129,8 +158,12 @@ def _resolve_path(raw_path: Any) -> Tuple[Optional[str], Optional[str]]:
     p: str = raw_path.strip()
     abs_path: str = os.path.abspath(p) if os.path.isabs(p) else os.path.abspath(os.path.join(PROJECT_ROOT, p))
     # 必须位于项目根内, 防止任意文件读取
+    # 2026-09-09 修正: 用 normcase 做大小写不敏感比较。Windows 下用户可能传
+    # d:\... 而 PROJECT_ROOT 为 D:\...，原字符串等值比较会误判越界。
     try:
-        inside: bool = os.path.commonpath([abs_path, PROJECT_ROOT]) == PROJECT_ROOT
+        inside: bool = os.path.normcase(
+            os.path.commonpath([abs_path, PROJECT_ROOT])
+        ) == os.path.normcase(PROJECT_ROOT)
     except ValueError:
         inside = False
     if not inside:
@@ -272,6 +305,14 @@ async def parse_document(arguments: dict[str, Any]) -> dict[str, Any]:
             return _fail("路径无效")
 
         ext: str = os.path.splitext(abs_path)[1].lower()
+        # 2026-09-09: 无后缀/后缀不识别时, 用 anydoc 运行时字节探测识别真实容器格式
+        # (docx/doc/pptx/xlsx/ods 等带签名; txt/md/json/csv 无签名, 探测返回 None → 落回原报错)
+        if ext not in SUPPORTED_EXTENSIONS and _ANYDOC_OK:
+            sniffed_ext, sniffed_err = _sniff_anydoc_ext(abs_path)
+            if sniffed_err:
+                return _fail(sniffed_err)
+            if sniffed_ext and sniffed_ext in _ANYDOC_EXTS:
+                ext = sniffed_ext  # 用真实格式继续解析
         if ext not in SUPPORTED_EXTENSIONS:
             return _fail("不支持的格式({}); 仅支持: {}".format(ext or "无扩展名", ", ".join(SUPPORTED_EXTENSIONS)))
 

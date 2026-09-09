@@ -3347,3 +3347,77 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-09) **页面遗漏根治——路由级自动声明**:新增 `TopBarBackAutoRegister`(GlobalShell 全局挂载):路径深度 ≥ 2 的子页面(agents/[id]、articles/[id]、admin/** 二级页等 60+ 路由)自动向顶栏声明返回意图,fallbackHref=一级父路由(app/(main) 全部一级目录均有 page.tsx,已穷举核对);一级列表页/首页不声明(动画收起);免返回前缀:/sso、/h5、/share(含 chat/business-card/ai-world share);en 语言镜像剥 locale 前缀后按深度判定;页面级自定义声明(useTopBarBack/<BackButton/>)优先,自动声明让位不覆盖。自此所有需要返回的页面零代码接入,无遗漏面。
 - [x] ✅(2026-09-09) **防私接守门 blocking 入门禁**:新增 `scripts/check-inline-back-button.mjs`(web 端 router.back()/history.back() 只允许出现在 GlobalTopBar 统一返回键本体;页面私写=绕过顶栏动画/降级/优先级,exit 1)→ 接入 guardian-runner 第 46 项 blocking(id 45 已被 C 盘路径扫描占用);自测:888 文件 0 违规 + 违规样本注入实测正确拦截。豁免注释行防文档性提及误报。
 - [x] ✅(2026-09-09) **验证**:新增 `topbar-back-auto.test.tsx` 6 用例全绿(二级自动声明/一级不声明/免返回前缀/en 前缀/自定义优先/路由切换换绑);layout+stores 回归 38 测试全绿;web tsc 0 错误;eslint 0 违规;guardian-runner 语法+注册项核对(blocking 56 项含 46)。
+
+## F6-F8 媒体任务/声纹库 收尾深化(2026-09-09 完成 ✅)
+
+> 触发:F6-F8(声纹库页增强/媒体任务统计概览/任务中心统计卡片+批量取消,commit 3eb19e42c)上线后复盘审计,发现前后端在途状态集不一致等 3 项收尾缺口,本轮全部根治。
+
+- [x] ✅(2026-09-09) **审计结论 1 项无风险**:路由 `POST /media/tasks/cancel` 与 `POST /media/tasks/{task_id}/cancel` 路径段数不同,FastAPI 匹配互不干扰,无需调整注册顺序。
+- [x] ✅(2026-09-09) **前端在途状态集对齐后端**:`media-tasks/page.tsx` 新增 `STATUS_IN_FLIGHT = ['processing','accepted','submitted','pending']`(与后端 `_STATUS_IN_FLIGHT` 一致),统一驱动 4 处判断:5s 轮询条件/单任务取消按钮显隐/"进行中"过滤键(改传逗号分隔多值,后端 ANY 命中)/状态徽章样式与文案(accepted/submitted/pending 复用进行中样式)。
+- [x] ✅(2026-09-09) **单任务取消终态守卫**:`routers/media_tasks.py` `media_task_cancel` 加在途校验,已终态(succeeded/failed/cancelled)返回 409 "任务已终态,无需取消"——此前误点会把终态任务翻转成 cancelled,与批量取消 `cancel_media_tasks` 的"只处理在途"语义矛盾。
+- [x] ✅(2026-09-09) **详情路由在途集合统一**:详情实时探测判断改用 `_STATUS_IN_FLIGHT`(此前硬编码三元组漏 pending)。
+- [x] ✅(2026-09-09) **验证**:media_tasks 专项 70 passed(68 + 新增终态 409/pending 可取消 2 条);web tsc --noEmit 0 错误;eslint 0 违规。生产 8803 重启后实测:终态任务取消返回 409、不存在任务 404、stats 端点正常;commit f47aee67b 已推送 GitHub/Gitee/GitCode 三仓;IHUI-WEB 删 .next 重建后 /media-tasks、/voices 200。
+- [ ] ⏸️ **唯一遗留(外部依赖阻塞)**:真实端到端生成/取消/声纹克隆 e2e(`apps/ai-service/scripts/e2e_token6688.py --cheap` 起步)需在 `apps/ai-service/.env` 配置 `TOKEN6688_API_KEY`(sk- 开头,或 LLM_PROVIDERS.token6688.api_key)后执行——两处当前均为空,等 key 到位即可一键验收,代码侧已无任何待办。
+
+### 第二轮:三 agent 并行穷尽审计 + P0 越权根治(2026-09-09 完成 ✅)
+
+> 触发:用户判定首轮收尾"没做完没做细有遗漏"。3 个并行审计 agent 穷尽扫描跨端消费/声纹链路/用户隔离,坐实 3 项遗漏(提交 f8b231a04,三仓已推)。
+
+- [x] ✅(2026-09-09) **P0 IDOR 越权根治(与 llm.py P0-9 同类)**:媒体任务路由此前不校验身份且 user_uuid 可选,任何登录用户可查看/取消/删除全平台任务。新增 `_user_scope` 依赖(JWT 派生 user_id/role_id,admin=role_id≥1):列表/统计/批量清理非 admin 强制按当前用户过滤;详情/单取消/删除非 admin 归属校验(不归属 404 不泄露存在性,与 agent_runtime._require_session 同策略,user_uuid='' 历史行不强制);批量取消服务层 `cancel_media_tasks` 新增 user_uuid 参数。生产 8803 实测:普通 token 列表/stats 全 0、admin 可见全部。
+- [x] ✅(2026-09-09) **声纹页终态处理**:STATUS_READY 补 complete/done/ok(与 provider _TASK_OK_STATES 对齐);新增 STATUS_FAILED 集合,failed/error/cancelled 不再 5s 无限轮询;徽章三态化(失败红色,复用现成 statusFailed 五语 key,零 i18n 改动)。
+- [x] ✅(2026-09-09) **恢复被并行会话覆盖的修复**:上轮 f47aee67b 中 media-tasks 取消按钮 isInFlight 修复被覆盖丢失(仅轮询处幸存);本轮重应用并固化流程——提交前必须 `git diff --cached` 核验关键行、提交后 grep HEAD 复核。
+- [x] ✅(2026-09-09) **验证**:专项 75 passed(70 + 5 条越权用例:_user_scope 强制过滤/详情 404/取消 404/批量取消/批量清理 scope 透传);web tsc 0 错误、eslint 0 违规;三仓 ls-remote 终验一致;web 重建后 /media-tasks、/voices 本地与公网 200。
+
+### 第三轮:admin 判定复核 + 声纹删除越权收敛(2026-09-09 完成 ✅)
+
+> 触发:用户判定"还有遗漏"。第三轮穷尽核查聚焦上轮修复的根基与未覆盖面(提交 ab4d40a7f,三仓已推)。
+
+- [x] ✅(2026-09-09) **admin 判定根基复核**:确认 `_user_scope` 的 role_id≥1 与 JWT 链路全对齐——ai-service 中间件从 `roleId` claim 注入 request.state.role_id;packages/auth/src/jwt.ts 约定 0=普通用户/1=admin/2=manager;web 端 auth-utils 同源。隔离判定无失真。任务写入侧复核:mcp_server.py persist_media_task 传 `user_uuid=user_id or ""`,新任务归属可追溯。
+- [x] ✅(2026-09-09) **P1 声纹删除越权收敛**:声纹库是平台共享资源(单一 token6688 账号,无归属概念),此前任何登录用户可 DELETE 全库声纹。delete_voice 加 `_require_admin` 依赖(role_id≥1,与 AGENTS.md §5/admin layout 一致);voices 页非 admin 隐藏删除按钮(useAuthStore roleId>=1);列表/上传/试听对登录用户开放不变;/voice/voices* 不在 JWT 公开白名单(匿名不可达)复核通过。
+- [x] ✅(2026-09-09) **验证**:voice 专项 12 passed(新增 非admin 403 / admin 200 两条守卫用例;fastapi_app 实例从 socketio.ASGIApp 包装下取出注入 dependency_overrides);web tsc 0 错误、eslint 0 违规;生产 8803 实测:普通 token 删声纹 403、admin 放行至 503(未配 key 前置)、列表开放性不变;media-tasks 页在途过滤确认传完整四态逗号集(后端逗号解析 179/362 行)。
+
+### 第四轮:video.py 越权收敛 + 回调验签 fail-closed(2026-09-09 完成 ✅)
+
+> 触发:用户再次判定"还有遗漏"。第四轮扫描前三轮未覆盖面:ai-service 遗留 API 面(video.py)、公开回调端点验签密钥、生产真实消费链路复核(提交 d02f781f7,三仓已推)。
+
+- [x] ✅(2026-09-09) **P0 video.py 越权收敛(与 media_tasks 修复前同类 IDOR)**:列表 user_uuid 缺省查全平台、详情无归属校验(泄露产物 URL)、创建端 user_uuid 客户端可控(默认 "system" 可冒充入队)、取消任意 provider 任务。修复:列表/创建复用 media_tasks._user_scope/_scoped_user_uuid(JWT 派生,admin=role_id≥1),详情/取消归属校验(不归属 404)。生产链路复核:apps/api jimeng4 视频任务(创建注入 request.userId/列表 findVideoTasksByUser/详情归属查询)隔离完备,web 视频任务页轮询条件 accepted/running 亦正确——本路由为公网可达、无仓内消费者的遗留 API 面。
+- [x] ✅(2026-09-09) **P0 回调验签 fail-closed**:/video/token6688-callback 与 /media/tasks/callback 均在 JWT 公开白名单(外部平台 webhook 无 JWT),TOKEN6688_CALLBACK_SECRET 为空时此前"跳过验签继续处理"= 匿名可伪造任意任务终态。现拒绝处理返回 503;配 token6688 key 时必须同步配置回调密钥(当前 .env 两处均空,token6688 链路本就未激活,无功能损失)。
+- [x] ✅(2026-09-09) **验证**:新增 test_video_routes.py 14 用例(列表收敛/详情归属三态/创建收敛/取消归属/回调 fail-closed 503 + 坏签名 401 + 合法签名 200);既有 4 条回调用例按"签名后置"新契约更新(含 test_token6688_provider.py 两条 fail-open 锁定用例反转);受影响面 337 passed;生产 8803 实测:两回调无 secret 均 503、plain token 视频列表 0 条;无 web 改动无需重建。
+
+### 第五轮:产品完整性收尾——交付承诺逐项对账(2026-09-09 完成 ✅)
+
+> 触发:用户提示"别光想着遗漏,还有其他的"。第五轮换视角,不再盯越权,改审 F6-F8 交付物本身的产品完整性(提交 089c87a86,三仓已推)。
+
+- [x] ✅(2026-09-09) **F8 承诺对账缺口**:后端批量取消返回的 remote_failed 此前被前端静默丢弃,现透出"N 个任务远端取消失败(已本地置为已取消)"提示;统计卡片从纯展示升级为可点击直达对应状态过滤(aria-pressed 高亮),与明细条一致。
+- [x] ✅(2026-09-09) **F6 体验缺口**:声纹上传此前无前置校验,大文件全量传输后才被 provider 拒绝;现按 token6688_provider.upload_voice 硬限制(仅 MP3/M4A/WAV,严格 <20MiB)前端秒拒并友好提示。文案误用修复:播放按钮此前用状态词(statusReady/playable)当动作文案 → playPreview/hidePreview;上传成功提示此前显示"上传中" → cloneSubmitted(克隆是异步任务,语义准确)。
+- [x] ✅(2026-09-09) **五语站点 locale 修正**:两页 Intl.DateTimeFormat 的 locale 从硬编码 zh-CN 改 useLocale(),非中文用户此前看到中文日期格式。
+- [x] ✅(2026-09-09) **验证**:i18n 对账脚本(两页 42 键 × 五语)0 缺失(新增 6 键已补齐);web tsc 0 错误、eslint 0 违规;重建后 /media-tasks、/voices 本地与公网 200;无后端改动,8803 不动。
+
+## Firecrawl 网页工具 前端操作页 + extract_web 费用归属 收尾(2026-09-09 完成 ✅)
+
+> 触发:Firecrawl 四件套极致融合(39935d1cb → 999d792fa → b85aaad01)收尾台账两项:① extract_web 直接调 llm_gateway 的 token 费用归属未透出;② 缺网页工具专属前端操作页。本轮全部闭环。
+
+- [x] ✅(2026-09-09) **extract_web LLM token 费用归属透出**:`_extract_via_llm` 捕获 `llm_gateway.complete` 返回的 usage/model,随结果透出 `llm_usage`/`llm_model`(source=llm 时);降级启发式时不带该字段。LLM 消耗自此可观测、可随工具结果进入 step recorder 记账链路。测试 4 用例(透出/网关缺 usage 兜底/全 null 降级无泄漏/异常降级)。
+- [x] ✅(2026-09-09) **后端薄接口 POST /api/web-tools/call**(新 `app/routers/web_tools.py`,main.py 挂载 /api):工具白名单 fetch_readable/map_site/extract_web(各 60s/60s/90s 独立超时),形参逐项收敛不透传任意 dict;crawl_site 维持 _ADMIN_ONLY_TOOLS 刻意不在 HTTP 层开放。测试 6 用例(白名单拒绝/缺 fields 400/形参收敛/500 映射等)。
+- [x] ✅(2026-09-09) **前端 /web-tools 操作页**(`app/(main)/web-tools/page.tsx`,<250 行):工具三 Tab + URL 输入 + 按工具参数表单(max_chars/include_links/max_links/同域开关/fields schema 文本域) + 结果面板(markdown 复制/链接列表/字段-值-置信度表格 + 耗时/rendered/来源/tokens 元信息);next.config.ts 加 `/api/web-tools/*` → 8803 直连 rewrite;nav-data.ts 加"网页工具"导航项;五语言 i18n(nav.webTools + webToolsPage 28 键 × 5,文本注入零格式噪声)。
+- [x] ✅(2026-09-09) **验证**:ai-service 专项 39 passed(web_crawl_tools + web_tools_router);受影响模块定向回归 350 passed;web tsc --noEmit 0 错误;生产 8803 重启后 /health ok + 端点冒烟;commit 已推送 GitHub/Gitee/GitCode 三仓。
+
+## extract_web LLM 费用真入账闭环(2026-09-09 第六轮完成 ✅)
+
+> 触发:第五轮自审发现"llm_usage 透出 ≠ 入账"假闭环——对话主链路 `_maybe_record_step` 根本不记 tokens、`_normalize_step` 归一化丢弃 model 字段、降级启发式时已消耗的 token 凭空消失。本轮三处根治 + 端到端验证。
+
+- [x] ✅(2026-09-09) **agent_loop_v2 工具 step 记账映射**:新增 `_tool_llm_usage_fields()` 把工具结果内嵌 `llm_usage/llm_model` 映射为 step 顶层 `tokens_in/tokens_out/tokens/model`,`cost_ledger.sync_from_recorder` 聚合自此真正入账(此前永远为 0)。
+- [x] ✅(2026-09-09) **guarded_tool_pipeline 兜底补记**:调用方未计 token 而 fn 结果自带 llm_usage 时补齐 tokens 三元组 + model;调用方已显式计 token 时不覆盖。
+- [x] ✅(2026-09-09) **agent_step_recorder 归一化保留 model**:`_normalize_step` 此前丢弃 model 字段导致账本侧 `s.get("model")` 永远为空,补 `"model"` 归一化项。
+- [x] ✅(2026-09-09) **extract_web 降级费用可见性**:`_extract_via_llm` 全 null/非 JSON/空回复时不再返回 None 丢弃 usage,改为 `{fields:{}, usage, model}`;extract_web 降级启发式时结果带 `llm_usage/llm_model/llm_fallback`(网关异常仍无 usage 不带)。花了的钱不允许凭空消失。
+- [x] ✅(2026-09-09) **验证**:专项 test_tool_llm_usage_accounting(映射 3 态/管线兜底 2 态/recorder→ledger 端到端)+ web_crawl_tools 语义更新用例;专项+记账回归 103 passed;受影响模块定向回归(agent_loop_v2/conversation/step_evidence/step_recorder/cost_accounting/mcp_server/capability_market/web_tools_router/document_tools/media_tasks)366 passed。
+
+## F6-F8 第六轮:全站 i18n 根治——构建期 INVALID_MESSAGE 清零(2026-09-09 完成 ✅)
+
+> 触发:用户要求"完美细致完整毫无遗漏"。第六轮发现前五轮 i18n 对账只覆盖了 media-tasks/voices 两页,存在系统性盲区:① 对账脚本对含点键只查字面量不递归解析嵌套(大量误报);② 构建日志 web-build-20260909-2/3/4 连续出现 8/8/4 次 next-intl INVALID_MESSAGE,五轮均未追查。本轮全站根治。
+
+- [x] ✅(2026-09-09) **全站 i18n 精确审计脚本**:变量名配对 useTranslations('ns') × t('key') 字面量 × 五语,正确递归解析点分嵌套路径 + NON-LEAF(对象被当字符串调)检测;覆盖 apps/web/app 全部 page/layout、apps/miniapp-taro/src、packages/ui-react+app(shared 消息消费方)。终态:web 0 缺失 0 非叶,taro 0 问题,shared 0 问题(扫 7280 文件)。
+- [x] ✅(2026-09-09) **补齐真实缺失键**:修正审计后真实缺失 320 (键×语言) 组合,经 4 个并行 agent 分域翻译(adminTools/admin/models/user/publish/settings/edu 系/realname 实名认证/oAuthCallbackPage 等 20+ 域),保序合并只新增不覆盖既有值(kept_existing 812 处差值一律保留线上既有译文)。
+- [x] ✅(2026-09-09) **ICU 裸花括号根治(INVALID_MESSAGE 真凶)**:6 个消息值含裸 `{`/`}`(aiSkillsPage.importPlaceholder、developerPricingPage.codeCurl、admin.edu.exam 两个 optionsPlaceholder、admin.skillBatch.importHint、adminTools.notificationChannels.configPlaceholder),ICU 解析必炸;已按 ICU 引号规则转义('{'/'}')× 五语,构建日志 INVALID_MESSAGE 8 → 0。
+- [x] ✅(2026-09-09) **两处 NON-LEAF 代码修复**:models/prompts 页 t('prompts.history')(对象)改 t('prompts.history.title');admin/shop/products 页导出按钮 t('products.export')(列头映射对象)改新增叶键 products.exportBtn(导出/匯出/Export/エクスポート/내보내기)。
+- [x] ✅(2026-09-09) **验证**:web tsc 0 错误;重建后 INVALID_MESSAGE 0;消息文件统一序列化(保序+短数组紧凑),JSON 五语全部合法;提交推送三仓。

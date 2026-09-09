@@ -98,13 +98,15 @@ class Settings(BaseSettings):
     # 故该前缀放行 JWT;token 签发端点 /api/artifacts/token 不在白名单,仍走 JWT 保护。
     # 2026-09-08 新增:/api/video/token6688-callback — TokenGo 官方终态 webhook,外部
     # 平台主动 POST(无 JWT),鉴权靠 X-TokenGo-Signature HMAC 验签(见 routers/video.py)。
+    # 2026-09-09 新增:/api/media/tasks/callback — 统一媒体回调(对话内媒体任务自动收尾),
+    # 与 video 回调同协议(TOKEN6688_CALLBACK_SECRET + HMAC),必须放行 JWT 否则平台 webhook 401。
     # 运行时权威值在 ai-service/.env 的 JWT_PUBLIC_PATHS(pydantic 会覆盖本默认值)。
     jwt_public_paths: str = (
         "/api/health,/api/legacy/,/health,/metrics,"
         "/api/publish/scan-login/platforms,"
         "/api/admin/news/status,/api/admin/news/refresh-daily,/api/admin/news/publish-recent,"
         "/api/voice/stt,/api/voice/tts,/api/mcp,"
-        "/api/artifacts/f/,/api/video/token6688-callback"
+        "/api/artifacts/f/,/api/video/token6688-callback,/api/media/tasks/callback"
     )
     # agent_control 内部调用密钥(ai-service → api /execute,2026-07-22)
     agent_control_internal_secret: str = ""
