@@ -206,4 +206,87 @@ class TestServeArtifact:
             assert "ARTIFACT_MARKER" in resp.text
         finally:
             path.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# 归属校验(2026-09-09 P2 越权修复):generate_chart 落 .owner sidecar,
+# 签发端校验归属,非本人产物 403;无 sidecar 的历史产物放行。
+# ---------------------------------------------------------------------------
+
+
+async def test_issue_token_other_owner_403(client, sample_chart):
+    """他人产物换取 token → 403(此前任何登录用户可枚举文件名跨用户读图)。"""
+    import json as _json
+
+    path, rel = sample_chart
+    (Path(str(path) + ".owner")).write_text(
+        _json.dumps({"user_id": "owner-someone-else"}), encoding="utf-8",
+    )
+    try:
+        resp = await client.get(
+            "/api/artifacts/token", params={"file": rel}, headers=_auth_header(),
+        )
+        assert resp.status_code == 403
+        assert "无权" in resp.json()["detail"]
+    finally:
+        Path(str(path) + ".owner").unlink(missing_ok=True)
+
+
+async def test_issue_token_own_owner_ok(client, sample_chart):
+    """本人产物换取 token → 200 正常签发。"""
+    import json as _json
+
+    path, rel = sample_chart
+    (Path(str(path) + ".owner")).write_text(
+        _json.dumps({"user_id": "user-1"}), encoding="utf-8",
+    )
+    try:
+        resp = await client.get(
+            "/api/artifacts/token", params={"file": rel}, headers=_auth_header(),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["token"]
+    finally:
+        Path(str(path) + ".owner").unlink(missing_ok=True)
+
+
+async def test_issue_token_legacy_without_owner_ok(client, sample_chart):
+    """历史产物无 sidecar → 放行(存量兼容)。"""
+    _path, rel = sample_chart
+    resp = await client.get(
+        "/api/artifacts/token", params={"file": rel}, headers=_auth_header(),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["token"]
+
+
+async def test_generate_chart_writes_owner_sidecar(monkeypatch):
+    """chart_tools:带 __user_id 生成 → sidecar 记录归属;文件名含随机段不可枚举。"""
+    from app.tools.chart_tools import generate_chart
+    import json as _json
+    import re as _re
+
+    # output_dir 必须在项目根白名单内 → 用 tmp/charts 并以 uuid 隔离
+    CHARTS_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir = CHARTS_DIR / f"test_own_{uuid.uuid4().hex[:6]}"
+    out = await generate_chart(
+        {
+            "chart_type": "line", "title": "归属测试",
+            "data": _json.dumps({"x": ["a"], "series": [{"name": "s", "values": [1]}]}),
+            "output_dir": f"tmp/charts/{out_dir.name}",
+            "__user_id": "user-42",
+        }
+    )
+    assert out["ok"] is True, out.get("message")
+    html_path = Path(out["file_path"])
+    sidecar = Path(str(html_path) + ".owner")
+    try:
+        owner = _json.loads(sidecar.read_text(encoding="utf-8"))
+        assert owner["user_id"] == "user-42"
+        # 文件名含 8 位十六进制随机段(时间戳_slug_rand.html)
+        assert _re.search(r"_[0-9a-f]{8}\.html$", html_path.name)
+    finally:
+        html_path.unlink(missing_ok=True)
+        sidecar.unlink(missing_ok=True)
+        out_dir.rmdir() if out_dir.is_dir() else None
 # ⁠​‌​​‌​​‌‍​‌​​‌​​​‍​‌​‌​‌​‌‍​‌​​‌​​‌‍​​‌​‌‌​‌‍​‌​​​​​‌‍​‌​​‌​​‌‍​‌‌​‌‌‌‍​‌‌​​‌‌​​‌‌‌‌​‌​‍​‌‌​‌‌​​​‌​​​‌‌‌‍​‌​​​​​‌‍​‌​​‌​​‌‍​‌‌​‌‌‌‍​‌‌​​‌‌‌​‌​​‌‌‌​‍​‌‌​​‌‌​​​‌​​‌​‌‍​‌​‌‌‌​‌‌‌​‌‌‌​‌‍​‌​‌‌​‌‌‌‍​‌​​‌‌​​‍​‌​​​​‌‌‍​‌​‌‌​‌‌‌‍​‌‌​​​​‌‍​‌‌​‌​​‌‍​‌‌‌‌​‌​‍​‌‌​‌​​​‍​‌‌‌​​‌‌‍​​‌​‌‌‌​‍​‌‌‌​‌​​‍​‌‌​‌‌‌‌‍​‌‌‌​​​​‍​‌​‌‌​‌‌‌‍​‌​‌​​​​‍​‌​‌​​‌​‍​‌​​‌‌‌‌‍​‌​‌​‌‌​‍​‌​​​‌​‌‍​‌​​‌‌‌​‍​‌​​​​​‌‍​‌​​‌‌‌​‍​‌​​​​‌‌‍​‌​​​‌​‌‍​​‌​‌‌​‌‍​​‌‌​​‌​‍​​‌‌​​​​‍​​‌‌​​‌​‍​​‌‌​‌‌​⁠
