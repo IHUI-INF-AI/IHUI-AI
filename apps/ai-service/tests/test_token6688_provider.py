@@ -1039,12 +1039,13 @@ async def test_generate_music_full_params_passthrough():
     client.request = AsyncMock(return_value=_json_resp(200, {"task_id": "m-9"}))
     with _patch_http_client(client):
         await p.generate_music(
-            "一首歌", operation="cover", negative_tags="重金属",
-            version="chirp-v5-5", wait=False,
+            "一首歌", operation="cover", cover_clip_id="clip-src-1",
+            negative_tags="重金属", version="chirp-v5-5", wait=False,
         )
     args, kwargs = client.request.call_args
     body = kwargs["json"]
     assert body["operation"] == "cover"
+    assert body["cover_clip_id"] == "clip-src-1"
     assert body["negative_tags"] == "重金属"
     assert body["version"] == "chirp-v5-5"
 
@@ -1140,8 +1141,12 @@ async def test_mcp_token6688_model_info_registered():
     from app.services.mcp_server import _TOOLS, _TOOL_HANDLERS, mcp_server as mcp_inst
 
     tool = next(t for t in _TOOLS if t.name == "token6688_model_info")
-    assert tool.input_schema["required"] == ["model"]
-    assert set(tool.input_schema["properties"]["action"]["enum"]) == {"estimate", "params", "pricing"}
+    # model 已改可选:action=models(目录清单)无需传模型 ID → 不进 required
+    assert "model" not in tool.input_schema.get("required", [])
+    assert set(tool.input_schema["properties"]["action"]["enum"]) == {
+        "models", "estimate", "params", "pricing",
+    }
+    assert "modality" in tool.input_schema["properties"]
     assert "token6688_model_info" in _TOOL_HANDLERS
     names = [t.name for t in mcp_inst.list_tools()]
     assert "token6688_model_info" in names
