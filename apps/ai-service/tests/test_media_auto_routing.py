@@ -24,6 +24,7 @@ import pytest
 from app.services.conversation import (
     _MEDIA_INTENT_PATTERNS,
     _MEDIA_RENDER_PROMPT,
+    _WEB_INTENT_PATTERNS,
     conversation_service,
 )
 from app.services import mcp_server
@@ -125,6 +126,69 @@ class TestMediaIntentTools:
             "image_edit", "token6688_cancel_task", "token6688_model_info",
             "token6688_voice_clone",
         }
+
+
+# =============================================================================
+# Firecrawl web 意图预路由 _web_intent_tools(2026-09-09 极致融合补齐)
+# =============================================================================
+
+
+class TestWebIntentTools:
+    """网页抓取/整站/结构化抽取强信号正判 + 负样本不误触。
+
+    语义同 _media_intent_tools:命中即无条件并入 tool loop 工具集。
+    关键约束:只路由 fetch_readable/map_site/extract_web 三个只读工具,
+    crawl_site(递归爬取,admin-only)刻意不进对话自动路由。
+    """
+
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("帮我读一下 https://example.com", ["fetch_readable"]),
+            ("看看这个网页讲了什么 https://openai.com", ["fetch_readable"]),
+            ("抓取这个页面 https://a.com/x", ["fetch_readable"]),
+            ("概括一下这篇文章 https://blog.example.com/p", ["fetch_readable"]),
+            ("fetch this url https://x.com", ["fetch_readable"]),
+            ("这个网站的结构有哪些", ["map_site"]),
+            ("探查一下这个站点的链接", ["map_site"]),
+            ("看看这个域名的页面地图", ["map_site"]),
+            ("map this website", ["map_site"]),
+            ("提取这个网页的价格信息", ["extract_web"]),
+            ("把这个页面的字段抽出来", ["extract_web"]),
+            ("从这网站里整理产品数据", ["extract_web"]),
+            ("extract structured data from this page", ["extract_web"]),
+        ],
+    )
+    def test_positive(self, text, expected):
+        got = conversation_service._web_intent_tools(text)
+        for tool in expected:
+            assert tool in got, f"{text!r} 应命中 {tool},实际 {got}"
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "今天天气怎么样?",
+            "帮我写个 Python 函数",
+            "我想学爬虫应该看什么书",
+        ],
+    )
+    def test_negative(self, text):
+        got = conversation_service._web_intent_tools(text)
+        assert got == [], f"{text!r} 不应命中 web 工具,实际 {got}"
+
+    def test_patterns_exclude_admin_only_crawl(self):
+        # crawl_site(admin-only, 递归爬取)必须不在对话自动路由名单中
+        assert "crawl_site" in _ADMIN_ONLY_TOOLS
+        assert "crawl_site" not in _WEB_INTENT_PATTERNS
+        assert set(_WEB_INTENT_PATTERNS) == {"fetch_readable", "map_site", "extract_web"}
+
+    def test_web_tools_registered_and_callable(self):
+        # 三个自动路由 web 工具必须已注册且不在 admin-only(普通对话 user_role=0 可用)
+        names = {t.name for t in mcp_server._TOOLS}
+        for n in ("fetch_readable", "map_site", "extract_web"):
+            assert n in names, f"{n} should be registered"
+            assert n in mcp_server._TOOL_HANDLERS
+            assert n not in _ADMIN_ONLY_TOOLS
 
 
 # =============================================================================
