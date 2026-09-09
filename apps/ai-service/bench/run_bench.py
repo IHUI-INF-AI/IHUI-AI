@@ -6,11 +6,15 @@
 把确定性迷你仓库(fixtures)拷贝到独立临时工作目录,构造 AgentLoopV2 驱动
 agent 执行任务,再逐条运行检查器评分,产出 markdown 报告 + JSON 汇总。
 
-支持两种执行器:
+支持三种执行器:
 - ``stub``  :确定性简化 LLM(无需 API key),驱动一次 list_files 探查后结束,
              用于验证完整链路(工具调用 → 结果回填 → 评分)在离线环境跑通。
 - ``loop_v2``:真实 ``llm_gateway.complete`` 路径;无 key 时网关降级为 stub
              响应,行为与 stub 类似,但走完整 LLM 网关调用链。
+- ``golden``:跳过 agent 循环,直接拷贝 fixtures_golden 下的参考答案评分。
+             参考答案覆盖全部任务的检查(含 pytest 全绿),因此通过率必须为
+             100%。用于校验 bench 评分链路自身(checker/fixture/任务定义)无回归,
+             也是 CI ``--min-pass-rate`` 门禁的 golden 基线。
 
 使用:
     python -m bench.run_bench --executor stub --limit 2 --report out.md
@@ -32,6 +36,7 @@ from typing import Any
 
 BENCH_ROOT = Path(__file__).resolve().parent
 FIXTURES_ROOT = BENCH_ROOT / "fixtures"
+GOLDEN_FIXTURES_ROOT = BENCH_ROOT / "fixtures_golden"
 TASKS_FILE = BENCH_ROOT / "tasks_v1.json"
 
 # stub 模式下允许 agent 探查工作目录所用的工具名
@@ -268,14 +273,37 @@ def _build_tools(allowed_tools: list[str], workdir: Path) -> list[Any]:
 
 
 async def _run_task(task: dict[str, Any], executor: str, base_workdir: Path) -> dict[str, Any]:
-    """拷贝 fixture → 临时目录 → 构造 AgentLoopV2 执行 → 评分。"""
+    """拷贝 fixture → 临时目录 → 构造 AgentLoopV2 执行 → 评分。
+
+    golden 执行器跳过 agent 循环,直接拷贝 fixtures_golden 参考答案评分。
+    """
     from app.services.agent_loop_v2 import AgentLoopV2
 
     workdir = base_workdir / f"task_{task['id']}"
     if workdir.exists():
         shutil.rmtree(workdir)
-    fixture = FIXTURES_ROOT / task["fixture"]
+    fixture_root = GOLDEN_FIXTURES_ROOT if executor == "golden" else FIXTURES_ROOT
+    fixture = fixture_root / task["fixture"]
     shutil.copytree(fixture, workdir)
+
+    if executor == "golden":
+        # golden:参考答案应让全部检查通过,无需(也不应)跑 agent 循环
+        checks, passed, total = score_task(task, workdir)
+        task_pass = total > 0 and passed == total
+        return {
+            "id": task["id"],
+            "title": task.get("title", ""),
+            "category": task.get("category", ""),
+            "fixture": task.get("fixture", ""),
+            "iterations": 0,
+            "duration_ms": 0.0,
+            "stop_reason": "golden",
+            "checks": checks,
+            "checks_passed": passed,
+            "checks_total": total,
+            "pass": task_pass,
+            "workdir": str(workdir),
+        }
 
     # 工具路径校验依赖 MCP_WORKSPACE_ROOTS;指向本次副本,避免越权访问仓库真实代码
     prev_roots = os.environ.get("MCP_WORKSPACE_ROOTS")
@@ -458,9 +486,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--category", type=str, default=None, help="按 category 过滤(fix/test/refactor/multifile)")
     parser.add_argument(
         "--executor",
-        choices=["loop_v2", "stub"],
+        choices=["loop_v2", "stub", "golden"],
         default="stub",
-        help="执行器: stub=确定性简化 LLM(无需 key); loop_v2=真实 llm_gateway 路径",
+        help="执行器: stub=确定性简化 LLM(无需 key); loop_v2=真实 llm_gateway 路径; "
+        "golden=参考答案直评(bench 链路自检,应全部通过)",
+    )
+    parser.add_argument(
+        "--min-pass-rate",
+        type=float,
+        default=None,
+        help="CI 门禁:通过率低于该值(0.0~1.0)时向 stderr 报错并以退出码 1 结束",
     )
     parser.add_argument("--report", type=str, default="bench_report.md", help="markdown 报告输出路径(JSON 汇总同名 .json)")
     parser.add_argument("--workdir", type=str, default=None, help="临时目录根,默认系统临时目录")
@@ -494,7 +529,15 @@ def main(argv: list[str] | None = None) -> int:
         f"通过率 {summary['pass_rate']:.1%}; 报告: {args.report}",
         flush=True,
     )
-    # bench 任务失败 ≠ 脚本报错:始终返回 0,便于 CI 收集报告
+    # bench 任务失败 ≠ 脚本报错:默认始终返回 0,便于 CI 收集报告。
+    # 但显式给出 --min-pass-rate 时作为 CI 门禁:低于门槛必须以 1 退出阻塞回归。
+    if args.min_pass_rate is not None and summary["pass_rate"] < args.min_pass_rate:
+        print(
+            f"通过率低于门槛: {summary['pass_rate']:.1%} < {args.min_pass_rate:.1%}",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 1
     return 0
 
 
