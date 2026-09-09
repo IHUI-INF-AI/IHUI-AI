@@ -14629,6 +14629,7 @@
     "adminThemePresets": "主題預設",
     "adminWorkflows": "工作流",
     "advancedAiTools": "進階 AI 工具",
+    "mediaTasks": "媒體任務",
     "agentGovernance": "Agent Token 治理",
     "agentWorkbench": "智能體工作臺",
     "agentCanvas": "智能體畫布",
@@ -18622,7 +18623,12 @@
       "copy": "複製",
       "copied": "已複製",
       "copyFailed": "複製失敗,請手動選取文字複製",
-      "download": "下載 .md"
+      "download": "下載 .md",
+      "extractImages": "提取圖片",
+      "extracting": "提取中...",
+      "extractedImages": "提取的圖片",
+      "extractedNone": "此文件不包含可提取的內嵌圖片",
+      "assetNotSupported": "此格式(PDF)不支援內嵌圖片提取"
     },
     "convertMarkdownFailed": "轉換失敗",
     "convertToMarkdown": "轉 Markdown",

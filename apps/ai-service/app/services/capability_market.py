@@ -40,6 +40,7 @@ _NETWORK_TOOLS: frozenset[str] = frozenset(
         "video_generation",
         "music_generation",
         "voice_tts",
+        "token6688_voice_clone",
         "review_pr",
     }
 )
@@ -97,7 +98,13 @@ _CATEGORY_RULES: list[tuple[str, str]] = [
     ("video_generation", "media"),
     ("music_generation", "media"),
     ("voice_tts", "media"),
+    ("token6688_voice_clone", "media"),
     ("vision_analyze", "media"),
+    ("audio_transcription", "media"),
+    ("token6688_balance", "media"),
+    ("token6688_model_info", "media"),
+    ("token6688_cancel_task", "media"),
+    ("token6688_upload_file", "media"),
     ("screenshot_url", "media"),
     ("generate_chart", "media"),
     ("parse_document", "media"),

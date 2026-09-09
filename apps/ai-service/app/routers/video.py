@@ -118,6 +118,62 @@ async def video_task_status(task_id: str) -> dict[str, Any]:
     return {"ok": True, "data": row}
 
 
+@router.get("/video/tasks")
+async def video_task_list(
+    user_uuid: str | None = None,
+    status: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """媒体任务列表(2026-09-09):按 user_uuid / status 过滤,倒序返回。
+
+    - user_uuid 缺省查全部;status 逗号分隔多值(accepted/processing/succeeded/failed)
+    - 用于"我的进行中媒体任务"一览与取消入口
+    """
+    limit = max(1, min(limit, 100))
+    offset = max(0, offset)
+    where: list[str] = []
+    params: list[Any] = []
+    if user_uuid:
+        params.append(user_uuid)
+        where.append(f"user_uuid=${len(params)}")
+    if status:
+        statuses = [s.strip() for s in status.split(",") if s.strip()]
+        if statuses:
+            params.append(statuses)
+            where.append(f"status = ANY(${len(params)})")
+    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+    conn = await get_db_conn()
+    try:
+        rows = await conn.fetch(
+            f"SELECT id, task_id, user_uuid, chat_id, status, message, result, created_at, updated_at "
+            f"FROM video_generation_tasks {where_sql} ORDER BY id DESC LIMIT $%d OFFSET $%d"
+            % (len(params) + 1, len(params) + 2),
+            *params,
+            limit,
+            offset,
+        )
+        total = await conn.fetchval(
+            f"SELECT count(*) FROM video_generation_tasks {where_sql}", *params
+        )
+    finally:
+        await conn.close()
+    items: list[dict[str, Any]] = []
+    for r in rows:
+        d = dict(r)
+        result = d.get("result")
+        if result:
+            try:
+                d["result"] = json.loads(result)
+            except (ValueError, TypeError):
+                pass
+        items.append(d)
+    return {
+        "ok": True,
+        "data": {"items": items, "total": total or 0, "limit": limit, "offset": offset},
+    }
+
+
 @router.get("/video/providers")
 async def video_providers() -> dict[str, Any]:
     configured = [name for name, _ in _configured_providers()] or []

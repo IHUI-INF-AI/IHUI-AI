@@ -424,6 +424,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: Brain,
         children: ADVANCED_AI_TOOLS_CHILDREN,
       },
+      // 对话内媒体任务统一中心(2026-09-09 立):视频/音乐/语音/图片任务查看/播放/取消
+      { href: '/media-tasks', labelKey: 'mediaTasks', icon: Clapperboard },
       { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
       // 知识库三合一(2026-08-30):原平铺的知识库/RAG/图谱收进可展开子菜单
       {
