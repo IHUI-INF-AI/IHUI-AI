@@ -322,6 +322,8 @@ export default function LivePage() {
                       title={selected.title}
                       className="h-full w-full"
                       allowFullScreen
+                      // 2026-09-09 P2:外部直播源补 sandbox,防 top 级导航劫持
+                      sandbox="allow-scripts allow-same-origin allow-presentation"
                     />
                   </div>
                   <a

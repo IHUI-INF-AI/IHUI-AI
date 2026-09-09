@@ -28,12 +28,23 @@ interface PageProps {
 
 export default async function SsoProviderCompatPage({ params }: PageProps) {
   const { provider } = await params
-  const canonical = PROVIDER_ALIASES[provider] || provider
+  // 2026-09-09 P1 XSS 修复:此前 `|| provider` 回退把未知路由参数原样拼进内联
+  // <script>(output:'export' 静态导出下未知路径 404 兜底,但一旦切动态渲染即成
+  // 反射型 XSS)。改为严格白名单:不在别名表内一律不注入 script,仅渲染提示。
+  const canonical = PROVIDER_ALIASES[provider]
+  if (!canonical) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <p className="text-sm text-muted-foreground">不支持的登录方式</p>
+      </div>
+    )
+  }
+  const canonicalJson = JSON.stringify(canonical)
   return (
     <>
       <script
         dangerouslySetInnerHTML={{
-          __html: `(function(){var sp=new URLSearchParams(location.search);sp.set('platform','${canonical}');location.replace('/sso/auth?'+sp.toString());})();`,
+          __html: `(function(){var sp=new URLSearchParams(location.search);sp.set('platform',${canonicalJson});location.replace('/sso/auth?'+sp.toString());})();`,
         }}
       />
       <div className="flex min-h-screen items-center justify-center bg-background p-4">

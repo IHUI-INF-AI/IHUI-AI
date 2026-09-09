@@ -236,6 +236,10 @@ def _build_option(chart_type: str, title: str, payload: dict[str, Any]) -> dict[
 def _render_html(title: str, option: dict[str, Any]) -> str:
     """渲染为完整独立 ECharts HTML 文件(纯字符串生成,零依赖)。"""
     option_json = json.dumps(option, ensure_ascii=False)
+    # 2026-09-09 P1 纵深防御:option 含 title/系列名/标签等来自用户与 LLM 的
+    # 字符串,内嵌 </script> 可闭合脚本标签注入任意 HTML。JSON 序列化后把
+    # '</' 统一转义为 '<\/'(JSON 字符串内等价),彻底杜绝闭合逃逸。
+    option_json = option_json.replace("</", "<\\/")
     safe_title = html.escape(title)
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">

@@ -52,6 +52,9 @@ export function PreviewCanvas({
           ref={iframeRef}
           srcDoc={srcDoc}
           title="design-preview"
+          // 2026-09-09 P2:用户自绘 HTML 此前以同源同权运行,可触及父页存储;收进
+          // allow-scripts 沙箱(无 allow-same-origin → 不透明源,无法读父页数据)
+          sandbox="allow-scripts allow-forms allow-popups"
           style={{
             flex: 1,
             border: 'none',

@@ -66,6 +66,8 @@ export function OfficeViewer({ url, fileName, className }: OfficeViewerProps) {
             src={src}
             title={fileName ?? 'Office preview'}
             onLoad={() => setLoading(false)}
+            // 2026-09-09 P2:外链 Microsoft Office 预览服务,补 sandbox 最小权限
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
             className="h-full w-full border-0"
           />
         )}
