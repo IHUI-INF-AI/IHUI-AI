@@ -47,14 +47,14 @@ export default function AgentTipDialog({ visible, onClose }: AgentTipDialogProps
 
   return (
     <View
-      className="fixed top-0 left-0 right-0 bottom-0 bg-black/45 flex items-center justify-center z-[100]"
+      className="fixed top-0 left-0 right-0 bottom-0 bg-[var(--color-black-40)] flex items-center justify-center z-[100]"
       onClick={onClose}
-    >
+      hoverClass="opacity-60">
       <View
-        className="w-[600rpx] bg-card rounded-[16rpx] py-[40rpx] px-[32rpx] overflow-hidden"
+        className="w-[600rpx] bg-card rounded-[24rpx] py-[40rpx] px-[32rpx] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
-      >
-        <Text className="block text-[34rpx] font-semibold text-foreground text-center mb-[32rpx]">
+        hoverClass="opacity-60">
+        <Text className="block text-[30rpx] font-semibold text-foreground text-center mb-[32rpx]">
           {tt('ai.chat.agentTipTitle', '智能体使用说明')}
         </Text>
         <View className="flex flex-col gap-[24rpx] mb-[40rpx]">
@@ -80,8 +80,9 @@ export default function AgentTipDialog({ visible, onClose }: AgentTipDialogProps
         <View
           className="h-[80rpx] bg-primary rounded-[12rpx] flex items-center justify-center"
           onClick={onClose}
+          hoverClass="opacity-60"
         >
-          <Text className="text-[28rpx] text-foreground">
+          <Text className="text-[28rpx] text-[var(--color-primary-foreground)]">
             {tt('ai.chat.agentTipConfirm', '我知道了')}
           </Text>
         </View>

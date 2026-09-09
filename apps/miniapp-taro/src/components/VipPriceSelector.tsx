@@ -59,27 +59,33 @@ export default function VipPriceSelector(props: VipPriceSelectorProps) {
           <View
             key={opt.id}
             className={`flex-1 relative px-3 py-3 rounded-xl border-2 ${
-              selected ? 'border-yellow-400 bg-yellow-50' : 'border-border bg-card'
+              selected
+                ? 'border-[var(--color-brand-orange)] bg-[var(--color-brand-orange-light)]'
+                : 'border-border bg-card'
             }`}
             onClick={() => onSelect?.(opt)}
-          >
+            hoverClass="opacity-60">
             {opt.popular && (
               <View
                 className="absolute -top-2 left-1/2 px-2 py-0.5 rounded-md bg-destructive"
                 style={{ transform: 'translateX(-50%)' }}
               >
-                <Text className="text-[20rpx] text-white">{tt('vip.hot', '热门')}</Text>
+                <Text className="text-[20rpx] text-destructive-foreground">{tt('vip.hot', '热门')}</Text>
               </View>
             )}
             <Text
-              className={`block text-sm font-medium text-center ${selected ? 'text-yellow-700' : 'text-foreground'}`}
+              className={`block text-sm font-medium text-center ${
+                selected ? 'text-[var(--color-brand-orange)]' : 'text-foreground'
+              }`}
             >
               {opt.name}
             </Text>
             <View className="flex items-baseline justify-center mt-1">
               <Text className="text-xs text-muted-foreground">¥</Text>
               <Text
-                className={`text-xl font-bold ${selected ? 'text-yellow-700' : 'text-foreground'}`}
+                className={`text-xl font-bold ${
+                  selected ? 'text-[var(--color-brand-orange)]' : 'text-foreground'
+                }`}
               >
                 {opt.price}
               </Text>

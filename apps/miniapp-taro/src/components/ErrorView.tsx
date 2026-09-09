@@ -29,7 +29,7 @@ export default function ErrorView({
       <Text className="text-sm font-medium text-foreground mb-1">{title}</Text>
       <Text className="text-xs text-muted-foreground mb-4 text-center">{desc}</Text>
       {onRetry && (
-        <View className="px-4 py-2 rounded-md bg-primary/10" onClick={onRetry}>
+        <View className="px-4 py-2 rounded-md bg-primary/10" onClick={onRetry} hoverClass="opacity-60">
           <Text className="text-sm text-primary">{tt('common.retry', '重试')}</Text>
         </View>
       )}

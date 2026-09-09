@@ -108,7 +108,7 @@ export default function AiCareer() {
                   key={id}
                   className="p-[28rpx] rounded-[24rpx] border border-[var(--color-border)] bg-card"
                 >
-                  <View key={id} onClick={() => onItemClick(id)}>
+                  <View key={id} onClick={() => onItemClick(id)} hoverClass="opacity-60">
                     {/* 对齐 RN cardHead:头像 44dp=88rpx / 12dp=24rpx 圆角 / muted 底 / 右距 10dp=20rpx */}
                     <View className="flex flex-row items-start">
                       <Image

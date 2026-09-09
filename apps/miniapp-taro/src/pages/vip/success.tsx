@@ -116,7 +116,12 @@ export default function VipSuccessPage() {
       <View className="vs-page">
         {/* ===== 成功图标 + 标题 ===== */}
         <View className="vs-icon-wrap">
-          <LineIcon className="vs-icon" name="check-success" size={120} color="var(--color-success)" />
+          <LineIcon
+            className="vs-icon"
+            name="check-success"
+            size={128}
+            color="var(--color-success-deep)"
+          />
         </View>
         <Text className="vs-title">{tt('vip.index.successTitle', '开通成功')}</Text>
         <Text className="vs-desc">{tt('vip.success.desc', '恭喜您已成功开通 VIP 会员')}</Text>
@@ -146,7 +151,7 @@ export default function VipSuccessPage() {
           </View>
           <View className="vs-info-row">
             <Text className="vs-info-label">{tt('vip.success.amount', '支付金额')}</Text>
-            <Text className="vs-info-value vs-amount">¥{amount}</Text>
+            <Text className="vs-info-value">¥{amount}</Text>
           </View>
           <View className="vs-info-row">
             <Text className="vs-info-label">{tt('vip.success.payMethod', '支付方式')}</Text>
@@ -157,25 +162,25 @@ export default function VipSuccessPage() {
             <Text className="vs-info-value">{payTime}</Text>
           </View>
           {orderNo ? (
-            <View className="vs-info-row" onClick={copyOrderNo}>
+            <View className="vs-info-row" hoverClass="opacity-60" onClick={copyOrderNo}>
               <Text className="vs-info-label">{tt('order.orderNo', '订单号')}</Text>
-              <Text className="vs-info-value vs-order-no">{orderNo}</Text>
+              <Text className="vs-info-value">{orderNo}</Text>
             </View>
           ) : null}
         </View>
 
-        {/* ===== 主操作按钮 ===== */}
+        {/* ===== 主操作按钮(对齐 RN 共享 TopupSuccessScreen:次按钮在上、主按钮在下) ===== */}
         <View className="vs-btn-group">
-          <Button className="vs-btn-primary" onClick={goBenefits}>
+          <Button className="vs-btn-outline" onClick={goBenefits}>
             {tt('vip.index.viewBenefits', '查看会员权益')}
           </Button>
-          <Button className="vs-btn-outline" onClick={goHome}>
+          <Button className="vs-btn-primary" onClick={goHome}>
             {tt('pay.backHome', '返回首页')}
           </Button>
         </View>
 
         {/* ===== 分享好友赚佣金入口 ===== */}
-        <View className="vs-share" onClick={goShare}>
+        <View className="vs-share" hoverClass="opacity-60" onClick={goShare}>
           <View className="vs-share-icon">
             <LineIcon
               className="vs-share-icon-text"

@@ -239,7 +239,7 @@ export default function AiSkillList() {
     <ThemeRoot>
       <View style={viewStyles.container(tk, isDark)}>
         <View style={viewStyles.header()}>
-          <View onTap={goBack}>
+          <View onTap={goBack} hoverClass="opacity-60">
             <Text style={textStyles.back(tk)}>{tt('common.back', '返回')}</Text>
           </View>
           <Text style={textStyles.headerTitle(tk)}>{tt('aiSkill.title', 'AI 技能')}</Text>
@@ -249,7 +249,7 @@ export default function AiSkillList() {
         {error ? (
           <View style={viewStyles.center(isDark)}>
             <Text style={textStyles.errorText(tk)}>{error}</Text>
-            <View style={viewStyles.retryBtn(tk)} onTap={retry}>
+            <View style={viewStyles.retryBtn(tk)} onTap={retry} hoverClass="opacity-60">
               <Text style={textStyles.retryText(tk)}>{tt('aiSkill.retry', '重试')}</Text>
             </View>
           </View>
@@ -262,7 +262,7 @@ export default function AiSkillList() {
                 </View>
               ) : (
                 items.map((item) => (
-                  <View key={item.id} style={viewStyles.card(tk, isDark)} onTap={() => onOpen(item)}>
+                  <View key={item.id} style={viewStyles.card(tk, isDark)} onTap={() => onOpen(item)} hoverClass="opacity-60">
                     <View style={viewStyles.cardTitleRow()}>
                       <Text style={textStyles.cardName(tk)}>{item.name}</Text>
                       <View style={viewStyles.categoryBadge(tk, isDark)}>

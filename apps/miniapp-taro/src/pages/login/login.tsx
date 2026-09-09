@@ -373,6 +373,7 @@ export default function Login() {
               <View
                 key={tab}
                 className={`login-tab ${active ? 'login-tab-active' : ''}`}
+                hoverClass="opacity-60"
                 onClick={() => {
                   setLoginType(tab)
                   setShowAgreeErr(false)
@@ -431,6 +432,7 @@ export default function Login() {
                 />
                 <View
                   className={`login-sendcode ${emailCodeBtnDisabled || emailSending ? 'login-sendcode-disabled' : ''}`}
+                  hoverClass="opacity-60"
                   onClick={sendEmail}
                 >
                   <Text>{emailSending ? tt('login.sending', '发送中…') : emailCodeBtnText}</Text>
@@ -507,6 +509,7 @@ export default function Login() {
                 />
                 <View
                   className={`login-sendcode ${phoneCodeBtnDisabled ? 'login-sendcode-disabled' : ''}`}
+                  hoverClass="opacity-60"
                   onClick={sendSms}
                 >
                   <Text>{phoneCodeBtnText}</Text>
@@ -597,7 +600,7 @@ export default function Login() {
               onOpenPrivacy={() => openAgreement('privacy')}
               tt={tt}
               rightNode={
-                <View className="login-autologin" onClick={() => form.setAutoLogin(!form.autoLogin)}>
+                <View className="login-autologin" hoverClass="opacity-60" onClick={() => form.setAutoLogin(!form.autoLogin)}>
                   <View
                     className={`custom-checkbox ${form.autoLogin ? 'custom-checkbox-checked' : ''}`}
                   >
@@ -615,7 +618,7 @@ export default function Login() {
 
         {/* ===== 第三方登录区:微信主推按钮 + "或" + 图标网格(对齐 RN) ===== */}
         <View className="login-thirdparty">
-          <View className="login-wechat-btn" onClick={handleWechatLogin}>
+          <View className="login-wechat-btn" hoverClass="opacity-60" onClick={handleWechatLogin}>
             <Image className="login-wechat-icon" src="/static/images/wx.svg" mode="aspectFit" />
             <Text>{t('login.wechatLogin')}</Text>
           </View>
@@ -627,14 +630,14 @@ export default function Login() {
           </View>
 
           <View className="login-oauth-grid">
-            <View className="login-oauth-btn" onClick={handleSsoLogin}>
+            <View className="login-oauth-btn" hoverClass="opacity-60" onClick={handleSsoLogin}>
               <Image className="login-oauth-icon" src="/static/images/google.svg" mode="aspectFit" />
             </View>
           </View>
         </View>
 
         {/* ===== SSO 按钮(弱化,轮廓样式;对齐 RN ssoBtn) ===== */}
-        <View className="login-sso-btn" onClick={handleSsoLogin}>
+        <View className="login-sso-btn" hoverClass="opacity-60" onClick={handleSsoLogin}>
           <Text>{tt('login.ssoLoginTitle', '智汇AI网页授权登录')}</Text>
         </View>
 
@@ -695,6 +698,7 @@ function AgreementRow({
       <View className="login-agreement-main">
         <View
           className={`custom-checkbox ${err && !checked ? 'custom-checkbox-error' : ''} ${checked ? 'custom-checkbox-checked' : ''}`}
+          hoverClass="opacity-60"
           onClick={() => onChange(!checked)}
         >
           {checked ? <Text className="custom-checkmark">✓</Text> : null}
@@ -729,7 +733,7 @@ function PrimaryLoginButton({
   loading: boolean
 }) {
   return (
-    <View className={`login-primary-btn ${loading ? 'login-btn-disabled' : ''}`} onClick={loading ? undefined : onClick}>
+    <View className={`login-primary-btn ${loading ? 'login-btn-disabled' : ''}`} hoverClass="opacity-60" onClick={loading ? undefined : onClick}>
       <Text className="login-primary-btn-text">{children}</Text>
     </View>
   )
@@ -762,7 +766,7 @@ function HistoryDropdown({
         </View>
       ))}
       {onClear ? (
-        <View className="login-history-clear" onClick={onClear}>
+        <View className="login-history-clear" hoverClass="opacity-60" onClick={onClear}>
           <Text>{clearText}</Text>
         </View>
       ) : null}

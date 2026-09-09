@@ -111,227 +111,248 @@ export default function Settings() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background p-[24rpx] pb-[48rpx] box-border">
+      {/* 对齐 RN 共享 SettingsScreen:页面浅灰底 + 体边距 20rpx + 分组间距 32rpx;
+          分组标题 28rpx 次级字色;行卡圆角 16rpx(亮 card/暗 muted),行高 120rpx;
+          行文字 32rpx(亮 text.medium/暗 foreground),箭头 40rpx 三级字色;
+          通知开关品牌橙 track(RN switchTrackColor true = brandAccent);退出登录 100rpx 危险红字 */}
+      <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[48rpx] box-border">
         {/* 账号与安全 */}
         <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-[24rpx] text-muted-foreground">
+          <Text className="block px-[8rpx] pb-[16rpx] text-[28rpx] text-muted-foreground">
             {tt('setting.accountSecurity', '账号与安全')}
           </Text>
-          <View className="bg-card rounded-[12rpx] overflow-hidden">
+          <View className="overflow-hidden rounded-[16rpx] bg-card dark:bg-muted">
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/user/phone')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.changePhone', '更换手机号')}
               </Text>
-              <Text className="text-[26rpx] text-muted-foreground mx-[16rpx] max-w-[320rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+              <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden text-ellipsis whitespace-nowrap text-[28rpx] text-muted-foreground">
                 {maskedPhone}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/user/password')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.changePassword', '修改密码')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/user/realname')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.realNameAuth', '实名认证')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/user/email')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.emailBinding', '邮箱绑定')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/account-cancel/index')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.accountCancel', '账号注销')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
           </View>
         </View>
 
         {/* 通用设置 */}
         <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-[24rpx] text-muted-foreground">
+          <Text className="block px-[8rpx] pb-[16rpx] text-[28rpx] text-muted-foreground">
             {tt('setting.general', '通用设置')}
           </Text>
-          <View className="bg-card rounded-[12rpx] overflow-hidden">
-            <View className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted">
-              <Text className="text-[28rpx] text-foreground flex-1">
+          <View className="overflow-hidden rounded-[16rpx] bg-card dark:bg-muted">
+            <View className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.notificationEntry', '消息通知')}
               </Text>
 
               <Switch
                 checked={notifEnabled}
-                color="var(--color-wechat-green)"
+                color="var(--color-brand-orange)"
                 onChange={onNotifChange}
               />
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/setting/language')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.languageSetting', '语言设置')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/setting/theme')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.themeSetting', '主题设置')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/setting/cache')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.clearCache', '清除缓存')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
           </View>
         </View>
 
         {/* 帮助与反馈 */}
         <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-[24rpx] text-muted-foreground">
+          <Text className="block px-[8rpx] pb-[16rpx] text-[28rpx] text-muted-foreground">
             {tt('setting.helpFeedback', '帮助与反馈')}
           </Text>
-          <View className="bg-card rounded-[12rpx] overflow-hidden">
+          <View className="overflow-hidden rounded-[16rpx] bg-card dark:bg-muted">
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/user/feedback')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.feedback', '意见反馈')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/about/index')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.aboutUs', '关于我们')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/announcement/index')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('announcement.title', '平台公告')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/activity/index')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('activity.title', '平台活动')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/ai-skill/index')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('aiSkill.title', 'AI 技能')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
           </View>
         </View>
 
         {/* 隐私与权限 */}
         <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-[24rpx] text-muted-foreground">
+          <Text className="block px-[8rpx] pb-[16rpx] text-[28rpx] text-muted-foreground">
             {tt('setting.privacyPermission', '隐私与权限')}
           </Text>
-          <View className="bg-card rounded-[12rpx] overflow-hidden">
+          <View className="overflow-hidden rounded-[16rpx] bg-card dark:bg-muted">
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/about/privacy')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.privacyPolicy', '隐私政策')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/about/protocol')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.userAgreement', '用户协议')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
           </View>
         </View>
 
         {/* 其他 */}
         <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-[24rpx] text-muted-foreground">
+          <Text className="block px-[8rpx] pb-[16rpx] text-[28rpx] text-muted-foreground">
             {tt('setting.other', '其他')}
           </Text>
-          <View className="bg-card rounded-[12rpx] overflow-hidden">
+          <View className="overflow-hidden rounded-[16rpx] bg-card dark:bg-muted">
             <View
-              className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
+              hoverClass="opacity-60"
               onClick={() => navigate('/pages/about/app-permission/index')}
             >
-              <Text className="text-[28rpx] text-foreground flex-1">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.appPermission', '应用权限')}
               </Text>
-              <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
+              <Text className="text-[40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
             </View>
-            <View className="flex items-center justify-between py-[28rpx] px-[24rpx] active:bg-transparent">
-              <Text className="text-[28rpx] text-foreground flex-1">
+            <View className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]">
+              <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.version', '当前版本号')}
               </Text>
-              <Text className="text-[26rpx] text-muted-foreground mx-[16rpx] max-w-[320rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+              <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden text-ellipsis whitespace-nowrap text-[24rpx] text-[var(--color-text-tertiary)]">
                 {VERSION}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* 退出登录 */}
-        <View className="mt-[24rpx] mb-[48rpx]">
-          <View className="bg-card rounded-[12rpx] overflow-hidden">
-            <View
-              className="flex items-center justify-center py-[32rpx] px-[24rpx] active:bg-muted"
-              onClick={handleLogout}
-            >
-              <Text className="text-destructive text-[28rpx]">{tt('user.logout', '退出登录')}</Text>
-            </View>
+        {/* 退出登录(RN logoutBtn:100rpx 高 + 圆角 16rpx + 危险红 32rpx/600) */}
+        <View className="mb-[48rpx] mt-[24rpx]">
+          <View
+            className="flex h-[100rpx] items-center justify-center rounded-[16rpx] bg-card dark:bg-muted"
+            hoverClass="opacity-60"
+            onClick={handleLogout}
+          >
+            <Text className="text-[32rpx] font-semibold text-destructive">
+              {tt('user.logout', '退出登录')}
+            </Text>
           </View>
         </View>
       </View>
