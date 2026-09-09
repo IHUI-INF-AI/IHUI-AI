@@ -74,6 +74,7 @@ from app.routers import (
     tools,
     voice_stt,
     voice_tts,
+    web_tools,
 )
 
 # Harness 能力补齐:评估/评测框架(2026-08-11 立)
@@ -653,6 +654,7 @@ def create_app() -> FastAPI:
     # FIM 代码补全(Monaco/CLI ghost-text 后端,2026-09-07 立,对标 Cursor Tab)
     app.include_router(fim.router, prefix="/api", tags=["llm-fim"])
     app.include_router(tools.router, prefix="/api", tags=["tools"])
+    app.include_router(web_tools.router, prefix="/api", tags=["web-tools"])
     app.include_router(mcp.router, prefix="/api", tags=["mcp"])
     app.include_router(mcp_official.router, prefix="/api", tags=["mcp-official"])
     app.include_router(connectors.router, prefix="/api", tags=["connectors"])
