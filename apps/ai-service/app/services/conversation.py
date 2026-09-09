@@ -172,6 +172,42 @@ _MEDIA_CHAIN_PROMPT = (
     "严禁编造 task_id,严禁谎称已完成;完成后按渲染规范嵌入链接"
 )
 
+# ---- 2026-09-09 Firecrawl web 网络能力对话自动路由(极致融合补齐)----
+# 强信号正则:命中 URL 抓取/整站/结构化抽取意图 → 无条件注入对应只读 web 工具。
+# 仅含 fetch_readable / map_site / extract_web(crawl_site 递归爬取重操作,刻意在
+# _ADMIN_ONLY_TOOLS,普通对话 user_role=0 不可调,故不进自动路由)。
+_WEB_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    "fetch_readable": (
+        re.compile(r"https?://\S+", re.IGNORECASE),
+        re.compile(r"(读取|抓取|看看|看下|阅读|总结|概括|讲讲|介绍一下)(这|该|那个|这个)?(网页|网站|页面|网页内容|文章|博客|新闻|网址|链接)"),
+        re.compile(r"(这|那个|这个|该)(篇|个|张)?(网页|网站|页面|文章|博客|新闻|内容)讲(了|着|的|什么|的是)"),
+        re.compile(r"\b(fetch|read|parse|scrape)( this| the)? (url|page|webpage|site|article|link)\b", re.IGNORECASE),
+    ),
+    "map_site": (
+        re.compile(r"(这|该|这个)(网站|站点|域名|网址)的?的?(结构|链接|页面|导航|有哪些|都有什么|目录|子页面|收录)"),
+        re.compile(r"(看看|探查|了解|摸清|查看)(一)?(下)?(这个)?(网站|站点|域名)的?(结构|链接|页面|地图|有哪些|全貌)"),
+        re.compile(r"(网站|站点|网址)?(地图|结构|链接|页面)?(是|有哪些|列一下|给我看|找一找|扫描一下)"),
+        re.compile(r"\b(map|sitemap|site ?map|list (all )?urls? of) (this|the) (site|website|domain)\b", re.IGNORECASE),
+    ),
+    "extract_web": (
+        re.compile(r"(提取|抽取|爬取|抓取|结构化|整理)(一)?(下)?(这|该|那个|这个)?(网页|网站|页面|网站里|页面里)的?(字段|价格|产品|信息|数据|表格|列表|参数|规格)"),
+        re.compile(r"(从|在|把)(这|该|那个)?(网页|网站|页面)里(提取|抽取|扒|拿到|整理)(出)?(字段|价格|产品|信息|数据|一句话|要点)"),
+        re.compile(r"(把|将)(这|该|那个|这个)?(网页|网站|页面)的?(字段|价格|信息|数据|内容|产品|规格|参数)(抽|提取|抽取|扒|整理)(出来|一下)?"),
+        re.compile(r"帮我(列|整理|提取)出?(这|该)?(网页|网站|页面上)?的?(标题|价格|联系方式|信息|内容)"),
+        re.compile(r"\b(extract|scrape) (structured )?(data|fields|info|prices?) from (this|the) (page|site)\b", re.IGNORECASE),
+    ),
+}
+
+# 网页工具结果呈现规范:注入 system,让 LLM 把抓取到的正文/链接/结构化结果以可读方式呈现。
+_WEB_RENDER_PROMPT = (
+    "网页抓取工具结果呈现规范(务必遵守):\n"
+    "- fetch_readable 成功:把 content 正文提炼成要点向用户汇报,标明来源 URL;"
+    "不要原文整段搬运超长内容,truncated=true 时如实说明已截断\n"
+    "- map_site 成功:以列表形式汇报重点链接(带锚文本),link_count 说明收录规模\n"
+    "- extract_web 成功:逐字段列出抽取结果(字段=值);confidence 低(<0.5)的字段提醒『抽取置信度不高』\n"
+    "- ok=false 时如实告知失败原因(SSRF_BLOCKED/FETCH_FAILED 等),不要编造网页内容"
+)
+
 
 async def _execute_tool_call(
     tool_name: str, args: dict[str, Any]
@@ -463,6 +499,7 @@ class ConversationService:
             t0 = time.monotonic()
             tools: list[dict[str, Any]] = []
             media_tools: list[str] = []
+            web_tools: list[str] = []
             if allowed_tools is not None:
                 tools = self._filter_tools(allowed_tools)
             elif intent.needs_tool and intent.suggested_tools:
@@ -475,13 +512,16 @@ class ConversationService:
                 # 全模态自动路由(2026-09-08):intent 未判 needs_tool 但媒体强信号命中
                 # → 直接注入对应媒体工具(自动切换多模态调用)
                 media_tools = self._media_intent_tools(user_input)
-                if media_tools:
-                    tools = self._filter_tools(media_tools)
-            # intent 已选工具时补并媒体预路由命中项(去重),防 LLM 分类漏判媒体模态
-            if allowed_tools is None and not media_tools:
+                # Firecrawl web 自动路由(2026-09-09 极致融合补齐):URL 抓取/整站/结构化意图
+                web_tools = self._web_intent_tools(user_input)
+                if media_tools or web_tools:
+                    tools = self._filter_tools(media_tools + web_tools)
+            # intent 已选工具时补并媒体/web 预路由命中项(去重),防 LLM 分类漏判
+            if allowed_tools is None and not (media_tools or web_tools):
                 media_tools = self._media_intent_tools(user_input)
+                web_tools = self._web_intent_tools(user_input)
                 existing = {t.get("function", {}).get("name") for t in tools}
-                extra = [m for m in media_tools if m not in existing]
+                extra = [m for m in media_tools + web_tools if m not in existing]
                 if extra:
                     tools.extend(self._filter_tools(extra))
             trace.append({
@@ -490,6 +530,7 @@ class ConversationService:
                 "tool_count": len(tools),
                 "tool_names": [t.get("function", {}).get("name") for t in tools],
                 **({"media_routed": media_tools} if media_tools else {}),
+                **({"web_routed": web_tools} if web_tools else {}),
             })
 
             # 4. 加载历史上下文
@@ -510,6 +551,10 @@ class ConversationService:
                 _media_set = set(_MEDIA_INTENT_PATTERNS)
                 if any(t.get("function", {}).get("name") in _media_set for t in tools):
                     guidance += "\n\n" + _MEDIA_RENDER_PROMPT + "\n\n" + _MEDIA_CHAIN_PROMPT
+                # 网页工具在场 → 追加网页内容呈现规范(2026-09-09 极致融合补齐)
+                _web_set = set(_WEB_INTENT_PATTERNS)
+                if any(t.get("function", {}).get("name") in _web_set for t in tools):
+                    guidance += "\n\n" + _WEB_RENDER_PROMPT
                 messages.append({"role": "system", "content": guidance})
             # P0:用户画像 + 跨会话记忆注入(孤岛能力打通,与 v2 的 L1-1 记忆闭环一致;
             # 失败/拿不到 user_id 均降级不阻塞对话)
@@ -965,6 +1010,21 @@ class ConversationService:
         """
         out: list[str] = []
         for tool, patterns in _MEDIA_INTENT_PATTERNS.items():
+            if any(p.search(text) for p in patterns):
+                out.append(tool)
+        return out
+
+    @staticmethod
+    def _web_intent_tools(text: str) -> list[str]:
+        """Firecrawl web 网络意图预路由(2026-09-09 极致融合补齐):命中 URL 抓取/整站/
+        结构化抽取强信号 → 注入对应只读 web 工具(fetch_readable/map_site/extract_web)。
+
+        刻意不含 crawl_site(递归爬取重操作, 在 _ADMIN_ONLY_TOOLS, 普通对话 user_role=0
+        不可调)。与 _media_intent_tools 同语义: 命中即并入 tool loop 工具集, 不受 LLM
+        意图分类质量影响。
+        """
+        out: list[str] = []
+        for tool, patterns in _WEB_INTENT_PATTERNS.items():
             if any(p.search(text) for p in patterns):
                 out.append(tool)
         return out
