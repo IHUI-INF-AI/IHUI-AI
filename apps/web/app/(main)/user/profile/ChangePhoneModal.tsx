@@ -60,6 +60,17 @@ export function ChangePhoneModal({ open, onClose, oldPhone, onSuccess }: Props) 
     onClose()
   }
 
+  // 2026-09-09 修复:倒计时 interval 登记到 ref,组件卸载时统一清理,
+  // 防止弹窗提前关闭后孤儿 interval 继续 setState(内存泄漏)。
+  const timersRef = React.useRef<ReturnType<typeof setInterval>[]>([])
+  React.useEffect(() => {
+    const timers = timersRef
+    return () => {
+      for (const t of timers.current) clearInterval(t)
+      timers.current = []
+    }
+  }, [])
+
   const startCountdown = (setter: React.Dispatch<React.SetStateAction<number>>) => {
     setter(60)
     const timer = setInterval(() => {
@@ -71,6 +82,7 @@ export function ChangePhoneModal({ open, onClose, oldPhone, onSuccess }: Props) 
         return c - 1
       })
     }, 1000)
+    timersRef.current.push(timer)
   }
 
   const startOldCountdown = () => startCountdown(setOldCountdown)
