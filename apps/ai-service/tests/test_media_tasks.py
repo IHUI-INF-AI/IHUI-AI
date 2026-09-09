@@ -826,7 +826,7 @@ async def test_callback_success_writes_succeeded():
     mock_conn.fetch = AsyncMock(return_value=[{"id": 1, "kind": "video"}])
     updated: list[dict] = []
 
-    async def _fake_update(tid, status=None, result=None):
+    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
         updated.append({"tid": tid, "status": status, "result": result})
         return True
 
@@ -858,7 +858,7 @@ async def test_callback_failed_writes_failed():
     mock_conn.fetch = AsyncMock(return_value=[{"id": 1, "kind": "tts"}])
     updated: list[dict] = []
 
-    async def _fake_update(tid, status=None, result=None):
+    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
         updated.append({"tid": tid, "status": status, "result": result})
         return True
 
@@ -882,7 +882,7 @@ async def test_callback_success_no_url_falls_back_failed():
     mock_conn.fetch = AsyncMock(return_value=[{"id": 1, "kind": "music"}])
     updated: list[dict] = []
 
-    async def _fake_update(tid, status=None, result=None):
+    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
         updated.append({"tid": tid, "status": status, "result": result})
         return True
 
@@ -952,7 +952,7 @@ async def test_poll_success_finalizes(monkeypatch):
 
     updated: list[dict] = []
 
-    async def _fake_update(tid, status=None, result=None):
+    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
         updated.append({"tid": tid, "status": status, "result": result})
         return True
 
@@ -994,7 +994,7 @@ async def test_poll_completed_no_url_waits(monkeypatch):
 
     updated: list[dict] = []
 
-    async def _fake_update(tid, status=None, result=None):
+    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
         updated.append({"tid": tid, "status": status, "result": result})
         return True
 
@@ -1033,7 +1033,7 @@ async def test_poll_failed_finalizes(monkeypatch):
 
     updated: list[dict] = []
 
-    async def _fake_update(tid, status=None, result=None):
+    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
         updated.append({"tid": tid, "status": status, "result": result})
         return True
 
@@ -1232,10 +1232,13 @@ async def test_cancel_media_tasks_all_inflight(monkeypatch):
     assert result["requested"] == 2
     assert result["cancelled"] == 2
     assert result["remote_failed"] == []
-    sql, params = mock_conn.execute.call_args.args
+    # 第二次 fetch = UPDATE ... RETURNING(2026-09-09 改条件更新,弃 execute)
+    sql, *params = mock_conn.fetch.call_args_list[1].args
     assert "status='cancelled'" in sql
     assert "task_id = ANY($1)" in sql
-    assert params == ["t-v1", "t-m1"]
+    assert "status = ANY($2)" in sql
+    assert params[0] == ["t-v1", "t-m1"]
+    assert params[1] == ["processing", "accepted", "submitted", "pending"]
 
 
 async def test_cancel_media_tasks_task_ids_and_kind(monkeypatch):
@@ -1258,7 +1261,7 @@ async def test_cancel_media_tasks_task_ids_and_kind(monkeypatch):
     with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
         result = await mt.cancel_media_tasks(task_ids=["t-v1", "  "], kind="video,image")
     assert result["requested"] == 1
-    sql, *params = mock_conn.fetch.call_args.args
+    sql, *params = mock_conn.fetch.call_args_list[0].args
     # 在途状态集合 + task_ids + kind 三个占位
     assert "task_id = ANY($2)" in sql
     assert "kind = ANY($3)" in sql
@@ -1371,3 +1374,144 @@ async def test_rest_media_tasks_callback_fail_closed(monkeypatch):
             json={"task_id": "t1", "state": "success"},
         )
     assert resp.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# 第七轮竞态修复(2026-09-09):条件终态转移 + 真实计数 + 409 竞态窗口
+# ---------------------------------------------------------------------------
+
+
+async def test_update_media_task_only_if_in_flight_sql():
+    """条件更新:SQL 带 AND status=ANY 守卫,task_id 与状态集合参数序正确。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetchrow = AsyncMock(return_value={"id": 1})
+    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
+        ok = await mt.update_media_task(
+            "t-1", status="succeeded", result={"video_url": "u"}, only_if_in_flight=True,
+        )
+    assert ok is True
+    sql, *params = mock_conn.fetchrow.call_args.args
+    assert "AND status = ANY($4)" in sql
+    # $1/$2=status/result,$3=task_id,$4=在途状态集合
+    assert params[0] == "succeeded"
+    assert params[2] == "t-1"
+    assert params[3] == ["processing", "accepted", "submitted", "pending"]
+
+
+async def test_update_media_task_only_if_in_flight_miss():
+    """条件更新未命中(已终态/已取消)→ False,不抛。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetchrow = AsyncMock(return_value=None)
+    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
+        ok = await mt.update_media_task("t-done", status="failed", only_if_in_flight=True)
+    assert ok is False
+
+
+async def test_callback_after_cancel_not_flipped():
+    """取消-回调竞态:回调 SELECT 命中在途行后任务被并发取消,条件更新落空 →
+    matched=0,已取消任务不被翻转成 succeeded。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetch = AsyncMock(return_value=[{"id": 1, "kind": "video"}])
+    seen: dict = {}
+
+    async def _fake_update(tid, status=None, result=None, only_if_in_flight=False):
+        seen.update(tid=tid, status=status, guard=only_if_in_flight)
+        return False  # 条件更新未命中:行已被置为 cancelled
+
+    with (
+        patch("app.services.media_tasks.get_db_conn", return_value=mock_conn),
+        patch("app.services.media_tasks.update_media_task", new=_fake_update),
+    ):
+        out = await mt.handle_media_callback(
+            {"task_id": "t-c", "state": "success", "is_final": True,
+             "output_url": "https://cdn/x.mp4"}
+        )
+    assert out == {"ok": True, "matched": 0}
+    assert seen["guard"] is True
+
+
+async def test_cancel_media_tasks_counts_actual_rows(monkeypatch):
+    """批量取消:cancelled 取 UPDATE RETURNING 真实行数,非预期行数
+    (模拟并发窗口内 1 条已被回调落终态,UPDATE 只命中 1 行)。"""
+    conn_select = AsyncMock()
+    conn_select.fetch = AsyncMock(
+        return_value=[
+            {"id": 1, "task_id": "t-v1", "provider": "token6688"},
+            {"id": 2, "task_id": "t-m1", "provider": "token6688"},
+        ]
+    )
+    conn_update = AsyncMock()
+    conn_update.fetch = AsyncMock(return_value=[{"task_id": "t-v1"}])  # 仅 1 行命中
+
+    class _Cfg:
+        api_key = ""
+        api_base = ""
+
+    class _FakeSettings:
+        def get_provider_config(self, name):  # noqa: ANN001
+            return _Cfg()
+
+    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
+    with patch("app.services.media_tasks.get_db_conn", side_effect=[conn_select, conn_update]):
+        result = await mt.cancel_media_tasks()
+    assert result["requested"] == 2
+    assert result["cancelled"] == 1
+    sql, *params = conn_update.fetch.call_args.args
+    assert "status = ANY($2)" in sql
+    assert params[1] == ["processing", "accepted", "submitted", "pending"]
+
+
+async def test_cancel_media_tasks_update_error_reports_zero(monkeypatch):
+    """批量取消:本地 UPDATE 异常 → cancelled=0(不再夸大成功),不抛。"""
+    conn_select = AsyncMock()
+    conn_select.fetch = AsyncMock(
+        return_value=[{"id": 1, "task_id": "t-v1", "provider": "token6688"}]
+    )
+    conn_update = AsyncMock()
+    conn_update.fetch = AsyncMock(side_effect=RuntimeError("db down"))
+
+    class _Cfg:
+        api_key = ""
+        api_base = ""
+
+    class _FakeSettings:
+        def get_provider_config(self, name):  # noqa: ANN001
+            return _Cfg()
+
+    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
+    with patch("app.services.media_tasks.get_db_conn", side_effect=[conn_select, conn_update]):
+        result = await mt.cancel_media_tasks()
+    assert result == {"requested": 1, "cancelled": 0, "remote_failed": []}
+
+
+async def test_rest_media_task_cancel_race_409(monkeypatch):
+    """取消竞态窗口:预检在途 → 写入前被并发落终态(条件更新未命中)→ 409。"""
+    monkeypatch.setattr(
+        "app.routers.media_tasks.get_media_task",
+        AsyncMock(return_value={"task_id": "t-r", "provider": "token6688", "status": "processing"}),
+    )
+    upd = AsyncMock(return_value=False)
+    monkeypatch.setattr("app.routers.media_tasks.update_media_task", upd)
+    app = _make_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/api/media/tasks/t-r/cancel")
+    assert resp.status_code == 409
+    assert "并发收尾" in resp.json()["detail"]
+    args, kwargs = upd.call_args
+    assert kwargs.get("only_if_in_flight") is True
+
+
+async def test_persist_duplicate_update_guarded():
+    """重复持久化冲突分支:UPDATE 带在途守卫,已终态任务不被回退重开。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetch = AsyncMock(return_value=[])  # 插入未命中 → 走 UPDATE 分支
+    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
+        ok = await mt.persist_media_task(
+            "video_generation",
+            {"ok": True, "task_id": "t-dup", "video_url": "https://x/v.mp4"},
+        )
+    assert ok is True
+    sql, *params = mock_conn.execute.call_args.args
+    assert "AND status = ANY($6)" in sql
+    assert params[4] == "t-dup"
+    assert params[5] == ["processing", "accepted", "submitted", "pending"]
