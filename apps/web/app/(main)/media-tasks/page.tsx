@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Loader2, RefreshCw, Clapperboard, XCircle, PlayCircle, ImageIcon, Mic, Film, Music, Download, ChevronLeft, ChevronRight, Trash2, Eraser } from 'lucide-react'
+import { Loader2, RefreshCw, Clapperboard, XCircle, PlayCircle, ImageIcon, Mic, Film, Music, Download, ChevronLeft, ChevronRight, Trash2, Eraser, Ban, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
@@ -33,6 +33,15 @@ interface MediaTask {
   result?: MediaTaskResult
   created_at: string
   updated_at: string
+}
+
+interface MediaTaskStats {
+  by_kind: Record<string, { total: number; succeeded: number; failed: number; cancelled: number; inflight: number }>
+  total: number
+  inflight: number
+  succeeded: number
+  failed: number
+  cancelled: number
 }
 
 const PAGE_SIZE = 10
@@ -130,6 +139,7 @@ export default function MediaTasksPage() {
   const [cancelling, setCancelling] = React.useState<string | null>(null)
   const [deleting, setDeleting] = React.useState<string | null>(null)
   const [clearing, setClearing] = React.useState(false)
+  const [cancellingAll, setCancellingAll] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [clearInfo, setClearInfo] = React.useState<string | null>(null)
 
@@ -145,9 +155,18 @@ export default function MediaTasksPage() {
     },
   })
 
+  // 2026-09-09 F8:统计概览卡片(总数/在途/已完成/失败/已取消,按 kind 明细)。
+  const statsQuery = useQuery({
+    queryKey: ['media-tasks-stats'],
+    queryFn: () => api<{ ok: boolean; data: MediaTaskStats }>('/media/tasks/stats'),
+    refetchInterval: (q) => ((q.state.data?.data?.inflight ?? 0) > 0 ? 5000 : false),
+  })
+
   const tasks = listQuery.data?.data?.items ?? []
   const total = listQuery.data?.data?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const stats = statsQuery.data?.data
+  const inflightCount = stats?.inflight ?? 0
 
   const cancelTask = async (taskId: string) => {
     setCancelling(taskId)
@@ -159,6 +178,7 @@ export default function MediaTasksPage() {
       )
       if (res.data?.error) setError(`${t('cancel')}失败: ${res.data.error}`)
       await queryClient.invalidateQueries({ queryKey: ['media-tasks'] })
+      await queryClient.invalidateQueries({ queryKey: ['media-tasks-stats'] })
     } catch (e) {
       setError(`${t('cancel')}失败: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
@@ -176,6 +196,7 @@ export default function MediaTasksPage() {
         { method: 'DELETE' },
       )
       await queryClient.invalidateQueries({ queryKey: ['media-tasks'] })
+      await queryClient.invalidateQueries({ queryKey: ['media-tasks-stats'] })
     } catch (e) {
       setError(`${t('delete')}失败: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
@@ -195,10 +216,33 @@ export default function MediaTasksPage() {
       )
       setClearInfo(t('clearResult', { deleted: res.data?.deleted ?? 0, kept: res.data?.kept_in_flight ?? 0 }))
       await queryClient.invalidateQueries({ queryKey: ['media-tasks'] })
+      await queryClient.invalidateQueries({ queryKey: ['media-tasks-stats'] })
     } catch (e) {
       setError(`${t('clearDone')}失败: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
       setClearing(false)
+    }
+  }
+
+  // 2026-09-09 F8:一键取消全部在途任务(已终态任务不受影响)。
+  const cancelAllInflight = async () => {
+    if (!window.confirm(t('cancelAllConfirm'))) return
+    setCancellingAll(true)
+    setError(null)
+    setClearInfo(null)
+    try {
+      const res = await api<{ ok: boolean; data?: { requested?: number; cancelled?: number; remote_failed?: { task_id: string; error: string }[] } }>(
+        '/media/tasks/cancel',
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' },
+      )
+      const n = res.data?.cancelled ?? 0
+      setClearInfo(n > 0 ? t('cancelAllResult', { count: n }) : t('cancelAllNone'))
+      await queryClient.invalidateQueries({ queryKey: ['media-tasks'] })
+      await queryClient.invalidateQueries({ queryKey: ['media-tasks-stats'] })
+    } catch (e) {
+      setError(`${t('cancelAll')}失败: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setCancellingAll(false)
     }
   }
 
@@ -247,6 +291,15 @@ export default function MediaTasksPage() {
           <Button
             variant="outline"
             size="sm"
+            disabled={cancellingAll || inflightCount === 0}
+            onClick={cancelAllInflight}
+          >
+            <Ban className={cn('mr-1 h-4 w-4', cancellingAll && 'animate-pulse')} />
+            {cancellingAll ? t('cancellingAll') : t('cancelAll')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             disabled={clearing || total === 0}
             onClick={clearTasks}
           >
@@ -256,14 +309,68 @@ export default function MediaTasksPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => listQuery.refetch()}
-            disabled={listQuery.isFetching}
+            onClick={() => {
+              listQuery.refetch()
+              statsQuery.refetch()
+            }}
+            disabled={listQuery.isFetching || statsQuery.isFetching}
           >
-            <RefreshCw className={cn('mr-1 h-4 w-4', listQuery.isFetching && 'animate-spin')} />
+            <RefreshCw className={cn('mr-1 h-4 w-4', (listQuery.isFetching || statsQuery.isFetching) && 'animate-spin')} />
             {t('refresh')}
           </Button>
         </div>
       </header>
+
+      {/* 2026-09-09 F8:统计概览卡片(总数/在途/已完成/失败/已取消) */}
+      <section className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {(
+          [
+            { key: 'total', label: t('statsTotal'), value: stats?.total ?? 0, cls: 'text-foreground' },
+            { key: 'inflight', label: t('statsInflight'), value: inflightCount, cls: 'text-blue-600 dark:text-blue-400' },
+            { key: 'succeeded', label: t('statsSucceeded'), value: stats?.succeeded ?? 0, cls: 'text-green-600 dark:text-green-400' },
+            { key: 'failed', label: t('statsFailed'), value: stats?.failed ?? 0, cls: 'text-red-600 dark:text-red-400' },
+            { key: 'cancelled', label: t('statsCancelled'), value: stats?.cancelled ?? 0, cls: 'text-muted-foreground' },
+          ] as const
+        ).map((c) => (
+          <div key={c.key} className="rounded-md border border-border/50 bg-card/50 p-3">
+            <p className="text-[11px] text-muted-foreground">{c.label}</p>
+            <p className={cn('mt-1 flex items-center gap-1 text-xl font-bold tabular-nums', c.cls)}>
+              {statsQuery.isFetching && stats === undefined ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : (
+                c.value
+              )}
+              {c.key === 'inflight' && inflightCount > 0 && (
+                <span className="ml-auto inline-flex h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+              )}
+            </p>
+          </div>
+        ))}
+      </section>
+
+      {/* 按类型明细(与概览同源,点击直达类型过滤) */}
+      {stats?.by_kind && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <BarChart3 className="h-3.5 w-3.5 text-muted-foreground/70" />
+          {Object.entries(stats.by_kind).map(([kind, v]) => (
+            <button
+              key={kind}
+              type="button"
+              onClick={() => switchFilter(setKindFilter)(kind)}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors',
+                kindFilter === kind
+                  ? 'border-primary/50 bg-primary/10 text-primary'
+                  : 'border-border/50 text-muted-foreground hover:bg-muted/40',
+              )}
+            >
+              <span className={cn('font-medium', KIND_CLASS[kind])}>{kind}</span>
+              <span className="tabular-nums">{v.total}</span>
+              {v.inflight > 0 && <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 状态 + 类型过滤 */}
       <div className="flex flex-wrap items-center gap-2">
