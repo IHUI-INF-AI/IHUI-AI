@@ -62,7 +62,7 @@ export default function AdminOrdersPage() {
         ))}
       </div>
 
-      <div key={tab} className="animate-in fade-in-0 duration-200">
+      <div key={tab} className="animate-in fade-in-0 duration-(--duration-unified) ease-unified">
         {tab === 'orders' && <OrdersTab t={t} dateFmt={dateFmt} currencyFmt={currencyFmt} />}
         {tab === 'refunds' && (
           <RefundsTab t={t} tc={tc} dateFmt={dateFmt} currencyFmt={currencyFmt} />
