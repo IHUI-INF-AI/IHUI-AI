@@ -144,11 +144,15 @@ async def persist_media_task(
             )
             inserted = bool(rows)
             if not inserted and task_id:
-                # 已存在同 task_id(对话内多次查询同一任务)→ 刷新状态与产物
+                # 已存在同 task_id(对话内多次查询同一任务)→ 刷新状态与产物。
+                # 2026-09-09 P1 状态机修复:仅允许刷新在途行(AND status=ANY(在途))——
+                # 重提交/重复查询不得把已终态(succeeded/failed/cancelled)任务回退。
                 await conn.execute(
                     "UPDATE media_tasks SET status=$1, result=$2, message=$3, "
-                    "provider=$4, updated_at=now() WHERE task_id=$5",
-                    status, json.dumps(payload, ensure_ascii=False), message, provider, task_id,
+                    "provider=$4, updated_at=now() "
+                    "WHERE task_id=$5 AND status = ANY($6)",
+                    status, json.dumps(payload, ensure_ascii=False), message, provider,
+                    task_id, list(_STATUS_IN_FLIGHT),
                 )
             return True
         finally:
@@ -294,8 +298,16 @@ async def get_media_task(task_id: str) -> dict[str, Any] | None:
     return d
 
 
-async def update_media_task(task_id: str, **fields: Any) -> bool:
-    """按 task_id 更新字段(如取消后置 status=cancelled)。"""
+async def update_media_task(
+    task_id: str, *, only_if_in_flight: bool = False, **fields: Any
+) -> bool:
+    """按 task_id 更新字段(如取消后置 status=cancelled)。
+
+    2026-09-09 P1 竞态修复:所有"终态转移"调用(succeeded/failed/cancelled)必须传
+    only_if_in_flight=True,使 WHERE 附加 status=ANY(在途) 条件——取消与回调/轮询
+    并发时只有一方能命中(单语句原子,消除先查后写 TOCTOU),已终态行不再被回写翻转
+    (cancelled 不会被迟到的回调改回 succeeded)。返回 False = 未命中(已终态/不存在)。
+    """
     import json as _json
 
     task_id = str(task_id or "").strip()
@@ -311,11 +323,16 @@ async def update_media_task(task_id: str, **fields: Any) -> bool:
     if not sets:
         return False
     params.append(task_id)
+    guard_sql = ""
+    if only_if_in_flight:
+        params.append(list(_STATUS_IN_FLIGHT))
+        guard_sql = f" AND status = ANY(${len(params)})"
     conn = await get_db_conn()
     try:
         row = await conn.fetchrow(
             f"UPDATE media_tasks SET {', '.join(sets)}, updated_at=now() "
-            f"WHERE task_id=${len(params)} RETURNING id",
+            f"WHERE task_id=${len(params) - (1 if only_if_in_flight else 0)}{guard_sql} "
+            f"RETURNING id",
             *params,
         )
         return bool(row)
@@ -456,18 +473,24 @@ async def cancel_media_tasks(
     try:
         conn = await get_db_conn()
         try:
-            await conn.execute(
+            # 2026-09-09 P2 修复:条件更新(仅在途可写)+ RETURNING 取真实行数——
+            # 此前 cancelled 用 len(with_remote) 预期值,UPDATE 异常被吞后计数夸大成功;
+            # 且无在途守卫时与回调/轮询并发可把刚落终态的任务重新翻回 cancelled。
+            cancelled_rows = await conn.fetch(
                 "UPDATE media_tasks SET status='cancelled', updated_at=now() "
-                "WHERE task_id = ANY($1)",
+                "WHERE task_id = ANY($1) AND status = ANY($2) RETURNING task_id",
                 [str(r["task_id"]).strip() for r in with_remote],
+                list(_STATUS_IN_FLIGHT),
             )
+            cancelled = len(cancelled_rows)
         finally:
             await conn.close()
     except Exception as e:  # noqa: BLE001
         logger.warning("[media_tasks] 批量取消本地置位失败: %s", e)
+        cancelled = 0
     return {
         "requested": requested,
-        "cancelled": len(with_remote),
+        "cancelled": cancelled,
         "remote_failed": remote_failed,
     }
 
@@ -546,7 +569,16 @@ async def handle_media_callback(snapshot: dict[str, Any]) -> dict[str, Any]:
             )[:1000]
             payload = {"error": err, "via": "callback"}
             new_status = "failed"
-        await update_media_task(remote_id, status=new_status, result=payload)
+        # 2026-09-09 P1 竞态修复:条件更新(仅在途可写)。SELECT 与 UPDATE 之间的窗口内
+        # 任务可能已被用户取消(→cancelled);无守卫的回写会把已取消任务翻转成 succeeded。
+        applied = await update_media_task(
+            remote_id, status=new_status, result=payload, only_if_in_flight=True,
+        )
+        if not applied:
+            logger.info(
+                "[media_tasks] 回调落终态被跳过(任务已终态/已取消): task=%s", remote_id,
+            )
+            continue
         logger.info(
             "[media_tasks] 回调落终态: kind=%s task=%s status=%s url=%s",
             r["kind"], remote_id, new_status, (media_url or "")[:80],
@@ -603,17 +635,24 @@ async def _poll_processing_batch() -> int:
             payload = {_kind_url_field(r["kind"]): url, "completed": True, "via": "poller"}
             if not url:
                 continue  # 终态但尚无产物(stage=downloading 等),下次循环再收
-            await update_media_task(str(r["task_id"]), status="succeeded", result=payload)
-            updated += 1
-            logger.info("[media_tasks] 轮询收尾成功: task=%s", r["task_id"])
+            # 2026-09-09 P1 竞态修复:仅在途可写,防把已取消任务翻回 succeeded
+            applied = await update_media_task(
+                str(r["task_id"]), status="succeeded", result=payload,
+                only_if_in_flight=True,
+            )
+            if applied:
+                updated += 1
+                logger.info("[media_tasks] 轮询收尾成功: task=%s", r["task_id"])
         elif status in ("failed", "error", "cancelled"):
-            await update_media_task(
+            applied = await update_media_task(
                 str(r["task_id"]),
                 status="failed",
                 result={"error": st.get("error") or "task failed", "via": "poller"},
+                only_if_in_flight=True,
             )
-            updated += 1
-            logger.info("[media_tasks] 轮询收尾失败: task=%s", r["task_id"])
+            if applied:
+                updated += 1
+                logger.info("[media_tasks] 轮询收尾失败: task=%s", r["task_id"])
     return updated
 
 

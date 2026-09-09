@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from pathlib import Path
@@ -121,7 +122,7 @@ def validate_and_resolve(file_name: str) -> Path:
 async def issue_artifact_token(
     request: Request,
     file: str,
-    _user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """换取产物访问签名 token(JWT 保护)。
 
@@ -133,8 +134,23 @@ async def issue_artifact_token(
 
     注:响应脱敏中间件会把字段名含 "token" 的值替换为 ***,而此 token 本就是
     返回给调用方使用的短期签名凭证(非内部 secret),故跳过脱敏。
+    2026-09-09 P2 越权修复:签发时校验产物归属(sidecar <file>.owner 内的 user_id
+    由 generate_chart 落盘);存在且与当前用户不符 → 403。无 sidecar 的历史产物
+    放行(存量兼容),新产物文件名含随机段不可枚举,双保险。
     """
-    validate_and_resolve(file)
+    target = validate_and_resolve(file)
+    owner_file = Path(str(target) + ".owner")
+    if owner_file.is_file():
+        try:
+            owner = (json.loads(owner_file.read_text(encoding="utf-8")) or {}).get("user_id")
+        except (OSError, ValueError):
+            owner = None
+        if owner and str(owner) != str(user_id):
+            logger.warning(
+                "[artifacts] 越权换取 token 拒绝: user=%s file=%s owner=%s",
+                user_id, file, owner,
+            )
+            raise HTTPException(status_code=403, detail="无权访问该产物")
     token = sign_artifact_token(file)
     request.state.skip_response_sanitization = True
     return {

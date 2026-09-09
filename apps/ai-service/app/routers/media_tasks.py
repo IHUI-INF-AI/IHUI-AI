@@ -244,13 +244,17 @@ async def media_task_detail(
                         field = _kind_url_field(str(row.get("kind") or ""))
                         merged = {**(row.get("result") or {}), field: st["video_url"]}
                         row["result"] = merged
+                        # 2026-09-09 P1 竞态修复:仅在途可写,防把已取消任务翻成 succeeded
                         await update_media_task(
                             str(row["task_id"]),
                             status="succeeded",
                             result=merged,
+                            only_if_in_flight=True,
                         )
                     elif st.get("failed"):
-                        await update_media_task(str(row["task_id"]), status="failed")
+                        await update_media_task(
+                            str(row["task_id"]), status="failed", only_if_in_flight=True,
+                        )
         except Exception as e:  # noqa: BLE001
             logger.warning("[media_tasks] 实时探测失败(降级返回库内数据): %s", e)
     return {"ok": True, "data": row}
@@ -355,9 +359,20 @@ async def media_task_cancel(
     else:
         cancel_result["error"] = f"provider={provider} 不支持远端取消,仅本地置 cancelled"
     try:
-        await update_media_task(remote_id or task_id, status="cancelled")
+        # 2026-09-09 P1 竞态修复:实际置位用条件更新(仅在途可写)。上方 409 预检与
+        # 写入之间存在窗口(回调/轮询/他人取消可能并发落终态),无守卫会把刚完成的
+        # 任务翻转成 cancelled。命中失败按 409 返回,与预检语义一致。
+        applied = await update_media_task(
+            remote_id or task_id, status="cancelled", only_if_in_flight=True,
+        )
     except Exception as e:  # noqa: BLE001
         logger.warning("[media_tasks] 取消后更新状态失败: %s", e)
+        raise HTTPException(status_code=500, detail="取消状态写入失败") from e
+    if not applied:
+        raise HTTPException(
+            status_code=409,
+            detail="任务已终态(并发收尾),无需取消",
+        )
     return {"ok": True, "data": cancel_result}
 
 
