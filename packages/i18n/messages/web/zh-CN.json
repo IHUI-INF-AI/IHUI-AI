@@ -20989,7 +20989,17 @@
     "total": "共 {total} 条",
     "prev": "上一页",
     "next": "下一页",
-    "pageInfo": "第 {page} / {pages} 页"
+    "pageInfo": "第 {page} / {pages} 页",
+    "statsTotal": "全部任务",
+    "statsInflight": "进行中",
+    "statsSucceeded": "已完成",
+    "statsFailed": "失败",
+    "statsCancelled": "已取消",
+    "cancelAll": "取消全部在途",
+    "cancellingAll": "取消中...",
+    "cancelAllConfirm": "取消所有进行中的任务?进行中的长任务会被终止。",
+    "cancelAllResult": "已取消 {count} 个在途任务",
+    "cancelAllNone": "没有进行中的任务"
   },
   "voicesPage": {
     "title": "声纹库",

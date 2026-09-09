@@ -24,10 +24,12 @@ from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
 from ..services.media_tasks import (
+    cancel_media_tasks,
     clear_media_tasks,
     delete_media_task,
     get_media_task,
     handle_media_callback,
+    media_task_stats,
     query_media_tasks,
     update_media_task,
 )
@@ -152,6 +154,20 @@ async def media_task_list(
     return {"ok": True, "data": data}
 
 
+@router.get("/media/tasks/stats")
+async def media_tasks_stats(user_uuid: str | None = None) -> dict[str, Any]:
+    """媒体任务统计概览(2026-09-09 F7):按 kind 分组 + 全局在途/终态计数。
+
+    任务中心顶部概览卡片消费(总数/在途/已完成/失败/已取消,及各类型明细)。
+    """
+    try:
+        data = await media_task_stats(user_uuid=user_uuid)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[media_tasks] 统计查询失败: %s", e)
+        raise HTTPException(status_code=500, detail=f"媒体任务统计异常: {e}") from e
+    return {"ok": True, "data": data}
+
+
 @router.get("/media/tasks/{task_id}")
 async def media_task_detail(task_id: str) -> dict[str, Any]:
     """媒体任务详情:库内记录;在途(processing)且 provider=token6688 时实时探测最新状态。"""
@@ -262,3 +278,28 @@ async def media_task_cancel(task_id: str) -> dict[str, Any]:
     except Exception as e:  # noqa: BLE001
         logger.warning("[media_tasks] 取消后更新状态失败: %s", e)
     return {"ok": True, "data": cancel_result}
+
+
+@router.post("/media/tasks/cancel")
+async def media_tasks_cancel_batch(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    """批量取消在途媒体任务(2026-09-09 F8,任务中心"取消全部在途")。
+
+    body(可选 JSON):{"task_ids": ["..."], "kind": "video"}。
+    不传 task_ids → 取消全部在途任务;已终态任务永远不受影响。
+    返回 {requested, cancelled, remote_failed} 供前端展示批量结果。
+    """
+    task_ids: list[str] | None = None
+    kind: str | None = None
+    if isinstance(payload, dict):
+        raw_ids = payload.get("task_ids")
+        if isinstance(raw_ids, list):
+            task_ids = [str(i) for i in raw_ids]
+        raw_kind = payload.get("kind")
+        if isinstance(raw_kind, str) and raw_kind.strip():
+            kind = raw_kind
+    try:
+        result = await cancel_media_tasks(task_ids=task_ids, kind=kind)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[media_tasks] 批量取消失败: %s", e)
+        raise HTTPException(status_code=500, detail=f"媒体任务批量取消异常: {e}") from e
+    return {"ok": True, "data": result}

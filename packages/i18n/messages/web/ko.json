@@ -21001,7 +21001,17 @@
     "total": "총 {total}건",
     "prev": "이전",
     "next": "다음",
-    "pageInfo": "{page} / {pages} 페이지"
+    "pageInfo": "{page} / {pages} 페이지",
+    "statsTotal": "전체 작업",
+    "statsInflight": "처리 중",
+    "statsSucceeded": "완료",
+    "statsFailed": "실패",
+    "statsCancelled": "취소됨",
+    "cancelAll": "진행 중 전체 취소",
+    "cancellingAll": "취소 중...",
+    "cancelAllConfirm": "진행 중인 모든 작업을 취소하시겠습니까? 진행 중인 긴 작업이 종료됩니다.",
+    "cancelAllResult": "진행 중인 작업 {count}건을 취소했습니다",
+    "cancelAllNone": "진행 중인 작업이 없습니다"
   },
   "voicesPage": {
     "title": "음성 라이브러리",
