@@ -4,6 +4,17 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
+/*
+  对齐 RN 端 packages/app/src/features/post-detail/PostDetailScreen.tsx(共享屏,
+  小程序 circle/detail 为"动态详情",RN CircleDetailScreen 为"圈子信息页"内容不符,
+  按内容取共享 PostDetailScreen 为视觉标准)。
+  映射: 页面底 surface.bg→--color-background / 正文 text.medium→--color-text-medium /
+  标题 22dp→44rpx 600 / meta 11dp→22rpx text.tertiary / 正文 16dp→32rpx lineHeeight 22dp→44rpx /
+  图片 100dp→200rpx 圆角 8dp→16rpx / 互动 pill: bg surface.card→--color-card 圆角 12dp→24rpx /
+  图标/数字 text.medium→--color-text-medium / 输入框 bg surface.muted→--color-muted 圆角 24rpx /
+  品牌钮 brand.DEFAULT→--color-brand。
+  扁平化:正文/评论直接铺在页面底上(RN 无分段白卡)。
+*/
 .cd-page {
   min-height: 100vh;
   background: var(--color-background);
@@ -13,12 +24,11 @@
   height: calc(100vh - 120rpx);
 }
 
-/* ===== 作者信息 ===== */
+/* ===== 作者信息(对齐 RN metaRow: author 14dp→28rpx 500 secondary / meta 11dp→22rpx tertiary) ===== */
 .cd-head {
   display: flex;
   align-items: center;
-  padding: 32rpx 24rpx;
-  background: var(--color-card);
+  padding: 24rpx 20rpx 16rpx;
   gap: 20rpx;
 }
 .cd-avatar {
@@ -36,61 +46,59 @@
   gap: 6rpx;
 }
 .cd-name {
-  font-size: 30rpx;
-  color: var(--color-foreground);
-  font-weight: 600;
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .cd-time {
   font-size: 22rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
 }
 .cd-follow {
-  background: var(--color-primary);
+  background: var(--color-brand);
   color: var(--color-primary-foreground);
   font-size: 24rpx;
-  border-radius: var(--radius-sm);
+  border-radius: 24rpx;
   margin: 0;
   padding: 0 24rpx;
   height: 56rpx;
   line-height: 56rpx;
 }
 .cd-follow.followed {
-  background: var(--color-background);
+  background: transparent;
   color: var(--color-muted-foreground);
-  border: 2rpx solid var(--color-border);
+  border: 2rpx solid var(--color-border-medium);
 }
 
-/* ===== 帖子正文 ===== */
+/* ===== 帖子正文(对齐 RN: title 22dp→44rpx 600 primary / content 16dp→32rpx lh 22dp text.medium) ===== */
 .cd-body {
-  padding: 32rpx 24rpx;
-  background: var(--color-card);
-  margin-top: 16rpx;
+  padding: 8rpx 20rpx 0;
 }
 .cd-title {
   display: block;
-  font-size: 36rpx;
+  font-size: 44rpx;
   color: var(--color-foreground);
-  font-weight: 700;
-  margin-bottom: 20rpx;
+  font-weight: 600;
+  margin-bottom: 12rpx;
 }
 .cd-content {
   display: block;
-  font-size: 30rpx;
-  color: var(--color-foreground);
-  line-height: 1.8;
+  font-size: 32rpx;
+  color: var(--color-text-medium);
+  line-height: 44rpx;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-/* ===== 图片九宫格 ===== */
+/* ===== 图片(对齐 RN detailImage: 100dp→200rpx / 圆角 8dp→16rpx / gap 8dp→16rpx) ===== */
 .cd-images {
   display: flex;
   flex-wrap: wrap;
-  gap: 8rpx;
-  margin-top: 24rpx;
+  gap: 16rpx;
+  margin-top: 16rpx;
 }
 .cd-images-single .cd-img {
   width: 420rpx;
@@ -101,19 +109,19 @@
   height: 218rpx;
 }
 .cd-img {
-  border-radius: var(--radius-md);
+  border-radius: 16rpx;
   background: var(--color-muted);
 }
 
-/* ===== 关联 AI 作品卡 ===== */
+/* ===== 关联 AI 作品卡(RN 无对应区块,保留结构,按 statBtn 卡语言: 白底/圆角 24rpx/描边) ===== */
 .cd-aigc-card {
   display: flex;
   align-items: center;
-  margin-top: 24rpx;
+  margin-top: 16rpx;
   padding: 20rpx;
-  background: var(--color-background);
+  background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 24rpx;
   gap: 20rpx;
 }
 .cd-aigc-cover {
@@ -146,54 +154,53 @@
   color: var(--color-muted-foreground);
 }
 
-/* ===== 话题标签 ===== */
+/* ===== 话题标签(对齐 RN circle chip: bg surface.card / px 6dp→12rpx py 2dp→4rpx / 圆角 4dp→8rpx / 11dp→22rpx secondary) ===== */
 .cd-topic {
   display: inline-flex;
   align-items: center;
-  height: 56rpx;
-  margin-top: 24rpx;
-  padding: 0 20rpx;
-  background: var(--color-border);
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  margin-top: 16rpx;
+  padding: 4rpx 12rpx;
+  background: var(--color-card);
+  border-radius: 8rpx;
 }
 .cd-topic-text {
-  font-size: 26rpx;
-  color: var(--color-primary);
-}
-
-/* ===== 互动栏 ===== */
-.cd-actions {
-  display: flex;
-  margin-top: 16rpx;
-  padding: 24rpx;
-  background: var(--color-card);
-}
-.cd-action {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8rpx;
-  font-size: 24rpx;
+  font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
-.cd-action.active {
-  color: var(--color-primary);
+
+/* ===== 互动栏(对齐 RN statRow/statBtn: gap 12dp→24rpx mt 16dp→32rpx / pill bg card 圆角 24rpx px 24 py 12) ===== */
+.cd-actions {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  margin-top: 32rpx;
+  padding: 0 20rpx;
+}
+.cd-action {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+  padding: 12rpx 24rpx;
+  background: var(--color-card);
+  border-radius: 24rpx;
+}
+.cd-action.active .cd-action-num {
+  color: var(--color-brand);
 }
 .cd-action-icon {
-  font-size: 36rpx;
+  font-size: 24rpx;
   line-height: 1;
 }
 .cd-action-num {
   font-size: 24rpx;
+  color: var(--color-text-medium);
 }
 
-/* ===== 评论区域 ===== */
+/* ===== 评论区域(扁平铺底,对齐 RN 无白卡) ===== */
 .cd-comments-section {
-  margin-top: 16rpx;
-  padding: 24rpx;
-  background: var(--color-card);
+  margin-top: 32rpx;
+  padding: 0 20rpx 32rpx;
 }
 .cd-comments-head {
   display: flex;
@@ -235,12 +242,12 @@
 }
 .cd-comment-name {
   font-size: 26rpx;
-  color: var(--color-primary);
+  color: var(--color-foreground);
   font-weight: 600;
 }
 .cd-comment-content {
   font-size: 28rpx;
-  color: var(--color-foreground);
+  color: var(--color-text-medium);
   line-height: 1.6;
   word-break: break-word;
 }
@@ -252,7 +259,7 @@
 }
 .cd-comment-time {
   font-size: 22rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
 }
 .cd-comment-like {
   font-size: 22rpx;
@@ -265,7 +272,7 @@
   color: var(--color-muted-foreground);
 }
 
-/* ===== 底部评论输入 ===== */
+/* ===== 底部评论输入(对齐 RN input: bg surface.muted / 描边 border.light / 圆角 12dp→24rpx) ===== */
 .cd-input-bar {
   position: fixed;
   left: 0;
@@ -274,7 +281,7 @@
   display: flex;
   align-items: center;
   gap: 16rpx;
-  padding: 20rpx 24rpx;
+  padding: 20rpx 20rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   box-shadow: 0 -4rpx 16rpx var(--color-black-6);
@@ -284,24 +291,24 @@
   flex: 1;
   height: 72rpx;
   padding: 0 24rpx;
-  background: var(--color-background);
+  background: var(--color-muted);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 24rpx;
   font-size: 28rpx;
   color: var(--color-foreground);
 }
 .cd-send {
-  background: var(--color-primary);
+  background: var(--color-brand);
   color: var(--color-primary-foreground);
-  font-size: 26rpx;
-  border-radius: var(--radius-sm);
+  font-size: 24rpx;
+  border-radius: 24rpx;
   margin: 0;
   padding: 0 28rpx;
   height: 72rpx;
   line-height: 72rpx;
 }
+/* 对齐 RN submitDisabled: bg text.tertiary */
 .cd-send[disabled] {
-  background: var(--color-muted);
-  color: var(--color-muted-foreground);
+  background: var(--color-text-tertiary);
+  color: var(--color-card);
 }
-/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

@@ -227,7 +227,7 @@ export default function ExamDetail() {
           ) : null}
 
           {!loading && !exam.title ? (
-            <View className="exam-detail-error" onClick={loadExam}>
+            <View className="exam-detail-error" hoverClass="opacity-60" onClick={loadExam}>
               <Text className="exam-detail-error-text">
                 {tt('exam.detail.loadFailed', '考试加载失败')}
               </Text>

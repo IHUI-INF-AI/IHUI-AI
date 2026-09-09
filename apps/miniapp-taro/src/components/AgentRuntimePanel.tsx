@@ -35,7 +35,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
         {status === 'running' && (
           <Text className="ml-2 text-xs text-primary">{t('ai.common.loading')}</Text>
         )}
-        {status === 'completed' && <Text className="ml-2 text-xs text-emerald-600">✓</Text>}
+        {status === 'completed' && <Text className="ml-2 text-xs text-[var(--color-success-deep-text)]">✓</Text>}
         {status === 'failed' && <Text className="ml-2 text-xs text-destructive">✗</Text>}
         <View className="flex-1" />
         <Button
@@ -62,8 +62,8 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
           )}
 
           {permission && (
-            <View className="mb-3 p-3 rounded-md bg-amber-50 border border-amber-200">
-              <Text className="block mb-1.5 text-xs font-medium text-amber-700">
+            <View className="mb-3 p-3 rounded-md bg-[var(--color-warning-light)] border border-[var(--color-warning-amber-light)]">
+              <Text className="block mb-1.5 text-xs font-medium text-[var(--color-warning-amber-text)]">
                 {t('ai.agentDetail.runtimePermission')}: {permission.decision}
               </Text>
               <Text className="block text-xs text-foreground">
@@ -86,8 +86,8 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
           )}
 
           {error && (
-            <View className="mb-3 p-3 rounded-md bg-destructive/10 border border-red-200">
-              <Text className="block mb-1 text-xs font-medium text-red-700">
+            <View className="mb-3 p-3 rounded-md bg-destructive/10 border border-[var(--color-danger-light)]">
+              <Text className="block mb-1 text-xs font-medium text-[var(--color-danger)]">
                 {t('ai.agentDetail.runtimeError')}
               </Text>
               <Text className="block text-xs text-destructive">{error}</Text>
@@ -117,7 +117,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
           {status === 'running' ? (
             <Button
               onClick={handleStop}
-              className="ml-2 h-9 px-3 text-xs text-white bg-destructive rounded-md"
+              className="ml-2 h-9 px-3 text-xs text-destructive-foreground bg-destructive rounded-md"
             >
               {t('ai.agentDetail.runtimeStop')}
             </Button>
@@ -125,7 +125,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
             <Button
               onClick={handleSend}
               disabled={!input.trim()}
-              className="ml-2 h-9 px-3 text-xs text-white bg-[var(--color-primary)] rounded-md"
+              className="ml-2 h-9 px-3 text-xs text-primary-foreground bg-[var(--color-primary)] rounded-md"
             >
               {t('ai.agentDetail.runtimeSend')}
             </Button>

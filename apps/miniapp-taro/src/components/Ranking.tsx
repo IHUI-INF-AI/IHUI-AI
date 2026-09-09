@@ -64,7 +64,7 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
           <View
             key={item.id}
             className={`flex items-center py-2.5 px-3 mb-1.5 rounded-lg ${
-              idx < 3 ? 'bg-amber-50/60' : 'bg-card'
+              idx < 3 ? 'bg-[var(--color-warning-amber-light)]' : 'bg-card'
             }`}
           >
             <View className="flex items-center justify-center w-6 mr-3">
@@ -89,7 +89,7 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
             )}
             <Text className="flex-1 text-sm text-foreground truncate">{getName(item)}</Text>
             <Text
-              className={`text-sm font-medium ${idx < 3 ? 'text-amber-600' : 'text-foreground'}`}
+              className={`text-sm font-medium ${idx < 3 ? 'text-[var(--color-warning-amber)]' : 'text-foreground'}`}
             >
               {getValue(item)}
               {unit}

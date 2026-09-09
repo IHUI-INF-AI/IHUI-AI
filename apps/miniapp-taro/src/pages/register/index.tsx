@@ -152,6 +152,7 @@ export default function RegisterIndex() {
             </View>
             <View
               className={`reg-codebtn ${form.countdown > 0 ? 'reg-codebtn-disabled' : ''}`}
+              hoverClass="opacity-60"
               onClick={form.sendCode}
             >
               <Text className="reg-codebtn-text">{codeBtnText}</Text>
@@ -182,6 +183,7 @@ export default function RegisterIndex() {
             <View className="reg-agreement-main">
               <View
                 className={`reg-checkbox ${form.agreed ? 'reg-checkbox-checked' : ''}`}
+                hoverClass="opacity-60"
                 onClick={() => form.setAgreed(!form.agreed)}
               >
                 {form.agreed ? <Text className="reg-checkmark">✓</Text> : null}

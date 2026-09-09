@@ -87,7 +87,7 @@ export default function LessonListItem({
   // 封面左 250rpx + 内容右;VIP 灰底金字 pill 内嵌内容区;无价格/分类角标。
   if (variant === 'list1') {
     return (
-      <View className="lli lli-list1 flex w-full" onClick={onClick}>
+      <View className="lli lli-list1 flex w-full" hoverClass="opacity-60" onClick={onClick}>
         {data.thumbnail && (
           <View className="lli-thumb" style={{ width: '250rpx', height: '174rpx' }}>
             <Image
@@ -136,7 +136,7 @@ export default function LessonListItem({
   // 同 list1 横向布局,但封面叠加:顶左分类(黑底半透明)+ 底右价格(红底);内容区显示 VIP/付费 pill。
   if (variant === 'list2') {
     return (
-      <View className="lli lli-list2 flex w-full" onClick={onClick}>
+      <View className="lli lli-list2 flex w-full" hoverClass="opacity-60" onClick={onClick}>
         {data.thumbnail && (
           <View
             className="lli-thumb lli-thumb-overlay"
@@ -209,7 +209,7 @@ export default function LessonListItem({
   // 封面上(分类顶左 + 课时底右)+ 标题 + 副标题 + VIP/付费行。
   if (variant === 'carousel') {
     return (
-      <View className="lli lli-carousel flex flex-col" onClick={onClick}>
+      <View className="lli lli-carousel flex flex-col" hoverClass="opacity-60" onClick={onClick}>
         {data.thumbnail && (
           <View className="lli-thumb lli-thumb-overlay" style={{ height: '200rpx' }}>
             <Image
@@ -264,10 +264,10 @@ export default function LessonListItem({
     <View
       className={`flex items-center px-4 py-3 mb-2 ${active ? 'bg-primary/10' : ''}`}
       onClick={onClick}
-    >
+      hoverClass="opacity-60">
       <View
         className={`flex items-center justify-center w-7 h-7 mr-3 rounded-md text-xs ${
-          active ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+          active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
         }`}
       >
         <Text>{index + 1}</Text>
