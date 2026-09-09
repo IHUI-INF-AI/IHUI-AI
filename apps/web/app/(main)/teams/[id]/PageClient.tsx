@@ -204,7 +204,7 @@ export default function TeamDetailPage() {
         )}
       </div>
 
-      <div key={tab} className="animate-in fade-in-0 duration-200">
+      <div key={tab} className="animate-in fade-in-0 duration-(--duration-unified) ease-unified">
         {tab === 'members' && (
           <TeamMembersList
             isLoading={membersQ.isLoading}

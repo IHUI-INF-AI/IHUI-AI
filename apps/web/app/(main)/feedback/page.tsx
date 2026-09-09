@@ -107,7 +107,7 @@ export default function FeedbackPage() {
         ))}
       </div>
 
-      <div key={tab} className="animate-in fade-in-0 duration-200">
+      <div key={tab} className="animate-in fade-in-0 duration-(--duration-unified) ease-unified">
         {tab === 'list' ? (
           <FeedbackList list={list} isLoading={isLoading} error={error as Error | null} />
         ) : (
