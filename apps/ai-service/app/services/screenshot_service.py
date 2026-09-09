@@ -270,6 +270,55 @@ def _take_screenshot_sync(
         context.close()
 
 
+def _render_html_sync(url: str, wait_until: str, timeout: int) -> dict[str, Any]:
+    """同步渲染 JS 页面并返回执行 JS 后的 DOM HTML(+title/final_url)。
+
+    2026-09-09:为 Firecrawl 网络抓取工具提供"JS 渲染兜底"能力——纯 httpx 抓 SPA
+    只会拿到空壳, 这里用单例 Chromium page.goto 后 page.content() 拿真实渲染后的
+    文档。与 _take_screenshot_sync 同款线程亲和策略(须经 sync_executor 单线程执行)。
+    """
+    browser = _get_browser_sync()
+    context = browser.new_context(
+        viewport={"width": 1280, "height": 1024},
+        locale="zh-CN",
+        timezone_id="Asia/Shanghai",
+        user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+    )
+    context.route("**/*", _route_block_images_fonts)
+    page = context.new_page()
+    try:
+        wait_map = {"none": None, "load": "load", "dom": "domcontentloaded", "networkidle": "networkidle"}
+        wait_option = wait_map.get(wait_until, "load")
+        goto_kwargs: dict[str, Any] = {"timeout": timeout}
+        if wait_option:
+            goto_kwargs["wait_until"] = wait_option
+        response = page.goto(url, **goto_kwargs)
+        if not response:
+            raise RuntimeError(f"页面加载失败: {url}")
+        html = page.content()  # 执行 JS 后的渲染 DOM
+        return {
+            "html": html,
+            "title": page.title() or url,
+            "final_url": page.url or url,
+            "status_code": getattr(response, "status", 200) or 200,
+        }
+    finally:
+        page.close()
+        context.close()
+
+
+def _route_block_images_fonts(route: Any) -> None:
+    """拦截图片/字体/媒体资源, 加速渲染取 HTML(与截图同款策略)。"""
+    rt = route.request.resource_type
+    if rt in ("image", "font", "media"):
+        route.abort()
+    else:
+        route.continue_()
+
+
 # === async wrapper(供 FastAPI 路由调用)===
 
 
@@ -303,6 +352,32 @@ async def take_screenshot(
         width,
         height,
         full_page,
+        wait_until,
+        timeout,
+    )
+
+
+async def render_to_html(
+    url: str,
+    *,
+    wait_until: str = "load",
+    timeout: int = 15000,
+) -> dict[str, Any]:
+    """异步渲染 JS 页面取渲染后 DOM HTML(点火前已 SSRF 校验, 供网页抓取工具兜底)。
+
+    2026-09-09:纯 httpx 抓 SPA 空壳时,用单例 headless Chromium 渲染。
+    通过 sync_executor 单线程承载(与 take_screenshot 同款 greenlet 线程亲和策略)。
+    """
+    # 安全加固:SSRF 防护(与 take_screenshot 同一校验入口)
+    ok, reason = _validate_url_ssrf(url)
+    if not ok:
+        return {"html": "", "title": "", "final_url": url, "status_code": 0,
+                "ssrf_blocked": True, "error": reason}
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        sync_executor,
+        _render_html_sync,
+        url,
         wait_until,
         timeout,
     )
