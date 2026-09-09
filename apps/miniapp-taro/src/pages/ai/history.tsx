@@ -253,6 +253,7 @@ export default function HistoryPage() {
               setPage(1)
               setHasMore(true)
             }}
+            hoverClass="opacity-60"
           >
             <Image src={f.icon} className="w-[28rpx] h-[28rpx]" mode="aspectFit" />
             <Text className="text-[24rpx]">{tt(f.labelKey, f.fallback)}</Text>
@@ -283,7 +284,7 @@ export default function HistoryPage() {
             </Text>
             {!isFiltered ? (
               <Button
-                className="mt-[40rpx] px-[64rpx] h-[80rpx] leading-[80rpx] bg-primary text-foreground rounded-[12rpx] text-[28rpx]"
+                className="mt-[40rpx] px-[64rpx] h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-surface-light)] rounded-[24rpx] text-[32rpx] font-semibold"
                 onClick={() => goChat()}
               >
                 {tt('ai.historyPage.startNew', '开始新对话')}
@@ -314,6 +315,7 @@ export default function HistoryPage() {
                           key={h.id}
                           onClick={() => goChat(h)}
                           onLongPress={() => onDeleteOne(h)}
+                          hoverClass="opacity-60"
                         >
                           <View className="w-[64rpx] h-[64rpx] flex items-center justify-center bg-background rounded-[12rpx] flex-shrink-0 mr-[20rpx]">
                             <Image

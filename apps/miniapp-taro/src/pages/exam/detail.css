@@ -1,8 +1,15 @@
 /*
   © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
   Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‌‌​‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
+
+/* 对齐 RN SharedExamScreen 卡片语言(无 ExamDetailScreen,detail 为最接近屏):
+   - 页面背景 surface.bg → var(--color-background)
+   - 列表边距 28rpx(listBody padding 14dp)、卡片间距 20rpx(separator 10dp)
+   - 卡片 padding 28rpx / 圆角 24rpx(radius 12dp)/ 2rpx 描边(border.light)/ 白卡
+   - 标题 36rpx/700、描述 28rpx secondary、meta 28rpx secondary
+   - 历史成绩卡对齐 SharedExamHistoryScreen:徽章浅底深字 22rpx/600、分数 36rpx/700 primary */
 
 .exam-detail-page {
   min-height: 100vh;
@@ -13,8 +20,8 @@
 
 .exam-detail-body {
   flex: 1;
-  padding: 24rpx;
-  padding-bottom: 160rpx;
+  padding: 28rpx;
+  padding-bottom: 180rpx;
   box-sizing: border-box;
 }
 
@@ -22,14 +29,15 @@
   text-align: center;
   padding: 120rpx 0;
   color: var(--color-muted-foreground);
-  font-size: 26rpx;
+  font-size: 28rpx;
 }
 
 /* 标题区 */
 .exam-detail-header {
   background: var(--color-card);
-  border-radius: var(--radius-lg);
-  padding: 32rpx;
+  border: 2rpx solid var(--color-border);
+  border-radius: 24rpx;
+  padding: 28rpx;
   margin-bottom: 20rpx;
 }
 
@@ -43,18 +51,19 @@
 
 .exam-detail-desc {
   display: block;
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--color-muted-foreground);
   line-height: 1.6;
   margin-top: 16rpx;
 }
 
-/* 统计信息 */
+/* 统计信息(RN 无对应,沿用卡片语言) */
 .exam-detail-stats {
   display: flex;
   flex-wrap: wrap;
   background: var(--color-card);
-  border-radius: var(--radius-lg);
+  border: 2rpx solid var(--color-border);
+  border-radius: 24rpx;
   padding: 28rpx 16rpx;
   margin-bottom: 20rpx;
 }
@@ -82,7 +91,8 @@
 /* 通用卡片 */
 .exam-detail-card {
   background: var(--color-card);
-  border-radius: var(--radius-lg);
+  border: 2rpx solid var(--color-border);
+  border-radius: 24rpx;
   padding: 28rpx;
   margin-bottom: 20rpx;
 }
@@ -95,7 +105,7 @@
   margin-bottom: 20rpx;
 }
 
-/* 参与情况 */
+/* 参与情况(RN 无对应,沿用卡片语言) */
 .exam-detail-participant-row {
   display: flex;
 }
@@ -143,12 +153,12 @@
 
 .exam-detail-rule-text {
   flex: 1;
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--color-muted-foreground);
   line-height: 1.6;
 }
 
-/* 历史成绩 */
+/* 历史成绩(对齐 SharedExamHistoryScreen 卡:浅底徽章 + 分数 36rpx/700 primary) */
 .exam-detail-history-item {
   display: flex;
   align-items: center;
@@ -163,29 +173,34 @@
 .exam-detail-history-info {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 8rpx;
 }
 
 .exam-detail-history-status {
-  font-size: 26rpx;
+  font-size: 22rpx;
   font-weight: 600;
+  padding: 8rpx 12rpx;
+  border-radius: 8rpx;
 }
 
 .exam-detail-history-status.passed {
   color: var(--color-success);
+  background: var(--color-success-light);
 }
 
 .exam-detail-history-status.failed {
-  color: var(--color-destructive);
+  color: var(--color-danger);
+  background: var(--color-danger-light);
 }
 
 .exam-detail-history-time {
   font-size: 22rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
 }
 
 .exam-detail-history-score {
-  font-size: 32rpx;
+  font-size: 36rpx;
   font-weight: 700;
   color: var(--color-primary);
 }
@@ -193,7 +208,7 @@
 .exam-detail-history-empty {
   display: block;
   text-align: center;
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--color-muted-foreground);
   padding: 32rpx 0;
 }
@@ -203,29 +218,30 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 80rpx 0;
+  padding: 96rpx 0;
 }
 
 .exam-detail-error-text {
-  font-size: 26rpx;
-  color: var(--color-destructive);
+  font-size: 28rpx;
+  color: var(--color-danger);
 }
 
 .exam-detail-error-retry {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--color-primary);
   margin-top: 12rpx;
 }
 
-/* 底部按钮 */
+/* 底部按钮(对齐 SharedExamScreen startBtn:圆角 24rpx / bg primary / 字 28rpx/600 白) */
 .exam-detail-footer {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 20rpx 32rpx;
+  padding: 20rpx 28rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
+  border-top: 2rpx solid var(--color-border);
   z-index: 10;
 }
 
@@ -234,15 +250,15 @@
   height: 88rpx;
   line-height: 88rpx;
   background: var(--color-primary);
-  color: var(--color-foreground);
-  border-radius: var(--radius-md);
-  font-size: 32rpx;
+  color: var(--color-primary-foreground);
+  border-radius: 24rpx;
+  font-size: 28rpx;
   font-weight: 600;
   border: none;
 }
 
 .exam-detail-start-btn[disabled] {
-  background: var(--color-muted);
+  background: var(--color-border);
   color: var(--color-muted-foreground);
 }
-/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‌‌​‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

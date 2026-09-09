@@ -321,7 +321,7 @@ export function PayButton({
 
   return (
     <View style={viewStyles.root()}>
-      <View style={viewStyles.trigger(cfg.bg(tk), cfg.text(tk), disabled)} onTap={handleClick}>
+      <View style={viewStyles.trigger(cfg.bg(tk), cfg.text(tk), disabled)} onTap={handleClick} hoverClass="opacity-60">
         <Image
           src={cfg.icon}
           style={{ width: toRpx(12), height: toRpx(12), marginRight: toRpx(4) }}
@@ -331,10 +331,10 @@ export function PayButton({
       </View>
 
       {popupVisible ? (
-        <View style={viewStyles.modal(tk)} onTap={() => setPopupVisible(false)}>
-          <View style={viewStyles.dialog(tk)} onTap={handleModalTap}>
+        <View style={viewStyles.modal(tk)} onTap={() => setPopupVisible(false)} hoverClass="opacity-60">
+          <View style={viewStyles.dialog(tk)} onTap={handleModalTap} hoverClass="opacity-60">
             {/* 关闭按钮 */}
-            <View style={viewStyles.closeBtn()} onTap={() => setPopupVisible(false)}>
+            <View style={viewStyles.closeBtn()} onTap={() => setPopupVisible(false)} hoverClass="opacity-60">
               <Text style={textStyles.closeBtn()}>×</Text>
             </View>
             {/* 商品信息 */}
@@ -367,16 +367,16 @@ export function PayButton({
               <View
                 style={viewStyles.countBtn(tk, count <= 1)}
                 onTap={() => count > 1 && setCount(count - 1)}
-              >
+                hoverClass="opacity-60">
                 <Text>−</Text>
               </View>
               <Text style={textStyles.countValue()}>{count}</Text>
-              <View style={viewStyles.countBtn(tk, false)} onTap={() => setCount(count + 1)}>
+              <View style={viewStyles.countBtn(tk, false)} onTap={() => setCount(count + 1)} hoverClass="opacity-60">
                 <Text>+</Text>
               </View>
             </View>
             {/* 立即支付按钮 */}
-            <View style={viewStyles.payBtn(tk)} onTap={handlePay}>
+            <View style={viewStyles.payBtn(tk)} onTap={handlePay} hoverClass="opacity-60">
               <Text style={textStyles.payBtnText()}>
                 {payNowText} ¥{realPrice}
               </Text>
