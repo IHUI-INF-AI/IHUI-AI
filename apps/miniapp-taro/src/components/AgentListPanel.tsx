@@ -46,13 +46,13 @@ const VIP_TAG_LABELS = (tt: TtFn): Record<VipType, string> => ({
   5: tt('AgentListPanel.d3', '已购买'),
 })
 
-/** VIP 标签样式(对齐原项目配色:金/绿/橙/蓝/灰;用 tailwind 色板与 web 端色彩语言一致) */
+/** VIP 标签样式(对齐原项目配色语义 金/绿/橙/蓝/灰,统一改用 design token CSS 变量,禁止色板硬编码) */
 const VIP_TAG_CLASSES: Record<VipType, string> = {
-  1: 'bg-amber-400/15 text-amber-400',
-  2: 'bg-green-500/15 text-green-500',
-  3: 'bg-orange-500/15 text-orange-500',
-  4: 'bg-blue-500/15 text-blue-500',
-  5: 'bg-gray-400/15 text-gray-400',
+  1: 'bg-[var(--color-gold-muted)] text-[var(--color-gold)]',
+  2: 'bg-[var(--color-success-tint)] text-[var(--color-success)]',
+  3: 'bg-[var(--color-brand-orange-tint)] text-[var(--color-brand-orange)]',
+  4: 'bg-[var(--color-info-tint)] text-[var(--color-info)]',
+  5: 'bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]',
 }
 
 /** 价格格式化(分 → 元,如 990 → "9.9",1000 → "10") */
@@ -79,12 +79,18 @@ export default function AgentListPanel({
   }
 
   return (
-    <View className="bg-card rounded-t-2xl shadow-lg" style={{ maxHeight: '50vh' }}>
-      <View className="flex items-center justify-between px-4 py-3 mb-2">
-        <Text className="text-sm font-medium text-foreground">{tt('agent.title', '智能体')}</Text>
-      </View>
-      <ScrollView scrollY className="" style={{ maxHeight: '40vh' }}>
-        <View className="px-3 py-2">
+    <View
+      className={isSheet ? 'bg-card rounded-t-2xl shadow-lg' : 'bg-transparent'}
+      style={isSheet ? { maxHeight: '50vh' } : undefined}
+    >
+      {/* RN 共享 AgentScreen 无面板内标题,仅 sheet 形态保留 */}
+      {isSheet ? (
+        <View className="flex items-center justify-between px-4 py-3 mb-2">
+          <Text className="text-sm font-medium text-foreground">{tt('agent.title', '智能体')}</Text>
+        </View>
+      ) : null}
+      <ScrollView scrollY style={isSheet ? { maxHeight: '40vh' } : undefined}>
+        <View className={isSheet ? 'px-3 py-2' : ''}>
           {loading ? (
             <View className="py-8 text-center">
               <Text className="text-sm text-muted-foreground">
@@ -95,24 +101,28 @@ export default function AgentListPanel({
             <EmptyState text={tt('agent.empty', '暂无智能体')} />
           ) : (
             agents.map((agent) => (
+              /* 对齐 RN 共享 AgentScreen card: padding 14dp→28rpx / borderRadius 12dp→24rpx /
+                 border border.light / bg surface.light(card) */
               <View
                 key={agent.id}
-                className="flex items-center py-2.5 px-3 mb-2 rounded-lg bg-muted"
+                className="flex items-center py-[28rpx] px-[28rpx] mb-[24rpx] rounded-[24rpx] bg-[var(--color-card)] border border-[var(--color-border)]"
                 onClick={() => handleAgentClick(agent)}
               >
+                {/* RN avatar 48dp→96rpx / borderRadius 12dp→24rpx / bg surface.muted;cardMain marginLeft 12dp→24rpx */}
                 <Image
-                  className="w-10 h-10 mr-3 rounded-xl bg-muted"
+                  className="w-[96rpx] h-[96rpx] mr-[24rpx] rounded-[24rpx] bg-[var(--color-muted)] shrink-0"
                   src={agent.avatar || mianLabelIcon}
                   mode="aspectFill"
                 />
                 <View className="flex-1 min-w-0">
-                  <View className="flex items-center">
-                    <Text className="text-sm font-medium text-foreground truncate">
+                  {/* RN nameRow gap 6dp→12rpx;name fontSize 16dp→32rpx / fontWeight 600 / flex 1 */}
+                  <View className="flex items-center gap-[12rpx]">
+                    <Text className="text-[32rpx] font-semibold text-foreground truncate flex-1">
                       {agent.name}
                     </Text>
                     {agent.vipType ? (
                       <Text
-                        className={`ml-2 text-[20rpx] px-1.5 py-0.5 rounded font-medium ${VIP_TAG_CLASSES[agent.vipType]}`}
+                        className={`shrink-0 text-[20rpx] px-[12rpx] py-[8rpx] rounded-[8rpx] font-semibold ${VIP_TAG_CLASSES[agent.vipType]}`}
                       >
                         {VIP_TAG_LABELS(tt)[agent.vipType]}
                         {agent.vipType === 4 && agent.price
@@ -120,24 +130,27 @@ export default function AgentListPanel({
                           : ''}
                       </Text>
                     ) : agent.isVipExclusive ? (
-                      <Text className="ml-2 text-[20rpx] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">
+                      /* RN vipBadge: bg warning.DEFAULT / 字 warning-foreground(surface.light) */
+                      <Text className="shrink-0 text-[20rpx] px-[12rpx] py-[8rpx] rounded-[8rpx] font-semibold bg-[var(--color-warning)] text-[var(--color-warning-foreground)]">
                         VIP
                       </Text>
                     ) : null}
                     {agent.category && (
-                      <Text className="ml-2 text-[20rpx] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                      <Text className="shrink-0 text-[20rpx] px-[12rpx] py-[8rpx] rounded-[8rpx] bg-[var(--color-black-10)] text-[var(--color-primary)]">
                         {agent.category}
                       </Text>
                     )}
                   </View>
+                  {/* RN desc marginTop 8dp→16rpx / fontSize 14dp→28rpx / color text.secondary */}
                   {agent.description && (
-                    <Text className="block text-xs text-muted-foreground truncate">
+                    <Text className="block text-[28rpx] text-muted-foreground truncate mt-[16rpx]">
                       {agent.description}
                     </Text>
                   )}
                 </View>
+                {/* RN meta fontSize 11dp→22rpx / color text.tertiary */}
                 {agent.useCount !== undefined && (
-                  <Text className="text-xs text-muted-foreground ml-2">
+                  <Text className="shrink-0 text-[22rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">
                     {agent.useCount}
                     {tt('agent.uses', '次')}
                   </Text>
