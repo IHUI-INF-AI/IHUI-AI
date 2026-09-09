@@ -191,14 +191,9 @@
 
 /* AlimamaFangYuanTi 字体(对齐原项目 font-family: "AlimamaFangYuanTi")
  * 字体文件:src/static/fonts/AlimamaFangYuanTiVF-Thin.ttf(7.4MB,Taro copy.patterns 复制到 dist/static/)
- * H5 端:本地路径加载;小程序端:不支持本地 @font-face,降级到系统字体(font-display: swap) */
-@font-face {
-  font-family: 'AlimamaFangYuanTi';
-  src: url('../../static/fonts/AlimamaFangYuanTiVF-Thin.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
+ * H5 端:由 app.tsx FontLoader 运行时注入 @font-face(URL 方式,规避 webpack 把 7.4MB 字体
+ *   内联成 base64 导致 weapp-tailwindcss adaptor 处理崩溃);小程序端:不支持本地 @font-face,降级系统字体。
+ * 注意:此处不得再写相对路径 @font-face —— webpack 会内联 base64,weapp 构建必挂。 */
 
 /* 应用到关键标题文字(对齐原项目) */
 .user-content-title,
