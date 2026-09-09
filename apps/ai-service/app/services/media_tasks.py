@@ -269,6 +269,74 @@ async def update_media_task(task_id: str, **fields: Any) -> bool:
         await conn.close()
 
 
+async def delete_media_task(task_id: str) -> bool:
+    """按 task_id 删除单条媒体任务记录(任务中心单条清理,2026-09-09 F1)。
+
+    仅删本地记录,不影响上游 token6688 任务(长任务应先 cancel 再删)。
+    """
+    task_id = str(task_id or "").strip()
+    if not task_id:
+        return False
+    conn = await get_db_conn()
+    try:
+        row = await conn.fetchrow(
+            "DELETE FROM media_tasks WHERE task_id=$1 RETURNING id", task_id,
+        )
+        return bool(row)
+    finally:
+        await conn.close()
+
+
+async def clear_media_tasks(
+    *,
+    kind: str | None = None,
+    status: str | None = None,
+    before: str | None = None,
+    user_uuid: str | None = None,
+) -> dict[str, Any]:
+    """批量清理媒体任务记录(kind/status 逗号分隔多值;before=ISO 时间截点,只删更早)。
+
+    只删已终态记录(succeeded/failed/cancelled):在途任务(processing/accepted/
+    submitted/pending)一律保留,防止清理后收尾通道(webhook/轮询)回写失败而任务
+    "消失"。返回 {deleted, kept_in_flight} 供前端展示清理结果。
+    """
+    where: list[str] = []
+    params: list[Any] = []
+    for _field, _val in (("kind", kind), ("status", status)):
+        if not _val:
+            continue
+        values = [v.strip() for v in str(_val).split(",") if v.strip()]
+        if values:
+            params.append(values)
+            where.append(f"{_field} = ANY(${len(params)})")
+    if user_uuid:
+        params.append(user_uuid)
+        where.append(f"user_uuid=${len(params)}")
+    if before:
+        params.append(before)
+        where.append(f"created_at < ${len(params)}")
+    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+
+    conn = await get_db_conn()
+    try:
+        # 1) 先统计会被保留的在途任务(删除条件命中的在途行)
+        kept = await conn.fetchval(
+            f"SELECT count(*) FROM media_tasks {where_sql}"
+            f"{' AND ' if where_sql else 'WHERE '}status = ANY($%d)" % (len(params) + 1),
+            *params, list(_STATUS_IN_FLIGHT),
+        )
+        # 2) 只删除已终态记录(在途任务不动)
+        deleted = await conn.fetchval(
+            f"DELETE FROM media_tasks {where_sql}"
+            f"{' AND ' if where_sql else 'WHERE '}status <> ALL($%d) RETURNING count(*)"
+            % (len(params) + 1),
+            *params, list(_STATUS_IN_FLIGHT),
+        )
+    finally:
+        await conn.close()
+    return {"deleted": int(deleted or 0), "kept_in_flight": int(kept or 0)}
+
+
 # ---------------------------------------------------------------------------
 # 终态自动收尾(2026-09-09 立):对话内媒体长任务(video/music/tts/image)不再只靠
 # 用户主动问"好了吗",两条互补通道把产物/状态写回 media_tasks:
