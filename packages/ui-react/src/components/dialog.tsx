@@ -42,14 +42,14 @@ const DialogContent = React.forwardRef<
         以全亮度暴露在遮罩之下,用户视觉感知为"AI 面板跟着登录窗一起发亮"。
         移除 open 态 animate-in + fade-in-0,遮罩瞬间出现,AI 面板从第一帧就被暗化。
         保留 closed 态 fade-out-0,关闭时仍有平滑淡出过渡。 */}
-    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-(--duration-unified) data-[state=closed]:ease-unified" />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
         // 2026-07-31 移动端适配:padding/gap 按断点渐进放大
         //   - 默认(移动端):p-4 gap-3,sm(≥375px)及以上:p-6 gap-4
         //   - max-w-lg + w-full 在小屏会撑满视口减去边距,避免内容溢出
-        'fixed left-[50%] top-[50%] z-modal grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-3 border bg-background p-4 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 min-[640px]:rounded-lg min-[640px]:gap-4 min-[640px]:p-6',
+        'fixed left-[50%] top-[50%] z-modal grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-3 border bg-background p-4 shadow-lg duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 min-[640px]:rounded-lg min-[640px]:gap-4 min-[640px]:p-6',
         className,
       )}
       {...props}

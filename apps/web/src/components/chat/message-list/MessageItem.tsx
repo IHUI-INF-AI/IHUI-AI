@@ -411,7 +411,7 @@ const MessageItem = React.memo(function MessageItem({
         {showTyping ? (
           // P0 修复(2026-08-02):TypingIndicator 加 fade-in,流式开始时平滑出现;
           // 内容区(下方 div)也加 fade-in,第一个 token 到达时平滑替换 TypingIndicator,
-          <div className="animate-in fade-in-0 duration-150 fill-mode-both">
+          <div className="animate-in fade-in-0 duration-(--duration-unified) ease-unified fill-mode-both">
             <TypingIndicator reasoning={m.reasoning} toolCalls={m.toolCalls} />
           </div>
         ) : isUser ? (
@@ -420,7 +420,7 @@ const MessageItem = React.memo(function MessageItem({
         ) : (
           <div
             className={cn(
-              'space-y-0 animate-in fade-in-0 duration-150 fill-mode-both',
+              'space-y-0 animate-in fade-in-0 duration-(--duration-unified) ease-unified fill-mode-both',
               // 2026-08-02:内容可见性切换(Eye/EyeOff)— 折叠时限高,仅显示前几行
               !contentVisible && 'max-h-20 overflow-hidden',
             )}
