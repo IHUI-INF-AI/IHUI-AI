@@ -53,7 +53,7 @@ export default function PlazaPageClient() {
         asksTotal={asksQuery.data?.total}
       />
 
-      <div key={tab} className="animate-in fade-in-0 duration-200">
+      <div key={tab} className="animate-in fade-in-0 duration-(--duration-unified) ease-unified">
         {tab === 'circles' && (
           <CirclesPanel
             isLoading={circlesQuery.isLoading}
