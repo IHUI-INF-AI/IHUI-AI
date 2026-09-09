@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, RefreshCw, Mic, Upload, Trash2, PlayCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
@@ -68,6 +68,7 @@ async function api<T>(url: string, options: RequestInit & { timeoutMs?: number }
 
 export default function VoicesPage() {
   const t = useTranslations('voicesPage')
+  const locale = useLocale()
   const queryClient = useQueryClient()
   // 声纹库是平台共享资源,删除影响所有用户 → 仅 admin(roleId>=1)可见删除按钮,
   // 与后端 delete_voice 的 _require_admin 守卫对齐(2026-09-09 P1)。
@@ -102,7 +103,24 @@ export default function VoicesPage() {
     listQuery.refetch()
   }
 
+  // 2026-09-09 第五轮:上传前置校验(与 token6688_provider.upload_voice 硬限制一致:
+  // 仅 MP3/M4A/WAV,严格 <20MiB),超限前端直接拒绝,不再全量传输后等 502。
+  const VOICE_MAX_BYTES = 20 * 1024 * 1024
+  const VOICE_EXTS = new Set(['mp3', 'm4a', 'wav'])
+
   const handleUpload = async (file: File) => {
+    const parts = file.name.split('.')
+    const ext = (parts.length > 1 ? (parts[parts.length - 1] ?? '') : '').toLowerCase()
+    if (!VOICE_EXTS.has(ext)) {
+      setError(`${t('upload')}失败: ${t('fileBadFormat')}`)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+    if (file.size >= VOICE_MAX_BYTES) {
+      setError(`${t('upload')}失败: ${t('fileTooLarge')}`)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
     setUploading(true)
     setError(null)
     setInfo(null)
@@ -110,7 +128,8 @@ export default function VoicesPage() {
       const fd = new FormData()
       fd.append('file', file)
       await api<{ voice?: VoiceItem }>('/voice/voices', { method: 'POST', body: fd })
-      setInfo(t('uploading'))
+      // 克隆是异步任务:上传成功 ≠ 克隆完成,提示语义要准确,完成由 5s 轮询自动带出
+      setInfo(t('cloneSubmitted'))
       await queryClient.invalidateQueries({ queryKey: ['voices'] })
     } catch (e) {
       setError(`${t('upload')}失败: ${e instanceof Error ? e.message : String(e)}`)
@@ -140,7 +159,7 @@ export default function VoicesPage() {
     setExpanded((cur) => (cur === id ? null : id))
   }
 
-  const dateFmt = new Intl.DateTimeFormat('zh-CN', {
+  const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -262,7 +281,8 @@ export default function VoicesPage() {
                           onClick={() => setPlaying((cur) => (cur === id ? null : id))}
                         >
                           <PlayCircle className="mr-1 h-3 w-3" />
-                          {playing === id ? t('statusReady') : t('playable')}
+                          {/* 播放按钮用动作文案(此前误用状态词 statusReady/playable) */}
+                          {playing === id ? t('hidePreview') : t('playPreview')}
                         </Button>
                       )}
                       <Button
