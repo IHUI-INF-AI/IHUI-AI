@@ -4,6 +4,13 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
+/* Pay 页 — 视觉对齐 RN 端 PaymentScreen / PayButton / ConfirmPurchasePopUp(2026-09-08)
+   卡片对齐 RN card:白底 var(--color-card) + 1px 描边 var(--color-border) + 圆角 12dp→24rpx;
+   金额色对齐 RN amountValue(success.DEFAULT → var(--color-success));
+   支付方式选中态对齐全项目 brandAccent 语言(brand-orange-light 底 + brand-orange 描边);
+   辅助描边按钮对齐 RN outlineBtn(success 描边 + success 字);
+   主按钮对齐 RN primaryBtn/PayButton:高 50dp→100rpx / 圆角 12dp→24rpx / brand 黑底白字。 */
+
 .py-page {
   min-height: 100vh;
   background: var(--color-background);
@@ -35,7 +42,7 @@
 .py-amount-card {
   padding: 40rpx 32rpx;
   background: var(--color-card);
-  border-radius: var(--radius-lg);
+  border-radius: 24rpx;
   border: 2rpx solid var(--color-border);
   text-align: center;
 }
@@ -47,8 +54,9 @@
 .py-amount-value {
   display: block;
   margin-top: 16rpx;
+  /* 对齐 RN amountValue 色:success.DEFAULT → var(--color-success) */
   font-size: 64rpx;
-  color: var(--color-destructive);
+  color: var(--color-success);
   font-weight: 700;
 }
 .py-amount-discount {
@@ -62,7 +70,7 @@
   margin-top: 24rpx;
   padding: 24rpx 32rpx;
   background: var(--color-card);
-  border-radius: var(--radius-lg);
+  border-radius: 24rpx;
   border: 2rpx solid var(--color-border);
 }
 .py-order-row {
@@ -88,7 +96,7 @@
   margin-top: 24rpx;
   padding: 24rpx 32rpx;
   background: var(--color-card);
-  border-radius: var(--radius-lg);
+  border-radius: 24rpx;
   border: 2rpx solid var(--color-border);
 }
 .py-section-title {
@@ -106,8 +114,9 @@
   border: 2rpx solid transparent;
 }
 .py-method--active {
-  background: var(--color-border);
-  border-color: var(--color-ring);
+  /* 选中态对齐全项目 brandAccent 语言(同 vip 页支付方式选中态) */
+  background: var(--color-brand-orange-light);
+  border-color: var(--color-brand-orange);
 }
 .py-method-icon {
   width: 64rpx;
@@ -144,10 +153,11 @@
   color: var(--color-muted-foreground);
 }
 .py-recharge-link {
+  /* 辅助描边按钮对齐 RN outlineBtn:success 描边 + success 字 */
   padding: 8rpx 20rpx;
   font-size: 24rpx;
-  color: var(--color-primary);
-  border: 2rpx solid var(--color-primary);
+  color: var(--color-success);
+  border: 2rpx solid var(--color-success);
   border-radius: var(--radius-sm);
 }
 .py-radio {
@@ -178,7 +188,7 @@
   margin-top: 24rpx;
   padding: 24rpx 32rpx;
   background: var(--color-card);
-  border-radius: var(--radius-lg);
+  border-radius: 24rpx;
   border: 2rpx solid var(--color-border);
 }
 .py-coupon-label {
@@ -190,8 +200,9 @@
   align-items: center;
 }
 .py-coupon-value {
+  /* 优惠减免金额与 py-amount-discount 同语义(RN success 金额语言) */
   font-size: 28rpx;
-  color: var(--color-destructive);
+  color: var(--color-success);
   font-weight: 600;
 }
 .py-coupon-placeholder {
@@ -209,11 +220,17 @@
   bottom: 32rpx;
   left: 32rpx;
   right: 32rpx;
+  /* 对齐 RN primaryBtn:高 50dp→100rpx / 圆角 12dp→24rpx / brand 黑底白字 */
+  height: 100rpx;
+  line-height: 100rpx;
   background: var(--color-primary);
   color: var(--color-primary-foreground);
-  border-radius: var(--radius-md);
+  border-radius: 24rpx;
   font-size: 32rpx;
-  font-weight: 700;
+  font-weight: 600;
+}
+.py-submit::after {
+  border: none;
 }
 .py-submit--disabled {
   opacity: 0.5;

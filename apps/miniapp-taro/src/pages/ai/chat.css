@@ -74,7 +74,8 @@
 }
 .msg-item {
   display: flex;
-  margin-bottom: 32rpx;
+  /* 对齐 RN msgRow marginVertical rpx(20)=20rpx */
+  margin-bottom: 20rpx;
   align-items: flex-start;
 }
 .msg-item.user {
@@ -1098,48 +1099,35 @@
    以下为 ChatMessageItem.tsx / InputArea.tsx 新 className 对应样式
    ============================================================ */
 
-/* ============ 用户消息气泡(对标原 ai_assistant.vue .agent-content-item-question) ============ */
+/* ============ 用户消息气泡(对齐 RN msgBubbleUser:brand 底 + 32rpx 圆角,无渐变描边) ============ */
 .agent-content-item-question {
   background: var(--color-brand);
-  border: 2rpx solid;
-  border-image: linear-gradient(
-      275deg,
-      var(--color-white-45) -32%,
-      transparent 5%,
-      transparent 98%,
-      var(--color-white-40) 129%
-    )
-    2;
-  border-radius: 15rpx;
+  border-radius: 32rpx;
   float: right;
-  padding: 20rpx;
-  color: var(--color-foreground);
-  font-size: 22rpx;
-  line-height: 28rpx;
-  font-variation-settings:
-    'BEVL' 100,
-    'opsz' auto;
+  padding: 28rpx 20rpx;
+  color: var(--color-primary-foreground);
+  font-size: 30rpx;
+  line-height: 40rpx;
   box-sizing: border-box;
   word-break: break-word;
 }
 
-/* ============ AI 消息灰色全宽气泡(对标原 ai_assistant.vue .agent-content-item) ============ */
+/* ============ AI 消息灰色气泡(对齐 RN msgBubbleAi:surface.card 底 + 32rpx 圆角,无边框) ============ */
 .agent-content-item {
   background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: 30rpx;
-  padding: 20rpx;
+  border-radius: 32rpx;
+  padding: 28rpx 20rpx;
   float: left;
-  width: 100%;
+  max-width: 78%;
   margin-top: 20rpx;
   box-sizing: border-box;
   word-break: break-word;
 }
 
-/* ============ AI 内容文本容器(对标原 ai_assistant.vue .content_agent_nei) ============ */
+/* ============ AI 内容文本容器(对齐 RN msgTextAi:30rpx/40rpx/主文字色) ============ */
 .content_agent_nei {
-  font-size: 22rpx;
-  line-height: 28rpx;
+  font-size: 30rpx;
+  line-height: 40rpx;
   color: var(--color-foreground);
   user-select: text;
   -webkit-user-select: text;

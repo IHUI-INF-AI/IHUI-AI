@@ -91,22 +91,29 @@ export default function CourseList() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen p-3">
-        <View className="flex items-center mb-3">
+      {/* 对齐 RN CourseTabScreen:容器底 surface.bg(--color-background),内容内边距 = section padding 14dp→28rpx,底部 scrollContent 24dp→48rpx */}
+      <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[48rpx]">
+        {/* 搜索区对齐 RN searchInput:高 50dp→100rpx / 圆角 8dp→16rpx / bg muted / 边框 border.light / 字号 16dp→32rpx */}
+        <View className="flex items-center mb-[24rpx]">
           <Input
-            className="flex-1 h-9 px-3 bg-card rounded-lg text-sm"
+            className="flex-1 h-[100rpx] px-[24rpx] bg-muted border border-border rounded-[16rpx] text-[32rpx] text-foreground"
             type="text"
             placeholder={t('course.list.searchPlaceholder')}
+            placeholderStyle="color: var(--color-text-tertiary)"
             value={keyword}
             onInput={(e) => setKeyword(e.detail.value)}
             onConfirm={onSearch}
           />
-          <View className="ml-2 px-3 h-9 leading-9 text-primary text-sm" onClick={onSearch}>
+          {/* RN 无独立搜索按钮(returnKeyType=search),保留功能入口并按 RN moreLink 字号/色对齐(14dp→28rpx,text.secondary) */}
+          <View
+            className="ml-[16rpx] px-[24rpx] h-[100rpx] leading-[100rpx] text-muted-foreground text-[28rpx]"
+            onClick={onSearch}
+          >
             <Text>{t('course.list.search')}</Text>
           </View>
         </View>
 
-        <View className="mb-3">
+        <View className="mb-[24rpx]">
           <SectionHeader
             title={tt('course.list.title', '精品课程')}
             subtitle={`${list.length} 个课{tt('courseList.p1', '程')}`}
@@ -119,41 +126,43 @@ export default function CourseList() {
             {list.map((item) => (
               <View
                 key={item.id}
-                className="flex bg-card rounded-2xl overflow-hidden mb-3"
+                className="flex bg-card rounded-[32rpx] overflow-hidden mb-[24rpx]"
                 onClick={() => goDetail(item.id)}
               >
+                {/* 对齐 RN courseImage:110×110dp→220×220rpx,圆角 12dp→24rpx,底色 border.light */}
                 <Image
-                  className="w-[220rpx] h-[160rpx] flex-shrink-0"
+                  className="w-[220rpx] h-[220rpx] bg-border flex-shrink-0"
                   src={item.coverUrl}
                   mode="aspectFill"
                 />
-                <View className="flex-1 p-2 flex flex-col justify-between">
-                  <Text className="text-[30rpx] text-foreground font-semibold">{item.title}</Text>
+                {/* 对齐 RN courseInfo:padding 12dp→24rpx,纵向 gap 6dp→12rpx;价格独立成行(RN pricePaid:16dp→32rpx/600/text.primary) */}
+                <View className="flex-1 p-[24rpx] flex flex-col gap-[12rpx]">
+                  <Text className="text-[32rpx] text-foreground font-semibold">{item.title}</Text>
                   {item.subtitle && (
-                    <Text className="text-xs text-muted-foreground mt-1">{item.subtitle}</Text>
+                    <Text className="text-[28rpx] text-muted-foreground">{item.subtitle}</Text>
                   )}
-                  <View className="flex justify-between items-center mt-2">
-                    {item.teacher && (
-                      <Text className="text-xs text-muted-foreground">{item.teacher}</Text>
-                    )}
-                    <Text className="text-base text-destructive font-semibold">
-                      ¥{item.price ?? 0}
-                    </Text>
-                  </View>
+                  {item.teacher && (
+                    <Text className="text-[24rpx] text-muted-foreground">{item.teacher}</Text>
+                  )}
+                  <Text className="text-[32rpx] text-foreground font-semibold">
+                    ¥{item.price ?? 0}
+                  </Text>
                 </View>
               </View>
             ))}
           </View>
         )}
 
+        {/* 对齐 RN emptyWrap/emptyText:paddingY 48dp→96rpx,字号 14dp→28rpx,text.secondary */}
         {!loading && list.length === 0 && (
-          <View className="text-center py-16 text-muted-foreground text-sm">
-            <Text>{t('course.list.empty')}</Text>
+          <View className="text-center py-[96rpx]">
+            <Text className="text-[28rpx] text-muted-foreground">{t('course.list.empty')}</Text>
           </View>
         )}
 
+        {/* 对齐 RN centerWrap:paddingY 48dp→96rpx */}
         {loading && (
-          <View className="flex justify-center items-center py-16">
+          <View className="flex justify-center items-center py-[96rpx]">
             <ColorfulLoader size={80} />
           </View>
         )}

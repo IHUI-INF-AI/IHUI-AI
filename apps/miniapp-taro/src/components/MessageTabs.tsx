@@ -18,38 +18,34 @@ export interface MessageTabsProps {
 
 export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps) {
   return (
-    <ScrollView scrollX className="bg-card mb-2" enhanced showScrollbar={false}>
-      <View className="flex">
+    <ScrollView scrollX className="mb-2" enhanced showScrollbar={false}>
+      {/* 对齐 RN MessageCenterScreen:胶囊 tab(paddingHorizontal 14/paddingVertical 6/radius 12 dp) */}
+      <View className="flex flex-row items-center px-[20rpx] py-[16rpx] gap-[16rpx]">
         {tabs.map((tab) => {
           const isActive = tab.key === active
           const showUnread = (tab.unread ?? 0) > 0
           return (
             <View
               key={tab.key}
-              className={`relative flex flex-col items-center px-5 py-3 ${isActive ? '' : ''}`}
+              className={`flex flex-row items-center px-[28rpx] py-[12rpx] rounded-[24rpx] ${
+                isActive ? 'bg-primary' : 'bg-card'
+              }`}
               onClick={() => onChange(tab.key)}
             >
-              <View className="flex items-center">
-                <Text
-                  className={`text-sm ${
-                    isActive ? 'text-foreground font-semibold' : 'text-muted-foreground'
-                  }`}
-                >
-                  {tab.label}
-                </Text>
-                {showUnread && (
-                  <View className="ml-1 min-w-[32rpx] h-4 px-1 rounded-md bg-destructive flex items-center justify-center">
-                    <Text className="text-[20rpx] text-white">
-                      {tab.unread! > 99 ? '99+' : tab.unread}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <View
-                className={`mt-1.5 h-0.5 rounded-sm transition-all ${
-                  isActive ? 'w-6 bg-primary' : 'w-0'
+              <Text
+                className={`text-[28rpx] ${
+                  isActive ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'
                 }`}
-              />
+              >
+                {tab.label}
+              </Text>
+              {showUnread && (
+                <View className="ml-[8rpx] min-w-[32rpx] h-[32rpx] px-[6rpx] rounded-full bg-destructive flex items-center justify-center">
+                  <Text className="text-[20rpx] text-destructive-foreground font-bold">
+                    {tab.unread! > 99 ? '99+' : tab.unread}
+                  </Text>
+                </View>
+              )}
             </View>
           )
         })}

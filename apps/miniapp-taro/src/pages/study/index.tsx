@@ -78,73 +78,91 @@ export default function StudyIndex() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background pb-[144rpx]">
-        <View className="p-6 bg-primary">
-          <View className="flex flex-wrap">
-            <View className="w-1/2 text-center mb-3 text-primary-foreground">
-              <Text className="block text-xl font-bold">{info.todayMinutes}</Text>
-              <Text className="block text-xs opacity-90 mt-0.5">{t('study.todayMinutes')}</Text>
-            </View>
-            <View className="w-1/2 text-center mb-3 text-primary-foreground">
-              <Text className="block text-xl font-bold">{info.totalMinutes}</Text>
-              <Text className="block text-xs opacity-90 mt-0.5">{t('study.totalMinutes')}</Text>
-            </View>
-            <View className="w-1/2 text-center mb-3 text-primary-foreground">
-              <Text className="block text-xl font-bold">{info.continuousDays}</Text>
-              <Text className="block text-xs opacity-90 mt-0.5">{t('study.continuousDays')}</Text>
-            </View>
-            <View className="w-1/2 text-center mb-3 text-primary-foreground">
-              <Text className="block text-xl font-bold">{info.courses}</Text>
-              <Text className="block text-xs opacity-90 mt-0.5">{t('study.courses')}</Text>
-            </View>
+      {/* 对齐 RN StudyProgressScreen:容器底 surface.bg,paddingH 10dp→20rpx / paddingT 48dp→96rpx / paddingB 32dp→64rpx */}
+      <View className="min-h-screen bg-background px-[20rpx] pt-[96rpx] pb-[64rpx]">
+        {/* 统计卡网格对齐 RN statGrid/statCard:gap 8dp→16rpx,卡片 p 14dp→28rpx / 圆角 12dp→24rpx / 边框 border.light / 数值 22dp→44rpx/700 success */}
+        <View className="flex flex-wrap gap-[16rpx] mb-[32rpx]">
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-[24rpx] border border-border bg-card">
+            <Text className="text-[44rpx] font-bold text-success">{info.todayMinutes}</Text>
+            <Text className="block mt-[16rpx] text-[22rpx] text-muted-foreground">
+              {t('study.todayMinutes')}
+            </Text>
+          </View>
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-[24rpx] border border-border bg-card">
+            <Text className="text-[44rpx] font-bold text-success">{info.totalMinutes}</Text>
+            <Text className="block mt-[16rpx] text-[22rpx] text-muted-foreground">
+              {t('study.totalMinutes')}
+            </Text>
+          </View>
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-[24rpx] border border-border bg-card">
+            <Text className="text-[44rpx] font-bold text-success">{info.continuousDays}</Text>
+            <Text className="block mt-[16rpx] text-[22rpx] text-muted-foreground">
+              {t('study.continuousDays')}
+            </Text>
+          </View>
+          <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-[24rpx] border border-border bg-card">
+            <Text className="text-[44rpx] font-bold text-success">{info.courses}</Text>
+            <Text className="block mt-[16rpx] text-[22rpx] text-muted-foreground">
+              {t('study.courses')}
+            </Text>
           </View>
         </View>
 
-        <View className="m-3 bg-card rounded-2xl p-2 flex flex-col gap-1">
+        {/* 学习记录入口(RN 无对应区,保留业务;卡片视觉统一为 RN card 语言:圆角 24rpx + 边框) */}
+        <View className="mb-[24rpx] bg-card rounded-[24rpx] border border-border p-[16rpx] flex flex-col gap-[8rpx]">
           {entries.map((e) => (
-            <View key={e.url} className="flex items-center p-3" onClick={() => navigate(e.url)}>
+            <View key={e.url} className="flex items-center p-[24rpx]" onClick={() => navigate(e.url)}>
               {isImagePath(e.icon) ? (
                 <Image src={e.icon} className="w-[40rpx] h-[40rpx]" mode="aspectFit" />
               ) : (
                 <Text>{e.icon}</Text>
               )}
-              <Text className="flex-1 ml-3 text-sm text-foreground">{t(e.labelKey)}</Text>
+              <Text className="flex-1 ml-[24rpx] text-[28rpx] text-foreground">{t(e.labelKey)}</Text>
               <Text className="text-muted-foreground">›</Text>
             </View>
           ))}
         </View>
 
-        <View className="m-3 p-4 bg-card rounded-2xl">
-          <Text className="text-base text-foreground font-semibold mb-3 block">
-            {t('study.continueLearning')}
-          </Text>
-          {loading ? (
-            <View className="text-center py-6 text-muted-foreground">
-              <Text>{t('common.loading')}</Text>
-            </View>
-          ) : recent.length > 0 ? (
-            <View className="flex flex-col gap-1">
-              {recent.map((r) => (
-                <View key={r.id} className="flex items-center p-2" onClick={() => goVideo(r)}>
-                  <View className="flex-1">
-                    <Text className="block text-sm text-foreground">{r.courseTitle}</Text>
-                    <Text className="block text-xs text-muted-foreground mt-1">
-                      {`${t('study.recordPage.progress').replace(/\s*\{\{n\}\}\s*%?/, '')} ${r.progress}%`}
-                    </Text>
-                  </View>
-                  <Text className="text-muted-foreground">›</Text>
+        {/* 继续学习对齐 RN sectionTitle(18dp→36rpx/700)+ 课程进度卡(card: p 28rpx / 圆角 24rpx / 边框;标题 16dp→32rpx/600;进度条 h 6dp→12rpx,fill success;meta 11dp→22rpx text.tertiary) */}
+        <Text className="block text-[36rpx] font-bold text-foreground mb-[16rpx]">
+          {t('study.continueLearning')}
+        </Text>
+        {loading ? (
+          <View className="text-center py-[48rpx]">
+            <Text className="text-[28rpx] text-muted-foreground">{t('common.loading')}</Text>
+          </View>
+        ) : recent.length > 0 ? (
+          <View className="flex flex-col gap-[16rpx]">
+            {recent.map((r) => (
+              <View
+                key={r.id}
+                className="p-[28rpx] rounded-[24rpx] border border-border bg-card"
+                onClick={() => goVideo(r)}
+              >
+                <Text className="block text-[32rpx] font-semibold text-foreground">
+                  {r.courseTitle}
+                </Text>
+                <View className="h-[12rpx] bg-card rounded-[24rpx] overflow-hidden mt-[16rpx]">
+                  <View
+                    className="h-[12rpx] bg-success rounded-[24rpx]"
+                    style={{ width: `${r.progress}%` }}
+                  />
                 </View>
-              ))}
-            </View>
-          ) : (
-            <View className="text-center py-6 text-muted-foreground">
-              <Text>{t('study.emptyCourse')}</Text>
-            </View>
-          )}
-        </View>
+                <Text className="block mt-[16rpx] text-[22rpx] text-[var(--color-text-tertiary)]">
+                  {`${t('study.recordPage.progress').replace(/\s*\{\{n\}\}\s*%?/, '')} ${r.progress}%`}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View className="text-center py-[48rpx]">
+            <Text className="text-[28rpx] text-muted-foreground">{t('study.emptyCourse')}</Text>
+          </View>
+        )}
 
+        {/* FAB 对齐 RN FloatingActionButton:48×48dp→96rpx / 圆角 12dp→24rpx / bg brand / 图标 24dp→48rpx */}
         <View
-          className="fixed bottom-5 right-4 w-12 h-12 bg-primary text-primary-foreground rounded-2xl flex items-center justify-center text-xl shadow-md"
+          className="fixed bottom-5 right-4 w-[96rpx] h-[96rpx] bg-primary text-primary-foreground rounded-[24rpx] flex items-center justify-center text-[48rpx] shadow-md"
           onClick={() => navigate('/pages/study/publish/index')}
         >
           <Text>+</Text>

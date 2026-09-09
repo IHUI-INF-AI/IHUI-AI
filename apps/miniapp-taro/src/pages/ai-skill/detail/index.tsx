@@ -20,18 +20,21 @@ const toRpx = (px: number): string => `${px * 2}rpx`
 // ===== 样式函数(view/text 分组,避免 style 联合类型;对齐 RN 端 Tailwind 视觉) =====
 
 const viewStyles = {
-  container: (tk: RnThemeTokens): CSSProperties => ({
+  // 容器背景对齐 RN:亮 bg-white / 暗 bg-neutral-900
+  // (#FFFFFF → --color-surface-light;#171717 → --color-surface-dark 暗值)
+  container: (_tk: RnThemeTokens, isDark: boolean): CSSProperties => ({
     display: 'flex',
     flexDirection: 'column',
     height: '100vh',
-    backgroundColor: tk.surface.bg,
+    backgroundColor: isDark ? 'var(--color-surface-dark)' : 'var(--color-surface-light)',
   }),
-  center: (): CSSProperties => ({
+  center: (isDark: boolean): CSSProperties => ({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     height: '100vh',
+    backgroundColor: isDark ? 'var(--color-surface-dark)' : 'var(--color-surface-light)',
   }),
   header: (): CSSProperties => ({
     display: 'flex',
@@ -46,11 +49,11 @@ const viewStyles = {
   bodyScroll: (): CSSProperties => ({
     flex: 1,
   }),
+  // 对齐 RN ScrollView px-4 pt-2(无底部内边距)
   body: (): CSSProperties => ({
     paddingLeft: toRpx(16),
     paddingRight: toRpx(16),
     paddingTop: toRpx(8),
-    paddingBottom: toRpx(32),
   }),
   errorBox: (): CSSProperties => ({
     display: 'flex',
@@ -59,10 +62,11 @@ const viewStyles = {
     paddingTop: toRpx(64),
     paddingBottom: toRpx(64),
   }),
-  retryBtn: (tk: RnThemeTokens): CSSProperties => ({
+  // 重试按钮对齐 RN:bg-gray-200(rounded-md 6px→12rpx;#E5E5E5 ≈ --color-border)
+  retryBtn: (_tk: RnThemeTokens): CSSProperties => ({
     marginTop: toRpx(12),
     borderRadius: toRpx(6),
-    backgroundColor: tk.surface.card,
+    backgroundColor: 'var(--color-border)',
     paddingLeft: toRpx(16),
     paddingRight: toRpx(16),
     paddingTop: toRpx(8),
@@ -75,87 +79,96 @@ const viewStyles = {
     flexWrap: 'wrap',
     gap: toRpx(6),
   }),
-  categoryBadge: (tk: RnThemeTokens): CSSProperties => ({
-    backgroundColor: tk.surface.muted,
+  // 徽章对齐 RN:rounded-sm(2px→4rpx);bg-gray-100(亮 ≈ --color-muted)/ dark:bg-neutral-700(≈ --color-accent)
+  categoryBadge: (_tk: RnThemeTokens, isDark: boolean): CSSProperties => ({
+    borderRadius: toRpx(2),
+    backgroundColor: isDark ? 'var(--color-accent)' : 'var(--color-muted)',
     paddingLeft: toRpx(8),
     paddingRight: toRpx(8),
     paddingTop: toRpx(4),
     paddingBottom: toRpx(4),
     overflow: 'hidden',
   }),
-  tagBadge: (tk: RnThemeTokens): CSSProperties => ({
-    backgroundColor: tk.brandAccent.light,
+  // bg-orange-50 / dark:bg-neutral-700 → 统一品牌橙浅底 token(明暗成对)
+  tagBadge: (_tk: RnThemeTokens): CSSProperties => ({
+    borderRadius: toRpx(2),
+    backgroundColor: 'var(--color-brand-orange-light)',
     paddingLeft: toRpx(8),
     paddingRight: toRpx(8),
     paddingTop: toRpx(4),
     paddingBottom: toRpx(4),
     overflow: 'hidden',
   }),
-  promptBox: (tk: RnThemeTokens): CSSProperties => ({
+  // promptBox 对齐 RN:亮 border-gray-200 + bg-gray-50(≈ --color-secondary)
+  // 暗 border-neutral-700 + bg-neutral-800(≈ --color-border + --color-muted)
+  promptBox: (isDark: boolean): CSSProperties => ({
     borderRadius: toRpx(8),
     borderWidth: '1px',
     borderStyle: 'solid',
-    borderColor: tk.border.light,
-    backgroundColor: tk.surface.muted,
+    borderColor: 'var(--color-border)',
+    backgroundColor: isDark ? 'var(--color-muted)' : 'var(--color-secondary)',
     padding: toRpx(12),
   }),
 }
 
 const textStyles = {
-  muted: (tk: RnThemeTokens): CSSProperties => ({
+  // text.secondary #666666/#A3A3A3 ↔ --color-muted-foreground(亮暗成对)
+  muted: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.text.secondary,
+    color: 'var(--color-muted-foreground)',
   }),
-  back: (tk: RnThemeTokens): CSSProperties => ({
+  back: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.text.secondary,
+    color: 'var(--color-muted-foreground)',
   }),
-  headerTitle: (tk: RnThemeTokens): CSSProperties => ({
+  headerTitle: (_tk: RnThemeTokens): CSSProperties => ({
     maxWidth: '60%',
     overflow: 'hidden',
     whiteSpace: 'nowrap',
     textOverflow: 'ellipsis',
     fontSize: toRpx(16),
     fontWeight: '500',
-    color: tk.text.primary,
+    color: 'var(--color-foreground)',
   }),
-  description: (tk: RnThemeTokens): CSSProperties => ({
+  // RN dark:text-gray-300 / text-gray-600 → --color-text-medium(亮 #404040 / 暗 #D4D4D4 成对)
+  description: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(14),
     lineHeight: toRpx(24),
-    color: tk.text.medium,
+    color: 'var(--color-text-medium)',
   }),
-  categoryText: (tk: RnThemeTokens): CSSProperties => ({
+  categoryText: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(12),
-    color: tk.text.secondary,
+    color: 'var(--color-muted-foreground)',
   }),
-  tagText: (tk: RnThemeTokens): CSSProperties => ({
+  tagText: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(12),
-    color: tk.brandAccent.DEFAULT,
+    color: 'var(--color-brand-orange)',
   }),
-  sectionTitle: (tk: RnThemeTokens): CSSProperties => ({
+  sectionTitle: (_tk: RnThemeTokens): CSSProperties => ({
     marginTop: toRpx(20),
     marginBottom: toRpx(8),
     fontSize: toRpx(14),
     fontWeight: '500',
-    color: tk.text.primary,
+    color: 'var(--color-text-medium)',
   }),
-  promptText: (tk: RnThemeTokens): CSSProperties => ({
+  promptText: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(14),
     lineHeight: toRpx(24),
-    color: tk.text.primary,
+    color: 'var(--color-text-medium)',
   }),
-  sourceText: (tk: RnThemeTokens): CSSProperties => ({
+  // RN dark:text-gray-400 / text-gray-600 → --color-muted-foreground(暗 #A3A3A3 精确 / 亮相近)
+  sourceText: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.text.medium,
+    color: 'var(--color-muted-foreground)',
   }),
-  errorText: (tk: RnThemeTokens): CSSProperties => ({
+  errorText: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.text.secondary,
+    color: 'var(--color-muted-foreground)',
     textAlign: 'center',
   }),
-  retryText: (tk: RnThemeTokens): CSSProperties => ({
+  retryText: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.text.primary,
+    color: 'var(--color-foreground)',
   }),
 }
 
@@ -163,6 +176,7 @@ export default function AiSkillDetail() {
   const tt = useTt()
   const { resolved: appTheme } = useAppTheme()
   const tk = getRnTokens(appTheme)
+  const isDark = appTheme === 'dark'
   // 路由参数:技能 id 与名称(对齐 RN route.params.id / route.params.name)
   const router = Taro.getCurrentInstance().router
   const skillId = router?.params?.id ?? ''
@@ -202,7 +216,7 @@ export default function AiSkillDetail() {
   if (loading) {
     return (
       <ThemeRoot>
-        <View style={viewStyles.center()}>
+        <View style={viewStyles.center(isDark)}>
           <Text style={textStyles.muted(tk)}>{tt('common.loading', '加载中...')}</Text>
         </View>
       </ThemeRoot>
@@ -211,7 +225,7 @@ export default function AiSkillDetail() {
 
   return (
     <ThemeRoot>
-      <View style={viewStyles.container(tk)}>
+      <View style={viewStyles.container(tk, isDark)}>
         <View style={viewStyles.header()}>
           <View onTap={goBack}>
             <Text style={textStyles.back(tk)}>{tt('common.back', '返回')}</Text>
@@ -233,7 +247,7 @@ export default function AiSkillDetail() {
               <View>
                 <Text style={textStyles.description(tk)}>{skill.description}</Text>
                 <View style={viewStyles.badgeRow()}>
-                  <View style={viewStyles.categoryBadge(tk)}>
+                  <View style={viewStyles.categoryBadge(tk, isDark)}>
                     <Text style={textStyles.categoryText(tk)}>{skill.category}</Text>
                   </View>
                   {skill.tags.map((tag) => (
@@ -246,7 +260,7 @@ export default function AiSkillDetail() {
                 <Text style={textStyles.sectionTitle(tk)}>
                   {tt('aiSkillDetail.prompt', 'Prompt 模板')}
                 </Text>
-                <View style={viewStyles.promptBox(tk)}>
+                <View style={viewStyles.promptBox(isDark)}>
                   <Text style={textStyles.promptText(tk)}>
                     {skill.promptTemplate || tt('aiSkillDetail.noPrompt', '无模板')}
                   </Text>

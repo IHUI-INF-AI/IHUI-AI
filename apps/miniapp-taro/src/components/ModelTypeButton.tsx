@@ -2,12 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { View, Text, Image } from '@tarojs/components'
-import { cn } from '@ihui/design-tokens'
+import { View, Text } from '@tarojs/components'
 import LineIcon, { type IconName } from '@/components/LineIcon'
-// wide 模式按钮背景 SVG(Vite 编译时内联为 base64)
-import activeBackSvg from '@/static/images/add/active_back.svg'
-import backDefaultSvg from '@/static/images/add/back_default.svg'
 
 export type ModelType = 'skills' | 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'other' | 'sck'
 
@@ -16,14 +12,10 @@ export type ModelType = 'skills' | 'talk' | 'image' | 'video' | 'audio' | 'video
  *
  * 两种 variant:
  * - 'compact'(默认,兼容旧调用):小尺寸纵向布局(图标在上 + 文字在下),用于非首页
- * - 'wide'(首页专用):对齐原项目 .model-type-btn:
- *   - 200rpx × 60rpx,横向布局
- *   - btn-bg 背景层(absolute 填充,选中态高亮)
- *   - btn-content-wrapper 内容层(z-index 3,图标 140rpx×50rpx)
- *   - btn-arrow 箭头(20rpx×20rpx,选中时 rotate(180deg))
- *
- * 微信小程序 <Image> 不直接支持 svg,但 Taro 4 + Vite 编译时
- * 会把 import xxx from './x.svg' 处理为 base64 编码,在 <Image src> 中可正常显示。
+ * - 'wide'(首页专用):对齐 RN 端 HomeScreen modelTypeBtn:
+ *   - 横向布局(LineIcon 图标 + 文字标签),自适应宽度
+ *   - muted 背景 + 大圆角,active 态 primary 纯色(对齐 RN modelTypeBtnActive)
+ *   - 图标 28rpx(RN lucide 14dp)+ 标签 24rpx(RN fontSize 12dp)
  */
 export interface ModelTypeButtonProps {
   type: ModelType
@@ -44,33 +36,20 @@ export default function ModelTypeButton({
   variant = 'compact',
 }: ModelTypeButtonProps) {
   if (variant === 'wide') {
-    // ===== wide 模式:对齐原项目 .model-type-btn(200rpx×60rpx + btn-bg + btn-content + btn-arrow)=====
+    // ===== wide 模式:对齐 RN HomeScreen modelTypeBtn(icon+label,muted 背景,active 纯色)=====
     return (
-      <View className="ai-model-type-btn" onClick={() => onClick?.(type)}>
-        {/* btn-bg 背景层(absolute 填充,选中态切换 SVG)*/}
-        <Image
-          className="absolute top-0 left-0"
-          src={active ? activeBackSvg : backDefaultSvg}
-          style={{ width: '100%', height: '100%', zIndex: 1, opacity: active ? 1 : 0.6 }}
-          mode="aspectFill"
+      <View
+        className={`ai-model-type-btn ${active ? 'active' : ''}`}
+        onClick={() => onClick?.(type)}
+      >
+        {/* 图标(LineIcon 随主题着色,对齐 RN 端 lucide size 14dp → 28rpx)*/}
+        <LineIcon
+          name={icon}
+          size={28}
+          color={active ? 'var(--color-primary-foreground)' : 'var(--color-foreground)'}
         />
-        {/* btn-content-wrapper 内容层(z-index 3,横向布局)*/}
-        <View className="relative flex items-center justify-center" style={{ zIndex: 3 }}>
-          {/* btn-content 图标(LineIcon 随主题着色,对齐 RN 端 lucide)*/}
-          <LineIcon
-            name={icon}
-            size={40}
-            color={active ? 'var(--color-primary-foreground)' : 'var(--color-foreground)'}
-          />
-          {/* btn-arrow 箭头 20rpx×20rpx(选中时 rotate 180deg,LineIcon 随主题着色)*/}
-          <LineIcon
-            name="chevron-down"
-            size={20}
-            color={active ? 'var(--color-primary-foreground)' : 'var(--color-foreground)'}
-            className={cn('ai-btn-arrow ml-[6rpx]', active && 'ai-btn-arrow-rotate')}
-            style={{ position: 'relative', zIndex: 3 }}
-          />
-        </View>
+        {/* 标签(RN modelTypeLabel fontSize 12dp → 24rpx,active 态对比白 + 600)*/}
+        <Text className={`ai-model-type-label ${active ? 'active' : ''}`}>{label}</Text>
       </View>
     )
   }

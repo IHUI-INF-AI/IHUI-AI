@@ -114,6 +114,58 @@ function extractOpacityPalette(content) {
 }
 
 /**
+ * 从 tokens.css 提取「独立 :root 块」中的业务品牌变量(--color-miniapp-green* 等。
+ * 这些变量定义在非 @theme、非 .dark 的 :root 块,extractThemeBlock / extractDarkBlock
+ * 不会提取到,导致小程序端 var(--color-miniapp-green) 运行时未定义 → 微信按钮底色丢失。
+ * 过滤:剔除已在 @theme/.dark 中的变量与透明度色板(--color-white / --color-black 系列),
+ * 并用 filterTokens 剔除 web 独有变量。返回:["--color-x: val;", ...](按出现顺序)。
+ */
+function extractStandaloneRootBlock(content, themeMap, darkMap) {
+  const rootRe = /:root\s*\{([^{}]*)\}/g
+  const lines = []
+  let m
+  while ((m = rootRe.exec(content)) !== null) {
+    for (const raw of m[1].split('\n')) {
+      const l = raw.trim()
+      const name = l.split(':')[0].trim()
+      // 仅收集「单行完整声明的 --color-* 业务品牌色」:
+      //  - 以 --color- 开头(web 独有 --global- / --ease- / --sidebar- / --el- 等不收集)
+      //  - 行尾以 ; 结束(剔除以 linear-gradient( 开头的多行渐变,避免截断产生非法 CSS)
+      //  - 跳过透明度色板与已存在于 @theme/.dark 语义色块的变量,避免重复
+      if (!name.startsWith('--color-')) continue
+      if (name.startsWith('--color-gradient-')) continue
+      if (!l.endsWith(';')) continue
+      if (name.startsWith('--color-white-') || name.startsWith('--color-black-')) continue
+      if (themeMap.has(name) || darkMap.has(name)) continue
+      lines.push(l)
+    }
+  }
+  return filterTokens(lines.filter((l, i) => lines.indexOf(l) === i))
+}
+
+/**
+ * 生成业务品牌色 CSS 块(:root 包裹,挂到透明度色板之后)。无匹配时返回空串。
+ */
+function buildBusinessBrandBlock(lines) {
+  if (lines.length === 0) return ''
+  const inner = formatBlock(lines, '  ')
+  return (
+    '/* ===== 业务品牌色(自动同步自 tokens.css 独立 :root 块,勿手动编辑)===== */\n' +
+    ':root {\n' +
+    inner +
+    '\n}\n'
+  )
+}
+
+/**
+ * 移除 app.css 中已存在的业务品牌色块(防止重复插入)。
+ */
+function stripExistingBusinessBrandBlock(css) {
+  const re = /\/\* ===== 业务品牌色[^\n]*\*\/\s*\n:root \{\n[\s\S]*?\n\}\n+/g
+  return css.replace(re, '\n')
+}
+
+/**
  * 生成透明度色板 CSS 块(:root 包裹,挂到 app.css 语义色 :root 后)。无匹配时返回空串。
  */
 function buildOpacityBlock(lines) {
@@ -329,6 +381,10 @@ function main() {
     process.exit(1)
   }
 
+  // 用于去重与 style.ts 生成(提前构建,供业务品牌色去重判断)
+  const themeMap = buildVarMap(themeLinesRaw)
+  const darkMap = buildVarMap(darkLinesRaw)
+
   // app.css 同步:用过滤后的变量(去掉 web 独有的字体/动画/断点等)
   const themeLines = filterTokens(themeLinesRaw)
   const darkLines = filterTokens(darkLinesRaw)
@@ -341,6 +397,10 @@ ${formatBlock(themeLines, '  ')}
   const opacityLines = extractOpacityPalette(tokensContent)
   const opacityBlock = buildOpacityBlock(opacityLines)
 
+  // 业务品牌色(--color-miniapp-green* 等):独立 :root 块,单独收集并挂到透明度色板之后
+  const businessLines = extractStandaloneRootBlock(tokensContent, themeMap, darkMap)
+  const businessBlock = buildBusinessBrandBlock(businessLines)
+
   const newDarkBlock = `.dark {
 ${formatBlock(darkLines, '  ')}
 }`
@@ -348,8 +408,9 @@ ${formatBlock(darkLines, '  ')}
   const rootRegex = /:root\s*\{[^{}]*\}/
   const darkRegex = /\.dark\s*\{[^{}]*\}/
 
-  // 先移除历史透明度色板块,再替换语义 :root 与 .dark,最后在 .dark 前规范地插入色板块
+  // 先移除历史色板块,再替换语义 :root 与 .dark,最后在 .dark 前规范地插入色板块
   let newAppCss = stripExistingOpacityBlock(appCssContent)
+  newAppCss = stripExistingBusinessBrandBlock(newAppCss)
   if (!rootRegex.test(newAppCss)) {
     console.error('[sync-design-tokens] app.css 中未找到 :root 块')
     process.exit(1)
@@ -361,8 +422,8 @@ ${formatBlock(darkLines, '  ')}
 
   newAppCss = newAppCss.replace(rootRegex, newRootBlock)
   newAppCss = newAppCss.replace(darkRegex, newDarkBlock)
-  // 语义 :root 与 .dark 之间插入透明度色板,空白归一为确定形态,保证幂等
-  newAppCss = newAppCss.replace(/(\n+)(?=\.dark \{\n)/, '\n\n' + opacityBlock)
+  // 语义 :root 与 .dark 之间插入透明度色板 + 业务品牌色,空白归一为确定形态,保证幂等
+  newAppCss = newAppCss.replace(/(\n+)(?=\.dark \{\n)/, '\n\n' + opacityBlock + businessBlock)
 
   // base.css 同步:把共享基础样式内联进 app.css(替换跨包 @import)。
   // 背景:app.css 首行 @import '../../../packages/design-tokens/src/styles/base.css' 在
@@ -384,9 +445,7 @@ ${baseCssContent.trim()}
     process.exit(1)
   }
 
-  // style.ts 同步:从未过滤的变量构建 Map,生成 COLORS 常量
-  const themeMap = buildVarMap(themeLinesRaw)
-  const darkMap = buildVarMap(darkLinesRaw)
+  // style.ts 同步:生成 COLORS 常量(themeMap/darkMap 已在上方构建)
   const newStyleTs = generateStyleTs(themeMap, darkMap)
   if (isCheck) {
     let drift = false
