@@ -447,6 +447,14 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as exc:  # noqa: BLE001
         logger.warning("[video] worker 启动失败(忽略): %s", exc)
 
+    # 对话内媒体任务后台收尾轮询(2026-09-09 立,MEDIA_TASK_POLLER_ENABLED=1 时启用)
+    # 周期扫描 media_tasks 在途任务,终态自动回写;与官方 webhook 回调幂等互补。
+    try:
+        from app.services.media_tasks import start_media_task_poller
+        start_media_task_poller()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[media_tasks] 收尾轮询启动失败(忽略): %s", exc)
+
     yield
     # P0 修复(2026-08-02):移除 yield 后的 shutdown_telemetry() 重复调用,
     # 保留末尾(所有 cleanup 之后)的 shutdown_telemetry() 作为最后清理,避免重复 shutdown。
