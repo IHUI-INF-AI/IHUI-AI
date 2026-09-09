@@ -510,7 +510,7 @@ class TelemetryService:
                 return None
             # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
             # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
-            self._redis = aioredis.from_url(settings.redis_url, decode_responses=True, protocol=2)
+            self._redis = aioredis.from_url(settings.redis_url, decode_responses=True, protocol=2, socket_connect_timeout=2)
             await self._redis.ping()
             self._use_redis = True
             logger.info("[telemetry] Redis 已连接,trace span 持久化启用")

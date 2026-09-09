@@ -1,0 +1,25 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+from __future__ import annotations
+
+from .test_bench import _run_bench
+
+
+def test_bench_golden_full_pass_rate() -> None:
+    """golden 执行器必须让全部任务通过,守住 >=90% 基线。"""
+    proc = _run_bench(["--executor", "golden", "--report", ".tmp-golden-ci.md"])
+    assert proc.returncode == 0, proc.stderr
+    assert "通过率 100.0%" in proc.stdout
+
+
+def test_bench_pass_rate_gate_fails() -> None:
+    """低于显式门槛时必须返回 1,供 CI 阻塞回归。"""
+    proc = _run_bench([
+        "--executor", "stub",
+        "--limit", "1",
+        "--min-pass-rate", "1.01",
+        "--report", ".tmp-golden-gate.md",
+    ])
+    assert proc.returncode == 1
+    assert "通过率低于门槛" in proc.stderr
