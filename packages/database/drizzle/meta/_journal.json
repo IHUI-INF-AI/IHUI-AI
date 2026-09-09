@@ -1723,6 +1723,13 @@
       "when": 1721254400000,
       "tag": "20260907030000_create_repo_wiki_docs",
       "break": true
+    },
+    {
+      "idx": 247,
+      "version": "7",
+      "when": 1721340800000,
+      "tag": "20260908010000_add_model_metadata_jsonb",
+      "break": true
     }
   ]
 }
