@@ -111,7 +111,7 @@ export default function StudyIndex() {
         {/* 学习记录入口(RN 无对应区,保留业务;卡片视觉统一为 RN card 语言:圆角 24rpx + 边框) */}
         <View className="mb-[24rpx] bg-card rounded-[24rpx] border border-border p-[16rpx] flex flex-col gap-[8rpx]">
           {entries.map((e) => (
-            <View key={e.url} className="flex items-center p-[24rpx]" onClick={() => navigate(e.url)}>
+            <View key={e.url} className="flex items-center p-[24rpx]" hoverClass="opacity-60" onClick={() => navigate(e.url)}>
               {isImagePath(e.icon) ? (
                 <Image src={e.icon} className="w-[40rpx] h-[40rpx]" mode="aspectFit" />
               ) : (
@@ -137,6 +137,7 @@ export default function StudyIndex() {
               <View
                 key={r.id}
                 className="p-[28rpx] rounded-[24rpx] border border-border bg-card"
+                hoverClass="opacity-60"
                 onClick={() => goVideo(r)}
               >
                 <Text className="block text-[32rpx] font-semibold text-foreground">
@@ -163,6 +164,7 @@ export default function StudyIndex() {
         {/* FAB 对齐 RN FloatingActionButton:48×48dp→96rpx / 圆角 12dp→24rpx / bg brand / 图标 24dp→48rpx */}
         <View
           className="fixed bottom-5 right-4 w-[96rpx] h-[96rpx] bg-primary text-primary-foreground rounded-[24rpx] flex items-center justify-center text-[48rpx] shadow-md"
+          hoverClass="opacity-60"
           onClick={() => navigate('/pages/study/publish/index')}
         >
           <Text>+</Text>

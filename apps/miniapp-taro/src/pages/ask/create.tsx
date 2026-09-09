@@ -212,7 +212,7 @@ export default function AskCreatePage() {
           {/* 分类选择 */}
           <View className="ask-create-card">
             <Text className="ask-create-label">{tt('ask.create.categoryLabel', '分类')}</Text>
-            <View className="ask-create-picker" onClick={() => setShowCategorySheet(true)}>
+            <View className="ask-create-picker" onClick={() => setShowCategorySheet(true)} hoverClass="opacity-60">
               <Text
                 className={`ask-create-picker-value${form.category ? '' : ' ask-create-picker-placeholder'}`}
               >
@@ -233,7 +233,7 @@ export default function AskCreatePage() {
                   key={r}
                   className={`ask-create-reward${form.reward === r ? ' active' : ''}`}
                   onClick={() => updateForm({ reward: r })}
-                >
+                  hoverClass="opacity-60">
                   <Text>{r}</Text>
                 </View>
               ))}
@@ -247,13 +247,13 @@ export default function AskCreatePage() {
               {form.images.map((img, i) => (
                 <View key={i} className="ask-create-img-item">
                   <Image className="ask-create-img" src={img} mode="aspectFill" />
-                  <View className="ask-create-img-del" onClick={() => removeImage(i)}>
+                  <View className="ask-create-img-del" onClick={() => removeImage(i)} hoverClass="opacity-60">
                     <Text>×</Text>
                   </View>
                 </View>
               ))}
               {form.images.length < IMAGE_MAX ? (
-                <View className="ask-create-img-add" onClick={addImage}>
+                <View className="ask-create-img-add" onClick={addImage} hoverClass="opacity-60">
                   <Text className="ask-create-img-add-icon">+</Text>
                 </View>
               ) : null}
@@ -295,7 +295,7 @@ export default function AskCreatePage() {
         {/* 分类选择弹层 */}
         {showCategorySheet ? (
           <View className="ask-create-mask" onClick={() => setShowCategorySheet(false)}>
-            <View className="ask-create-sheet" catchMove onClick={(e) => e.stopPropagation()}>
+            <View className="ask-create-sheet" catchMove onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
               <View className="ask-create-sheet-header">
                 <Text className="ask-create-sheet-title">
                   {tt('ask.create.categoryLabel', '分类')}
@@ -312,7 +312,7 @@ export default function AskCreatePage() {
                   key={c.key}
                   className={`ask-create-sheet-item${form.category === c.key ? ' active' : ''}`}
                   onClick={() => pickCategory(c.key)}
-                >
+                  hoverClass="opacity-60">
                   <Text>{tt(c.labelKey, c.fb)}</Text>
                   {form.category === c.key ? (
                     <LineIcon

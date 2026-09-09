@@ -51,59 +51,58 @@ export default function DistributionPlan() {
   ]
 
   return (
-    <ThemeRoot className="min-h-screen bg-background p-[24rpx] pb-[200rpx]">
-      <View className="bg-card border border-border rounded-[16rpx] py-[40rpx] px-[32rpx] mb-[24rpx]">
-        <Text className="block text-[36rpx] font-bold text-foreground">
+    <ThemeRoot className="min-h-screen bg-background p-[28rpx] pb-[200rpx]">
+      {/* 对齐 RN EarnCommissionScreen introCard:标题+描述+统计同卡,内容居中 */}
+      <View className="bg-card rounded-[24rpx] p-[28rpx] flex flex-col items-center gap-[24rpx]">
+        <Text className="block text-[36rpx] font-bold text-foreground text-center">
           {tt('distribution.plan.introTitle', '邀请好友,赚取佣金')}
         </Text>
-        <Text className="block text-[26rpx] text-muted-foreground mt-[16rpx] leading-[1.6]">
+        <Text className="block text-[28rpx] text-muted-foreground text-center leading-[40rpx]">
           {tt(
             'distribution.plan.introDesc',
             '加入我们的分佣计划,邀请好友注册成为会员,您将获得会员费20%的佣金收益',
           )}
         </Text>
+        <View className="flex flex-row justify-around w-full mt-[16rpx]">
+          <View className="flex flex-col items-center gap-[12rpx]">
+            <Text className="block text-[44rpx] font-bold text-[var(--color-primary)]">
+              ¥{totalEarnings.toFixed(2)}
+            </Text>
+            <Text className="block text-[28rpx] text-muted-foreground">
+              {tt('distribution.plan.totalEarnings', '累计收益')}
+            </Text>
+          </View>
+          <View className="flex flex-col items-center gap-[12rpx]">
+            <Text className="block text-[44rpx] font-bold text-[var(--color-primary)]">
+              {inviteCount}
+            </Text>
+            <Text className="block text-[28rpx] text-muted-foreground">
+              {tt('distribution.plan.inviteCount', '邀请人数')}
+            </Text>
+          </View>
+        </View>
       </View>
 
-      <View className="flex bg-card border border-border rounded-[16rpx] py-[32rpx] mb-[24rpx]">
-        <View className="flex-1 text-center">
-          <Text className="block text-[40rpx] font-bold text-primary">
-            ¥{totalEarnings.toFixed(2)}
-          </Text>
-          <Text className="block text-[24rpx] text-muted-foreground mt-[12rpx]">
-            {tt('distribution.plan.totalEarnings', '累计收益')}
-          </Text>
-        </View>
-        <View className="flex-1 text-center">
-          <Text className="block text-[40rpx] font-bold text-primary">{inviteCount}</Text>
-          <Text className="block text-[24rpx] text-muted-foreground mt-[12rpx]">
-            {tt('distribution.plan.inviteCount', '邀请人数')}
-          </Text>
-        </View>
-      </View>
-
-      <View className="bg-card border border-border rounded-[16rpx] p-[32rpx]">
-        <Text className="block text-[30rpx] font-semibold text-foreground mb-[24rpx]">
+      {/* 对齐 RN sectionCard:白卡 + 居中标题 + 圆形序号规则列表 */}
+      <View className="bg-card rounded-[24rpx] p-[28rpx] mt-[24rpx] flex flex-col gap-[24rpx]">
+        <Text className="block text-[32rpx] font-semibold text-foreground text-center">
           {tt('distribution.plan.rulesTitle', '分佣规则')}
         </Text>
-        <View className="flex flex-col gap-[16rpx]">
-          {rules.map((r, i) => (
-            <View key={i} className="flex items-start">
-              <View className="w-[40rpx] h-[40rpx] rounded-md bg-primary text-primary-foreground text-[24rpx] font-bold flex items-center justify-center mr-[20rpx] flex-shrink-0">
-                <Text>{i + 1}</Text>
-              </View>
-              <Text className="flex-1 text-[26rpx] text-foreground leading-[1.6] pt-[2rpx]">
-                {r}
-              </Text>
+        {rules.map((r, i) => (
+          <View key={i} className="flex flex-row items-center gap-[24rpx]">
+            <View className="w-[44rpx] h-[44rpx] rounded-full bg-primary text-primary-foreground text-[28rpx] font-semibold flex items-center justify-center flex-shrink-0">
+              <Text>{i + 1}</Text>
             </View>
-          ))}
-        </View>
+            <Text className="flex-1 text-[28rpx] text-foreground leading-[38rpx]">{r}</Text>
+          </View>
+        ))}
       </View>
 
-      <View className="fixed left-0 right-0 bottom-0 pt-[24rpx] px-[32rpx] pb-[calc(24rpx+env(safe-area-inset-bottom))] bg-card shadow-[0_-4rpx_16rpx_var(--color-black-30)]">
+      <View className="fixed left-0 right-0 bottom-0 pt-[24rpx] px-[28rpx] pb-[calc(24rpx+env(safe-area-inset-bottom))] bg-card">
         <View
-          className="h-[88rpx] leading-[88rpx] text-center bg-primary text-primary-foreground text-[30rpx] font-semibold rounded-[12rpx] active:opacity-85"
+          className="h-[100rpx] leading-[100rpx] text-center bg-primary text-primary-foreground text-[32rpx] font-semibold rounded-[24rpx]"
           onClick={onOpenVip}
-        >
+          hoverClass="opacity-60">
           <Text>{tt('distribution.plan.openVipBtn', '开通VIP会员 参与分佣计划')}</Text>
         </View>
       </View>
