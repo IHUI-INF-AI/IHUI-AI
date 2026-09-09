@@ -3356,6 +3356,14 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-09) **恢复被并行会话覆盖的修复**:上轮 f47aee67b 中 media-tasks 取消按钮 isInFlight 修复被覆盖丢失(仅轮询处幸存);本轮重应用并固化流程——提交前必须 `git diff --cached` 核验关键行、提交后 grep HEAD 复核。
 - [x] ✅(2026-09-09) **验证**:专项 75 passed(70 + 5 条越权用例:_user_scope 强制过滤/详情 404/取消 404/批量取消/批量清理 scope 透传);web tsc 0 错误、eslint 0 违规;三仓 ls-remote 终验一致;web 重建后 /media-tasks、/voices 本地与公网 200。
 
+### 第三轮:admin 判定复核 + 声纹删除越权收敛(2026-09-09 完成 ✅)
+
+> 触发:用户判定"还有遗漏"。第三轮穷尽核查聚焦上轮修复的根基与未覆盖面(提交 ab4d40a7f,三仓已推)。
+
+- [x] ✅(2026-09-09) **admin 判定根基复核**:确认 `_user_scope` 的 role_id≥1 与 JWT 链路全对齐——ai-service 中间件从 `roleId` claim 注入 request.state.role_id;packages/auth/src/jwt.ts 约定 0=普通用户/1=admin/2=manager;web 端 auth-utils 同源。隔离判定无失真。任务写入侧复核:mcp_server.py persist_media_task 传 `user_uuid=user_id or ""`,新任务归属可追溯。
+- [x] ✅(2026-09-09) **P1 声纹删除越权收敛**:声纹库是平台共享资源(单一 token6688 账号,无归属概念),此前任何登录用户可 DELETE 全库声纹。delete_voice 加 `_require_admin` 依赖(role_id≥1,与 AGENTS.md §5/admin layout 一致);voices 页非 admin 隐藏删除按钮(useAuthStore roleId>=1);列表/上传/试听对登录用户开放不变;/voice/voices* 不在 JWT 公开白名单(匿名不可达)复核通过。
+- [x] ✅(2026-09-09) **验证**:voice 专项 12 passed(新增 非admin 403 / admin 200 两条守卫用例;fastapi_app 实例从 socketio.ASGIApp 包装下取出注入 dependency_overrides);web tsc 0 错误、eslint 0 违规;生产 8803 实测:普通 token 删声纹 403、admin 放行至 503(未配 key 前置)、列表开放性不变;media-tasks 页在途过滤确认传完整四态逗号集(后端逗号解析 179/362 行)。
+
 ## Firecrawl 网页工具 前端操作页 + extract_web 费用归属 收尾(2026-09-09 完成 ✅)
 
 > 触发:Firecrawl 四件套极致融合(39935d1cb → 999d792fa → b85aaad01)收尾台账两项:① extract_web 直接调 llm_gateway 的 token 费用归属未透出;② 缺网页工具专属前端操作页。本轮全部闭环。
