@@ -1,0 +1,37 @@
+"""运算模块(golden 参考实现:承载全部运算函数,multifile-calc-split 的目标形态)。"""
+
+from typing import List
+
+
+def add(a: float, b: float) -> float:
+    """两数相加。"""
+    return a + b
+
+
+def subtract(a: float, b: float) -> float:
+    """两数相减。"""
+    return a - b
+
+
+def multiply(a: float, b: float) -> float:
+    """两数相乘。"""
+    return a * b
+
+
+def divide(a: float, b: float) -> float:
+    """两数相除,除数为 0 时安全返回 0.0。"""
+    if b == 0:
+        return 0.0
+    return a / b
+
+
+def percentage(value: float, pct: float) -> float:
+    """计算 value 的 pct 百分比。"""
+    return value * pct / 100
+
+
+def average(numbers: List[float]) -> float:
+    """求平均值,空列表安全返回 0.0。"""
+    if not numbers:
+        return 0.0
+    return sum(numbers) / len(numbers)

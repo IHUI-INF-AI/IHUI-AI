@@ -24,6 +24,7 @@ import {
 } from '@/components/common'
 import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
 import { GlobalTopBar } from '@/components/layout/GlobalTopBar'
+import { TopBarBackAutoRegister } from '@/components/layout/TopBarBackAutoRegister'
 import { Button } from '@ihui/ui-react'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -284,6 +285,11 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                 - 新方案:作为 GlobalTopBar flex 流的第 0 个元素,物理上不重叠任何现有按钮
                 - 仅 <768px 显示(min-[768px]:hidden,2026-09-07 从 1024 下调:
                   768-1023px 侧边栏常驻 60px 图标条,无需抽屉入口,且消除 46px 内容左偏移) */}
+              {/* 子页面统一返回键自动声明器(2026-09-09 立,用户反馈"还有页面有遗漏"):
+                  路径深度 ≥ 2 的子页面自动向顶栏声明返回意图(一级父路由为降级落点),
+                  页面级自定义声明(useTopBarBack/<BackButton/>)优先,一级列表/营销/分享页不声明。
+                  放 GlobalTopBar 旁挂载一次即可,/login 早退分支(上方)不经过此处。 */}
+              <TopBarBackAutoRegister />
               <React.Suspense fallback={null}>
                 <GlobalTopBar
                   mobileMenu={
