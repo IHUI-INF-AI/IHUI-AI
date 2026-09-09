@@ -314,9 +314,11 @@ class TestExtractViaLLM:
         self._stub_gateway(monkeypatch, stub=False, content="抱歉我无法完成")
         assert await wc._extract_via_llm("正文", {"价格": "number"}) is None
 
-    async def test_all_null_fields_returns_none(self, monkeypatch):
+    async def test_all_null_fields_returns_empty_with_usage_slot(self, monkeypatch):
+        """LLM 全 null → {fields:{}}(token 已消耗,不再丢弃返回值)。"""
         self._stub_gateway(monkeypatch, stub=False, content='{"价格": null, "作者": null}')
-        assert await wc._extract_via_llm("正文", {"价格": "number", "作者": "string"}) is None
+        r = await wc._extract_via_llm("正文", {"价格": "number", "作者": "string"})
+        assert r is not None and r["fields"] == {}
 
     async def test_complete_raises_returns_none(self, monkeypatch):
         async def _boom(messages, model=None, **kw):
@@ -448,8 +450,8 @@ class TestExtractWebLLMUsage:
         assert r["ok"] is True and r["source"] == "llm"
         assert r["llm_usage"] == {}
 
-    async def test_llm_null_fields_falls_back_no_usage_leak(self, monkeypatch):
-        """LLM 返回全 null → 降级启发式,结果不带 llm_usage/llm_model(source=heuristic)。"""
+    async def test_llm_null_fields_falls_back_keeps_usage(self, monkeypatch):
+        """LLM 全 null 降级启发式 → source=heuristic 但 llm_usage/llm_fallback 保留(费用可见)。"""
         gw = _FakeGateway({"content": '{"名称": null, "数值": null}', "model": "m1", "usage": {"total_tokens": 9}, "stub": False})
         monkeypatch.setattr("app.core.llm_gateway.llm_gateway", gw)
         monkeypatch.setattr(wc, "_http_get_html", _fake_fetch({"https://example.com/": SIMPLE_HTML}))
@@ -457,10 +459,12 @@ class TestExtractWebLLMUsage:
 
         r = await wc.extract_web({"url": "https://example.com/", "fields": {"名称": "string", "数值": "number"}})
         assert r["source"] == "heuristic"
-        assert "llm_usage" not in r and "llm_model" not in r
+        assert r["llm_fallback"] is True
+        assert r["llm_usage"] == {"total_tokens": 9}
+        assert r["llm_model"] == "m1"
 
-    async def test_llm_failure_falls_back(self, monkeypatch):
-        """LLM 抛异常 → 不向外抛,降级启发式(原有语义回归)。"""
+    async def test_llm_failure_falls_back_no_usage(self, monkeypatch):
+        """LLM 抛异常 → 不向外抛,降级启发式(网络层失败无 usage 可保留)。"""
 
         class _BoomGW(_FakeGateway):
             async def complete(self, messages, model="auto", **kw):  # noqa: ANN003
@@ -472,3 +476,4 @@ class TestExtractWebLLMUsage:
 
         r = await wc.extract_web({"url": "https://example.com/", "fields": {"名称": "string"}})
         assert r["source"] == "heuristic"
+        assert "llm_usage" not in r and "llm_fallback" not in r
