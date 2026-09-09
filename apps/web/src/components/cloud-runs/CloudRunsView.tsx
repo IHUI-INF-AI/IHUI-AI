@@ -6,9 +6,10 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { ChevronLeft, Clock, Loader2, RefreshCw, Cloud, FileText } from 'lucide-react'
+import { Clock, Loader2, RefreshCw, Cloud, FileText } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useTopBarBack } from '@/stores/topbar-back'
 
 interface CloudRun {
   run_id: string
@@ -76,6 +77,14 @@ export function CloudRunsView() {
     void loadList(1)
   }, [loadList])
 
+  // 统一返回键(2026-09-08 立):详情视图时向顶栏声明返回意图(拉出顶栏返回按钮),
+  // 列表视图时撤回(顶栏返回按钮动画收起)。页内内联返回按钮已废除。
+  const backConfig = React.useMemo(
+    () => (selected ? { onBack: () => setSelected(null) } : null),
+    [selected],
+  )
+  useTopBarBack(backConfig)
+
   const statusLabel = (s: CloudRun['status']) =>
     s === 'running' ? t('running') : s === 'done' ? t('done') : t('error')
   const statusDot = (s: CloudRun['status']) =>
@@ -85,16 +94,10 @@ export function CloudRunsView() {
         ? 'animate-pulse bg-primary'
         : 'bg-emerald-500'
 
-  // 详情视图
+  // 详情视图(返回键已统一收敛到顶栏,见 useTopBarBack 声明)
   if (selected) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8">
-        <button
-          onClick={() => setSelected(null)}
-          className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
-        >
-          <ChevronLeft className="h-4 w-4" /> {t('back')}
-        </button>
         <div className="mb-6 flex items-center gap-2">
           <Cloud className="h-5 w-5 text-primary" />
           <h1 className="text-2xl font-bold">{t('detailTitle')}</h1>

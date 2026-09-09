@@ -900,6 +900,32 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 46 (2026-09-09 新增,统一返回键防私接守门) ---
+  // blocking:顶栏统一返回键(搜索右侧/加号左侧,动画拉出)是全站返回行为唯一渲染点,
+  //   页面私写 router.back()/history.back() 会绕过顶栏(动画/降级/页内 onBack 优先级全部失效),
+  //   重演"各页面各写各的返回键"散乱态。页面需要返回键 = 声明而非实现:
+  //   二级及以上子页面由 TopBarBackAutoRegister 自动声明(零代码),
+  //   页内视图级返回用 useTopBarBack(config),指定降级路由用 <BackButton fallbackHref />。
+  //   id 45 已被 check-c-drive-paths.mjs(warn-only)占用,顺延取 46。
+  // 跳过方法:HUSKY_SKIP_INLINE_BACK_GUARD=1 git commit ...
+  {
+    id: '46',
+    label: '🔙 统一返回键防私接守门(禁页面私写 router.back/history.back)',
+    script: 'check-inline-back-button.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 页面私接了 router.back()/history.back(),绕过顶栏统一返回键。',
+      '     修复方式(声明而非实现):',
+      '       ① 二级及以上子页面:零代码,TopBarBackAutoRegister 已自动声明;',
+      '       ② 页内视图级返回(详情→列表):useTopBarBack(selected ? { onBack: () => setX(null) } : null);',
+      '       ③ 指定降级路由:<BackButton fallbackHref="/parent" />。',
+      '     唯一豁免:apps/web/src/components/layout/GlobalTopBar.tsx(统一返回键本体)。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (2 项) ---
   {
     id: '10',

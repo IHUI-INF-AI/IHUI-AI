@@ -113,9 +113,9 @@ def test_provider_config_unknown_provider_returns_empty(monkeypatch):
 
 
 def test_provider_config_empty_llm_providers_returns_empty(monkeypatch):
-    """LLM_PROVIDERS 未配置时返回空 ProviderConfig。"""
+    """LLM_PROVIDERS 未配置时返回空 ProviderConfig(隔离 .env)。"""
     monkeypatch.delenv("LLM_PROVIDERS", raising=False)
-    s = Settings()
+    s = Settings(_env_file=None)
     cfg = s.get_provider_config("openai")
     assert isinstance(cfg, ProviderConfig)
     assert cfg.api_key == ""

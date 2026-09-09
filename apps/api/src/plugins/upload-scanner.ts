@@ -65,6 +65,16 @@ const DEFAULT_ALLOWED_EXTS = new Set([
   'xlsx',
   'pptx',
   'txt',
+  // 2026-09-08:anydoc 解析引擎接入后开放的文档格式
+  // (doc/xls/ppt 为 OLE2 二进制,odt/epub 为 ZIP 容器,rtf/csv 为文本,
+  //  均无 MAGIC_SIGNATURES 条目 → 跳过魔数校验,危险特征检测仍然生效)
+  'doc',
+  'xls',
+  'ppt',
+  'csv',
+  'odt',
+  'rtf',
+  'epub',
   'mp3',
   'wav',
   'ogg',

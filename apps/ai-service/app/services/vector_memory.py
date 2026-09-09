@@ -57,7 +57,7 @@ async def _get_redis() -> Any:
             url = getattr(settings, "redis_url", "") or ""
             if not url or aioredis is None:
                 return None
-            client = aioredis.from_url(url, decode_responses=True)
+            client = aioredis.from_url(url, decode_responses=True, socket_connect_timeout=2)
             await client.ping()
             _redis_client = client
             return _redis_client
