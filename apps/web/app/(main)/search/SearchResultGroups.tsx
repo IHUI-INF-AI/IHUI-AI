@@ -102,7 +102,7 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
   if (total === 0) return <EmptyState icon={Search} text={t('emptyResult')} />
 
   return (
-    <div key={tab} className="space-y-6 animate-in fade-in-0 duration-200">
+    <div key={tab} className="space-y-6 animate-in fade-in-0 duration-(--duration-unified) ease-unified">
       {showGroup('user') && users.length > 0 && (
         <ResultGroup icon={User} title={t('tabs.users')} count={users.length}>
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
