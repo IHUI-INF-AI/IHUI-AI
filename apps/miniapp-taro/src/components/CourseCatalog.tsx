@@ -76,6 +76,7 @@ export default function CourseCatalog({
               {memberCount !== undefined ? `${memberCount} ${tt('planet.members', '成员')}` : ''}
             </Text>
             <View
+              hoverClass="opacity-60"
               onClick={() => {
                 if (!joined) onJoin?.(id)
               }}

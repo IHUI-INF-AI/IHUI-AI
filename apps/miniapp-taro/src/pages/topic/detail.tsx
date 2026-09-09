@@ -185,7 +185,7 @@ export default function TopicDetailPage() {
 
           {/* 发布入口 */}
           {topic.name ? (
-            <View className="topic-detail-publish" onClick={goPublish}>
+            <View className="topic-detail-publish" onClick={goPublish} hoverClass="opacity-60">
               <LineIcon
                 name="pencil"
                 size={28}
@@ -213,7 +213,7 @@ export default function TopicDetailPage() {
                   key={p.id}
                   className="topic-detail-post"
                   onClick={() => goCircle(String(p.id))}
-                >
+                  hoverClass="opacity-60">
                   <View className="topic-detail-post-user">
                     <Image
                       className="topic-detail-avatar"
@@ -278,13 +278,13 @@ export default function TopicDetailPage() {
           ) : null}
 
           {!loading && loadingMore ? (
-            <View className="topic-detail-state">
+            <View className="topic-detail-footer">
               <Text>{tt('topic.detail.loadingMore', '加载中…')}</Text>
             </View>
           ) : null}
 
           {!loading && !hasMore && displayPosts.length > 0 ? (
-            <View className="topic-detail-state">
+            <View className="topic-detail-footer">
               <Text>{tt('topic.detail.noMore', '没有更多了')}</Text>
             </View>
           ) : null}

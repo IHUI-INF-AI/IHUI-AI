@@ -88,7 +88,7 @@ export default function StudyBar({ barList, onChange, className = '' }: StudyBar
               key={item.id}
               style={selectIndex === index ? styles.barItemSelect : styles.barItem}
               onClick={() => handleSelect(item, index)}
-            >
+              hoverClass="opacity-60">
               <Text>{item.name}</Text>
             </View>
           ))}

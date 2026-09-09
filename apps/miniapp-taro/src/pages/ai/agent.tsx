@@ -346,6 +346,7 @@ export default function AgentPage() {
                 key={tb.key}
                 className={`flex flex-row items-center px-[28rpx] py-[12rpx] rounded-[16rpx] mr-[16rpx] ${active ? 'bg-[var(--color-brand)]' : 'bg-[var(--color-muted)]'}`}
                 onClick={() => onSwitchQuickTab(tb.key)}
+                hoverClass="opacity-80"
               >
                 <Text
                   className={`text-[26rpx] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-[var(--color-muted-foreground)]'}`}
@@ -375,6 +376,7 @@ export default function AgentPage() {
                       key={cat.key}
                       className={`inline-block px-[28rpx] py-[12rpx] mr-[16rpx] rounded-[16rpx] ${active ? 'bg-[var(--color-brand)]' : 'bg-[var(--color-muted)]'}`}
                       onClick={() => setActiveCategory(cat.key)}
+                      hoverClass="opacity-60"
                     >
                       <Text
                         className={`text-[26rpx] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-[var(--color-muted-foreground)]'}`}
@@ -398,6 +400,7 @@ export default function AgentPage() {
                     key={opt.key}
                     className={`mr-3 text-[22rpx] ${active ? 'text-[var(--color-primary)] font-medium' : 'text-muted-foreground'}`}
                     onClick={() => setSortKey(opt.key)}
+                    hoverClass="opacity-60"
                   >
                     <Text>{opt.label}</Text>
                   </View>
@@ -424,6 +427,7 @@ export default function AgentPage() {
                 className="inline-flex flex-col items-center bg-card rounded-lg p-3 mr-3 align-top"
                 style={{ width: '200rpx' }}
                 onClick={() => goDetail(agent.id)}
+                hoverClass="opacity-60"
               >
                 <View className="relative">
                   <Image
@@ -477,6 +481,7 @@ export default function AgentPage() {
                 <View
                   className="flex flex-row items-center p-[28rpx] mb-[24rpx] rounded-[24rpx] bg-[var(--color-surface-light)] border border-[var(--color-border)]"
                   onClick={() => goDetail(agent.id)}
+                  hoverClass="opacity-60"
                 >
                   <Image
                     className="w-[96rpx] h-[96rpx] rounded-[24rpx] bg-muted"
@@ -541,6 +546,7 @@ export default function AgentPage() {
         className="fixed right-4 bg-[var(--color-primary)] text-primary-foreground rounded-lg px-3 py-2 shadow-lg"
         style={{ bottom: '140rpx' }}
         onClick={onCreateAgent}
+        hoverClass="opacity-60"
       >
         <Text className="text-[24rpx]">+ {t('ai.agentList.createAgent')}</Text>
       </View>

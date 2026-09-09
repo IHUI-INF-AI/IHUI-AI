@@ -153,7 +153,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                     btn.onToggle?.()
                     onToggle?.(btn)
                   }}
-                >
+                  hoverClass="opacity-60">
                   <Text>{btn.label}</Text>
                 </View>
               )
@@ -186,7 +186,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                   border: '6rpx solid var(--color-card)',
                 }}
                 onClick={() => onIconButtonClick?.(btn)}
-              >
+                hoverClass="opacity-60">
                 <Image
                   src={btn.icon}
                   style={{ width: rpx(70), height: rpx(70), marginBottom: rpx(12) }}
@@ -213,7 +213,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 border: '6rpx solid var(--color-card)',
               }}
               onClick={onVoiceInputToggle}
-            >
+              hoverClass="opacity-60">
               <LineIcon
                 name="mic"
                 size={70}
@@ -271,7 +271,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
         <View
           className="flex items-center justify-center w-8 h-8 mr-2 rounded-lg bg-muted"
           onClick={onAttach}
-        >
+          hoverClass="opacity-60">
           <Text className="text-lg text-muted-foreground">+</Text>
         </View>
       )}
@@ -290,8 +290,8 @@ export default function BottomActionBar(props: BottomActionBarProps) {
             value ? 'bg-primary' : 'bg-muted',
           )}
           onClick={() => value && onSend?.()}
-        >
-          <Text className="text-sm text-white">↑</Text>
+          hoverClass="opacity-60">
+          <Text className="text-sm text-primary-foreground">↑</Text>
         </View>
       )}
     </View>

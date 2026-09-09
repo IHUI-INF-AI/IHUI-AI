@@ -98,7 +98,7 @@ export function CertificateScreen({
   return (
     <View style={viewStyles.container(tk)}>
       <View style={viewStyles.header(tk)}>
-        <View style={viewStyles.backBtn()} onTap={onBack}>
+        <View style={viewStyles.backBtn()} onTap={onBack} hoverClass="opacity-60">
           <Text style={textStyles.backText(tk)}>{backText}</Text>
         </View>
         <Text style={textStyles.title(tk)}>{titleText}</Text>
@@ -124,7 +124,7 @@ export function CertificateScreen({
             </View>
           ) : (
             items.map((item) => (
-              <View key={item.id} style={viewStyles.card(tk)} onTap={() => onPressItem(item)}>
+              <View key={item.id} style={viewStyles.card(tk)} onTap={() => onPressItem(item)} hoverClass="opacity-60">
                 <View style={viewStyles.titleRow()}>
                   <Text style={textStyles.cardTitle(tk)}>{item.title}</Text>
                   <View

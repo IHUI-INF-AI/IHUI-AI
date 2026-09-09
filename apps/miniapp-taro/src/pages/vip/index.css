@@ -189,17 +189,8 @@
   border-radius: var(--radius-lg);
 }
 
-/* VipPriceSelector 浅色覆盖(组件用 Tailwind 类 + CSS 变量,不可改组件,父级覆盖)
-   选中态对齐 RN 品牌橙强调:brand-orange 边框 + brand-orange-light 浅底 */
-.vip-page .border-yellow-400 {
-  border-color: var(--color-brand-orange);
-}
-.vip-page .bg-yellow-50 {
-  background: var(--color-brand-orange-light);
-}
-.vip-page .text-yellow-700 {
-  color: var(--color-brand-orange);
-}
+/* VipPriceSelector 选中态已在组件内用 brand-orange token(border/bg/text),
+   原浅色父级覆盖(border-yellow-400/bg-yellow-50/text-yellow-700)已删除 */
 .vip-page .border-border {
   border-color: var(--vip-border);
 }

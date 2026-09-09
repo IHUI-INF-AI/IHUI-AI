@@ -182,7 +182,7 @@ export default function RankingDetailPage() {
       <ThemeRoot>
         <View className="detail-page">
           <View className="detail-nav">
-            <View className="detail-nav-back" onClick={backPage}>
+            <View className="detail-nav-back" onClick={backPage} hoverClass="opacity-60">
               <Text>{'‹'}</Text>
             </View>
             <Text className="detail-nav-title">{tt('ranking.detailTitle', '详情页')}</Text>
@@ -197,103 +197,112 @@ export default function RankingDetailPage() {
     <View className="detail-page">
       {/* 导航栏(对标原项目:title=detailData.title/name/"详情页", showMenu=true, showFenLei=true) */}
       <View className="detail-nav">
-        <View className="detail-nav-back" onClick={backPage}>
+        <View className="detail-nav-back" onClick={backPage} hoverClass="opacity-60">
           <Text>{'‹'}</Text>
         </View>
         <Text className="detail-nav-title">{navTitle}</Text>
         <View className="detail-nav-actions">
-          <View className="detail-nav-btn" onClick={() => openDrawer('fenlei')}>
+          <View className="detail-nav-btn" onClick={() => openDrawer('fenlei')} hoverClass="opacity-60">
             <Text>{tt('ranking.fenlei', '分类')}</Text>
           </View>
-          <View className="detail-nav-btn" onClick={() => openDrawer('menu')}>
+          <View className="detail-nav-btn" onClick={() => openDrawer('menu')} hoverClass="opacity-60">
             <Text>{tt('ranking.menu', '菜单')}</Text>
           </View>
         </View>
       </View>
 
       <ScrollView scrollY className="detail-body">
-        {/* row-1:Logo + 标题 + 简介(排名/机构/关注度) */}
-        <View className="head-card">
-          {data.logo ? <Image className="logo" src={data.logo} mode="aspectFill" /> : null}
-          <View className="head-info">
-            <Text className="title text-primary">{data.name || '-'}</Text>
-            {data.intro ? <Text className="desc">{data.intro}</Text> : null}
-            <View className="head-meta">
-              {data.org ? (
-                <Text className="head-meta-item">
-                  {tt('ranking.detail.org', '所属机构')}: {data.org}
-                </Text>
-              ) : null}
-              {data.attention ? (
-                <Text className="head-meta-item">
-                  {tt('ranking.detail.attention', '关注度')}: {data.attention}
-                </Text>
-              ) : null}
+        {/* 对齐 RN 共享屏:单张白卡(radius24/padding28/gap24)承载 row1 + 指标行 + 详情盒 */}
+        <View className="detail-card">
+          {/* row-1:Logo + 标题 + 简介(排名/机构/关注度) */}
+          <View className="head-card">
+            {data.logo ? (
+              <Image className="logo" src={data.logo} mode="aspectFill" />
+            ) : (
+              <View className="logo logo-fallback">
+                <Text className="logo-text">{(data.name || '-').slice(0, 1)}</Text>
+              </View>
+            )}
+            <View className="head-info">
+              <Text className="title">{data.name || '-'}</Text>
+              {data.intro ? <Text className="desc">{data.intro}</Text> : null}
+              <View className="head-meta">
+                {data.org ? (
+                  <Text className="head-meta-item">
+                    {tt('ranking.detail.org', '所属机构')}: {data.org}
+                  </Text>
+                ) : null}
+                {data.attention ? (
+                  <Text className="head-meta-item">
+                    {tt('ranking.detail.attention', '关注度')}: {data.attention}
+                  </Text>
+                ) : null}
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* row-2:4 列横向信息(关注度/类别/价格/状态) */}
-        <View className="info-row">
-          <View className="info-cell">
-            <Text className="info-label">{tt('ranking.detail.attention', '关注度')}</Text>
-            <Text className="info-value">{data.attention || '-'}</Text>
+          {/* row-2:4 列等宽指标(关注度/类别/价格/状态),样式对齐 RN metric(muted 底圆角盒) */}
+          <View className="info-row">
+            <View className="info-cell">
+              <Text className="info-label">{tt('ranking.detail.attention', '关注度')}</Text>
+              <Text className="info-value">{data.attention || '-'}</Text>
+            </View>
+            <View className="info-cell">
+              <Text className="info-label">{tt('ranking.detail.category', '类别')}</Text>
+              <Text className="info-value">{data.category || '-'}</Text>
+            </View>
+            <View className="info-cell">
+              <Text className="info-label">{tt('ranking.detail.price', '价格')}</Text>
+              <Text className="info-value">{data.price || '-'}</Text>
+            </View>
+            <View className="info-cell">
+              <Text className="info-label">{tt('ranking.detail.status', '状态')}</Text>
+              <Text className="info-value">{statusText}</Text>
+            </View>
           </View>
-          <View className="info-cell">
-            <Text className="info-label">{tt('ranking.detail.category', '类别')}</Text>
-            <Text className="info-value">{data.category || '-'}</Text>
-          </View>
-          <View className="info-cell">
-            <Text className="info-label">{tt('ranking.detail.price', '价格')}</Text>
-            <Text className="info-value">{data.price || '-'}</Text>
-          </View>
-          <View className="info-cell">
-            <Text className="info-label">{tt('ranking.detail.status', '状态')}</Text>
-            <Text className="info-value">{statusText}</Text>
-          </View>
-        </View>
 
-        {/* row-common:细分类别/产品形式/所属机构 */}
-        <View className="field-card">
-          <View className="field-item">
-            <Text className="field-label">{tt('ranking.detail.subCategory', '细分类别')}</Text>
-            <Text className="field-value">{data.subCategory || '-'}</Text>
-          </View>
-          <View className="field-item">
-            <Text className="field-label">{tt('ranking.detail.productForm', '产品形式')}</Text>
-            <Text className="field-value">{data.productForm || '-'}</Text>
-          </View>
-          <View className="field-item">
-            <Text className="field-label">{tt('ranking.detail.org', '所属机构')}</Text>
-            <Text className="field-value">{data.org || '-'}</Text>
-          </View>
-        </View>
-
-        {/* 官方网址(点击复制 + "点击复制"提示) */}
-        {data.url ? (
-          <View className="field-card" onClick={() => onCopyUrl(data.url!)}>
+          {/* row-common:细分类别/产品形式/所属机构(contextBox 形态:muted 底圆角盒) */}
+          <View className="field-card">
             <View className="field-item">
-              <Text className="field-label">{tt('ranking.detail.url', '官方网址')}</Text>
-              <Text className="field-value link-value">{data.url}</Text>
+              <Text className="field-label">{tt('ranking.detail.subCategory', '细分类别')}</Text>
+              <Text className="field-value">{data.subCategory || '-'}</Text>
             </View>
-            <Text className="copy-hint">{tt('ranking.detail.copyHint', '点击复制')}</Text>
+            <View className="field-item">
+              <Text className="field-label">{tt('ranking.detail.productForm', '产品形式')}</Text>
+              <Text className="field-value">{data.productForm || '-'}</Text>
+            </View>
+            <View className="field-item">
+              <Text className="field-label">{tt('ranking.detail.org', '所属机构')}</Text>
+              <Text className="field-value">{data.org || '-'}</Text>
+            </View>
           </View>
-        ) : null}
 
-        {/* 图片展示:imgs 逗号分隔取第1张 或 icon */}
+          {/* 官方网址(点击复制 + "点击复制"提示) */}
+          {data.url ? (
+            <View className="field-card" onClick={() => onCopyUrl(data.url!)} hoverClass="opacity-60">
+              <View className="field-item">
+                <Text className="field-label">{tt('ranking.detail.url', '官方网址')}</Text>
+                <Text className="field-value link-value">{data.url}</Text>
+              </View>
+              <Text className="copy-hint">{tt('ranking.detail.copyHint', '点击复制')}</Text>
+            </View>
+          ) : null}
+
+          {/* 详细介绍文本:context(RN contextBox 形态) */}
+          {data.content ? (
+            <View className="content-card">
+              <Text className="content-title">
+                {tt('ranking.detail.contentTitle', '详细介绍')}
+              </Text>
+              <Text className="content-text">{data.content}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* 图片展示:imgs 逗号分隔取第1张 或 icon(白卡之外独立展示) */}
         {firstImg ? (
           <View className="img-card">
             <Image className="cover" src={firstImg} mode="widthFix" />
-          </View>
-        ) : null}
-
-        {/* 详细介绍文本:context */}
-        {data.content ? (
-          <View className="content-card">
-            <Text className="content-title text-accent">
-              {tt('ranking.detail.contentTitle', '详细介绍')}
-            </Text>
-            <Text className="content-text">{data.content}</Text>
           </View>
         ) : null}
 
@@ -321,7 +330,7 @@ export default function RankingDetailPage() {
                         closeDrawer()
                         Taro.redirectTo({ url: `/pages/ranking/detail?id=${itemId}` })
                       }}
-                    >
+                      hoverClass="opacity-60">
                       <Text className="drawer-item-text">{name || '-'}</Text>
                     </View>
                   </ThemeRoot>

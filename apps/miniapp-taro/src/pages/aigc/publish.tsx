@@ -130,97 +130,103 @@ export default function AigcPublish() {
   }, [validate, params.contextId, title, desc, coverUrl, fileList, prompt, t])
 
   return (
-    <ThemeRoot className="min-h-screen bg-background flex flex-col">
-      <View className="py-[24rpx] px-[30rpx] bg-card">
-        <Text className="text-[36rpx] font-bold text-foreground">{t('aigc.publish.title')}</Text>
-      </View>
+    /* 对齐 RN shared AigcPublishScreen container(surface.light 明暗恒白在暗色下不可读,
+       按语义修正为 var(--color-card);paddingHorizontal 10 → 20rpx) */
+    <ThemeRoot className="min-h-screen bg-[var(--color-card)] flex flex-col">
+      <ScrollView scrollY className="flex-1 box-border px-[20rpx] pt-[16rpx] pb-[32rpx]">
+        {/* 对齐 RN title(22dp → 44rpx semibold) */}
+        <Text className="block mt-[16rpx] text-[44rpx] font-semibold text-foreground">
+          {t('aigc.publish.title')}
+        </Text>
 
-      <ScrollView scrollY className="flex-1 box-border">
-        <View className="p-[20rpx]">
-          {/* 上传作品 */}
-          <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
-            <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">
-              {t('aigc.publish.workLabel')}
-            </Text>
-            <View className="flex flex-wrap gap-[16rpx]">
-              {fileList.map((f, i) => (
-                <View
-                  key={i}
-                  className="relative w-[160rpx] h-[160rpx] rounded-[12rpx] overflow-hidden"
-                >
-                  <Image className="w-full h-full" src={f.url} mode="aspectFill" />
-                  <View
-                    className="absolute top-[4rpx] right-[4rpx] w-[36rpx] h-[36rpx] bg-[var(--color-scrim)] rounded-[6rpx] flex items-center justify-center"
-                    onClick={() => removeFile(i)}
-                  >
-                    <Text className="text-white text-[24rpx] leading-none">×</Text>
-                  </View>
-                </View>
-              ))}
-              {fileList.length < MAX_FILES ? (
-                <View
-                  className="w-[160rpx] h-[160rpx] bg-background border-[2rpx] border-dashed border-muted-foreground rounded-[12rpx] flex flex-col items-center justify-center"
-                  onClick={chooseImage}
-                >
-                  <Text className="text-[48rpx] text-muted-foreground leading-none">+</Text>
-                  <Text className="text-[22rpx] text-muted-foreground mt-[8rpx]">
-                    {t('aigc.publish.addImage')}
-                  </Text>
-                </View>
-              ) : null}
+        {/* 对齐 RN label(marginTop 14 → 28rpx,14dp → 28rpx,text.secondary,marginBottom 6 → 12rpx) */}
+        <Text className="block mt-[28rpx] mb-[12rpx] text-[28rpx] text-muted-foreground">
+          {t('aigc.publish.workLabel')}
+        </Text>
+        {/* 对齐 RN fileGrid(gap 10 → 20rpx) */}
+        <View className="flex flex-wrap gap-[20rpx]">
+          {fileList.map((f, i) => (
+            <View
+              key={i}
+              className="relative w-[152rpx] h-[152rpx] rounded-[24rpx] overflow-hidden bg-[var(--color-border)]"
+            >
+              <Image className="w-full h-full" src={f.url} mode="aspectFill" />
+              {/* 对齐 RN fileRemove(44rpx 圆形,error 红底白 ×) */}
+              <View
+                className="absolute -top-[12rpx] -right-[12rpx] w-[44rpx] h-[44rpx] bg-[var(--color-danger)] rounded-full flex items-center justify-center"
+                onClick={() => removeFile(i)}
+                hoverClass="opacity-60">
+                <Text className="text-[var(--color-surface-light)] text-[28rpx] font-bold leading-none">
+                  ×
+                </Text>
+              </View>
             </View>
-          </View>
-
-          {/* 标题 */}
-          <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
-            <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">
-              {t('aigc.publish.titleLabel')}
-            </Text>
-            <Input
-              className="w-full h-[72rpx] bg-background rounded-[8rpx] px-[20rpx] text-[28rpx] box-border"
-              maxlength={50}
-              placeholder={t('aigc.publish.titlePlaceholder')}
-              value={title}
-              onInput={(e) => setTitle(e.detail.value)}
-            />
-          </View>
-
-          {/* 简介 */}
-          <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
-            <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">
-              {t('aigc.publish.descLabel')}
-            </Text>
-            <Textarea
-              className="w-full min-h-[160rpx] bg-background rounded-[8rpx] p-[20rpx] text-[28rpx] box-border"
-              placeholder={t('aigc.publish.descPlaceholder')}
-              value={desc}
-              onInput={(e) => setDesc(e.detail.value)}
-            />
-          </View>
-
-          {/* 提示词 */}
-          <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
-            <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">
-              {t('aigc.publish.promptLabel')}
-            </Text>
-            <Textarea
-              className="w-full min-h-[160rpx] bg-background rounded-[8rpx] p-[20rpx] text-[28rpx] box-border"
-              placeholder={t('aigc.publish.promptPlaceholder')}
-              value={prompt}
-              onInput={(e) => setPrompt(e.detail.value)}
-            />
-          </View>
-
-          <Button
-            className="w-full bg-primary text-foreground text-[30rpx] rounded-[12rpx] mt-[20rpx]"
-            loading={submitting || uploading}
-            disabled={submitting || uploading}
-            onClick={onSubmit}
-          >
-            {t('aigc.publish.publish')}
-          </Button>
-          <View className="h-[60rpx]" />
+          ))}
+          {fileList.length < MAX_FILES ? (
+            /* 对齐 RN fileAdd(76dp → 152rpx,dashed border.light,bg muted) */
+            <View
+              className="w-[152rpx] h-[152rpx] bg-[var(--color-muted)] border-[2rpx] border-dashed border-[var(--color-border)] rounded-[24rpx] flex flex-col items-center justify-center"
+              onClick={chooseImage}
+              hoverClass="opacity-60">
+              <Text className="text-[48rpx] text-[var(--color-text-tertiary)] leading-[52rpx]">
+                +
+              </Text>
+              <Text className="text-[22rpx] text-[var(--color-text-tertiary)] mt-[16rpx]">
+                {t('aigc.publish.addImage')}
+              </Text>
+            </View>
+          ) : null}
         </View>
+
+        {/* 标题:对齐 RN input(px 12 → 24rpx,py 10 → 20rpx,radius 24rpx,bg muted,16dp → 32rpx) */}
+        <Text className="block mt-[28rpx] mb-[12rpx] text-[28rpx] text-muted-foreground">
+          {t('aigc.publish.titleLabel')}
+        </Text>
+        <Input
+          className="w-full h-[84rpx] bg-[var(--color-muted)] rounded-[24rpx] border-[2rpx] border-[var(--color-border)] px-[24rpx] text-[32rpx] text-foreground box-border"
+          maxlength={50}
+          placeholder={t('aigc.publish.titlePlaceholder')}
+          value={title}
+          onInput={(e) => setTitle(e.detail.value)}
+        />
+
+        {/* 简介:对齐 RN textarea(minHeight 88 → 176rpx) */}
+        <Text className="block mt-[28rpx] mb-[12rpx] text-[28rpx] text-muted-foreground">
+          {t('aigc.publish.descLabel')}
+        </Text>
+        <Textarea
+          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-[24rpx] border-[2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[32rpx] text-foreground box-border"
+          placeholder={t('aigc.publish.descPlaceholder')}
+          value={desc}
+          onInput={(e) => setDesc(e.detail.value)}
+        />
+
+        {/* 提示词 */}
+        <Text className="block mt-[28rpx] mb-[12rpx] text-[28rpx] text-muted-foreground">
+          {t('aigc.publish.promptLabel')}
+        </Text>
+        <Textarea
+          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-[24rpx] border-[2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[32rpx] text-foreground box-border"
+          placeholder={t('aigc.publish.promptPlaceholder')}
+          value={prompt}
+          onInput={(e) => setPrompt(e.detail.value)}
+        />
+
+        {/* 对齐 RN submitBtn(marginTop 24 → 48rpx,py 14 → 28rpx,radius 24rpx;禁用态 bg text.tertiary) */}
+        <Button
+          className={`w-full text-[32rpx] font-semibold rounded-[24rpx] mt-[48rpx] ${
+            submitting || uploading
+              ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]'
+              : 'bg-primary text-[var(--color-primary-foreground)]'
+          }`}
+          loading={submitting || uploading}
+          disabled={submitting || uploading}
+          onClick={onSubmit}
+        >
+          {t('aigc.publish.publish')}
+        </Button>
+        {/* 对齐 RN 底部占位(height 32 → 64rpx) */}
+        <View className="h-[64rpx]" />
       </ScrollView>
     </ThemeRoot>
   )

@@ -3,142 +3,159 @@
   Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
-
 .tdetail-page {
   min-height: 100vh;
   background: var(--color-background);
   padding: 24rpx;
-  padding-bottom: 60rpx;
+  /* 底部固定操作条占位(RN footerBar 常驻底部) */
+  padding-bottom: calc(200rpx + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
 }
 
-/* ===== 教师头部卡片 ===== */
+/* ===== 教师头部(RN header:透明底 row/center/gap24,无卡片) ===== */
 .tdetail-header {
   display: flex;
   flex-direction: column;
-  background: var(--color-card);
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 28rpx 24rpx;
 }
+
 .tdetail-header-top {
   display: flex;
+  flex-direction: row;
   align-items: center;
+  gap: 24rpx;
 }
+
 .tdetail-avatar {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: var(--radius-md);
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 64rpx;
   background: var(--color-muted);
   flex-shrink: 0;
 }
+
 .tdetail-avatar-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40rpx;
+  font-size: 48rpx;
   font-weight: 600;
-  color: var(--color-primary);
+  color: var(--color-muted-foreground);
 }
+
 .tdetail-header-info {
   flex: 1;
   min-width: 0;
-  margin-left: 24rpx;
   display: flex;
   flex-direction: column;
   gap: 8rpx;
 }
+
 .tdetail-name-row {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 12rpx;
 }
+
 .tdetail-name {
-  font-size: 34rpx;
-  font-weight: 700;
+  font-size: 36rpx;
+  font-weight: 600;
   color: var(--color-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 教师徽章金色已接入 token:var(--color-rank-gold)(#ffd700);文字深金 #5a4500 无对应 token,保留原值 */
+
+/* 金牌徽章(RN goldBadge: vip.gold 底 + text.primary 深字) */
 .tdetail-badge {
-  padding: 2rpx 12rpx;
-  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  font-size: 22rpx;
   font-weight: 600;
-  color: var(--color-notification-text);
+  color: var(--color-foreground);
   background: var(--color-rank-gold);
-  border-radius: var(--radius-sm);
+  border-radius: 8rpx;
   flex-shrink: 0;
 }
+
 .tdetail-title {
   font-size: 26rpx;
-  color: var(--color-primary);
+  color: var(--color-muted-foreground);
 }
+
+/* 关注按钮(RN followBtn: brand 底圆角胶囊;激活态 muted 底) */
 .tdetail-follow-btn {
-  align-self: flex-start;
-  margin-left: 24rpx;
+  flex-shrink: 0;
   padding: 12rpx 28rpx;
   font-size: 26rpx;
-  color: var(--color-primary);
-  background: var(--color-border);
-  border: 2rpx solid var(--color-ring);
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--color-primary-foreground);
+  background: var(--color-primary);
+  border: none;
+  border-radius: 32rpx;
 }
+
 .tdetail-follow-btn-active {
   color: var(--color-muted-foreground);
   background: var(--color-muted);
-  border-color: var(--color-muted);
 }
 
-/* ===== 数据统计 ===== */
+/* ===== 数据统计(RN statRow:白底 radius16 py24,无描边) ===== */
 .tdetail-stats {
   margin-top: 24rpx;
   display: flex;
+  flex-direction: row;
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 24rpx 16rpx;
-  gap: 12rpx;
+  border-radius: 16rpx;
+  padding: 24rpx 0;
 }
+
 .tdetail-stat-item {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 8rpx;
 }
+
 .tdetail-stat-num {
-  font-size: 36rpx;
-  font-weight: 700;
+  font-size: 32rpx;
+  font-weight: 600;
   color: var(--color-foreground);
   line-height: 1.2;
 }
+
 .tdetail-stat-label {
-  margin-top: 6rpx;
-  font-size: 22rpx;
-  color: var(--color-muted-foreground);
+  font-size: 24rpx;
+  color: var(--color-text-tertiary);
 }
 
-/* ===== 教师简介 ===== */
+/* ===== 区块通用(RN section: gap16,无卡片底) ===== */
 .tdetail-intro {
   margin-top: 24rpx;
-  background: var(--color-card);
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
 }
+
+.tdetail-section {
+  margin-top: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
 .tdetail-section-title {
-  font-size: 28rpx;
+  font-size: 30rpx;
   font-weight: 600;
   color: var(--color-foreground);
 }
+
 .tdetail-intro-text {
-  margin-top: 12rpx;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
-  line-height: 1.6;
+  line-height: 40rpx;
 }
+
 .tdetail-intro-text-collapsed {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -146,172 +163,198 @@
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
 }
+
+/* 展开/收起(RN expandText: brandAccent 橙) */
 .tdetail-intro-toggle {
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  color: var(--color-primary);
-  align-self: flex-start;
+  font-size: 26rpx;
+  color: var(--color-brand-orange);
 }
 
-/* ===== 主讲课程 ===== */
-.tdetail-section {
-  margin-top: 24rpx;
-}
+/* ===== 主讲课程(RN courseCard: row/gap20/padding20/radius16 白底) ===== */
 .tdetail-course-list {
-  margin-top: 16rpx;
   display: flex;
   flex-direction: column;
   gap: 16rpx;
 }
+
 .tdetail-course-card {
   display: flex;
+  flex-direction: row;
+  gap: 20rpx;
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 16rpx;
   padding: 20rpx;
 }
+
 .tdetail-course-cover {
-  width: 160rpx;
+  width: 192rpx;
   height: 120rpx;
-  border-radius: var(--radius-md);
+  border-radius: 12rpx;
   background: var(--color-muted);
   flex-shrink: 0;
 }
+
 .tdetail-course-body {
   flex: 1;
   min-width: 0;
-  margin-left: 20rpx;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  gap: 12rpx;
 }
+
 .tdetail-course-title {
   font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.tdetail-course-meta {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+}
+
+/* 价格(RN coursePrice: vip.gold;免费 success.deepText) */
+.tdetail-course-price {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-vip-gold-start);
+}
+
+.tdetail-course-price-free {
+  color: var(--color-success-deep-text);
+}
+
+.tdetail-course-students {
+  font-size: 24rpx;
+  color: var(--color-text-tertiary);
+}
+
+/* ===== 学员评价(RN reviewCard: column/gap12/padding20/radius16 白底) ===== */
+.tdetail-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.tdetail-review-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  padding: 20rpx;
+}
+
+.tdetail-review-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.tdetail-review-avatar {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 32rpx;
+  background: var(--color-muted);
+  flex-shrink: 0;
+}
+
+.tdetail-review-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+
+.tdetail-review-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 26rpx;
   font-weight: 600;
   color: var(--color-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tdetail-course-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.tdetail-course-price {
-  font-size: 30rpx;
-  font-weight: 700;
-  color: var(--color-brand-orange);
-}
-.tdetail-course-price-free {
-  color: var(--color-success);
-}
-.tdetail-course-students {
-  font-size: 22rpx;
-  color: var(--color-muted-foreground);
-}
 
-/* ===== 学员评价 ===== */
-.tdetail-review-list {
-  margin-top: 16rpx;
+/* 星级(RN starRow: gap2, vip.gold 实星 / border.light 空星) */
+.tdetail-review-stars {
   display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
-.tdetail-review-card {
-  display: flex;
-  background: var(--color-card);
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 20rpx;
-}
-.tdetail-review-avatar {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: var(--radius-md);
-  background: var(--color-muted);
+  flex-direction: row;
+  align-items: center;
+  gap: 4rpx;
   flex-shrink: 0;
 }
-.tdetail-review-avatar-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--color-primary);
-}
-.tdetail-review-body {
-  flex: 1;
-  min-width: 0;
-  margin-left: 16rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 6rpx;
-}
-.tdetail-review-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.tdetail-review-name {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: var(--color-foreground);
-}
-/* 评分星标金色已接入 token:var(--color-rank-gold)(#ffd700) */
-.tdetail-review-stars {
-  font-size: 22rpx;
-  color: var(--color-rank-gold);
-}
+
 .tdetail-review-content {
   font-size: 26rpx;
   color: var(--color-muted-foreground);
-  line-height: 1.5;
-}
-.tdetail-review-time {
-  font-size: 22rpx;
-  color: var(--color-muted-foreground);
+  line-height: 38rpx;
 }
 
-/* ===== 底部按钮 ===== */
-.tdetail-actions {
-  margin-top: 32rpx;
-  display: flex;
-  gap: 16rpx;
+.tdetail-review-time {
+  font-size: 22rpx;
+  color: var(--color-text-tertiary);
 }
+
+/* ===== 底部动作条(RN footerBar:白底 + 顶部 hairline;footerBtn 胶囊 brand 底) ===== */
+.tdetail-actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+  padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom, 0px));
+  background: var(--color-card);
+  border-top: 1rpx solid var(--color-border);
+}
+
 .tdetail-action-btn {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 80rpx;
-  font-size: 28rpx;
-  border-radius: var(--radius-md);
+  padding: 24rpx 0;
+  font-size: 30rpx;
+  font-weight: 600;
+  border-radius: 44rpx;
 }
+
 .tdetail-action-primary {
   color: var(--color-primary-foreground);
   background: var(--color-primary);
 }
+
 .tdetail-action-secondary {
-  color: var(--color-primary);
-  background: var(--color-border);
-  border: 2rpx solid var(--color-ring);
+  color: var(--color-foreground);
+  background: var(--color-muted);
 }
 
-/* ===== 状态文案 ===== */
-.tdetail-empty,
-.tdetail-loading {
+/* ===== 状态文案(RN emptyText/stateText: tertiary) ===== */
+.tdetail-empty {
   display: block;
-  text-align: center;
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
-  padding: 40rpx 0;
+  font-size: 26rpx;
+  color: var(--color-text-tertiary);
 }
+
 .tdetail-skeleton {
   display: block;
   text-align: center;
   font-size: 26rpx;
-  color: var(--color-muted-foreground);
-  padding: 80rpx 0;
+  color: var(--color-text-tertiary);
+  padding: 240rpx 0;
 }
-/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

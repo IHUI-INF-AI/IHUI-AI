@@ -4,67 +4,107 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
-/* n8n-model - n8n 模型页(列表 + 创建表单) */
+/* n8n-model - n8n 模型页(对齐 RN 共享屏 packages/app/src/features/n8n-model/N8nModelScreen.tsx,
+   视觉唯一标准;创建表单对齐 RN wrapper N8nModelScreen.tsx 的 WorkflowFormModal 视觉语言)
+   换算: RN rpx(N)→N rpx(1:1);RN raw dp M→M*2 rpx
+   颜色映射: surface.bg→--color-background / surface.card→--color-card /
+   surface.muted→--color-muted / text.primary→--color-foreground /
+   text.secondary→--color-muted-foreground / text.tertiary→--color-text-tertiary /
+   text.medium→--color-text-medium / border.light→--color-border /
+   brand.DEFAULT→--color-primary / danger.DEFAULT→--color-danger
+   结构差异: RN 端创建/编辑为 Modal 表单(仅名称+描述);小程序端为整页表单
+   (含头像/n8n 文件/参数列表),无 RN 对应的部分按 RN 表单/卡片视觉语言推导。 */
 .nm-page {
   min-height: 100vh;
+  /* RN container: bg surface.bg */
   background: var(--color-background);
   display: flex;
   flex-direction: column;
 }
+
+/* ===== 顶栏(RN header: row/center/space-between,px 10dp=20rpx,py 12dp=24rpx,无独立底色随 surface.bg) ===== */
 .nm-header {
   display: flex;
   align-items: center;
-  padding: 24rpx;
-  background: var(--color-card);
-  gap: 24rpx;
+  justify-content: space-between;
+  padding: 24rpx 20rpx;
 }
 .nm-back {
-  font-size: 28rpx;
-  color: var(--color-primary);
+  font-size: 32rpx; /* RN backText 16dp */
+  color: var(--color-muted-foreground); /* RN text.secondary */
 }
 .nm-title {
   flex: 1;
-  font-size: 34rpx;
+  font-size: 40rpx; /* RN headerTitle 20dp */
+  font-weight: 600;
+  color: var(--color-foreground); /* RN text.primary */
+}
+/* RN createBtn: px 14dp=28rpx,py 6dp=12rpx,radius 12dp=24rpx(方圆角档),bg brand.DEFAULT */
+.nm-create-btn {
+  font-size: 28rpx; /* RN createText 14dp */
+  font-weight: 600;
+  /* RN 文字色 surface.light(#FFF) 在暗色 brand(白底)上不可读,按语义修正为 primary-foreground */
+  color: var(--color-primary-foreground);
+  padding: 12rpx 28rpx;
+  background: var(--color-primary);
+  border-radius: 24rpx;
+}
+.nm-create-btn:active {
+  opacity: 0.8; /* RN activeOpacity 0.8 */
+}
+
+/* ===== 列表(RN listBody: padding 10dp=20rpx;separator 高 12dp=24rpx) ===== */
+.nm-content {
+  padding: 20rpx;
+}
+/* RN card: padding 12dp=24rpx,radius 12dp=24rpx,border 1 border.light,无底色(透明描边卡) */
+.nm-list-item {
+  padding: 24rpx;
+  background: transparent;
+  border-radius: 24rpx;
+  margin-bottom: 24rpx; /* RN separator 12dp */
+  border: 1px solid var(--color-border);
+}
+.nm-list-item:active {
+  opacity: 0.8;
+}
+/* RN cardName: 16dp=32rpx,600,text.primary,单行截断(截断用全局 text-ellipsis) */
+.nm-list-name {
+  display: block;
+  font-size: 32rpx;
   font-weight: 600;
   color: var(--color-foreground);
 }
-.nm-create-btn {
+/* RN cardDesc: mt 8dp=16rpx,14dp=28rpx,text.medium,两行截断(全局 text-ellipsis-2) */
+.nm-list-desc {
+  display: block;
+  margin-top: 16rpx;
   font-size: 28rpx;
-  color: var(--color-primary);
-  padding: 8rpx 20rpx;
-  background: var(--color-border);
-  border-radius: var(--radius-md);
+  color: var(--color-text-medium);
 }
-.nm-content {
-  padding: 24rpx;
-}
-.nm-list-item {
-  padding: 24rpx;
-  background: var(--color-card);
-  border-radius: var(--radius-lg);
-  margin-bottom: 16rpx;
-  font-size: 28rpx;
-  color: var(--color-foreground);
-  border: 1px solid var(--color-border);
-}
+/* RN empty: py 48dp=96rpx;emptyText 14dp=28rpx,text.tertiary */
 .nm-empty {
+  display: block;
   text-align: center;
-  color: var(--color-muted-foreground);
-  padding: 80rpx 0;
-  font-size: 26rpx;
+  color: var(--color-text-tertiary);
+  padding: 96rpx 0;
+  font-size: 28rpx;
 }
+
+/* ===== 创建表单(RN WorkflowFormModal 的输入/按钮视觉语言整页化) ===== */
 .nm-body {
   flex: 1;
-  padding: 24rpx;
+  padding: 20rpx; /* RN listBody padding 10dp */
   box-sizing: border-box;
 }
+/* RN modalLabel: 13dp=26rpx,text.secondary;下距对齐 RN modalLabel mb rpx(8),上距为页面节奏 */
 .nm-label {
   display: block;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
-  margin: 24rpx 0 16rpx;
+  margin: 24rpx 0 8rpx;
 }
-/* 头像上传 */
+/* 头像上传(RN 无对应;按 RN 输入语言推导: muted 底 + border light + 12dp=24rpx 方圆角档) */
 .nm-avatar-wrap {
   display: flex;
   justify-content: center;
@@ -72,8 +112,8 @@
 .nm-avatar {
   width: 160rpx;
   height: 160rpx;
-  border-radius: var(--radius-lg);
-  background: var(--color-secondary);
+  border-radius: 24rpx;
+  background: var(--color-muted); /* RN surface.muted */
   border: 1px solid var(--color-border);
 }
 .nm-avatar-ph {
@@ -82,80 +122,87 @@
   justify-content: center;
 }
 .nm-avatar-text {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
+  font-size: 22rpx; /* RN 小字档 11dp */
+  color: var(--color-text-tertiary); /* RN text.tertiary */
   text-align: center;
   padding: 0 16rpx;
 }
-/* 输入框 */
+/* RN modalInput: border 1 border.light,radius 8dp=16rpx,px rpx(16)/py rpx(12),
+   14dp=28rpx,text.primary,bg surface.muted,mb rpx(16);触控高度对齐 RN modalBtn rpx(88) */
 .nm-input {
   width: 100%;
-  padding: 20rpx 24rpx;
-  background: var(--color-card);
-  border-radius: var(--radius-md);
+  min-height: 88rpx;
+  padding: 12rpx 16rpx;
+  background: var(--color-muted);
+  border-radius: 16rpx;
   font-size: 28rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
   border: 1px solid var(--color-border);
+  margin-bottom: 16rpx;
 }
+/* RN modalInputMultiline: minHeight rpx(88) */
 .nm-textarea {
   width: 100%;
-  min-height: 160rpx;
-  padding: 20rpx 24rpx;
-  background: var(--color-card);
-  border-radius: var(--radius-md);
+  min-height: 88rpx;
+  padding: 12rpx 16rpx;
+  background: var(--color-muted);
+  border-radius: 16rpx;
   font-size: 28rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
   border: 1px solid var(--color-border);
+  margin-bottom: 16rpx;
 }
-/* n8n 文件上传 */
+/* n8n 文件上传(RN 无对应;按 RN 输入语言推导: muted 底 + border light,radius 8dp=16rpx) */
 .nm-file-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24rpx;
-  background: var(--color-card);
-  border-radius: var(--radius-md);
-  border: 1px dashed var(--color-border);
+  padding: 24rpx; /* RN card padding 12dp */
+  background: var(--color-muted);
+  border-radius: 16rpx;
+  border: 1px solid var(--color-border);
+}
+.nm-file-btn:active {
+  opacity: 0.8;
 }
 .nm-file-text {
-  font-size: 26rpx;
-  color: var(--color-muted-foreground);
+  font-size: 26rpx; /* RN 次级文字 13dp 档 */
+  color: var(--color-muted-foreground); /* RN text.secondary */
 }
 .nm-file-info {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-top: 16rpx;
-  padding: 16rpx 20rpx;
-  background: var(--color-border);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
+  padding: 12rpx 16rpx;
+  background: var(--color-muted);
+  border-radius: 16rpx;
 }
 .nm-file-name {
   flex: 1;
   font-size: 24rpx;
-  color: var(--color-primary);
+  color: var(--color-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .nm-file-remove {
   font-size: 24rpx;
-  color: var(--color-destructive);
+  color: var(--color-danger); /* RN danger.DEFAULT */
   padding: 0 8rpx;
   margin-left: 16rpx;
 }
-/* 参数列表 */
+/* ===== 参数列表(RN 无对应;卡片语言对齐 RN card: padding 12dp=24rpx,radius 12dp=24rpx,border light) ===== */
 .nm-params {
   margin-top: 8rpx;
 }
 .nm-param {
-  background: var(--color-card);
-  border-radius: var(--radius-lg);
+  background: var(--color-card); /* RN surface.card */
+  border-radius: 24rpx;
   padding: 24rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: 24rpx;
   border: 1px solid var(--color-border);
 }
 .nm-param-head {
@@ -165,13 +212,13 @@
   margin-bottom: 16rpx;
 }
 .nm-param-idx {
-  font-size: 28rpx;
+  font-size: 28rpx; /* RN 正文 14dp 档 */
   font-weight: 600;
   color: var(--color-foreground);
 }
 .nm-param-del {
-  font-size: 24rpx;
-  color: var(--color-destructive);
+  font-size: 26rpx; /* RN 次级文字 13dp 档 */
+  color: var(--color-danger); /* RN danger.DEFAULT */
   padding: 4rpx 12rpx;
 }
 .nm-param-field {
@@ -183,32 +230,34 @@
 .nm-field-label {
   display: block;
   font-size: 24rpx;
-  color: var(--color-muted-foreground);
-  margin-bottom: 12rpx;
+  color: var(--color-text-tertiary); /* RN text.tertiary(嵌套字段标签降一级) */
+  margin-bottom: 8rpx;
 }
+/* 参数行内输入(RN 无对应;对齐 RN modalInput 语言,13dp=26rpx 档缩小版) */
 .nm-field-input {
   width: 100%;
-  padding: 14rpx 20rpx;
-  background: var(--color-secondary);
-  border-radius: var(--radius-md);
+  min-height: 72rpx;
+  padding: 12rpx 16rpx;
+  background: var(--color-muted);
+  border-radius: 16rpx;
   font-size: 26rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
   border: 1px solid var(--color-border);
-  min-height: 64rpx;
 }
 .nm-field-textarea {
   width: 100%;
   min-height: 120rpx;
-  padding: 14rpx 20rpx;
-  background: var(--color-secondary);
-  border-radius: var(--radius-md);
+  padding: 12rpx 16rpx;
+  background: var(--color-muted);
+  border-radius: 16rpx;
   font-size: 26rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
   border: 1px solid var(--color-border);
 }
-/* 类型选择条 */
+/* 类型选择条(RN 无对应;chip 语言对齐 RN tabItem: 无边框 + muted 底,radius 8dp=16rpx;
+   选中态用 brand 底,对齐 RN createBtn/active tab 视觉) */
 .nm-type-bar {
   display: flex;
   flex-wrap: wrap;
@@ -216,62 +265,74 @@
 }
 .nm-type {
   padding: 10rpx 20rpx;
-  background: var(--color-secondary);
-  border-radius: var(--radius-md);
+  background: var(--color-muted);
+  border-radius: 16rpx;
   font-size: 24rpx;
-  color: var(--color-secondary-foreground);
-  border: 1px solid var(--color-border);
+  color: var(--color-muted-foreground);
+}
+.nm-type:active {
+  opacity: 0.8;
 }
 .nm-type-active {
-  background: var(--color-border);
-  color: var(--color-primary);
-  border-color: var(--color-primary);
+  background: var(--color-primary); /* RN brand.DEFAULT */
+  /* RN surface.light 暗色不可读,语义修正为 primary-foreground,亮暗自动适配 */
+  color: var(--color-primary-foreground);
+  font-weight: 600;
 }
-/* 布尔选择 */
+/* 布尔选择(同类型 chip 语言) */
 .nm-bool {
   display: flex;
   gap: 16rpx;
 }
 .nm-bool-opt {
   flex: 1;
-  padding: 14rpx;
-  background: var(--color-secondary);
-  border-radius: var(--radius-md);
+  padding: 12rpx;
+  background: var(--color-muted);
+  border-radius: 16rpx;
   font-size: 26rpx;
-  color: var(--color-secondary-foreground);
+  color: var(--color-muted-foreground);
   text-align: center;
-  border: 1px solid var(--color-border);
 }
 .nm-bool-active {
-  background: var(--color-border);
-  color: var(--color-primary);
-  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  font-weight: 600;
 }
-/* 添加参数 */
+/* 添加参数(RN 无对应;次级按钮对齐 RN actionEdit/retryText: border light + brand 文字) */
 .nm-add-param {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24rpx;
-  background: var(--color-card);
-  border-radius: var(--radius-md);
+  background: transparent;
+  border-radius: 16rpx;
   font-size: 26rpx;
-  color: var(--color-primary);
-  border: 1px dashed var(--color-border);
+  color: var(--color-primary); /* RN retryText brand.DEFAULT */
+  border: 1px solid var(--color-border);
 }
-/* 提交 */
+.nm-add-param:active {
+  opacity: 0.8;
+}
+/* ===== 提交(RN modalBtn: height rpx(88),radius 8dp=16rpx,bg brand.DEFAULT,disabled opacity 0.6) ===== */
 .nm-submit {
-  margin-top: 40rpx;
-  padding: 26rpx;
+  margin-top: 8rpx; /* RN modalActions mt rpx(8) */
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--color-primary);
+  /* RN 文字色 surface.light(#FFF) 在暗色 brand(白底)上不可读,按语义修正为 primary-foreground */
   color: var(--color-primary-foreground);
   text-align: center;
-  border-radius: var(--radius-lg);
-  font-size: 30rpx;
+  border-radius: 16rpx;
+  font-size: 30rpx; /* RN modalBtnTextConfirm 15dp */
   font-weight: 600;
 }
+.nm-submit:active {
+  opacity: 0.8;
+}
 .nm-submit-disabled {
-  opacity: 0.6;
+  opacity: 0.6; /* RN modalBtnDisabled */
 }
 .nm-bottom-space {
   height: 60rpx;

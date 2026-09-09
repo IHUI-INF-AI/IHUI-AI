@@ -298,7 +298,7 @@ export function OrderScreen({
   return (
     <View style={viewStyles.container(tk)}>
       <View style={viewStyles.header()}>
-        <View style={viewStyles.backBtn()} onTap={onBack}>
+        <View style={viewStyles.backBtn()} onTap={onBack} hoverClass="opacity-60">
           <Text style={textStyles.back(tk)}>{tr('common.back', '返回')}</Text>
         </View>
         <Text style={textStyles.title(tk)}>{tr('order.title', '我的订单')}</Text>
@@ -309,7 +309,7 @@ export function OrderScreen({
           {TABS.map((tab) => {
             const active = tab === activeTab
             return (
-              <View key={tab} style={viewStyles.tab(tk, active)} onTap={() => onSelectTab(tab)}>
+              <View key={tab} style={viewStyles.tab(tk, active)} onTap={() => onSelectTab(tab)} hoverClass="opacity-60">
                 <Text style={textStyles.tab(tk, active)}>{tabLabel(tab)}</Text>
               </View>
             )
@@ -340,7 +340,7 @@ export function OrderScreen({
               items.map((item: OrderItem) => {
                 const sc = statusColors(item.status, tk)
                 return (
-                  <View key={item.id} onTap={() => onPressItem(item)}>
+                  <View key={item.id} onTap={() => onPressItem(item)} hoverClass="opacity-60">
                     <View style={viewStyles.card(tk)}>
                       <View style={viewStyles.cardHead()}>
                         <View style={viewStyles.cardTitleWrap()}>

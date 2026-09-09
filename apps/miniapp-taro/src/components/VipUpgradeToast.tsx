@@ -57,14 +57,14 @@ export default function VipUpgradeToast({
           size={32}
           color="var(--color-warning)"
         />
-        <Text className="text-xs text-yellow-700 mr-3">{desc}</Text>
+        <Text className="text-xs text-[var(--color-warning-amber-text)] mr-3">{desc}</Text>
 
         <View
           className="px-3 py-1 rounded-md"
           style={{ background: 'var(--color-warning)' }}
           onClick={onUpgrade}
-        >
-          <Text className="text-xs text-white font-medium">{tt('vip.upgradeNow', '升级')}</Text>
+          hoverClass="opacity-60">
+          <Text className="text-xs text-warning-foreground font-medium">{tt('vip.upgradeNow', '升级')}</Text>
         </View>
         <Text
           className="text-xs text-warning ml-2"

@@ -178,26 +178,27 @@ export default function CourseDetail() {
           onTeacherClick={() => Taro.showToast({ title: t('course.viewTeacher'), icon: 'none' })}
         />
 
-        <View className="flex items-center justify-around mx-3 my-3 bg-card rounded-xl p-4">
+        {/* 工具行卡片:对齐 RN card(白底 + border.light 描边 + radius12/padding14) */}
+        <View className="flex items-center justify-around mx-3 my-3 bg-card rounded-xl p-[28rpx] border border-border">
           <View className="flex flex-col items-center">
             <ProgressCircle percent={learningProgress} size={60} />
             <Text className="text-xs text-muted-foreground mt-2">
               {t('course.learningProgress')}
             </Text>
           </View>
-          <View className="flex flex-col items-center" onClick={() => setShowNote(true)}>
+          <View className="flex flex-col items-center" hoverClass="opacity-60" onClick={() => setShowNote(true)}>
             <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
               <LineIcon name="book-open" size={40} color="var(--color-muted-foreground)" />
             </View>
             <Text className="text-xs text-muted-foreground mt-2">{t('course.note')}</Text>
           </View>
-          <View className="flex flex-col items-center" onClick={() => setShowRating(true)}>
+          <View className="flex flex-col items-center" hoverClass="opacity-60" onClick={() => setShowRating(true)}>
             <View className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
               <LineIcon name="star-fill" size={40} color="var(--color-warning)" />
             </View>
             <Text className="text-xs text-muted-foreground mt-2">{t('course.rating')}</Text>
           </View>
-          <View className="flex flex-col items-center" onClick={() => setShowShare(true)}>
+          <View className="flex flex-col items-center" hoverClass="opacity-60" onClick={() => setShowShare(true)}>
             <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
               <LineIcon name="share-2" size={40} color="var(--color-muted-foreground)" />
             </View>
@@ -266,13 +267,15 @@ export default function CourseDetail() {
           />
         </View>
 
+        {/* 底部购买条:价格/按钮字号字重对齐 RN actionRow(price 20dp w700 + enroll btn radius12/16dp 字) */}
         <View className="fixed left-0 right-0 bottom-0 h-[100rpx] bg-card flex items-center px-4 shadow-[0_-2rpx_12rpx_var(--color-black-6)]">
-          <View className="flex-1">
-            <Text className="text-sm text-primary">¥</Text>
-            <Text className="text-2xl text-primary font-bold">{course.price ?? 0}</Text>
+          <View className="flex-1 flex flex-row items-baseline">
+            <Text className="text-[28rpx] text-primary font-bold">¥</Text>
+            <Text className="text-[40rpx] text-primary font-bold">{course.price ?? 0}</Text>
           </View>
           <View
-            className="px-7 h-[80rpx] leading-[80rpx] bg-primary text-primary-foreground rounded-lg text-sm"
+            className="px-[20rpx] h-[80rpx] leading-[80rpx] bg-primary text-primary-foreground rounded-[24rpx] text-[32rpx] font-semibold"
+            hoverClass="opacity-60"
             onClick={handleBuy}
           >
             <Text>{t('course.buyNow')}</Text>
@@ -290,9 +293,10 @@ export default function CourseDetail() {
         <CourseRating visible={showRating} initialRating={0} onSubmit={handleSubmitRating} />
 
         {showShare && (
-          <View className="fixed inset-0 z-[2000] bg-black/50" onClick={() => setShowShare(false)}>
+          <View className="fixed inset-0 z-[2000] bg-[var(--color-black-40)]" onClick={() => setShowShare(false)}>
             <View
               className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl"
+              hoverClass="opacity-60"
               onClick={(e) => e.stopPropagation()}
             >
               <QrCodeShare

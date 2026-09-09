@@ -59,7 +59,7 @@
   height: 72rpx;
   border-radius: 32rpx;
   background: var(--color-background);
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2rpx 8rpx var(--color-black-4);
   transition: all 0.2s ease;
 }
 .provider-tab.active {
@@ -96,7 +96,7 @@
   background: var(--color-background);
   margin: 0 24rpx 24rpx;
   border-radius: 20rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2rpx 12rpx var(--color-black-4);
 }
 .provider-header .provider-name {
   display: block;
@@ -129,7 +129,7 @@
   color: var(--color-muted-foreground);
   background: var(--color-background);
   border-radius: 32rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2rpx 8rpx var(--color-black-4);
   transition: all 0.2s ease;
 }
 .type-tab.active {
@@ -150,7 +150,7 @@
   margin-bottom: 24rpx;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2rpx 12rpx var(--color-black-4);
 }
 .model-card:active {
   transform: scale(0.98);
