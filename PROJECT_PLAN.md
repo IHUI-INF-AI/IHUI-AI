@@ -3372,6 +3372,15 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-09) **P0 回调验签 fail-closed**:/video/token6688-callback 与 /media/tasks/callback 均在 JWT 公开白名单(外部平台 webhook 无 JWT),TOKEN6688_CALLBACK_SECRET 为空时此前"跳过验签继续处理"= 匿名可伪造任意任务终态。现拒绝处理返回 503;配 token6688 key 时必须同步配置回调密钥(当前 .env 两处均空,token6688 链路本就未激活,无功能损失)。
 - [x] ✅(2026-09-09) **验证**:新增 test_video_routes.py 14 用例(列表收敛/详情归属三态/创建收敛/取消归属/回调 fail-closed 503 + 坏签名 401 + 合法签名 200);既有 4 条回调用例按"签名后置"新契约更新(含 test_token6688_provider.py 两条 fail-open 锁定用例反转);受影响面 337 passed;生产 8803 实测:两回调无 secret 均 503、plain token 视频列表 0 条;无 web 改动无需重建。
 
+### 第五轮:产品完整性收尾——交付承诺逐项对账(2026-09-09 完成 ✅)
+
+> 触发:用户提示"别光想着遗漏,还有其他的"。第五轮换视角,不再盯越权,改审 F6-F8 交付物本身的产品完整性(提交 089c87a86,三仓已推)。
+
+- [x] ✅(2026-09-09) **F8 承诺对账缺口**:后端批量取消返回的 remote_failed 此前被前端静默丢弃,现透出"N 个任务远端取消失败(已本地置为已取消)"提示;统计卡片从纯展示升级为可点击直达对应状态过滤(aria-pressed 高亮),与明细条一致。
+- [x] ✅(2026-09-09) **F6 体验缺口**:声纹上传此前无前置校验,大文件全量传输后才被 provider 拒绝;现按 token6688_provider.upload_voice 硬限制(仅 MP3/M4A/WAV,严格 <20MiB)前端秒拒并友好提示。文案误用修复:播放按钮此前用状态词(statusReady/playable)当动作文案 → playPreview/hidePreview;上传成功提示此前显示"上传中" → cloneSubmitted(克隆是异步任务,语义准确)。
+- [x] ✅(2026-09-09) **五语站点 locale 修正**:两页 Intl.DateTimeFormat 的 locale 从硬编码 zh-CN 改 useLocale(),非中文用户此前看到中文日期格式。
+- [x] ✅(2026-09-09) **验证**:i18n 对账脚本(两页 42 键 × 五语)0 缺失(新增 6 键已补齐);web tsc 0 错误、eslint 0 违规;重建后 /media-tasks、/voices 本地与公网 200;无后端改动,8803 不动。
+
 ## Firecrawl 网页工具 前端操作页 + extract_web 费用归属 收尾(2026-09-09 完成 ✅)
 
 > 触发:Firecrawl 四件套极致融合(39935d1cb → 999d792fa → b85aaad01)收尾台账两项:① extract_web 直接调 llm_gateway 的 token 费用归属未透出;② 缺网页工具专属前端操作页。本轮全部闭环。
