@@ -49,6 +49,10 @@ export default function UserCard({ onGoPage }: UserCardProps) {
     },
   ]
   return (
+    /* 对齐 RN 端 packages/app/src/features/profile/ProfileScreen.tsx 卡片视觉语言:
+       卡片 bg card + 描边 border.light(RN 卡片用描边不用投影,去掉原 boxShadow)/
+       圆角 10dp→20rpx / 图标与文字间距 12dp→24rpx /
+       标题 16dp→32rpx text.primary→foreground / 描述 14dp→28rpx text.secondary→muted-foreground */
     <View className="flex flex-wrap justify-between w-full mt-[20rpx] mb-[14rpx]">
       {items.map((item, idx) => {
         const isFullWidth = idx === 3 // 钱包占整行
@@ -56,11 +60,7 @@ export default function UserCard({ onGoPage }: UserCardProps) {
           <ThemeRoot key={item.key}>
             <View
               key={item.key}
-              className={`flex items-center px-[12rpx] py-[10rpx] rounded-lg mb-[14rpx] ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
-              style={{
-                background: 'var(--color-card)',
-                boxShadow: '4rpx 4rpx 4rpx 0px var(--color-black-8)',
-              }}
+              className={`flex items-center px-[24rpx] py-[20rpx] rounded-[20rpx] mb-[14rpx] bg-card border-[2rpx] border-border ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
               onClick={() => {
                 const userInfodata = Taro.getStorageSync('data')
                 if (!userInfodata) {
@@ -72,13 +72,15 @@ export default function UserCard({ onGoPage }: UserCardProps) {
                 }
                 onGoPage(item.path)
               }}
-            >
-              <View className="w-[90rpx] h-[90rpx] mr-[15rpx] flex-shrink-0">
+              hoverClass="opacity-60">
+              <View className="w-[90rpx] h-[90rpx] mr-[24rpx] flex-shrink-0">
                 <Image src={item.icon} className="w-full h-full" mode="aspectFill" />
               </View>
               <View>
-                <Text className="text-[32rpx] text-foreground">{item.title}</Text>
-                <Text className="text-[26rpx] text-muted-foreground">{item.desc}</Text>
+                <Text className="block text-[32rpx] text-foreground">{item.title}</Text>
+                <Text className="block text-[28rpx] text-muted-foreground mt-[4rpx]">
+                  {item.desc}
+                </Text>
               </View>
             </View>
           </ThemeRoot>

@@ -372,27 +372,27 @@ export default function MemberIndexPage() {
 
         {/* ===== 快捷入口 ===== */}
         <View className="member-menu">
-          <View className="member-menu-item" onClick={() => navigate('/pages/member/benefits')}>
+          <View className="member-menu-item" onClick={() => navigate('/pages/member/benefits')} hoverClass="opacity-60">
             <Text>{tt('member.index.benefits', '会员权益')}</Text>
             <Text className="member-arrow">›</Text>
           </View>
-          <View className="member-menu-item" onClick={() => navigate('/pages/member/integral')}>
+          <View className="member-menu-item" onClick={() => navigate('/pages/member/integral')} hoverClass="opacity-60">
             <Text>{tt('member.index.integralDetail', '积分明细')}</Text>
             <Text className="member-arrow">›</Text>
           </View>
-          <View className="member-menu-item" onClick={() => navigate('/pages/member/coupon')}>
+          <View className="member-menu-item" onClick={() => navigate('/pages/member/coupon')} hoverClass="opacity-60">
             <Text>{tt('member.index.myCoupons', '我的优惠券')}</Text>
             <Text className="member-arrow">›</Text>
           </View>
-          <View className="member-menu-item" onClick={() => navigate('/pages/member/coupon-list')}>
+          <View className="member-menu-item" onClick={() => navigate('/pages/member/coupon-list')} hoverClass="opacity-60">
             <Text>{tt('member.index.couponCenter', '领券中心')}</Text>
             <Text className="member-arrow">›</Text>
           </View>
-          <View className="member-menu-item" onClick={() => navigate('/pages/vip/index')}>
+          <View className="member-menu-item" onClick={() => navigate('/pages/vip/index')} hoverClass="opacity-60">
             <Text>{tt('member.index.vip', 'VIP 会员')}</Text>
             <Text className="member-arrow">›</Text>
           </View>
-          <View className="member-menu-item" onClick={goToShare}>
+          <View className="member-menu-item" onClick={goToShare} hoverClass="opacity-60">
             <Text>{tt('member.index.share', '分享赚佣金')}</Text>
             <Text className="member-arrow">›</Text>
           </View>

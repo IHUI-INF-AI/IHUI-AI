@@ -28,12 +28,12 @@ export default function ConfirmDialog({
 
   return (
     <View className="fixed inset-0 z-[1040] flex items-center justify-center" onClick={onCancel}>
-      <View className="absolute inset-0 bg-black/40" />
+      <View className="absolute inset-0 bg-[var(--color-black-40)]" />
       <View
         className="relative bg-card mx-8 px-6 py-5 max-w-xs w-full"
         style={{ borderRadius: '32rpx' }}
         onClick={(e) => e.stopPropagation()}
-      >
+        hoverClass="opacity-60">
         <Text className="block text-base font-medium text-foreground mb-2 text-center">
           {title}
         </Text>
@@ -43,7 +43,7 @@ export default function ConfirmDialog({
           </Text>
         )}
         <View className="flex space-x-3">
-          <View className="flex-1 py-2.5 rounded-md bg-muted text-center" onClick={onCancel}>
+          <View className="flex-1 py-2.5 rounded-md bg-muted text-center" onClick={onCancel} hoverClass="opacity-60">
             <Text className="text-sm text-foreground">{cancelText}</Text>
           </View>
           {/* 确认=品牌橙渐变点缀(2026-09-07 复刻旧App隐私弹窗"同意"主按钮形态;纯色主按钮走 bg-primary) */}
@@ -54,8 +54,8 @@ export default function ConfirmDialog({
                 'linear-gradient(135deg, var(--color-brand-orange-grad-from) 0%, var(--color-brand-orange-grad-to) 100%)',
             }}
             onClick={onConfirm}
-          >
-            <Text className="text-sm text-white">{confirmText}</Text>
+            hoverClass="opacity-60">
+            <Text className="text-sm text-[var(--color-white-98)]">{confirmText}</Text>
           </View>
         </View>
       </View>

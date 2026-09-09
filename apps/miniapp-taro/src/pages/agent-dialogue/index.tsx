@@ -671,7 +671,7 @@ export default function AgentDialogue() {
         <View
           className={`h-[100rpx] px-[28rpx] bg-primary rounded-[24rpx] flex items-center justify-center flex-shrink-0 ${!inputContent.trim() || sending ? 'opacity-50' : ''}`}
           onClick={sendMessage}
-        >
+          hoverClass="opacity-60">
           <Text className="text-[32rpx] font-semibold text-primary-foreground">{t('chat.send')}</Text>
         </View>
       </View>

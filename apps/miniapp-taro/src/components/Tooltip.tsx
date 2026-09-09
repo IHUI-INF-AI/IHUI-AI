@@ -16,7 +16,7 @@ export default function Tooltip({ text, children, placement = 'top' }: TooltipPr
 
   return (
     <View className="relative inline-block">
-      <View onClick={() => setShow(!show)} onTouchStart={() => setShow(true)}>
+      <View onClick={() => setShow(!show)} onTouchStart={() => setShow(true)} hoverClass="opacity-60">
         {children}
       </View>
       {show && (
@@ -26,8 +26,8 @@ export default function Tooltip({ text, children, placement = 'top' }: TooltipPr
           }`}
           style={{ transform: 'translateX(-50%)' }}
           onClick={() => setShow(false)}
-        >
-          <Text className="text-xs text-white">{text}</Text>
+          hoverClass="opacity-60">
+          <Text className="text-xs text-secondary-foreground">{text}</Text>
         </View>
       )}
     </View>

@@ -169,24 +169,22 @@ export default function Phone() {
 
   return (
     <ThemeRoot>
+      {/* 对齐 RN 共享 ChangePhoneScreen:页面浅灰底 + 内容边距 48rpx;居中大标题 44rpx/700 +
+          说明行 28rpx 次级字色;输入盒描边 border.light + muted 底 + 高 100rpx + 圆角 24rpx;
+          发送按钮 28rpx/700 品牌橙纯文字;提交钮品牌底 100rpx 高圆角 24rpx */}
       <View className="min-h-screen bg-background">
         {step === 1 ? (
-          <View className="p-[24rpx] pb-[32rpx]">
-            <View className="bg-card rounded-[16rpx] p-[28rpx] mb-[24rpx]">
-              <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
-                {tt('user.phone.step1Title', '验证当前手机号')}
-              </Text>
-              <Text className="block text-[26rpx] text-muted-foreground leading-[1.6]">
-                {tt('user.phone.currentLabel', '当前手机号')}: {maskedPhone}
-              </Text>
-            </View>
-            <View className="bg-card rounded-[16rpx] p-[28rpx] mb-[24rpx]">
-              <Text className="block text-[28rpx] font-semibold text-foreground mb-[16rpx]">
-                {tt('user.phone.code', '验证码')}
-              </Text>
-              <View className="flex items-center gap-[16rpx]">
+          <View className="p-[48rpx]">
+            <Text className="block text-center text-[44rpx] font-bold text-foreground">
+              {tt('user.phone.step1Title', '验证当前手机号')}
+            </Text>
+            <Text className="mb-[48rpx] mt-[16rpx] block text-center text-[28rpx] text-muted-foreground">
+              {tt('user.phone.currentLabel', '当前手机号')}: {maskedPhone}
+            </Text>
+            <View className="mb-[32rpx]">
+              <View className="box-border flex h-[100rpx] items-center rounded-[24rpx] border border-[var(--color-border)] bg-muted px-[24rpx]">
                 <Input
-                  className="flex-1 h-[99rpx] px-[24rpx] text-[36rpx] bg-background rounded-[25rpx] box-border"
+                  className="h-full flex-1 text-[32rpx] text-foreground"
                   type="number"
                   maxlength={6}
                   placeholder={tt('user.phone.codePlaceholder', '请输入验证码')}
@@ -194,7 +192,11 @@ export default function Phone() {
                   onInput={(e) => setOldCode(e.detail.value)}
                 />
                 <Text
-                  className={`shrink-0 h-[80rpx] leading-[80rpx] px-[28rpx] text-[26rpx] bg-card border rounded-[12rpx] ${oldCountdown > 0 ? 'text-muted-foreground border-border' : 'text-primary border-primary'}`}
+                  className={`shrink-0 pl-[24rpx] text-[28rpx] ${
+                    oldCountdown > 0
+                      ? 'text-muted-foreground'
+                      : 'font-bold text-[var(--color-brand-orange)]'
+                  }`}
                   onClick={onGetOldCode}
                 >
                   {oldCountdown > 0 ? `${oldCountdown}s` : tt('user.phone.getCode', '获取验证码')}
@@ -202,40 +204,33 @@ export default function Phone() {
               </View>
             </View>
             <View
-              className={`h-[88rpx] flex items-center justify-center bg-primary text-primary-foreground text-[30rpx] rounded-[12rpx] ${oldCode.trim().length === 6 ? '' : 'opacity-50'}`}
+              className={`mt-[16rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-primary ${
+                oldCode.trim().length === 6 ? '' : 'opacity-60'
+              }`}
+              hoverClass="opacity-60"
               onClick={onVerifyOld}
             >
-              <Text>{tt('user.phone.next', '下一步')}</Text>
+              <Text className="text-[32rpx] font-bold text-[var(--color-surface-light)]">
+                {tt('user.phone.next', '下一步')}
+              </Text>
             </View>
           </View>
         ) : (
-          <View className="p-[24rpx] pb-[32rpx]">
-            {currentPhone ? (
-              <View className="bg-card rounded-[16rpx] p-[28rpx] mb-[24rpx]">
-                <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
-                  {tt('user.phone.step2Title', '绑定新手机号')}
-                </Text>
-                <Text className="block text-[26rpx] text-muted-foreground leading-[1.6]">
-                  {tt('user.phone.verifiedTip', '当前手机号已通过验证')}: {maskedPhone}
-                </Text>
-              </View>
-            ) : (
-              <View className="bg-card rounded-[16rpx] p-[28rpx] mb-[24rpx]">
-                <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
-                  {tt('user.phone.bindTitle', '绑定手机号')}
-                </Text>
-                <Text className="block text-[26rpx] text-muted-foreground leading-[1.6]">
-                  {tt('user.phone.bindDesc', '绑定后可用于登录、找回密码、接收通知')}
-                </Text>
-              </View>
-            )}
-            <View className="bg-card rounded-[16rpx] p-[28rpx] mb-[24rpx] flex flex-col gap-[24rpx]">
-              <View>
-                <Text className="block text-[28rpx] font-semibold text-foreground mb-[16rpx]">
-                  {tt('user.phone.phone', '手机号')}
-                </Text>
+          <View className="p-[48rpx]">
+            <Text className="block text-center text-[44rpx] font-bold text-foreground">
+              {currentPhone
+                ? tt('user.phone.step2Title', '绑定新手机号')
+                : tt('user.phone.bindTitle', '绑定手机号')}
+            </Text>
+            <Text className="mb-[48rpx] mt-[16rpx] block text-center text-[28rpx] text-muted-foreground">
+              {currentPhone
+                ? `${tt('user.phone.verifiedTip', '当前手机号已通过验证')}: ${maskedPhone}`
+                : tt('user.phone.bindDesc', '绑定后可用于登录、找回密码、接收通知')}
+            </Text>
+            <View className="mb-[32rpx]">
+              <View className="box-border flex h-[100rpx] items-center rounded-[24rpx] border border-[var(--color-border)] bg-muted px-[24rpx]">
                 <Input
-                  className="w-full h-[80rpx] px-[24rpx] text-[28rpx] bg-background rounded-[12rpx] box-border"
+                  className="h-full flex-1 text-[32rpx] text-foreground"
                   type="number"
                   maxlength={11}
                   placeholder={tt('user.phone.newPhonePlaceholder', '请输入新手机号')}
@@ -243,41 +238,47 @@ export default function Phone() {
                   onInput={(e) => setNewPhone(e.detail.value)}
                 />
               </View>
-              <View>
-                <Text className="block text-[28rpx] font-semibold text-foreground mb-[16rpx]">
-                  {tt('user.phone.code', '验证码')}
+            </View>
+            <View className="mb-[32rpx]">
+              <View className="box-border flex h-[100rpx] items-center rounded-[24rpx] border border-[var(--color-border)] bg-muted px-[24rpx]">
+                <Input
+                  className="h-full flex-1 text-[32rpx] text-foreground"
+                  type="number"
+                  maxlength={6}
+                  placeholder={tt('user.phone.codePlaceholder', '请输入验证码')}
+                  value={newCode}
+                  onInput={(e) => setNewCode(e.detail.value)}
+                />
+                <Text
+                  className={`shrink-0 pl-[24rpx] text-[28rpx] ${
+                    newCountdown > 0
+                      ? 'text-muted-foreground'
+                      : 'font-bold text-[var(--color-brand-orange)]'
+                  }`}
+                  onClick={onGetNewCode}
+                >
+                  {newCountdown > 0 ? `${newCountdown}s` : tt('user.phone.getCode', '获取验证码')}
                 </Text>
-                <View className="flex items-center gap-[16rpx]">
-                  <Input
-                    className="flex-1 h-[99rpx] px-[24rpx] text-[36rpx] bg-background rounded-[25rpx] box-border"
-                    type="number"
-                    maxlength={6}
-                    placeholder={tt('user.phone.codePlaceholder', '请输入验证码')}
-                    value={newCode}
-                    onInput={(e) => setNewCode(e.detail.value)}
-                  />
-                  <Text
-                    className={`shrink-0 h-[80rpx] leading-[80rpx] px-[28rpx] text-[26rpx] bg-card border rounded-[12rpx] ${newCountdown > 0 ? 'text-muted-foreground border-border' : 'text-primary border-primary'}`}
-                    onClick={onGetNewCode}
-                  >
-                    {newCountdown > 0 ? `${newCountdown}s` : tt('user.phone.getCode', '获取验证码')}
-                  </Text>
-                </View>
               </View>
             </View>
             <View
-              className={`h-[100rpx] flex items-center justify-center bg-primary text-primary-foreground text-[30rpx] rounded-[30rpx] ${/^1\d{10}$/.test((newPhone || '').trim()) && newCode.trim().length === 6 && !submitting ? '' : 'opacity-50'}`}
+              className={`mt-[16rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-primary ${
+                /^1\d{10}$/.test((newPhone || '').trim()) && newCode.trim().length === 6 && !submitting
+                  ? ''
+                  : 'opacity-60'
+              }`}
+              hoverClass="opacity-60"
               onClick={onSubmit}
             >
-              <Text>
+              <Text className="text-[32rpx] font-bold text-[var(--color-surface-light)]">
                 {submitting ? tt('user.phone.binding', '绑定中…') : tt('user.phone.bind', '绑定')}
               </Text>
             </View>
-            <View className="mt-[24rpx] bg-muted rounded-[16rpx] p-[28rpx]">
-              <Text className="block text-[28rpx] font-semibold text-primary mb-[12rpx]">
+            <View className="mt-[24rpx] rounded-[24rpx] bg-muted p-[24rpx]">
+              <Text className="mb-[12rpx] block text-[28rpx] font-semibold text-[var(--color-brand-orange)]">
                 {tt('user.phone.noticeTitle', '【更换后影响】')}
               </Text>
-              <Text className="block text-[26rpx] text-foreground leading-[1.6]">
+              <Text className="block text-[28rpx] leading-[1.6] text-foreground">
                 {tt(
                   'user.phone.noticeDesc',
                   '更换成功后,登录、找回密码、消息通知等将使用新手机号;旧手机号将无法再用于本账号登录,请确认后再操作。',

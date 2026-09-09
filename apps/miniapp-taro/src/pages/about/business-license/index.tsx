@@ -47,8 +47,8 @@ export default function BusinessLicense() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background pb-[48rpx]">
-        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden p-[24rpx] box-border">
+      <View className="min-h-screen bg-muted px-[24rpx] pt-[24rpx] pb-[48rpx]">
+        <View className="bg-card rounded-[24rpx] overflow-hidden p-[24rpx] box-border mb-[24rpx]">
           {!imgError ? (
             <Image
               className="w-full block rounded-[8rpx]"
@@ -59,9 +59,9 @@ export default function BusinessLicense() {
             />
           ) : (
             <View
-              className="flex items-center justify-center h-[400rpx] bg-muted rounded-[8rpx]"
+              className="flex items-center justify-center h-[520rpx] bg-muted rounded-[8rpx]"
               onClick={previewLicense}
-            >
+              hoverClass="opacity-60">
               <Text className="text-[28rpx] text-muted-foreground">
                 {tt('about.businessLicense.tapToView', '点击查看营业执照')}
               </Text>
@@ -69,7 +69,7 @@ export default function BusinessLicense() {
           )}
         </View>
 
-        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+        <View className="bg-card rounded-[24rpx] overflow-hidden mb-[24rpx]">
           {info.map((item, idx) => (
             <View
               key={item.label}
@@ -83,15 +83,15 @@ export default function BusinessLicense() {
           ))}
         </View>
 
-        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden p-[32rpx]">
+        <View className="bg-card rounded-[24rpx] overflow-hidden p-[28rpx] mb-[24rpx]">
           <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">
             {tt('about.businessLicense.scopeTitle', '经营范围')}
           </Text>
-          <Text className="text-[26rpx] text-muted-foreground leading-[1.8]">{SCOPE}</Text>
+          <Text className="text-[28rpx] text-muted-foreground leading-[44rpx]">{SCOPE}</Text>
         </View>
 
         <View className="py-[24rpx] px-[32rpx]">
-          <Text className="text-[22rpx] text-muted-foreground leading-[1.7]">
+          <Text className="text-[22rpx] text-[var(--color-text-tertiary)] leading-[40rpx]">
             {tt('about.businessLicense.footer', '以上信息仅供参考,以工商登记为准')}
           </Text>
         </View>

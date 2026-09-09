@@ -118,25 +118,33 @@ export default function VipDetailsPage() {
 
   return (
     <View className="min-h-screen bg-background pb-[140rpx]">
-      <View className="pt-[56rpx] pr-[40rpx] pb-[40rpx] pl-[40rpx] bg-warning/10 text-foreground">
-        <View className="flex items-center mb-[20rpx]" onClick={() => Taro.navigateBack()}>
-          <Text className="text-[40rpx] text-foreground leading-none mr-[8rpx]">‹</Text>
-          <Text className="text-[28rpx] text-foreground">{tt('common.back', '返回')}</Text>
+      {/* 顶部标题区(对齐 RN VipCompareScreen header:px20/py24,back 32 medium,title 40 bold) */}
+      <View className="pt-[24rpx] px-[20rpx] pb-[24rpx]">
+        <View className="flex items-center mb-[16rpx]" hoverClass="opacity-60" onClick={() => Taro.navigateBack()}>
+          <Text className="text-[32rpx] text-[var(--color-text-medium)] leading-none mr-[24rpx]">
+            ‹
+          </Text>
+          <Text className="text-[32rpx] text-[var(--color-text-medium)]">
+            {tt('common.back', '返回')}
+          </Text>
         </View>
-        <Text className="block text-[44rpx] font-bold">{t('vip.details.title')}</Text>
-        <Text className="block text-[26rpx] mt-[12rpx] opacity-90">
+        <Text className="block text-[40rpx] font-bold text-foreground">{t('vip.details.title')}</Text>
+        <Text className="block text-[28rpx] mt-[16rpx] text-muted-foreground">
           {t('vip.upgrade.bannerDesc')}
         </Text>
       </View>
 
-      <View className="m-[24rpx]">
-        <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
+      <View className="mx-[20rpx]">
+        <Text className="block text-[32rpx] font-bold text-foreground mb-[16rpx]">
           {tt('vip.details.benefitsTitle', '权益详情')}
         </Text>
-        <View className="flex flex-col gap-[16rpx]">
+        <View className="flex flex-col gap-[24rpx]">
           {BENEFIT_DETAILS.map((b) => (
-            <View key={b.title} className="flex items-start bg-card rounded-[16rpx] p-[24rpx]">
-              <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] bg-warning/10 flex items-center justify-center mr-[20rpx] shrink-0">
+            <View
+              key={b.title}
+              className="flex items-start bg-card border-[2rpx] border-border rounded-[24rpx] p-[28rpx]"
+            >
+              <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] bg-[var(--color-gold-muted)] flex items-center justify-center mr-[24rpx] shrink-0">
                 <LineIcon
                   name={b.icon as IconName}
                   size={36}
@@ -144,8 +152,8 @@ export default function VipDetailsPage() {
                 />
               </View>
               <View className="flex-1 flex flex-col">
-                <Text className="text-[28rpx] font-semibold text-foreground">{b.title}</Text>
-                <Text className="mt-[8rpx] text-[24rpx] text-muted-foreground leading-[1.5]">
+                <Text className="text-[32rpx] font-bold text-foreground">{b.title}</Text>
+                <Text className="mt-[16rpx] text-[28rpx] text-muted-foreground leading-[36rpx]">
                   {b.desc}
                 </Text>
               </View>
@@ -156,7 +164,7 @@ export default function VipDetailsPage() {
 
       {/* 套餐选择(对标原项目月度/年度卡片) */}
       <View className="m-[24rpx]">
-        <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
+        <Text className="block text-[32rpx] font-bold text-foreground mb-[16rpx]">
           {t('vip.plans')}
         </Text>
         <View className="flex gap-[20rpx]">
@@ -166,11 +174,12 @@ export default function VipDetailsPage() {
               <ThemeRoot key={p.type}>
                 <View
                   key={p.type}
-                  className={`flex-1 relative bg-card border-[2rpx] rounded-[16rpx] py-[28rpx] px-[24rpx] ${active ? (p.type === 'yearly' ? 'border-warning bg-warning/10' : 'border-warning bg-warning/[0.06]') : 'border-border'}`}
+                  className={`flex-1 relative bg-card border-[2rpx] rounded-[24rpx] py-[28rpx] px-[24rpx] ${active ? 'border-warning bg-[var(--color-warning-tint)]' : 'border-border'}`}
+                  hoverClass="opacity-60"
                   onClick={() => selectPlan(p.type)}
                 >
                   {p.type === 'yearly' ? (
-                    <Text className="absolute top-[-2rpx] right-[-2rpx] bg-warning text-foreground text-[20rpx] py-[4rpx] px-[12rpx] rounded-tr-[14rpx] rounded-bl-[12rpx]">
+                    <Text className="absolute top-[-2rpx] right-[-2rpx] bg-warning text-[var(--color-black-85)] text-[20rpx] py-[4rpx] px-[12rpx] rounded-tr-[22rpx] rounded-bl-[12rpx]">
                       {t('developer.subscribe.recommended')}
                     </Text>
                   ) : null}
@@ -178,16 +187,16 @@ export default function VipDetailsPage() {
                     <Text className="text-[30rpx] font-bold text-foreground">
                       {planName(p.type)}
                     </Text>
-                    <Text className="text-[22rpx] text-muted-foreground mt-[6rpx]">
+                    <Text className="text-[24rpx] text-muted-foreground mt-[6rpx]">
                       {p.days}
                       {t('page.vip.dayUnit')}
                     </Text>
                   </View>
                   <View className="flex items-start mb-[20rpx]">
-                    <Text className="text-[26rpx] text-warning font-bold leading-none mt-[8rpx]">
+                    <Text className="text-[26rpx] text-[var(--color-danger)] font-semibold leading-none mt-[8rpx]">
                       ¥
                     </Text>
-                    <Text className="text-[52rpx] text-warning font-bold leading-none ml-[4rpx]">
+                    <Text className="text-[40rpx] text-[var(--color-danger)] font-semibold leading-none ml-[4rpx]">
                       {p.price}
                     </Text>
                   </View>
@@ -213,31 +222,31 @@ export default function VipDetailsPage() {
         </View>
       </View>
 
-      {/* 权益对比表 */}
-      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden border-[2rpx] border-border">
-        <View className="flex items-stretch bg-warning/[0.12]">
-          <Text className="flex-[1.4] py-[24rpx] px-[16rpx] text-left text-foreground font-medium text-[28rpx] font-bold">
+      {/* 权益对比表(对齐 RN VipCompareScreen table:m32/border2/r24,表头与隔行 muted,cell 22) */}
+      <View className="m-[32rpx] border-[2rpx] border-border rounded-[24rpx] overflow-hidden">
+        <View className="flex items-stretch bg-muted">
+          <Text className="flex-[1.2] py-[20rpx] px-[20rpx] text-left text-foreground font-semibold text-[22rpx]">
             {t('vip.details.feature')}
           </Text>
-          <Text className="flex-1 py-[24rpx] px-[16rpx] text-center text-muted-foreground text-[28rpx] font-bold">
+          <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[22rpx]">
             {t('vip.details.normal')}
           </Text>
-          <Text className="flex-1 py-[24rpx] px-[16rpx] text-center text-warning font-semibold bg-warning/[0.08] text-[28rpx] font-bold">
+          <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[22rpx]">
             {t('vip.details.vipColumn')}
           </Text>
         </View>
         {BENEFITS.map((b, i) => (
           <View
             key={b.label}
-            className={`flex items-stretch ${i % 2 === 0 ? 'bg-background' : ''}`}
+            className={`flex items-stretch ${i % 2 === 1 ? 'bg-muted' : ''}`}
           >
-            <Text className="flex-[1.4] py-[24rpx] px-[16rpx] text-left text-foreground font-medium text-[26rpx]">
+            <Text className="flex-[1.2] py-[20rpx] px-[20rpx] text-left text-foreground font-semibold text-[22rpx]">
               {b.label}
             </Text>
-            <Text className="flex-1 py-[24rpx] px-[16rpx] text-center text-muted-foreground text-[26rpx]">
+            <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[22rpx]">
               {b.normal}
             </Text>
-            <Text className="flex-1 py-[24rpx] px-[16rpx] text-center text-warning font-semibold bg-warning/[0.08] text-[26rpx]">
+            <Text className="flex-1 py-[20rpx] px-[20rpx] text-center text-muted-foreground text-[22rpx]">
               {b.vip}
             </Text>
           </View>
@@ -245,7 +254,7 @@ export default function VipDetailsPage() {
       </View>
 
       <Button
-        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-[16rpx] text-[32rpx] font-semibold"
+        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-primary text-primary-foreground rounded-[24rpx] text-[32rpx] font-semibold"
         onClick={goUpgrade}
       >
         {t('vip.details.upgrade')}

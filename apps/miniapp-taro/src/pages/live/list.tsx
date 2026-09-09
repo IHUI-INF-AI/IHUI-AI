@@ -112,7 +112,7 @@ export default function LiveList() {
           <View
             className="flex-1 bg-primary rounded-xl py-2.5 flex items-center justify-center"
             onClick={() => Taro.navigateTo({ url: '/pages/live/host/index' })}
-          >
+            hoverClass="opacity-60">
             <Text className="text-sm text-primary-foreground">
               {tt('live.startLiveBtn', '📺 我要开播')}
             </Text>
@@ -120,13 +120,13 @@ export default function LiveList() {
           <View
             className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
             onClick={() => Taro.navigateTo({ url: '/pages/live/calendar' })}
-          >
+            hoverClass="opacity-60">
             <Text className="text-sm text-foreground">{tt('live.calendarBtn', '📅 日历')}</Text>
           </View>
           <View
             className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
             onClick={() => Taro.navigateTo({ url: '/pages/live/subscribe' })}
-          >
+            hoverClass="opacity-60">
             <Text className="text-sm text-foreground">
               {tt('live.mySubscriptionBtn', '🔔 我的订阅')}
             </Text>
@@ -138,7 +138,7 @@ export default function LiveList() {
               key={tab.key}
               className={`flex-1 text-center py-2.5 text-sm ${status === tab.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
               onClick={() => switchStatus(tab.key)}
-            >
+              hoverClass="opacity-60">
               <Text>{t(tab.labelKey)}</Text>
             </View>
           ))}
@@ -151,7 +151,7 @@ export default function LiveList() {
                 key={item.id}
                 className="rounded-[12rpx] border border-[var(--color-border)] p-[28rpx] mb-[24rpx]"
                 onClick={() => goDetail(item.id)}
-              >
+                hoverClass="opacity-60">
                 {/* 对齐 RN titleRow:标题(flex1, numberOfLines 1)+ 状态徽章 */}
                 <View className="flex items-center justify-between gap-[16rpx]">
                   <Text className="flex-1 text-ellipsis text-[32rpx] font-semibold text-foreground">

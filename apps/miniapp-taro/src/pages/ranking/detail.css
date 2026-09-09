@@ -4,7 +4,7 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
-/* 排行榜详情页(遵守 AGENTS.md §4:无 rounded-full/无 hr/无单边 border 分割线/无渐变遮罩) */
+
 .detail-page {
   min-height: 100vh;
   background: var(--color-background);
@@ -12,14 +12,15 @@
   flex-direction: column;
 }
 
-/* 导航栏(对标原项目 NavBar:title=detailData.title/name/"详情页", showMenu, showFenLei, backPage) */
+/* 导航栏(平台自有;白底 + 底部 hairline) */
 .detail-nav {
   display: flex;
+  flex-direction: row;
   align-items: center;
   height: 88rpx;
   padding: 0 24rpx;
   background: var(--color-card);
-  border: 1px solid var(--color-border);
+  border-bottom: 1rpx solid var(--color-border);
   flex-shrink: 0;
 }
 
@@ -52,6 +53,7 @@
 
 .detail-nav-actions {
   display: flex;
+  flex-direction: row;
   gap: 12rpx;
 }
 
@@ -62,20 +64,19 @@
   height: 56rpx;
   padding: 0 20rpx;
   background: var(--color-background);
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
 }
 
 .detail-nav-btn text {
   font-size: 24rpx;
-  color: var(--color-primary);
+  color: var(--color-muted-foreground);
 }
 
-/* 滚动内容区 */
+/* 滚动内容区(RN scrollContent padding 14dp) */
 .detail-body {
   flex: 1;
   height: 0;
-  padding: 24rpx;
+  padding: 28rpx;
   box-sizing: border-box;
 }
 
@@ -87,60 +88,87 @@
   padding: 80rpx 0;
 }
 
-/* row-1:Logo + 标题简介 + 元信息(机构/关注度) */
+/* ===== RN 单卡片(surface.light→card,radius 12dp,padding 14dp,gap 12dp) ===== */
+.detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  background: var(--color-card);
+  border-radius: 24rpx;
+  padding: 28rpx;
+}
+
+/* row-1:Logo + 标题简介 + 元信息(RN row1: row/center/gap12) */
 .head-card {
   display: flex;
-  align-items: flex-start;
-  padding: 32rpx;
-  margin-bottom: 24rpx;
+  flex-direction: row;
+  align-items: center;
+  gap: 24rpx;
 }
 
 .logo {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: var(--radius-md);
-  background: var(--color-background);
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 24rpx;
+  background: var(--color-muted);
   flex-shrink: 0;
+}
+
+.logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-text {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
 }
 
 .head-info {
   flex: 1;
-  margin-left: 24rpx;
-  overflow: hidden;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
 }
 
 .title {
   display: block;
   font-size: 36rpx;
   font-weight: 700;
-  line-height: 1.4;
+  color: var(--color-foreground);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .desc {
   display: block;
-  margin-top: 12rpx;
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--color-muted-foreground);
-  line-height: 1.5;
+  line-height: 36rpx;
 }
 
 .head-meta {
   display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
   gap: 8rpx 24rpx;
-  margin-top: 16rpx;
 }
 
 .head-meta-item {
   font-size: 22rpx;
-  color: var(--color-accent);
+  color: var(--color-text-tertiary);
 }
 
-/* row-2:4 列等宽信息(关注度/类别/价格/状态) */
+/* row-2:4 列等宽指标(RN metric: muted 底 radius12 py10 居中 gap4) */
 .info-row {
   display: flex;
-  gap: 12rpx;
-  margin-bottom: 24rpx;
+  flex-direction: row;
+  gap: 16rpx;
 }
 
 .info-cell {
@@ -148,37 +176,40 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24rpx 8rpx;
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  justify-content: center;
+  gap: 8rpx;
+  padding: 20rpx 8rpx;
+  background: var(--color-muted);
+  border-radius: 24rpx;
 }
 
 .info-label {
   font-size: 22rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
 }
 
 .info-value {
-  margin-top: 8rpx;
   font-size: 28rpx;
   font-weight: 600;
   color: var(--color-foreground);
   text-align: center;
   word-break: break-all;
+  line-height: 1.3;
 }
 
-/* row-common:细分类别/产品形式/所属机构/官方网址(用 gap 间距分隔,不用单边 border 分割线) */
+/* 字段盒(RN contextBox: muted 底 radius8 padding12) */
 .field-card {
   display: flex;
   flex-direction: column;
   gap: 24rpx;
-  padding: 24rpx 32rpx;
-  margin-bottom: 24rpx;
+  padding: 24rpx;
+  background: var(--color-muted);
+  border-radius: 16rpx;
 }
 
 .field-item {
   display: flex;
+  flex-direction: row;
   justify-content: space-between;
   align-items: center;
   gap: 24rpx;
@@ -186,13 +217,13 @@
 
 .field-label {
   font-size: 28rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-text-medium);
   flex-shrink: 0;
 }
 
 .field-value {
   font-size: 28rpx;
-  color: var(--color-foreground);
+  color: var(--color-text-medium);
   text-align: right;
   word-break: break-all;
   flex: 1;
@@ -206,38 +237,43 @@
   display: block;
   text-align: right;
   font-size: 22rpx;
-  color: var(--color-accent);
+  color: var(--color-text-tertiary);
 }
 
-/* 图片 */
+/* 图片(白卡之外,独立圆角) */
 .img-card {
-  padding: 24rpx;
-  margin-bottom: 24rpx;
+  margin-top: 24rpx;
+  border-radius: 24rpx;
+  overflow: hidden;
 }
 
 .cover {
   width: 100%;
-  border-radius: var(--radius-sm);
+  display: block;
 }
 
-/* 详细介绍 */
+/* 详细介绍(RN contextBox 形态) */
 .content-card {
-  padding: 32rpx;
-  margin-bottom: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  padding: 24rpx;
+  background: var(--color-muted);
+  border-radius: 16rpx;
 }
 
 .content-title {
   display: block;
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 600;
-  margin-bottom: 20rpx;
+  color: var(--color-text-medium);
 }
 
 .content-text {
   display: block;
   font-size: 28rpx;
-  color: var(--color-foreground);
-  line-height: 1.8;
+  color: var(--color-text-medium);
+  line-height: 40rpx;
 }
 
 .detail-bottom-spacer {
@@ -267,12 +303,9 @@
 }
 
 .drawer-item {
-  padding: 24rpx 0;
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
+  padding: 24rpx;
+  background: var(--color-background);
   border-radius: var(--radius-sm);
-  padding-left: 24rpx;
-  padding-right: 24rpx;
   margin-bottom: 12rpx;
 }
 
@@ -293,4 +326,3 @@
   font-size: 28rpx;
   color: var(--color-muted-foreground);
 }
-/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
