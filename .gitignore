@@ -412,3 +412,6 @@ outputs/
 # 密钥备份(2026-09-08):.env 手工备份一律不入库
 .env.bak-*
 **/.env.bak-*
+
+# 构建产物不入库(2026-09-09 仓库瘦身):extension 下载包由 prebuild 经 sync-downloads.mjs 打包生成
+apps/web/public/downloads/extension/*.zip
