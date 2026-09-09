@@ -22,6 +22,18 @@ if _PKG not in sys.path:
 
 from app.tools import web_crawl_tools as wc  # noqa: E402
 
+
+@pytest.fixture(autouse=True)
+def _no_js_render(monkeypatch):
+    """单元测试默认不触发真实 headless chromium 渲染兜底(_try_js_render→None)。
+
+    这些 HTML fixture 正文很短, 若不钉死 _try_js_render, _fetch_with_js_fallback
+    会真的拉起 playwright/chromium(联网/慢/不可控)。个别用例需单独 override 该桩。
+    """
+    async def _null(url):  # noqa: ANN001
+        return None
+    monkeypatch.setattr(wc, "_try_js_render", _null)
+
 # ---- 常用 HTML fixture ----
 
 SIMPLE_HTML = """<html><head><title>测试标题</title></head><body>
@@ -322,6 +334,51 @@ class TestExtractViaLLM:
         assert r["ok"] is True
         assert r["source"] == "llm"
         assert r["fields"]["价格"] == 199
+
+
+# ============================================================================
+# JS 渲染兜底(2026-09-09 极致补齐:SPA 空壳 → headless chromium 渲染)
+# ============================================================================
+
+class TestJsRenderFallback:
+    """_fetch_with_js_fallback: httpx 抓到空壳/短正文时, _try_js_render 渲染兜底。
+
+    autouse fixture 默认把 _try_js_render 钉成 None(不触网), 本类再单独 override
+    成返回渲染后 HTML, 验证兜底接管。
+    """
+
+    async def test_fetch_readable_uses_rendered_html(self, monkeypatch):
+        # httpx 只能抓到 SPA 空壳(正文极短), JS 渲染后才有真实内容
+        shell = "<html><head><title>壳</title></head><body></body></html>"
+        rendered_html = "<html><head><title>真实页</title></head><body><article><h1>JS渲染正文</h1><p>这是渲染后才出现的内容。</p></article></body></html>"
+        monkeypatch.setattr(wc, "_http_get_html", _fake_fetch({"https://spa.com/": shell}))
+        monkeypatch.setattr(wc, "_validate_ssrf", lambda u: None)
+
+        async def _fake_render(url):
+            assert url == "https://spa.com/"
+            return {"html": rendered_html, "final_url": url, "status_code": 200}
+        monkeypatch.setattr(wc, "_try_js_render", _fake_render)
+
+        r = await wc.fetch_readable({"url": "https://spa.com/"})
+        assert r["ok"] is True
+        assert r["rendered"] is True
+        assert "JS渲染正文" in r["content"]
+        assert "渲染后才出现" in r["content"]
+
+    async def test_no_render_when_http_content_is_rich(self, monkeypatch):
+        # 正文足够 → 不走渲染兜底, rendered=False
+        rich = "<html><body><article>{}</article></body></html>".format("<p>正常正文。</p>" * 60)
+        monkeypatch.setattr(wc, "_http_get_html", _fake_fetch({"https://x.com/": rich}))
+        monkeypatch.setattr(wc, "_validate_ssrf", lambda u: None)
+        r = await wc.fetch_readable({"url": "https://x.com/"})
+        assert r["ok"] is True
+        assert r["rendered"] is False
+
+    def test_html_text_length_strips_noise(self):
+        # 只有噪声(script/style)无正文 → 0; 有真实正文 → 非 0
+        assert wc._html_text_length("<html><body><script>var a=1</script><style>.x{}</style></body></html>") == 0
+        html = "<html><body><article>真实内容</article></body></html>"
+        assert wc._html_text_length(html) >= 4
 
 
 # ============================================================================

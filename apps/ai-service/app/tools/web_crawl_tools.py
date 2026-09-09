@@ -46,6 +46,8 @@ _HTTP_TIMEOUT = 15.0
 _MAX_DEPTH = 3
 _MAX_PAGES = 50
 _CRAWL_CONCURRENCY = 3
+# 正文文字数低于该阈值 → 判定疑似 JS 渲染空壳, 触发 headless chromium 渲染兜底
+_JS_RENDER_THRESHOLD = 150
 _DEFAULT_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -370,6 +372,67 @@ def _extract_links(html: str, base_url: str, same_domain_only: bool = True) -> L
     return [{"url": u, "text": t} for u, t in links.items()]
 
 
+def _html_text_length(html: str) -> int:
+    """统计 HTML 的可读正文文字数(剥 script/style/noscript/svg/head 后去空白)。"""
+    if not html:
+        return 0
+    if not _BS4_OK:
+        return len([c for c in html if not c.isspace()])
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        for tag in soup(["script", "style", "noscript", "svg", "head", "template"]):
+            tag.decompose()
+        return len(re.sub(r"\s+", "", soup.get_text(" ") or ""))
+    except Exception:  # noqa: BLE001
+        return len([c for c in html if not c.isspace()])
+
+
+async def _try_js_render(url: str) -> Optional[Dict[str, Any]]:
+    """JS 渲染兜底:用平台单例 headless Chromium 渲染,取执行 JS 后的 DOM。
+
+    交互传统抓取工具的"SPA 空壳"短板。异常/非页面一律返回 None(上层继续走原路)。
+    """
+    if not _is_http_html(url):
+        return None
+    try:
+        from ..services.screenshot_service import render_to_html
+
+        r = await render_to_html(url, timeout=15000)
+        html = (r or {}).get("html") or ""
+        if not html or _html_text_length(html) == 0:
+            return None
+        return {
+            "html": html,
+            "final_url": (r or {}).get("final_url") or url,
+            "status_code": (r or {}).get("status_code") or 200,
+        }
+    except Exception:  # noqa: BLE001 - 渲染失败/超时/未装 chromium 一律降级
+        return None
+
+
+async def _fetch_with_js_fallback(url: str) -> Optional[Dict[str, Any]]:
+    """HTTP 优先, 渲染兜底:httpx 抓到正文过短(疑似 JS 空壳)或抓取失败 → chromium 渲染。
+
+    返回 {url, final_url, status_code, content_type, html, rendered}。
+    """
+    page = await _http_get_html(url)
+    if page is not None and _html_text_length(page["html"]) >= _JS_RENDER_THRESHOLD:
+        page["rendered"] = False
+        return page
+    # 正文过短 或 直接抓取失败 → 尝试 JS 渲染兜底
+    rendered = await _try_js_render(url)
+    if rendered is None:
+        return page  # 兜底无效, 保留原始结果(可能是 None/短正文)
+    return {
+        "url": url,
+        "final_url": rendered["final_url"],
+        "status_code": rendered["status_code"],
+        "content_type": "text/html",
+        "html": rendered["html"],
+        "rendered": True,
+    }
+
+
 # ============================================================================
 # fetch_readable — 对标 Scrape → clean markdown
 # ============================================================================
@@ -396,9 +459,11 @@ async def fetch_readable(arguments: Dict[str, Any]) -> Dict[str, Any]:
     if not _HTTPX_OK:
         return _fail("fetch_readable", "httpx 未安装, 无法抓取网页", "DEP_MISSING")
 
-    page = await _http_get_html(url)
+    page = await _fetch_with_js_fallback(url)
     if page is None:
         return _fail("fetch_readable", "抓取失败或目标非 HTML 页面", "FETCH_FAILED")
+
+    rendered = bool(page.get("rendered"))
 
     try:
         title = _extract_title(page["html"])
@@ -422,7 +487,10 @@ async def fetch_readable(arguments: Dict[str, Any]) -> Dict[str, Any]:
         "content_type": page["content_type"],
         "chars": len(content),
         "truncated": truncated,
-        "message": "正文提取成功({} 字符)".format(len(content)),
+        "rendered": rendered,
+        "message": "正文提取成功({} 字符{})".format(
+            len(content), ", 经 JS 渲染" if rendered else ""
+        ),
     }
 
 
@@ -446,9 +514,11 @@ async def map_site(arguments: Dict[str, Any]) -> Dict[str, Any]:
     if not _HTTPX_OK:
         return _fail("map_site", "httpx 未安装, 无法抓取网页", "DEP_MISSING")
 
-    page = await _http_get_html(url)
+    page = await _fetch_with_js_fallback(url)
     if page is None:
         return _fail("map_site", "抓取失败或目标非 HTML 页面", "FETCH_FAILED")
+
+    rendered = bool(page.get("rendered"))
 
     try:
         links = _extract_links(page["html"], page["final_url"], same_domain_only)
@@ -467,6 +537,7 @@ async def map_site(arguments: Dict[str, Any]) -> Dict[str, Any]:
         "title": _extract_title(page["html"]),
         "link_count": len(links),
         "links": links,
+        "rendered": rendered,
         "message": "提取到 {} 条链接".format(len(links)) if links else "未提取到链接",
     }
 
@@ -478,7 +549,7 @@ async def map_site(arguments: Dict[str, Any]) -> Dict[str, Any]:
 async def _fetch_page_limited(url: str, sem: Any) -> Optional[Dict[str, Any]]:
     """带信号量限并发的单页抓取。"""
     async with sem:
-        return await _http_get_html(url)
+        return await _fetch_with_js_fallback(url)
 
 
 def _url_key(url: str) -> str:
@@ -548,6 +619,7 @@ async def crawl_site(arguments: Dict[str, Any]) -> Dict[str, Any]:
             "title": title,
             "depth": depth,
             "status": page["status_code"],
+            "rendered": bool(page.get("rendered")),
             "chars": len(markdown),
             "markdown": markdown,
         })
