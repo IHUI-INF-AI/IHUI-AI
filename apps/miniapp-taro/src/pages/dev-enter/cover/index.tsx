@@ -204,15 +204,15 @@ export default function DevEnterCover() {
           ) : null}
         </View>
 
-        {/* 3 个功能入口 */}
+        {/* 3 个功能入口(RN devList 用 CDN PNG 图标;小程序按项目约束用 LineIcon 线性图标 + token 着色) */}
         <View className="dc-entry-list">
           <View className="dc-entry-item" onClick={toMyModel}>
             <View className="dc-entry-icon">
               <LineIcon
                 className="dc-entry-emoji"
                 name="bot"
-                size={44}
-                color="var(--color-muted-foreground)"
+                size={56}
+                color="var(--color-foreground)"
               />
             </View>
             <Text className="dc-entry-text">{tt('devEnter.cover.myAgents', '我的智能体')}</Text>
@@ -222,8 +222,8 @@ export default function DevEnterCover() {
               <LineIcon
                 className="dc-entry-emoji"
                 name="wallet"
-                size={44}
-                color="var(--color-muted-foreground)"
+                size={56}
+                color="var(--color-foreground)"
               />
             </View>
             <Text className="dc-entry-text">{tt('devEnter.cover.agentIncome', '智能体收入')}</Text>
@@ -233,49 +233,53 @@ export default function DevEnterCover() {
               <LineIcon
                 className="dc-entry-emoji"
                 name="zap"
-                size={44}
-                color="var(--color-muted-foreground)"
+                size={56}
+                color="var(--color-foreground)"
               />
             </View>
             <Text className="dc-entry-text">{tt('devEnter.cover.n8nAgents', 'n8n智能体')}</Text>
           </View>
         </View>
 
-        {/* 开发者账号信息卡(仅 developer && !expire) */}
+        {/* 开发者账号信息卡(仅 developer && !expire;对齐 RN DeveloperScreen infoCard:
+            标题 + label 定宽 152rpx + value 单行截断 + 行尾操作 */}
         {showAccount && developer ? (
           <View className="dc-account-card">
+            <Text className="dc-account-title">{tt('devEnter.cover.infoTitle', '开发者信息')}</Text>
             <View className="dc-account-row">
-              <Text className="dc-account-label">
-                {tt('devEnter.cover.account', '账号')}：{developer.signNickname || '-'}
-              </Text>
+              <Text className="dc-account-label">{tt('devEnter.cover.account', '账号')}</Text>
+              <Text className="dc-account-value">{developer.signNickname || '-'}</Text>
               <Text className="dc-copy-btn" onClick={() => copyText(developer.signNickname || '')}>
                 {tt('devEnter.cover.copy', '复制')}
               </Text>
             </View>
             <View className="dc-account-row">
-              <Text className="dc-account-label">
-                {tt('devEnter.cover.password', '密码')}：{developer.signPassword || '-'}
-              </Text>
+              <Text className="dc-account-label">{tt('devEnter.cover.password', '密码')}</Text>
+              <Text className="dc-account-value">{developer.signPassword || '-'}</Text>
               <Text className="dc-copy-btn" onClick={() => copyText(developer.signPassword || '')}>
                 {tt('devEnter.cover.copy', '复制')}
               </Text>
             </View>
             <View className="dc-account-row">
-              <Text className="dc-account-label">
-                {tt('devEnter.cover.website', '网址')}：
+              <Text className="dc-account-label">{tt('devEnter.cover.website', '网址')}</Text>
+              <Text className="dc-account-value">
                 {developer.address || tt('devEnter.cover.noWebsite', '无')}
               </Text>
               <Text className="dc-copy-btn" onClick={() => copyText(developer.address || '')}>
                 {tt('devEnter.cover.copy', '复制')}
               </Text>
             </View>
+            {/* RN 到期时间行: label/value 同为 danger.bright,行尾「续费」纯文字 */}
             <View className="dc-account-row">
               <Text className="dc-account-label dc-expire-text">
-                {tt('devEnter.cover.expireTime', '到期时间')}：{devLink?.expiresAtStr || '-'}
+                {tt('devEnter.cover.expireTime', '到期时间')}
               </Text>
-              <View className="dc-renew-btn" onClick={renew}>
-                <Text>{tt('devEnter.cover.renew', '续费')}</Text>
-              </View>
+              <Text className="dc-account-value dc-expire-text">
+                {devLink?.expiresAtStr || '-'}
+              </Text>
+              <Text className="dc-renew-btn" onClick={renew}>
+                {tt('devEnter.cover.renew', '续费')}
+              </Text>
             </View>
           </View>
         ) : null}

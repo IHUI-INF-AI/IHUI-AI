@@ -116,6 +116,27 @@ function loadLoginHistory(): string[] {
   }
 }
 
+/** 删除单条账号历史,返回删除后的列表(供历史下拉 X 删除) */
+function removeFromLoginHistory(account: string): string[] {
+  const next = loadLoginHistory().filter((a) => a !== account)
+  try {
+    setStorageSync(HISTORY_KEY, JSON.stringify(next))
+  } catch {
+    // 静默失败
+  }
+  return next
+}
+
+/** 清空全部账号历史,返回空列表(供历史下拉"清空全部") */
+function clearLoginHistory(): string[] {
+  try {
+    removeStorageSync(HISTORY_KEY)
+  } catch {
+    // 静默失败
+  }
+  return []
+}
+
 /* ========== CredentialStorage 接口实现 ========== */
 
 export const credentialStorage: CredentialStorage = {
@@ -127,5 +148,7 @@ export const credentialStorage: CredentialStorage = {
   clearAutoLogin,
   saveLoginHistory,
   loadLoginHistory,
+  removeFromLoginHistory,
+  clearLoginHistory,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

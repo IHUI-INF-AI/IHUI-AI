@@ -223,8 +223,9 @@ export default function ModelPlazaIndex() {
           <Text className="page-title">{t('modelPlaza.title')}</Text>
         </View>
 
-        {/* 厂商分类横向滚动 */}
+        {/* 厂商分类横向滚动(RN providerSection:sectionLabel + 胶囊 tab) */}
         <View className="provider-section">
+          <Text className="section-label">{tt('modelPlaza.selectProviderLabel', '选择厂商')}</Text>
           <ScrollView scrollX scrollWithAnimation showScrollbar={false} className="provider-tabs">
             <View className="provider-tabs-inner">
               {providers.map((p) => (
@@ -233,12 +234,14 @@ export default function ModelPlazaIndex() {
                   className={`provider-tab${providerId === p ? ' active' : ''}`}
                   onClick={() => setProviderId(p)}
                 >
-                  <LineIcon
-                    className="provider-icon"
-                    name={(PROVIDER_ICONS[p] || 'bot') as IconName}
-                    size={40}
-                    color={providerId === p ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
-                  />
+                  <View className="provider-icon-wrap">
+                    <LineIcon
+                      className="provider-icon"
+                      name={(PROVIDER_ICONS[p] || 'bot') as IconName}
+                      size={20}
+                      color="var(--color-muted-foreground)"
+                    />
+                  </View>
                   <Text className="provider-name">{p}</Text>
                 </View>
               ))}
@@ -305,16 +308,13 @@ export default function ModelPlazaIndex() {
                   )}
                 </View>
                 {m.desc ? <Text className="card-desc">{m.desc}</Text> : null}
-                {m.tags.length > 0 ? (
-                  <View className="card-tags">
-                    {m.tags.map((tag, i) => (
-                      <Text key={i} className="tag-item">
-                        {tag}
-                      </Text>
-                    ))}
-                  </View>
-                ) : null}
-                <View className="card-footer">
+                {/* 标签行(RN cardTagRow:标签 + 右对齐 payMode) */}
+                <View className="card-tag-row">
+                  {m.tags.map((tag, i) => (
+                    <Text key={i} className="tag-item">
+                      {tag}
+                    </Text>
+                  ))}
                   <Text className="pay-mode">{m.payMode}</Text>
                 </View>
               </View>
