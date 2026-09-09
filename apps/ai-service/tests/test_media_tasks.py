@@ -285,6 +285,109 @@ async def test_rest_media_task_cancel_unconfigured(monkeypatch):
     upd.assert_awaited_once()
 
 
+# ---------------------------------------------------------------------------
+# 删除/清理(2026-09-09 F1):单条删除 + 批量清理(只删终态,在途保留)
+# ---------------------------------------------------------------------------
+
+
+async def test_delete_media_task_empty_id():
+    """删除:task_id 空 → False(不碰 DB)。"""
+    with patch("app.services.media_tasks.get_db_conn", new_callable=AsyncMock) as mock_conn:
+        ok = await mt.delete_media_task("")
+    assert ok is False
+    mock_conn.assert_not_called()
+
+
+async def test_delete_media_task_ok():
+    """删除:命中行返回 True。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetchrow = AsyncMock(return_value={"id": 7})
+    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
+        ok = await mt.delete_media_task("t-del")
+    assert ok is True
+    sql = mock_conn.fetchrow.call_args.args[0]
+    assert "DELETE FROM media_tasks" in sql and "task_id=$1" in sql
+    assert mock_conn.fetchrow.call_args.args[1] == "t-del"
+
+
+async def test_delete_media_task_missing():
+    """删除:无命中行返回 False。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetchrow = AsyncMock(return_value=None)
+    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
+        ok = await mt.delete_media_task("t-none")
+    assert ok is False
+
+
+async def test_clear_media_tasks_only_final():
+    """清理:只删终态行,在途行统计保留。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetchval = AsyncMock(side_effect=[2, 5])  # kept_in_flight=2, deleted=5
+    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
+        result = await mt.clear_media_tasks(kind="video", status="succeeded,failed")
+    assert result == {"deleted": 5, "kept_in_flight": 2}
+    del_sql = mock_conn.fetchval.call_args_list[1].args[0]
+    assert "DELETE FROM media_tasks" in del_sql
+    # 删除条件排除在途:status <> ALL(...)
+    assert "status <> ALL" in del_sql
+    # 过滤条件透传:kind=ANY + status=ANY
+    assert "kind = ANY($1)" in del_sql
+    assert "status = ANY($2)" in del_sql
+    assert mock_conn.fetchval.call_args_list[1].args[1] == ["video"]
+    assert mock_conn.fetchval.call_args_list[1].args[2] == ["succeeded", "failed"]
+
+
+async def test_clear_media_tasks_before_filter():
+    """清理:before 时间截点进 WHERE,无过滤条件时也强制限定终态。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetchval = AsyncMock(side_effect=[0, 3])
+    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
+        result = await mt.clear_media_tasks(before="2026-09-01T00:00:00Z")
+    assert result == {"deleted": 3, "kept_in_flight": 0}
+    del_sql = mock_conn.fetchval.call_args_list[1].args[0]
+    assert "created_at < $1" in del_sql
+    assert "status <> ALL($2)" in del_sql
+    assert "WHERE" in del_sql
+
+
+async def test_rest_media_task_delete(monkeypatch):
+    """REST 单条删除:命中 200,未命中 404。"""
+    app = _make_app()
+    monkeypatch.setattr(
+        "app.routers.media_tasks.delete_media_task",
+        AsyncMock(return_value=True),
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.delete("/api/media/tasks/t-x")
+    assert resp.status_code == 200
+    assert resp.json()["data"]["deleted"] is True
+    monkeypatch.setattr(
+        "app.routers.media_tasks.delete_media_task",
+        AsyncMock(return_value=False),
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.delete("/api/media/tasks/t-x")
+    assert resp.status_code == 404
+
+
+async def test_rest_media_task_clear(monkeypatch):
+    """REST 批量清理:参数透传,返回 deleted/kept_in_flight。"""
+    monkeypatch.setattr(
+        "app.routers.media_tasks.clear_media_tasks",
+        AsyncMock(return_value={"deleted": 3, "kept_in_flight": 1}),
+    )
+    app = _make_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.delete(
+            "/api/media/tasks",
+            params={"kind": "video,image", "status": "failed", "before": "2026-09-01T00:00:00Z"},
+        )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["deleted"] == 3
+    assert body["data"]["kept_in_flight"] == 1
+
+
 async def test_rest_media_upload_missing_params():
     """上传:file 与 url 都缺 → 400。"""
     app = _make_app()
