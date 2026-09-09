@@ -24,6 +24,7 @@ from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
 from ..services.media_tasks import (
+    _STATUS_IN_FLIGHT,
     cancel_media_tasks,
     clear_media_tasks,
     delete_media_task,
@@ -175,7 +176,7 @@ async def media_task_detail(task_id: str) -> dict[str, Any]:
     if row is None:
         raise HTTPException(status_code=404, detail="媒体任务不存在")
     if (
-        row.get("status") in ("processing", "accepted", "submitted")
+        row.get("status") in _STATUS_IN_FLIGHT
         and row.get("task_id")
         and row.get("provider") == "token6688"
     ):
@@ -245,10 +246,20 @@ async def media_task_delete(task_id: str) -> dict[str, Any]:
 
 @router.post("/media/tasks/{task_id}/cancel")
 async def media_task_cancel(task_id: str) -> dict[str, Any]:
-    """取消在途媒体任务:优先调 token6688 取消端点,成功/不支持均如实返回并置 cancelled。"""
+    """取消在途媒体任务:优先调 token6688 取消端点,成功/不支持均如实返回并置 cancelled。
+
+    2026-09-09 收尾修复:只允许取消在途任务(_STATUS_IN_FLIGHT),已终态任务
+    (succeeded/failed/cancelled)返回 409,防止误点把终态任务翻转成 cancelled
+    (与批量取消 cancel_media_tasks 的"只处理在途"语义一致)。
+    """
     row = await get_media_task(task_id)
     if row is None:
         raise HTTPException(status_code=404, detail="媒体任务不存在")
+    if row.get("status") not in _STATUS_IN_FLIGHT:
+        raise HTTPException(
+            status_code=409,
+            detail=f"任务已终态(status={row.get('status')}),无需取消",
+        )
     provider = str(row.get("provider") or "token6688")
     remote_id = str(row.get("task_id") or "").strip()
     cancel_result: dict[str, Any] = {"provider": provider, "task_id": remote_id or task_id}
