@@ -14629,6 +14629,7 @@
     "adminThemePresets": "프리셋",
     "adminWorkflows": "워크플로우",
     "advancedAiTools": "고급 AI 도구",
+    "mediaTasks": "미디어 작업",
     "agentGovernance": "Agent Token 거버넌스",
     "agentWorkbench": "에이전트 워크벤치",
     "agentCanvas": "에이전트 캔버스",
@@ -18634,7 +18635,12 @@
       "copy": "복사",
       "copied": "복사됨",
       "copyFailed": "복사에 실패했습니다. 텍스트를 선택해 수동으로 복사해 주세요",
-      "download": ".md 다운로드"
+      "download": ".md 다운로드",
+      "extractImages": "이미지 추출",
+      "extracting": "추출 중...",
+      "extractedImages": "추출된 이미지",
+      "extractedNone": "이 문서에는 추출할 수 있는 내장 이미지가 없습니다",
+      "assetNotSupported": "이 형식(PDF)은 내장 이미지 추출을 지원하지 않습니다"
     },
     "convertMarkdownFailed": "변환 실패",
     "convertToMarkdown": "Markdown으로 변환",

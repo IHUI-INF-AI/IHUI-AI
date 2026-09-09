@@ -840,9 +840,10 @@ async def test_mcp_voice_tts_save_path_lands_file(monkeypatch, tmp_path):
 
 @pytest.mark.asyncio
 async def test_mcp_voice_tts_text_too_long():
+    """text>5000 硬上限:TEXT_TOO_LONG(2000<text≤5000 已改为自动切异步 TTS,不在此断言)。"""
     from app.services.mcp_server import mcp_server as mcp_inst
 
-    out = await mcp_inst.call_tool("voice_tts", {"text": "啊" * 2001})
+    out = await mcp_inst.call_tool("voice_tts", {"text": "啊" * 5001})
     assert out["ok"] is False
     assert out["errorCode"] == "TEXT_TOO_LONG"
 
@@ -867,11 +868,17 @@ async def test_mcp_voice_tts_unknown_engine():
 
 @pytest.mark.asyncio
 async def test_mcp_voice_tts_registered_and_schema():
-    """voice_tts 已注册:_TOOLS/_TOOL_HANDLERS 均存在且 required=text。"""
+    """voice_tts 已注册:_TOOLS/_TOOL_HANDLERS 均存在。
+
+    2026-09-09 深度增强后 schema 契约:text 不再 required(task_id 查询模式只传 task_id),
+    properties 须含 text/task_id/engine。
+    """
     from app.services.mcp_server import _TOOLS, _TOOL_HANDLERS, mcp_server as mcp_inst
 
     tool = next(t for t in _TOOLS if t.name == "voice_tts")
-    assert tool.input_schema["required"] == ["text"]
+    assert tool.input_schema["required"] == []
+    assert "text" in tool.input_schema["properties"]
+    assert "task_id" in tool.input_schema["properties"]
     assert "engine" in tool.input_schema["properties"]
     assert "voice_tts" in _TOOL_HANDLERS
     names = [t.name for t in mcp_inst.list_tools()]
