@@ -165,6 +165,8 @@ export default function AutomationPage() {
   const [saving, setSaving] = React.useState<'saving' | null>(null)
   const [triggeringId, setTriggeringId] = React.useState<string | null>(null)
   const [togglingId, setTogglingId] = React.useState<string | null>(null)
+  // 2026-09-09 修复:handleTrigger 的 3s 延时补刷计时器,卸载时清理防泄漏
+  const delayedRefreshRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /** 点击示例卡片:两条路径(2026-07-22 升级 v2)
    *  路径 A — 有对应内置任务(taskId 存在):
@@ -211,7 +213,10 @@ export default function AutomationPage() {
     })()
     // 每 10s 轮询一次,获取最新状态(运行中任务 / 历史更新)
     const timer = setInterval(loadAll, 10000)
-    return () => clearInterval(timer)
+    return () => {
+      clearInterval(timer)
+      if (delayedRefreshRef.current) clearTimeout(delayedRefreshRef.current)
+    }
   }, [loadAll])
 
   const handleToggle = async (task: Task) => {
@@ -236,7 +241,12 @@ export default function AutomationPage() {
       })
       // 立即刷新一次,等几秒后再刷一次(让 running 状态显示出来)
       await loadAll()
-      setTimeout(loadAll, 3000)
+      // 2026-09-09 修复:延时补刷登记到 ref,卸载时清理,防孤儿 fetch+setState
+      if (delayedRefreshRef.current) clearTimeout(delayedRefreshRef.current)
+      delayedRefreshRef.current = setTimeout(() => {
+        delayedRefreshRef.current = null
+        void loadAll()
+      }, 3000)
     } finally {
       setTriggeringId(null)
     }
