@@ -373,6 +373,21 @@ class GuardedToolPipeline:
         errors = list(pre.errors)
         timings: dict[str, float] = dict(pre.timings)
         recorded_step_id: int | None = None
+        tokens_model: str = ""
+
+        # 工具内嵌 LLM 用量兜底(2026-09-09 立):调用方未计 token 而结果自带 llm_usage
+        # (如 extract_web 的 LLM 抽取通道)时补记,保证 step 录制与账本聚合不漏计。
+        if isinstance(fn_result, dict) and tokens_in <= 0 and tokens_out <= 0:
+            u = fn_result.get("llm_usage")
+            if isinstance(u, dict):
+                ti = int(u.get("prompt_tokens") or u.get("input_tokens") or 0)
+                to = int(u.get("completion_tokens") or u.get("output_tokens") or 0)
+                if ti > 0 or to > 0:
+                    tokens_in, tokens_out = ti, to
+                    tokens = tokens or (ti + to)
+                    m = fn_result.get("llm_model")
+                    if isinstance(m, str) and m:
+                        tokens_model = m
 
         if not fn_ok:
             errors.append(
@@ -394,6 +409,7 @@ class GuardedToolPipeline:
                         "tokens": tokens,
                         "tokens_in": tokens_in,
                         "tokens_out": tokens_out,
+                        "model": tokens_model,
                         "duration_ms": timings.get(STAGE_FN, 0.0),
                         "cost": actual_cost,
                         "http_summary": http_summary,

@@ -810,14 +810,17 @@ async def _extract_via_llm(md: str, fields: Dict[str, str], max_chars: int = 800
         usage = result.get("usage") or {}
         model_used = str(result.get("model") or "")
         content = (result.get("content") or "").strip()
-        if result.get("stub") or not content:
+        if result.get("stub"):
             return None
+        if not content:
+            # token 可能已消耗(空回复),usage 必须保留
+            return {"fields": {}, "confidence": {}, "usage": usage, "model": model_used}
         # 剥离可能包裹的 ```json ... ``` 围栏后解析
         content = re.sub(r"^```(?:json)?\s*", "", content)
         content = re.sub(r"\s*```$", "", content).strip()
         data = json.loads(content)
         if not isinstance(data, dict):
-            return None
+            return {"fields": {}, "confidence": {}, "usage": usage, "model": model_used}
         extracted: Dict[str, Any] = {}
         confidence: Dict[str, float] = {}
         for k in fields:
@@ -827,7 +830,8 @@ async def _extract_via_llm(md: str, fields: Dict[str, str], max_chars: int = 800
             else:
                 confidence[k] = 0.0
         if not extracted:
-            return None
+            # token 已消耗但未命中字段:保留 usage,上层降级启发式时仍可见
+            return {"fields": {}, "confidence": confidence, "usage": usage, "model": model_used}
         return {"fields": extracted, "confidence": confidence, "usage": usage, "model": model_used}
     except Exception:  # noqa: BLE001 - LLM 超时/解析失败/走查结构异常一律降级
         return None
@@ -874,7 +878,7 @@ async def extract_web(arguments: Dict[str, Any]) -> Dict[str, Any]:
         return _fail("extract_web", "正文提取失败: {}".format(e), "EXTRACT_FAILED")
 
     llm_result = await _extract_via_llm(md, fields, max_chars)
-    if llm_result is not None:
+    if llm_result is not None and llm_result.get("fields"):
         return {
             "tool": "extract_web",
             "ok": True,
@@ -889,7 +893,7 @@ async def extract_web(arguments: Dict[str, Any]) -> Dict[str, Any]:
 
     heur = _extract_heuristic(md, fields)
     found = heur["fields"]
-    return {
+    out: Dict[str, Any] = {
         "tool": "extract_web",
         "ok": len(found) > 0,
         "url": page["final_url"],
@@ -898,3 +902,11 @@ async def extract_web(arguments: Dict[str, Any]) -> Dict[str, Any]:
         "confidence": heur["confidence"],
         "message": "启发式抽取 {} 个字段".format(len(found)),
     }
+    # 费用可见性(2026-09-09 立):LLM 已消耗 token 但未命中字段而降级时,
+    # usage 同样随结果透出并标记 llm_fallback —— 花了的钱不允许凭空消失。
+    if llm_result is not None and llm_result.get("usage"):
+        out["llm_usage"] = llm_result["usage"]
+        out["llm_model"] = llm_result.get("model", "")
+        out["llm_fallback"] = True
+        out["message"] = "LLM 未命中字段, 降级启发式抽取 {} 个字段".format(len(found))
+    return out
