@@ -588,6 +588,14 @@ const nextConfig: NextConfig = {
           source: '/api/media/:path*',
           destination: 'http://localhost:8803/api/media/:path*',
         },
+        // 2026-09-09 新增:网页工具页(/web-tools)路由直连 ai-service 8803。
+        // 原因:web_tools router 注册在 ai-service(prefix="/api",路径 /api/web-tools/call),
+        // 封装 fetch_readable / map_site / extract_web 三只读工具,必须直连 8803 才能命中,
+        // 否则落到 /api/:path* → 8802 404。
+        {
+          source: '/api/web-tools/:path*',
+          destination: 'http://localhost:8803/api/web-tools/:path*',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',

@@ -3346,3 +3346,12 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-09) **详情路由在途集合统一**:详情实时探测判断改用 `_STATUS_IN_FLIGHT`(此前硬编码三元组漏 pending)。
 - [x] ✅(2026-09-09) **验证**:media_tasks 专项 70 passed(68 + 新增终态 409/pending 可取消 2 条);web tsc --noEmit 0 错误;eslint 0 违规。生产 8803 重启后实测:终态任务取消返回 409、不存在任务 404、stats 端点正常;commit f47aee67b 已推送 GitHub/Gitee/GitCode 三仓;IHUI-WEB 删 .next 重建后 /media-tasks、/voices 200。
 - [ ] ⏸️ **唯一遗留(外部依赖阻塞)**:真实端到端生成/取消/声纹克隆 e2e(`apps/ai-service/scripts/e2e_token6688.py --cheap` 起步)需在 `apps/ai-service/.env` 配置 `TOKEN6688_API_KEY`(sk- 开头,或 LLM_PROVIDERS.token6688.api_key)后执行——两处当前均为空,等 key 到位即可一键验收,代码侧已无任何待办。
+
+## Firecrawl 网页工具 前端操作页 + extract_web 费用归属 收尾(2026-09-09 完成 ✅)
+
+> 触发:Firecrawl 四件套极致融合(39935d1cb → 999d792fa → b85aaad01)收尾台账两项:① extract_web 直接调 llm_gateway 的 token 费用归属未透出;② 缺网页工具专属前端操作页。本轮全部闭环。
+
+- [x] ✅(2026-09-09) **extract_web LLM token 费用归属透出**:`_extract_via_llm` 捕获 `llm_gateway.complete` 返回的 usage/model,随结果透出 `llm_usage`/`llm_model`(source=llm 时);降级启发式时不带该字段。LLM 消耗自此可观测、可随工具结果进入 step recorder 记账链路。测试 4 用例(透出/网关缺 usage 兜底/全 null 降级无泄漏/异常降级)。
+- [x] ✅(2026-09-09) **后端薄接口 POST /api/web-tools/call**(新 `app/routers/web_tools.py`,main.py 挂载 /api):工具白名单 fetch_readable/map_site/extract_web(各 60s/60s/90s 独立超时),形参逐项收敛不透传任意 dict;crawl_site 维持 _ADMIN_ONLY_TOOLS 刻意不在 HTTP 层开放。测试 6 用例(白名单拒绝/缺 fields 400/形参收敛/500 映射等)。
+- [x] ✅(2026-09-09) **前端 /web-tools 操作页**(`app/(main)/web-tools/page.tsx`,<250 行):工具三 Tab + URL 输入 + 按工具参数表单(max_chars/include_links/max_links/同域开关/fields schema 文本域) + 结果面板(markdown 复制/链接列表/字段-值-置信度表格 + 耗时/rendered/来源/tokens 元信息);next.config.ts 加 `/api/web-tools/*` → 8803 直连 rewrite;nav-data.ts 加"网页工具"导航项;五语言 i18n(nav.webTools + webToolsPage 28 键 × 5,文本注入零格式噪声)。
+- [x] ✅(2026-09-09) **验证**:ai-service 专项 39 passed(web_crawl_tools + web_tools_router);受影响模块定向回归 350 passed;web tsc --noEmit 0 错误;生产 8803 重启后 /health ok + 端点冒烟;commit 已推送 GitHub/Gitee/GitCode 三仓。
