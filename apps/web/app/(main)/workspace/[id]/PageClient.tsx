@@ -10,7 +10,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 
-import { useAuthStore } from '@/stores/auth'
+import { fetchRaw } from '@/lib/api'
 import type { FileItem } from '@/components/workspace/file-list'
 
 import { ProjectHeader } from './ProjectHeader'
@@ -32,7 +32,6 @@ export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const t = useTranslations('workspace')
-  const td = useTranslations('workspace.detail')
   const queryClient = useQueryClient()
 
   const projectId = params.id
@@ -126,17 +125,13 @@ export default function ProjectDetailPage() {
     }
   }
 
-  // NOTE: handlePreview 保留直接 fetch,未迁移到 fetchApi:
-  // fetchApi 内部 fetchOnce 固定调 `response.json()`(line 152),不支持 blob 二进制响应。
+  // 2026-09-09 0-5 迁移:改走 fetchRaw(二进制 + 自动鉴权头),
+  // 旧豁免理由已过时(fetchApi 不支持 blob → 现由 fetchRaw 承担)。
   const handlePreview = async (file: FileItem) => {
     setPreview({ file, url: null, loading: true })
     try {
-      const token = useAuthStore.getState().token
-      const res = await fetch(`/api/workspace/files/${file.id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (!res.ok) throw new Error(td('previewFailed'))
-      setPreview({ file, url: window.URL.createObjectURL(await res.blob()), loading: false })
+      const blob = await fetchRaw(`/api/workspace/files/${file.id}`)
+      setPreview({ file, url: window.URL.createObjectURL(blob), loading: false })
     } catch {
       setPreview({ file, url: null, loading: false })
     }
@@ -148,7 +143,7 @@ export default function ProjectDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <ProjectHeader
         onBack={() => router.push('/workspace')}
         project={project}
@@ -183,10 +178,7 @@ export default function ProjectDetailPage() {
 
       <PreviewDialog preview={preview} onClose={closePreview} />
 
-      <MarkdownResultDialog
-        result={markdownResult}
-        onClose={() => setMarkdownResult(null)}
-      />
+      <MarkdownResultDialog result={markdownResult} onClose={() => setMarkdownResult(null)} />
     </div>
   )
 }

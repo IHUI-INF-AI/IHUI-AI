@@ -137,7 +137,7 @@ export default function AiSkillDetailPage() {
 
   if (error || !skill) {
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+      <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
         <BackLink />
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
           {t('notFound')}

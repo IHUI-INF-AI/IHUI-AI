@@ -71,7 +71,7 @@ export default function MemoryScopePage() {
 
   if (!isValidScope) {
     return (
-      <div className="mx-auto w-full max-w-4xl space-y-4">
+      <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon">
             <Link href="/memory">
@@ -89,7 +89,7 @@ export default function MemoryScopePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-5">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon">

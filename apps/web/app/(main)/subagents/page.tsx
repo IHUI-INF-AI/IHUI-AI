@@ -67,7 +67,7 @@ export default function SubagentsListPage() {
   const dispatches = activeQ.data?.dispatches ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <div className="flex items-start justify-between">
         <div>

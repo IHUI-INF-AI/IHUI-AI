@@ -140,7 +140,7 @@ export default async function BillingPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
         />
       ) : null}
-      <div className="space-y-4">
+      <div className="space-y-4 px-4 py-4">
         <BackButton />
         <header className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">{t('billing.title')}</h1>
@@ -218,7 +218,8 @@ export default async function BillingPage() {
                       </li>
                     ))}
                   </ul>
-                  <Button size="sm"
+                  <Button
+                    size="sm"
                     className="mt-4 w-full text-xs px-4"
                     variant={p.highlighted ? 'default' : 'outline'}
                   >

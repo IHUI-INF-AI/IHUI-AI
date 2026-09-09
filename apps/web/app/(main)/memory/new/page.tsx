@@ -21,7 +21,7 @@ export default function NewMemoryPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5">
+    <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-5">
       <header className="flex items-center gap-3">
         <Button asChild variant="ghost" size="icon">
           <Link href="/memory">

@@ -18,7 +18,7 @@ function SkeletonCard({ className = '' }: { className?: string }) {
 
 export default function AiNewsLoading() {
   return (
-    <div className="mx-auto w-full max-w-[1240px] space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-[1240px] space-y-4">
       {/* Hero */}
       <SkeletonCard className="h-[140px] min-[768px]:h-[160px]" />
       {/* Leaderboard */}

@@ -36,7 +36,7 @@ export default function SubagentDispatchPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <button
         type="button"
         onClick={() => router.push('/subagents')}

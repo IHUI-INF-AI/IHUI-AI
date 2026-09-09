@@ -156,7 +156,7 @@ export default function AICareerPage() {
   )
 
   return (
-    <Container maxWidth="md" className="space-y-6">
+    <Container maxWidth="md" className="space-y-6 py-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

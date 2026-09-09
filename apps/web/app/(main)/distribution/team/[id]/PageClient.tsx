@@ -104,7 +104,7 @@ export default function DistributionTeamDetailPage() {
 
   if (error || !member) {
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+      <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
         <Link
           href="/distribution/team"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -120,7 +120,7 @@ export default function DistributionTeamDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
       <Link
         href="/distribution/team"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

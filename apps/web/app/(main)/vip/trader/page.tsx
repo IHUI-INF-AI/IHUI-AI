@@ -187,7 +187,7 @@ export default function VipTraderPage() {
   const benefits = Array.isArray(level.benefits) ? level.benefits : []
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/vip"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
