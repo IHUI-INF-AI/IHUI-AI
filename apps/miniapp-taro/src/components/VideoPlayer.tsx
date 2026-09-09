@@ -34,7 +34,7 @@ export default function VideoPlayer({
   if (loading) {
     return (
       <View
-        className="flex items-center justify-center w-full bg-black"
+        className="flex items-center justify-center w-full bg-[var(--color-black)]"
         style={{ height: '210px' }}
       >
         <Text className="text-sm text-muted-foreground">
@@ -47,7 +47,7 @@ export default function VideoPlayer({
   if (!src) {
     return (
       <View
-        className="flex items-center justify-center w-full bg-black"
+        className="flex items-center justify-center w-full bg-[var(--color-black)]"
         style={{ height: '210px' }}
       >
         <Text className="text-sm text-muted-foreground">{tt('video.noVideo', '暂无视频')}</Text>
@@ -56,7 +56,7 @@ export default function VideoPlayer({
   }
 
   return (
-    <View className="w-full bg-black" style={{ height: '210px' }}>
+    <View className="w-full bg-[var(--color-black)]" style={{ height: '210px' }}>
       <Video
         className="w-full"
         style={{ height: '210px' }}

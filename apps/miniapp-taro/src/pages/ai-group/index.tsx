@@ -150,6 +150,7 @@ export default function AiGroup() {
             key={cat.key}
             className={`inline-block py-[12rpx] px-[28rpx] mr-[16rpx] rounded-[16rpx] ${activeCategory === cat.key ? 'bg-primary' : 'bg-[var(--color-muted)]'}`}
             onClick={() => setActiveCategory(cat.key)}
+            hoverClass="opacity-60"
           >
             <Text
               className={
@@ -178,6 +179,7 @@ export default function AiGroup() {
             <View
               className="mt-[24rpx] py-[16rpx] px-[32rpx] bg-primary rounded-[24rpx]"
               onClick={loadData}
+              hoverClass="opacity-60"
             >
               <Text className="text-[32rpx] text-[var(--color-primary-foreground)]">
                 {t('common.retry')}
@@ -202,6 +204,7 @@ export default function AiGroup() {
                     key={id}
                     className="flex flex-row items-center flex-1 min-w-0"
                     onClick={() => onItemClick(id)}
+                    hoverClass="opacity-60"
                   >
                     <Image
                       className="w-[96rpx] h-[96rpx] rounded-[24rpx] bg-[var(--color-muted)] shrink-0"

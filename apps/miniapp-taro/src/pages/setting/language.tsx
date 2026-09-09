@@ -4,8 +4,7 @@
 
 import { useI18n, type TtFn, type Locale } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, RadioGroup, Radio } from '@tarojs/components'
-import LineIcon from '@/components/LineIcon'
+import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { setLanguage } from '@/api'
@@ -44,13 +43,6 @@ const LANG_KEY: Record<string, string> = {
   ja: 'setting.ja',
 }
 
-const DEFAULT_LANG = (tt: TtFn): LangItem => ({
-  value: 'zh-CN',
-  key: 'zhCN',
-  native: tt('legal.supportedRegions.languageZhCN', '简体中文'),
-  english: 'Simplified Chinese',
-})
-
 export default function LanguagePage() {
   const { t, locale, setLocale } = useI18n()
   const tt = useCallback(
@@ -84,66 +76,55 @@ export default function LanguagePage() {
     [current, setLocale, tt],
   )
 
-  const currentLang = LANGS(tt).find((l) => l.value === current) ?? DEFAULT_LANG(tt)
-
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background p-[24rpx] pb-[80rpx]">
-        <View className="flex items-center p-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]">
-          <View className="w-[88rpx] h-[88rpx] rounded-[12rpx] bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <LineIcon name="globe" size={44} color="var(--color-muted-foreground)" />
-          </View>
-          <View className="flex-1">
-            <Text className="block text-[24rpx] text-muted-foreground">
-              {tt('setting.language.currentLabel', '当前语言')}
-            </Text>
-            <Text className="block text-[32rpx] font-semibold text-foreground mt-[8rpx]">
-              {tt(LANG_KEY[currentLang.key] ?? 'setting.zhCN', currentLang.native)}
-            </Text>
-            <Text className="block text-[22rpx] text-muted-foreground mt-[6rpx]">
-              {currentLang.english} · {currentLang.value}
-            </Text>
-          </View>
-        </View>
-
-        <View className="pt-[32rpx] px-[8rpx] pb-[16rpx]">
-          <Text className="text-[24rpx] text-muted-foreground">
+      {/* 根容器背景对齐 RN SettingsScreen container(pageBg=surface.bg → --color-background);
+          上下留白对齐 body paddingTop 12dp→24rpx / paddingBottom 24dp→48rpx */}
+      <View className="min-h-screen bg-background pt-[24rpx] pb-[48rpx]">
+        {/* 语言选择对齐 RN SettingsScreen 语言 Section:
+            标题对齐 sectionTitle 14dp→28rpx(text.secondary)+ 距卡片 gap 8dp→16rpx;
+            列表对齐 sectionCard:圆角 8dp→16rpx + divider(border.light)底 + 行间 2rpx;
+            行对齐 plainRow:minHeight 60dp→120rpx / py 14dp→28rpx / px 12dp→24rpx,
+            卡面亮色 surface.light→--color-card、暗色 surface.muted→--color-muted(dark:bg-muted) */}
+        <View className="mx-[20rpx] mt-[32rpx]">
+          <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
             {tt('setting.language.chooseHint', '选择应用语言')}
           </Text>
+          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
+            {LANGS(tt).map((l) => (
+              <View
+                key={l.value}
+                className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
+                onClick={() => onSelect(l.value)}
+                hoverClass="opacity-60">
+                <View className="min-w-0 flex-1">
+                  {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
+                  <Text className="text-[32rpx] text-muted-foreground">
+                    {tt(LANG_KEY[l.key] ?? 'setting.zhCN', l.native)}
+                  </Text>
+                  {/* 副行(英文名)为小程序端补充信息:24rpx + text.tertiary + userMeta gap 2dp→4rpx */}
+                  <Text className="mt-[4rpx] block text-[24rpx] text-[color:var(--color-text-tertiary)]">
+                    {l.english}
+                  </Text>
+                </View>
+                {/* 选中态对齐 RN SelectRow checkMark: 16dp→32rpx bold + brandAccent→--color-brand-orange;
+                    当前语言由选中行呈现,不再渲染 RN 没有的"当前语言"卡片 */}
+                {current === l.value ? (
+                  <Text className="text-[32rpx] font-bold text-[color:var(--color-brand-orange)]">
+                    ✓
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
         </View>
 
-        <RadioGroup
-          className="flex flex-col gap-[16rpx]"
-          onChange={(e) => onSelect(e.detail.value as Locale)}
-        >
-          {LANGS(tt).map((l) => (
-            <View
-              key={l.value}
-              className={`flex items-center justify-between py-[28rpx] px-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]${current === l.value ? ' bg-primary/10' : ''}`}
-            >
-              <View className="flex-1">
-                <Text className="text-[30rpx] text-foreground">
-                  {tt(LANG_KEY[l.key] ?? 'setting.zhCN', l.native)}
-                </Text>
-                <Text className="block text-[22rpx] text-muted-foreground mt-[6rpx]">
-                  {l.english}
-                </Text>
-              </View>
-              <Radio
-                value={l.value}
-                checked={current === l.value}
-                color="var(--color-primary)"
-                className="flex-shrink-0"
-              />
-            </View>
-          ))}
-        </RadioGroup>
-
-        <View className="py-[32rpx] px-[8rpx]">
-          <Text className="block text-[22rpx] text-muted-foreground leading-[1.6]">
+        {/* 底部说明对齐 RN versionText: 12dp→24rpx + text.tertiary;marginTop 4dp→8rpx */}
+        <View className="mx-[20rpx] mt-[32rpx]">
+          <Text className="block text-center text-[24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.language.tip', '切换语言后将自动保存并生效')}
           </Text>
-          <Text className="block text-[22rpx] text-muted-foreground leading-[1.6] mt-[8rpx] opacity-80">
+          <Text className="mt-[8rpx] block text-center text-[24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.language.note', '部分内容可能仍以原文显示,我们正在持续完善多语言支持。')}
           </Text>
         </View>

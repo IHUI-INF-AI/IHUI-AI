@@ -146,7 +146,7 @@ export default function RankingIndex() {
     <View className="min-h-screen bg-background pb-[48rpx]">
       {/* header 对齐 RN RankingScreen header(back 32rpx / 标题 48rpx/700,页底色无卡片底) */}
       <View className="flex flex-col px-[20rpx] pt-[24rpx] pb-[16rpx]">
-        <View className="self-start mb-[16rpx]" onClick={goBack}>
+        <View className="self-start mb-[16rpx]" onClick={goBack} hoverClass="opacity-60">
           <Text className="text-[32rpx] text-muted-foreground">{tt('common.back', '返回')}</Text>
         </View>
         <Text className="text-[48rpx] font-bold text-foreground">
@@ -175,7 +175,7 @@ export default function RankingIndex() {
                 fileType === tab.key ? 'bg-primary' : 'bg-card'
               }`}
               onClick={() => onTabChange(tab.key)}
-            >
+              hoverClass="opacity-60">
               <Text
                 className={`text-[28rpx] ${
                   fileType === tab.key ? 'text-primary-foreground' : 'text-muted-foreground'
@@ -205,7 +205,7 @@ export default function RankingIndex() {
                 <View
                   className="flex items-center bg-background border border-solid border-border rounded-[24rpx] p-[28rpx] mb-[16rpx]"
                   onClick={() => goDetail(item.id)}
-                >
+                  hoverClass="opacity-60">
                   {logo ? (
                     <Image
                       className="w-[88rpx] h-[88rpx] rounded-full border-[3rpx] border-solid border-border bg-[var(--color-muted)] shrink-0"
