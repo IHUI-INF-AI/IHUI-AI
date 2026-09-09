@@ -20956,6 +20956,7 @@
     "save": "儲存"
   },
   "mediaTasksPage": {
+    "cancelAllRemoteFailed": "{count} 個任務遠端取消失敗（已本地置為已取消）",
     "title": "媒體任務",
     "subtitle": "對話內生成的影片/音樂/語音/圖片任務統一入口:查看、播放、下載、取消,產物就緒後自動刷新。",
     "refresh": "重新整理",
@@ -21003,6 +21004,11 @@
     "cancelAllNone": "沒有進行中的任務"
   },
   "voicesPage": {
+    "playPreview": "試聽",
+    "hidePreview": "收起",
+    "cloneSubmitted": "克隆已提交，完成後自動重新整理",
+    "fileTooLarge": "檔案超過官方 20MiB 上限",
+    "fileBadFormat": "僅支援 MP3/M4A/WAV 格式",
     "title": "聲紋庫",
     "subtitle": "克隆音色管理:上傳參考音訊生成專屬音色,在對話中用 voice_tts(engine=token6688, voice=聲紋ID)合成朗讀。",
     "loading": "載入中...",

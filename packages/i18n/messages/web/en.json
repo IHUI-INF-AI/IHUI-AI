@@ -20989,6 +20989,7 @@
     "save": "Save"
   },
   "mediaTasksPage": {
+    "cancelAllRemoteFailed": "{count} task(s) failed to cancel remotely (marked cancelled locally)",
     "title": "Media Tasks",
     "subtitle": "Unified entry for video / music / voice / image tasks generated in chat: view, play, download, cancel; auto-refreshes once output is ready.",
     "refresh": "Refresh",
@@ -21036,6 +21037,11 @@
     "cancelAllNone": "No in-progress tasks"
   },
   "voicesPage": {
+    "playPreview": "Preview",
+    "hidePreview": "Hide",
+    "cloneSubmitted": "Clone submitted, will auto-refresh when ready",
+    "fileTooLarge": "File exceeds the official 20MiB limit",
+    "fileBadFormat": "Only MP3/M4A/WAV formats are supported",
     "title": "Voice Library",
     "subtitle": "Manage cloned voices: upload a reference audio to create your own voice, then use voice_tts (engine=token6688, voice=voiceId) in chat.",
     "loading": "Loading...",
