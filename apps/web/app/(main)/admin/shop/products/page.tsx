@@ -176,7 +176,7 @@ export default function AdminShopProductsPage() {
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4" />
-            {t('products.export')}
+            {t('products.exportBtn')}
           </Button>
           <HasPermi code="ai:zhs_product:add">
             <Button size="sm" onClick={openCreate}>

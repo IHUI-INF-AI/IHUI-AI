@@ -74,6 +74,11 @@ READONLY_TOOLS: frozenset[str] = frozenset(
         "search_web",
         "web_search",
         "fetch_url",
+        # Firecrawl 网络抓取只读(2026-09, Scrape/Map/Crawl/Extract 均只读获取外部信息)
+        "fetch_readable",
+        "map_site",
+        "crawl_site",
+        "extract_web",
         # 知识/记忆
         "knowledge_lookup",
         "current_memory",
