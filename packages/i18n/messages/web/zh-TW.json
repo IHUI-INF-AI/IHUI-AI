@@ -20989,7 +20989,17 @@
     "total": "共 {total} 條",
     "prev": "上一頁",
     "next": "下一頁",
-    "pageInfo": "第 {page} / {pages} 頁"
+    "pageInfo": "第 {page} / {pages} 頁",
+    "statsTotal": "全部任務",
+    "statsInflight": "進行中",
+    "statsSucceeded": "已完成",
+    "statsFailed": "失敗",
+    "statsCancelled": "已取消",
+    "cancelAll": "取消全部進行中",
+    "cancellingAll": "取消中...",
+    "cancelAllConfirm": "取消所有進行中的任務?進行中的長任務會被終止。",
+    "cancelAllResult": "已取消 {count} 個進行中任務",
+    "cancelAllNone": "沒有進行中的任務"
   },
   "voicesPage": {
     "title": "聲紋庫",

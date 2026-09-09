@@ -211,6 +211,60 @@ async def query_media_tasks(
     return {"items": items, "total": total or 0, "limit": limit, "offset": offset}
 
 
+async def media_task_stats(
+    *,
+    user_uuid: str | None = None,
+) -> dict[str, Any]:
+    """媒体任务统计概览(2026-09-09 F7):按 kind 分组统计总数与各终态/在途数量。
+
+    前端任务中心顶部概览卡片消费;在途状态集合与收尾通道(_STATUS_IN_FLIGHT)保持一致。
+    """
+    kinds = ("video", "music", "tts", "image")
+    inflight = list(_STATUS_IN_FLIGHT)
+    conn = await get_db_conn()
+    try:
+        by_kind: dict[str, dict[str, int]] = {}
+        total = 0
+        for kind in kinds:
+            if user_uuid:
+                rows = await conn.fetch(
+                    "SELECT status, count(*)::int AS n FROM media_tasks "
+                    "WHERE user_uuid=$1 AND kind=$2 GROUP BY status",
+                    user_uuid, kind,
+                )
+            else:
+                rows = await conn.fetch(
+                    "SELECT status, count(*)::int AS n FROM media_tasks "
+                    "WHERE kind=$1 GROUP BY status",
+                    kind,
+                )
+            entry: dict[str, int] = {"total": 0, "succeeded": 0, "failed": 0, "cancelled": 0, "inflight": 0}
+            for r in rows:
+                n = int(r["n"] or 0)
+                entry["total"] += n
+                total += n
+                st = r["status"] or ""
+                if st == "succeeded":
+                    entry["succeeded"] += n
+                elif st == "failed":
+                    entry["failed"] += n
+                elif st == "cancelled":
+                    entry["cancelled"] += n
+                elif st in inflight:
+                    entry["inflight"] += n
+            by_kind[kind] = entry
+    finally:
+        await conn.close()
+    return {
+        "by_kind": by_kind,
+        "total": total,
+        "inflight": sum(by_kind[k]["inflight"] for k in kinds),
+        "succeeded": sum(by_kind[k]["succeeded"] for k in kinds),
+        "failed": sum(by_kind[k]["failed"] for k in kinds),
+        "cancelled": sum(by_kind[k]["cancelled"] for k in kinds),
+    }
+
+
 async def get_media_task(task_id: str) -> dict[str, Any] | None:
     """按 task_id 取单条(最新一条)。"""
     import json as _json
@@ -335,6 +389,82 @@ async def clear_media_tasks(
     finally:
         await conn.close()
     return {"deleted": int(deleted or 0), "kept_in_flight": int(kept or 0)}
+
+
+async def cancel_media_tasks(
+    *,
+    task_ids: list[str] | None = None,
+    kind: str | None = None,
+) -> dict[str, Any]:
+    """批量取消在途媒体任务(2026-09-09 F8,任务中心"取消全部在途")。
+
+    规则:
+    - 只处理在途状态(_STATUS_IN_FLIGHT):已终态(succeeded/failed/cancelled)不动
+    - task_ids 提供 → 只取消清单内的在途任务;否则取消全部在途任务
+    - kind 提供(逗号分隔多值)→ 只取消该类型的在途任务
+    - 每个任务 best-effort 调 token6688 取消:未配置/失败仅记 remote_failed,
+      不影响本地统一置 cancelled
+    返回 {requested, cancelled, remote_failed:[{task_id, error}]} 供前端展示。
+    """
+    where: list[str] = ["status = ANY($1)"]
+    params: list[Any] = [list(_STATUS_IN_FLIGHT)]
+    if task_ids:
+        ids = [str(i).strip() for i in task_ids if str(i).strip()]
+        if ids:
+            params.append(ids)
+            where.append(f"task_id = ANY(${len(params)})")
+    if kind:
+        kinds = [k.strip() for k in str(kind).split(",") if k.strip()]
+        if kinds:
+            params.append(kinds)
+            where.append(f"kind = ANY(${len(params)})")
+    where_sql = " AND ".join(where)
+    conn = await get_db_conn()
+    try:
+        rows = await conn.fetch(
+            f"SELECT id, task_id, provider FROM media_tasks WHERE {where_sql}",
+            *params,
+        )
+    finally:
+        await conn.close()
+    requested = len(rows)
+    with_remote = [r for r in rows if str(r.get("task_id") or "").strip()]
+    if not with_remote:
+        return {"requested": requested, "cancelled": 0, "remote_failed": []}
+
+    from ..core.config import settings
+    from ..providers.token6688_provider import Token6688Provider
+
+    cfg = settings.get_provider_config("token6688")
+    provider = None
+    if cfg.api_key:
+        provider = Token6688Provider(api_key=cfg.api_key, api_base=cfg.api_base)
+    remote_failed: list[dict[str, str]] = []
+    for r in with_remote:
+        remote_id = str(r["task_id"]).strip()
+        if provider and str(r["provider"]) == "token6688":
+            try:
+                await provider.cancel_task(remote_id)
+            except Exception as e:  # noqa: BLE001
+                remote_failed.append({"task_id": remote_id, "error": str(e)[:200]})
+                logger.warning("[media_tasks] 批量取消远端失败: task=%s err=%s", remote_id, e)
+    try:
+        conn = await get_db_conn()
+        try:
+            await conn.execute(
+                "UPDATE media_tasks SET status='cancelled', updated_at=now() "
+                "WHERE task_id = ANY($1)",
+                [str(r["task_id"]).strip() for r in with_remote],
+            )
+        finally:
+            await conn.close()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[media_tasks] 批量取消本地置位失败: %s", e)
+    return {
+        "requested": requested,
+        "cancelled": len(with_remote),
+        "remote_failed": remote_failed,
+    }
 
 
 # ---------------------------------------------------------------------------
