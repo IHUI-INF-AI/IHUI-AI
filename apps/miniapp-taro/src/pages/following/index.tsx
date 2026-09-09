@@ -112,6 +112,7 @@ export default function FollowingPage() {
       <View className="flex gap-[16rpx] py-[16rpx]">
         <View
           className={`flex-1 flex items-center justify-center py-[16rpx] rounded-[24rpx] ${activeTab === 'followedAt' ? 'bg-primary' : 'bg-card'}`}
+          hoverClass="opacity-60"
           onClick={() => setActiveTab('followedAt')}
         >
           <Text
@@ -122,6 +123,7 @@ export default function FollowingPage() {
         </View>
         <View
           className={`flex-1 flex items-center justify-center py-[16rpx] rounded-[24rpx] ${activeTab === 'recent' ? 'bg-primary' : 'bg-card'}`}
+          hoverClass="opacity-60"
           onClick={() => setActiveTab('recent')}
         >
           <Text
@@ -211,6 +213,7 @@ export default function FollowingPage() {
           </Text>
           <View
             className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-[24rpx]"
+            hoverClass="opacity-60"
             onClick={goDiscover}
           >
             <Text className="text-primary-foreground text-[26rpx]">

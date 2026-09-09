@@ -88,7 +88,7 @@ export default function TeacherList() {
               <View
                 key={item.id}
                 className="flex items-center gap-3 bg-card rounded-lg p-3 mb-3"
-                hoverClass="opacity-[0.85]"
+                hoverClass="opacity-85"
                 hoverStayTime={120}
                 onClick={() => goDetail(item.id)}
               >

@@ -220,6 +220,7 @@ export default function OrderList() {
       <View className="flex items-center gap-[24rpx] bg-card px-[20rpx] py-[24rpx]">
         <View
           className="w-[80rpx] text-[32rpx] text-[var(--color-text-medium)]"
+          hoverClass="opacity-60"
           onClick={goBack}
         >
           <Text>‹</Text>
@@ -227,7 +228,11 @@ export default function OrderList() {
         <Text className="flex-1 text-center text-[40rpx] text-foreground font-semibold">
           {tt('order.list.title', '我的订单')}
         </Text>
-        <View className="w-[80rpx] text-right text-[26rpx] text-primary" onClick={toggleSearch}>
+        <View
+          className="w-[80rpx] text-right text-[26rpx] text-primary"
+          hoverClass="opacity-60"
+          onClick={toggleSearch}
+        >
           <Text>
             {showSearch ? tt('order.list.cancel', '取消') : tt('order.list.search', '搜索')}
           </Text>
@@ -279,6 +284,7 @@ export default function OrderList() {
                     内部对齐 cardBodyRow:商品图 260rpx + 右侧 info[cardHead → metaRow → amountRow]) */}
                 <View
                   className="bg-card rounded-[24rpx] border-[2rpx] border-border p-[24rpx] mb-[24rpx]"
+                  hoverClass="opacity-60"
                   onClick={() => goDetail(o.id)}
                 >
                   <View className="flex gap-[24rpx]">

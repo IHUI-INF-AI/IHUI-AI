@@ -233,7 +233,7 @@ export default function ModelPlazaIndex() {
                   key={p}
                   className={`provider-tab${providerId === p ? ' active' : ''}`}
                   onClick={() => setProviderId(p)}
-                >
+                  hoverClass="opacity-60">
                   <View className="provider-icon-wrap">
                     <LineIcon
                       className="provider-icon"
@@ -267,7 +267,7 @@ export default function ModelPlazaIndex() {
               key={tab.key}
               className={`type-tab${typeFilter === tab.key ? ' active' : ''}`}
               onClick={() => setTypeFilter(tab.key)}
-            >
+              hoverClass="opacity-60">
               <Text>{tab.label}</Text>
             </View>
           ))}

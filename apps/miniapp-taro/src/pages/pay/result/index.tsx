@@ -5,13 +5,11 @@
 // 平台页面:镜像 apps/mobile-rn PayResultScreen 状态机与信息结构(端内重写渲染层,
 // Taro 无法直接渲染 RN 原语);收敛 miniapp 端支付/充值/VIP 三处结果呈现到统一页
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CSSProperties } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useTt } from '@/i18n'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
-import { useAppTheme } from '@/lib/theme'
 import { getPayResult } from '@/api'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 import ThemeRoot from '@/components/ThemeRoot'
 
 /** 支付结果三态(对齐 RN PayStatus / 旧 miniapp result.tsx) */
@@ -21,106 +19,24 @@ type PayStatus = 'pending' | 'paid' | 'failed'
 const POLL_INTERVAL_MS = 2000
 const MAX_POLL_COUNT = 30
 
-/** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
-const toRpx = (px: number): string => `${px * 2}rpx`
+// ===== 样式对齐 RN PayResultScreen(StyleSheet 原值换算:rpx(N)→N rpx,raw dp M→M*2 rpx) =====
 
-// ===== 样式函数(view/text 分组,避免 style 联合类型;对齐共享屏 createStyles) =====
-
-const viewStyles = {
-  container: (tk: RnThemeTokens): CSSProperties => ({
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: '100vh',
-    backgroundColor: tk.surface.bg,
-  }),
-  body: (): CSSProperties => ({
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    paddingTop: toRpx(120),
-    paddingBottom: toRpx(120),
-  }),
-  statusBadge: (bg: string): CSSProperties => ({
-    width: toRpx(160),
-    height: toRpx(160),
-    borderRadius: toRpx(24),
-    backgroundColor: bg,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  }),
-  orderRow: (): CSSProperties => ({
-    marginTop: toRpx(24),
-    paddingLeft: toRpx(60),
-    paddingRight: toRpx(60),
-  }),
-  actions: (): CSSProperties => ({
-    display: 'flex',
-    flexDirection: 'column',
-    rowGap: toRpx(32),
-    paddingLeft: toRpx(60),
-    paddingRight: toRpx(60),
-  }),
-  primaryBtn: (tk: RnThemeTokens): CSSProperties => ({
-    height: toRpx(88),
-    borderRadius: toRpx(16),
-    backgroundColor: tk.brand.DEFAULT,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  }),
-  secondaryBtn: (tk: RnThemeTokens): CSSProperties => ({
-    height: toRpx(88),
-    borderRadius: toRpx(16),
-    backgroundColor: tk.surface.card,
-    borderWidth: toRpx(1),
-    borderStyle: 'solid',
-    borderColor: tk.border.light,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  }),
+/** 状态标底色:pending=warning.amber / paid=success / failed=danger(随明暗语义 token) */
+const statusBgClass: Record<PayStatus, string> = {
+  pending: 'bg-[color:var(--color-warning-amber)]',
+  paid: 'bg-[color:var(--color-success)]',
+  failed: 'bg-[color:var(--color-danger)]',
 }
 
-const textStyles = {
-  badgeGlyph: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(80),
-    lineHeight: toRpx(88),
-    color: tk.surface.light,
-    fontWeight: '600',
-  }),
-  statusText: (tk: RnThemeTokens): CSSProperties => ({
-    marginTop: toRpx(32),
-    fontSize: toRpx(18),
-    fontWeight: '600',
-    color: tk.text.primary,
-  }),
-  amountText: (tk: RnThemeTokens): CSSProperties => ({
-    marginTop: toRpx(16),
-    fontSize: toRpx(20),
-    fontWeight: '600',
-    color: tk.danger.DEFAULT,
-  }),
-  orderNo: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(13),
-    color: tk.text.secondary,
-    textAlign: 'center',
-  }),
-  primaryText: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(15),
-    fontWeight: '600',
-    color: tk.surface.light,
-  }),
-  secondaryText: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(15),
-    color: tk.text.primary,
-  }),
+/** 状态图标:对齐 RN lucide Check/X/Clock size rpx(80)→80rpx + surface.light */
+const statusGlyph: Record<PayStatus, IconName> = {
+  pending: 'clock',
+  paid: 'check',
+  failed: 'x',
 }
 
 export default function PayResult() {
   const tt = useTt()
-  const { resolved: appTheme } = useAppTheme()
-  const tk = getRnTokens(appTheme)
 
   // 路由参数:orderNo(必带)+ status/amount/from(调用方预置初始态,可选)
   const params = Taro.getCurrentInstance().router?.params ?? {}
@@ -189,54 +105,79 @@ export default function PayResult() {
     Taro.navigateTo({ url: '/pages/order/list' })
   }
 
-  const statusBg: Record<PayStatus, string> = {
-    pending: tk.warning.amber,
-    paid: tk.success.DEFAULT,
-    failed: tk.danger.DEFAULT,
-  }
   const statusKey: Record<PayStatus, [string, string]> = {
     pending: ['pay.result.pending', '支付处理中'],
     paid: ['pay.result.paid', '支付成功'],
     failed: ['pay.result.failed', '支付失败'],
   }
-  const statusGlyph: Record<PayStatus, string> = {
-    pending: '…',
-    paid: '✓',
-    failed: '×',
-  }
 
   return (
     <ThemeRoot>
-      <View style={viewStyles.container(tk)}>
-        <View style={viewStyles.body()}>
-          <View style={viewStyles.statusBadge(statusBg[status])}>
-            <Text style={textStyles.badgeGlyph(tk)}>{statusGlyph[status]}</Text>
+      {/* 根容器背景对齐 RN PayResultScreen container(surface.bg → --color-background) */}
+      <View className="flex min-h-screen flex-col bg-background">
+        {/* body 对齐 RN: alignItems center + paddingVertical rpx(120)→120rpx */}
+        <View className="flex flex-col items-center pt-[120rpx] pb-[120rpx]">
+          {/* 状态标对齐 RN statusIcon: 160×160rpx + 圆角 rpx(24)→24rpx;
+              pending=warning.amber / paid=success / failed=danger(语义 token 随明暗) */}
+          <View
+            className={`flex h-[160rpx] w-[160rpx] items-center justify-center rounded-[24rpx] ${statusBgClass[status]}`}
+          >
+            <LineIcon name={statusGlyph[status]} size={80} color="var(--color-surface-light)" />
           </View>
-          <Text style={textStyles.statusText(tk)}>
+          {/* statusText 对齐 RN: mt rpx(32)→32rpx + fontSize 18dp→36rpx semibold + text.primary→foreground */}
+          <Text className="mt-[32rpx] text-[36rpx] font-semibold text-foreground">
             {tt(statusKey[status][0], statusKey[status][1])}
           </Text>
-          {amount > 0 && <Text style={textStyles.amountText(tk)}>¥{amount.toFixed(2)}</Text>}
+          {/* amountText 对齐 RN: mt rpx(16)→16rpx + fontSize 20dp→40rpx semibold + danger.DEFAULT→--color-danger */}
+          {amount > 0 && (
+            <Text className="mt-[16rpx] text-[40rpx] font-semibold text-[color:var(--color-danger)]">
+              ¥{amount.toFixed(2)}
+            </Text>
+          )}
           {orderNo ? (
-            <View style={viewStyles.orderRow()}>
-              <Text style={textStyles.orderNo(tk)}>
+            <View className="mt-[24rpx] px-[60rpx]">
+              {/* 订单号为小程序端补充信息(RN 无此行):13dp→26rpx + text.secondary→muted-foreground */}
+              <Text className="text-center text-[26rpx] text-muted-foreground">
                 {`${tt('pay.orderNo', '订单号')}：${orderNo}`}
               </Text>
             </View>
           ) : null}
         </View>
-        <View style={viewStyles.actions()}>
+        {/* actions 对齐 RN: paddingHorizontal rpx(60)→60rpx + gap rpx(32)→32rpx */}
+        <View className="flex flex-col gap-[32rpx] px-[60rpx]">
           {status !== 'pending' ? (
             <>
-              <View style={viewStyles.primaryBtn(tk)} onTap={goBack}>
-                <Text style={textStyles.primaryText(tk)}>{tt('pay.backHome', '返回首页')}</Text>
+              {/* primaryBtn 对齐 RN: 高 rpx(88)→88rpx + 圆角 rpx(16)→16rpx + brand.DEFAULT→--color-primary;
+                  文字 15dp→30rpx semibold,色用 --color-primary-foreground 修正 RN surface.light
+                  在暗色纯白 brand 底上不可读的问题(亮色仍是白字黑底,与 RN 一致) */}
+              <View
+                className="flex h-[88rpx] items-center justify-center rounded-[16rpx] bg-primary"
+                hoverClass="opacity-85"
+                onTap={goBack}
+              >
+                <Text className="text-[30rpx] font-semibold text-[color:var(--color-primary-foreground)]">
+                  {tt('pay.backHome', '返回首页')}
+                </Text>
               </View>
-              <View style={viewStyles.secondaryBtn(tk)} onTap={goOrders}>
-                <Text style={textStyles.secondaryText(tk)}>{tt('pay.viewOrders', '查看订单')}</Text>
+              {/* secondaryBtn 对齐 RN: 高/圆角同 primaryBtn + surface.card→--color-card
+                  (RN 无描边,移除小程序原 border.border.light) */}
+              <View
+                className="flex h-[88rpx] items-center justify-center rounded-[16rpx] bg-card"
+                hoverClass="opacity-85"
+                onTap={goOrders}
+              >
+                <Text className="text-[30rpx] text-foreground">{tt('pay.viewOrders', '查看订单')}</Text>
               </View>
             </>
           ) : (
-            <View style={viewStyles.primaryBtn(tk)} onTap={() => void check()}>
-              <Text style={textStyles.primaryText(tk)}>{tt('pay.refresh', '刷新状态')}</Text>
+            <View
+              className="flex h-[88rpx] items-center justify-center rounded-[16rpx] bg-primary"
+              hoverClass="opacity-85"
+              onTap={() => void check()}
+            >
+              <Text className="text-[30rpx] font-semibold text-[color:var(--color-primary-foreground)]">
+                {tt('pay.refresh', '刷新状态')}
+              </Text>
             </View>
           )}
         </View>

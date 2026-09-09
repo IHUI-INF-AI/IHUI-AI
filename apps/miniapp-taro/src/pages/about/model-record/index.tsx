@@ -67,28 +67,26 @@ export default function ModelRecord() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background pb-[48rpx]">
-        <View className="pt-[32rpx] px-[32rpx]">
-          <Text className="text-[30rpx] text-foreground font-semibold">
-            {tt('about.modelRecord.tableTitle', '大模型备案信息')}
-          </Text>
-        </View>
+      <View className="min-h-screen bg-muted px-[24rpx] pt-[24rpx] pb-[48rpx]">
+        <Text className="block text-[30rpx] text-foreground font-semibold mb-[24rpx]">
+          {tt('about.modelRecord.tableTitle', '大模型备案信息')}
+        </Text>
 
-        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+        <View className="bg-card rounded-[24rpx] overflow-hidden mb-[24rpx]">
           {info.map((item, idx) => (
             <View
               key={item.label}
-              className={`flex items-start py-[28rpx] px-[32rpx]${idx === 0 ? '' : ' mt-[16rpx]'}`}
+              className={`flex items-start py-[28rpx] px-[28rpx]${idx === 0 ? '' : ' mt-[16rpx]'}`}
             >
-              <Text className="text-[26rpx] text-muted-foreground flex-shrink-0 w-[160rpx]">
+              <Text className="text-[28rpx] text-muted-foreground flex-shrink-0 w-[160rpx]">
                 {item.label}
               </Text>
-              <Text className="flex-1 text-[26rpx] text-foreground break-all">{item.value}</Text>
+              <Text className="flex-1 text-[28rpx] text-foreground break-all">{item.value}</Text>
             </View>
           ))}
         </View>
 
-        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden p-[24rpx] box-border">
+        <View className="bg-card rounded-[24rpx] overflow-hidden p-[24rpx] box-border mb-[24rpx]">
           {IMAGE_LIST.map((img, index) =>
             errorSet.has(index) ? null : (
               <Image
@@ -110,17 +108,17 @@ export default function ModelRecord() {
           ) : null}
         </View>
 
-        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden p-[32rpx]">
+        <View className="bg-card rounded-[24rpx] overflow-hidden p-[28rpx] mb-[24rpx]">
           <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">
             {tt('about.modelRecord.noticeTitle', '模型信息公示')}
           </Text>
-          <Text className="text-[26rpx] text-muted-foreground leading-[1.8]">
+          <Text className="text-[28rpx] text-muted-foreground leading-[44rpx]">
             {tt('about.modelRecord.noticeText', '本应用使用人工智能技术,以下为所用模型信息')}
           </Text>
         </View>
 
-        <View className="text-center p-[32rpx]">
-          <Text className="text-[22rpx] text-muted-foreground">
+        <View className="text-center pt-[16rpx]">
+          <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
             {tt('about.modelRecord.footer', '模型信息仅供参考')}
           </Text>
         </View>

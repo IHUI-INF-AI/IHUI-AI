@@ -4,6 +4,19 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
+/*
+  对齐 RN 端 packages/app/src/features/ask-create/AskCreateScreen.tsx(共享屏)。
+  小程序页为富表单(标题/描述/分类/悬赏/配图/匿名),保留业务区块,视觉语言对齐共享表单屏:
+  - 区块 = RN input 块: bg surface.muted→--color-muted / 描边 border.light→--color-border /
+    圆角 12dp→24rpx;块内输入框白底(--color-card) + border.light
+  - 输入字号 16dp→32rpx text.primary→--color-foreground;textarea minH 120dp→240rpx
+  - 计数/占位文字 text.tertiary→--color-text-tertiary
+  - 悬赏 chip 同 PostCreateScreen pickBtn 语言: 圆角 16dp→32rpx / border.medium→--color-border-medium
+  - 提交钮: bg brand.DEFAULT→--color-brand / 圆角 24rpx / 字 32rpx 600
+    surface.light→--color-primary-foreground(修正 RN 暗色白底白字缺陷) /
+    disabled bg text.tertiary→--color-text-tertiary
+  - 弹层遮罩对齐 modalBackdrop rgba(0,0,0,0.35)→--color-black-35
+*/
 .ask-create-page {
   min-height: 100vh;
   background: var(--color-background);
@@ -13,25 +26,27 @@
 
 .ask-create-body {
   flex: 1;
-  padding: 24rpx;
-  padding-bottom: 160rpx;
+  padding: 24rpx 20rpx 160rpx;
   box-sizing: border-box;
 }
 
+/* ===== 表单区块(对齐 RN input 块: bg surface.muted / border border.light / radius 12dp) ===== */
 .ask-create-card {
-  background: var(--color-card);
-  border-radius: var(--radius-lg);
-  padding: 28rpx;
-  margin-bottom: 20rpx;
+  background: var(--color-muted);
+  border: 2rpx solid var(--color-border);
+  border-radius: 24rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
 }
 
 .ask-create-label-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16rpx;
+  margin-bottom: 12rpx;
 }
 
+/* 对齐 RN label: 14dp→28rpx / text.secondary */
 .ask-create-label {
   font-size: 28rpx;
   color: var(--color-foreground);
@@ -40,37 +55,43 @@
 
 .ask-create-counter {
   font-size: 22rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
 }
 
+/* ===== 输入框(白底浮于 muted 块上;对齐 RN input 字号 16dp→32rpx) ===== */
 .ask-create-input {
   width: 100%;
-  font-size: 30rpx;
+  font-size: 32rpx;
   color: var(--color-foreground);
-  padding: 16rpx;
-  background: var(--color-background);
-  border-radius: var(--radius-md);
+  padding: 16rpx 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: 24rpx;
   box-sizing: border-box;
 }
 
 .ask-create-textarea {
   width: 100%;
-  min-height: 200rpx;
-  padding: 16rpx;
-  background: var(--color-background);
-  border-radius: var(--radius-md);
-  font-size: 28rpx;
+  min-height: 240rpx;
+  padding: 16rpx 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: 24rpx;
+  font-size: 32rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
 }
 
-/* 分类选择器 */
+/* 分类选择器(对齐 RN input 行: 白底/描边/圆角 24rpx) */
 .ask-create-picker {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20rpx 0;
+  padding: 20rpx 24rpx;
   margin-top: 8rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: 24rpx;
 }
 
 .ask-create-picker-value {
@@ -79,7 +100,7 @@
 }
 
 .ask-create-picker-placeholder {
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
 }
 
 .ask-create-picker-arrow {
@@ -87,7 +108,7 @@
   color: var(--color-muted-foreground);
 }
 
-/* 悬赏积分 */
+/* 悬赏积分 chip(pickBtn 语言: 圆角 16dp→32rpx / border.medium / bg card) */
 .ask-create-rewards {
   display: flex;
   flex-wrap: wrap;
@@ -99,16 +120,17 @@
   min-width: 80rpx;
   padding: 12rpx 28rpx;
   text-align: center;
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: 26rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border-medium);
+  border-radius: 32rpx;
+  font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
 
 .ask-create-reward.active {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: var(--color-border);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+  background: var(--color-card);
   font-weight: 600;
 }
 
@@ -129,8 +151,8 @@
 .ask-create-img {
   width: 160rpx;
   height: 160rpx;
-  border-radius: var(--radius-md);
-  background: var(--color-muted);
+  border-radius: 16rpx;
+  background: var(--color-background);
 }
 
 .ask-create-img-del {
@@ -155,9 +177,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2rpx dashed var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-background);
+  border: 2rpx dashed var(--color-border-medium);
+  border-radius: 16rpx;
+  background: var(--color-card);
 }
 
 .ask-create-img-add-icon {
@@ -183,13 +205,13 @@
   margin-top: 4rpx;
 }
 
-/* 底部按钮 */
+/* 底部按钮(对齐 RN submitBtn: bg brand / 圆角 24rpx / 字 32rpx 600) */
 .ask-create-footer {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 20rpx 32rpx;
+  padding: 20rpx 20rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   z-index: 10;
@@ -197,29 +219,30 @@
 
 .ask-create-submit {
   width: 100%;
-  height: 88rpx;
-  line-height: 88rpx;
-  background: var(--color-primary);
-  color: var(--color-foreground);
-  border-radius: var(--radius-md);
+  height: 92rpx;
+  line-height: 92rpx;
+  background: var(--color-brand);
+  color: var(--color-primary-foreground);
+  border-radius: 24rpx;
   font-size: 32rpx;
   font-weight: 600;
   border: none;
 }
 
+/* 对齐 RN submitDisabled: bg text.tertiary */
 .ask-create-submit[disabled] {
-  background: var(--color-muted);
-  color: var(--color-muted-foreground);
+  background: var(--color-text-tertiary);
+  color: var(--color-card);
 }
 
-/* 分类选择弹层 */
+/* 分类选择弹层(遮罩对齐 RN modalBackdrop rgba(0,0,0,0.35)) */
 .ask-create-mask {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--color-black-50);
+  background: var(--color-black-35);
   z-index: 100;
   display: flex;
   align-items: flex-end;
@@ -262,12 +285,11 @@
 }
 
 .ask-create-sheet-item.active {
-  color: var(--color-primary);
+  color: var(--color-brand);
   font-weight: 600;
 }
 
 .ask-create-sheet-check {
-  color: var(--color-primary);
+  color: var(--color-brand);
   font-size: 28rpx;
 }
-/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

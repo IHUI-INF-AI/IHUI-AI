@@ -8,7 +8,6 @@ import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/ta
 import { useState, useRef } from 'react'
 import * as api from '@/api'
 import { logger } from '@/utils/logger'
-import './index.css'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface MemberItem {
@@ -111,84 +110,124 @@ export default function MemberDetail() {
     Promise.all([loadStats(), load(true)]).finally(() => Taro.stopPullDownRefresh())
   })
 
+  /* 对齐 RN TeamDetailScreen(packages/app 共享屏):scrollContent padding 14dp→28rpx + gap 12dp→24rpx,
+     统计行 18dp→36rpx 品牌色数值 + 14dp→28rpx 标签;列表项复用 memberCard 语言(24rpx 圆角 + 28rpx padding)。
+     RN memberCard 用 surface.light(恒白),暗色下不可读,按语义 token 修正为 bg-card */
   return (
-    <ThemeRoot className="md-page">
-      <View className="md-stats">
-        <View className="md-stat">
-          <Text className="md-stat-num">{stats.teamCount}</Text>
-          <Text className="md-stat-label">
-            {tt('distribution.memberDetail.teamCount', '团队人数')}
-          </Text>
+    <ThemeRoot className="min-h-screen bg-background pb-[64rpx]">
+      <View className="p-[28rpx] flex flex-col gap-[24rpx]">
+        {/* 对齐 RN TeamDetailScreen statsRow:card 底 + 24rpx 圆角 + 品牌色数值 */}
+        <View className="flex flex-row rounded-[24rpx] bg-card p-[28rpx] gap-[16rpx]">
+          <View className="flex-1 flex flex-col items-center gap-[8rpx]">
+            <Text className="text-[36rpx] font-semibold text-[var(--color-primary)]">
+              {stats.teamCount}
+            </Text>
+            <Text className="text-[28rpx] text-muted-foreground">
+              {tt('distribution.memberDetail.teamCount', '团队人数')}
+            </Text>
+          </View>
+          <View className="flex-1 flex flex-col items-center gap-[8rpx]">
+            <Text className="text-[36rpx] font-semibold text-[var(--color-primary)]">
+              {stats.monthNew}
+            </Text>
+            <Text className="text-[28rpx] text-muted-foreground">
+              {tt('distribution.memberDetail.monthNew', '本月新增')}
+            </Text>
+          </View>
+          <View className="flex-1 flex flex-col items-center gap-[8rpx]">
+            <Text className="text-[36rpx] font-semibold text-[var(--color-primary)]">
+              ¥{stats.totalCommission}
+            </Text>
+            <Text className="text-[28rpx] text-muted-foreground">
+              {tt('distribution.memberDetail.totalCommission', '总佣金')}
+            </Text>
+          </View>
         </View>
-        <View className="md-stat">
-          <Text className="md-stat-num">{stats.monthNew}</Text>
-          <Text className="md-stat-label">
-            {tt('distribution.memberDetail.monthNew', '本月新增')}
-          </Text>
-        </View>
-        <View className="md-stat">
-          <Text className="md-stat-num">¥{stats.totalCommission}</Text>
-          <Text className="md-stat-label">
-            {tt('distribution.memberDetail.totalCommission', '总佣金')}
-          </Text>
-        </View>
-      </View>
 
-      <View className="md-list-section">
-        <Text className="md-list-title">
-          {tt('distribution.memberDetail.memberList', '成员列表')}
-        </Text>
+        <View className="flex flex-col gap-[24rpx]">
+          <Text className="text-[28rpx] text-muted-foreground">
+            {tt('distribution.memberDetail.memberList', '成员列表')}
+          </Text>
 
-        {list.length > 0 && (
-          <View className="md-list">
-            {list.map((m) => (
-              <View key={m.id} className="md-card">
-                {m.avatar ? (
-                  <Image className="md-avatar" src={m.avatar} mode="aspectFill" />
-                ) : (
-                  <View className="md-avatar md-avatar-fallback">
-                    <Text>{m.nickname.charAt(0) || '?'}</Text>
-                  </View>
-                )}
-                <View className="md-info">
-                  <View className="md-info-row">
-                    <Text className="md-nickname">{m.nickname}</Text>
-                    <Text className="md-level">V{m.level}</Text>
-                  </View>
-                  <View className="md-info-row">
-                    <Text className="md-join">
-                      {tt('distribution.memberDetail.joinTime', '加入')}:{m.joinTime || '-'}
-                    </Text>
-                    <Text className="md-contribution">
-                      {tt('distribution.memberDetail.contribution', '贡献')} ¥{m.contribution}
-                    </Text>
+          {list.length > 0 && (
+            <View className="flex flex-col gap-[16rpx]">
+              {list.map((m) => (
+                <View
+                  key={m.id}
+                  className="flex flex-row items-center rounded-[24rpx] bg-card p-[28rpx] gap-[24rpx]"
+                >
+                  {m.avatar ? (
+                    <Image
+                      className="w-[96rpx] h-[96rpx] rounded-full flex-shrink-0"
+                      src={m.avatar}
+                      mode="aspectFill"
+                    />
+                  ) : (
+                    <View className="w-[96rpx] h-[96rpx] rounded-full bg-primary items-center justify-center flex-shrink-0">
+                      <Text className="text-[44rpx] font-semibold text-[var(--color-primary-foreground)]">
+                        {m.nickname.charAt(0) || '?'}
+                      </Text>
+                    </View>
+                  )}
+                  <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
+                    <View className="flex flex-row items-center gap-[12rpx]">
+                      <Text className="flex-1 text-[32rpx] font-semibold text-foreground truncate">
+                        {m.nickname}
+                      </Text>
+                      <Text className="flex-shrink-0 px-[12rpx] py-[2rpx] rounded-[16rpx] bg-[var(--color-muted)] text-[20rpx] text-muted-foreground">
+                        V{m.level}
+                      </Text>
+                    </View>
+                    <View className="flex flex-row items-center justify-between gap-[16rpx]">
+                      <Text className="flex-1 text-[22rpx] text-[var(--color-text-tertiary)] truncate">
+                        {tt('distribution.memberDetail.joinTime', '加入')}:{m.joinTime || '-'}
+                      </Text>
+                      <Text className="flex-shrink-0 text-[28rpx] font-semibold text-[var(--color-success)]">
+                        {tt('distribution.memberDetail.contribution', '贡献')} ¥{m.contribution}
+                      </Text>
+                    </View>
                   </View>
                 </View>
+              ))}
+            </View>
+          )}
+
+          {list.length === 0 && !loading && !error && (
+            <View className="py-[48rpx] text-center">
+              <Text className="text-[28rpx] text-muted-foreground">
+                {t('distribution.memberDetail.empty')}
+              </Text>
+            </View>
+          )}
+
+          {error && !loading && (
+            <View className="flex flex-col items-center py-[48rpx] gap-[24rpx]">
+              <Text className="text-[28rpx] text-muted-foreground text-center">
+                {tt('distribution.memberDetail.error', '加载失败')}
+              </Text>
+              <View
+                className="px-[40rpx] h-[72rpx] rounded-[20rpx] bg-primary flex items-center justify-center"
+                onClick={() => load(true)}
+                hoverClass="opacity-60">
+                <Text className="text-[28rpx] font-medium text-[var(--color-primary-foreground)]">
+                  {tt('distribution.memberDetail.retry', '点击重试')}
+                </Text>
               </View>
-            ))}
-          </View>
-        )}
+            </View>
+          )}
 
-        {list.length === 0 && !loading && !error && (
-          <Text className="md-empty">{t('distribution.memberDetail.empty')}</Text>
-        )}
-
-        {error && !loading && (
-          <View className="md-error" onClick={() => load(true)}>
-            <Text className="md-error-text">
-              {tt('distribution.memberDetail.error', '加载失败')}
+          {loading && (
+            <Text className="block text-center text-[28rpx] text-[var(--color-text-tertiary)] py-[48rpx]">
+              {t('distribution.memberDetail.loading')}
             </Text>
-            <Text className="md-error-retry">
-              {tt('distribution.memberDetail.retry', '点击重试')}
+          )}
+
+          {!loading && !hasMore && list.length > 0 && (
+            <Text className="block text-center text-[28rpx] text-[var(--color-text-tertiary)] py-[48rpx]">
+              {tt('distribution.memberDetail.noMore', '没有更多了')}
             </Text>
-          </View>
-        )}
-
-        {loading && <Text className="md-loading">{t('distribution.memberDetail.loading')}</Text>}
-
-        {!loading && !hasMore && list.length > 0 && (
-          <Text className="md-no-more">{tt('distribution.memberDetail.noMore', '没有更多了')}</Text>
-        )}
+          )}
+        </View>
       </View>
     </ThemeRoot>
   )

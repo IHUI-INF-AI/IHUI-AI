@@ -517,24 +517,27 @@ export default function ProtocolPage() {
 
   return (
     <ThemeRoot>
-      <ScrollView className="h-screen bg-card" scrollY>
-        <View className="px-[32rpx] pt-[32rpx] pb-[60rpx]">
-          <Text className="block text-[40rpx] font-bold text-foreground text-center mb-[32rpx]">
+      <ScrollView className="h-screen bg-background" scrollY>
+        <View className="px-[28rpx] pt-[28rpx] pb-[64rpx]">
+          <Text className="block text-[32rpx] font-semibold text-foreground mb-[24rpx]">
             {tt('about.protocol.mainTitle', '服务协议')}
           </Text>
           {sections.map((section, sIdx) => (
-            <View key={sIdx} className="mb-[40rpx]">
-              <Text className="block text-[32rpx] font-bold text-foreground mb-[20rpx]">
+            <View
+              key={sIdx}
+              className="bg-card rounded-[24rpx] border border-border p-[28rpx] mb-[24rpx]"
+            >
+              <Text className="block text-[32rpx] font-semibold text-foreground mb-[8rpx]">
                 {section.subtitle}
               </Text>
               {section.paragraphs.map((p, pIdx) => (
-                <View key={pIdx} className="mb-[20rpx]">
+                <View key={pIdx} className="mt-[16rpx]">
                   {p.title ? (
-                    <Text className="block text-[30rpx] font-bold text-foreground mb-[20rpx]">
+                    <Text className="block text-[28rpx] font-semibold text-foreground mb-[8rpx]">
                       {p.title}
                     </Text>
                   ) : null}
-                  <Text className="block text-[28rpx] text-foreground leading-[1.8] text-justify">
+                  <Text className="block text-[28rpx] text-[var(--color-text-medium)] leading-[36rpx] text-justify">
                     {p.text}
                   </Text>
                 </View>
