@@ -2220,6 +2220,34 @@ class AgentLoopV2:
                 self._maybe_record_step(tc, result)
             return serial_results
 
+    @staticmethod
+    def _tool_llm_usage_fields(result: Any) -> dict[str, Any]:
+        """工具结果内嵌 LLM 用量 → step 顶层 tokens 字段(2026-09-09 立)。
+
+        工具内部直接调 llm_gateway 时(如 extract_web 的 LLM 抽取通道),usage 随
+        结果透出为 llm_usage/llm_model。此处映射为 tokens_in/tokens_out/tokens/model,
+        使 cost_ledger.sync_from_recorder 与 tool_cost_accounting 聚合时真正入账。
+        此前 llm_usage 只透出在 result_summary 里,聚合侧 tokens 永远为 0(假闭环)。
+        """
+        if not isinstance(result, dict):
+            return {}
+        usage = result.get("llm_usage")
+        if not isinstance(usage, dict):
+            return {}
+        tokens_in = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
+        tokens_out = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
+        if tokens_in <= 0 and tokens_out <= 0:
+            return {}
+        fields: dict[str, Any] = {
+            "tokens_in": tokens_in,
+            "tokens_out": tokens_out,
+            "tokens": tokens_in + tokens_out,
+        }
+        model = result.get("llm_model")
+        if isinstance(model, str) and model:
+            fields["model"] = model
+        return fields
+
     def _maybe_record_step(self, tc: ToolCall, tr: ToolResult) -> None:
         """工具调用可观测录制(2026-09-03 立):每次工具执行后 append 一步。
 
@@ -2255,6 +2283,7 @@ class AgentLoopV2:
                     ),
                     "status": "error" if tr.error else "ok",
                     "duration_ms": round(float(tr.duration_ms or 0.0), 2),
+                    **self._tool_llm_usage_fields(tr.result),
                     "input": tc.args,
                     "decision": decision,
                     "reason": reason,
