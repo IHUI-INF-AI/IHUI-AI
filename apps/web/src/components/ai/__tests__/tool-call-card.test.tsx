@@ -250,4 +250,116 @@ describe('ToolCallCard summary rendering', () => {
     expect(screen.getByText('结果')).toBeTruthy()
   })
 })
+
+/**
+ * ToolCallCard audio / video 媒体渲染守门测试(token6688 music/video_generation,2026-09-08)。
+ *
+ * 验证 music_generation(audioUrl)→ <audio> 播放器、video_generation(videoUrl)→
+ * <video> 播放器专用分支;无 URL(任务未完成,仅 task_id)时回退 JSON 渲染。
+ */
+describe('ToolCallCard media rendering (music/video)', () => {
+  afterEach(() => cleanup())
+
+  it('music_generation + audioUrl 时渲染 <audio> 播放器', () => {
+    render(
+      <ToolCallCard
+        toolName="music_generation"
+        args={{ prompt: '轻快的钢琴曲' }}
+        audioUrl="https://cdn.example.com/song.mp3"
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('music_generation').closest('button')!)
+    const audio = screen.getByTestId('tool-media-audio')
+    expect(audio).toBeTruthy()
+    expect(audio.getAttribute('src')).toBe('https://cdn.example.com/song.mp3')
+  })
+
+  it('voice_tts + data URI audioUrl 时渲染 <audio> 播放器(edge-tts 产物)', () => {
+    render(
+      <ToolCallCard
+        toolName="voice_tts"
+        args={{ text: '你好,世界' }}
+        audioUrl="data:audio/mpeg;base64,SUQzZmFrZQ=="
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('voice_tts').closest('button')!)
+    const audio = screen.getByTestId('tool-media-audio')
+    expect(audio).toBeTruthy()
+    expect(audio.getAttribute('src')).toBe('data:audio/mpeg;base64,SUQzZmFrZQ==')
+  })
+
+  it('voice_tts 无 audioUrl(失败)时回退 JSON 渲染', () => {
+    render(
+      <ToolCallCard
+        toolName="voice_tts"
+        args={{ text: '你好' }}
+        result={{ ok: false, error: 'edge-tts 不可达', errorCode: 'ENGINE_ERROR' }}
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('voice_tts').closest('button')!)
+    expect(screen.queryByTestId('tool-media-audio')).toBeNull()
+    expect(screen.getByText('参数')).toBeTruthy()
+  })
+
+  it('video_generation + videoUrl 时渲染 <video> 播放器', () => {
+    render(
+      <ToolCallCard
+        toolName="video_generation"
+        args={{ prompt: '橘猫晒太阳' }}
+        videoUrl="https://cdn.example.com/clip.mp4"
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('video_generation').closest('button')!)
+    const video = screen.getByTestId('tool-media-video')
+    expect(video).toBeTruthy()
+    expect(video.getAttribute('src')).toBe('https://cdn.example.com/clip.mp4')
+  })
+
+  it('music_generation 无 audioUrl(任务未完成)时回退 JSON 渲染', () => {
+    render(
+      <ToolCallCard
+        toolName="music_generation"
+        args={{ prompt: '轻快的钢琴曲' }}
+        result={{ ok: true, completed: false, task_id: 't-1', status: 'submitted' }}
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('music_generation').closest('button')!)
+    expect(screen.queryByTestId('tool-media-audio')).toBeNull()
+    expect(screen.getByText('参数')).toBeTruthy()
+  })
+
+  it('video_generation 无 videoUrl(任务未完成)时回退 JSON 渲染', () => {
+    render(
+      <ToolCallCard
+        toolName="video_generation"
+        args={{ prompt: '橘猫晒太阳' }}
+        result={{ ok: true, completed: false, task_id: 't-2', status: 'submitted' }}
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('video_generation').closest('button')!)
+    expect(screen.queryByTestId('tool-media-video')).toBeNull()
+    expect(screen.getByText('参数')).toBeTruthy()
+  })
+
+  it('audioUrl/videoUrl 仅对对应工具生效(其他工具不渲染播放器)', () => {
+    render(
+      <ToolCallCard
+        toolName="read_file"
+        args={{}}
+        audioUrl="https://cdn.example.com/song.mp3"
+        videoUrl="https://cdn.example.com/clip.mp4"
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('read_file').closest('button')!)
+    expect(screen.queryByTestId('tool-media-audio')).toBeNull()
+    expect(screen.queryByTestId('tool-media-video')).toBeNull()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

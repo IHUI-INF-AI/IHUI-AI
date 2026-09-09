@@ -111,4 +111,21 @@ export async function removeFile(fileId: string): Promise<void> {
   const res = await fetchApi(`/api/workspace/files/${fileId}`, { method: 'DELETE' })
   if (!res.success) throw new Error(res.error)
 }
+
+// 2026-09-08:文件转 Markdown(anydoc 引擎,16 格式)。后端为 POST /api/files/:id/convert-markdown,
+// 失败时 422 + code/message 携带具体原因(扫描件需 OCR/文件加密/结构损坏等)。
+// 2026-09-08 修复:必须带空 JSON body + Content-Type。生产经 Cloudflare 链路转发后,
+// 无 CT 的空 body POST 会被 Fastify 判 415(直连 8801/8802 无法复现);而空 body +
+// JSON CT 又因空 body 解析失败 400。实测发 '{}' + JSON CT 全链路 200。
+export async function convertFileToMarkdown(fileId: string): Promise<{
+  markdown: string
+  fileName: string
+}> {
+  const res = await fetchApi<{ markdown: string; fileName: string }>(
+    `/api/files/${fileId}/convert-markdown`,
+    { method: 'POST', body: JSON.stringify({}) },
+  )
+  if (!res.success) throw new Error(res.error)
+  return res.data
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -41,6 +41,24 @@ from ..core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
 
+# ---- anydoc 文档提取引擎(可选依赖)----
+# 文档格式(docx/doc/pdf/pptx/ppt/xls/xlsx/odt/ods/odp/rtf/epub)为二进制容器,
+# 直接 read_text 会产生乱码切片;经 anydoc 抽取为 Markdown 后再入索引。
+# 未安装 anydoc 时不映射这些扩展名,保持原有行为(完全跳过)。
+try:
+    import anydoc as _anydoc
+
+    _ANYDOC_OK: bool = True
+except ImportError:  # pragma: no cover - 依赖缺失环境
+    _anydoc = None  # type: ignore[assignment]
+    _ANYDOC_OK = False
+
+# 需经 anydoc 抽取的文档扩展名
+_DOC_EXTS: frozenset[str] = frozenset({
+    ".docx", ".doc", ".pptx", ".ppt", ".xlsx", ".xls",
+    ".odt", ".ods", ".odp", ".rtf", ".epub", ".pdf",
+})
+
 # 支持的文件扩展名 → 语言映射
 _EXT_TO_LANG: dict[str, str] = {
     ".ts": "typescript",
@@ -66,6 +84,24 @@ _EXT_TO_LANG: dict[str, str] = {
     ".vue": "vue",
     ".svelte": "svelte",
 }
+
+# Markdown 文档(纯文本,无需 anydoc)→ 以 "markdown" 语言走正则切片
+_EXT_TO_LANG[".md"] = "markdown"
+_EXT_TO_LANG[".markdown"] = "markdown"
+# 二进制文档格式依赖 anydoc,仅在引擎可用时纳入索引收集
+if _ANYDOC_OK:
+    for _doc_ext in sorted(_DOC_EXTS):
+        _EXT_TO_LANG[_doc_ext] = "markdown"
+
+
+def _extract_document_markdown(path: Path) -> str:
+    """anydoc 提取文档格式为 Markdown 文本(阻塞调用,异步上下文请经 asyncio.to_thread)。
+
+    失败时抛异常,由调用方捕获并记入 result.errors(跳过该文件)。
+    """
+    if _anydoc is None:
+        raise RuntimeError("anydoc 模块未安装, 无法索引文档格式")
+    return _anydoc.to_markdown(str(path))
 
 # 忽略目录
 _IGNORED_DIRS: set[str] = {
@@ -699,13 +735,17 @@ class CodebaseIndexer:
         for file_path, language in files:
             rel_path = str(file_path.relative_to(root)).replace("\\", "/")
             try:
-                content = file_path.read_text(encoding="utf-8", errors="replace")
+                if file_path.suffix.lower() in _DOC_EXTS:
+                    # 文档格式:扫描轮仅读原始字节算 hash,昂贵的 anydoc 抽取留给切片轮
+                    content_hash = hashlib.sha256(file_path.read_bytes()).hexdigest()
+                else:
+                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                    if not content.strip():
+                        continue
+                    content_hash = _file_content_hash(content)
             except Exception as e:
                 result.errors.append(f"{file_path}: {e}")
                 continue
-            if not content.strip():
-                continue
-            content_hash = _file_content_hash(content)
             new_hashes[rel_path] = content_hash
             if incremental and prev_snapshot.get(rel_path) == content_hash:
                 result.files_unchanged += 1
@@ -726,7 +766,12 @@ class CodebaseIndexer:
         layer_inputs: list[tuple[str, str, int]] = []  # (rel_path, language, symbol_count)
         for file_path, rel_path, language in changed:
             try:
-                content = file_path.read_text(encoding="utf-8", errors="replace")
+                if file_path.suffix.lower() in _DOC_EXTS:
+                    # 文档格式:经 anydoc 抽取 Markdown(线程池执行,避免阻塞事件循环);
+                    # 失败则跳过该文件并记 error
+                    content = await asyncio.to_thread(_extract_document_markdown, file_path)
+                else:
+                    content = file_path.read_text(encoding="utf-8", errors="replace")
                 file_chunks = self._chunk_by_ast(content, language)
                 for c in file_chunks:
                     c.file_path = rel_path
@@ -805,7 +850,11 @@ class CodebaseIndexer:
 
         result = IndexResult(repo_id=repo_id, files_scanned=1)
         try:
-            content = path.read_text(encoding="utf-8", errors="replace")
+            if path.suffix.lower() in _DOC_EXTS:
+                # 文档格式:经 anydoc 抽取 Markdown 后入索引
+                content = await asyncio.to_thread(_extract_document_markdown, path)
+            else:
+                content = path.read_text(encoding="utf-8", errors="replace")
             if not content.strip():
                 return result
             chunks = self._chunk_by_ast(content, language)
