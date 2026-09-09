@@ -24,6 +24,8 @@ from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
 from ..services.media_tasks import (
+    clear_media_tasks,
+    delete_media_task,
     get_media_task,
     handle_media_callback,
     query_media_tasks,
@@ -191,6 +193,38 @@ async def media_task_detail(task_id: str) -> dict[str, Any]:
         except Exception as e:  # noqa: BLE001
             logger.warning("[media_tasks] 实时探测失败(降级返回库内数据): %s", e)
     return {"ok": True, "data": row}
+
+
+@router.delete("/media/tasks")
+async def media_task_clear(
+    kind: str | None = None,
+    status: str | None = None,
+    before: str | None = None,
+) -> dict[str, Any]:
+    """批量清理已终态媒体任务记录(2026-09-09 F1)。
+
+    只删 succeeded/failed/cancelled;在途任务(processing 等)一律保留,防收尾通道
+    回写失败而任务消失。kind/status 逗号分隔多值;before=ISO 时间截点只删更早。
+    """
+    try:
+        result = await clear_media_tasks(kind=kind, status=status, before=before)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[media_tasks] 批量清理失败: %s", e)
+        raise HTTPException(status_code=500, detail=f"媒体任务清理异常: {e}") from e
+    return {"ok": True, "data": result}
+
+
+@router.delete("/media/tasks/{task_id}")
+async def media_task_delete(task_id: str) -> dict[str, Any]:
+    """删除单条媒体任务记录(2026-09-09 F1;仅删本地记录,长任务应先取消再删)。"""
+    try:
+        deleted = await delete_media_task(task_id)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[media_tasks] 单条删除失败: %s", e)
+        raise HTTPException(status_code=500, detail=f"媒体任务删除异常: {e}") from e
+    if not deleted:
+        raise HTTPException(status_code=404, detail="媒体任务不存在")
+    return {"ok": True, "data": {"task_id": task_id, "deleted": True}}
 
 
 @router.post("/media/tasks/{task_id}/cancel")
