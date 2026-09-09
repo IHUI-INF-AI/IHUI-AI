@@ -100,7 +100,9 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { taskId } = taskIdParam.parse(request.params)
       const task = taskStore.get(taskId)
-      if (!task || task.vendor !== 'suno') {
+      // 2026-09-09 P1 越权修复:仅校验 vendor 不够,任何登录用户可凭 taskId 枚举
+      // 读取他人生成的任务结果(含音视频 URL)。补归属校验,跨用户一律 404(不泄露存在性)。
+      if (!task || task.vendor !== 'suno' || task.userId !== request.userId) {
         return reply.status(404).send(error(404, '任务不存在'))
       }
       const upstream = await callVendor(
@@ -212,7 +214,8 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { taskId } = taskIdParam.parse(request.params)
       const task = taskStore.get(taskId)
-      if (!task || task.vendor !== 'sora2') {
+      // 2026-09-09 P1 越权修复:同 suno 详情,补归属校验,跨用户 404。
+      if (!task || task.vendor !== 'sora2' || task.userId !== request.userId) {
         return reply.status(404).send(error(404, '任务不存在'))
       }
       const upstream = await callVendor(

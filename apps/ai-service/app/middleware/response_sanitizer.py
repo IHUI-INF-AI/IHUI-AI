@@ -36,6 +36,16 @@ SENSITIVE_KEYS: set[str] = {
     "token",
     "password",
     "twofactorsecret",
+    # 2026-09-09 P1 补漏:camelCase 键名小写后与 snake_case 规则不匹配,
+    # apiKey/accessKey/privateKey 等此前可原样透出。
+    "apikey",
+    "accesskey",
+    "privatekey",
+    "authorization",
+    "credential",
+    "cookie",
+    "sessionid",
+    "sessionkey",
 }
 
 # 白名单:即便命中敏感规则也不脱敏(LLM usage 计量字段,调用方必需)
