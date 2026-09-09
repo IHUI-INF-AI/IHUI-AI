@@ -193,9 +193,15 @@ async def test_call_tool_skips_non_media_tool(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def _make_app() -> FastAPI:
+def _make_app(scope: tuple[str, bool] = ("u-admin", True)) -> FastAPI:
+    """测试用裸 FastAPI(无 JWT 中间件)。
+
+    默认注入 admin 身份(现有用例行为不变:admin 尊重显式 user_uuid 传参);
+    需要模拟普通用户时传 scope=("u-plain", False)。
+    """
     app = FastAPI()
     app.include_router(mt_router.router, prefix="/api")
+    app.dependency_overrides[mt_router._user_scope] = lambda: scope
     return app
 
 
@@ -320,6 +326,69 @@ async def test_rest_media_task_cancel_pending_ok(monkeypatch):
     assert kwargs.get("status") == "cancelled"
 
 
+async def test_rest_media_task_list_non_admin_forced_filter(monkeypatch):
+    """P0 越权修复(2026-09-09):非 admin 强制按 JWT 用户过滤,客户端传参被忽略。"""
+    q = AsyncMock(return_value={"items": [], "total": 0})
+    monkeypatch.setattr("app.routers.media_tasks.query_media_tasks", q)
+    app = _make_app(scope=("u-plain", False))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # 不传 user_uuid / 冒传他人 user_uuid → 都强制为自身
+        await ac.get("/api/media/tasks")
+        resp = await ac.get("/api/media/tasks", params={"user_uuid": "someone-else"})
+    assert resp.status_code == 200
+    assert q.call_args_list[0].kwargs.get("user_uuid") == "u-plain"
+    assert q.call_args_list[1].kwargs.get("user_uuid") == "u-plain"
+
+
+async def test_rest_media_task_detail_other_user_404(monkeypatch):
+    """P0 越权修复(2026-09-09):非 admin 查看他人任务 → 404(不泄露存在性)。"""
+    monkeypatch.setattr(
+        "app.routers.media_tasks.get_media_task",
+        AsyncMock(return_value={"task_id": "t-x", "user_uuid": "someone-else", "status": "succeeded"}),
+    )
+    app = _make_app(scope=("u-plain", False))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.get("/api/media/tasks/t-x")
+    assert resp.status_code == 404
+
+
+async def test_rest_media_task_cancel_other_user_404(monkeypatch):
+    """P0 越权修复(2026-09-09):非 admin 取消他人任务 → 404,不触发取消/置位。"""
+    monkeypatch.setattr(
+        "app.routers.media_tasks.get_media_task",
+        AsyncMock(return_value={"task_id": "t-o", "user_uuid": "someone-else", "status": "processing"}),
+    )
+    upd = AsyncMock(return_value=True)
+    monkeypatch.setattr("app.routers.media_tasks.update_media_task", upd)
+    app = _make_app(scope=("u-plain", False))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/api/media/tasks/t-o/cancel")
+    assert resp.status_code == 404
+    upd.assert_not_awaited()
+
+
+async def test_rest_media_tasks_cancel_batch_user_scoped(monkeypatch):
+    """P0 越权修复(2026-09-09):批量取消非 admin 强制携带自身 user_uuid。"""
+    svc = AsyncMock(return_value={"requested": 0, "cancelled": 0, "remote_failed": []})
+    monkeypatch.setattr("app.routers.media_tasks.cancel_media_tasks", svc)
+    app = _make_app(scope=("u-plain", False))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/api/media/tasks/cancel", json={"kind": "video"})
+    assert resp.status_code == 200
+    assert svc.call_args.kwargs.get("user_uuid") == "u-plain"
+
+
+async def test_rest_media_task_clear_non_admin_scoped(monkeypatch):
+    """P0 越权修复(2026-09-09):批量清理非 admin 强制按自身过滤。"""
+    svc = AsyncMock(return_value={"deleted": 0, "kept_in_flight": 0})
+    monkeypatch.setattr("app.routers.media_tasks.clear_media_tasks", svc)
+    app = _make_app(scope=("u-plain", False))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.delete("/api/media/tasks", params={"status": "succeeded"})
+    assert resp.status_code == 200
+    assert svc.call_args.kwargs.get("user_uuid") == "u-plain"
+
+
 # ---------------------------------------------------------------------------
 # 删除/清理(2026-09-09 F1):单条删除 + 批量清理(只删终态,在途保留)
 # ---------------------------------------------------------------------------
@@ -386,8 +455,12 @@ async def test_clear_media_tasks_before_filter():
 
 
 async def test_rest_media_task_delete(monkeypatch):
-    """REST 单条删除:命中 200,未命中 404。"""
+    """REST 单条删除:命中 200,未命中 404(删除前先做归属校验,须 mock get)。"""
     app = _make_app()
+    monkeypatch.setattr(
+        "app.routers.media_tasks.get_media_task",
+        AsyncMock(return_value={"task_id": "t-x", "user_uuid": "u-admin", "status": "succeeded"}),
+    )
     monkeypatch.setattr(
         "app.routers.media_tasks.delete_media_task",
         AsyncMock(return_value=True),
@@ -1233,7 +1306,7 @@ async def test_rest_media_tasks_cancel_batch(monkeypatch):
     """REST 批量取消:F8,POST /api/media/tasks/cancel 透传 task_ids/kind。"""
     called: dict = {}
 
-    async def _fake(task_ids=None, kind=None):
+    async def _fake(task_ids=None, kind=None, user_uuid=None):
         called.update(task_ids=task_ids, kind=kind)
         return {"requested": 2, "cancelled": 2, "remote_failed": []}
 
@@ -1254,7 +1327,7 @@ async def test_rest_media_tasks_cancel_batch_empty(monkeypatch):
     """REST 批量取消:无 body → task_ids/kind 均 None(取消全部在途)。"""
     called: dict = {}
 
-    async def _fake(task_ids=None, kind=None):
+    async def _fake(task_ids=None, kind=None, user_uuid=None):
         called.update(task_ids=task_ids, kind=kind)
         return {"requested": 0, "cancelled": 0, "remote_failed": []}
 
