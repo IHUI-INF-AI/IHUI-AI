@@ -98,7 +98,7 @@ export default function BusinessCardIndex() {
           <Text className="page-title">{tt('businessCard.title', '我的社区名片')}</Text>
         </View>
 
-        <View className="card-entry" onClick={buyToken}>
+        <View className="card-entry" onClick={buyToken} hoverClass="opacity-85">
           <LineIcon
             className="card-entry-icon"
             name="user"
@@ -136,7 +136,7 @@ export default function BusinessCardIndex() {
               </View>
             </View>
           ) : (
-            <View className="upload-placeholder" onClick={onUploadClick}>
+            <View className="upload-placeholder" onClick={onUploadClick} hoverClass="opacity-85">
               <Text className="upload-icon">+</Text>
               <Text className="upload-text">
                 {uploading

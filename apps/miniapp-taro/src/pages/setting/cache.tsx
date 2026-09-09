@@ -131,44 +131,57 @@ export default function CachePage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background">
-        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-          <View className="flex justify-between items-center p-[32rpx]">
-            <Text className="text-[28rpx] text-foreground">{t('setting.cache.current')}</Text>
-            <Text className="text-[28rpx] text-primary">{size}</Text>
+      {/* 根容器背景对齐 RN SettingsScreen container(pageBg=surface.bg → --color-background);
+          上下留白对齐 body paddingTop 12dp→24rpx / paddingBottom 24dp→48rpx */}
+      <View className="min-h-screen bg-background pt-[24rpx] pb-[48rpx]">
+        {/* 当前缓存卡片对齐 RN sectionCard(圆角 8dp→16rpx + divider 底 + 行间 2rpx)
+            + plainRow(minHeight 60dp→120rpx / py 14dp→28rpx / px 12dp→24rpx) */}
+        <View className="mx-[20rpx] flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
+          <View className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted">
+            {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
+            <Text className="text-[32rpx] text-muted-foreground">{t('setting.cache.current')}</Text>
+            <Text className="text-[32rpx] text-foreground">{size}</Text>
           </View>
         </View>
 
         {clearing ? (
-          <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
-            <View className="w-full h-[12rpx] bg-border rounded-[6rpx] overflow-hidden">
+          <View className="mx-[20rpx] mt-[32rpx] rounded-[16rpx] bg-card p-[24rpx] dark:bg-muted">
+            <View className="h-[12rpx] w-full overflow-hidden rounded-[6rpx] bg-border">
               <View
                 className="h-full bg-primary transition-[width] duration-100"
                 style={{ width: `${progress}%` }}
               />
             </View>
-            <Text className="block text-[24rpx] text-muted-foreground mt-[16rpx] text-center">
+            <Text className="mt-[16rpx] block text-center text-[24rpx] text-muted-foreground">
               {tt('setting.cache.clearing', '清理中')} {progress}%
             </Text>
           </View>
         ) : null}
 
-        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-          <View className="flex justify-between items-center p-[32rpx]" onClick={onClearImage}>
-            <Text className="text-[28rpx] text-foreground">{t('setting.cache.clearImage')}</Text>
-            <Text className="text-muted-foreground">›</Text>
+        <View className="mx-[20rpx] mt-[32rpx] flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
+          <View
+            className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
+            onClick={onClearImage}
+            hoverClass="opacity-60">
+            <Text className="text-[32rpx] text-muted-foreground">{t('setting.cache.clearImage')}</Text>
+            {/* arrow 对齐 RN: 20dp→40rpx + text.tertiary */}
+            <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
           </View>
           <View
-            className="flex justify-between items-center p-[32rpx] mt-[16rpx]"
+            className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
             onClick={onClearFile}
-          >
-            <Text className="text-[28rpx] text-foreground">{t('setting.cache.clearFile')}</Text>
-            <Text className="text-muted-foreground">›</Text>
+            hoverClass="opacity-60">
+            <Text className="text-[32rpx] text-muted-foreground">{t('setting.cache.clearFile')}</Text>
+            <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
           </View>
         </View>
 
+        {/* 清空按钮对齐 RN NotificationSettingsScreen saveBtn: 高 50dp→100rpx + 圆角 12dp→24rpx
+            + brand(--color-primary)底;文字 16dp→32rpx semibold;
+            文字色用 --color-primary-foreground 修正 RN surface.light 在暗色 brand 白底下不可读 */}
         <Button
-          className="mx-[32rpx] my-[60rpx] bg-primary text-foreground rounded-[16rpx] text-[32rpx] disabled:opacity-60"
+          className="mx-[20rpx] mt-[32rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-primary text-[32rpx] font-semibold disabled:opacity-60"
+          style={{ color: 'var(--color-primary-foreground)' }}
           onClick={onClearAll}
           disabled={clearing}
           loading={clearing}
@@ -176,11 +189,12 @@ export default function CachePage() {
           {t('setting.cache.clearAll')}
         </Button>
 
-        <View className="px-[32rpx]">
-          <Text className="block text-[22rpx] text-muted-foreground leading-[1.8]">
+        {/* 提示文字对齐 RN versionText: 12dp→24rpx + text.tertiary + 居中;marginTop 4dp→8rpx */}
+        <View className="mx-[20rpx] mt-[32rpx]">
+          <Text className="block text-center text-[24rpx] leading-[1.8] text-[color:var(--color-text-tertiary)]">
             {t('setting.cache.tip1')}
           </Text>
-          <Text className="block text-[22rpx] text-muted-foreground leading-[1.8]">
+          <Text className="mt-[8rpx] block text-center text-[24rpx] leading-[1.8] text-[color:var(--color-text-tertiary)]">
             {t('setting.cache.tip2')}
           </Text>
         </View>

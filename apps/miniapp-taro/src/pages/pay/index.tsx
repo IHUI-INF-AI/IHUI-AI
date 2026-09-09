@@ -260,6 +260,7 @@ export default function PayIndex() {
 
           <View
             className={`${methodBase}${payMethod === 'wechat' ? ` ${methodActive}` : ''}`}
+            hoverClass="opacity-60"
             onClick={() => onSelectMethod('wechat')}
           >
             <View className={`py-method-icon ${METHOD_ICON_COLOR.wechat}`}>
@@ -281,6 +282,7 @@ export default function PayIndex() {
 
           <View
             className={`${methodBase}${payMethod === 'alipay' ? ` ${methodActive}` : ''}`}
+            hoverClass="opacity-60"
             onClick={() => onSelectMethod('alipay')}
           >
             <View className={`py-method-icon ${METHOD_ICON_COLOR.alipay}`}>
@@ -302,6 +304,7 @@ export default function PayIndex() {
 
           <View
             className={`${methodBase}${payMethod === 'balance' ? ` ${methodActive}` : ''}`}
+            hoverClass="opacity-60"
             onClick={() => onSelectMethod('balance')}
           >
             <View className={`py-method-icon ${METHOD_ICON_COLOR.balance}`}>
@@ -336,7 +339,7 @@ export default function PayIndex() {
           </View>
         </View>
 
-        <View className="py-coupon-card" onClick={onSelectCoupon}>
+        <View className="py-coupon-card" hoverClass="opacity-60" onClick={onSelectCoupon}>
           <Text className="py-coupon-label">{tt('pay.coupon', '优惠券')}</Text>
           <View className="py-coupon-right">
             {selectedCoupon ? (

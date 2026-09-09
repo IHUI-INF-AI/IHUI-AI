@@ -196,7 +196,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
             overflow: 'hidden',
           }}
           onClick={handleStop}
-        >
+          hoverClass="opacity-60">
           {/* 头部:logo + 关闭按钮 */}
           <View
             className="flex items-center justify-between"
@@ -224,7 +224,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 key={item.key}
                 className="flex flex-col items-center justify-center"
                 onClick={() => onMenuItemClick?.(item)}
-              >
+                hoverClass="opacity-60">
                 {item.icon ? renderIcon(item.icon, 60) : (
                   <Text style={{ width: rpx(60), height: rpx(60), fontSize: rpx(36) }}>•</Text>
                 )}
@@ -257,7 +257,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                     onLabelItemClick?.(item)
                   }
                 }}
-              >
+                hoverClass="opacity-60">
                 {item.icon ? renderIcon(item.icon, 36, { marginRight: rpx(12) }) : null}
                 <Text>{item.label}</Text>
               </View>
@@ -327,7 +327,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                             )}
                             style={{ padding: '20rpx 23rpx' }}
                             onClick={() => onChatItemClick?.(chat)}
-                          >
+                            hoverClass="opacity-60">
                             <Text
                               className="truncate flex-1"
                               style={{
@@ -415,7 +415,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
         className="relative bg-card rounded-t-xl overflow-hidden transition-transform"
         style={{ maxHeight: '80vh', height }}
         onClick={handleStop}
-      >
+        hoverClass="opacity-60">
         <View className="flex justify-center pt-2 pb-1">
           <View className="w-9 h-1 rounded-lg bg-muted" />
         </View>

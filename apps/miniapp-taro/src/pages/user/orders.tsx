@@ -10,13 +10,13 @@ import { getOrderList, type Order } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 
 const STATUS_COLOR: Record<string, string> = {
-  paid: 'text-primary',
-  pending: 'text-warning',
-  refunding: 'text-warning',
-  refunded: 'text-muted-foreground',
-  cancelled: 'text-muted-foreground',
-  completed: 'text-primary',
-  failed: 'text-destructive',
+  pending: 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]',
+  paid: 'bg-[var(--color-success-light)] text-[var(--color-success-deep-text)]',
+  refunding: 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]',
+  refunded: 'bg-[var(--color-muted)] text-[var(--color-text-tertiary)]',
+  cancelled: 'bg-[var(--color-danger-light)] text-[var(--color-danger)]',
+  completed: 'bg-[var(--color-success-light)] text-[var(--color-success-deep-text)]',
+  failed: 'bg-[var(--color-muted)] text-[var(--color-text-tertiary)]',
 }
 
 const STATUS_KEY: Record<string, string> = {
@@ -106,15 +106,21 @@ export default function Orders() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen px-[32rpx] py-[24rpx]">
+      {/* 对齐 RN 共享 OrderScreen:tab 药丸(白底/激活品牌底白字 28rpx 圆角 24rpx)+
+          订单卡(描边 border.light + 圆角 24rpx + 内边距 24rpx):标题 32rpx/600 + 状态徽章
+          (浅底深字 22rpx)+ 单号/时间 22rpx 三级字色 + 金额 36rpx/700 主字色 */}
+      <View className="min-h-screen bg-background pb-[20rpx]">
         {/* 状态筛选 */}
-        <View className="flex mb-[24rpx] bg-card rounded-[12rpx]">
+        <View className="flex flex-wrap gap-[16rpx] px-[20rpx] py-[16rpx]">
           {tabs.map((tab) => (
             <View
               key={tab.key}
-              className={`flex-1 text-center py-[20rpx] text-[26rpx] ${
-                status === tab.key ? 'text-primary font-semibold' : 'text-muted-foreground'
+              className={`px-[28rpx] py-[12rpx] rounded-[24rpx] text-[28rpx] ${
+                status === tab.key
+                  ? 'bg-primary font-semibold text-[var(--color-surface-light)]'
+                  : 'bg-card text-muted-foreground'
               }`}
+              hoverClass="opacity-60"
               onClick={() => switchStatus(tab.key)}
             >
               <Text>{tab.label}</Text>
@@ -124,47 +130,55 @@ export default function Orders() {
 
         {/* 订单列表 */}
         {list.length > 0 ? (
-          <View>
+          <View className="px-[20rpx]">
             {list.map((item) => (
               <View
                 key={item.id}
-                className="bg-card rounded-[16rpx] px-[24rpx] py-[24rpx] mb-[24rpx]"
+                className="mb-[24rpx] rounded-[24rpx] border border-[var(--color-border)] bg-card p-[24rpx]"
+                hoverClass="opacity-60"
                 onClick={() => goDetail(item)}
               >
-                <View className="flex justify-between items-center">
-                  <Text className="text-[24rpx] text-muted-foreground">
+                <View className="flex items-center justify-between gap-[16rpx]">
+                  <Text className="flex-1 truncate text-[32rpx] font-semibold text-foreground">
+                    {item.title}
+                  </Text>
+                  <View
+                    className={`shrink-0 rounded-[8rpx] px-[12rpx] py-[4rpx] ${
+                      STATUS_COLOR[item.status] ||
+                      'bg-[var(--color-muted)] text-[var(--color-text-tertiary)]'
+                    }`}
+                  >
+                    <Text className="text-[22rpx]">{statusText(item.status)}</Text>
+                  </View>
+                </View>
+                <View className="mt-[16rpx] flex items-center justify-between">
+                  <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
                     {t('user.orders.orderNo')}
                     {item.orderNo}
                   </Text>
-                  <Text
-                    className={`text-[26rpx] ${STATUS_COLOR[item.status] || 'text-muted-foreground'}`}
-                  >
-                    {statusText(item.status)}
-                  </Text>
-                </View>
-                <View className="flex flex-col my-[20rpx]">
-                  <Text className="text-[30rpx] text-foreground font-semibold">{item.title}</Text>
-                  <Text className="mt-[8rpx] text-[24rpx] text-muted-foreground">{item.type}</Text>
-                </View>
-                <View className="flex items-center pt-[20rpx]">
-                  <Text className="flex-1 text-[24rpx] text-muted-foreground">
+                  <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
                     {item.createTime}
                   </Text>
-                  <View className="mr-[24rpx]">
-                    <Text className="text-[24rpx] text-destructive">¥</Text>
-                    <Text className="text-[34rpx] text-destructive font-bold">{item.amount}</Text>
+                </View>
+                <View className="mt-[16rpx] flex items-end justify-between">
+                  <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                    {item.type}
+                  </Text>
+                  <View className="flex items-center gap-[24rpx]">
+                    <Text className="text-[36rpx] font-bold text-foreground">¥{item.amount}</Text>
+                    {item.status === 'pending' ? (
+                      <View
+                        className="rounded-[24rpx] bg-primary px-[24rpx] py-[12rpx] text-[28rpx] text-[var(--color-surface-light)]"
+                        hoverClass="opacity-60"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handlePay(item)
+                        }}
+                      >
+                        <Text>{t('user.orders.pay')}</Text>
+                      </View>
+                    ) : null}
                   </View>
-                  {item.status === 'pending' ? (
-                    <View
-                      className="px-[32rpx] py-[10rpx] bg-primary text-white rounded-[12rpx] text-[26rpx]"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handlePay(item)
-                      }}
-                    >
-                      <Text>{t('user.orders.pay')}</Text>
-                    </View>
-                  ) : null}
                 </View>
               </View>
             ))}
@@ -172,12 +186,12 @@ export default function Orders() {
         ) : null}
 
         {!loading && list.length === 0 ? (
-          <View className="text-center py-[120rpx] text-muted-foreground text-[26rpx]">
+          <View className="py-[96rpx] text-center text-[28rpx] text-muted-foreground">
             <Text>{t('user.orders.empty')}</Text>
           </View>
         ) : null}
         {loading ? (
-          <View className="text-center py-[120rpx] text-muted-foreground text-[26rpx]">
+          <View className="py-[96rpx] text-center text-[28rpx] text-muted-foreground">
             <Text>{t('common.loading')}</Text>
           </View>
         ) : null}

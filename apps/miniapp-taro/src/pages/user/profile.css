@@ -4,20 +4,26 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
+/* 对齐 RN packages/app SettingsScreen(分组 section + plainRow,内容为分组入口列表):
+ * - 页面底 tk.surface.bg → var(--color-background);体边距 10dp → 20rpx,分组间距 16dp → 32rpx
+ * - 分组标题 14dp → 28rpx text.secondary → var(--color-muted-foreground)
+ * - sectionCard 圆角 8dp → 16rpx;plainRow:高 60dp → 120rpx + padding 28rpx/24rpx
+ * - 行底色:亮 surface.light → var(--color-card) / 暗 surface.muted → var(--color-muted)
+ * - 行文字 16dp → 32rpx:亮 text.medium → var(--color-text-medium) / 暗 text.primary → foreground
+ * - 箭头 20dp → 40rpx text.tertiary → var(--color-text-tertiary) */
 .pf-page {
   min-height: 100vh;
-  background: var(--color-card);
-  padding-bottom: 48rpx;
+  background: var(--color-background);
+  padding: 24rpx 20rpx 48rpx;
   box-sizing: border-box;
 }
 
-/* ===== 身份标签行(对齐原项目 identity-tag) ===== */
+/* ===== 身份标签行 ===== */
 .pf-identity-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24rpx 32rpx;
-  margin: 0 24rpx;
+  padding: 8rpx 8rpx 24rpx;
 }
 .pf-identity-label {
   font-size: 28rpx;
@@ -34,50 +40,57 @@
   font-size: 26rpx;
 }
 .pf-tag-vip {
-  /* 对齐 web:VIP 金标,浅金底 + 深金文字(原项目 #716fff/#f0eeff 紫无对应语义,改为 gold 语义) */
+  /* 对齐 web:VIP 金标,浅金底 + 深金文字 */
   color: var(--color-warning);
   background: var(--color-gold-muted);
 }
 .pf-tag-admin {
-  /* 对齐 web:实名/交易身份标,成功绿淡底 + 深绿文字(原 #7ca500/#f0f8e8 橄榄绿→success 语义) */
+  /* 对齐 web:实名/交易身份标,成功绿淡底 */
   color: var(--color-success);
   background: var(--color-success-tag-bg);
 }
 .pf-tag-normal {
   color: var(--color-muted-foreground);
-  background: var(--color-card);
+  background: var(--color-muted);
 }
 
-/* ===== 区块分组(对齐原项目 settings-section) ===== */
+/* ===== 区块分组(RN SettingsScreen section) ===== */
 .pf-section {
-  margin: 0 24rpx 32rpx;
+  margin: 0 0 32rpx;
 }
 .pf-section-title {
   display: block;
   padding: 0 8rpx 16rpx;
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--color-muted-foreground);
 }
 .pf-section-card {
-  background: var(--color-card);
-  border-radius: var(--radius-lg);
+  border-radius: 16rpx;
   overflow: hidden;
 }
 
-/* ===== 信息行(对齐原项目 settings-item:左标签 + 右值 + 箭头,用间距分隔不用 border) ===== */
+/* ===== 信息行(RN plainRow:120rpx 行高 + 行底色明暗切换 + 细分隔线) ===== */
 .pf-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-height: 120rpx;
   padding: 28rpx 24rpx;
+  background: var(--color-card);
+}
+.dark .pf-item {
+  background: var(--color-muted);
 }
 .pf-item + .pf-item {
-  margin-top: 8rpx;
+  border-top: 1rpx solid var(--color-border);
 }
 .pf-item-label {
-  font-size: 30rpx;
-  color: var(--color-foreground);
+  font-size: 32rpx;
+  color: var(--color-text-medium);
   flex-shrink: 0;
+}
+.dark .pf-item-label {
+  color: var(--color-foreground);
 }
 .pf-item-right {
   display: flex;
@@ -95,24 +108,24 @@
   white-space: nowrap;
 }
 .pf-arrow {
-  font-size: 32rpx;
-  color: var(--color-muted-foreground);
-  opacity: 0.5;
+  font-size: 40rpx;
+  line-height: 1;
+  color: var(--color-text-tertiary);
   flex-shrink: 0;
 }
 
-/* ===== 头像行(对齐原项目 settings-item-avatar:120rpx + 50% + 半透明编辑提示) ===== */
+/* ===== 头像行(RN 头像 48dp → 96rpx 圆形 + 半透明编辑提示) ===== */
 .pf-item-avatar {
-  padding: 32rpx 24rpx;
+  padding: 24rpx;
 }
 .pf-avatar-wrap {
   position: relative;
-  width: 120rpx;
-  height: 120rpx;
+  width: 96rpx;
+  height: 96rpx;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  background: var(--color-background);
+  background: var(--color-muted);
 }
 .pf-avatar-img {
   width: 100%;
@@ -124,11 +137,11 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 36rpx;
-  line-height: 36rpx;
+  height: 32rpx;
+  line-height: 32rpx;
   text-align: center;
-  font-size: 22rpx;
-  color: var(--color-foreground);
+  font-size: 20rpx;
+  color: var(--color-white-98);
   background: var(--color-black-50);
 }
 .pf-avatar-hint {

@@ -4,14 +4,13 @@
 
 import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, RadioGroup, Radio } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { setTheme } from '@/api'
 import { setThemePreference, THEME_STORAGE_KEY, type ThemePreference } from '@/lib/theme'
 import ThemeRoot from '@/components/ThemeRoot'
-import './theme.css'
 
 const THEME_KEY = THEME_STORAGE_KEY
 
@@ -77,8 +76,6 @@ export default function ThemePage() {
     }
   })
 
-  const currentOption = THEMES(tt).find((th) => th.value === current) ?? AUTO_THEME(tt)
-
   const onSelect = useCallback(
     async (v: string) => {
       if (!VALID_VALUES.includes(v) || v === current) return
@@ -105,59 +102,72 @@ export default function ThemePage() {
 
   return (
     <ThemeRoot>
-      <View className="theme-page">
-        <View className="theme-current">
-          <LineIcon
-            className="theme-current-icon"
-            name={currentOption.icon as IconName}
-            size={64}
-            color="var(--color-brand)"
-          />
-          <View className="theme-current-info">
-            <Text className="theme-current-name">
-              {tt(currentOption.labelKey, currentOption.label)}
-            </Text>
-            <Text className="theme-current-desc">
-              {tt(currentOption.descKey, currentOption.desc)}
-            </Text>
+      {/* 根容器背景对齐 RN SettingsScreen container(pageBg=surface.bg → --color-background);
+          上下留白对齐 body paddingTop 12dp→24rpx / paddingBottom 24dp→48rpx */}
+      <View className="min-h-screen bg-background pt-[24rpx] pb-[48rpx]">
+        {/* 主题选择对齐 RN SettingsScreen 主题 Section(共享 packages/app SettingsScreen):
+            标题对齐 sectionTitle 14dp→28rpx(text.secondary→muted-foreground)+ 距卡片 gap 8dp→16rpx;
+            列表对齐 sectionCard:圆角 8dp→16rpx + divider(border.light)底 + 行间 hairline(2rpx);
+            行对齐 plainRow:minHeight 60dp→120rpx / py 14dp→28rpx / px 12dp→24rpx,
+            卡面亮色 surface.light→--color-card、暗色 surface.muted→--color-muted(dark:bg-muted) */}
+        <View className="mx-[20rpx] mt-[32rpx]">
+          <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
+            {tt('settings.theme', '主题')}
+          </Text>
+          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
+            {THEMES(tt).map((th) => (
+              <View
+                key={th.value}
+                className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
+                onClick={() => {
+                  if (!submitting) void onSelect(th.value)
+                }}
+                hoverClass="opacity-60">
+                <View className="flex min-w-0 flex-1 flex-row items-center">
+                  {/* 主题图标为小程序端补充信息(RN SelectRow 仅 label+✓):40rpx,
+                      选中态随 RN brandAccent.DEFAULT→--color-brand-orange */}
+                  <LineIcon
+                    className="shrink-0"
+                    name={th.icon as IconName}
+                    size={40}
+                    color={
+                      current === th.value
+                        ? 'var(--color-brand-orange)'
+                        : 'var(--color-muted-foreground)'
+                    }
+                  />
+                  <View className="ml-[16rpx] min-w-0 flex-1">
+                    {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
+                    <Text className="text-[32rpx] text-muted-foreground">
+                      {tt(th.labelKey, th.label)}
+                    </Text>
+                    {/* 副行(说明)为小程序端补充信息:24rpx + text.tertiary + userMeta gap 2dp→4rpx */}
+                    <Text className="mt-[4rpx] block text-[24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
+                      {tt(th.descKey, th.desc)}
+                    </Text>
+                  </View>
+                </View>
+                {/* 选中态对齐 RN SelectRow checkMark: 16dp→32rpx bold + brandAccent→--color-brand-orange;
+                    选中项由 ✓ 呈现,不再渲染 RN 没有的 Radio/RadioGroup 展示件 */}
+                {current === th.value ? (
+                  <Text className="ml-[16rpx] shrink-0 text-[32rpx] font-bold text-[color:var(--color-brand-orange)]">
+                    ✓
+                  </Text>
+                ) : null}
+              </View>
+            ))}
           </View>
         </View>
 
-        <RadioGroup className="theme-list">
-          {THEMES(tt).map((th) => (
-            <View
-              key={th.value}
-              className={`theme-item${current === th.value ? ' active' : ''}`}
-              onClick={() => onSelect(th.value)}
-            >
-              <LineIcon
-                className="theme-item-icon"
-                name={th.icon as IconName}
-                size={44}
-                color={current === th.value ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
-              />
-              <View className="theme-item-info">
-                <Text className="theme-item-name">{tt(th.labelKey, th.label)}</Text>
-                <Text className="theme-item-desc">{tt(th.descKey, th.desc)}</Text>
-              </View>
-
-              <Radio
-                className="theme-radio"
-                value={th.value}
-                checked={current === th.value}
-                color="var(--color-wechat-green)"
-                disabled={submitting}
-              />
-            </View>
-          ))}
-        </RadioGroup>
-
-        <View className="theme-hint">
-          <Text className="theme-hint-title">{tt('setting.theme.hintTitle', '主题说明')}</Text>
-          <Text className="theme-hint-line">
+        {/* 主题说明对齐 RN versionText: 12dp→24rpx + text.tertiary + 居中;marginTop 4dp→8rpx */}
+        <View className="mx-[20rpx] mt-[32rpx]">
+          <Text className="block text-center text-[24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
+            {tt('setting.theme.hintTitle', '主题说明')}
+          </Text>
+          <Text className="mt-[8rpx] block text-center text-[24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.theme.switchHint', '切换主题后将立即保存并应用到全局界面')}
           </Text>
-          <Text className="theme-hint-line">
+          <Text className="mt-[8rpx] block text-center text-[24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.theme.autoHint', '「跟随系统」将随设备深浅色设置自动变化')}
           </Text>
         </View>
