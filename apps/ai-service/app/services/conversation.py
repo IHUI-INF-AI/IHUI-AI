@@ -64,6 +64,9 @@ _MEDIA_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(r"(做|生成|制作|来|拍|帮我做)(一)?(个|段|部|条)?[^。]{0,8}视频"),
         re.compile(r"(视频|短片|动画片?|火柴人|MV)的?(生成|制作)|出片|视频生成"),
         re.compile(r"\b(make|generate|create) (a )?video\b", re.IGNORECASE),
+        # 任务取件查询(2026-09-09):长任务提交后"视频好了吗"带 task_id 查询模式取件
+        re.compile(r"(视频|视频任务|片子)(好了吗|好了没|好了么|做完了吗|生成完了吗|出来了吗)"),
+        re.compile(r"出片(了吗|了没|了么)"),
     ),
     "music_generation": (
         re.compile(r"(写|做|来|创作|生成|帮我写)(一)?首?(歌|曲|音乐)"),
@@ -71,10 +74,51 @@ _MEDIA_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(r"(生成|制作|做|来)(一)?(个|段|首)?(音乐|配乐|背景音乐|BGM|纯音乐)"),
         re.compile(r"配乐|背景音乐|BGM|作曲|编曲|主题曲"),
         re.compile(r"\b(make|write|generate|compose) (a )?(song|music)\b", re.IGNORECASE),
+        # 任务取件查询(2026-09-09):音乐长任务"歌好了吗"
+        re.compile(r"(歌|音乐|音乐任务|曲子)(好了吗|好了没|好了么|做完了吗|生成完了吗|出来了吗)"),
     ),
     "voice_tts": (
         re.compile(r"朗读|读出来|念出来|配(个|段|一)?音|语音合成|转语音|播报|文字转语音|文本转语音"),
         re.compile(r"\b(text to speech|read (it |this )?aloud|speak (it )?out)\b", re.IGNORECASE),
+    ),
+    # ---- 2026-09-09 全模态深度适配:理解/转写/账务 三类深能力入对话路由 ----
+    "vision_analyze": (
+        re.compile(r"(看|瞧|识别|分析|描述|解读)(一)?下?这(张|个|幅)?(图|图片|照片|截图|漫画|海报)"),
+        re.compile(r"这(张|个|幅)?(图|图片|照片|截图)(里|中|上)?(有|是|画|写|说|讲|啥|什么)"),
+        re.compile(r"(识别|提取|读取)(一)?下?(图|图里|图中|图片|截图)(里|中)?的?(文字|字|二维码|人脸|物体|内容)"),
+        re.compile(r"(分析|描述|解释)(一)?下?(这|该)?(张|个|幅)?(图|图片|照片|截图)"),
+        re.compile(r"\b(describe|analyze|what('?s| is) in) (this|the) (image|picture|photo|screenshot)\b", re.IGNORECASE),
+    ),
+    "audio_transcription": (
+        re.compile(r"(录音|音频|语音|这段话|唱的?)(给)?(转|翻译|识别|听写|变成|写成)(成)?(文字|文本|字幕)"),
+        re.compile(r"(转|识别|听写|提取)(成)?(文字|文本|字幕)"),
+        re.compile(r"听写|转写"),  # ASR 专用词,独立强信号无误触
+        re.compile(r"\b(transcribe|speech[- ]to[- ]text|audio[- ]to[- ]text)\b", re.IGNORECASE),
+    ),
+    "token6688_balance": (
+        re.compile(r"(账户|账号|平台)?(余额|额度)(还剩|剩|多少|查询|查一下|还有|够不够|够吗)"),
+        re.compile(r"(查询|查一下|看看|问一下)(一)?下?(账户|账号|平台)?(余额|额度)"),
+        re.compile(r"还剩多少(钱|额度|余额|积分|金额)"),
+        re.compile(r"\b(how much (balance|credit)|check balance)\b", re.IGNORECASE),
+    ),
+    # ---- 2026-09-09 全模态深度适配(二):改图 / 取消长任务 / 模型价目问答 ----
+    "image_edit": (
+        re.compile(r"(把|帮|给)?(我|这)?(张|个|幅)?(图|图片|照片|头像|封面)(给|帮我)?(改|编辑|修|换|去掉|去个|去除|加上|加个|改成|改成是|转成|变|P|修一下|处理)"),
+        re.compile(r"(改|修|编辑|处理|调整|美化)(一)?下?(这|那)?(张|个|幅)?(图|图片|照片|头像|封面)"),
+        re.compile(r"(去|去掉|移除|删掉|清除|抹去)(一)?(下)?(这)?(张)?(图|图片|照片)?(里|中|上)?的?(水印|背景|文字|logo|人物|物体)"),
+        re.compile(r"(扩图|局部重绘|改图|修图|图片编辑|编辑图片|去水印|抠图|换背景|改背景|调色)"),
+        re.compile(r"\b(edit|modify|retouch|photoshop|remove (watermark|background|text)) (this|the|my) (image|picture|photo)\b", re.IGNORECASE),
+    ),
+    "token6688_cancel_task": (
+        re.compile(r"(取消|撤销|停止|别要了|不要了|终止)(一)?(下)?(这个|那个|视频|音乐|图片|任务|生成|出片|歌曲)"),
+        re.compile(r"(视频|音乐|任务|出片|歌曲)(取消|撤销|停止|别做了|不要了|终止)"),
+        re.compile(r"\b(cancel|stop|abort) (the )?(task|video|music|generation)\b", re.IGNORECASE),
+    ),
+    "token6688_model_info": (
+        re.compile(r"(生成|做|做一段|做一首|画|出一)(这|那|一)?(个)?(视频|图片|音乐|歌)要?(多|大概)?(少钱|多少钱|贵不贵|什么价|价格|费用)"),
+        re.compile(r"(模型|这个模型|这个工具)的?(价格|费用|参数|参数有哪些|多少钱|怎么收费)"),
+        re.compile(r"(查|看看|问一下|帮我查)(一)?下?(模型|生成|这个)?(价格|价目|费用|参数|多少钱)"),
+        re.compile(r"\b(how much (does it |)cost|price|pricing|params?)\b", re.IGNORECASE),
     ),
 }
 
@@ -91,6 +135,27 @@ _MEDIA_RENDER_PROMPT = (
     "- 返回 submitted=true 且带 task_id(视频/音乐长任务):明确告知任务已提交与预计耗时,"
     "提醒用户稍后让你用该 task_id 查询取件,严禁谎称已完成\n"
     "- ok=false 时如实告知失败原因与已尝试的 provider,不要编造链接"
+)
+
+# 跨模态链式编排 + 任务取件指引(2026-09-09 全模态深度适配):
+# 让 LLM 会把媒体工具串起来用(图生视频/先理解后生成),并会用记忆里的
+# task_id 完成长任务取件("视频好了吗"→ 带上轮 task_id 调查询模式)。
+_MEDIA_CHAIN_PROMPT = (
+    "跨模态链式编排(把媒体工具串起来完成复杂任务,务必善用):\n"
+    "- 图生视频:用户要'让这张图动起来/把图做成视频'时,先调 image_generation 拿到 "
+    "image_url,再把该 URL 作为 video_generation 的 image 参数提交(mode=first-frame);"
+    "用户已给图片 URL 或上轮产物里有 image_url 时直接复用,不要重复生成\n"
+    "- 先理解后生成:涉及用户提供的图片内容时,先 vision_analyze 理解,再按理解结果调用生成类工具\n"
+    "- 转写后加工:先 audio_transcription 拿到文本,再做朗读/翻译/总结等后续工具调用\n"
+    "- 改图:用户要'改/修/去水印/换背景'时用 image_edit(需待编辑图 URL/data URI,"
+    "可复用上轮 image_generation 的 image_url;改前可先 vision_analyze 确认原图内容)\n"
+    "- 取消长任务:用户说'取消/别做了'且记忆里有 task_id 时,调 token6688_cancel_task "
+    "取消在途任务,严禁编造 task_id\n"
+    "- 价目问答:用户问'生成视频/图片要多少钱'时,调 token6688_model_info 查价目与参数,"
+    "再按结果如实作答\n"
+    "- 长任务取件:会话历史(含 media_context)里出现 task_id 时,用户问"
+    "'视频/音乐好了吗'直接带该 task_id 调对应工具(只传 task_id 即查询模式),"
+    "严禁编造 task_id,严禁谎称已完成;完成后按渲染规范嵌入链接"
 )
 
 
@@ -119,6 +184,64 @@ async def _execute_tool_call(
         result = retry_result
         duration_ms += retry_ms
     return result, duration_ms
+
+
+# ---------------------------------------------------------------------------
+# 媒体产物记忆延续(2026-09-09 全模态深度适配):
+# 把本轮媒体工具的关键产物(task_id/媒体 URL/转写与理解文本摘录)压成一条
+# 短 JSON 摘要写入会话记忆 → 下一轮"视频好了吗/再画一张类似的"LLM 能从
+# history 里看到 task_id/image_url 接上上下文。data URI 超长绝不入库。
+# ---------------------------------------------------------------------------
+_MEDIA_RESULT_FIELDS: tuple[tuple[str, str], ...] = (
+    ("task_id", "task_id"),
+    ("image_url", "image_url"),
+    ("video_url", "video_url"),
+    ("audio_url", "audio_url"),
+    ("saved_path", "saved_path"),
+    ("status", "status"),
+    ("provider", "provider"),
+)
+
+
+def _media_artifact_summary(tool_calls: list[ToolCallRecord]) -> str:
+    """提取本轮成功媒体工具的产物摘要;无媒体产物返回空串(不写记忆)。"""
+    items: list[dict[str, Any]] = []
+    for tc in tool_calls:
+        if not tc.ok:
+            continue
+        r = tc.result or {}
+        entry: dict[str, Any] = {}
+        if tc.tool in ("image_generation", "video_generation", "music_generation"):
+            for src, dst in _MEDIA_RESULT_FIELDS:
+                v = r.get(src)
+                if isinstance(v, (str, int, float)) and v != "":
+                    if src == "audio_url" and str(v).startswith("data:"):
+                        v = "[data-uri-omitted]"  # voice/music data URI 超长不入库
+                    entry[dst] = v
+        elif tc.tool == "voice_tts":
+            entry = {"voice": r.get("voice", ""), "engine": r.get("engine", "")}
+            if r.get("saved_path"):
+                entry["saved_path"] = r["saved_path"]
+        elif tc.tool == "vision_analyze":
+            desc = str(r.get("analysis") or "")[:200]
+            if desc:
+                entry = {"analysis_excerpt": desc}
+        elif tc.tool == "audio_transcription":
+            t = str(r.get("text") or "")[:200]
+            if t:
+                entry = {"transcript_excerpt": t}
+        if entry:
+            entry["tool"] = tc.tool
+            items.append(entry)
+    if not items:
+        return ""
+    return json.dumps(
+        {
+            "media_context": items,
+            "_hint": "上一轮媒体工具产物;带 task_id 的未完成任务用该 id 调对应工具查询取件",
+        },
+        ensure_ascii=False,
+    )[:1200]
 
 
 def _resolve_user_id(sid: str) -> str:
@@ -249,6 +372,18 @@ class ConversationService:
                 "画", "绘图", "插画", "海报", "头像", "生成图片", "生成一张", "画一张",
                 "画个", "来一张图", "封面图", "图标", "logo", "image", "draw", "poster",
             ],
+            # 图片理解(2026-09-09 全模态深度适配):说"看看/识别这张图"时触发视觉分析
+            "vision_analyze": ["看看图", "识别图", "图片里", "图中", "这张图", "截图分析", "识图"],
+            # 语音转文字(2026-09-09):说"录音转文字/听写"时触发本地 whisper 转写
+            "audio_transcription": ["转文字", "转成文字", "听写", "转写", "语音识别", "录音转", "transcribe"],
+            # 余额查询(2026-09-09):说"还剩多少额度"时查 token6688 账户
+            "token6688_balance": ["余额", "额度", "还剩多少", "balance", "credit"],
+            # 图片编辑(2026-09-09 深度适配二):说"改这张图/去水印"时编辑已有图
+            "image_edit": ["改图", "修图", "去水印", "抠图", "换背景", "编辑图片", "图片编辑", "扩图", "局部重绘", "edit image", "retouch"],
+            # 任务取消(2026-09-09 深度适配二):说"取消这个任务"时撤销长任务
+            "token6688_cancel_task": ["取消任务", "取消生成", "停止生成", "撤销任务", "别做了", "cancel", "stop task"],
+            # 模型价目(2026-09-09 深度适配二):说"生成视频多少钱"时查价目/参数
+            "token6688_model_info": ["多少钱", "什么价", "价格", "费用", "怎么收费", "参数有哪些", "模型参数", "pricing", "how much"],
         }
 
     # =========================================================================
@@ -352,7 +487,7 @@ class ConversationService:
                 # 媒体工具在场 → 追加 Markdown 渲染规范(图/音/视频对话即所得)
                 _media_set = set(_MEDIA_INTENT_PATTERNS)
                 if any(t.get("function", {}).get("name") in _media_set for t in tools):
-                    guidance += "\n\n" + _MEDIA_RENDER_PROMPT
+                    guidance += "\n\n" + _MEDIA_RENDER_PROMPT + "\n\n" + _MEDIA_CHAIN_PROMPT
                 messages.append({"role": "system", "content": guidance})
             # P0:用户画像 + 跨会话记忆注入(孤岛能力打通,与 v2 的 L1-1 记忆闭环一致;
             # 失败/拿不到 user_id 均降级不阻塞对话)
@@ -624,6 +759,15 @@ class ConversationService:
                 await memory_store.add(sid, "assistant", final_response)
             except Exception as e:
                 logger.warning("memory_store.add assistant 响应失败: %s", e)
+            # 6.1 媒体产物记忆延续(2026-09-09 全模态深度适配):
+            # 把本轮成功媒体工具的 task_id/媒体 URL/文本摘录压成一条摘要写入
+            # 记忆(assistant role,history 读取可见)→ 下一轮取件/续作能接上下文。
+            try:
+                media_note = _media_artifact_summary(tool_calls)
+                if media_note:
+                    await memory_store.add(sid, "assistant", media_note)
+            except Exception as e:
+                logger.warning("媒体产物摘要写入记忆失败(降级,不阻塞): %s", e)
         except asyncio.CancelledError:
             raise
         except Exception as e:
