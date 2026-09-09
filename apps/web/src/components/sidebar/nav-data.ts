@@ -426,6 +426,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       },
       // 对话内媒体任务统一中心(2026-09-09 立):视频/音乐/语音/图片任务查看/播放/取消
       { href: '/media-tasks', labelKey: 'mediaTasks', icon: Clapperboard },
+      // 网页工具中心(2026-09-09 立):Firecrawl 四件套融合的只读网页抓取(正文/站点地图/结构化抽取)
+      { href: '/web-tools', labelKey: 'webTools', icon: Globe },
       // 声纹库管理(2026-09-09 F4):token6688 克隆音色列表/详情/删除/上传
       { href: '/voices', labelKey: 'voices', icon: Mic },
       { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },

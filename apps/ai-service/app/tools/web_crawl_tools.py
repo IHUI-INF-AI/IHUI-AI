@@ -805,6 +805,10 @@ async def _extract_via_llm(md: str, fields: Dict[str, str], max_chars: int = 800
     ]
     try:
         result = await llm_gateway.complete(messages, model="auto")
+        # 费用归属(2026-09-09 立):捕获本次 LLM 调用的 token usage/model 并随结果透出,
+        # 使 extract_web 的 LLM 消耗可观测、可随工具结果进入 step recorder 记账链路。
+        usage = result.get("usage") or {}
+        model_used = str(result.get("model") or "")
         content = (result.get("content") or "").strip()
         if result.get("stub") or not content:
             return None
@@ -824,7 +828,7 @@ async def _extract_via_llm(md: str, fields: Dict[str, str], max_chars: int = 800
                 confidence[k] = 0.0
         if not extracted:
             return None
-        return {"fields": extracted, "confidence": confidence}
+        return {"fields": extracted, "confidence": confidence, "usage": usage, "model": model_used}
     except Exception:  # noqa: BLE001 - LLM 超时/解析失败/走查结构异常一律降级
         return None
 
@@ -878,6 +882,8 @@ async def extract_web(arguments: Dict[str, Any]) -> Dict[str, Any]:
             "source": "llm",
             "fields": llm_result.get("fields", {}),
             "confidence": llm_result.get("confidence", {}),
+            "llm_usage": llm_result.get("usage", {}),
+            "llm_model": llm_result.get("model", ""),
             "message": "LLM 结构化抽取完成",
         }
 
