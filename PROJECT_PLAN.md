@@ -462,6 +462,14 @@
 - [x] ✅(2026-09-09) **交互按压态(hoverClass)全量补齐 443 处**:AST 级精确审计(微信 hover-class 仅 View 支持;Text 豁免/Button 自带 hover/自定义组件修复点在内部,旧正则口径 979 虚高)→ 152 文件 443 处 `<View>` 缺口全补;RN 源码核实 pressed 仅 opacity 0.85(cards 三件套)与背景变化两类,UserInfoCard/TeacherCard/business-card 用 `opacity-85`,其余统一项目标准 `opacity-60`;遮罩(mask/overlay/fixed inset-0)39 处豁免不加反馈(区域点击非按钮按压);死样式 `active:*` 清零 8 处(weapp View :active 不生效);`opacity-[0.85]` 统一为原生档位 `opacity-85`;285 行缩进对齐。**过程事故与修复**:遮罩移除脚本空白回退 bug 吞前行闭合字符(`}`/`"`)造成 25 文件 39 处语法破坏,parse 诊断逐点定位后全量修复,271 文件 0 语法错误
 - [x] ✅(2026-09-09) **验证全绿**:build:weapp ✓ 1m14s(strip 脚本正常)、build:h5 ✓ 1m19s(仅 2 条已知 webpack 缓存非阻塞告警);产物 WXSS `.opacity-60/80/85` 实际产出;Taro3 hoverClass 运行时 prop 链路确认(base.wxml 模板绑定 + 页面 JS 序列化);7 个已删 css 无 import/类名残留引用复验
 
+## 仓库瘦身批次 A(2026-09-09 晚,用户拍板"先做A + 历史清垃圾")
+
+> 背景:Gitee 警告仓库 829.9MB 超 819MB 限制。分析:本地 pack 仅 168MiB,服务端差值为悬空对象;HEAD 二进制 202.9MB,三类赘肉:字体 75MB / extension zip 构建产物 8.6MB(历史 6 版本 47MB)/ 三端重复图片 41MB。
+
+- [x] ✅(2026-09-09) **extension zip 移出 git**:git rm --cached + .gitignore 加 `apps/web/public/downloads/extension/*.zip`;web prebuild 接入 `pnpm --filter @ihui/extension build && node scripts/sync-downloads.mjs --platform=extension`(Vercel/本地构建时自动打包,命名与 downloads.config 一致,源缺失 warn 不阻塞);项目既有 sync-downloads 基础设施直接复用,零新脚本
+- [x] ✅(2026-09-09) **死资产清零(全部零引用逐项 grep 复验)**:RN 5 字体(Bold.ttf 20.7MB / PuHuiTi 8.4MB / DouyinSans 1.9MB / AlienSpaceship / EDIX,App.tsx 仅 require Alimama)、web HarmonyOS×5 TTF 41MB(globals.css 实际引用 .subset.woff2 每个仅 360KB,TTF 为历史遗留)、miniapp assets/remote 5 图 13.5MB(被引用的是 /static/images/ 同名文件);共减 ~98MB
+- [x] ✅(2026-09-09) **过程事故:工作区灾难删除与恢复**:执行 A 期间外部进程清空工作区(git 跟踪文件 8371 个 + node_modules + apps/*/.env 被删,根 .env/.workbuddy/tmp/output 幸存,SAFE_DELETE 无事件=未经垫片)。恢复:git checkout 从 index 重建全部跟踪文件(GitWarden 保护 .git 完好,今晨 bundle ihui-20260909.bundle 兜底);pnpm install 重建依赖;各端 .env 从根 .env 同名键 + .env.example 重建(api 补 SSO_ALLOWED_DEEP_LINK_SCHEMES=ihui://sso/callback,ihui-miniapp://sso/callback 按项目记忆),缺口键留空待用户补密钥
+
 ---
 
 ## §1 后续任务建议(2026-07-26 维护成本优化批次)
