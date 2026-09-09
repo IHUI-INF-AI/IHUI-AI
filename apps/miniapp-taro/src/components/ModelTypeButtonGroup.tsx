@@ -49,8 +49,8 @@ export interface ModelTypeButtonGroupProps {
  * ModelTypeButtonGroup 模型类型按钮组(8 个:skills/talk/image/video/audio/videoa/other/sck)
  *
  * - 'compact'(默认):横向 scroll-x,纵向小按钮(图标+文字)
- * - 'wide'(首页专用):横向 scroll-x,宽按钮 200rpx×60rpx(对齐原项目 .model-type-btn)
- *   外层 flex justify-center + padding 0 20rpx,scroll-view 内部 inline-flex 横向排列
+ * - 'wide'(首页专用):横向 scroll-x,宽按钮(图标+文字,muted 背景圆角,对齐 RN modelTypeBar)
+ *   外层 flex + padding 12rpx 16rpx,scroll-view 内部 inline-flex 横向排列
  */
 export default function ModelTypeButtonGroup({
   activeType = '',
@@ -61,11 +61,19 @@ export default function ModelTypeButtonGroup({
   const tt = useTt()
 
   if (variant === 'wide') {
-    // ===== wide 模式:对齐原项目 ai_index.vue 8 个 model-type-btn(scroll-x 横向滚动)=====
+    // ===== wide 模式:对齐 RN HomeScreen modelTypeBar(8 个按钮横向滚动,
+    //      bar 内边距 paddingHorizontal rpx(16) + paddingVertical rpx(12))=====
     return (
-      <View className="flex flex-row justify-center" style={{ marginBottom: rpx(10) }}>
+      <View
+        className="flex flex-row"
+        style={{
+          marginBottom: rpx(10),
+          paddingHorizontal: rpx(16),
+          paddingVertical: rpx(12),
+        }}
+      >
         <ScrollView scrollX className="w-full whitespace-nowrap" enhanced showScrollbar={false}>
-          <View className="inline-flex flex-row items-center" style={{ padding: '0 20rpx' }}>
+          <View className="inline-flex flex-row items-center">
             {types.map((cfg) => (
               <ModelTypeButton
                 key={cfg.type}

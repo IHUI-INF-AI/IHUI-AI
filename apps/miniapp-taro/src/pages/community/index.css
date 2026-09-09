@@ -70,28 +70,32 @@
   align-items: center;
 }
 
+/* RN trackBtn: height 22dp→44rpx / borderRadius 4dp→8rpx / paddingH rpx(8)→8rpx /
+   fontSize 11dp→22rpx / color overlay.modal(rgba(0,0,0,0.4)) /
+   borderColor surface.light(白,视觉不可见)→transparent 保留边框占位 */
 .community-fenlei-btn {
   flex: none;
-  color: var(--color-muted-foreground);
+  color: var(--color-black-40);
   margin-right: 6rpx;
   height: 44rpx;
   padding: 0 8rpx 0 3rpx;
   line-height: 44rpx;
   border-radius: 8rpx;
-  border: 1px solid var(--color-border);
-  font-size: 26rpx;
+  border: 1px solid transparent;
+  font-size: 22rpx;
   white-space: nowrap;
 }
 
+/* RN trackBtnActive: bg rgba(248,249,252,0.65)→--color-track-active-bg /
+   borderColor brandAccent.light→--color-brand-orange-light /
+   shadow black 0.06 offsetY 1dp→2rpx radius 3dp→6rpx / 文字 gray.black→foreground 700 */
 .community-fenlei-btn.active {
   color: var(--color-foreground);
   border-bottom: none;
-  box-shadow: 0 0 5rpx 0 var(--color-black-30);
-  font-weight: bold;
-  backdrop-filter: blur(10rpx);
-  border: 1px solid var(--color-border) !important;
-  background: var(--color-white-70) !important;
-  box-shadow: 0 1px 3px var(--color-black-6) !important;
+  font-weight: 700;
+  border: 1px solid var(--color-brand-orange-light);
+  background: var(--color-track-active-bg);
+  box-shadow: 0 2rpx 6rpx var(--color-black-6);
 }
 
 .community-fenlei-btn:last-child {
@@ -176,24 +180,23 @@
   color: var(--color-foreground);
 }
 
+/* RN: teamButton 无底色无边框,仅文字+箭头(paddingVertical 4dp→8rpx);
+   teamButtonText fontSize 14dp→28rpx / color text.secondary;teamArrow fontSize 16dp→32rpx */
 .team-button {
   display: flex;
   align-items: center;
-  gap: 6rpx;
-  padding: 6rpx 16rpx;
-  background-color: var(--color-muted);
-  border-radius: 20rpx;
-  border: 1px solid var(--color-border, var(--color-border));
+  gap: 8rpx;
+  padding: 8rpx 0;
 }
 
 .team-button-text {
-  font-size: 24rpx;
-  color: var(--color-primary);
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
 }
 
 .team-button-arrow {
-  font-size: 22rpx;
-  color: var(--color-primary);
+  font-size: 32rpx;
+  color: var(--color-muted-foreground);
 }
 
 .agent-h-scroll {
@@ -420,28 +423,35 @@
   white-space: nowrap;
 }
 
-/* ===== 智能体列表区域(对齐原项目 ailist_content, 原项目无 margin-top) ===== */
+/* ===== 智能体列表区域(对齐 RN AgentScreen viewport + 共享屏 FlatList:
+   viewport paddingHorizontal rpx(20)→20rpx(页面已有) + minHeight 400dp→800rpx;
+   FlatList contentContainer padding 16dp→32rpx / paddingBottom 32dp→64rpx) ===== */
 
 .community-ailist-content {
-  /* 对齐原项目 ailist_content: 不设置 margin-top(由上层 padding 控制) */
+  padding: 0 32rpx 64rpx;
+  min-height: 800rpx;
+  box-sizing: border-box;
 }
 
+/* RN: 共享屏 title paddingHorizontal 10dp→20rpx / paddingTop+Bottom 8dp→16rpx / fontSize 22dp→44rpx /
+   fontWeight 700 / color text.primary */
 .community-agent-list-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 0;
 }
 
 .community-agent-list-title {
-  font-size: 30rpx;
-  font-weight: 600;
+  font-size: 44rpx;
+  font-weight: 700;
   color: var(--color-foreground);
 }
 
 .community-agent-list-posts {
   font-size: 24rpx;
-  color: var(--color-muted, var(--color-white-60));
+  color: var(--color-muted-foreground);
 }
 
 .community-agent-list-more {
@@ -499,19 +509,17 @@
   color: var(--color-muted-foreground, var(--color-white-40));
 }
 
-/* ===== toodown 返回顶部按钮(对齐原项目 .toodown-wrapper) ===== */
+/* ===== toodown 返回顶部按钮(对齐 RN backToTopBtn: bottom 20dp→40rpx / right 16dp→32rpx /
+   34dp→68rpx 圆形 / bg surface.card / 阴影 black 0.2 offsetY 2dp radius 4dp) ===== */
 
 .community-toodown-wrapper {
   z-index: 2;
   transition: all 0.2s ease-in-out;
-  padding-top: 60rpx;
-  background: linear-gradient(to top, var(--color-background) 0%, transparent 100%);
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  right: 32rpx;
+  bottom: 40rpx;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   pointer-events: none;
 }
 
@@ -522,17 +530,15 @@
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  border-radius: 8rpx;
+  border-radius: 34rpx;
   margin: 0 auto;
   pointer-events: auto;
   background: var(--color-card);
-  border: 1px solid var(--color-border, var(--color-border));
-  box-shadow: 0 4rpx 20rpx var(--color-black-30);
+  box-shadow: 0 4rpx 8rpx var(--color-black-20);
 }
 
 .community-toodown:active {
   background-color: var(--color-muted);
-  border-color: var(--color-primary);
 }
 
 .community-toodown-icon {

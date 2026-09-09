@@ -217,20 +217,20 @@ export default function CustomerServiceFloat({
         onTouchCancel={handleTouchCancel}
       >
         <View
-          className="flex flex-col items-center justify-center bg-warning rounded-xl shadow-lg"
+          className="flex flex-col items-center justify-center bg-primary rounded-xl shadow-lg"
           style={{ width: `${FLOAT_BTN_SIZE}px`, height: `${FLOAT_BTN_SIZE}px` }}
         >
-          <LineIcon name="wallet" size="16px" color="var(--color-warning-foreground)" />
+          <LineIcon name="wallet" size="16px" color="var(--color-primary-foreground)" />
           {typeof commissionAmount === 'number' && (
             <Text
-              className="text-warning-foreground"
+              className="text-primary-foreground"
               style={{ fontSize: '9px', lineHeight: 1, marginTop: '2px' }}
             >
               ¥{commissionAmount.toFixed(2)}
             </Text>
           )}
           <Text
-            className="text-warning-foreground"
+            className="text-primary-foreground"
             style={{ fontSize: '9px', lineHeight: 1, marginTop: '1px' }}
           >
             {tt('common.commission', '分佣')}

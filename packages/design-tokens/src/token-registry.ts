@@ -131,6 +131,7 @@ const EXTENDED_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--color-wechat-green', type: 'color', defaultValue: '#4cd964' },
   { name: '--color-chat-bubble-user', type: 'color', defaultValue: '#95ec69' },
   { name: '--color-brand-orange', type: 'color', defaultValue: '#ff6b35' },
+  { name: '--color-brand-orange-foreground', type: 'color', defaultValue: '#ffffff' },
   { name: '--color-brand', type: 'color', defaultValue: '#6366f1' },
   { name: '--color-notification-bg', type: 'color', defaultValue: '#fff8e1' },
   { name: '--color-notification-text', type: 'color', defaultValue: '#7c5e1e' },
@@ -157,9 +158,153 @@ const TINT_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--color-info-tint-strong', type: 'color', defaultValue: 'rgba(14, 165, 233, 0.25)' },
   { name: '--color-pink-tint', type: 'color', defaultValue: 'rgba(236, 72, 153, 0.3)' },
   { name: '--color-gold-tint', type: 'color', defaultValue: 'rgba(255, 215, 0, 0.3)' },
+  { name: '--color-vip-gold-tint', type: 'color', defaultValue: 'rgba(255, 215, 0, 0.18)' },
   { name: '--color-brand-orange-tint', type: 'color', defaultValue: 'rgba(255, 107, 53, 0.12)' },
   { name: '--color-brand-orange-tint-strong', type: 'color', defaultValue: 'rgba(255, 107, 53, 0.3)' },
   { name: '--color-warm-bg', type: 'color', defaultValue: '#fff4e6' },
+]
+
+/** RN 端细分语义色 token(2026-09-08 立,对齐 tokens.css「RN 端细分语义色补齐」块 + rn-tokens.ts)。
+ *  defaultValue 取 tokens.css 亮色值;dark 覆盖值见 tokens.css .dark 块(与 rnDarkTokens 一致)。 */
+const RN_FINE_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
+  {
+    name: '--color-text-tertiary',
+    type: 'color',
+    defaultValue: '#a3a3a3',
+    description: '三级文字(RN text.tertiary,划线价/时间戳/占位文字)',
+  },
+  {
+    name: '--color-text-medium',
+    type: 'color',
+    defaultValue: '#404040',
+    description: '中档文字(RN text.medium)',
+  },
+  {
+    name: '--color-border-medium',
+    type: 'color',
+    defaultValue: '#d4d4d4',
+    description: '中档描边(RN border.medium,徽章描边)',
+  },
+  {
+    name: '--color-brand-orange-light',
+    type: 'color',
+    defaultValue: '#fff7ed',
+    description: '品牌橙浅底(RN brandAccent.light,页面浅橙底)',
+  },
+  {
+    name: '--color-surface-dark',
+    type: 'color',
+    defaultValue: '#262626',
+    description: '深色卡面(RN surface.dark,hero/深色卡片背景)',
+  },
+  {
+    name: '--color-vip-card',
+    type: 'color',
+    defaultValue: '#262626',
+    description: 'VIP 会员卡背景(RN gray.800,明暗同值)',
+  },
+  {
+    name: '--color-success-deep-text',
+    type: 'color',
+    defaultValue: '#065f46',
+    description: '成功徽章深绿文字(RN success.deepText)',
+  },
+  {
+    name: '--color-success-light',
+    type: 'color',
+    defaultValue: '#ecfdf5',
+    description: '成功浅底(RN success.light)',
+  },
+  {
+    name: '--color-warning-amber-light',
+    type: 'color',
+    defaultValue: '#fef3c7',
+    description: '待支付徽章浅底(RN warning.amberLight)',
+  },
+  {
+    name: '--color-warning-amber-text',
+    type: 'color',
+    defaultValue: '#92400e',
+    description: '待支付徽章深字(RN warning.amberText)',
+  },
+  {
+    name: '--color-warning-light',
+    type: 'color',
+    defaultValue: '#fffbeb',
+    description: '警告浅底(RN warning.light)',
+  },
+  {
+    name: '--color-danger-light',
+    type: 'color',
+    defaultValue: '#fee2e2',
+    description: '危险浅底(RN danger.light)',
+  },
+  {
+    name: '--color-danger-bright',
+    type: 'color',
+    defaultValue: '#f87171',
+    description: '强调红(RN danger.bright,购买/薪资 CTA)',
+  },
+  {
+    name: '--color-agent-name',
+    type: 'color',
+    defaultValue: '#517bff',
+    description: '智能体卡片名称链接色(RN DevEnterScreen cardTitle,明暗同值)',
+  },
+  {
+    name: '--color-track-active-bg',
+    type: 'color',
+    defaultValue: 'rgba(248, 249, 252, 0.65)',
+    description: '分类弹层激活态底色(RN AgentScreen trackBtnActive,明暗同值)',
+  },
+  {
+    name: '--color-surface-light',
+    type: 'color',
+    defaultValue: '#ffffff',
+    description: '对比白字/白卡面(RN surface.light,明暗同值)',
+  },
+  {
+    name: '--color-warning-amber',
+    type: 'color',
+    defaultValue: '#f59e0b',
+    description: '警告琥珀(RN warning.amber,即将开始状态徽章底色)',
+  },
+  {
+    name: '--color-model-type-text',
+    type: 'color',
+    defaultValue: '#1888ee',
+    description: '模型类型徽章-文本字色(SharedModelPlazaScreen typeBadge,明暗同值)',
+  },
+  {
+    name: '--color-model-type-text-bg',
+    type: 'color',
+    defaultValue: '#e8f4fd',
+    description: '模型类型徽章-文本底色(明暗同值)',
+  },
+  {
+    name: '--color-model-type-image',
+    type: 'color',
+    defaultValue: '#c41e7a',
+    description: '模型类型徽章-图像字色(明暗同值)',
+  },
+  {
+    name: '--color-model-type-image-bg',
+    type: 'color',
+    defaultValue: '#fde8f5',
+    description: '模型类型徽章-图像底色(明暗同值)',
+  },
+  {
+    name: '--color-model-type-av',
+    type: 'color',
+    defaultValue: '#2e7d32',
+    description: '模型类型徽章-音视频字色(明暗同值)',
+  },
+  {
+    name: '--color-model-type-av-bg',
+    type: 'color',
+    defaultValue: '#e8f5e9',
+    description: '模型类型徽章-音视频底色(明暗同值实色浅绿,与 RN typeBadge 一致)',
+  },
 ]
 
 /** 业务品牌色 token。 */
@@ -402,6 +547,7 @@ const ALL_TOKEN_GROUPS: ReadonlyArray<ReadonlyArray<TokenEntry>> = [
   BRAND_COLOR_ENTRIES,
   EXTENDED_COLOR_ENTRIES,
   TINT_COLOR_ENTRIES,
+  RN_FINE_COLOR_ENTRIES,
   BUSINESS_COLOR_ENTRIES,
   RADIUS_ENTRIES,
   FONT_ENTRIES,

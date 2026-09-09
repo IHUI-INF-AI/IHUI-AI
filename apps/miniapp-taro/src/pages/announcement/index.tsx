@@ -11,21 +11,25 @@ import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { fetchApi } from '@ihui/api-client'
 import type { AnnouncementItem } from '@ihui/types'
 import { useTt } from '@/i18n'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
-import { useAppTheme } from '@/lib/theme'
 import ThemeRoot from '@/components/ThemeRoot'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
 
-// ===== 样式函数(view/text 分组,避免 style 联合类型;对齐共享屏 createStyles) =====
+// ===== 样式函数(view/text 分组,避免 style 联合类型;对齐共享屏 createStyles)=====
+// 颜色全部引用 app.css 语义 token(与 RN rn-tokens 一一映射,暗色经 ThemeRoot .dark 自动适配):
+// surface.bg→--color-background / surface.light(卡片白底)→--color-card /
+// border.light→--color-border / text.primary→--color-foreground / text.secondary→--color-muted-foreground /
+// text.medium→--color-text-medium / text.tertiary→--color-text-tertiary /
+// warning.amberLight→--color-warning-amber-light / warning.amberText→--color-warning-amber-text /
+// danger.DEFAULT→--color-danger
 
 const viewStyles = {
-  container: (tk: RnThemeTokens): CSSProperties => ({
+  container: (): CSSProperties => ({
     display: 'flex',
     flexDirection: 'column',
     height: '100vh',
-    backgroundColor: tk.surface.bg,
+    backgroundColor: 'var(--color-background)',
   }),
   header: (): CSSProperties => ({
     display: 'flex',
@@ -51,14 +55,14 @@ const viewStyles = {
   listBody: (): CSSProperties => ({
     padding: toRpx(10),
   }),
-  separator: (tk: RnThemeTokens): CSSProperties => ({
-    height: '1px',
-    backgroundColor: tk.border.light,
+  separator: (): CSSProperties => ({
+    height: '1rpx',
+    backgroundColor: 'var(--color-border)',
   }),
-  card: (tk: RnThemeTokens): CSSProperties => ({
+  card: (): CSSProperties => ({
     padding: toRpx(12),
     borderRadius: toRpx(12),
-    backgroundColor: tk.surface.light,
+    backgroundColor: 'var(--color-card)',
   }),
   titleRow: (): CSSProperties => ({
     display: 'flex',
@@ -66,64 +70,62 @@ const viewStyles = {
     alignItems: 'center',
     columnGap: toRpx(8),
   }),
-  pinnedBadge: (tk: RnThemeTokens): CSSProperties => ({
+  pinnedBadge: (): CSSProperties => ({
     paddingLeft: toRpx(6),
     paddingRight: toRpx(6),
     paddingTop: toRpx(2),
     paddingBottom: toRpx(2),
     borderRadius: toRpx(8),
-    backgroundColor: tk.warning.amberLight,
+    backgroundColor: 'var(--color-warning-amber-light)',
     overflow: 'hidden',
   }),
 }
 
 const textStyles = {
-  back: (tk: RnThemeTokens): CSSProperties => ({
+  back: (): CSSProperties => ({
     fontSize: toRpx(16),
-    color: tk.text.medium,
+    color: 'var(--color-text-medium)',
   }),
-  title: (tk: RnThemeTokens): CSSProperties => ({
+  title: (): CSSProperties => ({
     flex: 1,
     fontSize: toRpx(20),
     fontWeight: '600',
-    color: tk.text.primary,
+    color: 'var(--color-foreground)',
   }),
-  error: (tk: RnThemeTokens): CSSProperties => ({
+  error: (): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.danger.DEFAULT,
+    color: 'var(--color-danger)',
   }),
-  muted: (tk: RnThemeTokens): CSSProperties => ({
+  muted: (): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.text.secondary,
+    color: 'var(--color-muted-foreground)',
     marginTop: toRpx(8),
   }),
-  pinnedText: (tk: RnThemeTokens): CSSProperties => ({
+  pinnedText: (): CSSProperties => ({
     fontSize: toRpx(10),
-    color: tk.warning.amberText,
+    color: 'var(--color-warning-amber-text)',
   }),
-  cardTitle: (tk: RnThemeTokens): CSSProperties => ({
+  cardTitle: (): CSSProperties => ({
     flex: 1,
     fontSize: toRpx(18),
     fontWeight: '600',
-    color: tk.text.primary,
+    color: 'var(--color-foreground)',
   }),
-  cardContent: (tk: RnThemeTokens): CSSProperties => ({
+  cardContent: (): CSSProperties => ({
     marginTop: toRpx(8),
     fontSize: toRpx(14),
     lineHeight: toRpx(18),
-    color: tk.text.medium,
+    color: 'var(--color-text-medium)',
   }),
-  publishTime: (tk: RnThemeTokens): CSSProperties => ({
+  publishTime: (): CSSProperties => ({
     marginTop: toRpx(8),
     fontSize: toRpx(11),
-    color: tk.text.tertiary,
+    color: 'var(--color-text-tertiary)',
   }),
 }
 
 export default function AnnouncementList() {
   const tt = useTt()
-  const { resolved: appTheme } = useAppTheme()
-  const tk = getRnTokens(appTheme)
   // 对齐 mobile-rn AnnouncementScreen wrapper 状态机:items/loading/error + load/onRefresh/onPressItem
   const [items, setItems] = useState<AnnouncementItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -163,48 +165,52 @@ export default function AnnouncementList() {
 
   return (
     <ThemeRoot>
-      <View style={viewStyles.container(tk)}>
+      <View style={viewStyles.container()}>
         <View style={viewStyles.header()}>
           <View onTap={goBack}>
-            <Text style={textStyles.back(tk)}>{tt('common.back', '返回')}</Text>
+            <Text style={textStyles.back()}>{tt('common.back', '返回')}</Text>
           </View>
-          <Text style={textStyles.title(tk)}>{tt('announcement.title', '平台公告')}</Text>
+          <Text style={textStyles.title()}>{tt('announcement.title', '平台公告')}</Text>
         </View>
 
         {error ? (
           <View style={viewStyles.errorText()}>
-            <Text style={textStyles.error(tk)}>{error}</Text>
+            <Text style={textStyles.error()}>{error}</Text>
           </View>
         ) : null}
 
         {loading && items.length === 0 ? (
           <View style={viewStyles.center()}>
-            <Text style={textStyles.muted(tk)}>{tt('common.loading', '加载中...')}</Text>
+            <Text style={textStyles.muted()}>{tt('common.loading', '加载中...')}</Text>
           </View>
         ) : (
           <ScrollView scrollY style={{ flex: 1 }}>
             {items.length === 0 ? (
               <View style={viewStyles.center()}>
-                <Text style={textStyles.muted(tk)}>{tt('announcement.empty', '暂无公告')}</Text>
+                <Text style={textStyles.muted()}>{tt('announcement.empty', '暂无公告')}</Text>
               </View>
             ) : (
               <View style={viewStyles.listBody()}>
                 {items.map((item, index) => (
                   <View key={item.id}>
-                    {index > 0 ? <View style={viewStyles.separator(tk)} /> : null}
-                    <View style={viewStyles.card(tk)} onTap={() => onPressItem(item)}>
+                    {index > 0 ? <View style={viewStyles.separator()} /> : null}
+                    <View style={viewStyles.card()} onTap={() => onPressItem(item)}>
                       <View style={viewStyles.titleRow()}>
                         {item.pinned ? (
-                          <View style={viewStyles.pinnedBadge(tk)}>
-                            <Text style={textStyles.pinnedText(tk)}>
+                          <View style={viewStyles.pinnedBadge()}>
+                            <Text style={textStyles.pinnedText()}>
                               {tt('announcement.pinned', '置顶')}
                             </Text>
                           </View>
                         ) : null}
-                        <Text style={textStyles.cardTitle(tk)}>{item.title}</Text>
+                        <Text style={textStyles.cardTitle()} className="text-ellipsis-2">
+                          {item.title}
+                        </Text>
                       </View>
-                      <Text style={textStyles.cardContent(tk)}>{item.content}</Text>
-                      <Text style={textStyles.publishTime(tk)}>
+                      <Text style={textStyles.cardContent()} className="text-ellipsis-3">
+                        {item.content}
+                      </Text>
+                      <Text style={textStyles.publishTime()}>
                         {`${tt('announcement.publishTime', '发布时间')}: ${item.publishTime}`}
                       </Text>
                     </View>
