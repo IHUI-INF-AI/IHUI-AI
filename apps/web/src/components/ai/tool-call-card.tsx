@@ -51,6 +51,10 @@ interface ToolCallCardProps {
   errorType?: string
   /** image_generation 工具返回的图片 URL(优先于 result 渲染) */
   imageUrl?: string
+  /** music_generation 工具返回的音频 URL(优先于 result 渲染,渲染 <audio> 播放器) */
+  audioUrl?: string
+  /** video_generation 工具返回的视频 URL(优先于 result 渲染,渲染 <video> 播放器) */
+  videoUrl?: string
   /** summarize_artifacts 工具返回的摘要数据(优先于 result 渲染) */
   summaryData?: {
     plans?: Array<{ id: string; title: string; status: string; steps?: string[] }>
@@ -99,6 +103,12 @@ const DIFF_TOOL_NAMES = new Set(['edit_file', 'write_file'])
 
 /** image_generation 工具名命中即渲染 <img> */
 const IMAGE_TOOL_NAMES = new Set(['image_generation'])
+
+/** music_generation / voice_tts 工具名命中即渲染 <audio> 播放器(token6688/edge-tts,2026-09-08) */
+const AUDIO_TOOL_NAMES = new Set(['music_generation', 'voice_tts'])
+
+/** video_generation 工具名命中即渲染 <video> 播放器(token6688,2026-09-08) */
+const VIDEO_TOOL_NAMES = new Set(['video_generation'])
 
 /** summarize_artifacts 工具名命中即渲染聚合视图 */
 const SUMMARY_TOOL_NAMES = new Set(['summarize_artifacts'])
@@ -451,6 +461,66 @@ function ImageResultBlock({ imageUrl, prompt }: { imageUrl: string; prompt?: str
   )
 }
 
+/** music_generation 工具结果渲染:音频播放器 + 提示词 + 新窗口打开链接 */
+function AudioResultBlock({ audioUrl, prompt }: { audioUrl: string; prompt?: string }) {
+  const t = useTranslations('ai.toolCall')
+  return (
+    <div className="space-y-2">
+      {prompt && <p className="mb-1 font-medium text-muted-foreground">{t('prompt')}</p>}
+      {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
+      <audio
+        controls
+        src={audioUrl}
+        preload="metadata"
+        className="w-full"
+        data-testid="tool-media-audio"
+      >
+        {/* AI 生成音频无字幕轨,空 track 满足 jsx-a11y/media-has-caption */}
+        <track kind="captions" />
+      </audio>
+      <a
+        href={audioUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+      >
+        <ExternalLink className="h-3.5 w-3.5" />
+        <span>{t('openInNewWindow')}</span>
+      </a>
+    </div>
+  )
+}
+
+/** video_generation 工具结果渲染:视频播放器 + 提示词 + 新窗口打开链接 */
+function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: string }) {
+  const t = useTranslations('ai.toolCall')
+  return (
+    <div className="space-y-2">
+      {prompt && <p className="mb-1 font-medium text-muted-foreground">{t('prompt')}</p>}
+      {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
+      <video
+        controls
+        src={videoUrl}
+        preload="metadata"
+        className="w-full rounded-md border border-border bg-muted/30"
+        data-testid="tool-media-video"
+      >
+        {/* AI 生成视频无字幕轨,空 track 满足 jsx-a11y/media-has-caption */}
+        <track kind="captions" />
+      </video>
+      <a
+        href={videoUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+      >
+        <ExternalLink className="h-3.5 w-3.5" />
+        <span>{t('openInNewWindow')}</span>
+      </a>
+    </div>
+  )
+}
+
 /** summarize_artifacts 工具结果渲染:计划/引用/工具调用统计聚合视图 */
 function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['summaryData']> }) {
   const t = useTranslations('ai.toolCall')
@@ -538,6 +608,8 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   retryCount,
   errorType,
   imageUrl,
+  audioUrl,
+  videoUrl,
   summaryData,
   serverSource,
   serverId,
@@ -579,10 +651,14 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   // edit_file/write_file 且有 diffInfo:展开时渲染 InlineDiffCard 替代 <pre>
   const showInlineDiff = !!diffInfo
 
-  // image_generation / summarize_artifacts:优先于 result 渲染专用视图
+  // image_generation / music_generation / video_generation / summarize_artifacts:优先于 result 渲染专用视图
   const isImageTool = IMAGE_TOOL_NAMES.has(toolName)
+  const isAudioTool = AUDIO_TOOL_NAMES.has(toolName)
+  const isVideoTool = VIDEO_TOOL_NAMES.has(toolName)
   const isSummaryTool = SUMMARY_TOOL_NAMES.has(toolName)
   const showImage = isImageTool && !!imageUrl
+  const showAudio = isAudioTool && !!audioUrl
+  const showVideo = isVideoTool && !!videoUrl
   const showSummary = isSummaryTool && !!summaryData
 
   // 引用溯源 + 图表 Artifact:从 result 中解析(knowledge_lookup / generate_chart)
@@ -715,10 +791,24 @@ export const ToolCallCard = React.memo(function ToolCallCard({
               prompt={pickStr(args, ['prompt', 'description'])}
             />
           )}
+          {/* music_generation:渲染音频播放器(优先于 result) */}
+          {showAudio && audioUrl && (
+            <AudioResultBlock
+              audioUrl={audioUrl}
+              prompt={pickStr(args, ['prompt', 'description'])}
+            />
+          )}
+          {/* video_generation:渲染视频播放器(优先于 result) */}
+          {showVideo && videoUrl && (
+            <VideoResultBlock
+              videoUrl={videoUrl}
+              prompt={pickStr(args, ['prompt', 'description'])}
+            />
+          )}
           {/* summarize_artifacts:渲染聚合视图(优先于 result) */}
           {showSummary && summaryData && <SummaryResultBlock data={summaryData} />}
-          {/* 非 diff/image/summary 工具时显示原始 args/result */}
-          {!showInlineDiff && !showImage && !showSummary && (
+          {/* 非 diff/image/audio/video/summary 工具时显示原始 args/result */}
+          {!showInlineDiff && !showImage && !showAudio && !showVideo && !showSummary && (
             <>
               {/* 引用溯源:knowledge_lookup 等返回 citations 时渲染标签组 */}
               {citations.length > 0 && <CitationsBlock citations={citations} />}

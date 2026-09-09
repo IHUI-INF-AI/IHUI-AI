@@ -37,7 +37,7 @@ async def _get_redis() -> Any:
         try:
             # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
             # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
-            _redis_client = aioredis.from_url(settings.redis_url, decode_responses=True, protocol=2)
+            _redis_client = aioredis.from_url(settings.redis_url, decode_responses=True, protocol=2, socket_connect_timeout=2)
             await _redis_client.ping()
         except Exception:
             _use_redis = False
