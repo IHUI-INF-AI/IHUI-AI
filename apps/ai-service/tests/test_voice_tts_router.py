@@ -34,7 +34,9 @@ def _bypass_jwt(monkeypatch):
     monkeypatch.setattr(settings, "node_env", "development")
 
 
-def _fake_provider(monkeypatch, *, api_key="sk-test", tts=None, voices=None, upload=None):
+def _fake_provider(
+    monkeypatch, *, api_key="sk-test", tts=None, voices=None, upload=None, delete=None
+):
     """替换 _token6688_provider 工厂,返回可控 provider mock。"""
     p = MagicMock()
     p.api_key = api_key
@@ -44,6 +46,8 @@ def _fake_provider(monkeypatch, *, api_key="sk-test", tts=None, voices=None, upl
         p.list_voices = AsyncMock(return_value=voices)
     if upload is not None:
         p.upload_voice = AsyncMock(return_value=upload)
+    if delete is not None:
+        p.delete_voice = AsyncMock(return_value=delete)
     monkeypatch.setattr(voice_tts, "_token6688_provider", lambda: p)
     return p
 
@@ -156,3 +160,29 @@ class TestVoiceLibrary:
             files={"file": ("ref.wav", b"", "audio/wav")},
         )
         assert resp.status_code == 400
+
+
+class TestVoiceDeleteAdminGuard:
+    """DELETE /voice/voices/{voice_id} 仅限 admin(roleId>=1)(2026-09-09 P1)。
+
+    声纹库是平台共享资源(单一 token6688 账号,无归属概念),删除影响所有用户。
+    JWT 旁路测试环境下 request.state.role_id 未注入 → getattr 默认 0 → 403;
+    admin 通道用 dependency_overrides 注入(monkeypatch.setitem 自动回滚)。
+    """
+
+    async def test_delete_forbidden_for_non_admin(self, client):
+        resp = await client.delete("/api/voice/voices/v-1")
+        assert resp.status_code == 403
+        assert "管理员" in resp.json()["detail"]
+
+    async def test_delete_allowed_for_admin(self, client, monkeypatch):
+        # app.main.app 是 socketio.ASGIApp 包装,真正的 FastAPI 实例是 fastapi_app
+        from app.main import fastapi_app
+
+        p = _fake_provider(monkeypatch, delete={"ok": True})
+        monkeypatch.setitem(
+            fastapi_app.dependency_overrides, voice_tts._require_admin, lambda: None
+        )
+        resp = await client.delete("/api/voice/voices/v-1")
+        assert resp.status_code == 200
+        p.delete_voice.assert_awaited_once_with("v-1")
