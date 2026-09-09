@@ -287,6 +287,9 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # 媒体工具对齐)。原因:对话链 conversation → call_tool 不传 user_role(默认 0),
     # 留在名单里 = 对话内图片生成永远 PERMISSION_DENIED,全模态自动路由断链。
     "fetch_url",
+    # 2026-09 Firecrawl 极致融合:crawl_site 多页/SSRF 密集/资源重, 同 fetch_url 限 admin;
+    # fetch_readable/map_site/extract_web(单页只读)不限, 避免对话链 user_role=0 断链
+    "crawl_site",
     "review_pr",
     "schedule_task",
 }
@@ -2863,6 +2866,13 @@ from ..tools import (  # noqa: E402
     extract_document_assets as _extract_document_assets,
     document_tables as _document_tables,
 )
+# Web 网络抓取(Firecrawl Scrape/Map/Crawl/Extract 极致融合, 2026-09)
+from ..tools.web_crawl_tools import (  # noqa: E402
+    fetch_readable as _fetch_readable,
+    map_site as _map_site,
+    crawl_site as _crawl_site,
+    extract_web as _extract_web,
+)
 
 # 进程内调度任务列表(schedule_task 用,内存镜像;Redis 为持久化真相源)
 _SCHEDULED_TASKS: list[dict[str, Any]] = []
@@ -4815,13 +4825,15 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
     - action=upload: 上传参考音频克隆音色(path / url / data_uri 三选一;
       MP3/M4A/WAV,10~300s,<20MiB;异步任务轮询至终态,返回 voice_id)
     - action=get: 查单一声纹(voice_id 必填)
-    用户说"克隆我的声音/用我的声音朗读/上传参考音频"时使用。
+    - action=delete: 删除克隆声纹(voice_id 必填;DELETE /v1/audio/voices/{id} 优先,
+      POST /delete 兜底,失败如实返回不抛)
+    用户说"克隆我的声音/用我的声音朗读/上传参考音频"时使用;"删除音色/清理声纹"用 delete。
     """
     action = str(arguments.get("action") or "list").lower()
-    if action not in ("list", "upload", "get"):
+    if action not in ("list", "upload", "get", "delete"):
         return {
             "tool": "token6688_voice_clone", "ok": False,
-            "error": f"未知 action: {action}(允许 list/upload/get)", "errorCode": "BAD_PARAMS",
+            "error": f"未知 action: {action}(允许 list/upload/get/delete)", "errorCode": "BAD_PARAMS",
         }
     from .video_generation import _instantiate as _video_instantiate
 
@@ -4851,6 +4863,20 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
             return {
                 "tool": "token6688_voice_clone", "ok": True, "action": "get",
                 "voice_id": voice_id, "voice": data, "raw": data,
+            }
+        if action == "delete":
+            voice_id = str(arguments.get("voice_id") or "").strip()
+            if not voice_id:
+                return {
+                    "tool": "token6688_voice_clone", "ok": False,
+                    "error": "缺少 voice_id(action=delete 需要)", "errorCode": "MISSING_PARAMS",
+                }
+            result = await inst.delete_voice(voice_id)
+            return {
+                "tool": "token6688_voice_clone", "ok": bool(result.get("ok")), "action": "delete",
+                "voice_id": voice_id, "status": result.get("status", ""),
+                "error": result.get("error"), "raw": result.get("raw"),
+                "hint": "声纹已删除" if result.get("ok") else f"删除失败(status={result.get('status')})",
             }
         # action == "upload"
         audio, filename, err = _audio_source_from_args(arguments)
@@ -7141,6 +7167,81 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
+    # ===== Web 网络抓取(Firecrawl Scrape/Map/Crawl/Extract 极致融合, 2026-09)=====
+    MCPTool(
+        name="fetch_readable",
+        description=(
+            "抓取单个网页并抽取正文为干净 GFM markdown(对标 Firecrawl Scrape 的 clean markdown,"
+            "剥离 nav/footer/header/script/style 等噪声)。返回可注入 LLM 上下文的正文 + title/metadata。"
+            "用于阅读新闻报道、文档页、产品页等网页正文。SSRF 防护同 fetch_url。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "目标 URL(http/https, 必填)"},
+                "max_chars": {"type": "integer", "description": "正文上限, 默认 8000(500-50000)", "default": 8000},
+                "include_links": {"type": "boolean", "description": "markdown 是否保留内链, 默认 False", "default": False},
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="map_site",
+        description=(
+            "抓取起始页面并提取其全部站内链接, 返回站点 URL 地图(对标 Firecrawl Map)。"
+            "默认仅同域、去 fragment、去重, 附带锚文本。常用于快速摸清站点结构。SSRF 防护同 fetch_url。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "目标 URL(http/https, 必填)"},
+                "same_domain_only": {"type": "boolean", "description": "仅保留同域链接, 默认 True", "default": True},
+                "max_links": {"type": "integer", "description": "返回链接上限, 默认 200", "default": 200},
+                "include_text": {"type": "boolean", "description": "是否附带锚文本, 默认 True", "default": True},
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="crawl_site",
+        description=(
+            "从起始 URL 递归抓取同域名页面(对标 Firecrawl Crawl,BFS 限深度/页数/并发),"
+            "输出分页清单或合并 markdown。全站探索/站点总结用。SSRF 防护 + 同域约束,"
+            "默认深度 1 限 10 页(硬上限深度 3/页数 50, 单页 15s)。资源较重, 限 admin 调用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "起始 URL(http/https, 必填)"},
+                "max_depth": {"type": "integer", "description": "最大爬取深度, 默认 1(硬上限 3)", "default": 1},
+                "max_pages": {"type": "integer", "description": "最多抓取页数, 默认 10(硬上限 50)", "default": 10},
+                "format": {"type": "string", "description": "输出格式: pages(分页清单)/concatenated(合并单篇), 默认 concatenated", "default": "concatenated", "enum": ["pages", "concatenated"]},
+                "respect_robots": {"type": "boolean", "description": "是否尊重 robots.txt, 默认 False", "default": False},
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="extract_web",
+        description=(
+            "按显式字段 schema 从网页抽取结构化数据(对标 Firecrawl Extract)。"
+            "fields 传 JSON 字符串如 {\"price\":\"number\",\"author\":\"string\"}。"
+            "LLM 通道优先, 未配置时启发式兜底。用于价格/作者/联系方式等字段抽取。SSRF 防护同 fetch_url。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "目标 URL(http/https, 必填)"},
+                "fields": {"type": "string", "description": "JSON 对象: 字段名->类型, 如 {\"price\":\"number\"}(必填)"},
+                "max_chars": {"type": "integer", "description": "正文上限, 默认 8000(500-50000)", "default": 8000},
+            },
+            "required": ["url", "fields"],
+            "additionalProperties": False,
+        },
+    ),
     # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
     MCPTool(
         name="get_tool_schema",
@@ -7221,18 +7322,19 @@ _TOOLS: list[MCPTool] = [
         name="token6688_voice_clone",
         description=(
             "声纹克隆管理(2026-09-09 全模态深度适配):上传参考音频克隆音色、"
-            "列我的声纹库、查单一声纹详情。action=upload 支持 path / url / data_uri 三选一"
+            "列我的声纹库、查单一声纹详情、删除克隆声纹。action=upload 支持 path / url / data_uri 三选一"
             "(MP3/M4A/WAV,10~300s,<20MiB),异步任务轮询至终态返回 voice_id。"
             "克隆成功后把 voice_id 传给 voice_tts(engine=token6688, voice=voice_id)"
-            "即可用克隆音色合成朗读。用户说'克隆我的声音/用我的声音朗读/上传参考音频'时使用。"
+            "即可用克隆音色合成朗读。用户说'克隆我的声音/用我的声音朗读/上传参考音频'时使用;"
+            "说'删除某个音色/清理声纹'时用 action=delete 回收。"
         ),
         input_schema={
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["list", "upload", "get"],
-                    "description": "list=列声纹库(默认)/upload=上传参考音频克隆/get=查单一声纹(需 voice_id)",
+                    "enum": ["list", "upload", "get", "delete"],
+                    "description": "list=列声纹库(默认)/upload=上传参考音频克隆/get=查单一声纹(需 voice_id)/delete=删除克隆声纹(需 voice_id)",
                     "default": "list",
                 },
                 "path": {
@@ -7249,7 +7351,7 @@ _TOOLS: list[MCPTool] = [
                 },
                 "voice_id": {
                     "type": "string",
-                    "description": "action=get 时必填:声纹库 voice_id",
+                    "description": "action=get/delete 时必填:声纹库 voice_id",
                 },
             },
             "required": [],
@@ -7425,6 +7527,11 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # ===== P1 文档资产/表格(2026-09-09,anydoc 文档模型极致融合)=====
     "extract_document_assets": _extract_document_assets,
     "document_tables": _document_tables,
+    # ===== Web 网络抓取(Firecrawl Scrape/Map/Crawl/Extract 极致融合, 2026-09)=====
+    "fetch_readable": _fetch_readable,
+    "map_site": _map_site,
+    "crawl_site": _crawl_site,
+    "extract_web": _extract_web,
     # ===== 后台任务工具(Phase 1 第 6 项 · 2026-09-02 立)=====
     "run_in_background": _tool_run_in_background,
     "bg_task_status": _tool_bg_task_status,
