@@ -396,3 +396,79 @@ def test_is_http_html_filters_binary():
     assert wc._is_http_html("https://a.com/photo.png") is False
     assert wc._is_http_html("ftp://a.com/x") is False
     assert wc._is_http_html("https://a.com/doc.pdf", "application/pdf") is False
+
+# ============================================================================
+# extract_web — LLM token usage 透出(费用归属可观测,2026-09-09 立)
+# ============================================================================
+
+class _FakeGateway:
+    """替身 llm_gateway:可编程 complete 返回值。"""
+
+    def __init__(self, resp):
+        self.resp = resp
+        self.calls: list = []
+
+    def _is_stub_mode(self) -> bool:
+        return False
+
+    async def complete(self, messages, model="auto", **kw):  # noqa: ANN001, ANN003
+        self.calls.append({"messages": messages, "model": model})
+        return self.resp
+
+
+class TestExtractWebLLMUsage:
+    async def test_llm_usage_passed_through(self, monkeypatch):
+        """LLM 通道成功 → 结果携带 llm_usage/llm_model,source=llm,usage 与网关返回一致。"""
+        gw = _FakeGateway({
+            "content": '{"名称": "苹果", "数值": "10"}',
+            "model": "test-model-x",
+            "usage": {"prompt_tokens": 120, "completion_tokens": 30, "total_tokens": 150},
+            "stub": False,
+        })
+        monkeypatch.setattr("app.core.llm_gateway.llm_gateway", gw)
+        monkeypatch.setattr(wc, "_http_get_html", _fake_fetch({"https://example.com/": SIMPLE_HTML}))
+        monkeypatch.setattr(wc, "_validate_ssrf", lambda u: None)
+
+        r = await wc.extract_web({"url": "https://example.com/", "fields": {"名称": "string", "数值": "number"}})
+        assert r["ok"] is True
+        assert r["source"] == "llm"
+        assert r["fields"] == {"名称": "苹果", "数值": "10"}
+        assert r["llm_usage"] == {"prompt_tokens": 120, "completion_tokens": 30, "total_tokens": 150}
+        assert r["llm_model"] == "test-model-x"
+        assert gw.calls and gw.calls[0]["model"] == "auto"
+
+    async def test_llm_json_missing_usage_defaults_empty(self, monkeypatch):
+        """网关未返回 usage(异常 provider)→ llm_usage 为空 dict,不炸。"""
+        gw = _FakeGateway({"content": '{"名称": "苹果"}', "model": "m1", "stub": False})
+        monkeypatch.setattr("app.core.llm_gateway.llm_gateway", gw)
+        monkeypatch.setattr(wc, "_http_get_html", _fake_fetch({"https://example.com/": SIMPLE_HTML}))
+        monkeypatch.setattr(wc, "_validate_ssrf", lambda u: None)
+
+        r = await wc.extract_web({"url": "https://example.com/", "fields": {"名称": "string"}})
+        assert r["ok"] is True and r["source"] == "llm"
+        assert r["llm_usage"] == {}
+
+    async def test_llm_null_fields_falls_back_no_usage_leak(self, monkeypatch):
+        """LLM 返回全 null → 降级启发式,结果不带 llm_usage/llm_model(source=heuristic)。"""
+        gw = _FakeGateway({"content": '{"名称": null, "数值": null}', "model": "m1", "usage": {"total_tokens": 9}, "stub": False})
+        monkeypatch.setattr("app.core.llm_gateway.llm_gateway", gw)
+        monkeypatch.setattr(wc, "_http_get_html", _fake_fetch({"https://example.com/": SIMPLE_HTML}))
+        monkeypatch.setattr(wc, "_validate_ssrf", lambda u: None)
+
+        r = await wc.extract_web({"url": "https://example.com/", "fields": {"名称": "string", "数值": "number"}})
+        assert r["source"] == "heuristic"
+        assert "llm_usage" not in r and "llm_model" not in r
+
+    async def test_llm_failure_falls_back(self, monkeypatch):
+        """LLM 抛异常 → 不向外抛,降级启发式(原有语义回归)。"""
+
+        class _BoomGW(_FakeGateway):
+            async def complete(self, messages, model="auto", **kw):  # noqa: ANN003
+                raise RuntimeError("llm down")
+
+        monkeypatch.setattr("app.core.llm_gateway.llm_gateway", _BoomGW(None))
+        monkeypatch.setattr(wc, "_http_get_html", _fake_fetch({"https://example.com/": SIMPLE_HTML}))
+        monkeypatch.setattr(wc, "_validate_ssrf", lambda u: None)
+
+        r = await wc.extract_web({"url": "https://example.com/", "fields": {"名称": "string"}})
+        assert r["source"] == "heuristic"
