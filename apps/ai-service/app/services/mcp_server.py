@@ -3646,6 +3646,201 @@ async def _tool_image_generation_native(
     }
 
 
+async def _resolve_image_source_bytes(source: str) -> tuple[bytes | None, str | None]:
+    """把图片输入(source)解析为原始字节,返回 (bytes, 错误码)。
+
+    支持:
+    - http(s) URL → 下载(60s 超时)
+    - data URI(data:image/*;base64,...) → base64 解码
+    - 裸 base64 字符串 → 直接解码
+    - 本地绝对路径 → 读文件(工作区白名单校验)
+    """
+    import base64 as _b64
+    from pathlib import Path
+
+    import httpx as _httpx
+
+    if not source or not isinstance(source, str):
+        return None, "MISSING_PARAMS"
+    s = source.strip()
+    if s.startswith("data:"):
+        try:
+            _, _, b64part = s.partition(";base64,")
+            raw = _b64.b64decode(b64part)
+        except Exception:  # noqa: BLE001
+            return None, "INVALID_BASE64"
+        return raw or None, None if raw else "INVALID_BASE64"
+    if s.startswith("http://") or s.startswith("https://"):
+        try:
+            async with _httpx.AsyncClient(timeout=60.0, follow_redirects=True) as dl:
+                resp = await dl.get(s)
+            if resp.status_code >= 400:
+                return None, "DOWNLOAD_FAILED"
+            return cast(bytes, resp.content), None
+        except Exception:  # noqa: BLE001
+            return None, "DOWNLOAD_FAILED"
+    if len(s) > 40 and (s.startswith("data:") is False):
+        # 可能是纯 base64(非 data URI)或本地路径
+        try:
+            raw = _b64.b64decode(s, validate=True)
+            if raw:
+                return raw, None
+        except Exception:  # noqa: BLE001
+            pass
+        ok, info = _validate_path_in_workspace(s)
+        if ok:
+            p = Path(info)
+            if p.exists() and p.is_file():
+                try:
+                    raw = p.read_bytes()
+                except OSError:
+                    return None, "FILE_READ_FAILED"
+                if raw:
+                    return raw, None
+    return None, "INVALID_SOURCE"
+
+
+async def _tool_image_edit(arguments: dict[str, Any]) -> dict[str, Any]:
+    """image_edit: 图片编辑(token6688 官方 /v1/images/edits,OpenAI Images edits 同构)。
+
+    2026-09-09 全模态深度适配新增:图片生成之外补齐"改图"能力(局部重绘/扩图/改元素),
+    与 REST POST /api/image/edits 同源,供 AI 对话内直接调用。
+    - image 必填:待编辑图(URL / data URI / 裸 base64 / 本地工作区路径)
+    - prompt 必填:编辑指令(改什么)
+    - mask 可选:遮罩(透明区域=重绘区,URL/data URI)
+    - 同步 40-50s 出图;200 响应仍检查 body.error(官方陷阱);超 25MiB 拒绝
+    - save_path 落地(.png/.jpg/.jpeg/.webp,工作区白名单,5MB 上限)
+    需 .env 配置 TOKEN6688_API_KEY;未配置返回 PROVIDER_NOT_CONFIGURED。外部 API+计费。
+    """
+    image = arguments.get("image")
+    prompt = arguments.get("prompt", "")
+    if not image or not prompt:
+        return {
+            "tool": "image_edit", "ok": False,
+            "error": "缺少 image(待编辑图)或 prompt(编辑指令)",
+            "errorCode": "MISSING_PARAMS", "saved_path": None,
+        }
+    if not isinstance(image, str) or len(image) > 30 * 1024 * 1024:
+        return {
+            "tool": "image_edit", "ok": False,
+            "error": "image 参数非法(须为 URL/data URI/base64,且 ≤30MiB)",
+            "errorCode": "INVALID_PARAMS", "saved_path": None,
+        }
+    # save_path 校验前置(与 image_generation 一致,fail-fast 不浪费付费调用)
+    resolved_save: str | None = None
+    save_path = arguments.get("save_path")
+    if save_path:
+        ok_path, resolved_save, err_code = _validate_image_save_path(save_path)
+        if not ok_path:
+            return {
+                "tool": "image_edit", "ok": False, "prompt": prompt,
+                "saved_path": None, "errorCode": err_code,
+                "message": f"save_path 校验失败: {err_code}",
+            }
+
+    from ..providers.base_provider import ProviderError
+    from ..providers.token6688_provider import Token6688Provider
+    from ..core.config import settings
+
+    cfg = settings.get_provider_config("token6688")
+    api_key = cfg.api_key or os.environ.get("TOKEN6688_API_KEY", "")
+    if not api_key:
+        return {
+            "tool": "image_edit", "ok": False, "prompt": prompt,
+            "saved_path": None,
+            "error": "token6688 未配置:请在 .env 设置 TOKEN6688_API_KEY 或 "
+                     "LLM_PROVIDERS.token6688.api_key",
+            "errorCode": "PROVIDER_NOT_CONFIGURED",
+        }
+    api_base = (cfg.api_base or os.environ.get("TOKEN6688_BASE_URL", "https://k.token6688.com")).rstrip("/")
+    provider = Token6688Provider(api_key=api_key, api_base=api_base)
+
+    image_bytes, err_code = await _resolve_image_source_bytes(image)
+    if image_bytes is None:
+        return {
+            "tool": "image_edit", "ok": False, "prompt": prompt,
+            "saved_path": None, "errorCode": err_code,
+            "error": f"无法解析待编辑图({err_code})",
+        }
+    mask_bytes = None
+    mask = arguments.get("mask")
+    if mask:
+        mask_bytes, mask_err = await _resolve_image_source_bytes(mask)
+        if mask_bytes is None:
+            return {
+                "tool": "image_edit", "ok": False, "prompt": prompt,
+                "saved_path": None, "errorCode": mask_err,
+                "error": f"无法解析 mask({mask_err})",
+            }
+
+    model = arguments.get("model")
+    n = int(arguments.get("n") or 1)
+    size = arguments.get("size")
+    extra: dict[str, Any] = {}
+    for k in ("aspect_ratio", "quality", "output_format"):
+        if arguments.get(k):
+            extra[k] = arguments[k]
+    try:
+        result = await provider.images_edits(
+            prompt, image_bytes, filename="image.png",
+            model=model, mask_bytes=mask_bytes, n=n, size=size, **extra,
+        )
+    except ProviderError as e:
+        return {
+            "tool": "image_edit", "ok": False, "prompt": prompt,
+            "saved_path": None,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+        }
+    except Exception as e:  # noqa: BLE001
+        return {
+            "tool": "image_edit", "ok": False, "prompt": prompt,
+            "saved_path": None, "error": str(e)[:300], "errorCode": "GENERATION_FAILED",
+        }
+
+    items = result.get("images") or []
+    item = items[0] if items else {}
+    if item.get("b64_json"):
+        image_url = f"data:image/png;base64,{item['b64_json']}"
+    else:
+        image_url = item.get("url", "")
+    if not image_url:
+        return {
+            "tool": "image_edit", "ok": False, "prompt": prompt,
+            "saved_path": None,
+            "error": "provider 响应缺少 url/b64_json", "errorCode": "EMPTY_RESULT",
+        }
+
+    saved_path: str | None = None
+    file_size_bytes = 0
+    if resolved_save:
+        import httpx as _httpx
+
+        img_bytes = await _fetch_image_bytes(item, image_url, _httpx)
+        if img_bytes is None:
+            return {
+                "tool": "image_edit", "ok": False, "prompt": prompt,
+                "saved_path": None, "errorCode": "IMAGE_FETCH_FAILED",
+                "message": "无法获取编辑结果字节(b64 解码 / URL 下载均失败)",
+            }
+        ok_w, sp, sz, werr = await _persist_image_to_disk(img_bytes, resolved_save)
+        if not ok_w:
+            return {
+                "tool": "image_edit", "ok": False, "prompt": prompt,
+                "saved_path": None, "errorCode": werr,
+                "message": f"图片写入磁盘失败: {werr}",
+            }
+        saved_path = sp
+        file_size_bytes = sz
+
+    return {
+        "tool": "image_edit", "ok": True, "prompt": prompt,
+        "image_url": image_url,
+        "model": result.get("model"), "saved_path": saved_path,
+        "file_size_bytes": file_size_bytes,
+        "message": "图片编辑完成" + (f", saved={saved_path}" if saved_path else ""),
+    }
+
+
 async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     """video_generation: 生成视频(统一编排,5 家厂商自动故障转移)。
 
@@ -4347,6 +4542,255 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
     if attempts:
         out["failover_attempts"] = attempts
     return out
+
+
+# ---------------------------------------------------------------------------
+# audio_transcription(2026-09-09 全模态深度适配):对话内语音转文字(ASR)。
+# 引擎链:local(faster-whisper 本地推理,零 key 零成本,与 /api/voice/stt 同源)
+# → token6688(/v1/audio/transcriptions,OpenAI 同构;平台暂未开通时 404 自动换)。
+# 输入支持:URL(http/https,过 SSRF 校验)/ base64 data URI / 本地路径。
+# ---------------------------------------------------------------------------
+_AUDIO_STT_MAX_BYTES = 25 * 1024 * 1024  # 25MB,与主流转写接口上限对齐
+
+
+def _stt_engine_chain() -> list[str]:
+    """STT 引擎链:本地 faster-whisper 优先(零成本),token6688 兜底。"""
+    return ["local", "token6688"]
+
+
+async def _stt_once(
+    engine: str, audio_bytes: bytes, filename: str, language: str | None
+) -> tuple[str, str, str, dict[str, Any] | None]:
+    """单引擎转写一次。返回 (text, model_name, provider_name, err)。
+
+    err 非 None 时 text 为空串,err 为归一化失败 dict(ok=False)。
+    """
+    if engine == "token6688":
+        from .video_generation import _instantiate as _video_instantiate
+
+        inst = _video_instantiate("token6688")
+        if inst is None:
+            return "", "", "token6688", {
+                "ok": False, "provider": "token6688",
+                "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688)",
+                "errorCode": "PROVIDER_NOT_CONFIGURED",
+            }
+        try:
+            st = await inst.stt(audio_bytes, filename, language=language or None)
+            return str(st.get("text", "")), str(st.get("model", "")), "token6688", None
+        except Exception as e:  # noqa: BLE001
+            return "", "", "token6688", {
+                "ok": False, "provider": "token6688",
+                "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+            }
+    # engine == "local":faster-whisper 本地推理(与 /api/voice/stt 同源,零成本)
+    try:
+        from ..routers.voice_stt import _DEFAULT_STT_MODEL, _get_whisper_model, _transcribe_sync
+        import asyncio as _asyncio
+        import tempfile as _tempfile
+        import os as _os
+
+        suffix = ".wav"
+        dot = filename.rfind(".")
+        if dot >= 0:
+            ext = filename[dot + 1:].lower()
+            if ext.isalnum() and len(ext) <= 6:
+                suffix = f".{ext}"
+        model = await _asyncio.to_thread(_get_whisper_model)
+        tmp_fd, tmp_path = _tempfile.mkstemp(suffix=suffix)
+        try:
+            with _os.fdopen(tmp_fd, "wb") as f:
+                f.write(audio_bytes)
+            text = await _asyncio.to_thread(_transcribe_sync, model, tmp_path, language or None)
+        finally:
+            try:
+                _os.unlink(tmp_path)
+            except OSError:
+                pass
+        return text, _DEFAULT_STT_MODEL, "faster-whisper", None
+    except ImportError:
+        return "", "", "faster-whisper", {
+            "ok": False, "provider": "faster-whisper",
+            "error": "faster-whisper 未安装(请运行 pip install faster-whisper)",
+            "errorCode": "ENGINE_UNAVAILABLE",
+        }
+    except Exception as e:  # noqa: BLE001
+        return "", "", "faster-whisper", {
+            "ok": False, "provider": "faster-whisper",
+            "error": f"本地转写失败: {e}"[:300], "errorCode": "ENGINE_ERROR",
+        }
+
+
+async def _tool_audio_transcription(arguments: dict[str, Any]) -> dict[str, Any]:
+    """audio_transcription: 语音转文字(对话内 ASR,2026-09-09 落地)。
+
+    引擎链自动切换:local(faster-whisper,零 key 零成本)→ token6688(备用),
+    首选失败自动换下一家,全失败聚合报错(对话侧如实转述)。
+    用户说"把这段录音转文字/听听这个音频说了什么"时使用。
+    """
+    import base64 as _base64
+
+    audio_in = arguments.get("audio") or arguments.get("file") or ""
+    if not isinstance(audio_in, str) or not audio_in.strip():
+        return {
+            "tool": "audio_transcription", "ok": False,
+            "error": "缺少 audio 参数(URL / base64 data URI / 本地路径)",
+            "errorCode": "MISSING_PARAMS", "text": None,
+        }
+    audio_in = audio_in.strip()
+    language = str(arguments.get("language") or "").strip() or None
+    filename = str(arguments.get("filename") or "audio.wav")
+
+    audio_bytes = b""
+    source = ""
+    if audio_in.startswith("data:"):
+        # base64 data URI:data:audio/mpeg;base64,....
+        _head, _sep, _b64 = audio_in.partition(",")
+        if not _sep or not _b64:
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": "data URI 格式非法(应为 data:audio/xxx;base64,...)",
+                "errorCode": "BAD_PARAMS", "text": None,
+            }
+        try:
+            audio_bytes = _base64.b64decode(_b64)
+        except Exception:  # noqa: BLE001
+            audio_bytes = b""
+        if not audio_bytes:
+            # 解码异常或空载荷(如 b64decode 忽略非法字符后得空)统一按格式非法处理
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": "base64 解码失败或内容为空", "errorCode": "BAD_PARAMS",
+                "text": None,
+            }
+        source = "data_uri"
+    elif audio_in.lower().startswith(("http://", "https://")):
+        from .screenshot_service import _validate_url_ssrf
+
+        ok_ssrf, reason = _validate_url_ssrf(audio_in)
+        if not ok_ssrf:
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": f"URL 不允许访问: {reason}", "errorCode": "SSRF_BLOCKED",
+                "text": None,
+            }
+        try:
+            from ..core.llm_gateway import get_http_client
+
+            client = get_http_client()
+            resp = await client.get(audio_in, timeout=60.0)
+            resp.raise_for_status()
+            audio_bytes = resp.content
+        except Exception as e:  # noqa: BLE001
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": f"音频下载失败: {e}"[:300], "errorCode": "DOWNLOAD_FAILED",
+                "text": None,
+            }
+        source = "url"
+        ctype = str(resp.headers.get("content-type", "")).lower()
+        for _ext in ("mpeg", "mp3", "wav", "ogg", "flac", "m4a", "webm", "aac"):
+            if _ext in ctype:
+                filename = f"audio.{'mp3' if _ext == 'mpeg' else _ext}"
+                break
+    else:
+        # 本地路径(如 voice_tts save_path 落地的音频)
+        from pathlib import Path as _Path
+
+        p = _Path(audio_in)
+        if not p.is_file():
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": f"本地文件不存在: {audio_in}", "errorCode": "FILE_NOT_FOUND",
+                "text": None,
+            }
+        if p.stat().st_size > _AUDIO_STT_MAX_BYTES:
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": f"音频超限({p.stat().st_size} > {_AUDIO_STT_MAX_BYTES} 字节)",
+                "errorCode": "TOO_LARGE", "text": None,
+            }
+        audio_bytes = p.read_bytes()
+        source = "local_path"
+        filename = p.name
+
+    if not audio_bytes:
+        return {
+            "tool": "audio_transcription", "ok": False,
+            "error": "音频内容为空", "errorCode": "EMPTY_AUDIO", "text": None,
+        }
+    if len(audio_bytes) > _AUDIO_STT_MAX_BYTES:
+        return {
+            "tool": "audio_transcription", "ok": False,
+            "error": f"音频超限({len(audio_bytes)} > {_AUDIO_STT_MAX_BYTES} 字节)",
+            "errorCode": "TOO_LARGE", "text": None,
+        }
+
+    attempts: list[dict[str, str]] = []
+    text = ""
+    used_model = ""
+    provider_name = ""
+    for eng in _stt_engine_chain():
+        text, used_model, provider_name, err = await _stt_once(
+            eng, audio_bytes, filename, language,
+        )
+        if err is None:
+            break
+        attempts.append({
+            "engine": eng, "provider": err.get("provider", eng),
+            "errorCode": str(err.get("errorCode", "UNKNOWN")),
+            "error": str(err.get("error", ""))[:200],
+        })
+    else:
+        last = attempts[-1]
+        return {
+            "tool": "audio_transcription", "ok": False,
+            "provider": last["provider"], "error": last["error"],
+            "errorCode": last["errorCode"], "text": None,
+            "failover_attempts": attempts,
+            "message": f"全部 {len(attempts)} 个转写引擎均失败",
+        }
+
+    out = {
+        "tool": "audio_transcription", "ok": True,
+        "provider": provider_name, "model": used_model,
+        "text": text, "text_chars": len(text),
+        "audio_bytes": len(audio_bytes), "source": source,
+        "language": language,
+        "message": "转写完成",
+    }
+    if attempts:
+        out["failover_attempts"] = attempts
+    return out
+
+
+async def _tool_token6688_balance(arguments: dict[str, Any]) -> dict[str, Any]:
+    """token6688_balance: 查询 token6688(名创AI 网关)账户余额(只读)。
+
+    用户问"还剩多少额度/余额多少钱"时使用;未配置 key 时返回清晰错误。
+    """
+    from .video_generation import _instantiate as _video_instantiate
+
+    inst = _video_instantiate("token6688")
+    if inst is None:
+        return {
+            "tool": "token6688_balance", "ok": False,
+            "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688)",
+            "errorCode": "PROVIDER_NOT_CONFIGURED",
+        }
+    try:
+        st = await inst.get_balance()
+    except Exception as e:  # noqa: BLE001
+        return {
+            "tool": "token6688_balance", "ok": False,
+            "error": f"余额查询失败: {e}"[:300], "errorCode": "PROVIDER_ERROR",
+        }
+    return {
+        "tool": "token6688_balance", "ok": True,
+        "balance": st.get("balance"), "available_balance": st.get("available_balance"),
+        "frozen": st.get("frozen"), "currency": "USD",
+        "message": "余额查询成功",
+    }
 
 
 def _scan_pr_files_for_findings(
@@ -5818,6 +6262,39 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="image_edit",
+        description=(
+            "图片编辑/局部重绘/扩图(改现有图,2026-09-09 全模态深度适配新增)。"
+            "基于 token6688 官方 /v1/images/edits(OpenAI Images edits 同构,同步 40-50s):"
+            "把待编辑图 image 按 prompt 指令修改(改元素/去水印/局部重绘/扩图等),"
+            "可选 mask 遮罩(透明区域=重绘区)。image 支持 URL / data URI / 裸 base64 / "
+            "本地工作区路径;编辑结果返回 image_url 或 base64,支持 save_path 落地"
+            "(.png/.jpg/.jpeg/.webp,工作区白名单,5MB 上限)。"
+            "与 image_generation 不同:这是改已有图,不是从零生成。"
+            "需 .env 配置 TOKEN6688_API_KEY;未配置返回 PROVIDER_NOT_CONFIGURED。"
+            "外部 API 调用 + 计费。所有用户可用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "image": {"type": "string", "description": "待编辑图(URL/data URI/裸 base64/本地路径,必填,≤25MiB)"},
+                "prompt": {"type": "string", "description": "编辑指令(改什么,必填)"},
+                "mask": {"type": "string", "description": "可选遮罩(透明区域=重绘区,URL/data URI)"},
+                "model": {"type": "string", "description": "可选,图片模型(默认 gpt-image-2)"},
+                "n": {"type": "integer", "description": "生成数量(官方 1~50,默认 1)", "default": 1},
+                "size": {"type": "string", "description": "可选,像素串(与 aspect_ratio 二选一,兼容老 API)"},
+                "aspect_ratio": {"type": "string", "description": "可选,比例(官方 12 枚举,如 16:9/1:1/9:16)"},
+                "quality": {"type": "string", "enum": ["auto", "high", "medium", "low"], "description": "可选,质量"},
+                "output_format": {"type": "string", "enum": ["png", "jpeg"], "description": "可选,输出格式"},
+                "save_path": {
+                    "type": "string",
+                    "description": "可选,绝对路径,落地编辑结果(需工作区白名单内,后缀 .png/.jpg/.jpeg/.webp,5MB 上限)",
+                },
+            },
+            "required": ["image", "prompt"],
+        },
+    ),
+    MCPTool(
         name="video_generation",
         description=(
             "生成视频,返回视频 URL。统一编排 5 家厂商并自动故障转移:"
@@ -6063,6 +6540,48 @@ _TOOLS: list[MCPTool] = [
                 },
             },
             "required": ["task_id"],
+        },
+    ),
+    MCPTool(
+        name="audio_transcription",
+        description=(
+            "语音转文字(对话内 ASR,2026-09-09 落地)。传入音频"
+            "(URL / base64 data URI / 本地路径,≤25MB)+ 可选语言提示,"
+            "引擎链自动切换:faster-whisper 本地推理(零 key 零成本,默认首选)"
+            "→ token6688 /v1/audio/transcriptions(备用),首选失败自动换下一家。"
+            "用户说'把这段录音转文字/听听这个音频说了什么/识别这段语音'时使用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "type": "string",
+                    "description": "音频来源:http(s) URL、base64 data URI(data:audio/...;base64,..)"
+                    "或本地文件路径(如 voice_tts save_path 落地的 .mp3)",
+                },
+                "language": {
+                    "type": "string",
+                    "description": "可选,语言提示(ISO 639-1,如 zh/en/ja;缺省自动检测)",
+                },
+                "filename": {
+                    "type": "string",
+                    "description": "可选,文件名(用于推断格式后缀,默认 audio.wav)",
+                },
+            },
+            "required": ["audio"],
+        },
+    ),
+    MCPTool(
+        name="token6688_balance",
+        description=(
+            "查询 token6688(名创AI 网关)账户余额(只读):总余额/可用余额/冻结金额(USD)。"
+            "用户问'还剩多少额度/余额多少钱/账户还剩多少'时使用;"
+            "未配置 TOKEN6688_API_KEY 时返回 PROVIDER_NOT_CONFIGURED。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {},
+            "required": [],
         },
     ),
     MCPTool(
@@ -6404,6 +6923,11 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "voice_tts": _tool_voice_tts,
     "token6688_model_info": _tool_token6688_model_info,
     "token6688_cancel_task": _tool_token6688_cancel_task,
+    # ===== 图片编辑(2026-09-09 全模态深度适配)=====
+    "image_edit": _tool_image_edit,
+    # ===== 语音转文字 + 余额查询(2026-09-09 全模态深度适配)=====
+    "audio_transcription": _tool_audio_transcription,
+    "token6688_balance": _tool_token6688_balance,
     # ===== AI 自动控制浏览器(12 个)=====
     "browser_screenshot": _make_agent_control_handler("browser", "screenshot"),
     "browser_click_element": _make_agent_control_handler("browser", "click_element"),
