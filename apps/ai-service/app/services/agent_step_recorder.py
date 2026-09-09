@@ -96,6 +96,9 @@ def _normalize_step(step: dict[str, Any], idx: int) -> dict[str, Any]:
         "tokens": int(_to_num(step.get("tokens"), 0)),
         "tokens_in": int(_to_num(step.get("tokens_in"), 0)),
         "tokens_out": int(_to_num(step.get("tokens_out"), 0)),
+        # model(2026-09-09 立):此前归一化时被丢弃,导致 sync_from_recorder 的
+        # s.get("model") 永远为空 —— 工具内嵌 LLM 用量(如 extract_web)入账无模型可归
+        "model": str(step.get("model") or ""),
         "duration_ms": round(_to_num(step.get("duration_ms")), 2),
         "cost": round(_to_num(step.get("cost")), 6),
         "http_summary": str(step.get("http_summary") or ""),

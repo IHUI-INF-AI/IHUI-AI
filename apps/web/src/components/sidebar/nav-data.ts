@@ -410,13 +410,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/models', labelKey: 'models', icon: Bot, children: MODELS_CHILDREN },
       { href: '/agents', labelKey: 'agents', icon: Bot },
       { href: '/agent-workbench', labelKey: 'agentWorkbench', icon: Activity },
-      // Agent Canvas 可视化任务编排(dynamicLabel 绕过 i18n 消息文件,直接显示英文产品名)
-      {
-        href: '/agent-canvas',
-        labelKey: 'agentCanvas',
-        icon: Network,
-        dynamicLabel: 'Agent Canvas',
-      },
+      { href: '/agent-canvas', labelKey: 'agentCanvas', icon: Network },
       {
         href: '/ai-world',
         labelKey: 'aiWorld',
@@ -430,6 +424,12 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: Brain,
         children: ADVANCED_AI_TOOLS_CHILDREN,
       },
+      // 对话内媒体任务统一中心(2026-09-09 立):视频/音乐/语音/图片任务查看/播放/取消
+      { href: '/media-tasks', labelKey: 'mediaTasks', icon: Clapperboard },
+      // 网页工具中心(2026-09-09 立):Firecrawl 四件套融合的只读网页抓取(正文/站点地图/结构化抽取)
+      { href: '/web-tools', labelKey: 'webTools', icon: Globe },
+      // 声纹库管理(2026-09-09 F4):token6688 克隆音色列表/详情/删除/上传
+      { href: '/voices', labelKey: 'voices', icon: Mic },
       { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
       // 知识库三合一(2026-08-30):原平铺的知识库/RAG/图谱收进可展开子菜单
       {
