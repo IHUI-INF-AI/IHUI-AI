@@ -87,12 +87,13 @@ export default function DeveloperWithdrawal() {
 
   const statusClass = useCallback((item: WithdrawalItem) => {
     const norm = normalizeStatus(item.status)
-    const base = 'text-[24rpx] px-[16rpx] py-[6rpx] rounded-[6rpx]'
+    // 对齐 RN IncomeScreen cardStatus:纯彩色文字徽章(无底色)
+    const base = 'text-[22rpx] font-semibold'
     const styles: Record<string, string> = {
-      pending: 'text-warning bg-warning/10',
-      processing: 'text-info bg-info/[0.1]',
-      success: 'text-success bg-success/[0.1]',
-      failed: 'text-destructive bg-destructive/[0.1]',
+      pending: 'text-warning',
+      processing: 'text-info',
+      success: 'text-success',
+      failed: 'text-destructive',
     }
     return `${base} ${styles[norm] ?? styles.pending}`
   }, [])
@@ -115,50 +116,52 @@ export default function DeveloperWithdrawal() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background">
-        <View className="px-[30rpx] py-[20rpx] bg-card">
-          <Text className="text-[36rpx] font-bold text-foreground">
+      <View className="min-h-screen bg-background p-[20rpx]">
+        {/* 页头 — 对齐 RN WithdrawScreen header(backText/title:text.primary 20 600) */}
+        <View className="pb-[24rpx]">
+          <Text className="text-[40rpx] font-semibold text-foreground">
             {t('developer.withdrawal.title')}
           </Text>
         </View>
-        <View className="flex mx-[20rpx] my-[20rpx] bg-card rounded-[12rpx] py-[24rpx]">
+        {/* 汇总卡 — 对齐 RN balanceCard(padding 14/radius 12/白卡,value 28 700) */}
+        <View className="flex bg-card rounded-[24rpx] p-[28rpx] mb-[24rpx]">
           <View className="flex-1 flex flex-col items-center">
-            <Text className="text-[22rpx] text-muted-foreground">
+            <Text className="text-[28rpx] text-muted-foreground">
               {t('developer.income.withdrawnYuan')}
             </Text>
-            <Text className="text-[34rpx] font-semibold text-foreground mt-[8rpx]">
+            <Text className="text-[56rpx] font-bold text-foreground mt-[16rpx]">
               {loading ? '--' : totalAmount}
             </Text>
           </View>
           <View className="flex-1 flex flex-col items-center">
-            <Text className="text-[22rpx] text-muted-foreground">
+            <Text className="text-[28rpx] text-muted-foreground">
               {t('developer.income.withdrawn')}
             </Text>
-            <Text className="text-[34rpx] font-semibold text-foreground mt-[8rpx]">
+            <Text className="text-[56rpx] font-bold text-foreground mt-[16rpx]">
               {loading ? '--' : totalSuccess}
             </Text>
           </View>
         </View>
-        <View className="p-[20rpx]">
+        <View>
           {loading ? (
-            <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
+            <Text className="block text-center text-muted-foreground text-[28rpx] py-[96rpx]">
               {t('common.loading')}
             </Text>
           ) : list.length ? (
             list.map((item) => (
               <View
                 key={item.id}
-                className="flex items-center justify-between bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
+                className="flex items-center justify-between bg-card border-[2rpx] border-border rounded-[24rpx] p-[24rpx] mb-[20rpx]"
               >
                 <View className="flex-1">
                   <Text className="block text-[32rpx] text-foreground font-semibold mb-[8rpx]">
                     ¥{item.amount}
                   </Text>
-                  <Text className="block text-[24rpx] text-muted-foreground">
+                  <Text className="block text-[22rpx] text-[var(--color-text-tertiary)]">
                     {displayTime(item)}
                   </Text>
                   {displayReason(item) ? (
-                    <Text className="block text-[22rpx] text-destructive mt-[6rpx]">
+                    <Text className="block text-[22rpx] text-destructive mt-[12rpx]">
                       {displayReason(item)}
                     </Text>
                   ) : null}
@@ -167,7 +170,7 @@ export default function DeveloperWithdrawal() {
               </View>
             ))
           ) : (
-            <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
+            <Text className="block text-center text-muted-foreground text-[28rpx] py-[96rpx]">
               {t('developer.withdrawal.empty')}
             </Text>
           )}

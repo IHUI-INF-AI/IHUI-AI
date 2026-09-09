@@ -487,7 +487,7 @@
   border-radius: 14rpx;
   border: 1rpx solid var(--color-border);
   background-color: var(--color-card);
-  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8rpx 24rpx var(--color-black-12);
 }
 
 .login-history-item {

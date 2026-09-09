@@ -4,8 +4,10 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
-/* 会员升级页样式 — 浅色 amber 语言(对齐 web 端,2026-09-03 亮色化)
-   表面用 token;amber 仅作点缀;主 CTA 黑底白字 */
+/* 会员升级页 — 对齐 RN VipLevelScreen(packages/app/features/vip-level)视觉语言
+   RN 原始值(dp) → rpx ×2:标题 20→40/700;body padding 14→28;卡片 radius 12→24;
+   行 label 14→28;价格 20→40/danger;权益标题 16→32;正文 14→28、行高 22→44;
+   主 CTA 对齐 RN buyBtn(88rpx 高、30rpx 圆角、brand 底白字)。 */
 
 .page {
   min-height: 100vh;
@@ -13,47 +15,46 @@
   padding-bottom: 120rpx;
 }
 .banner {
-  padding: 60rpx 40rpx;
-  background: var(--color-gold-muted);
-  color: var(--color-foreground);
+  padding: 24rpx 20rpx;
 }
 .banner-title {
-  font-size: 44rpx;
+  font-size: 40rpx;
   font-weight: 700;
+  color: var(--color-foreground);
 }
 .banner-desc {
-  font-size: 26rpx;
-  margin-top: 12rpx;
-  opacity: 0.9;
+  font-size: 28rpx;
+  margin-top: 16rpx;
+  color: var(--color-muted-foreground);
 }
 .plans {
   display: flex;
-  padding: 24rpx;
+  padding: 24rpx 20rpx;
   gap: 16rpx;
 }
 .plan {
   flex: 1;
   padding: 32rpx 0;
   background: var(--color-card);
-  border-radius: var(--radius-lg);
+  border-radius: 24rpx;
   text-align: center;
   position: relative;
-  border: 2rpx solid var(--color-border);
+  border: 1rpx solid var(--color-border);
 }
 .plan.active {
-  border-color: var(--color-warning);
-  background: var(--color-gold-muted);
+  border-color: var(--color-primary);
+  background: var(--color-muted);
 }
 .plan-tag {
   position: absolute;
   top: -12rpx;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--color-destructive);
-  color: var(--color-primary-foreground);
+  background: var(--color-danger);
+  color: var(--color-danger-foreground);
   font-size: 20rpx;
   padding: 2rpx 12rpx;
-  border-radius: var(--radius-md);
+  border-radius: 16rpx;
 }
 .plan-name {
   display: block;
@@ -63,7 +64,7 @@
 .plan-price {
   display: block;
   font-size: 40rpx;
-  color: var(--color-destructive);
+  color: var(--color-danger);
   font-weight: 700;
   margin: 12rpx 0;
 }
@@ -74,30 +75,62 @@
   text-decoration: line-through;
 }
 .rights {
-  margin: 0 24rpx;
-  padding: 32rpx;
+  margin: 0 20rpx;
+  padding: 28rpx;
   background: var(--color-card);
-  border-radius: var(--radius-lg);
+  border: 1rpx solid var(--color-border);
+  border-radius: 24rpx;
+  box-sizing: border-box;
 }
 .rights-title {
-  font-size: 30rpx;
-  font-weight: 600;
+  font-size: 32rpx;
+  font-weight: 700;
   color: var(--color-foreground);
   margin-bottom: 24rpx;
 }
 .rights-item {
-  font-size: 26rpx;
-  color: var(--color-muted-foreground);
+  font-size: 28rpx;
+  color: var(--color-text-medium);
+  line-height: 44rpx;
   padding: 8rpx 0;
+}
+.pay-methods {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+.pay-method {
+  flex: 1;
+  padding: 20rpx 0;
+  text-align: center;
+  border-radius: 24rpx;
+  border: 1rpx solid var(--color-border);
+  background: var(--color-card);
+  box-sizing: border-box;
+}
+.pay-method.active {
+  border-color: var(--color-primary);
+  background: var(--color-muted);
+}
+.pay-method-text {
+  font-size: 28rpx;
+  color: var(--color-foreground);
 }
 .btn {
   position: fixed;
   bottom: 32rpx;
   left: 32rpx;
   right: 32rpx;
+  height: 88rpx;
+  line-height: 88rpx;
   background: var(--color-primary);
   color: var(--color-primary-foreground);
-  border-radius: var(--radius-lg);
+  border-radius: 30rpx;
   font-size: 32rpx;
+  font-weight: 600;
+  border: none;
+}
+.btn::after {
+  border: none;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

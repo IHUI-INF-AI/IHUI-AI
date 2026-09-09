@@ -238,13 +238,13 @@ export default function CircleCreatePage() {
                   mode="aspectFill"
                   onClick={() => previewImg(i)}
                 />
-                <View className="cc-del" onClick={() => removeImg(i)}>
+                <View className="cc-del" onClick={() => removeImg(i)} hoverClass="opacity-60">
                   <Text className="cc-del-icon">×</Text>
                 </View>
               </View>
             ))}
             {form.images.length < MAX_IMAGES ? (
-              <View className="cc-add-img" onClick={addImg}>
+              <View className="cc-add-img" onClick={addImg} hoverClass="opacity-60">
                 <Text className="cc-add-icon">+</Text>
                 <Text className="cc-add-tip">
                   {form.images.length}/{MAX_IMAGES}
@@ -257,7 +257,7 @@ export default function CircleCreatePage() {
         <View className="cc-card">
           <Text className="cc-section-title">{tt('circle.createForm.topicLabel', '话题')}</Text>
           {form.topicName ? (
-            <View className="cc-topic-chip cc-topic-chip-active" onClick={clearTopic}>
+            <View className="cc-topic-chip cc-topic-chip-active" onClick={clearTopic} hoverClass="opacity-60">
               <Text>#{form.topicName}</Text>
               <Text className="cc-topic-x">×</Text>
             </View>
@@ -265,11 +265,11 @@ export default function CircleCreatePage() {
           <ScrollView scrollX enhanced showScrollbar={false} className="cc-topic-scroll">
             <View className="cc-topic-list">
               {hotTopics.map((topic) => (
-                <View key={topic.id} className="cc-topic-chip" onClick={() => selectTopic(topic)}>
+                <View key={topic.id} className="cc-topic-chip" onClick={() => selectTopic(topic)} hoverClass="opacity-60">
                   <Text>#{topic.name}</Text>
                 </View>
               ))}
-              <View className="cc-topic-chip cc-topic-more" onClick={goTopicList}>
+              <View className="cc-topic-chip cc-topic-more" onClick={goTopicList} hoverClass="opacity-60">
                 <Text>{tt('circle.create.moreTopics', '更多')} ›</Text>
               </View>
             </View>
@@ -279,12 +279,12 @@ export default function CircleCreatePage() {
         <View className="cc-card">
           <Text className="cc-section-title">{tt('circle.create.aigcLabel', '关联 AI 作品')}</Text>
           {form.aigcWorkTitle ? (
-            <View className="cc-aigc-picked" onClick={clearAigc}>
+            <View className="cc-aigc-picked" onClick={clearAigc} hoverClass="opacity-60">
               <Text className="cc-aigc-picked-title">{form.aigcWorkTitle}</Text>
               <Text className="cc-aigc-x">×</Text>
             </View>
           ) : (
-            <View className="cc-aigc-pick" onClick={() => setAigcOpen(true)}>
+            <View className="cc-aigc-pick" onClick={() => setAigcOpen(true)} hoverClass="opacity-60">
               <Text>{tt('circle.create.selectAigc', '选择 AI 作品(可选)')} ›</Text>
             </View>
           )}
@@ -304,7 +304,7 @@ export default function CircleCreatePage() {
               <ScrollView scrollY className="cc-sheet-list">
                 {aigcWorks.length ? (
                   aigcWorks.map((w) => (
-                    <View key={w.id} className="cc-aigc-option" onClick={() => pickAigc(w)}>
+                    <View key={w.id} className="cc-aigc-option" onClick={() => pickAigc(w)} hoverClass="opacity-60">
                       {w.coverUrl ? (
                         <Image className="cc-aigc-cover" src={w.coverUrl} mode="aspectFill" />
                       ) : null}
@@ -330,12 +330,13 @@ export default function CircleCreatePage() {
                   key={opt.key}
                   className={`cc-vis-chip${form.visibility === opt.key ? ' active' : ''}`}
                   onClick={() => setForm((f) => ({ ...f, visibility: opt.key }))}
+                  hoverClass="opacity-60"
                 >
                   <LineIcon
                     name={opt.icon}
                     size={24}
                     className="cc-vis-icon"
-                    color="var(--color-muted-foreground)"
+                    color="currentColor"
                   />
                   <Text className="cc-vis-text">
                     {tt(VIS_KEY[opt.key] ?? 'circle.create.vis.public', opt.label)}

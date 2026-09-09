@@ -256,7 +256,7 @@ export default function Search() {
             onConfirm={() => void runSearch()}
             confirmType="search"
           />
-          <View style={viewStyles.searchBtn} onTap={() => void runSearch()}>
+          <View style={viewStyles.searchBtn} onTap={() => void runSearch()} hoverClass="opacity-60">
             <Text style={textStyles.searchText}>{tt('common.search', '搜索')}</Text>
           </View>
         </View>
@@ -273,7 +273,7 @@ export default function Search() {
             ) : null}
             {results.map((item, idx) => (
               <Fragment key={`${item.type}_${item.id}`}>
-                <View style={viewStyles.card} onTap={() => onPressItem(item)}>
+                <View style={viewStyles.card} onTap={() => onPressItem(item)} hoverClass="opacity-60">
                   <View style={viewStyles.cardHead}>
                     <View style={viewStyles.typeBadge}>
                       <Text style={textStyles.typeBadge}>{typeLabel(item.type)}</Text>

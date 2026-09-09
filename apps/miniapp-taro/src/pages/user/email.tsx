@@ -123,50 +123,51 @@ export default function Email() {
     <ThemeRoot>
       <View className="email-page">
         {currentEmail ? (
-          <View className="email-intro">
-            <Text className="email-intro-title">{tt('user.email.changeTitle', '更换邮箱')}</Text>
-            <Text className="email-intro-desc">
+          <View>
+            <Text className="email-title">{tt('user.email.changeTitle', '更换邮箱')}</Text>
+            <Text className="email-desc">
               {tt('user.email.currentLabel', '当前邮箱')}: {maskedEmail}
             </Text>
           </View>
         ) : (
-          <View className="email-intro">
-            <Text className="email-intro-title">{tt('user.email.bindTitle', '绑定邮箱')}</Text>
-            <Text className="email-intro-desc">
+          <View>
+            <Text className="email-title">{tt('user.email.bindTitle', '绑定邮箱')}</Text>
+            <Text className="email-desc">
               {tt('user.email.bindDesc', '绑定后可用于找回密码、接收通知')}
             </Text>
           </View>
         )}
-        <View className="email-card">
-          <View className="email-row email-row-divider">
-            <Text className="email-label">{tt('user.email.email', '邮箱')}</Text>
+        <View className="email-field">
+          <View className="email-input-box">
             <Input
               className="email-input"
               type="text"
               placeholder={tt('user.email.emailPlaceholder', '请输入邮箱')}
+              placeholderClass="email-placeholder"
               value={email}
               onInput={(e) => setEmail(e.detail.value)}
             />
           </View>
-          <View className="email-row">
-            <Text className="email-label">{tt('user.email.code', '验证码')}</Text>
-            <View className="email-input-wrap">
-              <Input
-                className="email-input email-code-input"
-                type="number"
-                maxlength={6}
-                placeholder={tt('user.email.codePlaceholder', '请输入验证码')}
-                value={code}
-                onInput={(e) => setCode(e.detail.value)}
-              />
-              <Text className={`email-code-btn ${counting ? 'disabled' : ''}`} onClick={sendCode}>
-                {counting ? `${count}s` : tt('user.email.getCode', '获取验证码')}
-              </Text>
-            </View>
+        </View>
+        <View className="email-field">
+          <View className="email-input-box">
+            <Input
+              className="email-input"
+              type="number"
+              maxlength={6}
+              placeholder={tt('user.email.codePlaceholder', '请输入验证码')}
+              placeholderClass="email-placeholder"
+              value={code}
+              onInput={(e) => setCode(e.detail.value)}
+            />
+            <Text className={`email-code-btn ${counting ? 'disabled' : ''}`} onClick={sendCode}>
+              {counting ? `${count}s` : tt('user.email.getCode', '获取验证码')}
+            </Text>
           </View>
         </View>
         <View
           className={`email-submit ${/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || '').trim()) && code.trim().length === 6 && !submitting ? '' : 'disabled'}`}
+          hoverClass="opacity-60"
           onClick={onSubmit}
         >
           <Text>

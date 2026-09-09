@@ -92,7 +92,7 @@ export function WalletScreen({
   return (
     <View style={viewStyles.container(tk)}>
       <View style={viewStyles.header(tk)}>
-        <View style={viewStyles.backBtn()} onTap={onBack}>
+        <View style={viewStyles.backBtn()} onTap={onBack} hoverClass="opacity-60">
           <Text style={textStyles.backText(tk)}>{backText}</Text>
         </View>
         <Text style={textStyles.title(tk)}>{titleText}</Text>
@@ -129,10 +129,10 @@ export function WalletScreen({
 
           {onAction && balance ? (
             <View style={viewStyles.actions()}>
-              <View style={viewStyles.rechargeBtn(tk)} onTap={() => onAction('recharge')}>
+              <View style={viewStyles.rechargeBtn(tk)} onTap={() => onAction('recharge')} hoverClass="opacity-60">
                 <Text style={textStyles.rechargeBtnText(tk)}>{rechargeText}</Text>
               </View>
-              <View style={viewStyles.withdrawBtn(tk)} onTap={() => onAction('withdraw')}>
+              <View style={viewStyles.withdrawBtn(tk)} onTap={() => onAction('withdraw')} hoverClass="opacity-60">
                 <Text style={textStyles.withdrawBtnText(tk)}>{withdrawText}</Text>
               </View>
             </View>

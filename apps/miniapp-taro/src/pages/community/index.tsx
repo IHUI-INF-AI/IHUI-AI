@@ -31,7 +31,7 @@ import * as api from '@/api'
 // 服务弹窗名片+二维码(对齐原项目 Ai-list_b.vue L213-227 mingpian.png + erweima.png)
 import mingpianImg from '@/assets/remote/images/mingpian.png'
 import erweimaImg from '@/assets/remote/images/erweima.png'
-import { rpx } from '@/utils/rpx'
+import { rpx, px } from '@/utils/rpx'
 import type { CarouselItem } from '@ihui/types'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
 import type { AgentInfo } from '@/components/AgentListPanel'
@@ -131,6 +131,11 @@ export default function Community() {
   const scrollTopRef = useRef(0)
 
   const PAGE_SIZE = 10
+
+  // 顶部固定导航占位高度(= 状态栏 + 导航栏,与 NavBar ai-home 算法一致),注入给
+  // --app-top-bar-height 供内容 padding 与 s_t_b 弹层 top 定位使用(原 web 静态变量迁移)
+  const menuBtn = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
+  const appTopBarHeight = px(menuBtn.top + menuBtn.height + 8)
 
   /* ============ 数据加载 ============ */
 
@@ -613,6 +618,7 @@ export default function Community() {
     <ThemeRoot className="community-out-container">
       <View
         style={{
+          ['--app-top-bar-height']: appTopBarHeight,
           height: showCategoryPopup ? '100vh' : 'auto',
           overflowY: showCategoryPopup ? 'hidden' : 'auto',
         }}
@@ -684,6 +690,7 @@ export default function Community() {
                       key={item.id}
                       className={`community-fenlei-btn ${fenleiActive.includes(index) ? 'active' : ''}`}
                       onClick={() => handleFenleiBtnClick(index, item)}
+                      hoverClass="opacity-60"
                     >
                       <Image
                         className="fenlei_icon"
@@ -722,6 +729,7 @@ export default function Community() {
             <View
               style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: rpx(10) }}
               onClick={() => setShowServicePopup(true)}
+              hoverClass="opacity-60"
             >
               <Text style={{ fontSize: rpx(24), color: 'var(--color-primary)' }}>
                 {tt('wallet.recharge.fail.contactService', '联系客服')}
@@ -842,7 +850,7 @@ export default function Community() {
           {/* toodown 返回顶部按钮(对齐原项目, 用 back.svg) */}
           {showBackTop ? (
             <View className="community-toodown-wrapper">
-              <View className="community-toodown" onClick={backToTop}>
+              <View className="community-toodown" onClick={backToTop} hoverClass="opacity-60">
                 <LineIcon
                   name="chevron-up"
                   size={32}
@@ -858,8 +866,7 @@ export default function Community() {
           <View
             className="fixed inset-0 z-[2000] flex items-center justify-center"
             style={{ background: 'var(--color-scrim)' }}
-            onClick={() => setShowServicePopup(false)}
-          >
+            onClick={() => setShowServicePopup(false)}>
             <View
               className="relative"
               style={{
@@ -869,7 +876,7 @@ export default function Community() {
                 maxWidth: '85%',
               }}
               onClick={(e) => e.stopPropagation()}
-            >
+              hoverClass="opacity-60">
               {/* 名片图片(对齐原项目 mingpian.png) */}
               <Image
                 src={mingpianImg}
@@ -896,6 +903,7 @@ export default function Community() {
                   justifyContent: 'center',
                 }}
                 onClick={() => setShowServicePopup(false)}
+                hoverClass="opacity-60"
               >
                 <Text style={{ fontSize: rpx(40), color: 'var(--color-foreground)' }}>×</Text>
               </View>

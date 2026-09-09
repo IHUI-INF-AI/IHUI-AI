@@ -168,7 +168,7 @@ export default function RefundList() {
             key={tab.key}
             className={`refund-tab${activeTab === tab.key ? ' refund-tab-active' : ''}`}
             onClick={() => setActiveTab(tab.key)}
-          >
+            hoverClass="opacity-60">
             <Text>{tab.label}</Text>
           </View>
         ))}
@@ -190,10 +190,10 @@ export default function RefundList() {
               return (
                 <ThemeRoot key={item.id}>
                   <View className="refund-card">
+                    {/* 对齐 RN SharedRefundHistoryScreen 卡片:头行金额(danger 32rpx/600)+状态,
+                        标题 28rpx/500,原因 28rpx secondary,底行订单号/时间 22rpx tertiary */}
                     <View className="refund-card-head">
-                      <Text className="refund-order-no">
-                        {t('order.refundList.orderNo', { no: item.orderNo })}
-                      </Text>
+                      <Text className="refund-amount">¥{toYuan(item.amount)}</Text>
                       <Text className={`refund-status refund-status-${item.status}`}>
                         {statusText(item.status)}
                       </Text>
@@ -208,8 +208,10 @@ export default function RefundList() {
                       </View>
                     </View>
                     <View className="refund-card-foot">
+                      <Text className="refund-order-no">
+                        {t('order.refundList.orderNo', { no: item.orderNo })}
+                      </Text>
                       <Text className="refund-time">{item.applyTime}</Text>
-                      <Text className="refund-amount">¥{toYuan(item.amount)}</Text>
                     </View>
 
                     {item.status === 'refunded' && item.estimateTime && (

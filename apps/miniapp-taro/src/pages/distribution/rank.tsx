@@ -16,19 +16,6 @@ interface RankUser {
   commission: number
 }
 
-// 排名金/银/铜色已接入 token:var(--color-rank-gold/silver/bronze)(#FFD700/#C0C0C0/#CD7F32,由 sync-design-tokens.mjs 同步自 tokens.css;className 走 weapp-tailwindcss 编译,var() 生效)
-const RANK_BG: Record<string, string> = {
-  '1': 'bg-[var(--color-rank-gold)]',
-  '2': 'bg-[var(--color-rank-silver)]',
-  '3': 'bg-[var(--color-rank-bronze)]',
-}
-
-const RANK_BORDER: Record<string, string> = {
-  '1': 'border-[var(--color-rank-gold)]',
-  '2': 'border-[var(--color-rank-silver)]',
-  '3': 'border-[var(--color-rank-bronze)]',
-}
-
 export default function DistributionRank() {
   const tt = useTt()
   const [list, setList] = useState<RankUser[]>([])
@@ -52,80 +39,71 @@ export default function DistributionRank() {
   const top3 = list.slice(0, 3)
   const rest = list.slice(3)
 
+  /* 对齐 RN RankingScreen rankColor:1=warning.amber / 2=text.tertiary / 3=warning.amberText */
+  const PODIUM = [
+    { rank: 1, item: top3[0], border: 'var(--color-warning-amber)', badge: 'var(--color-warning-amber)' },
+    { rank: 2, item: top3[1], border: 'var(--color-text-tertiary)', badge: 'var(--color-text-tertiary)' },
+    { rank: 3, item: top3[2], border: 'var(--color-warning-amber-text)', badge: 'var(--color-warning-amber-text)' },
+  ]
+
   return (
     <ThemeRoot className="min-h-screen bg-background">
-      <View className="py-[40rpx] text-center bg-gradient-to-b from-[var(--color-brand-orange)] to-[var(--color-warning)]">
-        <Text className="text-primary-foreground text-[36rpx] font-bold">
-          {tt('distribution.rankTitle', '分销排行榜')}
-        </Text>
-      </View>
       {top3.length >= 3 && (
-        <View className="flex items-end justify-center py-[48rpx] bg-card">
-          {/* 2nd */}
-          <View className="flex flex-col items-center mx-[24rpx] relative">
-            <Image
-              className={`w-[110rpx] h-[110rpx] rounded-md bg-muted border-2 ${RANK_BORDER['2']}`}
-              src={top3[1]!.avatar || '/static/default-avatar.png'}
-              mode="aspectFill"
-            />
-            <Text className="text-[24rpx] text-foreground mt-[16rpx]">{top3[1]!.nickname}</Text>
-            <Text className="text-[28rpx] text-[var(--color-brand-orange)] font-semibold mt-[4rpx]">
-              ¥{top3[1]!.commission}
-            </Text>
-            <Text
-              className={`absolute -top-[24rpx] w-[48rpx] h-[48rpx] leading-[48rpx] text-center rounded-md text-primary-foreground text-[24rpx] ${RANK_BG['2']}`}
-            >
-              2
-            </Text>
-          </View>
-          {/* 1st */}
-          <View className="flex flex-col items-center mx-[24rpx] relative">
-            <Image
-              className={`w-[140rpx] h-[140rpx] rounded-md bg-muted border-2 ${RANK_BORDER['1']}`}
-              src={top3[0]!.avatar || '/static/default-avatar.png'}
-              mode="aspectFill"
-            />
-            <Text className="text-[24rpx] text-foreground mt-[16rpx]">{top3[0]!.nickname}</Text>
-            <Text className="text-[28rpx] text-[var(--color-brand-orange)] font-semibold mt-[4rpx]">
-              ¥{top3[0]!.commission}
-            </Text>
-            <Text
-              className={`absolute -top-[24rpx] w-[48rpx] h-[48rpx] leading-[48rpx] text-center rounded-md text-primary-foreground text-[24rpx] ${RANK_BG['1']}`}
-            >
-              1
-            </Text>
-          </View>
-          {/* 3rd */}
-          <View className="flex flex-col items-center mx-[24rpx] relative">
-            <Image
-              className={`w-[110rpx] h-[110rpx] rounded-md bg-muted border-2 ${RANK_BORDER['3']}`}
-              src={top3[2]!.avatar || '/static/default-avatar.png'}
-              mode="aspectFill"
-            />
-            <Text className="text-[24rpx] text-foreground mt-[16rpx]">{top3[2]!.nickname}</Text>
-            <Text className="text-[28rpx] text-[var(--color-brand-orange)] font-semibold mt-[4rpx]">
-              ¥{top3[2]!.commission}
-            </Text>
-            <Text
-              className={`absolute -top-[24rpx] w-[48rpx] h-[48rpx] leading-[48rpx] text-center rounded-md text-primary-foreground text-[24rpx] ${RANK_BG['3']}`}
-            >
-              3
-            </Text>
-          </View>
+        <View className="flex flex-row gap-[16rpx] p-[20rpx] py-[24rpx]">
+          {PODIUM.map(({ rank, item, border, badge }) =>
+            item ? (
+              <View
+                key={rank}
+                className={`flex-1 flex flex-col items-center p-[28rpx] rounded-[24rpx] ${rank === 1 ? 'bg-[var(--color-warning-amber-light)]' : 'bg-[var(--color-muted)]'}`}
+              >
+                <View
+                  className="w-[96rpx] h-[96rpx] rounded-full border-[4rpx] bg-[var(--color-background)] overflow-hidden"
+                  style={{ borderColor: border }}
+                >
+                  <Image
+                    className="w-full h-full"
+                    src={item.avatar || '/static/default-avatar.png'}
+                    mode="aspectFill"
+                  />
+                </View>
+                <Text className="text-[28rpx] font-semibold text-foreground mt-[16rpx] max-w-full truncate">
+                  {item.nickname}
+                </Text>
+                <Text className="text-[28rpx] text-[var(--color-success)] mt-[16rpx]">
+                  ¥{item.commission}
+                </Text>
+                <Text
+                  className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-[16rpx] text-[22rpx] text-[var(--color-surface-light)]"
+                  style={{ backgroundColor: badge }}
+                >
+                  {rank}
+                </Text>
+              </View>
+            ) : null,
+          )}
         </View>
       )}
       {rest.length > 0 && (
-        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden flex flex-col">
+        <View className="mx-[20rpx] flex flex-col gap-[16rpx]">
           {rest.map((u, i) => (
-            <View key={u.id} className="flex items-center p-[24rpx] mb-2 last:mb-0">
-              <Text className="w-[60rpx] text-[28rpx] text-muted-foreground">{i + 4}</Text>
-              <Image
-                className="w-[64rpx] h-[64rpx] rounded-md bg-muted"
-                src={u.avatar || '/static/default-avatar.png'}
-                mode="aspectFill"
-              />
-              <Text className="flex-1 ml-[24rpx] text-[28rpx] text-foreground">{u.nickname}</Text>
-              <Text className="text-[28rpx] text-[var(--color-brand-orange)] font-semibold">
+            <View
+              key={u.id}
+              className="flex flex-row items-center p-[28rpx] rounded-[24rpx] border border-border bg-[var(--color-background)]"
+            >
+              <Text className="w-[72rpx] text-[32rpx] font-bold text-[var(--color-muted-foreground)]">
+                {i + 4}
+              </Text>
+              <View className="w-[88rpx] h-[88rpx] rounded-full border-[3rpx] border-[var(--color-muted-foreground)] bg-[var(--color-muted)] overflow-hidden">
+                <Image
+                  className="w-full h-full"
+                  src={u.avatar || '/static/default-avatar.png'}
+                  mode="aspectFill"
+                />
+              </View>
+              <Text className="flex-1 ml-[20rpx] mr-[16rpx] text-[32rpx] font-semibold text-foreground truncate">
+                {u.nickname}
+              </Text>
+              <Text className="text-[32rpx] font-bold text-[var(--color-success)]">
                 ¥{u.commission}
               </Text>
             </View>
@@ -133,7 +111,7 @@ export default function DistributionRank() {
         </View>
       )}
       {!loading && list.length === 0 && (
-        <View className="text-center py-[120rpx] text-muted-foreground">
+        <View className="text-center py-[120rpx] text-[28rpx] text-[var(--color-text-tertiary)]">
           <Text>{tt('distribution.rankEmpty', '暂无排行数据')}</Text>
         </View>
       )}

@@ -705,7 +705,7 @@ export default function ChatPage() {
         className="nav-bar safe-area-bottom"
         style={{ background: 'transparent', display: navBarHidden ? 'none' : 'flex' }}
       >
-        <View className="nav-left" onClick={openModelDrawer}>
+        <View className="nav-left" onClick={openModelDrawer} hoverClass="opacity-60">
           <Text className="nav-title">{currentModelName || t('ai.title')}</Text>
           <LineIcon
             name="chevron-down"
@@ -744,7 +744,7 @@ export default function ChatPage() {
       <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
         {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
         {agent ? (
-          <View className="tishi-block" onClick={() => setTishiShow((v) => !v)}>
+          <View className="tishi-block" onClick={() => setTishiShow((v) => !v)} hoverClass="opacity-60">
             {tishiShow ? (
               <LineIcon
                 name="x"
@@ -803,7 +803,7 @@ export default function ChatPage() {
             ) : null}
             <View className="suggest-list">
               {suggestions.map((s, i) => (
-                <View key={i} className="suggest-item" onClick={() => handleSuggestion(s)}>
+                <View key={i} className="suggest-item" onClick={() => handleSuggestion(s)} hoverClass="opacity-60">
                   <Text>{s}</Text>
                 </View>
               ))}
@@ -909,6 +909,7 @@ export default function ChatPage() {
                   key={`qa-${i}`}
                   className="quick-action-btn"
                   onClick={() => handleSuggestion(q)}
+                  hoverClass="opacity-60"
                 >
                   <Text>{q}</Text>
                 </View>
@@ -955,7 +956,7 @@ export default function ChatPage() {
           }}
         />
         {thinking ? (
-          <View className="send-btn" onClick={stopGeneration}>
+          <View className="send-btn" onClick={stopGeneration} hoverClass="opacity-60">
             <Text>{t('ai.stop')}</Text>
           </View>
         ) : null}
@@ -1033,7 +1034,7 @@ export default function ChatPage() {
             justifyContent: 'center',
           }}
           onClick={() => setReasoningPopupVisible(false)}
-        >
+          hoverClass="opacity-60">
           <View
             style={{
               width: 'calc(100% - 80rpx)',
@@ -1044,7 +1045,7 @@ export default function ChatPage() {
               overflow: 'auto',
             }}
             onClick={(e) => e.stopPropagation()}
-          >
+            hoverClass="opacity-60">
             <View
               style={{
                 display: 'flex',

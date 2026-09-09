@@ -302,7 +302,7 @@ export default function VipIndexPage() {
               </View>
             ))}
           </View>
-          <View className="more-btn" onClick={onBenefitsClick}>
+          <View className="more-btn" hoverClass="opacity-60" onClick={onBenefitsClick}>
             <Text>{t('vip.viewAllBenefits')}</Text>
           </View>
         </View>
@@ -315,7 +315,7 @@ export default function VipIndexPage() {
             selectedId={selectedPlan?.id || ''}
             onSelect={onSelectPlan}
           />
-          <View className="auto-renew" onClick={() => setAutoRenew((v) => !v)}>
+          <View className="auto-renew" hoverClass="opacity-60" onClick={() => setAutoRenew((v) => !v)}>
             <View className={`auto-check ${autoRenew ? 'checked' : ''}`}>
               {autoRenew ? <Text className="auto-mark">✓</Text> : null}
             </View>
@@ -323,6 +323,7 @@ export default function VipIndexPage() {
           </View>
           <View
             className="manage-link"
+            hoverClass="opacity-60"
             onClick={() => Taro.navigateTo({ url: '/pages/subscription/contracts/index' })}
           >
             <Text>{t('vip.index.manageAutoRenew')}</Text>
@@ -370,7 +371,7 @@ export default function VipIndexPage() {
         {/* 弹窗1: 等级介绍 */}
         {showIntroduce ? (
           <View className="pp-mask" onClick={() => setShowIntroduce(false)}>
-            <View className="pp-card" onClick={(e) => e.stopPropagation()}>
+            <View className="pp-card" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
               <View className="pp-title">{t('vip.index.introduceTitle')}</View>
               <View className="pp-body">
                 <Text className="pp-text">{t('vip.index.introduceDesc')}</Text>
@@ -385,7 +386,7 @@ export default function VipIndexPage() {
         {/* 弹窗2: 确认购买 */}
         {showConfirm && selectedPlan ? (
           <View className="pp-mask" onClick={() => setShowConfirm(false)}>
-            <View className="pp-card" onClick={(e) => e.stopPropagation()}>
+            <View className="pp-card" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
               <View className="pp-title">{t('vip.index.confirmTitle')}</View>
               <View className="pp-body">
                 <View className="pp-plan">
@@ -404,14 +405,14 @@ export default function VipIndexPage() {
         {/* 弹窗3: 购买须知 */}
         {showNotice ? (
           <View className="pp-mask" onClick={() => setShowNotice(false)}>
-            <View className="pp-card" onClick={(e) => e.stopPropagation()}>
+            <View className="pp-card" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
               <View className="pp-title">{t('vip.index.noticeTitle')}</View>
               <View className="pp-body">
                 <Text className="pp-text">{t('vip.index.noticeRule1')}</Text>
                 <Text className="pp-text">{t('vip.index.noticeRule2')}</Text>
                 <Text className="pp-text">{t('vip.index.noticeRule3')}</Text>
                 <Text className="pp-text">{t('vip.index.noticeRule4')}</Text>
-                <View className="pp-check" onClick={() => setNoticeAgreed(!noticeAgreed)}>
+                <View className="pp-check" hoverClass="opacity-60" onClick={() => setNoticeAgreed(!noticeAgreed)}>
                   <View className={`pp-checkbox ${noticeAgreed ? 'checked' : ''}`}>
                     {noticeAgreed ? <Text className="pp-check-mark">✓</Text> : null}
                   </View>
@@ -428,11 +429,12 @@ export default function VipIndexPage() {
         {/* 弹窗4: 支付方式选择 */}
         {showPayMethod ? (
           <View className="pp-mask" onClick={() => setShowPayMethod(false)}>
-            <View className="pp-card" onClick={(e) => e.stopPropagation()}>
+            <View className="pp-card" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
               <View className="pp-title">{t('vip.index.payMethodTitle')}</View>
               <View className="pp-body">
                 <View
                   className={`pp-pay-item ${payMethod === 'wechat' ? 'active' : ''}`}
+                  hoverClass="opacity-60"
                   onClick={() => setPayMethod('wechat')}
                 >
                   <View className="pp-pay-icon wechat">{tt('pay.wechat', '微')}</View>
@@ -448,6 +450,7 @@ export default function VipIndexPage() {
                 </View>
                 <View
                   className={`pp-pay-item ${payMethod === 'alipay' ? 'active' : ''}`}
+                  hoverClass="opacity-60"
                   onClick={() => setPayMethod('alipay')}
                 >
                   <View className="pp-pay-icon alipay">{tt('pay.alipay', '付')}</View>
