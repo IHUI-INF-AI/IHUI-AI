@@ -20968,6 +20968,7 @@
     "save": "저장"
   },
   "mediaTasksPage": {
+    "cancelAllRemoteFailed": "{count}개 작업의 원격 취소에 실패했습니다(로컬은 취소 처리됨)",
     "title": "미디어 작업",
     "subtitle": "채팅에서 생성한 동영상/음악/음성/이미지 작업의 통합 진입점: 보기, 재생, 다운로드, 취소. 산출물이 준비되면 자동 새로고침.",
     "refresh": "새로고침",
@@ -21015,6 +21016,11 @@
     "cancelAllNone": "진행 중인 작업이 없습니다"
   },
   "voicesPage": {
+    "playPreview": "미리듣기",
+    "hidePreview": "닫기",
+    "cloneSubmitted": "복제가 제출되었습니다. 완료 시 자동으로 새로고침됩니다",
+    "fileTooLarge": "파일이 공식 20MiB 한도를 초과했습니다",
+    "fileBadFormat": "MP3/M4A/WAV 형식만 지원합니다",
     "title": "음성 라이브러리",
     "subtitle": "클론 음성 관리: 참조 오디오를 업로드해 전용 음색을 생성하고, 채팅에서 voice_tts(engine=token6688, voice=음성ID)로 읽어주기를 사용할 수 있습니다.",
     "loading": "불러오는 중...",

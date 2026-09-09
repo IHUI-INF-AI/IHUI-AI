@@ -20956,6 +20956,7 @@
     "save": "保存"
   },
   "mediaTasksPage": {
+    "cancelAllRemoteFailed": "{count} 个任务远端取消失败（已本地置为已取消）",
     "title": "媒体任务",
     "subtitle": "对话内生成的视频/音乐/语音/图片任务统一入口:查看、播放、下载、取消,产物就绪后自动刷新。",
     "refresh": "刷新",
@@ -21003,6 +21004,11 @@
     "cancelAllNone": "没有进行中的任务"
   },
   "voicesPage": {
+    "playPreview": "试听",
+    "hidePreview": "收起",
+    "cloneSubmitted": "克隆已提交，完成后自动刷新",
+    "fileTooLarge": "文件超过官方 20MiB 上限",
+    "fileBadFormat": "仅支持 MP3/M4A/WAV 格式",
     "title": "声纹库",
     "subtitle": "克隆音色管理:上传参考音频生成专属音色,在对话中用 voice_tts(engine=token6688, voice=声纹ID)合成朗读。",
     "loading": "加载中...",
