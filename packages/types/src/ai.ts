@@ -137,6 +137,16 @@ export interface BaseToolCall {
   serverId?: string
   /** MCP server 显示名(serverSource='mcp' 时必填,如 'Context7 MCP' / 'Filesystem MCP' 等) */
   serverName?: string
+  /**
+   * 媒体产物字段(2026-09-09 SSE tool-result 顶层扁平化契约,与后端 llm.py 对齐)。
+   * 媒体工具(图/视频/音乐/改图/TTS)产物 URL 与异步任务 ID 提到事件顶层,
+   * 前端无需深挖 result 嵌套即可渲染;超长 data URI 后端已过滤不推送。
+   */
+  image_url?: string
+  audio_url?: string
+  video_url?: string
+  /** 异步长任务(视频/音乐/异步 TTS)提交后返回的远端任务 ID,用于状态查询/取件 */
+  task_id?: string
 }
 
 // ==================== AI 对话可视化 Phase 2:消息级 SSE 事件类型(2026-07-31 立) ====================
