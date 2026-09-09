@@ -160,7 +160,7 @@ export default function TopicListPage() {
                   key={tab.key}
                   className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] rounded-[20rpx] ${activeTab === tab.key ? 'text-foreground bg-muted font-semibold' : 'text-[var(--color-text-tertiary)] bg-card'}`}
                   onClick={() => switchTab(tab.key)}
-                >
+                  hoverClass="opacity-60">
                   <Text>{tt(tab.label, tab.fb)}</Text>
                 </View>
               ))}
@@ -231,7 +231,7 @@ export default function TopicListPage() {
               <View
                 className="flex flex-col items-center py-[120rpx] text-[var(--color-text-tertiary)] text-[26rpx]"
                 onClick={() => load(true)}
-              >
+                hoverClass="opacity-60">
                 <Text className="text-[26rpx] text-[var(--color-danger)]">
                   {tt('topic.list.loadFailed', '加载失败')}
                 </Text>

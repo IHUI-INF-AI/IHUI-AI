@@ -58,45 +58,60 @@ export default function AskDetailPage() {
   }, [answer, t])
 
   return (
+    /* 对齐 RN 端 packages/app/src/features/ask-detail/AskDetailScreen.tsx(共享屏):
+       扁平布局(标题/正文直接铺在 surface.bg 上,无白卡分段);
+       标题 22dp→44rpx 600 / author 14dp→28rpx 500 secondary / meta 11dp→22rpx tertiary /
+       正文 16dp→32rpx lineHeight 22dp→44rpx text.medium / 回答区标题 18dp→36rpx 600 /
+       回答卡: padding 14dp→28rpx 圆角 12dp→24rpx 描边 border.light bg card
+       (RN surface.light 恒白在暗色下不可读,按语义 token 改 --color-card)/
+       回答正文 14dp→28rpx text.medium / 时间 22rpx tertiary /
+       底部输入条按 RN input 语言: bg surface.muted 描边 border.light 圆角 24rpx。 */
     <ThemeRoot>
-      <View className="min-h-screen bg-background pb-[120rpx]">
+      <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[180rpx]">
         {data.title ? (
-          <View className="bg-card p-[32rpx] mb-[24rpx]">
-            <Text className="text-[36rpx] text-foreground font-bold leading-[1.4]">
+          <View>
+            <Text className="block text-[44rpx] text-foreground font-semibold leading-[1.4]">
               {data.title}
             </Text>
-            <View className="flex items-center mt-[24rpx]">
-              <Image
-                className="w-[50rpx] h-[50rpx] rounded-[8rpx] bg-background"
-                src={data.avatar || '/static/default-avatar.png'}
-                mode="aspectFill"
-              />
-              <Text className="ml-[16rpx] text-[24rpx] text-muted-foreground">{data.author}</Text>
-              <Text className="ml-auto text-[22rpx] text-muted-foreground">{data.createTime}</Text>
+            <View className="flex items-center justify-between mt-[12rpx] mb-[24rpx]">
+              <View className="flex items-center">
+                <Image
+                  className="w-[50rpx] h-[50rpx] rounded-[8rpx] bg-muted"
+                  src={data.avatar || '/static/default-avatar.png'}
+                  mode="aspectFill"
+                />
+                <Text className="ml-[16rpx] text-[28rpx] text-muted-foreground font-medium">
+                  {data.author}
+                </Text>
+              </View>
+              <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">{data.createTime}</Text>
             </View>
-            <View className="mt-[24rpx] text-[28rpx] text-foreground leading-[1.8]">
-              {data.content}
-            </View>
+            <View className="text-[32rpx] text-[var(--color-text-medium)] leading-[44rpx]">{data.content}</View>
           </View>
         ) : null}
 
         {answers.length ? (
-          <View className="bg-card p-[32rpx]">
-            <View className="text-[28rpx] text-foreground font-semibold mb-[24rpx]">
+          <View className="mt-[32rpx]">
+            <View className="text-[36rpx] text-foreground font-semibold mb-[16rpx]">
               {t('ask.detail.answerCount', { n: answers.length })}
             </View>
             {answers.map((a, i) => (
-              <View key={i} className={`py-[24rpx]${i > 0 ? ' mt-[16rpx]' : ''}`}>
+              <View
+                key={i}
+                className="bg-card border-[2rpx] border-border rounded-[24rpx] p-[28rpx] mb-[24rpx]"
+              >
                 <View className="flex items-center">
                   <Image
-                    className="w-[50rpx] h-[50rpx] rounded-[8rpx] bg-background"
+                    className="w-[50rpx] h-[50rpx] rounded-[8rpx] bg-muted"
                     src={a.avatar || '/static/default-avatar.png'}
                     mode="aspectFill"
                   />
-                  <Text className="ml-[16rpx] text-[24rpx] text-muted-foreground">{a.author}</Text>
-                  <Text className="ml-auto text-[22rpx] text-muted-foreground">{a.time}</Text>
+                  <Text className="ml-[16rpx] text-[28rpx] text-muted-foreground font-medium">
+                    {a.author}
+                  </Text>
+                  <Text className="ml-auto text-[22rpx] text-[var(--color-text-tertiary)]">{a.time}</Text>
                 </View>
-                <View className="mt-[16rpx] text-[28rpx] text-foreground leading-[1.6]">
+                <View className="mt-[12rpx] text-[28rpx] text-[var(--color-text-medium)] leading-[1.6]">
                   {a.content}
                 </View>
               </View>
@@ -104,15 +119,18 @@ export default function AskDetailPage() {
           </View>
         ) : null}
 
-        <View className="fixed bottom-0 left-0 right-0 flex items-center py-[16rpx] px-[24rpx] bg-card">
+        <View
+          className="fixed bottom-0 left-0 right-0 flex items-center py-[16rpx] px-[20rpx] bg-card"
+          style={{ paddingBottom: 'calc(16rpx + env(safe-area-inset-bottom))' }}
+        >
           <Input
-            className="flex-1 h-[72rpx] px-[24rpx] bg-background rounded-[36rpx] text-[26rpx]"
+            className="flex-1 h-[72rpx] px-[24rpx] bg-muted border-[2rpx] border-border rounded-[24rpx] text-[28rpx] text-foreground"
             value={answer}
             placeholder={t('ask.detail.placeholder')}
             onInput={(e) => setAnswer(e.detail.value)}
           />
           <Button
-            className="ml-[16rpx] bg-primary disabled:bg-muted text-foreground text-[24rpx]"
+            className={`ml-[16rpx] rounded-[24rpx] text-[24rpx] ${answer ? 'bg-[var(--color-brand)] text-primary-foreground' : 'bg-[var(--color-text-tertiary)] text-card'}`}
             size="mini"
             onClick={onAnswer}
             disabled={!answer}

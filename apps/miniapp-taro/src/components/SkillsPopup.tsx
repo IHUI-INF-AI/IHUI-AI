@@ -93,9 +93,9 @@ export default function SkillsPopup({
           {CATEGORIES.map((c) => (
             <View
               key={c.key}
-              className={`inline-block px-3 py-1 mr-2 text-xs rounded-md ${category === c.key ? 'bg-primary text-white' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
+              className={`inline-block px-3 py-1 mr-2 text-xs rounded-md ${category === c.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
               onClick={() => setCategory(c.key)}
-            >
+              hoverClass="opacity-60">
               <Text>{t(c.labelKey)}</Text>
             </View>
           ))}
@@ -112,9 +112,9 @@ export default function SkillsPopup({
             {filtered.map((agent) => (
               <View
                 key={agent.id}
-                className={`flex items-center p-3 mb-2 rounded-xl active:bg-muted ${selectedId === agent.id ? 'bg-primary/10 border border-primary' : 'bg-muted'}`}
+                className={`flex items-center p-3 mb-2 rounded-xl ${selectedId === agent.id ? 'bg-primary/10 border border-primary' : 'bg-muted'}`}
                 onClick={() => handleSelect(agent)}
-              >
+                hoverClass="opacity-60">
                 {agent.avatar ? (
                   <Image
                     className="w-10 h-10 rounded-md mr-3 bg-muted"
@@ -122,7 +122,7 @@ export default function SkillsPopup({
                     mode="aspectFill"
                   />
                 ) : (
-                  <View className="w-10 h-10 rounded-md mr-3 bg-primary flex items-center justify-center text-white text-base font-semibold">
+                  <View className="w-10 h-10 rounded-md mr-3 bg-primary flex items-center justify-center text-primary-foreground text-base font-semibold">
                     <Text>{agent.name.charAt(0)}</Text>
                   </View>
                 )}

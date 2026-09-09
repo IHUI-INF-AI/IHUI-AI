@@ -122,7 +122,7 @@ export default function CartePage() {
                 <View
                   className="flex items-center justify-between py-1"
                   onClick={handleCopyPhone}
-                >
+                  hoverClass="opacity-60">
                   <Text className="w-10 text-[11px] text-muted-foreground">{t('carte.phone')}</Text>
                   <Text className="flex-1 text-sm text-foreground text-right">{info.phone}</Text>
                 </View>
@@ -158,7 +158,7 @@ export default function CartePage() {
           <View
             className="flex-1 h-11 rounded-xl border border-border flex items-center justify-center"
             onClick={handleShare}
-          >
+            hoverClass="opacity-60">
             <Text className="text-sm text-[color:var(--color-text-medium)]">
               {t('carte.shareCard')}
             </Text>
@@ -166,7 +166,7 @@ export default function CartePage() {
           <View
             className="flex-1 h-11 rounded-xl border border-border flex items-center justify-center"
             onClick={handleSaveQrcode}
-          >
+            hoverClass="opacity-60">
             <Text className="text-sm text-[color:var(--color-text-medium)]">
               {t('carte.saveQrcode')}
             </Text>

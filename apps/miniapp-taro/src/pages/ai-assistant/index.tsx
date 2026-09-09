@@ -249,6 +249,7 @@ export default function AiAssistantPage() {
           <View
             className="flex flex-row items-center px-[16rpx] py-[12rpx] mb-[16rpx] rounded-[8rpx] bg-[var(--color-muted)]"
             onClick={() => setTishiShow((v) => !v)}
+            hoverClass="opacity-60"
           >
             <Text className="text-[26rpx] text-muted-foreground">
               {tishiShow ? tt('common.close', '关闭') : tt('ai.tishi.view', '查看')}智能体引导说明
@@ -278,6 +279,7 @@ export default function AiAssistantPage() {
                   <View
                     className="max-w-[78%] px-[24rpx] py-[16rpx] bg-[var(--color-brand)] text-[var(--color-surface-light)] rounded-[16rpx] text-[28rpx] leading-[40rpx]"
                     onClick={() => setPrompt(item.question)}
+                    hoverClass="opacity-60"
                   >
                     <Text>{item.question}</Text>
                   </View>
@@ -388,6 +390,7 @@ export default function AiAssistantPage() {
                   setPrompt(q)
                   setTimeout(() => handleSend(), 0)
                 }}
+                hoverClass="opacity-60"
               >
                 <Text className="text-[24rpx] text-muted-foreground whitespace-nowrap">{q}</Text>
               </View>
@@ -407,7 +410,7 @@ export default function AiAssistantPage() {
         <View
           className={`ml-[16rpx] min-w-[88rpx] h-[88rpx] px-[16rpx] flex items-center justify-center rounded-[24rpx] ${loading ? 'bg-muted' : 'bg-[var(--color-brand)]'}`}
           onClick={handleSend}
-        >
+          hoverClass="opacity-60">
           <Text className="text-[28rpx] font-semibold text-[var(--color-surface-light)]">
             {loading ? tt('aiassistant.p3', '生成中') : tt('ai.agentDetail.runtimeSend', '发送')}
           </Text>

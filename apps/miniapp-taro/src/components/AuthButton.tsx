@@ -35,7 +35,7 @@ export default function AuthButton({
       <View
         className={`btn ${variantClass} ${disabled ? 'btn-disabled' : ''}`}
         onClick={disabled ? undefined : onClick}
-      >
+        hoverClass="opacity-60">
         <Text className="btn-text">{children}</Text>
       </View>
     </View>

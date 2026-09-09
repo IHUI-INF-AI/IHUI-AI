@@ -70,7 +70,7 @@ export default function WithdrawalRecords({
                 key={record.id}
                 className="flex items-center px-4 py-3 mb-1.5"
                 onClick={() => onViewDetail?.(record)}
-              >
+                hoverClass="opacity-60">
                 <View className="flex-1">
                   <View className="flex items-center">
                     <Text className="text-sm font-medium text-foreground">

@@ -125,128 +125,147 @@ export default function ShareCreationPage() {
   return (
     <ThemeRoot className="min-h-screen bg-background">
       <NavBar title={t('share.creation.title')} showBack />
+      {/* 对齐 RN ChatScreen msgListContent(paddingHorizontal rpx(16) → 16rpx,paddingVertical rpx(24) → 24rpx) */}
       <ScrollView scrollY className="h-screen">
-        <View className="mx-3 mt-3 bg-card rounded-lg p-4">
-          <View className="flex items-center mb-3">
+        {/* 会话信息头(小程序端业务展示,保留;卡片规格:底 --color-card、描边 --color-border、
+            radius 12dp → 24rpx、padding 12dp → 24rpx,对齐 SquareScreen card 卡片语言) */}
+        <View className="mx-[16rpx] mt-[16rpx] bg-card rounded-[24rpx] border-[2rpx] border-border p-[24rpx]">
+          <View className="flex items-center mb-[24rpx]">
             {content.modelIcon ? (
               <Image
-                className="w-8 h-8 rounded-md mr-2"
+                className="w-[64rpx] h-[64rpx] rounded-[16rpx] mr-[16rpx]"
                 src={content.modelIcon}
                 mode="aspectFill"
               />
             ) : null}
             <View className="flex-1 min-w-0">
-              <Text className="block text-sm font-medium text-foreground truncate">
+              <Text className="block text-[32rpx] font-semibold text-foreground truncate">
                 {content.modelName || t('share.creation.modelDefault')}
               </Text>
-              <Text className="block text-xs text-muted-foreground">
+              <Text className="block text-[24rpx] text-[var(--color-text-tertiary)]">
                 {fmtTime(content.createdAt)}
               </Text>
             </View>
             {content.tokenCost ? (
-              <Text className="text-xs text-muted-foreground">
+              <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
                 {t('share.creation.tokenCost', { n: content.tokenCost })}
               </Text>
             ) : null}
           </View>
           {content.userName ? (
-            <View className="flex items-center mb-2">
+            <View className="flex items-center mb-[16rpx]">
               {content.userAvatar ? (
                 <Image
-                  className="w-6 h-6 rounded-md mr-2"
+                  className="w-[48rpx] h-[48rpx] rounded-[16rpx] mr-[16rpx]"
                   src={content.userAvatar}
                   mode="aspectFill"
                 />
               ) : null}
-              <Text className="text-xs text-muted-foreground">{content.userName}</Text>
+              <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">{content.userName}</Text>
             </View>
           ) : null}
-          <View className="px-3 py-2 bg-muted rounded-md">
-            <Text className="block text-sm text-foreground">{content.question}</Text>
+          {/* 提问 = 用户消息气泡:对齐 ChatScreen msgBubbleUser(bg brand,radius 16dp → 32rpx,
+              padding rpx(28)/rpx(20),fontSize 15dp → 30rpx/lineHeight 40rpx) */}
+          <View className="flex justify-end">
+            <View className="max-w-[78%] bg-primary rounded-[32rpx] px-[28rpx] py-[20rpx]">
+              <Text className="text-[30rpx] leading-[40rpx] text-[var(--color-primary-foreground)]">
+                {content.question}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {answer.thinking ? (
-          <View className="mx-3 mt-2 bg-card rounded-lg p-4">
-            <Text className="block text-xs text-muted-foreground mb-2">
-              {t('share.creation.thinkingProcess')}
-            </Text>
-            <Text className="block text-xs text-foreground whitespace-pre-wrap">
-              {answer.thinking}
-            </Text>
-          </View>
-        ) : null}
-
-        <View className="mx-3 mt-2 bg-card rounded-lg p-4">
-          <Text className="block text-xs text-muted-foreground mb-2">
-            {t('share.creation.aiAnswer')}
-          </Text>
-          {answer.text ? (
-            <Text className="block text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-              {answer.text}
-            </Text>
-          ) : null}
-          {images.length ? (
-            <View className="grid grid-cols-2 gap-2 mt-3">
-              {images.map((url, i) => (
-                <Image
-                  key={i}
-                  className="w-full rounded-md"
-                  src={url}
-                  mode="widthFix"
-                  onClick={() => Taro.previewImage({ urls: images, current: url })}
-                />
-              ))}
-            </View>
-          ) : null}
-          {answer.video?.url ? (
-            <View className="mt-3">
-              <Video
-                className="w-full rounded-md"
-                style={{ height: '210px' }}
-                src={answer.video.url}
-                poster={answer.video.cover}
-                controls
-                objectFit="contain"
-              />
-            </View>
-          ) : null}
-          {answer.audio?.url ? (
-            <View className="mt-3 p-2 bg-muted rounded-md flex items-center">
-              <Text className="text-xs text-foreground flex-1">
-                {t('share.creation.voiceAnswer')}
-              </Text>
-              <Text className="text-xs text-muted-foreground">
-                {answer.audio.duration ? `${answer.audio.duration}s` : ''}
-              </Text>
-            </View>
-          ) : null}
-          {lists.length ? (
-            <View className="mt-3 flex flex-col gap-2">
-              {lists.map((item, i) => (
-                <View key={i} className="py-2">
-                  {item.type === 'image' ? (
-                    <Image className="w-full rounded-md" src={item.content} mode="widthFix" />
-                  ) : (
-                    <Text className="block text-sm text-foreground whitespace-pre-wrap">
-                      {item.content}
-                    </Text>
-                  )}
+        {/* AI 回答 = AI 内容卡片:对齐 RN 卡片规范(底 --color-card、描边 --color-border、
+            radius 24rpx、padding 28/24rpx;底色对齐 ChatScreen msgBubbleAi surface.card) */}
+        <View className="mx-[16rpx] mt-[20rpx] flex">
+          <View className="flex-1 bg-card rounded-[24rpx] border-[2rpx] border-border px-[28rpx] py-[24rpx]">
+            {/* 思考过程:对齐 ChatScreen thinkingBlock(bg surface.muted,radius 8dp → 16rpx) */}
+            {answer.thinking ? (
+              <View className="mb-[12rpx] rounded-[16rpx] bg-[var(--color-muted)] overflow-hidden">
+                <View className="px-[20rpx] py-[16rpx]">
+                  <Text className="text-[24rpx] font-semibold text-muted-foreground">
+                    {t('share.creation.thinkingProcess')}
+                  </Text>
                 </View>
-              ))}
-            </View>
-          ) : null}
+                {/* 对齐 thinkingContent(12dp → 24rpx,lineHeight 17 → 34rpx) */}
+                <Text className="block px-[20rpx] pb-[20rpx] text-[24rpx] leading-[34rpx] text-muted-foreground whitespace-pre-wrap">
+                  {answer.thinking}
+                </Text>
+              </View>
+            ) : null}
+            {/* 正文:对齐 msgTextAi(15dp → 30rpx,lineHeight 20 → 40rpx) */}
+            {answer.text ? (
+              <Text className="block text-[30rpx] leading-[40rpx] text-foreground whitespace-pre-wrap">
+                {answer.text}
+              </Text>
+            ) : null}
+            {/* 图片:对齐 msgImageWrap/msgImage(radius 8dp → 16rpx,180x140dp → 360x280rpx) */}
+            {images.length ? (
+              <View className="mt-[16rpx] flex flex-wrap gap-[16rpx]">
+                {images.map((url, i) => (
+                  <View
+                    key={i}
+                    className="rounded-[16rpx] overflow-hidden"
+                    onClick={() => Taro.previewImage({ urls: images, current: url })}
+                    hoverClass="opacity-60">
+                    <Image
+                      className="w-[360rpx] h-[280rpx] bg-[var(--color-muted)]"
+                      src={url}
+                      mode="aspectFill"
+                    />
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            {answer.video?.url ? (
+              <View className="mt-[16rpx] rounded-[16rpx] overflow-hidden">
+                <Video
+                  className="w-full"
+                  style={{ height: '420rpx' }}
+                  src={answer.video.url}
+                  poster={answer.video.cover}
+                  controls
+                  objectFit="contain"
+                />
+              </View>
+            ) : null}
+            {answer.audio?.url ? (
+              <View className="mt-[16rpx] px-[20rpx] py-[16rpx] bg-[var(--color-muted)] rounded-[16rpx] flex items-center">
+                <Text className="text-[24rpx] text-foreground flex-1">
+                  {t('share.creation.voiceAnswer')}
+                </Text>
+                <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
+                  {answer.audio.duration ? `${answer.audio.duration}s` : ''}
+                </Text>
+              </View>
+            ) : null}
+            {lists.length ? (
+              <View className="mt-[16rpx] flex flex-col gap-[16rpx]">
+                {lists.map((item, i) => (
+                  <View key={i} className="py-[16rpx]">
+                    {item.type === 'image' ? (
+                      <Image className="w-full rounded-[16rpx]" src={item.content} mode="widthFix" />
+                    ) : (
+                      <Text className="block text-[30rpx] leading-[40rpx] text-foreground whitespace-pre-wrap">
+                        {item.content}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
         </View>
 
-        <View className="mx-3 mt-3 mb-6 flex gap-2">
+        <View className="mx-[16rpx] mt-[24rpx] mb-[48rpx] flex gap-[16rpx]">
           <Button
-            className="flex-1 text-sm rounded-md !bg-primary !text-white"
+            className="flex-1 text-[28rpx] rounded-[24rpx] !bg-primary !text-[var(--color-primary-foreground)]"
             onClick={onRegenerate}
           >
             {t('share.creation.regenerate')}
           </Button>
           <Button
-            className="flex-1 text-sm rounded-md !bg-muted !text-foreground"
+            className="flex-1 text-[28rpx] rounded-[24rpx] !bg-muted !text-foreground"
             onClick={onShareFriend}
           >
             {t('share.creation.shareFriend')}

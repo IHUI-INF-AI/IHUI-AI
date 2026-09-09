@@ -198,7 +198,7 @@ export default function ActivityList() {
     <ThemeRoot>
       <View style={viewStyles.container()}>
         <View style={viewStyles.header()}>
-          <View onTap={goBack}>
+          <View onTap={goBack} hoverClass="opacity-60">
             <Text style={textStyles.back()}>{tt('common.back', '返回')}</Text>
           </View>
           <Text style={textStyles.title()}>{tt('activity.title', '平台活动')}</Text>

@@ -133,26 +133,26 @@ export default function ContactPage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background pb-[60rpx]">
-        <View className="pt-[60rpx] px-[32rpx] pb-[40rpx] text-center bg-card">
-          <Text className="block text-[36rpx] font-semibold text-foreground">
+      <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx]">
+        <View className="pt-[32rpx] px-[8rpx] pb-[32rpx] text-center">
+          <Text className="block text-[40rpx] font-bold text-foreground">
             {tt('about.contact.title', '联系我们')}
           </Text>
-          <Text className="block text-[24rpx] text-muted-foreground mt-[12rpx]">
+          <Text className="block text-[28rpx] text-muted-foreground mt-[12rpx]">
             {tt('about.contact.headerSub', '我们随时为您提供帮助')}
           </Text>
         </View>
 
         {contactItems.length > 0 ? (
-          <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+          <View className="bg-card rounded-[24rpx] border border-border overflow-hidden mb-[24rpx]">
             {contactItems.map((item, idx) => (
               <View
                 key={item.key}
-                className={`flex items-center p-[32rpx] active:bg-background${idx > 0 ? ' mt-[16rpx]' : ''}`}
+                className={`flex items-center p-[28rpx]${idx > 0 ? ' mt-[16rpx]' : ''}`}
                 onClick={() =>
                   item.actionType === 'call' ? call(item.value) : copy(item.value, item.label)
                 }
-              >
+                hoverClass="opacity-60">
                 {isImagePath(item.icon) ? (
                   <Image
                     src={item.icon}
@@ -163,12 +163,14 @@ export default function ContactPage() {
                   <Text className="text-[40rpx] flex-shrink-0">{item.icon}</Text>
                 )}
                 <View className="flex-1 ml-[24rpx] mr-[16rpx]">
-                  <Text className="block text-[22rpx] text-muted-foreground">{item.label}</Text>
+                  <Text className="block text-[22rpx] text-[var(--color-text-tertiary)]">
+                    {item.label}
+                  </Text>
                   <Text className="block text-[28rpx] text-foreground mt-[4rpx] break-all">
                     {item.value}
                   </Text>
                 </View>
-                <Text className="text-[24rpx] text-primary flex-shrink-0">
+                <Text className="text-[28rpx] text-primary flex-shrink-0">
                   {item.actionType === 'call'
                     ? tt('about.contact.callBtn', '拨打')
                     : tt('about.contact.copyBtn', '复制')}
@@ -179,54 +181,54 @@ export default function ContactPage() {
         ) : null}
 
         {info.address ? (
-          <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+          <View className="bg-card rounded-[24rpx] border border-border overflow-hidden mb-[24rpx]">
             <View
-              className="flex items-center p-[32rpx] active:bg-background"
+              className="flex items-center p-[28rpx]"
               onClick={() => openLocation(info.address)}
-            >
+              hoverClass="opacity-60">
               <Image
                 src={gongsiIcon}
                 className="w-[40rpx] h-[40rpx] flex-shrink-0"
                 mode="aspectFit"
               />
               <View className="flex-1 ml-[24rpx] mr-[16rpx]">
-                <Text className="block text-[22rpx] text-muted-foreground">
+                <Text className="block text-[22rpx] text-[var(--color-text-tertiary)]">
                   {tt('about.contact.address', '地址')}
                 </Text>
                 <Text className="block text-[28rpx] text-foreground mt-[4rpx] break-all">
                   {info.address}
                 </Text>
               </View>
-              <Text className="text-[24rpx] text-primary flex-shrink-0">
+              <Text className="text-[28rpx] text-primary flex-shrink-0">
                 {tt('about.contact.copyBtn', '复制')}
               </Text>
             </View>
           </View>
         ) : null}
 
-        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-          <View className="flex justify-between items-center py-[28rpx] px-[32rpx]">
-            <Text className="text-[28rpx] text-foreground">
+        <View className="bg-card rounded-[24rpx] border border-border overflow-hidden mb-[24rpx]">
+          <View className="flex justify-between items-center py-[28rpx] px-[28rpx]">
+            <Text className="text-[28rpx] text-[var(--color-text-medium)]">
               {tt('about.contact.workTimeLabel', '工作时间')}
             </Text>
-            <Text className="text-[26rpx] text-muted-foreground text-right">
+            <Text className="text-[28rpx] text-[var(--color-text-tertiary)] text-right">
               {tt('about.contact.workTime', '周一至周五 9:00-18:00')}
             </Text>
           </View>
-          <View className="flex justify-between items-center py-[28rpx] px-[32rpx] mt-[16rpx]">
-            <Text className="text-[28rpx] text-foreground">
+          <View className="flex justify-between items-center py-[28rpx] px-[28rpx] mt-[16rpx]">
+            <Text className="text-[28rpx] text-[var(--color-text-medium)]">
               {tt('about.contact.responseLabel', '响应时间')}
             </Text>
-            <Text className="text-[26rpx] text-muted-foreground text-right">
+            <Text className="text-[28rpx] text-[var(--color-text-tertiary)] text-right">
               {tt('about.contact.responseTime', '工作日内 24 小时内回复')}
             </Text>
           </View>
         </View>
 
         {info.phone ? (
-          <View className="pt-[32rpx] px-[24rpx] pb-[16rpx]">
+          <View className="pt-[16rpx] pb-[16rpx]">
             <Button
-              className="w-full h-[88rpx] leading-[88rpx] bg-primary text-white text-[30rpx] rounded-[12rpx] m-0 after:border-0"
+              className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] text-[32rpx] font-semibold rounded-[24rpx] m-0 after:border-0"
               onClick={() => call(info.phone)}
             >
               {tt('about.contact.callNow', '立即拨打客服')}
@@ -234,8 +236,8 @@ export default function ContactPage() {
           </View>
         ) : null}
 
-        <View className="text-center p-[32rpx]">
-          <Text className="text-[22rpx] text-muted-foreground">
+        <View className="text-center pt-[16rpx]">
+          <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
             {tt('about.contact.footer', '感谢您选择智汇 AI')}
           </Text>
         </View>

@@ -570,7 +570,7 @@ export default function ShareIndexPage() {
                 {tt('share.index.subtitle', '汇聚前沿科技资讯')}
               </Text>
             </View>
-            <View className="share-rank-enter" onClick={() => activeNav(0)}>
+            <View className="share-rank-enter" onClick={() => activeNav(0)} hoverClass="opacity-60">
               <Text className="share-rank-enter-text">{tt('share.index.enter', '进入资讯')}</Text>
               <Text className="share-rank-enter-arrow">→</Text>
             </View>
@@ -587,7 +587,7 @@ export default function ShareIndexPage() {
               loading={rankList.length === 0}
             />
             {rankList.length > 0 ? (
-              <View className="share-rank-more" onClick={() => setActiveNavbar(true)}>
+              <View className="share-rank-more" onClick={() => setActiveNavbar(true)} hoverClass="opacity-60">
                 <Text className="share-rank-more-text">
                   {tt('share.index.viewMore', '查看更多排行')}
                 </Text>
@@ -722,19 +722,19 @@ export default function ShareIndexPage() {
           <View
             className={`share-tab${activeTab === 'latest' ? ' active' : ''}`}
             onClick={() => switchTab('latest')}
-          >
+            hoverClass="opacity-60">
             <Text>{tt('share.index.tabLatest', '最新')}</Text>
           </View>
           <View
             className={`share-tab${activeTab === 'hot' ? ' active' : ''}`}
             onClick={() => switchTab('hot')}
-          >
+            hoverClass="opacity-60">
             <Text>{tt('share.index.tabHot', '热门')}</Text>
           </View>
           <View
             className={`share-tab${activeTab === 'following' ? ' active' : ''}`}
             onClick={() => switchTab('following')}
-          >
+            hoverClass="opacity-60">
             <Text>{tt('share.index.tabFollowing', '关注')}</Text>
           </View>
         </View>
@@ -822,7 +822,7 @@ export default function ShareIndexPage() {
 
         {/* BackToTop 回到顶部按钮 — 对齐原项目 toodown-wrapper */}
         {showToodown ? (
-          <View className="share-toodown-wrapper" onClick={backToTop}>
+          <View className="share-toodown-wrapper" onClick={backToTop} hoverClass="opacity-60">
             <View className="share-toodown">
               <Text className="share-toodown-arrow">↑</Text>
             </View>

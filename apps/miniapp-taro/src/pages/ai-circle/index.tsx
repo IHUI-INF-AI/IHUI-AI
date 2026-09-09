@@ -95,7 +95,7 @@ export default function AiCircle() {
           <View
             className="flex flex-col items-center justify-center py-[120rpx] gap-[16rpx]"
             onClick={() => loadData(true)}
-          >
+            hoverClass="opacity-60">
             <Text className="text-center text-[26rpx] text-[var(--color-danger)]">
               {tt('aiCircle.loadFailed', '加载失败')}
             </Text>
@@ -115,7 +115,7 @@ export default function AiCircle() {
               const images = (item.images as string[]) || []
               return (
                 <ThemeRoot key={id} className="p-[24rpx] bg-card rounded-[16rpx]">
-                  <View key={id} onClick={() => onItemClick(id)} className="flex flex-col gap-[12rpx]">
+                  <View key={id} onClick={() => onItemClick(id)} className="flex flex-col gap-[12rpx]" hoverClass="opacity-60">
                     <View className="flex items-center gap-[16rpx]">
                       <Image
                         className="w-[56rpx] h-[56rpx] rounded-[28rpx] bg-[var(--color-muted)] flex-shrink-0"
@@ -186,7 +186,7 @@ export default function AiCircle() {
             <Text className="text-center text-[26rpx] text-[var(--color-text-tertiary)]">
               {t('aiCircle.empty')}
             </Text>
-            <View className="px-[40rpx] py-[16rpx] rounded-[32rpx] bg-primary" onClick={onPublish}>
+            <View className="px-[40rpx] py-[16rpx] rounded-[32rpx] bg-primary" onClick={onPublish} hoverClass="opacity-60">
               <Text className="text-[26rpx] font-semibold text-[var(--color-card)]">
                 {t('aiCircle.post')}
               </Text>
@@ -197,7 +197,7 @@ export default function AiCircle() {
       <View
         className="fixed right-[48rpx] bottom-[64rpx] w-[104rpx] h-[104rpx] bg-primary rounded-[52rpx] flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_var(--color-black-20)]"
         onClick={onPublish}
-      >
+        hoverClass="opacity-60">
         <Text className="text-[26rpx] text-[var(--color-card)] leading-[26rpx]">{t('aiCircle.post')}</Text>
       </View>
     </View>

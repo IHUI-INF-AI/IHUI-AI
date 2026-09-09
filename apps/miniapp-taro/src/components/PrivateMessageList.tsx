@@ -38,7 +38,7 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
           key={item.id}
           className="flex items-center px-3 py-3 mb-1.5"
           onClick={() => onClick?.(item)}
-        >
+          hoverClass="opacity-60">
           <View className="relative mr-3">
             {item.userAvatar ? (
               <Image
@@ -52,7 +52,7 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
               </View>
             )}
             {item.online && (
-              <View className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-primary border-2 border-white" />
+              <View className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-primary border-2 border-[var(--color-white-98)]" />
             )}
           </View>
           <View className="flex-1 min-w-0">
@@ -68,7 +68,7 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
               </Text>
               {item.unread > 0 && (
                 <View className="ml-2 min-w-[36rpx] h-[36rpx] px-1 rounded-md bg-destructive flex items-center justify-center">
-                  <Text className="text-[20rpx] text-white">
+                  <Text className="text-[20rpx] text-destructive-foreground">
                     {item.unread > 99 ? '99+' : item.unread}
                   </Text>
                 </View>

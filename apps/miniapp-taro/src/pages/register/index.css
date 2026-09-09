@@ -268,7 +268,7 @@
   border: 1rpx solid var(--color-border);
   border-radius: 12rpx;
   background-color: var(--color-card);
-  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8rpx 24rpx var(--color-black-12);
   overflow: hidden;
   z-index: 100;
 }

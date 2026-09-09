@@ -402,6 +402,7 @@ export default function ChatMessageItem({
                       borderRadius: '8rpx 8rpx 0 0',
                     }}
                     onClick={() => setCodeCollapsed((v) => !v)}
+                    hoverClass="opacity-60"
                   >
                     <Text style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}>
                       {codeCollapsed ? '▸' : '▾'} code
@@ -449,6 +450,7 @@ export default function ChatMessageItem({
                     color: 'var(--color-foreground)',
                   }}
                   onClick={playVoice}
+                  hoverClass="opacity-60"
                 >
                   <LineIcon
                     name={voicePlaying ? 'pause' : 'play'}
@@ -476,6 +478,7 @@ export default function ChatMessageItem({
                     display: 'inline-block',
                   }}
                   onClick={goDigitalHuman}
+                  hoverClass="opacity-60"
                 >
                   <Text style={{ fontSize: '24rpx', display: 'block' }}>
                     {t('ai.chatMessageItem.viewDigitalHuman')}
@@ -570,7 +573,7 @@ export default function ChatMessageItem({
                 <Image className="action-btn" src={downloadIcon} onClick={downloadImages} />
               ) : null}
               {/* 分享(对标原 ai_assistant.vue .share-btn:Button openType=share 触发原生分享,View onClick 前置写入待分享消息) */}
-              <View className="share-btn" onClick={onShare}>
+              <View className="share-btn" onClick={onShare} hoverClass="opacity-60">
                 <Button openType="share" className="share-button">
                   {t('ai.chatMessageItem.share')}
                 </Button>
@@ -588,6 +591,7 @@ export default function ChatMessageItem({
                     lineHeight: '40rpx',
                   }}
                   onClick={handleSpeak}
+                  hoverClass="opacity-60"
                 >
                   <LineIcon
                     name={speaking ? 'pause' : 'volume-2'}
@@ -624,6 +628,7 @@ export default function ChatMessageItem({
                     lineHeight: '40rpx',
                   }}
                   onClick={onToggleFavorite}
+                  hoverClass="opacity-60"
                 >
                   <LineIcon
                     name="heart"

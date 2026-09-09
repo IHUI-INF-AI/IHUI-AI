@@ -14,10 +14,10 @@ export interface ToastProps {
 }
 
 const COLORS: Record<string, string> = {
-  success: 'bg-primary',
-  error: 'bg-destructive',
-  warning: 'bg-warning',
-  info: 'bg-primary',
+  success: 'bg-primary text-primary-foreground',
+  error: 'bg-destructive text-destructive-foreground',
+  warning: 'bg-warning text-warning-foreground',
+  info: 'bg-primary text-primary-foreground',
 }
 
 const ICONS: Record<string, string> = {
@@ -57,8 +57,8 @@ export default function Toast({
     <View className="fixed top-1/2 left-1/2 z-50" style={{ transform: 'translate(-50%, -50%)' }}>
       <View className={`${COLORS[type]} px-4 py-3 rounded-lg shadow-lg max-w-xs`}>
         <View className="flex items-center">
-          <Text className="text-sm text-white font-medium mr-2">{ICONS[type]}</Text>
-          <Text className="text-sm text-white">{text}</Text>
+          <Text className="text-sm font-medium mr-2">{ICONS[type]}</Text>
+          <Text className="text-sm">{text}</Text>
         </View>
       </View>
     </View>

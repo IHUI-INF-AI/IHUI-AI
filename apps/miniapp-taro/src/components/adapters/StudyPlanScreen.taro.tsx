@@ -105,7 +105,7 @@ export function StudyPlanScreen({
   return (
     <View style={viewStyles.container(tk)}>
       <View style={viewStyles.header(tk)}>
-        <View style={viewStyles.backBtn()} onTap={onBack}>
+        <View style={viewStyles.backBtn()} onTap={onBack} hoverClass="opacity-60">
           <Text style={textStyles.backText(tk)}>{backText}</Text>
         </View>
         <Text style={textStyles.title(tk)}>{titleText}</Text>
@@ -135,7 +135,7 @@ export function StudyPlanScreen({
                 const clamped = Math.max(0, Math.min(100, item.progress))
                 const badge = statusBadgeColors(item.status)
                 return (
-                  <View key={item.id} style={viewStyles.card(tk)} onTap={() => onPressItem(item)}>
+                  <View key={item.id} style={viewStyles.card(tk)} onTap={() => onPressItem(item)} hoverClass="opacity-60">
                     <View style={viewStyles.cardHead()}>
                       <View style={viewStyles.cardTitleWrap()}>
                         <Text style={textStyles.cardTitle(tk)}>{item.title}</Text>
