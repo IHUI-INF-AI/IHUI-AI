@@ -33,6 +33,7 @@ export type TokenType =
   | 'opacity'
   | 'layout'
   | 'easing'
+  | 'duration'
   | 'gradient'
   | 'vcenter'
   | 'semantic'
@@ -454,6 +455,13 @@ const EASING_ENTRIES: ReadonlyArray<TokenEntry> = [
     type: 'easing',
     defaultValue: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
   },
+  /* 统一元素动效缓动(2026-09-09,用户强制全项目唯一速率):easeInOutCubic 零速起步/收尾 */
+  { name: '--ease-unified', type: 'easing', defaultValue: 'cubic-bezier(0.65, 0, 0.35, 1)' },
+]
+
+/** 统一元素动效时长 token(2026-09-09,用户强制全项目唯一速率)。 */
+const DURATION_ENTRIES: ReadonlyArray<TokenEntry> = [
+  { name: '--duration-unified', type: 'duration', defaultValue: '1000ms' },
 ]
 
 /** 装饰性渐变 token(web 独占)。 */
@@ -559,6 +567,7 @@ const ALL_TOKEN_GROUPS: ReadonlyArray<ReadonlyArray<TokenEntry>> = [
   VCENTER_ENTRIES,
   LAYOUT_ENTRIES,
   EASING_ENTRIES,
+  DURATION_ENTRIES,
   GRADIENT_ENTRIES,
   SMART_RADIUS_ENTRIES,
   WHITE_OPACITY_ENTRIES,

@@ -105,7 +105,7 @@ function FollowingContent() {
         ))}
       </div>
 
-      <div key={tab} className="animate-in fade-in-0 duration-200">
+      <div key={tab} className="animate-in fade-in-0 duration-(--duration-unified) ease-unified">
         {isLoading ? (
           <div className="py-10 text-center text-muted-foreground">
             <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
