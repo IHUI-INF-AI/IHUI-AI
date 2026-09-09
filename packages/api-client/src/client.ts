@@ -914,6 +914,15 @@ export type ToolCallEvent =
       serverSource?: 'builtin' | 'plugin' | 'mcp'
       serverId?: string
       serverName?: string
+      /**
+       * 媒体产物顶层扁平化(2026-09-09 立,与后端 llm.py tool-result 事件对齐):
+       * 媒体工具(图/视频/音乐/改图/TTS)产物 URL 与异步任务 ID 提到事件顶层,
+       * 前端无需深挖 result 嵌套即可渲染;超长 data URI 后端已过滤不推送。
+       */
+      image_url?: string
+      audio_url?: string
+      video_url?: string
+      task_id?: string
     }
 
 /**
@@ -1824,6 +1833,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
                 toolName: typeof parsed.toolName === 'string' ? parsed.toolName : '',
                 result: parsed.result,
                 isError: parsed.isError === true,
+                // 2026-09-09 媒体产物顶层扁平化透传(与自定义 tool-result 分支一致)
+                image_url: typeof parsed.image_url === 'string' ? parsed.image_url : undefined,
+                audio_url: typeof parsed.audio_url === 'string' ? parsed.audio_url : undefined,
+                video_url: typeof parsed.video_url === 'string' ? parsed.video_url : undefined,
+                task_id: typeof parsed.task_id === 'string' ? parsed.task_id : undefined,
               })
             }
           } catch {
@@ -1870,6 +1884,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
                 serverSource: validServerSource,
                 serverId,
                 serverName,
+                // 2026-09-09 媒体产物顶层扁平化透传:image_url/audio_url/video_url/task_id
+                image_url: typeof json.image_url === 'string' ? json.image_url : undefined,
+                audio_url: typeof json.audio_url === 'string' ? json.audio_url : undefined,
+                video_url: typeof json.video_url === 'string' ? json.video_url : undefined,
+                task_id: typeof json.task_id === 'string' ? json.task_id : undefined,
               })
             } else if (json?.type === 'tool-call-start' && json?.toolCallId) {
               opts.onToolCall!({

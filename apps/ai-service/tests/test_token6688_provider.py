@@ -840,9 +840,10 @@ async def test_mcp_voice_tts_save_path_lands_file(monkeypatch, tmp_path):
 
 @pytest.mark.asyncio
 async def test_mcp_voice_tts_text_too_long():
+    """text>5000 硬上限:TEXT_TOO_LONG(2000<text≤5000 已改为自动切异步 TTS,不在此断言)。"""
     from app.services.mcp_server import mcp_server as mcp_inst
 
-    out = await mcp_inst.call_tool("voice_tts", {"text": "啊" * 2001})
+    out = await mcp_inst.call_tool("voice_tts", {"text": "啊" * 5001})
     assert out["ok"] is False
     assert out["errorCode"] == "TEXT_TOO_LONG"
 
@@ -867,11 +868,17 @@ async def test_mcp_voice_tts_unknown_engine():
 
 @pytest.mark.asyncio
 async def test_mcp_voice_tts_registered_and_schema():
-    """voice_tts 已注册:_TOOLS/_TOOL_HANDLERS 均存在且 required=text。"""
+    """voice_tts 已注册:_TOOLS/_TOOL_HANDLERS 均存在。
+
+    2026-09-09 深度增强后 schema 契约:text 不再 required(task_id 查询模式只传 task_id),
+    properties 须含 text/task_id/engine。
+    """
     from app.services.mcp_server import _TOOLS, _TOOL_HANDLERS, mcp_server as mcp_inst
 
     tool = next(t for t in _TOOLS if t.name == "voice_tts")
-    assert tool.input_schema["required"] == ["text"]
+    assert tool.input_schema["required"] == []
+    assert "text" in tool.input_schema["properties"]
+    assert "task_id" in tool.input_schema["properties"]
     assert "engine" in tool.input_schema["properties"]
     assert "voice_tts" in _TOOL_HANDLERS
     names = [t.name for t in mcp_inst.list_tools()]
@@ -1291,21 +1298,26 @@ def test_callback_endpoint_valid_signature_200(monkeypatch):
     assert r.json() == {"ok": True, "matched": 0}  # 无在途行,幂等静默
 
 
-def test_callback_endpoint_no_secret_skips_verify(monkeypatch):
-    from app.services import video_generation as vg
-
+def test_callback_endpoint_no_secret_fail_closed(monkeypatch):
+    """密钥未配置 → 503 fail-closed,不再跳过验签继续处理(2026-09-09 P0)。"""
     monkeypatch.delenv("TOKEN6688_CALLBACK_SECRET", raising=False)
-    monkeypatch.setattr(vg, "get_db_conn", AsyncMock(return_value=_fake_conn([])))
     r = _cb_client().post("/api/video/token6688-callback", json=_cb_snapshot())
-    assert r.status_code == 200
+    assert r.status_code == 503
 
 
 def test_callback_endpoint_invalid_body_ok_false(monkeypatch):
-    monkeypatch.delenv("TOKEN6688_CALLBACK_SECRET", raising=False)
+    """配 secret + 合法签名但非法 JSON 体 → 200 ok=False(幂等确认)。"""
+    import hashlib as _h
+    import hmac as _hmac
+
+    secret = "sec"
+    monkeypatch.setenv("TOKEN6688_CALLBACK_SECRET", secret)
+    raw = b"not-json"
+    sig = "sha256=" + _hmac.new(secret.encode(), raw, _h.sha256).hexdigest()
     r = _cb_client().post(
         "/api/video/token6688-callback",
-        content=b"not-json",
-        headers={"Content-Type": "application/json"},
+        content=raw,
+        headers={"X-TokenGo-Signature": sig, "Content-Type": "application/json"},
     )
     assert r.status_code == 200
     assert r.json()["ok"] is False
