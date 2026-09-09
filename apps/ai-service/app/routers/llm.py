@@ -789,14 +789,20 @@ async def list_models(request: Request) -> dict[str, Any]:
         from ..core.db_pool import get_shared_pool
         pool = await get_shared_pool()
         async with pool.acquire() as conn:
-            rows = await conn.fetch(
+            # 2026-09-08:v4 优先带 m.metadata(token6688 富元数据);迁移未应用时
+            # (列不存在)降级为旧查询,保证模型列表不被单列缺失拖垮
+            _base_sql = (
                 """SELECT m.model_id, m.display_name, m.context_length, c.provider_code,
-                          m.release_date, m.tags
+                          m.release_date, m.tags{extra}
                    FROM ai_model_config_models m
                    JOIN ai_model_config c ON m.config_id = c.id
                    WHERE m.enabled = true AND c.enabled = true AND m.is_relay_public = true
                    ORDER BY c.sort_order NULLS LAST, m.relay_sort_order"""
             )
+            try:
+                rows = await conn.fetch(_base_sql.format(extra=", m.metadata"))
+            except Exception:
+                rows = await conn.fetch(_base_sql.format(extra=""))
         seen = {m["id"] for m in default_models}
         for r in rows:
             mid = r["model_id"]
@@ -835,7 +841,7 @@ async def list_models(request: Request) -> dict[str, Any]:
             # 以规范化后的 mid 作为去重键(seen 在遍历 DB 行时持续累加,保证全局唯一,
             # 修复 DB 内部重复,如 stepfun 18 条=9 个唯一 id)
             if mid not in seen:
-                default_models.append({
+                _entry: dict[str, Any] = {
                     "id": mid,
                     "name": r["display_name"] or mid,
                     "provider": provider_code,
@@ -843,7 +849,23 @@ async def list_models(request: Request) -> dict[str, Any]:
                     # 分类引擎输入:用途分类需要 tags,代次判定需要 release_date
                     "release_date": r["release_date"],
                     "tags": list(r["tags"] or []),
-                })
+                }
+                # token6688 富元数据摘要(v4,2026-09-08):capabilities/健康分/排序权重/
+                # 输入提示随条目输出,供前端展示与 agent 参数参考;媒体模型已在上方 continue
+                if provider_code == "token6688":
+                    _meta = r["metadata"] if "metadata" in r.keys() else None
+                    if isinstance(_meta, dict) and _meta:
+                        _summary = {
+                            k: _meta[k]
+                            for k in (
+                                "capabilities", "health_score", "sort_weight",
+                                "input_hint_zh", "billing_mode",
+                            )
+                            if _meta.get(k) is not None
+                        }
+                        if _summary:
+                            _entry["t6688"] = _summary
+                default_models.append(_entry)
                 seen.add(mid)
     except Exception as e:
         logger.warning("从数据库加载模型失败: %s", e)
