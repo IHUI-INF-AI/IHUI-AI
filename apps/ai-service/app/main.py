@@ -74,6 +74,7 @@ from app.routers import (
     tools,
     voice_stt,
     voice_tts,
+    web_tools,
 )
 
 # Harness 能力补齐:评估/评测框架(2026-08-11 立)
@@ -176,6 +177,16 @@ async def lifespan(app: FastAPI) -> Any:
         log_report(result)
     except Exception as e:
         logger.warning("[schema_check] 启动校验异常(忽略): %s", e)
+
+    # 媒体任务统一落库建表(2026-09-09 立;此前 ensure_table 从未被调用,
+    # media_tasks 表不存在导致对话内媒体工具落库静默失败。失败仅告警不阻塞启动)
+    try:
+        from app.services.media_tasks import ensure_table as _ensure_media_tasks_table
+
+        await _ensure_media_tasks_table()
+        logger.info("[media_tasks] media_tasks 表确认/创建完成")
+    except Exception as e:
+        logger.warning("[media_tasks] 建表异常(忽略,落库降级为不持久化): %s", e)
 
     # 启动自媒体定时任务调度器(由 SELF_MEDIA_CRON_ENABLED 环境变量控制开关,
     # 默认 false,显式开启后才挂载 asyncio task)
@@ -437,6 +448,14 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as exc:  # noqa: BLE001
         logger.warning("[video] worker 启动失败(忽略): %s", exc)
 
+    # 对话内媒体任务后台收尾轮询(2026-09-09 立,MEDIA_TASK_POLLER_ENABLED=1 时启用)
+    # 周期扫描 media_tasks 在途任务,终态自动回写;与官方 webhook 回调幂等互补。
+    try:
+        from app.services.media_tasks import start_media_task_poller
+        start_media_task_poller()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[media_tasks] 收尾轮询启动失败(忽略): %s", exc)
+
     yield
     # P0 修复(2026-08-02):移除 yield 后的 shutdown_telemetry() 重复调用,
     # 保留末尾(所有 cleanup 之后)的 shutdown_telemetry() 作为最后清理,避免重复 shutdown。
@@ -635,6 +654,7 @@ def create_app() -> FastAPI:
     # FIM 代码补全(Monaco/CLI ghost-text 后端,2026-09-07 立,对标 Cursor Tab)
     app.include_router(fim.router, prefix="/api", tags=["llm-fim"])
     app.include_router(tools.router, prefix="/api", tags=["tools"])
+    app.include_router(web_tools.router, prefix="/api", tags=["web-tools"])
     app.include_router(mcp.router, prefix="/api", tags=["mcp"])
     app.include_router(mcp_official.router, prefix="/api", tags=["mcp-official"])
     app.include_router(connectors.router, prefix="/api", tags=["connectors"])
@@ -650,6 +670,9 @@ def create_app() -> FastAPI:
     # 图片编辑(TokenGo /v1/images/edits multipart,2026-09-08 补建)
     from app.routers import image_edit as image_edit_router
     app.include_router(image_edit_router.router, prefix="/api", tags=["image"])
+    # 媒体任务统一管理(对话内媒体工具落库的 media_tasks:列表/详情/取消,2026-09-09 立)
+    from app.routers import media_tasks as media_tasks_router
+    app.include_router(media_tasks_router.router, prefix="/api", tags=["media-tasks"])
     # Artifact 图表产物静态文件服务(签名 token 鉴权,2026-09-01 立,对标 Claude Artifacts)
     app.include_router(artifacts.router, prefix="/api", tags=["artifacts"])
     # 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)

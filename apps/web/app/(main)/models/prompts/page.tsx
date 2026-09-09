@@ -450,7 +450,7 @@ export default function PromptsPage() {
                                   <History className="h-4 w-4" />
                                 </button>
                               </TooltipTrigger>
-                              <TooltipContent>{t('prompts.history')}</TooltipContent>
+                              <TooltipContent>{t('prompts.history.title')}</TooltipContent>
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
