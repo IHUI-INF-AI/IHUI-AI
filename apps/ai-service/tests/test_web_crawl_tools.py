@@ -258,6 +258,73 @@ class TestExtractWeb:
 
 
 # ============================================================================
+# LLM 结构化抽取通道 _extract_via_llm(2026-09-09 极致补齐:真 LLM Extract)
+# ============================================================================
+
+class TestExtractViaLLM:
+    """extract_web 的 LLM 通道:调用 llm_gateway.complete 按 schema 抽结构化 JSON。
+
+    stub(无 LLM key)→ None(走启发式);成功 JSON → {fields, confidence};
+    失败/非 JSON/全空 → None。monkeypatch llm_gateway,不触网。
+    """
+
+    def _stub_gateway(self, monkeypatch, stub=True, content=None, complete_side_effect=None):
+        import app.core.llm_gateway as lg
+        monkeypatch.setattr(lg.llm_gateway, "_is_stub_mode", lambda: stub)
+        if complete_side_effect is not None:
+            monkeypatch.setattr(lg.llm_gateway, "complete", complete_side_effect)
+        else:
+            async def _complete(messages, model=None, **kw):
+                return {"content": content, "stub": stub}
+            monkeypatch.setattr(lg.llm_gateway, "complete", _complete)
+        return lg
+
+    async def test_stub_mode_returns_none(self, monkeypatch):
+        self._stub_gateway(monkeypatch, stub=True)
+        assert await wc._extract_via_llm("正文", {"价格": "number"}) is None
+
+    async def test_valid_json_returns_fields(self, monkeypatch):
+        self._stub_gateway(monkeypatch, stub=False,
+                           content='{"价格": 199, "作者": "张三"}')
+        r = await wc._extract_via_llm("正文", {"价格": "number", "作者": "string"})
+        assert r is not None
+        assert r["fields"]["价格"] == 199
+        assert r["fields"]["作者"] == "张三"
+        assert r["confidence"]["价格"] > 0.5
+
+    async def test_fence_wrapped_json_parsed(self, monkeypatch):
+        self._stub_gateway(monkeypatch, stub=False,
+                           content='```json\n{"价格": 88}\n```')
+        r = await wc._extract_via_llm("正文", {"价格": "number"})
+        assert r is not None and r["fields"]["价格"] == 88
+
+    async def test_non_json_or_missing_returns_none(self, monkeypatch):
+        self._stub_gateway(monkeypatch, stub=False, content="抱歉我无法完成")
+        assert await wc._extract_via_llm("正文", {"价格": "number"}) is None
+
+    async def test_all_null_fields_returns_none(self, monkeypatch):
+        self._stub_gateway(monkeypatch, stub=False, content='{"价格": null, "作者": null}')
+        assert await wc._extract_via_llm("正文", {"价格": "number", "作者": "string"}) is None
+
+    async def test_complete_raises_returns_none(self, monkeypatch):
+        async def _boom(messages, model=None, **kw):
+            raise RuntimeError("llm down")
+        self._stub_gateway(monkeypatch, stub=False, complete_side_effect=_boom)
+        assert await wc._extract_via_llm("正文", {"价格": "number"}) is None
+
+    async def test_extract_web_prefers_llm_when_available(self, monkeypatch):
+        # extract_web 集成:LLM 可用时 source=llm(而非 heuristic)
+        self._stub_gateway(monkeypatch, stub=False, content='{"价格": 199, "作者": "张三"}')
+        html = "<html><body><article><p>价格: 199 元。作者: 张三。</p></article></body></html>"
+        monkeypatch.setattr(wc, "_http_get_html", _fake_fetch({"https://example.com/": html}))
+        monkeypatch.setattr(wc, "_validate_ssrf", lambda u: None)
+        r = await wc.extract_web({"url": "https://example.com/", "fields": '{"价格":"number","作者":"string"}'})
+        assert r["ok"] is True
+        assert r["source"] == "llm"
+        assert r["fields"]["价格"] == 199
+
+
+# ============================================================================
 # 私有辅助单元
 # ============================================================================
 
