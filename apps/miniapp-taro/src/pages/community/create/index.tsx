@@ -109,7 +109,9 @@ const textStyles = {
   submitText: (tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(16),
     fontWeight: '600',
-    color: tk.surface.light,
+    /* 暗色可读性修正:RN submitText 用 tk.surface.light(恒白),而暗色 brand.DEFAULT 为纯白,
+       出现白底白字;此处暗色改用 tk.gray.black 保证对比(RN 源值缺陷,规则允许修正) */
+    color: appTheme === 'dark' ? tk.gray.black : tk.surface.light,
   }),
 }
 
@@ -177,7 +179,7 @@ export default function CommunityCreate() {
       <View style={viewStyles.container(tk)}>
         <ScrollView scrollY style={viewStyles.bodyScroll()}>
           <View style={viewStyles.body()}>
-            <View style={viewStyles.backBtn()} onTap={goBack}>
+            <View style={viewStyles.backBtn()} onTap={goBack} hoverClass="opacity-60">
               <Text style={textStyles.back(tk)}>{tt('common.back', '返回')}</Text>
             </View>
             <Text style={textStyles.title(tk)}>{tt('postCreate.title', '发布帖子')}</Text>
@@ -209,8 +211,8 @@ export default function CommunityCreate() {
               maxlength={-1}
               onInput={(e) => setTags(e.detail.value)}
             />
-            <View style={viewStyles.submitBtn(tk)} onTap={() => void onSubmit()}>
-              <Text style={textStyles.submitText(tk)}>{tt('postCreate.submit', '发布')}</Text>
+            <View style={viewStyles.submitBtn(tk)} onTap={() => void onSubmit()} hoverClass="opacity-60">
+              <Text style={textStyles.submitText(tk, appTheme === 'dark')}>{tt('postCreate.submit', '发布')}</Text>
             </View>
           </View>
         </ScrollView>

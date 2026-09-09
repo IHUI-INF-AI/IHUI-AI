@@ -85,103 +85,107 @@ export default function Feedback() {
 
   return (
     <ThemeRoot>
+      {/* 对齐 RN 共享 FeedbackScreen:页面浅灰底 + 单张白卡(描边 border.light + 圆角 24rpx +
+          内边距 28rpx);label 28rpx 次级字色;类型药丸 muted 底/激活品牌橙;textarea 188rpx;
+          缩略图 70dp→140rpx/圆角 16rpx;提交钮品牌橙 100rpx 高圆角 24rpx */}
       <View className="min-h-screen bg-background">
-        <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
-          <Text className="block text-[28rpx] text-foreground mb-[24rpx]">
-            {tt('feedback.type', '类型')}
-          </Text>
-          <View className="flex flex-wrap gap-[16rpx]">
-            {types.map((item) => (
-              <View
-                key={item.key}
-                className={`px-[32rpx] py-[12rpx] rounded-[8rpx] text-[26rpx] ${
-                  activeType === item.key
-                    ? 'bg-brand-orange text-white'
-                    : 'bg-muted text-muted-foreground'
-                }`}
-                onClick={() => setActiveType(item.key)}
-              >
-                <Text>{item.label}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-        <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
-          <View className="flex items-center justify-between mb-[24rpx]">
-            <Text className="text-[28rpx] text-foreground">{tt('feedback.content', '内容')}</Text>
-            <Text className="text-[24rpx] text-muted-foreground">
-              {content.length}/{MAX_CONTENT}
+        <View className="p-[28rpx]">
+          <View className="rounded-[24rpx] border border-[var(--color-border)] bg-card p-[28rpx]">
+            <Text className="block text-[28rpx] text-muted-foreground">
+              {tt('feedback.type', '类型')}
             </Text>
-          </View>
-          <Textarea
-            className="w-full text-[28rpx] min-h-[240rpx]"
-            placeholder={tt('feedback.contentPlaceholder', '请输入反馈详情')}
-            value={content}
-            onInput={(e) => setContent(e.detail.value)}
-            maxlength={MAX_CONTENT}
-          />
-        </View>
-        <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
-          <Text className="block text-[28rpx] text-foreground mb-[24rpx]">
-            {tt('feedback.images', `图片(最多${MAX_IMAGES}张)`)}
-          </Text>
-          <View className="flex flex-wrap gap-[16rpx]">
-            {images.map((url, idx) => (
-              <View
-                key={url + idx}
-                className="relative w-[144rpx] h-[144rpx] rounded-[8rpx] overflow-hidden"
-                onClick={() => onPreviewImage(idx)}
-              >
-                <Image className="w-full h-full" src={url} mode="aspectFill" />
+            <View className="mt-[16rpx] flex flex-wrap gap-[16rpx]">
+              {types.map((item) => (
                 <View
-                  className="absolute top-0 right-0 w-[40rpx] h-[40rpx] bg-[var(--color-scrim)] rounded-md flex items-center justify-center"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onRemoveImage(idx)
-                  }}
+                  key={item.key}
+                  className={`px-[24rpx] py-[12rpx] rounded-[24rpx] text-[28rpx] ${
+                    activeType === item.key
+                      ? 'bg-[var(--color-brand-orange)] text-[var(--color-surface-light)]'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                  hoverClass="opacity-60"
+                  onClick={() => setActiveType(item.key)}
                 >
-                  <Text className="text-white text-[24rpx] leading-none">×</Text>
+                  <Text>{item.label}</Text>
                 </View>
-              </View>
-            ))}
-            {images.length < MAX_IMAGES && (
-              <View
-                className="w-[144rpx] h-[144rpx] rounded-[8rpx] bg-muted flex items-center justify-center"
-                onClick={onPickImages}
-              >
-                <Text className="text-[48rpx] text-muted-foreground leading-none">
-                  {uploading ? '...' : '+'}
-                </Text>
-              </View>
-            )}
-          </View>
-          {uploading && (
-            <Text className="block text-[24rpx] text-muted-foreground mt-[16rpx]">
-              {tt('feedback.uploading', '上传中')}
+              ))}
+            </View>
+
+            <Text className="mt-[16rpx] block text-[28rpx] text-muted-foreground">
+              {tt('feedback.content', '内容')}
             </Text>
-          )}
+            <Textarea
+              className="mt-[16rpx] box-border w-full min-h-[188rpx] rounded-[24rpx] bg-muted p-[24rpx] text-[28rpx] text-foreground"
+              placeholder={tt('feedback.contentPlaceholder', '请输入反馈详情')}
+              value={content}
+              onInput={(e) => setContent(e.detail.value)}
+              maxlength={MAX_CONTENT}
+            />
+
+            <Text className="mt-[16rpx] block text-[28rpx] text-muted-foreground">
+              {tt('feedback.contact', '联系方式')}
+            </Text>
+            <Input
+              className="mt-[16rpx] box-border h-[100rpx] w-full rounded-[24rpx] bg-muted px-[24rpx] text-[28rpx] text-foreground"
+              type="text"
+              placeholder={tt('feedback.contactPlaceholder', '请输入联系方式(选填)')}
+              value={contact}
+              onInput={(e) => setContact(e.detail.value)}
+            />
+
+            <Text className="mt-[16rpx] block text-[28rpx] text-muted-foreground">
+              {tt('feedback.images', `图片(最多${MAX_IMAGES}张)`)}
+            </Text>
+            <View className="mt-[16rpx] flex flex-wrap gap-[16rpx]">
+              {images.map((url, idx) => (
+                <View
+                  key={url + idx}
+                  className="relative h-[140rpx] w-[140rpx] overflow-hidden rounded-[16rpx] bg-muted"
+                  hoverClass="opacity-60"
+                  onClick={() => onPreviewImage(idx)}
+                >
+                  <Image className="h-full w-full" src={url} mode="aspectFill" />
+                  <View
+                    className="absolute right-0 top-0 flex h-[40rpx] w-[40rpx] items-center justify-center rounded-md bg-[var(--color-black-40)] dark:bg-[var(--color-black-60)]"
+                    hoverClass="opacity-60"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onRemoveImage(idx)
+                    }}
+                  >
+                    <Text className="text-[28rpx] leading-none text-[var(--color-surface-light)]">×</Text>
+                  </View>
+                </View>
+              ))}
+              {images.length < MAX_IMAGES && (
+                <View
+                  className="flex h-[140rpx] w-[140rpx] items-center justify-center rounded-[16rpx] border border-dashed border-[var(--color-border)]"
+                  hoverClass="opacity-60"
+                  onClick={onPickImages}
+                >
+                  <Text className="text-[48rpx] leading-none text-[var(--color-text-tertiary)]">
+                    {uploading ? '...' : '+'}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {uploading && (
+              <Text className="mt-[16rpx] block text-[24rpx] text-muted-foreground">
+                {tt('feedback.uploading', '上传中')}
+              </Text>
+            )}
+
+            <Button
+              className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-[var(--color-brand-orange)] text-[28rpx] font-semibold text-[var(--color-surface-light)] ${
+                content.trim() ? '' : 'opacity-60'
+              }`}
+              disabled={!content.trim()}
+              onClick={onSubmit}
+            >
+              {tt('feedback.submit', '提交反馈')}
+            </Button>
+          </View>
         </View>
-        <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
-          <Text className="block text-[28rpx] text-foreground mb-[24rpx]">
-            {tt('feedback.contact', '联系方式')}
-          </Text>
-          <Input
-            className="w-full text-[28rpx]"
-            type="text"
-            placeholder={tt('feedback.contactPlaceholder', '请输入联系方式(选填)')}
-            value={contact}
-            onInput={(e) => setContact(e.detail.value)}
-          />
-        </View>
-        <Button
-          className={`mx-[32rpx] mt-[60rpx] rounded-[12rpx] text-[32rpx] ${
-            content.trim() ? 'bg-brand-orange text-white' : 'bg-muted text-white'
-          }`}
-          disabled={!content.trim()}
-          onClick={onSubmit}
-        >
-          {tt('feedback.submit', '提交反馈')}
-        </Button>
       </View>
     </ThemeRoot>
   )

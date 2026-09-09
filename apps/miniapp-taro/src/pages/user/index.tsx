@@ -846,6 +846,7 @@ export default function UserIndex() {
               <View
                 className="ml-[20rpx] flex-shrink-0 w-[72rpx] h-[72rpx] rounded-lg flex items-center justify-center border border-solid border-[var(--color-border)]"
                 style={{ background: 'var(--color-card)' }}
+                hoverClass="opacity-60"
                 onClick={openSharePopup}
               >
                 <LineIcon
@@ -857,7 +858,7 @@ export default function UserIndex() {
               </View>
             </View>
           ) : (
-            <View className="flex items-center" onClick={goLogin}>
+            <View className="flex items-center" hoverClass="opacity-60" onClick={goLogin}>
               <Image
                 className="w-[120rpx] h-[120rpx] rounded-md border-[4rpx] border-solid border-primary"
                 src={defaultAvatar}
@@ -983,7 +984,7 @@ export default function UserIndex() {
         {!isshow ? (
           <View className="membership-benefits-container mx-[20rpx] mt-[16rpx] mb-0">
             {/* 折叠头:点击展开/收起(对齐 RN membershipHeaderText + membershipArrow) */}
-            <View className="membership-benefits-header" onClick={toggleBenefits}>
+            <View className="membership-benefits-header" hoverClass="opacity-60" onClick={toggleBenefits}>
               <Text className="membership-benefits-title">
                 {tf('user.membershipBenefits', '会员权益')}
               </Text>
@@ -1140,6 +1141,7 @@ export default function UserIndex() {
                       <View
                         className="relative mx-[24rpx] mb-[24rpx] rounded-[16rpx] overflow-hidden bg-muted"
                         style={{ height: rpx(400) }}
+                        hoverClass="opacity-60"
                         onClick={() => openVideoPlayer(item.videoUrl)}
                       >
                         {/* 视频封面图(对齐原项目 getVideoPoster)*/}
@@ -1151,7 +1153,7 @@ export default function UserIndex() {
                           />
                         ) : null}
                         <View className="absolute inset-0 flex items-center justify-center">
-                          <View className="w-[120rpx] h-[120rpx] rounded-full bg-black/50 flex items-center justify-center">
+                          <View className="w-[120rpx] h-[120rpx] rounded-full bg-[var(--color-black-50)] flex items-center justify-center">
                             <LineIcon
                                 name="play"
                                 size={60}
@@ -1198,6 +1200,7 @@ export default function UserIndex() {
                         <View
                           className="w-[72rpx] h-[72rpx] rounded-[16rpx] flex items-center justify-center"
                           style={{ background: 'var(--color-primary)', flexShrink: 0 }}
+                          hoverClass="opacity-60"
                           onClick={() => toggleAudioPlay(index, item.audioUrl)}
                         >
                           <LineIcon
@@ -1251,6 +1254,7 @@ export default function UserIndex() {
               <View
                 key={entry.path}
                 className="flex-1 flex flex-col items-center"
+                hoverClass="opacity-60"
                 onClick={() => goPage(entry.path)}
               >
                 {renderIcon(entry.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
@@ -1268,6 +1272,7 @@ export default function UserIndex() {
               className={`flex items-center px-[32rpx] py-[32rpx] ${
                 idx < menus.length - 1 ? 'mb-[8rpx]' : ''
               }`}
+              hoverClass="opacity-60"
               onClick={() => goPage(item.path)}
             >
               {renderIcon(item.icon, 'text-[40rpx]', 'w-[40rpx] h-[40rpx]')}
@@ -1281,6 +1286,7 @@ export default function UserIndex() {
         {isLogin ? (
           <View
             className="mx-[20rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center border border-primary text-primary rounded-lg text-[30rpx]"
+            hoverClass="opacity-60"
             onClick={handleLogout}
           >
             <Text>{t('user.logout')}</Text>
@@ -1303,6 +1309,7 @@ export default function UserIndex() {
             <View
               className="absolute inset-0"
               style={{ background: 'var(--color-black-90)' }}
+              hoverClass="opacity-60"
               onClick={closeVideoPlayer}
             />
             <View className="relative w-[90%] rounded-lg overflow-hidden">
@@ -1341,9 +1348,9 @@ export default function UserIndex() {
         {/* ===== 分享弹窗 ===== */}
         {showSharePopup ? (
           <View className="share-popup-mask" onClick={closeSharePopup}>
-            <View className="share-popup-content" onClick={(e) => e.stopPropagation()}>
+            <View className="share-popup-content" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
               {/* 关闭按钮(对齐 RN sharePopupCloseText) */}
-              <View className="share-popup-close" onClick={closeSharePopup}>
+              <View className="share-popup-close" hoverClass="opacity-60" onClick={closeSharePopup}>
                 <Text className="share-popup-close-text">×</Text>
               </View>
               {/* 分享卡片预览 */}
@@ -1362,6 +1369,7 @@ export default function UserIndex() {
               {/* 分享按钮 */}
               <View
                 className="share-popup-btn"
+                hoverClass="opacity-60"
                 onClick={() => {
                   // 对齐原项目 handleAppShareClick:调起分享菜单
                   Taro.showShareMenu({

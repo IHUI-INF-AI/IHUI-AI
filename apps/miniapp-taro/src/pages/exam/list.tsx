@@ -68,6 +68,7 @@ export default function ExamList() {
       <View
         key={e.id}
         className="bg-card rounded-[24rpx] p-[28rpx] mb-[20rpx] border border-solid border-border"
+        hoverClass="opacity-60"
         onClick={() => goDetail(e.id)}
       >
         <View className="flex justify-between items-start gap-[16rpx]">
@@ -107,6 +108,7 @@ export default function ExamList() {
         <View
           key={r.id}
           className="bg-card rounded-[24rpx] p-[28rpx] mb-[20rpx] border border-solid border-border"
+          hoverClass="opacity-60"
           onClick={() => goResult(r.id)}
         >
           <View className="flex justify-between items-start gap-[16rpx]">
@@ -164,7 +166,7 @@ export default function ExamList() {
       <View className="min-h-screen bg-background">
         {/* header 对齐 RN ExamScreen header(px20rpx / pt24rpx 平台适配原生导航栏 / pb16rpx) */}
         <View className="flex flex-col px-[20rpx] pt-[24rpx] pb-[16rpx]">
-          <View className="self-start" onClick={goBack}>
+          <View className="self-start" hoverClass="opacity-60" onClick={goBack}>
             <Text className="text-[32rpx] text-muted-foreground">{t('common.back')}</Text>
           </View>
           <Text className="mt-[16rpx] text-[44rpx] font-semibold text-foreground">
@@ -180,6 +182,7 @@ export default function ExamList() {
               className={`px-[24rpx] py-[12rpx] rounded-[24rpx] ${
                 tab === item.key ? 'bg-primary' : 'bg-card'
               }`}
+              hoverClass="opacity-60"
               onClick={() => setTab(item.key)}
             >
               <Text

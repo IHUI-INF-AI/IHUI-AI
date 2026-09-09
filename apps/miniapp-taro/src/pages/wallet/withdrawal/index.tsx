@@ -83,57 +83,57 @@ export default function WithdrawalPage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background p-[24rpx]">
-        {/* 可提现金额卡片 — 对齐原项目 content-wrap 紫色渐变 */}
-        <View className="p-[48rpx_32rpx] rounded-[24rpx] shadow-sm bg-primary/10 border-[2rpx] border-primary/20">
-          <Text className="block text-[26rpx] text-muted-foreground">
+      <View className="min-h-screen bg-background p-[20rpx]">
+        {/* 可提现金额卡片 — 对齐 RN WithdrawScreen balanceCard(padding 14/radius 12/白卡) */}
+        <View className="p-[28rpx] rounded-[24rpx] bg-card mb-[24rpx]">
+          <Text className="block text-[28rpx] text-muted-foreground">
             {tt('wallet.withdrawal.availableYuan', '可提现金额(元)')}
           </Text>
-          <Text className="block text-[64rpx] font-bold text-foreground mt-[12rpx]">
+          <Text className="block text-[56rpx] font-bold text-foreground mt-[16rpx]">
             {priceFmt.format(available)}
           </Text>
         </View>
 
-        {/* 提现金额 + 提现方式卡片 — 对齐原项目 withdrawalMethods 渐变容器 */}
-        <View className="mt-[24rpx] p-[32rpx] bg-card rounded-[20rpx]">
-          <Text className="block text-[26rpx] text-muted-foreground mb-[16rpx]">
+        {/* 提现金额 + 提现方式卡片 — 对齐 RN WithdrawScreen card(padding 12/radius 12/border.light) */}
+        <View className="rounded-[24rpx] border-[2rpx] border-border bg-card p-[24rpx]">
+          <Text className="block text-[28rpx] text-muted-foreground">
             {tt('wallet.withdrawal.amountLabel', '提现金额')}
           </Text>
-          <View className="flex items-center py-[20rpx] border-b-[2rpx] border-border">
-            <Text className="text-[40rpx] font-semibold text-destructive">¥</Text>
+          <View className="flex items-center mt-[16rpx] h-[100rpx] px-[28rpx] rounded-[24rpx] border-[2rpx] border-border bg-[var(--color-muted)]">
+            <Text className="text-[32rpx] font-semibold text-foreground">¥</Text>
             <Input
-              className="flex-1 text-[40rpx] text-destructive font-bold ml-[12rpx]"
+              className="flex-1 text-[32rpx] text-foreground ml-[12rpx]"
               type="digit"
               value={amount}
               onInput={(e) => setAmount(e.detail.value)}
               placeholder={tt('distribution.withdraw.amountPlaceholder', '请输入提现金额')}
             />
             <Text
-              className="text-[26rpx] text-warning py-[8rpx] px-[16rpx] underline"
+              className="text-[22rpx] text-[var(--color-text-tertiary)]"
               onClick={fillAll}
             >
               {tt('distribution.withdraw.all', '全部提现')}
             </Text>
           </View>
 
-          <Text className="block text-[26rpx] text-muted-foreground mb-[16rpx] mt-[32rpx]">
+          <Text className="block text-[28rpx] text-muted-foreground mt-[32rpx] mb-[16rpx]">
             {tt('distribution.withdraw.method', '提现方式')}
           </Text>
-          <View className="flex gap-[16rpx]">
+          <View className="flex gap-[20rpx]">
             {methods.map((m) => (
               <View
                 key={m.value}
-                className={`flex-1 flex items-center p-[20rpx] border-[2rpx] rounded-[12rpx] ${method === m.value ? 'bg-primary/10 border-primary/40' : 'bg-muted border-transparent'}`}
+                className={`flex-1 flex items-center p-[28rpx] border-[2rpx] rounded-[24rpx] bg-card ${method === m.value ? 'border-[var(--color-primary)]' : 'border-border'}`}
                 onClick={() => setMethod(m.value)}
-              >
+                hoverClass="opacity-60">
                 <View
-                  className={`w-[56rpx] h-[56rpx] rounded-[12rpx] flex items-center justify-center text-white text-[26rpx] font-bold mr-[16rpx] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[var(--color-alipay-blue)]'}`}
+                  className={`w-[56rpx] h-[56rpx] rounded-[16rpx] flex items-center justify-center text-[26rpx] font-semibold mr-[20rpx] text-[var(--color-surface-light)] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[var(--color-alipay-blue)]'}`}
                 >
                   {m.icon}
                 </View>
-                <Text className="flex-1 text-[28rpx] text-foreground">{m.label}</Text>
+                <Text className="flex-1 text-[32rpx] text-foreground">{m.label}</Text>
                 <View
-                  className={`w-[36rpx] h-[36rpx] border-[2rpx] rounded-[8rpx] flex items-center justify-center ${method === m.value ? 'bg-primary border-primary' : 'border-border'}`}
+                  className={`w-[36rpx] h-[36rpx] border-[2rpx] rounded-[8rpx] flex items-center justify-center ${method === m.value ? 'bg-primary border-primary' : 'border-border bg-card'}`}
                 >
                   {method === m.value && (
                     <LineIcon
@@ -149,7 +149,7 @@ export default function WithdrawalPage() {
         </View>
 
         <Button
-          className="mt-[40rpx] bg-primary text-primary-foreground rounded-[30rpx] text-[32rpx] font-bold"
+          className="mt-[40rpx] bg-primary text-primary-foreground rounded-[24rpx] text-[32rpx] font-semibold"
           loading={submitting}
           disabled={submitting}
           onClick={onSubmit}
@@ -158,9 +158,9 @@ export default function WithdrawalPage() {
         </Button>
 
         <View
-          className="mt-[32rpx] text-center text-[26rpx] text-muted-foreground"
+          className="mt-[24rpx] text-center text-[22rpx] text-[var(--color-text-tertiary)]"
           onClick={goRecords}
-        >
+          hoverClass="opacity-60">
           <Text>{tt('wallet.withdrawal.records', '提现记录')}</Text>
         </View>
       </View>

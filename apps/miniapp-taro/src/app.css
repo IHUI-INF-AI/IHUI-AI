@@ -245,6 +245,7 @@ iframe#webpack-dev-server-client-overlay {
   --color-wechat-green: #4cd964;
   --color-chat-bubble-user: #95ec69;
   --color-brand-orange: #ff6b35;
+  --color-brand-orange-foreground: #ffffff;
   --color-brand-orange-grad-from: #ffb27d;
   --color-brand-orange-grad-to: #ff6b35;
   --color-brand: #000000;
@@ -285,6 +286,10 @@ iframe#webpack-dev-server-client-overlay {
   --color-warning-light: #fffbeb;
   --color-danger-light: #fee2e2;
   --color-danger-bright: #f87171;
+  --color-success-deep: #16a34a;
+  --color-success-lighter: #d1fae5;
+  --color-black: #000000;
+  --color-screen-canvas: #171717;
   --color-surface-light: #ffffff;
   --color-warning-amber: #f59e0b;
   --color-track-active-bg: rgba(248, 249, 252, 0.65);
@@ -348,6 +353,7 @@ iframe#webpack-dev-server-client-overlay {
   --color-black-20: rgba(0, 0, 0, 0.2);
   --color-black-25: rgba(0, 0, 0, 0.25);
   --color-black-30: rgba(0, 0, 0, 0.3);
+  --color-black-35: rgba(0, 0, 0, 0.35);
   --color-black-40: rgba(0, 0, 0, 0.4);
   --color-black-45: rgba(0, 0, 0, 0.45);
   --color-black-50: rgba(0, 0, 0, 0.5);
@@ -441,6 +447,9 @@ iframe#webpack-dev-server-client-overlay {
   --color-vip-card: #262626;
   --color-brand-orange-light: #431407;
   --color-success-deep-text: #86efac;
+  --color-success-deep: #16a34a;
+  --color-success-lighter: #064e3b;
+  --color-black: #000000;
   --color-success-light: #052e16;
   --color-warning-amber-light: #78350f;
   --color-warning-amber-text: #fbbf24;
@@ -457,6 +466,7 @@ iframe#webpack-dev-server-client-overlay {
   --color-model-type-av: #2e7d32;
   --color-model-type-av-bg: #e8f5e9;
   --color-agent-name: #517bff;
+  --color-screen-canvas: #171717;
 }
 
 /* ===== 通用工具类 ===== */

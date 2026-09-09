@@ -198,7 +198,7 @@ export default function DevEnterCover() {
           ) : null}
 
           {!hasDevLink ? (
-            <View className="dc-become-btn" onClick={toPay}>
+            <View className="dc-become-btn" onClick={toPay} hoverClass="opacity-60">
               <Text>{tt('devEnter.cover.becomeDeveloper', '成为开发者')}</Text>
             </View>
           ) : null}
@@ -206,7 +206,7 @@ export default function DevEnterCover() {
 
         {/* 3 个功能入口(RN devList 用 CDN PNG 图标;小程序按项目约束用 LineIcon 线性图标 + token 着色) */}
         <View className="dc-entry-list">
-          <View className="dc-entry-item" onClick={toMyModel}>
+          <View className="dc-entry-item" onClick={toMyModel} hoverClass="opacity-60">
             <View className="dc-entry-icon">
               <LineIcon
                 className="dc-entry-emoji"
@@ -217,7 +217,7 @@ export default function DevEnterCover() {
             </View>
             <Text className="dc-entry-text">{tt('devEnter.cover.myAgents', '我的智能体')}</Text>
           </View>
-          <View className="dc-entry-item" onClick={toModelIncome}>
+          <View className="dc-entry-item" onClick={toModelIncome} hoverClass="opacity-60">
             <View className="dc-entry-icon">
               <LineIcon
                 className="dc-entry-emoji"
@@ -228,7 +228,7 @@ export default function DevEnterCover() {
             </View>
             <Text className="dc-entry-text">{tt('devEnter.cover.agentIncome', '智能体收入')}</Text>
           </View>
-          <View className="dc-entry-item" onClick={toNbnModel}>
+          <View className="dc-entry-item" onClick={toNbnModel} hoverClass="opacity-60">
             <View className="dc-entry-icon">
               <LineIcon
                 className="dc-entry-emoji"
@@ -288,7 +288,7 @@ export default function DevEnterCover() {
         {showAccount ? (
           <View className="dc-notice-row">
             <Text className="dc-notice-tip">{tt('devEnter.cover.devNotice', '开发者须知')}</Text>
-            <View className="dc-plaza-btn" onClick={toPlaza}>
+            <View className="dc-plaza-btn" onClick={toPlaza} hoverClass="opacity-60">
               <Text>{tt('devEnter.cover.continueOrder', '继续接单')}</Text>
             </View>
           </View>
@@ -302,7 +302,7 @@ export default function DevEnterCover() {
             </Text>
             <View className="dc-faq-grid">
               {FAQ_LIST(tt).map((item, idx) => (
-                <View key={idx} className="dc-faq-item" onClick={() => toWeb(item)}>
+                <View key={idx} className="dc-faq-item" onClick={() => toWeb(item)} hoverClass="opacity-60">
                   <Text className="dc-faq-item-title">{item.title}</Text>
                   <Text className="dc-faq-item-context">{item.context}</Text>
                   <Text className="dc-faq-item-btn">{item.btn}</Text>

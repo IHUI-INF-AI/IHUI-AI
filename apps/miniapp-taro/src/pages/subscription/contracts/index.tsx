@@ -62,8 +62,9 @@ export default function SubscriptionContractsPage() {
         content: tt('subscription.cancelContent', '确认取消该自动续费签约?取消后不再自动扣款。'),
         confirmText: tt('subscription.cancelConfirmBtn', '确认解约'),
         cancelText: tt('subscription.cancelThinkBtn', '再想想'),
-        // 保留:native API Taro.showModal confirmColor 需 hex,不支持 CSS 变量,保留 #dd524d
-        confirmColor: '#dd524d',
+        // 保留:native API Taro.showModal confirmColor 需 hex,不支持 CSS 变量;
+        // 值对齐 --color-danger(亮 #dc2626,取亮值与 theme.json 静态回退一致)
+        confirmColor: '#dc2626',
         success: async (modalRes) => {
           if (!modalRes.confirm) return
           Taro.showLoading({ title: tt('subscription.processing', '处理中'), mask: true })

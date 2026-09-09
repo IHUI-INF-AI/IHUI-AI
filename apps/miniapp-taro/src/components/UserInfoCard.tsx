@@ -86,21 +86,22 @@ export default function UserInfoCard({
 
   return (
     <View
-      className={cn('rounded-lg bg-card border border-border p-3 active:opacity-80', className)}
+      className={cn('rounded-lg bg-card border border-border p-3', className)}
     >
       {/* ===== 未登录态:一键登录按钮(对齐原项目 login-btn-new)===== */}
       {!isLogged && onLogin ? (
         <View
           className="flex items-center justify-center w-full py-3 rounded-md"
           style={{ background: 'var(--color-primary)' }}
+          hoverClass="opacity-85"
           onClick={onLogin}
         >
-          <Text className="text-sm text-white font-medium">
+          <Text className="text-sm text-primary-foreground font-medium">
             {tt('UserInfoCard.login1', '一键登录')}
           </Text>
         </View>
       ) : (
-        <View onClick={onClick}>
+        <View hoverClass="opacity-85" onClick={onClick}>
           <View className="flex items-center gap-3">
             {/* 头像:有 avatar 用 avatar,无则用原项目默认头像 daixaodiming.png(可点击编辑) */}
             <Image
@@ -122,7 +123,7 @@ export default function UserInfoCard({
                   />
                   {isVip && vipTitle ? (
                     <View className="absolute inset-0 flex items-center justify-center">
-                      <Text className="text-[20rpx] text-white font-medium leading-none">
+                      <Text className="text-[20rpx] text-[var(--color-white-98)] font-medium leading-none">
                         {vipTitle}
                       </Text>
                     </View>
@@ -155,6 +156,7 @@ export default function UserInfoCard({
                 {displayLevel ? (
                   <View
                     className="px-1.5 py-0.5 rounded-sm bg-primary/10 flex-shrink-0"
+                    hoverClass="opacity-85"
                     onClick={
                       onOpenLevel
                         ? (e) => {
@@ -171,6 +173,7 @@ export default function UserInfoCard({
                 {tokenDisplay ? (
                   <View
                     className="flex items-center gap-1 flex-1 min-w-0"
+                    hoverClass="opacity-85"
                     onClick={
                       onWallet
                         ? (e) => {
@@ -232,8 +235,8 @@ export default function UserInfoCard({
                       e.stopPropagation()
                       onOpenVip()
                     }}
-                  >
-                    <Text className="text-[22rpx] text-white font-medium">
+                    hoverClass="opacity-85">
+                    <Text className="text-[22rpx] text-primary-foreground font-medium">
                       {tt('vipTrader.openTitle', '开通会员')}
                     </Text>
                   </View>
@@ -246,7 +249,7 @@ export default function UserInfoCard({
                       e.stopPropagation()
                       onUnsubscribe()
                     }}
-                  >
+                    hoverClass="opacity-85">
                     <Text className="text-[22rpx] text-muted-foreground">
                       {tt('UserInfoCard.text2', '退订')}
                     </Text>
@@ -260,8 +263,8 @@ export default function UserInfoCard({
                       e.stopPropagation()
                       onWallet()
                     }}
-                  >
-                    <Text className="text-[22rpx] text-white font-medium">
+                    hoverClass="opacity-85">
+                    <Text className="text-[22rpx] text-primary-foreground font-medium">
                       {tt('wallet.recharge.submit', '充值')}
                     </Text>
                   </View>

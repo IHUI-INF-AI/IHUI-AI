@@ -109,7 +109,7 @@ export default function InformationItem({
           background: 'var(--color-card)',
         }}
         onClick={() => onClick?.(item)}
-      >
+        hoverClass="opacity-60">
         {item.date ? (
           <Text
             style={{

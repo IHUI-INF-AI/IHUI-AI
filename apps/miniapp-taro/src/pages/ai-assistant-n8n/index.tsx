@@ -124,7 +124,7 @@ export default function AiAssistantN8n() {
                   key={id}
                   className="p-[24rpx] rounded-[24rpx] border border-[var(--color-border)] bg-background"
                 >
-                  <View key={id} onClick={() => onItemClick(item)}>
+                  <View key={id} onClick={() => onItemClick(item)} hoverClass="opacity-60">
                     {/* 对齐 RN cardHead/cardTitleRow:dot 8dp=16rpx 圆点 + 名称 16dp=32rpx w600 */}
                     <View className="flex flex-row items-center justify-between">
                       <View className="flex flex-row items-center flex-1 min-w-0">

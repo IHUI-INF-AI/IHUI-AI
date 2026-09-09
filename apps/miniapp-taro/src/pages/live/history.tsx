@@ -4,7 +4,7 @@
 
 import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { getLiveHistory, type Live } from '@/api'
@@ -118,12 +118,13 @@ export default function LiveHistory() {
   }
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
+    /* 对齐 RN shared LivePlaybackListScreen:container(tk.surface.bg)+ listBody(padding 10 → 20rpx) */
+    <View className="min-h-screen bg-[var(--color-background)] px-[20rpx] pt-[20rpx] pb-[60rpx] box-border">
       <View className="flex gap-[16rpx] mb-[24rpx]">
         {FILTER_TABS.map((tab) => (
           <Text
             key={tab.key}
-            className={`flex-1 text-center h-[64rpx] leading-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-primary/20 rounded-[10rpx]${filter === tab.key ? ' text-primary border-primary font-semibold' : ''}`}
+            className={`flex-1 text-center h-[64rpx] leading-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-[var(--color-border)] rounded-[12rpx]${filter === tab.key ? ' text-primary border-primary font-semibold' : ''}`}
             onClick={() => setFilter(tab.key)}
           >
             {tt(tab.i18nKey, tab.fb)}
@@ -132,52 +133,46 @@ export default function LiveHistory() {
       </View>
 
       {displayList.length > 0 && (
-        <View className="flex flex-col gap-[16rpx]">
+        /* 对齐 RN FlatList separator(height 12 → 24rpx) */
+        <View className="flex flex-col gap-[24rpx]">
           {displayList.map((item) => {
             const progress = item.progress ?? 0
             const completed = progress >= 100
             return (
+              /* 对齐 RN card:padding 12 → 24rpx,radius 12 → 24rpx,1px border.light → 2rpx var(--color-border),无卡片底色 */
               <ThemeRoot key={item.id}>
                 <View
-                  className="flex p-[20rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
+                  className="p-[24rpx] rounded-[24rpx] border-[2rpx] border-[var(--color-border)]"
                   onClick={() => goDetail(item.id)}
-                >
-                  <Image
-                    className="w-[200rpx] h-[130rpx] flex-shrink-0 bg-muted rounded-[8rpx]"
-                    src={item.coverUrl}
-                    mode="aspectFill"
-                  />
-                  <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col justify-between">
-                    <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
-                    {item.anchor && (
-                      <Text className="text-[24rpx] text-muted-foreground">
-                        {tt('live.history.anchorLabel', '主播')}: {item.anchor}
-                      </Text>
-                    )}
-                    <View className="h-[6rpx] bg-muted rounded-[3rpx] mt-[8rpx] overflow-hidden">
-                      <View
-                        className="h-full bg-primary rounded-[3rpx]"
-                        style={`width: ${Math.min(progress, 100)}%`}
-                      />
-                    </View>
-                    <View className="flex items-center justify-between mt-[8rpx]">
-                      <Text className="text-[22rpx] text-muted-foreground">
-                        {item.watchDuration
-                          ? `${tt('live.history.watchDuration', '观看')} ${formatDuration(item.watchDuration)}`
-                          : item.watchTime || item.startTime || ''}
-                      </Text>
-                      <Text
-                        className="py-[8rpx] px-[20rpx] text-[24rpx] text-primary bg-primary/10 border-[2rpx] border-primary/40 rounded-[8rpx]"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          goDetail(item.id)
-                        }}
-                      >
-                        {completed
-                          ? tt('live.history.rewatch', '重新观看')
-                          : tt('live.history.continue', '继续观看')}
-                      </Text>
-                    </View>
+                  hoverClass="opacity-60">
+                  {/* 对齐 RN cardTitle(16dp → 32rpx semibold,单行截断) */}
+                  <Text className="block overflow-hidden whitespace-nowrap text-ellipsis text-[32rpx] font-semibold text-foreground">
+                    {item.title}
+                  </Text>
+                  {/* 对齐 RN cardMeta(marginTop 8 → 16rpx,11dp → 22rpx,text.tertiary) */}
+                  {item.anchor && (
+                    <Text className="block mt-[16rpx] text-[22rpx] text-[var(--color-text-tertiary)]">
+                      {tt('live.history.anchorLabel', '主播')}: {item.anchor}
+                    </Text>
+                  )}
+                  {/* 对齐 RN metaRow(两端对齐,marginTop 8 → 16rpx)+ cardAction(14dp → 28rpx 品牌色 semibold) */}
+                  <View className="flex items-center justify-between mt-[16rpx]">
+                    <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                      {item.watchDuration
+                        ? `${tt('live.history.watchDuration', '观看')} ${formatDuration(item.watchDuration)}`
+                        : item.watchTime || item.startTime || ''}
+                    </Text>
+                    <Text
+                      className="text-[28rpx] font-semibold text-[var(--color-brand-orange)]"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        goDetail(item.id)
+                      }}
+                    >
+                      {completed
+                        ? tt('live.history.rewatch', '重新观看')
+                        : tt('live.history.continue', '继续观看')}
+                    </Text>
                   </View>
                 </View>
               </ThemeRoot>
@@ -187,19 +182,19 @@ export default function LiveHistory() {
       )}
 
       {!loading && displayList.length === 0 && (
-        <View className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">
+        <View className="block text-center text-[28rpx] text-muted-foreground py-[96rpx]">
           <Text>{tt('live.history.empty', '暂无历史直播')}</Text>
         </View>
       )}
 
       {loading && (
-        <View className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">
+        <View className="block text-center text-[28rpx] text-muted-foreground py-[96rpx]">
           <Text>{tt('live.history.loading', '加载中…')}</Text>
         </View>
       )}
 
       {!loading && !hasMore && displayList.length > 0 && (
-        <View className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">
+        <View className="block text-center text-[28rpx] text-muted-foreground py-[96rpx]">
           <Text>{tt('common.noMore', '没有更多了')}</Text>
         </View>
       )}

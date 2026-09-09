@@ -9,6 +9,7 @@ import { useState, useCallback } from 'react'
 import { getTeacherDetail, get, post, type Teacher } from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 import './detail.css'
 
 interface TeacherCourse {
@@ -45,11 +46,6 @@ const formatPrice = (price?: number): { text: string; free: boolean } => {
     return { text: t('common.free'), free: true }
   }
   return { text: `¥${(price / 100).toFixed(2)}`, free: false }
-}
-
-const buildStars = (rating: number): string => {
-  const full = Math.round(rating)
-  return '★'.repeat(Math.min(5, Math.max(0, full))) + '☆'.repeat(Math.max(0, 5 - full))
 }
 
 export default function TeacherDetail() {
@@ -243,7 +239,7 @@ export default function TeacherDetail() {
                   const price = formatPrice(c.price)
                   return (
                     <ThemeRoot key={c.id}>
-                      <View className="tdetail-course-card" onClick={() => onOpenCourse(c.id)}>
+                      <View className="tdetail-course-card" hoverClass="opacity-85" onClick={() => onOpenCourse(c.id)}>
                         {c.coverUrl ? (
                           <Image
                             className="tdetail-course-cover"
@@ -284,25 +280,45 @@ export default function TeacherDetail() {
             </Text>
             {reviews.length > 0 ? (
               <View className="tdetail-review-list">
-                {reviews.map((rv) => (
-                  <View key={rv.id} className="tdetail-review-card">
-                    {rv.avatar ? (
-                      <Image className="tdetail-review-avatar" src={rv.avatar} mode="aspectFill" />
-                    ) : (
-                      <View className="tdetail-review-avatar tdetail-review-avatar-fallback">
-                        <Text>{rv.nickname.charAt(0) || '?'}</Text>
-                      </View>
-                    )}
-                    <View className="tdetail-review-body">
+                {reviews.map((rv) => {
+                  const stars = Math.round(rv.rating)
+                  return (
+                    <View key={rv.id} className="tdetail-review-card">
                       <View className="tdetail-review-head">
+                        {rv.avatar ? (
+                          <Image
+                            className="tdetail-review-avatar"
+                            src={rv.avatar}
+                            mode="aspectFill"
+                          />
+                        ) : (
+                          <View className="tdetail-review-avatar tdetail-review-avatar-fallback">
+                            <Text>{rv.nickname.charAt(0) || '?'}</Text>
+                          </View>
+                        )}
                         <Text className="tdetail-review-name">{rv.nickname}</Text>
-                        <Text className="tdetail-review-stars">{buildStars(rv.rating)}</Text>
+                        <View className="tdetail-review-stars">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <LineIcon
+                              key={i}
+                              name={i < stars ? 'star-fill' : 'star'}
+                              size={14}
+                              color={
+                                i < stars
+                                  ? 'var(--color-vip-gold-start)'
+                                  : 'var(--color-border)'
+                              }
+                            />
+                          ))}
+                        </View>
                       </View>
-                      <Text className="tdetail-review-content">{rv.content}</Text>
-                      <Text className="tdetail-review-time">{rv.time}</Text>
+                      {rv.content ? (
+                        <Text className="tdetail-review-content">{rv.content}</Text>
+                      ) : null}
+                      {rv.time ? <Text className="tdetail-review-time">{rv.time}</Text> : null}
                     </View>
-                  </View>
-                ))}
+                  )
+                })}
               </View>
             ) : (
               <Text className="tdetail-empty">{tt('teacher.detail.noReviews', '暂无评价')}</Text>

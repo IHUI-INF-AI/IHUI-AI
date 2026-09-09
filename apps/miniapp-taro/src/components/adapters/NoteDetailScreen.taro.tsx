@@ -212,7 +212,7 @@ export function NoteDetailScreen({
     return (
       <View style={centerStyle(tk)}>
         <Text style={errorStyle(tk)}>{error || tr('noteDetail.loadFailed')}</Text>
-        <View onTap={onBack} style={btnStyle(tk)}>
+        <View onTap={onBack} style={btnStyle(tk)} hoverClass="opacity-60">
           <Text style={btnTextStyle(tk)}>{tr('common.back')}</Text>
         </View>
       </View>
@@ -221,7 +221,7 @@ export function NoteDetailScreen({
 
   return (
     <ScrollView scrollY style={containerStyle(tk)}>
-      <View onTap={onBack} style={backBtnStyle()}>
+      <View onTap={onBack} style={backBtnStyle()} hoverClass="opacity-60">
         <Text style={backTextStyle(tk)}>{tr('common.back')}</Text>
       </View>
       <Text style={titleStyle(tk)}>{item.title}</Text>

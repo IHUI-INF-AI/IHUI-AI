@@ -170,6 +170,7 @@ export default function CircleIndexPage() {
             key={tabItem.key}
             className={`ci-tab${tab === tabItem.key ? ' active' : ''}`}
             onClick={() => switchTab(tabItem.key)}
+            hoverClass="opacity-60"
           >
             <Text className="ci-tab-text">{tt(tabItem.i18nKey, tabItem.fallback)}</Text>
           </View>
@@ -180,7 +181,7 @@ export default function CircleIndexPage() {
         <ScrollView scrollX enhanced showScrollbar={false} className="ci-hottopic-scroll">
           <View className="ci-hottopic-list">
             {hotTopics.map((topic) => (
-              <View key={topic.id} className="ci-hottopic-chip" onClick={() => goTopic(topic.id)}>
+              <View key={topic.id} className="ci-hottopic-chip" onClick={() => goTopic(topic.id)} hoverClass="opacity-60">
                 <Text className="ci-hottopic-hash">#</Text>
                 <Text className="ci-hottopic-name">{topic.name}</Text>
                 <Text className="ci-hottopic-count">{topic.count}</Text>
@@ -205,6 +206,7 @@ export default function CircleIndexPage() {
                 <View
                   className={`ci-user-follow${u.followed ? ' followed' : ''}`}
                   onClick={() => followUser(u)}
+                  hoverClass="opacity-60"
                 >
                   <Text>
                     {u.followed
@@ -224,7 +226,7 @@ export default function CircleIndexPage() {
             const imgs = c.images || []
             return (
               <ThemeRoot key={c.id}>
-                <View key={c.id} className="ci-item" onClick={() => goDetail(c.id)}>
+                <View key={c.id} className="ci-item" onClick={() => goDetail(c.id)} hoverClass="opacity-85">
                   <View className="ci-item-head">
                     <Image
                       className="ci-avatar"
@@ -290,14 +292,14 @@ export default function CircleIndexPage() {
             color="var(--color-muted-foreground)"
           />
           <Text className="ci-empty-text">{tt('circle.empty', '暂无内容')}</Text>
-          <View className="ci-empty-btn" onClick={goCreate}>
+          <View className="ci-empty-btn" onClick={goCreate} hoverClass="opacity-60">
             <Text className="ci-empty-btn-text">{tt('circle.index.goPublish', '去发布')}</Text>
           </View>
         </View>
       ) : null}
 
       {error && !loading ? (
-        <View className="ci-error" onClick={() => load(true)}>
+        <View className="ci-error" onClick={() => load(true)} hoverClass="opacity-60">
           <Text className="ci-error-text">{tt('circle.index.error', '加载失败')}</Text>
           <Text className="ci-error-retry">{tt('circle.index.retry', '点击重试')}</Text>
         </View>
@@ -311,7 +313,7 @@ export default function CircleIndexPage() {
         <Text className="ci-status">{tt('circle.index.noMore', '没有更多了')}</Text>
       ) : null}
 
-      <View className="ci-fab" onClick={goCreate}>
+      <View className="ci-fab" onClick={goCreate} hoverClass="opacity-85">
         <Text className="ci-fab-icon">+</Text>
       </View>
     </View>
