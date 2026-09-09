@@ -14,15 +14,60 @@ media_tasks 是对话内 MCP 媒体调用记录。
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 import logging
+import os
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
-from ..services.media_tasks import get_media_task, query_media_tasks, update_media_task
+from ..services.media_tasks import (
+    get_media_task,
+    handle_media_callback,
+    query_media_tasks,
+    update_media_task,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+@router.post("/media/tasks/callback")
+async def media_tasks_callback(request: Request) -> dict[str, Any]:
+    """token6688 官方终态 webhook → media_tasks 实时回写(对话内媒体任务自动收尾)。
+
+    与 /api/video/token6688-callback 同验签协议(X-TokenGo-Signature=sha256+HMAC)。
+    快照形状同 GET /v1/tasks/{task_id};终态(成功带产物 URL/失败)落库,
+    中间态快照忽略。401=验签失败;200 ok=false=解析失败/快照缺 task_id(幂等确认)。
+    """
+    body = await request.body()
+    secret = os.environ.get("TOKEN6688_CALLBACK_SECRET", "").strip()
+    if secret:
+        sig = request.headers.get("X-TokenGo-Signature", "").strip()
+        expected = "sha256=" + hmac.new(
+            secret.encode("utf-8"), body, hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(sig, expected):
+            logger.warning("[media_tasks] 回调验签失败: sig=%r", sig[:24])
+            raise HTTPException(status_code=401, detail="签名校验失败")
+    else:
+        logger.warning("[media_tasks] 回调未配置 TOKEN6688_CALLBACK_SECRET,跳过验签(建议配置)")
+    event = request.headers.get("X-TokenGo-Event", "")
+    try:
+        snapshot = json.loads(body or b"{}")
+        if not isinstance(snapshot, dict):
+            raise ValueError("回调体非 JSON 对象")
+    except ValueError as e:
+        logger.warning("[media_tasks] 回调体解析失败: %s", e)
+        return {"ok": False, "error": f"回调体解析失败: {e}"}
+    result = await handle_media_callback(snapshot)
+    logger.info(
+        "[media_tasks] 回调处理: event=%s ok=%s matched=%s ignored=%s",
+        event, result.get("ok"), result.get("matched"), result.get("ignored"),
+    )
+    return result
 
 
 @router.post("/media/upload")
@@ -128,14 +173,18 @@ async def media_task_detail(task_id: str) -> dict[str, Any]:
                 if isinstance(st, dict) and st.get("status"):
                     row["live_status"] = st.get("status")
                     if st.get("video_url"):
-                        row["result"] = {"video_url": st["video_url"], **(row.get("result") or {})}
-                    if st.get("ok"):
                         # 2026-09-09 修复:探测到成片 URL 必须连产物一起落库,
-                        # 否则页面刷新后 media-tasks 列表/详情读库仍无 result → 任务中心不可播放
+                        # 否则页面刷新后 media-tasks 列表/详情读库仍无 result → 任务中心不可播放。
+                        # 按 kind 映射产物字段(image_url/audio_url/video_url),与回调/轮询一致。
+                        from ..services.media_tasks import _kind_url_field
+
+                        field = _kind_url_field(str(row.get("kind") or ""))
+                        merged = {**(row.get("result") or {}), field: st["video_url"]}
+                        row["result"] = merged
                         await update_media_task(
                             str(row["task_id"]),
                             status="succeeded",
-                            result=row.get("result") or {},
+                            result=merged,
                         )
                     elif st.get("failed"):
                         await update_media_task(str(row["task_id"]), status="failed")

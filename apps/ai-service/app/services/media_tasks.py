@@ -17,8 +17,10 @@ image_edit / token6688 异步图片)提交后把 task_id / 产物 URL 统一落�
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import os
 from typing import Any
 
 from ..core.db import get_db_conn
@@ -265,3 +267,190 @@ async def update_media_task(task_id: str, **fields: Any) -> bool:
         return bool(row)
     finally:
         await conn.close()
+
+
+# ---------------------------------------------------------------------------
+# 终态自动收尾(2026-09-09 立):对话内媒体长任务(video/music/tts/image)不再只靠
+# 用户主动问"好了吗",两条互补通道把产物/状态写回 media_tasks:
+#   A. 官方 webhook 回调(POST /api/media/tasks/callback,HMAC 验签)→ 秒级终态
+#   B. 后台周期探测(MEDIA_TASK_POLLER_ENABLED=1)→ 回调丢失/未配置时的兜底
+# 两者与前端 5s 轮询 /media/tasks/{task_id} 幂等互补:谁先写终态谁生效,
+# 已终态行不重复探测/回写(见 _STATUS_IN_FLIGHT 过滤)。
+# ---------------------------------------------------------------------------
+
+# 在途状态(可被收尾覆盖);终态(succeeded/failed/cancelled)永不回头
+_STATUS_IN_FLIGHT = ("processing", "accepted", "submitted", "pending")
+
+# kind → 产物字段名(前端播放/预览按此取 URL)
+_KIND_URL_FIELD = {
+    "video": "video_url",
+    "music": "audio_url",
+    "tts": "audio_url",
+    "image": "image_url",
+}
+
+
+def _kind_url_field(kind: str) -> str:
+    return _KIND_URL_FIELD.get(kind, "video_url")
+
+
+async def handle_media_callback(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """token6688 官方终态回调快照 → media_tasks 实时回写。
+
+    快照形状同 GET /v1/tasks/{task_id}(task_id/id/state/status/is_final/
+    output_url/result_url/error...)。返回 {ok, matched}:
+    matched=0 表示无在途匹配(未知/已终态任务,幂等静默);中间态快照忽略等终态。
+    """
+    remote_id = str(snapshot.get("task_id") or snapshot.get("id") or "").strip()
+    if not remote_id:
+        return {"ok": False, "matched": 0, "error": "快照缺 task_id"}
+    state = str(snapshot.get("state") or "").lower()
+    status = str(snapshot.get("status") or snapshot.get("task_status") or state or "").lower()
+    is_final = bool(snapshot.get("is_final")) or state in ("success", "failed", "completed")
+    media_url = (
+        snapshot.get("output_url") or snapshot.get("result_url") or snapshot.get("url") or ""
+    )
+    ok = (
+        (is_final and state in ("success", "completed", "succeeded"))
+        or status in ("completed", "succeeded")
+        or bool(media_url)
+    )
+    failed = (is_final and state in ("failed", "error", "cancelled")) or status in (
+        "failed", "error",
+    )
+    if not (ok or failed):
+        return {"ok": True, "matched": 0, "ignored": "non-final"}
+    conn = await get_db_conn()
+    try:
+        rows = await conn.fetch(
+            "SELECT id, kind FROM media_tasks "
+            "WHERE task_id=$1 AND status = ANY($2) "
+            "ORDER BY id ASC LIMIT 5",
+            remote_id, list(_STATUS_IN_FLIGHT),
+        )
+    finally:
+        await conn.close()
+    matched = 0
+    for r in rows:
+        if ok and media_url:
+            field = _kind_url_field(r["kind"])
+            payload = {field: media_url, "completed": True, "progress": None, "via": "callback"}
+            new_status = "succeeded"
+        else:
+            err = str(
+                snapshot.get("error") or snapshot.get("error_message")
+                or f"token6688 回调失败(state={state or status})"
+            )[:1000]
+            payload = {"error": err, "via": "callback"}
+            new_status = "failed"
+        await update_media_task(remote_id, status=new_status, result=payload)
+        logger.info(
+            "[media_tasks] 回调落终态: kind=%s task=%s status=%s url=%s",
+            r["kind"], remote_id, new_status, (media_url or "")[:80],
+        )
+        matched += 1
+    return {"ok": True, "matched": matched}
+
+
+# 轮询开关与参数(env 可调;默认关闭,避免无 key 时空转调上游)
+_MEDIA_POLLER_ENABLED = os.environ.get("MEDIA_TASK_POLLER_ENABLED", "0") == "1"
+_MEDIA_POLL_INTERVAL = float(os.environ.get("MEDIA_TASK_POLL_INTERVAL", "60"))
+_MEDIA_POLL_MAX_BATCH = int(os.environ.get("MEDIA_TASK_POLL_MAX_BATCH", "10"))
+_MEDIA_POLL_MAX_AGE_HOURS = float(os.environ.get("MEDIA_TASK_POLL_MAX_AGE_HOURS", "24"))
+
+_poller_task: asyncio.Task[Any] | None = None
+_poller_stop = asyncio.Event()
+
+
+async def _poll_processing_batch() -> int:
+    """扫描一批在途 token6688 任务并探测终态;返回本次回写终态的行数。
+
+    只读探测(get_task_status),不改上游、不扣费;与前端轮询/回调幂等互补。
+    """
+    conn = await get_db_conn()
+    try:
+        rows = await conn.fetch(
+            "SELECT id, kind, task_id FROM media_tasks "
+            "WHERE status = ANY($1) AND provider='token6688' AND task_id <> '' "
+            "AND created_at > now() - ($2::float * interval '1 hour') "
+            "ORDER BY updated_at ASC LIMIT $3",
+            list(_STATUS_IN_FLIGHT), _MEDIA_POLL_MAX_AGE_HOURS, _MEDIA_POLL_MAX_BATCH,
+        )
+    finally:
+        await conn.close()
+    if not rows:
+        return 0
+    from ..core.config import settings
+    from ..providers.token6688_provider import Token6688Provider
+
+    cfg = settings.get_provider_config("token6688")
+    if not cfg.api_key:
+        return 0
+    provider = Token6688Provider(api_key=cfg.api_key, api_base=cfg.api_base)
+    updated = 0
+    for r in rows:
+        try:
+            st = await provider.get_task_status(str(r["task_id"]))
+        except Exception as e:  # noqa: BLE001
+            logger.warning("[media_tasks] 探测失败 task=%s err=%s", r["task_id"], e)
+            continue
+        status = str(st.get("status") or "").lower()
+        if status in ("completed", "succeeded", "success"):
+            url = str(st.get("video_url") or "").strip()
+            payload = {_kind_url_field(r["kind"]): url, "completed": True, "via": "poller"}
+            if not url:
+                continue  # 终态但尚无产物(stage=downloading 等),下次循环再收
+            await update_media_task(str(r["task_id"]), status="succeeded", result=payload)
+            updated += 1
+            logger.info("[media_tasks] 轮询收尾成功: task=%s", r["task_id"])
+        elif status in ("failed", "error", "cancelled"):
+            await update_media_task(
+                str(r["task_id"]),
+                status="failed",
+                result={"error": st.get("error") or "task failed", "via": "poller"},
+            )
+            updated += 1
+            logger.info("[media_tasks] 轮询收尾失败: task=%s", r["task_id"])
+    return updated
+
+
+async def _media_task_poller_loop() -> None:
+    """周期扫描在途任务(60s 一次,单循环异常不退出)。"""
+    while True:
+        try:
+            await _poll_processing_batch()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:  # noqa: BLE001
+            logger.warning("[media_tasks] 轮询循环异常(继续): %s", e)
+        try:
+            await asyncio.wait_for(_poller_stop.wait(), timeout=_MEDIA_POLL_INTERVAL)
+            return
+        except asyncio.TimeoutError:
+            continue
+
+
+def start_media_task_poller() -> None:
+    """启动后台轮询(MEDIA_TASK_POLLER_ENABLED=1 时由 main.py lifespan 调用)。"""
+    global _poller_task, _poller_stop
+    if not _MEDIA_POLLER_ENABLED:
+        return
+    if _poller_task and not _poller_task.done():
+        return
+    _poller_stop = asyncio.Event()
+    _poller_task = asyncio.create_task(_media_task_poller_loop())
+    logger.info("[media_tasks] 后台轮询已启动(interval=%ss batch=%d)", _MEDIA_POLL_INTERVAL, _MEDIA_POLL_MAX_BATCH)
+
+
+async def stop_media_task_poller() -> None:
+    """停止后台轮询(lifespan 关闭时调用,幂等)。"""
+    global _poller_task
+    _poller_stop.set()
+    if _poller_task:
+        _poller_task.cancel()
+        try:
+            await _poller_task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001
+            pass
+        _poller_task = None
+        logger.info("[media_tasks] 后台轮询已停止")
