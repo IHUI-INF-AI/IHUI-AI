@@ -46,6 +46,53 @@ _RETRYABLE_TOOLS: frozenset[str] = frozenset({
     "generate_chart", "summarize_artifacts",
 })
 
+# ---------------------------------------------------------------------------
+# 全模态自动路由(2026-09-08):媒体模态强信号正则 → 无条件注入对应工具
+# 兜底 LLM 意图分类漏判/幻觉 suggested_tools,保证"画一张/做个视频/写首歌/
+# 朗读这段"永远能在 tool loop 里调到正确的媒体工具(自动切换多模态调用)。
+# 仅做"工具可见性"注入,是否真正调用仍由 LLM tool_choice=auto 决策。
+# ---------------------------------------------------------------------------
+_MEDIA_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    "image_generation": (
+        re.compile(r"(帮我|给我|给我来)?画(一|几)?(张|幅|个|下|只)"),
+        re.compile(r"(画|绘)(出|一个|一幅|一张)"),
+        re.compile(r"(生成|制作|做|来|设计)(一)?(张|幅|个)?[\s的]{0,2}(图片|图像|配图|插画|海报|头像|封面|图标|logo|吉祥物|表情包)"),
+        re.compile(r"(图片|图像|海报|头像|插画|封面|logo|图标)的?(生成|绘制|设计)"),
+        re.compile(r"\b(draw|paint|sketch|generate (an? )?(image|picture|photo)|create (an? )?(image|picture|logo))\b", re.IGNORECASE),
+    ),
+    "video_generation": (
+        re.compile(r"(做|生成|制作|来|拍|帮我做)(一)?(个|段|部|条)?[^。]{0,8}视频"),
+        re.compile(r"(视频|短片|动画片?|火柴人|MV)的?(生成|制作)|出片|视频生成"),
+        re.compile(r"\b(make|generate|create) (a )?video\b", re.IGNORECASE),
+    ),
+    "music_generation": (
+        re.compile(r"(写|做|来|创作|生成|帮我写)(一)?首?(歌|曲|音乐)"),
+        re.compile(r"(写|创作|生成|帮我写)(一)?首[^。]{0,10}歌"),
+        re.compile(r"(生成|制作|做|来)(一)?(个|段|首)?(音乐|配乐|背景音乐|BGM|纯音乐)"),
+        re.compile(r"配乐|背景音乐|BGM|作曲|编曲|主题曲"),
+        re.compile(r"\b(make|write|generate|compose) (a )?(song|music)\b", re.IGNORECASE),
+    ),
+    "voice_tts": (
+        re.compile(r"朗读|读出来|念出来|配(个|段|一)?音|语音合成|转语音|播报|文字转语音|文本转语音"),
+        re.compile(r"\b(text to speech|read (it |this )?aloud|speak (it )?out)\b", re.IGNORECASE),
+    ),
+}
+
+# 媒体工具结果渲染规范:注入 system,让 LLM 把工具返回的媒体 URL 以 Markdown
+# 形式直接嵌入回复(对话即所得,前端无需二次处理;data URI 超长禁止回贴)。
+_MEDIA_RENDER_PROMPT = (
+    "媒体生成工具结果渲染规范(务必遵守):\n"
+    "- image_generation 成功且 image_url 是 http(s) 链接:必须在回复中用 ![图片](image_url) "
+    "原样嵌入,让用户直接看到图片\n"
+    "- video_generation 成功且 video_url 是 http(s) 链接:用 [▶️ 观看视频](video_url) 嵌入\n"
+    "- music_generation 成功且 audio_url 是 http(s) 链接:用 [🎧 播放音乐](audio_url) 嵌入\n"
+    "- voice_tts 的 audio_url 是 data URI(base64,超长):绝不要把 base64 内容贴进回复,"
+    "只告知语音已生成可播放;有 saved_path 时一并告知\n"
+    "- 返回 submitted=true 且带 task_id(视频/音乐长任务):明确告知任务已提交与预计耗时,"
+    "提醒用户稍后让你用该 task_id 查询取件,严禁谎称已完成\n"
+    "- ok=false 时如实告知失败原因与已尝试的 provider,不要编造链接"
+)
+
 
 async def _execute_tool_call(
     tool_name: str, args: dict[str, Any]
@@ -197,6 +244,11 @@ class ConversationService:
             "music_generation": ["音乐", "歌曲", "写歌", "做首歌", "唱", "配乐", "作曲", "编曲", "music", "song"],
             # 语音合成(2026-09-08):说"朗读/读出来/配音"时触发文本转语音(edge 零成本默认)
             "voice_tts": ["朗读", "读出来", "读一下", "念出来", "配音", "语音合成", "转语音", "播报", "tts", "text to speech"],
+            # 图片生成(2026-09-08 全模态自动路由):说"画一张/生成图片"时触发图片生成
+            "image_generation": [
+                "画", "绘图", "插画", "海报", "头像", "生成图片", "生成一张", "画一张",
+                "画个", "来一张图", "封面图", "图标", "logo", "image", "draw", "poster",
+            ],
         }
 
     # =========================================================================
@@ -253,6 +305,7 @@ class ConversationService:
             # 3. 工具选择
             t0 = time.monotonic()
             tools: list[dict[str, Any]] = []
+            media_tools: list[str] = []
             if allowed_tools is not None:
                 tools = self._filter_tools(allowed_tools)
             elif intent.needs_tool and intent.suggested_tools:
@@ -261,11 +314,25 @@ class ConversationService:
                 # 关键词 fallback
                 guessed = self._keyword_tool_select(user_input)
                 tools = self._filter_tools(guessed)
+            else:
+                # 全模态自动路由(2026-09-08):intent 未判 needs_tool 但媒体强信号命中
+                # → 直接注入对应媒体工具(自动切换多模态调用)
+                media_tools = self._media_intent_tools(user_input)
+                if media_tools:
+                    tools = self._filter_tools(media_tools)
+            # intent 已选工具时补并媒体预路由命中项(去重),防 LLM 分类漏判媒体模态
+            if allowed_tools is None and not media_tools:
+                media_tools = self._media_intent_tools(user_input)
+                existing = {t.get("function", {}).get("name") for t in tools}
+                extra = [m for m in media_tools if m not in existing]
+                if extra:
+                    tools.extend(self._filter_tools(extra))
             trace.append({
                 "node": "tool_select",
                 "duration_ms": round((time.monotonic() - t0) * 1000, 2),
                 "tool_count": len(tools),
                 "tool_names": [t.get("function", {}).get("name") for t in tools],
+                **({"media_routed": media_tools} if media_tools else {}),
             })
 
             # 4. 加载历史上下文
@@ -273,18 +340,20 @@ class ConversationService:
             messages: list[dict[str, Any]] = []
             # 工具结果诚实报告指令:防止 LLM 在 tool 失败时幻觉"已完成"
             if tools:
-                messages.append({
-                    "role": "system",
-                    "content": (
-                        "你是一个能调用工具的 AI 助手。调用工具后,务必检查返回结果中的 ok 字段:\n"
-                        "- ok=true:工具执行成功,可以告诉用户已完成\n"
-                        "- ok=false:工具执行失败,必须如实告知用户失败原因"
-                        "(包括 errorCode/error 字段),"
-                        "禁止声称已完成或成功\n"
-                        "常见失败场景:TARGET_NOT_CONNECTED(浏览器扩展/桌面端未连接)、TIMEOUT(执行超时)、"
-                        "SELECTOR_NOT_FOUND(元素未找到)。遇到这些错误时,引导用户检查对应端是否已启动。"
-                    ),
-                })
+                guidance = (
+                    "你是一个能调用工具的 AI 助手。调用工具后,务必检查返回结果中的 ok 字段:\n"
+                    "- ok=true:工具执行成功,可以告诉用户已完成\n"
+                    "- ok=false:工具执行失败,必须如实告知用户失败原因"
+                    "(包括 errorCode/error 字段),"
+                    "禁止声称已完成或成功\n"
+                    "常见失败场景:TARGET_NOT_CONNECTED(浏览器扩展/桌面端未连接)、TIMEOUT(执行超时)、"
+                    "SELECTOR_NOT_FOUND(元素未找到)。遇到这些错误时,引导用户检查对应端是否已启动。"
+                )
+                # 媒体工具在场 → 追加 Markdown 渲染规范(图/音/视频对话即所得)
+                _media_set = set(_MEDIA_INTENT_PATTERNS)
+                if any(t.get("function", {}).get("name") in _media_set for t in tools):
+                    guidance += "\n\n" + _MEDIA_RENDER_PROMPT
+                messages.append({"role": "system", "content": guidance})
             # P0:用户画像 + 跨会话记忆注入(孤岛能力打通,与 v2 的 L1-1 记忆闭环一致;
             # 失败/拿不到 user_id 均降级不阻塞对话)
             try:
@@ -719,6 +788,20 @@ class ConversationService:
                 matches.append((score, tool))
         matches.sort(reverse=True)
         return [t for _, t in matches[:3]]
+
+    @staticmethod
+    def _media_intent_tools(text: str) -> list[str]:
+        """媒体模态预路由(2026-09-08 全模态自动切换):强信号正则命中 → 对应工具名。
+
+        与 _keyword_tool_select 的区别:那里是"猜 top3"的兜底,这里是按模态精确判定,
+        命中即无条件并入 tool loop 工具集(不受 LLM 意图分类质量影响)。
+        负样本控制:模式要求"动词+媒体宾语"结构,"看看图片/上传图片/这张照片"不会命中。
+        """
+        out: list[str] = []
+        for tool, patterns in _MEDIA_INTENT_PATTERNS.items():
+            if any(p.search(text) for p in patterns):
+                out.append(tool)
+        return out
 
     # =========================================================================
     # 私有:序列化
