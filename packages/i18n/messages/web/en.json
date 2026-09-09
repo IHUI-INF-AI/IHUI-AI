@@ -1936,7 +1936,7 @@
           "noData": "No questions",
           "noPaperSelected": "Please select a paper first",
           "optionsJsonError": "Options JSON error: {msg}",
-          "optionsPlaceholder": "[{\"key\":\"A\",\"text\":\"Option A\"}]",
+          "optionsPlaceholder": "['{'\"key\":\"A\",\"text\":\"Option A\"'}']",
           "paperRequired": "Please select a paper first",
           "save": "Save",
           "selectPaper": "Select Paper",
@@ -1968,7 +1968,7 @@
           "noDataWithType": "No {type} yet",
           "optionsJson": "Options (JSON)",
           "optionsJsonError": "Options JSON error: {message}",
-          "optionsPlaceholder": "[{\"key\":\"A\",\"text\":\"Option A\"}]",
+          "optionsPlaceholder": "['{'\"key\":\"A\",\"text\":\"Option A\"'}']",
           "paperRequired": "Please select a paper first",
           "save": "Save",
           "score": "Score",
@@ -4702,7 +4702,8 @@
           "salesInvalid": "Sales cannot be negative",
           "stockInvalid": "Stock cannot be negative",
           "typeRequired": "Please enter product type"
-        }
+        },
+        "exportBtn": "Export"
       },
       "withdrawals": {
         "allStatus": "All Status",
@@ -4895,7 +4896,7 @@
       "exportSuccess": "Export successful",
       "exportTab": "Export",
       "importFailed": "{count} failed",
-      "importHint": "Select a JSON file to import skills (file format: { skills: [...] })",
+      "importHint": "Select a JSON file to import skills (file format: '{' skills: [...] '}')",
       "importPartial": "Import complete: {success} succeeded, {failed} failed",
       "importSuccess": "Successfully imported {count} skills",
       "importTab": "Import",
@@ -6204,7 +6205,7 @@
       "colType": "Type",
       "config": "Config",
       "configHint": "Please enter a valid JSON object",
-      "configPlaceholder": "'{'\"host\": \"smtp.example.com\", \"port\": 587'}'",
+      "configPlaceholder": "'''{'''\"host\": \"smtp.example.com\", \"port\": 587'''}'''",
       "confirmDelete": "Confirm Delete",
       "createChannel": "New Channel",
       "delete": "Delete",
@@ -7615,7 +7616,7 @@
     "importJsonEmpty": "Please paste JSON data",
     "importJsonInvalid": "Invalid JSON format",
     "importNameRequired": "Missing name field",
-    "importPlaceholder": "'{'\n  \"name\": \"my-skill\",\n  \"description\": \"...\",\n  \"icon\": \"wand2\",\n  \"category\": \"ai-top\",\n  \"tags\": [],\n  \"promptTemplate\": \"...\",\n  \"sourceUrl\": \"\"\n'}'",
+    "importPlaceholder": "'''{'''\n  \"name\": \"my-skill\",\n  \"description\": \"...\",\n  \"icon\": \"wand2\",\n  \"category\": \"ai-top\",\n  \"tags\": [],\n  \"promptTemplate\": \"...\",\n  \"sourceUrl\": \"\"\n'''}'''",
     "importSuccess": "Imported {name}",
     "importTitle": "Import AI Skill",
     "importing": "Importing…",
@@ -8967,32 +8968,58 @@
     "commands": {
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       }
     },
@@ -9178,7 +9205,11 @@
     "forbidden": "Forbidden",
     "forgotPassword": "Forgot Password",
     "login": "Login",
-    "status": "Status"
+    "status": "Status",
+    "export": "Export",
+    "add": "Add",
+    "submit": "Submit",
+    "error": "Error"
   },
   "contactPage": {
     "addressTitle": "Company address",
@@ -9606,7 +9637,7 @@
   "developerPricingPage": {
     "cardDesc": "Model prices & billing rules",
     "cardLabel": "API Pricing",
-    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      { \"role\": \"user\", \"content\": \"Hello, please introduce yourself\" }\n    ],\n    \"temperature\": 0.7\n  }'",
+    "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '''{'\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      '{' \"role\": \"user\", \"content\": \"Hello, please introduce yourself\" '}'\n    ],\n    \"temperature\": 0.7\n  '}'''",
     "codeNode": "import OpenAI from 'openai'\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: 'https://api.ihui-ai.com/v1',\n})\n\nconst completion = await client.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'user', content: 'Hello, please introduce yourself' },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// Track cost\nconst usage = completion.usage\nconsole.log(`Used ${usage.total_tokens} tokens`)",
     "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"Hello, please introduce yourself\"},\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# Track cost\nusage = response.usage\nprint(f\"Used {usage.total_tokens} tokens\")",
     "colCurrency": "Currency",
@@ -10819,25 +10850,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -10971,19 +11014,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -11336,7 +11391,8 @@
     "content": "Feedback Content",
     "contact": "Contact",
     "submitting": "Submitting…",
-    "submit": "Submit"
+    "submit": "Submit",
+    "subtitle": "Your feedback helps us keep improving the product."
   },
   "fields": {
     "applyTime": "Apply Time",
@@ -11651,7 +11707,10 @@
     "updatedAt": "Updated",
     "viewCount": "{count} views",
     "title": "Help center",
-    "loading": "Loading"
+    "loading": "Loading",
+    "subtitle": "Find guides, FAQs, and help articles",
+    "searchPlaceholder": "Search help articles",
+    "allArticles": "All Articles"
   },
   "home": {
     "announcement": {
@@ -13475,7 +13534,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "aiNews": {
@@ -14229,17 +14296,17 @@
         "enterprise": {
           "description": "200M tokens quota, dedicated model channel, unlimited API tokens, dedicated account manager, permanent call logs, SLA 99.95%.",
           "name": "Enterprise",
-          "price": 999
+          "price": "999"
         },
         "pro": {
           "description": "15M tokens quota, all models, 20 API tokens, priority support, 90-day call logs.",
           "name": "Pro",
-          "price": 99
+          "price": "99"
         },
         "starter": {
           "description": "1M tokens quota, basic models, 5 API tokens, community support.",
           "name": "Starter",
-          "price": 9.9
+          "price": "9.9"
         }
       }
     },
@@ -16583,7 +16650,12 @@
   },
   "searchHistory": {
     "clearAll": "Clear All",
-    "subtitle": "Your recent searches"
+    "subtitle": "Your recent searches",
+    "title": "Search History",
+    "loading": "Loading...",
+    "empty": "No search history",
+    "resultCount": "{count} result(s)",
+    "delete": "Delete"
   },
   "securityAuditPage": {
     "colDesc": "Description",
@@ -17285,7 +17357,31 @@
     "usageRules": "Usage Rules",
     "connectedAccountsUnbindSuccess": "Unbind Success",
     "notificationsLoadFailed": "Notification load failed",
-    "privacyLoadFailed": "Privacy settings load failed"
+    "privacyLoadFailed": "Privacy settings load failed",
+    "accountDeletionCancelSuccess": "Account deletion cancelled",
+    "accountDeletionStatusScheduled": "Account deletion scheduled",
+    "accountDeletionConfirm": "Confirm account deletion",
+    "accountDeletionPhoneLabel": "Phone number",
+    "accountDeletionSubmitting": "Submitting...",
+    "connectedAccountsUnbind": "Unbind",
+    "connectedAccountsBind": "Bind",
+    "connectedAccountsLoading": "Loading...",
+    "connectedAccountsCancel": "Cancel",
+    "exportJsonDesc": "Export your profile, chat history and more as a JSON file",
+    "download": "Download",
+    "exportRecreate": "Regenerate",
+    "notificationsSaveSuccess": "Notification settings saved",
+    "notificationsDesc": "Manage in-app and email notification preferences",
+    "emailNotifDesc": "Receive important updates by email",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "langEn": "English",
+    "preferencesDesc": "General preferences for theme, language and notifications",
+    "sidebar": "Sidebar",
+    "privacySaveSuccess": "Privacy settings saved",
+    "adTrackingDesc": "Allow ad delivery and measurement",
+    "personalizedRecommendationDesc": "Recommend personalized content based on your activity",
+    "privacyDesc": "Manage data sharing and personalization"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI Generated",
@@ -18024,7 +18120,7 @@
       "itemReviewed": "IHUI AI Smart Customer Service Agent",
       "reviewBody": "After three months of integrating IHUI AI Smart Customer Service, daily human-agent volume dropped from 800 to 240 (a 70% reduction). Night and holiday inquiries are now 100% handled by AI. Customer satisfaction rose from 4.1 to 4.7. The unified knowledge base keeps answers consistent across all channels (WeChat / web / miniapp), and human-AI handoff seamlessly escalates complex issues with AI-suggested responses, so the support team finally focuses on tickets that need real judgment.",
       "reviewRating": {
-        "ratingValue": 4.8
+        "ratingValue": "4.8"
       }
     }
   },
@@ -18123,7 +18219,10 @@
       },
       "title": "Notifications",
       "viewList": "List View",
-      "viewTimeline": "Timeline View"
+      "viewTimeline": "Timeline View",
+      "unreadCount": "{count} unread",
+      "loading": "Loading...",
+      "noData": "No messages"
     },
     "profile": {
       "accountInfo": "Account Info",
@@ -18221,7 +18320,8 @@
       "sourcePC": "PC",
       "subtitle": "Complete real name verification to unlock more features",
       "success": "Verification submitted successfully",
-      "title": "Real Name Verification"
+      "title": "Real Name Verification",
+      "loading": "Loading..."
     },
     "resource": {
       "empty": "No data yet",
@@ -18295,7 +18395,12 @@
       "renewNow": "Renew Now",
       "renewTitle": "Renew Subscription",
       "success": "Renewal successful",
-      "wechat": "WeChat Pay"
+      "wechat": "WeChat Pay",
+      "title": "Subscription",
+      "subtitle": "Manage your membership subscription",
+      "loading": "Loading...",
+      "activated": "Active",
+      "notSubscribed": "Not subscribed"
     },
     "subtitle": "Manage your profile, content and interactions",
     "title": "User Center"
@@ -20885,17 +20990,30 @@
   "legal": {
     "title": "Legal Information",
     "serviceSpecificTerms": {
-      "title": "Service-Specific Terms"
+      "title": "Service-Specific Terms",
+      "lastUpdated": "Last updated"
     },
     "supportedRegions": {
-      "title": "Supported Regions"
+      "title": "Supported Regions",
+      "lastUpdated": "Last updated",
+      "intro": "The availability of our services may vary by country or region due to local laws and regulations. Details are as follows.",
+      "supportedTitle": "Supported Regions",
+      "restrictedTitle": "Restricted Regions",
+      "restrictedIntro": "Users in the following regions may be unable to use all or part of our services.",
+      "paymentTitle": "Payment Methods",
+      "paymentIntro": "Supported payment methods may vary by region.",
+      "languageTitle": "Interface Language",
+      "languageIntro": "Our service supports multiple interface languages; the displayed language may vary by your region."
     },
     "terms": {
-      "title": "Terms of Service"
+      "title": "Terms of Service",
+      "lastUpdated": "Last updated"
     },
     "usagePolicy": {
-      "title": "Usage Policy"
-    }
+      "title": "Usage Policy",
+      "lastUpdated": "Last updated"
+    },
+    "backToHome": "Back to Home"
   },
   "mcpProjects": {
     "title": "MCP Projects",
@@ -21068,34 +21186,41 @@
     "refresh": "Refresh",
     "notFound": "Voice not found"
   },
-    "webToolsPage": {
-      "title": "Web Tools",
-      "subtitle": "Paste a URL to read clean content, map site links, or extract structured fields (Firecrawl fusion).",
-      "tool_fetch_readable": "Read Content",
-      "tool_map_site": "Site Map",
-      "tool_extract_web": "Extract",
-      "urlPlaceholder": "https://example.com/page",
-      "run": "Run",
-      "running": "Running...",
-      "maxChars": "Max chars",
-      "includeLinks": "Keep links",
-      "maxLinks": "Max links",
-      "sameDomainOnly": "Same domain only",
-      "fieldsLabel": "Field schema (one per line: name:type)",
-      "fieldsPlaceholder": "title: string\nprice: number",
-      "fieldsHint": "Extraction uses an LLM-first channel (falls back to heuristics); missing fields are omitted.",
-      "errorRequired": "Please enter a target URL",
-      "errorFields": "Invalid field schema: each line must be name:type",
-      "errorFailed": "Tool failed",
-      "copy": "Copy",
-      "copied": "Copied",
-      "metaRendered": "JS-rendered",
-      "metaTruncated": "truncated",
-      "metaSourceLlm": "LLM extraction",
-      "metaSourceHeuristic": "Heuristic extraction",
-      "metaTokens": "tokens {total} (in {prompt} / out {completion})",
-      "field": "Field",
-      "value": "Value",
-      "confidence": "Confidence"
-    }
+  "webToolsPage": {
+    "title": "Web Tools",
+    "subtitle": "Paste a URL to read clean content, map site links, or extract structured fields (Firecrawl fusion).",
+    "tool_fetch_readable": "Read Content",
+    "tool_map_site": "Site Map",
+    "tool_extract_web": "Extract",
+    "urlPlaceholder": "https://example.com/page",
+    "run": "Run",
+    "running": "Running...",
+    "maxChars": "Max chars",
+    "includeLinks": "Keep links",
+    "maxLinks": "Max links",
+    "sameDomainOnly": "Same domain only",
+    "fieldsLabel": "Field schema (one per line: name:type)",
+    "fieldsPlaceholder": "title: string\nprice: number",
+    "fieldsHint": "Extraction uses an LLM-first channel (falls back to heuristics); missing fields are omitted.",
+    "errorRequired": "Please enter a target URL",
+    "errorFields": "Invalid field schema: each line must be name:type",
+    "errorFailed": "Tool failed",
+    "copy": "Copy",
+    "copied": "Copied",
+    "metaRendered": "JS-rendered",
+    "metaTruncated": "truncated",
+    "metaSourceLlm": "LLM extraction",
+    "metaSourceHeuristic": "Heuristic extraction",
+    "metaTokens": "tokens {total} (in {prompt} / out {completion})",
+    "field": "Field",
+    "value": "Value",
+    "confidence": "Confidence"
+  },
+  "earnings": {
+    "title": "Earnings",
+    "subtitle": "View your earnings details and settlement",
+    "configureByok": "Configure BYOK",
+    "configureByokDesc": "Use your own API keys (BYOK) to reduce costs and increase your quota.",
+    "loading": "Loading..."
+  }
 }
