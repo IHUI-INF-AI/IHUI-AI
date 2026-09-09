@@ -55,24 +55,44 @@ export default function ExamList() {
   const goDetail = (id: string) => Taro.navigateTo({ url: `/pages/exam/detail?id=${id}` })
   const goResult = (id: string) => Taro.navigateTo({ url: `/pages/exam/result?id=${id}` })
 
+  // 对齐 RN ExamScreen header 返回键(navigateBack 失败降级回首页,同 check-in/task-center)
+  const goBack = () => {
+    Taro.navigateBack({ delta: 1 }).catch(() => {
+      Taro.switchTab({ url: '/pages/index/index' })
+    })
+  }
+
+  // 卡片对齐 RN ExamScreen card:p28rpx 圆角24rpx 2rpx描边(border);标题 36rpx/700 最多2行
   const renderPaper = (e: Exam) => (
     <ThemeRoot>
-      <View key={e.id} className="bg-card rounded-2xl p-4 mb-3" onClick={() => goDetail(e.id)}>
-        <View className="flex justify-between items-center">
-          <Text className="text-base text-foreground font-semibold">{e.title}</Text>
-          {e.categoryName && <Text className="text-xs text-primary">{e.categoryName}</Text>}
+      <View
+        key={e.id}
+        className="bg-card rounded-[24rpx] p-[28rpx] mb-[20rpx] border border-solid border-border"
+        onClick={() => goDetail(e.id)}
+      >
+        <View className="flex justify-between items-start gap-[16rpx]">
+          <Text className="flex-1 text-[36rpx] font-bold text-foreground text-ellipsis-2">
+            {e.title}
+          </Text>
+          {e.categoryName && (
+            <View className="px-[16rpx] py-[8rpx] rounded-[16rpx] bg-[var(--color-muted)] shrink-0">
+              <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                {e.categoryName}
+              </Text>
+            </View>
+          )}
         </View>
-        <View className="flex gap-3 mt-2">
-          <Text className="text-xs text-muted-foreground">
+        <View className="flex flex-wrap gap-x-[24rpx] gap-y-[8rpx] mt-[16rpx]">
+          <Text className="text-[28rpx] text-muted-foreground">
             {t('exam.questions', { n: e.questionCount })}
           </Text>
-          <Text className="text-xs text-muted-foreground">
+          <Text className="text-[28rpx] text-muted-foreground">
             {t('exam.minutes', { n: e.duration })}
           </Text>
-          <Text className="text-xs text-muted-foreground">
+          <Text className="text-[28rpx] text-muted-foreground">
             {t('exam.passScore', { n: e.passScore })}
           </Text>
-          <Text className="text-xs text-muted-foreground">
+          <Text className="text-[28rpx] text-muted-foreground">
             {t('exam.totalScore', { n: e.totalScore })}
           </Text>
         </View>
@@ -84,24 +104,46 @@ export default function ExamList() {
     const paper = paperMap.get(r.paperId)
     return (
       <ThemeRoot>
-        <View key={r.id} className="bg-card rounded-2xl p-4 mb-3" onClick={() => goResult(r.id)}>
-          <View className="flex justify-between items-center">
-            <Text className="text-base text-foreground font-semibold">
+        <View
+          key={r.id}
+          className="bg-card rounded-[24rpx] p-[28rpx] mb-[20rpx] border border-solid border-border"
+          onClick={() => goResult(r.id)}
+        >
+          <View className="flex justify-between items-start gap-[16rpx]">
+            <Text className="flex-1 text-[36rpx] font-bold text-foreground text-ellipsis-2">
               {paper?.title ?? t('exam.removedPaper')}
             </Text>
-            <Text className={`text-xs ${r.isPassed ? 'text-primary' : 'text-destructive'}`}>
-              {r.isPassed ? t('exam.passed') : t('exam.notPassed')}
-            </Text>
+            <View
+              className={`px-[16rpx] py-[8rpx] rounded-[16rpx] shrink-0 ${
+                r.isPassed
+                  ? 'bg-[var(--color-success-light)]'
+                  : 'bg-[var(--color-danger-light)]'
+              }`}
+            >
+              <Text
+                className={`text-[22rpx] ${
+                  r.isPassed
+                    ? 'text-[var(--color-success-deep-text)]'
+                    : 'text-[var(--color-danger)]'
+                }`}
+              >
+                {r.isPassed ? t('exam.passed') : t('exam.notPassed')}
+              </Text>
+            </View>
           </View>
-          <View className="flex gap-3 mt-2">
-            <Text className="text-xs text-muted-foreground">{t('exam.score', { n: r.score })}</Text>
+          <View className="flex flex-wrap gap-x-[24rpx] gap-y-[8rpx] mt-[16rpx]">
+            <Text className="text-[28rpx] text-muted-foreground">
+              {t('exam.score', { n: r.score })}
+            </Text>
             {paper && (
-              <Text className="text-xs text-muted-foreground">
+              <Text className="text-[28rpx] text-muted-foreground">
                 {t('exam.totalScore', { n: paper.totalScore })}
               </Text>
             )}
             {r.submittedAt && (
-              <Text className="text-xs text-muted-foreground">{formatDateOnly(r.submittedAt)}</Text>
+              <Text className="text-[28rpx] text-muted-foreground">
+                {formatDateOnly(r.submittedAt)}
+              </Text>
             )}
           </View>
         </View>
@@ -120,23 +162,38 @@ export default function ExamList() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-background">
-        <View className="flex bg-card">
+        {/* header 对齐 RN ExamScreen header(px20rpx / pt24rpx 平台适配原生导航栏 / pb16rpx) */}
+        <View className="flex flex-col px-[20rpx] pt-[24rpx] pb-[16rpx]">
+          <View className="self-start" onClick={goBack}>
+            <Text className="text-[32rpx] text-muted-foreground">{t('common.back')}</Text>
+          </View>
+          <Text className="mt-[16rpx] text-[44rpx] font-semibold text-foreground">
+            {t('exam.title')}
+          </Text>
+        </View>
+
+        {/* tab 胶囊对齐 RN 共享屏 tab 样式(圆角24rpx / bg-card,激活 bg-primary 白字) */}
+        <View className="flex flex-row px-[20rpx] py-[16rpx] gap-[12rpx]">
           {TAB_KEYS.map((item) => (
             <View
               key={item.key}
-              className={`flex-1 py-3 text-center text-sm ${tab === item.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
+              className={`px-[24rpx] py-[12rpx] rounded-[24rpx] ${
+                tab === item.key ? 'bg-primary' : 'bg-card'
+              }`}
               onClick={() => setTab(item.key)}
             >
-              <View
-                className={`inline-block px-2 py-0.5 rounded-md ${tab === item.key ? 'bg-primary/10' : ''}`}
+              <Text
+                className={`text-[28rpx] ${
+                  tab === item.key ? 'text-primary-foreground' : 'text-muted-foreground'
+                }`}
               >
                 {t(item.labelKey)}
-              </View>
+              </Text>
             </View>
           ))}
         </View>
 
-        <View className="p-3">
+        <View className="p-[28rpx] pb-[64rpx]">
           {tab === 'completed'
             ? records.map((r) => renderRecord(r))
             : tab === 'pending'
@@ -144,9 +201,17 @@ export default function ExamList() {
               : papers.map((e) => renderPaper(e))}
         </View>
 
+        {/* 空态/加载态对齐 RN emptyText(28rpx text-tertiary 居中) */}
         {!loading && curList.length === 0 && (
-          <View className="text-center py-16 text-muted-foreground">
-            <Text>{t(emptyKey)}</Text>
+          <View className="flex justify-center py-[80rpx]">
+            <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">{t(emptyKey)}</Text>
+          </View>
+        )}
+        {loading && curList.length === 0 && (
+          <View className="flex justify-center py-[80rpx]">
+            <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">
+              {t('common.loading')}
+            </Text>
           </View>
         )}
       </View>

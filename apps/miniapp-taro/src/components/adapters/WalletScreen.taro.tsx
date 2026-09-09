@@ -159,15 +159,17 @@ const viewStyles = {
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: toRpx(16),
-    paddingRight: toRpx(16),
+    // 对齐 RN paddingHorizontal 10 / paddingVertical 12 (dp→rpx 1:2)
+    paddingLeft: toRpx(10),
+    paddingRight: toRpx(10),
     paddingTop: toRpx(12),
     paddingBottom: toRpx(12),
     backgroundColor: tk.surface.bg,
   }),
   backBtn: (): CSSProperties => ({
-    paddingLeft: toRpx(4),
-    paddingRight: toRpx(4),
+    // 对齐 RN hitSlop 8 (dp→rpx 1:2)
+    paddingLeft: toRpx(8),
+    paddingRight: toRpx(8),
     paddingTop: toRpx(8),
     paddingBottom: toRpx(8),
     marginRight: toRpx(12),
@@ -177,10 +179,11 @@ const viewStyles = {
     backgroundColor: tk.surface.bg,
   }),
   bodyInner: (tk: RnThemeTokens): CSSProperties => ({
-    paddingLeft: toRpx(16),
-    paddingRight: toRpx(16),
-    paddingTop: toRpx(16),
-    paddingBottom: toRpx(16),
+    // 对齐 RN body padding 10 (dp→rpx 1:2)
+    paddingLeft: toRpx(10),
+    paddingRight: toRpx(10),
+    paddingTop: toRpx(10),
+    paddingBottom: toRpx(10),
     backgroundColor: tk.surface.bg,
   }),
   center: (): CSSProperties => ({
@@ -190,13 +193,14 @@ const viewStyles = {
     paddingBottom: toRpx(48),
   }),
   card: (tk: RnThemeTokens): CSSProperties => ({
-    paddingLeft: toRpx(16),
-    paddingRight: toRpx(16),
-    paddingTop: toRpx(16),
-    paddingBottom: toRpx(16),
-    borderRadius: toRpx(8),
+    // 对齐 RN card padding 12 / borderRadius 12 / marginBottom 12 (dp→rpx 1:2)
+    paddingLeft: toRpx(12),
+    paddingRight: toRpx(12),
+    paddingTop: toRpx(12),
+    paddingBottom: toRpx(12),
+    borderRadius: toRpx(12),
     border: `1px solid ${tk.border.light}`,
-    marginBottom: toRpx(8),
+    marginBottom: toRpx(12),
     backgroundColor: tk.surface.light,
   }),
   actions: (): CSSProperties => ({
@@ -206,10 +210,10 @@ const viewStyles = {
   }),
   rechargeBtn: (tk: RnThemeTokens): CSSProperties => ({
     flex: 1,
-    paddingTop: toRpx(12),
-    paddingBottom: toRpx(12),
-    borderRadius: toRpx(8),
-    backgroundColor: tk.success.DEFAULT,
+    // 对齐 RN rechargeBtn height 50 / borderRadius 12 / brand 底 (dp→rpx 1:2)
+    height: toRpx(50),
+    borderRadius: toRpx(12),
+    backgroundColor: tk.brand.DEFAULT,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -217,9 +221,9 @@ const viewStyles = {
   }),
   withdrawBtn: (tk: RnThemeTokens): CSSProperties => ({
     flex: 1,
-    paddingTop: toRpx(12),
-    paddingBottom: toRpx(12),
-    borderRadius: toRpx(8),
+    // 对齐 RN withdrawBtn height 44 / borderRadius 12 (dp→rpx 1:2)
+    height: toRpx(44),
+    borderRadius: toRpx(12),
     border: `1px solid ${tk.border.light}`,
     display: 'flex',
     alignItems: 'center',
@@ -231,43 +235,50 @@ const viewStyles = {
 
 const textStyles = {
   backText: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(14),
+    // 对齐 RN backText fontSize 16 (dp→rpx 1:2)
+    fontSize: toRpx(16),
     color: tk.text.medium,
   }),
   title: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(18),
+    // 对齐 RN title fontSize 20 / fontWeight 600 (dp→rpx 1:2)
+    fontSize: toRpx(20),
     fontWeight: 600,
     color: tk.text.primary,
   }),
   errorText: (tk: RnThemeTokens): CSSProperties => ({
-    paddingLeft: toRpx(16),
-    paddingRight: toRpx(16),
-    paddingBottom: toRpx(4),
-    fontSize: toRpx(12),
+    // 对齐 RN errorText paddingHorizontal 10 / fontSize 14 (dp→rpx 1:2)
+    paddingLeft: toRpx(10),
+    paddingRight: toRpx(10),
+    fontSize: toRpx(14),
     color: tk.danger.DEFAULT,
   }),
   muted: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(12),
+    // 对齐 RN muted fontSize 14 (dp→rpx 1:2)
+    fontSize: toRpx(14),
     color: tk.text.secondary,
   }),
   cardLabel: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(12),
+    // 对齐 RN cardLabel fontSize 14 (dp→rpx 1:2)
+    fontSize: toRpx(14),
     color: tk.text.tertiary,
   }),
   cardValue: (tk: RnThemeTokens, muted: boolean): CSSProperties => ({
-    marginTop: toRpx(4),
-    fontSize: toRpx(20),
-    fontWeight: 600,
+    // 对齐 RN cardValue marginTop 8 / fontSize 22 / fontWeight 700 (dp→rpx 1:2)
+    marginTop: toRpx(8),
+    fontSize: toRpx(22),
+    fontWeight: 700,
     color: muted ? tk.text.secondary : tk.text.primary,
   }),
   rechargeBtnText: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(14),
+    // 对齐 RN rechargeBtnText fontSize 16 / fontWeight 600 (dp→rpx 1:2)
+    fontSize: toRpx(16),
     fontWeight: 600,
     // surface.light = 对比白字(品牌色/成功色背景上的白字,对齐 RN tokens 语义)
     color: tk.surface.light,
   }),
   withdrawBtnText: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(14),
+    // 对齐 RN withdrawBtnText fontSize 16 / fontWeight 600 (dp→rpx 1:2)
+    fontSize: toRpx(16),
     fontWeight: 600,
     color: tk.text.primary,
   }),

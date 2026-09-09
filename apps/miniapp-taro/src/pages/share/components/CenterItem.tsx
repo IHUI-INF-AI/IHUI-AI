@@ -67,10 +67,10 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
             className="center-item-card"
             style={{
               width: 'calc(50% - 8rpx)',
-              borderRadius: rpx(20),
+              borderRadius: rpx(24),
               overflow: 'hidden',
+              border: '2rpx solid var(--color-border)',
               background: 'var(--color-card)',
-              boxShadow: '0 2rpx 8rpx var(--color-black-5)',
             }}
             onClick={() => onItemClick?.(item)}
           >

@@ -11,8 +11,6 @@ import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { fetchApi } from '@ihui/api-client'
 import type { ActivityItem } from '@ihui/types'
 import { useTt } from '@/i18n'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
-import { useAppTheme } from '@/lib/theme'
 import ThemeRoot from '@/components/ThemeRoot'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
@@ -32,20 +30,26 @@ const ACTIVITY_STATUS_FALLBACK: Record<ActivityItem['status'], string> = {
 }
 
 // 对齐共享屏 statusColor:ongoing→brand,upcoming→amber,ended→tertiary
-function statusColor(status: ActivityItem['status'], tk: RnThemeTokens): string {
-  if (status === 'ongoing') return tk.brand.DEFAULT
-  if (status === 'upcoming') return tk.warning.amber
-  return tk.text.tertiary
+// (RN token → app.css 语义变量,暗色经 ThemeRoot .dark 自动适配)
+function statusColor(status: ActivityItem['status']): string {
+  if (status === 'ongoing') return 'var(--color-brand)'
+  if (status === 'upcoming') return 'var(--color-warning-amber)'
+  return 'var(--color-text-tertiary)'
 }
 
-// ===== 样式函数(view/text 分组,避免 style 联合类型;对齐共享屏 createStyles) =====
+// ===== 样式函数(view/text 分组,避免 style 联合类型;对齐共享屏 createStyles)=====
+// 颜色全部引用 app.css 语义 token(与 RN rn-tokens 一一映射):
+// surface.bg→--color-background / surface.light(卡片白底)→--color-card /
+// border.light→--color-border / text.primary→--color-foreground / text.secondary→--color-muted-foreground /
+// text.tertiary→--color-text-tertiary / brand.DEFAULT→--color-brand / danger.DEFAULT→--color-danger /
+// 徽章文字(RN surface.light 对比字)→--color-primary-foreground(亮白/暗黑,暗色下徽章底色提亮后保持可读)
 
 const viewStyles = {
-  container: (tk: RnThemeTokens): CSSProperties => ({
+  container: (): CSSProperties => ({
     display: 'flex',
     flexDirection: 'column',
     height: '100vh',
-    backgroundColor: tk.surface.bg,
+    backgroundColor: 'var(--color-background)',
   }),
   header: (): CSSProperties => ({
     display: 'flex',
@@ -74,13 +78,13 @@ const viewStyles = {
   separator: (): CSSProperties => ({
     height: toRpx(12),
   }),
-  card: (tk: RnThemeTokens): CSSProperties => ({
+  card: (): CSSProperties => ({
     padding: toRpx(14),
     borderRadius: toRpx(12),
-    borderWidth: '1px',
+    borderWidth: '2rpx',
     borderStyle: 'solid',
-    borderColor: tk.border.light,
-    backgroundColor: tk.surface.light,
+    borderColor: 'var(--color-border)',
+    backgroundColor: 'var(--color-card)',
   }),
   titleRow: (): CSSProperties => ({
     display: 'flex',
@@ -109,56 +113,54 @@ const viewStyles = {
 }
 
 const textStyles = {
-  back: (tk: RnThemeTokens): CSSProperties => ({
+  back: (): CSSProperties => ({
     fontSize: toRpx(16),
-    color: tk.text.medium,
+    color: 'var(--color-text-medium)',
   }),
-  title: (tk: RnThemeTokens): CSSProperties => ({
+  title: (): CSSProperties => ({
     flex: 1,
     fontSize: toRpx(20),
     fontWeight: '700',
-    color: tk.text.primary,
+    color: 'var(--color-foreground)',
   }),
-  error: (tk: RnThemeTokens): CSSProperties => ({
+  error: (): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.danger.DEFAULT,
+    color: 'var(--color-danger)',
   }),
-  muted: (tk: RnThemeTokens): CSSProperties => ({
+  muted: (): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.text.secondary,
+    color: 'var(--color-muted-foreground)',
     marginTop: toRpx(8),
   }),
-  cardTitle: (tk: RnThemeTokens): CSSProperties => ({
+  cardTitle: (): CSSProperties => ({
     flex: 1,
     fontSize: toRpx(16),
     fontWeight: '700',
-    color: tk.text.primary,
+    color: 'var(--color-foreground)',
   }),
-  badgeText: (tk: RnThemeTokens): CSSProperties => ({
+  badgeText: (): CSSProperties => ({
     fontSize: toRpx(10),
-    color: tk.surface.light,
+    color: 'var(--color-primary-foreground)',
   }),
-  cardDesc: (tk: RnThemeTokens): CSSProperties => ({
+  cardDesc: (): CSSProperties => ({
     marginTop: toRpx(8),
     fontSize: toRpx(14),
     lineHeight: toRpx(18),
-    color: tk.text.medium,
+    color: 'var(--color-text-medium)',
   }),
-  meta: (tk: RnThemeTokens): CSSProperties => ({
+  meta: (): CSSProperties => ({
     marginTop: toRpx(8),
     fontSize: toRpx(11),
-    color: tk.text.tertiary,
+    color: 'var(--color-text-tertiary)',
   }),
-  joinText: (tk: RnThemeTokens): CSSProperties => ({
+  joinText: (): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.brand.DEFAULT,
+    color: 'var(--color-brand)',
   }),
 }
 
 export default function ActivityList() {
   const tt = useTt()
-  const { resolved: appTheme } = useAppTheme()
-  const tk = getRnTokens(appTheme)
   // 对齐 mobile-rn ActivityScreen wrapper 状态机:items/loading/error + load/onRefresh
   const [items, setItems] = useState<ActivityItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -194,40 +196,42 @@ export default function ActivityList() {
 
   return (
     <ThemeRoot>
-      <View style={viewStyles.container(tk)}>
+      <View style={viewStyles.container()}>
         <View style={viewStyles.header()}>
           <View onTap={goBack}>
-            <Text style={textStyles.back(tk)}>{tt('common.back', '返回')}</Text>
+            <Text style={textStyles.back()}>{tt('common.back', '返回')}</Text>
           </View>
-          <Text style={textStyles.title(tk)}>{tt('activity.title', '平台活动')}</Text>
+          <Text style={textStyles.title()}>{tt('activity.title', '平台活动')}</Text>
         </View>
 
         {error ? (
           <View style={viewStyles.errorText()}>
-            <Text style={textStyles.error(tk)}>{error}</Text>
+            <Text style={textStyles.error()}>{error}</Text>
           </View>
         ) : null}
 
         {loading && items.length === 0 ? (
           <View style={viewStyles.center()}>
-            <Text style={textStyles.muted(tk)}>{tt('common.loading', '加载中...')}</Text>
+            <Text style={textStyles.muted()}>{tt('common.loading', '加载中...')}</Text>
           </View>
         ) : (
           <ScrollView scrollY style={{ flex: 1 }}>
             <View style={viewStyles.listBody()}>
               {items.length === 0 ? (
                 <View style={viewStyles.center()}>
-                  <Text style={textStyles.muted(tk)}>{tt('activity.empty', '暂无活动')}</Text>
+                  <Text style={textStyles.muted()}>{tt('activity.empty', '暂无活动')}</Text>
                 </View>
               ) : (
                 items.map((item, index) => (
                   <View key={item.id}>
                     {index > 0 ? <View style={viewStyles.separator()} /> : null}
-                    <View style={viewStyles.card(tk)}>
+                    <View style={viewStyles.card()}>
                       <View style={viewStyles.titleRow()}>
-                        <Text style={textStyles.cardTitle(tk)}>{item.title}</Text>
-                        <View style={viewStyles.badge(statusColor(item.status, tk))}>
-                          <Text style={textStyles.badgeText(tk)}>
+                        <Text style={textStyles.cardTitle()} className="text-ellipsis">
+                          {item.title}
+                        </Text>
+                        <View style={viewStyles.badge(statusColor(item.status))}>
+                          <Text style={textStyles.badgeText()}>
                             {tt(
                               ACTIVITY_STATUS_KEYS[item.status],
                               ACTIVITY_STATUS_FALLBACK[item.status],
@@ -235,18 +239,20 @@ export default function ActivityList() {
                           </Text>
                         </View>
                       </View>
-                      <Text style={textStyles.cardDesc(tk)}>{item.description}</Text>
-                      <Text style={textStyles.meta(tk)}>
+                      <Text style={textStyles.cardDesc()} className="text-ellipsis-2">
+                        {item.description}
+                      </Text>
+                      <Text style={textStyles.meta()}>
                         {`${tt('activity.startTime', '开始时间')}: ${item.startTime}`}
                       </Text>
-                      <Text style={textStyles.meta(tk)}>
+                      <Text style={textStyles.meta()}>
                         {`${tt('activity.endTime', '结束时间')}: ${item.endTime}`}
                       </Text>
-                      <Text style={textStyles.meta(tk)}>
+                      <Text style={textStyles.meta()}>
                         {`${tt('activity.participants', '参与人数')}: ${item.participants}`}
                       </Text>
                       <View style={viewStyles.joinBtn()}>
-                        <Text style={textStyles.joinText(tk)}>
+                        <Text style={textStyles.joinText()}>
                           {tt('activity.joinNow', '立即参与')}
                         </Text>
                       </View>

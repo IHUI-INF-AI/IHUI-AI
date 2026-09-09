@@ -135,18 +135,29 @@ export default function RankingIndex() {
     Taro.navigateTo({ url: `/pages/ranking/detail?id=${id}` })
   }, [])
 
+  // 对齐 RN RankingScreen header 返回键(navigateBack 失败降级回首页,同 check-in/task-center)
+  const goBack = () => {
+    Taro.navigateBack({ delta: 1 }).catch(() => {
+      Taro.switchTab({ url: '/pages/index/index' })
+    })
+  }
+
   return (
     <View className="min-h-screen bg-background pb-[48rpx]">
-      <View className="pt-[24rpx] px-[32rpx] pb-[16rpx] bg-card">
-        <Text className="text-[36rpx] font-semibold text-primary">
+      {/* header 对齐 RN RankingScreen header(back 32rpx / 标题 48rpx/700,页底色无卡片底) */}
+      <View className="flex flex-col px-[20rpx] pt-[24rpx] pb-[16rpx]">
+        <View className="self-start mb-[16rpx]" onClick={goBack}>
+          <Text className="text-[32rpx] text-muted-foreground">{tt('common.back', '返回')}</Text>
+        </View>
+        <Text className="text-[48rpx] font-bold text-foreground">
           {tt('ranking.listTitle', 'AI榜单')}
         </Text>
       </View>
 
-      {/* 搜索框 */}
-      <View className="py-[16rpx] px-[32rpx] bg-card">
+      {/* 搜索框(对齐共享屏胶囊语言:bg-card 圆角24rpx) */}
+      <View className="py-[16rpx] px-[20rpx]">
         <Input
-          className="block w-full h-[64rpx] px-[24rpx] bg-background border border-border rounded-[8rpx] text-[26rpx] text-foreground box-border"
+          className="block w-full h-[64rpx] px-[24rpx] bg-card border border-solid border-border rounded-[24rpx] text-[28rpx] text-foreground box-border"
           placeholder={tt('ranking.searchPlaceholder', '搜索 AI 工具')}
           value={keyword}
           onInput={(e) => setKeyword(e.detail.value)}
@@ -154,17 +165,21 @@ export default function RankingIndex() {
         />
       </View>
 
-      {/* 文件类型筛选 tab */}
-      <ScrollView scrollX className="whitespace-nowrap bg-card">
-        <View className="whitespace-nowrap py-[16rpx] px-[24rpx]">
+      {/* 文件类型筛选 tab(对齐 RN RankingScreen tab:圆角24rpx / bg-card,激活 bg-primary) */}
+      <ScrollView scrollX className="whitespace-nowrap">
+        <View className="whitespace-nowrap flex flex-row py-[16rpx] px-[20rpx]">
           {FILE_TABS(tt).map((tab) => (
             <View
               key={tab.key}
-              className={`inline-flex items-center justify-center py-[12rpx] px-[32rpx] mr-[16rpx] bg-background border border-border rounded-[8rpx] ${fileType === tab.key ? 'bg-primary border-primary' : ''}`}
+              className={`inline-flex items-center justify-center py-[12rpx] px-[24rpx] mr-[12rpx] rounded-[24rpx] ${
+                fileType === tab.key ? 'bg-primary' : 'bg-card'
+              }`}
               onClick={() => onTabChange(tab.key)}
             >
               <Text
-                className={`text-[26rpx] ${fileType === tab.key ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
+                className={`text-[28rpx] ${
+                  fileType === tab.key ? 'text-primary-foreground' : 'text-muted-foreground'
+                }`}
               >
                 {tt(tab.labelKey, tab.fallback)}
               </Text>
@@ -173,9 +188,9 @@ export default function RankingIndex() {
         </View>
       </ScrollView>
 
-      {/* 榜单列表 */}
+      {/* 榜单列表(对齐 RN RankingScreen card:行布局 / p28rpx / 圆角24rpx / 2rpx描边 bg-background) */}
       {list.length ? (
-        <View className="pt-[16rpx] px-[24rpx]">
+        <View className="p-[28rpx] pb-[64rpx]">
           {list.map((item) => {
             const raw = item as Record<string, unknown>
             const logo = pick(raw, ['logo', 'avatar', 'icon', 'field1'])
@@ -188,33 +203,33 @@ export default function RankingIndex() {
             return (
               <ThemeRoot key={item.id}>
                 <View
-                  className="flex items-start bg-card border border-border rounded-[12rpx] p-[24rpx] mb-[16rpx]"
+                  className="flex items-center bg-background border border-solid border-border rounded-[24rpx] p-[28rpx] mb-[16rpx]"
                   onClick={() => goDetail(item.id)}
                 >
                   {logo ? (
                     <Image
-                      className="w-[120rpx] h-[120rpx] rounded-[12rpx] bg-background shrink-0"
+                      className="w-[88rpx] h-[88rpx] rounded-full border-[3rpx] border-solid border-border bg-[var(--color-muted)] shrink-0"
                       src={logo}
                       mode="aspectFill"
                     />
                   ) : null}
-                  <View className="flex-1 ml-[24rpx] overflow-hidden flex flex-col gap-[8rpx]">
-                    <Text className="text-[30rpx] font-semibold text-foreground leading-[1.4] line-clamp-1">
+                  <View className="flex-1 ml-[20rpx] overflow-hidden flex flex-col gap-[16rpx]">
+                    <Text className="text-[32rpx] font-semibold text-foreground leading-[1.4] line-clamp-1">
                       {name || '-'}
                     </Text>
                     {desc ? (
-                      <Text className="text-[24rpx] text-muted-foreground leading-[1.5] line-clamp-2">
+                      <Text className="text-[22rpx] text-[var(--color-text-tertiary)] leading-[1.5] line-clamp-2">
                         {desc}
                       </Text>
                     ) : null}
-                    <View className="flex flex-wrap gap-[8rpx_20rpx] mt-[4rpx]">
+                    <View className="flex flex-wrap gap-x-[24rpx] gap-y-[8rpx]">
                       <Text className="text-[22rpx] text-muted-foreground">
                         {tt('ranking.detail.attention', '关注度')}: {attention || '-'}
                       </Text>
                       <Text className="text-[22rpx] text-muted-foreground">
                         {tt('ranking.detail.category', '类别')}: {category}
                       </Text>
-                      <Text className="text-[22rpx] text-accent">
+                      <Text className="text-[22rpx] text-[var(--color-success)]">
                         {tt('ranking.detail.price', '价格')}: {price}
                       </Text>
                     </View>
@@ -227,14 +242,18 @@ export default function RankingIndex() {
       ) : null}
 
       {!loading && !list.length ? (
-        <View className="block text-center py-[80rpx] text-[28rpx] text-muted-foreground">
-          <Text>{tt('ranking.empty', '暂无数据')}</Text>
+        <View className="flex justify-center py-[64rpx]">
+          <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">
+            {tt('ranking.empty', '暂无数据')}
+          </Text>
         </View>
       ) : null}
 
       {loading ? (
-        <View className="block text-center py-[80rpx] text-[28rpx] text-muted-foreground">
-          <Text>{tt('common.loading', '加载中...')}</Text>
+        <View className="flex justify-center py-[64rpx]">
+          <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">
+            {tt('common.loading', '加载中...')}
+          </Text>
         </View>
       ) : null}
     </View>

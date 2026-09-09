@@ -99,7 +99,7 @@ const viewStyles = {
     paddingTop: toRpx(14),
     paddingBottom: toRpx(14),
     borderRadius: toRpx(16),
-    borderWidth: '1px',
+    borderWidth: toRpx(1),
     borderStyle: 'solid',
     borderColor: tk.border.light,
     marginBottom: toRpx(12),
