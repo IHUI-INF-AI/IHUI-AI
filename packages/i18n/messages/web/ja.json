@@ -21012,7 +21012,17 @@
     "total": "合計 {total} 件",
     "prev": "前へ",
     "next": "次へ",
-    "pageInfo": "{page} / {pages} ページ"
+    "pageInfo": "{page} / {pages} ページ",
+    "statsTotal": "全タスク",
+    "statsInflight": "処理中",
+    "statsSucceeded": "完了",
+    "statsFailed": "失敗",
+    "statsCancelled": "キャンセル済み",
+    "cancelAll": "処理中をすべてキャンセル",
+    "cancellingAll": "キャンセル中...",
+    "cancelAllConfirm": "処理中のタスクをすべてキャンセルしますか?処理中の長いタスクは終了されます。",
+    "cancelAllResult": "{count} 件の処理中タスクをキャンセルしました",
+    "cancelAllNone": "処理中のタスクはありません"
   },
   "voicesPage": {
     "title": "声紋ライブラリ",

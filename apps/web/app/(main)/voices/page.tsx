@@ -69,12 +69,19 @@ export default function VoicesPage() {
   const [uploading, setUploading] = React.useState(false)
   const [deleting, setDeleting] = React.useState<string | null>(null)
   const [expanded, setExpanded] = React.useState<string | null>(null)
+  const [playing, setPlaying] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [info, setInfo] = React.useState<string | null>(null)
 
   const listQuery = useQuery({
     queryKey: ['voices'],
     queryFn: () => api<{ ok: boolean; voices: VoiceItem[]; count: number }>('/voice/voices'),
+    // 2026-09-09 F6:声纹克隆是异步任务,存在克隆中(非 ready)的声纹时 5s 自动轮询,
+    // 克隆完成后自动刷新出可试听/可用的新声纹,无需手动刷新。
+    refetchInterval: (q) => {
+      const items = q.state.data?.voices ?? []
+      return items.some((v) => !STATUS_READY.has(voiceStatus(v).toLowerCase())) ? 5000 : false
+    },
   })
 
   const voices = listQuery.data?.voices ?? []
@@ -237,12 +244,10 @@ export default function VoicesPage() {
                           variant="outline"
                           size="sm"
                           className="h-6 px-1.5 text-[10px]"
-                          asChild
+                          onClick={() => setPlaying((cur) => (cur === id ? null : id))}
                         >
-                          <a href={url} target="_blank" rel="noreferrer">
-                            <PlayCircle className="mr-1 h-3 w-3" />
-                            {t('playable')}
-                          </a>
+                          <PlayCircle className="mr-1 h-3 w-3" />
+                          {playing === id ? t('statusReady') : t('playable')}
                         </Button>
                       )}
                       <Button
@@ -274,6 +279,11 @@ export default function VoicesPage() {
                       )}
                     </div>
                   </div>
+                  {playing === id && url && (
+                    <audio controls src={url} preload="metadata" className="w-full max-w-md" autoPlay>
+                      <track kind="captions" />
+                    </audio>
+                  )}
                   {isExpanded && <VoiceDetailPanel voiceId={id} />}
                 </div>
               )
