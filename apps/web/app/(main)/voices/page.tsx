@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, RefreshCw, Mic, Upload, Trash2, PlayCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import { Button } from '@ihui/ui-react'
 
 /** 声纹库管理页(2026-09-09 F4):token6688 克隆音色列表/详情/删除/上传。
@@ -68,6 +69,10 @@ async function api<T>(url: string, options: RequestInit & { timeoutMs?: number }
 export default function VoicesPage() {
   const t = useTranslations('voicesPage')
   const queryClient = useQueryClient()
+  // 声纹库是平台共享资源,删除影响所有用户 → 仅 admin(roleId>=1)可见删除按钮,
+  // 与后端 delete_voice 的 _require_admin 守卫对齐(2026-09-09 P1)。
+  const userRoleId = useAuthStore((s) => s.user?.roleId)
+  const isAdmin = (userRoleId ?? 0) >= 1
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = React.useState(false)
   const [deleting, setDeleting] = React.useState<string | null>(null)
@@ -270,7 +275,7 @@ export default function VoicesPage() {
                         {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                         {id}
                       </Button>
-                      {id && (
+                      {id && isAdmin && (
                         <Button
                           variant="ghost"
                           size="sm"
