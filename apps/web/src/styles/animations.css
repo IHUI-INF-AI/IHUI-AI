@@ -520,7 +520,7 @@
   }
 }
 .animate-icon-pop {
-  animation: icon-pop 300ms ease-out;
+  animation: icon-pop var(--duration-unified) var(--ease-unified);
   transform-origin: center;
 }
 
@@ -2473,7 +2473,7 @@
   }
 }
 .animate-fade-in-highlight {
-  animation: fadeInHighlight 600ms ease-out forwards;
+  animation: fadeInHighlight var(--duration-unified) var(--ease-unified) forwards;
 }
 
 @keyframes slideIndicator {
@@ -2572,37 +2572,37 @@
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 .animate-fade-in {
-  animation: fade-in 0.3s ease-out;
+  animation: fade-in var(--duration-unified) var(--ease-unified);
 }
 .animate-fadeIn {
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn var(--duration-unified) var(--ease-unified);
 }
 .animate-fadeOut {
-  animation: fadeOut 0.3s ease-out;
+  animation: fadeOut var(--duration-unified) var(--ease-unified);
 }
 .animate-fade-in-up {
-  animation: fade-in-up 0.3s ease-out;
+  animation: fade-in-up var(--duration-unified) var(--ease-unified);
 }
 .animate-fade-out-down {
-  animation: fade-out-down 0.3s ease-out;
+  animation: fade-out-down var(--duration-unified) var(--ease-unified);
 }
 .animate-fadeInUp {
-  animation: fadeInUp 0.5s ease-out;
+  animation: fadeInUp var(--duration-unified) var(--ease-unified);
 }
 .animate-fadeInDown {
-  animation: fadeInDown 0.5s ease-out;
+  animation: fadeInDown var(--duration-unified) var(--ease-unified);
 }
 .animate-slide-up {
-  animation: slide-up 0.3s ease;
+  animation: slide-up var(--duration-unified) var(--ease-unified);
 }
 .animate-slideUp {
-  animation: slideUp 0.5s ease-out;
+  animation: slideUp var(--duration-unified) var(--ease-unified);
 }
 .animate-slideIn {
-  animation: slideIn 0.3s ease-out;
+  animation: slideIn var(--duration-unified) var(--ease-unified);
 }
 .animate-slideDown {
-  animation: slideDown 0.3s ease-out;
+  animation: slideDown var(--duration-unified) var(--ease-unified);
 }
 .animate-slideLeft {
   animation: slideLeft 30s linear infinite;
@@ -2611,10 +2611,10 @@
   animation: slideLefta 20s linear infinite;
 }
 .animate-scale-in {
-  animation: scale-in 0.2s ease;
+  animation: scale-in var(--duration-unified) var(--ease-unified);
 }
 .animate-scale-out {
-  animation: scale-out 0.2s ease;
+  animation: scale-out var(--duration-unified) var(--ease-unified);
 }
 .animate-bounce {
   animation: bounce 2s ease-in-out infinite;
@@ -2623,7 +2623,7 @@
   animation: bouncea 2s ease-in-out infinite;
 }
 .animate-bounceIn {
-  animation: bounceIn 0.5s ease-out;
+  animation: bounceIn var(--duration-unified) var(--ease-unified);
 }
 .animate-bounce-arrow {
   animation: bounce-arrow 1.5s ease-in-out infinite;
@@ -2644,34 +2644,34 @@
   animation: rotating 2s linear infinite;
 }
 .animate-tech-slide-in {
-  animation: tech-slide-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: tech-slide-in var(--duration-unified) var(--ease-unified) both;
 }
 .animate-flipIn {
-  animation: flipIn 1s linear;
+  animation: flipIn var(--duration-unified) var(--ease-unified);
 }
 .animate-unifiedFadeIn {
-  animation: unifiedFadeIn 0.5s ease forwards;
+  animation: unifiedFadeIn var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-unifiedSlideUp {
-  animation: unifiedSlideUp 0.5s ease forwards;
+  animation: unifiedSlideUp var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-unifiedSlideLeft {
-  animation: unifiedSlideLeft 0.5s ease forwards;
+  animation: unifiedSlideLeft var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-unifiedSlideRight {
-  animation: unifiedSlideRight 0.5s ease forwards;
+  animation: unifiedSlideRight var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-ft {
-  animation: ft 0.5s ease-out;
+  animation: ft var(--duration-unified) var(--ease-unified);
 }
 .animate-fb {
-  animation: fb 0.5s ease-out;
+  animation: fb var(--duration-unified) var(--ease-unified);
 }
 .animate-fl {
-  animation: fl 0.5s ease-out;
+  animation: fl var(--duration-unified) var(--ease-unified);
 }
 .animate-fr {
-  animation: fr 0.5s ease-out;
+  animation: fr var(--duration-unified) var(--ease-unified);
 }
 
 /* ============ 微交互工具类 ============ */
@@ -2872,10 +2872,10 @@
   animation: scroll-left 8s linear infinite;
 }
 .animate-scrollReveal {
-  animation: scrollReveal 0.8s ease forwards;
+  animation: scrollReveal var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-scroll-fade-up {
-  animation: scroll-fade-up 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: scroll-fade-up var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-lightBeam {
   animation: lightBeam 3s ease-in-out infinite;
@@ -2935,7 +2935,7 @@
   animation: moveBall 2s linear infinite;
 }
 .animate-barGrow {
-  animation: barGrow 0.6s ease-out;
+  animation: barGrow var(--duration-unified) var(--ease-unified);
 }
 
 /* ============ 支付/VIP 动画工具类 ============ */
@@ -3027,28 +3027,28 @@
 /* ============ 页面过渡工具类 ============ */
 
 .animate-fadeTransition {
-  animation: fadeTransition 1s ease-in-out;
+  animation: fadeTransition var(--duration-unified) var(--ease-unified);
 }
 .animate-dissolveTransition {
-  animation: dissolveTransition 1s ease-in-out;
+  animation: dissolveTransition var(--duration-unified) var(--ease-unified);
 }
 .animate-wipeTransition {
-  animation: wipeTransition 1s ease-in-out;
+  animation: wipeTransition var(--duration-unified) var(--ease-unified);
 }
 .animate-slideTransition {
-  animation: slideTransition 1s ease-in-out;
+  animation: slideTransition var(--duration-unified) var(--ease-unified);
 }
 .animate-drawer-fade-in {
-  animation: drawer-fade-in 0.3s ease;
+  animation: drawer-fade-in var(--duration-unified) var(--ease-unified);
 }
 .animate-dialogEnter {
-  animation: dialogEnter 0.3s ease-out;
+  animation: dialogEnter var(--duration-unified) var(--ease-unified);
 }
 .animate-dropdownRevealCompact {
-  animation: dropdownRevealCompact 0.2s ease-out;
+  animation: dropdownRevealCompact var(--duration-unified) var(--ease-unified);
 }
 .animate-messageFadeIn {
-  animation: messageFadeIn 0.3s ease-out;
+  animation: messageFadeIn var(--duration-unified) var(--ease-unified);
 }
 .animate-messageHighlight {
   animation: messageHighlight 1s ease-in-out;
@@ -3090,25 +3090,25 @@
   animation: hero-progress 5s linear forwards;
 }
 .animate-toast-appear {
-  animation: toast-appear 0.3s ease;
+  animation: toast-appear var(--duration-unified) var(--ease-unified);
 }
 .animate-char-reveal {
-  animation: char-reveal 0.5s ease forwards;
+  animation: char-reveal var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-char-flip-reveal {
-  animation: char-flip-reveal 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  animation: char-flip-reveal var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-stagger-fade-in {
-  animation: stagger-fade-in 0.5s ease forwards;
+  animation: stagger-fade-in var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-tag-fade-in {
-  animation: tag-fade-in 0.5s ease forwards;
+  animation: tag-fade-in var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-course-fade-in {
-  animation: course-fade-in 0.5s ease forwards;
+  animation: course-fade-in var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-search-fade-in {
-  animation: search-fade-in 0.3s ease-out;
+  animation: search-fade-in var(--duration-unified) var(--ease-unified);
 }
 .animate-successPop {
   animation: successPop 0.4s ease;
@@ -3117,7 +3117,7 @@
   animation: shake 0.5s ease;
 }
 .animate-disapear {
-  animation: disapear 0.6s ease forwards;
+  animation: disapear var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-takeOff {
   animation: takeOff 0.8s linear forwards;
@@ -3129,10 +3129,10 @@
   animation: contrail 0.8s linear forwards;
 }
 .animate-appear {
-  animation: appear 1.2s ease forwards;
+  animation: appear var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-keyframes-fill {
-  animation: keyframes-fill 0.3s ease;
+  animation: keyframes-fill var(--duration-unified) var(--ease-unified);
 }
 .animate-blink {
   animation: blink 1s step-end infinite;
@@ -3144,40 +3144,40 @@
   animation: cursor-blink 1s step-end infinite;
 }
 .animate-modalSlideIn {
-  animation: modalSlideIn 0.3s ease-out;
+  animation: modalSlideIn var(--duration-unified) var(--ease-unified);
 }
 .animate-popupFadeIn {
-  animation: popupFadeIn 0.2s ease-out;
+  animation: popupFadeIn var(--duration-unified) var(--ease-unified);
 }
 .animate-itemFadeIn {
-  animation: itemFadeIn 0.3s ease-out;
+  animation: itemFadeIn var(--duration-unified) var(--ease-unified);
 }
 .animate-mobileMenuSlideIn {
-  animation: mobileMenuSlideIn 0.2s ease-out;
+  animation: mobileMenuSlideIn var(--duration-unified) var(--ease-unified);
 }
 .animate-agentsHeaderFadeIn {
-  animation: agentsHeaderFadeIn 0.5s ease-out;
+  animation: agentsHeaderFadeIn var(--duration-unified) var(--ease-unified);
 }
 .animate-fp-fade-in {
-  animation: fp-fade-in 0.8s ease-out;
+  animation: fp-fade-in var(--duration-unified) var(--ease-unified);
 }
 .animate-fp-stagger-in {
-  animation: fp-stagger-in 0.5s ease-out;
+  animation: fp-stagger-in var(--duration-unified) var(--ease-unified);
 }
 .animate-uc-fade-up {
-  animation: uc-fade-up 0.8s ease-out;
+  animation: uc-fade-up var(--duration-unified) var(--ease-unified);
 }
 .animate-wd-reveal {
-  animation: wd-reveal 0.8s ease forwards;
+  animation: wd-reveal var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-wd-slide-in {
-  animation: wd-slide-in 0.3s ease-out;
+  animation: wd-slide-in var(--duration-unified) var(--ease-unified);
 }
 .animate-wd-pop {
-  animation: wd-pop 0.3s ease-out;
+  animation: wd-pop var(--duration-unified) var(--ease-unified);
 }
 .animate-theme-fade-in {
-  animation: theme-fade-in 0.15s ease-out;
+  animation: theme-fade-in var(--duration-unified) var(--ease-unified);
 }
 .animate-theme-pulse {
   animation: theme-pulse 0.3s ease-in-out;
@@ -3195,28 +3195,28 @@
   animation: theme-loader-pop 0.2s ease-out;
 }
 .animate-ihui-ai-fade-in-left {
-  animation: ihui-ai-fade-in-left 0.5s ease both;
+  animation: ihui-ai-fade-in-left var(--duration-unified) var(--ease-unified) both;
 }
 .animate-ihui-ai-fade-in-top {
-  animation: ihui-ai-fade-in-top 0.5s ease both;
+  animation: ihui-ai-fade-in-top var(--duration-unified) var(--ease-unified) both;
 }
 .animate-ihui-ai-fade-in-left-global {
-  animation: ihui-ai-fade-in-left-global 1s ease-out both;
+  animation: ihui-ai-fade-in-left-global var(--duration-unified) var(--ease-unified) both;
 }
 .animate-ihui-ai-fade-in-top-global {
-  animation: ihui-ai-fade-in-top-global 1s ease-out both;
+  animation: ihui-ai-fade-in-top-global var(--duration-unified) var(--ease-unified) both;
 }
 .animate-ihui-ai-fade-in-bottom-global {
-  animation: ihui-ai-fade-in-bottom-global 1s ease-out both;
+  animation: ihui-ai-fade-in-bottom-global var(--duration-unified) var(--ease-unified) both;
 }
 .animate-ihui-ai-opacity-global {
-  animation: ihui-ai-opacity-global 0.5s ease-out both;
+  animation: ihui-ai-opacity-global var(--duration-unified) var(--ease-unified) both;
 }
 .animate-ihui-ai-flash-global {
   animation: ihui-ai-flash-global 0.5s linear;
 }
 .animate-highlight-fade-in {
-  animation: highlight-fade-in 0.5s ease;
+  animation: highlight-fade-in var(--duration-unified) var(--ease-unified);
 }
 
 /* ============ 主题切换动画工具类 ============ */
@@ -3261,7 +3261,7 @@
 /* ============ 业务特化动画工具类 ============ */
 
 .animate-slideIndicator {
-  animation: slideIndicator 0.3s ease forwards;
+  animation: slideIndicator var(--duration-unified) var(--ease-unified) forwards;
 }
 .animate-uc-glow-pulse {
   animation: uc-glow-pulse 3s ease-in-out infinite;
@@ -3270,7 +3270,7 @@
   animation: dc-glow-pulse 3s ease-in-out infinite;
 }
 .animate-dc-menu-fadeIn {
-  animation: dc-menu-fadeIn 0.15s ease-out;
+  animation: dc-menu-fadeIn var(--duration-unified) var(--ease-unified);
 }
 .animate-slide-hint {
   animation: slide-hint 1.5s ease-in-out infinite;
@@ -3355,7 +3355,7 @@
   }
 }
 .animate-mag-blur-in {
-  animation: mag-blur-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: mag-blur-in var(--duration-unified) var(--ease-unified) both;
 }
 
 /* Magazine ghost number — 大号背景数字微浮 */
@@ -3408,7 +3408,7 @@
   }
 }
 .animate-mag-row-slide {
-  animation: mag-row-slide 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: mag-row-slide var(--duration-unified) var(--ease-unified) both;
 }
 
 /* Magazine number pop — 大号数字弹入 */
@@ -3430,7 +3430,7 @@
   }
 }
 .animate-mag-number-pop {
-  animation: mag-number-pop 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: mag-number-pop var(--duration-unified) var(--ease-unified) both;
 }
 
 /* Magazine value count up glow — 数值高亮微脉冲 */
