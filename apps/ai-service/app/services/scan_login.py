@@ -337,6 +337,7 @@ class ScanTaskStore:
                     # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
                     # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
                     protocol=2,
+                    socket_connect_timeout=2,
                 )
                 self._redis.ping()
                 logger.info("[scan_login] Redis 存储已启用")
