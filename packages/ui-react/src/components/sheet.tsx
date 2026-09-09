@@ -17,7 +17,7 @@ const sheetSideVariants = cva(
   // 2026-07-31 移动端适配:padding/gap 按断点渐进放大
   //   - 默认(移动端):p-4 gap-3,sm(≥375px)及以上:p-6 gap-4
   //   - left/right 在 < sm 时占 w-[90vw] 充分利用移动端视口,sm 起恢复 w-3/4 + max-w-sm
-  'fixed z-modal flex flex-col gap-3 bg-background p-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out min-[640px]:gap-4 min-[640px]:p-6',
+  'fixed z-modal flex flex-col gap-3 bg-background p-4 shadow-lg transition data-[state=closed]:duration-(--duration-unified) data-[state=open]:duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out min-[640px]:gap-4 min-[640px]:p-6',
   {
     variants: {
       side: {
@@ -45,7 +45,7 @@ const SheetContent = React.forwardRef<
   SheetContentProps
 >(({ side = 'right', className, children, ...props }, ref) => (
   <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-white/80 dark:bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-white/80 dark:bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-(--duration-unified) ease-unified" />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(sheetSideVariants({ side }), 'rounded-lg', className)}

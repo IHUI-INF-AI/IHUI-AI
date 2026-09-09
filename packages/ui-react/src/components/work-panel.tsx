@@ -263,7 +263,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
           // - rounded-xl 对齐 AI 对话框圆角度(AI 对话框 L929 rounded-xl)
           // - overflow-hidden 保留:彻底干掉外层滚动条(2026-07-25 用户反馈)
           'relative flex h-full flex-col overflow-hidden rounded-xl bg-transparent',
-          'animate-in slide-in-from-right duration-200',
+          'animate-in slide-in-from-right duration-(--duration-unified) ease-unified',
           className,
         )}
         style={width ? { width } : undefined}
@@ -353,7 +353,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
             ref={dropdownRef}
             role="dialog"
             aria-label={labels.favoritesAndHistory}
-            className="absolute right-2 top-11 z-50 flex w-72 flex-col rounded-md border border-border bg-popover p-1.5 shadow-md animate-in fade-in-0 zoom-in-95 duration-100"
+            className="absolute right-2 top-11 z-50 flex w-72 flex-col rounded-md border border-border bg-popover p-1.5 shadow-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified"
           >
             {/* tab 切换 */}
             <div className="flex items-center gap-0.5 px-1 pb-1">
