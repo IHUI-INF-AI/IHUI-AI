@@ -938,6 +938,7 @@ class TestGetRedis:
         assert result is mock_client
         mock_aioredis.from_url.assert_called_once_with(
             settings.redis_url, decode_responses=True, protocol=2,
+            socket_connect_timeout=2,  # 2026-09-08 全仓加固:主机丢包防永久阻塞
         )
         mock_client.ping.assert_called_once()
 

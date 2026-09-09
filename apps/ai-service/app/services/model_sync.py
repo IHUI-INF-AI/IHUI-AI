@@ -1260,6 +1260,44 @@ class ModelSyncService:
 
         return ([m for m in models if isinstance(m, dict) and m.get("id")], False)
 
+    async def _ensure_provider_config(self, conn: Any, provider_code: str) -> int | None:
+        """查 provider config 行;token6688 无行时自动注册,其余 provider 返回 None。
+
+        2026-09-08 修复:此前 config 行缺失时同步静默跳过(sync log 记 success
+        但 new_models=0),112 个 token6688 模型永远进不了对话模型选择器。
+        token6688 目录免鉴权(零 key 可拉清单),属"单 key 配置即完整可用"目标
+        的前置条件,故自动注册 config 行;其他 provider 保持管理员手工注册语义。
+        """
+        config_row = await conn.fetchrow(
+            """SELECT id FROM ai_model_config
+               WHERE provider_code = $1 AND enabled = true
+               ORDER BY sort_order NULLS LAST, id LIMIT 1""",
+            provider_code,
+        )
+        if config_row:
+            return int(config_row["id"])
+        if provider_code != "token6688":
+            return None
+        from ..core.config import settings
+
+        cfg = settings.get_provider_config("token6688")
+        base_url = (cfg.api_base or "https://k.token6688.com").rstrip("/")
+        row = await conn.fetchrow(
+            """INSERT INTO ai_model_config
+                 (name, provider_code, is_builtin, base_url, api_format, enabled, description)
+               VALUES ($1, $2, true, $3, 'openai_chat', true, $4)
+               RETURNING id""",
+            "Token6688 名创AI(自动注册)",
+            provider_code,
+            base_url,
+            "TokenGo 聚合网关(单 key 全模态);由模型同步服务自动注册,免鉴权目录 /v1/skills/models",
+        )
+        logger.info(
+            "[ModelSyncService] token6688 无 config 行,已自动注册 id=%s base_url=%s",
+            row["id"], base_url,
+        )
+        return int(row["id"])
+
     async def _upsert_models_to_db(
         self,
         provider_code: str,
@@ -1288,17 +1326,12 @@ class ModelSyncService:
         async with pool.acquire() as conn:
             # F1.1 事务包裹整个 upsert(查 config + 查 existing + INSERT + UPDATE + 下架)
             async with conn.transaction():
-                # 1. 查 provider 的 config_id(第一个启用的配置行)
-                config_row = await conn.fetchrow(
-                    """SELECT id FROM ai_model_config
-                       WHERE provider_code = $1 AND enabled = true
-                       ORDER BY sort_order NULLS LAST, id LIMIT 1""",
-                    provider_code,
-                )
-                if not config_row:
+                # 1. 查 provider 的 config_id(第一个启用的配置行);
+                #    token6688 无行时自动注册(免鉴权目录,零 key 即可同步清单)
+                config_id = await self._ensure_provider_config(conn, provider_code)
+                if config_id is None:
                     logger.info("[ModelSyncService] %s 未在 DB 注册 config,跳过同步", provider_code)
                     return 0, 0, [], [], []
-                config_id = config_row["id"]
 
                 # 2. 查 DB 现有模型
                 existing_rows = await conn.fetch(
