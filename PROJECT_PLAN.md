@@ -3347,6 +3347,15 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-09) **验证**:media_tasks 专项 70 passed(68 + 新增终态 409/pending 可取消 2 条);web tsc --noEmit 0 错误;eslint 0 违规。生产 8803 重启后实测:终态任务取消返回 409、不存在任务 404、stats 端点正常;commit f47aee67b 已推送 GitHub/Gitee/GitCode 三仓;IHUI-WEB 删 .next 重建后 /media-tasks、/voices 200。
 - [ ] ⏸️ **唯一遗留(外部依赖阻塞)**:真实端到端生成/取消/声纹克隆 e2e(`apps/ai-service/scripts/e2e_token6688.py --cheap` 起步)需在 `apps/ai-service/.env` 配置 `TOKEN6688_API_KEY`(sk- 开头,或 LLM_PROVIDERS.token6688.api_key)后执行——两处当前均为空,等 key 到位即可一键验收,代码侧已无任何待办。
 
+### 第二轮:三 agent 并行穷尽审计 + P0 越权根治(2026-09-09 完成 ✅)
+
+> 触发:用户判定首轮收尾"没做完没做细有遗漏"。3 个并行审计 agent 穷尽扫描跨端消费/声纹链路/用户隔离,坐实 3 项遗漏(提交 f8b231a04,三仓已推)。
+
+- [x] ✅(2026-09-09) **P0 IDOR 越权根治(与 llm.py P0-9 同类)**:媒体任务路由此前不校验身份且 user_uuid 可选,任何登录用户可查看/取消/删除全平台任务。新增 `_user_scope` 依赖(JWT 派生 user_id/role_id,admin=role_id≥1):列表/统计/批量清理非 admin 强制按当前用户过滤;详情/单取消/删除非 admin 归属校验(不归属 404 不泄露存在性,与 agent_runtime._require_session 同策略,user_uuid='' 历史行不强制);批量取消服务层 `cancel_media_tasks` 新增 user_uuid 参数。生产 8803 实测:普通 token 列表/stats 全 0、admin 可见全部。
+- [x] ✅(2026-09-09) **声纹页终态处理**:STATUS_READY 补 complete/done/ok(与 provider _TASK_OK_STATES 对齐);新增 STATUS_FAILED 集合,failed/error/cancelled 不再 5s 无限轮询;徽章三态化(失败红色,复用现成 statusFailed 五语 key,零 i18n 改动)。
+- [x] ✅(2026-09-09) **恢复被并行会话覆盖的修复**:上轮 f47aee67b 中 media-tasks 取消按钮 isInFlight 修复被覆盖丢失(仅轮询处幸存);本轮重应用并固化流程——提交前必须 `git diff --cached` 核验关键行、提交后 grep HEAD 复核。
+- [x] ✅(2026-09-09) **验证**:专项 75 passed(70 + 5 条越权用例:_user_scope 强制过滤/详情 404/取消 404/批量取消/批量清理 scope 透传);web tsc 0 错误、eslint 0 违规;三仓 ls-remote 终验一致;web 重建后 /media-tasks、/voices 本地与公网 200。
+
 ## Firecrawl 网页工具 前端操作页 + extract_web 费用归属 收尾(2026-09-09 完成 ✅)
 
 > 触发:Firecrawl 四件套极致融合(39935d1cb → 999d792fa → b85aaad01)收尾台账两项:① extract_web 直接调 llm_gateway 的 token 费用归属未透出;② 缺网页工具专属前端操作页。本轮全部闭环。
