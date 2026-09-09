@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { Download, Trash2, FileText, Loader2, Eye } from 'lucide-react'
+import { Download, Trash2, FileText, FileCode, Loader2, Eye } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { formatDate } from '@/lib/date-utils'
@@ -20,12 +20,27 @@ export interface FileItem {
   createdAt: string | Date
 }
 
+// 2026-09-08:可转 Markdown 的扩展名(与后端 anydoc 引擎 16 格式对齐)。
+// 按钮仅对这些格式显示,避免不支持格式点击后必然报错。
+const CONVERTIBLE_EXTS = new Set([
+  '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.xlsm', '.ods',
+  '.odt', '.odp', '.rtf', '.epub', '.csv', '.pdf', '.txt', '.md', '.markdown',
+])
+
+export function isConvertibleToMarkdown(name: string): boolean {
+  const dot = name.lastIndexOf('.')
+  if (dot < 0) return false
+  return CONVERTIBLE_EXTS.has(name.slice(dot).toLowerCase())
+}
+
 export interface FileListProps {
   files: FileItem[]
   downloadingId?: string | null
   onDownload: (file: FileItem) => void
   onDelete: (file: FileItem) => void
   onPreview?: (file: FileItem) => void
+  onConvertMarkdown?: (file: FileItem) => void
+  convertingId?: string | null
 }
 
 function formatSize(bytes: number): string {
@@ -40,7 +55,15 @@ function formatSize(bytes: number): string {
   return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
 }
 
-export function FileList({ files, downloadingId, onDownload, onDelete, onPreview }: FileListProps) {
+export function FileList({
+  files,
+  downloadingId,
+  onDownload,
+  onDelete,
+  onPreview,
+  onConvertMarkdown,
+  convertingId,
+}: FileListProps) {
   const t = useTranslations('workspace')
 
   if (files.length === 0) {
@@ -68,6 +91,8 @@ export function FileList({ files, downloadingId, onDownload, onDelete, onPreview
         <tbody>
           {files.map((file) => {
             const isDownloading = downloadingId === file.id
+            const isConverting = convertingId === file.id
+            const showConvert = onConvertMarkdown && isConvertibleToMarkdown(file.name)
             return (
               <tr key={file.id} className="transition-colors hover:bg-muted/30">
                 <td className="px-4 py-3">
@@ -87,6 +112,24 @@ export function FileList({ files, downloadingId, onDownload, onDelete, onPreview
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1">
+                    {showConvert && (
+                      <Tooltip content={t('convertToMarkdown')}>
+                        <span className="inline-flex">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => onConvertMarkdown?.(file)}
+                            disabled={isConverting}
+                          >
+                            {isConverting ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <FileCode className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    )}
                     {onPreview && (
                       <Tooltip content="预览">
                         <Button

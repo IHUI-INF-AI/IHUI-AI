@@ -34,6 +34,42 @@ export interface RunStep {
   cost: number
   http_summary: string
   at: string
+  /** 1-1 全可解释(2026-09-08):原始入参(原样,未截断) */
+  input?: unknown
+  /** 该步决策:execute_tool / auto_skip_approval / plan_blocked / rejected_by_user 等 */
+  decision?: string
+  /** 决策理由(失败原因/拦截原因;成功执行为空) */
+  reason?: string
+  /** edit_file/write_file 的前后内容证据 */
+  diff?: StepDiff | null
+  /** run_command 的测试结果证据 */
+  test?: StepTest | null
+  /** checkpoint 回滚证据 */
+  rollback?: StepRollback | null
+}
+
+/** edit_file/write_file 的 diff 证据 */
+export interface StepDiff {
+  tool: string
+  path: string
+  before: string
+  after: string
+}
+
+/** run_command 的测试结果证据 */
+export interface StepTest {
+  command: string
+  exit_code: number | null
+  passed: number | null
+  failed: number | null
+}
+
+/** checkpoint 回滚证据 */
+export interface StepRollback {
+  kind: string
+  checkpoint_id: string
+  path: string
+  available: boolean
 }
 
 /** GET /api/agent-recorder/runs/{run_id}/steps 响应 */

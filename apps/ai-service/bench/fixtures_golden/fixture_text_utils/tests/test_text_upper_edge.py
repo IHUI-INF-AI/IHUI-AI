@@ -1,0 +1,11 @@
+"""to_uppercase 边界用例(golden:空字符串、大小写与数字混合)。"""
+
+from text_utils import to_uppercase
+
+
+def test_to_uppercase_empty() -> None:
+    assert to_uppercase("") == ""
+
+
+def test_to_uppercase_mixed() -> None:
+    assert to_uppercase("AbC123xYz") == "ABC123XYZ"
