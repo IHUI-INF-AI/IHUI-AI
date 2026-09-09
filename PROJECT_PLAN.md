@@ -3335,3 +3335,14 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-09) **页面遗漏根治——路由级自动声明**:新增 `TopBarBackAutoRegister`(GlobalShell 全局挂载):路径深度 ≥ 2 的子页面(agents/[id]、articles/[id]、admin/** 二级页等 60+ 路由)自动向顶栏声明返回意图,fallbackHref=一级父路由(app/(main) 全部一级目录均有 page.tsx,已穷举核对);一级列表页/首页不声明(动画收起);免返回前缀:/sso、/h5、/share(含 chat/business-card/ai-world share);en 语言镜像剥 locale 前缀后按深度判定;页面级自定义声明(useTopBarBack/<BackButton/>)优先,自动声明让位不覆盖。自此所有需要返回的页面零代码接入,无遗漏面。
 - [x] ✅(2026-09-09) **防私接守门 blocking 入门禁**:新增 `scripts/check-inline-back-button.mjs`(web 端 router.back()/history.back() 只允许出现在 GlobalTopBar 统一返回键本体;页面私写=绕过顶栏动画/降级/优先级,exit 1)→ 接入 guardian-runner 第 46 项 blocking(id 45 已被 C 盘路径扫描占用);自测:888 文件 0 违规 + 违规样本注入实测正确拦截。豁免注释行防文档性提及误报。
 - [x] ✅(2026-09-09) **验证**:新增 `topbar-back-auto.test.tsx` 6 用例全绿(二级自动声明/一级不声明/免返回前缀/en 前缀/自定义优先/路由切换换绑);layout+stores 回归 38 测试全绿;web tsc 0 错误;eslint 0 违规;guardian-runner 语法+注册项核对(blocking 56 项含 46)。
+
+## F6-F8 媒体任务/声纹库 收尾深化(2026-09-09 完成 ✅)
+
+> 触发:F6-F8(声纹库页增强/媒体任务统计概览/任务中心统计卡片+批量取消,commit 3eb19e42c)上线后复盘审计,发现前后端在途状态集不一致等 3 项收尾缺口,本轮全部根治。
+
+- [x] ✅(2026-09-09) **审计结论 1 项无风险**:路由 `POST /media/tasks/cancel` 与 `POST /media/tasks/{task_id}/cancel` 路径段数不同,FastAPI 匹配互不干扰,无需调整注册顺序。
+- [x] ✅(2026-09-09) **前端在途状态集对齐后端**:`media-tasks/page.tsx` 新增 `STATUS_IN_FLIGHT = ['processing','accepted','submitted','pending']`(与后端 `_STATUS_IN_FLIGHT` 一致),统一驱动 4 处判断:5s 轮询条件/单任务取消按钮显隐/"进行中"过滤键(改传逗号分隔多值,后端 ANY 命中)/状态徽章样式与文案(accepted/submitted/pending 复用进行中样式)。
+- [x] ✅(2026-09-09) **单任务取消终态守卫**:`routers/media_tasks.py` `media_task_cancel` 加在途校验,已终态(succeeded/failed/cancelled)返回 409 "任务已终态,无需取消"——此前误点会把终态任务翻转成 cancelled,与批量取消 `cancel_media_tasks` 的"只处理在途"语义矛盾。
+- [x] ✅(2026-09-09) **详情路由在途集合统一**:详情实时探测判断改用 `_STATUS_IN_FLIGHT`(此前硬编码三元组漏 pending)。
+- [x] ✅(2026-09-09) **验证**:media_tasks 专项 70 passed(68 + 新增终态 409/pending 可取消 2 条);web tsc --noEmit 0 错误;eslint 0 违规。生产 8803 重启后实测:终态任务取消返回 409、不存在任务 404、stats 端点正常;commit f47aee67b 已推送 GitHub/Gitee/GitCode 三仓;IHUI-WEB 删 .next 重建后 /media-tasks、/voices 200。
+- [ ] ⏸️ **唯一遗留(外部依赖阻塞)**:真实端到端生成/取消/声纹克隆 e2e(`apps/ai-service/scripts/e2e_token6688.py --cheap` 起步)需在 `apps/ai-service/.env` 配置 `TOKEN6688_API_KEY`(sk- 开头,或 LLM_PROVIDERS.token6688.api_key)后执行——两处当前均为空,等 key 到位即可一键验收,代码侧已无任何待办。
