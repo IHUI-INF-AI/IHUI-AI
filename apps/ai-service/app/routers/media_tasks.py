@@ -79,7 +79,10 @@ async def media_tasks_callback(request: Request) -> dict[str, Any]:
             logger.warning("[media_tasks] 回调验签失败: sig=%r", sig[:24])
             raise HTTPException(status_code=401, detail="签名校验失败")
     else:
-        logger.warning("[media_tasks] 回调未配置 TOKEN6688_CALLBACK_SECRET,跳过验签(建议配置)")
+        # 2026-09-09 P0 fail-closed:与 video.py 回调同修——密钥为空时此前跳过验签
+        # 继续处理 = 匿名可伪造任务终态(公开白名单端点)。现拒绝处理。
+        logger.error("[media_tasks] 回调拒绝: TOKEN6688_CALLBACK_SECRET 未配置(fail-closed)")
+        raise HTTPException(status_code=503, detail="回调密钥未配置,拒绝处理")
     event = request.headers.get("X-TokenGo-Event", "")
     try:
         snapshot = json.loads(body or b"{}")
