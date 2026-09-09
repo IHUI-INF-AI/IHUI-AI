@@ -1259,8 +1259,16 @@ class _Token6688MockClient:
         return False
 
     async def get(self, url: str, headers: dict[str, str] | None = None) -> _Token6688MockResp:
+        # 2026-09-08 目录加深后同步流程共两次 GET:skills/models → logical-models
+        urls = self._capture.setdefault("urls", [])
+        urls.append(url)
         self._capture["url"] = url
-        self._capture["headers"] = headers or {}
+        # headers 保留首次调用(skills/models 免鉴权校验用)
+        if "headers" not in self._capture:
+            self._capture["headers"] = headers or {}
+        if url.endswith("/logical-models"):
+            # logical-models 拉取在既有用例中返回空清单(降级路径,不产生富元数据)
+            return _Token6688MockResp({"models": []})
         return _Token6688MockResp(self._payload)
 
 
@@ -1316,7 +1324,7 @@ class TestToken6688KeylessSync:
             ms_mod.httpx.AsyncClient = original  # type: ignore[assignment]
         assert skip is False
         assert len(models) == 3
-        assert capture["url"] == "https://k.token6688.com/v1/skills/models"
+        assert capture["urls"][0] == "https://k.token6688.com/v1/skills/models"
         # 免鉴权端点:不应携带 Authorization(空 key 发 "Bearer " 可能被拒)
         assert "Authorization" not in capture["headers"]
 
@@ -1337,7 +1345,7 @@ class TestToken6688KeylessSync:
             )
         finally:
             ms_mod.httpx.AsyncClient = original  # type: ignore[assignment]
-        assert capture["url"] == "https://k.token6688.com/v1/skills/models"
+        assert capture["urls"][0] == "https://k.token6688.com/v1/skills/models"
         assert models[0]["id"] == "gpt-5.4"
 
     @pytest.mark.asyncio
@@ -1622,3 +1630,621 @@ class TestEnsureProviderConfig:
         got = await svc._ensure_provider_config(conn, "openrouter")
         assert got is None
         assert conn.insert_calls == 0
+
+
+# ---------------------------------------------------------------------------
+# token6688 目录加深(2026-09-08):/v1/logical-models 富元数据合并
+# ---------------------------------------------------------------------------
+
+_TOKEN6688_PRICE_NOTE_READY: bool = hasattr(ModelSyncService, "_token6688_price_note")
+_skip_if_no_t6688_price_note = pytest.mark.skipif(
+    not _TOKEN6688_PRICE_NOTE_READY, reason="等待 token6688 目录加深实现 _token6688_price_note"
+)
+
+
+class TestToken6688PriceNote:
+    """_token6688_price_note:官方计费说明 → description 展示文案。"""
+
+    @pytest.mark.skipif(not _TOKEN6688_PRICE_NOTE_READY, reason="未实现")
+    @pytest.mark.parametrize(
+        "lm, expected_substr",
+        [
+            # chat token_metered:USD/1M 双价
+            (
+                {
+                    "billing_mode": "token_metered",
+                    "input_price_per_million": 0.75,
+                    "output_price_per_million": 3.75,
+                },
+                "官方价 $0.75/1M tokens 输入 · $3.75/1M 输出(USD)",
+            ),
+            # 媒体 fixed_amount:按秒 micro USD
+            (
+                {"billing_mode": "fixed_amount", "billing_unit": "per_second", "unit_price_micro_usd": 300000},
+                "官方计费:按秒 ≈ $0.3/秒(USD)",
+            ),
+            # 按张(image)
+            (
+                {"billing_mode": "fixed_amount", "billing_unit": "per_image", "unit_price_micro_usd": 40000},
+                "官方计费:按张 ≈ $0.04/张(USD)",
+            ),
+            # 未知 billing_unit 回退原始枚举
+            (
+                {"billing_mode": "fixed_amount", "billing_unit": "per_glyph", "unit_price_micro_usd": 1000000},
+                "官方计费:per_glyph ≈ $1/per_glyph(USD)",
+            ),
+        ],
+    )
+    def test_price_note_formats(self, lm: dict, expected_substr: str) -> None:
+        note = ModelSyncService._token6688_price_note(lm)
+        assert expected_substr in note
+
+    @pytest.mark.skipif(not _TOKEN6688_PRICE_NOTE_READY, reason="未实现")
+    @pytest.mark.parametrize(
+        "lm",
+        [
+            {},  # 全空
+            {"billing_mode": "token_metered"},  # 无价格字段
+            {"billing_mode": "fixed_amount", "billing_unit": "per_second"},  # 无单价
+            {"billing_mode": "fixed_amount", "billing_unit": "per_second", "unit_price_micro_usd": 0},  # 0 价
+        ],
+    )
+    def test_price_note_empty_cases(self, lm: dict) -> None:
+        assert ModelSyncService._token6688_price_note(lm) == ""
+
+
+@pytest.mark.skipif(not _TOKEN6688_PRICE_NOTE_READY, reason="未实现")
+class TestToken6688LogicalModelsEnrichment:
+    """_fetch_upstream_models token6688 分支:合并 /v1/logical-models 富元数据。"""
+
+    class _FakeResp:
+        def __init__(self, payload, status_code=200):
+            self._payload = payload
+            self.status_code = status_code
+            self.headers = {}
+
+        def json(self):
+            return self._payload
+
+        def raise_for_status(self):
+            return None
+
+    class _FakeAsyncClient:
+        """顺序返回预置响应;记录调用 URL。"""
+
+        def __init__(self, responses):
+            self._responses = list(responses)
+            self.calls: list[str] = []
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url, headers=None):
+            self.calls.append(url)
+            return self._responses.pop(0)
+
+    _SKILLS = {
+        "models": [
+            {"name": "gemini-3.8-flash", "display_name": "GM-3.8 Flash", "type": "chat",
+             "api_endpoint": "/v1/chat/completions"},
+            {"name": "seedance-2-5", "display_name": "Seedance 2.5", "type": "video",
+             "api_endpoint": "/v1/media/generate"},
+            {"name": "dead-model", "display_name": "Dead", "type": "image",
+             "api_endpoint": "/v1/images/generations"},
+        ],
+    }
+    _LOGICAL = {
+        "models": [
+            {"id": "gemini-3.8-flash", "display_name_zh": "GM-3.8 Flash", "description_zh": "多模态模型",
+             "type": "chat", "category": "chat", "billing_mode": "token_metered", "billing_unit": "token",
+             "input_price_per_million": 0.75, "output_price_per_million": 3.75,
+             "context_window": 1048576, "health_score": 93, "icon_key": "gemini",
+             "tags": ["chat", "gemini", "flash"], "available": True, "deprecated": False},
+            {"id": "seedance-2-5", "display_name_zh": "Seedance 2.5 · 官方直连", "description_zh": "视频生成",
+             "type": "video", "category": "video", "billing_mode": "fixed_amount", "billing_unit": "per_second",
+             "unit_price_micro_usd": 300000, "health_score": 97, "icon_key": "doubao",
+             "tags": ["video", "seedance"], "available": True, "deprecated": False},
+            {"id": "dead-model", "available": False, "deprecated": False},
+        ],
+    }
+
+    @pytest.fixture()
+    def patched_fetch(self, monkeypatch):
+        import app.services.model_sync as ms_module
+
+        fake = self._FakeAsyncClient([self._FakeResp(self._SKILLS), self._FakeResp(self._LOGICAL)])
+        monkeypatch.setattr(ms_module.httpx, "AsyncClient", lambda **kw: fake)
+        return fake
+
+    @pytest.mark.asyncio
+    async def test_enrichment_merges_logical_metadata(self, patched_fetch) -> None:
+        svc = ModelSyncService()
+        models, skip = await svc._fetch_upstream_models(
+            "token6688", "https://k.token6688.com", ""
+        )
+        assert skip is False
+        # dead-model(available=false)被跳过
+        by_id = {m["id"]: m for m in models}
+        assert "dead-model" not in by_id
+        assert set(by_id) == {"gemini-3.8-flash", "seedance-2-5"}
+
+        # chat 模型:display_name_zh 覆盖 name,context_window → context_length,
+        # vendor ← icon_key,官方价拼进 description
+        chat = by_id["gemini-3.8-flash"]
+        assert chat["name"] == "GM-3.8 Flash"
+        assert chat["context_length"] == 1048576
+        assert chat["metadata"]["is_chat"] is True
+        assert chat["metadata"]["modality"] == "chat"
+        assert chat["metadata"]["vendor"] == "gemini"
+        assert chat["metadata"]["health_score"] == 93
+        assert chat["metadata"]["upstream_tags"] == ["chat", "gemini", "flash"]
+        assert "官方价 $0.75/1M tokens 输入 · $3.75/1M 输出(USD)" in chat["description"]
+        assert "多模态模型" in chat["description"]
+
+        # 媒体模型:modality=is_chat=False 保持,按秒计费说明拼进 description
+        video = by_id["seedance-2-5"]
+        assert video["metadata"]["is_chat"] is False
+        assert video["metadata"]["modality"] == "video"
+        assert video["metadata"]["vendor"] == "doubao"
+        assert "官方计费:按秒 ≈ $0.3/秒(USD)" in video["description"]
+
+        # 两次调用:skills/models + logical-models
+        assert len(patched_fetch.calls) == 2
+        assert patched_fetch.calls[0].endswith("/v1/skills/models")
+        assert patched_fetch.calls[1].endswith("/v1/logical-models")
+
+    @pytest.mark.asyncio
+    async def test_logical_fetch_failure_degrades_gracefully(self, monkeypatch) -> None:
+        """logical-models 拉取失败 → 降级为纯 skills/models 清单(不抛异常)。"""
+        import app.services.model_sync as ms_module
+
+        class _BoomClient(self._FakeAsyncClient):  # type: ignore[name-defined]
+            async def get(self, url, headers=None):
+                self.calls.append(url)
+                if len(self.calls) == 1:
+                    return TestToken6688LogicalModelsEnrichment._FakeResp(
+                        TestToken6688LogicalModelsEnrichment._SKILLS
+                    )
+                raise RuntimeError("network down")
+
+        fake = _BoomClient([])
+        monkeypatch.setattr(ms_module.httpx, "AsyncClient", lambda **kw: fake)
+        svc = ModelSyncService()
+        models, skip = await svc._fetch_upstream_models("token6688", "https://k.token6688.com", "")
+        assert skip is False
+        assert {m["id"] for m in models} == {"gemini-3.8-flash", "seedance-2-5", "dead-model"}
+        # 无富元数据时 metadata 仍带 modality(skills/models 的 type 推断)
+        assert {m["metadata"]["modality"] for m in models} == {"chat", "video", "image"}
+
+
+def test_fetch_upstream_models_token6688_enrichment_source() -> None:
+    """源码关键字检测:token6688 目录加深三要素(logical-models 拉取/停用跳过/tags 并入)。"""
+    src = _inspect.getsource(ModelSyncService._fetch_upstream_models)
+    assert "/logical-models" in src
+    # available=false / deprecated=true 跳过注册(下架比对自动回收)
+    assert 'lm.get("available") is False' in src
+    assert "lm.get(\"deprecated\")" in src
+
+
+# =============================================================================
+# v4(2026-09-08)token6688 目录极致深化:富元数据入库 + fail-fast 校验配套
+# =============================================================================
+
+
+class _V4Resp:
+    def __init__(self, payload: Any) -> None:
+        self._payload = payload
+        self.headers: dict[str, str] = {}
+        self.status_code = 200
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> Any:
+        return self._payload
+
+
+class _V4Client:
+    """顺序返回预设响应的假 AsyncClient(第 1 次=skills,第 2 次=logical)。"""
+
+    def __init__(self, responses: list[Any]) -> None:
+        self._responses = responses
+        self.calls: list[str] = []
+
+    async def get(self, url: str, headers: Any = None) -> _V4Resp:
+        self.calls.append(url)
+        idx = len(self.calls) - 1
+        item = self._responses[idx] if idx < len(self._responses) else None
+        if isinstance(item, Exception):
+            raise item
+        assert item is not None
+        return _V4Resp(item)
+
+    async def __aenter__(self) -> "_V4Client":
+        return self
+
+    async def __aexit__(self, *args: Any) -> bool:
+        return False
+
+
+_V4_SKILLS = {
+    "models": [
+        {"name": "seedance-x", "type": "video", "display_name": "Seedance X",
+         "description": "english desc"},
+        {"name": "dead-x", "type": "image"},
+        {"name": "gpt-t", "type": "chat"},
+    ]
+}
+_V4_LOGICAL = {
+    "models": [
+        {
+            "id": "seedance-x", "available": True, "type": "video",
+            "display_name_zh": "X 视频模型", "description_zh": "X 的中文描述",
+            "capabilities": ["文生视频", "图生视频"],
+            "param_schema": {
+                "mode": {"type": "enum", "enum": ["text-to-video", "first-frame"],
+                         "default": "text-to-video", "label": {"zh": "生成模式"}},
+                "count": {"type": "int", "min": 1, "max": 50, "default": 1},
+            },
+            "linkages": [{"action": "require", "affected_param": "images",
+                          "control_param": "mode", "control_value": "first-frame",
+                          "reason": "首帧模式需上传 1 张首帧图"}],
+            "max_prompt_chars": 5000, "sort_weight": 20,
+            "input_hint_zh": "直接描述画面即可", "special_tier_notice": "特价版稳定性一般",
+            "supported_vendors": ["AII"], "provider": "BYT", "public_id": "seedance-x",
+            "billing_mode": "fixed_amount", "billing_unit": "per_second",
+            "unit_price_micro_usd": 150000,
+        },
+        {"id": "dead-x", "available": False, "unavailable_reason": "已下架"},
+        {"id": "gpt-t", "available": True, "type": "chat",
+         "capabilities": ["text", "vision"], "display_name_zh": "GPT T",
+         "context_window": 128000},
+    ]
+}
+
+
+class TestToken6688CatalogV4:
+    """v4 富元数据全量入库(_fetch_upstream_models token6688 分支)。"""
+
+    @pytest.mark.asyncio
+    async def test_rich_metadata_merged(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import app.services.model_sync as ms_module
+
+        fake = _V4Client([_V4_SKILLS, _V4_LOGICAL])
+        monkeypatch.setattr(ms_module.httpx, "AsyncClient", lambda **kw: fake)
+        svc = ModelSyncService()
+        models, skip = await svc._fetch_upstream_models("token6688", "https://k.token6688.com", "")
+        assert skip is False
+        by_id = {m["id"]: m for m in models}
+        # 上游停用模型跳过注册(不进 upstream_ids,下架比对自动回收)
+        assert set(by_id) == {"seedance-x", "gpt-t"}
+
+        v = by_id["seedance-x"]["metadata"]
+        assert v["modality"] == "video"
+        assert v["capabilities"] == ["文生视频", "图生视频"]
+        # capabilities 不含 vision → 显式 False(修正 provider 级全量误标)
+        assert v["supports_vision"] is False
+        assert v["param_schema"]["mode"]["enum"][0] == "text-to-video"
+        assert v["linkages"][0]["affected_param"] == "images"
+        assert v["max_prompt_chars"] == 5000
+        assert v["sort_weight"] == 20
+        assert v["input_hint_zh"] == "直接描述画面即可"
+        assert v["provider_code"] == "BYT"
+        assert v["public_id"] == "seedance-x"
+        assert v["logical_type"] == "video"
+        assert v["billing_unit"] == "per_second"
+
+        # 中文描述优先 + 官方价 note(按秒计费)+ 特价档提示
+        desc = by_id["seedance-x"]["description"]
+        assert desc.startswith("X 的中文描述")
+        assert "$0.15" in desc and "按秒" in desc
+        assert "特价版稳定性一般" in desc
+
+        # chat 模型 capabilities 含 vision → supports_vision True
+        t = by_id["gpt-t"]["metadata"]
+        assert t["supports_vision"] is True
+        assert t["modality"] == "chat"
+        assert by_id["gpt-t"]["context_length"] == 128000
+
+    @pytest.mark.asyncio
+    async def test_unavailable_logged_with_reason(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """上游停用模型跳过时带原因落 warning(管理员可见)。"""
+        import app.services.model_sync as ms_module
+
+        fake = _V4Client([_V4_SKILLS, _V4_LOGICAL])
+        monkeypatch.setattr(ms_module.httpx, "AsyncClient", lambda **kw: fake)
+        svc = ModelSyncService()
+        with caplog.at_level("WARNING", logger="app.services.model_sync"):
+            await svc._fetch_upstream_models("token6688", "https://k.token6688.com", "")
+        assert any(
+            "dead-x" in r.getMessage() and "已下架" in r.getMessage()
+            for r in caplog.records
+        )
+
+    @pytest.mark.asyncio
+    async def test_is_chat_not_in_db_metadata(
+        self, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """is_chat 是同步内部标志,不应出现在落库 metadata(k 值过滤在 upsert 侧)。"""
+        import app.services.model_sync as ms_module
+
+        fake = _V4Client([_V4_SKILLS, _V4_LOGICAL])
+        monkeypatch.setattr(ms_module.httpx, "AsyncClient", lambda **kw: fake)
+        svc = ModelSyncService()
+        models, _ = await svc._fetch_upstream_models("token6688", "https://k.token6688.com", "")
+        by_id = {m["id"]: m for m in models}
+        # is_chat 仍在 fetch 层存在(供 upsert 路由),过滤发生在 metadata_json 构建处
+        assert by_id["gpt-t"]["metadata"]["is_chat"] is True
+
+
+class TestV4UpsertMetadataColumn:
+    """v4:metadata jsonb 列写入(INSERT/UPDATE 动态 SQL + ::jsonb 显式转换)。"""
+
+    class _CaptureConn:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, tuple[Any, ...]]] = []
+
+        async def execute(self, sql: str, *params: Any) -> str:
+            self.calls.append((sql, params))
+            return "OK"
+
+    @pytest.mark.asyncio
+    async def test_insert_model_writes_metadata_jsonb(self) -> None:
+        conn = self._CaptureConn()
+        svc = ModelSyncService()
+        await svc._insert_model(
+            conn, 1, "m1", "M1", 8192, 0, 0, ["chat"], False,
+            {"metadata": True},
+            vendor="kling", max_output_tokens=0, supports_tool_call=True,
+            supports_vision=False, description="d", rate_limit_rpm=0,
+            rate_limit_tpd=0, release_date="", deprecation_date="",
+            metadata={"param_schema": {"mode": {"enum": ["a"]}}},
+        )
+        assert len(conn.calls) == 1
+        sql, params = conn.calls[0]
+        assert "metadata" in sql
+        assert "::jsonb" in sql
+        # metadata 参数是 json.dumps 字符串(asyncpg 无 codec,项目惯例)
+        import json as _json
+
+        meta_str = next(p for p in params if isinstance(p, str) and "param_schema" in p)
+        assert _json.loads(meta_str)["param_schema"]["mode"]["enum"] == ["a"]
+
+    @pytest.mark.asyncio
+    async def test_insert_model_skips_metadata_when_column_missing(self) -> None:
+        conn = self._CaptureConn()
+        svc = ModelSyncService()
+        await svc._insert_model(
+            conn, 1, "m1", "M1", 8192, 0, 0, ["chat"], False,
+            {},  # metadata 列不存在
+            vendor=None, max_output_tokens=0, supports_tool_call=True,
+            supports_vision=False, description="d", rate_limit_rpm=0,
+            rate_limit_tpd=0, release_date="", deprecation_date="",
+            metadata={"param_schema": {}},
+        )
+        sql, _ = conn.calls[0]
+        assert "metadata" not in sql
+
+    @pytest.mark.asyncio
+    async def test_update_model_writes_metadata_jsonb(self) -> None:
+        conn = self._CaptureConn()
+        svc = ModelSyncService()
+        await svc._update_model(
+            conn, 1, "m1", 8192, 0, 0, ["chat"], False,
+            {"metadata": True},
+            vendor=None, max_output_tokens=0, supports_tool_call=True,
+            supports_vision=True, description="d", rate_limit_rpm=0,
+            rate_limit_tpd=0, release_date="", deprecation_date="",
+            metadata={"capabilities": ["vision"]},
+        )
+        sql, params = conn.calls[0]
+        assert sql.strip().upper().startswith("UPDATE")
+        assert "metadata = $" in sql and "::jsonb" in sql
+        import json as _json
+
+        meta_str = next(p for p in params if isinstance(p, str) and "capabilities" in p)
+        assert _json.loads(meta_str)["capabilities"] == ["vision"]
+
+
+class TestV4SupportsPriority:
+    """v4:上游模型级显式声明 > provider 级 cap(token6688 纯文本修正)。"""
+
+    def test_explicit_metadata_false_beats_provider_cap(self) -> None:
+        # token6688 provider cap supports_vision=True;显式 False 必须胜出
+        result = ModelSyncService._extract_supports_vision(
+            "token6688", "t6688/deepseek-v4-flash",
+            {"metadata": {"supports_vision": False}},
+        )
+        assert result is False
+
+    def test_explicit_metadata_true_without_cap(self) -> None:
+        result = ModelSyncService._extract_supports_vision(
+            "unknown_provider", "some-model",
+            {"metadata": {"supports_vision": True}},
+        )
+        assert result is True
+
+    def test_cap_fallback_when_no_explicit(self) -> None:
+        result = ModelSyncService._extract_supports_vision(
+            "token6688", "plain-text-model", {"metadata": {}},
+        )
+        assert result is True  # provider cap 兜底
+
+    def test_tool_call_explicit_false_beats_cap(self) -> None:
+        result = ModelSyncService._extract_supports_tool_call(
+            "openai", "gpt-x", {"metadata": {"supports_tool_calling": False}},
+        )
+        assert result is False
+
+
+class TestV4PriceNotice:
+    """v4:_token6688_price_note 追加 special_tier_notice。"""
+
+    def test_special_tier_notice_appended(self) -> None:
+        note = ModelSyncService._token6688_price_note({
+            "billing_mode": "token_metered",
+            "input_price_per_million": 2.0,
+            "output_price_per_million": 8.0,
+            "special_tier_notice": "特价版稳定性一般",
+        })
+        assert "官方价 $2/1M" in note
+        assert "⚠ 特价版稳定性一般" in note
+
+    def test_unit_price_with_notice(self) -> None:
+        note = ModelSyncService._token6688_price_note({
+            "billing_mode": "fixed_amount",
+            "billing_unit": "per_second",
+            "unit_price_micro_usd": 150000,
+            "special_tier_notice": "可能等待时间较长",
+        })
+        assert "按秒" in note and "$0.15" in note
+        assert "⚠ 可能等待时间较长" in note
+
+    def test_notice_alone(self) -> None:
+        note = ModelSyncService._token6688_price_note({
+            "special_tier_notice": "x" * 300,
+        })
+        assert note.startswith("⚠ ")
+        assert len(note) < 130  # 截断到 120 字符
+
+
+class TestToken6688CatalogValidate:
+    """token6688_catalog.validate_generation_params(fail-fast 校验纯函数)。"""
+
+    def _schema(self) -> dict[str, Any]:
+        return {
+            "mode": {"type": "enum", "enum": ["text-to-video", "first-frame"],
+                     "default": "text-to-video"},
+            "aspect_ratio": {"type": "enum",
+                             "options": [{"value": "16:9"}, {"value": "9:16"}]},
+            "duration": {"type": "enum", "enum": ["4", "6", "8"]},
+            "count": {"type": "int", "min": 1, "max": 50},
+            "resolution": {"type": "enum", "enum": ["480p", "720p"]},
+        }
+
+    def test_empty_schema_passes(self) -> None:
+        from app.services.token6688_catalog import validate_generation_params
+
+        assert validate_generation_params(None, {"mode": "x"}) == []
+        assert validate_generation_params({}, {"mode": "x"}) == []
+
+    def test_enum_violation_reports_allowed(self) -> None:
+        from app.services.token6688_catalog import validate_generation_params
+
+        issues = validate_generation_params(
+            self._schema(), {"mode": "横屏"}, prompt="",
+        )
+        assert len(issues) == 1
+        assert "mode" in issues[0] and "text-to-video" in issues[0]
+
+    def test_options_value_fallback(self) -> None:
+        from app.services.token6688_catalog import validate_generation_params
+
+        issues = validate_generation_params(
+            self._schema(), {"aspect_ratio": "1:1"}, prompt="",
+        )
+        assert issues and "16:9" in issues[0]
+
+    def test_int_range(self) -> None:
+        from app.services.token6688_catalog import validate_generation_params
+
+        issues = validate_generation_params(self._schema(), {"count": 99}, prompt="")
+        assert issues and "上限 50" in issues[0]
+        issues2 = validate_generation_params(self._schema(), {"count": 0}, prompt="")
+        assert issues2 and "下限 1" in issues2[0]
+
+    def test_prompt_length_cap(self) -> None:
+        from app.services.token6688_catalog import validate_generation_params
+
+        schema = dict(self._schema(), _max_prompt_chars=10)
+        issues = validate_generation_params(schema, {}, prompt="字" * 11)
+        assert issues and "超过该模型上限 10" in issues[0]
+        assert validate_generation_params(schema, {}, prompt="字" * 10) == []
+
+    def test_unknown_param_lists_available(self) -> None:
+        from app.services.token6688_catalog import validate_generation_params
+
+        issues = validate_generation_params(self._schema(), {"fps": 30}, prompt="")
+        assert issues and "fps" in issues[0] and "mode" in issues[0]
+
+    def test_linkages_require(self) -> None:
+        from app.services.token6688_catalog import validate_generation_params
+
+        linkages = [{"action": "require", "affected_param": "images",
+                     "control_param": "mode", "control_value": "first-frame",
+                     "reason": "首帧模式需上传 1 张首帧图"}]
+        issues = validate_generation_params(
+            self._schema(), {"mode": "first-frame"}, prompt="", linkages=linkages,
+        )
+        assert issues and "images" in issues[0]
+        ok = validate_generation_params(
+            self._schema(), {"mode": "first-frame", "images": "https://a/b.png"},
+            prompt="", linkages=linkages,
+        )
+        assert ok == []
+
+    def test_linkages_hide(self) -> None:
+        from app.services.token6688_catalog import validate_generation_params
+
+        linkages = [{"action": "hide", "affected_param": "images",
+                     "control_param": "mode", "control_value": "text-to-video",
+                     "reason": "纯文生无需参考图"}]
+        issues = validate_generation_params(
+            self._schema(), {"mode": "text-to-video", "images": "https://a/b.png"},
+            prompt="", linkages=linkages,
+        )
+        assert issues and "不应传参数 'images'" in issues[0]
+
+    def test_linkages_inactive_control_no_issue(self) -> None:
+        from app.services.token6688_catalog import validate_generation_params
+
+        linkages = [{"action": "require", "affected_param": "images",
+                     "control_param": "mode", "control_value": "first-frame"}]
+        assert validate_generation_params(
+            self._schema(), {"mode": "text-to-video"}, prompt="", linkages=linkages,
+        ) == []
+
+
+class TestToken6688CatalogSummarize:
+    """token6688_catalog.summarize_params_for_agent(param_schema → 摘要)。"""
+
+    def test_summary_shape(self) -> None:
+        from app.services.token6688_catalog import summarize_params_for_agent
+
+        meta = {
+            "param_schema": {
+                "mode": {"type": "enum", "enum": ["a", "b"], "default": "a",
+                         "label": {"zh": "生成模式"},
+                         "available_when": {"quality": ["hd"]}},
+                "count": {"type": "int", "min": 1, "max": 50, "default": 1},
+                "images": {"type": "upload", "max_items": 3, "max_bytes": 10485760},
+                "_internal": {"type": "enum", "enum": ["x"]},
+            },
+            "capabilities": ["文生视频"],
+            "input_hint_zh": "提示",
+            "max_prompt_chars": 5000,
+            "linkages": [{"action": "require"}],
+        }
+        out = summarize_params_for_agent(meta)
+        by_name = {p["name"]: p for p in out["params"]}
+        assert "_internal" not in by_name
+        assert by_name["mode"]["allowed_values"] == ["a", "b"]
+        assert by_name["mode"]["default"] == "a"
+        assert by_name["mode"]["label"] == "生成模式"
+        assert by_name["mode"]["available_when"] == {"quality": ["hd"]}
+        assert by_name["count"]["min"] == 1 and by_name["count"]["max"] == 50
+        assert by_name["images"]["max_items"] == 3
+        assert out["capabilities"] == ["文生视频"]
+        assert out["max_prompt_chars"] == 5000
+        assert out["linkages"] == [{"action": "require"}]
+
+    def test_non_dict_metadata(self) -> None:
+        from app.services.token6688_catalog import summarize_params_for_agent
+
+        assert summarize_params_for_agent("junk") == {"params": []}
+
