@@ -85,7 +85,7 @@ export default function CustomTabBar() {
             key={item.pagePath}
             className="flex-1 flex flex-col items-center justify-center pt-[6px] pb-[2px]"
             onClick={() => switchTab(item)}
-          >
+            hoverClass="opacity-60">
             <Image
               className="w-[24px] h-[24px]"
               src={active ? item.activeIcon : item.icon}

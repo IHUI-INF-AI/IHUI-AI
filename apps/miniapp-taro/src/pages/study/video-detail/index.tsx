@@ -127,65 +127,69 @@ export default function VideoDetailPage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background">
+      {/* 对齐 RN VideoPlayerScreen(共享屏):容器 bg gray.black(明暗同值,黑底播放器沉浸式);播放器以下 body 对齐 RN body surface.light(亮色白底,暗色按语义 token 取 card 深色保证可读) */}
+      <View className="min-h-screen flex flex-col bg-[var(--color-black)]">
         <VideoPlayer src={info.playUrl} poster={info.coverUrl} loading={loading} />
 
-        <VideoInfo
-          info={{
-            title: info.title,
-            description: info.description,
-            teacher: info.teacher,
-            duration: info.duration,
-            chapterCount: info.chapters?.length,
-            tags: info.tags,
-          }}
-        />
-
-        <LikeFavoriteShare
-          likeCount={likeCount}
-          favoriteCount={favoriteCount}
-          shareCount={shareCount}
-          liked={liked}
-          favorited={favorited}
-          onLike={handleLike}
-          onFavorite={handleFavorite}
-          onShare={handleShare}
-        />
-
-        <View className="mx-3 mt-3 bg-card rounded-xl overflow-hidden">
-          <VideoTabs
-            tabs={[
-              {
-                key: 'catalog',
-                label: t('study.videoDetail.tabsCatalog'),
-                count: info.chapters?.length,
-              },
-              { key: 'intro', label: t('study.videoDetail.tabsIntro') },
-              { key: 'comment', label: t('study.videoDetail.tabsComment'), count: comments.length },
-            ]}
-            active={activeTab}
-            onChange={setActiveTab}
+        <View className="flex-1 bg-card pb-[64rpx]">
+          <VideoInfo
+            info={{
+              title: info.title,
+              description: info.description,
+              teacher: info.teacher,
+              duration: info.duration,
+              chapterCount: info.chapters?.length,
+              tags: info.tags,
+            }}
           />
 
-          {activeTab === 'catalog' && (
-            <Catalog
-              chapters={info.chapters}
-              currentId={currentChapter}
-              loading={loading}
-              onSelect={handleChapterSelect}
-            />
-          )}
+          <LikeFavoriteShare
+            likeCount={likeCount}
+            favoriteCount={favoriteCount}
+            shareCount={shareCount}
+            liked={liked}
+            favorited={favorited}
+            onLike={handleLike}
+            onFavorite={handleFavorite}
+            onShare={handleShare}
+          />
 
-          {activeTab === 'intro' && <Introduction content={info.description} />}
-
-          {activeTab === 'comment' && (
-            <Comment
-              comments={comments}
-              inputValue={commentInput}
-              onInput={setCommentInput}
-              onSubmit={handleSubmitComment}
+          {/* tab 区卡片对齐 RN card 语言:radius 12dp→24rpx + border light(共享组件 VideoTabs/Catalog/Introduction/Comment 调用保持不变) */}
+          <View className="mx-[24rpx] mt-[24rpx] bg-card border border-border rounded-[24rpx] overflow-hidden">
+            <VideoTabs
+              tabs={[
+                {
+                  key: 'catalog',
+                  label: t('study.videoDetail.tabsCatalog'),
+                  count: info.chapters?.length,
+                },
+                { key: 'intro', label: t('study.videoDetail.tabsIntro') },
+                { key: 'comment', label: t('study.videoDetail.tabsComment'), count: comments.length },
+              ]}
+              active={activeTab}
+              onChange={setActiveTab}
             />
-          )}
+
+            {activeTab === 'catalog' && (
+              <Catalog
+                chapters={info.chapters}
+                currentId={currentChapter}
+                loading={loading}
+                onSelect={handleChapterSelect}
+              />
+            )}
+
+            {activeTab === 'intro' && <Introduction content={info.description} />}
+
+            {activeTab === 'comment' && (
+              <Comment
+                comments={comments}
+                inputValue={commentInput}
+                onInput={setCommentInput}
+                onSubmit={handleSubmitComment}
+              />
+            )}
+          </View>
         </View>
 
         <PayPopup

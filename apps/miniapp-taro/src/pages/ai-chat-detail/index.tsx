@@ -304,7 +304,7 @@ export default function AiChatDetail() {
             <View
               className="mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary rounded-[24rpx] flex items-center justify-center"
               onClick={loadData}
-            >
+              hoverClass="opacity-60">
               <Text className="text-[28rpx] text-primary-foreground">{t('common.retry')}</Text>
             </View>
           </View>
@@ -365,7 +365,7 @@ export default function AiChatDetail() {
               <View
                 className="absolute top-[5rpx] right-[5rpx] w-[30rpx] h-[30rpx] rounded-full bg-[var(--color-danger)] flex items-center justify-center"
                 onClick={() => handleRemoveFile(f.id)}
-              >
+                hoverClass="opacity-60">
                 <Text className="text-[24rpx] font-bold leading-none text-[var(--color-danger-foreground)]">×</Text>
               </View>
             </View>
@@ -375,7 +375,7 @@ export default function AiChatDetail() {
 
       {isInputFullscreen ? (
         <View className="flex flex-row items-center justify-between px-[32rpx] py-[24rpx] border-b-[2rpx] border-border">
-          <View onClick={handleFullscreenToggle}>
+          <View onClick={handleFullscreenToggle} hoverClass="opacity-60">
             <Text className="text-[32rpx] text-muted-foreground mr-[24rpx]">
               ← {t('messageInput.fullscreenBack')}
             </Text>
@@ -415,7 +415,7 @@ export default function AiChatDetail() {
             <View
               className="w-[48rpx] h-[48rpx] flex items-center justify-center shrink-0"
               onClick={handleVoiceToggle}
-            >
+              hoverClass="opacity-60">
               <LineIcon name="mic" size={20} color="var(--color-muted-foreground)" />
             </View>
             <View
@@ -441,7 +441,7 @@ export default function AiChatDetail() {
                 <View
                   className="w-[48rpx] h-[48rpx] flex items-center justify-center"
                   onClick={handleFullscreenToggle}
-                >
+                  hoverClass="opacity-60">
                   <LineIcon name="maximize" size={20} color="var(--color-muted-foreground)" />
                 </View>
               ) : null}
@@ -449,14 +449,14 @@ export default function AiChatDetail() {
                 <View
                   className="w-[48rpx] h-[48rpx] flex items-center justify-center"
                   onClick={handleAddFile}
-                >
+                  hoverClass="opacity-60">
                   <LineIcon name="paperclip" size={20} color="var(--color-muted-foreground)" />
                 </View>
               ) : (
                 <View
                   className="w-[48rpx] h-[48rpx] flex items-center justify-center"
                   onClick={handleAddImage}
-                >
+                  hoverClass="opacity-60">
                   <Text className="text-[32rpx] text-muted-foreground leading-none">+</Text>
                 </View>
               )}
@@ -464,14 +464,14 @@ export default function AiChatDetail() {
                 <View
                   className="w-[48rpx] h-[48rpx] flex items-center justify-center"
                   onClick={handleClear}
-                >
+                  hoverClass="opacity-60">
                   <Text className="text-[24rpx] text-muted-foreground leading-none">×</Text>
                 </View>
               ) : null}
               <View
                 className={`px-[28rpx] py-[16rpx] rounded-[30rpx] min-w-[100rpx] flex items-center justify-center ${!inputValue.trim() || sending ? 'bg-[var(--color-text-tertiary)]' : 'bg-primary'}`}
                 onClick={sendMessage}
-              >
+                hoverClass="opacity-60">
                 <Text className="text-[28rpx] font-semibold text-primary-foreground">
                   {sending ? tt('aiChatDetail.sending', '发送中…') : t('chat.send')}
                 </Text>

@@ -51,7 +51,7 @@ export default function SystemNotice({ list, onClick }: SystemNoticeProps) {
           key={item.id}
           className="flex bg-card rounded-xl p-3 mb-2"
           onClick={() => onClick?.(item)}
-        >
+          hoverClass="opacity-60">
           {item.cover && (
             <Image
               src={item.cover}

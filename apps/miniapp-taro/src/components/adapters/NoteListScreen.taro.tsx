@@ -68,12 +68,12 @@ export function NoteListScreen({
   return (
     <View style={viewStyles.container(tk)}>
       <View style={viewStyles.header(tk)}>
-        <View style={viewStyles.backBtn()} onTap={onBack}>
+        <View style={viewStyles.backBtn()} onTap={onBack} hoverClass="opacity-60">
           <Text style={textStyles.backText(tk)}>{backText}</Text>
         </View>
         <Text style={textStyles.title(tk)}>{titleText}</Text>
         {onCreate ? (
-          <View style={viewStyles.createBtn()} onTap={onCreate}>
+          <View style={viewStyles.createBtn()} onTap={onCreate} hoverClass="opacity-60">
             <Text style={textStyles.createText(tk)}>+</Text>
           </View>
         ) : null}
@@ -99,7 +99,7 @@ export function NoteListScreen({
             </View>
           ) : (
             items.map((item) => (
-              <View key={item.id} style={viewStyles.card(tk)} onTap={() => onPressItem(item)}>
+              <View key={item.id} style={viewStyles.card(tk)} onTap={() => onPressItem(item)} hoverClass="opacity-60">
                 <Text style={textStyles.cardTitle(tk)}>{item.title}</Text>
                 <Text style={textStyles.cardSummary(tk)}>{item.summary}</Text>
                 <View style={viewStyles.metaRow()}>

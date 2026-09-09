@@ -240,7 +240,7 @@ export default function PlazaDetail() {
           <Text style={textStyles.error(tk)}>
             {error || tt('postDetail.loadFailed', '加载帖子失败')}
           </Text>
-          <View style={viewStyles.errorBackBtn()} onTap={goBack}>
+          <View style={viewStyles.errorBackBtn()} onTap={goBack} hoverClass="opacity-60">
             <Text style={textStyles.back(tk)}>{tt('common.back', '返回')}</Text>
           </View>
         </View>
@@ -253,7 +253,7 @@ export default function PlazaDetail() {
       <View style={viewStyles.container(tk)}>
         <ScrollView scrollY style={viewStyles.bodyScroll()}>
           <View style={viewStyles.body()}>
-            <View style={viewStyles.backBtn()} onTap={goBack}>
+            <View style={viewStyles.backBtn()} onTap={goBack} hoverClass="opacity-60">
               <Text style={textStyles.back(tk)}>{tt('common.back', '返回')}</Text>
             </View>
             <Text style={textStyles.title(tk)}>{post.title}</Text>
@@ -324,7 +324,7 @@ export default function PlazaDetail() {
                   name="message-circle"
                   size={24}
                   style={viewStyles.statIcon()}
-                  color="var(--color-muted-foreground)"
+                  color="var(--color-text-medium)"
                 />
                 <Text style={textStyles.statText(tk)}>{post.comments}</Text>
               </View>

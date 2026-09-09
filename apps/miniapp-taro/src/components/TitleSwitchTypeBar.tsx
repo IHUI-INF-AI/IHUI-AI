@@ -165,7 +165,7 @@ export default function TitleSwitchTypeBar({
           <View
             className={`title-switch-type-bar__item${all ? ' title-switch-type-bar__item--active' : ''}`}
             onClick={selectAllTab}
-          >
+            hoverClass="opacity-60">
             <Image
               className="title-switch-type-bar__icon"
               src={
@@ -185,7 +185,7 @@ export default function TitleSwitchTypeBar({
               key={item.id}
               className={`title-switch-type-bar__item${selected ? ' title-switch-type-bar__item--active' : ''}`}
               onClick={() => select(item)}
-            >
+              hoverClass="opacity-60">
               {selected && item.butUrl ? (
                 <Image className="title-switch-type-bar__icon" src={item.butUrl} />
               ) : item.field1 ? (
@@ -210,7 +210,7 @@ export default function TitleSwitchTypeBar({
           <View
             className={`title-switch-type-bar__item${addType ? ' title-switch-type-bar__item--active' : ''}`}
             onClick={() => setAddType(true)}
-          >
+            hoverClass="opacity-60">
             <Image
               className="title-switch-type-bar__icon"
               src="/static/images/szdy_20250816161421A290.png"
@@ -239,7 +239,7 @@ export default function TitleSwitchTypeBar({
             value={customValue}
             onInput={(e) => setCustomValue(e.detail.value)}
           />
-          <View className="title-switch-type-bar__modal-btn" onClick={add}>
+          <View className="title-switch-type-bar__modal-btn" onClick={add} hoverClass="opacity-60">
             <Text>{tt('TitleSwitchTypeBar.confirm', '确定')}</Text>
           </View>
         </View>

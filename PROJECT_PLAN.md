@@ -452,6 +452,18 @@
 
 ---
 
+## miniapp-taro 视觉/交互对齐收尾第二批(2026-09-09,平台独占:仅 apps/miniapp-taro + packages/design-tokens)
+
+> AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/miniapp-taro` + `packages/design-tokens/src/styles/tokens.css`(全端单一来源 token),不参与跨端契约同步。是"消费层样式对齐 web 准绳收尾(2026-09-03)"的延续批次。
+
+- [x] ✅(2026-09-09) **31 处 `text-white` 语义 token 化(22 组件文件)**:bg-primary 按钮白字→`text-primary-foreground`(顺带修复暗色模式白底白字隐形)、bg-warning 金色按钮→`text-warning-foreground`、bg-destructive 角标→`text-destructive-foreground`、Toast 按类型配对前景色、Tooltip `text-secondary-foreground`(修复亮色浅灰底白字)、品牌橙渐变/VIP 金底→`text-[var(--color-white-98)]`(沿用项目 19 处既有白字 token)
+- [x] ✅(2026-09-09) **`--color-brand-orange-foreground` 悬空 token 闭环**:tokens.css `:root` 补 `#ffffff`(紧跟 `--color-brand-orange` 成对,对标 `--color-danger-foreground` 写法),app.css 重跑 sync 脚本(121 :root + 87 .dark),token-registry 原有条目 defaultValue 正确无需动
+- [x] ✅(2026-09-09) **5 遗漏页补漏**(对照 app.config.ts 100 页面 vs 主对齐提交 c3a8fcb9 逐项验证):dev-enter/model-edit(72rpx/28rpx 规格+去卡片化)、dev-enter/n8n-model(透明描边卡+7 placeholder 色+实心 CTA)、share/creation(卡片描边+24rpx 圆角+meta tertiary)、plaza/cover(featureCard 两列入口+245 行旧 css 全迁 className 删除)、plaza/set-need(py28/32rpx+bg-primary 语义类);附带 plaza/detail statIcon、share/index.css 阴影 token 化;零新 token 零业务逻辑改动
+- [x] ✅(2026-09-09) **交互按压态(hoverClass)全量补齐 443 处**:AST 级精确审计(微信 hover-class 仅 View 支持;Text 豁免/Button 自带 hover/自定义组件修复点在内部,旧正则口径 979 虚高)→ 152 文件 443 处 `<View>` 缺口全补;RN 源码核实 pressed 仅 opacity 0.85(cards 三件套)与背景变化两类,UserInfoCard/TeacherCard/business-card 用 `opacity-85`,其余统一项目标准 `opacity-60`;遮罩(mask/overlay/fixed inset-0)39 处豁免不加反馈(区域点击非按钮按压);死样式 `active:*` 清零 8 处(weapp View :active 不生效);`opacity-[0.85]` 统一为原生档位 `opacity-85`;285 行缩进对齐。**过程事故与修复**:遮罩移除脚本空白回退 bug 吞前行闭合字符(`}`/`"`)造成 25 文件 39 处语法破坏,parse 诊断逐点定位后全量修复,271 文件 0 语法错误
+- [x] ✅(2026-09-09) **验证全绿**:build:weapp ✓ 1m14s(strip 脚本正常)、build:h5 ✓ 1m19s(仅 2 条已知 webpack 缓存非阻塞告警);产物 WXSS `.opacity-60/80/85` 实际产出;Taro3 hoverClass 运行时 prop 链路确认(base.wxml 模板绑定 + 页面 JS 序列化);7 个已删 css 无 import/类名残留引用复验
+
+---
+
 ## §1 后续任务建议(2026-07-26 维护成本优化批次)
 
 > 2026-07-26 维护成本优化批次(死 key 审计 + LLM 字典化阶段 1)完成后衍生 P2 任务清单。

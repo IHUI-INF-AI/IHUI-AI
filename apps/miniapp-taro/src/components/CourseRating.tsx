@@ -46,9 +46,10 @@ export default function CourseRating({
       className="fixed inset-0 z-[2000] flex items-center justify-center"
       onClick={() => onSubmit?.(rating, comment)}
     >
-      <View className="absolute inset-0 bg-black/50" />
+      <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       <View
         className="relative bg-card rounded-xl mx-8 px-6 py-5 max-w-xs w-full"
+        hoverClass="opacity-60"
         onClick={(e) => e.stopPropagation()}
       >
         <Text className="block text-base font-medium text-foreground mb-3 text-center">
@@ -60,7 +61,7 @@ export default function CourseRating({
             <Text
               key={star}
               className={`text-3xl mx-1 ${
-                (hoverRating || rating) >= star ? 'text-yellow-400' : 'text-muted-foreground'
+                (hoverRating || rating) >= star ? 'text-[var(--color-warning-amber)]' : 'text-muted-foreground'
               }`}
               onClick={() => setRating(star)}
               onTouchStart={() => setHoverRating(star)}
@@ -89,9 +90,10 @@ export default function CourseRating({
 
         <View
           className="w-full py-2.5 rounded-md bg-primary text-center"
+          hoverClass="opacity-60"
           onClick={() => onSubmit?.(rating, comment)}
         >
-          <Text className="text-sm text-white">{tt('course.ratingSubmit', '提交评价')}</Text>
+          <Text className="text-sm text-primary-foreground">{tt('course.ratingSubmit', '提交评价')}</Text>
         </View>
       </View>
     </View>

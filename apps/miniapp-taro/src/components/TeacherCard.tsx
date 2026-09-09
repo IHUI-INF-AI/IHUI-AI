@@ -33,7 +33,7 @@ export default function TeacherCard({
 }: TeacherCardProps) {
   const tt = useTt()
   return (
-    <View className="bg-card mx-3 my-3 rounded-xl p-4" onClick={onClick}>
+    <View className="bg-card mx-3 my-3 rounded-xl p-4" onClick={onClick} hoverClass="opacity-85">
       <View className="flex items-center">
         {avatar ? (
           <Image className="w-12 h-12 mr-3 rounded-xl bg-muted" src={avatar} mode="aspectFill" />
@@ -75,8 +75,8 @@ export default function TeacherCard({
             e.stopPropagation()
             onFollow?.()
           }}
-        >
-          <Text className={`text-xs ${isFollowing ? 'text-muted-foreground' : 'text-white'}`}>
+          hoverClass="opacity-85">
+          <Text className={`text-xs ${isFollowing ? 'text-muted-foreground' : 'text-primary-foreground'}`}>
             {isFollowing
               ? tt('course.followed', '已关注')
               : tt('developer.subscribe.subscribeBtn', '+ 关注')}

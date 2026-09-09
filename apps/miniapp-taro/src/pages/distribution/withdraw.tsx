@@ -66,46 +66,54 @@ export default function DistributionWithdraw() {
 
   return (
     <ThemeRoot className="min-h-screen bg-background">
-      <View className="mx-[24rpx] mt-[24rpx] bg-card rounded-[16rpx] p-[32rpx]">
-        <Text className="text-[24rpx] text-muted-foreground">
+      {/* 对齐 RN WithdrawScreen balanceCard:白卡 + 28rpx 标签 + 56rpx 加粗余额 */}
+      <View className="mx-[20rpx] mt-[20rpx] bg-card rounded-[24rpx] p-[28rpx]">
+        <Text className="text-[28rpx] text-muted-foreground">
           {t('distribution.withdraw.available')}
         </Text>
-        <Text className="block text-[80rpx] text-foreground font-bold mt-[8rpx]">¥{available}</Text>
-        <View className="flex items-center py-[24rpx] mt-[32rpx]">
-          <Text className="text-[48rpx] text-foreground font-semibold">¥</Text>
+        <Text className="block text-[56rpx] text-foreground font-bold mt-[16rpx]">
+          ¥{available}
+        </Text>
+      </View>
+      {/* 对齐 RN card:白卡 + 描边 + 输入框(muted 底 + 描边圆角) */}
+      <View className="mx-[20rpx] mt-[24rpx] bg-card border border-border rounded-[24rpx] p-[24rpx]">
+        <View className="flex items-center h-[100rpx] px-[28rpx] rounded-[24rpx] border border-border bg-[var(--color-muted)]">
+          <Text className="text-[32rpx] font-semibold text-foreground">¥</Text>
           <Input
-            className="flex-1 ml-[16rpx] text-[48rpx]"
+            className="flex-1 ml-[16rpx] text-[32rpx] text-foreground"
             type="digit"
             value={amount}
             onInput={(e) => setAmount(e.detail.value)}
             placeholder={t('distribution.withdraw.amountPlaceholder')}
+            placeholder-style="color: var(--color-text-tertiary)"
           />
           <Button
-            className="text-[24rpx] text-[var(--color-brand-orange)] bg-transparent border-none leading-[48rpx]"
+            className="text-[24rpx] text-[var(--color-brand-orange)] bg-transparent border-none leading-[48rpx] p-0 min-h-0"
             onClick={fillAll}
           >
             {t('distribution.withdraw.all')}
           </Button>
         </View>
-        <View className="mt-[32rpx]">
-          <Text className="text-[24rpx] text-muted-foreground">
+        <View className="mt-[24rpx]">
+          <Text className="text-[28rpx] text-muted-foreground">
             {t('distribution.withdraw.method')}
           </Text>
-          <View className="flex mt-[16rpx] gap-[24rpx]">
+          <View className="flex mt-[16rpx] gap-[16rpx]">
             {payTypes.map((pt) => (
               <View
                 key={pt.value}
-                className={`flex-1 py-[20rpx] text-center rounded-[16rpx] text-[28rpx] ${payType === pt.value ? 'bg-[var(--color-brand-orange)] text-white' : 'bg-muted text-foreground'}`}
+                className={`flex-1 py-[12rpx] text-center rounded-[24rpx] text-[28rpx] ${payType === pt.value ? 'bg-primary text-primary-foreground font-semibold' : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'}`}
                 onClick={() => setPayType(pt.value)}
-              >
+                hoverClass="opacity-60">
                 <Text>{pt.label}</Text>
               </View>
             ))}
           </View>
         </View>
       </View>
+      {/* 对齐 RN submitBtn:brand 底(语义 primary)+ 100rpx 高 + 24rpx 圆角;disabled 取 text-tertiary */}
       <Button
-        className="mx-[24rpx] mt-[48rpx] bg-[var(--color-brand-orange)] text-white rounded-[16rpx] text-[32rpx]"
+        className={`mx-[20rpx] mt-[40rpx] rounded-[24rpx] text-[32rpx] font-semibold h-[100rpx] leading-[100rpx] ${submitting ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]' : 'bg-primary text-primary-foreground'}`}
         disabled={submitting}
         onClick={onSubmit}
       >

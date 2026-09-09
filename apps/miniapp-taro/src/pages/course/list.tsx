@@ -107,6 +107,7 @@ export default function CourseList() {
           {/* RN 无独立搜索按钮(returnKeyType=search),保留功能入口并按 RN moreLink 字号/色对齐(14dp→28rpx,text.secondary) */}
           <View
             className="ml-[16rpx] px-[24rpx] h-[100rpx] leading-[100rpx] text-muted-foreground text-[28rpx]"
+            hoverClass="opacity-60"
             onClick={onSearch}
           >
             <Text>{t('course.list.search')}</Text>
@@ -127,6 +128,7 @@ export default function CourseList() {
               <View
                 key={item.id}
                 className="flex bg-card rounded-[32rpx] overflow-hidden mb-[24rpx]"
+                hoverClass="opacity-85"
                 onClick={() => goDetail(item.id)}
               >
                 {/* 对齐 RN courseImage:110×110dp→220×220rpx,圆角 12dp→24rpx,底色 border.light */}
