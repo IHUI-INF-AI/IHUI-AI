@@ -16,6 +16,7 @@ import {
   BarChart3,
 } from 'lucide-react'
 import { getArtifactToken } from '@ihui/api-client'
+import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
@@ -55,6 +56,8 @@ interface ToolCallCardProps {
   audioUrl?: string
   /** video_generation 工具返回的视频 URL(优先于 result 渲染,渲染 <video> 播放器) */
   videoUrl?: string
+  /** 异步长任务 task_id(2026-09-09 立):媒体工具提交成功但产物未就绪时,渲染"任务进行中" */
+  taskId?: string
   /** summarize_artifacts 工具返回的摘要数据(优先于 result 渲染) */
   summaryData?: {
     plans?: Array<{ id: string; title: string; status: string; steps?: string[] }>
@@ -101,8 +104,8 @@ const BROWSER_TOOL_NAMES = new Set([
 /** edit_file / write_file 工具名命中即渲染 InlineDiffCard */
 const DIFF_TOOL_NAMES = new Set(['edit_file', 'write_file'])
 
-/** image_generation 工具名命中即渲染 <img> */
-const IMAGE_TOOL_NAMES = new Set(['image_generation'])
+/** image_generation / image_edit 工具名命中即渲染 <img>(2026-09-09 改图产物同走图片渲染) */
+const IMAGE_TOOL_NAMES = new Set(['image_generation', 'image_edit'])
 
 /** music_generation / voice_tts 工具名命中即渲染 <audio> 播放器(token6688/edge-tts,2026-09-08) */
 const AUDIO_TOOL_NAMES = new Set(['music_generation', 'voice_tts'])
@@ -521,6 +524,172 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
   )
 }
 
+/* ==================== 长任务自动轮询取件(2026-09-09 立) ====================
+ * 媒体工具(video/music/tts/image)提交成功、有 task_id 但产物未就绪时,
+ * 卡片自动轮询 GET /api/media/tasks/{task_id}(带鉴权 fetchApi,后端在途任务
+ * 会实时向 token6688 探测),任务 succeeded 且有公网产物 URL 后自动切换为
+ * 产物渲染,无需用户再次提问取件。轮询间隔 10s,上限 36 次(≈6 分钟),
+ * 期间保留手动"刷新状态"按钮兜底。 */
+const MEDIA_POLL_INTERVAL_MS = 10_000
+const MEDIA_POLL_MAX = 36
+
+interface MediaTaskRow {
+  status?: string
+  result?: {
+    image_url?: string | null
+    audio_url?: string | null
+    video_url?: string | null
+  }
+}
+
+type MediaPollStatus = 'idle' | 'checking' | 'succeeded' | 'failed' | 'stopped'
+
+function useMediaTaskPolling(
+  taskId: string | undefined,
+  enabled: boolean,
+): {
+  polled: MediaTaskRow['result'] | null
+  pollStatus: MediaPollStatus
+  checkedAt: number | null
+  refreshNow: () => void
+} {
+  const [polled, setPolled] = React.useState<MediaTaskRow['result'] | null>(null)
+  const [pollStatus, setPollStatus] = React.useState<MediaPollStatus>('idle')
+  const [checkedAt, setCheckedAt] = React.useState<number | null>(null)
+  const doneRef = React.useRef(false)
+
+  const stopPolling = React.useCallback(() => {
+    doneRef.current = true
+  }, [])
+
+  const pollOnce = React.useCallback(async () => {
+    if (doneRef.current || !taskId) return
+    try {
+      const res = await fetchApi<{ ok: boolean; data: MediaTaskRow }>(
+        `/media/tasks/${encodeURIComponent(taskId)}`,
+        { timeoutMs: 10_000 },
+      )
+      if (!res.success) return
+      const row = res.data?.data
+      if (!row) return
+      setCheckedAt(Date.now())
+      if (row.status === 'succeeded') {
+        const urls = row.result ?? {}
+        if (urls.video_url || urls.audio_url || urls.image_url) {
+          setPolled(urls)
+          setPollStatus('succeeded')
+          stopPolling()
+          return
+        }
+      }
+      if (row.status === 'failed' || row.status === 'cancelled') {
+        setPollStatus('failed')
+        stopPolling()
+        return
+      }
+      setPollStatus('idle')
+    } catch {
+      // 网络瞬断/401 等忽略,下一轮重试
+    }
+  }, [taskId, stopPolling])
+
+  React.useEffect(() => {
+    if (!enabled || !taskId) return
+    doneRef.current = false
+    setPolled(null)
+    setPollStatus('checking')
+    void pollOnce()
+    const intervalId = window.setInterval(() => {
+      if (doneRef.current) {
+        window.clearInterval(intervalId)
+        return
+      }
+      void pollOnce()
+    }, MEDIA_POLL_INTERVAL_MS)
+    // 达到最大轮询次数仍无结果:停止自动轮询,保留手动刷新兜底
+    const timeoutId = window.setTimeout(() => {
+      if (!doneRef.current) {
+        doneRef.current = true
+        setPollStatus('stopped')
+      }
+    }, MEDIA_POLL_INTERVAL_MS * MEDIA_POLL_MAX)
+    return () => {
+      window.clearInterval(intervalId)
+      window.clearTimeout(timeoutId)
+    }
+  }, [enabled, taskId, pollOnce])
+
+  const refreshNow = React.useCallback(() => {
+    if (!taskId) return
+    doneRef.current = false
+    setPollStatus('checking')
+    void pollOnce()
+  }, [taskId, pollOnce])
+
+  return { polled, pollStatus, checkedAt, refreshNow }
+}
+
+/** 长任务进行中渲染(2026-09-09 立):媒体工具提交成功、有 task_id 但产物未就绪。
+ *  视频/音乐官方耗时数分钟级,对话内仅提交返回 task_id;卡片自动轮询取件,
+ *  并保留手动"刷新状态"按钮兜底。 */
+function PendingTaskBlock({
+  taskId,
+  toolName,
+  pollStatus,
+  checkedAt,
+  onRefresh,
+}: {
+  taskId: string
+  toolName: string
+  pollStatus: MediaPollStatus
+  checkedAt: number | null
+  onRefresh: () => void
+}) {
+  const checking = pollStatus === 'checking'
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 text-xs">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+        <span className="font-medium text-muted-foreground">任务进行中</span>
+        {checkedAt && (
+          <span className="text-[10px] text-muted-foreground/50">已自动检查{checking ? '中' : '过'}</span>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {toolName} 已提交,task_id 已记录;生成完成后会自动取件展示。
+      </p>
+      <div className="flex items-center gap-1.5">
+        <code className="block min-w-0 flex-1 truncate rounded-sm bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          {taskId}
+        </code>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={checking}
+          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-border/40 px-1.5 py-0.5 text-[10px] text-primary hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {checking ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              检查中
+            </>
+          ) : (
+            '刷新状态'
+          )}
+        </button>
+      </div>
+      {pollStatus === 'stopped' && (
+        <p className="text-[10px] text-muted-foreground/60">
+          长时间未完成,已停止自动刷新;可点击"刷新状态"继续检查。
+        </p>
+      )}
+      {pollStatus === 'failed' && (
+        <p className="text-[10px] text-amber-600">任务已失败/取消,可换个提示词重新生成。</p>
+      )}
+    </div>
+  )
+}
+
 /** summarize_artifacts 工具结果渲染:计划/引用/工具调用统计聚合视图 */
 function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['summaryData']> }) {
   const t = useTranslations('ai.toolCall')
@@ -610,6 +779,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   imageUrl,
   audioUrl,
   videoUrl,
+  taskId,
   summaryData,
   serverSource,
   serverId,
@@ -660,6 +830,28 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   const showAudio = isAudioTool && !!audioUrl
   const showVideo = isVideoTool && !!videoUrl
   const showSummary = isSummaryTool && !!summaryData
+  // 2026-09-09 长任务进行中:媒体工具提交成功、已有 task_id 但产物未就绪
+  // (视频/音乐 p90 55~75 分钟与 1~5 分钟,对话内仅提交返回 task_id)
+  const showPendingTask =
+    !!taskId && status === 'success' && (isImageTool || isAudioTool || isVideoTool) &&
+    !showImage && !showAudio && !showVideo
+
+  // 长任务自动轮询取件(2026-09-09):产物未就绪时后台轮询 /api/media/tasks/{task_id},
+  // succeeded 且有公网 URL 后自动切换为产物渲染,无需用户再次提问
+  // 2026-09-09 修复:补取 checkedAt(此前未解构,下方 PendingTaskBlock 恒传 null,
+  // "已自动检查过"提示永不显示),并透传给进行中卡片
+  const {
+    polled,
+    pollStatus: pollStatusForPending,
+    checkedAt,
+    refreshNow,
+  } = useMediaTaskPolling(
+    showPendingTask ? taskId : undefined,
+    showPendingTask,
+  )
+  const polledImageUrl = showPendingTask ? polled?.image_url || undefined : undefined
+  const polledAudioUrl = showPendingTask ? polled?.audio_url || undefined : undefined
+  const polledVideoUrl = showPendingTask ? polled?.video_url || undefined : undefined
 
   // 引用溯源 + 图表 Artifact:从 result 中解析(knowledge_lookup / generate_chart)
   // 不依赖 toolName 判断,纯字段驱动,保证任何携带 citations/file_path 的工具都兼容
@@ -807,8 +999,36 @@ export const ToolCallCard = React.memo(function ToolCallCard({
           )}
           {/* summarize_artifacts:渲染聚合视图(优先于 result) */}
           {showSummary && summaryData && <SummaryResultBlock data={summaryData} />}
-          {/* 非 diff/image/audio/video/summary 工具时显示原始 args/result */}
-          {!showInlineDiff && !showImage && !showAudio && !showVideo && !showSummary && (
+          {/* 长任务进行中:媒体工具已提交、task_id 已记录、产物未就绪。
+              自动轮询取件:轮询到公网产物 URL 后自动切换为对应播放器渲染 */}
+          {showPendingTask && taskId && (
+            polledVideoUrl ? (
+              <VideoResultBlock
+                videoUrl={polledVideoUrl}
+                prompt={pickStr(args, ['prompt', 'description'])}
+              />
+            ) : polledAudioUrl ? (
+              <AudioResultBlock
+                audioUrl={polledAudioUrl}
+                prompt={pickStr(args, ['prompt', 'description'])}
+              />
+            ) : polledImageUrl ? (
+              <ImageResultBlock
+                imageUrl={polledImageUrl}
+                prompt={pickStr(args, ['prompt', 'description'])}
+              />
+            ) : (
+              <PendingTaskBlock
+                taskId={taskId}
+                toolName={toolName}
+                pollStatus={pollStatusForPending}
+                checkedAt={checkedAt}
+                onRefresh={refreshNow}
+              />
+            )
+          )}
+          {/* 非 diff/image/audio/video/summary/pending 工具时显示原始 args/result */}
+          {!showInlineDiff && !showImage && !showAudio && !showVideo && !showSummary && !showPendingTask && (
             <>
               {/* 引用溯源:knowledge_lookup 等返回 citations 时渲染标签组 */}
               {citations.length > 0 && <CitationsBlock citations={citations} />}

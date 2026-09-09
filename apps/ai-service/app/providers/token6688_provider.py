@@ -693,7 +693,7 @@ class Token6688Provider(OpenAIProvider):
         self,
         prompt: str,
         *,
-        model: str = "music",
+        model: str | None = None,
         mode: str = "song",
         lyrics: str | None = None,
         style: str | None = None,
@@ -741,6 +741,9 @@ class Token6688Provider(OpenAIProvider):
             raise ProviderError("Token6688 operation=cover 必填 cover_clip_id(被翻唱曲目 ID)", 400)
         if operation == "extend" and not continue_clip_id:
             raise ProviderError("Token6688 operation=extend 必填 continue_clip_id(被续写曲目 ID)", 400)
+        # 音乐模型可配:TOKEN6688_MUSIC_MODEL(默认 "music",官方 Suno 扁平形状固定 model 值)
+        if not model:
+            model = _env("TOKEN6688_MUSIC_MODEL", "music")
 
         body: dict[str, Any] = {
             "model": model, "prompt": prompt, "mode": mode, "operation": operation,
@@ -908,6 +911,29 @@ class Token6688Provider(OpenAIProvider):
         return await self._request(
             "GET", f"{self._api_base_v1()}/audio/voices/{voice_id}", headers=self._headers(),
         )
+
+    async def delete_voice(self, voice_id: str) -> dict[str, Any]:
+        """删除单一声纹(DELETE /v1/audio/voices/{voice_id},2026-09-09 E4)。
+
+        声纹库生命周期收口:克隆的 voice_id 可删除释放。按官方 REST 语义 DELETE 优先,
+        POST /.../delete 兜底(与 cancel_task 同款双形态探测)。网络/形态失败不抛异常,
+        返回 {ok, status, error?} 供调用方如实提示。
+        """
+        base = f"{self._api_base_v1()}/audio/voices/{voice_id}"
+        last_err = ""
+        for method, url in (("DELETE", base), ("POST", f"{base}/delete")):
+            try:
+                data = await self._request(method, url, headers=self._headers())
+                ok = not (isinstance(data, dict) and data.get("error"))
+                return {"ok": ok, "status": (data or {}).get("status", ""), "raw": data}
+            except ProviderError as e:
+                last_err = str(e)
+                status = getattr(e, "status_code", 0) or 0
+                # 404=声纹不存在(可能已删);401/403=端点未开放;405/501=方法不支持 → 换下一形态
+                if status in (404,):
+                    return {"ok": False, "status": "not_found", "error": last_err}
+                continue
+        return {"ok": False, "status": "unsupported", "error": last_err or "删除端点均不可用(官方未收录)"}
 
     async def query_task_status_alt(self, task_id: str) -> dict[str, Any]:
         """任务状态速查(GET /v1/skills/task-status?task_id=,等价 /v1/tasks/{id})。
@@ -1102,6 +1128,9 @@ class Token6688Provider(OpenAIProvider):
                     body.update(merged)
             except json.JSONDecodeError:
                 logger.warning("TOKEN6688_VIDEO_PAYLOAD 非合法 JSON,忽略: %r", extra[:100])
+        # 官方 webhook:配 TOKEN6688_CALLBACK_URL 后所有 media 类异步任务终态主动推
+        # (2026-09-09 补:此前仅音乐/异步 TTS 带,视频漏带导致视频回调收不到)
+        body.update(self._callback_fields())
 
         data = await self._request("POST", submit_url, headers=self._headers(), json=body)
         # 形态 A:同步直返(响应里直接有媒体 URL)
