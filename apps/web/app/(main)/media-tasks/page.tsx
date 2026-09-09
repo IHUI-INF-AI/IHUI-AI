@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, RefreshCw, Clapperboard, XCircle, PlayCircle, ImageIcon, Mic, Film, Music, Download, ChevronLeft, ChevronRight, Trash2, Eraser, Ban, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
@@ -144,6 +144,7 @@ async function api<T>(url: string, options: RequestInit & { timeoutMs?: number }
 
 export default function MediaTasksPage() {
   const t = useTranslations('mediaTasksPage')
+  const locale = useLocale()
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = React.useState('')
   const [kindFilter, setKindFilter] = React.useState('')
@@ -248,7 +249,13 @@ export default function MediaTasksPage() {
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' },
       )
       const n = res.data?.cancelled ?? 0
-      setClearInfo(n > 0 ? t('cancelAllResult', { count: n }) : t('cancelAllNone'))
+      // 2026-09-09 第五轮:F8 承诺 remote_failed 透出给用户(此前被静默丢弃)
+      const remoteFailed = res.data?.remote_failed ?? []
+      let msg = n > 0 ? t('cancelAllResult', { count: n }) : t('cancelAllNone')
+      if (remoteFailed.length > 0) {
+        msg += ` ${t('cancelAllRemoteFailed', { count: remoteFailed.length })}`
+      }
+      setClearInfo(msg)
       await queryClient.invalidateQueries({ queryKey: ['media-tasks'] })
       await queryClient.invalidateQueries({ queryKey: ['media-tasks-stats'] })
     } catch (e) {
@@ -258,7 +265,7 @@ export default function MediaTasksPage() {
     }
   }
 
-  const dateFmt = new Intl.DateTimeFormat('zh-CN', {
+  const dateFmt = new Intl.DateTimeFormat(locale, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -333,18 +340,29 @@ export default function MediaTasksPage() {
         </div>
       </header>
 
-      {/* 2026-09-09 F8:统计概览卡片(总数/在途/已完成/失败/已取消) */}
+      {/* 2026-09-09 F8:统计概览卡片(总数/在途/已完成/失败/已取消);第五轮:卡片可点击直达对应状态过滤 */}
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {(
           [
-            { key: 'total', label: t('statsTotal'), value: stats?.total ?? 0, cls: 'text-foreground' },
-            { key: 'inflight', label: t('statsInflight'), value: inflightCount, cls: 'text-blue-600 dark:text-blue-400' },
-            { key: 'succeeded', label: t('statsSucceeded'), value: stats?.succeeded ?? 0, cls: 'text-green-600 dark:text-green-400' },
-            { key: 'failed', label: t('statsFailed'), value: stats?.failed ?? 0, cls: 'text-red-600 dark:text-red-400' },
-            { key: 'cancelled', label: t('statsCancelled'), value: stats?.cancelled ?? 0, cls: 'text-muted-foreground' },
+            { key: 'total', label: t('statsTotal'), value: stats?.total ?? 0, cls: 'text-foreground', filter: '' },
+            { key: 'inflight', label: t('statsInflight'), value: inflightCount, cls: 'text-blue-600 dark:text-blue-400', filter: STATUS_IN_FLIGHT.join(',') },
+            { key: 'succeeded', label: t('statsSucceeded'), value: stats?.succeeded ?? 0, cls: 'text-green-600 dark:text-green-400', filter: 'succeeded' },
+            { key: 'failed', label: t('statsFailed'), value: stats?.failed ?? 0, cls: 'text-red-600 dark:text-red-400', filter: 'failed' },
+            { key: 'cancelled', label: t('statsCancelled'), value: stats?.cancelled ?? 0, cls: 'text-muted-foreground', filter: 'cancelled' },
           ] as const
         ).map((c) => (
-          <div key={c.key} className="rounded-md border border-border/50 bg-card/50 p-3">
+          <button
+            key={c.key}
+            type="button"
+            aria-pressed={statusFilter === c.filter}
+            onClick={() => switchFilter(setStatusFilter)(c.filter)}
+            className={cn(
+              'rounded-md border bg-card/50 p-3 text-left transition-colors',
+              statusFilter === c.filter
+                ? 'border-primary/50 bg-primary/10'
+                : 'border-border/50 hover:bg-muted/40',
+            )}
+          >
             <p className="text-[11px] text-muted-foreground">{c.label}</p>
             <p className={cn('mt-1 flex items-center gap-1 text-xl font-bold tabular-nums', c.cls)}>
               {statsQuery.isFetching && stats === undefined ? (
@@ -356,7 +374,7 @@ export default function MediaTasksPage() {
                 <span className="ml-auto inline-flex h-2 w-2 animate-pulse rounded-full bg-blue-500" />
               )}
             </p>
-          </div>
+          </button>
         ))}
       </section>
 
