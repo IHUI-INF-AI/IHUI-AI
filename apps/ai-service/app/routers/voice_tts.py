@@ -202,6 +202,29 @@ async def get_voice(voice_id: str) -> dict:
         raise HTTPException(status_code=502, detail=f"token6688 声纹查询失败: {e}") from None
 
 
+@router.delete("/voice/voices/{voice_id}")
+async def delete_voice(voice_id: str) -> dict:
+    """删除克隆声纹(DELETE /v1/audio/voices/{voice_id};声纹库生命周期收口,2026-09-09 E4)。
+
+    删除后该 voice_id 不可再用于克隆 TTS;失败如实返回原因不抛。
+    """
+    from ..providers.base_provider import ProviderError
+
+    try:
+        result = await _token6688_provider().delete_voice(voice_id)
+    except HTTPException:
+        raise
+    except ProviderError as e:
+        logger.warning("token6688 声纹删除失败: %s", e)
+        raise HTTPException(status_code=502, detail=f"token6688 声纹删除失败: {e}") from None
+    if not result.get("ok"):
+        raise HTTPException(
+            status_code=502,
+            detail=f"token6688 声纹删除失败(status={result.get('status')}): {result.get('error') or '未知'}",
+        )
+    return result
+
+
 class AsyncTTSRequest(BaseModel):
     """异步声纹 TTS 请求(长文本/免长连接场景;产物为 TokenGo CDN 公网 URL)。"""
 
