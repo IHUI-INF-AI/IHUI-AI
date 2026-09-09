@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Loader2, RefreshCw, Clapperboard, XCircle, PlayCircle, ImageIcon, Mic, Film, Music, Download, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Loader2, RefreshCw, Clapperboard, XCircle, PlayCircle, ImageIcon, Mic, Film, Music, Download, ChevronLeft, ChevronRight, Trash2, Eraser } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
@@ -128,7 +128,10 @@ export default function MediaTasksPage() {
   const [kindFilter, setKindFilter] = React.useState('')
   const [page, setPage] = React.useState(1)
   const [cancelling, setCancelling] = React.useState<string | null>(null)
+  const [deleting, setDeleting] = React.useState<string | null>(null)
+  const [clearing, setClearing] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [clearInfo, setClearInfo] = React.useState<string | null>(null)
 
   const listQuery = useQuery({
     queryKey: ['media-tasks', statusFilter, kindFilter, page],
@@ -160,6 +163,42 @@ export default function MediaTasksPage() {
       setError(`${t('cancel')}失败: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
       setCancelling(null)
+    }
+  }
+
+  const deleteTask = async (taskId: string) => {
+    if (!window.confirm(t('deleteConfirm'))) return
+    setDeleting(taskId)
+    setError(null)
+    try {
+      await api<{ ok: boolean }>(
+        `/media/tasks/${encodeURIComponent(taskId)}`,
+        { method: 'DELETE' },
+      )
+      await queryClient.invalidateQueries({ queryKey: ['media-tasks'] })
+    } catch (e) {
+      setError(`${t('delete')}失败: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  const clearTasks = async () => {
+    if (!window.confirm(t('clearConfirm'))) return
+    setClearing(true)
+    setError(null)
+    setClearInfo(null)
+    try {
+      const res = await api<{ ok: boolean; data?: { deleted?: number; kept_in_flight?: number } }>(
+        `/media/tasks?status=succeeded,failed,cancelled`,
+        { method: 'DELETE' },
+      )
+      setClearInfo(t('clearResult', { deleted: res.data?.deleted ?? 0, kept: res.data?.kept_in_flight ?? 0 }))
+      await queryClient.invalidateQueries({ queryKey: ['media-tasks'] })
+    } catch (e) {
+      setError(`${t('clearDone')}失败: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setClearing(false)
     }
   }
 
@@ -204,15 +243,26 @@ export default function MediaTasksPage() {
           </h1>
           <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => listQuery.refetch()}
-          disabled={listQuery.isFetching}
-        >
-          <RefreshCw className={cn('mr-1 h-4 w-4', listQuery.isFetching && 'animate-spin')} />
-          {t('refresh')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={clearing || total === 0}
+            onClick={clearTasks}
+          >
+            <Eraser className={cn('mr-1 h-4 w-4', clearing && 'animate-pulse')} />
+            {clearing ? t('clearing') : t('clearDone')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => listQuery.refetch()}
+            disabled={listQuery.isFetching}
+          >
+            <RefreshCw className={cn('mr-1 h-4 w-4', listQuery.isFetching && 'animate-spin')} />
+            {t('refresh')}
+          </Button>
+        </div>
       </header>
 
       {/* 状态 + 类型过滤 */}
@@ -256,6 +306,12 @@ export default function MediaTasksPage() {
       {error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
+        </div>
+      )}
+
+      {clearInfo && (
+        <div className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm text-primary">
+          {clearInfo}
         </div>
       )}
 
@@ -320,6 +376,23 @@ export default function MediaTasksPage() {
                             <XCircle className="mr-1 h-3 w-3" />
                           )}
                           {cancelling === task.task_id ? t('cancelling') : t('cancel')}
+                        </Button>
+                      )}
+                      {task.task_id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-destructive"
+                          disabled={deleting === task.task_id}
+                          onClick={() => deleteTask(task.task_id)}
+                          aria-label={t('delete')}
+                        >
+                          {deleting === task.task_id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                          {deleting === task.task_id ? t('deleting') : t('delete')}
                         </Button>
                       )}
                     </div>
