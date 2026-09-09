@@ -1,7 +1,15 @@
 /*
   © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
   Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/*
+  对齐 RN 端 apps/mobile-rn/src/screens/CircleIndexScreen.tsx(样式值全部为 rpx() 1:1)。
+  颜色映射(值一一对应): surface.bg→--color-background / surface.card→--color-card /
+  surface.muted→--color-muted / brand.DEFAULT→--color-brand / text.primary→--color-foreground /
+  text.secondary→--color-muted-foreground / text.tertiary→--color-text-tertiary /
+  danger.DEFAULT→--color-danger / overlay.modal→--color-black-40
 */
 
 .ci-page {
@@ -10,320 +18,379 @@
   padding-bottom: 160rpx;
 }
 
-/* ===== 顶部分类 Tab ===== */
+/* ===== 顶部分类 Tab(对齐 RN tabRow:px 24 / py 16 / gap 16 / bg card;非吸底) ===== */
 .ci-tabs {
   display: flex;
+  gap: 16rpx;
   background: var(--color-card);
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  padding: 0 24rpx;
+  padding: 16rpx 24rpx;
 }
+
+/* 对齐 RN tab:flex 1 / h 64 / 圆角 20 / bg surface.muted;active bg brand.DEFAULT */
 .ci-tab {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 88rpx;
-  position: relative;
-}
-.ci-tab-text {
-  font-size: 28rpx;
-  color: var(--color-muted-foreground);
-}
-.ci-tab.active .ci-tab-text {
-  color: var(--color-primary);
-  font-weight: 600;
-}
-.ci-tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: 12rpx;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 48rpx;
-  height: 6rpx;
-  background: var(--color-primary);
-  border-radius: var(--radius-sm);
+  height: 64rpx;
+  border-radius: 20rpx;
+  background: var(--color-muted);
 }
 
-/* ===== 热门话题 ===== */
+.ci-tab.active {
+  background: var(--color-brand);
+}
+
+/* 对齐 RN tabText:13dp→26rpx / text.secondary;active 600 + surface.card */
+.ci-tab-text {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+
+.ci-tab.active .ci-tab-text {
+  color: var(--color-card);
+  font-weight: 600;
+}
+
+/* ===== 热门话题(对齐 RN topicScroll:px 24 / py 20 / gap 16;滚动区透明) ===== */
 .ci-hottopic-scroll {
   width: 100%;
   white-space: nowrap;
-  background: var(--color-card);
-  padding: 20rpx 0;
 }
+
 .ci-hottopic-list {
   display: inline-flex;
   align-items: center;
-  padding: 0 24rpx;
+  padding: 20rpx 24rpx;
   gap: 16rpx;
 }
+
+/* 对齐 RN topicChip:gap 6 / px 24 / h 64 / radius 32 / bg surface.card */
 .ci-hottopic-chip {
   display: inline-flex;
   align-items: center;
   gap: 6rpx;
-  height: 56rpx;
-  padding: 0 20rpx;
-  background: var(--color-border);
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  height: 64rpx;
+  padding: 0 24rpx;
+  background: var(--color-card);
+  border-radius: 32rpx;
   flex-shrink: 0;
 }
+
+/* 对齐 RN topicHash:14dp→28rpx / 700 / text.primary→foreground */
 .ci-hottopic-hash {
-  font-size: 24rpx;
-  color: var(--color-primary);
-  font-weight: 600;
-}
-.ci-hottopic-name {
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--color-foreground);
-  max-width: 200rpx;
+  font-weight: 700;
+}
+
+/* 对齐 RN topicName:13dp→26rpx / text.primary→foreground / maxWidth 240rpx */
+.ci-hottopic-name {
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  max-width: 240rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 对齐 RN topicCount:11dp→22rpx / text.tertiary */
 .ci-hottopic-count {
   font-size: 22rpx;
-  color: var(--color-muted-foreground);
-  margin-left: 4rpx;
+  color: var(--color-text-tertiary);
 }
 
-/* ===== 推荐用户 ===== */
+/* ===== 推荐用户(对齐 RN userScroll:gap 16 / px 24 / pb 20) ===== */
 .ci-users-scroll {
   width: 100%;
   white-space: nowrap;
-  padding: 24rpx 0;
 }
+
 .ci-users-list {
   display: inline-flex;
   align-items: stretch;
-  padding: 0 24rpx;
+  padding: 0 24rpx 20rpx;
   gap: 16rpx;
 }
+
+/* 对齐 RN userCard:w 220 / p 20 / radius 16 / bg surface.card / gap 8(无边框) */
 .ci-user-card {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  width: 200rpx;
-  padding: 24rpx 16rpx;
+  width: 220rpx;
+  padding: 20rpx;
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 16rpx;
   flex-shrink: 0;
   gap: 8rpx;
 }
+
+/* 对齐 RN userAvatar:96×96 / radius 48(圆) / bg surface.muted */
 .ci-user-avatar {
   width: 96rpx;
   height: 96rpx;
-  border-radius: var(--radius-md);
+  border-radius: 48rpx;
   background: var(--color-muted);
 }
+
+/* 对齐 RN userName:13dp→26rpx / 600 / text.primary→foreground / maxWidth 180rpx */
 .ci-user-name {
   font-size: 26rpx;
   color: var(--color-foreground);
   font-weight: 600;
-  max-width: 168rpx;
+  max-width: 180rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
 }
+
+/* 对齐 RN userBio:11dp→22rpx / text.tertiary / maxWidth 180rpx */
 .ci-user-bio {
   font-size: 22rpx;
-  color: var(--color-muted-foreground);
-  max-width: 168rpx;
+  color: var(--color-text-tertiary);
+  max-width: 180rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
 }
+
+/* 对齐 RN userFollow:mt 8 / px 28 / py 8 / radius 28 / bg brand.DEFAULT */
 .ci-user-follow {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 48rpx;
-  padding: 0 24rpx;
-  background: var(--color-primary);
-  border-radius: var(--radius-sm);
-  margin-top: 4rpx;
+  margin-top: 8rpx;
+  padding: 8rpx 28rpx;
+  background: var(--color-brand);
+  border-radius: 28rpx;
 }
-.ci-user-follow Text {
-  font-size: 22rpx;
-  color: var(--color-primary-foreground);
+
+/* 对齐 RN userFollowText:12dp→24rpx / 600 / surface.card */
+.ci-user-follow-text {
+  font-size: 24rpx;
+  color: var(--color-card);
+  font-weight: 600;
 }
+
+/* 对齐 RN userFollowActive:bg surface.muted / 字 text.secondary */
 .ci-user-follow.followed {
-  background: var(--color-background);
-  border: 2rpx solid var(--color-border);
+  background: var(--color-muted);
 }
-.ci-user-follow.followed Text {
+
+.ci-user-follow.followed .ci-user-follow-text {
   color: var(--color-muted-foreground);
 }
 
-/* ===== 帖子列表 ===== */
+/* ===== 帖子列表(对齐 RN listContent:padding 24 / pb 160(页面级) / gap 16) ===== */
 .ci-list {
-  padding: 0 24rpx;
+  padding: 0 24rpx 24rpx;
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
-  margin-top: 16rpx;
+  gap: 16rpx;
 }
+
+/* 对齐 RN card:gap 12 / p 24 / radius 16 / bg surface.card(无边框) */
 .ci-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
   background: var(--color-card);
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: 16rpx;
   padding: 24rpx;
 }
+
+/* 对齐 RN cardPressed:opacity 0.85 */
+.ci-item-pressed {
+  opacity: 0.85;
+}
+
 .ci-item-head {
   display: flex;
   align-items: center;
   gap: 16rpx;
 }
+
+/* 对齐 RN avatar:56×56 / radius 28(圆) / bg surface.muted */
 .ci-avatar {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: var(--radius-md);
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 28rpx;
   background: var(--color-muted);
   flex-shrink: 0;
 }
+
+/* 对齐 RN author:flex 1 / 13dp→26rpx / 500 / text.primary→foreground */
 .ci-author {
   flex: 1;
   font-size: 26rpx;
   color: var(--color-foreground);
-  font-weight: 600;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 对齐 RN time:11dp→22rpx / text.tertiary */
 .ci-time {
   font-size: 22rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
   flex-shrink: 0;
 }
+
+/* 对齐 RN title:15dp→30rpx / 600 / text.primary→foreground(间距由 card gap 12 承担) */
 .ci-title {
   display: block;
   font-size: 30rpx;
   color: var(--color-foreground);
   font-weight: 600;
-  margin: 16rpx 0 8rpx;
 }
+
+/* 对齐 RN content:13dp→26rpx / lineHeight 19dp→38rpx / text.secondary→muted-foreground / 3 行截断 */
 .ci-content {
-  display: block;
+  display: -webkit-box;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
-  line-height: 1.6;
+  line-height: 38rpx;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
 }
+
+/* 对齐 RN imgRow:gap 12 */
 .ci-images {
   display: flex;
-  gap: 8rpx;
-  margin-top: 16rpx;
+  gap: 12rpx;
 }
+
+/* 对齐 RN img:200×200 / radius 12 / bg surface.muted */
 .ci-img {
   width: 200rpx;
   height: 200rpx;
-  border-radius: var(--radius-md);
+  border-radius: 12rpx;
   background: var(--color-muted);
 }
+
 .ci-img-more {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-black-40);
 }
-/* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
+
+/* 对齐 RN imgMoreText:14dp→28rpx / 600 / text.secondary→muted-foreground */
 .ci-img-more-text {
-  font-size: 32rpx;
-  color: var(--color-foreground);
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
   font-weight: 600;
 }
+
+/* 对齐 RN actions:gap 32 */
 .ci-item-actions {
   display: flex;
   gap: 32rpx;
-  margin-top: 20rpx;
-}
-.ci-item-action {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
 }
 
-/* ===== 空状态 ===== */
+/* 对齐 RN stat:row / center / gap 8 */
+.ci-item-action {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+/* 对齐 RN statNum:12dp→24rpx / text.tertiary */
+.ci-item-action-num {
+  font-size: 24rpx;
+  color: var(--color-text-tertiary);
+}
+
+/* ===== 空状态(对齐 RN center:py 120 / gap 16;stateText 13dp→26rpx text.tertiary) ===== */
 .ci-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 120rpx 0;
-  gap: 20rpx;
+  gap: 16rpx;
 }
+
+/* 对齐 RN Inbox 40dp→80rpx / color text.tertiary */
 .ci-empty-icon {
   font-size: 80rpx;
 }
+
 .ci-empty-text {
-  font-size: 28rpx;
-  color: var(--color-muted-foreground);
+  font-size: 26rpx;
+  color: var(--color-text-tertiary);
 }
+
+/* 对齐 RN emptyBtn:px 40 / py 16 / radius 32 / bg brand.DEFAULT */
 .ci-empty-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 64rpx;
-  padding: 0 40rpx;
-  background: var(--color-primary);
-  border-radius: var(--radius-md);
-  margin-top: 8rpx;
-}
-.ci-empty-btn Text {
-  font-size: 26rpx;
-  color: var(--color-primary-foreground);
+  padding: 16rpx 40rpx;
+  background: var(--color-brand);
+  border-radius: 32rpx;
 }
 
-/* ===== 错误 / 加载状态 ===== */
+/* 对齐 RN emptyBtnText:13dp→26rpx / 600 / surface.card */
+.ci-empty-btn-text {
+  font-size: 26rpx;
+  color: var(--color-card);
+  font-weight: 600;
+}
+
+/* ===== 错误 / 加载状态(对齐 RN center + errorText/retryText/stateText) ===== */
 .ci-error {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 80rpx 0;
-  gap: 12rpx;
+  padding: 120rpx 0;
+  gap: 16rpx;
 }
+
+/* 对齐 RN errorText:13dp→26rpx / danger.DEFAULT→--color-danger */
 .ci-error-text {
   font-size: 26rpx;
-  color: var(--color-destructive);
+  color: var(--color-danger);
 }
+
+/* 对齐 RN retryText:13dp→26rpx / text.primary→foreground */
 .ci-error-retry {
   font-size: 26rpx;
-  color: var(--color-primary);
+  color: var(--color-foreground);
 }
+
+/* 对齐 RN footer:py 24 / stateText 26rpx text.tertiary */
 .ci-status {
   display: block;
   text-align: center;
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
-  padding: 32rpx 0;
+  font-size: 26rpx;
+  color: var(--color-text-tertiary);
+  padding: 24rpx 0;
 }
 
-/* ===== 悬浮发布按钮 ===== */
+/* ===== 悬浮发布按钮(对齐 RN fab:right 48 / bottom 64 / 104×104 / radius 52 / bg brand,无阴影) ===== */
 .ci-fab {
   position: fixed;
-  right: 40rpx;
-  bottom: 80rpx;
-  width: 100rpx;
-  height: 100rpx;
+  right: 48rpx;
+  bottom: 64rpx;
+  width: 104rpx;
+  height: 104rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-primary);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8rpx 24rpx var(--color-success-tint-strong);
+  background: var(--color-brand);
+  border-radius: 52rpx;
   z-index: 10;
 }
+
+/* 对齐 RN Plus size 24dp→48rpx / color surface.card */
 .ci-fab-icon {
-  font-size: 56rpx;
-  color: var(--color-primary-foreground);
+  font-size: 48rpx;
+  color: var(--color-card);
   line-height: 1;
 }
-/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
