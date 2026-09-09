@@ -37,7 +37,7 @@ export default function VideoTabs(props: VideoTabsProps) {
             key={tab.key}
             className="flex-1 flex items-center justify-center py-3"
             onClick={() => onChange?.(tab.key)}
-          >
+            hoverClass="opacity-60">
             <Text
               className={`text-sm ${isActive ? 'text-primary font-medium' : 'text-muted-foreground'}`}
             >

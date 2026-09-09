@@ -58,6 +58,7 @@ export default function RecentAgents({ recentAgents }: RecentAgentsProps) {
               key={agent.id || index}
               className="recent-item"
               onClick={() => navigateTo(agent, index)}
+              hoverClass="opacity-60"
             >
               {agent.agentAvatar ? (
                 <Image className="agent-avatar" src={agent.agentAvatar} mode="aspectFill" />

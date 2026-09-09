@@ -154,7 +154,7 @@ export default function ImagePage() {
   const isFavorited = !!result && favorites.has(result)
 
   return (
-    <ThemeRoot className="min-h-screen bg-background flex flex-col">
+    <ThemeRoot className="min-h-screen bg-[var(--color-screen-canvas)] flex flex-col">
       {result ? (
         <View className="flex-1 flex items-center justify-center p-[32rpx]">
           <Image
@@ -165,26 +165,31 @@ export default function ImagePage() {
         </View>
       ) : (
         <View className="flex-1 flex flex-col items-center justify-center">
-          <LineIcon name="palette" size={120} color="var(--color-muted-foreground)" />
+          <LineIcon name="palette" size={120} color="var(--color-text-tertiary)" />
           <Text className="text-[26rpx] text-muted-foreground mt-[24rpx]">
             {t('ai.image.emptyHint')}
           </Text>
         </View>
       )}
       {result ? (
-        <View className="flex gap-2 px-4 pb-2">
+        <View className="flex gap-[16rpx] px-[32rpx] pb-[16rpx]">
           <Button
-            className="flex-1 text-sm rounded-md !bg-muted !text-foreground"
+            className="flex-1 text-[24rpx] rounded-[12rpx] h-[80rpx] leading-[80rpx] border border-border bg-transparent text-muted-foreground"
             onClick={onDownload}
           >
             {t('ai.image.download')}
           </Button>
-          <Button className="flex-1 text-sm rounded-md !bg-muted !text-foreground" openType="share">
+          <Button
+            className="flex-1 text-[24rpx] rounded-[12rpx] h-[80rpx] leading-[80rpx] border border-border bg-transparent text-muted-foreground"
+            openType="share"
+          >
             {t('ai.image.share')}
           </Button>
           <Button
-            className={`flex-1 text-sm rounded-md ${
-              isFavorited ? '!bg-primary !text-white' : '!bg-muted !text-foreground'
+            className={`flex-1 text-[24rpx] rounded-[12rpx] h-[80rpx] leading-[80rpx] ${
+              isFavorited
+                ? 'bg-primary text-[var(--color-surface-light)]'
+                : 'border border-border bg-transparent text-muted-foreground'
             }`}
             onClick={onToggleFavorite}
           >
@@ -199,7 +204,7 @@ export default function ImagePage() {
             {examples.map((ex) => (
               <Text
                 key={ex}
-                className="py-[12rpx] px-[24rpx] bg-card rounded-[24rpx] text-[24rpx] text-muted-foreground"
+                className="py-[12rpx] px-[24rpx] bg-muted rounded-[12rpx] text-[24rpx] text-muted-foreground"
                 onClick={() => setPrompt(ex)}
               >
                 {ex}
@@ -208,23 +213,23 @@ export default function ImagePage() {
           </View>
         </View>
       ) : null}
-      <View className="py-[24rpx] px-[32rpx] bg-card">
+      <View className="py-[24rpx] px-[32rpx]">
         <Textarea
-          className="w-full min-h-[120rpx] p-[20rpx] bg-background rounded-[12rpx] text-[28rpx] box-border"
+          className="w-full min-h-[192rpx] p-[24rpx] bg-transparent border border-border rounded-[12rpx] text-[24rpx] box-border"
           value={prompt}
           placeholder={t('ai.image.placeholder')}
           maxlength={500}
           onInput={(e) => setPrompt(e.detail.value)}
         />
-        <View className="flex items-center mt-[16rpx] gap-[16rpx]">
-          <View className="flex gap-[12rpx] flex-1">
+        <View className="flex items-center mt-[24rpx] gap-[16rpx]">
+          <View className="flex gap-[16rpx] flex-1">
             {sizes.map((s) => (
               <Text
                 key={s.value}
-                className={`py-[8rpx] px-[16rpx] border-[2rpx] rounded-[8rpx] text-[24rpx] ${
+                className={`py-[12rpx] px-[24rpx] rounded-[12rpx] text-[20rpx] ${
                   size === s.value
-                    ? 'border-primary text-primary'
-                    : 'border-border text-muted-foreground'
+                    ? 'bg-[var(--color-brand-orange)] text-[var(--color-surface-light)]'
+                    : 'bg-secondary text-muted-foreground'
                 }`}
                 onClick={() => setSize(s.value)}
               >
@@ -234,12 +239,14 @@ export default function ImagePage() {
           </View>
         </View>
         {styles.length ? (
-          <View className="flex gap-2 mt-2 flex-wrap">
+          <View className="flex gap-[16rpx] mt-[16rpx] flex-wrap">
             {styles.map((s) => (
               <Text
                 key={s}
-                className={`px-3 py-1 text-xs rounded-md ${
-                  style === s ? 'bg-primary text-white' : 'bg-muted text-foreground'
+                className={`px-[24rpx] py-[12rpx] text-[20rpx] rounded-[12rpx] ${
+                  style === s
+                    ? 'bg-[var(--color-brand-orange)] text-[var(--color-surface-light)]'
+                    : 'bg-secondary text-muted-foreground'
                 }`}
                 onClick={() => setStyle(s)}
               >
@@ -249,7 +256,7 @@ export default function ImagePage() {
           </View>
         ) : null}
         <Button
-          className="bg-primary text-foreground rounded-[16rpx] text-[28rpx] px-[32rpx] mt-3 w-full disabled:bg-muted"
+          className="bg-[var(--color-brand-orange)] text-[var(--color-surface-light)] rounded-[12rpx] text-[20rpx] font-medium mt-[32rpx] w-full h-[88rpx] leading-[88rpx] disabled:opacity-60"
           onClick={onGenerate}
           disabled={!prompt || loading}
         >
@@ -257,21 +264,26 @@ export default function ImagePage() {
         </Button>
       </View>
 
-      <View className="mx-3 mt-3 mb-6 bg-card rounded-lg p-3">
-        <Text className="block text-sm font-medium text-foreground mb-2">
+      <View className="mx-[24rpx] mt-[24rpx] mb-[48rpx] bg-card rounded-[16rpx] border border-border p-[24rpx]">
+        <Text className="block text-[28rpx] font-medium text-foreground mb-[16rpx]">
           {t('ai.image.history')}
         </Text>
         {history.length ? (
-          <View className="flex flex-col gap-2">
+          <View className="flex flex-col gap-[16rpx]">
             {history.map((h) => (
               <View
                 key={h.id}
-                className="flex items-center py-2 bg-background rounded-md px-2"
+                className="flex items-center py-[16rpx] bg-background rounded-[12rpx] px-[16rpx]"
                 onClick={() => replayHistory(h)}
+                hoverClass="opacity-60"
               >
-                <Image className="w-10 h-10 rounded-md mr-2" src={h.url} mode="aspectFill" />
-                <Text className="flex-1 text-xs text-foreground truncate">{h.prompt}</Text>
-                <Text className="text-[20rpx] text-muted-foreground ml-2">
+                <Image
+                  className="w-[80rpx] h-[80rpx] rounded-[12rpx] mr-[16rpx]"
+                  src={h.url}
+                  mode="aspectFill"
+                />
+                <Text className="flex-1 text-[24rpx] text-foreground truncate">{h.prompt}</Text>
+                <Text className="text-[20rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">
                   {fmtTime(h.createdAt)}
                 </Text>
               </View>

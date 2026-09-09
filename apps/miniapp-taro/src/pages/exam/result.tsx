@@ -150,7 +150,7 @@ export default function ExamResult() {
                     <LineIcon
                       name="x"
                       size={48}
-                      color="var(--color-destructive)"
+                      color="var(--color-danger)"
                       style={{ display: 'block' }}
                     />
                   )}

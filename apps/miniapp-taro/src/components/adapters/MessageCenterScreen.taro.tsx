@@ -286,7 +286,7 @@ export function MessageCenterScreen({
   return (
     <View style={viewStyles.container(tk)}>
       <View style={viewStyles.header()}>
-        <View style={viewStyles.backBtn()} onTap={onBack}>
+        <View style={viewStyles.backBtn()} onTap={onBack} hoverClass="opacity-60">
           <Text style={textStyles.backText(tk)}>{t('common.back')}</Text>
         </View>
         <Text style={textStyles.title(tk)}>{t('messageCenter.title')}</Text>
@@ -297,7 +297,7 @@ export function MessageCenterScreen({
           {TABS.map((tab) => {
             const active = tab === activeTab
             return (
-              <View key={tab} style={viewStyles.tab(tk, active)} onTap={() => onSelectTab(tab)}>
+              <View key={tab} style={viewStyles.tab(tk, active)} onTap={() => onSelectTab(tab)} hoverClass="opacity-60">
                 <Text style={textStyles.tabText(tk, active)}>{t(`messageCenter.tab.${tab}`)}</Text>
               </View>
             )
@@ -353,7 +353,7 @@ export function MessageCenterScreen({
                 )
                 if (onPressItem) {
                   return (
-                    <View key={item.id} onTap={() => onPressItem(item)}>
+                    <View key={item.id} onTap={() => onPressItem(item)} hoverClass="opacity-60">
                       {inner}
                     </View>
                   )

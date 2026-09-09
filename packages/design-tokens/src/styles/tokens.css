@@ -149,6 +149,9 @@
   --color-wechat-green: #4cd964;
   --color-chat-bubble-user: #95ec69;
   --color-brand-orange: #ff6b35;
+  /* 品牌橙底上的恒定白字(对标 --color-danger-foreground 成对写法,明暗同值:
+   * 亮 #ff6b35 / 暗 #ff8e53 橙底均需白字保证对比度) */
+  --color-brand-orange-foreground: #ffffff;
   /* 品牌橙渐变(2026-09-07 立,复刻旧App渐变主按钮形态,仅作CTA/头部"局部渐变点缀",
    * 主按钮仍用纯色 --color-brand-orange。dark 覆盖见 .dark 块) */
   --color-brand-orange-grad-from: #ffb27d;
@@ -217,6 +220,14 @@
   --color-danger-light: #fee2e2;
   /* RN danger.bright 强调红(RN danger.bright,购买/薪资强调 CTA;dark 取 rnDarkTokens) */
   --color-danger-bright: #f87171;
+  /* RN success.deep(green-600,充值/开通成功结果页图标与标题;dark 覆盖见 .dark 块 #16a34a) */
+  --color-success-deep: #16a34a;
+  /* RN success.lighter(green-100 #d1fae5,live/detail 已订阅卡片底色;dark 覆盖见 .dark 块 #064e3b) */
+  --color-success-lighter: #d1fae5;
+  /* RN gray.black(纯黑,视频播放区底色,明暗同值) */
+  --color-black: #000000;
+  /* RN gray.900(#171717,主播端摄像头预览区底色,亮暗同值;.dark 块已有同名覆盖) */
+  --color-screen-canvas: #171717;
   /* RN 对齐补齐(2026-09-09 立,对齐 rn-tokens.ts):
    * - --color-surface-light:RN surface.light(对比白字/白卡面,明暗同值 #FFFFFF)
    * - --color-warning-amber:RN warning.amber(即将开播/即将开始状态徽章底色) */
@@ -317,6 +328,7 @@
   --color-black-20: rgba(0, 0, 0, 0.2);
   --color-black-25: rgba(0, 0, 0, 0.25);
   --color-black-30: rgba(0, 0, 0, 0.3);
+  --color-black-35: rgba(0, 0, 0, 0.35);
   --color-black-40: rgba(0, 0, 0, 0.4);
   --color-black-45: rgba(0, 0, 0, 0.45);
   --color-black-50: rgba(0, 0, 0, 0.5);
@@ -529,6 +541,11 @@ select:-webkit-autofill:focus {
   --color-vip-card: #262626;
   --color-brand-orange-light: #431407;
   --color-success-deep-text: #86efac;
+  /* RN success.deep 暗色覆盖(rnDarkTokens 同值 #16a34a,与上方亮色成对) */
+  --color-success-deep: #16a34a;
+  /* RN success.lighter 暗色覆盖(rnDarkTokens green-900 #064e3b,与上方亮色成对) */
+  --color-success-lighter: #064e3b;
+  --color-black: #000000;
   --color-success-light: #052e16;
   --color-warning-amber-light: #78350f;
   --color-warning-amber-text: #fbbf24;
@@ -550,6 +567,8 @@ select:-webkit-autofill:focus {
   --color-model-type-av-bg: #e8f5e9;
   /* 智能体卡片名称链接色(与上方 @theme 亮色值成对,明暗同值) */
   --color-agent-name: #517bff;
+  /* RN 屏幕画布暗色覆盖(bg-white ↔ dark:bg-neutral-900 #171717) */
+  --color-screen-canvas: #171717;
 }
 
 /* ============ 全局基础变量(2026-07-27 上提自 web 本地 design-tokens.css) ============

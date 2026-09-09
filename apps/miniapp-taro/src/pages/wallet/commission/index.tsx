@@ -102,19 +102,24 @@ export default function CommissionPage() {
           showMore={false}
           className="mb-[16rpx]"
         />
-        <View className="wc-stats">
-          <View className="wc-stat-item">
-            <Text className="wc-stat-label">{t('wallet.commission.today')}</Text>
-            <Text className="wc-stat-value">¥{todayCommission}</Text>
+        <View className="wc-summary-card">
+          <View className="wc-summary-row">
+            <View className="wc-summary-item">
+              <Text className="wc-stat-label">{t('wallet.commission.today')}</Text>
+              <Text className="wc-stat-value">¥{todayCommission}</Text>
+            </View>
+            <View className="wc-summary-item">
+              <Text className="wc-stat-label">{t('distribution.commission.total')}</Text>
+              <Text className="wc-stat-value">¥{totalCommission}</Text>
+            </View>
+            <View className="wc-summary-item">
+              <Text className="wc-stat-label">{t('wallet.commission.available')}</Text>
+              <Text className="wc-stat-value">¥{available}</Text>
+            </View>
           </View>
-          <View className="wc-stat-item">
-            <Text className="wc-stat-label">{t('distribution.commission.total')}</Text>
-            <Text className="wc-stat-value">¥{totalCommission}</Text>
-          </View>
-          <View className="wc-stat-item">
-            <Text className="wc-stat-label">{t('wallet.commission.available')}</Text>
-            <Text className="wc-stat-value">¥{available}</Text>
-          </View>
+          <Button className="wc-withdraw-btn" onClick={goWithdraw}>
+            {t('developer.income.withdraw')}
+          </Button>
         </View>
 
         <View className="wc-list-section">
@@ -142,10 +147,6 @@ export default function CommissionPage() {
           )}
           {loading && <Text className="wc-loading">{t('distribution.commission.loading')}</Text>}
         </View>
-
-        <Button className="wc-withdraw-btn" onClick={goWithdraw}>
-          {t('developer.income.withdraw')}
-        </Button>
       </View>
     </ThemeRoot>
   )
