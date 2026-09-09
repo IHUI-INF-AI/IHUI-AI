@@ -3364,6 +3364,14 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-09) **P1 声纹删除越权收敛**:声纹库是平台共享资源(单一 token6688 账号,无归属概念),此前任何登录用户可 DELETE 全库声纹。delete_voice 加 `_require_admin` 依赖(role_id≥1,与 AGENTS.md §5/admin layout 一致);voices 页非 admin 隐藏删除按钮(useAuthStore roleId>=1);列表/上传/试听对登录用户开放不变;/voice/voices* 不在 JWT 公开白名单(匿名不可达)复核通过。
 - [x] ✅(2026-09-09) **验证**:voice 专项 12 passed(新增 非admin 403 / admin 200 两条守卫用例;fastapi_app 实例从 socketio.ASGIApp 包装下取出注入 dependency_overrides);web tsc 0 错误、eslint 0 违规;生产 8803 实测:普通 token 删声纹 403、admin 放行至 503(未配 key 前置)、列表开放性不变;media-tasks 页在途过滤确认传完整四态逗号集(后端逗号解析 179/362 行)。
 
+### 第四轮:video.py 越权收敛 + 回调验签 fail-closed(2026-09-09 完成 ✅)
+
+> 触发:用户再次判定"还有遗漏"。第四轮扫描前三轮未覆盖面:ai-service 遗留 API 面(video.py)、公开回调端点验签密钥、生产真实消费链路复核(提交 d02f781f7,三仓已推)。
+
+- [x] ✅(2026-09-09) **P0 video.py 越权收敛(与 media_tasks 修复前同类 IDOR)**:列表 user_uuid 缺省查全平台、详情无归属校验(泄露产物 URL)、创建端 user_uuid 客户端可控(默认 "system" 可冒充入队)、取消任意 provider 任务。修复:列表/创建复用 media_tasks._user_scope/_scoped_user_uuid(JWT 派生,admin=role_id≥1),详情/取消归属校验(不归属 404)。生产链路复核:apps/api jimeng4 视频任务(创建注入 request.userId/列表 findVideoTasksByUser/详情归属查询)隔离完备,web 视频任务页轮询条件 accepted/running 亦正确——本路由为公网可达、无仓内消费者的遗留 API 面。
+- [x] ✅(2026-09-09) **P0 回调验签 fail-closed**:/video/token6688-callback 与 /media/tasks/callback 均在 JWT 公开白名单(外部平台 webhook 无 JWT),TOKEN6688_CALLBACK_SECRET 为空时此前"跳过验签继续处理"= 匿名可伪造任意任务终态。现拒绝处理返回 503;配 token6688 key 时必须同步配置回调密钥(当前 .env 两处均空,token6688 链路本就未激活,无功能损失)。
+- [x] ✅(2026-09-09) **验证**:新增 test_video_routes.py 14 用例(列表收敛/详情归属三态/创建收敛/取消归属/回调 fail-closed 503 + 坏签名 401 + 合法签名 200);既有 4 条回调用例按"签名后置"新契约更新(含 test_token6688_provider.py 两条 fail-open 锁定用例反转);受影响面 337 passed;生产 8803 实测:两回调无 secret 均 503、plain token 视频列表 0 条;无 web 改动无需重建。
+
 ## Firecrawl 网页工具 前端操作页 + extract_web 费用归属 收尾(2026-09-09 完成 ✅)
 
 > 触发:Firecrawl 四件套极致融合(39935d1cb → 999d792fa → b85aaad01)收尾台账两项:① extract_web 直接调 llm_gateway 的 token 费用归属未透出;② 缺网页工具专属前端操作页。本轮全部闭环。
