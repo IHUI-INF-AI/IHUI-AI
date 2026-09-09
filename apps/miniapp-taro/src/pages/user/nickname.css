@@ -4,17 +4,23 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
+/* 对齐 RN packages/app ProfileEditScreen(昵称编辑部分):
+ * - 页面底 tk.surface.muted → var(--color-muted);内容边距 14dp → 28rpx
+ * - fieldCard:白卡 surface.light → var(--color-card) + 圆角 12dp → 24rpx + 内边距 12dp → 24rpx
+ * - fieldLabel:14dp → 28rpx/600 text.secondary → var(--color-muted-foreground)
+ * - fieldInput:描边 border.light + muted 底 + 高 50dp → 100rpx + 圆角 24rpx + 字 16dp → 32rpx
+ * - saveBtn:100rpx 高 / 圆角 24rpx / 32rpx/600,禁用 opacity 0.6 */
 .nick-page {
   min-height: 100vh;
-  background: var(--color-background);
-  padding: 24rpx 24rpx 48rpx;
+  background: var(--color-muted);
+  padding: 28rpx;
   box-sizing: border-box;
 }
 .nick-card {
   margin-bottom: 24rpx;
-  padding: 32rpx;
+  padding: 24rpx;
   background: var(--color-card);
-  border-radius: var(--radius-md);
+  border-radius: 24rpx;
 }
 .nick-row {
   display: flex;
@@ -23,13 +29,15 @@
 }
 .nick-label {
   font-size: 28rpx;
-  color: var(--color-foreground);
+  font-weight: 600;
+  color: var(--color-muted-foreground);
 }
 .nick-value {
   flex: 1;
   text-align: right;
   font-size: 28rpx;
-  color: var(--color-muted-foreground);
+  font-weight: 400;
+  color: var(--color-foreground);
 }
 .nick-input-head {
   display: flex;
@@ -38,59 +46,72 @@
   margin-bottom: 16rpx;
 }
 .nick-count {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
+  font-size: 20rpx;
+  color: var(--color-text-tertiary);
 }
 .nick-input {
   width: 100%;
-  height: 72rpx;
-  padding: 0 20rpx;
-  background: var(--color-background);
-  border-radius: var(--radius-sm);
-  font-size: 28rpx;
+  height: 100rpx;
+  padding: 0 24rpx;
+  background: var(--color-muted);
+  border: 1rpx solid var(--color-border);
+  border-radius: 24rpx;
+  font-size: 32rpx;
+  color: var(--color-foreground);
   box-sizing: border-box;
 }
+/* RN placeholderTextColor = tk.text.tertiary */
+.nick-placeholder {
+  color: var(--color-text-tertiary);
+}
 .nick-random {
-  margin-top: 20rpx;
+  margin-top: 16rpx;
   display: flex;
   justify-content: flex-end;
 }
 .nick-random-text {
-  padding: 8rpx 16rpx;
-  font-size: 24rpx;
+  padding: 12rpx 24rpx;
+  font-size: 28rpx;
   color: var(--color-primary);
-  background: var(--color-border);
-  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+  border-radius: 24rpx;
 }
 .nick-rules {
-  margin-bottom: 32rpx;
-  padding: 24rpx 32rpx;
+  margin-bottom: 24rpx;
+  padding: 24rpx;
   background: var(--color-card);
-  border-radius: var(--radius-md);
+  border-radius: 24rpx;
 }
 .nick-rules-title {
   display: block;
-  margin-bottom: 12rpx;
-  font-size: 26rpx;
+  margin-bottom: 16rpx;
+  font-size: 28rpx;
+  font-weight: 600;
   color: var(--color-muted-foreground);
 }
 .nick-rules-line {
   display: block;
   font-size: 24rpx;
   line-height: 1.9;
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
 }
 .nick-submit {
-  margin: 0 24rpx;
-  height: 88rpx;
-  line-height: 88rpx;
+  margin: 8rpx 0 0;
+  width: 100%;
+  height: 100rpx;
+  line-height: 100rpx;
   text-align: center;
   background: var(--color-primary);
-  color: var(--color-foreground);
-  font-size: 30rpx;
-  border-radius: var(--radius-md);
+  color: var(--color-surface-light);
+  font-size: 32rpx;
+  font-weight: 600;
+  border-radius: 24rpx;
+  padding: 0;
+}
+.nick-submit::after {
+  border: none;
 }
 .nick-submit.disabled {
-  opacity: 0.5;
+  opacity: 0.6;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

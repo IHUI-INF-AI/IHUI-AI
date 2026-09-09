@@ -167,7 +167,7 @@ export default function AnnouncementList() {
     <ThemeRoot>
       <View style={viewStyles.container()}>
         <View style={viewStyles.header()}>
-          <View onTap={goBack}>
+          <View onTap={goBack} hoverClass="opacity-60">
             <Text style={textStyles.back()}>{tt('common.back', '返回')}</Text>
           </View>
           <Text style={textStyles.title()}>{tt('announcement.title', '平台公告')}</Text>
@@ -194,7 +194,7 @@ export default function AnnouncementList() {
                 {items.map((item, index) => (
                   <View key={item.id}>
                     {index > 0 ? <View style={viewStyles.separator()} /> : null}
-                    <View style={viewStyles.card()} onTap={() => onPressItem(item)}>
+                    <View style={viewStyles.card()} onTap={() => onPressItem(item)} hoverClass="opacity-60">
                       <View style={viewStyles.titleRow()}>
                         {item.pinned ? (
                           <View style={viewStyles.pinnedBadge()}>

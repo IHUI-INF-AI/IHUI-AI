@@ -4,6 +4,8 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
+/* 对齐 RN TopicDetailScreen(mobile-rn):rpx 1:1,raw 数字 ×2 */
+
 .topic-detail-page {
   min-height: 100vh;
   background: var(--color-background);
@@ -17,24 +19,28 @@
   box-sizing: border-box;
 }
 
-/* 话题头部 */
+/* ===== 话题头部(RN header: row/center/gap24/padding24 白底) ===== */
 .topic-detail-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 32rpx;
+  flex-direction: row;
+  align-items: center;
+  gap: 24rpx;
+  padding: 24rpx;
   background: var(--color-card);
 }
 
 .topic-detail-info {
   flex: 1;
-  margin-right: 24rpx;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
 }
 
 .topic-detail-name {
   display: block;
-  font-size: 38rpx;
-  font-weight: 700;
+  font-size: 34rpx;
+  font-weight: 600;
   color: var(--color-foreground);
   line-height: 1.4;
 }
@@ -43,33 +49,35 @@
   display: block;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
-  line-height: 1.6;
-  margin-top: 12rpx;
+  line-height: 36rpx;
 }
 
 .topic-detail-followers {
   display: block;
-  font-size: 22rpx;
-  color: var(--color-muted-foreground);
-  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--color-text-tertiary);
 }
 
+/* 关注按钮(RN followBtn: px32/py12/radius32/brand 底;激活态 muted 底 + secondary 字) */
 .topic-detail-follow-btn {
   flex-shrink: 0;
-  min-width: 120rpx;
-  height: 64rpx;
-  line-height: 64rpx;
-  padding: 0 24rpx;
+  margin: 0;
+  padding: 12rpx 32rpx;
   font-size: 26rpx;
-  background: var(--color-primary);
-  color: var(--color-foreground);
-  border-radius: var(--radius-md);
-  border: none;
   font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-card);
+  background: var(--color-primary);
+  border-radius: 32rpx;
+  border: none;
+}
+
+.topic-detail-follow-btn::after {
+  border: none;
 }
 
 .topic-detail-follow-btn.followed {
-  background: var(--color-background);
+  background: var(--color-muted);
   color: var(--color-muted-foreground);
 }
 
@@ -77,65 +85,72 @@
   opacity: 0.6;
 }
 
-/* 发布入口 */
+/* ===== 发布入口(RN publishBar: row/center/gap16/px24/py20 白底 + 上下 hairline) ===== */
 .topic-detail-publish {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  padding: 20rpx 32rpx;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
   background: var(--color-card);
-  margin-top: 16rpx;
+  border-top: 1rpx solid var(--color-border);
+  border-bottom: 1rpx solid var(--color-border);
 }
 
 .topic-detail-publish-icon {
-  font-size: 28rpx;
-  color: var(--color-muted-foreground);
-  margin-right: 12rpx;
+  font-size: 30rpx;
+  color: var(--color-text-tertiary);
 }
 
 .topic-detail-publish-text {
   flex: 1;
   font-size: 26rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .topic-detail-publish-btn {
-  padding: 8rpx 24rpx;
-  font-size: 24rpx;
-  color: var(--color-primary);
-  background: var(--color-border);
-  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  font-size: 26rpx;
   font-weight: 600;
+  color: var(--color-primary);
 }
 
-/* 帖子列表 */
+/* ===== 帖子列表(RN listContent: padding24/pb40/gap16) ===== */
 .topic-detail-list {
-  padding: 16rpx 24rpx;
+  padding: 24rpx 24rpx 40rpx;
 }
 
+/* 帖子卡(RN post: gap12/padding24/radius16 白底) */
 .topic-detail-post {
   background: var(--color-card);
-  border-radius: var(--radius-lg);
+  border-radius: 16rpx;
   padding: 24rpx;
   margin-bottom: 16rpx;
 }
 
-/* 帖子用户信息 */
+/* 帖子用户信息(RN postUser: row/center/gap16) */
 .topic-detail-post-user {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  margin-bottom: 16rpx;
+  gap: 16rpx;
+  margin-bottom: 12rpx;
 }
 
 .topic-detail-avatar {
   width: 64rpx;
   height: 64rpx;
-  border-radius: var(--radius-md);
+  border-radius: 32rpx;
   background: var(--color-muted);
   flex-shrink: 0;
 }
 
 .topic-detail-user-info {
-  margin-left: 16rpx;
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4rpx;
@@ -149,7 +164,7 @@
 
 .topic-detail-time {
   font-size: 22rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
 }
 
 /* 帖子内容 */
@@ -166,21 +181,21 @@
   display: block;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
-  line-height: 1.6;
+  line-height: 38rpx;
 }
 
-/* 帖子图片 */
+/* 帖子图片(RN imgRow: gap12) */
 .topic-detail-post-images {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8rpx;
-  margin-top: 16rpx;
+  flex-direction: row;
+  gap: 12rpx;
+  margin-top: 12rpx;
 }
 
 .topic-detail-post-img {
   width: 200rpx;
   height: 200rpx;
-  border-radius: var(--radius-md);
+  border-radius: 12rpx;
   background: var(--color-muted);
 }
 
@@ -190,43 +205,56 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-black-50);
-  border-radius: var(--radius-md);
-  /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
-  color: var(--color-foreground);
+  background: var(--color-muted);
+  border-radius: 12rpx;
+  color: var(--color-muted-foreground);
   font-size: 28rpx;
   font-weight: 600;
 }
 
-/* 帖子底部统计 */
+/* 帖子底部统计(RN postFooter: gap32;stat: gap8;数字 tertiary) */
 .topic-detail-post-footer {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 32rpx;
-  margin-top: 16rpx;
+  margin-top: 12rpx;
 }
 
 .topic-detail-post-stat {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 8rpx;
 }
 
 .topic-detail-post-stat-icon {
-  font-size: 26rpx;
-  color: var(--color-muted-foreground);
+  font-size: 28rpx;
+  color: var(--color-text-tertiary);
 }
 
 .topic-detail-post-stat-num {
   font-size: 24rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
 }
 
-/* 状态提示 */
+/* 状态提示(RN center: py120/gap16;stateText tertiary) */
 .topic-detail-state {
-  text-align: center;
-  padding: 60rpx 0;
-  color: var(--color-muted-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+  color: var(--color-text-tertiary);
   font-size: 26rpx;
 }
-/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
+
+/* 加载更多/没有更多(RN footer: py24 居中) */
+.topic-detail-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24rpx 0;
+  color: var(--color-text-tertiary);
+  font-size: 26rpx;
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​‌​​‌‍‍​‌​‌​​‌‍‍‌‌‍‍​‌​​‌‌‌‌‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

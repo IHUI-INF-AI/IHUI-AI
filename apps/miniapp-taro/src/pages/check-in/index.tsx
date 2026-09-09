@@ -265,7 +265,7 @@ export default function CheckIn() {
         <View style={viewStyles.container(tk)}>
           <View style={viewStyles.center(tk)}>
             <Text style={textStyles.error(tk)}>{error}</Text>
-            <View style={viewStyles.retryBtn(tk)} onTap={() => void load()}>
+            <View style={viewStyles.retryBtn(tk)} onTap={() => void load()} hoverClass="opacity-60">
               <Text style={textStyles.retryBtnText(tk)}>{tt('checkIn.retry', '重试')}</Text>
             </View>
           </View>
@@ -285,7 +285,7 @@ export default function CheckIn() {
           onRefresherRefresh={() => void load(true)}
         >
           <View style={viewStyles.header()}>
-            <View style={viewStyles.backBtn()} onTap={goBack}>
+            <View style={viewStyles.backBtn()} onTap={goBack} hoverClass="opacity-60">
               <Text style={textStyles.backText(tk)}>{tt('common.back', '返回')}</Text>
             </View>
             <Text style={textStyles.title(tk)}>{tt('checkIn.title', '每日签到')}</Text>
@@ -318,7 +318,7 @@ export default function CheckIn() {
                 <View
                   style={viewStyles.signBtn(tk, info.todaySigned)}
                   onTap={() => void handleSign()}
-                >
+                  hoverClass="opacity-60">
                   <Text style={textStyles.signBtnText(tk, info.todaySigned)}>
                     {signing
                       ? tt('common.loading', '加载中...')

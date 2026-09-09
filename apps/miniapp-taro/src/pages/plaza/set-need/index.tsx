@@ -69,95 +69,104 @@ export default function SetNeed() {
   }, [selected, level, budget, t])
 
   return (
-    <View className="min-h-screen bg-background pb-[140rpx]">
-      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
-        <Text className="block text-[30rpx] text-foreground font-semibold">
+    /* 对齐 RN 端 packages/app/src/features/set-need/SetNeedScreen.tsx 视觉语言:
+       页面底 surface.bg→bg-background / label 16dp→32rpx 600 text.primary→text-foreground /
+       区块间距 scrollContent gap 8dp→16rpx,label→选项组 8dp→16rpx /
+       选项块按 input 块语言: bg surface.muted→bg-muted 圆角 12dp→24rpx
+       padding 12/14dp→24/28rpx 字 16dp→32rpx text.primary→text-foreground /
+       激活态 brand.DEFAULT→bg-primary + text-primary-foreground
+       (RN 选中强调用 surface.light 固定白字,暗色下 brand=白会白上白不可读,
+       按语义 token 修正为 primary-foreground,亮色表现与 RN 完全一致) /
+       提交钮: bg brand→bg-primary 圆角 12dp→24rpx 字 16dp→32rpx 600
+       高≈paddingVertical 15dp*2+行高→100rpx(兄弟页固定底钮档位),bottom 32rpx 平台惯例。
+       注:小程序页为"偏好选择"(categories/level/budget),RN 屏为"发布需求表单",
+       内容不同,仅对齐视觉语言;ThemeRoot 上提到页面根(修复暗色作用域)。 */
+    <ThemeRoot className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[180rpx]">
+      <View>
+        <Text className="block text-[32rpx] text-foreground font-semibold">
           {t('plaza.setNeed.directionTitle')}
         </Text>
-        <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx] mb-[24rpx]">
+        <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx]">
           {t('plaza.setNeed.directionDesc')}
         </Text>
-        <View className="flex flex-wrap gap-[20rpx] mt-[24rpx]">
+        <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
           {categories.map((label, i) => {
             const key = CATEGORY_KEYS[i] || label
             const active = selected.includes(key)
             return (
-              <ThemeRoot key={key}>
-                <View
-                  className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-success/10' : 'bg-background'}`}
-                  onClick={() => toggleCategory(key)}
+              <View
+                key={key}
+                className={`px-[24rpx] py-[28rpx] rounded-[24rpx] ${active ? 'bg-primary' : 'bg-muted'}`}
+                onClick={() => toggleCategory(key)}
+                hoverClass="opacity-60">
+                <Text
+                  className={`text-[32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
                 >
-                  <Text
-                    className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}
-                  >
-                    {label}
-                  </Text>
-                </View>
-              </ThemeRoot>
+                  {label}
+                </Text>
+              </View>
             )
           })}
         </View>
       </View>
 
-      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
-        <Text className="block text-[30rpx] text-foreground font-semibold">
+      <View className="mt-[16rpx]">
+        <Text className="block text-[32rpx] text-foreground font-semibold">
           {t('plaza.setNeed.levelTitle')}
         </Text>
-        <View className="flex flex-wrap gap-[20rpx] mt-[24rpx]">
+        <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
           {levels.map((lv) => {
             const active = level === lv
             return (
-              <ThemeRoot key={lv}>
-                <View
-                  className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-success/10' : 'bg-background'}`}
-                  onClick={() => setLevel(lv)}
+              <View
+                key={lv}
+                className={`px-[24rpx] py-[28rpx] rounded-[24rpx] ${active ? 'bg-primary' : 'bg-muted'}`}
+                onClick={() => setLevel(lv)}
+                hoverClass="opacity-60">
+                <Text
+                  className={`text-[32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
                 >
-                  <Text
-                    className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}
-                  >
-                    {lv}
-                  </Text>
-                </View>
-              </ThemeRoot>
+                  {lv}
+                </Text>
+              </View>
             )
           })}
         </View>
       </View>
 
-      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
-        <Text className="block text-[30rpx] text-foreground font-semibold">
+      <View className="mt-[16rpx]">
+        <Text className="block text-[32rpx] text-foreground font-semibold">
           {t('plaza.setNeed.budgetTitle')}
         </Text>
-        <View className="flex flex-wrap gap-[20rpx] mt-[24rpx]">
+        <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
           {budgets.map((b) => {
             const active = budget === b
             return (
-              <ThemeRoot key={b}>
-                <View
-                  className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-success/10' : 'bg-background'}`}
-                  onClick={() => setBudget(b)}
+              <View
+                key={b}
+                className={`px-[24rpx] py-[28rpx] rounded-[24rpx] ${active ? 'bg-primary' : 'bg-muted'}`}
+                onClick={() => setBudget(b)}
+                hoverClass="opacity-60">
+                <Text
+                  className={`text-[32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
                 >
-                  <Text
-                    className={`text-[26rpx] ${active ? 'text-primary' : 'text-muted-foreground'}`}
-                  >
-                    {b}
-                  </Text>
-                </View>
-              </ThemeRoot>
+                  {b}
+                </Text>
+              </View>
             )
           })}
         </View>
       </View>
 
       <Button
-        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-primary text-foreground rounded-[44rpx] text-[30rpx]"
+        className="fixed bottom-[32rpx] left-[20rpx] right-[20rpx] h-[100rpx] leading-[100rpx] bg-primary text-primary-foreground rounded-[24rpx] text-[32rpx] font-semibold"
         loading={saving}
         onClick={save}
         disabled={saving}
       >
         {t('plaza.setNeed.save')}
       </Button>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -198,7 +198,7 @@ export default function LiveCalendar() {
                 key={i}
                 className={`cal-cell${active ? ' cal-cell-active' : ''}`}
                 onClick={() => setSelected(ds)}
-              >
+                hoverClass="opacity-60">
                 <Text className="cal-cell-num">{d}</Text>
                 {has && <View className="cal-dot" />}
               </View>

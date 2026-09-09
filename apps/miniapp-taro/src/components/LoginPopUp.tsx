@@ -95,12 +95,12 @@ export default function LoginPopUp({
   return (
     <View className="fixed inset-0 z-[1500] flex items-center justify-center" onClick={onClose}>
       {/* 遮罩层 */}
-      <View className="absolute inset-0 bg-black/50" />
+      <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       {/* 弹窗主体 */}
       <View
         className="relative bg-card rounded-2xl p-6 w-[85%] max-w-[600rpx]"
         onClick={(e) => e.stopPropagation()}
-      >
+        hoverClass="opacity-60">
         {/* 头像区:圆形头像(rounded-full 豁免,AGENTS.md §4 头像豁免) */}
         <View className="flex flex-col items-center mb-4">
           <Button
@@ -156,8 +156,8 @@ export default function LoginPopUp({
         <View className="flex items-center justify-between mb-4">
           <Text className={`text-sm font-medium ${roleClass}`}>{roleText}</Text>
           {showUpgrade && (
-            <View className="bg-warning rounded-md px-4 py-2" onClick={onUpgrade}>
-              <Text className="text-sm text-white">{tt('vip.upgradeNow', '立即升级')}</Text>
+            <View className="bg-warning rounded-md px-4 py-2" onClick={onUpgrade} hoverClass="opacity-60">
+              <Text className="text-sm text-warning-foreground">{tt('vip.upgradeNow', '立即升级')}</Text>
             </View>
           )}
         </View>
@@ -194,14 +194,14 @@ export default function LoginPopUp({
             className="w-full !py-2 !px-4 rounded-md !border-none text-center mb-4"
             style={{ background: 'var(--color-primary)' }}
           >
-            <Text className="text-sm text-white font-medium">
+            <Text className="text-sm text-primary-foreground font-medium">
               {tt('login.wechatOneClick', '微信一键登录')}
             </Text>
           </Button>
         ) : null}
 
         {/* 关闭按钮 */}
-        <View className="w-full py-2 rounded-md bg-muted text-center" onClick={onClose}>
+        <View className="w-full py-2 rounded-md bg-muted text-center" onClick={onClose} hoverClass="opacity-60">
           <Text className="text-sm text-foreground">{tt('common.close', '关闭')}</Text>
         </View>
       </View>
