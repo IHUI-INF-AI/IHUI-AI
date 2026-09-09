@@ -581,6 +581,13 @@ const nextConfig: NextConfig = {
           source: '/api/longterm-memory/:path*',
           destination: 'http://localhost:8803/api/longterm-memory/:path*',
         },
+        // 2026-09-09 新增:媒体任务统一管理路由直连 ai-service 8803。
+        // 原因:media_tasks router 注册在 ai-service(prefix="/api",路径 /api/media/tasks/*),
+        // 必须直连 8803 才能命中,否则落到 /api/:path* → 8802 404(任务中心列表/取消/删除/清理全失效)。
+        {
+          source: '/api/media/:path*',
+          destination: 'http://localhost:8803/api/media/:path*',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',
