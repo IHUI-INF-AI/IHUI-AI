@@ -699,10 +699,62 @@ def _extract_heuristic(md: str, fields: Dict[str, str]) -> Dict[str, Any]:
     return {"fields": result, "confidence": confidence}
 
 
-def _extract_via_llm(md: str, fields: Dict[str, str]) -> Optional[Dict[str, Any]]:
-    """LLM 结构化抽取通道(注入点)。当前未接入具体 LLM 后端, 返回 None → 走启发式。"""
-    # 预留: 未来可在此调用项目现有 agent/chat 能力按 fields schema 抽取并返回 JSON。
-    return None
+async def _extract_via_llm(md: str, fields: Dict[str, str], max_chars: int = 8000) -> Optional[Dict[str, Any]]:
+    """LLM 结构化抽取通道:调用 llm_gateway 按 fields schema 抽结构化 JSON。
+
+    对标 Firecrawl Extract 的真 LLM 抽取(非正则启发式)。规则:
+    - 未配置任何 LLM key(stub 模式)或 llm_gateway 导入异常 → 返回 None(上层走启发式兜底)
+    - LLM 成功返回合法 JSON 且至少抽到一个字段 → {fields, confidence}
+    - 其余任何失败 → None, 由上层降级启发式, 绝不向调用方抛异常
+    """
+    try:
+        from ..core.llm_gateway import llm_gateway
+    except Exception:  # noqa: BLE001 - 循环导入/缺依赖时降级
+        return None
+    try:
+        if llm_gateway._is_stub_mode():
+            return None  # 无任何 LLM key → 不浪费一次网络, 直接启发式
+    except Exception:  # noqa: BLE001
+        return None
+
+    field_lines = "\n".join("- {} ({})".format(k, v) for k, v in fields.items())
+    system_prompt = (
+        "你是结构化网页信息抽取器。根据给定的网页正文和字段 schema,抽取每个字段的值。\n"
+        "要求:\n"
+        "- 只输出一个 JSON 对象(不要任何解释文字、不要 markdown 代码围栏)\n"
+        "- 对象键必须与字段名完全一致;值是该字段从正文中提取到的信息(字符串或数字)\n"
+        "- 某字段正文中找不到时,把该键的值设为 null\n"
+        "- 严禁捏造正文中不存在的信息\n"
+        "字段 schema:\n{}".format(field_lines)
+    )
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": "网页正文:\n{}\n\n请按上面字段 schema 抽取,只输出 JSON。".format(md[:max_chars])},
+    ]
+    try:
+        result = await llm_gateway.complete(messages, model="auto")
+        content = (result.get("content") or "").strip()
+        if result.get("stub") or not content:
+            return None
+        # 剥离可能包裹的 ```json ... ``` 围栏后解析
+        content = re.sub(r"^```(?:json)?\s*", "", content)
+        content = re.sub(r"\s*```$", "", content).strip()
+        data = json.loads(content)
+        if not isinstance(data, dict):
+            return None
+        extracted: Dict[str, Any] = {}
+        confidence: Dict[str, float] = {}
+        for k in fields:
+            if k in data and data[k] is not None:
+                extracted[k] = data[k]
+                confidence[k] = 0.95 if str(data[k]).strip() else 0.0
+            else:
+                confidence[k] = 0.0
+        if not extracted:
+            return None
+        return {"fields": extracted, "confidence": confidence}
+    except Exception:  # noqa: BLE001 - LLM 超时/解析失败/走查结构异常一律降级
+        return None
 
 
 async def extract_web(arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -745,7 +797,7 @@ async def extract_web(arguments: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:  # noqa: BLE001
         return _fail("extract_web", "正文提取失败: {}".format(e), "EXTRACT_FAILED")
 
-    llm_result = _extract_via_llm(md, fields)
+    llm_result = await _extract_via_llm(md, fields, max_chars)
     if llm_result is not None:
         return {
             "tool": "extract_web",
