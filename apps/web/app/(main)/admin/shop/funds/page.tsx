@@ -43,7 +43,7 @@ export default function AdminShopFundsPage() {
       <BackButton />
       <FundsHeader accounts={accounts} />
       <FundsTabs tab={tab} setTab={setTab} flowType={flowType} setFlowType={setFlowType} />
-      <div key={tab} className="animate-in fade-in-0 duration-200">
+      <div key={tab} className="animate-in fade-in-0 duration-(--duration-unified) ease-unified">
         {tab === 'accounts' ? (
           <FundsAccountsTable accounts={accounts} isLoading={accLoading} />
         ) : (

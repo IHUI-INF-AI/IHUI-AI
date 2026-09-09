@@ -209,13 +209,13 @@ export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
               aria-hidden="true"
               data-testid="tagsview-search-overlay"
               onClick={() => setOpen(false)}
-              className="fixed inset-0 z-popover bg-black/40 animate-in fade-in-0 duration-200"
+              className="fixed inset-0 z-popover bg-black/40 animate-in fade-in-0 duration-(--duration-unified) ease-unified"
             />
             <div
               ref={dropdownRef}
               role="dialog"
               aria-label={tCommon('searchPlaceholder')}
-              className="absolute inset-x-0 top-2 z-popover mx-auto w-[min(640px,calc(100%-2rem))] animate-in fade-in-0 slide-in-from-top duration-200"
+              className="absolute inset-x-0 top-2 z-popover mx-auto w-[min(640px,calc(100%-2rem))] animate-in fade-in-0 slide-in-from-top duration-(--duration-unified) ease-unified"
             >
               <div className="rounded-md border bg-popover text-popover-foreground shadow-md">
                 <SearchBar

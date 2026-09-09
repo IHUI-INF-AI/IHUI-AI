@@ -439,7 +439,7 @@ export default function WorkflowDetailPage() {
       </div>
 
       {/* Tab 内容 */}
-      <div key={tab} className="animate-in fade-in-0 duration-200">
+      <div key={tab} className="animate-in fade-in-0 duration-(--duration-unified) ease-unified">
         {tab === 'instances' ? (
           instQ.isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
