@@ -134,46 +134,58 @@ export default function AiGroup() {
 
   return (
     <View className="min-h-screen bg-background">
-      <View className="p-[24rpx] bg-card">
-        <Text className="text-[36rpx] font-semibold text-foreground">{t('aiGroup.title')}</Text>
-      </View>
+      {/* 页头标题(对齐 SharedAgentScreen title: fontSize 22dp→44rpx / 700 / px-20rpx pt-pb-16rpx) */}
+      <Text className="px-[20rpx] pt-[16rpx] pb-[16rpx] text-[44rpx] font-bold text-foreground">
+        {t('aiGroup.title')}
+      </Text>
+      {/* 分类 chips(对齐 RN AgentScreen 分类 tab: bg-muted / 激活 bg-primary 反白, radius 8dp→16rpx) */}
       <ScrollView
         scrollX
         enhanced
         showScrollbar={false}
-        className="whitespace-nowrap py-[16rpx] px-[24rpx] bg-card"
+        className="whitespace-nowrap px-[20rpx] pb-[16rpx]"
       >
         {categories.map((cat) => (
           <View
             key={cat.key}
-            className={`inline-block py-[12rpx] px-[28rpx] mr-[16rpx] rounded-[8rpx] text-[26rpx] ${activeCategory === cat.key ? 'text-primary font-semibold' : 'text-muted-foreground bg-background'}`}
+            className={`inline-block py-[12rpx] px-[28rpx] mr-[16rpx] rounded-[16rpx] ${activeCategory === cat.key ? 'bg-primary' : 'bg-[var(--color-muted)]'}`}
             onClick={() => setActiveCategory(cat.key)}
           >
-            <Text>{cat.label}</Text>
+            <Text
+              className={
+                activeCategory === cat.key
+                  ? 'text-[26rpx] font-semibold text-[var(--color-primary-foreground)]'
+                  : 'text-[26rpx] text-muted-foreground'
+              }
+            >
+              {cat.label}
+            </Text>
           </View>
         ))}
       </ScrollView>
-      <View className="p-[24rpx]">
+      <View className="p-[32rpx]">
         {loading ? (
-          <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center py-[96rpx]">
+            <Text className="text-center text-muted-foreground text-[28rpx]">
               {t('common.loading')}
             </Text>
           </View>
         ) : error ? (
-          <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center py-[96rpx]">
+            <Text className="text-center text-[28rpx] text-[var(--color-danger)]">
               {tt('aiGroup.loadFailed', '加载失败')}
             </Text>
             <View
-              className="mt-[24rpx] py-[16rpx] px-[48rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[26rpx]"
+              className="mt-[24rpx] py-[16rpx] px-[32rpx] bg-primary rounded-[24rpx]"
               onClick={loadData}
             >
-              <Text>{t('common.retry')}</Text>
+              <Text className="text-[32rpx] text-[var(--color-primary-foreground)]">
+                {t('common.retry')}
+              </Text>
             </View>
           </View>
         ) : filtered.length ? (
-          <View className="flex flex-col gap-[16rpx]">
+          <View className="flex flex-col gap-[24rpx]">
             {filtered.map((item) => {
               const id = String(item.id || '')
               const name = String(item.name || '')
@@ -182,49 +194,53 @@ export default function AiGroup() {
               const uses = Number(item.uses || 0)
               const isVip = Boolean(item.isVipExclusive)
               return (
-                <ThemeRoot key={id} className="flex items-center p-[24rpx] bg-card rounded-[12rpx]">
-                  <View key={id} onClick={() => onItemClick(id)}>
+                <ThemeRoot
+                  key={id}
+                  className="flex flex-row items-center p-[28rpx] rounded-[24rpx] border border-[var(--color-border)] bg-[var(--color-surface-light)]"
+                >
+                  <View
+                    key={id}
+                    className="flex flex-row items-center flex-1 min-w-0"
+                    onClick={() => onItemClick(id)}
+                  >
                     <Image
-                      className="w-[96rpx] h-[96rpx] rounded-[12rpx] bg-background shrink-0"
+                      className="w-[96rpx] h-[96rpx] rounded-[24rpx] bg-[var(--color-muted)] shrink-0"
                       src={avatar}
                       mode="aspectFill"
                     />
                     <View className="flex-1 min-w-0 ml-[24rpx]">
-                      <View className="flex items-center">
-                        <Text className="text-[30rpx] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                      <View className="flex items-center gap-[12rpx]">
+                        <Text className="flex-1 text-[32rpx] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
                           {name || t('aiGroup.agent')}
                         </Text>
                         {isVip ? (
-                          // VIP 金徽章:统一走 token --color-gold(浅金底 --color-gold-muted),深浅主题自适应
-                          <Text className="ml-[12rpx] py-[2rpx] px-[12rpx] rounded-[6rpx] text-[20rpx] text-[var(--color-gold)] bg-[var(--color-gold-muted)] shrink-0">
-                            VIP
-                          </Text>
+                          // VIP 徽章(对齐 SharedAgentScreen vipBadge: bg-warning 反白, radius 4dp→8rpx)
+                          <View className="py-[8rpx] px-[12rpx] rounded-[8rpx] bg-[var(--color-warning)] shrink-0">
+                            <Text className="text-[20rpx] font-semibold text-[var(--color-surface-light)]">
+                              VIP
+                            </Text>
+                          </View>
                         ) : null}
                       </View>
                       {desc ? (
-                        <Text className="block mt-[8rpx] text-[24rpx] text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                        <Text className="block mt-[16rpx] text-[28rpx] leading-[36rpx] text-muted-foreground overflow-hidden text-ellipsis line-clamp-2">
                           {desc}
                         </Text>
                       ) : null}
-                      <View className="flex items-center mt-[8rpx]">
-                        {uses > 0 ? (
-                          <Text className="text-[22rpx] text-primary">
-                            {tt('aiGroup.useCount', '{n}人使用', { n: uses })}
-                          </Text>
-                        ) : null}
-                      </View>
+                      {uses > 0 ? (
+                        <Text className="block mt-[16rpx] text-[22rpx] text-[var(--color-text-tertiary)]">
+                          {tt('aiGroup.useCount', '{n}人使用', { n: uses })}
+                        </Text>
+                      ) : null}
                     </View>
-                    <Text className="ml-[16rpx] text-[32rpx] text-muted-foreground shrink-0">
-                      ›
-                    </Text>
                   </View>
                 </ThemeRoot>
               )
             })}
           </View>
         ) : (
-          <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center py-[96rpx]">
+            <Text className="text-center text-[28rpx] text-[var(--color-text-tertiary)]">
               {t('aiGroup.empty')}
             </Text>
           </View>

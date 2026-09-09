@@ -1005,6 +1005,16 @@
     "saveQrcode": "保存二维码"
   },
   "exam": {
+    "tabs": {
+      "all": "全部",
+      "pending": "待完成",
+      "completed": "已完成"
+    },
+    "empty": {
+      "all": "暂无考试",
+      "pending": "暂无待完成考试",
+      "completed": "暂无考试记录"
+    },
     "questions": "{n} 题",
     "minutes": "{n} 分钟",
     "passScore": "及格分 {n}",

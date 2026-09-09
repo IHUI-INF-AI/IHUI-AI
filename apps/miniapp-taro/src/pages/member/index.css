@@ -4,24 +4,27 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
-/* 会员页品牌色:#ffd700 已接入 token(var(--color-vip-gold-start));#ffc107 / #d4a017 / #ff6b00 / #1a1a2e 等会员金/橙/深色无对应 token,保留原值 */
+/* 视觉唯一标准: RN packages/app/src/features/vip/VipScreen.tsx(membershipCard 深色会员卡 +
+ * levelsSection 描边卡片 + vip.gold 金色徽章/价格/购买按钮)。
+ * 尺寸换算: RN raw dp ×2 = rpx;RN rpx(N) = N rpx。
+ * 颜色映射: tk.surface.bg→--color-background / tk.text.primary→--color-foreground /
+ *   tk.text.secondary→--color-muted-foreground / tk.border.light→--color-border /
+ *   tk.vip.gold(#FFD700)→--color-vip-gold-start / tk.gray.800(#262626)→--color-vip-card。
+ * 本页特有区块(等级梯度/使用统计/特权列表/快捷入口/联系客服)沿用同一视觉语言,全部走 token。 */
 .member-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding-bottom: 60rpx;
+  padding-bottom: 64rpx; /* RN body paddingBottom 32 → 64rpx */
   box-sizing: border-box;
 }
 
-/* ===== Header:用户信息 + VIP 状态(对齐原项目 VIP 金色渐变) ===== */
+/* ===== Header:用户信息 + VIP 状态(对齐 RN membershipCard:深色会员卡) ===== */
 .member-header {
-  padding: 60rpx 40rpx 40rpx;
-  /* VIP 金色渐变已收敛至 token(金/品牌橙) */
-  background: linear-gradient(
-    135deg,
-    var(--color-warning) 0%,
-    var(--color-gold) 50%,
-    var(--color-brand-orange) 100%
-  );
+  margin: 32rpx; /* RN marginHorizontal/marginTop 16 → 32rpx */
+  padding: 28rpx; /* RN padding 14 → 28rpx */
+  border-radius: 24rpx; /* RN radius 12 → 24rpx */
+  /* RN backgroundColor gray.800(#262626,明暗同值)→ --color-vip-card */
+  background: var(--color-vip-card);
 }
 .member-user {
   display: flex;
@@ -31,9 +34,7 @@
   width: 120rpx;
   height: 120rpx;
   border-radius: 50%;
-  background: var(--color-card);
-  border: 4rpx solid var(--color-border);
-  box-shadow: 0 0 12rpx var(--color-black-15);
+  background: var(--color-muted);
   margin-right: 24rpx;
   flex-shrink: 0;
 }
@@ -43,9 +44,9 @@
 }
 .member-nickname {
   display: block;
-  font-size: 36rpx;
-  font-weight: 700;
-  color: var(--color-primary-foreground);
+  font-size: 40rpx; /* RN membershipLevel 20 → 40rpx */
+  font-weight: 600;
+  color: var(--color-surface-light); /* tk.surface.light(深色卡上对比白字) */
   margin-bottom: 12rpx;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -56,38 +57,38 @@
   align-items: center;
 }
 .member-vip-text {
-  /* 已接入 token:var(--color-vip-gold-start)(#ffd700) */
+  /* RN currentBadge: tk.vip.gold 底 + gray.800 深字,paddingH 8/paddingV 2,radius 8 */
   background: var(--color-vip-gold-start);
-  color: var(--color-foreground);
-  font-size: 24rpx;
-  font-weight: 700;
+  color: var(--color-vip-card);
+  font-size: 24rpx; /* RN 12 → 24rpx */
+  font-weight: 600;
   padding: 4rpx 16rpx;
-  border-radius: var(--radius-sm);
+  border-radius: 16rpx;
   margin-right: 12rpx;
 }
 .member-vip-expire {
-  font-size: 24rpx;
-  color: var(--color-primary-foreground);
+  font-size: 24rpx; /* RN membershipMetaText 12 → 24rpx */
+  color: var(--color-white-70); /* RN rgba(255,255,255,0.7) */
 }
 .member-normal-user {
-  font-size: 26rpx;
-  color: var(--color-scrim-foreground);
+  font-size: 28rpx; /* RN membershipLabel 14 → 28rpx */
+  color: var(--color-white-80); /* RN rgba(255,255,255,0.8) */
 }
 
-/* ===== 通用卡片 ===== */
+/* ===== 通用卡片(对齐 RN levelsSection/card:页面同底色 + 2rpx 描边 + radius 16rpx) ===== */
 .member-card {
-  margin: 24rpx;
-  padding: 32rpx;
-  background: var(--color-card);
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-lg);
+  margin: 0 20rpx 24rpx; /* RN levelsSection paddingH 10 → 20rpx;cardSpacing 12 → 24rpx */
+  padding: 28rpx; /* RN card padding 14 → 28rpx */
+  background: var(--color-background); /* RN card bg = tk.surface.bg */
+  border: 2rpx solid var(--color-border); /* RN borderWidth 1 + tk.border.light */
+  border-radius: 16rpx; /* RN radius 8 → 16rpx */
 }
 .member-card-title {
   display: block;
-  font-size: 32rpx;
-  font-weight: 700;
-  color: var(--color-foreground);
-  margin-bottom: 28rpx;
+  font-size: 40rpx; /* RN levelsTitle 20 → 40rpx */
+  font-weight: 600;
+  color: var(--color-foreground); /* tk.text.primary */
+  margin-bottom: 24rpx; /* RN marginBottom 12 → 24rpx */
 }
 
 /* ===== 会员等级梯度 ===== */
@@ -102,7 +103,7 @@
   padding: 24rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 16rpx;
   box-sizing: border-box;
 }
 .member-level-current {
@@ -117,20 +118,20 @@
 .member-level-name {
   display: block;
   font-size: 28rpx;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: 8rpx;
 }
 .member-level-threshold {
   display: block;
-  font-size: 22rpx;
-  color: var(--color-muted-foreground);
+  font-size: 22rpx; /* RN durationText 12 → 24rpx 同族细字 */
+  color: var(--color-muted-foreground); /* tk.text.secondary */
   margin-bottom: 8rpx;
 }
 .member-level-perks {
   display: block;
-  font-size: 24rpx;
-  color: var(--color-foreground);
+  font-size: 24rpx; /* RN benefitsText 12 → 24rpx */
+  color: var(--color-muted-foreground);
 }
 .member-level-silver .member-level-name {
   color: var(--color-muted-foreground);
@@ -152,14 +153,14 @@
 }
 .member-stat-num {
   display: block;
-  font-size: 48rpx;
+  font-size: 48rpx; /* RN priceText 24 → 48rpx */
   font-weight: 700;
   color: var(--color-primary);
   margin-bottom: 8rpx;
 }
 .member-stat-label {
   display: block;
-  font-size: 26rpx;
+  font-size: 28rpx; /* RN label 14 → 28rpx */
   color: var(--color-muted-foreground);
 }
 
@@ -175,7 +176,7 @@
   padding: 16rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 16rpx;
   box-sizing: border-box;
 }
 .member-benefit-icon {
@@ -183,15 +184,11 @@
   height: 56rpx;
   margin-right: 12rpx;
   background: var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: 16rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-}
-.member-benefit-icon-text {
-  font-size: 28rpx;
-  color: var(--color-primary);
 }
 .member-benefit-content {
   flex: 1;
@@ -199,8 +196,8 @@
 }
 .member-benefit-title {
   display: block;
-  font-size: 26rpx;
-  font-weight: 600;
+  font-size: 28rpx;
+  font-weight: 600; /* RN cardLevelName 600 */
   color: var(--color-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -208,7 +205,7 @@
 }
 .member-benefit-desc {
   display: block;
-  font-size: 22rpx;
+  font-size: 24rpx; /* RN 12 → 24rpx */
   color: var(--color-muted-foreground);
   margin-top: 4rpx;
   overflow: hidden;
@@ -226,38 +223,38 @@
   font-weight: 700;
 }
 
-/* ===== VIP CTA 卡片 ===== */
+/* ===== VIP CTA 卡片(对齐 RN 卡片语言 + 金色 purchaseBtn) ===== */
 .member-vip-cta,
 .member-vip-section {
-  margin: 24rpx;
-  padding: 32rpx;
-  background: var(--color-card);
+  margin: 0 20rpx 24rpx;
+  padding: 28rpx;
+  background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: 16rpx;
 }
 .member-vip-info {
   margin-bottom: 24rpx;
 }
 .member-vip-title {
   display: block;
-  font-size: 32rpx;
-  font-weight: 700;
+  font-size: 32rpx; /* RN cardLevelName 16 → 32rpx */
+  font-weight: 600;
   color: var(--color-foreground);
   margin-bottom: 8rpx;
 }
 .member-vip-desc {
   display: block;
-  font-size: 26rpx;
+  font-size: 24rpx; /* RN durationText 12 → 24rpx */
   color: var(--color-muted-foreground);
   margin-bottom: 16rpx;
 }
 .member-vip-price {
   display: flex;
-  align-items: center;
+  align-items: flex-end; /* RN priceRow alignItems 'flex-end' */
 }
 .member-price-label {
   display: block;
-  font-size: 26rpx;
+  font-size: 24rpx;
   color: var(--color-muted-foreground);
   margin-bottom: 12rpx;
 }
@@ -266,35 +263,36 @@
   align-items: center;
 }
 .member-current-price {
-  font-size: 40rpx;
+  font-size: 48rpx; /* RN priceText 24 → 48rpx */
   font-weight: 700;
-  color: var(--color-brand-orange);
-  /* custom color: 品牌橙 */
+  /* RN tk.vip.gold(#FFD700)→ --color-vip-gold-start */
+  color: var(--color-vip-gold-start);
   margin-right: 16rpx;
 }
 .member-original-price {
-  font-size: 28rpx;
+  font-size: 24rpx;
   color: var(--color-muted-foreground);
   text-decoration: line-through;
 }
+/* RN purchaseBtn:height 50 → 100rpx,radius 16 → 32rpx,gold 底 + gray.800 深字 */
 .member-vip-button,
 .member-cta-button {
   width: 100%;
-  background: var(--color-primary);
-  color: var(--color-primary-foreground);
-  height: 80rpx;
-  line-height: 80rpx;
-  font-size: 30rpx;
+  background: var(--color-vip-gold-start);
+  color: var(--color-vip-card);
+  height: 100rpx;
+  line-height: 100rpx;
+  font-size: 32rpx; /* RN 16 → 32rpx */
   font-weight: 700;
-  border-radius: var(--radius-md);
+  border-radius: 32rpx;
 }
 .member-cta-outlined {
   background: transparent;
-  color: var(--color-primary);
-  border: 2rpx solid var(--color-primary);
+  color: var(--color-vip-gold-start);
+  border: 2rpx solid var(--color-vip-gold-start);
 }
 .member-vip-permanent {
-  /* 金色渐变收敛至 token(金) */
+  /* 金色渐变收敛至 token(金);深字对齐 RN currentBadgeText(gray.800) */
   background: linear-gradient(135deg, var(--color-warning), var(--color-gold));
   border-color: var(--color-vip-gold-start);
 }
@@ -306,27 +304,27 @@
 }
 .member-crown {
   font-size: 40rpx;
-  color: var(--color-primary-foreground);
+  color: var(--color-vip-card);
   margin-right: 12rpx;
 }
 .member-permanent-text {
   font-size: 32rpx;
   font-weight: 700;
-  color: var(--color-primary-foreground);
+  color: var(--color-vip-card);
 }
 .member-cta-text {
   display: block;
   text-align: center;
-  font-size: 26rpx;
-  color: var(--color-foreground);
+  font-size: 24rpx; /* RN benefitsText 12 → 24rpx */
+  color: var(--color-muted-foreground);
 }
 
-/* ===== 快捷入口菜单 ===== */
+/* ===== 快捷入口菜单(同卡片语言,行间用描边分隔) ===== */
 .member-menu {
-  margin: 24rpx;
-  background: var(--color-card);
+  margin: 0 20rpx 24rpx;
+  background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: 16rpx;
   overflow: hidden;
 }
 .member-menu-item {
@@ -338,7 +336,8 @@
   color: var(--color-foreground);
 }
 .member-menu-item + .member-menu-item {
-  margin-top: 16rpx;
+  margin-top: 0;
+  border-top: 2rpx solid var(--color-border);
 }
 .member-arrow {
   color: var(--color-muted-foreground);
@@ -347,7 +346,7 @@
 
 /* ===== 联系客服 ===== */
 .member-contact {
-  margin: 24rpx;
+  margin: 0 20rpx;
   padding: 24rpx;
   text-align: center;
 }
@@ -409,4 +408,5 @@
   color: var(--color-muted-foreground);
   text-align: right;
 }
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌‌​​​​‍‍​‌‌​‌​​​‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍‌​‌‌​‌‌‌‍‍‌​‌‌​‌‌‌‍‍‌​‌‌‌​‌‌‌‍‍‌​‌‌​‌‌​⁠ */
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

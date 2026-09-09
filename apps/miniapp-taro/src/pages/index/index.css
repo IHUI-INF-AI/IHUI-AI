@@ -170,19 +170,11 @@
   transform: translateX(0);
 }
 
-/* ===== model-type-btn 箭头旋转(对齐原项目 .btn-arrow.rotate)===== */
-.ai-btn-arrow {
-  transition: transform 0.3s ease;
-  will-change: transform;
-}
-
-.ai-btn-arrow-rotate {
-  transform: rotate(180deg);
-}
-
-/* ===== posi_angeetlis(对齐原项目 position: relative)===== */
+/* ===== posi_angeetlis(对齐原项目 position: relative;
+      顶部分隔线对齐 RN HomeScreen modelTypeBar borderTop 1dp→2rpx)===== */
 .posi_angeetlis {
   position: relative;
+  border-top: 2rpx solid var(--color-border);
 }
 
 /* ===== input_box_content(对齐原项目 background-color: #fff)===== */
@@ -190,22 +182,36 @@
   background-color: var(--color-card);
 }
 
-/* ===== model-type-btn 容器尺寸(对齐原项目 200rpx×60rpx)===== */
+/* ===== model-type-btn 容器(对齐 RN HomeScreen modelTypeBtn:
+      padding 12/20rpx + marginRight 12rpx + 圆角 32rpx + muted 背景)===== */
 .ai-model-type-btn {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 20rpx;
+  margin-right: 12rpx;
   flex-shrink: 0;
-  width: 200rpx;
-  height: 60rpx;
+  padding: 12rpx 20rpx;
+  border-radius: 32rpx;
+  background: var(--color-muted);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .ai-model-type-btn.active {
-  /* 原项目仅靠 active_back.svg 切换背景图区分 active 态,无 border-bottom/box-shadow */
+  background: var(--color-primary);
+}
+
+/* model-type-btn 文字标签(对齐 RN modelTypeLabel fontSize 12dp→24rpx,text.secondary) */
+.ai-model-type-label {
+  margin-left: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+
+.ai-model-type-label.active {
+  color: var(--color-primary-foreground);
+  font-weight: 600;
 }
 
 /* ===== 输入区底部安全区(对齐原项目 env(safe-area-inset-bottom))===== */
@@ -419,8 +425,9 @@
 }
 
 .material-card-title {
-  font-size: 24rpx;
+  font-size: 26rpx;
   font-weight: bold;
+  color: var(--color-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -414,7 +414,7 @@ function MaterialCards({
             <View
               key={`mc-${card.id || index}-${index}`}
               className="material-card-item"
-              style={{ marginRight: rpx(16) }}
+              style={{ marginRight: rpx(12) }}
             >
               <Image
                 src={closeInputPng}
@@ -437,13 +437,13 @@ function MaterialCards({
                     width: rpx(200),
                     height: rpx(160),
                     padding: rpx(12),
-                    background: 'var(--color-card)',
+                    background: 'var(--color-muted)',
                     borderRadius: rpx(16),
                   }}
                 >
                   <Text
                     className="material-card-title"
-                    style={{ fontSize: rpx(24), fontWeight: 'bold', marginBottom: rpx(6) }}
+                    style={{ fontSize: rpx(26), fontWeight: 'bold', marginBottom: rpx(6) }}
                   >
                     {card.title}
                   </Text>
@@ -517,7 +517,7 @@ function MaterialCards({
                     width: rpx(200),
                     height: rpx(140),
                     padding: rpx(12),
-                    background: 'var(--color-card)',
+                    background: 'var(--color-muted)',
                     borderRadius: rpx(16),
                     display: 'flex',
                     alignItems: 'center',
@@ -526,7 +526,7 @@ function MaterialCards({
                 >
                   <Text
                     className="material-card-title"
-                    style={{ fontSize: rpx(24), fontWeight: 'bold' }}
+                    style={{ fontSize: rpx(26), fontWeight: 'bold' }}
                   >
                     {card.title}
                   </Text>
@@ -1207,7 +1207,8 @@ export default function Index() {
 
   return (
     <ThemeRoot className="ai-home-page min-h-screen">
-      <View style={{ background: 'var(--color-background)' }} onClick={handleContainerClick}>
+      {/* 根容器背景对齐 RN HomeScreen root(tokens.surface.light #FFFFFF → 语义 --color-card,暗色自适应) */}
+      <View style={{ background: 'var(--color-card)' }} onClick={handleContainerClick}>
         {/* ===== PushNotification 推送通知弹窗(对齐原项目) ===== */}
         <PushNotification />
 
@@ -1688,7 +1689,7 @@ export default function Index() {
             className="fixed inset-0 z-[9999] flex items-center justify-center"
             onClick={handleSharePointsClose}
           >
-            <View className="absolute inset-0" style={{ background: 'var(--color-black-50)' }} />
+            <View className="absolute inset-0" style={{ background: 'var(--color-black-40)' }} />
             <View
               className="ai-flip-in relative z-10 flex flex-col items-center"
               onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
@@ -1708,25 +1709,25 @@ export default function Index() {
           </View>
         ) : null}
 
-        {/* ===== qr-code-modal(二维码弹窗,在 input_box_content 之外) ===== */}
+        {/* ===== qr-code-modal(二维码弹窗,在 input_box_content 之外;对齐 RN qrContent/qrImage)===== */}
         {state.showQrCodeModal ? (
           <View
             className="fixed inset-0 z-[9999] flex items-center justify-center"
             onClick={handleQrCodeClose}
-            style={{ background: 'var(--color-black-70)' }}
+            style={{ background: 'var(--color-black-40)' }}
           >
             <View
               className="ai-popup-fade-in flex flex-col items-center"
               style={{
                 background: 'var(--color-card)',
-                borderRadius: rpx(20),
-                padding: '50rpx 40rpx 20rpx',
+                borderRadius: rpx(24),
+                padding: '36rpx 24rpx',
               }}
               onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
             >
               <Image
                 src={QRCODE_IMG}
-                style={{ width: rpx(600), height: rpx(600) }}
+                style={{ width: rpx(480), height: rpx(480), borderRadius: rpx(16) }}
                 mode="aspectFit"
                 onLongPress={() => {
                   // 长按保存二维码(对齐原项目 handleLongPressQrCode)
@@ -1745,27 +1746,33 @@ export default function Index() {
                 }}
               />
               <Text
-                style={{ fontSize: rpx(32), color: 'var(--color-foreground)', marginTop: rpx(20) }}
+                style={{
+                  fontSize: rpx(32),
+                  fontWeight: '600',
+                  color: 'var(--color-foreground)',
+                  marginTop: rpx(20),
+                }}
               >
                 {tt('index.qrCodeHint', '扫描二维码加入社区')}
               </Text>
-              {/* 关闭按钮(对齐原项目 .qr-code-close:60rpx×60rpx,圆形,AGENTS 豁免)*/}
+              {/* 关闭按钮(对齐 RN qrClose:top 10dp→20rpx / right 14dp→28rpx / 60rpx 热区;
+                  文字对齐 RN qrCloseText:48rpx + lineHeight 26dp→52rpx + text.tertiary + fontWeight 300)*/}
               <View
                 className="ai-close-btn"
                 style={{
-                  top: rpx(10),
-                  right: rpx(10),
+                  top: rpx(20),
+                  right: rpx(28),
                   width: rpx(60),
                   height: rpx(60),
-                  border: '1px solid var(--color-foreground)',
                 }}
                 onClick={handleQrCodeClose}
               >
                 <Text
                   style={{
-                    fontSize: rpx(60),
-                    lineHeight: rpx(60),
-                    color: 'var(--color-foreground)',
+                    fontSize: rpx(48),
+                    lineHeight: rpx(52),
+                    fontWeight: '300',
+                    color: 'var(--color-text-tertiary)',
                   }}
                 >
                   ×

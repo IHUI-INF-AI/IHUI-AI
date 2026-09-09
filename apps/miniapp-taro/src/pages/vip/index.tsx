@@ -268,16 +268,18 @@ export default function VipIndexPage() {
           </View>
         </View>
 
-        {/* 状态行:等级 + 等级介绍入口 */}
+        {/* 会员状态卡(对齐 RN SharedVipScreen membershipCard:深灰卡 + 白等级名 + 白 70% 到期行) */}
         <View className="status-bar">
-          <View className="status-level">{info.level ? info.name : t('vip.notOpened')}</View>
-          <Text className="intro-link" onClick={onIntroduceClick}>
-            {t('vip.index.introduce')}
-          </Text>
+          <View className="status-head">
+            <View className="status-level">{info.level ? info.name : t('vip.notOpened')}</View>
+            <Text className="intro-link" onClick={onIntroduceClick}>
+              {t('vip.index.introduce')}
+            </Text>
+          </View>
+          {info.expireTime ? (
+            <View className="expire-row">{t('vip.expireTime', { time: info.expireTime })}</View>
+          ) : null}
         </View>
-        {info.expireTime ? (
-          <View className="expire-row">{t('vip.expireTime', { time: info.expireTime })}</View>
-        ) : null}
 
         {/* 特权列表(垂直 4 项) */}
         <View className="features">

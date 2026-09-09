@@ -363,8 +363,6 @@ export default function AigcList() {
   const filteredList =
     category === 'all' ? list : list.filter((it) => FILE_TYPE_TO_CATEGORY[it.fileType] === category)
   const grouped = groupByType(filteredList)
-  const leftColumn = grouped.imageVideo.filter((_, i) => i % 2 === 0)
-  const rightColumn = grouped.imageVideo.filter((_, i) => i % 2 === 1)
 
   const useWaterfall = category === 'all' || category === 'image' || category === 'video'
 
@@ -385,83 +383,51 @@ export default function AigcList() {
     return (
       <View
         key={idStr}
-        className="waterfall-card"
+        className="media-card"
         onClick={() =>
           isVideo ? playVideoFullscreen(item) : previewImage(item.coverUrl, imageUrls)
         }
       >
-        {isVideo ? (
-          <View className="video-cover-wrap">
-            {isFullscreenVideo && item.fileUrl ? (
-              <Video
-                className="waterfall-video"
-                src={item.fileUrl}
-                controls
-                autoplay
-                showFullscreenBtn
-                showCenterPlayBtn
-                showPlayBtn
-                objectFit="contain"
-                onError={() => setFullscreenVideoId(null)}
-                onLoadedMetaData={() => {
-                  /* 等待自动全屏触发 */
-                }}
-              />
-            ) : item.coverUrl ? (
-              <Image className="waterfall-cover" src={item.coverUrl} mode="aspectFill" lazyLoad />
-            ) : (
-              <View className="video-placeholder">
-                <LineIcon
-                  name="film"
-                  size={80}
-                  className="placeholder-icon"
-                  color="var(--color-muted-foreground)"
-                />
-              </View>
-            )}
-            {!isFullscreenVideo && (
-              <View className="play-badge">
-                <LineIcon
-                  name="play"
-                  size={32}
-                  className="play-icon"
-                  color="var(--color-muted-foreground)"
-                />
-              </View>
-            )}
-          </View>
-        ) : (
-          <Image className="waterfall-cover" src={item.coverUrl} mode="widthFix" lazyLoad />
-        )}
-        <View className="card-info">
-          <Text className="card-title">{item.title || tt('aigc.list.unnamed', '未命名作品')}</Text>
-          <View className="card-meta">
-            <Text className="card-author">
-              {item.author || tt('aigc.list.anonymous', '匿名作者')}
-            </Text>
-            <View className="card-likes" style={{ display: 'flex', alignItems: 'center' }}>
-              <LineIcon
-                name="heart"
-                size={22}
-                color="var(--color-muted-foreground)"
-                style={{ marginRight: '6rpx' }}
-              />
-              <Text>{item.likes}</Text>
+        <View className="media-cover-wrap">
+          {isFullscreenVideo && item.fileUrl ? (
+            <Video
+              className="fullscreen-video"
+              src={item.fileUrl}
+              controls
+              autoplay
+              showFullscreenBtn
+              objectFit="contain"
+              onError={() => setFullscreenVideoId(null)}
+            />
+          ) : item.coverUrl ? (
+            <Image className="media-cover" src={item.coverUrl} mode="aspectFill" lazyLoad />
+          ) : (
+            <View className="media-placeholder">
+              <LineIcon name="film" size={80} color="var(--color-muted-foreground)" />
             </View>
+          )}
+        </View>
+        {isVideo ? (
+          <View className="video-badge">
+            <Text className="video-badge-text">{tt('aigcList.videoBadge', '▶ 视频')}</Text>
           </View>
+        ) : null}
+        <View className="media-footer">
+          <Text className="card-title">{item.title || tt('aigc.list.unnamed', '未命名作品')}</Text>
         </View>
       </View>
     )
   }
 
   return (
-    <View className="aigc-list-page">
-      {/* 顶部导航:标题= tt('aigcList.title', '灵感')+ 返回按钮(对标原项目 v-show="!showFullScreen") */}
+    <ThemeRoot className="aigc-list-page">
+      {/* 顶部导航(对齐 RN SharedAigcListScreen header):返回文字 + 标题 + 副标题 */}
       <View className="page-header">
         <View className="back-btn" onClick={onBack}>
-          <Text className="back-icon">‹</Text>
+          <Text className="back-text">{tt('common.back', '返回')}</Text>
         </View>
-        <Text className="page-title">{tt('aigc.list.title', '灵感')}</Text>
+        <Text className="page-title">{tt('aigcList.title', '灵感')}</Text>
+        <Text className="page-subtitle">{tt('aigcList.subtitle', 'AI 生成的图文/视频/音频作品')}</Text>
       </View>
 
       <ScrollView scrollX scrollWithAnimation showScrollbar={false} className="category-bar">
@@ -469,10 +435,10 @@ export default function AigcList() {
           {categories.map((c) => (
             <View
               key={c.key}
-              className={`category-tab${category === c.key ? ' active' : ''}`}
+              className={`category-chip${category === c.key ? ' active' : ''}`}
               onClick={() => onCategoryChange(c.key)}
             >
-              <Text>{c.label}</Text>
+              <Text className="category-text">{c.label}</Text>
             </View>
           ))}
         </View>
@@ -485,98 +451,63 @@ export default function AigcList() {
           </View>
         ) : filteredList.length === 0 ? (
           <View className="state-wrap">
-            <Text className="state-text">{tt('aigc.list.empty', '暂无内容')}</Text>
+            <Text className="state-text">{tt('aigcList.empty', '暂无作品')}</Text>
           </View>
         ) : useWaterfall ? (
-          <View className="waterfall">
-            <View className="waterfall-col">{leftColumn.map(renderImageVideoCard)}</View>
-            <View className="waterfall-col">{rightColumn.map(renderImageVideoCard)}</View>
-          </View>
+          <View className="media-grid">{grouped.imageVideo.map(renderImageVideoCard)}</View>
         ) : (
           <View className="list-layout">
-            {/* 文本卡片:content-header(标题+时间) + content-prompt(提示词标签+上下文) + content-body(正文) */}
+            {/* 文本卡片(对齐 RN textCard):card-header(标题+时间) + prompt(提示词) + 正文 */}
             {grouped.text.map((item) => (
               <View key={String(item.id)} className="text-card">
-                <View className="content-header">
-                  <Text className="text-title">
+                <View className="card-header">
+                  <Text className="card-title">
                     {item.title || tt('aigc.list.untitled', '文本内容')}
                   </Text>
-                  {item.time ? <Text className="text-time">{item.time}</Text> : null}
+                  {item.time ? <Text className="card-time">{item.time}</Text> : null}
                 </View>
                 {item.context ? (
-                  <View className="content-prompt">
-                    <Text className="prompt-label">{tt('aigc.list.promptLabel', '提示词')}</Text>
-                    <Text className="prompt-context">{item.context}</Text>
-                  </View>
-                ) : null}
-                {item.content ? <Text className="text-content">{item.content}</Text> : null}
-                <View className="text-meta">
-                  <Text className="card-author">
-                    {item.author || tt('aigc.list.anonymous', '匿名作者')}
+                  <Text className="prompt-text">
+                    {tt('aigcList.promptLabel', '提示词:')} {item.context}
                   </Text>
-                  <View className="card-likes" style={{ display: 'flex', alignItems: 'center' }}>
-                    <LineIcon
-                      name="heart"
-                      size={22}
-                      color="var(--color-muted-foreground)"
-                      style={{ marginRight: '6rpx' }}
-                    />
-                    <Text>{item.likes}</Text>
-                  </View>
-                </View>
+                ) : null}
+                {item.content ? <Text className="content-text">{item.content}</Text> : null}
               </View>
             ))}
-            {/* 音频卡片:唱片(rotate 动画) + 中心点(不旋转) + 播放按钮(不旋转) */}
+            {/* 音频卡片(对齐 RN audioCard):横向布局 封面 + 信息(标题/时长/播放按钮) */}
             {grouped.audio.map((item) => {
               const idStr = String(item.id)
               const isPlaying = audioPlayingId === idStr
               return (
-                <ThemeRoot key={item.id} className="audio-card">
-                  <View key={idStr}>
-                    <View className="audio-record-wrap" onClick={() => toggleAudio(item)}>
-                      {/* 旋转层:封面/占位 */}
-                      <View className={`audio-record${isPlaying ? ' rotating' : ''}`}>
-                        {item.coverUrl ? (
-                          <Image className="audio-cover" src={item.coverUrl} mode="aspectFill" />
-                        ) : (
-                          <View className="audio-cover-placeholder">
-                            <LineIcon
-                              name="headphones"
-                              size={48}
-                              className="audio-cover-icon"
-                              color="var(--color-muted-foreground)"
-                            />
-                          </View>
-                        )}
-                      </View>
-                      {/* 不旋转层:中心点 + 播放按钮(对标原项目 center-dot-image / audio-play-button) */}
-                      <View className="audio-center-dot" />
-                      <View className="audio-play-btn">
+                <View key={idStr} className="audio-card">
+                  <View className="audio-cover" onClick={() => toggleAudio(item)}>
+                    {item.coverUrl ? (
+                      <Image className="audio-cover-img" src={item.coverUrl} mode="aspectFill" />
+                    ) : (
+                      <View className="audio-cover-placeholder">
                         <LineIcon
-                          name={isPlaying ? 'pause' : 'play'}
-                          size={24}
-                          className="audio-play-icon"
+                          name="headphones"
+                          size={48}
                           color="var(--color-muted-foreground)"
                         />
                       </View>
-                    </View>
-                    <View className="audio-info">
-                      <Text className="audio-title">
-                        {item.title || tt('aigc.list.unnamed', '未命名作品')}
-                      </Text>
-                      {item.time ? <Text className="audio-time">{item.time}</Text> : null}
-                      <View className="audio-progress-row">
-                        <View className="audio-progress-bar">
-                          <View
-                            className="audio-progress-fill"
-                            style={isPlaying ? { width: '40%' } : { width: '0%' }}
-                          />
-                        </View>
-                        <Text className="audio-duration">{formatDuration(item.duration)}</Text>
-                      </View>
+                    )}
+                  </View>
+                  <View className="audio-info">
+                    <Text className="card-title">
+                      {item.title || tt('aigc.list.unnamed', '未命名作品')}
+                    </Text>
+                    <Text className="audio-duration">{formatDuration(item.duration)}</Text>
+                    <View className="audio-play-btn" onClick={() => toggleAudio(item)}>
+                      <LineIcon
+                        name={isPlaying ? 'pause' : 'play'}
+                        size={24}
+                        className="audio-play-icon"
+                        color="var(--color-primary)"
+                      />
                     </View>
                   </View>
-                </ThemeRoot>
+                </View>
               )
             })}
           </View>
@@ -594,7 +525,7 @@ export default function AigcList() {
           </View>
         ) : null}
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
