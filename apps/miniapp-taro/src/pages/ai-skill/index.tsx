@@ -20,13 +20,15 @@ const toRpx = (px: number): string => `${px * 2}rpx`
 // ===== 样式函数(view/text 分组,避免 style 联合类型;对齐 RN 端 Tailwind 视觉) =====
 
 const viewStyles = {
-  container: (tk: RnThemeTokens): CSSProperties => ({
+  // 容器背景对齐 RN AiSkillScreen:亮色 bg-white / 暗色 bg-neutral-900
+  // (亮 #FFFFFF → --color-surface-light;暗 #171717 → --color-surface-dark)
+  container: (_tk: RnThemeTokens, isDark: boolean): CSSProperties => ({
     display: 'flex',
     flexDirection: 'column',
     height: '100vh',
-    backgroundColor: tk.surface.bg,
+    backgroundColor: isDark ? 'var(--color-surface-dark)' : 'var(--color-surface-light)',
   }),
-  center: (): CSSProperties => ({
+  center: (isDark: boolean): CSSProperties => ({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -34,6 +36,15 @@ const viewStyles = {
     height: '100vh',
     paddingLeft: toRpx(24),
     paddingRight: toRpx(24),
+    backgroundColor: isDark ? 'var(--color-surface-dark)' : 'var(--color-surface-light)',
+  }),
+  // 列表内空态(RN ListEmptyComponent: items-center py-16,py 64px→128rpx,非全屏)
+  emptyInline: (): CSSProperties => ({
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    paddingTop: toRpx(64),
+    paddingBottom: toRpx(64),
   }),
   header: (): CSSProperties => ({
     display: 'flex',
@@ -45,9 +56,10 @@ const viewStyles = {
     paddingTop: toRpx(12),
     paddingBottom: toRpx(8),
   }),
-  retryBtn: (tk: RnThemeTokens): CSSProperties => ({
+  // 重试按钮对齐 RN:bg-gray-200(rounded-md 6px→12rpx;亮 #E5E5E5 ≈ --color-border)
+  retryBtn: (_tk: RnThemeTokens): CSSProperties => ({
     borderRadius: toRpx(6),
-    backgroundColor: tk.surface.card,
+    backgroundColor: 'var(--color-border)',
     paddingLeft: toRpx(16),
     paddingRight: toRpx(16),
     paddingTop: toRpx(8),
@@ -59,13 +71,15 @@ const viewStyles = {
   listPadding: (): CSSProperties => ({
     padding: toRpx(16),
   }),
-  card: (tk: RnThemeTokens): CSSProperties => ({
+  // 卡片对齐 RN:亮 bg-white / 暗 bg-neutral-800(#262626 → --color-muted 暗值);
+  // 描边 border-gray-200 / dark neutral-700 → 统一 --color-border(相近色归一)
+  card: (_tk: RnThemeTokens, isDark: boolean): CSSProperties => ({
     marginBottom: toRpx(12),
     borderRadius: toRpx(8),
     borderWidth: '1px',
     borderStyle: 'solid',
-    borderColor: tk.border.light,
-    backgroundColor: tk.surface.card,
+    borderColor: 'var(--color-border)',
+    backgroundColor: isDark ? 'var(--color-muted)' : 'var(--color-surface-light)',
     padding: toRpx(16),
   }),
   cardTitleRow: (): CSSProperties => ({
@@ -74,9 +88,11 @@ const viewStyles = {
     alignItems: 'center',
     justifyContent: 'space-between',
   }),
-  categoryBadge: (tk: RnThemeTokens): CSSProperties => ({
+  categoryBadge: (_tk: RnThemeTokens, isDark: boolean): CSSProperties => ({
     marginLeft: toRpx(8),
-    backgroundColor: tk.surface.muted,
+    borderRadius: toRpx(2),
+    // bg-gray-100(亮 ≈ --color-muted) / dark:bg-neutral-700(≈ --color-accent)
+    backgroundColor: isDark ? 'var(--color-accent)' : 'var(--color-muted)',
     paddingLeft: toRpx(6),
     paddingRight: toRpx(6),
     paddingTop: toRpx(2),
@@ -90,8 +106,10 @@ const viewStyles = {
     flexWrap: 'wrap',
     gap: toRpx(6),
   }),
-  tagBadge: (tk: RnThemeTokens): CSSProperties => ({
-    backgroundColor: tk.brandAccent.light,
+  tagBadge: (_tk: RnThemeTokens): CSSProperties => ({
+    borderRadius: toRpx(2),
+    // bg-orange-50 / dark:bg-neutral-700 → 统一品牌橙浅底 token(明暗成对)
+    backgroundColor: 'var(--color-brand-orange-light)',
     paddingLeft: toRpx(6),
     paddingRight: toRpx(6),
     paddingTop: toRpx(2),
@@ -101,48 +119,49 @@ const viewStyles = {
 }
 
 const textStyles = {
-  muted: (tk: RnThemeTokens): CSSProperties => ({
+  // text.secondary #666666/#A3A3A3 ↔ --color-muted-foreground(亮暗成对)
+  muted: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.text.secondary,
+    color: 'var(--color-muted-foreground)',
   }),
-  back: (tk: RnThemeTokens): CSSProperties => ({
+  back: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.text.secondary,
+    color: 'var(--color-muted-foreground)',
   }),
-  headerTitle: (tk: RnThemeTokens): CSSProperties => ({
+  headerTitle: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(16),
     fontWeight: '500',
-    color: tk.text.primary,
+    color: 'var(--color-foreground)',
   }),
-  errorText: (tk: RnThemeTokens): CSSProperties => ({
+  errorText: (_tk: RnThemeTokens): CSSProperties => ({
     marginBottom: toRpx(12),
     fontSize: toRpx(14),
-    color: tk.text.secondary,
+    color: 'var(--color-muted-foreground)',
     textAlign: 'center',
   }),
-  retryText: (tk: RnThemeTokens): CSSProperties => ({
+  retryText: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.text.primary,
+    color: 'var(--color-foreground)',
   }),
-  cardName: (tk: RnThemeTokens): CSSProperties => ({
+  cardName: (_tk: RnThemeTokens): CSSProperties => ({
     flex: 1,
     fontSize: toRpx(16),
     fontWeight: '500',
-    color: tk.text.primary,
+    color: 'var(--color-foreground)',
   }),
-  categoryText: (tk: RnThemeTokens): CSSProperties => ({
+  categoryText: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(12),
-    color: tk.text.secondary,
+    color: 'var(--color-muted-foreground)',
   }),
-  cardDesc: (tk: RnThemeTokens): CSSProperties => ({
+  cardDesc: (_tk: RnThemeTokens): CSSProperties => ({
     marginTop: toRpx(4),
     fontSize: toRpx(14),
     lineHeight: toRpx(20),
-    color: tk.text.medium,
+    color: 'var(--color-text-medium)',
   }),
-  tagText: (tk: RnThemeTokens): CSSProperties => ({
+  tagText: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(12),
-    color: tk.brandAccent.DEFAULT,
+    color: 'var(--color-brand-orange)',
   }),
 }
 
@@ -150,6 +169,7 @@ export default function AiSkillList() {
   const tt = useTt()
   const { resolved: appTheme } = useAppTheme()
   const tk = getRnTokens(appTheme)
+  const isDark = appTheme === 'dark'
   // 对齐 mobile-rn AiSkillScreen 状态机:items/loading/error + load/retry/onOpen
   const [items, setItems] = useState<AiSkillMeta[]>([])
   const [loading, setLoading] = useState(true)
@@ -208,7 +228,7 @@ export default function AiSkillList() {
   if (loading) {
     return (
       <ThemeRoot>
-        <View style={viewStyles.center()}>
+        <View style={viewStyles.center(isDark)}>
           <Text style={textStyles.muted(tk)}>{tt('common.loading', '加载中...')}</Text>
         </View>
       </ThemeRoot>
@@ -217,7 +237,7 @@ export default function AiSkillList() {
 
   return (
     <ThemeRoot>
-      <View style={viewStyles.container(tk)}>
+      <View style={viewStyles.container(tk, isDark)}>
         <View style={viewStyles.header()}>
           <View onTap={goBack}>
             <Text style={textStyles.back(tk)}>{tt('common.back', '返回')}</Text>
@@ -227,7 +247,7 @@ export default function AiSkillList() {
         </View>
 
         {error ? (
-          <View style={viewStyles.center()}>
+          <View style={viewStyles.center(isDark)}>
             <Text style={textStyles.errorText(tk)}>{error}</Text>
             <View style={viewStyles.retryBtn(tk)} onTap={retry}>
               <Text style={textStyles.retryText(tk)}>{tt('aiSkill.retry', '重试')}</Text>
@@ -237,15 +257,15 @@ export default function AiSkillList() {
           <ScrollView scrollY style={viewStyles.listBody()}>
             <View style={viewStyles.listPadding()}>
               {items.length === 0 ? (
-                <View style={viewStyles.center()}>
+                <View style={viewStyles.emptyInline()}>
                   <Text style={textStyles.muted(tk)}>{tt('aiSkill.empty', '暂无技能')}</Text>
                 </View>
               ) : (
                 items.map((item) => (
-                  <View key={item.id} style={viewStyles.card(tk)} onTap={() => onOpen(item)}>
+                  <View key={item.id} style={viewStyles.card(tk, isDark)} onTap={() => onOpen(item)}>
                     <View style={viewStyles.cardTitleRow()}>
                       <Text style={textStyles.cardName(tk)}>{item.name}</Text>
-                      <View style={viewStyles.categoryBadge(tk)}>
+                      <View style={viewStyles.categoryBadge(tk, isDark)}>
                         <Text style={textStyles.categoryText(tk)}>{item.category}</Text>
                       </View>
                     </View>

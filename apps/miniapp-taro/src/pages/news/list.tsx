@@ -177,7 +177,7 @@ export default function NewsListPage() {
     : false
 
   return (
-    <View className="page">
+    <ThemeRoot className="page">
       {/* 搜索栏 */}
       <View className="search-bar">
         <LineIcon
@@ -243,9 +243,6 @@ export default function NewsListPage() {
                   className={`item${isRead ? ' item-read' : ''}`}
                   onClick={() => goDetail(n.id)}
                 >
-                  {n.coverUrl ? (
-                    <Image className="cover" src={n.coverUrl} mode="aspectFill" />
-                  ) : null}
                   <View className="body">
                     <View className="title-row">
                       {!isRead ? <Text className="unread-dot" /> : null}
@@ -259,8 +256,8 @@ export default function NewsListPage() {
                           n: formatViews(Number(n.views ?? 0)),
                         })}
                       </Text>
-                      {n.source ? <Text className="source">{n.source}</Text> : null}
                     </View>
+                    {n.source ? <Text className="source">{n.source}</Text> : null}
                   </View>
                 </View>
               </ThemeRoot>
@@ -293,7 +290,7 @@ export default function NewsListPage() {
           <Text>{tt('common.noMore', '没有更多了')}</Text>
         </View>
       ) : null}
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

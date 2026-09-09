@@ -68,30 +68,34 @@ export default function AiCareer() {
 
   return (
     <View className="min-h-screen bg-background">
-      <View className="p-[24rpx] bg-card">
-        <Text className="text-[36rpx] font-semibold text-foreground">{t('aiCareer.title')}</Text>
+      {/* 对齐 RN header:px 10dp=20rpx / pt 4dp=8rpx pb 8dp=16rpx / 标题 22dp=44rpx w700 */}
+      <View className="px-[20rpx] pt-[8rpx] pb-[16rpx] bg-background">
+        <Text className="text-[44rpx] font-bold text-foreground">{t('aiCareer.title')}</Text>
       </View>
-      <View className="p-[24rpx]">
+      {/* 对齐 RN FlatList contentContainer:padding 16dp=32rpx / paddingBottom 32dp=64rpx;separator 12dp=24rpx */}
+      <View className="px-[32rpx] pt-[32rpx] pb-[64rpx]">
         {loading ? (
-          <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center py-[96rpx]">
+            <Text className="text-center text-[28rpx] text-[var(--color-text-tertiary)]">
               {t('common.loading')}
             </Text>
           </View>
         ) : error ? (
-          <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">
-              {tt('aiCareer.loadFailed', '加载失败')}
-            </Text>
-            <View
-              className="mt-[24rpx] py-[16rpx] px-[48rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[26rpx]"
-              onClick={loadData}
-            >
-              <Text>{t('common.retry')}</Text>
+          <View className="px-[20rpx] py-[16rpx] bg-[var(--color-danger-light)]">
+            <View className="flex flex-row items-center justify-between">
+              <Text className="flex-1 text-[28rpx] text-destructive">
+                {tt('aiCareer.loadFailed', '加载失败')}
+              </Text>
+              <Text
+                className="ml-[16rpx] text-[28rpx] font-semibold text-[var(--color-brand)]"
+                onClick={loadData}
+              >
+                {t('common.retry')}
+              </Text>
             </View>
           </View>
         ) : list.length ? (
-          <View className="flex flex-col gap-[16rpx]">
+          <View className="flex flex-col gap-[24rpx]">
             {list.map((item) => {
               const id = String(item.id || '')
               const name = String(item.name || '')
@@ -100,50 +104,63 @@ export default function AiCareer() {
               const tags = extractTags(name, desc)
               const uses = Number(item.uses || 0)
               return (
-                <ThemeRoot key={id} className="p-[24rpx] bg-card rounded-[12rpx]">
+                <ThemeRoot
+                  key={id}
+                  className="p-[28rpx] rounded-[24rpx] border border-[var(--color-border)] bg-card"
+                >
                   <View key={id} onClick={() => onItemClick(id)}>
-                    <View className="flex items-start">
+                    {/* 对齐 RN cardHead:头像 44dp=88rpx / 12dp=24rpx 圆角 / muted 底 / 右距 10dp=20rpx */}
+                    <View className="flex flex-row items-start">
                       <Image
-                        className="w-[96rpx] h-[96rpx] rounded-[12rpx] bg-background flex-shrink-0"
+                        className="w-[88rpx] h-[88rpx] rounded-[24rpx] bg-muted flex-shrink-0"
                         src={avatar}
                         mode="aspectFill"
                       />
-                      <View className="flex-1 min-w-0 ml-[24rpx]">
-                        <Text className="text-[30rpx] font-semibold text-foreground">
+                      <View className="flex-1 min-w-0 ml-[20rpx]">
+                        <Text className="text-[32rpx] font-semibold text-foreground">
                           {name || t('aiCareer.guide')}
                         </Text>
                         {desc ? (
-                          <Text className="mt-[8rpx] text-[24rpx] text-muted-foreground line-clamp-2">
+                          <Text className="mt-[16rpx] text-[28rpx] leading-[36rpx] text-muted-foreground line-clamp-2">
                             {desc}
                           </Text>
                         ) : null}
                       </View>
                     </View>
+                    {/* 对齐 RN tagRow:gap 6dp=12rpx / mt 10dp=20rpx;tag px8 py4 dp / 12dp=24rpx 圆角 / muted 底 / 11dp=22rpx 次级字 */}
                     {(tags.length > 0 || uses > 0) && (
-                      <View className="flex items-center flex-wrap gap-[12rpx] mt-[16rpx]">
+                      <View className="flex flex-row items-center flex-wrap gap-[12rpx] mt-[20rpx]">
                         {tags.map((tag, idx) => (
                           <Text
                             key={idx}
-                            className="py-[4rpx] px-[16rpx] rounded-[6rpx] text-[22rpx] text-primary bg-info/[0.08]"
+                            className="py-[8rpx] px-[16rpx] rounded-[24rpx] text-[22rpx] text-muted-foreground bg-[var(--color-muted)]"
                           >
                             {tag}
                           </Text>
                         ))}
-                        {uses > 0 ? (
-                          <Text className="text-[22rpx] text-muted-foreground ml-auto">
-                            {tt('aiCareer.useCount', '{n}人使用', { n: uses })}
-                          </Text>
-                        ) : null}
                       </View>
                     )}
+                    {/* 对齐 RN cardFoot:gap 16dp=32rpx / mt 12dp=24rpx;meta 11dp=22rpx 三级色;CTA px14dp h30dp 圆角 24rpx brand 底 */}
+                    {uses > 0 ? (
+                      <View className="flex flex-row items-center gap-[32rpx] mt-[24rpx]">
+                        <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                          {tt('aiCareer.useCount', '{n}人使用', { n: uses })}
+                        </Text>
+                        <View className="ml-auto flex flex-row items-center justify-center px-[28rpx] h-[60rpx] rounded-[24rpx] bg-[var(--color-brand)]">
+                          <Text className="text-[28rpx] font-semibold text-[var(--color-surface-light)]">
+                            {tt('aiAssistant.startChat', '开始对话')}
+                          </Text>
+                        </View>
+                      </View>
+                    ) : null}
                   </View>
                 </ThemeRoot>
               )
             })}
           </View>
         ) : (
-          <View className="flex flex-col items-center py-[80rpx]">
-            <Text className="text-center text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center py-[96rpx]">
+            <Text className="text-center text-[28rpx] text-[var(--color-text-tertiary)]">
               {t('aiCareer.empty')}
             </Text>
           </View>

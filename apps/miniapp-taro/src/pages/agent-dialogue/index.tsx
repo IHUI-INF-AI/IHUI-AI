@@ -576,7 +576,7 @@ export default function AgentDialogue() {
       )
     }
     return (
-      <Text className="text-[28rpx] leading-[1.5] break-words whitespace-pre-wrap">
+      <Text className="text-[32rpx] leading-[1.5] break-words whitespace-pre-wrap">
         {msg.content}
       </Text>
     )
@@ -592,9 +592,9 @@ export default function AgentDialogue() {
         onScrollToUpper={loadMoreHistory}
         upperThreshold={50}
       >
-        <View className="flex flex-col gap-[24rpx] p-[20rpx]">
+        <View className="flex flex-col gap-[16rpx] p-[20rpx]">
           {chatList.length === 0 && !loading ? (
-            <View className="flex justify-center py-[120rpx] px-[40rpx]">
+            <View className="flex justify-center items-center py-[80rpx]">
               <Text className="text-[28rpx] text-muted-foreground text-center">
                 {tt('agentDialogue.messageEmpty', '发送消息开始对话')}
               </Text>
@@ -608,7 +608,7 @@ export default function AgentDialogue() {
               {msg.type === 'user' ? (
                 <>
                   <View
-                    className={`max-w-[480rpx] p-[20rpx] px-[24rpx] rounded-[12rpx] relative bg-primary text-primary-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}
+                    className={`max-w-[85%] p-[20rpx] rounded-[24rpx] relative bg-primary text-primary-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}
                   >
                     {renderBubble(msg)}
                     {msg.read ? (
@@ -643,7 +643,7 @@ export default function AgentDialogue() {
                     )}
                   </View>
                   <View
-                    className={`max-w-[480rpx] p-[20rpx] px-[24rpx] rounded-[12rpx] relative bg-card text-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}
+                    className={`max-w-[85%] p-[20rpx] rounded-[24rpx] relative bg-card text-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}
                   >
                     {renderBubble(msg)}
                   </View>
@@ -657,9 +657,10 @@ export default function AgentDialogue() {
           ))}
         </View>
       </ScrollView>
-      <View className="fixed bottom-0 left-0 right-0 flex items-center gap-[16rpx] pt-[16rpx] px-[24rpx] pb-[calc(env(safe-area-inset-bottom)+16rpx)] bg-card z-[100]">
+      <View className="fixed bottom-0 left-0 right-0 flex items-center gap-[16rpx] pt-[16rpx] px-[20rpx] pb-[calc(env(safe-area-inset-bottom)+16rpx)] bg-card z-[100]">
         <Input
-          className="flex-1 h-[72rpx] px-[24rpx] text-[28rpx] text-foreground bg-background rounded-[12rpx]"
+          className="flex-1 h-[100rpx] px-[24rpx] text-[32rpx] text-foreground bg-[var(--color-muted)] border border-[var(--color-border)] rounded-[24rpx]"
+          placeholderStyle="color: var(--color-text-tertiary)"
           value={inputContent}
           placeholder={tt('agentDialogue.inputPlaceholder', '输入消息…')}
           onInput={onInputChange}
@@ -668,10 +669,10 @@ export default function AgentDialogue() {
           disabled={sending}
         />
         <View
-          className={`py-[16rpx] px-[32rpx] bg-primary rounded-[12rpx] flex-shrink-0 ${!inputContent.trim() || sending ? 'opacity-50' : ''}`}
+          className={`h-[100rpx] px-[28rpx] bg-primary rounded-[24rpx] flex items-center justify-center flex-shrink-0 ${!inputContent.trim() || sending ? 'opacity-50' : ''}`}
           onClick={sendMessage}
         >
-          <Text className="text-[28rpx] text-primary-foreground">{t('chat.send')}</Text>
+          <Text className="text-[32rpx] font-semibold text-primary-foreground">{t('chat.send')}</Text>
         </View>
       </View>
     </ThemeRoot>
