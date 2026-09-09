@@ -1020,3 +1020,214 @@ async def test_rest_callback_signature_ok(monkeypatch):
         )
     assert resp.status_code == 200
     assert resp.json()["matched"] == 1
+
+
+# ---------------------------------------------------------------------------
+# F7 统计概览 media_task_stats(2026-09-09)
+# ---------------------------------------------------------------------------
+
+
+async def test_media_task_stats_aggregates():
+    """统计:按 kind 聚合 总数/终态/在途,全局合计正确。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetch = AsyncMock(
+        side_effect=[
+            [{"status": "processing", "n": 1}, {"status": "succeeded", "n": 2}],  # video
+            [{"status": "failed", "n": 1}],  # music
+            [],  # tts
+            [{"status": "cancelled", "n": 3}, {"status": "succeeded", "n": 1}],  # image
+        ]
+    )
+    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
+        data = await mt.media_task_stats()
+    assert data["total"] == 8
+    assert data["inflight"] == 1
+    assert data["succeeded"] == 3
+    assert data["failed"] == 1
+    assert data["cancelled"] == 3
+    assert data["by_kind"]["video"] == {
+        "total": 3, "succeeded": 2, "failed": 0, "cancelled": 0, "inflight": 1,
+    }
+    assert data["by_kind"]["image"]["cancelled"] == 3
+    # 每个 kind 一次 GROUP BY 查询,共 4 次
+    assert mock_conn.fetch.call_count == 4
+
+
+async def test_media_task_stats_user_scoped():
+    """统计:user_uuid 过滤进 WHERE。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetch = AsyncMock(return_value=[])
+    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
+        await mt.media_task_stats(user_uuid="u1")
+    sql, *params = mock_conn.fetch.call_args.args
+    assert "user_uuid=$1" in sql
+    assert params[0] == "u1"
+
+
+# ---------------------------------------------------------------------------
+# F8 批量取消在途任务 cancel_media_tasks(2026-09-09)
+# ---------------------------------------------------------------------------
+
+
+async def test_cancel_media_tasks_no_inflight():
+    """批量取消:无在途任务 → requested=0,不更新 DB。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetch = AsyncMock(return_value=[])
+    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
+        result = await mt.cancel_media_tasks()
+    assert result == {"requested": 0, "cancelled": 0, "remote_failed": []}
+    mock_conn.execute.assert_not_called()
+
+
+async def test_cancel_media_tasks_all_inflight(monkeypatch):
+    """批量取消:不传 task_ids → 全部在途置 cancelled;未配置 key 跳过远端。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetch = AsyncMock(
+        return_value=[
+            {"id": 1, "task_id": "t-v1", "provider": "token6688"},
+            {"id": 2, "task_id": "t-m1", "provider": "token6688"},
+        ]
+    )
+    mock_conn.execute = AsyncMock(return_value=None)
+
+    class _Cfg:
+        api_key = ""
+        api_base = ""
+
+    class _FakeSettings:
+        def get_provider_config(self, name):  # noqa: ANN001
+            return _Cfg()
+
+    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
+    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
+        result = await mt.cancel_media_tasks()
+    assert result["requested"] == 2
+    assert result["cancelled"] == 2
+    assert result["remote_failed"] == []
+    sql, params = mock_conn.execute.call_args.args
+    assert "status='cancelled'" in sql
+    assert "task_id = ANY($1)" in sql
+    assert params == ["t-v1", "t-m1"]
+
+
+async def test_cancel_media_tasks_task_ids_and_kind(monkeypatch):
+    """批量取消:task_ids + kind 过滤进 WHERE;空串 task_id 被剔除。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetch = AsyncMock(
+        return_value=[{"id": 1, "task_id": "t-v1", "provider": "token6688"}]
+    )
+    mock_conn.execute = AsyncMock(return_value=None)
+
+    class _Cfg:
+        api_key = ""
+        api_base = ""
+
+    class _FakeSettings:
+        def get_provider_config(self, name):  # noqa: ANN001
+            return _Cfg()
+
+    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
+    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
+        result = await mt.cancel_media_tasks(task_ids=["t-v1", "  "], kind="video,image")
+    assert result["requested"] == 1
+    sql, *params = mock_conn.fetch.call_args.args
+    # 在途状态集合 + task_ids + kind 三个占位
+    assert "task_id = ANY($2)" in sql
+    assert "kind = ANY($3)" in sql
+    assert params[0] == ["processing", "accepted", "submitted", "pending"]
+    assert params[1] == ["t-v1"]
+    assert params[2] == ["video", "image"]
+
+
+async def test_cancel_media_tasks_remote_failure(monkeypatch):
+    """批量取消:远端取消抛错 → 记 remote_failed,本地仍置 cancelled。"""
+    mock_conn = AsyncMock()
+    mock_conn.fetch = AsyncMock(
+        return_value=[{"id": 1, "task_id": "t-v1", "provider": "token6688"}]
+    )
+    mock_conn.execute = AsyncMock(return_value=None)
+
+    class _Cfg:
+        api_key = "sk-test"
+        api_base = "https://k.token6688.com"
+
+    class _Inst:
+        async def cancel_task(self, tid):  # noqa: ANN001
+            raise RuntimeError("boom")
+
+    class _FakeSettings:
+        def get_provider_config(self, name):  # noqa: ANN001
+            return _Cfg()
+
+    monkeypatch.setattr("app.core.config.settings", _FakeSettings())
+    monkeypatch.setattr(
+        "app.providers.token6688_provider.Token6688Provider",
+        lambda api_key, api_base: _Inst(),
+    )
+    with patch("app.services.media_tasks.get_db_conn", return_value=mock_conn):
+        result = await mt.cancel_media_tasks()
+    assert result["cancelled"] == 1
+    assert len(result["remote_failed"]) == 1
+    assert result["remote_failed"][0]["task_id"] == "t-v1"
+    assert "boom" in result["remote_failed"][0]["error"]
+
+
+async def test_rest_media_tasks_stats(monkeypatch):
+    """REST 统计:F7,GET /api/media/tasks/stats 返回聚合 + user_uuid 透传。"""
+    called: dict = {}
+
+    async def _fake(user_uuid=None):
+        called["user_uuid"] = user_uuid
+        return {
+            "total": 8, "inflight": 1, "succeeded": 3, "failed": 1, "cancelled": 3,
+            "by_kind": {"video": {"total": 3}},
+        }
+
+    monkeypatch.setattr("app.routers.media_tasks.media_task_stats", _fake)
+    app = _make_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.get("/api/media/tasks/stats", params={"user_uuid": "u1"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is True
+    assert body["data"]["inflight"] == 1
+    assert called.get("user_uuid") == "u1"
+
+
+async def test_rest_media_tasks_cancel_batch(monkeypatch):
+    """REST 批量取消:F8,POST /api/media/tasks/cancel 透传 task_ids/kind。"""
+    called: dict = {}
+
+    async def _fake(task_ids=None, kind=None):
+        called.update(task_ids=task_ids, kind=kind)
+        return {"requested": 2, "cancelled": 2, "remote_failed": []}
+
+    monkeypatch.setattr("app.routers.media_tasks.cancel_media_tasks", _fake)
+    app = _make_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post(
+            "/api/media/tasks/cancel",
+            json={"task_ids": ["t-v1", "t-m1"], "kind": "video"},
+        )
+    assert resp.status_code == 200
+    assert resp.json()["data"]["cancelled"] == 2
+    assert called.get("task_ids") == ["t-v1", "t-m1"]
+    assert called.get("kind") == "video"
+
+
+async def test_rest_media_tasks_cancel_batch_empty(monkeypatch):
+    """REST 批量取消:无 body → task_ids/kind 均 None(取消全部在途)。"""
+    called: dict = {}
+
+    async def _fake(task_ids=None, kind=None):
+        called.update(task_ids=task_ids, kind=kind)
+        return {"requested": 0, "cancelled": 0, "remote_failed": []}
+
+    monkeypatch.setattr("app.routers.media_tasks.cancel_media_tasks", _fake)
+    app = _make_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/api/media/tasks/cancel")
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+    assert called.get("task_ids") is None
+    assert called.get("kind") is None
