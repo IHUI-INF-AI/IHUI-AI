@@ -194,7 +194,19 @@ async def _process_one() -> bool:
         t6688 = _instantiate("token6688")
         if t6688 is not None:
             try:
-                submitted = await t6688.generate_video(prompt, "", duration=duration, wait=False)
+                # 官方 webhook:配置 TOKEN6688_CALLBACK_URL 后带 callback_url 提交,
+                # 终态平台主动 POST 任务快照(最多重试 3 次)→ /api/video/token6688-callback
+                # 提前落终态;_poll_pending 对已终态行不再处理(SQL 只查 processing),二者幂等互斥。
+                cb_url = os.environ.get("TOKEN6688_CALLBACK_URL", "").strip()
+                cb_secret = os.environ.get("TOKEN6688_CALLBACK_SECRET", "").strip()
+                extra: dict[str, str] = {}
+                if cb_url:
+                    extra["callback_url"] = cb_url
+                    if cb_secret:
+                        extra["callback_secret"] = cb_secret
+                submitted = await t6688.generate_video(
+                    prompt, "", duration=duration, wait=False, **extra,
+                )
                 remote_id = str(submitted.get("task_id") or "")
                 if remote_id:
                     payload = json.dumps(
@@ -351,4 +363,83 @@ async def stop_video_worker() -> None:
         except asyncio.CancelledError:
             pass
     _started_task = None
+
+
+# ---------------------------------------------------------------------------
+# token6688 官方 webhook 回调(2026-09-08 文档校准)
+# 提交时带 callback_url(+callback_secret 验签),任务终态平台主动 POST 任务快照
+# (best-effort,最多重试 3 次)。与 _poll_pending 幂等互斥:本回调只认 processing
+# 行,终态写入后轮询 SQL 自然跳过;轮询先写终态则回调无匹配行,不重复更新。
+# ---------------------------------------------------------------------------
+
+_CALLBACK_MATCH_SQL = """
+SELECT id, result FROM video_generation_tasks
+WHERE status='processing' AND result LIKE $1
+ORDER BY id ASC LIMIT 5
+"""
+
+
+async def handle_token6688_callback(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """处理 token6688 终态回调快照(形状同 GET /v1/tasks/{task_id})。
+
+    返回 {ok, matched}:matched=0 表示无在途任务匹配(已终态/未知任务,幂等静默)。
+    """
+    remote_id = str(snapshot.get("task_id") or snapshot.get("id") or "").strip()
+    if not remote_id:
+        return {"ok": False, "matched": 0, "error": "快照缺 task_id"}
+
+    t6688 = _instantiate("token6688")
+    state = str(snapshot.get("state") or "").lower()
+    status = str(snapshot.get("status") or "").lower()
+    is_final = bool(snapshot.get("is_final")) or state in ("success", "failed")
+    video_url = (
+        snapshot.get("output_url") or snapshot.get("result_url")
+        or (t6688._extract_media_url(snapshot) if t6688 else "")
+        or ""
+    )
+    ok = (is_final and state in ("success", "completed", "succeeded")) or status in (
+        "completed", "succeeded",
+    ) or bool(video_url)
+    failed = (is_final and state in ("failed", "error", "cancelled")) or status in ("failed", "error")
+    if not (ok or failed):
+        # 中间态快照(best-effort 可能推 progress)——不更新 DB,等终态
+        return {"ok": True, "matched": 0, "ignored": "non-final"}
+
+    like_pattern = f'%"poll_via":"token6688"%"task_id":"{remote_id}"%'
+    # result JSON 键序可能不同,退化为双 LIKE(task_id 必含)
+    fallback_pattern = f'%"task_id":"{remote_id}"%'
+    conn = await get_db_conn()
+    try:
+        rows = await conn.fetch(_CALLBACK_MATCH_SQL, fallback_pattern)
+    finally:
+        await conn.close()
+    matched = 0
+    for r in rows:
+        try:
+            meta = json.loads(r["result"] or "{}")
+        except (TypeError, ValueError):
+            meta = {}
+        if str(meta.get("task_id") or "") != remote_id:
+            continue  # like 误匹配(如前缀重叠)
+        if ok and video_url:
+            payload = json.dumps(
+                {
+                    "url": video_url, "provider": "token6688",
+                    "model": meta.get("model", ""), "task_id": remote_id,
+                    "duration": meta.get("duration", 5),
+                    "via": "callback",
+                },
+                ensure_ascii=False,
+            )
+            await _set_status(r["id"], "succeed", payload)
+            logger.info("[video] 回调落终态: 行 %s task=%s url=%s", r["id"], remote_id, video_url[:80])
+        else:
+            err = str(
+                snapshot.get("error") or snapshot.get("error_message")
+                or f"token6688 回调失败(state={state or status})"
+            )[:2000]
+            await _set_status(r["id"], "failed", err)
+            logger.info("[video] 回调落失败: 行 %s task=%s", r["id"], remote_id)
+        matched += 1
+    return {"ok": True, "matched": matched}
 # ⁠​‌​​‌​​‌‍​​​​​​‌‍

@@ -1581,3 +1581,44 @@ class TestCleanupOldLogs:
         assert isinstance(result["deleted_count"], int)
         assert isinstance(result["before_days"], int)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+class TestEnsureProviderConfig:
+    """_ensure_provider_config(2026-09-08 修复:config 行缺失静默跳过)。"""
+
+    class _FakeConn:
+        def __init__(self, select_result, insert_result):
+            self._select_result = select_result
+            self._insert_result = insert_result
+            self.select_calls = 0
+            self.insert_calls = 0
+
+        async def fetchrow(self, query, *args):
+            if query.lstrip().upper().startswith("SELECT"):
+                self.select_calls += 1
+                return self._select_result
+            self.insert_calls += 1
+            return self._insert_result
+
+    @pytest.mark.asyncio
+    async def test_existing_config_returns_id_no_insert(self) -> None:
+        conn = self._FakeConn({"id": 7}, {"id": 99})
+        svc = ModelSyncService()
+        got = await svc._ensure_provider_config(conn, "token6688")
+        assert got == 7
+        assert conn.insert_calls == 0
+
+    @pytest.mark.asyncio
+    async def test_token6688_missing_config_auto_inserts(self) -> None:
+        conn = self._FakeConn(None, {"id": 42})
+        svc = ModelSyncService()
+        got = await svc._ensure_provider_config(conn, "token6688")
+        assert got == 42
+        assert conn.insert_calls == 1
+
+    @pytest.mark.asyncio
+    async def test_other_provider_missing_config_returns_none(self) -> None:
+        conn = self._FakeConn(None, {"id": 42})
+        svc = ModelSyncService()
+        got = await svc._ensure_provider_config(conn, "openrouter")
+        assert got is None
+        assert conn.insert_calls == 0

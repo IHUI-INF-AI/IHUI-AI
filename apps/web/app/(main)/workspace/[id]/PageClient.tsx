@@ -17,7 +17,15 @@ import { ProjectHeader } from './ProjectHeader'
 import { FilesSection } from './FilesSection'
 import { AIWorkspaceTabs } from './AIWorkspaceTabs'
 import { PreviewDialog } from './PreviewDialog'
-import { fetchProject, fetchFiles, uploadFile, downloadFile, removeFile } from './helpers'
+import { MarkdownResultDialog, type MarkdownResult } from './MarkdownResultDialog'
+import {
+  fetchProject,
+  fetchFiles,
+  uploadFile,
+  downloadFile,
+  removeFile,
+  convertFileToMarkdown,
+} from './helpers'
 import type { PreviewState } from './types'
 
 export default function ProjectDetailPage() {
@@ -53,6 +61,9 @@ export default function ProjectDetailPage() {
 
   const [uploading, setUploading] = React.useState(false)
   const [downloadingId, setDownloadingId] = React.useState<string | null>(null)
+  const [convertingId, setConvertingId] = React.useState<string | null>(null)
+  const [convertError, setConvertError] = React.useState<string>()
+  const [markdownResult, setMarkdownResult] = React.useState<MarkdownResult | null>(null)
   const [selectedFolder, setSelectedFolder] = React.useState<string>()
   const [preview, setPreview] = React.useState<PreviewState | null>(null)
 
@@ -98,6 +109,21 @@ export default function ProjectDetailPage() {
     void confirmDialog({ title: t('deleteConfirm', { name: file.name }) }).then((ok) => {
       if (ok) deleteMutation.mutate(file.id)
     })
+  }
+
+  // 2026-09-08:转 Markdown(anydoc 引擎)。成功弹结果窗(渲染+复制+下载 .md),
+  // 失败在文件区显示后端具体原因(扫描件需 OCR/文件加密/结构损坏等)。
+  const handleConvertMarkdown = async (file: FileItem) => {
+    setConvertingId(file.id)
+    setConvertError(undefined)
+    try {
+      const { markdown, fileName } = await convertFileToMarkdown(file.id)
+      setMarkdownResult({ markdown, fileName })
+    } catch (e) {
+      setConvertError(`${t('convertMarkdownFailed')}: ${(e as Error).message}`)
+    } finally {
+      setConvertingId(null)
+    }
   }
 
   // NOTE: handlePreview 保留直接 fetch,未迁移到 fetchApi:
@@ -148,11 +174,19 @@ export default function ProjectDetailPage() {
         onDownload={handleDownload}
         onDelete={handleDelete}
         onPreview={handlePreview}
+        onConvertMarkdown={handleConvertMarkdown}
+        convertingId={convertingId}
+        convertErrorMessage={convertError}
       />
 
       <AIWorkspaceTabs selectedFolder={selectedFolder} onSelectFolder={setSelectedFolder} />
 
       <PreviewDialog preview={preview} onClose={closePreview} />
+
+      <MarkdownResultDialog
+        result={markdownResult}
+        onClose={() => setMarkdownResult(null)}
+      />
     </div>
   )
 }

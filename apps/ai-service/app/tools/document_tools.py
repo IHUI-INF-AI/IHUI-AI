@@ -1,29 +1,67 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""文档解析工具(parse_document): 将本地文档解析为可注入 LLM 上下文的纯文本。
+"""文档解析工具(parse_document): 将本地文档解析为可注入 LLM 上下文的文本/Markdown。
 
-支持的格式(白名单): txt / md / csv / json / pdf / docx / xlsx。
-- txt/md/csv/json: 文本直接读取, 编码容错 utf-8 -> gbk -> latin-1;
-- pdf: 使用 pdfplumber 逐页提取;
-- docx: 使用 Python 标准库 zipfile + xml.etree.ElementTree 解析 word/document.xml;
-- xlsx: 使用 zipfile + ElementTree 解析 sharedStrings 与首个 worksheet, 输出 TSV。
+支持的格式(白名单, 2026-09-08 起经 Firecrawl anydoc 扩展至 15 种):
+- txt / md / csv / json: 文本直接读取, 编码容错 utf-8 -> gbk -> latin-1;
+- anydoc 主路径(Rust 原生引擎): pdf / docx / doc / pptx / ppt / xls / xlsx /
+  odt / ods / odp / rtf / epub → GFM Markdown(标题/表格/列表/加粗);
+- 降级实现(anydoc 失败或未安装时): pdf → pdfplumber, docx → zipfile+XML,
+  xlsx → zipfile+XML; 新格式(doc/ppt/ppt/xls/odt/ods/odp/rtf/epub)无降级;
+- csv 保持旧行为(仅前 50 行)不经过 anydoc。
 路径安全: 仅允许读取项目根目录内文件; 敏感文件名拒绝解析; 全部异常捕获并返回结构化错误。
+成功结果附 parser 字段标明实际使用的解析器(anydoc / pdfplumber / docx-zipfile / ...)。
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import zipfile
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pdfplumber  # 已安装依赖
 
-# 项目根目录: 相对路径以它为基准
-PROJECT_ROOT: str = os.path.abspath(r"G:\IHUI-AI")
+# ---- anydoc 主路径(Rust 原生解析引擎, 可选依赖, 未安装时降级旧实现) ----
+try:
+    import anydoc as _anydoc
+    from anydoc import ConvertError as _AnydocError
+
+    _ANYDOC_OK: bool = True
+except ImportError:  # pragma: no cover - 依赖缺失环境
+    _anydoc = None  # type: ignore[assignment]
+    _AnydocError = Exception  # type: ignore[assignment,misc]
+    _ANYDOC_OK = False
+
+# anydoc 主路径覆盖的扩展名(含旧实现可降级的 3 种)
+_ANYDOC_EXTS: Tuple[str, ...] = (
+    ".pdf",
+    ".docx",
+    ".doc",
+    ".pptx",
+    ".ppt",
+    ".xls",
+    ".xlsx",
+    ".odt",
+    ".ods",
+    ".odp",
+    ".rtf",
+    ".epub",
+)
+# anydoc 失败后仍有降级实现的扩展名
+_ANYDOC_FALLBACK_EXTS: Tuple[str, ...] = (".pdf", ".docx", ".xlsx")
+
+# 项目根目录: 相对路径以它为基准。
+# 2026-09-08 修复: 原先硬编码 r"G:\IHUI-AI" 在本部署(项目位于 d:\IHUI-AI)下为
+# 死路径, 导致所有绝对路径被判"路径越界"、相对路径落点不存在 → 工具整体不可用。
+# 改为按仓库结构动态推导(monorepo 根), 与 chart_tools.py / artifacts.py 惯例一致:
+# app/tools/document_tools.py → parents[4] = 仓库根
+PROJECT_ROOT: str = os.path.abspath(str(Path(__file__).resolve().parents[4]))
 
 # 敏感文件黑名单子串(对文件名做小写匹配)
 SENSITIVE_MARKERS: Tuple[str, ...] = (".env", ".pem", ".key", "credentials", "secret", "token")
@@ -34,9 +72,18 @@ SUPPORTED_EXTENSIONS: Dict[str, str] = {
     ".md": "Markdown",
     ".csv": "CSV(前50行)",
     ".json": "JSON",
-    ".pdf": "PDF(pdfplumber)",
-    ".docx": "Word文档(zipfile+XML)",
-    ".xlsx": "Excel表格(zipfile+XML)",
+    ".pdf": "PDF(anydoc/pdfplumber)",
+    ".docx": "Word文档(anydoc优先)",
+    ".doc": "Word文档-老格式(anydoc)",
+    ".pptx": "PowerPoint(anydoc)",
+    ".ppt": "PowerPoint-老格式(anydoc)",
+    ".xlsx": "Excel表格(anydoc优先)",
+    ".xls": "Excel表格-老格式(anydoc)",
+    ".odt": "OpenDocument文字(anydoc)",
+    ".ods": "OpenDocument表格(anydoc)",
+    ".odp": "OpenDocument演示(anydoc)",
+    ".rtf": "富文本RTF(anydoc)",
+    ".epub": "电子书EPUB(anydoc)",
 }
 
 DEFAULT_MAX_CHARS: int = 20000
@@ -53,6 +100,28 @@ def _fail(message: str) -> Dict[str, Any]:
     return {"tool": "parse_document", "ok": False, "message": message}
 
 
+def _describe_anydoc_error(e: BaseException) -> str:
+    """把 anydoc 异常翻译为面向用户的中文文案。"""
+    name: str = type(e).__name__
+    pages = getattr(e, "pages", None)
+    if name == "NeedsOcrError":
+        if pages:
+            page_list: str = ", ".join(str(p) for p in pages)
+            return "该 PDF 第 {} 页为扫描件/图片内容, 没有 OCR 无法提取文字".format(page_list)
+        return "该文档为扫描件/图片内容, 需要 OCR 才能提取文字"
+    if name == "EncryptedError":
+        return "文件已加密(含密码保护), 请先解除密码后重试"
+    if name == "MalformedError":
+        return "文件结构损坏或内容不完整, 无法解析"
+    if name == "ResourceLimitError":
+        return "文件内容超出解析引擎的安全限制"
+    if name == "MissingPartError":
+        return "归档不完整, 缺少必要的内部部件(文件可能未上传完整)"
+    if name == "UnsupportedError":
+        return "不支持的文件格式"
+    return "解析失败: {}: {}".format(name, e)
+
+
 def _resolve_path(raw_path: Any) -> Tuple[Optional[str], Optional[str]]:
     """解析并校验路径, 返回 (绝对路径, 错误消息); 合法时错误消息为 None。"""
     if not isinstance(raw_path, str) or not raw_path.strip():
@@ -65,7 +134,7 @@ def _resolve_path(raw_path: Any) -> Tuple[Optional[str], Optional[str]]:
     except ValueError:
         inside = False
     if not inside:
-        return None, "路径越界: 仅允许访问项目根目录(G:\\IHUI-AI)内的文件"
+        return None, "路径越界: 仅允许访问项目根目录({})内的文件".format(PROJECT_ROOT)
     if not os.path.exists(abs_path):
         return None, "文件不存在"
     if os.path.isdir(abs_path):
@@ -182,6 +251,7 @@ async def parse_document(arguments: dict[str, Any]) -> dict[str, Any]:
 
     入参: path(必填) / max_chars(可选, 默认 20000, 范围 500-100000)。
     所有异常均被捕获并返回结构化错误, 不向调用方抛出。
+    成功结果含 parser 字段(anydoc / pdfplumber / docx-zipfile / xlsx-zipfile / text)。
     """
     try:
         # --- max_chars 参数解析与钳制 ---
@@ -209,23 +279,49 @@ async def parse_document(arguments: dict[str, Any]) -> dict[str, Any]:
         content: str = ""
         pages: Optional[int] = None
         warning: str = ""
+        parser: str = ""
 
         if ext in (".txt", ".md"):
             content = _read_text(abs_path)
+            parser = "text"
         elif ext == ".csv":
             content = _parse_csv(_read_text(abs_path))
+            parser = "csv"
         elif ext == ".json":
             content = _read_text(abs_path)
+            parser = "json"
             try:
                 json.loads(content)
             except json.JSONDecodeError as e:
                 warning = "JSON 格式校验失败: {}".format(e)
-        elif ext == ".pdf":
-            content, pages = _parse_pdf(abs_path)
-        elif ext == ".docx":
-            content = _parse_docx(abs_path)
-        elif ext == ".xlsx":
-            content = _parse_xlsx(abs_path)
+        elif ext in _ANYDOC_EXTS:
+            # ---- anydoc 主路径(Rust 引擎, 线程池执行避免阻塞事件循环) ----
+            anydoc_note: str = ""
+            if _ANYDOC_OK:
+                try:
+                    content = await asyncio.to_thread(_anydoc.to_markdown, abs_path)
+                    parser = "anydoc"
+                except _AnydocError as e:
+                    anydoc_note = _describe_anydoc_error(e)
+                if not content and not anydoc_note:
+                    anydoc_note = "anydoc 解析结果为空(文档可能无文本内容)"
+                if anydoc_note and ext not in _ANYDOC_FALLBACK_EXTS:
+                    return _fail(anydoc_note)
+            if not content:
+                # ---- 旧实现降级(仅 pdf/docx/xlsx); 新格式无降级 ----
+                if ext == ".pdf":
+                    content, pages = _parse_pdf(abs_path)
+                    parser = "pdfplumber"
+                elif ext == ".docx":
+                    content = _parse_docx(abs_path)
+                    parser = "docx-zipfile"
+                elif ext == ".xlsx":
+                    content = _parse_xlsx(abs_path)
+                    parser = "xlsx-zipfile"
+                else:
+                    return _fail("文档解析引擎不可用(anydoc 模块未安装), 无法解析该格式")
+                if anydoc_note:
+                    warning = "anydoc 失败({}), 已由旧实现兜底".format(anydoc_note)
 
         # --- 截断与消息组装 ---
         total_chars: int = len(content)
@@ -244,6 +340,7 @@ async def parse_document(arguments: dict[str, Any]) -> dict[str, Any]:
             "ok": True,
             "filename": filename,
             "extension": ext.lstrip("."),
+            "parser": parser,
             "content": content,
             "chars": len(content),
             "pages": pages,

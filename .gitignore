@@ -400,3 +400,15 @@ apps/*/.env.bak.*
 
 # MCP 真网 OAuth 持久化凭据(禁止入库)
 apps/ai-service/.mcp-linear-token.json
+
+# ============================================================================
+# Agent 运行产物 outputs/(2026-09-08 立,严禁入库):
+# outputs/secrets-values/ 含 DESKTOP_TAURI_PRIVATE_KEY.txt(桌面分发签名私钥)与
+# DESKTOP_TAURI_KEY_PASSWORD.txt(私钥密码)——泄漏 = 任何人可冒充签名发布桌面客户端。
+# GITHUB-SECRETS-填写指南.md 也含凭据填写指引,整目录一律忽略。
+# ============================================================================
+outputs/
+
+# 密钥备份(2026-09-08):.env 手工备份一律不入库
+.env.bak-*
+**/.env.bak-*
