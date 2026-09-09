@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -66,6 +66,17 @@ class TTSRequest(BaseModel):
     voice: str = Field(default=DEFAULT_VOICE, description="声音(白名单内;token6688 引擎可为官方音色或声纹库 voice_id)")
     rate: str = Field(default="+0%", description="语速,如 +10% / -20%(仅 edge 引擎)")
     engine: str = Field(default="edge", description="TTS 引擎: edge(零成本) / token6688(聚合网关,单 key)")
+
+
+def _require_admin(request: Request) -> None:
+    """声纹库删除守卫:共享资源破坏性操作仅限 admin(roleId>=1)(2026-09-09 P1)。
+
+    JWT 中间件已把 roleId 注入 request.state(阈值与 AGENTS.md §5、admin/layout
+    的 roleId>=1 一致);测试可通过 app.dependency_overrides 覆盖本依赖。
+    """
+    role_id = getattr(request.state, "role_id", 0) or 0
+    if int(role_id) < 1:
+        raise HTTPException(status_code=403, detail="声纹库删除仅限管理员操作")
 
 
 def _token6688_provider():
@@ -203,9 +214,15 @@ async def get_voice(voice_id: str) -> dict:
 
 
 @router.delete("/voice/voices/{voice_id}")
-async def delete_voice(voice_id: str) -> dict:
+async def delete_voice(
+    voice_id: str,
+    _admin: None = Depends(_require_admin),
+) -> dict:
     """删除克隆声纹(DELETE /v1/audio/voices/{voice_id};声纹库生命周期收口,2026-09-09 E4)。
 
+    2026-09-09 P1 收敛:声纹库是平台共享资源(单一 token6688 账号,无归属概念),
+    删除影响所有用户,故仅限 admin(roleId>=1)执行,与 AGENTS.md §5 / admin
+    layout 的阈值一致;列表/上传/试听对所有登录用户开放。
     删除后该 voice_id 不可再用于克隆 TTS;失败如实返回原因不抛。
     """
     from ..providers.base_provider import ProviderError
