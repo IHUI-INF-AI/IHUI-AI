@@ -14644,6 +14644,7 @@
     "adminThemePresets": "Presets",
     "adminWorkflows": "Workflows",
     "advancedAiTools": "Advanced AI Tools",
+    "mediaTasks": "Media Tasks",
     "agentGovernance": "Agent Token Governance",
     "agentWorkbench": "Agent Workbench",
     "agentCanvas": "Agent Canvas",
@@ -18655,7 +18656,12 @@
       "copy": "Copy",
       "copied": "Copied",
       "copyFailed": "Copy failed, please select and copy the text manually",
-      "download": "Download .md"
+      "download": "Download .md",
+      "extractImages": "Extract images",
+      "extracting": "Extracting...",
+      "extractedImages": "Extracted images",
+      "extractedNone": "This document contains no embedded images to extract",
+      "assetNotSupported": "This format (PDF) does not support embedded image extraction"
     },
     "convertMarkdownFailed": "Conversion failed",
     "convertToMarkdown": "Convert to Markdown",

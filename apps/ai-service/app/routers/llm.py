@@ -1849,6 +1849,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "serverId": _r_sid,
                                 "serverName": _r_sname,
                             }
+                            # 2026-09-09 媒体产物顶层扁平化:媒体工具(图/视频/音乐/改图/TTS)的
+                            # 产物 URL 与 task_id 提取到事件顶层,前端 ToolCallCard 无需深挖
+                            # result 嵌套即可渲染(image_url/audio_url/video_url/task_id 均为
+                            # 字符串或 None,超长 data URI 一律不扁平化防事件体积膨胀)。
+                            if isinstance(exec_result, dict):
+                                for _mf in ("image_url", "audio_url", "video_url", "task_id"):
+                                    _mv = exec_result.get(_mf)
+                                    if isinstance(_mv, str) and _mv and not _mv.startswith("data:"):
+                                        tc_result_evt[_mf] = _mv
                             yield f"event: tool-result\ndata: {json.dumps(tc_result_evt, ensure_ascii=False)}\n\n"
                             # 更新 tool_calls_history 中对应记录(正常分支:含真实 durationMs)
                             _hist_idx = len(tool_calls_history) - 1

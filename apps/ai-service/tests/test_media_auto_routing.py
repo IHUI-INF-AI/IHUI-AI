@@ -91,6 +91,12 @@ class TestMediaIntentTools:
             ("生成这个视频要多少钱", ["token6688_model_info"]),
             ("这个模型的参数有哪些", ["token6688_model_info"]),
             ("how much does it cost", ["token6688_model_info"]),
+            # 2026-09-09 深能力补齐:声纹克隆自动路由
+            ("帮我克隆我的声音", ["token6688_voice_clone"]),
+            ("把我的声音做成音色", ["token6688_voice_clone"]),
+            ("上传这段录音做声纹", ["token6688_voice_clone"]),
+            ("我的声纹库有哪些", ["token6688_voice_clone"]),
+            ("clone my voice please", ["token6688_voice_clone"]),
         ],
     )
     def test_positive(self, text, expected):
@@ -117,6 +123,7 @@ class TestMediaIntentTools:
             "image_generation", "video_generation", "music_generation", "voice_tts",
             "vision_analyze", "audio_transcription", "token6688_balance",
             "image_edit", "token6688_cancel_task", "token6688_model_info",
+            "token6688_voice_clone",
         }
 
 
@@ -362,6 +369,7 @@ class TestConversationMediaKeywords:
         assert conversation_service._tool_keywords.get("vision_analyze")
         assert conversation_service._tool_keywords.get("audio_transcription")
         assert conversation_service._tool_keywords.get("token6688_balance")
+        assert conversation_service._tool_keywords.get("token6688_voice_clone")
 
     def test_media_render_prompt_present(self):
         assert "image_url" in _MEDIA_RENDER_PROMPT
@@ -462,6 +470,24 @@ class TestMediaArtifactSummary:
         assert "analysis_excerpt" in note
         assert "transcript_excerpt" in note
 
+    def test_voice_clone_voice_id_persisted(self):
+        """声纹克隆的 voice_id 必须入记忆(下轮 voice_tts 复用克隆音色的钥匙)。"""
+        from app.services.conversation import _media_artifact_summary
+
+        tc = _tc("token6688_voice_clone", {
+            "ok": True, "action": "upload", "voice_id": "v-abc123",
+        })
+        note = _media_artifact_summary([tc])
+        assert '"voice_id": "v-abc123"' in note
+        assert "token6688_voice_clone" in note
+
+    def test_voice_clone_list_no_voice_id_skipped(self):
+        """action=list 无 voice_id 时不写记忆(避免无意义条目)。"""
+        from app.services.conversation import _media_artifact_summary
+
+        tc = _tc("token6688_voice_clone", {"ok": True, "action": "list", "count": 2})
+        assert _media_artifact_summary([tc]) == ""
+
 
 class TestAudioTranscriptionTool:
     """audio_transcription:参数校验 + 引擎链故障转移。"""
@@ -555,6 +581,7 @@ class TestToken6688BalanceTool:
         assert "image_edit" not in _ADMIN_ONLY_TOOLS
         assert "token6688_cancel_task" not in _ADMIN_ONLY_TOOLS
         assert "token6688_model_info" not in _ADMIN_ONLY_TOOLS
+        assert "token6688_voice_clone" not in _ADMIN_ONLY_TOOLS
 
 
 class TestImageEditTool:

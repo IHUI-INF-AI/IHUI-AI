@@ -111,14 +111,14 @@ export default function ProjectDetailPage() {
     })
   }
 
-  // 2026-09-08:转 Markdown(anydoc 引擎)。成功弹结果窗(渲染+复制+下载 .md),
-  // 失败在文件区显示后端具体原因(扫描件需 OCR/文件加密/结构损坏等)。
+  // 2026-09-08:转 Markdown(anydoc 引擎)。成功弹结果窗(渲染+复制+下载 .md +
+  // 提取内嵌图片),失败在文件区显示后端具体原因(扫描件需 OCR/文件加密/结构损坏等)。
   const handleConvertMarkdown = async (file: FileItem) => {
     setConvertingId(file.id)
     setConvertError(undefined)
     try {
       const { markdown, fileName } = await convertFileToMarkdown(file.id)
-      setMarkdownResult({ markdown, fileName })
+      setMarkdownResult({ markdown, fileName, fileId: file.id })
     } catch (e) {
       setConvertError(`${t('convertMarkdownFailed')}: ${(e as Error).message}`)
     } finally {
