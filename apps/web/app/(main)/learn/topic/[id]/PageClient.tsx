@@ -69,7 +69,7 @@ export default function LearnTopicDetailPage() {
 
   if (error || !data)
     return (
-      <div className="mx-auto w-full max-w-4xl space-y-4">
+      <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
         <button
           type="button"
           onClick={() => router.push('/learn/topic')}
@@ -91,7 +91,7 @@ export default function LearnTopicDetailPage() {
   const priceNum = topic.price === undefined ? undefined : Number(topic.price)
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/learn/topic"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"

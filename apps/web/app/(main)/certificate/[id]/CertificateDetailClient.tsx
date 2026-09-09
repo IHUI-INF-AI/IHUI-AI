@@ -13,9 +13,8 @@ import { ArrowLeft, Award, Download, Loader2, Printer } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 
 import { CertificateTemplate } from '@/components/certificate'
-import { fetchApi } from '@/lib/api'
+import { fetchApi, fetchRaw } from '@/lib/api'
 import { formatDate } from '@/lib/date-utils'
-import { useAuthStore } from '@/stores/auth'
 
 interface CertificateDetail {
   id: string
@@ -56,13 +55,9 @@ export default function CertificateDetailClient() {
     if (!data) return
     setDownloading(true)
     try {
-      const token = useAuthStore.getState().token
-      const res = await fetch(`/api/certificates/${data.id}/download`, {
-        method: 'POST',
-        headers: { Authorization: token ? `Bearer ${token}` : '' },
-      })
-      if (!res.ok) throw new Error(`${t('downloadError')} (${res.status})`)
-      const blob = await res.blob()
+      // 2026-09-09 0-5 直接 fetch 清单化迁移:blob 下载走共享 fetchRaw,
+      // 鉴权/CSRF/设备指纹/超时由共享层统一承担(失败自动抛错,走 catch 降级打印)。
+      const blob = await fetchRaw(`/api/certificates/${data.id}/download`, { method: 'POST' })
       const blobUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = blobUrl
@@ -78,10 +73,10 @@ export default function CertificateDetailClient() {
     } finally {
       setDownloading(false)
     }
-  }, [data, onPrint, t])
+  }, [data, onPrint])
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4 print:max-w-full print:space-y-0">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4 print:max-w-full print:space-y-0">
       <div className="flex items-center justify-between print:hidden">
         <Button asChild variant="ghost" size="sm">
           <Link href="/certificate/download">

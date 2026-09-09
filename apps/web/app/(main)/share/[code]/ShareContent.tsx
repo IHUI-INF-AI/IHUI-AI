@@ -19,7 +19,7 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
   const { modelName, modelIcon, question, answer, tokenCost, createdAt } = shareData
 
   return (
-    <div className="min-h-[60vh] bg-background pb-20">
+    <div className="min-h-[60vh] bg-background px-4 pt-4 pb-20">
       <BackButton />
       {/* 头部：模型信息 */}
       <header className="flex items-center px-5 py-3.5">

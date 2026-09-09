@@ -125,7 +125,7 @@ export default function TagDetailPageClient() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="px-4 py-4 mx-auto max-w-3xl space-y-4">
       <Link
         href="/tags"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

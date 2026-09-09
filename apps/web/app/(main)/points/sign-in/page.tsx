@@ -96,7 +96,7 @@ export default function SignInPage() {
   const consecutive = today?.consecutiveDays ?? 0
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">

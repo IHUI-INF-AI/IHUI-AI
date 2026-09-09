@@ -81,7 +81,7 @@ export default function RecruitmentPage() {
   const statColors = ['text-primary', 'text-emerald-600', 'text-amber-500']
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <header className="space-y-3 text-center">
         <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm text-primary">

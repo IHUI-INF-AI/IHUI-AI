@@ -127,7 +127,7 @@ export default function AiWorldEditPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-2xl space-y-4">
       <Button variant="ghost" size="sm" onClick={() => router.push(`/ai-world/${params.id}`)}>
         <ArrowLeft className="h-4 w-4" />
         {t('back')}

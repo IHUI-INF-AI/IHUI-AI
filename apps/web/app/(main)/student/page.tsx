@@ -84,7 +84,7 @@ export default function StudentCenterPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="flex items-center justify-between space-y-1">
         <div className="space-y-1">

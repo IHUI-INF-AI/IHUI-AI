@@ -110,7 +110,7 @@ export default function CommissionOrdersPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/distribution"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"

@@ -79,7 +79,7 @@ export default function MyArticlesPage() {
   const fmtDate = (v?: string | null) => formatDateOnly(v)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="flex items-start justify-between">
         <div className="space-y-1">
