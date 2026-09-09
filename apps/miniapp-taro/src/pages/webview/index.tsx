@@ -82,20 +82,24 @@ export default function WebviewIndex() {
 
   if (!url) {
     return (
+      // 对齐 RN WebViewScreen:根容器 bg-white/dark neutral-900 → var(--color-card);
+      // 头部 px-4(32rpx)/pt-3(24rpx)/pb-2(16rpx) + 底部描边,标题 text-base(32rpx) font-medium
       <ThemeRoot>
         <View className="min-h-screen bg-card">
-          <View className="px-[30rpx] py-[20rpx] bg-card">
-            <Text className="text-[36rpx] font-bold text-foreground">{t('webview.title')}</Text>
+          <View className="px-[32rpx] pt-[24rpx] pb-[16rpx] border-b-[2rpx] border-border">
+            <Text className="text-[32rpx] font-medium text-foreground">{t('webview.title')}</Text>
           </View>
-          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
-            {t('webview.missingUrl')}
-          </Text>
+          <View className="flex flex-col items-center py-[96rpx]">
+            <Text className="text-[28rpx] text-muted-foreground">{t('webview.missingUrl')}</Text>
+          </View>
         </View>
       </ThemeRoot>
     )
   }
 
   return (
+    // 加载态:根容器对齐 RN(bg-white / dark neutral-900 → var(--color-card)),
+    // 网页内容由原生 WebView 组件全屏承载,返回/标题由原生导航栏提供
     <ThemeRoot>
       <View className="min-h-screen bg-card">
         <WebView src={url} onMessage={handleWebviewMessage} onLoad={onWebviewLoad} />
