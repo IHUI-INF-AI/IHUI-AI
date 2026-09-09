@@ -244,7 +244,7 @@ export function FeedbackScreen({ t, onSubmit, onBack, colorScheme }: FeedbackScr
   return (
     <View style={containerStyle(tk)}>
       <View style={headerStyle()}>
-        <View onTap={onBack} style={backBtnStyle()}>
+        <View onTap={onBack} style={backBtnStyle()} hoverClass="opacity-60">
           <Text style={backTextStyle(tk)}>{tr('common.back')}</Text>
         </View>
         <Text style={titleStyle(tk)}>{tr('feedback.title')}</Text>
@@ -255,7 +255,7 @@ export function FeedbackScreen({ t, onSubmit, onBack, colorScheme }: FeedbackScr
           <Text style={labelStyle(tk)}>{tr('feedback.type')}</Text>
           <View style={typeRowStyle()}>
             {FEEDBACK_TYPES.map((tp) => (
-              <View key={tp} onTap={() => setType(tp)} style={typeBtnStyle(tk, type === tp)}>
+              <View key={tp} onTap={() => setType(tp)} style={typeBtnStyle(tk, type === tp)} hoverClass="opacity-60">
                 <Text style={typeTextStyle(tk, type === tp)}>{tr(FEEDBACK_TYPE_KEYS[tp])}</Text>
               </View>
             ))}
@@ -287,7 +287,7 @@ export function FeedbackScreen({ t, onSubmit, onBack, colorScheme }: FeedbackScr
           <View
             onTap={submitting ? undefined : handleSubmit}
             style={submitBtnStyle(tk, submitting)}
-          >
+            hoverClass="opacity-60">
             <Text style={submitTextStyle(tk)}>
               {submitting ? tr('feedback.submitting') : tr('feedback.submit')}
             </Text>

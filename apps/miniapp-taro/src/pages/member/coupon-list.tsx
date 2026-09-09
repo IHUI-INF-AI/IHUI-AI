@@ -64,50 +64,55 @@ export default function CouponListPage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background p-[24rpx] pb-[48rpx]">
+      <View className="min-h-screen bg-background p-[20rpx] pb-[64rpx]">
         {loading ? (
-          <View className="flex flex-col items-center py-[120rpx] text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-[28rpx]">
             <Text>{t('common.loading')}</Text>
           </View>
         ) : error ? (
-          <View className="flex flex-col items-center py-[120rpx] text-muted-foreground text-[26rpx]">
+          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-[28rpx]">
             <Text>{tt('member.couponList.loadFailed', '加载失败')}</Text>
             <Text
-              className="mt-[16rpx] py-[8rpx] px-[32rpx] text-[24rpx] text-primary"
+              className="mt-[16rpx] py-[8rpx] px-[32rpx] text-[28rpx] text-primary"
               onClick={load}
             >
               {t('common.retry')}
             </Text>
           </View>
         ) : list.length ? (
-          <View className="flex flex-col gap-[24rpx]">
+          <View className="flex flex-col gap-[16rpx]">
             {list.map((c) => (
-              <View key={c.id} className="flex bg-card rounded-[16rpx] overflow-hidden">
-                <View className="w-[200rpx] bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] text-white flex flex-col items-center justify-center py-[24rpx]">
+              <View
+                key={c.id}
+                className="flex bg-card border border-[var(--color-border)] rounded-[24rpx] overflow-hidden"
+              >
+                <View className="w-[192rpx] bg-[var(--color-success-light)] flex flex-col items-center justify-center py-[32rpx]">
                   <View className="flex items-baseline">
-                    <Text className="text-[60rpx] font-bold">{c.amount}</Text>
-                    <Text className="text-[26rpx] ml-[4rpx]">
+                    <Text className="text-[44rpx] font-bold text-[var(--color-success)]">
+                      {c.amount}
+                    </Text>
+                    <Text className="text-[22rpx] ml-[4rpx] text-muted-foreground">
                       {tt('member.couponList.unit', '元')}
                     </Text>
                   </View>
-                  <Text className="mt-[8rpx] text-[22rpx] opacity-90">
+                  <Text className="mt-[16rpx] text-[22rpx] text-muted-foreground">
                     {tt('member.couponList.coupon', '优惠券')}
                   </Text>
                 </View>
                 <View className="flex-1 p-[24rpx] flex flex-col justify-between">
-                  <Text className="block text-[30rpx] text-foreground font-semibold">
+                  <Text className="block text-[32rpx] text-foreground font-semibold">
                     {c.title}
                   </Text>
-                  <Text className="block mt-[12rpx] text-[24rpx] text-muted-foreground">
+                  <Text className="block mt-[16rpx] text-[22rpx] text-muted-foreground">
                     {tt('member.couponList.thresholdText', '满{threshold}元可用', {
                       threshold: c.threshold,
                     })}
                   </Text>
-                  <Text className="block mt-[8rpx] text-[22rpx] text-muted-foreground">
+                  <Text className="block mt-[8rpx] text-[22rpx] text-[var(--color-text-tertiary)]">
                     {tt('member.couponList.expireText', '有效期至 {time}', { time: c.expireTime })}
                   </Text>
                   <Button
-                    className="self-end mt-[16rpx] text-[24rpx] text-white bg-primary rounded-[28rpx] px-[28rpx] leading-[56rpx]"
+                    className="self-end mt-[16rpx] text-[24rpx] text-primary-foreground bg-primary rounded-[24rpx] px-[28rpx] leading-[56rpx]"
                     onClick={() => onReceive(c.id)}
                   >
                     {tt('member.couponList.receive', '立即领取')}
@@ -117,7 +122,7 @@ export default function CouponListPage() {
             ))}
           </View>
         ) : (
-          <View className="text-center py-[120rpx] text-muted-foreground text-[26rpx]">
+          <View className="text-center py-[64rpx] text-[28rpx] text-[var(--color-text-tertiary)]">
             <Text>{tt('member.couponList.empty', '暂无可领取优惠券')}</Text>
           </View>
         )}

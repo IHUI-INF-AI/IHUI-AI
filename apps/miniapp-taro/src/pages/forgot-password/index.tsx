@@ -169,6 +169,7 @@ export default function ForgotPassword() {
                   </View>
                   <View
                     className={`fp-codebtn ${codeBtnDisabled ? 'fp-codebtn-disabled' : ''}`}
+                    hoverClass="opacity-60"
                     onClick={sendCode}
                   >
                     <Text className="fp-codebtn-text">{codeBtnText}</Text>

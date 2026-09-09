@@ -63,7 +63,7 @@ export default function Catalog({
               active ? 'bg-primary/10' : 'bg-muted'
             }`}
             onClick={() => onSelect?.(chapter)}
-          >
+            hoverClass="opacity-60">
             {chapter.cover ? (
               <Image
                 className="mr-3 rounded bg-muted"

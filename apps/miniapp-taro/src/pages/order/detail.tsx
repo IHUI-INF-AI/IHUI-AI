@@ -4,21 +4,11 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useMemo } from 'react'
 import { getOrderDetail, closeOrder, type Order } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-
-const STATUS_COLOR: Record<string, string> = {
-  paid: 'text-primary',
-  pending: 'text-warning',
-  refunding: 'text-warning',
-  refunded: 'text-muted-foreground',
-  cancelled: 'text-muted-foreground',
-  completed: 'text-primary',
-  failed: 'text-destructive',
-}
 
 const STATUS_KEYS: Record<string, string> = {
   pending: 'order.status.pending',
@@ -93,67 +83,92 @@ export default function OrderDetail() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background pb-[120rpx]">
-        <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
-          <View className="text-[32rpx] text-foreground font-semibold pb-[24rpx] mb-[8rpx]">
-            {order.title}
-          </View>
-          <View className="flex justify-between py-[24rpx]">
-            <Text className="text-[26rpx] text-muted-foreground">{t('order.orderNo')}</Text>
-            <Text className="text-[26rpx] text-foreground">{order.orderNo}</Text>
-          </View>
-          <View className="flex justify-between py-[24rpx]">
-            <Text className="text-[26rpx] text-muted-foreground">{t('order.createTime')}</Text>
-            <Text className="text-[26rpx] text-foreground">{order.createTime}</Text>
-          </View>
-          <View className="flex justify-between py-[24rpx]">
-            <Text className="text-[26rpx] text-muted-foreground">{t('order.orderType')}</Text>
-            <Text className="text-[26rpx] text-foreground">{order.type}</Text>
-          </View>
-          <View className="flex justify-between py-[24rpx]">
-            <Text className="text-[26rpx] text-muted-foreground">{t('order.orderStatus')}</Text>
-            <Text className={`text-[26rpx] ${STATUS_COLOR[order.status] || 'text-foreground'}`}>
-              {statusText}
+      {/* 对齐 RN SharedOrderDetailScreen:背景 surface.bg(bg-background)、body padding 20rpx、
+          卡片 padding 24rpx / 圆角 24rpx / 2rpx 描边 / 白卡;字段 label 22rpx tertiary + value 32rpx,金额 44rpx/700 success */}
+      <View className="min-h-screen bg-background pb-[140rpx]">
+        <View className="p-[20rpx]">
+          <View className="rounded-[24rpx] border-[2rpx] border-border bg-card p-[24rpx]">
+            <Text className="block text-[32rpx] text-foreground">{order.title}</Text>
+            <Text className="mt-[16rpx] block text-[22rpx] text-[var(--color-text-tertiary)]">
+              {t('order.orderNo')}
+            </Text>
+            <Text className="mt-[16rpx] block text-[32rpx] text-foreground">{order.orderNo}</Text>
+            <Text className="mt-[16rpx] block text-[22rpx] text-[var(--color-text-tertiary)]">
+              {t('order.createTime')}
+            </Text>
+            <Text className="mt-[16rpx] block text-[32rpx] text-foreground">
+              {order.createTime}
+            </Text>
+            <Text className="mt-[16rpx] block text-[22rpx] text-[var(--color-text-tertiary)]">
+              {t('order.orderType')}
+            </Text>
+            <Text className="mt-[16rpx] block text-[32rpx] text-foreground">{order.type}</Text>
+            <Text className="mt-[16rpx] block text-[22rpx] text-[var(--color-text-tertiary)]">
+              {t('order.orderStatus')}
+            </Text>
+            <Text className="mt-[16rpx] block text-[32rpx] text-foreground">{statusText}</Text>
+            <Text className="mt-[16rpx] block text-[22rpx] text-[var(--color-text-tertiary)]">
+              {t('order.orderAmount')}
+            </Text>
+            <Text className="mt-[16rpx] block text-[44rpx] font-bold text-[var(--color-success)]">
+              ¥{order.amount}
             </Text>
           </View>
-          <View className="flex justify-between py-[24rpx]">
-            <Text className="text-[26rpx] text-muted-foreground">{t('order.orderAmount')}</Text>
-            <Text className="text-[32rpx] text-destructive font-semibold">¥{order.amount}</Text>
-          </View>
         </View>
-        <View className="px-[32rpx]">
-          {order.status === 'pending' && (
-            <>
-              <Button
-                className="mt-[24rpx] bg-primary text-white rounded-[16rpx] text-[30rpx]"
-                onClick={goPay}
-              >
-                {t('order.goPay')}
-              </Button>
-              <Button
-                className={`mt-[24rpx] bg-card text-foreground rounded-[16rpx] text-[30rpx] ${canceling ? 'opacity-50' : ''}`}
-                disabled={canceling}
-                onClick={onCancel}
-              >
-                {t('order.cancel')}
-              </Button>
-            </>
-          )}
-          {order.status === 'paid' && (
-            <Button
-              className="mt-[24rpx] bg-card text-foreground rounded-[16rpx] text-[30rpx]"
-              onClick={goRefund}
-            >
+      </View>
+
+      {/* 底部操作栏对齐 RN BottomActionBar:固定底部 / bg-card / 顶部 2rpx 描边 /
+          gap 24rpx / 按钮 h88rpx 圆角 16rpx,主按钮 bg-primary 白字 30rpx/500,次按钮 2rpx 描边 */}
+      <View
+        className="fixed bottom-0 left-0 right-0 z-10 flex items-center gap-[24rpx] border-t-[2rpx] border-border bg-card px-[24rpx] pt-[8rpx]"
+        style={{ paddingBottom: 'calc(8rpx + env(safe-area-inset-bottom))' }}
+      >
+        {order.status === 'pending' && (
+          <View
+            className={`h-[88rpx] flex-1 items-center justify-center rounded-[16rpx] border-[2rpx] border-border bg-card ${
+              canceling ? 'opacity-50' : ''
+            }`}
+            /* RN BottomActionBar secondaryButtonPressed 为换背景 surface.muted,hoverClass 追加类无法覆盖 bg-card,统一以 opacity 反馈 */
+            hoverClass="opacity-60"
+            onClick={onCancel}
+          >
+            <Text className="text-[30rpx] font-medium text-foreground">{t('order.cancel')}</Text>
+          </View>
+        )}
+        {order.status === 'pending' && (
+          <View
+            className="h-[88rpx] flex-1 items-center justify-center rounded-[16rpx] bg-primary"
+            hoverClass="opacity-80"
+            onClick={goPay}
+          >
+            <Text className="text-[30rpx] font-medium text-primary-foreground">
+              {t('order.goPay')}
+            </Text>
+          </View>
+        )}
+        {order.status === 'paid' && (
+          <View
+            className="h-[88rpx] flex-1 items-center justify-center rounded-[16rpx] border-[2rpx] border-border bg-card"
+            /* RN BottomActionBar secondaryButtonPressed 为换背景 surface.muted,hoverClass 追加类无法覆盖 bg-card,统一以 opacity 反馈 */
+            hoverClass="opacity-60"
+            onClick={goRefund}
+          >
+            <Text className="text-[30rpx] font-medium text-foreground">
               {t('order.applyRefund')}
-            </Button>
-          )}
-          <Button
-            className="mt-[24rpx] bg-card text-foreground rounded-[16rpx] text-[30rpx]"
+            </Text>
+          </View>
+        )}
+        {order.status !== 'pending' && order.status !== 'paid' && (
+          <View
+            className="h-[88rpx] flex-1 items-center justify-center rounded-[16rpx] bg-primary"
+            hoverClass="opacity-80"
             onClick={goList}
           >
-            {t('order.title')}
-          </Button>
-        </View>
+            <Text className="text-[30rpx] font-medium text-primary-foreground">
+              {t('order.title')}
+            </Text>
+          </View>
+        )}
       </View>
     </ThemeRoot>
   )
