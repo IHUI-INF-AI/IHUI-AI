@@ -37,6 +37,15 @@
 - F4.8 增量同步(ETag / Last-Modified 缓存,304 跳过 upsert)
 - Provider 级别并发锁(单 provider 同时只允许一个同步,避免冲突)
 
+深度优化 v4(2026-09-08,token6688 目录极致深化):
+- D1 /v1/logical-models 富元数据全量利用:param_schema/capabilities/linkages/
+  input_hint_zh/max_prompt_chars/max_prompt_bytes/special_tier_notice/sort_weight/
+  supported_vendors/public_id 入 metadata jsonb 列(迁移 20260908010000)
+- D2 中文描述优先(description_zh);special_tier_notice 随官方价拼进 description
+- D3 supports_vision/supports_tool_call 优先级修正:上游模型级显式声明 >
+  provider 级 cap(capabilities 含 "vision" → True 否则 False,修正全量误标)
+- D4 下架模型带上游原因落日志(unavailable_reason/deprecation_note)
+
 设计参考:
 - scripts/scan-upstream-models.mjs(Node CLI 一次性扫描脚本,本服务是 Python 服务化版本)
 - model_availability.py(缓存 + 并发 + 生命周期模式)
@@ -45,6 +54,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -1141,6 +1151,13 @@ class ModelSyncService:
         if last_modified:
             headers["If-Modified-Since"] = last_modified
 
+        # token6688 目录加深(2026-09-08):/v1/logical-models 免鉴权富元数据
+        # (123 条:display_name_zh/description_zh/billing_mode/billing_unit/
+        #  unit_price_micro_usd/input_price_per_million/context_window/health_score/
+        #  available/deprecated/tags)。按 id 建索引合并进 skills/models 清单;
+        # 拉取失败降级为仅 skills/models(不阻塞同步主流程)。
+        logical_index: dict[str, dict[str, Any]] = {}
+
         async with httpx.AsyncClient(timeout=SYNC_TIMEOUT_S) as client:
             resp = await client.get(url, headers=headers)
 
@@ -1160,6 +1177,24 @@ class ModelSyncService:
 
             data = resp.json()
 
+            # token6688:二次拉取 /v1/logical-models(免鉴权,不带 Authorization)
+            if is_token6688:
+                try:
+                    lurl = url.rsplit("/skills/models", 1)[0] + "/logical-models"
+                    lresp = await client.get(lurl, headers={"Accept": "application/json"})
+                    if lresp.status_code == 200:
+                        for lm in ((lresp.json() or {}).get("models") or []):
+                            if isinstance(lm, dict) and lm.get("id"):
+                                logical_index[str(lm["id"])] = lm
+                        logger.info(
+                            "[ModelSyncService] token6688 logical-models 加深索引: %d 条",
+                            len(logical_index),
+                        )
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(
+                        "[ModelSyncService] token6688 logical-models 拉取失败(降级仅 skills/models): %s", e,
+                    )
+
         # 解析响应:Cloudflare 用 result 字段,OpenAI 兼容用 data 字段,
         # Anthropic 用 data 字段(同 OpenAI),Gemini 用 models 字段,
         # token6688 用 models 字段(name 为可调用 ID,type 区分 chat/video/image/audio)
@@ -1173,18 +1208,112 @@ class ModelSyncService:
                 mid = m.get("name") or m.get("id", "")
                 if not mid:
                     continue
-                normalized = {"id": mid}
+                normalized: dict[str, Any] = {"id": mid}
                 if m.get("display_name"):
                     normalized["name"] = m["display_name"]
-                if m.get("description"):
-                    normalized["description"] = m["description"]
+                # 中文界面优先 description_zh(skills/models 112/112 提供),英文兜底
+                _sk_desc = m.get("description_zh") or m.get("description")
+                if _sk_desc:
+                    normalized["description"] = _sk_desc
                 mtype = str(m.get("type") or "").lower()
                 endpoint = m.get("api_endpoint") or ""
                 if endpoint == "/v1/chat/completions" or mtype == "chat":
-                    normalized["metadata"] = {"is_chat": True, "modality": "chat"}
+                    meta: dict[str, Any] = {"is_chat": True, "modality": "chat"}
                 elif mtype in ("video", "image", "audio"):
                     # 媒体模型:非 chat 调用方式,metadata 供路由/展示用
-                    normalized["metadata"] = {"is_chat": False, "modality": mtype}
+                    meta = {"is_chat": False, "modality": mtype}
+                else:
+                    meta = {}
+                normalized["metadata"] = meta
+
+                # --- 目录加深 v2(2026-09-08):/v1/logical-models 富元数据全量利用 ---
+                # 逐字段(实测 123 条):display_name_zh/context_window/billing_mode/
+                # billing_unit/health_score/icon_key/tags 之外,本次补齐:
+                # param_schema(123/123,参数枚举+默认值+available_when 机读,avg 1.8KB)/
+                # capabilities(123/123,chat 含 "vision" → supports_vision 精确派生)/
+                # linkages(参数联动,如 veo-3.1 mode=first-frame 需传 images)/
+                # input_hint_zh(79 条输入提示)/max_prompt_chars(46 条 prompt 上限)/
+                # max_prompt_bytes(7 条)/special_tier_notice(19 条特价档稳定性提示)/
+                # sort_weight(展示排序)/supported_vendors(渠道路由)/public_id/
+                # provider(官方厂商 3 字母代码,存 provider_code 参考)
+                lm = logical_index.get(str(mid))
+                if lm is not None:
+                    # 上游 available=false / deprecated=true → 已停用不可调用:
+                    # 跳过注册且不进 upstream_ids,下架比对自动 is_relay_public=false。
+                    # 带上游原因落 warning(unavailable_reason/deprecation_note),
+                    # 管理员在日志可见下架原因,不再静默 continue
+                    if lm.get("available") is False or lm.get("deprecated"):
+                        _reason = (
+                            lm.get("unavailable_reason")
+                            or lm.get("deprecation_note")
+                            or ("deprecated" if lm.get("deprecated") else "unavailable")
+                        )
+                        logger.warning(
+                            "[ModelSyncService] token6688 %s 上游已停用(%s),跳过注册并下架",
+                            mid, str(_reason)[:120],
+                        )
+                        continue
+                    if lm.get("display_name_zh") or lm.get("display_name"):
+                        normalized["name"] = lm.get("display_name_zh") or lm.get("display_name")
+                    if isinstance(lm.get("context_window"), int) and lm["context_window"] > 0:
+                        normalized["context_length"] = lm["context_window"]
+                    meta["billing_mode"] = str(lm.get("billing_mode") or "")
+                    meta["billing_unit"] = str(lm.get("billing_unit") or "")
+                    if isinstance(lm.get("health_score"), (int, float)):
+                        meta["health_score"] = lm["health_score"]
+                    if lm.get("icon_key"):
+                        meta["vendor"] = str(lm["icon_key"]).strip().lower()
+                    up_tags = [
+                        str(t).strip().lower() for t in (lm.get("tags") or []) if str(t).strip()
+                    ]
+                    if up_tags:
+                        meta["upstream_tags"] = up_tags
+
+                    # ---- 富元数据全量入 metadata(经 upsert 写 DB metadata jsonb 列)----
+                    if isinstance(lm.get("capabilities"), list) and lm["capabilities"]:
+                        meta["capabilities"] = [str(c) for c in lm["capabilities"]]
+                        # capabilities 是上游模型级权威声明:含 "vision" 才支持视觉输入,
+                        # 否则显式 False(修正 provider 级 supports_vision=True 对
+                        # 纯文本 chat 的误标;_extract_supports_vision 已改为
+                        # metadata 显式声明优先于 provider cap)
+                        meta["supports_vision"] = "vision" in meta["capabilities"]
+                    if isinstance(lm.get("param_schema"), dict) and lm["param_schema"]:
+                        meta["param_schema"] = lm["param_schema"]
+                    if isinstance(lm.get("linkages"), list) and lm["linkages"]:
+                        meta["linkages"] = [
+                            lk for lk in lm["linkages"] if isinstance(lk, dict)
+                        ]
+                    if lm.get("input_hint_zh"):
+                        meta["input_hint_zh"] = str(lm["input_hint_zh"])[:500]
+                    if isinstance(lm.get("max_prompt_chars"), int) and lm["max_prompt_chars"] > 0:
+                        meta["max_prompt_chars"] = lm["max_prompt_chars"]
+                    if isinstance(lm.get("max_prompt_bytes"), int) and lm["max_prompt_bytes"] > 0:
+                        meta["max_prompt_bytes"] = lm["max_prompt_bytes"]
+                    if lm.get("special_tier_notice"):
+                        meta["special_tier_notice"] = str(lm["special_tier_notice"])[:300]
+                    if isinstance(lm.get("sort_weight"), (int, float)):
+                        meta["sort_weight"] = lm["sort_weight"]
+                    if isinstance(lm.get("supported_vendors"), list) and lm["supported_vendors"]:
+                        meta["supported_vendors"] = [str(v) for v in lm["supported_vendors"]]
+                    if lm.get("provider"):
+                        meta["provider_code"] = str(lm["provider"])
+                    if lm.get("public_id"):
+                        meta["public_id"] = str(lm["public_id"])
+                    if lm.get("type"):
+                        meta["logical_type"] = str(lm["type"])
+
+                    # 官方价如实进 description(展示用):价格列是整型 分/1k tokens,
+                    # 承载不了 USD/1M 精度,且该列是 relay 计费兜底,写近似值会失真计费。
+                    # 描述中文优先(logical description_zh > skills description_zh)
+                    note = self._token6688_price_note(lm)
+                    base_desc = (
+                        lm.get("description_zh") or lm.get("description")
+                        or m.get("description_zh") or m.get("description") or ""
+                    )
+                    if note:
+                        base_desc = f"{base_desc};{note}" if base_desc else note
+                    if base_desc:
+                        normalized["description"] = base_desc
                 models.append(normalized)
         elif is_cloudflare:
             # 2026-08-02 修复:Cloudflare /models/search 的 result[].id 是 UUID(内部 id),
@@ -1351,6 +1480,8 @@ class ModelSyncService:
                     "vendor", "max_output_tokens", "supports_tool_call", "supports_vision",
                     "description", "rate_limit_rpm", "rate_limit_tpd",
                     "release_date", "deprecation_date",
+                    # v4(2026-09-08):token6688 富元数据落库列(param_schema 等)
+                    "metadata",
                 ])
 
                 # F3.6 别名映射后的 upstream_ids(用于下架比对)
@@ -1372,6 +1503,15 @@ class ModelSyncService:
                         display_name = f"{display_name} (原: {raw_id})"
                     # F3.4 模型分类标签
                     model_tags = self._classify_model(aliased_id, m)
+                    # token6688:上游官方 tags(gemini/google/flash 等)并入,
+                    # 供 model_catalog 分类与前端/检索按标签过滤
+                    _up_tags = [
+                        str(t).strip().lower()
+                        for t in ((m.get("metadata") or {}).get("upstream_tags") or [])
+                        if str(t).strip()
+                    ]
+                    if _up_tags:
+                        model_tags = model_tags + [t for t in _up_tags if t not in model_tags]
                     # token6688 等:上游 metadata.modality(chat/video/image/audio)优先于
                     # 名字推断,避免 seedance-2-5(视频)等媒体模型被默认标 "chat" 混入对话列表
                     _modality = str((m.get("metadata") or {}).get("modality") or "").lower()
@@ -1392,6 +1532,16 @@ class ModelSyncService:
                     rpm, tpd = self._extract_rate_limit(m)
                     release_date = self._extract_release_date(m)
                     deprecation_date = self._extract_deprecation_date(m)
+                    # v4(2026-09-08)富元数据落库(token6688 param_schema/capabilities/
+                    # linkages 等):仅 metadata 列存在时写入;is_chat 是同步内部路由
+                    # 标志,不入库
+                    metadata_json: dict[str, Any] = {}
+                    if columns.get("metadata", False):
+                        raw_meta = m.get("metadata")
+                        if isinstance(raw_meta, dict):
+                            metadata_json = {
+                                k: v for k, v in raw_meta.items() if k != "is_chat"
+                            }
 
                     # F3.5 价格上限过滤(极端高价跳过)
                     if input_price > MAX_PRICE_PER_1K_TOKENS:
@@ -1419,6 +1569,7 @@ class ModelSyncService:
                                 rate_limit_tpd=tpd,
                                 release_date=release_date,
                                 deprecation_date=deprecation_date,
+                                metadata=metadata_json,
                             )
                         new_count += 1
                     else:
@@ -1438,6 +1589,7 @@ class ModelSyncService:
                                 rate_limit_tpd=tpd,
                                 release_date=release_date,
                                 deprecation_date=deprecation_date,
+                                metadata=metadata_json,
                             )
 
                 # 4. 下架移除的模型(DB 已上架但上游不再返回)
@@ -1453,6 +1605,15 @@ class ModelSyncService:
                                 config_id, mid,
                             )
                         removed_count += 1
+
+        # v4:token6688 目录消费层(TTL 缓存)即时失效,新元数据立即可见
+        if provider_code == "token6688" and not dry_run:
+            try:
+                from .token6688_catalog import invalidate_metadata_cache
+
+                invalidate_metadata_cache()
+            except Exception:  # noqa: BLE001 — 缓存失效失败不影响同步结果
+                pass
 
         return new_count, removed_count, preview_new, preview_removed, sorted(all_tags)
 
@@ -1481,10 +1642,12 @@ class ModelSyncService:
         rate_limit_tpd: int,
         release_date: str,
         deprecation_date: str,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """F4.5 动态构造 INSERT SQL(根据列存在性决定写哪些字段)。
 
         新字段不存在时降级为只写存在的字段(类似 tags 的降级模式)。
+        v4:metadata(jsonb,token6688 param_schema/capabilities/linkages 等富元数据)
         """
         # 基础字段(一定存在)
         fields = [
@@ -1514,11 +1677,16 @@ class ModelSyncService:
             ("rate_limit_tpd", rate_limit_tpd),
             ("release_date", release_date),
             ("deprecation_date", deprecation_date),
+            # v4 富元数据(jsonb;asyncpg 无 jsonb codec,按项目惯例 json.dumps
+            # 传字符串 + SQL 里 ::jsonb 显式转换)
+            ("metadata", json.dumps(metadata or {}, ensure_ascii=False)),
         ]
         for col_name, param_value in f4_5_fields:
             if columns.get(col_name, False):
                 fields.append(col_name)
-                placeholders.append(f"${idx}")
+                placeholders.append(
+                    f"${idx}::jsonb" if col_name == "metadata" else f"${idx}"
+                )
                 params.append(param_value)
                 idx += 1
         # last_synced_at(INSERT 时也写入 now(),新模型也有同步时间)
@@ -1536,7 +1704,11 @@ class ModelSyncService:
             update_idx = 8
         for col_name, _param_value in f4_5_fields:
             if columns.get(col_name, False):
-                update_parts.append(f"{col_name} = ${update_idx}")
+                update_parts.append(
+                    f"{col_name} = ${update_idx}::jsonb"
+                    if col_name == "metadata"
+                    else f"{col_name} = ${update_idx}"
+                )
                 update_idx += 1
         # last_synced_at(每次同步刷新,用 SQL now() 函数,不需要 placeholder)
         if columns.get("last_synced_at", False):
@@ -1573,8 +1745,11 @@ class ModelSyncService:
         rate_limit_tpd: int,
         release_date: str,
         deprecation_date: str,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
-        """F4.5 动态构造 UPDATE SQL(根据列存在性决定更新哪些字段)。"""
+        """F4.5 动态构造 UPDATE SQL(根据列存在性决定更新哪些字段)。
+        v4:metadata(jsonb,token6688 富元数据)。
+        """
         set_parts = [
             "context_length = $3",
             "input_price_per_1k = $4",
@@ -1600,10 +1775,16 @@ class ModelSyncService:
             ("rate_limit_tpd", rate_limit_tpd),
             ("release_date", release_date),
             ("deprecation_date", deprecation_date),
+            # v4 富元数据(jsonb;json.dumps + ::jsonb 显式转换,同 _insert_model)
+            ("metadata", json.dumps(metadata or {}, ensure_ascii=False)),
         ]
         for col_name, param_value in f4_5_fields:
             if columns.get(col_name, False):
-                set_parts.append(f"{col_name} = ${idx}")
+                set_parts.append(
+                    f"{col_name} = ${idx}::jsonb"
+                    if col_name == "metadata"
+                    else f"{col_name} = ${idx}"
+                )
                 params.append(param_value)
                 idx += 1
         # last_synced_at(每次同步刷新,用 SQL now() 函数,不需要 placeholder)
@@ -1957,6 +2138,48 @@ class ModelSyncService:
         except (TypeError, ValueError):
             return 0
 
+    @staticmethod
+    def _token6688_price_note(lm: dict[str, Any]) -> str:
+        """token6688 官方计费说明(logical-models 单条 → 展示文案,拼进 description)。
+
+        官方字段(2026-09-08 实测 /v1/logical-models):
+        - token_metered + input_price_per_million / output_price_per_million(USD/1M tokens)
+        - fixed_amount + unit_price_micro_usd(micro USD / billing_unit,如 per_second)
+        - special_tier_notice(19 条特价档稳定性提示,如实随价格展示)
+        不写入 input_price_per_1k/output_price_per_1k 列:整型 分/1k 承载不了
+        USD/1M 精度,且该列是 relay 计费兜底(base,relay-billing-service)。
+        """
+        try:
+            parts: list[str] = []
+            mode = str(lm.get("billing_mode") or "")
+            if mode == "token_metered":
+                ip = lm.get("input_price_per_million")
+                op = lm.get("output_price_per_million")
+                if isinstance(ip, (int, float)) or isinstance(op, (int, float)):
+                    in_s = f"${float(ip):g}" if isinstance(ip, (int, float)) else "?"
+                    out_s = f"${float(op):g}" if isinstance(op, (int, float)) else "?"
+                    parts.append(f"官方价 {in_s}/1M tokens 输入 · {out_s}/1M 输出(USD)")
+            if mode != "token_metered":
+                micro = lm.get("unit_price_micro_usd")
+                if isinstance(micro, (int, float)) and micro > 0:
+                    unit = str(lm.get("billing_unit") or "")
+                    unit_map = {
+                        "per_second": ("按秒", "秒"),
+                        "per_image": ("按张", "张"),
+                        "per_call": ("按次", "次"),
+                        "per_request": ("按次", "次"),
+                        "per_char": ("按字符", "字符"),
+                    }
+                    unit_zh, unit_short = unit_map.get(unit, (unit or "按次", unit or "次"))
+                    parts.append(f"官方计费:{unit_zh} ≈ ${micro / 1_000_000:g}/{unit_short}(USD)")
+            notice = str(lm.get("special_tier_notice") or "").strip()
+            if notice:
+                parts.append(f"⚠ {notice[:120]}")
+            return ";".join(parts)
+        except (TypeError, ValueError):
+            return ""
+        return ""
+
     # ------------------------------------------------------------------
     # F4.5 深度元数据提取
     # ------------------------------------------------------------------
@@ -2054,24 +2277,24 @@ class ModelSyncService:
     ) -> bool:
         """F4.5 综合判断模型是否支持 tool calling。
 
-        优先级:
-        1. provider_caps.get_provider_cap(provider_code).supports_tools(provider 级别)
-        2. model.metadata.supports_tool_calling(OpenRouter 显式声明)
+        优先级(v4 修正:上游模型级显式声明最权威,优先于 provider 级默认):
+        1. model.metadata.supports_tool_calling(OpenRouter/token6688 显式声明)
+        2. provider_caps.get_provider_cap(provider_code).supports_tools(provider 级别)
         3. model_id 含 tool/function 关键字
         """
-        # 1. provider 级别 cap
+        # 1. 上游 metadata.supports_tool_calling(模型级显式声明)
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("supports_tool_calling")
+            if isinstance(v, bool):
+                return v
+        # 2. provider 级别 cap
         try:
             cap = get_provider_cap(provider_code)
             if not cap.supports_tools:
                 return False
         except Exception:
             pass
-        # 2. 上游 metadata.supports_tool_calling(OpenRouter)
-        meta = model.get("metadata")
-        if isinstance(meta, dict):
-            v = meta.get("supports_tool_calling")
-            if isinstance(v, bool):
-                return v
         # 3. model_id 关键字
         mid = model_id.lower()
         if any(k in mid for k in ("tool", "function", "react")):
@@ -2085,24 +2308,26 @@ class ModelSyncService:
     ) -> bool:
         """F4.5 综合判断模型是否支持视觉输入。
 
-        优先级:
-        1. provider_caps.get_provider_cap(provider_code).supports_vision(provider 级别)
-        2. model.metadata.supports_vision(上游显式声明)
+        优先级(v4 修正:上游模型级显式声明最权威,优先于 provider 级默认):
+        1. model.metadata.supports_vision(上游显式声明,token6688 由 capabilities
+           精确派生 True/False —— 修正 token6688 provider cap supports_vision=True
+           对纯文本 chat 的误标)
+        2. provider_caps.get_provider_cap(provider_code).supports_vision(provider 级别)
         3. model_id 含 vision/vl/image 关键字
         """
-        # 1. provider 级别 cap
+        # 1. 上游 metadata.supports_vision(模型级显式声明)
+        meta = model.get("metadata")
+        if isinstance(meta, dict):
+            v = meta.get("supports_vision")
+            if isinstance(v, bool):
+                return v
+        # 2. provider 级别 cap
         try:
             cap = get_provider_cap(provider_code)
             if cap.supports_vision:
                 return True
         except Exception:
             pass
-        # 2. 上游 metadata.supports_vision
-        meta = model.get("metadata")
-        if isinstance(meta, dict):
-            v = meta.get("supports_vision")
-            if isinstance(v, bool):
-                return v
         # 3. model_id 关键字
         mid = model_id.lower()
         if any(k in mid for k in ("vision", "vl", "image", "multimodal")):
