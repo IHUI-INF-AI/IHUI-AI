@@ -154,6 +154,8 @@ export * from './endpoints/goods'
 export * from './endpoints/learn'
 export * from './endpoints/live'
 export * from './endpoints/llm'
+// IDE LSP 四核心端点(2026-09-10 补转出:CodeEditor 直连 LSP,入口遗漏导致构建失败)
+export * from './endpoints/lsp'
 export * from './endpoints/knowledge-rag'
 export * from './endpoints/member'
 export * from './endpoints/misc'
