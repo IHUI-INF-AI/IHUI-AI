@@ -28,7 +28,11 @@ nodeLinker: isolated
 # 2026-09-10: C:/pstore → D:/pstore。原因:内容寻址仓库在 D:\.pnpm-store,虚拟仓放 C 盘
 # 导致跨盘硬链接失效退化为逐文件复制(全新安装 ~3 包/分钟);同盘后 pnpm 直接硬链接,
 # 全新安装分钟级完成。路径长度不变,短路径约束(mobile-rn 原生构建)不受影响。
-virtualStoreDir: 'D:/pstore'
+# 2026-09-10 回退默认(项目内 node_modules/.pnpm):Next 16 Turbopack 强制 hermetic
+# workspace root(按锁文件定位=D:\IHUI-AI),根外虚拟仓实体文件被拒绝解析 → next build
+# 必挂 "Could not find the Next.js package" / "@ihui/shared/*" 全线 Module not found(实测)。
+# 回退后仓库根与 store 同为 D 盘,硬链接优势保留;长路径由 publicHoistPattern 兜底。
+# virtualStoreDir: 'D:/pstore'
 
 # ============== mobile-rn (Expo + RN) Metro hoist 配置 ==============
 # 解决 pnpm isolated linker 与 Metro bundler 不兼容问题(2026-07-25)
