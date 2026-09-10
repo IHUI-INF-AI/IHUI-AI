@@ -93,7 +93,7 @@ export function ContactContent({
   const company = data?.company ?? fallbackCompany
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+    <main className="mx-auto w-full max-w-4xl px-4 py-4 min-[768px]:px-8">
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">

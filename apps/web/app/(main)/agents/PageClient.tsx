@@ -49,7 +49,7 @@ export default function AgentsMarketPageClient() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
       <BackButton />
       <AgentsHeader />
 

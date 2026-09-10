@@ -324,7 +324,7 @@ export default function PromptsPage() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4 py-4">
         <BackButton />
 
         <div className="flex flex-wrap items-center justify-between gap-2">
