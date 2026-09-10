@@ -10,7 +10,7 @@ import {
   formatRecordingDuration,
   getTerminalSessionSubtitle,
   getTerminalTabLabel,
-} from '../terminal-tab-bar-model'
+} from '../terminal-tab-bar/model'
 
 describe('terminal-tab-bar-model', () => {
   it('builds SSH params from valid password values', () => {
