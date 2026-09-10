@@ -38,6 +38,16 @@ except ImportError:  # pragma: no cover - 依赖缺失环境
     _AnydocError = Exception  # type: ignore[assignment,misc]
     _ANYDOC_OK = False
 
+# 显式导出清单(含供 document_asset_tools 复用的 anydoc 别名/辅助函数;
+# mypy no_implicit_reexport 严格要求 import 绑定的名字须列于 __all__ 方可再导出)
+__all__ = [
+    "parse_document",
+    "_anydoc",
+    "_AnydocError",
+    "_resolve_path",
+    "_describe_anydoc_error",
+]
+
 # anydoc 主路径覆盖的扩展名(含旧实现可降级的 3 种)
 _ANYDOC_EXTS: Tuple[str, ...] = (
     ".pdf",
