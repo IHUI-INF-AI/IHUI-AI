@@ -75,6 +75,19 @@ describe('news-routes — 路由层真实 DB 集成测试', () => {
   const server = Fastify({ logger: false })
 
   beforeAll(async () => {
+    // 2026-09-10 real-db CI:news 路由的公开端点接了 cacheResilience 装饰器
+    // (src/plugins/cache-resilience.ts,2026-09-06 P0),裸 Fastify 实例未注册该插件时
+    // server.cacheResilience 为 undefined → 所有走缓存的端点 500。
+    // 测试用直连 loader 的 stub 替代(不 mock DB,保留真实 SQL 验证)。
+    server.decorate('cacheResilience', {
+      getOrLoad: <T>(_key: string, _ttlSec: number, loader: () => Promise<T>): Promise<T> =>
+        loader(),
+      invalidate: async () => {},
+      doubleDelete: async <T>(_key: string, writeFn: () => Promise<T>, _delayMs?: number) =>
+        writeFn(),
+      breakerState: () => 'closed' as const,
+      avalancheStats: () => ({ tracked: 0, prewarmedTotal: 0 }),
+    })
     await server.register(newsRoutes, { prefix: '/api' })
     await server.ready()
   })
