@@ -7,8 +7,24 @@ import React from 'react'
 import { render, cleanup, waitFor } from '@testing-library/react'
 
 const fetchApiMock = vi.hoisted(() => vi.fn())
+// LSP 四核心 mock(0-4c:CodeEditor import 期引用,缺失会报 "No export defined";本文件 monaco mock 无 languages,实际不会调用)
+const lspMocks = vi.hoisted(() => ({
+  getLspDefinition: vi.fn(),
+  getLspReferences: vi.fn(),
+  getLspDiagnostics: vi.fn(),
+  getLspHover: vi.fn(),
+}))
 
-vi.mock('@ihui/api-client', () => ({ fetchApi: fetchApiMock }))
+// CodeEditor 直接使用 fetchApi(FIM 内联补全请求)
+vi.mock('@ihui/api-client', () => ({
+  fetchApi: fetchApiMock,
+  ...lspMocks,
+}))
+// 切断 stores/debug → @/lib/api/debug → @/lib/api 传染链(@/lib/api 模块加载期调用 4 个 @ihui/api-client 导出)
+vi.mock('@/lib/api/debug', () => ({
+  getScopes: vi.fn(),
+  getVariablesByReference: vi.fn(),
+}))
 vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }))
 vi.mock('@monaco-editor/react', () => ({
   loader: { config: vi.fn() },
@@ -42,13 +58,28 @@ const mockEditor = {
   focus: vi.fn(),
   layout: vi.fn(),
   onDidChangeCursorSelection: vi.fn(() => ({ dispose: vi.fn() })),
+  onMouseDown: vi.fn(() => ({ dispose: vi.fn() })),
+  deltaDecorations: vi.fn(() => [] as string[]),
 }
 
-const providerRef: { current: { provideInlineCompletions: (model: unknown, position: unknown, context: unknown, token: MonacoToken) => Promise<{ items: unknown[] }>; freeInlineCompletions: () => void } | null } = { current: null }
+const providerRef: {
+  current: {
+    provideInlineCompletions: (
+      model: unknown,
+      position: unknown,
+      context: unknown,
+      token: MonacoToken,
+    ) => Promise<{ items: unknown[] }>
+    freeInlineCompletions: () => void
+  } | null
+} = { current: null }
 const mockMonaco = {
   editor: {
     DefineTheme: vi.fn(),
-    registerInlineCompletionsProvider: (_language: string, provider: NonNullable<typeof providerRef.current>) => {
+    registerInlineCompletionsProvider: (
+      _language: string,
+      provider: NonNullable<typeof providerRef.current>,
+    ) => {
       providerRef.current = provider
       return { dispose: vi.fn() }
     },
@@ -83,7 +114,12 @@ describe('CodeEditor AI inline completion', () => {
   it('requests FIM and returns a ghost completion', async () => {
     fetchApiMock.mockResolvedValueOnce({ success: true, data: { completion: '3' } })
     await renderEditor()
-    const result = await providerRef.current!.provideInlineCompletions(model, { lineNumber: 1, column: 13 }, { triggerKind: 'Automatic' }, token)
+    const result = await providerRef.current!.provideInlineCompletions(
+      model,
+      { lineNumber: 1, column: 13 },
+      { triggerKind: 'Automatic' },
+      token,
+    )
     expect(fetchApiMock).toHaveBeenCalledTimes(1)
     expect(result.items[0]).toMatchObject({ insertText: '3' })
     expect(window.__ihuiFimMetrics?.suggestionCount).toBe(1)
@@ -92,15 +128,30 @@ describe('CodeEditor AI inline completion', () => {
   it('uses cache for identical prefix and suffix', async () => {
     fetchApiMock.mockResolvedValue({ success: true, data: { completion: '3' } })
     await renderEditor()
-    await providerRef.current!.provideInlineCompletions(model, { lineNumber: 1, column: 13 }, { triggerKind: 'Automatic' }, token)
-    await providerRef.current!.provideInlineCompletions(model, { lineNumber: 1, column: 13 }, { triggerKind: 'Automatic' }, token)
+    await providerRef.current!.provideInlineCompletions(
+      model,
+      { lineNumber: 1, column: 13 },
+      { triggerKind: 'Automatic' },
+      token,
+    )
+    await providerRef.current!.provideInlineCompletions(
+      model,
+      { lineNumber: 1, column: 13 },
+      { triggerKind: 'Automatic' },
+      token,
+    )
     expect(fetchApiMock).toHaveBeenCalledTimes(1)
   })
 
   it('returns no items when FIM fails silently', async () => {
     fetchApiMock.mockResolvedValueOnce({ success: false, error: 'unauthorized' })
     await renderEditor()
-    const result = await providerRef.current!.provideInlineCompletions(model, { lineNumber: 1, column: 13 }, { triggerKind: 'Automatic' }, token)
+    const result = await providerRef.current!.provideInlineCompletions(
+      model,
+      { lineNumber: 1, column: 13 },
+      { triggerKind: 'Automatic' },
+      token,
+    )
     expect(result.items).toEqual([])
     expect(window.__ihuiFimMetrics?.failureCount).toBe(1)
   })
@@ -110,15 +161,29 @@ describe('CodeEditor AI inline completion', () => {
     fetchApiMock.mockImplementationOnce(async (_url: string, options: RequestInit) => {
       firstSignal = options.signal
       return new Promise((resolve) => {
-        options.signal?.addEventListener('abort', () => resolve({ success: false, error: '请求已取消' }), { once: true })
+        options.signal?.addEventListener(
+          'abort',
+          () => resolve({ success: false, error: '请求已取消' }),
+          { once: true },
+        )
       })
     })
     fetchApiMock.mockResolvedValueOnce({ success: true, data: { completion: 'second' } })
     await renderEditor()
-    const first = providerRef.current!.provideInlineCompletions(model, { lineNumber: 1, column: 13 }, { triggerKind: 'Automatic' }, token)
+    const first = providerRef.current!.provideInlineCompletions(
+      model,
+      { lineNumber: 1, column: 13 },
+      { triggerKind: 'Automatic' },
+      token,
+    )
     const firstStarted = vi.waitFor(() => expect(fetchApiMock).toHaveBeenCalledTimes(1))
     await firstStarted
-    const second = providerRef.current!.provideInlineCompletions(model, { lineNumber: 1, column: 13 }, { triggerKind: 'Automatic' }, token)
+    const second = providerRef.current!.provideInlineCompletions(
+      model,
+      { lineNumber: 1, column: 13 },
+      { triggerKind: 'Automatic' },
+      token,
+    )
     await vi.waitFor(() => expect(firstSignal?.aborted).toBe(true))
     await second
     await first.catch(() => undefined)

@@ -138,6 +138,52 @@
     "backToList": "목록으로",
     "loadingDetail": "문서 불러오는 중…"
   },
+  "knowledgeCard": {
+    "title": "지식 카드",
+    "description": "저장소 단위 작업 지식 카드: 경험·사실·모범 사례·주의점을 기록",
+    "repoSection": "저장소",
+    "repoNameLabel": "저장소명",
+    "repoNamePlaceholder": "저장소명 입력",
+    "load": "불러오기",
+    "create": "새 카드",
+    "createSection": "카드 만들기",
+    "editSection": "카드 편집",
+    "kindLabel": "유형",
+    "kindExperience": "작업 경험",
+    "kindFact": "프로젝트 사실",
+    "kindPractices": "모범 사례",
+    "kindPitfall": "주의점",
+    "sourceAgent": "Agent",
+    "titleLabel": "제목",
+    "titlePlaceholder": "카드 제목 입력",
+    "contentLabel": "내용",
+    "contentPlaceholder": "카드 내용 입력(Markdown 지원)",
+    "tagsLabel": "태그",
+    "tagsPlaceholder": "쉼표로 구분, 최대 20개",
+    "confidenceLabel": "신뢰도",
+    "submit": "만들기",
+    "update": "저장",
+    "cancelEdit": "취소",
+    "needRepoName": "저장소명을 입력하세요",
+    "needTitleContent": "제목과 내용은 필수입니다",
+    "listTitle": "카드 목록",
+    "searchLabel": "카드 검색",
+    "searchPlaceholder": "키워드로 제목/내용 검색",
+    "search": "검색",
+    "searchResults": "검색 결과",
+    "searchEmpty": "일치하는 카드가 없습니다",
+    "clearSearch": "지우기",
+    "loadingList": "불러오는 중…",
+    "emptyList": "카드가 없습니다. 먼저 만들어 주세요",
+    "useCount": "{count}회 사용",
+    "view": "보기",
+    "edit": "편집",
+    "markUsed": "사용 표시",
+    "delete": "삭제",
+    "deleteConfirm": "이 카드를 삭제할까요?",
+    "backToList": "목록으로",
+    "loadingDetail": "카드 불러오는 중…"
+  },
   "a11y": {
     "addAttachment": "첨부 파일 추가(이미지/비디오/파일)",
     "breadcrumb": "빵 부스러기 탐색",
@@ -6962,12 +7008,7 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "classLevel": [
-        "우수(학급 상위 10%)",
-        "양호(10-30%)",
-        "보통(30-70%)",
-        "미흡(하위 30%)"
-      ],
+      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -6984,12 +7025,7 @@
         "시험 불안",
         "가정 환경 영향"
       ],
-      "school": [
-        "주요 중학교",
-        "일반 중학교",
-        "국제 학교",
-        "사립 학교"
-      ]
+      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"]
     },
     "result": {
       "failed": "AI 분석 실패",
@@ -8966,65 +9002,40 @@
     "commands": {
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": [
-          "AI",
-          "월드",
-          "앱"
-        ],
+        "keywords": ["AI", "월드", "앱"],
         "label": "AI 월드"
       },
       "chat": {
         "description": "AI 어시스턴트와 대화",
-        "keywords": [
-          "채팅",
-          "대화",
-          "AI",
-          "chat"
-        ],
+        "keywords": ["채팅", "대화", "AI", "chat"],
         "label": "AI 채팅"
       },
       "drama": {
         "description": "AI 생성 단편 드라마",
-        "keywords": [
-          "드라마",
-          "비디오",
-          "AI",
-          "drama"
-        ],
+        "keywords": ["드라마", "비디오", "AI", "drama"],
         "label": "AI 드라마"
       },
       "profile": {
         "description": "프로필 및 설정 관리",
-        "keywords": [
-          "프로필",
-          "사용자",
-          "설정"
-        ],
+        "keywords": ["프로필", "사용자", "설정"],
         "label": "프로필"
       },
       "search": {
         "description": "전역 콘텐츠 검색",
-        "keywords": [
-          "검색",
-          "찾기",
-          "search"
-        ],
+        "keywords": ["검색", "찾기", "search"],
         "label": "검색"
       },
       "settings": {
         "description": "시스템 환경 설정 및 구성",
-        "keywords": [
-          "설정",
-          "환경설정",
-          "구성"
-        ],
+        "keywords": ["설정", "환경설정", "구성"],
         "label": "설정"
       }
     },
     "keyboardHint": "↑↓ 선택 · Enter 실행",
     "noResults": "일치하는 명령이 없습니다",
     "resultCount": "{count}개 결과",
-    "searchPlaceholder": "명령 검색..."
+    "searchPlaceholder": "명령 검색...",
+    "recentGroup": "최근 사용"
   },
   "comments": {
     "adminReply": "관리자 답변",
@@ -10848,37 +10859,25 @@
       "quadrants": [
         {
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": [
-            "지식 Q&A",
-            "프로세스 자동화"
-          ],
+          "examples": ["지식 Q&A", "프로세스 자동화"],
           "tag": "Q1",
           "title": "효율적 어시스턴트"
         },
         {
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": [
-            "데이터 분석",
-            "의사결정 지원"
-          ],
+          "examples": ["데이터 분석", "의사결정 지원"],
           "tag": "Q2",
           "title": "스마트 어드바이저"
         },
         {
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": [
-            "회의 일정",
-            "승인 프로세스"
-          ],
+          "examples": ["회의 일정", "승인 프로세스"],
           "tag": "Q3",
           "title": "실행 전문가"
         },
         {
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": [
-            "마케팅 자동화",
-            "멀티에이전트 협업"
-          ],
+          "examples": ["마케팅 자동화", "멀티에이전트 협업"],
           "tag": "Q4",
           "title": "올라운드 전문가"
         }
@@ -11012,31 +11011,19 @@
       "items": [
         {
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": [
-            "체계적 과정",
-            "실천 탐구",
-            "커뮤니티 상호 지원"
-          ],
+          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"],
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티"
         },
         {
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": [
-            "소통 플랫폼",
-            "경험 공유",
-            "자원 연결"
-          ],
+          "features": ["소통 플랫폼", "경험 공유", "자원 연결"],
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티"
         },
         {
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": [
-            "전문 대형 모델",
-            "에이전트 서비스",
-            "컨설팅 서비스"
-          ],
+          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"],
           "tag": "MODULE 03",
           "title": "AI 전문 서비스"
         }
@@ -11866,7 +11853,8 @@
       "toggle": "전환",
       "variables": "변수",
       "watch": "감시",
-      "watchPlaceholder": "감시식 추가"
+      "watchPlaceholder": "감시식 추가",
+      "watchDuplicate": "이미 감시 목록에 있는 표현식입니다"
     },
     "diffFileList": {
       "noMatch": "일치하는 파일 없음"
@@ -12102,7 +12090,6 @@
       "newSession": "새 세션",
       "newSshSession": "새 SSH 세션",
       "newTerminalAria": "새 터미널",
-      "newTerminalTitle": "새 터미널 ({shell})",
       "noRecordingsHint": "녹화가 없습니다. 녹화 버튼(왼쪽 Video 아이콘)을 클릭하여 터미널 작업 녹화를 시작하세요.",
       "password": "비밀번호",
       "play": "재생",
@@ -12163,7 +12150,33 @@
   "inlineEdit": {
     "closeAriaLabel": "편집기 닫기",
     "editDescPlaceholder": "편집 내용 설명…",
-    "stopAriaLabel": "편집 중지"
+    "stopAriaLabel": "편집 중지",
+    "turnBadge": "{n}번째 턴",
+    "followUpPlaceholder": "계속 조정 입력...",
+    "emptySelection": "(선택 없음)",
+    "errorFallback": "생성 실패, 다시 시도하세요",
+    "followUpHint": "계속 조정을 입력할 수 있습니다",
+    "reject": "취소",
+    "accept": "적용",
+    "hintSubmit": "제출",
+    "hintCancel": "취소"
+  },
+  "shortcutHelp": {
+    "title": "단축키 도움말",
+    "closeHint": "Esc 키로 닫기",
+    "desc": {
+      "ctrlK": "명령 팔레트 / 인라인 편집",
+      "ctrlP": "검색",
+      "ctrlShiftN": "새 대화",
+      "ctrlSlash": "단축키 도움말",
+      "ctrlShiftD": "드라마 에디터",
+      "ctrlShiftP": "명령 팔레트(뷰 전환)",
+      "ctrlComma": "설정 열기",
+      "ctrl1": "빌드 모드로 전환",
+      "ctrl2": "플랜 모드로 전환",
+      "ctrl3": "리뷰 모드로 전환",
+      "ctrl4": "스펙 모드로 전환"
+    }
   },
   "inquiry": {
     "errors": {
@@ -13332,7 +13345,15 @@
     "enableSuccess": "{name} 활성화됨",
     "disableSuccess": "{name} 중지됨",
     "actionFailed": "작업 실패. 나중에 다시 시도하세요",
-    "lastErrorText": "오류: {error}"
+    "lastErrorText": "오류: {error}",
+    "quality": "품질",
+    "riskTitle": "위험",
+    "riskConfirmTitle": "위험 확인",
+    "riskConfirmDesc": "{name}의 보안 점수는 {score}/100입니다. 위험이 있지만 설치하시겠습니까?",
+    "riskGeneric": "잠재적 보안 위험이 감지되었습니다",
+    "riskRecommendation": "권장 사항",
+    "riskCancel": "설치 취소",
+    "riskConfirmProceed": "그래도 설치"
   },
   "member": {
     "feedback": {
@@ -13532,15 +13553,7 @@
       "title": "Top 5 페이지",
       "visitsHeader": "방문수"
     },
-    "weekdays": [
-      "월",
-      "화",
-      "수",
-      "목",
-      "금",
-      "토",
-      "일"
-    ]
+    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
   },
   "models": {
     "aiNews": {
@@ -14276,12 +14289,7 @@
         ]
       },
       "starter": {
-        "features": [
-          "1M 토큰 한도",
-          "기본 모델 사용 가능",
-          "5개 API 토큰",
-          "커뮤니티 지원"
-        ]
+        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
       }
     },
     "productSchema": {
@@ -14869,6 +14877,7 @@
     "imChannels": "IM 채널",
     "imageGen": "이미지 생성",
     "knowledgeBase": "지식 베이스",
+    "knowledgeCards": "지식 카드",
     "knowledgeGraph": "지식 그래프",
     "knowledgeRag": "RAG 지식",
     "language": "언어",
@@ -14939,6 +14948,7 @@
     "recruitment": "채용",
     "registry": "레지스트리",
     "relayParamOps": "매개변수 오버라이드",
+    "repoWiki": "Repo Wiki",
     "resources": "리소스",
     "restore": "복원",
     "schedule": "일정",
@@ -15472,13 +15482,7 @@
       "enterprise": {
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": [
-          "무제한 크레딧",
-          "사설 배포",
-          "SSO/SAML 2.0",
-          "감사 로그",
-          "전담 기술 지원"
-        ],
+        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"],
         "name": "기업판"
       },
       "free": {
@@ -17963,7 +17967,6 @@
     "newSession": "새 세션",
     "newSshSession": "새 SSH 세션",
     "newTerminalAria": "새 터미널",
-    "newTerminalTitle": "새 터미널",
     "noRecordingsHint": "녹화 없음",
     "password": "비밀번호",
     "play": "재생",
