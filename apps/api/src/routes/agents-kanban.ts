@@ -28,7 +28,6 @@ import {
   acquireWorkspaceLock,
   getWorkspaceLock,
   releaseWorkspaceLock,
-  renewWorkspaceLock,
   WORKSPACE_LOCK_TTL,
 } from '../services/workspace-lock.js'
 import type {
