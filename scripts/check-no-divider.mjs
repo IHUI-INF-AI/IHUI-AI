@@ -66,7 +66,7 @@ check-no-divider.mjs — 分割线守门(divide-y / divide-x)
 
 // 排除目录:共享 EXCLUDE_DIRS + 脚本特有(构建产物/测试/注释无害目录)
 const EXCLUDE_DIRS = withExcludes([
-  '.trae-cn',
+  '.ihui-agent',
   'tests',
   '__tests__',
   'e2e',

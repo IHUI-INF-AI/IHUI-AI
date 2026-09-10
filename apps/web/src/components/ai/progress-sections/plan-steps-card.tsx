@@ -45,7 +45,7 @@ const STATUS_DOT_CLS: Record<PlanStepStatus, string> = {
   completed: 'bg-emerald-500/15',
 }
 
-/** 状态 → 分段进度条颜色(对标 Trae Thinking Process 状态色) */
+/** 状态 → 分段进度条颜色(对标 折叠态摘要设计 状态色) */
 const STATUS_BAR_CLS: Record<PlanStepStatus, string> = {
   // 修复 #8:容器是 bg-muted/40,pending 段原来用 bg-muted-foreground/20 对比度不足,
   // 浅色模式下几乎不可见。改用 bg-muted-foreground/25 + dashed border 提高对比度,
@@ -59,7 +59,7 @@ const STATUS_BAR_CLS: Record<PlanStepStatus, string> = {
 const LONG_REASONING_THRESHOLD = 120
 
 /**
- * PlanStepsCard — 内联计划步骤卡片(深度对标 OpenAI Codex /plan + Trae Thinking Process)
+ * PlanStepsCard — 内联计划步骤卡片(深度对标 OpenAI Codex /plan + 折叠态摘要设计)
  *
  * 2026-07-31 深度优化:
  * - 时间线风格:每个步骤左侧圆点 + 连接线,形成视觉流程
@@ -98,7 +98,7 @@ export function PlanStepsCard({
   const totalDurationMs = steps.reduce((sum, s) => sum + (s.durationMs ?? 0), 0)
   const progressPct = steps.length > 0 ? Math.round((doneCount / steps.length) * 100) : 0
 
-  // 折叠态摘要(借鉴 Trae Thinking Process):优先 in_progress → error → 全完成
+  // 折叠态摘要(借鉴 折叠态摘要设计):优先 in_progress → error → 全完成
   // 让用户不展开即可知道当前状态
   let summary: string | undefined
   if (errorCount > 0) {
@@ -470,7 +470,7 @@ function PlanStepItem({
         </div>
 
         {/* explanation:短文本直接显示,长文本用 MarkdownViewer 渲染(支持代码块/列表等)
-         *  思考步骤始终用 MarkdownViewer(对标 Trae Thinking Process 代码块渲染) */}
+         *  思考步骤始终用 MarkdownViewer(对标 折叠态摘要设计 代码块渲染) */}
         {s.explanation && (
           <div
             className={cn(
@@ -489,7 +489,7 @@ function PlanStepItem({
           </div>
         )}
 
-        {/* 复制 reasoning 按钮:思考步骤展开后显示(对标 Trae Thinking Process) */}
+        {/* 复制 reasoning 按钮:思考步骤展开后显示(对标 折叠态摘要设计) */}
         {isThinking && expanded && s.explanation && (
           <div className="mt-1 flex justify-end">
             <FeedbackTooltip content={t('plan.copyReasoning')}>

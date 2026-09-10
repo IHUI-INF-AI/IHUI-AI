@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * LongTermMemory — 跨 session 持久化,读写 <workspace>/.trae-cn/memory/MEMORY.md。
+ * LongTermMemory — 跨 session 持久化,读写 <workspace>/.ihui-agent/memory/MEMORY.md。
  * 平台独占:仅 cli(W2-1 四层记忆第 2 层,对标 OpenClaw Mem episodic memory)。
  * 格式与 memory/index.ts MEMORY.md 一致:# Memory + ## <分类> + - <条目>。
  * append 追加到分类段(段不存在则新建),search 关键词子串匹配(大小写不敏感)。
@@ -21,7 +21,7 @@ export class LongTermMemory {
   private readonly filePath: string;
 
   constructor(workspacePath: string) {
-    this.filePath = path.join(workspacePath, '.trae-cn', 'memory', 'MEMORY.md');
+    this.filePath = path.join(workspacePath, '.ihui-agent', 'memory', 'MEMORY.md');
   }
 
   /** 追加条目到指定分类段(段不存在则新建),返回条目。 */

@@ -98,7 +98,7 @@ function main() {
   console.log('  修复方法(任选一种):')
   console.log('  1) 重启 web dev server:')
   console.log('     pnpm --filter @ihui/web dev')
-  console.log('  2) 在 TRAE 终端面板先 Ctrl+C 杀掉旧 next-server,再重新 dev')
+  console.log('  2) 在 IDE 终端面板先 Ctrl+C 杀掉旧 next-server,再重新 dev')
   console.log('')
   console.log('  历史教训:2026-07-21 协议通知窗曾因 i18n chunk 缓存导致')
   console.log('           auth.agreementNotice* 键直接渲染,见 PROJECT_PLAN.md。')

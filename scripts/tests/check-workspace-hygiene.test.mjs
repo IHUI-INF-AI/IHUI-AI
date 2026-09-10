@@ -14,9 +14,9 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-workspace-hygiene.mjs')
 const PROJECT_ROOT = join(__dirname, '..', '..')
 // 源脚本 ROOT 由 import.meta.url 推导,始终扫描 g:\IHUI-AI\
-// .trae-cn/tmp/ 被 scanDir(ROOT→.trae-cn→tmp) 递归扫描且已 gitignore,
+// .ihui-agent/tmp/ 被 scanDir(ROOT→.ihui-agent→tmp) 递归扫描且已 gitignore,
 // 是唯一可被脚本检测到的 fixture 落点(不污染 git)
-const FIXTURE_PARENT = join(PROJECT_ROOT, '.trae-cn', 'tmp')
+const FIXTURE_PARENT = join(PROJECT_ROOT, '.ihui-agent', 'tmp')
 
 // ─── 拼接违规字符串(拆分写,避免本测试文件被守门脚本自检命中) ───
 // 源脚本同时扫描本测试文件;若同行出现 "C:\temp\ihui-ext" 等连续模式会自伤。

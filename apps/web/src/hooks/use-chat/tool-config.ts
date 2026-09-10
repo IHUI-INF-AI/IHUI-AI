@@ -9,7 +9,7 @@ import { useChatStore } from '@/stores/chat'
  *  ai-service 收到后从 mcp_server 加载完整 schema,走 tool loop(complete→tool_calls→execute→astream)
  *  2026-07-27 补齐 12 核心 MCP 工具(read_file/search_codebase/file_search 等),共 34 个 */
 export const AGENT_TOOLS = [
-  // ===== 核心 MCP 工具(2026-07-27 补齐,对标 Trae Work + Codex 工具集)=====
+  // ===== 核心 MCP 工具(2026-07-27 补齐,对标 AI 工作台 + Codex 工具集)=====
   // 之前只传 browser/computer 工具,LLM 看不到 read_file/search_codebase 等核心工具 schema,
   // 导致用户问"读一下 xxx 文件"时 LLM 无法调用 read_file,只能瞎编。
   // 现在补齐普通用户可用的核心工具(admin only 工具由后端 mcp_server 权限检查兜底)。

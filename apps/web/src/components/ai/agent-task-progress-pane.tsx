@@ -102,7 +102,7 @@ const EMPTY_TOOLS: readonly AgentToolCall[] = Object.freeze(
   [] as AgentToolCall[],
 ) as readonly AgentToolCall[]
 
-/** 步骤预算上限(对标 Trae Work 60 step budget) */
+/** 步骤预算上限(对标 AI 工作台 60 step budget) */
 const STEP_BUDGET_TOTAL = 60
 
 /** 时间窗匹配缓冲(避免边界跨越) */

@@ -5,7 +5,7 @@
 /**
  * @file i18n-apply.mjs 回归测试基线
  * @description 本测试覆盖 scripts/i18n-apply.mjs 的核心规则(§19 AI 翻译流水线第④步):
- *   1. 输入读取:默认 .trae-cn/tmp/i18n-translations.json,--input 自定义路径
+ *   1. 输入读取:默认 .ihui-agent/tmp/i18n-translations.json,--input 自定义路径
  *   2. 结构校验:translations 字段缺失 → exit 1;基准 zh-CN 缺失 → exit 1;文件不存在 → exit 1
  *   3. 应用规则:遍历 en/ja/ko/zh-TW
  *      - translations[lang] 不存在 → skipped++
@@ -40,11 +40,11 @@ function stripAnsi(s) {
   return s.replace(/\x1b\[[0-9;]*m/g, '')
 }
 
-// ─── 辅助:创建临时项目根目录(含 packages/i18n/messages/<target>/ + .trae-cn/tmp/) ───
+// ─── 辅助:创建临时项目根目录(含 packages/i18n/messages/<target>/ + .ihui-agent/tmp/) ───
 function createTempProject(target = 'web') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-i18n-apply-'))
   fs.mkdirSync(path.join(root, 'packages', 'i18n', 'messages', target), { recursive: true })
-  fs.mkdirSync(path.join(root, '.trae-cn', 'tmp'), { recursive: true })
+  fs.mkdirSync(path.join(root, '.ihui-agent', 'tmp'), { recursive: true })
   return root
 }
 
@@ -68,7 +68,7 @@ function readMessagesRaw(root, target, lang) {
 
 function writeTranslations(root, obj) {
   fs.writeFileSync(
-    path.join(root, '.trae-cn', 'tmp', 'i18n-translations.json'),
+    path.join(root, '.ihui-agent', 'tmp', 'i18n-translations.json'),
     JSON.stringify(obj, null, 2),
     'utf8',
   )

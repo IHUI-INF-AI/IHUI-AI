@@ -6,7 +6,7 @@
 
 # 加密货币捐赠钱包地址档案
 
-> 公开档案:本文档只含公开收款地址,**不含任何私钥**。私钥保管在本地 `.trae-cn/tmp/crypto-wallets/`(已 gitignore)。
+> 公开档案:本文档只含公开收款地址,**不含任何私钥**。私钥保管在本地 `.ihui-agent/tmp/crypto-wallets/`(已 gitignore)。
 >
 > 生成时间:2026-07-27
 > 关联组件:`apps/web/app/(main)/sponsor/CryptoDonation.tsx`
@@ -67,14 +67,14 @@ IHUI-AI 是开源全栈 AI 操作系统,接受全球用户的加密货币打赏�
 - ETH 网络 gas 费较高(USDT-ERC20 转账约 $5-15),建议累积一定金额后再提现以摊薄手续费。
 - 大额 BTC 提现建议直接转到交易所,不要经手热钱包。
 
-> 详细私钥保管与提现步骤见本地 `.trae-cn/tmp/crypto-wallets/WALLET_BACKUP_GUIDE.md`(机密,不入库)。
+> 详细私钥保管与提现步骤见本地 `.ihui-agent/tmp/crypto-wallets/WALLET_BACKUP_GUIDE.md`(机密,不入库)。
 
 ---
 
 ## 五、安全说明
 
 - **公开地址** = 只能收款,不能转出。本档案和组件中只有公开地址,**任何能看到的人都无法盗取资金**。
-- **私钥** = 资金控制权。私钥仅存于本地 `.trae-cn/tmp/crypto-wallets/wallet-secrets.json`,该目录被 `.gitignore` 第 77 行 `.trae-cn/` 整体忽略,不会进入版本库。
+- **私钥** = 资金控制权。私钥仅存于本地 `.ihui-agent/tmp/crypto-wallets/wallet-secrets.json`,该目录被 `.gitignore` 第 77 行 `.ihui-agent/` 整体忽略,不会进入版本库。
 - **备份**:私钥已按 5 步法备份到 U 盘 + 纸质(异地),详见本地 `WALLET_BACKUP_GUIDE.md`。
 - **地址校验**:钱包地址由 `generate-wallets.mjs` 使用 secp256k1 + keccak256(纯 JS 实现,已通过 keccak256 空向量自测)+ base58check + bech32(BIP173)生成,均为真实可用地址。
 - **生成方式**:无外部依赖,仅用 Node.js 内置 `crypto` 模块(`crypto.randomBytes(32)` 生成私钥,`crypto.createECDH('secp256k1')` 派生公钥),确保私钥从未离开本机。
@@ -85,7 +85,7 @@ IHUI-AI 是开源全栈 AI 操作系统,接受全球用户的加密货币打赏�
 
 如需更换捐赠地址(例如钱包迁移、密钥泄露应急):
 
-1. 重新运行 `node .trae-cn/tmp/crypto-wallets/generate-wallets.mjs` 生成新钱包(会覆盖 `wallet-secrets.json`,**先备份旧文件**)。
+1. 重新运行 `node .ihui-agent/tmp/crypto-wallets/generate-wallets.mjs` 生成新钱包(会覆盖 `wallet-secrets.json`,**先备份旧文件**)。
 2. 把新地址同步更新到:
    - `apps/web/app/(main)/sponsor/CryptoDonation.tsx`(`WALLETS` 数组)
    - 本档案(`docs/monetization/crypto-wallets.md` 第一节表格)
@@ -101,9 +101,9 @@ IHUI-AI 是开源全栈 AI 操作系统,接受全球用户的加密货币打赏�
 | `crypto-wallets.md`(本档案) | `docs/monetization/` | ✅ | ❌ |
 | `CryptoDonation.tsx` | `apps/web/app/(main)/sponsor/` | ✅ | ❌ |
 | `zh-CN.json` / `en.json` 等(`crypto` 命名空间) | `packages/i18n/messages/web/` | ✅ | ❌ |
-| `wallet-secrets.json` | `.trae-cn/tmp/crypto-wallets/` | ❌ | ✅ |
-| `WALLET_BACKUP_GUIDE.md` | `.trae-cn/tmp/crypto-wallets/` | ❌ | ❌ |
-| `generate-wallets.mjs` | `.trae-cn/tmp/crypto-wallets/` | ❌ | ❌ |
+| `wallet-secrets.json` | `.ihui-agent/tmp/crypto-wallets/` | ❌ | ✅ |
+| `WALLET_BACKUP_GUIDE.md` | `.ihui-agent/tmp/crypto-wallets/` | ❌ | ❌ |
+| `generate-wallets.mjs` | `.ihui-agent/tmp/crypto-wallets/` | ❌ | ❌ |
 
 ---
 

@@ -8,7 +8,7 @@
  *
  * 背景(2026-08-31 实测):G 盘 100% 占满(可用 860KB),排查回收约 62G:
  *   .git/lost-found 17G、Rust target 13G、.turbo 12G、Next cache 7.9G、
- *   git loose objects 7.3G、Trae CXX staging 3.35G、android build 2.3G 等。
+ *   git loose objects 7.3G、第三方 IDE CXX staging 3.35G、android build 2.3G 等。
  *   本脚本把「全部可重建缓存/产物」固化为白名单,一键清理,杜绝手动逐项排查。
  *
  * 设计铁律:
@@ -45,8 +45,8 @@ const SAFE_TARGETS = [
   { p: 'apps/mobile-rn/android/app/build', why: 'Android gradle 构建产物' },
   { p: 'apps/mobile-rn/android/.gradle', why: 'Android 本地 gradle 缓存' },
   { p: 'apps/miniapp-taro/dist', why: 'Taro 编译产物(重新编译)' },
-  { p: '.cxx-modules-staging', why: 'Trae CXX 模块暂存' },
-  { p: '.cxx-worklets-staging', why: 'Trae CXX worklet 暂存' },
+  { p: '.cxx-modules-staging', why: '第三方 IDE CXX 模块暂存' },
+  { p: '.cxx-worklets-staging', why: '第三方 IDE CXX worklet 暂存' },
 ]
 
 // ---------- 白名单:git 维护(仅 --git 执行,并行会话时勿用) ----------

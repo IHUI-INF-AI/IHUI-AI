@@ -4,9 +4,9 @@
 
 /**
  * HooksDiscovery — 目录自动发现 hooks。
- * 扫描 <workspace>/.trae-cn/hooks/(source=cli)+ ~/.trae-cn/hooks/(source=user),
+ * 扫描 <workspace>/.ihui-agent/hooks/(source=cli)+ ~/.ihui-agent/hooks/(source=user),
  * 解析 frontmatter(name/enabled/priority/type),状态持久化到
- * <workspace>/.trae-cn/hooks/.state.json(.state.json 优先于 frontmatter.enabled)。
+ * <workspace>/.ihui-agent/hooks/.state.json(.state.json 优先于 frontmatter.enabled)。
  * discover()/enable(name)/disable(name) 三方法;free functions 薄封装默认实例。
  *
  * 平台独占:仅 cli(W3-4 Hooks 自动发现,对标 OpenClaw hooks 自动发现)。
@@ -81,8 +81,8 @@ const FILENAME_TYPE_PREFIX: ReadonlyArray<{ prefix: string; type: DiscoveredHook
 
 export function getHooksDirs(workspacePath = process.cwd()): HooksDirs {
   return {
-    cli: path.join(workspacePath, '.trae-cn', 'hooks'),
-    user: path.join(os.homedir(), '.trae-cn', 'hooks'),
+    cli: path.join(workspacePath, '.ihui-agent', 'hooks'),
+    user: path.join(os.homedir(), '.ihui-agent', 'hooks'),
   };
 }
 
