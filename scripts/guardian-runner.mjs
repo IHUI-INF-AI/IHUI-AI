@@ -926,6 +926,26 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- watermark coverage (blocking, 2026-09-10 立) ---
+  //   历史事故: 新增文件未注入溯源水印 -> 本地提交通过、CI `Provenance watermark check` 红。
+  //   本检查把 CI 判定前移到 pre-commit, 只看 git 已跟踪文件(与 CI 检出范围一致, 本地未跟踪
+  //   构建产物不计入)。修复: node scripts/watermark.mjs inject <file>。
+  //   跳过: HUSKY_SKIP_WATERMARK_GUARD=1 git commit ...
+  {
+    id: '47',
+    label: '💧 溯源水印覆盖守门(新增文件必须携带完整水印)',
+    script: 'check-watermark-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 新增/修改的已跟踪文件缺少溯源水印,会导致 CI 的 Provenance watermark check 失败。',
+      '     修复: node scripts/watermark.mjs inject <file>',
+      '     列出全部缺口: node scripts/watermark.mjs list-uncovered',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (2 项) ---
   {
     id: '10',
