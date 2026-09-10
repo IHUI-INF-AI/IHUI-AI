@@ -617,11 +617,13 @@ export default function Community() {
   return (
     <ThemeRoot className="community-out-container">
       <View
-        style={{
-          ['--app-top-bar-height']: appTopBarHeight,
-          height: showCategoryPopup ? '100vh' : 'auto',
-          overflowY: showCategoryPopup ? 'hidden' : 'auto',
-        }}
+        style={
+          {
+            ['--app-top-bar-height']: appTopBarHeight,
+            height: showCategoryPopup ? '100vh' : 'auto',
+            overflowY: showCategoryPopup ? 'hidden' : 'auto',
+          } as React.CSSProperties
+        }
       >
         {/* DrawerComponent 抽屉 — 对齐原项目放在最外层 */}
         <DrawerComponent

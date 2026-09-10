@@ -32,6 +32,8 @@ export interface AgentListPanelProps {
   visible?: boolean
   agents?: AgentInfo[]
   loading?: boolean
+  /** sheet 形态(底部弹层):true 时带标题栏与最大高度限制;内嵌列表用默认 false */
+  isSheet?: boolean
   onSelect?: (agent: AgentInfo) => void
   /** 购买回调(vipType=4 月费时点击触发,替代 onSelect) */
   onPurchase?: (agent: AgentInfo) => void
@@ -64,6 +66,7 @@ export default function AgentListPanel({
   visible = false,
   agents = [],
   loading = false,
+  isSheet = false,
   onSelect,
   onPurchase,
 }: AgentListPanelProps) {
