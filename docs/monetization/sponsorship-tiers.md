@@ -190,7 +190,7 @@ IHUI AI 是 Apache 2.0 开源的全栈 AI 操作系统,核心代码永久免费�
 ## 9. 联系方式
 
 - 赞助咨询:sponsor@aizhs.top
-- 企业合作:business@aizhs.top
+- 企业合作:[REDACTED-EMAIL]
 - GitHub Sponsors:https://github.com/sponsors/IHUI-INF-AI(占位)
 
 ---
