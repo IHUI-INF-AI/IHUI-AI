@@ -41,7 +41,7 @@ import logging
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from .codebase_indexer import codebase_indexer
 from .knowledge_graph import graph_store, knowledge_graph_service
@@ -108,13 +108,13 @@ class KnowledgeLookupResult:
 async def knowledge_lookup(
     query: str,
     *,
-    user_id: Optional[str] = None,
-    repo_id: Optional[str] = None,
-    repo_name: Optional[str] = None,
-    session_id: Optional[str] = None,
+    user_id: str | None = None,
+    repo_id: str | None = None,
+    repo_name: str | None = None,
+    session_id: str | None = None,
     top_k_per_source: int = 5,
-    source_priority: Optional[list[str]] = None,
-    api_token: Optional[str] = None,
+    source_priority: list[str] | None = None,
+    api_token: str | None = None,
 ) -> KnowledgeLookupResult:
     """统一知识查询门面:并发查各源,聚合为统一结果。
 
@@ -194,7 +194,7 @@ async def knowledge_lookup(
     errors: list[dict[str, str]] = []
     raw_by_source: dict[str, list[KnowledgeHit]] = {}
 
-    for src, res in zip(tasks.keys(), results):
+    for src, res in zip(tasks.keys(), results, strict=True):
         if isinstance(res, Exception):
             err_msg = f"{type(res).__name__}: {res}"
             errors.append({"source": src, "error": err_msg})
@@ -230,9 +230,9 @@ async def knowledge_lookup(
 async def _query_codebase(
     query: str,
     *,
-    repo_id: Optional[str],
+    repo_id: str | None,
     top_k: int,
-    api_token: Optional[str],
+    api_token: str | None,
 ) -> list[KnowledgeHit]:
     """查 codebase_indexer,返回 list[KnowledgeHit]。
 
@@ -255,9 +255,9 @@ async def _query_codebase(
 async def _query_knowledge_cards(
     query: str,
     *,
-    repo_name: Optional[str],
+    repo_name: str | None,
     top_k: int,
-    api_token: Optional[str],
+    api_token: str | None,
 ) -> list[KnowledgeHit]:
     """查 knowledge_cards(apps/api /search),返回 list[KnowledgeHit]。
 
@@ -326,7 +326,7 @@ async def _query_knowledge_cards(
 async def _query_rag(
     query: str,
     *,
-    session_id: Optional[str],
+    session_id: str | None,
     top_k: int,
 ) -> list[KnowledgeHit]:
     """查 rag_service,返回 list[KnowledgeHit]。
@@ -382,7 +382,7 @@ async def _query_ltm(
 async def _query_graph(
     query: str,
     *,
-    owner_uuid: Optional[str],
+    owner_uuid: str | None,
     top_k: int,
     graph_bfs_depth: int = 2,
 ) -> list[KnowledgeHit]:
