@@ -29,6 +29,8 @@ COPY packages/design-tokens/package.json ./packages/design-tokens/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/types/package.json ./packages/types/
+# node-pty(apps/api 依赖)需 node-gyp 原生编译:alpine 缺 python3/make/g++ 必挂 gyp ERR(2026-09-10)
+RUN apk add --no-cache python3 make g++
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
