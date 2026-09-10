@@ -9,6 +9,7 @@ import * as dns from 'node:dns'
 import { db } from '../db/index.js'
 import { zhsUserAgentContext, docs } from '@ihui/database'
 import { success, error } from '../utils/response.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -66,6 +67,13 @@ function parsePaging(q: { page?: string; pageSize?: string }): { page: number; p
 }
 
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
+  // P0 安全修复(2026-09-09 第九轮):本插件此前零鉴权——remote_proxy 配置全量
+  // CRUD(存于 system_configs)与 /remote/proxy 任意 URL 转发(SSRF 面)匿名可达,
+  // 且无任何前端调用方。整体收权为 admin,后续如需开放再按路由细化。
+  server.addHook('preHandler', async (request, reply) => {
+    return requireAdmin(request, reply)
+  })
+
   // -------------------------------------------------------------------------
   // remote — 远程代理配置（存储于 system_configs 表，category='remote_proxy'）
   // -------------------------------------------------------------------------

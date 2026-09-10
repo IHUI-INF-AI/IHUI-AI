@@ -1,7 +1,3 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 /**
  * 同源嵌入代理(2026-09-02 立,WorkPanel 真实内嵌方案)
  *
@@ -29,6 +25,7 @@
  */
 
 import { Readable } from 'node:stream'
+import * as dns from 'node:dns'
 import type { ReadableStream as NodeWebReadableStream } from 'node:stream/web'
 
 import type { FastifyPluginAsync } from 'fastify'
@@ -63,27 +60,72 @@ const STRIP_HEADERS = new Set([
   'cross-origin-resource-policy',
 ])
 
-/** SSRF:禁内网/保留地址(SS 2026-09-02;DNS 重绑定未做解析级校验,见局限) */
-const FORBIDDEN_HOST_PATTERNS: RegExp[] = [
-  /^localhost$/,
-  /\.localhost$/,
-  /\.local$/,
-  /\.internal$/,
-  /^127\./,
-  /^10\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^169\.254\./,
-  /^0\./,
-  /^::1$/,
-  /^\[::1\]$/,
-  /^f[cd][0-9a-f]{2}:/i,
-  /^fe80:/i,
-]
+/** SSRF:禁内网/保留地址(2026-09-09 重构:数值化 IP 判定 + IPv6 归一化 +
+ * IPv4-mapped 处理 + DNS 解析级复检,替代原正则清单;重定向落点同样复检) */
+
+function isPrivateIPv4(ip: string): boolean {
+  // 只接受两种可无歧义还原的形式,其余一律 fail-closed:
+  //  1) 严格点分十进制 a.b.c.d
+  //  2) 纯整数(十进制/0x十六进制),还原为 32 位地址
+  // 经典绕过(0x7f.1 / 0177.0.0.1 等混合进制)因无法无歧义归一而直接拒绝。
+  let parts: number[]
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+    parts = ip.split('.').map(Number)
+  } else if (/^(0[xX][0-9a-fA-F]+|\d+)$/.test(ip)) {
+    const n = Number(ip)
+    if (!Number.isInteger(n) || n < 0 || n > 0xffffffff) return true
+    parts = [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]
+  } else {
+    return true
+  }
+  if (parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true
+  const [a = -1, b = -1] = parts
+  if (a === 0 || a === 10 || a === 127) return true
+  if (a === 169 && b === 254) return true
+  if (a === 172 && b >= 16 && b <= 31) return true
+  if (a === 192 && b === 168) return true
+  if (a === 100 && b >= 64 && b <= 127) return true // CGNAT
+  if (a >= 224) return true // 组播/保留
+  return false
+}
+
+function isPrivateIPv6(ip: string): boolean {
+  // 归一化:展开 ::、处理 IPv4-mapped(::ffff:127.0.0.1 等)
+  const v = ip.toLowerCase()
+  if (v === '::' || v === '::1') return true
+  const mapped = v.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
+  if (mapped?.[1]) return isPrivateIPv4(mapped[1])
+  if (v.startsWith('::ffff:')) return true // mapped 但非点分 → 一律禁止
+  if (v.startsWith('fe80:') || v.startsWith('fc') || v.startsWith('fd')) return true
+  if (v.startsWith('ff')) return true // 组播
+  if (v.startsWith('64:ff9b:') || v.startsWith('100::')) return true // NAT64 / 保留
+  return false
+}
 
 function isForbiddenHost(hostname: string): boolean {
   const h = hostname.toLowerCase().replace(/^\[|\]$/g, '')
-  return FORBIDDEN_HOST_PATTERNS.some((p) => p.test(h))
+  if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) {
+    return true
+  }
+  if (h.includes(':')) return isPrivateIPv6(h)
+  if (/^[\da-fx.]+$/i.test(h)) return isPrivateIPv4(h)
+  // 域名交由 fetch 前的 DNS 解析级复检(见 isForbiddenResolved)
+  return false
+}
+
+/** DNS 解析级校验:对 hostname 的全部解析地址判禁(防 DNS 重绑定第一跳)。 */
+async function isForbiddenResolved(hostname: string): Promise<boolean> {
+  try {
+    const addrs = await dns.promises.lookup(hostname, { all: true })
+    if (addrs.length === 0) return true
+    for (const { address, family } of addrs) {
+      const blocked = family === 6 ? isPrivateIPv6(address) : isPrivateIPv4(address)
+      if (blocked) return true
+    }
+    return false
+  } catch {
+    return true // 解析失败一律禁止
+  }
 }
 
 /** 简单内存限流(每 IP 滑窗) */
@@ -141,7 +183,7 @@ const BRIDGE_SCRIPT = [
   "var href=a.getAttribute('href');if(!href)return;",
   "if(href.charAt(0)==='#')return;",
   'if(/^(javascript|mailto|tel|data):/i.test(href))return;',
-  // Ctrl/Cmd+点击代理链接 → 通知父页面在应用内新开 WorkPanel 标签页
+  // Ctrl/Cmd+点击代理链接 → 通知父页面在应用内新开 WorkPanel 标签页(对标 Cursor/Trae 浏览器)
   'if(isP(href)&&(e.ctrlKey||e.metaKey)){e.preventDefault();post("ihui-embed-newtab",dec(href));return}',
   'if(isP(href)){e.preventDefault();post("ihui-embed-nav",dec(href),document.title);location.href=O+href;return}',
   'var abs;try{abs=new URL(href,document.baseURI).href}catch(err){return}',
@@ -284,6 +326,11 @@ export const embedProxyRoutes: FastifyPluginAsync = async (server) => {
       if (!/^https?:$/.test(target.protocol) || isForbiddenHost(target.hostname)) {
         return reply.status(403).send(error(403, '该地址不允许通过嵌入代理访问'))
       }
+      // 2026-09-09 P1 SSRF 修复:DNS 解析级复检——把域名解析出的全部 IP 逐一
+      // 判禁(防 DNS 重绑定第一跳与编码绕过),解析失败一律禁止。
+      if (await isForbiddenResolved(target.hostname)) {
+        return reply.status(403).send(error(403, '该地址不允许通过嵌入代理访问'))
+      }
 
       const isPost = request.method === 'POST'
       const fetchHeaders: Record<string, string> = {
@@ -353,7 +400,7 @@ export const embedProxyRoutes: FastifyPluginAsync = async (server) => {
       let finalUrl = target.href
       try {
         const landed = new URL(upstream.url)
-        if (isForbiddenHost(landed.hostname)) {
+        if (isForbiddenHost(landed.hostname) || (await isForbiddenResolved(landed.hostname))) {
           reply.type('text/html; charset=utf-8')
           return reply.send(errorPage('目标重定向到了内网地址,已被拦截'))
         }
