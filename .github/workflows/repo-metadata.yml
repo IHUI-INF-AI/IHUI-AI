@@ -38,9 +38,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update repository description & homepage
+      # 2026-09-10 根因修复:description/homepage 的 PATCH 与 topics 的 PUT 都需要
+      # administration: write,而 GITHUB_TOKEN 无法获得该权限(permissions 里根本没有
+      # administration 档位)→ 恒 403 "Resource not accessible by integration",工作流长期标红。
+      # 正解:使用具备 Administration: write 的细粒度 PAT,存入 secret REPO_ADMIN_TOKEN。
+      # 未配置该 secret 时显式跳过(exit 0),不再以「无权限」冒充失败。
+      - name: Resolve admin token
+        id: admin-token
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ADMIN_TOKEN: ${{ secrets.REPO_ADMIN_TOKEN }}
+        run: |
+          if [ -n "$ADMIN_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "✅ 检测到 REPO_ADMIN_TOKEN,将更新仓库元数据"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::未配置 secret REPO_ADMIN_TOKEN(需 Administration: write 的细粒度 PAT),已跳过仓库元数据更新——这不是失败。"
+          fi
+
+      - name: Update repository description & homepage
+        if: steps.admin-token.outputs.available == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.REPO_ADMIN_TOKEN }}
         run: |
           set -e
           gh api -X PATCH /repos/${{ github.repository }} \
@@ -49,8 +68,9 @@ jobs:
           echo "✅ description & homepage updated"
 
       - name: Update repository topics
+        if: steps.admin-token.outputs.available == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.REPO_ADMIN_TOKEN }}
         run: |
           set -e
           # topics 端点需要 JSON body {"names":[...]} + Content-Type: application/json
@@ -63,8 +83,9 @@ jobs:
           echo "✅ topics updated (20 topics)"
 
       - name: Verify metadata
+        if: steps.admin-token.outputs.available == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.REPO_ADMIN_TOKEN }}
         run: |
           echo "=== 当前仓库元数据 ==="
           gh api /repos/${{ github.repository }} --jq '{description, homepage, topics}'

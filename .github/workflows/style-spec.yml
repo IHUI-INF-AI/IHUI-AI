@@ -48,21 +48,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 跑 no-important 检查
-        run: |
-          set -e
-          echo "检查 !important 使用..."
-          # 在 css/tsx 中检测 !important (排除 node_modules / .next / dist)
-          important_hits=$(grep -rnE '!important' \
-            --include='*.css' --include='*.scss' --include='*.tsx' --include='*.ts' \
-            apps/web/app apps/web/src apps/web/components 2>/dev/null || true)
-          if [ -n "$important_hits" ]; then
-            echo "::error::检测到 !important 使用, 请移除:"
-            echo "$important_hits" | while IFS= read -r line; do
-              echo "::error::$line"
-            done
-            exit 1
-          fi
-          echo "✓ 未检测到 !important"
+        # 2026-09-10 根因修复:原实现直接 `grep -rnE '!important'` 扫文本,有两个缺陷 ——
+        #  ① 无法区分「声明」与「注释」,注释里提到 !important 也被误判(实测 8 处误报);
+        #  ② 无法表达合法例外,只能一刀切。
+        # 改为调用共用守门脚本(与仓库其它 check:*.mjs 口径一致):
+        #   剥离注释后再判定,并豁免 @media (prefers-reduced-motion: reduce) 块
+        #   (选择器特异度为 0,必须用 !important 才能压过未被 @layer 包裹的动画类)。
+        run: node scripts/check-no-important.mjs
 
       - name: 跑高特异性选择器检测
         env:
