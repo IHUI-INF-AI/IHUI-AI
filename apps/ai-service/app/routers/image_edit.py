@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, Form
 
@@ -28,7 +29,7 @@ async def image_edits(
     aspect_ratio: str | None = Form(default=None, description="比例(官方 12 枚举,如 16:9)"),
     quality: str | None = Form(default=None, description="auto/high/medium/low"),
     output_format: str | None = Form(default=None, description="png/jpeg"),
-) -> dict:
+) -> dict[str, Any]:
     """图片编辑(multipart 直通 TokenGo /v1/images/edits;200+body.error 已在 provider 层检查)。"""
     from ..providers.base_provider import ProviderError
     from ..core.config import settings
