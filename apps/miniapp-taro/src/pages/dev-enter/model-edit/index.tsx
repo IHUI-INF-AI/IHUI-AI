@@ -351,15 +351,15 @@ export default function ModelEdit() {
                   </>
                 ) : null}
 
-                {/* 7. 折扣参与 (非免费时显示) */}
-                {saleType !== 'free' ? (
+                {/* 7. 折扣参与 (外层块已保证 saleType !== 'free',此处无条件渲染) */}
+                {(
                   <>
                     <Text className="block text-[28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                       {tt('devEnter.modelEdit.discountLabel', '折扣参与')}
                     </Text>
                     {renderOpts(discountOpts, discount, (v) => setDiscount(v as Discount))}
                   </>
-                ) : null}
+                )}
               </View>
             ) : null}
 
