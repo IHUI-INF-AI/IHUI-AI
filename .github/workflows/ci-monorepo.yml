@@ -27,7 +27,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '20.10'
+  NODE_VERSION: '22'
   # 与根 package.json 的 packageManager(pnpm@11.18.0)严格对齐,避免 pnpm 版本漂移。
   PNPM_VERSION: '11.18.0'
   PYTHON_VERSION: '3.12'
