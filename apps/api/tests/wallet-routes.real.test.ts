@@ -76,6 +76,9 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
 
   beforeEach(async () => {
     resetMockAuth()
+    // 2026-09-10 real-db CI:withdraw 走 applyWithdrawal 会写 withdrawal_flows,
+    // 必须先清(否则 DELETE FROM users 撞 FK)
+    await db.execute(sql`DELETE FROM withdrawal_flows`)
     await db.execute(sql`DELETE FROM token_flows`)
     await db.execute(sql`DELETE FROM user_margins`)
     await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
@@ -144,7 +147,7 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
   // POST /api/wallet/recharge
   // =====================================================================
 
-  it('POST /api/wallet/recharge — 成功充值(无 margin 记录时自动创建)', async () => {
+  it('POST /api/wallet/recharge — 成功创建充值订单号(不动余额)', async () => {
     const user = await createUser('1001', '用户')
     setMockUser(user.id)
     const res = await server.inject({
@@ -155,20 +158,25 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
     expect(res.statusCode).toBe(201)
     const body = res.json()
     expect(body.code).toBe(0)
-    expect(body.data.orderNo).toMatch(/^RC\d+$/)
-    expect(body.data.flow.opType).toBe(0)
-    expect(body.data.flow.quantity).toBe(100)
-    expect(body.data.flow.balanceAfter).toBe(100)
+    // 2026-09-10 real-db CI:generateOrderNumber = RC + 14 位时间戳 + 6 位随机大写数字
+    // (charset 去除易混淆的 I/L/O/0/1),纯数字正则 /^RC\d+$/ 已过期
+    expect(body.data.orderNo).toMatch(/^RC\d{14}[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/)
+    expect(body.data.payUrl).toBeUndefined()
 
-    const [margin] = await db
+    // P0-1 契约:recharge 只创建订单号,余额增加只能走支付回调 → 不建 margin、不写流水
+    const margins = await db
       .select()
       .from(userMargins)
       .where(eq(userMargins.userId, user.id))
-      .limit(1)
-    expect(margin.tokenQuantity).toBe(100)
+    expect(margins).toHaveLength(0)
+    const flows = await db
+      .select()
+      .from(tokenFlows)
+      .where(eq(tokenFlows.userId, user.id))
+    expect(flows).toHaveLength(0)
   })
 
-  it('POST /api/wallet/recharge — 已有 margin 记录时累加余额', async () => {
+  it('POST /api/wallet/recharge — 已有 margin 记录时余额不变(仅返回订单号)', async () => {
     const user = await createUser('1001', '用户')
     await createMargin({ userId: user.id, tokenQuantity: 200 })
     setMockUser(user.id)
@@ -178,14 +186,16 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
       body: { amount: 300, payMethod: 'alipay' },
     })
     const body = res.json()
-    expect(body.data.flow.balanceAfter).toBe(500)
+    expect(body.code).toBe(0)
+    expect(body.data.orderNo).toBeDefined()
 
+    // 余额增加只能走支付回调,直接调 recharge 不改变 margin
     const [margin] = await db
       .select()
       .from(userMargins)
       .where(eq(userMargins.userId, user.id))
       .limit(1)
-    expect(margin.tokenQuantity).toBe(500)
+    expect(margin.tokenQuantity).toBe(200)
   })
 
   it('POST /api/wallet/recharge — amount 缺失返回 400', async () => {
@@ -225,7 +235,7 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
   // POST /api/wallet/withdraw
   // =====================================================================
 
-  it('POST /api/wallet/withdraw — 余额充足时成功提现', async () => {
+  it('POST /api/wallet/withdraw — 余额充足时成功提现(冻结 actualAmount)', async () => {
     const user = await createUser('1001', '用户')
     await createMargin({ userId: user.id, tokenQuantity: 1000 })
     setMockUser(user.id)
@@ -237,14 +247,22 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
     expect(res.statusCode).toBe(201)
     const body = res.json()
     expect(body.code).toBe(0)
-    expect(body.data.success).toBe(true)
+    // 2026-09-10 real-db CI:withdraw 代理 applyWithdrawal,返回 withdrawal_flows 行:
+    // fee = floor(amount*2%),actualAmount = amount - fee
+    expect(body.data.originalAmount).toBe(300)
+    expect(body.data.fee).toBe(6)
+    expect(body.data.amount).toBe(294)
+    expect(body.data.method).toBe('wechat')
+    expect(body.data.status).toBe(0)
 
+    // 事务内原子执行:token -= actualAmount,frozen += actualAmount
     const [margin] = await db
       .select()
       .from(userMargins)
       .where(eq(userMargins.userId, user.id))
       .limit(1)
-    expect(margin.frozenQuantity).toBe(300)
+    expect(margin.tokenQuantity).toBe(706)
+    expect(margin.frozenQuantity).toBe(294)
   })
 
   it('POST /api/wallet/withdraw — 余额不足返回 400', async () => {
@@ -261,7 +279,7 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
     expect(body.message).toBe('可提现余额不足')
   })
 
-  it('POST /api/wallet/withdraw — 冻结余额影响可用余额', async () => {
+  it('POST /api/wallet/withdraw — 冻结余额不影响可提现额度(仅校验 token_quantity)', async () => {
     const user = await createUser('1001', '用户')
     await createMargin({ userId: user.id, tokenQuantity: 500, frozenQuantity: 400 })
     setMockUser(user.id)
@@ -270,7 +288,16 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
       url: '/api/wallet/withdraw',
       body: { amount: 200, account: 'acc', accountType: 'wechat' },
     })
-    expect(res.statusCode).toBe(400) // 可用 = 500 - 400 = 100 < 200
+    // 2026-09-10 real-db CI:applyWithdrawal 的原子校验是 token_quantity >= actualAmount,
+    // 不扣减已冻结部分;token=500 ≥ 196(200-2% 手续费) → 提现成功
+    expect(res.statusCode).toBe(201)
+    const [margin] = await db
+      .select()
+      .from(userMargins)
+      .where(eq(userMargins.userId, user.id))
+      .limit(1)
+    expect(margin.tokenQuantity).toBe(304)
+    expect(margin.frozenQuantity).toBe(596)
   })
 
   it('POST /api/wallet/withdraw — 缺 amount 返回 400', async () => {
