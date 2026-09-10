@@ -88,7 +88,7 @@ export function DownloadDetailContent({ platform: platformParam }: { platform: s
   const isAvailable = hasAssets || (meta.version && meta.installGuideKey) ? true : false
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-6">
+    <div className="mx-auto w-full max-w-4xl px-4 py-4">
       {/* 返回按钮 */}
       <button
         type="button"

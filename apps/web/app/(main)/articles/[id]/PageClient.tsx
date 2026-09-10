@@ -66,7 +66,7 @@ export default function ArticleDetailPage() {
 
   if (error || !data)
     return (
-      <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
+      <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
         <Link
           href="/articles"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -97,7 +97,7 @@ export default function ArticleDetailPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <script
         type="application/ld+json"
         // 安全转义:JSON.stringify 不转义 `<`,含 `</script>` 的用户输入会提前闭合脚本标签导致存储型 XSS

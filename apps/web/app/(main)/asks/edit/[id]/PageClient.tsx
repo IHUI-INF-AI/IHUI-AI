@@ -76,7 +76,7 @@ export default function AskEditByIdPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4 px-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
       <Link
         href={`/asks/${params.id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"

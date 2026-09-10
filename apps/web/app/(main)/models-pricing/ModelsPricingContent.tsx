@@ -103,7 +103,7 @@ export function ModelsPricingContent(): React.JSX.Element {
   }, [data, keyword])
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
+    <main className="mx-auto w-full max-w-6xl px-4 py-4 min-[768px]:px-8">
       <BackButton />
       <header className="space-y-2 text-center">
         <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">

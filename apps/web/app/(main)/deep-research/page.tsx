@@ -98,7 +98,7 @@ export default function DeepResearchPage() {
   React.useEffect(() => stopPolling, [stopPolling])
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-4">
       <div className="mb-6 flex items-center gap-2">
         <Search className="h-5 w-5 text-primary" />
         <h1 className="text-2xl font-bold">{t('title')}</h1>

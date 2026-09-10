@@ -86,7 +86,7 @@ export default function KnowledgeBasePageClient() {
   const items = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <BookOpen className="h-6 w-6 text-primary" />

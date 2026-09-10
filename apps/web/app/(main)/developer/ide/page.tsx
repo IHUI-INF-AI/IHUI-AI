@@ -18,7 +18,7 @@ import { IDELayout } from '@/components/ide'
  */
 export default function IDEPage() {
   return (
-    <div className="px-4 h-full">
+    <div className="py-4 h-full">
       <IDELayout />
     </div>
   )

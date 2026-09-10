@@ -57,7 +57,7 @@ export default function LearnRecordPage() {
   const items = data ?? []
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="py-4 mx-auto max-w-3xl space-y-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">

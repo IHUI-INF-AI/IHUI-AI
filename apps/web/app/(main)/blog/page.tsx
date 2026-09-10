@@ -31,7 +31,7 @@ export default async function BlogIndexPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-8 min-[768px]:py-8">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-3 text-center min-[768px]:text-left">
         <div className="flex items-center justify-center gap-2 min-[768px]:justify-start">

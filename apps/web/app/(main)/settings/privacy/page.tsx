@@ -104,7 +104,7 @@ export default function PrivacyPage() {
   ]
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col py-4">
       <BackButton />
       <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight">{t('privacyTitle')}</h1>

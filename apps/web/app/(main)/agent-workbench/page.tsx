@@ -170,7 +170,7 @@ export default function AgentWorkbenchPage() {
   }
 
   return (
-    <div className="mx-auto w-full space-y-4 px-4">
+    <div className="mx-auto w-full space-y-4 px-4 py-4">
       <div className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div>
