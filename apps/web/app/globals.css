@@ -629,7 +629,9 @@ iframe::-webkit-scrollbar {
 .dark .group:hover .resize-handle-line,
 .dark .group:focus-within .resize-handle-line,
 :where(.dark .resize-handle-line.is-resizing) {
-  filter: drop-shadow(0 0 3px color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 65%, transparent));
+  filter: drop-shadow(
+    0 0 3px color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 65%, transparent)
+  );
 }
 /* hover 命中区 / 键盘聚焦 / 拖拽中:线条完全显现并带蓝色光晕(明暗统一) */
 .group:hover .resize-handle-line,
@@ -718,7 +720,8 @@ iframe::-webkit-scrollbar {
  * 根因:旧方案用 useIsMobile + setCollapsed effect,SSR/CSR 不一致导致 hydration mismatch
  * + 闪烁(首帧展开 → effect 跑 setCollapsed(true) → 重渲染折叠)。
  * 新方案:纯 CSS 媒体查询,不改 JS state,无 hydration 问题,无闪烁。
- * - aside[data-viewport-collapsed] 在 <1024px 强制 60px 宽(覆盖 collapsed prop + inline width)
+ * - aside[data-viewport-collapsed] 在 768-1023px 平板区间强制 60px 宽(覆盖 collapsed prop + inline width);
+ *   <768px 时桌面 aside 为 display:none(见下方 2026-09-05 分段规则),故本行不覆盖手机
  * - 导航项文字 span 在 <1024px 隐藏,只显示图标(折叠视觉态)
  * - 导航项本身用 NAV_ITEM_COLLAPSED_CLASS 的 w-9 36×36 正方形布局(已由 collapsed prop 控制
  *   或 CSS 强制居中),此处只补文字隐藏
@@ -741,9 +744,23 @@ iframe::-webkit-scrollbar {
     min-width: 60px !important;
     max-width: 60px !important;
   }
-  /* 2026-09-07:移除旧版 [data-sidebar-logo] display:none 规则 —— 现在 768-1023px 区间
-     React 侧(effectiveCollapsed)直接渲染折叠态 header:36×36 方形 logo + 展开按钮竖排,
-     不再渲染 80px 长 logo,CSS 隐藏规则已无目标。 */
+  /* 2026-09-09 修复(收回态按钮重叠/闪烁):
+     SSR 输出展开态 HTML(footer 横排 + 展开 header),hydration 后 React 才切折叠态。
+     hydration 前的间隙里 5 个横排按钮在 59px 内容区互相挤压重叠,
+     展开 header 的 80px 长 logo 也与折叠按钮重叠。以下规则在 paint 前由 CSS 兜底,
+     与 hydration 后 React 折叠态视觉衔接,消除可见闪烁:
+     1. footer 工具栏(.sidebar-actions)强制竖排 + 水平居中
+     2. 展开态长 logo([data-sidebar-logo])隐藏,header([data-sidebar-header-expanded])居中 */
+  aside[data-viewport-collapsed='true'] .sidebar-actions {
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  aside[data-viewport-collapsed='true'] [data-sidebar-logo] {
+    display: none;
+  }
+  aside[data-viewport-collapsed='true'] [data-sidebar-header-expanded] {
+    justify-content: center !important;
+  }
 
   /* 隐藏导航项文字 span(只显示图标),覆盖 collapsed=false 时的展开态文字 */
   aside[data-viewport-collapsed='true'] nav a > span:not([class*='sr-only']),
@@ -1197,5 +1214,30 @@ button[data-state='closed']:focus-visible {
 [role='checkbox'][data-state='checked'],
 [data-testid='agreement-checkbox'][aria-checked='true'] > span {
   border-color: transparent;
+}
+
+/* ============================================================
+ * IDE 断点 gutter 红点 (2026-09-09 立,1-7c 调试链路)
+ * ============================================================
+ * CodeEditor 传 filePath 时启用 glyphMargin,点击行号左侧槽位
+ * toggle 断点(与调试面板共享 useDebugStore)。
+ * 红点为实心圆(AGENTS.md §4 圆角豁免:装饰点/红点),直径 11px,
+ * 槽位宽约 22-24px,margin-left 让红点偏右贴近行号,视觉对齐 VSCode。
+ * hover 槽位时显示半透明空心预览(引导可点击)。 */
+.ihui-breakpoint-glyph {
+  background: hsl(0 72% 51%);
+  border-radius: 50%;
+  margin-left: 7px;
+  height: 11px;
+  width: 11px;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.ihui-breakpoint-glyph:hover {
+  transform: scale(1.15);
+}
+/* glyph margin 空槽位 hover 提示可点击 */
+.monaco-editor .margin-view-overlays .cgmr {
+  cursor: pointer;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

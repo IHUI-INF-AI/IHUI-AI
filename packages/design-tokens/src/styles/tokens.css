@@ -659,7 +659,11 @@ select:-webkit-autofill:focus {
  * 与 sidebar.tsx 的 SIDEBAR_WIDTH 常量一致 */
 :root {
   --sidebar-width: 160px;
-  --sidebar-collapsed-width: 54px;
+  /* 2026-09-09 修正漂移:54px → 60px,与 sidebar.tsx SIDEBAR_COLLAPSED_WIDTH=60 对齐
+   * (此前该 token 为 54px 旧值且无 var() 引用点,属死值漂移;
+   *  60px 折叠宽度同时由 globals.css 平板区间(768-1023px)硬编码,三源已统一,
+   *  check-sidebar-width-consistency.mjs 守门已扩展校验本值)。 */
+  --sidebar-collapsed-width: 60px;
   --sidebar-menu-height: 24px;
   --sidebar-indent-1: 20px;
   --sidebar-indent-2: 40px;

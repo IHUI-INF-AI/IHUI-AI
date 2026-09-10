@@ -18,6 +18,13 @@
  * 用法:
  *   node scripts/check-sidebar-width-consistency.mjs          (全量检查, exit 0/1)
  *   node scripts/check-sidebar-width-consistency.mjs --staged  (仅 staged 涉及时检查)
+ *
+ * 2026-09-09 扩展:三源 × 双宽度校验
+ *   源1 tokens.css      --sidebar-width / --sidebar-collapsed-width
+ *   源2 sidebar.tsx     SIDEBAR_WIDTH / SIDEBAR_COLLAPSED_WIDTH
+ *   源3 token-registry.ts  各 token defaultValue(若与源1漂移,校验 TS 侧注册表)
+ *   根因案例(2026-09-09):--sidebar-collapsed-width token 漂移 54px(sidebar.tsx 为 60)
+ *   长期未被发现,正因旧守门只校验展开宽度单源单值。
  */
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -76,8 +83,9 @@ if (isStaged) {
 
 let hasError = false
 
-// 1. 读 tokens.css 的 --sidebar-width
+// 1. 读 tokens.css 的 --sidebar-width / --sidebar-collapsed-width
 let cssWidth = null
+let cssCollapsedWidth = null
 let cssSourceLabel = null
 if (TOKENS_PATH) {
   const css = readFileSync(TOKENS_PATH, 'utf8')
@@ -86,16 +94,21 @@ if (TOKENS_PATH) {
     cssWidth = Number(m[1])
     cssSourceLabel = TOKENS_PATH.replace(ROOT + '\\', '').replace(ROOT + '/', '')
   }
+  const mc = css.match(/--sidebar-collapsed-width:\s*(\d+)px/)
+  if (mc) cssCollapsedWidth = Number(mc[1])
 }
 
-// 2. 读 sidebar.tsx 的 SIDEBAR_WIDTH
+// 2. 读 sidebar.tsx 的 SIDEBAR_WIDTH / SIDEBAR_COLLAPSED_WIDTH
 let jsWidth = null
+let jsCollapsedWidth = null
 if (existsSync(SIDEBAR_PATH)) {
   const ts = readFileSync(SIDEBAR_PATH, 'utf8')
   const m = ts.match(/const\s+SIDEBAR_WIDTH\s*=\s*(\d+)/)
   if (m) {
     jsWidth = Number(m[1])
   }
+  const mc = ts.match(/const\s+SIDEBAR_COLLAPSED_WIDTH\s*=\s*(\d+)/)
+  if (mc) jsCollapsedWidth = Number(mc[1])
 }
 
 // 3. 对比
@@ -116,6 +129,46 @@ if (cssWidth === null) {
   hasError = true
 } else {
   console.log(`${C.green}  ✅ 一致:${cssSourceLabel} --sidebar-width: ${cssWidth}px === SIDEBAR_WIDTH: ${jsWidth}px${C.reset}`)
+}
+
+// 3b. 折叠宽度双源对比(2026-09-09 扩展)
+if (cssCollapsedWidth === null) {
+  console.log(`${C.yellow}  ⚠️  ${cssSourceLabel || 'tokens.css'} 中未找到 --sidebar-collapsed-width 定义${C.reset}`)
+} else if (jsCollapsedWidth === null) {
+  console.log(`${C.yellow}  ⚠️  sidebar.tsx 中未找到 SIDEBAR_COLLAPSED_WIDTH 常量${C.reset}`)
+} else if (cssCollapsedWidth !== jsCollapsedWidth) {
+  console.log(`${C.red}  ❌ 不一致!${cssSourceLabel} --sidebar-collapsed-width: ${cssCollapsedWidth}px ≠ sidebar.tsx SIDEBAR_COLLAPSED_WIDTH: ${jsCollapsedWidth}px${C.reset}`)
+  console.log(`${C.dim}     修复:把 ${cssSourceLabel} 的 --sidebar-collapsed-width 改为 ${jsCollapsedWidth}px${C.reset}`)
+  hasError = true
+} else {
+  console.log(`${C.green}  ✅ 一致:${cssSourceLabel} --sidebar-collapsed-width: ${cssCollapsedWidth}px === SIDEBAR_COLLAPSED_WIDTH: ${jsCollapsedWidth}px${C.reset}`)
+}
+
+// 3c. token-registry.ts 第三源校验(2026-09-09 扩展:注册表 defaultValue 与 tokens.css 漂移检测)
+const REGISTRY_PATH = join(ROOT, 'packages/design-tokens/src/token-registry.ts')
+if (existsSync(REGISTRY_PATH) && (cssWidth !== null || cssCollapsedWidth !== null)) {
+  const reg = readFileSync(REGISTRY_PATH, 'utf8')
+  const checkRegistry = (tokenName, cssValue, label) => {
+    if (cssValue === null) return
+    const re = new RegExp(
+      String.raw`\{\s*name:\s*'${tokenName}'[^}]*defaultValue:\s*'(\d+)px'`,
+    )
+    const m = reg.match(re)
+    if (!m) {
+      console.log(`${C.yellow}  ⚠️  token-registry.ts 中未找到 ${tokenName} 注册条目${C.reset}`)
+      return
+    }
+    const regValue = Number(m[1])
+    if (regValue !== cssValue) {
+      console.log(`${C.red}  ❌ 不一致!token-registry.ts ${tokenName} defaultValue: ${regValue}px ≠ tokens.css: ${cssValue}px${C.reset}`)
+      console.log(`${C.dim}     修复:重新构建 design-tokens 前先同步 token-registry.ts 的 defaultValue 为 ${cssValue}px${C.reset}`)
+      hasError = true
+    } else {
+      console.log(`${C.green}  ✅ 一致:token-registry.ts ${tokenName}: ${regValue}px === tokens.css ${label}: ${cssValue}px${C.reset}`)
+    }
+  }
+  checkRegistry('--sidebar-width', cssWidth, '--sidebar-width')
+  checkRegistry('--sidebar-collapsed-width', cssCollapsedWidth, '--sidebar-collapsed-width')
 }
 
 if (hasError) {

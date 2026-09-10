@@ -235,6 +235,8 @@ iframe#webpack-dev-server-client-overlay {
   --color-pinned-tag-bg: hsl(0 0% 88%);
   --color-streamed-container-bg: hsl(0 0% 92%);
   --color-streamed-container-bg-hover: hsl(0 0% 88%);
+  --duration-unified: 1000ms;
+  --ease-unified: cubic-bezier(0.65, 0, 0.35, 1);
   --color-vip-gold-start: #ffd700;
   --color-vip-gold-end: #ffaa00;
   --color-rank-gold: #ffd700;

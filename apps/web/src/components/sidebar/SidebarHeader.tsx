@@ -205,6 +205,11 @@ export function SidebarHeader({
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 桌面端 Tauri 窗口长按拖拽(鼠标专属交互,无法用键盘拖拽窗口);键盘用户通过内部折叠 Button + logo 点击提供等价交互
     <div
+      // data-sidebar-header-expanded:标记展开态 header,globals.css 平板区间(768-1023px)
+      // 用它在 hydration 前隐藏 80px 长 logo 并居中折叠按钮 —— SSR 输出展开态 HTML,
+      // 该区间 CSS 已强制 aside 60px,长 logo 会与折叠按钮重叠(2026-09-09 修复)。
+      // hydration 后 React 切到折叠态分支(方形 logo + 展开按钮),此标记不再存在。
+      data-sidebar-header-expanded
       className={cn(
         // header 高 44px(保持不变,新建任务按钮位置不动)。
         // pt-2 pb-0 + items-center:content-box = 44-8-0 = 36px(从 y=8 到 y=44),
