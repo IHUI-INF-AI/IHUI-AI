@@ -1,70 +1,29 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
+// 2026-09-09 0-6 组件拆分:file-explorer.tsx(596 行)拆为文件夹结构。
+// 主组件保留组合角色:SubTab 切换 + files 子面板(搜索/创建/重命名/删除流),
+// Outline/Timeline 子面板与右键菜单已抽为独立子组件。
 import * as React from 'react'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
-import { FileTreeNode } from './file-tree-node'
-import { getFileIcon, getFileColor } from './file-icons'
+import { FileTreeNode } from './FileTreeNode'
+import { OutlineTab } from './OutlineTab'
+import { TimelineTab } from './TimelineTab'
+import { FileContextMenu } from './FileContextMenu'
+import { getFileIcon, getFileColor } from '../file-icons'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { toast } from '@/components/common/Toaster'
 import { runCommand } from '@ihui/api-client'
-import {
-  Search,
-  FilePlus,
-  FolderPlus,
-  RefreshCw,
-  Pencil,
-  Trash2,
-  FunctionSquare,
-  Box,
-  Variable,
-  Type,
-  GitCommit,
-  FileEdit,
-  Save,
-  ChevronRight,
-} from 'lucide-react'
-import type { FileNode, TimelineEntry } from '@ihui/types'
-import {
-  flattenFiles,
-  getRenamedPath,
-  isPathInWorkspace,
-  parseOutline,
-  validateFileName,
-} from './file-explorer-model'
+import { Search, FilePlus, FolderPlus, RefreshCw } from 'lucide-react'
+import type { FileNode } from '@ihui/types'
+import { flattenFiles, getRenamedPath, isPathInWorkspace, validateFileName } from './model'
 
 type SubTab = 'files' | 'outline' | 'timeline'
 
-const OUTLINE_ICON: Record<string, typeof FunctionSquare> = {
-  function: FunctionSquare,
-  method: FunctionSquare,
-  class: Box,
-  variable: Variable,
-  interface: Type,
-  type: Type,
-}
-
-const TIMELINE_ICON: Record<string, typeof GitCommit> = {
-  edit: FileEdit,
-  save: Save,
-  commit: GitCommit,
-}
-
-const TIMELINE_COLOR: Record<string, string> = {
-  edit: 'text-blue-500',
-  save: 'text-green-500',
-  commit: 'text-purple-500',
-}
-
-/**
- * 从源码文本解析顶层符号,生成大纲节点。
- * 后端无按文件 outline / symbol 端点,采用本地正则解析(class/function/interface/type/const 声明)。
- * 保持轻量,仅生成顶层节点(现有 UI 的 children 渲染可选)。
- */
+/** 搜索结果文件名高亮匹配片段 */
 function highlightMatch(name: string, term: string) {
   if (!term) return name
   const idx = name.toLowerCase().indexOf(term.toLowerCase())
@@ -82,7 +41,6 @@ function highlightMatch(name: string, term: string) {
 
 export function FileExplorer() {
   const t = useTranslations('ide')
-  const locale = useLocale()
   const {
     fileTree,
     activeView,
@@ -110,6 +68,9 @@ export function FileExplorer() {
 
   const createInputRef = React.useRef<HTMLInputElement>(null)
   const renameInputRef = React.useRef<HTMLInputElement>(null)
+
+  // 大纲:当前活动编辑器文件内容(OutlineTab 内本地正则解析顶层符号)
+  const activeContent = openTabs.find((tab) => tab.id === activeTabId)?.content ?? ''
 
   // 右键菜单点击外部/Escape 关闭
   React.useEffect(() => {
@@ -142,72 +103,6 @@ export function FileExplorer() {
       })
     }
   }, [renamingNode])
-
-  const formatTime = (ts: number): string => {
-    const diff = Date.now() - ts
-    const m = Math.floor(diff / 60000)
-    if (m < 1) return t('fileExplorer.justNow')
-    if (m < 60) return t('fileExplorer.minutesAgo', { count: m })
-    const h = Math.floor(m / 60)
-    if (h < 24) return t('fileExplorer.hoursAgo', { count: h })
-    return new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit' }).format(ts)
-  }
-
-  // 大纲:解析当前活动编辑器文件内容生成顶层符号(后端无按文件 symbol 端点,本地正则解析)
-  const activeContent = openTabs.find((tab) => tab.id === activeTabId)?.content ?? ''
-  const outline = React.useMemo(() => parseOutline(activeContent), [activeContent])
-
-  // 时间线:git log 拉取最近提交,epoch 时间戳(毫秒)兼容 formatTime
-  const [timeline, setTimeline] = React.useState<TimelineEntry[]>([])
-  const [timelineLoading, setTimelineLoading] = React.useState(false)
-  const [timelineError, setTimelineError] = React.useState<string | null>(null)
-  React.useEffect(() => {
-    if (!workspacePath) {
-      setTimeline([])
-      return
-    }
-    let cancelled = false
-    setTimelineLoading(true)
-    setTimelineError(null)
-    runCommand({
-      command: 'git log -20 --pretty=format:%H%x00%an%x00%ct%x00%s',
-      workspacePath,
-    })
-      .then((result) => {
-        if (cancelled) return
-        if (!result.success || !result.data.stdout.trim()) {
-          setTimeline([])
-          return
-        }
-        setTimeline(
-          result.data.stdout
-            .trim()
-            .split('\n')
-            .filter(Boolean)
-            .map((lineLine) => {
-              const [id, author, ct, ...msgParts] = lineLine.split('\x00')
-              return {
-                id: id ?? '',
-                label: msgParts.join(' ') || '暂无提交信息',
-                type: 'commit' as const,
-                author: author || '',
-                timestamp: Number(ct) * 1000 || Date.now(),
-              }
-            }),
-        )
-      })
-      .catch(() => {
-        if (cancelled) return
-        setTimelineError('Git 历史加载失败')
-        setTimeline([])
-      })
-      .finally(() => {
-        if (!cancelled) setTimelineLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [workspacePath])
 
   if (activeView !== 'files') return null
 
@@ -522,104 +417,27 @@ export function FileExplorer() {
             fileTree.map((node) => <FileTreeNode key={node.id} node={node} depth={0} />)
           ))}
 
-        {subTab === 'outline' &&
-          (outline.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">
-              {t('fileExplorer.noMatch')}
-            </div>
-          ) : (
-            outline.map((item) => {
-              const OIcon = OUTLINE_ICON[item.type] ?? FunctionSquare
-              return (
-                <div key={item.id}>
-                  <div className="flex cursor-pointer items-center gap-1 rounded-sm pl-3 pr-2 py-0.5 text-xs hover:bg-muted/50">
-                    <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                    <OIcon className="h-3.5 w-3.5 shrink-0 text-blue-500" />
-                    <span className="truncate">{item.label}</span>
-                    <span className="ml-auto text-muted-foreground">{item.line}</span>
-                  </div>
-                  {item.children?.map((c) => {
-                    const CIcon = OUTLINE_ICON[c.type] ?? Variable
-                    return (
-                      <div
-                        key={c.id}
-                        className="flex cursor-pointer items-center gap-1 rounded-sm pl-7 pr-2 py-0.5 text-xs text-muted-foreground hover:bg-muted/50"
-                      >
-                        <CIcon className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{c.label}</span>
-                        <span className="ml-auto">{c.line}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            })
-          ))}
+        {subTab === 'outline' && <OutlineTab source={activeContent} />}
 
-        {subTab === 'timeline' &&
-          (timelineLoading ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">...</div>
-          ) : timelineError ? (
-            <div className="px-3 py-2 text-xs text-red-500">{timelineError}</div>
-          ) : timeline.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">
-              {t('fileExplorer.noMatch')}
-            </div>
-          ) : (
-            timeline.map((item) => {
-              const TIcon = TIMELINE_ICON[item.type] ?? FileEdit
-              return (
-                <div
-                  key={item.id}
-                  className="flex cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1 text-xs hover:bg-muted/50"
-                >
-                  <TIcon className={cn('h-3.5 w-3.5 shrink-0', TIMELINE_COLOR[item.type])} />
-                  <div className="flex flex-1 flex-col">
-                    <span className="truncate">{item.label}</span>
-                    <span className="text-muted-foreground">
-                      {item.author} · {formatTime(item.timestamp)}
-                    </span>
-                  </div>
-                </div>
-              )
-            })
-          ))}
+        {subTab === 'timeline' && <TimelineTab workspacePath={workspacePath} />}
       </div>
 
       {/* 右键菜单(重命名/删除) */}
       {menuPos && (
-        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 右键菜单弹窗;键盘用户通过 Escape + 菜单项 Enter 提供等价交互
-        <div
-          className="fixed z-50 min-w-32 rounded-md border border-border bg-popover p-1 text-xs shadow-md"
-          style={{ left: menuPos.x, top: menuPos.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex flex-col gap-1">
-            <button
-              onClick={() => {
-                setRenamingNode(menuPos.node)
-                setRenameValue(menuPos.node.name)
-                setMenuPos(null)
-              }}
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left hover:bg-muted"
-            >
-              <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span>{t('fileExplorer.rename')}</span>
-            </button>
-            <button
-              onClick={() => {
-                setDeletingNode(menuPos.node)
-                setMenuPos(null)
-              }}
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-red-500 hover:bg-muted"
-            >
-              <Trash2 className="h-3.5 w-3.5 shrink-0" />
-              <span>{t('fileExplorer.delete')}</span>
-            </button>
-          </div>
-        </div>
+        <FileContextMenu
+          x={menuPos.x}
+          y={menuPos.y}
+          onRename={() => {
+            setRenamingNode(menuPos.node)
+            setRenameValue(menuPos.node.name)
+            setMenuPos(null)
+          }}
+          onDelete={() => {
+            setDeletingNode(menuPos.node)
+            setMenuPos(null)
+          }}
+        />
       )}
     </div>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

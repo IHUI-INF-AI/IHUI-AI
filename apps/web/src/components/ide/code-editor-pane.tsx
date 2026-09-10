@@ -5,7 +5,7 @@
 'use client'
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { useIDEWorkspace } from '@/stores/ide-workspace'
+import { useIDEWorkspace, EXT_LANG } from '@/stores/ide-workspace'
 import { EditorEmptyState } from './editor-empty-state'
 import { EditorTabBar } from './editor-tab-bar'
 import { CodeEditor, type MonacoSelection } from '@/components/editor/CodeEditor'
@@ -56,7 +56,7 @@ interface MonacoEditorLike {
 }
 
 export function CodeEditorPane() {
-  const { openTabs, activeTabId } = useIDEWorkspace()
+  const { openTabs, activeTabId, workspacePath, openFile } = useIDEWorkspace()
   const t = useTranslations('ide')
   const activeTab = openTabs.find((tab) => tab.id === activeTabId)
   // tab 内容为空字符串表示正在异步加载
@@ -119,6 +119,33 @@ export function CodeEditorPane() {
       selectionRef.current = { selection, selectedText }
     },
     [],
+  )
+
+  /**
+   * LSP 跨文件 definition 跳转(0-4c):CodeEditor 检测到落点在其他文件时回调。
+   * 已打开的 tab 直接激活;未打开的按 path 构造 FileNode 走 openFile(异步加载内容)。
+   * 行/列揭示由 CodeEditor 的 pendingReveal 机制在内容加载完成后完成。
+   */
+  const handleOpenLocation = React.useCallback(
+    (loc: { file: string; line: number; column: number }) => {
+      const path = loc.file.replace(/\\/g, '/')
+      const state = useIDEWorkspace.getState()
+      const existing = state.openTabs.find((t) => t.path.replace(/\\/g, '/') === path)
+      if (existing) {
+        state.setActiveTab(existing.id)
+        return
+      }
+      const name = path.split('/').pop() ?? path
+      const ext = name.includes('.') ? name.split('.').pop()! : ''
+      openFile({
+        id: path,
+        name,
+        path,
+        type: 'file',
+        language: EXT_LANG[ext] ?? 'text',
+      })
+    },
+    [openFile],
   )
 
   // 切换 tab 时重置选区缓存 + 同步 tabIdRef
@@ -197,6 +224,9 @@ export function CodeEditorPane() {
               <CodeEditor
                 value={activeTab.content}
                 language={activeTab.language}
+                filePath={activeTab.path}
+                workspacePath={workspacePath}
+                onOpenLocation={handleOpenLocation}
                 fontSize={fontSize}
                 onChange={(v) => updateTabContent(activeTab.id, v)}
                 onSelectionChange={handleSelectionChange}

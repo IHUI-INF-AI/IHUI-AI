@@ -138,6 +138,52 @@
     "backToList": "一覧へ戻る",
     "loadingDetail": "ドキュメントを読み込み中…"
   },
+  "knowledgeCard": {
+    "title": "ナレッジカード",
+    "description": "リポジトリ単位のタスクナレッジカード:経験・事実・ベストプラクティス・落とし穴を記録",
+    "repoSection": "リポジトリ",
+    "repoNameLabel": "リポジトリ名",
+    "repoNamePlaceholder": "リポジトリ名を入力",
+    "load": "読み込む",
+    "create": "新規カード",
+    "createSection": "カードを作成",
+    "editSection": "カードを編集",
+    "kindLabel": "種類",
+    "kindExperience": "タスク経験",
+    "kindFact": "プロジェクト事実",
+    "kindPractices": "ベストプラクティス",
+    "kindPitfall": "落とし穴",
+    "sourceAgent": "Agent",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "カードのタイトルを入力",
+    "contentLabel": "内容",
+    "contentPlaceholder": "カードの内容を入力(Markdown 対応)",
+    "tagsLabel": "タグ",
+    "tagsPlaceholder": "カンマ区切り、最大 20 個",
+    "confidenceLabel": "信頼度",
+    "submit": "作成",
+    "update": "保存",
+    "cancelEdit": "キャンセル",
+    "needRepoName": "リポジトリ名を入力してください",
+    "needTitleContent": "タイトルと内容は必須です",
+    "listTitle": "カード一覧",
+    "searchLabel": "カードを検索",
+    "searchPlaceholder": "キーワードでタイトル/内容を検索",
+    "search": "検索",
+    "searchResults": "検索結果",
+    "searchEmpty": "一致するカードが見つかりません",
+    "clearSearch": "クリア",
+    "loadingList": "読み込み中…",
+    "emptyList": "カードがありません。先に作成してください",
+    "useCount": "使用 {count} 回",
+    "view": "表示",
+    "edit": "編集",
+    "markUsed": "使用済みにする",
+    "delete": "削除",
+    "deleteConfirm": "このカードを削除しますか?",
+    "backToList": "一覧へ戻る",
+    "loadingDetail": "カードを読み込み中…"
+  },
   "a11y": {
     "addAttachment": "添付ファイルを追加(画像/動画/ファイル)",
     "breadcrumb": "パンくずナビ",
@@ -6962,12 +7008,7 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": [
-        "優秀(クラス上位 10%)",
-        "良好(10-30%)",
-        "普通(30-70%)",
-        "やや劣る(下位 30%)"
-      ],
+      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -6984,12 +7025,7 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": [
-        "重点中学校",
-        "普通中学校",
-        "インターナショナルスクール",
-        "私立学校"
-      ]
+      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -8966,65 +9002,40 @@
     "commands": {
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": [
-          "AI",
-          "ワールド",
-          "アプリ"
-        ],
+        "keywords": ["AI", "ワールド", "アプリ"],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": [
-          "チャット",
-          "会話",
-          "AI",
-          "chat"
-        ],
+        "keywords": ["チャット", "会話", "AI", "chat"],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": [
-          "ドラマ",
-          "ビデオ",
-          "AI",
-          "drama"
-        ],
+        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": [
-          "プロフィール",
-          "ユーザー",
-          "設定"
-        ],
+        "keywords": ["プロフィール", "ユーザー", "設定"],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": [
-          "検索",
-          "search",
-          "search"
-        ],
+        "keywords": ["検索", "search", "search"],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": [
-          "設定",
-          "環境設定",
-          "構成"
-        ],
+        "keywords": ["設定", "環境設定", "構成"],
         "label": "設定"
       }
     },
     "keyboardHint": "↑↓ 選択 · Enter 実行",
     "noResults": "一致するコマンドが見つかりません",
     "resultCount": "{count} 件の結果",
-    "searchPlaceholder": "コマンドを検索..."
+    "searchPlaceholder": "コマンドを検索...",
+    "recentGroup": "最近使用"
   },
   "comments": {
     "adminReply": "管理者返信",
@@ -10848,37 +10859,25 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": [
-            "ナレッジQ&A",
-            "プロセス自動化"
-          ],
+          "examples": ["ナレッジQ&A", "プロセス自動化"],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": [
-            "データ分析",
-            "意思決定サポート"
-          ],
+          "examples": ["データ分析", "意思決定サポート"],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": [
-            "会議調整",
-            "承認プロセス"
-          ],
+          "examples": ["会議調整", "承認プロセス"],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": [
-            "マーケティング自動化",
-            "マルチエージェント連携"
-          ],
+          "examples": ["マーケティング自動化", "マルチエージェント連携"],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -11012,31 +11011,19 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": [
-            "体系化コース",
-            "実践探求",
-            "コミュニティ相互支援"
-          ],
+          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": [
-            "交流プラットフォーム",
-            "経験共有",
-            "リソースマッチング"
-          ],
+          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": [
-            "プロの大規模モデル",
-            "エージェントサービス",
-            "コンサルティングサービス"
-          ],
+          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -11866,7 +11853,8 @@
       "toggle": "切り替え",
       "variables": "変数",
       "watch": "ウォッチ",
-      "watchPlaceholder": "ウォッチ式を追加"
+      "watchPlaceholder": "ウォッチ式を追加",
+      "watchDuplicate": "この式は既にウォッチに追加されています"
     },
     "diffFileList": {
       "noMatch": "一致するファイルなし"
@@ -12102,7 +12090,6 @@
       "newSession": "新規セッション",
       "newSshSession": "新規 SSH セッション",
       "newTerminalAria": "新規ターミナル",
-      "newTerminalTitle": "新規ターミナル ({shell})",
       "noRecordingsHint": "録画はありません。録画ボタン(左側の Video アイコン)をクリックしてターミナル操作の録画を開始します。",
       "password": "パスワード",
       "play": "再生",
@@ -12163,7 +12150,33 @@
   "inlineEdit": {
     "closeAriaLabel": "エディタを閉じる",
     "editDescPlaceholder": "編集内容を入力…",
-    "stopAriaLabel": "編集を停止"
+    "stopAriaLabel": "編集を停止",
+    "turnBadge": "第 {n} ラウンド",
+    "followUpPlaceholder": "追加の調整を入力…",
+    "emptySelection": "(選択なし)",
+    "errorFallback": "生成に失敗しました。再試行してください",
+    "followUpHint": "引き続き調整を入力できます",
+    "reject": "破棄",
+    "accept": "適用",
+    "hintSubmit": "送信",
+    "hintCancel": "キャンセル"
+  },
+  "shortcutHelp": {
+    "title": "ショートカットヘルプ",
+    "closeHint": "Esc で閉じる",
+    "desc": {
+      "ctrlK": "コマンドパレット / インライン編集",
+      "ctrlP": "検索",
+      "ctrlShiftN": "新しい会話",
+      "ctrlSlash": "ショートカットヘルプ",
+      "ctrlShiftD": "短編エディタ",
+      "ctrlShiftP": "コマンドパレット(ビュー切替)",
+      "ctrlComma": "設定を開く",
+      "ctrl1": "ビルドモードへ切替",
+      "ctrl2": "プランモードへ切替",
+      "ctrl3": "レビューモードへ切替",
+      "ctrl4": "スペックモードへ切替"
+    }
   },
   "inquiry": {
     "errors": {
@@ -13332,7 +13345,15 @@
     "enableSuccess": "{name} を有効化しました",
     "disableSuccess": "{name} を停止しました",
     "actionFailed": "操作に失敗しました。後でもう一度お試しください",
-    "lastErrorText": "エラー: {error}"
+    "lastErrorText": "エラー: {error}",
+    "quality": "品質",
+    "riskTitle": "リスク",
+    "riskConfirmTitle": "リスク確認",
+    "riskConfirmDesc": "{name} のセキュリティスコアは {score}/100 です。リスクがありますが、インストールしますか?",
+    "riskGeneric": "潜在的なセキュリティリスクを検出しました",
+    "riskRecommendation": "推奨事項",
+    "riskCancel": "インストールをキャンセル",
+    "riskConfirmProceed": "それでもインストール"
   },
   "member": {
     "feedback": {
@@ -13532,15 +13553,7 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": [
-      "月",
-      "火",
-      "水",
-      "木",
-      "金",
-      "土",
-      "日"
-    ]
+    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
   },
   "models": {
     "aiNews": {
@@ -14869,6 +14882,7 @@
     "imChannels": "IMチャネル",
     "imageGen": "画像生成",
     "knowledgeBase": "ナレッジベース",
+    "knowledgeCards": "ナレッジカード",
     "knowledgeGraph": "ナレッジグラフ",
     "knowledgeRag": "RAGナレッジ",
     "language": "言語",
@@ -14939,6 +14953,7 @@
     "recruitment": "採用",
     "registry": "レジストリ",
     "relayParamOps": "パラメータオーバーライド",
+    "repoWiki": "Repo Wiki",
     "resources": "リソース",
     "restore": "元に戻す",
     "schedule": "スケジュール",
@@ -17963,7 +17978,6 @@
     "newSession": "新規セッション",
     "newSshSession": "新規SSHセッション",
     "newTerminalAria": "新規ターミナル",
-    "newTerminalTitle": "新規ターミナル",
     "noRecordingsHint": "録画がありません",
     "password": "パスワード",
     "play": "再生",

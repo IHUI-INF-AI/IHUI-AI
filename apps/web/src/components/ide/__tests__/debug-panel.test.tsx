@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌‌​​‌‍‍​‌​‌‌​‌​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​‌​‌​‍‍​‌​​​‌‌‌​‌‍‍‌‌​‌‌​‌​‌‍‍​‌​​‌​‌​‌​‍‍​‌​​‌‌​‌​‌‍‍​‌​‌​‌‌‌‍‍​‌​​‌​‌​‌‍‍​‌​‌​‌​‌​‍‍​‌​​​‌‌‌​‌‍‍​‌​‌‌​‌‌​‍‍​‌​​‌‌​​‌‍‍​‌​‌​​‌‌‌​‍‍​‌​​‌‌​‌​‍‍​‌​​​‌‌‌​‌‍‍​‌​​‌‌​‌​‍‍​‌‌​‌​‌​‌​‍‍​‌​‌‌​‌​‌‌‍‍​‌​‌​​‌​‌​‍‍​‌​‌​‌‌​‍‍​‌​​‌​‌​‌​‍‍​‌​​​‌‌​‌​‍‍​‌​​‌​‌​‌‌​‍‍​‌​​​‌‌​‍‍​‌​​‌​‌​‍‍​‌​‌​‌‌‌‍‍​‌​​‌‌​​​‍‍​‌​​‌‌​‌​‌‍‍​‌​​‌‌​‌​‍‍​‌​​‌​‌​‌​‍‍​‌​​‌‌​‌​‍‍​‌​‌​‌‌‌‍‍
 
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -27,23 +27,46 @@ vi.mock('@/stores/ide-workspace', () => ({
   useIDEWorkspace: () => mockStore.state,
 }))
 
-// @/lib/api/debug 全部 API mock
+// @/lib/api/debug 全部 API mock(含 store 懒加载用的 getScopes/getVariablesByReference)
 const debugApi = vi.hoisted(() => ({
   launchDebugSession: vi.fn(),
   setBreakpoints: vi.fn(),
   continueExecution: vi.fn(),
   stepExecution: vi.fn(),
   getStackTrace: vi.fn(),
-  getVariables: vi.fn(),
+  getScopes: vi.fn(),
+  getVariablesByReference: vi.fn(),
   evaluateExpression: vi.fn(),
   disconnectSession: vi.fn(),
 }))
 vi.mock('@/lib/api/debug', () => debugApi)
 
-// sonner toast:仅断言调用,不渲染真实 toast
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
+// toast:面板从 @/components/common 导入(Toaster.tsx 事件桥接实现),直接 mock 该模块
+const toastMock = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }))
+vi.mock('@/components/common', () => ({ toast: toastMock }))
 
 import { DebugPanel } from '../debug-panel'
+import { useDebugStore } from '@/stores/debug'
+
+/** 重置 zustand 单例 store(模块加载时已读 localStorage,测试中须显式重置) */
+function resetDebugStore() {
+  useDebugStore.setState({
+    debugState: 'stopped',
+    sessionId: null,
+    loading: false,
+    stackFrames: [],
+    currentFrameId: null,
+    scopes: [],
+    scopeExpanded: {},
+    variablesByRef: {},
+    expandedRefs: {},
+    loadingRefs: {},
+    watches: [],
+    watchValues: {},
+    consoleLogs: [],
+    breakpoints: [],
+  })
+}
 
 describe('DebugPanel', () => {
   beforeEach(() => {
@@ -54,14 +77,10 @@ describe('DebugPanel', () => {
       activeTabId: null,
       workspacePath: '/test/ws',
     }
-    debugApi.launchDebugSession.mockReset()
-    debugApi.setBreakpoints.mockReset()
-    debugApi.continueExecution.mockReset()
-    debugApi.stepExecution.mockReset()
-    debugApi.getStackTrace.mockReset()
-    debugApi.getVariables.mockReset()
-    debugApi.evaluateExpression.mockReset()
-    debugApi.disconnectSession.mockReset()
+    resetDebugStore()
+    Object.values(debugApi).forEach((fn) => fn.mockReset())
+    // 默认无 scope;各用例按需覆写
+    debugApi.getScopes.mockResolvedValue({ scopes: [] })
   })
   afterEach(() => cleanup())
 
@@ -126,11 +145,10 @@ describe('DebugPanel', () => {
   })
 
   it('断点 toggle:点击切换启用/禁用,计数器从 1/1 变 0/1', async () => {
-    // 通过 localStorage 种入 1 个启用断点(组件 useState 初始化时读取)
-    localStorage.setItem(
-      'ide:breakpoints',
-      JSON.stringify([{ id: 'bp-1', file: 'src/app.ts', line: 10, enabled: true }]),
-    )
+    // store 为单例,直接注入断点(store 在模块加载时读 localStorage,测试内 setItem 不会生效)
+    useDebugStore.setState({
+      breakpoints: [{ id: 'bp-1', file: 'src/app.ts', line: 10, enabled: true }],
+    })
     debugApi.launchDebugSession.mockResolvedValue({ sessionId: 'sid-1' })
     debugApi.continueExecution.mockResolvedValue({ stopped: null })
     debugApi.setBreakpoints.mockResolvedValue({ breakpoints: [] })
@@ -145,6 +163,20 @@ describe('DebugPanel', () => {
     expect(getByText('0/1')).not.toBeNull()
   })
 
+  it('断点 toggle 持久化写入 ide:breakpoints localStorage', async () => {
+    useDebugStore.setState({
+      breakpoints: [{ id: 'bp-1', file: 'src/app.ts', line: 10, enabled: true }],
+    })
+    debugApi.launchDebugSession.mockResolvedValue({ sessionId: 'sid-1' })
+    debugApi.continueExecution.mockResolvedValue({ stopped: null })
+    const { getByRole, getByText } = render(<DebugPanel />)
+    fireEvent.click(getByRole('button', { name: 'debug.start' }))
+    await waitFor(() => expect(getByText('debug.breakpoints')).not.toBeNull())
+    fireEvent.click(getByRole('button', { name: 'debug.toggle' }))
+    const saved = JSON.parse(localStorage.getItem('ide:breakpoints') ?? '[]')
+    expect(saved).toEqual([{ id: 'bp-1', file: 'src/app.ts', line: 10, enabled: false }])
+  })
+
   it('Watch:输入回车添加 + 点击 X 删除', async () => {
     debugApi.launchDebugSession.mockResolvedValue({ sessionId: 'sid-1' })
     debugApi.continueExecution.mockResolvedValue({ stopped: null })
@@ -157,9 +189,76 @@ describe('DebugPanel', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     // watch 已添加,显示表达式名 + 求值结果
     expect(getByText('myVar')).not.toBeNull()
+    await waitFor(() => expect(getByText('42')).not.toBeNull())
     // 删除 watch(无断点时仅一个 aria-label=debug.delete 按钮)
     fireEvent.click(getByRole('button', { name: 'debug.delete' }))
     await waitFor(() => expect(queryByText('myVar')).toBeNull())
+  })
+
+  it('Watch 去重:重复添加同一表达式弹 toast.error 且不重复渲染', async () => {
+    debugApi.launchDebugSession.mockResolvedValue({ sessionId: 'sid-1' })
+    debugApi.continueExecution.mockResolvedValue({ stopped: null })
+    debugApi.evaluateExpression.mockResolvedValue({ result: '—' })
+    const { getByRole, getByPlaceholderText, getByText, getAllByText } = render(<DebugPanel />)
+    fireEvent.click(getByRole('button', { name: 'debug.start' }))
+    await waitFor(() => expect(getByText('debug.watch')).not.toBeNull())
+    const input = getByPlaceholderText('debug.watchPlaceholder')
+    fireEvent.change(input, { target: { value: 'dup' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(getByText('dup')).not.toBeNull()
+    // 再次输入同一表达式
+    fireEvent.change(input, { target: { value: 'dup' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('debug.watchDuplicate'))
+    // 仍只有一条
+    expect(getAllByText('dup')).toHaveLength(1)
+  })
+
+  it('暂停后按 Scopes 分组渲染变量:Locals 展开(expensive 组不拉取),子树懒加载', async () => {
+    debugApi.launchDebugSession.mockResolvedValue({ sessionId: 'sid-1' })
+    debugApi.continueExecution.mockResolvedValue({
+      stopped: { reason: 'breakpoint', threadId: 1 },
+    })
+    debugApi.getStackTrace.mockResolvedValue({
+      stackFrames: [{ id: 7, name: 'main', line: 10, column: 1, source: { name: 'app.ts' } }],
+    })
+    debugApi.getScopes.mockResolvedValue({
+      scopes: [
+        { name: 'Locals', variablesReference: 1000, expensive: false },
+        { name: 'Globals', variablesReference: 2000, expensive: true },
+      ],
+    })
+    debugApi.getVariablesByReference.mockImplementation(async (_sid: string, ref: number) =>
+      ref === 1000
+        ? {
+            variables: [
+              { name: 'x', value: '1', type: 'number', variablesReference: 0 },
+              { name: 'obj', value: '{…}', type: 'object', variablesReference: 3000 },
+            ],
+          }
+        : ref === 3000
+          ? {
+              variables: [{ name: 'y', value: '2', type: 'number', variablesReference: 0 }],
+            }
+          : { variables: [] },
+    )
+    const { getByRole, getByText, getByTestId, queryByTestId } = render(<DebugPanel />)
+    fireEvent.click(getByRole('button', { name: 'debug.start' }))
+    // paused + 调用栈 + Locals 顶层变量渲染
+    await waitFor(() => expect(getByText('debug.statePaused')).not.toBeNull())
+    await waitFor(() => expect(getByTestId('debug-scope-Locals')).not.toBeNull())
+    await waitFor(() => expect(getByTestId('debug-variable-x')).not.toBeNull())
+    expect(getByTestId('debug-variable-obj')).not.toBeNull()
+    // expensive 组(Globals)不主动拉取:其变量不应出现
+    expect(queryByTestId('debug-variable-g')).toBeNull()
+    expect(debugApi.getVariablesByReference).not.toHaveBeenCalledWith('sid-1', 2000)
+    // 子树懒加载:展开 obj 前未请求 3000
+    expect(debugApi.getVariablesByReference).not.toHaveBeenCalledWith('sid-1', 3000)
+    fireEvent.click(
+      getByTestId('debug-variable-obj').querySelector('button[aria-label="expand obj"]')!,
+    )
+    await waitFor(() => expect(getByTestId('debug-variable-y')).not.toBeNull())
+    expect(debugApi.getVariablesByReference).toHaveBeenCalledWith('sid-1', 3000)
   })
 
   it('loading 状态:Play 期间按钮 disabled 且显示 spinner', async () => {
@@ -187,8 +286,8 @@ describe('DebugPanel', () => {
     fireEvent.click(getByRole('button', { name: 'debug.start' }))
     // 失败后仍停留在 stopped(无会话提示仍在)
     await waitFor(() => expect(getByText('debug.noSession')).not.toBeNull())
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('debug.launchFailed'))
     // variables/watch/breakpoints/callStack 标题均不出现
     expect(() => getByText('debug.variables')).toThrow()
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
