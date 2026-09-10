@@ -200,7 +200,7 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply
         .status(500)
-        .send(error(500, `获取 token 失败: ${e instanceof Error ? e.message : String(e)}`))
+        .send(error(500, "获取 token 失败,请稍后重试"))
     }
   })
 
@@ -252,7 +252,7 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply
         .status(500)
-        .send(error(500, `刷新 token 失败: ${e instanceof Error ? e.message : String(e)}`))
+        .send(error(500, "刷新 token 失败,请稍后重试"))
     }
   })
 
@@ -282,7 +282,7 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
       return reply
         .status(500)
         .send(
-          error(500, `获取 JWT access_token 失败: ${e instanceof Error ? e.message : String(e)}`),
+          error(500, "获取访问凭证失败,请稍后重试"),
         )
     }
   })
