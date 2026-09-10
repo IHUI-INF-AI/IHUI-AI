@@ -176,6 +176,9 @@ export class HunkTracker {
     for (let i = list.length - 1; i >= 0; i--) {
       const h = list[i]!;
       if (h.source !== 'agent' || h.agentId !== agentId) continue;
+      // cooldownMs<=0 = 显式禁用合并(hunk-tracker-integration 约定):任何间隔
+      // 都不并入,否则同毫秒连续写入(elapsed=0 不大于 0)会被误合并为一条
+      if (this.options.cooldownMs <= 0) return false;
       if (now - h.timestamp > this.options.cooldownMs) continue;
       if (!this.rangesOverlap(startLine, endLine, h.startLine, h.endLine) &&
           !this.adjacent(startLine, endLine, h.startLine, h.endLine)) continue;
