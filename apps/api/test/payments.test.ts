@@ -203,6 +203,11 @@ describe('payment gateway routes', () => {
       complete: vi.fn().mockResolvedValue(undefined),
       fail: vi.fn().mockResolvedValue(undefined),
     })
+    // 风控引擎 decorate(2026-09-06 P0:下单/退款/提现入口接入 server.riskEngine;
+    // 2026-09-10 CI:缺此 decorate → undefined.evaluateRisk → 500 而非 200)
+    app.decorate('riskEngine', {
+      evaluateRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: [], score: 0 }),
+    })
     await app.register(paymentGatewayRoutes, { prefix: '/api' })
     await app.register(adminPaymentGatewayRoutes, { prefix: '/api/admin' })
     await app.ready()
@@ -519,9 +524,11 @@ describe('payment gateway routes', () => {
       )
       mockWxRefund.mockResolvedValueOnce(undefined)
       mockRefundOrder.mockResolvedValueOnce({ success: true })
+      // 2026-09-06 部分退语义:仅全额退款才置 refunded 并调 refundOrder;
+      // 订单 amount=10000 分,用全额 10000 触发 fullRefund 分支
       const res = await app.inject({
         method: 'POST',
-        url: '/api/payments/wechat/refund?outTradeNo=EDU001&refundAmount=100',
+        url: '/api/payments/wechat/refund?outTradeNo=EDU001&refundAmount=10000',
         headers: { authorization: 'Bearer t' },
       })
       expect(res.statusCode).toBe(200)
