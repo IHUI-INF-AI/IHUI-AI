@@ -29,11 +29,6 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/tsconfig/package.json ./packages/tsconfig/
 COPY packages/types/package.json ./packages/types/
 COPY packages/ui-react/package.json ./packages/ui-react/
-# web prebuild 链会构建 @ihui/extension(wxt)并同步下载产物,闭包缺其 package.json
-# → 容器内 wxt 二进制不存在,wxt build 即挂(2026-09-10)
-COPY apps/extension/package.json ./apps/extension/
-COPY packages/browser-platform/package.json ./packages/browser-platform/
-COPY packages/dom-actions/package.json ./packages/dom-actions/
 # apps/web 的 postinstall(node scripts/copy-monaco-to-public.mjs)在 deps 阶段即执行,
 # 只装 package.json 缺该脚本必挂 Cannot find module(2026-09-10)
 COPY apps/web/scripts ./apps/web/scripts/
@@ -46,6 +41,10 @@ WORKDIR /app
 # .dockerignore 已排除本地 node_modules,后续 COPY . . 不会覆盖
 COPY --from=deps /app/ ./
 COPY . .
+# web prebuild 链会构建 @ihui/extension(wxt)并同步下载产物。extension 依赖不在 deps
+# 闭包内(postinstall wxt prepare 需完整源码,deps 阶段只有 package.json 会挂),
+# 待 builder 阶段源码就位后再补装其依赖(2026-09-10)
+RUN pnpm install --no-frozen-lockfile --filter @ihui/extension...
 ENV NEXT_TELEMETRY_DISABLED=1
 # 构建期固化 rewrites 代理地址为 Docker 内网地址(next.config.ts rewrites 在 build 时求值)
 ENV API_URL=http://api:8802
