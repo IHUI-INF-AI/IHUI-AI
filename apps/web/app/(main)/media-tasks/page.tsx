@@ -7,7 +7,24 @@
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { Loader2, RefreshCw, Clapperboard, XCircle, PlayCircle, ImageIcon, Mic, Film, Music, Download, ChevronLeft, ChevronRight, Trash2, Eraser, Ban, BarChart3 } from 'lucide-react'
+import {
+  Loader2,
+  RefreshCw,
+  Clapperboard,
+  XCircle,
+  PlayCircle,
+  ImageIcon,
+  Mic,
+  Film,
+  Music,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+  Eraser,
+  Ban,
+  BarChart3,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
@@ -36,7 +53,10 @@ interface MediaTask {
 }
 
 interface MediaTaskStats {
-  by_kind: Record<string, { total: number; succeeded: number; failed: number; cancelled: number; inflight: number }>
+  by_kind: Record<
+    string,
+    { total: number; succeeded: number; failed: number; cancelled: number; inflight: number }
+  >
   total: number
   inflight: number
   succeeded: number
@@ -90,7 +110,12 @@ function MediaTaskStatusBadge({ status, t }: { status: string; t: (key: string) 
   const labelKey = STATUS_LABEL_KEY[status]
   const label = labelKey ? t(labelKey) : status
   return (
-    <span className={cn('inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium', STATUS_CLASS[status] ?? 'bg-muted text-muted-foreground')}>
+    <span
+      className={cn(
+        'inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+        STATUS_CLASS[status] ?? 'bg-muted text-muted-foreground',
+      )}
+    >
       {label}
     </span>
   )
@@ -101,7 +126,12 @@ function MediaKindBadge({ kind, t }: { kind: string; t: (key: string) => string 
   const label = t(labelKey) === labelKey ? kind : t(labelKey)
   const Icon = KIND_ICONS[kind] ?? PlayCircle
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium', KIND_CLASS[kind] ?? 'bg-muted text-muted-foreground')}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+        KIND_CLASS[kind] ?? 'bg-muted text-muted-foreground',
+      )}
+    >
       <Icon className="h-3 w-3" />
       {label}
     </span>
@@ -112,7 +142,12 @@ function MediaResultPreview({ task }: { task: MediaTask }) {
   const urls = task.result ?? {}
   if (urls.video_url) {
     return (
-      <video controls src={urls.video_url} preload="metadata" className="w-full max-w-md rounded-md border border-border">
+      <video
+        controls
+        src={urls.video_url}
+        preload="metadata"
+        className="w-full max-w-md rounded-md border border-border"
+      >
         <track kind="captions" />
       </video>
     )
@@ -126,7 +161,13 @@ function MediaResultPreview({ task }: { task: MediaTask }) {
   }
   if (urls.image_url) {
     // eslint-disable-next-line @next/next/no-img-element -- 动态远程图片降级用 img
-    return <img src={urls.image_url} alt={task.message || 'media'} className="w-full max-w-md rounded-md border border-border" />
+    return (
+      <img
+        src={urls.image_url}
+        alt={task.message || 'media'}
+        className="w-full max-w-md rounded-md border border-border"
+      />
+    )
   }
   return null
 }
@@ -204,10 +245,7 @@ export default function MediaTasksPage() {
     setDeleting(taskId)
     setError(null)
     try {
-      await api<{ ok: boolean }>(
-        `/media/tasks/${encodeURIComponent(taskId)}`,
-        { method: 'DELETE' },
-      )
+      await api<{ ok: boolean }>(`/media/tasks/${encodeURIComponent(taskId)}`, { method: 'DELETE' })
       await queryClient.invalidateQueries({ queryKey: ['media-tasks'] })
       await queryClient.invalidateQueries({ queryKey: ['media-tasks-stats'] })
     } catch (e) {
@@ -227,7 +265,9 @@ export default function MediaTasksPage() {
         `/media/tasks?status=succeeded,failed,cancelled`,
         { method: 'DELETE' },
       )
-      setClearInfo(t('clearResult', { deleted: res.data?.deleted ?? 0, kept: res.data?.kept_in_flight ?? 0 }))
+      setClearInfo(
+        t('clearResult', { deleted: res.data?.deleted ?? 0, kept: res.data?.kept_in_flight ?? 0 }),
+      )
       await queryClient.invalidateQueries({ queryKey: ['media-tasks'] })
       await queryClient.invalidateQueries({ queryKey: ['media-tasks-stats'] })
     } catch (e) {
@@ -244,10 +284,18 @@ export default function MediaTasksPage() {
     setError(null)
     setClearInfo(null)
     try {
-      const res = await api<{ ok: boolean; data?: { requested?: number; cancelled?: number; remote_failed?: { task_id: string; error: string }[] } }>(
-        '/media/tasks/cancel',
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' },
-      )
+      const res = await api<{
+        ok: boolean
+        data?: {
+          requested?: number
+          cancelled?: number
+          remote_failed?: { task_id: string; error: string }[]
+        }
+      }>('/media/tasks/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
       const n = res.data?.cancelled ?? 0
       // 2026-09-09 第五轮:F8 承诺 remote_failed 透出给用户(此前被静默丢弃)
       const remoteFailed = res.data?.remote_failed ?? []
@@ -334,7 +382,12 @@ export default function MediaTasksPage() {
             }}
             disabled={listQuery.isFetching || statsQuery.isFetching}
           >
-            <RefreshCw className={cn('mr-1 h-4 w-4', (listQuery.isFetching || statsQuery.isFetching) && 'animate-spin')} />
+            <RefreshCw
+              className={cn(
+                'mr-1 h-4 w-4',
+                (listQuery.isFetching || statsQuery.isFetching) && 'animate-spin',
+              )}
+            />
             {t('refresh')}
           </Button>
         </div>
@@ -344,11 +397,41 @@ export default function MediaTasksPage() {
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {(
           [
-            { key: 'total', label: t('statsTotal'), value: stats?.total ?? 0, cls: 'text-foreground', filter: '' },
-            { key: 'inflight', label: t('statsInflight'), value: inflightCount, cls: 'text-blue-600 dark:text-blue-400', filter: STATUS_IN_FLIGHT.join(',') },
-            { key: 'succeeded', label: t('statsSucceeded'), value: stats?.succeeded ?? 0, cls: 'text-green-600 dark:text-green-400', filter: 'succeeded' },
-            { key: 'failed', label: t('statsFailed'), value: stats?.failed ?? 0, cls: 'text-red-600 dark:text-red-400', filter: 'failed' },
-            { key: 'cancelled', label: t('statsCancelled'), value: stats?.cancelled ?? 0, cls: 'text-muted-foreground', filter: 'cancelled' },
+            {
+              key: 'total',
+              label: t('statsTotal'),
+              value: stats?.total ?? 0,
+              cls: 'text-foreground',
+              filter: '',
+            },
+            {
+              key: 'inflight',
+              label: t('statsInflight'),
+              value: inflightCount,
+              cls: 'text-blue-600 dark:text-blue-400',
+              filter: STATUS_IN_FLIGHT.join(','),
+            },
+            {
+              key: 'succeeded',
+              label: t('statsSucceeded'),
+              value: stats?.succeeded ?? 0,
+              cls: 'text-green-600 dark:text-green-400',
+              filter: 'succeeded',
+            },
+            {
+              key: 'failed',
+              label: t('statsFailed'),
+              value: stats?.failed ?? 0,
+              cls: 'text-red-600 dark:text-red-400',
+              filter: 'failed',
+            },
+            {
+              key: 'cancelled',
+              label: t('statsCancelled'),
+              value: stats?.cancelled ?? 0,
+              cls: 'text-muted-foreground',
+              filter: 'cancelled',
+            },
           ] as const
         ).map((c) => (
           <button
@@ -478,7 +561,9 @@ export default function MediaTasksPage() {
                     <MediaKindBadge kind={task.kind} t={t} />
                     <MediaTaskStatusBadge status={task.status} t={t} />
                     <span className="font-mono text-[11px] text-muted-foreground">{task.tool}</span>
-                    <span className="text-[11px] text-muted-foreground/60">{fmt(task.created_at)}</span>
+                    <span className="text-[11px] text-muted-foreground/60">
+                      {fmt(task.created_at)}
+                    </span>
                     <div className="ml-auto flex items-center gap-1.5">
                       {hasResult && (
                         <>
@@ -535,7 +620,9 @@ export default function MediaTasksPage() {
                     </div>
                   </div>
                   {task.message && (
-                    <p className="line-clamp-2 break-words text-xs text-muted-foreground">{task.message}</p>
+                    <p className="line-clamp-2 break-words text-xs text-muted-foreground">
+                      {task.message}
+                    </p>
                   )}
                   {task.task_id && (
                     <code className="block truncate rounded-sm bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">

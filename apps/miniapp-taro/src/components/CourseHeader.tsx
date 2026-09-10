@@ -72,12 +72,7 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
             )}
             {data.rating !== undefined && (
               <>
-                <LineIcon
-                  name="star"
-                  size="14px"
-                  color="var(--color-warning)"
-                  className="mr-1"
-                />
+                <LineIcon name="star" size="14px" color="var(--color-warning)" className="mr-1" />
                 <Text className="text-xs text-warning">{data.rating.toFixed(1)}</Text>
               </>
             )}

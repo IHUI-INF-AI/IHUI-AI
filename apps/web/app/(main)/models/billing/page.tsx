@@ -218,7 +218,8 @@ export default async function BillingPage() {
                       </li>
                     ))}
                   </ul>
-                  <Button size="sm"
+                  <Button
+                    size="sm"
                     className="mt-4 w-full text-xs px-4"
                     variant={p.highlighted ? 'default' : 'outline'}
                   >

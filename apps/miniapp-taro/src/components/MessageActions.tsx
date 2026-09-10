@@ -27,7 +27,8 @@ export default function MessageActions({
       <View
         className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-muted"
         onClick={() => setExpanded(!expanded)}
-        hoverClass="opacity-60">
+        hoverClass="opacity-60"
+      >
         <Text className="text-muted-foreground text-sm">⋯</Text>
       </View>
 
@@ -39,7 +40,8 @@ export default function MessageActions({
               onMarkRead?.()
               setExpanded(false)
             }}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-sm text-foreground">{tt('message.markRead', '标记已读')}</Text>
           </View>
           <View
@@ -48,7 +50,8 @@ export default function MessageActions({
               onPin?.()
               setExpanded(false)
             }}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-sm text-foreground">
               {pinned ? tt('message.unpin', '取消置顶') : tt('message.pin', '置顶会话')}
             </Text>
@@ -59,7 +62,8 @@ export default function MessageActions({
               onDelete?.()
               setExpanded(false)
             }}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-sm text-destructive">{tt('message.deleteConv', '删除会话')}</Text>
           </View>
         </View>

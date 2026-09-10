@@ -7,7 +7,16 @@
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { Loader2, RefreshCw, Mic, Upload, Trash2, PlayCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  Loader2,
+  RefreshCw,
+  Mic,
+  Upload,
+  Trash2,
+  PlayCircle,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
@@ -40,7 +49,16 @@ interface VoiceDetail {
 
 // 2026-09-09 收尾修复:成功/失败终态集合与后端 provider 对齐
 // (_TASK_OK_STATES/_TASK_FAIL_STATES, token6688_provider.py)。
-const STATUS_READY = new Set(['succeeded', 'success', 'completed', 'complete', 'done', 'ok', 'ready', 'active'])
+const STATUS_READY = new Set([
+  'succeeded',
+  'success',
+  'completed',
+  'complete',
+  'done',
+  'ok',
+  'ready',
+  'active',
+])
 const STATUS_FAILED = new Set(['failed', 'fail', 'error', 'cancelled', 'canceled'])
 
 function voiceId(v: VoiceItem): string {
@@ -268,11 +286,19 @@ export default function VoicesPage() {
                       )}
                     >
                       {/* 2026-09-09 收尾修复:失败态不再误标"处理中"(三态徽章) */}
-                      {ready ? t('statusReady') : failed ? t('statusFailed') : t('statusProcessing')}
+                      {ready
+                        ? t('statusReady')
+                        : failed
+                          ? t('statusFailed')
+                          : t('statusProcessing')}
                     </span>
-                    <span className="text-[11px] text-muted-foreground/60">{fmt(v.created_at)}</span>
+                    <span className="text-[11px] text-muted-foreground/60">
+                      {fmt(v.created_at)}
+                    </span>
                     {v.model ? (
-                      <span className="font-mono text-[11px] text-muted-foreground/70">{String(v.model)}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground/70">
+                        {String(v.model)}
+                      </span>
                     ) : null}
                     <div className="ml-auto flex items-center gap-1.5">
                       {url && (
@@ -294,7 +320,11 @@ export default function VoicesPage() {
                         onClick={() => toggleExpand(id)}
                         aria-label={t('voiceId')}
                       >
-                        {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                        {isExpanded ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
                         {id}
                       </Button>
                       {id && isAdmin && (
@@ -317,7 +347,13 @@ export default function VoicesPage() {
                     </div>
                   </div>
                   {playing === id && url && (
-                    <audio controls src={url} preload="metadata" className="w-full max-w-md" autoPlay>
+                    <audio
+                      controls
+                      src={url}
+                      preload="metadata"
+                      className="w-full max-w-md"
+                      autoPlay
+                    >
                       <track kind="captions" />
                     </audio>
                   )}

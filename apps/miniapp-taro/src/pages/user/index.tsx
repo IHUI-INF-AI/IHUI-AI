@@ -984,7 +984,11 @@ export default function UserIndex() {
         {!isshow ? (
           <View className="membership-benefits-container mx-[20rpx] mt-[16rpx] mb-0">
             {/* 折叠头:点击展开/收起(对齐 RN membershipHeaderText + membershipArrow) */}
-            <View className="membership-benefits-header" hoverClass="opacity-60" onClick={toggleBenefits}>
+            <View
+              className="membership-benefits-header"
+              hoverClass="opacity-60"
+              onClick={toggleBenefits}
+            >
               <Text className="membership-benefits-title">
                 {tf('user.membershipBenefits', '会员权益')}
               </Text>
@@ -1155,11 +1159,11 @@ export default function UserIndex() {
                         <View className="absolute inset-0 flex items-center justify-center">
                           <View className="w-[120rpx] h-[120rpx] rounded-full bg-[var(--color-black-50)] flex items-center justify-center">
                             <LineIcon
-                                name="play"
-                                size={60}
-                                color="var(--color-white-98)"
-                                className="w-[60rpx] h-[60rpx]"
-                              />
+                              name="play"
+                              size={60}
+                              color="var(--color-white-98)"
+                              className="w-[60rpx] h-[60rpx]"
+                            />
                           </View>
                         </View>
                       </View>
@@ -1204,11 +1208,11 @@ export default function UserIndex() {
                           onClick={() => toggleAudioPlay(index, item.audioUrl)}
                         >
                           <LineIcon
-                                name={audioPlayStates[index] ? 'pause' : 'play'}
-                                size={32}
-                                color="var(--color-primary-foreground)"
-                                className="w-[32rpx] h-[32rpx]"
-                              />
+                            name={audioPlayStates[index] ? 'pause' : 'play'}
+                            size={32}
+                            color="var(--color-primary-foreground)"
+                            className="w-[32rpx] h-[32rpx]"
+                          />
                         </View>
                         {/* 进度条 */}
                         <View className="flex-1" style={{ minWidth: 0 }}>
@@ -1348,7 +1352,11 @@ export default function UserIndex() {
         {/* ===== 分享弹窗 ===== */}
         {showSharePopup ? (
           <View className="share-popup-mask" onClick={closeSharePopup}>
-            <View className="share-popup-content" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
+            <View
+              className="share-popup-content"
+              onClick={(e) => e.stopPropagation()}
+              hoverClass="opacity-60"
+            >
               {/* 关闭按钮(对齐 RN sharePopupCloseText) */}
               <View className="share-popup-close" hoverClass="opacity-60" onClick={closeSharePopup}>
                 <Text className="share-popup-close-text">×</Text>

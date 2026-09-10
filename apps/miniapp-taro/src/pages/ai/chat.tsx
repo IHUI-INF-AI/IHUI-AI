@@ -744,7 +744,11 @@ export default function ChatPage() {
       <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
         {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
         {agent ? (
-          <View className="tishi-block" onClick={() => setTishiShow((v) => !v)} hoverClass="opacity-60">
+          <View
+            className="tishi-block"
+            onClick={() => setTishiShow((v) => !v)}
+            hoverClass="opacity-60"
+          >
             {tishiShow ? (
               <LineIcon
                 name="x"
@@ -803,7 +807,12 @@ export default function ChatPage() {
             ) : null}
             <View className="suggest-list">
               {suggestions.map((s, i) => (
-                <View key={i} className="suggest-item" onClick={() => handleSuggestion(s)} hoverClass="opacity-60">
+                <View
+                  key={i}
+                  className="suggest-item"
+                  onClick={() => handleSuggestion(s)}
+                  hoverClass="opacity-60"
+                >
                   <Text>{s}</Text>
                 </View>
               ))}
@@ -1034,7 +1043,8 @@ export default function ChatPage() {
             justifyContent: 'center',
           }}
           onClick={() => setReasoningPopupVisible(false)}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <View
             style={{
               width: 'calc(100% - 80rpx)',
@@ -1045,7 +1055,8 @@ export default function ChatPage() {
               overflow: 'auto',
             }}
             onClick={(e) => e.stopPropagation()}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <View
               style={{
                 display: 'flex',

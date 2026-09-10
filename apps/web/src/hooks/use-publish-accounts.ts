@@ -72,7 +72,9 @@ export function usePublishAccounts() {
     abortControllerRef.current = controller
     setLoading(true)
     try {
-      const data = await api<ListResponse>('/api/publish/accounts/me', { signal: controller.signal })
+      const data = await api<ListResponse>('/api/publish/accounts/me', {
+        signal: controller.signal,
+      })
       const list = Array.isArray(data) ? data : (data.items ?? data.list ?? [])
       setAccounts(list)
     } catch (e) {

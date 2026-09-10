@@ -111,13 +111,20 @@ export default function StudyIndex() {
         {/* 学习记录入口(RN 无对应区,保留业务;卡片视觉统一为 RN card 语言:圆角 24rpx + 边框) */}
         <View className="mb-[24rpx] bg-card rounded-[24rpx] border border-border p-[16rpx] flex flex-col gap-[8rpx]">
           {entries.map((e) => (
-            <View key={e.url} className="flex items-center p-[24rpx]" hoverClass="opacity-60" onClick={() => navigate(e.url)}>
+            <View
+              key={e.url}
+              className="flex items-center p-[24rpx]"
+              hoverClass="opacity-60"
+              onClick={() => navigate(e.url)}
+            >
               {isImagePath(e.icon) ? (
                 <Image src={e.icon} className="w-[40rpx] h-[40rpx]" mode="aspectFit" />
               ) : (
                 <Text>{e.icon}</Text>
               )}
-              <Text className="flex-1 ml-[24rpx] text-[28rpx] text-foreground">{t(e.labelKey)}</Text>
+              <Text className="flex-1 ml-[24rpx] text-[28rpx] text-foreground">
+                {t(e.labelKey)}
+              </Text>
               <Text className="text-muted-foreground">›</Text>
             </View>
           ))}

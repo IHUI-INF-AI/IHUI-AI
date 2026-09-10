@@ -74,7 +74,11 @@ export const userExtraRoutes: FastifyPluginAsync = async (server) => {
       }
     }
     return reply.send(
-      success({ referrerName, referrerCode, code: user.inviteCode ?? userId.slice(0, 8).toLowerCase() }),
+      success({
+        referrerName,
+        referrerCode,
+        code: user.inviteCode ?? userId.slice(0, 8).toLowerCase(),
+      }),
     )
   })
 

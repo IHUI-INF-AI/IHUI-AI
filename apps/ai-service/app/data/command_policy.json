@@ -64,12 +64,5 @@
     "type",
     "getopt"
   ],
-  "sensitive_file_markers": [
-    ".env",
-    ".pem",
-    ".key",
-    "credentials",
-    "secret",
-    "token"
-  ]
+  "sensitive_file_markers": [".env", ".pem", ".key", "credentials", "secret", "token"]
 }

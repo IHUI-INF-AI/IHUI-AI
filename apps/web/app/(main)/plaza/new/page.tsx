@@ -126,8 +126,16 @@ export default function PlazaNewPage() {
               placeholder={t('contactPlaceholder')}
             />
           </div>
-          <Button className="w-full" disabled={submitting || !valid} onClick={() => void onSubmit()}>
-            {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+          <Button
+            className="w-full"
+            disabled={submitting || !valid}
+            onClick={() => void onSubmit()}
+          >
+            {submitting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="mr-2 h-4 w-4" />
+            )}
             {t('submit')}
           </Button>
         </CardContent>

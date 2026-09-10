@@ -121,7 +121,8 @@ export default function CouponPage() {
               key={tb.key}
               className={`px-[24rpx] py-[12rpx] rounded-[16rpx] ${status === tb.key ? 'bg-primary' : 'bg-card'}`}
               onClick={() => switchTab(tb.key)}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text
                 className={`text-[28rpx] ${status === tb.key ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
               >
@@ -169,7 +170,9 @@ export default function CouponPage() {
                   </Text>
                 </View>
                 <View className="flex-1 p-[24rpx] flex flex-col justify-between">
-                  <Text className="block text-[32rpx] text-foreground font-semibold">{c.title}</Text>
+                  <Text className="block text-[32rpx] text-foreground font-semibold">
+                    {c.title}
+                  </Text>
                   <Text className="block mt-[16rpx] text-[22rpx] text-[var(--color-text-tertiary)]">
                     {tt('member.coupon.expireText', '有效期至 {time}', { time: c.expireTime })}
                   </Text>

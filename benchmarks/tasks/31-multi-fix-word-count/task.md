@@ -5,6 +5,7 @@
 -->
 
 workspace 中 analyzer.mjs 的 countWords(s) 依赖 text-utils.mjs 的 tokenize(s)。tokenize 应同时切出英文/数字词与单个中文字符(每个汉字计一个词),当前实现的正则只匹配空白分隔,中文整段被吞。请修复 text-utils.mjs 的 tokenize(analyzer.mjs 不改),要求:
+
 - countWords('hello world') === 2
 - countWords('你好世界') === 4(每个汉字一个词)
 - countWords('hello 世界') === 3

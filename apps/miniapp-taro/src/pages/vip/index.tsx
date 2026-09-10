@@ -315,7 +315,11 @@ export default function VipIndexPage() {
             selectedId={selectedPlan?.id || ''}
             onSelect={onSelectPlan}
           />
-          <View className="auto-renew" hoverClass="opacity-60" onClick={() => setAutoRenew((v) => !v)}>
+          <View
+            className="auto-renew"
+            hoverClass="opacity-60"
+            onClick={() => setAutoRenew((v) => !v)}
+          >
             <View className={`auto-check ${autoRenew ? 'checked' : ''}`}>
               {autoRenew ? <Text className="auto-mark">✓</Text> : null}
             </View>
@@ -412,7 +416,11 @@ export default function VipIndexPage() {
                 <Text className="pp-text">{t('vip.index.noticeRule2')}</Text>
                 <Text className="pp-text">{t('vip.index.noticeRule3')}</Text>
                 <Text className="pp-text">{t('vip.index.noticeRule4')}</Text>
-                <View className="pp-check" hoverClass="opacity-60" onClick={() => setNoticeAgreed(!noticeAgreed)}>
+                <View
+                  className="pp-check"
+                  hoverClass="opacity-60"
+                  onClick={() => setNoticeAgreed(!noticeAgreed)}
+                >
                   <View className={`pp-checkbox ${noticeAgreed ? 'checked' : ''}`}>
                     {noticeAgreed ? <Text className="pp-check-mark">✓</Text> : null}
                   </View>

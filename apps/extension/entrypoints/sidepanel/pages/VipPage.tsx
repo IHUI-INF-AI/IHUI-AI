@@ -89,10 +89,10 @@ export default function VipPage() {
         </div>
         <CardContent className="p-4 pt-1 flex flex-col gap-1.5 text-sm">
           {benefits.map((k) => (
-              <div key={k} className="flex items-center gap-2">
-                <Check className="h-4 w-4" aria-hidden />
-                {t(k)}
-              </div>
+            <div key={k} className="flex items-center gap-2">
+              <Check className="h-4 w-4" aria-hidden />
+              {t(k)}
+            </div>
           ))}
         </CardContent>
       </Card>

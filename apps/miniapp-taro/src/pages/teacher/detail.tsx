@@ -239,7 +239,11 @@ export default function TeacherDetail() {
                   const price = formatPrice(c.price)
                   return (
                     <ThemeRoot key={c.id}>
-                      <View className="tdetail-course-card" hoverClass="opacity-85" onClick={() => onOpenCourse(c.id)}>
+                      <View
+                        className="tdetail-course-card"
+                        hoverClass="opacity-85"
+                        onClick={() => onOpenCourse(c.id)}
+                      >
                         {c.coverUrl ? (
                           <Image
                             className="tdetail-course-cover"
@@ -304,9 +308,7 @@ export default function TeacherDetail() {
                               name={i < stars ? 'star-fill' : 'star'}
                               size={14}
                               color={
-                                i < stars
-                                  ? 'var(--color-vip-gold-start)'
-                                  : 'var(--color-border)'
+                                i < stars ? 'var(--color-vip-gold-start)' : 'var(--color-border)'
                               }
                             />
                           ))}

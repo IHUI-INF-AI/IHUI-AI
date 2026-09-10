@@ -117,9 +117,7 @@ export default function ExamList() {
             </Text>
             <View
               className={`px-[16rpx] py-[8rpx] rounded-[16rpx] shrink-0 ${
-                r.isPassed
-                  ? 'bg-[var(--color-success-light)]'
-                  : 'bg-[var(--color-danger-light)]'
+                r.isPassed ? 'bg-[var(--color-success-light)]' : 'bg-[var(--color-danger-light)]'
               }`}
             >
               <Text

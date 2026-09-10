@@ -120,7 +120,11 @@ export default function VipDetailsPage() {
     <View className="min-h-screen bg-background pb-[140rpx]">
       {/* 顶部标题区(对齐 RN VipCompareScreen header:px20/py24,back 32 medium,title 40 bold) */}
       <View className="pt-[24rpx] px-[20rpx] pb-[24rpx]">
-        <View className="flex items-center mb-[16rpx]" hoverClass="opacity-60" onClick={() => Taro.navigateBack()}>
+        <View
+          className="flex items-center mb-[16rpx]"
+          hoverClass="opacity-60"
+          onClick={() => Taro.navigateBack()}
+        >
           <Text className="text-[32rpx] text-[var(--color-text-medium)] leading-none mr-[24rpx]">
             ‹
           </Text>
@@ -128,7 +132,9 @@ export default function VipDetailsPage() {
             {tt('common.back', '返回')}
           </Text>
         </View>
-        <Text className="block text-[40rpx] font-bold text-foreground">{t('vip.details.title')}</Text>
+        <Text className="block text-[40rpx] font-bold text-foreground">
+          {t('vip.details.title')}
+        </Text>
         <Text className="block text-[28rpx] mt-[16rpx] text-muted-foreground">
           {t('vip.upgrade.bannerDesc')}
         </Text>
@@ -145,11 +151,7 @@ export default function VipDetailsPage() {
               className="flex items-start bg-card border-[2rpx] border-border rounded-[24rpx] p-[28rpx]"
             >
               <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] bg-[var(--color-gold-muted)] flex items-center justify-center mr-[24rpx] shrink-0">
-                <LineIcon
-                  name={b.icon as IconName}
-                  size={36}
-                  color="var(--color-warning)"
-                />
+                <LineIcon name={b.icon as IconName} size={36} color="var(--color-warning)" />
               </View>
               <View className="flex-1 flex flex-col">
                 <Text className="text-[32rpx] font-bold text-foreground">{b.title}</Text>
@@ -236,10 +238,7 @@ export default function VipDetailsPage() {
           </Text>
         </View>
         {BENEFITS.map((b, i) => (
-          <View
-            key={b.label}
-            className={`flex items-stretch ${i % 2 === 1 ? 'bg-muted' : ''}`}
-          >
+          <View key={b.label} className={`flex items-stretch ${i % 2 === 1 ? 'bg-muted' : ''}`}>
             <Text className="flex-[1.2] py-[20rpx] px-[20rpx] text-left text-foreground font-semibold text-[22rpx]">
               {b.label}
             </Text>

@@ -5,6 +5,7 @@
 -->
 
 workspace 中的 lib.mjs 里 capitalize(s) 应把首字母大写、其余字母小写。当前实现没有把其余字母转小写。请修复,要求:
+
 - capitalize('hello') === 'Hello'
 - capitalize('aBC') === 'Abc'
 - capitalize('') === ''(空串安全,不抛错)

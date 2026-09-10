@@ -29,7 +29,14 @@ import { useTopBarBackStore } from '@/stores/topbar-back'
  *
  * en 语言镜像路由(app/en/*,全部为一级列表页)剥掉 locale 前缀后再按深度判定。
  */
-const EXEMPT_PREFIXES = ['/sso', '/h5', '/share', '/chat/share', '/business-card/share', '/ai-world/share']
+const EXEMPT_PREFIXES = [
+  '/sso',
+  '/h5',
+  '/share',
+  '/chat/share',
+  '/business-card/share',
+  '/ai-world/share',
+]
 
 export function TopBarBackAutoRegister() {
   const pathname = usePathname()

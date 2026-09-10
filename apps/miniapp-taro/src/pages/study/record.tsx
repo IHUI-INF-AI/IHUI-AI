@@ -266,7 +266,11 @@ export default function StudyRecord() {
         <Text className={STATE_TEXT}>{tt('study.recordPage.empty', '暂无学习记录')}</Text>
       )}
       {error && !loading && (
-        <View className="flex flex-col items-center py-[60rpx]" hoverClass="opacity-60" onClick={() => load(true)}>
+        <View
+          className="flex flex-col items-center py-[60rpx]"
+          hoverClass="opacity-60"
+          onClick={() => load(true)}
+        >
           <Text className="text-[28rpx] text-[var(--color-danger)]">
             {tt('common.failed', '加载失败')}
           </Text>

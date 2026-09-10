@@ -161,9 +161,11 @@ export function ProviderCardV2({
   })
 
   function handleDeleteProvider() {
-    void confirmDialog({ title: t('deleteProviderConfirm', { name: provider.name }) }).then((ok) => {
-      if (ok) delProvMut.mutate()
-    })
+    void confirmDialog({ title: t('deleteProviderConfirm', { name: provider.name }) }).then(
+      (ok) => {
+        if (ok) delProvMut.mutate()
+      },
+    )
   }
 
   function handleDeleteModel(m: UserLlmModel) {

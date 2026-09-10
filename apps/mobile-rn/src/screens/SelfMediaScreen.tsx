@@ -169,7 +169,10 @@ export function SelfMediaScreen() {
                           </Text>
                         </View>
                       </View>
-                      <Text className="mt-1 text-xs text-gray-500 dark:text-neutral-400" numberOfLines={2}>
+                      <Text
+                        className="mt-1 text-xs text-gray-500 dark:text-neutral-400"
+                        numberOfLines={2}
+                      >
                         {skill.description}
                       </Text>
                     </TouchableOpacity>
@@ -231,7 +234,10 @@ export function SelfMediaScreen() {
                 className="rounded-lg border border-gray-200 p-3 dark:border-neutral-700"
               >
                 <View className="flex-row items-center justify-between">
-                  <Text className="flex-1 text-sm font-medium dark:text-neutral-100" numberOfLines={1}>
+                  <Text
+                    className="flex-1 text-sm font-medium dark:text-neutral-100"
+                    numberOfLines={1}
+                  >
                     {rec.title}
                   </Text>
                   <View

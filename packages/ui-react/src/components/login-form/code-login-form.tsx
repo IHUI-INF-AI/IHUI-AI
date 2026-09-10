@@ -252,7 +252,8 @@ export function CodeLoginForm({
             disabled={submitting}
             data-testid={`login-${testIdPrefix}-code-input`}
           />
-          <Button size="lg"
+          <Button
+            size="lg"
             type="button"
             variant="outline"
             className={cn('shrink-0 px-3 text-sm px-4', buttonClassName)}
@@ -277,7 +278,8 @@ export function CodeLoginForm({
         <p className="text-xs text-destructive">{t('auth.agreeRequired')}</p>
       )}
 
-      <Button size="lg"
+      <Button
+        size="lg"
         type="submit"
         className={cn('w-full px-4', buttonClassName)}
         disabled={submitting}

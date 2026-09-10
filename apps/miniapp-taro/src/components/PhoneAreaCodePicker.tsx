@@ -55,7 +55,8 @@ export default function PhoneAreaCodePicker({
       <View
         className={`xiaicc ${focused ? 'xiaicc-focused' : ''}`}
         onClick={() => setNationShow((v) => !v)}
-        hoverClass="opacity-60">
+        hoverClass="opacity-60"
+      >
         <Text className="input-area-code">{value}</Text>
         <View className="xiaicc-img" />
       </View>
@@ -65,7 +66,11 @@ export default function PhoneAreaCodePicker({
             <ScrollView scrollY style={{ height: '280rpx' }}>
               {NATION_DATA(tt).map((item) => (
                 <View className="nationInfo" key={item.id}>
-                  <View className="nation-info1" onClick={() => selectnati(item.content)} hoverClass="opacity-60">
+                  <View
+                    className="nation-info1"
+                    onClick={() => selectnati(item.content)}
+                    hoverClass="opacity-60"
+                  >
                     <Text className="nation-name">{item.title}</Text>
                     <Text className="nation-code">{item.content}</Text>
                   </View>

@@ -300,9 +300,7 @@ export default function AiAssistantPage() {
                               className="w-[240rpx] h-[240rpx] rounded-[12rpx] bg-muted"
                               src={url}
                               mode="aspectFill"
-                              onClick={() =>
-                                Taro.previewImage({ current: url, urls: item.images })
-                              }
+                              onClick={() => Taro.previewImage({ current: url, urls: item.images })}
                             />
                           ))}
                         </View>
@@ -410,7 +408,8 @@ export default function AiAssistantPage() {
         <View
           className={`ml-[16rpx] min-w-[88rpx] h-[88rpx] px-[16rpx] flex items-center justify-center rounded-[24rpx] ${loading ? 'bg-muted' : 'bg-[var(--color-brand)]'}`}
           onClick={handleSend}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <Text className="text-[28rpx] font-semibold text-[var(--color-surface-light)]">
             {loading ? tt('aiassistant.p3', '生成中') : tt('ai.agentDetail.runtimeSend', '发送')}
           </Text>

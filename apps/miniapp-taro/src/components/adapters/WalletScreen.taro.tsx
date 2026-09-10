@@ -129,10 +129,18 @@ export function WalletScreen({
 
           {onAction && balance ? (
             <View style={viewStyles.actions()}>
-              <View style={viewStyles.rechargeBtn(tk)} onTap={() => onAction('recharge')} hoverClass="opacity-60">
+              <View
+                style={viewStyles.rechargeBtn(tk)}
+                onTap={() => onAction('recharge')}
+                hoverClass="opacity-60"
+              >
                 <Text style={textStyles.rechargeBtnText(tk)}>{rechargeText}</Text>
               </View>
-              <View style={viewStyles.withdrawBtn(tk)} onTap={() => onAction('withdraw')} hoverClass="opacity-60">
+              <View
+                style={viewStyles.withdrawBtn(tk)}
+                onTap={() => onAction('withdraw')}
+                hoverClass="opacity-60"
+              >
                 <Text style={textStyles.withdrawBtnText(tk)}>{withdrawText}</Text>
               </View>
             </View>

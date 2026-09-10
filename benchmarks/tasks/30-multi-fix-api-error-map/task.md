@@ -5,6 +5,7 @@
 -->
 
 workspace 中 handler.mjs 依据 errors.mjs 的 mapHttpError(status) 决定请求是否可重试,契约:429 与所有 5xx 返回 'RETRYABLE',其余 4xx 返回 'FATAL'。当前实现把 429 归为 'FATAL',导致限流被当成致命错误。请修复 errors.mjs 的 mapHttpError(handler.mjs 不改),要求:
+
 - mapHttpError(429) === 'RETRYABLE'
 - mapHttpError(500) === 'RETRYABLE'
 - mapHttpError(503) === 'RETRYABLE'
