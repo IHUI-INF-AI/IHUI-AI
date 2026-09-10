@@ -121,7 +121,7 @@ export default function StudyRecord() {
   }, [rawList, activeTab])
 
   const goCourse = useCallback((courseId: string) => {
-    if (courseId) Taro.navigateTo({ url: `/pages/course/detail?id=${courseId}` })
+    if (courseId) Taro.navigateTo({ url: `/pkg-learn/course/detail?id=${courseId}` })
   }, [])
 
   const statusLabel = (s: FilterTab): string => {

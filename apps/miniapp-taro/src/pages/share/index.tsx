@@ -439,7 +439,7 @@ export default function ShareIndexPage() {
   }, [])
 
   const goInfoDetail = useCallback((id: string | number) => {
-    Taro.navigateTo({ url: `/pages/news/detail?id=${id}` })
+    Taro.navigateTo({ url: `/pkg-content/news/detail?id=${id}` })
   }, [])
 
   const backToTop = useCallback(() => {
@@ -448,7 +448,7 @@ export default function ShareIndexPage() {
   }, [])
 
   const addNewChat = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/ai/chat' })
+    Taro.navigateTo({ url: '/pkg-ai/ai/chat' })
   }, [])
 
   const safePreventTouchMove = useCallback((e: { stopPropagation: () => void }) => {
@@ -618,10 +618,10 @@ export default function ShareIndexPage() {
           // 对齐原项目 gopage L324-351:5 个菜单项路由映射
           const routeMap: Record<string, string> = {
             appStore: '/pages/index/index', // 对齐原项目 aiIndex
-            demand: '/pages/ranking/index', // 对齐原项目 square
-            inspiration: '/pages/aigc/list', // 对齐原项目 aigc
+            demand: '/pkg-ai/ranking/index', // 对齐原项目 square
+            inspiration: '/pkg-ai/aigc/list', // 对齐原项目 aigc
             dynamic: '/pages/share/index', // 对齐原项目 share(当前页)
-            course: '/pages/course/list', // 对齐原项目 studyindex
+            course: '/pkg-learn/course/list', // 对齐原项目 studyindex
           }
           const url = routeMap[item.key]
           if (!url) return
@@ -675,7 +675,7 @@ export default function ShareIndexPage() {
           setDrawerVisible(false)
           // 对齐原项目 handleShowFullList:携带 chatId + title 参数
           Taro.navigateTo({
-            url: `/pages/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
+            url: `/pkg-ai/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
             fail: () => Taro.showToast({ title: tt('share.text5', '对话页未配置'), icon: 'none' }),
           })
         }}

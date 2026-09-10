@@ -189,7 +189,7 @@ export default function MemberIndexPage() {
       )
 
   const goToPayment = () => {
-    Taro.navigateTo({ url: '/pages/vip/index' })
+    Taro.navigateTo({ url: '/pkg-shop/vip/index' })
   }
 
   const goToShare = () => {
@@ -402,7 +402,7 @@ export default function MemberIndexPage() {
           </View>
           <View
             className="member-menu-item"
-            onClick={() => navigate('/pages/vip/index')}
+            onClick={() => navigate('/pkg-shop/vip/index')}
             hoverClass="opacity-60"
           >
             <Text>{tt('member.index.vip', 'VIP 会员')}</Text>

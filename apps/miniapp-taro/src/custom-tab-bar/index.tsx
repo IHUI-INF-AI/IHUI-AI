@@ -35,13 +35,13 @@ const TABS: TabItem[] = [
     activeIcon: 'assets/tabbar/community-active.png',
   },
   {
-    pagePath: '/pages/course/list',
+    pagePath: '/pkg-learn/course/list',
     i18nKey: 'nav.courses',
     icon: 'assets/tabbar/course.png',
     activeIcon: 'assets/tabbar/course-active.png',
   },
   {
-    pagePath: '/pages/live/list',
+    pagePath: '/pkg-learn/live/list',
     i18nKey: 'nav.live',
     icon: 'assets/tabbar/live.png',
     activeIcon: 'assets/tabbar/live-active.png',

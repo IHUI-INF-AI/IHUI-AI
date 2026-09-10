@@ -94,7 +94,7 @@ export default function SettingIndexPage() {
           <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
-              onClick={() => navigate('/pages/user/profile')}
+              onClick={() => navigate('/pkg-user/user/profile')}
               hoverClass="opacity-60"
             >
               {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
@@ -106,7 +106,7 @@ export default function SettingIndexPage() {
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
-              onClick={() => navigate('/pages/account-cancel/index/index')}
+              onClick={() => navigate('/pkg-user/account-cancel/index/index')}
               hoverClass="opacity-60"
             >
               <Text className="text-[32rpx] text-muted-foreground">
@@ -172,7 +172,7 @@ export default function SettingIndexPage() {
           <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
-              onClick={() => navigate('/pages/user/feedback')}
+              onClick={() => navigate('/pkg-user/user/feedback')}
               hoverClass="opacity-60"
             >
               <Text className="text-[32rpx] text-muted-foreground">
@@ -192,7 +192,7 @@ export default function SettingIndexPage() {
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
-              onClick={() => navigate('/pages/about/index')}
+              onClick={() => navigate('/pkg-about/about/index')}
               hoverClass="opacity-60"
             >
               <Text className="text-[32rpx] text-muted-foreground">

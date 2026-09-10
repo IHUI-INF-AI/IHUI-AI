@@ -136,7 +136,7 @@ export default function DistributionOrderList() {
   }
 
   const onItemClick = (id: string) => {
-    Taro.navigateTo({ url: `/pages/order/detail?id=${id}` })
+    Taro.navigateTo({ url: `/pkg-shop/order/detail?id=${id}` })
   }
 
   useDidShow(() => {

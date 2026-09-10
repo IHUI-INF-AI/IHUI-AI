@@ -54,7 +54,7 @@ describe('miniapp-taro 运营 banner API', () => {
             id: 1,
             title: '618 课程大促',
             coverUrl: 'https://cdn/b1.png',
-            link: '/pages/course/list',
+            link: '/pkg-learn/course/list',
             linkType: 'page',
             position: 'home',
             sortOrder: 100,
