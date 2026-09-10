@@ -112,16 +112,21 @@ async def test_write_file_refreshes_base(tmp_path):
 async def test_disjoint_external_edit_auto_merged(tmp_path):
     """外部修改不相交区域 → 3-way 干净合并自动应用(自动回滚场景的补集)。
 
-    old_string 跨行覆盖 tail 行(使磁盘 0 命中、走 3-way 分支),
+    old_string 跨行覆盖 tail 行且带行尾换行(使磁盘 0 命中、走 3-way 分支),
     但 new_string 仅实际改动 return 行 → 与外部对 tail 的修改在
     base 行级不相交,可确定性干净合并。
+
+    2026-09-10 跨平台修正:old_string 必须以 \n 结尾。原 "return 1\n# tail" 在
+    LF 磁盘(Linux)上是 "return 1\n# tail-changed" 的前缀子串 → count==1 走
+    direct 分支,only Windows(CRLF 打断匹配)才进 3-way。带行尾 \n 后任何
+    EOL 风格下都 0 命中。
     """
     f = tmp_path / "a.py"
     f.write_text("def f():\n    return 1\n# tail\n", encoding="utf-8")
     await _read(f)  # base 建立
     # 外部修改 tail(与 agent 实际要改的 return 行不相交)
     _write_direct(f, "def f():\n    return 1\n# tail-changed\n")
-    res = await _edit(f, "return 1\n# tail", "return 2\n# tail")
+    res = await _edit(f, "return 1\n# tail\n", "return 2\n# tail\n")
     assert res["ok"] is True
     assert res["strategy"] == "auto_merged_3way"
     assert f.read_text(encoding="utf-8") == "def f():\n    return 2\n# tail-changed\n"
