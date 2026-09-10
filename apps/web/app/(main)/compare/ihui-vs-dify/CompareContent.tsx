@@ -81,15 +81,9 @@ export function CompareContent({
         <table className="w-full">
           <thead>
             <tr className="bg-muted/30">
-              <th className="px-4 py-4 text-left text-sm font-semibold">
-                对比维度
-              </th>
-              <th className="px-4 py-4 text-center text-sm font-semibold text-primary">
-                IHUI AI
-              </th>
-              <th className="px-4 py-4 text-center text-sm font-semibold">
-                {config.name}
-              </th>
+              <th className="px-4 py-4 text-left text-sm font-semibold">对比维度</th>
+              <th className="px-4 py-4 text-center text-sm font-semibold text-primary">IHUI AI</th>
+              <th className="px-4 py-4 text-center text-sm font-semibold">{config.name}</th>
             </tr>
           </thead>
           <tbody>

@@ -6,16 +6,28 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import Fastify from 'fastify'
 import { sql } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
-import { agents } from '@ihui/database'
+import { aiWorldItems } from '@ihui/database'
 import { aiWorldRoutes } from '../src/routes/ai-world.js'
 
-async function createAgent(data: { name: string; status?: string; usageCount?: number }) {
+/**
+ * 2026-09-10 重写:旧用例断言 hotApps(agents 表)契约,而路由早已演进为
+ * categories/tools/apps/news(ai_world_items 热榜)。旧契约无任何实现,用例恒红。
+ */
+
+async function createItem(data: {
+  kind: string
+  title: string
+  status?: number
+  likeCount?: number
+}) {
   const [row] = await db
-    .insert(agents)
+    .insert(aiWorldItems)
     .values({
-      name: data.name,
-      status: data.status ?? 'published',
-      usageCount: data.usageCount ?? 0,
+      kind: data.kind,
+      title: data.title,
+      source: 'test',
+      status: data.status ?? 1,
+      likeCount: data.likeCount ?? 0,
     })
     .returning()
   return row
@@ -34,84 +46,64 @@ describe('ai-world-routes — 路由层真实 DB 集成测试', () => {
   })
 
   beforeEach(async () => {
-    await db.execute(sql`DELETE FROM agents`)
+    await db.execute(sql`DELETE FROM ai_world_items`)
+    await db.execute(sql`DELETE FROM ai_world_categories`)
   })
 
-  it('GET /api/ai-world — 空表返回 8 个静态分类 + 空 hotApps', async () => {
+  it('GET /api/ai-world — 空库返回空列表且响应格式符合 { code, message, data } 规范', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/ai-world' })
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(body.code).toBe(0)
     expect(body.message).toBe('success')
-    expect(body.data.categories).toHaveLength(8)
-    expect(body.data.categories[0]).toEqual({
-      id: 'chat',
-      name: 'AI对话',
-      icon: 'message',
-    })
-    expect(body.data.hotApps).toEqual([])
+    expect(body.data.categories).toEqual([])
+    expect(body.data.tools).toEqual([])
+    expect(body.data.apps).toEqual([])
+    expect(body.data.news).toEqual([])
   })
 
-  it('GET /api/ai-world — 仅返回 status=published 的 agent', async () => {
-    await createAgent({ name: '已发布', status: 'published', usageCount: 10 })
-    await createAgent({ name: '草稿', status: 'draft', usageCount: 100 })
+  it('GET /api/ai-world — 仅返回 status=1 的条目', async () => {
+    await createItem({ kind: 'app', title: '已发布' })
+    await createItem({ kind: 'app', title: '下架', status: 0 })
     const res = await server.inject({ method: 'GET', url: '/api/ai-world' })
     const body = res.json()
-    expect(body.data.hotApps).toHaveLength(1)
-    expect(body.data.hotApps[0].name).toBe('已发布')
+    expect(body.data.apps).toHaveLength(1)
+    expect(body.data.apps[0].title).toBe('已发布')
   })
 
-  it('GET /api/ai-world — 按 usageCount 倒序排序', async () => {
-    await createAgent({ name: '低热度', usageCount: 5 })
-    await createAgent({ name: '高热度', usageCount: 100 })
-    await createAgent({ name: '中热度', usageCount: 50 })
+  it('GET /api/ai-world — apps 按 likeCount 倒序', async () => {
+    await createItem({ kind: 'app', title: '低热度', likeCount: 5 })
+    await createItem({ kind: 'app', title: '高热度', likeCount: 100 })
+    await createItem({ kind: 'app', title: '中热度', likeCount: 50 })
     const res = await server.inject({ method: 'GET', url: '/api/ai-world' })
     const body = res.json()
-    expect(body.data.hotApps.map((a: { name: string }) => a.name)).toEqual([
+    expect(body.data.apps.map((a: { title: string }) => a.title)).toEqual([
       '高热度',
       '中热度',
       '低热度',
     ])
   })
 
-  it('GET /api/ai-world — 仅返回前 4 个热门应用', async () => {
-    for (let i = 0; i < 6; i++) {
-      await createAgent({ name: `应用${i}`, usageCount: 100 - i })
+  it('GET /api/ai-world — kind 互不串扰(app/tool/news 各回各的列表)', async () => {
+    await createItem({ kind: 'app', title: '应用A' })
+    await createItem({ kind: 'tool', title: '工具B' })
+    await createItem({ kind: 'news', title: '新闻C' })
+    const res = await server.inject({ method: 'GET', url: '/api/ai-world' })
+    const body = res.json()
+    expect(body.data.apps.map((a: { title: string }) => a.title)).toEqual(['应用A'])
+    expect(body.data.tools.map((a: { title: string }) => a.title)).toEqual(['工具B'])
+    expect(body.data.news.map((a: { title: string }) => a.title)).toEqual(['新闻C'])
+  })
+
+  it('GET /api/ai-world — 热榜每个 kind 最多 6 条', async () => {
+    for (let i = 0; i < 8; i++) {
+      await createItem({ kind: 'app', title: `应用${i}`, likeCount: 100 - i })
     }
     const res = await server.inject({ method: 'GET', url: '/api/ai-world' })
     const body = res.json()
-    expect(body.data.hotApps).toHaveLength(4)
-    expect(body.data.hotApps[0].name).toBe('应用0')
-    expect(body.data.hotApps[3].name).toBe('应用3')
-  })
-
-  it('GET /api/ai-world — hotApps 字段格式 (id + name + href)', async () => {
-    const agent = await createAgent({ name: '测试应用', usageCount: 1 })
-    const res = await server.inject({ method: 'GET', url: '/api/ai-world' })
-    const body = res.json()
-    expect(body.data.hotApps[0]).toEqual({
-      id: agent.agentId,
-      name: '测试应用',
-      href: `/ai-world/app/${agent.agentId}`,
-    })
-  })
-
-  it('GET /api/ai-world — usageCount 默认 0 的 agent 也参与排序', async () => {
-    await createAgent({ name: '默认热度' })
-    await createAgent({ name: '有热度', usageCount: 10 })
-    const res = await server.inject({ method: 'GET', url: '/api/ai-world' })
-    const body = res.json()
-    expect(body.data.hotApps.map((a: { name: string }) => a.name)).toEqual(['有热度', '默认热度'])
-  })
-
-  it('GET /api/ai-world — 响应格式符合 { code, message, data } 规范', async () => {
-    const res = await server.inject({ method: 'GET', url: '/api/ai-world' })
-    const body = res.json()
-    expect(body).toHaveProperty('code')
-    expect(body).toHaveProperty('message')
-    expect(body).toHaveProperty('data')
-    expect(body.data).toHaveProperty('categories')
-    expect(body.data).toHaveProperty('hotApps')
+    expect(body.data.apps).toHaveLength(6)
+    expect(body.data.apps[0].title).toBe('应用0')
+    expect(body.data.apps[5].title).toBe('应用5')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

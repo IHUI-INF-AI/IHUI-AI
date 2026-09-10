@@ -9004,11 +9004,11 @@
   },
   "commandPalette": {
     "groups": {
-    "mode": "モード",
-    "navigate": "ナビゲート",
-    "settings": "設定",
-    "tools": "ツール",
-    "view": "表示"
+      "mode": "モード",
+      "navigate": "ナビゲート",
+      "settings": "設定",
+      "tools": "ツール",
+      "view": "表示"
     },
     "commands": {
       "agent": {
