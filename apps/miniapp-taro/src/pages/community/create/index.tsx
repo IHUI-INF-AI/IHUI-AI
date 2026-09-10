@@ -106,12 +106,12 @@ const textStyles = {
     fontSize: toRpx(14),
     color: tk.text.secondary,
   }),
-  submitText: (tk: RnThemeTokens): CSSProperties => ({
+  submitText: (tk: RnThemeTokens, isDark: boolean): CSSProperties => ({
     fontSize: toRpx(16),
     fontWeight: '600',
     /* 暗色可读性修正:RN submitText 用 tk.surface.light(恒白),而暗色 brand.DEFAULT 为纯白,
        出现白底白字;此处暗色改用 tk.gray.black 保证对比(RN 源值缺陷,规则允许修正) */
-    color: appTheme === 'dark' ? tk.gray.black : tk.surface.light,
+    color: isDark ? tk.gray.black : tk.surface.light,
   }),
 }
 
