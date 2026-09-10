@@ -5,8 +5,33 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type * as dns from 'node:dns'
-// 鉴权 mock 辅助(2026-09-09 第九轮安全修复后,/remote/proxy 等路由收权为 admin)
-import { mockAuthenticate, mockCheckAuth, setMockAdmin } from '../../../tests/helpers/mock-auth.js'
+// 鉴权 mock 辅助(2026-09-09 第九轮安全修复后,/remote/proxy 等路由收权为 admin)。
+// 注意:必须内联,勿 import tests/helpers/mock-auth —— 该文件在 tsconfig rootDir(src)外,
+// tsc 顺藤摸瓜报 TS6059,级联 typecheck/build/Docker/e2e 全挂(2026-09-10 CI 实证)。
+const mockAuthenticate = vi.fn<(...args: unknown[]) => Promise<unknown>>()
+const mockCheckAuth = async (...args: unknown[]): Promise<boolean> => {
+  try {
+    await mockAuthenticate(...args)
+    return true
+  } catch (e) {
+    const err = e as Error & { statusCode?: number }
+    const reply = args[1] as { status: (code: number) => { send: (body: unknown) => unknown } }
+    const statusCode = err.statusCode ?? 401
+    reply
+      .status(statusCode)
+      .send({ code: statusCode, message: err.message || 'Authentication required' })
+    return false
+  }
+}
+// restoreAllMocks 会清掉 mockImplementation,每个用例前需重新注入 admin 身份
+const setMockAdmin = (userId: string): void => {
+  const payload = { userId, roleId: 1, type: 'access' }
+  mockAuthenticate.mockImplementation(async (request: unknown) => {
+    ;(request as { userId: string }).userId = userId
+    ;(request as { jwtPayload?: unknown }).jwtPayload = payload
+    return payload
+  })
+}
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'

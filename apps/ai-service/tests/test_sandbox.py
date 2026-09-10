@@ -624,8 +624,13 @@ class TestExecuteLocal:
     @pytest.mark.asyncio
     async def test_command_not_found_windows(self):
         executor = SandboxExecutor()
+        # 2026-09-10 平台适配:Linux 上 _execute_local 走 create_subprocess_exec
+        # (有意规避 shell 注入),仅 patch shell 会漏 → 命令真实执行 exit 0。
+        # 双路径都 patch FileNotFoundError,任意平台命中其一即得 -1。
         with patch("app.services.sandbox.asyncio.create_subprocess_shell",
-                    side_effect=FileNotFoundError("not found")):
+                   side_effect=FileNotFoundError("not found")), \
+             patch("app.services.sandbox.asyncio.create_subprocess_exec",
+                   side_effect=FileNotFoundError("not found")):
             result = await executor._execute_local("echo test", 10, ".", None)
         assert result.exit_code == -1
         assert "command not found" in result.stderr

@@ -35,6 +35,83 @@ vi.mock('@ihui/auth', () => ({
 // mock 返回 status=1(active),避免 401 '用户不存在'
 vi.mock('../src/db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
 
+// 2026-09-10 修复:scheduler/queue 插件基于 BullMQ,BullMQ 命令需真实 Redis
+// (maxRetriesPerRequest:null 下无 Redis 永不 resolve):
+// - scheduler 注册期逐条 await upsertJobScheduler → avvio "Plugin did not start in time"
+// - queue 的 onClose 逐个 await queue.close() → server.close() 永不返回
+// smoke 只验证 buildServer 路由无冲突,不验证队列行为 → 均替换为 stub 队列。
+vi.mock('../src/plugins/queue.js', async () => {
+  const { default: fp } = await import('fastify-plugin')
+  const stubQueue = () =>
+    new Proxy(
+      {},
+      {
+        get(_t, prop: string) {
+          if (prop === 'then') return undefined
+          return () => Promise.resolve(undefined)
+        },
+      },
+    )
+  const queueStub = async (server: FastifyInstance): Promise<void> => {
+    server.decorate('emailQueue', stubQueue())
+    server.decorate('notificationQueue', stubQueue())
+    server.decorate('aiCallbackQueue', stubQueue())
+    server.decorate('notificationDispatchQueue', stubQueue())
+  }
+  return {
+    queue: fp(queueStub, { name: 'queue', fastify: '5.x' }),
+    QUEUE_NAMES: {
+      email: 'email',
+      notification: 'notification',
+      aiCallback: 'ai-callback',
+      notificationDispatch: 'notification-dispatch',
+    },
+    createWorker: vi.fn(),
+  }
+})
+vi.mock('../src/plugins/scheduler.js', async () => {
+  const { default: fp } = await import('fastify-plugin')
+  const schedulerStub = async (server: FastifyInstance): Promise<void> => {
+    server.decorate('schedulerQueue', {
+      upsertJobScheduler: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+    })
+  }
+  return { scheduler: fp(schedulerStub, { name: 'scheduler', fastify: '5.x' }) }
+})
+
+// 2026-09-10 修复:CI ubuntu 无 Redis 服务。src 内多个插件(redis/ws-notifications 等)
+// 直接 new IORedis(config.REDIS_URL) 并 await 命令(psubscribe 等),无 Redis 时命令永不
+// resolve → avvio 插件启动超时。mock ioredis 为"立即就绪"的假客户端:任意命令返回
+// Promise.resolve(null),保留 EventEmitter 语义。注:bullmq 在 node_modules 内部原生加载
+// 真实 ioredis,不受此 mock 影响 —— 依赖 BullMQ 注册期 await 的 scheduler 已单独 mock。
+vi.mock('ioredis', async () => {
+  const { EventEmitter } = await import('node:events')
+  class FakeRedis extends EventEmitter {
+    status = 'ready'
+    options: Record<string, unknown> = {}
+    duplicate(): FakeRedis {
+      // 返回同样被代理的实例,保证 duplicate 出来的客户端任意命令也可 resolve
+      return new (FakeRedisProxy as unknown as { new (): FakeRedis })()
+    }
+    disconnect(): void {}
+  }
+  // 代理实例属性访问:未显式定义的方法(psubscribe/publish/ping/get/set/quit/...)
+  // 一律返回 () => Promise.resolve(null),与"立即就绪"语义一致
+  const FakeRedisProxy = new Proxy(FakeRedis, {
+    construct(_target, args) {
+      const instance = new FakeRedis(...(args as []))
+      return new Proxy(instance, {
+        get(target, prop, recv) {
+          if (prop in target) return Reflect.get(target, prop, recv)
+          return (..._a: unknown[]) => Promise.resolve(null)
+        },
+      })
+    },
+  })
+  return { default: FakeRedisProxy, Redis: FakeRedisProxy }
+})
+
 vi.mock('../src/db/index.js', () => {
   // then 陷阱 mock:db.xxx() 返回可 await 对象(await 访问 .then → thenFn → resolve([]))
   // 2026-09-03 修复:原嵌套 Proxy(db.execute 返回 Proxy 而非 Promise)导致

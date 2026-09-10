@@ -23,7 +23,34 @@ import { describe, it, expect, afterAll, beforeAll, afterEach, beforeEach, vi } 
 import Fastify from 'fastify'
 
 // 1. Mock config 避免 env 校验触发 process.exit(1)
-vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
+// SignJWT:getSystemAccessToken(2026-09-04 起 aiServiceFetch 对 request=null 注入系统 token)
+// 的签名链;mock 为返回固定 token 的链式 stub,摘要路径即可正常走通
+vi.mock('jose', () => ({
+  decodeJwt: () => ({}),
+  SignJWT: class {
+    setProtectedHeader() {
+      return this
+    }
+    setIssuer() {
+      return this
+    }
+    setAudience() {
+      return this
+    }
+    setSubject() {
+      return this
+    }
+    setIssuedAt() {
+      return this
+    }
+    setExpirationTime() {
+      return this
+    }
+    async sign() {
+      return 'mock-system-access-token'
+    }
+  },
+}))
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
