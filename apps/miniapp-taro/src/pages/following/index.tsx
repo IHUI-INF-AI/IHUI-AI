@@ -157,7 +157,9 @@ export default function FollowingPage() {
                   ) : (
                     <View className="w-[96rpx] h-[96rpx] rounded-full bg-muted mr-[24rpx] shrink-0 flex items-center justify-center">
                       {/* 对齐 RN avatarInitial 18dp/600/text.secondary */}
-                      <Text className="text-[36rpx] font-semibold text-muted-foreground">{initial}</Text>
+                      <Text className="text-[36rpx] font-semibold text-muted-foreground">
+                        {initial}
+                      </Text>
                     </View>
                   )}
                   {/* 对齐 RN cardInfo:marginLeft 12dp;bio/meta marginTop 8dp */}
@@ -201,11 +203,7 @@ export default function FollowingPage() {
       {/* 空状态:暂无关注 + 去发现更多 */}
       {displayList.length === 0 && !loading ? (
         <View className="py-[96rpx] flex flex-col items-center">
-          <LineIcon
-            name="message-circle"
-            size={80}
-            color="var(--color-muted-foreground)"
-          />
+          <LineIcon name="message-circle" size={80} color="var(--color-muted-foreground)" />
           <Text className="mt-[16rpx] text-[28rpx] text-muted-foreground">
             {searchText
               ? tt('following.searchEmpty', '未找到匹配用户')

@@ -85,14 +85,20 @@ export default function CartePage() {
           <Text className="text-base text-muted-foreground w-10 leading-none" onClick={onBack}>
             ‹
           </Text>
-          <Text className="text-xl font-semibold text-foreground">{tt('carte.title', '电子名片')}</Text>
+          <Text className="text-xl font-semibold text-foreground">
+            {tt('carte.title', '电子名片')}
+          </Text>
         </View>
 
         {/* 名片主卡(RN card:白底 / 圆角16 / 描边 border-light / padding14) */}
         <View className="mx-4 p-3.5 rounded-2xl bg-card border border-border">
           <View className="flex items-center">
             {info.avatar ? (
-              <Image className="w-12 h-12 rounded-2xl flex-shrink-0" src={info.avatar} mode="aspectFill" />
+              <Image
+                className="w-12 h-12 rounded-2xl flex-shrink-0"
+                src={info.avatar}
+                mode="aspectFill"
+              />
             ) : (
               <View className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center flex-shrink-0">
                 <Text className="text-2xl font-bold text-primary-foreground">
@@ -122,7 +128,8 @@ export default function CartePage() {
                 <View
                   className="flex items-center justify-between py-1"
                   onClick={handleCopyPhone}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   <Text className="w-10 text-[11px] text-muted-foreground">{t('carte.phone')}</Text>
                   <Text className="flex-1 text-sm text-foreground text-right">{info.phone}</Text>
                 </View>
@@ -158,7 +165,8 @@ export default function CartePage() {
           <View
             className="flex-1 h-11 rounded-xl border border-border flex items-center justify-center"
             onClick={handleShare}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-sm text-[color:var(--color-text-medium)]">
               {t('carte.shareCard')}
             </Text>
@@ -166,7 +174,8 @@ export default function CartePage() {
           <View
             className="flex-1 h-11 rounded-xl border border-border flex items-center justify-center"
             onClick={handleSaveQrcode}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-sm text-[color:var(--color-text-medium)]">
               {t('carte.saveQrcode')}
             </Text>

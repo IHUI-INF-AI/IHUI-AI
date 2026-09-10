@@ -83,8 +83,18 @@ describe('extractDocumentAssets — 基础路径', () => {
     const p = makeTmpFile('doc.docx', 'docx-bytes')
     mockedToDocument.mockResolvedValue({
       assets: [
-        { id: 0, mediaType: 'image/png', originPart: 'word/media/image1.png', data: Buffer.from([1, 2, 3]) },
-        { id: 1, mediaType: 'application/octet-stream', originPart: 'word/embeddings/obj1.bin', data: Buffer.from([9]) },
+        {
+          id: 0,
+          mediaType: 'image/png',
+          originPart: 'word/media/image1.png',
+          data: Buffer.from([1, 2, 3]),
+        },
+        {
+          id: 1,
+          mediaType: 'application/octet-stream',
+          originPart: 'word/embeddings/obj1.bin',
+          data: Buffer.from([9]),
+        },
       ],
       blocks: [],
       notes: [],
@@ -111,7 +121,9 @@ describe('extractDocumentAssets — 基础路径', () => {
   it('不传 writeToDir 时只返回清单不落盘', async () => {
     const p = makeTmpFile('doc2.docx', 'docx-bytes')
     mockedToDocument.mockResolvedValue({
-      assets: [{ id: 0, mediaType: 'image/jpeg', originPart: 'word/media/x.jpg', data: Buffer.from([5]) }],
+      assets: [
+        { id: 0, mediaType: 'image/jpeg', originPart: 'word/media/x.jpg', data: Buffer.from([5]) },
+      ],
       blocks: [],
       notes: [],
     })

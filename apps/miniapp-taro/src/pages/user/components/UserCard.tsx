@@ -72,7 +72,8 @@ export default function UserCard({ onGoPage }: UserCardProps) {
                 }
                 onGoPage(item.path)
               }}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <View className="w-[90rpx] h-[90rpx] mr-[24rpx] flex-shrink-0">
                 <Image src={item.icon} className="w-full h-full" mode="aspectFill" />
               </View>

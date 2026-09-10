@@ -133,10 +133,8 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /news/categories - 启用的分类列表（公开）
   server.get('/news/categories', async (_request, reply) => {
-    const list = await server.cacheResilience.getOrLoad(
-      'news:categories',
-      300,
-      () => findPublishedNewsCategories(),
+    const list = await server.cacheResilience.getOrLoad('news:categories', 300, () =>
+      findPublishedNewsCategories(),
     )
     return reply
       .header('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60')
@@ -150,10 +148,8 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
       .safeParse(request.query)
     const limit = limitQuery.success ? limitQuery.data.limit : 10
     // 2026-09-06 P0:公开资讯热榜接缓存(5min)
-    const result = await server.cacheResilience.getOrLoad(
-      `news:hot:${limit}`,
-      300,
-      () => findPublishedArticles({ page: 1, pageSize: limit }),
+    const result = await server.cacheResilience.getOrLoad(`news:hot:${limit}`, 300, () =>
+      findPublishedArticles({ page: 1, pageSize: limit }),
     )
     const list = result.list.map((a) => ({
       id: a.id,

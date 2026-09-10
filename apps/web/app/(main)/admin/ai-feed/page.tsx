@@ -109,11 +109,24 @@ export default function AiFeedHealthPage() {
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-              {isFetching ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
+              {isFetching ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-1 h-4 w-4" />
+              )}
               刷新
             </Button>
-            <Button size="sm" variant="destructive" onClick={() => collectMut.mutate()} disabled={collectMut.isPending}>
-              {collectMut.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Activity className="mr-1 h-4 w-4" />}
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => collectMut.mutate()}
+              disabled={collectMut.isPending}
+            >
+              {collectMut.isPending ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <Activity className="mr-1 h-4 w-4" />
+              )}
               立即全量采集
             </Button>
           </div>
@@ -162,7 +175,9 @@ export default function AiFeedHealthPage() {
                       {!s.enabled && <Badge variant="secondary">已停用</Badge>}
                     </div>
                     <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                      {s.category ?? '未分类'} · {s.sourceType} · 最近采集 {fmtTime(s.lastFetchAt)} · 本次 {s.lastFetchCount ?? 0} 条 · 历史条目 {itemCount} · 快照 {snapshotCount}
+                      {s.category ?? '未分类'} · {s.sourceType} · 最近采集 {fmtTime(s.lastFetchAt)}{' '}
+                      · 本次 {s.lastFetchCount ?? 0} 条 · 历史条目 {itemCount} · 快照{' '}
+                      {snapshotCount}
                       {s.description ? ` · ${s.description}` : ''}
                     </p>
                   </div>
@@ -184,15 +199,7 @@ export default function AiFeedHealthPage() {
   )
 }
 
-function SummaryCard({
-  label,
-  value,
-  danger,
-}: {
-  label: string
-  value: number
-  danger?: boolean
-}) {
+function SummaryCard({ label, value, danger }: { label: string; value: number; danger?: boolean }) {
   return (
     <Card className={danger ? 'border-destructive/60' : undefined}>
       <CardContent className="py-3">

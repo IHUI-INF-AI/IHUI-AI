@@ -66,8 +66,7 @@ export function OrderScreen({
     const kw = keyword.trim().toLowerCase()
     if (!kw) return items
     return items.filter(
-      (item) =>
-        item.orderNo.toLowerCase().includes(kw) || item.title.toLowerCase().includes(kw),
+      (item) => item.orderNo.toLowerCase().includes(kw) || item.title.toLowerCase().includes(kw),
     )
   }, [items, keyword])
 

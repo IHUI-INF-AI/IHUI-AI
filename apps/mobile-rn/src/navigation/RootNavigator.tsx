@@ -233,11 +233,7 @@ import { SubagentsScreen } from '../screens/SubagentsScreen'
  * - 'levelPopup'       会员等级介绍(levelIndex 变体)
  */
 export type VipPopupType =
-  | 'IntroducePopup'
-  | 'IntroducePopups'
-  | 'IntroducePopups1'
-  | 'PrivateAdvisory'
-  | 'levelPopup'
+  'IntroducePopup' | 'IntroducePopups' | 'IntroducePopups1' | 'PrivateAdvisory' | 'levelPopup'
 
 export type RootStackParamList = {
   Login: undefined
@@ -419,7 +415,8 @@ export type RootStackParamList = {
   ModelIncome: { agentId?: string }
   AiCareer: undefined
   // 2026-09-05:Assistant 重写为对齐 Uniapp pagesA/assistant/index.vue 的 IM 聊天室(列表/聊天两态),roomId 等参数可选兼容旧调用
-  Assistant: { roomId?: string; roomName?: string; receiverUuid?: string; avatar?: string } | undefined
+  Assistant:
+    { roomId?: string; roomName?: string; receiverUuid?: string; avatar?: string } | undefined
   ChangePwd: undefined
   TopupSuccess: { amount: number; orderId: string }
   TopupFail: { reason?: string }

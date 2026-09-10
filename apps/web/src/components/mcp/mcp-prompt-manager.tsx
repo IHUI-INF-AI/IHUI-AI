@@ -107,20 +107,12 @@ export function McpPromptManager() {
                   <span className="font-mono text-sm font-medium">{prompt.name}</span>
                   <div className="flex gap-1">
                     <Tooltip content={t('preview')}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setPreviewPrompt(prompt)}
-                      >
+                      <Button variant="ghost" size="icon" onClick={() => setPreviewPrompt(prompt)}>
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
                     </Tooltip>
                     <Tooltip content={t('executePrompt')}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openExecute(prompt)}
-                      >
+                      <Button variant="ghost" size="icon" onClick={() => openExecute(prompt)}>
                         <Play className="h-3.5 w-3.5" />
                       </Button>
                     </Tooltip>

@@ -84,9 +84,13 @@ export default function AskDetailPage() {
                   {data.author}
                 </Text>
               </View>
-              <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">{data.createTime}</Text>
+              <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                {data.createTime}
+              </Text>
             </View>
-            <View className="text-[32rpx] text-[var(--color-text-medium)] leading-[44rpx]">{data.content}</View>
+            <View className="text-[32rpx] text-[var(--color-text-medium)] leading-[44rpx]">
+              {data.content}
+            </View>
           </View>
         ) : null}
 
@@ -109,7 +113,9 @@ export default function AskDetailPage() {
                   <Text className="ml-[16rpx] text-[28rpx] text-muted-foreground font-medium">
                     {a.author}
                   </Text>
-                  <Text className="ml-auto text-[22rpx] text-[var(--color-text-tertiary)]">{a.time}</Text>
+                  <Text className="ml-auto text-[22rpx] text-[var(--color-text-tertiary)]">
+                    {a.time}
+                  </Text>
                 </View>
                 <View className="mt-[12rpx] text-[28rpx] text-[var(--color-text-medium)] leading-[1.6]">
                   {a.content}

@@ -464,7 +464,9 @@ describe('AI World Sync — dedupKeyOf 标题归一化去重', () => {
     expect(dedupKeyOf('news', 'GPT-5：重磅发布，开创未来')).toBe(
       dedupKeyOf('news', 'GPT5 重磅发布,开创未来'),
     )
-    expect(dedupKeyOf('news', 'GPT-5：重磅发布，开创未来')).toBe(dedupKeyOf('news', 'GPT5重磅发布开创未来'))
+    expect(dedupKeyOf('news', 'GPT-5：重磅发布，开创未来')).toBe(
+      dedupKeyOf('news', 'GPT5重磅发布开创未来'),
+    )
   })
 
   it('全角空格/字母全角化经 NFKC 归一到半角', () => {

@@ -71,9 +71,7 @@ export async function listTeamMemories(params: TeamMemoryListParams): Promise<Te
 }
 
 /** 创建团队记忆 */
-export async function createTeamMemory(
-  input: CreateTeamMemoryInput,
-): Promise<TeamMemoryDTO> {
+export async function createTeamMemory(input: CreateTeamMemoryInput): Promise<TeamMemoryDTO> {
   const res = await fetchApi<TeamMemoryDTO>('/api/team-memory', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -106,10 +104,9 @@ export async function updateTeamMemory(
 
 /** 删除团队记忆 */
 export async function deleteTeamMemory(id: string): Promise<{ deleted: boolean }> {
-  const res = await fetchApi<{ deleted: boolean }>(
-    `/api/team-memory/${encodeURIComponent(id)}`,
-    { method: 'DELETE' },
-  )
+  const res = await fetchApi<{ deleted: boolean }>(`/api/team-memory/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
   if (!res.success) throw new Error(res.error || '删除团队记忆失败')
   return res.data
 }

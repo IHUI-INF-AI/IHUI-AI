@@ -5,6 +5,7 @@
 -->
 
 ---
+
 name: Bug Report
 about: 报告 Bug 帮助我们改进
 title: '[BUG] '

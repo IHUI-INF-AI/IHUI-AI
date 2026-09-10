@@ -12,9 +12,7 @@ async function main() {
   const stats = await syncAlgorithmRecords()
   console.log('[importer] 完成,耗时 %dms', Date.now() - started)
   for (const s of stats) {
-    console.log(
-      `  [${s.kind}] 文件${s.files} 写入${s.inserted} 更新${s.updated} 跳过${s.skipped}`,
-    )
+    console.log(`  [${s.kind}] 文件${s.files} 写入${s.inserted} 更新${s.updated} 跳过${s.skipped}`)
   }
   const total = stats.reduce((a, b) => a + b.inserted, 0)
   console.log(`[importer] 共计写入 ${total} 条`)

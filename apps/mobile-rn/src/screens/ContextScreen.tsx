@@ -183,9 +183,14 @@ export function ContextScreen() {
                 >
                   <View className="flex-row items-center gap-2">
                     <View className="rounded bg-orange-50 px-1.5 py-0.5 dark:bg-orange-900/30">
-                      <Text className="text-[10px] text-orange-600 dark:text-orange-300">{m.type}</Text>
+                      <Text className="text-[10px] text-orange-600 dark:text-orange-300">
+                        {m.type}
+                      </Text>
                     </View>
-                    <Text className="flex-1 text-xs font-medium dark:text-neutral-100" numberOfLines={1}>
+                    <Text
+                      className="flex-1 text-xs font-medium dark:text-neutral-100"
+                      numberOfLines={1}
+                    >
                       {m.label}
                     </Text>
                   </View>

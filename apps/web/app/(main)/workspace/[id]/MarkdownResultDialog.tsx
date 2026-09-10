@@ -48,7 +48,11 @@ function AssetGrid({ assets, loading }: { assets: ExtractedFileAsset[]; loading:
           className="group relative aspect-square overflow-hidden rounded-md border bg-muted"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={asset.url} alt="" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+          <img
+            src={asset.url}
+            alt=""
+            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+          />
           <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
             {asset.extension} · {(asset.size / 1024).toFixed(1)} KB
           </div>
@@ -173,12 +177,19 @@ export function MarkdownResultDialog({ result, onClose }: Props) {
             {t('download')}
           </Button>
           {fileId && (
-            <Button variant="outline" size="sm" onClick={handleExtractImages} disabled={!result || extracting}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExtractImages}
+              disabled={!result || extracting}
+            >
               <ImageIcon className="mr-1 h-4 w-4" />
               {extracting ? t('extracting') : t('extractImages')}
             </Button>
           )}
-          {copyFailed && <span className="self-center text-xs text-destructive">{t('copyFailed')}</span>}
+          {copyFailed && (
+            <span className="self-center text-xs text-destructive">{t('copyFailed')}</span>
+          )}
         </div>
         <div className="min-h-[200px] overflow-y-auto rounded-md border bg-muted/20 p-4 text-sm">
           <ReactMarkdown
@@ -191,9 +202,7 @@ export function MarkdownResultDialog({ result, onClose }: Props) {
                   <table {...props} />
                 </div>
               ),
-              pre: (props) => (
-                <pre className="overflow-x-auto" {...props} />
-              ),
+              pre: (props) => <pre className="overflow-x-auto" {...props} />,
             }}
           >
             {result?.markdown ?? ''}
@@ -203,7 +212,9 @@ export function MarkdownResultDialog({ result, onClose }: Props) {
               <DialogContent className="max-h-[70vh] max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>{t('extractedImages')}</DialogTitle>
-                  {unsupported && <p className="text-sm text-muted-foreground">{t('assetNotSupported')}</p>}
+                  {unsupported && (
+                    <p className="text-sm text-muted-foreground">{t('assetNotSupported')}</p>
+                  )}
                   {!unsupported && assets.length === 0 && !extracting && (
                     <p className="text-sm text-muted-foreground">{t('extractedNone')}</p>
                   )}

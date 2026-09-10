@@ -21,7 +21,10 @@ import {
 import { findTagsByTarget, attachTag, detachTag } from '../db/social-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { buildSchema } from '../utils/swagger.js'
-import { convertToMarkdownDetailed, extractDocumentAssets } from '../services/markdown-converter-service.js'
+import {
+  convertToMarkdownDetailed,
+  extractDocumentAssets,
+} from '../services/markdown-converter-service.js'
 import {
   validateUploadFile,
   sanitizeFilename,

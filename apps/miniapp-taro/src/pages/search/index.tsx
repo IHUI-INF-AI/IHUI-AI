@@ -273,7 +273,11 @@ export default function Search() {
             ) : null}
             {results.map((item, idx) => (
               <Fragment key={`${item.type}_${item.id}`}>
-                <View style={viewStyles.card} onTap={() => onPressItem(item)} hoverClass="opacity-60">
+                <View
+                  style={viewStyles.card}
+                  onTap={() => onPressItem(item)}
+                  hoverClass="opacity-60"
+                >
                   <View style={viewStyles.cardHead}>
                     <View style={viewStyles.typeBadge}>
                       <Text style={textStyles.typeBadge}>{typeLabel(item.type)}</Text>

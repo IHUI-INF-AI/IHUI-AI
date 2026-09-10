@@ -15,12 +15,7 @@
  */
 
 import * as WebBrowser from 'expo-web-browser'
-import {
-  dingtalkLogin,
-  oauthCallback,
-  wecomLogin,
-  type LoginResult,
-} from '@ihui/api-client'
+import { dingtalkLogin, oauthCallback, wecomLogin, type LoginResult } from '@ihui/api-client'
 import { WEB_BASE_URL } from './config'
 
 // 通用 OAuth 平台类型(对齐后端 POST /api/auth/:platform/callback 的 platform 参数)

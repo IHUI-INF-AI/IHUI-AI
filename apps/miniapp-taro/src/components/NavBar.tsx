@@ -122,7 +122,8 @@ export default function NavBar({
                 className="flex items-center justify-center"
                 style={{ width: rpx(40), height: rpx(40) }}
                 onClick={onPack}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text style={{ fontSize: rpx(32), color: textColor, fontWeight: 'bold' }}>
                   {'‹'}
                 </Text>
@@ -132,12 +133,9 @@ export default function NavBar({
               className="flex items-center justify-center"
               style={{ width: rpx(40), height: rpx(40) }}
               onClick={onMenuClick}
-              hoverClass="opacity-60">
-              <LineIcon
-                name="menu"
-                size={40}
-                color="var(--color-muted-foreground)"
-              />
+              hoverClass="opacity-60"
+            >
+              <LineIcon name="menu" size={40} color="var(--color-muted-foreground)" />
             </View>
           </View>
           {/* 中间:标题切换(每日资讯/排行榜)或普通标题 */}
@@ -189,12 +187,9 @@ export default function NavBar({
                 className="flex items-center justify-center"
                 style={{ width: rpx(40), height: rpx(40) }}
                 onClick={onFeedbackClick}
-                hoverClass="opacity-60">
-                <LineIcon
-                  name="message-circle"
-                  size={28}
-                  color="var(--color-muted-foreground)"
-                />
+                hoverClass="opacity-60"
+              >
+                <LineIcon name="message-circle" size={28} color="var(--color-muted-foreground)" />
               </View>
             ) : null}
             {showFenLei ? (
@@ -202,12 +197,9 @@ export default function NavBar({
                 className="flex items-center justify-center"
                 style={{ width: rpx(40), height: rpx(40) }}
                 onClick={onFenLeiClick}
-                hoverClass="opacity-60">
-                <LineIcon
-                  name="menu"
-                  size={28}
-                  color="var(--color-muted-foreground)"
-                />
+                hoverClass="opacity-60"
+              >
+                <LineIcon name="menu" size={28} color="var(--color-muted-foreground)" />
               </View>
             ) : null}
             {showSearch ? (
@@ -215,7 +207,8 @@ export default function NavBar({
                 className="flex items-center justify-center"
                 style={{ width: rpx(40), height: rpx(40) }}
                 onClick={onSearchClick}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <LineIcon name="search" size={28} color="var(--color-muted-foreground)" />
               </View>
             ) : null}
@@ -230,7 +223,8 @@ export default function NavBar({
                   background: 'var(--color-card)',
                 }}
                 onClick={onJoinClick}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text
                   style={{
                     color: 'var(--color-primary)',
@@ -284,7 +278,8 @@ export default function NavBar({
           className={cn('absolute left-3 flex items-center justify-center w-8 h-8 rounded-lg')}
           style={{ top: px(statusBarHeight + (navBarHeight - 32) / 2) }}
           onClick={handleBack}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <Text style={{ color: textColor, fontSize: '22px' }}>{'‹'}</Text>
         </View>
       )}
@@ -299,7 +294,8 @@ export default function NavBar({
           className={cn('absolute right-3 flex items-center justify-center h-8 px-2')}
           style={{ top: px(statusBarHeight + (navBarHeight - 32) / 2) }}
           onClick={onRightClick}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <Text style={{ color: textColor, fontSize: '14px' }}>{rightText}</Text>
         </View>
       )}

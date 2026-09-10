@@ -110,7 +110,12 @@ export default function PrivacySettingPage() {
 
   // 隐私开关项展示配置(仅渲染层聚合,onToggle/存储逻辑不变)
   const switchItems = [
-    { key: 'mute', label: t('settingPrivacy.mute'), desc: t('settingPrivacy.muteDesc'), value: mute },
+    {
+      key: 'mute',
+      label: t('settingPrivacy.mute'),
+      desc: t('settingPrivacy.muteDesc'),
+      value: mute,
+    },
     {
       key: 'recommend',
       label: t('settingPrivacy.recommend'),

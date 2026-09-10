@@ -942,7 +942,8 @@ export function LocalFolderPicker({
 
               {/* 按钮 */}
               <div className="flex shrink-0 items-center gap-2">
-                <Button size="sm"
+                <Button
+                  size="sm"
                   type="button"
                   variant="outline"
                   onClick={() => onOpenChange(false)}
@@ -951,7 +952,8 @@ export function LocalFolderPicker({
                 >
                   {t('cancel')}
                 </Button>
-                <Button size="sm"
+                <Button
+                  size="sm"
                   type="button"
                   onClick={openSelected}
                   disabled={!canOpen}

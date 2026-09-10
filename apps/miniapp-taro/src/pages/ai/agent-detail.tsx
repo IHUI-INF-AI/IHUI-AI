@@ -393,7 +393,9 @@ export default function AgentDetailPage() {
                           color="var(--color-warning-amber)"
                           className="mr-[6rpx]"
                         />
-                        <Text className="text-[28rpx] text-[var(--color-warning-amber)]">{rating.toFixed(1)}</Text>
+                        <Text className="text-[28rpx] text-[var(--color-warning-amber)]">
+                          {rating.toFixed(1)}
+                        </Text>
                       </View>
                     )}
                     {useCount !== undefined && (
@@ -434,8 +436,8 @@ export default function AgentDetailPage() {
                   <Text
                     className={`text-[24rpx] ${
                       permission.hasPermission
-                      ? 'text-[var(--color-success-deep-text)]'
-                      : 'text-[var(--color-warning-amber-text)]'
+                        ? 'text-[var(--color-success-deep-text)]'
+                        : 'text-[var(--color-warning-amber-text)]'
                     }`}
                   >
                     {permission.hasPermission
@@ -452,9 +454,7 @@ export default function AgentDetailPage() {
               <Text className="text-[22rpx] text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.prologue')}
               </Text>
-              <Text className="text-[32rpx] text-foreground leading-[44rpx]">
-                {agent.prologue}
-              </Text>
+              <Text className="text-[32rpx] text-foreground leading-[44rpx]">{agent.prologue}</Text>
             </View>
           )}
           {/* 使用教程 / 示例对话(对标原项目 exampleDialog) */}
@@ -529,21 +529,17 @@ export default function AgentDetailPage() {
                         <Text className="text-[22rpx] text-muted-foreground mr-[4rpx]">
                           {item.star}
                         </Text>
-                        <LineIcon
-                          name="star"
-                          size={20}
-                          color="var(--color-warning-amber)"
-                        />
+                        <LineIcon name="star" size={20} color="var(--color-warning-amber)" />
                         <View className="flex-1 h-[16rpx] bg-muted rounded mx-[16rpx] overflow-hidden">
-                        <View
-                          className="h-full bg-[var(--color-warning-amber)] rounded"
-                          style={{ width: `${percent}%` }}
-                        />
+                          <View
+                            className="h-full bg-[var(--color-warning-amber)] rounded"
+                            style={{ width: `${percent}%` }}
+                          />
+                        </View>
+                        <Text className="text-[22rpx] text-muted-foreground w-[60rpx] text-right">
+                          {percent}%
+                        </Text>
                       </View>
-                      <Text className="text-[22rpx] text-muted-foreground w-[60rpx] text-right">
-                        {percent}%
-                      </Text>
-                    </View>
                     </View>
                   </ThemeRoot>
                 )

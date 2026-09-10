@@ -104,7 +104,8 @@ export default function DistributionWithdraw() {
                 key={pt.value}
                 className={`flex-1 py-[12rpx] text-center rounded-[24rpx] text-[28rpx] ${payType === pt.value ? 'bg-primary text-primary-foreground font-semibold' : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'}`}
                 onClick={() => setPayType(pt.value)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text>{pt.label}</Text>
               </View>
             ))}

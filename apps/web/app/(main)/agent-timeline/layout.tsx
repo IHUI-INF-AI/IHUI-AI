@@ -17,11 +17,12 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'zh_CN',
     title: 'Agent 全活动时间线回放 | IHUI AI',
-    description:
-      '五类 agent 活动统一时间轴回放,含成本 / Token 汇总与检查点回滚入口。',
+    description: '五类 agent 活动统一时间轴回放,含成本 / Token 汇总与检查点回滚入口。',
     url: 'https://aizhs.top/agent-timeline',
     siteName: 'IHUI AI',
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'IHUI AI Agent 全活动时间线回放' }],
+    images: [
+      { url: '/og-image.png', width: 1200, height: 630, alt: 'IHUI AI Agent 全活动时间线回放' },
+    ],
   },
   twitter: {
     card: 'summary_large_image',

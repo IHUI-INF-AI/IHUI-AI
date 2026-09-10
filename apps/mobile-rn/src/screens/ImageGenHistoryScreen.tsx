@@ -199,7 +199,11 @@ export function ImageGenHistoryScreen() {
   const renderItem = ({ item }: { item: GridItem }) => (
     <View className="mb-3 flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-neutral-700 dark:bg-neutral-800">
       {item.coverUrl ? (
-        <Image source={{ uri: item.coverUrl }} style={{ aspectRatio: 1, width: '100%' }} resizeMode="cover" />
+        <Image
+          source={{ uri: item.coverUrl }}
+          style={{ aspectRatio: 1, width: '100%' }}
+          resizeMode="cover"
+        />
       ) : (
         <View className="aspect-square w-full items-center justify-center bg-gray-100 px-3 dark:bg-neutral-700">
           <Text className="text-center text-xs text-gray-400" numberOfLines={4}>
@@ -223,7 +227,9 @@ export function ImageGenHistoryScreen() {
 
   if (loading) {
     return (
-      <View className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}>
+      <View
+        className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}
+      >
         <Text className="text-gray-500">{t('common.loading')}</Text>
       </View>
     )
@@ -232,11 +238,17 @@ export function ImageGenHistoryScreen() {
   return (
     <View className={`flex-1 ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}>
       <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text className="text-sm text-gray-500">{t('common.back')}</Text>
         </TouchableOpacity>
         <Text className="text-base font-medium">{t('imageGen.title')}</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('ImageGenCreate')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('ImageGenCreate')}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text className="text-sm font-medium text-orange-600">{t('imageGen.create')}</Text>
         </TouchableOpacity>
       </View>
@@ -248,7 +260,9 @@ export function ImageGenHistoryScreen() {
             onPress={() => onTabPress(item.key)}
             className={`rounded-md px-3 py-1.5 ${tab === item.key ? 'bg-gray-200 dark:bg-neutral-700' : ''}`}
           >
-            <Text className={`text-sm ${tab === item.key ? 'font-medium text-gray-900 dark:text-gray-50' : 'text-gray-500'}`}>
+            <Text
+              className={`text-sm ${tab === item.key ? 'font-medium text-gray-900 dark:text-gray-50' : 'text-gray-500'}`}
+            >
               {t(item.labelKey)}
             </Text>
           </TouchableOpacity>

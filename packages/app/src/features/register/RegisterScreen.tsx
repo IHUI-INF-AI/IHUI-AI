@@ -123,7 +123,10 @@ export function RegisterScreen({
             autoCapitalize="none"
           />
           <TouchableOpacity
-            style={[styles.codeBtn, (countdown > 0 || sending || !onSendCode) && styles.codeBtnDisabled]}
+            style={[
+              styles.codeBtn,
+              (countdown > 0 || sending || !onSendCode) && styles.codeBtnDisabled,
+            ]}
             onPress={() => void handleSendCode()}
             disabled={countdown > 0 || sending || !onSendCode}
           >

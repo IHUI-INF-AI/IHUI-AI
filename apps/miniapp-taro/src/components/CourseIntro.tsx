@@ -39,7 +39,12 @@ export default function CourseIntro({ data = {} }: CourseIntroProps) {
           </Text>
           {data.objectives.map((obj, i) => (
             <View key={i} className="flex items-start mb-1.5">
-              <LineIcon name="check" size="14px" color="var(--color-muted-foreground)" className="mr-2" />
+              <LineIcon
+                name="check"
+                size="14px"
+                color="var(--color-muted-foreground)"
+                className="mr-2"
+              />
               <Text className="flex-1 text-xs text-muted-foreground">{obj}</Text>
             </View>
           ))}

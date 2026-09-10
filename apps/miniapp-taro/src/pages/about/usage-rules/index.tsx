@@ -420,10 +420,7 @@ export default function UsageRules() {
           </View>
 
           {sections.map((section, sIdx) => (
-            <View
-              key={sIdx}
-              className="bg-card rounded-[24rpx] border border-border p-[28rpx]"
-            >
+            <View key={sIdx} className="bg-card rounded-[24rpx] border border-border p-[28rpx]">
               <Text className="block text-[36rpx] font-semibold text-foreground leading-[44rpx] mb-[24rpx]">
                 {section.title}
               </Text>

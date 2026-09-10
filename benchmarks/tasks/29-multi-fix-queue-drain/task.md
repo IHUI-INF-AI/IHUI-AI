@@ -5,6 +5,7 @@
 -->
 
 workspace 中 worker.mjs 按 FIFO 顺序消费 Queue。queue.mjs 的 drain() 应按入队顺序返回全部元素并清空队列,当前实现用了 pop 导致顺序颠倒。请修复 queue.mjs 的 drain(worker.mjs 不改),要求:
+
 - 依次 enqueue(1), enqueue(2), enqueue(3) 后 drain() 深度等于 [1, 2, 3]
 - drain() 后再 drain() 返回 [](队列已清空)
 

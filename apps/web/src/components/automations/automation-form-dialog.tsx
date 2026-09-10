@@ -43,7 +43,10 @@ type Frequency = 'hourly' | 'daily' | 'weekly'
 const DAY_CODES = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const
 
 /** 周几代码 → i18n 键(静态映射,避免动态 t() 拼接) */
-const WEEKDAY_LABEL_KEYS: Record<(typeof DAY_CODES)[number], 'weekdayMo' | 'weekdayTu' | 'weekdayWe' | 'weekdayTh' | 'weekdayFr' | 'weekdaySa' | 'weekdaySu'> = {
+const WEEKDAY_LABEL_KEYS: Record<
+  (typeof DAY_CODES)[number],
+  'weekdayMo' | 'weekdayTu' | 'weekdayWe' | 'weekdayTh' | 'weekdayFr' | 'weekdaySa' | 'weekdaySu'
+> = {
   MO: 'weekdayMo',
   TU: 'weekdayTu',
   WE: 'weekdayWe',
@@ -182,7 +185,11 @@ export function AutomationFormDialog({ open, onOpenChange, editing, onSaved }: P
     if (form.scheduleType === 'once' && !localToIso(form.scheduledAt)) {
       return setFormErr(t('form.errScheduledAt'))
     }
-    if (form.scheduleType === 'recurring' && form.frequency === 'weekly' && form.days.length === 0) {
+    if (
+      form.scheduleType === 'recurring' &&
+      form.frequency === 'weekly' &&
+      form.days.length === 0
+    ) {
       return setFormErr(t('form.errDays'))
     }
 
@@ -224,9 +231,7 @@ export function AutomationFormDialog({ open, onOpenChange, editing, onSaved }: P
       <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>
-              {editing ? t('form.editTitle') : t('form.createTitle')}
-            </DialogTitle>
+            <DialogTitle>{editing ? t('form.editTitle') : t('form.createTitle')}</DialogTitle>
             <DialogDescription>{t('form.desc')}</DialogDescription>
           </DialogHeader>
 
@@ -358,7 +363,12 @@ export function AutomationFormDialog({ open, onOpenChange, editing, onSaved }: P
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={pending}
+            >
               {t('cancel')}
             </Button>
             <Button type="submit" disabled={pending}>

@@ -36,10 +36,7 @@ import {
 } from '../services/account-lockout.js'
 import { success, error } from '../utils/response.js'
 import { setAuthCookies, clearAuthCookies } from '../utils/auth-cookies.js'
-import {
-  wechatAppCode2session,
-  isWechatAppConfigured,
-} from '../services/oauth-providers.js'
+import { wechatAppCode2session, isWechatAppConfigured } from '../services/oauth-providers.js'
 import { findThirdPartyAccount, createThirdPartyBinding } from '../db/oauth-queries.js'
 import { findUserPreferences, upsertUserPreference } from '../db/user-preferences-queries.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
@@ -52,7 +49,11 @@ import {
   verifyCode,
 } from '../utils/code-store.js'
 import { signChallengeToken, CHALLENGE_TOKEN_TTL_SECONDS } from '../services/totp-service.js'
-import { evaluateLoginRisk, evaluateRisk, recentRiskHitsByIp } from '../services/risk-engine-service.js'
+import {
+  evaluateLoginRisk,
+  evaluateRisk,
+  recentRiskHitsByIp,
+} from '../services/risk-engine-service.js'
 import { verifyTurnstile } from '../services/turnstile-service.js'
 import { db } from '../db/index.js'
 import { userDevices } from '@ihui/database'
@@ -994,7 +995,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: {
         summary: '微信登录(移动应用 App 内授权)',
-        description: '使用 react-native-wechat-lib sendAuthRequest 返回的 code 登录,需配置 WECHAT_MOBILE_APP_ID/WECHAT_MOBILE_SECRET',
+        description:
+          '使用 react-native-wechat-lib sendAuthRequest 返回的 code 登录,需配置 WECHAT_MOBILE_APP_ID/WECHAT_MOBILE_SECRET',
         tags: ['auth'],
         body: {
           type: 'object',
@@ -1014,7 +1016,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (!isWechatAppConfigured()) {
         return reply
           .status(501)
-          .send(error(501, '微信移动应用登录未配置,请配置 WECHAT_MOBILE_APP_ID/WECHAT_MOBILE_SECRET'))
+          .send(
+            error(501, '微信移动应用登录未配置,请配置 WECHAT_MOBILE_APP_ID/WECHAT_MOBILE_SECRET'),
+          )
       }
       const session = await wechatAppCode2session(parsed.data.code).catch(() => null)
       if (!session) {

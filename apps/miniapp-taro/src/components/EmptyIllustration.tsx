@@ -58,7 +58,11 @@ export default function EmptyIllustration({
       <Text className="text-sm text-muted-foreground mb-1">{text || DEFAULT_TEXTS(tt)[type]}</Text>
       {desc && <Text className="text-xs text-muted-foreground text-center mb-3">{desc}</Text>}
       {actionText && onAction && (
-        <View className="px-4 py-2 rounded-md bg-primary/10" onClick={onAction} hoverClass="opacity-60">
+        <View
+          className="px-4 py-2 rounded-md bg-primary/10"
+          onClick={onAction}
+          hoverClass="opacity-60"
+        >
           <Text className="text-sm text-primary">{actionText}</Text>
         </View>
       )}

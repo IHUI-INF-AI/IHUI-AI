@@ -99,7 +99,12 @@ export function NoteListScreen({
             </View>
           ) : (
             items.map((item) => (
-              <View key={item.id} style={viewStyles.card(tk)} onTap={() => onPressItem(item)} hoverClass="opacity-60">
+              <View
+                key={item.id}
+                style={viewStyles.card(tk)}
+                onTap={() => onPressItem(item)}
+                hoverClass="opacity-60"
+              >
                 <Text style={textStyles.cardTitle(tk)}>{item.title}</Text>
                 <Text style={textStyles.cardSummary(tk)}>{item.summary}</Text>
                 <View style={viewStyles.metaRow()}>

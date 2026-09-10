@@ -173,7 +173,8 @@ export default function ModelEdit() {
             key={o.value}
             className={`${OPT_BASE} ${current === o.value ? OPT_ACTIVE : ''}`}
             onClick={() => onSelect(o.value)}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text>{o.label}</Text>
           </View>
         ))}
@@ -278,7 +279,8 @@ export default function ModelEdit() {
                   key={c}
                   className={`${TAG_BASE} ${categories.includes(c) ? TAG_ACTIVE : ''}`}
                   onClick={() => toggleCategory(c)}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   <Text>{c}</Text>
                 </View>
               ))}
@@ -296,11 +298,7 @@ export default function ModelEdit() {
             >
               <View className="flex items-center justify-between h-[72rpx] px-[28rpx] rounded-[24rpx] border border-primary bg-muted text-[28rpx] font-semibold text-foreground box-border">
                 <Text>{DEPARTMENTS[deptIndex]}</Text>
-                <LineIcon
-                  name="chevron-down"
-                  size={24}
-                  color="var(--color-muted-foreground)"
-                />
+                <LineIcon name="chevron-down" size={24} color="var(--color-muted-foreground)" />
               </View>
             </Picker>
 
@@ -352,14 +350,14 @@ export default function ModelEdit() {
                 ) : null}
 
                 {/* 7. 折扣参与 (外层块已保证 saleType !== 'free',此处无条件渲染) */}
-                {(
+                {
                   <>
                     <Text className="block text-[28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                       {tt('devEnter.modelEdit.discountLabel', '折扣参与')}
                     </Text>
                     {renderOpts(discountOpts, discount, (v) => setDiscount(v as Discount))}
                   </>
-                )}
+                }
               </View>
             ) : null}
 
@@ -374,7 +372,8 @@ export default function ModelEdit() {
             <View
               className={`mt-[56rpx] h-[100rpx] rounded-[24rpx] bg-primary text-[32rpx] font-semibold text-primary-foreground flex items-center justify-center box-border ${submitting ? 'opacity-60' : ''}`}
               onClick={onSubmit}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text>
                 {submitting
                   ? tt('devEnter.modelEdit.submitting', '提交中…')

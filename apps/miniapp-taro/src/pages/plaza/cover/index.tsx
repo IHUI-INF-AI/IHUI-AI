@@ -45,7 +45,9 @@ const QA_KEYS = [
 ] as const
 
 /** 三个开发者入口(对标原项目 dev_list) */
-const DEV_ENTRIES = (tt: TtFn): Array<{
+const DEV_ENTRIES = (
+  tt: TtFn,
+): Array<{
   key: string
   icon: IconName
   titleKey: string
@@ -199,7 +201,8 @@ export default function PlazaCover() {
           <View
             className="flex items-center justify-center px-[48rpx] py-[30rpx] bg-[var(--color-brand)] rounded-[24rpx]"
             onClick={toPay}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-[32rpx] font-semibold text-primary-foreground">
               {isDev
                 ? tt('plaza.cover.renew', '续费')
@@ -220,7 +223,8 @@ export default function PlazaCover() {
             <View
               className="flex items-center justify-center py-[30rpx] bg-[var(--color-brand)] rounded-[24rpx]"
               onClick={toPay}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[32rpx] font-semibold text-primary-foreground">
                 {tt('plaza.cover.becomeDeveloper', '立即成为开发者')}
               </Text>
@@ -233,7 +237,8 @@ export default function PlazaCover() {
           <View
             className="flex items-center justify-center py-[30rpx] bg-[var(--color-brand)] rounded-[24rpx]"
             onClick={toPay}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-[32rpx] font-semibold text-primary-foreground">
               {tt('plaza.cover.toPay', '成为开发者')}
             </Text>
@@ -248,7 +253,8 @@ export default function PlazaCover() {
               key={e.key}
               className="w-[47%] bg-card border-[2rpx] border-border rounded-[24rpx] p-[28rpx] flex flex-col items-center gap-[12rpx]"
               onClick={() => toEntry(e.target)}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <LineIcon name={e.icon} size={64} color="var(--color-foreground)" />
               <Text className="text-[32rpx] font-semibold text-foreground text-center">
                 {tt(e.titleKey, e.titleFb)}
@@ -332,7 +338,8 @@ export default function PlazaCover() {
           <View
             className="flex items-center justify-center py-[30rpx] bg-[var(--color-brand)] rounded-[24rpx]"
             onClick={toPlaza}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-[32rpx] font-semibold text-primary-foreground">
               {tt('plaza.cover.continueOrder', '继续接单')}
             </Text>
@@ -350,7 +357,8 @@ export default function PlazaCover() {
                 key={i}
                 className="bg-card border-[2rpx] border-border rounded-[24rpx] p-[28rpx]"
                 onClick={() => toWeb(qa.url)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text className="text-[32rpx] font-semibold text-foreground">
                   {tt(QA_KEYS[i] ?? 'plaza.cover.qa0', qa.title)}
                 </Text>

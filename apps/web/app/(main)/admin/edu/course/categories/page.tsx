@@ -152,9 +152,11 @@ export default function EduCourseCategoriesPage() {
         }}
         onCreate={openCreate}
         onBatchDelete={() => {
-          void confirmDialog({ title: t('confirmBatchDelete', { count: ids.length }) }).then((ok) => {
-            if (ok) batchDeleteMut.mutate()
-          })
+          void confirmDialog({ title: t('confirmBatchDelete', { count: ids.length }) }).then(
+            (ok) => {
+              if (ok) batchDeleteMut.mutate()
+            },
+          )
         }}
         onExport={handleExport}
         hasSelection={ids.length > 0}

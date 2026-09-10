@@ -45,7 +45,8 @@ export default function Avatar({
     <View
       className={cn('flex items-center justify-center', sizeClass, shapeClass, 'bg-primary/10')}
       onClick={onClick}
-      hoverClass="opacity-60">
+      hoverClass="opacity-60"
+    >
       <Text className="text-primary font-medium">{name.charAt(0) || '?'}</Text>
     </View>
   )

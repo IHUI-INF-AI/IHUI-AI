@@ -552,12 +552,12 @@ export default function ChatMessageItem({
             <View style={{ display: 'flex', justifyContent: 'flex-end' }}>
               {/* 答案显隐 eye-closed/eye-open */}
               <LineIcon
-                  className="action-btn"
-                  name={answerHidden ? 'eye-off' : 'eye'}
-                  size={40}
-                  color="var(--color-muted-foreground)"
-                  onClick={toggleAnswer}
-                />
+                className="action-btn"
+                name={answerHidden ? 'eye-off' : 'eye'}
+                size={40}
+                color="var(--color-muted-foreground)"
+                onClick={toggleAnswer}
+              />
               {/* 思考过程(若有 reasoning) */}
               {msg.reasoning ? (
                 <Image className="action-btn" src={sikaoIcon} onClick={onOpenReasoning} />
@@ -633,11 +633,7 @@ export default function ChatMessageItem({
                   <LineIcon
                     name="heart"
                     size={24}
-                    color={
-                      isFavorited
-                        ? 'var(--color-brand)'
-                        : 'var(--color-muted-foreground)'
-                    }
+                    color={isFavorited ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
                   />
                 </View>
               ) : null}

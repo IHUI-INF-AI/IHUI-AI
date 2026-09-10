@@ -258,7 +258,11 @@ export default function CircleDetailPage() {
               ) : null}
 
               {data.topic ? (
-                <View className="cd-topic" onClick={() => goTopic(data.topic!.id)} hoverClass="opacity-60">
+                <View
+                  className="cd-topic"
+                  onClick={() => goTopic(data.topic!.id)}
+                  hoverClass="opacity-60"
+                >
                   <Text className="cd-topic-text">#{data.topic.name}</Text>
                 </View>
               ) : null}
@@ -266,7 +270,11 @@ export default function CircleDetailPage() {
           ) : null}
 
           <View className="cd-actions">
-            <View className={`cd-action${liked ? ' active' : ''}`} onClick={onLike} hoverClass="opacity-60">
+            <View
+              className={`cd-action${liked ? ' active' : ''}`}
+              onClick={onLike}
+              hoverClass="opacity-60"
+            >
               <LineIcon
                 name="heart"
                 size={36}
@@ -284,7 +292,11 @@ export default function CircleDetailPage() {
               />
               <Text className="cd-action-num">{data.comments || 0}</Text>
             </View>
-            <View className={`cd-action${favorited ? ' active' : ''}`} onClick={onFavorite} hoverClass="opacity-60">
+            <View
+              className={`cd-action${favorited ? ' active' : ''}`}
+              onClick={onFavorite}
+              hoverClass="opacity-60"
+            >
               <LineIcon
                 name="star"
                 size={36}
@@ -330,11 +342,7 @@ export default function CircleDetailPage() {
                       <View className="cd-comment-foot">
                         <Text className="cd-comment-time">{c.createdAt}</Text>
                         <View className="cd-comment-like flex items-center gap-[8rpx]">
-                          <LineIcon
-                            name="heart"
-                            size={24}
-                            color="var(--color-muted-foreground)"
-                          />
+                          <LineIcon name="heart" size={24} color="var(--color-muted-foreground)" />
                           <Text>{c.likes || 0}</Text>
                         </View>
                       </View>

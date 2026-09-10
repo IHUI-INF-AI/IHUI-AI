@@ -1044,9 +1044,10 @@ ${requirementPreview}
     // 读取 base spec 内容
     let baseSpec = ''
     if (input.baseVersion === 'latest') {
-      baseSpec = await readFile(join(root, '.ihui-agent', 'specs', `${scopeHash}.md`), 'utf-8').catch(
-        () => '',
-      )
+      baseSpec = await readFile(
+        join(root, '.ihui-agent', 'specs', `${scopeHash}.md`),
+        'utf-8',
+      ).catch(() => '')
     } else {
       baseSpec = await readFile(
         join(root, '.ihui-agent', 'specs', 'history', `${input.baseVersion}-${scopeHash}.md`),

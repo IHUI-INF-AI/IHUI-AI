@@ -231,7 +231,11 @@ export default function VoicePage() {
               className={`max-w-[78%] mx-[20rpx] py-[20rpx] px-[28rpx] rounded-[32rpx] ${m.role === 'user' ? 'bg-[var(--color-brand)]' : 'bg-card'}`}
             >
               {m.isVoice ? (
-                <View className="flex items-center gap-[12rpx]" onClick={() => onPlayAudio(m, i)} hoverClass="opacity-60">
+                <View
+                  className="flex items-center gap-[12rpx]"
+                  onClick={() => onPlayAudio(m, i)}
+                  hoverClass="opacity-60"
+                >
                   <LineIcon
                     name={playingIdx === i ? 'pause' : 'play'}
                     size={32}

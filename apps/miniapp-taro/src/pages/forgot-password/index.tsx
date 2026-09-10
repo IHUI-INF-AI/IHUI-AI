@@ -196,7 +196,9 @@ export default function ForgotPassword() {
                     visible={showNew}
                     onToggle={() => setShowNew((v) => !v)}
                     label={
-                      showNew ? tt('forgot.hidePassword', '隐藏') : tt('forgot.showPassword', '显示')
+                      showNew
+                        ? tt('forgot.hidePassword', '隐藏')
+                        : tt('forgot.showPassword', '显示')
                     }
                   />
                 </View>

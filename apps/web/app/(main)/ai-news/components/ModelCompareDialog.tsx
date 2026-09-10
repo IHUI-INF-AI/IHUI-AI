@@ -6,7 +6,13 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { CHART_BLUE, CHART_ORANGE, CHART_GREEN, CHART_PINK, CHART_PURPLE } from '@ihui/design-tokens'
+import {
+  CHART_BLUE,
+  CHART_ORANGE,
+  CHART_GREEN,
+  CHART_PINK,
+  CHART_PURPLE,
+} from '@ihui/design-tokens'
 import { X } from 'lucide-react'
 import type { LeaderboardEntry, ModelCapabilities } from '@/lib/ai-news-api'
 import { parseNumeric } from './text-utils'

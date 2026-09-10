@@ -207,9 +207,7 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /agents/kanban/tasks/stream — SSE 实时流
   // 必须在 /:id 之前注册(Fastify radix tree 优先匹配静态路由)
-  server.get(
-    '/agents/kanban/tasks/stream',
-        async (request, reply) => {
+  server.get('/agents/kanban/tasks/stream', async (request, reply) => {
     reply.hijack()
     reply.raw.setHeader('Content-Type', 'text/event-stream')
     reply.raw.setHeader('Cache-Control', 'no-cache')

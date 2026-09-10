@@ -211,8 +211,14 @@ export default function CommunityCreate() {
               maxlength={-1}
               onInput={(e) => setTags(e.detail.value)}
             />
-            <View style={viewStyles.submitBtn(tk)} onTap={() => void onSubmit()} hoverClass="opacity-60">
-              <Text style={textStyles.submitText(tk, appTheme === 'dark')}>{tt('postCreate.submit', '发布')}</Text>
+            <View
+              style={viewStyles.submitBtn(tk)}
+              onTap={() => void onSubmit()}
+              hoverClass="opacity-60"
+            >
+              <Text style={textStyles.submitText(tk, appTheme === 'dark')}>
+                {tt('postCreate.submit', '发布')}
+              </Text>
             </View>
           </View>
         </ScrollView>

@@ -24,14 +24,7 @@ import MaterialList, {
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
-import {
-  type LucideIcon,
-  FileText,
-  Film,
-  Image,
-  Music,
-  Sparkles,
-} from 'lucide-react-native'
+import { type LucideIcon, FileText, Film, Image, Music, Sparkles } from 'lucide-react-native'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 

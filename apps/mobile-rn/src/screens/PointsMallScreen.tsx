@@ -30,17 +30,14 @@ export function PointsMallScreen() {
   const [balance, setBalance] = useState(0)
   const [redeemingId, setRedeemingId] = useState<string | null>(null)
 
-  const fetcher = useCallback(
-    async () => {
-      const res = await fetchApi<ProductPage>('/points/redeem')
-      if (!res.success) return { success: false as const, error: t('pointsMall.loadFailed') }
-      const page0 = res.data
-      const list = page0?.list ?? []
-      if (typeof page0?.balance === 'number') setBalance(page0.balance)
-      return { success: true as const, data: { list, total: page0?.total ?? list.length } }
-    },
-    [t],
-  )
+  const fetcher = useCallback(async () => {
+    const res = await fetchApi<ProductPage>('/points/redeem')
+    if (!res.success) return { success: false as const, error: t('pointsMall.loadFailed') }
+    const page0 = res.data
+    const list = page0?.list ?? []
+    if (typeof page0?.balance === 'number') setBalance(page0.balance)
+    return { success: true as const, data: { list, total: page0?.total ?? list.length } }
+  }, [t])
 
   const { items, loading, refreshing, error, refresh } = usePaginatedList<PointsMallItem>(
     fetcher,

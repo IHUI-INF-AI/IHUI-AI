@@ -308,7 +308,11 @@ export default function DeveloperIncome() {
                     </Text>
                     <Text className="income-stat-value">{loading ? '--' : withdrawn}</Text>
                   </View>
-                  <View className="income-stat-item" onClick={onSwitchToDetail} hoverClass="opacity-60">
+                  <View
+                    className="income-stat-item"
+                    onClick={onSwitchToDetail}
+                    hoverClass="opacity-60"
+                  >
                     <Text className="income-stat-label">
                       {tt('developer.income.cashDetail', '提现明细')}
                     </Text>
@@ -342,7 +346,8 @@ export default function DeveloperIncome() {
                   key={tab.id || 'all'}
                   className={`income-tab${settlement === tab.id ? ' active' : ''}`}
                   onClick={() => onChangeSettlement(tab.id)}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   <Text>{tab.name}</Text>
                 </View>
               ))}
@@ -401,17 +406,21 @@ export default function DeveloperIncome() {
 
         {showIncomePopup ? (
           <View className="income-popup-mask" onClick={closeIncomePopup}>
-            <View className="income-popup" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
+            <View
+              className="income-popup"
+              onClick={(e) => e.stopPropagation()}
+              hoverClass="opacity-60"
+            >
               <View style={{ display: 'flex', alignItems: 'center', marginBottom: '12rpx' }}>
                 <Text
-                    style={{
-                      width: '72rpx',
-                      height: '72rpx',
-                      lineHeight: '72rpx',
-                      textAlign: 'center',
-                      background: 'var(--color-primary)',
-                      color: 'var(--color-primary-foreground)',
-                      borderRadius: '24rpx',
+                  style={{
+                    width: '72rpx',
+                    height: '72rpx',
+                    lineHeight: '72rpx',
+                    textAlign: 'center',
+                    background: 'var(--color-primary)',
+                    color: 'var(--color-primary-foreground)',
+                    borderRadius: '24rpx',
                     fontSize: '32rpx',
                     marginRight: '16rpx',
                   }}
@@ -439,7 +448,8 @@ export default function DeveloperIncome() {
                   boxSizing: 'border-box',
                 }}
                 onClick={() => setIncomeType((prev) => (prev === 'wechat' ? '' : 'wechat'))}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text
                   style={{
                     width: '72rpx',
@@ -482,7 +492,8 @@ export default function DeveloperIncome() {
                     background: 'var(--color-secondary)',
                   }}
                   onClick={closeIncomePopup}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   <Text style={{ fontSize: '28rpx', color: 'var(--color-secondary-foreground)' }}>
                     {tt('common.cancel', '取消')}
                   </Text>
@@ -496,7 +507,8 @@ export default function DeveloperIncome() {
                     background: 'var(--color-primary)',
                   }}
                   onClick={onIncomeMethodConfirm}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   <Text
                     style={{
                       fontSize: '28rpx',
@@ -518,7 +530,8 @@ export default function DeveloperIncome() {
               className="income-popup"
               style={{ alignItems: 'center' }}
               onClick={(e) => e.stopPropagation()}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text
                 style={{
                   fontSize: '36rpx',
@@ -572,7 +585,8 @@ export default function DeveloperIncome() {
               <View
                 style={{ alignSelf: 'flex-end', marginBottom: '32rpx' }}
                 onClick={() => setAmount(String(available))}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text style={{ fontSize: '28rpx', color: 'var(--color-primary)' }}>
                   {tt('developer.income.withdrawAll', '全部提现')}
                 </Text>
@@ -587,7 +601,8 @@ export default function DeveloperIncome() {
                     background: 'var(--color-secondary)',
                   }}
                   onClick={closePopup}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   <Text style={{ fontSize: '28rpx', color: 'var(--color-secondary-foreground)' }}>
                     {tt('common.cancel', '取消')}
                   </Text>
@@ -601,7 +616,8 @@ export default function DeveloperIncome() {
                     background: 'var(--color-primary)',
                   }}
                   onClick={confirmWithdraw}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   <Text
                     style={{
                       fontSize: '28rpx',

@@ -17,11 +17,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import {
-  success,
-  error,
-  emptyToUndefined,
-} from '../utils/response.js'
+import { success, error, emptyToUndefined } from '../utils/response.js'
 import {
   searchAlgorithmRecords,
   ALGORITHM_RECOMMEND_KIND,

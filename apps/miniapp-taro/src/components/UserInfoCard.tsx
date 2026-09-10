@@ -85,9 +85,7 @@ export default function UserInfoCard({
     showGrowthBar && growthMax && growthMax > 0 ? Math.min((growthValue / growthMax) * 100, 100) : 0
 
   return (
-    <View
-      className={cn('rounded-lg bg-card border border-border p-3', className)}
-    >
+    <View className={cn('rounded-lg bg-card border border-border p-3', className)}>
       {/* ===== 未登录态:一键登录按钮(对齐原项目 login-btn-new)===== */}
       {!isLogged && onLogin ? (
         <View
@@ -235,7 +233,8 @@ export default function UserInfoCard({
                       e.stopPropagation()
                       onOpenVip()
                     }}
-                    hoverClass="opacity-85">
+                    hoverClass="opacity-85"
+                  >
                     <Text className="text-[22rpx] text-primary-foreground font-medium">
                       {tt('vipTrader.openTitle', '开通会员')}
                     </Text>
@@ -249,7 +248,8 @@ export default function UserInfoCard({
                       e.stopPropagation()
                       onUnsubscribe()
                     }}
-                    hoverClass="opacity-85">
+                    hoverClass="opacity-85"
+                  >
                     <Text className="text-[22rpx] text-muted-foreground">
                       {tt('UserInfoCard.text2', '退订')}
                     </Text>
@@ -263,7 +263,8 @@ export default function UserInfoCard({
                       e.stopPropagation()
                       onWallet()
                     }}
-                    hoverClass="opacity-85">
+                    hoverClass="opacity-85"
+                  >
                     <Text className="text-[22rpx] text-primary-foreground font-medium">
                       {tt('wallet.recharge.submit', '充值')}
                     </Text>

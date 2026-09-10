@@ -35,7 +35,9 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
         {status === 'running' && (
           <Text className="ml-2 text-xs text-primary">{t('ai.common.loading')}</Text>
         )}
-        {status === 'completed' && <Text className="ml-2 text-xs text-[var(--color-success-deep-text)]">✓</Text>}
+        {status === 'completed' && (
+          <Text className="ml-2 text-xs text-[var(--color-success-deep-text)]">✓</Text>
+        )}
         {status === 'failed' && <Text className="ml-2 text-xs text-destructive">✗</Text>}
         <View className="flex-1" />
         <Button

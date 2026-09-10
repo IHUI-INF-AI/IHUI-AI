@@ -261,7 +261,8 @@ export default function DistributionIndex() {
                 key={tab}
                 className={`dist-stats-tab ${statsTab === tab ? 'active' : ''}`}
                 onClick={() => setStatsTab(tab)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text>
                   {tab === 'day'
                     ? tt('distribution.index.tabDay', '日')
@@ -300,7 +301,12 @@ export default function DistributionIndex() {
         {/* FunctionBlockColumn — 对齐 RN 双列卡片网格 */}
         <View className="dist-menu">
           {menuItems.map((item, idx) => (
-            <View key={idx} className="dist-menu-item" onClick={() => onMenuClick(item)} hoverClass="opacity-60">
+            <View
+              key={idx}
+              className="dist-menu-item"
+              onClick={() => onMenuClick(item)}
+              hoverClass="opacity-60"
+            >
               <View className="dist-menu-icon-box">
                 <Image
                   src={item.icon}
