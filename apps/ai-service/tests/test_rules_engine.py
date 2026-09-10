@@ -21,11 +21,9 @@
 """
 
 import os
-import shutil
-import threading
 import time
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import patch
 
 import pytest
 
@@ -41,7 +39,6 @@ from app.services.rules_engine import (
     _render_rule_md,
     _slugify,
 )
-
 
 # =============================================================================
 # Fixtures:隔离的临时规则目录
@@ -388,7 +385,7 @@ class TestVersionControl:
         history = engine.get_history("diff")
         old_ts = history[0]["timestamp"]
         # 当前版本的 timestamp 用 now
-        now_ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        now_ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
         diff = engine.diff_versions("diff", old_ts, now_ts)
         # 旧版本存在,diff 可能为空(若新版本文件未在 history)或非空
         # 这里只验证不抛异常

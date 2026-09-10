@@ -13,13 +13,13 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 import uuid
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +174,7 @@ class EvalService:
             results=results,
             avg_score=round(avg_score, 4),
             total_duration_ms=round(total_duration_ms, 2),
-            created_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
         )
         self._runs.append(run)
         return run

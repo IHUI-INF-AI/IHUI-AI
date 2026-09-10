@@ -18,8 +18,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from app.services.protocol_adapter import (
     ProtocolConverter,
     ProtocolType,
@@ -36,7 +34,6 @@ from app.services.protocol_adapter import (
     openai_to_gemini_response,
     protocol_converter,
 )
-
 
 # =============================================================================
 # detect_protocol

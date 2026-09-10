@@ -17,21 +17,8 @@ from __future__ import annotations
 
 import json
 from typing import Any
-from unittest.mock import AsyncMock, patch
 
 import httpx
-import pytest
-
-from app.providers import (
-    BaseProvider,
-    LlamaCppProvider,
-    LMStudioProvider,
-    OllamaProvider,
-    OpenAIProvider,
-    get_provider,
-)
-from app.providers.base_provider import ProviderError
-
 
 # =============================================================================
 # Mock 辅助类 — 模拟 httpx.AsyncClient 的 request / stream 方法

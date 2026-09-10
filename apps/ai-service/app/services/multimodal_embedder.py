@@ -23,7 +23,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
-from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +70,7 @@ async def _caption_via_llm(
     data: bytes,
     *,
     mime_type: str,
-) -> Optional[str]:
+) -> str | None:
     """调 llm_gateway.complete 生成模态内容的文本 caption(失败返回 None)。
 
     由于 llm_gateway.complete 只接受文本 messages,这里把多模态数据描述成
@@ -101,7 +100,7 @@ async def _caption_via_llm(
         return None
 
 
-async def _embed_text_via_llm(text: str) -> Optional[list[float]]:
+async def _embed_text_via_llm(text: str) -> list[float] | None:
     """调 llm_gateway.embed 把文本转 embedding(失败返回 None)。"""
     try:
         from ..core.llm_gateway import llm_gateway

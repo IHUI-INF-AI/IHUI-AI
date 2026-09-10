@@ -29,8 +29,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 from app.core.context_compaction import (
     DEFAULT_KEEP_RECENT,
     DEFAULT_MIN_MESSAGES,
@@ -49,7 +47,6 @@ from app.core.context_compaction import (
     estimate_messages_tokens,
     estimate_tokens,
 )
-
 
 # =============================================================================
 # estimate_tokens

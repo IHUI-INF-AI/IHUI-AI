@@ -28,7 +28,6 @@ from app.services import capability_market as cm
 from app.services import capability_market_store as cms
 from app.services import mcp_server
 
-
 # =============================================================================
 # fixtures
 # =============================================================================

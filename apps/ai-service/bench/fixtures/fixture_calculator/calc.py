@@ -4,7 +4,6 @@
 
 """迷你计算器模块(含确定性 bug,供 IHUI-Bench 修复任务使用)。"""
 
-from typing import List
 
 
 def add(a: float, b: float) -> float:
@@ -32,7 +31,7 @@ def percentage(value: float, pct: float) -> float:
     return value * pct
 
 
-def average(numbers: List[float]) -> float:
+def average(numbers: list[float]) -> float:
     """求平均值,空列表安全返回 0.0。"""
     if not numbers:
         return 0.0

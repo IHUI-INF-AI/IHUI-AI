@@ -23,26 +23,21 @@
 
 from __future__ import annotations
 
-import os
 import time
 from typing import Any
-from unittest.mock import MagicMock
-
-import pytest
 
 from app.services.mcp_server import (
     _PR_DIFF_CACHE,
     _PR_DIFF_CACHE_TTL,
     _build_review_result,
     _compute_diff_stats,
-    _gh_error_for_status,
     _get_cached_pr_diff,
+    _gh_error_for_status,
     _parse_unified_diff,
     _scan_pr_files_for_findings,
     _set_cached_pr_diff,
     _tool_review_pr,
 )
-
 
 # =============================================================================
 # Fake httpx AsyncClient(mock GitHub API 响应)
@@ -652,7 +647,7 @@ async def test_review_pr_github_api_bearer_auth(monkeypatch):
     await _tool_review_pr({"repo": "test/repo", "pr_number": 1})
 
     # 所有请求都应携带 Authorization header
-    for method, headers in client.requests:
+    for _method, headers in client.requests:
         assert headers.get("Authorization") == "Bearer ghp_test_token_123"
 
 
@@ -671,7 +666,7 @@ async def test_review_pr_github_api_no_token_no_auth(monkeypatch):
 
     await _tool_review_pr({"repo": "test/repo", "pr_number": 1})
 
-    for method, headers in client.requests:
+    for _method, headers in client.requests:
         assert "Authorization" not in headers
 
 

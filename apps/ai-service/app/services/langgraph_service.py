@@ -119,8 +119,8 @@ class LangGraphService:
         - error 分支不经过 memory_save(避免保存错误状态)
         """
         try:
-            from langgraph.graph import StateGraph, END
             from langgraph.checkpoint.memory import MemorySaver
+            from langgraph.graph import END, StateGraph
 
             # 真正构建 StateGraph
             workflow = StateGraph(GraphState)
@@ -219,10 +219,7 @@ class LangGraphService:
                 import re
 
                 json_match = re.search(r"\[.*\]", content, re.DOTALL)
-                if json_match:
-                    plan = json.loads(json_match.group())
-                else:
-                    plan = [f"执行: {goal}"]
+                plan = json.loads(json_match.group()) if json_match else [f"执行: {goal}"]
             except (json.JSONDecodeError, AttributeError):
                 plan = [f"执行: {goal}"]
 

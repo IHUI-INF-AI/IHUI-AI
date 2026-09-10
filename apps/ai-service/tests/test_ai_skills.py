@@ -17,12 +17,10 @@ import json
 import sys
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.routers import ai_skills
 from app.routers.ai_skills import (
-    ApiEnvelope,
     InvokeRequest,
     InvokeResponse,
     SkillMeta,
@@ -36,7 +34,6 @@ from app.routers.ai_skills import (
     _try_screenshot_html,
 )
 from app.services.skills import Skill
-
 
 # =============================================================================
 # 辅助
@@ -351,7 +348,6 @@ def test_ensure_hashtags_no_double_separator_when_trailing_newline():
 
 def test_try_screenshot_returns_none_when_service_missing(monkeypatch):
     """screenshot_service 模块不存在 → 返回 None。"""
-    import sys
 
     # 模拟 import 失败:让 from-import 时找不到 screenshot_service
     monkeypatch.setitem(sys.modules, "app.services.screenshot_service", None)

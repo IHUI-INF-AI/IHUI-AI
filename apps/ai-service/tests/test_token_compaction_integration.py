@@ -41,7 +41,6 @@ from app.core.config import settings
 from app.core.llm_gateway import LLMGateway
 from app.services.token_compaction import token_compactor
 
-
 # =============================================================================
 # 辅助 fixture
 # =============================================================================

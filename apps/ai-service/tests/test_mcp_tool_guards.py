@@ -12,20 +12,17 @@
 from __future__ import annotations
 
 import asyncio
-import os
 
 import pytest
 
 from app.services import mcp_server as mcp_server_mod
 from app.services.mcp_server import (
     _match_destructive_command,
-    _SUBAGENT_SEMAPHORE,
     _subagent_depth,
     _tool_dispatch_subagent,
     _tool_run_command,
     _truncate_tool_output,
 )
-
 
 # =============================================================================
 # 0-2 call_tool 出口统一输出护栏

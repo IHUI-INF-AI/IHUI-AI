@@ -21,17 +21,18 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
 
 from ..core.llm_gateway import llm_gateway
-from .agent_loop import agent_executor
-from .memory import memory_store
 from .mcp_server import mcp_server
+from .memory import memory_store
 from .prompt_registry import prompt_registry
 
 logger = logging.getLogger(__name__)
@@ -885,7 +886,9 @@ class AgentOrchestrator:
         # 迭代 max_rounds 轮:批判 + 改进
         for round_idx in range(max_rounds):
             # 批判阶段(并行)
-            async def _critique(critic_name: str) -> AgentStepResult:
+            async def _critique(
+                critic_name: str, current_proposal: str = current_proposal
+            ) -> AgentStepResult:
                 agent = self._registry.get(critic_name)
                 if not agent:
                     return AgentStepResult(
@@ -992,9 +995,9 @@ class AgentOrchestrator:
         6. 汇总所有子任务结果
         """
         # 懒导入避免循环依赖(scheduler 导入本模块的 AgentDefinition/AgentStepResult)
-        from .task_decomposer import task_decomposer, TaskDecompositionRequest
-        from .scheduler import TaskScheduler, RetryPolicy, FailoverConfig
-        from .agent_comm import agent_message_bus, agent_blackboard, BlackboardEntry
+        from .agent_comm import BlackboardEntry, agent_blackboard, agent_message_bus
+        from .scheduler import FailoverConfig, RetryPolicy, TaskScheduler
+        from .task_decomposer import TaskDecompositionRequest, task_decomposer
 
         start = time.monotonic()
         orchestration_id = f"orch-{uuid.uuid4().hex[:8]}"
@@ -1192,7 +1195,10 @@ class AgentOrchestrator:
         5. 汇总所有 agent 输出
         """
         from .agent_comm import (
-            agent_message_bus, agent_blackboard, BlackboardEntry, AgentMessage,
+            AgentMessage,
+            BlackboardEntry,
+            agent_blackboard,
+            agent_message_bus,
         )
 
         start = time.monotonic()
@@ -1225,7 +1231,7 @@ class AgentOrchestrator:
         ))
 
         # 3. 每个 agent 依次处理(可读黑板 + 请求协助)
-        for idx, agent_name in enumerate(agents):
+        for _idx, agent_name in enumerate(agents):
             agent = self._registry.get(agent_name)
             if not agent:
                 step_results.append(AgentStepResult(
@@ -1240,7 +1246,7 @@ class AgentOrchestrator:
                 continue
 
             # 读取黑板上的前序结果
-            prev_entry = await agent_blackboard.read("task", agent_name)
+            await agent_blackboard.read("task", agent_name)
             prev_results: list[BlackboardEntry] = await agent_blackboard.list_entries()
             context_text = ""
             for entry in prev_results:
@@ -1460,15 +1466,12 @@ class AgentOrchestrator:
         stub = False
         tool_calls: list[dict[str, Any]] = []
         iterations = 0
-        error: str | None = None
 
         # 安全调用进度回调(回调异常不影响执行)
         def _emit(evt: dict[str, Any]) -> None:
             if progress_callback:
-                try:
+                with contextlib.suppress(Exception):
                     progress_callback(evt)
-                except Exception:
-                    pass
 
         try:
             await memory_store.add(sid, "user", user_input)

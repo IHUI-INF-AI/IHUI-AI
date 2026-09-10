@@ -22,9 +22,10 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
-from typing import Any, Iterator
+from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -69,7 +70,7 @@ def _clean_env(monkeypatch):
 def test_v4_signature_full_chain_recomputation():
     """逐步复算签名链,验证 Authorization 与官方 V4 算法一致。"""
     body = json.dumps({"req_key": "x", "prompt": "hi"}, separators=(",", ":")).encode("utf-8")
-    now = datetime(2026, 9, 5, 12, 0, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 5, 12, 0, 0, tzinfo=UTC)
     query = {"Action": "CVProcess", "Version": "2022-08-31"}
     headers = volcano_v4_signature(
         "AKTEST", "SKTEST", method="POST", host="visual.volcengineapi.com",
@@ -109,9 +110,9 @@ def test_v4_signature_full_chain_recomputation():
 
 def test_v4_signature_different_body_different_hash():
     """body 不同 → X-Content-Sha256 不同。"""
-    kw = dict(method="POST", host="h", path="/", query={})
-    h1 = volcano_v4_signature("ak", "sk", body=b"{}", now=datetime(2026, 1, 1, tzinfo=timezone.utc), **kw)
-    h2 = volcano_v4_signature("ak", "sk", body=b'{"a":1}', now=datetime(2026, 1, 1, tzinfo=timezone.utc), **kw)
+    kw = {"method": "POST", "host": "h", "path": "/", "query": {}}
+    h1 = volcano_v4_signature("ak", "sk", body=b"{}", now=datetime(2026, 1, 1, tzinfo=UTC), **kw)
+    h2 = volcano_v4_signature("ak", "sk", body=b'{"a":1}', now=datetime(2026, 1, 1, tzinfo=UTC), **kw)
     assert h1["X-Content-Sha256"] != h2["X-Content-Sha256"]
 
 

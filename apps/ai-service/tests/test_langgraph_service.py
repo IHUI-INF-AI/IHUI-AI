@@ -9,7 +9,6 @@
 不调用真实 LLM(不触发 ainvoke / complete)。
 """
 
-import asyncio
 import inspect
 
 import pytest

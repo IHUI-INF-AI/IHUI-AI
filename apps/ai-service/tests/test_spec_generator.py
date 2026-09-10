@@ -11,12 +11,9 @@ mock 策略:LLM 调用(mock llm_gateway.complete)/ 文件系统(tmp_path)/ git c
 
 from __future__ import annotations
 
-import asyncio
 import json
-import os
 from datetime import date
 from pathlib import Path
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -31,7 +28,6 @@ from app.services.spec_generator import (
     SpecResult,
     spec_generator,
 )
-
 
 # ── fixtures ──────────────────────────────────────────────────────────────
 

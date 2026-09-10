@@ -17,10 +17,7 @@ from __future__ import annotations
 import json
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
 from app.services.rag import RAGResult, RAGService, RAGSource, rag_service
-
 
 # =============================================================================
 # 基础
@@ -223,7 +220,7 @@ class TestRetrieveOnly:
     async def test_retrieve_only_is_public_method(self):
         """retrieve_only 是 RAGService 的公有方法。"""
         assert hasattr(rag_service, "retrieve_only")
-        assert callable(getattr(rag_service, "retrieve_only"))
+        assert callable(rag_service.retrieve_only)
 
     async def test_retrieve_only_delegates_to_private_retrieve(self):
         """retrieve_only 内部调 _retrieve,参数透传正确。"""

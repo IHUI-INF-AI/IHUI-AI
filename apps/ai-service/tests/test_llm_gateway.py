@@ -1002,6 +1002,7 @@ def test_repair_messages_empty_input():
 # =============================================================================
 
 from unittest.mock import AsyncMock, patch
+
 from app.core.llm_gateway import FallbackRouter, fallback_router
 
 
@@ -1521,7 +1522,6 @@ async def test_astream_no_fallback_when_configs_empty(monkeypatch):
 
 import json
 from typing import Any
-from unittest.mock import AsyncMock
 
 
 def _complete_ok(content: str) -> dict[str, Any]:
@@ -2183,7 +2183,6 @@ from app.core.llm_gateway import (
     _openrouter_proxy_context,
 )
 
-
 # --- _is_openrouter_403_error ---
 
 
@@ -2430,7 +2429,6 @@ async def test_complete_openrouter_non_403_error_no_failover(monkeypatch):
 # =============================================================================
 
 import base64
-import os
 
 from app.core.config import settings
 from app.core.llm_gateway import _resolve_from_db

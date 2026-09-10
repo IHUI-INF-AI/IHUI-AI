@@ -16,8 +16,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -162,9 +163,8 @@ async def test_complete_4xx_raises_provider_error():
     fake_client = MagicMock()
     fake_client.request = AsyncMock(return_value=fake_resp)
 
-    with _patch_http_client(fake_client):
-        with pytest.raises(ProviderError) as exc_info:
-            await p.complete([{"role": "user", "content": "x"}], "doubao-pro")
+    with _patch_http_client(fake_client), pytest.raises(ProviderError) as exc_info:
+        await p.complete([{"role": "user", "content": "x"}], "doubao-pro")
 
     assert exc_info.value.status_code == 401
 
@@ -176,9 +176,8 @@ async def test_complete_httpx_error_raises_provider_error():
     fake_client = MagicMock()
     fake_client.request = AsyncMock(side_effect=httpx.ConnectError("conn refused"))
 
-    with _patch_http_client(fake_client):
-        with pytest.raises(ProviderError, match="网络异常"):
-            await p.complete([{"role": "user", "content": "x"}], "doubao-pro")
+    with _patch_http_client(fake_client), pytest.raises(ProviderError, match="网络异常"):
+        await p.complete([{"role": "user", "content": "x"}], "doubao-pro")
 
 
 # =============================================================================

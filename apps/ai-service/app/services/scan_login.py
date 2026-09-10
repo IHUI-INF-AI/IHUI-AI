@@ -24,14 +24,14 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import io
+import contextlib
 import json
 import os
 import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from ..core.config import settings
 from ..core.logging import get_logger
@@ -263,10 +263,10 @@ class ScanTask:
     qr_image_updated_at: float = 0.0
     cookies: dict[str, str] = field(default_factory=dict)
     all_relevant_cookies: dict[str, str] = field(default_factory=dict)
-    account_id: Optional[int] = None  # 关联到的后端账号 id
+    account_id: int | None = None  # 关联到的后端账号 id
     created_at: float = field(default_factory=time.time)
-    completed_at: Optional[float] = None
-    _thread: Optional[threading.Thread] = field(default=None, repr=False)
+    completed_at: float | None = None
+    _thread: threading.Thread | None = field(default=None, repr=False)
     _stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
     _context: Any = field(default=None, repr=False)
     _page: Any = field(default=None, repr=False)
@@ -351,7 +351,7 @@ class ScanTaskStore:
         return f"{self.KEY_PREFIX}{task_id}"
 
     # -- 本地工作副本(含线程句柄/浏览器对象,不可序列化) ---------------------
-    def get_local(self, task_id: str) -> Optional[ScanTask]:
+    def get_local(self, task_id: str) -> ScanTask | None:
         with self._lock:
             return self._local.get(task_id)
 
@@ -359,7 +359,7 @@ class ScanTaskStore:
         with self._lock:
             self._local[task.task_id] = task
 
-    def pop_local(self, task_id: str) -> Optional[ScanTask]:
+    def pop_local(self, task_id: str) -> ScanTask | None:
         with self._lock:
             return self._local.pop(task_id, None)
 
@@ -460,7 +460,7 @@ def _cleanup_expired_tasks() -> None:
             logger.warning("[scan_login] Redis 清理任务失败: %s", e, exc_info=True)
 
 
-def get_task(task_id: str) -> Optional[ScanTask]:
+def get_task(task_id: str) -> ScanTask | None:
     """按 task_id 查询任务:优先本地工作副本,本地无则读 Redis(支持跨实例轮询)。"""
     # 本地工作副本(含线程句柄)优先
     task = _TASK_STORE.get_local(task_id)
@@ -491,7 +491,7 @@ def get_task(task_id: str) -> Optional[ScanTask]:
     return task
 
 
-def list_tasks(user_id: Optional[str] = None) -> list[ScanTask]:
+def list_tasks(user_id: str | None = None) -> list[ScanTask]:
     """列出任务。Redis 模式扫描 `scan_login:task:*` 前缀;内存模式遍历本地 dict。"""
     redis = _TASK_STORE._get_redis()
     if redis:
@@ -775,14 +775,10 @@ def _run_scan_task(task: ScanTask) -> None:
                 page.wait_for_timeout(1500)
 
             # 清理
-            try:
+            with contextlib.suppress(Exception):
                 context.close()
-            except Exception:
-                pass
-            try:
+            with contextlib.suppress(Exception):
                 browser.close()
-            except Exception:
-                pass
 
     except Exception as e:
         logger.exception(f"[scan_login] 任务 {task.task_id} 异常")
@@ -979,7 +975,7 @@ def cancel_scan_task(task_id: str) -> bool:
     return True
 
 
-def get_qr_image(task_id: str) -> Optional[bytes]:
+def get_qr_image(task_id: str) -> bytes | None:
     """获取二维码截图 PNG 字节(供 API 返回)。"""
     task = get_task(task_id)
     if not task or not task.qr_image_b64:

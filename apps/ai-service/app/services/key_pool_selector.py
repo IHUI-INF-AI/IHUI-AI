@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 import random
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 from ..core.db_pool import get_shared_pool
 
@@ -54,7 +54,7 @@ class KeyPoolSelector:
         return _model_to_provider_code(model)
 
     @staticmethod
-    async def select_key(provider_code: str) -> Optional[SelectedKey]:
+    async def select_key(provider_code: str) -> SelectedKey | None:
         """从 ai_relay_key_pool 选一个可用 key。
 
         查询:WHERE provider_code = $1 AND is_enabled = true AND health_status != 'down'

@@ -24,12 +24,17 @@
 
 输出：选题池 markdown 到 stdout（可重定向到文件）。
 """
-import sys, os, json, urllib.request, urllib.parse, datetime, re
+import datetime
+import json
+import os
+import re
+import sys
+import urllib.parse
+import urllib.request
 from typing import Any, cast
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from all_sources import (ALL_SOURCES, PLATFORM_LABELS, by_platform,
-                         priority1_official, api_sources, webfetch_sources)
+from all_sources import PLATFORM_LABELS, by_platform, priority1_official
 
 AIHOT_BASE = "https://aihot.virxact.com"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -139,7 +144,7 @@ def main() -> None:
 
         L.append(f'## 二、Hacker News AI 热点（{len(hn)} 条·自动拉取）')
         for it in hn:
-            _url = it.get('url') or ('https://news.ycombinator.com/item?id=%s' % it.get('id'))
+            _url = it.get('url') or ('https://news.ycombinator.com/item?id={}'.format(it.get('id')))
             L.append(f"- **{it.get('title')}** — 👍{it.get('score',0)} [{_url}]")
         L.append('')
 

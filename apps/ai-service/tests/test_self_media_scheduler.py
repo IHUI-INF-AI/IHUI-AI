@@ -32,8 +32,7 @@
 from __future__ import annotations
 
 import asyncio
-import os
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -43,15 +42,14 @@ import pytest
 from app.services.self_media_scheduler import (
     _CN_TZ,
     _HISTORY_LIMIT,
-    _safe_int,
+    TASK_DEFS,
     HistoryEntry,
     SelfMediaScheduler,
-    TASK_DEFS,
     TaskConfig,
     TaskDef,
+    _safe_int,
     self_media_scheduler,
 )
-
 
 # =============================================================================
 # 工厂函数
@@ -215,7 +213,7 @@ class TestModuleConstants:
 
     def test_cn_tz_is_utc_plus_8(self):
         """_CN_TZ 应为东八区(UTC+8)。"""
-        assert _CN_TZ == timezone(timedelta(hours=8))
+        assert timezone(timedelta(hours=8)) == _CN_TZ
         assert _CN_TZ.utcoffset(None) == timedelta(hours=8)
 
     def test_history_limit_is_30(self):

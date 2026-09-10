@@ -34,7 +34,7 @@ from __future__ import annotations
 import copy
 import re
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from app.core.logging import get_logger
 
@@ -738,7 +738,7 @@ class ValidationResult:
 def validate_content(
     platform: str,
     content: PublishContent,
-    platform_config: Optional[dict[str, Any]] = None,
+    platform_config: dict[str, Any] | None = None,
 ) -> ValidationResult:
     """按平台规则校验内容,发布前预检(基础校验,向后兼容)。
 
@@ -855,7 +855,7 @@ def validate_content(
 def truncate_to_platform(
     platform: str,
     content: PublishContent,
-    platform_config: Optional[dict[str, Any]] = None,
+    platform_config: dict[str, Any] | None = None,
 ) -> PublishContent:
     """按平台规则截断内容(不修改原对象,返回新对象)。
 
@@ -981,7 +981,7 @@ def _check_forbidden_patterns(
 def validate_content_deep(
     platform: str,
     content: PublishContent,
-    platform_config: Optional[dict[str, Any]] = None,
+    platform_config: dict[str, Any] | None = None,
 ) -> DeepValidationResult:
     """深度校验:基础校验 + 标题/正文/标签的禁用词/模式/规则。
 
@@ -1169,7 +1169,7 @@ def validate_content_deep(
 def auto_fix_content(
     platform: str,
     content: PublishContent,
-    platform_config: Optional[dict[str, Any]] = None,
+    platform_config: dict[str, Any] | None = None,
 ) -> PublishContent:
     """自动修复可修复的问题(不修改原对象,返回新对象)。
 
@@ -1287,7 +1287,7 @@ def auto_fix_content(
 # ---------------------------------------------------------------------------
 
 
-def get_platform_rule(platform: str) -> Optional[PlatformRule]:
+def get_platform_rule(platform: str) -> PlatformRule | None:
     """获取平台规则配置。"""
     return PLATFORM_RULES.get(platform)
 

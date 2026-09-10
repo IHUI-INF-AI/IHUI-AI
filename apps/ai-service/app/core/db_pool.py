@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Optional
 
 import asyncpg
 
@@ -31,7 +30,7 @@ from .config import settings
 logger = logging.getLogger(__name__)
 
 # 全局共享连接池(所有 service 复用,替代 14 个独立 _pool)
-_pool: Optional[asyncpg.Pool] = None
+_pool: asyncpg.Pool | None = None
 # 懒初始化锁(防止并发 create_pool 导致连接泄漏,2026-08-01 P0 修复)
 _pool_lock = asyncio.Lock()
 

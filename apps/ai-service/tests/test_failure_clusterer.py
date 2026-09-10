@@ -20,13 +20,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.services.failure_clusterer import (
-    FailureClusterer,
     _KEYWORD_RULES,
     _MAX_CASES_PER_LLM_CALL,
     _MIN_CASES_FOR_CLUSTERING,
+    FailureClusterer,
     failure_clusterer,
 )
-
 
 # =============================================================================
 # 工厂函数

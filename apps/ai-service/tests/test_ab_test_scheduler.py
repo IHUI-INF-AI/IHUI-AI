@@ -20,19 +20,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from app.services.ab_test_scheduler import (
+    _HISTORY_LIMIT,
     ABTestHistoryEntry,
     ABTestScheduler,
-    _HISTORY_LIMIT,
     _safe_int,
     ab_test_scheduler,
 )
-
 
 # =============================================================================
 # _safe_int
@@ -250,7 +249,7 @@ class TestRunOnce:
         """超时测试 → 强制 stop。"""
         sched, mock_tracker, mock_runner, mock_tester = fresh_scheduler
         # 构造一个超时的测试(started_at = 2 天前)
-        old_time = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+        old_time = (datetime.now(UTC) - timedelta(days=2)).isoformat()
         mock_tracker.list_tests.return_value = [{
             "testId": "test-1",
             "skillName": "skill-a",
@@ -275,7 +274,7 @@ class TestRunOnce:
     async def test_promote_decision(self, fresh_scheduler):
         """检验结果 promote → mark_decided + 调用回调。"""
         sched, mock_tracker, mock_runner, mock_tester = fresh_scheduler
-        fresh_time = datetime.now(timezone.utc).isoformat()
+        fresh_time = datetime.now(UTC).isoformat()
         mock_tracker.list_tests.return_value = [{
             "testId": "test-1",
             "skillName": "skill-a",
@@ -312,7 +311,7 @@ class TestRunOnce:
     async def test_rollback_decision(self, fresh_scheduler):
         """检验结果 rollback → mark_decided + 调用回调。"""
         sched, mock_tracker, mock_runner, mock_tester = fresh_scheduler
-        fresh_time = datetime.now(timezone.utc).isoformat()
+        fresh_time = datetime.now(UTC).isoformat()
         mock_tracker.list_tests.return_value = [{
             "testId": "test-1",
             "skillName": "skill-a",
@@ -348,7 +347,7 @@ class TestRunOnce:
     async def test_inconclusive_no_decision(self, fresh_scheduler):
         """检验 inconclusive → 不 mark_decided。"""
         sched, mock_tracker, mock_runner, mock_tester = fresh_scheduler
-        fresh_time = datetime.now(timezone.utc).isoformat()
+        fresh_time = datetime.now(UTC).isoformat()
         mock_tracker.list_tests.return_value = [{
             "testId": "test-1",
             "skillName": "skill-a",
@@ -378,7 +377,7 @@ class TestRunOnce:
     async def test_significance_tester_exception_skipped(self, fresh_scheduler):
         """significance_tester 抛异常 → 跳过该测试,不阻塞循环。"""
         sched, mock_tracker, mock_runner, mock_tester = fresh_scheduler
-        fresh_time = datetime.now(timezone.utc).isoformat()
+        fresh_time = datetime.now(UTC).isoformat()
         mock_tracker.list_tests.return_value = [{
             "testId": "test-1",
             "skillName": "skill-a",
@@ -404,7 +403,7 @@ class TestRunOnce:
     async def test_mark_decided_failure_does_not_call_callback(self, fresh_scheduler):
         """mark_decided 返回 False → 不调用回调。"""
         sched, mock_tracker, mock_runner, mock_tester = fresh_scheduler
-        fresh_time = datetime.now(timezone.utc).isoformat()
+        fresh_time = datetime.now(UTC).isoformat()
         mock_tracker.list_tests.return_value = [{
             "testId": "test-1",
             "skillName": "skill-a",
@@ -436,7 +435,7 @@ class TestRunOnce:
     async def test_promote_callback_exception_does_not_propagate(self, fresh_scheduler):
         """promote 回调抛异常 → 不向上抛(只 warning)。"""
         sched, mock_tracker, mock_runner, mock_tester = fresh_scheduler
-        fresh_time = datetime.now(timezone.utc).isoformat()
+        fresh_time = datetime.now(UTC).isoformat()
         mock_tracker.list_tests.return_value = [{
             "testId": "test-1",
             "skillName": "skill-a",
@@ -475,7 +474,7 @@ class TestRunOnce:
     async def test_no_stats_skipped(self, fresh_scheduler):
         """get_stats 返回 None → 跳过检验。"""
         sched, mock_tracker, mock_runner, mock_tester = fresh_scheduler
-        fresh_time = datetime.now(timezone.utc).isoformat()
+        fresh_time = datetime.now(UTC).isoformat()
         mock_tracker.list_tests.return_value = [{
             "testId": "test-1",
             "skillName": "skill-a",
@@ -543,11 +542,11 @@ class TestIsExpired:
     """_is_expired 静态方法。"""
 
     def test_recent_not_expired(self):
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         assert ABTestScheduler._is_expired(now, max_duration_seconds=86400) is False
 
     def test_old_expired(self):
-        old = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+        old = (datetime.now(UTC) - timedelta(days=2)).isoformat()
         assert ABTestScheduler._is_expired(old, max_duration_seconds=86400) is True
 
     def test_empty_string_not_expired(self):
@@ -571,7 +570,7 @@ class TestAppendHistory:
         # 写入 _HISTORY_LIMIT + 5 条
         for i in range(_HISTORY_LIMIT + 5):
             entry: ABTestHistoryEntry = {
-                "triggered_at": datetime.now(timezone.utc).isoformat(),
+                "triggered_at": datetime.now(UTC).isoformat(),
                 "status": "success",
                 "duration_ms": i,
                 "flushed_count": 0,
@@ -600,7 +599,7 @@ class TestGetHistory:
         sched = ABTestScheduler()
         for i in range(5):
             entry: ABTestHistoryEntry = {
-                "triggered_at": datetime.now(timezone.utc).isoformat(),
+                "triggered_at": datetime.now(UTC).isoformat(),
                 "status": "success",
                 "duration_ms": i,
                 "flushed_count": 0,
@@ -622,7 +621,7 @@ class TestGetHistory:
         sched = ABTestScheduler()
         for i in range(5):
             entry: ABTestHistoryEntry = {
-                "triggered_at": datetime.now(timezone.utc).isoformat(),
+                "triggered_at": datetime.now(UTC).isoformat(),
                 "status": "success",
                 "duration_ms": i,
                 "flushed_count": 0,

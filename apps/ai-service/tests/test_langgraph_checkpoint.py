@@ -32,7 +32,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -51,7 +51,6 @@ from app.services.langgraph_checkpoint import (
     resume_from_interrupt,
     trigger_interrupt,
 )
-
 
 # =============================================================================
 # Mock 辅助:Mock psycopg AsyncConnectionPool / AsyncPostgresSaver
@@ -227,9 +226,9 @@ class TestUtcnowIso:
         assert parsed.tzinfo is not None
 
     def test_close_to_current_time(self):
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         result = _utcnow_iso()
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
         parsed = datetime.fromisoformat(result)
         assert before <= parsed <= after
 
@@ -835,7 +834,7 @@ class TestRowToCheckpoint:
 
     def test_created_at_datetime_converted_to_iso(self):
         """created_at 为 datetime → isoformat 字符串。"""
-        dt = datetime(2026, 7, 23, 12, 0, 0, tzinfo=timezone.utc)
+        dt = datetime(2026, 7, 23, 12, 0, 0, tzinfo=UTC)
         row = ("t1", "c1", None, "n1", "{}", dt)
         result = _row_to_checkpoint(row)
         assert result["createdAt"] == dt.isoformat()
@@ -884,7 +883,7 @@ class TestIsoformat:
     """_isoformat:datetime / str 统一为 ISO 字符串。"""
 
     def test_datetime_returns_isoformat(self):
-        dt = datetime(2026, 7, 23, 12, 0, 0, tzinfo=timezone.utc)
+        dt = datetime(2026, 7, 23, 12, 0, 0, tzinfo=UTC)
         assert _isoformat(dt) == dt.isoformat()
 
     def test_str_returns_as_is(self):

@@ -16,19 +16,21 @@ import logging
 import os
 import time
 import uuid
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from ..core.jwt_auth import get_current_user_id
-from ..core.rbac import Permission, require_permission
 from pydantic import BaseModel, Field
 
-from app.core.config import settings
 from app.services.agent_graph import AgentState, get_agent_graph
+
 # 真实云端 Agent 容器运行时(对标 Cursor Cloud Agents / Codex CI sandbox,2026-09-05 立)
 from app.services.container_runtime import container_runtime
 from app.services.memory import unified_memory_client
+
+from ..core.jwt_auth import get_current_user_id
+from ..core.rbac import Permission, require_permission
 
 router = APIRouter(prefix="/agent-runtime", tags=["agent-runtime"])
 logger = logging.getLogger(__name__)

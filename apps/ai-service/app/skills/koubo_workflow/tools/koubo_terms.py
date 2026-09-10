@@ -20,7 +20,7 @@ koubo_quality_gate.py / scan_ambig.py / scan_canonical.py 重复定义。
   from koubo_terms import BANNED_AMBIG_COMP, TERM_CANONICAL_DICT, ALL_BANNED_ALIASES
 """
 import re
-from typing import Any, List, Tuple
+from typing import Any
 
 # ════════════════════════════════════════════════
 # 1. 歧义压缩 4 类正则（BANNED_AMBIG_COMP）
@@ -29,7 +29,7 @@ from typing import Any, List, Tuple
 # ② 模糊倍数：动词+可选修饰+中文数字+倍（"差了一倍""涨了3倍"听者无法精确判断）
 # ③ 未核实具体数字：动词+数字+量词+未核实的"订阅/销量"等
 # ④ 行业术语嵌套生造：agent/智能体/AI/大模型+壳/芯/核等+再次壳/芯/核等
-BANNED_AMBIG_COMP: List[re.Pattern[str]] = [
+BANNED_AMBIG_COMP: list[re.Pattern[str]] = [
     re.compile(r'AI[\u4e00-\u9fff]?(老师|博士|医生|律师|教练|经理|教授|总监|主任|同学|学员|校长|教练员)'),
     re.compile(r'(差|涨|跌|降|多|少|高|低|大|小|快|慢|翻|多花了|少花了|省了|亏了|赚了|多赚|少赚|多花|少花)(了|了整整|了近|了足足)?(差不多|大概)?[一二两三四五六七八九]倍'),
     re.compile(r'(多卖|少卖|多赚|少赚|多花|少花|多省|少省|多占|少占)(了)?[\d一二三四五六七八九十百千万]+(万|千|百|个|套|件|份|元|块|%)[^，。！？]{0,4}(订阅|销量|份额|用户|客户|下载|安装)'),
@@ -42,7 +42,7 @@ BANNED_AMBIG_COMP: List[re.Pattern[str]] = [
 # 格式：(推荐写法, 禁用别名1, 禁用别名2, ...)
 # 规则：第一次出现必须用推荐写法，后续可用任意形式但推荐全稿统一
 # 2026-07-14 增量补全：增加 "AI研究方向博士" 等高频推荐写法
-TERM_CANONICAL_DICT: List[Tuple[str, ...]] = [
+TERM_CANONICAL_DICT: list[tuple[str, ...]] = [
     ('深圳龙岗"龙老师"AI教育产品矩阵', 'AI龙老师', '龙老师矩阵'),
     ('阶跃星辰STEPX Neo', 'Neo手机', '智能体手机（仅指代STEPX Neo时）'),
     ('Claude Fable 5', 'Fable 5模型'),
@@ -73,7 +73,7 @@ TERM_CANONICAL_DICT: List[Tuple[str, ...]] = [
 # ════════════════════════════════════════════════
 # 3. 别名扁平化（便于扫描器/校验器使用）
 # ════════════════════════════════════════════════
-ALL_BANNED_ALIASES: List[str] = []
+ALL_BANNED_ALIASES: list[str] = []
 for _tuple in TERM_CANONICAL_DICT:
     canonical = _tuple[0]
     for alias in _tuple[1:]:
@@ -83,7 +83,7 @@ for _tuple in TERM_CANONICAL_DICT:
 # ════════════════════════════════════════════════
 # 4. 检测函数（统一入口）
 # ════════════════════════════════════════════════
-def find_ambig_hits(text: str) -> List[dict[str, Any]]:
+def find_ambig_hits(text: str) -> list[dict[str, Any]]:
     """
     扫描文本中的 BANNED_AMBIG_COMP 命中
     返回: [{'type': 'BANNED_AMBIG', 'hit': str, 'ctx': str, 'pattern_idx': int}, ...]
@@ -101,7 +101,7 @@ def find_ambig_hits(text: str) -> List[dict[str, Any]]:
     return hits
 
 
-def find_alias_issues(text: str, strict: bool = False) -> List[dict[str, Any]]:
+def find_alias_issues(text: str, strict: bool = False) -> list[dict[str, Any]]:
     """
     扫描文本中的 TERM_CANONICAL_DICT 别名命中
 

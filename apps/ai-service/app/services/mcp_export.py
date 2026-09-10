@@ -32,8 +32,9 @@ import logging
 import os
 import sys
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Any, Callable
+from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 from starlette.responses import JSONResponse

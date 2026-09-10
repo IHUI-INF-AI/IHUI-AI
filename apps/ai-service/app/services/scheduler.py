@@ -22,9 +22,10 @@ import logging
 import re
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
-from typing import Awaitable, Callable, Literal
+from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from ..core.llm_gateway import llm_gateway
 from .agent_orchestrator import AgentDefinition, AgentStepResult
@@ -86,7 +87,7 @@ class FailoverConfig:
 
 
 def _utc_now_plus_seconds(seconds: int) -> str:
-    return (datetime.now(timezone.utc) + timedelta(seconds=seconds)).isoformat()
+    return (datetime.now(UTC) + timedelta(seconds=seconds)).isoformat()
 
 
 class TaskScheduler:
@@ -350,7 +351,7 @@ class TaskScheduler:
         agents_by_name = {a.name: a for a in agents}
 
         last_result: AgentStepResult | None = None
-        for i, agent_name in enumerate(agent_order):
+        for _i, agent_name in enumerate(agent_order):
             agent = agents_by_name.get(agent_name)
             if agent is None:
                 logger.warning("故障转移:agent %s 不存在,跳过", agent_name)
@@ -365,7 +366,7 @@ class TaskScheduler:
                     )
                 else:
                     result = await self._executor(agent, sub_task.description, sid)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 last_result = AgentStepResult(
                     agent_name=agent_name,
                     input=sub_task.description,

@@ -23,8 +23,9 @@
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator
-from unittest.mock import AsyncMock, MagicMock, patch
+from collections.abc import AsyncIterator
+from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -38,7 +39,6 @@ from app.services.publish.ai_assistant import (
     ai_writing_service,
     asyncio_gather,
 )
-
 
 # =============================================================================
 # 1. _platform_hint

@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -62,10 +62,10 @@ MODALITY_ZH = _MODALITY_ZH
 # 元数据读取(带 TTL 缓存)
 # ---------------------------------------------------------------------------
 
-_metadata_cache: dict[str, tuple[float, Optional[dict[str, Any]]]] = {}
+_metadata_cache: dict[str, tuple[float, dict[str, Any] | None]] = {}
 
 
-async def get_model_metadata(model_id: str) -> Optional[dict[str, Any]]:
+async def get_model_metadata(model_id: str) -> dict[str, Any] | None:
     """读单模型 metadata jsonb(ai_model_config_models ⋈ ai_model_config)。
 
     命中 TTL 缓存不查库;查不到(未同步/不存在/列缺失)返回 None,调用方自行
@@ -97,7 +97,7 @@ async def get_model_metadata(model_id: str) -> Optional[dict[str, Any]]:
     except Exception as e:  # noqa: BLE001 — 查库失败降级 None,不阻塞调用方
         logger.warning("[token6688_catalog] 元数据查询失败(降级跳过校验): %s", e)
         row = None
-    meta: Optional[dict[str, Any]] = None
+    meta: dict[str, Any] | None = None
     raw = row["metadata"] if row else None
     if isinstance(raw, dict) and raw:
         meta = raw
@@ -119,7 +119,7 @@ def invalidate_metadata_cache() -> None:
     _metadata_cache.clear()
 
 
-async def list_models(modality: Optional[str] = None) -> list[dict[str, Any]]:
+async def list_models(modality: str | None = None) -> list[dict[str, Any]]:
     """目录清单(上游可用模型,含富元数据摘要)。
 
     Args:
@@ -182,7 +182,7 @@ async def list_models(modality: Optional[str] = None) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
-def _param_schema_get(param_schema: Any, name: str) -> Optional[dict[str, Any]]:
+def _param_schema_get(param_schema: Any, name: str) -> dict[str, Any] | None:
     if not isinstance(param_schema, dict):
         return None
     p = param_schema.get(name)
@@ -238,11 +238,10 @@ def validate_generation_params(
 
     # 1. prompt 长度(约定键 _max_prompt_chars;媒体模型上限可达 30000)
     max_chars = param_schema.get("_max_prompt_chars")
-    if isinstance(max_chars, int) and max_chars > 0 and prompt:
-        if len(prompt) > max_chars:
-            issues.append(
-                f"prompt 长度 {len(prompt)} 超过该模型上限 {max_chars} 字符,请精简后重试"
-            )
+    if isinstance(max_chars, int) and max_chars > 0 and prompt and len(prompt) > max_chars:
+        issues.append(
+            f"prompt 长度 {len(prompt)} 超过该模型上限 {max_chars} 字符,请精简后重试"
+        )
 
     # 2. 未知参数提示(排除内部约定键与 linkages 受控素材参数)
     for k in params:

@@ -39,6 +39,7 @@ import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from cryptography.exceptions import InvalidTag
 
 from app.core.config import settings
 from app.services.publish.base_adapter import (
@@ -72,7 +73,6 @@ from app.services.publish.notifications import (
     notify_progress,
     notify_publish_complete,
 )
-
 
 # =============================================================================
 # autouse fixture: 重置 credentials_crypto 模块级 _KEY 缓存
@@ -936,7 +936,7 @@ class TestDecryptErrors:
         monkeypatch.setenv("PUBLISH_CREDENTIALS_KEY", key_b)
         monkeypatch.setattr(crypto_mod, "_KEY", None)
 
-        with pytest.raises(Exception):  # InvalidTag
+        with pytest.raises(InvalidTag):  # InvalidTag
             decrypt(cipher)
 
     def test_tampered_cipher_raises(self):
@@ -944,7 +944,7 @@ class TestDecryptErrors:
         cipher = encrypt({"token": "secret"})
         # 翻转最后一个字符(篡改 tag)
         tampered = cipher[:-1] + ("A" if cipher[-1] != "A" else "B")
-        with pytest.raises(Exception):
+        with pytest.raises(InvalidTag):
             decrypt(tampered)
 
 

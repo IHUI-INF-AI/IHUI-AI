@@ -36,9 +36,9 @@ import json
 import os
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import asyncpg
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
@@ -175,10 +175,10 @@ class AccountCreate(BaseModel):
 
 
 class AccountUpdate(BaseModel):
-    display_name: Optional[str] = None
-    credentials: Optional[dict[str, Any]] = None
-    status: Optional[str] = None  # 'active' / 'disabled'
-    extra: Optional[dict[str, Any]] = None
+    display_name: str | None = None
+    credentials: dict[str, Any] | None = None
+    status: str | None = None  # 'active' / 'disabled'
+    extra: dict[str, Any] | None = None
 
 
 class PublishTarget(BaseModel):
@@ -192,13 +192,13 @@ class TaskCreate(BaseModel):
     # 客户端若仍传 user_id,Pydantic 默认 extra='ignore' 会忽略,保持兼容。
     title: str = Field(..., max_length=500)
     format: str = Field(..., pattern=r"^(md|docx|html|pdf|image|video)$")
-    text: Optional[str] = Field(default=None, description="md/html 文本内容")
-    file_path: Optional[str] = Field(default=None, description="docx/pdf/image/video 文件路径")
-    cover_path: Optional[str] = Field(default=None, description="封面图路径")
+    text: str | None = Field(default=None, description="md/html 文本内容")
+    file_path: str | None = Field(default=None, description="docx/pdf/image/video 文件路径")
+    cover_path: str | None = Field(default=None, description="封面图路径")
     images: list[str] = Field(default_factory=list, description="内容中引用的图片路径列表")
     extra: dict[str, Any] = Field(default_factory=dict)
     targets: list[PublishTarget]
-    scheduled_at: Optional[datetime] = Field(default=None, description="定时发布时间(UTC),空则立即执行")
+    scheduled_at: datetime | None = Field(default=None, description="定时发布时间(UTC),空则立即执行")
 
 
 class RescheduleRequest(BaseModel):
@@ -329,7 +329,7 @@ async def upload_file(
 
     # 构造存储路径(user_id 已由 JWT 校验,必定非空)
     user_dir = "".join(c for c in user_id if c.isalnum() or c in "-_") or "anonymous"
-    yyyymmdd = datetime.now(timezone.utc).strftime("%Y%m%d")
+    yyyymmdd = datetime.now(UTC).strftime("%Y%m%d")
     unique = uuid.uuid4().hex[:16]
     suffix = Path(file.filename).suffix.lower()
     # 安全文件名(去除路径分隔符)
@@ -392,7 +392,7 @@ async def batch_template() -> dict[str, Any]:
 async def list_accounts(
     request: Request,
     user_id: str,
-    platform: Optional[str] = Query(default=None),
+    platform: str | None = Query(default=None),
 ) -> dict[str, Any]:
     """列出用户的所有平台账号。
 
@@ -508,7 +508,7 @@ async def update_account(account_id: int, body: AccountUpdate, request: Request)
         if not sets:
             return _wrap_ok({"ok": True, "account": _serialize_account(existing), "note": "no fields to update"})
 
-        sets.append(f"updated_at=NOW()")
+        sets.append("updated_at=NOW()")
         args.append(account_id)
         sql = f"UPDATE publish_accounts SET {', '.join(sets)} WHERE id=${idx} RETURNING *"
         row = await conn.fetchrow(sql, *args)
@@ -622,7 +622,7 @@ async def get_account_risk(account_id: int, request: Request) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail=f"account not found: {account_id}")
 
         platform = row["platform"]
-        cookie_health: Optional[dict[str, Any]] = None
+        cookie_health: dict[str, Any] | None = None
         last_verified = row["last_verified_at"]
         if last_verified:
             now_ts = time.time()
@@ -798,7 +798,7 @@ def _serialize_results_to_platforms(results: Any) -> list[dict[str, Any]]:
 @router.get("/tasks")
 async def list_tasks(
     request: Request,
-    status: Optional[str] = Query(default=None),
+    status: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
@@ -809,7 +809,7 @@ async def list_tasks(
     user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
     conn = await _get_conn()
     try:
-        conditions = [f"user_id=$1"]
+        conditions = ["user_id=$1"]
         args: list[Any] = [user_id]
         idx = 2
         if status:
@@ -1003,7 +1003,7 @@ async def reschedule_task(
 
 
 @router.post("/tasks/{task_id}/retry")
-async def retry_task(task_id: str, request: Request, platforms: Optional[list[str]] = None) -> dict[str, Any]:
+async def retry_task(task_id: str, request: Request, platforms: list[str] | None = None) -> dict[str, Any]:
     """重试失败的平台。
 
     IDOR 修复:校验任务归属,禁止重试他人任务。
@@ -1036,8 +1036,8 @@ async def retry_task(task_id: str, request: Request, platforms: Optional[list[st
 @router.get("/history")
 async def list_history(
     request: Request,
-    task_id: Optional[str] = Query(default=None),
-    platform: Optional[str] = Query(default=None),
+    task_id: str | None = Query(default=None),
+    platform: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=500),
 ) -> dict[str, Any]:
     """历史记录(单平台粒度)。
@@ -1047,7 +1047,7 @@ async def list_history(
     user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
     conn = await _get_conn()
     try:
-        conditions = [f"user_id=$1"]
+        conditions = ["user_id=$1"]
         args: list[Any] = [user_id]
         idx = 2
         if task_id:
@@ -1113,7 +1113,7 @@ async def get_stats(
     conn = await _get_conn()
     try:
         # 时间范围
-        since = datetime.now(timezone.utc).replace(
+        since = datetime.now(UTC).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
         from datetime import timedelta

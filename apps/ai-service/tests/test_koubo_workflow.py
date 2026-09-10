@@ -27,7 +27,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import sys
 from datetime import datetime
@@ -50,7 +49,6 @@ from app.services.koubo_workflow import (
     _trace,
     koubo_workflow_service,
 )
-
 
 # =============================================================================
 # 工厂函数
@@ -139,7 +137,7 @@ class TestModuleConstants:
     def test_skills_root_resolves_to_app_skills(self):
         """SKILLS_ROOT = app/services/koubo_workflow.py -> app/services -> app -> app/skills。"""
         expected = Path(kfw_mod.__file__).resolve().parent.parent / "skills"
-        assert SKILLS_ROOT == expected
+        assert expected == SKILLS_ROOT
         assert SKILLS_ROOT.name == "skills"
 
     def test_koubo_workflow_dir_under_skills(self):
@@ -292,7 +290,7 @@ class TestRunKouboScript:
     async def test_timeout_kills_process_and_returns_124(self, mock_exec, mock_isfile):
         proc = make_subprocess_mock(returncode=0, stdout=b"", stderr=b"")
         # communicate 抛 TimeoutError 触发 wait_for 超时
-        proc.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
+        proc.communicate = AsyncMock(side_effect=TimeoutError())
         mock_exec.return_value = proc
         rc, out, err = await _run_koubo_script("topic_pool.py", [], timeout_sec=5)
         assert rc == 124
@@ -758,7 +756,7 @@ class TestWriteArticlesNode:
         mock_llm.complete = AsyncMock(return_value=make_llm_result(content=long_content))
         svc = KouboWorkflowService()
         # 写 2 篇,第 2 篇的 user_msg 应包含第 1 篇摘要前 60 字
-        result = await svc._write_articles_node(make_state(selected_topics=make_topics(2)))
+        await svc._write_articles_node(make_state(selected_topics=make_topics(2)))
         # 检查第 2 次调用的 user_msg
         second_call = mock_llm.complete.call_args_list[1]
         user_msg = second_call.args[0][1]["content"]

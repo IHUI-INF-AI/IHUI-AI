@@ -49,7 +49,7 @@ except Exception:
 def _x_entries() -> list[dict[str, Any]]:
     """把公众号 x_sources.X_SOURCES 转成本注册表统一结构。"""
     out: list[dict[str, Any]] = []
-    for cat, lst in (_X_SOURCES or {}).items():
+    for _cat, lst in (_X_SOURCES or {}).items():
         for s in lst:
             out.append({
                 'name': s.get('name', s.get('handle', '')),

@@ -42,9 +42,9 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from ..middleware.output_safety import (
-    scan_output,
     apply_disclaimers,
     build_ai_generation_annotation,
+    scan_output,
 )
 
 # 允许参数注入与测试覆盖的数量默认值

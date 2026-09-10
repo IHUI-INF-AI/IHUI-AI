@@ -20,7 +20,6 @@
 from __future__ import annotations
 
 import os
-import re
 import sys
 from datetime import datetime
 from unittest.mock import MagicMock
@@ -52,7 +51,6 @@ if "project_boundary" not in sys.modules or not hasattr(
     sys.modules["project_boundary"] = MagicMock()
 
 import archive_daily  # noqa: E402
-
 
 # =============================================================================
 # 辅助:每个测试用 tmp_path 替换全局路径

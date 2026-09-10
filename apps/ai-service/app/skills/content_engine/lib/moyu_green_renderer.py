@@ -24,11 +24,11 @@
   1. 2. 3. → ordered-list(绿圆圈有序列表)
   - 或 * → pill-list(药丸标签列表)
 """
-import re
-import os
 import io
-import time
-from typing import Any, Match, Optional
+import os
+import re
+from re import Match
+from typing import Any
 
 # ===== 官方摸鱼绿 设计变量(emerald + 黄色点睛) =====
 C_PRIMARY  = '#059669'   # emerald-600 主色
@@ -112,29 +112,29 @@ def render_inline(text: str) -> str:
 
     # ==highlight== -> 黄色渐变高亮 (组件6c) — 必须先于 **,否则 == 被吞进 strong
     def hl_repl(m: Match[str]) -> str:
-        return stash('<span style="background:linear-gradient(120deg,%s 0%%,rgba(255,255,255,0) 100%%);padding:0 4px;border-radius:2px;font-weight:600;color:%s;"><span leaf="">%s</span></span>' % (C_YELLOW, C_TITLE, m.group(1)))
+        return stash(f'<span style="background:linear-gradient(120deg,{C_YELLOW} 0%,rgba(255,255,255,0) 100%);padding:0 4px;border-radius:2px;font-weight:600;color:{C_TITLE};"><span leaf="">{m.group(1)}</span></span>')
     text = re.sub(r'==(.+?)==', hl_repl, text)
 
     # **bold** -> 绿色加粗 (组件6a)
     def bold_repl(m: Match[str]) -> str:
-        return stash('<strong style="color:%s;"><span leaf="">%s</span></strong>' % (C_PRIMARY, m.group(1)))
+        return stash(f'<strong style="color:{C_PRIMARY};"><span leaf="">{m.group(1)}</span></strong>')
     text = re.sub(r'\*\*(.+?)\*\*', bold_repl, text)
 
     # `code` -> 代码标签 (组件6g)
     def code_repl(m: Match[str]) -> str:
-        return stash('<span style="background:%s;color:#1F2937;padding:2px 6px;border-radius:4px;font-size:13px;font-weight:600;"><span leaf="">%s</span></span>' % (C_GRAY_BG, m.group(1)))
+        return stash(f'<span style="background:{C_GRAY_BG};color:#1F2937;padding:2px 6px;border-radius:4px;font-size:13px;font-weight:600;"><span leaf="">{m.group(1)}</span></span>')
     text = re.sub(r'`([^`]+?)`', code_repl, text)
 
     # 自动绿色下划线关键词 (组件6e, 默认关键词标记)
     for kw in GREEN_U:
         if kw in text:
-            text = text.replace(kw, stash('<span style="border-bottom:2px solid %s;font-weight:600;"><span leaf="">%s</span></span>' % (C_LIGHT3, kw)))
+            text = text.replace(kw, stash(f'<span style="border-bottom:2px solid {C_LIGHT3};font-weight:600;"><span leaf="">{kw}</span></span>'))
 
     # 还原占位符（必须递归：==/ 关键词占位符可能已被外层 ** 包裹进 protected）
     def unstash(m: Match[str]) -> str:
         idx = int(m.group(1))
         return protected[idx] if 0 <= idx < len(protected) else m.group(0)
-    prev: Optional[str] = None
+    prev: str | None = None
     while prev != text:
         prev = text
         text = re.sub(r'\x00(\d+)\x00', unstash, text)
@@ -144,29 +144,29 @@ def render_inline(text: str) -> str:
 # ============ 组件 2 封面 cover-breaking(无图版) ============
 def render_cover(c: dict[str, Any]) -> str:
     tag_html = ''.join(
-        '<span style="background:rgba(255,255,255,0.2);padding:1px 6px;border-radius:3px;font-size:8px;color:#fff;font-weight:600;"><span leaf="">%s</span></span>' % t
+        f'<span style="background:rgba(255,255,255,0.2);padding:1px 6px;border-radius:3px;font-size:8px;color:#fff;font-weight:600;"><span leaf="">{t}</span></span>'
         for t in c.get('tags', ['AI', '深度']))
-    return '''<section style="margin:0 0 32px;background:#fff;border:1.5px solid rgba(5,150,105,0.15);border-radius:20px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);width:100%%;">
+    return '''<section style="margin:0 0 32px;background:#fff;border:1.5px solid rgba(5,150,105,0.15);border-radius:20px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);width:100%;">
   <section style="padding:32px 28px 28px;">
     <section style="display:flex;align-items:center;gap:8px;margin-bottom:28px;">
-      <span style="width:6px;height:6px;background:%s;border-radius:50%%;"><span leaf=""><br></span></span>
-      <span style="font-size:11px;font-weight:700;letter-spacing:3px;color:%s;"><span leaf="">%s</span></span>
+      <span style="width:6px;height:6px;background:{};border-radius:50%;"><span leaf=""><br></span></span>
+      <span style="font-size:11px;font-weight:700;letter-spacing:3px;color:{};"><span leaf="">{}</span></span>
       <section style="flex:1;height:1px;overflow:hidden;background:linear-gradient(to right,rgba(5,150,105,0.12),transparent);"><span leaf=""><br></span></section>
-      <span style="font-size:10px;color:%s;font-weight:600;"><span leaf="">%s</span></span>
+      <span style="font-size:10px;color:{};font-weight:600;"><span leaf="">{}</span></span>
     </section>
     <section>
-      <p style="font-size:15px;color:%s;margin:0 0 6px;text-decoration:line-through;letter-spacing:0.5px;"><span leaf="">%s</span></p>
-      <p style="font-size:24px;font-weight:900;color:%s;margin:0;line-height:1.05;letter-spacing:-2px;"><span leaf="">%s</span><span style="color:%s;"><span leaf="">%s</span></span></p>
-      <p style="font-size:24px;font-weight:900;color:%s;margin:0 0 16px;line-height:1.05;letter-spacing:-2px;"><span leaf="">%s</span></p>
-      <section style="width:48px;height:3px;background:linear-gradient(to right,%s,%s);border-radius:2px;margin-bottom:12px;"><span leaf=""><br></span></section>
-      <p style="font-size:13px;color:%s;margin:0;line-height:1.7;letter-spacing:0.5px;"><span leaf="">%s</span></p>
+      <p style="font-size:15px;color:{};margin:0 0 6px;text-decoration:line-through;letter-spacing:0.5px;"><span leaf="">{}</span></p>
+      <p style="font-size:24px;font-weight:900;color:{};margin:0;line-height:1.05;letter-spacing:-2px;"><span leaf="">{}</span><span style="color:{};"><span leaf="">{}</span></span></p>
+      <p style="font-size:24px;font-weight:900;color:{};margin:0 0 16px;line-height:1.05;letter-spacing:-2px;"><span leaf="">{}</span></p>
+      <section style="width:48px;height:3px;background:linear-gradient(to right,{},{});border-radius:2px;margin-bottom:12px;"><span leaf=""><br></span></section>
+      <p style="font-size:13px;color:{};margin:0;line-height:1.7;letter-spacing:0.5px;"><span leaf="">{}</span></p>
     </section>
   </section>
-  <section style="background:linear-gradient(135deg,%s,%s);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;">
-    <p style="font-size:12px;color:rgba(255,255,255,0.9);margin:0;font-weight:600;letter-spacing:0.5px;"><span leaf="">%s</span></p>
-    <section style="display:flex;gap:4px;">%s</section>
+  <section style="background:linear-gradient(135deg,{},{});padding:12px 28px;display:flex;align-items:center;justify-content:space-between;">
+    <p style="font-size:12px;color:rgba(255,255,255,0.9);margin:0;font-weight:600;letter-spacing:0.5px;"><span leaf="">{}</span></p>
+    <section style="display:flex;gap:4px;">{}</section>
   </section>
-</section>''' % (
+</section>'''.format(
         C_PRIMARY, C_PRIMARY, c.get('tag', 'DEEP DIVE · 深度'),
         C_DIVIDER, c.get('date', '2026.07'),
         C_DIVIDER, c.get('old', ''),
@@ -182,21 +182,21 @@ def render_toc(chapters: list[tuple[str, str]]) -> str:
     cards = []
     for idx, (num, zh) in enumerate(chapters):
         if idx == 0:
-            part = 'PART %s' % num if num else 'PART 01'
+            part = f'PART {num}' if num else 'PART 01'
             sub = EN_SUB_SHORT.get(num, '深度复盘')
-            cards.append('''<section style="display:inline-block;white-space:normal;vertical-align:top;width:110px;background:linear-gradient(135deg,%s,%s);border-radius:12px;padding:12px;margin-right:8px;">
-      <p style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:1px;margin:0 0 5px;"><span leaf="">%s</span></p>
-      <p style="font-size:13px;font-weight:800;color:#fff;margin:0 0 3px;"><span leaf="">%s</span></p>
-      <p style="font-size:10px;color:rgba(255,255,255,0.7);margin:0;"><span leaf="">%s</span></p>
-    </section>''' % (C_PRIMARY, C_PRIMARY2, part, zh, sub))
+            cards.append(f'''<section style="display:inline-block;white-space:normal;vertical-align:top;width:110px;background:linear-gradient(135deg,{C_PRIMARY},{C_PRIMARY2});border-radius:12px;padding:12px;margin-right:8px;">
+      <p style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:1px;margin:0 0 5px;"><span leaf="">{part}</span></p>
+      <p style="font-size:13px;font-weight:800;color:#fff;margin:0 0 3px;"><span leaf="">{zh}</span></p>
+      <p style="font-size:10px;color:rgba(255,255,255,0.7);margin:0;"><span leaf="">{sub}</span></p>
+    </section>''')
         else:
-            part = 'PART %s' % num if num else 'PART ///'
+            part = f'PART {num}' if num else 'PART ///'
             sub = EN_SUB_SHORT.get(num, '写在最后')
-            cards.append('''<section style="display:inline-block;white-space:normal;vertical-align:top;width:110px;background:#fff;border:1px solid %s;border-radius:12px;padding:12px;margin-right:8px;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
-      <p style="font-size:9px;font-weight:700;color:%s;letter-spacing:1px;margin:0 0 5px;"><span leaf="">%s</span></p>
-      <p style="font-size:13px;font-weight:800;color:%s;margin:0 0 3px;"><span leaf="">%s</span></p>
-      <p style="font-size:10px;color:%s;margin:0;"><span leaf="">%s</span></p>
-    </section>''' % (C_BORDER, C_NOTE2, part, C_TITLE, zh, C_NOTE2, sub))
+            cards.append(f'''<section style="display:inline-block;white-space:normal;vertical-align:top;width:110px;background:#fff;border:1px solid {C_BORDER};border-radius:12px;padding:12px;margin-right:8px;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+      <p style="font-size:9px;font-weight:700;color:{C_NOTE2};letter-spacing:1px;margin:0 0 5px;"><span leaf="">{part}</span></p>
+      <p style="font-size:13px;font-weight:800;color:{C_TITLE};margin:0 0 3px;"><span leaf="">{zh}</span></p>
+      <p style="font-size:10px;color:{C_NOTE2};margin:0;"><span leaf="">{sub}</span></p>
+    </section>''')
     return '''<section style="margin:0 20px 32px;">
   <section style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
     <p style="font-size:10px;color:%s;margin:0;text-transform:uppercase;letter-spacing:2px;font-weight:600;"><span leaf="">📦 %d Parts + Conclusion</span></p>
@@ -209,7 +209,7 @@ def render_toc(chapters: list[tuple[str, str]]) -> str:
 
 
 # ============ 组件 4 章节标题 chapter-title ============
-def render_chapter(num: Optional[str], zh: str, is_first: bool) -> str:
+def render_chapter(num: str | None, zh: str, is_first: bool) -> str:
     mt = '16px' if is_first else '48px'
     if num:
         part_no = num
@@ -219,55 +219,55 @@ def render_chapter(num: Optional[str], zh: str, is_first: bool) -> str:
         part_no = '///'
         part_label = 'LAST'
         en = '写在最后 · EDITOR NOTE'
-    return '''<section style="margin-top:%s;margin-bottom:24px;padding:0;">
+    return f'''<section style="margin-top:{mt};margin-bottom:24px;padding:0;">
     <section style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
       <section style="text-align:center;flex-shrink:0;">
-        <p style="margin:0;font-size:28px;font-weight:900;color:%s;line-height:1;letter-spacing:-2px;"><span leaf="">%s</span></p>
-        <p style="margin:0;font-size:8px;font-weight:700;color:%s;letter-spacing:2px;"><span leaf="">%s</span></p>
+        <p style="margin:0;font-size:28px;font-weight:900;color:{C_PRIMARY};line-height:1;letter-spacing:-2px;"><span leaf="">{part_no}</span></p>
+        <p style="margin:0;font-size:8px;font-weight:700;color:{C_DIVIDER};letter-spacing:2px;"><span leaf="">{part_label}</span></p>
       </section>
-      <span style="width:1px;height:36px;background:%s;flex-shrink:0;"><span leaf=""><br></span></span>
+      <span style="width:1px;height:36px;background:{C_BORDER};flex-shrink:0;"><span leaf=""><br></span></span>
       <section>
-        <p style="margin:0 0 1px;font-size:17px;font-weight:900;color:%s;letter-spacing:0.3px;"><span leaf="">%s</span></p>
-        <p style="margin:0;font-size:11px;font-weight:600;color:%s;letter-spacing:1.5px;"><span leaf="">%s</span></p>
+        <p style="margin:0 0 1px;font-size:17px;font-weight:900;color:{C_TITLE};letter-spacing:0.3px;"><span leaf="">{zh}</span></p>
+        <p style="margin:0;font-size:11px;font-weight:600;color:{C_NOTE2};letter-spacing:1.5px;"><span leaf="">{en}</span></p>
       </section>
     </section>
-  </section>''' % (mt, C_PRIMARY, part_no, C_DIVIDER, part_label, C_BORDER, C_TITLE, zh, C_NOTE2, en)
+  </section>'''
 
 
 # ============ 组件 5 正文段落 paragraph ============
 def render_paragraph(text: str) -> str:
     inner = render_inline(text)
-    return '<p style="margin:0 0 16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">%s</span></p>' % inner
+    return f'<p style="margin:0 0 16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">{inner}</span></p>'
 
 
 # ============ 组件 6f 章节内小标题 subtitle-highlight(黄高亮) ============
 def render_subtitle(text: str) -> str:
     inner = render_inline(text)
-    return '''<p style="font-size:15px;font-weight:900;color:%s;margin:32px 0 16px;">
-  <span style="background:linear-gradient(180deg,transparent 65%%,%s 65%%);padding:0 4px;"><span leaf="">%s</span></span>
-</p>''' % (C_TITLE, C_YELLOW, inner)
+    return f'''<p style="font-size:15px;font-weight:900;color:{C_TITLE};margin:32px 0 16px;">
+  <span style="background:linear-gradient(180deg,transparent 65%,{C_YELLOW} 65%);padding:0 4px;"><span leaf="">{inner}</span></span>
+</p>'''
 
 
 # ============ 组件 3 开头引言 oneliner-card(金句卡, 黄下划线) ============
-def render_oneliner(text: str, prefix: Optional[str] = None) -> str:
+def render_oneliner(text: str, prefix: str | None = None) -> str:
     inner = render_inline(text)
-    prefix_html = '<p style="font-size:12px;color:%s;margin:0 0 6px;line-height:1.5;"><span leaf="">%s</span></p>' % (C_NOTE2, prefix) if prefix else ''
-    return '''<section style="margin:0 0 24px;">
-  <section style="background:#FFF;border:1px dashed %s;border-radius:8px;padding:14px 16px;text-align:center;">
-    %s
+    prefix_html = f'<p style="font-size:12px;color:{C_NOTE2};margin:0 0 6px;line-height:1.5;"><span leaf="">{prefix}</span></p>' if prefix else ''
+    return f'''<section style="margin:0 0 24px;">
+  <section style="background:#FFF;border:1px dashed {C_BORDER_L};border-radius:8px;padding:14px 16px;text-align:center;">
+    {prefix_html}
     <p style="margin:0;line-height:1.6;">
-      <span style="font-size:15px;color:%s;font-weight:bold;border-bottom:3px solid %s;padding-bottom:2px;"><span leaf="">%s</span></span>
+      <span style="font-size:15px;color:{C_PRIMARY};font-weight:bold;border-bottom:3px solid {C_YELLOW};padding-bottom:2px;"><span leaf="">{inner}</span></span>
     </p>
   </section>
-</section>''' % (C_BORDER_L, prefix_html, C_PRIMARY, C_YELLOW, inner)
+</section>'''
 
 
 # ============ 组件 9 引用块 quote-box(灰虚线) ============
 def render_quote(text: str) -> str:
     inner = render_inline(text)
-    return '''<section style="background:%s;border:1px dashed %s;border-radius:8px;padding:12px 16px;margin:0 0 24px;text-align:justify;">
-  <p style="font-size:13px;color:%s;margin:0;line-height:1.6;"><span leaf="">%s</span></p>
-</section>''' % (C_GRAY_BG2, C_DIVIDER, C_BODY, inner)
+    return f'''<section style="background:{C_GRAY_BG2};border:1px dashed {C_DIVIDER};border-radius:8px;padding:12px 16px;margin:0 0 24px;text-align:justify;">
+  <p style="font-size:13px;color:{C_BODY};margin:0;line-height:1.6;"><span leaf="">{inner}</span></p>
+</section>'''
 
 
 # ============ 组件 10 提示块 tip(左竖条emerald + 类型标签) ============
@@ -292,17 +292,17 @@ def render_tip(label: str, body: str, block_type: str = 'tip') -> str:
         # 行内允许嵌套 :::quote / > 这种单行引用
         if s.startswith('> '):
             inner = render_inline(s[2:].strip())
-            paras.append('<p style="font-size:14px;color:%s;margin:0 0 8px;line-height:1.8;padding-left:10px;border-left:3px solid %s;"><span leaf="">%s</span></p>' % (col['body'], col['bar'], inner))
+            paras.append('<p style="font-size:14px;color:{};margin:0 0 8px;line-height:1.8;padding-left:10px;border-left:3px solid {};"><span leaf="">{}</span></p>'.format(col['body'], col['bar'], inner))
         else:
             inner = render_inline(s)
-            paras.append('<p style="font-size:14px;color:%s;margin:0 0 8px;line-height:1.8;"><span leaf="">%s</span></p>' % (col['body'], inner))
-    body_html = ''.join(paras) if paras else '<p style="font-size:14px;color:%s;margin:0;line-height:1.8;"><span leaf=""></span></p>' % col['body']
-    return '''<section style="margin:0 0 24px;background:%s;border-radius:0 8px 8px 0;border-left:4px solid %s;padding:14px 18px;">
+            paras.append('<p style="font-size:14px;color:{};margin:0 0 8px;line-height:1.8;"><span leaf="">{}</span></p>'.format(col['body'], inner))
+    body_html = ''.join(paras) if paras else '<p style="font-size:14px;color:{};margin:0;line-height:1.8;"><span leaf=""></span></p>'.format(col['body'])
+    return '''<section style="margin:0 0 24px;background:{};border-radius:0 8px 8px 0;border-left:4px solid {};padding:14px 18px;">
   <p style="margin:0 0 8px;">
-    <span style="display:inline-block;background:%s;color:%s;font-size:11px;font-weight:700;padding:2px 10px;border-radius:4px;letter-spacing:1px;"><span leaf="">%s</span></span>
+    <span style="display:inline-block;background:{};color:{};font-size:11px;font-weight:700;padding:2px 10px;border-radius:4px;letter-spacing:1px;"><span leaf="">{}</span></span>
   </p>
-  %s
-</section>''' % (col['bg'], col['bar'], col['tag_bg'], col['tag_fg'], label, body_html)
+  {}
+</section>'''.format(col['bg'], col['bar'], col['tag_bg'], col['tag_fg'], label, body_html)
 
 
 # ============ 组件 11.5 ::: 块渲染分发 (tip / warning / note / oneliner / quote) ============
@@ -317,12 +317,12 @@ def render_colon_block(block_type: str, arg: str, body_lines: list[str]) -> str:
         prefix = arg or ''
         inner = render_inline(body)
         if prefix:
-            html = '<span style="display:inline-block;background:#059669;color:#FFFFFF;font-size:11px;font-weight:700;padding:2px 10px;border-radius:4px;letter-spacing:1px;margin-right:8px;vertical-align:middle;"><span leaf="">%s</span></span>' % prefix
+            html = f'<span style="display:inline-block;background:#059669;color:#FFFFFF;font-size:11px;font-weight:700;padding:2px 10px;border-radius:4px;letter-spacing:1px;margin-right:8px;vertical-align:middle;"><span leaf="">{prefix}</span></span>'
         else:
             html = ''
-        return '''<section style="margin:24px 0;text-align:center;padding:18px 16px;background:#FFFFFF;border-top:1px dashed #A7F3D0;border-bottom:1px dashed #A7F3D0;">
-  <p style="margin:0;font-size:16px;font-weight:700;color:%s;line-height:1.6;">%s<span leaf="">%s</span></p>
-</section>''' % (C_TITLE, html, inner)
+        return f'''<section style="margin:24px 0;text-align:center;padding:18px 16px;background:#FFFFFF;border-top:1px dashed #A7F3D0;border-bottom:1px dashed #A7F3D0;">
+  <p style="margin:0;font-size:16px;font-weight:700;color:{C_TITLE};line-height:1.6;">{html}<span leaf="">{inner}</span></p>
+</section>'''
     if block_type == 'quote':
         return render_center_quote(body)
     # 未知 block_type: 退化为普通段落
@@ -338,28 +338,28 @@ def render_ordered_list(items: list[str]) -> str:
     <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:%s;color:#fff;font-size:11px;font-weight:700;border-radius:50%%;flex-shrink:0;margin-top:2px;"><span leaf="">%d</span></span>
     <p style="font-size:14px;color:%s;margin:0;line-height:1.9;flex:1;"><span leaf="">%s</span></p>
   </section>''' % (C_PRIMARY, i, C_BODY, inner))
-    return '<section style="margin:0 0 24px;">%s</section>' % ''.join(parts)
+    return '<section style="margin:0 0 24px;">{}</section>'.format(''.join(parts))
 
 
 # ============ 组件 11 药丸标签列表 pill-list ============
 def render_pill_list(items: list[tuple[str, str]]) -> str:
     parts = []
     for label, desc in items:
-        parts.append('''<section style="margin:0 0 14px;">
+        parts.append(f'''<section style="margin:0 0 14px;">
   <p style="margin:0 0 6px;">
-    <span style="display:inline-block;font-size:13px;font-weight:700;color:%s;background:rgba(5,150,105,0.08);padding:3px 10px;border-radius:999px;"><span style="display:inline-block;width:6px;height:6px;background:%s;border-radius:50%%;margin-right:5px;vertical-align:middle;"><span leaf=""><br></span></span><span leaf="">%s</span></span>
+    <span style="display:inline-block;font-size:13px;font-weight:700;color:{C_PRIMARY};background:rgba(5,150,105,0.08);padding:3px 10px;border-radius:999px;"><span style="display:inline-block;width:6px;height:6px;background:{C_PRIMARY};border-radius:50%;margin-right:5px;vertical-align:middle;"><span leaf=""><br></span></span><span leaf="">{label}</span></span>
   </p>
-  <p style="font-size:13px;color:%s;margin:0;line-height:1.7;text-align:justify;"><span leaf="">%s</span></p>
-</section>''' % (C_PRIMARY, C_PRIMARY, label, C_BODY2, desc))
-    return '<section style="margin:0 0 24px;">%s</section>' % ''.join(parts)
+  <p style="font-size:13px;color:{C_BODY2};margin:0;line-height:1.7;text-align:justify;"><span leaf="">{desc}</span></p>
+</section>''')
+    return '<section style="margin:0 0 24px;">{}</section>'.format(''.join(parts))
 
 
 # ============ 组件 11 居中金句 center-divider ============
 def render_center_quote(text: str) -> str:
     inner = render_inline(text)
-    return '''<p style="font-size:14px;margin:0 0 20px;text-align:center;color:%s;font-weight:700;letter-spacing:1px;border-top:1px solid %s;border-bottom:1px solid %s;padding:12px 0;">
-  <span leaf="">%s</span>
-</p>''' % (C_PRIMARY, C_GRAY_BG, C_GRAY_BG, inner)
+    return f'''<p style="font-size:14px;margin:0 0 20px;text-align:center;color:{C_PRIMARY};font-weight:700;letter-spacing:1px;border-top:1px solid {C_GRAY_BG};border-bottom:1px solid {C_GRAY_BG};padding:12px 0;">
+  <span leaf="">{inner}</span>
+</p>'''
 
 
 # ============ 组件 8 代码块 code-block(深色) ============
@@ -370,35 +370,35 @@ def render_code_block(lang: str, code: str) -> str:
     plines = []
     for ln in lines:
         disp = ln.replace('  ', '　　')  # 全角空格保留缩进, 避免 pre 空白
-        plines.append('<p style="margin:0;font-family:Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">%s</span></p>' % disp)
+        plines.append(f'<p style="margin:0;font-family:Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#E2E8F0;"><span leaf="">{disp}</span></p>')
     body = ''.join(plines)
-    return '''<section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);">
+    return f'''<section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1E293B;box-shadow:0 4px 16px -8px rgba(15,23,42,0.4);">
   <section style="display:flex;align-items:center;padding:9px 14px;background:#0F172A;">
-    <span style="display:inline-block;width:10px;height:10px;border-radius:50%%;background:#FF5F56;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
-    <span style="display:inline-block;width:10px;height:10px;border-radius:50%%;background:#FFBD2E;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
-    <span style="display:inline-block;width:10px;height:10px;border-radius:50%%;background:#27C93F;font-size:0;line-height:0;overflow:hidden;">.</span>
-    <span style="margin-left:12px;font-size:12px;color:#64748B;font-family:Consolas,Monaco,monospace;letter-spacing:1px;"><span leaf="">%s</span></span>
+    <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FF5F56;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
+    <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#FFBD2E;margin-right:7px;font-size:0;line-height:0;overflow:hidden;">.</span>
+    <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#27C93F;font-size:0;line-height:0;overflow:hidden;">.</span>
+    <span style="margin-left:12px;font-size:12px;color:#64748B;font-family:Consolas,Monaco,monospace;letter-spacing:1px;"><span leaf="">{lang}</span></span>
   </section>
   <section style="padding:11px 14px;">
-    %s
+    {body}
   </section>
-</section>''' % (lang, body)
+</section>'''
 
 
 # ============ 组件 12a 图片 image ============
 def render_image(alt: str, src: str) -> str:
-    img_html = '''<section style="margin:0 0 8px;">
-  <section style="background:#FFF;border-radius:12px;padding:6px;border:1px solid %s;box-shadow:0 4px 12px -2px rgba(0,0,0,0.08);">
+    img_html = f'''<section style="margin:0 0 8px;">
+  <section style="background:#FFF;border-radius:12px;padding:6px;border:1px solid {C_BORDER};box-shadow:0 4px 12px -2px rgba(0,0,0,0.08);">
     <section style="margin:0;border-radius:8px;overflow:hidden;">
-      <span leaf=""><img src="%s" style="max-width:100%%;height:auto;display:block;margin:0 auto;"></span>
+      <span leaf=""><img src="{src}" style="max-width:100%;height:auto;display:block;margin:0 auto;"></span>
     </section>
   </section>
-</section>''' % (C_BORDER, src)
+</section>'''
     # alt 非空且不等于文件名（即真有说明文字）才追加图注
     # 2026-07-14 R5b 修复: 否则会产生空 <p> 撑大段距
     alt_clean = (alt or '').strip()
     if alt_clean and alt_clean != os.path.basename(src):
-        img_html += '\n<p style="font-size:12px;color:%s;text-align:center;margin:0 0 24px;"><span leaf="">%s</span></p>' % (C_NOTE2, alt_clean)
+        img_html += f'\n<p style="font-size:12px;color:{C_NOTE2};text-align:center;margin:0 0 24px;"><span leaf="">{alt_clean}</span></p>'
     return img_html
 
 
@@ -409,29 +409,29 @@ def render_image(alt: str, src: str) -> str:
 #   - 右: 白底 emerald 描边按钮「➕ 想看更多请关注」
 # DOCX 路径不受影响, build_gpt56_sol.py 继续保留这两张图
 def render_end_support() -> str:
-    like_btn = '''<section style="display:inline-block;background:%s;border-radius:999px;padding:10px 22px;margin:0 4px;box-shadow:0 4px 12px -2px rgba(5,150,105,0.35);">
+    like_btn = f'''<section style="display:inline-block;background:{C_PRIMARY};border-radius:999px;padding:10px 22px;margin:0 4px;box-shadow:0 4px 12px -2px rgba(5,150,105,0.35);">
   <p style="margin:0;font-size:14px;font-weight:700;color:#FFFFFF;letter-spacing:0.5px;"><span leaf="">👍 看完点个赞</span></p>
-</section>''' % C_PRIMARY
-    follow_btn = '''<section style="display:inline-block;background:#FFFFFF;border:1.5px solid %s;border-radius:999px;padding:10px 22px;margin:0 4px;">
-  <p style="margin:0;font-size:14px;font-weight:700;color:%s;letter-spacing:0.5px;"><span leaf="">➕ 想看更多请关注</span></p>
-</section>''' % (C_PRIMARY, C_PRIMARY)
-    return '''<section style="margin:24px 0 8px;text-align:center;">
-  <p style="font-size:11px;color:%s;margin:0 0 12px;letter-spacing:2px;font-weight:600;"><span leaf="">YOUR SUPPORT MATTERS · 你的支持很重要</span></p>
+</section>'''
+    follow_btn = f'''<section style="display:inline-block;background:#FFFFFF;border:1.5px solid {C_PRIMARY};border-radius:999px;padding:10px 22px;margin:0 4px;">
+  <p style="margin:0;font-size:14px;font-weight:700;color:{C_PRIMARY};letter-spacing:0.5px;"><span leaf="">➕ 想看更多请关注</span></p>
+</section>'''
+    return f'''<section style="margin:24px 0 8px;text-align:center;">
+  <p style="font-size:11px;color:{C_NOTE2};margin:0 0 12px;letter-spacing:2px;font-weight:600;"><span leaf="">YOUR SUPPORT MATTERS · 你的支持很重要</span></p>
   <section style="display:inline-block;white-space:nowrap;">
-    %s
-    %s
+    {like_btn}
+    {follow_btn}
   </section>
-</section>''' % (C_NOTE2, like_btn, follow_btn)
+</section>'''
 
 
 # ============ 编辑按语区块 green-info 风格 ============
 def render_editor_section(label: str, body_html: str) -> str:
-    return '''<section style="margin:0 0 24px;background:%s;padding:14px 18px;border-radius:8px;border:1px solid %s;">
+    return f'''<section style="margin:0 0 24px;background:{C_BG_L2};padding:14px 18px;border-radius:8px;border:1px solid {C_BORDER_L};">
   <p style="margin:0 0 10px;">
-    <span style="display:inline-block;background:%s;color:#fff;font-size:11px;font-weight:700;padding:3px 12px;border-radius:4px;letter-spacing:1px;"><span leaf="">%s</span></span>
+    <span style="display:inline-block;background:{C_PRIMARY};color:#fff;font-size:11px;font-weight:700;padding:3px 12px;border-radius:4px;letter-spacing:1px;"><span leaf="">{label}</span></span>
   </p>
-  %s
-</section>''' % (C_BG_L2, C_BORDER_L, C_PRIMARY, label, body_html)
+  {body_html}
+</section>'''
 
 
 
@@ -451,19 +451,19 @@ def flush_quote(out: list[str], quote_buf: list[str]) -> None:
         if not s:
             paras.append('<p style="margin:6px 0;font-size:13px;line-height:1.6;"><span leaf=""><br></span></p>')
         else:
-            paras.append('<p style="margin:6px 0;font-size:13px;color:%s;line-height:1.6;"><span leaf="">%s</span></p>' % (C_BODY, render_inline(s)))
-    out.append('<section style="background:%s;border:1px dashed %s;border-radius:8px;padding:12px 16px;margin:0 0 24px;text-align:justify;">%s</section>' % (C_GRAY_BG2, C_DIVIDER, ''.join(paras)))
+            paras.append(f'<p style="margin:6px 0;font-size:13px;color:{C_BODY};line-height:1.6;"><span leaf="">{render_inline(s)}</span></p>')
+    out.append('<section style="background:{};border:1px dashed {};border-radius:8px;padding:12px 16px;margin:0 0 24px;text-align:justify;">{}</section>'.format(C_GRAY_BG2, C_DIVIDER, ''.join(paras)))
 
 
-def flush_editor(out: list[str], label: Optional[str], paras: list[str]) -> None:
+def flush_editor(out: list[str], label: str | None, paras: list[str]) -> None:
     """渲染智汇AI悄悄话 / 编者按 等编辑按语区块"""
-    out.append('<section style="margin:0 0 24px;background:%s;padding:14px 18px;border-radius:8px;border:1px solid %s;">' % (C_BG_L2, C_BORDER_L))
-    out.append('<p style="margin:0 0 10px;"><span style="display:inline-block;background:%s;color:#fff;font-size:11px;font-weight:700;padding:3px 12px;border-radius:4px;letter-spacing:1px;"><span leaf="">%s</span></span></p>' % (C_PRIMARY, label))
+    out.append(f'<section style="margin:0 0 24px;background:{C_BG_L2};padding:14px 18px;border-radius:8px;border:1px solid {C_BORDER_L};">')
+    out.append(f'<p style="margin:0 0 10px;"><span style="display:inline-block;background:{C_PRIMARY};color:#fff;font-size:11px;font-weight:700;padding:3px 12px;border-radius:4px;letter-spacing:1px;"><span leaf="">{label}</span></span></p>')
     out.extend(paras)
     out.append('</section>')
 
 
-def md_to_moyu_green_html(md_text: Any, cover: Optional[dict[str, Any]] = None, title: Optional[str] = None, digest: Optional[str] = None) -> str:
+def md_to_moyu_green_html(md_text: Any, cover: dict[str, Any] | None = None, title: str | None = None, digest: str | None = None) -> str:
     md_text = md_text or ''
     title = title or ''
     digest = digest or ''
@@ -473,8 +473,8 @@ def md_to_moyu_green_html(md_text: Any, cover: Optional[dict[str, Any]] = None, 
     out.append('<section style="padding:32px 28px 28px;">')
     # 眉题 (从 md 第一行 # 标题后提取,不存在则不渲染,不再用删除线占位)
     out.append('<p style="margin:0 0 6px;font-size:11px;color:#059669;font-weight:700;letter-spacing:2px;"><span leaf="">DEEP DIVE · 智汇AI</span></p>')
-    out.append('<p style="margin:0;font-size:24px;font-weight:900;color:#111827;line-height:1.05;letter-spacing:-2px;"><span leaf="">%s</span></p>' % title)
-    out.append('<p style="margin:0 0 16px;font-size:13px;color:#9CA3AF;line-height:1.7;"><span leaf="">%s</span></p>' % digest)
+    out.append(f'<p style="margin:0;font-size:24px;font-weight:900;color:#111827;line-height:1.05;letter-spacing:-2px;"><span leaf="">{title}</span></p>')
+    out.append(f'<p style="margin:0 0 16px;font-size:13px;color:#9CA3AF;line-height:1.7;"><span leaf="">{digest}</span></p>')
     out.append('</section>')
     out.append('<section style="background:linear-gradient(135deg,#059669,#10B981);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;">')
     out.append('<p style="margin:0;font-size:12px;color:rgba(255,255,255,0.9);font-weight:600;letter-spacing:1px;"><span leaf="">智汇AI · 深度复盘</span></p>')
@@ -543,7 +543,7 @@ def md_to_moyu_green_html(md_text: Any, cover: Optional[dict[str, Any]] = None, 
                 editor_paras.append(render_image(m.group(1), m.group(2)))
                 i += 1
                 continue
-            editor_paras.append('<p style="margin:0 0 12px;font-size:14px;line-height:1.9;text-align:justify;color:#374151;"><span leaf="">%s</span></p>' % render_inline(line))
+            editor_paras.append(f'<p style="margin:0 0 12px;font-size:14px;line-height:1.9;text-align:justify;color:#374151;"><span leaf="">{render_inline(line)}</span></p>')
             i += 1
             continue
         # H2 章节标题: ## 01 我做了 8 年 AI 培训... → render_chapter
@@ -560,7 +560,7 @@ def md_to_moyu_green_html(md_text: Any, cover: Optional[dict[str, Any]] = None, 
             continue
         # H3 小标题: ### xxx
         if line.startswith('### '):
-            out.append('<p style="font-size:15px;font-weight:900;color:#111827;margin:32px 0 16px;"><span style="background:linear-gradient(180deg,transparent 65%%,#FDE68A 65%%);padding:0 4px;"><span leaf="">%s</span></span></p>' % line[4:].strip())
+            out.append(f'<p style="font-size:15px;font-weight:900;color:#111827;margin:32px 0 16px;"><span style="background:linear-gradient(180deg,transparent 65%,#FDE68A 65%);padding:0 4px;"><span leaf="">{line[4:].strip()}</span></span></p>')
             i += 1
             continue
         # :::tip / warning / note / oneliner / quote 三冒号块
@@ -657,10 +657,10 @@ def md_to_moyu_green_html(md_text: Any, cover: Optional[dict[str, Any]] = None, 
             out.append(render_ordered_list(items))
             continue
         if line.startswith('- ') or line.startswith('* '):
-            out.append('<section style="margin:0 0 8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%%;background:#059669;margin-right:8px;vertical-align:middle;"></span><span style="font-size:14px;color:#374151;line-height:1.9;text-align:justify;"><span leaf="">%s</span></span></section>' % render_inline(line[2:].strip()))
+            out.append(f'<section style="margin:0 0 8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#059669;margin-right:8px;vertical-align:middle;"></span><span style="font-size:14px;color:#374151;line-height:1.9;text-align:justify;"><span leaf="">{render_inline(line[2:].strip())}</span></span></section>')
             i += 1
             continue
-        out.append('<p style="margin:0 0 16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">%s</span></p>' % render_inline(line))
+        out.append(f'<p style="margin:0 0 16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">{render_inline(line)}</span></p>')
         i += 1
     # 收尾
     if quote_buf:
@@ -679,7 +679,7 @@ if __name__ == '__main__':
     else:
         md_path = os.path.join(base, 'output', 'AI删光了创业者的硬盘，3个普通人避坑真相.md')
         out_path = os.path.join(base, 'output', 'AI删光了创业者的硬盘，3个普通人避坑真相_摸鱼绿.html')
-    with open(md_path, 'r', encoding='utf-8') as f:
+    with open(md_path, encoding='utf-8') as f:
         md = f.read()
     html = md_to_moyu_green_html(md)
     with open(out_path, 'w', encoding='utf-8') as f:
