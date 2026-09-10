@@ -459,9 +459,9 @@ class TestIsSensitiveKey:
         assert _is_sensitive_key("API_KEY") is True
 
     def test_api_key_camel_case_not_matched(self):
-        # "ApiKey".lower() = "apikey" → 不含 "api_key"(缺下划线)→ 不匹配
-        # 这是子串匹配的设计行为(对齐 TS 端)
-        assert _is_sensitive_key("ApiKey") is False
+        # "ApiKey".lower() = "apikey" → 命中 camelCase 补漏规则
+        # (2026-09-09 090ddf17f 起 camelCase 敏感键纳入脱敏)
+        assert _is_sensitive_key("ApiKey") is True
 
     def test_password(self):
         assert _is_sensitive_key("password") is True
