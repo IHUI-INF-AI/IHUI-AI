@@ -125,7 +125,9 @@ jobs:
           JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
           CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
         run: |
-          node dist/index.js &
+          # --import tsx:api dist 引用 @ihui/database 的 src/index.ts(纯 TS,无 dist 条件),
+          # 纯 node 无法加载;tsx 同时解决 .ts 导入与 .js→.ts 扩展名解析(2026-09-10)
+          node --import tsx dist/index.js &
           sleep 5
           curl -sf http://localhost:8802/health || exit 1
 
