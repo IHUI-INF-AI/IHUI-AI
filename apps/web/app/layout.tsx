@@ -223,7 +223,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="font-sans antialiased">
         {/*
           Bootstrap script(React hydrate 前同步执行):
-          1. z-index 变量:TRAE IDE 注入 <style> 覆盖 --z-sticky / --z-modal 等,
+          1. z-index 变量:自研 IDE 注入 <style> 覆盖 --z-sticky / --z-modal 等,
              此处用 document.documentElement.style.setProperty() 设 inline style,优先级高于任何 stylesheet。
           2. --ai-panel-occupy:从 localStorage 读取 AI 面板持久化 width 预设到 :root。
              2026-07-30 修订:不再用于 work-area paddingLeft(已移除),仅供 WebWorkPanel 计算最大可用宽度。

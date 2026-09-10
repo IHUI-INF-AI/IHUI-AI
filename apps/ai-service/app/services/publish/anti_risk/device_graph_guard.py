@@ -17,7 +17,7 @@ IP 地址、UA 字符串、Canvas 哈希等维度关联多个账号,一旦判定
 设计:
 - 单例模式(get_device_graph_guard)
 - asyncio.Lock 保证并发安全(适配器 async 调用)
-- 数据持久化到 .trae-cn/tmp/device_graph.json(AGENTS.md §15 项目内路径)
+- 数据持久化到 .ihui-agent/tmp/device_graph.json(AGENTS.md §15 项目内路径)
 - 同账号重复绑定只更新时间戳,不新增记录
 """
 from __future__ import annotations
@@ -35,10 +35,10 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-# 持久化路径(AGENTS.md §15:临时文件放 .trae-cn/tmp/)
+# 持久化路径(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
 _GRAPH_FILE = Path(os.environ.get(
     "ANTI_RISK_DEVICE_GRAPH_FILE",
-    ".trae-cn/tmp/device_graph.json",
+    ".ihui-agent/tmp/device_graph.json",
 )).resolve()
 
 

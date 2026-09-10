@@ -174,7 +174,7 @@ export function EditorTabBar() {
               isActive
                 ? 'bg-background text-foreground'
                 : 'text-muted-foreground hover:bg-muted/40',
-              // 拖拽视觉反馈增强(2026-07-31 对标 VSCode/Trae):drop 目标左右边框高亮
+              // 拖拽视觉反馈增强(2026-07-31 对标 VSCode):drop 目标左右边框高亮
               overId === tab.id &&
                 dragId &&
                 dragId !== tab.id &&
@@ -203,7 +203,7 @@ export function EditorTabBar() {
                 <X className="h-3 w-3" />
               </button>
             )}
-            {/* active 指示线(2026-07-31 对标 VSCode/Trae):h-0.5=2px,符合 IDE 标签页指示线规范 */}
+            {/* active 指示线(2026-07-31 对标 VSCode):h-0.5=2px,符合 IDE 标签页指示线规范 */}
             {isActive && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
           </div>
         )

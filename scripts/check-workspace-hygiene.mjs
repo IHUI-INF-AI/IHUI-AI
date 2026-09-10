@@ -8,7 +8,7 @@
  * check-workspace-hygiene.mjs v2 — 彻底根治项目外路径违规
  *
  * 7 大漏洞修复(2026-07-23 v2):
- *   1. 覆盖范围:从只扫 .trae-cn/tmp/ → 扫整个项目 working tree(排除 node_modules/.git/dist/.output/.next/turbo)
+ *   1. 覆盖范围:从只扫 .ihui-agent/tmp/ → 扫整个项目 working tree(排除 node_modules/.git/dist/.output/.next/turbo)
  *   2. 模式匹配:从只检测 ihui-ext/ihui-prof → 检测所有盘符 \temp\ 项目数据 + \AppData\ + 中文绝对路径
  *   3. 阻塞模式:默认 exit 1(阻塞 commit),--warn 降级为 warn-only
  *   4. pre-commit 用 --staged 模式:只扫 staged 文件,避免误报其他 agent 的 WIP
@@ -53,7 +53,7 @@ const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)));
 const SCRIPT_EXTS = new Set(['.ps1', '.py', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.sh', '.bat', '.json', '.yaml', '.yml']);
 
 // ===== 排除目录(基于共享 EXCLUDE_DIRS,追加脚本特有) =====
-// 'tmp' 是脚本特有排除(原 .trae-cn/tmp 扫描场景)
+// 'tmp' 是脚本特有排除(原 .ihui-agent/tmp 扫描场景)
 const EXCLUDED_DIRS = withExcludes(['tmp']);
 
 // ===== 文件级白名单(这些文件可以引用项目外路径作为规则文档) =====
@@ -63,7 +63,7 @@ const FILE_WHITELIST = [
   /scripts[\\/]check-port-registry\.mjs$/,     // 端口守门(可能引用示例)
   /AGENTS\.md$/,                               // 项目规则
   /PROJECT_PLAN\.md$/,                         // 任务计划
-  /\.trae-cn[\\/]archive[\\/]/,               // 归档文档
+  /\.ihui-agent[\\/]archive[\\/]/,               // 归档文档
   /docs[\\/]port-management\.md$/,            // 端口管理文档
   /README(\.[a-z-]+)?\.md$/,                  // README
   /scripts[\\/]g-root-guardian\.ps1$/,         // v3.1: G:\ root 守门脚本(引用黑名单路径合法)
@@ -89,7 +89,7 @@ const VIOLATION_CHECKS = [
       ];
       return patterns.some(p => p.test(line));
     },
-    hint: '项目数据必须放项目内(.trae-cn/tmp/ 或 apps/*/),不能写系统 temp',
+    hint: '项目数据必须放项目内(.ihui-agent/tmp/ 或 apps/*/),不能写系统 temp',
   },
   {
     level: 'blocking',
@@ -101,7 +101,7 @@ const VIOLATION_CHECKS = [
       if (/apps[\\/]extension|\.output/.test(line)) return false;
       return /C:[\\/]|D:[\\/]temp|\$env:TEMP/i.test(line);
     },
-    hint: '用项目内路径 apps/extension/.output/chrome-mv3/ 或 .trae-cn/tmp/chrome-profile/',
+    hint: '用项目内路径 apps/extension/.output/chrome-mv3/ 或 .ihui-agent/tmp/chrome-profile/',
   },
   {
     level: 'blocking',
@@ -178,9 +178,9 @@ function scanFile(filePath) {
 function scanDir(dir, allFiles = []) {
   if (!existsSync(dir)) return allFiles;
   for (const entry of readdirSync(dir)) {
-    // 跳过 .trae-cn/tmp(单独扫描,因为里面是临时脚本)
-    if (dir === ROOT && entry === '.trae-cn') {
-      // 扫描 .trae-cn/tmp 但跳过 .trae-cn/archive, .trae-cn/memory 等
+    // 跳过 .ihui-agent/tmp(单独扫描,因为里面是临时脚本)
+    if (dir === ROOT && entry === '.ihui-agent') {
+      // 扫描 .ihui-agent/tmp 但跳过 .ihui-agent/archive, .ihui-agent/memory 等
       const tmpSubdir = join(dir, entry, 'tmp');
       if (existsSync(tmpSubdir)) scanDir(tmpSubdir, allFiles);
       continue;
@@ -259,8 +259,8 @@ function main() {
     log.error('');
     log.error('违反 AGENTS.md §15 项目外路径禁令:');
     log.error('  - 扩展打包用 apps/extension/.output/chrome-mv3/');
-    log.error('  - Chrome profile 用 .trae-cn/tmp/chrome-profile/');
-    log.error('  - 临时脚本用 .trae-cn/tmp/<脚本名>');
+    log.error('  - Chrome profile 用 .ihui-agent/tmp/chrome-profile/');
+    log.error('  - 临时脚本用 .ihui-agent/tmp/<脚本名>');
     log.error('  - 路径推导用 $PSScriptRoot / import.meta.url(避免 GBK 中文乱码)');
     log.error('');
     for (const v of blockingViolations.slice(0, 30)) {

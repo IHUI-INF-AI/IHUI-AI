@@ -22,7 +22,7 @@ import * as OpenCC from 'opencc-js'
 
 const ROOT = process.cwd()
 const MSG_DIR = path.join(ROOT, 'packages/i18n/messages/web')
-const REPORT_PATH = path.join(ROOT, '.trae-cn/goal-runtime/deep-i18n-audit-report.json')
+const REPORT_PATH = path.join(ROOT, '.ihui-agent/goal-runtime/deep-i18n-audit-report.json')
 
 const C = {
   red: '\x1b[31m',

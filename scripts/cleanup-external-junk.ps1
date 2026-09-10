@@ -25,7 +25,7 @@
 #
 # Safety:
 #   - Only deletes 16 dirs + 31 files explicitly listed below, no wildcards
-#   - Does NOT touch other app dirs (Trae CN / MuMuPlayer / QoderCN / WeGameApps)
+#   - Does NOT touch other app dirs (MuMuPlayer / QoderCN / WeGameApps)
 #   - Default asks for confirmation; -Force skips (for agent auto-run)
 # ============================================================================
 

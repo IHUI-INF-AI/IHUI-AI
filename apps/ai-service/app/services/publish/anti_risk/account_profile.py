@@ -12,7 +12,7 @@
 3. 浏览器 user_data_dir(持久化 Cookie/LocalStorage/IndexedDB)— Playwright launch_persistent_context
 
 持久化结构:
-  .trae-cn/tmp/anti-profiles/<account_id>/
+  .ihui-agent/tmp/anti-profiles/<account_id>/
     ├── profile.json         — 指纹 + 代理配置(跨会话稳定)
     └── browser-data/        — Playwright 持久化浏览器目录(Cookie/Storage)
 
@@ -38,10 +38,10 @@ from .proxy_pool import ProxyConfig, get_proxy_pool
 logger = get_logger(__name__)
 
 
-# Profile 根目录(AGENTS.md §15:临时文件放 .trae-cn/tmp/)
+# Profile 根目录(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
 _PROFILE_ROOT = Path(os.environ.get(
     "ANTI_RISK_PROFILE_DIR",
-    ".trae-cn/tmp/anti-profiles",
+    ".ihui-agent/tmp/anti-profiles",
 )).resolve()
 
 

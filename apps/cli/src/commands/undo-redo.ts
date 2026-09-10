@@ -8,7 +8,7 @@
  * 对标并反超 OpenCode:OpenCode 的 undo 只回滚最后一个文件改动,
  * 本实现支持多步回滚(回滚到指定步数)+ redo 重做 + 持久化(每 session 一个 JSON)。
  *
- * 持久化路径:<workspacePath>/.trae-cn/undo-history/<sessionId>.json
+ * 持久化路径:<workspacePath>/.ihui-agent/undo-history/<sessionId>.json
  *   - undoStack:已执行的工具改动栈(栈顶=最近)
  *   - redoStack:被 undo 的改动栈(栈顶=最近被 undo)
  *
@@ -90,9 +90,9 @@ export class UndoRedoManager {
     this.workspacePath = workspacePath;
   }
 
-  /** 持久化目录:<workspacePath>/.trae-cn/undo-history/ */
+  /** 持久化目录:<workspacePath>/.ihui-agent/undo-history/ */
   private getHistoryDir(): string {
-    return path.join(this.workspacePath, '.trae-cn', 'undo-history');
+    return path.join(this.workspacePath, '.ihui-agent', 'undo-history');
   }
 
   private getHistoryFile(sessionId: string): string {

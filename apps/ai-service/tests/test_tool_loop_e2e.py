@@ -11,7 +11,7 @@
 - tool loop 去重逻辑:LLM 重复调用同一工具 → 第二次 tool-result 含 repeated:True
 - agent_tools 含未知工具名 → 被跳过(不进 openai_tools)
 
-提取自 .trae-cn/tmp/mock_extension.py 验证脚本逻辑,转为 pytest fixture + test case。
+提取自 .ihui-agent/tmp/mock_extension.py 验证脚本逻辑,转为 pytest fixture + test case。
 """
 
 from __future__ import annotations

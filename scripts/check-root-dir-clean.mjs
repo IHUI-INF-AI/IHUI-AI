@@ -48,7 +48,7 @@ const ALLOWED_FILES = new Set([
   'STATE.md',
   'loop-run-log.md',
   // 2026-09-03 显式审批:/goal 模式「远超对标程序」路线图权威收敛文档(创建 2026-09-03,
-  // 长期存在的合法一级文档;若后续要求严格结构可迁至 .trae-cn/goal-runtime/)
+  // 长期存在的合法一级文档;若后续要求严格结构可迁至 .ihui-agent/goal-runtime/)
   'GAP-PLAN.md',
   // 开源标准文档(GitHub 官方识别)
   'README.md',
@@ -147,9 +147,9 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   '.ihui',
   '.pnpm-store',
   '.qoder',
-  '.trae',
-  '.trae-cn',
-  '.trae-html-share-packages',
+  '.ihui-agent',
+  '.ihui-agent',
+  '.html-share-packages',
   '.turbo',
   '.vscode',
   '.workbuddy',

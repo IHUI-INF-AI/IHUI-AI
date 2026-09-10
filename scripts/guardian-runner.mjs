@@ -107,7 +107,7 @@ const checks = [
       '',
       '  💡 zh-CN.json 有改动但 i18n pending 非空,请先跑翻译流水线:',
       '     1. node scripts/i18n-diff.mjs          (检测差异,生成 pending 清单)',
-      '     2. AI agent 翻译 → .trae-cn/tmp/i18n-translations.json',
+      '     2. AI agent 翻译 → .ihui-agent/tmp/i18n-translations.json',
       '     3. node scripts/i18n-apply.mjs         (应用翻译)',
       '     4. node scripts/check-i18n-keys.mjs    (验证 parity)',
       '     5. git add apps/web/messages/{en,ja,ko,zh-TW}.json 重新 commit',
@@ -124,7 +124,7 @@ const checks = [
       '',
       '  💡 miniapp-taro zh-CN.ts 有改动但 i18n pending 非空,请先跑翻译流水线:',
       '     1. node scripts/i18n-diff.mjs --target=miniapp-taro  (检测差异,生成 pending 清单)',
-      '     2. AI agent 翻译 → .trae-cn/tmp/i18n-translations.json',
+      '     2. AI agent 翻译 → .ihui-agent/tmp/i18n-translations.json',
       '     3. node scripts/i18n-apply.mjs --target=miniapp-taro  (应用翻译)',
       '     4. node scripts/i18n-diff.mjs --target=miniapp-taro   (复验 parity,应无 pending)',
       '     5. git add apps/miniapp-taro/src/i18n/{en,ja,ko,zh-TW}.ts 重新 commit',
@@ -317,7 +317,7 @@ const checks = [
   },
   {
     id: '27',
-    label: '🛡️  z-index 层叠防护(防 TRAE 注入 + 遮罩 fade-in 回归)',
+    label: '🛡️  z-index 层叠防护(防第三方 IDE 注入 + 遮罩 fade-in 回归)',
     script: 'check-z-index-guard.mjs',
     args: [],
     mode: 'blocking',
@@ -566,7 +566,7 @@ const checks = [
   // blocking:仓库曾积累 12 个分支(本地 6 + 远程 7 + 1 upstream),教训:分支不是"工作单元",
   //   是"协作单元"——单 agent 单任务无需分支,直接 main 提交即可。
   // 本守门检测 git branch -a 中除 main / origin/main / upstream/main 外的分支;
-  // goal/ 前缀 + .trae-cn/goal-runtime/STATE.md 标注 active 的 goal 模式临时分支豁免。
+  // goal/ 前缀 + .ihui-agent/goal-runtime/STATE.md 标注 active 的 goal 模式临时分支豁免。
   // 失败含义:检测到非法分支,需删除或标注豁免后重新 commit。
   {
     id: '41',
@@ -579,7 +579,7 @@ const checks = [
       '  💡 AGENTS.md §9b:除 main 外禁止创建任何分支,所有改动统一往 main 合并。',
       '     修复:git branch -d <已合并分支> / git branch -D <未合并分支>(先 tag 备份)',
       '     或 git push origin --delete <远程分支>',
-      '     goal/ 临时分支需在 .trae-cn/goal-runtime/STATE.md 标注 active 才豁免',
+      '     goal/ 临时分支需在 .ihui-agent/goal-runtime/STATE.md 标注 active 才豁免',
       '',
     ].join('\n'),
   },
@@ -666,7 +666,7 @@ const checks = [
       '',
       '  💡 shared/zh-CN.json 有改动但 i18n pending 非空,请先跑翻译流水线:',
       '     1. node scripts/i18n-diff.mjs --target=shared  (检测差异,生成 pending 清单)',
-      '     2. AI agent 翻译 → .trae-cn/tmp/i18n-translations.json',
+      '     2. AI agent 翻译 → .ihui-agent/tmp/i18n-translations.json',
       '     3. node scripts/i18n-apply.mjs --target=shared  (应用翻译)',
       '     4. node scripts/check-i18n-keys.mjs --target=shared  (验证 parity)',
       '     5. git add packages/i18n/messages/shared/{en,ja,ko,zh-TW}.json 重新 commit',

@@ -4,7 +4,7 @@
 
 """file_edit 工具:基于 old_string/new_string 模式的精细文件编辑。
 
-对标 Trae Edit 工具 + Claude Code Edit tool。
+自研 Edit 工具(局部精细修改,优于整文件覆盖)。
 比 mcp_server.write_file(整文件覆盖)更精细,适合大文件的局部修改。
 
 行为契约(对标 Claude Code Edit tool):
@@ -20,7 +20,7 @@
 - 路径不能在敏感目录黑名单(.git/node_modules/.venv/dist/build 等)
 - 文件大小上限 1MB
 - old_string 不能为空(new_string 可为空,用于删除代码)
-- 替换前自动备份到 .trae-cn/tmp/file_edit_backup/<timestamp>/<filename>.bak
+- 替换前自动备份到 .ihui-agent/tmp/file_edit_backup/<timestamp>/<filename>.bak
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ _SENSITIVE_DIR_PATTERNS = re.compile(
 MAX_FILE_SIZE = 1 * 1024 * 1024
 
 # 备份根目录(测试时可 monkeypatch 替换)
-_BACKUP_ROOT = Path(".trae-cn/tmp/file_edit_backup")
+_BACKUP_ROOT = Path(".ihui-agent/tmp/file_edit_backup")
 
 # diff 最大行数(避免超长 diff 撑爆响应)
 MAX_DIFF_LINES = 200

@@ -68,8 +68,6 @@ const sourceSchema = z.enum([
   'cline',
   'aider',
   'env-file',
-  'trae',
-  'trae-work',
   'qoder',
   'qoder-work',
   'codex-desktop',

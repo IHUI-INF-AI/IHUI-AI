@@ -10,7 +10,7 @@
 
 .DESCRIPTION
   派生 3 个 Start-Process 后台进程跑 dev server,日志重定向到
-  .trae-cn/tmp/ihui-stack-<svc>-<timestamp>.log,同时用 3 个 Start-Job
+  .ihui-agent/tmp/ihui-stack-<svc>-<timestamp>.log,同时用 3 个 Start-Job
   持续 tail 日志文件,按颜色输出到当前终端(Ctrl+C 优雅停止所有子进程)。
 
   与 scripts/start-dev.ps1(后台 SIGINT 免疫)的关系:
@@ -69,7 +69,7 @@ $ErrorActionPreference = 'Stop'
 # ============================================================
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = (Resolve-Path (Join-Path $ScriptRoot '..')).Path
-$TmpDir = Join-Path $RepoRoot '.trae-cn\tmp'
+$TmpDir = Join-Path $RepoRoot '.ihui-agent\tmp'
 $LogDir = $TmpDir
 $PidFile = Join-Path $TmpDir 'ihui-stack-pids.json'
 
@@ -149,8 +149,8 @@ function Show-Help {
     AI   = Magenta  [AI-8803]
 
   产物:
-    日志: .trae-cn/tmp/ihui-stack-<svc>-<timestamp>.log
-    PID : .trae-cn/tmp/ihui-stack-pids.json
+    日志: .ihui-agent/tmp/ihui-stack-<svc>-<timestamp>.log
+    PID : .ihui-agent/tmp/ihui-stack-pids.json
 
   停止:
     Ctrl+C (本终端会优雅关闭所有子进程 + 清 PID 文件)

@@ -162,7 +162,7 @@ interface ChatState {
   markAllAgentStreamsDone: () => void
   /** 清空所有 sub-agent 活动(新对话开始时调用) */
   resetSubAgentActivities: () => void
-  /** Subagent 自动派发生成(2026-07-28 立,对标 Trae Work):
+  /** Subagent 自动派发生成(2026-07-28 立,对标 AI 工作台):
    *  主 agent 在对话流中调用 dispatch_subagent 工具时,后端发 subagent_spawn SSE 事件,
    *  前端通过 onSubagentSpawn 回调写入 store,UI 自动展示 subagent 生命周期。 */
   addSubagentSpawn: (event: SubagentSpawnEvent) => void
@@ -410,14 +410,14 @@ export const useChatStore = create<ChatState>()(
 
       resetSubAgentActivities: () => set({ subAgentActivities: [] }),
 
-      // Subagent 自动派发(2026-07-28 立,对标 Trae Work):
+      // Subagent 自动派发(2026-07-28 立,对标 AI 工作台):
       // - addSubagentSpawn: 后端 subagent_spawn SSE 事件触发,追加新 SubAgentActivity(status='running')
       // - markSubagentEnd: 后端 subagent_end SSE 事件触发,更新现有条目状态为 completed/failed
       // 与 appendToAgentStream 的区别:appendToAgentStream 用于多 agent 多路复用的 token 流分流,
       // 而 addSubagentSpawn/markSubagentEnd 用于 dispatch_subagent 工具调用的生命周期展示。
       // 两者写入同一 subAgentActivities 数组,UI 统一通过 SubAgentActivityFeed 渲染。
       // 2026-08-01 Phase 4a:若 event.messageId 存在,同步写入 message.subagentActivities,
-      // 供消息气泡内 inline SubagentSection 实时刷新(对标 Trae Work/Codex 消息级透明性)。
+      // 供消息气泡内 inline SubagentSection 实时刷新(对标 AI 工作台/Codex 消息级透明性)。
       addSubagentSpawn: (event) =>
         set((s) => {
           const globalExists = s.subAgentActivities.some((a) => a.agentId === event.id)

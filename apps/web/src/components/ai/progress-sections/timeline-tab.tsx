@@ -44,7 +44,7 @@ function subagentStatusToTimelineStatus(s: string): TimelineEventStatus {
   return 'pending'
 }
 
-// ─── 类型过滤 + 搜索相关类型与常量(Trae Work 对齐,2026-07-28 立) ──
+// ─── 类型过滤 + 搜索相关类型与常量(AI 工作台 对齐,2026-07-28 立) ──
 
 /** 类型过滤 id('all' 是虚拟值,表示不过滤) */
 type TypeFilter = 'all' | TimelineEventType

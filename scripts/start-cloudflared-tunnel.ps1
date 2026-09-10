@@ -12,7 +12,7 @@
 #   - 中间件在 bsm.aizhs.top 上做白名单,只放行 /sso/* /auth/* /callback 等 auth 路由,
 #     其余路径 307 跳回 aizhs.top 同路径,子域不承载主功能
 #   - Cookie 写在 .aizhs.top 域,主域与子域共享登录态
-# 用法:在 TRAE 终端或 PowerShell 中运行此脚本
+# 用法:在 IDE 终端或 PowerShell 中运行此脚本
 # 前提:本地 dev server (localhost:8801) 已启动
 # 前提:Cloudflare 隧道 ingress 已配置两条规则:
 #   aizhs.top       → http://localhost:8801

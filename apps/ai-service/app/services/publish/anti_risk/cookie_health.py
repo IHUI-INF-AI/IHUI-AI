@@ -15,7 +15,7 @@
 - invalid:        Cookie 缺失或无效(需重新登录)
 
 数据来源:
-- Cookie 元数据持久化到 .trae-cn/tmp/anti-cookie-health.json(快速检查,无需开浏览器)
+- Cookie 元数据持久化到 .ihui-agent/tmp/anti-cookie-health.json(快速检查,无需开浏览器)
 - 实际 Cookie 通过 Playwright context.cookies() 检查(精确检查)
 
 后台任务:scheduler 每 6 小时调用 refresh_cookie 保活所有账号(避免 7-30 天过期)。
@@ -43,10 +43,10 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-# Cookie 健康度元数据持久化路径(AGENTS.md §15:临时文件放 .trae-cn/tmp/)
+# Cookie 健康度元数据持久化路径(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
 _HEALTH_FILE = Path(os.environ.get(
     "ANTI_RISK_COOKIE_HEALTH_FILE",
-    ".trae-cn/tmp/anti-cookie-health.json",
+    ".ihui-agent/tmp/anti-cookie-health.json",
 )).resolve()
 
 # 健康状态阈值(天)

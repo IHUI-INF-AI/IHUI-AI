@@ -5,7 +5,7 @@
 /**
  * Browser Hub CDP 端点(2026-07-31 立,P0 WorkPanel CDP 升级)
  *
- * 对标 Trae/Cursor 内置浏览器:后端持续 Chromium 实例 + CDP 画面流 + 事件回传。
+ * /Cursor 内置浏览器:后端持续 Chromium 实例 + CDP 画面流 + 事件回传。
  * 端点契约见 apps/ai-service/app/routers/browser_hub.py。
  *
  * 路由:/api/browser/sessions/*(Next.js dev 代理到 ai-service:8803)

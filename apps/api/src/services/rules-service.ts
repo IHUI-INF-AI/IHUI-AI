@@ -17,7 +17,7 @@
  *  - GET    /rules/templates  → listTemplates(转发,失败本地静态降级)
  *  - GET    /rules/audit-log  → getAuditLog(转发,失败空降级)
  *
- * 深化端点(2026-07-22,对标 Trae/Cursor Rules 专业级):
+ * 深化端点(2026-07-22,自研 Rules 专业级):
  *  - GET    /rules/resolved       → getResolvedRules(scope 继承链合并)
  *  - GET    /rules/:id/history    → getRuleHistory(版本历史)
  *  - POST   /rules/:id/rollback   → rollbackRule(回滚到指定版本)

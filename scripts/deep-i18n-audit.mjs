@@ -17,7 +17,7 @@
  * 用法:
  *   node scripts/deep-i18n-audit.mjs          # 全量审校,有问题 exit 1
  *   node scripts/deep-i18n-audit.mjs --quiet  # 仅输出汇总,不打印明细
- *   node scripts/deep-i18n-audit.mjs --report # 同时写出 JSON 报告到 .trae-cn/goal-runtime/
+ *   node scripts/deep-i18n-audit.mjs --report # 同时写出 JSON 报告到 .ihui-agent/goal-runtime/
  *
  * 不修改 packages/i18n/messages/web/en.json (英文为源语言)。
  * 不修改 JSON 结构 (仅输出问题清单,由 fix-* 脚本修复)。
@@ -29,7 +29,7 @@ import * as OpenCC from 'opencc-js'
 const ROOT = process.cwd()
 const MSG_DIR = path.join(ROOT, 'packages/i18n/messages/web')
 const WEB_DIR = path.join(ROOT, 'apps/web')
-const EXCLUDE_DIRS = new Set(['.git', '.next', '.trae-cn', '.turbo', '.worktrees', 'build', 'dist', 'node_modules'])
+const EXCLUDE_DIRS = new Set(['.git', '.next', '.ihui-agent', '.turbo', '.worktrees', 'build', 'dist', 'node_modules'])
 
 const args = new Set(process.argv.slice(2))
 const QUIET = args.has('--quiet')
@@ -707,7 +707,7 @@ console.log(`${C.red}[deep-i18n-audit] 发现 ${deduped.length} 个问题,需修
 process.exit(1)
 
 function writeReport(items) {
-  const reportDir = path.join(ROOT, '.trae-cn/goal-runtime')
+  const reportDir = path.join(ROOT, '.ihui-agent/goal-runtime')
   if (!fs.existsSync(reportDir)) fs.mkdirSync(reportDir, { recursive: true })
   const reportPath = path.join(reportDir, 'deep-i18n-audit-report.json')
   fs.writeFileSync(

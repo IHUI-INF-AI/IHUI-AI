@@ -4,7 +4,7 @@
 
 // @vitest-environment jsdom
 /**
- * MessageList 深度优化测试(2026-07-28 立,Phase 19.5 深度对标 Trae Work 对话列表)
+ * MessageList 深度优化测试(2026-07-28 立,Phase 19.5 深度对标 AI 工作台 对话列表)
  *
  * 覆盖 4 个新增优化:
  * 1. Copy 快捷按钮:消息 hover 时显示,点击复制内容到剪贴板(成功/失败 toast)
@@ -346,7 +346,7 @@ const baseProps = {
   assistantLabel: 'AI 助手',
 }
 
-describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
+describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
   beforeEach(() => {
     // jsdom 不实现 scrollIntoView,组件内多处调用(el.scrollIntoView),mock 掉避免 throw
     if (!Element.prototype.scrollIntoView) {
@@ -691,7 +691,7 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
   // ─── 5. 时间戳 footer ─────────────────────────────────────────
   describe('时间戳 footer', () => {
     it('时间戳常驻显示(无需 hover)', () => {
-      // 2026-07-31 立:深度对标 Codex/Trae Work,时间戳常驻显示在气泡底部,
+      // 2026-07-31 立:深度对标 Codex/AI 工作台,时间戳常驻显示在气泡底部,
       // 让对话流自带时间感知。用户需求"对话流里显示时间"。
       // 用"今天 10:30"避免 sameDay 判定受当前日期影响
       const today = new Date()

@@ -12,7 +12,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = process.cwd()
-const RUNTIME_DIR = join(ROOT, '.trae-cn/goal-runtime')
+const RUNTIME_DIR = join(ROOT, '.ihui-agent/goal-runtime')
 
 const LANGS = ['ja', 'ko', 'zh-CN', 'zh-TW']
 const LANG_NAMES = {

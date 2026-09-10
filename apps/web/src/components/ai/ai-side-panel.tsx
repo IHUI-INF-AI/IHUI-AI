@@ -645,7 +645,7 @@ export function AISidePanel() {
   }, [clearMessages, setConversationId])
 
   // 标题显示优先级(用户规则):
-  //   1. 用户在 AI 面板手动添加的本地工作区 → 显示 workspace.name(参考 Trae/Codex 顶部 project selector)
+  //   1. 用户在 AI 面板手动添加的本地工作区 → 显示 workspace.name(参考 主流 IDE 顶部 project selector)
   //   2. workspace 项目页 → 显示项目文件夹名(选择项目文件时显示项目文件夹名)
   //   3. 已加载任务 → 显示任务名称(只是单纯对话时显示对话任务命名)
   //   4. 兜底 → 显示"空工作区"(没有选择项目时显示空工作区)
@@ -670,7 +670,7 @@ export function AISidePanel() {
     return () => window.removeEventListener('global-shortcut:new-chat', onNewChat)
   }, [handleNewChat, openPanel])
 
-  // Alt+P / Option+P 快捷键:切换 Plan/Act 模式(2026-07-25 立,对标 Trae SOLO Plan 快捷键)
+  // Alt+P / Option+P 快捷键:切换 Plan/Act 模式(2026-07-25 立,对标 主流 AI IDE SOLO Plan 快捷键)
   // 2026-07-28 升级:Plan/Act 概念合并到 ChatMode,Alt+P 改为在 ChatMode.plan ↔ ChatMode.build 间切换
   // - 仅当 AI 面板打开时生效,避免污染其他页面
   // - 不在输入框聚焦时触发(避免与 Alt+字母 输入特殊字符冲突)
@@ -1074,7 +1074,7 @@ export function AISidePanel() {
               <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
                 <span className="flex min-w-0 items-center gap-1">
                   <span className="min-w-0 truncate text-sm font-semibold">{displayTitle}</span>
-                  {/* 工作区选择器(参考 Trae/Codex 顶部 project selector):
+                  {/* 工作区选择器(参考 主流 IDE 顶部 project selector):
                   空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除 */}
                   <WorkspaceSelector />
                   {/* 会话累计 Token / 估算费用徽章(2026-09-07 工作线 A):hover 展开输入/输出/请求数明细 */}
@@ -1084,7 +1084,7 @@ export function AISidePanel() {
                   />
                 </span>
               </div>
-              {/* Plan/Act 模式切换(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
+              {/* Plan/Act 模式切换(2026-07-24 立,对标 AI 工作台 plan/act toggle + Codex)
               2026-07-28 移除:PlanActToggle 按钮与 sidebar ModeSwitcher 4 态(ChatMode build/plan/review/spec)
               语义重叠,统一用 ModeSwitcher 控制。当前 mode 视觉指示由 sidebar ModeSwitcher 高亮态承载,
               切换入口:ModeSwitcher 4 态按钮 + Ctrl+1/2/3/4 快捷键 + /build /plan /review /spec 斜杠命令 +
@@ -1220,7 +1220,7 @@ export function AISidePanel() {
                   useChatStore.setState({ draftInput: content })
                 }}
                 // Phase 18.2: 传递 subAgentActivities 到 MessageList,
-                // Trae Work 风格 inline 渲染在最后一条 AI 消息下方(而非 AI 面板底部)
+                // 对话流 inline 渲染在最后一条 AI 消息下方(而非 AI 面板底部)
                 subAgentActivities={subAgentActivities}
                 // Phase 18.4: step budget(从 store 派生,目前用固定 60 上限)
                 stepBudget={
@@ -1244,8 +1244,8 @@ export function AISidePanel() {
               <EnvironmentInfoPopover />
             </div>
 
-            {/* Sub-agent 活动流:已移至 MessageList 中 inline 渲染(Phase 18.2,Trae Work 风格)
-            历史:此区域之前独立在 AI 面板底部,但 Trae Work 的 subagent 卡片是 inline 在对话流中。
+            {/* Sub-agent 活动流:已移至 MessageList 中 inline 渲染(Phase 18.2,AI 工作台 风格)
+            历史:此区域之前独立在 AI 面板底部,但 AI 工作台 的 subagent 卡片是 inline 在对话流中。
             为保持视觉一致性,所有 subagent 卡片现在统一在最后一条 AI 消息下方展示。 */}
 
             {/* 压缩状态栏(2026-08-16 立):在输入框上方显示压缩进度和结果 */}

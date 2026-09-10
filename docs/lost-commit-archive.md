@@ -159,7 +159,7 @@ node scripts/sync-lost-commit-tags.mjs --check
 
 - **AGENTS.md §22** — 防止 commit / push / merge 提交丢失硬性规则(强制)
 - **PROJECT_PLAN.md** — 本任务条目(commit 丢失防护机制强化)
-- **`.trae-cn/archive/AGENTS_history.md`** — 历史归档(audit/交接/迁移报告,只读)
+- **`.ihui-agent/archive/AGENTS_history.md`** — 历史归档(audit/交接/迁移报告,只读)
 - **`scripts/check-commit-loss-guard.mjs`** — pre-commit 守门脚本(blocking,30a 项)
 - **`scripts/sync-lost-commit-tags.mjs`** — post-commit 自动推送 + 手动校验(本任务新增)
 - **`.husky/pre-commit` / `.husky/post-commit`** — Husky 钩子集成

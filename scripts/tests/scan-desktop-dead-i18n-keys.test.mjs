@@ -45,7 +45,7 @@ const END_CONFIG = {
   name: 'desktop',
   messagesPath: 'packages/i18n/messages/desktop/zh-CN.json',
   scanTargets: [],
-  outputPattern: '.trae-cn/tmp/i18n-desktop-dead-keys-{date}.md',
+  outputPattern: '.ihui-agent/tmp/i18n-desktop-dead-keys-{date}.md',
 }
 
 // 假设性场景:模拟 desktop 端将来添加 i18n 时的 scanTargets

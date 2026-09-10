@@ -13,7 +13,7 @@ import { join } from 'node:path'
 
 const ROOT = process.cwd()
 const MESSAGES_DIR = join(ROOT, 'apps/web/messages')
-const TRANSLATION_DIR = join(ROOT, '.trae-cn/goal-runtime')
+const TRANSLATION_DIR = join(ROOT, '.ihui-agent/goal-runtime')
 
 const ASCII_RE = /^[-A-Za-z0-9 ._!?'",:;()&+@#$%^*=]+$/
 const LANGS = ['ja', 'ko', 'zh-CN', 'zh-TW']

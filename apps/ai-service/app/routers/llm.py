@@ -336,7 +336,7 @@ def _inject_workspace_memory(
     return new_messages
 
 
-# Plan/Act 模式引导 prompt(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
+# Plan/Act 模式引导 prompt(2026-07-24 立,自研双模切换)
 # plan 模式:LLM 只制定计划不调用工具;act 模式:正常 tool loop 执行
 _PLAN_MODE_PROMPT = (
     "## Plan Mode Active\n"
@@ -380,7 +380,7 @@ _SUBAGENT_ORCHESTRATION_PROMPT = (
     "- reviewer:代码审查助手,审查 diff、给出修改建议\n"
     "- architect:架构师,设计方案、规划模块、API 契约\n"
     "- debugger:调试助手,定位 bug、给出修复方案\n\n"
-    "专业 agent(5 个,2026-07-24 新增,对标 Trae 自定义智能体):\n"
+    "专业 agent(5 个,2026-07-24 新增,自研智能体):\n"
     "- frontend-dev:前端开发专家,React 19/Next.js 15/Tailwind 4/shadcn/ui,遵循项目 UI 约束\n"
     "- backend-dev:后端开发专家,Fastify 5/Drizzle ORM/PostgreSQL/Redis,遵循项目 API 约束\n"
     "- devops:DevOps 工程师,Docker/Turborepo/pnpm workspace/CI/CD,monorepo 构建\n"
@@ -488,7 +488,7 @@ class LLMCompleteRequest(BaseModel):
     agent_tools: list[str] | None = Field(
         None, description="Agent 工具名列表(如 browser_screenshot/computer_mouse_click),传入后走 tool loop"
     )
-    # Plan/Act 模式(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
+    # Plan/Act 模式(2026-07-24 立,自研双模切换)
     # plan_mode='plan' 时前置注入 Plan Mode system prompt,LLM 只制定计划不调用工具;
     # 'act' 或 None = 正常 tool loop 执行(默认)
     plan_mode: str | None = Field(None, description="Plan/Act 模式:'plan'=只制定计划,'act'=正常执行(默认)")
@@ -1516,7 +1516,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "result": None,
                             })
 
-                            # Subagent 派发生成事件(2026-07-28 立,对标 Trae Work 自动派发):
+                            # Subagent 派发生成事件(2026-07-28 立,自动派发):
                             # dispatch_subagent 工具执行前,解析 args.tasks 数组或 args.name+args.task 单任务,
                             # 为每个子任务发 subagent_spawn SSE 事件,前端进度面板自动展示 subagent 生命周期。
                             # _spawned_sub_ids 在本次 tool call 作用域内收集,执行后用于发 subagent_end 事件。
@@ -1868,7 +1868,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "durationMs": int((time.time() - _tc_start_ts) * 1000),
                                 })
 
-                            # Subagent 派发结束事件(2026-07-28 立,对标 Trae Work 自动派发):
+                            # Subagent 派发结束事件(2026-07-28 立,自动派发):
                             # dispatch_subagent 工具执行后,为每个已 spawn 的 sub_id 发 subagent_end 事件,
                             # status=done(成功)或 failed(失败),失败时附 failureReason(截断 500 字符)。
                             # 重复调用分支(dedup)不发 end 事件:subagent 在首次调用时已发过 spawn+end,

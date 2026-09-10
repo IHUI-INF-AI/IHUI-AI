@@ -14,7 +14,7 @@
 #   - 内存充足(物理 27GB 空闲,pagefile 16GB),排除 OOM。
 # 策略:改用 Node 22.22.2 绝对路径执行构建,NAPI 绑定兼容性更好。
 # 用法:
-#   powershell -ExecutionPolicy Bypass -File .trae-cn\tmp\next-build-node22\build-with-node22.ps1
+#   powershell -ExecutionPolicy Bypass -File .ihui-agent\tmp\next-build-node22\build-with-node22.ps1
 #   可选参数:-RestartService  (构建成功后自动重启 IHUI-WEB)
 # =============================================================================
 
@@ -31,7 +31,7 @@ $Node22Dir     = Split-Path $Node22 -Parent
 $PnpmGlobal    = "D:\DevEnv\tools\npm-global"
 $WebDir        = "D:\IHUI-AI\apps\web"
 $ProjectRoot   = "D:\IHUI-AI"
-$LogDir        = "D:\IHUI-AI\.trae-cn\tmp\next-build-node22\logs"
+$LogDir        = "D:\IHUI-AI\.ihui-agent\tmp\next-build-node22\logs"
 $Timestamp     = Get-Date -Format "yyyyMMdd-HHmmss"
 $BuildLog      = "$LogDir\next-build-node22-$Timestamp.log"
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Force -Path $LogDir | Out-Null }

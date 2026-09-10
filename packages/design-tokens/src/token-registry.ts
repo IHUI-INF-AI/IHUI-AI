@@ -378,7 +378,7 @@ const BREAKPOINT_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--breakpoint-2xl', type: 'breakpoint', defaultValue: '2560px' },
 ]
 
-/** z-index 层级 token(跨端共享,防 TRAE 注入覆盖)。 */
+/** z-index 层级 token(跨端共享,防第三方 IDE 注入覆盖)。 */
 const Z_INDEX_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--z-base', type: 'z-index', defaultValue: '1' },
   { name: '--z-0', type: 'z-index', defaultValue: '0' },

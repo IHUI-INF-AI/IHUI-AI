@@ -813,7 +813,7 @@ export interface StreamChatOptions {
    *  缺失时前端可降级从 onToolCall 累加的 toolCalls 数组本地聚合。
    *  注意:本回调仅扩展类型签名,streamChat 实现解析逻辑由 A2/A3 任务补齐。 */
   onToolSummary?: (summary: ToolSummaryEvent) => void
-  /** Subagent 自动派发回调(2026-07-28 立,对标 Trae Work):
+  /** Subagent 自动派发回调(2026-07-28 立, Work):
    *  主 agent 在对话流中调用 dispatch_subagent 工具时,后端发 subagent_spawn/end SSE 事件,
    *  前端进度面板自动展示 subagent 生命周期(spawned → running → done/failed)。 */
   onSubagentSpawn?: (event: SubagentSpawnEvent) => void

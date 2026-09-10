@@ -386,11 +386,11 @@ curl -i "$IHUI_BASE_URL/v1/chat/completions" \
 
 **症状**:控制台出现 `Hydration failed because the server rendered HTML didn't match the client` 或 `A tree hydrated but some attributes of the server rendered HTML didn't match the client`。
 
-**原因（已定位根因,2026-08-20）**:报错匹配到的差异属性是 **`data-trae-ref`** —— 由 **TRAE 浏览器自动化扩展**在测试/导航时注入到 SSR DOM,客户端 React 渲染不含该属性,导致 hydration 比对不一致。这是测试工具行为,**不是组件 SSR/CSS 或业务代码问题**。
+**原因（已定位根因,2026-08-20）**:报错匹配到的差异属性是 **`data-ide-ref`** —— 由 **第三方 浏览器自动化扩展**在测试/导航时注入到 SSR DOM,客户端 React 渲染不含该属性,导致 hydration 比对不一致。这是测试工具行为,**不是组件 SSR/CSS 或业务代码问题**。
 
 **判定方法**:
 1. 打开错误详情,查看 mismatch 的 attribute 名。
-2. 若只见 `data-trae-ref`(以及扩展包装函数的相关差异),而**无任何业务 style/class/文本差异** → 归因于扩展注入,生产环境无此扩展,不会触发。
+2. 若只见 `data-ide-ref`(以及扩展包装函数的相关差异),而**无任何业务 style/class/文本差异** → 归因于扩展注入,生产环境无此扩展,不会触发。
 
 **处置**:**不要修改业务代码**。若需干净验证,改用 Playwright E2E(`apps/web/e2e/`,见 [TESTING](../../docs/TESTING.md))而非带扩展注入的浏览器会话。
 

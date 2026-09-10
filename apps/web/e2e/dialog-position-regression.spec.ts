@@ -61,7 +61,7 @@ interface DialogMeasurement {
 /**
  * 触发 AgreementNoticeDialog 流程并读取其几何位置。
  *
- * 流程(参考 .trae-cn/tmp/dialog-fix-verify/verify3.js v3 稳定版):
+ * 流程(参考 .ihui-agent/tmp/dialog-fix-verify/verify3.js v3 稳定版):
  *   1. 打开主页 + 等待 dev server 编译完成(networkidle)
  *   2. 拦截 /api/auth/login(避免依赖真实后端)
  *   3. 点 header 登录按钮

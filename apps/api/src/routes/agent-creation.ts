@@ -402,7 +402,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
       }
       // 无 workflow_run 专表,返回空 results
-      // 缺表记录:.trae-cn/tmp/p0-4-db-needed.txt
+      // 缺表记录:.ihui-agent/tmp/p0-4-db-needed.txt
       return reply.send(
         success({
           results: [],

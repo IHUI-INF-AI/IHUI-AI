@@ -180,7 +180,7 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
       toggleExpanded(event.id)
       return
     }
-    // Trae Work 对齐(2026-07-28):timeline 事件可点击跳转到对话流对应位置
+    // AI 工作台 对齐(2026-07-28):timeline 事件可点击跳转到对话流对应位置
     // 优先级:messageId > planStepId > toolCallId(都通过 custom event 派发,MessageList 监听处理)
     if (event.messageId) {
       window.dispatchEvent(

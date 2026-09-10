@@ -34,7 +34,7 @@
  *   node scripts/check-test-paths.mjs --strict
  *
  * 集成位置: CI / guardian-runner / pre-commit 后续项
- * 历史案例: 见 .trae-cn/archive/AGENTS_history.md
+ * 历史案例: 见 .ihui-agent/archive/AGENTS_history.md
  */
 import { existsSync, readdirSync } from 'node:fs'
 import { execSync } from 'node:child_process'
@@ -63,7 +63,7 @@ const EXCLUDE_DIRS = new Set([
   'dist',
   'build',
   'coverage',
-  '.trae-cn',
+  '.ihui-agent',
   '.git',
   '.swc',
   '.cache',
