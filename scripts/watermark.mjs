@@ -21,7 +21,7 @@
  */
 
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
-import { join, relative, basename, extname } from 'node:path'
+import { join, relative, basename, extname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..')
@@ -30,8 +30,6 @@ const ROOT = join(fileURLToPath(import.meta.url), '..', '..')
 const WATERMARK_TEXT = 'IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026'
 const BANNER_ID = 'IHUI-AI-PROVENANCE'
 const BANNER_LINES = [
-  '© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top',
-  'Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。',
 ]
 
 // ---------- 零宽字符编解码 ----------
@@ -277,9 +275,8 @@ function findMarks(text) {
   return [...text.matchAll(new RegExp(INVISIBLE_RE, 'g'))].map((m) => decodePayload(m[0]))
 }
 
-function verifyAll() {
+function scanCoverage() {
   let total = 0, marked = 0, residue = 0
-  const skipped = 0
   const missing = []
   const residues = []
   for (const abs of walk(ROOT)) {
@@ -297,6 +294,12 @@ function verifyAll() {
       residues.push(relative(ROOT, abs).replaceAll('\\', '/'))
     } else missing.push(relative(ROOT, abs).replaceAll('\\', '/'))
   }
+  return { total, marked, residue, missing, residues }
+}
+
+function verifyAll() {
+  const { total, marked, residue, missing, residues } = scanCoverage()
+  const skipped = 0
   console.log(`[watermark:verify] 覆盖 ${marked}/${total} 个文件, 残迹(载荷丢失) ${residue} 个, 跳过 ${skipped} 个`)
   if (residue) {
     console.log(`残迹文件 ${residue} 个(需 clean 后重新注入), 示例(前 15):`)
@@ -315,6 +318,17 @@ function verifyAll() {
 const [cmd, target] = process.argv.slice(2)
 
 if (cmd === 'inject') {
+  // 单文件模式: inject <file>(与 usage 声明一致;残迹文件会先内部 clean 再注入)
+  if (target) {
+    const abs = resolve(target)
+    if (!existsSync(abs)) {
+      console.error(`文件不存在: ${target}`)
+      process.exit(1)
+    }
+    const r = injectFile(abs)
+    console.log(`[watermark:inject] ${relative(ROOT, abs).replaceAll('\\', '/')} → ${r}`)
+    if (r === 'skip-type' || r === 'skip-binary') process.exitCode = 1
+  } else {
   let n = 0, done = 0, skip = 0
   for (const abs of walk(ROOT)) {
     if (SKIP_FILES.has(basename(abs))) continue
@@ -325,8 +339,13 @@ if (cmd === 'inject') {
     else skip++
   }
   console.log(`[watermark:inject] 新注入 ${n} 个, 已有 ${done} 个, 跳过(类型/二进制) ${skip} 个`)
+  }
 } else if (cmd === 'verify') {
   verifyAll()
+} else if (cmd === 'list-uncovered') {
+  // 供批量修复管道消费: 先残迹后未覆盖, 每行一个相对路径
+  const { missing, residues } = scanCoverage()
+  ;[...residues, ...missing].forEach((f) => console.log(f))
 } else if (cmd === 'decode') {
   if (!target || !existsSync(target)) {
     console.error('用法: node scripts/watermark.mjs decode <file>')
