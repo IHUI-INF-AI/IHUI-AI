@@ -3688,7 +3688,7 @@ async def _resolve_image_source_bytes(source: str) -> tuple[bytes | None, str | 
                 resp = await dl.get(s)
             if resp.status_code >= 400:
                 return None, "DOWNLOAD_FAILED"
-            return cast(bytes, resp.content), None
+            return resp.content, None
         except Exception:  # noqa: BLE001
             return None, "DOWNLOAD_FAILED"
     if len(s) > 40 and (s.startswith("data:") is False):
