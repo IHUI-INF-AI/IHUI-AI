@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -31,9 +31,6 @@ import pytest
 
 from app.services import orchestration_hub as oh_module
 from app.services.orchestration_hub import (
-    ORCHESTRATION_PLAYBOOKS,
-    PILLAR_EVENTS,
-    PILLARS,
     _DECISION_LIST_KEY,
     _MEMORY_DECISION_MAXLEN,
     _MEMORY_EVENT_MAXLEN,
@@ -42,6 +39,9 @@ from app.services.orchestration_hub import (
     _STREAM_GROUP,
     _STREAM_KEY,
     _STREAM_MAXLEN,
+    ORCHESTRATION_PLAYBOOKS,
+    PILLAR_EVENTS,
+    PILLARS,
     JointDecisionEngine,
     OrchestrationDecision,
     OrchestrationHub,
@@ -49,7 +49,6 @@ from app.services.orchestration_hub import (
     PillarEventBus,
     orchestration_hub,
 )
-
 
 # =============================================================================
 # 公共 fixture:强制内存模式(隔离 Redis)
@@ -93,7 +92,7 @@ def _make_event(
     return PillarEvent(
         event_type=event_type,
         source_pillar=source_pillar,
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         payload=payload or {},
         dispatch_id=dispatch_id,
         severity=severity,
@@ -162,7 +161,7 @@ class TestConstants:
             assert playbook["trigger"] in PILLAR_EVENTS, f"{pid} trigger 不在 PILLAR_EVENTS"
 
     def test_playbooks_have_actions(self):
-        for pid, playbook in ORCHESTRATION_PLAYBOOKS.items():
+        for _pid, playbook in ORCHESTRATION_PLAYBOOKS.items():
             assert "name" in playbook
             assert "trigger" in playbook
             assert isinstance(playbook["actions"], list) and playbook["actions"]
@@ -363,7 +362,7 @@ class TestPillarEventBusPublish:
 
     async def test_publish_dispatches_to_subscribers(self, event_bus: PillarEventBus):
         received: list[PillarEvent] = []
-        sub_id = await event_bus.subscribe("rules", ["rules.matched"], lambda e: received.append(e))
+        await event_bus.subscribe("rules", ["rules.matched"], lambda e: received.append(e))
         evt = _make_event(event_type="rules.matched", source_pillar="rules")
         await event_bus.publish(evt)
         assert len(received) == 1
@@ -415,7 +414,8 @@ class TestPillarEventBusSubscribe:
         assert sub_id in event_bus._subscriptions
 
     async def test_subscribe_stores_pillar_and_event_types(self, event_bus: PillarEventBus):
-        cb = lambda e: None
+        def cb(e):
+            return None
         sub_id = await event_bus.subscribe("hook", ["hook.emitted", "hook.failed"], cb)
         sub = event_bus._subscriptions[sub_id]
         assert sub["pillar"] == "hook"
@@ -515,8 +515,8 @@ class TestPillarEventBusGetRecentEvents:
         assert events[0]["event_type"] == "rules.matched"
 
     async def test_get_recent_events_limit(self, event_bus: PillarEventBus):
-        for i in range(5):
-            await event_bus.publish(_make_event(event_type=f"rules.matched", source_pillar="rules"))
+        for _i in range(5):
+            await event_bus.publish(_make_event(event_type="rules.matched", source_pillar="rules"))
         events = await event_bus.get_recent_events(limit=2)
         assert len(events) == 2
 
@@ -580,8 +580,8 @@ class TestPillarEventBusGetEventStats:
 
     async def test_get_event_stats_window_filters_old_events(self, event_bus: PillarEventBus):
         """超过时间窗口的事件不计入(timestamp < cutoff)。"""
-        old_ts = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
-        new_ts = datetime.now(timezone.utc).isoformat()
+        old_ts = (datetime.now(UTC) - timedelta(hours=48)).isoformat()
+        new_ts = datetime.now(UTC).isoformat()
         event_bus._memory_events.append({
             "id": "old",
             "event_type": "rules.matched",
@@ -866,7 +866,7 @@ class TestJointDecisionEngineExecuteDecision:
 
         with patch.object(decision_engine, "_call_pillar_action", side_effect=fake_call), \
              _patch_record_decision(decision_engine):
-            result = await decision_engine.execute_decision(decision)
+            await decision_engine.execute_decision(decision)
 
         assert decision.status == "completed"
         assert decision.duration_ms >= 0
@@ -1155,7 +1155,7 @@ class TestJointDecisionEngineHistoryAndStats:
         assert stats["completed"] == 0
         assert stats["success_rate"] == 0.0
         assert stats["avg_duration_ms"] == 0.0
-        assert stats["playbook_triggers"] == {pid: 0 for pid in ORCHESTRATION_PLAYBOOKS}
+        assert stats["playbook_triggers"] == dict.fromkeys(ORCHESTRATION_PLAYBOOKS, 0)
 
     async def test_get_orchestration_stats_after_decisions(self, decision_engine: JointDecisionEngine):
         # 模拟两个 completed decision

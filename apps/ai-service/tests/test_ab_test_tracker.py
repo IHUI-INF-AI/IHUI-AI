@@ -18,8 +18,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -30,7 +30,6 @@ from app.services.ab_test_tracker import (
     _parse_iso,
     ab_test_tracker,
 )
-
 
 # =============================================================================
 # 工具函数
@@ -109,7 +108,7 @@ class TestParseIso:
         dt = _parse_iso("2026-07-25T12:00:00")
         assert dt is not None
         assert dt.tzinfo is not None
-        assert dt.tzinfo == timezone.utc
+        assert dt.tzinfo == UTC
 
 
 # =============================================================================
@@ -437,7 +436,7 @@ class TestListTests:
     @pytest.mark.asyncio
     async def test_filter_by_skill(self, fresh_tracker):
         tid1 = await fresh_tracker.create_test("skill-a", "1.0.0", "1.1.0")
-        tid2 = await fresh_tracker.create_test("skill-b", "1.0.0", "1.1.0")
+        await fresh_tracker.create_test("skill-b", "1.0.0", "1.1.0")
         result = fresh_tracker.list_tests(skill_name="skill-a")
         assert len(result) == 1
         assert result[0]["testId"] == tid1
@@ -509,7 +508,7 @@ class TestPersistTestToDb:
         monkeypatch.setattr(
             "app.services.ab_test_tracker._get_pool", _mock_get_pool
         )
-        test_id = await t.create_test("skill-a", "1.0.0", "1.1.0")
+        await t.create_test("skill-a", "1.0.0", "1.1.0")
         # create_test 内部调 _persist_test_to_db(is_insert=True)
         assert mock_conn.execute.called
 
@@ -561,7 +560,7 @@ class TestLoadActiveTests:
             },
             "decision": None,
             "decision_reason": None,
-            "started_at": datetime.now(timezone.utc),
+            "started_at": datetime.now(UTC),
             "decided_at": None,
             "ended_at": None,
         }
@@ -617,7 +616,7 @@ class TestLoadActiveTests:
             "treatment_stats": {},
             "decision": None,
             "decision_reason": None,
-            "started_at": datetime.now(timezone.utc),
+            "started_at": datetime.now(UTC),
             "decided_at": None,
             "ended_at": None,
         }
@@ -645,8 +644,8 @@ class TestFlushAllRunning:
         persist_mock = AsyncMock(return_value=True)
         monkeypatch.setattr(t, "_persist_test_to_db", persist_mock)
 
-        tid1 = await t.create_test("skill-a", "1.0.0", "1.1.0")
-        tid2 = await t.create_test("skill-b", "1.0.0", "1.1.0")
+        await t.create_test("skill-a", "1.0.0", "1.1.0")
+        await t.create_test("skill-b", "1.0.0", "1.1.0")
         tid3 = await t.create_test("skill-c", "1.0.0", "1.1.0")
         await t.stop_test(tid3)  # stopped 不 flush
 

@@ -17,15 +17,12 @@ B站 适配器:基于 Cookie + Web API。
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
-import pytest
 
 from app.services.publish.adapters.bilibili import BilibiliAdapter
-from app.services.publish.base_adapter import PublishContent, PublishResult
-
+from app.services.publish.base_adapter import PublishContent
 
 # =============================================================================
 # 类属性

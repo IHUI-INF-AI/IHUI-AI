@@ -11,26 +11,26 @@ safety_settings 等),作为 LiteLLM 的可选增强。未配置时 fallback 到 
 不引入厂商 SDK,统一用 httpx 直接调用 API。
 """
 
-from .base_provider import BaseProvider, ProviderError
-from .openai_provider import OpenAIProvider
-from .anthropic_provider import AnthropicProvider
 from ..services.tool_schema_adapter import is_anthropic_model
-from .gemini_provider import GeminiProvider
-from .stepfun_provider import StepfunProvider
-from .token6688_provider import Token6688Provider
 from .alibaba_dashscope_provider import AlibabaDashscopeProvider
+from .anthropic_provider import AnthropicProvider
+from .base_provider import BaseProvider, ProviderError
 from .doubao_provider import DoubaoProvider
+from .gemini_provider import GeminiProvider
 from .jimeng_provider import JimengProvider
 from .kling_provider import KlingProvider
-from .luyala_provider import LuyalaProvider
-from .openrouter_provider import OpenrouterProvider
-from .tencent_hunyuan_provider import TencentHunyuanProvider
-from .zhipu_provider import ZhipuProvider
-from .volcengine_provider import VolcengineProvider
-from .ollama_provider import OllamaProvider
-from .lmstudio_provider import LMStudioProvider
 from .llama_cpp_provider import LlamaCppProvider
+from .lmstudio_provider import LMStudioProvider
+from .luyala_provider import LuyalaProvider
+from .ollama_provider import OllamaProvider
+from .openai_provider import OpenAIProvider
+from .openrouter_provider import OpenrouterProvider
 from .qwen_local_provider import QwenLocalProvider
+from .stepfun_provider import StepfunProvider
+from .tencent_hunyuan_provider import TencentHunyuanProvider
+from .token6688_provider import Token6688Provider
+from .volcengine_provider import VolcengineProvider
+from .zhipu_provider import ZhipuProvider
 
 __all__ = [
     "BaseProvider",

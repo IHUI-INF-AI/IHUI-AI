@@ -39,7 +39,7 @@ X 平台在沙箱的可达性（已实测 2026-07-16）：
 import json
 import os
 from datetime import datetime
-from typing import Any, Optional, TypedDict
+from typing import Any, TypedDict
 
 
 class XSource(TypedDict):
@@ -170,13 +170,13 @@ CAT_LABELS = {
 # ===================== 查询辅助 =====================
 def all_handles() -> list[str]:
     out: list[str] = []
-    for cat, items in X_SOURCES.items():
+    for _cat, items in X_SOURCES.items():
         for it in items:
             out.append(it['handle'])
     return out
 
 
-def pick_for_topic(keywords: str, limit: Optional[int] = None) -> list[dict[str, Any]]:
+def pick_for_topic(keywords: str, limit: int | None = None) -> list[dict[str, Any]]:
     """返回与主题相关的 X 账号（官方+高优先级优先）。
 
     keywords: 空格分隔的主题词（如 "Kimi K3 DeepSeek V4"）
@@ -221,7 +221,7 @@ def full_checklist() -> str:
     return '\n'.join(lines)
 
 
-def checklist_for_topic(keywords: str, limit: Optional[int] = None) -> str:
+def checklist_for_topic(keywords: str, limit: int | None = None) -> str:
     """生成写稿前应核查的 X 账号 Markdown 清单（主题聚焦，默认全量不截断）。"""
     picks = pick_for_topic(keywords, limit=limit)
     lines = [f'# X 平台信源核查清单（主题：{keywords}）', '',
@@ -264,13 +264,15 @@ def log_coverage(topic: str, checked_handles: list[str], notes: str = '') -> str
     data: list[Any] = []
     if os.path.exists(path):
         try:
-            data = json.load(open(path, encoding='utf-8'))
+            with open(path, encoding='utf-8') as _f:
+                data = json.load(_f)
         except Exception:
             data = []
     if not isinstance(data, list):
         data = []
     data.append(rec)
-    json.dump(data, open(path, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+    with open(path, 'w', encoding='utf-8') as _f:
+        json.dump(data, _f, ensure_ascii=False, indent=2)
     return path
 
 

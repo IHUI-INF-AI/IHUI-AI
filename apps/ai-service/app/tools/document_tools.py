@@ -20,10 +20,10 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import zipfile
 import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pdfplumber  # 已安装依赖
 
@@ -49,7 +49,7 @@ __all__ = [
 ]
 
 # anydoc 主路径覆盖的扩展名(含旧实现可降级的 3 种)
-_ANYDOC_EXTS: Tuple[str, ...] = (
+_ANYDOC_EXTS: tuple[str, ...] = (
     ".pdf",
     ".docx",
     ".doc",
@@ -64,7 +64,7 @@ _ANYDOC_EXTS: Tuple[str, ...] = (
     ".epub",
 )
 # anydoc 失败后仍有降级实现的扩展名
-_ANYDOC_FALLBACK_EXTS: Tuple[str, ...] = (".pdf", ".docx", ".xlsx")
+_ANYDOC_FALLBACK_EXTS: tuple[str, ...] = (".pdf", ".docx", ".xlsx")
 
 # 项目根目录: 相对路径以它为基准。
 # 2026-09-08 修复: 原先硬编码 r"G:\IHUI-AI" 在本部署(项目位于 d:\IHUI-AI)下为
@@ -74,10 +74,10 @@ _ANYDOC_FALLBACK_EXTS: Tuple[str, ...] = (".pdf", ".docx", ".xlsx")
 PROJECT_ROOT: str = os.path.abspath(str(Path(__file__).resolve().parents[4]))
 
 # 敏感文件黑名单子串(对文件名做小写匹配)
-SENSITIVE_MARKERS: Tuple[str, ...] = (".env", ".pem", ".key", "credentials", "secret", "token")
+SENSITIVE_MARKERS: tuple[str, ...] = (".env", ".pem", ".key", "credentials", "secret", "token")
 
 # 白名单扩展名 -> 说明
-SUPPORTED_EXTENSIONS: Dict[str, str] = {
+SUPPORTED_EXTENSIONS: dict[str, str] = {
     ".txt": "纯文本",
     ".md": "Markdown",
     ".csv": "CSV(前50行)",
@@ -105,13 +105,13 @@ W_NS: str = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 S_NS: str = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
 
-def _fail(message: str) -> Dict[str, Any]:
+def _fail(message: str) -> dict[str, Any]:
     """构造统一的结构化失败响应(不抛异常)。"""
     return {"tool": "parse_document", "ok": False, "message": message}
 
 
 # anydoc 探测出的 Format 字符串 -> 扩展名(仅带签名的容器;txt/md/json/csv 无格式返回 None)
-_SNIFF_FMT_EXT: Dict[str, str] = {
+_SNIFF_FMT_EXT: dict[str, str] = {
     "docx": ".docx",
     "doc": ".doc",
     "pptx": ".pptx",
@@ -127,7 +127,7 @@ _SNIFF_FMT_EXT: Dict[str, str] = {
 }
 
 
-def _sniff_anydoc_ext(path: str) -> Tuple[Optional[str], Optional[str]]:
+def _sniff_anydoc_ext(path: str) -> tuple[str | None, str | None]:
     """用 anydoc 按文件字节探测真实容器格式, 返回 (规范扩展名, 错误)。"""
     try:
         with open(path, "rb") as f:
@@ -136,7 +136,7 @@ def _sniff_anydoc_ext(path: str) -> Tuple[Optional[str], Optional[str]]:
         ext = _SNIFF_FMT_EXT.get(fmt or "") if fmt else None
         return ext, None
     except Exception as e:  # noqa: BLE001
-        return None, "格式探测失败: {}: {}".format(type(e).__name__, e)
+        return None, f"格式探测失败: {type(e).__name__}: {e}"
 
 
 def _describe_anydoc_error(e: BaseException) -> str:
@@ -146,7 +146,7 @@ def _describe_anydoc_error(e: BaseException) -> str:
     if name == "NeedsOcrError":
         if pages:
             page_list: str = ", ".join(str(p) for p in pages)
-            return "该 PDF 第 {} 页为扫描件/图片内容, 没有 OCR 无法提取文字".format(page_list)
+            return f"该 PDF 第 {page_list} 页为扫描件/图片内容, 没有 OCR 无法提取文字"
         return "该文档为扫描件/图片内容, 需要 OCR 才能提取文字"
     if name == "EncryptedError":
         return "文件已加密(含密码保护), 请先解除密码后重试"
@@ -158,10 +158,10 @@ def _describe_anydoc_error(e: BaseException) -> str:
         return "归档不完整, 缺少必要的内部部件(文件可能未上传完整)"
     if name == "UnsupportedError":
         return "不支持的文件格式"
-    return "解析失败: {}: {}".format(name, e)
+    return f"解析失败: {name}: {e}"
 
 
-def _resolve_path(raw_path: Any) -> Tuple[Optional[str], Optional[str]]:
+def _resolve_path(raw_path: Any) -> tuple[str | None, str | None]:
     """解析并校验路径, 返回 (绝对路径, 错误消息); 合法时错误消息为 None。"""
     if not isinstance(raw_path, str) or not raw_path.strip():
         return None, "path 参数缺失或为空"
@@ -177,7 +177,7 @@ def _resolve_path(raw_path: Any) -> Tuple[Optional[str], Optional[str]]:
     except ValueError:
         inside = False
     if not inside:
-        return None, "路径越界: 仅允许访问项目根目录({})内的文件".format(PROJECT_ROOT)
+        return None, f"路径越界: 仅允许访问项目根目录({PROJECT_ROOT})内的文件"
     if not os.path.exists(abs_path):
         return None, "文件不存在"
     if os.path.isdir(abs_path):
@@ -186,16 +186,16 @@ def _resolve_path(raw_path: Any) -> Tuple[Optional[str], Optional[str]]:
     base_lower: str = os.path.basename(abs_path).lower()
     for marker in SENSITIVE_MARKERS:
         if marker in base_lower:
-            return None, "出于安全考虑, 拒绝解析敏感文件(文件名包含敏感标识: {})".format(marker)
+            return None, f"出于安全考虑, 拒绝解析敏感文件(文件名包含敏感标识: {marker})"
     return abs_path, None
 
 
 def _read_text(path: str) -> str:
     """编码容错读取文本文件: 依次尝试 utf-8 / gbk / latin-1。"""
-    last_error: Optional[Exception] = None
+    last_error: Exception | None = None
     for enc in ("utf-8", "gbk", "latin-1"):
         try:
-            with open(path, "r", encoding=enc) as f:
+            with open(path, encoding=enc) as f:
                 return f.read()
         except (UnicodeDecodeError, LookupError) as e:
             last_error = e
@@ -206,17 +206,17 @@ def _read_text(path: str) -> str:
 
 def _parse_csv(content: str) -> str:
     """CSV 解析: 仅保留前 50 行, 并附加总行数统计。"""
-    lines: List[str] = content.splitlines()
+    lines: list[str] = content.splitlines()
     total: int = len(lines)
     head: str = "\n".join(lines[:50])
     if total > 50:
-        head += "\n...(共 {} 行, 仅显示前 50 行)".format(total)
+        head += f"\n...(共 {total} 行, 仅显示前 50 行)"
     return head
 
 
-def _parse_pdf(path: str) -> Tuple[str, int]:
+def _parse_pdf(path: str) -> tuple[str, int]:
     """用 pdfplumber 逐页提取 PDF 文本, 返回 (文本, 页数)。"""
-    pages_text: List[str] = []
+    pages_text: list[str] = []
     page_count: int = 0
     with pdfplumber.open(path) as pdf:
         page_count = len(pdf.pages)
@@ -230,16 +230,16 @@ def _parse_docx(path: str) -> str:
     with zipfile.ZipFile(path, "r") as zf:
         data: bytes = zf.read("word/document.xml")
     root: ET.Element = ET.fromstring(data)
-    paragraphs: List[str] = []
-    for p in root.iter("{}p".format(W_NS)):
-        parts: List[str] = []
+    paragraphs: list[str] = []
+    for p in root.iter(f"{W_NS}p"):
+        parts: list[str] = []
         for node in p.iter():
             tag: str = node.tag
-            if tag == "{}t".format(W_NS):
+            if tag == f"{W_NS}t":
                 parts.append(node.text or "")
-            elif tag == "{}tab".format(W_NS):
+            elif tag == f"{W_NS}tab":
                 parts.append("\t")
-            elif tag == "{}br".format(W_NS):
+            elif tag == f"{W_NS}br":
                 parts.append("\n")
         paragraphs.append("".join(parts))
     return "\n".join(paragraphs)
@@ -248,16 +248,16 @@ def _parse_docx(path: str) -> str:
 def _parse_xlsx(path: str) -> str:
     """用 zipfile + ElementTree 解析 xlsx: sharedStrings + 首个 worksheet, 按行输出 TSV(尽力而为)。"""
     with zipfile.ZipFile(path, "r") as zf:
-        names: List[str] = zf.namelist()
+        names: list[str] = zf.namelist()
         # 1) 共享字符串表
-        shared: List[str] = []
+        shared: list[str] = []
         if "xl/sharedStrings.xml" in names:
             ss_root: ET.Element = ET.fromstring(zf.read("xl/sharedStrings.xml"))
-            for si in ss_root.iter("{}si".format(S_NS)):
-                texts: List[str] = [t.text or "" for t in si.iter("{}t".format(S_NS))]
+            for si in ss_root.iter(f"{S_NS}si"):
+                texts: list[str] = [t.text or "" for t in si.iter(f"{S_NS}t")]
                 shared.append("".join(texts))
         # 2) 首个工作表
-        sheet_file: Optional[str] = None
+        sheet_file: str | None = None
         for name in sorted(names):
             if name.startswith("xl/worksheets/") and name.endswith(".xml"):
                 sheet_file = name
@@ -265,17 +265,17 @@ def _parse_xlsx(path: str) -> str:
         if sheet_file is None:
             raise ValueError("xlsx 中未找到工作表")
         sheet_root: ET.Element = ET.fromstring(zf.read(sheet_file))
-    rows: List[str] = []
-    for row in sheet_root.iter("{}row".format(S_NS)):
-        cells: List[str] = []
-        for c in row.iter("{}c".format(S_NS)):
-            t_attr: Optional[str] = c.get("t")
-            v_el: Optional[ET.Element] = c.find("{}v".format(S_NS))
+    rows: list[str] = []
+    for row in sheet_root.iter(f"{S_NS}row"):
+        cells: list[str] = []
+        for c in row.iter(f"{S_NS}c"):
+            t_attr: str | None = c.get("t")
+            v_el: ET.Element | None = c.find(f"{S_NS}v")
             if t_attr == "inlineStr":  # 内联字符串
-                is_el: Optional[ET.Element] = c.find("{}is".format(S_NS))
+                is_el: ET.Element | None = c.find(f"{S_NS}is")
                 val: str = ""
                 if is_el is not None:
-                    val = "".join(x.text or "" for x in is_el.iter("{}t".format(S_NS)))
+                    val = "".join(x.text or "" for x in is_el.iter(f"{S_NS}t"))
                 cells.append(val)
             elif t_attr == "s" and v_el is not None and v_el.text is not None:  # 共享字符串索引
                 try:
@@ -328,7 +328,7 @@ async def parse_document(arguments: dict[str, Any]) -> dict[str, Any]:
 
         filename: str = os.path.basename(abs_path)
         content: str = ""
-        pages: Optional[int] = None
+        pages: int | None = None
         warning: str = ""
         parser: str = ""
 
@@ -344,7 +344,7 @@ async def parse_document(arguments: dict[str, Any]) -> dict[str, Any]:
             try:
                 json.loads(content)
             except json.JSONDecodeError as e:
-                warning = "JSON 格式校验失败: {}".format(e)
+                warning = f"JSON 格式校验失败: {e}"
         elif ext in _ANYDOC_EXTS:
             # ---- anydoc 主路径(Rust 引擎, 线程池执行避免阻塞事件循环) ----
             anydoc_note: str = ""
@@ -372,7 +372,7 @@ async def parse_document(arguments: dict[str, Any]) -> dict[str, Any]:
                 else:
                     return _fail("文档解析引擎不可用(anydoc 模块未安装), 无法解析该格式")
                 if anydoc_note:
-                    warning = "anydoc 失败({}), 已由旧实现兜底".format(anydoc_note)
+                    warning = f"anydoc 失败({anydoc_note}), 已由旧实现兜底"
 
         # --- 截断与消息组装 ---
         total_chars: int = len(content)
@@ -382,7 +382,7 @@ async def parse_document(arguments: dict[str, Any]) -> dict[str, Any]:
 
         message: str = "解析成功"
         if truncated:
-            message = "已截断, 全文共 {} 字符".format(total_chars)
+            message = f"已截断, 全文共 {total_chars} 字符"
         if warning:
             message += "; " + warning
 
@@ -399,4 +399,4 @@ async def parse_document(arguments: dict[str, Any]) -> dict[str, Any]:
             "message": message,
         }
     except Exception as e:  # noqa: BLE001 全部捕获, 保证不向上抛异常
-        return _fail("解析失败: {}: {}".format(type(e).__name__, e))
+        return _fail(f"解析失败: {type(e).__name__}: {e}")

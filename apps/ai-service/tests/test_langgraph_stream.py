@@ -29,8 +29,8 @@ from app.services import langgraph_stream
 from app.services.langgraph_stream import (
     DEFAULT_STREAM_MODES,
     SSE_EVENT_TYPES,
-    SSEEvent,
     VALID_STREAM_MODES,
+    SSEEvent,
     _build_interrupt_event,
     _dispatch_stream_chunk,
     _extract_node_name,
@@ -41,7 +41,6 @@ from app.services.langgraph_stream import (
     _safe_value,
     stream_agent_execution,
 )
-
 
 # ---------------------------------------------------------------------------
 # 辅助:mock graph / snapshot / task / interrupt / message chunk
@@ -156,7 +155,7 @@ class TestModuleConstants:
     """模块级常量与 langgraph 软依赖。"""
 
     def test_valid_stream_modes_contains_5_modes(self):
-        assert VALID_STREAM_MODES == {"updates", "messages", "events", "values", "debug"}
+        assert {"updates", "messages", "events", "values", "debug"} == VALID_STREAM_MODES
 
     def test_default_stream_modes_is_updates_messages_events(self):
         assert DEFAULT_STREAM_MODES == ["updates", "messages", "events"]

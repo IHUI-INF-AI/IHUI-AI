@@ -26,7 +26,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-
 MARKER_OPEN = "[[ASK_USER:"
 MARKER_CLOSE = "]]"
 

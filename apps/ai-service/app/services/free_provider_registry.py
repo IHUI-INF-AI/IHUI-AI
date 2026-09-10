@@ -42,13 +42,13 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Optional
+from enum import StrEnum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class ProviderCategory(str, Enum):
+class ProviderCategory(StrEnum):
     """provider 分类。"""
 
     DOMESTIC = "domestic"  # 国内 provider(中文场景优化)
@@ -57,7 +57,7 @@ class ProviderCategory(str, Enum):
     CREDITS = "credits"  # 试用 credits provider(注册送额度)
 
 
-class ProviderStatus(str, Enum):
+class ProviderStatus(StrEnum):
     """provider 配置状态。"""
 
     CONFIGURED = "configured"  # 已配置 key(可用)
@@ -957,11 +957,11 @@ class FreeProviderRegistry:
         """列出有免费额度的 provider(需注册 key,但有免费层/永久免费模型)。"""
         return [p for p in self._registry if p.free_tier]
 
-    def get_by_code(self, provider_code: str) -> Optional[FreeProvider]:
+    def get_by_code(self, provider_code: str) -> FreeProvider | None:
         """按 provider_code 查询。"""
         return self._by_code.get(provider_code)
 
-    def get_default_base_url(self, provider_code: str) -> Optional[str]:
+    def get_default_base_url(self, provider_code: str) -> str | None:
         """获取 provider 的默认 base_url(用户未填 api_base 时用此值)。"""
         p = self._by_code.get(provider_code)
         return p.default_base_url if p else None

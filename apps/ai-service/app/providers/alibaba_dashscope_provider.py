@@ -14,14 +14,14 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import time
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
+from ..core.llm_gateway import get_http_client
 from .base_provider import ProviderError
 from .openai_provider import OpenAIProvider
-from ..core.llm_gateway import get_http_client
 
 _DASHSCOPE_API_BASE = "https://dashscope.aliyuncs.com"
 _WAN_DEFAULT_MODEL = "wan2.1-t2v-turbo"

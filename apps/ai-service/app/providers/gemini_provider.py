@@ -22,13 +22,13 @@ safety_settings 默认策略(2026-09-06 合规修订):
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator, cast
+from collections.abc import AsyncIterator
+from typing import Any, cast
 
 import httpx
 
-from .base_provider import BaseProvider, ProviderError
 from ..core.llm_gateway import get_http_client
-
+from .base_provider import BaseProvider, ProviderError
 
 # Gemini 4 个安全类别,默认用平台默认档 BLOCK_MEDIUM_AND_ABOVE(中等概率即拦截)。
 # 合规要求:不主动放宽内容安全档位(原 BLOCK_ONLY_HIGH 为过度放宽,已撤销)。

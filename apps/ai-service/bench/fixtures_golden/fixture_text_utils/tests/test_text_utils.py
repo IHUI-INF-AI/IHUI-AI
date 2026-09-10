@@ -4,7 +4,7 @@
 
 """text_utils 的确定性测试(golden:补齐 slugify 用例)。"""
 
-from text_utils import word_count, to_uppercase, reverse, slugify
+from text_utils import reverse, slugify, to_uppercase, word_count
 
 
 def test_word_count() -> None:

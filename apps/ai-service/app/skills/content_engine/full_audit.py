@@ -17,15 +17,14 @@
 """
 from __future__ import annotations
 
-import io
-import os
-import sys
-import re
-import json
-import time
 import argparse
+import io
+import json
+import os
+import re
+import sys
+import time
 import urllib.request
-import subprocess
 from typing import Any, cast
 
 try:
@@ -43,6 +42,7 @@ sys.path.insert(0, os.path.join(BASE, 'lib'))
 # ── 项目边界硬门禁（导入即生效，fail-closed） ──
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "koubo_workflow"))
 import project_boundary
+
 project_boundary.check_action(tool="full_audit.py")
 
 results: list[tuple[str, str, str]] = []  # (维度, 状态, 详情)
@@ -85,7 +85,6 @@ def _scan_koubo_pollution(root_dir: str) -> list[tuple[str, str]]:
         'AGENTS.md', 'README.md', 'SKILL.md',
         'MEMORY.md',  # 跨项目记忆 + 单项目记忆
         'REFERENCE.md', 'CSDN-GUIDE.md', 'HOOKS-LIBRARY.md',
-        'README.md',
     }
     # 整个 .workbuddy 目录属于 agent 记忆,内容是规则说明,跳过
     SKIP_DIRS = {'.workbuddy', '__pycache__'}
@@ -111,7 +110,8 @@ def _scan_koubo_pollution(root_dir: str) -> list[tuple[str, str]]:
             #    公众号文章和 DOCX 不应出现 [置顶] / #科技 / 李总 / 咱就说 等
             if f.lower().endswith(('.md', '.html', '.docx')):
                 try:
-                    txt = open(fpath, 'r', encoding='utf-8', errors='ignore').read()
+                    with open(fpath, encoding='utf-8', errors='ignore') as _f:
+                        txt = _f.read()
                 except Exception:
                     continue
                 kw_hits = [k for k in KOUBO_KEYWORDS if k in txt]
@@ -143,10 +143,12 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
 
     # === A. 代码维度 ===
     section("A. 代码维度 (6 维度)")
-    t = open('lib/moyu_green_renderer.py', encoding='utf-8').read()
+    with open('lib/moyu_green_renderer.py', encoding='utf-8') as _f:
+        t = _f.read()
     add('A1 渲染器 isinstance 字段类型判断', 'isinstance(' in t, '已做类型判断')
     add('A2 渲染器函数数 ≥ 10 (13组件)', t.count('def render_') >= 10, f'{t.count("def render_")} 个 render 函数')
-    p = open('publish_pipeline.py', encoding='utf-8').read()
+    with open('publish_pipeline.py', encoding='utf-8') as _f:
+        p = _f.read()
     add('A3 流水线门禁 ≥ 3 (A/A+/B)', p.count('def gate_') >= 3, f'{p.count("def gate_")} 个门禁')
     req_count = p.count('required=True')
     # 关键参数强制的两种方式都认可：① argparse 必填 ≥4；② 至少 1 个 argparse 必填(--md)
@@ -209,31 +211,33 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
     has_new_backup = any(f.startswith(clean_title) and f.endswith('.new') for f in os.listdir('output'))
     c1_detail = f'{len(expected_outputs)} 个: {sorted(expected_outputs)} {c1_note}'
     if has_new_backup:
-        c1_detail += f' (附带 .new 备份: docx 被外部进程文件锁, 已 fallback)'
+        c1_detail += ' (附带 .new 备份: docx 被外部进程文件锁, 已 fallback)'
     add('C1 output 交付物 = 2/3 (html+docx, 7/16 起 CSDN 双交付 3 件合法)', c1_pass, c1_detail)
     # 2026-07-14: 单独的 .new 备份警告 (环境问题,非代码缺陷)
     add('C1.5 无 .new 临时备份 (docx 文件锁,真推侧问题)', not has_new_backup,
-        f'⚠️ 检测到 .new 备份, docx 被外部进程锁定 (如微信端预览), 关闭预览后下次流水线自动覆盖' if has_new_backup else '无 .new 备份', warn=has_new_backup)
+        '⚠️ 检测到 .new 备份, docx 被外部进程锁定 (如微信端预览), 关闭预览后下次流水线自动覆盖' if has_new_backup else '无 .new 备份', warn=has_new_backup)
     art_md = [f for f in os.listdir('articles') if f.endswith('.md')] if os.path.isdir('articles') else []
     csdn_md = [f for f in art_md if f.endswith('_csdn.md')]
     main_md = [f for f in art_md if not f.endswith('_csdn.md')]
     add('C2 articles 源md = 1 (无残留)', len(main_md) == 1, f'{len(art_md)} 个 (主源 {len(main_md)} + CSDN专用 {len(csdn_md)})')
-    imgs = [f for f in os.listdir('output/images')] if os.path.isdir('output/images') else []
+    imgs = list(os.listdir('output/images')) if os.path.isdir('output/images') else []
     add('C3 配图 ≥ 3 张', len(imgs) >= 3, f'{len(imgs)} 张')
     # C3+ 真图铁律: 检测 PIL 文本卡片 (2026-07-14 用户强制)
     # 真实照片: Shannon 熵 > 4.0 + 最常见颜色占比 < 70%
     # PIL 文本卡: 熵 < 4.0 或 单一颜色占 > 70%
     # 只检查当前文章实际引用的图片（避免历史图片污染）
     try:
-        from PIL import Image
-        from collections import Counter
         import math
+        from collections import Counter
+
+        from PIL import Image
         # 收集当前文章引用的图片（从 source md + html 里抓，md 产物已禁用）
         referenced = set()
         for src in [args.md, 'output/' + clean_title + '.html']:
             if src and os.path.exists(src):
                 try:
-                    txt = open(src, encoding='utf-8').read()
+                    with open(src, encoding='utf-8') as _f:
+                        txt = _f.read()
                     referenced.update(re.findall(r'[\w\-/]*?([\w\-]+\.(?:jpg|jpeg|png))', txt, re.I))
                 except Exception:
                     pass
@@ -380,7 +384,8 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
         add('C6 MD 产物已禁用 (2026-07-14 用户强制:只交付 html+docx)', True, '已禁用')
         if ok_html and ok_docx:
             from docx import Document
-            h = open(html_p, encoding='utf-8').read()
+            with open(html_p, encoding='utf-8') as _f:
+                h = _f.read()
             d = Document(docx_p)
             docx_text = "\n".join(p.text for p in d.paragraphs)
             keys = ['智汇AI悄悄话', '智汇AI']
@@ -389,7 +394,8 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
             # 视为作者主动选择不加, 不判定为缺漏 (与 CSDN 剥离逻辑一致)
             src_md = ''
             if args.md and os.path.exists(args.md):
-                src_md = open(args.md, encoding='utf-8').read()
+                with open(args.md, encoding='utf-8') as _f:
+                    src_md = _f.read()
             src_has_secret = '智汇AI悄悄话' in src_md
             if '智汇AI悄悄话' in miss and not src_has_secret:
                 miss.remove('智汇AI悄悄话')
@@ -408,9 +414,9 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
                     wechat_has_secret = '智汇AI悄悄话' in docx_text
                     if not wechat_has_secret:
                         miss.append('微信 docx 缺营销段"智汇AI悄悄话"')
-                csdn_note = f' | CSDN docx 已剥离营销段(豁免)'
+                csdn_note = ' | CSDN docx 已剥离营销段(豁免)'
             add('C7 两件套内容一致 (关键短语 html+docx)' + csdn_note, not miss,
-                f'关键短语两处全有' if not miss else f'缺失: {miss}')
+                '关键短语两处全有' if not miss else f'缺失: {miss}')
             mt = [os.path.getmtime(p) for p in [html_p, docx_p] if os.path.exists(p)]
             c8_ok = (max(mt) - min(mt) < 5) if len(mt) == 2 else False
             c8_detail = f'时间差: {max(mt)-min(mt):.1f}秒' if len(mt) == 2 else '缺文件'
@@ -432,8 +438,13 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
         r_audit_title = args.title.rstrip('？?')
         r_html_p = f'output/{r_audit_title}.html'
         if os.path.exists(r_html_p):
-            r_html = open(r_html_p, encoding='utf-8').read()
-            r_src = open(args.md, encoding='utf-8').read() if args.md and os.path.exists(args.md) else ''
+            with open(r_html_p, encoding='utf-8') as _f:
+                r_html = _f.read()
+            if args.md and os.path.exists(args.md):
+                with open(args.md, encoding='utf-8') as _f:
+                    r_src = _f.read()
+            else:
+                r_src = ''
             # R1: 嵌套 stash 不再产生 NUL 占位符
             nul = r_html.count('\x00')
             add('R1 无残留 \\x00 占位符 (修复 R1 unstash 递归)', nul == 0,
@@ -513,11 +524,11 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
             # 5a) 字面 > 单字符孤立段落: <p ...><span leaf="">></span></p> 或 <p ...><span leaf=""> > </span></p>
             bare_gt = re.findall(r'<p[^>]*><span leaf="">\s*>\s*</span></p>', r_html)
             add('R5a 引用块无裸 > 残留 (修复 R5 flush_quote)', not bare_gt,
-                f'清洁' if not bare_gt else f'❌ 残留 {len(bare_gt)} 处裸 >')
+                '清洁' if not bare_gt else f'❌ 残留 {len(bare_gt)} 处裸 >')
             # 5b) 空段落数 = 0（防止行间距过大）
             empty_p = re.findall(r'<p[^>]*><span leaf="">\s*</span></p>', r_html)
             add('R5b 无空段落撑大段距 (修复 R5/R6 跳空行)', not empty_p,
-                f'清洁' if not empty_p else f'❌ 空段落 {len(empty_p)} 处')
+                '清洁' if not empty_p else f'❌ 空段落 {len(empty_p)} 处')
             # R6: 与 R5b 重复,合并为 R5 提示
             # 保留 R6 作为 「关键短语未吞」防御性断言（防止 R1 漏网）
             # 选 3 个关键短语检测：源md中加粗的 ==XX== 高亮内容必须出现在 HTML 里
@@ -542,7 +553,8 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
     # === D. 记忆维度 ===
     section("D. 记忆 (4 维度)")
     if os.path.exists('已发布内容记忆.json'):
-        d = json.load(open('已发布内容记忆.json', encoding='utf-8'))
+        with open('已发布内容记忆.json', encoding='utf-8') as _f:
+            d = json.load(_f)
         add('D1 published 列表 ≥ 10', len(d.get('published', [])) >= 10, f'{len(d.get("published", []))} 条')
         add('D2 used_images 列表 ≥ 20', len(d.get('image_registry', {}).get('used_images', [])) >= 20, f'{len(d["image_registry"]["used_images"])} 张')
         add('D3 last_updated 24h 内', d.get('last_updated', '')[:10] == time.strftime('%Y-%m-%d'),
@@ -554,7 +566,7 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
     # === E. 草稿箱 API 真验证 ===
     section("E. 微信草稿箱 API (5 维度)")
     try:
-        from wechat_publish import list_drafts, get_access_token
+        from wechat_publish import get_access_token, list_drafts
         r = list_drafts(0, 5)
         if IS_DRY_RUN:
             add('E1 草稿数 ≥ 1 (dry-run 跳过)', True, f'{r.get("total_count", 0)} 条 (dry-run 模式不要求)')
@@ -578,10 +590,12 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
 
     # === F. 安全 ===
     section("F. 安全 (4 维度)")
-    gi = open('.gitignore', encoding='utf-8').read()
+    with open('.gitignore', encoding='utf-8') as _f:
+        gi = _f.read()
     add('F1 .env 被 .gitignore', re.search(r'^\.env$', gi, re.M) is not None, '.env 在 .gitignore')
     add('F2 token_cache 被 .gitignore', 'wechat_token_cache' in gi, 'token 缓存白名单')
-    env = open('.env', encoding='utf-8').read()
+    with open('.env', encoding='utf-8') as _f:
+        env = _f.read()
     add('F3 .env ≥ 2 账号配置', env.count('APP_ID') >= 2, f'{env.count("APP_ID")} 个账号')
     add('F4 .env 无敏感信息直输出', '***' not in env, '无明文 key 残留')
 
@@ -594,17 +608,23 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
 
     # === H. 主动扫潜在风险 ===
     section("H. 主动扫风险 (8 维度)")
-    add('H1 wechat_publish try 数', open('lib/wechat_publish.py', encoding='utf-8').read().count('try:') >= 3, 'API 错误处理')
-    add('H2 validate try 数', open('lib/validate.py', encoding='utf-8').read().count('try:') >= 2, 'validate 错误处理')
+    with open('lib/wechat_publish.py', encoding='utf-8') as _f:
+        _hp = _f.read()
+    add('H1 wechat_publish try 数', _hp.count('try:') >= 3, 'API 错误处理')
+    with open('lib/validate.py', encoding='utf-8') as _f:
+        _val = _f.read()
+    add('H2 validate try 数', _val.count('try:') >= 2, 'validate 错误处理')
     add('H3 编码 utf-8 显式', p.count('encoding=\'utf-8\'') >= 3, f'{p.count("encoding=")} 处 utf-8')
     add('H4 argparse 完整 help', p.count('ap.add_argument') >= 8, f'{p.count("ap.add_argument")} 个参数')
     # H5 __pycache__ 真推时 docx 库会生成,改为 WARN 而非 FAIL (用户第二十二反馈修后)
     # 2026-07-14 修复: 移到 main() 末尾清理之后跑,避免 audit 自身 import 触发的 __pycache__ 误报
     # 这里仅占位记录,实际检查在下方"收尾清理"之后
     _H5_PLACEHOLDER = True
-    skill = open(os.path.join(BASE, '..', 'skills', 'content-engine', 'SKILL.md'), encoding='utf-8').read()
+    with open(os.path.join(BASE, '..', 'skills', 'content-engine', 'SKILL.md'), encoding='utf-8') as _f:
+        skill = _f.read()
     add('H6 SKILL.md ≥ 600 行', len(skill.split('\n')) >= 600, f'{len(skill.split(chr(10)))} 行')
-    mem = open(os.path.join(BASE, '..', '..', '.workbuddy', 'memory', 'MEMORY.md'), encoding='utf-8').read()
+    with open(os.path.join(BASE, '..', '..', '.workbuddy', 'memory', 'MEMORY.md'), encoding='utf-8') as _f:
+        mem = _f.read()
     add('H7 MEMORY.md ≥ 100 行', len(mem.split('\n')) >= 100, f'{len(mem.split(chr(10)))} 行')
     add('H8 项目无临时脚本残留', not any(f.endswith('.tmp') for f in os.listdir('.')), '无 .tmp 残留')
 
@@ -699,7 +719,7 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
             if 'FAIL' in status_name:
                 print(f'    {dim_name}: {detail_name}')
         return 1, passed, failed, results
-    print(f'\n  ✅ 42 维度全部通过 — 流水线可彻底交付')
+    print('\n  ✅ 42 维度全部通过 — 流水线可彻底交付')
     return 0, passed, failed, results
 
 

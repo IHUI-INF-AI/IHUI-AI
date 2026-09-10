@@ -19,10 +19,6 @@
 
 from __future__ import annotations
 
-import math
-
-import pytest
-
 from app.services.ab_test_tracker import _empty_stats, _merge_stats_add
 from app.services.significance_tester import (
     SignificanceTester,
@@ -32,7 +28,6 @@ from app.services.significance_tester import (
     _welch_t_test,
     significance_tester,
 )
-
 
 # =============================================================================
 # _erf / _normal_cdf 数学函数
@@ -222,7 +217,7 @@ def _make_stats(
         stats = _merge_stats_add(stats, True, 0.0, 0)
     for _ in range(n_failure):
         stats = _merge_stats_add(stats, False, 0.0, 0)
-    for d in durations:
+    for _d in durations:
         # 用 _merge_stats_add 但不带 success(不能,只能 success/failure 二选一)
         # 简化:duration 累加通过 _merge_stats_add(success=True)然后单独管理
         pass

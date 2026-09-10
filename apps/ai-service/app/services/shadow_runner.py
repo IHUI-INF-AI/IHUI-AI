@@ -146,9 +146,8 @@ class ShadowRunner:
                 return
 
             # 记录 control 指标
-            control_success = not control_call_result.get("error")
-            control_tokens = int(control_call_result.get("tokens", 0) or 0)
-            control_duration_ms = 0.0  # 由调用方补充,默认 0
+            not control_call_result.get("error")
+            int(control_call_result.get("tokens", 0) or 0)
 
             # 启动 shadow task(fire-and-forget)
             task = asyncio.create_task(

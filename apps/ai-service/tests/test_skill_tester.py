@@ -8,12 +8,11 @@
 """
 
 import asyncio
-
-import pytest
 from unittest.mock import AsyncMock, patch
 
-from app.services.skill_tester import SkillTester, skill_tester
+import pytest
 
+from app.services.skill_tester import SkillTester, skill_tester
 
 # ------------------------------------------------------------
 # 常量

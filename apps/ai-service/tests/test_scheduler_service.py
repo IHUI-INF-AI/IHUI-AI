@@ -20,8 +20,9 @@
 """
 from __future__ import annotations
 
+import contextlib
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -33,13 +34,11 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.services import scheduler_service as ss
 from app.services.scheduler_service import (
-    _LOG_KEEP,
     _REDIS_LOG_PREFIX,
     TaskScheduler,
     _build_trigger,
     task_scheduler,
 )
-
 
 # =============================================================================
 # fixtures
@@ -62,10 +61,8 @@ async def sched(monkeypatch):
     s._use_memory = False
     s._started = True
     yield s
-    try:
+    with contextlib.suppress(Exception):
         await s._redis.aclose()
-    except Exception:
-        pass
 
 
 def _shell_cb(command: str = "echo hi") -> dict[str, Any]:
@@ -120,7 +117,7 @@ class TestAddTask:
     @pytest.mark.asyncio
     async def test_date_success(self, sched):
         """date trigger 成功:DateTrigger 构造,next_run_at 记录。"""
-        run_at = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+        run_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
         res = await sched.add_task("t-date", "date", {"run_date": run_at}, _shell_cb())
         assert res["ok"] is True
         trigger_arg = sched._scheduler.add_job.call_args.kwargs["trigger"]

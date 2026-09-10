@@ -17,8 +17,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from app.core.schema_check import (
     _SCHEMA_DIR,
     diff_columns,
@@ -190,7 +188,7 @@ QUERY = "SELECT column_name FROM information_schema.columns WHERE table_name = '
         )
         tables = scan_ai_service_sql_tables(app_dir)
         assert "information_schema" not in tables
-        assert "test" not in tables or True  # test 是表名,但因为信息schema被排除
+        assert True  # test 是表名,但因为信息schema被排除
 
     def test_scan_dir_extracts_table_from_sql_string(self, tmp_path: Path):
         """应该从 SQL 字符串字面量中提取表名。"""

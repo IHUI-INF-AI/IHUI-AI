@@ -10,8 +10,8 @@
 """
 
 from .chart_tools import generate_chart
-from .document_tools import parse_document
 from .document_asset_tools import document_tables, extract_document_assets
+from .document_tools import parse_document
 from .web_crawl_tools import crawl_site, extract_web, fetch_readable, map_site
 
 __all__ = [

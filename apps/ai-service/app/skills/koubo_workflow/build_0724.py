@@ -194,7 +194,7 @@ def build() -> str:
     return text
 
 def metrics() -> None:
-    for i, (title, tags, body) in enumerate(ARTICLES, 1):
+    for i, (title, _tags, body) in enumerate(ARTICLES, 1):
         print(f"A{i}: 标题{len(title)}字 | 正文{len(body)}字 | 我{body.count('我')}次 | 真正{body.count('真正')}")
 
 if __name__ == "__main__":

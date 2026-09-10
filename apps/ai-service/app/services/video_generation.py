@@ -21,16 +21,17 @@ provider 选择策略:env `VIDEO_PROVIDER`(逗号分隔,顺序即优先级,默�
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
 from typing import Any
 
 from app.core.db import get_db_conn
-from app.providers.base_provider import ProviderError
-from app.providers.kling_provider import KlingProvider
-from app.providers.jimeng_provider import JimengProvider
 from app.providers.alibaba_dashscope_provider import AlibabaDashscopeProvider
+from app.providers.base_provider import ProviderError
+from app.providers.jimeng_provider import JimengProvider
+from app.providers.kling_provider import KlingProvider
 from app.providers.tencent_hunyuan_provider import TencentHunyuanProvider
 from app.providers.token6688_provider import Token6688Provider
 
@@ -359,10 +360,8 @@ async def stop_video_worker() -> None:
     global _started_task
     if _started_task is not None and not _started_task.done():
         _started_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await _started_task
-        except asyncio.CancelledError:
-            pass
     _started_task = None
 
 
@@ -406,7 +405,6 @@ async def handle_token6688_callback(snapshot: dict[str, Any]) -> dict[str, Any]:
         # 中间态快照(best-effort 可能推 progress)——不更新 DB,等终态
         return {"ok": True, "matched": 0, "ignored": "non-final"}
 
-    like_pattern = f'%"poll_via":"token6688"%"task_id":"{remote_id}"%'
     # result JSON 键序可能不同,退化为双 LIKE(task_id 必含)
     fallback_pattern = f'%"task_id":"{remote_id}"%'
     conn = await get_db_conn()

@@ -30,8 +30,7 @@ from app.services.publish.adapters.wordpress import WordPressAdapter
 from app.services.publish.adapters.xiaohongshu import XiaohongshuAdapter
 from app.services.publish.adapters.youtube import YouTubeAdapter
 from app.services.publish.adapters.zhihu import ZhihuAdapter
-from app.services.publish.base_adapter import BasePlatformAdapter, PublishContent, PublishResult
-
+from app.services.publish.base_adapter import BasePlatformAdapter, PublishContent
 
 # =============================================================================
 # 工厂 / 辅助函数
@@ -140,9 +139,8 @@ def _patch_stealth_browser(module_path: str, mock_context):
     with patch(
         f"{module_path}.create_stealth_browser_context",
         AsyncMock(return_value=(None, mock_context)),
-    ):
-        with patch(f"{module_path}.close_stealth_context", AsyncMock()):
-            yield
+    ), patch(f"{module_path}.close_stealth_context", AsyncMock()):
+        yield
 
 
 # =============================================================================

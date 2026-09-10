@@ -22,9 +22,8 @@
 """
 from __future__ import annotations
 
-import io
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from app.core.logging import get_logger
 
@@ -134,8 +133,8 @@ def parse_pdf(file_path: str) -> str:
 
 def parse_to_html(
     format: str,
-    text: Optional[str] = None,
-    file_path: Optional[str] = None,
+    text: str | None = None,
+    file_path: str | None = None,
 ) -> tuple[str, list[str]]:
     """根据 format 解析内容为 HTML。
 

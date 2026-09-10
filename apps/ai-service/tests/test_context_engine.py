@@ -33,12 +33,11 @@
 
 from __future__ import annotations
 
-import asyncio
-import json
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from app.services.context_engine import (
     CHARS_PER_TOKEN_ESTIMATE,
@@ -53,9 +52,8 @@ from app.services.context_engine import (
     EnrichRequest,
     RetrievedContext,
     context_engine,
+    router,
 )
-from app.services.context_engine import router
-
 
 # ════════════════════════════════════════════════════════════════════════
 # fixtures
@@ -849,7 +847,7 @@ class TestManageWindow:
     def test_no_system_message(self, engine):
         """无 system 首条 → 全部从末尾保留。"""
         msgs = []
-        for i in range(10):
+        for _i in range(10):
             msgs.append({"role": "user", "content": "x" * 500})
         result = engine.manage_window(msgs, context_limit=500, reserve_tokens=50)
         assert len(result) <= len(msgs)
@@ -857,7 +855,7 @@ class TestManageWindow:
     def test_active_sources_budget(self, engine):
         """active_sources 提供 → history 按比例分配预算。"""
         msgs = [{"role": "system", "content": "sys"}]
-        for i in range(10):
+        for _i in range(10):
             msgs.append({"role": "user", "content": "x" * 500})
         result = engine.manage_window(
             msgs,
@@ -1583,9 +1581,9 @@ class TestEndpoints:
 
     def test_enrich_request_validation(self):
         """totalBudget 范围 500-32000。"""
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             EnrichRequest(totalBudget=100)  # < 500
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             EnrichRequest(totalBudget=50000)  # > 32000
 
     @pytest.mark.asyncio
@@ -1629,8 +1627,10 @@ class TestEndpoints:
 
     @pytest.mark.asyncio
     async def test_track_visualization_endpoint_success(self):
-        from app.services.context_engine import track_visualization_endpoint
-        from app.services.context_engine import TrackVisualizationRequest
+        from app.services.context_engine import (
+            TrackVisualizationRequest,
+            track_visualization_endpoint,
+        )
         req = TrackVisualizationRequest(
             conversationId="conv1", totalTokens=100, historyTokens=50
         )

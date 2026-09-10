@@ -23,8 +23,8 @@ import pytest
 from app.services import mcp_server
 from app.services.mcp_server import (
     _ADMIN_ONLY_TOOLS,
-    _TOOLS,
     _TOOL_HANDLERS,
+    _TOOLS,
     _tool_file_edit,
 )
 
@@ -89,7 +89,8 @@ async def test_unique_match_replace(_workspace_root):
     assert p.read_text(encoding="utf-8") == "hello python\n"
     assert res["backup_path"].endswith(".bak")
     assert os.path.isfile(res["backup_path"])
-    assert open(res["backup_path"], encoding="utf-8").read() == "hello world\n"
+    with open(res["backup_path"], encoding="utf-8") as _bf:
+        assert _bf.read() == "hello world\n"
 
 
 async def test_replace_all_multiple_matches(_workspace_root):

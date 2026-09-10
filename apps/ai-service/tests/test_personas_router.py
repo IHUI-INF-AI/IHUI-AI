@@ -15,14 +15,12 @@ from __future__ import annotations
 
 import pytest
 
-from app.routers import personas
 from app.services.persona_registry import (
     PERSONAS_CONTRACTS,
     PersonaContract,
     get_persona_contract,
     list_persona_names,
 )
-
 
 # =============================================================================
 # 辅助 fixtures

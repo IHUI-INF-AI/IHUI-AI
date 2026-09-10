@@ -44,20 +44,22 @@ if TYPE_CHECKING:
     from playwright.async_api import BrowserContext
 
 from app.core.logging import get_logger
+
 from .account_profile import get_account_profile
-from .stealth import generate_seed
+from .audio_fingerprint import inject_audio_fingerprint_guard
+
 # 深度强化层(2026-08-01 新增)— 13 个反风控深度模块
 from .canvas_noise import inject_canvas_noise
-from .audio_fingerprint import inject_audio_fingerprint_guard
-from .webrtc_guard import inject_webrtc_guard
 from .font_enum_guard import inject_font_enum_guard
-from .media_devices_guard import inject_media_devices_guard
 from .hardware_concurrency_guard import inject_hardware_guard
-from .plugin_enum_guard import inject_plugin_guard
 from .language_consistency import inject_language_guard
+from .media_devices_guard import inject_media_devices_guard
 from .navigator_integrity import inject_navigator_integrity_guard
+from .plugin_enum_guard import inject_plugin_guard
+from .stealth import generate_seed
 from .timezone_geo_consistency import apply_consistency
 from .tls_fingerprint import apply_tls_recommendation_to_context, get_tls_recommendation
+from .webrtc_guard import inject_webrtc_guard
 
 logger = get_logger(__name__)
 
