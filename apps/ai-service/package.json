@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8803",
-    "build": "uv pip install -e . || echo [ai-service] uv unavailable in CI, skip editable install (build is a no-op for Python service)",
+    "build": "uv pip install -e . || echo ai-service-build-skipped-uv-unavailable",
     "lint": "echo 'Python lint handled by ruff via pre-commit; no-op for turbo'",
     "typecheck": "echo 'Python typecheck handled by mypy via typecheck:full; no-op for turbo'"
   },
