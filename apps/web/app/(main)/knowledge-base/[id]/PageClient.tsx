@@ -128,7 +128,7 @@ export default function KBDetailPage() {
       <div className="flex flex-col gap-8 min-[1024px]:flex-row">
         <article className="min-w-0 flex-1">
           <Card>
-            <CardContent className="p-3">
+            <CardContent className="min-[640px]:p-3 p-3">
               <MarkdownViewer content={article.content} />
             </CardContent>
           </Card>
@@ -138,7 +138,7 @@ export default function KBDetailPage() {
           <aside className="w-full shrink-0 min-[1024px]:w-56">
             <div className="min-[1024px]:sticky min-[1024px]:top-4">
               <Card>
-                <CardContent className="p-3">
+                <CardContent className="min-[640px]:p-3 p-3">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     目录
                   </p>

@@ -52,7 +52,7 @@ export function OfflineRecordList({ list, isLoading, error, delPending, onEdit, 
     <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
       {list.map((record, idx) => (
         <Card key={record.id} className="transition-colors hover:bg-accent">
-          <CardContent className="space-y-3 p-3">
+          <CardContent className="min-[640px]:p-3 space-y-3 p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span

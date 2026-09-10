@@ -132,7 +132,7 @@ export default function ActivitiesPage() {
                     />
                   </div>
                 )}
-                <CardContent className="flex flex-1 flex-col gap-3 p-3">
+                <CardContent className="min-[640px]:p-3 flex flex-1 flex-col gap-3 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <h2 className="text-base font-semibold">{a.title}</h2>
                     <span

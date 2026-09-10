@@ -154,7 +154,7 @@ export function FundingSection({ items }: Props) {
             key={item.id}
             className="overflow-hidden transition duration-200 hover:bg-accent hover:-translate-y-0.5 hover:shadow-md"
           >
-            <CardContent className="space-y-2 p-3">
+            <CardContent className="min-[640px]:p-3 space-y-2 p-3">
               <div className="flex items-center justify-between gap-2">
                 <Badge variant="success">{item.amount}</Badge>
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">

@@ -64,7 +64,7 @@ export default function ApiTestPage() {
       </header>
 
       <Card>
-        <CardContent className="p-3">
+        <CardContent className="min-[640px]:p-3 p-3">
           <form onSubmit={handleSend} className="space-y-4">
             <div className="flex gap-2">
               <select
@@ -130,7 +130,7 @@ export default function ApiTestPage() {
           <CardHeader className="p-3">
             <CardTitle className="text-sm">{t('response')}</CardTitle>
           </CardHeader>
-          <CardContent className="p-3 pt-0">
+          <CardContent className="min-[640px]:p-3 p-3 pt-0">
             <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 text-xs">{response}</pre>
           </CardContent>
         </Card>

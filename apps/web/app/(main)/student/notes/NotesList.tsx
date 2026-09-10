@@ -51,7 +51,7 @@ export function NotesList({ list, isLoading, error, onEdit, onDelete, deletePend
     <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
       {list.map((note) => (
         <Card key={note.id} className="transition-colors hover:bg-accent">
-          <CardContent className="space-y-3 p-3">
+          <CardContent className="min-[640px]:p-3 space-y-3 p-3">
             <div className="flex items-start justify-between gap-2">
               <h3 className="font-medium">{note.title || t('titleField')}</h3>
               <span

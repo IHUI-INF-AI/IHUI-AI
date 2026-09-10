@@ -184,7 +184,7 @@ export default function ResourcesPage() {
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-base">{item.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-1.5 p-3 pt-0 text-xs text-muted-foreground">
+                <CardContent className="min-[640px]:p-3 space-y-1.5 p-3 pt-0 text-xs text-muted-foreground">
                   {item.fileType && <p>{item.fileType}</p>}
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">

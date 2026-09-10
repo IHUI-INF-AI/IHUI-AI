@@ -150,7 +150,7 @@ export function ItemCard({ item, layout = 'grid' }: Props) {
       >
         <Card className="overflow-hidden transition-colors hover:bg-accent/40">
           {Cover}
-          <CardContent className="space-y-2 p-3">
+          <CardContent className="min-[640px]:p-3 space-y-2 p-3">
             {Title}
             {Summary}
             {Meta}
@@ -168,7 +168,7 @@ export function ItemCard({ item, layout = 'grid' }: Props) {
       className="block"
     >
       <Card className="transition-colors hover:bg-accent/40">
-        <CardContent className="flex items-start gap-3 p-3">
+        <CardContent className="min-[640px]:p-3 flex items-start gap-3 p-3">
           <div className="overflow-hidden rounded-lg">{Cover}</div>
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex items-start justify-between gap-2">
