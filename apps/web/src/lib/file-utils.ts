@@ -183,20 +183,17 @@ export async function chunkUpload(
   const concurrent = options.concurrent ?? 3
   const total = Math.ceil(file.size / chunkSize)
 
-  const initRes = await fetchApi<{ uploadId: string }>(
-    '/api/chunked-upload/init',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        fileName: file.name,
-        fileSize: file.size,
-        totalChunks: total,
-        mimeType: file.type,
-        chunkSize,
-      }),
-      signal: options.signal,
-    },
-  )
+  const initRes = await fetchApi<{ uploadId: string }>('/api/chunked-upload/init', {
+    method: 'POST',
+    body: JSON.stringify({
+      fileName: file.name,
+      fileSize: file.size,
+      totalChunks: total,
+      mimeType: file.type,
+      chunkSize,
+    }),
+    signal: options.signal,
+  })
   if (!initRes.success || !initRes.data?.uploadId) {
     throw new Error(initRes.error ?? '初始化上传会话失败')
   }
@@ -234,15 +231,12 @@ export async function chunkUpload(
   }
 
   // 通知后端合并(大文件合并耗时,放宽超时)
-  const mergeRes = await fetchApi<{ fileId: string; url: string }>(
-    '/api/chunked-upload/merge',
-    {
-      method: 'POST',
-      body: JSON.stringify({ uploadId }),
-      timeoutMs: 120_000,
-      signal: options.signal,
-    },
-  )
+  const mergeRes = await fetchApi<{ fileId: string; url: string }>('/api/chunked-upload/merge', {
+    method: 'POST',
+    body: JSON.stringify({ uploadId }),
+    timeoutMs: 120_000,
+    signal: options.signal,
+  })
   if (!mergeRes.success || !mergeRes.data?.fileId || !mergeRes.data.url) {
     throw new Error(mergeRes.error ?? '合并分片失败')
   }
