@@ -79,7 +79,7 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
 
   return (
     <Card>
-      <CardContent className="space-y-3 p-3">
+      <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center justify-between">
           <Label className="text-sm font-medium">消息列表</Label>
           <span className="text-xs text-muted-foreground">{messages.length} 条</span>

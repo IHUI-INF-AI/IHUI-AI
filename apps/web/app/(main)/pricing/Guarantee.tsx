@@ -34,7 +34,7 @@ export function Guarantee(): React.JSX.Element {
       <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
         {ITEMS.map(({ icon: Icon, titleKey, descKey }) => (
           <Card key={titleKey} className="border-border">
-            <CardContent className="flex flex-col items-center gap-3 p-3 text-center">
+            <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-3 p-3 text-center">
               <Icon className="h-7 w-7 text-primary" />
               <h3 className="text-sm font-semibold text-foreground">{t(titleKey)}</h3>
               <p className="text-xs leading-relaxed text-muted-foreground">{t(descKey)}</p>

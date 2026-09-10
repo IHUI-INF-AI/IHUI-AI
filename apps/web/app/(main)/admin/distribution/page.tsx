@@ -126,7 +126,7 @@ export default function AdminDistributionPage() {
           const Icon = s.icon
           return (
             <Card key={s.label}>
-              <CardContent className="p-3">
+              <CardContent className="min-[640px]:p-3 p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">{s.label}</span>
                   <Icon className={`h-4 w-4 ${s.tone}`} />
@@ -152,7 +152,7 @@ export default function AdminDistributionPage() {
             return (
               <Link key={e.href} href={e.href}>
                 <Card className="transition-colors hover:bg-accent">
-                  <CardContent className="flex items-center justify-between p-3">
+                  <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3">
                     <div className="flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <Icon className="h-4 w-4" />

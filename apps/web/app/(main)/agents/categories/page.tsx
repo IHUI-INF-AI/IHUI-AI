@@ -92,7 +92,7 @@ export default function AgentCategoriesPage() {
           {categories.map((cat) => (
             <Link key={cat.categoryId} href={`/agents/categories/${cat.categoryId}`}>
               <Card className="transition-colors hover:bg-accent/40">
-                <CardContent className="space-y-3 p-3">
+                <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                       {cat.icon ? (

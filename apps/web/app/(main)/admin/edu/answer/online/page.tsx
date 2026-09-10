@@ -173,7 +173,7 @@ function AnswerOnlineContent() {
             <div className="space-y-3">
               {questions.map((q, idx) => (
                 <Card key={q.id}>
-                  <CardContent className="p-3">
+                  <CardContent className="min-[640px]:p-3 p-3">
                     <div className="mb-2 flex items-start justify-between gap-2">
                       <div>
                         <span className="mr-2 text-xs text-muted-foreground">

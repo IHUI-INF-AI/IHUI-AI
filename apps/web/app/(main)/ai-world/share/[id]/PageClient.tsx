@@ -126,7 +126,7 @@ export default function AiWorldSharePage() {
             <Sparkles className="h-10 w-10 text-muted-foreground/40" />
           </div>
         )}
-        <CardContent className="space-y-3 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-3 p-3">
           <h2 className="text-lg font-bold tracking-tight">{world.title}</h2>
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
@@ -147,7 +147,7 @@ export default function AiWorldSharePage() {
       </Card>
 
       <Card>
-        <CardContent className="space-y-4 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-4 p-3">
           <div className="space-y-2">
             <p className="text-sm font-medium">{t('shareLink')}</p>
             <div className="flex items-center gap-2">

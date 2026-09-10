@@ -28,7 +28,7 @@ export function NewsSidebar({ categories, categoryId, onCategoryChange, pinned }
         <CardHeader className="p-3 pb-2">
           <CardTitle className="text-sm">{t('categories')}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-1 p-3 pt-0">
+        <CardContent className="min-[640px]:p-3 space-y-1 p-3 pt-0">
           <button
             type="button"
             onClick={() => onCategoryChange('all')}
@@ -67,7 +67,7 @@ export function NewsSidebar({ categories, categoryId, onCategoryChange, pinned }
               {t('pinned')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 p-3 pt-0">
+          <CardContent className="min-[640px]:p-3 space-y-2 p-3 pt-0">
             {pinned.map((item) => (
               <Link
                 key={item.id}

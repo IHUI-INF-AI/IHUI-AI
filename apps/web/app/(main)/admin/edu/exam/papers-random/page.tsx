@@ -113,7 +113,7 @@ export default function EduExamPapersRandomPage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-4 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-4 p-3">
           <div className="space-y-2">
             <Label htmlFor="r-paper">{t('targetPaper')}</Label>
             <Select value={form.paperId} onValueChange={(v) => setForm({ ...form, paperId: v })}>

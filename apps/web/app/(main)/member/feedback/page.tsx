@@ -150,7 +150,7 @@ export default function MemberFeedbackPage() {
           <div className="space-y-2">
             {items.map((item) => (
               <Card key={item.id} className="transition-colors hover:bg-accent">
-                <CardContent className="space-y-1 p-3">
+                <CardContent className="min-[640px]:p-3 space-y-1 p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
@@ -183,7 +183,7 @@ export default function MemberFeedbackPage() {
         )
       ) : (
         <Card>
-          <CardContent className="p-3">
+          <CardContent className="min-[640px]:p-3 p-3">
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="space-y-1">
                 <Label className="text-xs">{t('fieldType')}</Label>

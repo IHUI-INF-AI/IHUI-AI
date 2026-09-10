@@ -103,7 +103,7 @@ interface StatCardProps {
 function StatCard({ title, value, icon: Icon }: StatCardProps) {
   return (
     <Card className="transition-colors hover:bg-accent">
-      <CardContent className="flex items-center gap-4 p-3">
+      <CardContent className="min-[640px]:p-3 flex items-center gap-4 p-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="h-5 w-5" />
         </div>

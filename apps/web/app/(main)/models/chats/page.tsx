@@ -41,7 +41,7 @@ export default async function ChatsPage() {
     <div className="px-4 space-y-4 py-4">
       <BackButton />
       <Card>
-        <CardContent className="flex items-center gap-2 p-3">
+        <CardContent className="min-[640px]:p-3 flex items-center gap-2 p-3">
           <Search className="h-4 w-4 text-muted-foreground" />
           <Input placeholder={t('chats.searchPlaceholder')} className="h-9 flex-1 text-xs" />
         </CardContent>

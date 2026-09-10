@@ -249,7 +249,7 @@ export default function StudentCenterPage() {
               {quickLinks.map(({ href, key, icon: Icon }) => (
                 <Link key={href} href={href}>
                   <Card className="transition-colors hover:bg-accent">
-                    <CardContent className="flex items-center gap-3 p-3">
+                    <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
                         <Icon className="h-5 w-5 text-primary" />
                       </div>

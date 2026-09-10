@@ -91,7 +91,7 @@ export function ContentEditorCard({
 
   return (
     <Card>
-      <CardContent className="space-y-4 p-3">
+      <CardContent className="min-[640px]:p-3 space-y-4 p-3">
         <div className="space-y-2">
           <Label>{t('new.titleField')}</Label>
           <Input

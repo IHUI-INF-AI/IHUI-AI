@@ -234,7 +234,7 @@ export default function EduAiPolicyPage() {
               className="cursor-pointer transition-colors hover:bg-accent"
               onClick={() => setSelectedId(item.id)}
             >
-              <CardContent className="space-y-2 p-3">
+              <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <p className="flex items-start gap-2 font-medium">
                     <ScrollText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />

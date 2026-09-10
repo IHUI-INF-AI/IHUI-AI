@@ -187,7 +187,7 @@ export default function CourseRatePage() {
               const time = formatDate(item.createdAt ?? item.createTime ?? '')
               return (
                 <Card key={item.id}>
-                  <CardContent className="flex items-start gap-3 p-3">
+                  <CardContent className="min-[640px]:p-3 flex items-start gap-3 p-3">
                     <Avatar src={avatar ?? undefined} name={name} size="md" />
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center justify-between gap-2">

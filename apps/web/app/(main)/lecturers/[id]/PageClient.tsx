@@ -103,7 +103,7 @@ export default function LecturerDetailPageClient() {
       </Link>
 
       <Card>
-        <CardContent className="flex flex-col items-center gap-4 p-3 text-center min-[640px]:flex-row min-[640px]:text-left">
+        <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-4 p-3 text-center min-[640px]:flex-row min-[640px]:text-left">
           <Avatar
             src={lecturer.avatar ?? undefined}
             name={lecturer.name}

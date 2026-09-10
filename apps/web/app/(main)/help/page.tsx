@@ -130,7 +130,7 @@ export default function HelpPage() {
               {filtered.map((a) => (
                 <Link key={a.slug} href={`/help/${a.slug}`} className="block">
                   <Card className="transition-colors hover:bg-accent">
-                    <CardContent className="p-3">
+                    <CardContent className="min-[640px]:p-3 p-3">
                       <div className="flex items-start justify-between gap-2">
                         <h2 className="text-sm font-semibold">{a.title}</h2>
                         <span className="shrink-0 text-xs text-muted-foreground">

@@ -9003,7 +9003,74 @@
     "warning": "경고"
   },
   "commandPalette": {
+    "groups": {
+    "mode": "모드",
+    "navigate": "탐색",
+    "settings": "설정",
+    "tools": "도구",
+    "view": "보기"
+    },
     "commands": {
+      "agent": {
+        "description": "AI 에이전트 관리 및 디스패치",
+        "label": "AI 에이전트"
+      },
+      "browser": {
+        "description": "작업 공간에서 웹 탐색",
+        "label": "내장 브라우저"
+      },
+      "capabilityMarket": {
+        "description": "기능 팩 탐색 및 설치",
+        "label": "기능 마켓"
+      },
+      "codeChanges": {
+        "description": "작업 공간 코드 변경 확인",
+        "label": "코드 변경"
+      },
+      "connectors": {
+        "description": "외부 서비스 연결 관리",
+        "label": "커넥터"
+      },
+      "document": {
+        "description": "작업 공간 문서 편집",
+        "label": "문서"
+      },
+      "editor": {
+        "description": "코드 에디터 열기",
+        "label": "에디터"
+      },
+      "mcp": {
+        "description": "MCP 서버 및 도구 관리",
+        "label": "MCP 관리"
+      },
+      "mcpStore": {
+        "description": "MCP 서비스 탐색 및 설치",
+        "label": "MCP 스토어"
+      },
+      "modeBuild": {
+        "description": "AI가 직접 빌드하고 수정",
+        "label": "빌드 모드"
+      },
+      "modePlan": {
+        "description": "계획 수립 후 실행",
+        "label": "계획 모드"
+      },
+      "modeReview": {
+        "description": "기존 코드 검토",
+        "label": "리뷰 모드"
+      },
+      "modeSpec": {
+        "description": "스펙에서 구현 생성",
+        "label": "스펙 모드"
+      },
+      "skill": {
+        "description": "AI 스킬 관리 및 호출",
+        "label": "스킬"
+      },
+      "terminal": {
+        "description": "통합 터미널 열기",
+        "label": "터미널"
+      },
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
         "keywords": ["AI", "월드", "앱"],

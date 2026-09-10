@@ -20,14 +20,14 @@ export function FeedbackDetailBody({ fb }: Props) {
   return (
     <>
       <Card>
-        <CardContent className="p-3">
+        <CardContent className="min-[640px]:p-3 p-3">
           <MarkdownViewer content={fb.content} />
         </CardContent>
       </Card>
 
       {fb.adminReply && (
         <Card>
-          <CardContent className="p-3">
+          <CardContent className="min-[640px]:p-3 p-3">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {tc('adminReply')}
             </p>

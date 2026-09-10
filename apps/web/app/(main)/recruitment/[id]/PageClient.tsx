@@ -127,7 +127,7 @@ export default function RecruitmentDetailPage() {
             const color = statColors[i] ?? 'text-primary'
             return (
               <Card key={s.label}>
-                <CardContent className="flex items-center gap-3 p-3">
+                <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
                   <div
                     className={cn(
                       'flex h-10 w-10 items-center justify-center rounded-lg bg-muted',

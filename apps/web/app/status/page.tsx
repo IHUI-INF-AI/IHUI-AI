@@ -260,7 +260,7 @@ function Section({
 }) {
   return (
     <Card>
-      <CardContent className="space-y-3 p-3">
+      <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-primary" />
           <p className="text-sm font-semibold">{title}</p>
@@ -294,7 +294,7 @@ export default async function StatusPage() {
     return (
       <div className="mx-auto max-w-4xl px-4 py-4">
         <Card>
-          <CardContent className="flex flex-col items-center gap-2 p-3 text-center">
+          <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-2 p-3 text-center">
             <AlertTriangle className="h-8 w-8 text-rose-500" />
             <p className="text-sm font-medium">{result.error}</p>
             <p className="text-xs text-muted-foreground">页面将每 60 秒自动刷新重试</p>
@@ -320,7 +320,7 @@ export default async function StatusPage() {
       </div>
 
       <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3">
+        <CardContent className="min-[640px]:p-3 flex flex-wrap items-center justify-between gap-3 p-3">
           <div className="flex items-center gap-2">
             <StatusBadge status={overall} />
             <span className="text-sm font-medium">

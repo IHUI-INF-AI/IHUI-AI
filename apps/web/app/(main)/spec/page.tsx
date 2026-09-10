@@ -43,7 +43,7 @@ function HistoryRow({ entry }: { entry: SpecHistoryEntry }) {
   return (
     <Link href={`/spec/${entry.id}`} className="block">
       <Card className="transition-colors hover:bg-accent/30">
-        <CardContent className="flex items-start justify-between gap-4 p-3">
+        <CardContent className="min-[640px]:p-3 flex items-start justify-between gap-4 p-3">
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-center gap-2">
               <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-foreground">
@@ -122,7 +122,7 @@ export default function SpecListPage() {
             模板
           </h2>
           <Card>
-            <CardContent className="space-y-1 p-3">
+            <CardContent className="min-[640px]:p-3 space-y-1 p-3">
               {SPEC_BUILTIN_TEMPLATES.map((tpl) => (
                 <Link
                   key={tpl.id}

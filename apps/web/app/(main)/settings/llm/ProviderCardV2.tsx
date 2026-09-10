@@ -188,7 +188,7 @@ export function ProviderCardV2({
 
   return (
     <Card className={!provider.enabled ? 'opacity-60' : undefined}>
-      <CardContent className="space-y-3 p-3">
+      <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         {/* Header: name + badges + actions */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">

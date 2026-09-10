@@ -75,7 +75,7 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
                 </div>
               )}
             </div>
-            <CardContent className="flex flex-1 flex-col gap-2 p-3">
+            <CardContent className="min-[640px]:p-3 flex flex-1 flex-col gap-2 p-3">
               <div className="flex items-center gap-2">
                 <Avatar src={a.avatar ?? undefined} name={a.name ?? 'A'} size="sm" />
                 <span className="break-words font-medium">{a.name}</span>

@@ -322,7 +322,7 @@ export default function AccountsPage() {
             const inCooldown = (acc.cooldownRemaining ?? 0) > 0
             return (
               <Card key={a.id} className={cn(inCooldown && 'border-orange-500/40 opacity-60')}>
-                <CardContent className="space-y-3 p-3">
+                <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-semibold text-primary">

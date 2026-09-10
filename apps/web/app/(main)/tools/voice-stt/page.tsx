@@ -138,7 +138,7 @@ export default function VoiceSttPage() {
       </header>
 
       <Card>
-        <CardContent className="space-y-4 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-4 p-3">
           <input
             ref={fileInputRef}
             type="file"
@@ -232,7 +232,7 @@ export default function VoiceSttPage() {
         </div>
       ) : result ? (
         <Card>
-          <CardContent className="space-y-3 p-3">
+          <CardContent className="min-[640px]:p-3 space-y-3 p-3">
             {result.stub && <Alert variant="warning" description={t('stubWarning')} />}
             <div className="space-y-2">
               <Label htmlFor="stt-result">{t('result')}</Label>

@@ -49,7 +49,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 function CardItem({ card, footer }: { card: BusinessCard; footer?: React.ReactNode }) {
   return (
     <Card className="overflow-hidden transition-colors hover:bg-accent/40">
-      <CardContent className="flex items-start gap-3 p-3">
+      <CardContent className="min-[640px]:p-3 flex items-start gap-3 p-3">
         {card.avatar ? (
           <Image
             src={card.avatar}

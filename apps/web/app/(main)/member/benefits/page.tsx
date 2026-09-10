@@ -73,7 +73,7 @@ export default function MemberBenefitsPage() {
                   b.current && 'border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/10',
                 )}
               >
-                <CardContent className="space-y-3 p-3">
+                <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Crown className="h-4 w-4 text-amber-500" />

@@ -177,7 +177,7 @@ export default function TrendPage() {
 
       {/* Subject filter */}
       <Card>
-        <CardContent className="flex items-center gap-3 p-3">
+        <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
           <BookOpen className="h-4 w-4 text-muted-foreground" />
           <Select value={selectedSubject} onValueChange={setSelectedSubject}>
             <SelectTrigger className="w-40">

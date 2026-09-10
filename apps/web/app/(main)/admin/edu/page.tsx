@@ -111,7 +111,7 @@ export default function EduHubPage() {
           return (
             <Link key={m.href} href={m.href}>
               <Card className="transition-all hover:shadow-md hover:bg-accent">
-                <CardContent className="flex items-start gap-4 p-3">
+                <CardContent className="min-[640px]:p-3 flex items-start gap-4 p-3">
                   <div
                     className={cn(
                       'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white',
