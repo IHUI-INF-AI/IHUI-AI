@@ -70,7 +70,9 @@ jobs:
         run: pnpm turbo run test
 
       - name: Build
-        run: pnpm turbo run build
+        # desktop(tauri) 构建极重且发布由专门工作流负责,CI 仅验证其余包可构建;
+        # 连续两轮 desktop build 阶段遭 runner shutdown(cancel)。
+        run: pnpm turbo run build --filter=!@ihui/desktop
 
   python-ai-service:
     runs-on: ubuntu-latest
