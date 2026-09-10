@@ -117,8 +117,10 @@ async function switchLocale(page: Page, locale: string) {
 }
 
 /** 检测是否弹出登录模态框(若弹出,返回命中元素描述;null 表示无)
- *  2026-08-27 修复:只认"可见"元素 —— sidebar ASIDE 带 role="dialog" 且折叠态
- *  display:none,隐藏元素误报会让认证页被错误 skip。 */
+ *  2026-08-27 修复:只认"可见"元素 —— sidebar ASIDE 带 role="dialog" 的是移动抽屉,
+ *  在 ≥1024px 由 min-[1024px]:hidden 隐藏(2026-09-09 注释更正:抽屉恒 collapsed={false},
+ *  其隐藏机制是桌面视口 hidden 类,而非折叠态 display:none),
+ *  隐藏元素误报会让认证页被错误 skip。 */
 async function isLoginModalOpen(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     // 多种登录模态框 selector 都试一次

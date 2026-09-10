@@ -74,19 +74,19 @@ const DrawerContent = React.forwardRef<
 DrawerContent.displayName = DialogPrimitive.Content.displayName
 
 const DrawerHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex flex-col space-y-1.5 p-4', className)} {...props} />
+  <div className={cn('flex flex-col space-y-1.5 p-3', className)} {...props} />
 )
 DrawerHeader.displayName = 'DrawerHeader'
 
 const DrawerBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex-1 overflow-y-auto p-4', className)} {...props} />
+  <div className={cn('flex-1 overflow-y-auto p-3', className)} {...props} />
 )
 DrawerBody.displayName = 'DrawerBody'
 
 const DrawerFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'flex flex-col-reverse gap-2 p-4 min-[640px]:flex-row min-[640px]:justify-end',
+      'flex flex-col-reverse gap-2 p-3 min-[640px]:flex-row min-[640px]:justify-end',
       className,
     )}
     {...props}

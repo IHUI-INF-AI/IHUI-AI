@@ -99,7 +99,7 @@ export default function MyArticlesPage() {
           <div className="space-y-3">
             {articles.map((a: ArticleItem) => (
               <Card key={a.id}>
-                <CardContent className="flex items-start gap-3 p-4">
+                <CardContent className="flex items-start gap-3 p-3">
                   {a.coverImage ? (
                     <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-md">
                       <Image src={a.coverImage} alt={a.title} fill className="object-cover" />

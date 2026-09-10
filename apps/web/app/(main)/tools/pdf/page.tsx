@@ -45,7 +45,7 @@ const TOOLS: PdfTool[] = [
 
 export default function PdfToolsPage() {
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <nav className="flex items-center gap-1 text-sm text-muted-foreground">
         <Link href="/tools" className="transition-colors hover:text-foreground">
           工具
@@ -66,7 +66,7 @@ export default function PdfToolsPage() {
         {TOOLS.map(({ href, title, description, Icon }) => (
           <Link key={href} href={href} className="group block">
             <Card className="transition-colors hover:bg-accent">
-              <CardHeader className="flex-row items-center gap-3 space-y-0 p-4">
+              <CardHeader className="flex-row items-center gap-3 space-y-0 p-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />
                 </div>

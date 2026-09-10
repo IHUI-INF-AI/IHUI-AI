@@ -52,7 +52,7 @@ export default function SubagentTopologyPage() {
   )
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <button
         type="button"
         onClick={() => router.push('/subagents')}
@@ -91,12 +91,12 @@ export default function SubagentTopologyPage() {
       </div>
 
       <Card>
-        <CardHeader className="p-4">
+        <CardHeader className="p-3">
           <CardTitle className="text-sm">
             拓扑图({topology?.nodes.length ?? 0} 节点 / {topology?.edges.length ?? 0} 边)
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 pt-0">
+        <CardContent className="p-3 pt-0">
           {topoQ.isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -212,7 +212,7 @@ export default function WorkflowDetailPage() {
     )
   if (wfQ.error || !wfQ.data)
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {(wfQ.error as Error)?.message ?? t('notFound')}
       </div>
     )
@@ -337,7 +337,7 @@ export default function WorkflowDetailPage() {
       </button>
 
       {/* 头部信息 */}
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-card p-3">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Workflow className="h-5 w-5" />

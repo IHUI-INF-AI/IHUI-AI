@@ -613,7 +613,7 @@ function ModelCardGrid({
           onCardClick(model)
         }
       }}
-      className="group relative flex cursor-pointer flex-col gap-3 p-4 transition-all hover:bg-accent/40 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring/20"
+      className="group relative flex cursor-pointer flex-col gap-3 p-3 transition-all hover:bg-accent/40 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring/20"
     >
       {/* 收藏星标按钮(右上角) */}
       <FavoriteStar

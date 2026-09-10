@@ -10,7 +10,7 @@ import { UserCircle, FileJson, Loader2, Search, ChevronDown } from 'lucide-react
 import { Button, Card, CardContent, CardHeader, Input } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
-import { useAuthStore } from '@/stores/auth'
+import { fetchAiServiceJson } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8803'
@@ -49,25 +49,15 @@ interface PersonaDetail {
   output_schema: JsonSchema
 }
 
-/** 直连 ai-service:携带 Bearer token,错误时优先取后端 detail 作为提示 */
-async function fetchAiJson<T>(path: string, token: string | null): Promise<T> {
-  const headers: Record<string, string> = {}
-  if (token) headers.Authorization = `Bearer ${token}`
-  const res = await fetch(`${AI_SERVICE_URL}${path}`, { headers })
-  let json: unknown = null
-  try {
-    json = await res.json()
-  } catch {
-    json = null
-  }
-  if (!res.ok) {
-    const detail =
-      typeof json === 'object' && json !== null && 'detail' in json
-        ? String((json as Record<string, unknown>).detail)
-        : undefined
-    throw new Error(detail ?? `请求失败:${res.status}`)
-  }
-  return json as T
+/**
+ * 直连 ai-service(2026-09-09 0-5 迁移:统一走 fetchAiServiceJson)。
+ * AI_SERVICE_URL 为绝对 URL,normalizeUrl 直通;Bearer / X-Requested-With CSRF /
+ * 设备指纹 / 30s 超时由共享层注入,错误 message 兼容后端 detail 字段。
+ */
+async function fetchAiJson<T>(path: string): Promise<T> {
+  const res = await fetchAiServiceJson<T>(`${AI_SERVICE_URL}${path}`)
+  if (!res.success) throw new Error(res.error ?? '请求失败')
+  return res.data as T
 }
 
 /** 字段类型展示:array 时展示 items 子类型 */
@@ -132,7 +122,6 @@ function SchemaView({ schema }: { schema: JsonSchema }) {
 export default function PersonasPage() {
   const t = useTranslations('eduAi.personas')
   const tc = useTranslations('common')
-  const token = useAuthStore((s) => s.token)
 
   const [personas, setPersonas] = React.useState<Persona[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -149,14 +138,14 @@ export default function PersonasPage() {
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchAiJson<PersonaListResponse>('/api/personas', token)
+      const data = await fetchAiJson<PersonaListResponse>('/api/personas')
       setPersonas(data.personas ?? [])
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [])
 
   React.useEffect(() => {
     void loadPersonas()
@@ -168,10 +157,7 @@ export default function PersonasPage() {
       setDetailError(null)
       setDetail(null)
       try {
-        const data = await fetchAiJson<PersonaDetail>(
-          `/api/personas/${encodeURIComponent(name)}`,
-          token,
-        )
+        const data = await fetchAiJson<PersonaDetail>(`/api/personas/${encodeURIComponent(name)}`)
         setDetail(data)
       } catch (e) {
         setDetailError(e instanceof Error ? e.message : String(e))
@@ -179,7 +165,7 @@ export default function PersonasPage() {
         setDetailLoading(false)
       }
     },
-    [token],
+    [],
   )
 
   const handleToggle = (name: string) => {
@@ -262,7 +248,7 @@ export default function PersonasPage() {
                   aria-expanded={isSelected}
                   className="block w-full rounded-lg text-left"
                 >
-                  <CardContent className="p-4">
+                  <CardContent className="p-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex items-center gap-2 font-mono text-sm font-semibold">
                         <UserCircle className="h-4 w-4 shrink-0 text-primary" />
@@ -308,18 +294,18 @@ export default function PersonasPage() {
           ) : detail ? (
             <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
               <Card>
-                <CardHeader className="p-4 pb-2">
+                <CardHeader className="p-3 pb-2">
                   <h3 className="text-sm font-medium">{t('inputSchema')}</h3>
                 </CardHeader>
-                <CardContent className="p-4 pt-0">
+                <CardContent className="p-3 pt-0">
                   <SchemaView schema={detail.input_schema} />
                 </CardContent>
               </Card>
               <Card>
-                <CardHeader className="p-4 pb-2">
+                <CardHeader className="p-3 pb-2">
                   <h3 className="text-sm font-medium">{t('outputSchema')}</h3>
                 </CardHeader>
-                <CardContent className="p-4 pt-0">
+                <CardContent className="p-3 pt-0">
                   <SchemaView schema={detail.output_schema} />
                 </CardContent>
               </Card>

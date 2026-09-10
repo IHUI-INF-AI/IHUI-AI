@@ -148,7 +148,7 @@ export default function TeamDetailPage() {
     )
   if (teamQ.error || !team)
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {(teamQ.error as Error)?.message ?? t('notFound')}
       </div>
     )
@@ -160,7 +160,7 @@ export default function TeamDetailPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <button
         type="button"
         onClick={() => router.push('/teams')}

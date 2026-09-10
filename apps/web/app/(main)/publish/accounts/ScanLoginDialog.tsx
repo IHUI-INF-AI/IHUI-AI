@@ -295,7 +295,7 @@ export function ScanLoginDialog({
           )}
 
           {phase === 'polling' && (
-            <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-4">
+            <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-3">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <div className="space-y-1 text-center">
                 <p className="text-sm font-medium">正在等待扫码登录</p>

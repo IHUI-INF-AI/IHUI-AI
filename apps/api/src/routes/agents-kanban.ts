@@ -17,13 +17,20 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { EventEmitter } from 'events'
 import { z } from 'zod'
-import { eq, desc, inArray } from 'drizzle-orm'
+import { eq, desc, inArray, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { agentTasks } from '@ihui/database'
+import { agentTasks, teamMembers } from '@ihui/database'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../utils/response.js'
 import { withAuditBoth } from '../utils/audit.js'
+import {
+  acquireWorkspaceLock,
+  getWorkspaceLock,
+  releaseWorkspaceLock,
+  renewWorkspaceLock,
+  WORKSPACE_LOCK_TTL,
+} from '../services/workspace-lock.js'
 import type {
   KanbanTask,
   KanbanColumn,
@@ -98,6 +105,9 @@ function toKanbanTask(row: AgentTaskRow): KanbanTask {
     ? deps.filter((d): d is string => typeof d === 'string')
     : []
   const workerId = typeof payload.workerId === 'string' ? payload.workerId : undefined
+  const workspacePath =
+    row.workspacePath ??
+    (typeof payload.workspacePath === 'string' ? payload.workspacePath : undefined)
   return {
     id: row.id,
     agentId: row.agentId,
@@ -116,6 +126,10 @@ function toKanbanTask(row: AgentTaskRow): KanbanTask {
     createdBy: row.createdBy ?? undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    workspacePath,
+    teamId: row.teamId ?? undefined,
+    lockedBy: row.lockedBy ?? undefined,
+    lockedAt: row.lockedAt?.toISOString(),
   }
 }
 
@@ -149,6 +163,7 @@ const idParamSchema = z.object({ id: z.uuid() })
 
 const statusFilterSchema = z.object({
   status: z.enum(['triage', 'todo', 'ready', 'in_progress', 'blocked', 'done']).optional(),
+  teamId: z.uuid().optional(),
 })
 
 const createTaskSchema = z.object({
@@ -164,6 +179,8 @@ const createTaskSchema = z.object({
     .optional(),
   dependencies: z.array(z.string()).max(100).optional(),
   workerId: z.string().optional(),
+  workspacePath: z.string().max(512).optional(),
+  teamId: z.uuid().optional(),
 })
 
 const transitionSchema = z.object({
@@ -172,6 +189,25 @@ const transitionSchema = z.object({
   operatedBy: z.string().optional(),
   reason: z.string().optional(),
 })
+
+const workspaceLockQuerySchema = z.object({
+  workspace: z.string().min(1).max(512),
+})
+
+// ---------------------------------------------------------------------------
+// 团队成员校验(2-2 团队任务板):admin(roleId>=1)直接放行,其余须为团队成员
+// ---------------------------------------------------------------------------
+const ADMIN_ROLE_ID = 1
+
+async function isTeamMember(teamId: string, userId: string | undefined): Promise<boolean> {
+  if (!userId) return false
+  const [row] = await db
+    .select({ id: teamMembers.id })
+    .from(teamMembers)
+    .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+    .limit(1)
+  return !!row
+}
 
 // ---------------------------------------------------------------------------
 // 路由插件
@@ -188,21 +224,49 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(columns))
   })
 
-  // GET /agents/kanban/tasks — 任务列表(?status= 过滤)
+  // GET /agents/kanban/tasks — 任务列表(?status= / ?teamId= 过滤)
   server.get('/agents/kanban/tasks', async (request, reply) => {
     const parsed = statusFilterSchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const where = parsed.data.status
-      ? inArray(agentTasks.status, STATUS_VARIANTS[parsed.data.status])
-      : undefined
+    const { status, teamId } = parsed.data
+    // 团队过滤:非 admin 须为该团队成员(2-2 团队任务板)
+    if (teamId) {
+      const roleId = request.jwtPayload?.roleId ?? 0
+      if (roleId < ADMIN_ROLE_ID && !(await isTeamMember(teamId, request.userId))) {
+        return reply.status(403).send(error(403, '非团队成员,无法查看该团队任务板'))
+      }
+    }
+    const conditions = []
+    if (status) conditions.push(inArray(agentTasks.status, STATUS_VARIANTS[status]))
+    if (teamId) conditions.push(eq(agentTasks.teamId, teamId))
+    const where = conditions.length > 0 ? and(...conditions) : undefined
     const rows = await db
       .select()
       .from(agentTasks)
       .where(where)
       .orderBy(desc(agentTasks.priority), desc(agentTasks.createdAt))
     return reply.send(success(rows.map(toKanbanTask)))
+  })
+
+  // GET /agents/kanban/workspace-lock — 查询工作区锁当前持有者(2-2 锁徽标)
+  server.get('/agents/kanban/workspace-lock', async (request, reply) => {
+    const parsed = workspaceLockQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, 'workspace 参数无效'))
+    }
+    const info = await getWorkspaceLock(parsed.data.workspace)
+    return reply.send(
+      success({
+        workspace: parsed.data.workspace,
+        held: info !== null,
+        holder: info?.holder,
+        acquiredAt: info ? new Date(info.acquiredAt * 1000).toISOString() : undefined,
+        heartbeatAt: info ? new Date(info.heartbeatAt * 1000).toISOString() : undefined,
+        ttl: WORKSPACE_LOCK_TTL,
+      }),
+    )
   })
 
   // GET /agents/kanban/tasks/stream — SSE 实时流
@@ -272,6 +336,8 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
             priority: body.priority ?? 0,
             payload,
             scheduledAt: body.scheduledAt ?? null,
+            workspacePath: body.workspacePath ?? null,
+            teamId: body.teamId ?? null,
           },
           request.userId ?? null,
         ),
@@ -319,11 +385,73 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(409).send(success(response))
       }
 
+      // -----------------------------------------------------------------
+      // 2-2 工作区锁联动:进入 in_progress 前获取锁,离开时释放
+      // -----------------------------------------------------------------
+      const payload = current.payload ?? {}
+      const workspace =
+        current.workspacePath ??
+        (typeof payload.workspacePath === 'string' ? payload.workspacePath : undefined)
+      let nextPayload = payload
+
+      if (toStatus === 'in_progress' && workspace) {
+        const holder = `task:${id}`
+        const lockInfo = await acquireWorkspaceLock(workspace, holder)
+        if (!lockInfo) {
+          const held = await getWorkspaceLock(workspace)
+          return reply
+            .status(409)
+            .send(
+              error(
+                409,
+                `工作区 ${workspace} 已被 ${held?.holder ?? '未知持有者'} 占用,无法开始执行`,
+              ),
+            )
+        }
+        // token 存入 payload,离开 in_progress 时凭此释放
+        nextPayload = { ...payload, workspaceLockToken: lockInfo.token }
+        broadcastSSEEvent({
+          type: 'workspace_lock_acquired',
+          taskId: id,
+          payload: { workspace, holder, task: id },
+          timestamp: new Date().toISOString(),
+        })
+      }
+
+      const leavingInProgress = fromStatus === 'in_progress' && toStatus !== 'in_progress'
+      if (leavingInProgress && workspace) {
+        const token =
+          typeof payload.workspaceLockToken === 'string' ? payload.workspaceLockToken : undefined
+        if (token) {
+          await releaseWorkspaceLock(workspace, token)
+          const { workspaceLockToken: _removed, ...rest } = payload
+          nextPayload = rest
+        }
+        broadcastSSEEvent({
+          type: 'workspace_lock_released',
+          taskId: id,
+          payload: { workspace, task: id },
+          timestamp: new Date().toISOString(),
+        })
+      }
+
       // 合法流转 → 更新 DB
       const updateData: Record<string, unknown> = {
         status: toStatus,
         updatedAt: new Date(),
         updatedBy: request.userId ?? null,
+      }
+      if (nextPayload !== payload) {
+        updateData.payload = nextPayload
+      }
+      // 锁审计字段:进 in_progress 记录持有者,离开时清除
+      if (toStatus === 'in_progress' && workspace) {
+        updateData.lockedBy = `task:${id}`
+        updateData.lockedAt = new Date()
+      }
+      if (leavingInProgress) {
+        updateData.lockedBy = null
+        updateData.lockedAt = null
       }
       // 状态相关的副作用时间戳
       if (toStatus === 'in_progress' && !current.startedAt) {

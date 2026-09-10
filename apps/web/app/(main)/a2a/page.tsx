@@ -20,7 +20,7 @@ import {
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
-import { useAuthStore } from '@/stores/auth'
+import { fetchAiServiceJson } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8803'
@@ -123,25 +123,15 @@ function parseCapabilities(raw: string): string[] {
     .filter((s) => s.length > 0)
 }
 
-/** AI 服务直连请求(AI_SERVICE_URL + JWT Bearer) */
-async function apiFetch<T>(path: string, token: string | null, init?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) headers.Authorization = `Bearer ${token}`
-  const res = await fetch(`${AI_SERVICE_URL}${path}`, { ...init, headers })
-  let json: unknown = null
-  try {
-    json = await res.json()
-  } catch {
-    json = null
-  }
-  if (!res.ok) {
-    const message =
-      typeof json === 'object' && json !== null && 'message' in json
-        ? String((json as Record<string, unknown>).message)
-        : undefined
-    throw new Error(message ?? `A2A 请求失败:${res.status}`)
-  }
-  return json as T
+/**
+ * AI 服务直连请求(2026-09-09 0-5 迁移:统一走 fetchAiServiceJson)。
+ * AI_SERVICE_URL 为绝对 URL,normalizeUrl 直通不改写;鉴权 Bearer / X-Requested-With
+ * CSRF / 设备指纹 / 30s 超时均由共享层注入,不再手拼 header。
+ */
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetchAiServiceJson<T>(`${AI_SERVICE_URL}${path}`, init)
+  if (!res.success) throw new Error(res.error ?? 'A2A 请求失败')
+  return res.data as T
 }
 
 const STATUS_LABEL_KEYS: Record<TaskStatus, 'pending' | 'running' | 'completed' | 'failed'> = {
@@ -161,7 +151,6 @@ const STATUS_CLASSES: Record<TaskStatus, string> = {
 export default function A2APage() {
   const t = useTranslations('eduAi.a2a')
   const ct = useTranslations('common')
-  const token = useAuthStore((s) => s.token)
 
   const [tab, setTab] = React.useState<TabKey>('agents')
 
@@ -210,7 +199,7 @@ export default function A2APage() {
     setAgentsLoading(true)
     setAgentsError(null)
     try {
-      const data = await apiFetch<unknown>('/api/a2a/agents', useAuthStore.getState().token)
+      const data = await apiFetch<unknown>('/api/a2a/agents')
       if (!isAgentList(data)) throw new Error('智能体列表返回格式异常')
       setAgents(data.agents)
     } catch (e) {
@@ -246,7 +235,7 @@ export default function A2APage() {
         capabilities: parseCapabilities(form.capabilities),
         endpoint: form.endpoint.trim() || undefined,
       }
-      await apiFetch<unknown>('/api/a2a/agents/register', token, {
+      await apiFetch<unknown>('/api/a2a/agents/register', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
@@ -264,10 +253,7 @@ export default function A2APage() {
   async function pollTask(taskId: string) {
     if (stoppedRef.current) return
     try {
-      const task = await apiFetch<unknown>(
-        `/api/a2a/tasks/${encodeURIComponent(taskId)}/status`,
-        useAuthStore.getState().token,
-      )
+      const task = await apiFetch<unknown>(`/api/a2a/tasks/${encodeURIComponent(taskId)}/status`)
       if (stoppedRef.current) return
       if (!isTask(task)) throw new Error('任务状态返回格式异常')
       setCurrentTask(task)
@@ -296,7 +282,7 @@ export default function A2APage() {
     setTaskError(null)
     setCurrentTask(null)
     try {
-      const created = await apiFetch<unknown>('/api/a2a/tasks', token, {
+      const created = await apiFetch<unknown>('/api/a2a/tasks', {
         method: 'POST',
         body: JSON.stringify({
           name: taskName.trim(),

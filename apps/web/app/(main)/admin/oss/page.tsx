@@ -89,7 +89,7 @@ export default function AdminOssPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <OssConfigFilter onCreate={openCreate} />
       <OssConfigTable

@@ -123,7 +123,7 @@ export default function OrderDetailPage() {
           <ArrowLeft className="mr-1.5 h-4 w-4 shrink-0" />
           {tc('back')}
         </Button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('empty')}
         </div>
       </div>
@@ -134,7 +134,7 @@ export default function OrderDetailPage() {
   const StatusIcon = sc.icon
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
+    <div className="px-4 py-4 mx-auto max-w-2xl space-y-4">
       <Button variant="ghost" size="sm" className="whitespace-nowrap" onClick={() => router.back()}>
         <ArrowLeft className="mr-1.5 h-4 w-4 shrink-0" />
         {tc('back')}
@@ -217,7 +217,7 @@ export default function OrderDetailPage() {
         )}
       </dl>
 
-      <div className="space-y-2 rounded-lg border bg-muted/30 p-4">
+      <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">{tc('originalPrice')}</span>
           <span className="tabular-nums">{currencyFmt.format(Number(order.originalPrice))}</span>

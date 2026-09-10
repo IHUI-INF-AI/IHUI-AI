@@ -79,7 +79,7 @@ export default function EduCoursesPage() {
   const courses = data?.list ?? []
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -132,7 +132,7 @@ export default function EduCoursesPage() {
                   <BookOpen className="h-10 w-10 text-primary/40" />
                 )}
               </div>
-              <CardContent className="flex-1 min-w-0 space-y-2 p-4">
+              <CardContent className="flex-1 min-w-0 space-y-2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <p className="line-clamp-1 font-medium">{c.title}</p>
                   <span

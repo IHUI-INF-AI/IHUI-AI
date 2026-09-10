@@ -196,7 +196,7 @@ export default function ModelsLandingPage() {
               OpenAI-compatible API. Drop in your existing code — just change the base URL.
             </p>
           </div>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-4">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3">
             <code className="text-sm text-foreground">{`curl https://aizhs.top/api/v1/chat/completions \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -d '{"model":"gpt-4o","messages":[{"role":"user","content":"Hello"}]}'`}</code>
@@ -205,7 +205,7 @@ export default function ModelsLandingPage() {
 
         {/* Footer CTA */}
         <section>
-          <Card className="p-8 text-center md:p-12">
+          <Card className="p-3 text-center md:p-12">
             <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
               Ready to build with 176+ AI models?
             </h2>

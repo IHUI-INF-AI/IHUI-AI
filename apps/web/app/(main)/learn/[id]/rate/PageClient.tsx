@@ -92,14 +92,14 @@ export default function CourseRatePage() {
           <ArrowLeft className="h-4 w-4" />
           {t('backToCourse')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('loadFailed')}
         </div>
       </div>
     )
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href={`/learn/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -187,7 +187,7 @@ export default function CourseRatePage() {
               const time = formatDate(item.createdAt ?? item.createTime ?? '')
               return (
                 <Card key={item.id}>
-                  <CardContent className="flex items-start gap-3 p-4">
+                  <CardContent className="flex items-start gap-3 p-3">
                     <Avatar src={avatar ?? undefined} name={name} size="md" />
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center justify-between gap-2">

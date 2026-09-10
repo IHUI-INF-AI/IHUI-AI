@@ -22,6 +22,7 @@ import {
   Trash2,
   Power,
   PowerOff,
+  ShieldAlert,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -31,9 +32,14 @@ import {
   uninstallStoreServer,
   setStoreServerEnabled,
   listExternalServers,
+  getMcpServerScore,
   type McpStoreEntry,
   type McpStoreResponse,
   type McpExternalServersResponse,
+  type McpScoringSummary,
+  type McpScoreDetail,
+  type McpSecurityLevel,
+  type McpQualityGrade,
 } from '@ihui/api-client/endpoints/mcp'
 import { BackButton } from '@/components/common'
 import { Badge } from '@/components/data'
@@ -59,6 +65,28 @@ const KEY_ICON: Record<string, LucideIcon> = {
   time: Clock,
   postgres: Database,
   github: GitBranch,
+}
+
+/** P1 1-4:安全风险等级 → 徽章变体 / i18n key */
+const RISK_BADGE_VARIANT: Record<McpSecurityLevel, 'success' | 'warning' | 'danger'> = {
+  low: 'success',
+  medium: 'warning',
+  high: 'danger',
+  critical: 'danger',
+}
+const RISK_LABEL_KEY: Record<McpSecurityLevel, string> = {
+  low: 'riskLow',
+  medium: 'riskMedium',
+  high: 'riskHigh',
+  critical: 'riskCritical',
+}
+
+/** P1 1-4:质量等级 → 徽章变体 */
+const GRADE_BADGE_VARIANT: Record<McpQualityGrade, 'success' | 'primary' | 'warning' | 'danger'> = {
+  A: 'success',
+  B: 'primary',
+  C: 'warning',
+  D: 'danger',
 }
 
 /**
@@ -105,6 +133,12 @@ export default function McpStorePageClient() {
   const [installingKey, setInstallingKey] = React.useState<string | null>(null)
   const [actingName, setActingName] = React.useState<string | null>(null)
 
+  // 高风险安装确认对话框状态(P1 1-4):待确认条目 + 暂存的 env + 评分完整明细
+  const [riskEntry, setRiskEntry] = React.useState<McpStoreEntry | null>(null)
+  const [riskEnv, setRiskEnv] = React.useState<Record<string, string>>({})
+  const [riskDetail, setRiskDetail] = React.useState<McpScoreDetail | null>(null)
+  const [riskLoading, setRiskLoading] = React.useState(false)
+
   /** 打开 env 对话框前初始化输入值 */
   const openEnvDialog = (entry: McpStoreEntry) => {
     setEnvEntry(entry)
@@ -117,16 +151,54 @@ export default function McpStorePageClient() {
     void queryClient.invalidateQueries({ queryKey: ['mcp-store', 'registered'] })
   }
 
-  /** 统一的安装逻辑:409 已存在 / 400 缺 env / 500 热挂载失败分别提示 */
-  const handleInstall = async (entry: McpStoreEntry, env: Record<string, string>) => {
+  /**
+   * 打开高风险确认对话框(P1 1-4):拉取评分完整明细(risk_factors/recommendation),
+   * 明细加载失败不阻塞确认 —— 对话框降级展示内联摘要的分数。
+   */
+  const openRiskDialog = async (entry: McpStoreEntry, env: Record<string, string>) => {
+    setRiskEntry(entry)
+    setRiskEnv(env)
+    setRiskDetail(null)
+    setRiskLoading(true)
+    try {
+      const r = await getMcpServerScore(entry.key)
+      if (r.success && r.data) setRiskDetail(r.data)
+    } catch {
+      // 评分详情加载失败:对话框仍可确认(降级展示通用文案)
+    } finally {
+      setRiskLoading(false)
+    }
+  }
+
+  /**
+   * 统一的安装逻辑:409 已存在 / 409 高风险未确认 / 400 缺 env / 500 热挂载失败分别提示。
+   * confirmRisk=true 表示用户已在风险确认对话框中明确同意,随请求传 confirm_risk。
+   */
+  const handleInstall = async (
+    entry: McpStoreEntry,
+    env: Record<string, string>,
+    confirmRisk = false,
+  ) => {
     if (installingKey) return
+    // P1 1-4 高风险确认门:评分要求确认且用户尚未确认 → 先弹风险确认对话框
+    if (!confirmRisk && entry.scoring?.confirm_required) {
+      await openRiskDialog(entry, env)
+      return
+    }
     setInstallingKey(entry.key)
     try {
-      const r = await installStoreServer(entry.key, { env })
+      const r = await installStoreServer(entry.key, {
+        env,
+        ...(confirmRisk ? { confirm_risk: true } : {}),
+      })
       if (r.success) {
         toast.success(t('success', { name: r.data.name }))
         setEnvEntry(null)
+        setRiskEntry(null)
         refresh()
+      } else if (r.status === 409 && r.errorCode === 'RISK_CONFIRM_REQUIRED') {
+        // 兜底:内联评分缺失/过期时,后端评分门拒绝 → 弹风险确认对话框
+        await openRiskDialog(entry, env)
       } else if (r.status === 409) {
         toast.error(t('exists', { name: entry.server_name }))
       } else {
@@ -137,6 +209,12 @@ export default function McpStorePageClient() {
     } finally {
       setInstallingKey(null)
     }
+  }
+
+  /** 风险确认对话框内"确认安装":带 confirm_risk=true 重试 */
+  const handleRiskConfirm = async () => {
+    if (!riskEntry || installingKey) return
+    await handleInstall(riskEntry, riskEnv, true)
   }
 
   /** env 对话框内提交安装(校验必需 env 非空) */
@@ -317,6 +395,70 @@ export default function McpStorePageClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 高风险安装确认对话框(P1 1-4:评分 high/critical 时安装前确认) */}
+      <Dialog open={riskEntry !== null} onOpenChange={(v) => !v && setRiskEntry(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-destructive" />
+              {t('riskConfirmTitle')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('riskConfirmDesc', {
+                name: riskEntry?.name ?? '',
+                score: riskDetail?.security.score ?? riskEntry?.scoring?.security_score ?? 0,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {riskLoading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t('loading')}
+              </div>
+            )}
+            {!riskLoading && (
+              <ul className="space-y-1.5">
+                {(riskDetail?.risk_factors.length
+                  ? riskDetail.risk_factors
+                  : [t('riskGeneric')]
+                ).map((factor, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-xs text-foreground">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+                    {factor}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {riskDetail?.recommendation && (
+              <p className="rounded-md bg-muted px-2.5 py-2 text-xs text-muted-foreground">
+                {t('riskRecommendation')}: {riskDetail.recommendation}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRiskEntry(null)}>
+              {t('riskCancel')}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => void handleRiskConfirm()}
+              disabled={installingKey !== null || riskLoading}
+              className="text-destructive hover:text-destructive"
+            >
+              {installingKey ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  {t('installing')}
+                </>
+              ) : (
+                t('riskConfirmProceed')
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -334,6 +476,30 @@ function StatusBadge({ entry }: { entry: McpStoreEntry }) {
     return <Badge variant="danger">{t('statusError')}</Badge>
   }
   return <Badge variant="default">{t('stopped')}</Badge>
+}
+
+/**
+ * P1 1-4 评分徽章:质量分等级(A/B/C/D 色标)+ 安全风险等级(低/中/高/极高)。
+ * title 提示完整分数(质量分/安全分悬停可见)。
+ */
+function ScoringBadges({ scoring }: { scoring: McpScoringSummary }) {
+  const t = useTranslations('mcpStore')
+  return (
+    <>
+      <Badge
+        variant={GRADE_BADGE_VARIANT[scoring.grade]}
+        title={`${t('quality')}: ${scoring.score}/100`}
+      >
+        {t('quality')} {scoring.grade}
+      </Badge>
+      <Badge
+        variant={RISK_BADGE_VARIANT[scoring.security_level]}
+        title={`${t('riskTitle')}: ${scoring.security_score}/100`}
+      >
+        {t(RISK_LABEL_KEY[scoring.security_level])}
+      </Badge>
+    </>
+  )
 }
 
 /** 单个目录条目卡片:名称/状态徽章/描述/tool_count + 安装/启停/卸载按钮 */
@@ -371,6 +537,7 @@ function DirectoryCard({
               {entry.source === 'official' ? t('official') : t('community')}
             </Badge>
             <StatusBadge entry={entry} />
+            {entry.scoring && <ScoringBadges scoring={entry.scoring} />}
           </div>
           <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-0.5">

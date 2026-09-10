@@ -25,7 +25,7 @@ export function Hero() {
       aria-label={t('hero.label')}
       className="overflow-hidden rounded-xl border bg-card shadow-sm"
     >
-      <div className="grid grid-cols-1 gap-6 p-4 min-[768px]:grid-cols-[1fr_auto] min-[768px]:p-8">
+      <div className="grid grid-cols-1 gap-6 p-3 min-[768px]:grid-cols-[1fr_auto]">
         <div className="space-y-3">
           <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
             <Sparkles className="h-3.5 w-3.5" />

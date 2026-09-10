@@ -97,7 +97,7 @@ export default function EduExamPapersRandomPage() {
   const totalScore = totalQ * (Number(form.scorePerQuestion) || 0)
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
@@ -113,7 +113,7 @@ export default function EduExamPapersRandomPage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-4 p-4 min-[768px]:p-6 min-[640px]:p-6">
+        <CardContent className="space-y-4 p-3">
           <div className="space-y-2">
             <Label htmlFor="r-paper">{t('targetPaper')}</Label>
             <Select value={form.paperId} onValueChange={(v) => setForm({ ...form, paperId: v })}>

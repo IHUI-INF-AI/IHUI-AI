@@ -37,7 +37,7 @@ export function McpResultPreview({ result, mimeType }: McpResultPreviewProps) {
   if (type.startsWith('image/') || (typeof result === 'string' && IMAGE_RE.test(result))) {
     const src = typeof result === 'string' ? result : ''
     return (
-      <div className="flex justify-center rounded-lg border p-4">
+      <div className="flex justify-center rounded-lg border p-3">
         <Image
           src={src}
           alt="result"

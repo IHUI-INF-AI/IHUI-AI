@@ -58,7 +58,7 @@ export default function RecruitmentPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-2xl rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+      <div className="mx-auto max-w-2xl rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {(error as Error).message}
       </div>
     )
@@ -81,7 +81,7 @@ export default function RecruitmentPage() {
   const statColors = ['text-primary', 'text-emerald-600', 'text-amber-500']
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <header className="space-y-3 text-center">
         <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm text-primary">
@@ -103,7 +103,7 @@ export default function RecruitmentPage() {
             const color = statColors[i] ?? 'text-primary'
             return (
               <Card key={s.label}>
-                <CardContent className="flex items-center gap-3 p-5 min-[640px]:p-5">
+                <CardContent className="flex items-center gap-3 p-3">
                   <div
                     className={cn(
                       'flex h-10 w-10 items-center justify-center rounded-lg bg-muted',
@@ -179,7 +179,7 @@ export default function RecruitmentPage() {
         </Card>
       </div>
 
-      <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-6 text-center">
+      <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-3 text-center">
         <h2 className="text-xl font-bold">{t('cta.title')}</h2>
         <p className="text-sm text-muted-foreground">{t('cta.subtitle')}</p>
         <Button asChild size="lg">

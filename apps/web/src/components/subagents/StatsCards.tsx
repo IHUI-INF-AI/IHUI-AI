@@ -59,7 +59,7 @@ export function StatsCards({ stats, isLoading }: StatsCardsProps) {
       {items.map((it) => {
         const Icon = it.icon
         return (
-          <Card key={it.key} className="p-4">
+          <Card key={it.key} className="p-3">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">{it.label}</p>

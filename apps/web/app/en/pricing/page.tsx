@@ -324,7 +324,7 @@ export default function PricingLandingPage() {
           </div>
           <div className="mx-auto max-w-3xl space-y-3">
             {faqs.map((faq) => (
-              <details key={faq.q} className="rounded-lg border border-border bg-card p-4">
+              <details key={faq.q} className="rounded-lg border border-border bg-card p-3">
                 <summary className="cursor-pointer font-medium">{faq.q}</summary>
                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{faq.a}</p>
               </details>
@@ -334,7 +334,7 @@ export default function PricingLandingPage() {
 
         {/* Open Source */}
         <section className="mb-16 md:mb-24">
-          <Card className="p-8 md:p-12">
+          <Card className="p-3 md:p-12">
             <div className="flex flex-col items-center text-center">
               <Code className="h-10 w-10 text-primary" />
               <h2 className="mt-4 text-xl font-bold tracking-tight text-foreground md:text-2xl">
@@ -363,7 +363,7 @@ export default function PricingLandingPage() {
 
         {/* Footer CTA */}
         <section>
-          <Card className="p-8 text-center md:p-12">
+          <Card className="p-3 text-center md:p-12">
             <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
               Ready to get started?
             </h2>

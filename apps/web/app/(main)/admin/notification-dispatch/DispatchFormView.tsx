@@ -52,7 +52,7 @@ export function DispatchFormView({ form, submitting, onChange, onSubmit }: Props
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4 rounded-lg border p-4">
+    <form onSubmit={onSubmit} className="space-y-4 rounded-lg border p-3">
       <div className="space-y-2">
         <Label htmlFor="nd-title">{t('nd.fieldTitle')}</Label>
         <Input

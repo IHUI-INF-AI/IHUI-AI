@@ -72,7 +72,7 @@ export function AiTutorPanel() {
 
   return (
     <Card className="flex h-full flex-col">
-      <CardContent className="flex h-full flex-col gap-4 p-4">
+      <CardContent className="flex h-full flex-col gap-4 p-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold">AI 助教</span>

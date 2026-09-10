@@ -136,7 +136,7 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
 
   return (
     <Card>
-      <CardContent className="p-3 min-[640px]:p-3">
+      <CardContent className="p-3">
         <button
           type="button"
           onClick={() => onToggle(task.id)}

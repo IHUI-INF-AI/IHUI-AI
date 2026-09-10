@@ -78,7 +78,7 @@ export default function LearnTopicDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notExists')}
         </div>
       </div>
@@ -91,7 +91,7 @@ export default function LearnTopicDetailPage() {
   const priceNum = topic.price === undefined ? undefined : Number(topic.price)
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/learn/topic"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -102,7 +102,7 @@ export default function LearnTopicDetailPage() {
 
       {/* 专题信息 */}
       <Card className="relative overflow-hidden">
-        <CardContent className="flex flex-col gap-4 p-4 min-[768px]:p-6 min-[768px]:flex-row min-[640px]:p-6">
+        <CardContent className="flex flex-col gap-4 p-3 min-[768px]:flex-row">
           <div className="relative flex h-40 w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 min-[768px]:w-64">
             {coverImage ? (
               <Image src={coverImage} alt={topic.title} fill className="rounded-lg object-cover" />
@@ -184,10 +184,10 @@ export default function LearnTopicDetailPage() {
                         <PlayCircle className="h-10 w-10 text-primary/40" />
                       )}
                     </div>
-                    <CardHeader className="p-4 pb-2">
+                    <CardHeader className="p-3 pb-2">
                       <CardTitle className="text-base">{title}</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-1 p-4 pt-0 text-sm">
+                    <CardContent className="space-y-1 p-3 pt-0 text-sm">
                       {lesson.instructor && (
                         <p className="text-muted-foreground">{lesson.instructor}</p>
                       )}

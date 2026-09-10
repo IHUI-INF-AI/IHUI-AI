@@ -183,7 +183,7 @@ export default function TboxPage() {
     cn('rounded-md px-2 py-0.5 text-xs font-medium', styles[s] ?? styles.offline ?? '')
 
   return (
-    <div className="px-4 space-y-4">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -250,7 +250,7 @@ export default function TboxPage() {
                   setDetailOpen(true)
                 }}
               >
-                <CardContent className="flex min-w-0 flex-1 flex-col gap-2 p-4">
+                <CardContent className="flex min-w-0 flex-1 flex-col gap-2 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-medium">
                       {d.deviceName || d.deviceNo}

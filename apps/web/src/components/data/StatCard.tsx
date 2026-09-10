@@ -28,7 +28,7 @@ export function StatCard({
 }: StatCardProps) {
   const positive = (trend ?? 0) >= 0
   return (
-    <div className={cn('rounded-xl border bg-card p-4 text-card-foreground shadow', className)}>
+    <div className={cn('rounded-xl border bg-card p-3 text-card-foreground shadow', className)}>
       <div className="flex items-center justify-between gap-2">
         <TruncatedText
           value={title}

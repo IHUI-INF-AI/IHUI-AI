@@ -148,7 +148,7 @@ export default function ProjectDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <ProjectHeader
         onBack={() => router.push('/workspace')}
         project={project}

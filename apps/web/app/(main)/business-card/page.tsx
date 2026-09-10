@@ -49,7 +49,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 function CardItem({ card, footer }: { card: BusinessCard; footer?: React.ReactNode }) {
   return (
     <Card className="overflow-hidden transition-colors hover:bg-accent/40">
-      <CardContent className="flex items-start gap-3 p-4">
+      <CardContent className="flex items-start gap-3 p-3">
         {card.avatar ? (
           <Image
             src={card.avatar}
@@ -145,7 +145,7 @@ export default function BusinessCardPage() {
             {t('loading')}
           </div>
         ) : mineErr ? (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
             {(mineErr as Error).message}
           </div>
         ) : (mine ?? []).length === 0 ? (
@@ -216,7 +216,7 @@ export default function BusinessCardPage() {
             {t('loading')}
           </div>
         ) : favErr ? (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
             {(favErr as Error).message}
           </div>
         ) : (favs ?? []).length === 0 ? (
