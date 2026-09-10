@@ -877,6 +877,8 @@ export function CodeEditor({
 
   // 卸载时释放 inline completion provider + 清理 debounce timer(防内存泄漏)
   React.useEffect(() => {
+    // 缓存 ref 对象(而非 .current 快照):cleanup 时读取同一 Map,规避 ref 值漂移告警
+    const inlineCompletionCache = inlineCompletionCacheRef.current
     return () => {
       if (inlineProviderDisposableRef.current) {
         inlineProviderDisposableRef.current.dispose()
@@ -888,7 +890,7 @@ export function CodeEditor({
       }
       inlineCompletionAbortRef.current?.abort()
       inlineCompletionAbortRef.current = null
-      inlineCompletionCacheRef.current.clear()
+      inlineCompletionCache.clear()
       // LSP(0-4c):释放四核心 provider + 清理 diagnostics debounce
       for (const d of lspDisposablesRef.current) {
         try {

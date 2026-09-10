@@ -14,18 +14,17 @@ FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY apps/web/package.json ./apps/web/
-# 复制所有 workspace 包的 package.json(--no-frozen-lockfile 需要全部 workspace 声明)
-COPY packages/types/package.json ./packages/types/
-COPY packages/config/package.json ./packages/config/
-COPY packages/database/package.json ./packages/database/
-COPY packages/auth/package.json ./packages/auth/
-COPY packages/ui/package.json ./packages/ui/
-COPY packages/ui-primitives/package.json ./packages/ui-primitives/
-COPY packages/ui-native/package.json ./packages/ui-native/
+# 复制 @ihui/web 的 workspace 传递闭包(原清单引用了不存在的 packages/config、packages/ui、
+# packages/ui-primitives,且遗漏 app/i18n/ui-react/tsconfig → docker build 必挂,2026-09-10 修正)。
 COPY packages/api-client/package.json ./packages/api-client/
-COPY packages/sdk/package.json ./packages/sdk/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/design-tokens/package.json ./packages/design-tokens/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
+COPY packages/i18n/package.json ./packages/i18n/
+COPY packages/shared/package.json ./packages/shared/
 COPY packages/tsconfig/package.json ./packages/tsconfig/
+COPY packages/types/package.json ./packages/types/
+COPY packages/ui-react/package.json ./packages/ui-react/
 # --no-frozen-lockfile: 允许安装 package.json 中新增的 @lobehub/icons 依赖
 RUN pnpm install --no-frozen-lockfile
 
