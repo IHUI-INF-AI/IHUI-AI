@@ -10,7 +10,7 @@ import {
   adaptVariable,
   getLanguageFromPath,
   STATE_META,
-} from '../debug-panel-model'
+} from '../debug-panel/model'
 
 describe('debug-panel-model', () => {
   it('adapts API variables and defaults missing types', () => {
