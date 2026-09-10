@@ -96,7 +96,7 @@ export default function I18nDashboardPage() {
         <section className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {d.languages.map((lang) => (
             <Card key={lang.locale}>
-              <CardContent className="flex items-center gap-4 p-3">
+              <CardContent className="min-[640px]:p-3 flex items-center gap-4 p-3">
                 <RingChart
                   value={lang.completion}
                   color={LOCALE_COLORS[lang.locale] ?? CHART_BLUE}

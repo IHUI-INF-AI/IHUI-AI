@@ -106,7 +106,7 @@ export default function CommissionPlanPage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-4 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-4 p-3">
           <div className="flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-base font-semibold">
               <Gift className="h-4 w-4 text-primary" />

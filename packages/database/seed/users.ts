@@ -82,6 +82,27 @@ async function hashPassword(password: string): Promise<string> {
 }
 
 export async function seedUsers() {
+  // argon2 可用性预检:packages/database 不强依赖 argon2;若未安装但库中已有用户
+  // (如 CI 先跑 pnpm --filter @ihui/api run seed:test-users),本步骤降级为跳过,
+  // 避免 critical 步骤失败阻断整个 seed(2026-09-10 real-db CI)
+  try {
+    await import('argon2')
+  } catch {
+    const existing = await db.select({ email: users.email }).from(users).limit(1)
+    if (existing.length > 0) {
+      console.info(
+        '[seed] users: argon2 未安装,但库中已有用户,跳过默认用户 seed' +
+          '(优先方案: pnpm --filter @ihui/api run seed:test-users)',
+      )
+      return
+    }
+    throw new Error(
+      '[packages/database/seed/users.ts] argon2 包未安装且库中无用户。' +
+        'packages/database 是底层包不强依赖 argon2,请先运行 ' +
+        'pnpm --filter @ihui/api run seed:test-users',
+    )
+  }
+
   console.info(`开始导入默认用户数据 (${defaultUsers.length} 条)...`)
 
   for (const u of defaultUsers) {

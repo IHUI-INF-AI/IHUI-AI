@@ -199,7 +199,7 @@ export default function PresetsPage() {
                 </span>
               </div>
             </div>
-            <CardContent className="flex items-center justify-between p-3">
+            <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3">
               <div className="flex gap-1">
                 {[p.baseColor, p.accentColor, p.borderColor].map((c, i) => (
                   <span key={i} className="h-4 w-4 rounded border" style={{ backgroundColor: c }} />

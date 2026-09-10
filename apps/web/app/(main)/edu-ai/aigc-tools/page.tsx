@@ -260,7 +260,7 @@ export default function EduAiAigcToolsPage() {
               className="flex cursor-pointer flex-col transition-colors hover:bg-accent"
               onClick={() => openDetail(tool.id)}
             >
-              <CardContent className="flex min-w-0 flex-1 flex-col gap-2 p-3">
+              <CardContent className="min-[640px]:p-3 flex min-w-0 flex-1 flex-col gap-2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="line-clamp-1 font-medium">{tool.name}</p>

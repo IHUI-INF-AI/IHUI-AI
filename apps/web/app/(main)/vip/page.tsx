@@ -131,7 +131,7 @@ export default function VipPage() {
 
       {myVip ? (
         <Card className="border-amber-500/40 bg-amber-50/40">
-          <CardContent className="flex flex-col gap-2 p-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
+          <CardContent className="min-[640px]:p-3 flex flex-col gap-2 p-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">{t('currentLevel')}</p>
               <p className="flex items-center gap-2 text-base font-semibold">
@@ -194,7 +194,7 @@ export default function VipPage() {
                 <CardHeader className="p-3 pb-3">
                   <CardTitle className="text-xl">{level.levelName}</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-1 flex-col p-3 pt-0">
+                <CardContent className="min-[640px]:p-3 flex flex-1 flex-col p-3 pt-0">
                   <div className="mb-4 flex flex-wrap items-baseline gap-1">
                     <span className="text-2xl min-[768px]:text-3xl font-bold">
                       {formatCNY(level.price)}

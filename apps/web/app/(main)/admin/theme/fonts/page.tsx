@@ -91,7 +91,7 @@ export default function FontsPage() {
       {error && <Alert variant="danger" description={error} />}
 
       <Card>
-        <CardContent className="space-y-3 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-3 p-3">
           <p className="text-sm font-medium">上传字体文件</p>
           <div
             className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground"
@@ -123,7 +123,7 @@ export default function FontsPage() {
       </Card>
 
       <Card>
-        <CardContent className="space-y-2 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-2 p-3">
           <p className="text-sm font-medium">系统字体</p>
           <div className="flex flex-wrap gap-2">
             {SYSTEM_FONTS.map((f) => (
@@ -138,7 +138,7 @@ export default function FontsPage() {
       <div className="space-y-2">
         {list.map((f) => (
           <Card key={f.id}>
-            <CardContent className="flex items-center gap-3 p-3">
+            <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
               <Type className="h-5 w-5 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{f.name}</p>

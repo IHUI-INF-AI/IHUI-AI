@@ -67,7 +67,7 @@ export default function AnnouncementsPage() {
             return (
               <Link key={a.id} href={`/announcements/${a.id}`} className="block">
                 <Card className="transition-colors hover:bg-accent">
-                  <CardContent className="flex items-start gap-3 p-3">
+                  <CardContent className="min-[640px]:p-3 flex items-start gap-3 p-3">
                     <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Icon className="h-4 w-4" />
                     </div>

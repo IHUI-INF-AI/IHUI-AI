@@ -139,7 +139,7 @@ export function RankingTable() {
 
   return (
     <Card>
-      <CardContent className="space-y-3 p-3">
+      <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-start justify-between gap-2">
           <div>
             <h2 className="flex items-center gap-1.5 text-base font-semibold">

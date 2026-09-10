@@ -9003,7 +9003,74 @@
     "warning": "警告"
   },
   "commandPalette": {
+    "groups": {
+    "mode": "モード",
+    "navigate": "ナビゲート",
+    "settings": "設定",
+    "tools": "ツール",
+    "view": "表示"
+    },
     "commands": {
+      "agent": {
+        "description": "AI エージェントの管理とディスパッチ",
+        "label": "AI エージェント"
+      },
+      "browser": {
+        "description": "ワークスペース内でウェブを閲覧",
+        "label": "組み込みブラウザ"
+      },
+      "capabilityMarket": {
+        "description": "ケイパビリティパックの発見とインストール",
+        "label": "ケイパビリティマーケット"
+      },
+      "codeChanges": {
+        "description": "ワークスペースのコード変更を確認",
+        "label": "コード変更"
+      },
+      "connectors": {
+        "description": "外部サービス接続を管理",
+        "label": "コネクタ"
+      },
+      "document": {
+        "description": "ワークスペースのドキュメントを編集",
+        "label": "ドキュメント"
+      },
+      "editor": {
+        "description": "コードエディタを開く",
+        "label": "エディタ"
+      },
+      "mcp": {
+        "description": "MCP サーバーとツールを管理",
+        "label": "MCP 管理"
+      },
+      "mcpStore": {
+        "description": "MCP サービスの閲覧とインストール",
+        "label": "MCP ストア"
+      },
+      "modeBuild": {
+        "description": "AI に直接構築・修正させる",
+        "label": "ビルドモード"
+      },
+      "modePlan": {
+        "description": "計画を立ててから実行",
+        "label": "計画モード"
+      },
+      "modeReview": {
+        "description": "既存コードをレビュー",
+        "label": "レビューモード"
+      },
+      "modeSpec": {
+        "description": "仕様から実装を生成",
+        "label": "仕様モード"
+      },
+      "skill": {
+        "description": "AI スキルの管理と呼び出し",
+        "label": "スキル"
+      },
+      "terminal": {
+        "description": "統合ターミナルを開く",
+        "label": "ターミナル"
+      },
       "ai-world": {
         "description": "AI アプリの世界を探索",
         "keywords": ["AI", "ワールド", "アプリ"],

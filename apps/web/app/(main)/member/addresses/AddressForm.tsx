@@ -30,7 +30,7 @@ export function AddressForm({
   const t = useTranslations('memberAddressFormPage')
   return (
     <Card>
-      <CardContent className="p-3">
+      <CardContent className="min-[640px]:p-3 p-3">
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">

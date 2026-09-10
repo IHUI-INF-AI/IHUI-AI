@@ -133,7 +133,7 @@ export default function SignInPage() {
         </div>
       ) : (
         <Card>
-          <CardContent className="flex flex-col items-center gap-4 p-3 min-[640px]:flex-row min-[640px]:justify-between">
+          <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-4 p-3 min-[640px]:flex-row min-[640px]:justify-between">
             <div className="flex min-w-0 items-center gap-4">
               <div
                 className={cn(

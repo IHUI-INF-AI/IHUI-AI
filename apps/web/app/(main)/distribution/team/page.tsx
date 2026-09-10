@@ -117,7 +117,7 @@ export default function DistributionTeamPage() {
           const Icon = s.icon
           return (
             <Card key={s.label}>
-              <CardContent className="space-y-2 p-3">
+              <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">{s.label}</span>
                   <Icon className="h-4 w-4 text-primary" />

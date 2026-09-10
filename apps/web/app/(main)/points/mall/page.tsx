@@ -92,7 +92,7 @@ export default function PointsMallPage() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {list.map((item) => (
             <Card key={item.id}>
-              <CardContent className="flex flex-col p-3">
+              <CardContent className="min-[640px]:p-3 flex flex-col p-3">
                 {item.image || item.cover ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

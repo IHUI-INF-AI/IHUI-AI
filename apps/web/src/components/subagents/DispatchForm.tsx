@@ -453,7 +453,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
 
       {error && (
         <Card className="border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950">
-          <CardContent className="p-3 text-sm text-rose-700 dark:text-rose-300">
+          <CardContent className="min-[640px]:p-3 p-3 text-sm text-rose-700 dark:text-rose-300">
             {error}
           </CardContent>
         </Card>

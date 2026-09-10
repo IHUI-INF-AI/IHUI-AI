@@ -130,7 +130,7 @@ export default function MemberSettingsPage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-3 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-3 p-3">
           <div className="flex items-center gap-2 pb-2 text-sm font-semibold">
             <Bell className="h-4 w-4" />
             {t('notifTitle')}
@@ -149,7 +149,7 @@ export default function MemberSettingsPage() {
       </Card>
 
       <Card>
-        <CardContent className="space-y-3 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-3 p-3">
           <div className="flex items-center gap-2 pb-2 text-sm font-semibold">
             <Shield className="h-4 w-4" />
             {t('privacyTitle')}

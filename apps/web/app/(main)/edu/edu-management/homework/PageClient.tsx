@@ -312,7 +312,7 @@ export default function HomeworkPage() {
 
       {/* Class Selector */}
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 p-3">
+        <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
           <div className="flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-muted-foreground" />
             <Select
@@ -367,7 +367,7 @@ export default function HomeworkPage() {
             const Icon = card.icon
             return (
               <Card key={card.label}>
-                <CardContent className="p-3">
+                <CardContent className="min-[640px]:p-3 p-3">
                   <div className="flex items-center gap-2">
                     <Icon className={cn('h-4 w-4', card.color)} />
                     <span className="text-xs text-muted-foreground">{card.label}</span>

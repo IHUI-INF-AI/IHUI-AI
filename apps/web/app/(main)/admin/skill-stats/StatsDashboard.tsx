@@ -203,7 +203,7 @@ export default function StatsDashboard() {
           {/* 概览卡片 */}
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
             <Card>
-              <CardContent className="flex items-center gap-3 p-3">
+              <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
                   <Puzzle className="h-5 w-5" />
                 </div>
@@ -218,7 +218,7 @@ export default function StatsDashboard() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="flex items-center gap-3 p-3">
+              <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
                   <CheckCircle2 className="h-5 w-5" />
                 </div>
@@ -233,7 +233,7 @@ export default function StatsDashboard() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="flex items-center gap-3 p-3">
+              <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
                   <MousePointerClick className="h-5 w-5" />
                 </div>
@@ -248,7 +248,7 @@ export default function StatsDashboard() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="flex items-center gap-3 p-3">
+              <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
                   <Star className="h-5 w-5" />
                 </div>

@@ -42,7 +42,7 @@ function StatCard({
 }) {
   return (
     <Card>
-      <CardContent className="flex items-center gap-3 p-3">
+      <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
           <Icon className="h-5 w-5 text-foreground" />
         </div>
@@ -161,7 +161,7 @@ export default function ReviewPage() {
         </Card>
       ) : (
         <Card>
-          <CardContent className="space-y-4 p-3">
+          <CardContent className="min-[640px]:p-3 space-y-4 p-3">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
                 第 {index + 1} / {reviews.length} 题

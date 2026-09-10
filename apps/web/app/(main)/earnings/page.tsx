@@ -57,7 +57,7 @@ export default function EarningsPage() {
 
       {/* 配置 BYOK CTA */}
       <Card className="border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20">
-        <CardContent className="flex flex-col items-start justify-between gap-3 p-3 min-[640px]:flex-row min-[640px]:items-center">
+        <CardContent className="min-[640px]:p-3 flex flex-col items-start justify-between gap-3 p-3 min-[640px]:flex-row min-[640px]:items-center">
           <div className="flex items-start gap-3">
             <div className="rounded-lg bg-emerald-500/10 p-2.5">
               <KeyRound className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />

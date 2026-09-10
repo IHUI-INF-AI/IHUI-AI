@@ -102,7 +102,7 @@ export default function ThemeListPage() {
             >
               <span className="text-base font-semibold">{t.name}</span>
             </div>
-            <CardContent className="space-y-3 p-3">
+            <CardContent className="min-[640px]:p-3 space-y-3 p-3">
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
                   <p className="line-clamp-2 text-sm font-semibold">{t.name}</p>
