@@ -29,7 +29,7 @@ export default async function GroupsPage() {
   const tPage = await getTranslations('modelsGroupsPage')
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 py-4">
       <BackButton />
       <div className="flex justify-end">
         <Button size="sm" className="gap-1.5">

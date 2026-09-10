@@ -290,7 +290,7 @@ export default async function StatusPage() {
 
   if (!result.ok) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-10">
+      <div className="mx-auto max-w-4xl px-4 py-4">
         <Card>
           <CardContent className="flex flex-col items-center gap-2 p-5 min-[768px]:p-8 text-center min-[640px]:p-5 min-[640px]:p-8">
             <AlertTriangle className="h-8 w-8 text-rose-500" />
@@ -306,7 +306,7 @@ export default async function StatusPage() {
   const overall = overallStatus(overview.services, models)
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 px-4 py-8">
+    <div className="mx-auto max-w-4xl space-y-4 px-4 py-4">
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Activity className="h-5 w-5 text-primary" />

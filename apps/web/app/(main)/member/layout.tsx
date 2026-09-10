@@ -15,7 +15,7 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
   const user = useAuthStore((s) => s.user)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
       <header className="flex items-center gap-3 rounded-lg border bg-card p-4">
         <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="md" />
         <div className="min-w-0 flex-1">

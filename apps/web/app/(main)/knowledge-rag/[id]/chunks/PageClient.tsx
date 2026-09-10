@@ -101,7 +101,7 @@ export default function KnowledgeRagChunksPage() {
   const items = chunks ?? []
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <Link
         href={`/knowledge-rag/${id}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

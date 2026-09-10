@@ -191,7 +191,7 @@ function TrendChart({
 
 function LoadingSkeleton({ t }: { t: ReturnType<typeof useTranslations> }) {
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 py-4">
       <BackButton />
       <div className="flex justify-end">
         <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
@@ -245,7 +245,7 @@ function LoadingSkeleton({ t }: { t: ReturnType<typeof useTranslations> }) {
 
 function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 py-4">
       <BackButton />
       <div className="flex flex-col items-center justify-center rounded-lg border border-border/60 bg-card py-16 text-center">
         <AlertCircle className="mb-3 h-10 w-10 text-destructive" />
@@ -264,7 +264,7 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
 
 function EmptyState({ t }: { t: ReturnType<typeof useTranslations> }) {
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 py-4">
       <BackButton />
       <div className="flex flex-col items-center justify-center rounded-lg border border-border/60 bg-card py-16 text-center">
         <BarChart3 className="mb-3 h-10 w-10 text-muted-foreground/40" />
@@ -356,7 +356,7 @@ export default function UsagePage() {
   const dailyData = globalData?.daily_breakdown ?? {}
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 py-4">
       <BackButton />
 
       {/* 时间范围选择 */}

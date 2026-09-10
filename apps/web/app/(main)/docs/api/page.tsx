@@ -57,7 +57,7 @@ export const metadata: Metadata = {
 
 export default function ApiDocsPage() {
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 py-4">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(apiJsonLd) }}

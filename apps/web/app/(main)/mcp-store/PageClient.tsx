@@ -196,7 +196,7 @@ export default function McpStorePageClient() {
   const registeredServers = registered?.servers ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5 px-4">
+    <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-4">
       <BackButton />
       {/* 顶部:标题 + 统计 */}
       <header className="space-y-1">

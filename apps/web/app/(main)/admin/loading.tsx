@@ -14,7 +14,7 @@
  */
 export default function AdminLoading() {
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-4 p-6 opacity-0 transition-opacity duration-200 delay-50">
+    <div className="mx-auto w-full max-w-7xl space-y-4 opacity-0 transition-opacity duration-200 delay-50">
       {/* 标题骨架 */}
       <div className="space-y-2">
         <div className="skeleton h-7 w-40 rounded" />
