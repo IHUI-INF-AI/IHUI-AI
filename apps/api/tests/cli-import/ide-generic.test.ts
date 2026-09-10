@@ -3,14 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * IDE Generic Parser 测试 — 验证 13 个平台的 URL/协议/参数不搞混
+ * IDE Generic Parser 测试 — 验证 11 个平台的 URL/协议/参数不搞混
  */
 import { describe, it, expect } from 'vitest'
 
 import type { ParserInput } from '../../src/services/cli-import/parsers/types.js'
 import {
-  parseTrae,
-  parseTraeWork,
   parseQoder,
   parseQoderWork,
   parseCodexDesktop,
@@ -73,20 +71,7 @@ describe('ide-generic parsers — URL/协议/providerCode 不搞混', () => {
     })
   })
 
-  describe('IDE 类(trae/qoder/zed 等)无默认 baseUrl → 缺失时 warning', () => {
-    it('Trae: 只有 apiKey 没有 baseUrl → warning', async () => {
-      const res = await parseTrae(makeInput({ 'trae.ai.apiKey': 'sk-xxx' }))
-      expect(res.providers).toHaveLength(0)
-      expect(res.globalWarnings.length).toBeGreaterThan(0)
-    })
-    it('Trae: 有 apiKey + baseUrl → 正常解析', async () => {
-      const res = await parseTrae(
-        makeInput({ 'trae.ai.apiKey': 'sk-xxx', 'trae.ai.baseUrl': 'https://api.deepseek.com/v1' }),
-      )
-      expect(res.providers).toHaveLength(1)
-      expect(res.providers[0]!.baseUrl).toBe('https://api.deepseek.com/v1')
-      expect(res.providers[0]!.apiFormat).toBe('openai_chat')
-    })
+  describe('IDE 类(qoder/zed 等)无默认 baseUrl → 缺失时 warning', () => {
     it('Qoder: 无 apiKey → warning', async () => {
       const res = await parseQoder(makeInput({ 'qoder.ai.baseUrl': 'https://api.openai.com/v1' }))
       expect(res.providers).toHaveLength(0)
@@ -134,19 +119,6 @@ describe('ide-generic parsers — URL/协议/providerCode 不搞混', () => {
       expect(res.providers[0]!.apiFormat).not.toBe('anthropic_messages')
       expect(res.providers[0]!.apiFormat).not.toBe('gemini_native')
     })
-    it('Trae Work 与 Trae key 前缀不混', async () => {
-      const resTrae = await parseTrae(
-        makeInput({ 'trae.ai.apiKey': 'sk-trae', 'trae.ai.baseUrl': 'https://api.openai.com/v1' }),
-      )
-      const resTraeWork = await parseTraeWork(
-        makeInput({
-          'trae.work.ai.apiKey': 'sk-trae-work',
-          'trae.work.ai.baseUrl': 'https://api.openai.com/v1',
-        }),
-      )
-      expect(resTrae.providers[0]!.apiKey).toBe('sk-trae')
-      expect(resTraeWork.providers[0]!.apiKey).toBe('sk-trae-work')
-    })
     it('Qoder Work 与 Qoder key 前缀不混', async () => {
       const resQoder = await parseQoder(
         makeInput({
@@ -167,7 +139,7 @@ describe('ide-generic parsers — URL/协议/providerCode 不搞混', () => {
       await expect(parseAntigravity({ text: '', sourcePath: '' })).rejects.toThrow()
     })
     it('非 JSON 抛异常', async () => {
-      await expect(parseTrae({ text: 'not json', sourcePath: '' })).rejects.toThrow()
+      await expect(parseQoder({ text: 'not json', sourcePath: '' })).rejects.toThrow()
     })
   })
 })

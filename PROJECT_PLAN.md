@@ -7,8 +7,8 @@
 # IHUI-AI 项目
 
 > 本文件为项目唯一任务计划文档。规则见 [AGENTS.md](./AGENTS.md)。
-> 历史归档:本文件精简前 54.6 KB(2026-07-20 含权限运行时拦截完整内容)已移至 `.trae-cn/archive/PROJECT_PLAN_2026-07-20_pre-permission-runtime.md`;更早快照同目录;详细提交记录见 `git log`。
-> 2026-07-20 publish-task 批次归档:16 个已完成大块(自媒体工作台整合 / 侧边栏分组整合 / SiteFooter i18n / M-71 / M-72 / M-65 v2 / 首页 6 UI / 侧边栏折叠 / CLI 配置导入 / 工作区权限运行时拦截 / M-70 / BrandMarquee / 架构迁移整合 / SiteFooter v6 / i18n P1 2_5 / 全站 hover 提示)移至 `.trae-cn/archive/PROJECT_PLAN_2026-07-20_publish-task-archive.md`,本文件从 63.3 KB 缩减至 ~20 KB。
+> 历史归档:本文件精简前 54.6 KB(2026-07-20 含权限运行时拦截完整内容)已移至 `.ihui-agent/archive/PROJECT_PLAN_2026-07-20_pre-permission-runtime.md`;更早快照同目录;详细提交记录见 `git log`。
+> 2026-07-20 publish-task 批次归档:16 个已完成大块(自媒体工作台整合 / 侧边栏分组整合 / SiteFooter i18n / M-71 / M-72 / M-65 v2 / 首页 6 UI / 侧边栏折叠 / CLI 配置导入 / 工作区权限运行时拦截 / M-70 / BrandMarquee / 架构迁移整合 / SiteFooter v6 / i18n P1 2_5 / 全站 hover 提示)移至 `.ihui-agent/archive/PROJECT_PLAN_2026-07-20_publish-task-archive.md`,本文件从 63.3 KB 缩减至 ~20 KB。
 
 ---
 
@@ -100,7 +100,7 @@
 
 - [x] 0-1 沙箱默认禁网 ✅(2026-09-07):见本轮 commit/工作区;Windows/Linux/macOS 策略回归通过
 
-> 📌 **2026-07-26 状态**:所有历史任务已完成并归档(109 个标准格式 + 6 个非标准格式执行报告)。本文件目前**无活跃任务**。所有归档内容在 `.trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md` 等归档文件中,可通过 `git log` 或归档目录检索。下方为已归档任务的 HTML 占位注释(按 AGENTS.md §1 规则保留,不可删除)。
+> 📌 **2026-07-26 状态**:所有历史任务已完成并归档(109 个标准格式 + 6 个非标准格式执行报告)。本文件目前**无活跃任务**。所有归档内容在 `.ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md` 等归档文件中,可通过 `git log` 或归档目录检索。下方为已归档任务的 HTML 占位注释(按 AGENTS.md §1 规则保留,不可删除)。
 >
 > 💡 **2026-08-08 goal 模式完成**:全量扫描修复项目所有 bug/问题/未开发项/未对接项。结果:19/19 typecheck/lint/test 全绿,唯一真实 501 stub(monitor-routes.ts 监控漏斗)已修复为真实实现,order.ts FIXME 已清理。无任何未完成项。
 >
@@ -118,11 +118,11 @@
 
 ---
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:发布文章页面全链路修复(2026-08-17 完成 ✅,跨端:apps/web + apps/api + apps/ai-service) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:发布文章页面全链路修复(2026-08-17 完成 ✅,跨端:apps/web + apps/api + apps/ai-service) -->
 
 ## P0 AI 能力超越路线图 Phase 0:地基修正 8 项(2026-09-02 立,平台独占:apps/ai-service 为主)
 
-> 深度差距分析与完整路线图(Phase 0-3,对标 Claude Code/Codex/Trae/Qoder,2026-09 联网核实基线)见 `reports/ai-capability-gap-analysis-and-surpass-plan-2026-09-02.md`。本节仅登记 Phase 0 可执行项(2 周窗口):
+> 深度差距分析与完整路线图(Phase 0-3,对标 Claude Code/Codex//Qoder,2026-09 联网核实基线)见 `reports/ai-capability-gap-analysis-and-surpass-plan-2026-09-02.md`。本节仅登记 Phase 0 可执行项(2 周窗口):
 
 - [x] **0-1 真流式 agent 循环** ✅(2026-09-02):默认执行器翻转为 v2(真流式已在 v2+hook_engine 事件订阅链路存在),流式端点顺序 v2→langgraph→v1 兜底;v1 `run_stream` 标注 DEPRECATED(单轮假流式,last-resort 专用)
 - [x] **0-2 工具结果回填护栏** ✅(2026-09-02):`call_tool` 出口统一 `_truncate_tool_output`,默认 8000 token(`TOOL_OUTPUT_MAX_TOKENS` 可覆盖),控制字段(ok/status/error/tool)保护 + 顶层 `truncated: true` + 截断标记;dispatch_subagent 输出同护栏(幂等)
@@ -367,18 +367,18 @@
 - desktop tauri dev 编译成功(58.45s)+ app 运行 ✅
 - plans 表列补齐后 subscriptions 端点 200(修复前 500)✅
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: P0 全项目 Bug 排查 + 修复批次(2026-08-11 立,2026-08-12 完成 ✅,跨端:apps/web + apps/api + apps/ai-service + packages/i18n) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: P0 全项目 Bug 排查 + 修复批次(2026-08-11 立,2026-08-12 完成 ✅,跨端:apps/web + apps/api + apps/ai-service + packages/i18n) -->
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:admin 测试账号固定验证码 123456(2026-08-01 立,2026-08-01 完成 ✅,平台独占:仅 apps/api + packages/database) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:admin 测试账号固定验证码 123456(2026-08-01 立,2026-08-01 完成 ✅,平台独占:仅 apps/api + packages/database) -->
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:插件市场 Codex 10 插件对齐(2026-07-31 立,2026-08-01 完成 ✅) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:插件市场 Codex 10 插件对齐(2026-07-31 立,2026-08-01 完成 ✅) -->
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:miniapp-taro 样式完整对齐 zhs_app-ZZ(2026-07-29 立,2026-07-30 完成 ✅,/goal 模式,平台独占:仅 apps/miniapp-taro) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:miniapp-taro 样式完整对齐 zhs_app-ZZ(2026-07-29 立,2026-07-30 完成 ✅,/goal 模式,平台独占:仅 apps/miniapp-taro) -->
 
 ## 当前活跃任务:miniapp-taro 功能组件对齐 zhs_app-ZZ(2026-07-30 立,平台独占:仅 apps/miniapp-taro)
 
 > AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/miniapp-taro`,不参与 web/api/ai-service 跨端契约同步。
-> 对齐基础设施:`.trae-cn/tmp/zhs-app-ref/components/`(原项目 69 个 Vue 组件源码,已复制到工作区)
+> 对齐基础设施:`.ihui-agent/tmp/zhs-app-ref/components/`(原项目 69 个 Vue 组件源码,已复制到工作区)
 > 全量对齐矩阵:69 组件 100% 覆盖(37 已对齐 + 14 部分对齐 + 9 未对齐 + 9 废弃不迁移)
 
 ### 目标条件(五要素契约)
@@ -412,7 +412,7 @@
 
 ### 进度记录
 
-- 轮次 1:启动 + 原项目 69 组件复制到 `.trae-cn/tmp/zhs-app-ref/components/` + 全量对齐矩阵建立(37/14/9/9 分布)
+- 轮次 1:启动 + 原项目 69 组件复制到 `.ihui-agent/tmp/zhs-app-ref/components/` + 全量对齐矩阵建立(37/14/9/9 分布)
 - 轮次 2:H1-H6 全部达成 + P2-1~P2-8 补建 + lint warnings 清零(useTt 迁移 + 15 warnings 修复,typecheck 0 error + lint 0 warning 0 error,commit 25570954b)
 
 ---
@@ -533,7 +533,7 @@
 
 ---
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:mobile-rn 组件对齐原 uniapp 项目(2026-08-16 完成 ✅,平台独占:apps/mobile-rn) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:mobile-rn 组件对齐原 uniapp 项目(2026-08-16 完成 ✅,平台独占:apps/mobile-rn) -->
 
 ## 当前活跃任务:桌面端更新推送功能(2026-07-31 立,平台独占:apps/desktop + apps/web 桌面端 UI)
 
@@ -565,8 +565,8 @@
 - [x] ✅(2026-09-01) H11:初始窗口过窄修复(用户实测反馈)— **根因**:① 默认 1200 宽,侧边栏 160px + AI 面板 380px 后内容区仅 ~660px;② 旧版本遗留 window-state.json 可能保存更窄尺寸,restore 直接恢复。**修复**:① `apps/desktop/src-tauri/tauri.conf.json` 窗口 `width 1200→1400`、`height 780→900`、`minWidth 1024→1100`、`minHeight 680→720`;② `apps/desktop/src-tauri/src/lib.rs` 新增 `clamp_window_size()`(尺寸限制 [min_inner_size, 屏幕可用区 92%])+ `adapt_window_to_screen()`(无持久化状态时按屏幕 clamp 默认尺寸);③ `restore_window_state` 恢复前先 clamp 旧尺寸 + 无记录时调用 `adapt_window_to_screen`(接入调用点)
 - [x] ✅(2026-09-01) H12:界面语言问题排查结论 — **代码层 100% 实证排除英文可能**:① SSR `src/i18n/request.ts:42` `const locale = 'zh-CN'` 硬编码(output:export 不支持 cookies(),构建时即固定中文);② 客户端 `src/stores/language.ts:22` store 默认 `locale: 'zh-CN'` 硬编码,不依赖 navigator.language;③ 客户端 `src/providers/i18n-provider.tsx:68` 仅 store 有值时切换,无值回落 zh-CN;④ zh-CN.json 707KB 抽查 key 全中文;⑤ GlobalTopBar 全部走 i18n 无硬编码英文;⑥ 无任何 Tauri 自动设英文逻辑。**唯一英文可能路径** = 用户手动切换后 localStorage `ihui-language=en` 持久化(非安装包问题)。**判定**:最新安装包英文界面 = 旧安装包缓存 / WebView2 缓存旧版本 / 用户曾手动切英文,非代码缺陷。**实证构建(已完成,5/5 通过)**:并行会话恢复 high-risk-warning-banner/use-permission-auto-revert 后,`CODEBUDDY_SAFE_DELETE_ENABLED=0 pnpm --filter @ihui/web build:static` 7m51s 成功(全路由静态导出);`apps/web/out/agents.html` 322KB 验证:`<html lang="zh-CN">` ✅ + 中文文案命中(智汇AI/工作台/对话/设置/登录)✅ + 无英文 UI 文案(剥离 script 数据与 data-testid 后 0 命中,仅 JSON-LD 品牌名含 "Intelligent Chat Platform")✅ + localStorage 默认语言非 en ✅;验证脚本 `tmp/pw/verify-desktop-lang.mjs` 固化
 - [x] ✅(2026-07-27) 技术债收尾批次 — rebase 集成 + 冲突修复 + console.log 扩面(commit `adf32a32e` + `21a22f656`)。**触发**:rebase 集成 61 个 origin/main 提交时的冲突修复 + console.log 收尾 v2(a3cfde443)的悬空 commit 恢复。**改动**:① `apps/ai-service/app/skills/content_engine/lib/csdn_publish.py` rebase 冲突解决:移除硬编码 `CSDN_APP_KEY='203803574'` 和重复 `_load_env()` 调用,统一为 `os.getenv('CSDN_APP_KEY', '')` + `os.getenv('CSDN_APP_SECRET', '')` 单次加载;② `apps/api/src/plugins/registry-queue.ts` 3 console → `logger`(info/error)+ `{ err: err as Error }` 元数据包装;③ `apps/api/src/services/token-service.ts` 2 console → `logger`(warn/error,security family reuse detection + revocation failed);④ `apps/web/src/hooks/use-task-receiver.ts` 2 console.error → `logger.error`(register failed + unregister error);⑤ `apps/web/src/lib/models-api.ts` 2 console.warn → `logger.warn`(getMarketModels + getAiNewsFeed fallback 失败);⑥ `apps/web/src/components/ide/terminal-panel.tsx` xterm 强类型改造:补 `import type { Terminal } from '@xterm/xterm'` + `import type { FitAddon } from '@xterm/addon-fit'`,消除 145 行中的 `: any` 残留;⑦ `apps/web/src/components/layout/GlobalShell.tsx` 右列布局 `flex-col` → `flex-row` 修复工作区被 WebWorkPanel 覆盖塌缩;⑧ `apps/api/tests/embedding-provider.test.ts` + `apps/api/tests/tbox.test.ts` 测试硬编码密钥 → `process.env.X || 'fallback'` 形式(§守门 P1-1 落地);⑨ `apps/web/src/components/rules/rules-manager.tsx` 9 处 `eslint-disable jsx-a11y` 添加 ESLint 8+ `--` 原因注释(模态遮罩点击外部关闭,键盘用户通过关闭按钮 X 提供等价交互)。**验证**:`pnpm --filter @ihui/api typecheck` exit 0 + `pnpm --filter @ihui/web typecheck` exit 0 + git-push-guard exit 0(local HEAD `21a22f656` == remote HEAD `21a22f656`)§20 五条全绿
-- [x] ✅(2026-07-27) P0/P1 技术债统一清理批次 — 端口统一/异常日志/路由注册/构建守门恢复/a11y/孤儿文件清理(commit `eb02bedaa`,36 文件 +141/-591 净 -450 行)。**10 类改动**:① **端口统一**(3001/8000 → 8802/8803):CLI defaults.ts + settings.ts apiUrl 改 8802 + user-llm-configs-v2.ts AI_SERVICE_URL 改 8803 + 5 文档(AUTHENTICATION/AI_SERVICE/DEVELOPMENT/TROUBLESHOOTING/en-launch-post)+ RELEASE_NOTES_v1.0.md 共 14+ 处 3001 → 8802;② **Python 异常静默 → 结构化日志**(19 处):agent_runtime.py Redis session save + hook_engine.py 5 处 + rules_engine.py 7 处 + spec_generator.py 7 处,全部 `except: pass` → `logger.exception()` + 上下文;③ **print → logger**(3 处 docstring 示例):agent_loop_v2.py + knowledge_lookup.py + model_router.py;④ **构建守门恢复**:next.config.ts 还原 `typescript.ignoreBuildErrors` / `eslint.ignoreDuringBuilds` 为 false(撤销 2026-07-22 临时绕过),恢复构建时 TS+ESLint 检查;⑤ **API 路由注册**:routes/index.ts 挂载 subagentsExtendedRoutes + aiTutorRoutes(此前未挂载,前端调用 404);⑥ **a11y 可访问性修复**(ESLint 恢复后暴露):MemoryForm.tsx 6 处 label htmlFor + DispatchForm.tsx 14 处 label htmlFor + useId + QueueList.tsx 列表项 role/tabIndex/onKeyDown 键盘支持 + memory/[id]/PageClient.tsx 编辑表单 + design/PageClient.tsx 模态遮罩;⑦ **测试 @ts-ignore 清理**(TS 守门恢复后暴露):api.test.ts 改 `import type * as Api` + 3 个 **tests** 文件移除 `@ts-ignore`;⑧ **守门脚本假阳性修复**:check-verify-tmp-files.mjs EXCLUDE_DIRS 加 'scripts' + check-port-registry.mjs EXEMPT_PATH_PATTERNS 加 `/^docs\//`;⑨ **孤儿文件清理**(5 个 + 1 临时脚本归档):UserApiService.tsx(57 行)+ UserStudyBar.tsx(44 行)+ api-server.ts(67 行)+ saas-admin-proxy.ts(94 行)+ schema-software-source-code.ts(186 行)共 5 个无引用孤儿 + verify-0066.mjs(44 行,归档至 .trae-cn/tmp/verify-0066/);⑩ **README.md 技术债清理**:移除 25+ 项虚假 desktop 能力描述 + 修正测试用例统计矛盾 + 更新路由数量(95+ → ~290)。**验证**:全量 `pnpm turbo build typecheck lint test` 全绿 + mypy 226 文件 0 error + e2e typecheck 通过 + git-push-guard exit 0(local HEAD `eb02bedaa` == remote HEAD `eb02bedaa`)§20 五条全绿;**协作隔离**:其他 agent 并行的 miniapp-taro 重构(36 文件)+ scripts/tests/*.test.mjs(11 个未跟踪测试)不在本任务范围,未纳入本 commit,由对应 agent 自行 push
-- [x] ✅(2026-07-27) P0/P1 技术债清理批次 2 — 端口一致性债清零/API 桩 501 化/Python 裸 except 改 logger/eslint-disable 文档化/守门 EXCLUDE_DIRS 统一/extension 维护成本批次落地(6 subagent 并行 + 主 agent 补改,156 文件 +2847/-3830 净 -983 行)。**6 类改动**:① **端口一致性债清零**(3000→8801 / 8000→8803 / 8080→8802,共 175+ 处):apps/web/src/api/edu-api.ts AI_SERVICE_URL fallback 改 8803 + apps/web/lighthouserc.json audit URL 改 8801 + apps/cli/tests/debug.test.ts + apps/cli/tests/repl-abort.test.ts + apps/cli/tests/sandbox-profile.test.ts + apps/cli/tests/subagent-extended.test.ts + apps/cli/tests/subagent-precedence-flag.test.ts 多处 3000→8801 + apps/api/tests/_server-smoke.test.ts + 80+ admin/test 文件端口统一 + .env.example/.env.production.example CORS_ORIGIN 改 8801 + docs/{AI_SERVICE,API_REFERENCE,DEPLOYMENT_RUNBOOK,DEVELOPMENT,GATEKEEPERS,LLM_SETUP,MONITORING,TROUBLESHOOTING}.md 8 文档端口统一 + docs/marketing/{en-launch-post,multi-platform-distribution}.md + CONTRIBUTING.md + README.en.md + README.ja.md + .github/RELEASE_NOTES_v1.0.md 端口统一 + scripts/{check-api-migration-completeness,check-api-routes,check-i18n-keys,check-rounded-full,check-safe-parse,check-style-verification,check-ts-ignore,deep-i18n-audit,dev-up.ps1,locustfile.py,start-cloudflared-tunnel.ps1,typecheck-full,verify-ui}.mjs 13 守门脚本端口统一 + apps/ai-service/tests/test_network_guard.py 端口统一;**豁免**:docker-compose 容器内部端口(8080/8000/5432/6379)+ Grafana 容器内 3000(宿主映射 8816)+ LLAMACPP_API_BASE 8080 + OPENAI_API_BASE 8000(vLLM 第三方服务默认端口)+ 历史注释中提及的 3000;② **API 桩 501 化**(14 个端点):apps/api/src/routes/oauth-keys.ts 5 个端点(/generate /list /revoke /get /update)+ auth.ts 4 个端点(/mfa/enable /mfa/disable /mfa/verify /mfa/disable)+ spec.ts 5 个端点,统一返回 `{ code: 501, message: 'Not Implemented: ... 尚未实装', data: null }`,对齐 §24 新增功能须用户确认规则(避免擅自实装);③ **Python 裸 except 改 logger**(48 处):apps/ai-service/app/services/dag_scheduler.py(_worker_loop 内 res_monitor.stop 失败 → logger.warning + exc_info=True,变量重命名 inner_err 避免外层 e shadowing)+ hook_engine.py 5 处 + mcp_server.py 6 处 + memory.py 8 处 + context_engine.py 4 处 + llm_budget_governor.py 7 处 + telemetry_service.py 5 处 + spec_generator.py 7 处 + rules_engine.py 7 处 + publish/adapters/{bilibili,csdn,douyin,juejin,kuaishou}.py 5 处 + self_media.py 3 处,全部 `except: pass`/`except Exception: pass` → `logger.warning(...)` 或 `logger.exception(...)` 含上下文 + exc_info=True;④ **eslint-disable 文档化**(剩余 0 处):本批次发现 apps/web/apps/api/apps/cli 0 处无原因注释,packages/dom-actions 新建文件 eslint 全绿;⑤ **守门 EXCLUDE_DIRS 统一**(7 脚本):scripts/check-api-routes.mjs + check-api-migration-completeness.mjs + check-i18n-keys.mjs + check-rounded-full.mjs + check-safe-parse.mjs + check-style-verification.mjs + check-ts-ignore.mjs 全部 EXCLUDE_DIRS 加 `.trae-cn`/`.worktrees`/`.turbo`/`dist`/`build`,减少假阳性;⑥ **extension 维护成本批次落地**(P0-1+P1,11 文件):packages/dom-actions/ 新建(package.json + tsconfig.json + src/index.ts 266 行,8 个纯 DOM 操作函数 domClick/domType/domScroll/domExtract/domWaitForElement/domGetAttribute/domHover/domSelectOption + setNativeValue + DomActionResult 类型)+ apps/extension/lib/agent-control.ts 改 import @ihui/dom-actions + re-export 保下游不变 + apps/extension/entrypoints/sidepanel/SidepanelApp.tsx 7 个低频页面改 ComingSoonPage mode='open_in_web'(VipPage/MemberPage/DistributionPage/InvitationsPage/PointsPage/FansPage/FollowingPage 7 个文件删除)+ ComingSoonPage.tsx 加 mode prop + chrome.tabs.create 打开 web 端 + apps/extension/package.json 加 @ihui/dom-actions 依赖 + packages/i18n/messages/extension/{en,ja,ko,zh-CN,zh-TW}.json 5 语言加 apps.openInWebDesc 文案;⑦ **临时文件归档**:apps/ai-service/verify_tools_e2e.py 归档至 .trae-cn/tmp/verify-tools-e2e-archive/(§25 守门规则)。**验证**:`pnpm --filter @ihui/web typecheck` exit 0 + `pnpm --filter @ihui/extension typecheck` exit 0 + `pnpm --filter @ihui/cli typecheck` exit 0 + `pnpm --filter @ihui/dom-actions typecheck` exit 0 + apps/ai-service mypy 9 文件 0 error(其余 13 error 全在其他 agent 的 langgraph_checkpoint/logging/scheduler_service 文件,§12 隔离)+ 残留扫描:apps/web/apps/api/packages 中 eslint-disable 无原因 0 处,端口 3000/8000/8080 残留全部带豁免注释(合法)。**协作隔离**:`pnpm --filter @ihui/api typecheck` 1 error 在 chat.ts:302(其他 agent 未 staged 改动,§12 隔离,用 `--no-verify` 跳过 pre-push typecheck:full);miniapp-taro/order/detail.tsx 1 处 eslint-disable 无原因属其他 agent 范围不动;apps/web 8 个 unstaged 文件(agent-progress-pane/message-input/terminal-panel/GlobalShell/agent-progress-trigger 等)属其他 agent 不动
+- [x] ✅(2026-07-27) P0/P1 技术债统一清理批次 — 端口统一/异常日志/路由注册/构建守门恢复/a11y/孤儿文件清理(commit `eb02bedaa`,36 文件 +141/-591 净 -450 行)。**10 类改动**:① **端口统一**(3001/8000 → 8802/8803):CLI defaults.ts + settings.ts apiUrl 改 8802 + user-llm-configs-v2.ts AI_SERVICE_URL 改 8803 + 5 文档(AUTHENTICATION/AI_SERVICE/DEVELOPMENT/TROUBLESHOOTING/en-launch-post)+ RELEASE_NOTES_v1.0.md 共 14+ 处 3001 → 8802;② **Python 异常静默 → 结构化日志**(19 处):agent_runtime.py Redis session save + hook_engine.py 5 处 + rules_engine.py 7 处 + spec_generator.py 7 处,全部 `except: pass` → `logger.exception()` + 上下文;③ **print → logger**(3 处 docstring 示例):agent_loop_v2.py + knowledge_lookup.py + model_router.py;④ **构建守门恢复**:next.config.ts 还原 `typescript.ignoreBuildErrors` / `eslint.ignoreDuringBuilds` 为 false(撤销 2026-07-22 临时绕过),恢复构建时 TS+ESLint 检查;⑤ **API 路由注册**:routes/index.ts 挂载 subagentsExtendedRoutes + aiTutorRoutes(此前未挂载,前端调用 404);⑥ **a11y 可访问性修复**(ESLint 恢复后暴露):MemoryForm.tsx 6 处 label htmlFor + DispatchForm.tsx 14 处 label htmlFor + useId + QueueList.tsx 列表项 role/tabIndex/onKeyDown 键盘支持 + memory/[id]/PageClient.tsx 编辑表单 + design/PageClient.tsx 模态遮罩;⑦ **测试 @ts-ignore 清理**(TS 守门恢复后暴露):api.test.ts 改 `import type * as Api` + 3 个 **tests** 文件移除 `@ts-ignore`;⑧ **守门脚本假阳性修复**:check-verify-tmp-files.mjs EXCLUDE_DIRS 加 'scripts' + check-port-registry.mjs EXEMPT_PATH_PATTERNS 加 `/^docs\//`;⑨ **孤儿文件清理**(5 个 + 1 临时脚本归档):UserApiService.tsx(57 行)+ UserStudyBar.tsx(44 行)+ api-server.ts(67 行)+ saas-admin-proxy.ts(94 行)+ schema-software-source-code.ts(186 行)共 5 个无引用孤儿 + verify-0066.mjs(44 行,归档至 .ihui-agent/tmp/verify-0066/);⑩ **README.md 技术债清理**:移除 25+ 项虚假 desktop 能力描述 + 修正测试用例统计矛盾 + 更新路由数量(95+ → ~290)。**验证**:全量 `pnpm turbo build typecheck lint test` 全绿 + mypy 226 文件 0 error + e2e typecheck 通过 + git-push-guard exit 0(local HEAD `eb02bedaa` == remote HEAD `eb02bedaa`)§20 五条全绿;**协作隔离**:其他 agent 并行的 miniapp-taro 重构(36 文件)+ scripts/tests/*.test.mjs(11 个未跟踪测试)不在本任务范围,未纳入本 commit,由对应 agent 自行 push
+- [x] ✅(2026-07-27) P0/P1 技术债清理批次 2 — 端口一致性债清零/API 桩 501 化/Python 裸 except 改 logger/eslint-disable 文档化/守门 EXCLUDE_DIRS 统一/extension 维护成本批次落地(6 subagent 并行 + 主 agent 补改,156 文件 +2847/-3830 净 -983 行)。**6 类改动**:① **端口一致性债清零**(3000→8801 / 8000→8803 / 8080→8802,共 175+ 处):apps/web/src/api/edu-api.ts AI_SERVICE_URL fallback 改 8803 + apps/web/lighthouserc.json audit URL 改 8801 + apps/cli/tests/debug.test.ts + apps/cli/tests/repl-abort.test.ts + apps/cli/tests/sandbox-profile.test.ts + apps/cli/tests/subagent-extended.test.ts + apps/cli/tests/subagent-precedence-flag.test.ts 多处 3000→8801 + apps/api/tests/_server-smoke.test.ts + 80+ admin/test 文件端口统一 + .env.example/.env.production.example CORS_ORIGIN 改 8801 + docs/{AI_SERVICE,API_REFERENCE,DEPLOYMENT_RUNBOOK,DEVELOPMENT,GATEKEEPERS,LLM_SETUP,MONITORING,TROUBLESHOOTING}.md 8 文档端口统一 + docs/marketing/{en-launch-post,multi-platform-distribution}.md + CONTRIBUTING.md + README.en.md + README.ja.md + .github/RELEASE_NOTES_v1.0.md 端口统一 + scripts/{check-api-migration-completeness,check-api-routes,check-i18n-keys,check-rounded-full,check-safe-parse,check-style-verification,check-ts-ignore,deep-i18n-audit,dev-up.ps1,locustfile.py,start-cloudflared-tunnel.ps1,typecheck-full,verify-ui}.mjs 13 守门脚本端口统一 + apps/ai-service/tests/test_network_guard.py 端口统一;**豁免**:docker-compose 容器内部端口(8080/8000/5432/6379)+ Grafana 容器内 3000(宿主映射 8816)+ LLAMACPP_API_BASE 8080 + OPENAI_API_BASE 8000(vLLM 第三方服务默认端口)+ 历史注释中提及的 3000;② **API 桩 501 化**(14 个端点):apps/api/src/routes/oauth-keys.ts 5 个端点(/generate /list /revoke /get /update)+ auth.ts 4 个端点(/mfa/enable /mfa/disable /mfa/verify /mfa/disable)+ spec.ts 5 个端点,统一返回 `{ code: 501, message: 'Not Implemented: ... 尚未实装', data: null }`,对齐 §24 新增功能须用户确认规则(避免擅自实装);③ **Python 裸 except 改 logger**(48 处):apps/ai-service/app/services/dag_scheduler.py(_worker_loop 内 res_monitor.stop 失败 → logger.warning + exc_info=True,变量重命名 inner_err 避免外层 e shadowing)+ hook_engine.py 5 处 + mcp_server.py 6 处 + memory.py 8 处 + context_engine.py 4 处 + llm_budget_governor.py 7 处 + telemetry_service.py 5 处 + spec_generator.py 7 处 + rules_engine.py 7 处 + publish/adapters/{bilibili,csdn,douyin,juejin,kuaishou}.py 5 处 + self_media.py 3 处,全部 `except: pass`/`except Exception: pass` → `logger.warning(...)` 或 `logger.exception(...)` 含上下文 + exc_info=True;④ **eslint-disable 文档化**(剩余 0 处):本批次发现 apps/web/apps/api/apps/cli 0 处无原因注释,packages/dom-actions 新建文件 eslint 全绿;⑤ **守门 EXCLUDE_DIRS 统一**(7 脚本):scripts/check-api-routes.mjs + check-api-migration-completeness.mjs + check-i18n-keys.mjs + check-rounded-full.mjs + check-safe-parse.mjs + check-style-verification.mjs + check-ts-ignore.mjs 全部 EXCLUDE_DIRS 加 `.ihui-agent`/`.worktrees`/`.turbo`/`dist`/`build`,减少假阳性;⑥ **extension 维护成本批次落地**(P0-1+P1,11 文件):packages/dom-actions/ 新建(package.json + tsconfig.json + src/index.ts 266 行,8 个纯 DOM 操作函数 domClick/domType/domScroll/domExtract/domWaitForElement/domGetAttribute/domHover/domSelectOption + setNativeValue + DomActionResult 类型)+ apps/extension/lib/agent-control.ts 改 import @ihui/dom-actions + re-export 保下游不变 + apps/extension/entrypoints/sidepanel/SidepanelApp.tsx 7 个低频页面改 ComingSoonPage mode='open_in_web'(VipPage/MemberPage/DistributionPage/InvitationsPage/PointsPage/FansPage/FollowingPage 7 个文件删除)+ ComingSoonPage.tsx 加 mode prop + chrome.tabs.create 打开 web 端 + apps/extension/package.json 加 @ihui/dom-actions 依赖 + packages/i18n/messages/extension/{en,ja,ko,zh-CN,zh-TW}.json 5 语言加 apps.openInWebDesc 文案;⑦ **临时文件归档**:apps/ai-service/verify_tools_e2e.py 归档至 .ihui-agent/tmp/verify-tools-e2e-archive/(§25 守门规则)。**验证**:`pnpm --filter @ihui/web typecheck` exit 0 + `pnpm --filter @ihui/extension typecheck` exit 0 + `pnpm --filter @ihui/cli typecheck` exit 0 + `pnpm --filter @ihui/dom-actions typecheck` exit 0 + apps/ai-service mypy 9 文件 0 error(其余 13 error 全在其他 agent 的 langgraph_checkpoint/logging/scheduler_service 文件,§12 隔离)+ 残留扫描:apps/web/apps/api/packages 中 eslint-disable 无原因 0 处,端口 3000/8000/8080 残留全部带豁免注释(合法)。**协作隔离**:`pnpm --filter @ihui/api typecheck` 1 error 在 chat.ts:302(其他 agent 未 staged 改动,§12 隔离,用 `--no-verify` 跳过 pre-push typecheck:full);miniapp-taro/order/detail.tsx 1 处 eslint-disable 无原因属其他 agent 范围不动;apps/web 8 个 unstaged 文件(agent-progress-pane/message-input/terminal-panel/GlobalShell/agent-progress-trigger 等)属其他 agent 不动
 - [x] ✅(2026-07-27) P0/P1 技术债清理批次 3 — Python 裸 except 清零收尾(commit `0672979e5`,37 文件 +225/-92)。**改动**:延续批次 2(48 处)清理剩余 37 文件的静默 `except Exception: pass` / `except: pass`,全部改为 `logger.warning(...)` 或 `logger.exception(...)` 含上下文 + `exc_info=True`,提升异常可观测性。**覆盖文件**:core/logging.py + services/{a2a_service,ab_test_scheduler,ab_test_tracker,active_forgetter,agent_checkpoint,agent_orchestrator,command_streamer,debugger,file_editor,knowledge_graph,koubo_workflow,langgraph_checkpoint,langgraph_service,memory_decay,memory_extractor,meta_learner,multimodal_embedder,multimodal_memory,opencompass_scrape,pr_reviewer,rag,scheduler_service,skill_feedback,skill_iterator,skills,spec_generator,user_profile,vector_memory}.py + services/publish/{base_adapter,scheduler,adapters/{medium,shipinhao,toutiao,weibo,youtube,zhihu}}.py。**验证**:`cd apps/ai-service && mypy app --ignore-missing-imports` → Success: no issues found in 226 source files;§20 五条全绿(local HEAD `0672979e5` == remote HEAD,git-push-guard exit 0);**协作隔离**:Web Date 格式 DRY 重构(38 文件)由另一 agent 并行完成(commit `63c79246c`),本 agent 工作冗余已跳过;SSE stream base URL + use-chat.ts bug fix 属其他 agent 范围不动
 
 ### P1 UX 深度优化
@@ -619,8 +619,8 @@
 - [x] ✅(2026-07-27) 全端 utils/lib + types/hooks 跨端共用审计完成(2 subagent 并行,无代码改动) — **目标**:审计 extension/lib(12 文件 926 行)+ extension/types/hooks + miniapp-taro/types/hooks,识别可下沉到 packages/shared 或 packages/types 的代码,为后续降低维护成本任务提供清单。**审计结论**:**extension/lib 12 文件**(3 已共用 date-utils/notification-store/use-websocket + 7 部分共用 + 2 完全平台独占),推荐下沉 10 项函数/常量(TOKEN_EXPIRED_CODES/WEB_BASE/DEFAULT_API_BASE_URL/EXPIRES_IN_STORAGE_KEY/isBackgroundAction/extractAgentRequest/buildCapability/createRecentSet/loginByEmailCode/makeRequestId,价值高 2 项 + 中 7 项 + 低 1 项),推荐 2 处改用已有 shared(token.ts 复用 createInMemoryTokenStore 消除 50+ 行重复缓存 + bridge postJson 改用 fetchApi 省 15 行),整体降低幅度「中」,最大受益方 desktop(agent-control 4 项可复用)+ mobile-rn(常量+登录端点可复用);**types/hooks** 推荐下沉 2 类型(PaginatedResponse 已存在 @ihui/types 无需新建 + ChatMessage 应与 packages/types/src/ai.ts Message 合并)+ 2 直接迁移 hooks(useLoadMore/useSocialList 本批次已迁移)+ 1 适配器 hook(useSystemTheme 用 createUseSystemTheme(impl) 工厂模式,需中等重构成本,3 端共享主题监听逻辑)。**未迁移项及原因**:TOKEN_EXPIRED_CODES/WEB_BASE 等常量下沉需评估各端引用情况(待下一批次);extension token.ts 重构为 createInMemoryTokenStore adapter 需先在 shared/auth TokenStore 接口扩展 expiresIn 可选方法(待下一批次);useSystemTheme 工厂版需评估 web 端 theme-store zustand 版本覆盖情况(待评估);useExtensionThirdPartyAuth 强依赖 chrome.tabs.create 属平台独占豁免不下沉。**价值**:本审计为后续 3 个批次(常量下沉/token.ts 重构/useSystemTheme 工厂版)提供完整执行清单,预估累计可消除 ~150 行重复代码
 - [x] ✅(2026-07-27) P2 维护成本优化后续批次(常量下沉 + token.ts 工厂重构 + useSystemTheme 评估结论,4 文件) — **目标**:落地审计推荐的 3 项 P2 维护成本优化后续任务。**改动**:① **常量下沉到 shared/constants.ts**:`TOKEN_EXPIRED_CODES = [401, 40101, 499] as const` + `WEB_BASE = 'https://ihui.ai'`(跨端跳转 web 端页面/SSO 回跳/分享链接拼接用);② **extension/lib/config.ts** TOKEN_EXPIRED_CODES 改为从 `@ihui/shared/constants` re-export(消除本地硬编码定义),保持 EXPIRES_IN_STORAGE_KEY 本地定义(extension 专属 storage key,其他端用不到);③ **extension/lib/open-in-web.ts** WEB_BASE 改为从 `@ihui/shared/constants` import + re-export(消除本地硬编码 `https://ihui.ai` 重复定义);④ **extension/entrypoints/sidepanel/SidepanelApp.tsx** 删除本地 `const WEB_BASE = 'https://ihui.ai'` 重复定义(第 46 行),改为 `import { WEB_BASE } from '../../lib/open-in-web'`(消除 14+ 处 chrome.tabs.create 重复硬编码基址);⑤ **extension token.ts 重构为 createInMemoryTokenStore adapter**(subagent 完成):`packages/shared/src/auth/token-store.ts` 122 → 182 行,扩展 `TokenStore` 接口新增可选 `getExpiresIn?()/setExpiresIn?()` 方法(向后兼容,各端按需实现)+ `InMemoryTokenStoreOptions` 新增 `initial.expiresIn` + `onSetExpiresIn` 回调 + 新增 `InMemoryTokenStore` 类型(把 clearAll/getExpiresIn/setExpiresIn 提升为必需 + 新增 `setCachedWithoutPersist(updates)` 跨标签页同步入口,显式区分 `undefined`=不更新 vs `null`=清空)+ `createInMemoryTokenStore` 内部维护 cachedExpiresIn + clearAll 一并清空三状态;`apps/extension/lib/token.ts` 124 → 159 行,顶层 `const store = createInMemoryTokenStore({...})` 注入 4 个回调(onSetToken/onSetRefreshToken/onSetExpiresIn/onClearAll 委托 platform.storage),手写 cachedToken/cachedRefreshToken/cachedExpiresIn 三状态 + 5 个手写持久化分支全部消除,`initApi()` hydration + `onStorageChanged` 监听器统一用 `store.setCachedWithoutPersist(updates)` 一次性灌入缓存(不触发持久化回调,避免循环回写),`setTokenPair` 保留原子性,`clearAllTokens` 仍调 `stopAutoRefresh`,所有 export 签名零变化;⑥ **useSystemTheme 评估结论**:**不下沉**,仅 extension 用到(web 端用 zustand theme-store 完全不同实现,mobile-rn 用 Appearance API 完全不同实现),工厂模式 ROI 低,保持现状。**验证**:`pnpm --filter @ihui/shared typecheck` exit 0 + `pnpm --filter @ihui/extension typecheck` exit 0 + `pnpm --filter @ihui/extension test` 116/116 全绿(refresh-token.test.ts 17 + use-auth.test.tsx 16 + 其他 83,所有 token 管理测试未修改且全绿)。**效果**:TOKEN_EXPIRED_CODES + WEB_BASE 改一处 packages/shared,extension + 未来 mobile-rn/desktop/miniapp-taro 自动同步;extension token.ts 用工厂消除手写三状态缓存,未来 mobile-rn/miniapp-taro 可按同模式复用 `createInMemoryTokenStore` 工厂各自注入 4 个回调;审计推荐的 3 项 P2 维护成本优化后续任务全部闭环
 - [x] ✅(2026-07-27) **P1 维护成本优化后续批次(代码4 + 样式3-5,4 subagent 并行)** — **目标**:延续审计推荐的降低维护成本后续任务,落地 4 项 P1 优化。**改动**:① **代码4 usePaginatedList 下沉**:新建 `packages/shared/src/hooks/use-paginated-list.ts`(分页列表管理 hook,纯 React hooks 零平台依赖,在 shared/use-pagination 之上扩展 items/loading/refreshing/loadMore/removeItem),`packages/shared/src/hooks/index.ts` 追加 export,`apps/mobile-rn/src/hooks/use-paginated-list.ts` 改为 re-export(消除 mobile-rn 60+ 行重复实现);② **样式3 抽取 base.css**:新建 `packages/design-tokens/src/styles/base.css`(html/body/page 根节点统一:margin/padding/width/height/font-family/background/color,选择器 html, body, page 兼容 web/extension DOM + miniapp-taro 小程序根节点),web `app/globals.css` + extension `sidepanel/globals.css` + miniapp-taro `src/app.css` 三端 @import,删除三端重复 html/body/page 基础样式(保留 web/extension 的 `html { font-size: 14px }` 因 base.css 仅设 body/page font-size 不破坏 rem);③ **样式4 web 图表色板 token 化**:`tokens.css` 新增 `--chart-1~8`(8 色主色板对应 Tailwind blue/emerald/amber/red/violet/pink/cyan/lime-500)+ `--chart-text`/`--chart-axis`/`--chart-success` + 暗色覆盖,text/axis 色下调;web 端 `PieChart.tsx` + `TokenPieChart.tsx` 改用 `var(--chart-N)` + `style={{ fill }}` SVG 内联样式触发 CSS var() 解析;`stat-chart.tsx` / `ConversionFunnelChart` / `EChart` / `FinanceTrendChart` / `Heatmap` / `LearningProgressChart` / `UserGrowthChart` 加注释指向 token(ECharts canvas 不支持 CSS var() 保留 hex 硬编码 + 行内注释);④ **样式5 mobile-rn StyleSheet 颜色 token 化**:22 文件(screens 15 + components 6 + pages 1)StyleSheet 硬编码颜色改为 `tokens` 对象引用(text.primary/secondary/tertiary + brand.DEFAULT + surface.light + status.* 等),1 处 `#F59E0B` 保留无对应 token。**验证**:`pnpm --filter @ihui/shared typecheck` exit 0 + `@ihui/design-tokens` exit 0 + `@ihui/mobile-rn` exit 0 + `@ihui/extension` exit 0 全绿;`@ihui/web` typecheck 1 error 在 `src/components/ai/markdown-stream.tsx`(其他 agent commit `3bbf8080cb` 引入 SyntaxHighlighterProps 类型不兼容,非本任务文件,§12 隔离用 `--no-verify` 跳过 hook)。**效果**:usePaginatedList 改一处 packages/shared,mobile-rn + 未来 web/extension/miniapp-taro 直接复用;base.css 改一处三端自动同步基础样式;图表色板改一处 tokens.css 全端生效;mobile-rn 颜色统一到 tokens 对象,改一处 theme/tokens 全端 RN 文件自动同步
-- [x] ✅(2026-07-27) **P0/P1/P2 技术债清理批次 4-8(8 subagent 并行 + 主 agent 整合)** — **目标**:全栈深度技术债清理,覆盖安全/性能/API 标准化/前端类型/工程治理 5 维度,8 subagent 并行最大化效率,严格文件隔离避免冲突。**批次 4-P0 安全债**:① `apps/ai-service/app/routers/publish.py` 13 个 IDOR 端点 `user_id` 从 request body/query 改为 `request.state.user_id`(JWT 注入),6 个写操作加 ownership 校验 + asyncpg 连接池迁移;② `apps/api/src/routes/agent-extended.ts` 50+ 路由加全局 `preHandler: requireAuth` + 10 个 admin 端点升级 `requireAdmin`,`sql.raw(order)` 替换为 `ALLOWED_ORDERS` 白名单映射防 SQL 注入;③ `apps/api/src/routes/payment-gateway.ts` N+1 查询 `for-loop await aliCloseOrder` 改为 `Promise.allSettled` 并行(10 订单延迟降 10x);④ `apps/api/src/routes/clawdbot.ts` 18 端点加 Zod schema 替换 `req.body as never` safeParse。**批次 5-P1 DB 优化**:① `packages/database/src/schema/audit.ts` 补 4 索引(user_id/action/resource_type/created_at);② `packages/database/drizzle/20260727120000_p0_indexes.sql` 新增 search_history.user_id + token_flows(user_id, created_at) + refresh_tokens(userId/familyId/expiresAt) 索引;③ `apps/ai-service/app/core/db.py` 新建 asyncpg 连接池(min_size=2, max_size=10),`publish.py` 迁移到连接池。**批次 6-P1 前端类型安全**:① 13 文件 28 处冗余 `: any`/`as any` 清理(spec-panel.tsx/TaskDetailDialog.tsx/KanbanBoard/ai-generation 8 文件);② `apps/web/src/components/settings/IpWhitelist.tsx` 直接 fetch 改 `fetchApi` + 删除回滚 + loading state 管理;③ `dispatch-subagent-dialog.tsx` useEffect 加 cancelled 守卫防内存泄漏;④ 文档修正:`AGENTS.md` 路径 `d:\桌面\项目\IHUI-AI` → `g:\IHUI-AI` + 包名 `packages/ui` → `packages/ui-react`;`docs/architecture.md` 端口 3000/3001/8000 → 8801/8802/8803;`package.json` 删除死脚本 `check:orphan-images`。**批次 7-P1 ai-service secret 统一**:① 替换 13 处 `os.environ.get/os.getenv` → `settings.<field>`(llm_gateway.py 8 处 + publish.py 1 处 + self_media.py 1 处 + mcp_server.py 3 处),`_is_stub_mode` 保留(约束 6 + LiteLLM 库内部约定);② `config.py` 新增 11 个 Pydantic Settings 字段(ollama/lmstudio/llamacpp/azure/aws 5 个本地 LLM 服务 + mcp_workspace_roots/publish_upload_dir/github_token 3 个工具配置,Settings 字段总数 26 → 39);③ `apps/ai-service/.env.example` 补 11 字段 + 根 `.env.example` 补 10 字段(LLM provider + 工具配置)。**批次 8-P2 工程治理**:① 抽出 2 个共享模块(`scripts/lib/exclude-dirs.mjs` EXCLUDE_DIRS + withExcludes() + `scripts/lib/logger.mjs` createLogger + COLORS,支持 --quiet/--debug);② 5 个守门脚本接入共享模块(check-parent-pollution/check-workspace-hygiene/check-rounded-full/check-api-key-leak/check-i18n-namespace-passing),CLI 接口/退出码/输出格式 100% 向后兼容;③ `check-parent-pollution.mjs` 注释中 `D:\桌面\项目` 硬编码改为动态推导描述(路径计算本就用 `dirname(ROOT)`),PROJECT_REF_PATTERNS 中 `d:\\桌面\\项目` 正则保留(用于扫描旧路径引用);④ `README.md` 修正 4 处端口引用(:3002→:8802 / :3001→:8801 / --port 3003→8803 / Grafana:3001→:8816),Grep 验证 `:(3000|3001|3002|3003|8000)` 在 README.md 0 命中;⑤ `check-i18n-namespace-passing.mjs` 补 17 个单元测试(NS_HOOK_RE / UI_REACT_IMPORT_RE / findTPropUsage / scanFile 完整流程,放 `.trae-cn/tmp/i18n-ns-test/` 已 gitignore)。**验证**:批次 4-6 `pnpm --filter @ihui/web typecheck` + `pnpm --filter @ihui/api typecheck` 全绿;批次 7 `ast.parse` OK + `Settings fields: 39` + Grep 验 `_is_stub_mode` 保留;批次 8 既有 92 个测试全绿(15+14+24+22+17)+ 5 守门脚本 --help 全部正常 + 共享模块 import OK + README Grep 0 命中。**协作规则**:多 subagent 并行严格遵循 §11 文件清单隔离 + §12 commit 阶段只 add 本任务文件;AGENTS.md §13 每次 Edit 后 Read 验证落地。**效果**:全栈技术债清理 100+ 项,覆盖 60+ 文件,5 维度(安全/性能/API/类型/工程)全方位提升,无回归
-- [x] ✅(2026-07-27) **技术债清理批次 9 收尾(2 subagent 并行,main.py 同步块 + i18n-ns 测试入 CI)** — **目标**:闭环批次 4-8 遗留的 2 项最优下一步建议,完成完整收尾。**改动**:① **批次 7 可选优化落地** `apps/ai-service/app/main.py` 同步块扩展(70-76 行 for 循环未改 + 新增 78-88 行 4 个 if-block),把 `ollama_api_key`/`lmstudio_api_key`/`azure_api_key`/`aws_access_key_id` 4 个 LLM provider key 同步到 `os.environ`,让 LiteLLM 库内部调用(不走 `_resolve_provider` 的路径)也能从环境变量读到配置,用 `setdefault` 不覆盖用户系统环境变量 + `if settings.xxx:` 空值守卫,与现有同步块语义一致;② **批次 8 测试纳入 CI** 新建 `scripts/tests/check-i18n-namespace-passing.test.mjs`(256 行,17 个测试用例),从 `.trae-cn/tmp/i18n-ns-test/test.mjs`(已 gitignore 不入 commit)迁移,路径修正为 `join(__dirname, '..', 'check-i18n-namespace-passing.mjs')` 与既有 4 个测试文件一致,去除 shebang + 更新头部注释,17 个测试完整迁移(NS_HOOK_RE 4 + UI_REACT_IMPORT_RE 3 + findTPropUsage 2 + SHARED_LOGIN_COMPONENTS 1 + CLI 集成 6 + cleanup 1),无任何丢失。**验证**:① main.py `ast.parse OK` + 4 个环境变量名(`OLLAMA_API_KEY`/`LMSTUDIO_API_KEY`/`AZURE_API_KEY`/`AWS_ACCESS_KEY_ID`)全部存在;② 新测试 `17 pass 0 fail`(duration 501ms)+ 既有 4 个测试回归验证全绿(check-parent-pollution 15 + check-workspace-hygiene 14 + check-rounded-full 24 + check-api-key-leak 22,共 75 pass 0 fail);③ CI workflow 检查:既有 4 个守门测试不在 CI 显式枚举(只在本地手动跑),新文件与既有一致,无需改 CI workflow 或 package.json。**协作规则**:§12 各管各的,unstage 其他 agent 的 3 个 staged 文件(PROJECT_PLAN.md + token.ts + token-store.ts,属其他 agent 的 P2 维护成本优化工作),只 add 本任务 3 文件。**效果**:批次 4-8 的 2 项最优下一步建议全部闭环,ai-service LLM provider 配置完整统一到 Pydantic Settings + 同步到 os.environ,i18n-ns 守门脚本测试纳入 CI 命名约定,技术债清理完整收尾
+- [x] ✅(2026-07-27) **P0/P1/P2 技术债清理批次 4-8(8 subagent 并行 + 主 agent 整合)** — **目标**:全栈深度技术债清理,覆盖安全/性能/API 标准化/前端类型/工程治理 5 维度,8 subagent 并行最大化效率,严格文件隔离避免冲突。**批次 4-P0 安全债**:① `apps/ai-service/app/routers/publish.py` 13 个 IDOR 端点 `user_id` 从 request body/query 改为 `request.state.user_id`(JWT 注入),6 个写操作加 ownership 校验 + asyncpg 连接池迁移;② `apps/api/src/routes/agent-extended.ts` 50+ 路由加全局 `preHandler: requireAuth` + 10 个 admin 端点升级 `requireAdmin`,`sql.raw(order)` 替换为 `ALLOWED_ORDERS` 白名单映射防 SQL 注入;③ `apps/api/src/routes/payment-gateway.ts` N+1 查询 `for-loop await aliCloseOrder` 改为 `Promise.allSettled` 并行(10 订单延迟降 10x);④ `apps/api/src/routes/clawdbot.ts` 18 端点加 Zod schema 替换 `req.body as never` safeParse。**批次 5-P1 DB 优化**:① `packages/database/src/schema/audit.ts` 补 4 索引(user_id/action/resource_type/created_at);② `packages/database/drizzle/20260727120000_p0_indexes.sql` 新增 search_history.user_id + token_flows(user_id, created_at) + refresh_tokens(userId/familyId/expiresAt) 索引;③ `apps/ai-service/app/core/db.py` 新建 asyncpg 连接池(min_size=2, max_size=10),`publish.py` 迁移到连接池。**批次 6-P1 前端类型安全**:① 13 文件 28 处冗余 `: any`/`as any` 清理(spec-panel.tsx/TaskDetailDialog.tsx/KanbanBoard/ai-generation 8 文件);② `apps/web/src/components/settings/IpWhitelist.tsx` 直接 fetch 改 `fetchApi` + 删除回滚 + loading state 管理;③ `dispatch-subagent-dialog.tsx` useEffect 加 cancelled 守卫防内存泄漏;④ 文档修正:`AGENTS.md` 路径 `d:\桌面\项目\IHUI-AI` → `g:\IHUI-AI` + 包名 `packages/ui` → `packages/ui-react`;`docs/architecture.md` 端口 3000/3001/8000 → 8801/8802/8803;`package.json` 删除死脚本 `check:orphan-images`。**批次 7-P1 ai-service secret 统一**:① 替换 13 处 `os.environ.get/os.getenv` → `settings.<field>`(llm_gateway.py 8 处 + publish.py 1 处 + self_media.py 1 处 + mcp_server.py 3 处),`_is_stub_mode` 保留(约束 6 + LiteLLM 库内部约定);② `config.py` 新增 11 个 Pydantic Settings 字段(ollama/lmstudio/llamacpp/azure/aws 5 个本地 LLM 服务 + mcp_workspace_roots/publish_upload_dir/github_token 3 个工具配置,Settings 字段总数 26 → 39);③ `apps/ai-service/.env.example` 补 11 字段 + 根 `.env.example` 补 10 字段(LLM provider + 工具配置)。**批次 8-P2 工程治理**:① 抽出 2 个共享模块(`scripts/lib/exclude-dirs.mjs` EXCLUDE_DIRS + withExcludes() + `scripts/lib/logger.mjs` createLogger + COLORS,支持 --quiet/--debug);② 5 个守门脚本接入共享模块(check-parent-pollution/check-workspace-hygiene/check-rounded-full/check-api-key-leak/check-i18n-namespace-passing),CLI 接口/退出码/输出格式 100% 向后兼容;③ `check-parent-pollution.mjs` 注释中 `D:\桌面\项目` 硬编码改为动态推导描述(路径计算本就用 `dirname(ROOT)`),PROJECT_REF_PATTERNS 中 `d:\\桌面\\项目` 正则保留(用于扫描旧路径引用);④ `README.md` 修正 4 处端口引用(:3002→:8802 / :3001→:8801 / --port 3003→8803 / Grafana:3001→:8816),Grep 验证 `:(3000|3001|3002|3003|8000)` 在 README.md 0 命中;⑤ `check-i18n-namespace-passing.mjs` 补 17 个单元测试(NS_HOOK_RE / UI_REACT_IMPORT_RE / findTPropUsage / scanFile 完整流程,放 `.ihui-agent/tmp/i18n-ns-test/` 已 gitignore)。**验证**:批次 4-6 `pnpm --filter @ihui/web typecheck` + `pnpm --filter @ihui/api typecheck` 全绿;批次 7 `ast.parse` OK + `Settings fields: 39` + Grep 验 `_is_stub_mode` 保留;批次 8 既有 92 个测试全绿(15+14+24+22+17)+ 5 守门脚本 --help 全部正常 + 共享模块 import OK + README Grep 0 命中。**协作规则**:多 subagent 并行严格遵循 §11 文件清单隔离 + §12 commit 阶段只 add 本任务文件;AGENTS.md §13 每次 Edit 后 Read 验证落地。**效果**:全栈技术债清理 100+ 项,覆盖 60+ 文件,5 维度(安全/性能/API/类型/工程)全方位提升,无回归
+- [x] ✅(2026-07-27) **技术债清理批次 9 收尾(2 subagent 并行,main.py 同步块 + i18n-ns 测试入 CI)** — **目标**:闭环批次 4-8 遗留的 2 项最优下一步建议,完成完整收尾。**改动**:① **批次 7 可选优化落地** `apps/ai-service/app/main.py` 同步块扩展(70-76 行 for 循环未改 + 新增 78-88 行 4 个 if-block),把 `ollama_api_key`/`lmstudio_api_key`/`azure_api_key`/`aws_access_key_id` 4 个 LLM provider key 同步到 `os.environ`,让 LiteLLM 库内部调用(不走 `_resolve_provider` 的路径)也能从环境变量读到配置,用 `setdefault` 不覆盖用户系统环境变量 + `if settings.xxx:` 空值守卫,与现有同步块语义一致;② **批次 8 测试纳入 CI** 新建 `scripts/tests/check-i18n-namespace-passing.test.mjs`(256 行,17 个测试用例),从 `.ihui-agent/tmp/i18n-ns-test/test.mjs`(已 gitignore 不入 commit)迁移,路径修正为 `join(__dirname, '..', 'check-i18n-namespace-passing.mjs')` 与既有 4 个测试文件一致,去除 shebang + 更新头部注释,17 个测试完整迁移(NS_HOOK_RE 4 + UI_REACT_IMPORT_RE 3 + findTPropUsage 2 + SHARED_LOGIN_COMPONENTS 1 + CLI 集成 6 + cleanup 1),无任何丢失。**验证**:① main.py `ast.parse OK` + 4 个环境变量名(`OLLAMA_API_KEY`/`LMSTUDIO_API_KEY`/`AZURE_API_KEY`/`AWS_ACCESS_KEY_ID`)全部存在;② 新测试 `17 pass 0 fail`(duration 501ms)+ 既有 4 个测试回归验证全绿(check-parent-pollution 15 + check-workspace-hygiene 14 + check-rounded-full 24 + check-api-key-leak 22,共 75 pass 0 fail);③ CI workflow 检查:既有 4 个守门测试不在 CI 显式枚举(只在本地手动跑),新文件与既有一致,无需改 CI workflow 或 package.json。**协作规则**:§12 各管各的,unstage 其他 agent 的 3 个 staged 文件(PROJECT_PLAN.md + token.ts + token-store.ts,属其他 agent 的 P2 维护成本优化工作),只 add 本任务 3 文件。**效果**:批次 4-8 的 2 项最优下一步建议全部闭环,ai-service LLM provider 配置完整统一到 Pydantic Settings + 同步到 os.environ,i18n-ns 守门脚本测试纳入 CI 命名约定,技术债清理完整收尾
 
 - [x] ✅(2026-07-28) **多端维护成本优化批次 P2/P3 收尾(5 subagent 并行,8 项任务)** — **目标**:用户追问"P1 P2 P3 怎么不做",前轮交付违反 AGENTS.md §10 一致性约束("无后续建议"与"P1-P5"同存),本轮彻底执行剩余可执行项。**5 subagent 并行**:
   - **Subagent A(P2-B sync 脚本接入 pre-commit 自动触发)**:`.husky/pre-commit` 行 40-115 新增 76 行逻辑,检测 staged 中含 `packages/design-tokens/src/styles/tokens.css` 时,在 guardian-runner 调用之前自动执行 `pnpm --filter @ihui/miniapp-taro sync-tokens` + `git add apps/miniapp-taro/src/app.css`(同步更新 INITIAL_STAGED_SNAPSHOT 防 unstage),支持 `HUSKY_SKIP_TOKENS_SYNC=1` 跳过 + sync-tokens 失败 exit 1 + 无变化跳过 git add,4 场景逻辑验证全通过(POSIX/Windows 路径双格式检测)
@@ -630,7 +630,7 @@
   - **Subagent E(P3-hex mobile-rn className 58 处 hex 治理)**:扩展 `apps/mobile-rn/global.css` 新增 `--rn-*` 变量(purple/tertiary/body/danger/success/line 共 9 个,亮色+暗色覆盖,值源自 rn-tokens.ts)+ 扩展 `apps/mobile-rn/tailwind.config.js` theme.extend.colors 引用 var(--rn-*),5 个 screen 文件 25 处 className hex 硬编码(`bg-[#XXX]`/`text-[#XXX]`/`border-[#XXX]`)全部替换为语义类(`bg-danger`/`text-tertiary`/`bg-success-light` 等),DeveloperScreen 前序已完成,验证:Grep `(bg|text|border)-\[#` 在 6 个目标 screen 0 matches + `pnpm --filter @ihui/mobile-rn typecheck` exit 0 + `node scripts/check-rn-global-css-sync.mjs` 50 变量同步 exit 0
 
   **验证**:5 subagent 全部自验通过 + 主 agent 整合验证(mobile-rn typecheck 仅其他 agent packages/app/src/index.ts 引用未存在的 ./features/course-catalog/CourseCatalogScreen 报错,本任务 6 文件 0 错误,按 §12 用 --no-verify 跳过 hook)+ check-rn-global-css-sync 50 变量同步 + Grep hex 0 matches。**架构性阻塞项**(需单独立项,不在本批次范围):P2-F(miniapp-taro 端共享组件桥接层,packages/app 13 个共享组件全部 `from 'react-native'`,与 miniapp-taro Taro 原语不兼容,需重构 packages/app 为 platform-agnostic 逻辑层+三套渲染层)+ P3-A(共享组件扩展 Agreement/Privacy/Help/Ranking,三端同名不同功能,需产品先统一定义再下沉)。**Git 同步**:本任务 18 文件改动(12 P2/P3 产物 + 6 恢复被 Revert 误删的脚本及测试),按 §12 多会话规则只 add 本任务文件
-  - **协作事故处理(本轮已修复)**:执行过程中发现 commit `32cd16946d` Revert "feat(web): Phase 20 Trae Work 细节优化 v2" 误删了 `scripts/check-design-tokens-sync.mjs`(461 行)+ `scripts/measure-guardian-performance.mjs`(530 行)+ 4 个测试文件(check-design-tokens-sync.test.mjs 643 行 / measure-guardian-performance.test.mjs 175 行 / check-solito-residue.test.mjs 305 行 / check-cli-i18n-parity.test.mjs 239 行)。本轮从 `4255687417` 用 `git checkout <sha> -- <path>` 恢复全部 6 文件,与 commit 同步提交,守门体系测试覆盖完整性恢复
+  - **协作事故处理(本轮已修复)**:执行过程中发现 commit `32cd16946d` Revert "feat(web): Phase 20 工作台 细节优化 v2" 误删了 `scripts/check-design-tokens-sync.mjs`(461 行)+ `scripts/measure-guardian-performance.mjs`(530 行)+ 4 个测试文件(check-design-tokens-sync.test.mjs 643 行 / measure-guardian-performance.test.mjs 175 行 / check-solito-residue.test.mjs 305 行 / check-cli-i18n-parity.test.mjs 239 行)。本轮从 `4255687417` 用 `git checkout <sha> -- <path>` 恢复全部 6 文件,与 commit 同步提交,守门体系测试覆盖完整性恢复
 
 ---
 
@@ -661,21 +661,21 @@
 
 - [x] ✅(2026-07-27) 4 个营销文案补全正文 — `docs/marketing/cn-launch-post.md` 从 11 KB → 36.5 KB(8 平台每平台 2000+ 字正文)+ `docs/marketing/en-launch-post.md` 全部占位符替换 + `docs/marketing/multi-platform-distribution.md` 加"为什么做这个工具"章节 + `docs/enterprise-service/ai-community-intro.md` 从空文件写到 10.4 KB(社区定位 + 8 项功能 + 6 项优势)。**问题根因**:之前只填了标题 + frontmatter 模板就发布,正文是占位符 Lorem ipsum,被 8 平台审核员秒拒。**修复**:所有占位符替换为真实可发布内容,8 平台风格差异化(掘金技术深度 / 思否极客向 / CSDN 老手向 / 知乎深度长文 / V2EX 极简链接流 / OSCHINA 综合 / HelloGitHub README 风 / 掘金英文版)
 - [x] ✅(2026-07-27) 10 篇技术博客 5 语言 i18n + 侧边栏入口 — `docs/blog/01-8-ends-same-source-architecture.md` ~ `10-open-source-saas-monetization.md` 共 10 篇,每篇 365-513 行,覆盖架构/性能/扩展/部署/商业化 5 维度。`apps/web/src/lib/blog.ts` markdown frontmatter 解析 + slug 路由 + 5 语言(`zh-CN/en/ja/ko/zh-TW`)翻译;`apps/web/src/app/(main)/blog/page.tsx` 列表页 + `[slug]/page.tsx` 详情页;`apps/web/src/components/layout/sidebar.tsx` 侧边栏 BlogSection 入口。SEO 友好:每篇 5-10 KB 正文 + meta tags + Open Graph
-- [x] ✅(2026-07-27) GitHub Discussions 自动发布 — `.trae-cn/tmp/post-discussion.mjs` + `post-show-tell.mjs` 用 GraphQL API(`repositoryId: R_kgDOTA74Ug` + `categoryId: DIC_kwDOTA74Us4DCBJ5`)成功发布 2 条(Show and tell:项目介绍 / General:技术博客索引)。Auth 走 git credential helper 提取 GitHub token,失败回退到 GITHUB_TOKEN env
+- [x] ✅(2026-07-27) GitHub Discussions 自动发布 — `.ihui-agent/tmp/post-discussion.mjs` + `post-show-tell.mjs` 用 GraphQL API(`repositoryId: R_kgDOTA74Ug` + `categoryId: DIC_kwDOTA74Us4DCBJ5`)成功发布 2 条(Show and tell:项目介绍 / General:技术博客索引)。Auth 走 git credential helper 提取 GitHub token,失败回退到 GITHUB_TOKEN env
 - [x] ✅(2026-07-27) **Awesome List PR 自动化提交(5 列表 ~456k stars)** — 完整工作流评估 → fork → 编辑 → commit → push → PR。**已提交 5 个 PR**:① punkpeye/awesome-mcp-servers #11005(91k stars,Aggregators 段,标题用 🤖🤖🤖 suffix 触发 agent fast-track);② Hannibal046/Awesome-LLM #759(27k stars,LLM Applications 段,top-level dspy/LangChain 旁);③ awesome-selfhosted/awesome-selfhosted-data #2793(308k stars,YAML 条目 `software/ihui-ai.yml`,bot 周构建 README);④ mahmoud/awesome-python-applications #235(17.9k stars,AI/ML 段,projects.yaml 用 ai/internet/dev tags);⑤ steven2358/awesome-generative-ai #1128(12.4k stars,Coding > Developer tools,DISCOVERIES 列表 < 1k followers,#opensource tag,Apache 2.0)。**候选评估**(`check-awesome.mjs` 16 候选):`punkpeye/awesome-mcp-servers`(91k ✓)/ `Hannibal046/Awesome-LLM`(27k ✓)/ `awesome-selfhosted/awesome-selfhosted-data`(308k ✓)/ `mahmoud/awesome-python-applications`(17.9k ✓)/ `steven2358/awesome-generative-ai`(12.4k ✓)/ `Mooler0410/Awesome-LLMs-In-China`(4.6k 待评估)/ `eugeneyan/open-llms`(拒绝,聚焦 LLM 权重非平台)/ `modelcontextprotocol/servers`(拒绝,CONTRIBUTING 明确说"请用 MCP Server Registry")。**辅助工具**:`fetch-awesome-content.mjs`(读 README + CONTRIBUTING 提取 section 格式)/ `fork-awesome.mjs`(POST /repos/{owner}/{name}/forks + 轮询就绪)/ `edit-readme.mjs`(按 section 格式插入条目)/ `open-pr.mjs`(POST /repos/{owner}/{name}/pulls)/ `pr-steven2358.mjs` + `pr-mahmoud.mjs`(具体 PR 创建脚本)。**追踪文档**:`docs/exposure/awesome-prs.md`(5 列表完整 entry 文本 + 提交记录 + workflow + 未来目标 7 个:awesome-openai / awesome-langgraph / awesome-tauri / awesome-react-native / awesome-taro / awesome-fastify / awesome-selfhosted 中文镜像)。**潜在曝光**:~456k stars 全部合并后一次性获得
 - [x] ✅(2026-07-27) main 分支污染恢复 — local main 被某 agent 误 reset 到 upstream/master(59ac4034f4,awesome-selfhosted bot 提交),`git reset --hard origin/main` 修复到 `bc6cc73570`(IHUI-AI 正确状态),rebase 整合其他 agent 并行 push 的 2 commit(`a0702ff7b` createConversation try/catch + `52cc7348d` response schema 500 状态码),merge rescue 分支加 awesome-prs.md,最终 HEAD `74953d086b` 推到 origin。**tag 同步**:`sync-lost-commit-tags.mjs --fetch` 拉回 333 远端 lost-commit tag + 2 备份 tag,`--auto-push` 推 3 新增 lost-commit tag + 2 新增 backup tag,**最终 343/343 本地+远端一致,可达率 100%**。**新 backup tag**:`backup/main-recovered-after-upstream-reset-20260727` 指向 `bc6cc73570`(恢复点)+ `lost-commit/wrong-upstream-reset` 已存在指向 `59ac4034f4`(污染点)。**验证**:`git-push-guard.mjs` exit 0 + `local HEAD 74953d0 == origin/main 74953d0`
 - [x] ✅(2026-07-27) _*P2 完成:5 个新 awesome-* PR + 关闭 2 个重复 PR_* — 新增 5 PR 全部 open:① punkpeye/awesome-mcp-clients #258(MCP 客户端列表);② kyrolabs/awesome-langchain #463(LangChain 资源,9.4k stars);③ svcvit/Awesome-Dify-Workflow #54(Dify 工作流,10.7k stars);④ awesome-rag/awesome-rag #10(RAG 系统);⑤ Shubhamsaboo/awesome-llm-apps #1040(LLM 应用)。关闭重复 PR:Hannibal046/Awesome-LLM #756(保留 #759)+ punkpeye/awesome-mcp-servers #10980(保留 #11005)。所有 PR 通过 GitHub REST API fork→branch→contents→pulls 流程,只改 README.md 一个文件。新增潜在曝光 ~25-50k stars
 - [x] ✅(2026-07-27) **P2 完成:SEO 优化 README + 100+ 关键词资产** — README.md 顶部追加关键词锚点段落(8 个核心 SEO 词:AI Agent Platform / LLM Gateway / MCP / LangGraph / multi-tenant AI / open source ChatGPT alternative / Agentic AI Framework)+ Use Cases 章节(8 场景中英双语)+ Quick FAQ(5 问答 PAA 友好)+ Keywords 索引;新建 `docs/seo-keywords.md`(184 行,100+ 关键词分 6 类:Primary 10 + Long-tail 30 + Question 20 + Comparison 10 + Platform-specific 30 + 技术栈)。opengraph-image.tsx 已存在(P1-4 已生成,1200×630 智汇 AI 品牌卡)
-- [x] ✅(2026-07-27) **P2 完成:IndexNow 批量提交脚本 + 社区运营** — 新建 `scripts/indexnow-submit.mjs`(正则解析 sitemap.ts 92 条 URL→POST `api.indexnow.org/indexnow`,支持 --dry-run/--key/--host,自动生成 32 位 hex 密钥 + 写入 `apps/web/public/{key}.txt`);`node scripts/indexnow-submit.mjs --dry-run` exit 0,92 URL payload 预览通过。社区运营:回复 Issue #9 + 新建 Discussion #23(Roadmap feedback,Ideas 分类)+ 新建 Issue #22(5 good-first-issues,good-first-issue/help wanted/community 标签);对外报告 `docs/exposure/community-engagement.md` + 内部日志 `.trae-cn/tmp/community-engagement.md`。Show HN 草稿 `.trae-cn/tmp/show-hn-post.md`(290 字英文 + HN 合规自检)
+- [x] ✅(2026-07-27) **P2 完成:IndexNow 批量提交脚本 + 社区运营** — 新建 `scripts/indexnow-submit.mjs`(正则解析 sitemap.ts 92 条 URL→POST `api.indexnow.org/indexnow`,支持 --dry-run/--key/--host,自动生成 32 位 hex 密钥 + 写入 `apps/web/public/{key}.txt`);`node scripts/indexnow-submit.mjs --dry-run` exit 0,92 URL payload 预览通过。社区运营:回复 Issue #9 + 新建 Discussion #23(Roadmap feedback,Ideas 分类)+ 新建 Issue #22(5 good-first-issues,good-first-issue/help wanted/community 标签);对外报告 `docs/exposure/community-engagement.md` + 内部日志 `.ihui-agent/tmp/community-engagement.md`。Show HN 草稿 `.ihui-agent/tmp/show-hn-post.md`(290 字英文 + HN 合规自检)
 - [x] ✅(2026-07-28) **P2 完成:GitHub Release v1.2.0 创建** — 通过 git credential helper 拿 GitHub token(40 char PAT)+ GitHub API `POST /repos/IHUI-INF-AI/IHUI-AI/releases` 创建 release(id=360870923,tag=v1.2.0,指向 main sha `6e2e0dc4a0f27e3975333363f329429fe252531c`)。Release notes 汇总自 v1.1.0 后 104 个 commit:① P0 商业化(Stripe + VIP 4 档 + plan-driven 中间件 + 42 模型价格 seed + 定价页 + 微信支付二维码);② P1 曝光(8 平台营销文案 + 10 篇博客 5 语言 i18n + 8 awesome PR + SEO 资产 + IndexNow + 社区建设 + dev.to 15 篇交叉发布);③ 工程治理(AGENTS.md §22-§26 新增 + 多端维护成本 6.8x→3.7x + 技术债清理 + P3 内存泄漏修复 + UI 修复 + Desktop 修复)。URL: https://github.com/IHUI-INF-AI/IHUI-AI/releases/tag/v1.2.0
 - [x] ✅(2026-07-28) **P2 完成:8 个 Awesome PR 状态盘点 + 文档更新** — `scripts/cross-publish-{v2ex,reddit,producthunt}.mjs` 已建(待 token 配置);通过 GitHub API 拉 10 PR 状态:**7 OPEN / 0 MERGED / 3 CLOSED**。3 CLOSED 根因:① awesome-selfhosted-data #2793(IHUI-AI 非纯 self-hosted 软件);② awesome-langchain #463(我们用 LangGraph 非 LangChain,定位错);③ awesome-llm-apps #1040(仓库要自包含可运行示例,纯 README 链接不符 — 维护者 Shubhamsaboo 邀请贡献示例代码)。**待决策**:awesome-mcp-servers #11005(91k stars)github-actions[bot] 要求注册 Glama + 加 badge,但 IHUI-AI 是 MCP client/host 非 server,可能需主动关闭,保留 awesome-mcp-clients #258 为正确归类。更新 `docs/exposure/awesome-prs.md`(101 → 178 行,新增维护者反馈记录 + 教训表 + 重做策略)
 - [x] ✅(2026-08-01) **P2 完成:7 候选 awesome 列表评估 + 2 新 PR 提交** — 通过 GitHub API 自动化评估 7 个候选 + 提交 PR:① jondot/awesome-react-native [#1227](https://github.com/jondot/awesome-react-native/pull/1227)(35.7k stars,Apps section,React Native + Expo mobile AI client);② tauri-apps/awesome-tauri [#831](https://github.com/tauri-apps/awesome-tauri/pull/831)(8k stars,Apps section,base=dev 分支,Tauri 2.0 desktop AI client);③ e2b-dev/awesome-ai-agents(29.2k stars,README 已有 IHUI-AI 条目,无需重复提交);④ wong2/awesome-mcp-servers(4.2k stars,PRs 禁用 has_issues=False 返回 404);⑤ NervJS/awesome-taro(2.9k stars,fork 401 未经授权);⑥-⑨ openai/awesome-openai + kyrolabs/awesome-langgraph + fastify/awesome-fastify + Mooler0410/Awesome-LLMs-In-China(4 个仓库 404 不存在)。当前总计 9 open PR + 1 existing entry = 10 个活跃条目,潜在曝光 ~232k+ stars。更新 `docs/exposure/awesome-prs.md` 新增 2 PR + 评估结果表
-- [x] ✅(2026-08-02) **P2 放弃(用户无法操作):自动化 GitHub Trending 推送** — AI 物料全部就绪(V2EX/Reddit/ProductHunt 草稿 + 5 个 cross-publish 脚本 dry-run 通过),但用户为残疾人只会扫码登录,V2EX 需邀请码激活(卡住)、Reddit 只支持账号密码(用户不会)、ProductHunt 流程复杂需 Maker 账号(用户不会)。物料保留在 `.trae-cn/tmp/` 供后续有账号时使用。**已完成的可自动化部分**:dev.to 15 篇博客已发布(零用户操作)、9 个 awesome PR 已提交、GitHub Discussion/Issue 已创建
-- [x] ✅(2026-08-02) **P3 放弃(用户无法操作):ProductHunt 提交 + HackerNews "Show HN" 发布** — AI 物料全部就绪(Show HN 290 字英文草稿 + ProductHunt 9 项要素齐全),但 HackerNews 只支持账号密码(用户主动放弃,称"网站太垃圾看不懂")、ProductHunt 需 Maker 账号 + 绑定 Twitter(用户不会账号密码操作)。物料保留在 `.trae-cn/tmp/marketing-2026-07-28/` 供后续有账号时使用
-- [x] ✅(2026-08-02) **P3 放弃(用户无法操作):创建 Substack/Mirror 文章** — AI 物料全部就绪(Substack 10 期 newsletter 大纲 + dev.to/Hashnode 交叉发布脚本 dry-run 通过),但 Substack 需注册账号(用户不会)、Hashnode 退役免费 API(需付费)、Medium 需 Google OAuth 自动化受阻(browser_click 在账号选择页报错)。dev.to 15 篇博客已自动发布(零用户操作)。物料保留在 `.trae-cn/tmp/marketing-2026-07-28/` 供后续有账号时使用
-- [x] ✅(2026-08-01) **P3 完成:YouTube/B 站视频脚本 10 篇全系列** — 10 篇视频脚本全部就绪(`.trae-cn/tmp/video-scripts/01-8-ends-architecture.md` ~ `10-future-roadmap.md`,每篇 950-1000 字 + 7 要素:标题/时长/口播/画面/BGM/简介/标签)。覆盖:8 端架构/176 模型统一调度/MCP 协议/RAG 知识库/开源商业化/多租户 RLS/Agent 市场/14 平台发布/DevOps CI-CD/v2.0 路线图。B 站视频上传需用户扫码登录,AI 已完成全部脚本物料
-- [x] ✅(2026-08-01) **P2 完成:GitHub 社区运营自动化批次(零用户操作)** — 通过 GitHub REST + GraphQL API 完成:① 仓库元数据验证(20 topics / 222 字符 description / ihui.ai homepage 全合规,topics 已达 20 上限无需补充);② 新建 3 个技术 Discussion([#26](https://github.com/IHUI-INF-AI/IHUI-AI/discussions/26) 8 端 monorepo 共享层设计 70.3% 复用率 / [#27](https://github.com/IHUI-INF-AI/IHUI-AI/discussions/27) v1.3 Roadmap 征集 / [#28](https://github.com/IHUI-INF-AI/IHUI-AI/discussions/28) Tauri 2 + React 19 踩坑分享);③ 新建 3 个贡献者 Issue([#29](https://github.com/IHUI-INF-AI/IHUI-AI/issues/29) good-first-issue CLI --version/--help 测试 / [#30](https://github.com/IHUI-INF-AI/IHUI-AI/issues/30) good-first-issue 8 端架构图中文注释 / [#31](https://github.com/IHUI-INF-AI/IHUI-AI/issues/31) help wanted v2.0 AI OS 愿景反馈);④ 9 个 awesome PR 状态复核(全部 open,mcp-servers #11005 有 3 条维护者互动);⑤ 7 个 release 验证(v1.2.0 最新 notes 6774 字符完整)。可复用脚本 `.trae-cn/tmp/github-token-helper.mjs` + 完整报告 `.trae-cn/tmp/github-automation-report.md`
-- [x] ✅(2026-08-01) **P2 完成:5 个扫码平台纯文字内容包(用户扫码登录后复制粘贴即可发布)** — 为微博/知乎/小红书/B 站专栏/微信公众号 5 个支持扫码登录的平台准备纯文字内容,用户(残疾人,只能扫码,不能录视频/编辑图片)扫码登录后只需复制粘贴即可发布。文件位于 `.trae-cn/tmp/qr-platforms/`:① `weibo-post.md`(~936 字符,带 #开源# #AI# #LangGraph# 话题);② `zhihu-article.md`(8 章节技术长文 + 4 段代码);③ `xiaohongshu-note.md`(~896 字符,emoji 风格 + 8 标签);④ `bilibili-column.md`(B 站专栏文字非视频脚本,7 章节);⑤ `wechat-mp-article.md`(9 章节公众号长文 + 7 收入流规划);⑥ `README.md`(一键操作清单:5 平台扫码 URL + 逐步发布流程 + 字数/配图提醒 + 最佳发布时间)。所有数据真实无夸大(8 端 / 176 LLM / 340 表 / 1300+ API / Apache 2.0 / 70.3% 复用率)
+- [x] ✅(2026-08-02) **P2 放弃(用户无法操作):自动化 GitHub Trending 推送** — AI 物料全部就绪(V2EX/Reddit/ProductHunt 草稿 + 5 个 cross-publish 脚本 dry-run 通过),但用户为残疾人只会扫码登录,V2EX 需邀请码激活(卡住)、Reddit 只支持账号密码(用户不会)、ProductHunt 流程复杂需 Maker 账号(用户不会)。物料保留在 `.ihui-agent/tmp/` 供后续有账号时使用。**已完成的可自动化部分**:dev.to 15 篇博客已发布(零用户操作)、9 个 awesome PR 已提交、GitHub Discussion/Issue 已创建
+- [x] ✅(2026-08-02) **P3 放弃(用户无法操作):ProductHunt 提交 + HackerNews "Show HN" 发布** — AI 物料全部就绪(Show HN 290 字英文草稿 + ProductHunt 9 项要素齐全),但 HackerNews 只支持账号密码(用户主动放弃,称"网站太垃圾看不懂")、ProductHunt 需 Maker 账号 + 绑定 Twitter(用户不会账号密码操作)。物料保留在 `.ihui-agent/tmp/marketing-2026-07-28/` 供后续有账号时使用
+- [x] ✅(2026-08-02) **P3 放弃(用户无法操作):创建 Substack/Mirror 文章** — AI 物料全部就绪(Substack 10 期 newsletter 大纲 + dev.to/Hashnode 交叉发布脚本 dry-run 通过),但 Substack 需注册账号(用户不会)、Hashnode 退役免费 API(需付费)、Medium 需 Google OAuth 自动化受阻(browser_click 在账号选择页报错)。dev.to 15 篇博客已自动发布(零用户操作)。物料保留在 `.ihui-agent/tmp/marketing-2026-07-28/` 供后续有账号时使用
+- [x] ✅(2026-08-01) **P3 完成:YouTube/B 站视频脚本 10 篇全系列** — 10 篇视频脚本全部就绪(`.ihui-agent/tmp/video-scripts/01-8-ends-architecture.md` ~ `10-future-roadmap.md`,每篇 950-1000 字 + 7 要素:标题/时长/口播/画面/BGM/简介/标签)。覆盖:8 端架构/176 模型统一调度/MCP 协议/RAG 知识库/开源商业化/多租户 RLS/Agent 市场/14 平台发布/DevOps CI-CD/v2.0 路线图。B 站视频上传需用户扫码登录,AI 已完成全部脚本物料
+- [x] ✅(2026-08-01) **P2 完成:GitHub 社区运营自动化批次(零用户操作)** — 通过 GitHub REST + GraphQL API 完成:① 仓库元数据验证(20 topics / 222 字符 description / ihui.ai homepage 全合规,topics 已达 20 上限无需补充);② 新建 3 个技术 Discussion([#26](https://github.com/IHUI-INF-AI/IHUI-AI/discussions/26) 8 端 monorepo 共享层设计 70.3% 复用率 / [#27](https://github.com/IHUI-INF-AI/IHUI-AI/discussions/27) v1.3 Roadmap 征集 / [#28](https://github.com/IHUI-INF-AI/IHUI-AI/discussions/28) Tauri 2 + React 19 踩坑分享);③ 新建 3 个贡献者 Issue([#29](https://github.com/IHUI-INF-AI/IHUI-AI/issues/29) good-first-issue CLI --version/--help 测试 / [#30](https://github.com/IHUI-INF-AI/IHUI-AI/issues/30) good-first-issue 8 端架构图中文注释 / [#31](https://github.com/IHUI-INF-AI/IHUI-AI/issues/31) help wanted v2.0 AI OS 愿景反馈);④ 9 个 awesome PR 状态复核(全部 open,mcp-servers #11005 有 3 条维护者互动);⑤ 7 个 release 验证(v1.2.0 最新 notes 6774 字符完整)。可复用脚本 `.ihui-agent/tmp/github-token-helper.mjs` + 完整报告 `.ihui-agent/tmp/github-automation-report.md`
+- [x] ✅(2026-08-01) **P2 完成:5 个扫码平台纯文字内容包(用户扫码登录后复制粘贴即可发布)** — 为微博/知乎/小红书/B 站专栏/微信公众号 5 个支持扫码登录的平台准备纯文字内容,用户(残疾人,只能扫码,不能录视频/编辑图片)扫码登录后只需复制粘贴即可发布。文件位于 `.ihui-agent/tmp/qr-platforms/`:① `weibo-post.md`(~936 字符,带 #开源# #AI# #LangGraph# 话题);② `zhihu-article.md`(8 章节技术长文 + 4 段代码);③ `xiaohongshu-note.md`(~896 字符,emoji 风格 + 8 标签);④ `bilibili-column.md`(B 站专栏文字非视频脚本,7 章节);⑤ `wechat-mp-article.md`(9 章节公众号长文 + 7 收入流规划);⑥ `README.md`(一键操作清单:5 平台扫码 URL + 逐步发布流程 + 字数/配图提醒 + 最佳发布时间)。所有数据真实无夸大(8 端 / 176 LLM / 340 表 / 1300+ API / Apache 2.0 / 70.3% 复用率)
 - [x] ✅(2026-08-01) **P1 完成:dev.to 自动注册 + 15 篇技术博客批量发布(零用户操作)** — 用浏览器自动化完成:① Google OAuth 登录 dev.to(用户选择 Google 账号授权);② 从 https://dev.to/settings/extensions 提取 API key `U9ZPEYCJSUWyTc9gBHSVSrms`(已存 `.env.devto`,gitignore);③ 用 `scripts/cross-publish-devto.mjs --publish` 批量发布 15 篇技术博客(01-8-ends-same-source-architecture ~ 15-monorepo-8-platforms-turborepo-pnpm),每篇带 canonical_url 回指 aizhs.top;④ 清理 14 篇重复/测试文章(12 篇成功 unpublish,1 篇 rate limit 待清理,1 篇已删除);⑤ 最终 16 篇 published(15 篇原始 + 1 篇重复待清理)。账号:李春川(@_fd4c731d8fc551b91150a)。**首个零用户操作完成的博客平台**
 - [x] ✅(2026-08-01) **P2 阻塞:Hashnode/ProductHunt/Substack/Reddit/HackerNews/Medium 注册受阻** — 6 个平台均无法用 Google 账号自动完成注册:① Hashnode(2026-05-13 退役免费 GraphQL API,需 Pro plan 付费才能用 API,跳过);② ProductHunt(登录页 React SPA 动态渲染,browser_click 按钮持续 "Index out of bounds" 错误,无法进入登录表单);③ Substack(登录页 Cloudflare/anti-bot 拦截,页面不渲染登录表单);④ Reddit(不支持 Google 登录,只支持 Apple ID + 账号密码);⑤ HackerNews(不支持 Google 登录,传统账号密码);⑥ Medium(Google OAuth 跳转成功,但点击 Google 账号选项 "Index out of bounds" 错误,无法自动选择账号)。**根因**:browser_use 工具在 Google OAuth 账号选择页面 + React SPA + Cloudflare 保护的网站上点击操作不稳定。**建议用户手动注册**:ProductHunt/Substack/Medium 都支持 Google 登录,用户在浏览器中手动点击即可完成(物料已就绪)
 
@@ -753,7 +753,7 @@
 
 ### P0 商业化变现批次(2026-07-27 立,平台独占:apps/api + apps/web,AGENTS.md §24 用户已确认)
 
-<!-- 已归档(2026-08-19):5 个 P0 子任务全部闭环,后续建议 0 条,详见 .trae-cn/archive/PROJECT_PLAN_2026-08-19_auto-archive.md -->
+<!-- 已归档(2026-08-19):5 个 P0 子任务全部闭环,后续建议 0 条,详见 .ihui-agent/archive/PROJECT_PLAN_2026-08-19_auto-archive.md -->
 
 > 用户明确要求"用本项目挣钱",已通过 AskUserQuestion 确认 4 路径(SaaS 订阅 + 企业私有化 + API 开放平台 + AI 教育)× 双市场(国内+海外)。代码层面 95% 已就绪(微信支付/支付宝/VIP/积分/API 密钥/4 语言 SDK/教育模块/部署/i18n 全部真实可用),主要缺口:Stripe/PayPal(海外)、plan-driven 中间件、模型价格 seed、运营数据、真实凭据。**用户必须本人操作**:注册 Stripe 商户 / 申请微信支付+支付宝商户号 / ICP 备案 / 购买云服务器 / 配置 GitHub Secrets / 谈企业客户签合同 / 录课。
 
@@ -868,528 +868,528 @@
 
 ## 历史归档占位(2026-07-26 批次)
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) D 盘历史项目迁移完整性审计 — 5 维度对照 + 缺失项识别(/goal 模式),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) D 盘历史项目迁移完整性审计 — 5 维度对照 + 缺失项识别(/goal 模式),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) D 盘历史项目迁移 100% 达成 — 11 项缺失修复复核(/goal 模式轮 3,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) D 盘历史项目迁移 100% 达成 — 11 项缺失修复复核(/goal 模式轮 3,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) 小程序兼容路由 53 个 stub 真实化 — 接入 packages/databa,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) 小程序兼容路由 53 个 stub 真实化 — 接入 packages/databa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) 小程序联调 P0 阻碍修复 + /study/* 鉴权路由补全 — 端到端真实数据验,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) 小程序联调 P0 阻碍修复 + /study/* 鉴权路由补全 — 端到端真实数据验,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) /study/* JWT 全流程 P0 bug 修复 + miniapp-taro ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) /study/* JWT 全流程 P0 bug 修复 + miniapp-taro ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) Commit 丢失防护机制强化 — 文档 + 脚本 + 钩子三件套(AGENTS.m,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) Commit 丢失防护机制强化 — 文档 + 脚本 + 钩子三件套(AGENTS.m,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) GEO/SEO 内容层 + 5 语言 i18n parity 完成,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) GEO/SEO 内容层 + 5 语言 i18n parity 完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) i18n 死 key 审计(commit 73197f3e1)— scripts/scan-dead-i18n-keys.mjs 305 行 + 报告 10255 leaf key / 4415 死 key 43.1% 写入 .trae-cn/tmp/i18n-dead-keys-2026-07-26.md(143KB),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) i18n 死 key 审计(commit 73197f3e1)— scripts/scan-dead-i18n-keys.mjs 305 行 + 报告 10255 leaf key / 4415 死 key 43.1% 写入 .ihui-agent/tmp/i18n-dead-keys-2026-07-26.md(143KB),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) LLM provider 字典化阶段 1(commit d7d0b9c40)— docs/llm-provider-dict-design.md 277 行 7 章节 + LLMSettings PoC(+20 行,100% 向后兼容)+ LLM_PROVIDERS_JSON 注释示例,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) LLM provider 字典化阶段 1(commit d7d0b9c40)— docs/llm-provider-dict-design.md 277 行 7 章节 + LLMSettings PoC(+20 行,100% 向后兼容)+ LLM_PROVIDERS_JSON 注释示例,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
 ## 历史归档占位(2026-07-25 批次)
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 对话/编程体验优化 goal 模式执行 — P0 安全/性能 8 项 + P1,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26 手动):Git 同步证据(commit 7cd90f2ca8 — AI 对话/编程体验优化 P0+P1,2026-07-25),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 对话/编程体验优化 goal 模式执行 — P0 安全/性能 8 项 + P1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26 手动):Git 同步证据(commit 7cd90f2ca8 — AI 对话/编程体验优化 P0+P1,2026-07-25),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 对话 P2/P3 遗留项执行 — SSE retry-after + Prom,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 对话 P2/P3 遗留项执行 — SSE retry-after + Prom,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26 手动):P3-3 admin 看板 UI 接入 + SSE retry-after e2e 测试(2026-07-25),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26 手动):P3-3 admin 看板 UI 接入 + SSE retry-after e2e 测试(2026-07-25),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
-<!-- 已归档(2026-07-26 手动):P3-4 DB migration 补全 + retryAfter 传递链路修复(2026-07-25),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26 手动):P3-4 DB migration 补全 + retryAfter 传递链路修复(2026-07-25),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 13 — audit 脚本 6 类误判修复 + web 端 5 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 13 — audit 脚本 6 类误判修复 + web 端 5 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) P0 安全债收尾 — IDOR 防护集成测试 + payment-gateway 全,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) P0 安全债收尾 — IDOR 防护集成测试 + payment-gateway 全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 输入框「添加」下拉菜单整合修复 — 9e90351d3 patch 重建时丢失,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 输入框「添加」下拉菜单整合修复 — 9e90351d3 patch 重建时丢失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 切换会话 LRU 缓存 + store messages 持久化 — 无闪烁体验(跨,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 切换会话 LRU 缓存 + store messages 持久化 — 无闪烁体验(跨,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 桌面端顶栏终极简化 + Popover 受控模式 — 消除视觉噪音(平台独占:des,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 桌面端顶栏终极简化 + Popover 受控模式 — 消除视觉噪音(平台独占:des,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 桌面端移除 Rust 原生菜单 — 根治"两层菜单割裂"(平台独占:desktop ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 桌面端移除 Rust 原生菜单 — 根治"两层菜单割裂"(平台独占:desktop ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) P0 安全债并行修复 — 3 条 IDOR/支付金额漏洞收口(跨端:仅 api,平台,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) P0 安全债并行修复 — 3 条 IDOR/支付金额漏洞收口(跨端:仅 api,平台,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 12 — adminGroup.* 嵌套化 + download,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 12 — adminGroup.* 嵌套化 + download,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 11 — 侧边栏 nav.* 158 key + marketi,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 11 — 侧边栏 nav.* 158 key + marketi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 11 — useAgents/useArticles/useCh,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 11 — useAgents/useArticles/useCh,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 10 — extension + miniapp-taro 端 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 10 — extension + miniapp-taro 端 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 9(收尾)— shared parity 升级 blocking,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 9(收尾)— shared parity 升级 blocking,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 8 — 三端接入 bindTokenStoreToApiClie,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 8 — 三端接入 bindTokenStoreToApiClie,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 7 — useAuth 跨端集成测试(mobile-rn 端 1,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 7 — useAuth 跨端集成测试(mobile-rn 端 1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 6 — 三端 token.ts 类型层接入 TokenStore,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 6 — 三端 token.ts 类型层接入 TokenStore,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 5 — mobile-rn TokenStore 适配器接入试点,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 5 — mobile-rn TokenStore 适配器接入试点,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 4 — useAuth 跨端共享 hook 落地(@ihui/s,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 4 — useAuth 跨端共享 hook 落地(@ihui/s,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 3 — token-store 通用契约 + i18n shar,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 3 — token-store 通用契约 + i18n shar,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 2 — formatTokenCount 从 @ihui/api,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 2 — formatTokenCount 从 @ihui/api,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 1 — extension 14 页面 fmtDate 迁移到 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 业务层共享启动阶段 1 — extension 14 页面 fmtDate 迁移到 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 输入框权限按钮深化(第二批) — 高风险模式 1h 自动撤销 + 首启确认弹窗,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 输入框权限按钮深化(第三批) — 快到期双提醒(5min/1min) + 撤销,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 输入框权限按钮深化(第二批) — 高风险模式 1h 自动撤销 + 首启确认弹窗,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) AI 输入框权限按钮深化(第三批) — 快到期双提醒(5min/1min) + 撤销,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理 phase 2 收尾 — mobile-rn 34 处动态拼接全面静,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理 phase 2 收尾 — mobile-rn 34 处动态拼接全面静,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第七轮 — web i18n 动态拼接第三批治理 status.* 遗漏,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第七轮 — web i18n 动态拼接第三批治理 status.* 遗漏,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第八轮 — web i18n 动态拼接第四批治理(clean 模式 5 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第八轮 — web i18n 动态拼接第四批治理(clean 模式 5 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第九轮 — web i18n 动态拼接第五至第八批治理 misc 模式收,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第九轮 — web i18n 动态拼接第五至第八批治理 misc 模式收,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第十轮 — i18n 阶段 4 无引用 key 清理完成(跨端:仅 we,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第十轮 — i18n 阶段 4 无引用 key 清理完成(跨端:仅 we,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第十一轮 — extension 端 i18n 4 语言翻译补齐(跨端:,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第十一轮 — extension 端 i18n 4 语言翻译补齐(跨端:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第十二轮 — audit 脚本误判修复 + extension/mobi,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第十二轮 — audit 脚本误判修复 + extension/mobi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第六轮 — web i18n 动态拼接第二批治理 Top 10 命名空间,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第六轮 — web i18n 动态拼接第二批治理 Top 10 命名空间,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第五轮 — P0 删 jsonwebtoken + P1 统一 zod ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第五轮 — P0 删 jsonwebtoken + P1 统一 zod ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 动态拼接全面治理收尾 — web 260→2 + miniapp-taro,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 动态拼接全面治理收尾 — web 260→2 + miniapp-taro,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第四轮 — 守门脚本精简 93→78 + web i18n status,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第四轮 — 守门脚本精简 93→78 + web i18n status,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第三轮 — miniapp-taro i18n 13 处动态拼接静态化 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第三轮 — miniapp-taro i18n 13 处动态拼接静态化 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 1 — miniapp-taro 13 处动态拼接改静态映射(跨,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 1 — miniapp-taro 13 处动态拼接改静态映射(跨,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 2 — web 动态拼接静态化(多 agent 并行协同,部分完,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 治理阶段 2 — web 动态拼接静态化(多 agent 并行协同,部分完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) P2-2 续: @ihui/app 卡片 Props 扩展 + mobile-rn ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) P2-2 续: @ihui/app 卡片 Props 扩展 + mobile-rn ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第二轮 — reports 清理 + 守门脚本索引 + docs 一致性,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化第二轮 — reports 清理 + 守门脚本索引 + docs 一致性,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 命名空间统一执行 + mobile-rn 卡片接入评估 — web age,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) i18n 命名空间统一执行 + mobile-rn 卡片接入评估 — web age,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 架构优化 4 项 + P3 评估 — api-client 共享层扩展 + ui-n,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 架构优化 4 项 + P3 评估 — api-client 共享层扩展 + ui-n,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化 5 项 — 端口 docs 统一 + audit-migration ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 维护成本优化 5 项 — 端口 docs 统一 + audit-migration ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal 阶段 1 统一 i18n 单一来源 — 4 端翻译合并到 package,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal 阶段 1 统一 i18n 单一来源 — 4 端翻译合并到 package,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal P2 直播主播端迁移补齐 — miniapp-taro 补建主播端页面(,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal P2 直播主播端迁移补齐 — miniapp-taro 补建主播端页面(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal P0+P1 旧项目迁移补齐 — 11 项页面/组件两端同步(跨端:min,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal P0+P1 旧项目迁移补齐 — 11 项页面/组件两端同步(跨端:min,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal P3 全端统一迁移 — miniapp-taro API/类型迁移到 @,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal P3 全端统一迁移 — miniapp-taro API/类型迁移到 @,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal P0+P1 架构优化 8 项 — 类型契约包 + i18n 清理 + l,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) /goal P0+P1 架构优化 8 项 — 类型契约包 + i18n 清理 + l,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 登录弹窗自动弹出回归深度根治 — 共享决策中心 + 统一去重 guard(跨端:we,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) /goal D 盘旧项目迁移完整性补齐 — 11 项 P0+P1 任务 + 4 模块,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 登录弹窗自动弹出回归深度根治 — 共享决策中心 + 统一去重 guard(跨端:we,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) /goal D 盘旧项目迁移完整性补齐 — 11 项 P0+P1 任务 + 4 模块,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro API 契约对齐 Round 2 — 补建 24 个 P0,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro API 契约对齐 Round 2 — 补建 24 个 P0,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) /goal 资源上游自动同步中心 — MCP/Skill/Plugin/Provid,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) /goal 3 项技术债彻底清零 — 主题切换 DarkTheme + AsyncS,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) /goal 架构终极验证修复 — 8 缺口收敛 + 6 路审计 + 4 路并行修复(,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) i18n AI 翻译流水线(零 LLM API 调用,开发成本降 70%+)(跨端:,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro Round17:i18n 5 语言补全 387 key(z,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) /goal 资源上游自动同步中心 — MCP/Skill/Plugin/Provid,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) /goal 3 项技术债彻底清零 — 主题切换 DarkTheme + AsyncS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) /goal 架构终极验证修复 — 8 缺口收敛 + 6 路审计 + 4 路并行修复(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) i18n AI 翻译流水线(零 LLM API 调用,开发成本降 70%+)(跨端:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro Round17:i18n 5 语言补全 387 key(z,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) AI 对话框体验对标 Trae Work + Codex 第一轮 — 6 工具 + ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) AI 对话框体验 Work + Codex 第一轮 — 6 工具 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) AI 对话框体验对标 Trae Work + Codex 第二轮 — 9 大缺口并行,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) AI 对话框体验 Work + Codex 第二轮 — 9 大缺口并行,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) Wave 21 Phase 2 SSR 消除静态导出收尾 — robots/site,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) Wave 21 Phase 2 SSR 消除静态导出收尾 — robots/site,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) Wave 24e 跨范围 UTF-8 编码修复 — api-client resou,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro Round16:深化 8 个 97-99 行边界页面(pa,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro Round15:5 subagent 并行深化 23 个空,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro Round15 P1 批次:5 subagent 并行深化,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26 手动):Round15 总结(P0 + P1 批次,2026-07-24),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) Wave 24e 跨范围 UTF-8 编码修复 — api-client resou,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro Round16:深化 8 个 97-99 行边界页面(pa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro Round15:5 subagent 并行深化 23 个空,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro Round15 P1 批次:5 subagent 并行深化,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26 手动):Round15 总结(P0 + P1 批次,2026-07-24),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro Round14:distribution/team + n,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 共享层生产版接入 — RN 三屏 wrapper 重构使用共享组件 + i18n 5,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 共享层 packages/app 生产版升级 — props 注入式跨端共享组件 +,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 24c 测试覆盖深化 — 35 API 测试修复 + 7 ai-servi,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 24d 桌面架构 Option A 配套 — web build OOM ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) /goal 对标 TRAE Work 三大工作台体验缺口补齐:Skills 技能市场,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) 三端联动调度 P1 设备寻址闭环 — 设备在线注册表 + 心跳保活 + toDevi,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) 三大缺口深度补齐 — API 11 端点 32 单元测试 + Design 模式撤销,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) /goal 架构方案第一阶段:NativeWind + Solito + 共享层 —,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) NativeWind + Solito RN bundle 闭环 — metro 解,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round6:对标原 uniapp 项目 6 项深度页补齐,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round6 后续:developer 提现链路 404 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) admin 路由深化 P0 批次 — orders/refund/wallet/us,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) admin 路由深化 P0 批次单元测试 — wallet/batch/stats ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round7:P0 缺口全量扫描 + 12 项 P0 修复,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) miniapp-taro Round14:distribution/team + n,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 共享层生产版接入 — RN 三屏 wrapper 重构使用共享组件 + i18n 5,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 共享层 packages/app 生产版升级 — props 注入式跨端共享组件 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 24c 测试覆盖深化 — 35 API 测试修复 + 7 ai-servi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 24d 桌面架构 Option A 配套 — web build OOM ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) /goal  三大工作台体验缺口补齐:Skills 技能市场,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) 三端联动调度 P1 设备寻址闭环 — 设备在线注册表 + 心跳保活 + toDevi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) 三大缺口深度补齐 — API 11 端点 32 单元测试 + Design 模式撤销,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) /goal 架构方案第一阶段:NativeWind + Solito + 共享层 —,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) NativeWind + Solito RN bundle 闭环 — metro 解,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round6:对标原 uniapp 项目 6 项深度页补齐,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round6 后续:developer 提现链路 404 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) admin 路由深化 P0 批次 — orders/refund/wallet/us,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) admin 路由深化 P0 批次单元测试 — wallet/batch/stats ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round7:P0 缺口全量扫描 + 12 项 P0 修复,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round9:5 subagent 并行修复 P1 缺口 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round9:5 subagent 并行修复 P1 缺口 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round10:5 subagent 并行深化 24 个空,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round10:5 subagent 并行深化 24 个空,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round11:5 subagent 并行深化 5 个核心,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round11:5 subagent 并行深化 5 个核心,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round12:5 subagent 并行深化 P1 级 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round12:5 subagent 并行深化 P1 级 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round13:多 subagent 并行深化 9 域页面,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) miniapp-taro Round13:多 subagent 并行深化 9 域页面,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 23:web ↔ extension 前端统一改造(跨端:web + ex,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 23:web ↔ extension 前端统一改造(跨端:web + ex,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) A 套壳方案迁移:Desktop 端 Vite React 页面全部删除,统一由 w,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) A 套壳方案迁移:Desktop 端 Vite React 页面全部删除,统一由 w,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 14 个免费 LLM provider 内化到 LLMGateway(平台独占:仅 ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 14 个免费 LLM provider 内化到 LLMGateway(平台独占:仅 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) Wave 21:桌面端架构收敛 + 安装更新链路闭环(跨端:web + deskto,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) Wave 21:桌面端架构收敛 + 安装更新链路闭环(跨端:web + deskto,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) /goal 深度开发:巨型路由文件拆分 + stub 清除 + 业务域深化(平台独占,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) /goal 深度开发:巨型路由文件拆分 + stub 清除 + 业务域深化(平台独占,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 22:desktop typecheck 3 errors → 0(Mar,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 24:web 包体积优化 — hls.js 动态导入 + 移除 9 个冗余,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 24b:全端测试覆盖深化 + web lint 清零(平台独占:多端独立),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 22:desktop typecheck 3 errors → 0(Mar,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 24:web 包体积优化 — hls.js 动态导入 + 移除 9 个冗余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 24b:全端测试覆盖深化 + web lint 清零(平台独占:多端独立),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-23):Wave 20:ai-service pytest 覆盖强化 — 10 模块 275 用例(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
-<!-- 已归档(2026-07-23):AI Skills TOP 19 个 skill 集成 + 19 真集成(全部实装,无占位),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
+<!-- 已归档(2026-07-23):Wave 20:ai-service pytest 覆盖强化 — 10 模块 275 用例(平台独占:仅 apps/ai-service),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
+<!-- 已归档(2026-07-23):AI Skills TOP 19 个 skill 集成 + 19 真集成(全部实装,无占位),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) AI Skills 系列后续增强:SkillLibrary 弹窗动态变量 + 详情页,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) AI Skills 系列后续增强:SkillLibrary 弹窗动态变量 + 详情页,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) (main) 目录页面整合 P0/P1:ask/article 重复路由改重定向 +,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) (main) 目录页面整合 P0/P1:ask/article 重复路由改重定向 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-23):桌面端 Tauri 2 自动更新链路代码层(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
-<!-- 已归档(2026-07-23):桌面端 4 大核心能力深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
-<!-- 已归档(2026-07-23):桌面端 3 项增强能力深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
-<!-- 已归档(2026-07-23):桌面端本地文件访问 + 拖拽粘贴附件深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
-<!-- 已归档(2026-07-23):桌面端窗口状态持久化深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
-<!-- 已归档(2026-07-23):桌面端会话历史持久化深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
-<!-- 已归档(2026-07-23):桌面端 Markdown 渲染 + 代码高亮 + 消息复制深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
-<!-- 已归档(2026-07-23):桌面端对话导出 + 主题持久化深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
-<!-- 已归档(2026-07-23):桌面端对话搜索 + 消息重新生成深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端 Tauri 2 自动更新链路代码层(平台独占:仅 desktop),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端 4 大核心能力深度开发(平台独占:仅 desktop),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端 3 项增强能力深度开发(平台独占:仅 desktop),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端本地文件访问 + 拖拽粘贴附件深度开发(平台独占:仅 desktop),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端窗口状态持久化深度开发(平台独占:仅 desktop),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端会话历史持久化深度开发(平台独占:仅 desktop),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端 Markdown 渲染 + 代码高亮 + 消息复制深度开发(平台独占:仅 desktop),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端对话导出 + 主题持久化深度开发(平台独占:仅 desktop),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端对话搜索 + 消息重新生成深度开发(平台独占:仅 desktop),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
 
 ---
 
-<!-- 已归档(2026-07-23):桌面端模型持久化代码块主题快捷短语(平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
+<!-- 已归档(2026-07-23):桌面端模型持久化代码块主题快捷短语(平台独占),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 ---
 
-<!-- 已归档(2026-07-23):桌面端消息时间戳会话重命名快捷键帮助(平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
+<!-- 已归档(2026-07-23):桌面端消息时间戳会话重命名快捷键帮助(平台独占),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 ---
 
-<!-- 已归档(2026-07-23):桌面端字号缩放快捷键持久化(平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
+<!-- 已归档(2026-07-23):桌面端字号缩放快捷键持久化(平台独占),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) 前端冗余页面整合 P0(平台独占:仅 web 端),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) 前端冗余页面整合 P0(平台独占:仅 web 端),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-23):ai-news 组件深度优化七轮:TrendChartDialog 无障碍闭环 + EmptyState 统一组件(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
+<!-- 已归档(2026-07-23):ai-news 组件深度优化七轮:TrendChartDialog 无障碍闭环 + EmptyState 统一组件(平台独占:仅 apps/web),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
 
-<!-- 已归档(2026-07-23):ai-news 组件深度优化八轮:AiFeedTimeline 搜索防抖 + URL query 同步(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
-<!-- 已归档(2026-07-23):ai-news 组件深度优化九轮:封面图占位 + TrendBanner closed 持久化 + formatRelativeTime 公共化(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
-<!-- 已归档(2026-07-23):ai-news 组件深度优化十轮:HotRanking/FundingSection hover 微动画 + TrendChartDialog 小屏响应式(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
-<!-- 已归档(2026-07-23):ai-news 组件深度优化十一轮:loading.tsx 骨架屏(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
-<!-- 已归档(2026-07-23):大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
+<!-- 已归档(2026-07-23):ai-news 组件深度优化八轮:AiFeedTimeline 搜索防抖 + URL query 同步(平台独占:仅 apps/web),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
+<!-- 已归档(2026-07-23):ai-news 组件深度优化九轮:封面图占位 + TrendBanner closed 持久化 + formatRelativeTime 公共化(平台独占:仅 apps/web),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
+<!-- 已归档(2026-07-23):ai-news 组件深度优化十轮:HotRanking/FundingSection hover 微动画 + TrendChartDialog 小屏响应式(平台独占:仅 apps/web),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
+<!-- 已归档(2026-07-23):ai-news 组件深度优化十一轮:loading.tsx 骨架屏(平台独占:仅 apps/web),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
+<!-- 已归档(2026-07-23):大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
 
-<!-- 已归档(2026-07-23):大模型排行榜深度优化四轮:搜索关键词高亮 + 空状态优化 + i18n 5 语言同步(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-23):大模型排行榜深度优化三轮:搜索+厂商筛选 + 能力标签 + 排序功能 + i18n 5 语言同步(平台独占:仅 apps...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-23):大模型排行榜深度优化二轮:排序偏好记忆 + chip 数量显示 + 复制并导入按钮(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-23):大模型排行榜深度优化:列排序 + Copy Base URL + 中转站计费筛选 + i18n 5 语言同步(平台独占:...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-23):ai-news 入口梳理 + ai-world ?tab= query param 支持(平台独占:仅 apps/web...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-22):email_logs schema drift 修复 + clawdbot 4 service 持久化,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
-<!-- 已归档(2026-07-22):@ihui/ui-react TabsTrigger 选中态描边框消除,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
-<!-- 已归档(2026-07-23):ai-world "AI 对话" tab 重复入口统一化(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:10 免费 provider + 5 middleware 安全模块共 160 用例(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
-<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 记忆系统三件套 136 用例(衰减+提取+四层服务)(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
+<!-- 已归档(2026-07-23):大模型排行榜深度优化四轮:搜索关键词高亮 + 空状态优化 + i18n 5 语言同步(平台独占:仅 apps/web),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-23):大模型排行榜深度优化三轮:搜索+厂商筛选 + 能力标签 + 排序功能 + i18n 5 语言同步(平台独占:仅 apps...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-23):大模型排行榜深度优化二轮:排序偏好记忆 + chip 数量显示 + 复制并导入按钮(平台独占:仅 apps/web),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-23):大模型排行榜深度优化:列排序 + Copy Base URL + 中转站计费筛选 + i18n 5 语言同步(平台独占:...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-23):ai-news 入口梳理 + ai-world ?tab= query param 支持(平台独占:仅 apps/web...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-22):email_logs schema drift 修复 + clawdbot 4 service 持久化,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_archive.md -->
+<!-- 已归档(2026-07-22):@ihui/ui-react TabsTrigger 选中态描边框消除,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_archive.md -->
+<!-- 已归档(2026-07-23):ai-world "AI 对话" tab 重复入口统一化(平台独占:仅 apps/web),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:10 免费 provider + 5 middleware 安全模块共 160 用例(平台独占:仅 apps/ai-service),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
+<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 记忆系统三件套 136 用例(衰减+提取+四层服务)(平台独占:仅 apps/ai-service),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
 
-<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 规则引擎 91 用例(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
+<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 规则引擎 91 用例(平台独占:仅 apps/ai-service),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
 
-<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 Hook 引擎 140 用例 + 修复 4 个 bug(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
+<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 Hook 引擎 140 用例 + 修复 4 个 bug(平台独占:仅 apps/ai-service),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
 
-<!-- 已归档(2026-07-23):补齐 P3 spec_generator 零覆盖核心模块 122 cases(平台独占:仅 ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
+<!-- 已归档(2026-07-23):补齐 P3 spec_generator 零覆盖核心模块 122 cases(平台独占:仅 ai-service),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
 
-<!-- 已归档(2026-07-23):补齐 P3 context_engine 零覆盖核心模块 162 cases + 修复 7 bug(平台独占:仅 ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
+<!-- 已归档(2026-07-23):补齐 P3 context_engine 零覆盖核心模块 162 cases + 修复 7 bug(平台独占:仅 ai-service),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
 
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 旧架构 edu-web 函数名桥接层 + 8 模块类型补齐(承接 /goal 继续推进到极致,平台独占:仅 types/ap...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) i18n 5 语言 parity 修复(3 缺失键补齐,平台独占:仅 apps/web/messages)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 国内镜像同步方案落地(Gitee + GitCode 双镜像,平台独占:CI/基础设施)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 开发者 API Key 统一接入系统深度补齐(跨端:packages/types + api + web 全端同步,2026...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 对标 Hermes Agent 深度层 P3:三大核心壁垒真正超越(跨端:packages/types + ai-servi...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) P3 深化:§22 README 同步规则机制守门集成(平台独占:仅守门脚本 + 文档,2026-07-22 立)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 对标 Hermes Agent 深度升级:11 项差距分 P0/P1/P2 开发(跨端:packages/types + a...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 旧架构 edu-web 函数名桥接层 + 8 模块类型补齐(承接 /goal 继续推进到极致,平台独占:仅 types/ap...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) i18n 5 语言 parity 修复(3 缺失键补齐,平台独占:仅 apps/web/messages)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 国内镜像同步方案落地(Gitee + GitCode 双镜像,平台独占:CI/基础设施)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 开发者 API Key 统一接入系统深度补齐(跨端:packages/types + api + web 全端同步,2026...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 对标 Hermes Agent 深度层 P3:三大核心壁垒真正超越(跨端:packages/types + ai-servi...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) P3 深化:§22 README 同步规则机制守门集成(平台独占:仅守门脚本 + 文档,2026-07-22 立)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 对标 Hermes Agent 深度升级:11 项差距分 P0/P1/P2 开发(跨端:packages/types + a...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 全项目对外开放 API 接入系统深度开发 — 105 端点 + TS/Python SDK 双语言(commit ba347294,跨端:packages/types + api + sdk + web 文档) -->
-<!-- 已归档(2026-07-22):Java SDK 补齐 — ihui-ai-java 三语言 SDK 平级(平台独占:仅 SDK 新增),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) Go + .NET/C# SDK 补齐 — 五语言 SDK 全覆盖(commit 04122a8f,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_sdk-multi-language.md -->
+<!-- 已归档(2026-07-22):Java SDK 补齐 — ihui-ai-java 三语言 SDK 平级(平台独占:仅 SDK 新增),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_archive.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) Go + .NET/C# SDK 补齐 — 五语言 SDK 全覆盖(commit 04122a8f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_sdk-multi-language.md -->
 
-<!-- 已归档(2026-07-23):浏览器插件使用界面深度修复 — i18n/bridge/manifest/dedupe/守门(平台独占:仅 apps/e...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-23):浏览器插件界面样式与 web 端统一 — Tailwind 4 启用 + design token 对齐 + 深色模式修...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-23):深度鲁棒性加固 P0+P1+P2 — 85/85 完美收官,STATE.md=achieved;P2 Batch 3(1...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 旧架构迁移类型定义补齐:28 组类型迁移到 packages/types(平台独占:共享包 only/跨端共享)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) P1 旧架构迁移 MISSING 补齐:5 个查询功能从 edu/web 子模块迁移到新架构(跨端:api+api-clie...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 原生浏览器控制 + 电脑控制 MCP tool 全链路开发(跨端:web+api+ai-service+extension+...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 深度代码质量治理:P1(3项)+ P2(6项)技术债清理 + 隐藏 bug 修复(跨端:web+api,平台独占:仅 web...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 深度代码质量治理 Round 2:packages/* + ai-service + mobile-rn + web/api...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P0+P1+P2+P3(全 4 阶段完成:8 端同步 + Playwright 截图降级 +...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P3+ 增强:收藏 + 历史 dropdown 面板(平台独占:仅 web)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) P4 WorkPanel 全量加固 — closeTab 边界 + i18n 键补齐 + Drop Indicator 视觉...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P3++ Tab 拖拽排序 + Playwright E2E 补证据(平台独占:仅 web)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G1 认证安全加固:oauth-keys RSA/EC 真实密钥生成 + /rotate 事务(平台独占:仅 api,/go...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G2 计费资金安全核心:wallet/finance 充值漏洞 + token_flows 幂等 + 事务(平台独占:仅 a...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G3 LLM 扣费链路接通:ai-callback-worker 补 deductTokens+recordAiCost 联...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G4 智能体编排异常处理:conversation 顶层 catch + SSE 断连检测 + openai_provide...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G5 数据库 FK 与审计字段补齐:agent_tasks FK + 4 表 CASCADE→SET NULL(平台独占:仅...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G6 jsonb 预留字段填充:13 个 P0 字段加 default + 回填 NULL(平台独占:仅 database,...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G7 LLM 扣费收口:CrewAI 绕过扣费修复 + 全局 LLM 入口审计(平台独占:仅 api,已完成)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G8 rechargeToken 订单状态校验:补 JOIN orders 验证 status='paid'(平台独占:仅 ...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G9 SSE 断连检测补齐:三端断连资源收口(全端连通:ai-service + api,已完成)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G10 审计追溯字段补齐:4 表加 updatedBy + commission_flows 补 updatedAt(平台独...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G12 API 层 updatedBy 自动注入:`withAudit` 助手 + operatorId 显式传递(平台独占...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G13 API 层 createdBy+updatedBy 联合注入:`withAuditBoth` 助手 + 4 表 cr...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G11 snapshot/journal drift 修复 — drizzle-kit generate 同步 schema...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 多端流式 agentId 分流"最后一公里"接通(api token chunk 注入 + api-client onAge...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 多端流式输出极致化(packages/ui 共享折叠组件 + api 多路复用 + web feed 流式 token 改造...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-21) 深度代码比对 + 7 项遗漏补全(跨端:web+api+database,补全遗漏项涉及新文件)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 资讯自动采集 cron + 17 信源 seed + ai-news 页面改接(2026-07-22)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 世界板块升级:工具集 + 应用集 + 资讯/论文/项目 + 12h 自动同步原始数据源(平台独占:仅 web+api)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 世界五次打磨:SuperCLUE Gradio 数据源接通 + GITHUB_TOKEN 环境变量文档 + 4 大榜单...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 世界六次打磨:OpenCompass Playwright headless 渲染接通 + 5 大榜单全生产可用(跨端...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 世界四次打磨:5 大抓取器改真实数据源 + GitHub Token + --rankings-only 实测验证(平...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 世界三次打磨:5 大权威模型排行榜 + 工具热度实时更新 + dry-run 模式(平台独占:仅 web+api)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G5+ 知识图谱 DrizzleGraphStore 持久化后端(2026-07-22)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 模型市场 nav 样式重构 + 厂商 SVG 图标(2026-07-21)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) P0 分域 SSO 架构落地:主域 aizhs.top + 认证子域 bsm.aizhs.top(2026-07-21)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):SaaS 托管服务架构(2026-07-21)— P0 阶段 1:多租户基础设施 PoC(Traefik 多租户路由 + 通配符证书 + 客户编排 + 创建/销毁脚本 + 1 个示例客户 PoC),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
-<!-- 已归档(2026-07-23):学生学习报告 + 每日多格式日志全链路补全(2026-07-21 立),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 任务拆分(P0 → P3)— P0/P1/P2/P3 全完成...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-23):飞书 OAuth 扫码登录接入 + 生产环境配置(2026-07-21 立,平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-21) 修复飞书 OIDC v2 协议实现 bug(用户扫码后报 20014)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-21) 生成生产环境配置文件(平台独占,部署配置不涉业务代码)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):第三方登录 e2e 测试补强 + Mock 平台验证(已完成 ✅ 2026-07-21,commit e5605f1,18 用例全绿 + 8 平台 Mock 验证),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
-<!-- 已归档(2026-07-22):SaaS 托管服务架构(2026-07-21)— P1 阶段 2.1:部署层管理增强 + admin-api(已完成 ✅,commit a400e8ff,19 文件 + admin-api 9 端点 + 5 脚本 + cron 证书续期),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
-<!-- 已归档(2026-07-22):架构迁移完整性深度审计(已完成 ✅ 2026-07-21,只读未改代码)— 6 subagent + 1 验证,覆盖前端/后端/数据库/移动端/AI 服务层/D 盘历史项目;整体完整度 ~95%,真实遗漏 8 项(3 前端 + 5 API 端点)已全部补齐(commit 3ed1186d6 1:1 复刻 + DB schema 同步),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
-<!-- 已归档(2026-07-23):PDF 学习报告真实内容生成(2026-07-21)— P1 任务(P0 链路补全),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-21):综合安全审计 9 轮加固(已完成 ✅ 2026-07-21)— 配置/秘密泄露 + SQL 注入 + XSS + RCE + CSRF + SSRF + 依赖漏洞 + 安全头 + 加密失败 + token 持久化 全部深度修复,9 个 fix(security) commit 已合入 origin/main。完整审计归档见 `.trae-cn/goal-runtime/SECURITY-AUDIT-2026-07-21.md` -->
-<!-- 已归档(2026-07-23):接入所有可直接免费调用的 LLM provider(平台独占:仅 ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-22):插件市场多端同步 + 测试覆盖 + ai-service 豁免标注(已完成 ✅ 2026-07-22)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):插件市场热度监测:事件埋点 + admin 统计聚合 + 监测页面(已完成 ✅ 2026-07-22)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) IDE 工作区复刻:编辑器分类页面 + 代码比对 + 多视图面板(平台独占:仅 web,2026-07-22 立)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-<!-- 已归档(2026-07-23):赶超 OpenClaw + OpenCode 深度开发计划(2026-07-22 立),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-23):miniapp-taro 深色赛博朋克风样式迁移恢复(已完成 ✅ 2026-07-22,平台独占:仅 miniapp-t...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-23):miniapp-taro 全端页面深度样式迁移(已完成 ✅ 2026-07-22,平台独占:仅 miniapp-t...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-24):audit-chain.ts 死代码清理(auditChainEntries 表 + audit-chain.ts 文件,已被 audit-log-service.ts 替代),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-24_audit-chain-cleanup.md -->
+<!-- 已归档(2026-07-23):浏览器插件使用界面深度修复 — i18n/bridge/manifest/dedupe/守门(平台独占:仅 apps/e...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-23):浏览器插件界面样式与 web 端统一 — Tailwind 4 启用 + design token 对齐 + 深色模式修...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-23):深度鲁棒性加固 P0+P1+P2 — 85/85 完美收官,STATE.md=achieved;P2 Batch 3(1...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 旧架构迁移类型定义补齐:28 组类型迁移到 packages/types(平台独占:共享包 only/跨端共享)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) P1 旧架构迁移 MISSING 补齐:5 个查询功能从 edu/web 子模块迁移到新架构(跨端:api+api-clie...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 原生浏览器控制 + 电脑控制 MCP tool 全链路开发(跨端:web+api+ai-service+extension+...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 深度代码质量治理:P1(3项)+ P2(6项)技术债清理 + 隐藏 bug 修复(跨端:web+api,平台独占:仅 web...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 深度代码质量治理 Round 2:packages/* + ai-service + mobile-rn + web/api...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P0+P1+P2+P3(全 4 阶段完成:8 端同步 + Playwright 截图降级 +...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P3+ 增强:收藏 + 历史 dropdown 面板(平台独占:仅 web)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) P4 WorkPanel 全量加固 — closeTab 边界 + i18n 键补齐 + Drop Indicator 视觉...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P3++ Tab 拖拽排序 + Playwright E2E 补证据(平台独占:仅 web)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G1 认证安全加固:oauth-keys RSA/EC 真实密钥生成 + /rotate 事务(平台独占:仅 api,/go...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G2 计费资金安全核心:wallet/finance 充值漏洞 + token_flows 幂等 + 事务(平台独占:仅 a...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G3 LLM 扣费链路接通:ai-callback-worker 补 deductTokens+recordAiCost 联...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G4 智能体编排异常处理:conversation 顶层 catch + SSE 断连检测 + openai_provide...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G5 数据库 FK 与审计字段补齐:agent_tasks FK + 4 表 CASCADE→SET NULL(平台独占:仅...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G6 jsonb 预留字段填充:13 个 P0 字段加 default + 回填 NULL(平台独占:仅 database,...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G7 LLM 扣费收口:CrewAI 绕过扣费修复 + 全局 LLM 入口审计(平台独占:仅 api,已完成)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G8 rechargeToken 订单状态校验:补 JOIN orders 验证 status='paid'(平台独占:仅 ...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G9 SSE 断连检测补齐:三端断连资源收口(全端连通:ai-service + api,已完成)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G10 审计追溯字段补齐:4 表加 updatedBy + commission_flows 补 updatedAt(平台独...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G12 API 层 updatedBy 自动注入:`withAudit` 助手 + operatorId 显式传递(平台独占...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G13 API 层 createdBy+updatedBy 联合注入:`withAuditBoth` 助手 + 4 表 cr...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G11 snapshot/journal drift 修复 — drizzle-kit generate 同步 schema...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 多端流式 agentId 分流"最后一公里"接通(api token chunk 注入 + api-client onAge...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 多端流式输出极致化(packages/ui 共享折叠组件 + api 多路复用 + web feed 流式 token 改造...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-21) 深度代码比对 + 7 项遗漏补全(跨端:web+api+database,补全遗漏项涉及新文件)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 资讯自动采集 cron + 17 信源 seed + ai-news 页面改接(2026-07-22)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 世界板块升级:工具集 + 应用集 + 资讯/论文/项目 + 12h 自动同步原始数据源(平台独占:仅 web+api)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 世界五次打磨:SuperCLUE Gradio 数据源接通 + GITHUB_TOKEN 环境变量文档 + 4 大榜单...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 世界六次打磨:OpenCompass Playwright headless 渲染接通 + 5 大榜单全生产可用(跨端...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 世界四次打磨:5 大抓取器改真实数据源 + GitHub Token + --rankings-only 实测验证(平...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) AI 世界三次打磨:5 大权威模型排行榜 + 工具热度实时更新 + dry-run 模式(平台独占:仅 web+api)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G5+ 知识图谱 DrizzleGraphStore 持久化后端(2026-07-22)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 模型市场 nav 样式重构 + 厂商 SVG 图标(2026-07-21)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) P0 分域 SSO 架构落地:主域 aizhs.top + 认证子域 bsm.aizhs.top(2026-07-21)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):SaaS 托管服务架构(2026-07-21)— P0 阶段 1:多租户基础设施 PoC(Traefik 多租户路由 + 通配符证书 + 客户编排 + 创建/销毁脚本 + 1 个示例客户 PoC),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_archive.md -->
+<!-- 已归档(2026-07-23):学生学习报告 + 每日多格式日志全链路补全(2026-07-21 立),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 任务拆分(P0 → P3)— P0/P1/P2/P3 全完成...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-23):飞书 OAuth 扫码登录接入 + 生产环境配置(2026-07-21 立,平台独占),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-21) 修复飞书 OIDC v2 协议实现 bug(用户扫码后报 20014)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-21) 生成生产环境配置文件(平台独占,部署配置不涉业务代码)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):第三方登录 e2e 测试补强 + Mock 平台验证(已完成 ✅ 2026-07-21,commit e5605f1,18 用例全绿 + 8 平台 Mock 验证),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_archive.md -->
+<!-- 已归档(2026-07-22):SaaS 托管服务架构(2026-07-21)— P1 阶段 2.1:部署层管理增强 + admin-api(已完成 ✅,commit a400e8ff,19 文件 + admin-api 9 端点 + 5 脚本 + cron 证书续期),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_archive.md -->
+<!-- 已归档(2026-07-22):架构迁移完整性深度审计(已完成 ✅ 2026-07-21,只读未改代码)— 6 subagent + 1 验证,覆盖前端/后端/数据库/移动端/AI 服务层/D 盘历史项目;整体完整度 ~95%,真实遗漏 8 项(3 前端 + 5 API 端点)已全部补齐(commit 3ed1186d6 1:1 复刻 + DB schema 同步),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_archive.md -->
+<!-- 已归档(2026-07-23):PDF 学习报告真实内容生成(2026-07-21)— P1 任务(P0 链路补全),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-21):综合安全审计 9 轮加固(已完成 ✅ 2026-07-21)— 配置/秘密泄露 + SQL 注入 + XSS + RCE + CSRF + SSRF + 依赖漏洞 + 安全头 + 加密失败 + token 持久化 全部深度修复,9 个 fix(security) commit 已合入 origin/main。完整审计归档见 `.ihui-agent/goal-runtime/SECURITY-AUDIT-2026-07-21.md` -->
+<!-- 已归档(2026-07-23):接入所有可直接免费调用的 LLM provider(平台独占:仅 ai-service),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-22):插件市场多端同步 + 测试覆盖 + ai-service 豁免标注(已完成 ✅ 2026-07-22)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):插件市场热度监测:事件埋点 + admin 统计聚合 + 监测页面(已完成 ✅ 2026-07-22)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) IDE 工作区复刻:编辑器分类页面 + 代码比对 + 多视图面板(平台独占:仅 web,2026-07-22 立)...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-23):赶超 OpenClaw + OpenCode 深度开发计划(2026-07-22 立),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-23):miniapp-taro 深色赛博朋克风样式迁移恢复(已完成 ✅ 2026-07-22,平台独占:仅 miniapp-t...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-23):miniapp-taro 全端页面深度样式迁移(已完成 ✅ 2026-07-22,平台独占:仅 miniapp-t...,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-24):audit-chain.ts 死代码清理(auditChainEntries 表 + audit-chain.ts 文件,已被 audit-log-service.ts 替代),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-24_audit-chain-cleanup.md -->
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) G:\ 根目录实时守门服务 v2.0 白名单优先模式 — 彻底消除 v1.0 黑名单,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26 手动):i18n 深化:Payment 重复键修复 + aiNews 缺失键补齐 + 守门脚本白名单(2026-07-23),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) G:\ 根目录实时守门服务 v2.0 白名单优先模式 — 彻底消除 v1.0 黑名单,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26 手动):i18n 深化:Payment 重复键修复 + aiNews 缺失键补齐 + 守门脚本白名单(2026-07-23),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
-<!-- 已归档(2026-07-23):miniapp-taro 页面功能对标原 uniapp 项目:tabBar 5 tab + 智汇社区页 + ranking/detail + setting/privacy + profile 身份标签(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
+<!-- 已归档(2026-07-23):miniapp-taro 页面功能对标原 uniapp 项目:tabBar 5 tab + 智汇社区页 + ranking/detail + setting/privacy + profile 身份标签(平台独占:仅 miniapp-taro),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
-<!-- 已归档(2026-07-23):miniapp-taro ChatMessageItem 增强:对标原 ai_assistant.vue 渲染层核心功能(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
+<!-- 已归档(2026-07-23):miniapp-taro ChatMessageItem 增强:对标原 ai_assistant.vue 渲染层核心功能(平台独占:仅 miniapp-taro),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
-<!-- 已归档(2026-07-23):miniapp-taro 智能体引导说明:对标原 ai_assistant.vue tishi_block + tishi_box(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
+<!-- 已归档(2026-07-23):miniapp-taro 智能体引导说明:对标原 ai_assistant.vue tishi_block + tishi_box(平台独占:仅 miniapp-taro),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
-<!-- 已归档(2026-07-23):WorkerPool 资源隔离与超时处理 22 项缺陷修复(跨端:cli+ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
+<!-- 已归档(2026-07-23):WorkerPool 资源隔离与超时处理 22 项缺陷修复(跨端:cli+ai-service),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
-<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 沙箱执行器 6 后端 150 用例(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
+<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 沙箱执行器 6 后端 150 用例(平台独占:仅 apps/ai-service),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
 
-<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 codebase_indexer 107 用例(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v5.md -->
+<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 codebase_indexer 107 用例(平台独占:仅 apps/ai-service),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v5.md -->
 
-<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 Skill 系统 155 用例(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
+<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 Skill 系统 155 用例(平台独占:仅 apps/ai-service),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
-<!-- 已归档(2026-07-23):ai-service Skill Tester 59 用例(平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
-
----
-
-<!-- 已归档(2026-07-23):ai-service Skill Feedback 58 用例(平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
+<!-- 已归档(2026-07-23):ai-service Skill Tester 59 用例(平台独占),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 ---
 
-<!-- 已归档(2026-07-23):ai-service Skill Iterator 68 用例(平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
+<!-- 已归档(2026-07-23):ai-service Skill Feedback 58 用例(平台独占),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 21:ai-service 5 P3 大模块零覆盖补齐 651 用例(平台,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-23):ai-service Skill Iterator 68 用例(平台独占),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 23:ai-service 12 P3 中小模块 + publish 全链,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 21:ai-service 5 P3 大模块零覆盖补齐 651 用例(平台,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 进程僵尸守护者 v1.0:根治开发期内存占用 96%(僵尸 pip + dev se,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-23) Wave 23:ai-service 12 P3 中小模块 + publish 全链,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 进程僵尸守护者 v2.0 实时 daemon 升级 — 30 分钟定时 → 60 秒,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 进程僵尸守护者 v1.0:根治开发期内存占用 96%(僵尸 pip + dev se,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 自主记忆更新优化强化 L1 接入激活 + L2-1 语义去重深度(跨端:ai-ser,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
-<!-- 已归档(2026-07-26 手动):Git 同步证据 + L2-2~L9 遗留项(全部 ✅,2026-07-25),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-24) 进程僵尸守护者 v2.0 实时 daemon 升级 — 30 分钟定时 → 60 秒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) P4 系列:AI 对话体验深度优化(L4 自进化闭环 + SSE fallback ,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) 自主记忆更新优化强化 L1 接入激活 + L2-1 语义去重深度(跨端:ai-ser,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26 手动):Git 同步证据 + L2-2~L9 遗留项(全部 ✅,2026-07-25),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
-<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) i18n 多语言 parity 修复 + git stash 冲突标记清理 + ho,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-25) P4 系列:AI 对话体验深度优化(L4 自进化闭环 + SSE fallback ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
+
+---
+
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) i18n 多语言 parity 修复 + git stash 冲突标记清理 + ho,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md -->
 
 ---
 
@@ -1397,21 +1397,21 @@
 
 > 8 个重构动作消除跨端重复实现 + 假共享包 + 守门脚本冗余。6 subagent 并行执行。
 
-<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作1:4端 token 下沉改用 createInMemoryTokenStore,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
-<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作2:mobile-rn/global.css sync 脚本,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
-<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作3:5个 scan-*-dead-i18n-keys.mjs 收敛为 --tar,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
-<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作4:web/shared logger 文档标注,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
-<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作5:packages/app 改名 @ihui/rn-app,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
-<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作6:tokens.css 圆角5档上提共享层,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
-<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作7:extension content script 24处硬编码颜色集中管理,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
-<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作8:mobile-rn AiModelCard 13处硬编码颜色改 tokens,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作1:4端 token 下沉改用 createInMemoryTokenStore,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作2:mobile-rn/global.css sync 脚本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作3:5个 scan-*-dead-i18n-keys.mjs 收敛为 --tar,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作4:web/shared logger 文档标注,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作5:packages/app 改名 @ihui/rn-app,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作6:tokens.css 圆角5档上提共享层,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作7:extension content script 24处硬编码颜色集中管理,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作8:mobile-rn AiModelCard 13处硬编码颜色改 tokens,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
 
 ### 验证
 
 - rn-app/mobile-rn/extension/miniapp-taro/shared typecheck 全绿
 - 各端 lint 全绿(web 2个预先存在错误不属本任务)
 
-<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段1收尾: @ihui/app -> @ihui/rn-app 文档同步(comm,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段1收尾: @ihui/app -> @ihui/rn-app 文档同步(comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
 
 ## 多端维护成本优化阶段2(2026-07-27,P0+P1,目标 5.5x->4.0x)
 
@@ -1426,7 +1426,7 @@
 ### P1 中降本(预计 0.6x,部分依赖 P0 完成)
 
 - [x] ✅(2026-07-28) P1-1: web utils re-export @ihui/shared(4 文件下沉,降本 0.2x,依赖 P0-1) — 阶段2 完成,commit `7d4981509d` format-ext 模块新增 formatShortDuration/MediaTime/HumanDuration + number-format.ts re-export @ihui/shared/utils/format
-- [x] ✅(2026-07-28) P1-2: packages/shared 死代码审计(66 文件 0 死代码,降本 0.0x) — 阶段2 完成,审计报告 `.trae-cn/tmp/p1-2-audit/report.md`(gitignore),commit `86210133`(P0+P1 混合 commit,审计脚本 + 跨仓库 grep 0 命中验证)
+- [x] ✅(2026-07-28) P1-2: packages/shared 死代码审计(66 文件 0 死代码,降本 0.0x) — 阶段2 完成,审计报告 `.ihui-agent/tmp/p1-2-audit/report.md`(gitignore),commit `86210133`(P0+P1 混合 commit,审计脚本 + 跨仓库 grep 0 命中验证)
 - [x] ✅(2026-07-28) P1-3: mobile-rn 类型契约接入(添加 @ihui/types import + ApiResponse<T> 契约化,降本 0.1x) — 阶段2 完成,3 screens(ActivityScreen/AgentSettingScreen/BankCardScreen)接入,commit `1acae38e24`(P1+P2 收尾混合 commit)
 - [x] ✅(2026-07-28) P1-4: packages/types 类型整合(降本 0.1x) — 阶段2 续批完成,commit `27c172a7ad` 删除 2 个死类型 MemoryExtractionRequest/Result(跨仓库 grep 0 命中,28 行)
 - [x] ✅(2026-07-28) P1-5: Tailwind preset 下沉(降本 0.1x) — 阶段2 完成,commit `fd49943afc` 抽取 packages/design-tokens/src/tailwind-preset.js + 修复 sm=0.125rem 符合 §4
@@ -1434,27 +1434,27 @@
 ### P2 低降本(预计 0.2x,审计为主)
 
 - [x] ✅(2026-07-28) P2-1: mobile-rn/global.css 注释修正(降本 0.0x) — 阶段2 完成,ui-primitives -> design-tokens(2 处),commit `1acae38e24`(mobile-rn/global.css 4 行 +/-,P1+P2 收尾混合 commit)
-- [x] ✅(2026-07-28) P2-2: scripts/ 死脚本审计(降本 0.05x) — 阶段2 完成,6 文件移到 .trae-cn/archive/scripts/(非 git tracked,降本仅逻辑性),commit `1acae38e24`(P1+P2 收尾混合 commit,审计+归档)
-- [x] ✅(2026-07-28) P2-3: extension sidepanel 死页面审计(降本 0.05x) — 阶段2 续批完成,审计脚本 `.trae-cn/tmp/p2-3-audit/audit.mjs`,结果 33 个页面全部被 SidepanelApp.tsx 的 <Route> 引用,0 死页面(P0-1 已删 7 个低频页跳 web,剩余 33 全部活跃),commit `9dd31b354c`(阶段7 commit,PROJECT_PLAN.md 标 [x] + 审计报告)
-- [x] ✅(2026-07-28) P2-4: web/src/lib 死代码审计(降本 0.1x) — 阶段2 完成,67 文件 15 候选,报告在 `.trae-cn/tmp/p2-4-audit/`,commit `1acae38e24`(web/src/lib/number-format.ts 5 行 +/-,P1+P2 收尾混合 commit,审计文档化)
+- [x] ✅(2026-07-28) P2-2: scripts/ 死脚本审计(降本 0.05x) — 阶段2 完成,6 文件移到 .ihui-agent/archive/scripts/(非 git tracked,降本仅逻辑性),commit `1acae38e24`(P1+P2 收尾混合 commit,审计+归档)
+- [x] ✅(2026-07-28) P2-3: extension sidepanel 死页面审计(降本 0.05x) — 阶段2 续批完成,审计脚本 `.ihui-agent/tmp/p2-3-audit/audit.mjs`,结果 33 个页面全部被 SidepanelApp.tsx 的 <Route> 引用,0 死页面(P0-1 已删 7 个低频页跳 web,剩余 33 全部活跃),commit `9dd31b354c`(阶段7 commit,PROJECT_PLAN.md 标 [x] + 审计报告)
+- [x] ✅(2026-07-28) P2-4: web/src/lib 死代码审计(降本 0.1x) — 阶段2 完成,67 文件 15 候选,报告在 `.ihui-agent/tmp/p2-4-audit/`,commit `1acae38e24`(web/src/lib/number-format.ts 5 行 +/-,P1+P2 收尾混合 commit,审计文档化)
 
-<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段2 P0+P1+P2 全部完成(5.5x -> 4.2x,10动作9 subag,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段2 P0+P1+P2 全部完成(5.5x -> 4.2x,10动作9 subag,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
 
 ## 多端维护成本优化阶段3(2026-07-27,P2+安全降本,目标 4.2x->3.9x)
 
-<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段3 完成(4.2x->3.9x,5动作4 subagent+主agent并行),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段3 完成(4.2x->3.9x,5动作4 subagent+主agent并行),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
 
 ## 多端维护成本优化阶段3.5(2026-07-27,P2 类型契约扩散,目标 3.9x->3.7x)
 
-<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段3.5 完成(3.9x->3.7x,9 screen 接入,4 subagent,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段3.5 完成(3.9x->3.7x,9 screen 接入,4 subagent,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-03_auto-archive.md -->
 
 ## 多端维护成本优化阶段4(2026-07-28,P2 类型契约扩散,目标 3.7x->3.5x)
 
-<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段4 完成(3.7x->3.5x,4 screen 接入 Article/Poin,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段4 完成(3.7x->3.5x,4 screen 接入 Article/Poin,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
 
 ## 多端维护成本优化阶段5(2026-07-28,P2 类型契约扩散,目标 3.5x->3.3x)
 
-<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段5 完成(3.5x->3.3x,3 screen 接入 FavoriteItem,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段5 完成(3.5x->3.3x,3 screen 接入 FavoriteItem,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
 
 ---
 
@@ -1601,11 +1601,11 @@
 
 ## 多端维护成本优化阶段6(2026-07-28,P0 mock 数据真实化 + 共享 API 接入,目标 3.3x->3.1x)
 
-<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段6 完成(3.3x->3.1x,8 screen mock 数据替换为真实 AP,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段6 完成(3.3x->3.1x,8 screen mock 数据替换为真实 AP,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
 
 ## 多端维护成本优化阶段7(2026-07-28,P0 schema 补齐 + 真实上传 + 类型显式化,目标 3.1x->2.9x)
 
-<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段7 完成(3.1x->2.9x,schema 字段补齐 + 真实文件上传 + 类,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段7 完成(3.1x->2.9x,schema 字段补齐 + 真实文件上传 + 类,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
 
 ---
 
@@ -1633,21 +1633,21 @@
 - **Phase D DB+文档(主 agent)**:DB 占位符清理 + .env.example 文档 + 跨端契约对齐 + 最终验证 + commit/push
   - apps/mobile-rn/src/screens/LiveHostScreen.tsx:移除 readNumber 类型守卫,改用强类型字段直接转换
 
-<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) 模型名自动更新(ModelSyncService,Phase E 增量,用户反馈"模,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-15_auto-archive.md -->
-<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) ModelSyncService 深度优化 v2(15 项,Phase E v2,用,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-15_auto-archive.md -->
-<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) ModelSyncService 深度优化 v4(8 项,Phase E v4,用户,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-15_auto-archive.md -->
+<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) 模型名自动更新(ModelSyncService,Phase E 增量,用户反馈"模,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-15_auto-archive.md -->
+<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) ModelSyncService 深度优化 v2(15 项,Phase E v2,用,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-15_auto-archive.md -->
+<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) ModelSyncService 深度优化 v4(8 项,Phase E v4,用户,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-15_auto-archive.md -->
 
-## AgentTaskProgressPane 折叠子区对齐 Trae Work(2026-07-28,/goal 完整达成)
+## AgentTaskProgressPane 折叠子区对齐 工作台(2026-07-28,/goal 完整达成)
 
-<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 6 个折叠子区完整覆盖 useAgentProgress 全部数据源,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 6 个折叠子区完整覆盖 useAgentProgress 全部数据源,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
 
 ## AI 对话输入框字符数迁移 + i18n 孤儿键清理(2026-07-28,UI 收尾)
 
-<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 字符数从外层 hint 行迁移至输入框内右下角 + enterToSend 5 语言,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 字符数从外层 hint 行迁移至输入框内右下角 + enterToSend 5 语言,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: web 端 AI 对话页登录弹窗样式/凭证持久化修复(2026-07-31,已完成 ✅) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: web 端 AI 对话页登录弹窗样式/凭证持久化修复(2026-07-31,已完成 ✅) -->
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: web 端 AI 对话页 UI 一致性 2 轮细化修复(2026-07-31,已完成 ✅) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: web 端 AI 对话页 UI 一致性 2 轮细化修复(2026-07-31,已完成 ✅) -->
 
 ## 对话历史批量操作功能(2026-07-31 立,平台独占:apps/web + apps/api)
 
@@ -1676,39 +1676,39 @@
 
 ---
 
-## Trae Work 流式输出深度对标 Phase 19 + Phase 20(2026-07-28,UI 极致对标 + 单测/E2E 深化,4 subagent 并行)
+## 工作台 流式输出深度对标 Phase 19 + Phase 20(2026-07-28,UI 极致对标 + 单测/E2E 深化,4 subagent 并行)
 
-<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) Phase 19 + Phase 20 完整收尾(4 commit + 4 suba,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) Phase 19 + Phase 20 完整收尾(4 commit + 4 suba,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
 
 ---
 
 ## Phase 21 Timeline 实时响应 subagent SSE 事件(2026-07-29,映射层 + 接入 + 51 单测 + 17 E2E,3 subagent 并行)
 
-<!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 21 完整收尾(3 subagent 并行 + 1 浏览器验证,累计 6,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 21 完整收尾(3 subagent 并行 + 1 浏览器验证,累计 6,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
 
 ---
 
-## Phase 22 Trae Work 深度对标 v3 — i18n 化 + 筛选 + hover tooltip + 记忆 + a11y(2026-07-29,3 subagent 并行,73 test case)
+## Phase 22 工作台 深度对标 v3 — i18n 化 + 筛选 + hover tooltip + 记忆 + a11y(2026-07-29,3 subagent 并行,73 test case)
 
-<!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 22 完整收尾(3 subagent 并行,73 新单测,3 commi,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 22 完整收尾(3 subagent 并行,73 新单测,3 commi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
 
 ---
 
-## Phase 23 Trae Work 深度对标 v4 — 消息搜索 + 最小化模式 + 空状态(2026-07-29,2 subagent 并行,36 test case)
+## Phase 23 工作台 深度对标 v4 — 消息搜索 + 最小化模式 + 空状态(2026-07-29,2 subagent 并行,36 test case)
 
-<!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 23 完整收尾(2 subagent 并行,36 新单测,2+ comm,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 23 完整收尾(2 subagent 并行,36 新单测,2+ comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
 
 ---
 
 ## Phase 24 完整收尾 — Hydration 修复 + 浏览器验证 + 测试回归修复(2026-07-29,3 commit,1 浏览器验证,1 回归修复)
 
-<!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 24 终态收尾(用户要求"直到没有任何后续建议可给到我为止,完整收尾关闭,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 24 终态收尾(用户要求"直到没有任何后续建议可给到我为止,完整收尾关闭,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-05_auto-archive.md -->
 
 ### Phase 19-24 终态累计成果
 
 | Phase    | 主题                                | commit | 新 test       | 状态   |
 | -------- | ----------------------------------- | ------ | ------------- | ------ |
-| 19       | Trae Work 深度对标收尾              | 5      | 132           | ✅     |
+| 19       | 工作台 深度对标收尾              | 5      | 132           | ✅     |
 | 20       | 深度对标 v2(键盘/复制/导出/右键)    | 1      | 50+9 E2E      | ✅     |
 | 21       | Timeline SSE 实时响应               | 2      | 51+17 E2E     | ✅     |
 | 22       | i18n + 筛选 + tooltip + 记忆 + a11y | 3      | 73            | ✅     |
@@ -1716,9 +1716,9 @@
 | 24       | Hydration 修复 + 浏览器验证 + 回归  | 3      | 16+15+59=90   | ✅     |
 | **合计** | **6 轮**                            | **16** | **399+ test** | **✅** |
 
-### 19 个 progress-sections 组件全部对齐 Trae Work
+### 19 个 progress-sections 组件全部对齐 工作台
 
-FoldableSection / ThinkingSection / ToolCallsSection / SubagentSection / ChangesSection / TerminalSection / OverviewSection / TraeBlock / QuestionBlock / CompressionDivider / SubAgentTaskTree / TimelineEvent / TimelineTab / ResourceBudget / HoverPreviewCard / MessageContextMenu / MessageSearchBar / MinimizedSummaryBar + EmptyState variants
+FoldableSection / ThinkingSection / ToolCallsSection / SubagentSection / ChangesSection / TerminalSection / OverviewSection / Block / QuestionBlock / CompressionDivider / SubAgentTaskTree / TimelineEvent / TimelineTab / ResourceBudget / HoverPreviewCard / MessageContextMenu / MessageSearchBar / MinimizedSummaryBar + EmptyState variants
 
 ### 零后续建议(终态确认)
 
@@ -1912,7 +1912,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 
 > **触发**:用户要求"真维护倍数降至最低极限为止"。
 > **背景**:项目已完成"多端维护成本优化阶段 1-7"(6.8x → 2.9x),本批次为极限收尾,4 阶段路线图降本至 ≤1.7x(理论极限)。
-> **运行时**:`.trae-cn/goal-runtime/STATE.md` + `loop-run-log.md`(AGENTS.md §8 强制,目标结束后删除)
+> **运行时**:`.ihui-agent/goal-runtime/STATE.md` + `loop-run-log.md`(AGENTS.md §8 强制,目标结束后删除)
 > **约束**:不破坏现有 8 端功能 / 不修改 apps/api+apps/ai-service / 保留 Next.js 15 SSR / 保留 Taro 4 小程序渲染 / 高危操作暂停确认
 > **平台独占豁免**:apps/api + apps/ai-service(后端不在 UI 复用范围,AGENTS.md §9)
 
@@ -1988,7 +1988,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 ### 阶段 5:最终交付(目标达成后)
 
 - [x] ✅(2026-07-30) P3-5.1 README 同步更新(AGENTS.md §21) — 跨端共享架构章节 + 维护倍数对比表(在 8 端架构后追加 2 个 H2 章节:跨端共享架构覆盖 packages/app 共享层 7 包表格 + props 注入模式 + mobile-rn 151/153 wrapper + 49 features 5 批次清单 + react-native-web 验证页;维护倍数对比覆盖 6.8x→5.4x→5.3x→4.7x→4.2x→3.9x→3.1x→2.9x 7 阶段总览 + 2.9x→2.7x→2.3x→1.72x→2.0x P3 5 阶段路线 + commit `6ba6f3064c` 实测证据 + 维护倍数计算方法)
-- [x] ✅(2026-08-01) P3-5.2 STATE.md + loop-run-log.md 清理(AGENTS.md §8 第 7 步) — goal 目标"补齐 CLI 端能力完全对齐 Web 端"已 achieved(commit 7bdd1c226f),摘要:ihui memory/workflows/spec/plan 4 命令注册 + login 命令修复 + --api-url 默认值修复;已删除 .trae-cn/goal-runtime/STATE.md + loop-run-log.md(保留 SECURITY-AUDIT-2026-07-21.md 非运行时文件)
+- [x] ✅(2026-08-01) P3-5.2 STATE.md + loop-run-log.md 清理(AGENTS.md §8 第 7 步) — goal 目标"补齐 CLI 端能力完全对齐 Web 端"已 achieved(commit 7bdd1c226f),摘要:ihui memory/workflows/spec/plan 4 命令注册 + login 命令修复 + --api-url 默认值修复;已删除 .ihui-agent/goal-runtime/STATE.md + loop-run-log.md(保留 SECURITY-AUDIT-2026-07-21.md 非运行时文件)
 
 ---
 
@@ -2043,7 +2043,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 
 ### 硬性指标(R1-R10)
 
-- [x] ✅(2026-07-31) R1:反风控基础设施模块 — `apps/ai-service/app/services/publish/anti_risk/`(stealth.py 12类反检测点 + fingerprint_isolation.py 8维确定性指纹 + behavior_humanizer.py 贝塞尔曲线鼠标+逐字符输入 + proxy_pool.py 每账号固定IP + account_profile.py 跨会话持久化 + browser_factory.py 统一入口)。验证:import OK + 指纹确定性(同账号同指纹 seed 稳定)+ stealth 脚本 8569 字符含 webdriver/Canvas/AudioContext/WebGL + profile 持久化到 .trae-cn/tmp/anti-profiles/
+- [x] ✅(2026-07-31) R1:反风控基础设施模块 — `apps/ai-service/app/services/publish/anti_risk/`(stealth.py 12类反检测点 + fingerprint_isolation.py 8维确定性指纹 + behavior_humanizer.py 贝塞尔曲线鼠标+逐字符输入 + proxy_pool.py 每账号固定IP + account_profile.py 跨会话持久化 + browser_factory.py 统一入口)。验证:import OK + 指纹确定性(同账号同指纹 seed 稳定)+ stealth 脚本 8569 字符含 webdriver/Canvas/AudioContext/WebGL + profile 持久化到 .ihui-agent/tmp/anti-profiles/
 - [x] ✅(2026-07-31) R2:友好 API 平台 4 个 — cnblogs.py + segmentfault.py + oschina.py + jianshu.py(HTTP API,不涉风控)。已注册到 base_adapter.list_all_adapter_classes
 - [x] ✅(2026-07-31) R3:视频平台 2 个 — xigua.py + haokan.py(Playwright + 反风控五层防线 + 视频上传 + 元数据填写)
 - [x] ✅(2026-07-31) R4:六大号平台 6 个 — baijiahao.py + qq.py + dayihao.py + netease.py + sohu.py + sina.py(Playwright + 反风控五层防线 + 人类化操作 + try/finally 统一清理)
@@ -2233,7 +2233,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 ## WorkPanel CDP 完整 Chrome 升级(2026-07-31 立,P0,平台独占 web+ai-service,AGENTS.md §9 显式标注)
 
 > 触发:用户反馈内置浏览器最初要求是"完整 Chrome",当前 WorkPanel 是 iframe 架构([web-work-panel.tsx:96-100](apps/web/src/components/work-panel/web-work-panel.tsx)),受 X-Frame-Options 限制无法打开第三方平台登录页(知乎/B站等),扫码登录只能走后端截图流折中方案(/scan-login 页面)。
-> 目标:升级 WorkPanel 为 CDP(Chrome DevTools Protocol)远程控制真实 Chromium,对标 Trae/Cursor 内置浏览器,根治 iframe 限制。
+> 目标:升级 WorkPanel 为 CDP(Chrome DevTools Protocol)远程控制真实 Chromium,/Cursor 内置浏览器,根治 iframe 限制。
 > 平台独占:apps/web + apps/ai-service(§9 豁免,内置浏览器是 web 专属能力,其他端无 WorkPanel 概念)
 
 ### 硬性指标(C1-C6)
@@ -2281,9 +2281,9 @@ CDP 关键 API:
 
 ## CLI 全局命令注册 + 一键启动脚本(2026-07-31,平台独占:仅 apps/cli 工具链 + 用户 PowerShell 环境)
 
-<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) 用户可输入 `ihui` 全局命令 + 一键启动 dev 栈,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-08-15_auto-archive.md -->
+<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) 用户可输入 `ihui` 全局命令 + 一键启动 dev 栈,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-08-15_auto-archive.md -->
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: /goal 管理端彻底修复完整开发到极致完美(2026-07-31,achieved ✅) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: /goal 管理端彻底修复完整开发到极致完美(2026-07-31,achieved ✅) -->
 
 ## Web 端移动端/平板深度适配(2026-07-31 立,平台独占 web-only,AGENTS.md §9 显式标注)
 
@@ -2373,17 +2373,17 @@ CDP 关键 API:
 
 - `pnpm --filter @ihui/web typecheck` exit 0(全量 typecheck 全绿)
 - browser_use 验证:FAB 按钮位置正确(bottom: 16px, right: 16px)、浮窗全屏覆盖(position: fixed, borderRadius: 0px)、暗色模式切换正常、平板 768x1024 无白屏
-- 截图存档:`.trae-cn/tmp/mobile-home-default.png` / `mobile-fab.png` / `mobile-ai-fullscreen.png` / `mobile-dark.png` / `tablet-768.png`
+- 截图存档:`.ihui-agent/tmp/mobile-home-default.png` / `mobile-fab.png` / `mobile-ai-fullscreen.png` / `mobile-dark.png` / `tablet-768.png`
 - 2026-08-01 补充验证:`node node_modules/typescript/bin/tsc --noEmit -p apps/web/tsconfig.json` exit 0
 - 2026-08-01 Playwright 三视口验证(375x812/768x1024/1280x800):
   - 375px:Sidebar display=none + FAB 存在 + 菜单按钮存在 ✅
   - 768px:Sidebar display=none + FAB 存在 + 菜单按钮存在 ✅(断点对齐后平板竖屏走移动模式)
   - 1280px:Sidebar display=flex + AISidePanel docked display=flex + 无 FAB ✅(桌面三列)
-- 截图存档:`.trae-cn/tmp/mobile-375.png` / `tablet-768.png` / `desktop-1280.png`
+- 截图存档:`.ihui-agent/tmp/mobile-375.png` / `tablet-768.png` / `desktop-1280.png`
 - 2026-08-01 补充验证(Container + GlobalTopBar):
   - Container:桌面 1280px /settings maxWidth=672px(原 max-w-screen-md=428px) ✅
   - GlobalTopBar:375px pt=4px pb=4px height=44px;1280px pt=8px pb=6px height=50px ✅
-  - 截图存档:`.trae-cn/tmp/topbar-mobile-375.png` / `container-settings-1280.png`
+  - 截图存档:`.ihui-agent/tmp/topbar-mobile-375.png` / `container-settings-1280.png`
 - [x] ✅(2026-08-01) 移动端尺寸适配深度修复(35 文件 6 批次,3 subagent 并行扫描 + 2 subagent 并行修复)
   - **P0 断点错位**(3 文件):RightModule.tsx `xl:grid-cols-4`→`tablet:grid-cols-4`(1280px 桌面恢复 4 列);AdminNav.tsx `lg:`→`min-[1024px]:`(平板导航);SiteFooter.tsx `md:`→`min-[768px]:`(footer 三栏布局)
   - **P0 固定宽度溢出**(2 文件):skill-library.tsx `w-[400px]`→`w-full max-w-[400px]`;ChatWindow.tsx `w-[360px] h-[480px]`→`w-[min(360px,calc(100vw-3rem))] h-[min(480px,60vh)]`
@@ -2530,11 +2530,11 @@ CDP 关键 API:
 
 ---
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已修复:next build 生产构建内存崩溃 + 构建提速 15 倍(2026-08-05 完成 ✅,运维/构建系统) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: 已修复:next build 生产构建内存崩溃 + 构建提速 15 倍(2026-08-05 完成 ✅,运维/构建系统) -->
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已修复:Cloudflared tunnel token rotate + 泄露封堵(2026-08-05 完成 ✅,安全/运维) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: 已修复:Cloudflared tunnel token rotate + 泄露封堵(2026-08-05 完成 ✅,安全/运维) -->
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: P0 两步验证(2FA)登录全链路落地(2026-08-06 完成 ✅,登录功能修复 + 功能补齐) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: P0 两步验证(2FA)登录全链路落地(2026-08-06 完成 ✅,登录功能修复 + 功能补齐) -->
 
 ## P1 staging area 同目录文件级污染根治(2026-08-06 立,工程治理,平台独占:scripts/ + .husky/ + AGENTS.md)
 
@@ -2581,17 +2581,17 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 ---
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 下载功能深度开发(2026-08-06 ✅,跨端:apps/web + apps/api + packages/{types,api-client,shared,database},AGENTS.md §24 用户已确认) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: 下载功能深度开发(2026-08-06 ✅,跨端:apps/web + apps/api + packages/{types,api-client,shared,database},AGENTS.md §24 用户已确认) -->
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 下载功能增强 — admin 统计页 + CI 自动化(2026-08-06 完成 ✅,跨端:apps/web + apps/api + .github/workflows,AGENTS.md §24 用户已确认) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: 下载功能增强 — admin 统计页 + CI 自动化(2026-08-06 完成 ✅,跨端:apps/web + apps/api + .github/workflows,AGENTS.md §24 用户已确认) -->
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 前端全量深度审计与修复(2026-08-06 完成 ✅,跨端:apps/web + miniapp-taro + mobile-rn + extension + desktop) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: 前端全量深度审计与修复(2026-08-06 完成 ✅,跨端:apps/web + miniapp-taro + mobile-rn + extension + desktop) -->
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 「无法由代码闭合」4 项全部处理完成(2026-08-06 ✅,commit 6ee8c89ab3,跨端:database+api+web+taro+rn+shared) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: 「无法由代码闭合」4 项全部处理完成(2026-08-06 ✅,commit 6ee8c89ab3,跨端:database+api+web+taro+rn+shared) -->
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 并行收尾批次(2026-08-06 19:10 ✅,commit 6cff061888,全部推送) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: 并行收尾批次(2026-08-06 19:10 ✅,commit 6cff061888,全部推送) -->
 
-<!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 剩余问题处理(2026-08-06 19:30 ✅,commit 8a780abd50,已推送) -->
+<!-- 已归档至 .ihui-agent/archive/PROJECT_PLAN_archive_2026-08-20.md: 剩余问题处理(2026-08-06 19:30 ✅,commit 8a780abd50,已推送) -->
 
 ## P1 消息输入框附加栏 3 按钮高度统一根治(2026-08-07 立,平台独占:apps/web + apps/web/src/lib/nav-styles.ts,AGENTS.md §3 共享层优先)
 
@@ -2731,9 +2731,9 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 ---
 
-## P0 aiSkill 系统深度开发 — 对标 Trae/Codex/WorkBuddy 核心能力(2026-08-09 立,跨端:apps/ai-service + apps/web + packages/{api-client,shared,i18n})
+## P0 aiSkill 系统深度开发 — /WorkBuddy 核心能力(2026-08-09 立,跨端:apps/ai-service + apps/web + packages/{api-client,shared,i18n})
 
-> **触发**:用户要求"继续深度开发 aiSkill 系统,抄袭借鉴 Trae/Codex/WorkBuddy"——在现有 32 技能 + 自进化闭环 + 多智能体编排的基础上,补齐 4 大核心能力:技能推荐引擎、可视化工作流编排、统计看板、技能市场分享。
+> **触发**:用户要求"继续深度开发 aiSkill 系统,抄袭借鉴 主流 IDE/WorkBuddy"——在现有 32 技能 + 自进化闭环 + 多智能体编排的基础上,补齐 4 大核心能力:技能推荐引擎、可视化工作流编排、统计看板、技能市场分享。
 >
 > **现状审计**:
 >
@@ -2751,7 +2751,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 >
 > **借鉴分析**:
 >
-> - **Trae**:MCP 集成(已有)、技能市场(已有 SkillLibrary + 列表页)、上下文感知技能推荐(缺失)
+> - ****:MCP 集成(已有)、技能市场(已有 SkillLibrary + 列表页)、上下文感知技能推荐(缺失)
 > - **Codex**:Agent 任务进度可视化(已有 AgentTaskProgressPane)、技能编排工作流(已有 SkillScheduler 但缺可视化)、代码变更管理(缺失)
 > - **WorkBuddy**:工作流自动化编排(已有 AgentOrchestrator 但缺可视化编辑器)、技能管理市场(已有但缺分享/评分/版本)、任务调度(已有 SkillEvolutionScheduler)
 
@@ -3323,10 +3323,10 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 ## P0 竞品差距四大补齐:Tab 补全 + Merkle 三层索引 + popover 根治 + 签名链路(2026-09-07 立并完成 ✅)
 
-> 背景:2026-09-07 AI 能力对标五家竞品(Codex/Cursor/Trae/Qoder/WorkBuddy)分析(outputs/2026-09-07-AI能力对标五家竞品深度分析.md)确认四大可修差距,当日全部闭环。
+> 背景:2026-09-07 AI 能力对标五家竞品(Codex/Cursor//Qoder/WorkBuddy)分析(outputs/2026-09-07-AI能力对标五家竞品深度分析.md)确认四大可修差距,当日全部闭环。
 
 - [x] ✅(2026-09-07) 工作区上下文读取不全收尾:根因已于 3fe7c2c39a 根治;本轮补两处残留——`workspace-context-loader.ts` 根目录优先文件超 50KB 由"静默丢弃"改"截断保留"(大 README.md 不再丢)+ `totalSize` 按截断后大小累加(预算不再虚高);新增 `src/lib/__tests__/workspace-context-loader.test.ts` 4 测试全绿
-- [x] ✅(2026-09-07) Tab inline 补全(对标 Cursor Tab/Trae CUE):① ai-service 新增 `app/routers/fim.py` 专用 FIM 端点(POST /api/llm/fim,全文前缀 6000 截尾+后缀 2000 截头,temperature=0 max_tokens≤128,auto 路由本地/零成本优先,失败静默降级空串);② apps/api `ai-frontend-routes.ts` 新增 POST /ai/llm/fim 代理;③ web `CodeEditor.tsx` 升级:此前走 /ai/llm/chat 且 prefix 仅当前行 → 改全文前缀+后缀 FIM + 多行补全缩进对齐;后端 5 测试 + web/api tsc 0 错
+- [x] ✅(2026-09-07) Tab inline 补全(对标 Cursor Tab/ CUE):① ai-service 新增 `app/routers/fim.py` 专用 FIM 端点(POST /api/llm/fim,全文前缀 6000 截尾+后缀 2000 截头,temperature=0 max_tokens≤128,auto 路由本地/零成本优先,失败静默降级空串);② apps/api `ai-frontend-routes.ts` 新增 POST /ai/llm/fim 代理;③ web `CodeEditor.tsx` 升级:此前走 /ai/llm/chat 且 prefix 仅当前行 → 改全文前缀+后缀 FIM + 多行补全缩进对齐;后端 5 测试 + web/api tsc 0 错
 - [x] ✅(2026-09-07) Merkle 增量同步 + 三层语义索引(对标 Cursor Merkle Tree + CodeBuddy 三层索引):`codebase_indexer.py` 文件内容 sha256 快照(repo_id+路径双键,原子持久化,零变更轮次零 embedding 成本);删除文件经新增 `DELETE /api/v1/codebase/repo/:repoId/files`(api service `deleteByFiles` + 路由)清理幽灵切片;三层合成切片(module_summary/architecture_summary)经同一 embedding 通道支撑"模块/架构"级查询;新增 15 测试,索引器 122 全绿,api tsc 0 错
 - [x] ✅(2026-09-07) popover 定位根因类缺陷根治 + 守门:同型根因(createPortal 容器挂 top/left 但缺 position:fixed)实修 4 处(slash-command-palette / add-menu-popover / permission-history-panel / context-usage-ring);新守门 `scripts/check-portal-fixed.mjs` 入 pre-commit(--staged blocking,HUSKY_SKIP_PORTAL_GUARD 可跳过)
 - [x] ✅(2026-09-07) 桌面更新签名闭环(本机侧):新密钥对生成于 `C:\Users\Administrator\.tauri\ihui-updater.key`(+密码文件,不入库),实测 tauri signer sign 成功;`tauri.conf.json` updater.pubkey 更新(指纹 B5D7E67EA2B1DB08);用户侧唯一动作 = 注入 GitHub secrets(DESKTOP_TAURI_PRIVATE_KEY/DESKTOP_TAURI_KEY_PASSWORD/DEPLOY_*),指引见 outputs/2026-09-07-secrets注入指引.md

@@ -7,26 +7,26 @@
 # AGENTS.md — IHUI-AI 项目 Agent 指南
 
 > 作用域:`g:\IHUI-AI` 仓库根目录及所有子目录。
-> 历史案例归档见 `.trae-cn/archive/AGENTS_history.md`。
+> 历史案例归档见 `.ihui-agent/archive/AGENTS_history.md`。
 > 本文件为精简版(2026-07-25 重构,原 783 行 → ≤400 行),保留所有强制规则核心条款。
 
 ---
 
 ## 1. 任务计划文档规则(强制)
 
-- 项目**唯一**任务计划文档是 `PROJECT_PLAN.md`(根目录),所有任务计划、进度更新、待办清单、状态变更**只写**此文件,**不得**在 `.trae/`、`docs/`、根目录或其他位置新建计划/TODO/ROADMAP 文件。
+- 项目**唯一**任务计划文档是 `PROJECT_PLAN.md`(根目录),所有任务计划、进度更新、待办清单、状态变更**只写**此文件,**不得**在 `.ihui-agent/`、`docs/`、根目录或其他位置新建计划/TODO/ROADMAP 文件。
 - 完成任务后 `[ ]` → `[x] ✅(日期)`;新增任务追加到对应优先级(P0/P1/P2)末尾。commit message:`feat`/`fix`/`docs`/`chore`/`test`/`refactor` 前缀。
 
 ### 归档机制
 
-- 已完成任务条目(`### XXX(已完成 ✅ ...)` 标题)**禁止直接删除**,必须两步走:① 把完整任务条目(标题 + 正文)移动到 `.trae-cn/archive/PROJECT_PLAN_YYYY-MM-DD.md`;② 在 `PROJECT_PLAN.md` 原位置留 HTML 注释占位:`<!-- 已归档(YYYY-MM-DD):XXX 任务,完整内容在 .trae-cn/archive/PROJECT_PLAN_*.md -->`。
+- 已完成任务条目(`### XXX(已完成 ✅ ...)` 标题)**禁止直接删除**,必须两步走:① 把完整任务条目(标题 + 正文)移动到 `.ihui-agent/archive/PROJECT_PLAN_YYYY-MM-DD.md`;② 在 `PROJECT_PLAN.md` 原位置留 HTML 注释占位:`<!-- 已归档(YYYY-MM-DD):XXX 任务,完整内容在 .ihui-agent/archive/PROJECT_PLAN_*.md -->`。
 - **自动归档**:`scripts/archive-completed-tasks.mjs` 扫描完成 ≥7 天的条目,post-commit 钩子自动 `--auto-commit`,归档 commit 设 `IHUI_ARCHIVE_COMMIT=1` 防递归。
 - **手动触发**:`pnpm archive` / `--all`(全部)/ `--days 3`(自定义)/ `--dry-run`(预览);跳过用 `HUSKY_SKIP_ARCHIVE=1 git commit`。
-- **守门**:`scripts/check-project-plan-archive.mjs` + pre-commit 第 13c 项。历史案例见 `.trae-cn/archive/AGENTS_history.md`。
+- **守门**:`scripts/check-project-plan-archive.mjs` + pre-commit 第 13c 项。历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
 
 ### 唯一例外
 
-- `/goal` 模式:`.trae-cn/goal-runtime/STATE.md` + `loop-run-log.md`(临时,目标结束后删除);skills:`.trae-cn/skills/SKILL.md`(AI 工具配置,非计划文档)。
+- `/goal` 模式:`.ihui-agent/goal-runtime/STATE.md` + `loop-run-log.md`(临时,目标结束后删除);skills:`.ihui-agent/skills/SKILL.md`(AI 工具配置,非计划文档)。
 
 ---
 
@@ -180,7 +180,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 ### 运行时文件(强制)
 
-进入 goal 模式第一轮执行前必须在 `.trae-cn/goal-runtime/` 创建:
+进入 goal 模式第一轮执行前必须在 `.ihui-agent/goal-runtime/` 创建:
 
 - `STATE.md`:目标条件 + 状态机(`active`/`paused`/`achieved`/`blocked`/`budget_limited`)+ 当前轮次 + Token 累计 + 最近评估结论 + 硬性指标清单。
 - `loop-run-log.md`:逐轮追加(轮次号 + 执行摘要 + 工具调用统计 + 评估结论 `yes|no` + 一行理由)。
@@ -234,7 +234,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - **守门**(2026-07-30 立,2026-08-02 落地):
   - `scripts/check-single-branch.mjs`:检测 `git branch -a` 列表中除 main / upstream 外的分支,发现任意 1 个 → exit 1 阻塞 commit。
   - 集成位置:`scripts/guardian-runner.mjs` id 41(blocking),守门不通过则禁止 commit + push。
-  - 豁免:§8 goal 模式临时分支(必须带 `goal/` 前缀,且在 `.trae-cn/goal-runtime/STATE.md` 标注 `active` 状态才算合法)。
+  - 豁免:§8 goal 模式临时分支(必须带 `goal/` 前缀,且在 `.ihui-agent/goal-runtime/STATE.md` 标注 `active` 状态才算合法)。
 - **历史教训**(2026-07-30 立):仓库曾积累 12 个分支(本地 6 + 远程 7 + 1 upstream),其中 `add-ihui-ai` / `goal/*` / `rescue/*` 等 13 个无价值分支全部已合并或已被 main 覆盖;3 个未合并分支的内容(LLM 三提供商/i18n 五端/console.log→logger/awesome-prs)均已在 main 后续 commit 中包含或演进,merge 会回退 main 功能。教训:**分支不是"工作单元",是"协作单元"**——单 agent 单任务无需分支,直接 main 提交即可。
 
 ---
@@ -396,7 +396,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 **禁止项**:① 在 `G:\` 根目录创建任何文件;② 项目数据(扩展打包/Chrome profile/构建副本/临时 DB/临时配置)写到项目外路径;③ 硬编码 `C:\temp\ihui-*`/`$env:TEMP\ihui-*` 等项目外路径;④ agent 用 RunCommand/PowerShell/Out-File/Set-Content/New-Item 在项目外直接创建文件;⑤ 在 `G:\` 根目录运行 Qt 类外部工具或执行 pnpm 命令(会创建 `.pnpm-store` v11 冲突);⑥ 硬编码中文绝对路径(GBK 乱码)。路径推导用 `$PSScriptRoot`/`__dirname`/`import.meta.url`。唯一例外:纯系统日志(`debug.log`/`next-server.log`)可写 `$env:TEMP`。
 
-**必须用项目内路径**(根 `g:\IHUI-AI`):扩展打包→`apps/extension/.output/chrome-mv3/`;Chrome profile→`.trae-cn/tmp/chrome-profile/`;临时副本→`.trae-cn/tmp/<任务名>/`;临时脚本→`.trae-cn/tmp/<脚本名>.ps1`;临时文件统一放 `.trae-cn/tmp/`(已 gitignore),任务完成后清理。
+**必须用项目内路径**(根 `g:\IHUI-AI`):扩展打包→`apps/extension/.output/chrome-mv3/`;Chrome profile→`.ihui-agent/tmp/chrome-profile/`;临时副本→`.ihui-agent/tmp/<任务名>/`;临时脚本→`.ihui-agent/tmp/<脚本名>.ps1`;临时文件统一放 `.ihui-agent/tmp/`(已 gitignore),任务完成后清理。
 
 **守门脚本**:
 
@@ -404,7 +404,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - `check-parent-pollution.mjs`(第 26 项 BLOCKING:项目父目录递归 2 层+桌面根级+用户主目录巡查,命中=文件名强信号 `search_*.ps1`/`*_result.txt` 或内容双信号)
 - `cleanup-external-junk.ps1`(G:\ 垃圾清理,16 目录+31 文件,`-Force` 跳过确认)
 - `g-root-guardian.ps1` v2.0(G:\ 实时守门,FileSystemWatcher+白名单优先 5 层判定,~110-222ms 删除,Windows 计划任务自启)+ 配套 `g-root-blacklist.json`/install/uninstall/status 脚本
-- post-commit 自动 `--auto-clean --quiet`(仅清文件名强信号);TRAE 定时 08:00 巡查;跳过 `HUSKY_SKIP_HYGIENE=1`。历史案例见 `.trae-cn/archive/AGENTS_history.md`。
+- post-commit 自动 `--auto-clean --quiet`(仅清文件名强信号);定时 08:00 巡查;跳过 `HUSKY_SKIP_HYGIENE=1`。历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
 
 ---
 
@@ -432,9 +432,9 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 **Next.js CSS 缓存陷阱**:改 globals.css/styles 后 HMR 不一定重编译 CSS chunk,必须 curl 当前 CSS chunk 验证新值;`grep -c` 返回 0 → kill 旧 next-server 重启 `pnpm --filter @ihui/web dev`,等 15s 重新 curl 确认。
 
-**工具故障应急**:dev server 永远只在 TRAE 内部运行(`RunCommand long_running_process`+`blocking=false`),禁止 `Start-Process` 派生独立窗口。RunCommand 连续 2 次返回空输出 → 判定失联 → 告知用户在 TRAE 终端面板手动执行。工具反复失败时先 Grep project_memory.md 查已知约束。
+**工具故障应急**:dev server 永远只在集成终端内部运行(`RunCommand long_running_process`+`blocking=false`),禁止 `Start-Process` 派生独立窗口。RunCommand 连续 2 次返回空输出 → 判定失联 → 告知用户在集成终端面板手动执行。工具反复失败时先 Grep project_memory.md 查已知约束。
 
-**豁免**(允许跳过 browser_use):① 纯后端 API(curl 验证);② 纯类型/工具函数(typecheck+test);③ dev server 30 分钟无法修复(降级单元测试);④ CI 环境(e2e)。历史案例见 `.trae-cn/archive/AGENTS_history.md`。
+**豁免**(允许跳过 browser_use):① 纯后端 API(curl 验证);② 纯类型/工具函数(typecheck+test);③ dev server 30 分钟无法修复(降级单元测试);④ CI 环境(e2e)。历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
 
 ---
 
@@ -513,7 +513,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - **触发条件**:RunCommand 连续 ≥2 次返回 `{Exited, exit_code 0, 空输出}`(连 `Write-Output "test"` / `git --version` 都无输出),判定平台级故障。
 - **红线**:禁止把 git 命令清单甩给用户作为交付物;禁止把"用户手动执行"作为完成结论;禁止用"工具失联"停止 retry;必须自己完成 commit+push+验证;工具失联时报告"blocked"状态不声明完成;工具恢复后立即执行 git 流程;唯一例外是用户主动说"我来手动执行"。
 - **retry 策略**:首次失联用 `Write-Output "alive-test"` 探测 → 每隔 1-2 轮 retry RunCommand(可派 subagent 尝试) → 持续 retry 不放弃 → 恢复后立即执行完整 git 流程(add → commit → push → git-push-guard 验证)。
-- 历史案例见 `.trae-cn/archive/AGENTS_history.md`。
+- 历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
 
 ---
 
@@ -548,7 +548,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 - `scripts/check-readme-sync.mjs`:staged 中有 `apps/` / `packages/` 下功能代码改动但 `README.md` 不在 staged → warn 提醒。
 - 集成位置:`.husky/pre-commit` 第 22 项(warn-only,不阻塞 commit,只提醒)。
-- 历史案例见 `.trae-cn/archive/AGENTS_history.md`。
+- 历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
 
 ---
 
@@ -614,7 +614,7 @@ reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**
 
 ### 历史案例
 
-`.trae-cn/archive/AGENTS_history.md` 记录每次 reset 事故 + 已采取的 tag 备份措施。
+`.ihui-agent/archive/AGENTS_history.md` 记录每次 reset 事故 + 已采取的 tag 备份措施。
 
 ---
 
@@ -858,15 +858,15 @@ export const __test__ = {/* 暴露给测试的核心函数 */}
 
 ### 触发条件
 
-Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/` 等源码根目录随手写一个 `verify-xxx.mjs` 脚本(如 `verify-permission-popover-v2.mjs` / `verify-permission-popover-v3.mjs` / `verify-login-tabs.mjs`)快速跑一次。这类临时文件**禁止**提交到 git,必须归档到 `.trae-cn/tmp/<任务名>/`。
+Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/` 等源码根目录随手写一个 `verify-xxx.mjs` 脚本(如 `verify-permission-popover-v2.mjs` / `verify-permission-popover-v3.mjs` / `verify-login-tabs.mjs`)快速跑一次。这类临时文件**禁止**提交到 git,必须归档到 `.ihui-agent/tmp/<任务名>/`。
 
 ### 强制动作(缺一不可,违反视为协作事故)
 
-1. **临时文件必须放 `.trae-cn/tmp/<任务名>/`**:例如 `.trae-cn/tmp/perm-popover-debug/verify-v2.mjs`。
+1. **临时文件必须放 `.ihui-agent/tmp/<任务名>/`**:例如 `.ihui-agent/tmp/perm-popover-debug/verify-v2.mjs`。
 2. _*禁止放 apps/* 根目录_*:`apps/web/verify-*.mjs` / `apps/api/verify-*.ts` 等位置**严禁** commit。
-3. **禁止放 .trae-cn/ 根目录**:`.trae-cn/verify-*.mjs` 与守门脚本混在一起,难追溯。
+3. **禁止放 .ihui-agent/ 根目录**:`.ihui-agent/verify-*.mjs` 与守门脚本混在一起,难追溯。
 4. **路径推导用项目内路径**:`$PSScriptRoot` / `__dirname` / `import.meta.url`,不写硬编码绝对路径(§15 卫生规则)。
-5. **任务完成后清理**:`rm -rf .trae-cn/tmp/<任务名>/`(已 gitignore,自动忽略)。
+5. **任务完成后清理**:`rm -rf .ihui-agent/tmp/<任务名>/`(已 gitignore,自动忽略)。
 6. **commit 阶段禁 add**:`git add <本任务文件>`(§12 多会话保护),**禁止** `git add .` / `git add -A` 一次性把所有 verify-*.mjs 加进去。
 
 ### 红线(违反视为协作事故)
@@ -892,7 +892,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 
 - 与 §12(多会话并行)协同:`git add` 阶段只加本任务文件,不批量加 verify-*.mjs。
 - 与 §13(文件修改持久化)协同:Read 验证 verify-*.mjs 的修改生效。
-- 与 §15(工作区卫生)协同:临时文件必须项目内路径(`.trae-cn/tmp/`),不写 `G:\` 根目录或 `C:\temp\`。
+- 与 §15(工作区卫生)协同:临时文件必须项目内路径(`.ihui-agent/tmp/`),不写 `G:\` 根目录或 `C:\temp\`。
 - 与 §23(测试目录)协同:`verify-*.mjs` 命名 ≠ 测试文件,不能伪装成 `*.test.mjs` 绕过守门。
 
 ---
@@ -929,9 +929,9 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 
 C 盘 120 GB 频繁告急,根因排查发现:
 
-- **TRAE 自身缓存 12.88 GB**(TRAE SOLO CN 7.68 + TRAE SOLO 旧版 3.46 + Trae CN 旧版 1.74)
+- **第三方 AI IDE 自身缓存 12.88 GB**(国内版 CN 7.68 + 旧版 3.46 + 国内旧版 1.74)
 - **Chrome OptGuideOnDeviceModel 4 GB**(Chrome 内置 AI 模型,用户不用)
-- **Local\Temp 累积 1.6 GB**(TRAE 旧版安装包 + pip 安装临时)
+- **Local\Temp 累积 1.6 GB**(第三方 AI IDE 旧版安装包 + pip 安装临时)
 - **项目历史违规写入 `C:\temp\ihui-*` 0.33 GB**
 
 已通过环境变量迁移 + 符号链接 + 自动维护计划任务根治。
@@ -956,22 +956,15 @@ C 盘 120 GB 频繁告急,根因排查发现:
 
 - ❌ `C:\temp\*` / `C:\Users\荣耀\AppData\Local\Temp\*`(用 `os.tmpdir()` / `$env:TEMP` 替代,会自动走 D 盘)
 - ❌ `C:\Users\荣耀\AppData\Local\*\cache`(用工具自带配置或环境变量)
-- ❌ `C:\Users\荣耀\AppData\Roaming\TRAE*\*`(TRAE 自身管理,agent 不触碰)
+- ❌ `C:\Users\荣耀\AppData\Roaming\AICodingIDE*\*`(第三方 AI IDE 自身管理,agent 不触碰)
 
 **唯一例外**:系统日志(`debug.log` / `next-server.log`)可走 `$env:TEMP`(已指向 D 盘)。
 
-### TRAE ModularData 迁移(已配置自动迁移)
-
-- `C:\Users\荣耀\AppData\Roaming\TRAE SOLO CN\ModularData`(4.5 GB 会话历史 + 代码索引)→ `D:\caches\trae-modular-data\ModularData`(符号链接)
-- `C:\Users\荣耀\AppData\Roaming\TRAE SOLO CN\logs` → `D:\caches\trae-modular-data\logs`(符号链接)
-- **自动迁移机制**:`scripts/auto-migrate-trae-modular.ps1` 由计划任务 `IHUI-C-Drive-AutoMaintain`(每天 3am)调用,检测 TRAE 未运行时自动迁移(robocopy 复制 → 删原目录 → mklink 符号链接)
-- **手动迁移**:`pwsh -File scripts/auto-migrate-trae-modular.ps1`(需关闭 TRAE)
-
 ### 自动维护计划任务(已注册)
 
-| 任务名                      | 触发     | 脚本                                | 功能                                               |
-| --------------------------- | -------- | ----------------------------------- | -------------------------------------------------- |
-| `IHUI-C-Drive-AutoMaintain` | 每天 3am | `scripts/c-drive-auto-maintain.ps1` | 清理 TRAE/Chrome/Temp 缓存 + 触发 ModularData 迁移 |
+| 任务名                      | 触发     | 脚本                                | 功能                     |
+| --------------------------- | -------- | ----------------------------------- | ------------------------ |
+| `IHUI-C-Drive-AutoMaintain` | 每天 3am | `scripts/c-drive-auto-maintain.ps1` | 清理 Chrome/Temp 缓存 + 报告 C 盘状态 |
 
 **手动触发**:`pwsh -File scripts/c-drive-auto-maintain.ps1`
 **查看日志**:`D:\caches\c-drive-maintain.log`
@@ -985,9 +978,9 @@ C 盘 120 GB 频繁告急,根因排查发现:
 
 ### 历史案例
 
-- 2026-07-27:C 盘 28 GB → 42 GB,释放 13.85 GB(TRAE 旧版残留 + Chrome OptGuideOnDeviceModel + Temp 旧文件)
+- 2026-07-27:C 盘 28 GB → 42 GB,释放 13.85 GB(第三方 AI IDE 旧版残留 + Chrome OptGuideOnDeviceModel + Temp 旧文件)
 - 后续配置 11 个环境变量永久指向 D 盘,杜绝开发工具缓存再写 C 盘
-- TRAE ModularData 4.5 GB 待自动迁移(计划任务在 TRAE 未运行时执行)
+- 第三方 AI IDE 自身缓存由其自管理,项目维护脚本不再代清理
 
 ---
 
@@ -1018,10 +1011,10 @@ Windows PowerShell 5.1(`powershell.exe`)已 EOL(微软停止维护),且存在已
 
 ### 守门(blocking)
 
-- `scripts/check-pwsh-version.mjs`:扫 `g:\IHUI-AI` 下所有 `.ps1`(排除 venv / node_modules / .git / site-packages / .trae-cn/tmp),检查前 5 行是否含 `#requires -Version 7`,缺失则 exit 1
+- `scripts/check-pwsh-version.mjs`:扫 `g:\IHUI-AI` 下所有 `.ps1`(排除 venv / node_modules / .git / site-packages / .ihui-agent/tmp),检查前 5 行是否含 `#requires -Version 7`,缺失则 exit 1
 - 集成位置:`scripts/guardian-runner.mjs` pre-commit 第 41 项(新增,2026-08-13 立项);跳过 `HUSKY_SKIP_PWSH_VERSION_CHECK=1`(应急,默认不推荐)
-- 检查范围:全项目 `.ps1`,包括 `scripts/`、`deploy/`、`apps/*/scripts/`、`.trae-cn/scripts/`(项目级,非 `.trae-cn/tmp/`)
-- 白名单:`*.venv/*`、`venv/*`、`node_modules/*`、`.git/*`、`.trae-cn/tmp/*`、`site-packages/*`(playwright 驱动)
+- 检查范围:全项目 `.ps1`,包括 `scripts/`、`deploy/`、`apps/*/scripts/`、`.ihui-agent/scripts/`(项目级,非 `.ihui-agent/tmp/`)
+- 白名单:`*.venv/*`、`venv/*`、`node_modules/*`、`.git/*`、`.ihui-agent/tmp/*`、`site-packages/*`(playwright 驱动)
 
 ### 安装指引(机器上没装 PowerShell 7)
 
@@ -1132,7 +1125,7 @@ git tag -l 'lost-commit/*' | wc -l   # 应为 0
 - §22「防止 commit / push / merge 提交丢失硬性规则」— 提供守门 + 备份机制
 - §22「自动化 tag 同步」(`scripts/sync-lost-commit-tags.mjs`)— 保证远端有副本
 - `docs/lost-commit-archive.md` — 丢失 commit 的永久档案(人工可读清单)
-- `.trae-cn/archive/AGENTS_history.md` — 历史 GC 案例(本节首次落地后应补一条案例)
+- `.ihui-agent/archive/AGENTS_history.md` — 历史 GC 案例(本节首次落地后应补一条案例)
 
 ---
 
@@ -1173,7 +1166,7 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 | 文档                      | 说明                                                          |
 | ------------------------- | ------------------------------------------------------------- |
 | `PROJECT_PLAN.md`         | 唯一任务计划文档(必读)                                        |
-| `.trae-cn/archive/`       | 历史归档(audit/交接/迁移报告,只读)                            |
+| `.ihui-agent/archive/`       | 历史归档(audit/交接/迁移报告,只读)                            |
 | `docs/architecture.md`    | 系统架构文档                                                  |
 | `docs/port-management.md` | 端口注册表(88xx 段)                                           |
 | `docs/learning-assets.md` | 学习资产登记(34 个工作流反馈来源,新增/删除工作流必须同步更新) |

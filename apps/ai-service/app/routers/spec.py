@@ -2,12 +2,12 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""Spec 路由(2026-07-22 新增,对标 Trae IDE Spec 模式)。
+"""Spec 路由(2026-07-22 新增)。
 
 端点:
 - POST /spec/generate   → 从代码 AST 反向生成 spec 文档(markdown)
 - GET  /spec/templates  → 返回预置 spec 模板列表
-- POST /spec/apply      → 根据 spec markdown 生成代码 patch(unified diff,对标 Trae Work)
+- POST /spec/apply      → 根据 spec markdown 生成代码 patch(unified diff)
 
 注册到 app.include_router(spec.router, prefix="/api", tags=["spec"]),
 对外路径为 /api/spec/generate、/api/spec/templates、/api/spec/apply。
@@ -42,13 +42,13 @@ class SpecGenerateRequest(BaseModel):
 class SpecApplyRequest(BaseModel):
     """Spec apply 请求(契约与 apps/api spec-service.ts SpecApplyResult 对齐)。
 
-    根据 spec markdown 生成代码 patch,对标 Trae Work 的 spec/apply 链路。
+    根据 spec markdown 生成代码 patch 的 spec/apply 链路。
     """
 
     workspacePath: str = Field(..., description="工作区根路径(绝对路径)")
     scope: SpecScopeModel = Field(default_factory=SpecScopeModel)
     newSpec: str = Field(..., description="修改后的 spec markdown")
-    oldSpec: Optional[str] = Field(None, description="旧 spec(为空则从 .trae-cn/specs/ 加载持久化版本)")
+    oldSpec: Optional[str] = Field(None, description="旧 spec(为空则从 .ihui-agent/specs/ 加载持久化版本)")
 
 
 class SpecTemplateModel(BaseModel):
@@ -136,7 +136,7 @@ async def spec_templates() -> dict[str, Any]:
 
 @router.post("/spec/apply")
 async def spec_apply(req: SpecApplyRequest) -> dict[str, Any]:
-    """根据 spec markdown 生成代码 patch(unified diff 格式,对标 Trae Work)。
+    """根据 spec markdown 生成代码 patch(unified diff 格式)。
 
     调 spec_generator.apply_spec,LLM 不可用时 result 含 error='llm_unavailable',
     端点仍返回 code=0(不抛异常),由 API 端 spec-service.ts 检查 data.error 降级处理。

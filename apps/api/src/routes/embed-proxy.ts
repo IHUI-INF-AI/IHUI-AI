@@ -137,7 +137,7 @@ const BRIDGE_SCRIPT = [
   "var href=a.getAttribute('href');if(!href)return;",
   "if(href.charAt(0)==='#')return;",
   'if(/^(javascript|mailto|tel|data):/i.test(href))return;',
-  // Ctrl/Cmd+点击代理链接 → 通知父页面在应用内新开 WorkPanel 标签页(对标 Cursor/Trae 浏览器)
+  // Ctrl/Cmd+点击代理链接 → 通知父页面在应用内新开 WorkPanel 标签页
   'if(isP(href)&&(e.ctrlKey||e.metaKey)){e.preventDefault();post("ihui-embed-newtab",dec(href));return}',
   'if(isP(href)){e.preventDefault();post("ihui-embed-nav",dec(href),document.title);location.href=O+href;return}',
   'var abs;try{abs=new URL(href,document.baseURI).href}catch(err){return}',

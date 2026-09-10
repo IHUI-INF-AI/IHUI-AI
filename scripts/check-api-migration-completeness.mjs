@@ -169,8 +169,8 @@ if (!skipAuditReportCheck) {
   };
   for (const [canonical, candidates] of Object.entries(AUDIT_REPORT_ALIASES)) {
     check(`审计报告存在: ${canonical}`, () => {
-      // 根目录或归档目录(.trae-cn/archive/audit-reports-2026-07-21/)任一存在即通过
-      const ARCHIVE_DIR = path.join(ROOT, '.trae-cn/archive/audit-reports-2026-07-21');
+      // 根目录或归档目录(.ihui-agent/archive/audit-reports-2026-07-21/)任一存在即通过
+      const ARCHIVE_DIR = path.join(ROOT, '.ihui-agent/archive/audit-reports-2026-07-21');
       const found = candidates.find(
         (f) => existsSync(path.join(ROOT, f)) || existsSync(path.join(ARCHIVE_DIR, f)),
       );

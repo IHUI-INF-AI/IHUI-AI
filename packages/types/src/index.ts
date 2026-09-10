@@ -37,7 +37,7 @@ export { type PermissionMode, type PermissionDecision } from './agent-runtime'
 // 路由功能已迁移连通,本文件将 28 组类型定义集中到共享类型层供跨端引用
 export * from './legacy-migration'
 
-// IDE 工作区类型契约 (2026-07-22 立,仿 TRAE/Codex IDE 界面)
+// IDE 工作区类型契约 (2026-07-22 立,自研 IDE 界面)
 export * from './ide-workspace'
 
 // 开发者 API Key 跨端契约(2026-07-22 立,统一权限点枚举 + 鉴权类型 + /v1/* 响应格式)
@@ -61,14 +61,14 @@ export * from './message-bus'
 // 大模型排行榜跨端契约(2026-07-22 立,参考 arena.ai/leaderboard,6 类模型 + Agent + 总榜)
 export * from './leaderboard'
 
-// P3 Wave 11:6 大对标能力跨端契约(2026-07-22 立,对标 Codex/Trae/Qoder)
+// P3 Wave 11:6 大核心能力跨端契约(2026-07-22 立)
 // 终端集成(对标 Codex/OpenCode 内置终端)
 export * from './terminal'
-// Rules 引擎(对标 Trae Rules)
+// Rules 引擎()
 export * from './rules'
-// Hook 服务(对标 Trae Hooks)
+// Hook 服务( Hooks)
 export * from './hooks'
-// Plan/Spec 模式(对标 Trae Plan/Spec)
+// Plan/Spec 模式( Plan/Spec)
 export * from './spec'
 // Context Engineering(对标 Qoder)
 export * from './context-mention'

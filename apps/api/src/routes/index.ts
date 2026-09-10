@@ -337,22 +337,22 @@ import { codebaseSearchRoutes } from './v1-codebase-search.js'
 // P3 深度层:DAP debug 代理路由(代理到 ai-service /api/v1/debug/*,2026-07-22 立)
 import { debugRoutes } from './debug.js'
 
-// P3 深度层 Wave 11:6 大对标能力(2026-07-22 立,对标 Codex/Trae/Qoder)
+// P3 深度层 Wave 11:6 大对标能力(2026-07-22 立)
 // 终端集成(对标 Codex/OpenCode 内置终端,REST CRUD + WebSocket 双向流 + 进程退出清理)
 import { terminalRoutes } from './terminal.js'
 import { wsTerminal } from '../plugins/terminal-ws.js'
 import terminalCleanup from '../plugins/terminal-cleanup.js'
-// Rules 引擎(对标 Trae Rules,文件存储 .trae-cn/rules/*.md + 热加载 + 4 种匹配)
+// Rules 引擎(文件存储 .ihui-agent/rules/*.md + 热加载 + 4 种匹配)
 import { rulesRoutes } from './rules.js'
-// Hook 服务(对标 Trae Hooks,事件总线 + JSONLogic 条件 + 4 执行器)
+// Hook 服务(事件总线 + JSONLogic 条件 + 4 执行器)
 import hooksRoutes from './hooks.js'
 // 多通道消息总线(Wave 3 W3-2,飞书/钉钉/TG/Slack/Discord/微信 统一消息总线)
 import { messageBusRoutes } from './message-bus.js'
-// Plan/Spec 模式(对标 Trae Plan/Spec,spec 生成 + 模板)
+// Plan/Spec 模式(spec 生成 + 模板)
 import { specRoutes } from './spec.js'
 // Context Engineering(对标 Qoder,多维 @ 提及 file/database/symbol/folder/web)
 import { contextMentionRoutes } from './context-mentions.js'
-// Subagent 派单 UI(对标 Trae Subagent,落地 AGENTS.md §11 派单格式)
+// Subagent 派单 UI(落地 AGENTS.md §11 派单格式)
 import { subagentDispatchRoutes } from './subagent-dispatch.js'
 // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
 import { orchestrationRoutes } from './orchestration.js'
@@ -1009,12 +1009,12 @@ export function registerRoutes(server: FastifyInstance) {
   // P3 深度层:DAP debug 代理(10 端点:launch/attach/sessions CRUD/breakpoints/continue/step/stack/variables/eval,2026-07-22 立)
   server.register(debugRoutes, { prefix: '/api/debug' })
 
-  // P3 深度层 Wave 11:6 大对标能力(2026-07-22 立,对标 Codex/Trae/Qoder)
+  // P3 深度层 Wave 11:6 大对标能力(2026-07-22 立)
   // 终端集成(REST CRUD + WebSocket 双向流 + 进程退出清理)
   server.register(terminalRoutes, { prefix: '/api' })
   server.register(wsTerminal)
   server.register(terminalCleanup)
-  // Rules 引擎(CRUD + 测试,文件存储 .trae-cn/rules/*.md)
+  // Rules 引擎(CRUD + 测试,文件存储 .ihui-agent/rules/*.md)
   server.register(rulesRoutes, { prefix: '/api' })
   // Hook 服务(CRUD + 测试 + 日志,事件总线 + 4 执行器 webhook/script/log/notify)
   server.register(hooksRoutes, { prefix: '/api' })

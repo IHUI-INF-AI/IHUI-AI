@@ -20,7 +20,7 @@ $ErrorActionPreference = 'Continue'
 $ScriptsDir = $PSScriptRoot
 if (-not $ScriptsDir) { $ScriptsDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
 $ProjectRoot = Split-Path -Parent $ScriptsDir
-$LogFile = Join-Path $ProjectRoot '.trae-cn\tmp\zombie-guardian.log'
+$LogFile = Join-Path $ProjectRoot '.ihui-agent\tmp\zombie-guardian.log'
 $TaskName = 'IHUI-AI-Zombie-Guardian'
 
 Write-Host ""
@@ -70,16 +70,6 @@ Write-Host ("  Used:           " + $usedGB + " GB (" + $pct + "%)")
 Write-Host ("  Free:           " + $freeGB + " GB")
 $memColor = if ($pct -gt 90) { 'Red' } elseif ($pct -gt 80) { 'Yellow' } else { 'Green' }
 Write-Host ("  Status:         " + $(if ($pct -gt 90) { 'CRITICAL' } elseif ($pct -gt 80) { 'HIGH' } else { 'OK' })) -ForegroundColor $memColor
-Write-Host ""
-
-# ---- 3. Trae process counts ----
-$traeCN = (Get-Process -Name 'Trae CN' -ErrorAction SilentlyContinue | Measure-Object).Count
-$traeSolo = (Get-Process -Name 'TRAE SOLO CN' -ErrorAction SilentlyContinue | Measure-Object).Count
-$sandbox = (Get-Process -Name 'trae-sandbox' -ErrorAction SilentlyContinue | Measure-Object).Count
-Write-Host "[Trae Process Counts]" -ForegroundColor Cyan
-Write-Host ("  Trae CN:        " + $traeCN + $(if ($traeCN -gt 25) { '  (WARN: > 25, restart IDE)' } else { '' }))
-Write-Host ("  TRAE SOLO CN:   " + $traeSolo + $(if ($traeSolo -gt 30) { '  (WARN: > 30, restart IDE)' } else { '' }))
-Write-Host ("  trae-sandbox:   " + $sandbox)
 Write-Host ""
 
 # ---- 4. Top 10 memory consumers ----

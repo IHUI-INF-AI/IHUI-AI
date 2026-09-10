@@ -6,7 +6,7 @@
 
 # scripts/ 守门脚本索引
 
-> 注:一次性脚本(fix-_/scan-zh-tw-_)已删除,迁移审计脚本已归档到 .trae-cn/archive/scripts/migration-audit/。精简日期:2026-07-25
+> 注:一次性脚本(fix-_/scan-zh-tw-_)已删除,迁移审计脚本已归档到 .ihui-agent/archive/scripts/migration-audit/。精简日期:2026-07-25
 
 本目录汇集 IHUI-AI 仓库的全部 Node.js 守门/审计/工具脚本(共 92 个 `.mjs`),覆盖 pre-commit 钩子、迁移审计、i18n 流水线、Git 协作守门、部署自检与运维工具。所有脚本均为 ESM(`.mjs`)、零第三方依赖(纯 Node 内置模块),通过 `guardian-runner.mjs` 在 pre-commit 单进程批量执行,详见 `AGENTS.md` 守门脚本速查表(pre-commit 第 1-29 项)。
 
@@ -26,7 +26,7 @@
 | scan-zh-tw-untranslated.mjs      | 扫描 zh-TW.json 漏译英文 value,结果写 `_scan_result.json`              | —                        | 一次性扫描工具                            |
 | scan-hardcoded-zh.mjs            | 扫描 apps/web 下硬编码中文字符串(未走 t()/next-intl)                   | —                        | 支持 `--json` `--top N` `--exit 1`        |
 | i18n-diff.mjs                    | i18n AI 翻译流水线差异检测器(零 LLM API),输出 pending.json             | 2f-web / 2f-miniapp-taro | 与 i18n-apply.mjs 配套                    |
-| i18n-apply.mjs                   | i18n AI 翻译流水线应用器,按 zh-CN 基准重排 key 顺序                    | —                        | 读 `.trae-cn/tmp/i18n-translations.json`  |
+| i18n-apply.mjs                   | i18n AI 翻译流水线应用器,按 zh-CN 基准重排 key 顺序                    | —                        | 读 `.ihui-agent/tmp/i18n-translations.json`  |
 | apply-brand-glossary.mjs         | 应用 brand-glossary.json 品牌/字体/术语 canonical 映射                 | —                        | 支持 `--dry-run`                          |
 | apply-translation-fallback.mjs   | 为 ja/ko 补全 ASCII(===en)未翻译键(全角 Latin 兜底)                    | —                        | 机器翻译 fallback                         |
 | apply-i18n-translations.mjs      | 应用"英文值 → 翻译值"映射到语言文件                                    | —                        | 配合 translate-i18n-batch                 |

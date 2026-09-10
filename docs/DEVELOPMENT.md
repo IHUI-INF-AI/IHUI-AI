@@ -467,7 +467,7 @@ uvicorn app.main:app --reload --port 8803 --log-level debug
 | 路径分隔符 | Windows `\` vs Unix `/` | 脚本内用 `path.join()` / `path.sep`;PowerShell 兼容 `/` |
 | `pnpm` 命令需 shell:true | Windows 下 `pnpm` 是 `.cmd` 批处理 | Node `spawn` 时设 `shell: true`(见 `dev-web.mjs`) |
 | 端口占用 `EADDRINUSE` | 上一轮 dev server 未清理 | `powershell -File scripts\kill-dev-servers.ps1` |
-| PowerShell 弹窗污染 | `Start-Process` 默认弹独立窗口 | dev server 永远在 TRAE 终端内用 `RunCommand long_running_process` 跑,不派生独立窗口(见 [AGENTS.md §19](../AGENTS.md)) |
+| PowerShell 弹窗污染 | `Start-Process` 默认弹独立窗口 | dev server 永远在集成终端内用 `RunCommand long_running_process` 跑,不派生独立窗口(见 [AGENTS.md §19](../AGENTS.md)) |
 | 长路径限制 | Node `node_modules` 嵌套深 | `git config --system core.longpaths true`;Windows 注册表开启长路径支持 |
 | Docker Desktop 卷挂载慢 | Windows 文件系统 + WSL2 桥接 | 开发用 `db:push` 直连本地 PG,不依赖容器卷;或把仓库放 WSL2 文件系统内 |
 | `taskkill /F /T` | Windows 无 `pkill` | 清理进程树用 `taskkill /F /T /PID <pid>`(见 `kill-dev-servers.ps1`) |

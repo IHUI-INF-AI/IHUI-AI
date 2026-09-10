@@ -11,7 +11,6 @@
 #   2. High-CPU low-memory zombies (CPU > 1h AND mem < 10MB = busy-loop stuck)
 #   3. Orphan dev servers (node next/vite/tsx dev running > 4h, no parent IDE)
 #   4. Working-set trim (reclaim physical RAM from bloated processes)
-#   5. Trae process count alert (Trae CN > 25 / TRAE SOLO CN > 30 -> warn only)
 #
 # Usage:
 #   pwsh -ExecutionPolicy Bypass -File cleanup-zombie-processes.ps1            # dry-run (preview)
@@ -24,7 +23,6 @@
 #   - python -m pip install ruff ran 10.6h CPU (38353s) with only 2MB memory
 #     (busy-loop stuck install). Burned CPU + blocked memory reclaim.
 #   - Next.js dev server :8801 left running 818MB while not developing.
-#   - TRAE SOLO CN accumulated 46-48 processes (zombie subprocess buildup).
 # ============================================================================
 
 #Requires -Version 5.0
@@ -37,8 +35,6 @@ param(
     [int]$ThresholdHighCpuSecs = 3600,
     [int]$ThresholdLowMemMB    = 10,
     [int]$ThresholdOrphanDevMins = 240,
-    [int]$ThresholdTraeCN      = 25,
-    [int]$ThresholdTraeSolo    = 30,
     [int]$ThresholdTrimMemMB   = 150
 )
 
@@ -51,7 +47,7 @@ if (-not $AutoClean) { $DryRun = $true }
 $ScriptsDir = $PSScriptRoot
 if (-not $ScriptsDir) { $ScriptsDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
 $ProjectRoot = Split-Path -Parent $ScriptsDir
-$LogDir = Join-Path $ProjectRoot '.trae-cn\tmp'
+$LogDir = Join-Path $ProjectRoot '.ihui-agent\tmp'
 if (-not (Test-Path $LogDir)) {
     try { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null } catch {}
 }
@@ -177,7 +173,7 @@ $trimmedTotal = 0
 $allProcs = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine }
 
 # ---- Dev-tool process names: ONLY these are eligible for install/zombie kill.
-# IDE processes (Trae CN, TRAE SOLO CN, trae-sandbox, Code, explorer) and user
+# IDE processes (Code, explorer) and user
 # apps (Feishu, GameViewer, Edge) are NEVER killed by this guardian.
 $devToolNames = @(
     'python.exe','python3.exe','pythonw.exe','pip.exe','pip3.exe','uv.exe',
@@ -248,25 +244,10 @@ foreach ($p in $allProcs) {
 }
 
 # ============================================================================
-# Rule 4: Trae process count alert (warn only, never auto-kill IDE processes)
-# ============================================================================
-Write-Log 'INFO' "Rule 4: checking Trae process counts"
-$traeCNCount = (Get-Process -Name 'Trae CN' -ErrorAction SilentlyContinue | Measure-Object).Count
-$traeSoloCount = (Get-Process -Name 'TRAE SOLO CN' -ErrorAction SilentlyContinue | Measure-Object).Count
-$sandboxCount = (Get-Process -Name 'trae-sandbox' -ErrorAction SilentlyContinue | Measure-Object).Count
-Write-Log 'INFO' "Process counts: Trae CN=$traeCNCount / TRAE SOLO CN=$traeSoloCount / trae-sandbox=$sandboxCount"
-if ($traeCNCount -gt $ThresholdTraeCN) {
-    Write-Log 'WARN' "Trae CN process count ($traeCNCount) exceeds threshold ($ThresholdTraeCN) - consider restarting IDE to clear zombies"
-}
-if ($traeSoloCount -gt $ThresholdTraeSolo) {
-    Write-Log 'WARN' "TRAE SOLO CN process count ($traeSoloCount) exceeds threshold ($ThresholdTraeSolo) - consider restarting IDE to clear zombies"
-}
-
-# ============================================================================
-# Rule 5: Working-set trim (reclaim physical RAM from bloated processes)
+# Rule 4: Working-set trim (reclaim physical RAM from bloated processes)
 # ============================================================================
 if ($AutoClean) {
-    Write-Log 'INFO' "Rule 5: trimming working sets (processes > ${ThresholdTrimMemMB}MB)"
+    Write-Log 'INFO' "Rule 4: trimming working sets (processes > ${ThresholdTrimMemMB}MB)"
     $trimCandidates = Get-Process | Where-Object { $_.WorkingSet64 -gt ($ThresholdTrimMemMB * 1MB) }
     foreach ($proc in $trimCandidates) {
         $freed = Trim-WorkingSet -Process $proc
@@ -280,7 +261,7 @@ if ($AutoClean) {
         Write-Log 'INFO' "Total working-set trimmed: ${trimmedTotal}MB across all processes"
     }
 } else {
-    Write-Log 'INFO' "Rule 5: skipped (dry-run, no working-set trim)"
+    Write-Log 'INFO' "Rule 4: skipped (dry-run, no working-set trim)"
 }
 
 # ============================================================================
@@ -345,7 +326,6 @@ if (-not $Quiet) {
     Write-Host "  Working-set trimmed:  ${trimmedTotal} MB"
     Write-Host "  Memory used:          ${usedGB}GB / ${totalGB}GB ($pct%)"
     Write-Host "  Memory free:          ${freeGB}GB"
-    Write-Host "  Trae counts:          CN=$traeCNCount / SOLO=$traeSoloCount / sandbox=$sandboxCount"
     Write-Host "  Log:                  $LogFile"
     Write-Host ""
     if ($DryRun) {

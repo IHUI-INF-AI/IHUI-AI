@@ -1116,7 +1116,7 @@ def test_server_independent_instance():
 
 
 # =============================================================================
-# 扩展工具(2026-07-24 新增,对标 Trae Work + Codex)
+# 扩展工具(2026-07-24 新增,自研)
 # fetch_url / image_generation / review_pr /
 # summarize_artifacts / schedule_task / proactive_suggestion
 # =============================================================================

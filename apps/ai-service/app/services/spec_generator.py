@@ -2,7 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""Spec 文档生成器(2026-07-22 新增,对标 Trae IDE Spec 模式)。
+"""Spec 文档生成器(2026-07-22 新增)。
 
 从代码 AST 反向生成规格文档(markdown),支持 TypeScript/Python/Go。
 
@@ -532,14 +532,14 @@ class SpecGenerator:
         return hashlib.md5(scope_str.encode("utf-8")).hexdigest()[:12]
 
     def _persist_spec(self, workspace_path: str, scope: dict[str, Any], spec_md: str) -> bool:
-        """将 spec 写入 .trae-cn/specs/<hash>.md + history/<timestamp>-<hash>.md。
+        """将 spec 写入 .ihui-agent/specs/<hash>.md + history/<timestamp>-<hash>.md。
 
         降级:文件写入失败时仅返回 False,不阻塞 spec 生成。
         """
         try:
             root = Path(workspace_path).resolve()
             scope_hash = self._compute_scope_hash(scope)
-            specs_dir = root / ".trae-cn" / "specs"
+            specs_dir = root / ".ihui-agent" / "specs"
             history_dir = specs_dir / "history"
             specs_dir.mkdir(parents=True, exist_ok=True)
             history_dir.mkdir(parents=True, exist_ok=True)
@@ -634,7 +634,7 @@ class SpecGenerator:
         """
         root = Path(workspace_path).resolve()
         scope_hash = self._compute_scope_hash(scope)
-        history_dir = root / ".trae-cn" / "specs" / "history"
+        history_dir = root / ".ihui-agent" / "specs" / "history"
         if not history_dir.is_dir():
             return []
 
@@ -683,9 +683,9 @@ class SpecGenerator:
         scope_hash = self._compute_scope_hash(scope)
 
         if version == "latest":
-            target = root / ".trae-cn" / "specs" / f"{scope_hash}.md"
+            target = root / ".ihui-agent" / "specs" / f"{scope_hash}.md"
         else:
-            history_dir = root / ".trae-cn" / "specs" / "history"
+            history_dir = root / ".ihui-agent" / "specs" / "history"
             target = history_dir / f"{version}-{scope_hash}.md"
 
         if not target.is_file():
@@ -1075,7 +1075,7 @@ class SpecGenerator:
         """
         root = Path(workspace_path).resolve()
         scope_hash = self._compute_scope_hash(scope)
-        target = root / ".trae-cn" / "specs" / f"{scope_hash}.md"
+        target = root / ".ihui-agent" / "specs" / f"{scope_hash}.md"
         if not target.is_file():
             return {"spec": "", "filePath": "", "status": ""}
 
@@ -1247,14 +1247,14 @@ class SpecGenerator:
     def apply_patch_confirm(
         self, workspace_path: str, patch: str, affected_files: list[str]
     ) -> dict[str, Any]:
-        """确认应用 patch(写入文件,备份原文件到 .trae-cn/specs/backups/)。
+        """确认应用 patch(写入文件,备份原文件到 .ihui-agent/specs/backups/)。
 
         Returns:
             { applied: [...], failed: [...], backupDir }
         """
         root = Path(workspace_path).resolve()
         timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        backup_dir = root / ".trae-cn" / "specs" / "backups" / timestamp
+        backup_dir = root / ".ihui-agent" / "specs" / "backups" / timestamp
         backup_dir.mkdir(parents=True, exist_ok=True)
 
         file_patches = self._parse_unified_diff(patch)
@@ -1595,7 +1595,7 @@ class SpecGenerator:
     def get_pending_reviews(self, workspace_path: str) -> dict[str, Any]:
         """返回所有 pending_review 状态的 spec 列表。"""
         root = Path(workspace_path).resolve()
-        specs_dir = root / ".trae-cn" / "specs"
+        specs_dir = root / ".ihui-agent" / "specs"
         if not specs_dir.is_dir():
             return {"specs": []}
 
@@ -1846,7 +1846,7 @@ class SpecGenerator:
         try:
             root = Path(workspace_path).resolve()
             scope_hash = self._compute_scope_hash(scope)
-            target = root / ".trae-cn" / "specs" / f"{scope_hash}.md"
+            target = root / ".ihui-agent" / "specs" / f"{scope_hash}.md"
             target.write_text(new_content, encoding="utf-8")
         except Exception as e:
             logger.warning("增强 spec 持久化失败: %s", e)

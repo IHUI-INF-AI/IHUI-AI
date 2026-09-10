@@ -27,7 +27,7 @@ import {
 } from './config-drift-detector.js'
 
 /** 备份目录根(项目内,AGENTS.md §15) */
-const BACKUP_ROOT = '.trae-cn/tmp/config-migration-backups'
+const BACKUP_ROOT = '.ihui-agent/tmp/config-migration-backups'
 
 /**
  * 项目根目录解析:与 config-drift-detector.ts 一致,以 pnpm-workspace.yaml 作为 monorepo 根标记。

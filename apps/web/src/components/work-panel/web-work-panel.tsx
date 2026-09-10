@@ -155,7 +155,7 @@ export function WebWorkPanel() {
         // → 只修正当前历史条目,绝不压栈(否则 302 落点二次压栈 + 后退弹回)
         onEmbedNavigation(d.url, title, 'loaded')
       } else if (d.type === 'ihui-embed-newtab' && typeof d.url === 'string' && d.url) {
-        // Ctrl/Cmd+点击代理链接 → 应用内新开 WorkPanel 标签页(对标 Cursor/Trae 浏览器)
+        // Ctrl/Cmd+点击代理链接 → 应用内新开 WorkPanel 标签页(对标 主流 AI IDE 浏览器)
         newTab(d.url)
       } else if (d.type === 'ihui-embed-proxy-error') {
         onFailed(typeof d.message === 'string' ? d.message : '嵌入代理加载失败')
@@ -183,9 +183,9 @@ export function WebWorkPanel() {
     }
   }, [url, title, isFavorite, addFavorite, removeFavorite])
 
-  // 键盘快捷键(2026-09-02,对标 Cursor/Trae 内嵌浏览器):
+  // 键盘快捷键(2026-09-02,对标 主流 AI IDE 内嵌浏览器):
   // 仅在焦点位于面板 chrome(工具栏/地址栏)时生效——代理 iframe 为跨源 sandbox(opaque origin),
-  // 其键盘事件被隔离不会冒泡到父文档,这是沙箱固有限制(与 Cursor/Trae 一致)。
+  // 其键盘事件被隔离不会冒泡到父文档,这是沙箱固有限制(与 主流 AI IDE 一致)。
   // 组合:Alt+←/→ 后退/前进、Ctrl/Cmd+R 或 F5 重载、Ctrl/Cmd+L 聚焦地址栏。
   const panelRef = React.useRef<HTMLDivElement>(null)
   const handlePanelKeyDown = React.useCallback(

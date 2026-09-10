@@ -20,7 +20,7 @@
 #   5. otherwise       -> BLOCKED (unknown, delete + log [UNKNOWN])
 #
 # Config: g:\IHUI-AI\scripts\g-root-blacklist.json (v2.0 schema, UTF-8)
-# Log:    g:\IHUI-AI\.trae-cn\tmp\g-root-guardian.log (UTF-8, 1MB rotation)
+# Log:    g:\IHUI-AI\.ihui-agent\tmp\g-root-guardian.log (UTF-8, 1MB rotation)
 #
 # Usage:
 #   Foreground (debug):
@@ -40,7 +40,7 @@ $ErrorActionPreference = 'Continue'
 
 # ---- Configuration (script-scoped) ----
 $script:ConfigPath = 'g:\IHUI-AI\scripts\g-root-blacklist.json'
-$script:LogPath    = 'g:\IHUI-AI\.trae-cn\tmp\g-root-guardian.log'
+$script:LogPath    = 'g:\IHUI-AI\.ihui-agent\tmp\g-root-guardian.log'
 $script:WatchPath  = 'G:\'
 
 # ---- Load config v2.0 (allowlist + blacklist + heuristic + systemProtected) ----
@@ -234,7 +234,7 @@ $action = {
         # 5. Unknown remains BLOCK:unknown (allowlist-first mode)
 
         # Inline log writer (avoid helper-function scope issues)
-        $logPath = 'g:\IHUI-AI\.trae-cn\tmp\g-root-guardian.log'
+        $logPath = 'g:\IHUI-AI\.ihui-agent\tmp\g-root-guardian.log'
         $logDir = Split-Path $logPath -Parent
         if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
         if (Test-Path $logPath) {
@@ -274,7 +274,7 @@ $action = {
     } catch {
         # Never crash the event pipeline; log the error and continue
         $ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-        $logPath = 'g:\IHUI-AI\.trae-cn\tmp\g-root-guardian.log'
+        $logPath = 'g:\IHUI-AI\.ihui-agent\tmp\g-root-guardian.log'
         try { Add-Content -Path $logPath -Value "$ts [ERROR] $($_.Exception.Message)" -Encoding UTF8 } catch { }
     }
 }

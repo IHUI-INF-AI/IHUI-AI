@@ -465,7 +465,7 @@ iframe::-webkit-scrollbar {
   animation: ihui-update-ring-pulse 1.8s ease-in-out infinite;
 }
 
-/* ============ 消息高亮脉冲动画(2026-07-31 立,对标 Trae + Codex 跳转反馈)============
+/* ============ 消息高亮脉冲动画(2026-07-31 立,对标 主流 AI IDE + Codex 跳转反馈)============
  * PlanStepsCard 点击步骤跳转消息后,目标消息需要 1.5s 视觉脉冲反馈,
  * 让用户感知"跳到了这个消息"。
  * - 使用品牌色(--color-brand)做 box-shadow + border 双重脉冲
@@ -837,7 +837,7 @@ iframe::-webkit-scrollbar {
  * 单一来源:packages/design-tokens/src/styles/tokens.css 的 :root { --z-* } 定义,
  * 修改任何 z-index 数值只需改 packages/design-tokens/src/styles/tokens.css,全站自动联动。 */
 @layer utilities {
-  /* TRAE 注入防护说明(2026-07-24 立,2026-07-24 修正):
+  /* 第三方 AI IDE 注入防护说明(2026-07-24 立,2026-07-24 修正):
    * 变量值由 layout.tsx inline script 在 hydration 前用 setProperty 设置,
    * inline style 优先级高于 stylesheet,此处 var() 引用自动拿到正确值。
    * 禁止 !important(项目规则:project_memory.md 第 6 行)。 */

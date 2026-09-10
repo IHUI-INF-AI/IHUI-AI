@@ -54,7 +54,7 @@
 | 24a | 📏 侧边栏宽度一致性 | check-sidebar-width-consistency.mjs | — | — |
 | 25 | 🧹 项目外路径违规(blocking) | check-workspace-hygiene.mjs | — | — |
 | 26 | 🛡️  项目父目录污染巡查(blocking) | check-parent-pollution.mjs | — | — |
-| 27 | 🛡️  z-index 层叠防护(防 TRAE 注入 + 遮罩 fade-in 回归) | check-z-index-guard.mjs | — | — |
+| 27 | 🛡️  z-index 层叠防护(防 IDE 注入 + 遮罩 fade-in 回归) | check-z-index-guard.mjs | — | — |
 | 28 | 🛡️  全屏遮罩 z-index 层级(防 fixed inset-0 + z-50 复发) | check-overlay-zindex.mjs | — | 有 |
 | 29 | 🚀 Push 同步兜底(防"commit 后忘记 push"复发,AGENTS.md §21 第三道防线) | check-push-sync.mjs | — | 有 |
 | 30 | 🛡️ i18n 文件完整性(防 prettier 截断事故复发) | validate-i18n-integrity.mjs | — | 有 |
@@ -110,7 +110,7 @@
 
   💡 zh-CN.json 有改动但 i18n pending 非空,请先跑翻译流水线:
      1. node scripts/i18n-diff.mjs          (检测差异,生成 pending 清单)
-     2. AI agent 翻译 → .trae-cn/tmp/i18n-translations.json
+     2. AI agent 翻译 → .ihui-agent/tmp/i18n-translations.json
      3. node scripts/i18n-apply.mjs         (应用翻译)
      4. node scripts/check-i18n-keys.mjs    (验证 parity)
      5. git add apps/web/messages/{en,ja,ko,zh-TW}.json 重新 commit
@@ -123,7 +123,7 @@
 
   💡 miniapp-taro zh-CN.ts 有改动但 i18n pending 非空,请先跑翻译流水线:
      1. node scripts/i18n-diff.mjs --target=miniapp-taro  (检测差异,生成 pending 清单)
-     2. AI agent 翻译 → .trae-cn/tmp/i18n-translations.json
+     2. AI agent 翻译 → .ihui-agent/tmp/i18n-translations.json
      3. node scripts/i18n-apply.mjs --target=miniapp-taro  (应用翻译)
      4. node scripts/i18n-diff.mjs --target=miniapp-taro   (复验 parity,应无 pending)
      5. git add apps/miniapp-taro/src/i18n/{en,ja,ko,zh-TW}.ts 重新 commit
@@ -215,7 +215,7 @@
 
   💡 shared/zh-CN.json 有改动但 i18n pending 非空,请先跑翻译流水线:
      1. node scripts/i18n-diff.mjs --target=shared  (检测差异,生成 pending 清单)
-     2. AI agent 翻译 → .trae-cn/tmp/i18n-translations.json
+     2. AI agent 翻译 → .ihui-agent/tmp/i18n-translations.json
      3. node scripts/i18n-apply.mjs --target=shared  (应用翻译)
      4. node scripts/check-i18n-keys.mjs --target=shared  (验证 parity)
      5. git add packages/i18n/messages/shared/{en,ja,ko,zh-TW}.json 重新 commit
@@ -394,7 +394,7 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 24a | `ui/sidebar-width` | 📏 侧边栏宽度一致性 | check-sidebar-width-consistency.mjs |
 | 25 | `workspace/external-paths` | 🧹 项目外路径违规(blocking) | check-workspace-hygiene.mjs |
 | 26 | `workspace/parent-pollution` | 🛡️  项目父目录污染巡查(blocking) | check-parent-pollution.mjs |
-| 27 | `ui/z-index` | 🛡️  z-index 层叠防护(防 TRAE 注入 + 遮罩 fade-in 回归) | check-z-index-guard.mjs |
+| 27 | `ui/z-index` | 🛡️  z-index 层叠防护(防 IDE 注入 + 遮罩 fade-in 回归) | check-z-index-guard.mjs |
 | 28 | `ui/overlay-zindex` | 🛡️  全屏遮罩 z-index 层级(防 fixed inset-0 + z-50 复发) | check-overlay-zindex.mjs |
 | 29 | `push/sync` | 🚀 Push 同步兜底(防"commit 后忘记 push"复发,AGENTS.md §21 第三道防线) | check-push-sync.mjs |
 | 30 | `i18n/integrity` | 🛡️ i18n 文件完整性(防 prettier 截断事故复发) | validate-i18n-integrity.mjs |

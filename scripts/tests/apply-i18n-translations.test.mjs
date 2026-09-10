@@ -31,11 +31,11 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = path.join(__dirname, '..', 'apply-i18n-translations.mjs')
 const LANGS = ['ja', 'ko', 'zh-CN', 'zh-TW']
 
-// ─── 辅助:创建临时项目根目录(含 apps/web/messages/ + .trae-cn/goal-runtime/) ───
+// ─── 辅助:创建临时项目根目录(含 apps/web/messages/ + .ihui-agent/goal-runtime/) ───
 function createTempProject() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-apply-i18n-'))
   fs.mkdirSync(path.join(root, 'apps', 'web', 'messages'), { recursive: true })
-  fs.mkdirSync(path.join(root, '.trae-cn', 'goal-runtime'), { recursive: true })
+  fs.mkdirSync(path.join(root, '.ihui-agent', 'goal-runtime'), { recursive: true })
   return root
 }
 
@@ -57,7 +57,7 @@ function writeMessagesWithBOM(root, lang, obj) {
 
 function writeTranslationMap(root, lang, obj) {
   fs.writeFileSync(
-    path.join(root, '.trae-cn', 'goal-runtime', `i18n-translation-${lang}.json`),
+    path.join(root, '.ihui-agent', 'goal-runtime', `i18n-translation-${lang}.json`),
     JSON.stringify(obj, null, 2),
     'utf8',
   )

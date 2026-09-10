@@ -27,7 +27,7 @@
 设计:
 - 单例模式(多适配器共享同一评分器)
 - 线程安全(threading.Lock)
-- 风险事件持久化到 .trae-cn/tmp/anti-risk-events.jsonl(AGENTS.md §15)
+- 风险事件持久化到 .ihui-agent/tmp/anti-risk-events.jsonl(AGENTS.md §15)
 - 发布历史从 publish_history 表查询(DB 不可用时降级到内存事件)
 - 新增维度(7/8)可选传入,不传时跳过该维度评分(向后兼容)
 """
@@ -46,10 +46,10 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-# 风险事件持久化路径(AGENTS.md §15:临时文件放 .trae-cn/tmp/)
+# 风险事件持久化路径(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
 _EVENTS_FILE = Path(os.environ.get(
     "ANTI_RISK_EVENTS_FILE",
-    ".trae-cn/tmp/anti-risk-events.jsonl",
+    ".ihui-agent/tmp/anti-risk-events.jsonl",
 )).resolve()
 
 # 评分阈值

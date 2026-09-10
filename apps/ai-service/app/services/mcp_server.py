@@ -280,7 +280,7 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # 2026-07-24 安全加固:screenshot_url 是 SSRF 入口(Playwright 访问任意 URL),
     # 即使有 _validate_url_ssrf 校验,仍限定 admin 调用,defense-in-depth
     "screenshot_url",
-    # 2026-07-24 扩展工具(对标 Trae Work + Codex 核心能力):
+    # 2026-07-24 扩展工具(自研核心能力):
     # fetch_url:SSRF 入口 + 可探测内网;
     # review_pr:GitHub API + 可能暴露源代码;schedule_task:调度后台任务
     # 2026-09-08 全模态深度适配:image_generation 移出 admin 专属(与 video/music/tts
@@ -995,7 +995,7 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
 async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
     """file_edit: 精细编辑文件,精确替换 old_string 为 new_string,带 conflict 检测。
 
-    对标 Trae Edit 工具:replace_all=false 时要求 old_string 唯一匹配,
+    自研 Edit 工具:replace_all=false 时要求 old_string 唯一匹配,
     多个匹配报 AMBIGUOUS_MATCH 错误,避免误改多处。
     """
     def _err(code: str, msg: str, **extra: Any) -> dict[str, Any]:
@@ -2404,7 +2404,7 @@ _AUTOMATION_CONFIGS: dict[str, dict[str, Any]] = {}
 
 
 async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str, Any]:
-    """配置自媒体自动化定时任务并可选立即执行(对标 Trae Work Automations + Codex)。
+    """配置自媒体自动化定时任务并可选立即执行(自研定时任务编排)。
 
     1. 配置阶段:转发到 api 层 config 端点(koubo_daily/wechat_daily),缓存到 _AUTOMATION_CONFIGS。
     2. 执行阶段(execute=True,默认):按 action 真实执行一次:
@@ -2673,7 +2673,7 @@ async def _tool_dispatch_subagent(
 ) -> dict[str, Any]:
     """dispatch_subagent: 派发子智能体执行独立任务(单 agent 或并行多 agent)。
 
-    双模式(对标 Trae Work subagent orchestration):
+    双模式(自研 subagent orchestration):
     - 单 agent 模式(兼容):{name, task, session_id?} → orchestrator.invoke
     - 并行模式:{tasks: [{name, task, context?}, ...], max_concurrency?} →
       orchestrator.invoke_parallel,真实并行派发,互不污染上下文。
@@ -2843,7 +2843,7 @@ async def _tool_dispatch_subagent(
 
 
 # ---------------------------------------------------------------------------
-# 扩展工具(2026-07-24 新增,对标 Trae Work + Codex 核心能力缺口)
+# 扩展工具(2026-07-24 新增,自研核心能力)
 # 6 个工具:fetch_url / image_generation / review_pr /
 #          summarize_artifacts / schedule_task / proactive_suggestion
 # ---------------------------------------------------------------------------
@@ -6545,7 +6545,7 @@ _TOOLS: list[MCPTool] = [
             },
         },
     ),
-    # ===== 扩展工具(2026-07-24 新增,对标 Trae Work + Codex)=====
+    # ===== 扩展工具(2026-07-24 新增,自研)=====
     MCPTool(
         name="fetch_url",
         description=(
@@ -7514,7 +7514,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "vision_analyze": _tool_vision_analyze,
     # ===== 子智能体派发(2026-07-24 新增)=====
     "dispatch_subagent": _tool_dispatch_subagent,
-    # ===== 扩展工具(2026-07-24 新增,对标 Trae Work + Codex)=====
+    # ===== 扩展工具(2026-07-24 新增,自研)=====
     "fetch_url": _tool_fetch_url,
     "image_generation": _tool_image_generation,
     "review_pr": _tool_review_pr,

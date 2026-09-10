@@ -11,7 +11,7 @@
  * 规则:除 main 之外不允许新建任何本地/远程分支(feat/* / fix/* / hotfix/* /
  * add-* / rescue/* / 自定义前缀全部禁止)。所有改动统一往 main 合并。
  *
- * 唯一豁免:goal 模式临时分支(必须带 goal/ 前缀,且在 .trae-cn/goal-runtime/STATE.md
+ * 唯一豁免:goal 模式临时分支(必须带 goal/ 前缀,且在 .ihui-agent/goal-runtime/STATE.md
  * 标注 active 状态才算合法;goal/* 完成后必须立即删除)。
  *
  * 检测逻辑:
@@ -20,7 +20,7 @@
  *   3. 白名单:main / origin/main / upstream/main / gitee/main(镜像远程)/ HEAD
  *   4. 已 checkout 在 linked worktree 的分支豁免(AGENTS.md §12d sanctioned 并行隔离,非 feature 分支)
  *   4. 剩余分支逐一判定:
- *      - goal/* 前缀 → 检查 .trae-cn/goal-runtime/STATE.md 是否标注 active → 合法豁免
+ *      - goal/* 前缀 → 检查 .ihui-agent/goal-runtime/STATE.md 是否标注 active → 合法豁免
  *      - 其他 → 违规,exit 1 阻塞 commit + push
  *
  * 退出码: 0 = 通过 / 1 = 检测到非法分支,阻塞
@@ -50,12 +50,12 @@ function isSymbolicRef(branch) {
 }
 
 /**
- * goal 模式豁免判定:分支必须以 goal/ 开头,且 .trae-cn/goal-runtime/STATE.md
+ * goal 模式豁免判定:分支必须以 goal/ 开头,且 .ihui-agent/goal-runtime/STATE.md
  * 标注 active(AGENTS.md §9b 豁免条款)。
  */
 function isActiveGoalBranch(branch) {
   if (!branch.startsWith('goal/')) return false
-  const statePath = join(ROOT, '.trae-cn', 'goal-runtime', 'STATE.md')
+  const statePath = join(ROOT, '.ihui-agent', 'goal-runtime', 'STATE.md')
   if (!existsSync(statePath)) return false
   try {
     const state = readFileSync(statePath, 'utf8')
@@ -120,7 +120,7 @@ ${C.yellow}💡 AGENTS.md §9b 强制规则:除 main 外禁止创建任何分支
      A. 已合并 → 删除:git branch -d <分支>(本地)+ git push origin --delete <分支>(远程)
      B. 未合并但内容已在 main → 确认后删除:git branch -D <分支>
         (删除未合并分支前先 tag 备份:git tag backup/cleanup-<date>-<branch> <branch>)
-     C. 确为 goal 模式临时分支 → 在 .trae-cn/goal-runtime/STATE.md 标注 active 后重试
+     C. 确为 goal 模式临时分支 → 在 .ihui-agent/goal-runtime/STATE.md 标注 active 后重试
         (goal/* 完成后必须立即删除)
 `)
 process.exit(1)
