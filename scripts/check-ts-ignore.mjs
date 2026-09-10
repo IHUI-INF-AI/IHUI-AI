@@ -55,7 +55,7 @@ const ROOT = path.resolve(import.meta.dirname, '..')
 const SKIP_PATTERNS = [
   /[\\/]node_modules[\\/]/,
   /[\\/]\.next[\\/]/,
-  /[\\/]\.trae-cn[\\/]/,
+  /[\\/]\.ihui-agent[\\/]/,
   /[\\/]\.turbo[\\/]/,
   /[\\/]\.worktrees[\\/]/,
   /[\\/]dist[\\/]/,

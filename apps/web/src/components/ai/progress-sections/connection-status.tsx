@@ -13,7 +13,7 @@ import { Tooltip } from '@/components/feedback'
 /**
  * Phase 16: SSE 连接状态指示器(2026-07-28 立)
  *
- * 设计目标(对标 Trae Work 极致体验):
+ * 设计目标(对标 AI 工作台 极致体验):
  * - 4 状态可视化:connected(已连接) / connecting(连接中) / reconnecting(重连中) / disconnected(已断开)
  * - 图标 + 颜色 + 动画三重编码,一目了然
  * - hover 态:展示详细 tooltip(连接状态 + 详细信息)

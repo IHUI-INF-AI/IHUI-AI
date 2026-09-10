@@ -56,7 +56,7 @@ const CATEGORY_CLS: Record<ToolCategory, string> = {
   exec: 'text-cyan-500',
   other: 'text-muted-foreground',
 }
-/** v15: 类别徽章色(对标 Trae Work)— bg 5% + text 100% 紧凑徽章 */
+/** v15: 类别徽章色(对标 AI 工作台)— bg 5% + text 100% 紧凑徽章 */
 const CATEGORY_BADGE_CLS: Record<ToolCategory, string> = {
   read: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
   search: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
@@ -188,7 +188,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
             tool.status === 'running' && 'animate-spin',
           )}
         />
-        {/* v15: 类别徽章(对标 Trae Work)— read/search/write/exec 紧凑色标 */}
+        {/* v15: 类别徽章(对标 AI 工作台)— read/search/write/exec 紧凑色标 */}
         <span
           className={cn(
             'shrink-0 rounded-sm px-1 text-[10px] font-medium uppercase tracking-wider',
@@ -296,7 +296,7 @@ const STATUS_FILTER_TKEY: Record<ToolStatusFilter, string> = {
 /**
  * ToolCallsSection — 工具调用折叠子区
  *
- * v8 对齐 Trae Work:
+ * v8 对齐 AI 工作台:
  * - 标题带 Wrench 图标
  * - 分类颜色编码(read=蓝/search=紫/write=琥珀/exec=青)
  * - 分类图标(FileText/Search/FileEdit/Terminal)

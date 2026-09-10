@@ -589,7 +589,7 @@ class TestGenerate:
         assert "## API 契约" in result.spec
         assert "## 数据模型" in result.spec
         # 持久化文件
-        spec_file = ts_workspace / ".trae-cn" / "specs" / f"{generator._compute_scope_hash({'type': 'workspace'})}.md"
+        spec_file = ts_workspace / ".ihui-agent" / "specs" / f"{generator._compute_scope_hash({'type': 'workspace'})}.md"
         assert spec_file.is_file()
 
     @pytest.mark.asyncio
@@ -636,7 +636,7 @@ class TestGenerate:
     async def test_persist_creates_history(self, generator, ts_workspace):
         """持久化创建 history 目录 + 历史文件。"""
         await generator.generate(str(ts_workspace), {"type": "workspace"})
-        history_dir = ts_workspace / ".trae-cn" / "specs" / "history"
+        history_dir = ts_workspace / ".ihui-agent" / "specs" / "history"
         assert history_dir.is_dir()
         history_files = list(history_dir.glob("*.md"))
         assert len(history_files) >= 1

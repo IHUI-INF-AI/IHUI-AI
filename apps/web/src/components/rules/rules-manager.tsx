@@ -36,7 +36,7 @@ import { RuleKnowledgeGraphDialog } from './RuleKnowledgeGraphDialog'
 /**
  * Rules 管理器 — 规则列表 + 编辑器 + 启用/禁用 + 优先级 + 测试 + 冲突检测 + 模板库。
  *
- * 对标 Trae IDE Rules:用户可编辑的规则集,约束 agent 运行时行为。
+ * 对标 自研 IDE Rules:用户可编辑的规则集,约束 agent 运行时行为。
  * 数据流:react-query(useRules)↔ /api/rules ↔ ai-service rules_engine。
  *
  * 该文件为容器/汇总层:具体逻辑已拆分到同目录下的子组件。

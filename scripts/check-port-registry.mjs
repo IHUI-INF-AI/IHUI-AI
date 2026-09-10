@@ -90,7 +90,7 @@ const EXEMPT_PATH_PATTERNS = [
   /apps\/cli\/src\/lib\/sso\.ts$/, // CLI SSO loopback 回调(设计端口 1738)
   /\.env\.example$/, // 环境变量模板(包含第三方工具端口示例)
   /PROJECT_PLAN\.md$/, // 项目计划文档(历史记录)
-  /\.trae-cn\/archive\//, // 归档文档(历史快照,不修改)
+  /\.ihui-agent\/archive\//, // 归档文档(历史快照,不修改)
 ]
 
 // ============================================================

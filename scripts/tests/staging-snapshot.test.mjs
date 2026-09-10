@@ -595,7 +595,7 @@ test('restoreStaging: HUSKY_STAGING_RESTORE_LOG=1 时写入监控日志(JSON Lin
     stageFile(dir, 'task-file.ts', 'a')
     const snapshot = takeStagingSnapshot({ cwd: dir })
     stageFile(dir, 'pollution.ts', 'b')
-    const logPath = join(dir, '.trae-cn', 'tmp', 'staging-restore.log')
+    const logPath = join(dir, '.ihui-agent', 'tmp', 'staging-restore.log')
     // 非 silent 模式 + 环境变量=1 + restored.length>0 → 应写日志
     const result = restoreStaging(snapshot, { cwd: dir, silent: false })
     assert.equal(result.restored.length, 1)
@@ -624,7 +624,7 @@ test('restoreStaging: silent 模式不写监控日志(即使 HUSKY_STAGING_RESTO
     stageFile(dir, 'task-file.ts', 'a')
     const snapshot = takeStagingSnapshot({ cwd: dir })
     stageFile(dir, 'pollution.ts', 'b')
-    const logPath = join(dir, '.trae-cn', 'tmp', 'staging-restore.log')
+    const logPath = join(dir, '.ihui-agent', 'tmp', 'staging-restore.log')
     // silent=true → 即使环境变量=1 也不应写日志
     const result = restoreStaging(snapshot, { cwd: dir, silent: true })
     assert.equal(result.restored.length, 1)

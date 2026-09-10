@@ -377,7 +377,7 @@ function main() {
   log.error('');
   log.error('违反 AGENTS.md §15 项目外路径禁令 + §15 运行时禁令:');
   log.error('  agent 不得在项目目录外用 RunCommand / PowerShell 创建任何文件。');
-  log.error('  所有临时脚本必须放 .trae-cn/tmp/<脚本名>,所有产物必须放项目内。');
+  log.error('  所有临时脚本必须放 .ihui-agent/tmp/<脚本名>,所有产物必须放项目内。');
   log.error('');
   for (const p of allPollutions.slice(0, 30)) {
     log.error(`  ${p.relPath}`);

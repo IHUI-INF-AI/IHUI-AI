@@ -21,7 +21,7 @@ $ErrorActionPreference = 'Continue'
 
 $TaskName = 'IHUI-AI-G-Root-Guardian'
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
-$LogPath = Join-Path $ProjectRoot '.trae-cn\tmp\g-root-guardian.log'
+$LogPath = Join-Path $ProjectRoot '.ihui-agent\tmp\g-root-guardian.log'
 
 Write-Host "==== G:\ Root Guardian Status ====" -ForegroundColor Cyan
 Write-Host ""

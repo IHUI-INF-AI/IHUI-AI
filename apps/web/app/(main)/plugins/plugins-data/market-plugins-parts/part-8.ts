@@ -96,17 +96,6 @@ export const MARKET_PLUGINS_PART_8: MarketPlugin[] = [
     free: true,
   },
   {
-    id: 'trae',
-    name: 'Trae IDE',
-    description: '字节跳动 Trae AI IDE,多 Agent 协作 / MCP / Skills / 国际版 + 国内版',
-    url: 'https://trae.ai',
-    fallbackIcon: MousePointer2,
-    tags: ['IDE', '字跳'],
-    category: 'ide',
-    free: true,
-    official: true,
-  },
-  {
     id: 'zed',
     name: 'Zed',
     description: 'Zed 高性能代码编辑器,Rust 编写 / 协作 / AI Assistant / 130+ 语言',

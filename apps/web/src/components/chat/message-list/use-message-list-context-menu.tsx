@@ -23,7 +23,7 @@ export interface MessageListContextMenuResult {
   handleContextMenuAction: (action: ContextMenuAction) => void
 }
 
-/** 右键菜单(2026-07-28 立,深度对标 Trae Work)。 */
+/** 右键菜单(2026-07-28 立,深度对标 AI 工作台)。 */
 export function useMessageListContextMenu({
   t,
   onRequestSearch,

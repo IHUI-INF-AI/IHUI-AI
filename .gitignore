@@ -54,8 +54,8 @@ logs-*-restart*.txt
 **/.env.staging
 **/.env.staging.local
 
-# /goal 目标驱动模式运行时临时文件位于 .trae-cn/goal-runtime/,
-# 已被上方 .trae-cn/ 整体忽略规则覆盖,无需单独列出。
+# /goal 目标驱动模式运行时临时文件位于 .ihui-agent/goal-runtime/,
+# 已被上方 .ihui-agent/ 整体忽略规则覆盖,无需单独列出。
 
 # ============================================================================
 # 构建产物
@@ -124,8 +124,8 @@ deploy/prod-bundle/cloudflared/*.local.txt
 # ============================================================================
 .idea/
 .vscode/
-.trae/
-.trae-cn/
+.ihui-agent/
+.ihui-agent/
 .qoder/
 *.swp
 *.swo
@@ -195,7 +195,7 @@ i18n-report*.json
 openapi.json
 openapi_problems.json
 report.json
-.trae-html-share-packages/
+.html-share-packages/
 
 # 一次性调试/校验产物(本地 Playwright 截图 + ad-hoc 验证脚本)
 .verify-*.png
@@ -278,7 +278,7 @@ __write_audit.mjs
 __gate_result.txt
 
 # ============================================================================
-# Trae IDE shell integration 残留(自动注入的怪异文件名,防回潮)
+# 第三方 IDE shell integration 残留(自动注入的怪异文件名,防回潮)
 # ============================================================================
 *ourcesappoutvsworkbench*shellIntegration*
 

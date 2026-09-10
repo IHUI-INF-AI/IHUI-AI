@@ -150,7 +150,7 @@ test('已完成任务被删除 + 有归档占位注释 → exit 0 通过(合规�
     // 删除任务A + 添加归档占位
     writeWorkingTree(
       dir,
-      '# plan\n\n<!-- 已归档(2026-07-27):任务A 任务,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-27.md -->\n',
+      '# plan\n\n<!-- 已归档(2026-07-27):任务A 任务,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-27.md -->\n',
     )
     const r = runScript(dir)
     assert.equal(r.status, 0, `有归档占位应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)

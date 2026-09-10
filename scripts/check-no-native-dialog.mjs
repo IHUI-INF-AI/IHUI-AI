@@ -67,7 +67,7 @@ const EXCLUDE_DIRS = withExcludes([
   'tests',
   '__tests__',
   'e2e',
-  '.trae-cn',
+  '.ihui-agent',
 ])
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']

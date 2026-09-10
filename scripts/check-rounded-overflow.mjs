@@ -81,7 +81,7 @@ check-rounded-overflow.mjs — 圆角溢出守门
 }
 
 // 排除目录:基于共享 EXCLUDE_DIRS,追加脚本特有
-const EXCLUDE_DIRS = withExcludes(['.trae-cn', 'tests', '__tests__', 'e2e'])
+const EXCLUDE_DIRS = withExcludes(['.ihui-agent', 'tests', '__tests__', 'e2e'])
 
 // 只扫描 .tsx / .jsx(JSX 才有 className)
 const SCAN_EXTS = ['.tsx', '.jsx']

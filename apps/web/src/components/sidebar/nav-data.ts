@@ -362,7 +362,7 @@ const KNOWLEDGE_CHILDREN: NavItem[] = [
 ]
 
 /**
- * 高级 AI 工具(2026-08-30 新增):原 AI 分组平铺的 9 个 TRAE Work 概念入口
+ * 高级 AI 工具(2026-08-30 新增):原 AI 分组平铺的 9 个 AI 工作台 概念入口
  * (记忆/子智能体/上下文/规格/计划/注册中心/A2A/Personas/编排)对普通用户不可理解,
  * 收进单个可折叠子菜单降噪;入口保留,高级用户仍可展开使用。
  */
@@ -417,7 +417,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: Globe,
         children: [{ href: '/ai-world/favorites', labelKey: 'favorites', icon: Star }],
       },
-      // 2026-07-24 对标 TRAE Work AI 工作台能力(2026-08-30 收进"高级 AI 工具"折叠子菜单,见 ADVANCED_AI_TOOLS_CHILDREN)
+      // 2026-07-24 对标 AI 工作台 AI 工作台能力(2026-08-30 收进"高级 AI 工具"折叠子菜单,见 ADVANCED_AI_TOOLS_CHILDREN)
       {
         href: '/memory',
         labelKey: 'advancedAiTools',

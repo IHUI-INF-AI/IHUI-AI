@@ -35,7 +35,7 @@ pwsh -File scripts/start-dev.ps1 -Status   # 查看各端健康状态
 pwsh -File scripts/start-dev.ps1 -Stop     # 停止全部
 ```
 
-日志:`.trae-cn/tmp/dev-logs/<service>.log`;端口冲突加 `-Force`。
+日志:`.ihui-agent/tmp/dev-logs/<service>.log`;端口冲突加 `-Force`。
 
 ## 3. 端口速查
 

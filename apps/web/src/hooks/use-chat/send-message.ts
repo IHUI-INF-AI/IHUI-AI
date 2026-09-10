@@ -100,7 +100,7 @@ export function createSendMessage(
     // 所有提前 return 前必须解锁(见下方各处 sendInFlightRef.current = false)
     lastSentContentRef.current = text
 
-    // /plan & /act 动作型斜杠命令拦截(2026-07-25 立,对标 Trae SOLO Plan 模式):
+    // /plan & /act 动作型斜杠命令拦截(2026-07-25 立,对标 主流 AI IDE SOLO Plan 模式):
     // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
     // - 命中即清空输入框 + toast 反馈
     // 重新生成模式跳过:历史问题不应再次触发斜杠命令
@@ -401,7 +401,7 @@ export function createSendMessage(
           userId,
           messageId: assistantId,
         },
-        // 模式透传(2026-07-22 立,对标 Trae Plan/Spec):build/plan/review/spec
+        // 模式透传(2026-07-22 立,对标 主流 AI IDE Plan/Spec):build/plan/review/spec
         // Plan/Act 模式(2026-07-24 立):plan=只制定计划不执行工具,act=正常执行
         extraBody: {
           // ChatMode 4 态唯一模式字段(2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已废弃,语义合并到 mode)
@@ -571,7 +571,7 @@ export function createSendMessage(
           }
           createToolCallHandler(assistantId)(event)
         },
-        // Subagent 自动派发(2026-07-28 立,对标 Trae Work):
+        // Subagent 自动派发(2026-07-28 立,对标 AI 工作台):
         // 后端 dispatch_subagent 工具执行前后发 subagent_spawn/end SSE 事件,
         // 前端通过回调写入 chat store.subAgentActivities,UI 自动展示生命周期。
         // 2026-07-29 Phase 21:同步写入 timeline-store,让 Timeline tab 实时响应。

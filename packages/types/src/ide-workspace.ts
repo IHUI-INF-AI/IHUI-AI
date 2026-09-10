@@ -5,7 +5,7 @@
 /**
  * IDE 工作区跨端类型契约(2026-07-22 立,2026-07-22 修订前后端连通)
  *
- * 仿 TRAE/Codex IDE 界面的类型定义,供 web 端 IDE 组件使用。
+ * 自研 IDE 界面的类型定义,供 web 端 IDE 组件使用。
  * 前后端连通:web 端消费类型,api 端通过 /api/workspace/fs/* 端点提供数据。
  * - FileNode / EditorTab / SearchResult / GitChange → 由 FS Bridge 端点提供数据
  * - Breakpoint / StackFrame / DebugVariable / LaunchConfig → 前端内存/localStorage
