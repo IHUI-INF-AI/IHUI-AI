@@ -140,7 +140,13 @@ export async function acquireWorkspaceLock(
       } else if (existing.holder !== holder) {
         return null
       } else {
-        const renewed = await r.eval(RENEW_LUA, 1, lockKey(workspace), existing.token, String(ttlSec))
+        const renewed = await r.eval(
+          RENEW_LUA,
+          1,
+          lockKey(workspace),
+          existing.token,
+          String(ttlSec),
+        )
         if (Number(renewed) === 1) {
           existing.heartbeatAt = Date.now() / 1000
           return existing
