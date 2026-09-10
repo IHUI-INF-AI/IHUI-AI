@@ -52,7 +52,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-3 py-4">
+    <div className="px-4 space-y-3 py-4">
       <BackButton />
       <Tabs defaultValue="appearance" className="flex w-full flex-col gap-3">
         <TabsList className="grid w-full shrink-0 grid-cols-2 self-start">

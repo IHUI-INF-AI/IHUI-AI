@@ -13,10 +13,17 @@ FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY apps/api/package.json ./apps/api/
-COPY packages/types/package.json ./packages/types/
-COPY packages/config/package.json ./packages/config/
-COPY packages/database/package.json ./packages/database/
+# 仅复制 @ihui/api 的 workspace 传递闭包(pnpm frozen-lockfile 容忍"缺失项目",
+# 只需在场项目的 specifier 与锁文件一致)。原清单引用了不存在的 packages/config,
+# 且遗漏 api-client/context-compaction/design-tokens/shared → docker build 必挂(2026-09-10 修正)。
+COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/auth/package.json ./packages/auth/
+COPY packages/context-compaction/package.json ./packages/context-compaction/
+COPY packages/database/package.json ./packages/database/
+COPY packages/design-tokens/package.json ./packages/design-tokens/
+COPY packages/eslint-config/package.json ./packages/eslint-config/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/types/package.json ./packages/types/
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
