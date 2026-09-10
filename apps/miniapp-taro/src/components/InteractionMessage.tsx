@@ -61,7 +61,8 @@ export default function InteractionMessage({ list, onClick }: InteractionMessage
           key={item.id}
           className="flex bg-card rounded-xl p-3 mb-2"
           onClick={() => onClick?.(item)}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <View className="relative mr-3">
             {item.userAvatar ? (
               <Image

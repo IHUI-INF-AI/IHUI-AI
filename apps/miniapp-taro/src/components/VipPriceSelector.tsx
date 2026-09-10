@@ -64,13 +64,16 @@ export default function VipPriceSelector(props: VipPriceSelectorProps) {
                 : 'border-border bg-card'
             }`}
             onClick={() => onSelect?.(opt)}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             {opt.popular && (
               <View
                 className="absolute -top-2 left-1/2 px-2 py-0.5 rounded-md bg-destructive"
                 style={{ transform: 'translateX(-50%)' }}
               >
-                <Text className="text-[20rpx] text-destructive-foreground">{tt('vip.hot', '热门')}</Text>
+                <Text className="text-[20rpx] text-destructive-foreground">
+                  {tt('vip.hot', '热门')}
+                </Text>
               </View>
             )}
             <Text

@@ -163,7 +163,8 @@ export default function ModelConfigDialog({
         <View
           className="relative bg-card rounded-xl mx-6 w-full max-w-sm max-h-[80vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <View className="flex items-center justify-between px-4 py-3 mb-2">
             <Text className="text-sm font-medium text-foreground">
               {tt('model.configTitle', '模型配置')}
@@ -244,7 +245,8 @@ export default function ModelConfigDialog({
                             : 'border-border text-muted-foreground'
                         }`}
                         onClick={() => update({ aspectRatio: r })}
-                        hoverClass="opacity-60">
+                        hoverClass="opacity-60"
+                      >
                         {r}
                       </View>
                     ))}
@@ -264,7 +266,8 @@ export default function ModelConfigDialog({
                             : 'border-border text-muted-foreground'
                         }`}
                         onClick={() => update({ resolution: r })}
-                        hoverClass="opacity-60">
+                        hoverClass="opacity-60"
+                      >
                         {r}
                       </View>
                     ))}
@@ -291,7 +294,8 @@ export default function ModelConfigDialog({
                             : 'border-border text-muted-foreground'
                         }`}
                         onClick={() => update({ frameCount: f })}
-                        hoverClass="opacity-60">
+                        hoverClass="opacity-60"
+                      >
                         {f}fps
                       </View>
                     ))}
@@ -318,7 +322,8 @@ export default function ModelConfigDialog({
                             : 'border-border text-muted-foreground'
                         }`}
                         onClick={() => update({ timbre: tb.id })}
-                        hoverClass="opacity-60">
+                        hoverClass="opacity-60"
+                      >
                         {tb.name}
                       </View>
                     ))}
@@ -443,7 +448,8 @@ export default function ModelConfigDialog({
       <View
         className="relative bg-card rounded-xl mx-4 w-full max-w-md max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
-        hoverClass="opacity-60">
+        hoverClass="opacity-60"
+      >
         <View className="flex items-center justify-between px-4 py-3 mb-2">
           <Text className="text-sm font-medium text-foreground">
             {tt('model.configTitle', '模型配置')}
@@ -460,7 +466,8 @@ export default function ModelConfigDialog({
                 key={it.key}
                 className="flex flex-col items-center"
                 onClick={() => (it.key === 'audio' ? setShowAudioMenu(true) : handleUpload(it.key))}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <View className="relative">
                   {!it.url ? (
                     <View className="w-[74rpx] h-[74rpx] flex items-center justify-center bg-muted rounded-lg">
@@ -482,7 +489,8 @@ export default function ModelConfigDialog({
                         e.stopPropagation()
                         deleteUpload(it.key)
                       }}
-                      hoverClass="opacity-60">
+                      hoverClass="opacity-60"
+                    >
                       <Text className="text-destructive-foreground text-[16rpx]">×</Text>
                     </View>
                   )}
@@ -498,11 +506,13 @@ export default function ModelConfigDialog({
           {showAudioMenu && (
             <View
               className="fixed inset-0 z-[2100] flex items-center justify-center bg-[var(--color-black-40)]"
-              onClick={() => setShowAudioMenu(false)}>
+              onClick={() => setShowAudioMenu(false)}
+            >
               <View
                 className="mcd-audio-menu mx-6 w-full max-w-xs p-4"
                 onClick={(e) => e.stopPropagation()}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <View className="flex items-center justify-between mb-3">
                   <Text className="text-sm font-medium">
                     {tt('ModelConfigDialog.text11', '选择音色')}
@@ -540,7 +550,8 @@ export default function ModelConfigDialog({
                     setShowAudioMenu(false)
                     handleUpload('audio')
                   }}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   <Image
                     src={iconYinpinPng}
                     className="w-[40rpx] h-[40rpx] mr-2"
@@ -576,7 +587,8 @@ export default function ModelConfigDialog({
                       backgroundColor: checked ? 'var(--color-primary)' : 'var(--color-muted)',
                     }}
                     onClick={() => setConfigValue(item.name, !checked)}
-                    hoverClass="opacity-60">
+                    hoverClass="opacity-60"
+                  >
                     <View
                       className="w-[36rpx] h-[36rpx] rounded-full bg-[var(--color-white-98)] transition-transform"
                       style={{ transform: checked ? 'translateX(44rpx)' : 'translateX(0)' }}

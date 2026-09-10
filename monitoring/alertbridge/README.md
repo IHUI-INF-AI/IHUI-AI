@@ -25,13 +25,13 @@ Prometheus(127.0.0.1:8815)
 
 ## 服务（NSSM）
 
-| 服务 | 二进制 | 端口 | 日志 |
-|---|---|---|---|
-| ihui-prometheus | prometheus.exe | 8815 | svc-prometheus-nssm*.log |
-| ihui-grafana | grafana-server.exe | 8816 | grafana/nssm |
-| ihui-alertmanager | alertmanager.exe (0.34.0) | 9093 | svc-alertmanager-nssm*.log |
+| 服务              | 二进制                        | 端口 | 日志                       |
+| ----------------- | ----------------------------- | ---- | -------------------------- |
+| ihui-prometheus   | prometheus.exe                | 8815 | svc-prometheus-nssm*.log   |
+| ihui-grafana      | grafana-server.exe            | 8816 | grafana/nssm               |
+| ihui-alertmanager | alertmanager.exe (0.34.0)     | 9093 | svc-alertmanager-nssm*.log |
 | ihui-alert-bridge | node alert-webhook-bridge.cjs | 9096 | svc-alert-bridge-nssm*.log |
-| IHUI-MONITOR | powershell monitor.ps1 | — | svc-* / monitor-alerts.log |
+| IHUI-MONITOR      | powershell monitor.ps1        | —    | svc-* / monitor-alerts.log |
 
 ## 重建命令（若服务丢失）
 
@@ -60,4 +60,5 @@ nssm set ihui-alert-bridge AppEnvironmentExtra "BRIDGE_PORT=9096"
 - Server酱 free 账号每天 5 次发送上限，跨天 reset。桥的节流/去重缓解误刷。
 - Alertmanager 配置运行副本在 `D:\DevEnv\monitor\alertmanager\alertmanager.yml`，
   与 Prometheus 配置的 `alertmanagers: [localhost:9093]` 对齐。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

@@ -621,11 +621,7 @@ export default function AgentDialogue() {
                     {msg.avatar ? (
                       <Image src={msg.avatar} mode="aspectFill" className="w-full h-full" />
                     ) : (
-                      <LineIcon
-                        name="user"
-                        size={32}
-                        color="var(--color-muted-foreground)"
-                      />
+                      <LineIcon name="user" size={32} color="var(--color-muted-foreground)" />
                     )}
                   </View>
                 </>
@@ -635,11 +631,7 @@ export default function AgentDialogue() {
                     {msg.avatar ? (
                       <Image src={msg.avatar} mode="aspectFill" className="w-full h-full" />
                     ) : (
-                      <LineIcon
-                        name="bot"
-                        size={32}
-                        color="var(--color-muted-foreground)"
-                      />
+                      <LineIcon name="bot" size={32} color="var(--color-muted-foreground)" />
                     )}
                   </View>
                   <View
@@ -671,8 +663,11 @@ export default function AgentDialogue() {
         <View
           className={`h-[100rpx] px-[28rpx] bg-primary rounded-[24rpx] flex items-center justify-center flex-shrink-0 ${!inputContent.trim() || sending ? 'opacity-50' : ''}`}
           onClick={sendMessage}
-          hoverClass="opacity-60">
-          <Text className="text-[32rpx] font-semibold text-primary-foreground">{t('chat.send')}</Text>
+          hoverClass="opacity-60"
+        >
+          <Text className="text-[32rpx] font-semibold text-primary-foreground">
+            {t('chat.send')}
+          </Text>
         </View>
       </View>
     </ThemeRoot>

@@ -41,9 +41,24 @@ export default function DistributionRank() {
 
   /* 对齐 RN RankingScreen rankColor:1=warning.amber / 2=text.tertiary / 3=warning.amberText */
   const PODIUM = [
-    { rank: 1, item: top3[0], border: 'var(--color-warning-amber)', badge: 'var(--color-warning-amber)' },
-    { rank: 2, item: top3[1], border: 'var(--color-text-tertiary)', badge: 'var(--color-text-tertiary)' },
-    { rank: 3, item: top3[2], border: 'var(--color-warning-amber-text)', badge: 'var(--color-warning-amber-text)' },
+    {
+      rank: 1,
+      item: top3[0],
+      border: 'var(--color-warning-amber)',
+      badge: 'var(--color-warning-amber)',
+    },
+    {
+      rank: 2,
+      item: top3[1],
+      border: 'var(--color-text-tertiary)',
+      badge: 'var(--color-text-tertiary)',
+    },
+    {
+      rank: 3,
+      item: top3[2],
+      border: 'var(--color-warning-amber-text)',
+      badge: 'var(--color-warning-amber-text)',
+    },
   ]
 
   return (

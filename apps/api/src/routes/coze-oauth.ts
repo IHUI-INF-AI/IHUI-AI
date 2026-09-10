@@ -198,9 +198,7 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(result))
     } catch (e) {
       request.log.error(e)
-      return reply
-        .status(500)
-        .send(error(500, "获取 token 失败,请稍后重试"))
+      return reply.status(500).send(error(500, '获取 token 失败,请稍后重试'))
     }
   })
 
@@ -250,9 +248,7 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(result))
     } catch (e) {
       request.log.error(e)
-      return reply
-        .status(500)
-        .send(error(500, "刷新 token 失败,请稍后重试"))
+      return reply.status(500).send(error(500, '刷新 token 失败,请稍后重试'))
     }
   })
 
@@ -279,11 +275,7 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, e.message))
       }
       request.log.error(e)
-      return reply
-        .status(500)
-        .send(
-          error(500, "获取访问凭证失败,请稍后重试"),
-        )
+      return reply.status(500).send(error(500, '获取访问凭证失败,请稍后重试'))
     }
   })
 

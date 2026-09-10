@@ -297,7 +297,12 @@ export function MessageCenterScreen({
           {TABS.map((tab) => {
             const active = tab === activeTab
             return (
-              <View key={tab} style={viewStyles.tab(tk, active)} onTap={() => onSelectTab(tab)} hoverClass="opacity-60">
+              <View
+                key={tab}
+                style={viewStyles.tab(tk, active)}
+                onTap={() => onSelectTab(tab)}
+                hoverClass="opacity-60"
+              >
                 <Text style={textStyles.tabText(tk, active)}>{t(`messageCenter.tab.${tab}`)}</Text>
               </View>
             )

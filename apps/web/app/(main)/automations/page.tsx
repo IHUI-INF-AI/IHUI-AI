@@ -193,15 +193,11 @@ export default function AutomationsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="truncate text-sm font-medium">{a.name}</span>
                     {a.status === 'active' ? (
-                      <Badge
-                        className="border-transparent bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/15"
-                      >
+                      <Badge className="border-transparent bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/15">
                         {t('status.active')}
                       </Badge>
                     ) : (
-                      <Badge
-                        className="border-transparent bg-muted text-muted-foreground hover:bg-muted"
-                      >
+                      <Badge className="border-transparent bg-muted text-muted-foreground hover:bg-muted">
                         {t('status.paused')}
                       </Badge>
                     )}
@@ -236,11 +232,7 @@ export default function AutomationsPage() {
                     </Button>
                   </Tooltip>
                   <Tooltip content={a.status === 'active' ? t('action.pause') : t('action.resume')}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void handleToggleStatus(a)}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => void handleToggleStatus(a)}>
                       {a.status === 'active' ? (
                         <Pause className="h-4 w-4" />
                       ) : (

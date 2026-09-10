@@ -161,7 +161,9 @@ export default function ShareCreationPage() {
                   mode="aspectFill"
                 />
               ) : null}
-              <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">{content.userName}</Text>
+              <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
+                {content.userName}
+              </Text>
             </View>
           ) : null}
           {/* 提问 = 用户消息气泡:对齐 ChatScreen msgBubbleUser(bg brand,radius 16dp → 32rpx,
@@ -207,7 +209,8 @@ export default function ShareCreationPage() {
                     key={i}
                     className="rounded-[16rpx] overflow-hidden"
                     onClick={() => Taro.previewImage({ urls: images, current: url })}
-                    hoverClass="opacity-60">
+                    hoverClass="opacity-60"
+                  >
                     <Image
                       className="w-[360rpx] h-[280rpx] bg-[var(--color-muted)]"
                       src={url}
@@ -244,7 +247,11 @@ export default function ShareCreationPage() {
                 {lists.map((item, i) => (
                   <View key={i} className="py-[16rpx]">
                     {item.type === 'image' ? (
-                      <Image className="w-full rounded-[16rpx]" src={item.content} mode="widthFix" />
+                      <Image
+                        className="w-full rounded-[16rpx]"
+                        src={item.content}
+                        mode="widthFix"
+                      />
                     ) : (
                       <Text className="block text-[30rpx] leading-[40rpx] text-foreground whitespace-pre-wrap">
                         {item.content}

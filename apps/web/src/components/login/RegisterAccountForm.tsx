@@ -229,7 +229,8 @@ export function RegisterAccountForm({
             className="h-10 flex-1"
             {...register('code')}
           />
-          <Button size="lg"
+          <Button
+            size="lg"
             type="button"
             variant="outline"
             className="shrink-0 px-4"

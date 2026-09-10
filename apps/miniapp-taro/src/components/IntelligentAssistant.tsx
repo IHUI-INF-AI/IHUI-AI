@@ -29,7 +29,12 @@ export default function IntelligentAssistant({
   const { t } = useI18n()
   return (
     <View className="ia-card">
-      <LineIcon name="bot" size={64} color="var(--color-muted-foreground)" className="ia-robot ia-float" />
+      <LineIcon
+        name="bot"
+        size={64}
+        color="var(--color-muted-foreground)"
+        className="ia-robot ia-float"
+      />
       <View className="ia-content">
         <Text className="ia-greeting">{t('ai.intelligentAssistant.greeting')}</Text>
         <Text className="ia-subtitle">{t('ai.intelligentAssistant.subtitle')}</Text>

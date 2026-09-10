@@ -68,10 +68,7 @@ export async function fetchProviderHealth(): Promise<HealthMap> {
 }
 
 /** 硬不可用判定(与 ai-service model_availability.is_model_available 对齐) */
-export function isProviderHardUnavailable(
-  code: string | undefined,
-  health: HealthMap,
-): boolean {
+export function isProviderHardUnavailable(code: string | undefined, health: HealthMap): boolean {
   if (!code || !health.has(code)) return false // 未知/未上报 → 宽松(PENDING)
   const h = health.get(code)!
   if (h.status === 'down' || h.status === 'not_configured') return true

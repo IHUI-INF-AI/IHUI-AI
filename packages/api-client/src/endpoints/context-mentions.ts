@@ -39,9 +39,7 @@ export interface ContextCompressionStats {
 }
 
 /** GET /api/compression-stats — 上下文压缩统计 */
-export async function getContextCompressionStats(): Promise<
-  ApiResult<ContextCompressionStats>
-> {
+export async function getContextCompressionStats(): Promise<ApiResult<ContextCompressionStats>> {
   return fetchApi('/api/context/compression-stats')
 }
 

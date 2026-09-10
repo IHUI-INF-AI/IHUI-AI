@@ -58,7 +58,8 @@ export default function TeamManager({
               key={member.id}
               className="flex items-center px-4 py-3 mb-1.5"
               onClick={() => onViewDetail?.(member)}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Avatar src={member.avatar} name={member.name} size="md" />
               <View className="flex-1 ml-3 min-w-0">
                 <View className="flex items-center">
