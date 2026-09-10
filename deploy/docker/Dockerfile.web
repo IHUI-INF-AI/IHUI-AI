@@ -29,6 +29,9 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/tsconfig/package.json ./packages/tsconfig/
 COPY packages/types/package.json ./packages/types/
 COPY packages/ui-react/package.json ./packages/ui-react/
+# apps/web 的 postinstall(node scripts/copy-monaco-to-public.mjs)在 deps 阶段即执行,
+# 只装 package.json 缺该脚本必挂 Cannot find module(2026-09-10)
+COPY apps/web/scripts ./apps/web/scripts/
 # --no-frozen-lockfile: 允许安装 package.json 中新增的 @lobehub/icons 依赖
 RUN pnpm install --no-frozen-lockfile
 
