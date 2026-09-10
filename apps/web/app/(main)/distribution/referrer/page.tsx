@@ -52,7 +52,7 @@ export default function ReferrerPage() {
   const info = q.data
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-6">
+    <div className="mx-auto w-full max-w-md px-4 py-4">
       <div className="mb-4 flex items-center justify-between">
         <BackButton fallbackHref="/distribution" />
         <h1 className="text-lg font-medium">{t('title')}</h1>

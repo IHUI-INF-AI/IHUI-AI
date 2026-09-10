@@ -48,7 +48,7 @@ export function SponsorContent(): React.JSX.Element {
   const t = useTranslations('sponsor')
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-4 min-[768px]:px-8">
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
