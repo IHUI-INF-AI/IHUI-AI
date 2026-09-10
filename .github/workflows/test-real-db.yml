@@ -58,7 +58,7 @@ jobs:
 
       - name: Push schema to test DB
         working-directory: packages/database
-        run: npx drizzle-kit push
+        run: npx drizzle-kit push --force
 
       - name: Run real DB integration tests
         working-directory: apps/api
