@@ -90,7 +90,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run database migrations
-        working-directory: apps/api
+        working-directory: packages/database
         env:
           DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
         run: pnpm exec drizzle-kit migrate
