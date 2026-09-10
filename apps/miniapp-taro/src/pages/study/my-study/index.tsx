@@ -75,7 +75,7 @@ export default function MyStudy() {
     activeTab === 'inProgress' ? inProgressList : activeTab === 'completed' ? completedList : []
 
   const onContinue = useCallback((item: StudyRecord) => {
-    Taro.navigateTo({ url: `/pages/course/detail?id=${item.courseId || item.id}` })
+    Taro.navigateTo({ url: `/pkg-learn/course/detail?id=${item.courseId || item.id}` })
   }, [])
 
   const getEmptyText = useCallback(

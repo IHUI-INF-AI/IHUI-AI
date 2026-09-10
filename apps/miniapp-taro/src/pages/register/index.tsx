@@ -94,7 +94,7 @@ export default function RegisterIndex() {
   }, [form.info, t, tt])
 
   function openAgreement(type: 'user' | 'privacy') {
-    const url = type === 'user' ? '/pages/about/protocol' : '/pages/about/privacy'
+    const url = type === 'user' ? '/pkg-about/about/protocol' : '/pkg-about/about/privacy'
     Taro.navigateTo({
       url,
       fail: () => Taro.showToast({ title: tt('register.pageMissing', '页面未注册'), icon: 'none' }),

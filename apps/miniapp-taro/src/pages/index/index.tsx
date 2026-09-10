@@ -960,7 +960,7 @@ export default function Index() {
 
   const handleCreateNewChat = () => {
     setState((s) => ({ ...s, drawerVisible: false }))
-    Taro.navigateTo({ url: '/pages/ai/chat' }).catch(() => {
+    Taro.navigateTo({ url: '/pkg-ai/ai/chat' }).catch(() => {
       // 路径不存在时静默
     })
   }
@@ -968,11 +968,11 @@ export default function Index() {
   const handleMenuItemClick = (item: DrawerMenuItem) => {
     setState((s) => ({ ...s, drawerVisible: false }))
     const pathMap: Record<string, string> = {
-      appStore: '/pages/model-plaza/index',
+      appStore: '/pkg-ai/model-plaza/index',
       demand: '/pages/community/index',
-      inspiration: '/pages/ai/agent',
+      inspiration: '/pkg-ai/ai/agent',
       dynamic: '/pages/community/index',
-      course: '/pages/course/list',
+      course: '/pkg-learn/course/list',
     }
     const path = pathMap[item.key]
     if (path) {
@@ -982,7 +982,7 @@ export default function Index() {
 
   const handleChatItemClick = (chat: DrawerChatItem) => {
     setState((s) => ({ ...s, drawerVisible: false }))
-    Taro.navigateTo({ url: `/pages/ai/chat?id=${chat.id}` }).catch(() => {
+    Taro.navigateTo({ url: `/pkg-ai/ai/chat?id=${chat.id}` }).catch(() => {
       // 路径不存在时静默
     })
   }
@@ -1242,7 +1242,7 @@ export default function Index() {
             bgColor="var(--color-card)"
             textColor="var(--color-foreground)"
             showSearch
-            onSearchClick={() => Taro.navigateTo({ url: '/pages/search/index' })}
+            onSearchClick={() => Taro.navigateTo({ url: '/pkg-content/search/index' })}
             onMenuClick={handleMenuClick}
             onJoinClick={handleJoinClick}
           />
@@ -1329,7 +1329,7 @@ export default function Index() {
                   </Text>
                 </View>
                 <View
-                  onClick={() => Taro.navigateTo({ url: '/pages/live/list' })}
+                  onClick={() => Taro.navigateTo({ url: '/pkg-learn/live/list' })}
                   hoverClass="opacity-60"
                   style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
                 >
@@ -1488,6 +1488,7 @@ export default function Index() {
                   >
                     <AgentListPanel
                       visible={state.showAgentList}
+                      isSheet
                       agents={MOCK_AGENTS}
                       loading={false}
                       onSelect={(agent) => {
@@ -1499,7 +1500,7 @@ export default function Index() {
                         }))
                         // 对齐原项目 handleAgentPitch:跳转到智能体助手页
                         Taro.navigateTo({
-                          url: `/pages/ai/agent?id=${agent.id}&name=${encodeURIComponent(agent.name)}`,
+                          url: `/pkg-ai/ai/agent?id=${agent.id}&name=${encodeURIComponent(agent.name)}`,
                           fail: () => {
                             Taro.showToast({
                               title: tt('pagesindexindex.text2', '智能体助手页未配置'),
