@@ -60,12 +60,7 @@ export default function TeacherCard({
               {tt('teacher.detail.students', '学员')}
               {studentCount}
             </Text>
-            <LineIcon
-              name="star"
-              size="14px"
-              color="var(--color-warning)"
-              className="mr-1"
-            />
+            <LineIcon name="star" size="14px" color="var(--color-warning)" className="mr-1" />
             <Text className="text-xs text-warning">{rating.toFixed(1)}</Text>
           </View>
         </View>
@@ -75,8 +70,11 @@ export default function TeacherCard({
             e.stopPropagation()
             onFollow?.()
           }}
-          hoverClass="opacity-85">
-          <Text className={`text-xs ${isFollowing ? 'text-muted-foreground' : 'text-primary-foreground'}`}>
+          hoverClass="opacity-85"
+        >
+          <Text
+            className={`text-xs ${isFollowing ? 'text-muted-foreground' : 'text-primary-foreground'}`}
+          >
             {isFollowing
               ? tt('course.followed', '已关注')
               : tt('developer.subscribe.subscribeBtn', '+ 关注')}

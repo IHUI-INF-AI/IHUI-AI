@@ -107,7 +107,8 @@ export default function Comment({
           <View
             className={`ml-2 px-4 py-2 rounded-md ${inputValue ? 'bg-primary' : 'bg-muted'}`}
             onClick={() => inputValue && onSubmit?.()}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-sm text-primary-foreground">{tt('comment.send', '发送')}</Text>
           </View>
         </View>

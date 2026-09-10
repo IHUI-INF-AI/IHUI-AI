@@ -5,7 +5,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { BaseClient, SdkError, type SdkConfig } from '../src/base'
 
 /** 构造注入用 fetch,记录每次调用的 url/init 并按脚本返回响应。 */
-function makeFetch(script: Array<{ status?: number; statusText?: string; body?: string | null; throwErr?: Error }>) {
+function makeFetch(
+  script: Array<{ status?: number; statusText?: string; body?: string | null; throwErr?: Error }>,
+) {
   const calls: Array<{ url: string; init: RequestInit }> = []
   const fetchFn = vi.fn(async (url: string | URL, init?: RequestInit) => {
     calls.push({ url: String(url), init: init ?? {} })
@@ -89,7 +91,11 @@ describe('BaseClient 请求体拼装', () => {
 describe('BaseClient 错误映射', () => {
   it('401 + 扁平错误体 → SdkError(status=401, code/message 来自响应体)', async () => {
     const { fetchFn } = makeFetch([
-      { status: 401, statusText: 'Unauthorized', body: '{"code":"auth_invalid_api_key","message":"bad key"}' },
+      {
+        status: 401,
+        statusText: 'Unauthorized',
+        body: '{"code":"auth_invalid_api_key","message":"bad key"}',
+      },
     ])
     const client = makeClient({ baseUrl: 'http://test.local', fetch: fetchFn })
     const err = await client.request('GET', '/models').catch((e: unknown) => e)
@@ -117,7 +123,9 @@ describe('BaseClient 错误映射', () => {
   })
 
   it('错误体非 JSON → 回退 code=http_{status},message=statusText', async () => {
-    const { fetchFn } = makeFetch([{ status: 403, statusText: 'Forbidden', body: '<html>502</html>' }])
+    const { fetchFn } = makeFetch([
+      { status: 403, statusText: 'Forbidden', body: '<html>502</html>' },
+    ])
     const client = makeClient({ baseUrl: 'http://test.local', fetch: fetchFn })
     const err = (await client.request('GET', '/x').catch((e: unknown) => e)) as SdkError
     expect(err.code).toBe('http_403')
@@ -126,7 +134,11 @@ describe('BaseClient 错误映射', () => {
 
   it('429 不重试:fetch 只调用一次', async () => {
     const { fetchFn, calls } = makeFetch([
-      { status: 429, statusText: 'Too Many Requests', body: '{"code":"rate_limited","message":"slow down"}' },
+      {
+        status: 429,
+        statusText: 'Too Many Requests',
+        body: '{"code":"rate_limited","message":"slow down"}',
+      },
     ])
     const client = makeClient({ baseUrl: 'http://test.local', fetch: fetchFn })
     const err = (await client.request('GET', '/x').catch((e: unknown) => e)) as SdkError
@@ -136,7 +148,11 @@ describe('BaseClient 错误映射', () => {
 
   it('500 自动重试至 maxRetries 耗尽后抛 ServerError 语义的 SdkError', async () => {
     const { fetchFn, calls } = makeFetch([
-      { status: 500, statusText: 'Internal Server Error', body: '{"code":"boom","message":"server error"}' },
+      {
+        status: 500,
+        statusText: 'Internal Server Error',
+        body: '{"code":"boom","message":"server error"}',
+      },
     ])
     const client = makeClient({ baseUrl: 'http://test.local', maxRetries: 2, fetch: fetchFn })
     const err = (await client.request('GET', '/x').catch((e: unknown) => e)) as SdkError
@@ -157,9 +173,11 @@ describe('BaseClient 错误映射', () => {
 
 describe('BaseClient 配置校验', () => {
   it('缺失 apiKey 时构造即抛 SdkError(missing_api_key)', () => {
-    expect(() => new BaseClient({ apiKey: '', fetch: (undefined as unknown as typeof fetch) })).toThrow(SdkError)
+    expect(
+      () => new BaseClient({ apiKey: '', fetch: undefined as unknown as typeof fetch }),
+    ).toThrow(SdkError)
     try {
-      new BaseClient({ apiKey: '', fetch: (undefined as unknown as typeof fetch) })
+      new BaseClient({ apiKey: '', fetch: undefined as unknown as typeof fetch })
     } catch (e) {
       const err = e as SdkError
       expect(err.status).toBe(401)
@@ -169,10 +187,16 @@ describe('BaseClient 配置校验', () => {
 
   it('requestStream 非 2xx 直接抛 SdkError 且不重试', async () => {
     const { fetchFn, calls } = makeFetch([
-      { status: 401, statusText: 'Unauthorized', body: '{"code":"auth_invalid_api_key","message":"bad key"}' },
+      {
+        status: 401,
+        statusText: 'Unauthorized',
+        body: '{"code":"auth_invalid_api_key","message":"bad key"}',
+      },
     ])
     const client = makeClient({ baseUrl: 'http://test.local', fetch: fetchFn })
-    const err = (await client.requestStream('POST', '/chat/completions', {}).catch((e: unknown) => e)) as SdkError
+    const err = (await client
+      .requestStream('POST', '/chat/completions', {})
+      .catch((e: unknown) => e)) as SdkError
     expect(err).toBeInstanceOf(SdkError)
     expect(err.status).toBe(401)
     expect(calls).toHaveLength(1)

@@ -73,7 +73,8 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
               background: 'var(--color-card)',
             }}
             onClick={() => onItemClick?.(item)}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             {item.coverUrl ? (
               <Image
                 src={item.coverUrl}

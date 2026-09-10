@@ -1095,444 +1095,446 @@ export function AgentTaskProgressPane() {
   // - 内部 button click 路径不被污染(handle onMouseDown 用 closest('button') 早退)
   return (
     <TooltipProvider>
-    <div
-      ref={paneRef}
-      className={cn(
-        // z-sticky(990) < z-modal(2000):登录弹窗遮罩盖住 pane,CSS 层级保底
-        // (2026-07-31 根因修复:原 z-popover=2001 > z-modal=2000,pane 浮在登录框之上)
-        'absolute z-sticky',
-        'flex w-full min-[768px]:w-[280px] max-h-[60vh] flex-col',
-        'overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md',
-      )}
-      style={positionStyle}
-      role="complementary"
-      aria-label={t('ariaLabel')}
-      data-testid="agent-progress-pane"
-    >
-      {/* Header:拖动 handle + 进度环 + 步骤预算 + 工具按钮 */}
-      {/* v18:恢复拖动 — header 空白区域 onMouseDown 启动拖动,
+      <div
+        ref={paneRef}
+        className={cn(
+          // z-sticky(990) < z-modal(2000):登录弹窗遮罩盖住 pane,CSS 层级保底
+          // (2026-07-31 根因修复:原 z-popover=2001 > z-modal=2000,pane 浮在登录框之上)
+          'absolute z-sticky',
+          'flex w-full min-[768px]:w-[280px] max-h-[60vh] flex-col',
+          'overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-md',
+        )}
+        style={positionStyle}
+        role="complementary"
+        aria-label={t('ariaLabel')}
+        data-testid="agent-progress-pane"
+      >
+        {/* Header:拖动 handle + 进度环 + 步骤预算 + 工具按钮 */}
+        {/* v18:恢复拖动 — header 空白区域 onMouseDown 启动拖动,
           button 区域(closest 早退)走 button 自己的 onClick,click 路径 100% 纯粹。 */}
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions
           -- v18 设计选择:header 整体是拖动 handle,内嵌 button 用 closest('button') 早退
           保留独立 onClick。已通过测试用例 pane-minimize.test.tsx 的 click 路径纯粹性验证。 */}
-      <div
-        className={cn('flex h-8 shrink-0 select-none items-center gap-1.5 px-2')}
-        onMouseDown={onHandleMouseDown}
-        data-testid="pane-header"
-      >
-        {planSteps.length > 0 && (
-          <div>
-            <ProgressRing
-              value={progressPct}
-              state={ringState}
-              centerMode="percent"
-              size={16}
-              strokeWidth={2}
-              aria-label={t('progressLabel', { pct: Math.round(progressPct) })}
-            />
+        <div
+          className={cn('flex h-8 shrink-0 select-none items-center gap-1.5 px-2')}
+          onMouseDown={onHandleMouseDown}
+          data-testid="pane-header"
+        >
+          {planSteps.length > 0 && (
+            <div>
+              <ProgressRing
+                value={progressPct}
+                state={ringState}
+                centerMode="percent"
+                size={16}
+                strokeWidth={2}
+                aria-label={t('progressLabel', { pct: Math.round(progressPct) })}
+              />
+            </div>
+          )}
+          {/* Phase 19: 步骤预算指示器(内联模式,显示在 header) */}
+          {planSteps.length > 0 && (
+            <div>
+              <ResourceBudget
+                used={planSteps.length}
+                total={STEP_BUDGET_TOTAL}
+                label={t('stepBudgetLabel')}
+                variant="inline"
+                active={isStreaming}
+                className="ml-0.5 hidden min-[640px]:inline-flex"
+                data-testid="pane-step-budget"
+              />
+            </div>
+          )}
+          {elapsedLabel && (
+            <Tooltip content={t('elapsedTitle', { time: elapsedLabel })}>
+              <span
+                className="ml-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 text-[10px] tabular-nums text-muted-foreground/70"
+                data-testid="pane-elapsed"
+                aria-label={t('elapsedTitle', { time: elapsedLabel })}
+              >
+                <Timer
+                  className={cn(
+                    'h-2.5 w-2.5',
+                    isStreaming ? 'animate-pulse text-primary' : 'text-muted-foreground/60',
+                  )}
+                  aria-hidden
+                />
+                {elapsedLabel}
+              </span>
+            </Tooltip>
+          )}
+          <div className="flex-1" />
+          <Tooltip content={expandAll === true ? t('collapseAll') : t('expandAll')}>
+            <button
+              type="button"
+              onClick={() => setExpandAll(expandAll === true ? false : true)}
+              aria-label={expandAll === true ? t('collapseAll') : t('expandAll')}
+              className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              data-testid="pane-expand-all"
+            >
+              {expandAll === true ? (
+                <ChevronsDownUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronsUpDown className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </Tooltip>
+          {/* v13: 帮助按钮(打开/关闭快捷键面板) */}
+          <Tooltip content={t('helpToggle')}>
+            <button
+              type="button"
+              onClick={() => setShowHelp((v) => !v)}
+              aria-label={t('helpToggle')}
+              aria-expanded={showHelp}
+              aria-controls="pane-help-panel"
+              className={cn(
+                'inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
+                showHelp
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+              )}
+              data-testid="pane-help-toggle"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+          <Tooltip
+            content={
+              pinned
+                ? `${t('unpin')}(${t('pinHintUnpinned')})`
+                : `${t('pin')}(${t('pinHintPinned')})`
+            }
+          >
+            <button
+              type="button"
+              onClick={togglePin}
+              aria-label={pinned ? t('unpin') : t('pin')}
+              className={cn(
+                'inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
+                pinned
+                  ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+              )}
+              data-testid="pane-pin"
+            >
+              {pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
+            </button>
+          </Tooltip>
+          <Tooltip content={`${t('minimize')}(${t('minimizeHint')})`}>
+            <button
+              type="button"
+              onClick={() => setIsMinimized(true)}
+              aria-label={t('minimize')}
+              className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              data-testid="pane-minimize"
+            >
+              <Minimize2 className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+        </div>
+
+        {/* v13: 完成态庆祝横幅(全部 plan steps completed 时显示 3s) */}
+        {showCelebration && (
+          <div
+            className="flex shrink-0 items-center gap-1.5 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700 dark:text-emerald-300"
+            role="status"
+            aria-live="polite"
+            data-testid="pane-celebration-banner"
+          >
+            <Sparkles className="h-3 w-3 shrink-0 animate-pulse" aria-hidden />
+            <span className="flex-1 truncate">{t('celebrate')}</span>
           </div>
         )}
-        {/* Phase 19: 步骤预算指示器(内联模式,显示在 header) */}
+
+        {/* v15: 失败状态条 — 当有 failed subagent/tool/terminal 时显示,点击滚动到首个失败项 */}
+        {failureCount > 0 && (
+          <button
+            type="button"
+            onClick={scrollToFirstFailure}
+            className="flex shrink-0 w-full items-center gap-1.5 bg-destructive/10 px-2 py-1 text-left text-[11px] text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive/60"
+            aria-live="polite"
+            data-testid="pane-failure-banner"
+          >
+            <AlertCircle className="h-3 w-3 shrink-0" aria-hidden />
+            <span className="flex-1 truncate">{t('failureBanner', { n: failureCount })}</span>
+            <span className="shrink-0 text-[10px] text-destructive/80">›</span>
+          </button>
+        )}
+
+        {/* v13: 键盘快捷键帮助面板(VSCode 风格,按 ? 弹出,Esc 关闭) */}
+        {showHelp && (
+          <div
+            id="pane-help-panel"
+            role="dialog"
+            aria-label={t('helpPanelTitle')}
+            className="shrink-0 bg-muted/40 px-3 py-2"
+            data-testid="pane-help-panel"
+          >
+            <div className="mb-1.5 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[11px] font-medium text-foreground">
+                <Keyboard className="h-3 w-3 text-muted-foreground" aria-hidden />
+                {t('helpPanelTitle')}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHelp(false)}
+                aria-label={t('helpClose')}
+                className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                data-testid="pane-help-close"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </div>
+            <div
+              className="space-y-2"
+              role="list"
+              aria-label={t('helpPanelTitle')}
+              data-testid="pane-help-groups"
+            >
+              {SHORTCUT_GROUPS.map((group) => (
+                <div key={group.i18nKey} role="listitem" className="space-y-0.5">
+                  <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                    {t(group.i18nKey)}
+                  </div>
+                  <ul className="space-y-0.5">
+                    {group.items.map((item) => (
+                      <li
+                        key={item.i18nKey}
+                        className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground/80"
+                      >
+                        <span>{t(item.i18nKey)}</span>
+                        <kbd className="inline-flex h-4 shrink-0 items-center rounded-sm border border-border/60 bg-background px-1 font-mono text-[9px] font-medium text-foreground/80 shadow-sm">
+                          {item.keys}
+                        </kbd>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Phase 19: 移动端 ResourceBudget 块模式(无法在 header 内联时降级到内容顶部) */}
         {planSteps.length > 0 && (
-          <div>
+          <div
+            className="bg-muted/30 px-2 py-1 min-[640px]:hidden"
+            data-testid="pane-step-budget-block-wrapper"
+          >
             <ResourceBudget
               used={planSteps.length}
               total={STEP_BUDGET_TOTAL}
               label={t('stepBudgetLabel')}
-              variant="inline"
+              variant="block"
               active={isStreaming}
-              className="ml-0.5 hidden min-[640px]:inline-flex"
-              data-testid="pane-step-budget"
+              data-testid="pane-step-budget-block"
             />
           </div>
         )}
-        {elapsedLabel && (
-          <Tooltip content={t('elapsedTitle', { time: elapsedLabel })}>
-            <span
-              className="ml-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 text-[10px] tabular-nums text-muted-foreground/70"
-              data-testid="pane-elapsed"
-              aria-label={t('elapsedTitle', { time: elapsedLabel })}
+
+        {/* 内容区:统一显示对话流详情(plan steps + sections) */}
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+          data-testid="plan-list"
+        >
+          {!threadId && (
+            <div
+              className="flex flex-col items-center gap-1.5 px-3 py-5 text-center"
+              data-testid="pane-empty-state"
             >
-              <Timer
-                className={cn(
-                  'h-2.5 w-2.5',
-                  isStreaming ? 'animate-pulse text-primary' : 'text-muted-foreground/60',
-                )}
+              <ListTodo
+                className="h-6 w-6 text-muted-foreground/30"
                 aria-hidden
+                data-testid="pane-empty-icon"
               />
-              {elapsedLabel}
-            </span>
-          </Tooltip>
-        )}
-        <div className="flex-1" />
-        <Tooltip content={expandAll === true ? t('collapseAll') : t('expandAll')}>
-          <button
-            type="button"
-            onClick={() => setExpandAll(expandAll === true ? false : true)}
-            aria-label={expandAll === true ? t('collapseAll') : t('expandAll')}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            data-testid="pane-expand-all"
-          >
-            {expandAll === true ? (
-              <ChevronsDownUp className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronsUpDown className="h-3.5 w-3.5" />
-            )}
-          </button>
-        </Tooltip>
-        {/* v13: 帮助按钮(打开/关闭快捷键面板) */}
-        <Tooltip content={t('helpToggle')}>
-          <button
-            type="button"
-            onClick={() => setShowHelp((v) => !v)}
-            aria-label={t('helpToggle')}
-            aria-expanded={showHelp}
-            aria-controls="pane-help-panel"
-            className={cn(
-              'inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
-              showHelp
-                ? 'bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-            )}
-            data-testid="pane-help-toggle"
-          >
-            <HelpCircle className="h-3.5 w-3.5" />
-          </button>
-        </Tooltip>
-        <Tooltip
-          content={
-            pinned ? `${t('unpin')}(${t('pinHintUnpinned')})` : `${t('pin')}(${t('pinHintPinned')})`
-          }
-        >
-          <button
-            type="button"
-            onClick={togglePin}
-            aria-label={pinned ? t('unpin') : t('pin')}
-            className={cn(
-              'inline-flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
-              pinned
-                ? 'bg-primary/10 text-primary hover:bg-primary/20'
-                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-            )}
-            data-testid="pane-pin"
-          >
-            {pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
-          </button>
-        </Tooltip>
-        <Tooltip content={`${t('minimize')}(${t('minimizeHint')})`}>
-          <button
-            type="button"
-            onClick={() => setIsMinimized(true)}
-            aria-label={t('minimize')}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            data-testid="pane-minimize"
-          >
-            <Minimize2 className="h-3.5 w-3.5" />
-          </button>
-        </Tooltip>
-      </div>
-
-      {/* v13: 完成态庆祝横幅(全部 plan steps completed 时显示 3s) */}
-      {showCelebration && (
-        <div
-          className="flex shrink-0 items-center gap-1.5 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700 dark:text-emerald-300"
-          role="status"
-          aria-live="polite"
-          data-testid="pane-celebration-banner"
-        >
-          <Sparkles className="h-3 w-3 shrink-0 animate-pulse" aria-hidden />
-          <span className="flex-1 truncate">{t('celebrate')}</span>
-        </div>
-      )}
-
-      {/* v15: 失败状态条 — 当有 failed subagent/tool/terminal 时显示,点击滚动到首个失败项 */}
-      {failureCount > 0 && (
-        <button
-          type="button"
-          onClick={scrollToFirstFailure}
-          className="flex shrink-0 w-full items-center gap-1.5 bg-destructive/10 px-2 py-1 text-left text-[11px] text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive/60"
-          aria-live="polite"
-          data-testid="pane-failure-banner"
-        >
-          <AlertCircle className="h-3 w-3 shrink-0" aria-hidden />
-          <span className="flex-1 truncate">{t('failureBanner', { n: failureCount })}</span>
-          <span className="shrink-0 text-[10px] text-destructive/80">›</span>
-        </button>
-      )}
-
-      {/* v13: 键盘快捷键帮助面板(VSCode 风格,按 ? 弹出,Esc 关闭) */}
-      {showHelp && (
-        <div
-          id="pane-help-panel"
-          role="dialog"
-          aria-label={t('helpPanelTitle')}
-          className="shrink-0 bg-muted/40 px-3 py-2"
-          data-testid="pane-help-panel"
-        >
-          <div className="mb-1.5 flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-foreground">
-              <Keyboard className="h-3 w-3 text-muted-foreground" aria-hidden />
-              {t('helpPanelTitle')}
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowHelp(false)}
-              aria-label={t('helpClose')}
-              className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              data-testid="pane-help-close"
-            >
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </div>
-          <div
-            className="space-y-2"
-            role="list"
-            aria-label={t('helpPanelTitle')}
-            data-testid="pane-help-groups"
-          >
-            {SHORTCUT_GROUPS.map((group) => (
-              <div key={group.i18nKey} role="listitem" className="space-y-0.5">
-                <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60">
-                  {t(group.i18nKey)}
+              <div className="space-y-0.5">
+                <div
+                  className="text-[12px] font-medium text-foreground/80"
+                  data-testid="pane-empty-title"
+                >
+                  {t('emptyTitle')}
                 </div>
-                <ul className="space-y-0.5">
-                  {group.items.map((item) => (
-                    <li
-                      key={item.i18nKey}
-                      className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground/80"
-                    >
-                      <span>{t(item.i18nKey)}</span>
-                      <kbd className="inline-flex h-4 shrink-0 items-center rounded-sm border border-border/60 bg-background px-1 font-mono text-[9px] font-medium text-foreground/80 shadow-sm">
-                        {item.keys}
-                      </kbd>
-                    </li>
-                  ))}
-                </ul>
+                <div className="text-[10px] leading-relaxed text-muted-foreground/60">
+                  {t('emptySubtitle')}
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Phase 19: 移动端 ResourceBudget 块模式(无法在 header 内联时降级到内容顶部) */}
-      {planSteps.length > 0 && (
-        <div
-          className="bg-muted/30 px-2 py-1 min-[640px]:hidden"
-          data-testid="pane-step-budget-block-wrapper"
-        >
-          <ResourceBudget
-            used={planSteps.length}
-            total={STEP_BUDGET_TOTAL}
-            label={t('stepBudgetLabel')}
-            variant="block"
-            active={isStreaming}
-            data-testid="pane-step-budget-block"
-          />
-        </div>
-      )}
-
-      {/* 内容区:统一显示对话流详情(plan steps + sections) */}
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
-        data-testid="plan-list"
-      >
-        {!threadId && (
-          <div
-            className="flex flex-col items-center gap-1.5 px-3 py-5 text-center"
-            data-testid="pane-empty-state"
-          >
-            <ListTodo
-              className="h-6 w-6 text-muted-foreground/30"
-              aria-hidden
-              data-testid="pane-empty-icon"
-            />
-            <div className="space-y-0.5">
-              <div
-                className="text-[12px] font-medium text-foreground/80"
-                data-testid="pane-empty-title"
+              {/* v13: 3 个快速开始提示,引导用户理解 pane 用途 */}
+              <ul
+                className="mt-1 w-full space-y-0.5 text-left text-[10px] text-muted-foreground/60"
+                data-testid="pane-empty-hints"
+                aria-label={t('emptyHintsLabel')}
               >
-                {t('emptyTitle')}
-              </div>
-              <div className="text-[10px] leading-relaxed text-muted-foreground/60">
-                {t('emptySubtitle')}
-              </div>
+                <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
+                  <span className="shrink-0 text-primary/80">1.</span>
+                  <span>{t('emptyHint1')}</span>
+                </li>
+                <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
+                  <span className="shrink-0 text-primary/80">2.</span>
+                  <span>{t('emptyHint2')}</span>
+                </li>
+                <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
+                  <span className="shrink-0 text-primary/80">3.</span>
+                  <span>{t('emptyHint3')}</span>
+                </li>
+              </ul>
             </div>
-            {/* v13: 3 个快速开始提示,引导用户理解 pane 用途 */}
-            <ul
-              className="mt-1 w-full space-y-0.5 text-left text-[10px] text-muted-foreground/60"
-              data-testid="pane-empty-hints"
-              aria-label={t('emptyHintsLabel')}
-            >
-              <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
-                <span className="shrink-0 text-primary/80">1.</span>
-                <span>{t('emptyHint1')}</span>
-              </li>
-              <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
-                <span className="shrink-0 text-primary/80">2.</span>
-                <span>{t('emptyHint2')}</span>
-              </li>
-              <li className="flex items-start gap-1.5 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-accent/30">
-                <span className="shrink-0 text-primary/80">3.</span>
-                <span>{t('emptyHint3')}</span>
-              </li>
-            </ul>
-          </div>
-        )}
+          )}
 
-        {threadId && planSteps.length === 0 && (
-          // v20(2026-08-02):删除 v13 假 skeleton 4 行(50/62/74/86% 宽度假数据),
-          // 改为 1 行真实"等待 AI 规划"状态。语义:
-          // - threadId 存在 + plan 还没下发 → 用户看到的是"AI 在思考,plan 即将到来"真实信号
-          // - 无论 isStreaming 与否,只要有 threadId 且 planSteps 为空,就显示等待提示,
-          //   避免点击 trigger 后 pane 完全空白(用户反馈"点 button 也没有显示任务计划列表")
-          <div
-            className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] text-muted-foreground/70"
-            data-testid="pane-waiting-for-plan"
-            aria-live="polite"
-          >
-            <Loader2
-              className="h-3 w-3 shrink-0 animate-spin text-primary"
-              aria-hidden
-              data-testid="pane-waiting-spinner"
-            />
-            <span>{t('waitingForPlan')}</span>
-          </div>
-        )}
-
-        {planSteps.length > 0 && (
-          <>
-            <div role="list" aria-label={t('planListLabel')}>
-              {planSteps.map((step, idx) => {
-                const link = planStepLinkMap.get(step.id) ?? null
-                return (
-                  <PlanStepItem
-                    key={step.id}
-                    step={step}
-                    index={idx}
-                    linkedMessageId={link?.messageId ?? null}
-                    linkedMessagePreview={link?.preview ?? null}
-                    relatedTools={toolsByStep.get(step.id) ?? EMPTY_TOOLS}
-                    isHighlighted={isStepHighlighted(step.id, link?.messageId ?? null)}
-                  />
-                )
-              })}
-            </div>
+          {threadId && planSteps.length === 0 && (
+            // v20(2026-08-02):删除 v13 假 skeleton 4 行(50/62/74/86% 宽度假数据),
+            // 改为 1 行真实"等待 AI 规划"状态。语义:
+            // - threadId 存在 + plan 还没下发 → 用户看到的是"AI 在思考,plan 即将到来"真实信号
+            // - 无论 isStreaming 与否,只要有 threadId 且 planSteps 为空,就显示等待提示,
+            //   避免点击 trigger 后 pane 完全空白(用户反馈"点 button 也没有显示任务计划列表")
             <div
-              className="mx-2 mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground/60"
+              className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] text-muted-foreground/70"
+              data-testid="pane-waiting-for-plan"
               aria-live="polite"
-              aria-atomic="true"
             >
-              <span className="flex items-center gap-1">
-                <span>
-                  {t('completedCount', { done: completedCount, total: planSteps.length })}
-                </span>
-                <CopyButton
-                  text={planSteps.map((s, i) => `${i + 1}. [${s.status}] ${s.step}`).join('\n')}
-                  aria-label={t('copyPlan')}
-                  data-testid="copy-plan-btn"
-                />
-              </span>
-              {isStreaming && (
-                <span className="flex items-center gap-0.5 text-primary" role="status">
-                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                  {t('executing')}
-                </span>
-              )}
-            </div>
-          </>
-        )}
-
-        {threadId && (
-          <FoldableSectionProvider value={{ expandAll, setExpandAll }}>
-            <div
-              onKeyDown={onSectionsKeyDown}
-              role="toolbar"
-              aria-label={t('sectionsToolbarLabel')}
-              data-testid="sections-container"
-              className="min-h-0 overflow-y-auto overflow-x-hidden"
-            >
-              <ThinkingSection
-                content={overview.content}
-                currentNode={overview.currentNode}
-                isStreaming={isStreaming}
+              <Loader2
+                className="h-3 w-3 shrink-0 animate-spin text-primary"
+                aria-hidden
+                data-testid="pane-waiting-spinner"
               />
-              {/* v19(2026-08-02 整合):当前任务摘要条 — 替代之前 v9 在 trigger 下方弹
+              <span>{t('waitingForPlan')}</span>
+            </div>
+          )}
+
+          {planSteps.length > 0 && (
+            <>
+              <div role="list" aria-label={t('planListLabel')}>
+                {planSteps.map((step, idx) => {
+                  const link = planStepLinkMap.get(step.id) ?? null
+                  return (
+                    <PlanStepItem
+                      key={step.id}
+                      step={step}
+                      index={idx}
+                      linkedMessageId={link?.messageId ?? null}
+                      linkedMessagePreview={link?.preview ?? null}
+                      relatedTools={toolsByStep.get(step.id) ?? EMPTY_TOOLS}
+                      isHighlighted={isStepHighlighted(step.id, link?.messageId ?? null)}
+                    />
+                  )
+                })}
+              </div>
+              <div
+                className="mx-2 mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground/60"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <span className="flex items-center gap-1">
+                  <span>
+                    {t('completedCount', { done: completedCount, total: planSteps.length })}
+                  </span>
+                  <CopyButton
+                    text={planSteps.map((s, i) => `${i + 1}. [${s.status}] ${s.step}`).join('\n')}
+                    aria-label={t('copyPlan')}
+                    data-testid="copy-plan-btn"
+                  />
+                </span>
+                {isStreaming && (
+                  <span className="flex items-center gap-0.5 text-primary" role="status">
+                    <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                    {t('executing')}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+
+          {threadId && (
+            <FoldableSectionProvider value={{ expandAll, setExpandAll }}>
+              <div
+                onKeyDown={onSectionsKeyDown}
+                role="toolbar"
+                aria-label={t('sectionsToolbarLabel')}
+                data-testid="sections-container"
+                className="min-h-0 overflow-y-auto overflow-x-hidden"
+              >
+                <ThinkingSection
+                  content={overview.content}
+                  currentNode={overview.currentNode}
+                  isStreaming={isStreaming}
+                />
+                {/* v19(2026-08-02 整合):当前任务摘要条 — 替代之前 v9 在 trigger 下方弹
                   的 TaskListPopover。当前任务(规划/MCP/插件调用/工具调用/终端/子代理)
                   以统一 label + spinner 形式显示在 Pane 顶部,用户在 AI 面板右上角
                   直接看到实时活动,无需额外 popover。 */}
-              {currentTask && currentTask.kind !== 'idle' && currentTask.label && (
-                <div
-                  className="mx-1.5 mt-1 flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-foreground/80"
-                  data-testid="pane-current-task-summary"
-                  data-task-kind={currentTask.kind}
-                >
-                  <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary" aria-hidden />
-                  <TruncatedText value={currentTask.label} className="min-w-0 flex-1" />
-                </div>
-              )}
-              <ToolCallsSection tools={tools} />
-              {/* Phase 19: BatchHeader 包装 subagents(默认折叠,展开后展示 SubAgentTaskTree) */}
-              {subagents.length > 0 && (
-                <>
-                  <BatchHeader
-                    batchIndex={1}
-                    title={t('subagentBatch')}
-                    agentCount={subagentBatchStats.agentCount}
-                    completedCount={subagentBatchStats.completedCount}
-                    failedCount={subagentBatchStats.failedCount}
-                    status={subagentBatchStats.status}
-                    collapsed={batchCollapsed}
-                    onCollapsedChange={onBatchCollapsedChange}
-                    defaultCollapsed={true}
-                    className="mx-1.5 mt-1.5"
-                    data-testid="subagent-batch-header"
-                  />
-                  {!batchCollapsed && (
-                    <div className="mx-1.5 mt-1 space-y-1" data-testid="subagent-batch-body">
-                      {subagents.map((sa: Subagent) => (
-                        <SubAgentTaskTree
-                          key={sa.id}
-                          subagent={sa}
-                          data-testid={`subagent-task-tree-${sa.id}`}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-              <ChangesSection changes={changes} />
-              <TerminalSection terminals={terminals} />
-              <OverviewSection
-                overview={overview}
-                isStreaming={isStreaming}
-                totalTokens={totalTokens}
-                tokenRate={tokenRate}
-                etaMs={etaMs}
-                contextUsage={contextUsage}
-              />
-            </div>
-          </FoldableSectionProvider>
-        )}
+                {currentTask && currentTask.kind !== 'idle' && currentTask.label && (
+                  <div
+                    className="mx-1.5 mt-1 flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-foreground/80"
+                    data-testid="pane-current-task-summary"
+                    data-task-kind={currentTask.kind}
+                  >
+                    <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary" aria-hidden />
+                    <TruncatedText value={currentTask.label} className="min-w-0 flex-1" />
+                  </div>
+                )}
+                <ToolCallsSection tools={tools} />
+                {/* Phase 19: BatchHeader 包装 subagents(默认折叠,展开后展示 SubAgentTaskTree) */}
+                {subagents.length > 0 && (
+                  <>
+                    <BatchHeader
+                      batchIndex={1}
+                      title={t('subagentBatch')}
+                      agentCount={subagentBatchStats.agentCount}
+                      completedCount={subagentBatchStats.completedCount}
+                      failedCount={subagentBatchStats.failedCount}
+                      status={subagentBatchStats.status}
+                      collapsed={batchCollapsed}
+                      onCollapsedChange={onBatchCollapsedChange}
+                      defaultCollapsed={true}
+                      className="mx-1.5 mt-1.5"
+                      data-testid="subagent-batch-header"
+                    />
+                    {!batchCollapsed && (
+                      <div className="mx-1.5 mt-1 space-y-1" data-testid="subagent-batch-body">
+                        {subagents.map((sa: Subagent) => (
+                          <SubAgentTaskTree
+                            key={sa.id}
+                            subagent={sa}
+                            data-testid={`subagent-task-tree-${sa.id}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+                <ChangesSection changes={changes} />
+                <TerminalSection terminals={terminals} />
+                <OverviewSection
+                  overview={overview}
+                  isStreaming={isStreaming}
+                  totalTokens={totalTokens}
+                  tokenRate={tokenRate}
+                  etaMs={etaMs}
+                  contextUsage={contextUsage}
+                />
+              </div>
+            </FoldableSectionProvider>
+          )}
 
-        {/* Phase 17: 跳到最新按钮 */}
-        {showJumpToLatest && (
-          <Tooltip content={t('jumpToLatest')}>
-            <button
-              type="button"
-              onClick={jumpToLatest}
-              aria-label={t('jumpToLatest')}
-              className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-md border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground"
-              data-testid="pane-jump-latest"
-            >
-              <ArrowDown className="h-2.5 w-2.5" />
-              <span>{t('latest')}</span>
-            </button>
-          </Tooltip>
-        )}
+          {/* Phase 17: 跳到最新按钮 */}
+          {showJumpToLatest && (
+            <Tooltip content={t('jumpToLatest')}>
+              <button
+                type="button"
+                onClick={jumpToLatest}
+                aria-label={t('jumpToLatest')}
+                className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-md border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground"
+                data-testid="pane-jump-latest"
+              >
+                <ArrowDown className="h-2.5 w-2.5" />
+                <span>{t('latest')}</span>
+              </button>
+            </Tooltip>
+          )}
+        </div>
       </div>
-    </div>
     </TooltipProvider>
   )
 }

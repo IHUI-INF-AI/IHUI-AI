@@ -59,7 +59,8 @@ export default function NewTitle({ items, onItemClick }: NewTitleProps) {
             height: rpx(60),
           }}
           onClick={() => onItemClick?.(item)}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <View
             style={{
               width: rpx(20),

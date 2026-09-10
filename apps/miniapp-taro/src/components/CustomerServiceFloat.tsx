@@ -124,11 +124,7 @@ export default function CustomerServiceFloat({
           sendMessageTitle={tt('common.customerService', '客服咨询')}
           sendMessagePath="/pages/index/index"
         >
-          <LineIcon
-            className="cs-float-icon"
-            name="message-circle"
-            size={32}
-          />
+          <LineIcon className="cs-float-icon" name="message-circle" size={32} />
           <Text className="cs-float-label">{tt('common.consult', '咨询')}</Text>
         </Button>
       </View>
@@ -257,11 +253,7 @@ export default function CustomerServiceFloat({
         sendMessageTitle={tt('common.customerService', '客服咨询')}
         sendMessagePath="/pages/index/index"
       >
-        <LineIcon
-          className="cs-float-icon"
-          name="message-circle"
-          size={32}
-        />
+        <LineIcon className="cs-float-icon" name="message-circle" size={32} />
         <Text className="cs-float-label">{tt('common.consult', '咨询')}</Text>
       </Button>
     </View>
