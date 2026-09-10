@@ -38,11 +38,7 @@ export default function Login() {
   const [phoneHead, setPhoneHead] = useState('+86')
   const [showPwd, setShowPwd] = useState(false)
   const [isPhoneFocused, setIsPhoneFocused] = useState(false)
-  const [isCodeFocused, setIsCodeFocused] = useState(false)
   const [isEmailFocused, setIsEmailFocused] = useState(false)
-  const [isEmailCodeFocused, setIsEmailCodeFocused] = useState(false)
-  const [isPwdFocused, setIsPwdFocused] = useState(false)
-  const [isAccountFocused, setIsAccountFocused] = useState(false)
   const [isChecked, setIsChecked] = useState(false)
   const [showAgreeErr, setShowAgreeErr] = useState(false)
 
@@ -309,8 +305,8 @@ export default function Login() {
     Taro.navigateTo({ url: `/pages/webview/index?url=${encoded}` })
   }
 
-  // phone/email 输入框:绑定各自 state,password 模式绑定 form.account
-  const accountValue = loginType === 'phone' ? phone : loginType === 'email' ? email : form.account
+  // phone/email 输入框:password 模式绑定 form.account(phone/email 模式的
+  // accountValue 未被消费,已于 2026-09-10 清理)
   const onAccountInput = (e: { detail: { value: string } }) => {
     const v = e.detail.value
     setInlineError('')
@@ -427,8 +423,6 @@ export default function Login() {
                   placeholderStyle="color: var(--color-muted-foreground);font-size: 28rpx;font-weight: normal;"
                   value={emailCode}
                   onInput={(e) => setEmailCode(e.detail.value)}
-                  onFocus={() => setIsEmailCodeFocused(true)}
-                  onBlur={() => setIsEmailCodeFocused(false)}
                 />
                 <View
                   className={`login-sendcode ${emailCodeBtnDisabled || emailSending ? 'login-sendcode-disabled' : ''}`}
@@ -504,8 +498,6 @@ export default function Login() {
                   placeholderStyle="color: var(--color-muted-foreground);font-size: 28rpx;font-weight: normal;"
                   value={code}
                   onInput={(e) => setCode(e.detail.value)}
-                  onFocus={() => setIsCodeFocused(true)}
-                  onBlur={() => setIsCodeFocused(false)}
                 />
                 <View
                   className={`login-sendcode ${phoneCodeBtnDisabled ? 'login-sendcode-disabled' : ''}`}
@@ -548,10 +540,8 @@ export default function Login() {
                     setInlineError('')
                   }}
                   onFocus={() => {
-                    setIsAccountFocused(true)
                     setHistoryOpen(true)
                   }}
-                  onBlur={() => setIsAccountFocused(false)}
                 />
                 {historyOpen && historyList.length > 0 ? (
                   <HistoryDropdown
@@ -585,8 +575,6 @@ export default function Login() {
                   placeholderStyle="color: var(--color-muted-foreground);font-size: 28rpx;font-weight: normal;"
                   value={form.password}
                   onInput={(e) => form.setPassword(e.detail.value)}
-                  onFocus={() => setIsPwdFocused(true)}
-                  onBlur={() => setIsPwdFocused(false)}
                 />
                 <PasswordVisibilityToggle visible={showPwd} onToggle={() => setShowPwd((v) => !v)} />
               </View>
