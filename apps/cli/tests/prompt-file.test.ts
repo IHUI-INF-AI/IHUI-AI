@@ -7,11 +7,14 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { readPromptFile } from '../src/index.js'
+import { setLocale } from '../src/i18n/index.js'
 
 describe('readPromptFile', () => {
   let tmpDir: string
 
   beforeEach(() => {
+    // 测试断言基于 zh-CN 基线消息;CI runner locale 为 en,不钉住会读英文文案(2026-09-10)
+    setLocale('zh-CN')
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-prompt-file-test-'))
   })
 

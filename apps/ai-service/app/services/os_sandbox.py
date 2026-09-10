@@ -474,6 +474,10 @@ def _kernel32() -> Any:
     if _kernel32_ref is not None:
         return _kernel32_ref
     _require_windows()
+    if sys.platform != "win32":  # pragma: no cover - _require_windows 已抛
+        raise RuntimeError("Windows-only")
+    # sys.platform 收窄让 mypy 按目标平台选择 ctypes 存根(Windows 有 windll),
+    # Linux CI 检查时该分支被判定不可达而跳过,双向零报错(2026-09-10)
     k32: Any = ctypes.windll.kernel32
     k32.CreateJobObjectW.restype = ctypes.c_void_p
     k32.CreateJobObjectW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p]
@@ -522,6 +526,8 @@ def _advapi32() -> Any:
     if _advapi32_ref is not None:
         return _advapi32_ref
     _require_windows()
+    if sys.platform != "win32":  # pragma: no cover - _require_windows 已抛
+        raise RuntimeError("Windows-only")
     a32: Any = ctypes.windll.advapi32
     a32.OpenProcessToken.restype = ctypes.c_int32
     a32.OpenProcessToken.argtypes = [
@@ -1022,6 +1028,8 @@ class WinJobBackend:
         si.cb = ctypes.sizeof(STARTUPINFOW)
         si.dwFlags = STARTF_USESTDHANDLES
         si.lpDesktop = "Winsta0\\Default"  # 受限令牌下必须显式指定桌面
+        if sys.platform != "win32":  # pragma: no cover - Windows-only 路径
+            raise RuntimeError("Windows-only")
         si.hStdInput = msvcrt.get_osfhandle(std_fds[0])
         si.hStdOutput = msvcrt.get_osfhandle(std_fds[1])
         si.hStdError = msvcrt.get_osfhandle(std_fds[2])
