@@ -14,9 +14,17 @@ import { error } from '../utils/response.js'
  * 但移动端 fetchApi 走 api(8802)——此前 8802 无此路由,移动端 AI 技能 404(M3 补齐时发现)。
  * 本路由在 api 提供统一入口,透传 GET /api/ai-skills、GET /:id、POST /:id/invoke 到 ai-service。
  */
-async function forward(request: FastifyRequest, reply: FastifyReply, path: string, init: RequestInit = {}) {
+async function forward(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  path: string,
+  init: RequestInit = {},
+) {
   try {
-    const resp = await aiServiceFetch(request, path, { ...init, headers: init.headers as Record<string, string> | undefined })
+    const resp = await aiServiceFetch(request, path, {
+      ...init,
+      headers: init.headers as Record<string, string> | undefined,
+    })
     const body = await resp.text()
     return reply
       .status(resp.status)

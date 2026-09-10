@@ -219,11 +219,7 @@ export default function PlazaIndex() {
   // 描述 14dp→28rpx 三行截断/cardMeta 头像 fallback 24dp→48rpx + 作者 14dp→28rpx/状态字 11dp→22rpx
   const renderCard = (item: PlazaItem) => (
     <ThemeRoot>
-      <View
-        className="pza-card"
-        hoverClass="pza-card-pressed"
-        onClick={() => onItemClick(item)}
-      >
+      <View className="pza-card" hoverClass="pza-card-pressed" onClick={() => onItemClick(item)}>
         {item.coverUrl ? (
           <Image className="pza-cover" src={item.coverUrl} mode="aspectFill" />
         ) : null}
@@ -294,7 +290,8 @@ export default function PlazaIndex() {
               key={tab.key}
               className={`pza-tab${status === tab.key ? ' active' : ''}`}
               onClick={() => onStatusChange(tab.key)}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text>
                 {tt(tab.labelKey, tab.key === 0 ? '全部' : tab.key === 1 ? '进行中' : '已完成')}
               </Text>
@@ -359,7 +356,8 @@ export default function PlazaIndex() {
                     key={tr.key || 'all'}
                     className={`pza-chip${track === tr.key ? ' active' : ''}`}
                     onClick={() => onTrackSelect(tr.key)}
-                    hoverClass="opacity-60">
+                    hoverClass="opacity-60"
+                  >
                     <Text>
                       {tt(
                         tr.labelKey,
@@ -421,7 +419,8 @@ export default function PlazaIndex() {
                 <View
                   className="pza-center-detail-btn"
                   onClick={() => onOpenDetail(detail.id ?? '')}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   <Text className="pza-center-detail-text">
                     {tt('plaza.index.viewDetail', '查看详情')}
                   </Text>
@@ -445,7 +444,8 @@ export default function PlazaIndex() {
                   key={it.key}
                   className={`pza-sheet-item${identity === it.key ? ' active' : ''}`}
                   onClick={() => onIdentityChange(it.key)}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   <Text>{tt(it.labelKey, it.key === 'demander' ? '需求方' : '开发者')}</Text>
                 </View>
               ))}

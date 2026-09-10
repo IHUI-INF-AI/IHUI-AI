@@ -71,9 +71,7 @@ function parseRruleParts(rrule: string): RruleParts | null {
 
   let byDays: number[] | null = null
   if (parts.BYDAY !== undefined) {
-    const tokens = parts.BYDAY
-      .split(',')
-      .map((s) => s.trim().toUpperCase())
+    const tokens = parts.BYDAY.split(',').map((s) => s.trim().toUpperCase())
     if (tokens.length === 0) return null
     const days: number[] = []
     for (const token of tokens) {
@@ -303,10 +301,7 @@ async function tick(): Promise<void> {
               lte(userAutomations.scheduledAt, now),
               isNull(userAutomations.lastRunAt),
             ),
-            and(
-              eq(userAutomations.scheduleType, 'recurring'),
-              lte(userAutomations.nextRunAt, now),
-            ),
+            and(eq(userAutomations.scheduleType, 'recurring'), lte(userAutomations.nextRunAt, now)),
           ),
         ),
       )

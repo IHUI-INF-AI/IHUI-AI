@@ -38,8 +38,9 @@ export function MobileLoginGate({ children }: { children: React.ReactNode }) {
   const [isNativeApp] = React.useState(() => {
     if (typeof window === 'undefined') return false
     return (
-      (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } })?.Capacitor
-        ?.isNativePlatform?.() === true
+      (
+        window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }
+      )?.Capacitor?.isNativePlatform?.() === true
     )
   })
 
@@ -60,11 +61,7 @@ export function MobileLoginGate({ children }: { children: React.ReactNode }) {
   // 未登录 API 请求),只渲染一个空壳,由全屏 LoginDialog 作为实际首屏。登录成功后
   // isAuthenticated→true,shouldGate→false,children 透出。桌面/Web 恒走 children。
   if (shouldGate) {
-    return (
-      <>
-        {/* 全屏登录框作为首屏,门禁期间不渲染 children */}
-      </>
-    )
+    return <>{/* 全屏登录框作为首屏,门禁期间不渲染 children */}</>
   }
 
   return <>{children}</>

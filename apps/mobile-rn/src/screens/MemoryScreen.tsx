@@ -227,7 +227,8 @@ export function MemoryScreen() {
             {item.text}
           </Text>
           <Text className="mt-2 text-[11px] text-gray-400">
-            {t('memory.source')}: {item.source} · {t('memory.updatedAt')}: {formatTime(item.updatedAt)}
+            {t('memory.source')}: {item.source} · {t('memory.updatedAt')}:{' '}
+            {formatTime(item.updatedAt)}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -427,7 +428,9 @@ export function MemoryScreen() {
                     onPress={() => setNewType(type)}
                     className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-700'}`}
                   >
-                    <Text className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}>
+                    <Text
+                      className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
+                    >
                       {t(TYPE_KEYS[type])}
                     </Text>
                   </TouchableOpacity>
@@ -444,7 +447,9 @@ export function MemoryScreen() {
                     onPress={() => setNewScope(scope)}
                     className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-700'}`}
                   >
-                    <Text className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}>
+                    <Text
+                      className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
+                    >
                       {t(SCOPE_KEYS[scope])}
                     </Text>
                   </TouchableOpacity>

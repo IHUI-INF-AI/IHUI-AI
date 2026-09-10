@@ -238,7 +238,8 @@ export default function DeveloperIndex() {
         <View
           className="flex items-center bg-primary mx-[20rpx] my-[20rpx] px-[30rpx] py-[28rpx] rounded-[16rpx]"
           onClick={() => navigateTo({ url: '/pages/developer/subscribe' })}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <View className="flex-1">
             <Text className="block text-[32rpx] font-semibold text-primary-foreground">
               {t('developer.index.subscribeTitle')}
@@ -258,7 +259,8 @@ export default function DeveloperIndex() {
               key={tab.id}
               className={`px-[24rpx] py-[10rpx] rounded-[16rpx] bg-muted${mainTabActive(tab.id) ? ' bg-primary' : ''}`}
               onClick={() => onChangeStatus(tab.id)}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text
                 className={
                   mainTabActive(tab.id)
@@ -286,7 +288,8 @@ export default function DeveloperIndex() {
           <View
             className="h-[76rpx] px-[20rpx] rounded-[16rpx] bg-primary flex items-center justify-center"
             onClick={onSearchConfirm}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-[28rpx] font-semibold text-primary-foreground">搜索</Text>
           </View>
         </View>
@@ -300,7 +303,8 @@ export default function DeveloperIndex() {
                 key={tab.id}
                 className={`px-[16rpx] py-[6rpx] rounded-[12rpx]${status === tab.id ? ' bg-muted' : ''}`}
                 onClick={() => onChangeStatus(tab.id)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text
                   className={
                     status === tab.id

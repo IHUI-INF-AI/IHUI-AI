@@ -108,10 +108,7 @@ export default function WithdrawalPage() {
               onInput={(e) => setAmount(e.detail.value)}
               placeholder={tt('distribution.withdraw.amountPlaceholder', '请输入提现金额')}
             />
-            <Text
-              className="text-[22rpx] text-[var(--color-text-tertiary)]"
-              onClick={fillAll}
-            >
+            <Text className="text-[22rpx] text-[var(--color-text-tertiary)]" onClick={fillAll}>
               {tt('distribution.withdraw.all', '全部提现')}
             </Text>
           </View>
@@ -125,7 +122,8 @@ export default function WithdrawalPage() {
                 key={m.value}
                 className={`flex-1 flex items-center p-[28rpx] border-[2rpx] rounded-[24rpx] bg-card ${method === m.value ? 'border-[var(--color-primary)]' : 'border-border'}`}
                 onClick={() => setMethod(m.value)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <View
                   className={`w-[56rpx] h-[56rpx] rounded-[16rpx] flex items-center justify-center text-[26rpx] font-semibold mr-[20rpx] text-[var(--color-surface-light)] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[var(--color-alipay-blue)]'}`}
                 >
@@ -136,11 +134,7 @@ export default function WithdrawalPage() {
                   className={`w-[36rpx] h-[36rpx] border-[2rpx] rounded-[8rpx] flex items-center justify-center ${method === m.value ? 'bg-primary border-primary' : 'border-border bg-card'}`}
                 >
                   {method === m.value && (
-                    <LineIcon
-                      name="check"
-                      size={24}
-                      color="var(--color-primary-foreground)"
-                    />
+                    <LineIcon name="check" size={24} color="var(--color-primary-foreground)" />
                   )}
                 </View>
               </View>
@@ -160,7 +154,8 @@ export default function WithdrawalPage() {
         <View
           className="mt-[24rpx] text-center text-[22rpx] text-[var(--color-text-tertiary)]"
           onClick={goRecords}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <Text>{tt('wallet.withdrawal.records', '提现记录')}</Text>
         </View>
       </View>

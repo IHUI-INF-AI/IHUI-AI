@@ -338,9 +338,9 @@ async function registerPlugins(server: FastifyInstance) {
       cb(
         null,
         allowed.includes(o) ||
-        DESKTOP_ORIGINS.includes(o) ||
-        MOBILE_CAP_ORIGINS.includes(o) ||
-        o.startsWith('chrome-extension://'),
+          DESKTOP_ORIGINS.includes(o) ||
+          MOBILE_CAP_ORIGINS.includes(o) ||
+          o.startsWith('chrome-extension://'),
       )
     },
     credentials: true,

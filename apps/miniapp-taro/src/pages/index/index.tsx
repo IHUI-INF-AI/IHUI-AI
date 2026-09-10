@@ -577,7 +577,8 @@ function VoiceAnimationOverlay({
         alignItems: 'center',
         justifyContent: 'center',
       }}
-      onClick={onClose}>
+      onClick={onClose}
+    >
       <Text style={{ fontSize: rpx(28), color: 'var(--color-foreground)', marginBottom: rpx(20) }}>
         {tt('index.voice.listening', '正在聆听...')}
       </Text>
@@ -1207,7 +1208,11 @@ export default function Index() {
   return (
     <ThemeRoot className="ai-home-page min-h-screen">
       {/* 根容器背景对齐 RN HomeScreen root(tokens.surface.light #FFFFFF → 语义 --color-card,暗色自适应) */}
-      <View style={{ background: 'var(--color-card)' }} onClick={handleContainerClick} hoverClass="opacity-60">
+      <View
+        style={{ background: 'var(--color-card)' }}
+        onClick={handleContainerClick}
+        hoverClass="opacity-60"
+      >
         {/* ===== PushNotification 推送通知弹窗(对齐原项目) ===== */}
         <PushNotification />
 
@@ -1459,7 +1464,10 @@ export default function Index() {
                 state.currentModelType &&
                 state.currentModelType !== 'skills' &&
                 state.currentModelType !== 'sck' ? (
-                  <View onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()} hoverClass="opacity-60">
+                  <View
+                    onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
+                    hoverClass="opacity-60"
+                  >
                     <ModelList
                       variant="popup"
                       models={filteredModels}
@@ -1474,7 +1482,10 @@ export default function Index() {
                 ) : null}
                 {/* AgentList 智能体列表(对齐原项目 AgentList) */}
                 {state.showAgentList ? (
-                  <View onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()} hoverClass="opacity-60">
+                  <View
+                    onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
+                    hoverClass="opacity-60"
+                  >
                     <AgentListPanel
                       visible={state.showAgentList}
                       agents={MOCK_AGENTS}
@@ -1505,7 +1516,8 @@ export default function Index() {
                   <View
                     className="material-list-container"
                     onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
-                    hoverClass="opacity-60">
+                    hoverClass="opacity-60"
+                  >
                     {/* Tab 栏:文本/图片/视频/音频 */}
                     <View className="material-tabs">
                       {MATERIAL_TABS.map((tab) => (
@@ -1606,7 +1618,10 @@ export default function Index() {
               </View>
 
               {/* ModelType 按钮区域(对齐原项目,使用 ModelTypeButtonGroup 组件) */}
-              <View onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()} hoverClass="opacity-60">
+              <View
+                onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
+                hoverClass="opacity-60"
+              >
                 <ModelTypeButtonGroup
                   variant="wide"
                   activeType={state.currentModelType}
@@ -1689,12 +1704,14 @@ export default function Index() {
         {state.showSharePointsPopup ? (
           <View
             className="fixed inset-0 z-[9999] flex items-center justify-center"
-            onClick={handleSharePointsClose}>
+            onClick={handleSharePointsClose}
+          >
             <View className="absolute inset-0" style={{ background: 'var(--color-black-40)' }} />
             <View
               className="ai-flip-in relative z-10 flex flex-col items-center"
               onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Image src={SHARE_ZHZ_IMG} style={{ width: rpx(440) }} mode="widthFix" />
               {/* 分享按钮(对齐原项目 popup-share-btn,open-type="share" 用于微信小程序) */}
               <Button
@@ -1715,7 +1732,8 @@ export default function Index() {
           <View
             className="fixed inset-0 z-[9999] flex items-center justify-center"
             onClick={handleQrCodeClose}
-            style={{ background: 'var(--color-black-40)' }}>
+            style={{ background: 'var(--color-black-40)' }}
+          >
             <View
               className="ai-popup-fade-in flex flex-col items-center"
               style={{
@@ -1724,7 +1742,8 @@ export default function Index() {
                 padding: '36rpx 24rpx',
               }}
               onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Image
                 src={QRCODE_IMG}
                 style={{ width: rpx(480), height: rpx(480), borderRadius: rpx(16) }}

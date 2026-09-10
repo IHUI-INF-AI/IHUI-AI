@@ -46,7 +46,14 @@ describe('TopBarBackAutoRegister', () => {
   })
 
   it('免返回前缀:分享/认证/h5 壳路由不声明', () => {
-    for (const p of ['/share/abc', '/chat/share/x1', '/business-card/share/x2', '/ai-world/share/x3', '/sso/github', '/h5/share/x4']) {
+    for (const p of [
+      '/share/abc',
+      '/chat/share/x1',
+      '/business-card/share/x2',
+      '/ai-world/share/x3',
+      '/sso/github',
+      '/h5/share/x4',
+    ]) {
       mockPathname.value = p
       renderAuto()
       expect(useTopBarBackStore.getState().config).toBeNull()

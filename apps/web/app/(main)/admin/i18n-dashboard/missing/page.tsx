@@ -12,12 +12,7 @@ import { AlertCircle, ArrowLeft, Loader2, ChevronDown, ChevronRight } from 'luci
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@ihui/ui-react'
-import {
-  CHART_BLUE,
-  CHART_AMBER,
-  CHART_VIOLET,
-  CHART_PINK,
-} from '@ihui/design-tokens'
+import { CHART_BLUE, CHART_AMBER, CHART_VIOLET, CHART_PINK } from '@ihui/design-tokens'
 
 interface MissingKey {
   key: string

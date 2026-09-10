@@ -125,11 +125,9 @@ async function fetchGitHubTrending(): Promise<number> {
 
 /** 3. 百度热搜官方 JSON(取前 20 条) */
 async function fetchBaiduHot(): Promise<number> {
-  const data = await fetchJson(
-    'https://top.baidu.com/api/board?platform=wise&tab=realtime',
-  )
-  const cards = (data as { data?: { cards?: Array<{ content?: Array<{ word?: string }> }> } })
-    ?.data?.cards
+  const data = await fetchJson('https://top.baidu.com/api/board?platform=wise&tab=realtime')
+  const cards = (data as { data?: { cards?: Array<{ content?: Array<{ word?: string }> }> } })?.data
+    ?.cards
   const list = cards?.[0]?.content ?? []
   let n = 0
   let pos = 1

@@ -135,7 +135,12 @@ export function StudyPlanScreen({
                 const clamped = Math.max(0, Math.min(100, item.progress))
                 const badge = statusBadgeColors(item.status)
                 return (
-                  <View key={item.id} style={viewStyles.card(tk)} onTap={() => onPressItem(item)} hoverClass="opacity-60">
+                  <View
+                    key={item.id}
+                    style={viewStyles.card(tk)}
+                    onTap={() => onPressItem(item)}
+                    hoverClass="opacity-60"
+                  >
                     <View style={viewStyles.cardHead()}>
                       <View style={viewStyles.cardTitleWrap()}>
                         <Text style={textStyles.cardTitle(tk)}>{item.title}</Text>

@@ -84,7 +84,11 @@ export async function verifyCarrierToken(opts: CarrierVerifyOptions): Promise<Ca
         400,
       )
     default:
-      throw new CarrierLoginError(`不支持的运营商标识: ${opts.operator}`, CarrierErrorCode.UNSUPPORTED, 400)
+      throw new CarrierLoginError(
+        `不支持的运营商标识: ${opts.operator}`,
+        CarrierErrorCode.UNSUPPORTED,
+        400,
+      )
   }
 }
 
@@ -196,6 +200,9 @@ function decryptMobileName(cipherHex: string, appKey: string): string {
   const keyStr = md5Hex.slice(0, 16) // 密钥(16 字符)
   const ivStr = md5Hex.slice(16, 32) // 初始向量(16 字符)
   const decipher = createDecipheriv('aes-128-cbc', keyStr, ivStr)
-  const decrypted = Buffer.concat([decipher.update(Buffer.from(cipherHex, 'hex')), decipher.final()])
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(cipherHex, 'hex')),
+    decipher.final(),
+  ])
   return decrypted.toString('utf8').trim()
 }

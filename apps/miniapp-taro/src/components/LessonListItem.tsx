@@ -264,7 +264,8 @@ export default function LessonListItem({
     <View
       className={`flex items-center px-4 py-3 mb-2 ${active ? 'bg-primary/10' : ''}`}
       onClick={onClick}
-      hoverClass="opacity-60">
+      hoverClass="opacity-60"
+    >
       <View
         className={`flex items-center justify-center w-7 h-7 mr-3 rounded-md text-xs ${
           active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'

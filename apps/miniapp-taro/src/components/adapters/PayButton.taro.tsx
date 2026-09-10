@@ -7,7 +7,12 @@ import { useTt, type TtFn, t } from '@/i18n'
 import type { CSSProperties } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { getRnTokens, rnLightTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
+import {
+  getRnTokens,
+  rnLightTokens,
+  type RnThemeTokens,
+  type RnThemeMode,
+} from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import type { TFunction } from '@ihui/types'
 import freeVipIcon from '@/assets/remote/images/xtk/free_vip_icon.png'
@@ -72,7 +77,10 @@ const TYPE_CONFIG = (tt: TtFn): Record<PayButtonType, TypeConfig> => ({
     showPurchasePopup: false,
   },
   '1': {
-    bg: (tk) => (tk.brand.DEFAULT === rnLightTokens.brand.DEFAULT ? 'var(--color-black-12)' : 'var(--color-white-15)'),
+    bg: (tk) =>
+      tk.brand.DEFAULT === rnLightTokens.brand.DEFAULT
+        ? 'var(--color-black-12)'
+        : 'var(--color-white-15)',
     text: (tk) => tk.brand.DEFAULT,
     icon: freeUseIcon,
     label: tt('adaptersPayButtontaro.d1', '免费使用'),
@@ -321,7 +329,11 @@ export function PayButton({
 
   return (
     <View style={viewStyles.root()}>
-      <View style={viewStyles.trigger(cfg.bg(tk), cfg.text(tk), disabled)} onTap={handleClick} hoverClass="opacity-60">
+      <View
+        style={viewStyles.trigger(cfg.bg(tk), cfg.text(tk), disabled)}
+        onTap={handleClick}
+        hoverClass="opacity-60"
+      >
         <Image
           src={cfg.icon}
           style={{ width: toRpx(12), height: toRpx(12), marginRight: toRpx(4) }}
@@ -331,10 +343,18 @@ export function PayButton({
       </View>
 
       {popupVisible ? (
-        <View style={viewStyles.modal(tk)} onTap={() => setPopupVisible(false)} hoverClass="opacity-60">
+        <View
+          style={viewStyles.modal(tk)}
+          onTap={() => setPopupVisible(false)}
+          hoverClass="opacity-60"
+        >
           <View style={viewStyles.dialog(tk)} onTap={handleModalTap} hoverClass="opacity-60">
             {/* 关闭按钮 */}
-            <View style={viewStyles.closeBtn()} onTap={() => setPopupVisible(false)} hoverClass="opacity-60">
+            <View
+              style={viewStyles.closeBtn()}
+              onTap={() => setPopupVisible(false)}
+              hoverClass="opacity-60"
+            >
               <Text style={textStyles.closeBtn()}>×</Text>
             </View>
             {/* 商品信息 */}
@@ -367,11 +387,16 @@ export function PayButton({
               <View
                 style={viewStyles.countBtn(tk, count <= 1)}
                 onTap={() => count > 1 && setCount(count - 1)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text>−</Text>
               </View>
               <Text style={textStyles.countValue()}>{count}</Text>
-              <View style={viewStyles.countBtn(tk, false)} onTap={() => setCount(count + 1)} hoverClass="opacity-60">
+              <View
+                style={viewStyles.countBtn(tk, false)}
+                onTap={() => setCount(count + 1)}
+                hoverClass="opacity-60"
+              >
                 <Text>+</Text>
               </View>
             </View>

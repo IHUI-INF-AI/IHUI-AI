@@ -302,7 +302,12 @@ export default function DevEnterCover() {
             </Text>
             <View className="dc-faq-grid">
               {FAQ_LIST(tt).map((item, idx) => (
-                <View key={idx} className="dc-faq-item" onClick={() => toWeb(item)} hoverClass="opacity-60">
+                <View
+                  key={idx}
+                  className="dc-faq-item"
+                  onClick={() => toWeb(item)}
+                  hoverClass="opacity-60"
+                >
                   <Text className="dc-faq-item-title">{item.title}</Text>
                   <Text className="dc-faq-item-context">{item.context}</Text>
                   <Text className="dc-faq-item-btn">{item.btn}</Text>

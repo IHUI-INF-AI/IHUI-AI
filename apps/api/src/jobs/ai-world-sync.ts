@@ -1051,9 +1051,7 @@ async function seedSeenTitlesFromDb(): Promise<void> {
       added++
     }
   }
-  logger.info(
-    `[ai-world-sync] seeded ${added} dedup keys from last ${DEDUP_LOOKBACK_DAYS}d items`,
-  )
+  logger.info(`[ai-world-sync] seeded ${added} dedup keys from last ${DEDUP_LOOKBACK_DAYS}d items`)
 }
 
 /** upsert 结果:区分新增/更新/去重跳过/错误,便于日志准确统计 */
@@ -1674,14 +1672,16 @@ async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
     'https://hf-mirror.com/api/models?sort=downloads&direction=-1&limit=100&full=true&filter=text-generation',
   ]
   try {
-    let data: Array<{
-      id: string
-      downloads: number
-      likes: number
-      pipeline_tag?: string
-      lastModified?: string
-      tags?: string[]
-    }> | undefined
+    let data:
+      | Array<{
+          id: string
+          downloads: number
+          likes: number
+          pipeline_tag?: string
+          lastModified?: string
+          tags?: string[]
+        }>
+      | undefined
     for (const url of hfUrls) {
       const host = new URL(url).host
       try {

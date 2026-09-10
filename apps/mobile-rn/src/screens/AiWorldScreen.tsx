@@ -122,7 +122,10 @@ function Chip({
       onPress={onPress}
       className={`mr-2 rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : dark ? 'bg-neutral-800' : 'bg-gray-100'}`}
     >
-      <Text className={`text-xs ${active ? 'text-white' : dark ? 'text-neutral-300' : 'text-gray-600'}`} numberOfLines={1}>
+      <Text
+        className={`text-xs ${active ? 'text-white' : dark ? 'text-neutral-300' : 'text-gray-600'}`}
+        numberOfLines={1}
+      >
         {label}
       </Text>
     </TouchableOpacity>
@@ -196,22 +199,25 @@ export function AiWorldScreen() {
   }, [load])
 
   // —— 榜单数据:leaderboard/category 变化即拉取 ——
-  const loadRankings = useCallback(async (lb: string, cat: string) => {
-    setRankLoading(true)
-    setRankError('')
-    try {
-      const res = await fetchApi<{ items: AiWorldRanking[] }>(
-        `/api/ai-world/rankings?leaderboard=${encodeURIComponent(lb)}&category=${encodeURIComponent(cat)}&limit=100`,
-      )
-      if (!res.success) throw new Error(res.error)
-      setRankings(res.data.items)
-    } catch {
-      setRankError(t('aiWorld.rankLoadFailed'))
-      setRankings([])
-    } finally {
-      setRankLoading(false)
-    }
-  }, [t])
+  const loadRankings = useCallback(
+    async (lb: string, cat: string) => {
+      setRankLoading(true)
+      setRankError('')
+      try {
+        const res = await fetchApi<{ items: AiWorldRanking[] }>(
+          `/api/ai-world/rankings?leaderboard=${encodeURIComponent(lb)}&category=${encodeURIComponent(cat)}&limit=100`,
+        )
+        if (!res.success) throw new Error(res.error)
+        setRankings(res.data.items)
+      } catch {
+        setRankError(t('aiWorld.rankLoadFailed'))
+        setRankings([])
+      } finally {
+        setRankLoading(false)
+      }
+    },
+    [t],
+  )
 
   useEffect(() => {
     if (tab !== 'rankings') return
@@ -300,7 +306,9 @@ export function AiWorldScreen() {
             item.rank <= 3 ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-gray-100 dark:bg-neutral-700'
           }`}
         >
-          <Text className={`text-sm font-semibold ${item.rank <= 3 ? 'text-amber-600' : 'text-gray-500'}`}>
+          <Text
+            className={`text-sm font-semibold ${item.rank <= 3 ? 'text-amber-600' : 'text-gray-500'}`}
+          >
             {item.rank}
           </Text>
         </View>
@@ -316,7 +324,9 @@ export function AiWorldScreen() {
         </View>
         <View className="ml-2 items-end">
           {item.score ? (
-            <Text className="text-sm font-semibold text-orange-600">{Number(item.score).toFixed(1)}</Text>
+            <Text className="text-sm font-semibold text-orange-600">
+              {Number(item.score).toFixed(1)}
+            </Text>
           ) : null}
           {votes !== null && Number.isFinite(votes) ? (
             <Text className="mt-0.5 text-[11px] text-gray-400">
@@ -396,7 +406,11 @@ export function AiWorldScreen() {
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                data={leaderboards.length > 0 ? leaderboards : [{ leaderboard: 'lmsys', categories: [] }]}
+                data={
+                  leaderboards.length > 0
+                    ? leaderboards
+                    : [{ leaderboard: 'lmsys', categories: [] }]
+                }
                 keyExtractor={(item) => item.leaderboard}
                 renderItem={({ item }) => (
                   <Chip
@@ -494,7 +508,10 @@ export function AiWorldScreen() {
                 <FlatList
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  data={[{ id: '__all__', name: t('aiWorld.categoryAll'), slug: '' }, ...feed.categories]}
+                  data={[
+                    { id: '__all__', name: t('aiWorld.categoryAll'), slug: '' },
+                    ...feed.categories,
+                  ]}
                   keyExtractor={(item) => item.id}
                   renderItem={({ item }) => (
                     <Chip

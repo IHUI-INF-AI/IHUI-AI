@@ -74,8 +74,16 @@ export default function CertVerifyPage() {
               }}
             />
           </div>
-          <Button className="w-full" disabled={loading || !no.trim()} onClick={() => void onVerify()}>
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+          <Button
+            className="w-full"
+            disabled={loading || !no.trim()}
+            onClick={() => void onVerify()}
+          >
+            {loading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="mr-2 h-4 w-4" />
+            )}
             {t('verifyBtn')}
           </Button>
         </CardContent>

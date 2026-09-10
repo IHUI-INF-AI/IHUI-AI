@@ -41,7 +41,9 @@ describe('parseChatStream — 帧解析', () => {
   })
 
   it('同一 chunk 内多帧全部解析', async () => {
-    const out = await collect(parseChatStream(streamFrom([chunk('a', 'x'), chunk('b', 'y'), chunk('c', 'z')])))
+    const out = await collect(
+      parseChatStream(streamFrom([chunk('a', 'x'), chunk('b', 'y'), chunk('c', 'z')])),
+    )
     expect(out.map((c: ChatStreamChunk) => c.id)).toEqual(['a', 'b', 'c'])
   })
 
@@ -93,7 +95,9 @@ describe('parseChatStream — 帧解析', () => {
 
   it('SSE 注释/心跳行与 event:/id: 行被跳过', async () => {
     const out = await collect(
-      parseChatStream(streamFrom([': keep-alive\n\n', 'event: ping\n\n', 'id: 1\n\n', chunk('a', 'ok')])),
+      parseChatStream(
+        streamFrom([': keep-alive\n\n', 'event: ping\n\n', 'id: 1\n\n', chunk('a', 'ok')]),
+      ),
     )
     expect(out).toHaveLength(1)
     expect(out[0].id).toBe('a')
@@ -131,7 +135,9 @@ describe('parseAgentStream — 事件解析', () => {
   })
 
   it('data 行非 JSON → 回退 {type:raw}', async () => {
-    const out = await collect(parseAgentStream(streamFrom(['data: <<heartbeat>>\n\ndata: [DONE]\n\n'])))
+    const out = await collect(
+      parseAgentStream(streamFrom(['data: <<heartbeat>>\n\ndata: [DONE]\n\n'])),
+    )
     expect(out).toEqual([{ type: 'raw', data: { text: '<<heartbeat>>' } }])
   })
 

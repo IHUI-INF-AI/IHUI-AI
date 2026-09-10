@@ -151,7 +151,8 @@ export default function AppPermission() {
         <View
           className="bg-card rounded-[24rpx] border border-border p-[28rpx] flex items-center justify-between"
           onClick={onOpenSetting}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <Text className="text-[32rpx] font-semibold text-foreground">
             {tt('about.appPermission.openAllSetting', '打开系统设置')}
           </Text>

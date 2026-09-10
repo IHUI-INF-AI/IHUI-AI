@@ -94,9 +94,7 @@ export async function resolveUsdToCnyRate(): Promise<number> {
           ? (payload as Record<string, unknown>).rates
           : undefined
       const rate =
-        typeof cny === 'object' && cny !== null
-          ? (cny as Record<string, unknown>).CNY
-          : undefined
+        typeof cny === 'object' && cny !== null ? (cny as Record<string, unknown>).CNY : undefined
       if (typeof rate === 'number' && Number.isFinite(rate) && rate > 0) {
         fxRateCache = { rate, fetchedAt: now }
         logger.info(`[litellm-price-sync] live USD/CNY rate: ${rate}`)
@@ -137,8 +135,10 @@ export function mapLiteLLMEntry(
   if (typeof output !== 'number' || !Number.isFinite(output) || output < 0) return null
   return {
     modelId: id,
-    inputTokenPrice: Math.round(input * rate * USD_PER_TOKEN_TO_CENTS_PER_1K * PRICE_SCALE) / PRICE_SCALE,
-    outputTokenPrice: Math.round(output * rate * USD_PER_TOKEN_TO_CENTS_PER_1K * PRICE_SCALE) / PRICE_SCALE,
+    inputTokenPrice:
+      Math.round(input * rate * USD_PER_TOKEN_TO_CENTS_PER_1K * PRICE_SCALE) / PRICE_SCALE,
+    outputTokenPrice:
+      Math.round(output * rate * USD_PER_TOKEN_TO_CENTS_PER_1K * PRICE_SCALE) / PRICE_SCALE,
   }
 }
 

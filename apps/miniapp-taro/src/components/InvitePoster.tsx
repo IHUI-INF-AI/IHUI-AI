@@ -68,14 +68,19 @@ export default function InvitePoster({
         </Text>
 
         <View className="flex space-x-3">
-          <View className="flex-1 py-2.5 rounded-md bg-muted text-center" onClick={onSave} hoverClass="opacity-60">
+          <View
+            className="flex-1 py-2.5 rounded-md bg-muted text-center"
+            onClick={onSave}
+            hoverClass="opacity-60"
+          >
             <Text className="text-sm text-foreground">{tt('invite.saveImage', '保存图片')}</Text>
           </View>
           <View
             className="flex-1 py-2.5 rounded-md text-center text-accent-foreground"
             style={{ background: 'var(--color-accent)' }}
             onClick={onShare}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-sm text-accent-foreground">
               {tt('invite.shareNow', '立即分享')}
             </Text>

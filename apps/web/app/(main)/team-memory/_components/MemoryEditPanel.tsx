@@ -41,7 +41,13 @@ interface MemoryEditPanelProps {
   onCancel: () => void
 }
 
-export function MemoryEditPanel({ editing, saving, onChange, onSave, onCancel }: MemoryEditPanelProps) {
+export function MemoryEditPanel({
+  editing,
+  saving,
+  onChange,
+  onSave,
+  onCancel,
+}: MemoryEditPanelProps) {
   const t = useTranslations('teamMemory')
 
   return (

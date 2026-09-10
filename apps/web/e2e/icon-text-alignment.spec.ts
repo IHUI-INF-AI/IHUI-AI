@@ -185,7 +185,10 @@ test.describe('icon + 文字垂直对齐守门', () => {
       await scrollIntoNavSafeSpot(page, `aside#main-sidebar [data-testid="${testid}"]`)
       await link.hover()
       await page.waitForTimeout(200) // 等 transition-colors 完成
-      const hoverResult = await measureAlignment(page, `aside#main-sidebar [data-testid="${testid}"]`)
+      const hoverResult = await measureAlignment(
+        page,
+        `aside#main-sidebar [data-testid="${testid}"]`,
+      )
       expect(
         Math.abs(hoverResult.delta - hoverResult.expectedOffset),
         `${testid} hover 态: |delta−offset| ${Math.abs(hoverResult.delta - hoverResult.expectedOffset).toFixed(3)}px 应 ≤ ${DELTA_THRESHOLD_PX}px`,
@@ -298,7 +301,9 @@ test.describe('icon + 文字垂直对齐守门', () => {
     // (与 Tailwind v4 translate-y-* 同属性互斥覆盖,根治双重叠加),
     // 故此处检查 computed translate 而非 transform matrix。
     const translateApplied = await page.evaluate(() => {
-      const btn = document.querySelector('aside#main-sidebar button[aria-pressed]') as HTMLElement | null
+      const btn = document.querySelector(
+        'aside#main-sidebar button[aria-pressed]',
+      ) as HTMLElement | null
       if (!btn) return false
       const span = btn.querySelector('span') as HTMLElement | null
       if (!span) return false

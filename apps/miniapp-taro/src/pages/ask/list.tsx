@@ -103,7 +103,12 @@ export default function AskListPage() {
         {list.length ? (
           <View className="list">
             {list.map((a) => (
-              <View key={a.id} className="item" onClick={() => goDetail(a.id)} hoverClass="opacity-60">
+              <View
+                key={a.id}
+                className="item"
+                onClick={() => goDetail(a.id)}
+                hoverClass="opacity-60"
+              >
                 <Text className="title">{a.title}</Text>
                 {/* meta 行对齐 RN SharedAskListScreen:作者左 / 回答数右 */}
                 <View className="meta">

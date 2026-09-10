@@ -202,10 +202,18 @@ export default function RankingDetailPage() {
         </View>
         <Text className="detail-nav-title">{navTitle}</Text>
         <View className="detail-nav-actions">
-          <View className="detail-nav-btn" onClick={() => openDrawer('fenlei')} hoverClass="opacity-60">
+          <View
+            className="detail-nav-btn"
+            onClick={() => openDrawer('fenlei')}
+            hoverClass="opacity-60"
+          >
             <Text>{tt('ranking.fenlei', '分类')}</Text>
           </View>
-          <View className="detail-nav-btn" onClick={() => openDrawer('menu')} hoverClass="opacity-60">
+          <View
+            className="detail-nav-btn"
+            onClick={() => openDrawer('menu')}
+            hoverClass="opacity-60"
+          >
             <Text>{tt('ranking.menu', '菜单')}</Text>
           </View>
         </View>
@@ -279,7 +287,11 @@ export default function RankingDetailPage() {
 
           {/* 官方网址(点击复制 + "点击复制"提示) */}
           {data.url ? (
-            <View className="field-card" onClick={() => onCopyUrl(data.url!)} hoverClass="opacity-60">
+            <View
+              className="field-card"
+              onClick={() => onCopyUrl(data.url!)}
+              hoverClass="opacity-60"
+            >
               <View className="field-item">
                 <Text className="field-label">{tt('ranking.detail.url', '官方网址')}</Text>
                 <Text className="field-value link-value">{data.url}</Text>
@@ -291,9 +303,7 @@ export default function RankingDetailPage() {
           {/* 详细介绍文本:context(RN contextBox 形态) */}
           {data.content ? (
             <View className="content-card">
-              <Text className="content-title">
-                {tt('ranking.detail.contentTitle', '详细介绍')}
-              </Text>
+              <Text className="content-title">{tt('ranking.detail.contentTitle', '详细介绍')}</Text>
               <Text className="content-text">{data.content}</Text>
             </View>
           ) : null}
@@ -330,7 +340,8 @@ export default function RankingDetailPage() {
                         closeDrawer()
                         Taro.redirectTo({ url: `/pages/ranking/detail?id=${itemId}` })
                       }}
-                      hoverClass="opacity-60">
+                      hoverClass="opacity-60"
+                    >
                       <Text className="drawer-item-text">{name || '-'}</Text>
                     </View>
                   </ThemeRoot>

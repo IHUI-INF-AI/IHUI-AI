@@ -152,7 +152,8 @@ export default function ContactPage() {
                 onClick={() =>
                   item.actionType === 'call' ? call(item.value) : copy(item.value, item.label)
                 }
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 {isImagePath(item.icon) ? (
                   <Image
                     src={item.icon}
@@ -185,7 +186,8 @@ export default function ContactPage() {
             <View
               className="flex items-center p-[28rpx]"
               onClick={() => openLocation(info.address)}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Image
                 src={gongsiIcon}
                 className="w-[40rpx] h-[40rpx] flex-shrink-0"

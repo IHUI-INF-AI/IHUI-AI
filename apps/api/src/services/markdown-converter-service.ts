@@ -486,7 +486,9 @@ export async function convertToMarkdownDetailed(
           // 落盘文件无后缀:读字节,优先 formatFromBytes 字节探测,再回退原始文件名格式
           const bytes = new Uint8Array(readFileSync(filePath))
           const fmt =
-            anydoc.formatFromBytes?.(bytes) ?? anydoc.formatFromPath(originalName ?? filePath) ?? null
+            anydoc.formatFromBytes?.(bytes) ??
+            anydoc.formatFromPath(originalName ?? filePath) ??
+            null
           md = await anydoc.toMarkdownBytes(bytes, fmt)
         }
         if (md && md.trim()) return { markdown: md }

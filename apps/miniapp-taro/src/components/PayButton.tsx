@@ -136,7 +136,8 @@ export default function PayButton({
           disabled ? 'opacity-50' : ''
         }`}
         onClick={handleClick}
-        hoverClass="opacity-60">
+        hoverClass="opacity-60"
+      >
         <Image className="w-3 h-3 mr-1" src={cfg.icon} mode="aspectFit" />
         <Text>{cfg.label}</Text>
       </View>
@@ -145,11 +146,13 @@ export default function PayButton({
       {popupVisible && (
         <View
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-[var(--color-black-40)]"
-          onClick={() => setPopupVisible(false)}>
+          onClick={() => setPopupVisible(false)}
+        >
           <View
             className="bg-card rounded-xl mx-6 w-full max-w-sm p-4"
             onClick={(e) => e.stopPropagation()}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             {/* 商品信息 */}
             <View className="flex items-center mb-3">
               {agentAvatar ? (
@@ -186,14 +189,16 @@ export default function PayButton({
               <View
                 className="w-7 h-7 flex items-center justify-center rounded-md border border-border"
                 onClick={() => count > 1 && setCount(count - 1)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text className="text-sm">−</Text>
               </View>
               <Text className="mx-3 text-sm">{count}</Text>
               <View
                 className="w-7 h-7 flex items-center justify-center rounded-md border border-border"
                 onClick={() => setCount(count + 1)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text className="text-sm">+</Text>
               </View>
             </View>
@@ -201,7 +206,8 @@ export default function PayButton({
             <View
               className="w-full py-3 rounded-md text-center bg-primary text-primary-foreground font-medium"
               onClick={handlePay}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-sm">
                 {tt('pay.payNow', '立即支付')} ¥{realPrice}
               </Text>

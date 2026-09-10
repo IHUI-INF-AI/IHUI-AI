@@ -995,7 +995,10 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const conversationTail = conversationId.slice(-4)
-    const forcedLimit = Math.max(2000, Math.ceil(Math.floor(estimateMessagesTokens(messages)) / 0.87))
+    const forcedLimit = Math.max(
+      2000,
+      Math.ceil(Math.floor(estimateMessagesTokens(messages)) / 0.87),
+    )
 
     // ② LLM 语义摘要(缓存命中优先,未命中实时生成;失败返回 null → 共享包静默降级规则摘要),
     //    与 /chat/stream 自动压缩同一套 [SemanticSummary] 管线。手动压缩立即执行,无需 70% 预热。

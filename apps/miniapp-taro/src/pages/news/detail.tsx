@@ -169,7 +169,8 @@ export default function NewsDetailPage() {
                   key={r.id}
                   className="flex gap-[20rpx] p-[20rpx] bg-card rounded-[16rpx]"
                   onClick={() => goRelated(r.id)}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   {r.coverUrl ? (
                     <Image
                       className="w-[192rpx] h-[120rpx] rounded-[12rpx] shrink-0 bg-secondary"
@@ -207,13 +208,15 @@ export default function NewsDetailPage() {
         {/* 底部操作栏:对齐 RN wrapper bottomBar(space-around + hairline 上边框 + 白底) */}
         {!loading && news.title ? (
           <View className="fixed bottom-0 left-0 right-0 flex flex-row items-center justify-around bg-card border-t border-border pt-[16rpx] pb-[calc(20rpx+env(safe-area-inset-bottom,0))]">
-            <View className="flex flex-row items-center gap-[8rpx] bg-transparent" onClick={onLike} hoverClass="opacity-60">
+            <View
+              className="flex flex-row items-center gap-[8rpx] bg-transparent"
+              onClick={onLike}
+              hoverClass="opacity-60"
+            >
               <LineIcon
                 name="heart"
                 size={18}
-                color={
-                  liked ? 'var(--color-danger-bright)' : 'var(--color-muted-foreground)'
-                }
+                color={liked ? 'var(--color-danger-bright)' : 'var(--color-muted-foreground)'}
               />
               <Text className="text-[26rpx] text-muted-foreground leading-none">
                 {likes > 0 ? likes : tt('news.detail.like', '点赞')}
@@ -222,12 +225,9 @@ export default function NewsDetailPage() {
             <View
               className="flex flex-row items-center gap-[8rpx] bg-transparent"
               onClick={onComment}
-              hoverClass="opacity-60">
-              <LineIcon
-                name="message-circle"
-                size={18}
-                color="var(--color-muted-foreground)"
-              />
+              hoverClass="opacity-60"
+            >
+              <LineIcon name="message-circle" size={18} color="var(--color-muted-foreground)" />
               <Text className="text-[26rpx] text-muted-foreground leading-none">
                 {comments > 0 ? comments : tt('news.detail.comment', '评论')}
               </Text>
@@ -235,7 +235,8 @@ export default function NewsDetailPage() {
             <View
               className="flex flex-row items-center gap-[8rpx] bg-transparent"
               onClick={onShare}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <LineIcon name="share-2" size={18} color="var(--color-muted-foreground)" />
               <Text className="text-[26rpx] text-muted-foreground leading-none">
                 {tt('news.detail.share', '分享')}

@@ -120,7 +120,10 @@ export async function findConversationsByUser(
   const [countRows, favRows] = await Promise.all([
     pageIds.length
       ? db
-          .select({ conversationId: chatMessages.conversationId, messageCount: count(chatMessages.id) })
+          .select({
+            conversationId: chatMessages.conversationId,
+            messageCount: count(chatMessages.id),
+          })
           .from(chatMessages)
           .where(inArray(chatMessages.conversationId, pageIds))
           .groupBy(chatMessages.conversationId)
@@ -134,9 +137,7 @@ export async function findConversationsByUser(
           )
       : Promise.resolve([] as { id: string }[]),
   ])
-  const countMap = new Map(
-    countRows.map((r) => [r.conversationId, Number(r.messageCount)]),
-  )
+  const countMap = new Map(countRows.map((r) => [r.conversationId, Number(r.messageCount)]))
   const favSet = new Set(favRows.map((r) => r.id))
 
   const list = rows.map((r) => ({
@@ -780,14 +781,15 @@ export async function findFavoriteConversations(
   const pageIds = rows.map((r) => r.id)
   const countRows = pageIds.length
     ? await db
-        .select({ conversationId: chatMessages.conversationId, messageCount: count(chatMessages.id) })
+        .select({
+          conversationId: chatMessages.conversationId,
+          messageCount: count(chatMessages.id),
+        })
         .from(chatMessages)
         .where(inArray(chatMessages.conversationId, pageIds))
         .groupBy(chatMessages.conversationId)
     : []
-  const countMap = new Map(
-    countRows.map((r) => [r.conversationId, Number(r.messageCount)]),
-  )
+  const countMap = new Map(countRows.map((r) => [r.conversationId, Number(r.messageCount)]))
 
   const list = rows.map((r) => ({
     ...r,
