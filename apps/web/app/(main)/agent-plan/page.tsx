@@ -6,7 +6,7 @@ import { AgentPlanStudio } from '@/components/agent-plan/AgentPlanStudio'
 
 export default function AgentPlanPage() {
   return (
-    <div className="px-4 py-8">
+    <div className="px-4 py-4">
       <AgentPlanStudio />
     </div>
   )

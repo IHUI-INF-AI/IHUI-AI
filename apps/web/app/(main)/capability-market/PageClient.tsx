@@ -106,7 +106,7 @@ export default function CapabilityMarketPageClient() {
   const total = data?.total ?? 0
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5 px-4">
+    <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
         <div className="flex items-center gap-2">

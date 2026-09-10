@@ -73,7 +73,7 @@ export default async function BlogPostPage({ params }: PageProps) {
   })
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-8 min-[768px]:py-8">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <script
         type="application/ld+json"
         // 安全转义:JSON.stringify 不转义 `<`,防止内容含 `</script>` 提前闭合脚本标签(Google/Next.js 官方推荐做法)
