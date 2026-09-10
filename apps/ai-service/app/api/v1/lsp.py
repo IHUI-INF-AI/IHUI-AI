@@ -143,29 +143,40 @@ def _normalize_locations(result: Any) -> list[dict[str, Any]]:
 
 
 def _format_location(loc: dict[str, Any], workspace_path: str) -> dict[str, Any]:
-    """对外暴露的 Location 结构(relpath + 1-based line/col)。"""
+    """对外暴露的 Location 结构(relpath + 1-based line/col,含 range 终点)。
+
+    endLine/endColumn 缺失时回退 start 坐标(Monaco 侧零宽 range 兜底)。
+    """
     try:
         abs_path = _from_uri(loc.get("uri", ""))
         rel = os.path.relpath(abs_path, workspace_path).replace(os.sep, "/")
     except Exception:
         rel = loc.get("uri", "")
-    start = (loc.get("range") or {}).get("start", {})
+    rng = loc.get("range") or {}
+    start = rng.get("start", {})
+    end = rng.get("end", {})
     return {
         "file": rel,
         "line": start.get("line", 0) + 1,
         "column": start.get("character", 0) + 1,
+        "endLine": end.get("line", start.get("line", 0)) + 1,
+        "endColumn": end.get("character", start.get("character", 0)) + 1,
     }
 
 
 def _format_diagnostic(d: dict[str, Any]) -> dict[str, Any]:
-    """对外暴露的 Diagnostic 结构(对齐 lsp.ts formatDiagnostic)。"""
+    """对外暴露的 Diagnostic 结构(对齐 lsp.ts formatDiagnostic,含 range 终点)。"""
     sev = d.get("severity")
     severity = {1: "Error", 2: "Warning", 3: "Info", 4: "Hint"}.get(sev, "Unknown") if isinstance(sev, int) else "Unknown"
-    start = (d.get("range") or {}).get("start", {})
+    rng = d.get("range") or {}
+    start = rng.get("start", {})
+    end = rng.get("end", {})
     return {
         "severity": severity,
         "line": start.get("line", 0) + 1,
         "column": start.get("character", 0) + 1,
+        "endLine": end.get("line", start.get("line", 0)) + 1,
+        "endColumn": end.get("character", start.get("character", 0)) + 1,
         "source": d.get("source", ""),
         "code": d.get("code"),
         "message": d.get("message", ""),

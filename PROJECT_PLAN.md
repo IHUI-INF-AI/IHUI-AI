@@ -33,22 +33,22 @@
 
 ### P0 立即执行(1 周内)
 
-- [ ] 0-1 沙箱默认禁网 + 三平台策略测试
-- [ ] 0-2 黄金 E2E runner 固化:复用 IHUI-Bench 20 任务,增加端到端 review/checkpoint 断言
+- [x] 0-1 沙箱默认禁网 + 三平台策略测试 ✅(2026-09-09 复核,详见「本轮开发状态」)
+- [x] 0-2 黄金 E2E runner 固化:复用 IHUI-Bench 20 任务,增加端到端 review/checkpoint 断言 ✅(2026-09-09 复核,详见「本轮开发状态」)
 - [x] 0-3 Monaco FIM Provider ✅(2026-09-07):已有 provider 基础上补齐 AbortController、3s 超时、30 条 LRU 缓存、请求/取消/失败/建议指标(`window.__ihuiFimMetrics`),专项测试 4/4
-- [ ] 0-4 LSP 四核心前端接线与类型契约
-- [ ] 0-5 直接 fetch 清单化迁移
+- [x] **0-4 LSP 四核心前端接线与类型契约** ✅(2026-09-09):见下方完成报告
+- [x] **0-5 直接 fetch 清单化迁移** ✅(2026-09-09):四批迁移 + 豁免固化。① 6 处 ai-service 直连 → `fetchAiServiceJson`(鉴权/CSRF/设备指纹/超时统一);② knowledge/a2a/orchestration/personas/voice-stt/edu 等 AI 端点页同批收口;③ FormData 上传(AttachmentsUpload)+ **chunkUpload 协议修复**(原 `/api/upload/chunk` 为后端不存在的死端点,重写为 init→upload(octet-stream+x-upload-id/x-chunk-number,1-based)→merge 三步,修复 TiptapToolbar 图片上传必 404 的真实 bug);④ 4 处 blob 下载 → `fetchRaw`。类型增强:`ApiResult` success 分支补可选 `status`(client.ts 三处),消除 admin/relay 200/201 区分的迁移障碍。剩余 14 处裸 fetch 全部固化「0-5-f 豁免确认」注释:SSE 流式×2 / 埋点 keepalive×3 / RSC 缓存 / no-cors 测速 / 第三方 API×3 / playground OpenAI 协议×2 / api-debug / 文本预览外部 URL×2 / SSO 认证自举(不走 401 自动续期)。验收:web+api-client+types typecheck 0 错 / 定向 eslint 0 错 / api-client 145+web FilePreview 2 测试全绿
 - [ ] 0-6 UI 大组件拆分:terminal-tab-bar / file-explorer / agent-pane / debug-panel
 
 ### P1 深度打磨(1 个月)
 
 - [x] **1-1 Agent Timeline 全可解释** ✅(2026-09-08):见下方完成报告
 - [x] **1-2 补丁冲突处理** ✅(2026-09-08):见下方完成报告
-- [ ] 1-3 压缩生产指标与灰度
-- [ ] 1-4 MCP 生态质量分与安全评分
+- [x] **1-3 压缩生产指标与灰度** ✅(2026-09-08):见下方完成报告
+- [x] **1-4 MCP 生态质量分与安全评分** ✅(2026-09-09):见下方完成报告
 - [x] **1-5 agent_loop_v2 架构拆分** ✅(2026-09-08):见下方完成报告
-- [ ] 1-6 键盘优先交互:命令面板、快捷键、inline chat
-- [ ] 1-7 调试链路 DAP 化与断点/变量/watch 稳定性
+- [x] **1-6 键盘优先交互** ✅(2026-09-09):见下方完成报告
+- [x] **1-7 调试链路 DAP 化与断点/变量/watch 稳定性** ✅(2026-09-09):见下方完成报告
 
 ### 1-1 Agent Timeline 全可解释完成报告(2026-09-08)
 
@@ -79,6 +79,57 @@
 - **bench golden 执行器 + CI 门禁**:`bench/fixtures_golden/` 4 夹具参考答案(覆盖全部 41 任务检查,pytest 全绿)→ `--executor golden` 跳过 agent 循环直评,bench 评分链路自检应 100% 通过;`--min-pass-rate`(显式给出时低于门槛 stderr 报「通过率低于门槛」+ exit 1)供 CI 阻塞回归。test_bench_golden 4/4 + test_bench 全过。
 - **验收**:全量回归 **10229 passed / 3 skipped / 2 failed**(2 失败均非本改动回归:test_native_fc_e2e_real 为 StepFun 账号配额 402 外部依赖耗尽、test_tls_stealth「Event loop is closed」高负载偶发且单独复跑通过);mypy strict 改动模块 0 错误;pytest-timeout(--timeout=180)纳入回归防异步卡死。
 
+### 1-3 压缩生产指标与灰度完成报告(2026-09-08)
+
+- **灰度模块**(新增 `app/core/compaction_rollout.py`):`CONTEXT_COMPACTION_ROLLOUT_PERCENT` env(0-100,默认 100=全量,与现状零差异);`user_rollout_bucket` 取 md5(user_id) 前 8 位十六进制 % 100 稳定分桶(不依赖 PYTHONHASH_SEED);`is_user_rollout_enabled(user_id)` 桶值 < 百分比即命中;匿名(user_id 空)保守策略——仅 100% 全量才命中。
+- **Prometheus 生产指标**(`app/middleware/llm_metrics.py`):CONTEXT_COMPACTION_TRIGGERED/SUCCESS(trigger×source 双维)与 FAILURE(source×reason)Counter + SAVED_RATIO(节省比)/DURATION_SECONDS(耗时)/QUALITY_RETENTION(关键事实保留率)Histogram;新增 `record_context_compaction`/`record_context_compaction_failure` 埋点辅助,全部 try/except 防御(指标失败绝不阻塞压缩主链路)。
+- **四个接线点**:llm.py `/llm/complete` 与 `/llm/complete/stream`(source=llm_route)+ agent_loop_v2 `_maybe_compact_context`(source=agent_loop);统一模式 = 灰度前置判断(未命中直接原消息)→ perf_counter 计时 → 真实 trigger 透传(`"ratio"`/`"truncated"`/`"incompressible"`,替换原先硬编码 `"deterministic"`)→ 成功埋点+感知面板登记 → 异常 failure 埋点并降级原消息;agent 事件额外携带 duration_ms。
+- **压缩质量评估**(`app/services/compaction_quality.py` 新增 `quality_summary`):受 tunables `AGENT_COMPACTION_QUALITY_ENABLED`(默认 true)开关控制;基于 `evaluate_retention` 硬键(path/url/number/date/entity)+软事实(intent)提取,输出 retention_ratio/facts_retained/facts_total/method。
+- **聚合报告端点**:GET /api/context-compaction/stats(admin-only)——compaction 聚合(触发数/成功数/节省比 avg-min-max/耗时 avg/保留率 avg/trigger×source 明细)+ recall 命中率 + 当前 rollout_percent;hit_rate 除零防御(None)。
+- **感知面板透传**:`record_compaction`(context_compaction.py)扩展 source/duration_ms/quality 三字段,llm_route 与 agent_loop 两条链统一登记。
+- **验收**:专项 pytest 135 passed(test_compaction_rollout 新建 ~430 行:env 解析/分桶稳定性/2000 用户 50% 均匀性/边界等价/匿名策略/agent_loop 灰度联动/quality 开关/Prometheus 增量/stats 端点聚合+权限,共 7 个压缩相关测试文件);mypy strict 改动 7 文件 0 错误;全量回归 10342 passed / 2 failed(均非本改动回归:test_native_fc_e2e_real 为 StepFun 账号配额 402 外部依赖、test_tls_stealth「Event loop is closed」全量顺序下 teardown 抖动且单独/组合复跑均通过)。
+
+### 1-4 MCP 生态质量分与安全评分完成报告(2026-09-09)
+
+- **评分引擎**(新增 `apps/ai-service/app/services/mcp_scoring.py`):双维度独立百分制——质量分(元数据/工具文档/工具数/transport 规范/认证方式/维护信号 6 维加权,映射 A/B/C/D 等级)+ 安全分(高危工具面/无认证传输/敏感 env 3 维,映射 low/medium/high/critical 风险等级);high/critical 强制 `confirm_required` 确认门;`inline_summary` 输出列表内联轻量摘要,`score_server` 输出全维度明细(name/score/weight/detail)+ risk_factors + recommendation。
+- **路由接线**(`apps/ai-service/app/routers/mcp.py`):store 列表条目内联 `scoring` 摘要;GET `/api/mcp/store/{key}/score` 返回全明细(旧后端缺省字段前端判空降级);POST install 新增 `confirm_risk` 门——高风险未确认直接 409 `RISK_CONFIRM_REQUIRED`(与前端预检构成双保险)。
+- **api-client 类型层**(`packages/api-client/src/endpoints/mcp.ts`):新增 `McpSecurityLevel`/`McpQualityGrade`/`McpScoringSummary`/`McpScoreDimension`/`McpScoreDetail` 5 类型;`McpStoreEntry.scoring?` 可选字段(旧后端 undefined 判空);`InstallStoreServerInput.confirm_risk?`;`getMcpServerScore(key)` 端点函数。
+- **mcp-store 前端**(`app/(main)/mcp-store/PageClient.tsx`):卡片标题行 `ScoringBadges` 双徽章(质量等级 A/B/C/D → success/primary/warning/danger + 风险等级四色,悬停 title 显示完整分数);安装前 `entry.scoring.confirm_required` 预检 + 后端 409 `RISK_CONFIRM_REQUIRED` 兜底拉起风险确认 Dialog(评分明细拉取失败降级内联摘要 + 通用文案,不阻塞确认);确认后带 `confirm_risk=true` 重试。
+- **Badge 通用组件**(`src/components/data/Badge.tsx`):新增可选 `title` 悬停提示属性。
+- **5 语言 i18n**:mcpStore 命名空间 12 key(quality/riskTitle/risk 四等级/riskConfirmTitle/riskConfirmDesc/riskGeneric/riskRecommendation/riskCancel/riskConfirmProceed)× zh-CN/zh-TW/en/ko/ja。
+- **验收**:专项 pytest 27 passed(test_mcp_scoring:维度评分/等级映射/确认门/内联摘要/端点响应/409 门,修复 3 个测试函数二次评分累计 bug 后全绿);mypy strict 3 文件 0 错误;web `tsc --noEmit` 通过(修复 Badge title TS2322);定向 eslint 0 错误(全量 lint 报错均为 `.next-static/` 构建产物存量噪音,非本改动);5 语言 JSON keys 校验一致。
+
+### 1-6 键盘优先交互完成报告(2026-09-09)
+
+- **命令注册表单一事实源**(新增 `apps/web/src/lib/command-registry.ts`):21 内置命令(navigate/view/tools/settings/mode 五分组),声明式 action(`navigate`/`ideTab`/`workPanel`/`mode` 四类)保持纯数据零 React 依赖;`COMMAND_LABEL_KEY`/`COMMAND_DESC_KEY`/`COMMAND_KEYWORDS_KEY` 静态 Record 映射规避 next-intl 动态 key 拼接约束;MRU 持久化(localStorage `ihui-command-mru`,上限 8 条,时间戳严格递增 `Math.max(Date.now(), maxTs+1)` 根治同毫秒并列导致降序排序不稳定的淘汰错条目 bug);纯函数 `filterCommands`(label+keywords+description 模糊过滤,大小写不敏感)/`sortByMru`(命中前置)/`groupCommands`(分组顺序+空组过滤)。
+- **统一 CommandPalette 重写**(`src/components/layout/CommandPalette.tsx`):合并 Plus 菜单+路由命令+模式切换,「最近使用」MRU 分组置顶;GlobalTopBar 移除双面板监听,`Ctrl+Shift+P` 统一入口,`Ctrl+P` 经 global-hooks-provider 转发 open-plus 兼容旧肌肉记忆。
+- **快捷键帮助面板 i18n 化**(`src/providers/global-hooks-provider.tsx`):`SHORTCUT_DESC_KEYS` 静态映射 + `Ctrl+/` 帮助 + Esc 关闭。
+- **inline chat 多轮上下文升级**(`src/hooks/use-inline-edit.ts` + `src/stores/inline-edit.ts` + `src/components/ai/inline-edit-dialog.tsx`):done 态继续输入(follow-up)时,startEdit 把历史 turns 展开为 user(指令+当时代码)/assistant(patch) 消息对、基础代码取上轮生成结果;`commitTurn` 记录会话内全部轮次,UI 显示轮次徽标 + follow-up 占位符;acceptPatch/rejectPatch 历史记录指令为全轮次指令链(`join(' → ')`),对话框全部硬编码文案 i18n 化(拒绝/接受/提示文案)。
+- **顺带修复历史遗留 H4 缺口**(`src/components/ai/progress-sections/timeline-event.tsx`):1-1 交付时提交的 timeline-event.test.tsx 3 用例在组件中无对应实现(全量回归 3 失败)。补齐 evidence 证据链渲染——meta 携带 decision/reason/diff(红绿双列)/test(exit 徽章+passed/failed)/rollback(调 `rollbackCheckpoint` API,成功显示已回滚)/conflict(PATCH_BASELINE_CONFLICT 双列预览+已拒绝覆盖)时行可展开(与 children 共用 expandedEventIds);类型守卫宽松提取与 agent_step_recorder step meta 提升契约一致。
+- **5 语言 i18n**(zh-CN/en/zh-TW/ko/ja):commandPalette 21 命令 label/description/keywords + groups + recentGroup + unknown 兜底;inlineEdit 13 key;shortcutHelp 14 key。
+- **验收**:web `tsc --noEmit` 0 错误;定向 eslint 0 警告;vitest 全量 **1492 passed / 95 文件全绿**(新增 command-registry 17 + inline-edit 5 用例;timeline-event 3 历史遗留失败转绿);zustand 单例测试陷阱修复(beforeEach 显式重置 history/turns)。
+
+### 1-7 调试链路 DAP 化完成报告(2026-09-09)
+
+- **1-7a 后端 DAP 深化**(`apps/ai-service/app/services/debugger.py` + 路由端点):debugpy DAP 会话补 threads 列表、stackTrace 帧的 scopes 枚举、variables 子树按 variablesReference 懒加载;REST 端点 `/api/debug/threads|scopes|variables` 透传,api client(`@/lib/api/debug`)补 getThreads/getScopes/getVariablesByReference 契约。pytest 专项 22/22 全绿。
+- **1-7b 前端 debug store + 变量树**(`apps/web/src/stores/debug.ts` + `src/components/ide/debug-panel.tsx`):面板状态从组件 useState 迁移至 zustand 全局 store(编辑器 gutter 共享读写);变量树扁平 variablesByRef 映射(DAP variablesReference → 子变量)+ expandedRefs 懒加载子树;Scopes(Local/Globals/Return)分组渲染;watch 表达式稳定性修复;breakpoints/watches localStorage 持久化(沿用旧键平滑迁移);5 语言 i18n。
+- **1-7c 编辑器断点 gutter**(`src/components/editor/CodeEditor.tsx`):新增 `filePath` prop(code-editor-pane 透传 activeTab.path);`glyphMargin` 按需启用;`onMouseDown` 命中 `MouseTargetType.GUTTER_GLYPH_MARGIN`(type===2)时调 `useDebugStore.getState().toggleBreakpointAt(file, line)`;`deltaDecorations` 增量同步红点装饰 + `useDebugStore.subscribe` 订阅断点变化实时刷新(禁用断点过滤);`filePathRef` 支持编辑器实例跨文件复用不重挂载;卸载释放订阅。CSS 红点(`.ihui-breakpoint-glyph` 悬停放大 + margin 可点击)入 globals.css。
+- **测试**:store toggleBreakpointAt 2 用例(新增/移除+跨文件隔离);新建 code-editor.test.tsx 7 用例(glyphMargin 启用、gutter 点击写入+同步、再次点击移除、正文点击不触发、无 filePath 不触发、store 侧变化实时同步+禁用过滤、卸载取消订阅);FIM 回归 mock 链修复(mock `@/lib/api/debug` 切断 `@/lib/api` 模块加载期 4 个 api-client 导出传染;next/dynamic mock 归一化 lazy 结果根治 React 警告)。
+- **验收**:web `tsc --noEmit` 0 错误;定向 eslint 0 错误(1 个预存在 exhaustive-deps warning);vitest 全量 **1519 passed / 97 文件全绿**。
+
+### 0-4 LSP 四核心前端接线与类型契约完成报告(2026-09-09)
+
+- **0-4a 后端 end 坐标补齐**(`apps/ai-service/app/api/v1/lsp.py`):`_format_location`/`_format_diagnostic` 输出补 `endLine`/`endColumn` range 终点(前端高亮/跳转/诊断范围渲染依据);新建 `tests/test_lsp_api.py` 16 用例(4 端点参数/响应结构 + `_format_location`/`_format_diagnostic` 单测 + 503 lsp-unavailable 降级 + 404 文件不存在 + 422 参数校验)全绿。
+- **0-4b 链路打通**(`packages/api-client/src/endpoints/lsp.ts` + `index.ts` + `apps/web/next.config.ts`):4 端点函数(getLspDefinition/getLspReferences/getLspDiagnostics/getLspHover,timeout 12s)从 index 导出;next rewrites `/api/lsp/:path*` → ai-service `/api/v1/lsp/:path*`(与 `/api/llm/*` 共享 JWT Bearer 链路)。
+- **0-4c 前端四核心接线**(`apps/web/src/components/editor/CodeEditor.tsx`):
+  - `registerHoverProvider`(hover markdown 浮层)、`registerDefinitionProvider`(同文件返回 Monaco 跳转数组/跨文件回调 `onOpenLocation` + pendingReveal 机制在新 tab 内容加载完成后 setPosition+revealPositionInCenter 揭示)、`registerReferenceProvider`(同文件引用列表,跨文件过滤)、`onDidChangeModelContent` debounce 800ms + `setModelMarkers(owner:'ihui-lsp')` diagnostics squiggles(severity 字符串→MarkerSeverity 数值映射,Error→8/Warning→4/Info→2/Hint→1,monaco 常量缺失走协议默认)。
+  - Monaco 类型自封闭扩展:`languages` 命名空间(3 注册入口)+ `setModelMarkers`/`onDidChangeModelContent`/`setPosition`/`revealPositionInCenter`/`model.uri`/`MarkerSeverity` 全显式标注,不 import monaco-editor 类型。
+  - 失败静默降级:`success:false`(含 503 lsp-unavailable)返回 null/不渲染 markers,不弹窗不阻塞;`console.info` 一次性提示可改用 codegraph/goto_definition 或 codegraph/find_references 离线兜底(同挂载周期去重防刷屏)。
+  - refs 模式(workspacePathRef/onOpenLocationRef)支持编辑器实例跨 tab 复用实时读当前值;卸载释放 3 provider + 清理 diagnostics debounce + pendingReveal。
+- **IDE 宿主接线**(`src/components/ide/code-editor-pane.tsx` + `src/stores/ide-workspace.ts`):透传 `workspacePath`(useIDEWorkspace store);`handleOpenLocation` 跨文件 definition 跳转——已开 tab 直接激活、未开按 path 构造 FileNode(EXT_LANG 导出复用)走 `openFile` 异步加载。
+- **测试**:code-editor.test.tsx 新增 9 用例(三 provider 注册+内容订阅、无 workspacePath 短路不调后端、hover contents、definition 同文件跳转/跨文件回调、references 同文件过滤、LSP 不可用静默降级+一次性 codegraph 提示、diagnostics 渲染+severity 映射、diagnostics 失败不渲染);FIM 测试 mock 补 4 个 LSP 导入。
+- **验收**:web `tsc --noEmit` 0 错误;定向 eslint 0 错误(1 个预存在 warning);vitest 全量 **1528 passed / 97 文件全绿**;ai-service pytest 专项 16/16。
+
 ### P2 广度优势产品化(3 个月)
 
 - [ ] 2-1 项目知识引擎:RepoWiki、Knowledge Card、任务经验沉淀
@@ -98,7 +149,8 @@
 
 ### 本轮开发状态
 
-- [x] 0-1 沙箱默认禁网 ✅(2026-09-07):见本轮 commit/工作区;Windows/Linux/macOS 策略回归通过
+- [x] 0-1 沙箱默认禁网 ✅(2026-09-09 复核勾选):已随 commit `6e07fd6110` 落地 main(前次 2026-09-07 已验但 L36 复选框未同步)。`os_sandbox.py` `SandboxPolicy.allow_network` 默认 False;Windows 受限令牌 / Linux Landlock+bwrap / macOS Seatbelt 三后端;`uv run pytest tests/test_os_sandbox.py` 63/63 通过(含 net mask / `--unshare-all` / `(deny network*)` 三平台网络策略断言)
+- [x] 0-2 黄金 E2E runner 固化 ✅(2026-09-09 复核勾选):已随 commit `6e07fd6110` 落地 main(此前未勾选)。`bench/run_bench.py` 含 stub/loop_v2/golden 三执行器 + CI 门禁 `--min-pass-rate`;`uv run python -m bench.run_bench --executor golden` 41/41 通过率 100%(fixtures_golden 参考答案 + checker/fixture 结构校验 `validate_bench.py`);`enable_checkpoint=False` 显式注入 agent loop。H1「≥90% 通过率」的 golden 基线部分已达成,真实 CLI agent 通过率待后续真实 key 跑分补证
 
 > 📌 **2026-07-26 状态**:所有历史任务已完成并归档(109 个标准格式 + 6 个非标准格式执行报告)。本文件目前**无活跃任务**。所有归档内容在 `.trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md` 等归档文件中,可通过 `git log` 或归档目录检索。下方为已归档任务的 HTML 占位注释(按 AGENTS.md §1 规则保留,不可删除)。
 >

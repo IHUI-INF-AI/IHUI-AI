@@ -637,6 +637,37 @@ def assess_compaction(
     }
 
 
+def quality_summary(
+    original_messages: list[dict[str, Any]],
+    compressed_messages: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """压缩提交通道的质量摘要(P1 1-3,2026-09-08 立)。
+
+    供 routers/llm.py 与 agent_loop_v2._maybe_compact_context 在压缩成功后调用,
+    把 evaluate_retention 的关键结论压成可入库/可观测的小 dict:
+    {retention_ratio, facts_retained, facts_total, method}。
+
+    - AGENT_COMPACTION_QUALITY_ENABLED(tunables)=off 时返回 None(零开销,
+      与未接入时逐零差异)。
+    - 评估异常仅 debug 日志并返回 None(质量观测绝不影响压缩主链路)。
+    """
+    from ..core.tunables import AGENT_COMPACTION_QUALITY_ENABLED
+
+    if not AGENT_COMPACTION_QUALITY_ENABLED:
+        return None
+    try:
+        report = evaluate_retention(original_messages, compressed_messages)
+    except Exception as e:  # pragma: no cover - 防御性兜底
+        logger.debug("quality_summary 评估失败(忽略): %s", e)
+        return None
+    return {
+        "retention_ratio": round(report.retention_ratio, 4),
+        "facts_retained": report.facts_retained,
+        "facts_total": report.facts_total,
+        "method": report.method,
+    }
+
+
 __all__ = [
     "DEFAULT_RETENTION_THRESHOLD",
     "CompactionQualityGate",
@@ -647,4 +678,5 @@ __all__ = [
     "default_quality_gate",
     "evaluate_outcome",
     "evaluate_retention",
+    "quality_summary",
 ]

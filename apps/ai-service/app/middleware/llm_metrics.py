@@ -228,4 +228,128 @@ LLM_TOKEN_COMPACTION_RATIO = Histogram(
     buckets=(0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95, 0.99),
 )
 
+
+# =============================================================================
+# 上下文压缩生产指标(P1 1-3,2026-09-08 立)
+#
+# 覆盖语义/规则压缩链(core/context_compaction.compress_messages_if_needed)
+# 与回捞链(services/context_recall),与上方 token 压缩(RTK/Caveman)互补。
+# H7 验收项:压缩比、回捞命中率、压缩质量(保留率)进入生产报告。
+#
+# 触发场景:
+# - routers/llm.py /llm/complete 与 /llm/complete/stream 的 context_limit
+#   压缩分支(source=llm_route)
+# - agent_loop_v2._maybe_compact_context(source=agent_loop)
+#
+# 标签语义:
+# - trigger: 压缩触发原因(ratio / truncated / incompressible / deterministic)
+# - source:  压缩调用点(llm_route / agent_loop)
+# - reason:  FAILURE 原因(异常类型名)
+# =============================================================================
+
+CONTEXT_COMPACTION_TRIGGERED = Counter(
+    'ihui_context_compaction_triggered_total',
+    'Number of context compaction triggers (semantic/rule compaction chain)',
+    ['trigger', 'source'],
+)
+
+CONTEXT_COMPACTION_SUCCESS = Counter(
+    'ihui_context_compaction_success_total',
+    'Number of successful context compactions',
+    ['trigger', 'source'],
+)
+
+CONTEXT_COMPACTION_FAILURE = Counter(
+    'ihui_context_compaction_failure_total',
+    'Number of failed context compactions (degraded to original messages)',
+    ['source', 'reason'],
+)
+
+# 节省比例(0-1,值越大压缩收益越高)=(original-compressed)/original
+CONTEXT_COMPACTION_SAVED_RATIO = Histogram(
+    'ihui_context_compaction_saved_ratio',
+    'Context compaction saved token ratio (0-1, higher = more saved)',
+    ['trigger', 'source'],
+    buckets=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95),
+)
+
+CONTEXT_COMPACTION_DURATION_SECONDS = Histogram(
+    'ihui_context_compaction_duration_seconds',
+    'Context compaction wall-clock duration in seconds',
+    ['source'],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+)
+
+# 压缩质量(关键事实保留率,0-1;compaction_quality.evaluate_retention,
+# AGENT_COMPACTION_QUALITY_ENABLED=on 时观测)
+CONTEXT_COMPACTION_QUALITY_RETENTION = Histogram(
+    'ihui_context_compaction_quality_retention',
+    'Context compaction key-fact retention ratio (0-1, higher = better)',
+    ['source'],
+    buckets=(0.1, 0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99),
+)
+
+# =============================================================================
+# 上下文回捞指标(services/context_recall:压缩被移除消息的语义找回)
+#
+# - CONTEXT_RECALL_REQUESTS:结果标签 hit(results 非空)/ miss(阈值内无
+#   命中)/ empty_query / error —— 回捞命中率 = hit / (hit + miss + error)
+# - CONTEXT_RECALL_SNAPSHOT_ENTRIES:压缩快照写入向量库的条数
+#   (written=成功 / dropped=空文本或失败跳过)
+# =============================================================================
+
+CONTEXT_RECALL_REQUESTS = Counter(
+    'ihui_context_recall_requests_total',
+    'Context recall queries by outcome (hit/miss/empty_query/error)',
+    ['result'],
+)
+
+CONTEXT_RECALL_SNAPSHOT_ENTRIES = Counter(
+    'ihui_context_recall_snapshot_entries_total',
+    'Compacted-message snapshot entries written to vector store (written/dropped)',
+    ['result'],
+)
+
+
+def record_context_compaction(
+    *,
+    trigger: str,
+    source: str,
+    original_tokens: int,
+    compressed_tokens: int,
+    duration_ms: float | None = None,
+    quality: dict[str, object] | None = None,
+) -> None:
+    """1-3 语义压缩链成功埋点:TRIGGERED/SUCCESS + SAVED_RATIO/DURATION/RETENTION。
+
+    供 routers/llm.py 与 agent_loop_v2._maybe_compact_context 在压缩成功后调用;
+    指标记录失败不抛异常(不阻塞压缩主流程)。
+    """
+    try:
+        CONTEXT_COMPACTION_TRIGGERED.labels(trigger=trigger, source=source).inc()
+        CONTEXT_COMPACTION_SUCCESS.labels(trigger=trigger, source=source).inc()
+        if original_tokens > 0:
+            CONTEXT_COMPACTION_SAVED_RATIO.labels(
+                trigger=trigger, source=source
+            ).observe(max(0.0, (original_tokens - compressed_tokens) / original_tokens))
+        if duration_ms is not None:
+            CONTEXT_COMPACTION_DURATION_SECONDS.labels(source=source).observe(
+                duration_ms / 1000.0
+            )
+        retention = quality.get("retention_ratio") if quality else None
+        if isinstance(retention, (int, float)):
+            CONTEXT_COMPACTION_QUALITY_RETENTION.labels(source=source).observe(
+                float(retention)
+            )
+    except Exception as e:
+        logger.warning("上下文压缩指标记录失败(忽略,不阻塞业务): %s", e)
+
+
+def record_context_compaction_failure(*, source: str, reason: str) -> None:
+    """1-3 语义压缩链失败埋点(压缩异常降级原消息)。"""
+    try:
+        CONTEXT_COMPACTION_FAILURE.labels(source=source, reason=reason).inc()
+    except Exception as e:
+        logger.warning("上下文压缩失败指标记录失败(忽略): %s", e)
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

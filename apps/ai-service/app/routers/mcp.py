@@ -98,11 +98,17 @@ class McpStoreInstallRequest(BaseModel):
 
     从目录条目一键安装:可选 env(必需环境变量)+ workspace_path(filesystem 类
     server 的工作区参数)。经 mcp_stdio_bridge 热挂载,工具注入对话工具表。
+
+    P1 1-4(2026-09-08):安全评分 high/critical 的条目需 confirm_risk=true
+    二次确认,否则 409 + risk 详情(前端弹确认对话框后携带重试)。
     """
 
     key: str = Field(..., min_length=1, description="目录条目 key")
     env: dict[str, str] = Field(default_factory=dict, description="必需环境变量(如 DATABASE_URL)")
     workspace_path: str = Field("", description="filesystem 类 server 的工作区路径")
+    confirm_risk: bool = Field(
+        False, description="已知晓安全风险并确认安装(high/critical 必传 true)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -490,16 +496,22 @@ async def call_external_tool(req: ExternalToolCallRequest) -> dict[str, Any] | J
 
 @router.get("/mcp/store", response_model=None)
 async def list_mcp_store() -> dict[str, Any]:
-    """MCP 商店合并列表:目录条目 + 安装状态(一个接口渲染整页)。"""
+    """MCP 商店合并列表:目录条目 + 安装状态 + 质量分/安全评分(一个接口渲染整页)。
+
+    P1 1-4(2026-09-08):每条附带 mcp_scoring 内联摘要
+    (quality score/grade + security score/level + confirm_required)。
+    """
     try:
         from ..services import mcp_store
         from ..services.mcp_directory import get_directory
+        from ..services.mcp_scoring import inline_summary
 
         entries = get_directory()
         installed_map = {r.get("key"): r for r in mcp_store.list_installed()}
         servers: list[dict[str, Any]] = []
         for e in entries:
             rec = installed_map.get(e["key"])
+            merged = {**e, **(rec or {})}
             servers.append(
                 {
                     "key": e["key"],
@@ -516,6 +528,8 @@ async def list_mcp_store() -> dict[str, Any]:
                     "enabled": bool(rec and rec.get("enabled")),
                     "tool_count": int((rec or {}).get("tool_count") or 0),
                     "last_error": str((rec or {}).get("last_error") or ""),
+                    # P1 1-4 质量分 + 安全评分内联摘要
+                    "scoring": inline_summary(merged),
                 }
             )
         return {"servers": servers, "count": len(servers)}
@@ -536,15 +550,28 @@ async def install_mcp_store_server(
 
     缺必需 env → 400;未知 key → 404;已安装且启用 → 409;
     已安装但停用(disabled)→ 重新热挂载并启用(幂等语义)。
+    P1 1-4:安全评分 high/critical 且未 confirm_risk → 409 + risk 详情。
     """
     try:
         from ..services import mcp_store
         from ..services.mcp_directory import get_entry, to_client_config
+        from ..services.mcp_scoring import score_entry
         from ..services.mcp_stdio_bridge import add_stdio_server_tool
 
         entry = get_entry(req.key)
         if entry is None:
             return JSONResponse(status_code=404, content={"error": f"目录中不存在: {req.key}"})
+        # P1 1-4 风险确认门:high/critical 需显式 confirm_risk
+        risk = score_entry(entry)
+        if risk["confirm_required"] and not req.confirm_risk:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "error": "该 MCP Server 安全风险较高,需确认后安装",
+                    "errorCode": "RISK_CONFIRM_REQUIRED",
+                    "scoring": risk,
+                },
+            )
         cfg_dict = to_client_config(
             req.key,
             env_overrides=req.env or {},
@@ -603,6 +630,24 @@ async def install_mcp_store_server(
     except Exception as e:
         logger.error("商店安装 MCP Server 失败: %s", e)
         return JSONResponse(status_code=500, content={"error": f"安装 MCP Server 失败: {e}"})
+
+
+@router.get("/mcp/store/{key}/score", response_model=None)
+async def get_mcp_store_score(key: str) -> dict[str, Any] | JSONResponse:
+    """P1 1-4 评分详情:目录条目的质量分 + 安全评分完整明细(维度/风险因素/建议)。"""
+    try:
+        from ..services.mcp_directory import get_entry
+        from ..services.mcp_scoring import score_entry
+
+        entry = get_entry(key)
+        if entry is None:
+            return JSONResponse(status_code=404, content={"error": f"目录中不存在: {key}"})
+        return score_entry(entry)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("获取 MCP 评分失败(%s): %s", key, e)
+        return JSONResponse(status_code=500, content={"error": f"获取 MCP 评分失败: {e}"})
 
 
 @router.post("/mcp/store/{name}/uninstall", response_model=None)

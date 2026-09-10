@@ -87,8 +87,11 @@ async def test_compaction_triggers_and_loop_continues(monkeypatch):
     assert result.success is True
     assert result.stop_reason == "completed"
     assert len(result.compaction_events) >= 1
-    assert result.compaction_events[0]["trigger"] == "deterministic"
+    # 1-3 后透传 compress_messages_if_needed 的真实 trigger(占用率驱动 = "ratio")
+    assert result.compaction_events[0]["trigger"] == "ratio"
     assert result.compaction_events[0]["removed_count"] > 0
+    # 1-3:事件携带压缩耗时(毫秒)
+    assert result.compaction_events[0]["duration_ms"] >= 0
     # LLM 收到的消息被压缩过:数量显著少于原 13 条
     assert len(seen[0]) < len(_big_history_messages())
     # system 消息保留(循环会在其后追加 meta_learner 元知识等注入,故用前缀断言)

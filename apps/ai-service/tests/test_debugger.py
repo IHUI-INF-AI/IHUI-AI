@@ -618,4 +618,121 @@ async def test_step_invalid_type() -> None:
 
     with pytest.raises(RuntimeError, match="无效 stepType"):
         await mgr.step(session_id, step_type="invalidStep")
+
+
+# =============================================================================
+# 19. test_threads(线程列表)
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_threads() -> None:
+    """threads 返回线程列表,且无当前线程时默认选中第一个。"""
+    threads_response = {
+        "threads": [
+            {"id": 1, "name": "MainThread"},
+            {"id": 2, "name": "Worker-1"},
+        ]
+    }
+    mgr, client = _make_manager_with_responses(
+        responses={"launch": {}, "threads": threads_response}
+    )
+    session_id = await mgr.launch(language="python", command="script.py")
+    session = mgr._sessions[session_id]
+    assert session.current_thread_id is None
+
+    threads_list = await mgr.threads(session_id)
+    assert len(threads_list) == 2
+    assert threads_list[0]["name"] == "MainThread"
+    assert threads_list[1]["id"] == 2
+    # 无当前线程时默认选中第一个
+    assert session.current_thread_id == 1
+    # 验证发送了 threads 请求
+    commands = [c for c, _ in client.call_log]
+    assert "threads" in commands
+
+
+# =============================================================================
+# 20. test_threads_preserves_current_thread(已有当前线程时不覆盖)
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_threads_preserves_current_thread() -> None:
+    """threads 不覆盖已选中的当前线程。"""
+    threads_response = {"threads": [{"id": 1, "name": "MainThread"}]}
+    mgr, _ = _make_manager_with_responses(
+        responses={"launch": {}, "threads": threads_response}
+    )
+    session_id = await mgr.launch(language="python", command="script.py")
+    session = mgr._sessions[session_id]
+    session.current_thread_id = 7  # 已有当前线程
+
+    await mgr.threads(session_id)
+    assert session.current_thread_id == 7  # 未被覆盖
+
+
+# =============================================================================
+# 21. test_get_scopes(scope 分组)
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_scopes() -> None:
+    """get_scopes 返回 scope 分组(含 variablesReference)。"""
+    scopes_response = {
+        "scopes": [
+            {"name": "Locals", "variablesReference": 1000, "expensive": False},
+            {"name": "Globals", "variablesReference": 1001, "expensive": True},
+        ]
+    }
+    mgr, client = _make_manager_with_responses(
+        responses={"launch": {}, "scopes": scopes_response}
+    )
+    session_id = await mgr.launch(language="python", command="script.py")
+
+    scopes = await mgr.get_scopes(session_id, frame_id=100)
+    assert len(scopes) == 2
+    assert scopes[0]["name"] == "Locals"
+    assert scopes[0]["variablesReference"] == 1000
+    assert scopes[1]["name"] == "Globals"
+    # 验证 scopes 请求带 frameId
+    scopes_call = next((a for c, a in client.call_log if c == "scopes"), None)
+    assert scopes_call is not None
+    assert scopes_call["frameId"] == 100
+
+
+# =============================================================================
+# 22. test_get_variables_by_reference(按 variablesReference 取子树)
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_variables_by_reference() -> None:
+    """传 variables_reference 时直接按引用取子树变量(不查 scopes)。"""
+    variables_response = {
+        "variables": [
+            {"name": "a", "value": "1", "type": "int", "variablesReference": 0},
+            {"name": "b", "value": "2", "type": "int", "variablesReference": 0},
+        ]
+    }
+    mgr, client = _make_manager_with_responses(
+        responses={"launch": {}, "variables": variables_response}
+    )
+    session_id = await mgr.launch(language="python", command="script.py")
+
+    variables = await mgr.get_variables(
+        session_id, frame_id=0, variables_reference=2000
+    )
+    assert len(variables) == 2
+    assert variables[0]["name"] == "a"
+    assert variables[1]["value"] == "2"
+    # 验证按引用请求,且未发 scopes 请求
+    var_call = next(
+        (a for c, a in client.call_log if c == "variables"), None
+    )
+    assert var_call is not None
+    assert var_call["variablesReference"] == 2000
+    commands = [c for c, _ in client.call_log]
+    assert "scopes" not in commands
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

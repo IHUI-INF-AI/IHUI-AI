@@ -902,12 +902,28 @@ class AgentLoopV2:
         LLM 语义压缩(AGENT_COMPACTION_LLM_ENABLED=on)失败自动降级确定性路径。
         压缩幂等防抖:压缩由占用率驱动,压缩后 usage 回落自然低于阈值,不会反复触发。
         未启用/limit<=0 时原样返回(与现状逐零差异)。
+
+        1-3 生产指标与灰度(2026-09-08 立):
+        - 灰度:未命中 CONTEXT_COMPACTION_ROLLOUT_PERCENT 分桶的用户跳过压缩。
+        - 指标:压缩成功埋 Prometheus(TRIGGERED/SUCCESS/SAVED_RATIO/DURATION/
+          RETENTION)并登记 context_compaction 历史(source=agent_loop);
+          失败埋 FAILURE 计数。
+        - 质量:AGENT_COMPACTION_QUALITY_ENABLED 时评估关键事实保留率并随记录上报。
         """
         if not self._compaction_enabled or self._compaction_context_limit <= 0:
             return messages
+        # 1-3 灰度:未命中分桶的用户不压缩(默认 100 = 全量,与现状零差异)
+        try:
+            from app.core.compaction_rollout import is_user_rollout_enabled
+
+            if not is_user_rollout_enabled(self._user_id):
+                return messages
+        except Exception as exc:  # pragma: no cover - 灰度模块零依赖,防御性兜底
+            logger.debug("[agent-loop] 灰度判断失败(默认放行): %s", exc)
         try:
             from app.core.context_compaction import compress_messages_if_needed
 
+            t0 = time.perf_counter()
             compressed, info = compress_messages_if_needed(
                 messages,
                 self._compaction_context_limit,
@@ -915,15 +931,18 @@ class AgentLoopV2:
                 target_ratio=DEFAULT_COMPACTION_TARGET_RATIO,
                 keep_recent=DEFAULT_COMPACTION_KEEP_RECENT,
             )
+            duration_ms = (time.perf_counter() - t0) * 1000
             if not info.get("compressed"):
                 return messages
+            trigger = str(info.get("trigger") or "deterministic")
             self._compaction_events.append(
                 {
                     "iteration": self._current_iteration,
                     "original_tokens": info.get("original_tokens"),
                     "compressed_tokens": info.get("compressed_tokens"),
                     "removed_count": info.get("removed_count"),
-                    "trigger": "deterministic",
+                    "trigger": trigger,
+                    "duration_ms": round(duration_ms, 3),
                 }
             )
             logger.warning(
@@ -933,11 +952,80 @@ class AgentLoopV2:
                 info.get("removed_count"),
                 self._current_iteration,
             )
+            self._record_compaction_telemetry(
+                original=messages,
+                compressed=compressed,
+                info=info,
+                trigger=trigger,
+                duration_ms=duration_ms,
+            )
             return compressed
         except Exception as e:
             # 压缩失败降级:原样返回继续执行(宁可硬停也不因压缩引入新故障)
+            try:
+                from app.middleware.llm_metrics import record_context_compaction_failure
+
+                record_context_compaction_failure(
+                    source="agent_loop", reason=type(e).__name__
+                )
+            except Exception:  # pragma: no cover - 指标埋点绝不影响主链路
+                pass
             logger.warning("[agent-loop] 上下文压缩失败(降级原消息): %s", e)
             return messages
+
+    def _record_compaction_telemetry(
+        self,
+        *,
+        original: list[dict[str, Any]],
+        compressed: list[dict[str, Any]],
+        info: dict[str, Any],
+        trigger: str,
+        duration_ms: float,
+    ) -> None:
+        """1-3 压缩成功后的生产指标埋点(Prometheus + 感知面板登记)。
+
+        全部 best-effort:任何失败仅 debug/warning,绝不影响 agent 主循环。
+        """
+        try:
+            from app.middleware.llm_metrics import record_context_compaction
+
+            quality: dict[str, Any] | None = None
+            try:
+                from app.services.compaction_quality import quality_summary
+
+                quality = quality_summary(original, compressed)
+            except Exception as exc:
+                logger.debug("[agent-loop] 压缩质量评估失败(忽略): %s", exc)
+            record_context_compaction(
+                trigger=trigger,
+                source="agent_loop",
+                original_tokens=int(info.get("original_tokens") or 0),
+                compressed_tokens=int(info.get("compressed_tokens") or 0),
+                duration_ms=duration_ms,
+                quality=quality,
+            )
+            from app.routers.context_compaction import record_compaction
+            from app.core.context_compaction import SUMMARY_MARKER
+
+            summary_text = ""
+            for m in compressed:
+                content = m.get("content") if isinstance(m, dict) else None
+                if isinstance(content, str) and content.startswith(SUMMARY_MARKER):
+                    summary_text = content
+                    break
+            record_compaction(
+                self._session_id or (f"agent:{self._user_id}" if self._user_id else "global"),
+                original_tokens=int(info.get("original_tokens") or 0),
+                compressed_tokens=int(info.get("compressed_tokens") or 0),
+                summary=summary_text[:500],
+                trigger=trigger,
+                user_id=self._user_id or "",
+                source="agent_loop",
+                duration_ms=duration_ms,
+                quality=quality,
+            )
+        except Exception as e:
+            logger.warning("[agent-loop] 压缩指标登记失败(不影响主循环): %s", e)
 
     def _snapshot_before_write(self, tc: ToolCall) -> None:
         """1-2 自动回滚:写盘工具执行前捕获目标文件快照(尽力而为,失败仅 debug)。

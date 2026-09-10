@@ -66,11 +66,20 @@ def record_compaction(
     trigger: str = "llm",
     user_id: str = "",
     metadata: dict[str, Any] | None = None,
+    source: str = "llm_route",
+    duration_ms: float | None = None,
+    quality: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """记录一次上下文压缩事件(P0-1 LLM 语义压缩回写入口)。
 
     幂等可调用;进程重启后为空的冷启动(如需跨重启持久化可换 Redis,当前按任务范围
     进程内即可查询)。
+
+    1-3 生产指标扩展(2026-09-08):
+    - source: 压缩调用点(llm_route / agent_loop)
+    - duration_ms: 压缩耗时(毫秒)
+    - quality: 压缩质量摘要({retention_ratio, facts_retained, facts_total}),
+      AGENT_COMPACTION_QUALITY_ENABLED 时由调用方评估后传入
     """
     saved_tokens = max(0, original_tokens - compressed_tokens)
     saved_ratio = (
@@ -86,8 +95,13 @@ def record_compaction(
         "summary": summary or "",
         "trigger": trigger,
         "user_id": user_id,
+        "source": source,
         "compacted_at": time.time(),
     }
+    if duration_ms is not None:
+        rec["duration_ms"] = round(float(duration_ms), 3)
+    if quality:
+        rec["quality"] = quality
     if metadata:
         rec["metadata"] = metadata
     with _lock:
@@ -153,6 +167,78 @@ async def list_compaction_history(
         "session_id": session_id,
         "total": total,
         "compactions": records,
+    }
+
+
+@router.get("/stats", response_model=dict[str, Any])
+async def compaction_stats(request: Request) -> dict[str, Any]:
+    """压缩生产指标聚合报告(P1 1-3,H7 验收项:压缩比/耗时/质量/回捞命中率)。
+
+    admin-only(聚合跨会话/跨用户进程内数据):
+    - compaction:总次数 / avg·min·max saved_ratio / trigger·source 分布 /
+      avg duration_ms / avg retention(有质量评估记录时)
+    - recall:回捞 hit/miss/error 计数 + 命中率(hit / (hit+miss+error)) /
+      快照 written/dropped
+    - rollout:当前灰度百分比(env CONTEXT_COMPACTION_ROLLOUT_PERCENT)
+    """
+    user_id = get_current_user_id_sync(request)
+    role_id = int(getattr(request.state, "role_id", 0) or 0)
+    if role_id < 1 or user_id == "":
+        raise HTTPException(status_code=403, detail="需要 admin 权限")
+
+    with _lock:
+        all_records = [rec for recs in _history.values() for rec in recs]
+
+    total = len(all_records)
+    ratios = [float(r["saved_ratio"]) for r in all_records if r.get("saved_ratio")]
+    durations = [
+        float(r["duration_ms"]) for r in all_records if r.get("duration_ms") is not None
+    ]
+    retentions = [
+        float(r["quality"]["retention_ratio"])
+        for r in all_records
+        if isinstance(r.get("quality"), dict)
+        and r["quality"].get("retention_ratio") is not None
+    ]
+    trigger_breakdown: dict[str, int] = {}
+    source_breakdown: dict[str, int] = {}
+    for r in all_records:
+        t = str(r.get("trigger", "unknown"))
+        s = str(r.get("source", "unknown"))
+        trigger_breakdown[t] = trigger_breakdown.get(t, 0) + 1
+        source_breakdown[s] = source_breakdown.get(s, 0) + 1
+
+    from ..core.compaction_rollout import rollout_percent
+    from ..services.context_recall import get_recall_stats
+
+    recall = get_recall_stats()
+    recall_total = (
+        recall["requests_hit"] + recall["requests_miss"] + recall["requests_error"]
+    )
+
+    def _avg(values: list[float]) -> float | None:
+        return round(sum(values) / len(values), 4) if values else None
+
+    return {
+        "compaction": {
+            "total": total,
+            "saved_ratio": {
+                "avg": _avg(ratios),
+                "min": round(min(ratios), 4) if ratios else None,
+                "max": round(max(ratios), 4) if ratios else None,
+            },
+            "duration_ms": {"avg": _avg(durations)},
+            "retention": {"avg": _avg(retentions)},
+            "trigger_breakdown": trigger_breakdown,
+            "source_breakdown": source_breakdown,
+        },
+        "recall": {
+            **recall,
+            "hit_rate": (
+                round(recall["requests_hit"] / recall_total, 4) if recall_total else None
+            ),
+        },
+        "rollout_percent": rollout_percent(),
     }
 
 

@@ -31,12 +31,17 @@ from pydantic import BaseModel, Field
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway, moa_router
 from ..core.context_compaction import compress_messages_if_needed, SUMMARY_MARKER
+from ..core.compaction_rollout import is_user_rollout_enabled
 from ..core.provider_caps import (
     cap_to_dict,
     cap_with_max_context,
     get_provider_cap,
 )
 from ..core.question_parser import QuestionStreamParser
+from ..middleware.llm_metrics import (
+    record_context_compaction,
+    record_context_compaction_failure,
+)
 from ..services.mcp_server import _tool_dispatch_subagent, _tool_vision_analyze, get_registered_tool_names
 from ..services.context_recall import context_recall
 from ..services.project_memory import build_system_prompt
@@ -635,12 +640,22 @@ def _record_compaction_step(
     compaction_info: dict[str, Any],
     session_id: str | None,
     user_id: str | None,
+    *,
+    source: str = "llm_route",
+    duration_ms: float | None = None,
+    quality: dict[str, Any] | None = None,
 ) -> None:
     """把一次真实发生的上下文语义压缩登记到 /api/context-compaction 感知队列。
 
     P0-1 LLM 语义压缩闭环:llm 压缩命中时,除向量回捞外还要把 original/compressed
     tokens + 摘要写进 context_compaction 的进程内历史,供"上下文压缩感知"面板读取。
     用延迟 import 规避 llm.py 顶层导入环路;失败仅 warning,绝不影响主请求链路。
+
+    1-3 生产指标扩展(2026-09-08):
+    - source: 压缩调用点(llm_route / agent_loop)
+    - duration_ms: 压缩耗时(毫秒,perf_counter 计时)
+    - quality: 关键事实保留率摘要(AGENT_COMPACTION_QUALITY_ENABLED 时由调用方评估)
+    - 同步埋 Prometheus 指标(TRIGGERED/SUCCESS/SAVED_RATIO/DURATION/RETENTION)
     """
     try:
         from .context_compaction import record_compaction as _record
@@ -651,16 +666,45 @@ def _record_compaction_step(
             if isinstance(content, str) and content.startswith(SUMMARY_MARKER):
                 summary_text = content
                 break
+        trigger = str(compaction_info.get("trigger") or "llm")
+        original_tokens = int(compaction_info.get("original_tokens") or 0)
+        compressed_tokens = int(compaction_info.get("compressed_tokens") or 0)
+        # 1-3 Prometheus 生产指标(H7:压缩比/耗时/质量保留率)
+        record_context_compaction(
+            trigger=trigger,
+            source=source,
+            original_tokens=original_tokens,
+            compressed_tokens=compressed_tokens,
+            duration_ms=duration_ms,
+            quality=quality,
+        )
         _record(
             session_id or (f"chat:{user_id}" if user_id else "global"),
-            original_tokens=int(compaction_info.get("original_tokens") or 0),
-            compressed_tokens=int(compaction_info.get("compressed_tokens") or 0),
+            original_tokens=original_tokens,
+            compressed_tokens=compressed_tokens,
             summary=summary_text[:500],
-            trigger=str(compaction_info.get("trigger") or "llm"),
+            trigger=trigger,
             user_id=user_id or "",
+            source=source,
+            duration_ms=duration_ms,
+            quality=quality,
         )
     except Exception as e:
         logger.warning("record_compaction 登记失败(不影响主流程): %s", e)
+
+
+def _compaction_quality_of(
+    original_messages: list[dict[str, Any]],
+    compressed_messages: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """1-3 压缩质量评估(关键事实保留率);开关关闭/评估失败时返回 None。"""
+    try:
+        from ..services.compaction_quality import quality_summary
+
+        return quality_summary(original_messages, compressed_messages)
+    except Exception as e:
+        logger.debug("压缩质量评估失败(忽略): %s", e)
+        return None
 
 
 @router.post("/llm/complete", response_model=None)
@@ -670,10 +714,18 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     owner_uuid = _resolve_owner_uuid(request)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(req.messages, req.workspace_path, req.workspace_context)
-    # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
-    if req.context_limit and req.context_limit > 0:
+    # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护);
+    # 1-3 灰度:未命中 CONTEXT_COMPACTION_ROLLOUT_PERCENT 分桶的用户跳过压缩
+    if req.context_limit and req.context_limit > 0 and is_user_rollout_enabled(owner_uuid):
         original_messages = messages
-        messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        _t0 = time.perf_counter()
+        try:
+            messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        except Exception as exc:
+            record_context_compaction_failure(source="llm_route", reason=type(exc).__name__)
+            logger.warning("Context auto-compression failed (Python fallback): %s", exc)
+            compaction_info = {"compressed": False}
+        _duration_ms = (time.perf_counter() - _t0) * 1000
         if compaction_info["compressed"]:
             logger.info(
                 "Context auto-compressed (Python fallback): %d → %d tokens, removed %d msgs",
@@ -694,6 +746,7 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
                 user_id=owner_uuid,
             )
             # P0-1 压缩闭环:登记到 /api/context-compaction 感知面板
+            # (1-3:同步带 source/duration/quality 进生产指标)
             _record_compaction_step(
                 compressed_messages=messages,
                 compaction_info=compaction_info,
@@ -703,6 +756,9 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
                     else None
                 ),
                 user_id=owner_uuid,
+                source="llm_route",
+                duration_ms=_duration_ms,
+                quality=_compaction_quality_of(original_messages, messages),
             )
     # 构造透传 kwargs(只透传非 None 的字段)
     kwargs: dict[str, Any] = {}
@@ -1147,12 +1203,20 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     messages = _inject_plan_mode_prompt(req.messages, req.plan_mode)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(messages, req.workspace_path, req.workspace_context)
-    # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
+    # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护);
+    # 1-3 灰度:未命中 CONTEXT_COMPACTION_ROLLOUT_PERCENT 分桶的用户跳过压缩
     compaction_info: dict[str, Any] | None = None
-    if req.context_limit and req.context_limit > 0:
+    if req.context_limit and req.context_limit > 0 and is_user_rollout_enabled(owner_uuid):
         original_messages = messages
-        messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
-        if compaction_info.get("compressed"):
+        _t0 = time.perf_counter()
+        try:
+            messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        except Exception as exc:
+            record_context_compaction_failure(source="llm_route", reason=type(exc).__name__)
+            logger.warning("Context auto-compression failed (stream fallback): %s", exc)
+            compaction_info = None
+        _duration_ms = (time.perf_counter() - _t0) * 1000
+        if compaction_info is not None and compaction_info.get("compressed"):
             # 压缩回捞:把被移除旧消息异步快照入向量库(不阻塞主链路)
             _snapshot_compaction_if_needed(
                 original_messages=original_messages,
@@ -1166,6 +1230,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 user_id=owner_uuid,
             )
             # P0-1 压缩闭环:登记到 /api/context-compaction 感知面板
+            # (1-3:同步带 source/duration/quality 进生产指标)
             _record_compaction_step(
                 compressed_messages=messages,
                 compaction_info=compaction_info,
@@ -1175,6 +1240,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     else None
                 ),
                 user_id=owner_uuid,
+                source="llm_route",
+                duration_ms=_duration_ms,
+                quality=_compaction_quality_of(original_messages, messages),
             )
 
     # P1 流式配套 pre-flight check:检测 api_key 缺失(MODEL_NOT_CONFIGURED),

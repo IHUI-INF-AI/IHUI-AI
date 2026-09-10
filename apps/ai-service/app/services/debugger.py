@@ -564,22 +564,64 @@ class DebugSessionManager:
         session.touch()
         return (body or {}).get("stackFrames", []) if body else []
 
+    async def threads(self, session_id: str) -> list[dict[str, Any]]:
+        """获取线程列表(DAP threads 请求)。
+
+        无当前线程时默认选中第一个线程,便于后续 stackTrace/continue。
+        """
+        session = self._get_session(session_id)
+        if session.client is None:
+            raise RuntimeError("session 未初始化")
+        body = await session.client.send_request("threads")
+        session.touch()
+        threads_list: list[dict[str, Any]] = (
+            (body or {}).get("threads", []) if body else []
+        )
+        if session.current_thread_id is None and threads_list:
+            first_id = threads_list[0].get("id")
+            if first_id is not None:
+                session.current_thread_id = first_id
+        return threads_list
+
+    async def get_scopes(
+        self, session_id: str, frame_id: int
+    ) -> list[dict[str, Any]]:
+        """获取栈帧的 scope 分组(Locals/Globals/Closure 等)。"""
+        session = self._get_session(session_id)
+        if session.client is None:
+            raise RuntimeError("session 未初始化")
+        body = await session.client.send_request(
+            "scopes", {"frameId": frame_id}
+        )
+        session.touch()
+        return (body or {}).get("scopes", []) if body else []
+
     async def get_variables(
         self,
         session_id: str,
         frame_id: int,
         scope: str = "local",
+        variables_reference: Optional[int] = None,
     ) -> list[dict[str, Any]]:
-        """获取变量(scopes + variables,按 scope 名称过滤)。"""
+        """获取变量。
+
+        - ``variables_reference`` 提供(>0)时:按 DAP variablesReference 直接取子树
+          (用于展开对象/数组的子变量,前端变量树懒加载)。
+        - 否则:scopes + variables 按 scope 名称过滤(原有行为)。
+        """
         session = self._get_session(session_id)
         if session.client is None:
             raise RuntimeError("session 未初始化")
-        # 1. 获取所有 scopes
-        scopes_body = await session.client.send_request(
-            "scopes", {"frameId": frame_id}
-        )
-        scopes = (scopes_body or {}).get("scopes", []) if scopes_body else []
-        # 2. 找到匹配的 scope(DAP scope name 可能是 "Locals"/"Globals"/"Closure")
+        # 1. 按 variablesReference 直接取子树
+        if variables_reference:
+            var_body = await session.client.send_request(
+                "variables", {"variablesReference": variables_reference}
+            )
+            session.touch()
+            return (var_body or {}).get("variables", []) if var_body else []
+        # 2. 获取所有 scopes
+        scopes = await self.get_scopes(session_id, frame_id)
+        # 3. 找到匹配的 scope(DAP scope name 可能是 "Locals"/"Globals"/"Closure")
         scope_lower = scope.lower()
         target_scope: Optional[dict[str, Any]] = None
         for s in scopes:

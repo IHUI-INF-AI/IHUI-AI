@@ -18,15 +18,48 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from typing import Any
 
+from ..middleware.llm_metrics import (
+    CONTEXT_RECALL_REQUESTS,
+    CONTEXT_RECALL_SNAPSHOT_ENTRIES,
+)
 from .vector_memory import VectorMemoryStore, vector_memory
 
 logger = logging.getLogger(__name__)
 
 _DEFAULT_TOP_K = 8
 _RECALL_THRESHOLD = 0.7  # 与 vector_memory.search 默认阈值一致(相关性闸门)
+
+# ---------------------------------------------------------------------------
+# 1-3 回捞生产指标(进程内计数器,Prometheus 同步埋点):
+# hit/miss/empty_query/error + snapshot written/dropped,供
+# /api/context-compaction/stats 报告回捞命中率(H7 验收项)。
+# ---------------------------------------------------------------------------
+_recall_lock = threading.Lock()
+_recall_stats: dict[str, int] = {
+    "requests_hit": 0,
+    "requests_miss": 0,
+    "requests_empty_query": 0,
+    "requests_error": 0,
+    "snapshot_written": 0,
+    "snapshot_dropped": 0,
+}
+
+
+def get_recall_stats() -> dict[str, int]:
+    """回捞统计快照(进程内累计,重启清零)。"""
+    with _recall_lock:
+        return dict(_recall_stats)
+
+
+def reset_recall_stats() -> None:
+    """清空回捞统计(测试隔离用)。"""
+    with _recall_lock:
+        for k in _recall_stats:
+            _recall_stats[k] = 0
 
 
 def _extract_text(msg: dict[str, Any]) -> str:
@@ -106,8 +139,14 @@ class ContextRecallService:
                 embedding = await self._store.embed(text)
                 await self._store.add_entry(entry_id, entry, embedding)
                 written += 1
+                with _recall_lock:
+                    _recall_stats["snapshot_written"] += 1
+                CONTEXT_RECALL_SNAPSHOT_ENTRIES.labels(result="written").inc()
             except Exception as e:
                 logger.warning("context_recall 快照写入失败(entry=%s): %s", entry_id, e)
+                with _recall_lock:
+                    _recall_stats["snapshot_dropped"] += 1
+                CONTEXT_RECALL_SNAPSHOT_ENTRIES.labels(result="dropped").inc()
         return written
 
     async def recall(
@@ -129,11 +168,17 @@ class ContextRecallService:
             query 为空直接返回 ok + 空 results。
         """
         if not query or not query.strip():
+            with _recall_lock:
+                _recall_stats["requests_empty_query"] += 1
+            CONTEXT_RECALL_REQUESTS.labels(result="empty_query").inc()
             return {"ok": True, "results": []}
         try:
             query_embedding = await self._store.embed(query)
         except Exception as e:
             logger.warning("context_recall 查询 embed 失败: %s", e)
+            with _recall_lock:
+                _recall_stats["requests_error"] += 1
+            CONTEXT_RECALL_REQUESTS.labels(result="error").inc()
             return {"ok": False, "error": str(e)}
         try:
             hits = await self._store.search(
@@ -141,6 +186,9 @@ class ContextRecallService:
             )
         except Exception as e:
             logger.warning("context_recall 查询检索失败: %s", e)
+            with _recall_lock:
+                _recall_stats["requests_error"] += 1
+            CONTEXT_RECALL_REQUESTS.labels(result="error").inc()
             return {"ok": False, "error": str(e)}
         results: list[dict[str, Any]] = []
         for _eid, entry, sim in hits:
@@ -156,6 +204,11 @@ class ContextRecallService:
                     "compressed_at": entry.get("compressed_at"),
                 }
             )
+        # 1-3 回捞命中埋点:session 过滤后 results 非空 = hit
+        outcome = "hit" if results else "miss"
+        with _recall_lock:
+            _recall_stats[f"requests_{outcome}"] += 1
+        CONTEXT_RECALL_REQUESTS.labels(result=outcome).inc()
         return {"ok": True, "results": results}
 
 
