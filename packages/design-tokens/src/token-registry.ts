@@ -161,7 +161,11 @@ const TINT_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--color-gold-tint', type: 'color', defaultValue: 'rgba(255, 215, 0, 0.3)' },
   { name: '--color-vip-gold-tint', type: 'color', defaultValue: 'rgba(255, 215, 0, 0.18)' },
   { name: '--color-brand-orange-tint', type: 'color', defaultValue: 'rgba(255, 107, 53, 0.12)' },
-  { name: '--color-brand-orange-tint-strong', type: 'color', defaultValue: 'rgba(255, 107, 53, 0.3)' },
+  {
+    name: '--color-brand-orange-tint-strong',
+    type: 'color',
+    defaultValue: 'rgba(255, 107, 53, 0.3)',
+  },
   { name: '--color-warm-bg', type: 'color', defaultValue: '#fff4e6' },
 ]
 
@@ -436,8 +440,8 @@ const VCENTER_ENTRIES: ReadonlyArray<TokenEntry> = [
 const LAYOUT_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--global-border-radius', type: 'layout', defaultValue: '8px' },
   { name: '--global-header-height', type: 'layout', defaultValue: '60px' },
-  { name: '--sidebar-width', type: 'layout', defaultValue: '130px' },
-  { name: '--sidebar-collapsed-width', type: 'layout', defaultValue: '54px' },
+  { name: '--sidebar-width', type: 'layout', defaultValue: '160px' },
+  { name: '--sidebar-collapsed-width', type: 'layout', defaultValue: '60px' },
   { name: '--sidebar-menu-height', type: 'layout', defaultValue: '24px' },
   { name: '--sidebar-indent-1', type: 'layout', defaultValue: '20px' },
   { name: '--sidebar-indent-2', type: 'layout', defaultValue: '40px' },

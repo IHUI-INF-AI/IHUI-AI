@@ -348,8 +348,10 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
     }
   }, [activeHref])
 
-  // collapsedState 参数(2026-09-07):桌面 nav 传 effectiveCollapsed(视口强制折叠),
-  // 移动抽屉传用户偏好 collapsed(抽屉 160px+ 宽,始终展开布局)。
+  // collapsedState 参数:桌面 nav 传 effectiveCollapsed(视口强制折叠 + 用户偏好);
+  // 移动抽屉恒传 false(2026-09-09 修复折叠偏好泄漏:抽屉 160px+ 宽,必须展开布局。
+  // 旧实现传用户偏好 collapsed,桌面折叠过的用户在手机打开抽屉会看到
+  // 折叠态图标条——任务列表消失、NavLink 只剩 36px 图标、文字全部隐藏,与抽屉语义相悖)。
   const navContent = (
     navId: string,
     ref: React.Ref<HTMLElement>,
@@ -397,10 +399,16 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
    * 现在 footer 常驻渲染:<768px 桌面 aside 本就被 CSS display:none(不影响);
    * 768-1023px 强制 collapsed 图标竖排(适配 60px 宽);≥1024px 跟随用户折叠偏好。
    */
-  // hook SSR/首帧默认 false → SSR 先渲染折叠 footer(图标),hydration 后桌面端 effect 内展开,
-  // 与整页 sidebar 的 SSR 展开态策略一致,无 hydration mismatch。
-  const isDesktopViewport = useMediaQuery('(min-width: 1024px)')
-  const footerCollapsed = !isDesktopViewport || collapsed
+  // hook SSR/首帧默认 false → SSR 输出展开态(横排),与桌面首帧一致;
+  // 2026-09-09 修复"展开时先显示竖向过一会再变回横向":
+  // 旧公式 `!isDesktopViewport || collapsed` 在 SSR/首帧恒为 true(媒体查询 hook SSR 默认 false),
+  // 导致桌面端刷新页面时 footer 先渲染竖排、hydration 后才切回横排,产生可见闪烁。
+  // 新公式与上方 effectiveCollapsed 完全同源(SSR 均为 false),首帧恒展开态:
+  // - 桌面(≥1024px):跟随用户折叠偏好 collapsed
+  // - 平板(768-1023px):isTabletViewport 强制折叠(hydration 后生效;
+  //   hydration 前由 globals.css 对 .sidebar-actions 的媒体查询强制竖排兜底)
+  // - 手机(<768px):桌面 aside 被 CSS display:none,footer 不可见,无需处理
+  const footerCollapsed = collapsed || isTabletViewport
   const desktopFooter = (
     <div className="shrink-0">
       <SidebarActions collapsed={footerCollapsed} />
@@ -408,11 +416,13 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
     </div>
   )
 
-  /** 移动端 drawer footer:始终显示在移动 drawer 中(160px+ 宽,正常布局) */
+  /** 移动端 drawer footer(2026-09-09 统一):恒展开布局,不接用户折叠偏好。
+   *  抽屉宽 160px+(sidebarWidth),竖排 5 按钮的折叠态语义仅属于桌面 60px 条;
+   *  桌面折叠过的用户(collapsed=true 持久化)打开手机抽屉也应看到完整 footer。 */
   const mobileFooter = (
     <div className="shrink-0">
-      <SidebarActions collapsed={collapsed} />
-      <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
+      <SidebarActions collapsed={false} />
+      <SidebarUserRow collapsed={false} onCloseMobile={onCloseMobile} />
     </div>
   )
 
@@ -522,8 +532,10 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
               : 'width 0.2s cubic-bezier(0.4,0,0.2,1), transform 0.2s ease-out',
           }}
         >
-          <SidebarHeader variant="mobile" collapsed={collapsed} onCloseMobile={onCloseMobile} />
-          {navContent(mobileNavId, mobileNavRef, 'mobile', collapsed)}
+          {/* collapsed 恒 false(2026-09-09 统一):抽屉 160px+ 宽恒展开布局,
+              不接用户桌面折叠偏好;header mobile 分支本身忽略该值,此处显式传 false 保持语义一致 */}
+          <SidebarHeader variant="mobile" collapsed={false} onCloseMobile={onCloseMobile} />
+          {navContent(mobileNavId, mobileNavRef, 'mobile', false)}
           {mobileFooter}
           {/* 移动端拖拽手柄(2026-07-31 第十五次新增):复用 desktop 同款结构
             - onPointerDown 兼容鼠标 + 触屏,无需额外 touch event listener
