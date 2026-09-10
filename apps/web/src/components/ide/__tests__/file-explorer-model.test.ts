@@ -11,7 +11,7 @@ import {
   normalizePath,
   parseOutline,
   validateFileName,
-} from '../file-explorer-model'
+} from '../file-explorer/model'
 
 const tree: FileNode[] = [
   {
