@@ -109,11 +109,11 @@ export function EditorEmptyState() {
 
   return (
     <>
-      <div className="flex flex-1 items-center justify-center overflow-auto bg-muted/10 p-8">
+      <div className="flex flex-1 items-center justify-center overflow-auto bg-muted/10 p-3">
         <div className="flex w-full max-w-2xl gap-8">
           {/* 左侧:品牌标识 + 引导 + 快捷操作 */}
           <div className="flex flex-1 flex-col items-center justify-center gap-4">
-            <div className="rounded-2xl bg-gradient-to-br from-muted/60 to-muted/20 p-5">
+            <div className="rounded-2xl bg-gradient-to-br from-muted/60 to-muted/20 p-3">
               <Code2 className="h-14 w-14 text-muted-foreground/70" />
             </div>
             <div className="text-center">
