@@ -12,7 +12,7 @@
   - 条件匹配:JSONLogic 简化实现(== / != / contains / and / or / not 六种操作符)
   - 执行器:
     - webhook: httpx 异步发请求,超时 5s,支持 HMAC-SHA256 签名 + 失败重试
-    - script: asyncio.create_subprocess_exec,超时 10s,stdout/stderr 截断 1KB,支持重试
+    - script: sh -c / cmd /c(经 shell 展开 HOOK_* 环境变量),超时 10s,stdout/stderr 截断 1KB,支持重试
     - log: 写到 logs/hooks.log(不重试)
     - notify: toast/email/webhook 三渠道,默认重试 1 次
   - 持久化:Redis 优先(hooks:configs + hooks:logs:{id}),降级内存
@@ -36,7 +36,6 @@ import json
 import logging
 import os
 import re
-import shlex
 import time
 import uuid
 from dataclasses import dataclass
@@ -877,10 +876,12 @@ class HookEngine:
                     env=env,
                 )
             else:
-                # 用 shlex 拆分命令参数
-                args = shlex.split(command)
+                # 2026-09-10 修复:改用 sh -c 执行。原实现 shlex.split + exec 不经
+                # shell,导致 $HOOK_EVENT/$HOOK_CONTEXT 环境变量注入形同虚设
+                # (子进程收到字面量 "$HOOK_EVENT")。与 Windows 分支 cmd /c 对齐,
+                # 保留 _SENSITIVE_RE 敏感模式拦截(在进入本函数前已执行)。
                 proc = await asyncio.create_subprocess_exec(
-                    *args,
+                    "sh", "-c", command,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     cwd=str(SANDBOX_DIR),

@@ -49,10 +49,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # 构建期固化 rewrites 代理地址为 Docker 内网地址(next.config.ts rewrites 在 build 时求值)
 ENV API_URL=http://api:8802
 ENV AI_SERVICE_URL=http://ai-service:8803
-# nginx 静态托管架构要求 output:'export' 产物(out/);next.config.ts 由
-# EXPORT_STATIC 显式触发静态导出(2026-09-10 修复:缺此环境变量时 builder 走
-# 服务端构建,不生成 out/,后续 COPY out/ 因产物不存在而 buildx 失败)
-ENV EXPORT_STATIC=true
+# nginx 静态托管架构要求 output:'export' 产物。必须走 build:static 专用入口
+# (与 Tauri/GH Pages 同一链路):Next16 Turbopack 把静态导出写入 distDir
+# (.next-static)而非 out/,build-static 会暂存 force-dynamic 运行时路由并做
+# .next-static → out/ 同步;直接 run build 无论 export 与否都不会出现 out/,
+# 后续 COPY out/ 必挂(2026-09-10 根修)
 # next build 需要大内存(默认 ~2GB 会 OOM);4096 仍会 OOM,恢复到 8192(2026-07-20)
 ENV NODE_OPTIONS=--max-old-space-size=16384
 # web prebuild 的 sync-downloads 用 zip 打包 extension;alpine 无 zip 命令必挂(2026-09-10)
@@ -61,7 +62,8 @@ RUN apk add --no-cache zip
 # 导致 @ihui/api-client/dist/endpoints 等产物缺失,引发 next build 模块解析失败)
 RUN find packages apps -name "*.tsbuildinfo" -type f -delete 2>/dev/null || true
 # --filter @ihui/web... :先 build @ihui/web 的所有 workspace 依赖(@ihui/ui-react / @ihui/design-tokens / @ihui/api-client 等),再 build web
-RUN pnpm --filter @ihui/web... run build
+# build:static:静态导出专用入口(暂存 force-dynamic 路由 + .next-static→out 同步),详见 2026-09-10 根修注释
+RUN pnpm --filter @ihui/web... run build:static
 
 # A 套壳架构(2026-07-24):output:'export' 静态导出,nginx 提供静态文件 + API 反向代理
 # 替代原 standalone + node server.js 方案,因为 output:'export' 不生成 server.js
