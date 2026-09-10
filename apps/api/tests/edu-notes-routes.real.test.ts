@@ -9,6 +9,7 @@ import { db } from '../src/db/index.js'
 import { users, eduNotes } from '@ihui/database'
 import {
   mockAuthenticate,
+  mockCheckAuth,
   setMockUser,
   setMockUnauthorized,
   resetMockAuth,
@@ -17,6 +18,7 @@ import {
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: (...args: unknown[]) => mockAuthenticate(...args),
   requireActiveUser: vi.fn(),
+  checkAuth: (...args: unknown[]) => mockCheckAuth(...args),
 }))
 
 const { eduPublicRoutes } = await import('../src/routes/edu-public.js')

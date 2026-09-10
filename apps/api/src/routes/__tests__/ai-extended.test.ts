@@ -4,11 +4,23 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+// 鉴权 mock 辅助(2026-09-09 第九轮安全修复后,本插件所有路由走 preHandler 鉴权)
+import { mockAuthenticate, mockCheckAuth, setMockAdmin } from '../../../tests/helpers/mock-auth.js'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
 })
+
+// 路由文件以 '../plugins/auth.js' 导入 checkAuthOrInternalService,
+// require-permission.ts 以 './auth.js' 导入 authenticate —— 两者解析到同一模块,
+// 整模块 mock 后工厂必须显式提供全部导出,否则路由拿到 undefined → 500。
+vi.mock('../../plugins/auth.js', () => ({
+  authenticate: (...args: unknown[]) => mockAuthenticate(...args),
+  requireActiveUser: vi.fn(),
+  checkAuth: (...args: unknown[]) => mockCheckAuth(...args),
+  checkAuthOrInternalService: (...args: unknown[]) => mockCheckAuth(...args),
+}))
 
 vi.mock('../../db/index.js', () => {
   interface DbChain {
@@ -81,6 +93,8 @@ describe('AI Extended — POST /developer/model-test/run', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
+    // restoreAllMocks 会清掉 mockAuthenticate 的实现,需在之后重新注入 admin 身份
+    setMockAdmin('00000000-0000-4000-8000-000000000001')
     delete process.env.AI_SERVICE_URL
   })
 

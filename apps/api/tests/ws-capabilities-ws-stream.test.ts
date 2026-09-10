@@ -40,7 +40,13 @@ vi.mock('../src/plugins/ws-helpers.js', () => ({
 }))
 
 vi.mock('../src/config/index.js', () => ({
-  config: { AI_SERVICE_URL: 'http://ai-service.test' },
+  // JWT_SECRET 必须提供:aiServiceFetch(2026-09-04)在 WS 场景(无 Authorization 头、
+  // query.token 存在)会调用 getSystemAccessToken() 签发系统 token,
+  // 其内部读取 config.JWT_SECRET —— 缺失时抛错,fetch 根本不会发出。
+  config: {
+    AI_SERVICE_URL: 'http://ai-service.test',
+    JWT_SECRET: 'test-jwt-secret-for-vitest-at-least-32-chars',
+  },
 }))
 
 vi.mock('../src/utils/logger.js', () => ({

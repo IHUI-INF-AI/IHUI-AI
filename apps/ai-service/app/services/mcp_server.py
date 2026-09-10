@@ -487,8 +487,11 @@ async def _lazy_index_and_research(
         if not root.exists() or not root.is_dir():
             return []
         now = _time.monotonic()
-        last = _LAZY_INDEX_LAST_RUN.get(str(root), 0.0)
-        if now - last < _LAZY_INDEX_COOLDOWN_SECONDS:
+        # 2026-09-10 修复:缺省哨兵不得用 0.0 —— monotonic() 从进程/系统启动起计,
+        # 新启动机器上可能小于冷却窗口,0.0 哨兵会误判为"冷却中"而跳过索引。
+        # 改为显式区分"从未运行"(None)与"运行过"(时间戳)。
+        last = _LAZY_INDEX_LAST_RUN.get(str(root))
+        if last is not None and now - last < _LAZY_INDEX_COOLDOWN_SECONDS:
             return []
         files = indexer._collect_code_files(root)
         if len(files) == 0 or len(files) > _LAZY_INDEX_MAX_FILES:
