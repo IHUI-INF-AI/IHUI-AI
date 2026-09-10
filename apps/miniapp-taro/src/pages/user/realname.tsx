@@ -224,7 +224,11 @@ export default function Realname() {
             <Text className="rn-label">{tt('user.realname.idCardPhotos', '身份证照片')}</Text>
           </View>
           <View className="rn-photo-row">
-            <View className="rn-photo-box" hoverClass="opacity-60" onClick={() => pickPhoto('front')}>
+            <View
+              className="rn-photo-box"
+              hoverClass="opacity-60"
+              onClick={() => pickPhoto('front')}
+            >
               {frontPhoto ? (
                 <Image className="rn-photo-img" src={frontPhoto} mode="aspectFill" />
               ) : (
@@ -237,7 +241,11 @@ export default function Realname() {
                 <Text className="rn-photo-loading">{tt('common.uploading', '上传中…')}</Text>
               ) : null}
             </View>
-            <View className="rn-photo-box" hoverClass="opacity-60" onClick={() => pickPhoto('back')}>
+            <View
+              className="rn-photo-box"
+              hoverClass="opacity-60"
+              onClick={() => pickPhoto('back')}
+            >
               {backPhoto ? (
                 <Image className="rn-photo-img" src={backPhoto} mode="aspectFill" />
               ) : (

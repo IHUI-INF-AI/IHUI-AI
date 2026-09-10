@@ -31,7 +31,8 @@ export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps
                 isActive ? 'bg-primary' : 'bg-card'
               }`}
               onClick={() => onChange(tab.key)}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text
                 className={`text-[28rpx] ${
                   isActive ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'

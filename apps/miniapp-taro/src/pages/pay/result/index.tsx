@@ -166,7 +166,9 @@ export default function PayResult() {
                 hoverClass="opacity-85"
                 onTap={goOrders}
               >
-                <Text className="text-[30rpx] text-foreground">{tt('pay.viewOrders', '查看订单')}</Text>
+                <Text className="text-[30rpx] text-foreground">
+                  {tt('pay.viewOrders', '查看订单')}
+                </Text>
               </View>
             </>
           ) : (

@@ -102,9 +102,7 @@ export function IncomeScreen() {
       }
       // 「已结算」= 已成功提现的记录(completed status=2);佣金行与提现记录无字段关联,无法逐条标记
       const settledItems = withdrawRes.success
-        ? withdrawRes.data.list
-            .filter((w) => String(w.status) === '2')
-            .map(mapWithdrawRecord)
+        ? withdrawRes.data.list.filter((w) => String(w.status) === '2').map(mapWithdrawRecord)
         : []
       setData({
         totalEarnings: overviewRes.data.totalCommission,

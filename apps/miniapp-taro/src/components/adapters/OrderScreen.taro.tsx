@@ -309,7 +309,12 @@ export function OrderScreen({
           {TABS.map((tab) => {
             const active = tab === activeTab
             return (
-              <View key={tab} style={viewStyles.tab(tk, active)} onTap={() => onSelectTab(tab)} hoverClass="opacity-60">
+              <View
+                key={tab}
+                style={viewStyles.tab(tk, active)}
+                onTap={() => onSelectTab(tab)}
+                hoverClass="opacity-60"
+              >
                 <Text style={textStyles.tab(tk, active)}>{tabLabel(tab)}</Text>
               </View>
             )

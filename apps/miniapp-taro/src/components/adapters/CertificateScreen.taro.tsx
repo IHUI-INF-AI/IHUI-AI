@@ -124,7 +124,12 @@ export function CertificateScreen({
             </View>
           ) : (
             items.map((item) => (
-              <View key={item.id} style={viewStyles.card(tk)} onTap={() => onPressItem(item)} hoverClass="opacity-60">
+              <View
+                key={item.id}
+                style={viewStyles.card(tk)}
+                onTap={() => onPressItem(item)}
+                hoverClass="opacity-60"
+              >
                 <View style={viewStyles.titleRow()}>
                   <Text style={textStyles.cardTitle(tk)}>{item.title}</Text>
                   <View

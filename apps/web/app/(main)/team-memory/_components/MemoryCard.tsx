@@ -46,14 +46,26 @@ export function MemoryCard({ row, onEdit, onDelete }: MemoryCardProps) {
             {t(`kind.${row.kind}`)}
           </span>
           <span className="flex-1 truncate text-sm font-medium">{row.title}</span>
-          <Button variant="ghost" size="icon-sm" onClick={() => onEdit(row)} aria-label={t('editBtn')}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onEdit(row)}
+            aria-label={t('editBtn')}
+          >
             <Pencil className="size-4" />
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={() => onDelete(row)} aria-label={t('deleteBtn')}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onDelete(row)}
+            aria-label={t('deleteBtn')}
+          >
             <Trash2 className="size-4" />
           </Button>
         </div>
-        <p className="text-muted-foreground line-clamp-3 text-sm whitespace-pre-wrap">{row.content}</p>
+        <p className="text-muted-foreground line-clamp-3 text-sm whitespace-pre-wrap">
+          {row.content}
+        </p>
         <div className="text-muted-foreground flex items-center gap-2 text-xs">
           {row.tags.map((tag: string) => (
             <span key={tag} className="bg-muted rounded px-1.5 py-0.5">

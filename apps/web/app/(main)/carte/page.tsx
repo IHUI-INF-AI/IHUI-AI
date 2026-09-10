@@ -35,9 +35,7 @@ export default function CartePage() {
               alt=""
               className="mx-auto mb-3 h-20 w-20 rounded-md object-cover"
             />
-            <h2 className="text-base font-medium text-black">
-              AI智汇社 | 私董会创始人 | 李总
-            </h2>
+            <h2 className="text-base font-medium text-black">AI智汇社 | 私董会创始人 | 李总</h2>
             <p className="mt-1 text-sm text-black/70">{t('recommend')}</p>
           </div>
           <div className="space-y-4 p-6 text-center">

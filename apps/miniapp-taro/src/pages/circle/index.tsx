@@ -181,7 +181,12 @@ export default function CircleIndexPage() {
         <ScrollView scrollX enhanced showScrollbar={false} className="ci-hottopic-scroll">
           <View className="ci-hottopic-list">
             {hotTopics.map((topic) => (
-              <View key={topic.id} className="ci-hottopic-chip" onClick={() => goTopic(topic.id)} hoverClass="opacity-60">
+              <View
+                key={topic.id}
+                className="ci-hottopic-chip"
+                onClick={() => goTopic(topic.id)}
+                hoverClass="opacity-60"
+              >
                 <Text className="ci-hottopic-hash">#</Text>
                 <Text className="ci-hottopic-name">{topic.name}</Text>
                 <Text className="ci-hottopic-count">{topic.count}</Text>
@@ -226,7 +231,12 @@ export default function CircleIndexPage() {
             const imgs = c.images || []
             return (
               <ThemeRoot key={c.id}>
-                <View key={c.id} className="ci-item" onClick={() => goDetail(c.id)} hoverClass="opacity-85">
+                <View
+                  key={c.id}
+                  className="ci-item"
+                  onClick={() => goDetail(c.id)}
+                  hoverClass="opacity-85"
+                >
                   <View className="ci-item-head">
                     <Image
                       className="ci-avatar"

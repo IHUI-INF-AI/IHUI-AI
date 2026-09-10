@@ -555,7 +555,7 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
       if (msg.includes('unique') || msg.includes('duplicate') || msg.includes('冲突')) {
         return reply.status(409).send(error(409, '该作用域内 source_model 已存在映射'))
       }
-      return reply.status(500).send(error(500, "创建映射失败,请稍后重试"))
+      return reply.status(500).send(error(500, '创建映射失败,请稍后重试'))
     }
   })
 

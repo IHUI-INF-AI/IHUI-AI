@@ -3,7 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getUsdToCnyRate, mapLiteLLMEntry, resetFxRateCacheForTests, resolveUsdToCnyRate } from '../litellm-price-sync.js'
+import {
+  getUsdToCnyRate,
+  mapLiteLLMEntry,
+  resetFxRateCacheForTests,
+  resolveUsdToCnyRate,
+} from '../litellm-price-sync.js'
 
 /**
  * mapLiteLLMEntry 纯函数单元测试(零外部依赖,不连 DB)。
@@ -74,8 +79,12 @@ describe('litellm-price-sync — mapLiteLLMEntry', () => {
     })
 
     it('价格为字符串/负数 → null', () => {
-      expect(mapLiteLLMEntry('x', { input_cost_per_token: '0.1', output_cost_per_token: 1 })).toBeNull()
-      expect(mapLiteLLMEntry('x', { input_cost_per_token: -1, output_cost_per_token: 1 })).toBeNull()
+      expect(
+        mapLiteLLMEntry('x', { input_cost_per_token: '0.1', output_cost_per_token: 1 }),
+      ).toBeNull()
+      expect(
+        mapLiteLLMEntry('x', { input_cost_per_token: -1, output_cost_per_token: 1 }),
+      ).toBeNull()
     })
 
     it('非对象条目(null/数组/字符串)→ null', () => {
@@ -85,20 +94,30 @@ describe('litellm-price-sync — mapLiteLLMEntry', () => {
     })
 
     it('sample_spec 样例条目 → null', () => {
-      expect(mapLiteLLMEntry('sample_spec', { input_cost_per_token: 1, output_cost_per_token: 1 })).toBeNull()
+      expect(
+        mapLiteLLMEntry('sample_spec', { input_cost_per_token: 1, output_cost_per_token: 1 }),
+      ).toBeNull()
     })
 
     it('modelId 为空或超 128 字符 → null', () => {
-      expect(mapLiteLLMEntry('   ', { input_cost_per_token: 1, output_cost_per_token: 1 })).toBeNull()
+      expect(
+        mapLiteLLMEntry('   ', { input_cost_per_token: 1, output_cost_per_token: 1 }),
+      ).toBeNull()
       const long = 'a'.repeat(129)
-      expect(mapLiteLLMEntry(long, { input_cost_per_token: 1, output_cost_per_token: 1 })).toBeNull()
+      expect(
+        mapLiteLLMEntry(long, { input_cost_per_token: 1, output_cost_per_token: 1 }),
+      ).toBeNull()
     })
   })
 
   describe('汇率换算(AI_PRICE_USD_TO_CNY)', () => {
     it('自定义汇率 8.0 生效', () => {
       process.env[RATE_ENV] = '8.0'
-      const m = mapLiteLLMEntry('m', { input_cost_per_token: 0.000001, output_cost_per_token: 0.000002 }, 8.0)
+      const m = mapLiteLLMEntry(
+        'm',
+        { input_cost_per_token: 0.000001, output_cost_per_token: 0.000002 },
+        8.0,
+      )
       // input: 1e-6 × 8 × 1e5 = 0.8;output: 2e-6 × 8 × 1e5 = 1.6
       expect(m).toEqual({ modelId: 'm', inputTokenPrice: 0.8, outputTokenPrice: 1.6 })
     })
@@ -132,8 +151,9 @@ describe('litellm-price-sync — mapLiteLLMEntry', () => {
     })
 
     it('成功拉取 → 返回接口汇率并进入 24h 缓存(第二次不再发请求)', async () => {
-      const fetchMock = vi.fn(async () =>
-        ({ ok: true, json: async () => ({ rates: { CNY: 7.15 } }) }) as unknown as Response,
+      const fetchMock = vi.fn(
+        async () =>
+          ({ ok: true, json: async () => ({ rates: { CNY: 7.15 } }) }) as unknown as Response,
       )
       vi.stubGlobal('fetch', fetchMock)
       await expect(resolveUsdToCnyRate()).resolves.toBe(7.15)

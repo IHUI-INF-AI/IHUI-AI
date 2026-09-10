@@ -290,9 +290,11 @@ export default function AdminResourceProductPage() {
                           size="sm"
                           disabled={deleteMut.isPending}
                           onClick={() => {
-                            void confirmDialog({ title: `确定删除产品 ${p.name} 吗？` }).then((ok) => {
-                              if (ok) deleteMut.mutate(p.id)
-                            })
+                            void confirmDialog({ title: `确定删除产品 ${p.name} 吗？` }).then(
+                              (ok) => {
+                                if (ok) deleteMut.mutate(p.id)
+                              },
+                            )
                           }}
                         >
                           <Trash2 className="h-3.5 w-3.5" />

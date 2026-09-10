@@ -315,11 +315,7 @@ export default function FavoritesPage() {
       {/* 空状态:暂无收藏 + 去发现 */}
       {displayList.length === 0 && !loading ? (
         <View className="py-[96rpx] flex flex-col items-center">
-          <LineIcon
-            name="star"
-            size={80}
-            color="var(--color-muted-foreground)"
-          />
+          <LineIcon name="star" size={80} color="var(--color-muted-foreground)" />
           <Text className="mt-[16rpx] text-[28rpx] text-muted-foreground">
             {searchText || activeTab !== 'all'
               ? tt('favorites.searchEmpty', '未找到匹配内容')
@@ -328,7 +324,8 @@ export default function FavoritesPage() {
           <View
             className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-[24rpx]"
             onClick={goDiscover}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-primary-foreground text-[26rpx]">
               {tt('favorites.goDiscover', '去发现')}
             </Text>

@@ -110,7 +110,8 @@ export default function AgentListPanel({
                 key={agent.id}
                 className="flex items-center py-[28rpx] px-[28rpx] mb-[24rpx] rounded-[24rpx] bg-[var(--color-card)] border border-[var(--color-border)]"
                 onClick={() => handleAgentClick(agent)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 {/* RN avatar 48dp→96rpx / borderRadius 12dp→24rpx / bg surface.muted;cardMain marginLeft 12dp→24rpx */}
                 <Image
                   className="w-[96rpx] h-[96rpx] mr-[24rpx] rounded-[24rpx] bg-[var(--color-muted)] shrink-0"

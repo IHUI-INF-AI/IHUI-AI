@@ -20,8 +20,7 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'zh_CN',
     title: '成本看板 Cost Dashboard | IHUI AI',
-    description:
-      'IHUI AI 成本看板:总成本 / Token / 耗时 / 步数,按工具与模型拆分的条 + 时间走势。',
+    description: 'IHUI AI 成本看板:总成本 / Token / 耗时 / 步数,按工具与模型拆分的条 + 时间走势。',
     url: 'https://aizhs.top/cost-dashboard',
     siteName: 'IHUI AI',
     images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'IHUI AI 成本看板' }],
