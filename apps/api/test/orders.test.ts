@@ -250,6 +250,11 @@ describe('order routes', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
+    // 风控引擎 decorate(2026-09-06 P0:下单入口接入 server.riskEngine.evaluateRisk;
+    // 2026-09-10 CI:缺此 decorate → undefined.evaluateRisk → 500 而非 201)
+    app.decorate('riskEngine', {
+      evaluateRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: [], score: 0 }),
+    })
     // 模拟生产环境 server.ts 的 errorHandler:AJV 验证错误 → 400, ZodError → 400
     app.setErrorHandler((err, _req, reply) => {
       const isZodErr =

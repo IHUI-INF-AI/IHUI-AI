@@ -260,6 +260,17 @@ export async function killTask(id: string): Promise<{ killed: boolean; reason?: 
     return { killed: true };
   }
 
+  // 进程组团灭(2026-09-10 CI 根修):runSandboxedAsync 以 detached+shell 派生,
+  // SIGTERM 只杀 shell,孙进程(如 sleep)继承 stdio 管道,shell 死后 close 事件
+  // 仍不触发 → 任务状态永久卡在 running(ubuntu CI 实测 SIGKILL 亦无效)。
+  // detached 进程组 → kill(-pid) 团灭整组,管道随即关闭。
+  if (t.process.pid && process.platform !== 'win32') {
+    try {
+      process.kill(-t.process.pid, 'SIGKILL');
+    } catch {
+      /* 进程组可能已退出 */
+    }
+  }
   // 强杀
   try {
     t.process.kill('SIGKILL');
