@@ -89,9 +89,7 @@ export default function EduStudentDetailPage() {
       // 2026-09-09 0-5 直接 fetch 清单化迁移:blob 下载走共享 fetchRaw,
       // 鉴权/CSRF/设备指纹/超时由共享层统一承担(失败自动抛错,走 catch toast)。
       // 文件名按 format 前端构造(与后端 Content-Disposition 等价,均为 id 前 8 位)。
-      const blob = await fetchRaw(
-        `/api/admin/edu/students/${id}/report/export?format=${format}`,
-      )
+      const blob = await fetchRaw(`/api/admin/edu/students/${id}/report/export?format=${format}`)
       const ext = format === 'pdf' ? 'pdf' : format === 'excel' ? 'xlsx' : 'json'
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')

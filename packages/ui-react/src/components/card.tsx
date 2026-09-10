@@ -21,10 +21,7 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
     // pb-0 防止与 CardContent 默认 p-3/p-3 形成双 padding,保持 Header→Content 间距与原版一致
     <div
       ref={ref}
-      className={cn(
-        'flex flex-col space-y-1.5 p-3 pb-0 min-[640px]:pb-0',
-        className,
-      )}
+      className={cn('flex flex-col space-y-1.5 p-3 pb-0 min-[640px]:pb-0', className)}
       {...props}
     />
   ),
