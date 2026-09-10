@@ -1,0 +1,247 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useTt, type TtFn } from '@/i18n'
+import { logger } from '@/utils/logger'
+import { View, Text, Image } from '@tarojs/components'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useState, useCallback, useMemo } from 'react'
+import { getLiveCalendar, subscribeLive, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
+import './calendar.css'
+
+type LiveStatus = Live['status']
+
+interface StatusCfg {
+  labelKey: string
+  labelFb: string
+  actionKey: string
+  actionFb: string
+  badge: string
+  actionCls: string
+}
+
+const STATUS_CFG = (tt: TtFn): Record<LiveStatus, StatusCfg> => ({
+  upcoming: {
+    labelKey: 'live.calendar.upcoming',
+    labelFb: tt('live.upcoming', '即将开始'),
+    actionKey: 'live.subscribe.subscribe',
+    actionFb: tt('live.subscribe.subscribe', '订阅提醒'),
+    badge: 'cal-badge-upcoming',
+    actionCls: 'cal-action-upcoming',
+  },
+  living: {
+    labelKey: 'live.liveNow',
+    labelFb: tt('plaza.index.tabOngoing', '进行中'),
+    actionKey: 'live.calendar.watchNow',
+    actionFb: tt('liveCalendar.d1', '立即观看'),
+    badge: 'cal-badge-living',
+    actionCls: 'cal-action-living',
+  },
+  ended: {
+    labelKey: 'live.ended',
+    labelFb: tt('liveHost.statusInactive', '已结束'),
+    actionKey: 'live.replay',
+    actionFb: tt('liveCalendar.d2', '回放'),
+    badge: 'cal-badge-ended',
+    actionCls: 'cal-action-ended',
+  },
+})
+
+const pad = (n: number) => String(n).padStart(2, '0')
+const fmtMonth = (y: number, m: number) => `${y}-${pad(m + 1)}`
+const fmtDate = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`
+
+const WEEK_FALLBACK = ['日', '一', '二', '三', '四', '五', '六']
+
+const WEEKDAY_KEYS = [
+  'live.calendar.w0',
+  'live.calendar.w1',
+  'live.calendar.w2',
+  'live.calendar.w3',
+  'live.calendar.w4',
+  'live.calendar.w5',
+  'live.calendar.w6',
+] as const
+
+export default function LiveCalendar() {
+  const tt = useTt()
+
+  const today = new Date()
+  const [year, setYear] = useState(today.getFullYear())
+  const [month, setMonth] = useState(today.getMonth())
+  const [selected, setSelected] = useState(
+    fmtDate(today.getFullYear(), today.getMonth(), today.getDate()),
+  )
+  const [groups, setGroups] = useState<Array<{ date: string; lives: Live[] }>>([])
+
+  const liveMap = useMemo(() => {
+    const m = new Map<string, Live[]>()
+    groups.forEach((g) => m.set(g.date, g.lives))
+    return m
+  }, [groups])
+
+  const monthTotal = useMemo(() => groups.reduce((n, g) => n + g.lives.length, 0), [groups])
+
+  const load = useCallback(
+    async (y: number, m: number) => {
+      try {
+        const res = await getLiveCalendar({ month: fmtMonth(y, m) })
+        setGroups(res.list || [])
+      } catch (e) {
+        logger.error('live/calendar', '获取直播日历', e)
+        Taro.showToast({
+          title: tt('live.calendar.loadFailed', '日历加载失败'),
+          icon: 'none',
+        })
+      }
+    },
+    [tt],
+  )
+
+  useDidShow(() => {
+    load(year, month)
+  })
+
+  const shift = (delta: number) => {
+    let y = year
+    let m = month + delta
+    if (m < 0) {
+      m = 11
+      y--
+    } else if (m > 11) {
+      m = 0
+      y++
+    }
+    setYear(y)
+    setMonth(m)
+    load(y, m)
+  }
+
+  const goToday = () => {
+    const d = new Date()
+    setYear(d.getFullYear())
+    setMonth(d.getMonth())
+    setSelected(fmtDate(d.getFullYear(), d.getMonth(), d.getDate()))
+    load(d.getFullYear(), d.getMonth())
+  }
+
+  const firstWeekday = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const cells: Array<number | null> = []
+  for (let i = 0; i < firstWeekday; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+
+  const selectedLives = liveMap.get(selected) || []
+  const goDetail = (id: string | number) => Taro.navigateTo({ url: `/pkg-learn/live/detail?id=${id}` })
+
+  const onAction = (live: Live) => {
+    if (live.status === 'upcoming') {
+      subscribeLive(live.id)
+        .then(() =>
+          Taro.showToast({
+            title: tt('live.subscribe.subscribeSuccess', '订阅成功'),
+            icon: 'success',
+          }),
+        )
+        .catch((e) => logger.error('live/calendar', '订阅直播', e))
+    } else {
+      goDetail(live.id)
+    }
+  }
+
+  const weekLabels = WEEK_FALLBACK.map((w, i) => tt(WEEKDAY_KEYS[i] ?? 'live.calendar.w0', w))
+
+  return (
+    <View className="cal-page">
+      <View className="cal-header">
+        <View className="cal-nav">
+          <Text className="cal-nav-btn" onClick={() => shift(-1)}>
+            {tt('live.calendar.prevMonth', '‹')}
+          </Text>
+          <Text className="cal-title">
+            {year}
+            {tt('live.calendar.year', '年')}
+            {month + 1}
+            {tt('live.calendar.month', '月')}
+          </Text>
+          <Text className="cal-nav-btn" onClick={() => shift(1)}>
+            {tt('live.calendar.nextMonth', '›')}
+          </Text>
+        </View>
+        <Text className="cal-today-btn" onClick={goToday}>
+          {tt('live.calendar.today', '今天')}
+        </Text>
+      </View>
+      <View className="cal-stat">
+        <Text>{tt('live.calendar.monthStat', '本月')}</Text>
+        <Text className="cal-stat-num">{monthTotal}</Text>
+        <Text>{tt('live.calendar.sessions', '场直播')}</Text>
+      </View>
+      <View className="cal-week">
+        {weekLabels.map((w, i) => (
+          <Text key={i} className="cal-week-cell">
+            {w}
+          </Text>
+        ))}
+      </View>
+      <View className="cal-grid">
+        {cells.map((d, i) => {
+          if (d === null) return <View key={i} className="cal-cell-empty" />
+          const ds = fmtDate(year, month, d)
+          const has = liveMap.has(ds)
+          const active = ds === selected
+          return (
+            <ThemeRoot key={i}>
+              <View
+                key={i}
+                className={`cal-cell${active ? ' cal-cell-active' : ''}`}
+                onClick={() => setSelected(ds)}
+                hoverClass="opacity-60"
+              >
+                <Text className="cal-cell-num">{d}</Text>
+                {has && <View className="cal-dot" />}
+              </View>
+            </ThemeRoot>
+          )
+        })}
+      </View>
+      <Text className="cal-section-title">
+        {selected} {tt('live.calendar.liveList', '直播安排')}
+      </Text>
+      {selectedLives.length > 0 ? (
+        selectedLives.map((live) => {
+          const cfg = STATUS_CFG(tt)[live.status]
+          return (
+            <ThemeRoot key={live.id}>
+              <View key={live.id} className="cal-card">
+                <Image className="cal-card-cover" src={live.coverUrl} mode="aspectFill" />
+                <View className="cal-card-row">
+                  <Text className="cal-card-title">{live.title}</Text>
+                  <Text className={`cal-badge ${cfg.badge}`}>{tt(cfg.labelKey, cfg.labelFb)}</Text>
+                </View>
+                <View className="cal-card-meta">
+                  {live.anchor && (
+                    <Text>
+                      {tt('live.calendar.anchor', '主播')}: {live.anchor}
+                    </Text>
+                  )}
+                  {live.startTime && <Text>{live.startTime}</Text>}
+                </View>
+                <Text className={`cal-action ${cfg.actionCls}`} onClick={() => onAction(live)}>
+                  {tt(cfg.actionKey, cfg.actionFb)}
+                </Text>
+              </View>
+            </ThemeRoot>
+          )
+        })
+      ) : (
+        <View className="cal-empty">
+          <Text>{tt('live.calendar.noLive', '当日暂无直播安排')}</Text>
+        </View>
+      )}
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -35,7 +35,7 @@ describe('miniapp-taro share 工具', () => {
 
   it('getSharePath 自动追加 source + inviteCode', () => {
     taroStorage['ihui_user_info'] = { inviteCode: 'ABC123' }
-    const path = getSharePath('/pages/course/detail')
+    const path = getSharePath('/pkg-learn/course/detail')
     expect(path).toContain('source=share')
     expect(path).toContain('inviteCode=ABC123')
     expect(path).toMatch(/^\/pages\/course\/detail\?/)
@@ -43,7 +43,7 @@ describe('miniapp-taro share 工具', () => {
 
   it('getSharePath 已有 query 时用 & 追加', () => {
     taroStorage['ihui_user_info'] = { inviteCode: 'ABC123' }
-    const path = getSharePath('/pages/course/detail?id=1')
+    const path = getSharePath('/pkg-learn/course/detail?id=1')
     expect(path).toContain('id=1')
     expect(path).toContain('&source=share')
     expect(path).toContain('&inviteCode=ABC123')
@@ -78,13 +78,13 @@ describe('miniapp-taro share 工具', () => {
   it('getShareInfo 支持自定义 title/imageUrl', () => {
     taroStorage['ihui_user_info'] = { inviteCode: 'ABC123' }
     const info = getShareInfo(
-      '/pages/course/detail',
+      '/pkg-learn/course/detail',
       '好课推荐',
       'https://img.example.com/cover.png',
     )
     expect(info.title).toBe('好课推荐')
     expect(info.imageUrl).toBe('https://img.example.com/cover.png')
-    expect(info.path).toBe('/pages/course/detail?source=share&inviteCode=ABC123')
+    expect(info.path).toBe('/pkg-learn/course/detail?source=share&inviteCode=ABC123')
   })
 
   it('getTimelineShareInfo 包含 query 字段', () => {
