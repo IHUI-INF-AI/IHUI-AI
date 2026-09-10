@@ -45,6 +45,12 @@ jobs:
       - name: Build api-client package
         run: pnpm --filter @ihui/api-client build
 
+      # WXT 生成 apps/extension/.wxt/tsconfig.json(extension 的 tsconfig 继承它)。
+      # 缺此步 -> TS5083 读不到文件, 连带 200+ 个路径解析/自动导入错误(2026-09-10 实测)。
+      # 本地由 apps/extension 的 postinstall 兜底, CI 显式前置保证确定性。
+      - name: Prepare WXT types (extension)
+        run: pnpm --filter @ihui/extension exec wxt prepare
+
       - name: Typecheck
         run: pnpm turbo run typecheck
 
@@ -134,7 +140,7 @@ jobs:
 
       - name: Push schema to test DB
         working-directory: packages/database
-        run: npx drizzle-kit push
+        run: npx drizzle-kit push --force
 
       - name: Setup Python
         uses: actions/setup-python@v5
