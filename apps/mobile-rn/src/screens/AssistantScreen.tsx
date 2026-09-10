@@ -162,7 +162,10 @@ const IMAGE_EXT = /\.(jpg|jpeg|png|gif|webp|bmp|svg|ico)$/i
 const VIDEO_EXT = /\.(mp4|avi|mov|wmv|flv|mkv|webm|m4v|3gp|rm|rmvb)$/i
 const AUDIO_EXT = /\.(mp3|wav|aac|m4a|ogg|flac|wma|amr|ape)$/i
 
-function detectMediaType(messageType: number, content: string): { mediaType: ChatMediaType; mediaUrl: string | null } {
+function detectMediaType(
+  messageType: number,
+  content: string,
+): { mediaType: ChatMediaType; mediaUrl: string | null } {
   if (messageType === 2) return { mediaType: 'image', mediaUrl: content }
   if (messageType === 3) return { mediaType: 'audio', mediaUrl: content }
   if (messageType === 4) return { mediaType: 'file', mediaUrl: content }
@@ -184,12 +187,7 @@ function Avatar({ uri, name, size }: { uri: string; name: string; size: number }
     return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
   }
   return (
-    <View
-      style={[
-        styles.avatarFallback,
-        { width: size, height: size, borderRadius: size / 2 },
-      ]}
-    >
+    <View style={[styles.avatarFallback, { width: size, height: size, borderRadius: size / 2 }]}>
       <Text style={[styles.avatarFallbackText, { fontSize: size / 2.4 }]}>{initial}</Text>
     </View>
   )
@@ -321,7 +319,10 @@ export default function AssistantScreen() {
       Alert.alert('仅微信小程序支持')
       return
     }
-    Alert.alert('附件发送待接后端', `将支持:${type === 'camera' ? '拍照' : type === 'album' ? '相册图片' : '文件'}上传后经 WS 发送`)
+    Alert.alert(
+      '附件发送待接后端',
+      `将支持:${type === 'camera' ? '拍照' : type === 'album' ? '相册图片' : '文件'}上传后经 WS 发送`,
+    )
   }, [])
 
   /** 音频/文件/视频打开(对齐历史 openAudio/openFile:APP 内 openURL) */
@@ -346,23 +347,41 @@ export default function AssistantScreen() {
       return (
         <View style={[styles.messageRow, isUser ? styles.rowUser : styles.rowSeller]}>
           {!isUser && <Avatar uri={item.avatar} name={activeRoom?.name ?? '友'} size={rpx(80)} />}
-          <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleSeller, media && styles.bubbleMedia]}>
+          <View
+            style={[
+              styles.bubble,
+              isUser ? styles.bubbleUser : styles.bubbleSeller,
+              media && styles.bubbleMedia,
+            ]}
+          >
             {media === 'image' && item.mediaUrl ? (
               <TouchableOpacity onPress={() => setPreviewUrl(item.mediaUrl)} activeOpacity={0.9}>
                 <Image source={{ uri: item.mediaUrl }} style={styles.messageImage} />
               </TouchableOpacity>
             ) : media === 'video' && item.mediaUrl ? (
-              <TouchableOpacity style={styles.mediaRow} onPress={() => openUrl(item.mediaUrl)} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.mediaRow}
+                onPress={() => openUrl(item.mediaUrl)}
+                activeOpacity={0.7}
+              >
                 <Video size={rpx(32)} color={tokens.text.secondary} />
                 <Text style={styles.mediaLink}>视频消息,点击播放</Text>
               </TouchableOpacity>
             ) : media === 'audio' && item.mediaUrl ? (
-              <TouchableOpacity style={styles.mediaRow} onPress={() => openUrl(item.mediaUrl)} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.mediaRow}
+                onPress={() => openUrl(item.mediaUrl)}
+                activeOpacity={0.7}
+              >
                 <Music size={rpx(32)} color={tokens.text.secondary} />
                 <Text style={styles.mediaLink}>音频消息,点击播放</Text>
               </TouchableOpacity>
             ) : media === 'file' && item.mediaUrl ? (
-              <TouchableOpacity style={styles.mediaRow} onPress={() => openUrl(item.mediaUrl)} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.mediaRow}
+                onPress={() => openUrl(item.mediaUrl)}
+                activeOpacity={0.7}
+              >
                 <FileText size={rpx(32)} color={tokens.text.secondary} />
                 <Text style={styles.mediaLink}>文件消息,点击查看</Text>
               </TouchableOpacity>
@@ -391,7 +410,9 @@ export default function AssistantScreen() {
             </Text>
             {item.unreadCount > 0 ? (
               <View style={styles.unreadBadge}>
-                <Text style={styles.unreadText}>{item.unreadCount > 99 ? '99+' : item.unreadCount}</Text>
+                <Text style={styles.unreadText}>
+                  {item.unreadCount > 99 ? '99+' : item.unreadCount}
+                </Text>
               </View>
             ) : null}
             <Text style={styles.roomTime}>{item.time}</Text>
@@ -430,12 +451,27 @@ export default function AssistantScreen() {
           onIconClick={handleIconClick}
         />
         {/* 图片全屏预览(对应 uni.previewImage;历史支持整组滑动预览,RN 端先单张) */}
-        <Modal visible={previewUrl !== null} transparent animationType="fade" onRequestClose={() => setPreviewUrl(null)}>
+        <Modal
+          visible={previewUrl !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPreviewUrl(null)}
+        >
           <View style={styles.previewOverlay}>
-            <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewUrl(null)} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={styles.previewClose}
+              onPress={() => setPreviewUrl(null)}
+              activeOpacity={0.8}
+            >
               <X size={rpx(40)} color={tokens.surface.light} />
             </TouchableOpacity>
-            {previewUrl ? <Image source={{ uri: previewUrl }} style={styles.previewImage} resizeMode="contain" /> : null}
+            {previewUrl ? (
+              <Image
+                source={{ uri: previewUrl }}
+                style={styles.previewImage}
+                resizeMode="contain"
+              />
+            ) : null}
           </View>
         </Modal>
       </KeyboardAvoidingView>

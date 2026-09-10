@@ -157,7 +157,9 @@ async function collectRepoFiles(handle: FileSystemDirectoryHandle): Promise<Repo
 }
 
 interface PickerWindow {
-  showDirectoryPicker?: (opts?: { mode?: 'read' | 'readwrite' }) => Promise<FileSystemDirectoryHandle>
+  showDirectoryPicker?: (opts?: {
+    mode?: 'read' | 'readwrite'
+  }) => Promise<FileSystemDirectoryHandle>
 }
 
 function formatDate(iso: string): string {
@@ -329,8 +331,16 @@ export default function RepoWikiPage() {
               className="max-w-xs"
               disabled={generating}
             />
-            <Button variant="outline" onClick={handlePickFolder} disabled={collecting || generating}>
-              {collecting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <FolderOpen className="h-4 w-4" aria-hidden />}
+            <Button
+              variant="outline"
+              onClick={handlePickFolder}
+              disabled={collecting || generating}
+            >
+              {collecting ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <FolderOpen className="h-4 w-4" aria-hidden />
+              )}
               {collecting ? t('collecting') : t('pickFolder')}
             </Button>
           </div>

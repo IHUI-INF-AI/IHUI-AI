@@ -262,7 +262,12 @@ export default function AiSkillList() {
                 </View>
               ) : (
                 items.map((item) => (
-                  <View key={item.id} style={viewStyles.card(tk, isDark)} onTap={() => onOpen(item)} hoverClass="opacity-60">
+                  <View
+                    key={item.id}
+                    style={viewStyles.card(tk, isDark)}
+                    onTap={() => onOpen(item)}
+                    hoverClass="opacity-60"
+                  >
                     <View style={viewStyles.cardTitleRow()}>
                       <Text style={textStyles.cardName(tk)}>{item.name}</Text>
                       <View style={viewStyles.categoryBadge(tk, isDark)}>

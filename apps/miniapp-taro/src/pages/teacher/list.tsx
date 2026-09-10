@@ -147,9 +147,7 @@ export default function TeacherList() {
         )}
         {loading && (
           <View className="flex items-center justify-center py-[120rpx]">
-            <Text className="text-sm text-[var(--color-text-tertiary)]">
-              {t('common.loading')}
-            </Text>
+            <Text className="text-sm text-[var(--color-text-tertiary)]">{t('common.loading')}</Text>
           </View>
         )}
       </View>

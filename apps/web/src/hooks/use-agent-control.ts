@@ -164,10 +164,7 @@ async function executeAction(req: AgentActionRequest): Promise<AgentActionRespon
         break
       }
       case 'keyboard_type': {
-        await keyboardType(
-          String(p.text ?? ''),
-          typeof p.delay === 'number' ? p.delay : undefined,
-        )
+        await keyboardType(String(p.text ?? ''), typeof p.delay === 'number' ? p.delay : undefined)
         break
       }
       case 'mouse_scroll': {
@@ -204,9 +201,7 @@ async function executeAction(req: AgentActionRequest): Promise<AgentActionRespon
         }
       }
       case 'clipboard_get': {
-        const r = await clipboardGet(
-          p.format === 'image' ? 'image' : undefined,
-        )
+        const r = await clipboardGet(p.format === 'image' ? 'image' : undefined)
         return {
           requestId: req.requestId,
           success: true,
@@ -216,10 +211,7 @@ async function executeAction(req: AgentActionRequest): Promise<AgentActionRespon
         }
       }
       case 'clipboard_set': {
-        await clipboardSet(
-          String(p.content ?? ''),
-          p.format === 'image' ? 'image' : undefined,
-        )
+        await clipboardSet(String(p.content ?? ''), p.format === 'image' ? 'image' : undefined)
         break
       }
       default:

@@ -334,7 +334,12 @@ export default function TaskCenter() {
             {TABS.map((tab) => {
               const active = tab === activeTab
               return (
-                <View key={tab} style={viewStyles.tab(tk, active)} onTap={() => switchTab(tab)} hoverClass="opacity-60">
+                <View
+                  key={tab}
+                  style={viewStyles.tab(tk, active)}
+                  onTap={() => switchTab(tab)}
+                  hoverClass="opacity-60"
+                >
                   <Text style={textStyles.tab(tk, active)}>{tabLabel(tab)}</Text>
                 </View>
               )
@@ -400,7 +405,8 @@ export default function TaskCenter() {
                       <View
                         style={viewStyles.actionBtn(tk, 'primary')}
                         onTap={() => void handleClaim(task)}
-                        hoverClass="opacity-60">
+                        hoverClass="opacity-60"
+                      >
                         <Text style={textStyles.actionBtnText(tk, 'primary')}>
                           {claimingId === task.id
                             ? tt('common.loading', '加载中...')
@@ -411,7 +417,8 @@ export default function TaskCenter() {
                       <View
                         style={viewStyles.actionBtn(tk, 'muted')}
                         onTap={() => handleAction(task)}
-                        hoverClass="opacity-60">
+                        hoverClass="opacity-60"
+                      >
                         <Text style={textStyles.actionBtnText(tk, 'muted')}>
                           {tt('taskCenter.goToDo', '去完成')}
                         </Text>

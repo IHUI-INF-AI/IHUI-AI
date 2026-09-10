@@ -206,9 +206,7 @@ export function sendMessage(
     `/api/chat/conversations/${encodeURIComponent(id)}/messages`,
     {
       method: 'POST',
-      body: JSON.stringify(
-        { content, role, metadata, reasoning },
-      ),
+      body: JSON.stringify({ content, role, metadata, reasoning }),
     },
   )
 }
@@ -333,7 +331,6 @@ export function getCompactionArchive(conversationId: string, archiveId: string) 
     `/api/chat/conversations/${encodeURIComponent(conversationId)}/archives/${encodeURIComponent(archiveId)}`,
   )
 }
-
 
 /** 压缩对话历史至目标字符数 */
 export function compressConversation(id: string, targetChars: 200000 | 1000000) {

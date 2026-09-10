@@ -306,7 +306,9 @@ class CodebaseIndexService {
     const { query, repoId, language, topK = 10, scoreThreshold = 0 } = opts
 
     const [vectorResults, keywordResults] = await Promise.all([
-      this.search({ query, repoId, language, topK, scoreThreshold }).catch(() => [] as SearchResult[]),
+      this.search({ query, repoId, language, topK, scoreThreshold }).catch(
+        () => [] as SearchResult[],
+      ),
       this.keywordSearch({ query, repoId, language, topK }).catch(() => [] as SearchResult[]),
     ])
 
@@ -403,9 +405,7 @@ export const codebaseIndexService = new CodebaseIndexService()
  * 输入各通道已按相关性降序的结果列表;按 id 去重合并。
  * 返回按融合分降序、截断 limit 的结果(融合分写入 score 字段)。
  */
-export function reciprocalRankFusion(
-  ...channels: Array<SearchResult[] | number>
-): SearchResult[] {
+export function reciprocalRankFusion(...channels: Array<SearchResult[] | number>): SearchResult[] {
   const nums = channels.filter((c): c is number => typeof c === 'number')
   const lists = channels.filter((c): c is SearchResult[] => Array.isArray(c))
   const k = nums[0] ?? 60
@@ -432,7 +432,10 @@ export function reciprocalRankFusion(
  * 让"getUserById"这类精确标识符查询稳定排到语义近似结果之前。
  */
 export function applyLexicalBoost(results: SearchResult[], query: string): SearchResult[] {
-  const tokens = query.toLowerCase().split(/[^a-z0-9_]+/).filter((t) => t.length >= 3)
+  const tokens = query
+    .toLowerCase()
+    .split(/[^a-z0-9_]+/)
+    .filter((t) => t.length >= 3)
   if (tokens.length === 0) return results
   return results.map((r) => {
     let boost = 0

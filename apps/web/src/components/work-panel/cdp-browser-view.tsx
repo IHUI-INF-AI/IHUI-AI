@@ -554,20 +554,30 @@ export function CdpBrowserView({
         <div className="absolute inset-x-2 bottom-2 top-10 z-20 flex flex-col overflow-hidden rounded-md border border-border bg-background/95 shadow-lg">
           <div className="flex items-center justify-between border-b border-border/60 px-2 py-1">
             <span className="text-[10px] font-semibold">开发者工具</span>
-            <button type="button" onClick={() => setDevToolsOpen(false)} className="text-[10px] text-muted-foreground hover:text-foreground">
+            <button
+              type="button"
+              onClick={() => setDevToolsOpen(false)}
+              className="text-[10px] text-muted-foreground hover:text-foreground"
+            >
               关闭
             </button>
           </div>
           <div className="flex-1 overflow-auto p-1.5">
             <div className="mb-1.5 text-[10px] font-medium text-muted-foreground">控制台日志</div>
             <pre className="thin-scroll max-h-32 overflow-auto rounded bg-muted/40 p-1.5 font-mono text-[9px] leading-relaxed text-muted-foreground">
-              {consoleLogs.length === 0 ? '(暂无日志 — 在页面上点击操作后会显示坐标信息)' : consoleLogs.join('\n')}
+              {consoleLogs.length === 0
+                ? '(暂无日志 — 在页面上点击操作后会显示坐标信息)'
+                : consoleLogs.join('\n')}
             </pre>
-            <div className="mb-1 mt-2 text-[10px] font-medium text-muted-foreground">执行 JavaScript</div>
+            <div className="mb-1 mt-2 text-[10px] font-medium text-muted-foreground">
+              执行 JavaScript
+            </div>
             <textarea
               value={jsCode}
               onChange={(e) => setJsCode(e.target.value)}
-              placeholder={'document.title  —  输入 JS 后点执行(如: document.querySelector("button").click())'}
+              placeholder={
+                'document.title  —  输入 JS 后点执行(如: document.querySelector("button").click())'
+              }
               className="h-14 w-full resize-none rounded border border-input bg-background p-1.5 font-mono text-[10px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               spellCheck={false}
             />

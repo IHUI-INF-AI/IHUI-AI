@@ -162,7 +162,8 @@ export const PLATFORM_SCHEMAS: readonly PlatformCredentialSchema[] = [
     platformName: '哔哩哔哩',
     authType: 'browser_cookie',
     setupGuideUrl: 'https://www.bilibili.com',
-    helpText: '通过 B 站 Cookie 凭据(SESSDATA / bili_jct / dedeuserid)发布视频,需登录 bilibili.com。',
+    helpText:
+      '通过 B 站 Cookie 凭据(SESSDATA / bili_jct / dedeuserid)发布视频,需登录 bilibili.com。',
     fields: [
       {
         name: 'sessdata',

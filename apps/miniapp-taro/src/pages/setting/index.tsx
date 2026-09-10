@@ -95,7 +95,8 @@ export default function SettingIndexPage() {
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/user/profile')}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
               <Text className="text-[32rpx] text-muted-foreground">
                 {tt('setting.profile', '个人资料')}
@@ -106,7 +107,8 @@ export default function SettingIndexPage() {
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/account-cancel/index/index')}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[32rpx] text-muted-foreground">
                 {tt('setting.accountCancel', '账号注销')}
               </Text>
@@ -115,7 +117,8 @@ export default function SettingIndexPage() {
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/notification')}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[32rpx] text-muted-foreground">
                 {tt('setting.notificationSetting', '通知设置')}
               </Text>
@@ -132,7 +135,8 @@ export default function SettingIndexPage() {
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/cache')}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[32rpx] text-muted-foreground">
                 {tt('setting.clearCache', '清除缓存')}
               </Text>
@@ -141,7 +145,8 @@ export default function SettingIndexPage() {
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/language')}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[32rpx] text-muted-foreground">
                 {tt('setting.languageSetting', '语言设置')}
               </Text>
@@ -150,7 +155,8 @@ export default function SettingIndexPage() {
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/theme')}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[32rpx] text-muted-foreground">
                 {tt('setting.themeSetting', '主题设置')}
               </Text>
@@ -167,7 +173,8 @@ export default function SettingIndexPage() {
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/user/feedback')}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[32rpx] text-muted-foreground">
                 {tt('setting.feedback', '意见反馈')}
               </Text>
@@ -176,7 +183,8 @@ export default function SettingIndexPage() {
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/privacy')}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[32rpx] text-muted-foreground">
                 {tt('setting.privacyPermission', '隐私与权限')}
               </Text>
@@ -185,7 +193,8 @@ export default function SettingIndexPage() {
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/about/index')}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[32rpx] text-muted-foreground">
                 {tt('setting.aboutUs', '关于我们')}
               </Text>

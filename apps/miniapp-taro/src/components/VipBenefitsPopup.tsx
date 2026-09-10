@@ -312,7 +312,8 @@ export default function VipBenefitsPopup({
         <View
           className="relative bg-card rounded-t-2xl w-full"
           onClick={(e) => e.stopPropagation()}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <View className="flex items-center justify-between px-4 py-3">
             <Text className="text-base font-medium text-warning">
               {tt('vip.benefitsTitle', '会员权益')}
@@ -343,7 +344,8 @@ export default function VipBenefitsPopup({
               className="w-full py-3 rounded-md text-center"
               style={{ background: 'var(--color-warning)' }}
               onClick={onUpgrade}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-sm text-warning-foreground font-medium">
                 {tt('vip.upgradeNow', '立即升级')}
               </Text>
@@ -401,7 +403,8 @@ export default function VipBenefitsPopup({
             '0 5px 15px var(--color-black-20), inset 0 -1px 2px var(--color-white-70), inset 0 1px 1px var(--color-white-70)',
         }}
         onClick={(e) => e.stopPropagation()}
-        hoverClass="opacity-60">
+        hoverClass="opacity-60"
+      >
         <View
           className="w-full h-full flex flex-col relative"
           style={{ padding: '40rpx 30rpx', boxSizing: 'border-box' }}
@@ -482,7 +485,8 @@ export default function VipBenefitsPopup({
                     '0 4rpx 10rpx var(--color-black-15), inset 0 1px 0 var(--color-white-98)',
                 }}
                 onClick={handlePrimary}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text>{cfg.primaryText}</Text>
               </View>
             )}
@@ -502,7 +506,8 @@ export default function VipBenefitsPopup({
                   boxShadow: '0 4rpx 10rpx var(--color-black-25)',
                 }}
                 onClick={handleSecondary}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text>{cfg.secondaryText}</Text>
               </View>
             )}
@@ -519,7 +524,8 @@ export default function VipBenefitsPopup({
               backdropFilter: 'blur(3px)',
               WebkitBackdropFilter: 'blur(3px)',
             }}
-            onClick={() => setServicePopupVisible(false)}>
+            onClick={() => setServicePopupVisible(false)}
+          >
             <View
               className="relative"
               style={{
@@ -530,7 +536,8 @@ export default function VipBenefitsPopup({
                 boxShadow: '0px 6px 12px 0px var(--color-black-15)',
               }}
               onClick={(e) => e.stopPropagation()}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <View className="flex flex-col items-center">
                 {/* 服务弹窗内容:名片 + 二维码(用占位图,实际使用时替换为真实资源) */}
                 <Image

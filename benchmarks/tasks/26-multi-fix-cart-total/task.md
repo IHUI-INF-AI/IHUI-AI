@@ -5,6 +5,7 @@
 -->
 
 workspace 中 cart.mjs 的 cartTotal(items, discountPct) 计算购物车总价:先对每项求 price*qty 求和,再按 discountPct(0~1 小数)打折。当前实现跨文件调用了 pricing.mjs 的 applyDiscount,但实参顺序传反了(applyDiscount 契约是 applyDiscount(price, discountPct),即金额在前、折扣在后)。请修复 cart.mjs 的调用(不要改 pricing.mjs 的契约),要求:
+
 - cartTotal([{price:100,qty:2}], 0.2) === 160
 - cartTotal([{price:50,qty:1},{price:30,qty:2}], 0) === 110
 - cartTotal([], 0.5) === 0

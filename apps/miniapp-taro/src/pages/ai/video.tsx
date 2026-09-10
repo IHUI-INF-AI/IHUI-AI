@@ -228,9 +228,7 @@ export default function VideoPage() {
             <View
               key={v.key}
               className={`flex-1 py-[12rpx] text-center rounded-[12rpx] ${
-                vendor === v.key
-                  ? 'bg-[var(--color-brand-orange)]'
-                  : 'bg-secondary'
+                vendor === v.key ? 'bg-[var(--color-brand-orange)]' : 'bg-secondary'
               }`}
               onClick={() => setVendor(v.key)}
               hoverClass="opacity-60"
@@ -302,9 +300,7 @@ export default function VideoPage() {
               <VideoPlayer src={resultUrl} />
             ) : (
               <View className="h-[420rpx] flex items-center justify-center bg-[var(--color-black-90)] rounded-[12rpx]">
-                <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
-                  {statusText}
-                </Text>
+                <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">{statusText}</Text>
               </View>
             )}
             {resultUrl ? (

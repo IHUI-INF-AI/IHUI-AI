@@ -587,7 +587,11 @@ export default function ShareIndexPage() {
               loading={rankList.length === 0}
             />
             {rankList.length > 0 ? (
-              <View className="share-rank-more" onClick={() => setActiveNavbar(true)} hoverClass="opacity-60">
+              <View
+                className="share-rank-more"
+                onClick={() => setActiveNavbar(true)}
+                hoverClass="opacity-60"
+              >
                 <Text className="share-rank-more-text">
                   {tt('share.index.viewMore', '查看更多排行')}
                 </Text>
@@ -722,19 +726,22 @@ export default function ShareIndexPage() {
           <View
             className={`share-tab${activeTab === 'latest' ? ' active' : ''}`}
             onClick={() => switchTab('latest')}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text>{tt('share.index.tabLatest', '最新')}</Text>
           </View>
           <View
             className={`share-tab${activeTab === 'hot' ? ' active' : ''}`}
             onClick={() => switchTab('hot')}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text>{tt('share.index.tabHot', '热门')}</Text>
           </View>
           <View
             className={`share-tab${activeTab === 'following' ? ' active' : ''}`}
             onClick={() => switchTab('following')}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text>{tt('share.index.tabFollowing', '关注')}</Text>
           </View>
         </View>

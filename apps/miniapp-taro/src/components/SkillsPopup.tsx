@@ -95,7 +95,8 @@ export default function SkillsPopup({
               key={c.key}
               className={`inline-block px-3 py-1 mr-2 text-xs rounded-md ${category === c.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
               onClick={() => setCategory(c.key)}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text>{t(c.labelKey)}</Text>
             </View>
           ))}
@@ -114,7 +115,8 @@ export default function SkillsPopup({
                 key={agent.id}
                 className={`flex items-center p-3 mb-2 rounded-xl ${selectedId === agent.id ? 'bg-primary/10 border border-primary' : 'bg-muted'}`}
                 onClick={() => handleSelect(agent)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 {agent.avatar ? (
                   <Image
                     className="w-10 h-10 rounded-md mr-3 bg-muted"

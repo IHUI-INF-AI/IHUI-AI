@@ -133,7 +133,13 @@ export function SwarmTopologyView({ topology, className }: SwarmTopologyViewProp
                 markerEnd="url(#swarm-arrow)"
               />
               {edge.condition && (
-                <text x={mx} y={(y1 + y2) / 2 - 4} textAnchor="middle" fontSize="10" fill={CHART_TEXT_DARK}>
+                <text
+                  x={mx}
+                  y={(y1 + y2) / 2 - 4}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill={CHART_TEXT_DARK}
+                >
                   {edge.condition}
                 </text>
               )}

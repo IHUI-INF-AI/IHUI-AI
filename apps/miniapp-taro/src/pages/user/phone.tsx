@@ -263,7 +263,9 @@ export default function Phone() {
             </View>
             <View
               className={`mt-[16rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-primary ${
-                /^1\d{10}$/.test((newPhone || '').trim()) && newCode.trim().length === 6 && !submitting
+                /^1\d{10}$/.test((newPhone || '').trim()) &&
+                newCode.trim().length === 6 &&
+                !submitting
                   ? ''
                   : 'opacity-60'
               }`}

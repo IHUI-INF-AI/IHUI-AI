@@ -108,9 +108,10 @@ export function MessageCenterScreen() {
             id: c.id,
             name: c.title || '对话',
             lastMessage: c.lastMessage,
-            time: (c.lastMessageAt ?? c.updatedAt)
-              ? formatConversationTime(c.lastMessageAt ?? c.updatedAt)
-              : undefined,
+            time:
+              (c.lastMessageAt ?? c.updatedAt)
+                ? formatConversationTime(c.lastMessageAt ?? c.updatedAt)
+                : undefined,
             // 未读数透传(对齐 Uniapp L198 unread-badge:unreadCount>0 显示红点;shared convUnread 渲染 99+ 截断)
             unread: c.unread,
           })),
@@ -150,8 +151,7 @@ export function MessageCenterScreen() {
   const filteredItems = keyword
     ? items.filter(
         (it) =>
-          it.title.toLowerCase().includes(keyword) ||
-          it.content.toLowerCase().includes(keyword),
+          it.title.toLowerCase().includes(keyword) || it.content.toLowerCase().includes(keyword),
       )
     : items
 

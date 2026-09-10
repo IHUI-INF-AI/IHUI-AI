@@ -72,10 +72,18 @@ export default function LessonComplete({
         )}
 
         <View className="flex space-x-3">
-          <View className="flex-1 py-2.5 rounded-md bg-muted" hoverClass="opacity-60" onClick={onShare}>
+          <View
+            className="flex-1 py-2.5 rounded-md bg-muted"
+            hoverClass="opacity-60"
+            onClick={onShare}
+          >
             <Text className="text-sm text-foreground">{tt('lesson.share', '分享')}</Text>
           </View>
-          <View className="flex-1 py-2.5 rounded-md bg-primary" onClick={onContinue} hoverClass="opacity-60">
+          <View
+            className="flex-1 py-2.5 rounded-md bg-primary"
+            onClick={onContinue}
+            hoverClass="opacity-60"
+          >
             <Text className="text-sm text-primary-foreground">
               {nextLessonTitle ? tt('lesson.continue', '继续学习') : tt('lesson.done', '完成')}
             </Text>

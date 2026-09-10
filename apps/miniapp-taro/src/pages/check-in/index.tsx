@@ -318,7 +318,8 @@ export default function CheckIn() {
                 <View
                   style={viewStyles.signBtn(tk, info.todaySigned)}
                   onTap={() => void handleSign()}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   <Text style={textStyles.signBtnText(tk, info.todaySigned)}>
                     {signing
                       ? tt('common.loading', '加载中...')

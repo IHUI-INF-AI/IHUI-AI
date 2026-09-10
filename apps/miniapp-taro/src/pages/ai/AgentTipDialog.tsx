@@ -17,7 +17,11 @@ export default function AgentTipDialog({ visible, onClose }: AgentTipDialogProps
 
   if (!visible) return null
 
-  const tips: Array<{ icon: 'brain' | 'message-square' | 'image' | 'pencil' | 'clock'; title: string; desc: string }> = [
+  const tips: Array<{
+    icon: 'brain' | 'message-square' | 'image' | 'pencil' | 'clock'
+    title: string
+    desc: string
+  }> = [
     {
       icon: 'brain',
       title: tt('ai.chat.agentTipSkill', '选择技能'),
@@ -49,11 +53,13 @@ export default function AgentTipDialog({ visible, onClose }: AgentTipDialogProps
     <View
       className="fixed top-0 left-0 right-0 bottom-0 bg-[var(--color-black-40)] flex items-center justify-center z-[100]"
       onClick={onClose}
-      hoverClass="opacity-60">
+      hoverClass="opacity-60"
+    >
       <View
         className="w-[600rpx] bg-card rounded-[24rpx] py-[40rpx] px-[32rpx] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
-        hoverClass="opacity-60">
+        hoverClass="opacity-60"
+      >
         <Text className="block text-[30rpx] font-semibold text-foreground text-center mb-[32rpx]">
           {tt('ai.chat.agentTipTitle', '智能体使用说明')}
         </Text>

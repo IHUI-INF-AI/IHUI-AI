@@ -7,11 +7,7 @@ import { Alert, FlatList, Text, TouchableOpacity, View, RefreshControl } from 'r
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAuthStore } from '../stores/auth-store'
-import {
-  listKnowledgeDocs,
-  deleteKnowledgeDoc,
-  type KnowledgeDocSummary,
-} from '@ihui/api-client'
+import { listKnowledgeDocs, deleteKnowledgeDoc, type KnowledgeDocSummary } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -77,7 +73,9 @@ export function KnowledgeBaseScreen() {
 
   if (loading) {
     return (
-      <View className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}>
+      <View
+        className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}
+      >
         <Text className="text-gray-500">{t('common.loading')}</Text>
       </View>
     )
@@ -86,11 +84,17 @@ export function KnowledgeBaseScreen() {
   return (
     <View className={`flex-1 ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}>
       <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text className="text-sm text-gray-500">{t('common.back')}</Text>
         </TouchableOpacity>
         <Text className="text-base font-medium">{t('knowledgeBase.title')}</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('KnowledgeCreate')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('KnowledgeCreate')}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text className="text-sm text-orange-600">{t('knowledgeBase.add')}</Text>
         </TouchableOpacity>
       </View>
@@ -112,7 +116,15 @@ export function KnowledgeBaseScreen() {
         <FlatList
           data={items}
           keyExtractor={(item) => String(item.id)}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true)
+                void load()
+              }}
+            />
+          }
           ListEmptyComponent={
             <View className="items-center py-16">
               <Text className="text-sm text-gray-500">{t('knowledgeBase.empty')}</Text>
@@ -123,7 +135,9 @@ export function KnowledgeBaseScreen() {
           renderItem={({ item }) => (
             <View className="mb-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
               <TouchableOpacity onPress={() => onOpen(item)}>
-                <Text className="text-base font-medium" numberOfLines={1}>{item.title}</Text>
+                <Text className="text-base font-medium" numberOfLines={1}>
+                  {item.title}
+                </Text>
                 <Text className="mt-1 text-xs text-gray-500">
                   {item.chunkCount} {t('knowledgeBase.chunks')}
                   {item.createdAt ? ` · ${String(item.createdAt).slice(0, 10)}` : ''}

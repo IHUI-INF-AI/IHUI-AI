@@ -189,9 +189,7 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /runs/:id/stream - SSE 流式执行
-  server.get(
-    '/runs/:id/stream',
-        async (req, reply) => {
+  server.get('/runs/:id/stream', async (req, reply) => {
     const id = (req.params as { id: string }).id
 
     reply.raw.writeHead(200, {

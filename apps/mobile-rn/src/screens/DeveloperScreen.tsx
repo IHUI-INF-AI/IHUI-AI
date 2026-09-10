@@ -181,7 +181,11 @@ export default function DeveloperScreen() {
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>申请状态</Text>
                   <Text style={styles.infoValue} numberOfLines={1}>
-                    {developer.status === 1 ? '已通过' : developer.status === 2 ? '已拒绝' : '待审核'}
+                    {developer.status === 1
+                      ? '已通过'
+                      : developer.status === 2
+                        ? '已拒绝'
+                        : '待审核'}
                   </Text>
                 </View>
               </>

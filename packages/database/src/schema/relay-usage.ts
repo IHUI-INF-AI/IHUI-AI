@@ -2,16 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import {
-  pgTable,
-  uuid,
-  date,
-  integer,
-  bigint,
-  timestamp,
-  index,
-  unique,
-} from 'drizzle-orm/pg-core'
+import { pgTable, uuid, date, integer, bigint, timestamp, index, unique } from 'drizzle-orm/pg-core'
 import { aiRelayKeyPool } from './ai-relay.js'
 import { developerApiKeys } from './developer-api-keys.js'
 
@@ -72,9 +63,7 @@ export const apiKeyMinuteUsage = pgTable(
       .notNull()
       .references(() => developerApiKeys.id, { onDelete: 'cascade' }),
     /** 统计分钟(UTC,按分钟聚合) */
-    usageMinute: timestamp('usage_minute', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    usageMinute: timestamp('usage_minute', { withTimezone: true }).notNull().defaultNow(),
     requestCount: integer('request_count').default(0),
     totalTokens: bigint('total_tokens', { mode: 'number' }).default(0),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),

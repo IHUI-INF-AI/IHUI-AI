@@ -44,9 +44,19 @@ export const authCarrierRoutes: FastifyPluginAsync = async (server) => {
           type: 'object',
           required: ['accessToken', 'operator'],
           properties: {
-            accessToken: { type: 'string', description: 'SDK 一键登录返回的运营商 token(一次有效)' },
-            operator: { type: 'string', description: '运营商标识: flashverify / cmcc / cucc / ctcc' },
-            sceneType: { type: 'string', description: '登录场景,默认 one_click_login', enum: ['one_click_login'] },
+            accessToken: {
+              type: 'string',
+              description: 'SDK 一键登录返回的运营商 token(一次有效)',
+            },
+            operator: {
+              type: 'string',
+              description: '运营商标识: flashverify / cmcc / cucc / ctcc',
+            },
+            sceneType: {
+              type: 'string',
+              description: '登录场景,默认 one_click_login',
+              enum: ['one_click_login'],
+            },
           },
         },
         // 注:与其他登录端点一致,不声明 response schema(避免固定状态码破坏 reply 的弱类型 send)

@@ -546,13 +546,15 @@ export default function AdminRelayChannelsPage() {
                           size="icon-sm"
                           className="text-destructive hover:text-destructive"
                           onClick={() => {
-                            void confirmDialog({ title: `确认删除渠道组 "${g.name}"?` }).then((ok) => {
-                              if (ok)
-                                actMut.mutate({
-                                  url: `/api/admin/relay/channels/groups/${g.id}`,
-                                  method: 'DELETE',
-                                })
-                            })
+                            void confirmDialog({ title: `确认删除渠道组 "${g.name}"?` }).then(
+                              (ok) => {
+                                if (ok)
+                                  actMut.mutate({
+                                    url: `/api/admin/relay/channels/groups/${g.id}`,
+                                    method: 'DELETE',
+                                  })
+                              },
+                            )
                           }}
                           aria-label="删除"
                         >
@@ -685,13 +687,15 @@ export default function AdminRelayChannelsPage() {
                                             size="icon-xs"
                                             className="text-destructive hover:text-destructive"
                                             onClick={() => {
-                                              void confirmDialog({ title: '确认移除该成员?' }).then((ok) => {
-                                                if (ok)
-                                                  actMut.mutate({
-                                                    url: `/api/admin/relay/channels/groups/${g.id}/members/${m.memberId}`,
-                                                    method: 'DELETE',
-                                                  })
-                                              })
+                                              void confirmDialog({ title: '确认移除该成员?' }).then(
+                                                (ok) => {
+                                                  if (ok)
+                                                    actMut.mutate({
+                                                      url: `/api/admin/relay/channels/groups/${g.id}/members/${m.memberId}`,
+                                                      method: 'DELETE',
+                                                    })
+                                                },
+                                              )
                                             }}
                                             aria-label="移除"
                                           >

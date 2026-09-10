@@ -118,7 +118,8 @@ export default function HelpPage() {
                 key={h.id}
                 className="bg-card rounded-[24rpx] border border-border p-[28rpx] mb-[24rpx] overflow-hidden"
                 onClick={() => toggle(h.id)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <View className="flex justify-between items-center">
                   <Text className="text-[32rpx] font-bold text-foreground flex-1">{h.title}</Text>
                   <Text className="text-success text-[40rpx] ml-[16rpx]">

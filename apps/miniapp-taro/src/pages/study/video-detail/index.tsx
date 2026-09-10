@@ -164,7 +164,11 @@ export default function VideoDetailPage() {
                   count: info.chapters?.length,
                 },
                 { key: 'intro', label: t('study.videoDetail.tabsIntro') },
-                { key: 'comment', label: t('study.videoDetail.tabsComment'), count: comments.length },
+                {
+                  key: 'comment',
+                  label: t('study.videoDetail.tabsComment'),
+                  count: comments.length,
+                },
               ]}
               active={activeTab}
               onChange={setActiveTab}

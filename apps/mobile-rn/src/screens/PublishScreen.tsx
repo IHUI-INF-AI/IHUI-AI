@@ -6,7 +6,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { Alert, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { cancelPublishTask, listPublishTasks, retryPublishTask, type PublishTask } from '@ihui/api-client'
+import {
+  cancelPublishTask,
+  listPublishTasks,
+  retryPublishTask,
+  type PublishTask,
+} from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -22,12 +27,27 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 /** 状态 → 文案 + badge 样式(与 web TaskCard STATUS_LABEL 对齐) */
 const STATUS_META: Record<string, { label: string; badge: string }> = {
-  success: { label: '成功', badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+  success: {
+    label: '成功',
+    badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+  },
   failed: { label: '失败', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-  partial: { label: '部分成功', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-  running: { label: '运行中', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-  pending: { label: '待处理', badge: 'bg-gray-100 text-gray-600 dark:bg-neutral-700 dark:text-neutral-300' },
-  skipped: { label: '跳过', badge: 'bg-gray-100 text-gray-600 dark:bg-neutral-700 dark:text-neutral-300' },
+  partial: {
+    label: '部分成功',
+    badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  },
+  running: {
+    label: '运行中',
+    badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  },
+  pending: {
+    label: '待处理',
+    badge: 'bg-gray-100 text-gray-600 dark:bg-neutral-700 dark:text-neutral-300',
+  },
+  skipped: {
+    label: '跳过',
+    badge: 'bg-gray-100 text-gray-600 dark:bg-neutral-700 dark:text-neutral-300',
+  },
 }
 
 /** 平台 id → 中文名(web 端 PLATFORM_KEY 静态映射的精简版) */
@@ -59,7 +79,7 @@ function isPlatformObject(v: string | PlatformLike): v is PlatformLike {
 }
 
 function platformLabel(p: string | PlatformLike): string {
-  const id = isPlatformObject(p) ? p.platform ?? '' : p
+  const id = isPlatformObject(p) ? (p.platform ?? '') : p
   return PLATFORM_LABELS[id] ?? id
 }
 
@@ -149,7 +169,9 @@ export function PublishScreen() {
 
   if (loading) {
     return (
-      <View className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}>
+      <View
+        className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}
+      >
         <Text className="text-gray-500">{t('common.loading')}</Text>
       </View>
     )
@@ -158,7 +180,10 @@ export function PublishScreen() {
   return (
     <View className={`flex-1 ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}>
       <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text className="text-sm text-gray-500">{t('common.back')}</Text>
         </TouchableOpacity>
         <Text className="text-base font-medium">{t('publish.title')}</Text>
@@ -172,12 +197,18 @@ export function PublishScreen() {
           <Text className="mt-0.5 text-base font-semibold">{items.length}</Text>
         </View>
         <View className="flex-1 rounded-lg bg-emerald-50 p-2 dark:bg-emerald-900/20">
-          <Text className="text-xs text-emerald-600 dark:text-emerald-300">{t('publish.statsSuccess')}</Text>
-          <Text className="mt-0.5 text-base font-semibold text-emerald-700 dark:text-emerald-300">{successCount}</Text>
+          <Text className="text-xs text-emerald-600 dark:text-emerald-300">
+            {t('publish.statsSuccess')}
+          </Text>
+          <Text className="mt-0.5 text-base font-semibold text-emerald-700 dark:text-emerald-300">
+            {successCount}
+          </Text>
         </View>
         <View className="flex-1 rounded-lg bg-red-50 p-2 dark:bg-red-900/20">
           <Text className="text-xs text-red-600 dark:text-red-300">{t('publish.statsFailed')}</Text>
-          <Text className="mt-0.5 text-base font-semibold text-red-700 dark:text-red-300">{failedCount}</Text>
+          <Text className="mt-0.5 text-base font-semibold text-red-700 dark:text-red-300">
+            {failedCount}
+          </Text>
         </View>
       </View>
 
@@ -198,7 +229,15 @@ export function PublishScreen() {
         <FlatList
           data={items}
           keyExtractor={(item) => String(item.id)}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true)
+                void load()
+              }}
+            />
+          }
           ListEmptyComponent={
             <View className="items-center py-16">
               <Text className="text-sm text-gray-500">{t('publish.empty')}</Text>
@@ -207,15 +246,20 @@ export function PublishScreen() {
           }
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => {
-            const status =
-              STATUS_META[item.status] ??
-              { label: item.status, badge: 'bg-gray-100 text-gray-600 dark:bg-neutral-700 dark:text-neutral-300' }
+            const status = STATUS_META[item.status] ?? {
+              label: item.status,
+              badge: 'bg-gray-100 text-gray-600 dark:bg-neutral-700 dark:text-neutral-300',
+            }
             const platforms = formatPlatforms(item.platforms)
             return (
               <View className="mb-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
                 <View className="flex-row items-start justify-between gap-2">
-                  <Text className="flex-1 text-base font-medium" numberOfLines={1}>{item.title}</Text>
-                  <Text className={`rounded-md px-2 py-0.5 text-xs font-medium ${status.badge}`}>{status.label}</Text>
+                  <Text className="flex-1 text-base font-medium" numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Text className={`rounded-md px-2 py-0.5 text-xs font-medium ${status.badge}`}>
+                    {status.label}
+                  </Text>
                 </View>
                 {platforms ? (
                   <Text className="mt-1.5 text-xs text-gray-500" numberOfLines={1}>
@@ -224,14 +268,21 @@ export function PublishScreen() {
                 ) : null}
                 <Text className="mt-1.5 text-xs text-gray-400">
                   {fmtTime(item.createdAt)}
-                  {item.scheduledAt ? ` · ${t('publish.scheduled')} ${fmtTime(item.scheduledAt)}` : ''}
+                  {item.scheduledAt
+                    ? ` · ${t('publish.scheduled')} ${fmtTime(item.scheduledAt)}`
+                    : ''}
                 </Text>
                 {item.errorMessage ? (
-                  <Text className="mt-1.5 text-xs text-red-500" numberOfLines={2}>{item.errorMessage}</Text>
+                  <Text className="mt-1.5 text-xs text-red-500" numberOfLines={2}>
+                    {item.errorMessage}
+                  </Text>
                 ) : null}
-                {(item.status === 'pending' || item.status === 'running' || item.status === 'failed' || item.status === 'partial') ? (
+                {item.status === 'pending' ||
+                item.status === 'running' ||
+                item.status === 'failed' ||
+                item.status === 'partial' ? (
                   <View className="mt-2 flex-row gap-2">
-                    {(item.status === 'pending' || item.status === 'running') ? (
+                    {item.status === 'pending' || item.status === 'running' ? (
                       <TouchableOpacity
                         onPress={() => onCancelTask(item)}
                         disabled={operatingId === String(item.id)}
@@ -240,7 +291,7 @@ export function PublishScreen() {
                         <Text className="text-xs text-gray-500">{t('publish.cancelTask')}</Text>
                       </TouchableOpacity>
                     ) : null}
-                    {(item.status === 'failed' || item.status === 'partial') ? (
+                    {item.status === 'failed' || item.status === 'partial' ? (
                       <TouchableOpacity
                         onPress={() => void onRetryTask(item)}
                         disabled={operatingId === String(item.id)}

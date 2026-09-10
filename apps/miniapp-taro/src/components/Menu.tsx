@@ -61,7 +61,8 @@ export default function Menu(props: MenuProps) {
           className="flex flex-col items-center gap-2 py-2"
           style={{ width: `${100 / columns}%` }}
           onClick={() => onItemClick?.(item, index)}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           {item.icon ? (
             /^(https?:)?\/\//.test(item.icon) || item.icon.startsWith('/') ? (
               <Image src={item.icon} mode="aspectFill" className="w-10 h-10 rounded-md" />

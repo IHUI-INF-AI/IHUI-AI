@@ -166,7 +166,8 @@ export default function DistributionOrderList() {
               key={tab.value}
               className={`flex-1 flex items-center justify-center py-[12rpx] rounded-[24rpx] ${activeTab === tab.value ? 'bg-primary' : 'bg-card'}`}
               onClick={() => switchTab(tab.value)}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text
                 className={`text-[28rpx] ${activeTab === tab.value ? 'text-[var(--color-primary-foreground)] font-semibold' : 'text-muted-foreground'}`}
               >
@@ -200,7 +201,8 @@ export default function DistributionOrderList() {
                 key={o.id}
                 className="rounded-[24rpx] bg-card p-[28rpx] flex flex-col gap-[16rpx]"
                 onClick={() => onItemClick(o.id)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <View className="flex flex-row justify-between items-center gap-[16rpx]">
                   <Text className="flex-1 text-[28rpx] text-foreground truncate">
                     {tt('distribution.orderList.orderNo', '订单号')}:{o.orderNo || '-'}
@@ -247,7 +249,8 @@ export default function DistributionOrderList() {
           <View
             className="px-[40rpx] h-[72rpx] rounded-[20rpx] bg-primary flex items-center justify-center"
             onClick={() => load(true)}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-[28rpx] font-medium text-[var(--color-primary-foreground)]">
               {tt('distribution.orderList.retry', '点击重试')}
             </Text>

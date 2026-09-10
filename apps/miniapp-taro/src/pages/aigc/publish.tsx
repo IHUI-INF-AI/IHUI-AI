@@ -155,7 +155,8 @@ export default function AigcPublish() {
               <View
                 className="absolute -top-[12rpx] -right-[12rpx] w-[44rpx] h-[44rpx] bg-[var(--color-danger)] rounded-full flex items-center justify-center"
                 onClick={() => removeFile(i)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text className="text-[var(--color-surface-light)] text-[28rpx] font-bold leading-none">
                   ×
                 </Text>
@@ -167,7 +168,8 @@ export default function AigcPublish() {
             <View
               className="w-[152rpx] h-[152rpx] bg-[var(--color-muted)] border-[2rpx] border-dashed border-[var(--color-border)] rounded-[24rpx] flex flex-col items-center justify-center"
               onClick={chooseImage}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[48rpx] text-[var(--color-text-tertiary)] leading-[52rpx]">
                 +
               </Text>

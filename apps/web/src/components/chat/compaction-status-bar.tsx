@@ -277,9 +277,7 @@ function ArchiveViewerDialog({
                 onClick={() => openDetail(a.id)}
                 className="w-full rounded-md border border-border px-3 py-2 text-left text-xs transition-colors hover:bg-muted/50"
               >
-                <span className="font-medium">
-                  {t('viewArchived', { count: a.messageCount })}
-                </span>
+                <span className="font-medium">{t('viewArchived', { count: a.messageCount })}</span>
                 <span className="ml-2 text-muted-foreground">
                   {new Date(a.createdAt).toLocaleString()}
                 </span>

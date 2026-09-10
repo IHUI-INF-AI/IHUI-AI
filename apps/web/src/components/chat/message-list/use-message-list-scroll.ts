@@ -364,7 +364,6 @@ export function useMessageListScroll({
       setVisibleRange({ start: 0, end: messages.length - 1 })
     }
     // setUserScrolledUp 是 zustand store 稳定引用,无需列入依赖
-     
   }, [messages.length])
 
   // 2026-07-28 立:Jump-to-latest 浮动按钮点击处理(深度对标 AI 工作台)

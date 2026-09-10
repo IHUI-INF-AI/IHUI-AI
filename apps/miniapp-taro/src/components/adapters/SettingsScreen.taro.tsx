@@ -433,7 +433,12 @@ export function SettingsScreen({
             <Text style={textStyles.arrow(tk)}>{'›'}</Text>
           </View>
           {menuItems.map((item) => (
-            <View key={item.key} style={viewStyles.plainRow()} onTap={() => onMenuPress(item.key)} hoverClass="opacity-60">
+            <View
+              key={item.key}
+              style={viewStyles.plainRow()}
+              onTap={() => onMenuPress(item.key)}
+              hoverClass="opacity-60"
+            >
               <Text style={textStyles.rowLabel(tk)}>{item.label}</Text>
               <Text style={textStyles.arrow(tk)}>{'›'}</Text>
             </View>
@@ -454,7 +459,8 @@ export function SettingsScreen({
       {pwdModalVisible ? (
         <View
           style={viewStyles.modalOverlay(tk)}
-          onTap={() => !changingPwd && setPwdModalVisible(false)}>
+          onTap={() => !changingPwd && setPwdModalVisible(false)}
+        >
           <View style={viewStyles.modalCard(tk)} onTap={handleModalCardTap} hoverClass="opacity-60">
             <Text style={textStyles.modalTitle(tk)}>
               {tr('settings.changePassword', '修改密码')}
@@ -485,7 +491,8 @@ export function SettingsScreen({
                   opacity: changingPwd ? 0.5 : 1,
                 }}
                 onTap={() => !changingPwd && setPwdModalVisible(false)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text style={textStyles.modalBtnSecondaryText(tk)}>
                   {tr('common.cancel', '取消')}
                 </Text>
@@ -497,7 +504,8 @@ export function SettingsScreen({
                   opacity: changingPwd ? 0.5 : 1,
                 }}
                 onTap={changingPwd ? undefined : submitChangePassword}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text style={textStyles.modalBtnPrimaryText(tk)}>
                   {changingPwd ? tr('common.loading', '加载中...') : tr('common.confirm', '确认')}
                 </Text>
