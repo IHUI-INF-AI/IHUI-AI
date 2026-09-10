@@ -119,7 +119,7 @@ export default function PublicUserProfilePage() {
   ]
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
+    <div className="py-4 mx-auto max-w-2xl space-y-4">
       <BackButton />
       <div className="flex items-start gap-4">
         <Avatar

@@ -40,7 +40,7 @@ export default function KnowledgePage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <div className="flex items-center gap-2">
         <Brain className="h-5 w-5 text-primary" />
         <h1 className="text-lg font-semibold">知识库</h1>
