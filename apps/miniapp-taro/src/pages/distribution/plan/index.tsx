@@ -37,7 +37,7 @@ export default function DistributionPlan() {
       cancelText: tt('distribution.plan.cancel', '取消'),
       success: (res) => {
         if (res.confirm) {
-          Taro.navigateTo({ url: '/pages/vip/index' })
+          Taro.navigateTo({ url: '/pkg-shop/vip/index' })
         }
       },
     })

@@ -503,10 +503,10 @@ export default function Community() {
     setShowDrawer(false)
     const routeMap: Record<string, string> = {
       appStore: '/pages/index/index', // 对齐原项目 gopage: 跳首页 AI 对话
-      demand: '/pages/ranking/index', // 对齐原项目 square: 跳需求广场
-      inspiration: '/pages/aigc/list', // 对齐原项目 aigc: 跳 AIGC 创作列表
+      demand: '/pkg-ai/ranking/index', // 对齐原项目 square: 跳需求广场
+      inspiration: '/pkg-ai/aigc/list', // 对齐原项目 aigc: 跳 AIGC 创作列表
       dynamic: '/pages/share/index', // 对齐原项目 share: 跳 AI 资讯
-      course: '/pages/course/list', // 对齐原项目 studyindex: 跳课程
+      course: '/pkg-learn/course/list', // 对齐原项目 studyindex: 跳课程
     }
     const url = routeMap[item.key]
     if (url) {
@@ -528,7 +528,7 @@ export default function Community() {
       // 对齐原项目 addNewChat:跳首页 AI 对话
       Taro.switchTab({
         url: '/pages/index/index',
-        fail: () => Taro.navigateTo({ url: '/pages/ai/chat' }),
+        fail: () => Taro.navigateTo({ url: '/pkg-ai/ai/chat' }),
       })
     } else if (item.key === 'company') {
       // 对齐原项目 gotocompany:跳分销页
@@ -558,7 +558,7 @@ export default function Community() {
     setShowDrawer(false)
     // 对齐原项目 handleShowFullList:携带 chatId + title 参数
     Taro.navigateTo({
-      url: `/pages/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
+      url: `/pkg-ai/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
       fail: () => Taro.showToast({ title: tt('community.text11', '对话页未配置'), icon: 'none' }),
     })
   }
@@ -638,7 +638,7 @@ export default function Community() {
           onRemoveChat={handleRemoveChat}
           onCreateChat={() => {
             setShowDrawer(false)
-            Taro.navigateTo({ url: '/pages/ai/chat' })
+            Taro.navigateTo({ url: '/pkg-ai/ai/chat' })
           }}
         />
 
@@ -809,7 +809,7 @@ export default function Community() {
                 </Text>
                 <Text
                   className="community-agent-list-posts"
-                  onClick={() => Taro.navigateTo({ url: '/pages/community/create/index' })}
+                  onClick={() => Taro.navigateTo({ url: '/pkg-content/community/create/index' })}
                 >
                   {tt('community.posts', '帖子')}
                 </Text>
@@ -817,7 +817,7 @@ export default function Community() {
                   className="community-agent-list-more"
                   onClick={() =>
                     Taro.navigateTo({
-                      url: '/pages/category-detail/index',
+                      url: '/pkg-content/category-detail/index',
                       fail: () =>
                         Taro.showToast({
                           title: tt('community.detail16', '分类详情页未配置'),
