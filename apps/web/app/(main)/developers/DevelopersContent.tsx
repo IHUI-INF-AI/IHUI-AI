@@ -80,7 +80,7 @@ export function DevelopersContent(): React.JSX.Element {
 
   if (error || !data) {
     return (
-      <div className="mx-auto max-w-2xl rounded-md border border-destructive/50 bg-destructive/10 p-6 text-sm text-destructive">
+      <div className="mx-auto max-w-2xl rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {(error as Error)?.message ?? '加载开发者信息失败'}
       </div>
     )
@@ -95,7 +95,7 @@ export function DevelopersContent(): React.JSX.Element {
   }'`
 
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-10 px-4 py-4 min-[768px]:px-8">
+    <main className="mx-auto w-full max-w-6xl space-y-10 px-4 py-4">
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
@@ -157,7 +157,7 @@ export function DevelopersContent(): React.JSX.Element {
         <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-3">
           {data.providers.map((p) => (
             <Card key={p} className="transition-colors hover:bg-accent">
-              <CardContent className="flex items-center gap-2 p-4">
+              <CardContent className="flex items-center gap-2 p-3">
                 <Boxes className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">{p}</span>
               </CardContent>
@@ -172,7 +172,7 @@ export function DevelopersContent(): React.JSX.Element {
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {data.sdks.map((sdk) => (
             <Card key={sdk.language}>
-              <CardHeader className="p-4 pb-2">
+              <CardHeader className="p-3 pb-2">
                 <CardTitle className="flex items-center justify-between gap-2 text-base">
                   <span className="flex min-w-0 items-center gap-2">
                     <span className="truncate">{sdk.language}</span>
@@ -182,7 +182,7 @@ export function DevelopersContent(): React.JSX.Element {
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1 p-4 pt-0 text-xs text-muted-foreground">
+              <CardContent className="space-y-1 p-3 pt-0 text-xs text-muted-foreground">
                 {sdk.npm && (
                   <div>
                     npm: <code className="font-mono">{sdk.npm}</code>
@@ -203,13 +203,13 @@ export function DevelopersContent(): React.JSX.Element {
       <section className="space-y-4">
         <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">鉴权说明</h2>
         <Card>
-          <CardHeader className="p-4 pb-2">
+          <CardHeader className="p-3 pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <ShieldCheck className="h-4 w-4 text-primary" />
               {data.auth.type} Token
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 p-4 pt-0">
+          <CardContent className="space-y-3 p-3 pt-0">
             <p className="text-sm text-muted-foreground">
               在请求头{' '}
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">

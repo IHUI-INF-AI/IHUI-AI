@@ -84,7 +84,7 @@ export default function HotArticlesPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
@@ -98,7 +98,7 @@ export default function HotArticlesPage() {
             {items.map((item, idx) => (
               <Link key={item.id} href={`/articles/${item.id}`} className="block">
                 <Card className="overflow-hidden transition-colors hover:bg-accent">
-                  <CardContent className="flex items-center gap-4 p-4">
+                  <CardContent className="flex items-center gap-4 p-3">
                     <div
                       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
                         idx < 3

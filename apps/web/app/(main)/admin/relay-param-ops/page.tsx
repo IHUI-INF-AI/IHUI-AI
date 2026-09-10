@@ -228,7 +228,7 @@ export default function AdminRelayParamOpsPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 px-4 py-4">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -237,7 +237,7 @@ export default function AdminRelayParamOpsPage() {
 
   if (error) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 px-4 py-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">{t('title')}</h1>
           <Button size="sm" variant="outline" onClick={() => refetch()}>
@@ -257,7 +257,7 @@ export default function AdminRelayParamOpsPage() {
   }
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <div>

@@ -59,7 +59,7 @@ export default function KnowledgePlanetPage() {
 
       {info ? (
         <Card className="mb-4">
-          <CardContent className="flex items-center gap-3 p-4">
+          <CardContent className="flex items-center gap-3 p-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Globe className="h-6 w-6" />
             </div>
@@ -83,7 +83,7 @@ export default function KnowledgePlanetPage() {
           <span>{t('loading')}</span>
         </div>
       ) : newsQ.isError ? (
-        <div className="rounded-md border border-border bg-card p-6 text-center">
+        <div className="rounded-md border border-border bg-card p-3 text-center">
           <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
           <Button variant="outline" size="sm" onClick={() => void newsQ.refetch()}>
             <RotateCw className="mr-2 h-4 w-4" />
@@ -101,7 +101,7 @@ export default function KnowledgePlanetPage() {
           {list.map((item) => (
             <Link key={item.id} href={`/news/${item.id}`} className="block">
               <Card className="transition-colors hover:bg-secondary/40">
-                <CardContent className="flex gap-3 p-3 min-[640px]:p-3">
+                <CardContent className="flex gap-3 p-3">
                   {item.coverImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img

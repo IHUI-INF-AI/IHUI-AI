@@ -106,7 +106,7 @@ export default function CommissionPlanPage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-4 p-4">
+        <CardContent className="space-y-4 p-3">
           <div className="flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-base font-semibold">
               <Gift className="h-4 w-4 text-primary" />
@@ -165,7 +165,7 @@ export default function CommissionPlanPage() {
               <div
                 key={lv.key}
                 className={cn(
-                  'rounded-lg border p-4',
+                  'rounded-lg border p-3',
                   idx === 1 && 'border-primary/40 bg-primary/5',
                 )}
               >

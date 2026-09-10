@@ -66,7 +66,7 @@ export function ModuleSection({
           <ChevronRight className="h-3 w-3" />
         </Link>
       </header>
-      <div className="p-4">
+      <div className="p-3">
         {isLoading ? (
           <div className="flex h-32 items-center justify-center text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />

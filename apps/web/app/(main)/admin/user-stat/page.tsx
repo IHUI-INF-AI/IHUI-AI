@@ -48,7 +48,7 @@ export default function UserStatPage() {
   const totalRegion = stats.byRegion.reduce((s, r) => s + r.count, 0) || 1
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -112,7 +112,7 @@ export default function UserStatPage() {
         />
       </div>
 
-      <section className="space-y-3 rounded-lg border p-4">
+      <section className="space-y-3 rounded-lg border p-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">用户增长趋势</h2>
         </div>
@@ -153,7 +153,7 @@ export default function UserStatPage() {
       </section>
 
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
-        <section className="space-y-3 rounded-lg border p-4">
+        <section className="space-y-3 rounded-lg border p-3">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <Shield className="h-4 w-4 text-primary" />
             角色分布
@@ -185,7 +185,7 @@ export default function UserStatPage() {
           )}
         </section>
 
-        <section className="space-y-3 rounded-lg border p-4">
+        <section className="space-y-3 rounded-lg border p-3">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <MapPin className="h-4 w-4 text-primary" />
             地域分布 Top

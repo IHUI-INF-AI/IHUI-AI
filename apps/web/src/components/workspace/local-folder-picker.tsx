@@ -836,7 +836,7 @@ export function LocalFolderPicker({
                   </li>
                 ) : filteredDirs.length === 0 ? (
                   <li>
-                    <div className="flex flex-col items-center justify-center gap-2 px-3 py-8 min-[768px]:py-12 text-center text-sm text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2 px-3 py-8 text-center text-sm text-muted-foreground">
                       <Folder className="h-8 w-8 opacity-30" />
                       <span>{filter ? t('noMatch') : t('noDirectories')}</span>
                       {filter && (

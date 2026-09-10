@@ -70,7 +70,7 @@ export default function PlazaNewPage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-4 p-4">
+        <CardContent className="space-y-4 p-3">
           <div className="space-y-1.5">
             <Label htmlFor="p-title">{t('titleLabel')}</Label>
             <Input

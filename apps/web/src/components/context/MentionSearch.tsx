@@ -103,7 +103,7 @@ export function MentionSearch({
 
       <div className="max-h-[420px] space-y-1 overflow-y-auto rounded-md border bg-card p-1.5">
         {results.length === 0 ? (
-          <div className="py-6 min-[768px]:py-10 text-center text-sm text-muted-foreground">
+          <div className="py-6 text-center text-sm text-muted-foreground">
             {isLoading ? '检索中…' : '暂无结果,请输入关键词'}
           </div>
         ) : (

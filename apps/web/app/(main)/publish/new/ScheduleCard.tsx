@@ -37,7 +37,7 @@ export function ScheduleCard({
 
   return (
     <Card>
-      <CardContent className="space-y-3 p-4">
+      <CardContent className="space-y-3 p-3">
         <Label>{t('new.schedule')}</Label>
         <div className="flex gap-2">
           <button

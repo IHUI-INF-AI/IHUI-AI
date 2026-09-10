@@ -10,7 +10,7 @@ import { Award } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 
-import { useAuthStore } from '@/stores/auth'
+import { fetchRaw } from '@/lib/api'
 
 import { CertificateList } from './CertificateList'
 import { CertificatePrintArea } from './CertificatePrintArea'
@@ -39,14 +39,9 @@ export default function CertificateDownloadPage() {
   const handleDownload = async (cert: Certificate) => {
     setDownloadingId(cert.id)
     try {
-      const token = useAuthStore.getState().token
-      const res = await fetch(`/api/certificates/${cert.id}/download`, {
-        method: 'POST',
-        headers: { Authorization: token ? `Bearer ${token}` : '' },
-      })
-      if (!res.ok) throw new Error(`${t('download.error')}（${res.status}）`)
-
-      const blob = await res.blob()
+      // 2026-09-09 0-5 直接 fetch 清单化迁移:blob 下载走共享 fetchRaw,
+      // 鉴权/CSRF/设备指纹/超时由共享层统一承担(失败自动抛错,走 catch toast)。
+      const blob = await fetchRaw(`/api/certificates/${cert.id}/download`, { method: 'POST' })
       const blobUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = blobUrl

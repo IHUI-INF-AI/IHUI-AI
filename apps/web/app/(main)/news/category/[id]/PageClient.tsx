@@ -97,7 +97,7 @@ export default function NewsCategoryPageClient() {
 
   if (categoriesQuery.isLoading) {
     return (
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-center py-12 min-[768px]:py-20">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-center py-12">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
@@ -105,7 +105,7 @@ export default function NewsCategoryPageClient() {
 
   if (!category) {
     return (
-      <div className="mx-auto w-full max-w-6xl space-y-4 py-12 min-[768px]:py-20 text-center">
+      <div className="mx-auto w-full max-w-6xl space-y-4 py-12 text-center">
         <FolderOpen className="mx-auto h-10 w-10 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t('notFound')}</p>
         <Link
@@ -120,7 +120,7 @@ export default function NewsCategoryPageClient() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <Link
         href="/news"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -151,7 +151,7 @@ export default function NewsCategoryPageClient() {
           {items.map((item: NewsArticle) => (
             <Link key={item.id} href={`/news/${item.id}`} className="group block">
               <Card className="overflow-hidden transition-colors hover:bg-accent">
-                <CardContent className="flex gap-4 p-4">
+                <CardContent className="flex gap-4 p-3">
                   <div className="relative h-24 w-40 shrink-0 overflow-hidden rounded-md bg-muted">
                     {item.coverImage ? (
                       <Image

@@ -36,7 +36,7 @@ export default function SubagentDispatchPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <button
         type="button"
         onClick={() => router.push('/subagents')}
@@ -54,10 +54,10 @@ export default function SubagentDispatchPage() {
       </div>
 
       <Card>
-        <CardHeader className="p-4">
+        <CardHeader className="p-3">
           <CardTitle className="text-sm">派单表单</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 pt-0">
+        <CardContent className="p-3 pt-0">
           <DispatchForm
             onSubmit={(input) => mut.mutate(input)}
             isSubmitting={mut.isPending}

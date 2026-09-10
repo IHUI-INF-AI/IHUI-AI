@@ -73,6 +73,8 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
   })
 
   // SSE 流式订阅 /api/agents/:id/stream
+  // 2026-09-09 0-5-f 豁免确认:SSE 流式需直接消费 res.body reader,
+  // fetchApi 是一次性 JSON 解析通道(Accept 仅 JSON + code 包装校验),不适用流式。
   // 2026-08-02 修复 Bug #9:retryKey 变化时重新订阅 SSE,实现重试按钮
   React.useEffect(() => {
     abortRef.current?.abort()
@@ -191,7 +193,7 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
 
   if (!agentId) {
     return (
-      <div className="flex h-full items-center justify-center rounded-lg border bg-card p-5 min-[768px]:p-8 text-center text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center rounded-lg border bg-card p-3 text-center text-sm text-muted-foreground">
         {t('selectAgentPrompt')}
       </div>
     )

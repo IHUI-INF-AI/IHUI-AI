@@ -21,10 +21,10 @@ export function ArticlesSidebar({ categories, categoryId, onSelectCategory }: Pr
   return (
     <aside className="w-full shrink-0 space-y-4 min-[1024px]:w-72">
       <Card>
-        <CardHeader className="p-4 pb-2">
+        <CardHeader className="p-3 pb-2">
           <CardTitle className="text-sm">{t('categories')}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-1 p-4 pt-0">
+        <CardContent className="space-y-1 p-3 pt-0">
           <button
             type="button"
             onClick={() => onSelectCategory('all')}
@@ -56,7 +56,7 @@ export function ArticlesSidebar({ categories, categoryId, onSelectCategory }: Pr
       </Card>
 
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-3">
           <Link href="/articles/hot">
             <Button variant="outline" className="w-full">
               {t('hotArticles')}

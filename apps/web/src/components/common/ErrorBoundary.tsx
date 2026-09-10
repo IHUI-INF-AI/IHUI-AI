@@ -23,7 +23,7 @@ interface ErrorBoundaryState {
 export function ErrorFallback({ error, onReset }: { error?: Error; onReset: () => void }) {
   const t = useTranslations('common')
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-5 min-[768px]:p-8 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-center">
       <AlertCircle className="h-10 w-10 text-destructive" />
       <h3 className="text-base font-medium">{t('errorTitle')}</h3>
       <p className="max-w-md text-sm text-muted-foreground">
@@ -47,7 +47,7 @@ export function ErrorFallback({ error, onReset }: { error?: Error; onReset: () =
  */
 function StaticErrorFallback({ onReset }: { onReset?: () => void }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-3">
       <AlertCircle className="h-10 w-10 text-destructive" />
       <h1 className="text-2xl font-bold">页面出错了</h1>
       <p className="text-muted-foreground">应用发生了错误,请刷新页面重试</p>
@@ -79,6 +79,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     useNavigationStore.getState().end()
     // 2026-08-06: 崩溃自动上报(crash_reports 链路,POST /api/crash-reports)。
     // 静默失败:上报失败 / 环境异常绝不影响 UI 渲染。
+    // 2026-09-09 0-5-f 豁免确认:崩溃场景下运行时可能已处于异常态,
+    // 用最小依赖的裸 fetch 上报,不引入 fetchApi 的解析/重试逻辑。
     if (typeof window !== 'undefined') {
       try {
         void fetch('/api/crash-reports', {

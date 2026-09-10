@@ -125,7 +125,7 @@ export function AnalyticsDashboard({
       {/* 趋势图 + 平台分布 */}
       <div className="grid grid-cols-1 gap-3 tablet-min-[1024px]:grid-cols-3">
         <Card className="tablet-min-[1024px]:col-span-2">
-          <CardContent className="p-4 min-[640px]:p-6">
+          <CardContent className="p-3">
             <h3 className="mb-3 text-xs font-medium text-muted-foreground">
               {t('analytics.trend')}
             </h3>
@@ -133,7 +133,7 @@ export function AnalyticsDashboard({
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 min-[640px]:p-6">
+          <CardContent className="p-3">
             <h3 className="mb-3 text-xs font-medium text-muted-foreground">
               {t('analytics.platformDistribution')}
             </h3>
@@ -144,7 +144,7 @@ export function AnalyticsDashboard({
 
       {/* 失败原因 */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-3">
           <h3 className="mb-3 text-xs font-medium text-muted-foreground">
             {t('analytics.failureReasons')}
           </h3>
@@ -154,7 +154,7 @@ export function AnalyticsDashboard({
 
       {/* 账号健康度 */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-3">
           <h3 className="mb-3 text-xs font-medium text-muted-foreground">
             {t('analytics.accountHealth')}
           </h3>
@@ -233,7 +233,7 @@ function StatCard({
 }) {
   return (
     <Card>
-      <CardContent className="p-3 min-[640px]:p-3">
+      <CardContent className="p-3">
         <div className="text-[10px] text-muted-foreground">{label}</div>
         <div className={cn('mt-1 text-lg font-semibold', valueClass)}>{value}</div>
       </CardContent>

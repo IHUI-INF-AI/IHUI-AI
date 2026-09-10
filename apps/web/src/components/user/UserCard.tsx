@@ -30,7 +30,7 @@ export default function UserCard({
       onClick={onClick}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick?.()}
       className={cn(
-        'flex items-center gap-3 rounded-xl border bg-card p-4 text-card-foreground shadow',
+        'flex items-center gap-3 rounded-xl border bg-card p-3 text-card-foreground shadow',
         onClick && 'cursor-pointer hover:shadow-md',
         className,
       )}

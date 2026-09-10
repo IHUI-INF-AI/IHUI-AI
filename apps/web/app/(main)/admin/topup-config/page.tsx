@@ -176,7 +176,7 @@ export default function AdminTopupConfigPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 px-4 py-4">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -185,7 +185,7 @@ export default function AdminTopupConfigPage() {
 
   if (error) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 px-4 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold">充值阶梯折扣配置</h1>
@@ -208,7 +208,7 @@ export default function AdminTopupConfigPage() {
   }
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <div>

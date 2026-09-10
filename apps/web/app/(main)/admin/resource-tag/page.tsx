@@ -101,7 +101,7 @@ export default function AdminResourceTagPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
@@ -130,7 +130,7 @@ export default function AdminResourceTagPage() {
       </div>
 
       {creating ? (
-        <form onSubmit={submit} className="rounded-lg border border-border bg-card p-4 space-y-3">
+        <form onSubmit={submit} className="rounded-lg border border-border bg-card p-3 space-y-3">
           <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             <label htmlFor="rt-name" className="space-y-1 text-sm">
               <span className="text-muted-foreground">标签名称</span>

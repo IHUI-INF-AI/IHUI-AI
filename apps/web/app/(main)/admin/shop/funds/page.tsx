@@ -39,7 +39,7 @@ export default function AdminShopFundsPage() {
   })
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <FundsHeader accounts={accounts} />
       <FundsTabs tab={tab} setTab={setTab} flowType={flowType} setFlowType={setFlowType} />

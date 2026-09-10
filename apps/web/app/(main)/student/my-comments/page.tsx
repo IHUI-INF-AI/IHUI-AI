@@ -103,7 +103,7 @@ export default function MyCommentsPage() {
   const fmtDate = (v?: string | null) => formatDateOnly(v)
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -119,7 +119,7 @@ export default function MyCommentsPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
@@ -134,7 +134,7 @@ export default function MyCommentsPage() {
               const Icon = TARGET_ICONS[comment.targetType] ?? FileText
               return (
                 <Card key={comment.id} className="transition-colors hover:bg-accent">
-                  <CardContent className="space-y-3 p-4">
+                  <CardContent className="space-y-3 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <Link
                         href={targetHref(comment)}

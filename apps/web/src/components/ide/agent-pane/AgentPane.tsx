@@ -11,7 +11,12 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { executeAgentStream, cancelAgent } from '@ihui/api-client'
 import type { AgentExecuteRequest, AgentStreamEvent, AgentStreamCallbacks } from '@ihui/api-client'
-import type { AgentToolCall, AgentChange, TerminalTask, PlanStep } from '@/hooks/use-agent-progress'
+import type {
+  AgentToolCall,
+  AgentChange,
+  TerminalTask,
+  PlanStep,
+} from '@/hooks/use-agent-progress'
 import { AgentInputArea } from './AgentInputArea'
 import { AgentProgressArea } from './AgentProgressArea'
 import { AgentResultFooter } from './AgentResultFooter'

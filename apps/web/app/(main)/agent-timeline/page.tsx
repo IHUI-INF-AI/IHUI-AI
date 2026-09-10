@@ -206,19 +206,19 @@ export default function AgentTimelinePage() {
         <>
           {/* 汇总统计 */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <div className="mb-1 text-xs text-muted-foreground">{t('totalEvents')}</div>
               <div className="text-xl font-bold">{data.total}</div>
             </div>
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <div className="mb-1 text-xs text-muted-foreground">{t('totalCost')}</div>
               <div className="text-xl font-bold">{fmtCost(data.summary.total_cost_usd)}</div>
             </div>
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <div className="mb-1 text-xs text-muted-foreground">{t('totalTokens')}</div>
               <div className="text-xl font-bold">{data.summary.total_tokens}</div>
             </div>
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <div className="mb-1 text-xs text-muted-foreground">{t('window')}</div>
               <div className="truncate text-xs font-medium">
                 {data.summary.window.start ? fmtTime(data.summary.window.start) : '-'}
@@ -244,7 +244,7 @@ export default function AgentTimelinePage() {
           </div>
 
           {/* 统一时间轴 */}
-          <div className="mt-4 rounded-xl border p-4">
+          <div className="mt-4 rounded-xl border p-3">
             <ul className="space-y-2">
               {data.events.map((ev) => {
                 const Icon = KIND_ICON[ev.kind]
