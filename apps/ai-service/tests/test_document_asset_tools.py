@@ -192,8 +192,12 @@ async def test_extract_assets_unsupported_ext():
 
 
 @pytest.mark.asyncio
-async def test_extract_assets_outside_root():
-    r = await dat.extract_document_assets({"path": r"C:\Windows\win.ini"})
+async def test_extract_assets_outside_root(tmp_path):
+    # 2026-09-10 跨平台修正:改用真实存在的工作区外文件(原 C:\Windows\win.ini
+    # 在 Linux 上被解析为根内相对路径,报"文件不存在")。tmp_path 各平台均在项目根外。
+    outside = tmp_path / "outside_root.docx"
+    outside.write_bytes(b"PK\x03\x04fake")
+    r = await dat.extract_document_assets({"path": str(outside)})
     assert r["ok"] is False
     assert "路径越界" in r["message"]
 
@@ -263,8 +267,11 @@ async def test_tables_pdf_unsupported():
 
 
 @pytest.mark.asyncio
-async def test_tables_outside_root():
-    r = await dat.document_tables({"path": r"C:\Windows\win.ini"})
+async def test_tables_outside_root(tmp_path):
+    # 2026-09-10 跨平台修正:同 test_extract_assets_outside_root。
+    outside = tmp_path / "outside_root.docx"
+    outside.write_bytes(b"PK\x03\x04fake")
+    r = await dat.document_tables({"path": str(outside)})
     assert r["ok"] is False
     assert "路径越界" in r["message"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
