@@ -572,7 +572,7 @@ describe('success paths', () => {
       expect(res.statusCode).toBe(501)
       const body = res.json()
       expect(body.code).toBe(501)
-      expect(body.message).toContain('微信小程序登录未配置')
+      expect(body.message).toContain('微信移动应用登录未配置')
     })
 
     it('POST /api/auth/login/wechat 缺少 code 返回 400', async () => {
