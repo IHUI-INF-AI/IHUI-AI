@@ -82,6 +82,25 @@ function main() {
     process.exit(1)
   }
 
+  // 2026-09-10 立:重建全程持有 git 写锁(根治多会话并发重建互相摧毁 .git 的事故链:
+  // 会话 A 重建期间会话 B 的 git 命令撞上 .git 缺失 → B 也触发重建/清理 → 互删)。
+  // 同一 unitId 可重入;锁被他人持有时快速失败,严禁绕过。
+  const lockUnit = 'git-rebuild-local'
+  const lockScript = join(repoRoot, 'scripts', 'git-lock.mjs')
+  let lockHeld = false
+  if (run(`node "${lockScript}" check`, true) !== null) {
+    // check exit 0 = 无锁,可安全获取
+    if (run(`node "${lockScript}" acquire --unit ${lockUnit} --timeout 5000`, true) === null) {
+      console.error('❌ 获取 git 写锁失败:另一会话/进程正在进行 git 写操作')
+      console.error('   请等待其完成后再试;严禁绕过锁强行重建(会互相删除对方的 .git)')
+      process.exit(1)
+    }
+    lockHeld = true
+    process.on('exit', () => {
+      run(`node "${lockScript}" release --unit ${lockUnit}`, true)
+    })
+  }
+
   const url = remoteUrl(repoRoot)
   const ts = new Date().toISOString().replace(/[:.]/g, '-')
   const gitDir = join(repoRoot, '.git')
