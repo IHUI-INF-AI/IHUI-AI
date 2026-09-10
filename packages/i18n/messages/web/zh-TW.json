@@ -9004,11 +9004,11 @@
   },
   "commandPalette": {
     "groups": {
-    "mode": "模式",
-    "navigate": "導覽",
-    "settings": "設定",
-    "tools": "工具",
-    "view": "檢視"
+      "mode": "模式",
+      "navigate": "導覽",
+      "settings": "設定",
+      "tools": "工具",
+      "view": "檢視"
     },
     "commands": {
       "agent": {

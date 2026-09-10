@@ -9014,11 +9014,11 @@
   },
   "commandPalette": {
     "groups": {
-    "mode": "Mode",
-    "navigate": "Navigate",
-    "settings": "Settings",
-    "tools": "Tools",
-    "view": "View"
+      "mode": "Mode",
+      "navigate": "Navigate",
+      "settings": "Settings",
+      "tools": "Tools",
+      "view": "View"
     },
     "commands": {
       "agent": {

@@ -151,22 +151,19 @@ export default function PersonasPage() {
     void loadPersonas()
   }, [loadPersonas, reloadKey])
 
-  const loadDetail = React.useCallback(
-    async (name: string) => {
-      setDetailLoading(true)
-      setDetailError(null)
-      setDetail(null)
-      try {
-        const data = await fetchAiJson<PersonaDetail>(`/api/personas/${encodeURIComponent(name)}`)
-        setDetail(data)
-      } catch (e) {
-        setDetailError(e instanceof Error ? e.message : String(e))
-      } finally {
-        setDetailLoading(false)
-      }
-    },
-    [],
-  )
+  const loadDetail = React.useCallback(async (name: string) => {
+    setDetailLoading(true)
+    setDetailError(null)
+    setDetail(null)
+    try {
+      const data = await fetchAiJson<PersonaDetail>(`/api/personas/${encodeURIComponent(name)}`)
+      setDetail(data)
+    } catch (e) {
+      setDetailError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [])
 
   const handleToggle = (name: string) => {
     if (selectedName === name) {
