@@ -69,8 +69,9 @@ def test_is_sensitive_key_empty_string_returns_false():
 
 
 def test_is_sensitive_key_camelcase_apikey_not_matched():
-    """'ApiKey'.lower()='apikey' 不含 'api_key'(缺下划线)→ 不命中(设计行为)。"""
-    assert _is_sensitive_key("ApiKey") is False
+    """'ApiKey'.lower()='apikey' 命中 camelCase 补漏规则(2026-09-09 090ddf17f 起
+    camelCase 敏感键纳入脱敏,修复此前明文透出)。"""
+    assert _is_sensitive_key("ApiKey") is True
 
 
 # =============================================================================
