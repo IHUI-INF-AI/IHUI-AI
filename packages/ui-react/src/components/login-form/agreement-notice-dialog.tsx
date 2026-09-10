@@ -194,7 +194,8 @@ export function AgreementNoticeDialog({
 
         {/* 双按钮 + Enter 键提示 */}
         <div className="mt-5 flex items-center gap-2">
-          <Button size="lg"
+          <Button
+            size="lg"
             type="button"
             variant="outline"
             className="flex-1 bg-muted/40 hover:bg-muted px-4"
@@ -203,7 +204,8 @@ export function AgreementNoticeDialog({
           >
             {t('auth.agreementNoticeDisagree')}
           </Button>
-          <Button size="lg"
+          <Button
+            size="lg"
             ref={agreeBtnRef}
             type="button"
             variant="default"

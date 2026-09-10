@@ -279,7 +279,10 @@ export function GithubConfigDialog() {
               </span>
             )}
             {repoLabel && (
-              <span className="truncate font-mono text-[11px] text-muted-foreground" data-testid="github-repo">
+              <span
+                className="truncate font-mono text-[11px] text-muted-foreground"
+                data-testid="github-repo"
+              >
                 {repoLabel} · {t('connected')}
               </span>
             )}

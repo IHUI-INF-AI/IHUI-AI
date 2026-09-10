@@ -416,9 +416,7 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             if (failed.length > 0) {
               const ratio = failed.length / Math.max(result.fetchedSources || failed.length, 1)
               const severity =
-                ratio >= 0.5 || failed.length === result.fetchedSources
-                  ? 'critical'
-                  : 'warning'
+                ratio >= 0.5 || failed.length === result.fetchedSources ? 'critical' : 'warning'
               const failedList = failed
                 .map((d) => `- ${d.sourceCode}: ${d.error ?? 'unknown error'}`)
                 .join('\n')
@@ -497,7 +495,10 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               ttlMs: 60 * 60 * 1000, // 单次 drain 最多约 1h,不续约,超时自动释放
             })
             if (!drainLock) {
-              server.log.info({ jobId: job.id, jobName: name }, 'ai-feed-drain skipped: another drain running')
+              server.log.info(
+                { jobId: job.id, jobName: name },
+                'ai-feed-drain skipped: another drain running',
+              )
               return { skipped: true, reason: 'another-drain-running' }
             }
             // 存量 LLM 积压抽干(错峰加速):多轮小批量 + 轮间 sleep,

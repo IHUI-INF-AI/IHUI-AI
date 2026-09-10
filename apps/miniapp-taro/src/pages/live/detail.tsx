@@ -140,7 +140,8 @@ export default function LiveDetail() {
             <View
               className="relative w-full h-full flex flex-col items-center justify-center"
               onClick={enterLive}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[48rpx] leading-none text-[var(--color-surface-light)]">▶</Text>
               {live.status === 'living' && (
                 <View className="mt-[24rpx] px-[20rpx] py-[20rpx] rounded-[24rpx] bg-primary flex items-center justify-center">
@@ -189,7 +190,8 @@ export default function LiveDetail() {
             <View
               className="px-[20rpx] py-[20rpx] rounded-[24rpx] bg-primary flex items-center justify-center"
               onClick={handleSubscribe}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[32rpx] font-semibold text-[var(--color-primary-foreground)]">
                 {t('live.subscribe.subscribe')}
               </Text>

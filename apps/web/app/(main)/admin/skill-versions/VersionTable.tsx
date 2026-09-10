@@ -220,7 +220,11 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
                                         void confirmDialog({
                                           title: `确定回滚到 ${v.name}@${v.version} 吗？`,
                                         }).then((ok) => {
-                                          if (ok) rollbackMut.mutate({ name: v.name, content: v.content! })
+                                          if (ok)
+                                            rollbackMut.mutate({
+                                              name: v.name,
+                                              content: v.content!,
+                                            })
                                         })
                                       }}
                                     >

@@ -175,7 +175,8 @@ export default function RankingIndex() {
                 fileType === tab.key ? 'bg-primary' : 'bg-card'
               }`}
               onClick={() => onTabChange(tab.key)}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text
                 className={`text-[28rpx] ${
                   fileType === tab.key ? 'text-primary-foreground' : 'text-muted-foreground'
@@ -205,7 +206,8 @@ export default function RankingIndex() {
                 <View
                   className="flex items-center bg-background border border-solid border-border rounded-[24rpx] p-[28rpx] mb-[16rpx]"
                   onClick={() => goDetail(item.id)}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   {logo ? (
                     <Image
                       className="w-[88rpx] h-[88rpx] rounded-full border-[3rpx] border-solid border-border bg-[var(--color-muted)] shrink-0"

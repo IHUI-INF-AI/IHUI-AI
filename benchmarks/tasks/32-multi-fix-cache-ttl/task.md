@@ -5,6 +5,7 @@
 -->
 
 workspace 中 service.mjs 的 getCached(key) 依赖 cache.mjs 的 isExpired(entry) 判断缓存条目是否过期,契约:Date.now() - entry.createdAt >= entry.ttl 时过期。当前实现的比较方向写反(把未过期判成过期、过期判成未过期)。请修复 cache.mjs 的 isExpired(service.mjs 不改),要求:
+
 - 新写入的条目(ttl=1000ms)立即读取应命中缓存
 - createdAt 设为 Date.now()-200、ttl=100 的条目应判过期,getCached 返回 null
 

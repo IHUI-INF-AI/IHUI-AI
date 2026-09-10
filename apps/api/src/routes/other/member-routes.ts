@@ -87,41 +87,45 @@ export const memberRoutes: FastifyPluginAsync = async (server) => {
         balance = undefined
       }
     }
-    return reply.send(success({ list, total: list.length, ...(balance !== undefined ? { balance } : {}) }))
+    return reply.send(
+      success({ list, total: list.length, ...(balance !== undefined ? { balance } : {}) }),
+    )
   })
 
   // POST /points/redeem/:id — 积分兑换商品(扣积分,幂等:同一商品重复兑换 409)
-  server.post<{ Params: { id: string } }>(
-    '/points/redeem/:id',
-    async (request, reply) => {
-      try {
-        await authenticate(request)
-      } catch (e) {
-        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-        return reply.status(statusCode).send(error(statusCode, (e as Error).message || '请先登录'))
-      }
-      const userId = request.userId!
-      const { id } = request.params
-      const [item] = await dbRead
-        .select({ id: pointRedeemItems.id, points: pointRedeemItems.points })
-        .from(pointRedeemItems)
-        .where(eq(pointRedeemItems.id, id))
-        .limit(1)
-      if (!item) {
-        return reply.status(404).send(error(404, '兑换商品不存在'))
-      }
-      // 防重复兑换:description='redeem:<itemId>' 已有流水则拒绝
-      const { list } = await findPointTransactions({ userId, page: 1, pageSize: 20, source: 'redeem' })
-      if (list.some((t) => t.description === `redeem:${id}`)) {
-        return reply.status(409).send(error(409, '该商品已兑换过'))
-      }
-      const balance = await ensureUserPoints(userId)
-      if (balance.points < item.points) {
-        return reply.status(400).send(error(400, '积分余额不足'))
-      }
-      const result = await spendPoints(userId, item.points, 'redeem', `redeem:${id}`, id)
-      return reply.send(success({ points: result.points, redeemed: item.points }))
-    },
-  )
+  server.post<{ Params: { id: string } }>('/points/redeem/:id', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      return reply.status(statusCode).send(error(statusCode, (e as Error).message || '请先登录'))
+    }
+    const userId = request.userId!
+    const { id } = request.params
+    const [item] = await dbRead
+      .select({ id: pointRedeemItems.id, points: pointRedeemItems.points })
+      .from(pointRedeemItems)
+      .where(eq(pointRedeemItems.id, id))
+      .limit(1)
+    if (!item) {
+      return reply.status(404).send(error(404, '兑换商品不存在'))
+    }
+    // 防重复兑换:description='redeem:<itemId>' 已有流水则拒绝
+    const { list } = await findPointTransactions({
+      userId,
+      page: 1,
+      pageSize: 20,
+      source: 'redeem',
+    })
+    if (list.some((t) => t.description === `redeem:${id}`)) {
+      return reply.status(409).send(error(409, '该商品已兑换过'))
+    }
+    const balance = await ensureUserPoints(userId)
+    if (balance.points < item.points) {
+      return reply.status(400).send(error(400, '积分余额不足'))
+    }
+    const result = await spendPoints(userId, item.points, 'redeem', `redeem:${id}`, id)
+    return reply.send(success({ points: result.points, redeemed: item.points }))
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

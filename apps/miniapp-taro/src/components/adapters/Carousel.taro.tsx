@@ -141,7 +141,8 @@ export function Carousel({
               id={`slide-${index}`}
               onTap={() => onItemPress?.(item, index)}
               style={{ width: toRpx(windowWidth), height: toRpx(height) }}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Image
                 src={item.img}
                 style={{ width: toRpx(windowWidth), height: toRpx(height) }}

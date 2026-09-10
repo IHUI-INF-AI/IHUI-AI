@@ -271,7 +271,8 @@ export default function N8nModel() {
                 key={v}
                 className={`nm-bool-opt ${p.defaultValue === v ? 'nm-bool-active' : ''}`}
                 onClick={() => setVal(v)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text>
                   {v === 'true'
                     ? tt('devEnter.n8nModel.booleanTrue', '是')
@@ -364,7 +365,8 @@ export default function N8nModel() {
                         defaultValue: tp.value === 'boolean' ? 'true' : '',
                       })
                     }
-                    hoverClass="opacity-60">
+                    hoverClass="opacity-60"
+                  >
                     <Text>{tt(tp.key, tp.fb)}</Text>
                   </View>
                 ))}
@@ -405,7 +407,8 @@ export default function N8nModel() {
                   key={(item.id as string) || (item.name as string)}
                   className="nm-list-item"
                   onClick={() => onItemClick(item.id as string)}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   <Text className="nm-list-name text-ellipsis">
                     {(item.name as string) ||
                       (item.title as string) ||
@@ -514,7 +517,8 @@ export default function N8nModel() {
           <View
             className={`nm-submit ${submitting ? 'nm-submit-disabled' : ''}`}
             onClick={onSubmit}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text>
               {submitting
                 ? tt('devEnter.n8nModel.submitting', '创建中…')

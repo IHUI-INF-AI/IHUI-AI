@@ -387,7 +387,8 @@ export default function AigcList() {
         onClick={() =>
           isVideo ? playVideoFullscreen(item) : previewImage(item.coverUrl, imageUrls)
         }
-        hoverClass="opacity-60">
+        hoverClass="opacity-60"
+      >
         <View className="media-cover-wrap">
           {isFullscreenVideo && item.fileUrl ? (
             <Video
@@ -427,7 +428,9 @@ export default function AigcList() {
           <Text className="back-text">{tt('common.back', '返回')}</Text>
         </View>
         <Text className="page-title">{tt('aigcList.title', '灵感')}</Text>
-        <Text className="page-subtitle">{tt('aigcList.subtitle', 'AI 生成的图文/视频/音频作品')}</Text>
+        <Text className="page-subtitle">
+          {tt('aigcList.subtitle', 'AI 生成的图文/视频/音频作品')}
+        </Text>
       </View>
 
       <ScrollView scrollX scrollWithAnimation showScrollbar={false} className="category-bar">
@@ -437,7 +440,8 @@ export default function AigcList() {
               key={c.key}
               className={`category-chip${category === c.key ? ' active' : ''}`}
               onClick={() => onCategoryChange(c.key)}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="category-text">{c.label}</Text>
             </View>
           ))}
@@ -480,7 +484,11 @@ export default function AigcList() {
               const isPlaying = audioPlayingId === idStr
               return (
                 <View key={idStr} className="audio-card">
-                  <View className="audio-cover" onClick={() => toggleAudio(item)} hoverClass="opacity-60">
+                  <View
+                    className="audio-cover"
+                    onClick={() => toggleAudio(item)}
+                    hoverClass="opacity-60"
+                  >
                     {item.coverUrl ? (
                       <Image className="audio-cover-img" src={item.coverUrl} mode="aspectFill" />
                     ) : (
@@ -498,7 +506,11 @@ export default function AigcList() {
                       {item.title || tt('aigc.list.unnamed', '未命名作品')}
                     </Text>
                     <Text className="audio-duration">{formatDuration(item.duration)}</Text>
-                    <View className="audio-play-btn" onClick={() => toggleAudio(item)} hoverClass="opacity-60">
+                    <View
+                      className="audio-play-btn"
+                      onClick={() => toggleAudio(item)}
+                      hoverClass="opacity-60"
+                    >
                       <LineIcon
                         name={isPlaying ? 'pause' : 'play'}
                         size={24}

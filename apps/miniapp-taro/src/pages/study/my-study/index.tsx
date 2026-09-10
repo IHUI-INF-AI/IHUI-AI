@@ -168,11 +168,7 @@ export default function MyStudy() {
                   className="flex p-[28rpx] rounded-[24rpx] border border-border bg-card"
                 >
                   <View className="w-[160rpx] h-[100rpx] rounded-[16rpx] flex-shrink-0 bg-muted flex items-center justify-center">
-                    <LineIcon
-                      name="book-open"
-                      size={40}
-                      color="var(--color-muted-foreground)"
-                    />
+                    <LineIcon name="book-open" size={40} color="var(--color-muted-foreground)" />
                   </View>
                   <View className="flex-1 ml-[16rpx] flex flex-col">
                     <Text className="text-[32rpx] text-foreground font-bold leading-[1.4] overflow-hidden">

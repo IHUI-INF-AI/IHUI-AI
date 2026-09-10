@@ -145,7 +145,9 @@ test.describe('SiteFooter v10/v11 防回归', () => {
     // 直接调 store + 写 localStorage 持久化(与 chat-mode-badge.spec 的 switchLocale 一致)。
     await adminPage.evaluate(() => {
       const store = (
-        window as unknown as { __IHUI_LANGUAGE_STORE__?: { getState: () => { setLocale: (x: string) => void } } }
+        window as unknown as {
+          __IHUI_LANGUAGE_STORE__?: { getState: () => { setLocale: (x: string) => void } }
+        }
       ).__IHUI_LANGUAGE_STORE__
       if (store) store.getState().setLocale('en')
       try {

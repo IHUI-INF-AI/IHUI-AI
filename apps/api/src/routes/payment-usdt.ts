@@ -230,7 +230,10 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
         )
         // 取证未通过/确认数不足 → 202,由轮询 worker 复查确认(不阻塞也不误入账)
         if (result.status === 'pending' && result.pendingReason) {
-          request.log.info({ orderId: parsedBody.data.orderId, reason: result.pendingReason }, 'USDT 回调等待链上确认')
+          request.log.info(
+            { orderId: parsedBody.data.orderId, reason: result.pendingReason },
+            'USDT 回调等待链上确认',
+          )
           return reply.status(202).send(success(result))
         }
         return reply.send(success(result))

@@ -41,19 +41,19 @@ Grafana Explore（LogQL 查询 + 可视化，127.0.0.1:8816）
 
 > 这是运维查看、配置数据源、抓取 /metrics、推送日志时**唯一以实际端口为准**的对照表（原生部署，监听 loopback 127.0.0.1）。
 
-| 服务 | 端口（127.0.0.1） | 说明 | 对应 docker 语义端口 |
-| --- | --- | --- | --- |
-| web（next） | 8801 | 前端（next start -H 127.0.0.1 -p 8801） | — |
-| api（Fastify） | 8802 | 业务后端，暴露 /metrics | — |
-| ai-service | 8803 | FastAPI AI 服务（uvicorn 127.0.0.1:8803） | — |
-| Prometheus | **8815** | 抓取 /metrics，PromQL/告警规则、/targets | 9090（容器内） |
-| Grafana | **8816** | 仪表盘 + Explore 入口 | 8816 |
-| Loki | **3100** | 日志推送 / 查询 / /ready / /metrics | 3100 |
-| Promtail | **9080** | 自身指标 /health / /targets（抓取目标） | 9080 |
-| Alertmanager | **9093** | 告警分组/抑制/路由 | 9093 |
-| alert-webhook-bridge | 9096 | 告警转 Server酱（见 monitoring/alertbridge/README.md） | — |
-| otel-collector | 8888 | 当前**未部署**（无进程） | 8812/8813 |
-| Jaeger | 16686 | 当前**未部署**（无进程） | 8814 |
+| 服务                 | 端口（127.0.0.1） | 说明                                                   | 对应 docker 语义端口 |
+| -------------------- | ----------------- | ------------------------------------------------------ | -------------------- |
+| web（next）          | 8801              | 前端（next start -H 127.0.0.1 -p 8801）                | —                    |
+| api（Fastify）       | 8802              | 业务后端，暴露 /metrics                                | —                    |
+| ai-service           | 8803              | FastAPI AI 服务（uvicorn 127.0.0.1:8803）              | —                    |
+| Prometheus           | **8815**          | 抓取 /metrics，PromQL/告警规则、/targets               | 9090（容器内）       |
+| Grafana              | **8816**          | 仪表盘 + Explore 入口                                  | 8816                 |
+| Loki                 | **3100**          | 日志推送 / 查询 / /ready / /metrics                    | 3100                 |
+| Promtail             | **9080**          | 自身指标 /health / /targets（抓取目标）                | 9080                 |
+| Alertmanager         | **9093**          | 告警分组/抑制/路由                                     | 9093                 |
+| alert-webhook-bridge | 9096              | 告警转 Server酱（见 monitoring/alertbridge/README.md） | —                    |
+| otel-collector       | 8888              | 当前**未部署**（无进程）                               | 8812/8813            |
+| Jaeger               | 16686             | 当前**未部署**（无进程）                               | 8814                 |
 
 > 注意：Prometheus 容器内监听 9090，但**原生部署在 8815**。凡文档/配置里看到服务名端口（如 `prometheus:9090`、`loki:3100`、`alertmanager:9093`），这些都是 docker 网络语义，**在原生 Windows 部署下必须替换成 `127.0.0.1` + 上表真实端口**。
 
@@ -94,11 +94,11 @@ nssm restart ihui-promtail
 
 生产环境 Promtail **不采集 docker 容器日志**，也不依赖 `docker.sock`，而是用 `static_configs` 抓取**本机应用日志文件**。核心 job：
 
-| job | 采集对象 | 关键标签 |
-| --- | --- | --- |
-| `api-app-logs` | 应用写入的 `*.log`（如 `apps/api/logs/*.log`） | job=api-app，host=ihui-ai，level/requestId |
-| `nginx` | 反代/Nginx 日志（Linux 布局，Windows 原生可自行改绝对路径） | job=nginx，method/status |
-| `journal` | systemd journal（仅 Linux，Windows 不使用） | unit/hostname |
+| job            | 采集对象                                                    | 关键标签                                   |
+| -------------- | ----------------------------------------------------------- | ------------------------------------------ |
+| `api-app-logs` | 应用写入的 `*.log`（如 `apps/api/logs/*.log`）              | job=api-app，host=ihui-ai，level/requestId |
+| `nginx`        | 反代/Nginx 日志（Linux 布局，Windows 原生可自行改绝对路径） | job=nginx，method/status                   |
+| `journal`      | systemd journal（仅 Linux，Windows 不使用）                 | unit/hostname                              |
 
 新增采集时，在 `monitoring/promtail/promtail-config.yml` 的 `scrape_configs` 增加一个 `static_configs`，把 `__path__` 指向目标本机日志文件即可（并配好 json/regex pipeline 解析）。
 
@@ -306,10 +306,10 @@ Get-ChildItem D:\DevEnv\monitor\loki-data -Recurse | Measure-Object -Property Le
 
 ## 十、性能与资源建议
 
-| 服务           | 形态              | CPU | 内存              | 磁盘                              |
-| -------------- | ----------------- | --- | ----------------- | --------------------------------- |
-| Loki 2.9.0     | 原生二进制        | 1.0 | 1G(可放宽到 512M) | 与日志量成正比,30 天保留约 5-50GB |
-| Promtail 2.9.0 | 原生二进制        | 0.5 | 256M              | <100MB(positions 文件)            |
+| 服务           | 形态       | CPU | 内存              | 磁盘                              |
+| -------------- | ---------- | --- | ----------------- | --------------------------------- |
+| Loki 2.9.0     | 原生二进制 | 1.0 | 1G(可放宽到 512M) | 与日志量成正比,30 天保留约 5-50GB |
+| Promtail 2.9.0 | 原生二进制 | 0.5 | 256M              | <100MB(positions 文件)            |
 
 生产环境推荐:
 
@@ -323,4 +323,5 @@ Get-ChildItem D:\DevEnv\monitor\loki-data -Recurse | Measure-Object -Property Le
 - LogQL 语法: https://grafana.com/docs/loki/latest/logql/
 - Promtail 配置: https://grafana.com/docs/loki/latest/send-data/promtail/configuration/
 - Grafana Loki 数据源: https://grafana.com/docs/grafana/latest/datasources/loki/
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

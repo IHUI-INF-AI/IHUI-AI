@@ -38,7 +38,10 @@ export default function ReferrerPage() {
 
   const bindQ = useMutation({
     mutationFn: (inviteCode: string) =>
-      api<unknown>('/user/referrer', { method: 'POST', body: JSON.stringify({ code: inviteCode }) }),
+      api<unknown>('/user/referrer', {
+        method: 'POST',
+        body: JSON.stringify({ code: inviteCode }),
+      }),
     onSuccess: () => {
       toast.success(t('bindSuccess'))
       setCode('')

@@ -68,10 +68,12 @@ vi.mock('react-native', async () => {
     useColorScheme: () => 'light',
     // Alert 二次确认弹窗:捕获按钮 onPress,测试中手动触发「确认」走提现
     Alert: {
-      alert: vi.fn((_title: string, _msg: string, buttons?: { text: string; onPress?: () => void }[]) => {
-        const confirm = buttons?.find((b) => b.text === 'common.confirm')
-        if (confirm?.onPress) alertCallbacks.push(confirm.onPress)
-      }),
+      alert: vi.fn(
+        (_title: string, _msg: string, buttons?: { text: string; onPress?: () => void }[]) => {
+          const confirm = buttons?.find((b) => b.text === 'common.confirm')
+          if (confirm?.onPress) alertCallbacks.push(confirm.onPress)
+        },
+      ),
     },
     StyleSheet: { create: (s: Record<string, unknown>) => s },
   }

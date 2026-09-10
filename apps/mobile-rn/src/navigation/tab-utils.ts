@@ -53,9 +53,7 @@ export function mainScreenForTab(tab: MainTabKey): MainTabKey {
  * 本函数统一处理:广场 → RootStack 'Plaza',动态 → RootStack 'Share',其余走 Main Tab。
  */
 type NavigateLike =
-  | { navigate: (name: string, params?: Record<string, unknown>) => void }
-  | null
-  | undefined
+  { navigate: (name: string, params?: Record<string, unknown>) => void } | null | undefined
 
 export function navigateDrawerTab(nav: NavigateLike, tab: DrawerTab): void {
   if (!nav) return

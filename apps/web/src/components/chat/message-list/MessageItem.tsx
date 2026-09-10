@@ -467,8 +467,7 @@ const MessageItem = React.memo(function MessageItem({
               // 2026-09-09 长任务 task_id:后端 SSE tool-result 顶层扁平化已填充 tc.task_id,
               // 无 URL 时透传给 ToolCallCard 渲染"任务进行中"状态
               const effectiveTaskId: string | undefined =
-                tc.task_id ||
-                (typeof tcResult?.task_id === 'string' ? tcResult.task_id : undefined)
+                tc.task_id || (typeof tcResult?.task_id === 'string' ? tcResult.task_id : undefined)
               const effectiveSummaryData =
                 tc.summary_data ??
                 (tcResult &&

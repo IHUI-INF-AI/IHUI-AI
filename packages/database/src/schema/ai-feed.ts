@@ -95,10 +95,7 @@ export const aiFeedHotItem = pgTable(
     hotIdx: index('ix_ai_feed_item_hot').on(t.currentHot),
     lastSeenIdx: index('ix_ai_feed_item_last_seen').on(t.lastSeenAt),
     // 2026-09-06 P0:热榜按 (source_code + last_seen_at) 聚合/过滤是热点路径,补复合索引
-    sourceLastSeenIdx: index('ix_ai_feed_item_source_last_seen').on(
-      t.sourceCode,
-      t.lastSeenAt,
-    ),
+    sourceLastSeenIdx: index('ix_ai_feed_item_source_last_seen').on(t.sourceCode, t.lastSeenAt),
   }),
 )
 

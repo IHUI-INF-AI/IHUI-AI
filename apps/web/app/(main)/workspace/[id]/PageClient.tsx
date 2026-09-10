@@ -183,10 +183,7 @@ export default function ProjectDetailPage() {
 
       <PreviewDialog preview={preview} onClose={closePreview} />
 
-      <MarkdownResultDialog
-        result={markdownResult}
-        onClose={() => setMarkdownResult(null)}
-      />
+      <MarkdownResultDialog result={markdownResult} onClose={() => setMarkdownResult(null)} />
     </div>
   )
 }

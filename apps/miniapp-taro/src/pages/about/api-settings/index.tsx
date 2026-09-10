@@ -127,7 +127,11 @@ export default function ApiSettings() {
     <ThemeRoot>
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx]">
         <View className="bg-card rounded-[24rpx] border border-border p-[28rpx] mb-[24rpx] overflow-hidden">
-          <View className="flex justify-between items-center py-[16rpx]" onClick={() => copy(BASE_URL)} hoverClass="opacity-60">
+          <View
+            className="flex justify-between items-center py-[16rpx]"
+            onClick={() => copy(BASE_URL)}
+            hoverClass="opacity-60"
+          >
             <Text className="text-[28rpx] text-muted-foreground">
               {tt('about.apiSettings.apiUrl', 'API 地址')}
             </Text>
@@ -180,7 +184,8 @@ export default function ApiSettings() {
             <View
               className="h-[100rpx] px-[24rpx] box-border bg-muted border-[2rpx] border-border rounded-[24rpx] flex items-center justify-center"
               onClick={toggleToken}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <LineIcon
                 name={showToken ? 'eye-off' : 'eye'}
                 size={32}

@@ -22,14 +22,19 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
-const { mockAuthenticate, mockFindConversationById, mockRegenerate, mockBranch, mockUpdateConversation } =
-  vi.hoisted(() => ({
-    mockAuthenticate: vi.fn(),
-    mockFindConversationById: vi.fn(),
-    mockRegenerate: vi.fn(),
-    mockBranch: vi.fn(),
-    mockUpdateConversation: vi.fn(),
-  }))
+const {
+  mockAuthenticate,
+  mockFindConversationById,
+  mockRegenerate,
+  mockBranch,
+  mockUpdateConversation,
+} = vi.hoisted(() => ({
+  mockAuthenticate: vi.fn(),
+  mockFindConversationById: vi.fn(),
+  mockRegenerate: vi.fn(),
+  mockBranch: vi.fn(),
+  mockUpdateConversation: vi.fn(),
+}))
 
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: mockAuthenticate,

@@ -42,7 +42,12 @@ export interface MyAgentsProps {
   defaultAvatar?: string
 }
 
-export default function MyAgents({ items, onItemClick, onTeamPress, defaultAvatar }: MyAgentsProps) {
+export default function MyAgents({
+  items,
+  onItemClick,
+  onTeamPress,
+  defaultAvatar,
+}: MyAgentsProps) {
   const list = items && items.length > 0 ? items : null
 
   return (

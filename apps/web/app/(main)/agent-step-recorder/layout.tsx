@@ -24,7 +24,9 @@ export const metadata: Metadata = {
       'IHUI AI Agent Step 录制回放:逐步工具调用时间线,含 token / 耗时 / 成本 / 成败统计。',
     url: 'https://aizhs.top/agent-step-recorder',
     siteName: 'IHUI AI',
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'IHUI AI Agent Step 录制回放' }],
+    images: [
+      { url: '/og-image.png', width: 1200, height: 630, alt: 'IHUI AI Agent Step 录制回放' },
+    ],
   },
   twitter: {
     card: 'summary_large_image',

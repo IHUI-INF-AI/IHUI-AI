@@ -115,7 +115,8 @@ export default function Carousel({
                   flex: '0 0 auto',
                 }}
                 onClick={() => onItemClick?.(item, index)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 {hasImg ? (
                   <Image src={item.img} mode="aspectFill" className="h-full w-full" lazyLoad />
                 ) : null}
@@ -137,7 +138,9 @@ export default function Carousel({
                 {meta ? (
                   <View className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--color-black-60)] to-transparent p-3">
                     {meta.title ? (
-                      <Text className="block text-sm text-[var(--color-white-98)] line-clamp-1">{meta.title}</Text>
+                      <Text className="block text-sm text-[var(--color-white-98)] line-clamp-1">
+                        {meta.title}
+                      </Text>
                     ) : null}
                     {meta.isFree || meta.price !== undefined || meta.tag ? (
                       <View className="flex items-center gap-2 mt-1">

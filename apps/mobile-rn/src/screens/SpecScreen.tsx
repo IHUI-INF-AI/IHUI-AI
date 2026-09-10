@@ -97,7 +97,9 @@ export function SpecScreen() {
                         key={sec}
                         className="rounded bg-orange-50 px-1.5 py-0.5 dark:bg-orange-900/30"
                       >
-                        <Text className="text-[10px] text-orange-600 dark:text-orange-300">{sec}</Text>
+                        <Text className="text-[10px] text-orange-600 dark:text-orange-300">
+                          {sec}
+                        </Text>
                       </View>
                     ))}
                   </View>

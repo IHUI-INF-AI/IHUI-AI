@@ -54,7 +54,11 @@ function parseFields(text: string): Record<string, string> | null {
   return Object.keys(out).length ? out : null
 }
 
-const TOOL_ICONS: Record<ToolKey, typeof Globe> = { fetch_readable: FileText, map_site: Link2, extract_web: Braces }
+const TOOL_ICONS: Record<ToolKey, typeof Globe> = {
+  fetch_readable: FileText,
+  map_site: Link2,
+  extract_web: Braces,
+}
 
 export default function WebToolsPage() {
   const t = useTranslations('webToolsPage')
@@ -72,7 +76,10 @@ export default function WebToolsPage() {
   const [copied, setCopied] = React.useState(false)
 
   const run = async () => {
-    if (!url.trim()) { setError(t('errorRequired')); return }
+    if (!url.trim()) {
+      setError(t('errorRequired'))
+      return
+    }
     const body: Record<string, unknown> = { tool, url: url.trim() }
     if (tool !== 'map_site') {
       const n = parseInt(maxChars, 10)
@@ -86,10 +93,16 @@ export default function WebToolsPage() {
     }
     if (tool === 'extract_web') {
       const fields = parseFields(fieldsText)
-      if (!fields) { setError(t('errorFields')); return }
+      if (!fields) {
+        setError(t('errorFields'))
+        return
+      }
       body.fields = fields
     }
-    setRunning(true); setError(null); setResult(null); setCopied(false)
+    setRunning(true)
+    setError(null)
+    setResult(null)
+    setCopied(false)
     const t0 = performance.now()
     try {
       const res = await api<{ ok: boolean; result: ToolResult }>('/web-tools/call', {
@@ -135,10 +148,15 @@ export default function WebToolsPage() {
               <button
                 key={k}
                 type="button"
-                onClick={() => { setTool(k); setError(null) }}
+                onClick={() => {
+                  setTool(k)
+                  setError(null)
+                }}
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium',
-                  tool === k ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent',
+                  tool === k
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-accent',
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -152,12 +170,18 @@ export default function WebToolsPage() {
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !running) void run() }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !running) void run()
+            }}
             placeholder={t('urlPlaceholder')}
             className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
           <Button size="default" disabled={running} onClick={() => void run()}>
-            {running ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Globe className="mr-1 h-4 w-4" />}
+            {running ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Globe className="mr-1 h-4 w-4" />
+            )}
             {running ? t('running') : t('run')}
           </Button>
         </div>
@@ -166,13 +190,22 @@ export default function WebToolsPage() {
           {tool !== 'map_site' && (
             <label className="flex items-center gap-1.5">
               {t('maxChars')}
-              <input value={maxChars} onChange={(e) => setMaxChars(e.target.value)} inputMode="numeric"
-                className="h-7 w-20 rounded-md border border-input bg-background px-2 text-xs" />
+              <input
+                value={maxChars}
+                onChange={(e) => setMaxChars(e.target.value)}
+                inputMode="numeric"
+                className="h-7 w-20 rounded-md border border-input bg-background px-2 text-xs"
+              />
             </label>
           )}
           {tool === 'fetch_readable' && (
             <label className="flex items-center gap-1.5">
-              <input type="checkbox" checked={includeLinks} onChange={(e) => setIncludeLinks(e.target.checked)} className="h-3.5 w-3.5" />
+              <input
+                type="checkbox"
+                checked={includeLinks}
+                onChange={(e) => setIncludeLinks(e.target.checked)}
+                className="h-3.5 w-3.5"
+              />
               {t('includeLinks')}
             </label>
           )}
@@ -180,11 +213,20 @@ export default function WebToolsPage() {
             <>
               <label className="flex items-center gap-1.5">
                 {t('maxLinks')}
-                <input value={maxLinks} onChange={(e) => setMaxLinks(e.target.value)} inputMode="numeric"
-                  className="h-7 w-20 rounded-md border border-input bg-background px-2 text-xs" />
+                <input
+                  value={maxLinks}
+                  onChange={(e) => setMaxLinks(e.target.value)}
+                  inputMode="numeric"
+                  className="h-7 w-20 rounded-md border border-input bg-background px-2 text-xs"
+                />
               </label>
               <label className="flex items-center gap-1.5">
-                <input type="checkbox" checked={sameDomain} onChange={(e) => setSameDomain(e.target.checked)} className="h-3.5 w-3.5" />
+                <input
+                  type="checkbox"
+                  checked={sameDomain}
+                  onChange={(e) => setSameDomain(e.target.checked)}
+                  className="h-3.5 w-3.5"
+                />
                 {t('sameDomainOnly')}
               </label>
             </>
@@ -206,14 +248,23 @@ export default function WebToolsPage() {
         )}
       </section>
 
-      {error && <p className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && (
+        <p className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
 
       {result?.ok && (
         <section className="space-y-3 rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               {result.title && <h2 className="truncate text-sm font-semibold">{result.title}</h2>}
-              <a href={result.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 truncate text-xs text-muted-foreground hover:text-foreground">
+              <a
+                href={result.url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 truncate text-xs text-muted-foreground hover:text-foreground"
+              >
                 <ExternalLink className="h-3 w-3 shrink-0" />
                 {result.url}
               </a>
@@ -230,20 +281,32 @@ export default function WebToolsPage() {
             {elapsed > 0 && ` · ${elapsed}ms`}
             {result.rendered && ` · ${t('metaRendered')}`}
             {typeof result.chars === 'number' && result.truncated && ` · ${t('metaTruncated')}`}
-            {tool === 'extract_web' && ` · ${result.source === 'llm' ? t('metaSourceLlm') : t('metaSourceHeuristic')}`}
-            {usage && typeof usage.total_tokens === 'number' && ` · ${t('metaTokens', { total: usage.total_tokens, prompt: usage.prompt_tokens ?? 0, completion: usage.completion_tokens ?? 0 })}`}
+            {tool === 'extract_web' &&
+              ` · ${result.source === 'llm' ? t('metaSourceLlm') : t('metaSourceHeuristic')}`}
+            {usage &&
+              typeof usage.total_tokens === 'number' &&
+              ` · ${t('metaTokens', { total: usage.total_tokens, prompt: usage.prompt_tokens ?? 0, completion: usage.completion_tokens ?? 0 })}`}
             {result.llm_model && ` · ${result.llm_model}`}
           </p>
 
           {result.content && (
-            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs leading-relaxed">{result.content}</pre>
+            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs leading-relaxed">
+              {result.content}
+            </pre>
           )}
 
           {result.links && result.links.length > 0 && (
             <ul className="max-h-[420px] space-y-1 overflow-auto">
               {result.links.map((l, i) => (
                 <li key={`${l.url}-${i}`} className="flex items-baseline gap-2 text-xs">
-                  <a href={l.url} target="_blank" rel="noreferrer" className="shrink-0 text-primary hover:underline">{l.url}</a>
+                  <a
+                    href={l.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 text-primary hover:underline"
+                  >
+                    {l.url}
+                  </a>
                   {l.text && <span className="truncate text-muted-foreground">{l.text}</span>}
                 </li>
               ))}
@@ -265,7 +328,9 @@ export default function WebToolsPage() {
                     <tr key={k} className="border-t border-border/60">
                       <td className="px-3 py-1.5 font-medium">{k}</td>
                       <td className="px-3 py-1.5 break-all">{String(v)}</td>
-                      <td className="px-3 py-1.5 text-muted-foreground">{((result.confidence?.[k] ?? 0) * 100).toFixed(0)}%</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">
+                        {((result.confidence?.[k] ?? 0) * 100).toFixed(0)}%
+                      </td>
                     </tr>
                   ))}
                 </tbody>

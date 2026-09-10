@@ -181,7 +181,8 @@ export default function DistributionTeam() {
         <View
           className={`flex-1 flex items-center justify-center py-[12rpx] rounded-[24rpx] ${activeTab === 'orderNum' ? 'bg-primary' : 'bg-card'}`}
           onClick={() => setActiveTab('orderNum')}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <Text
             className={`text-[28rpx] ${activeTab === 'orderNum' ? 'text-[var(--color-primary-foreground)] font-semibold' : 'text-muted-foreground'}`}
           >
@@ -289,7 +290,8 @@ export default function DistributionTeam() {
                     <View
                       className="ml-[16rpx] px-[24rpx] h-[56rpx] rounded-[24rpx] bg-primary flex items-center justify-center flex-shrink-0"
                       onClick={() => goSubordinates(m.id)}
-                      hoverClass="opacity-60">
+                      hoverClass="opacity-60"
+                    >
                       <Text className="text-[24rpx] text-[var(--color-primary-foreground)]">
                         {tt('distribution.team.viewSubordinates', '查看下级')}
                       </Text>
@@ -318,7 +320,8 @@ export default function DistributionTeam() {
           <View
             className="px-[40rpx] h-[72rpx] rounded-[20rpx] bg-primary flex items-center justify-center"
             onClick={() => load(true)}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-[28rpx] font-medium text-[var(--color-primary-foreground)]">
               {tt('distribution.team.retry', '点击重试')}
             </Text>

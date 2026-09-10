@@ -77,9 +77,13 @@ export function ImageGenCreateScreen() {
       }
       const filename = `imagegen_${Date.now()}.png`
       const destFile = new FileSystem.File(FileSystem.Paths.cache, filename)
-      const downloaded = await FileSystem.File.downloadFileAsync(resolveFileUrl(result.imageUrl), destFile, {
-        idempotent: true,
-      })
+      const downloaded = await FileSystem.File.downloadFileAsync(
+        resolveFileUrl(result.imageUrl),
+        destFile,
+        {
+          idempotent: true,
+        },
+      )
       await MediaLibrary.saveToLibraryAsync(downloaded.uri)
       Alert.alert(t('imageGen.saveSuccess'))
     } catch {
@@ -124,7 +128,9 @@ export function ImageGenCreateScreen() {
                 onPress={() => setSize(item.value)}
                 className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
               >
-                <Text className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}>
+                <Text
+                  className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
+                >
                   {t(item.labelKey)}
                 </Text>
               </TouchableOpacity>

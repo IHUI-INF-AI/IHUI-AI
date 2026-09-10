@@ -238,7 +238,9 @@ export function TaskCard({ task, expanded, onToggle, onChanged }: TaskCardProps)
                             {STATUS_LABEL[tg.status ?? 'pending'] ?? tg.status}
                           </span>
                           {tg.durationMs !== undefined && tg.durationMs !== null && (
-                            <span className="text-muted-foreground">{fmtDuration(tg.durationMs)}</span>
+                            <span className="text-muted-foreground">
+                              {fmtDuration(tg.durationMs)}
+                            </span>
                           )}
                           {tg.url && (
                             <a
