@@ -39,7 +39,7 @@ export default function OauthPlatformPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-16 py-10">
+    <div className="mx-auto w-full max-w-5xl space-y-16 px-4 py-4">
       <BackButton />
       {/* Hero */}
       <section className="space-y-6 text-center">
