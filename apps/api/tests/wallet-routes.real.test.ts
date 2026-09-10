@@ -164,15 +164,9 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
     expect(body.data.payUrl).toBeUndefined()
 
     // P0-1 契约:recharge 只创建订单号,余额增加只能走支付回调 → 不建 margin、不写流水
-    const margins = await db
-      .select()
-      .from(userMargins)
-      .where(eq(userMargins.userId, user.id))
+    const margins = await db.select().from(userMargins).where(eq(userMargins.userId, user.id))
     expect(margins).toHaveLength(0)
-    const flows = await db
-      .select()
-      .from(tokenFlows)
-      .where(eq(tokenFlows.userId, user.id))
+    const flows = await db.select().from(tokenFlows).where(eq(tokenFlows.userId, user.id))
     expect(flows).toHaveLength(0)
   })
 
