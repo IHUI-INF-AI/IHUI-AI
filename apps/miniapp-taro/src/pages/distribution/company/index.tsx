@@ -149,7 +149,8 @@ export default function CompanyPage() {
                 key={m.id}
                 className="flex flex-row items-center rounded-[24rpx] border border-border bg-background p-[28rpx]"
                 onClick={() => navigateTo(`/pages/distribution/member-detail/index?id=${m.id}`)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 {m.avatar ? (
                   <Image
                     className="w-[88rpx] h-[88rpx] rounded-full flex-shrink-0"
@@ -186,7 +187,8 @@ export default function CompanyPage() {
           <View
             className="flex-1 flex flex-col items-center gap-[8rpx] py-[24rpx] rounded-[24rpx] bg-[var(--color-muted)]"
             onClick={() => navigateTo('/pages/distribution/team')}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <LineIcon name="users" size={40} color="var(--color-muted-foreground)" />
             <Text className="text-[24rpx] text-foreground">
               {t('distribution.company.menuTeam')}
@@ -195,7 +197,8 @@ export default function CompanyPage() {
           <View
             className="flex-1 flex flex-col items-center gap-[8rpx] py-[24rpx] rounded-[24rpx] bg-[var(--color-muted)]"
             onClick={() => navigateTo('/pages/distribution/commission')}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <LineIcon name="wallet" size={40} color="var(--color-muted-foreground)" />
             <Text className="text-[24rpx] text-foreground">
               {t('distribution.company.menuCommission')}
@@ -204,7 +207,8 @@ export default function CompanyPage() {
           <View
             className="flex-1 flex flex-col items-center gap-[8rpx] py-[24rpx] rounded-[24rpx] bg-[var(--color-muted)]"
             onClick={() => navigateTo('/pages/distribution/withdraw')}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <LineIcon name="wallet" size={40} color="var(--color-muted-foreground)" />
             <Text className="text-[24rpx] text-foreground">
               {t('distribution.company.menuWithdraw')}

@@ -167,12 +167,19 @@ export default function LiveHost() {
           />
           {stream ? (
             <View className="mt-[16rpx]">
-              <View onClick={() => stream.pushUrl && copyText(stream.pushUrl)} hoverClass="opacity-60">
+              <View
+                onClick={() => stream.pushUrl && copyText(stream.pushUrl)}
+                hoverClass="opacity-60"
+              >
                 <Text className="block mt-[16rpx] text-[28rpx] text-[var(--color-text-tertiary)]">
                   {tt('liveHost.pushUrl', '推流地址')}:{stream.pushUrl || '—'}
                 </Text>
               </View>
-              <View className="mt-[16rpx]" onClick={() => copyText(stream.streamKey)} hoverClass="opacity-60">
+              <View
+                className="mt-[16rpx]"
+                onClick={() => copyText(stream.streamKey)}
+                hoverClass="opacity-60"
+              >
                 <Text className="block mt-[16rpx] text-[28rpx] text-[var(--color-text-tertiary)]">
                   {tt('liveHost.streamKey', '流密钥')}:{stream.streamKey}
                 </Text>
@@ -188,7 +195,8 @@ export default function LiveHost() {
               loading || status !== 'idle' ? 'opacity-50' : ''
             }`}
             onClick={startLive}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-[32rpx] font-semibold text-[var(--color-primary-foreground)]">
               {loading && status === 'idle'
                 ? tt('liveHost.starting', '开启中...')
@@ -200,7 +208,8 @@ export default function LiveHost() {
               loading || status !== 'active' ? 'opacity-50' : ''
             }`}
             onClick={endLive}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-[32rpx] font-semibold text-[var(--color-primary-foreground)]">
               {loading && status === 'active'
                 ? tt('liveHost.ending', '结束中...')
@@ -238,7 +247,8 @@ export default function LiveHost() {
                   icon: 'none',
                 })
               }
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[28rpx] text-[var(--color-success)]">
                 {tt('liveHost.addProduct', '+ 添加商品')}
               </Text>

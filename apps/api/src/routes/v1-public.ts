@@ -354,7 +354,10 @@ async function fetchModels(userId?: string): Promise<{
     return { body: modelsCache.data, source: 'cache' }
   }
   return {
-    body: { ...FALLBACK_MODELS, data: FALLBACK_MODELS.data.map((m) => ({ ...m, available: true })) },
+    body: {
+      ...FALLBACK_MODELS,
+      data: FALLBACK_MODELS.data.map((m) => ({ ...m, available: true })),
+    },
     source: 'fallback',
   }
 }

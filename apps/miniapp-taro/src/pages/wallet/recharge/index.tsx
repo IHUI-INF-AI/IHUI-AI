@@ -194,7 +194,8 @@ export default function RechargePage() {
                 key={v}
                 className={`rc-preset ${!useCustom && preset === v ? 'rc-preset--active' : ''}`}
                 onClick={() => onSelectPreset(v)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text className="rc-preset-text">¥{v}</Text>
               </View>
             ))}
@@ -253,7 +254,8 @@ export default function RechargePage() {
           <View
             className={`rc-method ${payMethod === 'wechat' ? 'rc-method--active' : ''}`}
             onClick={() => onSelectMethod('wechat')}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <View className="rc-method-icon rc-method-icon--wx">{tt('pay.wechat', '微')}</View>
             <Text className="rc-method-name">{tt('wallet.recharge.methodWechat', '微信支付')}</Text>
             <View className={`rc-radio ${payMethod === 'wechat' ? 'rc-radio--on' : ''}`}>
@@ -263,7 +265,8 @@ export default function RechargePage() {
           <View
             className={`rc-method ${payMethod === 'alipay' ? 'rc-method--active' : ''}`}
             onClick={() => onSelectMethod('alipay')}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <View className="rc-method-icon rc-method-icon--ali">{tt('pay.alipay', '支')}</View>
             <Text className="rc-method-name">{tt('wallet.recharge.methodAlipay', '支付宝')}</Text>
             <View className={`rc-radio ${payMethod === 'alipay' ? 'rc-radio--on' : ''}`}>

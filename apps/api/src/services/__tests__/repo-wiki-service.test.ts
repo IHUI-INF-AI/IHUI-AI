@@ -41,7 +41,8 @@ vi.mock('../../db/index.js', () => ({
   },
 }))
 vi.mock('../../utils/ai-service-fetch.js', () => ({
-  aiServiceFetch: async () => new Response(JSON.stringify({ content: '', stub: true }), { status: 200 }),
+  aiServiceFetch: async () =>
+    new Response(JSON.stringify({ content: '', stub: true }), { status: 200 }),
 }))
 vi.mock('../clawdbot/logger.js', () => ({
   logger: { info: () => {}, warn: () => {}, error: () => {} },

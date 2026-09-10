@@ -195,9 +195,7 @@ export const mcpMarketplaceAdapter: RegistryAdapter = {
     if (sourceType !== 'mcp') return []
     const timeoutMs = options?.timeoutMs ?? 20000
 
-    const results = await Promise.all(
-      MARKETPLACE_SOURCES.map((s) => fetchFromMarket(s, timeoutMs)),
-    )
+    const results = await Promise.all(MARKETPLACE_SOURCES.map((s) => fetchFromMarket(s, timeoutMs)))
     // 未配置鉴权的源被跳过,不参与失败判定
     const active = results.filter((r) => !r.skipped)
     if (active.length === 0) return []

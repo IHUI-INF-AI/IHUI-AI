@@ -140,7 +140,8 @@ export function SectionHeader({
               marginLeft: toRpx(8),
               cursor: onMore ? 'pointer' : 'default',
             }}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text style={moreLabelStyle}>{moreLabel}</Text>
             <Text style={moreArrowStyle}>{'>'}</Text>
           </View>

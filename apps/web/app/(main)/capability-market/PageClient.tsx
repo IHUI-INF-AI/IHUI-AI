@@ -47,7 +47,10 @@ const KIND_ICON: Record<CapabilityKind, LucideIcon> = {
 }
 
 /** 健康状态 → 徽章样式 */
-function healthBadge(health: CapabilityHealth): { variant: 'success' | 'warning' | 'danger'; icon: LucideIcon } {
+function healthBadge(health: CapabilityHealth): {
+  variant: 'success' | 'warning' | 'danger'
+  icon: LucideIcon
+} {
   if (health === 'healthy') return { variant: 'success', icon: CheckCircle2 }
   if (health === 'degraded') return { variant: 'warning', icon: Globe }
   return { variant: 'danger', icon: AlertTriangle }
@@ -90,7 +93,9 @@ export default function CapabilityMarketPageClient() {
     try {
       const r = enable ? await enableCapability(c.id) : await disableCapability(c.id)
       if (r.success) {
-        toast.success(enable ? t('enableSuccess', { name: c.name }) : t('disableSuccess', { name: c.name }))
+        toast.success(
+          enable ? t('enableSuccess', { name: c.name }) : t('disableSuccess', { name: c.name }),
+        )
         refresh()
       } else if (r.status === 403) {
         toast.error(t('adminOnly'))
@@ -196,16 +201,28 @@ function CapabilityCard({
         </div>
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="truncate text-sm font-semibold leading-tight text-foreground">{cap.name}</span>
+            <span className="truncate text-sm font-semibold leading-tight text-foreground">
+              {cap.name}
+            </span>
             <Badge variant={cap.kind === 'tool' ? 'primary' : 'default'}>
-              {cap.kind === 'tool' ? t('kindTool') : cap.kind === 'resource' ? t('kindResource') : t('kindPrompt')}
+              {cap.kind === 'tool'
+                ? t('kindTool')
+                : cap.kind === 'resource'
+                  ? t('kindResource')
+                  : t('kindPrompt')}
             </Badge>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-            <span>{t('category')}: {cap.category}</span>
+            <span>
+              {t('category')}: {cap.category}
+            </span>
             <Badge variant={hb.variant}>
               <hb.icon className="h-3 w-3" />
-              {cap.health === 'healthy' ? t('healthy') : cap.health === 'degraded' ? t('degraded') : t('unhealthy')}
+              {cap.health === 'healthy'
+                ? t('healthy')
+                : cap.health === 'degraded'
+                  ? t('degraded')
+                  : t('unhealthy')}
             </Badge>
             {cap.permission === 'admin' ? (
               <Badge variant="warning">
@@ -224,7 +241,9 @@ function CapabilityCard({
           </div>
         </div>
       </div>
-      <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{cap.description}</p>
+      <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+        {cap.description}
+      </p>
       <div className="text-[11px] text-muted-foreground">
         {cap.params.length > 0 ? t('paramCount', { count: cap.params.length }) : t('noParams')}
       </div>

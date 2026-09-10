@@ -202,7 +202,8 @@ export default function RecruitmentIndexPage() {
           <View
             className={`w-[250rpx] h-[84rpx] bg-[var(--color-danger-bright)] text-[var(--color-surface-light)] text-[34rpx] font-bold rounded-[16rpx] flex items-center justify-center${submitting ? ' opacity-60' : ''}`}
             onClick={onApply}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text>{submitting ? t('recruitment.submitting') : t('recruitment.apply')}</Text>
           </View>
         </View>

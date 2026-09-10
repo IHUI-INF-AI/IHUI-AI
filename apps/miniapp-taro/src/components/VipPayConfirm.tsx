@@ -37,7 +37,8 @@ export default function VipPayConfirm({
       <View
         className="relative bg-card rounded-t-2xl w-full px-6 pb-6 pt-4"
         onClick={(e) => e.stopPropagation()}
-        hoverClass="opacity-60">
+        hoverClass="opacity-60"
+      >
         <View className="flex items-center justify-between mb-4">
           <Text className="text-base font-medium text-foreground">
             {tt('pay.confirmOrder', '确认订单')}
@@ -71,7 +72,8 @@ export default function VipPayConfirm({
               paymentMethod === 'wechat' ? 'border-primary bg-primary/10' : 'border-border'
             }`}
             onClick={() => onMethodChange?.('wechat')}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <LineIcon
               className="mr-1"
               name="wallet"
@@ -85,7 +87,8 @@ export default function VipPayConfirm({
               paymentMethod === 'alipay' ? 'border-primary bg-primary/10' : 'border-border'
             }`}
             onClick={() => onMethodChange?.('alipay')}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <LineIcon
               className="mr-1"
               name="wallet"
@@ -100,8 +103,11 @@ export default function VipPayConfirm({
           className="w-full py-3 rounded-md text-center"
           style={{ background: 'var(--color-warning)' }}
           onClick={onConfirm}
-          hoverClass="opacity-60">
-          <Text className="text-sm text-warning-foreground font-medium">{t('pay.confirmPay', { price })}</Text>
+          hoverClass="opacity-60"
+        >
+          <Text className="text-sm text-warning-foreground font-medium">
+            {t('pay.confirmPay', { price })}
+          </Text>
         </View>
       </View>
     </View>

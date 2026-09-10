@@ -74,12 +74,7 @@ export function BackgroundAgentsPanel({
           )}
         </div>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onRefresh}
-            disabled={loading}
-          >
+          <Button variant="ghost" size="icon" onClick={onRefresh} disabled={loading}>
             <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
           </Button>
           {closable && (

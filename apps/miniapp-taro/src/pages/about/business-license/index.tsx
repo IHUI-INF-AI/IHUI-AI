@@ -61,7 +61,8 @@ export default function BusinessLicense() {
             <View
               className="flex items-center justify-center h-[520rpx] bg-muted rounded-[8rpx]"
               onClick={previewLicense}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[28rpx] text-muted-foreground">
                 {tt('about.businessLicense.tapToView', '点击查看营业执照')}
               </Text>

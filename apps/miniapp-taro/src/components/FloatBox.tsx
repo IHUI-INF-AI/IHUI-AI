@@ -105,7 +105,8 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
             e.stopPropagation()
             setIsOpen(!isOpen)
           }}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <Text
             style={{
               fontSize: '36rpx',
@@ -142,7 +143,8 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
                 padding: 0,
               }}
               onClick={handleShare}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <LineIcon
                 name="wallet"
                 size={36}
@@ -173,7 +175,8 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
                 padding: 0,
               }}
               onClick={handleService}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <LineIcon
                 name="phone"
                 size={36}
@@ -204,7 +207,8 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
                 padding: 0,
               }}
               onClick={handleFeedback}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <LineIcon
                 name="mail"
                 size={36}

@@ -29,7 +29,8 @@ export default function FilterDropdown({
       <View
         className="flex items-center px-3 py-2 bg-muted rounded-lg"
         onClick={() => setOpen(!open)}
-        hoverClass="opacity-60">
+        hoverClass="opacity-60"
+      >
         <Text className="text-xs text-muted-foreground mr-1">{label}:</Text>
         <Text className={`text-xs ${selected ? 'text-primary' : 'text-muted-foreground'}`}>
           {selected?.label || tt('common.all', '全部')}
@@ -49,7 +50,8 @@ export default function FilterDropdown({
               onChange?.('')
               setOpen(false)
             }}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-xs text-muted-foreground">{tt('common.all', '全部')}</Text>
           </View>
           {options.map((opt) => (
@@ -60,7 +62,8 @@ export default function FilterDropdown({
                 onChange?.(opt.value)
                 setOpen(false)
               }}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text
                 className={`text-xs ${value === opt.value ? 'text-primary' : 'text-muted-foreground'}`}
               >

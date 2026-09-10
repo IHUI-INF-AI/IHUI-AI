@@ -110,7 +110,8 @@ export function budgetRepoFiles(files: RepoWikiFile[]): RepoWikiBudgetResult {
   // 1. 单文件截断 + 2. 分组(路径首段;无 '/' 的根目录文件归入 '(root)')
   const byModule = new Map<string, RepoWikiFile[]>()
   for (const f of files) {
-    const content = f.content.length > MAX_FILE_CHARS ? f.content.slice(0, MAX_FILE_CHARS) : f.content
+    const content =
+      f.content.length > MAX_FILE_CHARS ? f.content.slice(0, MAX_FILE_CHARS) : f.content
     const name = f.path.includes('/') ? f.path.slice(0, f.path.indexOf('/')) : '(root)'
     const bucket = byModule.get(name)
     if (bucket) bucket.push({ path: f.path, content })
@@ -162,7 +163,11 @@ function buildFileTree(files: RepoWikiFile[]): string {
     .join('\n')
 }
 
-function buildOverviewUserContent(repoName: string, files: RepoWikiFile[], budget: RepoWikiBudgetResult): string {
+function buildOverviewUserContent(
+  repoName: string,
+  files: RepoWikiFile[],
+  budget: RepoWikiBudgetResult,
+): string {
   const parts: string[] = []
   parts.push(`仓库名:${repoName}`)
   parts.push('')

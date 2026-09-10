@@ -117,7 +117,8 @@ export default function NotificationPage() {
             <View
               className="flex items-center justify-between py-[20rpx]"
               onClick={onDetail}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <View className="mr-[16rpx] flex-1">
                 <Text className="text-[28rpx] text-muted-foreground">
                   {tt('setting.notification.detail', '通知详情')}

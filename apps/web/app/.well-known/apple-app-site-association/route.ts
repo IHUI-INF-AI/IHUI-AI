@@ -30,8 +30,11 @@
  */
 export const dynamic = 'force-static'
 
-const APPLE_TEAM_ID = (process.env.APPLE_TEAM_ID ?? process.env.NEXT_PUBLIC_APPLE_TEAM_ID ?? '')
-  .trim()
+const APPLE_TEAM_ID = (
+  process.env.APPLE_TEAM_ID ??
+  process.env.NEXT_PUBLIC_APPLE_TEAM_ID ??
+  ''
+).trim()
 const APPLE_BUNDLE_ID = (process.env.NEXT_PUBLIC_APPLE_APP_BUNDLE_ID ?? 'ai.ihui.mobile').trim()
 const APP_ID = APPLE_TEAM_ID ? `${APPLE_TEAM_ID}.${APPLE_BUNDLE_ID}` : `TEAMID.${APPLE_BUNDLE_ID}`
 

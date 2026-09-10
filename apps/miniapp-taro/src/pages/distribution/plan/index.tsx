@@ -102,7 +102,8 @@ export default function DistributionPlan() {
         <View
           className="h-[100rpx] leading-[100rpx] text-center bg-primary text-primary-foreground text-[32rpx] font-semibold rounded-[24rpx]"
           onClick={onOpenVip}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <Text>{tt('distribution.plan.openVipBtn', '开通VIP会员 参与分佣计划')}</Text>
         </View>
       </View>

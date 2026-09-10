@@ -147,7 +147,8 @@ export default function AboutIndexPage() {
               key={m.key}
               className={`flex items-center justify-between py-[28rpx] px-[24rpx]${idx > 0 ? ' border-t border-border' : ''}`}
               onClick={() => navigate(m.url)}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <Text className="text-[30rpx] text-foreground flex-1">{m.label}</Text>
               {/* 对齐 RN ChevronRight:rpx(24)/text.tertiary/strokeWidth 2 */}
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />

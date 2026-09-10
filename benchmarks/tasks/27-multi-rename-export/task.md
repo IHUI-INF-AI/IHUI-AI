@@ -5,6 +5,7 @@
 -->
 
 workspace 中 loader.mjs 通过 `import { loadConfig } from './config.mjs'` 引入配置加载函数,但 config.mjs 实际导出的名字是 getConfig,导致运行时 import 失败。请把 config.mjs 的导出名统一改为 loadConfig(函数体不变;如有其他导出一并保持兼容),要求:
+
 - loader.mjs 的 loadSettings() 正常返回 { env: 'test', debug: true }
 - config.mjs 必须导出名为 loadConfig 的函数
 

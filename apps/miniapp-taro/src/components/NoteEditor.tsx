@@ -33,7 +33,8 @@ export default function NoteEditor({
       <View
         className="relative bg-card rounded-t-2xl w-full px-4 pb-6 pt-4"
         onClick={(e) => e.stopPropagation()}
-        hoverClass="opacity-60">
+        hoverClass="opacity-60"
+      >
         <View className="flex items-center justify-between mb-3">
           <Text className="text-sm font-medium text-foreground">
             {tt('study.noteTitle', title)}
@@ -57,10 +58,18 @@ export default function NoteEditor({
             {content.length} {tt('study.noteCountUnit', '字')}
           </Text>
           <View className="flex space-x-2">
-            <View className="px-4 py-2 rounded-md bg-muted" onClick={onCancel} hoverClass="opacity-60">
+            <View
+              className="px-4 py-2 rounded-md bg-muted"
+              onClick={onCancel}
+              hoverClass="opacity-60"
+            >
               <Text className="text-sm text-foreground">{tt('common.cancel', '取消')}</Text>
             </View>
-            <View className="px-4 py-2 rounded-md bg-primary" onClick={() => onSave?.(content)} hoverClass="opacity-60">
+            <View
+              className="px-4 py-2 rounded-md bg-primary"
+              onClick={() => onSave?.(content)}
+              hoverClass="opacity-60"
+            >
               <Text className="text-sm text-primary-foreground">{tt('common.save', '保存')}</Text>
             </View>
           </View>

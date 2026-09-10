@@ -56,7 +56,9 @@ export function KnowledgeDocScreen() {
 
   if (loading) {
     return (
-      <View className={`flex-1 items-center justify-center ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
+      <View
+        className={`flex-1 items-center justify-center ${dark ? 'bg-neutral-900' : 'bg-white'}`}
+      >
         <Text className="text-gray-500">{t('common.loading')}</Text>
       </View>
     )
@@ -65,7 +67,10 @@ export function KnowledgeDocScreen() {
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
       <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text className="text-sm text-gray-500">{t('common.back')}</Text>
         </TouchableOpacity>
         <Text className="max-w-[60%] truncate text-base font-medium">{route.params.title}</Text>
@@ -96,7 +101,9 @@ export function KnowledgeDocScreen() {
               {t('knowledgeDoc.source')}: {doc.sourceType}
             </Text>
 
-            <Text className={`mb-2 mt-5 text-sm font-medium ${dark ? 'text-gray-300' : 'text-gray-700'}`}>
+            <Text
+              className={`mb-2 mt-5 text-sm font-medium ${dark ? 'text-gray-300' : 'text-gray-700'}`}
+            >
               {t('knowledgeDoc.preview')}
             </Text>
             {chunks.length === 0 ? (
@@ -112,7 +119,9 @@ export function KnowledgeDocScreen() {
                   <Text className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
                     #{c.chunkIndex + 1}
                   </Text>
-                  <Text className={`mt-1 text-sm leading-6 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>
+                  <Text
+                    className={`mt-1 text-sm leading-6 ${dark ? 'text-gray-200' : 'text-gray-700'}`}
+                  >
                     {c.content}
                   </Text>
                 </View>

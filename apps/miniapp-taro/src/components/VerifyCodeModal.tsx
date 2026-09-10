@@ -126,7 +126,8 @@ export default function VerifyCodeModal({
       <View
         className="relative bg-card rounded-xl mx-8 px-5 py-4 max-w-xs w-full"
         onClick={(e) => e.stopPropagation()}
-        hoverClass="opacity-60">
+        hoverClass="opacity-60"
+      >
         <View className="flex items-center justify-between mb-3">
           <Text className="text-base font-medium text-foreground">
             {tt('verify.getCode', '获取验证码')}
@@ -154,11 +155,16 @@ export default function VerifyCodeModal({
         <View
           className={`text-center text-sm mb-4 ${countdown > 0 ? 'text-muted-foreground' : 'text-primary'}`}
           onClick={onSendCode}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <Text>{sendText}</Text>
         </View>
         <View className="flex space-x-3">
-          <View className="flex-1 py-2.5 rounded-md bg-muted text-center" onClick={onClose} hoverClass="opacity-60">
+          <View
+            className="flex-1 py-2.5 rounded-md bg-muted text-center"
+            onClick={onClose}
+            hoverClass="opacity-60"
+          >
             <Text className="text-sm text-foreground">{tt('common.cancel', '取消')}</Text>
           </View>
           <View
@@ -166,7 +172,8 @@ export default function VerifyCodeModal({
               submitting ? 'bg-muted' : 'bg-primary'
             }`}
             onClick={submitting ? undefined : verifyCode}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text className="text-sm text-primary-foreground">
               {submitting
                 ? tt('VerifyCodeModal.p3', '验证中...')

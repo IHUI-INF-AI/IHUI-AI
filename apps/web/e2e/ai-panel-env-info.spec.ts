@@ -56,9 +56,11 @@ async function openEnvPopover(page: Page): Promise<{ popover: Locator; hasData: 
   await expect
     .poll(
       () =>
-        popover.locator(
-          '[data-testid="env-info-changes"], [data-testid="env-info-changes-empty"], [data-testid="env-info-not-repo"], [data-testid="env-info-error"]',
-        ).count(),
+        popover
+          .locator(
+            '[data-testid="env-info-changes"], [data-testid="env-info-changes-empty"], [data-testid="env-info-not-repo"], [data-testid="env-info-error"]',
+          )
+          .count(),
       { timeout: 10000 },
     )
     .toBeGreaterThan(0)
@@ -75,7 +77,8 @@ async function closeGithubDialog(page: Page, dialogContent: Locator) {
   const byTestId = page.locator('[data-testid="github-token-cancel"]')
   const byText = dialog.getByRole('button', { name: /取消|cancel/i }).first()
   const byX = dialog.getByRole('button', { name: /关闭|close/i }).first()
-  const cancelBtn = (await byTestId.count()) > 0 ? byTestId : (await byText.count()) > 0 ? byText : byX
+  const cancelBtn =
+    (await byTestId.count()) > 0 ? byTestId : (await byText.count()) > 0 ? byText : byX
   await cancelBtn.click()
   await expect(dialogContent).not.toBeVisible({ timeout: 10000 })
 }
@@ -213,9 +216,11 @@ test.describe('AI panel env-info (重构后)', () => {
       await expect
         .poll(
           () =>
-            authenticatedPage.locator(
-              '[data-testid="env-full-localpath"], [data-testid="env-full-remote"], [data-testid="env-full-no-remotes"], [data-testid="env-full-not-repo"]',
-            ).count(),
+            authenticatedPage
+              .locator(
+                '[data-testid="env-full-localpath"], [data-testid="env-full-remote"], [data-testid="env-full-no-remotes"], [data-testid="env-full-not-repo"]',
+              )
+              .count(),
           { timeout: 10000 },
         )
         .toBeGreaterThan(0)
@@ -362,18 +367,18 @@ test.describe('AI panel env-info (重构后)', () => {
       await expect(
         authenticatedPage.locator('[data-testid="github-verification-uri"]'),
       ).toBeVisible({ timeout: 10000 })
-      await expect(
-        authenticatedPage.locator('[data-testid="github-open-auth-page"]'),
-      ).toBeVisible({ timeout: 10000 })
-      await expect(
-        authenticatedPage.locator('[data-testid="github-copy-code"]'),
-      ).toBeVisible({ timeout: 10000 })
+      await expect(authenticatedPage.locator('[data-testid="github-open-auth-page"]')).toBeVisible({
+        timeout: 10000,
+      })
+      await expect(authenticatedPage.locator('[data-testid="github-copy-code"]')).toBeVisible({
+        timeout: 10000,
+      })
     } else {
       // 未配置降级(400 + 手动区自动展开):手动输入区可见
       await expect(tokenInput).toBeVisible({ timeout: 10000 })
-      await expect(
-        authenticatedPage.locator('[data-testid="github-token-save"]'),
-      ).toBeVisible({ timeout: 10000 })
+      await expect(authenticatedPage.locator('[data-testid="github-token-save"]')).toBeVisible({
+        timeout: 10000,
+      })
     }
 
     // 关闭弹窗(取消按钮 common.cancel,或 Modal 右上 X)

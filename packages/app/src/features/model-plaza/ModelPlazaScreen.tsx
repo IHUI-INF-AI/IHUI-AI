@@ -335,7 +335,12 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    providerTabIconText: { fontSize: 11, fontWeight: '700', color: tk.surface.light, lineHeight: 13 },
+    providerTabIconText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: tk.surface.light,
+      lineHeight: 13,
+    },
     providerText: { fontSize: 16, color: tk.text.secondary },
     providerTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
     providerHeader: {

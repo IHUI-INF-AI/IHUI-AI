@@ -853,11 +853,7 @@ export default function Community() {
           {showBackTop ? (
             <View className="community-toodown-wrapper">
               <View className="community-toodown" onClick={backToTop} hoverClass="opacity-60">
-                <LineIcon
-                  name="chevron-up"
-                  size={32}
-                  color="var(--color-muted-foreground)"
-                />
+                <LineIcon name="chevron-up" size={32} color="var(--color-muted-foreground)" />
               </View>
             </View>
           ) : null}
@@ -868,7 +864,8 @@ export default function Community() {
           <View
             className="fixed inset-0 z-[2000] flex items-center justify-center"
             style={{ background: 'var(--color-scrim)' }}
-            onClick={() => setShowServicePopup(false)}>
+            onClick={() => setShowServicePopup(false)}
+          >
             <View
               className="relative"
               style={{
@@ -878,7 +875,8 @@ export default function Community() {
                 maxWidth: '85%',
               }}
               onClick={(e) => e.stopPropagation()}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               {/* 名片图片(对齐原项目 mingpian.png) */}
               <Image
                 src={mingpianImg}

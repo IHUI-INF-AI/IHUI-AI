@@ -110,7 +110,10 @@ export function LoginDialog() {
             >
               {mode === 'login' ? (
                 <LoginWithTurnstile>
-                  <LoginFormContent tabs={['email', 'phone', 'password']} onSuccess={handleLoginSuccess} />
+                  <LoginFormContent
+                    tabs={['email', 'phone', 'password']}
+                    onSuccess={handleLoginSuccess}
+                  />
                 </LoginWithTurnstile>
               ) : mode === 'register' ? (
                 <RegisterFormContent onSuccess={() => setMode('login')} />
@@ -123,7 +126,12 @@ export function LoginDialog() {
           <AuthShell onClose={close}>
             {showDesktopSso && mode === 'login' && (
               <div className="pb-3">
-                <Button size="lg" variant="outline" className="w-full px-4" onClick={handleDesktopSso}>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full px-4"
+                  onClick={handleDesktopSso}
+                >
                   <ExternalLink className="mr-2 h-4 w-4" />
                   <span>{t('loginInBrowser')}</span>
                 </Button>

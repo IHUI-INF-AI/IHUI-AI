@@ -18,7 +18,9 @@ import { fetchApi } from '../client'
  */
 export const deviceEndpoints = {
   /** 注册/更新当前用户的推送设备令牌 — PUT /api/devices/token(失败静默) */
-  registerToken: async (input: RegisterDeviceTokenInput): Promise<RegisterDeviceTokenResponse | null> => {
+  registerToken: async (
+    input: RegisterDeviceTokenInput,
+  ): Promise<RegisterDeviceTokenResponse | null> => {
     try {
       const res = await fetchApi<RegisterDeviceTokenResponse>('/api/devices/token', {
         method: 'PUT',

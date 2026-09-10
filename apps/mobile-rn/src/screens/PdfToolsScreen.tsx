@@ -114,9 +114,7 @@ export function PdfToolsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
-        <Text className="text-xs text-gray-500 dark:text-neutral-400">
-          {t('pdfTools.hint')}
-        </Text>
+        <Text className="text-xs text-gray-500 dark:text-neutral-400">{t('pdfTools.hint')}</Text>
 
         <TouchableOpacity
           onPress={() => void onPick()}
@@ -137,7 +135,10 @@ export function PdfToolsScreen() {
         {markdown ? (
           <View className="mt-4">
             <View className="flex-row items-center justify-between">
-              <Text className="text-xs font-medium text-gray-500 dark:text-neutral-400" numberOfLines={1}>
+              <Text
+                className="text-xs font-medium text-gray-500 dark:text-neutral-400"
+                numberOfLines={1}
+              >
                 {outName}
               </Text>
               <TouchableOpacity onPress={onShare} hitSlop={{ top: 6, bottom: 6 }}>

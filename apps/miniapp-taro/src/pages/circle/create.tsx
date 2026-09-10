@@ -257,7 +257,11 @@ export default function CircleCreatePage() {
         <View className="cc-card">
           <Text className="cc-section-title">{tt('circle.createForm.topicLabel', '话题')}</Text>
           {form.topicName ? (
-            <View className="cc-topic-chip cc-topic-chip-active" onClick={clearTopic} hoverClass="opacity-60">
+            <View
+              className="cc-topic-chip cc-topic-chip-active"
+              onClick={clearTopic}
+              hoverClass="opacity-60"
+            >
               <Text>#{form.topicName}</Text>
               <Text className="cc-topic-x">×</Text>
             </View>
@@ -265,11 +269,20 @@ export default function CircleCreatePage() {
           <ScrollView scrollX enhanced showScrollbar={false} className="cc-topic-scroll">
             <View className="cc-topic-list">
               {hotTopics.map((topic) => (
-                <View key={topic.id} className="cc-topic-chip" onClick={() => selectTopic(topic)} hoverClass="opacity-60">
+                <View
+                  key={topic.id}
+                  className="cc-topic-chip"
+                  onClick={() => selectTopic(topic)}
+                  hoverClass="opacity-60"
+                >
                   <Text>#{topic.name}</Text>
                 </View>
               ))}
-              <View className="cc-topic-chip cc-topic-more" onClick={goTopicList} hoverClass="opacity-60">
+              <View
+                className="cc-topic-chip cc-topic-more"
+                onClick={goTopicList}
+                hoverClass="opacity-60"
+              >
                 <Text>{tt('circle.create.moreTopics', '更多')} ›</Text>
               </View>
             </View>
@@ -284,7 +297,11 @@ export default function CircleCreatePage() {
               <Text className="cc-aigc-x">×</Text>
             </View>
           ) : (
-            <View className="cc-aigc-pick" onClick={() => setAigcOpen(true)} hoverClass="opacity-60">
+            <View
+              className="cc-aigc-pick"
+              onClick={() => setAigcOpen(true)}
+              hoverClass="opacity-60"
+            >
               <Text>{tt('circle.create.selectAigc', '选择 AI 作品(可选)')} ›</Text>
             </View>
           )}
@@ -304,7 +321,12 @@ export default function CircleCreatePage() {
               <ScrollView scrollY className="cc-sheet-list">
                 {aigcWorks.length ? (
                   aigcWorks.map((w) => (
-                    <View key={w.id} className="cc-aigc-option" onClick={() => pickAigc(w)} hoverClass="opacity-60">
+                    <View
+                      key={w.id}
+                      className="cc-aigc-option"
+                      onClick={() => pickAigc(w)}
+                      hoverClass="opacity-60"
+                    >
                       {w.coverUrl ? (
                         <Image className="cc-aigc-cover" src={w.coverUrl} mode="aspectFill" />
                       ) : null}

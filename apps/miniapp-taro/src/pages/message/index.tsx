@@ -414,7 +414,9 @@ export default function MessageIndex() {
                       Taro.showToast({ title: t('message.markedRead'), icon: 'success' })
                     }
                     onPin={() => Taro.showToast({ title: t('message.pinned'), icon: 'success' })}
-                    onDelete={() => Taro.showToast({ title: t('message.deleted'), icon: 'success' })}
+                    onDelete={() =>
+                      Taro.showToast({ title: t('message.deleted'), icon: 'success' })
+                    }
                   />
                 </View>
               )
@@ -473,11 +475,13 @@ export default function MessageIndex() {
         {showSettings && (
           <View
             className="fixed inset-0 z-[2000] bg-[rgba(0,0,0,0.4)]"
-            onClick={() => setShowSettings(false)}>
+            onClick={() => setShowSettings(false)}
+          >
             <View
               className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl max-h-[80vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
-              hoverClass="opacity-60">
+              hoverClass="opacity-60"
+            >
               <View className="flex items-center justify-between px-4 py-3 mb-2">
                 <Text className="text-sm font-medium text-foreground">
                   {t('message.notificationSettings')}

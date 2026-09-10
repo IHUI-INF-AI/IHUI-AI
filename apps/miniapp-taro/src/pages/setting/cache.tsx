@@ -162,16 +162,22 @@ export default function CachePage() {
           <View
             className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
             onClick={onClearImage}
-            hoverClass="opacity-60">
-            <Text className="text-[32rpx] text-muted-foreground">{t('setting.cache.clearImage')}</Text>
+            hoverClass="opacity-60"
+          >
+            <Text className="text-[32rpx] text-muted-foreground">
+              {t('setting.cache.clearImage')}
+            </Text>
             {/* arrow 对齐 RN: 20dp→40rpx + text.tertiary */}
             <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
           </View>
           <View
             className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
             onClick={onClearFile}
-            hoverClass="opacity-60">
-            <Text className="text-[32rpx] text-muted-foreground">{t('setting.cache.clearFile')}</Text>
+            hoverClass="opacity-60"
+          >
+            <Text className="text-[32rpx] text-muted-foreground">
+              {t('setting.cache.clearFile')}
+            </Text>
             <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
           </View>
         </View>
