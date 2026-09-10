@@ -157,6 +157,9 @@ jobs:
           E2E_SKIP_SEED: '1'
           # CI 数据库为临时容器,跑完即销毁,无需 globalTeardown cleanup 节省时间
           E2E_AUTO_CLEANUP: '0'
+          # web 服务器已由上方 "Start web server" step 启动并健康检查;
+          # 不设此项 playwright webServer 会再起一个 → 8801 端口冲突(2026-09-10 CI 实测)
+          PLAYWRIGHT_REUSE_SERVER: '1'
         run: pnpm exec playwright test
 
       - name: Upload test report
