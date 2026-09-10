@@ -94,9 +94,16 @@ export function t(key: string, params?: Record<string, string | number>): string
     return key
   }
   if (!params) return text
-  return text.replace(/\{\{(\w+)\}\}/g, (_, name) =>
-    String(params[name] ?? `{{${name}}}`),
-  )
+  // 同时支持 {{name}} 与 {name} 两种占位符:packages/i18n/messages 全库统一
+  // 单花括号(ICU 风格),旧消息用双花括号(2026-09-10 修复:单花括号不插值,
+  // CLI 输出出现字面量 "{path}",且 en locale 下中文断言测试失败)
+  return text
+    .replace(/\{\{(\w+)\}\}/g, (_, name) =>
+      String(params[name] ?? `{{${name}}}`),
+    )
+    .replace(/\{(\w+)\}/g, (_, name) =>
+      String(params[name] ?? `{${name}}`),
+    )
 }
 
 export const i18n = {

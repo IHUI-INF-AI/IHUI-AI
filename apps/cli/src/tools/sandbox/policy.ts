@@ -279,26 +279,42 @@ export function evaluateCommand(policy: SandboxPolicy, commandLine: string): Pol
 
   // 4. 路径逃逸 + denyPaths 检查
   const ws = policy.workspaceRoot;
-  const allowRead = (policy.allowRead ?? [ws]).map((p) => path.isAbsolute(p) ? p : path.resolve(ws, p));
-  const allowWrite = (policy.allowWrite ?? [ws]).map((p) => path.isAbsolute(p) ? p : path.resolve(ws, p));
-  const denyPaths = (policy.denyPaths ?? []).map((p) => path.isAbsolute(p) ? p : path.resolve(ws, p));
-  const home = os.homedir();
+  // 跨平台可移植分析(2026-09-10 安全修复):统一反斜杠→正斜杠、剥离盘符后按
+  // POSIX 语义求值。此前依赖宿主平台 path 语义,Windows 风格 token(C:\..、..\..)
+  // 在 Linux 上被当作普通文件名,逃逸检测失效 = 策略绕过(CI 路径逃逸用例红)。
+  const toPortable = (p: string): string => p.replace(/\\/g, '/').replace(/^[A-Za-z]:/, '');
+  const wsP = toPortable(path.resolve(ws));
+  const portableAbs = (p: string): string =>
+    path.isAbsolute(p) ? toPortable(path.resolve(p)) : path.posix.resolve(wsP, toPortable(p));
+  const allowReadP = (policy.allowRead ?? [ws]).map(portableAbs);
+  const allowWriteP = (policy.allowWrite ?? [ws]).map(portableAbs);
+  const denyPathsP = (policy.denyPaths ?? []).map(portableAbs);
+  const homeP = toPortable(os.homedir());
+
+  const portableWithin = (child: string, parent: string): boolean => {
+    const c = path.posix.resolve(child);
+    const p = path.posix.resolve(parent);
+    if (c === p) return true;
+    return c.startsWith(p.endsWith('/') ? p : p + '/');
+  };
 
   for (const token of extractPathTokens(trimmed)) {
-    // ~ 展开到用户主目录(通常在工作区外)
-    const expanded = token.startsWith('~') ? path.join(home, token.slice(1)) : token;
-    const abs = path.isAbsolute(expanded) ? path.resolve(expanded) : path.resolve(ws, expanded);
+    // ~ 展开到用户主目录(通常在工作区外);token 可能含反斜杠,统一可移植化
+    const expanded = token.startsWith('~') ? toPortable(`${homeP}${token.slice(1)}`) : toPortable(token);
+    const abs = path.posix.isAbsolute(expanded)
+      ? path.posix.resolve(expanded)
+      : path.posix.resolve(wsP, expanded);
 
     // 4a. denyPaths 最高优先级
-    if (denyPaths.some((d) => isWithinPath(abs, d))) {
+    if (denyPathsP.some((d) => portableWithin(abs, d))) {
       violations.push({ kind: 'deny_path', message: `路径被策略显式拒绝: ${token}` });
       continue;
     }
 
     // 4b. 相对路径含 .. 逃逸出工作区(且不在额外授权列表内)
     // 4c. 绝对路径落在授权范围外(allowRead ∪ allowWrite)
-    const inRead = allowRead.some((a) => isWithinPath(abs, a));
-    const inWrite = allowWrite.some((a) => isWithinPath(abs, a));
+    const inRead = allowReadP.some((a) => portableWithin(abs, a));
+    const inWrite = allowWriteP.some((a) => portableWithin(abs, a));
     if (!inRead && !inWrite) {
       violations.push({
         kind: 'path_escape',
