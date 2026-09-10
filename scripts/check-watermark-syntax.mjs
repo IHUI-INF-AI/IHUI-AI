@@ -70,6 +70,8 @@ const SKIP_DIRS = new Set([
   '.venv', 'venv', 'vendor', 'expo/dist', '.expo',
   // 与 watermark.mjs SKIP_DIRS 对齐: 忽略目录/构建产物不检查(均 .gitignore)
   'tmp', 'playwright-report', 'test-results', 'vs',
+  // Next.js 静态导出产物(本地构建目录, 不入库)
+  '.next-static',
   // CMake/AGP 原生构建产物(.cxx 为 Android externalNativeBuild 生成目录)
   '.cxx', 'CMakeFiles', '.externalNativeBuild', '.cmake',
 ])
