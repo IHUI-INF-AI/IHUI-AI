@@ -147,7 +147,7 @@ export default async function SkillsPage() {
   ]
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="px-4 space-y-4 py-4">
       <BackButton />
       {/* 搜索 */}
       <div className="relative w-full min-[640px]:max-w-md">

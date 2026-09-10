@@ -64,6 +64,17 @@ const EXEMPT_PORTS = new Set([
   // 2026-08-19 立:补充 --all monorepo-wide 扫描后发现的合法端口
   8080, // llama.cpp / 通用 Web 服务(ai-service providers 默认端口)
   8000, // dev container / FastAPI uvicorn 默认端口(.env.act / ai-service providers)
+  // 2026-09-10 立:清零 --all 全量扫描遗留违规(均为工具/容器内部,非 dev/宿主映射端口)
+  7897, // Clash 出站代理(SYNC_PROXY_URL 默认口,第三方工具)
+  8081, // React Native Metro bundler /status(第三方工具默认端口)
+  9000, // CLI 测试内联的 mock SSE URL(测试数据)
+  9096, // alertbridge 监控 sidecar(容器内部)
+  9121, // redis_exporter(容器内部)
+  9182, // node_exporter(容器内部)
+  9187, // postgres_exporter(容器内部)
+  9222, // Chrome/Edge CDP --remote-debugging-port(browser 工具)
+  9919, // MCP OAuth loopback 回调口(mcp_oauth_realnet_e2e.py,同 1738 SSO loopback 类)
+  8901, // deploy-online.ps1 文档中本机参考验证端口(注释文本,非运行时配置)
 ])
 
 // 豁免文件路径模式(不扫描)

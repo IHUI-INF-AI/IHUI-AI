@@ -418,7 +418,13 @@ function ThirdPartyLoginArea({
   return (
     <View style={styles.thirdPartyArea}>
       {wechatOpt ? (
-        <WeChatLoginButton styles={styles} tk={tk} opt={wechatOpt} loading={loadingPlatform === 'wechat'} onPress={onLogin} />
+        <WeChatLoginButton
+          styles={styles}
+          tk={tk}
+          opt={wechatOpt}
+          loading={loadingPlatform === 'wechat'}
+          onPress={onLogin}
+        />
       ) : null}
       {restOptions.length > 0 ? (
         <>
@@ -485,7 +491,11 @@ function WeChatLoginButton({
           {opt.iconNode ? (
             <View style={imageStyles.thirdPartyIcon}>{opt.iconNode}</View>
           ) : opt.iconSource ? (
-            <Image source={opt.iconSource} style={imageStyles.thirdPartyIcon} resizeMode="contain" />
+            <Image
+              source={opt.iconSource}
+              style={imageStyles.thirdPartyIcon}
+              resizeMode="contain"
+            />
           ) : null}
           <Text style={styles.wechatLoginBtnText}>{'微信登录'}</Text>
         </>
@@ -995,7 +1005,10 @@ function PasswordTabContent({
             accessibilityLabel="自动登录"
           >
             <View
-              style={[styles.checkbox, autoLogin ? styles.checkboxChecked : styles.checkboxUnchecked]}
+              style={[
+                styles.checkbox,
+                autoLogin ? styles.checkboxChecked : styles.checkboxUnchecked,
+              ]}
             >
               {autoLogin ? <Text style={styles.checkmark}>✓</Text> : null}
             </View>
@@ -1291,7 +1304,6 @@ export function LoginScreen(props: LoginScreenProps) {
   // (如手机号 tab 进入时用 getRecentPhone() 自动回填最近手机号)。
   useEffect(() => {
     onTabChange?.(activeTab)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅需在 activeTab 变化时通知一次
   }, [activeTab])
 
   // 协议校验:未勾选 → 阻止提交 + 显示红色提示(对齐 web inline 模式)
@@ -1601,7 +1613,8 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: colorScheme === 'dark' ? tk.gray[700] : tk.surface.muted,
       // 低对比描边:暗色微亮/浅色微暗,若隐若现即可
       borderWidth: 1,
-      borderColor: colorScheme === 'dark' ? withAlpha(tk.surface.light, 0.08) : withAlpha(tk.gray.black, 0.06),
+      borderColor:
+        colorScheme === 'dark' ? withAlpha(tk.surface.light, 0.08) : withAlpha(tk.gray.black, 0.06),
     },
     tabItem: {
       flex: 1,

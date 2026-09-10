@@ -50,7 +50,7 @@
 //   本脚本每次运行已内置"新鲜度>48h 记 WARNING"(见 main), 可直接以退出码接入 cron/探针。
 //
 import { spawn } from 'node:child_process'
-import { readFileSync, existsSync, mkdirSync, readdirSync, statSync, createReadStream, createWriteStream, unlinkSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync, statSync, createReadStream, createWriteStream, unlinkSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createGunzip } from 'node:zlib'

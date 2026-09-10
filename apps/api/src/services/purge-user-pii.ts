@@ -50,6 +50,7 @@ import {
 } from '@ihui/database'
 import { revokeAllUserRefreshTokens } from '../db/queries.js'
 import type { Database } from '../db/index.js'
+import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core'
 import { logger } from '../utils/logger.js'
 
 /** 用户在 users 主行上被彻底匿名化后的落库态。 */
@@ -58,26 +59,46 @@ const ERASED_NICKNAME = '已注销用户'
 // 需要按 user_id 显式删除的 PII 子表。
 // 均为 userId 外键；其中 crash_reports / visit_logs 虽为 onDelete=set null，
 // 但删除「该用户的记录」而非置空，更彻底。
-const USER_SCOPED_TABLES: Array<{ table: any; label: string }> = [
-  { table: userAuthInfo, label: 'user_auth_info' },
-  { table: userAddresses, label: 'user_addresses' },
-  { table: userDevices, label: 'user_devices' },
-  { table: chatConversations, label: 'chat_conversations' }, // 级联删除 chat_messages / archives / favorites
-  { table: agentMemoryEpisodic, label: 'agent_memory_episodic' },
-  { table: agentMemorySemantic, label: 'agent_memory_semantic' },
-  { table: agentMemoryProcedural, label: 'agent_memory_procedural' },
-  { table: userMemories, label: 'user_memories' },
-  { table: notes, label: 'notes' },
-  { table: behaviorWatchRecords, label: 'behavior_watch_records' },
-  { table: oauthSessions, label: 'oauth_sessions' },
-  { table: oauthUsers, label: 'oauth_users' },
-  { table: userThirdPartyAccounts, label: 'user_third_party_accounts' },
-  { table: userSk, label: 'user_sk' },
-  { table: userPreferences, label: 'user_preferences' },
-  { table: userPasskeys, label: 'user_passkeys' },
-  { table: deviceTokens, label: 'device_tokens' },
-  { table: crashReports, label: 'crash_reports' },
-  { table: visitLogs, label: 'visit_logs' },
+const USER_SCOPED_TABLES: Array<{ table: AnyPgTable; userCol: AnyPgColumn; label: string }> = [
+  { table: userAuthInfo, userCol: userAuthInfo.userUuid, label: 'user_auth_info' },
+  { table: userAddresses, userCol: userAddresses.userId, label: 'user_addresses' },
+  { table: userDevices, userCol: userDevices.userId, label: 'user_devices' },
+  { table: chatConversations, userCol: chatConversations.userId, label: 'chat_conversations' }, // 级联删除 chat_messages / archives / favorites
+  {
+    table: agentMemoryEpisodic,
+    userCol: agentMemoryEpisodic.userId,
+    label: 'agent_memory_episodic',
+  },
+  {
+    table: agentMemorySemantic,
+    userCol: agentMemorySemantic.userId,
+    label: 'agent_memory_semantic',
+  },
+  {
+    table: agentMemoryProcedural,
+    userCol: agentMemoryProcedural.userId,
+    label: 'agent_memory_procedural',
+  },
+  { table: userMemories, userCol: userMemories.userId, label: 'user_memories' },
+  { table: notes, userCol: notes.userId, label: 'notes' },
+  {
+    table: behaviorWatchRecords,
+    userCol: behaviorWatchRecords.userId,
+    label: 'behavior_watch_records',
+  },
+  { table: oauthSessions, userCol: oauthSessions.userId, label: 'oauth_sessions' },
+  { table: oauthUsers, userCol: oauthUsers.userId, label: 'oauth_users' },
+  {
+    table: userThirdPartyAccounts,
+    userCol: userThirdPartyAccounts.userId,
+    label: 'user_third_party_accounts',
+  },
+  { table: userSk, userCol: userSk.userId, label: 'user_sk' },
+  { table: userPreferences, userCol: userPreferences.userId, label: 'user_preferences' },
+  { table: userPasskeys, userCol: userPasskeys.userId, label: 'user_passkeys' },
+  { table: deviceTokens, userCol: deviceTokens.userId, label: 'device_tokens' },
+  { table: crashReports, userCol: crashReports.userId, label: 'crash_reports' },
+  { table: visitLogs, userCol: visitLogs.userId, label: 'visit_logs' },
 ]
 
 interface PurgeResult {
@@ -90,9 +111,9 @@ interface PurgeResult {
  */
 export async function purgeUserPii(userId: string, tx: Database = db): Promise<PurgeResult> {
   let cleaned = 0
-  for (const { table, label } of USER_SCOPED_TABLES) {
+  for (const { table, userCol, label } of USER_SCOPED_TABLES) {
     try {
-      await (tx as Database).delete(table).where(eq(table.userId, userId))
+      await (tx as Database).delete(table).where(eq(userCol, userId))
       cleaned++
     } catch (err) {
       // 单表失败不阻断整体清理；记录以便运维跟进（尤其缺失表/权限受限的情况）

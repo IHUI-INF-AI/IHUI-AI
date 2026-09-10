@@ -108,7 +108,7 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="py-4 space-y-4">
+    <div className="px-4 py-4 space-y-4">
       <BackButton />
       <div className="flex justify-end">
         <Button
