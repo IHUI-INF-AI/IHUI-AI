@@ -128,8 +128,17 @@ jobs:
           # --import tsx:api dist 引用 @ihui/database 的 src/index.ts(纯 TS,无 dist 条件),
           # 纯 node 无法加载;tsx 同时解决 .ts 导入与 .js→.ts 扩展名解析(2026-09-10)
           node --import tsx dist/index.js &
-          sleep 5
-          curl -sf http://localhost:8802/health || exit 1
+          # 服务冷启动(加载路由/BullMQ/scheduler)在 CI 上实测 >5s,单次 curl 会抢跑;
+          # 轮询等待就绪,最多 60s(2026-09-10 修复:server listening 前单次 curl 失败直接 exit 1)
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8802/health; then
+              echo "API ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API health check timeout after 60s"
+          exit 1
 
       - name: Start web server (background)
         working-directory: apps/web

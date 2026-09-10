@@ -45,6 +45,22 @@ async def _clear_graph_store():
     await graph_store.clear()
 
 
+@pytest.fixture(autouse=True)
+def _ensure_test_database_url(monkeypatch):
+    """CI 无 .env,settings.database_url 可能为空,DrizzleGraphStore 实例化即抛
+    ValueError。本文件全部 Drizzle 用例都 mock _get_pool(不真实连接),只需非空
+    DSN 通过构造校验。仅在其为空时打补丁(有 .env 的本地环境行为不变);
+    test_init_raises_when_no_database_url 自行置空,不受影响。"""
+    from app.core import config
+
+    if not config.settings.database_url:
+        monkeypatch.setattr(
+            config.settings,
+            "database_url",
+            "postgresql://test:test@localhost:5432/test",
+        )
+
+
 # =============================================================================
 # _parse_json_object
 # =============================================================================

@@ -21,8 +21,10 @@ import {
   findLevelByExperience,
   findCurrentLevel,
   findLeaderboard,
-  shiftDate,
 } from '../src/db/gamification-queries.js'
+// 2026-09-10 real-db CI:shiftDate 已从 gamification-queries.ts 迁移到 utils/checkin-helpers.ts,
+// 原文件不再 re-export,从 gamification-queries 导入会得到 undefined → TypeError
+import { shiftDate } from '../src/utils/checkin-helpers.js'
 
 async function createTestUser(phone: string, nickname?: string) {
   const [row] = await db.insert(users).values({ phone, nickname }).returning()

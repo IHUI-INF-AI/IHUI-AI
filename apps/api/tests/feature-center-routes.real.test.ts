@@ -118,13 +118,15 @@ describe('feature-center-routes — 路由层真实 DB 集成测试', () => {
     const body = res.json()
     expect(body.code).toBe(0)
     expect(body.message).toBe('success')
-    expect(body.data).toEqual({
-      apiCount: 0,
-      agentCount: 0,
-      documentCount: 0,
-      modelCount: 0,
-      sdkCount: 0,
-    })
+    // 2026-09-10 real-db CI:/documents 端点与 stats.documentCount 现在合并了
+    // docs/*.md 文件系统文档(readFileDocs),文件数随仓库文档变动,无法断言精确值;
+    // DB 驱动的计数仍可精确断言
+    expect(body.data.apiCount).toBe(0)
+    expect(body.data.agentCount).toBe(0)
+    expect(body.data.modelCount).toBe(0)
+    expect(body.data.sdkCount).toBe(0)
+    expect(typeof body.data.documentCount).toBe('number')
+    expect(body.data.documentCount).toBeGreaterThanOrEqual(0)
   })
 
   it('GET /api/feature-center/stats — 有数据时返回正确计数', async () => {
@@ -148,7 +150,8 @@ describe('feature-center-routes — 路由层真实 DB 集成测试', () => {
     const body = res.json()
     expect(body.data.apiCount).toBe(2)
     expect(body.data.agentCount).toBe(1)
-    expect(body.data.documentCount).toBe(1)
+    // documentCount = DB published docs(1) + docs/*.md 文件文档数(随仓库变动)
+    expect(body.data.documentCount).toBeGreaterThanOrEqual(1)
     expect(body.data.modelCount).toBe(2)
     expect(body.data.sdkCount).toBe(1)
   })
@@ -197,11 +200,15 @@ describe('feature-center-routes — 路由层真实 DB 集成测试', () => {
     await createDoc({ title: '草稿', slug: 'draft', status: 'draft' })
     const res = await server.inject({ method: 'GET', url: '/api/feature-center/documents' })
     const body = res.json()
-    expect(body.data).toHaveLength(1)
-    expect(body.data[0].title).toBe('API 文档')
-    expect(body.data[0].category).toBe('api')
-    expect(body.data[0].format).toBe('markdown')
-    expect(body.data[0].url).toBe('/docs/api-doc')
+    // 2026-09-10 real-db CI:列表合并了 docs/*.md 文件文档(数量随仓库变动),
+    // 改为断言 DB 创建的文档在列表中且字段映射正确,草稿文档不返回
+    const dbDoc = body.data.find((d: { url: string }) => d.url === '/docs/api-doc')
+    expect(dbDoc).toBeDefined()
+    expect(dbDoc.title).toBe('API 文档')
+    expect(dbDoc.category).toBe('api')
+    expect(dbDoc.format).toBe('markdown')
+    const draft = body.data.find((d: { title: string }) => d.title === '草稿')
+    expect(draft).toBeUndefined()
   })
 
   it('GET /api/feature-center/models — 返回 enabled=true 的模型', async () => {
@@ -268,18 +275,25 @@ describe('feature-center-routes — 路由层真实 DB 集成测试', () => {
   })
 
   it('空表时所有列表端点返回空数组', async () => {
-    const urls = [
+    // 2026-09-10 real-db CI:documents 端点合并了 docs/*.md 文件文档,DB 空表时
+    // 仍会返回文件文档;改为断言无 DB 来源(url 以 /docs/ 开头)的条目
+    const emptyUrls = [
       '/api/feature-center/apis',
       '/api/feature-center/agents',
-      '/api/feature-center/documents',
       '/api/feature-center/models',
       '/api/feature-center/sdks',
     ]
-    for (const url of urls) {
+    for (const url of emptyUrls) {
       const res = await server.inject({ method: 'GET', url })
       const body = res.json()
       expect(body.data).toEqual([])
     }
+    const res = await server.inject({ method: 'GET', url: '/api/feature-center/documents' })
+    const body = res.json()
+    const dbDocs = body.data.filter(
+      (d: { url: string }) => typeof d.url === 'string' && d.url.startsWith('/docs/'),
+    )
+    expect(dbDocs).toEqual([])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
