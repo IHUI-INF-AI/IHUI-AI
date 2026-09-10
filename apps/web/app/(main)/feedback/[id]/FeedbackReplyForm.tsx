@@ -50,7 +50,7 @@ export function FeedbackReplyForm({
 
   return (
     <Card>
-      <CardContent className="p-3">
+      <CardContent className="min-[640px]:p-3 p-3">
         <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
           <MessageSquare className="h-4 w-4" />
           {tc('replyTitle')}

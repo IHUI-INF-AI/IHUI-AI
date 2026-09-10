@@ -66,7 +66,7 @@ export default function AppPermissionPage() {
       <div className="space-y-3">
         {PERMISSIONS.map((p) => (
           <Card key={p.name}>
-            <CardContent className="flex gap-3 p-3">
+            <CardContent className="min-[640px]:p-3 flex gap-3 p-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
                 <p.icon className="h-5 w-5" />
               </div>

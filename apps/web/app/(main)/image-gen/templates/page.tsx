@@ -152,7 +152,7 @@ export default function ImageGenTemplatesPage() {
                   />
                 </div>
               ) : null}
-              <CardContent className="space-y-2 p-3">
+              <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                 <div className="flex items-start gap-2">
                   <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <h3 className="flex-1 truncate text-sm font-medium">{tpl.title}</h3>

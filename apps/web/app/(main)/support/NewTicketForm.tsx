@@ -72,7 +72,7 @@ export function NewTicketForm({ onDone }: { onDone: () => void }) {
 
   return (
     <Card>
-      <CardContent className="p-3">
+      <CardContent className="min-[640px]:p-3 p-3">
         <form
           onSubmit={(e) => {
             e.preventDefault()

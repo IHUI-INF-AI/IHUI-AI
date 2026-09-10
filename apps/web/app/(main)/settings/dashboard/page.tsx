@@ -48,7 +48,7 @@ export default function DashboardPage() {
           return (
             <Link key={item.href} href={item.href}>
               <Card className="transition-colors hover:bg-accent">
-                <CardContent className="flex items-start gap-3 p-3">
+                <CardContent className="min-[640px]:p-3 flex items-start gap-3 p-3">
                   <div className="rounded-lg bg-muted p-2">
                     <Icon className="h-4 w-4" />
                   </div>

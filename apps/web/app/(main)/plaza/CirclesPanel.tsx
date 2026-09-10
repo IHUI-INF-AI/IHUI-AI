@@ -51,7 +51,7 @@ export function CirclesPanel({ isLoading, error, circles }: Props) {
                       <CardDescription className="text-xs">{c.description}</CardDescription>
                     )}
                   </CardHeader>
-                  <CardContent className="p-3 pt-0">
+                  <CardContent className="min-[640px]:p-3 p-3 pt-0">
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Users className="h-3.5 w-3.5" />

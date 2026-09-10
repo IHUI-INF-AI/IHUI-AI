@@ -134,7 +134,7 @@ export default function MyCommentsPage() {
               const Icon = TARGET_ICONS[comment.targetType] ?? FileText
               return (
                 <Card key={comment.id} className="transition-colors hover:bg-accent">
-                  <CardContent className="space-y-3 p-3">
+                  <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <Link
                         href={targetHref(comment)}

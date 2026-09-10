@@ -57,7 +57,7 @@ export default function SubagentDispatchPage() {
         <CardHeader className="p-3">
           <CardTitle className="text-sm">派单表单</CardTitle>
         </CardHeader>
-        <CardContent className="p-3 pt-0">
+        <CardContent className="min-[640px]:p-3 p-3 pt-0">
           <DispatchForm
             onSubmit={(input) => mut.mutate(input)}
             isSubmitting={mut.isPending}

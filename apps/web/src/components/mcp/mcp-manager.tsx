@@ -225,7 +225,7 @@ export function McpManager() {
             const toggling = toggleMutation.isPending && toggleMutation.variables?.id === server.id
             return (
               <Card key={server.id} className="transition-colors hover:bg-accent">
-                <CardContent className="p-3">
+                <CardContent className="min-[640px]:p-3 p-3">
                   <div className="mb-2 flex items-start justify-between">
                     <div className="min-w-0">
                       <div className="break-words font-medium">{server.name}</div>

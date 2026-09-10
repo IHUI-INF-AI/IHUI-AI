@@ -170,7 +170,7 @@ export function PricingContent(): React.JSX.Element {
                     推荐
                   </span>
                 )}
-                <CardContent className="flex flex-1 flex-col p-3">
+                <CardContent className="min-[640px]:p-3 flex flex-1 flex-col p-3">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold">{level.levelName}</h2>
                     <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">

@@ -233,7 +233,7 @@ export default function AiCostPage() {
               const Icon = c.icon
               return (
                 <Card key={c.key}>
-                  <CardContent className="flex items-center gap-3 p-3">
+                  <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
                     <div className={cn('rounded-md bg-muted p-2', c.cls)}>
                       <Icon className="h-4 w-4" />
                     </div>

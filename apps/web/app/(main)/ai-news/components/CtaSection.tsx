@@ -18,7 +18,7 @@ export function CtaSection() {
       aria-label={t('cta.label')}
       className="overflow-hidden rounded-xl border bg-card shadow-sm"
     >
-      <CardContent className="grid grid-cols-1 gap-6 p-3 min-[768px]:grid-cols-2">
+      <CardContent className="min-[640px]:p-3 grid grid-cols-1 gap-6 p-3 min-[768px]:grid-cols-2">
         <div className="space-y-2">
           <h2 className="text-2xl font-bold leading-tight tracking-tight min-[768px]:text-3xl">
             {t('cta.title')}

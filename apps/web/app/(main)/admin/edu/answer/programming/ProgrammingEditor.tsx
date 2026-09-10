@@ -41,7 +41,7 @@ export function ProgrammingEditor({
   const t = useTranslations('admin.edu.answer.programming')
   return (
     <Card>
-      <CardContent className="space-y-3 p-3">
+      <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <Label htmlFor="p-code">{t('codeEditor')}</Label>
         <textarea
           id="p-code"

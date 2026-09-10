@@ -98,31 +98,31 @@ export default function ChildAttendancePage() {
           {/* 统计概览 */}
           <div className="grid grid-cols-2 gap-4 min-[640px]:grid-cols-5">
             <Card>
-              <CardContent className="p-3 text-center">
+              <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-2xl font-bold">{attendanceRate}%</p>
                 <p className="text-xs text-muted-foreground">{t('attendance.rate')}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-3 text-center">
+              <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-2xl font-bold text-emerald-600">{stats.present}</p>
                 <p className="text-xs text-muted-foreground">{STATUS_LABELS.present}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-3 text-center">
+              <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-2xl font-bold text-amber-600">{stats.late}</p>
                 <p className="text-xs text-muted-foreground">{STATUS_LABELS.late}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-3 text-center">
+              <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
                 <p className="text-xs text-muted-foreground">{STATUS_LABELS.absent}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-3 text-center">
+              <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-2xl font-bold text-blue-600">{stats.leave}</p>
                 <p className="text-xs text-muted-foreground">{STATUS_LABELS.leave}</p>
               </CardContent>

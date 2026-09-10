@@ -57,7 +57,7 @@ export function ArticlesList({
           {items.map((item) => (
             <Link key={item.id} href={`/articles/${item.id}`} className="block">
               <Card className="overflow-hidden transition-colors hover:bg-accent">
-                <CardContent className="flex gap-4 p-3">
+                <CardContent className="min-[640px]:p-3 flex gap-4 p-3">
                   <div className="relative h-24 w-40 shrink-0 overflow-hidden rounded-md bg-muted">
                     {item.coverImage ? (
                       <Image

@@ -102,7 +102,7 @@ export default function LearnTopicDetailPage() {
 
       {/* 专题信息 */}
       <Card className="relative overflow-hidden">
-        <CardContent className="flex flex-col gap-4 p-3 min-[768px]:flex-row">
+        <CardContent className="min-[640px]:p-3 flex flex-col gap-4 p-3 min-[768px]:flex-row">
           <div className="relative flex h-40 w-full items-center justify-center rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 min-[768px]:w-64">
             {coverImage ? (
               <Image src={coverImage} alt={topic.title} fill className="rounded-lg object-cover" />
@@ -187,7 +187,7 @@ export default function LearnTopicDetailPage() {
                     <CardHeader className="p-3 pb-2">
                       <CardTitle className="text-base">{title}</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-1 p-3 pt-0 text-sm">
+                    <CardContent className="min-[640px]:p-3 space-y-1 p-3 pt-0 text-sm">
                       {lesson.instructor && (
                         <p className="text-muted-foreground">{lesson.instructor}</p>
                       )}

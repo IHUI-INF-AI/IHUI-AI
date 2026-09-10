@@ -106,7 +106,7 @@ export default function LecturersPage() {
                     ) : null}
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3 p-3 pt-0">
+                <CardContent className="min-[640px]:p-3 space-y-3 p-3 pt-0">
                   <p className="text-sm text-muted-foreground">{l.intro ?? ''}</p>
                   <span className="inline-flex items-center gap-1 text-xs text-primary transition-colors group-hover:underline">
                     {t('viewDetail')}

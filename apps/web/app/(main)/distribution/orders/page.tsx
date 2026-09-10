@@ -127,7 +127,7 @@ export default function CommissionOrdersPage() {
       </header>
 
       <Card>
-        <CardContent className="flex items-center gap-3 p-3">
+        <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
           <span className="text-sm text-muted-foreground">{t('colStatus')}</span>
           <Select value={status} onValueChange={onStatusChange}>
             <SelectTrigger className="w-40">

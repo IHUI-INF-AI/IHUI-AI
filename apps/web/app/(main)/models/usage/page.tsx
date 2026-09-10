@@ -208,7 +208,7 @@ function LoadingSkeleton({ t }: { t: ReturnType<typeof useTranslations> }) {
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i}>
-            <CardContent className="p-3">
+            <CardContent className="min-[640px]:p-3 p-3">
               <div className="h-9 w-9 animate-pulse rounded-lg bg-muted" />
               <div className="mt-3 h-8 w-24 animate-pulse rounded bg-muted" />
               <div className="mt-1.5 flex items-center justify-between">
@@ -389,7 +389,7 @@ export default function UsagePage() {
           const Icon = s.icon
           return (
             <Card key={s.label}>
-              <CardContent className="p-3">
+              <CardContent className="min-[640px]:p-3 p-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-4 w-4" />
                 </div>

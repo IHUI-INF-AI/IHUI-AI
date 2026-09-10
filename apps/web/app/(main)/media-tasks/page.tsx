@@ -160,8 +160,8 @@ function MediaResultPreview({ task }: { task: MediaTask }) {
     )
   }
   if (urls.image_url) {
-    // eslint-disable-next-line @next/next/no-img-element -- 动态远程图片降级用 img
     return (
+      // eslint-disable-next-line @next/next/no-img-element -- 动态远程图片降级用 img
       <img
         src={urls.image_url}
         alt={task.message || 'media'}

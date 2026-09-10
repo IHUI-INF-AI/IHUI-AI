@@ -28,7 +28,7 @@ export function ByokIncomeChart({ data, loading }: Props) {
 
   return (
     <Card>
-      <CardContent className="p-3">
+      <CardContent className="min-[640px]:p-3 p-3">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold">{t('byokTrend')}</p>

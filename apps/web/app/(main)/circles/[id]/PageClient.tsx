@@ -167,7 +167,7 @@ export default function CircleDetailPage() {
           <div className="space-y-2">
             {posts.map((p: PostItem) => (
               <Card key={p.id} className="transition-colors hover:bg-accent">
-                <CardContent className="p-3">
+                <CardContent className="min-[640px]:p-3 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-sm font-medium">{p.title}</p>

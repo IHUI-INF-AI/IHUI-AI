@@ -225,7 +225,7 @@ export default function EduAiCertificationPage() {
               className="cursor-pointer transition-colors hover:bg-accent"
               onClick={() => setSelectedId(item.id)}
             >
-              <CardContent className="flex h-full flex-col space-y-3 p-3">
+              <CardContent className="min-[640px]:p-3 flex h-full flex-col space-y-3 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10">
                     <BadgeCheck className="h-5 w-5 text-primary" />

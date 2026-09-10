@@ -9013,7 +9013,74 @@
     "warning": "Warning"
   },
   "commandPalette": {
+    "groups": {
+    "mode": "Mode",
+    "navigate": "Navigate",
+    "settings": "Settings",
+    "tools": "Tools",
+    "view": "View"
+    },
     "commands": {
+      "agent": {
+        "description": "Manage and dispatch AI agents",
+        "label": "AI Agents"
+      },
+      "browser": {
+        "description": "Browse the web inside the workspace",
+        "label": "Built-in Browser"
+      },
+      "capabilityMarket": {
+        "description": "Discover and install capability packs",
+        "label": "Capability Market"
+      },
+      "codeChanges": {
+        "description": "Review workspace code changes",
+        "label": "Code Changes"
+      },
+      "connectors": {
+        "description": "Manage external service connections",
+        "label": "Connectors"
+      },
+      "document": {
+        "description": "Edit workspace documents",
+        "label": "Documents"
+      },
+      "editor": {
+        "description": "Open the code editor",
+        "label": "Editor"
+      },
+      "mcp": {
+        "description": "Manage MCP servers and tools",
+        "label": "MCP Manager"
+      },
+      "mcpStore": {
+        "description": "Browse and install MCP services",
+        "label": "MCP Store"
+      },
+      "modeBuild": {
+        "description": "Let the AI build and modify directly",
+        "label": "Build Mode"
+      },
+      "modePlan": {
+        "description": "Plan first, then execute",
+        "label": "Plan Mode"
+      },
+      "modeReview": {
+        "description": "Review and assess existing code",
+        "label": "Review Mode"
+      },
+      "modeSpec": {
+        "description": "Generate implementations from specs",
+        "label": "Spec Mode"
+      },
+      "skill": {
+        "description": "Manage and invoke AI skills",
+        "label": "Skills"
+      },
+      "terminal": {
+        "description": "Open the integrated terminal",
+        "label": "Terminal"
+      },
       "ai-world": {
         "description": "Explore the world of AI applications",
         "keywords": ["AI", "world", "apps"],

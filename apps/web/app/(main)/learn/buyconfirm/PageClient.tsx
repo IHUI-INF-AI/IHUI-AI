@@ -201,7 +201,7 @@ function BuyConfirmContent() {
           </Card>
 
           <Card>
-            <CardContent className="space-y-2 p-3 text-sm">
+            <CardContent className="min-[640px]:p-3 space-y-2 p-3 text-sm">
               {originalPrice && originalPrice > price && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">{t('originalPrice')}</span>
