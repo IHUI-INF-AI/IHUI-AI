@@ -495,9 +495,7 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
     })
 
     it('payload 无 token(历史任务) → 不调 release,仍广播释放', async () => {
-      store.pushSelect([
-        makeRow({ status: 'in_progress', workspacePath: '/ws/a', payload: {} }),
-      ])
+      store.pushSelect([makeRow({ status: 'in_progress', workspacePath: '/ws/a', payload: {} })])
       store.pushUpdate([makeRow({ status: 'blocked' })])
 
       const res = await app.inject({
