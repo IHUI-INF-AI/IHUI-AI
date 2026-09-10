@@ -7,13 +7,7 @@ import { View, Text, Input, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import { useUserStore } from '@/stores/user'
-import {
-  sendSmsCode,
-  loginBySms,
-  loginByPassword,
-  sendEmailCode,
-  loginByEmailCode,
-} from '@/api'
+import { sendSmsCode, loginBySms, loginByPassword, sendEmailCode, loginByEmailCode } from '@/api'
 import { getSsoLoginUrl } from '@/utils/sso'
 import { useLoginForm, type LoginApiResult, type LoginUser } from '@ihui/shared/hooks'
 import { credentialStorage } from '@/lib/credential-storage'
@@ -91,10 +85,13 @@ export default function Login() {
   )
 
   useEffect(() => {
+    // 卸载时清理所有倒计时定时器:缓存 ref 对象(而非 .current 值),
+    // 在 cleanup 时读取最新 id,避免捕获挂载瞬间的 null 导致定时器泄漏。
+    const timers = [timerRef, phoneTimerRef, emailTimerRef]
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-      if (phoneTimerRef.current) clearInterval(phoneTimerRef.current)
-      if (emailTimerRef.current) clearInterval(emailTimerRef.current)
+      for (const ref of timers) {
+        if (ref.current) clearInterval(ref.current)
+      }
     }
   }, [])
 
@@ -245,21 +242,25 @@ export default function Login() {
     onSuccess: handlePasswordSuccess,
   })
 
+  const translateError = useCallback(
+    (err: string | null): string => {
+      if (!err) return ''
+      if (err.startsWith('auth.') || err.startsWith('login.')) {
+        return t(err) !== err ? t(err) : ''
+      }
+      return err
+    },
+    [t],
+  )
+
   useEffect(() => {
     if (form.error) {
       setInlineError(translateError(form.error))
     }
-  }, [form.error])
+  }, [form.error, translateError])
 
-  function translateError(err: string | null): string {
-    if (!err) return ''
-    if (err.startsWith('auth.') || err.startsWith('login.')) {
-      return t(err) !== err ? t(err) : ''
-    }
-    return err
-  }
-
-  const isLogging = loginType === 'phone' ? isSmsLogging : loginType === 'email' ? emailLoading : form.loading
+  const isLogging =
+    loginType === 'phone' ? isSmsLogging : loginType === 'email' ? emailLoading : form.loading
 
   function handleLoginClick() {
     if (isLogging) return
@@ -350,7 +351,11 @@ export default function Login() {
         {/* ===== 内联错误提示(对齐 RN errorAlert) ===== */}
         {inlineError ? (
           <View className="login-error-alert">
-            <Image className="login-error-icon" src="/static/images/triangle-alert.svg" mode="aspectFit" />
+            <Image
+              className="login-error-icon"
+              src="/static/images/triangle-alert.svg"
+              mode="aspectFit"
+            />
             <Text className="login-error-text">{inlineError}</Text>
           </View>
         ) : null}
@@ -453,7 +458,9 @@ export default function Login() {
           <View className="login-tabcontent">
             <View className="login-field">
               <Text className="login-label">{tt('login.phone', '手机号')}</Text>
-              <View className={`login-phone-row ${isPhoneFocused ? 'login-phone-row-focused' : ''}`}>
+              <View
+                className={`login-phone-row ${isPhoneFocused ? 'login-phone-row-focused' : ''}`}
+              >
                 <PhoneAreaCodePicker
                   value={phoneHead}
                   onChange={setPhoneHead}
@@ -576,7 +583,10 @@ export default function Login() {
                   value={form.password}
                   onInput={(e) => form.setPassword(e.detail.value)}
                 />
-                <PasswordVisibilityToggle visible={showPwd} onToggle={() => setShowPwd((v) => !v)} />
+                <PasswordVisibilityToggle
+                  visible={showPwd}
+                  onToggle={() => setShowPwd((v) => !v)}
+                />
               </View>
             </View>
 
@@ -588,7 +598,11 @@ export default function Login() {
               onOpenPrivacy={() => openAgreement('privacy')}
               tt={tt}
               rightNode={
-                <View className="login-autologin" hoverClass="opacity-60" onClick={() => form.setAutoLogin(!form.autoLogin)}>
+                <View
+                  className="login-autologin"
+                  hoverClass="opacity-60"
+                  onClick={() => form.setAutoLogin(!form.autoLogin)}
+                >
                   <View
                     className={`custom-checkbox ${form.autoLogin ? 'custom-checkbox-checked' : ''}`}
                   >
@@ -619,7 +633,11 @@ export default function Login() {
 
           <View className="login-oauth-grid">
             <View className="login-oauth-btn" hoverClass="opacity-60" onClick={handleSsoLogin}>
-              <Image className="login-oauth-icon" src="/static/images/google.svg" mode="aspectFit" />
+              <Image
+                className="login-oauth-icon"
+                src="/static/images/google.svg"
+                mode="aspectFit"
+              />
             </View>
           </View>
         </View>
@@ -704,7 +722,9 @@ function AgreementRow({
         {rightNode ? <View className="login-agreement-right">{rightNode}</View> : null}
       </View>
       {err && !checked ? (
-        <Text className="login-agreement-error">{tt('login.agreeRequired', '请先阅读并同意服务协议和隐私政策')}</Text>
+        <Text className="login-agreement-error">
+          {tt('login.agreeRequired', '请先阅读并同意服务协议和隐私政策')}
+        </Text>
       ) : null}
     </View>
   )
@@ -721,7 +741,11 @@ function PrimaryLoginButton({
   loading: boolean
 }) {
   return (
-    <View className={`login-primary-btn ${loading ? 'login-btn-disabled' : ''}`} hoverClass="opacity-60" onClick={loading ? undefined : onClick}>
+    <View
+      className={`login-primary-btn ${loading ? 'login-btn-disabled' : ''}`}
+      hoverClass="opacity-60"
+      onClick={loading ? undefined : onClick}
+    >
       <Text className="login-primary-btn-text">{children}</Text>
     </View>
   )

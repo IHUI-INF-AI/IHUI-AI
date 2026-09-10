@@ -16,6 +16,7 @@
  * 用法:<LineIcon name="heart" size={32} color="var(--color-brand)" />
  */
 import { View } from '@tarojs/components'
+import type { ITouchEvent } from '@tarojs/components'
 import { ICONS, type IconName } from './icons'
 
 export type { IconName } from './icons'
@@ -29,7 +30,7 @@ export interface LineIconProps {
   color?: string
   className?: string
   style?: React.CSSProperties
-  onClick?: (e?: any) => void
+  onClick?: (event: ITouchEvent) => void
 }
 
 export default function LineIcon({

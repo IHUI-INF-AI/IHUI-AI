@@ -77,7 +77,7 @@ export default function BillingPage() {
   })
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="px-4 space-y-4 py-4">
       <BackButton />
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'orders' | 'invoices')}>
         <TabsList>

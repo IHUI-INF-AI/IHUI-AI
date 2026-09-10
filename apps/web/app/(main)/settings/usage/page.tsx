@@ -102,7 +102,7 @@ export default function UsagePage() {
 
   if (loading)
     return (
-      <div className="space-y-4 py-4">
+      <div className="px-4 space-y-4 py-4">
         <BackButton />
         <p className="py-8 text-center text-sm text-muted-foreground">加载中...</p>
       </div>
@@ -110,7 +110,7 @@ export default function UsagePage() {
 
   if (error)
     return (
-      <div className="space-y-4 py-4">
+      <div className="px-4 space-y-4 py-4">
         <BackButton />
         <p className="py-8 text-center text-sm text-destructive">{error}</p>
       </div>
@@ -125,7 +125,7 @@ export default function UsagePage() {
   const usagePercent = quota?.usage_percent ?? 0
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="px-4 space-y-4 py-4">
       <BackButton />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>

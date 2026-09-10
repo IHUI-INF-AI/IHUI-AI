@@ -38,7 +38,7 @@ export default async function ChatsPage() {
   })
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="px-4 space-y-4 py-4">
       <BackButton />
       <Card>
         <CardContent className="flex items-center gap-2 p-4">

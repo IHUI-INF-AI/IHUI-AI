@@ -58,7 +58,7 @@ function resolveIosAppDir(projRoot) {
       (e) => e.isDirectory() && fs.existsSync(path.join(projRoot, e.name, `${e.name}.xcodeproj`)),
     )
     if (dir) return dir.name
-  } catch (ignored) {
+  } catch (_ignored) {
     // 忽略:无法扫描时走回退
   }
   return null

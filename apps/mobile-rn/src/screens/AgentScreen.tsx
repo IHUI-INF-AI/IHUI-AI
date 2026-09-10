@@ -481,7 +481,7 @@ export function AgentScreen() {
       setDrawerVisible(false)
       navigateDrawerTab(rootNav, tab)
     },
-    [navigation, rootNav],
+    [rootNav],
   )
   const handleDrawerNavigateCompany = useCallback((): void => {
     setDrawerVisible(false)
