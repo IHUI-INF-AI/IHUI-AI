@@ -32,12 +32,11 @@ from __future__ import annotations
 import asyncio
 import base64
 import ipaddress
-import os
 import re
 import socket
-import tempfile
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
@@ -214,7 +213,7 @@ def extract_external_images(html: str) -> list[str]:
     return result
 
 
-async def download_image(url: str, timeout: float = 30.0) -> Optional[Path]:
+async def download_image(url: str, timeout: float = 30.0) -> Path | None:
     """下载图片到本地临时目录。
 
     Args:
@@ -299,7 +298,7 @@ def replace_image_src(html: str, old_url: str, new_url: str) -> str:
 
 async def upload_to_csdn(
     image_path: Path, credentials: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     """上传图片到 CSDN 图床。
 
     凭证:credentials["cookie"] 含完整 cookie 字符串,
@@ -347,7 +346,7 @@ async def upload_to_csdn(
 
 async def upload_to_juejin(
     image_path: Path, credentials: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     """上传图片到掘金图床。
 
     凭证:credentials["cookie"] 含掘金 cookie(含 sessionid)
@@ -389,7 +388,7 @@ async def upload_to_juejin(
 
 async def upload_to_jianshu(
     image_path: Path, credentials: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     """上传图片到简书图床。
 
     凭证:credentials["cookie"] 含简书 cookie
@@ -431,7 +430,7 @@ async def upload_to_jianshu(
 
 async def upload_to_zhihu(
     image_path: Path, credentials: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     """上传图片到知乎图床。
 
     凭证:credentials["z_c0"] 含知乎 z_c0 token,
@@ -484,7 +483,7 @@ async def upload_to_zhihu(
 
 async def upload_to_wechat(
     image_path: Path, credentials: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     """上传图片到微信公众号图床。
 
     凭证:credentials["access_token"] 含公众号 access_token。
@@ -521,7 +520,7 @@ async def upload_to_wechat(
 
 async def upload_to_weibo(
     image_path: Path, credentials: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     """上传图片到微博图床。
 
     凭证:credentials["access_token"] + credentials["uid"]
@@ -559,7 +558,7 @@ async def upload_to_weibo(
 
 async def upload_to_wordpress(
     image_path: Path, credentials: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     """上传图片到 WordPress(XML-RPC wp.uploadFile)。
 
     凭证:credentials["site_url"] + credentials["username"]
@@ -608,7 +607,7 @@ async def upload_to_wordpress(
         )
         endpoint = f"{str(site_url).rstrip('/')}/xmlrpc.php"
         # HTTP Basic Auth(application_password)
-        auth_str = f"{username}:{app_password}".encode("utf-8")
+        auth_str = f"{username}:{app_password}".encode()
         auth_b64 = base64.b64encode(auth_str).decode("ascii")
         headers = {
             "Content-Type": "text/xml; charset=utf-8",
@@ -636,7 +635,7 @@ async def upload_to_wordpress(
 
 async def upload_to_bilibili(
     image_path: Path, credentials: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     """上传图片到 B 站封面图床。
 
     凭证:credentials["bili_jct"](csrf) + credentials["sessdata"](cookie)
@@ -693,7 +692,7 @@ async def upload_to_bilibili(
 
 async def upload_to_toutiao(
     image_path: Path, credentials: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     """头条号图片上传(不支持,显式 raise NotImplementedError)。
 
     头条号开放平台未提供独立图片上传 API,
@@ -707,7 +706,7 @@ async def upload_to_toutiao(
 
 async def upload_to_xiaohongshu(
     image_path: Path, credentials: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     """上传图片到小红书图床(Playwright 反风控浏览器)。
 
     凭证:credentials["web_session"](小红书网页登录态标识)
@@ -763,7 +762,7 @@ async def upload_to_xiaohongshu(
 
 async def upload_to_baijiahao(
     image_path: Path, credentials: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     """上传图片到百家号图床(Playwright 反风控浏览器)。
 
     凭证:credentials["BDUSS"] + credentials["STOKEN"]
@@ -821,7 +820,7 @@ async def upload_to_baijiahao(
 
 async def upload_to_medium(
     image_path: Path, credentials: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     """上传图片到 Medium 图床。
 
     凭证:credentials["access_token"](Medium integration token)
@@ -859,7 +858,7 @@ async def upload_to_medium(
 
 
 # 12 平台 dispatch 表(平台 ID → 上传函数)
-_ImageUploader = Callable[[Path, dict[str, Any]], Awaitable[Optional[str]]]
+_ImageUploader = Callable[[Path, dict[str, Any]], Awaitable[str | None]]
 
 _PLATFORM_UPLOADERS: dict[str, _ImageUploader] = {
     "csdn": upload_to_csdn,
@@ -881,7 +880,7 @@ async def upload_to_platform(
     platform: str,
     image_path: Path,
     credentials: dict[str, Any],
-) -> Optional[str]:
+) -> str | None:
     """按平台调对应图床 API 上传图片(dispatch)。
 
     Args:
@@ -945,7 +944,7 @@ async def process_external_images(
     # 信号量限制并发
     semaphore = asyncio.Semaphore(max_concurrent)
 
-    async def process_one(url: str) -> tuple[str, Optional[str]]:
+    async def process_one(url: str) -> tuple[str, str | None]:
         """处理单张图片:下载 + 上传,返回 (原URL, 新URL)。"""
         async with semaphore:
             local_path = await download_image(url)

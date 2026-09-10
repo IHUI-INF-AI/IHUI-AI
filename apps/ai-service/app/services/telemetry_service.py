@@ -28,7 +28,7 @@ import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ class Histogram(Metric):
     """
 
     def __init__(self, name: str, help: str, labels: list[str],
-                 buckets: Optional[tuple[float, ...]] = None) -> None:
+                 buckets: tuple[float, ...] | None = None) -> None:
         super().__init__(name, "histogram", help, labels)
         self.buckets = tuple(buckets) if buckets else DEFAULT_HISTOGRAM_BUCKETS_MS
 
@@ -174,7 +174,7 @@ def _format_labels(label_names: list[str], label_values: tuple[str, ...]) -> str
     if not label_names:
         return ""
     parts = []
-    for name, val in zip(label_names, label_values):
+    for name, val in zip(label_names, label_values, strict=False):
         # 转义 label value 中的特殊字符(Prometheus 规范:\ -> \\, " -> \")
         escaped = str(val).replace("\\", "\\\\").replace('"', '\\"')
         parts.append(f'{name}="{escaped}"')
@@ -202,7 +202,7 @@ class MetricsRegistry:
     def __init__(self) -> None:
         self._metrics: dict[str, Metric] = {}
 
-    def counter(self, name: str, help: str, labels: Optional[list[str]] = None) -> Counter:
+    def counter(self, name: str, help: str, labels: list[str] | None = None) -> Counter:
         """注册 counter。重复注册返回已有的(幂等)。"""
         existing = self._metrics.get(name)
         if existing is not None:
@@ -211,7 +211,7 @@ class MetricsRegistry:
         self._metrics[name] = m
         return m
 
-    def gauge(self, name: str, help: str, labels: Optional[list[str]] = None) -> Gauge:
+    def gauge(self, name: str, help: str, labels: list[str] | None = None) -> Gauge:
         """注册 gauge。"""
         existing = self._metrics.get(name)
         if existing is not None:
@@ -220,8 +220,8 @@ class MetricsRegistry:
         self._metrics[name] = m
         return m
 
-    def histogram(self, name: str, help: str, labels: Optional[list[str]] = None,
-                  buckets: Optional[tuple[float, ...]] = None) -> Histogram:
+    def histogram(self, name: str, help: str, labels: list[str] | None = None,
+                  buckets: tuple[float, ...] | None = None) -> Histogram:
         """注册 histogram。"""
         existing = self._metrics.get(name)
         if existing is not None:
@@ -230,7 +230,7 @@ class MetricsRegistry:
         self._metrics[name] = m
         return m
 
-    def get_metric(self, name: str) -> Optional[Metric]:
+    def get_metric(self, name: str) -> Metric | None:
         """按名取 metric,不存在返回 None。"""
         return self._metrics.get(name)
 
@@ -368,9 +368,9 @@ class TraceContext:
     Redis 不可用时降级到内存 deque(最近 5000 个 span)。
     """
 
-    def __init__(self, telemetry: "TelemetryService", name: str, pillar: str,
-                 trace_id: Optional[str] = None, parent_span_id: Optional[str] = None,
-                 attributes: Optional[dict[str, Any]] = None) -> None:
+    def __init__(self, telemetry: TelemetryService, name: str, pillar: str,
+                 trace_id: str | None = None, parent_span_id: str | None = None,
+                 attributes: dict[str, Any] | None = None) -> None:
         self._telemetry = telemetry
         self.span = Span(
             trace_id=trace_id or _gen_trace_id(),
@@ -382,7 +382,7 @@ class TraceContext:
             attributes=dict(attributes) if attributes else {},
         )
 
-    async def __aenter__(self) -> "TraceContext":
+    async def __aenter__(self) -> TraceContext:
         """开始 span,记录 start_time。如果 trace_id 为 None,已在外部生成新的。"""
         self.span.start_time = time.monotonic()
         return self
@@ -401,7 +401,7 @@ class TraceContext:
             self.span.attributes.setdefault("error", str(exc_val))
         await self._telemetry._store_span(self.span)
 
-    def add_event(self, name: str, attributes: Optional[dict[str, Any]] = None) -> None:
+    def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
         """添加事件到当前 span。"""
         self.span.events.append({
             "name": name,
@@ -625,9 +625,9 @@ class TelemetryService:
 
     # ---------- 公共 API:Trace ----------
 
-    def start_trace(self, name: str, pillar: str, trace_id: Optional[str] = None,
-                    parent_span_id: Optional[str] = None,
-                    attributes: Optional[dict[str, Any]] = None) -> TraceContext:
+    def start_trace(self, name: str, pillar: str, trace_id: str | None = None,
+                    parent_span_id: str | None = None,
+                    attributes: dict[str, Any] | None = None) -> TraceContext:
         """开始一个 trace span(返回 TraceContext,用 async with)。
 
         同步工厂方法 — 本身不做异步 IO,只构造 TraceContext;

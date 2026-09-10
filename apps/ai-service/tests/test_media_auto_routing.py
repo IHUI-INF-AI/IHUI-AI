@@ -22,13 +22,13 @@ import json
 
 import pytest
 
+from app.services import mcp_server
 from app.services.conversation import (
     _MEDIA_INTENT_PATTERNS,
     _MEDIA_RENDER_PROMPT,
     _WEB_INTENT_PATTERNS,
     conversation_service,
 )
-from app.services import mcp_server
 from app.services.mcp_server import (
     _ADMIN_ONLY_TOOLS,
     _image_provider_chain,
@@ -36,7 +36,6 @@ from app.services.mcp_server import (
     _tool_voice_tts,
     _tts_engine_chain,
 )
-
 
 # =============================================================================
 # 模态预路由 _media_intent_tools

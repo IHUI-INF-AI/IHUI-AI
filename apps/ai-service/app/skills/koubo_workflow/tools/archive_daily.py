@@ -34,12 +34,15 @@ archive_daily.py — 口播稿每日自动存档 v2.0
   python archive_daily.py --check          # 校验当日稿是否已归档
   python archive_daily.py --dry            # 只预览，不移动
 """
-import os, re, sys
+import os
+import re
+import sys
 from datetime import datetime
 
 # ── 项目边界硬门禁（缺省 fail-closed） ──
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # koubo_workflow/
 import project_boundary
+
 project_boundary.check_action(tool="archive_daily.py", paths=sys.argv[1:], cwd=os.getcwd())
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))   # 工具脚本/
@@ -64,7 +67,7 @@ def main() -> None:
     # 收集汇编中已存在的日期段（幂等依据）
     existing = set()
     if os.path.exists(ANTHOLOGY):
-        with open(ANTHOLOGY, 'r', encoding='utf-8') as f:
+        with open(ANTHOLOGY, encoding='utf-8') as f:
             existing = set(SEG_RE.findall(f.read()))
 
     # --check：仅校验当日稿是否已归档，不移动任何文件
@@ -100,7 +103,7 @@ def main() -> None:
         if dry:
             moved.append(fn + '(预览)')
             continue
-        with open(fp, 'r', encoding='utf-8') as f:
+        with open(fp, encoding='utf-8') as f:
             content = f.read().strip()
         # 2026-07-20 修复：正文首行常自带 "# MMDD" 段头，归档再前置一个会双倍段头，
         # 故入库前剥掉正文首行与本次 date 同号的 "# MMDD" 头，保证汇编单头干净。

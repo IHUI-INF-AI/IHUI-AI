@@ -16,7 +16,6 @@ import pytest
 
 from app.services.im_bridge import ImBridgeService
 
-
 # =============================================================================
 # 假实现
 # =============================================================================
@@ -218,7 +217,7 @@ async def test_handle_message_llm_timeout_skips(monkeypatch):
     sent = []
 
     async def fake_complete(messages, owner_uuid=None):
-        raise asyncio.TimeoutError()
+        raise TimeoutError()
 
     async def fake_post(url, json=None, headers=None):
         sent.append(url)

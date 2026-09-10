@@ -41,14 +41,15 @@ ComboRouter 接管,按策略选下一个 provider,记录 fallback 历史到 LLM_
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
 import re
 import time
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Optional
+from dataclasses import dataclass
+from enum import StrEnum
+from typing import Any
 
 from ..middleware.llm_metrics import (
     LLM_FALLBACK_FAILURE,
@@ -64,7 +65,7 @@ from ..middleware.llm_metrics import (
 logger = logging.getLogger(__name__)
 
 
-class ComboStrategy(str, Enum):
+class ComboStrategy(StrEnum):
     """Combo 路由策略。"""
 
     PRIORITY = "priority"  # 按预定义链顺序 fallback(对齐 OmniRoute)
@@ -93,7 +94,7 @@ class ComboChain:
     name: str
     strategy: ComboStrategy
     chain: list[str]
-    judge: Optional[str] = None
+    judge: str | None = None
     description: str = ""
     judge_mode: str = "merge"  # "merge" | "vote"
     max_concurrency: int = 5
@@ -108,7 +109,7 @@ class ComboFallbackRecord:
     reason: str  # timeout / rate_limit / api_error / unknown
     success: bool
     duration_ms: float = 0.0
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass
@@ -273,7 +274,7 @@ class ComboRouter:
             max_concurrency=max_concurrency,
         )
 
-    def get_combo(self, name: str) -> Optional[ComboChain]:
+    def get_combo(self, name: str) -> ComboChain | None:
         """获取 combo 配置。"""
         return self._combos.get(name)
 
@@ -281,7 +282,7 @@ class ComboRouter:
         """列出所有 combo 配置。"""
         return list(self._combos.values())
 
-    def find_combo_for_model(self, model: str) -> Optional[str]:
+    def find_combo_for_model(self, model: str) -> str | None:
         """查找 model 所属的 combo 链名(用于 llm_gateway 自动触发 Combo fallback)。
 
         遍历所有 combo 链,返回第一个 chain 包含该 model 的 combo 名。
@@ -323,7 +324,7 @@ class ComboRouter:
     def _select_chain_by_strategy(
         self,
         combo: ComboChain,
-        primary: Optional[str] = None,
+        primary: str | None = None,
     ) -> list[str]:
         """按策略选择最终的 provider 调用顺序。
 
@@ -359,7 +360,7 @@ class ComboRouter:
         self,
         messages: list[dict[str, Any]],
         combo_name: str,
-        primary: Optional[str] = None,
+        primary: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """按 combo 策略路由 LLM 调用。
@@ -389,7 +390,7 @@ class ComboRouter:
             return await self._route_fusion(messages, combo, chain, **kwargs)
 
         # priority / cheapest:顺序尝试
-        last_error: Optional[str] = None
+        last_error: str | None = None
         for i, provider in enumerate(chain):
             start = time.time()
             try:
@@ -477,7 +478,7 @@ class ComboRouter:
 
         # 4. 收集成功响应
         successful: list[tuple[str, dict[str, Any]]] = []
-        for provider, proposal in zip(chain, proposals):
+        for provider, proposal in zip(chain, proposals, strict=False):
             if isinstance(proposal, Exception):
                 logger.warning("fusion proposer %s 异常: %s", provider, proposal)
                 continue
@@ -497,7 +498,7 @@ class ComboRouter:
             }
 
         # 6. 有 judge 且 >1 个成功 → 走 merge / vote
-        judge_result: Optional[dict[str, Any]] = None
+        judge_result: dict[str, Any] | None = None
         failure_reason = ""
         if combo.judge and len(successful) > 1:
             if combo.judge_mode == "vote":
@@ -548,7 +549,7 @@ class ComboRouter:
         combo: ComboChain,
         successful: list[tuple[str, dict[str, Any]]],
         **kwargs: Any,
-    ) -> tuple[Optional[dict[str, Any]], str]:
+    ) -> tuple[dict[str, Any] | None, str]:
         """merge 模式 judge:综合各方优点产出融合答案。
 
         Returns:
@@ -597,7 +598,7 @@ class ComboRouter:
         combo: ComboChain,
         successful: list[tuple[str, dict[str, Any]]],
         **kwargs: Any,
-    ) -> tuple[Optional[dict[str, Any]], str]:
+    ) -> tuple[dict[str, Any] | None, str]:
         """vote 模式 judge:评估每个 proposal(1-10 分),选出最佳。
 
         Returns:
@@ -673,7 +674,7 @@ class ComboRouter:
 
     def _parse_vote_json(
         self, content: str, total: int
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """解析 vote judge 返回的 JSON(支持 markdown fence / 裸 JSON / 文本前后)。
 
         Args:
@@ -690,29 +691,23 @@ class ComboRouter:
         parsed: Any = None
 
         # 1. 直接 parse
-        try:
+        with contextlib.suppress(json.JSONDecodeError, TypeError):
             parsed = json.loads(content)
-        except (json.JSONDecodeError, TypeError):
-            pass
 
         # 2. markdown fence ```json ... ``` 或 ``` ... ```
         if parsed is None:
             match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
             if match:
-                try:
+                with contextlib.suppress(json.JSONDecodeError, TypeError):
                     parsed = json.loads(match.group(1))
-                except (json.JSONDecodeError, TypeError):
-                    pass
 
         # 3. 从首个 { 到末尾 } 的最大跨度提取
         if parsed is None:
             start = content.find("{")
             end = content.rfind("}")
             if start != -1 and end != -1 and end > start:
-                try:
+                with contextlib.suppress(json.JSONDecodeError, TypeError):
                     parsed = json.loads(content[start:end + 1])
-                except (json.JSONDecodeError, TypeError):
-                    pass
 
         if not isinstance(parsed, dict):
             return None
@@ -816,7 +811,7 @@ class ComboRouter:
         reason: str,
         success: bool,
         duration_ms: float = 0.0,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> None:
         """记录 fallback 历史 + Prometheus metric。"""
         record = ComboFallbackRecord(

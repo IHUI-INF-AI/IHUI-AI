@@ -4,9 +4,10 @@
 
 """数据报表模块(golden 参考实现:bug 已修复 + 从 data/format 转发)。"""
 
-from data import generate_report as _generate_report
-from format import format_currency  # noqa: F401
 from common import format_currency as _fc  # noqa: F401  (refactor-report-common 的目标形态)
+from format import format_currency  # noqa: F401
+
+from data import generate_report as _generate_report
 
 
 def generate_report(rows: list[dict]) -> str:

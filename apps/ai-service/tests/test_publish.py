@@ -20,11 +20,12 @@
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
+from cryptography.exceptions import InvalidTag
 
 from app.services.publish.base_adapter import (
     BasePlatformAdapter,
@@ -38,8 +39,7 @@ from app.services.publish.credentials_crypto import (
     encrypt,
     generate_key_b64,
 )
-from app.services.publish.scheduler import PublishScheduler, publish_scheduler
-
+from app.services.publish.scheduler import PublishScheduler
 
 # =============================================================================
 # 覆盖 conftest.py 中引用已废弃属性的 _isolate_vector_memory fixture。
@@ -130,7 +130,7 @@ def test_credentials_decrypt_tampered_blob_raises() -> None:
     cipher = encrypt(credentials)
     # 翻转最后一个字符(篡改 tag)
     tampered = cipher[:-1] + ("A" if cipher[-1] != "A" else "B")
-    with pytest.raises(Exception):
+    with pytest.raises(InvalidTag):
         decrypt(tampered)
 
 
@@ -350,7 +350,7 @@ async def test_scheduler_submit_task_scheduled_returns_scheduled() -> None:
     sched._spawn_task = lambda coro: spawned.append(coro)  # type: ignore[assignment]
     content = PublishContent(format="md", title="定时任务", text="hello")
     targets = [{"platform": "wordpress", "account_id": 1, "config": {}}]
-    scheduled_at = datetime(2099, 1, 1, tzinfo=timezone.utc)
+    scheduled_at = datetime(2099, 1, 1, tzinfo=UTC)
     result = await sched.submit_task("task-2", "user-1", content, targets, scheduled_at=scheduled_at)
     assert result["ok"] is True
     assert result["status"] == "scheduled"

@@ -13,9 +13,9 @@ psutil 可选:未安装时降级为仅超时控制(不监控 RSS/CPU)。
 """
 
 import asyncio
+import contextlib
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -48,11 +48,11 @@ class ResourceMonitor:
     """
 
     pid: int
-    memory_mb: Optional[float] = None
-    cpu_seconds: Optional[float] = None
+    memory_mb: float | None = None
+    cpu_seconds: float | None = None
     poll_interval_s: float = 2.0
     kill_on_violation: bool = True
-    _task: Optional[asyncio.Task[None]] = None
+    _task: asyncio.Task[None] | None = None
     _violations: list[ResourceViolation] = field(default_factory=list)
     _terminated: bool = False
 
@@ -69,10 +69,8 @@ class ResourceMonitor:
         """停止监控,返回违规记录。"""
         if self._task and not self._task.done():
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         return self._violations
 
     @property
@@ -98,10 +96,8 @@ class ResourceMonitor:
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue  # 跳过本轮,不终止循环
                 for child in children:
-                    try:
+                    with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
                         rss += child.memory_info().rss
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
-                        pass
 
                 # 计算进程树总 CPU 时间
                 cpu_times = proc.cpu_times()
@@ -159,10 +155,8 @@ class ResourceMonitor:
         self._terminated = True
         try:
             for child in proc.children(recursive=True):
-                try:
+                with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
                     child.kill()
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
             proc.kill()
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass

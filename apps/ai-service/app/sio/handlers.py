@@ -23,7 +23,8 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable, TypeVar, cast
+from collections.abc import Callable
+from typing import Any, TypeVar, cast
 from urllib.parse import parse_qs
 
 import httpx
@@ -31,13 +32,13 @@ import jwt
 
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
-from ..services.memory import memory_store
-from . import rate_limiter, sio
 from ..middleware.output_safety import (
-    scan_output,
     apply_disclaimers,
     build_ai_generation_annotation,
+    scan_output,
 )
+from ..services.memory import memory_store
+from . import rate_limiter, sio
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +55,9 @@ _SESSION_TTL_SEC = 1800
 _T = TypeVar("_T")
 
 
-def _typed_event(handler: _T) -> _T:
+def _typed_event[T](handler: T) -> T:
     """Typed wrapper around sio.event decorator to preserve handler types."""
-    return cast(_T, sio.event(handler))
+    return cast(T, sio.event(handler))
 
 
 def _typed_on(event_name: str) -> Callable[[_T], _T]:

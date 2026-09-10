@@ -23,7 +23,10 @@ from fastapi import HTTPException
 
 from app.core.config import settings
 from app.routers import hooks as hooks_router
+
+# 便捷别名
 from app.routers.hooks import (
+    AutoOrchestrateBody,
     CreateAbTestBody,
     CreateHookRequest,
     EmitRequest,
@@ -41,9 +44,6 @@ from app.routers.hooks import (
     _validate_event,
 )
 from app.services.hook_engine import HIGH_RISK_ACTIONS, HOOK_ACTION_TYPES, HOOK_EVENTS
-
-# 便捷别名
-from app.routers.hooks import AutoOrchestrateBody
 
 # pydantic 模型名以 Test 开头,会被 pytest 误收集,显式关闭
 TestHookRequest.__test__ = False  # type: ignore[attr-defined]

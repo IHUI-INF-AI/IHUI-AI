@@ -41,12 +41,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid as _uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 import asyncpg
 
-from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 from ..core.llm_gateway import llm_gateway
 from .differential_privacy import differential_privacy

@@ -13,7 +13,7 @@
 对外路径为 /api/spec/generate、/api/spec/templates、/api/spec/apply。
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -27,7 +27,7 @@ class SpecScopeModel(BaseModel):
     """Spec 生成范围(契约与 packages/types SpecScope 一致)。"""
 
     type: str = Field("workspace", description="范围类型: file / dir / workspace")
-    path: Optional[str] = Field(None, description="目标路径(file/dir 相对工作区根;workspace 可省略)")
+    path: str | None = Field(None, description="目标路径(file/dir 相对工作区根;workspace 可省略)")
 
 
 class SpecGenerateRequest(BaseModel):
@@ -36,7 +36,7 @@ class SpecGenerateRequest(BaseModel):
     scope: SpecScopeModel = Field(default_factory=SpecScopeModel)
     workspacePath: str = Field(..., description="工作区根路径(绝对路径)")
     includeDependencies: bool = Field(True, description="是否包含依赖关系分析")
-    languages: Optional[list[str]] = Field(None, description="目标语言过滤(为空则全语言)")
+    languages: list[str] | None = Field(None, description="目标语言过滤(为空则全语言)")
 
 
 class SpecApplyRequest(BaseModel):
@@ -48,7 +48,7 @@ class SpecApplyRequest(BaseModel):
     workspacePath: str = Field(..., description="工作区根路径(绝对路径)")
     scope: SpecScopeModel = Field(default_factory=SpecScopeModel)
     newSpec: str = Field(..., description="修改后的 spec markdown")
-    oldSpec: Optional[str] = Field(None, description="旧 spec(为空则从 .ihui-agent/specs/ 加载持久化版本)")
+    oldSpec: str | None = Field(None, description="旧 spec(为空则从 .ihui-agent/specs/ 加载持久化版本)")
 
 
 class SpecTemplateModel(BaseModel):

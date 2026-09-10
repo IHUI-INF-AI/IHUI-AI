@@ -9,8 +9,6 @@ from __future__ import annotations
 import pytest
 
 from app.services.eval_service import (
-    EvalResult,
-    EvalRun,
     EvalService,
     _score_similarity,
 )

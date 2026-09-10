@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.services import codebase_indexer
-from app.services.codebase_indexer import CodeChunk, CodebaseIndexer
+from app.services.codebase_indexer import CodebaseIndexer, CodeChunk
 
 
 @pytest.fixture(autouse=True)

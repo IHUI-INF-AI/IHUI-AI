@@ -24,9 +24,7 @@ import pytest
 from app.services.publish.base_adapter import PublishContent
 from app.services.publish.platform_rules import (
     PLATFORM_RULES,
-    DeepValidationResult,
     PlatformRule,
-    SensitiveWordHit,
     ValidationResult,
     auto_fix_content,
     detect_sensitive_words,

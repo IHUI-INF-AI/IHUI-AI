@@ -13,14 +13,12 @@
 """
 from __future__ import annotations
 
-import pytest
 from httpx import ASGITransport, AsyncClient
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 
 from app.middleware.audit import AuditMiddleware, setup_audit_middleware
 from app.services.audit_service import audit_service
-
 
 # =============================================================================
 # 辅助:构建最小 Starlette app + monkeypatch 捕获审计调用

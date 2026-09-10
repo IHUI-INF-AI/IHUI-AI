@@ -22,7 +22,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 from app.core.logging import get_logger
 
@@ -950,7 +951,7 @@ def _format_youtube(html: str, content: Any) -> str:
 
 
 # 平台 → 格式化函数映射(38 平台全部专属排版,2026-07-31 立)
-_FORMATTERS: dict[str, Callable[[str, Optional[Any]], str]] = {
+_FORMATTERS: dict[str, Callable[[str, Any | None], str]] = {
     # 第一批:已有专属排版(9 平台)
     "zhihu": _format_zhihu,
     "wechat": _format_wechat,
@@ -1000,7 +1001,7 @@ _FORMATTERS: dict[str, Callable[[str, Optional[Any]], str]] = {
 }
 
 
-def format_for_platform(html: str, platform: str, content: Optional[Any] = None) -> str:
+def format_for_platform(html: str, platform: str, content: Any | None = None) -> str:
     """按平台专属规则格式化 HTML。
 
     Args:

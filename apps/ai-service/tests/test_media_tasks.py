@@ -14,15 +14,15 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from app.routers import media_tasks as mt_router
 from app.services import mcp_server
 from app.services import media_tasks as mt
-from app.routers import media_tasks as mt_router
 
 pytestmark = pytest.mark.asyncio
 

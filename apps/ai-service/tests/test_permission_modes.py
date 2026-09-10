@@ -22,13 +22,11 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
 
 from app.services.agent_loop_v2 import AgentLoopV2, ToolCall, ToolDefinition
-
 
 # =============================================================================
 # 辅助:工具定义

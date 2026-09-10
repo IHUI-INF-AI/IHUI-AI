@@ -29,11 +29,12 @@ CDP 关键 API:
 from __future__ import annotations
 
 import asyncio
-import logging
+import contextlib
 import threading
 import uuid
+from collections.abc import Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, Coroutine, Literal, Optional, TypeVar, cast
+from typing import Any, Literal, TypeVar, cast
 
 from playwright.sync_api import (
     Browser,
@@ -132,8 +133,8 @@ def _find_chromium_executable() -> str | None:
     2. Windows 默认路径(C:\\Users\\<user>\\AppData\\Local\\ms-playwright)
     3. 返回 None(让 Playwright 自己解析)
     """
-    from pathlib import Path
     import os
+    from pathlib import Path
 
     env_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
     if env_path:
@@ -250,8 +251,8 @@ class BrowserSession:
         self._cdp: Any | None = None  # sync CDPSession
         self._screencast_running = False
         self._screenshot_task: asyncio.Task[None] | None = None  # 截图轮询后台 task
-        self._on_frame: Optional[Callable[[str, dict[str, Any]], Coroutine[Any, Any, None]]] = None
-        self._on_navigation: Optional[Callable[[str, str | None], Coroutine[Any, Any, None]]] = None
+        self._on_frame: Callable[[str, dict[str, Any]], Coroutine[Any, Any, None]] | None = None
+        self._on_navigation: Callable[[str, str | None], Coroutine[Any, Any, None]] | None = None
         self._lock = threading.Lock()
 
     # ---- 内部辅助 ----
@@ -435,10 +436,8 @@ class BrowserSession:
         self._screencast_running = False
         if self._screenshot_task:
             self._screenshot_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._screenshot_task
-            except asyncio.CancelledError:
-                pass
             self._screenshot_task = None
         self._on_frame = None
 
@@ -526,14 +525,10 @@ class BrowserSession:
         await self.stop_screencast()
         def _sync_close() -> None:
             if self._cdp:
-                try:
+                with contextlib.suppress(Exception):
                     self._cdp.detach()
-                except Exception:
-                    pass
-            try:
+            with contextlib.suppress(Exception):
                 self._context.close()
-            except Exception:
-                pass
         await self._run_sync(_sync_close)
 
 

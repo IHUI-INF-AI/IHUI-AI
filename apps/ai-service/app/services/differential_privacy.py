@@ -198,7 +198,7 @@ class DifferentialPrivacy:
         if salt is None:
             salt = os.environ.get("DP_SALT", _DEFAULT_SALT)
         # sha256 哈希(UTF-8 编码),返回 64 字符 hex
-        return hashlib.sha256(f"{user_id}:{salt}".encode("utf-8")).hexdigest()
+        return hashlib.sha256(f"{user_id}:{salt}".encode()).hexdigest()
 
     def anonymize_text(
         self,
@@ -274,10 +274,7 @@ class DifferentialPrivacy:
 
         注入 rng 时用 rng.random(),否则用模块级 random.random()。
         """
-        if self._rng is not None:
-            u = self._rng.random()
-        else:
-            u = random.random()
+        u = self._rng.random() if self._rng is not None else random.random()
         # 避免 0.0(导致 log(0))和严格等于边界值
         if u <= 0.0:
             return 1e-10
