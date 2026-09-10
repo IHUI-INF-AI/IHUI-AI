@@ -112,6 +112,10 @@ vi.mock('../src/services/account-lockout.js', () => ({
 vi.mock('../src/services/oauth-providers.js', () => ({
   jscode2session: vi.fn(),
   isWechatMiniConfigured: vi.fn().mockReturnValue(false),
+  // 2026-09-08 起 /login/wechat 改走微信开放平台移动应用(sns/oauth2/access_token):
+  // 缺导出会因 undefined 调用抛 TypeError → 500(而非预期的 501)
+  wechatAppCode2session: vi.fn().mockResolvedValue(null),
+  isWechatAppConfigured: vi.fn().mockReturnValue(false),
 }))
 
 vi.mock('../src/db/oauth-queries.js', () => ({
