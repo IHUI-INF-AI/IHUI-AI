@@ -9,6 +9,7 @@ import { db } from '../src/db/index.js'
 import { users, certificateTemplates, certificates } from '@ihui/database'
 import {
   mockAuthenticate,
+  mockCheckAuth,
   setMockUser,
   setMockAdmin,
   setMockUnauthorized,
@@ -17,6 +18,7 @@ import {
 
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: (...args: unknown[]) => mockAuthenticate(...args),
+  checkAuth: (...args: unknown[]) => mockCheckAuth(...args),
   requireActiveUser: vi.fn(),
 }))
 

@@ -139,6 +139,12 @@ ignore = [
     "B904",
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# 2026-09-10:bench golden fixtures 的 import 分节是刻意的人为布局(golden 参考实现
+# 的可读性优先),且 local ruff 与 CI ruff 对其 I001 判定曾出现环境性摇摆,
+# 显式豁免以消除双端口径分歧。
+"bench/fixtures_golden/**" = ["I001"]
+
 # 2026-07-26 立:mypy 集成 typecheck:full CI(从 informational 升级为 blocking)
 # 2026-07-27 升级:strict=true(全库 0 errors 已达成,正式启用 strict 模式)
 # 由 pnpm `typecheck:full` 在所有 TS typecheck 之后执行,作为 Python 类型检查的最后一道闸门。
