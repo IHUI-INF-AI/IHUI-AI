@@ -12,7 +12,7 @@ import {
   parsePlanData,
   parseTerminalData,
   parseToolData,
-} from '../agent-pane-model'
+} from '../agent-pane/model'
 
 const event = {
   type: 'tool',

@@ -14,8 +14,8 @@ import type {
   DiffViewMode,
 } from '@ihui/types'
 
-/** 扩展名 → 语言映射 */
-const EXT_LANG: Record<string, string> = {
+/** 扩展名 → 语言映射(导出供跨文件跳转构造 FileNode 用,0-4c) */
+export const EXT_LANG: Record<string, string> = {
   ts: 'typescript',
   tsx: 'tsx',
   js: 'javascript',
