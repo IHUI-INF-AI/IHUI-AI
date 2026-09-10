@@ -298,7 +298,7 @@ function SkillCard({
 
   return (
     <Card className="flex h-full flex-col transition-colors hover:bg-accent">
-      <CardContent className="flex flex-1 flex-col gap-2.5 p-3">
+      <CardContent className="min-[640px]:p-3 flex flex-1 flex-col gap-2.5 p-3">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-medium leading-tight">{skill.name}</h3>
           <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">

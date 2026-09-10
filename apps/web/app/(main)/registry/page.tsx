@@ -135,7 +135,7 @@ export default function RegistryPage() {
 
       {isAdmin && (
         <Card>
-          <CardContent className="space-y-3 p-3">
+          <CardContent className="min-[640px]:p-3 space-y-3 p-3">
             <h2 className="font-semibold">管理操作</h2>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" disabled={sync.syncing} onClick={handleSync}>

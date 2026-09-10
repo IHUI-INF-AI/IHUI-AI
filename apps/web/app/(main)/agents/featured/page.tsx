@@ -114,7 +114,7 @@ export default function FeaturedAgentsPage() {
                     精选
                   </span>
                 </div>
-                <CardContent className="space-y-2 p-3">
+                <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                   <div className="flex items-start gap-2">
                     {agent.avatar ? (
                       <Image

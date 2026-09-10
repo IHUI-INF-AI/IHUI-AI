@@ -52,7 +52,7 @@ export default async function ContactPage() {
           const Icon = c.icon
           return (
             <Card key={c.label}>
-              <CardContent className="p-3">
+              <CardContent className="min-[640px]:p-3 p-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-4 w-4" />
                 </div>
@@ -108,7 +108,7 @@ export default async function ContactPage() {
 
       {/* 工作时间 */}
       <Card>
-        <CardContent className="p-3">
+        <CardContent className="min-[640px]:p-3 p-3">
           <h3 className="text-sm font-semibold">{t('contact.hours.title')}</h3>
           <div className="mt-2 space-y-1 text-xs text-muted-foreground">
             <div className="flex justify-between">

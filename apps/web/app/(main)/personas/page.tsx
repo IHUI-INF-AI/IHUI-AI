@@ -248,7 +248,7 @@ export default function PersonasPage() {
                   aria-expanded={isSelected}
                   className="block w-full rounded-lg text-left"
                 >
-                  <CardContent className="p-3">
+                  <CardContent className="min-[640px]:p-3 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex items-center gap-2 font-mono text-sm font-semibold">
                         <UserCircle className="h-4 w-4 shrink-0 text-primary" />
@@ -297,7 +297,7 @@ export default function PersonasPage() {
                 <CardHeader className="p-3 pb-2">
                   <h3 className="text-sm font-medium">{t('inputSchema')}</h3>
                 </CardHeader>
-                <CardContent className="p-3 pt-0">
+                <CardContent className="min-[640px]:p-3 p-3 pt-0">
                   <SchemaView schema={detail.input_schema} />
                 </CardContent>
               </Card>
@@ -305,7 +305,7 @@ export default function PersonasPage() {
                 <CardHeader className="p-3 pb-2">
                   <h3 className="text-sm font-medium">{t('outputSchema')}</h3>
                 </CardHeader>
-                <CardContent className="p-3 pt-0">
+                <CardContent className="min-[640px]:p-3 p-3 pt-0">
                   <SchemaView schema={detail.output_schema} />
                 </CardContent>
               </Card>

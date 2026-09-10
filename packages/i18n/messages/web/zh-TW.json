@@ -9003,7 +9003,74 @@
     "warning": "警告"
   },
   "commandPalette": {
+    "groups": {
+    "mode": "模式",
+    "navigate": "導覽",
+    "settings": "設定",
+    "tools": "工具",
+    "view": "檢視"
+    },
     "commands": {
+      "agent": {
+        "description": "管理並調度 AI 智能體",
+        "label": "AI 智能體"
+      },
+      "browser": {
+        "description": "在工作區內瀏覽網頁",
+        "label": "內建瀏覽器"
+      },
+      "capabilityMarket": {
+        "description": "發現並安裝能力包",
+        "label": "能力市場"
+      },
+      "codeChanges": {
+        "description": "查看工作區程式碼變更",
+        "label": "程式碼變更"
+      },
+      "connectors": {
+        "description": "管理外部服務連接",
+        "label": "連接器"
+      },
+      "document": {
+        "description": "編輯工作區文件",
+        "label": "文件"
+      },
+      "editor": {
+        "description": "開啟程式碼編輯器",
+        "label": "編輯器"
+      },
+      "mcp": {
+        "description": "管理 MCP 伺服器與工具",
+        "label": "MCP 管理"
+      },
+      "mcpStore": {
+        "description": "瀏覽與安裝 MCP 服務",
+        "label": "MCP 廣場"
+      },
+      "modeBuild": {
+        "description": "讓 AI 直接建構與修改",
+        "label": "建構模式"
+      },
+      "modePlan": {
+        "description": "先制定計劃再執行",
+        "label": "規劃模式"
+      },
+      "modeReview": {
+        "description": "審查與評審現有程式碼",
+        "label": "審查模式"
+      },
+      "modeSpec": {
+        "description": "從規格生成實現",
+        "label": "規格模式"
+      },
+      "skill": {
+        "description": "管理與呼叫 AI 技能",
+        "label": "技能"
+      },
+      "terminal": {
+        "description": "開啟整合終端機",
+        "label": "終端機"
+      },
       "ai-world": {
         "description": "探索 AI 應用世界",
         "keywords": ["AI", "世界", "應用"],

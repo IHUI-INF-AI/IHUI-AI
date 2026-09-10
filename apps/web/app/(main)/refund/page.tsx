@@ -102,7 +102,7 @@ export default function RefundPage() {
             const StatusIcon = sc.icon
             return (
               <Card key={item.id} className="transition-colors hover:bg-accent">
-                <CardContent className="space-y-2 p-3">
+                <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs text-muted-foreground">{item.orderNo}</span>
                     <span

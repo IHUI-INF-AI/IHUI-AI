@@ -126,7 +126,7 @@ export default function ThreatDashboardPage() {
                   {t('watchedIpsDesc')}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-3 pt-0">
+              <CardContent className="min-[640px]:p-3 p-3 pt-0">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -188,7 +188,7 @@ export default function ThreatDashboardPage() {
                   {t('recentBlocksDesc')}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-3 pt-0">
+              <CardContent className="min-[640px]:p-3 p-3 pt-0">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>

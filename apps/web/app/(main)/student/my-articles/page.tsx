@@ -125,7 +125,7 @@ export default function MyArticlesPage() {
                       : 'statusDraft'
               return (
                 <Card key={article.id} className="transition-colors hover:bg-accent">
-                  <CardContent className="flex gap-4 p-3">
+                  <CardContent className="min-[640px]:p-3 flex gap-4 p-3">
                     <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-md bg-muted">
                       {article.coverImage ? (
                         <Image

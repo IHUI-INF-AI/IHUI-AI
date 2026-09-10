@@ -157,7 +157,7 @@ export function DevelopersContent(): React.JSX.Element {
         <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-3">
           {data.providers.map((p) => (
             <Card key={p} className="transition-colors hover:bg-accent">
-              <CardContent className="flex items-center gap-2 p-3">
+              <CardContent className="min-[640px]:p-3 flex items-center gap-2 p-3">
                 <Boxes className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">{p}</span>
               </CardContent>
@@ -182,7 +182,7 @@ export function DevelopersContent(): React.JSX.Element {
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1 p-3 pt-0 text-xs text-muted-foreground">
+              <CardContent className="min-[640px]:p-3 space-y-1 p-3 pt-0 text-xs text-muted-foreground">
                 {sdk.npm && (
                   <div>
                     npm: <code className="font-mono">{sdk.npm}</code>
@@ -209,7 +209,7 @@ export function DevelopersContent(): React.JSX.Element {
               {data.auth.type} Token
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 p-3 pt-0">
+          <CardContent className="min-[640px]:p-3 space-y-3 p-3 pt-0">
             <p className="text-sm text-muted-foreground">
               在请求头{' '}
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
