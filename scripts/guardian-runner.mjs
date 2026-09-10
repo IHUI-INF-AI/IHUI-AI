@@ -946,6 +946,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- workflow step order (blocking, 2026-09-10 立) ---
+  //   历史事故: mobile-apk / mobile-ios workflow 里 setup-node(cache: pnpm) 排在 pnpm/action-setup
+  //   之前 -> setup-node 找不到 pnpm -> "Unable to locate executable file: pnpm" 永久失败。
+  //   跳过: HUSKY_SKIP_WORKFLOW_ORDER=1 git commit ...
+  {
+    id: '48',
+    label: '🧩 GitHub Actions 步骤顺序守门(setup-node cache:pnpm 必须在 pnpm/action-setup 之后)',
+    script: 'check-workflow-step-order.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 workflow 里 actions/setup-node 用了 cache: pnpm,但 pnpm/action-setup 排在它后面。',
+      '     修复: 把 pnpm/action-setup 步骤移到 actions/setup-node 之前。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (2 项) ---
   {
     id: '10',
