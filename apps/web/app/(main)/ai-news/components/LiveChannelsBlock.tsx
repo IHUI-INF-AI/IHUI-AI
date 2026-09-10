@@ -104,7 +104,7 @@ export function LiveChannelsBlock({ channels }: Props) {
                   <Badge variant="default">{c.categoryName}</Badge>
                 </div>
               </div>
-              <CardContent className="space-y-2 p-3">
+              <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                 <h3 className="line-clamp-2 text-sm font-semibold leading-tight">{c.title}</h3>
                 <p className="line-clamp-2 text-xs text-muted-foreground">{c.intro}</p>
                 <div className="flex items-center justify-between gap-2 pt-1">

@@ -213,7 +213,7 @@ export default function EduStudentDetailPage() {
       </div>
       <div className="grid grid-cols-2 gap-4 min-[640px]:grid-cols-4">
         <Card>
-          <CardContent className="flex items-center gap-3 p-3">
+          <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <BookOpen className="h-8 w-8 text-sky-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('signupCourses')}</div>
@@ -222,7 +222,7 @@ export default function EduStudentDetailPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-3">
+          <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <TrendingUp className="h-8 w-8 text-emerald-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('learnHours')}</div>
@@ -231,7 +231,7 @@ export default function EduStudentDetailPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-3">
+          <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <Award className="h-8 w-8 text-amber-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('examCount')}</div>
@@ -240,7 +240,7 @@ export default function EduStudentDetailPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-3">
+          <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <Award className="h-8 w-8 text-purple-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('certCount')}</div>

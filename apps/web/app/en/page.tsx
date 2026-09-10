@@ -197,7 +197,7 @@ export default function EnglishHomePage() {
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
             {MODEL_PROVIDERS.map((provider) => (
               <Card key={provider.name} className="transition-colors hover:bg-accent/50">
-                <CardContent className="flex flex-col items-center gap-1 p-3 text-center">
+                <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-1 p-3 text-center">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-foreground">
                     <Cpu className="h-5 w-5" />
                   </div>
@@ -222,7 +222,7 @@ export default function EnglishHomePage() {
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {PLATFORMS.map((platform) => (
               <Card key={platform.name} className="transition-colors hover:bg-accent/50">
-                <CardContent className="flex flex-col items-center gap-2 p-3 text-center">
+                <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-2 p-3 text-center">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <platform.icon className="h-5 w-5" />
                   </div>
@@ -237,7 +237,7 @@ export default function EnglishHomePage() {
         {/* Open Source Section */}
         <section className="mb-16 md:mb-24">
           <Card className="overflow-hidden">
-            <CardContent className="flex flex-col items-center gap-6 p-3 text-center md:p-12">
+            <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-6 p-3 text-center md:p-12">
               <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <Code className="h-7 w-7" />
               </div>

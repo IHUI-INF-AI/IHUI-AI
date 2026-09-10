@@ -84,7 +84,7 @@ export default function ExamPage() {
                   <p className="text-xs text-muted-foreground">{paper.description}</p>
                 )}
               </CardHeader>
-              <CardContent className="flex-1 min-w-0 space-y-3 p-3 pt-0">
+              <CardContent className="min-[640px]:p-3 flex-1 min-w-0 space-y-3 p-3 pt-0">
                 <div className="grid grid-cols-1 gap-2 text-xs text-muted-foreground min-[768px]:grid-cols-2">
                   <span className="flex items-center gap-1">
                     <ListChecks className="h-3.5 w-3.5" />

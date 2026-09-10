@@ -148,7 +148,7 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
                       <Highlight text={p.description} keyword={q} />
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="p-3 pt-0 text-xs text-muted-foreground">
+                  <CardContent className="min-[640px]:p-3 p-3 pt-0 text-xs text-muted-foreground">
                     {p.fileCount} files · {dateFmt.format(new Date(p.updatedAt))}
                   </CardContent>
                 </Card>

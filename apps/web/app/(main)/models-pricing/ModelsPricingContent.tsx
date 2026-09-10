@@ -149,7 +149,7 @@ export function ModelsPricingContent(): React.JSX.Element {
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-3 pt-0">
+              <CardContent className="min-[640px]:p-3 p-3 pt-0">
                 <Table>
                   <TableHeader>
                     <TableRow>

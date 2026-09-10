@@ -187,7 +187,7 @@ export default async function SkillsPage() {
                 key={s.name}
                 className="group transition-all hover:border-primary/40 hover:shadow-md"
               >
-                <CardContent className="flex items-start gap-3 p-3">
+                <CardContent className="min-[640px]:p-3 flex items-start gap-3 p-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-xl">
                     <s.icon className="h-5 w-5" />
                   </div>
@@ -227,7 +227,7 @@ export default async function SkillsPage() {
               key={s.name}
               className="group transition-all hover:border-primary/40 hover:shadow-md"
             >
-              <CardContent className="flex flex-col items-start gap-2 p-3">
+              <CardContent className="min-[640px]:p-3 flex flex-col items-start gap-2 p-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-lg">
                   <s.icon className="h-4 w-4" />
                 </div>

@@ -38,7 +38,7 @@ export default function BusinessLicensePage() {
       </Card>
 
       <Card>
-        <CardContent className="space-y-3 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-3 p-3">
           {FACTS.map((fact) => (
             <div key={fact} className="flex items-start gap-2.5 text-sm">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />

@@ -185,7 +185,7 @@ export default function EduAICoursesPage() {
       const k = item as K12Course
       return (
         <Card key={item.id} className="transition-colors hover:bg-accent">
-          <CardContent className="space-y-2 p-3">
+          <CardContent className="min-[640px]:p-3 space-y-2 p-3">
             <div className="flex flex-wrap items-center gap-2">
               <span
                 className={cn('rounded-md px-2 py-0.5 text-xs font-medium', stageClass(k.stage))}
@@ -219,7 +219,7 @@ export default function EduAICoursesPage() {
     const required = isTruthy(u.isRequired)
     return (
       <Card key={item.id} className="transition-colors hover:bg-accent">
-        <CardContent className="space-y-2 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-2 p-3">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="flex-1 text-sm font-medium">{u.courseName}</h3>
             <span

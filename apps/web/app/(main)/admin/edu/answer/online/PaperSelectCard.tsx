@@ -42,7 +42,7 @@ export function PaperSelectCard({
   const t = useTranslations('admin.edu.answer.online')
   return (
     <Card>
-      <CardContent className="space-y-4 p-3">
+      <CardContent className="min-[640px]:p-3 space-y-4 p-3">
         <div className="space-y-2">
           <Label htmlFor="o-paper">{t('selectPaper')}</Label>
           <Select value={paperId} onValueChange={setPaperId}>

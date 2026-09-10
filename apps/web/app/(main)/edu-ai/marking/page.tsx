@@ -145,7 +145,7 @@ export default function EduAiMarkingPage() {
       </header>
 
       <Card>
-        <CardContent className="space-y-4 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-4 p-3">
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="mk-subject">{t('subject')}</Label>
@@ -230,7 +230,7 @@ export default function EduAiMarkingPage() {
       ) : result ? (
         <div className="space-y-4">
           <Card className="border-primary/30 bg-primary/5">
-            <CardContent className="flex items-center gap-4 p-3">
+            <CardContent className="min-[640px]:p-3 flex items-center gap-4 p-3">
               <Sparkles className="h-8 w-8 shrink-0 text-primary" />
               <div>
                 <p className="text-xs text-muted-foreground">{t('score')}</p>
@@ -245,7 +245,7 @@ export default function EduAiMarkingPage() {
           </Card>
 
           <Card>
-            <CardContent className="space-y-4 p-3">
+            <CardContent className="min-[640px]:p-3 space-y-4 p-3">
               <div className="space-y-1">
                 <h3 className="text-sm font-medium">{t('comment')}</h3>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
@@ -257,7 +257,7 @@ export default function EduAiMarkingPage() {
 
           <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
             <Card>
-              <CardContent className="space-y-2 p-3">
+              <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                 <h3 className="flex items-center gap-1.5 text-sm font-medium">
                   <CheckCircle className="h-4 w-4 text-emerald-600" />
                   {t('strengths')}
@@ -270,7 +270,7 @@ export default function EduAiMarkingPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="space-y-2 p-3">
+              <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                 <h3 className="flex items-center gap-1.5 text-sm font-medium">
                   <XCircle className="h-4 w-4 text-rose-600" />
                   {t('weaknesses')}
@@ -279,7 +279,7 @@ export default function EduAiMarkingPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="space-y-2 p-3">
+              <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                 <h3 className="flex items-center gap-1.5 text-sm font-medium">
                   <Lightbulb className="h-4 w-4 text-amber-600" />
                   {t('suggestions')}

@@ -77,19 +77,19 @@ export default function EduLearnProgressPage() {
       </div>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
-          <CardContent className="p-3">
+          <CardContent className="min-[640px]:p-3 p-3">
             <div className="text-sm text-muted-foreground">{t('statCurrentPageStudents')}</div>
             <div className="mt-1 text-2xl font-semibold">{rows.length}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
+          <CardContent className="min-[640px]:p-3 p-3">
             <div className="text-sm text-muted-foreground">{t('statAvgProgress')}</div>
             <div className="mt-1 text-2xl font-semibold">{avgProgress}%</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
+          <CardContent className="min-[640px]:p-3 p-3">
             <div className="text-sm text-muted-foreground">{t('statCompleted')}</div>
             <div className="mt-1 text-2xl font-semibold">{completed}</div>
           </CardContent>

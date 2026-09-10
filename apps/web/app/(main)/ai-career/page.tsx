@@ -167,7 +167,7 @@ export default function AICareerPage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-5 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-5 p-3">
           <div>
             <span className="mb-2 block text-sm font-medium">
               {t('fields.school')} <span className="text-destructive">*</span>
@@ -279,7 +279,7 @@ export default function AICareerPage() {
 
       {error && (
         <Card>
-          <CardContent className="p-3">
+          <CardContent className="min-[640px]:p-3 p-3">
             <p className="text-sm text-destructive">{error}</p>
           </CardContent>
         </Card>

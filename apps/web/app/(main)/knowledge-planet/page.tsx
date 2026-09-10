@@ -59,7 +59,7 @@ export default function KnowledgePlanetPage() {
 
       {info ? (
         <Card className="mb-4">
-          <CardContent className="flex items-center gap-3 p-3">
+          <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Globe className="h-6 w-6" />
             </div>
@@ -101,7 +101,7 @@ export default function KnowledgePlanetPage() {
           {list.map((item) => (
             <Link key={item.id} href={`/news/${item.id}`} className="block">
               <Card className="transition-colors hover:bg-secondary/40">
-                <CardContent className="flex gap-3 p-3">
+                <CardContent className="min-[640px]:p-3 flex gap-3 p-3">
                   {item.coverImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img

@@ -76,7 +76,7 @@ export default function AssetsPage() {
       {error && <Alert variant="danger" description={error} />}
 
       <Card>
-        <CardContent className="grid grid-cols-1 gap-4 p-3 min-[640px]:grid-cols-3">
+        <CardContent className="min-[640px]:p-3 grid grid-cols-1 gap-4 p-3 min-[640px]:grid-cols-3">
           {UPLOAD_TYPES.map(({ label, type }) => {
             const cur = findByType(type)
             return (
@@ -129,7 +129,7 @@ export default function AssetsPage() {
       </Card>
 
       <Card>
-        <CardContent className="space-y-3 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-3 p-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">品牌图片库</p>
             <Button variant="outline" size="sm" onClick={() => imageRef.current?.click()}>

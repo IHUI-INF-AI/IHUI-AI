@@ -77,7 +77,7 @@ export default function WrongBookPage() {
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {list.map((item) => (
               <Card key={item.recordId} className="transition-colors hover:bg-accent">
-                <CardContent className="space-y-3 p-3">
+                <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex h-9 w-9 items-center justify-center rounded-md bg-destructive/10">
                       <XCircle className="h-5 w-5 text-destructive" />

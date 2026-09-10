@@ -289,7 +289,7 @@ export default function EduAiLearnMapPage() {
                       <MapIcon className="h-10 w-10 text-primary/40" />
                     )}
                   </div>
-                  <CardContent className="flex min-w-0 flex-1 flex-col gap-2 p-3">
+                  <CardContent className="min-[640px]:p-3 flex min-w-0 flex-1 flex-col gap-2 p-3">
                     <div className="min-w-0">
                       <p className="line-clamp-1 font-medium">{map.title}</p>
                       {map.description && (
@@ -376,7 +376,7 @@ export default function EduAiLearnMapPage() {
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-base">{topic.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-1.5 p-3 pt-0 text-xs text-muted-foreground">
+                <CardContent className="min-[640px]:p-3 space-y-1.5 p-3 pt-0 text-xs text-muted-foreground">
                   {topic.description && (
                     <p className="line-clamp-2 break-words">{topic.description}</p>
                   )}

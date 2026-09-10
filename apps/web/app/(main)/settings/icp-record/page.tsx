@@ -72,7 +72,7 @@ export default function IcpRecordPage() {
       </Card>
 
       <Card>
-        <CardContent className="flex items-start gap-3 p-3">
+        <CardContent className="min-[640px]:p-3 flex items-start gap-3 p-3">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <p className="text-xs leading-relaxed text-muted-foreground">{t('icpRecordNotice')}</p>
         </CardContent>
