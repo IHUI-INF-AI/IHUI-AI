@@ -214,7 +214,7 @@ export default function ModelRecordPage() {
   const updatedAt = formatLocalDate(stats?.updatedAt ?? null)
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="px-4 space-y-4 py-4">
       <BackButton />
 
       {/* 统计概览卡 */}
@@ -285,9 +285,7 @@ export default function ModelRecordPage() {
             </Button>
           </form>
 
-          <p className="text-xs text-muted-foreground">
-            {t('modelRecordCount', { total })}
-          </p>
+          <p className="text-xs text-muted-foreground">{t('modelRecordCount', { total })}</p>
 
           {loading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
@@ -318,15 +316,11 @@ export default function ModelRecordPage() {
                     const copied = copiedNo === item.recordNo
                     return (
                       <TableRow key={item.id}>
-                        <TableCell className="whitespace-nowrap text-xs">
-                          {item.algName}
-                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">{item.algName}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">
                           {item.category ?? '-'}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">
-                          {item.provider}
-                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">{item.provider}</TableCell>
                         <TableCell className="text-xs">{item.product ?? '-'}</TableCell>
                         <TableCell className="max-w-[200px] truncate text-xs">
                           {item.purpose ?? '-'}
@@ -337,9 +331,7 @@ export default function ModelRecordPage() {
                             <button
                               type="button"
                               onClick={() => void copyRecordNo(item.recordNo)}
-                              aria-label={
-                                copied ? t('modelRecordCopied') : t('modelRecordCopy')
-                              }
+                              aria-label={copied ? t('modelRecordCopied') : t('modelRecordCopy')}
                               className={
                                 copied
                                   ? 'ml-0.5 inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] font-normal text-emerald-600 transition-colors dark:text-emerald-400'
@@ -411,9 +403,7 @@ export default function ModelRecordPage() {
       <Card>
         <CardContent className="flex items-start gap-3 p-4">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            {t('modelRecordNotice')}
-          </p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{t('modelRecordNotice')}</p>
         </CardContent>
       </Card>
     </div>

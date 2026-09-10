@@ -52,7 +52,7 @@ export default async function UsersPage() {
   })
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="px-4 space-y-4 py-4">
       <BackButton />
       <div className="flex justify-end">
         <Button size="sm" className="gap-1.5">

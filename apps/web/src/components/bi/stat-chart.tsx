@@ -168,7 +168,7 @@ export function StatChart({
         },
       ],
     }
-  }, [type, data, isDark, title, colors])
+  }, [type, data, title, colors, axisColor, bgColor, textColor])
 
   const heightStyle = typeof height === 'number' ? `${height}px` : height
 

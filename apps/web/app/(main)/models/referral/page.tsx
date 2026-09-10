@@ -35,7 +35,7 @@ export default async function ReferralPage() {
   const inviteLink = 'https://aizhs.top/register?ref=IHUI2026ABC'
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="px-4 space-y-4 py-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
