@@ -55,7 +55,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run migrations
-        run: cd packages/database && pnpm drizzle-kit push
+        run: cd packages/database && pnpm drizzle-kit push --force
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/test
 
