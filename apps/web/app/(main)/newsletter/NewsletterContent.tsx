@@ -67,7 +67,7 @@ export function NewsletterContent(): React.JSX.Element {
   const benefits = t.raw('benefits.items') as string[]
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
+    <main className="mx-auto w-full max-w-3xl px-4 py-4 min-[768px]:px-8">
       <BackButton />
       {/* Hero */}
       <section className="text-center">

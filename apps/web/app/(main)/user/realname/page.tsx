@@ -108,7 +108,7 @@ export default function RealnamePage() {
   const status = info?.status ?? null
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 py-4">
       <BackButton />
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">

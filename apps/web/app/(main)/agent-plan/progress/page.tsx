@@ -182,7 +182,7 @@ export default function AgentPlanProgressPage() {
   // 详情视图
   if (detail) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-8">
+      <div className="mx-auto max-w-4xl px-4 py-4">
         <button
           onClick={backToList}
           className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition hover:text-foreground"
@@ -375,7 +375,7 @@ export default function AgentPlanProgressPage() {
 
   // 列表/输入视图
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-4">
       <div className="mb-4 flex items-center gap-2">
         <FileText className="h-5 w-5 text-primary" />
         <h1 className="text-2xl font-bold">Plan 任务进度</h1>

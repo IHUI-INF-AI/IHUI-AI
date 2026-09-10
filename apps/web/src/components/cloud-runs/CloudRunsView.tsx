@@ -97,7 +97,7 @@ export function CloudRunsView() {
   // 详情视图(返回键已统一收敛到顶栏,见 useTopBarBack 声明)
   if (selected) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-8">
+      <div className="mx-auto max-w-4xl px-4 py-4">
         <div className="mb-6 flex items-center gap-2">
           <Cloud className="h-5 w-5 text-primary" />
           <h1 className="text-2xl font-bold">{t('detailTitle')}</h1>
@@ -170,7 +170,7 @@ export function CloudRunsView() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-4">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Cloud className="h-5 w-5 text-primary" />

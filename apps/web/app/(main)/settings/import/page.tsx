@@ -137,7 +137,7 @@ export default function CliImportPage() {
   }
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col py-4">
       <BackButton />
       {/* Header */}
       <header className="space-y-1 shrink-0">

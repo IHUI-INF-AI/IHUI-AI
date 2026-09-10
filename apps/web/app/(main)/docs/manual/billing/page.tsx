@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 
 export default function ManualBillingPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+    <main className="mx-auto w-full max-w-3xl py-4">
       {/* Hero */}
       <header className="space-y-3">
         <div className="text-xs font-mono text-muted-foreground">第 05 章 · 使用说明手册</div>

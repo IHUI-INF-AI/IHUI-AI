@@ -30,7 +30,7 @@ export default function ChatFavoritesPage() {
   const items = data ?? []
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 px-4">
+    <div className="mx-auto max-w-3xl space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between gap-4">
         <div>
