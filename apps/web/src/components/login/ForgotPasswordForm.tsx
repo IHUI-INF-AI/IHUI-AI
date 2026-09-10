@@ -144,7 +144,8 @@ export function ForgotPasswordForm() {
             value={code}
             onChange={(e) => setCode(e.target.value)}
           />
-          <Button size="lg"
+          <Button
+            size="lg"
             type="button"
             variant="outline"
             className="shrink-0 px-4"
@@ -181,7 +182,13 @@ export function ForgotPasswordForm() {
         />
       </div>
 
-      <Button size="lg" type="button" className="w-full px-4" disabled={submitting} onClick={handleReset}>
+      <Button
+        size="lg"
+        type="button"
+        className="w-full px-4"
+        disabled={submitting}
+        onClick={handleReset}
+      >
         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {t('resetPassword')}
       </Button>

@@ -102,7 +102,9 @@ const PROBE_CANDIDATES: ProbeCandidate[] = [
 ]
 
 /** 带超时的 fetch,发起前构造 UA */
-async function fetchText(url: string): Promise<{ ok: boolean; status: number; type: string; body: string }> {
+async function fetchText(
+  url: string,
+): Promise<{ ok: boolean; status: number; type: string; body: string }> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
   try {
@@ -140,7 +142,11 @@ async function isValidRssFeed(url: string, minBytes: number): Promise<boolean> {
 
 /** 探测全部候选源,恢复的自动入源。返回本次结果明细。 */
 export async function probePortalSources(): Promise<
-  Array<{ sourceCode: string; status: 'added' | 'exists' | 'not-recovered' | 'error'; url?: string }>
+  Array<{
+    sourceCode: string
+    status: 'added' | 'exists' | 'not-recovered' | 'error'
+    url?: string
+  }>
 > {
   const results: Array<{
     sourceCode: string

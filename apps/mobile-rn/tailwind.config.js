@@ -32,7 +32,7 @@ module.exports = {
           DEFAULT: 'var(--rn-accent)',
           light: 'var(--rn-accent-light)',
           soft: 'var(--rn-accent-soft)',
-          '50': 'var(--rn-accent-50)',
+          50: 'var(--rn-accent-50)',
         },
         tertiary: 'var(--rn-tertiary)',
         body: 'var(--rn-body)',

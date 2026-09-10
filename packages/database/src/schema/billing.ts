@@ -128,8 +128,16 @@ export const aiPricing = pgTable(
     // 单位:分/千 token(CNY)。numeric(18,6) 保留 6 位小数——极廉价模型
     // (如 gpt-4o-mini $0.15/1M ≈ 0.108 分/千 token)在 integer 下会 round 成 0 分。
     // mode:'number' 保持 TS 侧 number 类型,消费端零适配。
-    inputTokenPrice: numeric('input_token_price', { precision: 18, scale: 6, mode: 'number' }).notNull(),
-    outputTokenPrice: numeric('output_token_price', { precision: 18, scale: 6, mode: 'number' }).notNull(),
+    inputTokenPrice: numeric('input_token_price', {
+      precision: 18,
+      scale: 6,
+      mode: 'number',
+    }).notNull(),
+    outputTokenPrice: numeric('output_token_price', {
+      precision: 18,
+      scale: 6,
+      mode: 'number',
+    }).notNull(),
     regionPricing: jsonb('region_pricing').notNull().default({ cn: 1.0 }),
     discount: jsonb('discount'),
     currency: varchar('currency', { length: 8 }).default('CNY').notNull(),

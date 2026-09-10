@@ -13,19 +13,12 @@
       "supportsTablet": true,
       "bundleIdentifier": "ai.ihui.mobile",
       "infoPlist": {
-        "LSApplicationQueriesSchemes": [
-          "weixin",
-          "wechat",
-          "weixinULAPI"
-        ],
+        "LSApplicationQueriesSchemes": ["weixin", "wechat", "weixinULAPI"],
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false
         }
       },
-      "associatedDomains": [
-        "applinks:aizhs.top",
-        "applinks:file.aizhs.top"
-      ],
+      "associatedDomains": ["applinks:aizhs.top", "applinks:file.aizhs.top"],
       "config": {
         "usesNonExemptEncryption": false
       }

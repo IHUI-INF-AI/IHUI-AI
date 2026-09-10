@@ -44,7 +44,9 @@ export default function GlobalError({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <h1 style={{ fontSize: '20px', fontWeight: 600, margin: 0 }}>应用发生严重错误</h1>
             {/* 2026-08-01 错误中文化:不直接渲染 error.message(可能英文),始终显示中文兜底 */}
-            <p style={{ fontSize: '14px', color: 'var(--color-muted-foreground)', margin: 0 }}>请刷新页面或联系管理员</p>
+            <p style={{ fontSize: '14px', color: 'var(--color-muted-foreground)', margin: 0 }}>
+              请刷新页面或联系管理员
+            </p>
           </div>
           <button
             onClick={reset}

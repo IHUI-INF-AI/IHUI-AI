@@ -184,7 +184,9 @@ export function resolveCarrierWebResult(input: string | CarrierLoginResult): voi
   webReject = null
 }
 
-function safeParseResult(raw: string): { phone: string; accessToken?: string; operator?: CarrierOperator } | null {
+function safeParseResult(
+  raw: string,
+): { phone: string; accessToken?: string; operator?: CarrierOperator } | null {
   try {
     const obj = JSON.parse(raw) as {
       phone?: string
@@ -216,9 +218,7 @@ async function carrierLoginViaWeb(url: string): Promise<CarrierLoginResult> {
     // UI 侧已用 getCarrierWebUrl() 检测到该地址并渲染 WebView。
     // 兜底:若 UI 未挂载 WebView,30s 后超时落回失败(避免永久等待)。
     setTimeout(() => {
-      webReject?.(
-        new CarrierOneClickError(CARRIER_ERROR.WEB_TIMEOUT, 'H5 一键登录超时,请重试'),
-      )
+      webReject?.(new CarrierOneClickError(CARRIER_ERROR.WEB_TIMEOUT, 'H5 一键登录超时,请重试'))
       webResolve = null
       webReject = null
     }, 30_000)

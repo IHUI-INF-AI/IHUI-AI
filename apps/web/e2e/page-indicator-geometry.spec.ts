@@ -202,9 +202,7 @@ test.describe('PageIndicator 几何守门', () => {
     expect(dims.topPadding).toBeLessThanOrEqual(5)
   })
 
-  test('间距一致(2026-08-27 v15):任意相邻两点间距 ≈ 8px (gap-2)', async ({
-    page,
-  }) => {
+  test('间距一致(2026-08-27 v15):任意相邻两点间距 ≈ 8px (gap-2)', async ({ page }) => {
     const metrics = await page.evaluate((selector) => {
       const container = document.querySelector(selector) as HTMLElement | null
       if (!container) return { error: 'indicator not found' as const }

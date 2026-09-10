@@ -213,7 +213,8 @@ export default function TopicDetailPage() {
                   key={p.id}
                   className="topic-detail-post"
                   onClick={() => goCircle(String(p.id))}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   <View className="topic-detail-post-user">
                     <Image
                       className="topic-detail-avatar"

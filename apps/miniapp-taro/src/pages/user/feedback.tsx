@@ -153,7 +153,9 @@ export default function Feedback() {
                       onRemoveImage(idx)
                     }}
                   >
-                    <Text className="text-[28rpx] leading-none text-[var(--color-surface-light)]">×</Text>
+                    <Text className="text-[28rpx] leading-none text-[var(--color-surface-light)]">
+                      ×
+                    </Text>
                   </View>
                 </View>
               ))}

@@ -47,7 +47,10 @@ export function AiSkillScreen() {
   const onOpen = (skill: AiSkillMeta) => {
     Alert.alert(skill.name, skill.description, [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: t('aiSkill.detail'), onPress: () => navigation.navigate('AiSkillDetail', { id: skill.id, name: skill.name }) },
+      {
+        text: t('aiSkill.detail'),
+        onPress: () => navigation.navigate('AiSkillDetail', { id: skill.id, name: skill.name }),
+      },
     ])
   }
 
@@ -55,7 +58,9 @@ export function AiSkillScreen() {
 
   if (loading) {
     return (
-      <View className={`flex-1 items-center justify-center ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
+      <View
+        className={`flex-1 items-center justify-center ${dark ? 'bg-neutral-900' : 'bg-white'}`}
+      >
         <Text className="text-gray-500">{t('common.loading')}</Text>
       </View>
     )
@@ -64,7 +69,10 @@ export function AiSkillScreen() {
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
       <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text className="text-sm text-gray-500">{t('common.back')}</Text>
         </TouchableOpacity>
         <Text className="text-base font-medium">{t('aiSkill.title')}</Text>
@@ -88,7 +96,15 @@ export function AiSkillScreen() {
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true)
+                void load()
+              }}
+            />
+          }
           ListEmptyComponent={
             <View className="items-center py-16">
               <Text className="text-sm text-gray-500">{t('aiSkill.empty')}</Text>
@@ -101,18 +117,26 @@ export function AiSkillScreen() {
               className={`mb-3 rounded-lg border p-4 ${dark ? 'border-neutral-700 bg-neutral-800' : 'border-gray-200 bg-white'}`}
             >
               <View className="flex-row items-center justify-between">
-                <Text className="flex-1 text-base font-medium" numberOfLines={1}>{item.name}</Text>
+                <Text className="flex-1 text-base font-medium" numberOfLines={1}>
+                  {item.name}
+                </Text>
                 <Text className="ml-2 rounded-sm bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 dark:bg-neutral-700">
                   {item.category}
                 </Text>
               </View>
-              <Text className={`mt-1 text-sm leading-5 ${dark ? 'text-gray-400' : 'text-gray-600'}`} numberOfLines={2}>
+              <Text
+                className={`mt-1 text-sm leading-5 ${dark ? 'text-gray-400' : 'text-gray-600'}`}
+                numberOfLines={2}
+              >
                 {item.description}
               </Text>
               {item.tags.length > 0 ? (
                 <View className="mt-2 flex-row flex-wrap gap-1.5">
                   {item.tags.slice(0, 4).map((tag) => (
-                    <Text key={tag} className="rounded-sm bg-orange-50 px-1.5 py-0.5 text-xs text-orange-600 dark:bg-neutral-700 dark:text-orange-300">
+                    <Text
+                      key={tag}
+                      className="rounded-sm bg-orange-50 px-1.5 py-0.5 text-xs text-orange-600 dark:bg-neutral-700 dark:text-orange-300"
+                    >
                       {tag}
                     </Text>
                   ))}

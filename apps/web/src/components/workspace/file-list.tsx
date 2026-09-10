@@ -23,8 +23,23 @@ export interface FileItem {
 // 2026-09-08:可转 Markdown 的扩展名(与后端 anydoc 引擎 16 格式对齐)。
 // 按钮仅对这些格式显示,避免不支持格式点击后必然报错。
 const CONVERTIBLE_EXTS = new Set([
-  '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.xlsm', '.ods',
-  '.odt', '.odp', '.rtf', '.epub', '.csv', '.pdf', '.txt', '.md', '.markdown',
+  '.doc',
+  '.docx',
+  '.ppt',
+  '.pptx',
+  '.xls',
+  '.xlsx',
+  '.xlsm',
+  '.ods',
+  '.odt',
+  '.odp',
+  '.rtf',
+  '.epub',
+  '.csv',
+  '.pdf',
+  '.txt',
+  '.md',
+  '.markdown',
 ])
 
 export function isConvertibleToMarkdown(name: string): boolean {
@@ -132,11 +147,7 @@ export function FileList({
                     )}
                     {onPreview && (
                       <Tooltip content="预览">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => onPreview(file)}
-                        >
+                        <Button variant="ghost" size="icon-sm" onClick={() => onPreview(file)}>
                           <Eye className="h-4 w-4" />
                         </Button>
                       </Tooltip>

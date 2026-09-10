@@ -52,9 +52,7 @@ export const cozeTestRoutes: FastifyPluginAsync = async (server) => {
       )
     } catch (e) {
       request.log.error(e)
-      return reply
-        .status(500)
-        .send(error(500, "Coze 测试失败,请检查配置后重试"))
+      return reply.status(500).send(error(500, 'Coze 测试失败,请检查配置后重试'))
     }
   })
 
@@ -74,9 +72,7 @@ export const cozeTestRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ valid: true, baseUrl: cozeBaseUrl() }))
     } catch (e) {
       request.log.error(e)
-      return reply
-        .status(500)
-        .send(error(500, "Coze 测试失败,请检查配置后重试"))
+      return reply.status(500).send(error(500, 'Coze 测试失败,请检查配置后重试'))
     }
   })
 
@@ -113,9 +109,7 @@ export const cozeTestRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ accessible: true, bot: data.data }))
     } catch (e) {
       request.log.error(e)
-      return reply
-        .status(500)
-        .send(error(500, "Coze 测试失败,请检查配置后重试"))
+      return reply.status(500).send(error(500, 'Coze 测试失败,请检查配置后重试'))
     }
   })
 

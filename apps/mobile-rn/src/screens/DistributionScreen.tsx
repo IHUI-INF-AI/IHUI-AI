@@ -153,7 +153,12 @@ export function DistributionScreen() {
     { id: 'ai_team', title: 'AI团队', icon: Bot, description: '查看智能体团队' },
     { id: 'business_card', title: '我的名片', icon: IdCard, description: '查看我的个人信息' },
     { id: 'my_qrcode', title: '我的二维码', icon: QrCode, description: '推广专属二维码' },
-    { id: 'distribution_orders', title: '分销订单', icon: Package, description: '查看我的分销订单' },
+    {
+      id: 'distribution_orders',
+      title: '分销订单',
+      icon: Package,
+      description: '查看我的分销订单',
+    },
   ]
 
   const onBlockPress = useCallback(

@@ -17,9 +17,7 @@ module.exports = ({ config }) => {
   // eslint 兼容 EAS:WX_APP_APPID 已在 eas.json production env 注入(非 EXPO_PUBLIC_ 前缀,
   // 仅构建机可见,不打包进 bundle)
   const appId =
-    process.env.EXPO_PUBLIC_WECHAT_APP_ID ||
-    process.env.WX_APP_APPID ||
-    config.extra?.WX_APP_APPID
+    process.env.EXPO_PUBLIC_WECHAT_APP_ID || process.env.WX_APP_APPID || config.extra?.WX_APP_APPID
   const universalLink =
     process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || config.extra?.WX_UNIVERSAL_LINK
   const androidPackage = config.android?.package
@@ -43,7 +41,10 @@ module.exports = ({ config }) => {
       ...(config.plugins || []),
       ['./plugins/withWechat.cjs', { appId, universalLink, androidPackage }],
       // 运营商一键登录骨架(可选;未配置时 UI 隐藏该入口,走免费自动回填降级)
-      ['./plugins/withCarrier.cjs', { appId: carrierAppId, webSdkUrl: carrierWebSdkUrl, androidPackage }],
+      [
+        './plugins/withCarrier.cjs',
+        { appId: carrierAppId, webSdkUrl: carrierWebSdkUrl, androidPackage },
+      ],
       './plugins/withExpoImportFix.cjs',
       // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
       // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf

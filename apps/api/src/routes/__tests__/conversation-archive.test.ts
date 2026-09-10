@@ -159,9 +159,7 @@ describe('persistMessageArchive — 归档 util', () => {
   it('DB 失败降级:console.warn + 返回 null,绝不抛错影响压缩主流程', async () => {
     mockInsertValues.mockRejectedValue(new Error('db connection lost'))
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const result = await persistMessageArchive(CONV_ID, [
-      { role: 'user', content: 'hello' },
-    ])
+    const result = await persistMessageArchive(CONV_ID, [{ role: 'user', content: 'hello' }])
     expect(result).toBeNull()
     expect(warnSpy).toHaveBeenCalled()
     expect(warnSpy.mock.calls[0]?.[0]).toContain('[ConversationArchive]')

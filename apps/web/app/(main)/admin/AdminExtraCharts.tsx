@@ -78,7 +78,11 @@ export function AdminExtraCharts({ stats }: Props) {
             size={220}
             data={[
               { label: t('paidCount'), value: stats.orderStats.paidCount, color: CHART_GREEN },
-              { label: t('pendingCount'), value: stats.orderStats.pendingCount, color: CHART_AMBER },
+              {
+                label: t('pendingCount'),
+                value: stats.orderStats.pendingCount,
+                color: CHART_AMBER,
+              },
               {
                 label: t('otherOrders'),
                 value: Math.max(

@@ -115,148 +115,148 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
   return (
     <div className={cn('flex h-full flex-col bg-background', className)}>
       <TooltipProvider>
-      <header className="flex h-12 shrink-0 items-center gap-2 px-3">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <Bot className="h-4 w-4" />
-        </div>
-        <span className="text-sm font-semibold">{t('title')}</span>
-        {sessionId && (
-          <Tooltip content={sessionId}>
-            <span
-              data-testid="session-id"
-              className="truncate text-xs text-muted-foreground"
-            >
-              #{sessionId.slice(0, 8)}
-            </span>
-          </Tooltip>
-        )}
-        {status === 'running' && (
-          <Loader2 data-testid="status-running" className="h-3.5 w-3.5 animate-spin text-primary" />
-        )}
-        {status === 'completed' && (
-          <CheckCircle2 data-testid="status-completed" className="h-3.5 w-3.5 text-green-600" />
-        )}
-        {status === 'failed' && (
-          <AlertCircle data-testid="status-failed" className="h-3.5 w-3.5 text-red-500" />
-        )}
-        {status === 'cancelled' && (
-          <Ban data-testid="status-cancelled" className="h-3.5 w-3.5 text-zinc-500" />
-        )}
-        <div className="flex-1" />
-        <button
-          type="button"
-          onClick={handleClear}
-          disabled={status === 'running'}
-          className="rounded-md px-2 py-1 text-xs transition-colors hover:bg-accent disabled:opacity-40"
-        >
-          {t('clear')}
-        </button>
-      </header>
-
-      <div className="min-h-0 flex-1 overflow-y-auto p-3 thin-scroll">
-        {plan && (
-          <section className="mb-3 rounded-md border border-border bg-muted/30 p-3">
-            <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <FileText className="h-3 w-3" />
-              {t('plan')}
-            </div>
-            <pre className="whitespace-pre-wrap text-xs leading-relaxed">{plan}</pre>
-          </section>
-        )}
-
-        {permission && (
-          <section className="mb-3 rounded-md border border-yellow-300 bg-yellow-50 p-3 dark:border-yellow-700 dark:bg-yellow-950/30">
-            <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium">
-              <Shield className="h-3 w-3" />
-              {t('permissionDecision', { decision: permission.decision })}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {t('permissionMeta', {
-                tool: permission.toolName ?? t('unknownTool'),
-                level: permission.dangerLevel ?? t('defaultLevel'),
-                mode: permission.mode,
-              })}
-            </div>
-          </section>
-        )}
-
-        {output && (
-          <section className="mb-3">
-            <div className="mb-1.5 text-xs font-medium text-muted-foreground">{t('output')}</div>
-            <div className="whitespace-pre-wrap text-sm leading-relaxed">{output}</div>
-          </section>
-        )}
-
-        {error && (
-          <section className="mb-3 rounded-md border border-red-300 bg-red-50 p-3 dark:border-red-700 dark:bg-red-950/30">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-red-700 dark:text-red-400">
-              <AlertCircle className="h-3 w-3" />
-              {t('error')}
-            </div>
-            <div className="mt-1 text-xs">{error}</div>
-          </section>
-        )}
-
-        {/* P2 中期增强:任务被取消时显示明确提示,告知用户停止操作已生效 */}
-        {status === 'cancelled' && (
-          <section
-            data-testid="cancelled-banner"
-            // 2026-08-17 P3:dark 模式 banner 弱提示背景统一为 zinc-950/30(深一档,与代码块 token 对齐)
-            className="mb-3 rounded-md border border-zinc-300 bg-zinc-50/50 p-3 dark:border-zinc-700 dark:bg-zinc-950/30"
-          >
-            <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
-              <Ban className="h-3 w-3" />
-              {t('cancelledTitle')}
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">{t('cancelledBody')}</div>
-          </section>
-        )}
-
-        {!plan && !output && !error && !permission && status !== 'cancelled' && (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            {t('emptyState')}
+        <header className="flex h-12 shrink-0 items-center gap-2 px-3">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <Bot className="h-4 w-4" />
           </div>
-        )}
-      </div>
-
-      <footer className="shrink-0 p-3">
-        <div className="flex items-end gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                void handleSend()
-              }
-            }}
-            placeholder={t('placeholder')}
+          <span className="text-sm font-semibold">{t('title')}</span>
+          {sessionId && (
+            <Tooltip content={sessionId}>
+              <span data-testid="session-id" className="truncate text-xs text-muted-foreground">
+                #{sessionId.slice(0, 8)}
+              </span>
+            </Tooltip>
+          )}
+          {status === 'running' && (
+            <Loader2
+              data-testid="status-running"
+              className="h-3.5 w-3.5 animate-spin text-primary"
+            />
+          )}
+          {status === 'completed' && (
+            <CheckCircle2 data-testid="status-completed" className="h-3.5 w-3.5 text-green-600" />
+          )}
+          {status === 'failed' && (
+            <AlertCircle data-testid="status-failed" className="h-3.5 w-3.5 text-red-500" />
+          )}
+          {status === 'cancelled' && (
+            <Ban data-testid="status-cancelled" className="h-3.5 w-3.5 text-zinc-500" />
+          )}
+          <div className="flex-1" />
+          <button
+            type="button"
+            onClick={handleClear}
             disabled={status === 'running'}
-            rows={2}
-            className="min-w-0 flex-1 resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-          />
-          {status === 'running' ? (
-            <button
-              type="button"
-              onClick={handleStop}
-              className="inline-flex h-9 items-center gap-1 rounded-md bg-red-500 px-3 text-xs font-medium text-white transition-colors hover:bg-red-600"
+            className="rounded-md px-2 py-1 text-xs transition-colors hover:bg-accent disabled:opacity-40"
+          >
+            {t('clear')}
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 thin-scroll">
+          {plan && (
+            <section className="mb-3 rounded-md border border-border bg-muted/30 p-3">
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <FileText className="h-3 w-3" />
+                {t('plan')}
+              </div>
+              <pre className="whitespace-pre-wrap text-xs leading-relaxed">{plan}</pre>
+            </section>
+          )}
+
+          {permission && (
+            <section className="mb-3 rounded-md border border-yellow-300 bg-yellow-50 p-3 dark:border-yellow-700 dark:bg-yellow-950/30">
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium">
+                <Shield className="h-3 w-3" />
+                {t('permissionDecision', { decision: permission.decision })}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {t('permissionMeta', {
+                  tool: permission.toolName ?? t('unknownTool'),
+                  level: permission.dangerLevel ?? t('defaultLevel'),
+                  mode: permission.mode,
+                })}
+              </div>
+            </section>
+          )}
+
+          {output && (
+            <section className="mb-3">
+              <div className="mb-1.5 text-xs font-medium text-muted-foreground">{t('output')}</div>
+              <div className="whitespace-pre-wrap text-sm leading-relaxed">{output}</div>
+            </section>
+          )}
+
+          {error && (
+            <section className="mb-3 rounded-md border border-red-300 bg-red-50 p-3 dark:border-red-700 dark:bg-red-950/30">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-red-700 dark:text-red-400">
+                <AlertCircle className="h-3 w-3" />
+                {t('error')}
+              </div>
+              <div className="mt-1 text-xs">{error}</div>
+            </section>
+          )}
+
+          {/* P2 中期增强:任务被取消时显示明确提示,告知用户停止操作已生效 */}
+          {status === 'cancelled' && (
+            <section
+              data-testid="cancelled-banner"
+              // 2026-08-17 P3:dark 模式 banner 弱提示背景统一为 zinc-950/30(深一档,与代码块 token 对齐)
+              className="mb-3 rounded-md border border-zinc-300 bg-zinc-50/50 p-3 dark:border-zinc-700 dark:bg-zinc-950/30"
             >
-              <Square className="h-3.5 w-3.5" />
-              {t('stop')}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={!input.trim()}
-              className="inline-flex h-9 items-center gap-1 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
-            >
-              <Play className="h-3.5 w-3.5" />
-              {t('execute')}
-            </button>
+              <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <Ban className="h-3 w-3" />
+                {t('cancelledTitle')}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">{t('cancelledBody')}</div>
+            </section>
+          )}
+
+          {!plan && !output && !error && !permission && status !== 'cancelled' && (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              {t('emptyState')}
+            </div>
           )}
         </div>
-      </footer>
+
+        <footer className="shrink-0 p-3">
+          <div className="flex items-end gap-2">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  void handleSend()
+                }
+              }}
+              placeholder={t('placeholder')}
+              disabled={status === 'running'}
+              rows={2}
+              className="min-w-0 flex-1 resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+            />
+            {status === 'running' ? (
+              <button
+                type="button"
+                onClick={handleStop}
+                className="inline-flex h-9 items-center gap-1 rounded-md bg-red-500 px-3 text-xs font-medium text-white transition-colors hover:bg-red-600"
+              >
+                <Square className="h-3.5 w-3.5" />
+                {t('stop')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={!input.trim()}
+                className="inline-flex h-9 items-center gap-1 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+              >
+                <Play className="h-3.5 w-3.5" />
+                {t('execute')}
+              </button>
+            )}
+          </div>
+        </footer>
       </TooltipProvider>
     </div>
   )

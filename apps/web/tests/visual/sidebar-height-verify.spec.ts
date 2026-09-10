@@ -110,10 +110,10 @@ test.describe('侧边栏按钮高度统一验证', () => {
 
       // 底部工具栏 icon 按钮(语言/下载/消息/主题/设置) — SidebarActions 容器
       // (flex gap-0.5 rounded-md p-1,见 sidebar.tsx SidebarActions),精确锚定避免误选 header
-      const actionContainer = aside.querySelector('[class*="gap-0.5"][class*="rounded-md"][class*="p-1"]')
-      const allBtns2 = actionContainer
-        ? actionContainer.querySelectorAll('button')
-        : []
+      const actionContainer = aside.querySelector(
+        '[class*="gap-0.5"][class*="rounded-md"][class*="p-1"]',
+      )
+      const allBtns2 = actionContainer ? actionContainer.querySelectorAll('button') : []
       r.footerBtnCount = allBtns2.length
       r.footerBtn_heights = Array.from(allBtns2).map((b) => b.getBoundingClientRect().height)
       r.footerBtn_classes = Array.from(allBtns2).map((b) => b.className.substring(0, 80))

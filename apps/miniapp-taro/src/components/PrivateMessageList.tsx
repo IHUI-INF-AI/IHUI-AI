@@ -38,7 +38,8 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
           key={item.id}
           className="flex items-center px-3 py-3 mb-1.5"
           onClick={() => onClick?.(item)}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           <View className="relative mr-3">
             {item.userAvatar ? (
               <Image

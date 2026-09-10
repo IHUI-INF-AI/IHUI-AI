@@ -208,7 +208,8 @@ export default function MemberDetail() {
               <View
                 className="px-[40rpx] h-[72rpx] rounded-[20rpx] bg-primary flex items-center justify-center"
                 onClick={() => load(true)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text className="text-[28rpx] font-medium text-[var(--color-primary-foreground)]">
                   {tt('distribution.memberDetail.retry', '点击重试')}
                 </Text>

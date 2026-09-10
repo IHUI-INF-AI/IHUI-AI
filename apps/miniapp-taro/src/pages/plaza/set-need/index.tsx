@@ -98,7 +98,8 @@ export default function SetNeed() {
                 key={key}
                 className={`px-[24rpx] py-[28rpx] rounded-[24rpx] ${active ? 'bg-primary' : 'bg-muted'}`}
                 onClick={() => toggleCategory(key)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text
                   className={`text-[32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
                 >
@@ -122,7 +123,8 @@ export default function SetNeed() {
                 key={lv}
                 className={`px-[24rpx] py-[28rpx] rounded-[24rpx] ${active ? 'bg-primary' : 'bg-muted'}`}
                 onClick={() => setLevel(lv)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text
                   className={`text-[32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
                 >
@@ -146,7 +148,8 @@ export default function SetNeed() {
                 key={b}
                 className={`px-[24rpx] py-[28rpx] rounded-[24rpx] ${active ? 'bg-primary' : 'bg-muted'}`}
                 onClick={() => setBudget(b)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <Text
                   className={`text-[32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
                 >
