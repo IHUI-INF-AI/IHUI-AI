@@ -99,7 +99,7 @@ jobs:
         env:
           NODE_ENV: test
           DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
-          JWT_SECRET: test-jwt-secret-for-e2e
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
           CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
         run: pnpm --filter @ihui/api run seed:test-users
 
@@ -117,7 +117,7 @@ jobs:
           HOST: '0.0.0.0'
           DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
           REDIS_URL: redis://localhost:6379/0
-          JWT_SECRET: test-jwt-secret-for-e2e
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
           CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
         run: |
           node dist/index.js &

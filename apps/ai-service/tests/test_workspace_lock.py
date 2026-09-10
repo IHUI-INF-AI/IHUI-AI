@@ -137,7 +137,7 @@ class TestMemoryRenewAndForce:
 
     async def test_renew_wrong_token_returns_false(self):
         """错误 token 续期 → False,原 heartbeat 不变。"""
-        info = await workspace_lock.acquire("/repo/app", holder="agent-1")
+        await workspace_lock.acquire("/repo/app", holder="agent-1")
         before = (await workspace_lock.get_lock("/repo/app")).heartbeat_at
         assert await workspace_lock.renew("/repo/app", "wrong") is False
         assert (await workspace_lock.get_lock("/repo/app")).heartbeat_at == before
@@ -210,9 +210,9 @@ class TestValidation:
 
     async def test_heartbeat_interval_is_ttl_third(self):
         """心跳间隔 = TTL / 3(至少 1s)。"""
-        assert WORKSPACE_LOCK_HEARTBEAT_INTERVAL == max(
+        assert max(
             1, WORKSPACE_LOCK_TTL // 3
-        )
+        ) == WORKSPACE_LOCK_HEARTBEAT_INTERVAL
 
     async def test_default_ttl_positive(self):
         assert WORKSPACE_LOCK_TTL > 0

@@ -175,6 +175,12 @@ jobs:
         working-directory: apps/ai-service
         run: uv pip install --system -e ".[dev]"
 
+      - name: Create ai-service runtime tables (ensure_table)
+        working-directory: apps/ai-service
+        # media_tasks 由 ai-service 启动时幂等自建(ensure_table),不在 drizzle 迁移内;
+        # CI 校验前先按生产同等路径建表,否则 schema_check 恒报 exists=False(2026-09-10)
+        run: python -c "import asyncio; from app.services.media_tasks import ensure_table; asyncio.run(ensure_table())"
+
       - name: Run ai-service schema_check against test DB
         working-directory: apps/ai-service
         run: |
