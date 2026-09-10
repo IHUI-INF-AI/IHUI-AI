@@ -385,9 +385,7 @@ export default function CompareIndexPage() {
             <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="bg-muted/30">
-                  <th className="px-3 py-3 text-left text-sm font-semibold">
-                    特性
-                  </th>
+                  <th className="px-3 py-3 text-left text-sm font-semibold">特性</th>
                   {TABLE_COLS.map((col, i) => (
                     <th
                       key={col}

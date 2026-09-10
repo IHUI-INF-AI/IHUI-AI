@@ -124,13 +124,10 @@ export default function AdminRelayOverviewPage() {
       const res = await fetchApi<{
         providerCode: string
         byokCommissionRate: number
-      }>(
-        `${baseUrl}/api/admin/relay/commission/${encodeURIComponent(vars.providerCode)}`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({ byokCommissionRate: vars.rate }),
-        },
-      )
+      }>(`${baseUrl}/api/admin/relay/commission/${encodeURIComponent(vars.providerCode)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ byokCommissionRate: vars.rate }),
+      })
       if (
         !res.success ||
         !res.data ||
