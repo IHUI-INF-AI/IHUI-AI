@@ -58,6 +58,19 @@ export interface DebugVariable {
   [key: string]: unknown
 }
 
+export interface DebugScope {
+  name: string
+  variablesReference: number
+  expensive?: boolean
+  [key: string]: unknown
+}
+
+export interface DebugThread {
+  id: number
+  name: string
+  [key: string]: unknown
+}
+
 export interface DebugSessionInfo {
   sessionId: string
   language: string
@@ -85,6 +98,12 @@ export interface StackResult {
 }
 export interface VariablesResult {
   variables: DebugVariable[]
+}
+export interface ThreadsResult {
+  threads: DebugThread[]
+}
+export interface ScopesResult {
+  scopes: DebugScope[]
 }
 export interface EvalResult {
   result: string
@@ -157,9 +176,28 @@ export function getStackTrace(sessionId: string): Promise<StackResult> {
   return getJson<StackResult>(`/api/debug/sessions/${encodeURIComponent(sessionId)}/stack`)
 }
 
+export function getThreads(sessionId: string): Promise<ThreadsResult> {
+  return getJson<ThreadsResult>(`/api/debug/sessions/${encodeURIComponent(sessionId)}/threads`)
+}
+
+export function getScopes(sessionId: string, frameId: number): Promise<ScopesResult> {
+  return getJson<ScopesResult>(
+    `/api/debug/sessions/${encodeURIComponent(sessionId)}/scopes?frameId=${encodeURIComponent(frameId)}`,
+  )
+}
+
 export function getVariables(sessionId: string, frameId: number): Promise<VariablesResult> {
   return getJson<VariablesResult>(
     `/api/debug/sessions/${encodeURIComponent(sessionId)}/variables?frameId=${encodeURIComponent(frameId)}`,
+  )
+}
+
+export function getVariablesByReference(
+  sessionId: string,
+  variablesReference: number,
+): Promise<VariablesResult> {
+  return getJson<VariablesResult>(
+    `/api/debug/sessions/${encodeURIComponent(sessionId)}/variables?variablesReference=${encodeURIComponent(variablesReference)}`,
   )
 }
 
