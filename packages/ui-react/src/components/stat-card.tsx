@@ -54,7 +54,7 @@ export function StatCard({
 }: StatCardProps) {
   return (
     <Card className={className} {...rest}>
-      <CardContent className="flex flex-col gap-1 p-3">
+      <CardContent className="flex flex-col gap-1 p-3 min-[640px]:p-3">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {icon}
           <span>{label}</span>
