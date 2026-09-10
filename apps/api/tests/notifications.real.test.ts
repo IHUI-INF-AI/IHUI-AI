@@ -193,7 +193,9 @@ describe('notification-queries — 真实 DB 集成测试', () => {
       // 2026-09-10 real-db CI:migration 内置 admin 会被 edu-rbac-permission.real.test.ts
       // 的 `DELETE FROM users`(无条件)清空,本文件不能依赖跨文件残留的 admin;
       // 测试自建 system admin,只验证"非 admin 用户为 0 时群发只落到 admin"
-      await db.insert(users).values({ phone: '13900000099', nickname: 'sysadmin', isSystemAdmin: true })
+      await db
+        .insert(users)
+        .values({ phone: '13900000099', nickname: 'sysadmin', isSystemAdmin: true })
       const notifications = await broadcastNotification({
         title: '空',
         content: '',
