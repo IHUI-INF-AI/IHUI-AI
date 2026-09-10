@@ -124,14 +124,14 @@ export function NewsComments({ articleId, className }: NewsCommentsProps) {
 
   return (
     <Card className={className}>
-      <CardHeader className="p-4 pb-2">
+      <CardHeader className="p-3 pb-2">
         <CardTitle className="flex items-center gap-1.5 text-base">
           <MessageSquare className="h-4 w-4" />
           {t('title')}
           <span className="text-sm font-normal text-muted-foreground">({comments.length})</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4 p-4 pt-0 min-[640px]:p-6 min-[640px]:pt-0">
+      <CardContent className="space-y-4 p-3 pt-0 min-[640px]:pt-0">
         <div className="flex gap-3">
           <Textarea
             value={content}

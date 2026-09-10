@@ -19,7 +19,7 @@ interface Props {
 export function AuthFindInfoFilter({ search, onSearchChange, onQuery, onReset }: Props) {
   const t = useTranslations('adminAuthFindInfo')
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1">
         <Label className="text-xs">{t('labelUserUuid')}</Label>
         <Input

@@ -47,7 +47,7 @@ export default function EduPointsPage() {
   const list = channels ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -97,7 +97,7 @@ export default function EduPointsPage() {
             {t('loading')}
           </div>
         ) : error ? (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
             {(error as Error).message}
           </div>
         ) : list.length === 0 ? (
@@ -109,10 +109,10 @@ export default function EduPointsPage() {
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {list.map((channel) => (
               <Card key={channel.id} className="transition-colors hover:bg-accent">
-                <CardHeader className="p-4 pb-2">
+                <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-base">{channel.name}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-1.5 p-4 pt-0 text-sm">
+                <CardContent className="space-y-1.5 p-3 pt-0 text-sm">
                   {channel.code && <p className="text-xs text-muted-foreground">{channel.code}</p>}
                   {channel.description && (
                     <p className="text-muted-foreground">{channel.description}</p>

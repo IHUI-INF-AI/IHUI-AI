@@ -20,7 +20,7 @@ interface Props {
 export function AboutUsFilter({ search, setSearch, onSearch, onReset }: Props) {
   const t = useTranslations('admin.aboutUs')
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       {SEARCH_KEYS.map((k) => {
         const label = t(FIELDS.find((f) => f.key === k)!.label)
         return (

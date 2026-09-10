@@ -119,7 +119,7 @@ export function AgentCard({ agent, selected, onSelect, onAction }: CardProps) {
         selected && 'bg-accent/60 ring-1 ring-accent',
       )}
     >
-      <CardContent className="space-y-3 p-4">
+      <CardContent className="space-y-3 p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1 space-y-1">
             <h3 className="truncate text-sm font-medium">{agent.name}</h3>
@@ -174,7 +174,7 @@ interface DetailProps {
 export function AgentDetailCard({ agent }: DetailProps) {
   return (
     <Card>
-      <CardContent className="space-y-3 p-4">
+      <CardContent className="space-y-3 p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 space-y-1">
             <h2 className="truncate text-lg font-semibold">{agent.name}</h2>

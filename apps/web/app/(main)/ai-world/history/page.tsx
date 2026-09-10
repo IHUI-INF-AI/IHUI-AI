@@ -80,7 +80,7 @@ export default function AiWorldHistoryPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
@@ -93,7 +93,7 @@ export default function AiWorldHistoryPage() {
           {items.map((item) => (
             <Link key={item.id} href={`/ai-world/${item.id}`}>
               <Card className="transition-colors hover:bg-accent/40">
-                <CardContent className="flex items-center gap-4 p-4">
+                <CardContent className="flex items-center gap-4 p-3">
                   <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
                     {item.coverImage ? (
                       <Image

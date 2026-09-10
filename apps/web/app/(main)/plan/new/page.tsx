@@ -35,7 +35,7 @@ export default function NewPlanPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="icon">
           <Link href="/plan" aria-label="返回计划列表">
@@ -45,7 +45,7 @@ export default function NewPlanPage() {
         <h1 className="text-2xl font-bold tracking-tight">新建 Plan</h1>
       </div>
 
-      <div className="rounded-lg border bg-card p-6">
+      <div className="rounded-lg border bg-card p-3">
         <PlanForm
           submitLabel="创建 Plan"
           onSubmit={handleSubmit}

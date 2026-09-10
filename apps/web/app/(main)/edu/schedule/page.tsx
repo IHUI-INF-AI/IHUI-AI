@@ -58,7 +58,7 @@ export default function EduSchedulePage() {
   const todayIdx = today === 0 ? 6 : today - 1
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -97,7 +97,7 @@ export default function EduSchedulePage() {
                   )}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 p-3 pt-0 min-[640px]:p-3">
+              <CardContent className="space-y-2 p-3 pt-0">
                 {(byDay[idx] ?? []).length === 0 ? (
                   <p className="py-2 text-center text-xs text-muted-foreground">{t('noClass')}</p>
                 ) : (

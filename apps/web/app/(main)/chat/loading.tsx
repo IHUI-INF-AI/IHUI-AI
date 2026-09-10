@@ -4,7 +4,7 @@
 
 export default function Loading() {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 p-6">
+    <div className="flex flex-col items-center justify-center gap-4 p-3">
       <div className="skeleton h-16 w-16 rounded-xl" />
       <div className="skeleton h-8 w-48 rounded" />
       <div className="skeleton h-4 w-64 rounded" />

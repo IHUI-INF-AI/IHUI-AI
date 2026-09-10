@@ -81,7 +81,7 @@ export default function ImageGenPage() {
     'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -93,7 +93,7 @@ export default function ImageGenPage() {
 
       <form onSubmit={submit} className="space-y-4">
         <Card>
-          <CardContent className="space-y-4 p-4 min-[768px]:p-6 min-[640px]:p-6">
+          <CardContent className="space-y-4 p-3">
             <div className="space-y-2">
               <Label htmlFor="ig-prompt">{t('promptLabel')}</Label>
               <textarea
@@ -140,7 +140,7 @@ export default function ImageGenPage() {
 
       {result && (
         <Card>
-          <CardContent className="space-y-3 p-4">
+          <CardContent className="space-y-3 p-3">
             <div className="overflow-hidden rounded-lg bg-muted">
               <Image
                 src={result.imageUrl}

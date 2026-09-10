@@ -107,7 +107,7 @@ export default function AgentCategoryDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notExists')}
         </div>
       </div>
@@ -125,7 +125,7 @@ export default function AgentCategoryDetailPage() {
       </Link>
 
       <Card>
-        <CardContent className="space-y-4 p-5 min-[640px]:p-5">
+        <CardContent className="space-y-4 p-3">
           <div className="flex items-start gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
               {category.icon ? (
@@ -189,7 +189,7 @@ export default function AgentCategoryDetailPage() {
                 <Link
                   key={agent.agentId}
                   href={`/agents/${agent.agentId}`}
-                  className="group rounded-lg border p-4 transition-colors hover:bg-accent/40"
+                  className="group rounded-lg border p-3 transition-colors hover:bg-accent/40"
                 >
                   <div className="flex items-start gap-3">
                     {agent.avatar ? (

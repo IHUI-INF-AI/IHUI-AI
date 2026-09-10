@@ -74,14 +74,14 @@ export default function ClawdbotSessionsPage() {
   }
   if (error) {
     return (
-      <div className="p-4">
+      <div className="p-3">
         <Alert variant="danger" title="加载失败" description={error} />
       </div>
     )
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <MessageSquare className="h-6 w-6 text-primary" /> 会话管理
@@ -118,7 +118,7 @@ export default function ClawdbotSessionsPage() {
 
       {selected && (
         <div
-          className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-3"
           tabIndex={0}
           onClick={() => setSelected(null)}
           onKeyDown={(e) => {
@@ -135,7 +135,7 @@ export default function ClawdbotSessionsPage() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="max-h-[60vh] space-y-2 overflow-y-auto p-4">
+            <div className="max-h-[60vh] space-y-2 overflow-y-auto p-3">
               <div className="grid grid-cols-1 gap-2 text-xs min-[768px]:grid-cols-2">
                 <div>
                   Bot: <span className="font-medium">{selected.botId}</span>

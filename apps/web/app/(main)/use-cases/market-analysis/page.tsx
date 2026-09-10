@@ -154,7 +154,7 @@ export default function MarketAnalysisPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+      <main className="py-4 mx-auto w-full max-w-6xl px-4">
         <BackButton />
         <section className="space-y-5 text-center">
           <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -187,7 +187,7 @@ export default function MarketAnalysisPage() {
           </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
-              <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
+              <div key={c.title} className="rounded-2xl border bg-card p-3 shadow-sm">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
                   {i + 1}
                 </div>
@@ -204,7 +204,7 @@ export default function MarketAnalysisPage() {
           </h2>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {steps.map((s) => (
-              <div key={s.step} className="rounded-2xl border bg-card p-6">
+              <div key={s.step} className="rounded-2xl border bg-card p-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-base font-semibold text-primary-foreground">
                   {s.step}
                 </div>
@@ -215,7 +215,7 @@ export default function MarketAnalysisPage() {
           </div>
         </section>
 
-        <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
+        <section className="mt-16 rounded-2xl border bg-card p-3 text-center">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
           <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
             开始构建你的 AI 市场分析助手

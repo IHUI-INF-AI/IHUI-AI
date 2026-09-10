@@ -74,7 +74,7 @@ export default function ChildAttendancePage() {
   const attendanceRate = stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('child.attendance')}</h1>
@@ -98,31 +98,31 @@ export default function ChildAttendancePage() {
           {/* 统计概览 */}
           <div className="grid grid-cols-2 gap-4 min-[640px]:grid-cols-5">
             <Card>
-              <CardContent className="p-4 text-center">
+              <CardContent className="p-3 text-center">
                 <p className="text-2xl font-bold">{attendanceRate}%</p>
                 <p className="text-xs text-muted-foreground">{t('attendance.rate')}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4 text-center">
+              <CardContent className="p-3 text-center">
                 <p className="text-2xl font-bold text-emerald-600">{stats.present}</p>
                 <p className="text-xs text-muted-foreground">{STATUS_LABELS.present}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4 text-center">
+              <CardContent className="p-3 text-center">
                 <p className="text-2xl font-bold text-amber-600">{stats.late}</p>
                 <p className="text-xs text-muted-foreground">{STATUS_LABELS.late}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4 text-center">
+              <CardContent className="p-3 text-center">
                 <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
                 <p className="text-xs text-muted-foreground">{STATUS_LABELS.absent}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4 text-center">
+              <CardContent className="p-3 text-center">
                 <p className="text-2xl font-bold text-blue-600">{stats.leave}</p>
                 <p className="text-xs text-muted-foreground">{STATUS_LABELS.leave}</p>
               </CardContent>

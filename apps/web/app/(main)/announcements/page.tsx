@@ -57,7 +57,7 @@ export default function AnnouncementsPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length > 0 ? (
@@ -67,7 +67,7 @@ export default function AnnouncementsPage() {
             return (
               <Link key={a.id} href={`/announcements/${a.id}`} className="block">
                 <Card className="transition-colors hover:bg-accent">
-                  <CardContent className="flex items-start gap-3 p-4">
+                  <CardContent className="flex items-start gap-3 p-3">
                     <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Icon className="h-4 w-4" />
                     </div>

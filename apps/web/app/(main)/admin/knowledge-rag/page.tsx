@@ -161,7 +161,7 @@ export default function KnowledgeRagPage() {
   const healthOk = health?.status === 'ok'
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
@@ -307,7 +307,7 @@ export default function KnowledgeRagPage() {
             <Search className="h-4 w-4" /> 检索测试
           </p>
         </div>
-        <form onSubmit={submitSearch} className="space-y-3 p-4">
+        <form onSubmit={submitSearch} className="space-y-3 p-3">
           <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-4">
             <div className="min-[768px]:col-span-2">
               <Label htmlFor="query" className="text-xs">

@@ -5,19 +5,21 @@
 """knowledge_lookup 统一知识查询门面单测。
 
 测试覆盖:
-- 四源(含 graph)全成功 / 各源失败降级 / 全部失败
+- 五源(含 graph / knowledge_cards)全成功 / 各源失败降级 / 全部失败
 - source_priority 自定义排序
-- user_id 为空跳过 long_term_memory
+- user_id 为空跳过 long_term_memory;api_token 为空跳过 knowledge_cards
+- knowledge_cards 源:HTTP 200/非 200/业务错误/IO 异常/参数透传
 - 同源内按 score 降序
 - 空结果(各源返回 [] 但不报错)
 - duration_ms 非负
 - ValueError on invalid source_priority
-- 格式化函数(_format_code_chunk / _format_rag_source / _format_ltm_summary)
+- 格式化函数(_format_code_chunk / _format_knowledge_card / _format_rag_source /
+  _format_ltm_summary)
 """
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -26,6 +28,7 @@ from app.services.knowledge_lookup import (
     KnowledgeHit,
     KnowledgeLookupResult,
     _format_code_chunk,
+    _format_knowledge_card,
     _format_ltm_summary,
     _format_rag_source,
     knowledge_lookup,
@@ -351,6 +354,172 @@ class TestUserIdMissing:
 
 
 # =============================================================================
+# knowledge_cards 第五源(2-1c-3)
+# =============================================================================
+
+
+def _make_knowledge_card(
+    *,
+    title: str = "JWT 认证踩坑",
+    kind: str = "pitfall",
+    repo_name: str = "my-repo",
+    content: str = "JWT 密钥需从环境变量读取,硬编码会被 lint 拦截。",
+    tags: list | None = None,
+    confidence: int = 80,
+) -> dict:
+    return {
+        "id": "k-1",
+        "repoName": repo_name,
+        "kind": kind,
+        "source": "agent",
+        "title": title,
+        "content": content,
+        "tags": tags if tags is not None else ["auth", "jwt"],
+        "confidence": confidence,
+        "useCount": 3,
+        "createdAt": "2026-09-10T00:00:00Z",
+    }
+
+
+def _patch_api_search(
+    *,
+    body: dict | None = None,
+    status_code: int = 200,
+    get_side_effect: Exception | None = None,
+):
+    """mock get_api_client + api_service_url,返回 (client_patch, url_patch, client_mock)。
+
+    body: 正常 JSON 响应(默认 {"code": 0, "data": []})。
+    status_code: HTTP 状态码(默认 200)。
+    get_side_effect: client.get 抛异常(用于 IO 失败降级)。
+    """
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.json.return_value = body if body is not None else {"code": 0, "data": []}
+    client = MagicMock()
+    if get_side_effect is not None:
+        client.get = AsyncMock(side_effect=get_side_effect)
+    else:
+        client.get = AsyncMock(return_value=resp)
+    client_patch = patch(
+        "app.services.api_client.get_api_client", return_value=client
+    )
+    url_patch = patch("app.core.config.settings.api_service_url", "http://api-test")
+    return client_patch, url_patch, client
+
+
+class TestKnowledgeCardsSource:
+    async def test_with_api_token_returns_hits(self):
+        """有 api_token 时查 knowledge_cards,hit 含 source/score/content/citations。"""
+        cards = [
+            _make_knowledge_card(title="低置信卡", confidence=60),
+            _make_knowledge_card(title="高置信卡", confidence=90),
+        ]
+        cp, up, client = _patch_api_search(body={"code": 0, "data": cards})
+        with cp, up:
+            result = await knowledge_lookup(
+                "q",
+                source_priority=["knowledge_cards"],
+                repo_name="my-repo",
+                api_token="jwt-token",
+            )
+
+        assert result.errors == []
+        assert len(result.hits) == 2
+        # 同源内按 score 降序(confidence 90 → 0.9 排前)
+        assert result.hits[0].source == "knowledge_cards"
+        assert result.hits[0].score == 0.9
+        assert result.hits[1].score == 0.6
+        # citations 溯源含卡片标题
+        assert result.hits[0].citations == ["知识卡片: 高置信卡"]
+        # content 已格式化
+        assert "[knowledge_card:pitfall] 高置信卡" in result.hits[0].content
+        # HTTP 调用参数:URL + params + Bearer header
+        client.get.assert_awaited_once()
+        args, kwargs = client.get.call_args
+        assert args[0] == "http://api-test/api/knowledge-cards/search"
+        assert kwargs["params"] == {"q": "q", "limit": 5, "repoName": "my-repo"}
+        assert kwargs["headers"] == {"Authorization": "Bearer jwt-token"}
+
+    async def test_no_api_token_skips_source(self):
+        """api_token 为空时跳过 knowledge_cards,不调用 HTTP,不报错。"""
+        cp, up, client = _patch_api_search()
+        with cp, up:
+            result = await knowledge_lookup(
+                "q", source_priority=["knowledge_cards"]
+            )
+
+        assert result.hits == []
+        assert result.errors == []
+        client.get.assert_not_awaited()
+
+    async def test_http_error_degrades_to_empty(self):
+        """HTTP 500 → 降级空 hits,errors 空(helper 内吞掉,不算源失败)。"""
+        cp, up, _ = _patch_api_search(status_code=500)
+        with cp, up:
+            result = await knowledge_lookup(
+                "q", source_priority=["knowledge_cards"], api_token="jwt"
+            )
+
+        assert result.hits == []
+        assert result.errors == []
+
+    async def test_business_error_degrades_to_empty(self):
+        """code != 0(如 401 未登录)→ 降级空 hits,不抛异常。"""
+        cp, up, _ = _patch_api_search(
+            body={"code": 401, "message": "请先登录"}
+        )
+        with cp, up:
+            result = await knowledge_lookup(
+                "q", source_priority=["knowledge_cards"], api_token="bad-jwt"
+            )
+
+        assert result.hits == []
+        assert result.errors == []
+
+    async def test_io_exception_degrades_to_empty(self):
+        """client.get 抛连接异常 → 降级空 hits,errors 空。"""
+        cp, up, _ = _patch_api_search(get_side_effect=ConnectionError("api down"))
+        with cp, up:
+            result = await knowledge_lookup(
+                "q", source_priority=["knowledge_cards"], api_token="jwt"
+            )
+
+        assert result.hits == []
+        assert result.errors == []
+
+    async def test_non_dict_items_filtered(self):
+        """data 中非 dict 条目被过滤,不崩。"""
+        cp, up, _ = _patch_api_search(
+            body={"code": 0, "data": ["not-a-dict", _make_knowledge_card()]}
+        )
+        with cp, up:
+            result = await knowledge_lookup(
+                "q", source_priority=["knowledge_cards"], api_token="jwt"
+            )
+
+        assert len(result.hits) == 1
+
+    async def test_default_priority_places_cards_after_codebase(self):
+        """默认 priority 中 knowledge_cards 位于 codebase 之后、rag 之前。"""
+        cards = [_make_knowledge_card()]
+        cp, up, _ = _patch_api_search(body={"code": 0, "data": cards})
+        cb_p, rag_p, ltm_p = _patch_all(
+            codebase_return=[_make_codebase_chunk()],
+            rag_return=[_make_rag_source()],
+            ltm_return=[],
+        )
+        with cp, up, cb_p, rag_p, ltm_p:
+            result = await knowledge_lookup(
+                "q", user_id="u1", api_token="jwt"
+            )
+
+        sources = [h.source for h in result.hits]
+        assert sources.index("codebase") < sources.index("knowledge_cards")
+        assert sources.index("knowledge_cards") < sources.index("rag")
+
+
+# =============================================================================
 # 参数传递
 # =============================================================================
 
@@ -433,6 +602,19 @@ class TestFormatters:
         assert "[codebase:symbol ?]" in out
         assert "?:?-?" in out
 
+    def test_format_knowledge_card_complete(self):
+        """知识卡片格式化:含 [knowledge_card:kind] 标题 @repo [tags] 头。"""
+        item = _make_knowledge_card()
+        out = _format_knowledge_card(item)
+        assert "[knowledge_card:pitfall] JWT 认证踩坑 @my-repo" in out
+        assert "[auth, jwt]" in out
+        assert "JWT 密钥需从环境变量读取" in out
+
+    def test_format_knowledge_card_minimal(self):
+        """缺字段时不崩:无 repo/tags/content 时只输出头。"""
+        out = _format_knowledge_card({"title": "t", "kind": "fact"})
+        assert out == "[knowledge_card:fact] t"
+
     def test_format_rag_source_complete(self):
         """RAGSource 格式化:含 [rag:role] timestamp 头。"""
         s = _make_rag_source(
@@ -491,8 +673,15 @@ class TestFormatters:
 
 class TestConstants:
     def test_default_priority_order(self):
-        """默认 priority: codebase → rag → graph → long_term_memory(P0 接入知识图谱第四源)。"""
-        assert DEFAULT_PRIORITY == ["codebase", "rag", "graph", "long_term_memory"]
+        """默认 priority: codebase → knowledge_cards → rag → graph → long_term_memory
+        (2-1c-3 接入 knowledge_cards 第五源)。"""
+        assert DEFAULT_PRIORITY == [
+            "codebase",
+            "knowledge_cards",
+            "rag",
+            "graph",
+            "long_term_memory",
+        ]
 
     def test_dataclass_defaults(self):
         """KnowledgeLookupResult 默认值正确。"""

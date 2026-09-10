@@ -31,6 +31,7 @@ export function InlineEditDialog() {
   const instruction = useInlineEditStore((s) => s.instruction)
   const generatedPatch = useInlineEditStore((s) => s.generatedPatch)
   const error = useInlineEditStore((s) => s.error)
+  const turns = useInlineEditStore((s) => s.turns)
   const setInstruction = useInlineEditStore((s) => s.setInstruction)
 
   const { startEdit, acceptPatch, rejectPatch, closeInlineEdit } = useInlineEdit()
@@ -77,12 +78,17 @@ export function InlineEditDialog() {
       {/* 顶部输入栏 */}
       <div className="flex items-center gap-1.5">
         <Sparkles className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        {turns.length > 0 && (
+          <span className="shrink-0 rounded-sm bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            {t('turnBadge', { n: turns.length + 1 })}
+          </span>
+        )}
         <input
           ref={inputRef}
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={t('editDescPlaceholder')}
+          placeholder={turns.length > 0 ? t('followUpPlaceholder') : t('editDescPlaceholder')}
           disabled={isStreaming}
           className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 disabled:opacity-60"
         />
@@ -114,7 +120,7 @@ export function InlineEditDialog() {
             {selection.language}
           </span>
           <code className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
-            {preview || '(空选区)'}
+            {preview || t('emptySelection')}
           </code>
         </div>
       )}
@@ -130,28 +136,28 @@ export function InlineEditDialog() {
       {isError && (
         <div className="flex items-center gap-1.5 rounded-sm bg-destructive/10 px-2 py-1 text-xs text-destructive">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">{error || '生成失败'}</span>
+          <span className="min-w-0 flex-1 truncate">{error || t('errorFallback')}</span>
         </div>
       )}
 
-      {/* 底部操作栏:仅 done 态显示 Accept/Reject */}
+      {/* 底部操作栏:仅 done 态显示 Accept/Reject(可继续输入指令迭代,1-6) */}
       {isDone && (
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] text-muted-foreground/70">Enter 提交 · Esc 取消</span>
+          <span className="text-[10px] text-muted-foreground/70">{t('followUpHint')}</span>
           <div className="flex items-center gap-1">
             <button
               onClick={rejectPatch}
               className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <X className="h-3 w-3" />
-              <span>拒绝</span>
+              <span>{t('reject')}</span>
             </button>
             <button
               onClick={acceptPatch}
               className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90"
             >
               <Check className="h-3 w-3" />
-              <span>接受</span>
+              <span>{t('accept')}</span>
             </button>
           </div>
         </div>
@@ -161,9 +167,9 @@ export function InlineEditDialog() {
       {!isStreaming && !isDone && !isError && (
         <div className="text-[10px] text-muted-foreground/70">
           <kbd className="rounded-sm border border-border bg-background px-1">Enter</kbd>
-          <span> 提交 · </span>
+          <span> {t('hintSubmit')} · </span>
           <kbd className="rounded-sm border border-border bg-background px-1">Esc</kbd>
-          <span> 取消</span>
+          <span> {t('hintCancel')}</span>
         </div>
       )}
     </div>

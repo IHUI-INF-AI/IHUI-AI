@@ -2,8 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi } from '@/lib/api'
-import { useAuthStore } from '@/stores/auth'
+import { fetchApi, fetchRaw } from '@/lib/api'
 import type { FileItem } from '@/components/workspace/file-list'
 import type { ProjectDetail } from './types'
 
@@ -53,50 +52,29 @@ export async function fetchFiles(projectId: string): Promise<FileItem[]> {
   return res.data.files
 }
 
-// NOTE: uploadFile / downloadFile 保留直接 fetch,未迁移到 fetchApi:
-// - uploadFile:fetchApi 内部 fetchOnce 仅透传 string body(line 110: `typeof body === 'string' ? body : undefined`),
-//   FormData 会被丢弃导致上传失败。与 A4 豁免的 file-utils.ts 分片上传同因。
-// - downloadFile:fetchApi 内部 fetchOnce 固定调 `response.json()`(line 152),不支持 blob 二进制响应。
+// 2026-09-09 0-5 迁移:uploadFile / downloadFile 改走统一链路,删除旧版直接 fetch。
+// 旧豁免理由已过时:共享层 fetchApi 现支持 FormData 透传(client.ts isFormData 检查,
+// 不强制 Content-Type,multipart 边界由浏览器生成);二进制走 fetchRaw(自动带鉴权头)。
 export async function uploadFile(
   projectId: string,
   file: File,
   errorMsg: string,
 ): Promise<FileItem> {
-  const token = useAuthStore.getState().token
   const formData = new FormData()
   formData.append('file', file)
-  const response = await fetch(`/api/workspace/projects/${projectId}/files`, {
+  const res = await fetchApi<{ file: FileItem }>(`/api/workspace/projects/${projectId}/files`, {
     method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   })
-  let json: {
-    code: number
-    message: string
-    data?: { file: FileItem }
-  }
-  try {
-    json = (await response.json()) as {
-      code: number
-      message: string
-      data?: { file: FileItem }
-    }
-  } catch {
-    // 网关 502 等返回 HTML 错误页时 response.json() 抛 SyntaxError,统一转为 errorMsg,避免英文报错直达用户
-    throw new Error(errorMsg)
-  }
-  if (!response.ok || json.code !== 0) throw new Error(json.message || errorMsg)
-  if (!json.data?.file) throw new Error(json.message || errorMsg)
-  return json.data.file
+  // 网关 502 等返回 HTML 错误页时,共享层把响应文本归一为 error message,统一兜底 errorMsg
+  if (!res.success || !res.data?.file) throw new Error(res.success ? errorMsg : (res.error || errorMsg))
+  return res.data.file
 }
 
 export async function downloadFile(file: FileItem, errorMsg: string) {
-  const token = useAuthStore.getState().token
-  const response = await fetch(`/api/workspace/files/${file.id}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  const blob = await fetchRaw(`/api/workspace/files/${file.id}`).catch(() => {
+    throw new Error(errorMsg)
   })
-  if (!response.ok) throw new Error(errorMsg)
-  const blob = await response.blob()
   const url = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url

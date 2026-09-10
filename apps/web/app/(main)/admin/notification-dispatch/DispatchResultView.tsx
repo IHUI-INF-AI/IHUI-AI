@@ -22,7 +22,7 @@ export function DispatchResultView({ result }: Props) {
     { key: 'queued', value: result.queued, cls: 'bg-amber-500/10 text-amber-600' },
   ]
   return (
-    <div className="rounded-lg border p-4">
+    <div className="rounded-lg border p-3">
       <h2 className="mb-3 text-sm font-medium">{t('nd.resultTitle')}</h2>
       <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
         {stats.map((s) => (

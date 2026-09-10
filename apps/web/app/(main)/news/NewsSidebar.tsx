@@ -25,10 +25,10 @@ export function NewsSidebar({ categories, categoryId, onCategoryChange, pinned }
   return (
     <aside className="w-full shrink-0 space-y-4 min-[1024px]:w-72">
       <Card>
-        <CardHeader className="p-4 pb-2">
+        <CardHeader className="p-3 pb-2">
           <CardTitle className="text-sm">{t('categories')}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-1 p-4 pt-0">
+        <CardContent className="space-y-1 p-3 pt-0">
           <button
             type="button"
             onClick={() => onCategoryChange('all')}
@@ -61,13 +61,13 @@ export function NewsSidebar({ categories, categoryId, onCategoryChange, pinned }
 
       {pinned.length > 0 && (
         <Card>
-          <CardHeader className="p-4 pb-2">
+          <CardHeader className="p-3 pb-2">
             <CardTitle className="flex items-center gap-1.5 text-sm">
               <Pin className="h-4 w-4 text-primary" />
               {t('pinned')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 p-4 pt-0">
+          <CardContent className="space-y-2 p-3 pt-0">
             {pinned.map((item) => (
               <Link
                 key={item.id}

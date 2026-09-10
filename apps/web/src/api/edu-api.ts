@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi, getToken } from '@/lib/api'
+import { fetchApi, fetchAiServiceJson } from '@/lib/api'
 
 /** SRS 复习题目 */
 export interface ReviewQuestion {
@@ -94,20 +94,21 @@ export interface QuizResult {
 }
 
 async function aiPost<T>(path: string, body: unknown): Promise<T> {
-  // 2026-08-31 修复:ai-service 全局 JWT 中间件强制鉴权,此前不带 token 直连
-  // 8803 → 全部 401("AI 助教请求失败:401")。改为从 auth store 取 access token
-  // 注入 Bearer header,与 a2a/edu-ai-marking 页面的直连写法保持一致。
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  const token = getToken()
-  if (token) headers.Authorization = `Bearer ${token}`
-  const res = await fetch(`${AI_SERVICE_URL}${path}`, {
+  // 2026-08-31 修复:ai-service 全局 JWT 中间件强制鉴权,不带 token 直连 8803 → 401。
+  // 2026-09-09 0-5 迁移:统一走 fetchAiServiceJson(共享层 tokenProvider 注入 Bearer,
+  // 附带 X-Requested-With CSRF / 设备指纹 / 30s 超时),AI_SERVICE_URL 为绝对 URL 直通。
+  const res = await fetchAiServiceJson<unknown>(`${AI_SERVICE_URL}${path}`, {
     method: 'POST',
-    headers,
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`AI 助教请求失败:${res.status}`)
-  const json = await res.json()
-  return (json?.data ?? json) as T
+  if (!res.success) throw new Error(res.error ?? `AI 助教请求失败`)
+  // 兼容两种响应:标准 {code,data} 包装取 data,非标准直接整体返回(与旧 json?.data ?? json 语义一致)
+  const json = res.data
+  return (isRecord(json) ? (json.data ?? json) : json) as T
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 /** 概念讲解 */

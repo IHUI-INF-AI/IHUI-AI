@@ -47,7 +47,7 @@ export default function QuickStart({
   return (
     <ol className={cn('space-y-4', className)}>
       {steps.map((s, i) => (
-        <li key={i} className="rounded-xl border bg-card p-4 shadow">
+        <li key={i} className="rounded-xl border bg-card p-3 shadow">
           <div className="text-sm font-medium">{s.title}</div>
           {s.desc && <p className="mt-1 text-xs text-muted-foreground">{s.desc}</p>}
           {s.code && <CodeBlock code={s.code} language={s.language} />}

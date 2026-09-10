@@ -66,7 +66,7 @@ function HeroCard({ item, tag }: { item: NewsItem; tag: string }) {
         )}
         <div className="absolute inset-0 bg-black/50 transition-colors group-hover:bg-black/60" />
       </div>
-      <div className="relative z-10 mt-auto flex flex-col gap-1.5 p-5">
+      <div className="relative z-10 mt-auto flex flex-col gap-1.5 p-3">
         <span className="inline-flex w-fit items-center rounded-md bg-card px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-foreground">
           {tag}
         </span>

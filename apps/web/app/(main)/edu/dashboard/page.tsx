@@ -78,7 +78,7 @@ export default function EduDashboardPage() {
   ]
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
@@ -187,7 +187,7 @@ export default function EduDashboardPage() {
                 {(data?.recentCourses ?? []).map((c) => (
                   <Link key={c.id} href={`/edu/courses/${c.id}`}>
                     <Card className="transition-colors hover:bg-accent">
-                      <CardContent className="p-4">
+                      <CardContent className="p-3">
                         <p className="line-clamp-1 font-medium">{c.title}</p>
                         <div className="mt-2 h-1.5 overflow-hidden rounded bg-muted">
                           <div

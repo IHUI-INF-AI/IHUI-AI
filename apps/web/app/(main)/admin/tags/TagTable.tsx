@@ -64,7 +64,7 @@ export function TagTable({ tags, isLoading, error, onEdit, onDelete }: Props) {
           <Hash className="h-3.5 w-3.5" />
           {t('cloudTitle')}
         </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-3">
           {tags.map((tag, i) => (
             <Tooltip key={tag.id} content={t('usageCount', { count: tag.usageCount })}>
               <span

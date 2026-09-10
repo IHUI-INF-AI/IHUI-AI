@@ -42,7 +42,7 @@ export default function WorkAreaHomePage() {
     <>
       <PreviewBanner />
       {/* 2026-08-02 修复:删除 -mx-4/-my-4 md:-mx-6/-my-6 lg:-mx-8/-my-8 负 margin
-          根因:MainShell main 在 2026-08-01 已去掉 padding(原 p-3 laptop:p-8),
+          根因:MainShell main 在 2026-08-01 已去掉 padding(原 p-3 laptop:p-3),
           负 margin 无 padding 可抵消 → home-scroll-container 左右各超出 #main 32px(共 64px),
           被工作区卡片 overflow-hidden 裁剪,视觉上右侧内容超出容器。
           高度仍统一为 calc(100vh - 58px),与 (marketing)/page.tsx 一致。 */}

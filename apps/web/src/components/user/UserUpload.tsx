@@ -39,7 +39,7 @@ export default function UserUpload({
   const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx))
 
   return (
-    <div className={cn('rounded-xl border bg-card p-4', className)}>
+    <div className={cn('rounded-xl border bg-card p-3', className)}>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
@@ -54,7 +54,7 @@ export default function UserUpload({
           handleFiles(e.dataTransfer.files)
         }}
         className={cn(
-          'flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 min-[768px]:py-8 text-center transition-colors',
+          'flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-5 text-center transition-colors',
           drag ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50',
         )}
       >

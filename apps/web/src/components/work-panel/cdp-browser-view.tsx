@@ -520,7 +520,7 @@ export function CdpBrowserView({
         </div>
       )}
       {error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/90 p-4 text-center">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/90 p-3 text-center">
           <p className="text-sm text-destructive">{error}</p>
         </div>
       )}

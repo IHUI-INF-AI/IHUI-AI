@@ -153,6 +153,8 @@ export * from './agent-tasks.js'
 export * from './clawdbot.js'
 export * from './agent-runtime.js'
 export * from './repo-wiki.js'
+// 知识卡片(2026-09-10 新增,2-1 项目知识引擎:任务经验沉淀 + 检索复用)
+export * from './knowledge-card.js'
 export * from './user-automations.js'
 export * from './agent-event-triggers.js'
 export * from './llm-call-logs.js'

@@ -73,7 +73,7 @@ function CourseCardImpl({
           </div>
         )}
       </div>
-      <div className="space-y-2 p-4">
+      <div className="space-y-2 p-3">
         <h3 className="font-medium">{title}</h3>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {instructor && (

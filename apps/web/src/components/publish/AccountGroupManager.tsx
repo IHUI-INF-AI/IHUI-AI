@@ -251,14 +251,14 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         </div>
       ) : groups.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-4 text-center">
+        <div className="rounded-lg border border-dashed p-3 text-center">
           <p className="text-xs text-muted-foreground">{t('groups.empty')}</p>
         </div>
       ) : (
         <div className="space-y-2">
           {groups.map((g) => (
             <Card key={g.group_id} className="overflow-hidden">
-              <CardContent className="p-3 min-[640px]:p-3">
+              <CardContent className="p-3">
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"

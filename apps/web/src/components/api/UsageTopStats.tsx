@@ -37,7 +37,7 @@ export default function UsageTopStats({
       {items.map((it, i) => {
         const up = (it.delta ?? 0) >= 0
         return (
-          <div key={i} className="rounded-xl border bg-card p-4 text-card-foreground shadow">
+          <div key={i} className="rounded-xl border bg-card p-3 text-card-foreground shadow">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               {it.icon}
               <span>{it.label}</span>

@@ -58,7 +58,7 @@ export function HomeBanner() {
 
   return (
     <div
-      className="relative flex min-h-[230px] flex-1 flex-col p-4 min-[768px]:min-h-[350px]"
+      className="relative flex min-h-[230px] flex-1 flex-col p-3 min-[768px]:min-h-[350px]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >

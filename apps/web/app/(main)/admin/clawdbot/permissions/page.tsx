@@ -79,7 +79,7 @@ export default function ClawdbotPermissionsPage() {
   }
   if (error) {
     return (
-      <div className="p-4">
+      <div className="p-3">
         <Alert variant="danger" title="操作失败" description={error} />
       </div>
     )
@@ -89,7 +89,7 @@ export default function ClawdbotPermissionsPage() {
   const resources = Array.from(new Set(rules.map((r) => r.resource)))
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -101,7 +101,7 @@ export default function ClawdbotPermissionsPage() {
       </div>
 
       {showForm && (
-        <form onSubmit={submit} className="space-y-3 rounded-lg border bg-card p-4">
+        <form onSubmit={submit} className="space-y-3 rounded-lg border bg-card p-3">
           <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             <div className="space-y-1">
               <Label>角色</Label>
@@ -204,7 +204,7 @@ export default function ClawdbotPermissionsPage() {
       </div>
 
       {roles.length > 0 && (
-        <div className="rounded-lg border bg-card p-4">
+        <div className="rounded-lg border bg-card p-3">
           <p className="mb-2 text-sm font-medium">角色 × 资源矩阵</p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">

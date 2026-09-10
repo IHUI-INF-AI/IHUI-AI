@@ -62,7 +62,7 @@ export default function ThemeListPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
@@ -102,7 +102,7 @@ export default function ThemeListPage() {
             >
               <span className="text-base font-semibold">{t.name}</span>
             </div>
-            <CardContent className="space-y-3 p-4">
+            <CardContent className="space-y-3 p-3">
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
                   <p className="line-clamp-2 text-sm font-semibold">{t.name}</p>

@@ -119,7 +119,7 @@ export default function ExamTakePage() {
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('empty')}
         </div>
       </div>

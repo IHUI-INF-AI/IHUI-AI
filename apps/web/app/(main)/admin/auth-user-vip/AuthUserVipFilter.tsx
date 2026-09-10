@@ -19,7 +19,7 @@ interface Props {
 export function AuthUserVipFilter({ search, onSearchChange, onReset, onQuery }: Props) {
   const t = useTranslations('adminAuthUserVip')
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1">
         <Label className="text-xs">{t('labelUserUuid')}</Label>
         <Input

@@ -147,7 +147,7 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
 
   if (status === 'loading') {
     return (
-      <div className="space-y-4 p-6 text-center">
+      <div className="space-y-4 p-3 text-center">
         <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground">
           {t('loading', { provider: providerLabel(provider, t) })}
@@ -158,7 +158,7 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
 
   if (status === 'success') {
     return (
-      <div className="space-y-4 p-6 text-center">
+      <div className="space-y-4 p-3 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-500" />
         <p className="text-sm font-medium">{t('success')}</p>
       </div>
@@ -166,7 +166,7 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
   }
 
   return (
-    <div className="space-y-4 p-6 text-center">
+    <div className="space-y-4 p-3 text-center">
       <XCircle className="mx-auto h-10 w-10 text-destructive" />
       <div className="space-y-1">
         <p className="text-sm font-medium">{t('failedTitle')}</p>

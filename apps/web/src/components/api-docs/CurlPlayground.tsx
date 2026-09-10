@@ -117,7 +117,7 @@ export function CurlPlayground(): React.JSX.Element {
 
   return (
     <Card>
-      <CardContent className="space-y-3 p-4">
+      <CardContent className="space-y-3 p-3">
         <div className="flex items-center gap-2">
           <Wand2 className="h-4 w-4 text-primary" />
           <p className="text-sm font-semibold">curl 联动 Playground</p>

@@ -91,7 +91,7 @@ export default function KnowledgeRagChunksPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('backToDetail')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error | null)?.message ?? (docError as Error | null)?.message ?? t('notFound')}
         </div>
       </div>
@@ -130,7 +130,7 @@ export default function KnowledgeRagChunksPage() {
               tooLong && !isExpanded ? `${c.content.slice(0, PREVIEW_LEN)}…` : c.content
             return (
               <Card key={c.id}>
-                <CardContent className="p-4">
+                <CardContent className="p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 text-sm font-medium">
                       <Hash className="h-4 w-4 text-muted-foreground" />

@@ -21,6 +21,46 @@ export type McpDirectorySource = 'official' | 'community'
 /** MCP Server 传输模式 */
 export type McpServerTransport = 'stdio' | 'sse'
 
+/** 安全风险等级(P1 1-4,越高越危险) */
+export type McpSecurityLevel = 'low' | 'medium' | 'high' | 'critical'
+
+/** 质量等级(0-100 → A/B/C/D) */
+export type McpQualityGrade = 'A' | 'B' | 'C' | 'D'
+
+/** 评分内联摘要(P1 1-4,2026-09-09 立;/mcp/store 列表项携带,轻量) */
+export interface McpScoringSummary {
+  /** 质量分(0-100) */
+  score: number
+  /** 质量等级 */
+  grade: McpQualityGrade
+  /** 安全分(0-100,越高越安全) */
+  security_score: number
+  /** 安全风险等级 */
+  security_level: McpSecurityLevel
+  /** high/critical → 安装需确认 */
+  confirm_required: boolean
+}
+
+/** 单个评分维度明细(可解释性) */
+export interface McpScoreDimension {
+  name: string
+  score: number
+  weight: number
+  detail: string
+}
+
+/** 评分完整明细(GET /mcp/store/{key}/score,含维度/风险因素/建议) */
+export interface McpScoreDetail {
+  key: string
+  name: string
+  quality: { score: number; grade: McpQualityGrade }
+  security: { score: number; level: McpSecurityLevel }
+  confirm_required: boolean
+  risk_factors: string[]
+  dimensions: { quality: McpScoreDimension[]; security: McpScoreDimension[] }
+  recommendation: string
+}
+
 /** 内置 MCP Server 目录条目(商店列表项) */
 export interface McpDirectoryEntry {
   /** 唯一标识(URL path 安全,小写连字符) */
@@ -90,6 +130,11 @@ export interface McpStoreEntry {
   tool_count: number
   /** 最近一次安装/启用的错误信息(空=正常) */
   last_error: string
+  /**
+   * 评分内联摘要(P1 1-4,2026-09-09 立):质量分/等级 + 安全分/风险等级 +
+   * confirm_required(高风险安装需确认)。旧后端缺省时为 undefined,前端需判空。
+   */
+  scoring?: McpScoringSummary
 }
 
 /** MCP 商店合并列表响应 */
@@ -104,6 +149,12 @@ export interface InstallStoreServerInput {
   env?: Record<string, string>
   /** filesystem 类 server 的工作区路径 */
   workspace_path?: string
+  /**
+   * 高风险确认(P1 1-4,2026-09-09 立):评分 risk level 为 high/critical 时,
+   * 后端返回 409 RISK_CONFIRM_REQUIRED;用户在风险确认对话框中明确同意后
+   * 置 true 才能完成安装。
+   */
+  confirm_risk?: boolean
 }
 
 /** 商店安装响应 */
@@ -192,6 +243,11 @@ export async function setStoreServerEnabled(
     `/api/mcp/store/${encodeURIComponent(name)}/${enabled ? 'enable' : 'disable'}`,
     { method: 'POST' },
   )
+}
+
+/** 获取目录条目评分完整明细(P1 1-4:质量/安全维度、风险因素、安装建议) */
+export async function getMcpServerScore(key: string): Promise<ApiResult<McpScoreDetail>> {
+  return fetchApi<McpScoreDetail>(`/api/mcp/store/${encodeURIComponent(key)}/score`)
 }
 
 // ===================== 能力市场(P2-8 供给侧,2026-09 立) =====================

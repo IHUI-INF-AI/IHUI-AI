@@ -98,7 +98,7 @@ export default function SkillsMarketPage() {
   const unreadCount = notifications?.length ?? 0
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-5">
       <BackButton />
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-3">
@@ -166,7 +166,7 @@ export default function SkillsMarketPage() {
           ))}
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 min-[768px]:py-20 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
           <Star className="h-10 w-10 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
@@ -298,7 +298,7 @@ function SkillCard({
 
   return (
     <Card className="flex h-full flex-col transition-colors hover:bg-accent">
-      <CardContent className="flex flex-1 flex-col gap-2.5 p-4">
+      <CardContent className="flex flex-1 flex-col gap-2.5 p-3">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-medium leading-tight">{skill.name}</h3>
           <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">

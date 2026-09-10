@@ -117,7 +117,7 @@ export default function AskDetailPage() {
           <ArrowLeft className="mr-1.5 h-4 w-4" />
           {tc('back')}
         </Button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('empty')}
         </div>
       </div>
@@ -165,7 +165,7 @@ export default function AskDetailPage() {
 
       {/* 问题 */}
       <Card>
-        <CardHeader className="p-5">
+        <CardHeader className="p-3">
           <div className="flex items-start justify-between gap-3">
             <CardTitle className="text-xl">{ask.title}</CardTitle>
             <span
@@ -229,7 +229,7 @@ export default function AskDetailPage() {
           <div className="space-y-2">
             {answers.map((a: AnswerItem) => (
               <Card key={a.id} className={cn(a.isAccepted && 'border-emerald-500/40')}>
-                <CardContent className="p-4">
+                <CardContent className="p-3">
                   {a.isAccepted && (
                     <span className="mb-2 inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
                       <CheckCircle2 className="h-3 w-3" />

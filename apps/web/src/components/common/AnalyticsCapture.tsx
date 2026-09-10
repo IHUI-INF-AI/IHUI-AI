@@ -78,6 +78,8 @@ export function AnalyticsCapture() {
     if (bufferRef.current.length === 0) return
     const batch = bufferRef.current.splice(0, bufferRef.current.length)
     try {
+      // 2026-09-09 0-5-f 豁免确认:埋点批量上报需 keepalive(页面卸载仍送达),
+      // 失败静默;不走 fetchApi 的 JSON 包装解析与 401 刷新重试链路。
       await fetch(REPORT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

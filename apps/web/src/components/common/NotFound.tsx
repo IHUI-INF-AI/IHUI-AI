@@ -23,7 +23,7 @@ export function NotFound({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center gap-4 py-12 min-[640px]:py-20 text-center',
+        'flex flex-col items-center justify-center gap-4 px-4 py-12 text-center',
         className,
       )}
     >

@@ -73,7 +73,7 @@ export default function HelpArticlePage() {
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -83,7 +83,7 @@ export default function HelpArticlePage() {
   const toc = extractToc(a.content)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4">
+    <div className="py-4 mx-auto w-full max-w-6xl space-y-4 px-4">
       <Link
         href="/help"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -121,7 +121,7 @@ export default function HelpArticlePage() {
             <div className="space-y-4 min-[1024px]:sticky min-[1024px]:top-4">
               {toc.length > 0 && (
                 <Card>
-                  <CardContent className="p-4">
+                  <CardContent className="p-3">
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       {t('toc')}
                     </p>
@@ -144,7 +144,7 @@ export default function HelpArticlePage() {
               )}
               {relatedItems.length > 0 && (
                 <Card>
-                  <CardContent className="p-4">
+                  <CardContent className="p-3">
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       {t('related')}
                     </p>

@@ -83,6 +83,8 @@ export function VisitTracker() {
           )
           if (ok) return
         }
+        // 2026-09-09 0-5-f 豁免确认:埋点链路——sendBeacon 优先,fetch 兜底需
+        // keepalive(页面卸载仍送达);埋点失败必须静默,不走 fetchApi 的重试/刷新链路。
         void fetch(REPORT_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

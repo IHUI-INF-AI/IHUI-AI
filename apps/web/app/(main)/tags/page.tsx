@@ -58,7 +58,7 @@ export default function TagsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto max-w-4xl space-y-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -82,7 +82,7 @@ export default function TagsPage() {
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-6">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-3">
             {tags.map((tag, i) => (
               <Link
                 key={tag.id}
@@ -101,7 +101,7 @@ export default function TagsPage() {
           </div>
 
           {tags.length > 0 && (
-            <div className="rounded-lg border p-4">
+            <div className="rounded-lg border p-3">
               <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold">
                 <Hash className="h-4 w-4 text-primary" />
                 {t('popular')}

@@ -36,7 +36,7 @@ export function ReferralStats({ data, loading }: Props) {
 
   return (
     <Card>
-      <CardContent className="p-4">
+      <CardContent className="p-3">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold">{t('referralStats')}</p>
