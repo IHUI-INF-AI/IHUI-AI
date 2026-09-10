@@ -26,7 +26,7 @@ export default function UserProfile({
   className,
 }: UserProfileProps): React.JSX.Element {
   return (
-    <div className={cn('rounded-2xl border bg-card p-6 text-card-foreground shadow', className)}>
+    <div className={cn('rounded-2xl border bg-card p-3 text-card-foreground shadow', className)}>
       <div className="flex items-start gap-4">
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-md bg-muted">
           {avatar ? (

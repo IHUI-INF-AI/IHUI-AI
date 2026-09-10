@@ -109,7 +109,7 @@ export default function LoginPageClient() {
   // QR 完整模式:渲染带平台切换 tab 的二维码面板
   if (isQrMode) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="flex min-h-screen items-center justify-center bg-background p-3">
         <div className="w-full max-w-sm">
           <QrTab
             t={t}

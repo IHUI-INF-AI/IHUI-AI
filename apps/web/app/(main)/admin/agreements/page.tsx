@@ -97,7 +97,7 @@ export default function AgreementsPage() {
   const list = data?.list ?? []
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <AgreementFilter onCreate={openCreate} />
 

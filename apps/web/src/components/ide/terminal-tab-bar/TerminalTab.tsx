@@ -132,7 +132,9 @@ export function TerminalTab({
       )}
       <span className="max-w-24 truncate text-[10px] opacity-50">{subtitle}</span>
       {session.status === 'exited' && (
-        <span className="text-[10px] text-muted-foreground/60">{t('terminalTabBar.exited')}</span>
+        <span className="text-[10px] text-muted-foreground/60">
+          {t('terminalTabBar.exited')}
+        </span>
       )}
       <button
         type="button"

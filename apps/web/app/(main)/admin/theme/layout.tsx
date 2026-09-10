@@ -19,7 +19,7 @@ export default function ThemeLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
-      <header className="flex items-center gap-3 rounded-lg border bg-card p-4">
+      <header className="flex items-center gap-3 rounded-lg border bg-card p-3">
         <Palette className="h-5 w-5 text-primary" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">主题管理</p>

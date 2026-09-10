@@ -157,7 +157,7 @@ export default function StatisticsPage() {
             {t('loading')}
           </div>
         ) : error ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
             统计加载失败:{(error as Error).message}
           </div>
         ) : (

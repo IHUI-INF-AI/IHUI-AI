@@ -58,7 +58,7 @@ export default function ImageGenGalleryPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/image-gen"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -81,7 +81,7 @@ export default function ImageGenGalleryPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
@@ -107,7 +107,7 @@ export default function ImageGenGalleryPage() {
                       className="h-auto w-full"
                     />
                   </div>
-                  <CardContent className="space-y-1 p-3 min-[640px]:p-3">
+                  <CardContent className="space-y-1 p-3">
                     <p className="line-clamp-2 text-xs font-medium">{item.prompt}</p>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span className="truncate">{item.authorName ?? '匿名'}</span>

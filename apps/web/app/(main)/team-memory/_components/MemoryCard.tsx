@@ -40,7 +40,7 @@ export function MemoryCard({ row, onEdit, onDelete }: MemoryCardProps) {
 
   return (
     <Card>
-      <CardContent className="flex flex-col gap-2 p-4">
+      <CardContent className="flex flex-col gap-2 p-3">
         <div className="flex items-center gap-2">
           <span className={`rounded px-2 py-0.5 text-xs ${KIND_BADGE[row.kind]}`}>
             {t(`kind.${row.kind}`)}

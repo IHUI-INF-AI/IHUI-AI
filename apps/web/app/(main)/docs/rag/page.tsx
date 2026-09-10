@@ -61,7 +61,7 @@ export const metadata: Metadata = {
 
 export default function RagDocsPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl py-4">
+    <main className="px-4 mx-auto w-full max-w-5xl py-4">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(ragJsonLd) }}
@@ -85,7 +85,7 @@ export default function RagDocsPage() {
       {/* 什么是 RAG */}
       <section id="what-is-rag" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">什么是 RAG?</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-3">
+        <div className="rounded-2xl border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             <strong>RAG(Retrieval-Augmented Generation,检索增强生成)</strong>是大模型与外部知识结合的核心技术:
             用户提问 → 先从知识库检索相关片段 → 把片段塞入 Prompt → LLM 基于片段生成答案。
@@ -102,8 +102,8 @@ export default function RagDocsPage() {
       {/* 完整流程 */}
       <section id="pipeline" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">智汇 AI RAG 全流程</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
-          <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
+        <div className="rounded-2xl border bg-card p-3 space-y-4">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
             <code>{`┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
 │ 1.上传   │ → │ 2.解析   │ → │ 3.切块   │ → │ 4.向量化 │ → │ 5.入库   │
 │ PDF/Word │   │ OCR/表格 │   │ Chunking │   │ Embedding│   │ PG+pgv  │
@@ -133,7 +133,7 @@ export default function RagDocsPage() {
       {/* 创建知识库 */}
       <section id="create-kb" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">创建第一个知识库</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
+        <div className="rounded-2xl border bg-card p-3 space-y-4">
           <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
             <li>访问 <a href="https://aizhs.top/knowledge-base" className="text-primary underline">知识库页面</a>,点击"新建知识库"</li>
             <li>填写名称、描述,选择嵌入模型(默认 bge-m3)</li>
@@ -142,7 +142,7 @@ export default function RagDocsPage() {
             <li>测试检索:在"检索测试"输入问题,查看召回片段</li>
             <li>挂载到 Agent:在 Agent 编辑页 → 知识库 → 选择刚创建的库</li>
           </ol>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
             <code>{`# 通过 API 创建
 curl -X POST https://api.aizhs.top/v1/knowledge-bases \\
   -H "Authorization: Bearer $JWT" \\
@@ -168,32 +168,32 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
       {/* 混合检索 */}
       <section id="hybrid-search" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">三路混合检索(核心优势)</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
+        <div className="rounded-2xl border bg-card p-3 space-y-4">
           <p className="text-sm text-muted-foreground">
             纯向量检索对"专有名词 / 代码 / 型号"等关键词不敏感,纯 BM25 对"语义相似但措辞不同"的问题失效。
             智汇 AI 采用三路并发 + RRF 融合,兼顾语义与关键词:
           </p>
           <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
-            <div className="rounded-lg border bg-background p-4">
+            <div className="rounded-lg border bg-background p-3">
               <p className="text-sm font-semibold">① 向量检索</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 bge-m3 编码 query → pgvector HNSW 查询 → 返回 Top-20 语义相似片段
               </p>
             </div>
-            <div className="rounded-lg border bg-background p-4">
+            <div className="rounded-lg border bg-background p-3">
               <p className="text-sm font-semibold">② BM25 关键词</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 jieba 中文分词 + ts_vector → PostgreSQL 全文检索 → 返回 Top-20 关键词匹配片段
               </p>
             </div>
-            <div className="rounded-lg border bg-background p-4">
+            <div className="rounded-lg border bg-background p-3">
               <p className="text-sm font-semibold">③ 知识图谱</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 LLM 抽取实体 + 关系 → Neo4j 图查询 → 返回关联实体片段(解决多跳推理)
               </p>
             </div>
           </div>
-          <div className="rounded-lg border bg-background p-4">
+          <div className="rounded-lg border bg-background p-3">
             <p className="text-sm font-semibold">RRF 融合公式</p>
             <pre className="mt-2 overflow-x-auto rounded bg-muted p-2 text-xs">
               <code>{`score(d) = Σ 1 / (k + rank_i(d))    # k=60, rank_i = 文档在第 i 路结果中的排名`}</code>
@@ -258,7 +258,7 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
             </div>
           ))}
         </div>
-        <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 text-sm text-muted-foreground">
           💡 <strong>选型建议</strong>:中文为主选 bge-m3(默认);中英混合选 text-embedding-3-large;成本敏感选 bge-large-zh-v1.5;
           本地部署选 m3e-base + Ollama。
         </div>
@@ -267,11 +267,11 @@ curl -X POST https://api.aizhs.top/v1/knowledge-bases/$KB_ID/documents \\
       {/* 引用溯源 */}
       <section id="citation" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">引用溯源(防幻觉关键)</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-3">
+        <div className="rounded-2xl border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             智汇 AI 的每个 RAG 回答都附引用编号 [1] [2] [3],点击跳转到原文位置并高亮:
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
             <code>{`用户问:产品 X 的保修期是多久?
 
 LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延长至 36 个月 [2]。
@@ -293,7 +293,7 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
       <section id="best-practices" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">最佳实践</h2>
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-lg border bg-card p-3">
             <p className="flex items-center text-sm font-semibold">
               <Ruler className="mr-1.5 inline h-4 w-4" />
               切块策略
@@ -305,7 +305,7 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
               <li>表格:整表一个 chunk(保留结构)</li>
             </ul>
           </div>
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-lg border bg-card p-3">
             <p className="flex items-center text-sm font-semibold">
               <Target className="mr-1.5 inline h-4 w-4" />
               文档质量
@@ -317,7 +317,7 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
               <li>每篇文档聚焦一个主题</li>
             </ul>
           </div>
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-lg border bg-card p-3">
             <p className="flex items-center text-sm font-semibold">
               <RefreshCw className="mr-1.5 inline h-4 w-4" />
               定期更新
@@ -328,7 +328,7 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
               <li>版本化:旧版文档保留 90 天后归档</li>
             </ul>
           </div>
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-lg border bg-card p-3">
             <p className="flex items-center text-sm font-semibold">
               <Coins className="mr-1.5 inline h-4 w-4" />
               成本控制
@@ -343,7 +343,7 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
       </section>
 
       {/* 下一步 */}
-      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-6">
+      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3">
         <h2 className="text-lg font-semibold">下一步</h2>
         <div className="mt-3 grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
           <a href="/docs/agent" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">

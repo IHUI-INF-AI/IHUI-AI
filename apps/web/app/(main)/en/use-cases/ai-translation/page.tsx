@@ -209,7 +209,7 @@ export default function AiTranslationPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+      <main className="py-4 mx-auto w-full max-w-6xl px-4">
         {/* Hero */}
         <section className="space-y-5 text-center">
           <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -239,7 +239,7 @@ export default function AiTranslationPage() {
         </section>
 
         {/* Problems */}
-        <section className="mt-16 rounded-2xl border bg-card p-8 min-[768px]:p-12">
+        <section className="mt-16 rounded-2xl border bg-card p-3">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 text-destructive" />
             <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -266,7 +266,7 @@ export default function AiTranslationPage() {
           </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
-              <div key={c.title} className="rounded-2xl border bg-card p-6 shadow-sm">
+              <div key={c.title} className="rounded-2xl border bg-card p-3 shadow-sm">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
                   {i + 1}
                 </div>
@@ -278,13 +278,13 @@ export default function AiTranslationPage() {
         </section>
 
         {/* Cases */}
-        <section className="mt-16 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
+        <section className="mt-16 rounded-2xl border bg-primary/5 p-3">
           <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
             Customer success stories
           </h2>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-3">
             {cases.map((cs, i) => (
-              <div key={i} className="rounded-2xl border bg-card p-6">
+              <div key={i} className="rounded-2xl border bg-card p-3">
                 <h3 className="text-base font-semibold">{cs.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{cs.desc}</p>
               </div>
@@ -307,7 +307,7 @@ export default function AiTranslationPage() {
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
             {toolchain.map((t, i) => (
-              <div key={i} className="rounded-2xl border bg-card p-5">
+              <div key={i} className="rounded-2xl border bg-card p-3">
                 <h3 className="text-sm font-semibold">{t.name}</h3>
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{t.purpose}</p>
               </div>
@@ -316,7 +316,7 @@ export default function AiTranslationPage() {
         </section>
 
         {/* Contact/CTA */}
-        <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
+        <section className="mt-16 rounded-2xl border bg-card p-3 text-center">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
           <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
             Start building your AI multilingual translation assistant

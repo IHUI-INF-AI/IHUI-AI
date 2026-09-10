@@ -24,7 +24,7 @@ export function TokenValueCards({ cards, isLoading }: Props) {
   return (
     <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
       {cards.map((c) => (
-        <div key={c.label} className="rounded-xl border bg-card p-4 text-card-foreground shadow">
+        <div key={c.label} className="rounded-xl border bg-card p-3 text-card-foreground shadow">
           <div className="flex items-center justify-between gap-2">
             <TruncatedText
               value={c.label}

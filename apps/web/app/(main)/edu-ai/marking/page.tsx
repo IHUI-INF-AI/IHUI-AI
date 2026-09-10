@@ -10,7 +10,7 @@ import { Sparkles, Loader2, CheckCircle, XCircle, Lightbulb, PenLine } from 'luc
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
-import { useAuthStore } from '@/stores/auth'
+import { fetchAiServiceJson } from '@/lib/api'
 
 const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8803'
 
@@ -53,27 +53,17 @@ function isDataWrapped(value: unknown): value is { data: GradeResult } {
   )
 }
 
-async function gradeAnswer(body: GradeRequestPayload, token: string | null): Promise<GradeResult> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) headers.Authorization = `Bearer ${token}`
-  const res = await fetch(`${AI_SERVICE_URL}/api/ai-marking/grade`, {
+/**
+ * 2026-09-09 0-5 迁移:传输层统一走 fetchAiServiceJson(鉴权/CSRF/设备指纹/30s 超时
+ * 由共享层注入),isGradeResult / isDataWrapped 双格式兼容逻辑保留。
+ */
+async function gradeAnswer(body: GradeRequestPayload): Promise<GradeResult> {
+  const res = await fetchAiServiceJson<unknown>(`${AI_SERVICE_URL}/api/ai-marking/grade`, {
     method: 'POST',
-    headers,
     body: JSON.stringify(body),
   })
-  let json: unknown = null
-  try {
-    json = await res.json()
-  } catch {
-    json = null
-  }
-  if (!res.ok) {
-    const message =
-      typeof json === 'object' && json !== null && 'message' in json
-        ? String((json as Record<string, unknown>).message)
-        : undefined
-    throw new Error(message ?? `AI 批改请求失败:${res.status}`)
-  }
+  if (!res.success) throw new Error(res.error ?? 'AI 批改请求失败')
+  const json = res.data
   const result = isGradeResult(json) ? json : isDataWrapped(json) ? json.data : undefined
   if (!result) {
     throw new Error('AI 批改返回格式异常')
@@ -105,7 +95,6 @@ function SectionList({
 
 export default function EduAiMarkingPage() {
   const t = useTranslations('eduAi.marking')
-  const token = useAuthStore((s) => s.token)
 
   const [subject, setSubject] = React.useState('')
   const [question, setQuestion] = React.useState('')
@@ -125,16 +114,13 @@ export default function EduAiMarkingPage() {
     setError(null)
     try {
       const parsedMax = Number.parseInt(maxScore.trim(), 10)
-      const resultData = await gradeAnswer(
-        {
-          subject: subject || undefined,
-          question: question.trim(),
-          studentAnswer: studentAnswer.trim(),
-          referenceAnswer: referenceAnswer.trim() || undefined,
-          maxScore: Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : 100,
-        },
-        token,
-      )
+      const resultData = await gradeAnswer({
+        subject: subject || undefined,
+        question: question.trim(),
+        studentAnswer: studentAnswer.trim(),
+        referenceAnswer: referenceAnswer.trim() || undefined,
+        maxScore: Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : 100,
+      })
       if (resultData.error) {
         throw new Error(resultData.error)
       }
@@ -148,7 +134,7 @@ export default function EduAiMarkingPage() {
   }
 
   return (
-    <div className="px-4 space-y-4">
+    <div className="space-y-4 px-4 py-4">
       <BackButton fallbackHref="/edu" />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -159,7 +145,7 @@ export default function EduAiMarkingPage() {
       </header>
 
       <Card>
-        <CardContent className="space-y-4 p-4 min-[768px]:p-6 min-[640px]:p-6">
+        <CardContent className="space-y-4 p-3">
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="mk-subject">{t('subject')}</Label>
@@ -244,7 +230,7 @@ export default function EduAiMarkingPage() {
       ) : result ? (
         <div className="space-y-4">
           <Card className="border-primary/30 bg-primary/5">
-            <CardContent className="flex items-center gap-4 p-4">
+            <CardContent className="flex items-center gap-4 p-3">
               <Sparkles className="h-8 w-8 shrink-0 text-primary" />
               <div>
                 <p className="text-xs text-muted-foreground">{t('score')}</p>
@@ -259,7 +245,7 @@ export default function EduAiMarkingPage() {
           </Card>
 
           <Card>
-            <CardContent className="space-y-4 p-4">
+            <CardContent className="space-y-4 p-3">
               <div className="space-y-1">
                 <h3 className="text-sm font-medium">{t('comment')}</h3>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
@@ -271,7 +257,7 @@ export default function EduAiMarkingPage() {
 
           <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
             <Card>
-              <CardContent className="space-y-2 p-4">
+              <CardContent className="space-y-2 p-3">
                 <h3 className="flex items-center gap-1.5 text-sm font-medium">
                   <CheckCircle className="h-4 w-4 text-emerald-600" />
                   {t('strengths')}
@@ -284,7 +270,7 @@ export default function EduAiMarkingPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="space-y-2 p-4">
+              <CardContent className="space-y-2 p-3">
                 <h3 className="flex items-center gap-1.5 text-sm font-medium">
                   <XCircle className="h-4 w-4 text-rose-600" />
                   {t('weaknesses')}
@@ -293,7 +279,7 @@ export default function EduAiMarkingPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="space-y-2 p-4">
+              <CardContent className="space-y-2 p-3">
                 <h3 className="flex items-center gap-1.5 text-sm font-medium">
                   <Lightbulb className="h-4 w-4 text-amber-600" />
                   {t('suggestions')}

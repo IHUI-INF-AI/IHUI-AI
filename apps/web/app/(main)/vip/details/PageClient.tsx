@@ -142,7 +142,7 @@ function DetailsContent() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {(error as Error).message}
       </div>
     )
@@ -167,7 +167,7 @@ function DetailsContent() {
         <p className="text-sm text-muted-foreground">
           金额：<span className="font-bold text-foreground">{formatCNY(order.amount)}</span>
         </p>
-        <div className="flex justify-center rounded-lg border border-border bg-white p-4">
+        <div className="flex justify-center rounded-lg border border-border bg-white p-3">
           <QRCodeCanvas value={order.payInfo.codeUrl} size={240} level="M" />
         </div>
         <p className="text-xs text-muted-foreground">请用微信扫描二维码完成支付</p>
@@ -207,7 +207,7 @@ function DetailsContent() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/vip"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"

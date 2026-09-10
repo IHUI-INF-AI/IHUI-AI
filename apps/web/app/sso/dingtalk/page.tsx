@@ -12,7 +12,7 @@ export default function SsoDingtalkCompatPage() {
           __html: `(function(){var sp=new URLSearchParams(location.search);sp.set('platform','dingtalk');location.replace('/sso/auth?'+sp.toString());})();`,
         }}
       />
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="px-4 py-4 flex min-h-screen items-center justify-center bg-background">
         <p className="text-sm text-muted-foreground">正在跳转到钉钉登录...</p>
       </div>
     </>

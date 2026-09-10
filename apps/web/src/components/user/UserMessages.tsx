@@ -31,7 +31,7 @@ export default function UserMessages({
     return (
       <div
         className={cn(
-          'flex flex-col items-center justify-center rounded-xl border bg-card p-5 min-[768px]:p-10 text-center',
+          'flex flex-col items-center justify-center rounded-xl border bg-card p-3 text-center',
           className,
         )}
       >

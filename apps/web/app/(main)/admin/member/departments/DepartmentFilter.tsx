@@ -18,7 +18,7 @@ interface Props {
 
 export function DepartmentFilter({ search, onSearchChange, onSearch, onReset }: Props) {
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       {SEARCH_FIELDS.map((f) => (
         <div key={f.key} className="space-y-1">
           <Label className="text-xs">{f.label}</Label>

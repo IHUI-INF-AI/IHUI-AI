@@ -147,7 +147,7 @@ function MiniAppQrModal({ open, onClose }: { open: boolean; onClose: () => void 
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
     <div
-      className="fixed inset-0 z-modal flex items-center justify-center bg-white/50 p-4 dark:bg-black/50"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-white/50 p-3 dark:bg-black/50"
       role="dialog"
       aria-modal="true"
       aria-label={t('title')}
@@ -155,7 +155,7 @@ function MiniAppQrModal({ open, onClose }: { open: boolean; onClose: () => void 
     >
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 模态内容区阻止冒泡,键盘用户通过关闭按钮(X)提供等价交互 */}
       <div
-        className="w-full max-w-xs rounded-2xl border bg-card p-5 shadow-lg"
+        className="w-full max-w-xs rounded-2xl border bg-card p-3 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between pb-3">

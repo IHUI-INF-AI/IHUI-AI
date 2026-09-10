@@ -56,7 +56,7 @@ export function WorkflowCardList({ wfs, isLoading, onItemClick }: Props) {
             className="cursor-pointer transition-colors hover:bg-accent/40"
             onClick={() => onItemClick(w.id)}
           >
-            <CardHeader className="space-y-2 p-4">
+            <CardHeader className="space-y-2 p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
                   <Workflow className="h-5 w-5" />
@@ -76,7 +76,7 @@ export function WorkflowCardList({ wfs, isLoading, onItemClick }: Props) {
                 {w.description || '-'}
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex items-center justify-between p-4 pt-0 text-xs text-muted-foreground">
+            <CardContent className="flex items-center justify-between p-3 pt-0 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <Play className="h-3 w-3" />
                 {t('stepsCount', { count: stepCount })}

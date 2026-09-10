@@ -54,7 +54,7 @@ export function QuitUpdateOverlay() {
       aria-label={statusText}
     >
       <div className="animate-update-slide-in w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-card shadow-xl">
-        <div className="p-5">
+        <div className="p-3">
           {/* 图标 + 状态文字 */}
           <div className="flex flex-col items-center gap-3">
             <div

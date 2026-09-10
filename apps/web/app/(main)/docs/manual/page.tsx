@@ -116,7 +116,7 @@ const chapters = [
 
 export default function ManualIndexPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl py-4">
+    <main className="px-4 mx-auto w-full max-w-5xl py-4">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(manualJsonLd) }}
@@ -143,7 +143,7 @@ export default function ManualIndexPage() {
           <li key={ch.href}>
             <a
               href={ch.href}
-              className="group flex items-center gap-4 rounded-2xl border bg-card p-4 transition-colors hover:bg-accent min-[768px]:p-6"
+              className="group flex items-center gap-4 rounded-2xl border bg-card p-3 transition-colors hover:bg-accent"
             >
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary min-[768px]:h-14 min-[768px]:w-14">
                 {typeof ch.icon === 'string' ? ch.icon : <ch.icon className="h-6 w-6" />}

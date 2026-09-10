@@ -51,7 +51,7 @@ export default function ImageGenFavoritesPage() {
   const items = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/image-gen"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -74,7 +74,7 @@ export default function ImageGenFavoritesPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
@@ -89,7 +89,7 @@ export default function ImageGenFavoritesPage() {
               <div className="relative aspect-square w-full bg-muted">
                 <Image src={item.imageUrl} alt={item.prompt} fill className="object-cover" />
               </div>
-              <CardContent className="space-y-1 p-3 min-[640px]:p-3">
+              <CardContent className="space-y-1 p-3">
                 <p className="line-clamp-2 text-xs font-medium">{item.prompt}</p>
                 <p className="text-xs text-muted-foreground">{fmt(item.createdAt)}</p>
               </CardContent>

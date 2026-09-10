@@ -47,9 +47,9 @@ const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         // 2026-07-31 移动端适配:padding/gap 按断点渐进放大
-        //   - 默认(移动端):p-4 gap-3,sm(≥375px)及以上:p-6 gap-4
+        //   - 默认(移动端):p-3 gap-3,sm(≥375px)及以上:p-3 gap-4
         //   - max-w-lg + w-full 在小屏会撑满视口减去边距,避免内容溢出
-        'fixed left-[50%] top-[50%] z-modal grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-3 border bg-background p-4 shadow-lg duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 min-[640px]:rounded-lg min-[640px]:gap-4 min-[640px]:p-6',
+        'fixed left-[50%] top-[50%] z-modal grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-3 border bg-background p-3 shadow-lg duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 min-[640px]:rounded-lg min-[640px]:gap-4',
         className,
       )}
       {...props}

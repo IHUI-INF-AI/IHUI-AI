@@ -110,7 +110,7 @@ export default function DeepResearchPage() {
       </div>
 
       {/* 输入区 */}
-      <div className="mb-6 rounded-xl border p-4">
+      <div className="mb-6 rounded-xl border p-3">
         <textarea
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -148,7 +148,7 @@ export default function DeepResearchPage() {
 
       {/* 子问题清单 */}
       {state?.subquestions && state.subquestions.length > 0 && (
-        <div className="mb-6 rounded-xl border p-4">
+        <div className="mb-6 rounded-xl border p-3">
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
             <FileText className="h-4 w-4" /> {t('subquestionsTitle')}
           </h2>
@@ -162,7 +162,7 @@ export default function DeepResearchPage() {
 
       {/* 已检索证据 */}
       {state?.evidence && state.evidence.length > 0 && (
-        <div className="mb-6 rounded-xl border p-4">
+        <div className="mb-6 rounded-xl border p-3">
           <h2 className="mb-2 text-sm font-semibold">
             {t('evidenceTitle', { count: state.evidence.length })}
           </h2>

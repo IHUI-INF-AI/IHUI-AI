@@ -77,7 +77,7 @@ export default function PlatformList({
 
   if (platforms.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-border bg-card p-3 text-center text-sm text-muted-foreground">
         暂无平台元数据
       </div>
     )

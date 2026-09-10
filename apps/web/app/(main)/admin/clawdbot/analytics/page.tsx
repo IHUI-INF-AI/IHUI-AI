@@ -47,7 +47,7 @@ export default function ClawdbotAnalyticsPage() {
   }
   if (error) {
     return (
-      <div className="p-4">
+      <div className="p-3">
         <Alert variant="danger" title="加载失败" description={error} />
       </div>
     )
@@ -103,7 +103,7 @@ export default function ClawdbotAnalyticsPage() {
   const maxBotCount = Math.max(...summary.callsByBot.map((b) => b.count), 1)
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <BarChart className="h-6 w-6 text-primary" /> 分析统计
@@ -122,7 +122,7 @@ export default function ClawdbotAnalyticsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
-        <div className="rounded-lg border bg-card p-4">
+        <div className="rounded-lg border bg-card p-3">
           <p className="mb-3 text-sm font-medium">热门意图</p>
           {summary.topIntents.length === 0 ? (
             <p className="text-sm text-muted-foreground">暂无数据</p>
@@ -146,7 +146,7 @@ export default function ClawdbotAnalyticsPage() {
           )}
         </div>
 
-        <div className="rounded-lg border bg-card p-4">
+        <div className="rounded-lg border bg-card p-3">
           <p className="mb-3 text-sm font-medium">Bot 调用量</p>
           {summary.callsByBot.length === 0 ? (
             <p className="text-sm text-muted-foreground">暂无数据</p>

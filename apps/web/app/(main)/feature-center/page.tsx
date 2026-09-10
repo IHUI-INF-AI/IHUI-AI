@@ -92,7 +92,7 @@ export default function FeatureCenterPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <FeatureCenterHeader title={t('title')} description={t('description')} />
       <FeatureCenterNav />

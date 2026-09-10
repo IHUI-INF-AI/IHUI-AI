@@ -39,7 +39,7 @@ export function ExamAnswering({
   const t = useTranslations('exam')
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
       <div className="sticky top-0 z-20 flex items-center justify-between rounded-md border bg-background/95 px-4 py-2 backdrop-blur">
         <span className="text-sm font-medium">{paper.title}</span>
         <span
@@ -55,7 +55,7 @@ export function ExamAnswering({
 
       {paper.questions.map((q, i) => (
         <Card key={q.id}>
-          <CardHeader className="p-4 pb-2">
+          <CardHeader className="p-3 pb-2">
             <CardTitle className="flex items-start justify-between gap-2 text-sm font-medium">
               <span className="min-w-0 break-words">
                 <span className="text-muted-foreground">{i + 1}.</span> {q.title}
@@ -65,7 +65,7 @@ export function ExamAnswering({
               </span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 p-4 pt-0 text-sm">
+          <CardContent className="space-y-2 p-3 pt-0 text-sm">
             {q.type === 'multiple' ? (
               (q.options ?? []).map((o) => (
                 <label

@@ -151,7 +151,7 @@ export default function AiWorldDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           返回
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? '条目不存在'}
         </div>
       </div>
@@ -178,7 +178,7 @@ export default function AiWorldDetailPage() {
             <Sparkles className="h-10 w-10 text-muted-foreground/40" />
           </div>
         )}
-        <CardContent className="space-y-4 p-5 min-[640px]:p-5">
+        <CardContent className="space-y-4 p-3">
           <div className="space-y-2">
             <div className="flex items-start justify-between gap-3">
               <h1 className="text-2xl font-bold tracking-tight">{world.title}</h1>

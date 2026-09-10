@@ -91,7 +91,7 @@ export default async function N8nAgentsPage() {
   const activeCount = AGENTS.filter((a) => a.active).length
 
   return (
-    <Container maxWidth="xl" padding={false} className="space-y-6 py-6">
+    <Container maxWidth="xl" padding={false} className="px-4 py-4 space-y-6">
       <BackButton />
       <header className="space-y-1 px-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -103,7 +103,7 @@ export default async function N8nAgentsPage() {
 
       {/* 介绍卡片 */}
       <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="flex flex-col gap-4 p-5 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between min-[640px]:p-5">
+        <CardContent className="flex flex-col gap-4 p-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold tracking-tight">{t('cardTitle')}</h2>

@@ -8,7 +8,12 @@
 // 复用 progress-sections 的 4 个 section 组件(接口纯数据,无 store 依赖)
 import { useTranslations } from 'next-intl'
 import { Bot } from 'lucide-react'
-import type { AgentToolCall, AgentChange, TerminalTask, PlanStep } from '@/hooks/use-agent-progress'
+import type {
+  AgentToolCall,
+  AgentChange,
+  TerminalTask,
+  PlanStep,
+} from '@/hooks/use-agent-progress'
 import { FoldableSectionProvider } from '@/components/ai/progress-sections/foldable-section'
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
 import { ToolCallsSection } from '@/components/ai/progress-sections/tool-calls-section'

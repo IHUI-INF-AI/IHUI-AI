@@ -79,7 +79,7 @@ export default function AnnouncementDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -141,7 +141,7 @@ export default function AnnouncementDetailPage() {
       </header>
 
       <Card>
-        <CardContent className="p-4 min-[768px]:p-6 min-[640px]:p-6">
+        <CardContent className="p-3">
           <article className="prose prose-sm dark:prose-invert max-w-none">
             <ReactMarkdown components={markdownComponents}>{a.content}</ReactMarkdown>
           </article>

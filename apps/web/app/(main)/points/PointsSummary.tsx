@@ -28,7 +28,7 @@ function StatCard({
 }) {
   return (
     <Card className="transition-colors hover:bg-accent">
-      <CardContent className="space-y-1.5 p-4">
+      <CardContent className="space-y-1.5 p-3">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Icon className={cn('h-3.5 w-3.5 shrink-0', primary && 'text-primary')} />
           <span className="whitespace-nowrap">{label}</span>
@@ -115,7 +115,7 @@ export function PointsSummary({ points, level, pointsLoading, levelLoading }: Pr
       </div>
 
       <Card>
-        <CardContent className="space-y-2 p-4">
+        <CardContent className="space-y-2 p-3">
           <div className="flex items-center justify-between gap-3 text-sm">
             <span className="min-w-0 truncate font-medium">{level?.name ?? '-'}</span>
             <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">

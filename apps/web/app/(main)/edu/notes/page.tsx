@@ -70,7 +70,7 @@ export default function EduNotesPage() {
   const notes = data ?? []
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -106,7 +106,7 @@ export default function EduNotesPage() {
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {notes.map((note) => (
             <Card key={note.id} className="flex flex-col transition-colors hover:bg-accent">
-              <CardContent className="flex-1 min-w-0 space-y-2 p-4">
+              <CardContent className="flex-1 min-w-0 space-y-2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <p className="line-clamp-1 font-medium">{note.title}</p>
                   <Button

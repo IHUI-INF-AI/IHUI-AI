@@ -6,7 +6,14 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Terminal as TerminalIcon, Check, ChevronDown, Server, FileText } from 'lucide-react'
+import {
+  Plus,
+  Terminal as TerminalIcon,
+  Check,
+  ChevronDown,
+  Server,
+  FileText,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TerminalCreateInput } from '@ihui/types'
 import { useTranslations } from 'next-intl'

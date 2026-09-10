@@ -313,6 +313,8 @@ import { legacyLangchainRoutes } from './legacy-langchain.js'
 import { rewardedVideoAdRoutes } from './rewarded-video-ad.js'
 import { agentRuntimeRoutes } from './agent-runtime.js'
 import { repoWikiRoutes } from './repo-wiki.js'
+// Knowledge Card:仓库级任务经验卡(2026-09-10 新增,2-1 项目知识引擎)
+import { knowledgeCardRoutes } from './knowledge-card.js'
 import automationsRoutes from './automations.js'
 
 // R81 补建：D 盘 coze_zhs_py 代理类路由
@@ -1155,6 +1157,9 @@ export function registerRoutes(server: FastifyInstance) {
 
   // Repo Wiki:代码仓库→架构/模块知识库(对标 Qoder Repo Wiki,2026-09-07 立)
   server.register(repoWikiRoutes, { prefix: '/api/repo-wiki' })
+
+  // Knowledge Card:仓库级任务经验卡 CRUD + 检索(2026-09-10 立,2-1 项目知识引擎)
+  server.register(knowledgeCardRoutes, { prefix: '/api/knowledge-cards' })
 
   // 用户侧 Agent 定时自动化(对标 WorkBuddy automations,2026-09-07 立)
   server.register(automationsRoutes, { prefix: '/api/automations' })

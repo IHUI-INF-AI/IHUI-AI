@@ -220,7 +220,7 @@ export default function UserLlmConfigsPage() {
   }
 
   return (
-    <Container maxWidth="xl" padding={false} className="space-y-5 py-6">
+    <Container maxWidth="xl" padding={false} className="px-4 py-4 space-y-5">
       {/* Header */}
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
@@ -427,7 +427,7 @@ export default function UserLlmConfigsPage() {
       {/* BYOK 模式 onboarding:首次访问引导 */}
       <Dialog open={mounted && showOnboarding} onOpenChange={(o) => !o && dismissOnboarding()}>
         <DialogContent className="max-w-lg gap-0 p-0 min-[640px]:rounded-lg">
-          <DialogHeader className="space-y-2 border-b p-4">
+          <DialogHeader className="space-y-2 border-b p-3">
             <DialogTitle className="flex items-center gap-2 text-base">
               <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-500" />
               <span className="whitespace-nowrap">欢迎使用 BYOK 平台模式</span>
@@ -437,7 +437,7 @@ export default function UserLlmConfigsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[70vh] space-y-4 overflow-y-auto p-4 text-sm">
+          <div className="max-h-[70vh] space-y-4 overflow-y-auto p-3 text-sm">
             {/* 价值说明 */}
             <section className="space-y-1.5">
               <p className="font-medium text-foreground">为什么选择 BYOK?</p>
@@ -452,13 +452,13 @@ export default function UserLlmConfigsPage() {
               <p className="font-medium text-foreground">免费 Provider 推荐</p>
               <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
                 <Card className="rounded-md">
-                  <CardContent className="space-y-0.5 p-3 min-[640px]:p-3">
+                  <CardContent className="space-y-0.5 p-3">
                     <p className="text-xs font-medium">Cloudflare Workers AI</p>
                     <p className="text-[11px] text-muted-foreground">@cf/ · 免费,无需 API Key</p>
                   </CardContent>
                 </Card>
                 <Card className="rounded-md">
-                  <CardContent className="space-y-0.5 p-3 min-[640px]:p-3">
+                  <CardContent className="space-y-0.5 p-3">
                     <p className="text-xs font-medium">GitHub Models</p>
                     <p className="text-[11px] text-muted-foreground">
                       github/ · 免费,用 GitHub token
@@ -466,7 +466,7 @@ export default function UserLlmConfigsPage() {
                   </CardContent>
                 </Card>
                 <Card className="rounded-md">
-                  <CardContent className="space-y-0.5 p-3 min-[640px]:p-3">
+                  <CardContent className="space-y-0.5 p-3">
                     <p className="text-xs font-medium">HuggingFace</p>
                     <p className="text-[11px] text-muted-foreground">
                       huggingface/ · 免费,用 HF token
@@ -474,7 +474,7 @@ export default function UserLlmConfigsPage() {
                   </CardContent>
                 </Card>
                 <Card className="rounded-md">
-                  <CardContent className="space-y-0.5 p-3 min-[640px]:p-3">
+                  <CardContent className="space-y-0.5 p-3">
                     <p className="text-xs font-medium">Pollinations</p>
                     <p className="text-[11px] text-muted-foreground">
                       pollinations/ · 免费,无需 API Key
@@ -482,7 +482,7 @@ export default function UserLlmConfigsPage() {
                   </CardContent>
                 </Card>
                 <Card className="rounded-md min-[640px]:col-span-2">
-                  <CardContent className="space-y-0.5 p-3 min-[640px]:p-3">
+                  <CardContent className="space-y-0.5 p-3">
                     <p className="text-xs font-medium">LLM7</p>
                     <p className="text-[11px] text-muted-foreground">llm7/ · 免费,无需 API Key</p>
                   </CardContent>
@@ -506,7 +506,7 @@ export default function UserLlmConfigsPage() {
             </section>
           </div>
 
-          <DialogFooter className="border-t p-4">
+          <DialogFooter className="border-t p-3">
             <Button
               onClick={dismissOnboarding}
               size="sm"

@@ -82,7 +82,7 @@ export default async function AiNewsPage() {
           }}
         />
       ) : null}
-      <div className="mx-auto w-full max-w-[1240px] space-y-4 px-4">
+      <div className="py-4 mx-auto w-full max-w-[1240px] space-y-4 px-4">
         <BackButton />
         <Hero />
         <Leaderboard entries={leaderboardData} />

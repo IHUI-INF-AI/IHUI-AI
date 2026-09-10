@@ -132,7 +132,7 @@ export function KanbanBoard() {
   const columns = data ?? []
 
   return (
-    <div className="flex h-full flex-col space-y-4">
+    <div className="px-4 py-4 flex h-full flex-col space-y-4">
       {/* 头部 */}
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -253,7 +253,7 @@ export function KanbanBoard() {
           <Loader2 className="h-5 w-5 animate-spin" />
         </div>
       ) : isError ? (
-        <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+        <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-destructive">{tc('errorTitle')}</p>

@@ -86,7 +86,7 @@ export function UploadZone({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       className={cn(
-        'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-5 min-[768px]:p-8 text-center transition-colors',
+        'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-center transition-colors',
         dragging ? 'border-primary bg-primary/5' : 'border-input hover:bg-accent',
         uploading && 'pointer-events-none opacity-60',
       )}

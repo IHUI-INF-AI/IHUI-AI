@@ -93,7 +93,7 @@ export default function LearnPage() {
   const lessons = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <Card className="overflow-hidden">
         <div className="relative h-40 min-[640px]:h-48">
@@ -114,8 +114,8 @@ export default function LearnPage() {
           <div
             className={
               locale === 'zh-CN'
-                ? 'relative flex h-full flex-col justify-center gap-1 p-6 text-white'
-                : 'relative flex h-full flex-col justify-center gap-1 bg-primary/10 p-6'
+                ? 'relative flex h-full flex-col justify-center gap-1 p-3 text-white'
+                : 'relative flex h-full flex-col justify-center gap-1 bg-primary/10 p-3'
             }
           >
             <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -171,7 +171,7 @@ export default function LearnPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : lessons.length === 0 ? (

@@ -29,7 +29,7 @@ interface Props {
 export function NotificationLogFilter({ search, onSearchChange, onReset, onQuery }: Props) {
   const t = useTranslations('admin.notificationLogs')
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1">
         <Label className="text-xs">{t('channel')}</Label>
         <Select value={search.channel} onValueChange={(v) => onSearchChange({ channel: v })}>

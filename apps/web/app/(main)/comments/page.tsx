@@ -125,7 +125,7 @@ export default function MyCommentsPage() {
           {tc('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
@@ -141,7 +141,7 @@ export default function MyCommentsPage() {
               return (
                 <div
                   key={comment.id}
-                  className="rounded-lg border p-4 transition-colors hover:bg-accent"
+                  className="rounded-lg border p-3 transition-colors hover:bg-accent"
                 >
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <Link href={targetHref(comment)} className="flex min-w-0 items-center gap-2">

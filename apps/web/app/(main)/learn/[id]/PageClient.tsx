@@ -85,7 +85,7 @@ export default function CourseDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('detail.back')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -98,7 +98,7 @@ export default function CourseDetailPage() {
   const progress = lesson.progress ?? 0
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <Link
         href="/learn"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
