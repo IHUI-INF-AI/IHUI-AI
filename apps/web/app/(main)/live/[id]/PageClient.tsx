@@ -173,7 +173,7 @@ export default function LiveDetailPage() {
             <div className="absolute left-3 top-3">{renderBadge()}</div>
           </div>
         )}
-        <CardContent className="space-y-4 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-4 p-3">
           <h1 className="text-2xl font-bold tracking-tight">{channel.title}</h1>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
             <span>{channel.lecturerName ?? t('unknownLecturer')}</span>

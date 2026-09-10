@@ -142,7 +142,7 @@ export function ContentTemplateLibrary({
 
   return (
     <Card>
-      <CardContent className="space-y-3 p-3">
+      <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-muted-foreground">{t('templates.title')}</span>
           <Button

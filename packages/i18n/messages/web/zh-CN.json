@@ -9003,7 +9003,74 @@
     "warning": "警告"
   },
   "commandPalette": {
+    "groups": {
+    "mode": "模式",
+    "navigate": "导航",
+    "settings": "设置",
+    "tools": "工具",
+    "view": "视图"
+    },
     "commands": {
+      "agent": {
+        "description": "管理并调度 AI 智能体",
+        "label": "AI 智能体"
+      },
+      "browser": {
+        "description": "在工作区内浏览网页",
+        "label": "内置浏览器"
+      },
+      "capabilityMarket": {
+        "description": "发现并安装能力包",
+        "label": "能力市场"
+      },
+      "codeChanges": {
+        "description": "查看工作区代码改动",
+        "label": "代码变更"
+      },
+      "connectors": {
+        "description": "管理外部服务连接",
+        "label": "连接器"
+      },
+      "document": {
+        "description": "编辑工作区文档",
+        "label": "文档"
+      },
+      "editor": {
+        "description": "打开代码编辑器",
+        "label": "编辑器"
+      },
+      "mcp": {
+        "description": "管理 MCP 服务器与工具",
+        "label": "MCP 管理"
+      },
+      "mcpStore": {
+        "description": "浏览与安装 MCP 服务",
+        "label": "MCP 广场"
+      },
+      "modeBuild": {
+        "description": "让 AI 直接构建与修改",
+        "label": "构建模式"
+      },
+      "modePlan": {
+        "description": "先制定计划再执行",
+        "label": "规划模式"
+      },
+      "modeReview": {
+        "description": "审查与评审现有代码",
+        "label": "审查模式"
+      },
+      "modeSpec": {
+        "description": "从规格生成实现",
+        "label": "规格模式"
+      },
+      "skill": {
+        "description": "管理与调用 AI 技能",
+        "label": "技能"
+      },
+      "terminal": {
+        "description": "打开集成终端",
+        "label": "终端"
+      },
       "ai-world": {
         "description": "探索 AI 应用世界",
         "keywords": ["AI", "世界", "应用"],

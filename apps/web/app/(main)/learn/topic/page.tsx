@@ -219,7 +219,7 @@ export default function LearnTopicPage() {
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-base">{topic.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-1.5 p-3 pt-0 text-xs text-muted-foreground">
+                <CardContent className="min-[640px]:p-3 space-y-1.5 p-3 pt-0 text-xs text-muted-foreground">
                   {topic.description && <p className="break-words">{topic.description}</p>}
                   <div className="flex items-center gap-3">
                     {topic.lessonCount > 0 && (

@@ -125,7 +125,7 @@ export default function NewsDetailPage() {
       <div className="grid grid-cols-1 gap-5 min-[1024px]:grid-cols-4">
         <div className="min-w-0 space-y-5 min-[1024px]:col-span-3">
           <Card>
-            <CardContent className="p-3">
+            <CardContent className="min-[640px]:p-3 p-3">
               <header className="space-y-3 pb-4">
                 <h1 className="text-2xl font-bold tracking-tight">{article.title}</h1>
                 {article.summary && (

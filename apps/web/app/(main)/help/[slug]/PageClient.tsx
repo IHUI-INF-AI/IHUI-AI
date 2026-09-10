@@ -121,7 +121,7 @@ export default function HelpArticlePage() {
             <div className="space-y-4 min-[1024px]:sticky min-[1024px]:top-4">
               {toc.length > 0 && (
                 <Card>
-                  <CardContent className="p-3">
+                  <CardContent className="min-[640px]:p-3 p-3">
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       {t('toc')}
                     </p>
@@ -144,7 +144,7 @@ export default function HelpArticlePage() {
               )}
               {relatedItems.length > 0 && (
                 <Card>
-                  <CardContent className="p-3">
+                  <CardContent className="min-[640px]:p-3 p-3">
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       {t('related')}
                     </p>

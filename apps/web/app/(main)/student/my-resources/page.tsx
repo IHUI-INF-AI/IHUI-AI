@@ -133,7 +133,7 @@ export default function MyResourcesPage() {
                       <FileText className="h-10 w-10 text-primary/40" />
                     </div>
                   </Link>
-                  <CardContent className="space-y-3 p-3">
+                  <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <Link href={`/resources/${resource.id}`} className="min-w-0 flex-1">
                         <h3 className="font-medium hover:text-primary">{resource.title}</h3>
