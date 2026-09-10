@@ -2535,7 +2535,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(
       success({
         content:
-          '隐私政策\n\n我们重视您的隐私。本隐私政策说明我们如何收集、使用和保护您的个人信息。\n\n1. 信息收集：我们收集您在注册、使用服务时提供的信息，包括但不限于昵称、头像、联系方式等。\n2. 信息使用：您的信息仅用于提供服务、优化体验和客户支持。\n3. 信息保护：我们采用业界标准的安全措施保护您的个人信息。\n4. 联系我们：如您对隐私政策有任何疑问，请发送邮件至 business@aizhs.top。\n\n更新日期：2026 年 1 月 1 日',
+          '隐私政策\n\n我们重视您的隐私。本隐私政策说明我们如何收集、使用和保护您的个人信息。\n\n1. 信息收集：我们收集您在注册、使用服务时提供的信息，包括但不限于昵称、头像、联系方式等。\n2. 信息使用：您的信息仅用于提供服务、优化体验和客户支持。\n3. 信息保护：我们采用业界标准的安全措施保护您的个人信息。\n4. 联系我们：如您对隐私政策有任何疑问，请发送邮件至 [REDACTED-EMAIL]。\n\n更新日期：2026 年 1 月 1 日',
       }),
     )
   })
@@ -2544,7 +2544,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(
       success({
         phone: '400-000-0000',
-        email: 'business@aizhs.top',
+        email: '[REDACTED-EMAIL]',
         address: '中国北京',
       }),
     )
