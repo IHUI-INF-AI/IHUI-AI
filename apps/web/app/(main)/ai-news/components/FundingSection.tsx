@@ -84,7 +84,7 @@ export function FundingSection({ items }: Props) {
       aria-label={t('funding.label')}
       className="overflow-hidden rounded-xl border bg-card shadow-sm"
     >
-      <div className="flex flex-row items-center justify-between gap-3 p-6 pb-3">
+      <div className="flex flex-row items-center justify-between gap-3 p-3 pb-3">
         <div className="space-y-1">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <TrendingUp className="h-5 w-5 text-emerald-500" />
@@ -94,7 +94,7 @@ export function FundingSection({ items }: Props) {
         </div>
       </div>
 
-      <div className="space-y-2 px-4 min-[768px]:px-6 pb-3">
+      <div className="space-y-2 px-4 pb-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -143,9 +143,9 @@ export function FundingSection({ items }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 p-6 pt-3 min-[768px]:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 p-3 pt-3 min-[768px]:grid-cols-3">
         {filtered.length === 0 ? (
-          <div className="col-span-full rounded-lg border border-dashed bg-muted/20 p-4 text-center text-xs text-muted-foreground">
+          <div className="col-span-full rounded-lg border border-dashed bg-muted/20 p-3 text-center text-xs text-muted-foreground">
             {t('funding.empty')}
           </div>
         ) : null}
@@ -154,7 +154,7 @@ export function FundingSection({ items }: Props) {
             key={item.id}
             className="overflow-hidden transition duration-200 hover:bg-accent hover:-translate-y-0.5 hover:shadow-md"
           >
-            <CardContent className="space-y-2 p-4">
+            <CardContent className="space-y-2 p-3">
               <div className="flex items-center justify-between gap-2">
                 <Badge variant="success">{item.amount}</Badge>
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">

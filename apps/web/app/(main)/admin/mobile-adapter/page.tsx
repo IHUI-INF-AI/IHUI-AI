@@ -69,7 +69,7 @@ export default function MobileAdapterPage() {
   })
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -168,7 +168,7 @@ export default function MobileAdapterPage() {
               <CardTitle className="text-sm">{t('mobile.preview')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex justify-center rounded-md border bg-muted/30 p-4">
+              <div className="flex justify-center rounded-md border bg-muted/30 p-3">
                 <div
                   className="rounded-md border-2 border-primary/30 bg-background shadow-sm transition-all"
                   style={{

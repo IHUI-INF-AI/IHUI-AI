@@ -94,7 +94,7 @@ export function CryptoDonation(): React.JSX.Element {
           return (
             <Card
               key={w.id}
-              className={`flex flex-col p-5 ${w.recommended ? 'border-primary' : ''}`}
+              className={`flex flex-col p-3 ${w.recommended ? 'border-primary' : ''}`}
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-base font-semibold text-primary">

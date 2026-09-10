@@ -82,7 +82,7 @@ export default function UseCasesIndexPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+      <main className="py-4 mx-auto w-full max-w-6xl px-4">
         <BackButton />
         <section className="space-y-5 text-center">
           <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -104,7 +104,7 @@ export default function UseCasesIndexPage() {
               <Link
                 key={uc.slug}
                 href={`/use-cases/${uc.slug}`}
-                className="group rounded-2xl border bg-card p-4 min-[768px]:p-6 shadow-sm transition-shadow hover:shadow-md"
+                className="group rounded-2xl border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

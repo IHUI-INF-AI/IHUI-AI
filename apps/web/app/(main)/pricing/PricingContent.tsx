@@ -86,7 +86,7 @@ export function PricingContent(): React.JSX.Element {
   const popularIdx = levels.findIndex((l) => l.levelValue === 1)
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-4 min-[768px]:px-8">
+    <main className="mx-auto w-full max-w-7xl px-4 py-4">
       <BackButton />
       <section className="space-y-3 text-center">
         <div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -140,7 +140,7 @@ export function PricingContent(): React.JSX.Element {
             加载中...
           </div>
         ) : error ? (
-          <div className="col-span-full rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <div className="col-span-full rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
             {(error as Error).message}
           </div>
         ) : levels.length === 0 ? (
@@ -170,7 +170,7 @@ export function PricingContent(): React.JSX.Element {
                     推荐
                   </span>
                 )}
-                <CardContent className="flex flex-1 flex-col p-5 min-[640px]:p-5">
+                <CardContent className="flex flex-1 flex-col p-3">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold">{level.levelName}</h2>
                     <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
@@ -230,7 +230,7 @@ export function PricingContent(): React.JSX.Element {
         )}
       </section>
 
-      <section className="mt-10 rounded-md border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+      <section className="mt-10 rounded-md border bg-muted/30 p-3 text-center text-sm text-muted-foreground">
         所有方案均含完整 API 接入权限,企业版支持定制 SLA 与私有部署。
       </section>
 
@@ -240,7 +240,7 @@ export function PricingContent(): React.JSX.Element {
 
       <Guarantee />
 
-      <section className="mt-14 rounded-lg border border-primary/30 bg-primary/5 p-8 text-center">
+      <section className="mt-14 rounded-lg border border-primary/30 bg-primary/5 p-3 text-center">
         <h2 className="text-xl font-bold tracking-tight text-foreground min-[768px]:text-2xl">
           还不确定?免费试用 30 天
         </h2>

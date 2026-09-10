@@ -97,7 +97,7 @@ export default function OnboardingPage() {
             <li key={key}>
               <div
                 className={cn(
-                  'flex items-start gap-3 rounded-xl border p-4 transition',
+                  'flex items-start gap-3 rounded-xl border p-3 transition',
                   isDone ? 'bg-muted/40' : 'hover:bg-muted/20',
                 )}
               >
@@ -138,7 +138,7 @@ export default function OnboardingPage() {
         })}
       </ul>
 
-      <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border p-4">
+      <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border p-3">
         <Network className="h-4 w-4 text-primary" />
         <span className="text-sm font-semibold">{t('mcpTitle')}</span>
         <span className="text-sm text-muted-foreground">{t('mcpDesc')}</span>

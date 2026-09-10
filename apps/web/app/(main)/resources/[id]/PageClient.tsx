@@ -119,7 +119,7 @@ export default function ResourceDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -132,7 +132,7 @@ export default function ResourceDetailPage() {
   const isCodeResource = CODE_EXTENSIONS.includes(fileExt)
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/resources"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -211,7 +211,7 @@ export default function ResourceDetailPage() {
                   <div className="flex h-24 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                     <FileText className="h-8 w-8 text-primary/40" />
                   </div>
-                  <CardContent className="space-y-1.5 p-4 text-xs text-muted-foreground">
+                  <CardContent className="space-y-1.5 p-3 text-xs text-muted-foreground">
                     <p className="font-medium text-foreground">{item.title}</p>
                     <div className="flex items-center gap-3">
                       <span className="flex items-center gap-1">

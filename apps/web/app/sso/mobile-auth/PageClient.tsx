@@ -38,6 +38,9 @@ export default function SsoMobileAuthPage() {
     let cancelled = false
     void (async () => {
       try {
+        // 2026-09-09 0-5-f 豁免确认:SSO 认证自举场景——code 交换失败(过期/已消费)
+        // 是最终业务结果,走 fetchApi 会触发 401 自动续期重试徒增请求;WebView 场景
+        // 无既有会话,refresh 必失败;X-Requested-With 已显式满足后端 CSRF 校验。
         const res = await fetch('/api/auth/sso/exchange', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },

@@ -338,7 +338,7 @@ export default function CompareIndexPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(compareJsonLd) }}
       />
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+      <main className="py-4 mx-auto w-full max-w-6xl px-4">
         <BackButton />
         <section className="space-y-5 text-center">
           <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -358,7 +358,7 @@ export default function CompareIndexPage() {
             <Link
               key={slug}
               href={`/compare/${slug}`}
-              className="group rounded-2xl border bg-card p-4 min-[768px]:p-6 shadow-sm transition-shadow hover:shadow-md"
+              className="group rounded-2xl border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold">IHUI AI vs {competitor}</h2>
@@ -385,13 +385,13 @@ export default function CompareIndexPage() {
             <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="bg-muted/30">
-                  <th className="px-3 py-3 text-left text-sm font-semibold min-[768px]:px-4">
+                  <th className="px-3 py-3 text-left text-sm font-semibold">
                     特性
                   </th>
                   {TABLE_COLS.map((col, i) => (
                     <th
                       key={col}
-                      className={`px-3 py-3 text-center text-sm font-semibold min-[768px]:px-4 ${i === 0 ? 'text-primary' : ''}`}
+                      className={`px-3 py-3 text-center text-sm font-semibold ${i === 0 ? 'text-primary' : ''}`}
                     >
                       {col}
                     </th>
@@ -401,14 +401,14 @@ export default function CompareIndexPage() {
               <tbody>
                 {TABLE_ROWS.map((row, idx) => (
                   <tr key={row[0]} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}>
-                    <td className="px-3 py-3 text-sm font-medium min-[768px]:px-4">{row[0]}</td>
+                    <td className="px-3 py-3 text-sm font-medium">{row[0]}</td>
                     {TABLE_COLS.map((_, ci) => {
                       const text = row[ci * 2 + 1]
                       const ok = row[ci * 2 + 2]
                       return (
                         <td
                           key={ci}
-                          className={`px-3 py-3 text-center text-sm min-[768px]:px-4 ${ci === 0 ? 'bg-primary/5 font-medium' : ''}`}
+                          className={`px-3 py-3 text-center text-sm ${ci === 0 ? 'bg-primary/5 font-medium' : ''}`}
                         >
                           <span className="inline-flex items-center gap-1.5">
                             {ok === true && (
@@ -454,7 +454,7 @@ export default function CompareIndexPage() {
         </section>
 
         {/* CTA */}
-        <section className="mt-12 rounded-lg border bg-primary/5 p-5 text-center min-[768px]:p-8 min-[1024px]:p-12">
+        <section className="mt-12 rounded-lg border bg-primary/5 p-3 text-center">
           <Sparkles className="mx-auto h-10 w-10 text-primary" />
           <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
             立即开始使用 IHUI-AI

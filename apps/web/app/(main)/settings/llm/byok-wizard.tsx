@@ -297,7 +297,7 @@ export function ByokWizard() {
 
       <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
         <DialogContent className="max-w-lg gap-0 p-0 min-[640px]:rounded-lg">
-          <DialogHeader className="space-y-2 border-b p-4">
+          <DialogHeader className="space-y-2 border-b p-3">
             <DialogTitle className="flex items-center gap-2 text-base">
               <Sparkles className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               {t('title')}
@@ -326,7 +326,7 @@ export function ByokWizard() {
           </div>
 
           {/* 步骤内容 */}
-          <div className="max-h-[55vh] overflow-y-auto p-4">
+          <div className="max-h-[55vh] overflow-y-auto p-3">
             {/* 步骤 1:选厂商 */}
             {step === 0 && (
               <div className="space-y-3">
@@ -515,7 +515,7 @@ export function ByokWizard() {
           </div>
 
           {/* 底部导航 */}
-          <div className="flex items-center justify-between border-t p-4">
+          <div className="flex items-center justify-between border-t p-3">
             <Button onClick={prev} size="sm" variant="ghost" disabled={step === 0}>
               <ArrowLeft className="mr-1 h-3.5 w-3.5" />
               {t('prev')}

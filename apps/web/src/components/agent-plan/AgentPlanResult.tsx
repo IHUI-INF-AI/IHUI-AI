@@ -42,7 +42,7 @@ export function AgentPlanResult({ detail, onReset }: Props) {
       </div>
 
       {isRejected ? (
-        <div className="flex flex-col gap-1 rounded-md bg-muted p-4">
+        <div className="flex flex-col gap-1 rounded-md bg-muted p-3">
           <span className="text-sm font-medium">{t('rejectedTitle')}</span>
           <span className="text-sm text-muted-foreground">{t('rejectedDesc')}</span>
         </div>

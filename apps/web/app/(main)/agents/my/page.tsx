@@ -134,7 +134,7 @@ export default function MyAgentsPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : agents.length === 0 ? (
@@ -147,7 +147,7 @@ export default function MyAgentsPage() {
           {agents.map((agent) => (
             <Link key={agent.agentId} href={`/agents/${agent.agentId}`}>
               <Card className="transition-colors hover:bg-accent/40">
-                <CardContent className="space-y-2 p-4">
+                <CardContent className="space-y-2 p-3">
                   <div className="flex items-start gap-3">
                     {agent.avatar ? (
                       <Image

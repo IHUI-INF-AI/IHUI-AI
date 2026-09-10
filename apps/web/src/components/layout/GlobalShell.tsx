@@ -114,13 +114,16 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
     document.documentElement.style.setProperty('--ai-panel-occupy', `${occupy}px`)
   }, [aiOpen, aiWidth, aiFloatMode, aiFloatMinimized])
 
-  // 小尺寸侧边栏折叠改用纯 CSS 方案(2026-08-02 修订):
-  // - 旧方案用 useIsMobile + setCollapsed effect,但 useIsMobile SSR 返回 false / CSR 返回 true
-  //   导致 hydration mismatch + 闪烁(首帧展开态 → effect 跑 setCollapsed(true) → 重渲染折叠态)
-  // - 新方案:不在 JS 层强制 collapsed,改由 sidebar.tsx aside 加 CSS 媒体查询类
-  //   `max-[1023px]:!w-[60px]` 在小尺寸下强制 60px 折叠宽度,导航项用 collapsed prop 控制图标态
+  // 小尺寸侧边栏折叠(2026-09-09 修订注释,反映现行双层方案):
+  // - JS 层:Sidebar 内部 useMediaQuery('(min-width: 768px) and (max-width: 1023px)')
+  //   → effectiveCollapsed,平板区间渲染折叠态(竖排 footer、方形 logo、隐藏文字)。
+  //   useMediaQuery 已改为 isomorphic layout effect(2026-09-09),hydration 后 paint 前
+  //   完成纠正,无可见闪烁;SSR 初始值 false 与服务端一致,无 hydration mismatch。
+  // - CSS 层兜底:globals.css 平板区间对 aside[data-viewport-collapsed='true'] 强制 60px
+  //   宽 + .sidebar-actions 竖排 + 隐藏长 logo,覆盖 SSR 展开 HTML → hydration 前的间隙。
+  // - 历史:2026-08-02 曾用"纯 CSS 不改 state"方案(max-[1023px] 宽度覆盖),2026-09-07 起
+  //   演进为上述 JS+CSS 双层方案(纯 CSS 无法切换 footer 竖排/折叠 header 的 React 分支)。
   // - collapsed 状态已下沉到 Sidebar 内部(2026-09-04 性能优化),GlobalShell 不再持有。
-  //   小尺寸 CSS 只覆盖宽度,不改 collapsed state,避免 hydration 问题和 JS 时序闪烁。
 
   // 2026-08-05 性能优化:useCallback 稳定回调引用,配合 React.memo(Sidebar) 防止
   // GlobalShell 重渲染时 Sidebar 因 props 引用变化而跟随重渲染。

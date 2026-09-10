@@ -22,7 +22,7 @@ export function CompareContent({
 
   if (!config) {
     return (
-      <main className="mx-auto w-full max-w-6xl px-4 py-4 min-[768px]:px-8">
+      <main className="mx-auto w-full max-w-6xl px-4 py-4">
         <section className="space-y-5 text-center">
           <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
             对比页面开发中
@@ -47,7 +47,7 @@ export function CompareContent({
   ).length
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-4 min-[768px]:px-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-4">
       {/* Hero */}
       <section className="space-y-5 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -81,13 +81,13 @@ export function CompareContent({
         <table className="w-full">
           <thead>
             <tr className="bg-muted/30">
-              <th className="px-4 py-4 text-left text-sm font-semibold min-[768px]:px-6">
+              <th className="px-4 py-4 text-left text-sm font-semibold">
                 对比维度
               </th>
-              <th className="px-4 py-4 text-center text-sm font-semibold text-primary min-[768px]:px-6">
+              <th className="px-4 py-4 text-center text-sm font-semibold text-primary">
                 IHUI AI
               </th>
-              <th className="px-4 py-4 text-center text-sm font-semibold min-[768px]:px-6">
+              <th className="px-4 py-4 text-center text-sm font-semibold">
                 {config.name}
               </th>
             </tr>
@@ -95,7 +95,7 @@ export function CompareContent({
           <tbody>
             {config.rows.map((row, idx) => (
               <tr key={row.dimension} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}>
-                <td className="px-4 py-4 min-[768px]:px-6">
+                <td className="px-4 py-4">
                   <div className="text-sm font-medium">{row.dimension}</div>
                   {(row.ihuiDetail || row.competitorDetail) && (
                     <div className="mt-1 text-xs text-muted-foreground">
@@ -112,10 +112,10 @@ export function CompareContent({
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-4 text-center min-[768px]:px-6">
+                <td className="px-4 py-4 text-center">
                   <Cell value={row.ihui} dimension={row.dimension} isIhui={true} />
                 </td>
-                <td className="px-4 py-4 text-center min-[768px]:px-6">
+                <td className="px-4 py-4 text-center">
                   <Cell value={row.competitor} dimension={row.dimension} isIhui={false} />
                 </td>
               </tr>
@@ -125,7 +125,7 @@ export function CompareContent({
       </section>
 
       {/* 总结 */}
-      <section className="mt-12 rounded-2xl border bg-primary/5 p-8 min-[768px]:p-12">
+      <section className="mt-12 rounded-2xl border bg-primary/5 p-3">
         <div className="flex items-start gap-3">
           <Rocket className="h-6 w-6 shrink-0 text-primary" />
           <div>
@@ -138,7 +138,7 @@ export function CompareContent({
       </section>
 
       {/* CTA */}
-      <section className="mt-12 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
+      <section className="mt-12 rounded-2xl border bg-card p-3 text-center">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
         <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           30 分钟体验 IHUI AI

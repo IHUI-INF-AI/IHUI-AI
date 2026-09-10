@@ -148,7 +148,7 @@ export default function TeamMemoryPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4">
+    <div className="px-4 py-4 mx-auto flex w-full max-w-5xl flex-col gap-4">
       <div>
         <h1 className="text-lg font-semibold">{t('title')}</h1>
         <p className="text-muted-foreground mt-0.5 text-sm">{t('description')}</p>

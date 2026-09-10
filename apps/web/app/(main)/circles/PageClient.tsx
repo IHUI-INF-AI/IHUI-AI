@@ -74,7 +74,7 @@ export default function CirclesPageClient() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : circles.length === 0 ? (
@@ -101,13 +101,13 @@ export default function CirclesPageClient() {
                     </div>
                   )}
                 </div>
-                <CardHeader className="p-4 pb-2">
+                <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-base">{c.name}</CardTitle>
                   {c.description && (
                     <CardDescription className="text-xs">{c.description}</CardDescription>
                   )}
                 </CardHeader>
-                <CardContent className="p-4 pt-0">
+                <CardContent className="p-3 pt-0">
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Users className="h-3.5 w-3.5" />

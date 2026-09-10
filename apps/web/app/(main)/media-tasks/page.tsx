@@ -644,8 +644,8 @@ export default function MediaTasksPage() {
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
-              size="sm"
-              className="h-7 px-2 text-[11px]"
+              size="xs"
+              className="px-2 text-[11px]"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
@@ -655,8 +655,8 @@ export default function MediaTasksPage() {
             <span className="min-w-[5.5rem] text-center">{t('pageInfo', { page, pages })}</span>
             <Button
               variant="outline"
-              size="sm"
-              className="h-7 px-2 text-[11px]"
+              size="xs"
+              className="px-2 text-[11px]"
               disabled={page >= pages}
               onClick={() => setPage((p) => Math.min(pages, p + 1))}
             >

@@ -67,7 +67,7 @@ export default function QrCodePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md py-4">
+    <div className="px-4 mx-auto w-full max-w-md py-4">
       <div className="mb-4 flex items-center justify-between">
         <BackButton fallbackHref="/settings" />
         <h1 className="text-lg font-medium">{t('title')}</h1>
@@ -80,7 +80,7 @@ export default function QrCodePage() {
           <span>{t('loading')}</span>
         </div>
       ) : q.isError ? (
-        <div className="rounded-md border border-border bg-card p-6 text-center">
+        <div className="rounded-md border border-border bg-card p-3 text-center">
           <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
           <Button variant="outline" size="sm" onClick={() => void q.refetch()}>
             <RotateCw className="mr-2 h-4 w-4" />
@@ -89,7 +89,7 @@ export default function QrCodePage() {
         </div>
       ) : q.data ? (
         <Card>
-          <CardContent className="flex flex-col items-center p-4 text-center">
+          <CardContent className="flex flex-col items-center p-3 text-center">
             <QrPlaceholder content={q.data.content} />
             <p className="mt-4 text-sm text-muted-foreground">{t('scanHint')}</p>
             <p className="mt-1 text-xs text-muted-foreground">

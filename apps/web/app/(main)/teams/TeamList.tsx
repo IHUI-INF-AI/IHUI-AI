@@ -36,7 +36,7 @@ export function TeamList({ data, isLoading, error }: Props) {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {error.message}
         </div>
       ) : data && data.length > 0 ? (

@@ -91,7 +91,7 @@ export default function AiWorldSharePage() {
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notExists')}
         </div>
       </div>
@@ -99,7 +99,7 @@ export default function AiWorldSharePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-2xl space-y-4">
       <Link
         href={`/ai-world/${params.id}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -126,7 +126,7 @@ export default function AiWorldSharePage() {
             <Sparkles className="h-10 w-10 text-muted-foreground/40" />
           </div>
         )}
-        <CardContent className="space-y-3 p-5 min-[640px]:p-5">
+        <CardContent className="space-y-3 p-3">
           <h2 className="text-lg font-bold tracking-tight">{world.title}</h2>
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
@@ -147,7 +147,7 @@ export default function AiWorldSharePage() {
       </Card>
 
       <Card>
-        <CardContent className="space-y-4 p-5 min-[640px]:p-5">
+        <CardContent className="space-y-4 p-3">
           <div className="space-y-2">
             <p className="text-sm font-medium">{t('shareLink')}</p>
             <div className="flex items-center gap-2">
@@ -163,7 +163,7 @@ export default function AiWorldSharePage() {
             </div>
           </div>
 
-          <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-6">
+          <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-3">
             <div className="flex h-32 w-32 items-center justify-center rounded-lg bg-muted">
               <Share2 className="h-12 w-12 text-muted-foreground/40" />
             </div>

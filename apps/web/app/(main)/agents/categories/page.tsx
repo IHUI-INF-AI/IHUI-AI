@@ -79,7 +79,7 @@ export default function AgentCategoriesPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : categories.length === 0 ? (
@@ -92,7 +92,7 @@ export default function AgentCategoriesPage() {
           {categories.map((cat) => (
             <Link key={cat.categoryId} href={`/agents/categories/${cat.categoryId}`}>
               <Card className="transition-colors hover:bg-accent/40">
-                <CardContent className="space-y-3 p-4">
+                <CardContent className="space-y-3 p-3">
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                       {cat.icon ? (

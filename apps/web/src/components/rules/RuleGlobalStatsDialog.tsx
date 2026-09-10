@@ -74,10 +74,10 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
     <div
-      className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-3 dark:bg-black/40"
       onClick={(e) => e.target === e.currentTarget && onClose?.()}
     >
-      <div className="flex max-h-[80vh] w-full max-w-lg flex-col space-y-3 rounded-lg border border-border bg-card p-4 shadow-lg">
+      <div className="flex max-h-[80vh] w-full max-w-lg flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">
             <BarChart3 className="mr-1 inline h-3.5 w-3.5" />

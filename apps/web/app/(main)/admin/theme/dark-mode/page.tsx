@@ -94,13 +94,13 @@ export default function DarkModePage() {
 
   if (loading)
     return (
-      <div className="px-4">
+      <div className="px-4 py-4">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
 
   return (
-    <form onSubmit={save} className="px-4 space-y-4">
+    <form onSubmit={save} className="space-y-4 px-4 py-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">暗色模式</h1>
@@ -113,7 +113,7 @@ export default function DarkModePage() {
       </div>
 
       <Card>
-        <CardContent className="flex items-center justify-between p-4">
+        <CardContent className="flex items-center justify-between p-3">
           <div className="flex items-center gap-2">
             <Moon className="h-4 w-4 text-primary" />
             <div>
@@ -150,7 +150,7 @@ export default function DarkModePage() {
           <CardTitle className="text-base">亮色 / 暗色对比预览</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-4">
-          <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 text-slate-900">
+          <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-slate-900">
             <p className="text-sm font-semibold">亮色模式</p>
             <p className="text-xs opacity-80">示例正文内容</p>
             <span className="inline-block rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground">
@@ -158,7 +158,7 @@ export default function DarkModePage() {
             </span>
           </div>
           <div
-            className="space-y-2 rounded-lg p-4"
+            className="space-y-2 rounded-lg p-3"
             style={{
               backgroundColor: cfg.bgColor,
               color: cfg.textColor,

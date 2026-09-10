@@ -78,7 +78,7 @@ export default function KBDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           返回列表
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? '文章不存在'}
         </div>
       </div>
@@ -88,7 +88,7 @@ export default function KBDetailPage() {
   const toc = extractToc(article.content)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4">
+    <div className="py-4 mx-auto w-full max-w-6xl space-y-4 px-4">
       <Link
         href="/knowledge-base"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -128,7 +128,7 @@ export default function KBDetailPage() {
       <div className="flex flex-col gap-8 min-[1024px]:flex-row">
         <article className="min-w-0 flex-1">
           <Card>
-            <CardContent className="p-4 min-[768px]:p-6 min-[640px]:p-6">
+            <CardContent className="p-3">
               <MarkdownViewer content={article.content} />
             </CardContent>
           </Card>
@@ -138,7 +138,7 @@ export default function KBDetailPage() {
           <aside className="w-full shrink-0 min-[1024px]:w-56">
             <div className="min-[1024px]:sticky min-[1024px]:top-4">
               <Card>
-                <CardContent className="p-4">
+                <CardContent className="p-3">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     目录
                   </p>

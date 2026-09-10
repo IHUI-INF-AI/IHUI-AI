@@ -70,7 +70,7 @@ export default function ThreatDashboardPage() {
   ]
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -85,7 +85,7 @@ export default function ThreatDashboardPage() {
 
       <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
         {stats.map((s) => (
-          <Card key={s.key} className="p-4">
+          <Card key={s.key} className="p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">{t(s.key)}</span>
               <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg', s.cls)}>
@@ -117,7 +117,7 @@ export default function ThreatDashboardPage() {
         <div className="space-y-4">
           {d.watchedIps.length > 0 && (
             <Card>
-              <CardHeader className="p-4 pb-2">
+              <CardHeader className="p-3 pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Eye className="h-4 w-4 text-primary" />
                   {t('watchedIpsTitle')}
@@ -126,7 +126,7 @@ export default function ThreatDashboardPage() {
                   {t('watchedIpsDesc')}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-4 pt-0">
+              <CardContent className="p-3 pt-0">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -179,7 +179,7 @@ export default function ThreatDashboardPage() {
 
           {d.recentBlocks.length > 0 && (
             <Card>
-              <CardHeader className="p-4 pb-2">
+              <CardHeader className="p-3 pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Activity className="h-4 w-4 text-primary" />
                   {t('recentBlocksTitle')}
@@ -188,7 +188,7 @@ export default function ThreatDashboardPage() {
                   {t('recentBlocksDesc')}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-4 pt-0">
+              <CardContent className="p-3 pt-0">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>

@@ -79,8 +79,8 @@ export default function ClawdbotHealthPage() {
   }
   if (error) {
     return (
-      <div className="space-y-4 px-4 py-6">
-        <div className="p-4">
+      <div className="space-y-4 px-4 py-4">
+        <div className="p-3">
           <Alert variant="danger" title="加载失败" description={error} />
         </div>
         <div className="flex justify-center">
@@ -96,7 +96,7 @@ export default function ClawdbotHealthPage() {
   const StatusIcon = STATUS_CONFIG[report.status].icon
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -112,7 +112,7 @@ export default function ClawdbotHealthPage() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-3 rounded-lg border bg-card p-4">
+      <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
         <div
           className={cn(
             'flex h-12 w-12 items-center justify-center rounded-xl',

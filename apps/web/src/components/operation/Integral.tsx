@@ -76,7 +76,7 @@ export function Integral({ className, defaultData }: IntegralProps) {
 
   return (
     <Card className={cn('w-full', className)}>
-      <CardHeader className="flex-row items-center justify-between space-y-0 p-4 pb-2">
+      <CardHeader className="flex-row items-center justify-between space-y-0 p-3 pb-2">
         <CardTitle className="text-sm">{t('title')}</CardTitle>
         <Button asChild size="sm" variant="outline">
           <Link href="/integral/mall">
@@ -85,7 +85,7 @@ export function Integral({ className, defaultData }: IntegralProps) {
           </Link>
         </Button>
       </CardHeader>
-      <CardContent className="p-4 pt-3">
+      <CardContent className="p-3 pt-3">
         <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3 rounded-lg bg-muted/40 p-3">
           <div className="text-center">
             <div className="text-xl font-bold tracking-tight">

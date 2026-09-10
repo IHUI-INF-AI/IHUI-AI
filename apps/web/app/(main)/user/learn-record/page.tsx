@@ -57,7 +57,7 @@ export default function LearnRecordPage() {
   const items = data ?? []
 
   return (
-    <div className="py-4 mx-auto max-w-3xl space-y-4">
+    <div className="px-4 py-4 mx-auto max-w-3xl space-y-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
@@ -84,7 +84,7 @@ export default function LearnRecordPage() {
             return (
               <li
                 key={item.id}
-                className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"
+                className="rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-1">

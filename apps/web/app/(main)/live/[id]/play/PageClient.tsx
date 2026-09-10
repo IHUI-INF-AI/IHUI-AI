@@ -123,7 +123,7 @@ export default function LivePlayPage() {
     )
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       {backLink}
 
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[1fr_360px]">
@@ -145,7 +145,7 @@ export default function LivePlayPage() {
                 </div>
               )}
             </div>
-            <CardContent className="space-y-3 p-4">
+            <CardContent className="space-y-3 p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <h1 className="text-lg font-semibold">{channel.title}</h1>
@@ -192,7 +192,7 @@ export default function LivePlayPage() {
           <div className="px-4 py-3">
             <h2 className="text-sm font-medium">{t('danmuTitle')}</h2>
           </div>
-          <div ref={danmuRef} className="flex-1 space-y-2 overflow-y-auto p-4">
+          <div ref={danmuRef} className="flex-1 space-y-2 overflow-y-auto p-3">
             {danmuList.map((d) => (
               <div key={d.id} className="text-sm">
                 <span className="font-medium text-primary">{d.userName}:</span>{' '}

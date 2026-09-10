@@ -41,13 +41,13 @@ export function AgentMessageList({ messages, isLoading }: AgentMessageListProps)
 
   return (
     <Card>
-      <CardHeader className="p-4">
+      <CardHeader className="p-3">
         <CardTitle className="flex items-center gap-2 text-sm">
           <MessagesSquare className="h-4 w-4 text-muted-foreground" />
           Agent 间消息
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-4 pt-0">
+      <CardContent className="p-3 pt-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-6 text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

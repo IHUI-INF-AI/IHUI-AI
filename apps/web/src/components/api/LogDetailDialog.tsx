@@ -58,7 +58,7 @@ export default function LogDetailDialog({
 
   return (
     <div
-      className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-3"
       role="dialog"
       aria-modal="true"
       onClick={(e) => e.target === e.currentTarget && onClose?.()}
@@ -82,7 +82,7 @@ export default function LogDetailDialog({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="flex-1 space-y-4 overflow-auto p-5 text-sm">
+        <div className="flex-1 space-y-4 overflow-auto p-3 text-sm">
           <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
             <Field label="方法" value={log?.method ?? '-'} />
             <Field label="状态码" value={String(log?.statusCode ?? '-')} />

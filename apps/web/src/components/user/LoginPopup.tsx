@@ -41,7 +41,7 @@ export default function LoginPopup({
 
   return (
     <div
-      className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-3"
       role="dialog"
       aria-modal="true"
       onClick={(e) => {
@@ -52,7 +52,7 @@ export default function LoginPopup({
     >
       <div
         className={cn(
-          'login-scope relative w-full max-w-sm rounded-2xl bg-background p-6 shadow-xl',
+          'login-scope relative w-full max-w-sm rounded-2xl bg-background p-3 shadow-xl',
           className,
         )}
       >

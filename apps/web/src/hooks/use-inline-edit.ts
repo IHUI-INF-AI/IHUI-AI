@@ -23,6 +23,11 @@ import { useAiPanelStore } from '@/stores/ai-panel'
  * 4. startEdit 调 streamChat 流式生成 patch,onDelta 累积到 store.generatedPatch
  * 5. 用户 Accept → store.acceptPatch() → callback 替换 Monaco 选区文本
  *
+ * 2026-09-09 1-6 多轮迭代升级:done 态用户可继续输入指令,新一轮以
+ * 上一轮生成结果为基础代码,并把本轮会话内全部 instruction→patch 轮次
+ * (store.turns)作为多轮 messages 上下文发给模型,实现链式迭代修改
+ * (对标 Cursor Cmd+K 的 follow-up 体验)。Accept 应用的是最新一轮结果。
+ *
  * 注意:窗口事件 'global-shortcut:inline-edit' 由 use-global-shortcuts /
  * use-ide-shortcuts 在编辑器聚焦时派发。
  */
@@ -40,7 +45,7 @@ function extractCodeBlock(raw: string): string {
 export function useInlineEdit() {
   const abortRef = React.useRef<AbortController | null>(null)
 
-  /** 触发 AI 生成 patch:流式调用 streamChat */
+  /** 触发 AI 生成 patch:流式调用 streamChat(多轮:done 态继续输入即 follow-up) */
   const startEdit = React.useCallback(async (instruction: string) => {
     const store = useInlineEditStore.getState()
     const selection = store.selection
@@ -51,6 +56,10 @@ export function useInlineEdit() {
     const controller = new AbortController()
     abortRef.current = controller
 
+    // 多轮上下文(1-6):done 态继续输入时,基础代码为上一轮生成结果
+    const priorTurns = store.turns
+    const baseCode = priorTurns.length > 0 ? store.generatedPatch : selection.selectedText
+
     store.setStatus('loading')
     store.setError(null)
     store.setGeneratedPatch('')
@@ -59,22 +68,34 @@ export function useInlineEdit() {
     const userId = useAuthStore.getState().user?.id ?? ''
     const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
 
-    const prompt = [
-      '请修改以下选中代码,按照用户指令:' + instruction,
-      '',
-      '选中代码:',
-      '```' + (selection.language || ''),
-      selection.selectedText,
-      '```',
-      '',
-      '请输出修改后的完整代码块(用 ``` 包裹),不要解释。',
-    ].join('\n')
+    const buildUserPrompt = (code: string, instr: string) =>
+      [
+        '请修改以下选中代码,按照用户指令:' + instr,
+        '',
+        '选中代码:',
+        '```' + (selection.language || ''),
+        code,
+        '```',
+        '',
+        '请输出修改后的完整代码块(用 ``` 包裹),不要解释。',
+      ].join('\n')
+
+    // 多轮 messages:历史轮次展开为 user(指令+当时的代码)/assistant(修改结果) 消息对,
+    // 末尾附本轮指令(以最新代码为基础),模型可感知完整迭代链
+    const messages: { role: 'user' | 'assistant'; content: string }[] = []
+    let prevCode = selection.selectedText
+    for (const turn of priorTurns) {
+      messages.push({ role: 'user', content: buildUserPrompt(prevCode, turn.instruction) })
+      messages.push({ role: 'assistant', content: '```\n' + turn.patch + '\n```' })
+      prevCode = turn.patch
+    }
+    messages.push({ role: 'user', content: buildUserPrompt(baseCode, instruction) })
 
     let raw = ''
     try {
       await streamChat({
         model,
-        messages: [{ role: 'user', content: prompt }],
+        messages,
         signal: controller.signal,
         metadata: {
           userId,
@@ -92,6 +113,9 @@ export function useInlineEdit() {
           const s = useInlineEditStore.getState()
           s.setGeneratedPatch(final)
           s.setStatus('done')
+          // 提交本轮记录(供下一轮多轮上下文),清空指令输入框供 follow-up
+          s.commitTurn({ instruction, patch: final })
+          s.setInstruction('')
         },
         onError: (errMsg) => {
           const s = useInlineEditStore.getState()

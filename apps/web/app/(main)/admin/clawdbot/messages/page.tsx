@@ -73,14 +73,14 @@ export default function ClawdbotMessagesPage() {
   }
   if (error) {
     return (
-      <div className="p-4">
+      <div className="p-3">
         <Alert variant="danger" title="加载失败" description={error} />
       </div>
     )
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <MessageSquare className="h-6 w-6 text-primary" /> 消息记录
@@ -150,7 +150,7 @@ export default function ClawdbotMessagesPage() {
 
       {selected && (
         <div
-          className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-3"
           onClick={() => setSelected(null)}
         >
           <div
@@ -163,7 +163,7 @@ export default function ClawdbotMessagesPage() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="space-y-3 p-4 text-sm">
+            <div className="space-y-3 p-3 text-sm">
               <div>
                 <span className="text-muted-foreground">ID:</span> {selected.id}
               </div>

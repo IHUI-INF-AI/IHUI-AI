@@ -56,7 +56,7 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
   if (news.length === 0 && !isLoading) {
     // 兜底态:显示 6 条 LIVE_2026_MODELS 的"模型发布"卡片,提示"暂无最新资讯"
     return (
-      <Card className="flex flex-col gap-3 p-4">
+      <Card className="flex flex-col gap-3 p-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -81,7 +81,7 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
 
   if (isLoading && news.length === 0) {
     return (
-      <Card className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
+      <Card className="flex items-center gap-2 p-3 text-xs text-muted-foreground">
         <div className="h-3 w-3 animate-pulse rounded-full bg-muted-foreground/40" />
         <span>{t('aiNews.loading')}</span>
       </Card>
@@ -89,7 +89,7 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
   }
 
   return (
-    <Card className="flex flex-col gap-3 p-4">
+    <Card className="flex flex-col gap-3 p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 [&>span]:translate-y-[var(--text-vcenter-offset)]">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">

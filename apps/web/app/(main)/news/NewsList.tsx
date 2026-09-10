@@ -41,7 +41,7 @@ export function NewsList({
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
@@ -54,7 +54,7 @@ export function NewsList({
           {items.map((item, idx) => (
             <Link key={item.id} href={`/news/${item.id}`} className="block">
               <Card className="overflow-hidden transition-colors hover:bg-accent">
-                <CardContent className="flex gap-4 p-4">
+                <CardContent className="flex gap-4 p-3">
                   <div className="relative h-24 w-40 shrink-0 overflow-hidden rounded-md bg-muted">
                     {item.coverImage ? (
                       <Image

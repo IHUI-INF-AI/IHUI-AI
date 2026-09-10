@@ -146,6 +146,11 @@ export function getStreamBaseUrl(): string {
   return detectStreamBaseUrl()
 }
 
+// 2026-09-09 0-5 直接 fetch 清单化迁移:补齐共享层能力 re-export。
+// - fetchAiServiceJson:ai-service 非标准响应(无 {code,data} 包装,整体 body 作 data),
+//   自动带 Bearer/X-Requested-With/设备指纹 + 30s 超时(timeoutMs 可覆盖),替代各页面
+//   手拼 AI_SERVICE_URL + Bearer 的本地 helper。
+// - fetchRaw:二进制 Blob 下载(自动带鉴权头),替代各页面手拼 fetch 的 blob 消费。
 export {
   setTokenProvider,
   setBaseUrl,
@@ -153,5 +158,7 @@ export {
   streamChat,
   getToken,
   isAbortError,
+  fetchAiServiceJson,
+  fetchRaw,
 } from '@ihui/api-client'
 export type { ApiResult, ApiResponse } from '@ihui/types'

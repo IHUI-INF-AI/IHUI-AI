@@ -281,7 +281,7 @@ function GroupCard({
 
   return (
     <Card className="flex flex-col">
-      <CardHeader className="gap-1.5 p-4 pb-2">
+      <CardHeader className="gap-1.5 p-3 pb-2">
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="line-clamp-1 text-base">{group.name}</CardTitle>
           <span
@@ -298,7 +298,7 @@ function GroupCard({
         )}
       </CardHeader>
 
-      <CardContent className="flex flex-1 flex-col gap-2 p-4 pt-2">
+      <CardContent className="flex flex-1 flex-col gap-2 p-3 pt-2">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5 shrink-0" />
@@ -435,13 +435,13 @@ export default function GroupsPage() {
 
       {/* 创建区 */}
       <Card>
-        <CardHeader className="p-4 pb-0">
+        <CardHeader className="p-3 pb-0">
           <CardTitle className="flex items-center gap-2 text-sm">
             <Plus className="h-4 w-4 text-primary" />
             {t('createGroup')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-2 p-4 sm:flex-row">
+        <CardContent className="flex flex-col gap-2 p-3 sm:flex-row">
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}

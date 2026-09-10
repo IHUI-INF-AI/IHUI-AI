@@ -84,7 +84,7 @@ export function MemberCard() {
 
   return (
     <aside className="w-full shrink-0 border-t min-[768px]:w-[280px] min-[768px]:border-l min-[768px]:border-t-0">
-      <div className="flex h-full flex-col justify-between p-5">
+      <div className="flex h-full flex-col justify-between p-3">
         {isAuthenticated ? (
           <>
             <div className="flex flex-col items-center text-center">

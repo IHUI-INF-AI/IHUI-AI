@@ -19,7 +19,7 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
   const { modelName, modelIcon, question, answer, tokenCost, createdAt } = shareData
 
   return (
-    <div className="min-h-[60vh] bg-background pb-20">
+    <div className="px-4 py-4 min-h-[60vh] bg-background pb-20">
       <BackButton />
       {/* 头部：模型信息 */}
       <header className="flex items-center px-5 py-3.5">
@@ -45,13 +45,13 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
       <div className="px-5 py-5">
         {/* 用户提问 */}
         <div className="flex justify-end">
-          <div className="w-full rounded-2xl border border-primary/40 bg-primary p-5 text-white">
+          <div className="w-full rounded-2xl border border-primary/40 bg-primary p-3 text-white">
             <p className="whitespace-pre-wrap break-words text-sm leading-7">{question || ''}</p>
           </div>
         </div>
 
         {/* AI 回答 */}
-        <div className="mt-5 w-full rounded-3xl border border-border bg-muted p-5">
+        <div className="mt-5 w-full rounded-3xl border border-border bg-muted p-3">
           <AnswerArea answer={answer} />
 
           {/* 底部信息 */}

@@ -103,7 +103,7 @@ export function CloudRunsView() {
           <h1 className="text-2xl font-bold">{t('detailTitle')}</h1>
         </div>
 
-        <div className="rounded-xl border p-4">
+        <div className="rounded-xl border p-3">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-sm font-semibold">{t('runId')}</span>
             <span className="inline-flex items-center gap-1.5 text-sm font-medium">
@@ -134,7 +134,7 @@ export function CloudRunsView() {
           </dl>
         </div>
 
-        <div className="mt-4 rounded-xl border p-4">
+        <div className="mt-4 rounded-xl border p-3">
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
             <FileText className="h-4 w-4" /> {t('task')}
           </h2>
@@ -143,7 +143,7 @@ export function CloudRunsView() {
           </p>
         </div>
 
-        <div className="mt-4 rounded-xl border p-4">
+        <div className="mt-4 rounded-xl border p-3">
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
             <FileText className="h-4 w-4" /> {t('output')}
           </h2>
@@ -211,7 +211,7 @@ export function CloudRunsView() {
               <li key={run.run_id}>
                 <button
                   onClick={() => void openDetail(run)}
-                  className="w-full rounded-xl border p-4 text-left transition hover:border-primary/50 hover:bg-muted/30"
+                  className="w-full rounded-xl border p-3 text-left transition hover:border-primary/50 hover:bg-muted/30"
                 >
                   <div className="mb-1 flex items-center justify-between gap-3">
                     <code className="truncate rounded bg-muted px-1 text-xs text-muted-foreground">

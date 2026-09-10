@@ -164,32 +164,63 @@ export interface ChunkUploadResult {
 
 const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024 // 5MB
 
+/**
+ * 分片上传(三步协议,对齐后端 apps/api/src/routes/chunked-upload.ts):
+ *  1. POST /api/chunked-upload/init —— JSON {fileName, fileSize, totalChunks, mimeType, chunkSize}
+ *  2. POST /api/chunked-upload/upload —— application/octet-stream 原始分片,
+ *     headers 带 x-upload-id / x-chunk-number(1-based),支持并发
+ *  3. POST /api/chunked-upload/merge —— JSON {uploadId} → {fileId, url}
+ *
+ * 2026-09-09 0-5 直接 fetch 清单化迁移:原实现把 FormData 直接 POST 到
+ * /api/upload/chunk(后端不存在该端点,协议亦不符,上传必 404 走 fallback)。
+ * 迁移到共享 fetchApi 的同时修复协议对齐,获得统一鉴权/CSRF/设备指纹/超时能力。
+ */
 export async function chunkUpload(
   file: File,
-  url: string,
   options: ChunkUploadOptions = {},
 ): Promise<ChunkUploadResult> {
   const chunkSize = options.chunkSize ?? DEFAULT_CHUNK_SIZE
   const concurrent = options.concurrent ?? 3
   const total = Math.ceil(file.size / chunkSize)
-  let uploaded = 0
 
+  const initRes = await fetchApi<{ uploadId: string }>(
+    '/api/chunked-upload/init',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        fileName: file.name,
+        fileSize: file.size,
+        totalChunks: total,
+        mimeType: file.type,
+        chunkSize,
+      }),
+      signal: options.signal,
+    },
+  )
+  if (!initRes.success || !initRes.data?.uploadId) {
+    throw new Error(initRes.error ?? '初始化上传会话失败')
+  }
+  const uploadId = initRes.data.uploadId
+
+  let uploaded = 0
   const uploadChunk = async (index: number): Promise<void> => {
     if (options.signal?.aborted) throw new Error('上传已取消')
     const start = index * chunkSize
     const end = Math.min(start + chunkSize, file.size)
     const blob = file.slice(start, end)
-    const formData = new FormData()
-    formData.append('file', blob)
-    formData.append('index', String(index))
-    formData.append('total', String(total))
-    formData.append('fileId', file.name)
-    const resp = await fetch(url, {
+    const res = await fetchApi('/api/chunked-upload/upload', {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'x-upload-id': uploadId,
+        'x-chunk-number': String(index + 1),
+      },
+      body: blob,
+      // 5MB 分片在慢网络下可能超过默认 30s,放宽到 120s
+      timeoutMs: 120_000,
       signal: options.signal,
     })
-    if (!resp.ok) throw new Error(`分片 ${index} 上传失败: ${resp.status}`)
+    if (!res.success) throw new Error(`分片 ${index} 上传失败: ${res.error ?? '未知错误'}`)
     uploaded += 1
     options.onProgress?.(uploaded, total)
   }
@@ -202,16 +233,20 @@ export async function chunkUpload(
     await Promise.all(batch)
   }
 
-  // 通知后端合并
-  const mergeResp = await fetch(`${url}?merge=1`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fileId: file.name, total, filename: file.name, size: file.size }),
-    signal: options.signal,
-  })
-  if (!mergeResp.ok) throw new Error('合并分片失败')
-  const data = (await mergeResp.json()) as { fileId: string; url: string }
-  return { fileId: data.fileId, url: data.url, size: file.size }
+  // 通知后端合并(大文件合并耗时,放宽超时)
+  const mergeRes = await fetchApi<{ fileId: string; url: string }>(
+    '/api/chunked-upload/merge',
+    {
+      method: 'POST',
+      body: JSON.stringify({ uploadId }),
+      timeoutMs: 120_000,
+      signal: options.signal,
+    },
+  )
+  if (!mergeRes.success || !mergeRes.data?.fileId || !mergeRes.data.url) {
+    throw new Error(mergeRes.error ?? '合并分片失败')
+  }
+  return { fileId: mergeRes.data.fileId, url: mergeRes.data.url, size: file.size }
 }
 
 /* ------------------------------------------------------------------ */

@@ -48,7 +48,7 @@ export default function UserPurchaseRecords({
         )}
       </div>
       {records.length === 0 ? (
-        <div className="p-5 min-[768px]:p-8 text-center text-sm text-muted-foreground">
+        <div className="p-3 text-center text-sm text-muted-foreground">
           暂无记录
         </div>
       ) : (

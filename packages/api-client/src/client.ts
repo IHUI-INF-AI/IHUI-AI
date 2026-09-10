@@ -368,7 +368,8 @@ async function fetchOnce<T>(
   // 2026-08-12 修复:ai-service 端点(如 /api/admin/news/status)返回裸 JSON 对象,
   // 没有 {code, message, data} 包装。code===undefined 时视整个响应为 data 返回。
   if (json.code === undefined) {
-    return { success: true, data: json as unknown as T }
+    // 2026-09-09 0-5 迁移:成功分支携带 HTTP status(upsert 场景需区分 200/201)
+    return { success: true, data: json as unknown as T, status: response.status }
   }
 
   if (json.code !== 0) {
@@ -380,7 +381,7 @@ async function fetchOnce<T>(
     }
   }
 
-  return { success: true, data: json.data }
+  return { success: true, data: json.data, status: response.status }
 }
 
 /** ApiResult 失败分支类型(用于错误归一化) */
@@ -688,7 +689,8 @@ export async function fetchAiServiceJson<T>(
 
     // ai-service 直接返回 JSON,无 {code, data} 包装,整体作为 data
     const json = (await response.json()) as T
-    return { success: true, data: json }
+    // 2026-09-09 0-5 迁移:成功分支携带 HTTP status(与 fetchOnce 对齐)
+    return { success: true, data: json, status: response.status }
   } catch (err) {
     if (isAbortError(err)) {
       return {

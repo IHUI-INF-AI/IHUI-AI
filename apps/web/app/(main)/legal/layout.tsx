@@ -26,7 +26,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-4 min-[768px]:px-6">
+    <div className="mx-auto w-full max-w-6xl px-4 py-4">
       <header className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
         <Link

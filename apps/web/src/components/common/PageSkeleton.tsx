@@ -12,7 +12,7 @@ interface PageSkeletonProps {
 
 export function PageSkeleton({ hasHeader = true, className }: PageSkeletonProps) {
   return (
-    <div className={cn('w-full space-y-4 p-4', className)}>
+    <div className={cn('w-full space-y-4 p-3', className)}>
       {hasHeader && (
         <div className="flex items-center justify-between">
           <div className="space-y-2">
@@ -27,14 +27,14 @@ export function PageSkeleton({ hasHeader = true, className }: PageSkeletonProps)
       )}
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 tablet-min-[1024px]:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={`skel-${i}`} className="rounded-xl border p-4 shadow">
+          <div key={`skel-${i}`} className="rounded-xl border p-3 shadow">
             <div className="mb-3 h-10 w-10 animate-pulse rounded-lg bg-muted" />
             <div className="h-6 w-24 animate-pulse rounded bg-muted" />
             <div className="mt-2 h-4 w-16 animate-pulse rounded bg-muted" />
           </div>
         ))}
       </div>
-      <div className="rounded-xl border p-4 shadow">
+      <div className="rounded-xl border p-3 shadow">
         <div className="mb-4 h-5 w-32 animate-pulse rounded bg-muted" />
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (

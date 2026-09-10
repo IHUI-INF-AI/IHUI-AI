@@ -55,7 +55,7 @@ export default function MyCertificatesPage() {
   const list = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -70,7 +70,7 @@ export default function MyCertificatesPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
@@ -84,7 +84,7 @@ export default function MyCertificatesPage() {
             const statusKey = cert.status === 2 ? 'statusRevoked' : 'statusValid'
             return (
               <Card key={cert.id} className="transition-colors hover:bg-accent">
-                <CardContent className="space-y-3 p-4">
+                <CardContent className="space-y-3 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
                       <Award className="h-5 w-5 text-primary" />
