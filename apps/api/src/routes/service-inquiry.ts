@@ -14,7 +14,7 @@
  * - PATCH /admin/:id/status          admin,更新询价状态
  *
  * 存储:service_inquiries 表(Drizzle ORM,持久化)。
- * 邮件通知:sendEmail 异步发送到 business@aizhs.top。
+ * 邮件通知:sendEmail 异步发送到 [REDACTED-EMAIL]。
  *
  * 配套前端:apps/web/app/(main)/services/ServicesContent.tsx + InquiryForm.tsx
  */
@@ -155,7 +155,7 @@ export const serviceInquiryRoutes: FastifyPluginAsync = async (server) => {
 
     // 异步发送邮件通知(不阻塞响应)
     sendEmail({
-      to: 'business@aizhs.top',
+      to: '[REDACTED-EMAIL]',
       subject: `新询价通知 - ${inquiry.serviceType}`,
       html: `
         <h1>新询价提交</h1>
