@@ -91,7 +91,12 @@ export function MaterialDrawer({
       ) : materials.length ? (
         <View className="material-list">
           {materials.map((m) => (
-            <View key={m.id} className="material-item" onClick={() => onSelect(m)} hoverClass="opacity-60">
+            <View
+              key={m.id}
+              className="material-item"
+              onClick={() => onSelect(m)}
+              hoverClass="opacity-60"
+            >
               {m.coverUrl ? (
                 <Image className="material-cover" src={m.coverUrl} mode="aspectFill" />
               ) : null}
@@ -190,7 +195,12 @@ export function HistoryDrawer({
       {histories.length ? (
         <ScrollView scrollY className="history-list">
           {histories.map((h) => (
-            <View key={h.id} className="history-item" onClick={() => onSelect(h)} hoverClass="opacity-60">
+            <View
+              key={h.id}
+              className="history-item"
+              onClick={() => onSelect(h)}
+              hoverClass="opacity-60"
+            >
               <Text className="history-item-title">{h.title}</Text>
               <Text className="history-item-preview">{h.preview}</Text>
               <Text className="history-item-time">{formatHistoryTime(h.timestamp)}</Text>

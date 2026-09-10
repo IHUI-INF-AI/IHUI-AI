@@ -43,12 +43,15 @@ export default function LiveHostPage() {
   const myStreamsQ = useQuery({
     queryKey: ['srs', 'streams'],
     queryFn: () => api<{ list: StreamItem[] }>('/srs/streams?page=1&pageSize=50'),
-    select: (d) =>
-      d.list.filter((s) => (s.userId ? s.userId === currentUserId : false)),
+    select: (d) => d.list.filter((s) => (s.userId ? s.userId === currentUserId : false)),
   })
 
   const createQ = useMutation({
-    mutationFn: () => api<StreamItem>('/srs/streams', { method: 'POST', body: JSON.stringify({ title: title.trim() }) }),
+    mutationFn: () =>
+      api<StreamItem>('/srs/streams', {
+        method: 'POST',
+        body: JSON.stringify({ title: title.trim() }),
+      }),
     onSuccess: (stream) => {
       setCreated(stream)
       setTitle('')
@@ -60,7 +63,10 @@ export default function LiveHostPage() {
 
   const endQ = useMutation({
     mutationFn: (id: string) =>
-      api<StreamItem>(`/srs/streams/${id}`, { method: 'PUT', body: JSON.stringify({ status: 'inactive' }) }),
+      api<StreamItem>(`/srs/streams/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'inactive' }),
+      }),
     onSuccess: () => {
       toast.success(t('endSuccess'))
       void qc.invalidateQueries({ queryKey: ['srs', 'streams'] })
@@ -125,7 +131,9 @@ export default function LiveHostPage() {
               </div>
             ) : null}
             <div className="flex items-center justify-between gap-2 rounded-md bg-secondary/50 px-3 py-2 text-sm">
-              <span className="truncate font-mono text-xs">{t('streamKey')}: {created.streamKey}</span>
+              <span className="truncate font-mono text-xs">
+                {t('streamKey')}: {created.streamKey}
+              </span>
               <Button variant="ghost" size="sm" onClick={() => void copyText(created.streamKey)}>
                 <Copy className="h-4 w-4" />
               </Button>
@@ -166,7 +174,11 @@ export default function LiveHostPage() {
                     disabled={endQ.isPending}
                     onClick={() => endQ.mutate(stream.id)}
                   >
-                    {endQ.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Square className="mr-1.5 h-4 w-4" />}
+                    {endQ.isPending ? (
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Square className="mr-1.5 h-4 w-4" />
+                    )}
                     {t('endBtn')}
                   </Button>
                 ) : (

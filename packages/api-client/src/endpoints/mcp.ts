@@ -266,16 +266,12 @@ export async function getCapabilities(
 }
 
 /** 获取能力市场详情(单条) */
-export async function getCapability(
-  id: string,
-): Promise<ApiResult<Capability>> {
+export async function getCapability(id: string): Promise<ApiResult<Capability>> {
   return fetchApi<Capability>(`/api/mcp/capabilities/${encodeURIComponent(id)}`)
 }
 
 /** 启用能力:加入对外暴露的 MCP 能力集 */
-export async function enableCapability(
-  id: string,
-): Promise<ApiResult<CapabilityActionResult>> {
+export async function enableCapability(id: string): Promise<ApiResult<CapabilityActionResult>> {
   return fetchApi<CapabilityActionResult>(
     `/api/mcp/capabilities/${encodeURIComponent(id)}/enable`,
     { method: 'POST' },
@@ -283,9 +279,7 @@ export async function enableCapability(
 }
 
 /** 停用能力:从对外暴露的 MCP 能力集中移除 */
-export async function disableCapability(
-  id: string,
-): Promise<ApiResult<CapabilityActionResult>> {
+export async function disableCapability(id: string): Promise<ApiResult<CapabilityActionResult>> {
   return fetchApi<CapabilityActionResult>(
     `/api/mcp/capabilities/${encodeURIComponent(id)}/disable`,
     { method: 'POST' },

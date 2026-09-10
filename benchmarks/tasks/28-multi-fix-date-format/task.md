@@ -5,6 +5,7 @@
 -->
 
 workspace 中 logger.mjs 用 date.mjs 的 formatDate(d) 生成日志时间前缀。formatDate(d) 应返回 'YYYY-MM-DD'(月/日两位零填充),当前实现月份用了 0 基索引且没有零填充。请修复 date.mjs 的 formatDate(logger.mjs 不改),要求:
+
 - formatDate(new Date(2026, 8, 7)) === '2026-09-07'(注意 JS 月份 0 基)
 - formatDate(new Date(2026, 0, 3)) === '2026-01-03'
 

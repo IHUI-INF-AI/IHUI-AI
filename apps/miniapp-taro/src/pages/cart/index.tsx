@@ -194,18 +194,15 @@ export default function Cart() {
                   <View
                     className={`checkbox ${item.selected ? 'checked' : ''}`}
                     onClick={() => onToggleItem(item.id)}
-                    hoverClass="opacity-60">
+                    hoverClass="opacity-60"
+                  >
                     {item.selected ? <Text className="checkbox-icon">✓</Text> : null}
                   </View>
                   {item.coverUrl ? (
                     <Image className="cart-item-cover" src={item.coverUrl} mode="aspectFill" />
                   ) : (
                     <View className="cart-item-cover placeholder">
-                      <LineIcon
-                        name="package"
-                        size={48}
-                        color="var(--color-muted-foreground)"
-                      />
+                      <LineIcon name="package" size={48} color="var(--color-muted-foreground)" />
                     </View>
                   )}
                   <View className="cart-item-info">
@@ -225,7 +222,11 @@ export default function Cart() {
                     </View>
                   </View>
                 </View>
-                <View className="cart-item-delete-action" onClick={() => onRemove(item.id)} hoverClass="opacity-60">
+                <View
+                  className="cart-item-delete-action"
+                  onClick={() => onRemove(item.id)}
+                  hoverClass="opacity-60"
+                >
                   <Text className="delete-action-text">{t('common.delete')}</Text>
                 </View>
               </View>
@@ -244,7 +245,11 @@ export default function Cart() {
         </View>
         {list.length > 0 && (
           <View className="cart-footer">
-            <View className={`checkbox ${allSelected ? 'checked' : ''}`} onClick={onToggleAll} hoverClass="opacity-60">
+            <View
+              className={`checkbox ${allSelected ? 'checked' : ''}`}
+              onClick={onToggleAll}
+              hoverClass="opacity-60"
+            >
               {allSelected ? <Text className="checkbox-icon">✓</Text> : null}
             </View>
             <Text className="select-all-label" onClick={onToggleAll}>

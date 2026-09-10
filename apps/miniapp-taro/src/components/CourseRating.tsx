@@ -61,7 +61,9 @@ export default function CourseRating({
             <Text
               key={star}
               className={`text-3xl mx-1 ${
-                (hoverRating || rating) >= star ? 'text-[var(--color-warning-amber)]' : 'text-muted-foreground'
+                (hoverRating || rating) >= star
+                  ? 'text-[var(--color-warning-amber)]'
+                  : 'text-muted-foreground'
               }`}
               onClick={() => setRating(star)}
               onTouchStart={() => setHoverRating(star)}
@@ -93,7 +95,9 @@ export default function CourseRating({
           hoverClass="opacity-60"
           onClick={() => onSubmit?.(rating, comment)}
         >
-          <Text className="text-sm text-primary-foreground">{tt('course.ratingSubmit', '提交评价')}</Text>
+          <Text className="text-sm text-primary-foreground">
+            {tt('course.ratingSubmit', '提交评价')}
+          </Text>
         </View>
       </View>
     </View>

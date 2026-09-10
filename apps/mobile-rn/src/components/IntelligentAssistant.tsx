@@ -40,7 +40,11 @@ export default function IntelligentAssistant({
   return (
     <View style={styles.container}>
       {robotImage ? (
-        <Image source={{ uri: robotImage }} style={styles.floatingDecoration} resizeMode="contain" />
+        <Image
+          source={{ uri: robotImage }}
+          style={styles.floatingDecoration}
+          resizeMode="contain"
+        />
       ) : null}
       <View style={styles.welcomeCard}>
         <View style={styles.welcomeContent}>

@@ -133,7 +133,9 @@ export default function MaterialPopup({
                       </View>
                     )}
                     <View className="absolute bottom-0 left-0 right-0 px-1 py-1 bg-[var(--color-black-40)]">
-                      <Text className="block text-xs text-[var(--color-white-98)] truncate">{item.title}</Text>
+                      <Text className="block text-xs text-[var(--color-white-98)] truncate">
+                        {item.title}
+                      </Text>
                     </View>
                   </View>
                 ))}
@@ -145,7 +147,8 @@ export default function MaterialPopup({
                     key={item.id}
                     className={`flex p-3 mb-2 rounded-xl ${selectedId === item.id ? 'bg-primary/10 border border-primary' : 'bg-muted'}`}
                     onClick={() => onSelect?.(item)}
-                    hoverClass="opacity-60">
+                    hoverClass="opacity-60"
+                  >
                     <View className="w-12 h-12 mr-3 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                       {item.thumbnail ? null : (
                         <Image

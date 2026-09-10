@@ -16,33 +16,33 @@
 
 涵盖 i18n 键完整性校验、中文残留扫描、AI 翻译流水线、品牌术语映射、深度审校与修复、孤键清理等。
 
-| 脚本名                           | 用途                                                                   | pre-commit 项            | 备注                                      |
-| -------------------------------- | ---------------------------------------------------------------------- | ------------------------ | ----------------------------------------- |
-| check-i18n-keys.mjs              | i18n 键完整性 + parity + 翻译白名单(15 条豁免)                         | 2 / 16                   | 支持 `--staged` `--target=web\|extension` |
-| check-i18n-broken-en.mjs         | en.json 破碎机翻英文检测(no-space-concat / case-chaos / pinyin)        | 2e                       | 支持 `--readme`                           |
-| check-i18n-messages-exist.mjs    | 4 端(desktop/extension/mobile-rn/miniapp-taro)i18n messages 文件存在性 | —                        | MIGRATION_INTEGRITY_REPORT §6.3 P0-7      |
-| scan-i18n-zh-residue.mjs         | 通用 i18n 中文残留守门(zh-TW opencc / ko 字符范围 / ja warn-only)      | 2b / 2c / 2d             | 替代 scan-zh-tw-simp / scan-ko-zh-residue |
-| scan-zh-tw-simp.mjs              | 扫描 zh-TW.json 简体字残留(opencc-js)                                  | —                        | 已被 scan-i18n-zh-residue 替代,保留兼容   |
-| scan-zh-tw-untranslated.mjs      | 扫描 zh-TW.json 漏译英文 value,结果写 `_scan_result.json`              | —                        | 一次性扫描工具                            |
-| scan-hardcoded-zh.mjs            | 扫描 apps/web 下硬编码中文字符串(未走 t()/next-intl)                   | —                        | 支持 `--json` `--top N` `--exit 1`        |
-| i18n-diff.mjs                    | i18n AI 翻译流水线差异检测器(零 LLM API),输出 pending.json             | 2f-web / 2f-miniapp-taro | 与 i18n-apply.mjs 配套                    |
-| i18n-apply.mjs                   | i18n AI 翻译流水线应用器,按 zh-CN 基准重排 key 顺序                    | —                        | 读 `.ihui-agent/tmp/i18n-translations.json`  |
-| apply-brand-glossary.mjs         | 应用 brand-glossary.json 品牌/字体/术语 canonical 映射                 | —                        | 支持 `--dry-run`                          |
-| apply-translation-fallback.mjs   | 为 ja/ko 补全 ASCII(===en)未翻译键(全角 Latin 兜底)                    | —                        | 机器翻译 fallback                         |
-| apply-i18n-translations.mjs      | 应用"英文值 → 翻译值"映射到语言文件                                    | —                        | 配合 translate-i18n-batch                 |
-| analyze-unique-i18n-values.mjs   | 统计未翻译键中的唯一英文值,输出到 goal-runtime JSON                    | —                        | 翻译前置分析                              |
-| audit-i18n-unused-keys.mjs       | i18n 无引用 key 审计,输出 markdown 报告(只审计不删除)                  | —                        | 2026-07-25 立                             |
-| audit-i18n-missing-evaluate.mjs  | i18n 缺失 key 三分类评估(阶段 6)                                       | —                        | 迁移审计阶段产物                          |
-| deep-i18n-audit.mjs              | 4 语言 i18n 深度规则审校(zh-TW 繁简 / ja 占位 / ko 乱码 / 一致性)      | —                        | 支持 `--quiet` `--report`                 |
-| export-untranslated-i18n.mjs     | 导出未翻译键(值===en 且纯 ASCII)到 goal-runtime JSON                   | —                        | 供批量翻译使用                            |
-| fix-missing-i18n-keys.mjs        | 补齐 pre-commit 检测到的 30 个缺失 i18n 键                             | —                        | 一次性修复脚本                            |
-| fix-i18n-deep.mjs                | i18n 深度审校问题修复(配套 deep-i18n-audit)                            | —                        | 修改 zh-TW/ja/ko                          |
-| fix-zh-tw-simp.mjs               | 修复 zh-TW.json 简体字残留(opencc-js cn→tw)                            | —                        | 与 scan-zh-tw-simp 配套                   |
-| fix-zhtw-parity.mjs              | 修复 zh-CN↔zh-TW parity(hardcoded 命名空间覆盖)                        | —                        | 解决 1134 个 parity 差异                  |
-| prune-orphan-i18n-namespaces.mjs | 删除 5 个孤键命名空间(hardcoded/data/text/title/return)                | —                        | 5 语言同步                                |
-| sync-i18n-fixes.mjs              | i18n 一键补全(5 个新页面 + 29 个缺失键,5 语言同步)                     | —                        | 一次性补全脚本                            |
-| translate-i18n-batch.mjs         | 用 StepFun AI 批量翻译 i18n 未翻译键                                   | —                        | 调用外部 LLM API                          |
-| verify-i18n.mjs                  | 验证 5 个 i18n JSON 语法 + 重复键检测                                  | —                        | 替代 PowerShell ConvertFrom-Json          |
+| 脚本名                           | 用途                                                                   | pre-commit 项            | 备注                                        |
+| -------------------------------- | ---------------------------------------------------------------------- | ------------------------ | ------------------------------------------- |
+| check-i18n-keys.mjs              | i18n 键完整性 + parity + 翻译白名单(15 条豁免)                         | 2 / 16                   | 支持 `--staged` `--target=web\|extension`   |
+| check-i18n-broken-en.mjs         | en.json 破碎机翻英文检测(no-space-concat / case-chaos / pinyin)        | 2e                       | 支持 `--readme`                             |
+| check-i18n-messages-exist.mjs    | 4 端(desktop/extension/mobile-rn/miniapp-taro)i18n messages 文件存在性 | —                        | MIGRATION_INTEGRITY_REPORT §6.3 P0-7        |
+| scan-i18n-zh-residue.mjs         | 通用 i18n 中文残留守门(zh-TW opencc / ko 字符范围 / ja warn-only)      | 2b / 2c / 2d             | 替代 scan-zh-tw-simp / scan-ko-zh-residue   |
+| scan-zh-tw-simp.mjs              | 扫描 zh-TW.json 简体字残留(opencc-js)                                  | —                        | 已被 scan-i18n-zh-residue 替代,保留兼容     |
+| scan-zh-tw-untranslated.mjs      | 扫描 zh-TW.json 漏译英文 value,结果写 `_scan_result.json`              | —                        | 一次性扫描工具                              |
+| scan-hardcoded-zh.mjs            | 扫描 apps/web 下硬编码中文字符串(未走 t()/next-intl)                   | —                        | 支持 `--json` `--top N` `--exit 1`          |
+| i18n-diff.mjs                    | i18n AI 翻译流水线差异检测器(零 LLM API),输出 pending.json             | 2f-web / 2f-miniapp-taro | 与 i18n-apply.mjs 配套                      |
+| i18n-apply.mjs                   | i18n AI 翻译流水线应用器,按 zh-CN 基准重排 key 顺序                    | —                        | 读 `.ihui-agent/tmp/i18n-translations.json` |
+| apply-brand-glossary.mjs         | 应用 brand-glossary.json 品牌/字体/术语 canonical 映射                 | —                        | 支持 `--dry-run`                            |
+| apply-translation-fallback.mjs   | 为 ja/ko 补全 ASCII(===en)未翻译键(全角 Latin 兜底)                    | —                        | 机器翻译 fallback                           |
+| apply-i18n-translations.mjs      | 应用"英文值 → 翻译值"映射到语言文件                                    | —                        | 配合 translate-i18n-batch                   |
+| analyze-unique-i18n-values.mjs   | 统计未翻译键中的唯一英文值,输出到 goal-runtime JSON                    | —                        | 翻译前置分析                                |
+| audit-i18n-unused-keys.mjs       | i18n 无引用 key 审计,输出 markdown 报告(只审计不删除)                  | —                        | 2026-07-25 立                               |
+| audit-i18n-missing-evaluate.mjs  | i18n 缺失 key 三分类评估(阶段 6)                                       | —                        | 迁移审计阶段产物                            |
+| deep-i18n-audit.mjs              | 4 语言 i18n 深度规则审校(zh-TW 繁简 / ja 占位 / ko 乱码 / 一致性)      | —                        | 支持 `--quiet` `--report`                   |
+| export-untranslated-i18n.mjs     | 导出未翻译键(值===en 且纯 ASCII)到 goal-runtime JSON                   | —                        | 供批量翻译使用                              |
+| fix-missing-i18n-keys.mjs        | 补齐 pre-commit 检测到的 30 个缺失 i18n 键                             | —                        | 一次性修复脚本                              |
+| fix-i18n-deep.mjs                | i18n 深度审校问题修复(配套 deep-i18n-audit)                            | —                        | 修改 zh-TW/ja/ko                            |
+| fix-zh-tw-simp.mjs               | 修复 zh-TW.json 简体字残留(opencc-js cn→tw)                            | —                        | 与 scan-zh-tw-simp 配套                     |
+| fix-zhtw-parity.mjs              | 修复 zh-CN↔zh-TW parity(hardcoded 命名空间覆盖)                        | —                        | 解决 1134 个 parity 差异                    |
+| prune-orphan-i18n-namespaces.mjs | 删除 5 个孤键命名空间(hardcoded/data/text/title/return)                | —                        | 5 语言同步                                  |
+| sync-i18n-fixes.mjs              | i18n 一键补全(5 个新页面 + 29 个缺失键,5 语言同步)                     | —                        | 一次性补全脚本                              |
+| translate-i18n-batch.mjs         | 用 StepFun AI 批量翻译 i18n 未翻译键                                   | —                        | 调用外部 LLM API                            |
+| verify-i18n.mjs                  | 验证 5 个 i18n JSON 语法 + 重复键检测                                  | —                        | 替代 PowerShell ConvertFrom-Json            |
 
 ---
 

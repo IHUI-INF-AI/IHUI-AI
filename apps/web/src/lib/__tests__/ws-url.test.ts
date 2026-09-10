@@ -51,9 +51,7 @@ describe('buildWsUrl - 地址与 token 注入', () => {
   const sameOrigin = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`
 
   it('无 env 浏览器 → 同源 + 路径 + ?token', () => {
-    expect(buildWsUrl('/ws/tasks/abc', 'tok_1')).toBe(
-      `${sameOrigin}/ws/tasks/abc?token=tok_1`,
-    )
+    expect(buildWsUrl('/ws/tasks/abc', 'tok_1')).toBe(`${sameOrigin}/ws/tasks/abc?token=tok_1`)
   })
 
   it('路径已含 query → token 用 & 拼接', () => {
@@ -66,9 +64,7 @@ describe('buildWsUrl - 地址与 token 注入', () => {
   it('桌面端 + API base → 推导 WS 源', () => {
     stubDesktop()
     vi.stubEnv('NEXT_PUBLIC_API_BASE_URL', 'https://aizhs.top')
-    expect(buildWsUrl('/ws/messages', 'tok_3')).toBe(
-      'wss://aizhs.top/ws/messages?token=tok_3',
-    )
+    expect(buildWsUrl('/ws/messages', 'tok_3')).toBe('wss://aizhs.top/ws/messages?token=tok_3')
   })
 
   it('显式绝对 URL 路径(wsPath 覆盖)→ 统一转 ws/wss 并追加 token', () => {

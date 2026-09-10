@@ -168,7 +168,8 @@ export default function RefundList() {
             key={tab.key}
             className={`refund-tab${activeTab === tab.key ? ' refund-tab-active' : ''}`}
             onClick={() => setActiveTab(tab.key)}
-            hoverClass="opacity-60">
+            hoverClass="opacity-60"
+          >
             <Text>{tab.label}</Text>
           </View>
         ))}

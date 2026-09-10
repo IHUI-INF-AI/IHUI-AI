@@ -20,55 +20,60 @@ import { users } from './users.js'
  * AI 对话表。
  * 一个用户可拥有多个对话；model 默认 gpt-4o-mini；metadata 用于扩展字段。
  */
-export const chatConversations = pgTable('chat_conversations', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id')
-    .references(() => users.id, { onDelete: 'cascade' })
-    .notNull(),
-  title: varchar('title', { length: 255 }).default('新对话').notNull(),
-  model: varchar('model', { length: 64 }).default('gpt-4o-mini').notNull(),
-  systemPrompt: text('system_prompt'),
-  metadata: jsonb('metadata').default({}),
-  lastMessageAt: timestamp('last_message_at', { withTimezone: true }),
-  lastReadAt: timestamp('last_read_at', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  archivedAt: timestamp('archived_at', { withTimezone: true }),
-  compressedAt: timestamp('compressed_at', { withTimezone: true }),
-  compressedContext: text('compressed_context'),
-  // 2026-08-30 立:会话置顶。pinned=true 时按 pinnedAt 倒序排在列表最前;取消置顶置回 null。
-  pinned: boolean('pinned').default(false).notNull(),
-  pinnedAt: timestamp('pinned_at', { withTimezone: true }),
-  // 2026-08-17 修复:drizzle-orm 0.45.2(patch 版)的 PgColumnBuilder 无 nullable/notNull 方法
-  // (varchar 默认 nullable),用 .nullable() 会 TypeError 阻断 api 启动。仅用 .unique()。
-  shareToken: varchar('share_token', { length: 32 }).unique(),
-}, (t) => ({
-  // 2026-09-06 P0:会话列表按 (user_id + last_message_at DESC) 排序+分页,缺索引全表扫描
-  userLastMsgIdx: index('ix_chat_conversations_user_last_message').on(
-    t.userId,
-    t.lastMessageAt,
-  ),
-}))
+export const chatConversations = pgTable(
+  'chat_conversations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    title: varchar('title', { length: 255 }).default('新对话').notNull(),
+    model: varchar('model', { length: 64 }).default('gpt-4o-mini').notNull(),
+    systemPrompt: text('system_prompt'),
+    metadata: jsonb('metadata').default({}),
+    lastMessageAt: timestamp('last_message_at', { withTimezone: true }),
+    lastReadAt: timestamp('last_read_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    compressedAt: timestamp('compressed_at', { withTimezone: true }),
+    compressedContext: text('compressed_context'),
+    // 2026-08-30 立:会话置顶。pinned=true 时按 pinnedAt 倒序排在列表最前;取消置顶置回 null。
+    pinned: boolean('pinned').default(false).notNull(),
+    pinnedAt: timestamp('pinned_at', { withTimezone: true }),
+    // 2026-08-17 修复:drizzle-orm 0.45.2(patch 版)的 PgColumnBuilder 无 nullable/notNull 方法
+    // (varchar 默认 nullable),用 .nullable() 会 TypeError 阻断 api 启动。仅用 .unique()。
+    shareToken: varchar('share_token', { length: 32 }).unique(),
+  },
+  (t) => ({
+    // 2026-09-06 P0:会话列表按 (user_id + last_message_at DESC) 排序+分页,缺索引全表扫描
+    userLastMsgIdx: index('ix_chat_conversations_user_last_message').on(t.userId, t.lastMessageAt),
+  }),
+)
 
 /**
  * 对话消息表。
  * role: 'user' | 'assistant' | 'system'；tokens 为该条消息消耗的 token 数。
  */
-export const chatMessages = pgTable('chat_messages', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  conversationId: uuid('conversation_id')
-    .references(() => chatConversations.id, { onDelete: 'cascade' })
-    .notNull(),
-  role: varchar('role', { length: 16 }).default('user').notNull(),
-  content: text('content').notNull(),
-  tokens: integer('tokens'),
-  metadata: jsonb('metadata').default({}),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  reasoning: text('reasoning'),
-}, (t) => ({
-  // 2026-09-06 P0:按会话取消息/计数为热路径,缺 conversation_id 索引全表扫描
-  convIdx: index('ix_chat_messages_conversation').on(t.conversationId),
-}))
+export const chatMessages = pgTable(
+  'chat_messages',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    conversationId: uuid('conversation_id')
+      .references(() => chatConversations.id, { onDelete: 'cascade' })
+      .notNull(),
+    role: varchar('role', { length: 16 }).default('user').notNull(),
+    content: text('content').notNull(),
+    tokens: integer('tokens'),
+    metadata: jsonb('metadata').default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    reasoning: text('reasoning'),
+  },
+  (t) => ({
+    // 2026-09-06 P0:按会话取消息/计数为热路径,缺 conversation_id 索引全表扫描
+    convIdx: index('ix_chat_messages_conversation').on(t.conversationId),
+  }),
+)
 
 /**
  * 压缩归档表(2026-09-01 立,"归档记忆"能力)。

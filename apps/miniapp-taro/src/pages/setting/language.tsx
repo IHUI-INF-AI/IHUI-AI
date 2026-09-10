@@ -96,7 +96,8 @@ export default function LanguagePage() {
                 key={l.value}
                 className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
                 onClick={() => onSelect(l.value)}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <View className="min-w-0 flex-1">
                   {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
                   <Text className="text-[32rpx] text-muted-foreground">

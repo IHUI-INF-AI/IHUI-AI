@@ -297,20 +297,10 @@ function HookRow({ hook, onEdit, onDelete, onToggle, onViewLogs }: HookRowProps)
 
         {/* 操作按钮 */}
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onViewLogs}
-            aria-label="查看日志"
-          >
+          <Button variant="ghost" size="icon-sm" onClick={onViewLogs} aria-label="查看日志">
             <ScrollText className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onEdit}
-            aria-label="编辑"
-          >
+          <Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label="编辑">
             <Pencil className="h-4 w-4" />
           </Button>
           <Button

@@ -128,7 +128,8 @@ export default function LiveSubscribe() {
                 <View
                   className="flex-1 min-w-0 ml-[24rpx] flex flex-col"
                   onClick={() => goDetail(l.id)}
-                  hoverClass="opacity-60">
+                  hoverClass="opacity-60"
+                >
                   {/* 对齐 RN targetId(16dp → 32rpx semibold,单行截断) */}
                   <Text className="overflow-hidden whitespace-nowrap text-ellipsis text-[32rpx] font-semibold text-foreground">
                     {l.title}

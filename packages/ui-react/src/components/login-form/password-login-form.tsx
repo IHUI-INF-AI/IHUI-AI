@@ -352,7 +352,8 @@ export function PasswordLoginForm({
                 />
               </button>
             ) : (
-              <Button size="lg"
+              <Button
+                size="lg"
                 type="button"
                 variant="outline"
                 className="shrink-0 px-3 text-sm px-4"
@@ -416,7 +417,8 @@ export function PasswordLoginForm({
         <p className="text-xs text-destructive">{t('auth.agreeRequired')}</p>
       )}
 
-      <Button size="lg"
+      <Button
+        size="lg"
         type="submit"
         className={cn('w-full px-4', buttonClassName)}
         disabled={submitting}

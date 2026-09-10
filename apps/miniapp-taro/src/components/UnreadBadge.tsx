@@ -43,7 +43,11 @@ export default function UnreadBadge({
       className="flex items-center justify-center bg-destructive rounded-full px-[6rpx]"
       style={{ minWidth, height: size === 'sm' ? 16 : 20 }}
     >
-      <Text className={`text-destructive-foreground font-bold ${size === 'sm' ? 'text-[20rpx]' : 'text-xs'}`}>{display}</Text>
+      <Text
+        className={`text-destructive-foreground font-bold ${size === 'sm' ? 'text-[20rpx]' : 'text-xs'}`}
+      >
+        {display}
+      </Text>
     </View>
   )
 }

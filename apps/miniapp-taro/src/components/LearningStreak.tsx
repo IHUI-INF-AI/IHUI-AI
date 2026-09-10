@@ -79,7 +79,8 @@ export default function LearningStreak({
             : 'bg-gradient-to-r from-[var(--color-brand-orange)] to-[var(--color-danger)] text-[var(--color-surface-light)]'
         }`}
         onClick={() => !signedToday && onSign?.()}
-        hoverClass="opacity-60">
+        hoverClass="opacity-60"
+      >
         {signedToday
           ? tt('streak.signedToday', '今日已签到')
           : tt('streak.signNow', '立即签到 +5 积分')}

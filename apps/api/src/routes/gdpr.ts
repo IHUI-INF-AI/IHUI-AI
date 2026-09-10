@@ -52,7 +52,11 @@ async function collectPortableData(userId: string) {
     notes: notesList,
     memories,
     chat: {
-      conversations: conversations.map((c) => ({ id: c.id, title: c.title, createdAt: c.createdAt })),
+      conversations: conversations.map((c) => ({
+        id: c.id,
+        title: c.title,
+        createdAt: c.createdAt,
+      })),
       messageCount: messages.length,
     },
     orders,

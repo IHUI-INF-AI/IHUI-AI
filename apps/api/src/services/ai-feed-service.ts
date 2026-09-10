@@ -328,7 +328,9 @@ async function fetchGitHubApiFallback(
     return {
       sourceCode,
       platformItemId: String(raw.sha ?? idx).slice(0, 128),
-      title: String(raw.commit?.message ?? '').split('\n')[0]!.slice(0, 500),
+      title: String(raw.commit?.message ?? '')
+        .split('\n')[0]!
+        .slice(0, 500),
       summary: String(raw.commit?.message ?? '').slice(0, 2000) || null,
       url: raw.html_url ?? null,
       coverUrl: null,
@@ -390,7 +392,10 @@ async function fetchRssXml(url: string, sourceCode: string): Promise<FetchedFeed
  * 权威、可达、稳定。这里解析 org-card-content 文章块(标题 / 链接 / 作者 / 日期)转 feed 条目,
  * 并按链接去重(同文在页面中会以大图 + 小卡两种形态出现)。
  */
-async function fetchModelScopeCommunity(url: string, sourceCode: string): Promise<FetchedFeedItem[]> {
+async function fetchModelScopeCommunity(
+  url: string,
+  sourceCode: string,
+): Promise<FetchedFeedItem[]> {
   const res = await fetchWithTimeout(url, {
     headers: {
       Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -1643,7 +1648,11 @@ export async function drainLlmBacklog(): Promise<DrainLlmBacklogResult> {
 }
 
 /** 统计缺分类/缺英文标题/缺摘要的剩余积压数量。 */
-async function countBacklog(): Promise<{ llmLeft: number; transLeft: number; summaryLeft: number }> {
+async function countBacklog(): Promise<{
+  llmLeft: number
+  transLeft: number
+  summaryLeft: number
+}> {
   const res = await db.execute(sql`
     SELECT
       (SELECT count(*) FROM ai_feed_hot_item WHERE llm_processed_at IS NULL)::int AS llm_left,
@@ -1652,8 +1661,7 @@ async function countBacklog(): Promise<{ llmLeft: number; transLeft: number; sum
   `)
   const rows = Array.isArray(res) ? res : ((res as { rows?: unknown[] }).rows ?? [])
   const row = rows[0] as
-    | { llm_left?: number; trans_left?: number; summary_left?: number }
-    | undefined
+    { llm_left?: number; trans_left?: number; summary_left?: number } | undefined
   return {
     llmLeft: row?.llm_left ?? 0,
     transLeft: row?.trans_left ?? 0,

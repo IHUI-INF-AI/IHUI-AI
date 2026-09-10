@@ -160,7 +160,8 @@ export default function SsoRegisterPage() {
           subtitle={t('authorizing', { clientId })}
           onClose={handleClose}
         >
-          <Button size="lg"
+          <Button
+            size="lg"
             className="w-full px-4"
             onClick={() => generateCodeAndRedirect()}
             disabled={exchanging}
@@ -206,7 +207,8 @@ export default function SsoRegisterPage() {
                 maxLength={6}
                 className="h-10 flex-1"
               />
-              <Button size="lg"
+              <Button
+                size="lg"
                 type="button"
                 variant="outline"
                 onClick={handleSendCode}

@@ -155,9 +155,11 @@ export default function EduFinancePage() {
         }}
         onCreate={openCreate}
         onBatchDelete={() => {
-          void confirmDialog({ title: t('confirmBatchDelete', { count: ids.length }) }).then((ok) => {
-            if (ok) batchDeleteMut.mutate(ids)
-          })
+          void confirmDialog({ title: t('confirmBatchDelete', { count: ids.length }) }).then(
+            (ok) => {
+              if (ok) batchDeleteMut.mutate(ids)
+            },
+          )
         }}
         onExport={handleExport}
         hasSelection={ids.length > 0}

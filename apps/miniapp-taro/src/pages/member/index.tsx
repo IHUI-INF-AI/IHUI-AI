@@ -294,11 +294,7 @@ export default function MemberIndexPage() {
             {benefits.map((b) => (
               <View key={b.id} className="member-benefit-item">
                 <View className="member-benefit-icon">
-                  <LineIcon
-                    name="star"
-                    size={28}
-                    color="var(--color-warning)"
-                  />
+                  <LineIcon name="star" size={28} color="var(--color-warning)" />
                 </View>
                 <View className="member-benefit-content">
                   <Text className="member-benefit-title">{b.title}</Text>
@@ -372,23 +368,43 @@ export default function MemberIndexPage() {
 
         {/* ===== 快捷入口 ===== */}
         <View className="member-menu">
-          <View className="member-menu-item" onClick={() => navigate('/pages/member/benefits')} hoverClass="opacity-60">
+          <View
+            className="member-menu-item"
+            onClick={() => navigate('/pages/member/benefits')}
+            hoverClass="opacity-60"
+          >
             <Text>{tt('member.index.benefits', '会员权益')}</Text>
             <Text className="member-arrow">›</Text>
           </View>
-          <View className="member-menu-item" onClick={() => navigate('/pages/member/integral')} hoverClass="opacity-60">
+          <View
+            className="member-menu-item"
+            onClick={() => navigate('/pages/member/integral')}
+            hoverClass="opacity-60"
+          >
             <Text>{tt('member.index.integralDetail', '积分明细')}</Text>
             <Text className="member-arrow">›</Text>
           </View>
-          <View className="member-menu-item" onClick={() => navigate('/pages/member/coupon')} hoverClass="opacity-60">
+          <View
+            className="member-menu-item"
+            onClick={() => navigate('/pages/member/coupon')}
+            hoverClass="opacity-60"
+          >
             <Text>{tt('member.index.myCoupons', '我的优惠券')}</Text>
             <Text className="member-arrow">›</Text>
           </View>
-          <View className="member-menu-item" onClick={() => navigate('/pages/member/coupon-list')} hoverClass="opacity-60">
+          <View
+            className="member-menu-item"
+            onClick={() => navigate('/pages/member/coupon-list')}
+            hoverClass="opacity-60"
+          >
             <Text>{tt('member.index.couponCenter', '领券中心')}</Text>
             <Text className="member-arrow">›</Text>
           </View>
-          <View className="member-menu-item" onClick={() => navigate('/pages/vip/index')} hoverClass="opacity-60">
+          <View
+            className="member-menu-item"
+            onClick={() => navigate('/pages/vip/index')}
+            hoverClass="opacity-60"
+          >
             <Text>{tt('member.index.vip', 'VIP 会员')}</Text>
             <Text className="member-arrow">›</Text>
           </View>

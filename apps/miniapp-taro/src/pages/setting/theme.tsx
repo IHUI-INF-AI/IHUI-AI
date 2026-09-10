@@ -122,7 +122,8 @@ export default function ThemePage() {
                 onClick={() => {
                   if (!submitting) void onSelect(th.value)
                 }}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 <View className="flex min-w-0 flex-1 flex-row items-center">
                   {/* 主题图标为小程序端补充信息(RN SelectRow 仅 label+✓):40rpx,
                       选中态随 RN brandAccent.DEFAULT→--color-brand-orange */}

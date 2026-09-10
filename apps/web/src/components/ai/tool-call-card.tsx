@@ -652,7 +652,9 @@ function PendingTaskBlock({
         <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
         <span className="font-medium text-muted-foreground">任务进行中</span>
         {checkedAt && (
-          <span className="text-[10px] text-muted-foreground/50">已自动检查{checking ? '中' : '过'}</span>
+          <span className="text-[10px] text-muted-foreground/50">
+            已自动检查{checking ? '中' : '过'}
+          </span>
         )}
       </div>
       <p className="text-xs text-muted-foreground">
@@ -833,8 +835,12 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   // 2026-09-09 长任务进行中:媒体工具提交成功、已有 task_id 但产物未就绪
   // (视频/音乐 p90 55~75 分钟与 1~5 分钟,对话内仅提交返回 task_id)
   const showPendingTask =
-    !!taskId && status === 'success' && (isImageTool || isAudioTool || isVideoTool) &&
-    !showImage && !showAudio && !showVideo
+    !!taskId &&
+    status === 'success' &&
+    (isImageTool || isAudioTool || isVideoTool) &&
+    !showImage &&
+    !showAudio &&
+    !showVideo
 
   // 长任务自动轮询取件(2026-09-09):产物未就绪时后台轮询 /api/media/tasks/{task_id},
   // succeeded 且有公网 URL 后自动切换为产物渲染,无需用户再次提问
@@ -845,10 +851,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
     pollStatus: pollStatusForPending,
     checkedAt,
     refreshNow,
-  } = useMediaTaskPolling(
-    showPendingTask ? taskId : undefined,
-    showPendingTask,
-  )
+  } = useMediaTaskPolling(showPendingTask ? taskId : undefined, showPendingTask)
   const polledImageUrl = showPendingTask ? polled?.image_url || undefined : undefined
   const polledAudioUrl = showPendingTask ? polled?.audio_url || undefined : undefined
   const polledVideoUrl = showPendingTask ? polled?.video_url || undefined : undefined
@@ -1001,8 +1004,9 @@ export const ToolCallCard = React.memo(function ToolCallCard({
           {showSummary && summaryData && <SummaryResultBlock data={summaryData} />}
           {/* 长任务进行中:媒体工具已提交、task_id 已记录、产物未就绪。
               自动轮询取件:轮询到公网产物 URL 后自动切换为对应播放器渲染 */}
-          {showPendingTask && taskId && (
-            polledVideoUrl ? (
+          {showPendingTask &&
+            taskId &&
+            (polledVideoUrl ? (
               <VideoResultBlock
                 videoUrl={polledVideoUrl}
                 prompt={pickStr(args, ['prompt', 'description'])}
@@ -1025,50 +1029,56 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                 checkedAt={checkedAt}
                 onRefresh={refreshNow}
               />
-            )
-          )}
+            ))}
           {/* 非 diff/image/audio/video/summary/pending 工具时显示原始 args/result */}
-          {!showInlineDiff && !showImage && !showAudio && !showVideo && !showSummary && !showPendingTask && (
-            <>
-              {/* 引用溯源:knowledge_lookup 等返回 citations 时渲染标签组 */}
-              {citations.length > 0 && <CitationsBlock citations={citations} />}
-              {/* 图表 Artifact:generate_chart 等返回本地 .html 时渲染产物卡片 */}
-              {showChartArtifact && chartArtifact ? (
-                <ChartArtifactBlock
-                  filePath={chartArtifact.filePath}
-                  fileName={chartArtifact.fileName}
-                  relativePath={chartArtifact.relativePath}
-                />
-              ) : (
-                <>
-                  <div>
-                    <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">参数</p>
-                    <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
-                      {JSON.stringify(args, null, 2)}
-                    </pre>
-                  </div>
-                  {error && (
-                    <div>
-                      <p className="mb-0.5 text-[10px] font-medium text-red-500/80">错误</p>
-                      <pre className="overflow-x-auto rounded-sm bg-red-500/8 p-1.5 font-mono text-[10px] text-red-500/80">
-                        {error}
-                      </pre>
-                    </div>
-                  )}
-                  {result !== undefined && (
+          {!showInlineDiff &&
+            !showImage &&
+            !showAudio &&
+            !showVideo &&
+            !showSummary &&
+            !showPendingTask && (
+              <>
+                {/* 引用溯源:knowledge_lookup 等返回 citations 时渲染标签组 */}
+                {citations.length > 0 && <CitationsBlock citations={citations} />}
+                {/* 图表 Artifact:generate_chart 等返回本地 .html 时渲染产物卡片 */}
+                {showChartArtifact && chartArtifact ? (
+                  <ChartArtifactBlock
+                    filePath={chartArtifact.filePath}
+                    fileName={chartArtifact.fileName}
+                    relativePath={chartArtifact.relativePath}
+                  />
+                ) : (
+                  <>
                     <div>
                       <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
-                        结果
+                        参数
                       </p>
                       <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
-                        {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
+                        {JSON.stringify(args, null, 2)}
                       </pre>
                     </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
+                    {error && (
+                      <div>
+                        <p className="mb-0.5 text-[10px] font-medium text-red-500/80">错误</p>
+                        <pre className="overflow-x-auto rounded-sm bg-red-500/8 p-1.5 font-mono text-[10px] text-red-500/80">
+                          {error}
+                        </pre>
+                      </div>
+                    )}
+                    {result !== undefined && (
+                      <div>
+                        <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
+                          结果
+                        </p>
+                        <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
+                          {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
           {/* P2 联动:成功执行 + 含 URL → "在工作展示区打开" 按钮 */}
           {canOpenInWorkPanel && (
             <button

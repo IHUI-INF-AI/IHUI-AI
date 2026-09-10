@@ -844,7 +844,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       if (order.status !== 'paid') return reply.status(400).send(error(400, '订单状态不允许退款'))
       // P0 资金安全修复(2026-09-06,防超退):退款金额须为正且不超过订单金额(单位:分)
       if (!amount || amount <= 0) return reply.status(400).send(error(400, '退款金额必须为正'))
-      if (amount > order.amount) return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
+      if (amount > order.amount)
+        return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
       // P0 资金安全修复(2026-09-06):退款入口接入风控引擎
       const risk = server.riskEngine.evaluateRisk({
         userId: order.userId ?? undefined,
@@ -1262,7 +1263,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '退款请求被风控拦截,请联系客服'))
       }
       if (risk.action === 'REVIEW') {
-        request.log.info({ userId: order.userId, hits: risk.hits }, '支付宝退款进入人工复核(不阻断)')
+        request.log.info(
+          { userId: order.userId, hits: risk.hits },
+          '支付宝退款进入人工复核(不阻断)',
+        )
       }
       if (isAlipayConfigured()) {
         const result = await aliRefundOrder({ outTradeNo, refundAmount: amountYuan, reason })
@@ -1572,7 +1576,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '退款请求被风控拦截,请联系客服'))
       }
       if (risk.action === 'REVIEW') {
-        request.log.info({ userId: order.userId, hits: risk.hits }, 'Stripe 退款进入人工复核(不阻断)')
+        request.log.info(
+          { userId: order.userId, hits: risk.hits },
+          'Stripe 退款进入人工复核(不阻断)',
+        )
       }
       // paymentIntentId 必传(Stripe 退款必需)
       if (!paymentIntentId) {
@@ -2055,7 +2062,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '退款请求被风控拦截,请联系客服'))
       }
       if (risk.action === 'REVIEW') {
-        request.log.info({ userId: order.userId, hits: risk.hits }, 'PayPal 退款进入人工复核(不阻断)')
+        request.log.info(
+          { userId: order.userId, hits: risk.hits },
+          'PayPal 退款进入人工复核(不阻断)',
+        )
       }
       if (!captureId) {
         return reply.status(400).send(error(400, 'PayPal 退款必须提供 captureId'))

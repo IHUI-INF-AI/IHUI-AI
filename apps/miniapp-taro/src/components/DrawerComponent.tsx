@@ -181,7 +181,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
     return (
       <View className="fixed inset-0 z-[1005]" onClick={handleMaskClick}>
         {/* 遮罩:var(--color-black-40) */}
-      <View className="absolute inset-0" style={{ background: 'var(--color-black-40)' }} />
+        <View className="absolute inset-0" style={{ background: 'var(--color-black-40)' }} />
         {/* 抽屉主体:宽 500rpx + 圆角 0 30rpx 30rpx 0 + 高 100vh */}
         <View
           className={cn(
@@ -196,7 +196,8 @@ export default function DrawerComponent(props: DrawerComponentProps) {
             overflow: 'hidden',
           }}
           onClick={handleStop}
-          hoverClass="opacity-60">
+          hoverClass="opacity-60"
+        >
           {/* 头部:logo + 关闭按钮 */}
           <View
             className="flex items-center justify-between"
@@ -209,12 +210,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 <Image src={choutilogoH} style={{ height: rpx(66) }} mode="heightFix" />
               )}
             </View>
-            <LineIcon
-              name="x"
-              size={40}
-              color="var(--color-muted-foreground)"
-              onClick={onClose}
-            />
+            <LineIcon name="x" size={40} color="var(--color-muted-foreground)" onClick={onClose} />
           </View>
 
           {/* 5 个菜单项横排(应用商店/需求广场/灵感/动态/课程)*/}
@@ -224,8 +220,11 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 key={item.key}
                 className="flex flex-col items-center justify-center"
                 onClick={() => onMenuItemClick?.(item)}
-                hoverClass="opacity-60">
-                {item.icon ? renderIcon(item.icon, 60) : (
+                hoverClass="opacity-60"
+              >
+                {item.icon ? (
+                  renderIcon(item.icon, 60)
+                ) : (
                   <Text style={{ width: rpx(60), height: rpx(60), fontSize: rpx(36) }}>•</Text>
                 )}
                 <Text
@@ -257,7 +256,8 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                     onLabelItemClick?.(item)
                   }
                 }}
-                hoverClass="opacity-60">
+                hoverClass="opacity-60"
+              >
                 {item.icon ? renderIcon(item.icon, 36, { marginRight: rpx(12) }) : null}
                 <Text>{item.label}</Text>
               </View>
@@ -327,7 +327,8 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                             )}
                             style={{ padding: '20rpx 23rpx' }}
                             onClick={() => onChatItemClick?.(chat)}
-                            hoverClass="opacity-60">
+                            hoverClass="opacity-60"
+                          >
                             <Text
                               className="truncate flex-1"
                               style={{
@@ -394,11 +395,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                   style={{ width: rpx(40), height: rpx(40) }}
                   mode="aspectFit"
                 />
-                <LineIcon
-                  name="message-circle"
-                  size={40}
-                  color="var(--color-muted-foreground)"
-                />
+                <LineIcon name="message-circle" size={40} color="var(--color-muted-foreground)" />
               </View>
             </View>
           ) : null}
@@ -410,12 +407,16 @@ export default function DrawerComponent(props: DrawerComponentProps) {
   // ===== 默认模式:底部弹层(兼容 MaterialPopup / SkillsPopup / ranking)=====
   return (
     <View className="fixed inset-0 z-[90] flex flex-col justify-end">
-      <View className="absolute inset-0 bg-[var(--color-black-40)] transition-opacity" onClick={handleMaskClick} />
+      <View
+        className="absolute inset-0 bg-[var(--color-black-40)] transition-opacity"
+        onClick={handleMaskClick}
+      />
       <View
         className="relative bg-card rounded-t-xl overflow-hidden transition-transform"
         style={{ maxHeight: '80vh', height }}
         onClick={handleStop}
-        hoverClass="opacity-60">
+        hoverClass="opacity-60"
+      >
         <View className="flex justify-center pt-2 pb-1">
           <View className="w-9 h-1 rounded-lg bg-muted" />
         </View>

@@ -186,19 +186,31 @@ export default function CourseDetail() {
               {t('course.learningProgress')}
             </Text>
           </View>
-          <View className="flex flex-col items-center" hoverClass="opacity-60" onClick={() => setShowNote(true)}>
+          <View
+            className="flex flex-col items-center"
+            hoverClass="opacity-60"
+            onClick={() => setShowNote(true)}
+          >
             <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
               <LineIcon name="book-open" size={40} color="var(--color-muted-foreground)" />
             </View>
             <Text className="text-xs text-muted-foreground mt-2">{t('course.note')}</Text>
           </View>
-          <View className="flex flex-col items-center" hoverClass="opacity-60" onClick={() => setShowRating(true)}>
+          <View
+            className="flex flex-col items-center"
+            hoverClass="opacity-60"
+            onClick={() => setShowRating(true)}
+          >
             <View className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
               <LineIcon name="star-fill" size={40} color="var(--color-warning)" />
             </View>
             <Text className="text-xs text-muted-foreground mt-2">{t('course.rating')}</Text>
           </View>
-          <View className="flex flex-col items-center" hoverClass="opacity-60" onClick={() => setShowShare(true)}>
+          <View
+            className="flex flex-col items-center"
+            hoverClass="opacity-60"
+            onClick={() => setShowShare(true)}
+          >
             <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
               <LineIcon name="share-2" size={40} color="var(--color-muted-foreground)" />
             </View>
@@ -293,7 +305,10 @@ export default function CourseDetail() {
         <CourseRating visible={showRating} initialRating={0} onSubmit={handleSubmitRating} />
 
         {showShare && (
-          <View className="fixed inset-0 z-[2000] bg-[var(--color-black-40)]" onClick={() => setShowShare(false)}>
+          <View
+            className="fixed inset-0 z-[2000] bg-[var(--color-black-40)]"
+            onClick={() => setShowShare(false)}
+          >
             <View
               className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl"
               hoverClass="opacity-60"

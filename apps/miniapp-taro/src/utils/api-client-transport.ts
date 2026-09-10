@@ -43,8 +43,7 @@ export function createTaroTransport(): Transport {
       const task = Taro.request({
         url,
         method: (init.method || 'GET') as TaroMethod,
-        data:
-          typeof init.body === 'string' ? JSON.parse(init.body) : undefined,
+        data: typeof init.body === 'string' ? JSON.parse(init.body) : undefined,
         header: init.headers || {},
         timeout: 30000,
         success: (res: TaroRequestResult) => {
