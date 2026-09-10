@@ -18,14 +18,17 @@ packages:
 # nodeLinker 默认值 isolated,此处显式声明便于后续维护者理解。
 nodeLinker: isolated
 
-# ============== virtualStoreDir: 短路径(2026-09-08)==============
+# ============== virtualStoreDir: 短路径(2026-09-08 引入,2026-09-10 迁 D 盘)==============
 # Windows 上 pnpm isolated 的 .pnpm 虚拟仓库位于 node_modules/.pnpm,叠加包名+hash 后
 # 真实绝对路径过长,导致 mobile-rn 原生 CMake/AGP 生成的 .cxx 对象与 prefab 文件路径
 # 超过 Windows 260 字符限制(ninja: mkdir/Stat ... longer than 260 characters)。
-# 把虚拟仓库挪到短路径 C:/pstore(仅改变 .pnpm 物理位置,不改 nodeLinker,
-# 不影响 node_modules/<pkg> 软链解析,@ihui/* workspace 链接不受影响),全局缩短 ~20 字符。
-# 依赖解析/锁文件不受影响(仅物理落盘位置变化)。此路径需存在且为短路径。
-virtualStoreDir: 'C:/pstore'
+# 把虚拟仓库挪到短路径(仅改变 .pnpm 物理位置,不改 nodeLinker,
+# 不影响 node_modules/<pkg> 软链解析,@ihui/* workspace 链接不受影响),
+# 全局缩短 ~20 字符。依赖解析/锁文件不受影响(仅物理落盘位置变化)。此路径需存在且为短路径。
+# 2026-09-10: C:/pstore → D:/pstore。原因:内容寻址仓库在 D:\.pnpm-store,虚拟仓放 C 盘
+# 导致跨盘硬链接失效退化为逐文件复制(全新安装 ~3 包/分钟);同盘后 pnpm 直接硬链接,
+# 全新安装分钟级完成。路径长度不变,短路径约束(mobile-rn 原生构建)不受影响。
+virtualStoreDir: 'D:/pstore'
 
 # ============== mobile-rn (Expo + RN) Metro hoist 配置 ==============
 # 解决 pnpm isolated linker 与 Metro bundler 不兼容问题(2026-07-25)
