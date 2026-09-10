@@ -68,8 +68,10 @@ export default function ModelTypeButtonGroup({
         className="flex flex-row"
         style={{
           marginBottom: rpx(10),
-          paddingHorizontal: rpx(16),
-          paddingVertical: rpx(12),
+          paddingLeft: rpx(16),
+          paddingRight: rpx(16),
+          paddingTop: rpx(12),
+          paddingBottom: rpx(12),
         }}
       >
         <ScrollView scrollX className="w-full whitespace-nowrap" enhanced showScrollbar={false}>
