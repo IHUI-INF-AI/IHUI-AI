@@ -188,12 +188,12 @@ export default function CircleDetailPage() {
   }, [tt])
 
   const goAigcDetail = useCallback(() => {
-    // /pages/aigc/detail 未注册,跳转到已注册的 AIGC 作品列表页
-    Taro.navigateTo({ url: '/pages/aigc/list' })
+    // /pkg-ai/aigc/detail 未注册,跳转到已注册的 AIGC 作品列表页
+    Taro.navigateTo({ url: '/pkg-ai/aigc/list' })
   }, [])
 
   const goTopic = useCallback((topicId: string) => {
-    Taro.navigateTo({ url: `/pages/topic/detail?id=${topicId}` })
+    Taro.navigateTo({ url: `/pkg-content/topic/detail?id=${topicId}` })
   }, [])
 
   const imgCount = data.images?.length || 0
