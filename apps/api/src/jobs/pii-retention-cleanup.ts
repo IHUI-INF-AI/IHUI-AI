@@ -20,16 +20,16 @@
 
 import cron, { type ScheduledTask } from 'node-cron'
 import { lt, inArray } from 'drizzle-orm'
-import {
-  crashReports,
-  behaviorWatchRecords,
-  visitLogs,
-} from '@ihui/database'
+import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core'
+import { crashReports, behaviorWatchRecords, visitLogs } from '@ihui/database'
 
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 
 const BATCH_LIMIT = 1000
+
+/** 动态表引用:表 + 其 id 主键列(批量删除需要),drizzle 未提供"任意具名列"公共类型。 */
+type PurgeTable = AnyPgTable & { id: AnyPgColumn }
 
 function daysAgo(days: number): Date {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000)
@@ -44,8 +44,8 @@ function retentionOf(envKey: string, fallback: number): number {
 /** 从单表按时间戳字段分批删除过期记录，返回删除行数。 */
 async function purgeExpired(
   label: string,
-  table: any,
-  timestampCol: any,
+  table: PurgeTable,
+  timestampCol: AnyPgColumn,
   retentionDays: number,
 ): Promise<number> {
   let deleted = 0
@@ -58,10 +58,16 @@ async function purgeExpired(
       .where(lt(timestampCol, cutoff))
       .limit(BATCH_LIMIT)) as Array<{ id: string }>
     if (rows.length === 0) break
-    await db.delete(table).where(inArray(table.id, rows.map((r) => r.id)))
+    await db.delete(table).where(
+      inArray(
+        table.id,
+        rows.map((r) => r.id),
+      ),
+    )
     deleted += rows.length
   }
-  if (deleted > 0) logger.info(`[pii-retention] ${label}: 清理 ${deleted} 条(保留 ${retentionDays} 天)`)
+  if (deleted > 0)
+    logger.info(`[pii-retention] ${label}: 清理 ${deleted} 条(保留 ${retentionDays} 天)`)
   return deleted
 }
 
@@ -72,9 +78,19 @@ async function purgeExpired(
 export async function runPiiRetentionCleanup(): Promise<
   Array<{ target: string; deleted: number; status: 'success' | 'error' }>
 > {
-  const jobs: Array<[string, any, any, number]> = [
-    ['crash_reports', crashReports, crashReports.createdAt, retentionOf('CRASH_RETENTION_DAYS', 90)],
-    ['behavior_watch_records', behaviorWatchRecords, behaviorWatchRecords.updatedAt, retentionOf('BEHAVIOR_RETENTION_DAYS', 180)],
+  const jobs: Array<[string, PurgeTable, AnyPgColumn, number]> = [
+    [
+      'crash_reports',
+      crashReports,
+      crashReports.createdAt,
+      retentionOf('CRASH_RETENTION_DAYS', 90),
+    ],
+    [
+      'behavior_watch_records',
+      behaviorWatchRecords,
+      behaviorWatchRecords.updatedAt,
+      retentionOf('BEHAVIOR_RETENTION_DAYS', 180),
+    ],
     ['visit_logs', visitLogs, visitLogs.createdAt, retentionOf('VISIT_RETENTION_DAYS', 180)],
   ]
   const results = await Promise.all(

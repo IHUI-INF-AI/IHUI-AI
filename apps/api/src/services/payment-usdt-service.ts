@@ -548,8 +548,12 @@ async function verifyTrc20OnChain(
   address: string,
 ): Promise<OnChainVerification> {
   const minConf = config.USDT_CONFIRM_TRC20_MIN
-  const fail = (reason: string, amountOnChain: number | null, to: string | null, confirmations: number | null) =>
-    ({ verified: false, reason, network: 'TRC20', txHash, amountOnChain, to, confirmations })
+  const fail = (
+    reason: string,
+    amountOnChain: number | null,
+    to: string | null,
+    confirmations: number | null,
+  ) => ({ verified: false, reason, network: 'TRC20', txHash, amountOnChain, to, confirmations })
 
   const apiKey = process.env.TRONGRID_API_KEY
   const params = new URLSearchParams({
@@ -574,11 +578,16 @@ async function verifyTrc20OnChain(
 
   const amountOnChain = Number(tx.value) / Math.pow(10, USDT_DECIMALS)
   if (Math.abs(amountOnChain - expectedAmount) > AMOUNT_EPS) {
-    return fail('链上实收金额与订单金额不一致(超付/少付),拒绝按客户端金额入账', amountOnChain, tx.to, null)
+    return fail(
+      '链上实收金额与订单金额不一致(超付/少付),拒绝按客户端金额入账',
+      amountOnChain,
+      tx.to,
+      null,
+    )
   }
 
   let confirmations: number | null = null
-  if (tx.block_number != null) {
+  if (typeof tx.block_number === 'number') {
     const latest = await fetchTrc20LatestBlock()
     confirmations = latest >= tx.block_number ? latest - tx.block_number + 1 : null
   }
@@ -586,10 +595,23 @@ async function verifyTrc20OnChain(
     if (confirmations === null) {
       return fail('无法获取交易确认数,请等待轮询确认', amountOnChain, tx.to, null)
     }
-    return fail(`确认数不足(当前 ${confirmations},要求 ≥ ${minConf}),待确认后入账`, amountOnChain, tx.to, confirmations)
+    return fail(
+      `确认数不足(当前 ${confirmations},要求 ≥ ${minConf}),待确认后入账`,
+      amountOnChain,
+      tx.to,
+      confirmations,
+    )
   }
 
-  return { verified: true, reason: '链上取证校验通过', network: 'TRC20', txHash, amountOnChain, to: tx.to, confirmations }
+  return {
+    verified: true,
+    reason: '链上取证校验通过',
+    network: 'TRC20',
+    txHash,
+    amountOnChain,
+    to: tx.to,
+    confirmations,
+  }
 }
 
 /**
@@ -602,8 +624,12 @@ async function verifyErc20OnChain(
   address: string,
 ): Promise<OnChainVerification> {
   const minConf = config.USDT_CONFIRM_ERC20_MIN
-  const fail = (reason: string, amountOnChain: number | null, to: string | null, confirmations: number | null) =>
-    ({ verified: false, reason, network: 'ERC20', txHash, amountOnChain, to, confirmations })
+  const fail = (
+    reason: string,
+    amountOnChain: number | null,
+    to: string | null,
+    confirmations: number | null,
+  ) => ({ verified: false, reason, network: 'ERC20', txHash, amountOnChain, to, confirmations })
 
   const apiKey = process.env.ETHERSCAN_API_KEY
   const params = new URLSearchParams({
@@ -625,12 +651,18 @@ async function verifyErc20OnChain(
 
   const tx = data.result.find((t) => t.hash.toLowerCase() === txHash.toLowerCase())
   if (!tx) return fail('未在平台地址转入记录中找到该交易(可能绑定他人或地址错误)', null, null, null)
-  if (tx.to.toLowerCase() !== address.toLowerCase()) return fail('收款地址与平台地址不一致', null, tx.to, null)
+  if (tx.to.toLowerCase() !== address.toLowerCase())
+    return fail('收款地址与平台地址不一致', null, tx.to, null)
 
   const decimals = Number(tx.tokenDecimal) || USDT_DECIMALS
   const amountOnChain = Number(tx.value) / Math.pow(10, decimals)
   if (Math.abs(amountOnChain - expectedAmount) > AMOUNT_EPS) {
-    return fail('链上实收金额与订单金额不一致(超付/少付),拒绝按客户端金额入账', amountOnChain, tx.to, null)
+    return fail(
+      '链上实收金额与订单金额不一致(超付/少付),拒绝按客户端金额入账',
+      amountOnChain,
+      tx.to,
+      null,
+    )
   }
 
   let confirmations: number | null = null
@@ -643,10 +675,23 @@ async function verifyErc20OnChain(
     if (confirmations === null) {
       return fail('无法获取交易确认数,请等待轮询确认', amountOnChain, tx.to, null)
     }
-    return fail(`确认数不足(当前 ${confirmations},要求 ≥ ${minConf}),待确认后入账`, amountOnChain, tx.to, confirmations)
+    return fail(
+      `确认数不足(当前 ${confirmations},要求 ≥ ${minConf}),待确认后入账`,
+      amountOnChain,
+      tx.to,
+      confirmations,
+    )
   }
 
-  return { verified: true, reason: '链上取证校验通过', network: 'ERC20', txHash, amountOnChain, to: tx.to, confirmations }
+  return {
+    verified: true,
+    reason: '链上取证校验通过',
+    network: 'ERC20',
+    txHash,
+    amountOnChain,
+    to: tx.to,
+    confirmations,
+  }
 }
 
 /**
@@ -700,7 +745,11 @@ export async function confirmUsdtPaymentWithOnChainCheck(
   orderId: string,
   txHash: string,
 ): Promise<ConfirmResult> {
-  const [order] = await dbRead.select().from(usdtPayments).where(eq(usdtPayments.orderId, orderId)).limit(1)
+  const [order] = await dbRead
+    .select()
+    .from(usdtPayments)
+    .where(eq(usdtPayments.orderId, orderId))
+    .limit(1)
   if (!order) throw Object.assign(new Error('订单不存在'), { statusCode: 404 })
 
   // 已确认/已过期等终态:委托 confirmUsdtPayment 做幂等返回
@@ -710,7 +759,12 @@ export async function confirmUsdtPaymentWithOnChainCheck(
     return confirmUsdtPayment(orderId, txHash, fallbackAmount)
   }
 
-  const verification = await verifyUsdtOnChain(order.network, txHash, Number(order.amount), order.address)
+  const verification = await verifyUsdtOnChain(
+    order.network,
+    txHash,
+    Number(order.amount),
+    order.address,
+  )
   if (!verification.verified || verification.amountOnChain === null) {
     console.info(
       `[usdt-payment] 订单 ${orderId} 链上取证未通过,保持 pending: ${verification.reason}`,

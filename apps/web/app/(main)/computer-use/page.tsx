@@ -289,7 +289,12 @@ export default function ComputerUsePage() {
             <Camera className="h-4 w-4" /> {t('screenshotTitle')}
           </h2>
           {screenshot ? (
-            <img src={screenshot} alt={t('screenshotTitle')} className="w-full rounded-lg border bg-muted" />
+            // eslint-disable-next-line @next/next/no-img-element -- 运行期截图是 base64 data URL,next/image 不适用
+            <img
+              src={screenshot}
+              alt={t('screenshotTitle')}
+              className="w-full rounded-lg border bg-muted"
+            />
           ) : (
             <div className="flex h-52 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
               {t('screenshotHint')}
@@ -380,7 +385,9 @@ export default function ComputerUsePage() {
                   <span className="min-w-0 flex-1 truncate text-muted-foreground">
                     {el.name || t('noTextElement')}
                   </span>
-                  {el.checked && <span className="shrink-0 text-xs text-emerald-600">✓{t('checked')}</span>}
+                  {el.checked && (
+                    <span className="shrink-0 text-xs text-emerald-600">✓{t('checked')}</span>
+                  )}
                   {el.disabled && (
                     <span className="shrink-0 text-xs text-muted-foreground">{t('disabled')}</span>
                   )}
