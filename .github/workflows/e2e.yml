@@ -103,6 +103,11 @@ jobs:
           CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
         run: pnpm --filter @ihui/api run seed:test-users
 
+      - name: Build database package
+        # web 产物引用 @ihui/database 的 dist;缺此步 next build 预渲染时
+        # 解析 src/index.ts → src/client.js 报 ERR_MODULE_NOT_FOUND(2026-09-10)
+        run: pnpm --filter @ihui/database run build
+
       - name: Build API
         run: pnpm --filter @ihui/api run build
 

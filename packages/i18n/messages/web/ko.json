@@ -9004,11 +9004,11 @@
   },
   "commandPalette": {
     "groups": {
-    "mode": "모드",
-    "navigate": "탐색",
-    "settings": "설정",
-    "tools": "도구",
-    "view": "보기"
+      "mode": "모드",
+      "navigate": "탐색",
+      "settings": "설정",
+      "tools": "도구",
+      "view": "보기"
     },
     "commands": {
       "agent": {

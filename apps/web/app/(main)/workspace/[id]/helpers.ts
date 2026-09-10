@@ -67,7 +67,8 @@ export async function uploadFile(
     body: formData,
   })
   // 网关 502 等返回 HTML 错误页时,共享层把响应文本归一为 error message,统一兜底 errorMsg
-  if (!res.success || !res.data?.file) throw new Error(res.success ? errorMsg : (res.error || errorMsg))
+  if (!res.success || !res.data?.file)
+    throw new Error(res.success ? errorMsg : res.error || errorMsg)
   return res.data.file
 }
 
