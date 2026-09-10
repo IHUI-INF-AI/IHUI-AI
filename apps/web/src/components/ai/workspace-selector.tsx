@@ -44,7 +44,7 @@ function warnHandleLossOnce(name: string): void {
   })
 }
 
-/** AI 面板顶部"工作区选择器"(参考 Trae/Codex/Claude Code 顶部 project selector 设计)
+/** AI 面板顶部"工作区选择器"(参考 主流 AI IDE 顶部 project selector 设计)
  *
  * - trigger 紧凑图标按钮(h-6 px-1.5),放在 displayTitle 文字旁边
  *   - 空工作区:FolderPlus 图标(提示"添加工作区")

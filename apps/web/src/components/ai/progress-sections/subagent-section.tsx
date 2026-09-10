@@ -221,7 +221,7 @@ const SubagentItem = React.memo(function SubagentItem({ sa }: { sa: Subagent }) 
 /**
  * SubagentSection — Subagent 派单折叠子区
  *
- * 对齐 Trae Work Subagent 展示:
+ * 对齐 AI 工作台 Subagent 展示:
  * - 标题带 Users 图标
  * - @handle 彩色标签 + 状态 SVG 图标 + 当前任务 + 耗时 + token 消耗
  *

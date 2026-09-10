@@ -7,7 +7,7 @@
 .SYNOPSIS
   IHUI-AI 全链路一键启动脚本 (web + api + ai-service + 数据库/Redis 健康检查)
 .DESCRIPTION
-  解决 agent 在 Trae IDE 内 RunCommand 工具失联时无法启动服务的问题 (参见 project_memory.md "本会话终端工具隔离硬约束").
+  解决 agent 在 自研 IDE 内 RunCommand 工具失联时无法启动服务的问题 (参见 project_memory.md "本会话终端工具隔离硬约束").
   本脚本由用户在真实 PowerShell 中执行, 派生独立窗口运行每个服务, 互不干扰.
 
   用法:

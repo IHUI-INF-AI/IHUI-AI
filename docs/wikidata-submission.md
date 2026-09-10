@@ -8,8 +8,8 @@
 
 > **Status**: pending-submission (no Q-ID allocated yet)
 > **Generated**: 2026-07-26
-> **Generator**: `.trae-cn/tmp/wikidata/submit.mjs`
-> **Verifier**: `.trae-cn/tmp/wikidata/verify-api.mjs` (all 60 IDs pass)
+> **Generator**: `.ihui-agent/tmp/wikidata/submit.mjs`
+> **Verifier**: `.ihui-agent/tmp/wikidata/verify-api.mjs` (all 60 IDs pass)
 
 This document records the Wikidata submission package prepared for the
 **IHUI AI** project. It is published alongside the project so that any future
@@ -37,15 +37,15 @@ bot) can run in seconds.
 
 | Path | Purpose |
 | --- | --- |
-| `.trae-cn/tmp/wikidata/submit.mjs` | Generation script. Re-run any time. |
-| `.trae-cn/tmp/wikidata/verify-api.mjs` | Verifies all 60 Q/P IDs against the Wikidata API. |
-| `.trae-cn/tmp/wikidata/entity-draft.json` | Full Wikibase v1 entity JSON draft (33 items, 36 properties, 10 languages, 18 aliases, 5 sitelinks). |
-| `.trae-cn/tmp/wikidata/quickstatements.txt` | QuickStatements batch — paste into toolforge to apply. |
-| `.trae-cn/tmp/wikidata/reference-entities.md` | Reference Wikidata entities and the property schema. |
+| `.ihui-agent/tmp/wikidata/submit.mjs` | Generation script. Re-run any time. |
+| `.ihui-agent/tmp/wikidata/verify-api.mjs` | Verifies all 60 Q/P IDs against the Wikidata API. |
+| `.ihui-agent/tmp/wikidata/entity-draft.json` | Full Wikibase v1 entity JSON draft (33 items, 36 properties, 10 languages, 18 aliases, 5 sitelinks). |
+| `.ihui-agent/tmp/wikidata/quickstatements.txt` | QuickStatements batch — paste into toolforge to apply. |
+| `.ihui-agent/tmp/wikidata/reference-entities.md` | Reference Wikidata entities and the property schema. |
 | `apps/web/public/wikidata.json` | Site-side Schema.org reference (machine-readable, linked from the homepage's GEO metadata). |
 | `docs/wikidata-submission.md` | This report. |
 
-The 6 source-of-truth files in `.trae-cn/tmp/wikidata/` are the **generation
+The 6 source-of-truth files in `.ihui-agent/tmp/wikidata/` are the **generation
 inputs**; the 1 file in `apps/web/public/` and this report are the
 **public artifacts**.
 
@@ -72,7 +72,7 @@ inputs**; the 1 file in `apps/web/public/` and this report are the
      "submissionStatus": "submitted"
    }
    ```
-8. Re-run `node .trae-cn/tmp/wikidata/submit.mjs` — the script will
+8. Re-run `node .ihui-agent/tmp/wikidata/submit.mjs` — the script will
    preserve any `entityId` you set (TODO: see §7 known-limitations).
 
 ### Option B — Wikidata API directly
@@ -83,7 +83,7 @@ inputs**; the 1 file in `apps/web/public/` and this report are the
 curl -X POST \
   -H "Authorization: Bearer $WIKIDATA_BOT_TOKEN" \
   -H "Content-Type: application/json" \
-  --data @.trae-cn/tmp/wikidata/entity-draft.json \
+  --data @.ihui-agent/tmp/wikidata/entity-draft.json \
   https://www.wikidata.org/w/rest.php/wikibase/v1/items
 ```
 
@@ -163,7 +163,7 @@ Plus 10 labels, 10 descriptions, 18 aliases, 5 sitelinks.
 
 A full property table and the list of items we **dropped** (because they
 were mis-mapped in the original task spec) is in
-`.trae-cn/tmp/wikidata/reference-entities.md`.
+`.ihui-agent/tmp/wikidata/reference-entities.md`.
 
 ---
 
@@ -198,16 +198,16 @@ were mis-mapped in the original task spec) is in
 
 ```bash
 # Dry-run (prints summary, writes nothing)
-node .trae-cn/tmp/wikidata/submit.mjs --dry-run
+node .ihui-agent/tmp/wikidata/submit.mjs --dry-run
 
 # Verify all IDs against the live Wikidata API first
-node .trae-cn/tmp/wikidata/verify-api.mjs --strict
+node .ihui-agent/tmp/wikidata/verify-api.mjs --strict
 
 # Write all artifacts
-node .trae-cn/tmp/wikidata/submit.mjs
+node .ihui-agent/tmp/wikidata/submit.mjs
 
 # Verify IDs only (no file writes)
-node .trae-cn/tmp/wikidata/verify-api.mjs
+node .ihui-agent/tmp/wikidata/verify-api.mjs
 ```
 
 After any change to the ID map or the description text, re-run both

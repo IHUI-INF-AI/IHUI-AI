@@ -7,7 +7,7 @@
  * - plan: 只读调研,禁止写工具
  * - build: 全权执行修改
  * - review: 审查 diff,只读
- * 状态持久化到 <workspace>/.trae-cn/modes/plan-build-state.json(跨 session 恢复)。
+ * 状态持久化到 <workspace>/.ihui-agent/modes/plan-build-state.json(跨 session 恢复)。
  * 平台独占:仅 cli(W2-2 Plan-Build 模式,对标 OpenCode Plan/Build,增强 Review + 持久化)。
  *
  * 计划-执行-清单闭环(结构化计划):
@@ -58,7 +58,7 @@ export class PlanBuildCoordinator {
 
   constructor(workspacePath = process.cwd()) {
     this.workspacePath = workspacePath;
-    this.stateFile = path.join(workspacePath, '.trae-cn', 'modes', 'plan-build-state.json');
+    this.stateFile = path.join(workspacePath, '.ihui-agent', 'modes', 'plan-build-state.json');
     this.planStore = new StructuredPlanStore(workspacePath);
     this.load();
   }

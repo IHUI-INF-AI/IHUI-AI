@@ -37,7 +37,7 @@ const END_CONFIG = {
   name: 'miniapp-taro',
   messagesPath: 'packages/i18n/messages/miniapp-taro/zh-CN.json',
   scanTargets: ['apps/miniapp-taro/src'],
-  outputPattern: '.trae-cn/tmp/i18n-miniapp-taro-dead-keys-{date}.md',
+  outputPattern: '.ihui-agent/tmp/i18n-miniapp-taro-dead-keys-{date}.md',
 }
 
 // 代码文件路径(对应 scanTargets[0])

@@ -8,7 +8,7 @@
  *
  * 设计理念(2026-07-24 立,用户规则:不耗费自己算力,翻译由 AI agent 在开发流程中完成):
  *   - 本脚本只做"检测 + 输出清单",不调用任何 LLM API
- *   - AI agent 读取输出的 .trae-cn/tmp/i18n-pending.json,自己翻译,写入 i18n-translations.json
+ *   - AI agent 读取输出的 .ihui-agent/tmp/i18n-pending.json,自己翻译,写入 i18n-translations.json
  *   - 再由 scripts/i18n-apply.mjs 应用翻译结果到 locale 文件
  *   - 整个流水线对用户算力零消耗,翻译能力由 AI 编程 agent 自带
  *
@@ -18,7 +18,7 @@
  *   3. asciiFallback - 值 === en 值且纯 ASCII(ko/ja/zh-TW 用 en 兜底未翻译)
  *
  * 输出:
- *   - .trae-cn/tmp/i18n-pending.json (机器可读,AI agent 消费)
+ *   - .ihui-agent/tmp/i18n-pending.json (机器可读,AI agent 消费)
  *   - stdout (人类可读报告)
  *
  * 用法:
@@ -73,7 +73,7 @@ const TARGET_CONFIG = {
 const TARGET_CFG = TARGET_CONFIG[TARGET] || TARGET_CONFIG.web
 
 const MESSAGES_DIR = path.join(ROOT, TARGET_CFG.dir)
-const TMP_DIR = path.join(ROOT, '.trae-cn/tmp')
+const TMP_DIR = path.join(ROOT, '.ihui-agent/tmp')
 const DEFAULT_OUTPUT = path.join(TMP_DIR, 'i18n-pending.json')
 const OUTPUT_FILE = customOutput || DEFAULT_OUTPUT
 
@@ -343,9 +343,9 @@ function printReport(result, targetLangs) {
   }
 
   console.log(`${C.bold}下一步(AI agent 自主执行,零用户算力):${C.reset}`)
-  console.log(`  1. 读取 ${C.cyan}.trae-cn/tmp/i18n-pending.json${C.reset}`)
+  console.log(`  1. 读取 ${C.cyan}.ihui-agent/tmp/i18n-pending.json${C.reset}`)
   console.log(`  2. AI agent 自己翻译(参考 scripts/brand-glossary.json 保证品牌名一致)`)
-  console.log(`  3. 写入 ${C.cyan}.trae-cn/tmp/i18n-translations.json${C.reset}`)
+  console.log(`  3. 写入 ${C.cyan}.ihui-agent/tmp/i18n-translations.json${C.reset}`)
   console.log(`  4. 运行 ${C.cyan}node scripts/i18n-apply.mjs${C.reset} 应用翻译`)
   console.log(`  5. 运行 ${C.cyan}node scripts/check-i18n-keys.mjs${C.reset} 验证 parity`)
 }
@@ -409,9 +409,9 @@ function main() {
     workflow: {
       description: 'AI agent 自主翻译流水线(零 LLM API 调用,翻译能力由 AI 编程 agent 自带)',
       steps: [
-        '1. 读取本文件 .trae-cn/tmp/i18n-pending.json',
+        '1. 读取本文件 .ihui-agent/tmp/i18n-pending.json',
         '2. AI agent 自己翻译(结合 glossary 字段保证品牌名/术语一致)',
-        '3. 写入 .trae-cn/tmp/i18n-translations.json (结构: { translations: { [lang]: { [key]: translatedValue } } })',
+        '3. 写入 .ihui-agent/tmp/i18n-translations.json (结构: { translations: { [lang]: { [key]: translatedValue } } })',
         '4. 运行 node scripts/i18n-apply.mjs 应用翻译',
         '5. 运行 node scripts/check-i18n-keys.mjs 验证 parity',
       ],
@@ -427,7 +427,7 @@ function main() {
     },
   }
 
-  // 确保 .trae-cn/tmp/ 存在
+  // 确保 .ihui-agent/tmp/ 存在
   if (!fs.existsSync(TMP_DIR)) {
     fs.mkdirSync(TMP_DIR, { recursive: true })
   }

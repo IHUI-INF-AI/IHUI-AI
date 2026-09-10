@@ -7,7 +7,7 @@
 import { create } from 'zustand'
 
 /**
- * TimelineStore — Timeline 时间线 tab 状态(2026-07-28 立,Trae Work 对齐)
+ * TimelineStore — Timeline 时间线 tab 状态(2026-07-28 立,AI 工作台 对齐)
  */
 
 export type TimelineEventType = 'plan' | 'subagent' | 'question' | 'tool' | 'thinking' | 'reference'

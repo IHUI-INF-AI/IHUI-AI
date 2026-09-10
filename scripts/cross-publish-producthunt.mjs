@@ -31,7 +31,7 @@ const ROOT = resolve(__dirname, '..')
 const PH_API = 'https://api.producthunt.com/v2/api/graphql'
 const TOKEN = process.env.PRODUCTHUNT_TOKEN
 
-const DEFAULT_DRAFT_PATH = join(ROOT, '.trae-cn', 'tmp', 'producthunt-launch.md')
+const DEFAULT_DRAFT_PATH = join(ROOT, '.ihui-agent', 'tmp', 'producthunt-launch.md')
 
 // ---------- 参数解析 ----------
 const argv = process.argv.slice(2)

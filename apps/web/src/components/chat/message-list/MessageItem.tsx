@@ -343,7 +343,7 @@ const MessageItem = React.memo(function MessageItem({
     }
   }, [])
 
-  // 重试(2026-07-28 立,深度对标 Trae Work):m.error 时气泡底部显示"重试"按钮,
+  // 重试(2026-07-28 立,深度对标 AI 工作台):m.error 时气泡底部显示"重试"按钮,
   // 通过 window CustomEvent 'ihui:retry-message' 派发,由 message-input 监听后触发重新发送。
   // 不直接调用 chat store(任务约束),保持组件解耦。
   const handleRetry = React.useCallback(
@@ -763,7 +763,7 @@ const MessageItem = React.memo(function MessageItem({
         </div>
       )}
 
-      {/* 错误重试按钮(2026-07-28 立,深度对标 Trae Work):m.error 时在气泡下方显示,
+      {/* 错误重试按钮(2026-07-28 立,深度对标 AI 工作台):m.error 时在气泡下方显示,
             用户可一键重新生成该消息,不必手动从历史拷贝内容重新粘贴。 */}
       {m.error && (
         <button

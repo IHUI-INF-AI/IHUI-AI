@@ -9,7 +9,7 @@
  * docker-compose.yml 五类配置文件做 SHA-256 基线对比,输出 added/removed/changed
  * 键集合,供管理员判断是否需要触发自动迁移。
  *
- * 基线存储在项目内 .trae-cn/tmp/config-baseline.json(AGENTS.md §15 工作区卫生)。
+ * 基线存储在项目内 .ihui-agent/tmp/config-baseline.json(AGENTS.md §15 工作区卫生)。
  * 仅读取配置文件本身,绝不写入(.env / config.py / package.json / docker-compose.yml 只读)。
  */
 import { existsSync } from 'node:fs'
@@ -54,7 +54,7 @@ export const HIGH_RISK_KEYS = new Set([
 ])
 
 /** 上游基线 hash 存储(文件版) */
-const BASELINE_FILE = '.trae-cn/tmp/config-baseline.json'
+const BASELINE_FILE = '.ihui-agent/tmp/config-baseline.json'
 
 interface BaselineEntry {
   hash: string

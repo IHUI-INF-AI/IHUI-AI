@@ -27,8 +27,6 @@ export type CliConfigSource =
   | 'cline'
   | 'aider'
   | 'env-file'
-  | 'trae'
-  | 'trae-work'
   | 'qoder'
   | 'qoder-work'
   | 'codex-desktop'

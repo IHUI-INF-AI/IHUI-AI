@@ -21,7 +21,7 @@ interface FoldableSectionProps {
   'aria-label'?: string
   /** Phase 20 P1-2: 头部右侧 extra 元素(用于放复制按钮等) */
   headerExtra?: React.ReactNode
-  /** 2026-07-31 借鉴 Trae Thinking Process:折叠态显示当前摘要(如"正在:回答"),
+  /** 2026-07-31 借鉴 折叠态摘要设计:折叠态显示当前摘要(如"正在:回答"),
    *  让折叠态也有信息密度,无需展开即可知道当前进度 */
   summary?: string
 }
@@ -85,7 +85,7 @@ export function formatRelativeTime(
 }
 
 /**
- * FoldableSection — 共享折叠子区包装器(对齐 Trae Work)
+ * FoldableSection — 共享折叠子区包装器(对齐 AI 工作台)
  *
  * 特征:
  * - SVG chevron 图标(ChevronRight,展开时 rotate-90)
@@ -143,7 +143,7 @@ export function FoldableSection({
         />
         {Icon && <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />}
         <span className="flex-1 min-w-0 text-left">{title}</span>
-        {/* 借鉴 Trae Thinking Process:折叠态显示当前摘要,展开态隐藏(避免冗余) */}
+        {/* 借鉴 折叠态摘要设计:折叠态显示当前摘要,展开态隐藏(避免冗余) */}
         {summary && !open && (
           <span
             className="min-w-0 max-w-[40%] truncate text-xs font-normal text-muted-foreground/50"

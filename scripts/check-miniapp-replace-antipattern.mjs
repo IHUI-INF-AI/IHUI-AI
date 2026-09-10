@@ -56,7 +56,7 @@
  *   node scripts/check-miniapp-replace-antipattern.mjs --json           # 输出 JSON 格式(给 CI 用)
  *
  * 集成位置: 后续 P1 任务 — 集成到 .husky/pre-commit(本任务只创建脚本)
- * 历史案例: .trae-cn/archive/AGENTS_history.md
+ * 历史案例: .ihui-agent/archive/AGENTS_history.md
  */
 import { execSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'

@@ -33,8 +33,6 @@ import { parseCursor } from './parsers/cursor.js'
 import { parseEnvFile } from './parsers/env-file.js'
 import { parseWindsurf } from './parsers/windsurf.js'
 import {
-  parseTrae,
-  parseTraeWork,
   parseQoder,
   parseQoderWork,
   parseCodexDesktop,
@@ -143,20 +141,6 @@ const PARSERS: ParserEntry[] = [
     inputKind: 'text',
     filePatterns: [/aider.*\.ya?ml$/i, /\.aider\.conf\.ya?ml$/i],
     description: 'Aider AI 配置 YAML',
-  },
-  {
-    source: 'trae',
-    fn: parseTrae,
-    inputKind: 'text',
-    filePatterns: [/trae.*settings\.json$/i, /trae.*\.json$/i],
-    description: 'Trae IDE AI 配置',
-  },
-  {
-    source: 'trae-work',
-    fn: parseTraeWork,
-    inputKind: 'text',
-    filePatterns: [/trae-work.*settings\.json$/i, /trae.work.*\.json$/i],
-    description: 'Trae Work AI 配置',
   },
   {
     source: 'qoder',

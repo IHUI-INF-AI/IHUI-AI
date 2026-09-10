@@ -6,7 +6,7 @@
  * 首页 AI 对话主页布局
  *
  * 对齐原项目:`D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pages\table\aiIndex\ai_index.vue`
- * 视觉规则:`.trae-cn/tmp/miniapp-taro-style-align/home-spec.md`
+ * 视觉规则:`.ihui-agent/tmp/miniapp-taro-style-align/home-spec.md`
  *
  * 结构:7 层嵌套(根 → 容器 → 输入区 → 定位 → 滚动 → 按钮组 → 按钮内容)
  * - DrawerComponent(side='left',500rpx 宽抽屉 + 历史对话 + 用户信息)

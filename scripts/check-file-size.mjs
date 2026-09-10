@@ -25,7 +25,7 @@
  * 扫描范围:
  *   apps/web/src、apps/web/app,以及任意 apps/<app>/src(若存在)。
  *   扩展名 .ts/.tsx/.js/.jsx。
- *   排除:node_modules/out/dist/build/.next/public/coverage/tests/__tests__/e2e/.trae-cn。
+ *   排除:node_modules/out/dist/build/.next/public/coverage/tests/__tests__/e2e/.ihui-agent。
  *
  * 用法:
  *   node scripts/check-file-size.mjs --staged       (pre-commit,仅新增超阈值文件阻塞)
@@ -92,7 +92,7 @@ const EXCLUDE_DIRS = withExcludes([
   'tests',
   '__tests__',
   'e2e',
-  '.trae-cn',
+  '.ihui-agent',
 ])
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']

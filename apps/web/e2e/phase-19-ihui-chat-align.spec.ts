@@ -69,7 +69,7 @@ async function openPane(page: Page): Promise<boolean> {
   return true
 }
 
-test.describe('Phase 19 Trae Work 4 大招牌交互', () => {
+test.describe('Phase 19 AI 工作台 4 大招牌交互', () => {
   // ───────── 测试 1:Plan Step ↔ Message 双向跳转 ─────────
   test('Plan Step 点击触发消息滚动 + flashHighlight + hoveredPlanStep 反向联动', async ({
     page,

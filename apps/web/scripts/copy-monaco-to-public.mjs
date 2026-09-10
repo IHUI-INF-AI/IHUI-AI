@@ -13,7 +13,7 @@
  *
  * 原因: @monaco-editor/react 默认从 cdn.jsdelivr.net 加载 monaco-editor 核心,
  * GFW/网络/CSP 经常导致 vs/loader.js 加载失败,IDE 编辑器无法渲染。
- * self-host 到 /vs 路径对标 Trae/Codex,避免外部 CDN 依赖。
+ * self-host 到 /vs 路径对标 主流 IDE,避免外部 CDN 依赖。
  *
  * 幂等: 目标目录已存在且 loader.js 存在则跳过(除非 --force)
  */

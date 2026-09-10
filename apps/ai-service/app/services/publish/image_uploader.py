@@ -10,7 +10,7 @@
 
 设计:
 - extract_external_images(html): 提取 HTML 中所有外链图片 URL
-- download_image(url): 下载图片到 .trae-cn/tmp/publish-images/
+- download_image(url): 下载图片到 .ihui-agent/tmp/publish-images/
 - upload_to_platform(platform, image_path, context, credentials):
     按平台调对应图床 API/Playwright 上传,返回平台图床 URL
 - replace_image_src(html, old_url, new_url): 替换 HTML 中的图片 URL
@@ -105,8 +105,8 @@ _UA = (
 )
 
 
-# 图片临时下载目录(AGENTS.md §15:临时文件放 .trae-cn/tmp/)
-_IMAGE_TMP_DIR = Path(".trae-cn/tmp/publish-images").resolve()
+# 图片临时下载目录(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
+_IMAGE_TMP_DIR = Path(".ihui-agent/tmp/publish-images").resolve()
 _IMAGE_TMP_DIR.mkdir(parents=True, exist_ok=True)
 
 # 外链图片正则(匹配 <img src="http...">,排除本地路径 / data URI)

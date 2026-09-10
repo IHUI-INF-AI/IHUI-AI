@@ -12,7 +12,7 @@
  *   2. 渲染为 markdown:头部(标题/时间/模型/统计) + 对话(user/assistant) + 工具调用折叠块
  *   3. 计算 SHA-256 hash(防篡改)
  *   4. 生成 self-contained HTML(内嵌 markdown,用 marked.js CDN 渲染)
- *   5. 保存到 <workspacePath>/.trae-cn/shared/<hash8>.html
+ *   5. 保存到 <workspacePath>/.ihui-agent/shared/<hash8>.html
  *   6. 生成短链(file:// URL;若 server 启动可由 server 层重写为 http://localhost:<port>/shared/<hash8>)
  *   7. 生成二维码(降级:完整 QR 编码需专用库,当前返回空字符串)
  *
@@ -66,9 +66,9 @@ export class ShareManager {
     this.workspacePath = workspacePath;
   }
 
-  /** 分享输出目录:<workspacePath>/.trae-cn/shared/ */
+  /** 分享输出目录:<workspacePath>/.ihui-agent/shared/ */
   private getSharedDir(): string {
-    return path.join(this.workspacePath, '.trae-cn', 'shared');
+    return path.join(this.workspacePath, '.ihui-agent', 'shared');
   }
 
   /**
@@ -88,7 +88,7 @@ export class ShareManager {
     const title = opts.title ?? this.deriveTitle(session);
     const markdown = this.renderMarkdown(session, title, includeToolCalls, includeFiles);
 
-    // upload 负责:计算 hash + 生成 HTML + 写入 .trae-cn/shared/<hash8>.html + 返回短链
+    // upload 负责:计算 hash + 生成 HTML + 写入 .ihui-agent/shared/<hash8>.html + 返回短链
     const { url, hash } = await this.upload(markdown, title);
     const hash8 = hash.slice(0, 8);
     const sharedDir = this.getSharedDir();
@@ -120,7 +120,7 @@ export class ShareManager {
   }
 
   /**
-   * 上传到 gist-like 服务(本地实现:生成 HTML 文件到 .trae-cn/shared/)。
+   * 上传到 gist-like 服务(本地实现:生成 HTML 文件到 .ihui-agent/shared/)。
    * 返回短链 URL 与防篡改 hash。
    */
   private async upload(content: string, title: string): Promise<{ url: string; hash: string }> {
@@ -135,7 +135,7 @@ export class ShareManager {
   }
 
   /**
-   * 生成短链(hash 前 8 位作为 ID,映射到 .trae-cn/shared/<id>.html)。
+   * 生成短链(hash 前 8 位作为 ID,映射到 .ihui-agent/shared/<id>.html)。
    * 本地实现返回 file:// URL;若 server 启动,server 层可重写为 http://localhost:<port>/shared/<id>。
    */
   private generateShortUrl(hash8: string): string {

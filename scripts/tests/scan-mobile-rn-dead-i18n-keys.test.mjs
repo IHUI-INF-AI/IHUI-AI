@@ -37,7 +37,7 @@ const END_CONFIG = {
   name: 'mobile-rn',
   messagesPath: 'packages/i18n/messages/mobile-rn/zh-CN.json',
   scanTargets: ['apps/mobile-rn/src'],
-  outputPattern: '.trae-cn/tmp/i18n-mobile-rn-dead-keys-{date}.md',
+  outputPattern: '.ihui-agent/tmp/i18n-mobile-rn-dead-keys-{date}.md',
 }
 
 // 代码文件路径(对应 scanTargets[0])
