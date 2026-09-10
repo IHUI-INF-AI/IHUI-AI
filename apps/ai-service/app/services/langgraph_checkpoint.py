@@ -23,8 +23,8 @@ import importlib
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
@@ -52,12 +52,12 @@ except ImportError:  # pragma: no cover - 依赖未安装时走降级路径
     _LANGGRAPH_AVAILABLE = False
 
 if TYPE_CHECKING:  # 仅类型检查时引入,运行时不强依赖
-    from langgraph.checkpoint.base import BaseCheckpointSaver
+    pass
 
 
 def _utcnow_iso() -> str:
     """当前 UTC 时间 ISO8601 字符串。"""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _json_dumps(value: Any) -> str:
@@ -75,8 +75,8 @@ class LangGraphCheckpointManager:
 
     def __init__(self, db_url: str):
         self.db_url = db_url
-        self._pool: Optional[Any] = None  # AsyncConnectionPool
-        self._saver: Optional[Any] = None  # AsyncPostgresSaver
+        self._pool: Any | None = None  # AsyncConnectionPool
+        self._saver: Any | None = None  # AsyncPostgresSaver
 
     # ------------------------------------------------------------------
     # 连接池 + AsyncPostgresSaver 生命周期
@@ -140,7 +140,7 @@ class LangGraphCheckpointManager:
         checkpoint_id: str,
         node_id: str,
         state: dict[str, Any],
-        parent_id: Optional[str] = None,
+        parent_id: str | None = None,
     ) -> None:
         """保存节点 checkpoint(UPSERT,按 thread_id + checkpoint_id 唯一)。"""
         pool = await self._get_pool()
@@ -171,7 +171,7 @@ class LangGraphCheckpointManager:
 
     async def get_checkpoint(
         self, thread_id: str, checkpoint_id: str
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """获取指定 checkpoint,返回字段对齐 LangGraphCheckpoint TS 类型。"""
         pool = await self._get_pool()
         sql = (
@@ -203,7 +203,7 @@ class LangGraphCheckpointManager:
             rows = await cur.fetchall()
         return [_row_to_checkpoint(r) for r in rows]
 
-    async def get_latest_checkpoint(self, thread_id: str) -> Optional[dict[str, Any]]:
+    async def get_latest_checkpoint(self, thread_id: str) -> dict[str, Any] | None:
         """获取线程最新 checkpoint(恢复执行用)。"""
         pool = await self._get_pool()
         sql = (
@@ -252,7 +252,7 @@ class LangGraphCheckpointManager:
     # LangGraph 原生状态查询(委托 AsyncPostgresSaver / graph)
     # ------------------------------------------------------------------
 
-    async def get_graph_state(self, graph: Any, thread_id: str) -> Optional[dict[str, Any]]:
+    async def get_graph_state(self, graph: Any, thread_id: str) -> dict[str, Any] | None:
         """通过 LangGraph graph.get_state 读取线程当前状态快照。
 
         Args:
@@ -442,7 +442,7 @@ async def resume_from_interrupt(
 # 全局单例(读取 settings.database_url)
 # ----------------------------------------------------------------------
 
-_manager: Optional[LangGraphCheckpointManager] = None
+_manager: LangGraphCheckpointManager | None = None
 
 
 def get_langgraph_checkpoint_manager() -> LangGraphCheckpointManager:

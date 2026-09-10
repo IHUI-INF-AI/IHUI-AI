@@ -33,7 +33,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 import httpx
 
@@ -43,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 # 全局共享 httpx.AsyncClient(连接池复用)
 # 懒初始化:首次 get_api_client() 调用时创建,close_api_client() 关闭后置 None
-_api_client: Optional[httpx.AsyncClient] = None
+_api_client: httpx.AsyncClient | None = None
 
 
 def _build_api_client() -> httpx.AsyncClient:

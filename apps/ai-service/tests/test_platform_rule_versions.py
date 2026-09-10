@@ -23,8 +23,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Optional
-from unittest.mock import patch
 
 import pytest
 
@@ -33,13 +31,20 @@ from app.services.publish.platform_rule_versions import (
     RuleVersionManager,
     _build_initial_version,
     _get_default_manager,
+)
+from app.services.publish.platform_rule_versions import (
     check_rule_outdated as mod_check_rule_outdated,
+)
+from app.services.publish.platform_rule_versions import (
     get_current_version as mod_get_current_version,
+)
+from app.services.publish.platform_rule_versions import (
     list_all_outdated as mod_list_all_outdated,
+)
+from app.services.publish.platform_rule_versions import (
     record_rule_change as mod_record_rule_change,
 )
 from app.services.publish.platform_rules import PLATFORM_RULES, PlatformRule
-
 
 # =============================================================================
 # 1. RuleVersion dataclass(2 tests)

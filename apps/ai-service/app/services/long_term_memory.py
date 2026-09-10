@@ -32,11 +32,10 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
-from typing import Any, Optional
+from typing import Any
 
 import asyncpg
 
-from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 from .session_summarizer import session_summarizer
 

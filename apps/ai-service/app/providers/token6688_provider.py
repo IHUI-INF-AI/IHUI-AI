@@ -50,13 +50,14 @@ import logging
 import os
 import time
 import uuid
-from typing import Any, AsyncIterator, cast
+from collections.abc import AsyncIterator
+from typing import Any, cast
 
 import httpx
 
+from ..core.llm_gateway import get_http_client
 from .base_provider import ProviderError
 from .openai_provider import OpenAIProvider
-from ..core.llm_gateway import get_http_client
 
 logger = logging.getLogger(__name__)
 

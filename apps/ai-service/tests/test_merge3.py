@@ -9,8 +9,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.services.merge3 import (
     OURS_MARKER,
     SEP_MARKER,

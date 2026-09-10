@@ -50,7 +50,7 @@ def mock_http(monkeypatch):
     def _factory(*args, **kwargs):
         if "transport" not in state:
             raise AssertionError("mock_http: 请先调用 mock_http(handler) 设置 transport")
-        return original_client(transport=state["transport"], *args, **kwargs)
+        return original_client(*args, transport=state["transport"], **kwargs)
 
     monkeypatch.setattr(httpx, "AsyncClient", _factory)
 
@@ -63,7 +63,7 @@ def mock_http(monkeypatch):
 class _FakeSMTP:
     """smtplib.SMTP 替身:记录调用,不真正连网。"""
 
-    instances: list["_FakeSMTP"] = []
+    instances: list[_FakeSMTP] = []
 
     def __init__(self, host, port=0, timeout=10, **kwargs):
         self.host = host

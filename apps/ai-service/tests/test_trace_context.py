@@ -17,7 +17,6 @@
 
 from __future__ import annotations
 
-import pytest
 from starlette.applications import Starlette
 from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
@@ -27,7 +26,6 @@ from app.middleware.trace_context import (
     parse_traceparent,
     setup_trace_context_middleware,
 )
-
 
 # 合法 W3C traceparent:version-trace_id(32 hex)-parent_id(16 hex)-flags
 _VALID_TRACEPARENT = (

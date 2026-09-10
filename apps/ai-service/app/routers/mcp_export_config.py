@@ -20,9 +20,8 @@ Both endpoints are auth-gated via get_current_user_id and are read-only.
 
 from __future__ import annotations
 
-from typing import Any
-
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Depends
 

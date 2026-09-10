@@ -17,19 +17,13 @@
 """
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
 
 from app.api import dag
 from app.services.dag_scheduler import (
-    DAGNode,
     DAGScheduler,
-    KanbanTask,
     WorkerPool,
-    WorkerPoolConfig,
 )
-
 
 # =============================================================================
 # 辅助:每个测试前重置全局单例状态

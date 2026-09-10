@@ -22,7 +22,7 @@
 import logging
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import asyncpg
 
@@ -241,7 +241,7 @@ def _find_table_end(content: str, start: int) -> int:
     return start + 5000
 
 
-def parse_ts_table_fields(schema_dir: Path, table_name: str) -> Optional[dict[str, str]]:
+def parse_ts_table_fields(schema_dir: Path, table_name: str) -> dict[str, str] | None:
     """从 TS schema 源码解析指定表的字段定义。
 
     Args:
@@ -308,6 +308,14 @@ def parse_ts_all_table_names(schema_dir: Path) -> set[str]:
     return names
 
 
+def _strip_string_delimiters(raw: str) -> str:
+    """去掉 Python 字符串字面量的定界符(三引号优先),返回内部内容。"""
+    for q in ('"""', "'''", '"', "'"):
+        if raw.startswith(q) and raw.endswith(q) and len(raw) >= 2 * len(q):
+            return raw[len(q) : -len(q)]
+    return raw
+
+
 def scan_ai_service_sql_tables(app_dir: Path = _APP_DIR) -> set[str]:
     """扫描 ai-service/app 下所有 .py 文件,提取 SQL 中引用的表名。
 
@@ -317,10 +325,26 @@ def scan_ai_service_sql_tables(app_dir: Path = _APP_DIR) -> set[str]:
     Returns:
         { table_name, ... }(小写)
     """
-    _sql_indicator = re.compile(r"\b(SELECT|INSERT|UPDATE|DELETE)\b", re.IGNORECASE)
+    _sql_statement = re.compile(
+        r"(?mi)^[ \t]*(?:SELECT|INSERT|UPDATE|DELETE)\b",
+    )
+    # 2026-09-10 补充第二判据:真实 SQL 语句几乎必然带结构性 token(FROM/WHERE/SET/
+    # VALUES/JOIN/RETURNING/GROUP BY/ORDER BY/LIMIT/ON CONFLICT/$n 占位符)。
+    # 单靠"动词开头"仍会放过恰好以动词开头的日志,如 "update sources failed: %s"
+    # (→ 表名 sources)、"update user=%s"(→ 表名 user)。
+    _sql_structure = re.compile(
+        r"\b(?:FROM|WHERE|SET|VALUES|JOIN|RETURNING|GROUP\s+BY|ORDER\s+BY|LIMIT"
+        r"|ON\s+CONFLICT)\b|\$\d+",
+        re.IGNORECASE,
+    )
     tables: set[str] = set()
+    # 2026-09-10 修复:排除 SQLite 实现。session_store.py 自述"纯标准库 sqlite3 实现",
+    # 其 items / items_fts / meta / relay_summaries / rollbacks / schema_version /
+    # threads / turns 都是 SQLite 表,与 Postgres schema 无关 —— 之前被当成本服务
+    # 依赖的 Postgres 表,在 CI 里恒报"表不存在 — 数据孤岛"。
+    _SQLITE_FILES = {"session_store.py"}
     for py_file in app_dir.rglob("*.py"):
-        if py_file.name.startswith("_") or py_file.name == "schema_check.py":
+        if py_file.name.startswith("_") or py_file.name in _SQLITE_FILES | {"schema_check.py"}:
             continue
         try:
             content = py_file.read_text(encoding="utf-8")
@@ -328,11 +352,22 @@ def scan_ai_service_sql_tables(app_dir: Path = _APP_DIR) -> set[str]:
             continue
         # 只在字符串字面量中匹配 SQL 表名(避免 FROM __future__ import 误匹配)
         for str_match in _STRING_LITERAL_RE.finditer(content):
-            string_content = str_match.group(0)
-            # 只处理包含 SQL 关键字的字符串(过滤日志文本如 "load from redis failed")
-            if not _sql_indicator.search(string_content):
+            # 2026-09-10 修复:剥掉定界符后再判定。字面量捕获含定界符,三引号 SQL 的
+            # 首行是 '"""SELECT ...' —— 不剥的话行首动词判定会漏掉全部真实 SQL
+            # (实测表集合 41 → 13 的根因)。
+            inner = _strip_string_delimiters(str_match.group(0))
+            # 2026-09-10 修复:把"整串出现过 SQL 关键字"收紧为
+            #   「存在以 SQL 语句动词开头的行」+「含 SQL 结构性 token」双判据。
+            # 原判据(整串含 SELECT/INSERT/UPDATE/DELETE)会把 docstring / 日志 /
+            # 补丁格式串整段放行,例如:
+            #   - patch_engine 常量 "*** Update File:"(含 UPDATE → 整串过关,
+            #     "Update File 缺少路径" → 表名 file)
+            #   - 英文 docstring "Extract atomic facts from a blob"(→ 表名 a)
+            #   - 模块 docstring 里的 "from app.core.config import settings"(→ 表名 app)
+            # 这些在 CI 全部被当成"数据孤岛",schema_check 恒红。
+            if not (_sql_statement.search(inner) and _sql_structure.search(inner)):
                 continue
-            for match in _SQL_TABLE_RE.finditer(string_content):
+            for match in _SQL_TABLE_RE.finditer(inner):
                 table = match.group(1).lower()
                 # 过滤 SQL 关键字 + 系统表(information_schema / pg_*)
                 if table in _SQL_KEYWORDS:
@@ -419,7 +454,7 @@ def diff_columns(
 
 
 async def check_schema(
-    pool: Optional[asyncpg.Pool] = None,
+    pool: asyncpg.Pool | None = None,
 ) -> dict[str, Any]:
     """执行多表 schema 字段对照校验。
 

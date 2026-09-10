@@ -23,9 +23,9 @@
 """
 
 import logging
-from typing import Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class ModelCapability:
     output_price: float   # 美元/1M tokens
     supports_tools: bool = True
     supports_vision: bool = False
-    
+
 @dataclass
 class RoutingDecision:
     """路由决策结果。"""
@@ -61,12 +61,12 @@ class RoutingDecision:
 
 class ModelRouter:
     """智能模型路由器。
-    
+
     用法:
         router = ModelRouter()
         router.register_model(ModelCapability(model_id="gpt-4o", ...))
         router.register_model(ModelCapability(model_id="gpt-4o-mini", ...))
-        
+
         decision = router.route(
             prompt="重构这个模块",
             token_count=5000,
@@ -75,7 +75,7 @@ class ModelRouter:
         )
         logger.info("model_router_selected", model=decision.selected_model)  # gpt-4o(复杂任务)
     """
-    
+
     # 默认模型库(可扩展)
     DEFAULT_MODELS: list[ModelCapability] = [
         ModelCapability("gpt-4o", "GPT-4o", 128000, 9, 80, 2.5, 10.0, True, True),
@@ -86,7 +86,7 @@ class ModelRouter:
         ModelCapability("ollama/llama3.2", "Llama 3.2 (Ollama 本地)", 128000, 5, 50, 0.0, 0.0, True, False),
         ModelCapability("ollama/qwen2.5:32b", "Qwen 2.5 32B (Ollama 本地)", 32768, 6, 40, 0.0, 0.0, True, False),
     ]
-    
+
     # 复杂度 → 推理能力要求 + 速度偏好
     COMPLEXITY_REQUIREMENTS = {
         TaskComplexity.TRIVIAL: {"min_reasoning": 1, "prefer_speed": True, "max_price": 0.5},
@@ -95,8 +95,8 @@ class ModelRouter:
         TaskComplexity.COMPLEX: {"min_reasoning": 7, "prefer_speed": False, "max_price": 20.0},
         TaskComplexity.EXPERT: {"min_reasoning": 9, "prefer_speed": False, "max_price": 50.0},
     }
-    
-    def __init__(self, models: Optional[list[ModelCapability]] = None) -> None:
+
+    def __init__(self, models: list[ModelCapability] | None = None) -> None:
         self.models: dict[str, ModelCapability] = {}
         for m in (models or self.DEFAULT_MODELS):
             self.register_model(m)
@@ -104,7 +104,7 @@ class ModelRouter:
     def register_model(self, model: ModelCapability) -> None:
         """注册模型。"""
         self.models[model.model_id] = model
-    
+
     def assess_complexity(
         self,
         prompt: str,
@@ -114,7 +114,7 @@ class ModelRouter:
         has_vision: bool = False,
     ) -> TaskComplexity:
         """评估任务复杂度。
-        
+
         判定规则(从高到低,命中即返回):
         - EXPERT:token > 50000 或 含"重构/架构/优化算法"关键词
         - COMPLEX:token > 10000 或 含"调试/设计/分析"关键词 或 has_tools + has_code
@@ -123,13 +123,13 @@ class ModelRouter:
         - TRIVIAL:其他
         """
         prompt_lower = prompt.lower() if isinstance(prompt, str) else ""
-        
+
         # 关键词检测
         expert_keywords = ["重构", "架构", "优化算法", "refactor", "architecture", "optimize algorithm"]
         complex_keywords = ["调试", "设计", "分析", "debug", "design", "analyze"]
         moderate_keywords = ["修改", "实现", "开发", "modify", "implement", "develop"]
         simple_keywords = ["查询", "翻译", "转换", "query", "translate", "convert"]
-        
+
         if token_count > 50000 or any(kw in prompt_lower for kw in expert_keywords):
             return TaskComplexity.EXPERT
         if token_count > 10000 or any(kw in prompt_lower for kw in complex_keywords) or (has_tools and has_code):
@@ -139,7 +139,7 @@ class ModelRouter:
         if token_count > 500 or any(kw in prompt_lower for kw in simple_keywords):
             return TaskComplexity.SIMPLE
         return TaskComplexity.TRIVIAL
-    
+
     def route(
         self,
         prompt: str,
@@ -147,10 +147,10 @@ class ModelRouter:
         has_tools: bool = False,
         has_code: bool = False,
         has_vision: bool = False,
-        preferred_model: Optional[str] = None,
+        preferred_model: str | None = None,
     ) -> RoutingDecision:
         """路由到最优模型。
-        
+
         - 如果指定 preferred_model 且可用,直接返回
         - 否则按复杂度评估 + 模型能力矩阵选择
         - 优先本地模型(免费),不满足要求时升级到付费模型
@@ -163,10 +163,10 @@ class ModelRouter:
                 reason=f"用户指定模型 {preferred_model}",
                 alternatives=[],
             )
-        
+
         complexity = self.assess_complexity(prompt, token_count, has_tools, has_code, has_vision)
         req = self.COMPLEXITY_REQUIREMENTS[complexity]
-        
+
         # 筛选满足要求的模型
         candidates = []
         for m in self.models.values():
@@ -186,7 +186,7 @@ class ModelRouter:
             if token_count > 0 and m.context_length < token_count:
                 continue
             candidates.append(m)
-        
+
         if not candidates:
             # 无候选,用最强模型
             best = max(self.models.values(), key=lambda m: m.reasoning_power)
@@ -196,22 +196,22 @@ class ModelRouter:
                 reason=f"无满足要求的模型,降级到最强模型 {best.model_id}",
                 alternatives=[],
             )
-        
+
         # 排序:优先本地(免费)→ 速度(如果 prefer_speed)→ 价格 → 推理能力
         def sort_key(m: ModelCapability) -> tuple[int, int, float]:
             cost_score = 0 if m.input_price == 0 else 1  # 本地优先
             speed_score = -m.speed_tps if req["prefer_speed"] else 0  # 速度优先时取负(越大越前)
             price_score = m.input_price
             return (cost_score, speed_score, price_score)
-        
+
         candidates.sort(key=sort_key)
-        
+
         selected = candidates[0]
         alternatives = [m.model_id for m in candidates[1:4]]  # 最多 3 个备选
-        
+
         # 估算成本
         est_cost = (token_count * selected.input_price + token_count * 0.5 * selected.output_price) / 1_000_000
-        
+
         return RoutingDecision(
             selected_model=selected.model_id,
             complexity=complexity,
@@ -219,15 +219,15 @@ class ModelRouter:
             alternatives=alternatives,
             estimated_cost=round(est_cost, 6),
         )
-    
-    def get_model_info(self, model_id: str) -> Optional[ModelCapability]:
+
+    def get_model_info(self, model_id: str) -> ModelCapability | None:
         """获取模型信息。"""
         return self.models.get(model_id)
-    
+
     def list_models(self) -> list[ModelCapability]:
         """列出所有已注册模型。"""
         return list(self.models.values())
-    
+
     # ------------------------------------------------------------------ #
     # 生产数据源接入(from_catalog + 内部辅助)
     # ------------------------------------------------------------------ #
@@ -235,7 +235,7 @@ class ModelRouter:
     @classmethod
     def from_catalog(
         cls,
-        models: Optional[list[dict[str, Any]]] = None,
+        models: list[dict[str, Any]] | None = None,
         *,
         now: Any = None,
     ) -> "ModelRouter":
@@ -340,7 +340,7 @@ class ModelRouter:
         return category in ("chat", "vision") and tier == "latest"
 
     @staticmethod
-    def _to_capability(m: dict[str, Any]) -> Optional[ModelCapability]:
+    def _to_capability(m: dict[str, Any]) -> ModelCapability | None:
         """模型 dict → ModelCapability 实例。
 
         字段映射:
@@ -381,7 +381,7 @@ class ModelRouter:
         has_tools: bool = False,
         has_code: bool = False,
         has_vision: bool = False,
-        preferred_model: Optional[str] = None,
+        preferred_model: str | None = None,
     ) -> RoutingDecision:
         """便捷路由入口:基于当前注册模型列表做路由决策。
 

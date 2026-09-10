@@ -37,18 +37,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.services.publish.anti_risk.behavior_entropy import (
+    BEHAVIOR_TYPE,
+)
 from app.services.publish.anti_risk.behavior_humanizer import (
     human_click,
     human_move_mouse,
     human_type,
 )
-from app.services.publish.anti_risk.behavior_entropy import (
-    BEHAVIOR_TYPE,
-    get_entropy_analyzer,
-)
 from app.services.publish.base_adapter import PublishContent, PublishResult
 from app.services.publish.scheduler import PublishScheduler
-
 
 # =============================================================================
 # 1. human_type diversify 扰动集成(3 tests)
@@ -237,8 +235,8 @@ def scheduler_with_mocks(monkeypatch: pytest.MonkeyPatch):
 
     返回 dict:可覆盖 B5/B6/B7 相关 mock 验证特定行为。
     """
-    from app.services.publish import scheduler as sched_module
     from app.services.publish import anti_risk as ar_module
+    from app.services.publish import scheduler as sched_module
 
     sched = PublishScheduler()
 

@@ -4,7 +4,6 @@
 
 """运算模块(golden 参考实现:承载全部运算函数,multifile-calc-split 的目标形态)。"""
 
-from typing import List
 
 
 def add(a: float, b: float) -> float:
@@ -34,7 +33,7 @@ def percentage(value: float, pct: float) -> float:
     return value * pct / 100
 
 
-def average(numbers: List[float]) -> float:
+def average(numbers: list[float]) -> float:
     """求平均值,空列表安全返回 0.0。"""
     if not numbers:
         return 0.0

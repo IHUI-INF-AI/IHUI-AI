@@ -29,7 +29,6 @@ import pytest
 from app.providers.base_provider import ProviderError
 from app.providers.kling_provider import KlingProvider, kling_jwt
 
-
 # =============================================================================
 # kling_jwt 签名
 # =============================================================================

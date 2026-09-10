@@ -35,7 +35,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from ..core.llm_gateway import llm_gateway
 
@@ -152,10 +152,10 @@ class CodeChunk:
     line_start: int
     line_end: int
     content: str
-    language: Optional[str] = None
-    symbol_name: Optional[str] = None
-    symbol_type: Optional[str] = None
-    embedding: Optional[list[float]] = None
+    language: str | None = None
+    symbol_name: str | None = None
+    symbol_type: str | None = None
+    embedding: list[float] | None = None
 
 
 @dataclass
@@ -192,8 +192,8 @@ class CodebaseIndexer:
 
     def _internal_auth_headers(
         self,
-        api_token: Optional[str],
-        internal_user_id: Optional[str] = None,
+        api_token: str | None,
+        internal_user_id: str | None = None,
     ) -> dict[str, str]:
         """构造写入口鉴权头(2026-09-07 立)。
 
@@ -279,8 +279,6 @@ class CodebaseIndexer:
         "function_definition": ("function", "name"),
         "class_definition": ("class", "name"),
         "decorated_definition": ("module", "name"),
-        # Go
-        "function_declaration": ("function", "name"),
         "method_declaration": ("method", "name"),
         "type_declaration": ("type", "name"),
         # Rust
@@ -291,7 +289,7 @@ class CodebaseIndexer:
         "impl_item": ("method", "name"),
     }
 
-    def _extract_symbol_name(self, node: Any, name_field: str) -> Optional[str]:
+    def _extract_symbol_name(self, node: Any, name_field: str) -> str | None:
         """从 AST 节点提取符号名。"""
         child = node.child_by_field_name(name_field)
         if child and child.text:
@@ -310,7 +308,7 @@ class CodebaseIndexer:
             logger.debug("AST 解析失败(lang=%s): %s, 降级正则", language, e)
             return self._chunk_by_regex(content, language)
 
-        lines = content.splitlines()
+        content.splitlines()
         chunks: list[CodeChunk] = []
 
         def walk(node: Any) -> None:
@@ -494,8 +492,8 @@ class CodebaseIndexer:
         self,
         repo_id: str,
         chunks: list[CodeChunk],
-        api_token: Optional[str] = None,
-        internal_user_id: Optional[str] = None,
+        api_token: str | None = None,
+        internal_user_id: str | None = None,
     ) -> dict[str, Any]:
         """通过 API 端点写入切片到数据库。"""
         import httpx
@@ -531,8 +529,8 @@ class CodebaseIndexer:
         self,
         repo_id: str,
         file_paths: list[str],
-        api_token: Optional[str] = None,
-        internal_user_id: Optional[str] = None,
+        api_token: str | None = None,
+        internal_user_id: str | None = None,
     ) -> int:
         """批量删除已消失文件的旧切片(Merkle 增量同步,2026-09-07 立)。
 
@@ -612,7 +610,7 @@ class CodebaseIndexer:
 
     def _build_module_summary_chunks(
         self, rel_path: str, language: str, symbol_chunks: list[CodeChunk]
-    ) -> Optional[CodeChunk]:
+    ) -> CodeChunk | None:
         """模块层摘要切片:文件意图(头部 imports/常量)+ 符号清单。
 
         仅当文件符号切片数 ≥ MODULE_SUMMARY_MIN_CHUNKS 时生成
@@ -689,10 +687,10 @@ class CodebaseIndexer:
     async def index_repository(
         self,
         repo_path: str,
-        repo_id: Optional[str] = None,
-        api_token: Optional[str] = None,
+        repo_id: str | None = None,
+        api_token: str | None = None,
         incremental: bool = True,
-        internal_user_id: Optional[str] = None,
+        internal_user_id: str | None = None,
     ) -> IndexResult:
         """索引整个仓库(Merkle 增量同步,2026-09-07 起)。
 
@@ -824,9 +822,9 @@ class CodebaseIndexer:
         self,
         file_path: str,
         repo_id: str,
-        language: Optional[str] = None,
-        api_token: Optional[str] = None,
-        internal_user_id: Optional[str] = None,
+        language: str | None = None,
+        api_token: str | None = None,
+        internal_user_id: str | None = None,
     ) -> IndexResult:
         """索引单个文件(增量更新)。
 
@@ -872,10 +870,10 @@ class CodebaseIndexer:
     async def search(
         self,
         query: str,
-        repo_id: Optional[str] = None,
-        language: Optional[str] = None,
+        repo_id: str | None = None,
+        language: str | None = None,
         top_k: int = 10,
-        api_token: Optional[str] = None,
+        api_token: str | None = None,
     ) -> list[dict[str, Any]]:
         """语义搜索代码片段(委托给 API 端点)。
 

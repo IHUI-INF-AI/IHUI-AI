@@ -20,7 +20,6 @@ from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
-import pytest
 
 from app.services.publish.adapters.bilibili import BilibiliAdapter
 from app.services.publish.adapters.csdn import CsdnAdapter
@@ -29,8 +28,7 @@ from app.services.publish.adapters.juejin import JuejinAdapter
 from app.services.publish.adapters.kuaishou import KuaishouAdapter
 from app.services.publish.adapters.medium import MediumAdapter
 from app.services.publish.adapters.shipinhao import ShipinhaoAdapter
-from app.services.publish.base_adapter import BasePlatformAdapter, PublishContent, PublishResult
-
+from app.services.publish.base_adapter import BasePlatformAdapter, PublishContent
 
 # =============================================================================
 # 工厂 / 辅助函数
@@ -151,9 +149,8 @@ def _patch_stealth_browser(module_path: str, mock_context):
     with patch(
         f"{module_path}.create_stealth_browser_context",
         AsyncMock(return_value=(None, mock_context)),
-    ):
-        with patch(f"{module_path}.close_stealth_context", AsyncMock()):
-            yield
+    ), patch(f"{module_path}.close_stealth_context", AsyncMock()):
+        yield
 
 
 # =============================================================================

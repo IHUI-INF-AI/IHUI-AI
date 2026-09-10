@@ -25,11 +25,11 @@ import sys
 from typing import Any
 
 # 统一从 koubo_terms 导入
-from koubo_terms import TERM_CANONICAL_DICT, find_alias_issues
+from koubo_terms import find_alias_issues
 
 
 def scan_file(filepath: str, strict: bool = False) -> list[dict[str, Any]]:
-    with open(filepath, 'r', encoding='utf-8') as fp:
+    with open(filepath, encoding='utf-8') as fp:
         content = fp.read()
     issues: list[dict[str, Any]] = []
     for issue in find_alias_issues(content, strict=strict):

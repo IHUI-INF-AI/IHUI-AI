@@ -28,7 +28,6 @@ from app.services.agent_loop_v2 import (
     ToolDefinition,
 )
 
-
 # =============================================================================
 # 辅助
 # =============================================================================
@@ -104,8 +103,8 @@ async def test_load_nonexistent_checkpoint():
 async def test_load_latest_by_session():
     """同一 session 多次保存,load_latest_by_session 返回最新。"""
     mgr = _make_manager()
-    cid1 = await mgr.save_checkpoint("s1", 1, _sample_messages(), {}, "running")
-    cid2 = await mgr.save_checkpoint("s1", 2, _sample_messages(), {}, "running")
+    await mgr.save_checkpoint("s1", 1, _sample_messages(), {}, "running")
+    await mgr.save_checkpoint("s1", 2, _sample_messages(), {}, "running")
     cid3 = await mgr.save_checkpoint("s1", 3, _sample_messages(), {}, "running")
     cp = await mgr.load_latest_by_session("s1")
     assert cp is not None
@@ -724,7 +723,7 @@ async def test_checkpoint_messages_isolation_on_resume():
     cid = await mgr.save_checkpoint(
         "resume-iso", 2, _sample_messages(), {}, "paused",
     )
-    loop = AgentLoopV2(
+    AgentLoopV2(
         _weather_executor, [_weather_tool()], max_iterations=10,
         checkpoint_manager=mgr,
     )

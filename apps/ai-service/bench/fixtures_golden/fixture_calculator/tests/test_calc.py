@@ -4,7 +4,7 @@
 
 """calc 模块的确定性测试(golden:补充 slugify 无关,此为计算器基线用例)。"""
 
-from calc import add, subtract, multiply, divide, percentage, average
+from calc import add, average, divide, multiply, percentage, subtract
 
 
 def test_add() -> None:

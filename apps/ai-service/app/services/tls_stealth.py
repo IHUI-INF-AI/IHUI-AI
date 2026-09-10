@@ -24,7 +24,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import random
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -105,8 +105,8 @@ def _is_curl_cffi_available() -> bool:
 def create_stealth_client(
     *,
     timeout: float = 60.0,
-    proxy: Optional[str] = None,
-    headers: Optional[dict[str, str]] = None,
+    proxy: str | None = None,
+    headers: dict[str, str] | None = None,
     verify: bool = True,
 ) -> httpx.AsyncClient:
     """创建带 TLS stealth 能力的 httpx.AsyncClient。

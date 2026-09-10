@@ -15,12 +15,13 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 
 from app.core.logging import get_logger
+
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
 
 logger = get_logger(__name__)
@@ -210,7 +211,7 @@ class WordPressAdapter(BasePlatformAdapter):
             "post_content": html,
             "post_excerpt": platform_config.get("excerpt", ""),
             "terms_names": {},
-            "date_created": datetime.now(timezone.utc).strftime("%Y%m%dT%H:%M:%S"),
+            "date_created": datetime.now(UTC).strftime("%Y%m%dT%H:%M:%S"),
         }
         categories = platform_config.get("categories", [])
         tags = platform_config.get("tags", [])

@@ -25,11 +25,8 @@ from __future__ import annotations
 
 import logging as stdlib_logging
 
-import pytest
-
 from app.core import logging as logging_module
 from app.core.logging import get_logger
-
 
 # =============================================================================
 # get_logger — 返回值 + name 处理
@@ -67,7 +64,7 @@ def test_get_logger_multiple_calls_consistent():
     l1 = get_logger("first")
     l2 = get_logger("second")
     # 类型应一致(都是 structlog proxy 或都是 stdlib Logger)
-    assert type(l1) == type(l2)
+    assert type(l1) is type(l2)
 
 
 # =============================================================================

@@ -37,12 +37,11 @@ import json
 import logging
 import math
 import uuid as _uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import asyncpg
 
-from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 from ..core.llm_gateway import llm_gateway
 
@@ -58,11 +57,11 @@ _MIN_MESSAGES_FOR_SUMMARY = 5
 _MAX_CACHE_ENTRIES = 500
 
 # 模块级 tiktoken encoder 缓存(惰性初始化;初始化失败置 None 避免重复尝试)
-_tiktoken_enc: Optional[Any] = None
+_tiktoken_enc: Any | None = None
 _tiktoken_enc_tried: bool = False
 
 
-def _get_tiktoken_encoder() -> Optional[Any]:
+def _get_tiktoken_encoder() -> Any | None:
     """获取 tiktoken cl100k_base 编码器(模块级单例,仅首次调用时初始化)。
 
     tiktoken 初始化昂贵(首次 ~50ms),只初始化一次;
@@ -175,7 +174,7 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     dot = 0.0
     norm_a = 0.0
     norm_b = 0.0
-    for x, y in zip(a, b):
+    for x, y in zip(a, b, strict=False):
         dot += x * y
         norm_a += x * x
         norm_b += y * y
@@ -603,7 +602,7 @@ class SessionSummarizer:
         key_decisions: list[str],
         message_count: int,
         token_count: int,
-        start_time: Optional[datetime],
+        start_time: datetime | None,
     ) -> str:
         """持久化单条会话摘要到 DB,返回 summary_id。
 
@@ -767,7 +766,7 @@ class SessionSummarizer:
         return max(1, total // 3)
 
     @staticmethod
-    def _extract_start_time(messages: list[dict[str, Any]]) -> Optional[datetime]:
+    def _extract_start_time(messages: list[dict[str, Any]]) -> datetime | None:
         """从 messages 中提取开始时间(若有 timestamp 字段),否则用当前时间。"""
         for m in messages:
             if not isinstance(m, dict):
@@ -781,7 +780,7 @@ class SessionSummarizer:
                     return datetime.fromisoformat(text)
                 except (ValueError, TypeError):
                     continue
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
     @staticmethod
     def _row_to_summary_dict(row: Any) -> dict[str, Any]:

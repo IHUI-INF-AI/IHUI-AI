@@ -54,13 +54,14 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 
 import httpx
 from prometheus_client import Counter, Gauge, Histogram
@@ -131,7 +132,7 @@ def _to_cfg_name(provider_code: str) -> str:
 # ============================================================================
 
 
-class SyncErrorType(str, Enum):
+class SyncErrorType(StrEnum):
     """同步错误分类(F4.3)。
 
     用于精细化错误处理:不同错误类型对应不同重试策略与禁用策略。
@@ -254,10 +255,10 @@ class ModelSyncService:
     def __init__(self) -> None:
         self._status = SyncStatus()
         self._lock = asyncio.Lock()
-        self._refresh_task: Optional[asyncio.Task[None]] = None
+        self._refresh_task: asyncio.Task[None] | None = None
         self._initialized = False
         # F3.4 缓存 ai_model_config_models 表是否有 tags 字段(None=未查询)
-        self._tags_column_cache: Optional[bool] = None
+        self._tags_column_cache: bool | None = None
         # F4.5 新字段列存在性缓存(column_name → exists)
         self._columns_cache: dict[str, bool] = {}
         # F4.7 连续失败计数 + 永久禁用集合
@@ -317,10 +318,8 @@ class ModelSyncService:
         """关闭时调用:取消定时同步任务。"""
         if self._refresh_task is not None and not self._refresh_task.done():
             self._refresh_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._refresh_task
-            except asyncio.CancelledError:
-                pass
             self._refresh_task = None
         self._initialized = False
 
@@ -390,7 +389,7 @@ class ModelSyncService:
                 return self.get_status()
             self._status.is_syncing = True
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         providers_to_sync = self._get_configured_providers()
 
         if not providers_to_sync:
@@ -427,7 +426,7 @@ class ModelSyncService:
         self._status.total_removed_models = sum(r.removed_models for r in results if r.success)
         self._status.last_sync_at = start_time.isoformat()
         self._status.last_sync_duration_ms = int(
-            (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            (datetime.now(UTC) - start_time).total_seconds() * 1000
         )
         self._status.is_syncing = False
 
@@ -442,7 +441,7 @@ class ModelSyncService:
 
         # F1.3 同步历史持久化(非 dry_run 才写)
         if not dry_run:
-            finished = datetime.now(timezone.utc)
+            finished = datetime.now(UTC)
             for r in results:
                 await self._write_sync_log(r, start_time, finished)
 
@@ -484,7 +483,7 @@ class ModelSyncService:
                 return self.get_status()
             self._status.is_syncing = True
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         # 在 registry 中找该 provider
         provider = free_provider_registry.get_by_code(provider_code)
@@ -530,7 +529,7 @@ class ModelSyncService:
         else:
             self._status.preview = {}
             # F1.3 同步历史持久化
-            finished = datetime.now(timezone.utc)
+            finished = datetime.now(UTC)
             await self._write_sync_log(result, start_time, finished)
             # 触发 ModelAvailabilityService 刷新
             try:
@@ -610,9 +609,9 @@ class ModelSyncService:
         # F4.7 provider 级别并发锁(确保同一 provider 同时只允许一个同步)
         async with self._get_provider_lock(provider_code):
             async with sem:
-                start = datetime.now(timezone.utc)
+                start = datetime.now(UTC)
                 upstream_models: list[dict[str, Any]] = []
-                last_exc: Optional[BaseException] = None
+                last_exc: BaseException | None = None
                 last_error_type: str = ""
                 skip_upsert = False
 
@@ -716,7 +715,7 @@ class ModelSyncService:
                         self._bump_failure(provider_code)
                         break
 
-                latency_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)
+                latency_ms = int((datetime.now(UTC) - start).total_seconds() * 1000)
                 latency_s = latency_ms / 1000.0
 
                 if last_exc is not None:
@@ -1113,10 +1112,7 @@ class ModelSyncService:
             headers["Authorization"] = f"Bearer {api_key}"
         elif is_anthropic:
             # F4.4 Anthropic: /v1/models,header 用 x-api-key + anthropic-version
-            if url.endswith("/v1"):
-                url = f"{url}/models"
-            else:
-                url = f"{url}/v1/models"
+            url = f"{url}/models" if url.endswith("/v1") else f"{url}/v1/models"
             headers["x-api-key"] = api_key
             headers["anthropic-version"] = "2023-06-01"
         elif is_gemini:
@@ -1138,10 +1134,7 @@ class ModelSyncService:
         else:
             # 默认 OpenAI 兼容: /v1/models
             headers["Authorization"] = f"Bearer {api_key}"
-            if url.endswith("/v1"):
-                url = f"{url}/models"
-            else:
-                url = f"{url}/v1/models"
+            url = f"{url}/models" if url.endswith("/v1") else f"{url}/v1/models"
 
         # F4.8 增量同步:带 If-None-Match / If-Modified-Since header
         etag = self._provider_etag.get(provider_code)
@@ -2203,7 +2196,7 @@ class ModelSyncService:
         return ""
 
     @staticmethod
-    def _extract_vendor(model_id: str, model: dict[str, Any]) -> Optional[str]:
+    def _extract_vendor(model_id: str, model: dict[str, Any]) -> str | None:
         """F4.5 提取模型厂商。
 
         优先级:
@@ -2330,9 +2323,7 @@ class ModelSyncService:
             pass
         # 3. model_id 关键字
         mid = model_id.lower()
-        if any(k in mid for k in ("vision", "vl", "image", "multimodal")):
-            return True
-        return False
+        return bool(any(k in mid for k in ("vision", "vl", "image", "multimodal")))
 
     @staticmethod
     def _extract_rate_limit(model: dict[str, Any]) -> tuple[int, int]:
@@ -2368,7 +2359,7 @@ class ModelSyncService:
             # Unix 时间戳(int)
             if isinstance(v, (int, float)) and v > 0:
                 try:
-                    return datetime.fromtimestamp(int(v), tz=timezone.utc).isoformat()
+                    return datetime.fromtimestamp(int(v), tz=UTC).isoformat()
                 except (OSError, ValueError):
                     pass
             # ISO 字符串

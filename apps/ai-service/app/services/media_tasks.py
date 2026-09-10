@@ -19,6 +19,7 @@ image_edit / token6688 异步图片)提交后把 task_id / 产物 URL 统一落�
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -216,10 +217,8 @@ async def query_media_tasks(
         d = dict(r)
         res = d.get("result")
         if res:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 d["result"] = _json.loads(res)
-            except (ValueError, TypeError):
-                pass
         items.append(d)
     return {"items": items, "total": total or 0, "limit": limit, "offset": offset}
 
@@ -300,10 +299,8 @@ async def get_media_task(task_id: str) -> dict[str, Any] | None:
     d = dict(rows[0])
     res = d.get("result")
     if res:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             d["result"] = _json.loads(res)
-        except (ValueError, TypeError):
-            pass
     return d
 
 
@@ -677,7 +674,7 @@ async def _media_task_poller_loop() -> None:
         try:
             await asyncio.wait_for(_poller_stop.wait(), timeout=_MEDIA_POLL_INTERVAL)
             return
-        except asyncio.TimeoutError:
+        except TimeoutError:
             continue
 
 

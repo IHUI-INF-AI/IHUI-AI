@@ -15,10 +15,10 @@
 """
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-import logging
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +33,9 @@ class PublishResult:
 
     success: bool
     platform: str
-    published_url: Optional[str] = None
-    platform_content_id: Optional[str] = None
-    error_message: Optional[str] = None
+    published_url: str | None = None
+    platform_content_id: str | None = None
+    error_message: str | None = None
     duration_ms: int = 0
     payload: dict[str, Any] = field(default_factory=dict)
 
@@ -54,10 +54,10 @@ class PublishContent:
 
     format: str
     title: str
-    text: Optional[str] = None
-    file_path: Optional[str] = None
-    cover_path: Optional[str] = None
-    html: Optional[str] = None
+    text: str | None = None
+    file_path: str | None = None
+    cover_path: str | None = None
+    html: str | None = None
     images: list[str] = field(default_factory=list)
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -112,15 +112,15 @@ def list_all_adapter_classes() -> list[type[BasePlatformAdapter]]:
     classes: list[type[BasePlatformAdapter]] = []
 
     # 第一批:HTTP API 适配器(真实可调通,不涉风控)
-    from .adapters.wordpress import WordPressAdapter
-    from .adapters.medium import MediumAdapter
-    from .adapters.youtube import YouTubeAdapter
     from .adapters.bilibili import BilibiliAdapter
-    from .adapters.wechat import WechatAdapter
-    from .adapters.toutiao import ToutiaoAdapter
     from .adapters.douyin import DouyinAdapter
     from .adapters.kuaishou import KuaishouAdapter
+    from .adapters.medium import MediumAdapter
+    from .adapters.toutiao import ToutiaoAdapter
+    from .adapters.wechat import WechatAdapter
     from .adapters.weibo import WeiboAdapter
+    from .adapters.wordpress import WordPressAdapter
+    from .adapters.youtube import YouTubeAdapter
 
     classes.extend([
         WordPressAdapter, MediumAdapter, YouTubeAdapter,
@@ -130,19 +130,19 @@ def list_all_adapter_classes() -> list[type[BasePlatformAdapter]]:
 
     # 第二批:友好 API 平台(HTTP API,不涉风控)
     from .adapters.cnblogs import CnblogsAdapter
-    from .adapters.segmentfault import SegmentfaultAdapter
-    from .adapters.oschina import OschinaAdapter
     from .adapters.jianshu import JianshuAdapter
+    from .adapters.oschina import OschinaAdapter
+    from .adapters.segmentfault import SegmentfaultAdapter
 
     classes.extend([CnblogsAdapter, SegmentfaultAdapter, OschinaAdapter, JianshuAdapter])
 
     # 第三批:六大号平台(Playwright + 反风控五层防线)
     from .adapters.baijiahao import BaijiahaoAdapter
-    from .adapters.qq import QqAdapter
     from .adapters.dayihao import DayihaoAdapter
     from .adapters.netease import NeteaseAdapter
-    from .adapters.sohu import SohuAdapter
+    from .adapters.qq import QqAdapter
     from .adapters.sina import SinaAdapter
+    from .adapters.sohu import SohuAdapter
 
     classes.extend([
         BaijiahaoAdapter, QqAdapter, DayihaoAdapter,
@@ -150,8 +150,8 @@ def list_all_adapter_classes() -> list[type[BasePlatformAdapter]]:
     ])
 
     # 视频平台(Playwright + 反风控)
-    from .adapters.xigua import XiguaAdapter
     from .adapters.haokan import HaokanAdapter
+    from .adapters.xigua import XiguaAdapter
 
     classes.extend([XiguaAdapter, HaokanAdapter])
 
@@ -188,7 +188,7 @@ def list_all_adapter_classes() -> list[type[BasePlatformAdapter]]:
     return classes
 
 
-def get_adapter(platform_id: str) -> Optional[BasePlatformAdapter]:
+def get_adapter(platform_id: str) -> BasePlatformAdapter | None:
     """按 platform_id 获取适配器实例。未找到返回 None。"""
     for cls in list_all_adapter_classes():
         if cls.platform_id == platform_id:

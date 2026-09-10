@@ -32,11 +32,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.services.user_profile import (
-    UserProfileBuilder,
     _DIMENSIONS,
     _TYPE_TO_DIMENSION,
+    UserProfileBuilder,
 )
-
 
 # =============================================================================
 # 工厂函数

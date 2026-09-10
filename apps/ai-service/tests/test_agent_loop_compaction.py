@@ -8,7 +8,6 @@
 幂等防抖(压缩后回落不重复触发) / 事件写入 AgentLoopResult.compaction_events。
 """
 
-import pytest
 
 from app.services.agent_loop_v2 import AgentLoopV2, ToolDefinition
 

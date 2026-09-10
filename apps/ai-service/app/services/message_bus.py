@@ -24,11 +24,12 @@ import os
 import smtplib
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from email.mime.text import MIMEText
-from enum import Enum
-from typing import Any, Awaitable, Callable
+from enum import StrEnum
+from typing import Any
 
 import httpx
 
@@ -40,7 +41,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-class ChannelType(str, Enum):
+class ChannelType(StrEnum):
     """消息通道类型。"""
 
     IM = "im"            # 飞书/钉钉/微信

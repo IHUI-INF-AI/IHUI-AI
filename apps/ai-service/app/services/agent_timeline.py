@@ -26,13 +26,12 @@ import logging
 from datetime import datetime
 from typing import Any
 
+# 压缩事件列表函数位于 routers 层(进程内存储),延迟导入避免循环依赖。
+from ..routers.context_compaction import list_compaction_events
 from .agent_checkpoint import get_agent_checkpoint_manager
 from .agent_step_recorder import agent_step_recorder
 from .cost_ledger import cost_ledger
 from .injection_event_recorder import list_injection_events
-
-# 压缩事件列表函数位于 routers 层(进程内存储),延迟导入避免循环依赖。
-from ..routers.context_compaction import list_compaction_events
 
 logger = logging.getLogger(__name__)
 

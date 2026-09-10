@@ -25,10 +25,6 @@ import pytest
 from app.services.publish.image_uploader import (
     _PLATFORM_IMAGE_ENDPOINTS,
     _PLATFORM_UPLOADERS,
-    cleanup_temp_images,
-    extract_external_images,
-    download_image,
-    replace_image_src,
     upload_to_baijiahao,
     upload_to_bilibili,
     upload_to_csdn,
@@ -43,7 +39,6 @@ from app.services.publish.image_uploader import (
     upload_to_xiaohongshu,
     upload_to_zhihu,
 )
-
 
 # =============================================================================
 # 工厂 / 辅助函数

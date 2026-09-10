@@ -12,9 +12,7 @@ fork 前缀正确性、rollback 后历史重建、compact 边界回放、FTS5 �
 from __future__ import annotations
 
 import threading
-import time
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -27,7 +25,6 @@ from app.services.session_store import (
     ErrorItem,
     FileEditItem,
     InvalidTurnTransitionError,
-    LLMMessage,
     ReasoningItem,
     SessionStore,
     ThreadNotFoundError,
