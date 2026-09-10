@@ -18,7 +18,7 @@ import type {
 } from '@ihui/types'
 
 /**
- * Rules 数据 hooks(2026-07-22 立,对标 Trae IDE Rules)。
+ * Rules 数据 hooks(2026-07-22 立,对标 自研 IDE Rules)。
  *
  * 使用 react-query 管理服务端状态:
  *  - listRules:useQuery 拉 /api/rules

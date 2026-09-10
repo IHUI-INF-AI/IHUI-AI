@@ -2350,7 +2350,7 @@
 
 /* Phase 16: 进度环 + SSE 状态指示器专用动画 */
 
-/* 进度环:in_progress 状态下的脉冲光晕(对 Trae Work) */
+/* 进度环:in_progress 状态下的脉冲光晕(对 AI 工作台) */
 @keyframes ring-progress-pulse {
   0%,
   100% {

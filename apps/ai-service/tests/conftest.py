@@ -170,7 +170,7 @@ def _isolate_vector_memory(monkeypatch):
 
 
 # =============================================================================
-# tool loop 端到端测试 fixtures(2026-07-24 立,提取自 .trae-cn/tmp/mock_extension.py)
+# tool loop 端到端测试 fixtures(2026-07-24 立,提取自 .ihui-agent/tmp/mock_extension.py)
 # =============================================================================
 
 @pytest.fixture

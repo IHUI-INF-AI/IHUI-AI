@@ -66,7 +66,7 @@ function runScript(cwd, args = []) {
 
 // 归档文件路径(基于 today)
 function archiveFilePath(dir) {
-  return join(dir, '.trae-cn', 'archive', `PROJECT_PLAN_${todayStr()}_auto-archive.md`)
+  return join(dir, '.ihui-agent', 'archive', `PROJECT_PLAN_${todayStr()}_auto-archive.md`)
 }
 
 // ─── 1. 文件不存在 ───────────────────────────────────────
@@ -282,7 +282,7 @@ test('归档产物: 占位注释格式 + 归档文件含 header 与正文', () =
     const plan = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
     assert.match(plan, /<!--\s*已归档/)
     assert.match(plan, new RegExp(todayStr().replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')))
-    assert.match(plan, /\.trae-cn\/archive\/PROJECT_PLAN_/)
+    assert.match(plan, /\.ihui-agent\/archive\/PROJECT_PLAN_/)
     // 占位保留标题文本,但正文应已移走
     assert.ok(!plan.includes('内容A行1'), 'PROJECT_PLAN.md 不应再含原任务正文')
     // 归档文件:含 header + 任务正文 + 分隔线

@@ -18,7 +18,7 @@
 设计:
 - 单例模式(多适配器共享同一冷却管理器)
 - 线程安全(threading.Lock + double-check)
-- 冷却状态持久化到 .trae-cn/tmp/anti-cooldowns.json(AGENTS.md §15)
+- 冷却状态持久化到 .ihui-agent/tmp/anti-cooldowns.json(AGENTS.md §15)
 - 进程重启后从文件恢复活跃冷却
 - 自动过期(auto_release=True 时,到期自动失效)
 """
@@ -37,10 +37,10 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-# 冷却状态持久化路径(AGENTS.md §15:临时文件放 .trae-cn/tmp/)
+# 冷却状态持久化路径(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
 _COOLDOWNS_FILE = Path(os.environ.get(
     "ANTI_RISK_COOLDOWNS_FILE",
-    ".trae-cn/tmp/anti-cooldowns.json",
+    ".ihui-agent/tmp/anti-cooldowns.json",
 )).resolve()
 
 

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Spec 服务(2026-07-22 新增,对标 Trae IDE Spec 模式)。
+ * Spec 服务(2026-07-22 新增)。
  *
  * 跨服务调用 ai-service 的 spec 端点,封装 HTTP 请求 + 超时控制 + 错误兜底。
  * - generate:     POST /api/spec/generate   → 从代码 AST 生成 spec 文档
@@ -14,7 +14,7 @@
  * - variables:    GET  /api/spec/variables  → 可用模板变量列表 + 当前值(本地 FS)
  *
  * 调用链路: web SpecPanel → apps/api /spec/* → 本服务 → ai-service /api/spec/*
- * 持久化路径: <workspacePath>/.trae-cn/specs/<scopeHash>.md + history/<timestamp>-<scopeHash>.md
+ * 持久化路径: <workspacePath>/.ihui-agent/specs/<scopeHash>.md + history/<timestamp>-<scopeHash>.md
  */
 
 import type { FastifyRequest } from 'fastify'
@@ -336,7 +336,7 @@ export interface SpecPipelineStatusResult extends SpecFullPipelineResult {
 
 /**
  * 根据 scope 计算稳定哈希(MD5 前 12 位,与 spec_generator.py _compute_scope_hash 对齐)。
- * 用于定位 .trae-cn/specs/<hash>.md 持久化文件。
+ * 用于定位 .ihui-agent/specs/<hash>.md 持久化文件。
  *
  * 对齐要点:
  * - sort_keys:键名字典序(path 在 type 前)
@@ -520,7 +520,7 @@ class SpecService {
   async getHistory(workspacePath: string, scope: SpecScope): Promise<SpecHistoryResult> {
     const root = resolve(workspacePath)
     const scopeHash = computeScopeHash(scope)
-    const historyDir = join(root, '.trae-cn', 'specs', 'history')
+    const historyDir = join(root, '.ihui-agent', 'specs', 'history')
 
     try {
       const entries = await readdir(historyDir).catch(() => [] as string[])
@@ -563,9 +563,9 @@ class SpecService {
 
     let target: string
     if (version === 'latest') {
-      target = join(root, '.trae-cn', 'specs', `${scopeHash}.md`)
+      target = join(root, '.ihui-agent', 'specs', `${scopeHash}.md`)
     } else {
-      target = join(root, '.trae-cn', 'specs', 'history', `${version}-${scopeHash}.md`)
+      target = join(root, '.ihui-agent', 'specs', 'history', `${version}-${scopeHash}.md`)
     }
 
     try {
@@ -919,11 +919,11 @@ class SpecService {
 
   /**
    * 读取分支索引(内部辅助)。
-   * 路径:<workspacePath>/.trae-cn/specs/branches/index.json
+   * 路径:<workspacePath>/.ihui-agent/specs/branches/index.json
    * 文件不存在时返回空数组(不抛错)。
    */
   private async readBranchIndex(root: string): Promise<SpecBranch[]> {
-    const indexFile = join(root, '.trae-cn', 'specs', 'branches', 'index.json')
+    const indexFile = join(root, '.ihui-agent', 'specs', 'branches', 'index.json')
     try {
       const content = await readFile(indexFile, 'utf-8')
       return JSON.parse(content) as SpecBranch[]
@@ -937,7 +937,7 @@ class SpecService {
    * 自动创建目录,JSON pretty-print(2 空格缩进)。
    */
   private async writeBranchIndex(root: string, branches: SpecBranch[]): Promise<void> {
-    const indexFile = join(root, '.trae-cn', 'specs', 'branches', 'index.json')
+    const indexFile = join(root, '.ihui-agent', 'specs', 'branches', 'index.json')
     await mkdir(dirname(indexFile), { recursive: true })
     await writeFile(indexFile, JSON.stringify(branches, null, 2), 'utf-8')
   }
@@ -1025,7 +1025,7 @@ ${requirementPreview}
    *
    * 本地实装:
    * - 从 baseVersion(latest 或历史时间戳)读取 spec 内容
-   * - 复制到 .trae-cn/specs/branches/<branchName>.md
+   * - 复制到 .ihui-agent/specs/branches/<branchName>.md
    * - 在 branches/index.json 注册分支元数据(active 状态)
    */
   async createBranch(input: {
@@ -1036,7 +1036,7 @@ ${requirementPreview}
   }): Promise<SpecBranch> {
     const root = resolve(input.workspacePath)
     const scopeHash = computeScopeHash(input.scope)
-    const branchesDir = join(root, '.trae-cn', 'specs', 'branches')
+    const branchesDir = join(root, '.ihui-agent', 'specs', 'branches')
     const branchFile = join(branchesDir, `${input.branchName}.md`)
 
     await mkdir(branchesDir, { recursive: true })
@@ -1044,12 +1044,12 @@ ${requirementPreview}
     // 读取 base spec 内容
     let baseSpec = ''
     if (input.baseVersion === 'latest') {
-      baseSpec = await readFile(join(root, '.trae-cn', 'specs', `${scopeHash}.md`), 'utf-8').catch(
+      baseSpec = await readFile(join(root, '.ihui-agent', 'specs', `${scopeHash}.md`), 'utf-8').catch(
         () => '',
       )
     } else {
       baseSpec = await readFile(
-        join(root, '.trae-cn', 'specs', 'history', `${input.baseVersion}-${scopeHash}.md`),
+        join(root, '.ihui-agent', 'specs', 'history', `${input.baseVersion}-${scopeHash}.md`),
         'utf-8',
       ).catch(() => '')
     }
@@ -1094,8 +1094,8 @@ ${requirementPreview}
   }): Promise<SpecBranchMergeResult> {
     const root = resolve(input.workspacePath)
     const scopeHash = computeScopeHash(input.scope)
-    const branchFile = join(root, '.trae-cn', 'specs', 'branches', `${input.branchName}.md`)
-    const mainFile = join(root, '.trae-cn', 'specs', `${scopeHash}.md`)
+    const branchFile = join(root, '.ihui-agent', 'specs', 'branches', `${input.branchName}.md`)
+    const mainFile = join(root, '.ihui-agent', 'specs', `${scopeHash}.md`)
 
     // 读取分支内容
     const branchContent = await readFile(branchFile, 'utf-8').catch(() => '')
@@ -1250,8 +1250,8 @@ ${requirementPreview}
       // 扫描失败降级,返回空列表
     })
 
-    // 扫描下游 specs(.trae-cn/specs/*.md,排除 history/branches/backups 子目录)
-    const specsDir = join(root, '.trae-cn', 'specs')
+    // 扫描下游 specs(.ihui-agent/specs/*.md,排除 history/branches/backups 子目录)
+    const specsDir = join(root, '.ihui-agent', 'specs')
     const specEntries = await readdir(specsDir, { withFileTypes: true }).catch(() => [])
     for (const entry of specEntries) {
       if (entry.isFile() && entry.name.endsWith('.md')) {
@@ -1296,7 +1296,7 @@ ${requirementPreview}
    * POST /spec/full-pipeline — 全流程流水线。
    *
    * 本地实装(5 阶段编排):
-   * - apply_spec:保存 spec 到 .trae-cn/specs/<hash>.md(成功)+ 备份原文件到 backups/<pipelineId>/
+   * - apply_spec:保存 spec 到 .ihui-agent/specs/<hash>.md(成功)+ 备份原文件到 backups/<pipelineId>/
    * - apply_patch:skipped(需 LLM 生成 patch,本地无此能力)
    * - typecheck:skipped(无代码改动)
    * - test:skipped(无代码改动)
@@ -1313,14 +1313,14 @@ ${requirementPreview}
     const root = resolve(input.workspacePath)
     const scopeHash = computeScopeHash(input.scope)
     const pipelineId = randomUUID().slice(0, 8)
-    const backupDir = join(root, '.trae-cn', 'specs', 'backups', pipelineId)
+    const backupDir = join(root, '.ihui-agent', 'specs', 'backups', pipelineId)
     const stages: SpecPipelineStage[] = []
     const now = () => new Date().toISOString()
 
     // 阶段 1: apply_spec — 保存 spec 文件 + 备份原文件
     const stage1Start = now()
     try {
-      const specsDir = join(root, '.trae-cn', 'specs')
+      const specsDir = join(root, '.ihui-agent', 'specs')
       await mkdir(specsDir, { recursive: true })
       const specFile = join(specsDir, `${scopeHash}.md`)
       // 备份原文件(如果存在)
@@ -1389,7 +1389,7 @@ ${requirementPreview}
       try {
         const specRelPath = relative(
           root,
-          join(root, '.trae-cn', 'specs', `${scopeHash}.md`),
+          join(root, '.ihui-agent', 'specs', `${scopeHash}.md`),
         ).replace(/\\/g, '/')
         execSync(
           `git add ${specRelPath} && git commit -m "chore(spec): pipeline ${pipelineId} 更新 spec"`,
@@ -1449,7 +1449,7 @@ ${requirementPreview}
   /**
    * GET /spec/branches — 返回指定 scope 的全部分支列表(含 merged/abandoned)。
    *
-   * 本地实装:读取 .trae-cn/specs/branches/index.json。
+   * 本地实装:读取 .ihui-agent/specs/branches/index.json。
    * scope 给定时按 specId 过滤,否则返回全部(不同 scope 的分支)。
    */
   async listBranches(workspacePath: string, scope?: SpecScope): Promise<SpecBranchesResult> {
@@ -1463,7 +1463,7 @@ ${requirementPreview}
    * GET /spec/branch/diff — 对比分支内容与 main spec 的 unified diff。
    *
    * 本地实装:
-   * - 读取 .trae-cn/specs/branches/<branchName>.md 与 .trae-cn/specs/<scopeHash>.md
+   * - 读取 .ihui-agent/specs/branches/<branchName>.md 与 .ihui-agent/specs/<scopeHash>.md
    * - computeUnifiedDiff(main, branch) 输出标准 unified diff
    * - 分支文件不存在时返回 error 字段(不抛错,前端 toast 提示)
    */
@@ -1474,8 +1474,8 @@ ${requirementPreview}
   }): Promise<SpecBranchDiffResult> {
     const root = resolve(input.workspacePath)
     const scopeHash = computeScopeHash(input.scope)
-    const branchFile = join(root, '.trae-cn', 'specs', 'branches', `${input.branchName}.md`)
-    const mainFile = join(root, '.trae-cn', 'specs', `${scopeHash}.md`)
+    const branchFile = join(root, '.ihui-agent', 'specs', 'branches', `${input.branchName}.md`)
+    const mainFile = join(root, '.ihui-agent', 'specs', `${scopeHash}.md`)
 
     const branchContent = await readFile(branchFile, 'utf-8').catch(() => '')
     if (!branchContent) {
@@ -1504,7 +1504,7 @@ ${requirementPreview}
    * GET /spec/pipeline-status — 查询流水线执行状态。
    *
    * 本地实装(同步流水线,无异步任务):
-   * - 检查 .trae-cn/specs/backups/<pipelineId>/ 备份目录是否存在
+   * - 检查 .ihui-agent/specs/backups/<pipelineId>/ 备份目录是否存在
    * - 存在且含 .bak 文件 → ran=true, overallStatus=success
    * - 存在但无 .bak → failed;不存在 → ran=false, error 说明
    * - 局限:本地流水线同步执行,状态查询仅反映"是否执行过",无逐阶段实时进度
@@ -1515,7 +1515,7 @@ ${requirementPreview}
     pipelineId: string
   }): Promise<SpecPipelineStatusResult> {
     const root = resolve(input.workspacePath)
-    const backupDir = join(root, '.trae-cn', 'specs', 'backups', input.pipelineId)
+    const backupDir = join(root, '.ihui-agent', 'specs', 'backups', input.pipelineId)
     const relBackup = relative(root, backupDir).replace(/\\/g, '/')
 
     const statResult = await stat(backupDir).catch(() => null)
@@ -1549,7 +1549,7 @@ ${requirementPreview}
    *
    * 本地实装:
    * - 读取 backupDir 下的 *.bak 文件
-   * - 恢复到 .trae-cn/specs/<原文件名>(去掉 .bak 后缀)
+   * - 恢复到 .ihui-agent/specs/<原文件名>(去掉 .bak 后缀)
    * - 返回 rolled 文件数 + errors
    */
   async rollbackPipeline(input: {
@@ -1582,7 +1582,7 @@ ${requirementPreview}
         if (!match) continue
         const originalName = match[1]!
         const backupFile = join(backupPath, entry.name)
-        const targetFile = join(root, '.trae-cn', 'specs', originalName)
+        const targetFile = join(root, '.ihui-agent', 'specs', originalName)
         try {
           const content = await readFile(backupFile, 'utf-8')
           await mkdir(dirname(targetFile), { recursive: true })

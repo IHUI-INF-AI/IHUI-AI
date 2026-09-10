@@ -7,11 +7,11 @@
 .SYNOPSIS
   IHUI-AI 8 端 dev 服务启动器(根治 SIGINT 免疫)
 .DESCRIPTION
-  解决 Trae IDE / 终端关闭窗口时,前台运行的 pnpm dev 被外部 SIGINT
+  解决 自研 IDE / 终端关闭窗口时,前台运行的 pnpm dev 被外部 SIGINT
   (即 "Terminate batch job (Y/N)?") 反复中断的问题。
 
   核心机制:服务进程用 Start-Process 派生到隐藏 cmd.exe 窗口,日志重定向
-  到 .trae-cn/tmp/dev-logs/<name>.log,PID 写入 .trae-cn/tmp/dev-logs/pids.json。
+  到 .ihui-agent/tmp/dev-logs/<name>.log,PID 写入 .ihui-agent/tmp/dev-logs/pids.json。
   关闭本脚本窗口不会级联关闭 dev server。
 
   用法:
@@ -62,7 +62,7 @@ $Services = @(
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = (Resolve-Path (Join-Path $ScriptRoot '..')).Path
 $RegistryPath = Join-Path $ScriptRoot 'dev-port-registry.json'
-$LogDir = Join-Path $RepoRoot '.trae-cn\tmp\dev-logs'
+$LogDir = Join-Path $RepoRoot '.ihui-agent\tmp\dev-logs'
 $PidFile = Join-Path $LogDir 'pids.json'
 
 # ============================================================
@@ -469,8 +469,8 @@ function Show-Help {
   设计原理:
     - 后台模式:Start-Process 派生 cmd.exe 隐藏窗口 + 重定向 stdout/stderr 到日志
     - 关闭本终端不会级联关闭 dev server(SIGINT 只到本 PowerShell 进程)
-    - PID 写入 .trae-cn/tmp/dev-logs/pids.json(可手动清)
-    - 日志:  .trae-cn/tmp/dev-logs/<name>.log + <name>.log.err
+    - PID 写入 .ihui-agent/tmp/dev-logs/pids.json(可手动清)
+    - 日志:  .ihui-agent/tmp/dev-logs/<name>.log + <name>.log.err
     - 注册表: scripts/dev-port-registry.json(端口 + 命令)
 "@
 }

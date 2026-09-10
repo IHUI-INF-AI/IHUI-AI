@@ -59,7 +59,7 @@ console.log(
   textContent.includes('/Length') || textContent.includes('stream'),
 )
 
-const outputPath = process.env.OUTPUT_PATH ?? 'g:\\IHUI-AI\\.trae-cn\\tmp\\pdf-test-after.pdf'
+const outputPath = process.env.OUTPUT_PATH ?? 'g:\\IHUI-AI\\.ihui-agent\\tmp\\pdf-test-after.pdf'
 writeFileSync(outputPath, result.buffer)
 console.log('PDF written to:', outputPath)
 

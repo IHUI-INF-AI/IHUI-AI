@@ -138,7 +138,7 @@ LITELLM_MODEL=stepfun/step-3.5-flash
 查看启动日志:
 
 ```bash
-Get-Content g:\IHUI-AI\.trae-cn\ai-final.log
+Get-Content g:\IHUI-AI\.ihui-agent\ai-final.log
 ```
 
 查找 "falling back to stub mode" 或 "API key not configured"。

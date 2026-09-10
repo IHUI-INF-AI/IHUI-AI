@@ -130,7 +130,7 @@ def _normalize_stream_modes(stream_modes: Optional[list[str]]) -> list[str]:
 def _inject_memory_context(graph_input: Any) -> Any:
     """把 graph_input.memory_context 注入到 messages 开头(作为 system 消息)。
 
-    对标 TRAE Work:对话开始前,把用户跨会话记忆(偏好/决策/反馈)注入
+    对话开始前,把用户跨会话记忆(偏好/决策/反馈)注入
     到 system message,使 LLM 在后续推理中个性化响应。
 
     规则:
@@ -224,7 +224,7 @@ async def stream_agent_execution(
     )
 
     # 1.5 注入 memory_context 到 graph_input(若存在且含 messages)
-    # 对标 TRAE Work:对话开始前把用户跨会话记忆注入 system message
+    # 对话开始前把用户跨会话记忆注入 system message
     effective_input = _inject_memory_context(graph_input)
     injected_memory = (
         isinstance(graph_input, dict)

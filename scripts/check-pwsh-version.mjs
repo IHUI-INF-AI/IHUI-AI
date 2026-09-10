@@ -31,8 +31,8 @@ const SKIP_DIRS = new Set([
   'tmp',
   // 部署打包产物(.gitignore 第 314 行,不在项目维护范围)
   'deploy',
-  // TRAE IDE 工具目录(.gitignore 第 97 行,非项目代码)
-  '.trae-cn',
+  // 第三方 IDE 工具目录(.gitignore 第 97 行,非项目代码)
+  '.ihui-agent',
 ]);
 
 // 跳过的路径模式(子目录白名单)
@@ -41,13 +41,13 @@ const SKIP_PATH_PATTERNS = [
   /[\\/]venv[\\/]/,
   /[\\/]node_modules[\\/]/,
   /[\\/]\.git[\\/]/,
-  /[\\/]\.trae-cn[\\/]tmp[\\/]/,
+  /[\\/]\.ihui-agent[\\/]tmp[\\/]/,
   /[\\/]site-packages[\\/]/,  // playwright 驱动
   /[\\/]driver[\\/]package[\\/]bin[\\/]/,  // playwright
   // 部署打包产物 + 临时目录(防漏网)
   /[\\/]tmp[\\/]/,
   /[\\/]deploy[\\/]prod-bundle[\\/]/,
-  /[\\/]\.trae-cn[\\/]/,
+  /[\\/]\.ihui-agent[\\/]/,
 ];
 
 const violations = [];

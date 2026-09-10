@@ -1,4 +1,4 @@
-# GAP-PLAN — 远超对标程序（Claude Code / Codex / Trae / Qoder / WorkBuddy）全面深度计划
+# GAP-PLAN — 远超对标程序（Claude Code / Codex / Qoder / WorkBuddy）全面深度计划
 
 创建:2026-09-03 · 目标驱动 /goal 激活。本文件为"远超几年"路线图的权威收敛,随执行迭代更新。
 

@@ -107,7 +107,7 @@ export function useSlashCommands(aiSkills: AiSkillMeta[], skillsLoading: boolean
         category: 'goal' as const,
         icon: <Trophy className="h-4 w-4" />,
       },
-      // ⚡ 模式切换(2026-07-25 立,对标 Trae SOLO Plan 模式):切换 plan/act 模式
+      // ⚡ 模式切换(2026-07-25 立,对标 主流 AI IDE SOLO Plan 模式):切换 plan/act 模式
       {
         id: 'plan',
         label: '/plan',

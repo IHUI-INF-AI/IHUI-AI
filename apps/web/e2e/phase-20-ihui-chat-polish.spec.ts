@@ -59,7 +59,7 @@ async function openPane(page: Page): Promise<boolean> {
   return true
 }
 
-test.describe('Phase 20 Trae Work 4 大 P1 细节优化', () => {
+test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
   // ───────── 测试 1:P1-1 键盘拖拽(Header 方向键) ─────────
   test('P1-1 键盘拖拽:Header 焦点后 ArrowRight 触发位置变化 + localStorage 持久化', async ({
     page,

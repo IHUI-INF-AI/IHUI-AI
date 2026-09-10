@@ -4,7 +4,7 @@
 
 /**
  * SoulMemory — 用户偏好/价值观层,存储用户画像(preferences/values/goals)。
- * JSON 持久化到 <workspace>/.trae-cn/memory/soul.json。
+ * JSON 持久化到 <workspace>/.ihui-agent/memory/soul.json。
  * 平台独占:仅 cli(W2-1 四层记忆第 3 层,对标 OpenClaw Mem semantic memory)。
  */
 import * as fs from 'node:fs';
@@ -26,7 +26,7 @@ export class SoulMemory {
   private profile: SoulProfile;
 
   constructor(workspacePath: string) {
-    this.filePath = path.join(workspacePath, '.trae-cn', 'memory', 'soul.json');
+    this.filePath = path.join(workspacePath, '.ihui-agent', 'memory', 'soul.json');
     this.profile = this.load();
   }
 

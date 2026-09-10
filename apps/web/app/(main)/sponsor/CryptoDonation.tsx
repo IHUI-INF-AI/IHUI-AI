@@ -11,7 +11,7 @@ import { Tooltip } from '@/components/feedback'
 import { Button, Card } from '@ihui/ui-react'
 
 // Public donation addresses (safe to commit — these can only receive funds).
-// Private keys live in .trae-cn/tmp/crypto-wallets/wallet-secrets.json (gitignored).
+// Private keys live in .ihui-agent/tmp/crypto-wallets/wallet-secrets.json (gitignored).
 const WALLETS = [
   {
     id: 'bitcoin',

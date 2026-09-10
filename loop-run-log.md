@@ -8,7 +8,7 @@
 
 ## 目标（2026-09-03 启动）
 
-本项目全部 AI 能力要**远超**对标（Claude Code / Codex / Trae / Qoder / WorkBuddy），深度/细度/广度拉开多年差距。
+本项目全部 AI 能力要**远超**对标（Claude Code / Codex / Qoder / WorkBuddy），深度/细度/广度拉开多年差距。
 
 ## Round 1（2026-09-03）
 

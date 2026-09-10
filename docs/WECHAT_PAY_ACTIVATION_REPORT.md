@@ -7,7 +7,7 @@
 # 微信支付证书激活 — 完整交付报告
 
 > **执行日期**: 2026-07-18
-> **执行人**: IHUI-AI Assistant (Trae IDE · MiniMax-M3)
+> **执行人**: IHUI-AI Assistant · MiniMax-M3
 > **执行模式**: /goal 目标驱动 (最大 20 轮迭代,完美细致完整)
 > **状态**: 🟡 待用户最后一步 (填 V3 KEY)
 

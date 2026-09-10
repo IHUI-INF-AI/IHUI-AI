@@ -37,7 +37,7 @@ const END_CONFIG = {
   name: 'web',
   messagesPath: 'packages/i18n/messages/web/zh-CN.json',
   scanTargets: ['apps/web/src'],
-  outputPattern: '.trae-cn/tmp/i18n-web-dead-keys-{date}.md',
+  outputPattern: '.ihui-agent/tmp/i18n-web-dead-keys-{date}.md',
 }
 
 let tmpDir

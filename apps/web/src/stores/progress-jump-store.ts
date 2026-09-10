@@ -7,7 +7,7 @@
 import { create } from 'zustand'
 
 /**
- * ProgressJumpStore — Plan Step ↔ Message 双向跳转联动状态(2026-07-28 立,Trae Work 对齐)
+ * ProgressJumpStore — Plan Step ↔ Message 双向跳转联动状态(2026-07-28 立,AI 工作台 对齐)
  */
 
 export interface ProgressJumpState {

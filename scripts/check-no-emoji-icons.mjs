@@ -72,7 +72,7 @@ check-no-emoji-icons.mjs — emoji 图标守门(UI 图标位置禁 emoji)
 
 // 排除目录:共享 EXCLUDE_DIRS + 构建产物/测试
 const EXCLUDE_DIRS = withExcludes([
-  '.trae-cn',
+  '.ihui-agent',
   'tests',
   '__tests__',
   'e2e',

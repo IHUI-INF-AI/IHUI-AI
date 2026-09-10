@@ -7,7 +7,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type { ChatMode } from '@ihui/types'
 
 /**
- * 对话模式 store(2026-07-22 立,对标 Trae IDE Plan/Spec 双模式)。
+ * 对话模式 store(2026-07-22 立,对标 自研 IDE Plan/Spec 双模式)。
  *
  * 四态(对齐 CLI apps/cli/src/tui/mode-manager.ts 的 WorkMode,扩展 spec):
  * - build:  正常执行(默认,全工具开放)

@@ -46,7 +46,7 @@ from app.middleware.response_sanitizer import setup_response_sanitizer_middlewar
 from app.middleware.trace_context import setup_trace_context_middleware
 
 # 2026-07-23 新增:AI Skills TOP 19 个 skill 路由(用户可选调用)
-# P3 深度层 Wave 11:6 大对标能力(2026-07-22 立,对标 Codex/Trae/Qoder)
+# P3 深度层 Wave 11:6 大对标能力(2026-07-22 立)
 # 跨支柱编排中枢(2026-07-23 立,事件总线 + 联合决策 + 预算治理 + 统一遥测)
 from app.routers import (
     a2a,
@@ -86,7 +86,7 @@ from app.routers import prompts as prompts_router
 # Harness 能力补齐:Token 用量统计(2026-08-11 立)
 from app.routers import usage as usage_router
 
-# Phase 2:可视化工作流编辑器(2026-08-09 立,对标 Trae Work Automations / Codex Workflows)
+# Phase 2:可视化工作流编辑器(2026-08-09 立)
 from app.routers import workflow as workflow_router
 
 # AI 批改(AI 自动评分练习答案,2026-08-07 立)
@@ -107,7 +107,7 @@ from app.routers.legacy import router as legacy_router
 # L4 自进化 admin 端点(status/lessons/history/trigger,2026-07-25 立)
 from app.routers.meta_learning import router as meta_learning_router
 
-# 对标杀手锏四件套(2026-09-03 立,深度补齐 Claude Code / Codex / Trae / Qoder / WorkBuddy):
+# 对标杀手锏四件套(2026-09-03 立,深度补齐 Claude Code / Codex / Qoder / WorkBuddy):
 # Deep Research 多轮深度研究 / Checkpoint+Rewind / 云托管会话 / Computer Use 驾驶舱 / 上下文压缩感知
 from app.routers.research import router as research_router
 from app.routers.self_healing import router as self_healing_router
@@ -698,7 +698,7 @@ def create_app() -> FastAPI:
     # 2026-08-01 新增:Cookie 自动保活守护进程(Playwright headless 每 6 小时刷新)
     from app.services.publish.cookie_refresh_daemon import router as cookie_refresh_router
     app.include_router(cookie_refresh_router, prefix="/api", tags=["publish-cookie-refresh"])
-    # 2026-07-31 新增:Browser Hub(CDP 完整 Chrome 内置浏览器,对标 Trae/Cursor)
+    # 2026-07-31 新增:Browser Hub(CDP 完整 Chrome 内置浏览器)
     # WebSocket 画面流 + REST API + 鼠标键盘事件回传
     from app.routers import browser_hub as browser_hub_router
     app.include_router(browser_hub_router.router, prefix="/api", tags=["browser-hub"])
@@ -731,11 +731,11 @@ def create_app() -> FastAPI:
     # DAG Worker Pool(2026-07-22 立,多 agent 并行执行 — 限并发 N worker + 优先级队列 + 持久化)
     from app.api.dag import router as dag_router
     app.include_router(dag_router, prefix="/api/dag", tags=["dag"])
-    # P3 Wave 11:Rules 引擎(对标 Trae Rules,文件存储 .trae-cn/rules/*.md + 热加载 + 4 种匹配)
+    # P3 Wave 11:Rules 引擎(文件存储 .ihui-agent/rules/*.md + 热加载 + 4 种匹配)
     app.include_router(rules.router, prefix="/api", tags=["rules"])
-    # P3 Wave 11:Hook 服务(对标 Trae Hooks,事件总线 + JSONLogic 条件 + 4 执行器)
+    # P3 Wave 11:Hook 服务(事件总线 + JSONLogic 条件 + 4 执行器)
     app.include_router(hooks.router, prefix="/api", tags=["hooks"])
-    # P3 Wave 11:Plan/Spec 模式(对标 Trae Plan/Spec,tree-sitter AST 反向生成 spec markdown)
+    # P3 Wave 11:Plan/Spec 模式(tree-sitter AST 反向生成 spec markdown)
     app.include_router(spec.router, prefix="/api", tags=["spec"])
     # P3 Wave 11:Spec 扩展端点(apply preview/confirm + watch + review + split-tasks + enhance)
     # 路由定义在 services/spec_generator.py 末尾,打通 api 端 spec-service.ts 转发层(2026-07-24 立)
@@ -757,7 +757,7 @@ def create_app() -> FastAPI:
     app.include_router(langgraph_router)
     # L4 自进化 admin 端点(meta_learner 状态/lessons/history + 手动触发聚类,2026-07-25 立)
     app.include_router(meta_learning_router)
-    # Phase 2:可视化工作流编辑器(2026-08-09 立,对标 Trae Work Automations / Codex Workflows)
+    # Phase 2:可视化工作流编辑器(2026-08-09 立)
     app.include_router(workflow_router.router, prefix="/api", tags=["workflows"])
     # Harness 能力补齐:LLM 用量统计(2026-08-11 立,路由自带 /api/v1/ai/usage 前缀)
     app.include_router(usage_router.router, tags=["ai-usage"])

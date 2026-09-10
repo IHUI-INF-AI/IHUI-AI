@@ -714,7 +714,7 @@ class MemoryService:
         raise ValueError(f"未知 layer: {layer}(应为 working/episodic/semantic/procedural)")
 
     # ------------------------------------------------------------------
-    # LangGraph 节点:对话级记忆 load/save(对标 TRAE Work Memory)
+    # LangGraph 节点:对话级记忆 load/save(自研记忆)
     # 通过 HTTP 调用 API /api/memory(已实现),实现跨会话记忆自动读写。
     # 失败不阻塞对话:logger.warning 后返回空/None。
     # ------------------------------------------------------------------

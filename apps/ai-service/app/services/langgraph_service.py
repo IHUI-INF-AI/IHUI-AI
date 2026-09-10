@@ -110,7 +110,7 @@ class LangGraphService:
     def _init_graph(self) -> None:
         """尝试初始化 LangGraph 图,失败则降级。
 
-        图结构(对标 TRAE Work Memory 自动读写):
+        图结构(自研记忆自动读写):
             START → memory_load → plan →(条件)→ execute*→ summarize → memory_save → END
                                                             ↘ error → END
 
@@ -399,7 +399,7 @@ class LangGraphService:
         return {**state, "status": "failed", "trace": trace}
 
     # =========================================================================
-    # 记忆节点(对标 TRAE Work Memory:对话开始 load,结束 save)
+    # 记忆节点(对话开始 load,结束 save)
     # =========================================================================
 
     async def _memory_load_node(self, state: GraphState) -> GraphState:

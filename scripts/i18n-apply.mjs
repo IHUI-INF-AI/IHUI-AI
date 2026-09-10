@@ -12,7 +12,7 @@
  *   - 翻译能力由 AI 编程 agent 自带,不调用任何 LLM API
  *   - 应用后自动保持 key 顺序与 zh-CN 基准一致
  *
- * 输入: .trae-cn/tmp/i18n-translations.json
+ * 输入: .ihui-agent/tmp/i18n-translations.json
  *   {
  *     "translatedAt": "2026-07-24T...",
  *     "translatedBy": "AI agent (claude/glm/gpt)",
@@ -58,7 +58,7 @@ const TARGET_CONFIG = {
 const TARGET_CFG = TARGET_CONFIG[TARGET] || TARGET_CONFIG.web
 
 const MESSAGES_DIR = path.join(ROOT, TARGET_CFG.dir)
-const TMP_DIR = path.join(ROOT, '.trae-cn/tmp')
+const TMP_DIR = path.join(ROOT, '.ihui-agent/tmp')
 const DEFAULT_INPUT = path.join(TMP_DIR, 'i18n-translations.json')
 const INPUT_FILE = customInput || DEFAULT_INPUT
 
