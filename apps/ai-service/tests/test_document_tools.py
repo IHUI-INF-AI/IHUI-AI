@@ -158,8 +158,14 @@ async def test_parse_docx_fallback_without_anydoc():
 
 
 @pytest.mark.asyncio
-async def test_reject_outside_root():
-    r = await dt.parse_document({"path": r"C:\Windows\win.ini"})
+async def test_reject_outside_root(tmp_path):
+    # 2026-09-10 跨平台修正:改用真实存在的工作区外文件。原 r"C:\Windows\win.ini"
+    # 在 Linux 上不是绝对路径(POSIX 无盘符概念),会被 join 进 PROJECT_ROOT 成为
+    # "根内不存在的文件",报"文件不存在"而非"路径越界"。tmp_path 在系统临时目录,
+    # 各平台都在项目根外且真实存在,能稳定触发越界校验。
+    outside = tmp_path / "outside_root.txt"
+    outside.write_text("x", encoding="utf-8")
+    r = await dt.parse_document({"path": str(outside)})
     assert r["ok"] is False
     assert "路径越界" in r["message"]
 
