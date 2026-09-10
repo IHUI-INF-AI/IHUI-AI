@@ -18,7 +18,7 @@
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -30,7 +30,7 @@ from app.services.model_catalog import (
     classify_model,
 )
 
-NOW = datetime(2026, 8, 29, tzinfo=timezone.utc)
+NOW = datetime(2026, 8, 29, tzinfo=UTC)
 
 
 def _mk(model_id: str, provider: str = "openrouter", **extra) -> dict:

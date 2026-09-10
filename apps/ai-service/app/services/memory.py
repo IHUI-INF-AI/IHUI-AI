@@ -511,7 +511,7 @@ class MemorySystem:
         )
         items: list[dict[str, Any]] = []
         # results 为 list[tuple[str, dict, float]](entry_id, entry, similarity)
-        for entry_id, entry, score in results:
+        for _entry_id, entry, score in results:
             items.append({
                 "entry": entry,
                 "similarity": round(float(score), 4),

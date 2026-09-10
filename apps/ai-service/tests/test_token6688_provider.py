@@ -22,8 +22,9 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -137,9 +138,8 @@ async def test_generate_image_body_error_on_200_raises():
     client = MagicMock()
     client.request = AsyncMock(return_value=_json_resp(
         200, {"error": {"message": "内容被安全策略拦截", "class": "content_policy_violation"}}))
-    with _patch_http_client(client):
-        with pytest.raises(ProviderError, match="安全策略"):
-            await p.generate_image("x")
+    with _patch_http_client(client), pytest.raises(ProviderError, match="安全策略"):
+        await p.generate_image("x")
 
 
 async def test_generate_image_default_model_gpt_image_2():
@@ -158,9 +158,8 @@ async def test_generate_image_empty_raises():
     p = Token6688Provider("k")
     client = MagicMock()
     client.request = AsyncMock(return_value=_json_resp(200, {"data": []}))
-    with _patch_http_client(client):
-        with pytest.raises(ProviderError):
-            await p.generate_image("test")
+    with _patch_http_client(client), pytest.raises(ProviderError):
+        await p.generate_image("test")
 
 
 # =============================================================================
@@ -197,9 +196,8 @@ async def test_tts_error_response_raises():
     resp.text = '{"error": "invalid key"}'
     resp.content = b"x"
     client.post = AsyncMock(return_value=resp)
-    with _patch_http_client(client):
-        with pytest.raises(ProviderError):
-            await p.tts("你好")
+    with _patch_http_client(client), pytest.raises(ProviderError):
+        await p.tts("你好")
 
 
 async def test_stt_passthrough():
@@ -428,18 +426,16 @@ async def test_generate_video_job_failed_status():
         _json_resp(200, {"is_final": True, "state": "failed", "status": "failed",
                           "error": "content blocked"}),
     ])
-    with _patch_http_client(client):
-        with pytest.raises(ProviderError, match="failed"):
-            await p.generate_video("x", "")
+    with _patch_http_client(client), pytest.raises(ProviderError, match="failed"):
+        await p.generate_video("x", "")
 
 
 async def test_generate_video_no_task_id_raises():
     p = Token6688Provider("k")
     client = MagicMock()
     client.request = AsyncMock(return_value=_json_resp(200, {"foo": "bar"}))
-    with _patch_http_client(client):
-        with pytest.raises(ProviderError, match="task_id"):
-            await p.generate_video("x", "")
+    with _patch_http_client(client), pytest.raises(ProviderError, match="task_id"):
+        await p.generate_video("x", "")
 
 
 def test_extract_task_id_variants():
@@ -664,7 +660,6 @@ async def test_get_task_status_processing_and_failed():
 @pytest.mark.asyncio
 async def test_mcp_video_tool_query_mode(monkeypatch):
     """video_generation 工具查询模式:只传 task_id → 返回任务状态(不校验 prompt)。"""
-    from app.services import mcp_server
 
     class _FakeP:
         async def get_task_status(self, task_id):
@@ -735,7 +730,8 @@ async def test_mcp_music_tool_submit_unconfigured(monkeypatch):
 @pytest.mark.asyncio
 async def test_mcp_music_tool_registered_and_schema():
     """music_generation 已注册:_TOOLS/_TOOL_HANDLERS 均存在且 schema 形状正确。"""
-    from app.services.mcp_server import _TOOLS, _TOOL_HANDLERS, mcp_server as mcp_inst
+    from app.services.mcp_server import _TOOL_HANDLERS, _TOOLS
+    from app.services.mcp_server import mcp_server as mcp_inst
 
     tool = next(t for t in _TOOLS if t.name == "music_generation")
     assert "prompt" in tool.input_schema["properties"]
@@ -825,8 +821,8 @@ async def test_mcp_voice_tts_token6688_unconfigured(monkeypatch):
 async def test_mcp_voice_tts_save_path_lands_file(monkeypatch, tmp_path):
     """save_path 落地:文件写入工作区,返回 saved_path。"""
     audio = _patch_edge_tts(monkeypatch)
-    from app.services.mcp_server import mcp_server as mcp_inst
     import app.services.mcp_server as mcp_mod
+    from app.services.mcp_server import mcp_server as mcp_inst
 
     target = tmp_path / "out.mp3"
     monkeypatch.setattr(
@@ -874,7 +870,8 @@ async def test_mcp_voice_tts_registered_and_schema():
     2026-09-09 深度增强后 schema 契约:text 不再 required(task_id 查询模式只传 task_id),
     properties 须含 text/task_id/engine。
     """
-    from app.services.mcp_server import _TOOLS, _TOOL_HANDLERS, mcp_server as mcp_inst
+    from app.services.mcp_server import _TOOL_HANDLERS, _TOOLS
+    from app.services.mcp_server import mcp_server as mcp_inst
 
     tool = next(t for t in _TOOLS if t.name == "voice_tts")
     assert tool.input_schema["required"] == []
@@ -998,9 +995,8 @@ async def test_media_generate_body_error_raises():
     p = Token6688Provider("k")
     client = MagicMock()
     client.request = AsyncMock(return_value=_json_resp(200, {"error": {"message": "内容被拦截"}}))
-    with _patch_http_client(client):
-        with pytest.raises(ProviderError, match="拦截"):
-            await p.media_generate("veo-3.1", "x")
+    with _patch_http_client(client), pytest.raises(ProviderError, match="拦截"):
+        await p.media_generate("veo-3.1", "x")
 
 
 async def test_media_generate_sync_image_shape():
@@ -1090,9 +1086,8 @@ async def test_request_enriches_402_insufficient_funds():
     client = MagicMock()
     client.request = AsyncMock(side_effect=ProviderError(
         "调用失败: 402 {\"error\":{\"code\":\"insufficient_funds\"}}", 402))
-    with _patch_http_client(client):
-        with pytest.raises(ProviderError, match="余额不足"):
-            await p._request("POST", "https://k.token6688.com/v1/videos/generations", json={})
+    with _patch_http_client(client), pytest.raises(ProviderError, match="余额不足"):
+        await p._request("POST", "https://k.token6688.com/v1/videos/generations", json={})
 
 
 @pytest.mark.asyncio
@@ -1101,9 +1096,8 @@ async def test_request_enriches_content_policy():
     client = MagicMock()
     client.request = AsyncMock(side_effect=ProviderError(
         "调用失败: 403 {\"error\":{\"type\":\"content_policy_violation\"}}", 403))
-    with _patch_http_client(client):
-        with pytest.raises(ProviderError, match="安全策略"):
-            await p._request("POST", "https://k.token6688.com/v1/images/generations", json={})
+    with _patch_http_client(client), pytest.raises(ProviderError, match="安全策略"):
+        await p._request("POST", "https://k.token6688.com/v1/images/generations", json={})
 
 
 async def test_get_task_status_extracts_stage_error_class_cost():
@@ -1130,9 +1124,8 @@ async def test_poll_task_failed_with_error_class_hint():
         "is_final": True, "state": "failed", "status": "failed",
         "error": "素材被拒", "error_class": "content_blocked",
     }))
-    with _patch_http_client(client):
-        with pytest.raises(ProviderError, match="content_blocked"):
-            await p._poll_task("https://k.token6688.com/v1/tasks/x")
+    with _patch_http_client(client), pytest.raises(ProviderError, match="content_blocked"):
+        await p._poll_task("https://k.token6688.com/v1/tasks/x")
 
 
 @pytest.mark.asyncio
@@ -1146,7 +1139,8 @@ async def test_mcp_token6688_model_info_missing_model():
 
 @pytest.mark.asyncio
 async def test_mcp_token6688_model_info_registered():
-    from app.services.mcp_server import _TOOLS, _TOOL_HANDLERS, mcp_server as mcp_inst
+    from app.services.mcp_server import _TOOL_HANDLERS, _TOOLS
+    from app.services.mcp_server import mcp_server as mcp_inst
 
     tool = next(t for t in _TOOLS if t.name == "token6688_model_info")
     # model 已改可选:action=models(目录清单)无需传模型 ID → 不进 required

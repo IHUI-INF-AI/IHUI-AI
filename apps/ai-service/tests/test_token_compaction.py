@@ -21,20 +21,18 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 from app.services.token_compaction import (
-    MSG_SEPARATOR,
+    _DEFAULT_STOPWORDS,
     DEFAULT_KEEP_RECENT,
     MAX_RTK_KEYS,
     MIN_RTK_CHARS,
     MIN_RTK_TOKENS,
+    MSG_SEPARATOR,
     CompactionResult,
     CompactionStrategy,
     TokenCompactor,
     _caveman_compress_messages,
     _caveman_compress_text,
-    _DEFAULT_STOPWORDS,
     _estimate_messages_tokens,
     _extract_content_text,
     _extract_keywords,
@@ -42,7 +40,6 @@ from app.services.token_compaction import (
     _rtk_compress_messages,
     token_compactor,
 )
-
 
 # 测试用工具 schema(约 80 tokens,用于构造重复场景)
 TOOL_SCHEMA = (

@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -29,9 +28,8 @@ from app.services.conversation import (
     ToolCallRecord,
     conversation_service,
 )
-from app.services.rag import RAGService, RAGResult, rag_service
 from app.services.mcp_server import mcp_server
-
+from app.services.rag import RAGResult, RAGService, rag_service
 
 # =============================================================================
 # Fixtures

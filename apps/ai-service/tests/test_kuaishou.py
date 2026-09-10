@@ -16,15 +16,12 @@
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
-import pytest
 
 from app.services.publish.adapters.kuaishou import KuaishouAdapter
 from app.services.publish.base_adapter import PublishContent, PublishResult
-
 
 # =============================================================================
 # 类属性

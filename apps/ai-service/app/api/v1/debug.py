@@ -21,7 +21,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -41,9 +41,9 @@ class DebugLaunchRequest(BaseModel):
 
     language: str = Field(..., description="语言: node / python / web")
     program: str = Field(..., description="目标程序路径或 URL")
-    args: Optional[list[str]] = Field(None, description="程序参数")
-    cwd: Optional[str] = Field(None, description="工作目录")
-    env: Optional[dict[str, str]] = Field(None, description="环境变量")
+    args: list[str] | None = Field(None, description="程序参数")
+    cwd: str | None = Field(None, description="工作目录")
+    env: dict[str, str] | None = Field(None, description="环境变量")
 
 
 class DebugAttachRequest(BaseModel):
@@ -73,7 +73,7 @@ class DebugEvalRequest(BaseModel):
     """表达式求值请求。"""
 
     expression: str = Field(..., description="表达式")
-    frameId: Optional[int] = Field(None, description="栈帧 ID(不传用当前帧)")
+    frameId: int | None = Field(None, description="栈帧 ID(不传用当前帧)")
 
 
 # ==================== 辅助函数 ====================

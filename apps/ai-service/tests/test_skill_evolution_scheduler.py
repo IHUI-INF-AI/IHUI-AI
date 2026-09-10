@@ -18,19 +18,16 @@
 
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from app.services.skill_evolution_scheduler import (
-    SkillEvolutionScheduler,
     _HISTORY_LIMIT,
+    SkillEvolutionScheduler,
     _safe_int,
     skill_evolution_scheduler,
 )
-
 
 # =============================================================================
 # _safe_int:环境变量解析

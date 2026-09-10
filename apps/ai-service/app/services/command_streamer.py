@@ -12,6 +12,7 @@ yield 事件流(stdout/stderr/exit/timeout),解决长命令超时问题。
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import re
@@ -125,23 +126,17 @@ async def _cleanup_proc(
         if not t.done():
             t.cancel()
     for t in (stdout_task, stderr_task):
-        try:
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await t
-        except (asyncio.CancelledError, Exception):
-            pass
     if proc.returncode is None:
         if timed_out:
-            try:
+            with contextlib.suppress(ProcessLookupError, OSError):
                 proc.terminate()
-            except (ProcessLookupError, OSError):
-                pass
             try:
                 await asyncio.wait_for(proc.wait(), timeout=_GRACE_PERIOD)
-            except (asyncio.TimeoutError, Exception):
-                try:
+            except (TimeoutError, Exception):
+                with contextlib.suppress(ProcessLookupError, OSError):
                     proc.kill()
-                except (ProcessLookupError, OSError):
-                    pass
                 try:
                     await proc.wait()
                 except Exception as e:
@@ -149,7 +144,7 @@ async def _cleanup_proc(
         else:
             try:
                 await asyncio.wait_for(proc.wait(), timeout=_GRACE_PERIOD)
-            except (asyncio.TimeoutError, Exception):
+            except (TimeoutError, Exception):
                 try:
                     proc.kill()
                     await proc.wait()
@@ -235,7 +230,7 @@ async def stream_command(
                 break
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=remaining)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 timed_out = True
                 break
             if event is None:

@@ -52,11 +52,12 @@ import logging
 import os
 import uuid
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 from ..core.model_pricing import snapshot_per_1k
-from typing import Any, Callable, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -74,22 +75,22 @@ _VALID_PILLARS = {"rules", "hook", "spec", "context", "subagent", "terminal"}
 
 def _now_iso() -> str:
     """UTC ISO 8601 时间戳。"""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _today_key() -> str:
     """当日日期 key(UTC,YYYY-MM-DD)。"""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
 def _hour_key() -> str:
     """当小时 key(UTC,YYYY-MM-DD-HH)。"""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H")
+    return datetime.now(UTC).strftime("%Y-%m-%d-%H")
 
 
 def _date_from_days_ago(days: int) -> str:
     """N 天前的日期 key。"""
-    return (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+    return (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%d")
 
 
 @dataclass
@@ -154,7 +155,7 @@ class BudgetCheckResult:
     """预算检查结果。"""
 
     allowed: bool                  # 是否允许调用
-    degrade_to_model: Optional[str]  # 建议降级到的模型(None=不降级)
+    degrade_to_model: str | None  # 建议降级到的模型(None=不降级)
     reason: str                    # 原因说明
     usage_percent: float           # 当前用量百分比
     pillar_usage_percent: float    # 支柱用量百分比
@@ -185,7 +186,7 @@ class LLMBudgetGovernor:
     - 所有方法 async,可被 6 大支柱统一调用
     """
 
-    def __init__(self, config: Optional[BudgetConfig] = None) -> None:
+    def __init__(self, config: BudgetConfig | None = None) -> None:
         self.config = config or BudgetConfig()
         self._redis: Any = None
         self._redis_inited = False
@@ -330,7 +331,7 @@ class LLMBudgetGovernor:
         且小时预算检查在整点重置时可被"末尾爆发"打穿。滚动窗口消除边界盲区,
         Redis zrangebyscore 与内存降级共用同一 start/end,两路径语义自动一致。
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if period == "today":
             start = now.replace(hour=0, minute=0, second=0, microsecond=0)
             end = now
@@ -395,7 +396,7 @@ class LLMBudgetGovernor:
         except Exception as e:
             logger.debug("事件发射失败(忽略): %s", e)
 
-    def _pick_degrade_model(self, pillar: str) -> Optional[str]:
+    def _pick_degrade_model(self, pillar: str) -> str | None:
         """从降级链选下一个更便宜的模型。"""
         chain = self.config.degrade_chain
         if not chain or len(chain) < 2:
@@ -463,7 +464,7 @@ class LLMBudgetGovernor:
         }, ensure_ascii=False)
         if redis is not None:
             try:
-                score = datetime.now(timezone.utc).timestamp()
+                score = datetime.now(UTC).timestamp()
                 await redis.zadd(_REDIS_KEY_USAGE, {member: score})
             except Exception as e:
                 logger.debug("Redis zadd 用量失败,降级内存: %s", e)
@@ -537,7 +538,7 @@ class LLMBudgetGovernor:
             )
 
         # 自动降级
-        degrade_to: Optional[str] = None
+        degrade_to: str | None = None
         if usage_percent >= self.config.auto_degrade_at or \
            pillar_usage_percent >= self.config.auto_degrade_at:
             degrade_to = self._pick_degrade_model(pillar)
@@ -605,11 +606,11 @@ class LLMBudgetGovernor:
             agg = {"tokens": 0, "cost": 0.0}
             for d in range(7):
                 dk = _date_from_days_ago(d)
-                captured_dk = dk
-                u = await self._get_period_usage(
-                    lambda: _REDIS_KEY_DAILY.format(date=captured_dk),
-                    self._memory_daily,
-                )
+
+                def _daily_key(dk: str = dk) -> str:
+                    return _REDIS_KEY_DAILY.format(date=dk)
+
+                u = await self._get_period_usage(_daily_key, self._memory_daily)
                 agg["tokens"] += u["tokens"]
                 agg["cost"] = round(agg["cost"] + u["cost"], 6)
             usage = agg
@@ -655,11 +656,11 @@ class LLMBudgetGovernor:
         trend: list[dict[str, Any]] = []
         for d in range(days - 1, -1, -1):
             dk = _date_from_days_ago(d)
-            captured_dk = dk
-            usage = await self._get_period_usage(
-                lambda: _REDIS_KEY_DAILY.format(date=captured_dk),
-                self._memory_daily,
-            )
+
+            def _daily_key(dk: str = dk) -> str:
+                return _REDIS_KEY_DAILY.format(date=dk)
+
+            usage = await self._get_period_usage(_daily_key, self._memory_daily)
             # 按支柱分解当日
             by_pillar: dict[str, dict[str, float]] = {}
             for p in _VALID_PILLARS:

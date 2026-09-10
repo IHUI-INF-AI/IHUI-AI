@@ -16,16 +16,16 @@
 """
 
 import asyncio
+import contextlib
+import io
 import json
 import sys
 import tarfile
-import io
-import uuid
 
 import pytest
 
-from app.services.container_runtime import ContainerRuntime
 from app.services.cloud_run_store import CloudRunStore
+from app.services.container_runtime import ContainerRuntime
 
 # 跨平台可用的真实命令(直接 exec,不经 shell,规避引号差异)
 PY = sys.executable or "python"
@@ -48,10 +48,8 @@ async def _reap_container_tasks():
         for handle in rt._runs.values():
             proc = handle.proc
             if proc is not None and proc.returncode is None:
-                try:
+                with contextlib.suppress(ProcessLookupError):
                     proc.kill()
-                except ProcessLookupError:
-                    pass
         await rt.shutdown(timeout=15)
     _LIVE_RUNTIMES.clear()
 

@@ -15,8 +15,6 @@
 
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 
 from app.services.agent_loop import AgentExecutor, agent_executor

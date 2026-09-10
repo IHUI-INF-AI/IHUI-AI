@@ -17,8 +17,8 @@
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,17 +33,17 @@ class AuditEntry:
         self,
         action: str,
         details: dict[str, Any],
-        trace_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        timestamp: Optional[str] = None,
+        trace_id: str | None = None,
+        agent_id: str | None = None,
+        user_id: str | None = None,
+        timestamp: str | None = None,
     ):
         self.action = action
         self.details = details
         self.trace_id = trace_id
         self.agent_id = agent_id
         self.user_id = user_id
-        self.timestamp = timestamp or datetime.now(timezone.utc).isoformat()
+        self.timestamp = timestamp or datetime.now(UTC).isoformat()
 
     def to_dict(self) -> dict[str, Any]:
         """转为字典(用于序列化/展示)。"""
@@ -73,8 +73,8 @@ class AuditService:
         agent_id: str,
         action: str,
         details: dict[str, Any],
-        trace_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        trace_id: str | None = None,
+        user_id: str | None = None,
     ) -> None:
         """记录 agent 执行操作(工具调用/文件修改/命令执行等)。"""
         entry = AuditEntry(
@@ -93,7 +93,7 @@ class AuditService:
         completion_tokens: int,
         latency_ms: float,
         stub: bool,
-        trace_id: Optional[str] = None,
+        trace_id: str | None = None,
     ) -> None:
         """记录 LLM 调用(model/token/latency/stub)。"""
         entry = AuditEntry(
@@ -117,7 +117,7 @@ class AuditService:
         result: Any,
         status: str,
         duration_ms: float,
-        trace_id: Optional[str] = None,
+        trace_id: str | None = None,
     ) -> None:
         """记录工具调用(tool_name/args/result/status/duration)。"""
         entry = AuditEntry(
@@ -137,8 +137,8 @@ class AuditService:
     def get_recent(
         self,
         limit: int = 100,
-        agent_id: Optional[str] = None,
-        action: Optional[str] = None,
+        agent_id: str | None = None,
+        action: str | None = None,
     ) -> list[dict[str, Any]]:
         """查询最近审计记录(用于调试/展示)。
 
@@ -156,7 +156,7 @@ class AuditService:
         recent = list(reversed(records))[:limit]
         return [r.to_dict() for r in recent]
 
-    def extract_trace_id(self, traceparent_header: Optional[str]) -> Optional[str]:
+    def extract_trace_id(self, traceparent_header: str | None) -> str | None:
         """从 W3C traceparent 头解析 trace_id(32 hex)。
 
         格式:version-trace_id-parent_id-flags
@@ -203,7 +203,7 @@ class AuditService:
             try:
                 ts = datetime.fromisoformat(entry.timestamp)
             except (ValueError, TypeError):
-                ts = datetime.now(timezone.utc)
+                ts = datetime.now(UTC)
 
             pool = await get_db_pool()
             async with pool.acquire() as conn:

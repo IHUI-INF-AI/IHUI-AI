@@ -20,7 +20,8 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Callable, Optional, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -47,15 +48,15 @@ class KanbanTaskCreate(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    id: Optional[str] = None
+    id: str | None = None
     agent_id: str = Field(..., alias="agentId")
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     priority: int = 0
     payload: dict[str, Any] = Field(default_factory=dict)
-    scheduled_at: Optional[str] = Field(None, alias="scheduledAt")
+    scheduled_at: str | None = Field(None, alias="scheduledAt")
     dependencies: list[str] = Field(default_factory=list)
-    created_by: Optional[str] = Field(None, alias="createdBy")
+    created_by: str | None = Field(None, alias="createdBy")
 
 
 class DAGNodeSpec(BaseModel):
@@ -85,7 +86,7 @@ class DAGExecuteRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-_pool: Optional[WorkerPool] = None
+_pool: WorkerPool | None = None
 _executions: dict[str, dict[str, Any]] = {}
 
 
@@ -211,7 +212,7 @@ async def get_task(task_id: str) -> dict[str, Any]:
 
 
 @router.get("/dag/tasks")
-async def list_tasks(status: Optional[str] = Query(default=None, description="按状态过滤")) -> dict[str, Any]:
+async def list_tasks(status: str | None = Query(default=None, description="按状态过滤")) -> dict[str, Any]:
     """列出所有任务(支持 status 过滤)。"""
     pool = _get_pool()
     tasks = pool.list_tasks(status=status)
