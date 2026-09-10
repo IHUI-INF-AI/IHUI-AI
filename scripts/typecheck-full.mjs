@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * 全量 TypeScript 类型检查脚本
  *
@@ -26,7 +25,16 @@ import { fileURLToPath } from 'node:url'
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
 
-const EXCLUDE_DIRS = new Set(['.git', '.next', '.pnpm-cache', '.pnpm-store', '.ihui-agent', '.turbo', '.worktrees', 'node_modules'])
+const EXCLUDE_DIRS = new Set([
+  '.git',
+  '.next',
+  '.pnpm-cache',
+  '.pnpm-store',
+  '.ihui-agent',
+  '.turbo',
+  '.worktrees',
+  'node_modules',
+])
 
 /**
  * 递归查找并删除所有 .tsbuildinfo 文件（排除依赖与构建缓存目录）。
@@ -114,9 +122,7 @@ if (existsSync(webE2eTsconfig)) {
       console.error(
         `\n[typecheck:full] ❌ e2e typecheck 失败(exit ${e2eResult.status ?? 'unknown'}),apps/web/e2e/ 类型错误需修复`,
       )
-      console.error(
-        '[typecheck:full]    修复后验证:pnpm --filter @ihui/web typecheck:e2e',
-      )
+      console.error('[typecheck:full]    修复后验证:pnpm --filter @ihui/web typecheck:e2e')
       console.error(
         '[typecheck:full]    跳过(不推荐):HUSKY_SKIP_E2E_TYPECHECK=1 pnpm typecheck:full',
       )
@@ -153,37 +159,53 @@ if (existsSync(aiServiceDir)) {
       '\n[typecheck:full] ⚠️  HUSKY_SKIP_MYPY=1 — 已跳过 mypy 阻断门(不推荐, Python 类型错误不会阻塞 push)',
     )
   } else {
-    console.log('\n[typecheck:full] 运行 apps/ai-service mypy (blocking)...')
-    // 2026-08-06 修复:优先使用项目自带 .venv 的 mypy,避免依赖全局 PATH 的
+    // 2026-08-06:优先使用项目自带 .venv 的 mypy,避免依赖全局 PATH 的
     // uv trampoline(Windows 上 uv 无法 spawn Python 子进程 → 误报失败阻塞 push)。
+    // 2026-09-10:CI 的 typecheck job 不安装 Python,裸 `mypy` 触发 exit 127,整条 typecheck 误红。
+    //   mypy 的权威阻塞门在 ci-monorepo.yml 的 test-python job(装 uv + deps 后 blocking 跑
+    //   `mypy app/`);本脚本只在「能解析到 mypy」时做一次同口径二次校验,解析不到则明确跳过、不阻塞。
     const mypyCandidates = [
       join(aiServiceDir, '.venv/Scripts/mypy.exe'), // Windows
       join(aiServiceDir, '.venv/bin/mypy'), // Unix/macOS
     ]
-    const mypyExecutable =
-      mypyCandidates.find((p) => existsSync(p)) ?? 'mypy'
-    const mypyResult = spawnSync(mypyExecutable, ['app/'], {
-      cwd: aiServiceDir,
-      stdio: 'inherit',
-      shell: true,
-    })
-
-    if (mypyResult.status !== 0) {
-      console.error(
-        `\n[typecheck:full] ❌ mypy 失败(exit ${mypyResult.status ?? 'unknown'}),Python 类型错误需修复`,
-      )
-      console.error(
-        '[typecheck:full]    详细配置:见 apps/ai-service/pyproject.toml [tool.mypy] 段注释',
-      )
-      console.error(
-        '[typecheck:full]    既有错误清单(基线):见 commit message "mypy 升级 blocking 基线" 段',
-      )
-      console.error(
-        '[typecheck:full]    跳过(不推荐):HUSKY_SKIP_MYPY=1 pnpm typecheck:full',
-      )
-      process.exit(mypyResult.status ?? 1)
+    let mypyExecutable = mypyCandidates.find((p) => existsSync(p))
+    if (!mypyExecutable) {
+      // 回退:探测 PATH。仅当 `mypy --version` 真正成功(status 0)才认可,
+      // 避免 shell:true 下 `command not found` 也返回非 0 被误当可用。
+      const probe = spawnSync('mypy', ['--version'], { shell: true, stdio: 'ignore' })
+      if (probe.status === 0) mypyExecutable = 'mypy'
     }
-    console.log('[typecheck:full] ✅ mypy 通过(无 Python 类型错误)')
+
+    if (!mypyExecutable) {
+      console.log(
+        '[typecheck:full] ⚠️  未找到 mypy(无 apps/ai-service/.venv,且 PATH 中也不存在)。\n' +
+          '[typecheck:full]     已跳过本地 mypy 二次校验 —— 权威阻塞门是 CI 的 test-python job\n' +
+          '[typecheck:full]     (uv pip install --system -e ".[dev]" 后 blocking 跑 mypy app/)。\n' +
+          '[typecheck:full]     本地启用:cd apps/ai-service && uv sync(生成 .venv 后重跑)。',
+      )
+    } else {
+      console.log(`\n[typecheck:full] 运行 apps/ai-service mypy (blocking) [${mypyExecutable}]...`)
+      const mypyResult = spawnSync(mypyExecutable, ['app/'], {
+        cwd: aiServiceDir,
+        stdio: 'inherit',
+        shell: true,
+      })
+
+      if (mypyResult.status !== 0) {
+        console.error(
+          `\n[typecheck:full] ❌ mypy 失败(exit ${mypyResult.status ?? 'unknown'}),Python 类型错误需修复`,
+        )
+        console.error(
+          '[typecheck:full]    详细配置:见 apps/ai-service/pyproject.toml [tool.mypy] 段注释',
+        )
+        console.error(
+          '[typecheck:full]    既有错误清单(基线):见 commit message "mypy 升级 blocking 基线" 段',
+        )
+        console.error('[typecheck:full]    跳过(不推荐):HUSKY_SKIP_MYPY=1 pnpm typecheck:full')
+        process.exit(mypyResult.status ?? 1)
+      }
+      console.log('[typecheck:full] ✅ mypy 通过(无 Python 类型错误)')
+    }
   }
 } else {
   console.log('\n[typecheck:full] 未发现 apps/ai-service 目录,跳过 mypy 阶段')

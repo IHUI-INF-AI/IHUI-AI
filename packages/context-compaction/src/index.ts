@@ -437,7 +437,7 @@ const CODE_BLOCK_REGEX = /```(\w+)?/g
  * 替代 `msg.content.slice(0, 200)` 的粗暴截断,提取:
  *   - assistant:tool_call 名称列表 + 首句决策 + 代码块语言标识
  *   - user:tool_result 状态(✓/✗)+ 工具名 + 首句
- *   - tool:content 前 SUMMARY_REMOTE_CHARS chars 原样保留(超长截断加省略号)
+ *   - tool:content 折叠空白后取前 SUMMARY_REMOTE_CHARS chars 原样保留(超长截断加省略号)
  *   - 其他:首句
  *
  * 注:旧 MAX_SUMMARY_LEN(160)常量已统一收编到分层金字塔常量 SUMMARY_REMOTE_CHARS(120)。
@@ -448,11 +448,15 @@ export function summarizeMessage(msg: ChatMessage): string {
   if (!content) return `[${role}] (空)`
 
   // tool 结果消息:保留 content 前 SUMMARY_REMOTE_CHARS chars(压缩后摘要仍含工具结果要点,
-  // 信息保留度优先),超长截断加省略号,空内容才用纯占位
+  // 信息保留度优先),超长截断加省略号,空内容才用纯占位。
+  // 必须先把内部换行/连续空白折叠为单空格再截断 —— 结构化摘要的不变式是
+  // 「一条消息 = 一行」(跨端 fixtures 全部按此断言);工具结果 content 常含多行输出,
+  // 若原样拼接会让单条消息裂成多行,破坏 summaryLines() 的行数契约(2026-09-10 修复)。
   if (role === 'tool') {
-    return content.length > SUMMARY_REMOTE_CHARS
-      ? `[tool] ${content.slice(0, SUMMARY_REMOTE_CHARS)}…`
-      : `[tool] ${content}`
+    const flat = content.replace(/\s+/g, ' ').trim()
+    return flat.length > SUMMARY_REMOTE_CHARS
+      ? `[tool] ${flat.slice(0, SUMMARY_REMOTE_CHARS)}…`
+      : `[tool] ${flat}`
   }
 
   const parts: string[] = [`[${role}]`]
