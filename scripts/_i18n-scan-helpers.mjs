@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * i18n 死 key 审计器公共函数(2026-07-26 立)
@@ -38,14 +37,31 @@ import path from 'node:path'
 const ROOT = process.cwd()
 const LOCALES = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
 const EXCLUDE_DIRS = new Set([
-  'node_modules', '.next', '.git', 'dist', 'build', 'coverage',
-  '__tests__', 'tests', 'test', '__mocks__', 'fixtures',
+  'node_modules',
+  '.next',
+  '.git',
+  'dist',
+  'build',
+  'coverage',
+  '__tests__',
+  'tests',
+  'test',
+  '__mocks__',
+  'fixtures',
 ])
 const EXCLUDE_FILE_PATTERNS = [
   /\.test\.(ts|tsx)$/,
   /\.spec\.(ts|tsx)$/,
   /\.d\.ts$/,
-  /messages\//,
+  // 只排除 i18n locale 资源目录(packages/i18n/messages/**)本身,避免把 JSON 当代码扫。
+  // 2026-09-10 修复(跨平台漏扫 bug):原为 /messages\//,只匹配正斜杠 →
+  //   · Linux(CI):任何含 `messages/` 的路径都被整段排除,误伤业务路由
+  //     apps/web/app/(main)/messages/**(内含 useTranslations('privateMessages') 的
+  //     PageClient.tsx),导致 11 个 privateMessages.* 被误判为死 key;
+  //   · Windows(path.join 产出反斜杠):`messages\` 不匹配 → 该目录照常扫描,
+  //     于是同一提交本地 0 死 key / CI 11 死 key,结果不一致。
+  //   现精确锚定 i18n 资源目录,并在 walkDir 中把路径归一化为 `/` 后再匹配(平台无关)。
+  /(?:^|\/)packages\/i18n\/messages\//,
 ]
 
 // 静态 t('key') / t("key") - 全路径点分命名空间
@@ -77,7 +93,8 @@ export const DYNAMIC_T_RE = /\bt\(\s*['"`]([^'"`]*\$\{[^'"`]+}[^'"`]*)['"`]\s*\)
 // useTranslations('namespace') / getTranslations('namespace') - 命名空间下所有 key 视为潜在引用(启发式)
 // 2026-07-26 增强:getTranslations 是 next-intl/server 在 server component 使用的 API(等价于 useTranslations),
 // subagent-D commit 5ebb17915 仅识别 useTranslations 模式,导致 server component 引用 namespace 被误判为死 key。
-export const USE_T_RE = /\b(?:useTranslations|getTranslations)\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`]\s*\)/g
+export const USE_T_RE =
+  /\b(?:useTranslations|getTranslations)\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`]\s*\)/g
 // 2026-08-02 新增:无参数 useTranslations() / getTranslations() 调用检测(根命名空间)
 // 背景:AdminNav.tsx L964 useTranslations()(无参数)+ L1081 t('title') 引用根级别 title,
 // 原 USE_T_RE 只匹配带参数调用,漏判无参数形式,导致根级别 title 被误判为死 key(真实事故 2026-08-02)。
@@ -89,11 +106,13 @@ export const USE_T_NO_ARG_RE = /\b(?:useTranslations|getTranslations)\s*\(\s*\)/
 // 正则说明:[a-zA-Z][a-zA-Z0-9_]* 不含点,引号后紧跟 ) 或 ,(与 STATIC_T_RE 的多段 key 互补)
 export const STATIC_T_ROOT_RE = /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*)['"`]\s*(?:\)|,)/g
 // 备用:i18n.t / getFixedT 链式调用
-export const I18N_T_RE = /\b(?:i18n\.t|getFixedT|useTranslations)\s*\(\s*['"`]?[a-zA-Z-]*['"`]?\s*\)\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+export const I18N_T_RE =
+  /\b(?:i18n\.t|getFixedT|useTranslations)\s*\(\s*['"`]?[a-zA-Z-]*['"`]?\s*\)\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
 // JSX prop 字面量: <Xxx namespace="literal" />
 export const JSX_PROP_NS_RE = /\bnamespace\s*=\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`]/g
 // TypeScript 联合类型字面量: namespace?: 'a' | 'b'
-export const UNION_TYPE_NS_RE = /\bnamespace\s*\??\s*:\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`](\s*\|\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`])*/g
+export const UNION_TYPE_NS_RE =
+  /\bnamespace\s*\??\s*:\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`](\s*\|\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`])*/g
 // 属性赋值全路径 i18n key:nameKey/titleKey/labelKey/descriptionKey/textKey/i18nKey/descKey: 'a.b.c'
 // 2026-07-26 增强:识别 { nameKey: 'design.responsive.deviceMobilePortrait' } 等属性赋值形式的全路径 i18n key 引用
 // 原扫描器仅识别 t('a.b.c') / useTranslations('ns') 模式,漏识别属性赋值形式,
@@ -106,38 +125,45 @@ export const UNION_TYPE_NS_RE = /\bnamespace\s*\??\s*:\s*['"`]([a-zA-Z][a-zA-Z0-
 // 背景:extension 端 MeAppsPage.tsx 用 `descKey: 'apps.favoritesDesc'` 等对象字面量赋值引用 apps.*Desc 描述文案,
 // 原白名单(name/title/label/description/text/i18n)漏识别 desc,导致 extension 42 个 apps.*Desc 死 key 误判。
 // 属性名白名单:name/title/label/description/text/i18n/desc + Key 后缀(常见 i18n 相关属性命名约定)
-export const PROP_KEY_RE = /\b(?:name|title|label|description|text|i18n|desc)Key\s*:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+export const PROP_KEY_RE =
+  /\b(?:name|title|label|description|text|i18n|desc)Key\s*:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
 // JSX prop 字面量:titleKey="a.b.c" / descKey="a.b.c"(2026-07-26 三次增强新增)
 // 背景:extension 端 SidepanelApp.tsx / AIAppsPage.tsx 等通过 <XxxPage titleKey="apps.aiTitle" /> JSX prop 形式引用,
 // 原 PROP_KEY_RE 只识别 `titleKey:`(对象字面量赋值,冒号),不识别 `titleKey=`(JSX prop,等号),
 // 导致 extension 8 个 apps.*Title/about/contact/help/agreement/pricing 死 key 误判。
 // 与 PROP_KEY_RE 区别:用 `=` 不用 `:`,且 JSX 字符串字面量只用单/双引号(模板字面量在 JSX 表达式容器 {} 内,不在此处理)。
-export const JSX_PROP_KEY_RE = /\b(?:name|title|label|description|text|i18n|desc)Key\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"]/g
+export const JSX_PROP_KEY_RE =
+  /\b(?:name|title|label|description|text|i18n|desc)Key\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"]/g
 // 跨行 t('key', 形式(2026-07-26 三次增强新增)
 // 背景:STATIC_T_RE 要求 `)` 闭合,逐行扫描无法识别跨行 `t('key', {\n  args,\n})` 调用,
 // 导致 extension chat.compactionNotice + mobile-rn taskDispatch.file.attached 等跨行 t() 调用引用的 key 误判为死 key。
 // 此正则只要求 `t('key',`(逗号后任意,不要求 `)` 闭合),补跨行调用缺口。
 // 注:与 STATIC_T_RE 部分重叠(单行带参数调用两者都匹配),但 Set 去重,无副作用。
-export const STATIC_T_MULTILINE_RE = /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]\s*,/g
+export const STATIC_T_MULTILINE_RE =
+  /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]\s*,/g
 // 联合类型字面量:'a.b' | 'c.d'(2026-07-26 三次增强新增)
 // 背景:mobile-rn LiveScreen.tsx 通过 `function statusKey(live): 'live.ongoing' | 'live.upcoming' | 'live.ended'` 联合类型字面量引用,
 // 原 UNION_TYPE_NS_RE 只识别 `namespace:` 关键字,无法识别函数返回类型的联合类型字面量,导致 live.ended 误判为死 key。
 // 用两个正则覆盖多个联合(3+ 段):FIRST 识别"字面量后跟 |",SECOND 识别"| 后跟字面量"。
 // 误报风险:SECOND 会匹配任何 `| 'a.b'` 形式(包括 `if (x || 'a.b')` 逻辑或),但只要 'a.b' 不在 zh-CN.json 中不影响死 key 刡定。
-export const UNION_TYPE_KEY_RE_FIRST = /['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]\s*\|\s*(?=['"`])/g
-export const UNION_TYPE_KEY_RE_SECOND = /\|\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+export const UNION_TYPE_KEY_RE_FIRST =
+  /['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]\s*\|\s*(?=['"`])/g
+export const UNION_TYPE_KEY_RE_SECOND =
+  /\|\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
 // 对象字面量值全路径 i18n key:key: 'namespace.leaf'(2026-07-26 三次增强新增)
 // 背景:mobile-rn PaymentScreen.tsx / TaskDispatchPage.tsx 通过 `const STATUS_KEY = { pending: 'payment.status.pending', ... }` 对象字面量映射引用,
 // 原 PROP_KEY_RE 只识别 `xxxKey:` 白名单属性,不识别 `pending:` 等任意键名,导致 10 个 payment/taskDispatch.status.* 死 key 误判。
 // 限定:值必须含至少 1 个点(多段全路径),避免误命中 `host: 'example'` 等单段非 i18n 字面量。
 // 误报风险:任何 `key: 'foo.bar.baz'` 字面量都被识别为引用,但只要 'foo.bar.baz' 不在 zh-CN.json 中不影响死 key 刡定。
-export const OBJECT_LITERAL_KEY_RE = /\b[a-zA-Z_][a-zA-Z0-9_]*:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+export const OBJECT_LITERAL_KEY_RE =
+  /\b[a-zA-Z_][a-zA-Z0-9_]*:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
 // 动态前缀拼接赋值:`= \`prefix.${var}\` as const`(2026-07-26 三次增强新增)
 // 背景:mobile-rn OrderScreen.tsx 通过 `const statusKey = \`order.status.${item.status}\` as const` 模板字符串拼接引用,
 // 扫描器无法静态识别 `${item.status}` 的值,但前缀 `order.status` 是静态的。
 // 此正则识别 `= \`prefix.${var}\`` 形式,捕获前缀 `prefix`(不含末尾点),把前缀加入 usedNamespaces,
 // 使 isInUsedNamespace('order.status.pending', Set(['order.status'])) = true(因 'order.status.pending'.startsWith('order.status.'))
-export const DYNAMIC_PREFIX_RE = /=>?\s*[`'"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)*)\.?\$\{[a-zA-Z_][a-zA-Z0-9_.]*\}[^'"`]*[`'"]/g
+export const DYNAMIC_PREFIX_RE =
+  /=>?\s*[`'"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)*)\.?\$\{[a-zA-Z_][a-zA-Z0-9_.]*\}[^'"`]*[`'"]/g
 // 字符串常量 return:`return 'namespace.leaf'`(2026-08-20 增强)
 // 背景:mobile-rn LiveDetailScreen.chatStatusLabelKey() 通过 switch 返回 'liveDetail.chatConnecting'
 // 等字符串常量,再由 t(statusKey) 间接引用,静态扫描器无法做值流分析,导致 5 个 liveDetail.chat* 误判为死 key。
@@ -173,7 +199,8 @@ export const STRING_ARRAY_KEY_RE = /(?:^|\s)['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-z
 // 背景:extension FollowingPage/FansPage 用 `<EmptyState emptyKey="page.follow.emptyFollowing" />` JSX prop 形式
 // 传递 i18n key,原扫描器只识别冒号赋值(PROP_KEY_RE)不识别等号(JSX prop),导致 emptyFollowing/emptyFans 误判。
 // 与 JSX_PROP_KEY_RE 互补:JSX_PROP_KEY_RE 只识别白名单属性(name/title/label/...),此正则识别任意属性名的等号赋值。
-export const JSX_PROP_KEY_EQ_RE = /\b[a-zA-Z][a-zA-Z0-9_]*Key\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"]/g
+export const JSX_PROP_KEY_EQ_RE =
+  /\b[a-zA-Z][a-zA-Z0-9_]*Key\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"]/g
 
 // 2026-07-26 新增:剥离 JS/TS 注释,保持行号(把注释字符替换为等长空格)
 // 用于整文件级 STATIC_T_RE / TLIST_RE 匹配前预处理,避免命中注释行内的 t('commented.out') 等假引用。
@@ -197,13 +224,26 @@ export function flatten(obj, prefix = '', out = new Set()) {
     }
     return out
   }
-  if (typeof obj !== 'object') { if (prefix) out.add(prefix); return out }
+  if (typeof obj !== 'object') {
+    if (prefix) out.add(prefix)
+    return out
+  }
   const keys = Object.keys(obj)
-  if (keys.length === 0) { if (prefix) out.add(prefix); return out }
+  if (keys.length === 0) {
+    if (prefix) out.add(prefix)
+    return out
+  }
   for (const k of keys) {
     const v = obj[k]
     const np = prefix ? `${prefix}.${k}` : k
-    if (v !== null && v !== undefined && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0) flatten(v, np, out)
+    if (
+      v !== null &&
+      v !== undefined &&
+      typeof v === 'object' &&
+      !Array.isArray(v) &&
+      Object.keys(v).length > 0
+    )
+      flatten(v, np, out)
     else out.add(np) // 字符串/数字/字符串数组/空对象/空数组 → 叶子
   }
   return out
@@ -226,7 +266,9 @@ export function walkDir(dir, out = []) {
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) walkDir(full, out)
     else if (/\.(tsx|ts)$/.test(entry.name)) {
-      if (EXCLUDE_FILE_PATTERNS.some((re) => re.test(full))) continue
+      // 归一化为 `/` 再匹配排除规则,避免 Windows(反斜杠)与 Linux(正斜杠)结果分叉
+      const norm = full.split(path.sep).join('/')
+      if (EXCLUDE_FILE_PATTERNS.some((re) => re.test(norm))) continue
       out.push(full)
     }
   }
@@ -328,7 +370,11 @@ export function scanCode(files) {
       }
       DYNAMIC_T_RE.lastIndex = 0
       while ((m = DYNAMIC_T_RE.exec(line)) !== null) {
-        dynamicHits.push({ file: path.relative(ROOT, f), line: i + 1, snippet: trimmed.slice(0, 200) })
+        dynamicHits.push({
+          file: path.relative(ROOT, f),
+          line: i + 1,
+          snippet: trimmed.slice(0, 200),
+        })
         // 提取动态模板静态前缀 t(`order.status.${var}`) → "order.status",作为已用命名空间
         // 使 order.status.* 等动态拼接引用的 key 不再被误判为死 key(2026-08-20 增强,对齐 DYNAMIC_PREFIX_RE 语义)
         const prefixM = m[1].match(/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.(?=\$\{)/)
@@ -396,12 +442,16 @@ export function main(opts) {
   const TODAY = new Date().toISOString().slice(0, 10)
   const ZH_CN_PATH = path.join(ROOT, messagesPath)
   const LOCALE_DIR = path.dirname(ZH_CN_PATH)
-  const LOCALE_PATHS = Object.fromEntries(LOCALES.map((l) => [l, path.join(LOCALE_DIR, `${l}.json`)]))
+  const LOCALE_PATHS = Object.fromEntries(
+    LOCALES.map((l) => [l, path.join(LOCALE_DIR, `${l}.json`)]),
+  )
   const SCAN_TARGETS = scanTargets.map((t) => path.join(ROOT, t))
 
   // 0. 跳过条件:messages 不存在(端无独立 i18n,如 desktop)
   if (!fs.existsSync(ZH_CN_PATH)) {
-    console.log(`[${TAG}] 跳过:基准语言文件不存在 ${path.relative(ROOT, ZH_CN_PATH)}(端无独立 i18n)`)
+    console.log(
+      `[${TAG}] 跳过:基准语言文件不存在 ${path.relative(ROOT, ZH_CN_PATH)}(端无独立 i18n)`,
+    )
     return 0
   }
 
@@ -423,7 +473,9 @@ export function main(opts) {
       continue
     }
     localeData[l] = { keys: flatten(loadJson(LOCALE_PATHS[l])) }
-    console.log(`[${TAG}] 加载: ${path.relative(ROOT, LOCALE_PATHS[l])} (${localeData[l].keys.size} keys)`)
+    console.log(
+      `[${TAG}] 加载: ${path.relative(ROOT, LOCALE_PATHS[l])} (${localeData[l].keys.size} keys)`,
+    )
   }
 
   // 2. 扫描代码
@@ -443,7 +495,10 @@ export function main(opts) {
   const incompleteKeys = new Set()
   for (const k of leafKeys) {
     for (const l of LOCALES) {
-      if (l !== 'zh-CN' && !localeData[l].keys.has(k)) { incompleteKeys.add(k); break }
+      if (l !== 'zh-CN' && !localeData[l].keys.has(k)) {
+        incompleteKeys.add(k)
+        break
+      }
     }
   }
 
@@ -487,35 +542,48 @@ export function main(opts) {
   L(`> target=${name},messagesPath=${messagesPath}`)
   L('## 总览')
   L(`- target:**${name}**`)
-  L(`- 扫描文件:5 语言(\`${LOCALES.map((l) => path.relative(ROOT, LOCALE_PATHS[l])).join('`, `')}\`)`)
+  L(
+    `- 扫描文件:5 语言(\`${LOCALES.map((l) => path.relative(ROOT, LOCALE_PATHS[l])).join('`, `')}\`)`,
+  )
   L(`- 递归 leaf key 总数:**${totalLeaves}**`)
   L(`- 代码静态引用 key(全路径 \`t('a.b.c')\` 形式):**${totalRefs}**(去重)`)
-  L(`- \`useTranslations/getTranslations('namespace')\` 命名空间:**${totalNamespaces}** 个(命名空间下所有 key 视作潜在引用,启发式)`)
+  L(
+    `- \`useTranslations/getTranslations('namespace')\` 命名空间:**${totalNamespaces}** 个(命名空间下所有 key 视作潜在引用,启发式)`,
+  )
   L(`- 死 key 数量:**${deadCount}**(占比 **${deadRatio}%**)`)
   L(`- 翻译不完整 key 数量:**${incompleteCount}**`)
   L(`- 动态 t(\`prefix.\${var}\`) 命中:${dynamicHits.length} 处`)
   L('## 死 key 列表(按 namespace 分组)')
-  if (deadCount === 0) { L('_无死 key_ ✅') }
-  else for (const [ns, keys] of groupByNamespace(deadKeys)) {
-    L(`### \`${ns}.*\`  (${keys.length} 个)`)
-    for (const k of keys) L(`- \`${k}\``)
-  }
-  L('## 翻译不完整 key 列表(5 语言中任一缺失)')
-  if (incompleteCount === 0) { L('_翻译完整_ ✅') }
-  else for (const [ns, keys] of groupByNamespace(incompleteKeys)) {
-    L(`### \`${ns}.*\`  (${keys.length} 个)`)
-    for (const k of keys) {
-      const missingLangs = LOCALES.filter((l) => l !== 'zh-CN' && !localeData[l].keys.has(k))
-      L(`- \`${k}\`  (缺: ${missingLangs.join(', ')})`)
+  if (deadCount === 0) {
+    L('_无死 key_ ✅')
+  } else
+    for (const [ns, keys] of groupByNamespace(deadKeys)) {
+      L(`### \`${ns}.*\`  (${keys.length} 个)`)
+      for (const k of keys) L(`- \`${k}\``)
     }
-  }
+  L('## 翻译不完整 key 列表(5 语言中任一缺失)')
+  if (incompleteCount === 0) {
+    L('_翻译完整_ ✅')
+  } else
+    for (const [ns, keys] of groupByNamespace(incompleteKeys)) {
+      L(`### \`${ns}.*\`  (${keys.length} 个)`)
+      for (const k of keys) {
+        const missingLangs = LOCALES.filter((l) => l !== 'zh-CN' && !localeData[l].keys.has(k))
+        L(`- \`${k}\`  (缺: ${missingLangs.join(', ')})`)
+      }
+    }
   L('## 动态 key 提示(代码中拼接的 key,无法静态扫描)')
   if (dynamicHits.length === 0) {
     L('_未发现动态 t(`prefix.${var}`) 调用_')
   } else {
-    L(`共 ${dynamicHits.length} 处动态 key 调用,这些 key 即使在 zh-CN.json 中定义也无法通过静态扫描验证,建议人工核对:`)
+    L(
+      `共 ${dynamicHits.length} 处动态 key 调用,这些 key 即使在 zh-CN.json 中定义也无法通过静态扫描验证,建议人工核对:`,
+    )
     const byFile = new Map()
-    for (const h of dynamicHits) { if (!byFile.has(h.file)) byFile.set(h.file, []); byFile.get(h.file).push(h) }
+    for (const h of dynamicHits) {
+      if (!byFile.has(h.file)) byFile.set(h.file, [])
+      byFile.get(h.file).push(h)
+    }
     for (const [f, hits] of byFile) {
       L(`- \`${f}\`(${hits.length} 处)`)
       for (const h of hits.slice(0, 3)) L(`  - L${h.line}: \`${h.snippet}\``)
