@@ -18,7 +18,7 @@
 - 线程安全(threading.Lock)
 - JSONL 持久化(每行一个事件,易解析易追加)
 - 自动 rotate(超过 10000 条时保留最新 10000 条)
-- 路径:.trae-cn/tmp/anti-audit-log.jsonl(AGENTS.md §15)
+- 路径:.ihui-agent/tmp/anti-audit-log.jsonl(AGENTS.md §15)
 """
 from __future__ import annotations
 
@@ -36,10 +36,10 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-# 审计日志持久化路径(AGENTS.md §15:临时文件放 .trae-cn/tmp/)
+# 审计日志持久化路径(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
 _AUDIT_FILE = Path(os.environ.get(
     "ANTI_RISK_AUDIT_FILE",
-    ".trae-cn/tmp/anti-audit-log.jsonl",
+    ".ihui-agent/tmp/anti-audit-log.jsonl",
 )).resolve()
 
 # 自动 rotate 阈值

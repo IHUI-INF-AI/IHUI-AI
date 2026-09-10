@@ -11,7 +11,7 @@ name: i18n Dead Key Audit
 # t() / useTranslations() 引用的"死 key",防止 PR 引入新的死 key 增量。
 # 脚本: scripts/scan-dead-i18n-keys.mjs
 # 退出码:发现死 key → exit 1(blocking);无死 key → exit 0
-# 报告:.trae-cn/tmp/i18n-dead-keys-YYYY-MM-DD.md(无论成败均上传 artifact)
+# 报告:.ihui-agent/tmp/i18n-dead-keys-YYYY-MM-DD.md(无论成败均上传 artifact)
 #
 # 2026-07-26 增强:新增 unit-tests job 挂载 i18n 扫描器单测 + 4 端集成测试,
 #   覆盖 _i18n-scan-helpers.mjs 的 STATIC_T_RE / USE_T_RE / DYNAMIC_T_RE 等正则
@@ -103,6 +103,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: i18n-dead-key-report
-          path: .trae-cn/tmp/i18n-dead-keys-*.md
+          path: .ihui-agent/tmp/i18n-dead-keys-*.md
           if-no-files-found: ignore
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

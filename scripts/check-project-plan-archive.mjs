@@ -13,14 +13,14 @@
  *   - 历史上"CLI 配置导入"任务条目被归档精简操作**两次误删**(commit 15a50b53 第一次补回,
  *     后续归档再次删除,commit c0ac97c 第二次补回)。
  *   - 根因:check-project-plan-size.mjs 只守"体积上限",不守"已完成任务条目不能直接删除"。
- *   - 归档精简本意是把冗余任务条目移到 .trae-cn/archive/,但实际操作时容易"整段删除"
+ *   - 归档精简本意是把冗余任务条目移到 .ihui-agent/archive/,但实际操作时容易"整段删除"
  *     而非"替换为一行 HTML 注释占位",导致任务历史断档。
  *
  * 守门策略:
  *   - 检测 PROJECT_PLAN.md 是否被修改(staged 模式对比 HEAD 与 index,非 staged 对比 HEAD 与 working tree)
  *   - 提取所有"### XXX(已完成 ✅ ...)"标题行,找出被删除的
  *   - 若有已完成任务条目被删除,且本次 diff 无"<!-- 已归档"占位注释,则阻塞 commit
- *   - 合规操作:把完整任务条目移动到 .trae-cn/archive/,并在原位置留归档占位注释
+ *   - 合规操作:把完整任务条目移动到 .ihui-agent/archive/,并在原位置留归档占位注释
  *
  * 用法:
  *   node scripts/check-project-plan-archive.mjs --staged   (pre-commit, 阻塞)
@@ -157,7 +157,7 @@ function main() {
       `${C.green}✅ PROJECT_PLAN.md 归档守门通过${C.reset} ${C.dim}(检测到归档占位注释,合规移动)${C.reset}`,
     )
     console.log(
-      `${C.dim}   已归档 ${deletedHeadings.length} 个任务条目到 .trae-cn/archive/${C.reset}`,
+      `${C.dim}   已归档 ${deletedHeadings.length} 个任务条目到 .ihui-agent/archive/${C.reset}`,
     )
     deletedHeadings.forEach((h) => {
       console.log(`${C.dim}   - ${h.replace(/^###\s+/, '')}${C.reset}`)
@@ -184,13 +184,13 @@ function main() {
   console.error('')
   console.error(`${C.cyan}正确操作:${C.reset}`)
   console.error(
-    `  1. 把完整任务条目(### 标题 + 内容)移动到 ${C.cyan}.trae-cn/archive/PROJECT_PLAN_YYYY-MM-DD.md${C.reset}`,
+    `  1. 把完整任务条目(### 标题 + 内容)移动到 ${C.cyan}.ihui-agent/archive/PROJECT_PLAN_YYYY-MM-DD.md${C.reset}`,
   )
   console.error(
     `  2. 在 PROJECT_PLAN.md 原位置保留一行归档占位注释(HTML 注释形式,不影响渲染):`,
   )
   console.error(
-    `     ${C.dim}<!-- 已归档(YYYY-MM-DD):XXX 任务,完整内容在 .trae-cn/archive/PROJECT_PLAN_*.md -->${C.reset}`,
+    `     ${C.dim}<!-- 已归档(YYYY-MM-DD):XXX 任务,完整内容在 .ihui-agent/archive/PROJECT_PLAN_*.md -->${C.reset}`,
   )
   console.error(
     `  3. 或直接在归档占位注释区追加任务名(参考文件末尾已有的归档注释块)`,

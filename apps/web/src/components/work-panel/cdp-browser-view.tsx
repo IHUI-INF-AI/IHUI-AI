@@ -7,7 +7,7 @@
 /**
  * CDP 浏览器视图(2026-07-31 立,P0 WorkPanel CDP 升级)
  *
- * 对标 Trae/Cursor 内置浏览器:canvas 渲染后端 Chromium 推送的画面帧,
+ * 对标 主流 AI IDE 内置浏览器:canvas 渲染后端 Chromium 推送的画面帧,
  * 鼠标/键盘/滚轮事件回传 WebSocket → 后端转发到真实 Chromium。
  *
  * 数据流:

@@ -5,7 +5,7 @@
 
 
 /**
- * 导出所有未翻译键(值 === en 仅 ASCII)到 .trae-cn/goal-runtime/i18n-untranslated-<lang>.json
+ * 导出所有未翻译键(值 === en 仅 ASCII)到 .ihui-agent/goal-runtime/i18n-untranslated-<lang>.json
  * 供后续批量翻译使用
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
@@ -13,7 +13,7 @@ import { join } from 'node:path'
 
 const ROOT = process.cwd()
 const MESSAGES_DIR = join(ROOT, 'apps/web/messages')
-const OUTPUT_DIR = join(ROOT, '.trae-cn/goal-runtime')
+const OUTPUT_DIR = join(ROOT, '.ihui-agent/goal-runtime')
 
 if (!existsSync(OUTPUT_DIR)) mkdirSync(OUTPUT_DIR, { recursive: true })
 

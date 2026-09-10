@@ -5,13 +5,13 @@
 
 
 /**
- * 统计未翻译键中的唯一英文值,输出到 .trae-cn/goal-runtime/i18n-unique-values.json
+ * 统计未翻译键中的唯一英文值,输出到 .ihui-agent/goal-runtime/i18n-unique-values.json
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = process.cwd()
-const OUTPUT_DIR = join(ROOT, '.trae-cn/goal-runtime')
+const OUTPUT_DIR = join(ROOT, '.ihui-agent/goal-runtime')
 
 function collectLeafValues(obj, prefix = '') {
   const map = new Map()

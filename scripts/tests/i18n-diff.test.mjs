@@ -12,7 +12,7 @@
  *   2. 退出码:0 = 无 pending;1 = 有 pending
  *   3. CLI 选项:--staged(仅 zh-CN staged 时触发) / --quiet(只输出 JSON) / --output(自定义路径) / --target(切换目录)
  *   4. 豁免规则:zh-TW 简繁同形、ja 日文汉字词、asciiFallback 短词(<3)/纯大写词/glossary 白名单
- *   5. 输出:.trae-cn/tmp/i18n-pending.json(机器可读,AI agent 消费)
+ *   5. 输出:.ihui-agent/tmp/i18n-pending.json(机器可读,AI agent 消费)
  *
  * 测试策略:spawnSync 子进程运行原脚本,cwd=临时目录,fixture 完全隔离不污染项目。
  * 路径推导用 import.meta.url(AGENTS.md §15)。
@@ -36,11 +36,11 @@ function stripAnsi(s) {
   return s.replace(/\x1b\[[0-9;]*m/g, '')
 }
 
-// ─── 辅助:创建临时项目根目录(含 packages/i18n/messages/<target>/ + .trae-cn/tmp/) ───
+// ─── 辅助:创建临时项目根目录(含 packages/i18n/messages/<target>/ + .ihui-agent/tmp/) ───
 function createTempProject(target = 'web') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-i18n-diff-'))
   fs.mkdirSync(path.join(root, 'packages', 'i18n', 'messages', target), { recursive: true })
-  fs.mkdirSync(path.join(root, '.trae-cn', 'tmp'), { recursive: true })
+  fs.mkdirSync(path.join(root, '.ihui-agent', 'tmp'), { recursive: true })
   return root
 }
 
@@ -62,7 +62,7 @@ function writeAllLangs(root, target, base, langs) {
 
 function readPendingJson(root) {
   return JSON.parse(
-    fs.readFileSync(path.join(root, '.trae-cn', 'tmp', 'i18n-pending.json'), 'utf8'),
+    fs.readFileSync(path.join(root, '.ihui-agent', 'tmp', 'i18n-pending.json'), 'utf8'),
   )
 }
 
@@ -358,7 +358,7 @@ describe('CLI 选项: --quiet / --output / --target / --staged', () => {
       assert.equal(output.baseLang, 'zh-CN')
       // 默认路径不应存在(用了 --output)
       assert.ok(
-        !fs.existsSync(path.join(root, '.trae-cn', 'tmp', 'i18n-pending.json')),
+        !fs.existsSync(path.join(root, '.ihui-agent', 'tmp', 'i18n-pending.json')),
         '默认路径不应被写入',
       )
     } finally {

@@ -714,7 +714,7 @@ describe('AgentTaskProgressPane — v6.1 popover 渲染', () => {
   // - resize handle(v4 残留,v6 popover 固定尺寸)
 })
 
-describe('Progress Sections — 折叠子区组件(对齐 Trae Work)', () => {
+describe('Progress Sections — 折叠子区组件(对齐 AI 工作台)', () => {
   afterEach(() => {
     cleanup()
   })
@@ -1526,7 +1526,7 @@ describe('AgentTaskProgressPane — v11 复制计划 + 相对时间', () => {
 })
 
 // ─── Phase 16: ProgressRing 进度环测试 ───
-describe('ProgressRing — Phase 16 进度环(对标 Trae Work)', () => {
+describe('ProgressRing — Phase 16 进度环(对标 AI 工作台)', () => {
   afterEach(() => {
     cleanup()
   })

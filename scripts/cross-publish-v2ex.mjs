@@ -32,7 +32,7 @@ const V2EX_API = 'https://www.v2ex.com/api/topics/create.json'
 const TOKEN = process.env.V2EX_TOKEN
 
 // ---------- 默认推广帖(可被 --title/--content 覆盖) ----------
-const DEFAULT_DRAFT_PATH = join(ROOT, '.trae-cn', 'tmp', 'v2ex-post.md')
+const DEFAULT_DRAFT_PATH = join(ROOT, '.ihui-agent', 'tmp', 'v2ex-post.md')
 
 // ---------- 参数解析 ----------
 const argv = process.argv.slice(2)

@@ -31,8 +31,7 @@ const ROOT = process.cwd();
 const EXEMPT_PATTERNS = [
   /^\.husky\//,            // git hooks
   /^scripts\//,            // 守门 / 工具脚本
-  /^\.trae-cn\//,          // trae 内部
-  /^\.trae\//,             // trae 内部
+  /^\.ihui-agent\//,          // .ihui-agent 内部
   /^docs\//,               // 文档目录(本身就是文档)
   /^AGENTS\.md$/,          // agent 规则文档
   /^PROJECT_PLAN\.md$/,    // 任务计划文档

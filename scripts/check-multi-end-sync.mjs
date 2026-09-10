@@ -100,7 +100,7 @@ function classifyFile(file) {
   const exemptPrefixes = [
     'scripts/',
     '.husky/',
-    '.trae-cn/',
+    '.ihui-agent/',
     '.github/',
     'docs/',
     '.vscode/',

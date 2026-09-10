@@ -19,7 +19,7 @@
  *     name: 'extension',
  *     messagesPath: 'packages/i18n/messages/extension/zh-CN.json',
  *     scanTargets: ['apps/extension/entrypoints', 'apps/extension/src'],
- *     outputPattern: '.trae-cn/tmp/i18n-extension-dead-keys-{date}.md',
+ *     outputPattern: '.ihui-agent/tmp/i18n-extension-dead-keys-{date}.md',
  *   })
  *   process.exit(code)
  *
