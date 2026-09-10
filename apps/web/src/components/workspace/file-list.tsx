@@ -83,7 +83,7 @@ export function FileList({
 
   if (files.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed p-5 min-[768px]:p-8 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed p-3 text-center text-sm text-muted-foreground">
         {t('emptyFiles')}
       </div>
     )

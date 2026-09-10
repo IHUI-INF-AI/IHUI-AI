@@ -73,7 +73,7 @@ export default function MyCirclesPage() {
   const fmtDate = (v?: string | null) => formatDateOnly(v)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -89,7 +89,7 @@ export default function MyCirclesPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
@@ -118,7 +118,7 @@ export default function MyCirclesPage() {
                     )}
                   </div>
                 </Link>
-                <CardContent className="space-y-3 p-4">
+                <CardContent className="space-y-3 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <Link href={`/circles/${circle.id}`} className="min-w-0 flex-1">
                       <h3 className="font-medium hover:text-primary">{circle.name}</h3>

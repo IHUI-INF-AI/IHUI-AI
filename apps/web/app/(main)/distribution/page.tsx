@@ -115,10 +115,10 @@ export default function DistributionHomePage() {
   const loading = teamQ.isLoading || summaryQ.isLoading || availableQ.isLoading
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <BackButton />
       <Card className="overflow-hidden">
-        <CardContent className="flex items-center gap-4 p-5 min-[640px]:p-5">
+        <CardContent className="flex items-center gap-4 p-3">
           <Image
             src="/images/logo.png?v=20260719-unify"
             alt=""
@@ -153,7 +153,7 @@ export default function DistributionHomePage() {
             return (
               <Link key={e.href} href={e.href}>
                 <Card className="transition-colors hover:bg-accent">
-                  <CardContent className="flex flex-col items-center gap-2 p-4 text-center">
+                  <CardContent className="flex flex-col items-center gap-2 p-3 text-center">
                     <Icon className="h-6 w-6 text-primary" />
                     <span className="text-sm font-medium">{e.label}</span>
                   </CardContent>
@@ -165,7 +165,7 @@ export default function DistributionHomePage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-4 p-4">
+        <CardContent className="space-y-4 p-3">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold">{t('inviteStats')}</h2>
             <Link

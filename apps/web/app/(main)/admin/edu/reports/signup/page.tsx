@@ -76,7 +76,7 @@ export default function EduReportsSignupPage() {
   const noEndpoint = isNotFound(error)
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">报名报表</h1>
@@ -85,7 +85,7 @@ export default function EduReportsSignupPage() {
 
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
-          <CardContent className="flex items-center gap-3 p-5 min-[640px]:p-5">
+          <CardContent className="flex items-center gap-3 p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Users className="h-5 w-5" />
             </div>
@@ -96,7 +96,7 @@ export default function EduReportsSignupPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-5 min-[640px]:p-5">
+          <CardContent className="flex items-center gap-3 p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
               <CheckCircle className="h-5 w-5" />
             </div>
@@ -107,7 +107,7 @@ export default function EduReportsSignupPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-5 min-[640px]:p-5">
+          <CardContent className="flex items-center gap-3 p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
               <DollarSign className="h-5 w-5" />
             </div>

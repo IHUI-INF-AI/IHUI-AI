@@ -336,28 +336,9 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
     }
   }, [flatItems.length, activeIndex])
 
-  // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
-  // 接入 useGlobalShortcuts 系统(AGENTS.md §3 共享层优先):
-  // - 删除原硬编码 keydown 监听,改为监听 'global-shortcut:open-plus' CustomEvent
-  // - 由 useGlobalShortcuts 统一派发,享有:① 帮助面板(Ctrl+/)自动收录 ② 作用域过滤(输入框聚焦不触发)
-  //   ③ 跨平台 modifier 处理 ④ 与其他快捷键统一 preventDefault
-  // - 快捷键:Ctrl+Shift+P(Win/Linux)/ Cmd+Shift+P(Mac)
-  // - Mac 兼容性(2026-07-30 已完成):matchShortcut 在 Mac 上 wantCtrl 接受 ctrlKey || metaKey(Cmd),
-  //   Mac 用户按 Cmd+Shift+P 能正常触发,与 Tooltip 显示 ⌘⇧P 一致(VS Code 标准行为)
-  React.useEffect(() => {
-    const onOpenPlus = () => {
-      // 关闭时打开 / 打开时关闭(切换语义,与 VS Code 命令面板行为一致)
-      setPlusOpen((o) => {
-        if (!o && plusRef.current) {
-          const r = plusRef.current.getBoundingClientRect()
-          setPlusRect({ top: r.bottom + 4, left: r.left })
-        }
-        return !o
-      })
-    }
-    window.addEventListener('global-shortcut:open-plus', onOpenPlus)
-    return () => window.removeEventListener('global-shortcut:open-plus', onOpenPlus)
-  }, [])
+  // 2026-09-09 1-6 统一命令面板:Ctrl+Shift+P(open-plus 事件)改由 GlobalHooksProvider
+  // 转发到统一 CommandPalette(命令注册表 21 项 + MRU),GlobalTopBar 不再监听,
+  // 避免双面板同时打开。Plus 按钮的鼠标点击弹窗(下方 onClick)保留原交互。
 
   // Plus 弹窗:↑↓←→ 九宫格导航 / Enter 确认 / Esc 关闭(合并到单一监听器,避免多个 keydown)
   // 2026-07-30 九宫格改造:↓↑ 按行跳(±3 列数),←→ 按列跳(±1),环形回绕适配过滤后非 9 项场景

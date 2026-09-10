@@ -39,7 +39,7 @@ export function FaqContent(): React.JSX.Element {
   const t = useTranslations('faq')
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-4 min-[768px]:px-8">
+    <main className="mx-auto w-full max-w-5xl px-4 py-4">
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
@@ -91,7 +91,7 @@ export function FaqContent(): React.JSX.Element {
                   return (
                     <details
                       key={item.id}
-                      className="group rounded-xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md min-[768px]:p-5"
+                      className="group rounded-xl border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
                     >
                       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                         <h3 className="text-sm font-semibold min-[768px]:text-base">
@@ -112,7 +112,7 @@ export function FaqContent(): React.JSX.Element {
       </div>
 
       {/* CTA */}
-      <section className="mt-16 rounded-2xl border bg-primary/5 p-8 text-center min-[768px]:p-12">
+      <section className="mt-16 rounded-2xl border bg-primary/5 p-3 text-center">
         <MessageCircle className="mx-auto h-10 w-10 text-primary" />
         <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           {t('ctaTitle')}

@@ -33,7 +33,7 @@ export function ProductsContent(): React.JSX.Element {
   const t = useTranslations('products')
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-4 min-[768px]:px-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-4">
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
@@ -57,7 +57,7 @@ export function ProductsContent(): React.JSX.Element {
             `${t('buySubject')} ${title}`,
           )}`
           return (
-            <Card key={id} className="relative flex flex-col p-4 min-[768px]:p-6">
+            <Card key={id} className="relative flex flex-col p-3">
               {popular && <Badge className="absolute right-4 top-4">{t('popular')}</Badge>}
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Icon className="h-5 w-5 text-primary" />
@@ -84,7 +84,7 @@ export function ProductsContent(): React.JSX.Element {
       </section>
 
       {/* CTA */}
-      <section className="mt-16 rounded-2xl border bg-primary/5 p-8 text-center min-[768px]:p-12">
+      <section className="mt-16 rounded-2xl border bg-primary/5 p-3 text-center">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
         <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           {t('ctaTitle')}

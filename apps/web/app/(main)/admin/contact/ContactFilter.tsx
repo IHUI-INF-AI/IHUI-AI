@@ -20,7 +20,7 @@ interface Props {
 export function ContactFilter({ search, setSearch, onSearch, onReset }: Props) {
   const t = useTranslations('adminContact')
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       {FIELDS.map((f) => (
         <div key={f.key} className="space-y-1">
           <Label className="text-xs">{t(f.label)}</Label>

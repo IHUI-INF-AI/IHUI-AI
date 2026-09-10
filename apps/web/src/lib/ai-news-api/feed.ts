@@ -123,6 +123,8 @@ export async function fetchAiFeedHot(limit = 10): Promise<
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 8000)
     try {
+      // 2026-09-09 0-5-f 豁免确认:第三方 aihot API,响应非平台统一 code 包装,
+      // 且带自定义 User-Agent/Accept 头与 no-store 缓存语义;fetchApi 不适用第三方 API。
       const res = await fetch(url, {
         headers: { 'User-Agent': AIHOT_UA, Accept: 'application/json' },
         signal: controller.signal,

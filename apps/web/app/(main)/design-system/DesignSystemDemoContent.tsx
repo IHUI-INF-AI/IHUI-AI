@@ -88,7 +88,7 @@ function Section({
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
       <Card>
-        <CardContent className="p-5 min-[640px]:p-5">{children}</CardContent>
+        <CardContent className="p-3">{children}</CardContent>
       </Card>
     </section>
   )
@@ -96,7 +96,7 @@ function Section({
 
 export function DesignSystemDemoContent() {
   return (
-    <Container maxWidth="xl" padding={false} className="space-y-6 py-6">
+    <Container maxWidth="xl" padding={false} className="px-4 py-4 space-y-6">
       <BackButton />
       <header className="space-y-1 px-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">

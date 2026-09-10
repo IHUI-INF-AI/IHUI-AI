@@ -85,14 +85,14 @@ export default function ClawdbotToolsPage() {
   }
   if (error) {
     return (
-      <div className="p-4">
+      <div className="p-3">
         <Alert variant="danger" title="加载失败" description={error} />
       </div>
     )
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <Wrench className="h-6 w-6 text-primary" /> 工具管理
@@ -151,7 +151,7 @@ export default function ClawdbotToolsPage() {
         </div>
       </div>
 
-      <div className="space-y-2 rounded-lg border bg-card p-4">
+      <div className="space-y-2 rounded-lg border bg-card p-3">
         <Label>测试参数 (JSON)</Label>
         <Input
           value={paramsText}
@@ -162,7 +162,7 @@ export default function ClawdbotToolsPage() {
 
       {result && (
         <div
-          className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-3"
           tabIndex={0}
           onClick={() => setResult(null)}
           onKeyDown={(e) => {
@@ -179,7 +179,7 @@ export default function ClawdbotToolsPage() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="space-y-3 p-4 text-sm">
+            <div className="space-y-3 p-3 text-sm">
               <div className="flex items-center gap-2">
                 <span
                   className={cn(

@@ -15,9 +15,9 @@ const SheetClose = DialogPrimitive.Close
 
 const sheetSideVariants = cva(
   // 2026-07-31 移动端适配:padding/gap 按断点渐进放大
-  //   - 默认(移动端):p-4 gap-3,sm(≥375px)及以上:p-6 gap-4
+  //   - 默认(移动端):p-3 gap-3,sm(≥375px)及以上:p-3 gap-4
   //   - left/right 在 < sm 时占 w-[90vw] 充分利用移动端视口,sm 起恢复 w-3/4 + max-w-sm
-  'fixed z-modal flex flex-col gap-3 bg-background p-4 shadow-lg transition data-[state=closed]:duration-(--duration-unified) data-[state=open]:duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out min-[640px]:gap-4 min-[640px]:p-6',
+  'fixed z-modal flex flex-col gap-3 bg-background p-3 shadow-lg transition data-[state=closed]:duration-(--duration-unified) data-[state=open]:duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out min-[640px]:gap-4',
   {
     variants: {
       side: {

@@ -28,7 +28,7 @@ export default function CartePage() {
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
-          <div className="bg-gradient-to-b from-[#f4f4fb] to-[#9395e4] p-6 text-center">
+          <div className="bg-gradient-to-b from-[#f4f4fb] to-[#9395e4] p-3 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={AVATAR_IMAGE}
@@ -38,7 +38,7 @@ export default function CartePage() {
             <h2 className="text-base font-medium text-black">AI智汇社 | 私董会创始人 | 李总</h2>
             <p className="mt-1 text-sm text-black/70">{t('recommend')}</p>
           </div>
-          <div className="space-y-4 p-6 text-center">
+          <div className="space-y-4 p-3 text-center">
             <p className="text-sm font-medium">{t('inviteHint')}</p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={QR_IMAGE} alt="" className="mx-auto w-48" />

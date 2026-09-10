@@ -103,7 +103,7 @@ export default function InvitationsPage() {
   const invitees = inviteesQ.data ?? []
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <BackButton />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
@@ -142,7 +142,7 @@ export default function InvitationsPage() {
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             {codes.map((c) => (
               <Card key={c.id} className="transition-colors hover:bg-accent">
-                <CardContent className="space-y-2 p-4">
+                <CardContent className="space-y-2 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <code className="rounded bg-muted/50 px-2 py-0.5 font-mono text-sm">
                       {c.code}

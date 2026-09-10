@@ -97,7 +97,7 @@ export default function VersionsPage() {
             const cls = STATUS_CLS[v.status]
             return (
               <Card key={v.id}>
-                <CardContent className="p-4">
+                <CardContent className="p-3">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                       <span className="rounded-md border px-2 py-0.5 font-mono text-sm font-semibold">

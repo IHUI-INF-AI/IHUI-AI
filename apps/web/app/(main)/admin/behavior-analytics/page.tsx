@@ -138,7 +138,7 @@ export default function BehaviorAnalyticsPage() {
   const maxRank = rank.length > 0 ? Math.max(...rank.map((r) => r.count)) : 1
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>

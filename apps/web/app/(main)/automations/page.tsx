@@ -144,7 +144,7 @@ export default function AutomationsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 p-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">{t('title')}</h1>
@@ -186,7 +186,7 @@ export default function AutomationsPage() {
           {items.map((a) => (
             <div
               key={a.id}
-              className="rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted/30"
+              className="rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted/30"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1 space-y-1.5">

@@ -34,7 +34,7 @@ export default function AppCard({
   const t = useTranslations('a11y')
   const a = app ?? { id: '', name: '', desc: '', status: 'active' as const }
   return (
-    <div className={cn('rounded-xl border bg-card p-4 text-card-foreground shadow', className)}>
+    <div className={cn('rounded-xl border bg-card p-3 text-card-foreground shadow', className)}>
       <div className="flex items-center justify-between">
         <button
           type="button"

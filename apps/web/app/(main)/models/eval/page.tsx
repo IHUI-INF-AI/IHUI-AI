@@ -875,7 +875,7 @@ function RunDetailDialog({ run, onClose }: RunDetailDialogProps) {
         ) : detail ? (
           <div className="space-y-4">
             {/* summary */}
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
               <h4 className="mb-2 text-xs font-medium text-muted-foreground">
                 {t('eval.runs.detail.summary')}
               </h4>

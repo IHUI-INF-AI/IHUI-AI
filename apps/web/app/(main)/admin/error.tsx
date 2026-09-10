@@ -32,7 +32,7 @@ export default function AdminError({
   }, [error])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto p-4 text-center">
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto p-3 text-center">
       <ShieldAlert className="h-12 w-12 text-destructive" />
       <div className="space-y-1">
         <h1 className="text-xl font-semibold">管理后台发生错误</h1>

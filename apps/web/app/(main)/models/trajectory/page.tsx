@@ -254,7 +254,7 @@ function LoadingSkeleton({ t }: { t: ReturnType<typeof useTranslations<'models'>
       <div className="space-y-3">
         {Array.from({ length: 5 }).map((_, i) => (
           <Card key={i}>
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 animate-pulse rounded-lg bg-muted" />
                 <div className="flex-1 space-y-2">
@@ -360,7 +360,7 @@ export default function TrajectoryPage() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-4 py-4">
+      <div className="px-4 space-y-4 py-4">
         <BackButton />
 
         {/* 标题 */}
@@ -414,7 +414,7 @@ export default function TrajectoryPage() {
                       <div className="space-y-3 py-4">
                         {Array.from({ length: 2 }).map((_, i) => (
                           <Card key={i}>
-                            <CardContent className="p-4">
+                            <CardContent className="p-3">
                               <div className="space-y-2">
                                 <div className="h-4 w-32 animate-pulse rounded bg-muted" />
                                 <div className="h-16 w-full animate-pulse rounded bg-muted" />

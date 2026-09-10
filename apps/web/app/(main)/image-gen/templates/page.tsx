@@ -73,7 +73,7 @@ export default function ImageGenTemplatesPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/image-gen"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -126,7 +126,7 @@ export default function ImageGenTemplatesPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : templates.length === 0 ? (
@@ -152,7 +152,7 @@ export default function ImageGenTemplatesPage() {
                   />
                 </div>
               ) : null}
-              <CardContent className="space-y-2 p-4">
+              <CardContent className="space-y-2 p-3">
                 <div className="flex items-start gap-2">
                   <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <h3 className="flex-1 truncate text-sm font-medium">{tpl.title}</h3>

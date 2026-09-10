@@ -62,7 +62,7 @@ export default function SpecDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 min-[768px]:py-24 text-muted-foreground">
+      <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         加载中…
       </div>
@@ -72,7 +72,7 @@ export default function SpecDetailPage() {
   if (error || !spec) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 py-8">
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4" />
           {error ? '加载失败,请稍后重试' : '未找到该 Spec'}
         </div>
@@ -87,7 +87,7 @@ export default function SpecDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-7xl space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link

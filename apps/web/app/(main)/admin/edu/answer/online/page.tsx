@@ -173,7 +173,7 @@ function AnswerOnlineContent() {
             <div className="space-y-3">
               {questions.map((q, idx) => (
                 <Card key={q.id}>
-                  <CardContent className="p-4">
+                  <CardContent className="p-3">
                     <div className="mb-2 flex items-start justify-between gap-2">
                       <div>
                         <span className="mr-2 text-xs text-muted-foreground">
@@ -209,7 +209,7 @@ export default function EduAnswerOnlinePage() {
   return (
     <React.Suspense
       fallback={
-        <div className="flex items-center justify-center py-12 min-[768px]:py-20 text-muted-foreground">
+        <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
         </div>

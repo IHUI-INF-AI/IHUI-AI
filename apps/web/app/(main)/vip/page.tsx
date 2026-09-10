@@ -92,7 +92,7 @@ export default function VipPage() {
   const popularIdx = levels.length > 1 ? Math.floor(levels.length / 2) : 0
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1 text-center">
         <h1 className="flex items-center justify-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -104,7 +104,7 @@ export default function VipPage() {
 
       {/* 立即购买 VIP — 跳转收款落地页(支付宝支付) */}
       {!myVip && (
-        <div className="flex flex-col items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-50/40 p-4 min-[640px]:flex-row">
+        <div className="flex flex-col items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-50/40 p-3 min-[640px]:flex-row">
           <div className="flex items-center gap-2 text-sm">
             <Sparkles className="h-4 w-4 shrink-0 text-amber-500" />
             <span className="font-medium text-amber-700">{t('limitedOffer')}</span>
@@ -131,7 +131,7 @@ export default function VipPage() {
 
       {myVip ? (
         <Card className="border-amber-500/40 bg-amber-50/40">
-          <CardContent className="flex flex-col gap-2 p-4 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
+          <CardContent className="flex flex-col gap-2 p-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">{t('currentLevel')}</p>
               <p className="flex items-center gap-2 text-base font-semibold">
@@ -164,7 +164,7 @@ export default function VipPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : levels.length === 0 ? (
@@ -191,10 +191,10 @@ export default function VipPage() {
                     {t('popular')}
                   </span>
                 )}
-                <CardHeader className="p-4 min-[640px]:p-6 pb-3">
+                <CardHeader className="p-3 pb-3">
                   <CardTitle className="text-xl">{level.levelName}</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-1 flex-col p-4 min-[640px]:p-6 pt-0">
+                <CardContent className="flex flex-1 flex-col p-3 pt-0">
                   <div className="mb-4 flex flex-wrap items-baseline gap-1">
                     <span className="text-2xl min-[768px]:text-3xl font-bold">
                       {formatCNY(level.price)}

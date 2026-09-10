@@ -21,7 +21,7 @@ export default function ServicesPage() {
   return (
     <>
       <ServicesContent />
-      <section className="mx-auto w-full max-w-2xl px-4 pb-16 min-[768px]:px-8">
+      <section className="mx-auto w-full max-w-2xl px-4 pb-16">
         <Suspense fallback={null}>
           <InquiryForm />
         </Suspense>

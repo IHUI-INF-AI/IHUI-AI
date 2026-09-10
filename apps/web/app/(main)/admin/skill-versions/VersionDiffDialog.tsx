@@ -58,7 +58,7 @@ export function VersionDiffDialog({
 
         <div className="max-h-96 overflow-auto rounded-md border text-xs font-mono">
           {diffLines.length === 0 && (
-            <div className="p-4 text-center text-muted-foreground">两个版本内容相同</div>
+            <div className="p-3 text-center text-muted-foreground">两个版本内容相同</div>
           )}
           {diffLines.map((line, idx) => (
             <div

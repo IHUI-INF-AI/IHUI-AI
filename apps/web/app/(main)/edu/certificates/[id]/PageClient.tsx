@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { ArrowLeft, Award, Loader2, Download, Printer } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { fetchApi, fetchRaw } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -62,9 +62,9 @@ export default function EduCertificateDetailPage() {
     if (!data) return
     setDownloading(true)
     try {
-      const res = await fetch(`/api/edu/certificates/${id}/download`, { method: 'POST' })
-      if (!res.ok) throw new Error(t('downloadFailed', { status: res.status }))
-      const blob = await res.blob()
+      // 2026-09-09 0-5 直接 fetch 清单化迁移:blob 下载走共享 fetchRaw,
+      // 鉴权/CSRF/设备指纹/超时由共享层统一承担(失败自动抛错,走 catch 降级打印)。
+      const blob = await fetchRaw(`/api/edu/certificates/${id}/download`, { method: 'POST' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -90,7 +90,7 @@ export default function EduCertificateDetailPage() {
 
   if (error || !data) {
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4">
         <button
           type="button"
           onClick={() => router.push('/edu/certificates')}
@@ -137,7 +137,7 @@ export default function EduCertificateDetailPage() {
           </span>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="mx-auto max-w-md space-y-4 rounded-lg border bg-gradient-to-br from-primary/5 to-transparent p-5 text-center min-[768px]:p-8">
+          <div className="mx-auto max-w-md space-y-4 rounded-lg border bg-gradient-to-br from-primary/5 to-transparent p-3 text-center">
             <p className="text-lg font-semibold">{cert.recipientName}</p>
             <p className="text-sm text-muted-foreground">{t('completed')}</p>
             <p className="text-base font-medium">{cert.courseName ?? cert.name}</p>

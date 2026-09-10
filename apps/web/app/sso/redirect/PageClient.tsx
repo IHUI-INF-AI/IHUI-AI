@@ -73,6 +73,9 @@ export default function SsoRedirectPageClient() {
         const base = detectApiBaseUrl()
 
         // P2-18:登录态校验改走 /auth/me(httpOnly cookie 自动附带),不再读 document.cookie
+        // 2026-09-09 0-5-f 豁免确认:SSO 认证自举场景——401 即"未登录需跳登录页"的
+        // 业务信号,若走 fetchApi 会触发 401 自动续期(此场景无有效 refresh token,徒增
+        // 一次必失败的 /auth/refresh 请求);X-Requested-With 已显式满足后端 CSRF 校验。
         const meRes = await fetch(`${base}/api/auth/me`, {
           method: 'GET',
           headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -90,6 +93,7 @@ export default function SsoRedirectPageClient() {
 
         // P2-18:不拼 Bearer header,靠 httpOnly cookie 认证;
         // 状态变更方法走 cookie 认证需 X-Requested-With 满足后端 CSRF 校验
+        // 0-5-f 豁免同上:SSO 认证自举链路,不走 fetchApi 的 401 自动续期。
         const resp = await fetch(`${base}/api/auth/sso/code`, {
           method: 'POST',
           headers: {
@@ -150,7 +154,7 @@ export default function SsoRedirectPageClient() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto">
+    <div className="px-4 py-4 flex min-h-0 flex-1 items-center justify-center overflow-y-auto">
       <div className="text-center space-y-2">
         <Loader2 className="inline-block h-6 w-6 animate-spin text-muted-foreground" />
         <p className="text-muted-foreground text-sm">正在跳转...</p>

@@ -103,7 +103,7 @@ export default function ActivitiesPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : data && data.length > 0 ? (
@@ -132,7 +132,7 @@ export default function ActivitiesPage() {
                     />
                   </div>
                 )}
-                <CardContent className="flex flex-1 flex-col gap-3 p-4">
+                <CardContent className="flex flex-1 flex-col gap-3 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <h2 className="text-base font-semibold">{a.title}</h2>
                     <span

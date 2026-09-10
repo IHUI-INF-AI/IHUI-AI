@@ -131,7 +131,7 @@ export default function SubagentDetailClient() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <button
         type="button"
         onClick={() => router.push('/subagents')}
@@ -142,7 +142,7 @@ export default function SubagentDetailClient() {
       </button>
 
       <Card>
-        <CardHeader className="p-4">
+        <CardHeader className="p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1 space-y-1">
               <CardTitle className="truncate text-base" title={dispatch?.goal ?? `派单 ${id}`}>
@@ -188,7 +188,7 @@ export default function SubagentDetailClient() {
             )}
           </div>
         </CardHeader>
-        <CardContent className="p-4 pt-0">
+        <CardContent className="p-3 pt-0">
           {!dispatch ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               {activeQ.isLoading ? '加载中...' : '派单不存在或已结束(不在活跃列表)'}
@@ -228,10 +228,10 @@ export default function SubagentDetailClient() {
 
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
         <Card>
-          <CardHeader className="p-4">
+          <CardHeader className="p-3">
             <CardTitle className="text-sm">DAG 可视化</CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
+          <CardContent className="p-3 pt-0">
             {dagQ.isLoading ? (
               <div className="flex items-center justify-center py-10 text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -244,10 +244,10 @@ export default function SubagentDetailClient() {
         </Card>
 
         <Card>
-          <CardHeader className="p-4">
+          <CardHeader className="p-3">
             <CardTitle className="text-sm">资源配额</CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
+          <CardContent className="p-3 pt-0">
             {quotasQ.isLoading || !quotasQ.data ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
                 {quotasQ.isLoading ? '加载中...' : '无配额数据'}

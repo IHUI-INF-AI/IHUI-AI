@@ -52,7 +52,7 @@ export function StudyPlanToolbar({
 }) {
   return (
     <Card>
-      <CardContent className="flex flex-wrap items-center gap-3 p-4">
+      <CardContent className="flex flex-wrap items-center gap-3 p-3">
         {/* Term selector */}
         <div className="flex items-center gap-2">
           <School className="h-4 w-4 text-muted-foreground" />

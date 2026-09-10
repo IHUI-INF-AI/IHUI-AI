@@ -11,6 +11,8 @@ interface BadgeProps {
   variant?: BadgeVariant
   children: React.ReactNode
   className?: string
+  /** 悬停提示(原生 title 属性) */
+  title?: string
 }
 
 const variantMap: Record<BadgeVariant, string> = {
@@ -21,9 +23,10 @@ const variantMap: Record<BadgeVariant, string> = {
   danger: 'bg-red-500/10 text-red-600 dark:text-red-500',
 }
 
-export function Badge({ variant = 'default', children, className }: BadgeProps) {
+export function Badge({ variant = 'default', children, className, title }: BadgeProps) {
   return (
     <span
+      title={title}
       className={cn(
         'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium',
         variantMap[variant],

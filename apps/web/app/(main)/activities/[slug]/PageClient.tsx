@@ -112,7 +112,7 @@ export default function ActivityDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -124,7 +124,7 @@ export default function ActivityDetailPage() {
   const mut = a.joined ? leaveMut : joinMut
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
+    <div className="py-4 mx-auto w-full max-w-4xl space-y-4 px-4">
       <button
         type="button"
         onClick={() => router.push('/activities')}
@@ -146,7 +146,7 @@ export default function ActivityDetailPage() {
         )}
       </div>
 
-      <div className="space-y-4 rounded-lg border bg-card p-5">
+      <div className="space-y-4 rounded-lg border bg-card p-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{a.title}</h1>

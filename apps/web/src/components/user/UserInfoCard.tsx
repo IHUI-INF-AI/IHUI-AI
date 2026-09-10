@@ -24,7 +24,7 @@ export default function UserInfoCard({
   className,
 }: UserInfoCardProps): React.JSX.Element {
   return (
-    <div className={cn('rounded-xl border bg-card p-5 text-card-foreground shadow', className)}>
+    <div className={cn('rounded-xl border bg-card p-3 text-card-foreground shadow', className)}>
       {title && <h3 className="mb-3 text-base font-medium">{title}</h3>}
       <dl className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
         {fields.map((f) => (

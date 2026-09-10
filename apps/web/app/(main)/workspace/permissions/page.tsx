@@ -56,7 +56,7 @@ export default function WorkspacePermissionsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <div className="flex items-center gap-3">
         <Link
           href="/workspace"
@@ -93,7 +93,7 @@ export default function WorkspacePermissionsPage() {
             return (
               <li
                 key={perm.id}
-                className="flex items-center gap-3 rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"
+                className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30"
               >
                 <ModeIcon className={cn('h-5 w-5 shrink-0', Mode.color)} />
                 <div className="flex-1 min-w-0 space-y-1">

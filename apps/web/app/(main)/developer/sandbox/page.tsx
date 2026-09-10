@@ -101,7 +101,7 @@ export default function SandboxPage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-3 p-4">
+        <CardContent className="space-y-3 p-3">
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={method}
@@ -188,7 +188,7 @@ export default function SandboxPage() {
 
       {resp && (
         <Card>
-          <CardContent className="space-y-3 p-4">
+          <CardContent className="space-y-3 p-3">
             <div className="flex items-center gap-3 pb-2">
               <span
                 className={cn(

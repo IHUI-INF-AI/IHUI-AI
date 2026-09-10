@@ -4,20 +4,22 @@
 
 """统一知识查询门面(PoC)。
 
-将四个独立的知识检索子系统聚合为一个统一入口,供 subagent / agent_loop 在
+将五个独立的知识检索子系统聚合为一个统一入口,供 subagent / agent_loop 在
 tool loop 里"一站式"查询外部知识,避免 hallucination + 减少重复 token 消耗:
 
 - codebase_indexer:  代码库语义检索(tree-sitter AST 切片 + embedding)
+- knowledge_cards:   仓库级知识卡片检索(2-1 任务经验沉淀,apps/api /search)
 - rag_service:       RAG 检索增强生成(向量检索 + rerank,本门面只取 retrieve 阶段)
 - graph:             知识图谱实体关系检索(NER 抽取 + 图谱匹配,语义关联补全)
 - long_term_memory:  跨会话历史摘要检索
 
 设计原则:
-1. 并发查询四源(asyncio.gather + return_exceptions=True),任一源失败不阻塞其他
+1. 并发查询各源(asyncio.gather + return_exceptions=True),任一源失败不阻塞其他
 2. IO 失败降级返回空 hits,错误记入 errors 字段,不抛异常
-3. 按 source_priority 排序聚合,默认 [codebase, rag, graph, long_term_memory]
+3. 按 source_priority 排序聚合,默认 [codebase, knowledge_cards, rag, graph, long_term_memory]
 4. user_id 为空时跳过 long_term_memory(该源需要 user_id 才能查),
-   graph 源按 owner 过滤同样依赖 user_id,为空时返回空 hits
+   graph 源按 owner 过滤同样依赖 user_id,为空时返回空 hits;
+   knowledge_cards 源需要 api_token(用户 JWT,走 api 侧登录态校验),为空时跳过
 5. 返回统一 KnowledgeHit 列表,content 已格式化为可注入 prompt 的字符串
 
 PoC 边界(§3 最小化):
@@ -48,13 +50,27 @@ from .rag import rag_service
 
 logger = logging.getLogger(__name__)
 
-# 默认源优先级(代码库优先 → RAG → 图谱 → 历史会话)
+# 默认源优先级(代码库优先 → 知识卡片 → RAG → 图谱 → 历史会话)
 # graph 置于 rag 之后:知识图谱按实体匹配 + 关联补全,提供 RAG 向量检索
 # 之外的实体关系语义视角,作为补充而非主力,故排在 rag 之后。
-DEFAULT_PRIORITY: list[str] = ["codebase", "rag", "graph", "long_term_memory"]
+# knowledge_cards 置于 codebase 之后:仓库级任务经验卡(2-1c 沉淀)与当前任务
+# 语义强相关,复用价值高于通用 RAG,优先注入。
+DEFAULT_PRIORITY: list[str] = [
+    "codebase",
+    "knowledge_cards",
+    "rag",
+    "graph",
+    "long_term_memory",
+]
 
 # 支持的源名称(用于校验 source_priority 参数)
-_SUPPORTED_SOURCES: set[str] = {"codebase", "rag", "graph", "long_term_memory"}
+_SUPPORTED_SOURCES: set[str] = {
+    "codebase",
+    "knowledge_cards",
+    "rag",
+    "graph",
+    "long_term_memory",
+}
 
 
 @dataclass
@@ -65,7 +81,7 @@ class KnowledgeHit:
     raw 保留原始返回(供 debug / 上层自定义格式化)。
     """
 
-    source: str  # "codebase" | "rag" | "graph" | "long_term_memory"
+    source: str  # "codebase" | "knowledge_cards" | "rag" | "graph" | "long_term_memory"
     score: float
     content: str
     raw: dict[str, Any] = field(default_factory=dict)
@@ -94,22 +110,25 @@ async def knowledge_lookup(
     *,
     user_id: Optional[str] = None,
     repo_id: Optional[str] = None,
+    repo_name: Optional[str] = None,
     session_id: Optional[str] = None,
     top_k_per_source: int = 5,
     source_priority: Optional[list[str]] = None,
     api_token: Optional[str] = None,
 ) -> KnowledgeLookupResult:
-    """统一知识查询门面:并发查四源,聚合为统一结果。
+    """统一知识查询门面:并发查各源,聚合为统一结果。
 
     Args:
         query: 自然语言查询(如"用户认证逻辑实现")。
         user_id: 用户 ID(long_term_memory 与 graph 需要;为空则跳过/返回空,不报错)。
         repo_id: 限定代码仓库(仅 codebase 用;为空则全局搜索)。
+        repo_name: 仓库名(仅 knowledge_cards 用;为空则跨仓库检索)。
         session_id: 限定会话(仅 RAG 用;为空则跨会话)。
         top_k_per_source: 每个源返回 top-K,默认 5。
-        source_priority: 源优先级排序,默认 ["codebase", "rag", "graph", "long_term_memory"]。
+        source_priority: 源优先级排序,
+            默认 ["codebase", "knowledge_cards", "rag", "graph", "long_term_memory"]。
             仅控制 hits 聚合顺序,不影响并发查询本身。
-        api_token: 调 codebase search API 的 JWT(可选,无 token 则匿名调用)。
+        api_token: 用户 JWT(codebase 与 knowledge_cards 需要;无 token 则跳过,不报错)。
 
     Returns:
         KnowledgeLookupResult 含 hits(按 priority 排序)+ errors + duration_ms。
@@ -137,6 +156,19 @@ async def knowledge_lookup(
                 query, repo_id=repo_id, top_k=top_k_per_source, api_token=api_token
             )
         )
+    if "knowledge_cards" in priority:
+        if api_token:
+            tasks["knowledge_cards"] = asyncio.create_task(
+                _query_knowledge_cards(
+                    query,
+                    repo_name=repo_name,
+                    top_k=top_k_per_source,
+                    api_token=api_token,
+                )
+            )
+        else:
+            # api_token 为空时跳过 knowledge_cards(走 api 侧登录态校验),记 info(非错误)
+            logger.info("[knowledge_lookup] api_token 为空,跳过 knowledge_cards 源")
     if "rag" in priority:
         tasks["rag"] = asyncio.create_task(
             _query_rag(query, session_id=session_id, top_k=top_k_per_source)
@@ -218,6 +250,77 @@ async def _query_codebase(
         )
         for c in chunks
     ]
+
+
+async def _query_knowledge_cards(
+    query: str,
+    *,
+    repo_name: Optional[str],
+    top_k: int,
+    api_token: Optional[str],
+) -> list[KnowledgeHit]:
+    """查 knowledge_cards(apps/api /search),返回 list[KnowledgeHit]。
+
+    - HTTP GET {api_service_url}/api/knowledge-cards/search,
+      带 Authorization: Bearer {api_token}(用户 JWT,走 api 侧登录态校验)
+    - api 侧为 title/content ILIKE 关键词匹配(q 上限 200 字符,超长截断;
+      limit 上限 50,超长截断)
+    - 响应 body.data 为卡片数组(2-1b 的 GET /search 返回 success(rows))
+    - IO 失败 / 非 200 / code != 0 一律降级返回 [](记 warning,不抛异常,
+      由门面统一聚合)
+    """
+    # 延迟导入:避免模块加载期的循环依赖风险(同 knowledge_card_extractor 模式)
+    from ..core.config import settings
+    from .api_client import get_api_client
+
+    params: dict[str, Any] = {"q": query[:200], "limit": min(top_k, 50)}
+    if repo_name:
+        params["repoName"] = repo_name
+
+    try:
+        client = get_api_client()
+        resp = await client.get(
+            f"{settings.api_service_url}/api/knowledge-cards/search",
+            params=params,
+            headers={"Authorization": f"Bearer {api_token}"},
+        )
+        if resp.status_code != 200:
+            logger.warning(
+                "[knowledge_lookup] knowledge_cards 检索 HTTP %s(降级返回空)",
+                resp.status_code,
+            )
+            return []
+        body = resp.json()
+        if body.get("code") != 0:
+            logger.warning(
+                "[knowledge_lookup] knowledge_cards 检索业务错误 %s(降级返回空)",
+                body.get("message", ""),
+            )
+            return []
+        items = body.get("data") or []
+    except Exception as e:  # noqa: BLE001 - 门面原则:IO 失败降级不抛
+        logger.warning(
+            "[knowledge_lookup] knowledge_cards 查询失败(降级返回空): %s", e
+        )
+        return []
+
+    hits: list[KnowledgeHit] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title", "")).strip()
+        # score 用卡片 confidence(0-100)归一到 0-1,与其他源量纲对齐
+        confidence = float(item.get("confidence", 0) or 0)
+        hits.append(
+            KnowledgeHit(
+                source="knowledge_cards",
+                score=round(confidence / 100.0, 4),
+                content=_format_knowledge_card(item),
+                raw=item,
+                citations=[f"知识卡片: {title}"] if title else [],
+            )
+        )
+    return hits
 
 
 async def _query_rag(
@@ -467,6 +570,27 @@ def _format_code_chunk(c: dict[str, Any]) -> str:
     le = c.get("line_end", "?")
     content = str(c.get("content", "")).strip()
     return f"[codebase:{sym_type} {sym}] {fp}:{ls}-{le}\n{content}"
+
+
+def _format_knowledge_card(item: dict[str, Any]) -> str:
+    """格式化知识卡片为带元信息头的字符串。
+
+    格式: [knowledge_card:kind] 标题 @repo [tag1, tag2]
+          卡片正文
+    """
+    title = str(item.get("title", "?"))
+    kind = str(item.get("kind", "experience"))
+    repo = str(item.get("repoName", "") or "").strip()
+    tags = item.get("tags") or []
+    content = str(item.get("content", "")).strip()
+    header = f"[knowledge_card:{kind}] {title}"
+    if repo:
+        header += f" @{repo}"
+    if tags:
+        tags_text = ", ".join(str(t) for t in tags if t)
+        if tags_text:
+            header += f" [{tags_text}]"
+    return f"{header}\n{content}" if content else header
 
 
 def _format_rag_source(s: Any) -> str:

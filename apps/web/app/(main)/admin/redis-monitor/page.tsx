@@ -76,7 +76,7 @@ export default function RedisMonitorPage() {
   const tp = p.reduce((a, x) => a + x.count, 0) || 1
   const bc = mp > 80 ? 'bg-red-500/70' : mp > 60 ? 'bg-amber-500/70' : 'bg-emerald-500/70'
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <Cpu className="h-6 w-6 text-primary" />
@@ -93,7 +93,7 @@ export default function RedisMonitorPage() {
         <StatCard title="命中率" value={`${o.hitRate}%`} icon={Target} loading={isLoading} />
         <StatCard title="OPS" value={nf.format(o.opsPerSec)} icon={Zap} loading={isLoading} />
       </div>
-      <section className="rounded-lg border p-4">
+      <section className="rounded-lg border p-3">
         <div className="flex items-center justify-between text-sm tabular-nums">
           <span className="text-muted-foreground">
             {nf.format(o.usedMemory)} / {nf.format(o.maxMemory)} MB · 命中 {nf.format(o.hits)}
@@ -104,7 +104,7 @@ export default function RedisMonitorPage() {
           <div className={cn('h-full rounded-md', bc)} style={{ width: `${Math.min(100, mp)}%` }} />
         </div>
       </section>
-      <section className="rounded-lg border p-4">
+      <section className="rounded-lg border p-3">
         <h2 className="text-base font-semibold">按前缀分布</h2>
         {p.length === 0 ? (
           <Empty />
@@ -129,7 +129,7 @@ export default function RedisMonitorPage() {
           </div>
         )}
       </section>
-      <section className="rounded-lg border p-4">
+      <section className="rounded-lg border p-3">
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <Server className="h-4 w-4 text-primary" />

@@ -291,7 +291,7 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
             <Empty title={t('noRating')} />
           ) : (
             <Card>
-              <CardContent className="flex items-center gap-4 p-4">
+              <CardContent className="flex items-center gap-4 p-3">
                 <div className="text-center">
                   <p className="text-2xl min-[768px]:text-3xl font-bold text-primary">
                     {rating.average}
@@ -343,7 +343,7 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
 
         <TabsContent value="certificate" className="mt-3">
           <Card>
-            <CardContent className="space-y-3 p-4 text-center">
+            <CardContent className="space-y-3 p-3 text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
                 <Award className="h-8 w-8 text-primary" />
               </div>
@@ -351,7 +351,7 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
               <p className="text-xs text-muted-foreground">
                 {certificate?.certificateNo ? t('certAcquired') : t('certPending')}
               </p>
-              <div className="rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 p-4">
+              <div className="rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 p-3">
                 <p className="text-xs text-muted-foreground">{t('certPreview')}</p>
                 <p className="mt-1 text-base font-semibold text-primary">{course.title}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">

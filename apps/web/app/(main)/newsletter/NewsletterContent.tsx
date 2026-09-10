@@ -67,7 +67,7 @@ export function NewsletterContent(): React.JSX.Element {
   const benefits = t.raw('benefits.items') as string[]
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-4 min-[768px]:px-8">
+    <main className="mx-auto w-full max-w-3xl px-4 py-4">
       <BackButton />
       {/* Hero */}
       <section className="text-center">
@@ -92,7 +92,7 @@ export function NewsletterContent(): React.JSX.Element {
 
       {status === 'success' ? (
         <Card className="mt-10 border-emerald-500/30">
-          <CardContent className="flex flex-col items-center gap-4 p-5 min-[768px]:p-8 text-center min-[640px]:p-5 min-[640px]:p-8">
+          <CardContent className="flex flex-col items-center gap-4 p-3 text-center">
             <CheckCircle2 className="h-10 w-10 text-emerald-500" />
             <h2 className="text-xl font-bold text-foreground">{t('success.title')}</h2>
             <p className="text-sm text-muted-foreground">{t('success.desc')}</p>
@@ -120,7 +120,7 @@ export function NewsletterContent(): React.JSX.Element {
         <div className="mt-10 grid grid-cols-1 gap-6 min-[768px]:grid-cols-5">
           {/* Benefits */}
           <Card className="border-border min-[768px]:col-span-2">
-            <CardContent className="p-5 min-[640px]:p-5">
+            <CardContent className="p-3">
               <h2 className="mb-3 text-sm font-semibold text-foreground">{t('benefits.title')}</h2>
               <ul className="space-y-2.5">
                 {benefits.map((b, idx) => (
@@ -135,7 +135,7 @@ export function NewsletterContent(): React.JSX.Element {
 
           {/* Form */}
           <Card className="border-border min-[768px]:col-span-3">
-            <CardContent className="p-5 min-[640px]:p-5">
+            <CardContent className="p-3">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="email">{t('form.email')}</Label>

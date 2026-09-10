@@ -76,7 +76,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
       {/* 总体摘要 */}
       <div
         className={cn(
-          'rounded-xl border p-4',
+          'rounded-xl border p-3',
           trace.success
             ? 'border-emerald-500/30 bg-emerald-500/5'
             : 'border-destructive/30 bg-destructive/5',
@@ -241,7 +241,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
 
       {/* 最终回复 */}
       {trace.final_response && (
-        <div className="rounded-xl border bg-card p-4">
+        <div className="rounded-xl border bg-card p-3">
           <p className="mb-1 text-xs font-medium text-muted-foreground">最终回复</p>
           <p className="whitespace-pre-wrap break-words text-sm">{trace.final_response}</p>
         </div>

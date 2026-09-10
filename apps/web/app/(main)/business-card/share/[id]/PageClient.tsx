@@ -131,7 +131,7 @@ export default function CardSharePage() {
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -149,7 +149,7 @@ export default function CardSharePage() {
         {t('backToList')}
       </Link>
 
-      <div className={cn('rounded-xl p-6 shadow-sm', TPL_STYLES[tpl] ?? TPL_STYLES.minimal)}>
+      <div className={cn('rounded-xl p-3 shadow-sm', TPL_STYLES[tpl] ?? TPL_STYLES.minimal)}>
         <div className="flex items-start gap-4">
           {card.avatar ? (
             <Image
@@ -206,7 +206,7 @@ export default function CardSharePage() {
       </div>
 
       <Card>
-        <CardContent className="flex flex-col items-center gap-4 p-6 min-[640px]:flex-row min-[640px]:justify-between min-[640px]:p-6">
+        <CardContent className="flex flex-col items-center gap-4 p-3 min-[640px]:flex-row min-[640px]:justify-between">
           <div className="flex flex-col items-center gap-2">
             <div className="rounded-lg border p-2">
               <Image

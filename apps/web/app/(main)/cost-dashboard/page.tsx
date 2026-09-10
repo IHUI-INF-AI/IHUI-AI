@@ -138,7 +138,7 @@ export default function CostDashboardPage() {
         <>
           {/* 聚合卡片 */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Coins className="h-3.5 w-3.5" /> {t('totalCost')}
               </div>
@@ -147,7 +147,7 @@ export default function CostDashboardPage() {
                 {t('estimatedCount', { count: summary.estimated_count })}
               </div>
             </div>
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Cpu className="h-3.5 w-3.5" /> {t('totalToken')}
               </div>
@@ -157,7 +157,7 @@ export default function CostDashboardPage() {
                 {summary.total_tokens_out.toLocaleString()}
               </div>
             </div>
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Timer className="h-3.5 w-3.5" /> {t('totalDuration')}
               </div>
@@ -166,7 +166,7 @@ export default function CostDashboardPage() {
                 {summary.window?.start ?? '—'} ~ {summary.window?.end ?? '—'}
               </div>
             </div>
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Activity className="h-3.5 w-3.5" /> {t('steps')}
               </div>
@@ -179,7 +179,7 @@ export default function CostDashboardPage() {
           </div>
 
           {/* 时间走势 */}
-          <div className="mt-4 rounded-xl border p-4">
+          <div className="mt-4 rounded-xl border p-3">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
               <TrendingUp className="h-4 w-4" />{' '}
               {t('costTokenTrend', { granularity: granularity === 'day' ? t('day') : t('hour') })}
@@ -225,7 +225,7 @@ export default function CostDashboardPage() {
 
           {/* by_tool / by_model */}
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
                 <Wrench className="h-4 w-4" /> {t('byTool')}
               </h2>
@@ -249,7 +249,7 @@ export default function CostDashboardPage() {
                 </ul>
               )}
             </div>
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
                 <Cpu className="h-4 w-4" /> {t('byModel')}
               </h2>

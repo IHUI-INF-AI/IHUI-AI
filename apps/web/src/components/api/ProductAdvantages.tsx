@@ -37,7 +37,7 @@ export default function ProductAdvantages({
       )}
     >
       {advantages.map((a, i) => (
-        <div key={i} className="rounded-xl border bg-card p-5 text-card-foreground shadow">
+        <div key={i} className="rounded-xl border bg-card p-3 text-card-foreground shadow">
           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
             {a.icon ?? <span className="text-base font-bold">{i + 1}</span>}
           </div>

@@ -70,7 +70,7 @@ export function HotNews({ limit = 10, className }: HotNewsProps) {
 
   return (
     <Card className={cn('w-full', className)}>
-      <CardHeader className="flex-row items-center justify-between space-y-0 p-4 pb-2">
+      <CardHeader className="flex-row items-center justify-between space-y-0 p-3 pb-2">
         <CardTitle className="flex items-center gap-1.5 text-sm">
           <Flame className="h-4 w-4 text-orange-500" />
           {t('title')}
@@ -82,7 +82,7 @@ export function HotNews({ limit = 10, className }: HotNewsProps) {
           {t('more')}
         </Link>
       </CardHeader>
-      <CardContent className="p-4 pt-0">
+      <CardContent className="p-3 pt-0">
         {loading ? (
           <div className="space-y-1.5 p-2">
             {Array.from({ length: 5 }).map((_, i) => (

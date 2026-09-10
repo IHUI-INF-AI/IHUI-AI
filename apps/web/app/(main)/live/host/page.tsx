@@ -92,7 +92,7 @@ export default function LiveHostPage() {
       </div>
 
       <Card className="mb-4">
-        <CardContent className="space-y-3 p-4">
+        <CardContent className="space-y-3 p-3">
           <div className="space-y-1.5">
             <Label htmlFor="live-title">{t('titleLabel')}</Label>
             <Input
@@ -120,7 +120,7 @@ export default function LiveHostPage() {
 
       {created ? (
         <Card className="mb-4">
-          <CardContent className="space-y-2 p-4">
+          <CardContent className="space-y-2 p-3">
             <h3 className="text-sm font-medium">{t('streamInfo')}</h3>
             {created.pushUrl ? (
               <div className="flex items-center justify-between gap-2 rounded-md bg-secondary/50 px-3 py-2 text-sm">
@@ -160,7 +160,7 @@ export default function LiveHostPage() {
         <div className="space-y-3">
           {(myStreamsQ.data ?? []).map((stream) => (
             <Card key={stream.id}>
-              <CardContent className="flex items-center justify-between gap-3 p-4">
+              <CardContent className="flex items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <h4 className="truncate text-sm font-medium">{stream.title}</h4>
                   <p className="mt-0.5 text-xs text-muted-foreground">

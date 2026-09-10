@@ -73,7 +73,7 @@ export default function EduExamTakePage() {
 
   if (error || !data) {
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4">
         <button
           type="button"
           onClick={() => router.push('/edu/exam')}
@@ -105,7 +105,7 @@ export default function EduExamTakePage() {
 
   if (!q) {
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4">
         <Link
           href="/edu/exam"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -119,7 +119,7 @@ export default function EduExamTakePage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Link
           href="/edu/exam"
@@ -142,7 +142,7 @@ export default function EduExamTakePage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-4 p-4 min-[768px]:p-6 min-[640px]:p-6">
+        <CardContent className="space-y-4 p-3">
           <p className="text-sm font-medium">
             {t('questionProgress', { current: current + 1, total: questions.length })}
             <span className="ml-2 text-xs text-muted-foreground">

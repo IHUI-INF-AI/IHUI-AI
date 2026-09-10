@@ -200,7 +200,7 @@ export function DispatchSubagentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl gap-3 p-5">
+      <DialogContent className="max-w-2xl gap-3 p-3">
         <DialogHeader>
           <DialogTitle className="text-base">{tchat('dispatchSubagent')}</DialogTitle>
         </DialogHeader>

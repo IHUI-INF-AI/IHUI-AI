@@ -84,7 +84,7 @@ export default function StudentCenterPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="flex items-center justify-between space-y-1">
         <div className="space-y-1">
@@ -128,7 +128,7 @@ export default function StudentCenterPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : (
@@ -249,7 +249,7 @@ export default function StudentCenterPage() {
               {quickLinks.map(({ href, key, icon: Icon }) => (
                 <Link key={href} href={href}>
                   <Card className="transition-colors hover:bg-accent">
-                    <CardContent className="flex items-center gap-3 p-4">
+                    <CardContent className="flex items-center gap-3 p-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
                         <Icon className="h-5 w-5 text-primary" />
                       </div>

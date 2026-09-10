@@ -26,7 +26,7 @@ export default function H5SharePage(): React.JSX.Element {
   })
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-gradient-to-b from-muted/40 to-background">
+    <main className="px-4 py-4 flex min-h-0 flex-1 flex-col overflow-y-auto bg-gradient-to-b from-muted/40 to-background">
       <div className="mx-auto flex min-h-full w-full max-w-md flex-col">
         {isLoading ? (
           <LoadingView />
@@ -43,7 +43,7 @@ export default function H5SharePage(): React.JSX.Element {
 function LoadingView(): React.JSX.Element {
   const t = useTranslations('h5SharePage')
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-4 min-[768px]:px-6 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
       <p className="mt-4 text-sm text-muted-foreground">{t('loading')}</p>
     </div>
@@ -59,7 +59,7 @@ function ErrorView({
 }): React.JSX.Element {
   const t = useTranslations('h5SharePage')
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-5 min-[768px]:px-10 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center px-5 text-center">
       <AlertCircle className="mb-4 h-16 w-16 text-muted-foreground/40" />
       <p className="mb-6 text-sm text-muted-foreground">{message || t('errorDefault')}</p>
       <button
@@ -142,7 +142,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
           )}
         </header>
 
-        <div className="space-y-4 p-4">
+        <div className="space-y-4 p-3">
           <section>
             <div className="mb-1.5 text-xs font-medium text-muted-foreground">
               {t('questionLabel')}

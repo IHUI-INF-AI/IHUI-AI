@@ -678,7 +678,7 @@ export default function SchedulingPage() {
   }, [classes])
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <BackButton />
 
       <header className="space-y-1">
@@ -688,7 +688,7 @@ export default function SchedulingPage() {
 
       {/* Term Selector */}
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 p-4">
+        <CardContent className="flex flex-wrap items-center gap-3 p-3">
           <div className="flex items-center gap-2">
             <School className="h-4 w-4 text-muted-foreground" />
             <Select value={selectedTermId} onValueChange={setSelectedTermId}>
@@ -727,7 +727,7 @@ export default function SchedulingPage() {
         {/* ════════════ Tab 1: Rules ════════════ */}
         <TabsContent value="rules" className="space-y-4">
           <Card>
-            <CardContent className="flex flex-wrap items-center gap-3 p-4">
+            <CardContent className="flex flex-wrap items-center gap-3 p-3">
               <Button
                 size="sm"
                 onClick={() => {
@@ -868,7 +868,7 @@ export default function SchedulingPage() {
         {/* ════════════ Tab 2: Teacher Schedules ════════════ */}
         <TabsContent value="teachers" className="space-y-4">
           <Card>
-            <CardContent className="flex flex-wrap items-center gap-3 p-4">
+            <CardContent className="flex flex-wrap items-center gap-3 p-3">
               <Button
                 size="sm"
                 onClick={() => {

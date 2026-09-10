@@ -182,7 +182,7 @@ export default function AiCostPage() {
   ]
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -233,7 +233,7 @@ export default function AiCostPage() {
               const Icon = c.icon
               return (
                 <Card key={c.key}>
-                  <CardContent className="flex items-center gap-3 p-4">
+                  <CardContent className="flex items-center gap-3 p-3">
                     <div className={cn('rounded-md bg-muted p-2', c.cls)}>
                       <Icon className="h-4 w-4" />
                     </div>

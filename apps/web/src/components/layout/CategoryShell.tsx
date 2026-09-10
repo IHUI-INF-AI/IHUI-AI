@@ -160,7 +160,7 @@ export function CategoryShell({
                 <Menu className="h-4 w-4" />
               </button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[90vw] p-4 min-[640px]:w-72">
+            <SheetContent side="left" className="w-[90vw] p-3 min-[640px]:w-72">
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-sm font-semibold">{title}</p>
               </div>

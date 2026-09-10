@@ -10,7 +10,7 @@ import { Mic, Upload, FileAudio, Loader2, Play, X } from 'lucide-react'
 import { Button, Card, CardContent, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
-import { useAuthStore } from '@/stores/auth'
+import { fetchAiServiceJson } from '@/lib/api'
 
 const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8803'
 
@@ -46,44 +46,24 @@ function formatFileSize(bytes: number): string {
 
 /**
  * 直连 ai-service(8803)调用语音转写接口。
- * multipart/form-data 上传音频,需 JWT Bearer 鉴权。
- * Whisper 本地模型转写可能较慢,超时放宽至 90s。
+ * 2026-09-09 0-5 迁移:统一走 fetchAiServiceJson —— FormData 自动透传(共享层
+ * isFormData 检查,不强制 Content-Type,multipart 边界由浏览器生成),
+ * Bearer / CSRF / 设备指纹由共享层注入;Whisper 本地模型转写可能较慢,
+ * timeoutMs 放宽至 90s(替代原 AbortSignal.timeout(90_000))。
  */
-async function transcribeAudio(
-  file: File,
-  language: string,
-  token: string | null,
-): Promise<STTResponse> {
+async function transcribeAudio(file: File, language: string): Promise<STTResponse> {
   const fd = new FormData()
   fd.append('file', file)
   if (language && language !== 'auto') fd.append('language', language)
 
-  // multipart 边界由浏览器自动生成,不能手动设置 Content-Type
-  const headers: Record<string, string> = {}
-  if (token) headers.Authorization = `Bearer ${token}`
-
-  const res = await fetch(`${AI_SERVICE_URL}/api/voice/stt`, {
+  const res = await fetchAiServiceJson<unknown>(`${AI_SERVICE_URL}/api/voice/stt`, {
     method: 'POST',
-    headers,
     body: fd,
-    signal: AbortSignal.timeout(90_000),
+    timeoutMs: 90_000,
   })
+  if (!res.success) throw new Error(res.error ?? '语音转写请求失败')
 
-  let json: unknown = null
-  try {
-    json = await res.json()
-  } catch {
-    json = null
-  }
-
-  if (!res.ok) {
-    const message =
-      typeof json === 'object' && json !== null && 'message' in json
-        ? String((json as Record<string, unknown>).message)
-        : undefined
-    throw new Error(message ?? `语音转写请求失败:${res.status}`)
-  }
-
+  const json = res.data
   if (!isSTTResponse(json)) {
     throw new Error('语音转写返回格式异常')
   }
@@ -93,7 +73,6 @@ async function transcribeAudio(
 export default function VoiceSttPage() {
   const t = useTranslations('eduAi.stt')
   const tc = useTranslations('common')
-  const token = useAuthStore((s) => s.token)
 
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [file, setFile] = React.useState<File | null>(null)
@@ -136,7 +115,7 @@ export default function VoiceSttPage() {
     setError(null)
     setResult(null)
     try {
-      setResult(await transcribeAudio(file, language, token))
+      setResult(await transcribeAudio(file, language))
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -159,7 +138,7 @@ export default function VoiceSttPage() {
       </header>
 
       <Card>
-        <CardContent className="space-y-4 p-4 min-[768px]:p-6 min-[640px]:p-6">
+        <CardContent className="space-y-4 p-3">
           <input
             ref={fileInputRef}
             type="file"
@@ -171,7 +150,7 @@ export default function VoiceSttPage() {
 
           {/* 上传区:未选文件时显示空状态 */}
           {file ? (
-            <div className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
+            <div className="flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-start gap-2">
                   <FileAudio className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
@@ -253,7 +232,7 @@ export default function VoiceSttPage() {
         </div>
       ) : result ? (
         <Card>
-          <CardContent className="space-y-3 p-4">
+          <CardContent className="space-y-3 p-3">
             {result.stub && <Alert variant="warning" description={t('stubWarning')} />}
             <div className="space-y-2">
               <Label htmlFor="stt-result">{t('result')}</Label>

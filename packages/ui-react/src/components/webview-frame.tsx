@@ -214,7 +214,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
 
         {/* 外部打开 / 失败兜底 */}
         {(mode === 'external' || status === 'failed' || status === 'blocked') && (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
+          <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-3 text-center">
             {status === 'blocked' || status === 'failed' ? (
               <AlertTriangle className="h-8 w-8 text-amber-500" />
             ) : (

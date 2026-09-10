@@ -107,13 +107,13 @@ export default function ExportPage() {
 
   if (loading)
     return (
-      <div className="px-4">
+      <div className="px-4 py-4">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">导出 / 导入</h1>
@@ -181,7 +181,7 @@ export default function ExportPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div
-              className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-sm text-muted-foreground"
+              className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground"
               role="button"
               tabIndex={0}
               onClick={() => fileRef.current?.click()}

@@ -359,6 +359,10 @@ const KNOWLEDGE_CHILDREN: NavItem[] = [
   { href: '/knowledge-base', labelKey: 'knowledgeBase', icon: BookOpen },
   { href: '/knowledge-rag', labelKey: 'knowledgeRag', icon: Database },
   { href: '/knowledge-graph', labelKey: 'knowledgeGraph', icon: Network },
+  // 2026-09-10 2-1a:Repo Wiki 页(2026-09-07 MVP)补挂侧边栏入口
+  { href: '/repo-wiki', labelKey: 'repoWiki', icon: FileText },
+  // 2026-09-10 2-1b-fe:Knowledge Card 页(仓库级任务经验卡)
+  { href: '/knowledge-cards', labelKey: 'knowledgeCards', icon: NotebookPen },
 ]
 
 /**

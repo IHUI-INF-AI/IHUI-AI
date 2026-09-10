@@ -546,7 +546,7 @@ export default function GradesPage() {
   ]
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <BackButton />
 
       {/* Header */}
@@ -557,7 +557,7 @@ export default function GradesPage() {
 
       {/* Class/Subject Selector */}
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 p-4">
+        <CardContent className="flex flex-wrap items-center gap-3 p-3">
           <div className="flex items-center gap-2">
             <School className="h-4 w-4 text-muted-foreground" />
             <Select
@@ -903,7 +903,7 @@ export default function GradesPage() {
           {/* Stats Cards */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">平均分</span>
@@ -912,7 +912,7 @@ export default function GradesPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">最高分</span>
@@ -923,7 +923,7 @@ export default function GradesPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">最低分</span>
@@ -932,7 +932,7 @@ export default function GradesPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex items-center gap-2">
                   <Trophy className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">及格率</span>

@@ -95,7 +95,7 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
@@ -175,7 +175,7 @@ export default function WorkspacePage() {
       ) : error && !errorDismissed ? (
         <div
           role="alert"
-          className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4"
+          className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3"
         >
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
           <div className="min-w-0 flex-1 space-y-0.5">

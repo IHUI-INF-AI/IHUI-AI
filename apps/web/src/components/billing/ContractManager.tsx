@@ -79,13 +79,13 @@ export function ContractManager() {
       </div>
 
       {list.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-border p-3 text-center text-sm text-muted-foreground">
           {t('empty')}
         </div>
       ) : (
         <ul className="space-y-3">
           {list.map((c) => (
-            <li key={c.id} className="rounded-lg border border-border p-4">
+            <li key={c.id} className="rounded-lg border border-border p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">

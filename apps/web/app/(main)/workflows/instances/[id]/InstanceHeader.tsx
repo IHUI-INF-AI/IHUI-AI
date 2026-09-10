@@ -30,7 +30,7 @@ export function InstanceHeader({ inst, fmt, onBack }: Props) {
         {t('instanceDetail.backToWorkflow')}
       </button>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4">
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3">
         <span
           className={cn(
             'inline-flex rounded px-2 py-0.5 text-xs font-medium',

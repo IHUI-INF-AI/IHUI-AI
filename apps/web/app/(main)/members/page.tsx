@@ -56,7 +56,7 @@ export default function MembersPage() {
   }, [levels])
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <MembersHeader />
       <MembersFilter
         search={search}

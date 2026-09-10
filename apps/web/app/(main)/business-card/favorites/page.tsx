@@ -93,7 +93,7 @@ export default function CardFavoritesPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
@@ -110,7 +110,7 @@ export default function CardFavoritesPage() {
                 key={entry.favoriteId}
                 className="overflow-hidden transition-colors hover:bg-accent/40"
               >
-                <CardContent className="p-4">
+                <CardContent className="p-3">
                   <div className="flex items-start gap-3">
                     {card.avatar ? (
                       <Image

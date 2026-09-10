@@ -9,10 +9,10 @@ import { Card, CardContent } from './card'
  * StatCard / StatGrid（2026-08-12 立）
  *
  * 用途：dashboard 数字展示卡片（label + value，部分带 icon / trend）。
- * 根因：原本只用 <Card><CardContent className="p-3 min-[640px]:p-3">{...}</CardContent></Card> 写 stat card，
+ * 根因：原本只用 <Card><CardContent className="p-3">{...}</CardContent></Card> 写 stat card，
  *       但 CardContent 默认值是 pt-0 + pb-p-6/4（响应式不对称），
- *       自定义 p-3 被 min-[640px]:p-6 覆盖、pt-0 没被覆盖，结果宽屏下 label 贴顶 + value 底 24px 空白。
- * 修复：在 CardContent 默认值去掉 pt-0 改为全对称 p-4/p-6，pb 同时用 CardHeader 的 pb-0 对冲 Header+Content 间距。
+ *       自定义 p-3 被 覆盖、pt-0 没被覆盖，结果宽屏下 label 贴顶 + value 底 24px 空白。
+ * 修复：在 CardContent 默认值去掉 pt-0 改为全对称 p-3/p-3，pb 同时用 CardHeader 的 pb-0 对冲 Header+Content 间距。
  *       本组件作为最佳实践封装，避免后续再踩坑。
  *
  * 用法：
@@ -54,7 +54,7 @@ export function StatCard({
 }: StatCardProps) {
   return (
     <Card className={className} {...rest}>
-      <CardContent className="flex flex-col gap-1 p-4 min-[640px]:p-5">
+      <CardContent className="flex flex-col gap-1 p-3">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {icon}
           <span>{label}</span>

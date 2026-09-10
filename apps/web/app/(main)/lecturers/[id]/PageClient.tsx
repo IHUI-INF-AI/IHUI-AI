@@ -70,7 +70,7 @@ export default function LecturerDetailPageClient() {
 
   if (lecturerQuery.isLoading) {
     return (
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-center py-12 min-[768px]:py-20">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-center py-12">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
@@ -78,7 +78,7 @@ export default function LecturerDetailPageClient() {
 
   if (!lecturer) {
     return (
-      <div className="mx-auto w-full max-w-6xl space-y-4 py-12 min-[768px]:py-20 text-center">
+      <div className="mx-auto w-full max-w-6xl space-y-4 py-12 text-center">
         <PlayCircle className="mx-auto h-10 w-10 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t('notFound')}</p>
         <Link
@@ -93,7 +93,7 @@ export default function LecturerDetailPageClient() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <Link
         href="/lecturers"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -103,7 +103,7 @@ export default function LecturerDetailPageClient() {
       </Link>
 
       <Card>
-        <CardContent className="flex flex-col items-center gap-4 p-6 text-center min-[640px]:flex-row min-[640px]:text-left min-[640px]:p-6">
+        <CardContent className="flex flex-col items-center gap-4 p-3 text-center min-[640px]:flex-row min-[640px]:text-left">
           <Avatar
             src={lecturer.avatar ?? undefined}
             name={lecturer.name}
@@ -147,10 +147,10 @@ export default function LecturerDetailPageClient() {
                       </span>
                     )}
                   </div>
-                  <CardHeader className="p-4 min-[640px]:p-6 pb-2">
+                  <CardHeader className="p-3 pb-2">
                     <CardTitle className="text-base">{channel.title}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-1.5 p-4 pt-0 min-[640px]:p-6 min-[640px]:pt-0 text-sm">
+                  <CardContent className="space-y-1.5 p-3 pt-0 min-[640px]:pt-0 text-sm">
                     <p className="text-muted-foreground">
                       {channel.lecturerName ?? tl('unknownLecturer')}
                     </p>

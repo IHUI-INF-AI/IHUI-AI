@@ -74,7 +74,7 @@ export default function I18nComparePage() {
       </header>
 
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 p-4">
+        <CardContent className="flex flex-wrap items-center gap-3 p-3">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">语言 A</span>
             <select value={left} onChange={(e) => setLeft(e.target.value)} className={selectClass}>

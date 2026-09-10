@@ -106,7 +106,7 @@ export function LoginDialog() {
             <AuthShell
               onClose={close}
               hideCloseButton
-              className="w-full max-w-none rounded-none border-0 bg-transparent p-5 shadow-none"
+              className="w-full max-w-none rounded-none border-0 bg-transparent p-3 shadow-none"
             >
               {mode === 'login' ? (
                 <LoginWithTurnstile>

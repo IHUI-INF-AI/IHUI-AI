@@ -137,7 +137,7 @@ export default function CliImportPage() {
   }
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col py-4">
+    <Container maxWidth="full" padding={false} className="px-4 flex h-full flex-col py-4">
       <BackButton />
       {/* Header */}
       <header className="space-y-1 shrink-0">
@@ -153,7 +153,7 @@ export default function CliImportPage() {
 
         {/* Step 1: 选择来源 */}
         <Card>
-          <CardContent className="space-y-3 p-4">
+          <CardContent className="space-y-3 p-3">
             <p className="text-sm font-medium">{t('sources')}</p>
             {sourcesLoading ? (
               <div className="flex items-center text-xs text-muted-foreground">
@@ -190,10 +190,10 @@ export default function CliImportPage() {
         {/* Step 2: 文件上传 */}
         {source && (
           <Card>
-            <CardContent className="space-y-3 p-4">
+            <CardContent className="space-y-3 p-3">
               <p className="text-sm font-medium">{t('upload')}</p>
               <p className="text-xs text-muted-foreground">{t('uploadHint')}</p>
-              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed border-border p-6 text-center transition-colors hover:bg-accent">
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed border-border p-3 text-center transition-colors hover:bg-accent">
                 <FileUp className="h-6 w-6 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">{t('dragDrop')}</span>
                 <input
@@ -224,7 +224,7 @@ export default function CliImportPage() {
         {/* Step 3: 解析预览 + 提交 */}
         {preview && (
           <Card>
-            <CardContent className="space-y-3 p-4">
+            <CardContent className="space-y-3 p-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">{t('previewTitle')}</p>
                 <button
@@ -335,7 +335,7 @@ export default function CliImportPage() {
 
         {/* History */}
         <Card>
-          <CardContent className="space-y-3 p-4">
+          <CardContent className="space-y-3 p-3">
             <p className="flex items-center gap-2 text-sm font-medium">
               <History className="h-4 w-4 text-muted-foreground" />
               {t('historyTitle')}

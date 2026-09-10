@@ -85,7 +85,7 @@ export default function UserExamPage() {
             return (
               <li
                 key={e.id}
-                className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"
+                className="rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">

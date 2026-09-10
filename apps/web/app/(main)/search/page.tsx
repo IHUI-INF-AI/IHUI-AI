@@ -86,7 +86,7 @@ function SearchContent() {
   const total = users.length + projects.length + files.length
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-5">
       <BackButton />
       <SearchBar
         placeholder={tc('search')}

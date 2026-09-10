@@ -138,7 +138,7 @@ export default function DistributionCompanyPage() {
       </header>
 
       <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-3">
           <div className="flex items-center gap-3">
             {loading ? (
               <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
@@ -172,7 +172,7 @@ export default function DistributionCompanyPage() {
           const Icon = s.icon
           return (
             <Card key={s.label}>
-              <CardContent className="space-y-2 p-4">
+              <CardContent className="space-y-2 p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">{s.label}</span>
                   <Icon className={cn('h-4 w-4', s.tone)} />
@@ -193,7 +193,7 @@ export default function DistributionCompanyPage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-4 p-4">
+        <CardContent className="space-y-4 p-3">
           <div className="flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-base font-semibold">
               <Users className="h-4 w-4 text-primary" />

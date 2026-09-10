@@ -92,7 +92,8 @@ export function TiptapToolbar({ editor }: { editor: Editor }) {
       const file = input.files?.[0]
       if (!file) return
       try {
-        const result = await chunkUpload(file, '/api/upload/chunk')
+        // 2026-09-09 0-5 迁移:chunkUpload 签名去掉死端点参数(原 /api/upload/chunk 后端不存在)
+        const result = await chunkUpload(file)
         editor.chain().focus().setImage({ src: result.url }).run()
       } catch {
         const fallbackUrl = await prompt({

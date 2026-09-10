@@ -1730,6 +1730,13 @@
       "when": 1721340800000,
       "tag": "20260908010000_add_model_metadata_jsonb",
       "break": true
+    },
+    {
+      "idx": 248,
+      "version": "7",
+      "when": 1721427200000,
+      "tag": "20260910000000_agent_tasks_workspace_team",
+      "break": true
     }
   ]
 }

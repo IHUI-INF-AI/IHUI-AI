@@ -121,7 +121,7 @@ export default function ChatSharePage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : messages.length === 0 ? (
@@ -136,7 +136,7 @@ export default function ChatSharePage() {
             const Icon = isUser ? User : Bot
             return (
               <Card key={msg.id}>
-                <CardContent className="flex gap-3 p-4">
+                <CardContent className="flex gap-3 p-3">
                   <div
                     className={cn(
                       'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',

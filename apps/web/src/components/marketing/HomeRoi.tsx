@@ -180,7 +180,7 @@ export function HomeRoi() {
             <RevealOnView
               key={title}
               delay={0.06 * (i + 1)}
-              className="group relative flex flex-col items-center gap-1.5 overflow-hidden rounded-lg border bg-muted/30 p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:bg-primary/3 hover:shadow-xl hover:shadow-primary/5 min-[640px]:p-5"
+              className="group relative flex flex-col items-center gap-1.5 overflow-hidden rounded-lg border bg-muted/30 p-3 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:bg-primary/3 hover:shadow-xl hover:shadow-primary/5 min-[640px]:p-3"
             >
               {/* Ghost 编号 */}
               <span

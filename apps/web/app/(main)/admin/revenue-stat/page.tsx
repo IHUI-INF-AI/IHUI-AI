@@ -55,7 +55,7 @@ export default function RevenueStatPage() {
   const totalChannel = stats.byChannel.reduce((s, c) => s + c.amount, 0) || 1
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -119,7 +119,7 @@ export default function RevenueStatPage() {
         />
       </div>
 
-      <section className="space-y-3 rounded-lg border p-4">
+      <section className="space-y-3 rounded-lg border p-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">营收趋势</h2>
         </div>
@@ -159,7 +159,7 @@ export default function RevenueStatPage() {
         )}
       </section>
 
-      <section className="space-y-3 rounded-lg border p-4">
+      <section className="space-y-3 rounded-lg border p-3">
         <h2 className="text-base font-semibold">渠道营收占比</h2>
         {stats.byChannel.length === 0 ? (
           <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">

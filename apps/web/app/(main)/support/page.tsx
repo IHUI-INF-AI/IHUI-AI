@@ -14,7 +14,7 @@ export default function SupportPage() {
   const [tab, setTab] = React.useState<'list' | 'new'>('list')
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <div>
         <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">客服中心</h1>

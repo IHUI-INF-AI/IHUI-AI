@@ -76,7 +76,7 @@ export function HistoryPanel({ activeId, onSelect }: HistoryPanelProps) {
 
   if (!mounted || items.length === 0) return null
   return (
-    <div className="rounded-xl border p-4">
+    <div className="rounded-xl border p-3">
       <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
         <History className="h-4 w-4" aria-hidden="true" />
         {t('historyTitle')}

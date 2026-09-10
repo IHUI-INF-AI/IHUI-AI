@@ -76,7 +76,7 @@ export default function ColorsPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
@@ -95,7 +95,7 @@ export default function ColorsPage() {
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
         {list.map((c) => (
           <Card key={c.id}>
-            <CardContent className="space-y-3 p-4">
+            <CardContent className="space-y-3 p-3">
               <div className="flex items-center justify-between">
                 <p className="truncate text-sm font-semibold">{c.name}</p>
                 <div className="flex gap-1">
@@ -121,7 +121,7 @@ export default function ColorsPage() {
 
       {showForm && (
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <form onSubmit={save} className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">方案名称</Label>

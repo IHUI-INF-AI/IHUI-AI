@@ -67,7 +67,7 @@ export default function SubagentsListPage() {
   const dispatches = activeQ.data?.dispatches ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
@@ -90,10 +90,10 @@ export default function SubagentsListPage() {
 
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-[1fr_320px]">
         <Card>
-          <CardHeader className="p-4">
+          <CardHeader className="p-3">
             <CardTitle className="text-sm">活跃派单({dispatches.length})</CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
+          <CardContent className="p-3 pt-0">
             {activeQ.isLoading ? (
               <div className="flex items-center justify-center py-10 text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

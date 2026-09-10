@@ -42,7 +42,7 @@ function StatCard({
 }) {
   return (
     <Card>
-      <CardContent className="flex items-center gap-3 p-4">
+      <CardContent className="flex items-center gap-3 p-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
           <Icon className="h-5 w-5 text-foreground" />
         </div>
@@ -107,7 +107,7 @@ export default function ReviewPage() {
 
   if (loading) {
     return (
-      <div className="px-4 flex items-center justify-center py-16 min-[768px]:py-24 text-muted-foreground">
+      <div className="px-4 flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         加载中…
       </div>
@@ -116,7 +116,7 @@ export default function ReviewPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-3xl rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+      <div className="mx-auto max-w-3xl rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {error}
       </div>
     )
@@ -125,7 +125,7 @@ export default function ReviewPage() {
   const finished = !current
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -161,7 +161,7 @@ export default function ReviewPage() {
         </Card>
       ) : (
         <Card>
-          <CardContent className="space-y-4 p-4 min-[768px]:p-6 min-[640px]:p-6">
+          <CardContent className="space-y-4 p-3">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
                 第 {index + 1} / {reviews.length} 题
@@ -173,7 +173,7 @@ export default function ReviewPage() {
 
             <div className="space-y-2">
               <div className="text-xs text-muted-foreground">题目</div>
-              <div className="rounded-lg bg-muted/50 p-4 text-sm leading-relaxed">
+              <div className="rounded-lg bg-muted/50 p-3 text-sm leading-relaxed">
                 {current.question}
               </div>
             </div>
@@ -208,14 +208,14 @@ export default function ReviewPage() {
               <div className="space-y-3">
                 <div className="space-y-2">
                   <div className="text-xs text-muted-foreground">答案</div>
-                  <div className="rounded-lg bg-emerald-500/5 p-4 text-sm leading-relaxed">
+                  <div className="rounded-lg bg-emerald-500/5 p-3 text-sm leading-relaxed">
                     {current.answer}
                   </div>
                 </div>
                 {current.explanation && (
                   <div className="space-y-2">
                     <div className="text-xs text-muted-foreground">解析</div>
-                    <div className="rounded-lg bg-muted/50 p-4 text-sm leading-relaxed">
+                    <div className="rounded-lg bg-muted/50 p-3 text-sm leading-relaxed">
                       {current.explanation}
                     </div>
                   </div>

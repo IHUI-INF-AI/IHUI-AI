@@ -99,7 +99,7 @@ const MODULES: Module[] = [
 export default function EduHubPage() {
   const t = useTranslations('admin.edu.index')
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
@@ -111,7 +111,7 @@ export default function EduHubPage() {
           return (
             <Link key={m.href} href={m.href}>
               <Card className="transition-all hover:shadow-md hover:bg-accent">
-                <CardContent className="flex items-start gap-4 p-5 min-[640px]:p-5">
+                <CardContent className="flex items-start gap-4 p-3">
                   <div
                     className={cn(
                       'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white',

@@ -169,7 +169,7 @@ export function UploadDialog({
         {mode === 'file' ? (
           <div className="space-y-1.5">
             <label className="text-sm font-medium">{t('fileLabel')}</label>
-            <div className="rounded-md border border-dashed p-4">
+            <div className="rounded-md border border-dashed p-3">
               <input
                 type="file"
                 accept=".pdf,.docx,.md,.txt,.html,.htm"

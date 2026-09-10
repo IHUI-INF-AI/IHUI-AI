@@ -103,7 +103,7 @@ export function ModelsPricingContent(): React.JSX.Element {
   }, [data, keyword])
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-4 min-[768px]:px-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-4">
       <BackButton />
       <header className="space-y-2 text-center">
         <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
@@ -131,7 +131,7 @@ export function ModelsPricingContent(): React.JSX.Element {
             加载中...
           </div>
         ) : error ? (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
             {(error as Error).message}
           </div>
         ) : grouped.length === 0 ? (
@@ -141,7 +141,7 @@ export function ModelsPricingContent(): React.JSX.Element {
         ) : (
           grouped.map(([vendor, items]) => (
             <Card key={vendor}>
-              <CardHeader className="p-5 pb-3">
+              <CardHeader className="p-3 pb-3">
                 <CardTitle className="flex items-center justify-between gap-2 text-base">
                   <span className="min-w-0 truncate">{vendor}</span>
                   <span className="shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">
@@ -149,7 +149,7 @@ export function ModelsPricingContent(): React.JSX.Element {
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-5 pt-0 min-[640px]:p-5">
+              <CardContent className="p-3 pt-0">
                 <Table>
                   <TableHeader>
                     <TableRow>

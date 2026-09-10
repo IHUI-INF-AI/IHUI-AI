@@ -302,7 +302,7 @@ export default function RepoWikiPage() {
   )
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4">
+    <div className="px-4 py-4 mx-auto flex w-full max-w-5xl flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('description')}</p>

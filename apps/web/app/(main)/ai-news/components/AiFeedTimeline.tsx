@@ -232,7 +232,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
       className="overflow-hidden rounded-xl border bg-card shadow-sm"
     >
       {/* 头部 */}
-      <div className="space-y-3 p-6 pb-3">
+      <div className="space-y-3 p-3 pb-3">
         <div className="flex flex-row items-center justify-between gap-3">
           <div className="space-y-1">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
@@ -352,11 +352,11 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
 
       {/* 时间线列表 */}
       {dayGroups.length === 0 ? (
-        <div className="p-5 text-center text-sm text-muted-foreground min-[768px]:p-8">
+        <div className="p-3 text-center text-sm text-muted-foreground">
           {keyword ? t('feed.searchEmpty') : t('feed.empty')}
         </div>
       ) : (
-        <div className="space-y-4 px-4 min-[768px]:px-6 pb-6">
+        <div className="space-y-4 px-4 pb-6">
           {dayGroups.map((group) => {
             const firstDate = new Date(group.items[0]!.lastSeenAt)
             return (

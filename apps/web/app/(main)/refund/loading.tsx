@@ -4,14 +4,14 @@
 
 export default function Loading() {
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4 p-3">
       <div className="space-y-2">
         <div className="skeleton h-8 w-32 rounded" />
         <div className="skeleton h-4 w-48 rounded" />
       </div>
       <div className="space-y-3">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-xl border p-4">
+          <div key={i} className="rounded-xl border p-3">
             <div className="flex items-center justify-between">
               <div className="skeleton h-4 w-36 rounded" />
               <div className="skeleton h-5 w-14 rounded" />

@@ -140,7 +140,7 @@ export default function WebToolsPage() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      <section className="space-y-3 rounded-lg border border-border bg-card p-4">
+      <section className="space-y-3 rounded-lg border border-border bg-card p-3">
         <div className="flex flex-wrap gap-1.5">
           {tools.map((k) => {
             const Icon = TOOL_ICONS[k]
@@ -255,7 +255,7 @@ export default function WebToolsPage() {
       )}
 
       {result?.ok && (
-        <section className="space-y-3 rounded-lg border border-border bg-card p-4">
+        <section className="space-y-3 rounded-lg border border-border bg-card p-3">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               {result.title && <h2 className="truncate text-sm font-semibold">{result.title}</h2>}

@@ -27,7 +27,7 @@ export default function ContextCompactionPage() {
   const sessionId = searchParams.get('session_id') ?? ''
 
   return (
-    <div style={{ margin: '0 auto', maxWidth: 720, padding: 16 }}>
+    <div className="px-4 py-4" style={{ margin: '0 auto', maxWidth: 720, padding: 16 }}>
       <h1 style={{ fontSize: 18, fontWeight: 700 }}>{t('title')}</h1>
       <p
         style={{

@@ -99,7 +99,7 @@ export default function TokenValuePage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4 px-4">
+    <div className="py-4 mx-auto w-full max-w-5xl space-y-4 px-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">

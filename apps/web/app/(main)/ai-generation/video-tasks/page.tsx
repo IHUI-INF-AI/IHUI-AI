@@ -174,7 +174,7 @@ export default function VideoTasksPage() {
                       </TableRow>
                       {isExpanded && (
                         <TableRow className="bg-muted/30 hover:bg-muted/30">
-                          <TableCell colSpan={5} className="p-4">
+                          <TableCell colSpan={5} className="p-3">
                             {detailQuery.isFetching && !expandedTask ? (
                               <VideoTaskRowLoading />
                             ) : detailQuery.error ? (

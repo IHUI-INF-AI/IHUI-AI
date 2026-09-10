@@ -75,7 +75,7 @@ export default function AiWorldFavoritesPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
@@ -102,7 +102,7 @@ export default function AiWorldFavoritesPage() {
                     </div>
                   )}
                 </div>
-                <CardContent className="space-y-2 p-4">
+                <CardContent className="space-y-2 p-3">
                   <h3 className="line-clamp-2 text-sm font-medium">{item.title}</h3>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1">

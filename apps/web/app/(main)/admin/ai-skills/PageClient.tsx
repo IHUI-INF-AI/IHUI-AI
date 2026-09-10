@@ -102,9 +102,9 @@ export default function AdminAiSkillStatsPage() {
 
   if (error) {
     return (
-      <div className="mx-auto w-full max-w-6xl space-y-4 px-4">
+      <div className="mx-auto w-full max-w-6xl space-y-4">
         <BackButton />
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {t('loadFailed')}
         </div>
       </div>
@@ -112,7 +112,7 @@ export default function AdminAiSkillStatsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5 px-4">
+    <div className="mx-auto w-full max-w-6xl space-y-5">
       <BackButton />
       <header className="space-y-1">
         <div className="flex items-center gap-2">
@@ -151,7 +151,7 @@ export default function AdminAiSkillStatsPage() {
       </div>
 
       {/* 调用量趋势图(最近 7 天) */}
-      <section className="space-y-3 rounded-lg border bg-card p-4">
+      <section className="space-y-3 rounded-lg border bg-card p-3">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('callTrend')}
         </h2>
@@ -208,7 +208,7 @@ export default function AdminAiSkillStatsPage() {
       </section>
 
       {/* 每个 skill 的统计表格 */}
-      <section className="space-y-3 rounded-lg border bg-card p-4">
+      <section className="space-y-3 rounded-lg border bg-card p-3">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('perSkillTable')}
         </h2>
@@ -222,7 +222,7 @@ export default function AdminAiSkillStatsPage() {
 
       {/* 失败率最高的 5 个 skill */}
       {topFailed.length > 0 && (
-        <section className="space-y-3 rounded-lg border bg-card p-4">
+        <section className="space-y-3 rounded-lg border bg-card p-3">
           <div className="flex items-center gap-1.5">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

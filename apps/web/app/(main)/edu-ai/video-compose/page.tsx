@@ -302,7 +302,7 @@ export default function EduAiVideoComposePage() {
     : undefined
 
   return (
-    <div className="px-4 space-y-4">
+    <div className="space-y-4 px-4 py-4">
       <BackButton fallbackHref="/edu" />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -314,7 +314,7 @@ export default function EduAiVideoComposePage() {
 
       {/* 创建区 */}
       <Card>
-        <CardContent className="space-y-3 p-4">
+        <CardContent className="space-y-3 p-3">
           <div className="space-y-1.5">
             <Label htmlFor="video-prompt">{t('promptLabel')}</Label>
             <textarea
@@ -370,7 +370,7 @@ export default function EduAiVideoComposePage() {
       {/* 流程展示 */}
       {viewTask && (
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <p className="min-w-0 flex-1 truncate text-sm font-medium">{viewTask.prompt}</p>
               <span
@@ -509,7 +509,7 @@ export default function EduAiVideoComposePage() {
 
       {/* 历史任务(会话态) */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-3">
           {tasks.length === 0 ? (
             <Empty icon={Clapperboard} title={t('noTasks')} />
           ) : (

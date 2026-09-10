@@ -85,7 +85,7 @@ export default function AdminSettlementPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -99,7 +99,7 @@ export default function AdminSettlementPage() {
         {summaryCards.map((s) => {
           const Icon = s.icon
           return (
-            <div key={s.key} className="rounded-lg border bg-card p-4">
+            <div key={s.key} className="rounded-lg border bg-card p-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">
                   {t(SUMMARY_KEY[s.key] ?? 'summary_unknown')}

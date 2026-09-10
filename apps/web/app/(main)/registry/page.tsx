@@ -76,7 +76,7 @@ export default function RegistryPage() {
     installedIds.includes(item.id) ? 'installed' : 'not_installed'
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="px-4 py-4 space-y-4">
       <BackButton />
       <h1 className="text-lg font-semibold">资源更新中心</h1>
 
@@ -112,11 +112,11 @@ export default function RegistryPage() {
       </div>
 
       {error ? (
-        <div className="rounded-lg border bg-card p-4 text-sm text-rose-600">{error}</div>
+        <div className="rounded-lg border bg-card p-3 text-sm text-rose-600">{error}</div>
       ) : loading ? (
         <div className="py-8 text-center text-sm text-muted-foreground">加载中…</div>
       ) : items.length === 0 ? (
-        <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border bg-card p-3 text-center text-sm text-muted-foreground">
           暂无资源
         </div>
       ) : (
@@ -135,7 +135,7 @@ export default function RegistryPage() {
 
       {isAdmin && (
         <Card>
-          <CardContent className="space-y-3 p-4">
+          <CardContent className="space-y-3 p-3">
             <h2 className="font-semibold">管理操作</h2>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" disabled={sync.syncing} onClick={handleSync}>

@@ -348,11 +348,11 @@ git commit
 
 | 维度 | 说明 |
 |------|------|
-| 用途 | 侧边栏宽度一致性守门,防止 `design-tokens.css` 的 `--sidebar-width` 与 `sidebar.tsx` 的 `SIDEBAR_WIDTH` 不一致 |
-| 检测 | 对比 CSS 变量值与 TS 常量值 |
-| 失败原因 | 二者不一致,导致首屏 CSS 预设值 → JS useEffect 覆盖值的宽度跳变闪烁 |
-| 修复 | 统一两者值 |
-| 立规依据 | 2026-07-22 立,design-tokens.css 200px vs sidebar.tsx SIDEBAR_WIDTH=130 跳变教训 |
+| 用途 | 侧边栏宽度一致性守门,三源 × 双宽度:① `tokens.css` 的 `--sidebar-width` ↔ `sidebar.tsx` 的 `SIDEBAR_WIDTH`;② `tokens.css` 的 `--sidebar-collapsed-width` ↔ `sidebar.tsx` 的 `SIDEBAR_COLLAPSED_WIDTH`;③ `token-registry.ts` 注册表 defaultValue ↔ `tokens.css`(须从仓库根运行) |
+| 检测 | 正则提取三源数值并交叉对比,任一不一致即 exit 1 |
+| 失败原因 | 多源漂移:展开宽度不一致导致首屏 CSS 预设值 → JS useEffect 覆盖值的宽度跳变闪烁;折叠宽度/注册表漂移虽可能暂无 `var()` 引用点,但一旦被引用即引入错误尺寸 |
+| 修复 | 统一三源值;改 `token-registry.ts` 后需 `npm run build`(packages/design-tokens)同步 dist |
+| 立规依据 | 2026-07-22 立(design-tokens.css 200px vs sidebar.tsx 130px 跳变教训);2026-09-09 扩展(--sidebar-collapsed-width 漂移 54px vs 60 长期未被发现,旧守门只查展开宽度单源单值) |
 
 ### 第 24 项(端口)check-port-registry.mjs(warn-only)
 

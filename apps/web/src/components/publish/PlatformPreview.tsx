@@ -141,7 +141,7 @@ export function PlatformPreview({ content, platform, title }: PlatformPreviewPro
             background so the brand hex colors render on their native light background
             in both light and dark mode. */}
         <div
-          className={cn('p-4 text-sm leading-relaxed bg-white text-[#222]', platformClass.wrapper)}
+          className={cn('p-3 text-sm leading-relaxed bg-white text-[#222]', platformClass.wrapper)}
           dangerouslySetInnerHTML={{
             __html: `<h1 class="text-base font-bold mb-2 ${platformClass.title}">${escapeHtml(title || '无标题')}</h1>${html}`,
           }}

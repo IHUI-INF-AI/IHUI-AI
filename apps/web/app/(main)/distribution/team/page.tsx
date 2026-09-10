@@ -96,7 +96,7 @@ export default function DistributionTeamPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/distribution"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -117,7 +117,7 @@ export default function DistributionTeamPage() {
           const Icon = s.icon
           return (
             <Card key={s.label}>
-              <CardContent className="space-y-2 p-4">
+              <CardContent className="space-y-2 p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">{s.label}</span>
                   <Icon className="h-4 w-4 text-primary" />

@@ -212,7 +212,7 @@ export default function EnglishAgentsPage() {
         {/* MCP Integration Section */}
         <section className="mb-16 md:mb-24">
           <Card className="overflow-hidden">
-            <CardContent className="p-8 md:p-12 min-[640px]:p-8 min-[640px]:p-12">
+            <CardContent className="p-3 md:p-12">
               <div className="mb-8 text-center">
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Wrench className="h-6 w-6" />
@@ -229,7 +229,7 @@ export default function EnglishAgentsPage() {
                 {MCP_TOOLS.map((tool) => (
                   <div
                     key={tool.name}
-                    className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent/50"
+                    className="flex items-start gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent/50"
                   >
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                       <tool.icon className="h-4 w-4" />
