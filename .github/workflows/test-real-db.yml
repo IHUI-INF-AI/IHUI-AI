@@ -56,9 +56,27 @@ jobs:
       - name: Build database package
         run: pnpm --filter @ihui/database build
 
-      - name: Push schema to test DB
+      # 2026-09-10 根因修复:pgvector 镜像只是把扩展文件放进镜像,每个 database 仍需
+      # 显式 CREATE EXTENSION;缺这步 → drizzle 到 vector(1536) 列时抛
+      # `type "vector" does not exist` 并回滚整个 DDL 事务 → 全库无表 →
+      # 109/110 个真实 DB 测试级联失败(balances undefined / 500 vs 200 等)。
+      - name: Enable pgvector extension
         working-directory: packages/database
-        run: npx drizzle-kit push --force
+        run: |
+          node --input-type=module -e "
+            import postgres from 'postgres';
+            const sql = postgres(process.env.DATABASE_URL);
+            await sql.unsafe('CREATE EXTENSION IF NOT EXISTS vector');
+            await sql.end();
+            console.log('pgvector extension enabled');
+          "
+
+      # 2026-09-10 根因修复:原 `drizzle-kit push --force` 只按 schema 现状建表,不执行
+      # drizzle/*.sql 迁移 —— 0010_fulltext_search_indexes.sql 的 search_vector 列 +
+      # GIN 触发器永远不生效,全文检索相关测试必挂。改用与 e2e.yml 一致的权威迁移路径。
+      - name: Apply migrations to test DB
+        working-directory: packages/database
+        run: npx drizzle-kit migrate
 
       - name: Run real DB integration tests
         working-directory: apps/api
