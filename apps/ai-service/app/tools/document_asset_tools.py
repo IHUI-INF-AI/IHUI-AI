@@ -25,7 +25,7 @@ import io
 import os
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
 
 from . import document_tools as _dt_module
 from .document_tools import (
@@ -34,6 +34,9 @@ from .document_tools import (
     _resolve_path,
     _describe_anydoc_error,
 )
+
+if TYPE_CHECKING:
+    import anydoc
 
 
 def _anydoc_ok() -> bool:
@@ -114,12 +117,12 @@ def _fail(tool: str, message: str) -> Dict[str, Any]:
     return {"tool": tool, "ok": False, "message": message}
 
 
-async def _load_document(abs_path: str, ext: str):
+async def _load_document(abs_path: str, ext: str) -> "anydoc.Document":
     """读取文档字节并在线程池里调 anydoc.to_document，返回 Document 模型。"""
     with open(abs_path, "rb") as f:
         data = f.read()
     fmt = _EXT_TO_FORMAT.get(ext, "docx")
-    return await asyncio.to_thread(_anydoc.to_document, data, fmt)
+    return await asyncio.to_thread(_anydoc.to_document, data, cast("anydoc.Format", fmt))
 
 
 # ============================================================================

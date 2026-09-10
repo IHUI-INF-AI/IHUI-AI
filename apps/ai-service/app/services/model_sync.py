@@ -1329,7 +1329,7 @@ class ModelSyncService:
                 raw_name = m.get("name") or m.get("id", "")
                 if not raw_name:
                     continue
-                normalized: dict[str, Any] = {"id": raw_name}
+                normalized = {"id": raw_name}
                 # description → 显示名候选
                 if m.get("description"):
                     normalized["description"] = m["description"]
