@@ -124,7 +124,7 @@ export function InquiryForm(): React.JSX.Element {
         <div className="flex flex-wrap items-center justify-center gap-4 pt-2 text-sm">
           <span className="inline-flex items-center gap-1.5">
             <Mail className="h-4 w-4 text-muted-foreground" />
-            business@aizhs.top
+            [REDACTED-EMAIL]
           </span>
           <span className="inline-flex items-center gap-1.5">
             <Phone className="h-4 w-4 text-muted-foreground" />

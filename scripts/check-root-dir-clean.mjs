@@ -115,6 +115,8 @@ const ALLOWED_DIRS = new Set([
   'wt-teammem',
   // 2026-09-08 显式审批:用户产物目录(智汇AI 天使轮商业计划书等演示文稿)
   'output',
+  // 2026-09-10 显式审批:wt-push 推送工具目录(批量推送运维工具)
+  'wt-push',
 ])
 
 /** 合法隐藏文件(.env / .gitignore 等) */
@@ -161,6 +163,12 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   //  已被 .gitignore 忽略,不参与 git 跟踪。不加入会在每次 C++ 构建后阻塞 commit)
   '.cxx-modules-staging',
   '.cxx-worklets-staging',
+  // 2026-09-10 显式审批:Trae 编辑器工作目录(TraeCode 本地缓存与 IDE 运行时数据)
+  '.trae',
+  '.trae-cn',
+  '.trae-html-share-packages',
+  // 2026-09-10 显式审批:.kc-backup 提交备份目录
+  '.kc-backup',
 ])
 
 // ============================================================================
