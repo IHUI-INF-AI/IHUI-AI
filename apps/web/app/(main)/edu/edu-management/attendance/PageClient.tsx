@@ -691,7 +691,7 @@ export default function AttendancePage() {
   const presentCount = stats?.statusBreakdown.find((s) => s.status === 'present')?.count ?? 0
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <BackButton />
 
       <header className="space-y-1">
@@ -720,7 +720,7 @@ export default function AttendancePage() {
         {/* ════════════════ Tab 1: Check-in/out ════════════════ */}
         <TabsContent value="check" className="space-y-4">
           <Card>
-            <CardContent className="flex flex-wrap items-center gap-3 p-4">
+            <CardContent className="flex flex-wrap items-center gap-3 p-3">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <Input
@@ -901,7 +901,7 @@ export default function AttendancePage() {
         {/* ════════════════ Tab 2: Stats ════════════════ */}
         <TabsContent value="stats" className="space-y-4">
           <Card>
-            <CardContent className="flex flex-wrap items-center gap-3 p-4">
+            <CardContent className="flex flex-wrap items-center gap-3 p-3">
               <div className="flex items-center gap-1 rounded-md border p-0.5">
                 {(['daily', 'weekly', 'monthly'] as const).map((p) => (
                   <Button
@@ -1088,7 +1088,7 @@ export default function AttendancePage() {
         {/* ════════════════ Tab 3: Leave Requests ════════════════ */}
         <TabsContent value="leave" className="space-y-4">
           <Card>
-            <CardContent className="flex flex-wrap items-center gap-3 p-4">
+            <CardContent className="flex flex-wrap items-center gap-3 p-3">
               <Select
                 value={leaveStatusFilter}
                 onValueChange={(v) => setLeaveStatusFilter(v === 'all' ? '' : v)}

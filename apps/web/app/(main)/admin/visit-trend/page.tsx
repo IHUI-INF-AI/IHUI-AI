@@ -55,7 +55,7 @@ export default function VisitTrendPage() {
   const totalSrc = stats.bySource.reduce((s, x) => s + x.pv, 0) || 1
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
@@ -112,7 +112,7 @@ export default function VisitTrendPage() {
         />
       </div>
 
-      <section className="space-y-3 rounded-lg border p-4">
+      <section className="space-y-3 rounded-lg border p-3">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">PV 趋势</h2>
         </div>
@@ -159,7 +159,7 @@ export default function VisitTrendPage() {
       </section>
 
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
-        <section className="space-y-3 rounded-lg border p-4">
+        <section className="space-y-3 rounded-lg border p-3">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <Globe className="h-4 w-4 text-primary" />
             来源占比
@@ -190,7 +190,7 @@ export default function VisitTrendPage() {
           )}
         </section>
 
-        <section className="space-y-3 rounded-lg border p-4">
+        <section className="space-y-3 rounded-lg border p-3">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <FileText className="h-4 w-4 text-primary" />
             热门页面

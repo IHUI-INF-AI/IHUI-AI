@@ -29,7 +29,7 @@ export function AsksPanel({ isLoading, error, asks }: Props) {
           {ta('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : asks.length === 0 ? (
@@ -43,7 +43,7 @@ export function AsksPanel({ isLoading, error, asks }: Props) {
             {asks.map((a) => (
               <Link key={a.id} href={`/asks/${a.id}`}>
                 <Card className="transition-colors hover:bg-accent">
-                  <CardHeader className="p-4 pb-2">
+                  <CardHeader className="p-3 pb-2">
                     <div className="flex items-start justify-between gap-3">
                       <CardTitle className="text-base">{a.title}</CardTitle>
                       <span
@@ -71,7 +71,7 @@ export function AsksPanel({ isLoading, error, asks }: Props) {
                       </div>
                     )}
                   </CardHeader>
-                  <CardContent className="flex items-center gap-4 p-4 pt-0 text-xs text-muted-foreground">
+                  <CardContent className="flex items-center gap-4 p-3 pt-0 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <MessageSquare className="h-3.5 w-3.5" />
                       {ta('answerCount', { count: a.answerCount })}

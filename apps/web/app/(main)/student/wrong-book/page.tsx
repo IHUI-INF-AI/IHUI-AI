@@ -48,7 +48,7 @@ export default function WrongBookPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -64,7 +64,7 @@ export default function WrongBookPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
@@ -77,7 +77,7 @@ export default function WrongBookPage() {
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {list.map((item) => (
               <Card key={item.recordId} className="transition-colors hover:bg-accent">
-                <CardContent className="space-y-3 p-4">
+                <CardContent className="space-y-3 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex h-9 w-9 items-center justify-center rounded-md bg-destructive/10">
                       <XCircle className="h-5 w-5 text-destructive" />

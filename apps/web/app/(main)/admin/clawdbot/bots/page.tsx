@@ -109,7 +109,7 @@ export default function ClawdbotBotsPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -123,7 +123,7 @@ export default function ClawdbotBotsPage() {
       {error && <Alert variant="danger" title="操作失败" description={error} />}
 
       {showForm && (
-        <form onSubmit={submit} className="space-y-3 rounded-lg border bg-card p-4">
+        <form onSubmit={submit} className="space-y-3 rounded-lg border bg-card p-3">
           <div className="space-y-1">
             <Label>名称</Label>
             <Input

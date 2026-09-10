@@ -112,7 +112,7 @@ export default function EduCourseLearnPage() {
 
   if (error || !data) {
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4">
         <button
           type="button"
           onClick={() => router.push(`/edu/courses/${id}`)}
@@ -130,7 +130,7 @@ export default function EduCourseLearnPage() {
   const active = currentSec ?? sections[0] ?? null
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <Link
         href={`/edu/courses/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -201,7 +201,7 @@ export default function EduCourseLearnPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">{t('sections')}</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-0.5 p-2 min-[640px]:p-2">
+            <CardContent className="space-y-0.5 p-2">
               {sections.map((s, i) => (
                 <button
                   key={s.id}

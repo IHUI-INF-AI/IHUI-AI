@@ -52,7 +52,7 @@ export default function LecturersPage() {
     : list
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -79,7 +79,7 @@ export default function LecturersPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : filtered.length === 0 ? (
@@ -92,7 +92,7 @@ export default function LecturersPage() {
           {filtered.map((l) => (
             <Link key={l.id} href={`/lecturers/${l.id}`} className="group block">
               <Card className="h-full transition-colors hover:bg-accent">
-                <CardHeader className="flex flex-row items-center gap-3 p-4 pb-2">
+                <CardHeader className="flex flex-row items-center gap-3 p-3 pb-2">
                   <Avatar
                     src={l.avatar ?? undefined}
                     name={l.name}
@@ -106,7 +106,7 @@ export default function LecturersPage() {
                     ) : null}
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3 p-4 pt-0">
+                <CardContent className="space-y-3 p-3 pt-0">
                   <p className="text-sm text-muted-foreground">{l.intro ?? ''}</p>
                   <span className="inline-flex items-center gap-1 text-xs text-primary transition-colors group-hover:underline">
                     {t('viewDetail')}

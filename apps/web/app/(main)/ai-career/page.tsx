@@ -156,7 +156,7 @@ export default function AICareerPage() {
   )
 
   return (
-    <Container maxWidth="md" className="space-y-6">
+    <Container maxWidth="md" className="px-4 py-4 space-y-6">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -167,7 +167,7 @@ export default function AICareerPage() {
       </div>
 
       <Card>
-        <CardContent className="space-y-5 p-4 min-[768px]:p-6 min-[640px]:p-6">
+        <CardContent className="space-y-5 p-3">
           <div>
             <span className="mb-2 block text-sm font-medium">
               {t('fields.school')} <span className="text-destructive">*</span>
@@ -279,7 +279,7 @@ export default function AICareerPage() {
 
       {error && (
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
             <p className="text-sm text-destructive">{error}</p>
           </CardContent>
         </Card>

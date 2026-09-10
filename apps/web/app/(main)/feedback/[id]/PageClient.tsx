@@ -79,7 +79,7 @@ export default function FeedbackDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -93,7 +93,7 @@ export default function FeedbackDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
+    <div className="py-4 mx-auto w-full max-w-4xl space-y-4 px-4">
       <FeedbackDetailHeader fb={fb} />
       <FeedbackDetailBody fb={fb} />
       {isAdmin && (

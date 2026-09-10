@@ -117,7 +117,7 @@ export function InquiryForm(): React.JSX.Element {
 
   if (submitted) {
     return (
-      <div className="rounded-lg border bg-card p-6 text-center space-y-3">
+      <div className="rounded-lg border bg-card p-3 text-center space-y-3">
         <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-500" />
         <h3 className="text-lg font-semibold">{t('inquiry.success.title')}</h3>
         <p className="text-sm text-muted-foreground">{t('inquiry.success.message')}</p>

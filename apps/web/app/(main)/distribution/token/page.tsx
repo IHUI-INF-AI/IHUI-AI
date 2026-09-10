@@ -104,7 +104,7 @@ export default function TokenWalletPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/distribution"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -121,7 +121,7 @@ export default function TokenWalletPage() {
       </header>
 
       <Card>
-        <CardContent className="space-y-1 p-4 min-[768px]:p-6 min-[640px]:p-6">
+        <CardContent className="space-y-1 p-3">
           <div className="text-sm text-muted-foreground">{t('tokenBalance')}</div>
           {balanceQ.isLoading ? (
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

@@ -104,7 +104,7 @@ export default function MemberSubscriptionPage() {
       ) : (
         <>
           <Card>
-            <CardContent className="space-y-3 p-4">
+            <CardContent className="space-y-3 p-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-base font-semibold">{sub.planName}</p>

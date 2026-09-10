@@ -71,6 +71,8 @@ function TextPreview({ url, name, className }: { url: string; name?: string; cla
     const controller = new AbortController()
     setLoading(true)
     setError(false)
+    // 2026-09-09 0-5-f 豁免确认:文本预览的 url 可能是外部 OSS 地址,
+    // 裸 fetch 仅取纯文本;fetchApi 会向第三方注入鉴权头并按统一包装解析,不适用。
     fetch(url, { signal: controller.signal })
       .then((res) => res.text())
       .then((text) => {
@@ -85,10 +87,10 @@ function TextPreview({ url, name, className }: { url: string; name?: string; cla
     return () => controller.abort()
   }, [url])
 
-  if (loading) return <div className="p-4 text-sm text-muted-foreground">加载中...</div>
+  if (loading) return <div className="p-3 text-sm text-muted-foreground">加载中...</div>
   if (error)
     return (
-      <div className="flex flex-col items-center gap-2 p-5 min-[768px]:p-8 text-muted-foreground">
+      <div className="flex flex-col items-center gap-2 p-3 text-muted-foreground">
         <File className="h-10 w-10" />
         <p className="text-sm">无法预览此文件</p>
         {name && <FileText className="h-4 w-4" />}
@@ -96,7 +98,7 @@ function TextPreview({ url, name, className }: { url: string; name?: string; cla
     )
 
   return (
-    <pre className={cn('overflow-auto rounded-md bg-muted p-4 text-sm', className)}>
+    <pre className={cn('overflow-auto rounded-md bg-muted p-3 text-sm', className)}>
       <code>{content}</code>
     </pre>
   )

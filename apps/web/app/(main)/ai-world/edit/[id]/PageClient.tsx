@@ -127,7 +127,7 @@ export default function AiWorldEditPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-2xl space-y-4">
       <Button variant="ghost" size="sm" onClick={() => router.push(`/ai-world/${params.id}`)}>
         <ArrowLeft className="h-4 w-4" />
         {t('back')}
@@ -140,7 +140,7 @@ export default function AiWorldEditPage() {
 
       <form onSubmit={submit} className="space-y-4">
         <Card>
-          <CardContent className="space-y-4 p-4 min-[768px]:p-6 min-[640px]:p-6">
+          <CardContent className="space-y-4 p-3">
             <div className="space-y-2">
               <Label htmlFor="aw-name">
                 {t('nameLabel')} <span className="text-destructive">*</span>
