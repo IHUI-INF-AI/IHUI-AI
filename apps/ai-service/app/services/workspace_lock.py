@@ -41,9 +41,10 @@ import logging
 import os
 import time
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
-from typing import Any, AsyncIterator, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ else:
     _redis_mod = _redis_import
 
 _redis_client_instance: Any = None
-_redis_available: Optional[bool] = None
+_redis_available: bool | None = None
 
 # 释放/续期用 Lua(原子比较 token,防误删/误续他人锁)。
 # value 为 JSON(含 holder 等信息供跨端读取),故须 cjson 解码后比较 token 字段。
@@ -167,7 +168,7 @@ def _lock_key(workspace: str) -> str:
     return f"{_LOCK_KEY_PREFIX}{workspace}"
 
 
-def _parse_lock(raw: Any, workspace: str) -> Optional[LockInfo]:
+def _parse_lock(raw: Any, workspace: str) -> LockInfo | None:
     """Redis value(JSON str)→ LockInfo;损坏/缺字段返回 None(视为无锁)。"""
     try:
         d = json.loads(raw)
@@ -201,7 +202,7 @@ class WorkspaceLock:
 
     # ---------------- 查询 ----------------
 
-    async def get_lock(self, workspace: str) -> Optional[LockInfo]:
+    async def get_lock(self, workspace: str) -> LockInfo | None:
         """查询当前持有者;无锁/已过期返回 None(不获取)。"""
         r = _redis_client()
         if r is not None:
@@ -221,8 +222,8 @@ class WorkspaceLock:
         workspace: str,
         *,
         holder: str,
-        ttl: Optional[int] = None,
-    ) -> Optional[LockInfo]:
+        ttl: int | None = None,
+    ) -> LockInfo | None:
         """获取工作区锁。
 
         Returns:
@@ -321,7 +322,7 @@ class WorkspaceLock:
             return False
 
     async def renew(
-        self, workspace: str, token: str, *, ttl: Optional[int] = None
+        self, workspace: str, token: str, *, ttl: int | None = None
     ) -> bool:
         """心跳续期(仅 token 匹配时生效)。持有者应每 HEARTBEAT_INTERVAL 调一次。"""
         ttl = ttl if (ttl is not None and ttl > 0) else WORKSPACE_LOCK_TTL
@@ -365,7 +366,7 @@ class WorkspaceLock:
 
     @asynccontextmanager
     async def locked(
-        self, workspace: str, *, holder: str, ttl: Optional[int] = None
+        self, workspace: str, *, holder: str, ttl: int | None = None
     ) -> AsyncIterator[LockInfo]:
         """上下文管理器:获取失败抛 WorkspaceLockHeld(含当前持有者)。"""
         info = await self.acquire(workspace, holder=holder, ttl=ttl)
