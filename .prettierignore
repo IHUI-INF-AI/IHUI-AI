@@ -12,6 +12,6 @@ public/
 pnpm-lock.yaml
 package-lock.json
 archives/
-.trae-cn/
+.ihui-agent/
 # 自动生成的桌面下载快照(scripts/resolve-desktop-download.mjs 产出,含超长 GitHub URL,跳过格式化)
 apps/web/src/config/desktop-feed.generated.ts

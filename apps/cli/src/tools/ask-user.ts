@@ -5,7 +5,7 @@
 /**
  * AskUserQuestion 工具 — Agent 向用户提问的多选/单选工具。
  *
- * 灵感来源:TRAE IDE 的 AskUserQuestion + 参考行业 Agent 框架的 ask_user 工具。
+ * 灵感来源:自研 IDE 的 AskUserQuestion + 参考行业 Agent 框架的 ask_user 工具。
  * 简化策略(做减法):
  *   - 基于 inquirer 的 list/rawlist prompt(已有依赖,不引入新库)
  *   - 支持单选/multiselect/select-or-input 三种模式
@@ -113,7 +113,7 @@ export const ask_user_question: Tool = {
         output: `用户选择(多选): ${selected.join(', ')}\n继续基于这些选择执行。`,
       };
     }
-    // 单选 + "Other(自定义输入)" 选项(对齐 TRAE AskUserQuestion 行为)
+    // 单选 + "Other(自定义输入)" 选项(对齐 AI 工作台 AskUserQuestion 行为)
     const otherChoice = { name: chalk.dim('Other(自定义输入)'), value: '__OTHER__', short: 'Other' };
     const answers = await inquirer.prompt([
       {

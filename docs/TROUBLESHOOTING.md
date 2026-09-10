@@ -272,7 +272,7 @@ pre-commit 共 23 项守门(完整清单见 [AGENTS.md §守门脚本速查](../
 | 9 | `check-safe-parse.mjs`(warn-only) | `JSON.parse` 裸调无 try-catch | 包 `try-catch` 或用 `safeParse` |
 | 11 | `check-rounded-full.mjs` | 容器用了 `rounded-full` | 改用尺寸梯度 `rounded-sm/md/lg/xl`(见 [AGENTS.md §4](../AGENTS.md)) |
 | 12 | `check-delivery-report-consistency.mjs` | 交付报告自相矛盾 | 删除"无后续建议"或删除 P1-P5 遗留项 |
-| 13b | `check-project-plan-size.mjs` | `PROJECT_PLAN.md` > 50KB | 归档已完成任务到 `.trae-cn/archive/` |
+| 13b | `check-project-plan-size.mjs` | `PROJECT_PLAN.md` > 50KB | 归档已完成任务到 `.ihui-agent/archive/` |
 | 13c | `check-project-plan-archive.mjs` | 已完成任务条目被误删 | 恢复条目或留 `<!-- 已归档 -->` 占位注释 |
 | 16 | 条件 typecheck | web staged 代码类型错误 | `pnpm --filter @ihui/web typecheck` 修复 |
 | 16b | 条件 database build | database src 改了未 build | `pnpm --filter @ihui/database build` |
@@ -519,11 +519,11 @@ pre-commit 共 23 项守门(完整清单见 [AGENTS.md §守门脚本速查](../
 
 | 项 | 内容 |
 |---|---|
-| **症状** | TRAE IDE 内 RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}`;dev server 启动无响应 |
-| **根因** | TRAE 终端工具与系统 shell 通信异常(已知问题) |
-| **排查命令** | 在 TRAE 终端面板手动执行 `node -v` 确认终端可用 |
-| **修复方案** | 1. **不再尝试 `Start-Process` 派生独立窗口**(会污染用户桌面)<br>2. 直接告知用户"RunCommand 工具失联,请在 TRAE 终端面板手动执行"<br>3. 提供手动命令清单:<br>`pnpm --filter @ihui/web dev`<br>`pnpm --filter @ihui/api dev`<br>`cd apps/ai-service && uvicorn app.main:app --reload --port 8803`<br>4. 用户确认服务跑起来后再继续验证 |
-| **预防** | 查 `c:\Users\Administrator\.trae-cn\memory\projects\-g-IHUI-AI\project_memory.md` 是否已知约束;dev server 永远用 `long_running_process` + `blocking: false` 在 TRAE 内部跑 |
+| **症状** | 集成终端内 RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}`;dev server 启动无响应 |
+| **根因** | 集成终端工具与系统 shell 通信异常(已知问题) |
+| **排查命令** | 在 集成终端面板手动执行 `node -v` 确认终端可用 |
+| **修复方案** | 1. **不再尝试 `Start-Process` 派生独立窗口**(会污染用户桌面)<br>2. 直接告知用户"RunCommand 工具失联,请在 集成终端面板手动执行"<br>3. 提供手动命令清单:<br>`pnpm --filter @ihui/web dev`<br>`pnpm --filter @ihui/api dev`<br>`cd apps/ai-service && uvicorn app.main:app --reload --port 8803`<br>4. 用户确认服务跑起来后再继续验证 |
+| **预防** | 查 `c:\Users\Administrator\.ihui-agent\memory\projects\-g-IHUI-AI\project_memory.md` 是否已知约束;dev server 永远用 `long_running_process` + `blocking: false` 在集成终端内部跑 |
 
 ### 10.4 PowerShell 弹窗污染
 
@@ -532,8 +532,8 @@ pre-commit 共 23 项守门(完整清单见 [AGENTS.md §守门脚本速查](../
 | **症状** | dev server 启动时用户桌面弹出多个 PowerShell 窗口 |
 | **根因** | 用了 `Start-Process` / `cmd /c start` / `WScript.Shell.Run` 等派生独立可见窗口的方式 |
 | **排查命令** | 检查启动脚本是否用了 `Start-Process`(无 `-WindowStyle Hidden`) |
-| **修复方案** | 1. dev server 永远用 RunCommand `long_running_process` + `blocking: false` 在 TRAE 内部跑<br>2. 必须用 `Start-Process` 时:`-WindowStyle Hidden -RedirectStandardOutput "$env:TEMP\*.log"`<br>3. 用 `scripts/dev-all.ps1`(用户在真实 PowerShell 中执行,独立窗口是预期行为) |
-| **预防** | 绝对红线:任何 dev server 永远只在 TRAE 内部运行,不弹独立窗口(见 [AGENTS.md §19](../AGENTS.md)) |
+| **修复方案** | 1. dev server 永远用 RunCommand `long_running_process` + `blocking: false` 在集成终端内部跑<br>2. 必须用 `Start-Process` 时:`-WindowStyle Hidden -RedirectStandardOutput "$env:TEMP\*.log"`<br>3. 用 `scripts/dev-all.ps1`(用户在真实 PowerShell 中执行,独立窗口是预期行为) |
+| **预防** | 绝对红线:任何 dev server 永远只在集成终端内部运行,不弹独立窗口(见 [AGENTS.md §19](../AGENTS.md)) |
 
 ### 10.5 git-push-guard 报 ahead
 

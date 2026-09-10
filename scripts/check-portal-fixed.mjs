@@ -33,7 +33,7 @@ import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
-const EXCLUDE_DIRS = withExcludes(['.trae-cn', 'tests', '__tests__', 'e2e'])
+const EXCLUDE_DIRS = withExcludes(['.ihui-agent', 'tests', '__tests__', 'e2e'])
 const SCAN_EXTS = ['.tsx', '.jsx']
 
 function walk(dir, out = []) {

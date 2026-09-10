@@ -367,7 +367,7 @@ export function useMessageListScroll({
      
   }, [messages.length])
 
-  // 2026-07-28 立:Jump-to-latest 浮动按钮点击处理(深度对标 Trae Work)
+  // 2026-07-28 立:Jump-to-latest 浮动按钮点击处理(深度对标 AI 工作台)
   // - scrollIntoView 到 bottomRef(平滑)
   // - 重置 userScrolledUp 标记,触发自动滚动继续工作
   // - 派发自定义事件,允许其他监听组件(如 timeline tab)同步滚动到底
@@ -392,7 +392,7 @@ export function useMessageListScroll({
     return () => window.removeEventListener('ihui:jump-to-latest', scrollToBottom)
   }, [scrollToBottom])
 
-  // 2026-07-28 立(深度对标 Trae Work):键盘导航 ↑/↓ 切换消息聚焦
+  // 2026-07-28 立(深度对标 AI 工作台):键盘导航 ↑/↓ 切换消息聚焦
   // - 焦点不在 input/textarea/contenteditable 时生效(避免与输入冲突)
   // - ArrowDown / ArrowUp:切换 focused message index
   // - Enter:聚焦消息若含 reasoning → 派发切换事件(由 MessageItem 内部响应)

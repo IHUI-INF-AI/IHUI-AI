@@ -59,7 +59,7 @@
  *   --quiet              只输出统计
  *   --json               输出 JSON 给 CI 消费
  *   --exclude <regex>    排除匹配正则的 button label(可多次,逗号分隔,如 emoji-only)
- *   --screenshot         命中时截图到 .trae-cn/tmp/button-text-wrap/ (默认开)
+ *   --screenshot         命中时截图到 .ihui-agent/tmp/button-text-wrap/ (默认开)
  *   --no-screenshot      关闭截图
  *   --help | -h          打印帮助
  */
@@ -71,7 +71,7 @@ import { fileURLToPath } from 'node:url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const REPO_ROOT = resolve(__dirname, '..')
-const TMP_DIR = join(REPO_ROOT, '.trae-cn', 'tmp', 'button-text-wrap')
+const TMP_DIR = join(REPO_ROOT, '.ihui-agent', 'tmp', 'button-text-wrap')
 
 // ─── CLI 解析 ──────────────────────────────────────────────
 const args = process.argv.slice(2)
@@ -93,7 +93,7 @@ check-button-text-wrap.mjs — button 文本换行 2 行 浏览器实测守门
   --quiet              只输出统计
   --json               输出 JSON 给 CI 消费
   --exclude <regex>    排除匹配正则的 button label(可多次,逗号分隔)
-  --screenshot         命中时截图到 .trae-cn/tmp/button-text-wrap/ (默认开)
+  --screenshot         命中时截图到 .ihui-agent/tmp/button-text-wrap/ (默认开)
   --no-screenshot      关闭截图
   --help | -h          打印本帮助
 

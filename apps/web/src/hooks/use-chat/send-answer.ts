@@ -166,7 +166,7 @@ export function createSendAnswer(
           // 2026-08-21 修复(C4):fromRetry 时 pending 为 null,用入口恢复的 questionId
           questionId,
           answer: trimmed,
-          // 模式透传(2026-07-22 立,对标 Trae Plan/Spec):build/plan/review/spec
+          // 模式透传(2026-07-22 立,对标 主流 AI IDE Plan/Spec):build/plan/review/spec
           // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已废弃,仅传 mode
           mode: useModeStore.getState().currentMode,
         },

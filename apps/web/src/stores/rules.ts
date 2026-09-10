@@ -7,7 +7,7 @@ import { create } from 'zustand'
 import type { Rule, RuleInput, RuleUpdate } from '@ihui/types'
 
 /**
- * Rules 管理 UI 状态 store(2026-07-22 立,对标 Trae IDE Rules)。
+ * Rules 管理 UI 状态 store(2026-07-22 立,对标 自研 IDE Rules)。
  *
  * 数据获取由 use-rules.ts 的 react-query 负责,本 store 只管 UI 态:
  *  - editingRule:当前编辑的规则(null=关闭编辑面板)

@@ -59,7 +59,7 @@ IHUI-AI 是一个 Apache 2.0 开源的全栈 AI 操作系统,把 AI 编程 / AI 
 
 ### 1. AI 编程 CLI
 
-Claude Code · OpenAI Codex · Gemini CLI · Trae SOLO · Cursor · Windsurf · GitHub Copilot · Amazon Q · Cline · Aider · Cody · Tabnine · Continue · Zed AI · JetBrains AI
+Claude Code · OpenAI Codex · Gemini CLI · Cursor · Windsurf · GitHub Copilot · Amazon Q · Cline · Aider · Cody · Tabnine · Continue · Zed AI · JetBrains AI
 
 ### 2. AI 应用平台
 

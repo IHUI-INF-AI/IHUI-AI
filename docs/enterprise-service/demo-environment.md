@@ -261,7 +261,7 @@ docker compose -f docker-compose.demo.yml exec api \
 ./scripts/setup-enterprise-demo.sh --backup
 
 # 备份文件位置
-ls -lh .trae-cn/tmp/enterprise-demo/backup-*.tar.gz
+ls -lh .ihui-agent/tmp/enterprise-demo/backup-*.tar.gz
 ```
 
 ### 7.4 切换到生产模式

@@ -53,9 +53,9 @@
 | P1-4 | packages/types 类型整合(降本 0.1x) | ⏸️ 需用户执行 | P1-2 审计无死代码,收益不显著,可选优化 |
 | P1-5 | Tailwind preset 下沉(降本 0.1x) | ✅ [x] | 新建 tailwind-preset.js + 修复 sm=0.125rem |
 | P2-1 | mobile-rn/global.css 注释修正 | ✅ [x] | ui-primitives → design-tokens(2 处) |
-| P2-2 | scripts/ 死脚本审计(降本 0.05x) | ✅ [x] | 6 文件移到 .trae-cn/archive/scripts/ |
+| P2-2 | scripts/ 死脚本审计(降本 0.05x) | ✅ [x] | 6 文件移到 .ihui-agent/archive/scripts/ |
 | P2-3 | extension sidepanel 死页面审计(降本 0.05x) | ⏸️ 需用户执行 | P0-1 已删 7 个低频页跳 web,剩余审计价值低,可选 |
-| P2-4 | web/src/lib 死代码审计(降本 0.1x) | ✅ [x] | 67 文件 15 候选,报告在 `.trae-cn/tmp/` |
+| P2-4 | web/src/lib 死代码审计(降本 0.1x) | ✅ [x] | 67 文件 15 候选,报告在 `.ihui-agent/tmp/` |
 
 **实际完成 10/12(0.85x 降本)**;P1-4 + P2-3 因收益不显著保留为可选优化(需用户决策,见 §7)。
 
@@ -152,16 +152,16 @@ acf64232bd feat(web): AgentTaskProgressPane v11 键盘导航 + ARIA 无障碍
 
 ### 3.3 协作事故隔离证据(AGENTS.md §12 多会话并行)
 
-- 本任务(`final closing`)严格按 `受影响文件清单` 操作,只 add 3 个文件:`PROJECT_PLAN.md` + `docs/handoff/2026-07-28-final-closing.md` + `.trae-cn/archive/PROJECT_PLAN_2026-07-28_final-closing.md`。
+- 本任务(`final closing`)严格按 `受影响文件清单` 操作,只 add 3 个文件:`PROJECT_PLAN.md` + `docs/handoff/2026-07-28-final-closing.md` + `.ihui-agent/archive/PROJECT_PLAN_2026-07-28_final-closing.md`。
 - 工作区其他 14 个 `apps/web/app/(main)/**` modified 文件(其他 agent 的 admin/carousel/schedule/sms/tax/articles 等)归其他 agent 管辖,**禁止越权修改**(AGENTS.md §16 跨 Agent 改动保护规则)。
 - `git status` 已确认本任务文件隔离,`git-push-guard.mjs` 将在最终 commit 后自动 push + 验证 local == remote。
 
 ---
 
-## 4. 营销素材索引(`.trae-cn/tmp/marketing-2026-07-28/`)
+## 4. 营销素材索引(`.ihui-agent/tmp/marketing-2026-07-28/`)
 
 ```
-.trae-cn/tmp/marketing-2026-07-28/
+.ihui-agent/tmp/marketing-2026-07-28/
 └── awesome-llms-in-china-pr.md  (4745 字节,PR 草稿)
 ```
 
@@ -257,12 +257,12 @@ pnpm dev  # 一键启动 web + api + ai-service,端口见 docs/port-management.m
 
 ### 7.2 营销相关(需用户操作账号)
 
-8. **完成 6 个候选 awesome 列表 PR**(AI 已准备 1 个草稿,见 `.trae-cn/tmp/marketing-2026-07-28/awesome-llms-in-china-pr.md`):awesome-openai / awesome-langgraph / awesome-mcp / awesome-tauri / awesome-react-native / awesome-taro / awesome-fastify。
+8. **完成 6 个候选 awesome 列表 PR**(AI 已准备 1 个草稿,见 `.ihui-agent/tmp/marketing-2026-07-28/awesome-llms-in-china-pr.md`):awesome-openai / awesome-langgraph / awesome-mcp / awesome-tauri / awesome-react-native / awesome-taro / awesome-fastify。
 9. **创建 GitHub Release v0.1.x**:web/api/extension release(已有 v0.1.0 desktop release)。
 10. **提交 ProductHunt**:https://www.producthunt.com/posts/new → 准备英文 launch 帖。
 11. **发 HackerNews "Show HN" 帖**:https://news.ycombinator.com/show → AI 可生成文案,用户本人发。
 12. **微博热搜 / V2EX 推广帖**:中文社区同步推送。
-13. **注册 IndexNow API key** + 推 URL 到 Bing/Yandex:`https://www.bing.com/indexnow` → 拿到 key 后用 `.trae-cn/tmp/indexnow-push.mjs`(AI 可生成)批量推。
+13. **注册 IndexNow API key** + 推 URL 到 Bing/Yandex:`https://www.bing.com/indexnow` → 拿到 key 后用 `.ihui-agent/tmp/indexnow-push.mjs`(AI 可生成)批量推。
 14. **Substack/dev.to/Medium 账号注册** + 10 篇博客交叉发布。
 15. **录 10 段 5 分钟视频脚本**(AI 可生成脚本)+ 录屏+剪辑+上传 B 站/YouTube。
 
@@ -287,7 +287,7 @@ pnpm dev  # 一键启动 web + api + ai-service,端口见 docs/port-management.m
 |---|---|---|---|
 | `PROJECT_PLAN.md` | 修改 | 7 处任务状态更新 | ✅ |
 | `docs/handoff/2026-07-28-final-closing.md` | 新建 | 本文档 | ✅ |
-| `.trae-cn/archive/PROJECT_PLAN_2026-07-28_final-closing.md` | 新建 | 归档文档 | ✅ |
+| `.ihui-agent/archive/PROJECT_PLAN_2026-07-28_final-closing.md` | 新建 | 归档文档 | ✅ |
 
 ### 8.2 Git 同步证据(待最终 commit 后填)
 
@@ -304,7 +304,7 @@ pnpm dev  # 一键启动 web + api + ai-service,端口见 docs/port-management.m
 - ✅ `Select-String "^- \[ \] \*\*P[0-3]" PROJECT_PLAN.md` → 仅 7 项命中,均含"需用户执行"注
 - ✅ `Select-String "^- \[ \] \*\*P[2-3]\(下一步" PROJECT_PLAN.md` → 5 项 P2/P3 营销,均含"需用户执行"注
 - ✅ `Test-Path docs/handoff/2026-07-28-final-closing.md` → True
-- ✅ `Test-Path .trae-cn/archive/PROJECT_PLAN_2026-07-28_final-closing.md` → True
+- ✅ `Test-Path .ihui-agent/archive/PROJECT_PLAN_2026-07-28_final-closing.md` → True
 - ✅ 本文档字数 > 1000 字
 
 ### 8.4 对话可关闭声明

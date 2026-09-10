@@ -304,7 +304,7 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         get().loadUrl(url)
       },
 
-      // P1-3:主动探测嵌入能力,不可嵌入 → CDP 完整 Chrome 模式(对标 Trae/Cursor)
+      // P1-3:主动探测嵌入能力,不可嵌入 → CDP 完整 Chrome 模式(对标 主流 AI IDE)
       // 浏览器对 X-Frame-Options/CSP frame-ancestors 拦截的站点不触发 iframe onError,
       // 必须主动调后端 probeEmbed 预判。CDP 失败时降级到截图模式(保证可用性)。
       loadUrl: (url) => {
@@ -704,7 +704,7 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         const url = tab.url
         void (async () => {
           try {
-            // CDP 模式优先(可交互,对标 Trae/Cursor)
+            // CDP 模式优先(可交互,对标 主流 AI IDE)
             const cdpResult = await createBrowserSession({
               url,
               viewport_width: 1280,

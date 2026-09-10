@@ -9,7 +9,7 @@ import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
- * Phase 16: 进度环组件(2026-07-28 立,对标 Trae Work)
+ * Phase 16: 进度环组件(2026-07-28 立,对标 AI 工作台)
  *
  * 功能特性:
  * - SVG 双圆环:底层 track + 顶层 progress(顺时针填充)

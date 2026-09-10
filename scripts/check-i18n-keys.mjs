@@ -124,7 +124,7 @@ const STAGED_SOURCE_PREFIX = isExtension
 const EXCLUDE_DIRS = new Set([
   '.git',
   '.next',
-  '.trae-cn',
+  '.ihui-agent',
   '.turbo',
   '.worktrees',
   'build',

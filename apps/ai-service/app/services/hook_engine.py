@@ -4,7 +4,7 @@
 
 """Hook 引擎 — 事件总线 + 触发器匹配 + 执行器 + 日志记录(2026-07-22 立)。
 
-对标 Trae IDE Hooks:agent 行为事件触发 → 执行自定义脚本/动作。
+自研 Hooks:agent 行为事件触发 → 执行自定义脚本/动作。
 
 核心组件:
   - HookEngine:内存/Redis 存储 Hook 配置(单例,LRU 日志最近 1000 条)
@@ -20,7 +20,7 @@
 设计:
   - 配置与日志均存内存,Redis 可用时持久化(进程重启不丢)
   - 所有动作异步执行,emit 不阻塞调用方(失败仅记录日志)
-  - script 在 .trae-cn/tmp/hooks/ 沙箱内执行,禁止访问敏感路径
+  - script 在 .ihui-agent/tmp/hooks/ 沙箱内执行,禁止访问敏感路径
   - HMAC 签名向后兼容:secret 为空时不签名
   - 重试指数退避:retry_delay * (2 ** attempt),log 不重试 / notify 重试 1 次 / webhook/script 按 config
 """
@@ -80,7 +80,7 @@ WEBHOOK_TIMEOUT = 5.0
 SCRIPT_TIMEOUT = 10.0
 SCRIPT_MAX_OUTPUT = 1024  # 1KB
 
-# 重试默认配置(2026-07-22 立,对标 Trae Hooks 产品级体验)
+# 重试默认配置(2026-07-22 立)
 DEFAULT_RETRY_COUNT = 0
 MAX_RETRY_COUNT = 3
 DEFAULT_RETRY_DELAY = 1.0  # 秒,指数退避 base(1s, 2s, 4s)
@@ -105,9 +105,9 @@ HEALTH_STALE_DAYS = 30  # 超过 30 天未触发 → stale
 HEALTHY_THRESHOLD = 0.95  # 24h 成功率 ≥ 95% → healthy
 DEGRADED_THRESHOLD = 0.80  # 24h 成功率 ≥ 80% → degraded,否则 unhealthy
 
-# 沙箱目录(AGENTS.md §15 工作区卫生规则的临时目录 .trae-cn/tmp/hooks/)
+# 沙箱目录(AGENTS.md §15 工作区卫生规则的临时目录 .ihui-agent/tmp/hooks/)
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]
-SANDBOX_DIR = _PROJECT_ROOT / ".trae-cn" / "tmp" / "hooks"
+SANDBOX_DIR = _PROJECT_ROOT / ".ihui-agent" / "tmp" / "hooks"
 LOG_FILE = _PROJECT_ROOT / "logs" / "hooks.log"
 
 # 敏感路径正则(script 命令禁止包含以下模式)

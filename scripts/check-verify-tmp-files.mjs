@@ -18,7 +18,7 @@
  *
  * 检查项:
  *   1. apps 下各端根目录的 verify-*.mjs / verify-*.ts(主项):扫描源码区所有
- *      verify-*.* 文件,命中即警告,建议移动到 .trae-cn/tmp 任务名子目录
+ *      verify-*.* 文件,命中即警告,建议移动到 .ihui-agent/tmp 任务名子目录
  *   2. 测试目录豁免:__tests__/ / tests/ / spec/ / test/ 目录下的 verify-*
  *      是合法测试文件,跳过(否则与 §23 测试目录规则冲突)
  *   3. 隐藏目录/产物/依赖目录豁免:node_modules / .next / dist / .git 等
@@ -33,7 +33,7 @@
  *   node scripts/check-verify-tmp-files.mjs --staged         (pre-commit 透传)
  *
  * 集成位置: CI / guardian-runner 后续项(暂 warn-only)
- * 历史案例: 见 .trae-cn/archive/AGENTS_history.md §25
+ * 历史案例: 见 .ihui-agent/archive/AGENTS_history.md §25
  */
 import { existsSync, readdirSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
@@ -60,7 +60,7 @@ const EXCLUDE_DIRS = new Set([
   'dist',
   'build',
   'coverage',
-  '.trae-cn',
+  '.ihui-agent',
   '.git',
   '.swc',
   '.cache',
@@ -160,7 +160,7 @@ function main() {
           level: 'warn',
           path: rel,
           reason: 'verify-*.* 临时验证文件位于 apps/* 源码根目录,易被误 commit 污染 main',
-          fix: `移动到 ${C.cyan}.trae-cn/tmp/<任务名>/${C.reset}(如 .trae-cn/tmp/perm-popover-debug/${basename})`,
+          fix: `移动到 ${C.cyan}.ihui-agent/tmp/<任务名>/${C.reset}(如 .ihui-agent/tmp/perm-popover-debug/${basename})`,
         })
         console.log(`  ${C.yellow}⚠${C.reset} ${C.bold}${rel}${C.reset}  ${C.yellow}[WARN]${C.reset}`)
       }
@@ -188,7 +188,7 @@ function main() {
   }
 
   console.log(`\n${C.yellow}💡 建议(AGENTS.md §25):${C.reset}`)
-  console.log(`   1. 把 ${C.cyan}apps/*/verify-*.mjs${C.reset} 移到 ${C.cyan}.trae-cn/tmp/<任务名>/${C.reset}`)
+  console.log(`   1. 把 ${C.cyan}apps/*/verify-*.mjs${C.reset} 移到 ${C.cyan}.ihui-agent/tmp/<任务名>/${C.reset}`)
   console.log(`   2. 详细规则见 ${C.cyan}AGENTS.md §25${C.reset}`)
   console.log(`   3. ${C.dim}默认 warn-only 不阻断,加 ${C.reset}${C.cyan}--strict${C.reset}${C.dim} 启用阻断模式${C.reset}`)
 

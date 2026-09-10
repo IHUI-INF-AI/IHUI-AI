@@ -10,7 +10,7 @@
  *
  * 功能:
  *   - 扫描 PROJECT_PLAN.md 中的已完成任务条目(### [x] ✅(YYYY-MM-DD) ...)
- *   - 把完成日期 ≥ 阈值天数的条目移动到 .trae-cn/archive/PROJECT_PLAN_YYYY-MM-DD_auto-archive.md
+ *   - 把完成日期 ≥ 阈值天数的条目移动到 .ihui-agent/archive/PROJECT_PLAN_YYYY-MM-DD_auto-archive.md
  *   - 原位置留 HTML 注释占位(符合 AGENTS.md §1 归档规则 + check-project-plan-archive.mjs 守门)
  *
  * 用法:
@@ -34,7 +34,7 @@ import { execSync } from 'node:child_process'
 
 const ROOT = process.cwd()
 const PLAN_FILE = join(ROOT, 'PROJECT_PLAN.md')
-const ARCHIVE_DIR = join(ROOT, '.trae-cn', 'archive')
+const ARCHIVE_DIR = join(ROOT, '.ihui-agent', 'archive')
 
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
@@ -193,7 +193,7 @@ function main() {
   // 从后往前替换
   for (let i = ranges.length - 1; i >= 0; i--) {
     const r = ranges[i]
-    const placeholder = `<!-- 已归档(${today}):${r.title.slice(0, 60)},完整内容在 .trae-cn/archive/PROJECT_PLAN_${today}_auto-archive.md -->`
+    const placeholder = `<!-- 已归档(${today}):${r.title.slice(0, 60)},完整内容在 .ihui-agent/archive/PROJECT_PLAN_${today}_auto-archive.md -->`
     lines.splice(r.start, r.end - r.start + 1, placeholder)
   }
 
@@ -201,17 +201,17 @@ function main() {
   writeFileSync(PLAN_FILE, newContent, 'utf8')
 
   console.log(`${C.green}✅ 已归档 ${toArchive.length} 个条目${C.reset}`)
-  console.log(`${C.dim}   归档文件: .trae-cn/archive/PROJECT_PLAN_${today}_auto-archive.md${C.reset}`)
+  console.log(`${C.dim}   归档文件: .ihui-agent/archive/PROJECT_PLAN_${today}_auto-archive.md${C.reset}`)
   console.log(`${C.dim}   PROJECT_PLAN.md 原位置已留归档占位注释${C.reset}`)
 
   // 自动 commit 模式
   if (autoCommit) {
     try {
-      execSync(`git add PROJECT_PLAN.md .trae-cn/archive/PROJECT_PLAN_${today}_auto-archive.md`, {
+      execSync(`git add PROJECT_PLAN.md .ihui-agent/archive/PROJECT_PLAN_${today}_auto-archive.md`, {
         cwd: ROOT,
         stdio: 'pipe',
       })
-      const msg = `chore(auto): 归档 ${toArchive.length} 个已完成任务条目至 .trae-cn/archive/`
+      const msg = `chore(auto): 归档 ${toArchive.length} 个已完成任务条目至 .ihui-agent/archive/`
       execSync(`git commit --no-verify -m "${msg.replace(/"/g, '\\"')}"`, {
         cwd: ROOT,
         stdio: 'pipe',
@@ -220,7 +220,7 @@ function main() {
       console.log(`${C.green}✅ 归档 commit 已创建(IHUI_ARCHIVE_COMMIT=1 防递归)${C.reset}`)
     } catch (e) {
       console.error(`${C.red}❌ 自动 commit 失败: ${e.message}${C.reset}`)
-      console.error(`${C.yellow}   请手动: git add PROJECT_PLAN.md .trae-cn/archive/ && git commit${C.reset}`)
+      console.error(`${C.yellow}   请手动: git add PROJECT_PLAN.md .ihui-agent/archive/ && git commit${C.reset}`)
     }
   }
 
