@@ -153,9 +153,7 @@ export function CommandPalette({
       setActiveIndex((i) => (flatItems.length ? (i + 1) % flatItems.length : 0))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setActiveIndex((i) =>
-        flatItems.length ? (i - 1 + flatItems.length) % flatItems.length : 0,
-      )
+      setActiveIndex((i) => (flatItems.length ? (i - 1 + flatItems.length) % flatItems.length : 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const item = flatItems[activeIndex]
@@ -202,7 +200,11 @@ export function CommandPalette({
                         {t('recentGroup')}
                       </>
                     ) : (
-                      t(COMMAND_GROUP_LABEL_KEY[section.group as keyof typeof COMMAND_GROUP_LABEL_KEY] ?? 'groups.navigate')
+                      t(
+                        COMMAND_GROUP_LABEL_KEY[
+                          section.group as keyof typeof COMMAND_GROUP_LABEL_KEY
+                        ] ?? 'groups.navigate',
+                      )
                     )}
                   </div>
                   {section.items.map((item, idx) => {
