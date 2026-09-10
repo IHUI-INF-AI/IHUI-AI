@@ -57,7 +57,7 @@ export default function NotificationPage() {
   )
 
   const onDetail = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/message/index' })
+    Taro.navigateTo({ url: '/pkg-user/message/index' })
   }, [])
 
   return (

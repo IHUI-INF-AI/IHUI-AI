@@ -80,26 +80,26 @@ function renderIcon(iconStr: string, emojiClass: string, imgClass: string) {
 }
 
 const quickEntries = [
-  { icon: dingdanIcon, key: 'user.menu.orders', path: '/pages/user/orders' },
-  { icon: icon('shoucang'), key: 'user.menu.favorites', path: '/pages/favorites/index' },
-  { icon: gerenIcon, key: 'user.menu.following', path: '/pages/following/index' },
-  { icon: gonggaoIcon, key: 'user.menu.subscriptions', path: '/pages/subscriptions/index' },
+  { icon: dingdanIcon, key: 'user.menu.orders', path: '/pkg-user/user/orders' },
+  { icon: icon('shoucang'), key: 'user.menu.favorites', path: '/pkg-user/favorites/index' },
+  { icon: gerenIcon, key: 'user.menu.following', path: '/pkg-user/following/index' },
+  { icon: gonggaoIcon, key: 'user.menu.subscriptions', path: '/pkg-user/subscriptions/index' },
 ]
 
 const menus = [
-  { icon: courseIconLocal, key: 'user.menu.courses', path: '/pages/course/list' },
-  { icon: aiIconLocal, key: 'user.menu.ai', path: '/pages/ai/chat' },
-  { icon: shezhiIcon, key: 'user.menu.settings', path: '/pages/user/settings' },
+  { icon: courseIconLocal, key: 'user.menu.courses', path: '/pkg-learn/course/list' },
+  { icon: aiIconLocal, key: 'user.menu.ai', path: '/pkg-ai/ai/chat' },
+  { icon: shezhiIcon, key: 'user.menu.settings', path: '/pkg-user/user/settings' },
   // P0 页面导航入口(复用 LineIcon 图标资产)
   {
     icon: 'calendar',
     key: 'checkIn.title',
-    path: '/pages/check-in/index',
+    path: '/pkg-user/check-in/index',
   },
   {
     icon: 'gift',
     key: 'taskCenter.title',
-    path: '/pages/task-center/index',
+    path: '/pkg-user/task-center/index',
   },
 ]
 
@@ -625,7 +625,7 @@ export default function UserIndex() {
       toggleDrawer()
       // 对齐原项目 handleShowFullList:携带 chatId + title 参数
       Taro.navigateTo({
-        url: `/pages/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
+        url: `/pkg-ai/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
         fail: () => Taro.showToast({ title: tt('community.text11', '对话页未配置'), icon: 'none' }),
       })
     },
@@ -637,13 +637,13 @@ export default function UserIndex() {
     // 对齐原项目 openIntroduce/openIntroduces/openIntroduces2:按 isVip 分流
     const isVip = userInfo?.isVip ? 1 : 0
     const routeMap: Record<number, string> = {
-      0: '/pages/vip/index?type=IntroducePopup', // 非会员:开通 VIP
-      1: '/pages/vip/index?type=IntroducePopups', // 会员:成为操盘手
-      2: '/pages/vip/index?type=PrivateAdvisory', // 操盘手:加入私董会
+      0: '/pkg-shop/vip/index?type=IntroducePopup', // 非会员:开通 VIP
+      1: '/pkg-shop/vip/index?type=IntroducePopups', // 会员:成为操盘手
+      2: '/pkg-shop/vip/index?type=PrivateAdvisory', // 操盘手:加入私董会
     }
     // noUncheckedIndexedAccess 下 routeMap[isVip] 为 string | undefined,用 ?? 兜底
-    const url = routeMap[isVip] ?? '/pages/vip/index'
-    Taro.navigateTo({ url, fail: () => Taro.navigateTo({ url: '/pages/vip/index' }) })
+    const url = routeMap[isVip] ?? '/pkg-shop/vip/index'
+    Taro.navigateTo({ url, fail: () => Taro.navigateTo({ url: '/pkg-shop/vip/index' }) })
   }, [userInfo?.isVip])
 
   // 对齐原项目 tabList
@@ -710,7 +710,7 @@ export default function UserIndex() {
               demand: '/pages/demand/index',
               inspiration: '/pages/inspiration/index',
               dynamic: '/pages/dynamic/index',
-              course: '/pages/course/list',
+              course: '/pkg-learn/course/list',
             }
             const route = menuRouteMap[item.key]
             if (route) Taro.navigateTo({ url: route })
@@ -790,7 +790,7 @@ export default function UserIndex() {
                   identityType={userInfo.isVip ? 1 : 0}
                   onWallet={() =>
                     Taro.navigateTo({
-                      url: '/pages/token/balance',
+                      url: '/pkg-shop/token/balance',
                       fail: () => Taro.navigateTo({ url: '/pagesA/top-up/index' }),
                     })
                   }
@@ -831,7 +831,7 @@ export default function UserIndex() {
                   onOpenVip={goVipDetail}
                   onOpenLevel={() =>
                     Taro.navigateTo({
-                      url: '/pages/vip/index?type=levelPopup',
+                      url: '/pkg-shop/vip/index?type=levelPopup',
                       fail: () =>
                         Taro.showToast({
                           title: tt('user.text6', '等级介绍页未配置'),
