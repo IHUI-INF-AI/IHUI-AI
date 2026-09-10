@@ -95,7 +95,7 @@ export default function CircleDetailPage() {
           <ArrowLeft className="mr-1.5 h-4 w-4" />
           {tc('back')}
         </Button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(circleError as Error)?.message ?? t('empty')}
         </div>
       </div>
@@ -131,7 +131,7 @@ export default function CircleDetailPage() {
       </Button>
 
       <Card>
-        <CardHeader className="p-5">
+        <CardHeader className="p-3">
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Circle className="h-6 w-6" />
           </div>
@@ -167,7 +167,7 @@ export default function CircleDetailPage() {
           <div className="space-y-2">
             {posts.map((p: PostItem) => (
               <Card key={p.id} className="transition-colors hover:bg-accent">
-                <CardContent className="p-4">
+                <CardContent className="p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-sm font-medium">{p.title}</p>

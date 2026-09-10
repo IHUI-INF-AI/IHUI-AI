@@ -194,7 +194,7 @@ export default function TradersPage() {
   }
 
   return (
-    <div className="px-4 space-y-4">
+    <div className="py-4 px-4 space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -313,7 +313,7 @@ export default function TradersPage() {
                 className="flex cursor-pointer flex-col transition-colors hover:bg-accent"
                 onClick={() => openDetail(trader.id)}
               >
-                <CardContent className="flex min-w-0 flex-1 flex-col gap-2 p-4">
+                <CardContent className="flex min-w-0 flex-1 flex-col gap-2 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                       <Percent className="h-3.5 w-3.5" />

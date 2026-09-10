@@ -49,7 +49,7 @@ export default function EduExamPage() {
   const exams = data?.list ?? []
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -75,7 +75,7 @@ export default function EduExamPage() {
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {exams.map((exam) => (
             <Card key={exam.id} className="flex h-full flex-col transition-colors hover:bg-accent">
-              <CardHeader className="p-4 pb-2">
+              <CardHeader className="p-3 pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-base">{exam.title}</CardTitle>
                   {exam.attempted && (
@@ -95,7 +95,7 @@ export default function EduExamPage() {
                   <p className="text-xs text-muted-foreground">{exam.description}</p>
                 )}
               </CardHeader>
-              <CardContent className="flex-1 min-w-0 space-y-3 p-4 pt-0">
+              <CardContent className="flex-1 min-w-0 space-y-3 p-3 pt-0">
                 <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <ListChecks className="h-3.5 w-3.5" />

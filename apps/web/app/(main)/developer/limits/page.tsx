@@ -80,7 +80,7 @@ export default function LimitsPage() {
 
       {data?.planName && (
         <Card>
-          <CardContent className="flex items-center justify-between p-4">
+          <CardContent className="flex items-center justify-between p-3">
             <div>
               <p className="text-xs text-muted-foreground">当前套餐</p>
               <p className="mt-0.5 text-lg font-semibold">{data.planName}</p>
@@ -105,7 +105,7 @@ export default function LimitsPage() {
             const pct = item.total > 0 ? (item.used / item.total) * 100 : 0
             return (
               <Card key={item.key}>
-                <CardContent className="space-y-2 p-4">
+                <CardContent className="space-y-2 p-3">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium">{item.label}</p>
                     <span

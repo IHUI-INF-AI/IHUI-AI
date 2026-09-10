@@ -27,7 +27,7 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12 min-[768px]:py-20 text-muted-foreground">
+      <div className="flex items-center justify-center py-12 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -36,7 +36,7 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {(error as Error).message}
       </div>
     )
@@ -44,7 +44,7 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
 
   if (agents.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 min-[768px]:py-20 text-center">
+      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
         <Bot className="h-10 w-10 text-muted-foreground/40" />
         <p className="text-sm text-muted-foreground">{t('empty')}</p>
       </div>
@@ -75,7 +75,7 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
                 </div>
               )}
             </div>
-            <CardContent className="flex flex-1 flex-col gap-2 p-4">
+            <CardContent className="flex flex-1 flex-col gap-2 p-3">
               <div className="flex items-center gap-2">
                 <Avatar src={a.avatar ?? undefined} name={a.name ?? 'A'} size="sm" />
                 <span className="break-words font-medium">{a.name}</span>

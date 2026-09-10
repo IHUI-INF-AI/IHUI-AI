@@ -36,9 +36,9 @@
 - [ ] 0-1 沙箱默认禁网 + 三平台策略测试
 - [ ] 0-2 黄金 E2E runner 固化:复用 IHUI-Bench 20 任务,增加端到端 review/checkpoint 断言
 - [x] 0-3 Monaco FIM Provider ✅(2026-09-07):已有 provider 基础上补齐 AbortController、3s 超时、30 条 LRU 缓存、请求/取消/失败/建议指标(`window.__ihuiFimMetrics`),专项测试 4/4
-- [ ] 0-4 LSP 四核心前端接线与类型契约
-- [ ] 0-5 直接 fetch 清单化迁移
-- [ ] 0-6 UI 大组件拆分:terminal-tab-bar / file-explorer / agent-pane / debug-panel
+- [x] **0-4 LSP 四核心前端接线与类型契约** ✅(2026-09-09):见下方完成报告
+- [x] **0-5 直接 fetch 清单化迁移** ✅(2026-09-09):四批迁移 + 豁免固化。① 6 处 ai-service 直连 → `fetchAiServiceJson`(鉴权/CSRF/设备指纹/超时统一);② knowledge/a2a/orchestration/personas/voice-stt/edu 等 AI 端点页同批收口;③ FormData 上传(AttachmentsUpload)+ **chunkUpload 协议修复**(原 `/api/upload/chunk` 为后端不存在的死端点,重写为 init→upload(octet-stream+x-upload-id/x-chunk-number,1-based)→merge 三步,修复 TiptapToolbar 图片上传必 404 的真实 bug);④ 4 处 blob 下载 → `fetchRaw`。类型增强:`ApiResult` success 分支补可选 `status`(client.ts 三处),消除 admin/relay 200/201 区分的迁移障碍。剩余 14 处裸 fetch 全部固化「0-5-f 豁免确认」注释:SSE 流式×2 / 埋点 keepalive×3 / RSC 缓存 / no-cors 测速 / 第三方 API×3 / playground OpenAI 协议×2 / api-debug / 文本预览外部 URL×2 / SSO 认证自举(不走 401 自动续期)。验收:web+api-client+types typecheck 0 错 / 定向 eslint 0 错 / api-client 145+web FilePreview 2 测试全绿
+- [x] **0-6 UI 大组件拆分** ✅(2026-09-10):terminal-tab-bar(823→model+TerminalTab+NewSessionMenu+RecordingDrawer+主组件)/ file-explorer(596+340→model+OutlineTab+TimelineTab+FileContextMenu+FileTreeNode+主组件,重复纯函数 getRenamedPath/validateFileName/isPathInWorkspace 收敛至 model)/ agent-pane(667→model+PlanStepsList+AgentInputArea+AgentProgressArea+AgentResultFooter+主组件,MODEL_OPTIONS 收敛至 model)/ debug-panel(544→model+VariableRow+ScopeGroup+WatchSection+BreakpointSection+CallStackSection+DebugConsoleSection+主组件,VariableRow/ScopeGroup 及四区块子组件自订阅 debug store,主组件仅保留会话生命周期/scope+watch 求值 effect/控制条)。四组件统一 folder/index.ts 模式,旧单文件与 *-model.ts 顶层散文件全部清除,外部引用(`./xxx` 路径)经文件夹 index.ts 无缝解析。验收:typecheck 0 错 / ide 目录 7 测试文件 48/48 全绿(含 debug-panel 12+3)/ eslint 0 错
 
 ### P1 深度打磨(1 个月)
 
@@ -81,7 +81,7 @@
 
 ### P2 广度优势产品化(3 个月)
 
-- [ ] 2-1 项目知识引擎:RepoWiki、Knowledge Card、任务经验沉淀
+- [x] 2-1 项目知识引擎:RepoWiki、Knowledge Card、任务经验沉淀 ✅(2026-09-10):2-1a RepoWiki(ai-service 生成 + apps/api 存储 + web 前端);2-1b Knowledge Card 后端(`knowledge_cards` 表 + GET//、GET /search、GET /:id、POST /、DELETE /:id,含 useCount/lastUsedAt 标记已用接口)与前端(知识卡片页 5 语言 i18n 44 key);2-1c 任务经验沉淀——api POST 支持 `X-Internal-Secret` 内部写卡(source=agent,vitest 23/23)、ai-service `knowledge_card_extractor.py`(LLM 抽取经验卡 → HTTP 写库,单卡失败不阻塞)、`knowledge_lookup` 接入 knowledge_cards 第五源(DEFAULT_PRIORITY 置于 codebase 后,confidence 归一为 score,api_token 为空跳过,IO 失败降级空)。验收:knowledge_lookup 44/44、api knowledge-card 23/23、mypy 0 错、tsc 0 错;全量回归失败项均与本改动无关(存量 payment/sanitizer/quota 等)
 - [ ] 2-2 多 Agent 工作区锁与团队任务板
 - [ ] 2-3 验证自愈引擎产品化
 - [ ] 2-4 浏览器自动化回放与评测

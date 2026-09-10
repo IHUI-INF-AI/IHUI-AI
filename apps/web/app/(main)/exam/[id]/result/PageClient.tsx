@@ -107,14 +107,14 @@ export default function ExamResultPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('empty')}
         </div>
       </div>
     )
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
       <Link
         href={`/exam/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -186,7 +186,7 @@ export default function ExamResultPage() {
           <div className="space-y-2">
             {result.details.map((d: ResultDetail, i: number) => (
               <Card key={d.questionId} className="transition-colors hover:bg-accent/40">
-                <CardContent className="space-y-2 p-4">
+                <CardContent className="space-y-2 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-1 items-start gap-2">
                       {d.isCorrect ? (

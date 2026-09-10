@@ -85,7 +85,7 @@ export function RunDetail({ dispatch }: RunDetailProps) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4">
-      <div className="rounded-xl border p-4">
+      <div className="rounded-xl border p-3">
         <h2 className="mb-3 text-sm font-semibold">{t('detailTitle')}</h2>
         <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-3">
           <MetaRow label={t('goal')} value={dispatch.goal || '-'} />

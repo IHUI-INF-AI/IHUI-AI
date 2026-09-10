@@ -48,7 +48,7 @@ export function SponsorContent(): React.JSX.Element {
   const t = useTranslations('sponsor')
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-4 min-[768px]:px-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-4">
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
@@ -78,7 +78,7 @@ export function SponsorContent(): React.JSX.Element {
         </h2>
         <div className="mt-8 grid grid-cols-1 gap-6 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
           {REASONS.map(({ icon: Icon, key }) => (
-            <div key={key} className="rounded-2xl border bg-card p-6 text-center">
+            <div key={key} className="rounded-2xl border bg-card p-3 text-center">
               <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Icon className="h-5 w-5 text-primary" />
               </div>
@@ -100,7 +100,7 @@ export function SponsorContent(): React.JSX.Element {
           {TIERS.map(({ id, icon: Icon, accent }) => (
             <Card
               key={id}
-              className={`flex flex-col p-6 ${accent ? 'border-primary shadow-md' : ''}`}
+              className={`flex flex-col p-3 ${accent ? 'border-primary shadow-md' : ''}`}
             >
               <div className="text-2xl min-[768px]:text-3xl">
                 <Icon className="h-8 w-8" />
@@ -128,7 +128,7 @@ export function SponsorContent(): React.JSX.Element {
       </section>
 
       {/* Existing sponsors */}
-      <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
+      <section className="mt-16 rounded-2xl border bg-card p-3 text-center">
         <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
           {t('sponsorsTitle')}
         </h2>
@@ -149,7 +149,7 @@ export function SponsorContent(): React.JSX.Element {
       </section>
 
       {/* Online donations: PayPal + Ko-fi */}
-      <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
+      <section className="mt-16 rounded-2xl border bg-card p-3 text-center">
         <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
           {t('onlineTitle')}
         </h2>

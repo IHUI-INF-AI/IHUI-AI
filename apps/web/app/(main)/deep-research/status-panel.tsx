@@ -47,7 +47,7 @@ export function RunStatusPanel({ state, activeId }: RunStatusPanelProps) {
   }, [state])
 
   return (
-    <div className="mb-6 rounded-xl border p-4">
+    <div className="mb-6 rounded-xl border p-3">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm text-muted-foreground">
           Research ID:{' '}

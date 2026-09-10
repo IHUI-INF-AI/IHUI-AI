@@ -57,7 +57,7 @@ export default function LearnMapPage() {
   const totalProgress = data?.totalProgress ?? 0
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -68,7 +68,7 @@ export default function LearnMapPage() {
       </header>
 
       <Card>
-        <CardContent className="flex items-center gap-4 p-5 min-[640px]:p-5">
+        <CardContent className="flex items-center gap-4 p-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             <TrendingUp className="h-6 w-6 text-primary" />
           </div>
@@ -93,7 +93,7 @@ export default function LearnMapPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : nodes.length === 0 ? (
@@ -111,7 +111,7 @@ export default function LearnMapPage() {
                 key={node.id}
                 className={cn('transition-colors', isLocked ? 'opacity-60' : 'hover:bg-accent')}
               >
-                <CardHeader className="flex flex-row items-start gap-3 p-4 pb-2">
+                <CardHeader className="flex flex-row items-start gap-3 p-3 pb-2">
                   <div
                     className={cn(
                       'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
@@ -147,7 +147,7 @@ export default function LearnMapPage() {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3 p-4 pt-2 min-[640px]:p-6 min-[640px]:pt-2">
+                <CardContent className="space-y-3 p-3 pt-2 min-[640px]:pt-2">
                   <div className="flex items-center gap-3">
                     <div className="h-1.5 flex-1 overflow-hidden rounded bg-muted">
                       <div

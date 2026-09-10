@@ -63,7 +63,7 @@ export default function ChildStudyPlansPage() {
   const plans = data?.list ?? []
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('child.studyPlans')}</h1>

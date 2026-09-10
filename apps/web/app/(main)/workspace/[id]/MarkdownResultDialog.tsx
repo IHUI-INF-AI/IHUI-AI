@@ -191,7 +191,7 @@ export function MarkdownResultDialog({ result, onClose }: Props) {
             <span className="self-center text-xs text-destructive">{t('copyFailed')}</span>
           )}
         </div>
-        <div className="min-h-[200px] overflow-y-auto rounded-md border bg-muted/20 p-4 text-sm">
+        <div className="min-h-[200px] overflow-y-auto rounded-md border bg-muted/20 p-3 text-sm">
           <ReactMarkdown
             // anydoc 输出为 GFM:表格/删除线/任务列表需 remark-gfm 才能渲染成真实元素
             remarkPlugins={[remarkGfm]}

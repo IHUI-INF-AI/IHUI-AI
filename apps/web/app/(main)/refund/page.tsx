@@ -70,7 +70,7 @@ export default function RefundPage() {
   const currencyFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <BackButton />
       <header className="flex items-center justify-between">
         <div className="space-y-1">
@@ -102,7 +102,7 @@ export default function RefundPage() {
             const StatusIcon = sc.icon
             return (
               <Card key={item.id} className="transition-colors hover:bg-accent">
-                <CardContent className="space-y-2 p-3 min-[640px]:p-3">
+                <CardContent className="space-y-2 p-3">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs text-muted-foreground">{item.orderNo}</span>
                     <span

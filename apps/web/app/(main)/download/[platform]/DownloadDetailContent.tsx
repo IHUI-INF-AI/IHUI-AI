@@ -100,7 +100,7 @@ export function DownloadDetailContent({ platform: platformParam }: { platform: s
       </button>
 
       {/* 头部卡片:平台图标 + 名称 + 版本 + 发布日期 + 状态徽章 */}
-      <Card className="mb-6 p-6">
+      <Card className="mb-6 p-3">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -161,7 +161,7 @@ export function DownloadDetailContent({ platform: platformParam }: { platform: s
       ) : (
         // 未接入:显示"即将上线"占位 + Web 端使用引导
         <section className="mb-6">
-          <Card className="border-dashed bg-muted/30 p-8 text-center">
+          <Card className="border-dashed bg-muted/30 p-3 text-center">
             <Package className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
             <h2 className="mb-1 text-base font-medium text-foreground">
               {t('downloadComingSoonTitle')}
@@ -195,7 +195,7 @@ export function DownloadDetailContent({ platform: platformParam }: { platform: s
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground/70">
             {t('downloadInstallGuide')}
           </h2>
-          <Card className="p-4">
+          <Card className="p-3">
             <InstallGuideContent platform={platform} t={t} guideKey={meta.installGuideKey} />
           </Card>
         </section>
@@ -207,7 +207,7 @@ export function DownloadDetailContent({ platform: platformParam }: { platform: s
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground/70">
             {t('downloadSystemRequirements')}
           </h2>
-          <Card className="p-4">
+          <Card className="p-3">
             <p className="whitespace-pre-line text-sm text-muted-foreground">
               {t(meta.systemRequirementsKey)}
             </p>
@@ -263,7 +263,7 @@ function DownloadAssetCard({
   const sizeLabel = formatFileSize(asset.sizeBytes)
 
   return (
-    <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <Card className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
           <Download className="h-5 w-5" />
@@ -368,6 +368,6 @@ function InstallGuideContent({
   }
 
   // 其他:纯文本
-  return <p className="whitespace-pre-line text-sm text-muted-foreground">{guideText}</p>
+  return <p className="px-4 py-4 whitespace-pre-line text-sm text-muted-foreground">{guideText}</p>
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

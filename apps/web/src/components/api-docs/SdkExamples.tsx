@@ -300,7 +300,7 @@ export function SdkExamples(): React.JSX.Element {
 
   return (
     <Card>
-      <CardContent className="space-y-3 p-4">
+      <CardContent className="space-y-3 p-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Code2 className="h-4 w-4 text-primary" />

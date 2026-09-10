@@ -197,7 +197,7 @@ const faqGroups: FaqGroup[] = [
 
 export default function ManualFaqPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl py-4">
+    <main className="px-4 mx-auto w-full max-w-3xl py-4">
       {/* Hero */}
       <header className="space-y-3">
         <div className="text-xs font-mono text-muted-foreground">第 07 章 · 使用说明手册</div>
@@ -221,7 +221,7 @@ export default function ManualFaqPage() {
             {group.items.map((item, idx) => (
               <details
                 key={idx}
-                className="group rounded-xl border bg-card p-4 transition-colors open:bg-accent/30"
+                className="group rounded-xl border bg-card p-3 transition-colors open:bg-accent/30"
               >
                 <summary className="cursor-pointer list-none text-sm font-medium">
                   <span className="mr-2 text-muted-foreground">Q{idx + 1}.</span>
@@ -241,7 +241,7 @@ export default function ManualFaqPage() {
         <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
           <a
             href="mailto:support@aizhs.top"
-            className="rounded-xl border bg-card p-4 transition-colors hover:bg-accent"
+            className="rounded-xl border bg-card p-3 transition-colors hover:bg-accent"
           >
             <p className="text-sm font-semibold">📧 邮件支持</p>
             <p className="mt-1 text-xs text-muted-foreground">support@aizhs.top</p>
@@ -249,7 +249,7 @@ export default function ManualFaqPage() {
           </a>
           <a
             href="https://aizhs.top/community"
-            className="rounded-xl border bg-card p-4 transition-colors hover:bg-accent"
+            className="rounded-xl border bg-card p-3 transition-colors hover:bg-accent"
           >
             <p className="flex items-center text-sm font-semibold">
               <MessageCircle className="mr-1.5 inline h-4 w-4" />
@@ -260,7 +260,7 @@ export default function ManualFaqPage() {
           </a>
           <Link
             href="/"
-            className="rounded-xl border bg-card p-4 transition-colors hover:bg-accent"
+            className="rounded-xl border bg-card p-3 transition-colors hover:bg-accent"
           >
             <p className="flex items-center text-sm font-semibold">
               <Users className="mr-1.5 inline h-4 w-4" />
@@ -271,7 +271,7 @@ export default function ManualFaqPage() {
           </Link>
           <a
             href="https://status.aizhs.top"
-            className="rounded-xl border bg-card p-4 transition-colors hover:bg-accent"
+            className="rounded-xl border bg-card p-3 transition-colors hover:bg-accent"
           >
             <p className="flex items-center text-sm font-semibold">
               <BarChart3 className="mr-1.5 inline h-4 w-4" />
@@ -281,14 +281,14 @@ export default function ManualFaqPage() {
             <p className="mt-1 text-xs text-muted-foreground">实时监控 + 故障公告 + 历史事件</p>
           </a>
         </div>
-        <div className="rounded-xl border bg-muted/30 p-4 text-xs text-muted-foreground">
+        <div className="rounded-xl border bg-muted/30 p-3 text-xs text-muted-foreground">
           💡 <strong>提效技巧</strong>:联系客服时附上 ① 账号邮箱 ② 问题截图 ③ 复现步骤 ④ 浏览器 / 系统,
           可大幅缩短解决时间。Pro / Team 用户有专属优先通道。
         </div>
       </section>
 
       {/* 完结 */}
-      <section className="mt-12 rounded-xl border bg-primary/5 p-6 text-center ring-1 ring-primary/20">
+      <section className="mt-12 rounded-xl border bg-primary/5 p-3 text-center ring-1 ring-primary/20">
         <p className="text-lg font-semibold">🎉 手册完结</p>
         <p className="mt-2 text-sm text-muted-foreground">
           恭喜!你已读完智汇 AI 使用说明手册全部 7 章。

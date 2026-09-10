@@ -118,7 +118,7 @@ export default function MyCommissionPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/distribution"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -137,7 +137,7 @@ export default function MyCommissionPage() {
       <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
         {stats.map((s) => (
           <Card key={s.label}>
-            <CardContent className="space-y-1 p-4">
+            <CardContent className="space-y-1 p-3">
               <div className="text-xs text-muted-foreground">{s.label}</div>
               {summaryQ.isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

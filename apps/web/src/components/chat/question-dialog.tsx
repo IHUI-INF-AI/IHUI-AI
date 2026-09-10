@@ -97,7 +97,7 @@ export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogPro
 
   return (
     <Dialog open={!!question} onOpenChange={(open) => !open && onSkip()}>
-      <DialogContent className="max-w-md gap-3 p-5">
+      <DialogContent className="max-w-md gap-3 p-3">
         <DialogHeader className="space-y-1">
           <DialogTitle className="text-base">{t('title')}</DialogTitle>
           <DialogDescription className="text-xs">

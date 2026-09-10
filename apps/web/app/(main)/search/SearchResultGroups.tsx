@@ -112,7 +112,7 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
             {users.map((u) => (
               <Link key={u.id} href={`/user/${u.id}`} className="group block">
                 <Card className="transition-colors hover:bg-accent">
-                  <CardHeader className="flex-row items-center gap-3 space-y-0 p-4">
+                  <CardHeader className="flex-row items-center gap-3 space-y-0 p-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <User className="h-5 w-5" />
                     </div>
@@ -140,7 +140,7 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
             {projects.map((p) => (
               <Link key={p.id} href={`/workspace/${p.id}`} className="group block">
                 <Card className="transition-colors hover:bg-accent">
-                  <CardHeader className="p-4">
+                  <CardHeader className="p-3">
                     <CardTitle className="text-sm">
                       <Highlight text={p.name} keyword={q} />
                     </CardTitle>
@@ -148,7 +148,7 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
                       <Highlight text={p.description} keyword={q} />
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="p-4 pt-0 text-xs text-muted-foreground">
+                  <CardContent className="p-3 pt-0 text-xs text-muted-foreground">
                     {p.fileCount} files · {dateFmt.format(new Date(p.updatedAt))}
                   </CardContent>
                 </Card>

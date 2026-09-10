@@ -110,14 +110,14 @@ export default function AdminCustomerServicePage() {
   }
   if (error) {
     return (
-      <div className="p-4">
+      <div className="p-3">
         <Alert variant="danger" title="加载失败" description={error} />
       </div>
     )
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <StatCards stats={stats} />
 
@@ -188,7 +188,7 @@ export default function AdminCustomerServicePage() {
                 <MessageCircle className="h-4 w-4 text-muted-foreground" />
                 <p className="text-sm font-medium">{selected.userName}</p>
               </div>
-              <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+              <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3">
                 {(selected.messages ?? []).length === 0 ? (
                   <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                     暂无消息

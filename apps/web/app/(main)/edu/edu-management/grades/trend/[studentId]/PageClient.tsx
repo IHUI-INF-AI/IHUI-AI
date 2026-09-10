@@ -154,7 +154,7 @@ export default function TrendPage() {
   /* ── Loading / Error ── */
   if (trendLoading || weaknessLoading) {
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4">
         <BackButton />
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -165,7 +165,7 @@ export default function TrendPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <BackButton />
 
       <header className="space-y-1">
@@ -177,7 +177,7 @@ export default function TrendPage() {
 
       {/* Subject filter */}
       <Card>
-        <CardContent className="flex items-center gap-3 p-4">
+        <CardContent className="flex items-center gap-3 p-3">
           <BookOpen className="h-4 w-4 text-muted-foreground" />
           <Select value={selectedSubject} onValueChange={setSelectedSubject}>
             <SelectTrigger className="w-40">

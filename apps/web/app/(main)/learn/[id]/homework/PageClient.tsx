@@ -105,14 +105,14 @@ export default function CourseHomeworkPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('backToCourse')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('errorFallback')}
         </div>
       </div>
     )
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href={`/learn/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -138,7 +138,7 @@ export default function CourseHomeworkPage() {
             const submitted = item.submitted ?? (item.status === 'submitted' || item.status === 1)
             return (
               <Card key={item.id}>
-                <CardContent className="flex flex-col gap-3 p-4 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
+                <CardContent className="flex flex-col gap-3 p-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
                   <div className="space-y-1.5">
                     <h3 className="text-base font-medium">{item.title}</h3>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">

@@ -337,6 +337,8 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
 
       ;(async () => {
         try {
+          // 2026-09-09 0-5-f 豁免确认:SSE 流式直接消费 res.body reader 逐行解析,
+          // fetchApi 是一次性 JSON 解析通道,不适用流式;自实现指数退避重连。
           const headers: Record<string, string> = { Accept: 'text/event-stream' }
           const token = getToken()
           if (token) headers['Authorization'] = `Bearer ${token}`

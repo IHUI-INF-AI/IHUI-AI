@@ -78,7 +78,7 @@ export default function NewsDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -110,7 +110,7 @@ export default function NewsDetailPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <script
         type="application/ld+json"
         // 安全转义:JSON.stringify 不转义 `<`,含 `</script>` 的输入会提前闭合脚本标签导致 XSS
@@ -125,7 +125,7 @@ export default function NewsDetailPage() {
       <div className="grid grid-cols-1 gap-5 min-[1024px]:grid-cols-4">
         <div className="min-w-0 space-y-5 min-[1024px]:col-span-3">
           <Card>
-            <CardContent className="p-4 min-[768px]:p-6 min-[640px]:p-6">
+            <CardContent className="p-3">
               <header className="space-y-3 pb-4">
                 <h1 className="text-2xl font-bold tracking-tight">{article.title}</h1>
                 {article.summary && (
@@ -169,7 +169,7 @@ export default function NewsDetailPage() {
               )}
 
               {article.summary && (
-                <blockquote className="my-4 rounded-md bg-muted/50 p-4 text-sm text-muted-foreground">
+                <blockquote className="my-4 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
                   {article.summary}
                 </blockquote>
               )}

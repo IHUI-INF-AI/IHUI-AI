@@ -44,7 +44,7 @@ export default async function ReferralPage() {
 
       {/* 邀请链接 */}
       <Card className="border-primary/40 bg-primary/5">
-        <CardContent className="p-5 min-[640px]:p-5">
+        <CardContent className="p-3">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Share2 className="h-4 w-4 text-primary" />
             {t('link.title')}
@@ -71,7 +71,7 @@ export default async function ReferralPage() {
           const Icon = s.icon
           return (
             <Card key={s.label}>
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-4 w-4" />
                 </div>

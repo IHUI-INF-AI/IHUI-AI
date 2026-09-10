@@ -120,7 +120,8 @@ describe('compactConversation(POST /api/chat/compact 手动压缩)', () => {
     expect(url).toContain('/api/chat/compact')
     expect(init.method).toBe('POST')
     expect(JSON.parse(init.body as string)).toEqual({ conversationId: 'conv-1' })
-    expect(result).toEqual({ success: true, data: payload })
+    // 2026-09-09 0-5 迁移:success 分支携带可选 status(区分 200 更新/201 新建等场景)
+    expect(result).toEqual({ success: true, data: payload, status: 200 })
   })
 
   it('404(会话不存在/无权限)→ 返回 success:false + status,不抛错', async () => {

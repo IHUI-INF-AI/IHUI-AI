@@ -107,7 +107,7 @@ export default async function AiEduPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(courseJsonLd) }}
         />
       ) : null}
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+      <main className="py-4 mx-auto w-full max-w-6xl px-4">
         <BackButton />
         {/* Hero */}
         <section className="space-y-5 text-center">
@@ -168,7 +168,7 @@ export default async function AiEduPage() {
           <h2 className="text-2xl font-bold tracking-tight">IHUI AI 教育 Agent 解决方案</h2>
           <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             {capabilities.map((c) => (
-              <div key={c.title} className="rounded-lg border bg-card p-5">
+              <div key={c.title} className="rounded-lg border bg-card p-3">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <Sparkles className="h-3.5 w-3.5 text-primary" />
                   {c.title}
@@ -204,17 +204,17 @@ export default async function AiEduPage() {
 
         {/* 核心收益 */}
         <section className="mt-12 grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
-          <div className="rounded-lg border bg-card p-5">
+          <div className="rounded-lg border bg-card p-3">
             <BookOpen className="h-5 w-5 text-primary" />
             <div className="mt-3 text-2xl font-bold">60%</div>
             <div className="mt-1 text-xs text-muted-foreground">教师辅导工作量降低</div>
           </div>
-          <div className="rounded-lg border bg-card p-5">
+          <div className="rounded-lg border bg-card p-3">
             <Users className="h-5 w-5 text-primary" />
             <div className="mt-3 text-2xl font-bold">25%</div>
             <div className="mt-1 text-xs text-muted-foreground">学员留存率提升</div>
           </div>
-          <div className="rounded-lg border bg-card p-5">
+          <div className="rounded-lg border bg-card p-3">
             <BarChart3 className="h-5 w-5 text-primary" />
             <div className="mt-3 text-2xl font-bold">95%+</div>
             <div className="mt-1 text-xs text-muted-foreground">智能批改准确率</div>
@@ -222,7 +222,7 @@ export default async function AiEduPage() {
         </section>
 
         {/* CTA */}
-        <section className="mt-12 rounded-lg border bg-card p-8 text-center">
+        <section className="mt-12 rounded-lg border bg-card p-3 text-center">
           <Wrench className="mx-auto h-6 w-6 text-primary" />
           <h2 className="mt-3 text-2xl font-bold tracking-tight">30 分钟搭建 AI 教育 Agent</h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">

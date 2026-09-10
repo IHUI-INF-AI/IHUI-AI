@@ -67,7 +67,7 @@ export default function AdminDistributionOrdersPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <Link
         href="/admin/distribution"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -86,7 +86,7 @@ export default function AdminDistributionOrdersPage() {
       )}
 
       <Card>
-        <CardContent className="flex items-center gap-2 p-3 min-[640px]:p-3">
+        <CardContent className="flex items-center gap-2 p-3">
           <div className="relative max-w-xs flex-1">
             <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input

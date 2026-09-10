@@ -201,7 +201,7 @@ export default function AgentPlanProgressPage() {
         )}
 
         {/* 计划元信息 */}
-        <div className="rounded-xl border p-4">
+        <div className="rounded-xl border p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <span className="text-sm font-semibold">{detail.goal}</span>
             <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-muted px-2.5 py-0.5 text-xs font-medium">
@@ -252,7 +252,7 @@ export default function AgentPlanProgressPage() {
         </div>
 
         {/* 任务进度 */}
-        <div className="mt-4 rounded-xl border p-4">
+        <div className="mt-4 rounded-xl border p-3">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
             <ListChecks className="h-4 w-4" /> 任务进度
           </h2>
@@ -312,7 +312,7 @@ export default function AgentPlanProgressPage() {
         </div>
 
         {/* 版本历史 */}
-        <div className="mt-4 rounded-xl border p-4">
+        <div className="mt-4 rounded-xl border p-3">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
             <Layers className="h-4 w-4" /> 版本历史(点击切换查看差异)
           </h2>
@@ -408,7 +408,7 @@ export default function AgentPlanProgressPage() {
         </p>
       )}
 
-      <div className="rounded-xl border p-4">
+      <div className="rounded-xl border p-3">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
           <ListChecks className="h-4 w-4" /> 最近查看({recent.length})
         </h2>

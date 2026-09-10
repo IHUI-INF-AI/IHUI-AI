@@ -156,7 +156,7 @@ export default function AdminChannelQuotaPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 px-4 py-4">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -165,7 +165,7 @@ export default function AdminChannelQuotaPage() {
 
   if (error) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 px-4 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold">渠道配额管理</h1>
@@ -188,7 +188,7 @@ export default function AdminChannelQuotaPage() {
   }
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <div>

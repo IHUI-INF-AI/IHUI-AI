@@ -96,7 +96,7 @@ export default async function OverviewPage() {
           const Icon = s.icon
           return (
             <Card key={s.key}>
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Icon className="h-4 w-4" />

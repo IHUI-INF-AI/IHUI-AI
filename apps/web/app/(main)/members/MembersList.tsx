@@ -54,7 +54,7 @@ export function MembersList({ members, isLoading, error, levelMap }: Props) {
   }
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {error.message}
       </div>
     )
@@ -71,13 +71,13 @@ export function MembersList({ members, isLoading, error, levelMap }: Props) {
     <div className="grid grid-cols-1 gap-3">
       {members.map((member) => (
         <Card key={member.id} className="transition-colors hover:bg-accent">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2">
             <CardTitle className="text-base">
               {member.nickname ?? member.username ?? t('unnamed')}
             </CardTitle>
             <StatusBadge status={member.status} t={t} />
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-2 p-4 pt-0 text-sm min-[640px]:grid-cols-4">
+          <CardContent className="grid grid-cols-2 gap-2 p-3 pt-0 text-sm min-[640px]:grid-cols-4">
             <div>
               <p className="text-xs text-muted-foreground">{t('username')}</p>
               <p className="break-words">{member.username ?? '-'}</p>

@@ -43,7 +43,7 @@ export default function ToolsPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
@@ -72,7 +72,7 @@ export default function ToolsPage() {
                   {items.map((tool) => (
                     <Link key={tool.id} href={tool.url} className="group block">
                       <Card className="transition-colors hover:bg-accent">
-                        <CardHeader className="flex-row items-center gap-3 space-y-0 p-4">
+                        <CardHeader className="flex-row items-center gap-3 space-y-0 p-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                             <Icon className="h-5 w-5" />
                           </div>

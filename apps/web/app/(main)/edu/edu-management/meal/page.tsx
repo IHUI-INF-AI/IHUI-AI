@@ -1052,7 +1052,7 @@ export default function MealPage() {
   /* ── Loading / Error states ── */
   if (mealsError) {
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4 px-4 py-4">
         <BackButton />
         <Alert variant="danger" description="加载菜谱数据失败，请稍后重试" />
       </div>
@@ -1060,7 +1060,7 @@ export default function MealPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
 
       {/* Header */}
@@ -1071,7 +1071,7 @@ export default function MealPage() {
 
       {/* Toolbar */}
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 p-4">
+        <CardContent className="flex flex-wrap items-center gap-3 p-3">
           {/* View toggle */}
           <div className="flex items-center gap-1 rounded-md border p-0.5">
             <Button
@@ -1403,7 +1403,7 @@ export default function MealPage() {
                 {/* Summary cards */}
                 <div className="grid grid-cols-3 gap-3">
                   <Card>
-                    <CardContent className="flex flex-col items-center justify-center p-4">
+                    <CardContent className="flex flex-col items-center justify-center p-3">
                       <span className="text-2xl font-bold text-orange-500">
                         {nutritionQuery.data.summary.totalCalories}
                       </span>
@@ -1411,7 +1411,7 @@ export default function MealPage() {
                     </CardContent>
                   </Card>
                   <Card>
-                    <CardContent className="flex flex-col items-center justify-center p-4">
+                    <CardContent className="flex flex-col items-center justify-center p-3">
                       <span className="text-2xl font-bold text-blue-500">
                         {nutritionQuery.data.summary.totalProtein}g
                       </span>
@@ -1419,7 +1419,7 @@ export default function MealPage() {
                     </CardContent>
                   </Card>
                   <Card>
-                    <CardContent className="flex flex-col items-center justify-center p-4">
+                    <CardContent className="flex flex-col items-center justify-center p-3">
                       <span className="text-2xl font-bold text-green-500">
                         {nutritionQuery.data.summary.totalCarbs}g
                       </span>

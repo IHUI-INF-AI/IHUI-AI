@@ -46,7 +46,7 @@ export function StudyPlanStatsDialog({
               {/* Overall stats */}
               <div className="grid grid-cols-3 gap-3">
                 <Card>
-                  <CardContent className="flex flex-col items-center justify-center p-4">
+                  <CardContent className="flex flex-col items-center justify-center p-3">
                     <span className="text-2xl font-bold text-primary">
                       {query.data.overallRate}%
                     </span>
@@ -54,7 +54,7 @@ export function StudyPlanStatsDialog({
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="flex flex-col items-center justify-center p-4">
+                  <CardContent className="flex flex-col items-center justify-center p-3">
                     <span className="text-2xl font-bold text-green-600">
                       {query.data.totalCompleted}
                     </span>
@@ -62,7 +62,7 @@ export function StudyPlanStatsDialog({
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardContent className="flex flex-col items-center justify-center p-4">
+                  <CardContent className="flex flex-col items-center justify-center p-3">
                     <span className="text-2xl font-bold text-muted-foreground">
                       {query.data.totalItems}
                     </span>

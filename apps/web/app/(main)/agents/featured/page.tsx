@@ -83,7 +83,7 @@ export default function FeaturedAgentsPage() {
           加载中...
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : agents.length === 0 ? (
@@ -114,7 +114,7 @@ export default function FeaturedAgentsPage() {
                     精选
                   </span>
                 </div>
-                <CardContent className="space-y-2 p-4">
+                <CardContent className="space-y-2 p-3">
                   <div className="flex items-start gap-2">
                     {agent.avatar ? (
                       <Image

@@ -150,7 +150,7 @@ export default function PlanDetailPage() {
           </Button>
           <h1 className="text-2xl font-bold tracking-tight">编辑 Plan</h1>
         </div>
-        <div className="rounded-lg border bg-card p-6">
+        <div className="rounded-lg border bg-card p-3">
           <PlanForm
             initial={{
               title: plan.title,
@@ -176,7 +176,7 @@ export default function PlanDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <Button asChild variant="ghost" size="icon">
@@ -203,7 +203,7 @@ export default function PlanDetailPage() {
         </div>
       </div>
 
-      <div className="space-y-4 rounded-lg border bg-card p-5">
+      <div className="space-y-4 rounded-lg border bg-card p-3">
         <div className="flex flex-wrap items-center gap-3">
           <select
             value={plan.status}

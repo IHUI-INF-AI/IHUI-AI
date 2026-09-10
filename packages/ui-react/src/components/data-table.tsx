@@ -341,7 +341,7 @@ function DataTable<TData>({
                         <TableRow className="hover:bg-transparent">
                           <TableCell
                             colSpan={row.getVisibleCells().length}
-                            className="bg-muted/30 p-4"
+                            className="bg-muted/30 p-3"
                           >
                             {renderExpandedRow(row)}
                           </TableCell>

@@ -201,7 +201,7 @@ export default function EduAiAigcToolsPage() {
   }
 
   return (
-    <div className="px-4 space-y-4">
+    <div className="space-y-4 px-4 py-4">
       <BackButton fallbackHref="/edu" />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -260,7 +260,7 @@ export default function EduAiAigcToolsPage() {
               className="flex cursor-pointer flex-col transition-colors hover:bg-accent"
               onClick={() => openDetail(tool.id)}
             >
-              <CardContent className="flex min-w-0 flex-1 flex-col gap-2 p-4">
+              <CardContent className="flex min-w-0 flex-1 flex-col gap-2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="line-clamp-1 font-medium">{tool.name}</p>

@@ -103,7 +103,7 @@ export function ParameterPanel({
 
   return (
     <Card>
-      <CardContent className="space-y-4 p-4">
+      <CardContent className="space-y-4 p-3">
         {/* API Key */}
         <div className="space-y-1.5">
           <Label htmlFor="pg-api-key" className="text-xs font-medium">

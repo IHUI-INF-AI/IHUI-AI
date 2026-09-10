@@ -79,7 +79,7 @@ export default function MyArticlesPage() {
   const fmtDate = (v?: string | null) => formatDateOnly(v)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="flex items-start justify-between">
         <div className="space-y-1">
@@ -103,7 +103,7 @@ export default function MyArticlesPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : list.length === 0 ? (
@@ -125,7 +125,7 @@ export default function MyArticlesPage() {
                       : 'statusDraft'
               return (
                 <Card key={article.id} className="transition-colors hover:bg-accent">
-                  <CardContent className="flex gap-4 p-4">
+                  <CardContent className="flex gap-4 p-3">
                     <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-md bg-muted">
                       {article.coverImage ? (
                         <Image

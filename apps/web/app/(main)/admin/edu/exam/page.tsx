@@ -34,7 +34,7 @@ function StatCard({
 }) {
   return (
     <Card>
-      <CardContent className="flex items-center gap-4 p-5 min-[640px]:p-5">
+      <CardContent className="flex items-center gap-4 p-3">
         <div
           className={cn(
             'flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-white',
@@ -167,7 +167,7 @@ export default function EduExamPage() {
   const papers = data?.list ?? []
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

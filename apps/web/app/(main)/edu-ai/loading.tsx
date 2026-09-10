@@ -4,14 +4,14 @@
 
 export default function Loading() {
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4">
       <div className="space-y-2">
         <div className="skeleton h-8 w-40 rounded" />
         <div className="skeleton h-4 w-56 rounded" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-xl border p-4">
+          <div key={i} className="rounded-xl border p-3">
             <div className="flex items-center gap-3">
               <div className="skeleton h-9 w-9 rounded" />
               <div className="skeleton h-4 w-32 rounded" />

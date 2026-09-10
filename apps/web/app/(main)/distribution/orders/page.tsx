@@ -110,7 +110,7 @@ export default function CommissionOrdersPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/distribution"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -127,7 +127,7 @@ export default function CommissionOrdersPage() {
       </header>
 
       <Card>
-        <CardContent className="flex items-center gap-3 p-4">
+        <CardContent className="flex items-center gap-3 p-3">
           <span className="text-sm text-muted-foreground">{t('colStatus')}</span>
           <Select value={status} onValueChange={onStatusChange}>
             <SelectTrigger className="w-40">

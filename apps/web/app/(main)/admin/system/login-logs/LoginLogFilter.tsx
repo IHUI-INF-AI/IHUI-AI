@@ -21,7 +21,7 @@ interface Props {
 export function LoginLogFilter({ search, setSearch, onSearch, onReset }: Props) {
   const t = useTranslations('admin.system')
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1.5">
         <Label className="text-xs">{t('loginLogs.filter.user')}</Label>
         <Input

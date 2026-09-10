@@ -152,7 +152,7 @@ export default function WrongQuestionsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -165,7 +165,7 @@ export default function WrongQuestionsPage() {
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         {cards.map(({ label, value, Icon, tone }) => (
           <Card key={label} className="transition-colors hover:bg-accent">
-            <CardContent className="flex items-center justify-between p-4">
+            <CardContent className="flex items-center justify-between p-3">
               <div>
                 <p className="text-xs text-muted-foreground">{label}</p>
                 <p className="text-2xl font-bold">{value}</p>
