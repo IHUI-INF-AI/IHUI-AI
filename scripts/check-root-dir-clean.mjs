@@ -128,6 +128,8 @@ const ALLOWED_HIDDEN_FILES = new Set([
   // 2026-09-04 显式审批:git commit -F 消息临时文件(PowerShell 无 heredoc,
   // 中文多行消息只能走文件;commit 完成后立即删除,不入库)
   '.git-commit-msg-tmp.txt',
+  // 2026-09-10 立:.git 异常恢复时可能呈现为 gitdir 指针文件(非目录),白名单兼容
+  '.git',
   '.env.act',
   '.env.example',
   '.env.production.example',
