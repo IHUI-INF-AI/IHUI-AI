@@ -222,7 +222,7 @@ export function ProvidersHealthTab() {
 
       {/* 模型自动同步 + F4.3 dry-run 预览按钮 + F4.9 进度条 */}
       <Card>
-        <CardContent className="space-y-2 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-2 p-3">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">{tm('title')}</p>
@@ -482,7 +482,7 @@ function ProviderRow({
   const tm = useTranslations('settings.gateway.modelSync')
   return (
     <Card>
-      <CardContent className="flex flex-wrap items-center gap-2 p-3">
+      <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-2 p-3">
         <div className="min-w-[140px] flex-1">
           <p className="text-sm font-medium">{provider.display_name || provider.provider}</p>
           <p className="text-[11px] text-muted-foreground">{provider.provider}</p>
@@ -707,7 +707,7 @@ function SyncHealthPanel() {
 
   return (
     <Card>
-      <CardContent className="space-y-2 p-3">
+      <CardContent className="min-[640px]:p-3 space-y-2 p-3">
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium">{tm('health')}</p>
           <span className="text-[11px] text-muted-foreground">
@@ -888,7 +888,7 @@ function SummaryCard({
             : 'text-foreground'
   return (
     <Card>
-      <CardContent className="p-3">
+      <CardContent className="min-[640px]:p-3 p-3">
         <p className="text-[11px] text-muted-foreground">{label}</p>
         <p className={`text-xl font-bold tabular-nums ${toneClass}`}>{value}</p>
       </CardContent>
@@ -995,7 +995,7 @@ function SyncConfigPanel() {
 
   return (
     <Card>
-      <CardContent className="space-y-2 p-3">
+      <CardContent className="min-[640px]:p-3 space-y-2 p-3">
         <p className="text-sm font-medium">{tm('config')}</p>
         <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
           <div className="space-y-1">
@@ -1077,7 +1077,7 @@ function SyncStatsCard() {
 
   return (
     <Card>
-      <CardContent className="space-y-2 p-3">
+      <CardContent className="min-[640px]:p-3 space-y-2 p-3">
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium">{tm('stats')}</p>
           <div className="flex gap-1">

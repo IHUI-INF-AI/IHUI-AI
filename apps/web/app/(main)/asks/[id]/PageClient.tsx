@@ -229,7 +229,7 @@ export default function AskDetailPage() {
           <div className="space-y-2">
             {answers.map((a: AnswerItem) => (
               <Card key={a.id} className={cn(a.isAccepted && 'border-emerald-500/40')}>
-                <CardContent className="p-3">
+                <CardContent className="min-[640px]:p-3 p-3">
                   {a.isAccepted && (
                     <span className="mb-2 inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
                       <CheckCircle2 className="h-3 w-3" />

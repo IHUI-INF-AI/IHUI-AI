@@ -109,7 +109,7 @@ export default function PointsTasksPage() {
               task.target > 0 ? Math.min(100, Math.round((task.progress / task.target) * 100)) : 0
             return (
               <Card key={task.id}>
-                <CardContent className="p-3">
+                <CardContent className="min-[640px]:p-3 p-3">
                   <div className="mb-1 flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h3 className="truncate text-sm font-medium">{task.title}</h3>

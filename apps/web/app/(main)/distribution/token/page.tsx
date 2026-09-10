@@ -121,7 +121,7 @@ export default function TokenWalletPage() {
       </header>
 
       <Card>
-        <CardContent className="space-y-1 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-1 p-3">
           <div className="text-sm text-muted-foreground">{t('tokenBalance')}</div>
           {balanceQ.isLoading ? (
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

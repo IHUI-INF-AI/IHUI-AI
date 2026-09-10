@@ -112,7 +112,7 @@ export default function EduPointsPage() {
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-base">{channel.name}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-1.5 p-3 pt-0 text-sm">
+                <CardContent className="min-[640px]:p-3 space-y-1.5 p-3 pt-0 text-sm">
                   {channel.code && <p className="text-xs text-muted-foreground">{channel.code}</p>}
                   {channel.description && (
                     <p className="text-muted-foreground">{channel.description}</p>

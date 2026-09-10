@@ -145,7 +145,7 @@ export default function LivePlayPage() {
                 </div>
               )}
             </div>
-            <CardContent className="space-y-3 p-3">
+            <CardContent className="min-[640px]:p-3 space-y-3 p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <h1 className="text-lg font-semibold">{channel.title}</h1>

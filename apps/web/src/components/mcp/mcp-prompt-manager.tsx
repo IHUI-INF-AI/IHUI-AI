@@ -102,7 +102,7 @@ export function McpPromptManager() {
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {prompts.map((prompt) => (
             <Card key={prompt.name}>
-              <CardContent className="p-3">
+              <CardContent className="min-[640px]:p-3 p-3">
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span className="font-mono text-sm font-medium">{prompt.name}</span>
                   <div className="flex gap-1">

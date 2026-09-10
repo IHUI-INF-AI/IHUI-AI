@@ -291,7 +291,7 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
             <Empty title={t('noRating')} />
           ) : (
             <Card>
-              <CardContent className="flex items-center gap-4 p-3">
+              <CardContent className="min-[640px]:p-3 flex items-center gap-4 p-3">
                 <div className="text-center">
                   <p className="text-2xl min-[768px]:text-3xl font-bold text-primary">
                     {rating.average}
@@ -343,7 +343,7 @@ export function CourseTabs({ course, className }: CourseTabsProps) {
 
         <TabsContent value="certificate" className="mt-3">
           <Card>
-            <CardContent className="space-y-3 p-3 text-center">
+            <CardContent className="min-[640px]:p-3 space-y-3 p-3 text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
                 <Award className="h-8 w-8 text-primary" />
               </div>

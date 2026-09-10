@@ -85,7 +85,11 @@ jobs:
         env:
           JWT_SECRET: test-jwt-secret-for-real-db-0123456789abcdef
           CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
-        run: pnpm run seed
+        # ①先用 api 侧脚本建默认用户(argon2 在 api 依赖里);②再跑全量基线 seed。
+        # users.ts 检测到 argon2 不可用且库中已有用户时会自动跳过,不再 critical 失败
+        run: |
+          pnpm --filter @ihui/api run seed:test-users
+          pnpm run seed
 
       - name: Run real DB integration tests
         working-directory: apps/api

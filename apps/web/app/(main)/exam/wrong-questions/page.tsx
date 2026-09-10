@@ -165,7 +165,7 @@ export default function WrongQuestionsPage() {
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
         {cards.map(({ label, value, Icon, tone }) => (
           <Card key={label} className="transition-colors hover:bg-accent">
-            <CardContent className="flex items-center justify-between p-3">
+            <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3">
               <div>
                 <p className="text-xs text-muted-foreground">{label}</p>
                 <p className="text-2xl font-bold">{value}</p>

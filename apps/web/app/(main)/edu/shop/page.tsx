@@ -200,7 +200,7 @@ export default function EduShopPage() {
               <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
                 {(courses?.list ?? []).map((course) => (
                   <Card key={course.id} className="flex flex-col">
-                    <CardContent className="flex min-w-0 flex-1 flex-col gap-2 p-3">
+                    <CardContent className="min-[640px]:p-3 flex min-w-0 flex-1 flex-col gap-2 p-3">
                       {course.coverImage && (
                         <div className="aspect-video w-full overflow-hidden rounded-md bg-muted">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -282,7 +282,7 @@ export default function EduShopPage() {
               <div className="space-y-2">
                 {(orders?.list ?? []).map((order) => (
                   <Card key={order.id}>
-                    <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3">
+                    <CardContent className="min-[640px]:p-3 flex flex-wrap items-center justify-between gap-3 p-3">
                       <div className="min-w-0 space-y-1">
                         <p className="line-clamp-1 font-medium">{order.targetTitle ?? '-'}</p>
                         <p className="truncate text-xs text-muted-foreground">

@@ -188,7 +188,7 @@ export default function SubagentDetailClient() {
             )}
           </div>
         </CardHeader>
-        <CardContent className="p-3 pt-0">
+        <CardContent className="min-[640px]:p-3 p-3 pt-0">
           {!dispatch ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               {activeQ.isLoading ? '加载中...' : '派单不存在或已结束(不在活跃列表)'}
@@ -231,7 +231,7 @@ export default function SubagentDetailClient() {
           <CardHeader className="p-3">
             <CardTitle className="text-sm">DAG 可视化</CardTitle>
           </CardHeader>
-          <CardContent className="p-3 pt-0">
+          <CardContent className="min-[640px]:p-3 p-3 pt-0">
             {dagQ.isLoading ? (
               <div className="flex items-center justify-center py-10 text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -247,7 +247,7 @@ export default function SubagentDetailClient() {
           <CardHeader className="p-3">
             <CardTitle className="text-sm">资源配额</CardTitle>
           </CardHeader>
-          <CardContent className="p-3 pt-0">
+          <CardContent className="min-[640px]:p-3 p-3 pt-0">
             {quotasQ.isLoading || !quotasQ.data ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
                 {quotasQ.isLoading ? '加载中...' : '无配额数据'}

@@ -132,7 +132,7 @@ export default function EduCoursesPage() {
                   <BookOpen className="h-10 w-10 text-primary/40" />
                 )}
               </div>
-              <CardContent className="flex-1 min-w-0 space-y-2 p-3">
+              <CardContent className="min-[640px]:p-3 flex-1 min-w-0 space-y-2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <p className="line-clamp-1 font-medium">{c.title}</p>
                   <span

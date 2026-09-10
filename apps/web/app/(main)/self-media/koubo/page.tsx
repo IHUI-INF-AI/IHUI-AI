@@ -193,7 +193,7 @@ export default function KouboPage() {
               {t('formTitle')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 p-3">
+          <CardContent className="min-[640px]:p-3 space-y-3 p-3">
             <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="date">{t('dateLabel')}</Label>
@@ -301,7 +301,7 @@ export default function KouboPage() {
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 p-3">
+            <CardContent className="min-[640px]:p-3 space-y-2 p-3">
               <div
                 className={
                   result.ok
@@ -390,7 +390,7 @@ export default function KouboPage() {
             {t('historyTitle')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-2">
+        <CardContent className="min-[640px]:p-2 p-2">
           {history.length === 0 ? (
             <p className="px-2 py-4 text-xs text-muted-foreground">{t('historyEmpty')}</p>
           ) : (

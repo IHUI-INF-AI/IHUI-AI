@@ -93,7 +93,7 @@ export default function AiWorldHistoryPage() {
           {items.map((item) => (
             <Link key={item.id} href={`/ai-world/${item.id}`}>
               <Card className="transition-colors hover:bg-accent/40">
-                <CardContent className="flex items-center gap-4 p-3">
+                <CardContent className="min-[640px]:p-3 flex items-center gap-4 p-3">
                   <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
                     {item.coverImage ? (
                       <Image
