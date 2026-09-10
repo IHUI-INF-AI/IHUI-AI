@@ -207,7 +207,9 @@ describe('后台任务注册表', () => {
       // 终止
       const result = await killTask(id);
       expect(result.killed).toBe(true);
-      const finalTask = getTask(id)!;
+      // CI 上进程树退出/exit 事件传播可能滞后于 killTask 返回(实测 sleep 30
+      // 在 ubuntu runner 上 SIGKILL 后仍需数百 ms 才触发 close),轮询等待收敛
+      const finalTask = (await waitForTask(id, 10_000))!;
       expect(['killed', 'exited']).toContain(finalTask.status);
     });
 

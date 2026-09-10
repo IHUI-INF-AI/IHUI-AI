@@ -49,6 +49,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # 构建期固化 rewrites 代理地址为 Docker 内网地址(next.config.ts rewrites 在 build 时求值)
 ENV API_URL=http://api:8802
 ENV AI_SERVICE_URL=http://ai-service:8803
+# nginx 静态托管架构要求 output:'export' 产物(out/);next.config.ts 由
+# EXPORT_STATIC 显式触发静态导出(2026-09-10 修复:缺此环境变量时 builder 走
+# 服务端构建,不生成 out/,后续 COPY out/ 因产物不存在而 buildx 失败)
+ENV EXPORT_STATIC=true
 # next build 需要大内存(默认 ~2GB 会 OOM);4096 仍会 OOM,恢复到 8192(2026-07-20)
 ENV NODE_OPTIONS=--max-old-space-size=16384
 # web prebuild 的 sync-downloads 用 zip 打包 extension;alpine 无 zip 命令必挂(2026-09-10)
