@@ -186,6 +186,11 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
       complete: vi.fn().mockResolvedValue(undefined),
       fail: vi.fn().mockResolvedValue(undefined),
     })
+    // 风控引擎(2026-09-06 P0:下单/退款/提现入口接入 server.riskEngine.evaluateRisk):
+    // 测试 app 未注册 resilience-toolkit 插件,须显式 decorate,默认放行
+    app.decorate('riskEngine', {
+      evaluateRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: [], score: 0 }),
+    } as never)
     await app.register(paymentGatewayRoutes, { prefix: '/api' })
     await app.ready()
   })
