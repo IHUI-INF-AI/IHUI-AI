@@ -240,7 +240,7 @@ export default function Search() {
     <ThemeRoot>
       <View style={viewStyles.container}>
         <View style={viewStyles.header}>
-          <Text style={textStyles.back} onTap={goBack}>
+          <Text style={textStyles.back} onClick={goBack}>
             {tt('common.back', '返回')}
           </Text>
           <Text style={textStyles.title}>{tt('search.title', '搜索')}</Text>
