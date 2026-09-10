@@ -16,10 +16,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
 from app.services.agent_loop_v2 import AgentLoopV2, ToolDefinition
-
 
 # =============================================================================
 # 辅助

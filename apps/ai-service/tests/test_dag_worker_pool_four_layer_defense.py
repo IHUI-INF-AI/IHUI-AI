@@ -39,14 +39,14 @@ from app.services.network_guard import check_current  # noqa: E402
 
 def _make_task(tid: str, **kwargs) -> KanbanTask:
     """构造测试任务。"""
-    defaults = dict(
-        id=tid,
-        agent_id="a1",
-        name=f"task-{tid}",
-        priority=1,
-        status="ready",
-        scheduled_at="2026-07-23T00:00:00Z",
-    )
+    defaults = {
+        "id": tid,
+        "agent_id": "a1",
+        "name": f"task-{tid}",
+        "priority": 1,
+        "status": "ready",
+        "scheduled_at": "2026-07-23T00:00:00Z",
+    }
     defaults.update(kwargs)
     return KanbanTask(**defaults)
 

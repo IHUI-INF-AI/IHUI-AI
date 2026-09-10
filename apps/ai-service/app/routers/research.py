@@ -19,15 +19,14 @@ routers/agents.py / agent_runtime.py 一致);审计以结构化 logger 记录调
 
 from __future__ import annotations
 
-from typing import Any
-
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..core.jwt_auth import get_current_user_id
-from ..services.deep_research import LLMFn, PHASE_DONE, manager
+from ..services.deep_research import PHASE_DONE, LLMFn, manager
 
 logger = logging.getLogger(__name__)
 

@@ -25,7 +25,11 @@ import pytest
 from app.routers.relay import (
     continue_thread,
     create_relay_summary,
+)
+from app.routers.relay import (
     get_relay_summary as api_get_relay_summary,
+)
+from app.routers.relay import (
     list_relay_summaries as api_list_relay_summaries,
 )
 from app.services.session_relay import (
@@ -48,7 +52,6 @@ from app.services.session_store import (
     ToolResultItem,
     UserMessageItem,
 )
-
 
 # =============================================================================
 # fixtures

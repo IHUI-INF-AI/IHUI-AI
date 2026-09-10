@@ -19,7 +19,6 @@ from fastapi import HTTPException
 
 from app.routers import usage as usage_router
 
-
 # ---------------------------------------------------------------------------
 # helper
 # ---------------------------------------------------------------------------

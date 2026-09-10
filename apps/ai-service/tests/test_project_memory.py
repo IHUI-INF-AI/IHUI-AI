@@ -13,11 +13,8 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.services.persona_registry import (
     build_persona_system_prompt,
-    get_persona_contract,
     list_persona_names,
 )
 from app.services.project_memory import (

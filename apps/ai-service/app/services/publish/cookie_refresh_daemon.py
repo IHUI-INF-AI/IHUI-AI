@@ -32,13 +32,15 @@ import asyncio
 import os
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, HTTPException, Request
 
 if TYPE_CHECKING:
     from playwright._impl._api_structures import SetCookieParam
+
+import contextlib
 
 from app.core.db import get_db_conn
 from app.core.logging import get_logger
@@ -72,7 +74,7 @@ class RefreshStats:
     success: int = 0
     failed: int = 0
     skipped: int = 0
-    last_run_at: Optional[str] = None
+    last_run_at: str | None = None
     running: bool = False
 
 
@@ -94,7 +96,7 @@ class CookieRefreshDaemon:
     """
 
     def __init__(self) -> None:
-        self._task: Optional[asyncio.Task[None]] = None
+        self._task: asyncio.Task[None] | None = None
         self._stats = RefreshStats()
         self._lock = asyncio.Lock()
 
@@ -122,10 +124,8 @@ class CookieRefreshDaemon:
         """停止守护进程。"""
         if self._task is not None and not self._task.done():
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         self._task = None
         logger.info("[cookie_daemon] 守护进程已停止")
 
@@ -167,7 +167,7 @@ class CookieRefreshDaemon:
                         self._stats.success += 1
                     else:
                         self._stats.failed += 1
-                self._stats.last_run_at = datetime.now(timezone.utc).isoformat()
+                self._stats.last_run_at = datetime.now(UTC).isoformat()
                 return self._stats
             finally:
                 self._stats.running = False
@@ -184,7 +184,10 @@ class CookieRefreshDaemon:
         login_url = cfg["login_url"]
         start = time.time()
         try:
-            from playwright.sync_api import sync_playwright
+            # 可用性探针:实际调用在 _visit_and_check 内;此处 import 仅为提前给出友好报错,
+            # 且 tests/test_cookie_refresh_daemon.py 通过 monkeypatch __import__ 模拟未安装,
+            # 故不能用 find_spec 替代(ruff F401 显式豁免)。
+            from playwright.sync_api import sync_playwright  # noqa: F401
         except ImportError as e:
             return RefreshResult(
                 account_id=account_id, platform=platform, success=False,

@@ -19,13 +19,14 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from app.core.tunables import DEFAULT_CHECKPOINT_TTL
 
@@ -93,7 +94,7 @@ class AgentLoopCheckpoint:
             metadata=data.get("metadata", {}),
         )
 
-    def is_expired(self, now: Optional[float] = None) -> bool:
+    def is_expired(self, now: float | None = None) -> bool:
         """检查是否已过期。"""
         current = now if now is not None else time.time()
         return self.expires_at <= current
@@ -143,7 +144,7 @@ class AgentCheckpointManager:
         self,
         max_in_memory: int = DEFAULT_MAX_IN_MEMORY,
         ttl_seconds: int = DEFAULT_CHECKPOINT_TTL,
-        redis_url: Optional[str] = None,
+        redis_url: str | None = None,
     ):
         self._checkpoints: dict[str, AgentLoopCheckpoint] = {}  # checkpoint_id -> checkpoint
         self._session_index: dict[str, str] = {}  # session_id -> latest checkpoint_id
@@ -175,8 +176,8 @@ class AgentCheckpointManager:
         messages: list[dict[str, Any]],
         tool_state: dict[str, Any],
         status: str = "running",
-        metadata: Optional[dict[str, Any]] = None,
-        file_snapshots: Optional[list[dict[str, Any]]] = None,
+        metadata: dict[str, Any] | None = None,
+        file_snapshots: list[dict[str, Any]] | None = None,
     ) -> str:
         """保存 checkpoint,返回 checkpoint_id。
 
@@ -267,7 +268,7 @@ class AgentCheckpointManager:
             if self._session_index.get(oldest.session_id) == oldest_id:
                 del self._session_index[oldest.session_id]
 
-    async def load_checkpoint(self, checkpoint_id: str) -> Optional[AgentLoopCheckpoint]:
+    async def load_checkpoint(self, checkpoint_id: str) -> AgentLoopCheckpoint | None:
         """加载 checkpoint。优先内存,miss 时查 redis。过期返回 None。"""
         now = time.time()
         # 1. 内存查
@@ -301,7 +302,7 @@ class AgentCheckpointManager:
 
         return None
 
-    async def load_latest_by_session(self, session_id: str) -> Optional[AgentLoopCheckpoint]:
+    async def load_latest_by_session(self, session_id: str) -> AgentLoopCheckpoint | None:
         """根据 session_id 加载最新 checkpoint。"""
         # 1. 内存索引查
         async with self._lock:
@@ -323,7 +324,7 @@ class AgentCheckpointManager:
         return None
 
     async def list_checkpoints(
-        self, session_id: Optional[str] = None
+        self, session_id: str | None = None
     ) -> list[AgentLoopCheckpoint]:
         """列出 checkpoint(可选按 session 过滤)。已过期的不会列出。"""
         now = time.time()
@@ -453,7 +454,7 @@ class AgentCheckpointManager:
 
 
 # 全局单例
-_agent_checkpoint_manager: Optional[AgentCheckpointManager] = None
+_agent_checkpoint_manager: AgentCheckpointManager | None = None
 
 
 def get_agent_checkpoint_manager() -> AgentCheckpointManager:
@@ -472,11 +473,9 @@ def _reset_global_manager_for_test() -> None:
     """(测试用)重置全局单例。"""
     global _agent_checkpoint_manager
     if _agent_checkpoint_manager is not None:
-        try:
+        with contextlib.suppress(RuntimeError):
             asyncio.get_running_loop().create_task(
                 _agent_checkpoint_manager.close()
             )
-        except RuntimeError:
-            pass
     _agent_checkpoint_manager = None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -32,13 +32,13 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import math
 import random
 from typing import Any
 
 from app.core.logging import get_logger
-from .behavior_entropy import BEHAVIOR_CLICK, BEHAVIOR_MOUSE, BEHAVIOR_TYPE, get_entropy_analyzer
+
+from .behavior_entropy import BEHAVIOR_TYPE, get_entropy_analyzer
 
 logger = get_logger(__name__)
 

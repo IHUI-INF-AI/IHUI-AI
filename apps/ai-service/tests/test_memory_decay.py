@@ -16,19 +16,18 @@
   / delete_state / record_access_async / apply_decay 写穿 / prune_decayed 写穿
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.services import memory_decay as md_module
 from app.services.memory_decay import (
-    MemoryDecayManager,
     _DEFAULT_CONFIG,
+    MemoryDecayManager,
     _parse_iso,
     _parse_uuid,
 )
-
 
 # =============================================================================
 # compute_decay_state:单条记忆衰减计算
@@ -41,7 +40,7 @@ class TestComputeDecayState:
     def test_time_strategy_new_memory_full_score(self):
         """time 策略:刚创建的记忆 retentionScore ≈ 1.0。"""
         mgr = MemoryDecayManager()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         entry = {"id": "e1", "createdAt": now, "updatedAt": now}
         state = mgr.compute_decay_state(entry, {"strategy": "time", "halfLifeDays": 30})
         assert state["entryId"] == "e1"
@@ -51,7 +50,7 @@ class TestComputeDecayState:
     def test_time_strategy_60_days_ago(self):
         """time 策略:60 天前(半衰期 30 天)retentionScore = 0.5^2 = 0.25。"""
         mgr = MemoryDecayManager()
-        old = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
+        old = (datetime.now(UTC) - timedelta(days=60)).isoformat()
         entry = {"id": "e2", "createdAt": old, "updatedAt": old}
         state = mgr.compute_decay_state(entry, {"strategy": "time", "halfLifeDays": 30, "minRetentionScore": 0.2})
         assert 0.2 <= state["retentionScore"] <= 0.26
@@ -60,7 +59,7 @@ class TestComputeDecayState:
     def test_time_strategy_very_old_decayed(self):
         """time 策略:200 天前 retentionScore < 0.2 → isDecayed=True。"""
         mgr = MemoryDecayManager()
-        old = (datetime.now(timezone.utc) - timedelta(days=200)).isoformat()
+        old = (datetime.now(UTC) - timedelta(days=200)).isoformat()
         entry = {"id": "e3", "createdAt": old, "updatedAt": old}
         state = mgr.compute_decay_state(entry, {"strategy": "time", "halfLifeDays": 30, "minRetentionScore": 0.2})
         assert state["retentionScore"] < 0.2
@@ -86,7 +85,7 @@ class TestComputeDecayState:
     def test_combined_strategy_fresh_with_access(self):
         """combined 策略:新记忆 + 1 次访问 → capped 1.0。"""
         mgr = MemoryDecayManager()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         mgr.record_access("e6")
         entry = {"id": "e6", "createdAt": now, "updatedAt": now}
         state = mgr.compute_decay_state(entry, {"strategy": "combined", "halfLifeDays": 30, "accessBoost": 0.1})
@@ -96,7 +95,7 @@ class TestComputeDecayState:
     def test_combined_strategy_old_no_access(self):
         """combined 策略:旧记忆 + 0 次访问 → time_score 主导。"""
         mgr = MemoryDecayManager()
-        old = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
+        old = (datetime.now(UTC) - timedelta(days=60)).isoformat()
         entry = {"id": "e7", "createdAt": old, "updatedAt": old}
         state = mgr.compute_decay_state(entry, {"strategy": "combined", "halfLifeDays": 30, "accessBoost": 0.1})
         # time_score ≈ 0.25, combined = 0.25 * (1 + 0) = 0.25
@@ -105,7 +104,7 @@ class TestComputeDecayState:
     def test_config_overrides_default(self):
         """config 覆盖 _DEFAULT_CONFIG(halfLifeDays=1 + minRetentionScore=0.9)。"""
         mgr = MemoryDecayManager()
-        old = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+        old = (datetime.now(UTC) - timedelta(days=10)).isoformat()
         entry = {"id": "e8", "createdAt": old, "updatedAt": old}
         state = mgr.compute_decay_state(entry, {"strategy": "time", "halfLifeDays": 1, "minRetentionScore": 0.9})
         assert state["isDecayed"] is True
@@ -139,7 +138,7 @@ class TestComputeDecayState:
         mgr._states["e11"] = {
             "entryId": "e11",
             "retentionScore": 1.0,
-            "lastAccessedAt": datetime.now(timezone.utc).isoformat(),
+            "lastAccessedAt": datetime.now(UTC).isoformat(),
             "accessCount": 5,
             "isDecayed": False,
         }
@@ -160,36 +159,36 @@ class TestTimeScore:
 
     def test_empty_string_returns_1(self):
         """空字符串 → 1.0(新记忆)。"""
-        score = MemoryDecayManager._time_score("", 30, datetime.now(timezone.utc))
+        score = MemoryDecayManager._time_score("", 30, datetime.now(UTC))
         assert score == 1.0
 
     def test_half_life_zero_returns_0(self):
         """halfLifeDays ≤ 0 → 0.0(立即衰减)。"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         score = MemoryDecayManager._time_score("2026-01-01T00:00:00+00:00", 0, now)
         assert score == 0.0
 
     def test_invalid_format_returns_1(self):
         """非法时间格式 → 1.0(容错)。"""
-        score = MemoryDecayManager._time_score("not-a-date", 30, datetime.now(timezone.utc))
+        score = MemoryDecayManager._time_score("not-a-date", 30, datetime.now(UTC))
         assert score == 1.0
 
     def test_future_time_returns_1(self):
         """未来时间 → 1.0(days ≤ 0)。"""
-        future = (datetime.now(timezone.utc) + timedelta(days=10)).isoformat()
-        score = MemoryDecayManager._time_score(future, 30, datetime.now(timezone.utc))
+        future = (datetime.now(UTC) + timedelta(days=10)).isoformat()
+        score = MemoryDecayManager._time_score(future, 30, datetime.now(UTC))
         assert score == 1.0
 
     def test_normal_decay(self):
         """30 天前 + 半衰期 30 天 → 0.5。"""
-        old = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-        score = MemoryDecayManager._time_score(old, 30, datetime.now(timezone.utc))
+        old = (datetime.now(UTC) - timedelta(days=30)).isoformat()
+        score = MemoryDecayManager._time_score(old, 30, datetime.now(UTC))
         assert 0.48 <= score <= 0.52
 
     def test_naive_datetime_treated_as_utc(self):
         """无时区时间视为 UTC。"""
-        old = (datetime.now(timezone.utc) - timedelta(days=30)).replace(tzinfo=None).isoformat()
-        score = MemoryDecayManager._time_score(old, 30, datetime.now(timezone.utc))
+        old = (datetime.now(UTC) - timedelta(days=30)).replace(tzinfo=None).isoformat()
+        score = MemoryDecayManager._time_score(old, 30, datetime.now(UTC))
         assert 0.48 <= score <= 0.52
 
 
@@ -216,7 +215,7 @@ class TestApplyDecay:
     async def test_list_client(self):
         """memory_client 为 list → 直接遍历。"""
         mgr = MemoryDecayManager()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         entries = [
             {"id": "a", "createdAt": now, "updatedAt": now},
             {"id": "b", "createdAt": "2026-01-01T00:00:00+00:00", "updatedAt": "2026-01-01T00:00:00+00:00"},
@@ -228,7 +227,7 @@ class TestApplyDecay:
     async def test_unified_memory_client(self):
         """memory_client 为 UnifiedMemoryClient → 调 get_entries。"""
         mgr = MemoryDecayManager()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         client = MagicMock()
         client.get_entries = AsyncMock(return_value=[
             {"id": "x", "createdAt": now, "updatedAt": now},
@@ -264,7 +263,7 @@ class TestPruneDecayed:
     async def test_prune_below_threshold(self):
         """retentionScore < threshold → 标记 isDecayed。"""
         mgr = MemoryDecayManager()
-        old = (datetime.now(timezone.utc) - timedelta(days=200)).isoformat()
+        old = (datetime.now(UTC) - timedelta(days=200)).isoformat()
         entries = [{"id": "p1", "createdAt": old, "updatedAt": old}]
         # 先计算衰减
         await mgr.apply_decay("u", {"strategy": "time", "halfLifeDays": 30}, memory_client=entries)
@@ -275,7 +274,7 @@ class TestPruneDecayed:
     async def test_prune_no_state_uses_default(self):
         """未计算过衰减的条目用默认配置算一次。"""
         mgr = MemoryDecayManager()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         entries = [{"id": "p2", "createdAt": now, "updatedAt": now}]
         result = await mgr.prune_decayed("u", threshold=0.01, memory_client=entries)
         # 新记忆 retentionScore ≈ 1.0 > 0.01 → 不 prune
@@ -316,7 +315,7 @@ class TestIsDecayedRecordAccess:
     def test_is_decayed_after_compute(self):
         """compute_decay_state 后查询一致。"""
         mgr = MemoryDecayManager()
-        old = (datetime.now(timezone.utc) - timedelta(days=200)).isoformat()
+        old = (datetime.now(UTC) - timedelta(days=200)).isoformat()
         entry = {"id": "d1", "createdAt": old, "updatedAt": old}
         mgr.compute_decay_state(entry, {"strategy": "time", "halfLifeDays": 30, "minRetentionScore": 0.2})
         assert mgr.is_decayed("d1") is True
@@ -380,7 +379,7 @@ class TestParseIso:
         """无时区时间添加 UTC。"""
         result = _parse_iso("2026-07-22T10:00:00")
         assert result is not None
-        assert result.tzinfo == timezone.utc
+        assert result.tzinfo == UTC
 
     def test_empty_string_returns_none(self):
         """空字符串 → None。"""
@@ -445,7 +444,7 @@ def _decay_row(
 ) -> FakeRecord:
     """构造 agent_memory_decay_state 行。"""
     if last_accessed_at is None:
-        last_accessed_at = datetime(2026, 7, 25, 10, 0, 0, tzinfo=timezone.utc)
+        last_accessed_at = datetime(2026, 7, 25, 10, 0, 0, tzinfo=UTC)
     return FakeRecord({
         "entry_id": entry_id,
         "retention_score": str(retention_score),
@@ -946,7 +945,7 @@ class TestApplyDecayWriteThrough:
     async def test_apply_decay_persists_each_entry(self, patch_decay_pool, mock_decay_conn):
         """每条 entry 计算完后 UPSERT 一次到 DB。"""
         mgr = MemoryDecayManager()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         entries = [
             {"id": "e1", "createdAt": now, "updatedAt": now},
             {"id": "e2", "createdAt": now, "updatedAt": now},
@@ -966,7 +965,7 @@ class TestApplyDecayWriteThrough:
         """DB 写穿失败 → 不阻塞 apply_decay,内存仍更新。"""
         mock_decay_conn.execute.side_effect = RuntimeError("db down")
         mgr = MemoryDecayManager()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         entries = [{"id": "e1", "createdAt": now, "updatedAt": now}]
         result = await mgr.apply_decay("u1", {"strategy": "time"}, memory_client=entries)
         # 仍返回 updated=1(内存计算完成)
@@ -980,7 +979,7 @@ class TestApplyDecayWriteThrough:
     ):
         """apply_decay 把 user_id 传给 _persist_state(便于按用户清理)。"""
         mgr = MemoryDecayManager()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         entries = [{"id": "e1", "createdAt": now, "updatedAt": now}]
         # 用 UUID 格式的 user_id 才能被 _parse_uuid 转换
         user_uuid = "550e8400-e29b-41d4-a716-446655440000"
@@ -1002,7 +1001,7 @@ class TestPruneDecayedWriteThrough:
     ):
         """被标记 isDecayed=true 的 entry 写穿 DB。"""
         mgr = MemoryDecayManager()
-        old = (datetime.now(timezone.utc) - timedelta(days=200)).isoformat()
+        old = (datetime.now(UTC) - timedelta(days=200)).isoformat()
         entries = [{"id": "p1", "createdAt": old, "updatedAt": old}]
         # 先 apply_decay 计算状态(此时已写穿 1 次)
         await mgr.apply_decay("u", {"strategy": "time", "halfLifeDays": 30}, memory_client=entries)
@@ -1022,7 +1021,7 @@ class TestPruneDecayedWriteThrough:
     ):
         """无已衰减条目 → 不写 DB。"""
         mgr = MemoryDecayManager()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         entries = [{"id": "p2", "createdAt": now, "updatedAt": now}]
         # 先 apply_decay 计算状态(retentionScore ≈ 1.0,不会 prune)
         await mgr.apply_decay("u", {"strategy": "time"}, memory_client=entries)
@@ -1045,7 +1044,7 @@ class TestRestartSimulation:
         """模拟:进程 A 标记 e1 为 decayed → 进程 B 启动 hydrate → is_decayed 一致。"""
         # 进程 A:apply_decay + prune_decayed 标记 e1 为 decayed
         mgr_a = MemoryDecayManager()
-        old = (datetime.now(timezone.utc) - timedelta(days=200)).isoformat()
+        old = (datetime.now(UTC) - timedelta(days=200)).isoformat()
         entries = [{"id": "e1", "createdAt": old, "updatedAt": old}]
         await mgr_a.apply_decay(
             "u", {"strategy": "time", "halfLifeDays": 30}, memory_client=entries
@@ -1094,7 +1093,7 @@ class TestRestartSimulation:
         assert count == 0
         assert mgr._states == {}
         # 后续 apply_decay 正常工作
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         entries = [{"id": "e1", "createdAt": now, "updatedAt": now}]
         result = await mgr.apply_decay(
             "u", {"strategy": "time"}, memory_client=entries

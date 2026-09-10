@@ -33,9 +33,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal, TypedDict
 
 logger = logging.getLogger(__name__)
@@ -126,20 +127,16 @@ class SkillEvolutionScheduler:
             if self._task is None:
                 return
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
             self._task = None
             # 等待所有进行中的子任务完成(最多等 10s,因为单 skill 迭代可能耗时较长)
             if self._pending_tasks:
-                try:
+                with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(
                         asyncio.gather(*self._pending_tasks, return_exceptions=True),
                         timeout=10.0,
                     )
-                except asyncio.TimeoutError:
-                    pass
 
     # ===== 运行时控制 =====
 
@@ -187,7 +184,7 @@ class SkillEvolutionScheduler:
 
     async def _run_once_safe(self) -> None:
         """安全执行一次循环(异常只记录,不向上抛)。"""
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         entry: SkillEvolutionHistoryEntry = {
             "triggered_at": started_at.isoformat(),
             "status": "running",
@@ -216,7 +213,7 @@ class SkillEvolutionScheduler:
                 e,
             )
         entry["duration_ms"] = int(
-            (datetime.now(timezone.utc) - started_at).total_seconds() * 1000
+            (datetime.now(UTC) - started_at).total_seconds() * 1000
         )
         self._append_history(entry)
         logger.info(
@@ -286,8 +283,8 @@ class SkillEvolutionScheduler:
             需要迭代的 skill 名列表(按失败案例数倒序)
         """
         # 局部导入避免循环依赖
-        from .skills import skill_registry
         from .skill_feedback import skill_feedback_tracker
+        from .skills import skill_registry
 
         try:
             all_skills = skill_registry.list_skills()

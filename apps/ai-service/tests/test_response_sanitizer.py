@@ -12,7 +12,6 @@
 """
 from __future__ import annotations
 
-import pytest
 from httpx import ASGITransport, AsyncClient
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, Response, StreamingResponse
@@ -25,7 +24,6 @@ from app.middleware.response_sanitizer import (
     _sanitize_response,
     setup_response_sanitizer_middleware,
 )
-
 
 # =============================================================================
 # _is_sensitive_key — 敏感字段识别

@@ -25,12 +25,10 @@ from app.services.differential_privacy import (
     differential_privacy,
 )
 from app.services.federated_learner import (
-    FederatedLearner,
-    _MAX_LESSONS_IN_PROMPT,
     _MIN_CONFIDENCE_FOR_PROMPT,
+    FederatedLearner,
     federated_learner,
 )
-
 
 # =============================================================================
 # 工厂函数

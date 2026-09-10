@@ -32,11 +32,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any, Optional
+from enum import StrEnum
+from typing import Any
 
 import httpx
 
@@ -249,7 +250,7 @@ def _infer_provider_code(model_id: str) -> str:
 # ============================================================================
 
 
-class ProviderHealthStatus(str, Enum):
+class ProviderHealthStatus(StrEnum):
     """provider 健康状态。"""
 
     HEALTHY = "healthy"                    # ping 通过 + 延迟可接受
@@ -261,7 +262,7 @@ class ProviderHealthStatus(str, Enum):
     PENDING = "pending"                    # 尚未检测(启动初期)— 宽松显示
 
 
-class ProviderErrorType(str, Enum):
+class ProviderErrorType(StrEnum):
     """provider 错误类型(细化 DOWN 原因,2026-07-31 立)。
 
     用户规则:账户没钱 / key 失效 / 接不通的 provider 不应进模型列表;
@@ -288,8 +289,8 @@ class ProviderHealth:
     error: str = ""
     # 2026-07-31 新增字段(用户规则:账户没钱需可视化 + 跳转充值)
     error_type: ProviderErrorType = ProviderErrorType.NONE
-    balance: Optional[float] = None
-    balance_currency: Optional[str] = None
+    balance: float | None = None
+    balance_currency: str | None = None
     recharge_url: str = ""
 
 
@@ -334,7 +335,7 @@ class ModelAvailabilityService:
     def __init__(self) -> None:
         self._health: dict[str, ProviderHealth] = {}
         self._lock = asyncio.Lock()
-        self._refresh_task: Optional[asyncio.Task[None]] = None
+        self._refresh_task: asyncio.Task[None] | None = None
         self._initialized = False
         # 429 限流退避记录(provider_code → 上次 429 时间戳)
         self._rate_limit_backoff: dict[str, float] = {}
@@ -358,10 +359,8 @@ class ModelAvailabilityService:
         """关闭时调用:取消定时刷新任务。"""
         if self._refresh_task is not None and not self._refresh_task.done():
             self._refresh_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._refresh_task
-            except asyncio.CancelledError:
-                pass
             self._refresh_task = None
         self._initialized = False
 
@@ -548,7 +547,7 @@ class ModelAvailabilityService:
         code: str,
         balance_url: str,
         api_key: str,
-    ) -> tuple[Optional[float], Optional[str], ProviderErrorType, str]:
+    ) -> tuple[float | None, str | None, ProviderErrorType, str]:
         """查 provider 余额(支持 openrouter/deepseek/siliconcloud 等已知端点)。
 
         Returns:
@@ -781,7 +780,7 @@ class ModelAvailabilityService:
         api_base: str,
         start: float,
         recharge_url: str,
-    ) -> Optional[ProviderHealth]:
+    ) -> ProviderHealth | None:
         """尝试 GET /v1/models(轻量,不消耗 quota)。
 
         Returns:

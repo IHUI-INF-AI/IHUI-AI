@@ -28,14 +28,13 @@ from typing import Any
 import pytest
 
 from app.services.mcp_server import (
-    _MAX_IMAGE_BYTES,
     _IMAGE_EXTENSIONS,
+    _MAX_IMAGE_BYTES,
     _fetch_image_bytes,
     _persist_image_to_disk,
     _tool_image_generation,
     _validate_image_save_path,
 )
-
 
 # =============================================================================
 # Fake httpx(mock 图片生成 API 响应)

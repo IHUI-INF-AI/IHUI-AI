@@ -15,16 +15,14 @@
 
 from __future__ import annotations
 
-from typing import Any, get_args, get_origin
-
-import pytest
+from typing import get_args, get_origin
 
 from app.types import api_client
 from app.types.api_client import (
     AgentTask,
     AgentTaskStatus,
-    ApiResult,
     ApiResponse,
+    ApiResult,
     Attachment,
     AuthToken,
     BeginPromptData,
@@ -35,9 +33,7 @@ from app.types.api_client import (
     ChatRole,
     CreateSessionData,
     CustomerServiceFromType,
-    CustomerServiceMessage,
     CustomerServiceMessageType,
-    CustomerServiceSession,
     CustomerServiceSessionStatus,
     DingtalkMessage,
     EndPromptData,
@@ -46,7 +42,6 @@ from app.types.api_client import (
     HookEntry,
     HookEvent,
     HookMethod,
-    HookResult,
     HooksConfig,
     JSONSchema,
     JSONSchemaType,
@@ -54,33 +49,23 @@ from app.types.api_client import (
     NotificationChannel,
     NotificationItem,
     PaginatedResponse,
-    PermissionCheckResult,
     PermissionDecision,
     PermissionMode,
-    PermissionRules,
     PersonaContract,
-    PersonaContracts,
     PlanContext,
-    PlanEvent,
-    PlanState,
     PromptMode,
-    RepairResult,
     RepairableMessage,
-    SessionMessage,
     SessionState,
     SessionStatus,
     SkillDefinition,
-    SkillFrontmatter,
     SubagentPersona,
     UnreadCount,
     UsageStats,
     User,
     UserProfile,
     WechatWorkMessage,
-    WSNotification,
     repairMessages,
 )
-
 
 # =============================================================================
 # TypedDict 实例化与字段访问
