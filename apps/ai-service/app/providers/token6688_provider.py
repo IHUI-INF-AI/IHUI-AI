@@ -49,7 +49,7 @@ import logging
 import os
 import time
 import uuid
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, cast
 
 import httpx
 
@@ -400,17 +400,17 @@ class Token6688Provider(OpenAIProvider):
                 f"Token6688 图片生成失败(200+error): {err.get('message') or err}", 502,
             )
         items = data.get("data") or []
-        images: list[dict[str, Any]] = []
+        out_images: list[dict[str, Any]] = []
         for item in items:
             if not isinstance(item, dict):
                 continue
             if item.get("b64_json"):
-                images.append({"b64_json": item["b64_json"]})
+                out_images.append({"b64_json": item["b64_json"]})
             elif item.get("url"):
-                images.append({"url": item["url"]})
-        if not images:
+                out_images.append({"url": item["url"]})
+        if not out_images:
             raise ProviderError(f"Token6688 图片响应无 url/b64_json: {str(data)[:200]}", 502)
-        return {"provider": self.provider_code, "model": used_model, "images": images, "raw": data}
+        return {"provider": self.provider_code, "model": used_model, "images": out_images, "raw": data}
 
     async def _generate_image_async(self, prompt: str, model: str, **kwargs: Any) -> dict[str, Any]:
         """真异步图片:model-runtime/invoke(信封形状)→ 轮询 model-runtime/tasks。"""
@@ -623,7 +623,7 @@ class Token6688Provider(OpenAIProvider):
         if resp.status_code >= 400:
             raise ProviderError(f"Token6688 声纹上传失败: {resp.status_code} {resp.text[:300]}", resp.status_code)
         try:
-            data = resp.json()
+            data: dict[str, Any] = resp.json()
         except ValueError as e:
             raise ProviderError(f"Token6688 声纹上传响应非 JSON: {resp.text[:200]!r}", 502) from e
         task_id = data.get("task_id") or data.get("id") or ""
@@ -814,7 +814,7 @@ class Token6688Provider(OpenAIProvider):
             body = resp.json()
         except ValueError as e:
             raise ProviderError(f"Token6688 文件上传响应非 JSON: {resp.text[:200]!r}", 502) from e
-        url = body.get("url") or (body.get("data") or {}).get("url") if isinstance(body, dict) else None
+        url = cast(str, body.get("url") or (body.get("data") or {}).get("url")) if isinstance(body, dict) else None
         if not url:
             raise ProviderError(f"Token6688 文件上传无 url: {str(body)[:200]}", 502)
         return url
