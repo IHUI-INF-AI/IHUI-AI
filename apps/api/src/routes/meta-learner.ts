@@ -5,6 +5,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success } from '../utils/response.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 
 /**
  * 元学习闭环路由 (F3 真实缺口补齐)。
@@ -16,6 +17,12 @@ import { success } from '../utils/response.js'
  * 待产品规格明确后,再接入 agent_meta_lessons 等表做真实写入/计算。
  */
 const metaLearnerRoutes: FastifyPluginAsync = async (server) => {
+  // P2 安全修复(2026-09-09 第九轮):挂载于 /api/admin/* 但插件内无守卫——
+  // 当前是桩路由,逻辑落地后即成越权。插件级 requireAdmin 兜底。
+  server.addHook('preHandler', async (request, reply) => {
+    return requireAdmin(request, reply)
+  })
+
   // GET /api/admin/meta-learner/lessons
   server.get('/lessons', async (_req, reply) => {
     return reply.send(success({ lessons: [] }))

@@ -8,6 +8,8 @@ import { eq, desc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { videoGenerationTasks, aiCapabilities } from '@ihui/database'
 import { success, error } from '../utils/response.js'
+import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
+import { checkAuthOrInternalService } from '../plugins/auth.js'
 import { listDiscovered } from '../services/ai/ai-capability-discovery.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 
@@ -189,6 +191,22 @@ async function configDelete(id: string): Promise<boolean> {
 }
 
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
+  // P0 安全修复(2026-09-09 第九轮):本插件此前零鉴权——capabilities 开关、
+  // model-info/outbound-routes/video-routes 全量 CRUD、developer/model-test
+  // 等管理配置写操作匿名可达。改为 fail-closed 插件级守卫:默认 admin;
+  // 两个只读清单(capabilities/ai-feed/hot)要求登录;outbound-routes/callback
+  // 为服务间回调,走 JWT 或内部服务 token 双通道。
+  server.addHook('preHandler', async (request, reply) => {
+    const url = request.routeOptions?.url ?? ''
+    if (url === '/capabilities' || url === '/ai-feed/hot') {
+      return requireAuth(request, reply)
+    }
+    if (url === '/outbound-routes/callback') {
+      return checkAuthOrInternalService(request, reply)
+    }
+    return requireAdmin(request, reply)
+  })
+
   // -------------------------------------------------------------------------
   // ai/capabilities — 统一 AI 能力列表
   // 优先查询 ai_capabilities 表（已注册能力），为空时 fallback 到静态能力目录。
