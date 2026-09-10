@@ -26,9 +26,10 @@ import { NotificationCenter, type NoticeItem } from '@/components/feature-center
 import { LANGUAGES } from './nav-data'
 
 /**
- * 侧边栏底部统一工具栏(5 按钮单行):语言 / 下载客户端 / 消息中心 / 主题切换 / 设置。
+ * 侧边栏底部统一工具栏(5 按钮):语言 / 下载客户端 / 消息中心 / 主题切换 / 设置。
  * 登录按钮独立到下方 SidebarUserRow(与已登录态同位置)。
- * 130px 默认宽度下单行排开;拉伸到 180px 仍单行;极端窄宽时 flex-wrap 兜底换行。
+ * 展开态:单行横排(160-180px 宽度下单行;极端窄宽时 flex-wrap 兜底换行)。
+ * 折叠态(60px 条):竖向排列(flex-col items-center,2026-09-09)。
  */
 export function SidebarActions({ collapsed }: { collapsed: boolean }) {
   const t = useTranslations('nav')
@@ -56,15 +57,13 @@ export function SidebarActions({ collapsed }: { collapsed: boolean }) {
   return (
     <div
       className={cn(
-        'flex gap-0.5 rounded-md p-1',
-        // 折叠态:aside 的 border-r(1px)使内容区 59px,居中后按钮会偏左 0.5px。
-        // 用 pl-[9px] pr-2 补偿,让按钮回到 60px 视觉中心。
-        // 2026-09-08 修复:折叠态改用 flex-row nowrap 而非 flex-col,
-        // 消除页面刷新时 SSR(collapsed=true)→CSR hydration → 媒体查询生效
-        // 过程中按钮从竖排切换到横排的闪烁问题。
-        collapsed
-          ? 'flex-row flex-nowrap justify-center pl-[9px] pr-2'
-          : 'flex-row flex-wrap justify-center',
+        // sidebar-actions 标记类:globals.css 平板区间(768-1023px)用它强制竖排,
+        // 消除 SSR(展开态横排 HTML)→ hydration 前一帧 60px 条内按钮挤压重叠的闪烁。
+        'sidebar-actions flex gap-0.5 rounded-md p-1',
+        // 折叠态:竖向排列(2026-09-09 修复)。5 个 28px 按钮 + gap ≈ 148px,
+        // 60px 条内横排必然挤压重叠(旧 flex-row flex-nowrap 是重叠根因)。
+        // aside 的 border-r(1px) 使内容区 59px,用 pl-[9px] pr-2 补偿视觉中心。
+        collapsed ? 'flex-col items-center pl-[9px] pr-2' : 'flex-row flex-wrap justify-center',
       )}
     >
       {/* 语言切换 — 自定义 portal,脱离 MainShell overflow-hidden 祖先避免被裁剪 */}
@@ -115,7 +114,9 @@ export function SidebarActions({ collapsed }: { collapsed: boolean }) {
 //   ⚠️ 必须用 [&>svg]:!h-5 [&>svg]:!w-5 覆盖 TOPBAR_BTN_BASE 内置的
 //   [&>svg]:!h-3.5 [&>svg]:!w-3.5(14px !important)—— 同为 !important,后写胜出
 //   (tailwind-merge 识别同 group,后写覆盖前写)。
-// - 4×28 + gap(3×2) + padding(2×4) = 126px ≤ 130px 侧边栏最小宽度,单行排开不折行
+// - 2026-09-09 复核(5 按钮时代):5×28 + gap(4×2) + padding(2×4) = 156px,
+//   ≤ SIDEBAR_MIN_WIDTH(160px) 单行排开不折行;极端窄宽(<156px)时展开态 flex-wrap 兜底换行。
+//   折叠态 flex-col 竖排总高 5×28 + 4×2 = 148px,远小于视口高,无纵向溢出。
 // 模块级常量:无 collapsed 依赖,所有按钮共用同一套尺寸类。
 const SIDEBAR_BTN_CLASS = cn(
   TOPBAR_BTN_BASE,
