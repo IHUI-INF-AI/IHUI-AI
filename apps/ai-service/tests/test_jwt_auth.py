@@ -98,6 +98,9 @@ def enable_jwt(monkeypatch):
 class TestJWTAuthMiddlewareDispatch:
     async def test_no_secret_skips_auth(self, jwt_client, monkeypatch):
         monkeypatch.setattr(settings, "jwt_secret", "")
+        # 隔离 .env 的 NODE_ENV=production:该用例验证的是 development 语义下
+        # 无密钥跳过鉴权;production 的 fail-closed 行为由专门用例覆盖
+        monkeypatch.setattr(settings, "node_env", "development")
         resp = await jwt_client.get("/api/protected")
         assert resp.status_code == 200
 
