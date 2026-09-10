@@ -116,6 +116,8 @@ const SKIP_DIRS = new Set([
   '.venv', 'venv', 'vendor', 'expo/dist', '.expo',
   // 与 check-watermark-syntax.mjs SKIP_DIRS 对齐: 构建/本地产物不纳入水印覆盖
   'tmp', 'playwright-report', 'test-results', 'vs', '.next-static',
+  // WXT 扩展框架的生成目录(.gitignore 已忽略, 无源码, 否则本地 verify 假阳性)
+  '.wxt',
   '.cxx', 'CMakeFiles', '.externalNativeBuild', '.cmake',
 ])
 
