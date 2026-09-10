@@ -5,11 +5,23 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type * as dns from 'node:dns'
+// 鉴权 mock 辅助(2026-09-09 第九轮安全修复后,/remote/proxy 等路由收权为 admin)
+import { mockAuthenticate, mockCheckAuth, setMockAdmin } from '../../../tests/helpers/mock-auth.js'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
 })
+
+// misc-extended.ts 经 require-permission.ts 以 './auth.js' 导入 authenticate,
+// 与此处 '../../plugins/auth.js' 解析到同一模块。整模块 mock 后工厂必须
+// 显式提供全部导出,否则路由拿到 undefined → 500。
+vi.mock('../../plugins/auth.js', () => ({
+  authenticate: (...args: unknown[]) => mockAuthenticate(...args),
+  requireActiveUser: vi.fn(),
+  checkAuth: (...args: unknown[]) => mockCheckAuth(...args),
+  checkAuthOrInternalService: (...args: unknown[]) => mockCheckAuth(...args),
+}))
 
 vi.mock('node:dns', async () => {
   const actual = await vi.importActual<typeof dns>('node:dns')
@@ -79,6 +91,7 @@ describe('Misc Extended API — POST /remote/proxy', () => {
 
   beforeEach(() => {
     global.fetch = originalFetch
+    setMockAdmin('00000000-0000-4000-8000-000000000001')
   })
 
   it('正常转发返回 200 与响应体', async () => {

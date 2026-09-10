@@ -668,14 +668,21 @@ class TestExecuteLocal:
     async def test_env_passed_to_subprocess(self):
         executor = SandboxExecutor()
         captured_env = {}
-        original_shell = asyncio.create_subprocess_shell
+        # 2026-09-10 跨平台修正:Linux 上 _execute_local 走 create_subprocess_exec
+        # (有意规避 shell 注入的安全设计),env 经 env=full_env 传给 exec 而非 shell。
+        # 原先只 patch shell 导致 Linux 上捕获为空。与同文件其他用例一致,按平台选目标。
+        if sys.platform == "win32":
+            patch_target = "app.services.sandbox.asyncio.create_subprocess_shell"
+            original_spawn = asyncio.create_subprocess_shell
+        else:
+            patch_target = "app.services.sandbox.asyncio.create_subprocess_exec"
+            original_spawn = asyncio.create_subprocess_exec
 
-        async def capture_shell(cmd, **kwargs):
+        async def capture_spawn(cmd, *args, **kwargs):
             captured_env.update(kwargs.get("env", {}) or {})
-            return await original_shell(cmd, **kwargs)
+            return await original_spawn(cmd, *args, **kwargs)
 
-        with patch("app.services.sandbox.asyncio.create_subprocess_shell",
-                   side_effect=capture_shell):
+        with patch(patch_target, side_effect=capture_spawn):
             result = await executor._execute_local(
                 "echo test", 10, ".",
                 {"MY_TEST_VAR": "ihui_value"}

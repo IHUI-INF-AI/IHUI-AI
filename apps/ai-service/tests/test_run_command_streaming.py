@@ -148,12 +148,16 @@ def test_build_subprocess_env_refuses_home_override():
 
 
 def test_build_subprocess_env_refuses_userprofile_override():
-    """USERPROFILE(Windows)不允许被覆盖。"""
+    """USERPROFILE(Windows)不允许被覆盖。
+
+    2026-09-10 跨平台修正:Linux 上 os.environ 无 USERPROFILE 且实现会跳过该
+    key → env 中不存在此键,用 .get 断言(与上方 HOME 用例写法一致),否则 KeyError。
+    """
     original = os.environ.get("USERPROFILE", "")
     env = _build_subprocess_env({"USERPROFILE": "C:\\evil"})
     if original:
         assert env["USERPROFILE"] == original
-    assert env["USERPROFILE"] != "C:\\evil"
+    assert env.get("USERPROFILE", "") != "C:\\evil"
 
 
 def test_build_subprocess_env_refuses_case_insensitive_path():

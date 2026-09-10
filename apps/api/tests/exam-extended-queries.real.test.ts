@@ -178,7 +178,9 @@ describe('exam-extended-queries — 真实 DB 集成测试', () => {
         .values({
           paperId: paper.id,
           userId: u.id,
-          status: 'pending',
+          // 2026-09-10 real-db CI:findMarkRecordList 查 status='submitted'(已提交待人工评分),
+          // pending 表示用户尚未提交、不进入批阅列表
+          status: 'submitted',
           score: '0.00',
         })
         .returning()
@@ -203,13 +205,13 @@ describe('exam-extended-queries — 真实 DB 集成测试', () => {
       await db.insert(examRecords).values({
         paperId: paper1.id,
         userId: u.id,
-        status: 'pending',
+        status: 'submitted',
         score: '0.00',
       })
       await db.insert(examRecords).values({
         paperId: paper2.id,
         userId: u.id,
-        status: 'pending',
+        status: 'submitted',
         score: '0.00',
       })
 
