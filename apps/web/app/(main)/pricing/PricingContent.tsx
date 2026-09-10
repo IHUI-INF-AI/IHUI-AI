@@ -86,7 +86,7 @@ export function PricingContent(): React.JSX.Element {
   const popularIdx = levels.findIndex((l) => l.levelValue === 1)
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-10 min-[768px]:px-8 min-[768px]:py-14">
+    <main className="mx-auto w-full max-w-7xl px-4 py-4 min-[768px]:px-8">
       <BackButton />
       <section className="space-y-3 text-center">
         <div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
