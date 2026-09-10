@@ -53,9 +53,7 @@ export function LiveChannelsBlock({ channels }: Props) {
         aria-label={t('live.label')}
         className="overflow-hidden rounded-xl border bg-card shadow-sm"
       >
-        <div className="p-3 text-center text-sm text-muted-foreground">
-          {t('live.empty')}
-        </div>
+        <div className="p-3 text-center text-sm text-muted-foreground">{t('live.empty')}</div>
       </section>
     )
   }
