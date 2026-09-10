@@ -172,7 +172,7 @@ export default function CircleCreatePage() {
   }, [])
 
   const goTopicList = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/topic/list?from=create' })
+    Taro.navigateTo({ url: '/pkg-content/topic/list?from=create' })
   }, [])
 
   const pickAigc = useCallback((w: AigcWork) => {
