@@ -110,7 +110,7 @@ export default function SubscriptionPage() {
         <>
           {data?.planName && (
             <Card>
-              <CardContent className="space-y-3 p-4">
+              <CardContent className="space-y-3 p-3">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground">{t('currentPlan')}</p>
@@ -182,7 +182,7 @@ export default function SubscriptionPage() {
               <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
                 {plans.map((p) => (
                   <Card key={p.id} className={cn(p.isCurrent && 'border-primary bg-primary/5')}>
-                    <CardContent className="space-y-2 p-4">
+                    <CardContent className="space-y-2 p-3">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-semibold">{p.name}</p>
                         {p.isCurrent && (

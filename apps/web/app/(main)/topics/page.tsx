@@ -66,7 +66,7 @@ export default function TopicsPage() {
   const topics = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -93,7 +93,7 @@ export default function TopicsPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : topics.length === 0 ? (
@@ -118,10 +118,10 @@ export default function TopicsPage() {
                     <Layers className="h-10 w-10 text-primary/40" />
                   )}
                 </div>
-                <CardHeader className="p-4 pb-2">
+                <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-base">{topic.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-1.5 p-4 pt-0 text-sm">
+                <CardContent className="space-y-1.5 p-3 pt-0 text-sm">
                   {topic.description && (
                     <p className="text-muted-foreground">{topic.description}</p>
                   )}

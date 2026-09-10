@@ -60,7 +60,7 @@ export const metadata: Metadata = {
 
 export default function SelfHostPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl py-4">
+    <main className="px-4 mx-auto w-full max-w-5xl py-4">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(selfHostJsonLd) }}
@@ -86,7 +86,7 @@ export default function SelfHostPage() {
         <h2 className="text-2xl font-bold tracking-tight">
           方式一:Docker Compose 单机版(5 分钟)
         </h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
+        <div className="rounded-2xl border bg-card p-3 space-y-4">
           <p className="text-sm text-muted-foreground">
             适合个人开发者、小团队、PoC 验证。一台服务器即可运行全部服务。
           </p>
@@ -102,7 +102,7 @@ export default function SelfHostPage() {
           </ul>
 
           <h3 className="text-lg font-semibold">部署步骤</h3>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
             <code>{`# 1. 克隆仓库
 git clone https://github.com/ihui-ai/ihui-ai.git
 cd ihui-ai
@@ -126,7 +126,7 @@ open http://localhost:8801
 # 默认管理员:admin / [REDACTED-PW](首次登录强制改密)`}</code>
           </pre>
 
-          <div className="rounded-lg border bg-background p-4 text-sm">
+          <div className="rounded-lg border bg-background p-3 text-sm">
             <p className="font-semibold">服务端口</p>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-muted-foreground">
               <li><code className="rounded bg-muted px-1">8801</code> — Web 前端(Next.js 16)</li>
@@ -144,7 +144,7 @@ open http://localhost:8801
         <h2 className="text-2xl font-bold tracking-tight">
           方式二:Kubernetes Helm Chart(高可用)
         </h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
+        <div className="rounded-2xl border bg-card p-3 space-y-4">
           <p className="text-sm text-muted-foreground">
             适合企业生产环境,支持水平扩展、滚动升级、自动备份、监控告警。
           </p>
@@ -160,7 +160,7 @@ open http://localhost:8801
           </ul>
 
           <h3 className="text-lg font-semibold">Helm 部署</h3>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
             <code>{`# 1. 添加 Helm 仓库
 helm repo add ihui https://charts.ihui.ai
 helm repo update
@@ -249,7 +249,7 @@ kubectl get ingress -n ihui`}</code>
       <section id="ops" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">运维与监控</h2>
         <div className="grid gap-4 min-[768px]:grid-cols-2">
-          <div className="rounded-2xl border bg-card p-6">
+          <div className="rounded-2xl border bg-card p-3">
             <h3 className="flex items-center text-lg font-semibold">
               <BarChart3 className="mr-1.5 inline h-5 w-5" />
               监控
@@ -261,7 +261,7 @@ kubectl get ingress -n ihui`}</code>
               <li>日志:JSON 格式,对接 ELK / Loki</li>
             </ul>
           </div>
-          <div className="rounded-2xl border bg-card p-6">
+          <div className="rounded-2xl border bg-card p-3">
             <h3 className="flex items-center text-lg font-semibold">
               <Save className="mr-1.5 inline h-5 w-5" />
               备份
@@ -277,7 +277,7 @@ kubectl get ingress -n ihui`}</code>
       </section>
 
       {/* 下一步 */}
-      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-5 text-center min-[768px]:p-8">
+      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
         <h2 className="text-2xl font-bold tracking-tight">下一步</h2>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <a

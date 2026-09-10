@@ -74,7 +74,7 @@ export function AgentPlanView({
             className="min-h-[200px] font-mono text-sm"
           />
         ) : (
-          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-md bg-muted p-4 font-mono text-sm">
+          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-md bg-muted p-3 font-mono text-sm">
             {detail.plan_md}
           </pre>
         )}

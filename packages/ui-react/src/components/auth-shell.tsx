@@ -15,7 +15,7 @@
  * 集中定义,两边 @import 引用 → 真正"一模一样"。
  *
  * 视觉规范(2026-07-26 锁定):
- *   - 容器:rounded-xl border border-border bg-card p-7(compact: p-5)
+ *   - 容器:rounded-xl border border-border bg-card p-3(compact: p-3)
  *   - 阴影:subtle 双层 0_4px_24px + 0_1px_4px
  *   - 顶部:logo (31×31 rounded-md) + welcome.svg/baiwelcome.svg 浅/深主题并排
  *   - 关闭按钮(右上角,onClose 存在时):lucide-react X 图标
@@ -25,7 +25,7 @@
  * 平台差异由调用方传 props 控制:
  *   - logoSrc / welcomeLightSrc / welcomeDarkSrc:不同环境路径不同(web 用 /images/...,扩展用 chrome-extension://.../images/...)
  *   - closeAriaLabel:不同语言(默认 "Close")
- *   - compact:popup 窄宽模式(p-5 + 不渲染 welcome)
+ *   - compact:popup 窄宽模式(p-3 + 不渲染 welcome)
  *   - className:外部传 max-w-[420px] 等
  */
 import * as React from 'react'
@@ -82,7 +82,7 @@ export function AuthShell({
       className={cn(
         'login-scope relative w-full rounded-xl border border-border bg-card',
         'shadow-[0_4px_24px_rgba(0,0,0,0.06),0_1px_4px_rgba(0,0,0,0.04)]',
-        compact ? 'p-5' : 'p-7',
+        compact ? 'p-3' : 'p-3',
         className,
       )}
     >

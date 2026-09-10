@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 
 export default function ManualKnowledgeBasePage() {
   return (
-    <main className="mx-auto w-full max-w-3xl py-4">
+    <main className="px-4 mx-auto w-full max-w-3xl py-4">
       {/* Hero */}
       <header className="space-y-3">
         <div className="text-xs font-mono text-muted-foreground">第 04 章 · 使用说明手册</div>
@@ -47,7 +47,7 @@ export default function ManualKnowledgeBasePage() {
       {/* 什么是知识库 */}
       <section id="what-is-kb" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">4.1 什么是知识库?</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <p>
             <strong>知识库 = 你上传的文档 + AI 检索系统</strong>。Agent 对话时,先从知识库找相关内容,
             再基于找到的内容回答,每个回答都附引用编号 [1] [2] [3]。
@@ -66,7 +66,7 @@ export default function ManualKnowledgeBasePage() {
       {/* 新建知识库 */}
       <section id="create-kb" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">4.2 新建知识库</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>左侧栏点击"知识库" → 右上角"+ 新建知识库"</li>
             <li>填写信息:
@@ -85,7 +85,7 @@ export default function ManualKnowledgeBasePage() {
       {/* 上传文档 */}
       <section id="upload-docs" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">4.3 上传文档</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>知识库详情页点击"上传文档"或拖拽文件到上传区</li>
             <li>选择文件(可批量),支持:PDF / Word / Excel / PPT / TXT / Markdown / HTML / EPUB / 图片(OCR)</li>
@@ -109,7 +109,7 @@ export default function ManualKnowledgeBasePage() {
       {/* 检索测试 */}
       <section id="test-search" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">4.4 检索测试(验证效果)</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>知识库详情页 → "检索测试"标签</li>
             <li>输入测试问题,例如:<code className="rounded bg-muted px-1 text-xs">产品 X 的保修期是多久?</code></li>
@@ -131,7 +131,7 @@ export default function ManualKnowledgeBasePage() {
       {/* 挂载到 Agent */}
       <section id="attach-agent" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">4.5 挂载到 Agent</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>左侧栏"我的 Agent" → 编辑目标 Agent</li>
             <li>左侧"知识库"区域 → "+ 添加知识库"</li>
@@ -154,7 +154,7 @@ export default function ManualKnowledgeBasePage() {
       {/* 管理文档 */}
       <section id="manage-docs" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">4.6 管理文档</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li><strong>查看</strong>:知识库详情页 → 文档列表</li>
             <li><strong>重新处理</strong>:文档右键 → 重新解析(更新文档内容后)</li>

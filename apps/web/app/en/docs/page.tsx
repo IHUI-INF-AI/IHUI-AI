@@ -287,7 +287,7 @@ export default function EnDocsPage() {
         </section>
 
         {/* Code Example */}
-        <section className="mt-16 rounded-2xl border bg-card p-6 min-[768px]:p-10">
+        <section className="mt-16 rounded-2xl border bg-card p-3">
           <div className="flex items-center gap-3">
             <Code className="h-6 w-6 text-primary" />
             <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -297,7 +297,7 @@ export default function EnDocsPage() {
           <p className="mt-2 text-sm text-muted-foreground min-[768px]:text-base">
             Install the CLI, scaffold a project, and start developing in three commands.
           </p>
-          <pre className="mt-6 overflow-x-auto rounded-lg border bg-background p-4 text-xs leading-relaxed text-foreground min-[768px]:text-sm">
+          <pre className="mt-6 overflow-x-auto rounded-lg border bg-background p-3 text-xs leading-relaxed text-foreground min-[768px]:text-sm">
             <code>{`# Install CLI
 npm install -g @ihui/cli
 
@@ -324,7 +324,7 @@ cd my-ai-app && ihui dev`}</code>
             {architectureModules.map((mod) => (
               <div
                 key={mod.name}
-                className="rounded-xl border bg-card p-5"
+                className="rounded-xl border bg-card p-3"
               >
                 <div className="font-mono text-sm font-semibold text-primary">{mod.name}</div>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{mod.desc}</p>
@@ -378,7 +378,7 @@ cd my-ai-app && ihui dev`}</code>
         </section>
 
         {/* Footer CTA */}
-        <section className="mt-16 rounded-2xl border bg-primary/5 p-8 text-center min-[768px]:p-12">
+        <section className="mt-16 rounded-2xl border bg-primary/5 p-3 text-center">
           <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
             Ready to build?
           </h2>

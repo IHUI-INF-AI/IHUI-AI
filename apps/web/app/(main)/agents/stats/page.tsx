@@ -118,7 +118,7 @@ export default function AgentStatsPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : (
@@ -127,7 +127,7 @@ export default function AgentStatsPage() {
             const Icon = card.icon
             return (
               <Card key={card.key}>
-                <CardContent className="space-y-2 p-4">
+                <CardContent className="space-y-2 p-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
                       {t(STAT_KEY[card.key] ?? 'stat.unknown')}

@@ -103,7 +103,7 @@ interface StatCardProps {
 function StatCard({ icon, label, value, sublabel }: StatCardProps) {
   return (
     <Card>
-      <CardContent className="flex items-center gap-3 p-4">
+      <CardContent className="flex items-center gap-3 p-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
           {icon}
         </div>
@@ -181,7 +181,7 @@ export default function PluginStatsPage() {
   }
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       {/* 页头 */}
       <div className="flex items-center justify-between">

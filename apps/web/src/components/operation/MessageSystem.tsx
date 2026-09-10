@@ -138,7 +138,7 @@ export function MessageSystem({ className, compact = false }: MessageSystemProps
 
   return (
     <Card className={cn('w-full', className)}>
-      <CardHeader className="flex-row items-center justify-between space-y-0 p-4 pb-2">
+      <CardHeader className="flex-row items-center justify-between space-y-0 p-3 pb-2">
         <CardTitle className="flex items-center gap-1.5 text-sm">
           <Inbox className="h-4 w-4 text-primary" />
           {t('title')}
@@ -150,7 +150,7 @@ export function MessageSystem({ className, compact = false }: MessageSystemProps
           {total > 0 ? t('unreadCount', { count: total }) : t('viewAll')}
         </Link>
       </CardHeader>
-      <CardContent className="p-4 pt-0">
+      <CardContent className="p-3 pt-0">
         <div className="grid grid-cols-2 gap-1.5">
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon

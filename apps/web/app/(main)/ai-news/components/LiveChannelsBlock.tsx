@@ -53,7 +53,7 @@ export function LiveChannelsBlock({ channels }: Props) {
         aria-label={t('live.label')}
         className="overflow-hidden rounded-xl border bg-card shadow-sm"
       >
-        <div className="p-5 text-center text-sm text-muted-foreground min-[768px]:p-8">
+        <div className="p-3 text-center text-sm text-muted-foreground">
           {t('live.empty')}
         </div>
       </section>
@@ -65,7 +65,7 @@ export function LiveChannelsBlock({ channels }: Props) {
       aria-label={t('live.label')}
       className="overflow-hidden rounded-xl border bg-card shadow-sm"
     >
-      <div className="flex flex-row items-center justify-between gap-3 p-6 pb-3">
+      <div className="flex flex-row items-center justify-between gap-3 p-3 pb-3">
         <div className="space-y-1">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Radio className="h-5 w-5 text-red-500" />
@@ -80,7 +80,7 @@ export function LiveChannelsBlock({ channels }: Props) {
           {t('live.viewMore')}
         </Link>
       </div>
-      <div className="grid grid-cols-1 gap-4 p-6 pt-3 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 p-3 pt-3 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {channels.map((c) => (
           <Card key={c.id} className="overflow-hidden transition-colors hover:bg-accent">
             <Link href={`/live/${c.id}`} className="block">
@@ -104,7 +104,7 @@ export function LiveChannelsBlock({ channels }: Props) {
                   <Badge variant="default">{c.categoryName}</Badge>
                 </div>
               </div>
-              <CardContent className="space-y-2 p-4 min-[640px]:p-6">
+              <CardContent className="space-y-2 p-3">
                 <h3 className="line-clamp-2 text-sm font-semibold leading-tight">{c.title}</h3>
                 <p className="line-clamp-2 text-xs text-muted-foreground">{c.intro}</p>
                 <div className="flex items-center justify-between gap-2 pt-1">

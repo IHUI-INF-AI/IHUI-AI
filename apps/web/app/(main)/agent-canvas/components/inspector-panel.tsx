@@ -68,7 +68,7 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
         <div className="border-b px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('inspectorTitle')}
         </div>
-        <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-muted-foreground">
+        <div className="flex flex-1 items-center justify-center p-3 text-center text-xs text-muted-foreground">
           {t('inspectorEmpty')}
         </div>
       </div>

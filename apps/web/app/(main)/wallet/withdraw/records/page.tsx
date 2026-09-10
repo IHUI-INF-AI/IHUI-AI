@@ -115,7 +115,7 @@ export default function WithdrawRecordsPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -127,7 +127,7 @@ export default function WithdrawRecordsPage() {
       <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
         {stats.map((s) => (
           <Card key={s.label}>
-            <CardContent className="space-y-1 p-4 min-[640px]:p-6">
+            <CardContent className="space-y-1 p-3">
               <div className="text-xs text-muted-foreground">{s.label}</div>
               {summaryQ.isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

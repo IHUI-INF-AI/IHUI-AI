@@ -68,7 +68,7 @@ export default function ReferrerPage() {
           <span>{t('loading')}</span>
         </div>
       ) : q.isError ? (
-        <div className="rounded-md border border-border bg-card p-6 text-center">
+        <div className="rounded-md border border-border bg-card p-3 text-center">
           <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
           <Button variant="outline" size="sm" onClick={() => void q.refetch()}>
             <RotateCw className="mr-2 h-4 w-4" />
@@ -78,7 +78,7 @@ export default function ReferrerPage() {
       ) : info ? (
         <div className="space-y-4">
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               <h3 className="mb-2 text-sm font-medium">{t('myReferrer')}</h3>
               {info.referrerName ? (
                 <div className="flex items-center gap-2 text-sm">
@@ -99,7 +99,7 @@ export default function ReferrerPage() {
 
           {!info.referrerName && (
             <Card>
-              <CardContent className="space-y-3 p-4">
+              <CardContent className="space-y-3 p-3">
                 <h3 className="text-sm font-medium">{t('bindTitle')}</h3>
                 <div className="space-y-1.5">
                   <Label htmlFor="invite-code">{t('codeLabel')}</Label>

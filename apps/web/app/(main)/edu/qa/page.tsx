@@ -91,7 +91,7 @@ export default function EduQAPage() {
   const items = data ?? []
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -102,7 +102,7 @@ export default function EduQAPage() {
       </header>
 
       <Card>
-        <CardContent className="flex gap-2 p-4">
+        <CardContent className="flex gap-2 p-3">
           <Input
             value={askText}
             onChange={(e) => setAskText(e.target.value)}
@@ -162,7 +162,7 @@ export default function EduQAPage() {
         <div className="space-y-3">
           {items.map((item) => (
             <Card key={item.id} className="transition-colors hover:bg-accent">
-              <CardContent className="space-y-2 p-4">
+              <CardContent className="space-y-2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <p className="flex items-start gap-2 font-medium">
                     <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />

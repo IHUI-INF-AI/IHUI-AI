@@ -133,7 +133,7 @@ export default function AdminLogsPage() {
   const maxCount = Math.max(1, ...byStatus.map((s) => s.count))
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-start justify-between">
         <div>
@@ -149,7 +149,7 @@ export default function AdminLogsPage() {
         </Button>
       </div>
 
-      <div className="space-y-3 rounded-lg border p-4">
+      <div className="space-y-3 rounded-lg border p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm font-medium">
             <BarChart3 className="h-4 w-4 text-primary" />

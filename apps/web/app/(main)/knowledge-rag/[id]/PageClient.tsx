@@ -108,7 +108,7 @@ export default function KnowledgeRagDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {error ? (error as Error).message : t('notFound')}
         </div>
       </div>
@@ -182,7 +182,7 @@ export default function KnowledgeRagDetailPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <div className="rounded-md border border-dashed p-3 text-center text-sm text-muted-foreground">
             {t('relatedEmpty')}
           </div>
         )}

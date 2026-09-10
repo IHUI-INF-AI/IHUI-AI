@@ -100,7 +100,7 @@ export default function MemoryDetailPage() {
   if (loading) {
     return (
       <div className="mx-auto w-full max-w-3xl">
-        <div className="flex items-center justify-center gap-2 py-12 min-[768px]:py-20 text-sm text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           加载中...
         </div>
@@ -112,7 +112,7 @@ export default function MemoryDetailPage() {
   const scopeOpt = entry ? getMemoryScopeOption(entry.scope) : undefined
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5">
+    <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-5">
       <header className="flex items-center gap-3">
         <Button asChild variant="ghost" size="icon">
           <Link href="/memory">
@@ -133,7 +133,7 @@ export default function MemoryDetailPage() {
       )}
 
       {entry && (
-        <div className="space-y-4 rounded-lg border bg-card p-5">
+        <div className="space-y-4 rounded-lg border bg-card p-3">
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={cn(

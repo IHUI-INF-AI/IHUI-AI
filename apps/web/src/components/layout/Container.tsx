@@ -43,10 +43,9 @@ export function Container({
       className={cn(
         widthMap[maxWidth],
         centered && 'mx-auto',
-        // 2026-08-01 padding 断点对齐:原 min-[640px]:px-6/min-[1024px]:px-8 依赖自定义断点
-        // (--breakpoint-sm:375px/--breakpoint-lg:576px),min-[1024px]:px-8 在 576px 就触发过早。
-        // 改为 min-[640px]/min-[1024px] 任意值,与移动端适配断点体系一致。
-        padding && 'px-4 min-[640px]:px-6 min-[1024px]:px-8',
+        // 2026-09-10 padding 统一:页面级容器 16px (px-4 py-4),不再用响应式 px-6/px-8
+        // (响应式变体在宽屏放大到 24/32px,与全站页面容器 16px 标准不一致)
+        padding && 'px-4 py-4',
         'w-full',
         className,
       )}

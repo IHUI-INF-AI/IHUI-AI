@@ -42,7 +42,7 @@ export default function MetricsComparisonPage() {
   })
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackBar />
 
       {/* 标题 + 刷新 */}

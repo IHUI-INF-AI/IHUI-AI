@@ -106,7 +106,7 @@ export default function EduLearnMapsPage() {
   const noEndpoint = isNotFound(error)
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>

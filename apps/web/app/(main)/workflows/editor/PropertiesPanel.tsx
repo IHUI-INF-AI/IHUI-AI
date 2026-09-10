@@ -44,7 +44,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
         <div className="border-b px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
           {t('editor.properties')}
         </div>
-        <div className="p-4 text-center text-xs text-muted-foreground">
+        <div className="p-3 text-center text-xs text-muted-foreground">
           {t('editor.selectNode')}
         </div>
       </div>

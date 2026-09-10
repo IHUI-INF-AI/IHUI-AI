@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 
 export default function ManualAgentPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl py-4">
+    <main className="px-4 mx-auto w-full max-w-3xl py-4">
       {/* Hero */}
       <header className="space-y-3">
         <div className="text-xs font-mono text-muted-foreground">第 03 章 · 使用说明手册</div>
@@ -47,7 +47,7 @@ export default function ManualAgentPage() {
       {/* 什么是 Agent */}
       <section id="what-is-agent" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">3.1 什么是 Agent?</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <p>
             <strong>Agent = 提示词 + 模型 + 工具 + 知识库</strong> 的封装体,完成特定任务。
           </p>
@@ -66,7 +66,7 @@ export default function ManualAgentPage() {
       {/* 浏览市场 */}
       <section id="browse-market" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">3.2 浏览 Agent 市场</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>左侧栏点击"Agent 市场",或访问 <a href="https://aizhs.top/agents" className="text-primary underline">aizhs.top/agents</a></li>
             <li>顶部按分类筛选:客服 / 代码 / 写作 / 数据 / 教育 / 销售 / HR / 通用</li>
@@ -86,7 +86,7 @@ export default function ManualAgentPage() {
       {/* 选用 Agent */}
       <section id="use-agent" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">3.3 选用 Agent</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>在 Agent 详情页点击"<strong>使用</strong>"按钮</li>
             <li>系统自动 fork 一份到你自己的工作台(原 Agent 不受影响)</li>
@@ -103,7 +103,7 @@ export default function ManualAgentPage() {
       {/* 收藏 */}
       <section id="favorite" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">3.4 收藏 Agent</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li>Agent 卡片右上角点♡(心形)收藏</li>
             <li>左侧栏"收藏夹"快速访问</li>
@@ -115,7 +115,7 @@ export default function ManualAgentPage() {
       {/* 定制 */}
       <section id="customize" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">3.5 定制 Agent(改提示词)</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>左侧栏"我的 Agent" → 选择要定制的 Agent → 点击"编辑"</li>
             <li>进入 Agent 编辑器,可修改:
@@ -141,7 +141,7 @@ export default function ManualAgentPage() {
       {/* 发布 */}
       <section id="publish" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">3.6 发布 Agent 到市场(变现)</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>Agent 编辑页点"发布到市场"</li>
             <li>填写市场信息:

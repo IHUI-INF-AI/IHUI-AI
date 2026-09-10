@@ -196,7 +196,7 @@ export default function ComputerUsePage() {
       </div>
 
       {/* 打开区 */}
-      <div className="mb-6 rounded-xl border p-4">
+      <div className="mb-6 rounded-xl border p-3">
         <div className="flex items-center gap-2">
           <input
             value={url}
@@ -284,7 +284,7 @@ export default function ComputerUsePage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* 截图预览 */}
-        <div className="rounded-xl border p-4">
+        <div className="rounded-xl border p-3">
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
             <Camera className="h-4 w-4" /> {t('screenshotTitle')}
           </h2>
@@ -303,7 +303,7 @@ export default function ComputerUsePage() {
         </div>
 
         {/* 输入操作 */}
-        <div className="rounded-xl border p-4">
+        <div className="rounded-xl border p-3">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
             <Keyboard className="h-4 w-4" /> {t('inputTextTitle')}
           </h2>
@@ -345,7 +345,7 @@ export default function ComputerUsePage() {
       </div>
 
       {/* 快照列表 */}
-      <div className="mt-6 rounded-xl border p-4">
+      <div className="mt-6 rounded-xl border p-3">
         <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
           <MousePointerClick className="h-4 w-4" /> {t('snapshotTitle', { count: elements.length })}
         </h2>
@@ -410,7 +410,7 @@ export default function ComputerUsePage() {
 
       {/* 提取文本结果 */}
       {textResult && (
-        <div className="mt-6 rounded-xl border p-4">
+        <div className="mt-6 rounded-xl border p-3">
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
             <FileText className="h-4 w-4" /> {t('extractedTextTitle')}
           </h2>

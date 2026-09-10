@@ -50,7 +50,7 @@ export default function TicketCard({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-3 rounded-xl border bg-card p-4 text-left text-card-foreground shadow hover:shadow-md',
+        'flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left text-card-foreground shadow hover:shadow-md',
         className,
       )}
     >
