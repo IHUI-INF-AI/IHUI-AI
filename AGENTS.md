@@ -308,6 +308,16 @@ pnpm dev                                       # 启动所有服务(web + api + 
   - **锁异常处理**:锁等待超时会报错并提示;超过 300s 的悬挂锁会自动抢占;紧急可删 `.git/ihui-git-write.lock`(先确认无 git 写进程)。绕过:`IHUI_GIT_NO_LOCK=1`(仅应急,禁用后自行承担并发风险)。
   - **新环境初始化**:重新 clone 后必须执行一次 `node scripts/git-hygiene-init.mjs`(恢复 gc.auto=0 / maintenance.auto=false 防护配置,这些是 local config,clone 不保留)。
 
+### .git 整目录消失事故链根治(2026-09-10 立,当日 7 次事故复盘)
+
+- **根因**:多会话共享同一工作区时,并发 git 手术互踩——会话 A 重建/删除 `.git` 期间,会话 B 的 git 命令撞上 `.git` 缺失,B 误判"仓库损坏"也触发重建/清理,互相把对方的 `.git` 删掉;refs 写入"被吞"多为重建窗口期读写竞态的表象。
+- **强制规则**:
+  1. `.git` 异常时**先诊断后动手**:`node scripts/git-lock.mjs check` 确认无其他会话持锁 + `ps`/审计日志确认无并行 git 进程,才允许删除/重建。
+  2. 重建**只能**走 `node scripts/git-rebuild-local.mjs`(已接入 git-lock,锁被持有时快速失败),**禁止**手工 `rm -rf .git` + `git init` 自由发挥。
+  3. 修复 refs 后必须**回读验证**:`git update-ref ... && git rev-parse <ref>` 输出一致才算成功;批量修复后 `git pack-refs --all` 持久化。
+  4. **禁止把 `.git` 迁出工作区/改指针文件**(2026-09-10 已验证:并行会话的恢复逻辑会把指针文件当"损坏"清除,反而制造新事故)。
+  5. `git ls-remote` 为远端真值唯一来源,本地 `origin/main` 引用异常时用显式 SHA 操作,勿信本地引用。
+
 ### 部署/构建全局锁(2026-08-09 立,并发部署事故根治)
 
 - **事故背景**(8-09 实锤):多 Agent/自动化任务并行触发 `build-next-prod.ps1` 时,两个构建同时备份/清理/写入 `apps/web/.next` → 8801 短暂 502 + 监控报警,产物存在损坏风险。原 `apps/web/scripts/check-lock.js` 只有 dev-vs-build 互斥,**没有 build-vs-build 互斥**;且 `build-next-prod.ps1` 曾引用不存在的 `scripts/check-lock.js`,锁从未生效。
