@@ -52,7 +52,7 @@ const C = {
 
 const EXCLUDE_DIRS = new Set([
   'node_modules', '.git', '.next', '.turbo', 'dist', 'build',
-  '.worktrees', '.venv', 'tests', '__tests__', '.trae-cn',
+  '.worktrees', '.venv', 'tests', '__tests__', '.ihui-agent',
   '.output', '.wxt', 'coverage', 'out',
   'target', // Rust/Cargo 构建输出(rustdoc 生成的 JS 含 HTML 模板字符串,非 JSX,gitignored)
   'public', // Next.js 静态资源目录(内含 monaco editor minified JS,含 'title=' 字面量但非 JSX)

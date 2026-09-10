@@ -400,7 +400,7 @@ export function MessageInput({
       e.preventDefault()
       void cyclePermissionMode()
     }
-    // Esc 清空草稿(2026-07-31 对标 Trae/Codex/Claude Code):
+    // Esc 清空草稿(2026-07-31 对标 主流 AI IDE):
     // - 斜杠/提及面板打开时 Esc 由面板自己处理(不清空)
     // - 流式生成中禁用(避免误清下一条草稿)
     // - 有内容时清空并 resize textarea 高度
@@ -465,7 +465,7 @@ export function MessageInput({
             onSelect={handleMentionSelect}
             onClose={() => setMentionOpen(false)}
           />
-          {/* Trae 风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框。
+          {/* 极简风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框。
               高风险模式(bypass-permissions)时,边框使用琥珀色 + 轻微阴影以视觉警告
               2026-07-31 升级:默认边框从 border-border 改为 border-input,
               对齐 tokens.css --color-input 设计意图(亮色 91% L 更柔和,暗色 26% L 与卡片 10% L 区分更明显)。

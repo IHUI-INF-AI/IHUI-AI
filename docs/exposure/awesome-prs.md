@@ -148,7 +148,7 @@ depends_3rdparty: true
 
 ## Workflow
 
-1. **Discover**: Run `node .trae-cn/tmp/check-awesome.mjs` to evaluate candidate lists (stars, activity, archived status).
+1. **Discover**: Run `node .ihui-agent/tmp/check-awesome.mjs` to evaluate candidate lists (stars, activity, archived status).
 2. **Analyze**: For each candidate, fetch `README.md` + `CONTRIBUTING.md` and identify (a) section to insert, (b) entry format, (c) contribution policy (especially agent fast-track markers like 🤖🤖🤖).
    - **关键**:确认仓库的实际收录定位(是否真的收录"我们这类项目")
 3. **Fork**: `POST /repos/{owner}/{name}/forks` (asynchronous; poll until ready).

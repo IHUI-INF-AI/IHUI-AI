@@ -17,8 +17,8 @@
  *     返回新 Set,不影响共享常量
  *
  * 注意:
- *   - `.trae-cn` 不在通用 EXCLUDE_DIRS 中(check-workspace-hygiene.mjs 需要
- *     扫描 .trae-cn/tmp/,只跳过 archive/memory 子目录),需排除时由脚本自行追加
+ *   - `.ihui-agent` 不在通用 EXCLUDE_DIRS 中(check-workspace-hygiene.mjs 需要
+ *     扫描 .ihui-agent/tmp/,只跳过 archive/memory 子目录),需排除时由脚本自行追加
  *   - `tests` / `__tests__` / `e2e` 等测试目录也不在通用清单中,
  *     由具体脚本按需追加(check-rounded-full / check-i18n-namespace-passing 排除,
  *     check-workspace-hygiene 不排除以扫描测试文件)
@@ -26,7 +26,7 @@
  *
  * 用法:
  *   import { EXCLUDE_DIRS, withExcludes } from './lib/exclude-dirs.mjs'
- *   const EXCLUDED = withExcludes(['tests', '__tests__', '.trae-cn'])
+ *   const EXCLUDED = withExcludes(['tests', '__tests__', '.ihui-agent'])
  */
 
 const EXCLUDE_DIRS = Object.freeze(new Set([

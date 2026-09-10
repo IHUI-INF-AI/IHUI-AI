@@ -46,7 +46,7 @@ const SEED_COURSES: SeedCourse[] = [
   {
     title: 'AI 编程入门',
     description:
-      '面向 0 基础学员，系统介绍 AI 辅助编程的核心概念、工具与实战流程，涵盖 Cursor、Trae、Claude Code 等主流 AI 编程工具。',
+      '面向 0 基础学员，系统介绍 AI 辅助编程的核心概念、工具与实战流程，涵盖 Cursor、Claude Code 等主流 AI 编程工具。',
     instructor: '李明轩',
     durationHours: 8,
     difficulty: 'beginner',
@@ -57,7 +57,7 @@ const SEED_COURSES: SeedCourse[] = [
     lessons: [
       { title: 'AI 编程工具概览', durationMinutes: 40 },
       { title: 'Cursor 入门实战', durationMinutes: 45 },
-      { title: 'Trae IDE 工作流', durationMinutes: 50 },
+      { title: 'AI IDE 工作流', durationMinutes: 50 },
       { title: 'Claude Code 命令行', durationMinutes: 40 },
       { title: '提示工程基础', durationMinutes: 45 },
       { title: '代码生成与重构', durationMinutes: 50 },

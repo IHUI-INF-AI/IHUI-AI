@@ -28,7 +28,7 @@ export function useMessageListDerivations({
   t,
 }: MessageListDerivationsOptions): void {
   // TimelineStore:事件列表(2026-07-28 立;2026-07-31 立,移除 tab 切换,单一对话流视图)
-  // - tab 切换已移除(对标 Trae/Codex 单一对话流),保留 events 供其他组件共享
+  // - tab 切换已移除(对标 主流 IDE 单一对话流),保留 events 供其他组件共享
   const timelineEvents = useTimelineStore((s) => s.events)
   const setTimelineEvents = useTimelineStore((s) => s.setEvents)
 
@@ -55,7 +55,7 @@ export function useMessageListDerivations({
   const completedPlanStepsRef = React.useRef<Map<string, PlanStep[]>>(new Map())
   const prevTRef = React.useRef<typeof t | null>(null)
 
-  // PlanStepsCard 数据源(2026-07-31 深度优化,对标 Codex /plan + Trae Thinking Process):
+  // PlanStepsCard 数据源(2026-07-31 深度优化,对标 Codex /plan + 折叠态摘要设计):
   // 普通对话走 streamChat → /api/ai/chat/stream → /api/llm/complete/stream,
   // 不经过 LangGraph agent,因此 useAgentProgress.start() 即使接通也得不到 plan events
   // (且 graph 未注册时返回 503)。改为基于 messages 派生 planSteps,覆盖 3 类步骤:

@@ -67,7 +67,7 @@ ihui connect ws://remote-host:8841 --token "$IHUI_AGENT_TOKEN"
 ## 配套能力
 
 - **Skills**:在 `<workspace>/.ihui/skills/*.md` 放置 skill 文件,自动注入 system prompt。
-- **Hooks**:在 `<workspace>/.trae-cn/hooks/` 放置 `pre_tool-*.sh` / `post_tool-*.js`,自动发现 + 沙箱执行。
+- **Hooks**:在 `<workspace>/.ihui-agent/hooks/` 放置 `pre_tool-*.sh` / `post_tool-*.js`,自动发现 + 沙箱执行。
 - **MCP**:`ihui mcp add <name> <command>` 配置 MCP 服务器,`--mcp` 启动加载。
 
 ## 故障排查

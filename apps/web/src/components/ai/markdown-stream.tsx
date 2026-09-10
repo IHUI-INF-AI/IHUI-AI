@@ -148,7 +148,7 @@ const CodeBlockImpl = function CodeBlock({
   const isPlain = PLAIN_TEXT_LANGS.has(lang)
 
   // 复制按钮(absolute 定位在 <pre> 右上角)
-  // 2026-07-31 对标 Trae/Codex/Claude Code + 与 code-generator.tsx 保持一致:
+  // 2026-07-31 对标 主流 AI IDE + 与 code-generator.tsx 保持一致:
   // 默认无背景色,hover 时显示 bg-muted,backdrop-blur-sm 确保按钮在任意代码块背景上都可读。
   const copyButton = (
     <button

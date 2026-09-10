@@ -158,7 +158,7 @@ class AgentRegistry:
                 ],
                 metadata={"category": "code"},
             ),
-            # ---- 5 个专业 subagent(对齐 Trae 自定义智能体)----
+            # ---- 5 个专业 subagent(自研智能体)----
             AgentDefinition(
                 name="frontend-dev",
                 description="前端开发专家:React/Next.js/Tailwind/shadcn 组件开发,熟悉 SSR/SSG/ISR",

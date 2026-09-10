@@ -8,15 +8,15 @@
  * 功能:
  * - 监听 127.0.0.1:1025
  * - 接收任意邮件,解析邮件内容(From/To/Subject/Body)
- * - 将邮件保存到 .trae-cn/tmp/mock-smtp-mails.jsonl(JSON Lines 格式,每行一封邮件)
+ * - 将邮件保存到 .ihui-agent/tmp/mock-smtp-mails.jsonl(JSON Lines 格式,每行一封邮件)
  * - 控制台打印邮件摘要
  *
  * 用法:
- *   node .trae-cn/tmp/mock-smtp.mjs                # 启动
+ *   node .ihui-agent/tmp/mock-smtp.mjs                # 启动
  *   测试完成后 Ctrl+C 停止
  *
  * 验证:
- *   发送邮件后,读取 .trae-cn/tmp/mock-smtp-mails.jsonl 即可拿到邮件内容
+ *   发送邮件后,读取 .ihui-agent/tmp/mock-smtp-mails.jsonl 即可拿到邮件内容
  */
 
 import { SMTPServer } from 'smtp-server'
@@ -26,7 +26,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const mailsFile = resolve(__dirname, '..', '..', '.trae-cn', 'tmp', 'mock-smtp-mails.jsonl')
+const mailsFile = resolve(__dirname, '..', '..', '.ihui-agent', 'tmp', 'mock-smtp-mails.jsonl')
 
 // 启动时清空旧邮件文件
 writeFileSync(mailsFile, '')

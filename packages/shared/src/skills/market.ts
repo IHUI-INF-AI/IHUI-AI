@@ -4,7 +4,7 @@
 
 /**
  * Skills 市场跨端共享类型(2026-07-23 立)。
- * 对齐 TRAE Work 技能市场能力:IHUI-AI 补齐搜索/安装/评分分发闭环。
+ * 自研技能市场能力:IHUI-AI 补齐搜索/安装/评分分发闭环。
  */
 
 export interface SkillMarketEntry {

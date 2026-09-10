@@ -4,7 +4,7 @@
 
 """Browser Hub 服务(2026-07-31 新增,2026-07-31 重构为 sync_playwright)。
 
-需求:用户要求内置浏览器是"完整 Chrome",对标 Trae/Cursor。
+需求:用户要求内置浏览器是"完整 Chrome"。
 当前 WorkPanel 是 iframe 架构,受 X-Frame-Options 限制无法打开第三方平台登录页。
 本服务用 CDP(Chrome DevTools Protocol)远程控制真实 Chromium,通过 WebSocket
 推送画面帧 + 接收鼠标键盘事件,实现"内置完整 Chrome"体验。

@@ -73,10 +73,10 @@
     "entityUrl": null,
     "submissionStatus": "pending-submission",
     "submissionPackage": {
-      "entityDraft": ".trae-cn/tmp/wikidata/entity-draft.json",
-      "quickStatements": ".trae-cn/tmp/wikidata/quickstatements.txt",
+      "entityDraft": ".ihui-agent/tmp/wikidata/entity-draft.json",
+      "quickStatements": ".ihui-agent/tmp/wikidata/quickstatements.txt",
       "report": "docs/wikidata-submission.md",
-      "generationScript": ".trae-cn/tmp/wikidata/submit.mjs"
+      "generationScript": ".ihui-agent/tmp/wikidata/submit.mjs"
     },
     "reference": {
       "langchain": "Q117340550",

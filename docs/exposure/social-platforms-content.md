@@ -19,13 +19,13 @@
 
 | 平台 | 草稿位置 | 语言 | 目标受众 | 状态 |
 |---|---|---|---|---|
-| ProductHunt | `.trae-cn/tmp/producthunt-launch.md` | 英文 | 国际开发者 / 早期采用者 | Draft |
-| V2EX | `.trae-cn/tmp/v2ex-post.md` | 中文 | 国内程序员 / 开源社区 | Draft |
-| 微博 | `.trae-cn/tmp/weibo-post.md` | 中文 | 国内技术圈 / 大众泛 AI 受众 | Draft |
-| Reddit | `.trae-cn/tmp/reddit-post.md` | 英文 | 国际技术社区 / 自托管爱好者 | Draft |
-| 知乎 | `.trae-cn/tmp/zhihu-article.md` | 中文 | 国内深度技术读者 / 架构师 | Draft |
+| ProductHunt | `.ihui-agent/tmp/producthunt-launch.md` | 英文 | 国际开发者 / 早期采用者 | Draft |
+| V2EX | `.ihui-agent/tmp/v2ex-post.md` | 中文 | 国内程序员 / 开源社区 | Draft |
+| 微博 | `.ihui-agent/tmp/weibo-post.md` | 中文 | 国内技术圈 / 大众泛 AI 受众 | Draft |
+| Reddit | `.ihui-agent/tmp/reddit-post.md` | 英文 | 国际技术社区 / 自托管爱好者 | Draft |
+| 知乎 | `.ihui-agent/tmp/zhihu-article.md` | 中文 | 国内深度技术读者 / 架构师 | Draft |
 
-> 所有草稿文件位于 `.trae-cn/tmp/`（已 gitignore），本汇总位于 `docs/exposure/`（可 commit）。
+> 所有草稿文件位于 `.ihui-agent/tmp/`（已 gitignore），本汇总位于 `docs/exposure/`（可 commit）。
 
 ---
 
@@ -202,11 +202,11 @@ T+10 (下周五)  │ Reddit r/LocalLLaMA（间隔 3 天以上）
 
 | 文件 | 路径 | 内容 |
 |---|---|---|
-| ProductHunt | `<repo-root>\.trae-cn\tmp\producthunt-launch.md` | 提交字段 + Maker Comment + Launch Day Checklist |
-| V2EX | `<repo-root>\.trae-cn\tmp\v2ex-post.md` | 标题 + 正文 + 评论应对预案 |
-| 微博 | `<repo-root>\.trae-cn\tmp\weibo-post.md` | 3 条文案 + 9 图占位 + 话题策略 |
-| Reddit | `<repo-root>\.trae-cn\tmp\reddit-post.md` | Title + Body + anti-marketing 规则 |
-| 知乎 | `<repo-root>\.trae-cn\tmp\zhihu-article.md` | 8 节长文 + 架构图占位 |
+| ProductHunt | `<repo-root>\.ihui-agent\tmp\producthunt-launch.md` | 提交字段 + Maker Comment + Launch Day Checklist |
+| V2EX | `<repo-root>\.ihui-agent\tmp\v2ex-post.md` | 标题 + 正文 + 评论应对预案 |
+| 微博 | `<repo-root>\.ihui-agent\tmp\weibo-post.md` | 3 条文案 + 9 图占位 + 话题策略 |
+| Reddit | `<repo-root>\.ihui-agent\tmp\reddit-post.md` | Title + Body + anti-marketing 规则 |
+| 知乎 | `<repo-root>\.ihui-agent\tmp\zhihu-article.md` | 8 节长文 + 架构图占位 |
 | 本汇总 | `<repo-root>\docs\exposure\social-platforms-content.md` | 平台索引 + 执行计划 |
 
 > 草稿状态: 未发布。所有链接为产品真实链接，发布前需用户确认。

@@ -4,8 +4,7 @@
 
 #requires -Version 7
 # C 盘自动维护脚本(计划任务用,每天凌晨 3 点自动执行)
-# 功能:① 清理 TRAE 旧 logs/Crashpad/CachedData ② 清理 Chrome 缓存 ③ 清理 Temp 旧文件
-#      ④ 触发 TRAE ModularData 迁移(如 TRAE 未运行)⑤ 报告 C 盘状态
+# 功能:① 清理 Chrome 缓存 ② 清理 Temp 旧文件 ③ 报告 C 盘状态
 # 用法:由计划任务自动调用,也可手动 pwsh -File 此脚本
 
 $ErrorActionPreference = 'Continue'
@@ -54,33 +53,8 @@ Log ("清理前 C 盘可用: {0} GB" -f [math]::Round($before/1GB,2))
 
 [double]$freed = 0
 
-# ===== 1. TRAE SOLO CN 当前版 logs/Crashpad/CachedData(保留 ModularData)=====
-Log "[1/5] 清理 TRAE SOLO CN logs/Crashpad/CachedData"
-$traeCaches = @(
-  "C:\Users\荣耀\AppData\Roaming\TRAE SOLO CN\CachedData",
-  "C:\Users\荣耀\AppData\Roaming\TRAE SOLO CN\Crashpad",
-  "C:\Users\荣耀\AppData\Roaming\TRAE SOLO CN\Cache",
-  "C:\Users\荣耀\AppData\Roaming\TRAE SOLO CN\GPUCache",
-  "C:\Users\荣耀\AppData\Roaming\TRAE SOLO CN\Code Cache",
-  "C:\Users\荣耀\AppData\Roaming\TRAE SOLO CN\DawnWebGPUCache",
-  "C:\Users\荣耀\AppData\Roaming\TRAE SOLO CN\DawnGraphiteCache",
-  "C:\Users\荣耀\AppData\Roaming\TRAE SOLO CN\blob_storage"
-)
-foreach ($t in $traeCaches) {
-  $sz = ForceDelete $t
-  if ($sz -gt 0) {
-    $freed += $sz
-    Log ("  [OK] {0,6} MB  {1}" -f [math]::Round($sz/1MB,1), $t)
-  }
-}
-
-# ===== 2. 旧版 TRAE 残留(整个目录)=====
-Log "[2/5] 清理旧版 TRAE 残留"
-$freed += ForceDelete "C:\Users\荣耀\AppData\Roaming\TRAE SOLO"
-$freed += ForceDelete "C:\Users\荣耀\AppData\Roaming\Trae CN"
-
-# ===== 3. Chrome 缓存(保留用户数据)=====
-Log "[3/5] 清理 Chrome 缓存"
+# ===== 1. Chrome 缓存(保留用户数据)=====
+Log "[1/3] 清理 Chrome 缓存"
 $chromeCaches = @(
   "C:\Users\荣耀\AppData\Local\Google\Chrome\User Data\OptGuideOnDeviceModel",
   "C:\Users\荣耀\AppData\Local\Google\Chrome\User Data\component_crx_cache",
@@ -97,11 +71,11 @@ foreach ($t in $chromeCaches) {
   }
 }
 
-# ===== 4. Temp 旧文件(>3 天)=====
-Log "[4/5] 清理 Temp 旧文件"
+# ===== 2. Temp 旧文件(>3 天)=====
+Log "[2/3] 清理 Temp 旧文件"
 $lt = "$env:LOCALAPPDATA\Temp"
 $oldTemp = Get-ChildItem $lt -Directory -Force -ErrorAction SilentlyContinue | Where-Object {
-  $_.LastWriteTime -lt (Get-Date).AddDays(-3) -and $_.Name -ne "trae-agent-toolhost"
+  $_.LastWriteTime -lt (Get-Date).AddDays(-3)
 }
 foreach ($d in $oldTemp) {
   $sz = ForceDelete $d.FullName
@@ -126,19 +100,6 @@ $ihuiTemp = Get-ChildItem "C:\temp" -Force -ErrorAction SilentlyContinue | Where
 foreach ($d in $ihuiTemp) {
   $sz = ForceDelete $d.FullName
   if ($sz -gt 0) { $freed += $sz }
-}
-
-# ===== 5. 触发 TRAE ModularData 迁移(如未运行)=====
-# 2026-08-19 修订:原为硬编码绝对路径 "D:\桌面\项目\IHUI-AI\scripts\auto-migrate-trae-modular.ps1",
-# 不满足 AGENTS.md §15 "$PSScriptRoot / 相对路径" 规则,现改为脚本自身目录推导,跨机器/跨盘符可用。
-Log "[5/5] 触发 TRAE ModularData 自动迁移(如 TRAE 未运行)"
-$migrationScript = Join-Path $PSScriptRoot "auto-migrate-trae-modular.ps1"
-if (Test-Path $migrationScript) {
-  try {
-    & pwsh -NoProfile -ExecutionPolicy Bypass -File $migrationScript 2>&1 | ForEach-Object { Log "  $_" }
-  } catch {
-    Log ("  [FAIL] 迁移脚本执行失败: {0}" -f $_.Exception.Message) "ERROR"
-  }
 }
 
 # ===== 总结 =====

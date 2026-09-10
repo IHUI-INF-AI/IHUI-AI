@@ -4,11 +4,11 @@
 
 """Rules 引擎 — 用户可编辑的规则集,约束 agent 运行时行为。
 
-对标 Trae IDE 的 Rules:用户自定义规则在 agent 运行时动态加载,
+自研 Rules:用户自定义规则在 agent 运行时动态加载,
 按匹配条件注入到 system prompt 末尾。与 AGENTS.md(项目级强制规则)互补:
 AGENTS.md 是人读 + 守门脚本执行,Rule 是 agent 运行时动态加载。
 
-存储:文件系统(.trae-cn/rules/*.md frontmatter + 正文),不走数据库(轻量)。
+存储:文件系统(.ihui-agent/rules/*.md frontmatter + 正文),不走数据库(轻量)。
 支持热加载:目录 mtime 变化时自动 reload。
 
 匹配算法:
@@ -26,7 +26,7 @@ Scope 继承链(2026-07-22 深化):
   - resolved() 返回合并后的最终生效规则集(含 inherited_from 字段)
 
 版本控制(2026-07-22 深化):
-  - 规则变更时旧版本写入 .trae-cn/rules/history/<timestamp>-<rule-id>.md
+  - 规则变更时旧版本写入 .ihui-agent/rules/history/<timestamp>-<rule-id>.md
   - get_history / rollback / diff_versions 支持版本回溯
   - 文件写入失败不阻塞规则变更
 
@@ -86,9 +86,9 @@ from typing import Any, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# 规则文件目录(项目根 .trae-cn/rules/)
+# 规则文件目录(项目根 .ihui-agent/rules/)
 _DEFAULT_RULES_DIR = os.path.join(
-    os.path.dirname(__file__), "..", "..", "..", ".trae-cn", "rules"
+    os.path.dirname(__file__), "..", "..", "..", ".ihui-agent", "rules"
 )
 # 语义匹配 cosine 相似度阈值
 SEMANTIC_THRESHOLD = 0.7
@@ -612,7 +612,7 @@ class RulesEngine:
     def _save_version(self, rule: Rule, action: str) -> None:
         """保存当前规则版本到历史目录(变更前调用)。
 
-        文件:.trae-cn/rules/history/<timestamp>-<rule_id>.md
+        文件:.ihui-agent/rules/history/<timestamp>-<rule_id>.md
         降级:文件写入失败不阻塞规则变更。
         """
         try:

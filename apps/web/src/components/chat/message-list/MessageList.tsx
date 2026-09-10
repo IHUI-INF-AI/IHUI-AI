@@ -52,7 +52,7 @@ interface MessageListProps {
   /** P4-2: 清除 fallback 通知(用户点击横幅关闭按钮时调用) */
   onClearFallbackNotice?: () => void
   /** Phase 18.2: SubAgent 活动列表(2026-07-28,可选覆盖 useChatStore 内部读取)
-   *  Trae Work 风格 inline 渲染在最后一条 AI 消息下方(而非 AI 面板底部)。
+   *  对话流 inline 渲染在最后一条 AI 消息下方(而非 AI 面板底部)。
    *  不传则从 useChatStore 内部派生 */
   subAgentActivities?: SubAgentActivity[]
   /** Phase 18.4: step budget 显示(从 store 派生,目前用固定 60 上限) */
@@ -203,7 +203,7 @@ export function MessageList({
     }
   }, [])
 
-  // Trae Work 对齐(2026-07-28):timeline 事件可点击跳转到对话流
+  // AI 工作台 对齐(2026-07-28):timeline 事件可点击跳转到对话流
   // 监听 planStepId / toolCallId 自定义事件 → 翻译为 messageId → 派发 ihui:scroll-to-message
   React.useEffect(() => {
     const scrollToMessage = (messageId: string): void => {
@@ -259,7 +259,7 @@ export function MessageList({
   // 2026-08-16 移除:DEBUG useEffect 在 early return 之后调用(违反 Rules of Hooks,
   // lint error),且 console.log 为调试残留——删除,虚拟滚动 padding 信息无需打印。
 
-  // 单一整合对话流视图(2026-07-31 立,彻底整合,对标 Trae/Codex 单一对话流)
+  // 单一整合对话流视图(2026-07-31 立,彻底整合,对标 主流 IDE 单一对话流)
   // - 移除 tablist 切换(对话流/时间线/全部 三 tab)
   // - 移除独立时间线面板(对话流已内联工具调用/子代理/计划等,时间线是冗余汇总)
   // - 只保留对话流一个视图,工具调用/子代理/思考过程已内联在消息气泡内
@@ -317,7 +317,7 @@ export function MessageList({
                 />
                 {/* Phase 19: 最后一个 assistant 消息下挂载 PlanStepsCard + SubAgentTaskTree
                   2026-08-01 Phase 4d:消息级 inline 后,仅当消息级数据为空时显示全局块(降级兼容旧后端)
-                  2026-08-02 隐藏:对话流底部不再渲染 PlanStepsCard/SubAgentTaskTree(冗余可视化,与 Trae Codex 简洁风格不一致)
+                  2026-08-02 隐藏:对话流底部不再渲染 PlanStepsCard/SubAgentTaskTree(冗余可视化,与 主流 IDE 简洁风格不一致)
                   功能保留在右侧 AI 面板(PlanStepsCard + TimelineTab 独立入口) */}
               </div>
             </React.Fragment>
@@ -336,7 +336,7 @@ export function MessageList({
           - 类型筛选 + 搜索 + 状态计数 + Markdown 导出
           - 仅当有事件时显示(无事件空状态折叠,避免污染空对话)
           - 用 bg 色对比替代 border-t 分割线(AGENTS.md §4 禁止分割线)
-          2026-08-02 隐藏:对话流底部不再渲染 inline-timeline(冗余可视化,与 Trae Codex 简洁风格不一致)
+          2026-08-02 隐藏:对话流底部不再渲染 inline-timeline(冗余可视化,与 主流 IDE 简洁风格不一致)
           功能保留在右侧 AI 面板的 TimelineTab 独立入口 */}
         <div ref={bottomRef} />
       </div>

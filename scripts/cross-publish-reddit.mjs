@@ -38,7 +38,7 @@ const CLIENT_SECRET = process.env.REDDIT_CLIENT_SECRET
 const USERNAME = process.env.REDDIT_USERNAME
 const PASSWORD = process.env.REDDIT_PASSWORD
 
-const DEFAULT_DRAFT_PATH = join(ROOT, '.trae-cn', 'tmp', 'reddit-post.md')
+const DEFAULT_DRAFT_PATH = join(ROOT, '.ihui-agent', 'tmp', 'reddit-post.md')
 
 // ---------- 参数解析 ----------
 const argv = process.argv.slice(2)

@@ -18,7 +18,7 @@ command -v git-lfs >/dev/null 2>&1 || { printf >&2 "\n%s\n\n" "This repository i
 git lfs post-commit "$@"
 
 # ─── 2. 自动归档已完成任务(2026-07-23 立, AGENTS.md §1) ──────
-# commit 后自动扫描 PROJECT_PLAN.md, 把完成 ≥7 天的已完成任务条目归档到 .trae-cn/archive/
+# commit 后自动扫描 PROJECT_PLAN.md, 把完成 ≥7 天的已完成任务条目归档到 .ihui-agent/archive/
 # 防递归: 归档 commit 自身设 IHUI_ARCHIVE_COMMIT=1, 此处检测到则跳过归档脚本
 # 跳过: HUSKY_SKIP_ARCHIVE=1(手动跳过归档, 紧急场景)
 cd "$(git rev-parse --show-toplevel)" || { printf '%s\n' "❌ 无法定位仓库根目录" >&2; exit 1; }

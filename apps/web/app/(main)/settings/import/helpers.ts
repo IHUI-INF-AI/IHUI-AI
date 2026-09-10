@@ -91,8 +91,6 @@ export function sourceLabelKey(source: CliConfigSource): string {
     windsurf: 'sourceWindsurf',
     cline: 'sourceCline',
     aider: 'sourceAider',
-    trae: 'sourceTrae',
-    'trae-work': 'sourceTraeWork',
     qoder: 'sourceQoder',
     'qoder-work': 'sourceQoderWork',
     'codex-desktop': 'sourceCodexDesktop',

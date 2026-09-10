@@ -249,7 +249,7 @@ git commit
 | 用途 | 防止 `PROJECT_PLAN.md` 膨胀超过 50KB 导致 AI 上下文窗口撑爆 |
 | 检测 | `PROJECT_PLAN.md` 文件体积 |
 | 失败原因 | 体积 > 50KB(约 1250 行) |
-| 修复 | 按 [AGENTS.md §1 归档精简规则](../AGENTS.md) 把已完成任务条目移到 `.trae-cn/archive/PROJECT_PLAN_YYYY-MM-DD.md` + 留 `<!-- 已归档 -->` 占位注释 |
+| 修复 | 按 [AGENTS.md §1 归档精简规则](../AGENTS.md) 把已完成任务条目移到 `.ihui-agent/archive/PROJECT_PLAN_YYYY-MM-DD.md` + 留 `<!-- 已归档 -->` 占位注释 |
 | 阈值 | 50KB |
 
 ### 第 13c 项 check-project-plan-archive.mjs(阻塞)
@@ -259,7 +259,7 @@ git commit
 | 用途 | 防止归档精简操作误删已完成任务条目 |
 | 检测 | `### XXX(已完成 ✅ ...)` 标题行被删除时,diff 中必须有 `<!-- 已归档` 占位注释 |
 | 失败原因 | 删除已完成任务条目但未留归档占位注释 |
-| 修复 | 在原位置留 `<!-- 已归档(YYYY-MM-DD):XXX 任务,完整内容在 .trae-cn/archive/PROJECT_PLAN_*.md -->` |
+| 修复 | 在原位置留 `<!-- 已归档(YYYY-MM-DD):XXX 任务,完整内容在 .ihui-agent/archive/PROJECT_PLAN_*.md -->` |
 | 立规依据 | [AGENTS.md §1 归档精简强制规则](../AGENTS.md),CLI 配置导入任务条目历史上被两次误删 |
 
 ### 第 15 项 check-api-migration-completeness.mjs(阻塞)
@@ -529,7 +529,7 @@ if (!run('🔍 检查 xxx...', 'node scripts/check-xxx.mjs --staged')) {
 
 | 症状 | 守门项 | 修复命令 |
 |------|--------|----------|
-| 体积 > 50KB | 13b | 归档已完成任务到 `.trae-cn/archive/PROJECT_PLAN_YYYY-MM-DD.md` + 留占位注释 |
+| 体积 > 50KB | 13b | 归档已完成任务到 `.ihui-agent/archive/PROJECT_PLAN_YYYY-MM-DD.md` + 留占位注释 |
 | 已完成任务被误删 | 13c | 在原位置留 `<!-- 已归档(YYYY-MM-DD):XXX 任务 -->` |
 
 ### 8.5 push 失败

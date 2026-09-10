@@ -4,7 +4,7 @@
 
 // @vitest-environment happy-dom
 /**
- * PlanStepsCard 单元测试(深度对标 OpenAI Codex /plan + Trae Thinking Process)
+ * PlanStepsCard 单元测试(深度对标 OpenAI Codex /plan + 折叠态摘要设计)
  *
  * 覆盖(2026-07-31 深度优化):
  * - 空 steps 不渲染

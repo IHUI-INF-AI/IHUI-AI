@@ -7,7 +7,7 @@
 会话 artifacts 通过 Redis hash 持久化(`mcp:artifacts:<conversation_id>` TTL 7d),
 进程重启不丢。Redis 不可用时降级到进程内 dict(logger.warning),保证可用性。
 
-对标 Trae Work subagent orchestration 的 artifacts 聚合能力(summarize_artifacts 用)。
+自研 subagent orchestration 的 artifacts 聚合能力(summarize_artifacts 用)。
 
 设计要点:
 - save_artifacts: 写 Redis(HSET 单 field "payload" + EXPIRE 7d),同时镜像到进程内

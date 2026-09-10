@@ -72,7 +72,7 @@ export default function SubagentsListPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Subagent 派单</h1>
-          <p className="mt-1 text-sm text-muted-foreground">多智能体团队调度 · 对标 TRAE Work</p>
+          <p className="mt-1 text-sm text-muted-foreground">多智能体团队调度 · 对标 AI 工作台</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => router.push('/subagents/topology')}>

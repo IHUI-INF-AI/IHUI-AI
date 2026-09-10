@@ -351,14 +351,14 @@
 }
 
 /* ============ z-index token(共享 — 2026-07-24 迁移) ============
- * TRAE 注入防护说明(2026-07-24 立,2026-07-24 修正):
- * TRAE IDE 内置浏览器注入 <style id="solo-lite-theme-variables">,
+ * 第三方 IDE 注入防护说明(2026-07-24 立,2026-07-24 修正):
+ * 第三方 IDE 内置浏览器注入 <style id="solo-lite-theme-variables">,
  * 其中 :root 重新定义了 --z-sticky: 10 / --z-modal: 1100 等变量,
  * 覆盖本文件的正确值。
  *
  * 防护方式:layout.tsx 的 inline script 在 React hydration 前用
  * document.documentElement.style.setProperty() 设置这些变量,
- * inline style 优先级高于任何 stylesheet 规则(含 TRAE 注入),无需 !important。
+ * inline style 优先级高于任何 stylesheet 规则(含 第三方 IDE 注入),无需 !important。
  *
  * 禁止 !important(项目规则:project_memory.md 第 6 行,2026-07-06 立)。
  */
@@ -416,7 +416,7 @@
   translate: 0 0.7px;
 }
 
-/* color-scheme 属性(2026-07-31 对标 Trae/Codex/Claude Code):
+/* color-scheme 属性(2026-07-31 /Claude Code):
  * 帮助浏览器原生控件(scrollbar/input/date picker/form control)适配暗色模式,
  * 无需手动为每个原生控件写暗色样式。WCAG 2.4.x 推荐配置。
  * 三端(web/extension/desktop)共用,放在共享层 tokens.css 单一来源。 */
@@ -424,7 +424,7 @@
   color-scheme: light;
 }
 
-/* Autofill 暗色模式处理(2026-07-31 对标 Trae/Codex/Claude Code):
+/* Autofill 暗色模式处理(2026-07-31 /Claude Code):
  * 浏览器(尤其 Chrome)对 input:-webkit-autofill 强制注入浅黄背景 (#FAFFBD) + 黑字,
  * 在暗色模式下破坏整体视觉。background-color 对 autofill 无效,需用 -webkit-box-shadow
  * 内阴影覆盖(1000px 半径确保填满输入框)。配合 color-scheme: dark 双重保险。
