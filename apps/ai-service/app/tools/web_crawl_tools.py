@@ -23,15 +23,18 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from urllib.parse import urljoin, urlsplit
+
+if TYPE_CHECKING:
+    from urllib.robotparser import RobotFileParser
 
 # beautifulsoup4(已装机)
 try:  # pragma: no cover - 依赖探测
     from bs4 import BeautifulSoup
     _BS4_OK: bool = True
 except ImportError:  # pragma: no cover
-    BeautifulSoup = None  # type: ignore[assignment]
+    BeautifulSoup = None  # type: ignore[assignment,misc]
     _BS4_OK = False
 
 try:
@@ -195,7 +198,7 @@ def _element_to_markdown(el: Any, base_url: str, include_links: bool, depth: int
             abs_href = urljoin(base_url, href)
             if urlsplit(abs_href).scheme in ("http", "https"):
                 return "[{}]({})".format(text, abs_href)
-        return text
+        return str(text)
     if tag == "li":
         content = _children_to_markdown(el, base_url, include_links, depth + 1)
         # 嵌套 list 支持简单缩进
@@ -353,7 +356,8 @@ def _extract_links(html: str, base_url: str, same_domain_only: bool = True) -> L
         return []
     for a in soup.find_all("a"):
         href = a.get("href") or a.get("data-href")
-        if not href:
+        # bs4 多值属性可能返回 list[str]; 非单一字符串的 href 无法拼 URL, 跳过
+        if not href or not isinstance(href, str):
             continue
         try:
             abs_url = urljoin(base_url, href)
@@ -695,10 +699,10 @@ def _robots_path_allowed(url: str) -> bool:
         return True
 
 
-_robots_cache: Dict[str, Any] = {}
+_robots_cache: Dict[str, Optional[RobotFileParser]] = {}
 
 
-def _robots_cache_get(scheme: str, host: str, port: Optional[int]) -> Any:
+def _robots_cache_get(scheme: str, host: str, port: Optional[int]) -> Optional[RobotFileParser]:
     import httpx as _httpx
 
     key = "{}://{}:{}".format(scheme, host, port or "")
@@ -726,7 +730,8 @@ def _robots_cache_get(scheme: str, host: str, port: Optional[int]) -> Any:
         try:
             rp.parse(data.splitlines())
         except Exception:  # noqa: BLE001
-            rp = None
+            _robots_cache[key] = None
+            return None
         _robots_cache[key] = rp
         return rp
     except Exception:  # noqa: BLE001
