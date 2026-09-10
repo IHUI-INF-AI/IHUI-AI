@@ -7,6 +7,26 @@ import type { TerminalSshParams, TerminalSession } from '@ihui/types'
 
 export type SshAuthMethod = 'password' | 'privateKey'
 
+/** 可选 shell 列表(Windows 优先,仅本地会话时显示) */
+export const SHELL_OPTIONS = [
+  { value: 'powershell', label: 'PowerShell' },
+  { value: 'cmd', label: 'CMD' },
+  { value: 'bash', label: 'Bash' },
+  { value: 'wsl', label: 'WSL' },
+] as const
+
+/** SSH 校验错误字段 → i18n key(terminalTabBar 命名空间内) */
+export function sshFieldErrorKey(field: SshValidationError['error']): string {
+  const map: Record<SshValidationError['error'], string> = {
+    host: 'terminalTabBar.errHostRequired',
+    port: 'terminalTabBar.errPortRange',
+    username: 'terminalTabBar.errUsernameRequired',
+    password: 'terminalTabBar.errPasswordRequired',
+    privateKey: 'terminalTabBar.errPrivateKeyRequired',
+  }
+  return map[field]
+}
+
 export interface SshFormValues {
   host: string
   port: string
