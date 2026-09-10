@@ -9,9 +9,9 @@ import path from 'path'
 // 2026-07-26 修复 WXSS 不支持 Tailwind 任意值语法 [xxx] 的编译错误
 // (541 个规则如 .-bottom-[2px]{bottom:-2rpx} 被 WXSS parser 当作属性选择器报错)
 // weapp-tailwindcss 同时处理 WXSS 选择器转义和 wxml class 匹配,保留全部样式
-import type { Plugin, UserConfig } from 'vite'
-import tailwindcss from 'tailwindcss'
-import { WeappTailwindcss } from 'weapp-tailwindcss/vite'
+// 2026-09-10 编译器统一切 webpack5,vite 版插件换 webpack 版(见 mini.webpackChain)
+import type { UserConfig } from 'vite'
+import { WeappTailwindcss } from 'weapp-tailwindcss/webpack'
 
 export default defineConfig(async (merge) => {
   // Taro CLI 在调用 config 前会用 --type 覆盖 process.env.TARO_ENV(见
@@ -41,11 +41,17 @@ export default defineConfig(async (merge) => {
         { from: 'src/mini.project.json', to: `${outputRoot}/mini.project.json` },
         // 微信原生 darkmode:Taro vite-runner 从 src/theme.json 读取,copy 保证与 dist/app.json 同级(themeLocation 引用)
         { from: 'src/theme.json', to: `${outputRoot}/theme.json` },
+        // 2026-09-10 字体仅 H5 使用(weapp 端 loadFontFace 已于 2026-07-27 移除,
+        // 全仓零 url 引用),防止 7.4MB TTF 被默认 static 拷贝打进小程序主包。
+        // H5 仍以 /static/fonts/ 路径提供,app.tsx 的 @font-face 无需改动。
+        ...(taroEnv === 'h5'
+          ? [{ from: 'src/assets/h5-fonts/', to: `${outputRoot}/static/fonts/` }]
+          : []),
       ],
       options: {},
     },
     framework: 'react',
-    // H5 + alipay 切 webpack5 编译器规避 Taro 4.2.0 Vite runner 缺陷:
+    // 2026-09-10 全平台统一 webpack5 编译器:
     // - H5: GitHub #17978/#18415 (custom-tab-bar 不输出)
     // - alipay: vite-runner `taro:vite-mini-emit-post` 的 Proxy.set 未防御
     //   chunk=undefined,而 @tarojs/plugin-platform-alipay 的
@@ -53,45 +59,25 @@ export default defineConfig(async (merge) => {
     //   `.browserslistrc` key,触发 `Cannot read properties of undefined
     //   (reading 'type')`。webpack5 runner 的 modifyBuildAssets 实现支持
     //   新增 asset,故 alipay 走 webpack5 绕过此 bug。
-    // weapp 等其他端继续用 Vite (已验证 100+ 页面正常)
-    // 2026-07-26 weapp 端 vite 注册 weapp-tailwindcss 插件,处理 Tailwind 任意值
-    // 语法 [xxx] 在 WXSS 中的转义问题(WXSS parser 把 [2px] 当属性选择器报错)
-    compiler:
-      process.env.TARO_ENV === 'h5' || process.env.TARO_ENV === 'alipay'
-        ? // 对象形式禁用 prebundle:@tarojs/webpack5-prebundle@4.2.0 与 webpack 5.91.0 不兼容
-          // (finalInputFileSystem._writeVirtualFile is not a function +
-          //  enhanced-resolve options.roots.map is not a function)
-          { type: 'webpack5', prebundle: { enable: false } }
-        : {
-            type: 'vite',
-            vitePlugins: [
-              // Taro 4 vite 不读 postcss.config.js,需程序化注入 tailwindcss postcss 插件
-              {
-                name: 'postcss-config-loader-plugin',
-                config(config: UserConfig) {
-                  if (config.css?.postcss && typeof config.css.postcss === 'object') {
-                    config.css.postcss.plugins?.unshift(tailwindcss())
-                  }
-                },
-              },
-              // weapp-tailwindcss:同时处理 WXSS 选择器转义和 wxml class 匹配
-              // 让 .-bottom-[2px] 在 WXSS 中编译通过且 wxml class 匹配生效
-              // 返回值为 WeappTailwindcssVitePlugin[],用展开运算符注入
-              ...(WeappTailwindcss({
-                rem2rpx: true,
-                // 仅 weapp 端启用,其他端(h5/rn/harmony)禁用
-                disabled: ['h5', 'rn', 'harmony'].includes(process.env.TARO_ENV || ''),
-                // Taro vite 默认移除 tailwindcss CSS 变量,需重新注入
-                injectAdditionalCssVarScope: true,
-              }) as unknown as Plugin[]),
-            ],
-          },
+    // - weapp:2026-09-10 从 Vite 切换。Vite runner 把公共 chunk(common.js
+    //   2.5MB)全部打进主包且无法下沉,而微信主包 2MB 是硬上限;webpack5 配合
+    //   mini.optimizeMainPackage 可把仅被分包引用的公共代码自动下沉分包。
+    //   (2026-07-26 起 weapp 曾用 Vite 并注册 weapp-tailwindcss vite 插件处理
+    //   Tailwind 任意值语法,切换后由 mini.webpackChain 注入 webpack 版插件,
+    //   见下方 mini.webpackChain)
+    // 对象形式禁用 prebundle:@tarojs/webpack5-prebundle@4.2.0 与 webpack 5.91.0 不兼容
+    // (finalInputFileSystem._writeVirtualFile is not a function +
+    //  enhanced-resolve options.roots.map is not a function)
+    compiler: { type: 'webpack5', prebundle: { enable: false } },
     cache: { enable: true },
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
     },
     mini: {
       es5: true,
+      // 2026-09-10 主包 2MB 硬上限治理:把仅被分包引用的公共 chunk 自动
+      // 下沉到分包,避免 common.js 整体压在主包(webpack5 编译器专属能力)
+      optimizeMainPackage: { enable: true },
       postcss: {
         pxtransform: { enable: true, config: {} },
         tailwindcss: { enable: true, config: {} },
@@ -103,12 +89,12 @@ export default defineConfig(async (merge) => {
           },
         },
       },
-      // alipay 切 webpack5 后,需让 babel-loader 处理 @ihui/* workspace 包 TS 源码
+      // (weapp + alipay)webpack5 编译器,需让 babel-loader 处理 @ihui/* workspace 包 TS 源码
       // (这些包 main 字段直接指向 src/*.ts,未预编译,默认 babel-loader exclude 会跳过)
       // 项目无 babel.config.js,需在 babel-loader 程序化注入 babel-preset-taro
       // (与 H5 同模式,但 mini 端不配置 splitChunks/runtimeChunk: 小程序对
       // 异步 chunk 数量与 import() 加载有限制,保留 Taro 默认打包策略)
-      ...(process.env.TARO_ENV === 'alipay'
+      ...(process.env.TARO_ENV !== 'h5'
         ? {
             compile: {
               include: [
@@ -127,6 +113,17 @@ export default defineConfig(async (merge) => {
                   ...options,
                   presets: [['taro', { framework: 'react', ts: true, compiler: 'webpack5' }]],
                 }))
+              // weapp 端注入 weapp-tailwindcss webpack 版插件(2026-09-10 自 vite
+              // 版迁移):处理 Tailwind 任意值语法 [xxx] 的 WXSS 选择器转义 +
+              // wxml class 匹配 + rem2rpx。v5.2.9 webpack 入口导出同名类,
+              // .use(类, [参数]) 由 webpack-chain 负责 new。alipay 不注入(保持原状)。
+              if (process.env.TARO_ENV === 'weapp') {
+                chain
+                  .plugin('weappTailwindcss')
+                  .use(WeappTailwindcss, [
+                    { rem2rpx: true, injectAdditionalCssVarScope: true },
+                  ])
+              }
             },
           }
         : {}),
