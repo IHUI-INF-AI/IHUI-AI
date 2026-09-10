@@ -44,7 +44,10 @@ SENSITIVE_KEYS: set[str] = {
     "authorization",
     "credential",
     "cookie",
-    "sessionid",
+    # 2026-09-10 修正:sessionid 不脱敏——它是客户端资源句柄(debug/agent-runtime 的
+    # status/cancel/resume/attach 等路由靠它拼 URL),掩码直接破坏 API 且无安全收益
+    # (会话标识由服务端签发、本就回传给同一客户端)。sessionkey 保留(名字偏秘密,
+    # 业务代码零出现,误伤面为零)。
     "sessionkey",
 }
 
