@@ -93,7 +93,7 @@ export default function ImageGenPage() {
 
       <form onSubmit={submit} className="space-y-4">
         <Card>
-          <CardContent className="space-y-4 p-3">
+          <CardContent className="min-[640px]:p-3 space-y-4 p-3">
             <div className="space-y-2">
               <Label htmlFor="ig-prompt">{t('promptLabel')}</Label>
               <textarea
@@ -140,7 +140,7 @@ export default function ImageGenPage() {
 
       {result && (
         <Card>
-          <CardContent className="space-y-3 p-3">
+          <CardContent className="min-[640px]:p-3 space-y-3 p-3">
             <div className="overflow-hidden rounded-lg bg-muted">
               <Image
                 src={result.imageUrl}

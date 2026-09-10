@@ -876,7 +876,7 @@ export default function SchedulePage() {
 
       {/* Toolbar */}
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 p-3">
+        <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
           {/* Term selector */}
           <div className="flex items-center gap-2">
             <School className="h-4 w-4 text-muted-foreground" />

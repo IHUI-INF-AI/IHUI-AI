@@ -84,7 +84,7 @@ export default function EduReportsCompanyStudyPage() {
 
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
-          <CardContent className="flex items-center gap-3 p-3">
+          <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Building2 className="h-5 w-5" />
             </div>
@@ -95,7 +95,7 @@ export default function EduReportsCompanyStudyPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-3">
+          <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
               <Users className="h-5 w-5" />
             </div>
@@ -106,7 +106,7 @@ export default function EduReportsCompanyStudyPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-3">
+          <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
               <Clock className="h-5 w-5" />
             </div>

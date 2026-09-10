@@ -142,7 +142,7 @@ export default function InvitationsPage() {
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             {codes.map((c) => (
               <Card key={c.id} className="transition-colors hover:bg-accent">
-                <CardContent className="space-y-2 p-3">
+                <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <code className="rounded bg-muted/50 px-2 py-0.5 font-mono text-sm">
                       {c.code}

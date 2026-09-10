@@ -338,7 +338,7 @@ export default function AutomationPage() {
           </CardTitle>
           <p className="text-xs text-muted-foreground">{t('examplesDesc')}</p>
         </CardHeader>
-        <CardContent className="p-3">
+        <CardContent className="min-[640px]:p-3 p-3">
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {AUTOMATION_EXAMPLES.map((ex) => {
               const ExIcon = ex.icon
@@ -415,7 +415,7 @@ export default function AutomationPage() {
                   </div>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 p-3">
+              <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                 {/* 当前配置展示 */}
                 {!isEditing && (
                   <div className="space-y-2 text-xs">
@@ -605,7 +605,7 @@ export default function AutomationPage() {
 
       {/* 全局开关说明 */}
       <Card>
-        <CardContent className="p-3">
+        <CardContent className="min-[640px]:p-3 p-3">
           <div className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
             <Clock className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
@@ -634,7 +634,7 @@ export default function AutomationPage() {
             {t('historyTitle')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-2">
+        <CardContent className="min-[640px]:p-2 p-2">
           {history.length === 0 ? (
             <p className="px-2 py-4 text-xs text-muted-foreground">{t('historyEmpty')}</p>
           ) : (

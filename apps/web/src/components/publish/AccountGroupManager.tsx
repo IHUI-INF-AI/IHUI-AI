@@ -258,7 +258,7 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
         <div className="space-y-2">
           {groups.map((g) => (
             <Card key={g.group_id} className="overflow-hidden">
-              <CardContent className="p-3">
+              <CardContent className="min-[640px]:p-3 p-3">
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"

@@ -217,7 +217,7 @@ export default function WithdrawRecordsPage() {
       )}
 
       <Card>
-        <CardContent className="flex justify-center p-3">
+        <CardContent className="min-[640px]:p-3 flex justify-center p-3">
           <Link href="/distribution/withdraw">
             <Button variant="outline">{t('withdrawTitle')}</Button>
           </Link>

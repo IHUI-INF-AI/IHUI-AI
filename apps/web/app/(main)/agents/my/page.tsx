@@ -147,7 +147,7 @@ export default function MyAgentsPage() {
           {agents.map((agent) => (
             <Link key={agent.agentId} href={`/agents/${agent.agentId}`}>
               <Card className="transition-colors hover:bg-accent/40">
-                <CardContent className="space-y-2 p-3">
+                <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                   <div className="flex items-start gap-3">
                     {agent.avatar ? (
                       <Image

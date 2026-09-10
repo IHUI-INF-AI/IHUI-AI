@@ -86,7 +86,7 @@ export default function EduCertificatesPage() {
               className="cursor-pointer transition-colors hover:bg-accent"
               onClick={() => router.push(`/edu/certificates/${cert.id}`)}
             >
-              <CardContent className="space-y-3 p-3">
+              <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
                     <Award className="h-5 w-5 text-primary" />

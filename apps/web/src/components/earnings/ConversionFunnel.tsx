@@ -38,7 +38,7 @@ export function ConversionFunnel({ data, loading }: Props) {
 
   return (
     <Card>
-      <CardContent className="p-3">
+      <CardContent className="min-[640px]:p-3 p-3">
         <div>
           <p className="text-sm font-semibold">{t('conversionFunnel')}</p>
           <p className="text-xs text-muted-foreground">{t('conversionFunnelDesc')}</p>

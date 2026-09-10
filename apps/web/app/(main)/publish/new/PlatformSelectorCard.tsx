@@ -37,7 +37,7 @@ export function PlatformSelectorCard({
 
   return (
     <Card>
-      <CardContent className="space-y-3 p-3">
+      <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center justify-between">
           <Label>{t('new.selectPlatforms')}</Label>
           <div className="flex gap-2 text-xs">

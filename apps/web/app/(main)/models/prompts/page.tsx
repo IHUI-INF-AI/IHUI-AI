@@ -339,7 +339,7 @@ export default function PromptsPage() {
         </div>
 
         <Card>
-          <CardContent className="flex items-center gap-2 p-3">
+          <CardContent className="min-[640px]:p-3 flex items-center gap-2 p-3">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               placeholder={t('prompts.searchPlaceholder')}
@@ -605,7 +605,7 @@ export default function PromptsPage() {
                 const isCurrent = v.version === historyLatest
                 return (
                   <Card key={v.version} className={isCurrent ? 'border-primary/30' : ''}>
-                    <CardContent className="p-3">
+                    <CardContent className="min-[640px]:p-3 p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">

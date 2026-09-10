@@ -113,7 +113,7 @@ export default function DarkModePage() {
       </div>
 
       <Card>
-        <CardContent className="flex items-center justify-between p-3">
+        <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3">
           <div className="flex items-center gap-2">
             <Moon className="h-4 w-4 text-primary" />
             <div>

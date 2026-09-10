@@ -106,7 +106,7 @@ export default function BillingPage() {
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
       <Card>
-        <CardContent className="space-y-3 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-3 p-3">
           <div className="flex items-center justify-between">
             <p className="flex items-center gap-2 text-sm font-semibold">
               <CreditCard className="h-4 w-4" />

@@ -150,7 +150,7 @@ export default function DeveloperHomePageClient() {
 
       {summary.planName && (
         <Card>
-          <CardContent className="flex items-center justify-between p-3">
+          <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3">
             <div>
               <p className="text-xs text-muted-foreground">{t('currentPlan')}</p>
               <p className="mt-0.5 text-sm font-semibold">{summary.planName}</p>
@@ -197,7 +197,7 @@ export default function DeveloperHomePageClient() {
 
       {/* BYOK 引导:自带 API Key,零中间商加价,免费模型不收费 */}
       <Card>
-        <CardContent className="p-3">
+        <CardContent className="min-[640px]:p-3 p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 [&>span]:translate-y-[0.5px]">
