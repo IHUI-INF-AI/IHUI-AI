@@ -31,8 +31,8 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
-import logging
 import os
 import random
 import threading
@@ -384,13 +384,11 @@ class ProxyPool:
             future = asyncio.open_connection(host, port)
             _reader, writer = await asyncio.wait_for(future, timeout=_HEALTH_CHECK_TIMEOUT)
             writer.close()
-            try:
+            with contextlib.suppress(Exception):
                 await writer.wait_closed()
-            except Exception:
-                pass
             response_ms = (time.time() - start) * 1000
             return (server_host, True, response_ms)
-        except (asyncio.TimeoutError, OSError, ConnectionError) as e:
+        except (TimeoutError, OSError, ConnectionError) as e:
             logger.debug(
                 "[proxy_pool] TCP check %s 失败: %s: %s",
                 server_host, type(e).__name__, e,

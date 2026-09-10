@@ -162,7 +162,7 @@ class SkillFeedbackTracker:
             skill_path = os.path.join(auto_dir, f"{skill_name}.md")
             if not os.path.isfile(skill_path):
                 return "1.0.0"
-            with open(skill_path, "r", encoding="utf-8") as f:
+            with open(skill_path, encoding="utf-8") as f:
                 content = f.read()
             # frontmatter 已被 _parse_skill_md 拆分,这里直接正则提取 version
             match = re.search(r"^version:\s*(.+?)\s*$", content, re.MULTILINE)

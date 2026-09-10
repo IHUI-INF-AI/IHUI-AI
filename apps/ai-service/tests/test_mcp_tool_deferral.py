@@ -12,7 +12,6 @@
 - _shorten_description 边界(空串 / 纯 markdown / 超长 / 正常多行)。
 """
 
-import os
 from typing import Any
 
 import pytest
@@ -21,7 +20,6 @@ from app.routers import agents as agents_router
 from app.routers import mcp_official
 from app.services import mcp_server as mcp_module
 from app.services.mcp_server import mcp_server as mcp_instance
-
 
 # ---------------------------------------------------------------------------
 # 1. deferral 开启:短描述 + 占位参数

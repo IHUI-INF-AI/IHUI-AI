@@ -18,7 +18,6 @@
 import os
 from pathlib import Path
 
-from ..core.config import settings
 from ..core.prompt_dict import format_domain_dict
 
 # 项目记忆文件名优先级（从高到低）

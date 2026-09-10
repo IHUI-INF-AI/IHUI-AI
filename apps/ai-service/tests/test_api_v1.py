@@ -24,7 +24,6 @@ import pytest
 from app.services.memory import memory_store
 from app.services.vector_memory import vector_memory
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================

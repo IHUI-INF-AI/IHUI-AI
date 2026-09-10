@@ -20,11 +20,13 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 import httpx
 
 from app.core.logging import get_logger
+
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
 
 logger = get_logger(__name__)
@@ -95,7 +97,6 @@ class YouTubeAdapter(BasePlatformAdapter):
         if not access_token:
             return False, "missing access_token"
 
-        headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
 
         async def _call(creds: dict[str, Any]) -> tuple[httpx.Response, dict[str, Any]]:
             tok = creds.get("access_token", "")

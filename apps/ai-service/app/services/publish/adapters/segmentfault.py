@@ -24,6 +24,7 @@ from typing import Any
 import httpx
 
 from app.core.logging import get_logger
+
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
 
 logger = get_logger(__name__)
@@ -128,10 +129,7 @@ class SegmentfaultAdapter(BasePlatformAdapter):
                 error_message="empty content (no text/html)",
             )
         tags_raw = platform_config.get("tags") or []
-        if isinstance(tags_raw, list):
-            tags = ",".join(str(t) for t in tags_raw)
-        else:
-            tags = str(tags_raw)
+        tags = ",".join(str(t) for t in tags_raw) if isinstance(tags_raw, list) else str(tags_raw)
         category = str(platform_config.get("category") or platform_config.get("category_id") or "")
 
         if access_token:

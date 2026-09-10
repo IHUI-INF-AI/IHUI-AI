@@ -29,7 +29,7 @@ import base64
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from app.core.logging import get_logger
 
@@ -93,8 +93,8 @@ class CaptchaInfo:
 
     captcha_type: str  # 'slider' | 'click' | 'behavior' | 'unknown'
     selector: str
-    iframe_selector: Optional[str] = None
-    target_text: Optional[str] = None
+    iframe_selector: str | None = None
+    target_text: str | None = None
     detected_at: float = field(default_factory=time.time)
 
 
@@ -126,7 +126,7 @@ class CaptchaSolver:
 
     # ----- 检测 -----
 
-    async def detect_captcha(self, page: Any) -> Optional[CaptchaInfo]:
+    async def detect_captcha(self, page: Any) -> CaptchaInfo | None:
         """检测页面是否出现验证码。
 
         检测策略:
@@ -227,7 +227,7 @@ class CaptchaSolver:
         page: Any,
         slider_selector: str,
         gap_selector: str,
-        iframe_selector: Optional[str] = None,
+        iframe_selector: str | None = None,
     ) -> bool:
         """滑块验证码 — CV 模板匹配 + 缺口检测。
 
@@ -367,7 +367,7 @@ class CaptchaSolver:
         page: Any,
         image_selector: str,
         target_text: str,
-        iframe_selector: Optional[str] = None,
+        iframe_selector: str | None = None,
     ) -> bool:
         """点选验证码 — 目标检测(简化版:预设坐标 + 文字匹配)。
 
@@ -502,7 +502,7 @@ class CaptchaSolver:
         self,
         image_base64: str,
         captcha_type: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """第三方打码服务(2Captcha / CapSolver)。
 
         用户需配置 CAPTCHA_SOLVER_PROVIDER + CAPTCHA_SOLVER_API_KEY。
@@ -534,7 +534,7 @@ class CaptchaSolver:
             logger.warning("[captcha_solver] 第三方服务异常: %s: %s", type(e).__name__, e)
             return None
 
-    async def _solve_via_2captcha(self, image_b64: str, captcha_type: str) -> Optional[str]:
+    async def _solve_via_2captcha(self, image_b64: str, captcha_type: str) -> str | None:
         """2Captcha API(图片验证码)。"""
         import httpx
 
@@ -572,7 +572,7 @@ class CaptchaSolver:
             logger.warning("[captcha_solver] 2captcha 超时")
             return None
 
-    async def _solve_via_capsolver(self, image_b64: str, captcha_type: str) -> Optional[str]:
+    async def _solve_via_capsolver(self, image_b64: str, captcha_type: str) -> str | None:
         """CapSolver API。"""
         import httpx
 

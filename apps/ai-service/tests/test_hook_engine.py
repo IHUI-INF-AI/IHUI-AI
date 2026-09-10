@@ -11,34 +11,32 @@ mock 策略:httpx(webhook)/ subprocess(用安全命令)/ fastapi_app(toast)/ ema
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
-import sys
 from datetime import datetime, timedelta
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services import hook_engine as he_module
 from app.services.hook_engine import (
     DEFAULT_RETRY_COUNT,
     DEFAULT_RETRY_DELAY,
+    DEGRADED_THRESHOLD,
     DLQ_MAX_ENTRIES,
-    HOOK_ACTION_TYPES,
-    HOOK_EVENTS,
     HEALTH_STALE_DAYS,
     HEALTH_WINDOW_HOURS,
     HEALTHY_THRESHOLD,
-    DEGRADED_THRESHOLD,
+    HOOK_ACTION_TYPES,
+    HOOK_EVENTS,
     MAX_LOGS,
     MAX_RETRY_COUNT,
     HookEngine,
+    _apply_operator,
+    _eval_logic,
+    _resolve_path,
     evaluate_condition,
     render_template,
 )
-from app.services.hook_engine import _resolve_path, _apply_operator, _eval_logic
 
 _MAX_RETRY = MAX_RETRY_COUNT  # 别名
 
@@ -639,10 +637,7 @@ class TestRunScript:
         """script 执行时注入 HOOK_EVENT / HOOK_CONTEXT 环境变量。"""
         # Windows: cmd /c echo %HOOK_EVENT%
         # Unix: echo $HOOK_EVENT
-        if os.name == "nt":
-            cmd = "echo %HOOK_EVENT%"
-        else:
-            cmd = "echo $HOOK_EVENT"
+        cmd = "echo %HOOK_EVENT%" if os.name == "nt" else "echo $HOOK_EVENT"
         result, err = await engine._run_script(
             {"command": cmd}, "tool.before", {"a": 1})
         # echo 命令应该成功
@@ -652,10 +647,7 @@ class TestRunScript:
     @pytest.mark.asyncio
     async def test_script_failure(self, engine):
         """script 返回非零退出码。"""
-        if os.name == "nt":
-            cmd = "exit 1"
-        else:
-            cmd = "false"
+        cmd = "exit 1" if os.name == "nt" else "false"
         result, err = await engine._run_script(
             {"command": cmd}, "tool.before", {})
         assert err is not None
@@ -1000,7 +992,7 @@ class TestHealthCheck:
                 "success": True, "duration": 10, "result": "ok", "error": None,
                 "inputPayload": {}, "replay": False, "skipped": False,
             })
-        result = log_engine.health_check(hook_id="hk-1")
+        log_engine.health_check(hook_id="hk-1")
         # 注意:create_hook 创建的 hook id 不是 hk-1,需要用实际 id
         # 但日志的 hookId 是 hk-1,health_check 按 hook_id 过滤日志
         # 这里 create_hook 的 hook 没有日志,会 stale;hk-1 不是 hook id
@@ -1063,7 +1055,7 @@ class TestHealthCheck:
     def test_filter_by_hook_id(self, engine):
         """health_check 按 hook_id 过滤。"""
         h1 = engine.create_hook({"name": "h1", "event": "error", "action": {"type": "log"}})
-        h2 = engine.create_hook({"name": "h2", "event": "error", "action": {"type": "log"}})
+        engine.create_hook({"name": "h2", "event": "error", "action": {"type": "log"}})
         result = engine.health_check(hook_id=h1["id"])
         assert result["summary"]["total"] == 1
         assert result["hooks"][0]["hookId"] == h1["id"]

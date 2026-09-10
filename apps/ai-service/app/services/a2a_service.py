@@ -21,8 +21,9 @@ import asyncio
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Coroutine
+from collections.abc import Coroutine
+from datetime import UTC, datetime
+from typing import Any
 
 from ..core.config import settings
 from .agent_loop import agent_executor
@@ -48,8 +49,8 @@ class A2ATask:
         self.status = "pending"  # pending / running / completed / failed / canceled
         self.result: dict[str, Any] | None = None
         self.error: str | None = None
-        self.created_at = datetime.now(timezone.utc)
-        self.updated_at = datetime.now(timezone.utc)
+        self.created_at = datetime.now(UTC)
+        self.updated_at = datetime.now(UTC)
 
     def to_dict(self) -> dict[str, Any]:
         """序列化为字典(用于 API 响应和 Redis 持久化)。"""
@@ -219,7 +220,7 @@ class A2AServer:
             return
         try:
             agents_map = await redis.hgetall(self.REDIS_AGENT_KEY)
-            for agent_id, data in agents_map.items():
+            for _agent_id, data in agents_map.items():
                 agent = A2AAgent.from_dict(json.loads(data))
                 self._agents[agent.id] = agent
         except Exception as e:
@@ -237,7 +238,7 @@ class A2AServer:
                 if task and task.status == "running":
                     task.status = "failed"
                     task.error = "服务重启,任务中断"
-                    task.updated_at = datetime.now(timezone.utc)
+                    task.updated_at = datetime.now(UTC)
                     await self._persist_task(task)
                     self._tasks[task.id] = task
         except Exception as e:
@@ -293,7 +294,7 @@ class A2AServer:
         if not task:
             return
         task.status = "running"
-        task.updated_at = datetime.now(timezone.utc)
+        task.updated_at = datetime.now(UTC)
         await self._persist_task(task)
         try:
             agent = self.get_agent(task.agent_id)
@@ -304,7 +305,7 @@ class A2AServer:
                     result = await self._dispatch_remote(endpoint, task)
                     task.result = result
                     task.status = "completed"
-                    task.updated_at = datetime.now(timezone.utc)
+                    task.updated_at = datetime.now(UTC)
                     await self._persist_task(task)
                     return
                 except Exception as e:
@@ -336,7 +337,7 @@ class A2AServer:
         except Exception as e:
             task.error = str(e)
             task.status = "failed"
-        task.updated_at = datetime.now(timezone.utc)
+        task.updated_at = datetime.now(UTC)
         await self._persist_task(task)
 
     async def _dispatch_remote(self, endpoint: str, task: A2ATask) -> dict[str, Any]:

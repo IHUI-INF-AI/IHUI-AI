@@ -12,7 +12,7 @@
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -27,7 +27,6 @@ from app.services.mcp_server import (
     _serialize_task_field,
     _tool_schedule_task,
 )
-
 
 # =============================================================================
 # FakeSyncRedis:dict-backed 同步 Redis 模拟(fakeredis 未安装,用轻量 fake)
@@ -240,7 +239,7 @@ class TestScheduleTaskSuccess:
     @pytest.mark.asyncio
     async def test_once_date_trigger(self, fake_redis, mock_task_scheduler):
         """schedule=once + run_at → 成功,date trigger 注册到 task_scheduler。"""
-        run_at = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+        run_at = (datetime.now(UTC) + timedelta(hours=2)).isoformat()
         result = await _tool_schedule_task({
             "name": "一次性任务", "prompt": "生成报告",
             "schedule": "once", "run_at": run_at,
@@ -287,7 +286,7 @@ class TestScheduleTaskWebhookAndValidation:
     @pytest.mark.asyncio
     async def test_webhook_url_produces_http_callback(self, fake_redis, mock_task_scheduler):
         """webhook_url 存在 → callback type=http_webhook 传给 task_scheduler。"""
-        run_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        run_at = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
         await _tool_schedule_task({
             "name": "webhook 任务", "prompt": "notify",
             "schedule": "once", "run_at": run_at,
@@ -331,7 +330,7 @@ class TestScheduleTaskWebhookAndValidation:
     @pytest.mark.asyncio
     async def test_no_redis_still_succeeds(self, no_redis, mock_task_scheduler):
         """Redis 不可用时 _tool_schedule_task 仍成功(降级内存,不崩溃)。"""
-        run_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        run_at = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
         result = await _tool_schedule_task({
             "name": "内存模式", "prompt": "p",
             "schedule": "once", "run_at": run_at,
@@ -345,7 +344,7 @@ class TestScheduleTaskWebhookAndValidation:
         from app.services import scheduler_service
         failing = AsyncMock(side_effect=RuntimeError("scheduler down"))
         monkeypatch.setattr(scheduler_service, "task_scheduler", MagicMock(add_task=failing))
-        run_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        run_at = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
         result = await _tool_schedule_task({
             "name": "容错任务", "prompt": "p",
             "schedule": "once", "run_at": run_at,

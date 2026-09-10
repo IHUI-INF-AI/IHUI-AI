@@ -16,8 +16,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pytest
-
 
 def _run_bench(args: list[str]) -> subprocess.CompletedProcess:
     """以子进程运行 bench,继承当前 python 解释器与 cwd。"""

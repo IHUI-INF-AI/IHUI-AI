@@ -19,11 +19,9 @@ from __future__ import annotations
 import sys
 import types
 from dataclasses import dataclass
-from typing import Any
 
 import pytest
 
-from app.services.publish import content_parser
 from app.services.publish.content_parser import (
     _safe_read,
     enrich_content,
@@ -33,7 +31,6 @@ from app.services.publish.content_parser import (
     parse_pdf,
     parse_to_html,
 )
-
 
 # =============================================================================
 # 辅助:mock markdown / bs4 / mammoth / docx / pdfplumber 模块
@@ -426,7 +423,6 @@ def test_safe_read_too_large_raises(tmp_path, monkeypatch):
     """超过 max_bytes 应抛 ValueError(含 'file too large')。"""
     import os
     import pathlib
-    import stat as stat_mod
 
     p = tmp_path / "big.bin"
     p.write_bytes(b"x" * 100)

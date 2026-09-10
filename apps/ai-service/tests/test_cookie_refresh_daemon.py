@@ -38,7 +38,6 @@ from app.services.publish.cookie_refresh_daemon import (
     cookie_daemon,
 )
 
-
 # =============================================================================
 # 1. RefreshResult dataclass
 # =============================================================================
@@ -448,7 +447,7 @@ class TestRefreshSingle:
         }
         with patch("app.services.scan_login.PLATFORM_SCAN_CONFIG", fake_config), \
              patch("app.services.publish.cookie_refresh_daemon.get_db_conn") as mock_conn, \
-             patch("playwright.async_api.async_playwright") as mock_pw:
+             patch("playwright.async_api.async_playwright"):
             mock_conn_obj = AsyncMock()
             mock_conn_obj.fetchrow.return_value = None
             mock_conn.return_value = mock_conn_obj

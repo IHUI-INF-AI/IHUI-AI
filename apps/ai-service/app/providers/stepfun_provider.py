@@ -12,13 +12,14 @@ StepFun API 与 OpenAI Chat Completions 兼容,差异点:
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
-from .openai_provider import OpenAIProvider
-from .base_provider import ProviderError
 from ..core.llm_gateway import get_http_client
+from .base_provider import ProviderError
+from .openai_provider import OpenAIProvider
 
 
 class StepfunProvider(OpenAIProvider):

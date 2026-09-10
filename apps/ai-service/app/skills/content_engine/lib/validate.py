@@ -17,13 +17,12 @@
 """
 from __future__ import annotations
 
-import sys
-import os
-import re
 import io
 import json
-from typing import Any, Optional, cast
-
+import os
+import re
+import sys
+from typing import Any, cast
 
 # ===== 技术自检常量（原有） =====
 
@@ -292,7 +291,7 @@ def _count_sentences(text: str) -> int:
     return len([s for s in sentences if s.strip()])
 
 
-def _load_published_memory(md_path: str) -> Optional[dict[str, Any]]:
+def _load_published_memory(md_path: str) -> dict[str, Any] | None:
     """加载已发布内容记忆JSON (优先 BASE 根, 兼容老路径)"""
     # 优先: BASE 根目录 (lib 在 BASE/lib 下, BASE = lib 的父目录)
     base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -303,9 +302,9 @@ def _load_published_memory(md_path: str) -> Optional[dict[str, Any]]:
     ]:
         if os.path.exists(cand):
             try:
-                with open(cand, 'r', encoding='utf-8') as f:
+                with open(cand, encoding='utf-8') as f:
                     return cast(dict[str, Any], json.load(f))
-            except (json.JSONDecodeError, IOError) as e:
+            except (OSError, json.JSONDecodeError) as e:
                 print(f'[validate] 读已发布记忆失败({cand}): {e}')
                 return None
     return None
@@ -788,7 +787,7 @@ def validate(md_path: str) -> tuple[bool, list[str]]:
     if not os.path.exists(md_path):
         return False, [f'文件不存在: {md_path}']
 
-    with open(md_path, 'r', encoding='utf-8') as f:
+    with open(md_path, encoding='utf-8') as f:
         full_text = f.read()
     title_text = _extract_title_from_md(full_text)
     reports: list[str] = []
@@ -976,7 +975,7 @@ def validate(md_path: str) -> tuple[bool, list[str]]:
     if event_hits:
         reports.append(f"21. 事件驱动: ✅ 检测到事件触发信号({len(event_hits)}个)")
     else:
-        reports.append(f"21. 事件驱动: ⚠️ 未检测到具体新闻事件（无事件=流量封顶，建议找事件钩子或换选题）")
+        reports.append("21. 事件驱动: ⚠️ 未检测到具体新闻事件（无事件=流量封顶，建议找事件钩子或换选题）")
 
     # 22. 配图重复检测（2026-07-09新增，防止跨文章重复用图）
     # 从已发布内容记忆中加载image_registry，检查当前文章是否使用了已用过的图片
@@ -1484,10 +1483,7 @@ def _check_geo_optimization(full_text: str, title_text: str) -> tuple[int, str]:
     source_count = 0
     for pattern in source_patterns:
         source_count += len(re.findall(pattern, full_text))
-    if source_count >= 2:
-        score += 10
-        details.append(f"权威信源{source_count}处")
-    elif source_count >= 1:
+    if source_count >= 2 or source_count >= 1:
         score += 10
         details.append(f"权威信源{source_count}处")
     else:
@@ -1645,7 +1641,6 @@ def _check_geo_optimization(full_text: str, title_text: str) -> tuple[int, str]:
 
 
 def main() -> None:
-    import sys
     try:
         # sys.stdout 可能是 TextIO(无 reconfigure)或 TextIOWrapper(有),运行时判断后调用
         cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')

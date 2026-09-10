@@ -59,10 +59,11 @@ TTS / ASR / 图像生成等非对话模型,以及 `-preview-09-2025` 快照、`:
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from enum import Enum
-from typing import Any, Iterable, Optional
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import Any
 
 __all__ = [
     "ModelCategory",
@@ -79,7 +80,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-class ModelCategory(str, Enum):
+class ModelCategory(StrEnum):
     """用途分类(用户可见,决定"这模型是干什么的")。"""
 
     CHAT = "chat"  # 文本对话 / 推理
@@ -95,7 +96,7 @@ class ModelCategory(str, Enum):
     OTHER = "other"  # 未归类
 
 
-class ModelTier(str, Enum):
+class ModelTier(StrEnum):
     """代次档位(决定默认展示还是收进"历史模型")。"""
 
     LATEST = "latest"  # 最新最强 —— 默认直接展示
@@ -278,7 +279,7 @@ class ModelClassification:
     category: ModelCategory
     tier: ModelTier
     family: str
-    generation: Optional[str]
+    generation: str | None
     reason: str
 
     def as_dict(self) -> dict[str, Any]:
@@ -324,7 +325,7 @@ def _strip_variant_tokens(name: str) -> str:
     return out.strip("-_")
 
 
-def _extract_family_and_version(name: str) -> tuple[str, Optional[str]]:
+def _extract_family_and_version(name: str) -> tuple[str, str | None]:
     """从主干名提取 (family, version)。
 
     `deepseek-v4-pro` → ("deepseek-v", "4")
@@ -360,14 +361,12 @@ def _extract_family_and_version(name: str) -> tuple[str, Optional[str]]:
     tail = name[m.end() :]
     parts = re.split(r"[.-]", version)
     if len(parts) > 1:
-        if tail and tail[0] in ("b", "m", "k", "t"):
-            version = ".".join(parts[:-1])
-        elif _RE_PARAM_SCALE_JOIN.match(f"{parts[-1]}{tail}"):
+        if tail and tail[0] in ("b", "m", "k", "t") or _RE_PARAM_SCALE_JOIN.match(f"{parts[-1]}{tail}"):
             version = ".".join(parts[:-1])
     return (head, version)
 
 
-def _version_tuple(version: Optional[str]) -> tuple[int, ...]:
+def _version_tuple(version: str | None) -> tuple[int, ...]:
     """版本号 → 可比较元组。`4-6` → (4, 6);`3.1` → (3, 1);None → ()"""
     if not version:
         return ()
@@ -386,7 +385,7 @@ def _version_sort_key(version: tuple[int, ...]) -> tuple[int, int, int]:
     )
 
 
-def _parse_release_date(value: Any) -> Optional[datetime]:
+def _parse_release_date(value: Any) -> datetime | None:
     """解析 release_date(支持 datetime / ISO 字符串)。空串视为缺失。
 
     脏数据防护(2026-08-29):DB 里 nvidia_nim 部分行的 release_date 是
@@ -396,7 +395,7 @@ def _parse_release_date(value: Any) -> Optional[datetime]:
     if value is None or value == "":
         return None
     if isinstance(value, datetime):
-        dt = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        dt = value if value.tzinfo else value.replace(tzinfo=UTC)
     elif isinstance(value, str):
         text = value.strip().replace("Z", "+00:00")
         if not text:
@@ -406,7 +405,7 @@ def _parse_release_date(value: Any) -> Optional[datetime]:
         except ValueError:
             return None
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
     else:
         return None
     if dt.year < 2020:
@@ -446,8 +445,8 @@ def classify_model(
     model_id: str,
     provider: str = "",
     release_date: Any = None,
-    tags: Optional[Iterable[str]] = None,
-    now: Optional[datetime] = None,
+    tags: Iterable[str] | None = None,
+    now: datetime | None = None,
 ) -> ModelClassification:
     """对单个模型分类(纯函数,无 I/O)。
 
@@ -492,7 +491,7 @@ def classify_model(
     # 3. 发布时间窗
     released = _parse_release_date(release_date)
     if released is not None:
-        now_dt = now or datetime.now(timezone.utc)
+        now_dt = now or datetime.now(UTC)
         if released < now_dt - timedelta(days=LEGACY_RELEASE_DAYS):
             return ModelClassification(
                 category=category,
@@ -555,7 +554,7 @@ def classify_model(
 
 def annotate_models(
     models: list[dict[str, Any]],
-    now: Optional[datetime] = None,
+    now: datetime | None = None,
 ) -> list[dict[str, Any]]:
     """批量分类:给每个模型 dict 原地附加 category / model_tier / family 字段。
 
@@ -598,7 +597,7 @@ def annotate_models(
             continue
         by_family.setdefault(cls.family, []).append(idx)
 
-    for family, idxs in by_family.items():
+    for _family, idxs in by_family.items():
         if len(idxs) < 2:
             continue
         versions = [_version_tuple(classifications[i].generation) for i in idxs]

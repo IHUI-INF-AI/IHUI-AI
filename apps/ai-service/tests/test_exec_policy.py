@@ -30,11 +30,10 @@ from app.services.exec_policy import (
     PrefixRule,
     detect_shadows,
     parse_command,
-    parse_powershell,
     parse_posix,
+    parse_powershell,
     prefix_rule,
 )
-
 
 # ---------------------------------------------------------------------------
 # Decision 模型

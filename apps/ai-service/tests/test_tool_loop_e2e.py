@@ -19,14 +19,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import pytest
-
 from app.services.mcp_server import (
-    mcp_server,
-    _TOOLS,
     _TOOL_HANDLERS,
+    _TOOLS,
+    mcp_server,
 )
-
 
 # =============================================================================
 # 辅助函数

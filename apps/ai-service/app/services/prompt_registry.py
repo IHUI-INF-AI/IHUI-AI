@@ -13,13 +13,9 @@
 
 from __future__ import annotations
 
-import copy
-import json
 import logging
-import time
-import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -65,7 +61,7 @@ class PromptRegistry:
     def _load_defaults(self) -> None:
         """从默认 prompt 初始化。"""
         for name, info in DEFAULT_PROMPTS.items():
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             entry = PromptEntry(
                 name=name,
                 description=info.get("description", ""),
@@ -84,7 +80,7 @@ class PromptRegistry:
 
     def create(self, name: str, content: str, description: str = "") -> PromptEntry:
         """创建新 prompt。"""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         entry = PromptEntry(
             name=name,
             description=description,
@@ -109,7 +105,7 @@ class PromptRegistry:
         if not entry:
             return self.create(name, content, description)
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         new_version = entry.latest_version + 1
         entry.versions.append(
             PromptVersion(
@@ -142,7 +138,7 @@ class PromptRegistry:
         if content is None:
             raise ValueError(f"版本 {target_version} 不存在: {name}")
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         new_version = entry.latest_version + 1
         entry.versions.append(
             PromptVersion(

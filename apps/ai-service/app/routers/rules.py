@@ -16,7 +16,7 @@
 注册到 main.py:app.include_router(rules.router, prefix="/api", tags=["rules"])
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -28,26 +28,26 @@ router = APIRouter()
 
 class RuleCreateBody(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
-    description: Optional[str] = None
+    description: str | None = None
     content: str = Field(..., min_length=1)
     scope: str = Field("global")
-    agentId: Optional[str] = None
+    agentId: str | None = None
     priority: int = Field(50, ge=0, le=100)
     enabled: bool = True
     matchType: str = Field("always")
-    matchPattern: Optional[str] = None
+    matchPattern: str | None = None
 
 
 class RuleUpdateBody(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    content: Optional[str] = None
-    scope: Optional[str] = None
-    agentId: Optional[str] = None
-    priority: Optional[int] = Field(None, ge=0, le=100)
-    enabled: Optional[bool] = None
-    matchType: Optional[str] = None
-    matchPattern: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
+    content: str | None = None
+    scope: str | None = None
+    agentId: str | None = None
+    priority: int | None = Field(None, ge=0, le=100)
+    enabled: bool | None = None
+    matchType: str | None = None
+    matchPattern: str | None = None
 
 
 class RuleTestBody(BaseModel):
@@ -56,7 +56,7 @@ class RuleTestBody(BaseModel):
 
 class RuleMatchBody(BaseModel):
     message: str = Field(..., min_length=1)
-    scope: Optional[str] = None
+    scope: str | None = None
 
 
 class AutoGenerateBody(BaseModel):
@@ -118,7 +118,7 @@ async def resolve_conflicts(body: ResolveConflictsBody) -> dict[str, Any]:
 
 
 @router.get("/rules/knowledge-graph")
-async def build_knowledge_graph(scope: Optional[str] = None) -> dict[str, Any]:
+async def build_knowledge_graph(scope: str | None = None) -> dict[str, Any]:
     """构建规则知识图谱(基于 embedding cosine 相似度)。"""
     try:
         data = await rules_engine._build_knowledge_graph(scope)

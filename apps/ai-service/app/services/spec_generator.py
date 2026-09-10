@@ -32,18 +32,17 @@ import json
 import logging
 import os
 import re
-import shutil
 import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from .codebase_indexer import (
-    CodebaseIndexer,
     _EXT_TO_LANG,
     _IGNORED_DIRS,
+    CodebaseIndexer,
 )
 
 logger = logging.getLogger(__name__)
@@ -86,7 +85,7 @@ MAX_SPEC_FILES = 800
 MAX_FILE_CHARS = 200_000
 
 # LLM 模型 fallback 链(2026-07-22 深化,gpt-4o → gpt-4o-mini → 默认)
-_LLM_MODEL_CHAIN: list[Optional[str]] = ["gpt-4o", "gpt-4o-mini", None]
+_LLM_MODEL_CHAIN: list[str | None] = ["gpt-4o", "gpt-4o-mini", None]
 
 # 活跃 watcher 状态(watch_id → { observer, scope, workspace_path, webhook_url, started_at })
 # 模块级单例,跨请求共享(2026-07-22 watch 自动同步)
@@ -105,7 +104,7 @@ class ExtractedSymbol:
     line_end: int
     language: str
     """ 符号前的修饰符注释(docstring / JSDoc,取首个非空行) """
-    doc: Optional[str] = None
+    doc: str | None = None
 
 
 @dataclass
@@ -116,11 +115,11 @@ class ExtractedEndpoint:
     path: str
     file_path: str
     line: int
-    handler: Optional[str] = None
+    handler: str | None = None
     """ 参数列表(body / query / params 类型引用,降级为空) """
     params: list[str] = field(default_factory=list)
     """ 响应类型(schema 引用,降级为空) """
-    response_type: Optional[str] = None
+    response_type: str | None = None
 
 
 @dataclass
@@ -261,7 +260,7 @@ class SpecGenerator:
         walk(node)
         return symbols
 
-    def _extract_doc(self, node: Any, content: str) -> Optional[str]:
+    def _extract_doc(self, node: Any, content: str) -> str | None:
         """提取符号前的文档注释(JSDoc / docstring 首行)。"""
         try:
             prev = node.prev_sibling
@@ -269,7 +268,7 @@ class SpecGenerator:
                 text = prev.text.decode("utf-8", errors="replace") if prev.text else ""
                 # 取首个非空、非装饰符行
                 for line in text.splitlines():
-                    stripped = line.strip().lstrip("/*#*").strip()
+                    stripped = re.sub(r"^[/*#\s]+", "", line.strip()).strip()
                     if stripped and not stripped.startswith("@"):
                         return stripped[:120]
         except Exception:
@@ -309,7 +308,7 @@ class SpecGenerator:
         - 降级:Zod / Pydantic 解析失败时仅保留路由表(params / response_type 为空)
         """
         endpoints: list[ExtractedEndpoint] = []
-        patterns: list[tuple[str, "re.Pattern[str]"]] = []
+        patterns: list[tuple[str, re.Pattern[str]]] = []
 
         if language in ("typescript", "tsx", "javascript", "jsx"):
             # Fastify: server.post('/path', ...) / server.get(...)
@@ -341,7 +340,7 @@ class SpecGenerator:
                 line = content.count("\n", 0, m.start()) + 1
 
                 params: list[str] = []
-                response_type: Optional[str] = None
+                response_type: str | None = None
                 try:
                     if framework in ("FASTIFY", "EXPRESS"):
                         params, response_type = self._extract_fastify_schema(content, m.end())
@@ -360,14 +359,14 @@ class SpecGenerator:
                 ))
         return endpoints
 
-    def _extract_fastify_schema(self, content: str, start: int) -> tuple[list[str], Optional[str]]:
+    def _extract_fastify_schema(self, content: str, start: int) -> tuple[list[str], str | None]:
         """从 Fastify 路由调用的 options 参数中提取 Zod schema 引用。
 
         匹配 `schema: { body: X, query: Y, params: Z, response: { 200: R } }` 结构。
         降级:schema 块不存在或解析失败时返回 ([], None)。
         """
         params: list[str] = []
-        response_type: Optional[str] = None
+        response_type: str | None = None
 
         # 在 endpoint match 后 2000 字符窗口内查找 schema: { ... } 块
         window = content[start:start + 2000]
@@ -405,14 +404,14 @@ class SpecGenerator:
 
         return params, response_type
 
-    def _extract_fastapi_params(self, content: str, start: int) -> tuple[list[str], Optional[str]]:
+    def _extract_fastapi_params(self, content: str, start: int) -> tuple[list[str], str | None]:
         """从 FastAPI 路由装饰器后的函数签名中提取 Pydantic model 引用。
 
         匹配 `async def handler(param: ModelType = Body(...), ...)` 结构。
         降级:函数签名不存在或解析失败时返回 ([], None)。
         """
         params: list[str] = []
-        response_type: Optional[str] = None
+        response_type: str | None = None
 
         # 在装饰器后 800 字符窗口内查找 async def / def 函数定义
         window = content[start:start + 800]
@@ -858,7 +857,7 @@ class SpecGenerator:
         workspace_path: str,
         scope: dict[str, Any],
         include_dependencies: bool = True,
-        languages: Optional[list[str]] = None,
+        languages: list[str] | None = None,
     ) -> SpecResult:
         """生成 Spec 文档。
 
@@ -986,7 +985,7 @@ class SpecGenerator:
     # 2026-07-22 深化:LLM 调用 + Spec 驱动代码生成 + Watch + 评审 + 拆分 + 增强
     # ------------------------------------------------------------------
 
-    async def _call_llm(self, prompt: str, system: Optional[str] = None) -> tuple[str, bool]:
+    async def _call_llm(self, prompt: str, system: str | None = None) -> tuple[str, bool]:
         """调用 LLM(gpt-4o → gpt-4o-mini → 默认模型 fallback 链)。
 
         Returns:
@@ -1116,7 +1115,7 @@ class SpecGenerator:
         workspace_path: str,
         scope: dict[str, Any],
         new_spec: str,
-        old_spec: Optional[str] = None,
+        old_spec: str | None = None,
     ) -> dict[str, Any]:
         """根据 spec markdown 生成代码 patch(unified diff 格式)。
 
@@ -1129,7 +1128,7 @@ class SpecGenerator:
         LLM 不可用时返回 { patch: '', affectedFiles: [], summary: 'llm_unavailable', error: 'llm_unavailable' }。
         字段名用 camelCase(affectedFiles)以匹配 API 端 spec-service.ts 契约。
         """
-        root = Path(workspace_path).resolve()
+        Path(workspace_path).resolve()
         if old_spec is None:
             old_data = self.load_spec(workspace_path, scope, "latest")
             old_spec = old_data["spec"]
@@ -1151,8 +1150,8 @@ class SpecGenerator:
         # LLM 调用:用 config.litellm_model(默认 stepfun/step-3.7-flash),30s 超时
         # LLM 不可用(导入失败/超时/异常/返回错误/空内容)统一返回 llm_unavailable,不抛异常
         try:
-            from ..core.llm_gateway import llm_gateway
             from ..core.config import settings
+            from ..core.llm_gateway import llm_gateway
         except Exception as e:
             return {
                 "error": "llm_unavailable",
@@ -1171,7 +1170,7 @@ class SpecGenerator:
                 llm_gateway.complete(messages, model=settings.litellm_model),
                 timeout=30,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return {
                 "error": "llm_unavailable",
                 "patch": "",
@@ -1318,7 +1317,7 @@ class SpecGenerator:
             action: '+' / '-' / ' '
         """
         result: dict[str, list[tuple[int, str, str]]] = {}
-        current_file: Optional[str] = None
+        current_file: str | None = None
         current_line = 0
         hunks: list[tuple[int, str, str]] = []
 
@@ -1398,7 +1397,7 @@ class SpecGenerator:
         self,
         workspace_path: str,
         scope: dict[str, Any],
-        webhook_url: Optional[str] = None,
+        webhook_url: str | None = None,
     ) -> dict[str, Any]:
         """启动指定 scope 的文件监听(watchdog)。
 
@@ -1911,7 +1910,7 @@ if _EXTRA_ROUTER_AVAILABLE:
     class SpecWatchStartRequest(BaseModel):
         scope: dict[str, Any] = Field(default_factory=lambda: {"type": "workspace"})
         workspacePath: str = Field(...)
-        webhookUrl: Optional[str] = Field(None)
+        webhookUrl: str | None = Field(None)
 
     @extra_router.post("/spec/watch/start")
     async def spec_watch_start(req: SpecWatchStartRequest) -> dict[str, Any]:
@@ -1950,8 +1949,8 @@ if _EXTRA_ROUTER_AVAILABLE:
     class SpecReviewRequest(BaseModel):
         scope: dict[str, Any] = Field(default_factory=lambda: {"type": "workspace"})
         workspacePath: str = Field(...)
-        reviewer: Optional[str] = Field(None)
-        comment: Optional[str] = Field(None)
+        reviewer: str | None = Field(None)
+        comment: str | None = Field(None)
 
     @extra_router.post("/spec/review/submit")
     async def spec_review_submit(req: SpecReviewRequest) -> dict[str, Any]:

@@ -23,8 +23,8 @@ import pytest
 from app.services import mcp_server
 from app.services.mcp_server import (
     _ADMIN_ONLY_TOOLS,
-    _TOOLS,
     _TOOL_HANDLERS,
+    _TOOLS,
     _tool_file_edit,
     _tool_read_file,
     _tool_resolve_conflict,

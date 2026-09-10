@@ -26,6 +26,7 @@ from typing import Any
 import httpx
 
 from app.core.logging import get_logger
+
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
 
 logger = get_logger(__name__)

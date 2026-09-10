@@ -38,7 +38,7 @@
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 # ── 复用公众号同款 X 信源（保证一致）──────────────────────────────
 try:
@@ -50,7 +50,7 @@ except Exception:
 def _x_entries() -> list[dict[str, Any]]:
     """把公众号 x_sources.X_SOURCES 转成本注册表统一结构。"""
     out: list[dict[str, Any]] = []
-    for cat, lst in (_X_SOURCES or {}).items():
+    for _cat, lst in (_X_SOURCES or {}).items():
         for s in lst:
             out.append({
                 'name': s.get('name', s.get('handle', '')),
@@ -382,7 +382,7 @@ PLATFORM_LABELS = {
 }
 
 
-def by_platform(platform: Optional[str] = None) -> list[dict[str, Any]]:
+def by_platform(platform: str | None = None) -> list[dict[str, Any]]:
     if platform:
         return [s for s in ALL_SOURCES if s['platform'] == platform]
     return ALL_SOURCES

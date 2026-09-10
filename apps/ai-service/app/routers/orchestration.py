@@ -35,13 +35,13 @@
 注册到 main.py:app.include_router(orchestration.router, prefix="/api", tags=["orchestration"])
 """
 
-from typing import Any, Optional
+from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
-from ..services.orchestration_hub import orchestration_hub
 from ..services.llm_budget_governor import llm_budget_governor
+from ..services.orchestration_hub import orchestration_hub
 from ..services.telemetry_service import telemetry_service
 
 router = APIRouter()
@@ -78,13 +78,13 @@ class CheckBudgetBody(BaseModel):
 
 
 class BudgetConfigUpdateBody(BaseModel):
-    daily_token_limit: Optional[int] = None
-    daily_cost_limit_usd: Optional[float] = None
-    hourly_token_limit: Optional[int] = None
-    warning_threshold: Optional[float] = None
-    critical_threshold: Optional[float] = None
-    auto_degrade_at: Optional[float] = None
-    hard_stop_at: Optional[float] = None
+    daily_token_limit: int | None = None
+    daily_cost_limit_usd: float | None = None
+    hourly_token_limit: int | None = None
+    warning_threshold: float | None = None
+    critical_threshold: float | None = None
+    auto_degrade_at: float | None = None
+    hard_stop_at: float | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -115,8 +115,8 @@ async def get_hub_dashboard() -> dict[str, Any]:
 @router.get("/orchestration/events")
 async def get_events(
     limit: int = Query(50, ge=1, le=500),
-    pillar: Optional[str] = Query(None),
-    event_type: Optional[str] = Query(None),
+    pillar: str | None = Query(None),
+    event_type: str | None = Query(None),
 ) -> dict[str, Any]:
     """事件流(供前端实时展示)。"""
     try:

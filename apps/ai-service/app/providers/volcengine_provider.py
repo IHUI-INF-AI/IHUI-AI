@@ -14,13 +14,14 @@ model 前缀: volcengine-* / 字节其他模型(doubao / skylark / chatglm 等�
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
+from ..core.llm_gateway import get_http_client
 from .base_provider import ProviderError
 from .openai_provider import OpenAIProvider
-from ..core.llm_gateway import get_http_client
 
 
 class VolcengineProvider(OpenAIProvider):

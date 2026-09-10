@@ -20,8 +20,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -44,7 +43,6 @@ from app.services.publish.account_groups import (
     router,
 )
 
-
 # =============================================================================
 # 1. AccountGroup dataclass
 # =============================================================================
@@ -55,7 +53,7 @@ class TestAccountGroup:
 
     def test_full_construction(self) -> None:
         """所有字段显式构造。"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         g = AccountGroup(
             group_id="grp_abc",
             user_id="u1",
@@ -115,7 +113,7 @@ class TestSerializeGroup:
 
     def test_full_serialization(self) -> None:
         """完整序列化。"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         row = MagicMock()
         row.__getitem__ = lambda self, key: {
             "group_id": "grp_1",
@@ -548,7 +546,7 @@ class TestCreateGroupEndpoint:
         request.state.user_id = "u1"
         body = GroupCreate(name="新分组", description="描述")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         mock_conn = AsyncMock()
         mock_conn.fetchrow.return_value = {
             "group_id": "grp_1",
@@ -613,7 +611,7 @@ class TestUpdateGroupEndpoint:
         request.state.user_id = "u1"
         body = GroupUpdate()  # 空更新
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         mock_conn = AsyncMock()
         mock_conn.fetchrow.return_value = {
             "group_id": "grp_1", "user_id": "u1", "name": "n",
@@ -816,7 +814,7 @@ class TestGetCookieHealthEndpoint:
         request = MagicMock()
         request.state.user_id = "u1"
         from datetime import timedelta
-        recent = datetime.now(timezone.utc) - timedelta(days=3)
+        recent = datetime.now(UTC) - timedelta(days=3)
 
         mock_conn = AsyncMock()
         mock_conn.fetchrow.return_value = {
@@ -840,7 +838,7 @@ class TestGetCookieHealthEndpoint:
         request = MagicMock()
         request.state.user_id = "u1"
         from datetime import timedelta
-        medium_old = datetime.now(timezone.utc) - timedelta(days=10)
+        medium_old = datetime.now(UTC) - timedelta(days=10)
 
         mock_conn = AsyncMock()
         mock_conn.fetchrow.return_value = {
@@ -862,7 +860,7 @@ class TestGetCookieHealthEndpoint:
         request = MagicMock()
         request.state.user_id = "u1"
         from datetime import timedelta
-        old = datetime.now(timezone.utc) - timedelta(days=20)
+        old = datetime.now(UTC) - timedelta(days=20)
 
         mock_conn = AsyncMock()
         mock_conn.fetchrow.return_value = {

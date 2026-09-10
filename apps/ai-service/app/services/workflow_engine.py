@@ -20,14 +20,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..core.llm_gateway import llm_gateway
-from .skill_feedback import skill_feedback_tracker
 from .skills import skill_registry
 
 logger = logging.getLogger(__name__)
@@ -124,7 +122,7 @@ class WorkflowEngine:
         steps: list[dict[str, Any]],
     ) -> Workflow:
         """创建新工作流。"""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self._create_seq += 1
         wf = Workflow(
             id=f"wf-{uuid.uuid4().hex[:12]}",
@@ -176,7 +174,7 @@ class WorkflowEngine:
             wf.steps = steps
         if isActive is not None:
             wf.isActive = isActive
-        wf.updatedAt = datetime.now(timezone.utc).isoformat()
+        wf.updatedAt = datetime.now(UTC).isoformat()
         return wf
 
     def delete_workflow(self, workflow_id: str) -> bool:
@@ -212,7 +210,7 @@ class WorkflowEngine:
             logger.warning("workflow_engine 工作流正在运行: id=%s", workflow_id)
             return None
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         inst = WorkflowInstance(
             id=f"wi-{uuid.uuid4().hex[:12]}",
             workflowId=workflow_id,
@@ -236,7 +234,7 @@ class WorkflowEngine:
         log = WorkflowLog(
             id=f"log-{uuid.uuid4().hex[:8]}",
             instanceId=instance_id,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             level=level,
             message=message,
         )
@@ -255,7 +253,7 @@ class WorkflowEngine:
             # 检查取消
             if cancel_event and cancel_event.is_set():
                 inst.status = "cancelled"
-                inst.completedAt = datetime.now(timezone.utc).isoformat()
+                inst.completedAt = datetime.now(UTC).isoformat()
                 self._log(inst.id, "warn", f"工作流在第 {idx + 1} 步被取消")
                 self._running_instances.discard(wf.id)
                 return
@@ -263,7 +261,7 @@ class WorkflowEngine:
             step_name = str(step.get("name", f"step_{idx + 1}"))
             step_type = str(step.get("type", "llm"))
             step_input = str(step.get("input", ""))
-            step_skill = str(step.get("skill", ""))
+            str(step.get("skill", ""))
 
             task = WorkflowTask(
                 id=f"task-{uuid.uuid4().hex[:8]}",
@@ -300,7 +298,7 @@ class WorkflowEngine:
 
         # 更新最终状态
         inst.status = "completed" if all_succeeded else "failed"
-        inst.completedAt = datetime.now(timezone.utc).isoformat()
+        inst.completedAt = datetime.now(UTC).isoformat()
         self._running_instances.discard(wf.id)
         self._log(
             inst.id,

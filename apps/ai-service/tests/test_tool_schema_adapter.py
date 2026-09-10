@@ -15,8 +15,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -29,7 +30,6 @@ from app.services.tool_schema_adapter import (
     is_anthropic_model,
     openai_tools_to_anthropic,
 )
-
 
 # =============================================================================
 # openai_tools_to_anthropic

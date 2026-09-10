@@ -81,8 +81,8 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -238,19 +238,19 @@ class Rule:
     name: str
     content: str
     scope: str = "global"  # global / workspace / agent
-    agent_id: Optional[str] = None
+    agent_id: str | None = None
     priority: int = 50
     enabled: bool = True
     match_type: str = "always"  # always / keyword / regex / semantic
-    match_pattern: Optional[str] = None
-    description: Optional[str] = None
+    match_pattern: str | None = None
+    description: str | None = None
     created_at: str = ""
     updated_at: str = ""
     # ── 触发统计(持久化到 frontmatter)──
     match_count: int = 0
     last_matched_at: str = ""
     # ── 继承标记(瞬态,不持久化;match/resolved 时设置)──
-    inherited_from: Optional[str] = None
+    inherited_from: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """序列化为 dict(供 API 返回)。"""
@@ -273,12 +273,12 @@ class Rule:
         }
 
     @staticmethod
-    def from_dict(data: dict[str, Any], content: str = "") -> "Rule":
+    def from_dict(data: dict[str, Any], content: str = "") -> Rule:
         """从 dict 构造(供 API 创建时使用)。"""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         rule_id = str(data.get("id") or data.get("name", "rule")).strip()
         if not rule_id:
-            rule_id = f"rule-{int(datetime.now(timezone.utc).timestamp())}"
+            rule_id = f"rule-{int(datetime.now(UTC).timestamp())}"
         return Rule(
             id=rule_id,
             name=str(data.get("name", rule_id)),
@@ -303,7 +303,7 @@ def _slugify(name: str) -> str:
     """把规则名转为安全文件名 slug(kebab-case)。"""
     slug = re.sub(r"[^\w\-]", "-", name.strip().lower())
     slug = re.sub(r"-{2,}", "-", slug).strip("-")
-    return slug or f"rule-{int(datetime.now(timezone.utc).timestamp())}"
+    return slug or f"rule-{int(datetime.now(UTC).timestamp())}"
 
 
 def _parse_frontmatter(content: str) -> tuple[dict[str, str], str]:
@@ -358,14 +358,14 @@ class RulesEngine:
     线程安全:用 threading.Lock 保护 _rules 字典 + mtime 缓存。
     """
 
-    def __init__(self, rules_dir: Optional[str] = None) -> None:
+    def __init__(self, rules_dir: str | None = None) -> None:
         self._rules_dir = rules_dir or os.path.abspath(_DEFAULT_RULES_DIR)
         self._history_dir = os.path.join(self._rules_dir, "history")
         self._rules: dict[str, Rule] = {}
         self._dir_mtime: float = 0.0
         self._lock = threading.Lock()
         # Embedding LRU 缓存:key=pattern, value=(embedding, timestamp)
-        self._embedding_cache: "OrderedDict[str, tuple[list[float], float]]" = (
+        self._embedding_cache: OrderedDict[str, tuple[list[float], float]] = (
             OrderedDict()
         )
         # 审计日志(内存降级,容量 _AUDIT_LOG_MAX)
@@ -467,7 +467,7 @@ class RulesEngine:
                     continue
                 try:
                     path = os.path.join(self._rules_dir, fname)
-                    with open(path, "r", encoding="utf-8") as f:
+                    with open(path, encoding="utf-8") as f:
                         content = f.read()
                     meta, body = _parse_frontmatter(content)
                     if not meta.get("id"):
@@ -506,7 +506,7 @@ class RulesEngine:
         rules.sort(key=lambda r: r.priority, reverse=True)
         return rules
 
-    def get(self, rule_id: str) -> Optional[Rule]:
+    def get(self, rule_id: str) -> Rule | None:
         """获取单个规则。"""
         self.reload()
         with self._lock:
@@ -514,14 +514,14 @@ class RulesEngine:
 
     def create(self, data: dict[str, Any], user: str = "system") -> Rule:
         """创建规则 → 写入 .md 文件。"""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         rule_id = _slugify(str(data.get("name", "")))
         if not rule_id:
-            rule_id = f"rule-{int(datetime.now(timezone.utc).timestamp())}"
+            rule_id = f"rule-{int(datetime.now(UTC).timestamp())}"
         # 确保唯一
         with self._lock:
             if rule_id in self._rules:
-                rule_id = f"{rule_id}-{int(datetime.now(timezone.utc).timestamp()) % 10000}"
+                rule_id = f"{rule_id}-{int(datetime.now(UTC).timestamp()) % 10000}"
         rule = Rule.from_dict(
             {
                 **data,
@@ -539,7 +539,7 @@ class RulesEngine:
 
     def update(
         self, rule_id: str, data: dict[str, Any], user: str = "system"
-    ) -> Optional[Rule]:
+    ) -> Rule | None:
         """更新规则(部分字段) → 重写 .md 文件。"""
         with self._lock:
             existing = self._rules.get(rule_id)
@@ -547,7 +547,7 @@ class RulesEngine:
             return None
         # 版本控制:保存旧版本
         self._save_version(existing, "update")
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         updated = Rule(
             id=existing.id,
             name=data.get("name", existing.name),
@@ -616,7 +616,7 @@ class RulesEngine:
         降级:文件写入失败不阻塞规则变更。
         """
         try:
-            ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+            ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
             filename = f"{ts}-{rule.id}.md"
             path = os.path.join(self._history_dir, filename)
             content = _render_rule_md(rule)
@@ -648,7 +648,7 @@ class RulesEngine:
                 ts_str = fname[: -(len(rule_id) + 4)]
                 try:
                     path = os.path.join(self._history_dir, fname)
-                    with open(path, "r", encoding="utf-8") as f:
+                    with open(path, encoding="utf-8") as f:
                         content = f.read()
                     # 提取 action 注释
                     action = "update"
@@ -673,7 +673,7 @@ class RulesEngine:
         history.sort(key=lambda h: h["timestamp"], reverse=True)
         return history
 
-    def rollback(self, rule_id: str, version: str) -> Optional[Rule]:
+    def rollback(self, rule_id: str, version: str) -> Rule | None:
         """回滚规则到指定版本。
 
         Args:
@@ -688,14 +688,14 @@ class RulesEngine:
             path = os.path.join(self._history_dir, filename)
             if not os.path.exists(path):
                 return None
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 content = f.read()
             # 去掉 action 注释
             content = re.sub(r"^<!-- action: \w+ -->\n", "", content)
             meta, body = _parse_frontmatter(content)
             if not meta.get("id"):
                 meta["id"] = rule_id
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             rule = Rule(
                 id=meta.get("id", rule_id),
                 name=meta.get("name", rule_id),
@@ -745,14 +745,14 @@ class RulesEngine:
 
     def _read_version_content(
         self, rule_id: str, timestamp: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """读取指定版本的规则文件内容(去掉 action 注释)。"""
         try:
             filename = f"{timestamp}-{rule_id}.md"
             path = os.path.join(self._history_dir, filename)
             if not os.path.exists(path):
                 return None
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 content = f.read()
             return re.sub(r"^<!-- action: \w+ -->\n", "", content)
         except Exception as e:
@@ -761,7 +761,7 @@ class RulesEngine:
 
     # ── 匹配(Scope 继承链)──────────────────────────────────
 
-    def match(self, message: str, scope: Optional[str] = None) -> list[Rule]:
+    def match(self, message: str, scope: str | None = None) -> list[Rule]:
         """匹配消息,返回命中的规则(按 priority DESC,截断 top 10)。
 
         Scope 继承链合并(2026-07-22 深化):
@@ -839,7 +839,7 @@ class RulesEngine:
         return [(r, inh) for _, r, inh in sorted_rules[:MAX_APPLIED_RULES]]
 
     def resolved(
-        self, scope: str, agent_id: Optional[str] = None
+        self, scope: str, agent_id: str | None = None
     ) -> list[dict[str, Any]]:
         """返回合并后的最终生效规则集(含 inherited_from 字段)。
 
@@ -941,9 +941,9 @@ class RulesEngine:
                 self._embedding_cache.pop(pattern, None)
         # miss → 调用 embedding API(不持锁,避免阻塞)
         try:
-            from ..core.llm_gateway import llm_gateway
-
             import asyncio
+
+            from ..core.llm_gateway import llm_gateway
 
             loop = asyncio.get_event_loop()
             if loop.is_running():
@@ -1006,7 +1006,7 @@ class RulesEngine:
         words = re.split(r"[\s,，]+", rule.match_pattern.strip())
         return any(w in message for w in words if w)
 
-    async def match_async(self, message: str, scope: Optional[str] = None) -> list[Rule]:
+    async def match_async(self, message: str, scope: str | None = None) -> list[Rule]:
         """异步匹配(供 agent loop 在事件循环中调用)。
 
         语义匹配时直接 await embed(),无需线程池。
@@ -1125,7 +1125,7 @@ class RulesEngine:
             r = self._rules.get(rule.id)
             if r:
                 r.match_count += 1
-                r.last_matched_at = datetime.now(timezone.utc).isoformat()
+                r.last_matched_at = datetime.now(UTC).isoformat()
                 count = r.match_count
                 last = r.last_matched_at
             else:
@@ -1148,7 +1148,7 @@ class RulesEngine:
             path = os.path.join(self._rules_dir, f"{rule_id}.md")
             if not os.path.exists(path):
                 return
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 content = f.read()
             # 仅替换 matchCount 行
             if re.search(r"^matchCount:", content, re.MULTILINE):
@@ -1183,7 +1183,7 @@ class RulesEngine:
         """返回全局统计:总规则数、活跃规则数(7 天命中)、最常用规则 top 10。"""
         rules = self.list_rules()
         total = len(rules)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         seven_days_ago = (now - timedelta(days=7)).isoformat()
         active_7d = sum(
             1 for r in rules if r.last_matched_at and r.last_matched_at >= seven_days_ago
@@ -1217,7 +1217,7 @@ class RulesEngine:
             "message": message[:500],  # 截断防内存膨胀
             "output": output[:500],
             "tokenDelta": int(token_delta),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
         redis = self._get_redis()
         if redis:
@@ -1264,7 +1264,7 @@ class RulesEngine:
             return False
         entry = {
             "feedback": feedback,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
         redis = self._get_redis()
         if redis:
@@ -1306,7 +1306,7 @@ class RulesEngine:
             return datetime.fromisoformat(ts.replace("Z", "+00:00"))
         except Exception as e:
             logger.warning("rules_engine._parse_ts 失败: %s", e, exc_info=True)
-            return datetime.min.replace(tzinfo=timezone.utc)
+            return datetime.min.replace(tzinfo=UTC)
 
     def get_rule_stats(self, rule_id: str) -> dict[str, Any]:
         """返回规则效果统计:命中率(7/30 天)、平均 token 增量、满意度。
@@ -1318,7 +1318,7 @@ class RulesEngine:
         effects = self._get_effect_log(rule_id)
         feedbacks = self._get_feedback_log(rule_id)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         seven_days_ago = now - timedelta(days=7)
         thirty_days_ago = now - timedelta(days=30)
 
@@ -1396,7 +1396,7 @@ class RulesEngine:
 
     # ── 应用到 agent ────────────────────────────────────────
 
-    def apply(self, message: str, scope: Optional[str] = None) -> dict[str, Any]:
+    def apply(self, message: str, scope: str | None = None) -> dict[str, Any]:
         """匹配规则并返回拼接结果(供调用方追加到 system prompt)。
 
         Returns:
@@ -1457,7 +1457,7 @@ class RulesEngine:
             "action": action,
             "ruleId": rule_id,
             "ruleName": rule_name,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "user": user,
         }
         # 写入 Redis(主)
@@ -1638,7 +1638,7 @@ class RulesEngine:
         user_id: str,
         action: str,
         rule_id: str,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """记录用户行为到 Redis hash(失败降级到内存)。
 
@@ -1650,13 +1650,13 @@ class RulesEngine:
             "action": action,
             "rule_id": rule_id,
             "details": details or {},
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
         redis = self._get_redis()
         if redis:
             try:
                 key = f"{_BEHAVIOR_KEY_PREFIX}{user_id}"
-                field = str(int(datetime.now(timezone.utc).timestamp() * 1000))
+                field = str(int(datetime.now(UTC).timestamp() * 1000))
                 redis.hset(key, field, json.dumps(entry, ensure_ascii=False))
                 # 超容量时删除最早 field(timestamp 字典序 == 时间序)
                 current_count = redis.hlen(key)
@@ -1981,7 +1981,7 @@ class RulesEngine:
         }
 
     async def _build_knowledge_graph(
-        self, scope: Optional[str] = None
+        self, scope: str | None = None
     ) -> dict[str, Any]:
         """构建规则知识图谱(基于 embedding cosine 相似度)。
 
@@ -2055,7 +2055,7 @@ class RulesEngine:
         entry = {
             "feedback": feedback,
             "accepted": bool(accepted),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
         redis = self._get_redis()
         if redis:
@@ -2078,7 +2078,7 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     """计算两个向量的余弦相似度。"""
     if not a or not b or len(a) != len(b):
         return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     norm_a = sum(x * x for x in a) ** 0.5
     norm_b = sum(y * y for y in b) ** 0.5
     if norm_a == 0 or norm_b == 0:

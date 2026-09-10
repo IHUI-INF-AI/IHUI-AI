@@ -111,7 +111,7 @@ def test_parse_update_without_hunks_raises() -> None:
 
 
 def test_parse_empty_add_raises() -> None:
-    text = codex("*** Add File: a.txt", "*** End Patch")
+    codex("*** Add File: a.txt", "*** End Patch")
     # "*** End Patch" 被识别为结束,Add 段无内容
     with pytest.raises(PatchParseError, match=r"内容为空|未找到任何文件段"):
         parse_patch("*** Begin Patch\n*** Add File: a.txt\n*** End Patch\n")

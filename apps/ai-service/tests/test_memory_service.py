@@ -15,8 +15,7 @@
 """
 
 import asyncio
-import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -29,7 +28,6 @@ from app.services.memory_service import (
     _parse_jsonb,
     _parse_pgvector_text,
 )
-
 
 # =============================================================================
 # Mock 工具
@@ -57,9 +55,9 @@ def _episodic_row(**overrides) -> FakeRecord:
         "importance_score": "0.5",  # SQL ::text → str
         "decay_factor": "1.0",
         "metadata": '{"key": "val"}',
-        "created_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=timezone.utc),
+        "created_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=UTC),
         "expires_at": None,
-        "last_accessed_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=timezone.utc),
+        "last_accessed_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=UTC),
     }
     base.update(overrides)
     return FakeRecord(base)
@@ -73,8 +71,8 @@ def _semantic_row(**overrides) -> FakeRecord:
         "content": "语义记忆",
         "importance_score": "0.8",
         "metadata": "{}",
-        "created_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=timezone.utc),
-        "last_accessed_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=timezone.utc),
+        "created_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=UTC),
+        "last_accessed_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=UTC),
     }
     base.update(overrides)
     return FakeRecord(base)
@@ -91,9 +89,9 @@ def _procedural_row(**overrides) -> FakeRecord:
         "failure_count": 1,
         "importance_score": "0.7",
         "metadata": "{}",
-        "last_used_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=timezone.utc),
-        "created_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=timezone.utc),
-        "updated_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=timezone.utc),
+        "last_used_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=UTC),
+        "created_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=UTC),
+        "updated_at": datetime(2026, 7, 22, 10, 0, 0, tzinfo=UTC),
     }
     base.update(overrides)
     return FakeRecord(base)

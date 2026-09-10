@@ -23,14 +23,11 @@ from __future__ import annotations
 import asyncio
 import types
 
-import pytest
-
 from app.services.resource_monitor import (
     ResourceMonitor,
     ResourceViolation,
     is_psutil_available,
 )
-
 
 # =============================================================================
 # 假 psutil 基础设施

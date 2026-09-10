@@ -28,17 +28,17 @@ CSDN 兼容 Markdown 导出（微信公众号摸鱼绿文章的「通用版」�
 """
 from __future__ import annotations
 
-import os
-import sys
-import re
 import argparse
-from typing import Any
+import os
+import re
+import sys
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
 # ── 项目边界硬门禁（导入即生效，fail-closed） ──
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "koubo_workflow"))
 import project_boundary
+
 project_boundary.check_action(tool="export_csdn_md.py")
 
 # 尝试导入图床上传模块（imgchr.com 优先，CSDN 备用）
@@ -60,7 +60,7 @@ def export_csdn_md(md_path: str, out_path: str | None = None) -> str:
         base = os.path.splitext(md_path)[0]
         out_path = base + '.md'
 
-    with open(md_path, 'r', encoding='utf-8') as f:
+    with open(md_path, encoding='utf-8') as f:
         lines = f.read().split('\n')
 
     out: list[str] = []
@@ -166,7 +166,7 @@ def export_csdn_md(md_path: str, out_path: str | None = None) -> str:
                     i += 1
                     continue
                 img_list.append((alt, path))
-                out.append('![%s](%s)' % (alt, path))
+                out.append(f'![{alt}]({path})')
                 out.append('')
                 i += 1
                 continue

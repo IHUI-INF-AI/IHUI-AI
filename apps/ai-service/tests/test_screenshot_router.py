@@ -15,13 +15,9 @@
 """
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
-
 import pytest
 
 from app.routers import screenshot
-from app.services import screenshot_service
-
 
 # =============================================================================
 # 辅助 fixtures

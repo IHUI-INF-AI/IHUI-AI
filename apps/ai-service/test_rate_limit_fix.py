@@ -6,24 +6,25 @@
 """验证 is_model_available 对 DEGRADED + RATE_LIMITED 且已配置 key 的 provider 返回 True。"""
 
 import sys
-import os
 
 # 设置 Python 路径
 sys.path.insert(0, r"G:\IHUI-AI\apps\ai-service")
 
 # 先加载环境变量
 from dotenv import load_dotenv
+
 load_dotenv(r"G:\IHUI-AI\apps\ai-service\.env")
 
+from app.core.config import settings
+from app.services.free_provider_registry import ProviderStatus, free_provider_registry
 from app.services.model_availability import (
     ModelAvailabilityService,
-    ProviderHealthStatus,
     ProviderErrorType,
     ProviderHealth,
+    ProviderHealthStatus,
     _to_llm_providers_name,
 )
-from app.core.config import settings
-from app.services.free_provider_registry import free_provider_registry, ProviderStatus
+
 
 def check_has_key(code: str) -> bool:
     cfg_name = _to_llm_providers_name(code)

@@ -171,7 +171,7 @@ class SkillTester:
                 llm_gateway.complete(messages),
                 timeout=timeout_seconds,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return self._fail(name, "", f"超时({timeout_seconds}s)", start)
         except Exception as e:
             return self._fail(

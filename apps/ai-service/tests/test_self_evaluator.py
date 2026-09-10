@@ -20,12 +20,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.services.self_evaluator import (
-    SelfEvaluator,
     _DEFAULT_SCORE,
     _MAX_TRACE_CHARS,
+    SelfEvaluator,
     self_evaluator,
 )
-
 
 # =============================================================================
 # 工厂函数

@@ -20,6 +20,7 @@ ideogram / sora / perplexity / the-information 等)纯 HTTP fetch 返回 403,
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import threading
@@ -106,10 +107,8 @@ def _render_page_locked(url: str, timeout_ms: int) -> dict[str, Any]:
         status = resp.status if resp is not None else None
 
         # 等 JS 渲染收敛(networkidle 短等待,失败不阻塞)
-        try:
+        with contextlib.suppress(Exception):
             page.wait_for_load_state("networkidle", timeout=10_000)
-        except Exception:
-            pass
 
         # Cloudflare 挑战等待:最多再等 15s,轮询检查挑战标记是否消失
         deadline = time.time() + 15

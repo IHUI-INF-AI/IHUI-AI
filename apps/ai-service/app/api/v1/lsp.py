@@ -20,12 +20,13 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 from urllib.parse import urlparse
 from urllib.request import pathname2url, url2pathname
 
@@ -65,7 +66,7 @@ class LspFileRequest(BaseModel):
 class LspReferencesRequest(LspPositionRequest):
     """查找引用 — 比 LspPositionRequest 多一个 includeDeclaration。"""
 
-    includeDeclaration: Optional[bool] = Field(
+    includeDeclaration: bool | None = Field(
         True, description="是否包含定义声明(默认 true)"
     )
 
@@ -207,7 +208,7 @@ class LspClient:
     - 任何启动 / 请求失败 → 抛异常给上层转 503
     """
 
-    _instances: dict[str, "LspClient"] = {}
+    _instances: dict[str, LspClient] = {}
 
     def __init__(self, workspace_path: str):
         self.workspace_path = workspace_path
@@ -221,7 +222,7 @@ class LspClient:
         self._initialized = False
 
     @classmethod
-    def get(cls, workspace_path: str) -> "LspClient":
+    def get(cls, workspace_path: str) -> LspClient:
         """按 workspacePath 复用单例(对齐 cli getLspClient)。"""
         if workspace_path not in cls._instances:
             cls._instances[workspace_path] = cls(workspace_path)
@@ -309,7 +310,7 @@ class LspClient:
         )
         try:
             return await asyncio.wait_for(fut, timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._responses.pop(msg_id, None)
             raise RuntimeError(f"LSP request {method} 超时")
 
@@ -322,7 +323,7 @@ class LspClient:
         if uri in self._opened:
             return uri
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
         except OSError as e:
             raise HTTPException(status_code=500, detail=f"读取文件失败: {e}")
@@ -397,10 +398,8 @@ class LspClient:
                 self.proc.terminate()
                 await asyncio.wait_for(self.proc.wait(), timeout=2)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     self.proc.kill()
-                except Exception:
-                    pass
         self._initialized = False
 
     # P1 修复(LSP _instances 全局 dict + reader_task + 子进程全部泄漏):
@@ -419,19 +418,15 @@ class LspClient:
         """关闭单个 LSP client 子进程 + reader_task(供 shutdown_all 调用)。"""
         if self._reader_task and not self._reader_task.done():
             self._reader_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 await self._reader_task
-            except (asyncio.CancelledError, Exception):
-                pass
         if self.proc:
             try:
                 self.proc.terminate()
                 await asyncio.wait_for(self.proc.wait(), timeout=2.0)
-            except (ProcessLookupError, asyncio.TimeoutError, Exception):
-                try:
+            except (TimeoutError, ProcessLookupError, Exception):
+                with contextlib.suppress(ProcessLookupError):
                     self.proc.kill()
-                except ProcessLookupError:
-                    pass
         self._initialized = False
 
 

@@ -18,21 +18,17 @@
 
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.services import dream_scheduler as ds_module
 from app.services.dream_scheduler import (
-    DreamScheduler,
     _HISTORY_LIMIT,
+    DreamScheduler,
     _safe_float,
     _safe_int,
     dream_scheduler,
 )
-
 
 # =============================================================================
 # _safe_int / _safe_float:环境变量解析

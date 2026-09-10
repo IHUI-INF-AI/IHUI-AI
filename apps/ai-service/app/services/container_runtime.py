@@ -24,6 +24,7 @@ start / stdout / stderr / exit 事件,SSE 端点实时消费;
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import io
 import json
 import logging
@@ -80,11 +81,11 @@ class _RunHandle:
     """运行内部句柄:记录 + 事件队列 + 子进程引用(进程内可见,不持久化)。"""
 
     run: ContainerRun
-    events: "asyncio.Queue[dict[str, Any]]" = field(default_factory=asyncio.Queue)
+    events: asyncio.Queue[dict[str, Any]] = field(default_factory=asyncio.Queue)
     proc: asyncio.subprocess.Process | None = None
     cancel_requested: bool = False
     done_event: asyncio.Event = field(default_factory=asyncio.Event)
-    task: "asyncio.Task[None] | None" = None  # _execute 后台任务句柄(shutdown 用)
+    task: asyncio.Task[None] | None = None  # _execute 后台任务句柄(shutdown 用)
 
 
 class ContainerRuntime:
@@ -121,7 +122,7 @@ class ContainerRuntime:
             )
             out, _ = await asyncio.wait_for(proc.communicate(), timeout=15)
             ok = proc.returncode == 0 and bool(out.strip())
-        except (asyncio.TimeoutError, FileNotFoundError, OSError):
+        except (TimeoutError, FileNotFoundError, OSError):
             ok = False
         except Exception:
             ok = False
@@ -133,10 +134,8 @@ class ContainerRuntime:
                     proc._transport.close()  # type: ignore[attr-defined]
                 except Exception:
                     pass
-                try:
+                with contextlib.suppress(ProcessLookupError):
                     proc.kill()
-                except ProcessLookupError:
-                    pass
         self._docker_available = ok
         logger.info("[container_runtime] docker 可用性探测: %s", ok)
         return ok
@@ -203,10 +202,8 @@ class ContainerRuntime:
         handle = self._runs.get(run_id)
         if handle is None:
             return None
-        try:
+        with contextlib.suppress(asyncio.TimeoutError):
             await asyncio.wait_for(handle.done_event.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
-            pass
         return self.snapshot(run_id)
 
     def cancel(self, run_id: str) -> dict[str, Any] | None:
@@ -218,10 +215,8 @@ class ContainerRuntime:
             handle.cancel_requested = True
             proc = handle.proc
             if proc is not None and proc.returncode is None:
-                try:
+                with contextlib.suppress(ProcessLookupError):
                     proc.kill()
-                except ProcessLookupError:
-                    pass
         return self.snapshot(run_id)
 
     def snapshot(self, run_id: str) -> dict[str, Any] | None:
@@ -229,7 +224,7 @@ class ContainerRuntime:
         handle = self._runs.get(run_id)
         return asdict(handle.run) if handle else None
 
-    def events_queue(self, run_id: str) -> "asyncio.Queue[dict[str, Any]] | None":
+    def events_queue(self, run_id: str) -> asyncio.Queue[dict[str, Any]] | None:
         """取运行的事件队列(SSE 消费用);不存在返回 None。"""
         handle = self._runs.get(run_id)
         return handle.events if handle else None
@@ -374,10 +369,8 @@ class ContainerRuntime:
                 proc = await asyncio.shield(spawn_fut)
             except asyncio.CancelledError:
                 proc = await spawn_fut  # spawn 未被中断,等其完成拿回进程
-                try:
+                with contextlib.suppress(ProcessLookupError):
                     proc.kill()
-                except ProcessLookupError:
-                    pass
                 run.status = "cancelled"
                 run.error = "任务在进程拉起阶段被取消"
                 raise
@@ -405,12 +398,10 @@ class ContainerRuntime:
                     run.status = "done" if code == 0 else "error"
                     if code != 0:
                         run.error = f"命令退出码非零: {code}"
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # 超时强杀:kill 后 wait 让 pump 自然 EOF 收尾
-                try:
+                with contextlib.suppress(ProcessLookupError):
                     proc.kill()
-                except ProcessLookupError:
-                    pass
                 await proc.wait()
                 run.status = "timeout"
                 run.error = f"执行超时({timeout_sec}s),进程已强杀"
