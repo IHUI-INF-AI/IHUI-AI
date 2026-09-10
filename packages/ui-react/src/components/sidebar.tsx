@@ -93,6 +93,11 @@ export interface SidebarItemProps {
 
 const levelPadding = ['pl-3', 'pl-8', 'pl-13']
 
+function setRef<T extends HTMLElement>(ref: React.Ref<T>, element: T) {
+  if (typeof ref === 'function') ref(element)
+  else if (ref && 'current' in ref) ref.current = element
+}
+
 export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
   ({ icon, label, href, active = false, level = 0, onClick, children, className }, ref) => {
     const collapsed = useSidebarCollapsed()
@@ -120,7 +125,7 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
       if (href) {
         return (
           <a
-            ref={ref as React.Ref<HTMLAnchorElement>}
+            ref={(el) => setRef(ref, el)}
             href={href}
             onClick={onClick}
             title={label}
@@ -134,7 +139,7 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
       }
       return (
         <button
-          ref={ref as React.Ref<HTMLButtonElement>}
+          ref={(el) => setRef(ref, el)}
           onClick={onClick}
           title={label}
           aria-label={label}
@@ -148,7 +153,7 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
 
     if (hasChildren) {
       return (
-        <div ref={ref as React.Ref<HTMLDivElement>} className="flex flex-col">
+        <div ref={(el) => setRef(ref, el)} className="flex flex-col">
           <button
             type="button"
             onClick={() => setExpanded((e) => !e)}
@@ -179,7 +184,7 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
     if (href) {
       return (
         <a
-          ref={ref as React.Ref<HTMLAnchorElement>}
+          ref={(el) => setRef(ref, el)}
           href={href}
           onClick={onClick}
           aria-current={active ? 'page' : undefined}
@@ -192,7 +197,7 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
 
     return (
       <button
-        ref={ref as React.Ref<HTMLButtonElement>}
+        ref={(el) => setRef(ref, el)}
         type="button"
         onClick={onClick}
         aria-current={active ? 'page' : undefined}
