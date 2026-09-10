@@ -275,7 +275,7 @@ export default function Login() {
   }
 
   function openAgreement(type: 'user' | 'privacy') {
-    const url = type === 'user' ? '/pages/about/protocol' : '/pages/about/privacy'
+    const url = type === 'user' ? '/pkg-about/about/protocol' : '/pkg-about/about/privacy'
     Taro.navigateTo({ url })
   }
 
@@ -674,7 +674,7 @@ export default function Login() {
         }}
         onUpgrade={() => {
           setShowLoginPopUp(false)
-          Taro.navigateTo({ url: '/pages/vip/index' })
+          Taro.navigateTo({ url: '/pkg-shop/vip/index' })
         }}
       />
     </ThemeRoot>
