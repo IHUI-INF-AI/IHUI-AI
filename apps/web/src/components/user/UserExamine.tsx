@@ -45,7 +45,7 @@ export default function UserExamine({
 }: UserExamineProps): React.JSX.Element {
   const meta = META[status]
   return (
-    <div className={cn('rounded-xl border bg-card p-5 shadow', className)}>
+    <div className={cn('rounded-xl border bg-card p-3 shadow', className)}>
       <div className="flex items-center gap-3">
         {meta.icon}
         <div>

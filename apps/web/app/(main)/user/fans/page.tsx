@@ -125,7 +125,7 @@ export default function FansPage() {
             return (
               <li
                 key={fan.id}
-                className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"
+                className="rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30"
               >
                 <div className="flex items-center gap-3">
                   <Avatar src={fan.avatar ?? undefined} name={fan.nickname ?? '?'} size="md" />

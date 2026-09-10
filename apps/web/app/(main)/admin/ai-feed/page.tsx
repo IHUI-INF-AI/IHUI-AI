@@ -102,7 +102,7 @@ export default function AiFeedHealthPage() {
   const totalItems = list.reduce((a, x) => a + x.itemCount, 0)
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <PageHeader
         title="AI 资讯采集健康看板"
         subtitle="各数据源最近采集状态、条目量与一键重采"

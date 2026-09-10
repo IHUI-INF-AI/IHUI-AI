@@ -88,19 +88,23 @@ export function AttachmentsUpload({
       const formData = new FormData()
       formData.append('file', file, file.name)
       try {
-        const resp = await fetch(endpoint, {
+        // 2026-09-09 0-5 直接 fetch 清单化迁移:改走共享 fetchApi。
+        // FormData 由共享层透传(不强制 Content-Type,multipart 边界浏览器生成);
+        // 鉴权/CSRF/设备指纹/credentials(transport 默认 include)由共享层统一承担。
+        // 后端 /files/upload/form 返回 201 + 标准 success 包装,fetchOnce 走 ok + code===0 分支。
+        // maxSize 默认 50MB,默认 30s 超时对大文件偏紧,放宽到 120s。
+        const res = await fetchApi<{
+          file?: { id?: string; name?: string; size?: number; mimeType?: string }
+        }>(endpoint, {
           method: 'POST',
           body: formData,
-          credentials: 'include',
+          timeoutMs: 120_000,
         })
-        if (!resp.ok) {
-          onError?.(new Error(`上传失败:${resp.status} ${resp.statusText}`))
+        if (!res.success) {
+          onError?.(new Error(`上传失败:${res.error ?? '未知错误'}`))
           return null
         }
-        const json = (await resp.json()) as {
-          data?: { file?: { id?: string; name?: string; size?: number; mimeType?: string } }
-        }
-        const f = json.data?.file
+        const f = res.data?.file
         if (!f?.id) {
           onError?.(new Error('上传响应缺少 file.id'))
           return null

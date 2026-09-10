@@ -59,7 +59,7 @@ export default function ChildMealsPage() {
   const typeOrder = ['breakfast', 'lunch', 'dinner', 'snack']
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('child.meals')}</h1>

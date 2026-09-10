@@ -104,7 +104,7 @@ export function ModelDetailDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl gap-0 p-0">
-        <DialogHeader className="gap-2 p-5 pb-3">
+        <DialogHeader className="gap-2 p-3 pb-3">
           <div className="flex items-start gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
               <BrandIcon vendor={model.provider} size={26} />

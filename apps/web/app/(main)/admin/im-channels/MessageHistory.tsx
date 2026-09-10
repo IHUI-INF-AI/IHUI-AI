@@ -101,7 +101,7 @@ export default function MessageHistory({ platforms }: MessageHistoryProps) {
 
   return (
     <Card>
-      <CardContent className="space-y-3 p-4">
+      <CardContent className="space-y-3 p-3">
         {/* 筛选行 */}
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">

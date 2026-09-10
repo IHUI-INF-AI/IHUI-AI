@@ -21,7 +21,7 @@ export default function NewMemoryPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5">
+    <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-5">
       <header className="flex items-center gap-3">
         <Button asChild variant="ghost" size="icon">
           <Link href="/memory">
@@ -34,7 +34,7 @@ export default function NewMemoryPage() {
         </div>
       </header>
 
-      <div className="rounded-lg border bg-card p-5">
+      <div className="rounded-lg border bg-card p-3">
         <MemoryForm onSubmit={handleSubmit} submitLabel="创建记忆" />
       </div>
     </div>

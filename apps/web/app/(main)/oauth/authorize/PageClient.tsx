@@ -124,7 +124,7 @@ function AuthorizeContent() {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Card className="w-full max-w-md">
-          <CardContent className="flex flex-col items-center gap-3 p-5 min-[768px]:p-8 text-center min-[640px]:p-5 min-[640px]:p-8">
+          <CardContent className="flex flex-col items-center gap-3 p-3 text-center">
             <ShieldAlert className="h-10 w-10 text-destructive" />
             <p className="text-sm text-destructive">{error}</p>
           </CardContent>
@@ -134,7 +134,7 @@ function AuthorizeContent() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[60vh] max-w-lg items-center">
+    <div className="px-4 py-4 mx-auto flex min-h-[60vh] max-w-lg items-center">
       <Card className="w-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

@@ -51,7 +51,7 @@ export function AgentProgressPanel({ steps }: AgentProgressPanelProps) {
 
   if (steps.length === 0) {
     return (
-      <div className="rounded-xl border bg-card p-4">
+      <div className="rounded-xl border bg-card p-3">
         <p className="py-6 text-center text-sm text-muted-foreground">
           暂无执行进度,运行 Agent 后在此查看
         </p>
@@ -60,7 +60,7 @@ export function AgentProgressPanel({ steps }: AgentProgressPanelProps) {
   }
 
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="rounded-xl border bg-card p-3">
       <ol className="relative space-y-1">
         {steps.map((step, idx) => {
           const meta = STEP_META[step.status]

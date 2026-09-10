@@ -163,13 +163,13 @@ export default function PresetsPage() {
 
   if (loading)
     return (
-      <div className="px-4">
+      <div>
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">预设主题</h1>
@@ -199,7 +199,7 @@ export default function PresetsPage() {
                 </span>
               </div>
             </div>
-            <CardContent className="flex items-center justify-between p-3 min-[640px]:p-3">
+            <CardContent className="flex items-center justify-between p-3">
               <div className="flex gap-1">
                 {[p.baseColor, p.accentColor, p.borderColor].map((c, i) => (
                   <span key={i} className="h-4 w-4 rounded border" style={{ backgroundColor: c }} />

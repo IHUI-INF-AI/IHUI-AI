@@ -530,7 +530,7 @@ export default function StudyPlanPage() {
   /* ── Loading / Error states ── */
   if (termsLoading) {
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4">
         <BackButton />
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -542,7 +542,7 @@ export default function StudyPlanPage() {
 
   if (termsError) {
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4">
         <BackButton />
         <Alert variant="danger" description="加载学期数据失败，请稍后重试" />
       </div>
@@ -550,7 +550,7 @@ export default function StudyPlanPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <BackButton />
 
       {/* Header */}

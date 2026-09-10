@@ -139,7 +139,7 @@ export function Drawer({
           height: isHorizontal ? '100%' : height,
         }}
       >
-        <div className="flex items-center justify-between border-b p-4">
+        <div className="flex items-center justify-between border-b p-3">
           {title && (
             <h2 id={titleId} className="text-lg font-semibold">
               {title}
@@ -154,7 +154,7 @@ export function Drawer({
           </button>
         </div>
         <div
-          className="overflow-auto p-4"
+          className="overflow-auto p-3"
           style={{ maxHeight: isHorizontal ? 'calc(100% - 3.5rem)' : 'calc(100% - 3.5rem)' }}
         >
           {children}

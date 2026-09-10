@@ -8,6 +8,7 @@ import * as React from 'react'
 import { Brain } from 'lucide-react'
 
 import { KnowledgeList } from '@/components/knowledge/KnowledgeList'
+import { fetchAiServiceJson } from '@/lib/api'
 
 interface MemorySearchResult {
   id: string
@@ -25,13 +26,17 @@ export default function KnowledgePage() {
     setLoading(true)
     setSearched(true)
     try {
-      const res = await fetch('/api/agents/memory/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, top_k: 10 }),
-      })
-      const json = await res.json()
-      setItems(json.results ?? [])
+      // 2026-09-09 0-5 迁移:该端点注册在 ai-service 8803(next dev rewrites 转发),
+      // 响应为非标准格式 {query, results, count}(无 {code,data} 包装),故走
+      // fetchAiServiceJson——统一鉴权(cookie/Bearer)/CSRF/设备指纹/30s 超时。
+      const res = await fetchAiServiceJson<{ results?: MemorySearchResult[] }>(
+        '/api/agents/memory/search',
+        {
+          method: 'POST',
+          body: JSON.stringify({ query, top_k: 10 }),
+        },
+      )
+      setItems(res.success ? (res.data?.results ?? []) : [])
     } catch {
       setItems([])
     } finally {

@@ -833,7 +833,7 @@ export default function EnrollmentPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
 
       <header className="space-y-1">
@@ -860,7 +860,7 @@ export default function EnrollmentPage() {
         {/* ════════════════ Tab 1: Leads ════════════════ */}
         <TabsContent value="leads" className="space-y-4">
           <Card>
-            <CardContent className="flex flex-wrap items-center gap-3 p-4">
+            <CardContent className="flex flex-wrap items-center gap-3 p-3">
               <Select
                 value={leadStatusFilter}
                 onValueChange={(v) => setLeadStatusFilter(v === 'all' ? '' : v)}
@@ -1014,7 +1014,7 @@ export default function EnrollmentPage() {
         {/* ════════════════ Tab 2: Trials ════════════════ */}
         <TabsContent value="trials" className="space-y-4">
           <Card>
-            <CardContent className="flex flex-wrap items-center gap-3 p-4">
+            <CardContent className="flex flex-wrap items-center gap-3 p-3">
               <Button size="sm" onClick={() => setTrialDialogOpen(true)}>
                 <Plus className="mr-1 h-3.5 w-3.5" />
                 添加预约
@@ -1155,7 +1155,7 @@ export default function EnrollmentPage() {
         {/* ════════════════ Tab 3: Enrollments ════════════════ */}
         <TabsContent value="enrollments" className="space-y-4">
           <Card>
-            <CardContent className="flex flex-wrap items-center gap-3 p-4">
+            <CardContent className="flex flex-wrap items-center gap-3 p-3">
               <Select
                 value={enrollClassFilter}
                 onValueChange={(v) => setEnrollClassFilter(v === 'all' ? '' : v)}

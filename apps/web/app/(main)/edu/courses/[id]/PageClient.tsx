@@ -81,7 +81,7 @@ export default function EduCourseDetailPage() {
 
   if (error || !course) {
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4">
         <button
           type="button"
           onClick={() => router.push('/edu/courses')}
@@ -106,7 +106,7 @@ export default function EduCourseDetailPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <Breadcrumb
         items={[
           { label: '首页', href: '/' },

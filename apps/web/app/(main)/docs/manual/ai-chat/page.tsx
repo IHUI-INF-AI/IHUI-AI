@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 
 export default function ManualAiChatPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl py-4">
+    <main className="px-4 mx-auto w-full max-w-3xl py-4">
       {/* Hero */}
       <header className="space-y-3">
         <div className="text-xs font-mono text-muted-foreground">第 02 章 · 使用说明手册</div>
@@ -46,7 +46,7 @@ export default function ManualAiChatPage() {
       {/* 新建对话 */}
       <section id="new-chat" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">2.1 新建对话</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li>方式一:左侧栏顶部"新建对话"按钮</li>
             <li>方式二:快捷键 <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Ctrl + K</kbd>(Mac 用 <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Cmd + K</kbd>)</li>
@@ -61,7 +61,7 @@ export default function ManualAiChatPage() {
       {/* 发送消息 */}
       <section id="send-message" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">2.2 发送消息</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li><kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Enter</kbd>:发送</li>
             <li><kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Shift + Enter</kbd>:换行(消息内多行)</li>
@@ -77,7 +77,7 @@ export default function ManualAiChatPage() {
       {/* 上传文件 */}
       <section id="upload-files" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">2.3 上传文件给 AI</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>点击输入框左侧📎(附件)按钮</li>
             <li>选择文件(可多选):PDF / Word / Excel / PPT / 图片 / TXT / Markdown / 代码文件</li>
@@ -114,7 +114,7 @@ export default function ManualAiChatPage() {
       {/* 切换模型 */}
       <section id="switch-model" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">2.4 切换 AI 模型</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>对话区顶部点击模型名称(如"GPT-4o")</li>
             <li>下拉菜单显示所有可用模型,按厂商分组</li>
@@ -137,7 +137,7 @@ export default function ManualAiChatPage() {
       {/* 历史对话 */}
       <section id="history" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">2.5 历史对话管理</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li><strong>查看</strong>:左侧栏"历史对话",按时间倒序排列</li>
             <li><strong>重命名</strong>:对话右键 → 重命名(或双击标题)</li>
@@ -152,7 +152,7 @@ export default function ManualAiChatPage() {
       {/* 分享对话 */}
       <section id="share" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">2.6 分享对话</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>对话右上角点击"分享"按钮</li>
             <li>选择权限:<strong>仅查看</strong> / <strong>可评论</strong> / <strong>公开</strong></li>

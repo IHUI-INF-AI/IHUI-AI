@@ -63,7 +63,7 @@ export default function HelpPage() {
     )
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <BackButton />
       <header className="space-y-1">
         <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ export default function HelpPage() {
               {t('loading')}
             </div>
           ) : error ? (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
               {(error as Error).message}
             </div>
           ) : filtered.length > 0 ? (
@@ -130,7 +130,7 @@ export default function HelpPage() {
               {filtered.map((a) => (
                 <Link key={a.slug} href={`/help/${a.slug}`} className="block">
                   <Card className="transition-colors hover:bg-accent">
-                    <CardContent className="p-4">
+                    <CardContent className="p-3">
                       <div className="flex items-start justify-between gap-2">
                         <h2 className="text-sm font-semibold">{a.title}</h2>
                         <span className="shrink-0 text-xs text-muted-foreground">

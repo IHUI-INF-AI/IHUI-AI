@@ -464,7 +464,7 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
           aria-label={t('modelPopoverMemberTitle')}
           className={cn(
             'fixed z-popover w-64 rounded-lg border bg-card p-3 text-card-foreground shadow-lg',
-            'animate-in fade-in-0 zoom-in-95',
+            'animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified',
           )}
           style={{ top: pos.top, left: pos.left }}
           onMouseEnter={show}

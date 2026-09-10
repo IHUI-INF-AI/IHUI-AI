@@ -139,7 +139,7 @@ export default function AiSkillDetailPage() {
     return (
       <div className="mx-auto w-full max-w-3xl space-y-4">
         <BackLink />
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {t('notFound')}
         </div>
       </div>
@@ -222,7 +222,7 @@ export default function AiSkillDetailPage() {
       </header>
 
       {/* 元数据区 */}
-      <section className="space-y-2 rounded-lg border bg-card p-4">
+      <section className="space-y-2 rounded-lg border bg-card p-3">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('sectionMeta')}
         </h2>
@@ -306,7 +306,7 @@ export default function AiSkillDetailPage() {
 
       {/* 调用区(available=true) */}
       {skill.available ? (
-        <section className="space-y-3 rounded-lg border bg-card p-4">
+        <section className="space-y-3 rounded-lg border bg-card p-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t('sectionInvoke')}
           </h2>
@@ -427,7 +427,7 @@ export default function AiSkillDetailPage() {
         </section>
       ) : (
         /* 占位 skill:不显示调用区,显示引导 */
-        <section className="space-y-2 rounded-lg border border-dashed bg-muted/30 p-4">
+        <section className="space-y-2 rounded-lg border border-dashed bg-muted/30 p-3">
           <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
             <Sparkles className="h-4 w-4 text-primary" />
             {t('comingSoonTitle')}
@@ -438,7 +438,7 @@ export default function AiSkillDetailPage() {
 
       {/* 结果区 */}
       {result && (
-        <section className="space-y-2 rounded-lg border bg-card p-4">
+        <section className="space-y-2 rounded-lg border bg-card p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
@@ -565,7 +565,7 @@ function FeedbackSection({
   }
 
   return (
-    <section className="space-y-3 rounded-lg border bg-card p-4">
+    <section className="space-y-3 rounded-lg border bg-card p-3">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {t('feedbackTitle')}
       </h2>
@@ -659,7 +659,7 @@ function RecommendationsSection({
   const recommendations = result?.success ? result.data : []
 
   return (
-    <section className="space-y-3 rounded-lg border bg-card p-4">
+    <section className="space-y-3 rounded-lg border bg-card p-3">
       <div className="space-y-0.5">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('relatedTitle')}

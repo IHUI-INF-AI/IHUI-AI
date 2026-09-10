@@ -160,7 +160,7 @@ export default function AdminInvoiceApplicationsPage() {
   )
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">发票申请管理</h1>

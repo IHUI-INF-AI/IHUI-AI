@@ -242,7 +242,7 @@ export const metadata: Metadata = {
 
 export default function QuickstartPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl py-4">
+    <main className="px-4 mx-auto w-full max-w-5xl py-4">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(quickstartJsonLd) }}
@@ -286,7 +286,7 @@ export default function QuickstartPage() {
         </h2>
 
         <ol className="space-y-6">
-          <li className="rounded-2xl border bg-card p-6">
+          <li className="rounded-2xl border bg-card p-3">
             <div className="flex items-start gap-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 1
@@ -310,7 +310,7 @@ export default function QuickstartPage() {
             </div>
           </li>
 
-          <li className="rounded-2xl border bg-card p-6">
+          <li className="rounded-2xl border bg-card p-3">
             <div className="flex items-start gap-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 2
@@ -337,7 +337,7 @@ export default function QuickstartPage() {
             </div>
           </li>
 
-          <li className="rounded-2xl border bg-card p-6">
+          <li className="rounded-2xl border bg-card p-3">
             <div className="flex items-start gap-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 3
@@ -364,7 +364,7 @@ export default function QuickstartPage() {
             </div>
           </li>
 
-          <li className="rounded-2xl border bg-card p-6">
+          <li className="rounded-2xl border bg-card p-3">
             <div className="flex items-start gap-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 4
@@ -387,7 +387,7 @@ export default function QuickstartPage() {
             </div>
           </li>
 
-          <li className="rounded-2xl border bg-card p-6">
+          <li className="rounded-2xl border bg-card p-3">
             <div className="flex items-start gap-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
                 5
@@ -419,11 +419,11 @@ export default function QuickstartPage() {
         <h2 className="text-2xl font-bold tracking-tight">
           方式二:自托管(5 分钟 Docker 部署)
         </h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
+        <div className="rounded-2xl border bg-card p-3 space-y-4">
           <p className="text-sm text-muted-foreground">
             适合需要数据私有化、定制化、合规审计的企业用户。
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
             <code>{`# 1. 克隆仓库
 git clone https://github.com/ihui-ai/ihui-ai.git
 cd ihui-ai
@@ -438,7 +438,7 @@ docker compose up -d
 # 4. 访问
 open http://localhost:8801`}</code>
           </pre>
-          <div className="rounded-lg border bg-background p-4 text-sm">
+          <div className="rounded-lg border bg-background p-3 text-sm">
             <p className="font-semibold">最低硬件要求</p>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-muted-foreground">
               <li>CPU:2 核</li>
@@ -457,7 +457,7 @@ open http://localhost:8801`}</code>
       </section>
 
       {/* 下一步 */}
-      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-5 text-center min-[768px]:p-8">
+      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
         <h2 className="text-2xl font-bold tracking-tight">下一步</h2>
         <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground">
           上手后,深入探索智汇 AI 的更多能力。

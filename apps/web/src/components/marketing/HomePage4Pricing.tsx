@@ -106,8 +106,8 @@ export function HomePage4Pricing() {
               <Card
                 className={
                   isRecommended
-                    ? 'relative flex h-full flex-col overflow-hidden rounded-xl border-2 border-primary bg-card p-4 shadow-lg shadow-primary/20 transition-all duration-300 animate-pulse-glow-light group-hover:-translate-y-2 group-hover:border-primary group-hover:bg-primary/5 group-hover:shadow-xl group-hover:shadow-primary/30'
-                    : 'relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:bg-primary/5 group-hover:shadow-lg group-hover:shadow-primary/10'
+                    ? 'relative flex h-full flex-col overflow-hidden rounded-xl border-2 border-primary bg-card p-3 shadow-lg shadow-primary/20 transition-all duration-300 animate-pulse-glow-light group-hover:-translate-y-2 group-hover:border-primary group-hover:bg-primary/5 group-hover:shadow-xl group-hover:shadow-primary/30'
+                    : 'relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card p-3 shadow-sm transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:bg-primary/5 group-hover:shadow-lg group-hover:shadow-primary/10'
                 }
               >
                 {/* 卡片顶部渐变高光(所有卡片 hover 时显现) */}

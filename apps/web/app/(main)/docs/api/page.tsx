@@ -66,7 +66,7 @@ export default function ApiDocsPage() {
       {/* Base URL + 认证 */}
       <section id="auth" className="space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">基础信息</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
+        <div className="rounded-2xl border bg-card p-3 space-y-4">
           <div>
             <p className="text-sm font-semibold">Base URL</p>
             <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
@@ -100,12 +100,12 @@ X-RateLimit-Reset: 1699900000`}</code>
       {/* 对话 API */}
       <section id="chat" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">AI 对话 API</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
+        <div className="rounded-2xl border bg-card p-3 space-y-4">
           <h3 className="text-lg font-semibold">POST /v1/chat/completions</h3>
           <p className="text-sm text-muted-foreground">
             OpenAI 兼容接口,支持流式(SSE)和非流式。
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
             <code>{`curl -X POST https://api.aizhs.top/v1/chat/completions \\
   -H "Authorization: Bearer <jwt>" \\
   -H "Content-Type: application/json" \\
@@ -128,7 +128,7 @@ data: [DONE]`}</code>
           <p className="text-sm text-muted-foreground">
             调用指定 Agent(带知识库 + MCP 工具 + 工作流)。
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
             <code>{`curl -X POST https://api.aizhs.top/v1/chat/agents/agent_abc123 \\
   -H "X-API-Key: <key>" \\
   -H "Content-Type: application/json" \\
@@ -173,7 +173,7 @@ data: [DONE]`}</code>
       {/* 错误码 */}
       <section id="errors" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">错误码</h2>
-        <div className="rounded-2xl border bg-card p-6">
+        <div className="rounded-2xl border bg-card p-3">
           <p className="text-sm text-muted-foreground">统一响应格式:</p>
           <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
             <code>{`{
@@ -214,7 +214,7 @@ data: [DONE]`}</code>
       <section id="sdk" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">SDK</h2>
         <div className="grid gap-4 min-[768px]:grid-cols-3">
-          <div className="rounded-2xl border bg-card p-6">
+          <div className="rounded-2xl border bg-card p-3">
             <h3 className="text-lg font-semibold">JavaScript</h3>
             <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
               <code>{`npm i @ihui/api-client`}</code>
@@ -224,7 +224,7 @@ data: [DONE]`}</code>
 await chat({ message: '你好' })`}</code>
             </pre>
           </div>
-          <div className="rounded-2xl border bg-card p-6">
+          <div className="rounded-2xl border bg-card p-3">
             <h3 className="text-lg font-semibold">Python</h3>
             <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
               <code>{`pip install ihui-ai`}</code>
@@ -235,7 +235,7 @@ client = IHUI(api_key='...')
 client.chat(message='你好')`}</code>
             </pre>
           </div>
-          <div className="rounded-2xl border bg-card p-6">
+          <div className="rounded-2xl border bg-card p-3">
             <h3 className="text-lg font-semibold">Go</h3>
             <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
               <code>{`go get github.com/ihui/ihui-go`}</code>
@@ -248,7 +248,7 @@ client.Chat(ctx, "你好")`}</code>
         </div>
       </section>
 
-      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-5 text-center min-[768px]:p-8">
+      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
         <h2 className="text-2xl font-bold tracking-tight">下一步</h2>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <a href="/docs/mcp" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">MCP 工具集成</a>

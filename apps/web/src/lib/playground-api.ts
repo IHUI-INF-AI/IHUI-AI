@@ -93,6 +93,10 @@ function estimateTokens(text: string): number {
 /**
  * 调用 /v1/chat/completions,支持 stream + 非流式。
  * stream=true 时通过 onStreamDelta 实时回调增量文本。
+ *
+ * 2026-09-09 0-5-f 豁免确认:直连用户配置的 relay 站点(OpenAI 兼容协议,响应非
+ * 平台统一 code 包装),且流式分支直接消费 resp.body;fetchApi/fetchAiServiceJson
+ * 均假设平台统一响应结构,不适用第三方 OpenAI 协议端点。
  */
 export async function callPlayground(
   messages: PlaygroundMessage[],
@@ -201,7 +205,9 @@ export async function callPlayground(
   }
 }
 
-/** 拉取 /v1/models 模型列表(用 API Key 鉴权) */
+/** 拉取 /v1/models 模型列表(用 API Key 鉴权)
+ * 2026-09-09 0-5-f 豁免确认:同 callPlayground——直连第三方 relay 的 OpenAI 兼容端点,
+ * 响应为 OpenAI { data: [...] } 结构而非平台统一 code 包装。 */
 export async function fetchPlaygroundModels(apiKey: string): Promise<string[]> {
   const base = getPlaygroundBaseUrl()
   const resp = await fetch(`${base}/v1/models`, {

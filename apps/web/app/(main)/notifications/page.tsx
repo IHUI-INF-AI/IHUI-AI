@@ -126,7 +126,7 @@ export default function NotificationsPage() {
   const unread = unreadData?.count ?? 0
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="px-4 py-4 mx-auto max-w-3xl space-y-4">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
@@ -206,7 +206,7 @@ export default function NotificationsPage() {
           <p className="text-sm">{t('noData')}</p>
         </div>
       ) : view === 'timeline' ? (
-        <div className="rounded-lg border p-4">
+        <div className="rounded-lg border p-3">
           <Timeline
             items={notifications.map((n) => {
               const Icon = TYPE_ICON[n.type] ?? AlertCircle

@@ -93,7 +93,7 @@ export function ContactContent({
   const company = data?.company ?? fallbackCompany
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-4 min-[768px]:px-8">
+    <main className="mx-auto w-full max-w-4xl px-4 py-4">
       <BackButton />
       {/* Hero */}
       <section className="space-y-4 text-center">
@@ -125,7 +125,7 @@ export function ContactContent({
               <a
                 key={label}
                 href={href}
-                className="group flex items-center gap-4 rounded-2xl border bg-card p-4 min-[768px]:p-6 shadow-sm transition-all hover:border-primary hover:shadow-md"
+                className="group flex items-center gap-4 rounded-2xl border bg-card p-3 shadow-sm transition-all hover:border-primary hover:shadow-md"
               >
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
                   <Icon className="h-5 w-5 text-primary" />
@@ -140,7 +140,7 @@ export function ContactContent({
       </section>
 
       {/* 公司地址 */}
-      <section className="mt-12 rounded-2xl border bg-card p-4 min-[768px]:p-6 min-[1024px]:p-8">
+      <section className="mt-12 rounded-2xl border bg-card p-3">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
             <MapPin className="h-5 w-5 text-primary" />
@@ -159,7 +159,7 @@ export function ContactContent({
       </section>
 
       {/* CTA */}
-      <section className="mt-12 rounded-2xl border bg-primary/5 p-5 text-center min-[768px]:p-8 min-[1024px]:p-12">
+      <section className="mt-12 rounded-2xl border bg-primary/5 p-3 text-center">
         <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('ctaTitle')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
           {t('ctaSubtitle')}

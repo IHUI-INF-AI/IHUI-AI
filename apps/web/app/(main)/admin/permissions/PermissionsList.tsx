@@ -29,7 +29,7 @@ export function PermissionsList({ grouped, isLoading, isError, copiedId, onCopy 
 
   if (isError) {
     return (
-      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
         {t('noData')}
       </div>
     )

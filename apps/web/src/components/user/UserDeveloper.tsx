@@ -38,7 +38,7 @@ export default function UserDeveloper({
         <Code2 className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-medium">开发者信息</h3>
       </div>
-      <div className="space-y-3 p-4">
+      <div className="space-y-3 p-3">
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Terminal className="h-3 w-3" /> API Key

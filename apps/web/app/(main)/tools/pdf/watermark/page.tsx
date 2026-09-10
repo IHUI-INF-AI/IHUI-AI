@@ -61,7 +61,7 @@ export default function PdfWatermarkPage() {
   const posClass = POSITIONS.find((p) => p.key === position)?.class ?? 'items-center justify-center'
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
       <ToolHeader title={t('title')} description={t('description')} />
       {!file ? (
         <UploadArea
@@ -163,7 +163,7 @@ export default function PdfWatermarkPage() {
       </div>
       <div className="space-y-2">
         <Label>{t('preview')}</Label>
-        <div className="flex h-40 rounded-lg border bg-card p-4">
+        <div className="flex h-40 rounded-lg border bg-card p-3">
           <div className={cn('flex w-full', posClass)}>
             <span
               className="font-medium"

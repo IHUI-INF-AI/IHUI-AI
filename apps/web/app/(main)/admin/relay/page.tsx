@@ -21,7 +21,6 @@ import {
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { useAuthStore } from '@/stores/auth'
 import {
   Card,
   CardContent,
@@ -110,53 +109,42 @@ export default function AdminRelayOverviewPage() {
       data: { providerCode: string; byokCommissionRate: number }
       status: number
     }> => {
-      // fetchApi 的 ApiResult success 分支不携带 HTTP status,本场景需区分
-      // 200(更新已有全局行)/ 201(新建全局配置行),改用原生 fetch 直读 response.status
+      // 2026-09-09 0-5 直接 fetch 清单化迁移:改走共享 fetchApi。
+      // 原豁免理由「ApiResult success 分支不携带 HTTP status」已消除——
+      // 0-5 迁移为 success 分支补齐可选 status,200(更新)/201(新建)可区分。
+      // 鉴权/CSRF/设备指纹/credentials(transport 默认 include)由共享层统一承担。
       // 2026-09-04 桌面端 SaaS 化:与 lib/api.ts detectApiBaseUrl 同语义——
       // Tauri 下 NEXT_PUBLIC_API_BASE_URL(桌面构建注入的线上地址)优先,
-      // 未注入(本地三端联调)回退 127.0.0.1:8802。
+      // 未注入(本地三端联调)回退 127.0.0.1:8802;浏览器端空串即同源路径,
+      // 绝对 URL 由共享层 normalizeUrl 直通,同源路径走 rewrite。
       const baseUrl =
         typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
           ? process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8802'
           : process.env.NEXT_PUBLIC_API_BASE_URL || ''
-      // P2-18 修复(2026-08-06):auth_token 已 httpOnly,getAuthCookie() 恒返回 null,
-      // 不再用它拼 Bearer;改用内存 token(有则发)+ credentials: include(cookie 自动附带兜底),
-      // 并带 X-Requested-With 满足后端 cookie 认证路径的 CSRF 校验。
-      const token = useAuthStore.getState().token
-      const res = await fetch(
+      const res = await fetchApi<{
+        providerCode: string
+        byokCommissionRate: number
+      }>(
         `${baseUrl}/api/admin/relay/commission/${encodeURIComponent(vars.providerCode)}`,
         {
           method: 'PATCH',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
           body: JSON.stringify({ byokCommissionRate: vars.rate }),
         },
       )
-      const body = (await res.json().catch(() => null)) as {
-        data?: { providerCode?: string; byokCommissionRate?: number }
-        message?: string
-      } | null
-      if (!res.ok) {
-        throw new Error(body?.message || `HTTP ${res.status}`)
-      }
-      const data = body?.data
       if (
-        !data ||
-        typeof data.providerCode !== 'string' ||
-        typeof data.byokCommissionRate !== 'number'
+        !res.success ||
+        !res.data ||
+        typeof res.data.providerCode !== 'string' ||
+        typeof res.data.byokCommissionRate !== 'number'
       ) {
-        throw new Error('响应数据格式错误')
+        throw new Error(res.error ?? '响应数据格式错误')
       }
       return {
         data: {
-          providerCode: data.providerCode,
-          byokCommissionRate: data.byokCommissionRate,
+          providerCode: res.data.providerCode,
+          byokCommissionRate: res.data.byokCommissionRate,
         },
-        status: res.status,
+        status: res.status ?? 200,
       }
     },
     onSuccess: (result) => {
@@ -199,7 +187,7 @@ export default function AdminRelayOverviewPage() {
   const commissionList = commissionQ.data ?? []
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

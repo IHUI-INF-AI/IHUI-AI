@@ -74,7 +74,7 @@ export default function ArticleDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -139,7 +139,7 @@ export default function ArticleDetailPage() {
       )}
 
       <Card>
-        <CardContent className="p-4 min-[768px]:p-6 min-[640px]:p-6">
+        <CardContent className="p-3">
           <SafeHtml
             html={article.content}
             className="prose prose-sm max-w-none dark:prose-invert"

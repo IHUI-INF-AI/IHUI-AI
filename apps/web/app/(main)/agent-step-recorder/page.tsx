@@ -175,7 +175,7 @@ export default function AgentStepRecorderPage() {
         <>
           {/* 运行元信息 */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Cpu className="h-3.5 w-3.5" /> {t('stepCount')}
               </div>
@@ -189,7 +189,7 @@ export default function AgentStepRecorderPage() {
                 </span>
               </div>
             </div>
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Cpu className="h-3.5 w-3.5" /> {t('totalToken')}
               </div>
@@ -198,13 +198,13 @@ export default function AgentStepRecorderPage() {
                 in {metrics.total_tokens_in} / out {metrics.total_tokens_out}
               </div>
             </div>
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Timer className="h-3.5 w-3.5" /> {t('totalDuration')}
               </div>
               <div className="text-xl font-bold">{fmtDuration(metrics.total_duration_ms)}</div>
             </div>
-            <div className="rounded-xl border p-4">
+            <div className="rounded-xl border p-3">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Coins className="h-3.5 w-3.5" /> {t('totalCost')}
               </div>
@@ -221,7 +221,7 @@ export default function AgentStepRecorderPage() {
           </div>
 
           {/* step 时间线 */}
-          <div className="mt-4 rounded-xl border p-4">
+          <div className="mt-4 rounded-xl border p-3">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
               <Activity className="h-4 w-4" /> {t('timeline', { count: timeline.length })}
             </h2>

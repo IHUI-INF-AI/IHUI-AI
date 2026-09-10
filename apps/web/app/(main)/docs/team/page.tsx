@@ -60,7 +60,7 @@ export const metadata: Metadata = {
 
 export default function TeamDocsPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl py-4">
+    <main className="px-4 mx-auto w-full max-w-5xl py-4">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(teamJsonLd) }}
@@ -85,7 +85,7 @@ export default function TeamDocsPage() {
       <section id="team-vs-personal" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">为什么需要团队版?</h2>
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
-          <div className="rounded-2xl border bg-card p-6">
+          <div className="rounded-2xl border bg-card p-3">
             <p className="text-sm font-semibold">👤 个人版</p>
             <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
               <li>独立 Agent / 知识库</li>
@@ -95,7 +95,7 @@ export default function TeamDocsPage() {
               <li>适合个人开发者</li>
             </ul>
           </div>
-          <div className="rounded-2xl border bg-card p-6">
+          <div className="rounded-2xl border bg-card p-3">
             <p className="flex items-center text-sm font-semibold">
               <Users className="mr-1.5 inline h-4 w-4" />
               团队版
@@ -114,7 +114,7 @@ export default function TeamDocsPage() {
       {/* RBAC 权限 */}
       <section id="rbac" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">RBAC 权限管理(7 级角色)</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-3">
+        <div className="rounded-2xl border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             基于角色的权限控制(Role-Based Access Control),7 级角色覆盖企业全部场景:
           </p>
@@ -154,12 +154,12 @@ export default function TeamDocsPage() {
       {/* SSO */}
       <section id="sso" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">SSO 单点登录</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
+        <div className="rounded-2xl border bg-card p-3 space-y-4">
           <p className="text-sm text-muted-foreground">
             企业员工用现有身份系统(AD / LDAP / 飞书 / 钉钉 / 钉钉 / 企业微信)直接登录,无需注册新账号:
           </p>
           <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
-            <div className="rounded-lg border bg-background p-4">
+            <div className="rounded-lg border bg-background p-3">
               <p className="flex items-center text-sm font-semibold">
                 <Lock className="mr-1.5 inline h-4 w-4" />
                 SAML 2.0
@@ -168,19 +168,19 @@ export default function TeamDocsPage() {
                 企业级标准,支持 Azure AD / Okta / OneLogin / ADFS / 飞书 / 钉钉
               </p>
             </div>
-            <div className="rounded-lg border bg-background p-4">
+            <div className="rounded-lg border bg-background p-3">
               <p className="text-sm font-semibold">🔑 OIDC</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 OpenID Connect,支持 Google / GitHub / Keycloak / Auth0 / Authing
               </p>
             </div>
-            <div className="rounded-lg border bg-background p-4">
+            <div className="rounded-lg border bg-background p-3">
               <p className="text-sm font-semibold">📋 LDAP</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 直接对接 Active Directory / OpenLDAP,自动同步组织架构
               </p>
             </div>
-            <div className="rounded-lg border bg-background p-4">
+            <div className="rounded-lg border bg-background p-3">
               <p className="flex items-center text-sm font-semibold">
                 <MessageCircle className="mr-1.5 inline h-4 w-4" />
                 扫码登录
@@ -204,7 +204,7 @@ export default function TeamDocsPage() {
       {/* 审计日志 */}
       <section id="audit" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">操作审计</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-3">
+        <div className="rounded-2xl border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             所有关键操作自动记录,满足等保 2.0 / GDPR / SOX 合规要求:
           </p>
@@ -226,7 +226,7 @@ export default function TeamDocsPage() {
       {/* 积分共享 */}
       <section id="shared-credits" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">积分共享池</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-3">
+        <div className="rounded-2xl border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">
             Admin 统一充值,团队成员共享消耗,告别"每个员工单独报销 OpenAI 账单":
           </p>
@@ -257,7 +257,7 @@ export default function TeamDocsPage() {
       {/* API Key 管理 */}
       <section id="api-keys" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">API Key 管理</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-3">
+        <div className="rounded-2xl border bg-card p-3 space-y-3">
           <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
             <li><strong>团队 Key</strong>:Admin 创建团队级 Key,成员可用(权限可控)</li>
             <li><strong>个人 Key</strong>:成员可创建个人 Key(消耗个人配额)</li>
@@ -274,7 +274,7 @@ export default function TeamDocsPage() {
       <section id="plans" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">团队版套餐</h2>
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
-          <div className="rounded-2xl border bg-card p-6">
+          <div className="rounded-2xl border bg-card p-3">
             <p className="text-sm font-semibold"> Starter</p>
             <p className="mt-2 text-2xl font-bold">¥299/月</p>
             <p className="text-xs text-muted-foreground">/ 5 人</p>
@@ -286,7 +286,7 @@ export default function TeamDocsPage() {
               <li>邮件支持</li>
             </ul>
           </div>
-          <div className="rounded-2xl border bg-primary/5 p-6 ring-1 ring-primary/30">
+          <div className="rounded-2xl border bg-primary/5 p-3 ring-1 ring-primary/30">
             <p className="text-sm font-semibold"> Business</p>
             <p className="mt-2 text-2xl font-bold">¥1299/月</p>
             <p className="text-xs text-muted-foreground">/ 20 人</p>
@@ -300,7 +300,7 @@ export default function TeamDocsPage() {
               <li>飞书群支持</li>
             </ul>
           </div>
-          <div className="rounded-2xl border bg-card p-6">
+          <div className="rounded-2xl border bg-card p-3">
             <p className="flex items-center text-sm font-semibold">
               <Building2 className="mr-1.5 inline h-4 w-4" />
               Enterprise
@@ -322,7 +322,7 @@ export default function TeamDocsPage() {
       </section>
 
       {/* 下一步 */}
-      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-6">
+      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3">
         <h2 className="text-lg font-semibold">下一步</h2>
         <div className="mt-3 grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
           <a href="/docs/agent" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">

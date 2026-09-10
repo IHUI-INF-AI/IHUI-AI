@@ -111,10 +111,10 @@ export function PricingContent(): React.JSX.Element {
   }, [filtered])
 
   return (
-    <div className="space-y-4">
+    <div className="px-4 py-4 space-y-4">
       <BackButton />
       {/* Hero */}
-      <div className="rounded-lg border bg-card p-5">
+      <div className="rounded-lg border bg-card p-3">
         <div className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
           <div className="min-w-0">
             <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">

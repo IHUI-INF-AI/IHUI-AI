@@ -227,11 +227,11 @@ export default function DownloadsPage() {
           <Loader2 className="h-5 w-5 animate-spin" />
         </div>
       ) : error ? (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : total === 0 ? (
-        <div className="rounded-md border border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-border bg-muted/30 p-3 text-center text-sm text-muted-foreground">
           {t('noData')}
         </div>
       ) : (

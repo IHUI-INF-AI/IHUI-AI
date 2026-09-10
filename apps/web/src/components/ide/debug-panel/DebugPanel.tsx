@@ -12,7 +12,15 @@ import { toast } from '@/components/common'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { useDebugStore } from '@/stores/debug'
 import { cn } from '@/lib/utils'
-import { Play, Square, SkipForward, ArrowDown, ArrowUp, RotateCcw, Loader2 } from 'lucide-react'
+import {
+  Play,
+  Square,
+  SkipForward,
+  ArrowDown,
+  ArrowUp,
+  RotateCcw,
+  Loader2,
+} from 'lucide-react'
 import {
   launchDebugSession,
   setBreakpoints as setBreakpointsApi,
@@ -102,7 +110,8 @@ export function DebugPanel() {
 
   const activeTab = openTabs.find((tab) => tab.id === activeTabId)
   const program = activeTab?.path ?? workspacePath ?? ''
-  const language = activeTab?.language ?? getLanguageFromPath(program) ?? 'typescript'
+  const language =
+    activeTab?.language ?? getLanguageFromPath(program) ?? 'typescript'
 
   const syncBreakpoints = async (sid: string) => {
     const enabled = useDebugStore.getState().breakpoints.filter((b) => b.enabled)

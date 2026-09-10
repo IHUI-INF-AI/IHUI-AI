@@ -77,7 +77,7 @@ export function ResponseViewer({
 
   return (
     <Card className="flex h-full flex-col">
-      <CardContent className="flex h-full flex-col p-4">
+      <CardContent className="flex h-full flex-col p-3">
         <Tabs defaultValue="response" className="flex h-full flex-col">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="response" className="text-xs">

@@ -101,7 +101,7 @@ export default function LiveDetailPage() {
             <p className="text-sm text-muted-foreground">{t('notFound')}</p>
           </div>
         ) : (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
             {errMsg}
           </div>
         )}
@@ -138,7 +138,7 @@ export default function LiveDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       {backLink}
 
       <Card className="overflow-hidden">
@@ -173,7 +173,7 @@ export default function LiveDetailPage() {
             <div className="absolute left-3 top-3">{renderBadge()}</div>
           </div>
         )}
-        <CardContent className="space-y-4 p-4 min-[768px]:p-6 min-[640px]:p-6">
+        <CardContent className="space-y-4 p-3">
           <h1 className="text-2xl font-bold tracking-tight">{channel.title}</h1>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
             <span>{channel.lecturerName ?? t('unknownLecturer')}</span>

@@ -41,6 +41,8 @@ export default function ApiDebugPage() {
       }
       const opts: RequestInit = { method, headers: parsedHeaders }
       if (method !== 'GET' && body.trim()) opts.body = body
+      // 2026-09-09 0-5-f 豁免确认:API 调试台刻意用裸 fetch 发任意 URL/headers/body,
+      // 需读取原始 status/statusText/headers 展示给用户,统一包装层反而会破坏调试语义。
       const res = await fetch(url, opts)
       const text = await res.text()
       const latency = Math.round(performance.now() - start)
@@ -93,7 +95,7 @@ export default function ApiDebugPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

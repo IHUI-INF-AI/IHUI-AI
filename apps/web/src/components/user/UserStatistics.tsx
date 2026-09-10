@@ -26,7 +26,7 @@ export default function UserStatistics({
   return (
     <div className={cn('grid grid-cols-2 gap-3 min-[640px]:grid-cols-4', className)}>
       {items.map((it) => (
-        <div key={it.label} className="rounded-xl border bg-card p-4 text-card-foreground shadow">
+        <div key={it.label} className="rounded-xl border bg-card p-3 text-card-foreground shadow">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             {it.icon}
             <span>{it.label}</span>

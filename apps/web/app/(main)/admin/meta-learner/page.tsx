@@ -145,7 +145,7 @@ export default function MetaLearnerPage() {
   const status = statusQuery.data
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
@@ -437,7 +437,7 @@ export default function MetaLearnerPage() {
           <div className="space-y-2">
             {history.map((entry, i) => (
               <Card key={`${i}-${entry.triggered_at}`}>
-                <CardContent className="flex flex-wrap items-center gap-3 p-3 text-sm min-[640px]:p-3">
+                <CardContent className="flex flex-wrap items-center gap-3 p-3 text-sm">
                   <Badge className={RUN_BADGE[entry.status]}>{t(RUN_I18N[entry.status])}</Badge>
                   <span className="text-muted-foreground">
                     {t('runAt')}: {formatShortDateTime(entry.triggered_at, locale)}

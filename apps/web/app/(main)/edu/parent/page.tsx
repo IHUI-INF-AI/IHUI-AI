@@ -223,7 +223,7 @@ export default function ParentPortalPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">家长门户</h1>
@@ -316,7 +316,7 @@ function ChildrenListView({
         <button
           key={child.bindingId}
           onClick={() => onSelectChild(child.studentId)}
-          className="group rounded-lg border bg-card p-4 text-left transition-colors hover:bg-accent"
+          className="group rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
         >
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
@@ -821,31 +821,31 @@ function AttendanceView({ childId }: { childId: string }) {
     <>
       <div className="grid grid-cols-2 gap-4 min-[640px]:grid-cols-5">
         <Card>
-          <CardContent className="p-4 text-center">
+          <CardContent className="p-3 text-center">
             <p className="text-2xl font-bold">{attendanceRate}%</p>
             <p className="text-xs text-muted-foreground">出勤率</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
+          <CardContent className="p-3 text-center">
             <p className="text-2xl font-bold text-emerald-600">{stats.present}</p>
             <p className="text-xs text-muted-foreground">{ATTENDANCE_STATUS_LABELS.present}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
+          <CardContent className="p-3 text-center">
             <p className="text-2xl font-bold text-amber-600">{stats.late}</p>
             <p className="text-xs text-muted-foreground">{ATTENDANCE_STATUS_LABELS.late}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
+          <CardContent className="p-3 text-center">
             <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
             <p className="text-xs text-muted-foreground">{ATTENDANCE_STATUS_LABELS.absent}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
+          <CardContent className="p-3 text-center">
             <p className="text-2xl font-bold text-blue-600">{stats.leave}</p>
             <p className="text-xs text-muted-foreground">{ATTENDANCE_STATUS_LABELS.leave}</p>
           </CardContent>

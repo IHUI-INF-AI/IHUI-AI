@@ -124,7 +124,7 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
       </div>
 
       {/* 消息区 */}
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3">
         {isLoading ? (
           <div className="flex h-full items-center justify-center gap-2 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />

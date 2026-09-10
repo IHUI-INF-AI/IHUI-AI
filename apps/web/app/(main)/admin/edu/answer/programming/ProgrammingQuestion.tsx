@@ -28,7 +28,7 @@ export function ProgrammingQuestion({
   const t = useTranslations('admin.edu.answer.programming')
   return (
     <Card>
-      <CardContent className="p-4">
+      <CardContent className="p-3">
         {isLoading ? (
           <div className="py-10 text-center text-muted-foreground">
             <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />

@@ -71,7 +71,7 @@ export function MobileDashboardClient() {
   }, [data])
 
   return (
-    <Container maxWidth="xl" padding={false} className="space-y-6 py-6">
+    <Container maxWidth="xl" padding={false} className="px-4 py-4 space-y-6">
       <BackButton />
       <header className="space-y-1 px-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -289,7 +289,7 @@ function StatCard({ labelKey, value, sub, trendUp, Icon }: StatCardProps) {
   const t = useTranslations('mobileDashboardPage')
   return (
     <Card>
-      <CardContent className="flex items-center gap-3 p-5 min-[640px]:p-5">
+      <CardContent className="flex items-center gap-3 p-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="h-5 w-5" />
         </div>

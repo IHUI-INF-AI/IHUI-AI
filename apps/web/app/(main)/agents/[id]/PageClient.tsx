@@ -200,11 +200,11 @@ export default function AgentDetailPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : !agent ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 min-[768px]:py-20 text-center">
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
           <Sparkles className="h-10 w-10 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">{t('notFound')}</p>
         </div>
@@ -225,7 +225,7 @@ export default function AgentDetailPage() {
                 </div>
               )}
             </div>
-            <div className="space-y-3 p-4">
+            <div className="space-y-3 p-3">
               <div className="flex items-start gap-3">
                 <Avatar
                   src={agent.avatar ?? undefined}

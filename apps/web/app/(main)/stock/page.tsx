@@ -219,7 +219,7 @@ export default function StockAnalysePage() {
 
       {/* 分析区 */}
       <Card>
-        <CardContent className="space-y-3 p-4">
+        <CardContent className="space-y-3 p-3">
           <div className="space-y-1.5">
             <Label htmlFor="stock-symbol">{t('symbol')}</Label>
             <Input
