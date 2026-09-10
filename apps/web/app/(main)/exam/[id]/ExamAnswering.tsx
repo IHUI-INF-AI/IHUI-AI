@@ -65,7 +65,7 @@ export function ExamAnswering({
               </span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 p-3 pt-0 text-sm">
+          <CardContent className="min-[640px]:p-3 space-y-2 p-3 pt-0 text-sm">
             {q.type === 'multiple' ? (
               (q.options ?? []).map((o) => (
                 <label

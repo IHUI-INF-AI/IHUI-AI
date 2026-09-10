@@ -298,7 +298,7 @@ function GroupCard({
         )}
       </CardHeader>
 
-      <CardContent className="flex flex-1 flex-col gap-2 p-3 pt-2">
+      <CardContent className="min-[640px]:p-3 flex flex-1 flex-col gap-2 p-3 pt-2">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5 shrink-0" />
@@ -441,7 +441,7 @@ export default function GroupsPage() {
             {t('createGroup')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-2 p-3 sm:flex-row">
+        <CardContent className="min-[640px]:p-3 flex flex-col gap-2 p-3 sm:flex-row">
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}

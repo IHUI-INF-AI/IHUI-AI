@@ -118,7 +118,7 @@ export default function MyCirclesPage() {
                     )}
                   </div>
                 </Link>
-                <CardContent className="space-y-3 p-3">
+                <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <Link href={`/circles/${circle.id}`} className="min-w-0 flex-1">
                       <h3 className="font-medium hover:text-primary">{circle.name}</h3>

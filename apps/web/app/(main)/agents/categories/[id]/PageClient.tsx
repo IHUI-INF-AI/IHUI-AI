@@ -125,7 +125,7 @@ export default function AgentCategoryDetailPage() {
       </Link>
 
       <Card>
-        <CardContent className="space-y-4 p-3">
+        <CardContent className="min-[640px]:p-3 space-y-4 p-3">
           <div className="flex items-start gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
               {category.icon ? (

@@ -228,7 +228,7 @@ export default function LivePage() {
                   </span>
                 ) : null}
               </div>
-              <CardContent className="flex min-w-0 flex-1 flex-col gap-2 p-3">
+              <CardContent className="min-[640px]:p-3 flex min-w-0 flex-1 flex-col gap-2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <p className="line-clamp-1 font-medium">{channel.title}</p>
                   <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">

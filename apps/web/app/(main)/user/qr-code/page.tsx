@@ -89,7 +89,7 @@ export default function QrCodePage() {
         </div>
       ) : q.data ? (
         <Card>
-          <CardContent className="flex flex-col items-center p-3 text-center">
+          <CardContent className="min-[640px]:p-3 flex flex-col items-center p-3 text-center">
             <QrPlaceholder content={q.data.content} />
             <p className="mt-4 text-sm text-muted-foreground">{t('scanHint')}</p>
             <p className="mt-1 text-xs text-muted-foreground">

@@ -111,7 +111,7 @@ export default function MyLessonsPage() {
                         </div>
                       )}
                     </div>
-                    <CardContent className="space-y-3 p-3">
+                    <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                       <h3 className="font-medium">{item.title}</h3>
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
