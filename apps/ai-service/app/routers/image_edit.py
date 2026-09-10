@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, Form
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,8 @@ async def image_edits(
     output_format: str | None = Form(default=None, description="png/jpeg"),
 ) -> dict[str, Any]:
     """图片编辑(multipart 直通 TokenGo /v1/images/edits;200+body.error 已在 provider 层检查)。"""
-    from ..providers.base_provider import ProviderError
     from ..core.config import settings
+    from ..providers.base_provider import ProviderError
     from ..providers.token6688_provider import Token6688Provider
 
     cfg = settings.get_provider_config("token6688")

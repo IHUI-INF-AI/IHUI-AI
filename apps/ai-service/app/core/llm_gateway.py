@@ -17,10 +17,11 @@ import os
 import random
 import socket
 import time
+from collections.abc import AsyncIterator
 from collections.abc import AsyncIterator as AsyncIteratorType
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncIterator, Optional, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import asyncpg
 import httpx
@@ -35,7 +36,7 @@ from ..middleware.llm_metrics import (
     LLM_TOKEN_COMPACTION_TRIGGERED,
     classify_fallback_reason,
 )
-from ..services.tls_stealth import create_stealth_client, get_stealth_headers
+from ..services.tls_stealth import create_stealth_client
 from .config import settings
 from .context_compaction import estimate_messages_tokens
 from .db_pool import get_shared_pool
@@ -43,7 +44,7 @@ from .provider_caps import filter_call_kwargs, get_provider_cap
 
 # Combo 多级 fallback 路由器(2026-07-30 立,P0-1 Combo 接入 LLM 调用链)
 # 延迟导入避免循环依赖(combo_router.py 内部反向 import llm_gateway)
-_COMBO_ROUTER = None  # type: Optional[Any]
+_COMBO_ROUTER = None  # type: Any | None
 
 
 def _get_combo_router() -> Any:
@@ -63,8 +64,7 @@ def _get_combo_router() -> Any:
 # from ..providers import get_provider as _get_native_provider
 # from ..providers.base_provider import BaseProvider, ProviderError
 if TYPE_CHECKING:
-    from ..providers import get_provider as _get_native_provider
-    from ..providers.base_provider import BaseProvider, ProviderError
+    from ..providers.base_provider import BaseProvider
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +149,7 @@ else:
 
 # 全局共享 httpx.AsyncClient(连接池复用,避免每次请求新建 client)
 # provider 通过 get_http_client() 获取,在 main.py lifespan shutdown 中 close_http_client()
-_http_client: Optional[httpx.AsyncClient] = None
+_http_client: httpx.AsyncClient | None = None
 
 
 def get_http_client() -> httpx.AsyncClient:
@@ -191,7 +191,7 @@ async def _get_pool() -> asyncpg.Pool:
 from ..services.key_pool_selector import KeyPoolSelector
 
 
-def _decrypt_api_key(api_key_enc: Optional[str]) -> Optional[str]:
+def _decrypt_api_key(api_key_enc: str | None) -> str | None:
     """解密 ai_model_config.api_key_enc。
 
     格式:JSON {"iv","ciphertext","tag"} base64,AES-256-GCM(与 apps/api/utils/crypto.ts 对应)。
@@ -359,8 +359,6 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     "cohere/": "cohere",  # 补充 cohere/ 前缀(现有只有 command- 前缀)
     "zai/": "zai",
     "kilo/": "kilo",
-    "pollinations/": "pollinations",
-    "llm7/": "llm7",
     "ovh/": "ovh",
     "aihorde/": "aihorde",
     "reka/": "reka",
@@ -453,6 +451,7 @@ def _resolve_ihui_auto_model() -> str:
     随机选具体模型,收入 3x vs 成本最高 1:2 档,利润恒为正。
     """
     from ..services.free_provider_registry import get_ihui_auto_pool
+
     # 延迟导入避免循环(llm_gateway ↔ model_availability),与 _resolve_auto_model 同源
     from ..services.model_availability import model_availability
 
@@ -469,7 +468,7 @@ def _resolve_ihui_auto_model() -> str:
 
 async def _resolve_auto_model(
     has_tools: bool = False,
-    messages: Optional[list[dict[str, Any]]] = None,
+    messages: list[dict[str, Any]] | None = None,
 ) -> str:
     """跨厂商自动路由:从 model_availability 全量可用模型中选最优。
 
@@ -576,7 +575,7 @@ async def _resolve_auto_model(
 
         # tool calling 场景:筛掉不支持 function calling 的模型
         if has_tools and candidates:
-            before = len(candidates)
+            len(candidates)
             tool_candidates: list[str] = []
             for c in candidates:
                 # 先用关键词启发(快路径),再调 provider_caps 二次确认(权威)
@@ -632,8 +631,8 @@ _FREE_PROVIDER_ENDPOINT_RESOLVERS: dict[str, tuple[str, str | None, bool, bool]]
 
 async def _resolve_from_db(
     model: str,
-    owner_uuid: Optional[str] = None,
-) -> Optional[tuple[str | None, str | None, str | None]]:
+    owner_uuid: str | None = None,
+) -> tuple[str | None, str | None, str | None] | None:
     """从 ai_model_config 表查询配置,返回 (api_key, api_base, litellm_model) 或 None。
 
     优先 owner_uuid 匹配的用户私有配置,兜底 owner_uuid IS NULL 的全局配置。
@@ -946,12 +945,10 @@ def _is_openrouter_403_error(model: str, error: Exception) -> bool:
         return True
     # LiteLLM 异常类型特征:AuthenticationError / PermissionDeniedError
     err_type = type(error).__name__.lower()
-    if "auth" in err_type or "forbidden" in err_type or "permission" in err_type:
-        return True
-    return False
+    return bool("auth" in err_type or "forbidden" in err_type or "permission" in err_type)
 
 
-def _failover_openrouter_to_agnes(model: str) -> Optional[str]:
+def _failover_openrouter_to_agnes(model: str) -> str | None:
     """将 openrouter/<model> 转换为 agnes/<model>(用于 403 failover)。
 
     Args:
@@ -1018,7 +1015,7 @@ async def _openrouter_proxy_context(model: str) -> AsyncIteratorType[None]:
                 os.environ.pop("HTTP_PROXY", None)
 
 
-# ============================================================================ 
+# ============================================================================
 # stub 判定(第二层)厂商 env key 单一来源(2026-08-31 立)
 # ============================================================================
 # LLMGateway._is_stub_mode 的 os.environ 层与 tests/conftest.py 环境隔离共用此列表。
@@ -1304,7 +1301,7 @@ class LLMGateway:
     async def _get_provider(
         self,
         model: str,
-        owner_uuid: Optional[str] = None,
+        owner_uuid: str | None = None,
     ) -> "BaseProvider | None":
         """根据模型前缀返回厂商原生适配器(可选增强)。
 
@@ -1338,7 +1335,7 @@ class LLMGateway:
     async def _resolve(
         self,
         model: str,
-        owner_uuid: Optional[str] = None,
+        owner_uuid: str | None = None,
     ) -> tuple[str | None, str | None, str | None, str | None]:
         """优先 BYOK → 号池 → .env(三层优先级)。
 
@@ -1460,7 +1457,7 @@ class LLMGateway:
         messages: list[dict[str, Any]],
         model: str | None = None,
         *,
-        owner_uuid: Optional[str] = None,
+        owner_uuid: str | None = None,
         _skip_fallback: bool = False,
         _pool_retry: int = 0,
         **kwargs: Any,
@@ -1559,7 +1556,7 @@ class LLMGateway:
                     "stub": True,
                 }
             api_key, api_base, real_model = db_result
-            current_key_pool_id: Optional[str] = None
+            current_key_pool_id: str | None = None
         else:
             api_key, api_base, real_model, current_key_pool_id = await self._resolve(used_model, owner_uuid)
 
@@ -1781,7 +1778,7 @@ class LLMGateway:
         schema: dict[str, Any],
         model: str | None = None,
         *,
-        owner_uuid: Optional[str] = None,
+        owner_uuid: str | None = None,
         schema_name: str = "structured_response",
         max_retries: int = 1,
     ) -> dict[str, Any]:
@@ -1862,7 +1859,7 @@ class LLMGateway:
                 # additionalProperties: False 校验
                 if schema.get("additionalProperties") is False:
                     allowed = set(schema.get("properties", {}).keys())
-                    extra = [k for k in parsed.keys() if k not in allowed]
+                    extra = [k for k in parsed if k not in allowed]
                     if extra:
                         last_error = f"unexpected fields: {extra}"
                         if attempt < max_retries:
@@ -2039,7 +2036,7 @@ class LLMGateway:
         messages: list[dict[str, Any]],
         model: str | None = None,
         *,
-        owner_uuid: Optional[str] = None,
+        owner_uuid: str | None = None,
         _pool_retry: int = 0,
         **kwargs: Any,
     ) -> AsyncIterator[dict[str, Any]]:
@@ -2150,7 +2147,7 @@ class LLMGateway:
                 }
                 return
             api_key, api_base, real_model = db_result
-            current_key_pool_id: Optional[str] = None
+            current_key_pool_id: str | None = None
         else:
             api_key, api_base, real_model, current_key_pool_id = await self._resolve(used_model, owner_uuid)
 

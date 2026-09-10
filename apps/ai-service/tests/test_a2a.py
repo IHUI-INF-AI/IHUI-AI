@@ -20,7 +20,6 @@ A2A(Agent-to-Agent)协议 HTTP 入口,5 端点:
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -37,7 +36,6 @@ from app.routers.a2a import (
     send_task,
 )
 from app.services.a2a_service import A2AAgent, A2ATask
-
 
 # =============================================================================
 # 路由实例化

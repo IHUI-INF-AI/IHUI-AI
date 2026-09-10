@@ -40,6 +40,7 @@ import pytest
 
 from app.services import telemetry_service as ts_module
 from app.services.telemetry_service import (
+    _EVENT_HANDLERS,
     DEFAULT_HISTOGRAM_BUCKETS_MS,
     MEMORY_SPANS_MAX,
     MEMORY_TRACE_ROOTS_MAX,
@@ -55,7 +56,6 @@ from app.services.telemetry_service import (
     Span,
     TelemetryService,
     TraceContext,
-    _EVENT_HANDLERS,
     _format_labels,
     _format_value,
     _gen_span_id,
@@ -66,7 +66,6 @@ from app.services.telemetry_service import (
     _merge_le_label,
     telemetry_service,
 )
-
 
 # ── fixtures ─────────────────────────────────────────────────────────────
 
@@ -1432,7 +1431,7 @@ class TestGetDashboard:
     @pytest.mark.asyncio
     async def test_get_dashboard_metrics_summary(self, svc):
         result = await svc.get_dashboard()
-        for name, info in result["metrics_summary"].items():
+        for _name, info in result["metrics_summary"].items():
             assert "type" in info
             assert "label_count" in info
 
@@ -1515,7 +1514,7 @@ class TestEventHandlers:
         assert len(_EVENT_HANDLERS) >= 30
 
     def test_event_handlers_cover_all_pillars(self):
-        pillars = {p for p, _ in _EVENT_HANDLERS.keys()}
+        pillars = {p for p, _ in _EVENT_HANDLERS}
         for p in ("rules", "hook", "spec", "context", "subagent", "terminal", "hub", "budget"):
             assert p in pillars
 

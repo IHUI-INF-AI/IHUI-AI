@@ -35,14 +35,15 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Callable, Optional
+from enum import StrEnum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class ProtocolType(str, Enum):
+class ProtocolType(StrEnum):
     """LLM API 协议类型。"""
 
     OPENAI = "openai_chat"  # OpenAI Chat Completions(/v1/chat/completions)
@@ -727,7 +728,7 @@ def _anthropic_tool_choice_to_openai(tool_choice: Any) -> Any:
     return tool_choice
 
 
-def _openai_finish_to_anthropic_stop(finish: Optional[str]) -> Optional[str]:
+def _openai_finish_to_anthropic_stop(finish: str | None) -> str | None:
     """OpenAI finish_reason → Anthropic stop_reason。"""
     mapping = {
         "stop": "end_turn",
@@ -739,7 +740,7 @@ def _openai_finish_to_anthropic_stop(finish: Optional[str]) -> Optional[str]:
     return mapping.get(finish or "", "end_turn")
 
 
-def _anthropic_stop_to_openai_finish(stop: Optional[str]) -> Optional[str]:
+def _anthropic_stop_to_openai_finish(stop: str | None) -> str | None:
     """Anthropic stop_reason → OpenAI finish_reason。"""
     mapping = {
         "end_turn": "stop",
@@ -750,7 +751,7 @@ def _anthropic_stop_to_openai_finish(stop: Optional[str]) -> Optional[str]:
     return mapping.get(stop or "", "stop")
 
 
-def _openai_finish_to_gemini(finish: Optional[str]) -> str:
+def _openai_finish_to_gemini(finish: str | None) -> str:
     """OpenAI finish_reason → Gemini finishReason。"""
     mapping = {
         "stop": "STOP",
@@ -762,7 +763,7 @@ def _openai_finish_to_gemini(finish: Optional[str]) -> str:
     return mapping.get(finish or "", "STOP")
 
 
-def _gemini_finish_to_openai(finish: Optional[str]) -> str:
+def _gemini_finish_to_openai(finish: str | None) -> str:
     """Gemini finishReason → OpenAI finish_reason。"""
     mapping = {
         "STOP": "stop",

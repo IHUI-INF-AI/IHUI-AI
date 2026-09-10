@@ -169,7 +169,7 @@ CAT_LABELS = {
 # ===================== 查询辅助 =====================
 def all_handles() -> list[str]:
     out: list[str] = []
-    for cat, items in X_SOURCES.items():
+    for _cat, items in X_SOURCES.items():
         for it in items:
             out.append(it['handle'])
     return out
@@ -263,13 +263,15 @@ def log_coverage(topic: str, checked_handles: list[str], notes: str = '') -> str
     data: list[dict[str, object]] = []
     if os.path.exists(path):
         try:
-            loaded = json.load(open(path, encoding='utf-8'))
+            with open(path, encoding='utf-8') as _f:
+                loaded = json.load(_f)
             if isinstance(loaded, list):
                 data = loaded
         except Exception:
             data = []
     data.append(rec)
-    json.dump(data, open(path, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+    with open(path, 'w', encoding='utf-8') as _f:
+        json.dump(data, _f, ensure_ascii=False, indent=2)
     return path
 
 

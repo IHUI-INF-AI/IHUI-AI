@@ -27,7 +27,7 @@ import re
 import shlex
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from fnmatch import fnmatchcase
 
 __all__ = [
@@ -62,7 +62,7 @@ ANY_TOKEN = "..."
 _WILDCARD_CHARS = frozenset("*?[")
 
 
-class Decision(str, Enum):
+class Decision(StrEnum):
     """三态裁决,严重度排序 deny > prompt > allow。"""
 
     ALLOW = "allow"

@@ -14,24 +14,22 @@
 """
 from __future__ import annotations
 
-import pytest
 from httpx import ASGITransport, AsyncClient
 from starlette.applications import Starlette
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
 
 from app.middleware.input_sanitizer import (
     INJECTION_PATTERNS,
-    InputSanitizerMiddleware,
     RATE_RULES,
+    XSS_PATTERNS,
+    InputSanitizerMiddleware,
     RateLimitMiddleware,
     TokenBucket,
-    XSS_PATTERNS,
     _detect_unsafe_content,
     _scan_value,
     setup_input_sanitizer_middleware,
     setup_rate_limit_middleware,
 )
-
 
 # =============================================================================
 # _detect_unsafe_content — XSS 检测

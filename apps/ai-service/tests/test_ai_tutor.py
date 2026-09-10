@@ -26,7 +26,6 @@ from fastapi.testclient import TestClient
 from app.routers import ai_tutor as ai_tutor_router_mod
 from app.services import ai_tutor as ai_tutor_mod
 
-
 # =============================================================================
 # helpers
 # =============================================================================
@@ -267,9 +266,9 @@ async def test_subject_persona_selection(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "耐心" in sys_msg["content"]  # 兜底 persona 关键词
 
     # SUBJECT_VALID 含且仅含 7 个学科
-    assert ai_tutor_mod.SUBJECT_VALID == {
+    assert {
         "math", "physics", "chemistry", "biology", "english", "history", "geography"
-    }
+    } == ai_tutor_mod.SUBJECT_VALID
 
 
 # =============================================================================

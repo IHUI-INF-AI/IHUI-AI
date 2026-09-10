@@ -20,7 +20,6 @@ import os
 import re
 import shutil
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +63,7 @@ async def _git(
     )
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         await proc.wait()
         raise
@@ -75,7 +74,7 @@ async def ensure_gitignore(source_path: str) -> None:
     """确保 .worktrees/ 在 .gitignore 中(对齐 CLI 端 ensureGitignore)。"""
     gitignore_path = os.path.join(source_path, ".gitignore")
     try:
-        with open(gitignore_path, "r", encoding="utf-8") as f:
+        with open(gitignore_path, encoding="utf-8") as f:
             content = f.read()
         if ".worktrees/" not in content:
             with open(gitignore_path, "a", encoding="utf-8") as f:
@@ -88,7 +87,7 @@ async def ensure_gitignore(source_path: str) -> None:
 
 
 async def create_worktree(
-    source_path: str, task_id: str, *, start_point: Optional[str] = None
+    source_path: str, task_id: str, *, start_point: str | None = None
 ) -> WorktreeInfo:
     """创建 worktree(对齐 CLI 端 createWorktree)。
 
@@ -185,7 +184,7 @@ async def list_worktrees(source_path: str) -> list[WorktreeInfo]:
     if rc != 0:
         return []
     result: list[WorktreeInfo] = []
-    current_path: Optional[str] = None
+    current_path: str | None = None
     for line in stdout.decode().splitlines():
         if line.startswith("worktree "):
             # 前一个 worktree 可能没有 branch 行(detached HEAD),也要加入

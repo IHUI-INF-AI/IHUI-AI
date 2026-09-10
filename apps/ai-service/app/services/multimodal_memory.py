@@ -26,12 +26,11 @@ import json
 import logging
 import math
 import uuid as _uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import asyncpg
 
-from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 from .multimodal_embedder import _hash_embedding, multimodal_embedder
 
@@ -86,7 +85,7 @@ def _content_hash(content_bytes: bytes | None, source_uri: str | None) -> str:
     return hashlib.sha256(b"").hexdigest()
 
 
-def _parse_execute_result(result: Optional[str]) -> int:
+def _parse_execute_result(result: str | None) -> int:
     """解析 asyncpg execute 返回值('DELETE N' / 'UPDATE N' / 'INSERT 0 N')为行数。"""
     if not result:
         return 0
@@ -163,10 +162,10 @@ class MultimodalMemory:
         user_id: str,
         modality: str,
         *,
-        source_uri: Optional[str] = None,
-        content_bytes: Optional[bytes] = None,
-        caption: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        source_uri: str | None = None,
+        content_bytes: bytes | None = None,
+        caption: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """存储多模态记忆。
 
@@ -193,7 +192,7 @@ class MultimodalMemory:
         existing = self._find_in_cache(user_id, c_hash)
         if existing is not None:
             existing["access_count"] = int(existing.get("access_count", 0)) + 1
-            existing["last_accessed_at"] = datetime.now(timezone.utc).isoformat()
+            existing["last_accessed_at"] = datetime.now(UTC).isoformat()
             await self._bump_access_count_db(str(existing.get("id", "")))
             return dict(existing)
 
@@ -202,7 +201,7 @@ class MultimodalMemory:
         if db_existing is not None:
             self._add_to_cache(user_id, db_existing)
             db_existing["access_count"] = int(db_existing.get("access_count", 0)) + 1
-            db_existing["last_accessed_at"] = datetime.now(timezone.utc).isoformat()
+            db_existing["last_accessed_at"] = datetime.now(UTC).isoformat()
             await self._bump_access_count_db(str(db_existing.get("id", "")))
             return dict(db_existing)
 
@@ -224,7 +223,7 @@ class MultimodalMemory:
 
         # 5. 构造记忆 dict
         memory_id = str(_uuid.uuid4())
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         record: dict[str, Any] = {
             "id": memory_id,
             "user_id": user_id,
@@ -262,7 +261,7 @@ class MultimodalMemory:
         user_id: str,
         query: str,
         *,
-        modality: Optional[str] = None,
+        modality: str | None = None,
         top_k: int = 5,
     ) -> list[dict[str, Any]]:
         """跨模态检索:文本 query → embed → cosine similarity 排序。
@@ -465,7 +464,7 @@ class MultimodalMemory:
 
     def _find_in_cache(
         self, user_id: str, content_hash: str
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """从内存缓存按 (user_id, content_hash) 查找。
 
         P2 修复:使用 _cache_index 索引 O(1) 查找,替代原 O(N) 线性扫描。
@@ -526,7 +525,7 @@ class MultimodalMemory:
 
     async def _find_in_db(
         self, user_id: str, content_hash: str
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """从 DB 按 (user_id, content_hash) 查找(内存未命中时调)。"""
         try:
             pool = await _get_pool()
@@ -651,9 +650,9 @@ class MultimodalMemory:
         self,
         modality: str,
         *,
-        content_bytes: Optional[bytes],
-        source_uri: Optional[str],
-        caption: Optional[str],
+        content_bytes: bytes | None,
+        source_uri: str | None,
+        caption: str | None,
     ) -> list[float]:
         """根据 modality 调对应 embedder 方法(失败降级 hash 伪向量)。"""
         try:
@@ -696,9 +695,9 @@ class MultimodalMemory:
         self,
         modality: str,
         *,
-        content_bytes: Optional[bytes],
-        source_uri: Optional[str],
-    ) -> Optional[str]:
+        content_bytes: bytes | None,
+        source_uri: str | None,
+    ) -> str | None:
         """调 LLM 生成 caption(失败返回 None,不影响主流程)。"""
         try:
             from .multimodal_embedder import _caption_via_llm, _to_bytes

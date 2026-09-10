@@ -26,11 +26,11 @@
 """
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.logging import get_logger
+
 from .stealth import generate_seed
 
 logger = get_logger(__name__)

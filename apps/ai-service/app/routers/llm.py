@@ -19,9 +19,10 @@ import logging
 import time
 import uuid
 from collections import Counter
-from datetime import datetime, timezone
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, Body, HTTPException, Request
@@ -29,16 +30,20 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..core.config import settings
+from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.llm_gateway import llm_gateway, moa_router
-from ..core.context_compaction import compress_messages_if_needed, SUMMARY_MARKER
 from ..core.provider_caps import (
     cap_to_dict,
     cap_with_max_context,
     get_provider_cap,
 )
 from ..core.question_parser import QuestionStreamParser
-from ..services.mcp_server import _tool_dispatch_subagent, _tool_vision_analyze, get_registered_tool_names
 from ..services.context_recall import context_recall
+from ..services.mcp_server import (
+    _tool_dispatch_subagent,
+    _tool_vision_analyze,
+    get_registered_tool_names,
+)
 from ..services.project_memory import build_system_prompt
 
 router = APIRouter()
@@ -853,7 +858,7 @@ async def list_models(request: Request) -> dict[str, Any]:
                 # token6688 富元数据摘要(v4,2026-09-08):capabilities/健康分/排序权重/
                 # 输入提示随条目输出,供前端展示与 agent 参数参考;媒体模型已在上方 continue
                 if provider_code == "token6688":
-                    _meta = r["metadata"] if "metadata" in r.keys() else None
+                    _meta = r.get("metadata", None)
                     if isinstance(_meta, dict) and _meta:
                         _summary = {
                             k: _meta[k]
@@ -1530,7 +1535,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             _sa_tasks.append({"name": str(_tk["name"]), "task": str(_tk["task"])})
                                 elif args.get("name") and args.get("task"):
                                     _sa_tasks.append({"name": str(args["name"]), "task": str(args["task"])})
-                                _spawn_now = datetime.now(timezone.utc).isoformat()
+                                _spawn_now = datetime.now(UTC).isoformat()
                                 for _sa_task in _sa_tasks:
                                     _sa_id = f"sub-{uuid.uuid4().hex[:8]}"
                                     _spawned_sub_ids.append(_sa_id)
@@ -1637,7 +1642,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # 等待前端回传结果(超时 60 秒)
                                 try:
                                     await asyncio.wait_for(_ev.wait(), timeout=_DELEGATE_TIMEOUT)
-                                except asyncio.TimeoutError:
+                                except TimeoutError:
                                     exec_result = {
                                         "tool": tool_name,
                                         "ok": False,
@@ -1758,13 +1763,17 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # _progress_cb 实时转发所有 phase 到 _progress_queue → SSE yield,不延迟到 subagent_end。
                             if tool_name == "dispatch_subagent" and _spawned_sub_ids:
                                 # task_index → subagent_id 映射(并行模式多 task,单模式只有 1 个)
-                                _sub_id_by_index: dict[int, str] = {
-                                    i: sid for i, sid in enumerate(_spawned_sub_ids)
-                                }
+                                _sub_id_by_index: dict[int, str] = dict(enumerate(_spawned_sub_ids))
                                 _single_sub_id = _spawned_sub_ids[0]
                                 _progress_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 
-                                def _progress_cb(evt: dict[str, Any]) -> None:
+                                def _progress_cb(
+                                    evt: dict[str, Any],
+                                    *,
+                                    _sub_id_by_index: dict[int, str] = _sub_id_by_index,
+                                    _single_sub_id: str = _single_sub_id,
+                                    _progress_queue: asyncio.Queue[dict[str, Any] | None] = _progress_queue,
+                                ) -> None:
                                     """进度回调:_run_agent 事件 → SSE progress 事件格式。"""
                                     _task_idx = evt.pop("task_index", None)
                                     _agent_name = evt.pop("agent_name", "")
@@ -1776,7 +1785,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "type": "subagent_progress",
                                         "id": _sa_id,
                                         "phase": evt.get("phase", ""),
-                                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                                        "timestamp": datetime.now(UTC).isoformat(),
                                     }
                                     for _fk in ("iteration", "tool", "ok", "output_preview"):
                                         if _fk in evt:
@@ -1795,7 +1804,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             _pevt = await asyncio.wait_for(_progress_queue.get(), timeout=0.05)
                                             if _pevt:
                                                 yield f"event: subagent_progress\ndata: {json.dumps(_pevt, ensure_ascii=False)}\n\n"
-                                        except asyncio.TimeoutError:
+                                        except TimeoutError:
                                             continue
                                     # 排水剩余事件
                                     while not _progress_queue.empty():
@@ -1880,7 +1889,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     # 2026-08-02 补充默认错误信息:当 error/message 都为空时,
                                     # 前端 markSubagentEnd 会显示"执行失败"(无原因),用户无法排查
                                     _sa_error_msg = exec_result.get("error") or exec_result.get("message") or "subagent 执行失败(无详细错误信息)"
-                                _end_now = datetime.now(timezone.utc).isoformat()
+                                _end_now = datetime.now(UTC).isoformat()
                                 for _sa_id in _spawned_sub_ids:
                                     _end_evt = {
                                         "type": "subagent_end",
@@ -2949,7 +2958,7 @@ async def list_providers_health() -> dict[str, Any]:
 
     # 合并结果
     results = checked_results + not_configured_results
-    checked_at = datetime.now(timezone.utc).isoformat()
+    checked_at = datetime.now(UTC).isoformat()
 
     # 汇总统计
     ok_count = sum(1 for r in results if r["status"] == "ok")
@@ -3021,7 +3030,7 @@ async def _check_single_provider(
         async with asyncio.timeout(5.0):
             resp = await client.get(url, headers=headers)
         latency_ms = int((asyncio.get_event_loop().time() - start) * 1000)
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         if resp.status_code == 200:
             # 从响应提取 model_count(OpenAI 兼容格式:{"data": [...]})
             model_count = 0
@@ -3070,7 +3079,7 @@ async def _check_single_provider(
             "latency_ms": latency_ms,
             "model_count": 0,
             "error": "timeout (5s)",
-            "last_check": datetime.now(timezone.utc).isoformat(),
+            "last_check": datetime.now(UTC).isoformat(),
         }
     except (httpx.ConnectError, httpx.HTTPError) as e:
         latency_ms = int((asyncio.get_event_loop().time() - start) * 1000)
@@ -3080,7 +3089,7 @@ async def _check_single_provider(
             "latency_ms": latency_ms,
             "model_count": 0,
             "error": f"{type(e).__name__}: {str(e)[:100]}",
-            "last_check": datetime.now(timezone.utc).isoformat(),
+            "last_check": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         latency_ms = int((asyncio.get_event_loop().time() - start) * 1000)
@@ -3090,7 +3099,7 @@ async def _check_single_provider(
             "latency_ms": latency_ms,
             "model_count": 0,
             "error": f"{type(e).__name__}: {str(e)[:100]}",
-            "last_check": datetime.now(timezone.utc).isoformat(),
+            "last_check": datetime.now(UTC).isoformat(),
         }
 
 

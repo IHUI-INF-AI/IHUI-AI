@@ -13,6 +13,7 @@ Singularity:HPC 集群后端,通过 subprocess 调 singularity CLI(类似 docker
 """
 
 import asyncio
+import contextlib
 import logging
 import os
 import re
@@ -239,11 +240,9 @@ class SandboxExecutor:
                     proc.communicate(),
                     timeout=timeout,
                 )
-            except asyncio.TimeoutError:
-                try:
+            except TimeoutError:
+                with contextlib.suppress(ProcessLookupError):
                     proc.kill()
-                except ProcessLookupError:
-                    pass
                 return SandboxResult(
                     exit_code=-1, stdout="",
                     stderr=f"command timed out ({timeout}s)",
@@ -306,11 +305,9 @@ class SandboxExecutor:
                     proc.communicate(),
                     timeout=timeout,
                 )
-            except asyncio.TimeoutError:
-                try:
+            except TimeoutError:
+                with contextlib.suppress(ProcessLookupError):
                     proc.kill()
-                except ProcessLookupError:
-                    pass
                 return SandboxResult(
                     exit_code=-1, stdout="",
                     stderr=f"docker command timed out ({timeout}s)",
@@ -374,11 +371,9 @@ class SandboxExecutor:
                     proc.communicate(),
                     timeout=timeout,
                 )
-            except asyncio.TimeoutError:
-                try:
+            except TimeoutError:
+                with contextlib.suppress(ProcessLookupError):
                     proc.kill()
-                except ProcessLookupError:
-                    pass
                 return SandboxResult(
                     exit_code=-1, stdout="",
                     stderr=f"ssh command timed out ({timeout}s)",
@@ -620,11 +615,9 @@ class SandboxExecutor:
             )
             try:
                 await asyncio.wait_for(probe.communicate(), timeout=10)
-            except asyncio.TimeoutError:
-                try:
+            except TimeoutError:
+                with contextlib.suppress(ProcessLookupError):
                     probe.kill()
-                except ProcessLookupError:
-                    pass
                 result = SandboxResult(
                     exit_code=-1, stdout="",
                     stderr="Singularity CLI probe timed out",
@@ -691,11 +684,9 @@ class SandboxExecutor:
                     proc.communicate(),
                     timeout=timeout,
                 )
-            except asyncio.TimeoutError:
-                try:
+            except TimeoutError:
+                with contextlib.suppress(ProcessLookupError):
                     proc.kill()
-                except ProcessLookupError:
-                    pass
                 result = SandboxResult(
                     exit_code=-1, stdout="",
                     stderr=f"singularity command timed out ({timeout}s)",

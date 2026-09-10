@@ -24,7 +24,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import threading
 from dataclasses import asdict, dataclass
@@ -32,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.logging import get_logger
+
 from .fingerprint_isolation import BrowserFingerprint, generate_fingerprint
 from .proxy_pool import ProxyConfig, get_proxy_pool
 
@@ -71,7 +71,7 @@ class AccountProfile:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AccountProfile":
+    def from_dict(cls, data: dict[str, Any]) -> AccountProfile:
         """从 dict 反序列化。"""
         fp_data = data["fingerprint"]
         fingerprint = BrowserFingerprint(**fp_data)

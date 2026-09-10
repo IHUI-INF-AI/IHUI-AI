@@ -28,7 +28,6 @@ from app.services.image_saver import (
     validate_save_path,
 )
 
-
 # =============================================================================
 # fixtures
 # =============================================================================
@@ -188,7 +187,7 @@ class TestDownloadImage:
 
     async def test_http_error(self, monkeypatch: pytest.MonkeyPatch):
         class _FailingClient:
-            async def __aenter__(self) -> "_FailingClient":
+            async def __aenter__(self) -> _FailingClient:
                 return self
 
             async def __aexit__(self, *a: object) -> bool:
@@ -206,7 +205,7 @@ class TestDownloadImage:
 
     async def test_success(self, monkeypatch: pytest.MonkeyPatch):
         class _OkClient:
-            async def __aenter__(self) -> "_OkClient":
+            async def __aenter__(self) -> _OkClient:
                 return self
 
             async def __aexit__(self, *a: object) -> bool:

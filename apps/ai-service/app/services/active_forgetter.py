@@ -40,12 +40,11 @@ from __future__ import annotations
 
 import logging
 import uuid as _uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import asyncpg
 
-from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 
 logger = logging.getLogger(__name__)
@@ -115,7 +114,7 @@ class ActiveForgetter:
             失败返回 []。
         """
         candidates: list[dict[str, Any]] = []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for layer, table in _LAYER_TABLE_MAP.items():
             content_col = _LAYER_CONTENT_COL[layer]
@@ -471,7 +470,7 @@ class ActiveForgetter:
         try:
             ts = last_accessed
             if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
+                ts = ts.replace(tzinfo=UTC)
             delta = now - ts
             return max(0, int(delta.total_seconds() // 86400))
         except Exception as e:

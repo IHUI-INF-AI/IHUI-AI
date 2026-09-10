@@ -16,14 +16,14 @@
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
 from app.providers.base_provider import BaseProvider, ProviderError
-
 
 # =============================================================================
 # 测试用具体子类

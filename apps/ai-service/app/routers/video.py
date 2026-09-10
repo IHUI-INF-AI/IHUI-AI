@@ -20,6 +20,7 @@ TokenGo webhook 官方约定(2026-07-11 guide):
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import hmac
 import json
@@ -37,6 +38,7 @@ from app.services.video_generation import (
     generate_video,
     handle_token6688_callback,
 )
+
 from .media_tasks import _scoped_user_uuid, _user_scope
 
 router = APIRouter()
@@ -130,10 +132,8 @@ async def video_task_status(
         raise HTTPException(status_code=404, detail="任务不存在")
     result = row.get("result")
     if result:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             row["result"] = json.loads(result)
-        except (ValueError, TypeError):
-            pass
     return {"ok": True, "data": row}
 
 
@@ -186,10 +186,8 @@ async def video_task_list(
         d = dict(r)
         result = d.get("result")
         if result:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 d["result"] = json.loads(result)
-            except (ValueError, TypeError):
-                pass
         items.append(d)
     return {
         "ok": True,

@@ -24,8 +24,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.services.agent_graph import (
-    AgentState,
     _DEFAULT_MODEL,
+    AgentState,
     build_agent_graph,
     execute_node,
     get_agent_graph,
@@ -34,7 +34,6 @@ from app.services.agent_graph import (
     should_continue,
     summarize_node,
 )
-
 
 # =============================================================================
 # 工厂函数

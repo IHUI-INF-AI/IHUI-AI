@@ -4,8 +4,8 @@
 
 """report / aggregate 的确定性测试(golden 基线)。"""
 
-from report import generate_report, format_currency, avg_amount
 from aggregate import summarize
+from report import avg_amount, format_currency, generate_report
 
 
 def test_generate_report() -> None:

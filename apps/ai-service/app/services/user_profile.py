@@ -24,12 +24,11 @@ import asyncio
 import json
 import logging
 import re
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import asyncpg
 
-from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 
 logger = logging.getLogger(__name__)
@@ -193,7 +192,7 @@ class UserProfileBuilder:
         # 按降级规则确定新记忆影响的维度
         dimension = self._dimension_of(new_memory)
         memory_id = str(new_memory.get("id", ""))
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         # 找到对应维度的画像条目
         target_entry: dict[str, Any] | None = None
@@ -313,7 +312,7 @@ class UserProfileBuilder:
             return []
 
         result: list[dict[str, Any]] = []
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         for item in arr:
             if not isinstance(item, dict):
                 continue
@@ -353,7 +352,7 @@ class UserProfileBuilder:
         entries: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """LLM 失败降级:按记忆 type 字段分类到对应维度。"""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         # dimension -> {texts, support_ids}
         grouped: dict[str, dict[str, Any]] = {d: {"texts": [], "ids": []} for d in _DIMENSIONS}
 
@@ -402,7 +401,7 @@ class UserProfileBuilder:
         profile_entries: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """组装 UserProfileAggregate(LLM 路径)。"""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         covered = sum(1 for d in _DIMENSIONS if any(e.get("dimension") == d for e in profile_entries))
         return {
             "userId": user_id,
@@ -419,7 +418,7 @@ class UserProfileBuilder:
         profile_entries: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """组装 UserProfileAggregate(降级路径)。"""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         covered = len(profile_entries)
         return {
             "userId": user_id,
@@ -432,7 +431,7 @@ class UserProfileBuilder:
     @staticmethod
     def _empty_profile(user_id: str) -> dict[str, Any]:
         """空画像(无记忆时)。"""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         return {
             "userId": user_id,
             "entries": [],

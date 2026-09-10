@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from app.core.logging import get_logger
+
 from ..anti_risk import (
     create_stealth_browser_context,
     human_click,

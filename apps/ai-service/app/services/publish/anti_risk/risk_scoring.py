@@ -39,7 +39,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from app.core.logging import get_logger
 
@@ -104,7 +104,7 @@ class RiskScore:
     level: str  # 'safe' | 'low' | 'medium' | 'high' | 'critical'
     factors: list[str] = field(default_factory=list)
     calculated_at: float = field(default_factory=time.time)
-    cooldown_until: Optional[float] = None
+    cooldown_until: float | None = None
 
     def is_safe(self) -> bool:
         """是否安全可发布(safe / low 级别)。"""
@@ -134,7 +134,7 @@ def _level_from_score(score: int) -> str:
     return "critical"
 
 
-def _cooldown_for_level(level: str) -> Optional[float]:
+def _cooldown_for_level(level: str) -> float | None:
     """根据等级返回冷却截止时间戳(无冷却返回 None)。"""
     now = time.time()
     if level == "medium":
@@ -223,9 +223,9 @@ class RiskScorer:
         self,
         account_id: str,
         platform: str,
-        publish_history: Optional[list[dict[str, Any]]] = None,
-        cookie_health: Optional[dict[str, Any]] = None,
-        content_similarity: Optional[float] = None,
+        publish_history: list[dict[str, Any]] | None = None,
+        cookie_health: dict[str, Any] | None = None,
+        content_similarity: float | None = None,
     ) -> RiskScore:
         """计算账号风险评分。
 
@@ -553,9 +553,9 @@ class RiskScorer:
         self,
         account_id: str,
         platform: str,
-        publish_history: Optional[list[dict[str, Any]]] = None,
-        cookie_health: Optional[dict[str, Any]] = None,
-        content_similarity: Optional[float] = None,
+        publish_history: list[dict[str, Any]] | None = None,
+        cookie_health: dict[str, Any] | None = None,
+        content_similarity: float | None = None,
     ) -> tuple[bool, RiskScore]:
         """综合判断账号是否安全可发布。
 
@@ -581,7 +581,7 @@ class RiskScorer:
         account_id: str,
         platform: str,
         event_type: str,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """记录风险事件(内存 + 文件持久化)。
 
@@ -638,7 +638,7 @@ class RiskScorer:
         return any(kw in error_message for kw in _PLATFORM_RISK_KEYWORDS)
 
     @classmethod
-    def get_instance(cls) -> "RiskScorer":
+    def get_instance(cls) -> RiskScorer:
         """获取全局 RiskScorer 单例(类方法,便于 scheduler 调用)。"""
         return get_instance()
 
@@ -647,7 +647,7 @@ class RiskScorer:
 # 辅助函数
 # ---------------------------------------------------------------------------
 
-def _parse_timestamp(value: Any) -> Optional[float]:
+def _parse_timestamp(value: Any) -> float | None:
     """解析时间戳(支持 datetime/ISO 字符串/float/int)。"""
     if value is None:
         return None
@@ -675,7 +675,7 @@ def _parse_timestamp(value: Any) -> Optional[float]:
 # 全局单例
 # ---------------------------------------------------------------------------
 
-_global_scorer: Optional[RiskScorer] = None
+_global_scorer: RiskScorer | None = None
 _global_scorer_lock = threading.Lock()
 
 

@@ -28,7 +28,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-
 # =============================================================================
 # 覆盖 conftest.py 中 broken 的 _isolate_vector_memory fixture + 关闭 JWT 认证
 # (参考 test_publish.py / test_message_bus.py 的做法)

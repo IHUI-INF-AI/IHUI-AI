@@ -23,12 +23,12 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from ...services.conversation import conversation_service
 from ...middleware.output_safety import (
-    scan_output,
-    apply_disclaimers,
     annotate_ai_generated,
+    apply_disclaimers,
+    scan_output,
 )
+from ...services.conversation import conversation_service
 
 router = APIRouter()
 

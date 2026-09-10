@@ -245,7 +245,8 @@ async def test_artifacts_cache_direct_write_readable(monkeypatch):
 
 async def test_summarize_artifacts_uses_store(monkeypatch):
     """端到端:_tool_summarize_artifacts 通过 artifacts_store 读取(进程内降级)。"""
-    from app.services.mcp_server import _ARTIFACTS_CACHE as mcp_cache, _tool_summarize_artifacts
+    from app.services.mcp_server import _ARTIFACTS_CACHE as mcp_cache
+    from app.services.mcp_server import _tool_summarize_artifacts
 
     monkeypatch.setattr(artifacts_store, "_get_redis", lambda: None)
     mcp_cache.clear()
@@ -627,8 +628,8 @@ class TestDispatchSingle:
 
     async def test_non_stub_invokes_orchestrator(self, monkeypatch):
         """非 stub 模式:调用 agent_orchestrator.invoke 并映射结果。"""
-        from app.services.agent_orchestrator import AgentStepResult, agent_orchestrator
         from app.services import dispatch_helper
+        from app.services.agent_orchestrator import AgentStepResult, agent_orchestrator
         monkeypatch.setattr(dispatch_helper, "_is_stub_mode", lambda: False)
 
         async def mock_invoke(agent_name, user_input, session_id=None, model_override=None):
@@ -686,8 +687,8 @@ class TestDispatchParallel:
 
     async def test_partial_failure_non_stub(self, monkeypatch):
         """非 stub:1 failed / 2 success,验证 results 字段映射 name→agent_name。"""
-        from app.services.agent_orchestrator import agent_orchestrator
         from app.services import dispatch_helper
+        from app.services.agent_orchestrator import agent_orchestrator
         monkeypatch.setattr(dispatch_helper, "_is_stub_mode", lambda: False)
 
         async def mock_invoke_parallel(tasks, max_concurrency=5):
@@ -721,8 +722,8 @@ class TestDispatchParallel:
         assert "模拟调试失败" in failed[0]["error"]
 
     async def test_all_failed_non_stub(self, monkeypatch):
-        from app.services.agent_orchestrator import agent_orchestrator
         from app.services import dispatch_helper
+        from app.services.agent_orchestrator import agent_orchestrator
         monkeypatch.setattr(dispatch_helper, "_is_stub_mode", lambda: False)
 
         async def mock_invoke_parallel(tasks, max_concurrency=5):

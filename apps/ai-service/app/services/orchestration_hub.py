@@ -25,13 +25,14 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -450,7 +451,7 @@ class PillarEventBus:
 
     async def get_event_stats(self, window_hours: int = 24) -> dict[str, Any]:
         """按事件类型统计(window_hours 内各事件发生次数 + 成功/失败率)。"""
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=window_hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=window_hours)
         cutoff_str = cutoff.isoformat()
         stats: dict[str, dict[str, int]] = {}
 
@@ -492,9 +493,7 @@ class JointDecisionEngine:
         self._redis: Any = None
         self._use_redis: bool = True
         self._memory_decisions: deque[dict[str, Any]] = deque(maxlen=_MEMORY_DECISION_MAXLEN)
-        self._playbook_states: dict[str, bool] = {
-            pid: True for pid in ORCHESTRATION_PLAYBOOKS
-        }
+        self._playbook_states: dict[str, bool] = dict.fromkeys(ORCHESTRATION_PLAYBOOKS, True)
         # 编排统计
         self._stats: dict[str, Any] = {
             "total_decisions": 0,
@@ -503,7 +502,7 @@ class JointDecisionEngine:
             "failed": 0,
             "skipped": 0,
             "total_duration_ms": 0,
-            "playbook_triggers": {pid: 0 for pid in ORCHESTRATION_PLAYBOOKS},
+            "playbook_triggers": dict.fromkeys(ORCHESTRATION_PLAYBOOKS, 0),
         }
 
     async def _ensure_redis(self) -> Any:
@@ -544,7 +543,7 @@ class JointDecisionEngine:
     async def evaluate(self, event: PillarEvent) -> OrchestrationDecision:
         """接收事件,匹配 playbook,返回决策。"""
         playbook_id = self._match_playbook(event)
-        created_at = datetime.now(timezone.utc).isoformat()
+        created_at = datetime.now(UTC).isoformat()
 
         if playbook_id is None:
             # 无匹配 playbook 或 playbook 已禁用
@@ -640,7 +639,7 @@ class JointDecisionEngine:
             return decision.to_dict()
 
         decision.status = "executing"
-        decision.executed_at = datetime.now(timezone.utc).isoformat()
+        decision.executed_at = datetime.now(UTC).isoformat()
         start_ms = time.time() * 1000
 
         results: list[dict[str, Any]] = []
@@ -785,9 +784,7 @@ class OrchestrationHub:
         self._redis: Any = None
         self._memory_events: deque[dict[str, Any]] = deque(maxlen=_MEMORY_EVENT_MAXLEN)
         self._memory_decisions: deque[dict[str, Any]] = deque(maxlen=_MEMORY_DECISION_MAXLEN)
-        self._playbook_states: dict[str, bool] = {
-            pid: True for pid in ORCHESTRATION_PLAYBOOKS
-        }
+        self._playbook_states: dict[str, bool] = dict.fromkeys(ORCHESTRATION_PLAYBOOKS, True)
         self._running: bool = False
         self._consumer_task: asyncio.Task[None] | None = None
 
@@ -804,10 +801,8 @@ class OrchestrationHub:
         self._running = False
         if self._consumer_task is not None:
             self._consumer_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._consumer_task
-            except asyncio.CancelledError:
-                pass
             self._consumer_task = None
         logger.info("[orchestration_hub] 编排中枢已停止")
 
@@ -879,7 +874,7 @@ class OrchestrationHub:
         event = PillarEvent(
             event_type=event_type,
             source_pillar=source_pillar,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             payload=payload,
             severity=severity,
         )
@@ -945,7 +940,7 @@ class OrchestrationHub:
             "decision_stats": decision_stats,
             "playbooks": playbooks,
             "pillar_health": pillar_health,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
 

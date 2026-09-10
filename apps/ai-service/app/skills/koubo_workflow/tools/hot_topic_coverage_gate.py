@@ -33,17 +33,20 @@ hot_topic_coverage_gate.py — 口播稿「热点覆盖自检」门禁 v1.0
 
 退出码：0=通过可交付  1=漏抓热点·阻断  2=参数错误
 """
+import json
 import os
 import re
 import sys
-import json
-import urllib.request
 import urllib.error
+import urllib.request
 from typing import Any, cast
 
 # ── 项目边界硬门禁（缺省 fail-closed：未声明会话 / 公众号会话均拦截） ──
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # koubo_workflow/
+from datetime import UTC
+
 import project_boundary
+
 project_boundary.check_action(tool="hot_topic_coverage_gate.py", paths=sys.argv[1:], cwd=os.getcwd())
 
 # ── 路径 ──
@@ -116,14 +119,14 @@ def pull_aihot(category: str | None = None, since_days: int = 7, take: int = 50)
 
 def _iso_since(days: int) -> str:
     """生成 since=now-days 的 ISO8601 UTC。"""
-    from datetime import datetime, timedelta, timezone
-    dt = datetime.now(timezone.utc) - timedelta(days=days)
+    from datetime import datetime, timedelta
+    dt = datetime.now(UTC) - timedelta(days=days)
     return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
 def parse_articles(path: str) -> list[dict[str, str]]:
     """解析 MMDD.txt 为 [{title, text}] 列表。以全 ─ 行分隔各篇。"""
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(path, encoding='utf-8') as f:
         raw = f.read()
     blocks = re.split(r'\n─{10,}\n', raw)
     articles: list[dict[str, str]] = []
@@ -218,7 +221,7 @@ def main() -> None:
     # 用户点名严格覆盖
     if extra:
         norm_text = _norm(all_text)
-        missing = [e for e, en in zip(extra, extra_norm) if en not in norm_text]
+        missing = [e for e, en in zip(extra, extra_norm, strict=False) if en not in norm_text]
         if missing:
             problems.append(f"用户点名热点未覆盖：{ '、'.join(missing) }")
 
@@ -227,7 +230,7 @@ def main() -> None:
     print(f'  🔥 热点覆盖自检 — {os.path.basename(target)}')
     print('=' * 70)
     if aihot_err and ack_offline:
-        print(f'  aihot：不可达（--ack-offline 跳过自动检测）')
+        print('  aihot：不可达（--ack-offline 跳过自动检测）')
     else:
         print(f'  aihot 模型发布(近7天)：{aihot_count} 条 → '
               f'{"[发布潮]" if wave else "[无发布潮]"}')
@@ -235,7 +238,7 @@ def main() -> None:
           + (', '.join(sorted(article_entities)) if article_entities else '（无）'))
     if extra:
         print(f"  用户点名（{len(extra)} 个）：{'、'.join(extra)}")
-        missing = [e for e, en in zip(extra, extra_norm) if en not in _norm(all_text)]
+        missing = [e for e, en in zip(extra, extra_norm, strict=False) if en not in _norm(all_text)]
         print(f'    覆盖状态：{"✅ 全部覆盖" if not missing else "❌ 缺失 " + "、".join(missing)}')
     print('-' * 70)
 

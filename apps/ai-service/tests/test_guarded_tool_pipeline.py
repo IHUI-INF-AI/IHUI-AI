@@ -34,19 +34,18 @@ from app.services.guarded_tool_pipeline import (
     ERROR_INJECTION_BLOCKED,
     ERROR_RECORD_FAILED,
     ERROR_SCAN_BLOCKED,
-    GuardedToolError,
-    GuardedToolPipeline,
-    PipelineResult,
     STAGE_BUDGET,
     STAGE_INPUT,
     STAGE_RECORD,
+    GuardedToolError,
+    GuardedToolPipeline,
+    PipelineResult,
 )
 from app.services.tool_budget_governor import (
     BUDGET_EXCEEDED,
     ToolBudgetConfig,
     ToolBudgetGovernor,
 )
-
 
 # =============================================================================
 # Fake guards (deterministic, configurable)

@@ -33,10 +33,10 @@ import json
 import os
 import threading
 import time
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from app.core.logging import get_logger
 
@@ -107,7 +107,7 @@ class CookieHealth:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "CookieHealth":
+    def from_dict(cls, data: dict[str, Any]) -> CookieHealth:
         """从 dict 反序列化。"""
         return cls(**data)
 
@@ -203,7 +203,7 @@ class CookieHealthMonitor:
         self,
         account_id: str,
         platform: str,
-        credentials: Optional[dict[str, Any]] = None,
+        credentials: dict[str, Any] | None = None,
         context: Any = None,
     ) -> CookieHealth:
         """检查 Cookie 健康度(有效期/活跃度/完整性)。
@@ -417,7 +417,7 @@ class CookieHealthMonitor:
         self,
         account_id: str,
         platform: str,
-    ) -> Optional[datetime]:
+    ) -> datetime | None:
         """预测 Cookie 过期时间(基于 cookie max-age + 历史数据)。
 
         Args:
@@ -437,7 +437,7 @@ class CookieHealthMonitor:
 
         # 预测过期 = 最后活跃时间 + 剩余天数
         expiry_ts = cached.last_active_at + cached.days_until_expiry * 86400
-        return datetime.fromtimestamp(expiry_ts, tz=timezone.utc)
+        return datetime.fromtimestamp(expiry_ts, tz=UTC)
 
     def get_expiring_soon(self, days: int = _EXPIRING_SOON_DAYS) -> list[ExpiryAlert]:
         """获取即将过期的账号列表。

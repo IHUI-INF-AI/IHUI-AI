@@ -21,30 +21,29 @@
 
 from __future__ import annotations
 
-import asyncio
-import os
 from pathlib import Path
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from anydoc import MalformedError
 
 from app.services import codebase_indexer
 from app.services.codebase_indexer import (
+    _EXT_TO_LANG,
+    _IGNORED_DIRS,
     EMBEDDING_BATCH_SIZE,
     FIXED_CHUNK_LINES,
     FIXED_CHUNK_OVERLAP,
     MAX_CHUNK_CHARS,
     MAX_CHUNKS_PER_FILE,
     MAX_FILES_PER_INDEX,
-    CodeChunk,
     CodebaseIndexer,
+    CodeChunk,
     IndexResult,
-    codebase_indexer as global_indexer,
-    _EXT_TO_LANG,
-    _IGNORED_DIRS,
 )
-
+from app.services.codebase_indexer import (
+    codebase_indexer as global_indexer,
+)
 
 # ============================================================
 # 0. Merkle 快照目录隔离(2026-09-07 立,autouse)
@@ -316,7 +315,7 @@ class TestRegexPatterns:
         assert "typescript" in CodebaseIndexer._REGEX_PATTERNS
 
     def test_pattern_structure(self):
-        for lang, patterns in CodebaseIndexer._REGEX_PATTERNS.items():
+        for _lang, patterns in CodebaseIndexer._REGEX_PATTERNS.items():
             for item in patterns:
                 assert len(item) == 3
                 symbol_type, pattern, _ = item
@@ -892,10 +891,9 @@ class TestIndexRepository:
         idx._tree_sitter_available = False
         idx._api_base_url = "http://localhost:8801"
         with patch.object(idx, "_generate_embeddings_batch",
-                          new=AsyncMock(return_value=0)):
-            with patch.object(idx, "_write_to_api",
-                              new=AsyncMock(return_value={})):
-                result = await idx.index_repository(str(tmp_path), None)
+                          new=AsyncMock(return_value=0)), patch.object(idx, "_write_to_api",
+                          new=AsyncMock(return_value={})):
+            result = await idx.index_repository(str(tmp_path), None)
         assert result.repo_id.startswith("local-")
         assert len(result.repo_id) > len("local-")
 
@@ -915,10 +913,9 @@ class TestIndexRepository:
         idx._tree_sitter_available = False
         idx._api_base_url = "http://localhost:8801"
         with patch.object(idx, "_generate_embeddings_batch",
-                          new=AsyncMock(return_value=1)):
-            with patch.object(idx, "_write_to_api",
-                              new=AsyncMock(return_value={})):
-                result = await idx.index_repository(str(tmp_path), "repo-1")
+                          new=AsyncMock(return_value=1)), patch.object(idx, "_write_to_api",
+                          new=AsyncMock(return_value={})):
+            result = await idx.index_repository(str(tmp_path), "repo-1")
         assert result.files_scanned == 1
         assert result.files_indexed == 1
         assert result.chunks_created >= 1
@@ -932,10 +929,9 @@ class TestIndexRepository:
         idx._tree_sitter_available = False
         idx._api_base_url = "http://localhost:8801"
         with patch.object(idx, "_generate_embeddings_batch",
-                          new=AsyncMock(return_value=0)):
-            with patch.object(idx, "_write_to_api",
-                              new=AsyncMock(return_value={})):
-                result = await idx.index_repository(str(tmp_path), "repo-1")
+                          new=AsyncMock(return_value=0)), patch.object(idx, "_write_to_api",
+                          new=AsyncMock(return_value={})):
+            result = await idx.index_repository(str(tmp_path), "repo-1")
         # 空文件不索引
         assert result.files_indexed == 1
 
@@ -946,10 +942,9 @@ class TestIndexRepository:
         idx._tree_sitter_available = False
         idx._api_base_url = "http://localhost:8801"
         with patch.object(idx, "_generate_embeddings_batch",
-                          new=AsyncMock(return_value=0)):
-            with patch.object(idx, "_write_to_api",
-                              new=AsyncMock(side_effect=RuntimeError("api down"))):
-                result = await idx.index_repository(str(tmp_path), "repo-1")
+                          new=AsyncMock(return_value=0)), patch.object(idx, "_write_to_api",
+                          new=AsyncMock(side_effect=RuntimeError("api down"))):
+            result = await idx.index_repository(str(tmp_path), "repo-1")
         assert any("写入批次" in e or "api down" in e for e in result.errors)
 
     @pytest.mark.asyncio
@@ -1001,10 +996,9 @@ class TestIndexFile:
         idx._tree_sitter_available = False
         idx._api_base_url = "http://localhost:8801"
         with patch.object(idx, "_generate_embeddings_batch",
-                          new=AsyncMock(return_value=1)):
-            with patch.object(idx, "_write_to_api",
-                              new=AsyncMock(return_value={})):
-                result = await idx.index_file(str(f), "repo-1")
+                          new=AsyncMock(return_value=1)), patch.object(idx, "_write_to_api",
+                          new=AsyncMock(return_value={})):
+            result = await idx.index_file(str(f), "repo-1")
         assert result.files_scanned == 1
         assert result.files_indexed == 1
         assert result.chunks_created >= 1
@@ -1325,7 +1319,7 @@ class TestAnydocDocumentIndexing:
         """损坏的文档文件应抛异常(调用方跳过并记 error)。"""
         bad = tmp_path / "bad.docx"
         bad.write_bytes(b"PK\x03\x04not-a-real-docx")
-        with pytest.raises(Exception):
+        with pytest.raises(MalformedError):
             codebase_indexer._extract_document_markdown(bad)
 
     @pytest.mark.skipif(not codebase_indexer._ANYDOC_OK, reason="anydoc 未安装")
@@ -1333,9 +1327,8 @@ class TestAnydocDocumentIndexing:
         """_extract_document_markdown 在 _anydoc 为 None 时报 RuntimeError。"""
         f = tmp_path / "a.docx"
         f.write_bytes(b"x")
-        with patch.object(codebase_indexer, "_anydoc", None):
-            with pytest.raises(RuntimeError):
-                codebase_indexer._extract_document_markdown(f)
+        with patch.object(codebase_indexer, "_anydoc", None), pytest.raises(RuntimeError):
+            codebase_indexer._extract_document_markdown(f)
 
     @pytest.mark.skipif(not codebase_indexer._ANYDOC_OK, reason="anydoc 未安装")
     @pytest.mark.asyncio

@@ -21,9 +21,8 @@ tags=["agent-recorder"])` 方式挂载,最终端点路径:
 
 from __future__ import annotations
 
-from typing import Any
-
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Depends
 

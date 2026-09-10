@@ -20,8 +20,8 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.mcp_server import (
-    _tool_configure_automation_task,
     _AUTOMATION_CONFIGS,
+    _tool_configure_automation_task,
 )
 
 

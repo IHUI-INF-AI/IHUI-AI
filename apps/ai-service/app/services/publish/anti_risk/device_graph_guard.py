@@ -66,7 +66,7 @@ class AccountBinding:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AccountBinding":
+    def from_dict(cls, data: dict[str, Any]) -> AccountBinding:
         return cls(
             account_id=str(data["account_id"]),
             fingerprint_hash=str(data["fingerprint_hash"]),

@@ -20,7 +20,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from app.core.rbac import Principal, Permission, require_permission
+from app.core.rbac import Permission, Principal, require_permission
 from app.services.audit_log import audit_log_store
 
 logger = logging.getLogger(__name__)

@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from app.core.logging import get_logger
@@ -66,7 +66,6 @@ _SYNONYMS: dict[str, tuple[str, ...]] = {
     "系统": ("平台", "架构", "框架", "体系"),
     "功能": ("特性", "能力", "模块", "组件"),
     "性能": ("效率", "速度", "响应", "吞吐"),
-    "安全": ("防护", "保障", "防御", "加固"),
     "数据": ("信息", "资料", "内容", "记录"),
     "用户": ("客户", "使用者", "访问者", "成员"),
     "接口": ("API", "通道", "入口", "端点"),
@@ -127,7 +126,6 @@ _PUNCTUATION_MAP: dict[str, str] = {
     "？": "?",
     """: '"',
     """: '"',
-    "'": "'",
     "'": "'",
     "——": "-",
     "……": "...",
@@ -223,7 +221,7 @@ class ContentDeduplicator:
     def _compute_simhash(tokens: list[str], weights: list[int]) -> int:
         """计算 SimHash 值。"""
         bit_counts = [0] * _SIMHASH_BITS
-        for token, weight in zip(tokens, weights):
+        for token, weight in zip(tokens, weights, strict=False):
             # 用 MD5 的前 8 字节作为 64 位 hash
             h = int(hashlib.md5(token.encode("utf-8")).hexdigest()[:16], 16)
             for i in range(_SIMHASH_BITS):
@@ -300,7 +298,7 @@ class ContentDeduplicator:
         original_title = getattr(diversified, "title", "") or ""
         new_title = self._rewrite_with_synonyms(original_title, seed)
         if new_title != original_title:
-            setattr(diversified, "title", new_title)
+            diversified.title = new_title
             logger.debug(
                 "[content_dedup] 标题改写: platform=%s seed=%s",
                 platform, account_seed,
@@ -311,13 +309,13 @@ class ContentDeduplicator:
         if original_text:
             new_text = self._rewrite_with_synonyms(original_text, seed)
             new_text = self._replace_punctuation(new_text, seed)
-            setattr(diversified, "text", new_text)
+            diversified.text = new_text
 
         # 3. HTML 正文改写(若有)
         original_html = getattr(diversified, "html", "") or ""
         if original_html:
             new_html = self._rewrite_with_synonyms(original_html, seed)
-            setattr(diversified, "html", new_html)
+            diversified.html = new_html
 
         # 4. 标签顺序打乱(extra 字段中的 tags)
         extra = getattr(diversified, "extra", {}) or {}
@@ -328,7 +326,7 @@ class ContentDeduplicator:
                 # 创建新 extra 避免修改原对象
                 new_extra = dict(extra)
                 new_extra["tags"] = shuffled_tags
-                setattr(diversified, "extra", new_extra)
+                diversified.extra = new_extra
 
         logger.info(
             "[content_dedup] 内容差异化完成: platform=%s seed=%s",

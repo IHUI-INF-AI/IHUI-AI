@@ -34,15 +34,13 @@ L4 元学习闭环:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import uuid as _uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import asyncpg
 
-from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 from .failure_clusterer import failure_clusterer
 from .self_evaluator import self_evaluator
@@ -453,13 +451,13 @@ class MetaLearner:
                 min(1.0, float(existing.get("confidence", 0.5)) + confidence * 0.1), 2
             )
             existing["content"] = content  # 用新内容覆盖(LLM 新生成的更准)
-            existing["updatedAt"] = datetime.now(timezone.utc).isoformat()
+            existing["updatedAt"] = datetime.now(UTC).isoformat()
             existing["systemPromptSnippet"] = self._build_snippet_for_lesson(existing)
             # 用原 id(不换 id)
             lesson_id = existing_id
         else:
             # 新建内存缓存
-            now_iso = datetime.now(timezone.utc).isoformat()
+            now_iso = datetime.now(UTC).isoformat()
             self._lessons[lesson_id] = {
                 "lessonId": lesson_id,
                 "lessonType": lesson_type,

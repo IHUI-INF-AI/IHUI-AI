@@ -4,8 +4,8 @@
 
 """空输入行为测试(golden:generate_report([]) 与 summarize([]) 不抛异常)。"""
 
-from report import generate_report
 from aggregate import summarize
+from report import generate_report
 
 
 def test_generate_report_empty() -> None:

@@ -33,12 +33,13 @@ import os
 import re
 import sys
 import tempfile
-from typing import Any, Optional, cast
 
 # 让本模块能 import 项目根的 build_gpt56_sol
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
+import contextlib
+
 import build_gpt56_sol as builder
 
 # ===== 需剥离的 GEO 信源/信任话术（纯 SEO 优化，非事实）=====
@@ -134,7 +135,7 @@ MARKETING_TITLE_WORDS = [
 ]
 
 
-def derive_csdn_title(wechat_title: Optional[str]) -> str:
+def derive_csdn_title(wechat_title: str | None) -> str:
     """从微信标题派生 CSDN 中性标题（去营销后缀，不在标点处截断）。"""
     t = wechat_title or ''
     for w in MARKETING_TITLE_WORDS:
@@ -146,7 +147,7 @@ def derive_csdn_title(wechat_title: Optional[str]) -> str:
     return t.strip() or (wechat_title or '')
 
 
-def clean_md_for_csdn(md_text: str, csdn_title: Optional[str] = None) -> str:
+def clean_md_for_csdn(md_text: str, csdn_title: str | None = None) -> str:
     """返回清洗后的 CSDN 版 markdown 文本。
 
     2026-07-17 加固：CSDN 平台判定营销的标准比 validate 脚本严格得多。
@@ -283,15 +284,15 @@ def clean_md_for_csdn(md_text: str, csdn_title: Optional[str] = None) -> str:
     return text
 
 
-def build_csdn_docx(source_md: str, out_docx: str, images_dir: Optional[str] = None,
-                    csdn_title: Optional[str] = None) -> str:
+def build_csdn_docx(source_md: str, out_docx: str, images_dir: str | None = None,
+                    csdn_title: str | None = None) -> str:
     """构建 CSDN 专用 DOCX（去营销/去 GEO），返回 out_docx 路径。
 
     2026-07-17 加固：清洗后自检平台风险，>0 立即报错（不交付营销 CSDN）。
     """
     if images_dir is None:
         images_dir = builder.IMAGES_DIR
-    with open(source_md, 'r', encoding='utf-8') as f:
+    with open(source_md, encoding='utf-8') as f:
         md_text = f.read()
     cleaned = clean_md_for_csdn(md_text, csdn_title)
 
@@ -306,26 +307,21 @@ def build_csdn_docx(source_md: str, out_docx: str, images_dir: Optional[str] = N
         risk_percent, risk_detail = _check_platform_risk(plain, csdn_title_for_check)
         if risk_percent > 0:
             print(f'  ⚠️ CSDN 清洗后仍有营销风险 ({risk_percent}%): {risk_detail[:200]}')
-            print(f'  ⚠️ 仍按设计交付，但 CSDN 平台可能驳回，建议进一步手动清洗')
+            print('  ⚠️ 仍按设计交付，但 CSDN 平台可能驳回，建议进一步手动清洗')
         else:
-            print(f'  ✅ CSDN 清洗后风险自检 PASS (0% 风险)')
+            print('  ✅ CSDN 清洗后风险自检 PASS (0% 风险)')
     except ImportError:
         pass  # validate 不在路径里时跳过自检
 
     # 清洗后文本写入系统临时 md，构建完即删（不落项目 md 产物，遵守 2026-07-14 只留 html+docx）
-    tmp = tempfile.NamedTemporaryFile(
-        mode='w', suffix='.md', encoding='utf-8', delete=False, dir=tempfile.gettempdir())
-    try:
+    with tempfile.NamedTemporaryFile(
+        mode='w', suffix='.md', encoding='utf-8', delete=False, dir=tempfile.gettempdir()) as tmp:
         tmp.write(cleaned)
-        tmp.close()
         builder.build_docx(
             md_path=tmp.name, docx_path=out_docx,
             images_dir=images_dir, assets_dir=None, cover_img=None)
-    finally:
-        try:
-            os.remove(tmp.name)
-        except OSError:
-            pass
+    with contextlib.suppress(OSError):
+        os.remove(tmp.name)
     return out_docx
 
 

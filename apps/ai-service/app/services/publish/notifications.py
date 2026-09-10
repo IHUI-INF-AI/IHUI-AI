@@ -17,8 +17,8 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import asyncpg
 
@@ -28,7 +28,7 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-async def _get_db_conn() -> Optional[asyncpg.Connection]:
+async def _get_db_conn() -> asyncpg.Connection | None:
     """获取 DB 连接,失败返回 None(降级)。"""
     dsn = getattr(settings, "database_url", None)
     if not dsn:
@@ -65,7 +65,7 @@ async def _ensure_table(conn: asyncpg.Connection) -> None:
 
 async def _write_to_db(
     task_id: str,
-    user_id: Optional[str],
+    user_id: str | None,
     status: str,
     summary: str,
     payload: dict[str, Any],
@@ -112,10 +112,10 @@ async def _push_sio(room: str, event: str, data: dict[str, Any]) -> bool:
 
 async def notify_publish_complete(
     task_id: str,
-    user_id: Optional[str],
+    user_id: str | None,
     status: str,  # 'success' | 'partial' | 'failed' | 'cancelled'
     summary: str,
-    payload: Optional[dict[str, Any]] = None,
+    payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """发布完成统一通知入口。
 
@@ -129,7 +129,7 @@ async def notify_publish_complete(
         "status": status,
         "summary": summary,
         "payload": payload or {},
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
     # Socket.IO 推送到 user room(前端按 user_id 订阅)
@@ -151,7 +151,7 @@ async def notify_publish_complete(
 
 async def notify_progress(
     task_id: str,
-    user_id: Optional[str],
+    user_id: str | None,
     platform: str,
     status: str,
     message: str = "",
@@ -163,7 +163,7 @@ async def notify_progress(
         "platform": platform,
         "status": status,  # 'start' | 'success' | 'failed'
         "message": message,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
     room = f"user:{user_id}" if user_id else "publish:broadcast"
     return await _push_sio(room, "publish_progress", data)

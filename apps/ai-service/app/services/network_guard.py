@@ -19,15 +19,14 @@ import contextvars
 import fnmatch
 import ipaddress
 import logging
-import re
 from dataclasses import dataclass, field
-from typing import Any, Optional, cast
+from typing import Any, cast
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
 # 当前任务的网络策略 contextvar(asyncio.create_task 自动复制 context,executor Task 可读)
-_current_policy: contextvars.ContextVar[Optional["NetworkEgressPolicy"]] = contextvars.ContextVar(
+_current_policy: contextvars.ContextVar[NetworkEgressPolicy | None] = contextvars.ContextVar(
     "network_egress_policy", default=None
 )
 
@@ -104,9 +103,7 @@ class NetworkEgressPolicy:
                 pattern = domain[1:]  # 去掉 * → .example.com
                 if host.endswith(pattern) and len(host) > len(pattern):
                     return True
-            elif fnmatch.fnmatch(host, domain):
-                return True
-            elif host == domain:
+            elif fnmatch.fnmatch(host, domain) or host == domain:
                 return True
         return False
 
@@ -122,9 +119,7 @@ class NetworkEgressPolicy:
         if h in ("::1", "0:0:0:0:0:0:0:1", "::ffff:127.0.0.1", "0:0:0:0:0:0:ffff:7f00:1"):
             return True
         # 0.0.0.0(监听所有接口,视为本地)
-        if h == "0.0.0.0":
-            return True
-        return False
+        return h == "0.0.0.0"
 
     def _is_ip(self, host: str) -> bool:
         """检查是否是 IP 地址。"""
@@ -135,7 +130,7 @@ class NetworkEgressPolicy:
             return False
 
 
-def from_config(config: Optional[dict[str, Any]]) -> Optional[NetworkEgressPolicy]:
+def from_config(config: dict[str, Any] | None) -> NetworkEgressPolicy | None:
     """从 WorkerPoolConfig.network_egress_policy 字典创建策略。
 
     config 示例:
@@ -157,7 +152,7 @@ def from_config(config: Optional[dict[str, Any]]) -> Optional[NetworkEgressPolic
     )
 
 
-def set_current_policy(policy: Optional[NetworkEgressPolicy]) -> contextvars.Token[Optional["NetworkEgressPolicy"]]:
+def set_current_policy(policy: NetworkEgressPolicy | None) -> contextvars.Token[NetworkEgressPolicy | None]:
     """设置当前任务的网络策略(在 executor 启动前调用)。
 
     Returns: token,executor 完成后用 reset_current_policy(token) 清理。
@@ -165,12 +160,12 @@ def set_current_policy(policy: Optional[NetworkEgressPolicy]) -> contextvars.Tok
     return _current_policy.set(policy)
 
 
-def reset_current_policy(token: contextvars.Token[Optional["NetworkEgressPolicy"]]) -> None:
+def reset_current_policy(token: contextvars.Token[NetworkEgressPolicy | None]) -> None:
     """清理 contextvar(在 executor finally 块调用)。"""
     _current_policy.reset(token)
 
 
-def get_current_policy() -> Optional[NetworkEgressPolicy]:
+def get_current_policy() -> NetworkEgressPolicy | None:
     """获取当前任务的网络策略(executor 内部 HTTP 客户端调用)。"""
     return _current_policy.get()
 

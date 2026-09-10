@@ -22,9 +22,8 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-import asyncpg
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -101,7 +100,7 @@ class InvokeResponse(BaseModel):
     ok: bool
     output: str
     duration_ms: int
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class WechatGenerateRequest(BaseModel):
@@ -195,7 +194,7 @@ async def _run_script(
     args: list[str],
     cwd: Path,
     timeout_sec: int = 120,
-    stdin_data: Optional[str] = None,
+    stdin_data: str | None = None,
 ) -> tuple[int, str, str]:
     """以 subprocess 方式调用 Python 脚本。
 
@@ -225,7 +224,7 @@ async def _run_script(
             proc.communicate(stdin_data.encode("utf-8") if stdin_data else None),
             timeout=timeout_sec,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         await proc.wait()
         return 124, "", f"timeout after {timeout_sec}s"
@@ -573,7 +572,7 @@ async def _run_inline_python(code: str, args: list[str], cwd: Path, timeout_sec:
         return 3, "", f"subprocess spawn failed: {e}"
     try:
         stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout_sec)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         await proc.wait()
         return 124, "", f"timeout after {timeout_sec}s"
@@ -706,11 +705,11 @@ async def koubo_history(limit: int = 50) -> dict[str, Any]:
 
 
 class TaskConfigUpdate(BaseModel):
-    hour: Optional[int] = None
-    minute: Optional[int] = None
-    dry_run: Optional[bool] = None
-    enabled: Optional[bool] = None
-    title_template: Optional[str] = None
+    hour: int | None = None
+    minute: int | None = None
+    dry_run: bool | None = None
+    enabled: bool | None = None
+    title_template: str | None = None
 
 
 @router.get("/automation/tasks")
@@ -777,7 +776,7 @@ async def automation_trigger_task(task_id: str) -> dict[str, Any]:
 
 @router.get("/automation/history")
 async def automation_history(
-    task_id: Optional[str] = None, limit: int = 30
+    task_id: str | None = None, limit: int = 30
 ) -> dict[str, Any]:
     """查询任务执行历史(可选按 task_id 过滤)。"""
     from app.services.self_media_scheduler import self_media_scheduler

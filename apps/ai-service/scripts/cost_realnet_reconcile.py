@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 import urllib.request
 from pathlib import Path
@@ -85,7 +84,7 @@ def main() -> int:
     billed = float(usage.get("cost") or 0.0)
     tin = int(usage.get("prompt_tokens") or 0)
     tout = int(usage.get("completion_tokens") or 0)
-    real_id = str((data.get("model") or REALNET_MODEL))
+    real_id = str(data.get("model") or REALNET_MODEL)
     print(f"      真账单 cost=${billed:.6f}  tokens(in={tin}, out={tout})  model={real_id}")
 
     print("[2/3] 本平台价表推算(estimate_cost_usd)…")

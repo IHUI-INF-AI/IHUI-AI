@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 from app.core.logging import get_logger
 
@@ -540,7 +540,7 @@ PLATFORM_SELECTORS: dict[str, PlatformDomSelectors] = {
 # ---------------------------------------------------------------------------
 
 
-def get_selectors(platform: str) -> Optional[PlatformDomSelectors]:
+def get_selectors(platform: str) -> PlatformDomSelectors | None:
     """获取平台 DOM 选择器配置。
 
     Args:

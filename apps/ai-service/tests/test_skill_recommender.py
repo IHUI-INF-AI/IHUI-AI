@@ -18,9 +18,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.routers import ai_skills
-from app.services.skill_recommender import SkillRecommender, skill_recommender
+from app.services.skill_recommender import SkillRecommender
 from app.services.skills import Skill
-
 
 # =============================================================================
 # 辅助

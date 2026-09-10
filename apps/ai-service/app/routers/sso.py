@@ -24,7 +24,13 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
-from app.core.sso import SSOConfigError, SSOProvider, build_provider, new_state, parse_callback_params
+from app.core.sso import (
+    SSOConfigError,
+    SSOProvider,
+    build_provider,
+    new_state,
+    parse_callback_params,
+)
 
 logger = logging.getLogger(__name__)
 

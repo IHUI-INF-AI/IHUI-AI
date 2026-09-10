@@ -22,7 +22,6 @@ import base64
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from app.services import vision_helper
 from app.services.vision_helper import (
     analyze_image,
     encode_base64,

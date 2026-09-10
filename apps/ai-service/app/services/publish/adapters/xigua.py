@@ -38,10 +38,11 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlparse
 
 from app.core.logging import get_logger
+
 from ..anti_risk import (
     close_stealth_context,
     create_stealth_browser_context,
@@ -437,7 +438,7 @@ class XiguaAdapter(BasePlatformAdapter):
                             logger.warning("[xigua] 成功提示检测异常")
 
                     # 尝试从 URL 提取视频 ID
-                    platform_content_id: Optional[str] = None
+                    platform_content_id: str | None = None
                     try:
                         parsed = urlparse(published_url)
                         qs = parse_qs(parsed.query)

@@ -53,7 +53,7 @@ async def web_tools_call(req: WebToolCallRequest) -> dict[str, Any]:
     if timeout is None:
         raise HTTPException(
             status_code=400,
-            detail="不支持的工具 '{}':仅 fetch_readable / map_site / extract_web(crawl_site 为管理员工具,不在 HTTP 层开放)".format(req.tool),
+            detail=f"不支持的工具 '{req.tool}':仅 fetch_readable / map_site / extract_web(crawl_site 为管理员工具,不在 HTTP 层开放)",
         )
     if req.tool == "extract_web" and not req.fields:
         raise HTTPException(status_code=400, detail="extract_web 需要 fields 字段 schema(JSON 对象,字段名→类型)")
@@ -76,16 +76,16 @@ async def web_tools_call(req: WebToolCallRequest) -> dict[str, Any]:
     try:
         fn = getattr(wc, req.tool)
         result = await asyncio.wait_for(fn(arguments), timeout=timeout)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         raise HTTPException(
             status_code=504,
-            detail="工具执行超时({}s):可降低 max_chars/链接数后重试".format(int(timeout)),
+            detail=f"工具执行超时({int(timeout)}s):可降低 max_chars/链接数后重试",
         ) from None
     except HTTPException:
         raise
     except Exception as e:  # noqa: BLE001 - 工具层异常统一收敛为 500
         logger.warning("web-tools/call %s %s 失败: %s", req.tool, req.url, e)
-        raise HTTPException(status_code=500, detail="网页工具执行异常: {}".format(e)) from e
+        raise HTTPException(status_code=500, detail=f"网页工具执行异常: {e}") from e
 
     return {"ok": True, "tool": req.tool, "result": result}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -14,8 +14,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.core.question_parser import (
     Question,
     QuestionStreamParser,

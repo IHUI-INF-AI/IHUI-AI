@@ -22,8 +22,9 @@ fastapi TestClient 驱动;鉴权依赖 get_current_user_id 用 dependency_overri
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import pytest
 from fastapi import FastAPI

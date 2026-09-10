@@ -16,12 +16,14 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, cast
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +53,7 @@ class DapProtocolReader:
         self._reader = reader
         self._buffer = b""
 
-    async def read_message(self) -> Optional[dict[str, Any]]:
+    async def read_message(self) -> dict[str, Any] | None:
         """读取下一条 DAP 消息;流关闭(EOF)返回 None。"""
         while True:
             msg = self._try_parse()
@@ -62,18 +64,16 @@ class DapProtocolReader:
                 return None  # EOF
             self._buffer += chunk
 
-    def _try_parse(self) -> Optional[dict[str, Any]]:
+    def _try_parse(self) -> dict[str, Any] | None:
         header_end = self._buffer.find(b"\r\n\r\n")
         if header_end == -1:
             return None
         header = self._buffer[:header_end].decode("ascii", errors="replace")
-        content_length: Optional[int] = None
+        content_length: int | None = None
         for line in header.split("\r\n"):
             if line.lower().startswith("content-length:"):
-                try:
+                with contextlib.suppress(ValueError):
                     content_length = int(line.split(":", 1)[1].strip())
-                except ValueError:
-                    pass
         if content_length is None:
             # 无效 header,跳过这一段
             self._buffer = self._buffer[header_end + 4 :]
@@ -112,7 +112,7 @@ class DapClient:
         self._pending: dict[int, asyncio.Future[Any]] = {}
         self._event_handlers: dict[str, list[EventHandler]] = {}
         self._reader = DapProtocolReader(process.stdout)
-        self._read_task: Optional[asyncio.Task[None]] = None
+        self._read_task: asyncio.Task[None] | None = None
         self._terminated = asyncio.Event()
 
     @property
@@ -165,7 +165,7 @@ class DapClient:
     async def send_request(
         self,
         command: str,
-        arguments: Optional[dict[str, Any]] = None,
+        arguments: dict[str, Any] | None = None,
         timeout: float = DAP_REQUEST_TIMEOUT,
     ) -> Any:
         """发送 DAP 请求并等待响应,返回 response body。超时/失败抛 RuntimeError。"""
@@ -187,7 +187,7 @@ class DapClient:
         self._pending[seq] = fut
         try:
             return await asyncio.wait_for(fut, timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._pending.pop(seq, None)
             raise RuntimeError(f"DAP 请求 {command} 超时({timeout}s)")
 
@@ -241,16 +241,16 @@ class DebugSession:
 
     session_id: str
     language: str  # 'node' | 'python' | 'web'
-    process: Optional[Any] = None  # asyncio.subprocess.Process
+    process: Any | None = None  # asyncio.subprocess.Process
     status: str = "initializing"  # initializing/running/stopped/terminated
     breakpoints: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     last_activity: float = field(default_factory=time.time)
     started_at: float = field(default_factory=time.time)
     initialized: asyncio.Event = field(default_factory=asyncio.Event)
-    client: Optional[DapClient] = None
-    current_thread_id: Optional[int] = None
+    client: DapClient | None = None
+    current_thread_id: int | None = None
     # stopped 事件等待器:continue/step 等待下次 stopped
-    _stopped_waiter: Optional[asyncio.Future[dict[str, Any]]] = None
+    _stopped_waiter: asyncio.Future[dict[str, Any]] | None = None
 
     def touch(self) -> None:
         self.last_activity = time.time()
@@ -269,7 +269,7 @@ class DebugSession:
 # ==================== Adapter 命令检测 ====================
 
 
-def get_adapter_command(language: str) -> tuple[list[str], Optional[str]]:
+def get_adapter_command(language: str) -> tuple[list[str], str | None]:
     """返回 debug adapter 的启动命令 + 适配器 ID。
 
     返回 (command_args, adapter_id)。adapter_id 为 None 表示不可用。
@@ -313,7 +313,7 @@ class DebugSessionManager:
     # ---- 内部:创建 adapter 子进程 ----
 
     async def _spawn_adapter(
-        self, language: str, cwd: Optional[str] = None
+        self, language: str, cwd: str | None = None
     ) -> Any:
         """启动 debug adapter 子进程,返回 asyncio.subprocess.Process。"""
         cmd_args, _ = get_adapter_command(language)
@@ -373,9 +373,9 @@ class DebugSessionManager:
         self,
         language: str,
         command: str,
-        args: Optional[list[str]] = None,
-        cwd: Optional[str] = None,
-        env: Optional[dict[str, str]] = None,
+        args: list[str] | None = None,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
         stop_on_entry: bool = False,
     ) -> str:
         """启动 debug adapter + launch 请求,返回 session_id。"""
@@ -418,7 +418,7 @@ class DebugSessionManager:
             session.initialized.set()
             session.touch()
             return session_id
-        except Exception as e:
+        except Exception:
             session.status = "terminated"
             if session.client:
                 await session.client.disconnect()
@@ -463,7 +463,7 @@ class DebugSessionManager:
             session.initialized.set()
             session.touch()
             return session_id
-        except Exception as e:
+        except Exception:
             session.status = "terminated"
             if session.client:
                 await session.client.disconnect()
@@ -516,7 +516,7 @@ class DebugSessionManager:
         try:
             stopped_body = await asyncio.wait_for(waiter, timeout=300.0)
             return stopped_body
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # 程序可能正常结束(terminated)或长时间运行
             if session.status == "terminated":
                 return {"reason": "terminated", "threadId": thread_id}
@@ -541,7 +541,7 @@ class DebugSessionManager:
         try:
             stopped_body = await asyncio.wait_for(waiter, timeout=60.0)
             return stopped_body
-        except asyncio.TimeoutError:
+        except TimeoutError:
             if session.status == "terminated":
                 return {"reason": "terminated", "threadId": thread_id}
             return {"reason": "timeout", "threadId": thread_id}
@@ -581,7 +581,7 @@ class DebugSessionManager:
         scopes = (scopes_body or {}).get("scopes", []) if scopes_body else []
         # 2. 找到匹配的 scope(DAP scope name 可能是 "Locals"/"Globals"/"Closure")
         scope_lower = scope.lower()
-        target_scope: Optional[dict[str, Any]] = None
+        target_scope: dict[str, Any] | None = None
         for s in scopes:
             name = str(s.get("name", "")).lower()
             if scope_lower in name or name in scope_lower:
@@ -612,7 +612,7 @@ class DebugSessionManager:
         self,
         session_id: str,
         expression: str,
-        frame_id: Optional[int] = None,
+        frame_id: int | None = None,
     ) -> dict[str, Any]:
         """表达式求值(repl 上下文)。"""
         session = self._get_session(session_id)
@@ -667,7 +667,7 @@ class DebugSessionManager:
 
 # ==================== 全局单例 ====================
 
-_debug_manager: Optional[DebugSessionManager] = None
+_debug_manager: DebugSessionManager | None = None
 
 
 def get_debug_manager() -> DebugSessionManager:

@@ -24,7 +24,6 @@ import asyncio
 import json
 import sys
 import threading
-import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path

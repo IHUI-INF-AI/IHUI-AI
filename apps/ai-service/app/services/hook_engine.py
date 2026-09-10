@@ -28,6 +28,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import copy
 import hashlib
 import hmac
@@ -273,10 +274,7 @@ def _eval_logic(expr: Any, data: dict[str, Any]) -> bool:
     if not isinstance(args, list) or len(args) != 2:
         return False
     field_path, expected = args
-    if isinstance(field_path, str):
-        actual = _resolve_path(data, field_path)
-    else:
-        actual = field_path
+    actual = _resolve_path(data, field_path) if isinstance(field_path, str) else field_path
     return _apply_operator(op, actual, expected, data)
 
 
@@ -376,10 +374,8 @@ class HookEngine:
         for q in list(subs):
             try:
                 if q.full():
-                    try:
+                    with contextlib.suppress(asyncio.QueueEmpty):
                         q.get_nowait()
-                    except asyncio.QueueEmpty:
-                        pass
                 q.put_nowait(payload)
             except Exception:
                 pass
@@ -894,7 +890,7 @@ class HookEngine:
                 stdout_bytes, stderr_bytes = await asyncio.wait_for(
                     proc.communicate(), timeout=SCRIPT_TIMEOUT
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 proc.kill()
                 await proc.wait()
                 return None, f"script 超时({SCRIPT_TIMEOUT}s)"

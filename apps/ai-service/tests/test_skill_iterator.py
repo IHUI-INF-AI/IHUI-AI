@@ -7,11 +7,11 @@
 覆盖 SkillIterator 的全部方法 + 全局单例。
 """
 
-import pytest
 from unittest.mock import AsyncMock, patch
 
-from app.services.skill_iterator import SkillIterator, skill_iterator
+import pytest
 
+from app.services.skill_iterator import SkillIterator, skill_iterator
 
 # ------------------------------------------------------------
 # _no_iterate(静态方法)

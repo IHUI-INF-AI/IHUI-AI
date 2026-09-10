@@ -16,7 +16,7 @@ import json
 import math
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from app.core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 
@@ -31,14 +31,14 @@ FIXTURE_PATH = (
 )
 
 
-def _load_fixture() -> Dict[str, Any]:
+def _load_fixture() -> dict[str, Any]:
     return json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
 
 
-def _run_compaction(fixture: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def _run_compaction(fixture: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """跑 Python 端压缩(参数名映射:contextLimit→context_limit, keepRecent→keep_recent)。"""
-    messages: List[Dict[str, Any]] = fixture["input"]["messages"]
-    options: Dict[str, Any] = fixture["input"]["options"]
+    messages: list[dict[str, Any]] = fixture["input"]["messages"]
+    options: dict[str, Any] = fixture["input"]["options"]
     return compress_messages_if_needed(
         messages,
         context_limit=options["contextLimit"],
@@ -46,7 +46,7 @@ def _run_compaction(fixture: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict
     )
 
 
-def _find_summary_msg(compressed: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _find_summary_msg(compressed: list[dict[str, Any]]) -> dict[str, Any]:
     """定位摘要消息(role='user' 且 content 以 SUMMARY_MARKER 开头)。"""
     for msg in compressed:
         content = msg.get("content")
@@ -128,8 +128,8 @@ class TestContextParity:
         content = str(_find_summary_msg(compressed)["content"])
         body = content.split("\n", 1)[1]
         expectations = fixture["expectations"]
-        messages: List[Dict[str, Any]] = fixture["input"]["messages"]
-        options: Dict[str, Any] = fixture["input"]["options"]
+        messages: list[dict[str, Any]] = fixture["input"]["messages"]
+        options: dict[str, Any] = fixture["input"]["options"]
         # 被压缩区 = non-system 前 coveredCountTotal 条(尾部 keepRecent 条保留)
         non_system = [m for m in messages if m.get("role") != "system"]
         to_compress = non_system[: len(non_system) - options["keepRecent"]]

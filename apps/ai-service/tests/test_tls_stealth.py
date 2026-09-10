@@ -19,7 +19,6 @@
 from __future__ import annotations
 
 import httpx
-import pytest
 
 from app.services.tls_stealth import (
     _ACCEPT_HEADERS,
@@ -29,7 +28,6 @@ from app.services.tls_stealth import (
     get_random_user_agent,
     get_stealth_headers,
 )
-
 
 # =============================================================================
 # get_random_user_agent

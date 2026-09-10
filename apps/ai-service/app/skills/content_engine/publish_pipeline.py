@@ -32,14 +32,14 @@
 """
 from __future__ import annotations
 
-import io
-import os
-import sys
-import re
-import json
-import time
 import argparse
-from typing import Any, cast
+import io
+import json
+import os
+import re
+import sys
+import time
+from typing import cast
 
 try:
     # sys.stdout 可能是 TextIO(无 reconfigure)或 TextIOWrapper(有),运行时判断后调用
@@ -58,16 +58,20 @@ sys.path.insert(0, os.path.join(BASE, 'lib'))
 # ============ 跨项目边界硬门禁（2026-07-20 新增·防止窜工作） ============
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "koubo_workflow"))
 import project_boundary
+
 project_boundary.check_action(tool="publish_pipeline.py", paths=sys.argv[1:], cwd=os.getcwd())
 
+import build_gpt56_sol as builder
+from lib.csdn_docx import build_csdn_docx, derive_csdn_title
 from lib.moyu_green_renderer import md_to_moyu_green_html
 from lib.validate import validate
-import build_gpt56_sol as builder
-from export_csdn_md import export_csdn_md
-from lib.csdn_docx import build_csdn_docx, derive_csdn_title
 from wechat_publish import (
-    get_access_token, upload_image, upload_permanent_media,
-    create_draft, list_drafts, delete_draft
+    create_draft,
+    delete_draft,
+    get_access_token,
+    list_drafts,
+    upload_image,
+    upload_permanent_media,
 )
 
 # ===== 门禁B阈值（低于这些值直接中止，逼作者加重点标记）=====
@@ -76,7 +80,7 @@ MIN_GREEN_BOLD = 5          # 绿色加粗 strong 至少5处
 
 
 def render_html(md_path: str, title: str, digest: str) -> str:
-    with open(md_path, 'r', encoding='utf-8') as f:
+    with open(md_path, encoding='utf-8') as f:
         md_text = f.read()
     html = md_to_moyu_green_html(md_text, title=title, digest=digest)
     return cast(str, html)
@@ -105,7 +109,8 @@ def gate_fact_check(md_path: str, title: str) -> bool:
         print('  ⚠️ fact_check 模块未找到,跳过(降级运行)')
         return True
     # 把 md 转成 article dict + 自动建 claims_registry(2026-07-12 修复 C12)
-    text = open(md_path, 'r', encoding='utf-8').read()
+    with open(md_path, encoding='utf-8') as _f:
+        text = _f.read()
     article = {
         'title': title,
         'text': text,
@@ -252,8 +257,9 @@ def push_draft(html: str, title: str, digest: str, author: str, cover_path: str,
     print('\n[推送] 上传图片+封面 → 删旧草稿 → 建新草稿...')
     # 切换 .env 账号 (优先: 命令行 --account > 默认 A)
     if account and account != 'A':
-        from dotenv import load_dotenv
         import os as _os
+
+        from dotenv import load_dotenv
         load_dotenv(_os.path.join(BASE, '.env'), override=True)
         if account == 'B':
             _os.environ['WECHAT_APP_ID'] = _os.environ.get('B_B_APP_ID', _os.environ.get('WECHAT_APP_ID', ''))
@@ -324,7 +330,7 @@ def _update_published_memory(title: str, draft_id: str, html: str, cover_path: s
         print(f'  ⚠️ 记忆文件不存在,跳过自动更新: {mem_path}')
         return
     try:
-        with open(mem_path, 'r', encoding='utf-8') as f:
+        with open(mem_path, encoding='utf-8') as f:
             mem = json.load(f)
         # 1. published 列表追加
         pub_entry = {
@@ -346,7 +352,7 @@ def _update_published_memory(title: str, draft_id: str, html: str, cover_path: s
         mem['last_updated'] = time.strftime('%Y-%m-%dT%H:%M:%S')
         with open(mem_path, 'w', encoding='utf-8') as f:
             json.dump(mem, f, ensure_ascii=False, indent=2)
-        print(f'  ✅ 已发布记忆已更新 (published+1, used_images记录)')
+        print('  ✅ 已发布记忆已更新 (published+1, used_images记录)')
     except Exception as e:
         print(f'  ⚠️ 自动更新已发布记忆失败(非阻断): {e}')
 
@@ -468,9 +474,9 @@ def main() -> None:
 
     # 1. 渲染
     print('\n[1/6] 渲染摸鱼绿HTML...')
-    cover = {}
     if args.cover_json and os.path.exists(args.cover_json):
-        cover = json.load(open(args.cover_json, encoding='utf-8'))
+        with open(args.cover_json, encoding='utf-8') as _f:
+            json.load(_f)
     html = render_html(args.md, args.title, args.digest)
     project_boundary.check_write(out_html)
     with open(out_html, 'w', encoding='utf-8') as f:
@@ -517,12 +523,12 @@ def main() -> None:
         csdn_md_path = args.csdn_md or os.path.join(BASE, 'articles', safe_title + '_csdn.md')
         if os.path.exists(csdn_md_path):
             print(f'  📄 检测到独立 CSDN MD: {csdn_md_path}')
-            print(f'     直接渲染，跳过 clean_md_for_csdn 清洗')
+            print('     直接渲染，跳过 clean_md_for_csdn 清洗')
             from build_gpt56_sol import build_docx
             build_docx(md_path=csdn_md_path, docx_path=csdn_docx_path,
                        images_dir=images_dir_for_docx, cover_img=None)
         else:
-            print(f'  ℹ️ 未检测到独立 CSDN MD，回退到 clean_md_for_csdn 清洗')
+            print('  ℹ️ 未检测到独立 CSDN MD，回退到 clean_md_for_csdn 清洗')
             build_csdn_docx(args.md, csdn_docx_path, images_dir=images_dir_for_docx, csdn_title=csdn_title)
         print(f'  ✅ CSDN DOCX: {csdn_docx_path}')
         print(f'     标题: {csdn_title}')
@@ -613,7 +619,8 @@ def _archive_source(md_path: str) -> None:
 
 def _cleanup_output() -> None:
     """删除 output/ 下的交付物和图片，保留 archive/ 和核心系统文件"""
-    import glob, shutil
+    import glob
+    import shutil
     # 1. 删除 output/*.html + output/*.docx（含 CSDN 专用 DOCX，发布完随微信产物一起删）
     for ext in ('*.html', '*.docx', '*.md'):
         for f in glob.glob(os.path.join(OUTPUT_DIR, ext)):
@@ -637,7 +644,7 @@ def _cleanup_output() -> None:
     if os.path.isdir(visual_dir):
         try:
             shutil.rmtree(visual_dir, ignore_errors=True)
-            print(f'    🗑️ 删除临时目录: _visual/')
+            print('    🗑️ 删除临时目录: _visual/')
         except Exception as e:
             print(f'    ⚠️ 删除 _visual/ 失败: {e}')
 

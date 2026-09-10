@@ -34,9 +34,10 @@ import hashlib
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from app.core.logging import get_logger
+
 from .fingerprint_isolation import BrowserFingerprint
 from .proxy_pool import ProxyConfig
 
@@ -114,7 +115,7 @@ class _AccountSession:
     account_id: str
     platform: str
     fingerprint: BrowserFingerprint
-    proxy: Optional[ProxyConfig]
+    proxy: ProxyConfig | None
     user_agent: str
     last_publish_at: float
 
@@ -185,7 +186,7 @@ class CrossAccountGuard:
         account_id: str,
         platform: str,
         fingerprint: BrowserFingerprint,
-        proxy: Optional[ProxyConfig] = None,
+        proxy: ProxyConfig | None = None,
     ) -> None:
         """记录账号会话指纹(供后续隔离度计算)。
 
@@ -215,7 +216,7 @@ class CrossAccountGuard:
         self,
         account_id_a: str,
         account_id_b: str,
-        platform: Optional[str] = None,
+        platform: str | None = None,
     ) -> IsolationReport:
         """检查两个账号的隔离度。
 
@@ -347,8 +348,8 @@ class CrossAccountGuard:
         )
 
     def _get_session(
-        self, account_id: str, platform: Optional[str],
-    ) -> Optional[_AccountSession]:
+        self, account_id: str, platform: str | None,
+    ) -> _AccountSession | None:
         """获取账号会话(优先精确平台匹配,否则取任意平台)。"""
         with self._lock:
             if platform:
@@ -361,7 +362,7 @@ class CrossAccountGuard:
                     return session
             return None
 
-    def clear_session(self, account_id: str, platform: Optional[str] = None) -> None:
+    def clear_session(self, account_id: str, platform: str | None = None) -> None:
         """清除账号会话记录(账号删除/重置时调用)。"""
         with self._lock:
             if platform:
@@ -382,7 +383,7 @@ class CrossAccountGuard:
         self,
         account_id: str,
         fingerprint: BrowserFingerprint,
-        proxy: Optional[ProxyConfig] = None,
+        proxy: ProxyConfig | None = None,
     ) -> None:
         """记录账号设备绑定到持久化图谱(跨会话关联检测用)。
 
@@ -453,7 +454,7 @@ class CrossAccountGuard:
         await guard.clear_binding(account_id)
 
     @classmethod
-    def get_instance(cls) -> "CrossAccountGuard":
+    def get_instance(cls) -> CrossAccountGuard:
         """获取全局 CrossAccountGuard 单例(类方法,便于 scheduler 调用)。"""
         return get_instance()
 
@@ -462,7 +463,7 @@ class CrossAccountGuard:
 # 全局单例
 # ---------------------------------------------------------------------------
 
-_global_guard: Optional[CrossAccountGuard] = None
+_global_guard: CrossAccountGuard | None = None
 _global_guard_lock = threading.Lock()
 
 

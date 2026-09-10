@@ -21,7 +21,12 @@ koubo_display.py — 口播稿全量显示生成器 + 全量显示检查点维�
   python koubo_display.py --check                 # 仅查看检查点状态
 默认文件 = 历史稿/历史口播稿汇编.txt（自动取最后一个 #MMDD 段）
 """
-import sys, os, re, hashlib, argparse
+import argparse
+import hashlib
+import os
+import re
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import koubo_validate as kv
 
@@ -57,7 +62,8 @@ def num(detail: str) -> str:
 
 def build_display(seg_text: str) -> tuple[str, list[kv.Article]]:
     tmp = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_disp_tmp.txt')
-    open(tmp, 'w', encoding='utf-8').write(seg_text)
+    with open(tmp, 'w', encoding='utf-8') as _f:
+        _f.write(seg_text)
     try:
         articles = kv.parse_articles(tmp)
     finally:
@@ -69,7 +75,7 @@ def build_display(seg_text: str) -> tuple[str, list[kv.Article]]:
     for i, art in enumerate(articles):
         R = kv.check_article(art, articles)
         rd = {name: (p, d) for name, p, d in R}
-        def g(n: str) -> tuple[bool | None, str]:
+        def g(n: str, rd: dict[str, tuple[bool | None, str]] = rd) -> tuple[bool | None, str]:
             return rd.get(n, (None, ''))
         blen = g('字数')[1]
         tlen = g('标题字数')[1]
@@ -129,13 +135,15 @@ def main() -> None:
     ap.add_argument('--check', action='store_true')
     args = ap.parse_args()
 
-    text = open(args.file, encoding='utf-8').read()
+    with open(args.file, encoding='utf-8') as _f:
+        text = _f.read()
     seg, sid = extract_latest_segment(text)
     h = seg_hash(seg)
 
     if args.check:
         if os.path.exists(HASH_FILE):
-            stored = open(HASH_FILE, encoding='utf-8').read().strip()
+            with open(HASH_FILE, encoding='utf-8') as _f:
+                stored = _f.read().strip()
             print(f'检查点(段#{sid}): 当前sha={h}  存储sha={stored}  '
                   f'{"匹配✓" if stored == h else "不匹配✗(需全量显示)"}')
         else:
@@ -151,7 +159,7 @@ def main() -> None:
     print()
     print('═' * 62)
     print(f' ⚠️ 显示纪律：请将上方全部 {len(articles)} 篇完整正文+评估数据粘贴至对话框，')
-    print(f'   然后运行：python koubo_display.py --mark  更新全量显示检查点。')
+    print('   然后运行：python koubo_display.py --mark  更新全量显示检查点。')
     print('═' * 62)
 
     if args.mark:

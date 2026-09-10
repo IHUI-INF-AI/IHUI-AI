@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -37,7 +37,6 @@ from app.services.debugger import (
     DebugSessionManager,
     encode_dap_message,
 )
-
 
 # =============================================================================
 # Mock 基础设施
@@ -54,7 +53,7 @@ class MockDapClient:
     emit_event(event, body):触发 DAP event(stopped/terminated/continued 等)。
     """
 
-    def __init__(self, responses: Optional[dict[str, Any]] = None) -> None:
+    def __init__(self, responses: dict[str, Any] | None = None) -> None:
         self._responses = responses or {}
         self._event_handlers: dict[str, list] = {}
         self._call_log: list[tuple[str, Any]] = []
@@ -70,7 +69,7 @@ class MockDapClient:
     async def send_request(
         self,
         command: str,
-        arguments: Optional[dict[str, Any]] = None,
+        arguments: dict[str, Any] | None = None,
         timeout: float = 10.0,
     ) -> Any:
         self._call_log.append((command, arguments))
@@ -86,7 +85,7 @@ class MockDapClient:
     def on_event(self, event: str, handler) -> None:
         self._event_handlers.setdefault(event, []).append(handler)
 
-    def emit_event(self, event: str, body: Optional[dict[str, Any]] = None) -> None:
+    def emit_event(self, event: str, body: dict[str, Any] | None = None) -> None:
         """测试辅助:触发 DAP event。"""
         for h in self._event_handlers.get(event, []):
             h(body or {})
@@ -102,13 +101,13 @@ class MockDapClient:
 class MockDebugSessionManager(DebugSessionManager):
     """重写 _spawn_adapter + _create_client,用 MockDapClient 替代真实子进程。"""
 
-    def __init__(self, mock_client: Optional[MockDapClient] = None, **kwargs: Any) -> None:
+    def __init__(self, mock_client: MockDapClient | None = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._mock_client = mock_client or MockDapClient()
         self._spawn_called = False
         self._spawn_should_fail = False
 
-    async def _spawn_adapter(self, language: str, cwd: Optional[str] = None) -> Any:
+    async def _spawn_adapter(self, language: str, cwd: str | None = None) -> Any:
         self._spawn_called = True
         if self._spawn_should_fail:
             raise RuntimeError("debug adapter 启动失败(可能未安装): js-debug-adapter")
@@ -119,7 +118,7 @@ class MockDebugSessionManager(DebugSessionManager):
 
 
 def _make_manager_with_responses(
-    responses: Optional[dict[str, Any]] = None,
+    responses: dict[str, Any] | None = None,
 ) -> tuple[MockDebugSessionManager, MockDapClient]:
     """构造带预设响应的 MockDebugSessionManager + MockDapClient。"""
     client = MockDapClient(responses=responses)

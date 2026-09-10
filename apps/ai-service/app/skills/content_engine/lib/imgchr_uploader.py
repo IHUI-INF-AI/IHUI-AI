@@ -11,7 +11,7 @@ API 文档：https://imgchr.com/page/api-docs.html
 from __future__ import annotations
 
 import os
-from typing import Any, cast
+from typing import cast
 
 import requests
 import urllib3
@@ -31,25 +31,24 @@ def upload_image(file_path: str, token: str) -> str | None:
         return None
 
     headers = {'Authorization': f'Bearer {token}'}
-    files = {'file': open(file_path, 'rb')}
+    with open(file_path, 'rb') as _f:
+        files = {'file': _f}
 
-    try:
-        resp = requests.post(API_URL, headers=headers, files=files, timeout=30)  # 默认校验 HTTPS 证书(防 MITM)
-        if resp.status_code == 200:
-            data = resp.json()
-            if data.get('status_code') == 200:
-                return cast(str, data['data']['url'])
+        try:
+            resp = requests.post(API_URL, headers=headers, files=files, timeout=30)  # 默认校验 HTTPS 证书(防 MITM)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get('status_code') == 200:
+                    return cast(str, data['data']['url'])
+                else:
+                    print(f'  ❌ 上传失败: {data}')
+                    return None
             else:
-                print(f'  ❌ 上传失败: {data}')
+                print(f'  ❌ HTTP {resp.status_code}: {resp.text[:200]}')
                 return None
-        else:
-            print(f'  ❌ HTTP {resp.status_code}: {resp.text[:200]}')
+        except Exception as e:
+            print(f'  ❌ 上传异常: {e}')
             return None
-    except Exception as e:
-        print(f'  ❌ 上传异常: {e}')
-        return None
-    finally:
-        files['file'].close()
 
 
 def upload_batch(

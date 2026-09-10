@@ -19,12 +19,11 @@ DB 异常降级:仅写内存,不阻塞主流程。
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import asyncpg
 
-from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 
 logger = logging.getLogger(__name__)
@@ -124,7 +123,7 @@ class MemoryDecayManager:
             or str(entry.get("updatedAt") or entry.get("createdAt") or "")
         )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         retention = 1.0
 
         if strategy == "time":
@@ -279,12 +278,12 @@ class MemoryDecayManager:
         state = self._states.get(entry_id, {
             "entryId": entry_id,
             "retentionScore": 1.0,
-            "lastAccessedAt": datetime.now(timezone.utc).isoformat(),
+            "lastAccessedAt": datetime.now(UTC).isoformat(),
             "accessCount": 0,
             "isDecayed": False,
         })
         state["accessCount"] = int(state.get("accessCount", 0)) + 1
-        state["lastAccessedAt"] = datetime.now(timezone.utc).isoformat()
+        state["lastAccessedAt"] = datetime.now(UTC).isoformat()
         # 重新访问后清除衰减标记
         state["isDecayed"] = False
         self._states[entry_id] = state
@@ -347,7 +346,7 @@ class MemoryDecayManager:
                 "lastAccessedAt": (
                     row["last_accessed_at"].isoformat()
                     if row["last_accessed_at"]
-                    else datetime.now(timezone.utc).isoformat()
+                    else datetime.now(UTC).isoformat()
                 ),
                 "accessCount": int(row["access_count"]),
                 "isDecayed": bool(row["is_decayed"]),
@@ -393,7 +392,7 @@ class MemoryDecayManager:
                 "lastAccessedAt": (
                     row["last_accessed_at"].isoformat()
                     if row["last_accessed_at"]
-                    else datetime.now(timezone.utc).isoformat()
+                    else datetime.now(UTC).isoformat()
                 ),
                 "accessCount": int(row["access_count"]),
                 "isDecayed": bool(row["is_decayed"]),
@@ -485,7 +484,7 @@ class MemoryDecayManager:
             "lastAccessedAt": (
                 row["last_accessed_at"].isoformat()
                 if row["last_accessed_at"]
-                else datetime.now(timezone.utc).isoformat()
+                else datetime.now(UTC).isoformat()
             ),
             "accessCount": int(row["access_count"]),
             "isDecayed": bool(row["is_decayed"]),
@@ -545,7 +544,7 @@ def _parse_iso(ts: str) -> datetime | None:
         s = ts.strip().replace("Z", "+00:00")
         dt = datetime.fromisoformat(s)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except (ValueError, TypeError):
         return None

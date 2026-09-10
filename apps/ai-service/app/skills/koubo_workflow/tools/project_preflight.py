@@ -32,10 +32,10 @@
     - 写完文件后做一次最终核验（verify）
 """
 
+import argparse
 import os
 import re
 import sys
-import argparse
 
 # ===== 路径配置 =====
 MEDIA_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # skills/
@@ -248,7 +248,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
 
     # === koubo/ 扫描 ===
     if os.path.isdir(KOUBO_DIR):
-        for cur, subdirs, files in os.walk(KOUBO_DIR):
+        for cur, _subdirs, files in os.walk(KOUBO_DIR):
             for f in files:
                 fp = os.path.join(cur, f)
                 rel = os.path.relpath(fp, KOUBO_DIR)
@@ -271,7 +271,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
 
     # === 公众号 wechat-article-system/ 扫描 ===
     if os.path.isdir(GZH_DIR):
-        for cur, subdirs, files in os.walk(GZH_DIR):
+        for cur, _subdirs, files in os.walk(GZH_DIR):
             for f in files:
                 fp = os.path.join(cur, f)
                 rel = os.path.relpath(fp, GZH_DIR)

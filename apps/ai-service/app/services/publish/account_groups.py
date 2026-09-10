@@ -26,8 +26,8 @@ from __future__ import annotations
 import csv
 import io
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import asyncpg
 from fastapi import APIRouter, HTTPException, Request
@@ -162,8 +162,8 @@ class GroupCreate(BaseModel):
 
 
 class GroupUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, max_length=128)
-    description: Optional[str] = Field(default=None, max_length=2000)
+    name: str | None = Field(default=None, max_length=128)
+    description: str | None = Field(default=None, max_length=2000)
 
 
 class GroupMembersOp(BaseModel):
@@ -174,10 +174,10 @@ class GroupPublish(BaseModel):
     """一键发布到分组:接收已解析的内容模型 + 可选平台配置。"""
     title: str = Field(..., max_length=500)
     format: str = Field(..., pattern=r"^(md|docx|html|pdf|image|video)$")
-    text: Optional[str] = None
-    file_path: Optional[str] = None
-    cover_path: Optional[str] = None
-    html: Optional[str] = None
+    text: str | None = None
+    file_path: str | None = None
+    cover_path: str | None = None
+    html: str | None = None
     images: list[str] = Field(default_factory=list)
     extra: dict[str, Any] = Field(default_factory=dict)
     platform_config: dict[str, Any] = Field(default_factory=dict)
@@ -612,12 +612,9 @@ async def get_cookie_health(account_id: int, request: Request) -> dict[str, Any]
         )
         if not row:
             raise HTTPException(status_code=404, detail="账号不存在")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         last_verified = row["last_verified_at"]
-        if last_verified:
-            days_since = (now - last_verified).total_seconds() / 86400
-        else:
-            days_since = 999.0
+        days_since = (now - last_verified).total_seconds() / 86400 if last_verified else 999.0
         if days_since <= 7:
             level = "healthy"
         elif days_since <= 14:
@@ -632,7 +629,7 @@ async def get_cookie_health(account_id: int, request: Request) -> dict[str, Any]
             "level": level,
             "days_since_verified": round(days_since, 1) if last_verified else None,
             "last_verified_at": last_verified.isoformat() if last_verified else None,
-            "predicted_expiry": datetime.fromtimestamp(predicted_expiry, tz=timezone.utc).isoformat() if predicted_expiry else None,
+            "predicted_expiry": datetime.fromtimestamp(predicted_expiry, tz=UTC).isoformat() if predicted_expiry else None,
             "last_verify_msg": row["last_verify_msg"],
             "status": row["status"],
         })
