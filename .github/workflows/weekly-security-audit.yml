@@ -24,7 +24,7 @@ permissions:
   issues: write
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
   # 与根 package.json packageManager 对齐,避免 pnpm 版本漂移
   PNPM_VERSION: '11.18.0'
 
