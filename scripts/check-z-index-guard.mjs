@@ -12,11 +12,11 @@
  *
  * 1. tokens.css 中 z-index 变量禁止 !important
  *    (项目规则:project_memory.md 第 6 行,2026-07-06 立,禁止 !important)
- *    TRAE 注入防护由 layout.tsx inline script 运行时 setProperty 实现,无需 !important
+ *    第三方 IDE 注入防护由 layout.tsx inline script 运行时 setProperty 实现,无需 !important
  * 2. globals.css 中 z-index 工具类禁止 !important
  *    (同上,变量值由 inline script 覆盖,var() 引用自动拿到正确值)
  * 3. layout.tsx inline script 必须设置 11 个 z-index 变量
- *    (运行时 inline style 优先级高于 stylesheet,覆盖 TRAE 注入)
+ *    (运行时 inline style 优先级高于 stylesheet,覆盖 第三方 IDE 注入)
  * 4. dialog.tsx 遮罩不得有 open 态 fade-in 动画
  *    (fade-in 让遮罩从 opacity:0 渐显,期间 AI 面板全亮度暴露 = "发亮")
  *
@@ -108,7 +108,7 @@ if (existsSync(TOKENS_PATH)) {
     if (importantPattern.test(css)) {
       console.log(`${C.red}    ❌ ${name}: ${value} 含有 !important(违反项目禁令)${C.reset}`)
       console.log(`${C.dim}       项目规则(project_memory.md 第 6 行)禁止 !important${C.reset}`)
-      console.log(`${C.dim}       TRAE 注入防护由 layout.tsx inline script 运行时 setProperty 实现${C.reset}`)
+      console.log(`${C.dim}       第三方 IDE 注入防护由 layout.tsx inline script 运行时 setProperty 实现${C.reset}`)
       hasError = true
     } else if (!valuePattern.test(css)) {
       console.log(`${C.red}    ❌ ${name}: ${value} 未找到(变量缺失)${C.reset}`)

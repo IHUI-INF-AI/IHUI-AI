@@ -134,7 +134,7 @@ const EXCLUDED_DIRS = new Set([
   'out',
   '.turbo',
   '.git',
-  '.trae-cn',
+  '.ihui-agent',
   'coverage',
   '__tests__',
   'tests',

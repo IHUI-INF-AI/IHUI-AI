@@ -59,7 +59,7 @@ interface ThinkingSectionProps {
 }
 
 /**
- * ThinkingSection — 思考过程折叠子区(对标 Trae Work,2026-07-28 v2)
+ * ThinkingSection — 思考过程折叠子区(对标 AI 工作台,2026-07-28 v2)
  *
  * 折叠时(默认):
  * - Brain 图标 + "思考过程" 标题
@@ -74,7 +74,7 @@ interface ThinkingSectionProps {
  * - 复制按钮(右上一键复制全部内容,带 1.5s "已复制" 反馈)
  * - 流式时末尾 闪烁光标
  *
- * v2 改动(对标 Trae Work,2026-07-28):
+ * v2 改动(对标 AI 工作台,2026-07-28):
  * - 移除 FoldableSection 包装,自渲染 header(支持 preview/duration 嵌入)
  * - 折叠态展示内容预览 + 耗时,降低信息密度但保留关键状态
  * - 展开态升级为代码块样式 + 复制按钮
@@ -214,7 +214,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
             {currentNode}
           </span>
         )}
-        {/* v2: 折叠态流式 loader(对标 Trae Work "思考中...";2026-08-29:交错增长期同样显示) */}
+        {/* v2: 折叠态流式 loader(对标 AI 工作台 "思考中...";2026-08-29:交错增长期同样显示) */}
         {thinkingActive && !expanded && (
           <span
             className="inline-flex shrink-0 items-center gap-1 text-xs text-primary/70"

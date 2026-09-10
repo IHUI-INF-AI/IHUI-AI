@@ -41,7 +41,7 @@ $ErrorActionPreference = 'Continue'
 $ScriptsDir = $PSScriptRoot
 if (-not $ScriptsDir) { $ScriptsDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
 $ProjectRoot = Split-Path -Parent $ScriptsDir
-$LogDir = Join-Path $ProjectRoot '.trae-cn\tmp'
+$LogDir = Join-Path $ProjectRoot '.ihui-agent\tmp'
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
 $LogFile = Join-Path $LogDir 'zombie-guardian.log'
 $LogFileBak = Join-Path $LogDir 'zombie-guardian.log.bak'

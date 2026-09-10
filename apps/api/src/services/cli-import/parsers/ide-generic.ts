@@ -5,8 +5,8 @@
 /**
  * 通用 IDE / AI 工具配置 parser(工厂模式)
  *
- * 13 个平台共享同一解析逻辑,仅 key 前缀和默认值不同:
- *   trae / trae-work / qoder / qoder-work
+ * 11 个平台共享同一解析逻辑,仅 key 前缀和默认值不同:
+ *   qoder / qoder-work
  *   codex-desktop / claude-code-desktop
  *   github-copilot / amazon-q / continue / tabnine / cody / zed
  *   antigravity (Google)
@@ -16,7 +16,7 @@
  *   - Claude Code Desktop → anthropic_messages → api.anthropic.com
  *   - Codex Desktop → openai_chat → api.openai.com/v1
  *   - GitHub Copilot → openai_chat → api.githubcopilot.com
- *   - 其他 IDE(trae/qoder/zed 等)→ 从配置提取,无默认值,缺失则 warning
+ *   - 其他 IDE(qoder/zed 等)→ 从配置提取,无默认值,缺失则 warning
  *
  * 配置格式:JSON settings.json,扁平 dotted key 或嵌套 JSON
  */
@@ -39,18 +39,6 @@ interface IdeConfig {
 
 const CONFIGS: Record<string, IdeConfig> = {
   // ── IDE 类(从配置提取,无固定默认值)──
-  trae: {
-    prefix: 'trae.ai',
-    name: 'Trae',
-    websiteUrl: 'https://trae.ai',
-    defaultApiFormat: 'openai_chat',
-  },
-  'trae-work': {
-    prefix: 'trae.work.ai',
-    name: 'Trae Work',
-    websiteUrl: 'https://trae.ai',
-    defaultApiFormat: 'openai_chat',
-  },
   qoder: {
     prefix: 'qoder.ai',
     name: 'Qoder',
@@ -230,8 +218,6 @@ function createIdeParser(sourceKey: string) {
   }
 }
 
-export const parseTrae = createIdeParser('trae')
-export const parseTraeWork = createIdeParser('trae-work')
 export const parseQoder = createIdeParser('qoder')
 export const parseQoderWork = createIdeParser('qoder-work')
 export const parseCodexDesktop = createIdeParser('codex-desktop')

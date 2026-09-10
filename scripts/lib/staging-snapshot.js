@@ -100,7 +100,7 @@ function takeStagingSnapshot(options = {}) {
  *   ② process.env.HUSKY_STAGING_RESTORE_LOG === '1';
  *   ③ 本次还原有实际操作(result.restored.length > 0 或 result.skipped=true)。
  *
- * 日志路径:<cwd>/.trae-cn/tmp/staging-restore.log(cwd = options.cwd || process.cwd())
+ * 日志路径:<cwd>/.ihui-agent/tmp/staging-restore.log(cwd = options.cwd || process.cwd())
  * IO 错误被 try-catch 吞掉,不阻塞主流程。
  *
  * @param {{restored: string[], skipped: boolean}} result restoreStaging 的返回值
@@ -114,7 +114,7 @@ function writeRestoreLog(result, skipReason, options) {
   if (result.restored.length === 0 && !result.skipped) return
   try {
     const cwd = (options.cwd || process.cwd()).replace(/\\/g, '/')
-    const logPath = resolve(cwd, '.trae-cn/tmp/staging-restore.log')
+    const logPath = resolve(cwd, '.ihui-agent/tmp/staging-restore.log')
     mkdirSync(dirname(logPath), { recursive: true })
     const entry = JSON.stringify({
       timestamp: new Date().toISOString(),

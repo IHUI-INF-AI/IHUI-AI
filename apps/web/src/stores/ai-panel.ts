@@ -14,7 +14,7 @@ export const AI_PANEL_DEFAULT_WIDTH = 300
 export const AI_PANEL_MIN_WIDTH = 300
 export const AI_PANEL_MAX_WIDTH = 720
 
-/** AI 面板当前绑定的本地工作区(参�?Trae/Codex 顶部 project selector 设计)
+/** AI 面板当前绑定的本地工作区(参�?主流 IDE 顶部 project selector 设计)
  *  - 用户�?AI 面板顶部"添加工作�?按钮选择本地文件夹后绑定
  *  - 绑定后标题显�?workspace.name,取代兜底"空工作区"文字
  *  - path 用于后续 AI 工具调用 fs.read/grep 等的根路径上下文

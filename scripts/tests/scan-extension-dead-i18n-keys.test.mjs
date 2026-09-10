@@ -41,7 +41,7 @@ const END_CONFIG = {
   name: 'extension',
   messagesPath: 'packages/i18n/messages/extension/zh-CN.json',
   scanTargets: ['apps/extension/entrypoints', 'apps/extension/src', 'apps/extension/lib'],
-  outputPattern: '.trae-cn/tmp/i18n-extension-dead-keys-{date}.md',
+  outputPattern: '.ihui-agent/tmp/i18n-extension-dead-keys-{date}.md',
 }
 
 let tmpDir

@@ -13,7 +13,7 @@ import path from 'node:path'
  *   → h-7 w-7 (28×28) + svg h-5 w-5 (20×20),与 NavLink / 新建任务 / 折叠按钮图标一致
  *
  * 本脚本用 headless chromium 实际渲染 + 读 DOM 数值 + 4 态截图,
- * 完全独立于 Trae 内置浏览器面板。
+ * 完全独立于 主流 AI IDE 内置浏览器面板。
  */
 const SHOT_DIR = 'tmp/sidebar-verify-shots'
 // 精确匹配桌面侧边栏(移动端 aside 是 dialog + lg:hidden,桌面不显示)

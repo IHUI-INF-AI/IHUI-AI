@@ -60,7 +60,7 @@ const chatStreamSchema = z.object({
    *  传入工具名列表后,ai-service 走 tool loop(complete→tool_calls→execute→astream)。
    *  如 ["browser_screenshot", "computer_mouse_click"] */
   agentTools: z.array(z.string()).max(100).optional(),
-  /** Plan/Act 模式(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
+  /** Plan/Act 双模切换(2026-07-24 立)
    * plan=只制定计划不执行工具(后端注入 Plan Mode system prompt),act=正常执行(默认)
    * 前端 extraBody 传 plan_mode(snake_case),透传到 ai-service /api/llm/complete/stream */
   plan_mode: z.string().optional(),

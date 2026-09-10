@@ -156,7 +156,7 @@ ihui --version
 | `windsurf` | Windsurf | `~/.windsurf/config.json` | openai |
 | `cline` | Cline | `~/.cline/config.json` | openai |
 | `aider` | Aider | `~/.aider.conf.yml` | openai |
-| `trae` / `trae-work` | Trae(个人 / 工作区) | `~/.trae/config.json` | anthropic |
+| `ide` / `ide-work` | 自研 AI IDE(配置导入) | `~/.ihui-agent/config.json` | anthropic |
 | `qoder` / `qoder-work` | Qoder(个人 / 工作区) | `~/.qoder/config.json` | openai |
 | `codex-desktop` | Codex Desktop | `%APPDATA%/Codex/config.json` | openai |
 | `claude-code-desktop` | Claude Code Desktop | `%APPDATA%/Claude/config.json` | anthropic |

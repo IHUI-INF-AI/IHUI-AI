@@ -181,7 +181,7 @@ test('--scan --output 写 JSON 文件', () => {
     'apps/web/Bad.tsx': `export function Bad() {\n  return <button type="button" className="inline-flex h-5 items-center gap-1 text-[10px]"><span>对话流</span></button>\n}\n`,
   })
   try {
-    const outPath = join(dir, '.trae-cn/tmp/scan-button-wrap/output.json')
+    const outPath = join(dir, '.ihui-agent/tmp/scan-button-wrap/output.json')
     const r = runScript(dir, ['--scan', '--output', outPath, '--quiet'])
     assert.equal(r.status, 0)
     const out = JSON.parse(readFileSync(outPath, 'utf8'))
