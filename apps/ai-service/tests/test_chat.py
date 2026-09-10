@@ -20,7 +20,6 @@ from httpx import ASGITransport, AsyncClient
 from app.api.v1 import chat
 from app.api.v1.chat import ChatRequest
 
-
 # =============================================================================
 # 辅助
 # =============================================================================

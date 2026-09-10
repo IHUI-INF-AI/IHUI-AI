@@ -39,11 +39,10 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any, Optional
+from typing import Any
 
 import asyncpg
 
-from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 from ..core.llm_gateway import llm_gateway
 from .active_forgetter import active_forgetter
@@ -327,7 +326,7 @@ class Metacognition:
                 "pattern": str(r["pattern"] or ""),
                 "score": float(r["score"] or 0),
             })
-        for tool, items in proc_by_tool.items():
+        for _tool, items in proc_by_tool.items():
             if len(items) < 2:
                 continue
             for i in range(len(items)):

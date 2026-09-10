@@ -26,6 +26,7 @@ import hashlib
 from typing import TYPE_CHECKING, Any
 
 from app.core.logging import get_logger
+
 from ..anti_risk import (
     create_stealth_browser_context,
     human_click,
@@ -281,10 +282,10 @@ class PlaywrightBaseAdapter(BasePlatformAdapter):
                         if not text:
                             continue
                         await page.evaluate(
-                            """(text) => {
-                                const ed = document.querySelector('%s');
-                                if (ed) { ed.focus(); document.execCommand('insertText', false, text); }
-                            }""" % self.editor_selector,
+                            f"""(text) => {{
+                                const ed = document.querySelector('{self.editor_selector}');
+                                if (ed) {{ ed.focus(); document.execCommand('insertText', false, text); }}
+                            }}""",
                             text,
                         )
                         await page.keyboard.press("Enter")

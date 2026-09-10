@@ -23,7 +23,7 @@ import json
 import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Union
 
@@ -65,7 +65,7 @@ class SyntaxValidationError(PatchError):
     """补丁产物未通过语法校验时抛出,消息含 1-based 行号。"""
 
 
-class MatchStrategy(str, Enum):
+class MatchStrategy(StrEnum):
     """hunk 匹配策略。"""
 
     EXACT = "exact"

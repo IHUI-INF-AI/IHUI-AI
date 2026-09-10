@@ -13,7 +13,6 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -23,7 +22,6 @@ from app.services.pr_reviewer import (
     parse_diff,
     review_pr,
 )
-
 
 # =============================================================================
 # httpx mock 辅助
@@ -52,7 +50,7 @@ class _MockClient:
         self._responses = list(responses)
         self.calls: list[dict[str, Any]] = []
 
-    async def __aenter__(self) -> "_MockClient":
+    async def __aenter__(self) -> _MockClient:
         return self
 
     async def __aexit__(self, *args: object) -> bool:
@@ -138,7 +136,7 @@ class TestFetchPrDiff:
         """网络错误 → FETCH_FAILED。"""
 
         class _FailingClient:
-            async def __aenter__(self) -> "_FailingClient":
+            async def __aenter__(self) -> _FailingClient:
                 return self
 
             async def __aexit__(self, *a: object) -> bool:

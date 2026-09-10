@@ -30,8 +30,9 @@ import logging
 import os
 import time
 from collections import OrderedDict, deque
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Iterator, Optional, cast
+from typing import Any, cast
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -731,7 +732,7 @@ class ContextEngine:
             # 降级:取前 1000 字符作为摘要
             return conversation[:1000] + "\n...(摘要生成失败,已截断)"
 
-    async def _get_embedding(self, text: str) -> Optional[list[float]]:
+    async def _get_embedding(self, text: str) -> list[float] | None:
         """生成 embedding(委托 llm_gateway)。
 
         修复:stub 模式下 llm_gateway.embed 返回确定性 hash 伪向量(无语义),
@@ -747,7 +748,7 @@ class ContextEngine:
             logger.debug("embed failed: %s", e)
             return None
 
-    async def _get_embedding_cached(self, content: str) -> Optional[list[float]]:
+    async def _get_embedding_cached(self, content: str) -> list[float] | None:
         """带缓存的 embedding 调用(同一内容不重复计算)。
 
         P2 修复:retrieve_and_enrich 原对每条历史消息调一次 embedding API,
@@ -778,7 +779,7 @@ class ContextEngine:
         """余弦相似度。"""
         if not a or not b or len(a) != len(b):
             return 0.0
-        dot = sum(x * y for x, y in zip(a, b))
+        dot = sum(x * y for x, y in zip(a, b, strict=False))
         norm_a = sum(x * x for x in a) ** 0.5
         norm_b = sum(y * y for y in b) ** 0.5
         if norm_a == 0 or norm_b == 0:
@@ -942,7 +943,7 @@ class ContextEngine:
         symbol_name: str,
         language: str,
         parent_class: str = "",
-    ) -> Optional[tuple[Any, str]]:
+    ) -> tuple[Any, str] | None:
         """递归遍历 AST,找到名称匹配的符号节点。
 
         Returns:
@@ -1036,8 +1037,8 @@ class ContextEngine:
 
         # 泛型(Python type_params / TS type_parameters)
         generics = ""
-        for field in ("type_parameters", "type_params"):
-            tn = node.child_by_field_name(field)
+        for _field in ("type_parameters", "type_params"):
+            tn = node.child_by_field_name(_field)
             if tn:
                 generics = self._node_text(tn)
                 break
@@ -1296,7 +1297,7 @@ class ContextEngine:
     async def _record_user_behavior(
         self,
         file_path: str,
-        symbol: Optional[str],
+        symbol: str | None,
         user_id: str,
     ) -> None:
         """记录用户访问文件/符号的行为(从 @ 提及触发)。
@@ -1324,7 +1325,7 @@ class ContextEngine:
     async def _get_behavior_boost(
         self,
         file_path: str,
-        symbol: Optional[str],
+        symbol: str | None,
         user_id: str,
     ) -> float:
         """返回 0-1 的行为 boost 因子(基于访问次数分段)。

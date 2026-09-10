@@ -31,7 +31,6 @@ from app.services.knowledge_lookup import KnowledgeHit  # noqa: F401 (用于类�
 from app.services.mcp_server import mcp_server
 from app.services.rag import RAGSource
 
-
 # =============================================================================
 # 测试夹具:构造 LTM / codebase / rag mock 返回
 # =============================================================================
@@ -186,7 +185,7 @@ class TestKnowledgeLookupG6EndToEnd:
         cb_p, rag_p, ltm_p = _patch_sources(
             ltm_return=[_make_ltm_item()],  # 不应被调用
         )
-        with cb_p as cb, rag_p as rag, ltm_p as ltm:
+        with cb_p, rag_p, ltm_p as ltm:
             result = await mcp_server.call_tool(
                 "knowledge_lookup", {"query": "q"}
             )  # 不传 user_id
@@ -257,7 +256,7 @@ class TestKnowledgeLookupG6EndToEnd:
         cb_p, rag_p, ltm_p = _patch_sources(
             ltm_return=[],
         )
-        with cb_p as cb, rag_p as rag, ltm_p as ltm:
+        with cb_p, rag_p, ltm_p as ltm:
             await mcp_server.call_tool(
                 "knowledge_lookup", {"query": "q"}, user_id="u1"
             )
@@ -272,7 +271,7 @@ class TestKnowledgeLookupG6EndToEnd:
         cb_p, rag_p, ltm_p = _patch_sources(
             ltm_return=[],
         )
-        with cb_p as cb, rag_p as rag, ltm_p as ltm:
+        with cb_p, rag_p, ltm_p as ltm:
             await mcp_server.call_tool(
                 "knowledge_lookup",
                 {"query": "q", "top_k_per_source": 10},

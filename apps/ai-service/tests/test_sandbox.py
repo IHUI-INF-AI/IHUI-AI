@@ -229,7 +229,7 @@ class TestDestructivePatterns:
         assert any("dd" in p and "/dev/" in p for p in patterns)
 
     def test_contains_fork_bomb(self):
-        patterns = [p for p, _ in _DESTRUCTIVE_PATTERNS]
+        [p for p, _ in _DESTRUCTIVE_PATTERNS]
         descs = [d for _, d in _DESTRUCTIVE_PATTERNS]
         # fork bomb 模式用 :\| 转义管道,检查描述更可靠
         assert any("fork" in d.lower() for d in descs)

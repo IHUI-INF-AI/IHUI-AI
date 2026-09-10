@@ -14,10 +14,7 @@
 import json
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
-from app.services.memory_extractor import MemoryExtractor, _DEDUP_THRESHOLD
-
+from app.services.memory_extractor import _DEDUP_THRESHOLD, MemoryExtractor
 
 # =============================================================================
 # 辅助:构造 LLM 响应

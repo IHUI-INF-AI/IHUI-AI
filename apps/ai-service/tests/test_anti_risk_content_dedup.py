@@ -21,16 +21,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-import pytest
-
 from app.services.publish.anti_risk.content_dedup import (
-    ContentDeduplicator,
-    SimilarityReport,
     _SIMHASH_BITS,
     _SIMHASH_THRESHOLD,
+    ContentDeduplicator,
+    SimilarityReport,
     get_deduplicator,
 )
-
 
 # =============================================================================
 # 辅助:StubContent 模拟 PublishContent

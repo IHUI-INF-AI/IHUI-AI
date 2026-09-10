@@ -21,9 +21,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +75,9 @@ class SSEEvent:
 
     type: str
     thread_id: str
-    node_id: Optional[str]
+    node_id: str | None
     data: Any
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         """转 dict(供 JSON 序列化)。"""
@@ -98,7 +99,7 @@ def _make_event(
     type_: str,
     thread_id: str,
     data: Any,
-    node_id: Optional[str] = None,
+    node_id: str | None = None,
 ) -> SSEEvent:
     """构造 SSEEvent(校验 type 合法性)。"""
     if type_ not in SSE_EVENT_TYPES:
@@ -115,7 +116,7 @@ def _safe_value(value: Any) -> Any:
         return str(value)
 
 
-def _normalize_stream_modes(stream_modes: Optional[list[str]]) -> list[str]:
+def _normalize_stream_modes(stream_modes: list[str] | None) -> list[str]:
     """校验并规范化 stream_mode 列表。"""
     if not stream_modes:
         return list(DEFAULT_STREAM_MODES)
@@ -159,7 +160,7 @@ def _inject_memory_context(graph_input: Any) -> Any:
     return {**graph_input, "messages": new_messages}
 
 
-def _extract_node_name(chunk_key: str) -> Optional[str]:
+def _extract_node_name(chunk_key: str) -> str | None:
     """从 graph.astream 的 chunk key 提取节点名。
 
     LangGraph updates 模式下,chunk 是 {node_name: update_dict} 形式,
@@ -179,11 +180,11 @@ def _extract_node_name(chunk_key: str) -> Optional[str]:
 async def stream_agent_execution(
     graph: Any,
     thread_id: str,
-    graph_input: Optional[dict[str, Any]],
-    stream_modes: Optional[list[str]] = None,
+    graph_input: dict[str, Any] | None,
+    stream_modes: list[str] | None = None,
     *,
-    config: Optional[dict[str, Any]] = None,
-    message_id: Optional[str] = None,
+    config: dict[str, Any] | None = None,
+    message_id: str | None = None,
 ) -> AsyncIterator[SSEEvent]:
     """流式输出 agent 执行过程。
 
@@ -309,7 +310,7 @@ async def _dispatch_stream_chunk(
     config: dict[str, Any],
     graph: Any,
     *,
-    message_id: Optional[str] = None,
+    message_id: str | None = None,
 ) -> AsyncIterator[SSEEvent]:
     """按 stream_mode 把 chunk 映射为 SSEEvent。"""
     if mode == "updates":
@@ -429,8 +430,8 @@ def _map_langgraph_event(
     event_name: str,
     event_data: Any,
     thread_id: str,
-    node_id: Optional[str],
-) -> Optional[SSEEvent]:
+    node_id: str | None,
+) -> SSEEvent | None:
     """把 LangGraph events 模式的命名事件映射为 12 类 SSE 事件。
 
     无法映射的返回 None(由调用方降级为 custom 事件)。
@@ -494,10 +495,7 @@ async def _is_interrupted(graph: Any, config: dict[str, Any]) -> bool:
         if snapshot is None:
             return False
         tasks = getattr(snapshot, "tasks", ()) or ()
-        for task in tasks:
-            if getattr(task, "interrupts", None):
-                return True
-        return False
+        return any(getattr(task, "interrupts", None) for task in tasks)
     except Exception as e:  # pragma: no cover
         logger.debug("_is_interrupted 检查异常: %s", e)
         return False
@@ -507,7 +505,7 @@ async def _build_interrupt_event(
     graph: Any,
     thread_id: str,
     config: dict[str, Any],
-) -> Optional[SSEEvent]:
+) -> SSEEvent | None:
     """从当前 graph state 构造 interrupt SSE 事件。"""
     try:
         snapshot = await graph.aget_state(config)

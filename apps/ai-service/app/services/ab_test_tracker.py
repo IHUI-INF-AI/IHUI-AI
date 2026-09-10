@@ -43,12 +43,11 @@ import asyncio
 import json
 import logging
 import uuid as _uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import asyncpg
 
-from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 
 logger = logging.getLogger(__name__)
@@ -221,7 +220,7 @@ class ABTestTracker:
             await self._stop_test_internal(existing_id, reason="superseded")
 
         test_id = str(_uuid.uuid4())
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         test = {
             "testId": test_id,
             "skillName": skill_name,
@@ -253,7 +252,7 @@ class ABTestTracker:
         )
         return test_id
 
-    def get_active_test(self, skill_name: str) -> Optional[dict[str, Any]]:
+    def get_active_test(self, skill_name: str) -> dict[str, Any] | None:
         """查询某 skill 当前 running 的测试(仅查内存,不查 DB)。
 
         Returns:
@@ -267,7 +266,7 @@ class ABTestTracker:
             return None
         return dict(test)
 
-    def get_test(self, test_id: str) -> Optional[dict[str, Any]]:
+    def get_test(self, test_id: str) -> dict[str, Any] | None:
         """按 test_id 查询(含历史)。返回浅拷贝或 None。"""
         test = self._tests.get(test_id)
         return dict(test) if test else None
@@ -275,8 +274,8 @@ class ABTestTracker:
     def list_tests(
         self,
         *,
-        status: Optional[str] = None,
-        skill_name: Optional[str] = None,
+        status: str | None = None,
+        skill_name: str | None = None,
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         """列出测试(可按 status / skill 过滤,默认按 startedAt 倒序)。
@@ -344,7 +343,7 @@ class ABTestTracker:
                 version,
             )
 
-    def get_stats(self, test_id: str) -> Optional[dict[str, Any]]:
+    def get_stats(self, test_id: str) -> dict[str, Any] | None:
         """查询某测试的 control/treatment stats 快照。"""
         test = self._tests.get(test_id)
         if not test:
@@ -386,7 +385,7 @@ class ABTestTracker:
         if test.get("status") != "running":
             return False  # 已决策 / 已停止的测试不能再决策
 
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         test["status"] = "promoted" if decision == "promote" else (
             "rolled_back" if decision == "rollback" else "stopped"
         )
@@ -423,7 +422,7 @@ class ABTestTracker:
             return False
         if test.get("status") != "running":
             return False  # 已停止
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         test["status"] = "stopped"
         test["decision"] = "stopped"
         test["decisionReason"] = reason
@@ -461,7 +460,7 @@ class ABTestTracker:
         # P1 修复:按需懒加载 running 测试(替代启动时全量 hydrate)
         await self._ensure_loaded()
         count = 0
-        for test_id, test in list(self._tests.items()):
+        for _test_id, test in list(self._tests.items()):
             if test.get("status") != "running":
                 continue
             ok = await self._persist_test_to_db(test, is_insert=False)
@@ -685,7 +684,7 @@ def _parse_iso(iso_str: str | None) -> datetime | None:
         s = iso_str.replace("Z", "+00:00") if isinstance(iso_str, str) else iso_str
         dt = datetime.fromisoformat(s)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except Exception as e:
         logger.warning("ab_test_tracker._parse_iso ISO 解析失败: %s", e, exc_info=True)

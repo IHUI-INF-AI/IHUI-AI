@@ -8,13 +8,14 @@
 的依赖边界(router 测试需要完整 conftest 环境 client/JWT)。
 """
 
+import contextlib
 import sys
 import uuid
 
 import pytest
 
-from app.services.container_runtime import ContainerRuntime
 from app.services.cloud_run_store import CloudRunStore
+from app.services.container_runtime import ContainerRuntime
 
 PY = sys.executable or "python"
 
@@ -50,10 +51,8 @@ async def api_client(client, monkeypatch, tmp_path):
     for handle in rt._runs.values():
         proc = handle.proc
         if proc is not None and proc.returncode is None:
-            try:
+            with contextlib.suppress(ProcessLookupError):
                 proc.kill()
-            except ProcessLookupError:
-                pass
     await rt.shutdown(timeout=15)
     fastapi_app.dependency_overrides.pop(get_current_user_id, None)
 

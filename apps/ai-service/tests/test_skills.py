@@ -6,7 +6,7 @@
 
 import pytest
 
-from app.services.skills import Skill, SkillRegistry, skill_registry, _BUILTIN_SKILLS
+from app.services.skills import _BUILTIN_SKILLS, Skill, SkillRegistry, skill_registry
 
 
 def test_skill_dataclass_fields():
@@ -208,13 +208,12 @@ def test_ai_top_real_integration_count_is_19():
 from unittest.mock import AsyncMock, patch
 
 from app.services.skills import (
+    _AI_TOP_SKILLS,
     SkillEvolutionLoop,
     SkillEvolutionService,
-    _AI_TOP_SKILLS,
     skill_evolution_loop,
     skill_evolution_service,
 )
-
 
 # ------------------------------------------------------------
 # Skill dataclass 扩展字段默认值

@@ -26,11 +26,11 @@ import logging
 import os
 import sys
 import time
+from collections.abc import AsyncIterator
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
-from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
 
 if TYPE_CHECKING:
@@ -95,7 +95,7 @@ async def _run_koubo_script(script_name: str, args: list[str], timeout_sec: int 
             stdout_b, stderr_b = await asyncio.wait_for(
                 proc.communicate(), timeout=timeout_sec
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             proc.kill()
             await proc.wait()
             return 124, "", f"timeout after {timeout_sec}s"
@@ -135,12 +135,12 @@ class KouboWorkflowService:
 
     def __init__(self) -> None:
         self._available = False
-        self._graph: Optional["CompiledStateGraph[KouboState, None, KouboState, KouboState]"] = None
+        self._graph: CompiledStateGraph[KouboState, None, KouboState, KouboState] | None = None
         self._init_graph()
 
     def _init_graph(self) -> None:
         try:
-            from langgraph.graph import StateGraph, END
+            from langgraph.graph import END, StateGraph
 
             workflow = StateGraph(KouboState)
             workflow.add_node("hot_scan", self._hot_scan_node)
@@ -182,7 +182,7 @@ class KouboWorkflowService:
         trace = list(state.get("trace", []))
         rc, out, err = await _run_koubo_script("topic_pool.py", ["--take", "30"], timeout_sec=60)
         if rc != 0:
-            trace.append(_trace("hot_scan", t0, time.monotonic(), "warn", warn=f"topic_pool 失败,降级用 LLM 生成"))
+            trace.append(_trace("hot_scan", t0, time.monotonic(), "warn", warn="topic_pool 失败,降级用 LLM 生成"))
         # LLM 结构化热点(基于 topic_pool 输出 + 用户 topic_hint)
         user_msg = f"日期:{state['date']}\n选题方向提示:{state.get('topic_hint', '无')}\n参考热点池:\n{out[:2000]}\n请生成 8 个选题 JSON。"
         try:

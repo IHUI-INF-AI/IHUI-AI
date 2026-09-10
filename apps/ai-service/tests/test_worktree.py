@@ -27,9 +27,9 @@ import pytest
 
 from app.services import worktree
 from app.services.worktree import (
-    WorktreeInfo,
     _TASK_ID_RE,
     WORKTREE_DIR_ENV,
+    WorktreeInfo,
     _git,
     create_worktree,
     ensure_gitignore,
@@ -39,7 +39,6 @@ from app.services.worktree import (
     remove_worktree,
     worktree_path,
 )
-
 
 # =============================================================================
 # 工厂函数
@@ -292,9 +291,8 @@ class TestGitSubprocess:
         proc.wait = AsyncMock()
 
         with patch("app.services.worktree.asyncio.create_subprocess_exec",
-                   new=AsyncMock(return_value=proc)):
-            with pytest.raises(asyncio.TimeoutError):
-                await _git(["status"], cwd="/repo", timeout=0.05)
+                   new=AsyncMock(return_value=proc)), pytest.raises(asyncio.TimeoutError):
+            await _git(["status"], cwd="/repo", timeout=0.05)
 
         proc.kill.assert_called_once()
         proc.wait.assert_awaited()

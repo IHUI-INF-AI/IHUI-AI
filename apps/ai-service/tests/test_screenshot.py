@@ -22,12 +22,10 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock
 
 import pytest
 
 from app.services.screenshot_service import _check_headers_can_embed
-
 
 # =============================================================================
 # 覆盖 conftest.py 中引用已废弃属性的 _isolate_vector_memory fixture。
@@ -243,10 +241,9 @@ async def test_screenshot_take_asyncio_timeout_returns_code_1(
     client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """take_screenshot 抛 asyncio.TimeoutError → 路由返回 code=1。"""
-    import asyncio as _asyncio
 
     async def _fake_take(url, **kwargs):
-        raise _asyncio.TimeoutError()
+        raise TimeoutError()
 
     monkeypatch.setattr("app.routers.screenshot.take_screenshot", _fake_take)
 

@@ -18,11 +18,11 @@
 """
 from __future__ import annotations
 
-import asyncio
 import hashlib
 from typing import TYPE_CHECKING, Any
 
 from app.core.logging import get_logger
+
 from ..anti_risk import (
     create_stealth_browser_context,
     human_click,
@@ -36,7 +36,7 @@ from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
 logger = get_logger(__name__)
 
 try:
-    from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+    from playwright.async_api import Browser, BrowserContext, Page, async_playwright
     _HAS_PLAYWRIGHT = True
 except ImportError:
     _HAS_PLAYWRIGHT = False

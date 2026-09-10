@@ -21,7 +21,6 @@
 from __future__ import annotations
 
 import re
-
 from typing import TYPE_CHECKING
 
 from playwright.async_api import Error as PlaywrightError

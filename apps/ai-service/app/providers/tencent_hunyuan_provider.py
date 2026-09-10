@@ -20,10 +20,11 @@ import json
 import logging
 import os
 import time
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
-from .base_provider import BaseProvider, ProviderError
 from ..core.llm_gateway import get_http_client
+from .base_provider import BaseProvider, ProviderError
 
 logger = logging.getLogger(__name__)
 

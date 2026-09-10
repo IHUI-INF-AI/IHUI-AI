@@ -21,7 +21,7 @@ OpenAI function calling 的 tool result 格式)。
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from .agent_loop_v2 import ToolDefinition
 from .knowledge_lookup import knowledge_lookup
@@ -31,12 +31,12 @@ logger = logging.getLogger(__name__)
 
 def make_knowledge_lookup_tool(
     *,
-    user_id: Optional[str] = None,
-    repo_id: Optional[str] = None,
-    session_id: Optional[str] = None,
+    user_id: str | None = None,
+    repo_id: str | None = None,
+    session_id: str | None = None,
     top_k_per_source: int = 5,
-    source_priority: Optional[list[str]] = None,
-    api_token: Optional[str] = None,
+    source_priority: list[str] | None = None,
+    api_token: str | None = None,
 ) -> ToolDefinition:
     """构造 knowledge_lookup 工具,供 AgentLoopV2 接入。
 

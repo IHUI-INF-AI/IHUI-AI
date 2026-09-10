@@ -13,8 +13,8 @@ from __future__ import annotations
 import types
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 
 from app.routers import orchestration
 from app.routers.orchestration import (
@@ -24,6 +24,8 @@ from app.routers.orchestration import (
     RecordUsageBody,
     check_budget,
     emit_event,
+    get_budget_summary,
+    get_budget_trend,
     get_cost_breakdown,
     get_decisions,
     get_event_stats,
@@ -37,8 +39,6 @@ from app.routers.orchestration import (
     get_telemetry_dashboard,
     get_telemetry_health,
     get_trace_detail,
-    get_budget_summary,
-    get_budget_trend,
     record_budget_usage,
     reset_pillar_degradation,
     toggle_playbook,

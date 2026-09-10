@@ -37,10 +37,8 @@ from app.services.message_bus import (
     Message,
     MessageBus,
     PublishResult,
-    Subscription,
     render_template,
 )
-
 
 # =============================================================================
 # 公共 fixture:每个测试前重置 message_bus 单例状态
@@ -97,7 +95,7 @@ def _mock_http_client(monkeypatch):
     )
 
     def _factory(*args, **kwargs):
-        return original_client(transport=transport, *args, **kwargs)
+        return original_client(*args, transport=transport, **kwargs)
 
     monkeypatch.setattr(httpx, "AsyncClient", _factory)
 
@@ -109,7 +107,7 @@ class _FakeSMTP:
     sendmail 的收件人与邮件内容。
     """
 
-    instances: list["_FakeSMTP"] = []
+    instances: list[_FakeSMTP] = []
 
     def __init__(self, host, port=0, timeout=10, **kwargs):
         self.host = host
@@ -498,7 +496,6 @@ async def test_rate_limit_rejects_excess() -> None:
 @pytest.mark.asyncio
 async def test_rate_limit_refills_over_time() -> None:
     """令牌桶随时间补充(等 1.1s 后令牌恢复)。"""
-    import time as _time
 
     from app.services.message_bus import IMChannel
 
@@ -742,7 +739,7 @@ async def test_websocket_handler_invoked_on_publish() -> None:
     async def _handler(msg: Message) -> None:
         received.append(msg)
 
-    sub_id = await bus.subscribe(ChannelType.WEBSOCKET, handler=_handler)
+    await bus.subscribe(ChannelType.WEBSOCKET, handler=_handler)
     msg = _make_message(content="ws-handler-test", msg_id="ws-h-1")
     await bus.publish(msg, [ChannelType.WEBSOCKET])
 

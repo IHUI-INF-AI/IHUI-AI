@@ -13,8 +13,9 @@ import asyncio
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Awaitable, cast
+from collections.abc import Awaitable
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import httpx
 import redis.asyncio as aioredis
@@ -41,7 +42,7 @@ _INTERVAL_FIELDS = {"seconds", "minutes", "hours", "days"}
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _build_trigger(trigger_type: str, trigger_config: dict[str, Any]) -> Any:
@@ -340,7 +341,7 @@ class TaskScheduler:
             )
             try:
                 _stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 proc.kill()
                 await proc.communicate()
                 raise TimeoutError(f"shell 执行超时({timeout}s)")

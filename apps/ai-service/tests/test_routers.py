@@ -22,12 +22,9 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from app.services.memory import memory_store
-
 
 # =============================================================================
 # 强制内存模式(避免测试环境 Redis 连接超时)

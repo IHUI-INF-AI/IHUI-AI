@@ -19,8 +19,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from typing import Any
+from datetime import datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -36,7 +35,6 @@ from app.services.publish.platform_dom_selectors import (
     verify_all_selectors,
     verify_selector,
 )
-
 
 # =============================================================================
 # 1. PlatformDomSelectors dataclass 构造与默认值
@@ -135,7 +133,7 @@ class TestPlatformSelectorsDict:
 
     def test_fallback_selectors_is_dict_of_list_of_str(self) -> None:
         """fallback_selectors 应为 dict[str, list[str]]。"""
-        for platform, s in PLATFORM_SELECTORS.items():
+        for _platform, s in PLATFORM_SELECTORS.items():
             assert isinstance(s.fallback_selectors, dict)
             for k, v in s.fallback_selectors.items():
                 assert isinstance(k, str)

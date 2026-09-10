@@ -19,9 +19,8 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -32,7 +31,6 @@ from app.services.knowledge_graph import (
     _create_graph_store,
     graph_store,
 )
-
 
 # =============================================================================
 # Fixtures
@@ -239,7 +237,7 @@ class TestInMemoryGraphStore:
 
     async def test_upsert_entity_accumulates_doc_ids(self):
         store = InMemoryGraphStore()
-        e1 = await store.upsert_entity("owner-1", "Apple", "org", doc_id=10)
+        await store.upsert_entity("owner-1", "Apple", "org", doc_id=10)
         e2 = await store.upsert_entity("owner-1", "Apple", "org", doc_id=20)
         assert sorted(e2["doc_ids"]) == [10, 20]
 
@@ -526,7 +524,6 @@ class TestDrizzleGraphStore:
     async def test_init_raises_when_no_database_url(self, monkeypatch):
         """DATABASE_URL 未配置时,DrizzleGraphStore 初始化抛 ValueError。"""
         from app.core import config
-        from app.services import knowledge_graph
 
         monkeypatch.setattr(config.settings, "database_url", "")
         with pytest.raises(ValueError, match="DATABASE_URL"):
@@ -633,7 +630,6 @@ class TestCreateGraphStore:
     def test_drizzle_backend_when_database_url_set(self, monkeypatch):
         """设置 KNOWLEDGE_GRAPH_STORE=drizzle 且 DATABASE_URL 有值 → DrizzleGraphStore。"""
         from app.core import config
-        from app.services import knowledge_graph
 
         monkeypatch.setenv("KNOWLEDGE_GRAPH_STORE", "drizzle")
         # 不实际创建 pool,只验证类型

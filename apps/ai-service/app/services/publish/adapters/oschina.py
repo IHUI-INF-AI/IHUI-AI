@@ -26,6 +26,7 @@ from typing import Any
 import httpx
 
 from app.core.logging import get_logger
+
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
 
 logger = get_logger(__name__)
@@ -107,10 +108,7 @@ class OschinaAdapter(BasePlatformAdapter):
             )
 
         tags_raw = platform_config.get("tags") or []
-        if isinstance(tags_raw, list):
-            tags = ",".join(str(t) for t in tags_raw)
-        else:
-            tags = str(tags_raw)
+        tags = ",".join(str(t) for t in tags_raw) if isinstance(tags_raw, list) else str(tags_raw)
         catalog = str(
             platform_config.get("catalog") or platform_config.get("category_id") or ""
         )

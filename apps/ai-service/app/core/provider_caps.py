@@ -20,7 +20,7 @@
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict, replace
+from dataclasses import asdict, dataclass, replace
 from typing import Any
 
 

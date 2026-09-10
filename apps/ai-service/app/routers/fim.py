@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -62,9 +62,9 @@ class FIMRequest(BaseModel):
     prefix: str = Field(..., description="光标前代码")
     suffix: str = Field("", description="光标后代码(可为空=文件末尾)")
     language: str = Field("text", description="语言标识(ts/python/go/...)")
-    model: Optional[str] = Field(None, description="模型,默认 auto(本地/零成本优先)")
+    model: str | None = Field(None, description="模型,默认 auto(本地/零成本优先)")
     max_tokens: int = Field(128, ge=1, le=_MAX_TOKENS_CAP, description="补全上限 token")
-    owner_uuid: Optional[str] = Field(None, description="用户 UUID(模型私有配置匹配)")
+    owner_uuid: str | None = Field(None, description="用户 UUID(模型私有配置匹配)")
 
 
 def _strip_fences(text: str) -> str:

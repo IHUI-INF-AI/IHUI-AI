@@ -25,9 +25,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal, TypedDict
 
 from .dream_service import dream_service
@@ -124,20 +125,16 @@ class DreamScheduler:
             if self._task is None:
                 return
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
             self._task = None
             # 等待所有进行中的子任务完成(最多等 5s)
             if self._pending_tasks:
-                try:
+                with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(
                         asyncio.gather(*self._pending_tasks, return_exceptions=True),
                         timeout=5.0,
                     )
-                except asyncio.TimeoutError:
-                    pass
 
     # ===== 运行时控制 =====
 
@@ -187,7 +184,7 @@ class DreamScheduler:
 
     async def _run_once_safe(self) -> None:
         """安全执行一次循环(异常只记录,不向上抛)。"""
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         entry: DreamHistoryEntry = {
             "triggered_at": started_at.isoformat(),
             "status": "running",
@@ -212,7 +209,7 @@ class DreamScheduler:
             entry["error"] = f"{type(e).__name__}: {e}"
             logger.warning("[dream_scheduler] run_once failed: %s: %s", type(e).__name__, e)
         entry["duration_ms"] = int(
-            (datetime.now(timezone.utc) - started_at).total_seconds() * 1000
+            (datetime.now(UTC) - started_at).total_seconds() * 1000
         )
         self._append_history(entry)
         logger.info(

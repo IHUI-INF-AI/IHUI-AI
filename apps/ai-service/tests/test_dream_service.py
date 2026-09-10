@@ -25,7 +25,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -39,7 +39,6 @@ from app.services.dream_service import (
     dream_service,
 )
 from app.services.memory_service import MemoryService, memory_service
-
 
 # =============================================================================
 # 工厂函数
@@ -113,12 +112,12 @@ def make_semantic(
 
 def iso_days_ago(days: float) -> str:
     """返回 N 天前的 ISO 字符串(带 UTC tz)。"""
-    return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    return (datetime.now(UTC) - timedelta(days=days)).isoformat()
 
 
 def iso_hours_ahead(hours: float) -> str:
     """返回 N 小时后的 ISO 字符串(带 UTC tz,用于 future → days_since clamped 0)。"""
-    return (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
+    return (datetime.now(UTC) + timedelta(hours=hours)).isoformat()
 
 
 # =============================================================================
@@ -1002,7 +1001,7 @@ class TestForgetEdgeCases:
         """naive datetime(无 tzinfo)被补充 UTC 时区后计算。"""
         # 10 天前的 naive ISO 字符串(无 +00:00 后缀)
         naive_ten_days_ago = (
-            datetime.now(timezone.utc) - timedelta(days=10)
+            datetime.now(UTC) - timedelta(days=10)
         ).replace(tzinfo=None).isoformat()
         mem = make_memory()
         mem.list_episodic = AsyncMock(return_value=[

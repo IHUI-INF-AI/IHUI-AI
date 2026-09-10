@@ -16,10 +16,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.services.agent_loop_v2 import AgentLoopV2
+from app.services.agent_step_recorder import AgentStepRecorder
 from app.services.cost_ledger import CostLedger
 from app.services.guarded_tool_pipeline import GuardedToolPipeline
-from app.services.agent_step_recorder import AgentStepRecorder
-
 
 # =============================================================================
 # AgentLoopV2._tool_llm_usage_fields(纯映射,无需实例化)

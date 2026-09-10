@@ -29,7 +29,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, List
+from typing import Any
 
 from app.services import mcp_export
 
@@ -256,7 +256,7 @@ class CapabilityRegistry:
             "verified": sum(1 for c in items if c.verified),
         }
 
-    def search(self, q: str) -> List[Capability]:
+    def search(self, q: str) -> list[Capability]:
         """关键词检索:id/name/description/source_ref/tags 子串匹配,多词取交集。
 
         空 q 返回空(与 list() 区分);大小写不敏感。
