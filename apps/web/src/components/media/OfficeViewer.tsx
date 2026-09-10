@@ -65,6 +65,9 @@ export function OfficeViewer({ url, fileName, className }: OfficeViewerProps) {
           <iframe
             src={src}
             title={fileName ?? 'Office preview'}
+            /* P2 加固(对齐 2026-09-09 第九轮 iframe sandbox 治理):Office 预览
+               仅需文档渲染,禁表单提交与顶层导航,阻断嵌入页恶意交互 */
+            sandbox="allow-scripts allow-same-origin allow-popups"
             onLoad={() => setLoading(false)}
             className="h-full w-full border-0"
           />
