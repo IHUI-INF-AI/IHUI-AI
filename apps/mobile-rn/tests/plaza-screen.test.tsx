@@ -181,11 +181,12 @@ describe('PlazaScreen 需求广场', () => {
     expect(props.status).toBe('waiting')
     // onStatusChange 切换状态
     await (props.onStatusChange as (s: string) => void)('developing')
+    // 2026-09-10 CI 修复:更新传播前的旧快照仍会被捕获,单次检查会拿到 waiting;
+    // 轮询直到最新捕获的 props 状态变为 developing
     await waitFor(() => {
-      expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
+      const last = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
+      expect(last.status).toBe('developing')
     })
-    const updatedProps = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
-    expect(updatedProps.status).toBe('developing')
   })
 
   it('搜索输入 onChange 更新 searchInput', async () => {
