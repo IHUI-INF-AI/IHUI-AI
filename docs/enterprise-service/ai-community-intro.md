@@ -269,7 +269,7 @@ A:持续上架高质量智能体(评分 ≥ 4.5),积累用户口碑与收入。�
 - **GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
 - **微信群**:微信号 `ok502319984`(加好友备注 "智汇")
 - **邮箱**:502319984@qq.com
-- **商务合作**:business@aizhs.top
+- **商务合作**:502319984@qq.com
 - **媒体合作**:pr@aizhs.top
 - **客服**:support@aizhs.top(24h 在线)
 
