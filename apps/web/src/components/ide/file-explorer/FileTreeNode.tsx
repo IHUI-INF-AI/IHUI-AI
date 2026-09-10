@@ -1,48 +1,24 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
+// 2026-09-09 0-6 组件拆分:file-tree-node.tsx 移入 file-explorer/ 文件夹,
+// 重复实现的 getRenamedPath/validateFileName/isPathInWorkspace 收敛到 ./model(与主组件同源)
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 import type { FileNode } from '@ihui/types'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { runCommand } from '@ihui/api-client'
-import { getFileIcon, getFileColor } from './file-icons'
+import { getFileIcon, getFileColor } from '../file-icons'
 import { ChevronRight, Folder, FolderOpen, FileText, Pencil, Trash2, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getRenamedPath, validateFileName, isPathInWorkspace } from './model'
 
 interface FileTreeNodeProps {
   node: FileNode
   depth: number
   searchTerm?: string
-}
-
-/** 计算重命名后的新路径(替换最后一段路径分量) */
-function getRenamedPath(oldPath: string, newName: string): string {
-  const lastSep = Math.max(oldPath.lastIndexOf('/'), oldPath.lastIndexOf('\\'))
-  return lastSep >= 0 ? `${oldPath.substring(0, lastSep)}/${newName}` : newName
-}
-
-// 2026-08-02 修复: Bug 2 — Shell 命令注入防御(与 file-explorer.tsx 同源)。
-// runCommand 拼接用户输入到 shell 命令(mv/rm -rf),
-// 文件名含 shell 元字符会被注入;rm -rf 额外校验路径必须在 workspacePath 子树内。
-const SHELL_UNSAFE_CHARS = /["`$;|&\\]/
-function validateFileName(name: string): string | null {
-  if (!name) return '文件名不能为空'
-  if (name.includes('..')) return '文件名不能包含 ..'
-  if (SHELL_UNSAFE_CHARS.test(name)) return '文件名包含非法字符'
-  return null
-}
-function normalizePath(p: string): string {
-  return p.replace(/\\/g, '/').replace(/\/+$/, '')
-}
-function isPathInWorkspace(target: string, workspace: string): boolean {
-  const t = normalizePath(target)
-  const w = normalizePath(workspace)
-  if (t === w) return true
-  return t.startsWith(`${w}/`)
 }
 
 /** 刷新文件树(清除 loadedFolders 强制重新加载已展开文件夹子项) */
@@ -338,4 +314,3 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
     </div>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

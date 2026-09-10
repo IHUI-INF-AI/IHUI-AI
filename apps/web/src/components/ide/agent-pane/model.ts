@@ -5,6 +5,13 @@
 import type { AgentStreamEvent } from '@ihui/api-client'
 import type { PlanStepStatus, TerminalTask } from '@/hooks/use-agent-progress'
 import type { InlineDiffInfo } from '@/components/ai/types'
+import { FALLBACK_MODELS } from '@/components/chat/fallback-models'
+
+// 2026-09-09 0-6 组件拆分:MODEL_OPTIONS 由 agent-pane.tsx 收敛进 model(纯数据,无 JSX)
+export const MODEL_OPTIONS: ReadonlyArray<{ value: string; labelKey?: string; label?: string }> = [
+  { value: '', labelKey: 'agentPane.modelDefault' },
+  ...FALLBACK_MODELS.map((m) => ({ value: m.value, label: m.label })),
+]
 
 export const CHANGE_TOOL_NAMES = new Set(['edit_file', 'write_file'])
 

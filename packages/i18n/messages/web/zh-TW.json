@@ -138,6 +138,52 @@
     "backToList": "返回列表",
     "loadingDetail": "載入文件中…"
   },
+  "knowledgeCard": {
+    "title": "知識卡片",
+    "description": "倉庫級任務經驗卡：沉澱經驗、事實、最佳實踐與踩坑記錄",
+    "repoSection": "倉庫",
+    "repoNameLabel": "倉庫名稱",
+    "repoNamePlaceholder": "輸入倉庫名稱",
+    "load": "載入",
+    "create": "新建卡片",
+    "createSection": "新建卡片",
+    "editSection": "編輯卡片",
+    "kindLabel": "類型",
+    "kindExperience": "任務經驗",
+    "kindFact": "項目事實",
+    "kindPractices": "最佳實踐",
+    "kindPitfall": "踩坑記錄",
+    "sourceAgent": "Agent 沉澱",
+    "titleLabel": "標題",
+    "titlePlaceholder": "輸入卡片標題",
+    "contentLabel": "內容",
+    "contentPlaceholder": "輸入卡片內容（支援 Markdown）",
+    "tagsLabel": "標籤",
+    "tagsPlaceholder": "逗號分隔，最多 20 個",
+    "confidenceLabel": "置信度",
+    "submit": "建立",
+    "update": "儲存",
+    "cancelEdit": "取消",
+    "needRepoName": "請輸入倉庫名稱",
+    "needTitleContent": "標題與內容不能為空",
+    "listTitle": "卡片列表",
+    "searchLabel": "搜尋卡片",
+    "searchPlaceholder": "關鍵詞搜尋標題/內容",
+    "search": "搜尋",
+    "searchResults": "搜尋結果",
+    "searchEmpty": "未找到符合的卡片",
+    "clearSearch": "清除",
+    "loadingList": "載入中…",
+    "emptyList": "暫無卡片，請新建",
+    "useCount": "已用 {count} 次",
+    "view": "查看",
+    "edit": "編輯",
+    "markUsed": "標記已用",
+    "delete": "刪除",
+    "deleteConfirm": "確認刪除該卡片？",
+    "backToList": "返回列表",
+    "loadingDetail": "載入卡片中…"
+  },
   "a11y": {
     "addAttachment": "添加附件（圖片/視頻/文件）",
     "breadcrumb": "麵包屑導航",
@@ -6962,12 +7008,7 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "classLevel": [
-        "優秀(班級前 10%)",
-        "良好(10-30%)",
-        "中等(30-70%)",
-        "一般(後 30%)"
-      ],
+      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -6984,12 +7025,7 @@
         "考試焦慮",
         "家庭環境影響"
       ],
-      "school": [
-        "重點中學",
-        "普通中學",
-        "國際學校",
-        "私立學校"
-      ]
+      "school": ["重點中學", "普通中學", "國際學校", "私立學校"]
     },
     "result": {
       "failed": "AI 分析失敗",
@@ -8966,65 +9002,40 @@
     "commands": {
       "ai-world": {
         "description": "探索 AI 應用世界",
-        "keywords": [
-          "AI",
-          "世界",
-          "應用"
-        ],
+        "keywords": ["AI", "世界", "應用"],
         "label": "AI 世界"
       },
       "chat": {
         "description": "與 AI 助手開始對話",
-        "keywords": [
-          "對話",
-          "聊天",
-          "AI",
-          "chat"
-        ],
+        "keywords": ["對話", "聊天", "AI", "chat"],
         "label": "AI 對話"
       },
       "drama": {
         "description": "AI 生成的精彩短劇",
-        "keywords": [
-          "短劇",
-          "視頻",
-          "AI",
-          "drama"
-        ],
+        "keywords": ["短劇", "視頻", "AI", "drama"],
         "label": "AI 短劇"
       },
       "profile": {
         "description": "管理個人資料和設置",
-        "keywords": [
-          "個人",
-          "資料",
-          "設置"
-        ],
+        "keywords": ["個人", "資料", "設置"],
         "label": "個人中心"
       },
       "search": {
         "description": "全局內容搜索",
-        "keywords": [
-          "搜索",
-          "查找",
-          "search"
-        ],
+        "keywords": ["搜索", "查找", "search"],
         "label": "搜索"
       },
       "settings": {
         "description": "系統偏好與配置",
-        "keywords": [
-          "設置",
-          "偏好",
-          "配置"
-        ],
+        "keywords": ["設置", "偏好", "配置"],
         "label": "系統設置"
       }
     },
     "keyboardHint": "↑↓ 選擇 · Enter 執行",
     "noResults": "未找到匹配的命令",
     "resultCount": "{count} 個結果",
-    "searchPlaceholder": "搜索命令..."
+    "searchPlaceholder": "搜索命令...",
+    "recentGroup": "最近使用"
   },
   "comments": {
     "adminReply": "管理員回復",
@@ -10848,37 +10859,25 @@
       "quadrants": [
         {
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": [
-            "知識問答",
-            "流程自動化"
-          ],
+          "examples": ["知識問答", "流程自動化"],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "復雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": [
-            "數據分析",
-            "決策支持"
-          ],
+          "examples": ["數據分析", "決策支持"],
           "tag": "Q2",
           "title": "智慧顧問"
         },
         {
           "description": "簡單決策 + 復雜執行,處理跨系統復雜任務",
-          "examples": [
-            "會議安排",
-            "審批流程"
-          ],
+          "examples": ["會議安排", "審批流程"],
           "tag": "Q3",
           "title": "執行專家"
         },
         {
           "description": "復雜決策 + 復雜執行,自主規劃與多智能體協作",
-          "examples": [
-            "營銷自動化",
-            "多智能體協同"
-          ],
+          "examples": ["營銷自動化", "多智能體協同"],
           "tag": "Q4",
           "title": "全能專家"
         }
@@ -11012,31 +11011,19 @@
       "items": [
         {
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": [
-            "系統化課程",
-            "實踐探索",
-            "社群互助"
-          ],
+          "features": ["系統化課程", "實踐探索", "社群互助"],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": [
-            "交流平臺",
-            "經驗共享",
-            "資源對接"
-          ],
+          "features": ["交流平臺", "經驗共享", "資源對接"],
           "tag": "MODULE 02",
           "title": "線上社群"
         },
         {
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": [
-            "專業大模型",
-            "智能體服務",
-            "諮詢服務"
-          ],
+          "features": ["專業大模型", "智能體服務", "諮詢服務"],
           "tag": "MODULE 03",
           "title": "AI專業服務"
         }
@@ -11866,7 +11853,8 @@
       "toggle": "切換",
       "variables": "變量",
       "watch": "監視",
-      "watchPlaceholder": "添加監視表達式"
+      "watchPlaceholder": "添加監視表達式",
+      "watchDuplicate": "該表達式已在監視列表中"
     },
     "diffFileList": {
       "noMatch": "無匹配文件"
@@ -12102,7 +12090,6 @@
       "newSession": "新建會話",
       "newSshSession": "新建 SSH 會話",
       "newTerminalAria": "新建終端",
-      "newTerminalTitle": "新建終端 ({shell})",
       "noRecordingsHint": "暫無錄制。點擊錄制按鈕(左側 Video 圖標)開始錄制終端操作。",
       "password": "密碼",
       "play": "回放",
@@ -12163,7 +12150,33 @@
   "inlineEdit": {
     "closeAriaLabel": "關閉編輯",
     "editDescPlaceholder": "描述編輯內容…",
-    "stopAriaLabel": "停止編輯"
+    "stopAriaLabel": "停止編輯",
+    "turnBadge": "第 {n} 輪",
+    "followUpPlaceholder": "繼續輸入調整...",
+    "emptySelection": "(未選中內容)",
+    "errorFallback": "生成失敗,請重試",
+    "followUpHint": "可繼續輸入追加調整",
+    "reject": "放棄",
+    "accept": "應用",
+    "hintSubmit": "提交",
+    "hintCancel": "取消"
+  },
+  "shortcutHelp": {
+    "title": "快捷鍵幫助",
+    "closeHint": "按 Esc 關閉",
+    "desc": {
+      "ctrlK": "命令面板 / 行內編輯",
+      "ctrlP": "搜索",
+      "ctrlShiftN": "新建對話",
+      "ctrlSlash": "快捷鍵幫助",
+      "ctrlShiftD": "短劇編輯器",
+      "ctrlShiftP": "命令面板(視圖切換)",
+      "ctrlComma": "打開設定",
+      "ctrl1": "切換到構建模式",
+      "ctrl2": "切換到計劃模式",
+      "ctrl3": "切換到審查模式",
+      "ctrl4": "切換到規格模式"
+    }
   },
   "inquiry": {
     "errors": {
@@ -13332,7 +13345,15 @@
     "enableSuccess": "{name} 已啟用",
     "disableSuccess": "{name} 已停用",
     "actionFailed": "操作失敗,請稍後重試",
-    "lastErrorText": "錯誤: {error}"
+    "lastErrorText": "錯誤: {error}",
+    "quality": "品質",
+    "riskTitle": "風險",
+    "riskConfirmTitle": "風險確認",
+    "riskConfirmDesc": "{name} 的安全評分為 {score}/100,存在安全風險,確認仍要安裝嗎?",
+    "riskGeneric": "檢測到潛在安全風險",
+    "riskRecommendation": "建議",
+    "riskCancel": "取消安裝",
+    "riskConfirmProceed": "仍要安裝"
   },
   "member": {
     "feedback": {
@@ -13532,15 +13553,7 @@
       "title": "Top 5 頁面",
       "visitsHeader": "訪問數"
     },
-    "weekdays": [
-      "週一",
-      "週二",
-      "週三",
-      "週四",
-      "週五",
-      "週六",
-      "週日"
-    ]
+    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
   },
   "models": {
     "aiNews": {
@@ -14276,12 +14289,7 @@
         ]
       },
       "starter": {
-        "features": [
-          "1M tokens 額度",
-          "基礎模型可用",
-          "5 個 API 令牌",
-          "社區支持"
-        ]
+        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社區支持"]
       }
     },
     "productSchema": {
@@ -14869,6 +14877,7 @@
     "imChannels": "IM 渠道",
     "imageGen": "圖片生成",
     "knowledgeBase": "知識庫",
+    "knowledgeCards": "知識卡片",
     "knowledgeGraph": "知識圖譜",
     "knowledgeRag": "RAG 知識庫",
     "language": "語言",
@@ -14939,6 +14948,7 @@
     "recruitment": "招聘",
     "registry": "注冊中心",
     "relayParamOps": "參數覆蓋",
+    "repoWiki": "Repo Wiki",
     "resources": "資源",
     "restore": "還原",
     "schedule": "課表",
@@ -15472,24 +15482,12 @@
       "enterprise": {
         "contactSales": "聯系銷售",
         "cta": "聯系銷售",
-        "features": [
-          "不限積分",
-          "私有化部署",
-          "SSO/SAML 2.0",
-          "審計日誌",
-          "專屬技術支持"
-        ],
+        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "審計日誌", "專屬技術支持"],
         "name": "企業版"
       },
       "free": {
         "cta": "立即開始",
-        "features": [
-          "每月 1000 積分",
-          "所有 AI 模型",
-          "所有 6 個客戶端",
-          "API 訪問",
-          "社區支持"
-        ],
+        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個客戶端", "API 訪問", "社區支持"],
         "name": "免費版"
       },
       "pro": {
@@ -16787,13 +16785,7 @@
     "cards": {
       "consulting": {
         "desc": "架構諮詢 / 技術選型 / 代碼 review",
-        "features": [
-          "視頻會議 / 遠程桌面",
-          "2 小時起",
-          "故障排查",
-          "增值稅發票",
-          "響應 SLA 24h"
-        ],
+        "features": ["視頻會議 / 遠程桌面", "2 小時起", "故障排查", "增值稅發票", "響應 SLA 24h"],
         "price": "¥999",
         "title": "技術諮詢",
         "unit": "/小時"
@@ -17963,7 +17955,6 @@
     "newSession": "新增工作階段",
     "newSshSession": "新增SSH工作階段",
     "newTerminalAria": "新增終端",
-    "newTerminalTitle": "新增終端",
     "noRecordingsHint": "暫無錄製",
     "password": "密碼",
     "play": "播放",
