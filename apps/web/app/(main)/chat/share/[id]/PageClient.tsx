@@ -136,7 +136,7 @@ export default function ChatSharePage() {
             const Icon = isUser ? User : Bot
             return (
               <Card key={msg.id}>
-                <CardContent className="flex gap-3 p-3">
+                <CardContent className="min-[640px]:p-3 flex gap-3 p-3">
                   <div
                     className={cn(
                       'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',

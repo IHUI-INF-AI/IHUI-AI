@@ -110,7 +110,7 @@ export default function CardFavoritesPage() {
                 key={entry.favoriteId}
                 className="overflow-hidden transition-colors hover:bg-accent/40"
               >
-                <CardContent className="p-3">
+                <CardContent className="min-[640px]:p-3 p-3">
                   <div className="flex items-start gap-3">
                     {card.avatar ? (
                       <Image

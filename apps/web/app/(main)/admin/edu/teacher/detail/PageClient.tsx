@@ -106,7 +106,7 @@ export default function EduTeacherDetailPage() {
       </div>
       <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-4">
         <Card>
-          <CardContent className="flex items-center gap-3 p-3">
+          <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <BookOpen className="h-8 w-8 text-sky-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('courseCount')}</div>
@@ -115,7 +115,7 @@ export default function EduTeacherDetailPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-3">
+          <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <Users className="h-8 w-8 text-emerald-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('studentCount')}</div>
@@ -124,7 +124,7 @@ export default function EduTeacherDetailPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-3">
+          <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <Star className="h-8 w-8 text-amber-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('rating')}</div>

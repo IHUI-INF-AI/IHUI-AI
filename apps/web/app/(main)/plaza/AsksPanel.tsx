@@ -71,7 +71,7 @@ export function AsksPanel({ isLoading, error, asks }: Props) {
                       </div>
                     )}
                   </CardHeader>
-                  <CardContent className="flex items-center gap-4 p-3 pt-0 text-xs text-muted-foreground">
+                  <CardContent className="min-[640px]:p-3 flex items-center gap-4 p-3 pt-0 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <MessageSquare className="h-3.5 w-3.5" />
                       {ta('answerCount', { count: a.answerCount })}

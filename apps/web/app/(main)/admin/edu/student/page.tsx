@@ -140,13 +140,13 @@ export default function EduStudentPage() {
       </div>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
-          <CardContent className="p-3">
+          <CardContent className="min-[640px]:p-3 p-3">
             <div className="text-sm text-muted-foreground">{t('totalStudents')}</div>
             <div className="mt-1 text-2xl font-semibold">{total}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
+          <CardContent className="min-[640px]:p-3 p-3">
             <div className="text-sm text-muted-foreground">{t('currentPageSignups')}</div>
             <div className="mt-1 text-2xl font-semibold">
               {rows.reduce((a, s) => a + s.signupCount, 0)}
@@ -154,7 +154,7 @@ export default function EduStudentPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
+          <CardContent className="min-[640px]:p-3 p-3">
             <div className="text-sm text-muted-foreground">{t('currentPageLearnHours')}</div>
             <div className="mt-1 text-2xl font-semibold">
               {rows.reduce((a, s) => a + s.learnHours, 0)}h

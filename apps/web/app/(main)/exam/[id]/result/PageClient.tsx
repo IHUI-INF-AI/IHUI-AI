@@ -186,7 +186,7 @@ export default function ExamResultPage() {
           <div className="space-y-2">
             {result.details.map((d: ResultDetail, i: number) => (
               <Card key={d.questionId} className="transition-colors hover:bg-accent/40">
-                <CardContent className="space-y-2 p-3">
+                <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-1 items-start gap-2">
                       {d.isCorrect ? (

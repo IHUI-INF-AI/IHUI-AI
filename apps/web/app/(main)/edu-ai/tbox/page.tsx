@@ -250,7 +250,7 @@ export default function TboxPage() {
                   setDetailOpen(true)
                 }}
               >
-                <CardContent className="flex min-w-0 flex-1 flex-col gap-2 p-3">
+                <CardContent className="min-[640px]:p-3 flex min-w-0 flex-1 flex-col gap-2 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-medium">
                       {d.deviceName || d.deviceNo}

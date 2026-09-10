@@ -29,6 +29,11 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/tsconfig/package.json ./packages/tsconfig/
 COPY packages/types/package.json ./packages/types/
 COPY packages/ui-react/package.json ./packages/ui-react/
+# web prebuild 链会构建 @ihui/extension(wxt)并同步下载产物,闭包缺其 package.json
+# → 容器内 wxt 二进制不存在,wxt build 即挂(2026-09-10)
+COPY apps/extension/package.json ./apps/extension/
+COPY packages/browser-platform/package.json ./packages/browser-platform/
+COPY packages/dom-actions/package.json ./packages/dom-actions/
 # apps/web 的 postinstall(node scripts/copy-monaco-to-public.mjs)在 deps 阶段即执行,
 # 只装 package.json 缺该脚本必挂 Cannot find module(2026-09-10)
 COPY apps/web/scripts ./apps/web/scripts/

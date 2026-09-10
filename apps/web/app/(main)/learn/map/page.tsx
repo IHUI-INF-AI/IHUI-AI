@@ -68,7 +68,7 @@ export default function LearnMapPage() {
       </header>
 
       <Card>
-        <CardContent className="flex items-center gap-4 p-3">
+        <CardContent className="min-[640px]:p-3 flex items-center gap-4 p-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             <TrendingUp className="h-6 w-6 text-primary" />
           </div>
