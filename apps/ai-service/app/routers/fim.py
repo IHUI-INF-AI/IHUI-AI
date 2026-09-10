@@ -4,7 +4,7 @@
 
 """FIM(Fill-in-the-Middle)代码补全端点(2026-09-07 立)。
 
-对标 Cursor Tab(Supermaven)/Trae CUE 的后端能力缺口:
+对标 Cursor Tab(Supermaven) 的后端能力缺口:
 为浏览器 IDE(Monaco inline completions)与 CLI ghost-text 提供
 低延迟单轮补全推断。
 

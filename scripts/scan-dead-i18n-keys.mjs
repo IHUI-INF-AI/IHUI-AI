@@ -126,7 +126,7 @@ function printHelp() {
   node scripts/scan-mobile-rn-dead-i18n-keys.mjs    # → --target=mobile-rn
   node scripts/scan-desktop-dead-i18n-keys.mjs      # → --target=desktop
 
-输出:.trae-cn/tmp/i18n-dead-keys-${TODAY}-<target>.md(默认,web 无 target 后缀)
+输出:.ihui-agent/tmp/i18n-dead-keys-${TODAY}-<target>.md(默认,web 无 target 后缀)
 排除:node_modules / .next / dist / __tests__ / *.test.ts(x) / *.spec.ts(x) / .d.ts
 `)
 }
@@ -136,8 +136,8 @@ if (args.help) { printHelp(); process.exit(0) }
 
 const targetCfg = TARGETS[args.target]
 const outputPattern = args.target === 'web'
-  ? `.trae-cn/tmp/i18n-dead-keys-${TODAY}.md`
-  : `.trae-cn/tmp/i18n-dead-keys-${TODAY}-${args.target}.md`
+  ? `.ihui-agent/tmp/i18n-dead-keys-${TODAY}.md`
+  : `.ihui-agent/tmp/i18n-dead-keys-${TODAY}-${args.target}.md`
 
 const code = runScan({
   name: args.target,

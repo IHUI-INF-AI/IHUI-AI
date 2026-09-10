@@ -25,7 +25,7 @@ import { SpecBranchesTab } from './spec-panel/SpecBranchesTab'
 import { SpecGenerateTab } from './spec-panel/SpecGenerateTab'
 
 /**
- * Spec 模式专用面板(2026-07-22 立,对标 Trae IDE Spec 模式)。
+ * Spec 模式专用面板(2026-07-22 立,对标 自研 IDE Spec 模式)。
  *
  * 从代码 AST 反向生成规格文档(markdown):
  * - scope 选择:单文件 / 目录 / 全工作区

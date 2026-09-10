@@ -134,7 +134,7 @@ export async function tryHandleAutoTaskSlash(
   return true
 }
 
-/** /plan & /act 动作型斜杠命令(2026-07-25 立,对标 Trae SOLO Plan 模式)
+/** /plan & /act 动作型斜杠命令(2026-07-25 立,对标 主流 AI IDE SOLO Plan 模式)
  * - /plan [可选说明]:切换到 ChatMode.plan(只读分析,deny write 工具)。后续说明文字被忽略(纯动作命令)。
  * - /act [可选说明]:切换到 ChatMode.build(正常执行,全工具开放,默认)。
  * - 命中即返回 true,不发送给 LLM,清空输入框。toast 给反馈。

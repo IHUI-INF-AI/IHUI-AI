@@ -201,7 +201,7 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     })
     runCli(['--dry-run'])
     const today = new Date().toISOString().slice(0, 10)
-    const expectedReport = path.join(tmpDir, `.trae-cn/tmp/i18n-dead-keys-${today}.md`)
+    const expectedReport = path.join(tmpDir, `.ihui-agent/tmp/i18n-dead-keys-${today}.md`)
     assert.equal(fs.existsSync(expectedReport), false, '--dry-run 不应写报告文件')
   })
 
@@ -272,7 +272,7 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     })
     runCli([]) // 无 --dry-run,无 --out,使用默认 outputPattern
     const today = new Date().toISOString().slice(0, 10)
-    const expectedReport = path.join(tmpDir, `.trae-cn/tmp/i18n-dead-keys-${today}.md`)
+    const expectedReport = path.join(tmpDir, `.ihui-agent/tmp/i18n-dead-keys-${today}.md`)
     assert.equal(fs.existsSync(expectedReport), true, 'web 默认输出路径应为 i18n-dead-keys-{date}.md(无 target 后缀)')
   })
 
@@ -286,7 +286,7 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     })
     runCli(['--target', 'extension'])
     const today = new Date().toISOString().slice(0, 10)
-    const expectedReport = path.join(tmpDir, `.trae-cn/tmp/i18n-dead-keys-${today}-extension.md`)
+    const expectedReport = path.join(tmpDir, `.ihui-agent/tmp/i18n-dead-keys-${today}-extension.md`)
     assert.equal(fs.existsSync(expectedReport), true, '非 web 输出路径应为 i18n-dead-keys-{date}-{target}.md')
   })
 

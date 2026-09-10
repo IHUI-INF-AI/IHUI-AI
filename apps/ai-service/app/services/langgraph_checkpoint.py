@@ -7,7 +7,7 @@
 替代手写 AgentCheckpointManager,提供节点级 checkpoint + thread_id 隔离 + get_state_history。
 
 设计要点:
-- 双层存储:AsyncPostgresSaver(LangGraph 原生表,供 graph.astraem/ainvoke 用)+ 自定义表
+- 双层存储:AsyncPostgresSaver(LangGraph 原生表,供 graph.astream/ainvoke 用)+ 自定义表
   langgraph_checkpoints / langgraph_writes(packages/database/src/schema/p3-deep-layer.ts,
   供 API 查询 / Time Travel / 可观测性用,字段对齐 packages/types/src/langgraph.ts)。
 - 依赖未安装时降级:psycopg / langgraph-checkpoint-postgres 缺失 → manager 仍可实例化,
