@@ -25,11 +25,8 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
-from app.core.llm_gateway import LLMGateway
 from app.core.config import settings
-
+from app.core.llm_gateway import LLMGateway
 
 # =============================================================================
 # 1. _resolve_provider — 10 provider 前缀路由(三元组验证)

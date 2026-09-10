@@ -16,22 +16,23 @@ import json
 import os
 import re
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import parse_qs, quote_plus, urlparse
 
 if TYPE_CHECKING:
     from .agent_orchestrator import AgentOrchestrator
 
-from .exec_policy import PolicyDecision, RuleDecision, evaluate as exec_policy_evaluate
+# 语义压缩回捞层(只读检索工具):复用 vector_memory 单例做语义回捞
+from .context_recall import context_recall
+from .exec_policy import PolicyDecision, RuleDecision
+from .exec_policy import evaluate as exec_policy_evaluate
+from .merge3 import merge3_for_edit
 
 # 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
 from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
-from .merge3 import merge3_for_edit
-
-# 语义压缩回捞层(只读检索工具):复用 vector_memory 单例做语义回捞
-from .context_recall import context_recall
 
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120
@@ -240,8 +241,9 @@ def _get_subagent_timeout() -> int:
         return 300
 
 
-from .skills import skill_registry
+import contextlib
 
+from .skills import skill_registry
 
 # ---------------------------------------------------------------------------
 # 安全常量(2026-07-22 P0 Round 2 鲁棒性加固)
@@ -419,10 +421,7 @@ def _is_sensitive_file(path: str) -> bool:
         if basename == pat or basename.startswith(pat + ".") or basename.startswith(pat + "_"):
             return True
     # 扩展名匹配
-    for ext in _SENSITIVE_FILE_EXTENSIONS:
-        if basename.endswith(ext):
-            return True
-    return False
+    return any(basename.endswith(ext) for ext in _SENSITIVE_FILE_EXTENSIONS)
 
 
 # ---------------------------------------------------------------------------
@@ -650,9 +649,9 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             )
 
     try:
-        from pathlib import Path
         import fnmatch
         import os
+        from pathlib import Path
 
         root = Path(path).resolve()
         if not root.exists():
@@ -1088,10 +1087,8 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
                 rf.write(raw)
         except OSError:
             pass
-        try:
+        with contextlib.suppress(OSError):
             os.remove(backup_path)
-        except OSError:
-            pass
         return _err("IO_ERROR", str(e))
 
     diff = list(difflib.unified_diff(content.splitlines(keepends=True),
@@ -1177,10 +1174,8 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
                 rf.write(raw)
         except OSError:
             pass
-        try:
+        with contextlib.suppress(OSError):
             os.remove(backup_path)
-        except OSError:
-            pass
         return _err("IO_ERROR", str(e))
 
     # 1-2:写盘后刷新 base(冲突已解决,agent 视角最新内容)
@@ -1462,18 +1457,14 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
             await asyncio.wait_for(drain, timeout=timeout)
             await proc.wait()
             timed_out = False
-        except asyncio.TimeoutError:
+        except TimeoutError:
             timed_out = True
-            try:
+            with contextlib.suppress(ProcessLookupError):
                 proc.kill()
-            except ProcessLookupError:
-                pass
             # 取消 drain task 并等其退出(readline 会被 CancelledError 中断)
             drain.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 await drain
-            except (asyncio.CancelledError, Exception):
-                pass
             try:
                 await proc.wait()
             except Exception as e:
@@ -1761,9 +1752,9 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
 
     matches: list[dict[str, Any]] = []
     try:
-        from pathlib import Path
         import fnmatch
         import os
+        from pathlib import Path
 
         root = Path(path).resolve()
         if not root.exists():
@@ -1931,8 +1922,8 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
             }
 
     try:
-        import subprocess
         import os
+        import subprocess
 
         repo_path = os.path.abspath(repo)
         if not os.path.isdir(repo_path):
@@ -2181,6 +2172,7 @@ async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
     # 执行查询
     try:
         import asyncio
+
         import asyncpg
 
         # 强制只读:在事务外用 READ ONLY 模式(若 postgres 支持)
@@ -2218,7 +2210,7 @@ async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
             }
         finally:
             await conn.close()
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return {
             "tool": "db_query",
             "sql": sql,
@@ -2412,8 +2404,9 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
        - dispatch_subagent → 调用 _tool_dispatch_subagent 派发子智能体
        - webhook → httpx POST 到 arguments.webhook_url
     """
-    import httpx
     import uuid
+
+    import httpx
 
     task_id = arguments.get("task_id", "wechat_daily")
     execute = bool(arguments.get("execute", True))
@@ -2669,7 +2662,7 @@ def _get_orchestrator() -> "AgentOrchestrator":
 
 async def _tool_dispatch_subagent(
     arguments: dict[str, Any],
-    progress_callback: Optional[Callable[[dict[str, Any]], None]] = None,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """dispatch_subagent: 派发子智能体执行独立任务(单 agent 或并行多 agent)。
 
@@ -2851,27 +2844,44 @@ async def _tool_dispatch_subagent(
 # 会话 artifacts 持久化(Redis hash TTL 7d,进程重启不丢;Redis 不可用降级进程内)。
 # _ARTIFACTS_CACHE 保留为 artifacts_store._fallback_cache 的别名引用,向后兼容现有测试
 # (test_mcp_server.py 直接读写 _ARTIFACTS_CACHE);_tool_summarize_artifacts 改用 _load_artifacts。
-from .artifacts_store import (  # noqa: E402
-    _fallback_cache as _ARTIFACTS_CACHE,
-    delete_artifacts as _delete_artifacts,
-    load_artifacts as _load_artifacts,
-    save_artifacts as _save_artifacts,
+from .artifacts_store import _fallback_cache as _ARTIFACTS_CACHE
+
+# 2026-09-10:F401 会把「仅被测试/外部引用」的再导出判为未使用并**直接删除**
+# (本次债务收敛时就误删过本别名,导致 tests/test_artifacts_store.py 收集失败)。
+# `__all__` 是 ruff 认可的「这是有意的再导出」信号,在此显式声明以锁定该兼容契约。
+__all__ = ["_ARTIFACTS_CACHE"]
+
+from ..tools import (
+    document_tables as _document_tables,
+)
+from ..tools import (
+    extract_document_assets as _extract_document_assets,
 )
 
 # P0 新增工具(chart_tools / document_tools,零新依赖,2026-09-01 竞品对标补齐)
 # 延迟导入避免启动期探测;工具内部异常已自兜底返回结构化错误,不抛给 MCP 层
 from ..tools import (  # noqa: E402
     generate_chart as _generate_chart,
-    parse_document as _parse_document,
-    extract_document_assets as _extract_document_assets,
-    document_tables as _document_tables,
 )
+from ..tools import (
+    parse_document as _parse_document,
+)
+from ..tools.web_crawl_tools import (
+    crawl_site as _crawl_site,
+)
+from ..tools.web_crawl_tools import (
+    extract_web as _extract_web,
+)
+
 # Web 网络抓取(Firecrawl Scrape/Map/Crawl/Extract 极致融合, 2026-09)
 from ..tools.web_crawl_tools import (  # noqa: E402
     fetch_readable as _fetch_readable,
+)
+from ..tools.web_crawl_tools import (
     map_site as _map_site,
-    crawl_site as _crawl_site,
-    extract_web as _extract_web,
+)
+from .artifacts_store import (  # noqa: E402
+    load_artifacts as _load_artifacts,
 )
 
 # 进程内调度任务列表(schedule_task 用,内存镜像;Redis 为持久化真相源)
@@ -2880,6 +2890,7 @@ _SCHEDULED_TASKS: list[dict[str, Any]] = []
 # 调度任务 Redis 持久化层(2026-07-24 立,对标 Codex Automations)
 # key 规范:mcp:schedule:<task_id> hash,字段见 _SCHEDULE_REDIS_FIELDS
 import logging as _schedule_logging
+from datetime import UTC
 
 logger = _schedule_logging.getLogger(__name__)
 _SCHEDULE_REDIS_PREFIX = "mcp:schedule:"
@@ -3015,7 +3026,7 @@ async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
     """
     import html as _html
     import json as _json
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     url = arguments.get("url", "")
     mode = arguments.get("mode", "text")
@@ -3121,7 +3132,7 @@ async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
             "content": content,
             "content_type": content_type,
             "status_code": resp.status_code,
-            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "fetched_at": datetime.now(UTC).isoformat(),
             "truncated": truncated,
             "message": f"抓取成功(mode={mode}, {len(content)} 字符)",
         }
@@ -3292,7 +3303,7 @@ async def _image_generate_once(
     arguments: dict[str, Any],
 ) -> dict[str, Any]:
     """单家图片 provider 生成一次(OpenAI images 协议;失败返回 ok=False 不抛)。"""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from ..core.config import settings
 
@@ -3437,7 +3448,7 @@ async def _image_generate_once(
             "image_url": image_url, "size": size,
             "provider": provider, "model": model,
             "saved_path": saved_path, "file_size_bytes": file_size_bytes,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "message": f"图片已生成(provider={provider}, model={model}"
                        + (f", saved={saved_path}" if saved_path else "") + ")",
         }
@@ -3585,7 +3596,7 @@ async def _tool_image_generation_native(
     复用 providers 包真实适配器(可灵 JWT HS256 / 即梦 Ark Bearer +
     视觉服务 V4 HMAC 签名),save_path 落地流程与主分支一致。
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from ..providers.base_provider import ProviderError
 
@@ -3652,7 +3663,7 @@ async def _tool_image_generation_native(
         "image_url": image_url, "size": size,
         "provider": provider, "model": used_model,
         "saved_path": saved_path, "file_size_bytes": file_size_bytes,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "message": f"图片已生成(provider={provider}, model={used_model}"
                    + (f", saved={saved_path}" if saved_path else "") + ")",
     }
@@ -3750,9 +3761,9 @@ async def _tool_image_edit(arguments: dict[str, Any]) -> dict[str, Any]:
                 "message": f"save_path 校验失败: {err_code}",
             }
 
+    from ..core.config import settings
     from ..providers.base_provider import ProviderError
     from ..providers.token6688_provider import Token6688Provider
-    from ..core.config import settings
 
     cfg = settings.get_provider_config("token6688")
     api_key = cfg.api_key or os.environ.get("TOKEN6688_API_KEY", "")
@@ -3870,7 +3881,7 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     未配置任何厂商凭据时返回清晰错误(PROVIDER_NOT_CONFIGURED),
     不误标"已生成"——对话侧据 ok=false 如实告知用户。
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from ..providers.base_provider import ProviderError
 
@@ -4093,7 +4104,7 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         "video_url": video_url, "task_id": result.get("task_id"),
         "provider": used_provider, "model": used_model, "duration": duration,
         "saved_path": saved_path, "file_size_bytes": file_size_bytes,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "message": f"视频已生成(provider={used_provider}, model={used_model}"
                    + (f", saved={saved_path}" if saved_path else "") + ")",
     }
@@ -4111,7 +4122,7 @@ async def _tool_music_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     - 支持 save_path 下载落地(.mp3/.wav/.ogg/.flac,工作区白名单,50MB 上限)
     未配置 token6688 key 时返回 PROVIDER_NOT_CONFIGURED,如实告知用户。
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     prompt = arguments.get("prompt", "")
     mode = arguments.get("mode", "song")
@@ -4226,7 +4237,7 @@ async def _tool_music_generation(arguments: dict[str, Any]) -> dict[str, Any]:
                 "provider": "token6688", "model": submitted.get("model", ""),
                 "task_id": remote_id, "audio_url": audio_url,
                 "saved_path": saved_path, "file_size_bytes": file_size_bytes,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "message": "音乐生成完成"
                            + (f",saved={saved_path}" if saved_path else ""),
             }
@@ -4576,7 +4587,7 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
     - 支持 save_path 落地(.mp3/.wav/.ogg/.flac,工作区白名单,50MB 上限)
     """
     import base64 as _base64
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     # ---- task_id 查询模式(2026-09-09):异步 TTS 取件 ----
     query_task_id = str(arguments.get("task_id") or "").strip()
@@ -4730,7 +4741,7 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
         "provider": provider_name, "engine": used_engine, "voice": used_voice,
         "text_chars": len(text), "file_size_bytes": file_size_bytes,
         "audio_url": audio_url, "saved_path": saved_path,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "message": "语音合成完成" + (f",saved={saved_path}" if saved_path else ""),
     }
     if attempts:
@@ -4947,10 +4958,11 @@ async def _stt_once(
             }
     # engine == "local":faster-whisper 本地推理(与 /api/voice/stt 同源,零成本)
     try:
-        from ..routers.voice_stt import _DEFAULT_STT_MODEL, _get_whisper_model, _transcribe_sync
         import asyncio as _asyncio
-        import tempfile as _tempfile
         import os as _os
+        import tempfile as _tempfile
+
+        from ..routers.voice_stt import _DEFAULT_STT_MODEL, _get_whisper_model, _transcribe_sync
 
         suffix = ".wav"
         dot = filename.rfind(".")
@@ -4965,10 +4977,8 @@ async def _stt_once(
                 f.write(audio_bytes)
             text = await _asyncio.to_thread(_transcribe_sync, model, tmp_path, language or None)
         finally:
-            try:
+            with contextlib.suppress(OSError):
                 _os.unlink(tmp_path)
-            except OSError:
-                pass
         return text, _DEFAULT_STT_MODEL, "faster-whisper", None
     except ImportError:
         return "", "", "faster-whisper", {
@@ -5577,7 +5587,7 @@ async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
     由 task_scheduler(AsyncIOScheduler)后台执行 worker(派发 dispatch_subagent 或 POST webhook_url)。
     """
     import uuid
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta
 
     name = arguments.get("name", "")
     prompt = arguments.get("prompt", "")
@@ -5626,7 +5636,7 @@ async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
         try:
             from croniter import croniter
 
-            cron_iter = croniter(cron, datetime.now(timezone.utc))
+            cron_iter = croniter(cron, datetime.now(UTC))
             next_run_at = cron_iter.get_next(datetime).isoformat()
         except ImportError:
             parsed = _parse_simple_cron(cron)
@@ -5654,7 +5664,7 @@ async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
                 "errorCode": "INVALID_PARAMS",
             }
         next_run_at = (
-            datetime.now(timezone.utc) + timedelta(seconds=int(interval_seconds))
+            datetime.now(UTC) + timedelta(seconds=int(interval_seconds))
         ).isoformat()
 
     task_id = uuid.uuid4().hex
@@ -5663,7 +5673,7 @@ async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
         "schedule": schedule, "run_at": run_at, "cron": cron,
         "interval_seconds": interval_seconds, "agent_tools": agent_tools,
         "next_run_at": next_run_at, "status": "scheduled",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "webhook_url": webhook_url,
     }
     _SCHEDULED_TASKS.append(task)
@@ -7785,7 +7795,7 @@ class MCPServer:
                 logger.warning("[mcp] 媒体任务落库异常(忽略): tool=%s", name)
             # 0-2 出口统一输出护栏:token 上限截断(保持结构与控制字段完整)
             return _truncate_tool_output(result)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return {"ok": False, "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)"}
         except Exception as e:
             return {"ok": False, "error": f"工具 {name} 执行失败: {e}"}
@@ -7991,7 +8001,7 @@ class SamplingHandler:
                 "usage": usage,
                 "blocked": False,
             }
-        except asyncio.TimeoutError:
+        except TimeoutError:
             if self._guardrails["audit_log"]:
                 self._audit_logs.append({
                     "callerTool": caller,

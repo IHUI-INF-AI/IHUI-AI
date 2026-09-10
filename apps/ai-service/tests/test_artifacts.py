@@ -262,9 +262,10 @@ async def test_issue_token_legacy_without_owner_ok(client, sample_chart):
 
 async def test_generate_chart_writes_owner_sidecar(monkeypatch):
     """chart_tools:带 __user_id 生成 → sidecar 记录归属;文件名含随机段不可枚举。"""
-    from app.tools.chart_tools import generate_chart
     import json as _json
     import re as _re
+
+    from app.tools.chart_tools import generate_chart
 
     # output_dir 必须在项目根白名单内 → 用 tmp/charts 并以 uuid 隔离
     CHARTS_DIR.mkdir(parents=True, exist_ok=True)

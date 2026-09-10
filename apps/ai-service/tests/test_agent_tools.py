@@ -19,12 +19,9 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
 from app.services.agent_loop_v2 import ToolDefinition
 from app.services.agent_tools import make_knowledge_lookup_tool
 from app.services.knowledge_lookup import KnowledgeHit, KnowledgeLookupResult
-
 
 # =============================================================================
 # 工具定义
@@ -74,7 +71,7 @@ class TestExecutorExecution:
             "app.services.agent_tools.knowledge_lookup",
             new=AsyncMock(return_value=KnowledgeLookupResult(query="test")),
         ) as mock_kl:
-            result = await tool.executor({"query": "test"})
+            await tool.executor({"query": "test"})
         mock_kl.assert_awaited_once()
         args, kwargs = mock_kl.call_args
         assert args[0] == "test" or kwargs.get("query") == "test"

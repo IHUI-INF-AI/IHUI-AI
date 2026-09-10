@@ -31,8 +31,8 @@ pre_publish_check.py — 发布前自动门禁检查 v1.0
 """
 import os
 import re
-import sys
 import subprocess
+import sys
 
 # 路径解析：本脚本位于 工具脚本/，当日稿在 ../Output/，历史稿在 ../历史稿/
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

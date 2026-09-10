@@ -34,6 +34,7 @@ from typing import Any, TypedDict
 import httpx
 
 from app.core.logging import get_logger
+
 from ..base_adapter import BasePlatformAdapter, PublishContent, PublishResult
 
 logger = get_logger(__name__)
@@ -87,9 +88,7 @@ class JianshuAdapter(BasePlatformAdapter):
             return True
         # follow_redirects=False 时,Location header 会暴露重定向目标
         location = resp.headers.get("location", "")
-        if location and any(hint in location for hint in _LOGIN_REDIRECT_HINTS):
-            return True
-        return False
+        return bool(location and any(hint in location for hint in _LOGIN_REDIRECT_HINTS))
 
     async def _request_with_retry(
         self,

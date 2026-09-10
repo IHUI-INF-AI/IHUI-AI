@@ -19,12 +19,16 @@ koubo_validate.py — 口播稿全量验证脚本 v1.0
 标准: 完美细致完整毫无遗漏
 """
 
-import sys, re, os, io, hashlib
+import hashlib
+import io
+import os
+import re
+import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 # 2026-07-14 v1.1 改造：统一从 koubo_terms 导入术语/歧义压缩词表
-from koubo_terms import BANNED_AMBIG_COMP, TERM_CANONICAL_DICT, find_ambig_hits, find_alias_issues
+from koubo_terms import BANNED_AMBIG_COMP, TERM_CANONICAL_DICT
 
 # Windows cmd GBK fix: force UTF-8 output
 if sys.platform == 'win32':
@@ -34,6 +38,7 @@ if sys.platform == 'win32':
 # ============ 跨项目边界硬门禁（2026-07-20 新增·防止窜工作） ============
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # koubo_workflow/
 import project_boundary
+
 project_boundary.check_action(tool="koubo_validate.py", paths=sys.argv[1:], cwd=os.getcwd())
 
 # Symbols (ASCII-safe for Windows cmd)
@@ -58,7 +63,7 @@ class Article:
         self.raw = raw
 
 def parse_articles(filepath: str) -> list[Article]:
-    with open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, encoding='utf-8') as f:
         content = f.read()
     blocks = re.split(r'─{5,}', content)
     articles = []
@@ -257,8 +262,7 @@ EN_WHITELIST = {
     'nvidia', 'space', 'code', 'huggingface', 'offer', 'chat',
     'challenger', 'pixel', 'pro', 'max', 'plus', 'mini', 'nano',
     'kimi', 'qwen', 'doubao', 'tiktok', 'wechat', 'linux',
-    'opus', 'sonnet', 'haiku', 'deepseek',
-    'sol', 'luna', 'vibe', 'voice', 'matt', 'shumer', 'coding',
+    'opus', 'sonnet', 'haiku', 'sol', 'luna', 'vibe', 'voice', 'matt', 'shumer', 'coding',
     'stepx', 'step', 'aos', 'amoo', 'neo', 'fable',
     'hyocr', 'typescript', 'seedream', 'ps', 'image',
 }
@@ -471,7 +475,7 @@ def check_article(art: Article, all_articles: list[Article]) -> list[tuple[str, 
 
     has_turn = any(w in zone for w in turn_words)
     ok = has_turn and len(impact_types) > 0
-    detail = f'280-380区间'
+    detail = '280-380区间'
     if has_turn:
         detail += ' 转折✓'
     else:
@@ -739,7 +743,7 @@ def check_article(art: Article, all_articles: list[Article]) -> list[tuple[str, 
     for canonical, *aliases in TERM_CANONICAL_DICT:
         for alias in aliases:
             if alias and alias in full_text and canonical not in full_text:
-                canonical_hits.append('"%s"→"%s"' % (alias, canonical))
+                canonical_hits.append(f'"{alias}"→"{canonical}"')
                 break
     if canonical_hits:
         R.append(('跨稿词表一致', True, f'{len(canonical_hits)}处需统一: {", ".join(canonical_hits[:3])}（如本篇确需使用该写法请登记到 TERM_CANONICAL_DICT）'))
@@ -752,7 +756,7 @@ def check_article(art: Article, all_articles: list[Article]) -> list[tuple[str, 
     for _fake_pat, _ftype in FAKE_THIRD_PATTERNS:
         _m = re.search(_fake_pat, _fake_text)
         if _m:
-            _fake_hits.append('[%s]%s' % (_ftype, _m.group(0)))
+            _fake_hits.append(f'[{_ftype}]{_m.group(0)}')
     _ok_fake = len(_fake_hits) == 0
     _detail_fake = '无虚构亲属/同事✓' if _ok_fake else '虚构:' + ';'.join(_fake_hits)
     R.append(('虚构社会关系', _ok_fake, _detail_fake))
@@ -821,7 +825,7 @@ def check_article(art: Article, all_articles: list[Article]) -> list[tuple[str, 
         _miss = []
         if not _hook_s2_ok: _miss.append('S2(完播承诺)')
         if not _hook_s3_ok: _miss.append('S3(完播锁钩)')
-        _hook_detail = '缺%s，需补齐S2=身份+承诺/S3=锁钩' % ','.join(_miss)
+        _hook_detail = '缺{}，需补齐S2=身份+承诺/S3=锁钩'.format(','.join(_miss))
     # 2026-07-16 降级：开头3句钩子公式已降为可选（classify_opening 多样性为硬门禁），不再报检查
 
     _dur_bad = bool(len(_sents_list) >= 2 and BAD_DURATION_PAT.search(_sents_list[1]))
@@ -851,7 +855,7 @@ def check_article(art: Article, all_articles: list[Article]) -> list[tuple[str, 
     _ending_50 = art.body[-50:]
     _diag_hits = [w for w in ENDING_DIAG_PATS if w in _ending_50]
     if _diag_hits:
-        _diag_detail = '命中✓:%s' % ','.join(_diag_hits)
+        _diag_detail = '命中✓:{}'.format(','.join(_diag_hits))
     else:
         _diag_detail = '末50字缺软引导词，需补(你对照/你想想/你琢磨/等着看/你猜...)'
     # 2026-07-16 降级：结尾自我诊断已降为可选，不再报检查（避免逼出模板伤完播）
@@ -882,10 +886,7 @@ def cross_article_checks(articles: list[Article], filepath: str = '') -> list[tu
         detail = f'{len(overused)}个超标: {"; ".join(parts[:5])}'
     else:
         near = {p: aids for p, aids in phrase_articles_sorted.items() if len(aids) == 2}
-        if near:
-            detail = f'{len(near)}个=2次(临界)'
-        else:
-            detail = '全部≤2次'
+        detail = f'{len(near)}个=2次(临界)' if near else '全部≤2次'
     R.append(('跨篇高频表达', ok, detail))
 
     # ── "说白了" 8篇≤1次 ──
@@ -1011,7 +1012,7 @@ def cross_article_checks(articles: list[Article], filepath: str = '') -> list[tu
                 break
         col_assignments[art.aid] = best_col
 
-    unique_cols = set(c for c in col_assignments.values() if c != '未标注')
+    unique_cols = {c for c in col_assignments.values() if c != '未标注'}
     # 用选题存档中的栏目做精确校验（如果有的话）
     col_counts = Counter(col_assignments.values())
     hot_count = col_counts.get('热点快评', 0)
@@ -1185,7 +1186,7 @@ def cross_article_checks(articles: list[Article], filepath: str = '') -> list[tu
             prev_text = None
             prev_file = os.path.join(file_dir, prev_date.strftime('%m%d.txt'))
             if os.path.exists(prev_file):
-                with open(prev_file, 'r', encoding='utf-8') as f:
+                with open(prev_file, encoding='utf-8') as f:
                     prev_text = f.read()
             else:
                 # 历史稿已整合为单文件汇编，从汇编切片前一天段
@@ -1195,7 +1196,7 @@ def cross_article_checks(articles: list[Article], filepath: str = '') -> list[tu
                     os.path.join(_koubo_root, '历史稿', '历史口播稿汇编.txt'),
                 ):
                     if os.path.exists(cand):
-                        with open(cand, 'r', encoding='utf-8') as f:
+                        with open(cand, encoding='utf-8') as f:
                             _full = f.read()
                         _m = re.search(
                             r'^# ' + prev_date.strftime('%m%d') + r'.*?(?=\n# |\Z)',
@@ -1245,7 +1246,7 @@ def cross_article_checks(articles: list[Article], filepath: str = '') -> list[tu
     for art in articles:
         if not art.hashtags:
             continue
-        body_lower = art.body[:300]  # 前300字应该能看出主题
+        art.body[:300]  # 前300字应该能看出主题
         for tag in art.hashtags:
             tag_lower = tag.strip().lower()
             # 提取标签中的核心词
@@ -1318,7 +1319,7 @@ def cross_article_checks(articles: list[Article], filepath: str = '') -> list[tu
     if low_score_arts:
         detail_score += f' ⚠低分:{",".join(low_score_arts)}'
     if avg_score < 5:
-        detail_score += f' ⚠均分<5'
+        detail_score += ' ⚠均分<5'
     R.append(('收藏价值终审', ok_score, detail_score))
 
     return R
@@ -1337,14 +1338,16 @@ DISPLAY_HASH_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath
 
 def _display_checkpoint(filepath: str, n_articles: int) -> tuple[bool, str]:
     try:
-        text = open(filepath, encoding='utf-8').read()
+        with open(filepath, encoding='utf-8') as _f:
+            text = _f.read()
     except Exception as e:
         return True, f'检查点跳过(读取失败:{e})'
     h = hashlib.sha256(text.strip().encode('utf-8')).hexdigest()[:16]
     if not os.path.exists(DISPLAY_HASH_FILE):
         return False, (f'尚未建立全量显示检查点(sha={h})。必须运行 koubo_display.py 输出并粘贴'
                        f'全部{n_articles}篇正文+评估数据到对话框，再跑 koubo_display.py --mark 更新检查点。')
-    stored = open(DISPLAY_HASH_FILE, encoding='utf-8').read().strip()
+    with open(DISPLAY_HASH_FILE, encoding='utf-8') as _f:
+        stored = _f.read().strip()
     if stored == h:
         return True, f'全量显示检查点已匹配(sha={h})✓'
     return False, (f'汇编已修改(sha={h})但未全量显示，旧检查点={stored[:8]}…。必须运行 koubo_display.py '
@@ -1376,10 +1379,7 @@ def display(filepath: str, articles: list[Article], per_results: dict[str, list[
                 icon = WARN if not passed else OK
             elif name in SOFT_WARN_CHECKS:
                 # 2026-07-14 软警告项：ok=True不计入fail；detail含"需"或"✗"时显示[??]，否则[OK]
-                if '需' in detail or '✗' in detail:
-                    icon = WARN
-                else:
-                    icon = OK
+                icon = WARN if '需' in detail or '✗' in detail else OK
             elif name in SOFT_NONFAIL:
                 # 2026-07-17 对齐 7/16 降级软项：展示为 WARN 提示，不阻断
                 icon = WARN if not passed else OK
@@ -1390,7 +1390,7 @@ def display(filepath: str, articles: list[Article], per_results: dict[str, list[
 
     # 跨篇
     print(f'\n{"=" * 62}')
-    print(f' 跨篇验证 (12.2 + 栏目分配 + 频率统计)')
+    print(' 跨篇验证 (12.2 + 栏目分配 + 频率统计)')
     print(f'{"=" * 62}')
     for name, passed, detail in cross_results:
         # 2026-07-17 对齐 7/16 降级软项：SOFT_CROSS 展示为 WARN，不计入 total_fail
@@ -1428,7 +1428,7 @@ def main() -> None:
             filepath = alt
         else:
             print(f'❌ 文件不存在: {filepath}')
-            print(f'用法: python koubo_validate.py [MMDD.txt]')
+            print('用法: python koubo_validate.py [MMDD.txt]')
             sys.exit(1)
 
     print(f'解析文件: {filepath}')

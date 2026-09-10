@@ -16,7 +16,10 @@
 # 用法: python scan_boundary.py
 #       python scan_boundary.py --json report.json   (可选输出 JSON)
 #
-import os, re, sys, json
+import json
+import os
+import re
+import sys
 
 WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # skills/
 KOUBO = os.path.join(WORKSPACE, "koubo_workflow")

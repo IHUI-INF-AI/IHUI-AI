@@ -98,10 +98,7 @@ def validate_save_path(save_path: str) -> tuple[bool, str]:
         return False, "save_path 为空"
 
     p = Path(save_path)
-    if not p.is_absolute():
-        p = (_WORKSPACE_ROOT / p).resolve()
-    else:
-        p = p.resolve()
+    p = (_WORKSPACE_ROOT / p).resolve() if not p.is_absolute() else p.resolve()
 
     for root in _ALLOWED_ROOTS:
         root_resolved = root.resolve()

@@ -260,8 +260,8 @@ class MemoryExtractor:
         if not existing_entries:
             return None
         try:
-            from .vector_memory import vector_memory
             from .memory_service import _cosine_similarity
+            from .vector_memory import vector_memory
         except Exception as e:
             logger.warning("语义去重依赖加载失败,降级跳过: %s", e)
             return None

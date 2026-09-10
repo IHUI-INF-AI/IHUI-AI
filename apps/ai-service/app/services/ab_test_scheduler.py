@@ -48,10 +48,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
-from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Literal, TypedDict
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import Any, Literal, TypedDict
 
 logger = logging.getLogger(__name__)
 
@@ -164,20 +166,16 @@ class ABTestScheduler:
             if self._task is None:
                 return
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
             self._task = None
             # 等待所有进行中的子任务完成(最多等 30s)
             if self._pending_tasks:
-                try:
+                with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(
                         asyncio.gather(*self._pending_tasks, return_exceptions=True),
                         timeout=30.0,
                     )
-                except asyncio.TimeoutError:
-                    pass
 
     # ==================================================================
     # 运行时控制
@@ -246,7 +244,7 @@ class ABTestScheduler:
 
     async def _run_once_safe(self) -> None:
         """安全执行一次循环(异常只记录,不向上抛)。"""
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         entry: ABTestHistoryEntry = {
             "triggered_at": started_at.isoformat(),
             "status": "running",
@@ -277,7 +275,7 @@ class ABTestScheduler:
                 e,
             )
         entry["duration_ms"] = int(
-            (datetime.now(timezone.utc) - started_at).total_seconds() * 1000
+            (datetime.now(UTC) - started_at).total_seconds() * 1000
         )
         self._append_history(entry)
         logger.info(
@@ -513,8 +511,8 @@ class ABTestScheduler:
             ) else started_at_iso
             started = datetime.fromisoformat(s)
             if started.tzinfo is None:
-                started = started.replace(tzinfo=timezone.utc)
-            now = datetime.now(timezone.utc)
+                started = started.replace(tzinfo=UTC)
+            now = datetime.now(UTC)
             return (now - started).total_seconds() > max_duration_seconds
         except Exception as e:
             logger.warning("ab_test_scheduler._is_expired 超时检查失败: %s", e, exc_info=True)

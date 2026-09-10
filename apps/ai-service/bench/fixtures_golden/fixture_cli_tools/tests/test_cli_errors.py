@@ -4,7 +4,6 @@
 
 """cli.main 无参数退出码测试(golden)。"""
 
-import pytest
 
 from cli import main
 

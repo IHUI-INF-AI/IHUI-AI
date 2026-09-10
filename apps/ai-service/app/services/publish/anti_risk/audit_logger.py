@@ -27,9 +27,9 @@ import os
 import threading
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from app.core.logging import get_logger
 
@@ -91,7 +91,7 @@ class AuditEvent:
 
 def _now_iso() -> str:
     """当前 UTC 时间 ISO 格式。"""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class AuditLogger:
@@ -199,7 +199,7 @@ class AuditLogger:
         success: bool,
         risk_score: int,
         duration_ms: int,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """记录发布尝试事件。
 
@@ -269,7 +269,7 @@ class AuditLogger:
         platform: str,
         event_type: str,
         severity: str,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """记录风险事件(评分变化/平台风控触发等)。
 
@@ -299,7 +299,7 @@ class AuditLogger:
         account_ids: list[str],
         platform: str,
         alert_type: str,  # 'fingerprint_overlap' | 'ip_overlap' | 'ua_overlap' | 'time_overlap'
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """记录跨账号关联告警。
 
@@ -327,8 +327,8 @@ class AuditLogger:
     def get_recent_events(
         self,
         limit: int = 100,
-        account_id: Optional[str] = None,
-        platform: Optional[str] = None,
+        account_id: str | None = None,
+        platform: str | None = None,
     ) -> list[AuditEvent]:
         """查询最近事件(从内存缓冲,毫秒级返回)。
 
@@ -370,7 +370,7 @@ class AuditLogger:
             }
 
     @classmethod
-    def get_instance(cls) -> "AuditLogger":
+    def get_instance(cls) -> AuditLogger:
         """获取全局 AuditLogger 单例(类方法,便于 scheduler 调用)。"""
         return get_instance()
 
@@ -379,7 +379,7 @@ class AuditLogger:
 # 全局单例
 # ---------------------------------------------------------------------------
 
-_global_logger: Optional[AuditLogger] = None
+_global_logger: AuditLogger | None = None
 _global_logger_lock = threading.Lock()
 
 

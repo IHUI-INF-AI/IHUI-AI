@@ -25,15 +25,13 @@ import datetime
 import json
 import re
 import time
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, TypeVar
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.core.llm_gateway import llm_gateway
 from app.services.skill_feedback import skill_feedback_tracker  # 2026-08-11:统计与反馈
-from app.services.skill_scheduler import SkillScheduler  # 2026-07-23:可选 LangGraph 调度器
 from app.services.skill_recommender import skill_recommender  # 2026-08-09:推荐引擎
 from app.services.skills import Skill, skill_registry
 
@@ -45,12 +43,12 @@ router = APIRouter(prefix="/ai-skills", tags=["ai-skills"])
 T = TypeVar("T")
 
 
-class ApiEnvelope(BaseModel, Generic[T]):
+class ApiEnvelope[T](BaseModel):
     """统一 API 信封:{code, message, data}。"""
 
     code: int = 0
     message: str = "ok"
-    data: Optional[Any] = None
+    data: Any | None = None
 
 
 def _ok(data: Any) -> dict[str, Any]:
@@ -79,8 +77,8 @@ class InvokeRequest(BaseModel):
     """调用入参,变量对应 skill prompt_template 的 {key}。"""
 
     variables: dict[str, Any] = Field(default_factory=dict)
-    model: Optional[str] = None
-    ownerUuid: Optional[str] = None
+    model: str | None = None
+    ownerUuid: str | None = None
 
 
 class InvokeResponse(BaseModel):
@@ -93,15 +91,15 @@ class InvokeResponse(BaseModel):
     contentType: str = "text"  # text | html | json
     guidance: str = ""  # 占位 skill 的引导文本
     sourceUrl: str = ""
-    error: Optional[str] = None
+    error: str | None = None
     duration_ms: int = 0
     model: str = ""  # 实际使用的 LLM 模型
     # 2026-07-23 增强字段(只追加,向后兼容老调用方)
-    before: Optional[str] = None  # nuwa-skill:原 content(改写前)
-    after: Optional[str] = None  # nuwa-skill:改写后内容(同 content)
-    screenshot_url: Optional[str] = None  # hugshu-design:HTML 截图 base64 data URL
-    hashtags: Optional[list[str]] = None  # auto-redbook-skills:解析出的 hashtag 列表
-    slide_count: Optional[int] = None  # guizang-ppt-skill:最终 slide 数量(可能经补齐)
+    before: str | None = None  # nuwa-skill:原 content(改写前)
+    after: str | None = None  # nuwa-skill:改写后内容(同 content)
+    screenshot_url: str | None = None  # hugshu-design:HTML 截图 base64 data URL
+    hashtags: list[str] | None = None  # auto-redbook-skills:解析出的 hashtag 列表
+    slide_count: int | None = None  # guizang-ppt-skill:最终 slide 数量(可能经补齐)
 
 
 # ===== Phase 3+4 模型(2026-08-11 新增)=====
@@ -109,7 +107,7 @@ class InvokeResponse(BaseModel):
 class RatingRequest(BaseModel):
     """评分请求。"""
     rating: int = Field(..., ge=1, le=5, description="评分 1-5 星")
-    comment: Optional[str] = Field(None, max_length=500, description="评价文本(可选)")
+    comment: str | None = Field(None, max_length=500, description="评价文本(可选)")
 
 
 class SkillExportData(BaseModel):
@@ -272,7 +270,7 @@ def _ensure_hashtags(text: str, topic: str) -> tuple[str, list[str]]:
     return updated, tags[:3] + [t for t in tags[3:] if t not in tags[:3]]
 
 
-def _try_screenshot_html(html_content: str) -> Optional[str]:
+def _try_screenshot_html(html_content: str) -> str | None:
     """hugshu-design:可选调 screenshot_service 渲染 HTML 缩略图。
 
     优先调 `screenshot_html_to_base64`;若不存在/失败,silently fallback 返回 None。
@@ -544,7 +542,7 @@ async def get_ai_skills_stats() -> dict[str, Any]:
     """
     import datetime
 
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.UTC)
     try:
         all_stats = await skill_feedback_tracker.get_all_stats()
     except Exception:
@@ -696,7 +694,7 @@ async def import_ai_skill(data: SkillImportData) -> dict[str, Any]:
         "source": "imported",
         "promptTemplate": data.promptTemplate,
         "sourceUrl": data.sourceUrl,
-        "importedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "importedAt": datetime.datetime.now(datetime.UTC).isoformat(),
     }
     _imported_skills[skill_id] = import_record
 
@@ -732,7 +730,7 @@ async def rate_ai_skill(skill_id: str, req: RatingRequest) -> dict[str, Any]:
         "skillId": skill_id,
         "rating": req.rating,
         "comment": req.comment or "",
-        "createdAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "createdAt": datetime.datetime.now(datetime.UTC).isoformat(),
     }
     _rating_store.setdefault(skill_id, []).append(record)
 

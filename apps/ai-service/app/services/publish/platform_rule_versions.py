@@ -26,7 +26,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Optional
 
 from app.core.logging import get_logger
 
@@ -108,7 +107,7 @@ class RuleVersionManager:
 
     # ----- 查询接口 -----
 
-    def get_current_version(self, platform: str) -> Optional[RuleVersion]:
+    def get_current_version(self, platform: str) -> RuleVersion | None:
         """获取平台当前规则版本信息。
 
         Args:
@@ -239,7 +238,7 @@ class RuleVersionManager:
 
     # ----- 批量操作 -----
 
-    def bulk_check_outdated(self, platforms: Optional[list[str]] = None) -> dict[str, bool]:
+    def bulk_check_outdated(self, platforms: list[str] | None = None) -> dict[str, bool]:
         """批量检测规则过期状态。
 
         Args:
@@ -278,7 +277,7 @@ class RuleVersionManager:
 # ---------------------------------------------------------------------------
 
 
-_default_manager: Optional[RuleVersionManager] = None
+_default_manager: RuleVersionManager | None = None
 
 
 def _get_default_manager() -> RuleVersionManager:
@@ -289,7 +288,7 @@ def _get_default_manager() -> RuleVersionManager:
     return _default_manager
 
 
-def get_current_version(platform: str) -> Optional[RuleVersion]:
+def get_current_version(platform: str) -> RuleVersion | None:
     """模块级便捷函数:获取平台当前规则版本(使用默认单例)。"""
     return _get_default_manager().get_current_version(platform)
 

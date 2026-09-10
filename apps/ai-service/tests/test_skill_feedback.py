@@ -8,11 +8,10 @@
 所有测试强制内存模式(mock _get_redis 返回 None)以隔离 Redis 依赖。
 """
 
+
 import pytest
-from unittest.mock import AsyncMock, patch
 
 from app.services.skill_feedback import SkillFeedbackTracker, skill_feedback_tracker
-
 
 # ------------------------------------------------------------
 # 辅助 fixture:强制内存模式
@@ -382,7 +381,7 @@ class TestGetFailureCases:
     @pytest.mark.asyncio
     async def test_limit_zero_returns_all(self, tracker):
         """源码:limit <= 0 时返回全部(recent = failures)。"""
-        for i in range(3):
+        for _i in range(3):
             await tracker.record_usage({
                 "skillName": "s1", "usedAt": "now",
                 "success": False, "durationMs": 100,
@@ -392,7 +391,7 @@ class TestGetFailureCases:
 
     @pytest.mark.asyncio
     async def test_default_limit_is_5(self, tracker):
-        for i in range(7):
+        for _i in range(7):
             await tracker.record_usage({
                 "skillName": "s1", "usedAt": "now",
                 "success": False, "durationMs": 100,

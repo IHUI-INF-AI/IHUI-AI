@@ -37,7 +37,7 @@ FIXTURES_PATH = (
 def _load_doc() -> dict[str, Any]:
     if not FIXTURES_PATH.exists():
         pytest.fail(f"fixtures not found: {FIXTURES_PATH}")
-    with open(FIXTURES_PATH, "r", encoding="utf-8") as fh:
+    with open(FIXTURES_PATH, encoding="utf-8") as fh:
         return json.load(fh)
 
 
@@ -85,7 +85,7 @@ class TestConsistencyFixtures:
                 assert len(body) == len(expected_body), (
                     f"{fx['name']}: body line count {len(body)} != expected {len(expected_body)}"
                 )
-                for line, expected in zip(body, expected_body):
+                for line, expected in zip(body, expected_body, strict=False):
                     if not line.startswith("- "):
                         # 防嵌套:历史摘要正文原样并入(非 bullet 行),逐字比对
                         assert line == expected, (

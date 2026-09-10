@@ -15,9 +15,9 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from ..services import mcp_server as mcp_server_module
 from ..services import capability_market as capability_market_module
 from ..services import capability_market_store
+from ..services import mcp_server as mcp_server_module
 from ..services.mcp_client import (
     DEFAULT_TIMEOUT,
     TRANSPORT_SSE,

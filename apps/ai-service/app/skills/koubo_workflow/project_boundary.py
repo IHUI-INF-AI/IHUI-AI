@@ -29,7 +29,9 @@
 #   project_boundary.check_action(tool="publish_pipeline.py", paths=sys.argv[1:], cwd=os.getcwd())
 #   project_boundary.check_write(out_path)   # 写交付物前调用
 #
-import sys, os, time
+import os
+import sys
+import time
 
 WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # skills/
 KOUBO = os.path.join(WORKSPACE, "koubo_workflow")

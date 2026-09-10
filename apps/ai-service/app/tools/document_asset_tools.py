@@ -25,14 +25,14 @@ import io
 import os
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from . import document_tools as _dt_module
 from .document_tools import (
     _anydoc,
     _AnydocError,
-    _resolve_path,
     _describe_anydoc_error,
+    _resolve_path,
 )
 
 if TYPE_CHECKING:
@@ -50,7 +50,7 @@ PROJECT_ROOT: str = os.path.abspath(str(Path(__file__).resolve().parents[4]))
 _ASSET_DIRNAME = os.path.join("tmp", "anydoc-assets")
 
 # ---- 支持 to_document 文档模型的扩展名（pdf 除外：无资产/表格模型） ----
-_ASSET_EXTS: Tuple[str, ...] = (
+_ASSET_EXTS: tuple[str, ...] = (
     ".docx",
     ".doc",
     ".pptx",
@@ -65,7 +65,7 @@ _ASSET_EXTS: Tuple[str, ...] = (
 )
 
 # 扩展名 -> to_document 的 format 参数
-_EXT_TO_FORMAT: Dict[str, str] = {
+_EXT_TO_FORMAT: dict[str, str] = {
     ".docx": "docx",
     ".doc": "doc",
     ".pptx": "pptx",
@@ -80,7 +80,7 @@ _EXT_TO_FORMAT: Dict[str, str] = {
 }
 
 # media_type -> 落盘扩展名（未知图片 .img，其余 .bin）
-_MEDIA_EXT: Dict[str, str] = {
+_MEDIA_EXT: dict[str, str] = {
     "image/png": ".png",
     "image/jpeg": ".jpg",
     "image/jpg": ".jpg",
@@ -112,12 +112,12 @@ def _asset_extension(media_type: str) -> str:
     return ".bin"
 
 
-def _fail(tool: str, message: str) -> Dict[str, Any]:
+def _fail(tool: str, message: str) -> dict[str, Any]:
     """统一结构化失败响应（不抛异常）。"""
     return {"tool": tool, "ok": False, "message": message}
 
 
-async def _load_document(abs_path: str, ext: str) -> "anydoc.Document":
+async def _load_document(abs_path: str, ext: str) -> anydoc.Document:
     """读取文档字节并在线程池里调 anydoc.to_document，返回 Document 模型。"""
     with open(abs_path, "rb") as f:
         data = f.read()
@@ -129,7 +129,7 @@ async def _load_document(abs_path: str, ext: str) -> "anydoc.Document":
 # extract_document_assets — 内嵌资产提取
 # ============================================================================
 
-async def extract_document_assets(arguments: Dict[str, Any]) -> Dict[str, Any]:
+async def extract_document_assets(arguments: dict[str, Any]) -> dict[str, Any]:
     """提取文档内嵌图片/对象资产，落盘到项目临时目录，返回资产清单。
 
     入参: path(必填)。仅支持 to_document 模型格式（不含 pdf）。
@@ -175,9 +175,9 @@ async def extract_document_assets(arguments: Dict[str, Any]) -> Dict[str, Any]:
         out_dir = os.path.join(PROJECT_ROOT, _ASSET_DIRNAME, uuid.uuid4().hex)
         os.makedirs(out_dir, exist_ok=True)
 
-        manifest: List[Dict[str, Any]] = []
+        manifest: list[dict[str, Any]] = []
         for i, asset in enumerate(assets):
-            item: Dict[str, Any] = {"id": i, "ok": True, "error": ""}
+            item: dict[str, Any] = {"id": i, "ok": True, "error": ""}
             try:
                 media_type = getattr(asset, "media_type", "") or ""
                 origin_part = getattr(asset, "origin_part", "") or ""
@@ -186,7 +186,7 @@ async def extract_document_assets(arguments: Dict[str, Any]) -> Dict[str, Any]:
                     data = data.tobytes()
                 item["media_type"] = media_type
                 item["origin_part"] = origin_part
-                filename = "{}-{}{}".format(base, i, _asset_extension(media_type))
+                filename = f"{base}-{i}{_asset_extension(media_type)}"
                 file_path = os.path.join(out_dir, filename)
                 # 自生成文件名，绝不复用服务器 origin_part，防路径穿越
                 with open(file_path, "wb") as f:
@@ -199,7 +199,7 @@ async def extract_document_assets(arguments: Dict[str, Any]) -> Dict[str, Any]:
                 item["bytes"] = len(bytes(data))
             except Exception as e:  # noqa: BLE001
                 item["ok"] = False
-                item["error"] = "资产落盘失败: {}: {}".format(type(e).__name__, e)
+                item["error"] = f"资产落盘失败: {type(e).__name__}: {e}"
             manifest.append(item)
 
         ok_count = sum(1 for it in manifest if it.get("ok"))
@@ -209,12 +209,12 @@ async def extract_document_assets(arguments: Dict[str, Any]) -> Dict[str, Any]:
             "asset_count": len(manifest),
             "ok_count": ok_count,
             "assets": manifest,
-            "message": "提取到 {} 个内嵌资产(成功 {})".format(len(manifest), ok_count),
+            "message": f"提取到 {len(manifest)} 个内嵌资产(成功 {ok_count})",
         }
     except _AnydocError as e:
         return _fail("extract_document_assets", _describe_anydoc_error(e))
     except Exception as e:  # noqa: BLE001 全部捕获，不向上抛
-        return _fail("extract_document_assets", "提取失败: {}: {}".format(type(e).__name__, e))
+        return _fail("extract_document_assets", f"提取失败: {type(e).__name__}: {e}")
 
 
 # ============================================================================
@@ -223,7 +223,7 @@ async def extract_document_assets(arguments: Dict[str, Any]) -> Dict[str, Any]:
 
 def _inline_text(inlines: Any) -> str:
     """把 Inline 列表渲染为纯文本（text/link 内容/换行）。"""
-    parts: List[str] = []
+    parts: list[str] = []
     for il in inlines or []:
         kind = getattr(il, "kind", None)
         text = getattr(il, "text", None)
@@ -238,7 +238,7 @@ def _inline_text(inlines: Any) -> str:
 
 def _cell_text(cell: Any) -> str:
     """把 Cell 内 blocks 渲染为文本。"""
-    lines: List[str] = []
+    lines: list[str] = []
     for block in getattr(cell, "blocks", None) or []:
         txt = _inline_text(getattr(block, "content", None))
         if txt.strip():
@@ -246,12 +246,12 @@ def _cell_text(cell: Any) -> str:
     return " ".join(x.strip() for x in lines if x.strip())
 
 
-def _table_grid(table: Any) -> List[List[str]]:
+def _table_grid(table: Any) -> list[list[str]]:
     """把规范网格（CellSlot，covered 指向 origin）展开为二维文本数组。"""
     grid = getattr(table, "grid", None) or []
-    rows: List[List[str]] = []
-    for r, rowslots in enumerate(grid):
-        row: List[str] = []
+    rows: list[list[str]] = []
+    for _r, rowslots in enumerate(grid):
+        row: list[str] = []
         for slot in rowslots:
             kind = getattr(slot, "kind", None)
             if kind == "covered":
@@ -272,7 +272,7 @@ def _table_grid(table: Any) -> List[List[str]]:
     return rows
 
 
-def _to_csv(headers: List[str], rows: List[List[str]]) -> str:
+def _to_csv(headers: list[str], rows: list[list[str]]) -> str:
     buf = io.StringIO()
     w = csv.writer(buf)
     if headers:
@@ -282,7 +282,7 @@ def _to_csv(headers: List[str], rows: List[List[str]]) -> str:
     return buf.getvalue().rstrip("\n")
 
 
-def _to_markdown(headers: List[str], rows: List[List[str]]) -> str:
+def _to_markdown(headers: list[str], rows: list[list[str]]) -> str:
     ncols = len(headers)
     for row in rows:
         ncols = max(ncols, len(row))
@@ -295,7 +295,7 @@ def _to_markdown(headers: List[str], rows: List[List[str]]) -> str:
     return "\n".join(lines)
 
 
-async def document_tables(arguments: Dict[str, Any]) -> Dict[str, Any]:
+async def document_tables(arguments: dict[str, Any]) -> dict[str, Any]:
     """提取文档内规范化数据表格（含合并单元格）为二维文本数组 + GFM/CSV。
 
     入参: path(必填)。仅支持 to_document 模型格式（不含 pdf）。
@@ -326,7 +326,7 @@ async def document_tables(arguments: Dict[str, Any]) -> Dict[str, Any]:
             return _fail("document_tables", "文档引擎不可用(anydoc 模块未安装)")
 
         doc = await _load_document(abs_path, ext)
-        tables_found: List[Dict[str, Any]] = []
+        tables_found: list[dict[str, Any]] = []
         idx = 0
 
         def walk(blocks: Any) -> None:
@@ -339,7 +339,7 @@ async def document_tables(arguments: Dict[str, Any]) -> Dict[str, Any]:
                     kind = getattr(table, "kind", "data") or "data"
                     headers = grid_rows[:header_rows] if header_rows else []
                     body = grid_rows[header_rows:] if header_rows else grid_rows
-                    flat_headers: List[str] = []
+                    flat_headers: list[str] = []
                     if headers:
                         # 多个 header 行合并为一行（竖排按行取首列）
                         flat_headers = headers[0] if headers else []
@@ -380,12 +380,12 @@ async def document_tables(arguments: Dict[str, Any]) -> Dict[str, Any]:
             "ok": len(tables_found) > 0,
             "table_count": len(tables_found),
             "tables": tables_found,
-            "message": "提取到 {} 个表格".format(len(tables_found))
+            "message": f"提取到 {len(tables_found)} 个表格"
             if tables_found
             else "该文档未包含表格",
         }
     except _AnydocError as e:
         return _fail("document_tables", _describe_anydoc_error(e))
     except Exception as e:  # noqa: BLE001
-        return _fail("document_tables", "提取失败: {}: {}".format(type(e).__name__, e))
+        return _fail("document_tables", f"提取失败: {type(e).__name__}: {e}")
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

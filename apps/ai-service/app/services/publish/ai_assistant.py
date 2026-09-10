@@ -25,8 +25,9 @@ import 本模块的 AiWritingService 单例并调用即可。
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import AsyncIterator
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -76,7 +77,7 @@ class AiWritingService:
     def _model(self) -> str:
         return settings.litellm_model
 
-    async def _complete(self, prompt: str, system: Optional[str] = None) -> str:
+    async def _complete(self, prompt: str, system: str | None = None) -> str:
         """非流式 LLM 调用,返回完整文本。失败返回空串。"""
         messages: list[dict[str, str]] = []
         if system:
@@ -90,7 +91,7 @@ class AiWritingService:
             logger.warning("[ai_assistant] complete failed: %s", e)
             return ""
 
-    async def _astream(self, prompt: str, system: Optional[str] = None) -> AsyncIterator[str]:
+    async def _astream(self, prompt: str, system: str | None = None) -> AsyncIterator[str]:
         """流式 LLM 调用,yield 逐字 chunk。失败静默结束。"""
         messages: list[dict[str, str]] = []
         if system:
@@ -124,7 +125,7 @@ class AiWritingService:
         if not result:
             return []
         titles = [
-            line.strip().lstrip("0123456789.、)）) ")
+            re.sub(r"^[\d.、)）\s]+", "", line.strip())
             for line in result.split("\n")
             if line.strip()
         ]
@@ -220,7 +221,7 @@ class AiWritingService:
 
     async def analyze_seo(
         self, title: str, content: str, platform: str = ""
-    ) -> Optional[SeoReport]:
+    ) -> SeoReport | None:
         """SEO 分析(标题评分/正文评分/关键词密度/建议)。返回 None 表示失败。"""
         if not content.strip():
             return None

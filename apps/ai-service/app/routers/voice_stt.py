@@ -17,11 +17,12 @@ faster-whisper 本地推理(CTranslate2 后端,base 模型 74MB,首次下载后�
 """
 
 import asyncio
+import contextlib
 import logging
 import os
 import tempfile
 from threading import Lock
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, File, Form, UploadFile
 from pydantic import BaseModel
@@ -91,7 +92,7 @@ def _get_whisper_model() -> Any:
         return _whisper_model
 
 
-def _transcribe_sync(model: Any, tmp_path: str, language: Optional[str]) -> str:
+def _transcribe_sync(model: Any, tmp_path: str, language: str | None) -> str:
     """同步执行 faster-whisper 转写(供 asyncio.to_thread 调用,避免阻塞事件循环)。"""
     # segments 是生成器,segments_iter + info
     # language=None 让模型自动检测;传 language 则强制语言
@@ -107,7 +108,7 @@ def _transcribe_sync(model: Any, tmp_path: str, language: Optional[str]) -> str:
 @router.post("/voice/stt", response_model=STTResponse)
 async def voice_stt(
     file: UploadFile = File(..., description="音频文件(wav/mp3/m4a/webm 等)"),
-    language: Optional[str] = Form(None, description="语言提示(如 zh/en/ja,可选)"),
+    language: str | None = Form(None, description="语言提示(如 zh/en/ja,可选)"),
 ) -> STTResponse:
     """接收音频文件并用 faster-whisper 本地转写为文本。
 
@@ -178,15 +179,11 @@ async def voice_stt(
     finally:
         # 清理临时文件(fd 若未关闭也一并 close,再 unlink 文件)
         if tmp_fd >= 0:
-            try:
+            with contextlib.suppress(OSError):
                 os.close(tmp_fd)
-            except OSError:
-                pass
         if tmp_path:
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(tmp_path)
-            except OSError:
-                pass
 
 
 def _get_suffix(filename: str) -> str:

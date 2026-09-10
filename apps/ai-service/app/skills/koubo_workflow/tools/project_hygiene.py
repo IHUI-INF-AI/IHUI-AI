@@ -9,10 +9,10 @@ project_hygiene.py - 双项目目录卫生验证
 对应规则：口播稿AGENTS.md 十三 / 公众号AGENTS.md 十一
 用法：python project_hygiene.py
 """
-import os
-import sys
 import io
+import os
 import re
+import sys
 
 # Windows UTF-8 fix
 if sys.platform == 'win32':
@@ -25,6 +25,7 @@ MEDIA_ROOT = os.path.dirname(os.path.dirname(KOUBO_ROOT))  # 自媒体/（父级
 # ── 项目边界硬门禁（缺省 fail-closed：未声明会话 / 公众号会话均拦截） ──
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # koubo_workflow/
 import project_boundary
+
 project_boundary.check_action(tool="project_hygiene.py")
 
 # ===== 白名单常量 =====
@@ -149,10 +150,7 @@ class HygieneChecker:
         self.results.append((check, passed, detail))
 
     def _has_junk_name(self, name: str) -> bool:
-        for pat in JUNK_PATTERNS:
-            if pat.search(name):
-                return True
-        return False
+        return any(pat.search(name) for pat in JUNK_PATTERNS)
 
     # ===== 口播稿项目 =====
     def check_koubo(self) -> None:
@@ -306,7 +304,7 @@ class HygieneChecker:
         gzh_pollution = []
         gzh_keyword_hits = []
         if os.path.isdir(was_dir):
-            for cur, subdirs, files in os.walk(was_dir):
+            for cur, _subdirs, files in os.walk(was_dir):
                 for f in files:
                     if f.endswith(SKIP_EXTS):
                         continue
@@ -327,7 +325,8 @@ class HygieneChecker:
                     # 文档类文件（.md/.html/.docx）命中口播稿特征词
                     elif f.lower().endswith(('.md', '.html', '.docx')):
                         try:
-                            txt = open(fp, 'r', encoding='utf-8', errors='ignore').read()
+                            with open(fp, encoding='utf-8', errors='ignore') as _f:
+                                txt = _f.read()
                         except Exception:
                             continue
                         kw = [k for k in KOUBO_FILE_PATTERN_TUPLE if k in txt]
@@ -349,7 +348,7 @@ class HygieneChecker:
         koubo_md_json = []
         koubo_img_txt = []
         if os.path.isdir(koubo_dir):
-            for cur, subdirs, files in os.walk(koubo_dir):
+            for cur, _subdirs, files in os.walk(koubo_dir):
                 for f in files:
                     if f.endswith(SKIP_EXTS):
                         continue

@@ -16,23 +16,21 @@
 from __future__ import annotations
 
 import base64
-import os
 import secrets
-from typing import Any
 
 import pytest
+from cryptography.exceptions import InvalidTag
 
 from app.services.publish import credentials_crypto
 from app.services.publish.credentials_crypto import (
-    _KEY_LEN,
     _IV_LEN,
+    _KEY_LEN,
     _get_key,
     _load_key,
     decrypt,
     encrypt,
     generate_key_b64,
 )
-
 
 # =============================================================================
 # 辅助:每个测试前重置单例 _KEY(避免上一个测试污染)
@@ -256,7 +254,7 @@ def test_decrypt_tampered_ciphertext_raises():
     # 翻转最后一个字节(tag 部分)
     blob[-1] ^= 0xFF
     tampered = base64.b64encode(bytes(blob)).decode()
-    with pytest.raises(Exception):
+    with pytest.raises(InvalidTag):
         decrypt(tampered)
 
 
@@ -267,7 +265,7 @@ def test_decrypt_tampered_iv_raises():
     blob = bytearray(base64.b64decode(cipher))
     blob[0] ^= 0xFF  # 改 IV 第一字节
     tampered = base64.b64encode(bytes(blob)).decode()
-    with pytest.raises(Exception):
+    with pytest.raises(InvalidTag):
         decrypt(tampered)
 
 
@@ -283,7 +281,7 @@ def test_decrypt_with_different_key_fails(monkeypatch):
     key_b = secrets.token_bytes(_KEY_LEN)
     monkeypatch.setenv("PUBLISH_CREDENTIALS_KEY", base64.b64encode(key_b).decode())
     credentials_crypto._KEY = None
-    with pytest.raises(Exception):
+    with pytest.raises(InvalidTag):
         decrypt(cipher)
 
 

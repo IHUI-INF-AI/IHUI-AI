@@ -20,11 +20,9 @@
 
 from __future__ import annotations
 
-import pytest
 from pydantic_settings import BaseSettings
 
 from app.core.config import Settings, settings
-
 
 # =============================================================================
 # 默认值

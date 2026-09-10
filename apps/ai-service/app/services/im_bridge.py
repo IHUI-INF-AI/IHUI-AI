@@ -23,6 +23,7 @@ Redis 队列格式(与 apps/api/src/routes/im-gateway.ts 同源):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 from typing import Any
@@ -95,16 +96,12 @@ class ImBridgeService:
         """关闭时调用:取消消费任务 + 关闭 Redis 连接。"""
         if self._consume_task is not None and not self._consume_task.done():
             self._consume_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._consume_task
-            except asyncio.CancelledError:
-                pass
             self._consume_task = None
         if self._redis is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._redis.aclose()
-            except Exception:
-                pass
             self._redis = None
         self._initialized = False
 
@@ -258,7 +255,7 @@ class ImBridgeService:
                 llm_gateway.complete(messages, owner_uuid=user_id),
                 timeout=_LLM_TIMEOUT_S,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "[ImBridge] LLM 调用超时(%ds,key=%s)", _LLM_TIMEOUT_S, queue_key
             )

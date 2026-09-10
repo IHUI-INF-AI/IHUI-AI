@@ -15,12 +15,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import asyncpg
 
-from ..core.config import settings
 from ..core.db_pool import get_shared_pool
 
 logger = logging.getLogger(__name__)
@@ -161,7 +159,7 @@ async def check_budget(
                 return True, None
 
             # 2. 查用户今日已用 token 总量(UTC 当天)
-            today_start = datetime.now(timezone.utc).replace(
+            today_start = datetime.now(UTC).replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
             used = await conn.fetchval(

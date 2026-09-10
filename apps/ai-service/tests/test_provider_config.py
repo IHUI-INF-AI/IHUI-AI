@@ -18,7 +18,6 @@ from __future__ import annotations
 from app.core.config import Settings
 from app.core.provider_config import ProviderConfig
 
-
 # =============================================================================
 # 1. get_provider_config 返回类型强类型化
 # =============================================================================

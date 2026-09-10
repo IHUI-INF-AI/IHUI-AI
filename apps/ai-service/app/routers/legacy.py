@@ -9,7 +9,6 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
 from app.core.config import settings
 
@@ -85,10 +84,7 @@ async def get_category_cache(category_type: str = "agent") -> dict[str, Any]:
         data = json.loads(raw)
     except (json.JSONDecodeError, TypeError):
         return {"categories": [], "cached": False, "key": _CATEGORY_CACHE_KEY, "error": "缓存数据格式异常"}
-    if isinstance(data, dict):
-        categories = data.get(category_type, [])
-    else:
-        categories = data
+    categories = data.get(category_type, []) if isinstance(data, dict) else data
     return {"categories": categories, "cached": True, "key": _CATEGORY_CACHE_KEY}
 
 

@@ -20,12 +20,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
 import time
 from pathlib import Path
-from typing import Any
 
 from app.core.config import settings
 
@@ -131,10 +131,8 @@ class _MediaMaintenance:
     async def stop(self) -> None:
         if self._task is not None and not self._task.done():
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         self._task = None
 
     async def _loop(self) -> None:

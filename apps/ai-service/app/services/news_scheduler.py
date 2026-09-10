@@ -16,15 +16,16 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 from collections.abc import Coroutine
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
+from app.core.config import settings
 from app.core.db_pool import get_shared_pool
 from app.core.llm_gateway import llm_gateway
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -125,10 +126,8 @@ class NewsScheduler:
         if self._task is None:
             return
         self._task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await self._task
-        except asyncio.CancelledError:
-            pass
         self._task = None
 
     def _spawn_task(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[None]:
@@ -169,7 +168,7 @@ class NewsScheduler:
             logger.info("[news_scheduler] 上次刷新仍在运行,跳过本次触发")
             return
         self._running = True
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         entry = HistoryEntry(
             triggered_at=started_at.isoformat(),
             status="running",
@@ -207,7 +206,7 @@ class NewsScheduler:
             entry.error = f"{type(e).__name__}: {e}"
             logger.warning("[news_scheduler] 每日刷新失败: %s", entry.error)
         finally:
-            elapsed = int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000)
+            elapsed = int((datetime.now(UTC) - started_at).total_seconds() * 1000)
             entry.duration_ms = elapsed
             self._running = False
 

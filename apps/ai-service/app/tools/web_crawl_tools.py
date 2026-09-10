@@ -23,7 +23,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin, urlsplit
 
 if TYPE_CHECKING:
@@ -64,7 +64,7 @@ _DEFAULT_HEADERS = {
 # 结构失败辅助
 # ============================================================================
 
-def _fail(tool: str, message: str, error_code: str = "ERROR") -> Dict[str, Any]:
+def _fail(tool: str, message: str, error_code: str = "ERROR") -> dict[str, Any]:
     return {"tool": tool, "ok": False, "error": message, "errorCode": error_code, "message": message}
 
 
@@ -72,7 +72,7 @@ def _fail(tool: str, message: str, error_code: str = "ERROR") -> Dict[str, Any]:
 # 共享 HTTP 层
 # ============================================================================
 
-def _validate_ssrf(url: str) -> Optional[str]:
+def _validate_ssrf(url: str) -> str | None:
     """SSRF 校验,返回错误消息;合法返回 None。"""
     try:
         from ..services.screenshot_service import _validate_url_ssrf
@@ -82,7 +82,7 @@ def _validate_ssrf(url: str) -> Optional[str]:
             return reason
         return None
     except Exception as e:  # noqa: BLE001 - 校验层异常视为不通过
-        return "SSRF 校验异常: {}: {}".format(type(e).__name__, e)
+        return f"SSRF 校验异常: {type(e).__name__}: {e}"
 
 
 def _is_http_html(url: str, content_type: str = "") -> bool:
@@ -99,12 +99,10 @@ def _is_http_html(url: str, content_type: str = "") -> bool:
         ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico",
         ".zip", ".gz", ".rar", ".7z", ".mp4", ".mp3", ".mov", ".exe", ".bin",
     )
-    if any(path.endswith(e) for e in binary_hint_exts):
-        return False
-    return True
+    return not any(path.endswith(e) for e in binary_hint_exts)
 
 
-async def _http_get_html(url: str) -> Optional[Dict[str, Any]]:
+async def _http_get_html(url: str) -> dict[str, Any] | None:
     """抓取单个 URL 的 HTML。返回 {url, final_url, status_code, content_type, html};
     非 HTML/失败返回 None。不做 SSRF(调用方需先校验)。"""
     if not _HTTPX_OK:
@@ -180,7 +178,6 @@ def _element_to_markdown(el: Any, base_url: str, include_links: bool, depth: int
     """递归把元素转为 GFM markdown。"""
     if depth > 12:  # 防深嵌套栈溢出
         return ""
-    out: List[str] = []
     name = getattr(el, "name", None) or ""
     tag = name.lower()
 
@@ -197,7 +194,7 @@ def _element_to_markdown(el: Any, base_url: str, include_links: bool, depth: int
         if href and text:
             abs_href = urljoin(base_url, href)
             if urlsplit(abs_href).scheme in ("http", "https"):
-                return "[{}]({})".format(text, abs_href)
+                return f"[{text}]({abs_href})"
         return str(text)
     if tag == "li":
         content = _children_to_markdown(el, base_url, include_links, depth + 1)
@@ -211,11 +208,11 @@ def _element_to_markdown(el: Any, base_url: str, include_links: bool, depth: int
         if src and include_links:
             abs_src = urljoin(base_url, src)
             if urlsplit(abs_src).scheme in ("http", "https"):
-                return "![{}]({})".format(alt, abs_src)
+                return f"![{alt}]({abs_src})"
         return alt
     if tag in ("p", "div", "section", "main", "article", "blockquote", "pre"):
         inner = _children_to_markdown(el, base_url, include_links, depth + 1).strip()
-        return "{}\n\n".format(inner) if inner else ""
+        return f"{inner}\n\n" if inner else ""
     if tag in ("ul", "ol"):
         # 收集直接 li 子项,避免嵌套重复缩进爆炸
         items = []
@@ -241,7 +238,7 @@ def _element_to_markdown(el: Any, base_url: str, include_links: bool, depth: int
 
 
 def _children_to_markdown(el: Any, base_url: str, include_links: bool, depth: int) -> str:
-    parts: List[str] = []
+    parts: list[str] = []
     for child in getattr(el, "children", []):
         if getattr(child, "name", None) is None:  # NavigableString
             text = str(child)
@@ -257,7 +254,7 @@ def _children_to_markdown(el: Any, base_url: str, include_links: bool, depth: in
 
 
 def _table_to_markdown(el: Any) -> str:
-    rows: List[List[str]] = []
+    rows: list[list[str]] = []
     for tr in el.find_all("tr"):
         cells = []
         for cell in tr.find_all(["th", "td"]):
@@ -318,9 +315,9 @@ def _normalize_url(url: str) -> str:
         default_port = 443 if scheme == "https" else 80 if scheme == "http" else None
         netloc = host
         if port and port != default_port:
-            netloc = "{}:{}".format(host, port)
+            netloc = f"{host}:{port}"
         path = parts.path or "/"
-        return "{}://{}{}".format(scheme, netloc, path)
+        return f"{scheme}://{netloc}{path}"
     except Exception:  # noqa: BLE001
         return url
 
@@ -345,11 +342,11 @@ def _is_same_domain(url: str, start_url: str) -> bool:
         return False
 
 
-def _extract_links(html: str, base_url: str, same_domain_only: bool = True) -> List[Dict[str, str]]:
+def _extract_links(html: str, base_url: str, same_domain_only: bool = True) -> list[dict[str, str]]:
     """从 HTML 提取站内链接(URL + 锚文本),去 fragment/去重。"""
     if not _BS4_OK:
         return []
-    links: Dict[str, str] = {}
+    links: dict[str, str] = {}
     try:
         soup = BeautifulSoup(html, "html.parser")
     except Exception:  # noqa: BLE001
@@ -391,7 +388,7 @@ def _html_text_length(html: str) -> int:
         return len([c for c in html if not c.isspace()])
 
 
-async def _try_js_render(url: str) -> Optional[Dict[str, Any]]:
+async def _try_js_render(url: str) -> dict[str, Any] | None:
     """JS 渲染兜底:用平台单例 headless Chromium 渲染,取执行 JS 后的 DOM。
 
     交互传统抓取工具的"SPA 空壳"短板。异常/非页面一律返回 None(上层继续走原路)。
@@ -414,7 +411,7 @@ async def _try_js_render(url: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-async def _fetch_with_js_fallback(url: str) -> Optional[Dict[str, Any]]:
+async def _fetch_with_js_fallback(url: str) -> dict[str, Any] | None:
     """HTTP 优先, 渲染兜底:httpx 抓到正文过短(疑似 JS 空壳)或抓取失败 → chromium 渲染。
 
     返回 {url, final_url, status_code, content_type, html, rendered}。
@@ -441,7 +438,7 @@ async def _fetch_with_js_fallback(url: str) -> Optional[Dict[str, Any]]:
 # fetch_readable — 对标 Scrape → clean markdown
 # ============================================================================
 
-async def fetch_readable(arguments: Dict[str, Any]) -> Dict[str, Any]:
+async def fetch_readable(arguments: dict[str, Any]) -> dict[str, Any]:
     """抓取单个网页并抽取正文为干净 GFM markdown(对标 Firecrawl Scrape)。"""
     url = arguments.get("url", "")
     if not url or not isinstance(url, str):
@@ -475,7 +472,7 @@ async def fetch_readable(arguments: Dict[str, Any]) -> Dict[str, Any]:
             page["html"], base_url=page["final_url"], include_links=include_links
         )
     except Exception as e:  # noqa: BLE001
-        return _fail("fetch_readable", "正文提取失败: {}: {}".format(type(e).__name__, e), "EXTRACT_FAILED")
+        return _fail("fetch_readable", f"正文提取失败: {type(e).__name__}: {e}", "EXTRACT_FAILED")
 
     truncated = len(content) > max_chars
     if truncated:
@@ -502,7 +499,7 @@ async def fetch_readable(arguments: Dict[str, Any]) -> Dict[str, Any]:
 # map_site — 对标 Map(站点 URL 地图)
 # ============================================================================
 
-async def map_site(arguments: Dict[str, Any]) -> Dict[str, Any]:
+async def map_site(arguments: dict[str, Any]) -> dict[str, Any]:
     """抓取起始页面并提取站内链接, 返回站点 URL 地图。"""
     url = arguments.get("url", "")
     if not url or not isinstance(url, str):
@@ -527,7 +524,7 @@ async def map_site(arguments: Dict[str, Any]) -> Dict[str, Any]:
     try:
         links = _extract_links(page["html"], page["final_url"], same_domain_only)
     except Exception as e:  # noqa: BLE001
-        return _fail("map_site", "链接提取失败: {}: {}".format(type(e).__name__, e), "EXTRACT_FAILED")
+        return _fail("map_site", f"链接提取失败: {type(e).__name__}: {e}", "EXTRACT_FAILED")
 
     if max_links > 0:
         links = links[:max_links]
@@ -542,7 +539,7 @@ async def map_site(arguments: Dict[str, Any]) -> Dict[str, Any]:
         "link_count": len(links),
         "links": links,
         "rendered": rendered,
-        "message": "提取到 {} 条链接".format(len(links)) if links else "未提取到链接",
+        "message": f"提取到 {len(links)} 条链接" if links else "未提取到链接",
     }
 
 
@@ -550,7 +547,7 @@ async def map_site(arguments: Dict[str, Any]) -> Dict[str, Any]:
 # crawl_site — 对标 Crawl(整站 BFS 爬取)
 # ============================================================================
 
-async def _fetch_page_limited(url: str, sem: Any) -> Optional[Dict[str, Any]]:
+async def _fetch_page_limited(url: str, sem: Any) -> dict[str, Any] | None:
     """带信号量限并发的单页抓取。"""
     async with sem:
         return await _fetch_with_js_fallback(url)
@@ -560,7 +557,7 @@ def _url_key(url: str) -> str:
     return _normalize_url(url)
 
 
-async def crawl_site(arguments: Dict[str, Any]) -> Dict[str, Any]:
+async def crawl_site(arguments: dict[str, Any]) -> dict[str, Any]:
     """从起始 URL 递归抓取同域名页面(BFS)。对标 Firecrawl Crawl。"""
     url = arguments.get("url", "")
     if not url or not isinstance(url, str):
@@ -590,7 +587,7 @@ async def crawl_site(arguments: Dict[str, Any]) -> Dict[str, Any]:
     enqueued: set[str] = {_url_key(url)}
 
     queue = [(url, 0)]
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     fetched, failed, skipped = 0, 0, 0
     reached_max_pages = False
 
@@ -642,7 +639,6 @@ async def crawl_site(arguments: Dict[str, Any]) -> Dict[str, Any]:
                 enqueued.add(ckey)
                 queue.append((link["url"], depth + 1))
 
-    truncated = reached_max_pages
 
     stats = {
         "fetched": fetched,
@@ -661,11 +657,11 @@ async def crawl_site(arguments: Dict[str, Any]) -> Dict[str, Any]:
             "pages_count": len(results),
             "pages": results,
             "stats": stats,
-            "message": "已抓取 {} 页".format(len(results)),
+            "message": f"已抓取 {len(results)} 页",
         }
 
     # concatenated: 合并为单篇 markdown
-    sections: List[str] = []
+    sections: list[str] = []
     for ent in results:
         sections.append("## {}\n来源: {}\n----\n{}".format(ent["title"] or ent["url"], ent["url"], ent["markdown"]))
     combined = "\n\n".join(sections)
@@ -677,7 +673,7 @@ async def crawl_site(arguments: Dict[str, Any]) -> Dict[str, Any]:
         "content": combined,
         "chars": len(combined),
         "stats": stats,
-        "message": "已抓取 {} 页(concatenated, {} 字符)".format(len(results), len(combined)),
+        "message": f"已抓取 {len(results)} 页(concatenated, {len(combined)} 字符)",
     }
 
 
@@ -693,16 +689,15 @@ def _robots_path_allowed(url: str) -> bool:
         rp = _robots_cache_get(scheme, host, port)
         if rp is None:
             return True  # 无法加载 robots 视为放行(保守但稳妥)
-        path = parts.path or "/"
         return rp.can_fetch("*", url)
     except Exception:  # noqa: BLE001
         return True
 
 
-_robots_cache: Dict[str, Optional[RobotFileParser]] = {}
+_robots_cache: dict[str, RobotFileParser | None] = {}
 
 
-def _robots_cache_get(scheme: str, host: str, port: Optional[int]) -> Optional[RobotFileParser]:
+def _robots_cache_get(scheme: str, host: str, port: int | None) -> RobotFileParser | None:
     import httpx as _httpx
 
     key = "{}://{}:{}".format(scheme, host, port or "")
@@ -711,8 +706,8 @@ def _robots_cache_get(scheme: str, host: str, port: Optional[int]) -> Optional[R
     try:
         from urllib.robotparser import RobotFileParser
 
-        netloc = host + (":{}".format(port) if port else "")
-        robots_url = "{}://{}/robots.txt".format(scheme, netloc)
+        netloc = host + (f":{port}" if port else "")
+        robots_url = f"{scheme}://{netloc}/robots.txt"
         rp = RobotFileParser()
         # 手动抓取 robots.txt(走 SSRF 校验), 避免 RobotFileParser 内部直接用 urlopen
         from ..services.screenshot_service import _validate_url_ssrf
@@ -743,13 +738,12 @@ def _robots_cache_get(scheme: str, host: str, port: Optional[int]) -> Optional[R
 # extract_web — 对标 Extract(结构化抽取)
 # ============================================================================
 
-def _extract_heuristic(md: str, fields: Dict[str, str]) -> Dict[str, Any]:
+def _extract_heuristic(md: str, fields: dict[str, str]) -> dict[str, Any]:
     """启发式字段抽取: 按字段名在正文中做近邻扫描截取。"""
-    result: Dict[str, Any] = {}
-    confidence: Dict[str, float] = {}
+    result: dict[str, Any] = {}
+    confidence: dict[str, float] = {}
     for field, ftype in fields.items():
         keywords = [field, field.strip()]
-        found = None
         # 找关键词第一个出现位置, 向后取一段(直至下一字段/句末/换行)
         idx = -1
         for kw in keywords:
@@ -776,7 +770,7 @@ def _extract_heuristic(md: str, fields: Dict[str, str]) -> Dict[str, Any]:
     return {"fields": result, "confidence": confidence}
 
 
-async def _extract_via_llm(md: str, fields: Dict[str, str], max_chars: int = 8000) -> Optional[Dict[str, Any]]:
+async def _extract_via_llm(md: str, fields: dict[str, str], max_chars: int = 8000) -> dict[str, Any] | None:
     """LLM 结构化抽取通道:调用 llm_gateway 按 fields schema 抽结构化 JSON。
 
     对标 Firecrawl Extract 的真 LLM 抽取(非正则启发式)。规则:
@@ -794,7 +788,7 @@ async def _extract_via_llm(md: str, fields: Dict[str, str], max_chars: int = 800
     except Exception:  # noqa: BLE001
         return None
 
-    field_lines = "\n".join("- {} ({})".format(k, v) for k, v in fields.items())
+    field_lines = "\n".join(f"- {k} ({v})" for k, v in fields.items())
     system_prompt = (
         "你是结构化网页信息抽取器。根据给定的网页正文和字段 schema,抽取每个字段的值。\n"
         "要求:\n"
@@ -802,11 +796,11 @@ async def _extract_via_llm(md: str, fields: Dict[str, str], max_chars: int = 800
         "- 对象键必须与字段名完全一致;值是该字段从正文中提取到的信息(字符串或数字)\n"
         "- 某字段正文中找不到时,把该键的值设为 null\n"
         "- 严禁捏造正文中不存在的信息\n"
-        "字段 schema:\n{}".format(field_lines)
+        f"字段 schema:\n{field_lines}"
     )
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": "网页正文:\n{}\n\n请按上面字段 schema 抽取,只输出 JSON。".format(md[:max_chars])},
+        {"role": "user", "content": f"网页正文:\n{md[:max_chars]}\n\n请按上面字段 schema 抽取,只输出 JSON。"},
     ]
     try:
         result = await llm_gateway.complete(messages, model="auto")
@@ -826,8 +820,8 @@ async def _extract_via_llm(md: str, fields: Dict[str, str], max_chars: int = 800
         data = json.loads(content)
         if not isinstance(data, dict):
             return {"fields": {}, "confidence": {}, "usage": usage, "model": model_used}
-        extracted: Dict[str, Any] = {}
-        confidence: Dict[str, float] = {}
+        extracted: dict[str, Any] = {}
+        confidence: dict[str, float] = {}
         for k in fields:
             if k in data and data[k] is not None:
                 extracted[k] = data[k]
@@ -842,7 +836,7 @@ async def _extract_via_llm(md: str, fields: Dict[str, str], max_chars: int = 800
         return None
 
 
-async def extract_web(arguments: Dict[str, Any]) -> Dict[str, Any]:
+async def extract_web(arguments: dict[str, Any]) -> dict[str, Any]:
     """按字段 schema 从网页抽取结构化数据(对标 Firecrawl Extract)。"""
     url = arguments.get("url", "")
     if not url or not isinstance(url, str):
@@ -880,7 +874,7 @@ async def extract_web(arguments: Dict[str, Any]) -> Dict[str, Any]:
     try:
         md = _readability_to_markdown(page["html"], base_url=page["final_url"])
     except Exception as e:  # noqa: BLE001
-        return _fail("extract_web", "正文提取失败: {}".format(e), "EXTRACT_FAILED")
+        return _fail("extract_web", f"正文提取失败: {e}", "EXTRACT_FAILED")
 
     llm_result = await _extract_via_llm(md, fields, max_chars)
     if llm_result is not None and llm_result.get("fields"):
@@ -898,14 +892,14 @@ async def extract_web(arguments: Dict[str, Any]) -> Dict[str, Any]:
 
     heur = _extract_heuristic(md, fields)
     found = heur["fields"]
-    out: Dict[str, Any] = {
+    out: dict[str, Any] = {
         "tool": "extract_web",
         "ok": len(found) > 0,
         "url": page["final_url"],
         "source": "heuristic",
         "fields": found,
         "confidence": heur["confidence"],
-        "message": "启发式抽取 {} 个字段".format(len(found)),
+        "message": f"启发式抽取 {len(found)} 个字段",
     }
     # 费用可见性(2026-09-09 立):LLM 已消耗 token 但未命中字段而降级时,
     # usage 同样随结果透出并标记 llm_fallback —— 花了的钱不允许凭空消失。
@@ -913,6 +907,6 @@ async def extract_web(arguments: Dict[str, Any]) -> Dict[str, Any]:
         out["llm_usage"] = llm_result["usage"]
         out["llm_model"] = llm_result.get("model", "")
         out["llm_fallback"] = True
-        out["message"] = "LLM 未命中字段, 降级启发式抽取 {} 个字段".format(len(found))
+        out["message"] = f"LLM 未命中字段, 降级启发式抽取 {len(found)} 个字段"
     return out
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

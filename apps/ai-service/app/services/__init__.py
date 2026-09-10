@@ -28,8 +28,8 @@ from .dag_scheduler import (  # noqa: F401
 try:
     from .langgraph_checkpoint import (  # noqa: F401
         LangGraphCheckpointManager,
-        trigger_interrupt,
         resume_from_interrupt,
+        trigger_interrupt,
     )
     from .langgraph_stream import (  # noqa: F401
         SSEEvent,

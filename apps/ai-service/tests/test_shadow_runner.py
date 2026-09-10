@@ -15,11 +15,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
-from app.services.ab_test_tracker import ABTestTracker, _empty_stats
+from app.services.ab_test_tracker import ABTestTracker
 from app.services.shadow_runner import ShadowRunner, shadow_runner
 
 

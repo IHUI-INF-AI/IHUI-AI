@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -29,7 +29,6 @@ from app.services.metacognition import (
     Metacognition,
     metacognition,
 )
-
 
 # =============================================================================
 # 测试辅助:模拟 asyncpg 连接池 / 连接 / 行
@@ -145,7 +144,7 @@ def make_scan_row(
         "id": rid,
         "uid": uid,
         "content": content,
-        "last_accessed": last_accessed or datetime(2025, 1, 1, tzinfo=timezone.utc),
+        "last_accessed": last_accessed or datetime(2025, 1, 1, tzinfo=UTC),
         "score": score,
     }
 
@@ -496,12 +495,12 @@ class TestComputeDaysStale:
     """_compute_days_stale:计算距今天数。"""
 
     def test_normal_computation(self):
-        now = datetime(2026, 7, 25, tzinfo=timezone.utc)
-        old = datetime(2026, 6, 25, tzinfo=timezone.utc)  # 30 天前
+        now = datetime(2026, 7, 25, tzinfo=UTC)
+        old = datetime(2026, 6, 25, tzinfo=UTC)  # 30 天前
         assert ActiveForgetter._compute_days_stale(old, now) == 30
 
     def test_none_returns_zero(self):
-        now = datetime(2026, 7, 25, tzinfo=timezone.utc)
+        now = datetime(2026, 7, 25, tzinfo=UTC)
         assert ActiveForgetter._compute_days_stale(None, now) == 0
 
 
@@ -916,7 +915,7 @@ class TestGetReflectionHistory:
                 "confidence": 0.8,
                 "llm_used": True,
                 "token_cost": 100,
-                "created_at": datetime(2026, 7, 25, tzinfo=timezone.utc),
+                "created_at": datetime(2026, 7, 25, tzinfo=UTC),
             },
         ]]
         monkeypatch.setattr(
@@ -959,7 +958,7 @@ class TestGetReflectionHistory:
                 "confidence": 0.5,
                 "llm_used": False,
                 "token_cost": 0,
-                "created_at": datetime(2026, 7, 25, tzinfo=timezone.utc),
+                "created_at": datetime(2026, 7, 25, tzinfo=UTC),
             }
             for i in range(2)
         ]

@@ -11,8 +11,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -36,11 +34,12 @@ from app.routers.rules import (
     match_rules,
     predict_effect,
     resolve_conflicts,
-    test_rule as endpoint_test_rule,  # 别名,避免被 pytest 当作 fixture 参数收集
     update_rule,
 )
+from app.routers.rules import (
+    test_rule as endpoint_test_rule,  # 别名,避免被 pytest 当作 fixture 参数收集
+)
 from app.services.rules_engine import Rule
-
 
 # ---------------------------------------------------------------------------
 # 辅助

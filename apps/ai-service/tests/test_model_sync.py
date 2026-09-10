@@ -39,7 +39,6 @@ import pytest
 
 from app.services.model_sync import ModelSyncService
 
-
 # =============================================================================
 # F3 接口存在性检测(用于 skipif 智能跳过)
 # =============================================================================
@@ -1252,7 +1251,7 @@ class _Token6688MockClient:
         self._payload = payload
         self._capture = capture
 
-    async def __aenter__(self) -> "_Token6688MockClient":
+    async def __aenter__(self) -> _Token6688MockClient:
         return self
 
     async def __aexit__(self, *args: Any) -> bool:
@@ -1863,7 +1862,7 @@ class _V4Client:
         assert item is not None
         return _V4Resp(item)
 
-    async def __aenter__(self) -> "_V4Client":
+    async def __aenter__(self) -> _V4Client:
         return self
 
     async def __aexit__(self, *args: Any) -> bool:

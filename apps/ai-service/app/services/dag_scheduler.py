@@ -16,9 +16,10 @@
 
 import asyncio
 import logging
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable, Coroutine, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class DAGNode:
     retry_delay: float = 1.0  # 基础重试延迟(秒),指数退避:delay * 2^(attempt-1)
     timeout: float = 300.0  # 单节点超时(秒)
     continue_on_fail: bool = False  # 本节点失败后是否继续执行后续依赖节点
-    condition: Optional[Callable[[dict[str, Any]], bool]] = None  # 条件函数,返回 False 则跳过本节点
+    condition: Callable[[dict[str, Any]], bool] | None = None  # 条件函数,返回 False 则跳过本节点
 
 
 @dataclass
@@ -44,10 +45,10 @@ class NodeResult:
 
     node_id: str
     status: str  # success / failed / skipped / timeout
-    output: Optional[dict[str, Any]] = None
-    error: Optional[str] = None
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
+    output: dict[str, Any] | None = None
+    error: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
     duration_ms: float = 0.0
     retry_count: int = 0
     attempts: int = 0
@@ -106,7 +107,7 @@ class DAGScheduler:
                     raise DAGValidationError(f"节点 {node.id} 依赖不存在的节点 {dep}")
 
         # 检查环(Kahn 算法)
-        in_degree = {nid: 0 for nid in self.nodes}
+        in_degree = dict.fromkeys(self.nodes, 0)
         adj: dict[str, list[str]] = {nid: [] for nid in self.nodes}
         for node in self.nodes.values():
             for dep in node.dependencies:
@@ -149,7 +150,7 @@ class DAGScheduler:
 
         return levels
 
-    async def execute(self, initial_context: Optional[dict[str, Any]] = None) -> DAGResult:
+    async def execute(self, initial_context: dict[str, Any] | None = None) -> DAGResult:
         """执行 DAG。
 
         - 按拓扑分层逐层执行
@@ -163,7 +164,7 @@ class DAGScheduler:
         context: dict[str, Any] = dict(initial_context or {})
         node_results: dict[str, NodeResult] = {}
         trace: list[dict[str, Any]] = []
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         skipped_nodes: set[str] = set()  # 因条件/上游失败被跳过的节点
 
         levels = self._topological_levels()
@@ -185,7 +186,7 @@ class DAGScheduler:
 
             # 处理可能的异常,构建统一的 results 列表
             results: list[NodeResult] = []
-            for nid, raw in zip(executable, gathered_raw):
+            for nid, raw in zip(executable, gathered_raw, strict=False):
                 if isinstance(raw, BaseException):
                     logger.error("DAG 节点 %s 未捕获异常: %s", nid, raw)
                     result = NodeResult(node_id=nid, status="failed", error=f"未捕获异常: {raw}")
@@ -196,7 +197,7 @@ class DAGScheduler:
                     results.append(raw)
 
             # 检查失败节点,决定是否 fail_fast 或标记后续 skipped
-            for nid, result in zip(executable, results):
+            for nid, result in zip(executable, results, strict=False):
                 if result.status == "failed" and not self.nodes[nid].continue_on_fail:
                     # fail_fast:标记所有后续依赖节点为 skipped
                     self._mark_downstream_skipped(nid, skipped_nodes)
@@ -206,7 +207,7 @@ class DAGScheduler:
                     self._mark_downstream_skipped(nid, skipped_nodes)
 
         # 计算总状态
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
         total_duration_ms = (end_time - start_time).total_seconds() * 1000
 
         has_failed = any(r.status == "failed" for r in node_results.values())
@@ -237,13 +238,13 @@ class DAGScheduler:
         # 条件检查
         if node.condition and not node.condition(context):
             result.status = "skipped"
-            result.start_time = result.end_time = datetime.now(timezone.utc).isoformat()
+            result.start_time = result.end_time = datetime.now(UTC).isoformat()
             node_results[node_id] = result
             trace.append({"node_id": node_id, "status": "skipped", "reason": "condition_false"})
             logger.info("节点 %s 条件不满足,跳过", node_id)
             return result
 
-        start = datetime.now(timezone.utc)
+        start = datetime.now(UTC)
         result.start_time = start.isoformat()
 
         for attempt in range(1, node.max_retries + 1):
@@ -262,8 +263,8 @@ class DAGScheduler:
                 # 成功
                 result.status = "success"
                 result.output = output
-                result.end_time = datetime.now(timezone.utc).isoformat()
-                result.duration_ms = (datetime.now(timezone.utc) - start).total_seconds() * 1000
+                result.end_time = datetime.now(UTC).isoformat()
+                result.duration_ms = (datetime.now(UTC) - start).total_seconds() * 1000
 
                 # 合并输出到 context
                 if isinstance(output, dict):
@@ -280,7 +281,7 @@ class DAGScheduler:
                 )
                 return result
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 result.error = f"超时({node.timeout}s)"
                 logger.warning("节点 %s 第 %d 次执行超时", node_id, attempt)
             except Exception as e:
@@ -297,8 +298,8 @@ class DAGScheduler:
 
         # 所有重试失败
         result.status = "failed"
-        result.end_time = datetime.now(timezone.utc).isoformat()
-        result.duration_ms = (datetime.now(timezone.utc) - start).total_seconds() * 1000
+        result.end_time = datetime.now(UTC).isoformat()
+        result.duration_ms = (datetime.now(UTC) - start).total_seconds() * 1000
         node_results[node_id] = result
         trace.append(
             {
@@ -341,25 +342,25 @@ class DAGScheduler:
 # ============================================================================
 
 
+import contextlib
 import json as _json
 import os as _os
 import uuid as _uuid
-from typing import Awaitable, Literal
-
+from typing import Literal
 
 AgentTaskStatus = Literal["triage", "todo", "ready", "in_progress", "blocked", "done"]
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _now_ts() -> float:
     """当前 UTC timestamp(P1-1 watchdog 用)。"""
-    return datetime.now(timezone.utc).timestamp()
+    return datetime.now(UTC).timestamp()
 
 
-def _parse_ts(s: Optional[str]) -> float:
+def _parse_ts(s: str | None) -> float:
     """ISO 字符串 → timestamp(优先级队列排序用,空值返回 0)。"""
     if not s:
         return 0.0
@@ -385,22 +386,22 @@ class KanbanTask:
     status: AgentTaskStatus = "triage"
     priority: int = 0
     payload: dict[str, Any] = field(default_factory=dict)
-    description: Optional[str] = None
-    result: Optional[dict[str, Any]] = None
-    scheduled_at: Optional[str] = None
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    error_message: Optional[str] = None
+    description: str | None = None
+    result: dict[str, Any] | None = None
+    scheduled_at: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    error_message: str | None = None
     dependencies: list[str] = field(default_factory=list)
-    worker_id: Optional[str] = None
-    created_by: Optional[str] = None
+    worker_id: str | None = None
+    created_by: str | None = None
     created_at: str = ""
     updated_at: str = ""
     # P2-4 修复:单任务超时(覆盖 WorkerPoolConfig.task_timeout_seconds,None 用全局默认)
-    timeout_seconds: Optional[float] = None
+    timeout_seconds: float | None = None
     # P1-2 修复:独立工作区路径(git worktree,空=用主仓库)
-    workspace_path: Optional[str] = None
-    workspace_branch: Optional[str] = None
+    workspace_path: str | None = None
+    workspace_branch: str | None = None
 
     def to_camel_dict(self) -> dict[str, Any]:
         return {
@@ -434,18 +435,18 @@ class WorkerPoolConfig:
     max_workers: int = 4
     task_timeout_seconds: float = 300.0
     max_queue_size: int = 100
-    idle_worker_ttl_seconds: Optional[float] = 60.0
+    idle_worker_ttl_seconds: float | None = 60.0
     preemptive: bool = False
     # P1-4 修复:对齐 TS 端 keepWorktreeOnFailure(ai-service 不用 worktree,字段保留对齐类型契约)
     keep_worktree_on_failure: bool = False
     # P1-2 修复:worktree 源仓库路径(空=不启用 worktree 隔离)
-    workspace_source_path: Optional[str] = None
+    workspace_source_path: str | None = None
     # P1-1 修复:watchdog 心跳超时秒数(默认 60,executor 超此时长无心跳判定卡死)
     heartbeat_timeout_seconds: float = 60.0
     # P1-3 修复:资源限制(可选,不设=不限)
-    resource_limits: Optional[dict[str, Any]] = None  # {memoryMb?, cpuCores?, cpuSeconds?}
+    resource_limits: dict[str, Any] | None = None  # {memoryMb?, cpuCores?, cpuSeconds?}
     # P1-5 修复:网络出站策略(可选,不设=open 不限制)
-    network_egress_policy: Optional[dict[str, Any]] = None  # {mode, domains[], allowLocalhost}
+    network_egress_policy: dict[str, Any] | None = None  # {mode, domains[], allowLocalhost}
 
     def to_camel_dict(self) -> dict[str, Any]:
         return {
@@ -469,7 +470,7 @@ class WorkerState:
     worker_id: str
     type: str  # ai-service-worker | cli-subprocess | api-dispatcher
     status: str  # idle | busy | dead
-    current_task_id: Optional[str] = None
+    current_task_id: str | None = None
     completed_count: int = 0
     failed_count: int = 0
     started_at: str = ""
@@ -493,8 +494,8 @@ class AgentSSEEvent:
     """SSE 实时流事件(对齐 agent-runtime.ts AgentSSEEvent)。"""
 
     type: str  # task_created | task_status_changed | task_completed | task_failed | ...
-    task_id: Optional[str] = None
-    worker_id: Optional[str] = None
+    task_id: str | None = None
+    worker_id: str | None = None
     payload: dict[str, Any] = field(default_factory=dict)
     timestamp: str = ""
 
@@ -558,8 +559,8 @@ class WorkerPool:
     def __init__(
         self,
         config: WorkerPoolConfig,
-        executor_factory: Optional[Callable[[KanbanTask], Coroutine[Any, Any, dict[str, Any]]]] = None,
-        on_event: Optional[Callable[[AgentSSEEvent], None]] = None,
+        executor_factory: Callable[[KanbanTask], Coroutine[Any, Any, dict[str, Any]]] | None = None,
+        on_event: Callable[[AgentSSEEvent], None] | None = None,
     ) -> None:
         self.config = config
         self.executor_factory = executor_factory or _default_executor
@@ -634,11 +635,11 @@ class WorkerPool:
         )
         return task.id
 
-    async def get_status(self, task_id: str) -> Optional[KanbanTask]:
+    async def get_status(self, task_id: str) -> KanbanTask | None:
         """查询任务状态,不存在返回 None。"""
         return self._tasks.get(task_id)
 
-    def list_tasks(self, status: Optional[str] = None) -> list[KanbanTask]:
+    def list_tasks(self, status: str | None = None) -> list[KanbanTask]:
         """列出所有任务,可选 status 过滤。"""
         tasks = list(self._tasks.values())
         if status:
@@ -652,9 +653,9 @@ class WorkerPool:
     async def wait_all(self) -> ParallelExecutionResult:
         """等待所有已提交任务到达终态(done/blocked),返回并行执行结果。"""
         await self.start()
-        start = datetime.now(timezone.utc)
+        start = datetime.now(UTC)
         await self._queue.join()
-        end = datetime.now(timezone.utc)
+        end = datetime.now(UTC)
         has_done = any(t.status == "done" for t in self._tasks.values())
         has_blocked = any(t.status == "blocked" for t in self._tasks.values())
         if has_blocked and has_done:
@@ -734,7 +735,7 @@ class WorkerPool:
         while not self._shutdown:
             try:
                 item = await asyncio.wait_for(self._queue.get(), timeout=0.5)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             # 已取到 item,必须 task_done 恰好一次
             try:
@@ -815,8 +816,12 @@ class WorkerPool:
                 # executor 内部 HTTP 客户端可调 network_guard.check_current(url) 校验
                 from app.services.network_guard import (
                     from_config as _net_policy_from_config,
-                    set_current_policy as _set_net_policy,
+                )
+                from app.services.network_guard import (
                     reset_current_policy as _reset_net_policy,
+                )
+                from app.services.network_guard import (
+                    set_current_policy as _set_net_policy,
                 )
                 net_policy = _net_policy_from_config(self.config.network_egress_policy)
                 net_token = _set_net_policy(net_policy)
@@ -841,10 +846,8 @@ class WorkerPool:
                 except Exception as startup_err:  # noqa: BLE001
                     # 启动阶段失败:清理已启动资源,标记 task 为终态,防止 worker 静默死亡
                     watchdog_task.cancel()
-                    try:
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
                         await watchdog_task
-                    except (asyncio.CancelledError, Exception):
-                        pass
                     if res_monitor is not None and not res_monitor.terminated:
                         try:
                             await res_monitor.stop()
@@ -893,13 +896,11 @@ class WorkerPool:
                         task.completed_at = _now_iso()
                         state.completed_count += 1
                         self._emit("task_completed", task, worker_id)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # P0-2 修复:超时后强制 cancel executor Task
                     executor_task.cancel()
-                    try:
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
                         await executor_task
-                    except (asyncio.CancelledError, Exception):
-                        pass
                     # 缺陷 2 修复:资源超限导致 executor 卡死最终 timeout,标记 [RESOURCE_LIMIT]
                     if res_monitor is not None and res_monitor.terminated:
                         try:
@@ -955,10 +956,8 @@ class WorkerPool:
                     self._executing_tasks.pop(task.id, None)
                     self._wait_retries.pop(task.id, None)
                     watchdog_task.cancel()
-                    try:
+                    with contextlib.suppress(asyncio.CancelledError, Exception):
                         await watchdog_task
-                    except (asyncio.CancelledError, Exception):
-                        pass
                     # P1-3 修复:停止资源监控(若已 terminate 则 violations 已在 try 块处理,
                     # 否则正常 stop 返回已有违规记录)
                     if not res_monitor.terminated:
@@ -1020,14 +1019,12 @@ class WorkerPool:
                     timeout,
                 )
                 executor_task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError, Exception):
                     await executor_task
-                except (asyncio.CancelledError, Exception):
-                    pass
                 return
 
     def _emit(
-        self, event_type: str, task: KanbanTask, worker_id: Optional[str] = None
+        self, event_type: str, task: KanbanTask, worker_id: str | None = None
     ) -> None:
         """发送 SSE 事件(回调异常吞掉,不影响主流程)。"""
         if self.on_event is None:

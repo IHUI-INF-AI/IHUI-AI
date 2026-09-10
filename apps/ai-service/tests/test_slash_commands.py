@@ -14,13 +14,13 @@ from __future__ import annotations
 
 import pytest
 
+from app.services.memory import memory_store
 from app.services.slash_commands import (
+    _BUILTIN_COMMANDS,
     SlashCommand,
     SlashCommandRegistry,
     slash_command_registry,
-    _BUILTIN_COMMANDS,
 )
-from app.services.memory import memory_store
 
 
 @pytest.fixture(autouse=True)

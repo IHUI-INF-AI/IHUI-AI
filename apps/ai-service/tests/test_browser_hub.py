@@ -26,7 +26,6 @@ import pytest
 
 from app.services import browser_hub as bh
 
-
 # ---------------------------------------------------------------------------
 # Playwright 替身
 # ---------------------------------------------------------------------------
@@ -768,7 +767,7 @@ async def test_stop_without_browser(monkeypatch):
 
 
 async def test_create_session_autostarts(monkeypatch):
-    loop = asyncio.get_running_loop()
+    asyncio.get_running_loop()
     h = bh.BrowserHub()
     h._executor = _DirectExecutor()
     started_calls = []

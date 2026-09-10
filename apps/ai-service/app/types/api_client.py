@@ -13,7 +13,7 @@ mypy 实际类型来源:本 ``.py`` 文件(含 ``TypedDict`` / ``Protocol`` / ``
 
 from __future__ import annotations
 
-from typing import Any, Literal, Protocol, TypedDict, Union
+from typing import Any, Literal, Protocol, TypedDict
 
 # ============================================================================
 # 用户与认证
@@ -78,7 +78,7 @@ class _ApiResultFailure(Protocol):
     retryAfter: int | None
 
 
-ApiResult = Union[_ApiResultSuccess, _ApiResultFailure]
+ApiResult = _ApiResultSuccess | _ApiResultFailure
 
 
 # ============================================================================
@@ -400,13 +400,13 @@ JSONSchemaType = Literal[
 
 
 class JSONSchema(TypedDict, total=False):
-    type: Union[JSONSchemaType, list[JSONSchemaType]]
+    type: JSONSchemaType | list[JSONSchemaType]
     description: str
     properties: dict[str, JSONSchema]
     required: list[str]
     items: JSONSchema
-    enum: list[Union[str, int, bool, None]]
-    additionalProperties: Union[bool, JSONSchema]
+    enum: list[str | int | bool | None]
+    additionalProperties: bool | JSONSchema
 
 
 class PersonaContract(TypedDict):

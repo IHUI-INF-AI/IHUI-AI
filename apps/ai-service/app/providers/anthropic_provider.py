@@ -13,17 +13,18 @@
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
-from .base_provider import BaseProvider, ProviderError
 from ..core.llm_gateway import get_http_client
 from ..services.tool_schema_adapter import (
     anthropic_response_to_openai,
     anthropic_tool_choice_from_openai,
     openai_tools_to_anthropic,
 )
+from .base_provider import BaseProvider, ProviderError
 
 _ANTHROPIC_VERSION = "2023-06-01"
 

@@ -9,12 +9,12 @@ Firecrawl 网络抓取工具(fetch_readable / map_site / crawl_site / extract_we
 绝不发真实请求。网络层通过 monkeypatch 模块内 _http_get_html 模拟。
 """
 
-import pytest
-from unittest.mock import patch
+import os
 
 # 直接导入模块(不导入 mcp_server, 避免太重)
 import sys
-import os
+
+import pytest
 
 _PKG = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if _PKG not in sys.path:

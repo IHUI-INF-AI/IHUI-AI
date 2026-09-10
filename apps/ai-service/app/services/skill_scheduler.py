@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..core.llm_gateway import llm_gateway
@@ -312,7 +312,7 @@ class SkillScheduler:
         try:
             feedback: dict[str, Any] = {
                 "skillName": skill_name,
-                "usedAt": datetime.now(timezone.utc).isoformat(),
+                "usedAt": datetime.now(UTC).isoformat(),
                 "success": error is None,
                 "durationMs": int(duration_ms),
             }

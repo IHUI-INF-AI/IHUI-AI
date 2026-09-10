@@ -31,7 +31,7 @@ import json
 import logging
 import os
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Protocol
 
@@ -68,9 +68,7 @@ _RELATION_TYPES = (
 )
 
 # 中文停用词(简易列表,只覆盖最常见的)
-_CN_STOPWORDS = set(
-    "的 了 是 在 和 与 及 或 也 都 还 但 而 被 从 到 把 让 使 为 对 这 那 你 我 他 她 它 我们 你好 请 谢谢".split()
-)
+_CN_STOPWORDS = {"的", "了", "是", "在", "和", "与", "及", "或", "也", "都", "还", "但", "而", "被", "从", "到", "把", "让", "使", "为", "对", "这", "那", "你", "我", "他", "她", "它", "我们", "你好", "请", "谢谢"}
 
 _NER_SYSTEM_PROMPT = """你是专业的实体关系抽取助手。从给定文本中抽取:
 1. entities: 实体列表,每条 {name, type, description}
@@ -450,7 +448,7 @@ class DrizzleGraphStore:
         第二个会被 unique violation 触发,本方法捕获后回退到 SELECT 路径。
         """
         pool = await self._get_pool()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         async with pool.acquire() as conn:
             # 1. 先查现有实体
@@ -553,7 +551,7 @@ class DrizzleGraphStore:
         保证并发安全,UniqueViolation 走并发降级路径。
         """
         pool = await self._get_pool()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         async with pool.acquire() as conn:
             existing = await conn.fetchrow(

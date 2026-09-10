@@ -24,7 +24,9 @@ koubo_live_check.py — 口播稿实时约束校验器 v1.0
   - 跨篇: 但/其实/我自己/高频表达 频率
 """
 
-import sys, re, os
+import os
+import re
+import sys
 from collections import Counter
 from typing import Any
 
@@ -100,7 +102,7 @@ OPINION_WORDS = ['不是', '而是', '其实', '本质', '关键', '核心', '�
 ENDING_DIAG_PATS = ['你对照', '你想想', '你琢磨', '等着看', '你猜', '你算算', '你盘盘', '你问问自己', '你自查', '你对号入座']
 
 # 2026-07-14 v1.1 改造：统一从 koubo_terms 导入术语/歧义压缩词表
-from koubo_terms import BANNED_AMBIG_COMP, TERM_CANONICAL_DICT, find_ambig_hits, find_alias_issues
+from koubo_terms import BANNED_AMBIG_COMP, TERM_CANONICAL_DICT
 
 
 def analyze_body(body: str, idx: int | None = None) -> dict[str, Any]:
@@ -262,7 +264,7 @@ def analyze_body(body: str, idx: int | None = None) -> dict[str, Any]:
     for canonical, *aliases in TERM_CANONICAL_DICT:
         for alias in aliases:
             if alias and alias in body and canonical not in body:
-                r['canonical_hits'].append('"%s"→"%s"' % (alias, canonical))
+                r['canonical_hits'].append(f'"{alias}"→"{canonical}"')
                 break
 
     return r
@@ -303,7 +305,7 @@ def print_report(idx: int | None, body: str, r: dict[str, Any]) -> None:
 
     # 二次冲击
     icon = '✓' if r['turn_in_zone_ok'] else '✗'
-    zone_info = f' → 区段内转折词: {r["turn_in_zone"]}' if r['turn_in_zone'] else f' → 区段内无转折词!'
+    zone_info = f' → 区段内转折词: {r["turn_in_zone"]}' if r['turn_in_zone'] else ' → 区段内无转折词!'
     print(f"  {icon} 二次冲击280-380: {zone_info}")
     if r['turn_positions']:
         pos_str = ', '.join([f'{w}@{p}' for w, p in r['turn_positions']])
@@ -323,17 +325,17 @@ def print_report(idx: int | None, body: str, r: dict[str, Any]) -> None:
     # 结尾
     print(f"  → 结尾类型预估: {r['ending_type']}")
     if r.get('soft_list_ending'):
-        print(f"  ✗ 软清单收尾: 检测到'建议N条/记住N点'式列举，须自然融入")
+        print("  ✗ 软清单收尾: 检测到'建议N条/记住N点'式列举，须自然融入")
     if r.get('template_opening'):
         print(f"  ✗ 模板化开头: {r['template_opening']}（禁止太X了/吓一跳/炸锅了起手）")
     if r.get('pipeline_structure'):
-        print(f"  ✗ 流水线结构: 新闻→分析→我做AI教育→建议清单（须换结构）")
+        print("  ✗ 流水线结构: 新闻→分析→我做AI教育→建议清单（须换结构）")
     if r.get('ai_taste_hits'):
         print(f"  ✗ AI味检测({len(r['ai_taste_hits'])}处):")
         for atype, txt in r['ai_taste_hits']:
             print(f"    {atype}: 「{txt}」")
     else:
-        print(f"  ✓ AI味检测: 0处（AI味=0）")
+        print("  ✓ AI味检测: 0处（AI味=0）")
 
     # ⑫ 2026-07-14 新规则：4项结构优化软警告（△符号显示，不影响all_ok）
     if not r.get('hook_s2_ok', True) or not r.get('hook_s3_ok', True):
@@ -342,14 +344,14 @@ def print_report(idx: int | None, body: str, r: dict[str, Any]) -> None:
         if not r.get('hook_s3_ok', True): miss.append('S3(完播锁钩)')
         print(f"  △ 开头3句钩子公式: 缺{','.join(miss)}（S2=身份+承诺, S3=锁钩）")
     if r.get('hook_duration_warn'):
-        print(f"  △ 钩子时长: 写\"X分钟\"超实际(1.5分钟/一分半)，需改为\"1分钟\"或\"一分半\"")
+        print("  △ 钩子时长: 写\"X分钟\"超实际(1.5分钟/一分半)，需改为\"1分钟\"或\"一分半\"")
     if not r.get('punchline_ok', True):
         ptypes = r.get('punchline_types', []) or ['无']
         print(f"  △ 收尾金句类型: 仅{len(r.get('punchline_types', []))}种({','.join(ptypes)})，需≥2种(概念反转/类比画面/数据落差/反共识)")
     if not r.get('opinion_ok', True):
         print(f"  △ 观点密度: {r.get('opinion_count', 0)}个判断句，需≥4个")
     if not r.get('ending_diag_ok', True):
-        print(f"  △ 结尾自我诊断: 末50字缺软引导词(你对照/你想想/你琢磨/等着看/你猜...)")
+        print("  △ 结尾自我诊断: 末50字缺软引导词(你对照/你想想/你琢磨/等着看/你猜...)")
 
     # ⑬ 2026-07-14 新规则：生造/压缩导致歧义的词（用户铁律·零容忍）
     if r.get('ambig_comp_hits'):
@@ -357,7 +359,7 @@ def print_report(idx: int | None, body: str, r: dict[str, Any]) -> None:
         for h in r['ambig_comp_hits'][:3]:
             print(f"    「{h}」（详见 AGENTS.md 2.7）")
     else:
-        print(f"  ✓ 生造/压缩歧义词: 0处")
+        print("  ✓ 生造/压缩歧义词: 0处")
 
     # ⑭ 2026-07-14 新规则：跨稿统一词表一致性（WARN级）
     if r.get('canonical_hits'):
@@ -365,7 +367,7 @@ def print_report(idx: int | None, body: str, r: dict[str, Any]) -> None:
         for h in r['canonical_hits'][:3]:
             print(f"    {h}")
     else:
-        print(f"  ✓ 跨稿词表一致: 0处")
+        print("  ✓ 跨稿词表一致: 0处")
 
     # 跨篇
     if r['cross_hits']:
@@ -381,7 +383,7 @@ def print_report(idx: int | None, body: str, r: dict[str, Any]) -> None:
         all_ok = False
     print(f"\n  {'=' * 20}")
     if all_ok:
-        print(f"  ✓ 单篇约束全部通过，可继续下一篇")
+        print("  ✓ 单篇约束全部通过，可继续下一篇")
     else:
         fails = []
         if not r['chars_ok']: fails.append(f"字数{'不足' if r['chars'] < WORD_MIN else '超标'}{abs(r['chars_gap'])}")
@@ -401,7 +403,7 @@ def print_report(idx: int | None, body: str, r: dict[str, Any]) -> None:
 def check_cross(all_reports: list[dict[str, Any]]) -> None:
     """跨篇检查"""
     print(f"\n{'=' * 50}")
-    print(f" 跨篇约束报告")
+    print(" 跨篇约束报告")
     print(f"{'=' * 50}")
 
     # 聚合
@@ -410,7 +412,7 @@ def check_cross(all_reports: list[dict[str, Any]]) -> None:
     total_woziji = 0
     total_zhenzheng = 0
     ending_types: Counter[str] = Counter()
-    high_freq: Counter[str] = Counter()
+    Counter()
 
     for r in all_reports:
         total_but += 1 if '但' in r.get('cross_hits', {}) else 0
@@ -444,7 +446,7 @@ def main() -> None:
             print(f"文件不存在: {filepath}")
             sys.exit(1)
 
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, encoding='utf-8') as f:
             data = f.read()
 
         sep = '\u2500' * 30
@@ -475,7 +477,7 @@ def main() -> None:
             print(f"文件不存在: {filepath}")
             sys.exit(1)
 
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, encoding='utf-8') as f:
             data = f.read()
 
         sep = '\u2500' * 30

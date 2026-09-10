@@ -8,8 +8,8 @@
 覆盖:白名单校验 / extract_web 缺 fields / 形参收敛透传 / crawl_site 拒绝 / 成功链路。
 """
 
-import sys
 import os
+import sys
 
 _PKG = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if _PKG not in sys.path:
