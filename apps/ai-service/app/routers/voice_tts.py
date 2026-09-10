@@ -28,9 +28,14 @@ from __future__ import annotations
 
 import logging
 
+from typing import TYPE_CHECKING, Any
+
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from ..providers.token6688_provider import Token6688Provider
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +84,7 @@ def _require_admin(request: Request) -> None:
         raise HTTPException(status_code=403, detail="声纹库删除仅限管理员操作")
 
 
-def _token6688_provider():
+def _token6688_provider() -> Token6688Provider:
     """按配置构造 Token6688Provider;未配 key 时 503 如实提示。"""
     from ..core.config import settings
     from ..providers.token6688_provider import Token6688Provider
@@ -162,7 +167,7 @@ async def synthesize_tts(req: TTSRequest) -> Response:
 
 
 @router.get("/voice/voices")
-async def list_voices() -> dict:
+async def list_voices() -> dict[str, Any]:
     """Token6688 声纹库列表(GET /v1/audio/voices;voice-clone 前置)。"""
     from ..providers.base_provider import ProviderError
 
@@ -177,7 +182,7 @@ async def list_voices() -> dict:
 
 
 @router.post("/voice/voices")
-async def upload_voice(file: UploadFile = File(..., description="参考音频(wav/mp3,建议 10~30s 干声)")) -> dict:
+async def upload_voice(file: UploadFile = File(..., description="参考音频(wav/mp3,建议 10~30s 干声)")) -> dict[str, Any]:
     """上传参考音频到 Token6688 声纹库(POST /v1/audio/voices,异步任务轮询至终态)。
 
     成功后声纹进入 /voice/voices 列表,TTS 传其 voice_id 即可克隆音色。
@@ -200,7 +205,7 @@ async def upload_voice(file: UploadFile = File(..., description="参考音频(wa
 
 
 @router.get("/voice/voices/{voice_id}")
-async def get_voice(voice_id: str) -> dict:
+async def get_voice(voice_id: str) -> dict[str, Any]:
     """查询单一声纹(GET /v1/audio/voices/{voice_id};确认克隆状态/音色详情)。"""
     from ..providers.base_provider import ProviderError
 
@@ -217,7 +222,7 @@ async def get_voice(voice_id: str) -> dict:
 async def delete_voice(
     voice_id: str,
     _admin: None = Depends(_require_admin),
-) -> dict:
+) -> dict[str, Any]:
     """删除克隆声纹(DELETE /v1/audio/voices/{voice_id};声纹库生命周期收口,2026-09-09 E4)。
 
     2026-09-09 P1 收敛:声纹库是平台共享资源(单一 token6688 账号,无归属概念),
@@ -252,7 +257,7 @@ class AsyncTTSRequest(BaseModel):
 
 
 @router.post("/voice/tts-async")
-async def tts_async(req: AsyncTTSRequest) -> dict:
+async def tts_async(req: AsyncTTSRequest) -> dict[str, Any]:
     """异步 TTS 提交(POST /v1/audio/speech/async)→ 立即返回 task_id。
 
     与同步 POST /voice/tts(返回音频字节)不同:本端点提交即返回,产物是公网
@@ -272,7 +277,7 @@ async def tts_async(req: AsyncTTSRequest) -> dict:
 
 
 @router.get("/voice/tts-async/{task_id}")
-async def tts_async_status(task_id: str) -> dict:
+async def tts_async_status(task_id: str) -> dict[str, Any]:
     """异步 TTS 取件(GET /v1/tasks/{task_id};completed 后 audio_url 为公网语音直链)。"""
     from ..providers.base_provider import ProviderError
 

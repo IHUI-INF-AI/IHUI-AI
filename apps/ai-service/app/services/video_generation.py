@@ -73,7 +73,7 @@ def _instantiate(name: str) -> Any | None:
             logger.info("[video] token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688),跳过")
             return None
         if name in ("kling", "可灵"):
-            p = KlingProvider(None)
+            p: Any = KlingProvider(None)
             if p.configured:
                 return p
             logger.info("[video] 可灵未配置(KLING_ACCESS_KEY/SECRET_KEY),跳过")
@@ -129,7 +129,7 @@ async def generate_video(
             kwargs: dict[str, Any] = {"duration": int(duration)}
             if image:
                 kwargs["image"] = image
-            result = await inst.generate_video(prompt, "", **kwargs)
+            result: dict[str, Any] = await inst.generate_video(prompt, "", **kwargs)
             logger.info("[video] %s 出片成功 task=%s url=%s",
                         name, result.get("task_id"), result.get("video_url"))
             return result

@@ -25,6 +25,8 @@ from typing import Any
 
 from ..core.db import get_db_conn
 
+__all__ = ["get_db_conn"]
+
 logger = logging.getLogger(__name__)
 
 # media_tasks 表(kind 为媒体类型:video/music/tts/image)
