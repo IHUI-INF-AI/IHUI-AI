@@ -10,7 +10,7 @@
  */
 export default function WorkspaceLoading() {
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4 py-4">
       <div className="space-y-2">
         <div className="skeleton h-7 w-40 rounded" />
         <div className="skeleton h-4 w-64 rounded" />

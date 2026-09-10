@@ -68,7 +68,7 @@ export default function ApiKeysSettingsPage() {
   }
 
   return (
-    <Container maxWidth="full" padding={false} className="flex h-full flex-col px-4 py-3">
+    <Container maxWidth="full" padding={false} className="flex h-full flex-col py-4">
       <BackButton />
       <header className="flex shrink-0 items-start justify-between gap-3">
         <div className="space-y-1">

@@ -51,7 +51,7 @@ export default function ContextMentionsPage() {
   const isLoading = mentionsQ.isLoading || symbolsQ.isLoading
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
       <div>
         <Link
           href="/context"

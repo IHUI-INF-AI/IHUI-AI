@@ -90,7 +90,7 @@ export default function AgentTeamsPage() {
   ]
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="mx-auto max-w-6xl px-4 py-4">
       <div className="mb-4 flex items-center gap-2">
         <UsersRound className="h-5 w-5 text-primary" />
         <h1 className="text-2xl font-bold">{t('title')}</h1>

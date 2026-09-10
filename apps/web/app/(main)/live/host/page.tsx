@@ -78,7 +78,7 @@ export default function LiveHostPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6">
+    <div className="mx-auto w-full max-w-2xl px-4 py-4">
       <div className="mb-4 flex items-center justify-between">
         <BackButton fallbackHref="/live" />
         <h1 className="text-lg font-medium">{t('title')}</h1>
