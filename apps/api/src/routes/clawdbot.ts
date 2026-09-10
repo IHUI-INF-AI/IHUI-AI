@@ -11,6 +11,7 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import {
   getClawdbotService,
   getToolExecutor,
@@ -157,6 +158,12 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // Clawdbot 主服务
   // ===========================================================================
+  // P2 安全修复(2026-09-09 第九轮):admin bot 管理端点此前仅 checkAuth(任意
+  // 登录用户可触 initialize/shutdown 等),收权为 admin(与路由内 checkAuth 双保险)。
+  server.addHook('preHandler', async (request, reply) => {
+    return requireAdmin(request, reply)
+  })
+
   server.get('/clawdbot/status', async (_req, reply) => {
     if (!(await checkAuth(_req, reply))) return
     return success(getClawdbotService().getStatus())
