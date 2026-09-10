@@ -74,6 +74,8 @@ const SKIP_DIRS = new Set([
   '.next-static',
   // CMake/AGP 原生构建产物(.cxx 为 Android externalNativeBuild 生成目录)
   '.cxx', 'CMakeFiles', '.externalNativeBuild', '.cmake',
+  // WXT 扩展框架的生成目录(.gitignore 已忽略, 无源码)
+  '.wxt',
 ])
 
 const SKIP_FILES = new Set([
