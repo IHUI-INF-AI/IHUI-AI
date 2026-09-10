@@ -65,7 +65,7 @@ export default function AskPage() {
   const items = data ?? []
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="px-4 space-y-4 py-4">
       <BackButton />
       {isLoading ? (
         <div className="py-10 text-center text-muted-foreground">

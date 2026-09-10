@@ -57,22 +57,25 @@ export default function MemoryManagerPage() {
   const [extracting, setExtracting] = React.useState(false)
   const [extractMsg, setExtractMsg] = React.useState('')
 
-  const load = React.useCallback(async (typ: string, impMin: number) => {
-    setLoading(true)
-    setError('')
-    setNeedLogin(false)
-    const r = await fetchApi<LongTermMemoryListResult>(
-      `/api/longterm-memory/entries?page=1&page_size=100${typ ? `&type=${encodeURIComponent(typ)}` : ''}${impMin ? `&importance_min=${impMin}` : ''}`,
-    )
-    setLoading(false)
-    if (!r.success) {
-      if (r.status === 401) setNeedLogin(true)
-      else setError((r as { message?: string }).message || t('loadFailed'))
-      setData(null)
-      return
-    }
-    setData(r.data)
-  }, [])
+  const load = React.useCallback(
+    async (typ: string, impMin: number) => {
+      setLoading(true)
+      setError('')
+      setNeedLogin(false)
+      const r = await fetchApi<LongTermMemoryListResult>(
+        `/api/longterm-memory/entries?page=1&page_size=100${typ ? `&type=${encodeURIComponent(typ)}` : ''}${impMin ? `&importance_min=${impMin}` : ''}`,
+      )
+      setLoading(false)
+      if (!r.success) {
+        if (r.status === 401) setNeedLogin(true)
+        else setError((r as { message?: string }).message || t('loadFailed'))
+        setData(null)
+        return
+      }
+      setData(r.data)
+    },
+    [t],
+  )
 
   React.useEffect(() => {
     void load(type, importanceMin)
@@ -157,9 +160,7 @@ export default function MemoryManagerPage() {
           </button>
         </div>
       </div>
-      <p className="mb-4 text-sm text-muted-foreground">
-        {t('subtitle')}
-      </p>
+      <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
 
       {/* 过滤条 */}
       <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
@@ -276,7 +277,8 @@ export default function MemoryManagerPage() {
                     {label}
                   </span>
                   <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                    <Sparkles className="h-3 w-3" /> {t('importanceValue', { value: entry.importance })}
+                    <Sparkles className="h-3 w-3" />{' '}
+                    {t('importanceValue', { value: entry.importance })}
                   </span>
                   {entry.created_at && (
                     <span className="text-xs text-muted-foreground/70">{entry.created_at}</span>

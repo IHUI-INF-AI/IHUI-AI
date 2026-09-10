@@ -74,9 +74,7 @@ const { mockCompressContextIfNeeded, realCompactionRef } = vi.hoisted(() => ({
 }))
 vi.mock('@ihui/context-compaction', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
-  realCompactionRef.current = actual.compressContextIfNeeded as (
-    ...args: unknown[]
-  ) => unknown
+  realCompactionRef.current = actual.compressContextIfNeeded as (...args: unknown[]) => unknown
   return {
     ...actual,
     compressContextIfNeeded: mockCompressContextIfNeeded,
@@ -126,10 +124,7 @@ vi.mock('../src/plugins/ai-cost.js', () => ({ recordAiCost: mockRecordAiCost }))
 import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
 import { chatRoutes } from '../src/routes/chat.js'
 import type { FastifyRequest } from 'fastify'
-import {
-  estimateMessagesTokens,
-  type ChatMessage,
-} from '@ihui/context-compaction'
+import { estimateMessagesTokens, type ChatMessage } from '@ihui/context-compaction'
 import {
   findConversationById,
   findMessagesForExport,
@@ -525,12 +520,10 @@ describe('语义摘要预压缩缓存(prime 70% 预生成 → getCached 88% 命�
   /** mock ai-service 摘要接口:返回固定正文,返回恢复函数 */
   function mockSummaryFetch(content: string) {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        json: async () => ({ content, stub: false }),
-      }) as unknown as typeof globalThis.fetch
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ content, stub: false }),
+    }) as unknown as typeof globalThis.fetch
     return () => {
       globalThis.fetch = originalFetch
     }
@@ -642,11 +635,6 @@ describe('语义摘要观测与计费(hit/miss 统计 + recordAiCost 配额接�
     return () => {
       globalThis.fetch = originalFetch
     }
-  }
-
-  /** 让一个宏任务跑完(prime fire-and-forget 的后台微任务链全部完成) */
-  async function flushAsync() {
-    await new Promise((resolve) => setTimeout(resolve, 0))
   }
 
   /** 最小 FastifyRequest 形状:aiServiceFetch 只读 headers,计费只读 userId(auth 插件挂载字段) */
@@ -774,21 +762,20 @@ describe('POST /api/chat/compact — API 端手动压缩上下文', () => {
       id: `msg-${i + 1}`,
       conversationId: CONV_ID,
       role: i % 2 === 0 ? 'user' : 'assistant',
-      content: `这是第 ${i + 1} 条历史消息,围绕上下文压缩功能展开讨论并记录关键决策与未完成事项。`.repeat(
-        8,
-      ),
+      content:
+        `这是第 ${i + 1} 条历史消息,围绕上下文压缩功能展开讨论并记录关键决策与未完成事项。`.repeat(
+          8,
+        ),
     }))
   }
 
   /** mock ai-service 摘要接口:返回固定正文,返回恢复函数 */
   function mockSummaryFetch(content: string) {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        json: async () => ({ content, stub: false }),
-      }) as unknown as typeof globalThis.fetch
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ content, stub: false }),
+    }) as unknown as typeof globalThis.fetch
     return () => {
       globalThis.fetch = originalFetch
     }
@@ -877,9 +864,7 @@ describe('POST /api/chat/compact — API 端手动压缩上下文', () => {
       // 手动压缩语义(CLI /compact 同构):contextLimit = max(2000, ceil(tokens / 0.87)),triggerRatio 固定 0.87
       expect(mockCompressContextIfNeeded).toHaveBeenCalledTimes(1)
       const [msgs, opts] = mockCompressContextIfNeeded.mock.calls[0]!
-      expect(opts.contextLimit).toBe(
-        Math.max(2000, Math.ceil(estimateMessagesTokens(msgs) / 0.87)),
-      )
+      expect(opts.contextLimit).toBe(Math.max(2000, Math.ceil(estimateMessagesTokens(msgs) / 0.87)))
       expect(opts.triggerRatio).toBe(0.87)
       // LLM 语义摘要透传给压缩器(缓存未命中 → 实时生成)
       expect(opts.customSummary).toBe('手动压缩语义摘要')
