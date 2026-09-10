@@ -33,7 +33,7 @@ interface AuthShellProps {
  * 统一弹窗外壳(主站 LoginDialog + /sso/login + /sso/register)
  *
  * 视觉规范由共享包锁定:
- *   - 容器:rounded-xl border bg-card p-7
+ *   - 容器:rounded-xl border bg-card p-3
  *   - 阴影:subtle 双层 0_4px_24px + 0_1px_4px
  *   - 顶部:logo (31×31) + welcome.svg/baiwelcome.svg 浅/深主题并排
  *   - 关闭按钮(右上角,onClose 存在时):lucide-react X

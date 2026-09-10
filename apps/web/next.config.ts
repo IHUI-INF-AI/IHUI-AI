@@ -325,6 +325,15 @@ const nextConfig: NextConfig = {
           source: '/api/llm/:path*',
           destination: 'http://localhost:8803/api/llm/:path*',
         },
+        // 2026-09-09 新增(0-4 LSP 四核心前端接线):/api/lsp/* 转发到 ai-service 8803 的 /api/v1/lsp/*。
+        // 原因:lsp router 注册在 ai-service prefix="/api/v1" 之下的 /lsp(APIRouter prefix="/lsp"),
+        // Web IDE Monaco provider 调用 api-client 的 getLspDefinition 等(路径 /lsp/*,
+        // normalizeUrl 加 /api 前缀变成 /api/lsp/*),若走 /api/:path* 兜底 → 8802 必 404。
+        // 覆盖端点:POST definition/references/diagnostics/hover 四核心。
+        {
+          source: '/api/lsp/:path*',
+          destination: 'http://localhost:8803/api/v1/lsp/:path*',
+        },
         // 2026-07-31 新增:MCP 路由直接转发到 ai-service 8803
         // 原因:MCP 工具/资源/提示词/skill/slash 命令的 router 注册在 ai-service 8803 的 /api 前缀下,
         // IDE McpPane 组件调用 listMCPTools 等端点路径为 /mcp/*,normalizeUrl 加 /api 前缀后变成 /api/mcp/*,

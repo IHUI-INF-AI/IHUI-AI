@@ -24,7 +24,7 @@ import {
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
-import { useAuthStore } from '@/stores/auth'
+import { fetchAiServiceJson } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8803'
@@ -124,21 +124,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-/** AI 服务直连(带 JWT Bearer),解包 {code, message, data} */
-async function apiFetch<T>(path: string, token: string | null): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) headers.Authorization = `Bearer ${token}`
-  const res = await fetch(`${AI_SERVICE_URL}${path}`, { headers })
-  let json: unknown = null
-  try {
-    json = await res.json()
-  } catch {
-    json = null
-  }
-  if (!res.ok) {
-    const message = isRecord(json) && typeof json.message === 'string' ? json.message : undefined
-    throw new Error(message ?? `编排请求失败:${res.status}`)
-  }
+/**
+ * AI 服务直连(2026-09-09 0-5 迁移:传输层统一走 fetchAiServiceJson,鉴权/CSRF/
+ * 设备指纹/超时由共享层注入),解包 {code, message, data} 逻辑保留在本地。
+ */
+async function apiFetch<T>(path: string): Promise<T> {
+  const res = await fetchAiServiceJson<unknown>(`${AI_SERVICE_URL}${path}`)
+  if (!res.success) throw new Error(res.error ?? '编排请求失败')
+  const json = res.data
   if (!isRecord(json)) throw new Error('编排服务响应格式异常')
   if (json.code !== 0) {
     throw new Error(typeof json.message === 'string' ? json.message : '编排服务返回错误')
@@ -174,10 +167,7 @@ export default function OrchestrationPage() {
     setDashboardLoading(true)
     setDashboardError(null)
     try {
-      const data = await apiFetch<Dashboard>(
-        '/api/orchestration/dashboard',
-        useAuthStore.getState().token,
-      )
+      const data = await apiFetch<Dashboard>('/api/orchestration/dashboard')
       setDashboard(data)
     } catch (e) {
       setDashboardError((e as Error).message)
@@ -190,10 +180,7 @@ export default function OrchestrationPage() {
     setEventsLoading(true)
     setEventsError(null)
     try {
-      const data = await apiFetch<HubEvent[]>(
-        '/api/orchestration/events?limit=50',
-        useAuthStore.getState().token,
-      )
+      const data = await apiFetch<HubEvent[]>('/api/orchestration/events?limit=50')
       setEvents(Array.isArray(data) ? data : [])
     } catch (e) {
       setEventsError((e as Error).message)
@@ -215,10 +202,10 @@ export default function OrchestrationPage() {
   const status = dashboard?.status
 
   const statItemClass =
-    'flex flex-col items-center justify-center gap-1 rounded-lg border bg-muted/40 p-4'
+    'flex flex-col items-center justify-center gap-1 rounded-lg border bg-muted/40 p-3'
 
   return (
-    <div className="px-4 space-y-4">
+    <div className="py-4 px-4 space-y-4">
       <BackButton fallbackHref="/edu" />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -332,7 +319,7 @@ export default function OrchestrationPage() {
             <>
               <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
                 {/* 事件统计 */}
-                <div className="space-y-2 rounded-lg border bg-muted/40 p-4">
+                <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
                   <h3 className="flex items-center gap-1.5 text-sm font-medium">
                     <Radio className="h-4 w-4 text-primary" />
                     {t('events')}
@@ -366,7 +353,7 @@ export default function OrchestrationPage() {
                 </div>
 
                 {/* 决策统计 */}
-                <div className="space-y-2 rounded-lg border bg-muted/40 p-4">
+                <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
                   <h3 className="flex items-center gap-1.5 text-sm font-medium">
                     <Cpu className="h-4 w-4 text-primary" />
                     {t('status')}

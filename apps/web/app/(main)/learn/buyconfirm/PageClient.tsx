@@ -105,14 +105,14 @@ function BuyConfirmContent() {
           <ArrowLeft className="h-4 w-4" />
           {tc('back')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {t('missingCourseParam')}
         </div>
       </div>
     )
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5">
+    <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-5">
       <button
         type="button"
         onClick={() => router.back()}
@@ -132,7 +132,7 @@ function BuyConfirmContent() {
           {tLearn('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('loadFailed')}
         </div>
       ) : !course ? (
@@ -201,7 +201,7 @@ function BuyConfirmContent() {
           </Card>
 
           <Card>
-            <CardContent className="space-y-2 p-4 text-sm">
+            <CardContent className="space-y-2 p-3 text-sm">
               {originalPrice && originalPrice > price && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">{t('originalPrice')}</span>

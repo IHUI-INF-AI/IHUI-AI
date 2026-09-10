@@ -122,7 +122,7 @@ export function AgentSessionList({ agentId }: Props) {
 
   if (!agentId) {
     return (
-      <div className="flex h-full items-center justify-center rounded-lg border bg-card p-6 text-center text-xs text-muted-foreground">
+      <div className="flex h-full items-center justify-center rounded-lg border bg-card p-3 text-center text-xs text-muted-foreground">
         选择 Agent 后查看会话历史
       </div>
     )

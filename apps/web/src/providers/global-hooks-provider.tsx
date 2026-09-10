@@ -47,6 +47,25 @@ const MODE_SHORTCUT_EVENTS: Record<string, ChatMode> = {
 }
 
 /**
+ * 快捷键描述 i18n 静态映射(1-6):帮助面板(Ctrl+/)原先展示
+ * use-global-shortcuts DEFAULT_SHORTCUTS 的硬编码中文 description,未走 i18n,
+ * 现统一经 `shortcutHelp.desc.<key>` 解析(与 DEFAULT_SHORTCUTS 的 key 一一对应)。
+ */
+const SHORTCUT_DESC_KEYS: Record<string, string> = {
+  'Ctrl+K': 'desc.ctrlK',
+  'Ctrl+P': 'desc.ctrlP',
+  'Ctrl+Shift+N': 'desc.ctrlShiftN',
+  'Ctrl+/': 'desc.ctrlSlash',
+  'Ctrl+Shift+D': 'desc.ctrlShiftD',
+  'Ctrl+Shift+P': 'desc.ctrlShiftP',
+  'Ctrl+,': 'desc.ctrlComma',
+  'Ctrl+1': 'desc.ctrl1',
+  'Ctrl+2': 'desc.ctrl2',
+  'Ctrl+3': 'desc.ctrl3',
+  'Ctrl+4': 'desc.ctrl4',
+}
+
+/**
  * 全局 Hooks Provider：在根 Layout 挂载全局副作用 hooks。
  *
  * - useRouteAnalytics：路由变化自动埋点（page_view / page_time / route_change）
@@ -64,6 +83,19 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   // 避免本 Provider 因路由变化重渲染导致 <CommandPalette> + help panel 连锁重渲染。
   useRouteAnalytics()
   const { showHelpPanel, toggleHelpPanel, shortcuts } = useGlobalShortcuts()
+  const tHelp = useTranslations('shortcutHelp')
+  // 1-6:帮助面板 Esc 关闭(原先只能点击外部关闭)
+  React.useEffect(() => {
+    if (!showHelpPanel) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        toggleHelpPanel()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showHelpPanel, toggleHelpPanel])
   // 激活全局通知 WS 连接 + 通知 store(未登录时自动 no-op,登录后自动连接)
   useGlobalNotification()
   // 应用启动时从 Cookie 恢复登录态(modal 模式 + mock cookie + 真后端 token 三种路径)
@@ -95,6 +127,11 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   React.useEffect(() => {
     const openChatHandler = () => setShowCommandPalette(true)
     window.addEventListener('global-shortcut:open-chat', openChatHandler)
+
+    // 2026-09-09 1-6 键盘优先交互统一:Ctrl+Shift+P(open-plus)不再打开
+    // GlobalTopBar Plus 九宫格弹窗,而是打开统一 CommandPalette(命令注册表单一事实源,
+    // 21 项命令 + MRU)。Plus 按钮的鼠标点击弹窗保留(GlobalTopBar 内部状态)。
+    window.addEventListener('global-shortcut:open-plus', openChatHandler)
 
     // Ctrl+1/2/3/4 模式切换(2026-08-27 根因修复,见 MODE_SHORTCUT_EVENTS 注释):
     // use-global-shortcuts 统一做按键匹配 + preventDefault 后派发事件,这里消费。
@@ -142,6 +179,7 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
     )
     return () => {
       window.removeEventListener('global-shortcut:open-chat', openChatHandler)
+      window.removeEventListener('global-shortcut:open-plus', openChatHandler)
       window.removeEventListener('global-shortcut:inline-edit', inlineEditFallback)
       for (const [event, handler] of handlers) {
         window.removeEventListener(event, handler)
@@ -198,19 +236,24 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
             }}
           >
-            <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600 }}>键盘快捷键</h3>
+            <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600 }}>{tHelp('title')}</h3>
             <ul className="m-0 grid list-none gap-2 p-0">
               {shortcuts
                 .filter((s) => s.active)
-                .map((s) => (
-                  <li key={s.key} className="flex justify-between gap-6" style={{ fontSize: 14 }}>
-                    <span style={{ opacity: 0.7 }}>{s.description ?? s.key}</span>
-                    <code style={{ fontSize: 12, opacity: 0.9 }}>{s.key}</code>
-                  </li>
-                ))}
+                .map((s) => {
+                  const descKey = SHORTCUT_DESC_KEYS[s.key]
+                  return (
+                    <li key={s.key} className="flex justify-between gap-6" style={{ fontSize: 14 }}>
+                      <span style={{ opacity: 0.7 }}>
+                        {descKey ? tHelp(descKey) : (s.description ?? s.key)}
+                      </span>
+                      <code style={{ fontSize: 12, opacity: 0.9 }}>{s.key}</code>
+                    </li>
+                  )
+                })}
             </ul>
             <p style={{ margin: '16px 0 0', fontSize: 12, opacity: 0.5, textAlign: 'center' }}>
-              按 Esc 或点击外部关闭
+              {tHelp('closeHint')}
             </p>
           </div>
         </div>

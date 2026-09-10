@@ -1196,10 +1196,16 @@ export interface KanbanTask {
   updatedAt: string
   /** 单任务超时秒数(覆盖 WorkerPoolConfig.taskTimeoutSeconds,不设用全局默认) */
   timeoutSeconds?: number
-  /** 独立工作区路径(git worktree,空=用主仓库;P1-2 隔离) */
+  /** 独立工作区路径(git worktree,空=用主仓库;P1-2 隔离;2-2 兼作工作区锁粒度) */
   workspacePath?: string
   /** worktree 分支名(如 subagent/<taskId>) */
   workspaceBranch?: string
+  /** 所属团队 ID(2-2 团队任务板过滤维度) */
+  teamId?: string
+  /** 最近一次获取工作区锁的持有者(2-2,Redis 锁为执行权威,此字段仅展示/审计) */
+  lockedBy?: string
+  /** 最近一次获取工作区锁的时间(ISO,2-2) */
+  lockedAt?: string
 }
 
 /** 资源限制配置(P1-3,CLI V8 heap + ai-service psutil/Job Object 共享) */
@@ -1281,6 +1287,8 @@ export interface AgentSSEEvent {
     | 'task_failed' // 失败
     | 'worker_status' // worker 状态变化
     | 'dag_level_advanced' // DAG 层级推进
+    | 'workspace_lock_acquired' // 工作区锁被获取(2-2)
+    | 'workspace_lock_released' // 工作区锁被释放(2-2)
     | 'log' // 日志输出
   /** 关联任务 ID */
   taskId?: string

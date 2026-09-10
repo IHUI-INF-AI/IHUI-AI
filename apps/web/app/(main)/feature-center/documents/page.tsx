@@ -380,7 +380,7 @@ export default function DocumentsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <FeatureCenterHeader title={t('title')} description={t('description')} />
       <FeatureCenterNav />
 
@@ -434,7 +434,7 @@ export default function DocumentsPage() {
                 key={item.id}
                 className="flex h-full flex-col transition-shadow hover:shadow-md"
               >
-                <CardContent className="flex flex-1 flex-col gap-3 p-4">
+                <CardContent className="flex flex-1 flex-col gap-3 p-3">
                   {/* 顶部:format 标签 + 分类徽章 */}
                   <div className="flex items-center justify-between gap-2">
                     <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
@@ -480,7 +480,7 @@ export default function DocumentsPage() {
 
       {previewDoc && (
         <Card className="fixed inset-4 z-modal flex flex-col overflow-hidden min-[768px]:inset-x-1/4 min-[768px]:top-1/4 min-[768px]:bottom-1/4">
-          <CardContent className="flex flex-1 flex-col gap-3 p-4 min-[768px]:p-6 min-[640px]:p-6">
+          <CardContent className="flex flex-1 flex-col gap-3 p-3">
             <div className="flex shrink-0 items-center justify-between gap-2">
               <h3 className="flex min-w-0 flex-1 items-center gap-2 text-lg font-semibold">
                 <FileText className="h-5 w-5 shrink-0 text-primary" />

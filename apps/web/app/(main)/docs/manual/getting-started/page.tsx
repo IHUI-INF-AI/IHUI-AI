@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 
 export default function ManualGettingStartedPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl py-4">
+    <main className="px-4 mx-auto w-full max-w-3xl py-4">
       {/* Hero */}
       <header className="space-y-3">
         <div className="text-xs font-mono text-muted-foreground">第 01 章 · 使用说明手册</div>
@@ -46,7 +46,7 @@ export default function ManualGettingStartedPage() {
       {/* 注册账号 */}
       <section id="register" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">1.1 注册账号</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm">
           <ol className="ml-4 list-decimal space-y-2 text-muted-foreground">
             <li>
               打开浏览器,访问
@@ -72,7 +72,7 @@ export default function ManualGettingStartedPage() {
       {/* 登录 */}
       <section id="login" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">1.2 登录</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm">
           <ol className="ml-4 list-decimal space-y-2 text-muted-foreground">
             <li>访问 <a href="https://aizhs.top/sso/login" className="text-primary underline">https://aizhs.top/sso/login</a></li>
             <li>输入邮箱 + 密码,或选择 GitHub / Google / 微信 登录</li>
@@ -88,7 +88,7 @@ export default function ManualGettingStartedPage() {
       {/* 界面导览 */}
       <section id="ui-tour" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">1.3 界面导览</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-4 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-4 text-sm text-muted-foreground">
           <div>
             <p className="font-medium text-foreground">📍 左侧栏(导航)</p>
             <ul className="ml-4 mt-1 list-disc space-y-1 text-xs">
@@ -121,7 +121,7 @@ export default function ManualGettingStartedPage() {
       {/* 首次对话 */}
       <section id="first-chat" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">1.4 第一次 AI 对话</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm">
           <ol className="ml-4 list-decimal space-y-2 text-muted-foreground">
             <li>点击左侧栏"新建对话"按钮(或快捷键 <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs">Ctrl + K</kbd>)</li>
             <li>在底部输入框输入问题,例如:<code className="rounded bg-muted px-1 text-xs">帮我写一封请假邮件,理由是家里有事</code></li>

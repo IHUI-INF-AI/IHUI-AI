@@ -55,7 +55,7 @@ export default function ModelPricingPage() {
         : Object.entries(data?.overrides ?? {}).map(([model, p]) => ({ model, ...p }))
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 px-4 py-6">
+    <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex items-center gap-2">
         <Link
           href="/admin/ai-cost"

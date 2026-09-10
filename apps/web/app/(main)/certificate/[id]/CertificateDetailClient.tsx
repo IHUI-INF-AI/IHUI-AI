@@ -81,7 +81,7 @@ export default function CertificateDetailClient() {
   }, [data, onPrint, t])
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4 print:max-w-full print:space-y-0">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4 print:max-w-full print:space-y-0">
       <div className="flex items-center justify-between print:hidden">
         <Button asChild variant="ghost" size="sm">
           <Link href="/certificate/download">
@@ -111,7 +111,7 @@ export default function CertificateDetailClient() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error).message}
         </div>
       ) : !data ? (

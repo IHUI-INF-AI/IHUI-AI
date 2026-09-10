@@ -85,7 +85,7 @@ export default function ClawdbotDashboardPage() {
   }
   if (error) {
     return (
-      <div className="p-4">
+      <div className="p-3">
         <Alert variant="danger" title="加载失败" description={error} />
       </div>
     )
@@ -117,7 +117,7 @@ export default function ClawdbotDashboardPage() {
   ]
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <div>

@@ -60,7 +60,7 @@ export default function CertVerifyPage() {
       <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
 
       <Card className="mb-4">
-        <CardContent className="space-y-3 p-4">
+        <CardContent className="space-y-3 p-3">
           <div className="space-y-1.5">
             <Label htmlFor="cert-no">{t('certNoLabel')}</Label>
             <Input

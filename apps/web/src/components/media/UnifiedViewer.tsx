@@ -47,6 +47,8 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
   React.useEffect(() => {
     if (kind !== 'text') return
     let aborted = false
+    // 2026-09-09 0-5-f 豁免确认:文本预览的 url 可能是外部 OSS 地址,
+    // 裸 fetch 仅取纯文本;fetchApi 会向第三方注入鉴权头并按统一包装解析,不适用。
     fetch(url)
       .then((r) => r.text())
       .then((t) => !aborted && setTextContent(t))

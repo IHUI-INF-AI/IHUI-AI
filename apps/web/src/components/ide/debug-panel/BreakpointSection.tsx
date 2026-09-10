@@ -43,7 +43,9 @@ export function BreakpointSection() {
               <Circle className="h-3 w-3" />
             )}
           </button>
-          <span className={cn('truncate', !b.enabled && 'text-muted-foreground line-through')}>
+          <span
+            className={cn('truncate', !b.enabled && 'text-muted-foreground line-through')}
+          >
             {b.file}:{b.line}
           </span>
           <button

@@ -385,7 +385,7 @@ export function AgentCanvasClient() {
   const selectedNode = nodes.find((n) => n.id === selectedId) ?? null
 
   return (
-    <div className="flex flex-col gap-3 p-4">
+    <div className="px-4 py-4 flex flex-col gap-3">
       <TopToolbar
         isStreaming={stream.isStreaming}
         isStarting={isStarting}

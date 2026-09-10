@@ -33,7 +33,7 @@ export function PlanReviewPanel({ plan, onApprove, onModify, onReject }: PlanRev
         <ClipboardList className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold">执行计划</h3>
       </div>
-      <div className="space-y-3 p-4">
+      <div className="space-y-3 p-3">
         {plan.steps.length === 0 && !plan.summary ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             暂无执行计划,运行 Agent 后在此查看

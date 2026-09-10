@@ -67,7 +67,7 @@ export default function AgentDocsPage() {
       {/* Agent 结构 */}
       <section id="structure" className="space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">Agent 的核心结构</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-3">
+        <div className="rounded-2xl border bg-card p-3 space-y-3">
           <p className="text-sm text-muted-foreground">一个完整的 Agent 由 6 部分组成:</p>
           <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
             <li><strong>System Prompt(系统提示词)</strong>:定义 Agent 的人格、能力边界、输出格式</li>
@@ -83,7 +83,7 @@ export default function AgentDocsPage() {
       {/* 可视化编排 */}
       <section id="visual" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">可视化编排(零代码)</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
+        <div className="rounded-2xl border bg-card p-3 space-y-4">
           <p className="text-sm text-muted-foreground">
             适合非开发者:产品经理、运营、客服、教师都能搭建 Agent。
           </p>
@@ -103,7 +103,7 @@ export default function AgentDocsPage() {
       {/* 提示词工程 */}
       <section id="prompt" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">提示词工程最佳实践</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
+        <div className="rounded-2xl border bg-card p-3 space-y-4">
           <h3 className="text-lg font-semibold">CRISPE 框架</h3>
           <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
             <li><strong>C</strong>apacity(能力):明确 Agent 能做什么、不能做什么</li>
@@ -115,7 +115,7 @@ export default function AgentDocsPage() {
           </ul>
 
           <h3 className="text-lg font-semibold pt-4">示例:客服 Agent</h3>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
             <code>{`# System Prompt
 你是一位专业的客服 Agent,服务于智汇 AI 平台。
 
@@ -147,11 +147,11 @@ export default function AgentDocsPage() {
       {/* 模板开发 */}
       <section id="templates" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">模板开发(高级)</h2>
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
+        <div className="rounded-2xl border bg-card p-3 space-y-4">
           <p className="text-sm text-muted-foreground">
             模板 = 可复用的 Agent 配置(Prompt + 工具 + 知识库 + 工作流),用户一键 fork 后自定义。
           </p>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-relaxed">
             <code>{`// templates/my-agent.template.ts
 import { defineAgentTemplate } from '@ihui/agent-sdk'
 
@@ -197,7 +197,7 @@ export default defineAgentTemplate({
       <section id="publish" className="mt-16 space-y-6">
         <h2 className="text-2xl font-bold tracking-tight">发布与变现</h2>
         <div className="grid gap-4 min-[768px]:grid-cols-2">
-          <div className="rounded-2xl border bg-card p-6">
+          <div className="rounded-2xl border bg-card p-3">
             <h3 className="flex items-center text-lg font-semibold">
               <Smartphone className="mr-1.5 inline h-5 w-5" />
               六端发布
@@ -211,7 +211,7 @@ export default defineAgentTemplate({
               <li>CLI(脚本/CI-CD)</li>
             </ul>
           </div>
-          <div className="rounded-2xl border bg-card p-6">
+          <div className="rounded-2xl border bg-card p-3">
             <h3 className="flex items-center text-lg font-semibold">
               <Coins className="mr-1.5 inline h-5 w-5" />
               变现模式
@@ -227,7 +227,7 @@ export default defineAgentTemplate({
         </div>
       </section>
 
-      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-5 text-center min-[768px]:p-8">
+      <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
         <h2 className="text-2xl font-bold tracking-tight">下一步</h2>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <a href="/docs/rag" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">知识库 RAG</a>

@@ -244,7 +244,7 @@ test.describe('分享功能 E2E 测试', () => {
     expect(copyBtnVisible).toBe(true)
 
     // 检查消息内容（卡片格式）
-    // Card 组件使用 rounded-lg border bg-card，CardContent 使用 p-4（无 card-content 类）
+    // Card 组件使用 rounded-lg border bg-card，CardContent 使用 p-3（无 card-content 类）
     const messageCards = await sharePage
       .locator('[class*="rounded-lg"][class*="border"][class*="bg-card"]')
       .count()

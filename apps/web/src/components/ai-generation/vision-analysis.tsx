@@ -147,7 +147,7 @@ export function VisionAnalysis() {
         {answer ? (
           <div className="space-y-2">
             <Label>{t('result')}</Label>
-            <div className="prose prose-sm max-w-none rounded-md border p-4 dark:prose-invert">
+            <div className="prose prose-sm max-w-none rounded-md border p-3 dark:prose-invert">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{

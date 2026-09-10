@@ -65,7 +65,7 @@ export default function AssetsPage() {
   const images = assets.filter((a) => a.type === 'image')
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">品牌资产</h1>
@@ -76,7 +76,7 @@ export default function AssetsPage() {
       {error && <Alert variant="danger" description={error} />}
 
       <Card>
-        <CardContent className="grid grid-cols-1 gap-4 p-4 min-[640px]:grid-cols-3">
+        <CardContent className="grid grid-cols-1 gap-4 p-3 min-[640px]:grid-cols-3">
           {UPLOAD_TYPES.map(({ label, type }) => {
             const cur = findByType(type)
             return (
@@ -129,7 +129,7 @@ export default function AssetsPage() {
       </Card>
 
       <Card>
-        <CardContent className="space-y-3 p-4">
+        <CardContent className="space-y-3 p-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">品牌图片库</p>
             <Button variant="outline" size="sm" onClick={() => imageRef.current?.click()}>

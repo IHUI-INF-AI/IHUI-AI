@@ -81,7 +81,7 @@ export default function CommentPage() {
           {items.map((item) => (
             <li
               key={item.id}
-              className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30"
+              className="rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30"
             >
               <div className="space-y-1.5">
                 <p className="break-words text-sm">{item.content}</p>

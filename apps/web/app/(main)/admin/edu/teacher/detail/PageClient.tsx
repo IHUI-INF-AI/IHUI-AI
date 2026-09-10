@@ -53,7 +53,7 @@ export default function EduTeacherDetailPage() {
 
   if (!id)
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/teacher">
             <ChevronLeft className="h-4 w-4" />
@@ -65,14 +65,14 @@ export default function EduTeacherDetailPage() {
     )
   if (isLoading)
     return (
-      <div className="py-10 text-center text-muted-foreground">
+      <div className="text-center text-muted-foreground">
         <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
         {t('loading')}
       </div>
     )
   if (error || !data)
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/teacher">
             <ChevronLeft className="h-4 w-4" />
@@ -84,7 +84,7 @@ export default function EduTeacherDetailPage() {
     )
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <BackButton />
       <Button asChild variant="ghost" size="sm">
         <Link href="/admin/edu/teacher">
@@ -92,7 +92,7 @@ export default function EduTeacherDetailPage() {
           {t('backToTeacherList')}
         </Link>
       </Button>
-      <div className="rounded-lg border p-6">
+      <div className="rounded-lg border p-3">
         <div className="flex items-center gap-4">
           <Avatar name={data.nickname} size="xl" />
           <div>
@@ -106,7 +106,7 @@ export default function EduTeacherDetailPage() {
       </div>
       <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-4">
         <Card>
-          <CardContent className="flex items-center gap-3 p-4">
+          <CardContent className="flex items-center gap-3 p-3">
             <BookOpen className="h-8 w-8 text-sky-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('courseCount')}</div>
@@ -115,7 +115,7 @@ export default function EduTeacherDetailPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-4">
+          <CardContent className="flex items-center gap-3 p-3">
             <Users className="h-8 w-8 text-emerald-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('studentCount')}</div>
@@ -124,7 +124,7 @@ export default function EduTeacherDetailPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-4">
+          <CardContent className="flex items-center gap-3 p-3">
             <Star className="h-8 w-8 text-amber-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('rating')}</div>

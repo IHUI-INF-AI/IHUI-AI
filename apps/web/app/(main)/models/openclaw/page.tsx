@@ -37,7 +37,7 @@ export default async function OpenClawPage() {
 
       {/* Hero */}
       <Card className="overflow-hidden border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
-        <CardContent className="p-4 min-[768px]:p-6 min-[640px]:p-6">
+        <CardContent className="p-3">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <Rocket className="h-6 w-6" />
@@ -66,7 +66,7 @@ export default async function OpenClawPage() {
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {features.map((f) => (
             <Card key={f}>
-              <CardContent className="flex items-start gap-2.5 p-4">
+              <CardContent className="flex items-start gap-2.5 p-3">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <span className="text-sm">{t(f)}</span>
               </CardContent>
@@ -104,7 +104,7 @@ export default async function OpenClawPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <pre className="overflow-x-auto rounded-lg bg-muted/60 p-4 text-xs leading-relaxed">
+          <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs leading-relaxed">
             <code className="font-mono text-foreground">
               <span className="text-muted-foreground"># 安装 OpenClaw CLI</span>
               {'\n'}

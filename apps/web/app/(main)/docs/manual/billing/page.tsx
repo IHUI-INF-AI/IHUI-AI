@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 
 export default function ManualBillingPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl py-4">
+    <main className="px-4 mx-auto w-full max-w-3xl py-4">
       {/* Hero */}
       <header className="space-y-3">
         <div className="text-xs font-mono text-muted-foreground">第 05 章 · 使用说明手册</div>
@@ -48,7 +48,7 @@ export default function ManualBillingPage() {
       {/* 积分规则 */}
       <section id="credits-rule" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">5.1 积分消耗规则</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <p><strong>1 积分 ≈ 1000 Token</strong>(标准模型),贵模型消耗多,便宜模型消耗少:</p>
           <div className="space-y-2">
             {[
@@ -84,7 +84,7 @@ export default function ManualBillingPage() {
       {/* 查积分 */}
       <section id="check-credits" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">5.2 查看积分余额与消耗</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li><strong>右上角</strong>:头像旁实时显示余额(如"1,234 积分")</li>
             <li><strong>设置 → 积分</strong>:详细记录
@@ -104,7 +104,7 @@ export default function ManualBillingPage() {
       <section id="plans" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">5.3 套餐对比</h2>
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
-          <div className="rounded-xl border bg-card p-5">
+          <div className="rounded-xl border bg-card p-3">
             <p className="text-sm font-semibold">🆓 Free</p>
             <p className="mt-1 text-2xl font-bold">¥0</p>
             <p className="text-xs text-muted-foreground">永久免费</p>
@@ -116,7 +116,7 @@ export default function ManualBillingPage() {
               <li>社区支持</li>
             </ul>
           </div>
-          <div className="rounded-xl border bg-primary/5 p-5 ring-1 ring-primary/30">
+          <div className="rounded-xl border bg-primary/5 p-3 ring-1 ring-primary/30">
             <p className="text-sm font-semibold">⭐ Pro</p>
             <p className="mt-1 text-2xl font-bold">¥49/月</p>
             <p className="text-xs text-muted-foreground">年付 9 折 ¥529/年</p>
@@ -130,7 +130,7 @@ export default function ManualBillingPage() {
               <li>邮件 + 飞书群支持</li>
             </ul>
           </div>
-          <div className="rounded-xl border bg-card p-5">
+          <div className="rounded-xl border bg-card p-3">
             <p className="flex items-center text-sm font-semibold">
               <Users className="mr-1.5 inline h-4 w-4" />
               Team
@@ -147,7 +147,7 @@ export default function ManualBillingPage() {
               <li>专属客户群</li>
             </ul>
           </div>
-          <div className="rounded-xl border bg-card p-5">
+          <div className="rounded-xl border bg-card p-3">
             <p className="flex items-center text-sm font-semibold">
               <Building2 className="mr-1.5 inline h-4 w-4" />
               Enterprise
@@ -170,7 +170,7 @@ export default function ManualBillingPage() {
       {/* 充值 */}
       <section id="recharge" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">5.4 充值积分</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-3 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>设置 → 积分 → "充值"按钮</li>
             <li>选择充值档位:
@@ -194,7 +194,7 @@ export default function ManualBillingPage() {
       {/* 发票 */}
       <section id="invoice" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">5.5 申请发票</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <ol className="ml-4 list-decimal space-y-1">
             <li>设置 → 积分 → "账单与发票"</li>
             <li>选择要开票的订单(可合并多单)</li>
@@ -213,7 +213,7 @@ export default function ManualBillingPage() {
       {/* 共享池 */}
       <section id="shared-pool" className="mt-10 space-y-3">
         <h2 className="text-xl font-bold">5.6 团队共享积分池(Team / Enterprise)</h2>
-        <div className="rounded-xl border bg-card p-5 space-y-2 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-card p-3 space-y-2 text-sm text-muted-foreground">
           <ul className="ml-4 list-disc space-y-1">
             <li>Admin 一次充值,全团队共享</li>
             <li>Admin 可设成员配额(月度上限)</li>

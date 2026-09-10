@@ -75,7 +75,7 @@ export default function PointsMallPage() {
           <span>{t('loading')}</span>
         </div>
       ) : mallQ.isError ? (
-        <div className="rounded-md border border-border bg-card p-6 text-center">
+        <div className="rounded-md border border-border bg-card p-3 text-center">
           <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
           <Button variant="outline" size="sm" onClick={() => void mallQ.refetch()}>
             <RotateCw className="mr-2 h-4 w-4" />
@@ -92,7 +92,7 @@ export default function PointsMallPage() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {list.map((item) => (
             <Card key={item.id}>
-              <CardContent className="flex flex-col p-4">
+              <CardContent className="flex flex-col p-3">
                 {item.image || item.cover ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

@@ -52,7 +52,7 @@ function ThinkingProcess({ text }: { text: string }) {
   const needToggle = text.length > 200
 
   return (
-    <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-5">
+    <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-3">
       <div className="mb-3 flex items-center">
         <Lightbulb className="mr-2.5 h-5 w-5 text-primary" />
         <span className="text-base font-semibold text-primary">{t('title')}</span>

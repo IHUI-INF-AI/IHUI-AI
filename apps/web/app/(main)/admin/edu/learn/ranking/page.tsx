@@ -77,7 +77,7 @@ export default function EduLearnRankingPage() {
   const top3 = rows.slice(0, 3)
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
@@ -119,7 +119,7 @@ export default function EduLearnRankingPage() {
                   : 'from-orange-400 to-amber-600'
             return (
               <Card key={r.id}>
-                <CardContent className="flex items-center gap-4 p-5 min-[640px]:p-5">
+                <CardContent className="flex items-center gap-4 p-3">
                   <div
                     className={cn(
                       'flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br text-white',

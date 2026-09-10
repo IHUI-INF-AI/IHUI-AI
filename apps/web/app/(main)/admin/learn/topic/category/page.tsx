@@ -261,7 +261,7 @@ export default function AdminLearnTopicCategoryPage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">学习专题分类</h1>
         <p className="mt-1 text-sm text-muted-foreground">

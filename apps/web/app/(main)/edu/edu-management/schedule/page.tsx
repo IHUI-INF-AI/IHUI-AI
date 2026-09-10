@@ -845,7 +845,7 @@ export default function SchedulePage() {
   /* ── Loading / Error states ── */
   if (termsLoading) {
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4 px-4 py-4">
         <BackButton />
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -857,7 +857,7 @@ export default function SchedulePage() {
 
   if (termsError) {
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4 px-4 py-4">
         <BackButton />
         <Alert variant="danger" description="加载学期数据失败，请稍后重试" />
       </div>
@@ -865,7 +865,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
 
       {/* Header */}
@@ -876,7 +876,7 @@ export default function SchedulePage() {
 
       {/* Toolbar */}
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 p-4">
+        <CardContent className="flex flex-wrap items-center gap-3 p-3">
           {/* Term selector */}
           <div className="flex items-center gap-2">
             <School className="h-4 w-4 text-muted-foreground" />

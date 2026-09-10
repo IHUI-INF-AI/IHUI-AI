@@ -40,7 +40,7 @@ export default function GatewayDashboardPage() {
   )
 
   return (
-    <Container maxWidth="xl" padding={false} className="space-y-4 py-6">
+    <Container maxWidth="xl" padding={false} className="px-4 py-4 space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">

@@ -15,15 +15,18 @@ import {
   Brain,
   FileText,
   Circle,
+  RotateCcw,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { rollbackCheckpoint } from '@ihui/api-client'
 import {
   useTimelineStore,
   type TimelineEvent,
   type TimelineEventStatus,
   type TimelineEventType,
 } from '@/stores/timeline-store'
+import { useIDEWorkspace } from '@/stores/ide-workspace'
 
 const TYPE_ICON: Record<TimelineEventType, React.ComponentType<{ className?: string }>> = {
   plan: FileText,
@@ -110,6 +113,138 @@ function translateWithFallback(
   }
 }
 
+// ─── H4 证据链 meta 提取(2026-09-09 立,对齐 1-1 agent_step_recorder 契约) ──
+
+/** edit_file/write_file 前后内容证据 */
+interface EvidenceDiff {
+  path: string
+  before: string
+  after: string
+}
+
+/** run_command 测试结果证据 */
+interface EvidenceTest {
+  command: string
+  exit_code: number | null
+  passed: number | null
+  failed: number | null
+}
+
+/** checkpoint 回滚证据 */
+interface EvidenceRollback {
+  checkpoint_id: string
+  available: boolean
+}
+
+/** 补丁基线冲突(1-2 merge3 CONFLICT)证据 */
+interface EvidenceConflict {
+  code: string
+  path: string
+  current_preview: string
+  expected_preview: string
+  rejected: boolean
+}
+
+interface EvidenceMeta {
+  decision?: string
+  reason?: string
+  diff?: EvidenceDiff
+  test?: EvidenceTest
+  rollback?: EvidenceRollback
+  conflict?: EvidenceConflict
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null
+}
+
+function pickStr(m: Record<string, unknown>, key: string): string | undefined {
+  const v = m[key]
+  return typeof v === 'string' ? v : undefined
+}
+
+function pickNum(m: Record<string, unknown>, key: string): number | null | undefined {
+  const v = m[key]
+  if (typeof v === 'number') return v
+  if (v === null) return null
+  return undefined
+}
+
+/**
+ * 从 event.meta 安全提取证据链字段(类型守卫,字段宽松:
+ * 与后端 agent_step_recorder 的 step meta 提升契约一致,缺失字段不渲染)。
+ */
+function extractEvidenceMeta(meta: unknown): EvidenceMeta | null {
+  if (!isRecord(meta)) return null
+  const out: EvidenceMeta = {}
+  const decision = pickStr(meta, 'decision')
+  const reason = pickStr(meta, 'reason')
+  if (decision !== undefined) out.decision = decision
+  if (reason !== undefined) out.reason = reason
+
+  const d = meta['diff']
+  if (isRecord(d)) {
+    const path = pickStr(d, 'path')
+    const before = pickStr(d, 'before')
+    const after = pickStr(d, 'after')
+    if (path !== undefined && before !== undefined && after !== undefined) {
+      out.diff = { path, before, after }
+    }
+  }
+
+  const t = meta['test']
+  if (isRecord(t)) {
+    const command = pickStr(t, 'command')
+    if (command !== undefined) {
+      const exitCode = pickNum(t, 'exit_code')
+      const passed = pickNum(t, 'passed')
+      const failed = pickNum(t, 'failed')
+      out.test = {
+        command,
+        exit_code: exitCode ?? null,
+        passed: passed ?? null,
+        failed: failed ?? null,
+      }
+    }
+  }
+
+  const r = meta['rollback']
+  if (isRecord(r)) {
+    const checkpointId = pickStr(r, 'checkpoint_id')
+    if (checkpointId !== undefined) {
+      out.rollback = { checkpoint_id: checkpointId, available: r['available'] !== false }
+    }
+  }
+
+  const c = meta['conflict']
+  if (isRecord(c)) {
+    const code = pickStr(c, 'code')
+    if (code !== undefined) {
+      out.conflict = {
+        code,
+        path: pickStr(c, 'path') ?? '',
+        current_preview: pickStr(c, 'current_preview') ?? '',
+        expected_preview: pickStr(c, 'expected_preview') ?? '',
+        rejected: c['rejected'] === true,
+      }
+    }
+  }
+
+  return out
+}
+
+function hasAnyEvidence(e: EvidenceMeta | null): boolean {
+  return !!(
+    e &&
+    (e.decision !== undefined ||
+      e.reason !== undefined ||
+      e.diff !== undefined ||
+      e.test !== undefined ||
+      e.rollback !== undefined ||
+      e.conflict !== undefined)
+  )
+}
+
 function formatRelativeTime(timestamp: string, now: number | null): string {
   const ms = Date.parse(timestamp)
   if (Number.isNaN(ms)) return ''
@@ -175,8 +310,29 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
   // Phase 24(2026-07-29):SSR 安全 — 相对时间用 useNowMs() 派生,SSR 时返回空字符串
   const nowMs = useNowMs()
 
+  // H4 证据链(2026-09-09):meta 携带 decision/reason/diff/test/rollback/conflict 时,
+  // 行可点击展开证据详情(与 children 展开共用 expandedEventIds 状态)
+  const evidence = React.useMemo(() => extractEvidenceMeta(event.meta), [event.meta])
+  const evidenceAvailable = hasAnyEvidence(evidence)
+  const workspacePath = useIDEWorkspace((s) => s.workspacePath)
+  const [rollbackState, setRollbackState] = React.useState<'idle' | 'rolling' | 'done' | 'failed'>(
+    'idle',
+  )
+
+  const handleRollback = React.useCallback(async () => {
+    const rb = evidence?.rollback
+    if (!rb || rollbackState === 'rolling' || rollbackState === 'done') return
+    setRollbackState('rolling')
+    try {
+      const res = await rollbackCheckpoint({ workspacePath, checkpointId: rb.checkpoint_id })
+      setRollbackState(res.success ? 'done' : 'failed')
+    } catch {
+      setRollbackState('failed')
+    }
+  }, [evidence?.rollback, rollbackState, workspacePath])
+
   const onClick = () => {
-    if (hasChildren) {
+    if (hasChildren || evidenceAvailable) {
       toggleExpanded(event.id)
       return
     }
@@ -201,9 +357,10 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
     }
   }
 
-  // 至少有一种交互目标(children / messageId / planStepId / toolCallId)才可点
+  // 至少有一种交互目标(children / evidence / messageId / planStepId / toolCallId)才可点
   const hasJumpTarget = !!(event.messageId || event.planStepId || event.toolCallId)
-  const isClickable = hasChildren || hasJumpTarget
+  const isClickable = hasChildren || evidenceAvailable || hasJumpTarget
+  const isExpandable = hasChildren || evidenceAvailable
 
   return (
     <div
@@ -227,14 +384,15 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
         type="button"
         onClick={onClick}
         disabled={!isClickable}
-        aria-expanded={hasChildren ? isExpanded : undefined}
+        aria-expanded={isExpandable ? isExpanded : undefined}
+        data-testid="timeline-event-toggle"
         data-jump-target={hasJumpTarget ? 'true' : undefined}
         className={cn(
           'flex w-full items-center gap-1.5 px-2 py-1 text-left transition-colors',
           isClickable ? 'hover:bg-accent/30 cursor-pointer' : 'cursor-default',
         )}
       >
-        {hasChildren ? (
+        {isExpandable ? (
           <ChevronRight
             className={cn(
               'h-2.5 w-2.5 shrink-0 text-muted-foreground/60 transition-transform duration-150',
@@ -267,16 +425,137 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
           {formatRelativeTime(event.timestamp, nowMs)}
         </span>
       </button>
-      {hasChildren && isExpanded && (
+      {isExpandable && isExpanded && (
         <div className="px-2 py-1">
           {description && (
             <div className="mb-1.5 text-[10px] text-muted-foreground/70">{description}</div>
           )}
-          <div className="space-y-0.5">
-            {event.children!.map((child) => (
-              <TimelineEventRow key={child.id} event={child} depth={(depth ?? 0) + 1} />
-            ))}
-          </div>
+          {hasChildren && (
+            <div className="space-y-0.5">
+              {event.children!.map((child) => (
+                <TimelineEventRow key={child.id} event={child} depth={(depth ?? 0) + 1} />
+              ))}
+            </div>
+          )}
+          {evidenceAvailable && (
+            <div
+              className={cn('space-y-1 pt-1', hasChildren && 'mt-1 border-t border-border/30 pt-1.5')}
+              data-testid="timeline-evidence-details"
+            >
+              {(evidence!.decision !== undefined || evidence!.reason !== undefined) && (
+                <div
+                  className="text-[10px] text-muted-foreground/70"
+                  data-testid="timeline-evidence-decision"
+                >
+                  {evidence!.decision && (
+                    <span className="font-medium text-foreground/80">{evidence!.decision}</span>
+                  )}
+                  {evidence!.decision && evidence!.reason && <span className="mx-1">·</span>}
+                  {evidence!.reason && <span>{evidence!.reason}</span>}
+                </div>
+              )}
+              {evidence!.diff && (
+                <div
+                  className="overflow-hidden rounded-sm border border-border/40"
+                  data-testid="timeline-evidence-diff"
+                >
+                  <div className="truncate bg-muted/30 px-1.5 py-0.5 text-[9px] text-muted-foreground/60">
+                    {evidence!.diff.path}
+                  </div>
+                  <div className="grid grid-cols-2 font-mono text-[10px] leading-snug">
+                    <pre className="m-0 break-all whitespace-pre-wrap bg-destructive/5 p-1 text-destructive/90">
+                      {evidence!.diff.before}
+                    </pre>
+                    <pre className="m-0 break-all whitespace-pre-wrap bg-emerald-500/5 p-1 text-emerald-600 dark:text-emerald-400">
+                      {evidence!.diff.after}
+                    </pre>
+                  </div>
+                </div>
+              )}
+              {evidence!.test && (
+                <div
+                  className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground/70"
+                  data-testid="timeline-evidence-test"
+                >
+                  <span className="truncate font-mono">{evidence!.test.command}</span>
+                  {evidence!.test.exit_code !== null && (
+                    <span
+                      className={cn(
+                        'rounded-sm px-1',
+                        evidence!.test.exit_code === 0
+                          ? 'bg-emerald-500/10 text-emerald-600'
+                          : 'bg-destructive/10 text-destructive',
+                      )}
+                    >
+                      exit {evidence!.test.exit_code}
+                    </span>
+                  )}
+                  {evidence!.test.passed !== null && (
+                    <span className="text-emerald-600 dark:text-emerald-400">
+                      {evidence!.test.passed} passed
+                    </span>
+                  )}
+                  {evidence!.test.failed !== null && (
+                    <span className="text-destructive">{evidence!.test.failed} failed</span>
+                  )}
+                </div>
+              )}
+              {evidence!.rollback && (
+                <div className="flex items-center gap-1.5 text-[10px]">
+                  {rollbackState === 'done' ? (
+                    <span
+                      className="text-[10px] text-emerald-600 dark:text-emerald-400"
+                      data-testid="timeline-evidence-rollback"
+                    >
+                      已回滚
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleRollback}
+                      disabled={!evidence!.rollback.available || rollbackState === 'rolling'}
+                      data-testid="timeline-evidence-rollback"
+                      className="inline-flex cursor-pointer items-center gap-1 rounded-sm border border-border/50 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/30 disabled:cursor-default disabled:opacity-50"
+                    >
+                      {rollbackState === 'rolling' ? (
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden />
+                      ) : (
+                        <RotateCcw className="h-2.5 w-2.5" aria-hidden />
+                      )}
+                      回滚
+                    </button>
+                  )}
+                  {rollbackState === 'failed' && (
+                    <span className="text-[10px] text-destructive">回滚失败</span>
+                  )}
+                </div>
+              )}
+              {evidence!.conflict && (
+                <div
+                  className="rounded-sm border border-destructive/30 bg-destructive/5 px-1.5 py-1 text-[10px]"
+                  data-testid="timeline-evidence-conflict"
+                >
+                  <div className="font-medium text-destructive">
+                    {evidence!.conflict.code}
+                    {evidence!.conflict.rejected && <span> · 已拒绝覆盖</span>}
+                  </div>
+                  {evidence!.conflict.path && (
+                    <div className="truncate text-muted-foreground/60">
+                      {evidence!.conflict.path}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-1 font-mono leading-snug">
+                    <pre className="m-0 break-all whitespace-pre-wrap text-muted-foreground/80">
+                      {evidence!.conflict.current_preview}
+                    </pre>
+                    <pre className="m-0 break-all whitespace-pre-wrap text-amber-600 dark:text-amber-400">
+                      {evidence!.conflict.expected_preview}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

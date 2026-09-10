@@ -112,7 +112,7 @@ export default function DistributionTeamDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notExist')}
         </div>
       </div>
@@ -120,7 +120,7 @@ export default function DistributionTeamDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
       <Link
         href="/distribution/team"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -130,7 +130,7 @@ export default function DistributionTeamDetailPage() {
       </Link>
 
       <Card>
-        <CardContent className="space-y-4 p-5 min-[640px]:p-5">
+        <CardContent className="space-y-4 p-3">
           <div className="flex items-center gap-4">
             {member.avatar ? (
               <Image

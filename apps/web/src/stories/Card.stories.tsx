@@ -67,7 +67,7 @@ export const Simple: Story = {
 // 无头卡片：仅内容
 export const ContentOnly: Story = {
   render: () => (
-    <Card className="w-80 p-6">
+    <Card className="w-80 p-3">
       <p className="text-sm">无 Header/Footer 的纯内容卡片。</p>
     </Card>
   ),

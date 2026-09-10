@@ -242,6 +242,8 @@ export * from './endpoints/context-mentions'
 
 // Repo Wiki 端点(代码仓库→知识库文档,2026-09-07 新增)
 export * from './endpoints/repo-wiki'
+// Knowledge Card 端点(仓库级任务经验卡,2026-09-10 新增,2-1 项目知识引擎)
+export * from './endpoints/knowledge-card'
 export * from './endpoints/team-memory'
 
 // 用户侧 Agent 定时自动化端点(2026-09-07 新增)

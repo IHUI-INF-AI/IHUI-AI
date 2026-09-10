@@ -19,7 +19,7 @@ import { GlobalErrorBanner } from '@/components/common/GlobalErrorBanner'
  * 布局:
  *   <div pb-2 pr-2 min-h-0 flex-1>           ← 外层 wrapper(底部 8px + 右侧 8px,与 GlobalTopBar 的 pt-2/px-2 互补)
  *     <div bg-shell-panel rounded-xl flex-1>   ← 工作区卡片
- *       <main p-4>{children}</main>
+ *       <main p-3>{children}</main>
  *     </div>
  *   </div>
  *
@@ -68,7 +68,7 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           // 2026-08-01 用户要求"完全去掉 padding,内容占满工作内容展示区":
           // 原 p-3 → laptop:p-8(桌面 32px 四边留白)导致编辑器等所有页面四边有留白,
           // 用户反馈"为啥不占满啊"。现改为无 padding,内容完全贴工作区卡片边缘。
-          // 各页面如需内部留白应自行在页面组件内设置(如 about 的 px-4 py-8 已自带)。
+          // 各页面如需内部留白应自行在页面组件内设置(统一为 px-4 py-4)。
           // 2026-08-05 性能优化:content-visibility:auto + contain-intrinsic-size:1000px
           // 让浏览器跳过副屏外内容的渲染,显著提升首帧渲染速度。
           // 2026-08-11 移除 content-visibility + contain-intrinsic-size:

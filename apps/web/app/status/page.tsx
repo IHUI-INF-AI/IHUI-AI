@@ -154,6 +154,8 @@ function parseIncidents(d: unknown): Incident[] | null {
 
 // ===== 数据获取 =====
 async function fetchJson<T>(url: string, parse: (d: unknown) => T | null): Promise<T | null> {
+  // 2026-09-09 0-5-f 豁免确认:RSC 服务端数据获取(无浏览器鉴权上下文),
+  // 依赖 Next.js next:{revalidate:60} 数据缓存语义;fetchApi 为客户端传输层设计。
   const res = await fetch(url, { next: { revalidate: 60 } })
   if (!res.ok) return null
   const raw: unknown = await res.json()
@@ -258,7 +260,7 @@ function Section({
 }) {
   return (
     <Card>
-      <CardContent className="space-y-3 p-4">
+      <CardContent className="space-y-3 p-3">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-primary" />
           <p className="text-sm font-semibold">{title}</p>
@@ -292,7 +294,7 @@ export default async function StatusPage() {
     return (
       <div className="mx-auto max-w-4xl px-4 py-4">
         <Card>
-          <CardContent className="flex flex-col items-center gap-2 p-5 min-[768px]:p-8 text-center min-[640px]:p-5 min-[640px]:p-8">
+          <CardContent className="flex flex-col items-center gap-2 p-3 text-center">
             <AlertTriangle className="h-8 w-8 text-rose-500" />
             <p className="text-sm font-medium">{result.error}</p>
             <p className="text-xs text-muted-foreground">页面将每 60 秒自动刷新重试</p>
@@ -318,7 +320,7 @@ export default async function StatusPage() {
       </div>
 
       <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3">
           <div className="flex items-center gap-2">
             <StatusBadge status={overall} />
             <span className="text-sm font-medium">

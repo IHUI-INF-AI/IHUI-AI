@@ -89,7 +89,7 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
@@ -99,12 +99,12 @@ export default function WalletPage() {
       </header>
 
       {balanceQ.error ? (
-        <div className="rounded-lg border bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border bg-destructive/10 p-3 text-sm text-destructive">
           {(balanceQ.error as Error).message}
         </div>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="min-w-[160px] min-[640px]:min-w-[200px] flex-1 rounded-xl border bg-card p-4 text-card-foreground shadow">
+          <div className="min-w-[160px] min-[640px]:min-w-[200px] flex-1 rounded-xl border bg-card p-3 text-card-foreground shadow">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">{t('balance')}</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">

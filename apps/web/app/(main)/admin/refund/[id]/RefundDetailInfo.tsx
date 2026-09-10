@@ -66,7 +66,7 @@ export function RefundDetailInfo({
 
   return (
     <>
-      <div className="rounded-lg border p-5">
+      <div className="rounded-lg border p-3">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{t('detailTitle')}</h2>
           <span
@@ -130,7 +130,7 @@ export function RefundDetailInfo({
       </div>
 
       {order && (
-        <div className="rounded-lg border p-5">
+        <div className="rounded-lg border p-3">
           <h3 className="mb-3 text-sm font-semibold text-muted-foreground">{t('orderInfo')}</h3>
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
             <DetailItem label={t('orderNo')} value={order.orderNo} mono />
@@ -149,7 +149,7 @@ export function RefundDetailInfo({
         </div>
       )}
 
-      <div className="rounded-lg border p-5">
+      <div className="rounded-lg border p-3">
         <h3 className="mb-3 text-sm font-semibold text-muted-foreground">{t('auditRecords')}</h3>
         {records.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">{t('noAuditRecords')}</p>

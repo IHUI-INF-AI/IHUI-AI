@@ -69,7 +69,7 @@ export default function EduLearnProgressPage() {
   const noEndpoint = isNotFound(error)
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
@@ -77,19 +77,19 @@ export default function EduLearnProgressPage() {
       </div>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
-          <CardContent className="p-5 min-[640px]:p-5">
+          <CardContent className="p-3">
             <div className="text-sm text-muted-foreground">{t('statCurrentPageStudents')}</div>
             <div className="mt-1 text-2xl font-semibold">{rows.length}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5 min-[640px]:p-5">
+          <CardContent className="p-3">
             <div className="text-sm text-muted-foreground">{t('statAvgProgress')}</div>
             <div className="mt-1 text-2xl font-semibold">{avgProgress}%</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5 min-[640px]:p-5">
+          <CardContent className="p-3">
             <div className="text-sm text-muted-foreground">{t('statCompleted')}</div>
             <div className="mt-1 text-2xl font-semibold">{completed}</div>
           </CardContent>

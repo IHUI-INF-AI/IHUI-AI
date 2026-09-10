@@ -56,7 +56,7 @@ export default function DashboardStatPage() {
   const ratioData: StatChartPoint[] = resp?.ratios ?? []
 
   return (
-    <div className="flex flex-col gap-4 p-4 min-[768px]:p-6">
+    <div className="flex flex-col gap-4 p-3 min-[768px]:">
       <BackButton />
       <header className="flex flex-col gap-1">
         <h1 className="text-lg font-semibold tracking-tight">仪表板统计</h1>
@@ -76,15 +76,15 @@ export default function DashboardStatPage() {
         </div>
       ) : (
         <>
-          <Card className="p-4">
+          <Card className="p-3">
             <StatChart type="area" data={trendData} title="近 7 日访问趋势" height={260} />
           </Card>
 
           <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-2">
-            <Card className="p-4">
+            <Card className="p-3">
               <StatChart type="bar" data={metricsData} title="核心指标分布" height={240} />
             </Card>
-            <Card className="p-4">
+            <Card className="p-3">
               <StatChart type="pie" data={ratioData} title="订单状态占比" height={240} />
             </Card>
           </div>

@@ -56,7 +56,7 @@ export function IntegrationTable({
         return (
           <div
             key={i.id}
-            className="flex flex-col rounded-lg border p-4 transition-colors hover:bg-muted/30"
+            className="flex flex-col rounded-lg border p-3 transition-colors hover:bg-muted/30"
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">

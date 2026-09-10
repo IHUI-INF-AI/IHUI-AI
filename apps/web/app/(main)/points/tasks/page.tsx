@@ -89,7 +89,7 @@ export default function PointsTasksPage() {
           <span>{t('loading')}</span>
         </div>
       ) : tasksQ.isError ? (
-        <div className="rounded-md border border-border bg-card p-6 text-center">
+        <div className="rounded-md border border-border bg-card p-3 text-center">
           <p className="mb-3 text-sm text-muted-foreground">{t('loadFailed')}</p>
           <Button variant="outline" size="sm" onClick={() => void tasksQ.refetch()}>
             <RotateCw className="mr-2 h-4 w-4" />
@@ -109,7 +109,7 @@ export default function PointsTasksPage() {
               task.target > 0 ? Math.min(100, Math.round((task.progress / task.target) * 100)) : 0
             return (
               <Card key={task.id}>
-                <CardContent className="p-4">
+                <CardContent className="p-3">
                   <div className="mb-1 flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h3 className="truncate text-sm font-medium">{task.title}</h3>

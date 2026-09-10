@@ -6,11 +6,17 @@ import { pgTable, uuid, varchar, text, integer, timestamp, jsonb, index } from '
 import { agents } from './agents-extended.js'
 import { agentRule } from './agent-rule.js'
 import { users } from './users.js'
+import { teams } from './teams.js'
 
 /**
  * 智能体任务表。
  * G10:补 updatedBy 字段(审计追溯,用户删除时 SET NULL)
  * G13:补 createdBy 字段(创建者审计,管理员或系统创建时记录)
+ * 2-2 多 Agent 工作区锁与团队任务板:
+ *   - workspacePath:任务操作的工作区目录路径(锁粒度)
+ *   - teamId:所属团队(团队任务板过滤维度)
+ *   - lockedBy/lockedAt:最近一次获取工作区锁的持有者与时间
+ *     (Redis 锁为执行权威[TTL 自愈],此二者仅作看板展示与审计回溯)
  */
 export const agentTasks = pgTable(
   'agent_tasks',
@@ -30,6 +36,11 @@ export const agentTasks = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     errorMessage: text('error_message'),
+    // 2-2 工作区锁与团队任务板
+    workspacePath: varchar('workspace_path', { length: 512 }),
+    teamId: uuid('team_id').references(() => teams.id, { onDelete: 'set null' }),
+    lockedBy: varchar('locked_by', { length: 128 }),
+    lockedAt: timestamp('locked_at', { withTimezone: true }),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -38,6 +49,8 @@ export const agentTasks = pgTable(
   (t) => ({
     agentIdx: index('agent_tasks_agent_idx').on(t.agentId),
     statusIdx: index('agent_tasks_status_idx').on(t.status),
+    teamIdx: index('agent_tasks_team_idx').on(t.teamId),
+    workspaceIdx: index('agent_tasks_workspace_idx').on(t.workspacePath),
   }),
 )
 

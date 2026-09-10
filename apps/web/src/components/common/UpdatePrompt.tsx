@@ -75,7 +75,7 @@ export function UpdatePrompt() {
           isAnimated && 'update-card-glow',
         )}
       >
-        <div className="relative z-10 p-4">
+        <div className="relative z-10 p-3">
           {/* 头部:图标 + 标题 + 版本号 */}
           <div className="flex items-center gap-2.5">
             <div

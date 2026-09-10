@@ -324,7 +324,7 @@ export default function PromptsPage() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-4 py-4">
+      <div className="px-4 space-y-4 py-4">
         <BackButton />
 
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -339,7 +339,7 @@ export default function PromptsPage() {
         </div>
 
         <Card>
-          <CardContent className="flex items-center gap-2 p-4">
+          <CardContent className="flex items-center gap-2 p-3">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               placeholder={t('prompts.searchPlaceholder')}
@@ -569,7 +569,7 @@ export default function PromptsPage() {
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
               ) : (
-                <pre className="mt-2 max-h-96 overflow-auto rounded-md bg-muted p-4 text-xs leading-relaxed">
+                <pre className="mt-2 max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs leading-relaxed">
                   <code>{viewContent}</code>
                 </pre>
               )}
@@ -605,7 +605,7 @@ export default function PromptsPage() {
                 const isCurrent = v.version === historyLatest
                 return (
                   <Card key={v.version} className={isCurrent ? 'border-primary/30' : ''}>
-                    <CardContent className="p-4">
+                    <CardContent className="p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">

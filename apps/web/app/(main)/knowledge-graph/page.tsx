@@ -155,7 +155,7 @@ export default function KnowledgeGraphPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-6 space-y-4">
+    <div className="py-4 container mx-auto max-w-6xl px-4 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon-sm">

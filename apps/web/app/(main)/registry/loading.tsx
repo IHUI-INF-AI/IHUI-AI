@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 export default function RegistryLoading() {
   return (
-    <div className="space-y-4 p-4 min-[768px]:p-6">
+    <div className="space-y-4 p-3">
       <Skeleton className="h-6 w-40" />
       <div className="flex items-center gap-3">
         <Skeleton className="h-9 w-64" />

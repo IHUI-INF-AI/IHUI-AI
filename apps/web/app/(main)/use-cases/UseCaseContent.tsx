@@ -338,7 +338,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
   const Icon = uc.icon
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-4 min-[768px]:px-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-4">
       <BackButton />
       {/* Hero */}
       <section className="space-y-5 text-center">
@@ -368,7 +368,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
       </section>
 
       {/* 痛点 */}
-      <section className="mt-16 rounded-2xl border bg-card p-5 min-[768px]:p-8 min-[1024px]:p-12">
+      <section className="mt-16 rounded-2xl border bg-card p-3">
         <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{uc.problemTitle}</h2>
         <ul className="mt-6 space-y-3">
           {uc.problems.map((p, i) => (
@@ -390,7 +390,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
         </h2>
         <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {uc.solutionPoints.map((sp, i) => (
-            <div key={i} className="rounded-2xl border bg-card p-6 shadow-sm">
+            <div key={i} className="rounded-2xl border bg-card p-3 shadow-sm">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
                 {i + 1}
               </div>
@@ -408,7 +408,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
         </h2>
         <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-4">
           {uc.howItWorks.map((hw) => (
-            <div key={hw.step} className="rounded-2xl border bg-card p-6">
+            <div key={hw.step} className="rounded-2xl border bg-card p-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-base font-semibold text-primary-foreground">
                 {hw.step}
               </div>
@@ -420,7 +420,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
       </section>
 
       {/* 核心收益 */}
-      <section className="mt-16 rounded-2xl border bg-primary/5 p-5 min-[768px]:p-8 min-[1024px]:p-12">
+      <section className="mt-16 rounded-2xl border bg-primary/5 p-3">
         <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
           核心收益
         </h2>
@@ -441,7 +441,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
       </section>
 
       {/* CTA */}
-      <section className="mt-16 rounded-2xl border bg-card p-8 text-center min-[768px]:p-12">
+      <section className="mt-16 rounded-2xl border bg-card p-3 text-center">
         <Sparkles className="mx-auto h-10 w-10 text-primary" />
         <h2 className="mt-4 text-xl font-bold tracking-tight min-[768px]:text-2xl">
           开始你的 AI 用例

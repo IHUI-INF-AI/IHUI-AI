@@ -200,7 +200,7 @@ export default function DocsIndexPage() {
 
       <div className="grid grid-cols-1 gap-6 min-[768px]:grid-cols-2">
         {docSections.map((section) => (
-          <section key={section.title} className="rounded-2xl border bg-card p-4 min-[768px]:p-6">
+          <section key={section.title} className="rounded-2xl border bg-card p-3">
             <div className="flex items-center gap-2">
               <span className="text-2xl">
                 {typeof section.icon === 'string' ? section.icon : <section.icon className="h-6 w-6" />}
@@ -227,7 +227,7 @@ export default function DocsIndexPage() {
         ))}
       </div>
 
-      <div className="rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-6 text-center">
+      <div className="rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
         <p className="text-sm text-muted-foreground">
           文档未覆盖到的问题?
           {' '}

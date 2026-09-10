@@ -40,7 +40,9 @@ type BillingMode = 'token' | 'gpu' | 'free' | 'subscription'
 type RelaySortField = 'name' | 'billing' | 'speed'
 type RelaySortDir = 'asc' | 'desc'
 
-/** 测速:fetch no-cors + AbortController 超时,返回 RTT(ms),失败返回 -1 */
+/** 测速:fetch no-cors + AbortController 超时,返回 RTT(ms),失败返回 -1
+ * 2026-09-09 0-5-f 豁免确认:目标为第三方 relay 站点,mode:'no-cors' 刻意 opaque 化
+ * (只测连通 RTT,不读响应体);fetchApi 会向第三方注入鉴权头并期望统一响应包装,不适用。 */
 async function testRelaySpeed(baseUrl: string, timeoutMs = 5000): Promise<number> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -354,7 +356,7 @@ export function ApiRelaysSection() {
 
           <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
             {filtered.length === 0 ? (
-              <div className="col-span-full rounded-lg border border-dashed bg-muted/20 p-4 text-center text-xs text-muted-foreground">
+              <div className="col-span-full rounded-lg border border-dashed bg-muted/20 p-3 text-center text-xs text-muted-foreground">
                 {t('emptyResult')}
               </div>
             ) : null}

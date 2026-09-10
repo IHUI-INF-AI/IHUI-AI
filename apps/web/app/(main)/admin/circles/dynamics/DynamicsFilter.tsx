@@ -36,7 +36,7 @@ export function DynamicsFilter({ filter, onFilterChange, onSearch, onReset }: Pr
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
         <div className="space-y-1.5">
           <Label className="text-xs">{t('keywordLabel')}</Label>
           <Input

@@ -20,6 +20,7 @@ import {
   FileSpreadsheet,
   FileJson,
 } from 'lucide-react'
+import { fetchRaw } from '@/lib/api'
 import { eduApi } from '@/lib/edu'
 import { cn } from '@/lib/utils'
 import {
@@ -85,38 +86,21 @@ export default function EduStudentDetailPage() {
     if (!id) return
     setExporting(format)
     try {
-      const resp = await fetch(`/api/admin/edu/students/${id}/report/export?format=${format}`, {
-        method: 'GET',
-        credentials: 'include',
-      })
-      if (!resp.ok) throw new Error(`${resp.status}`)
-      const contentType = resp.headers.get('Content-Type') ?? ''
-      if (contentType.includes('application/pdf') || contentType.includes('spreadsheetml')) {
-        const blob = await resp.blob()
-        const url = URL.createObjectURL(blob)
-        const cd = resp.headers.get('Content-Disposition') ?? ''
-        const match = /filename="?([^";]+)"?/.exec(cd)
-        const filename =
-          match?.[1] ?? `student-${id.slice(0, 8)}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
-        const a = document.createElement('a')
-        a.href = url
-        a.download = filename
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        setTimeout(() => URL.revokeObjectURL(url), 1000)
-      } else {
-        // json 走文件下载
-        const blob = await resp.blob()
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `student-${id.slice(0, 8)}.json`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        setTimeout(() => URL.revokeObjectURL(url), 1000)
-      }
+      // 2026-09-09 0-5 直接 fetch 清单化迁移:blob 下载走共享 fetchRaw,
+      // 鉴权/CSRF/设备指纹/超时由共享层统一承担(失败自动抛错,走 catch toast)。
+      // 文件名按 format 前端构造(与后端 Content-Disposition 等价,均为 id 前 8 位)。
+      const blob = await fetchRaw(
+        `/api/admin/edu/students/${id}/report/export?format=${format}`,
+      )
+      const ext = format === 'pdf' ? 'pdf' : format === 'excel' ? 'xlsx' : 'json'
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `student-${id.slice(0, 8)}.${ext}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
       toast.success('导出成功')
     } catch (e) {
       toast.error(`导出失败: ${(e as Error).message}`)
@@ -127,7 +111,7 @@ export default function EduStudentDetailPage() {
 
   if (!id) {
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/student">
             <ChevronLeft className="h-4 w-4" />
@@ -141,14 +125,14 @@ export default function EduStudentDetailPage() {
 
   if (isLoading)
     return (
-      <div className="py-10 text-center text-muted-foreground">
+      <div className="text-center text-muted-foreground">
         <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
         {t('loading')}
       </div>
     )
   if (error || !data)
     return (
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/student">
             <ChevronLeft className="h-4 w-4" />
@@ -164,7 +148,7 @@ export default function EduStudentDetailPage() {
     : `L${data.level}`
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4">
       <BackButton />
       <div className="flex items-center justify-between gap-2">
         <Button asChild variant="ghost" size="sm">
@@ -200,7 +184,7 @@ export default function EduStudentDetailPage() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="rounded-lg border p-6">
+      <div className="rounded-lg border p-3">
         <div className="flex items-center gap-4">
           <Avatar name={data.nickname} size="xl" />
           <div>
@@ -229,7 +213,7 @@ export default function EduStudentDetailPage() {
       </div>
       <div className="grid grid-cols-2 gap-4 min-[640px]:grid-cols-4">
         <Card>
-          <CardContent className="flex items-center gap-3 p-4">
+          <CardContent className="flex items-center gap-3 p-3">
             <BookOpen className="h-8 w-8 text-sky-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('signupCourses')}</div>
@@ -238,7 +222,7 @@ export default function EduStudentDetailPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-4">
+          <CardContent className="flex items-center gap-3 p-3">
             <TrendingUp className="h-8 w-8 text-emerald-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('learnHours')}</div>
@@ -247,7 +231,7 @@ export default function EduStudentDetailPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-4">
+          <CardContent className="flex items-center gap-3 p-3">
             <Award className="h-8 w-8 text-amber-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('examCount')}</div>
@@ -256,7 +240,7 @@ export default function EduStudentDetailPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3 p-4">
+          <CardContent className="flex items-center gap-3 p-3">
             <Award className="h-8 w-8 text-purple-500" />
             <div>
               <div className="text-xs text-muted-foreground">{t('certCount')}</div>

@@ -135,7 +135,7 @@ export default function MemoryManagerPage() {
   const empty = !loading && !needLogin && !error && data && data.total === 0
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <div className="py-4 mx-auto max-w-5xl px-4">
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Brain className="h-5 w-5 text-primary" />
         <h1 className="text-2xl font-bold">{t('title')}</h1>
@@ -199,7 +199,7 @@ export default function MemoryManagerPage() {
 
       {/* 手动新增 */}
       {newOpen && (
-        <div className="mb-4 rounded-xl border p-4">
+        <div className="mb-4 rounded-xl border p-3">
           <label className="mb-2 flex items-center gap-1.5 text-sm font-medium">
             {t('type')}
             <select
@@ -271,7 +271,7 @@ export default function MemoryManagerPage() {
           {items.map((entry) => {
             const label = MEMORY_TYPE_LABELS[entry.type] ?? entry.type
             return (
-              <div key={entry.memory_id} className="rounded-xl border p-4">
+              <div key={entry.memory_id} className="rounded-xl border p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
                     {label}

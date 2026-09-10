@@ -314,7 +314,7 @@ export default function ConnectorsPageClient() {
   const connectors = list?.connectors ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5 px-4">
+    <div className="py-4 mx-auto w-full max-w-6xl space-y-5 px-4">
       <BackButton />
 
       {/* 顶部:标题 + 统计 + 添加按钮 */}

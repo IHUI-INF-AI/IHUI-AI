@@ -88,7 +88,7 @@ export default function RecruitmentDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notExist')}
         </div>
       </div>
@@ -102,7 +102,7 @@ export default function RecruitmentDetailPage() {
   const statColors = ['text-primary', 'text-emerald-600', 'text-amber-500']
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/recruitment"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -127,7 +127,7 @@ export default function RecruitmentDetailPage() {
             const color = statColors[i] ?? 'text-primary'
             return (
               <Card key={s.label}>
-                <CardContent className="flex items-center gap-3 p-4">
+                <CardContent className="flex items-center gap-3 p-3">
                   <div
                     className={cn(
                       'flex h-10 w-10 items-center justify-center rounded-lg bg-muted',
