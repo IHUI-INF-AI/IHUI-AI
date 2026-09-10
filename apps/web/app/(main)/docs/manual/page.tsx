@@ -116,7 +116,7 @@ const chapters = [
 
 export default function ManualIndexPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+    <main className="mx-auto w-full max-w-5xl py-4">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(manualJsonLd) }}
