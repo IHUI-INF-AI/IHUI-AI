@@ -215,7 +215,7 @@ const authPasskeyRoutes: FastifyPluginAsync = async (server) => {
         return reply
           .status(500)
           .send(
-            error(500, `生成 Passkey 注册选项失败: ${e instanceof Error ? e.message : String(e)}`),
+            error(500, "生成 Passkey 注册选项失败,请稍后重试"),
           )
       }
     },
@@ -268,7 +268,7 @@ const authPasskeyRoutes: FastifyPluginAsync = async (server) => {
         request.log.error(e)
         return reply
           .status(400)
-          .send(error(400, `Passkey 注册验证失败: ${e instanceof Error ? e.message : String(e)}`))
+          .send(error(400, "Passkey 注册验证失败,请重新尝试"))
       }
 
       // challenge 一次性使用,立即删除
@@ -338,7 +338,7 @@ const authPasskeyRoutes: FastifyPluginAsync = async (server) => {
         return reply
           .status(500)
           .send(
-            error(500, `生成 Passkey 认证选项失败: ${e instanceof Error ? e.message : String(e)}`),
+            error(500, "生成 Passkey 认证选项失败,请稍后重试"),
           )
       }
     },
@@ -414,7 +414,7 @@ const authPasskeyRoutes: FastifyPluginAsync = async (server) => {
         request.log.error(e)
         return reply
           .status(400)
-          .send(error(400, `Passkey 认证验证失败: ${e instanceof Error ? e.message : String(e)}`))
+          .send(error(400, "Passkey 认证验证失败,请重新尝试"))
       }
 
       // challenge 一次性使用,立即删除
