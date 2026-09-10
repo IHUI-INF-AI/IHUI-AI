@@ -203,9 +203,9 @@ describe('FsEventSource debounce + 事件触发', () => {
     // debounce 后只剩 1 个事件
     expect(events.length).toBe(1);
     expect(events[0]!.path).toBe('debounced.txt');
-    // droppedByDebounce 应该 >= 4(5 次写入合并为 1 次)
-    const stats = src.getStats();
-    expect(stats.droppedByDebounce).toBeGreaterThanOrEqual(4);
+    // 注:不断言 droppedByDebounce 具体数值——5 次写入可能被 OS 层 fs.watch
+    // 合并为 1 个原生事件(Linux ext4/CI 实测),此时没有任何事件被应用层
+    // debounce 丢弃;合并语义本身已由 events.length === 1 覆盖(2026-09-10)
   });
 
   it('node_modules 路径被 ignore 过滤', async () => {

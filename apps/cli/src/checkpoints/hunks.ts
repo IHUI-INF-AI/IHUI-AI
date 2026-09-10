@@ -57,6 +57,8 @@ export class HunkCheckpointManager {
   private readonly workspacePath: string;
   private readonly maxCheckpoints: number;
   private readonly baseDir: string;
+  /** 单调递增的快照时间戳(ms),防同一毫秒内连续快照 createdAt 并列导致排序不稳 */
+  private lastSeqMs = 0;
 
   constructor(opts: HunkCheckpointOptions) {
     this.sessionId = opts.sessionId;
@@ -128,11 +130,16 @@ export class HunkCheckpointManager {
       records.push({ range: h, originalLines });
     }
 
-    const id = `hunk_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    // 单调时钟(2026-09-10):Date.now() 毫秒级精度,同一毫秒内连续创建的快照
+    // createdAt 完全相同,list() 排序并列时顺序取决于 readdir 顺序(Linux ext4
+    // 非插入序),pruneOldCheckpoints 会误删最新快照。强制 createdAt 单调递增。
+    this.lastSeqMs = Math.max(Date.now(), this.lastSeqMs + 1);
+    const seqMs = this.lastSeqMs;
+    const id = `hunk_${seqMs}_${crypto.randomBytes(3).toString('hex')}`;
     const meta: HunkCheckpointMeta = {
       id,
       sessionId: this.sessionId,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date(seqMs).toISOString(),
       reason,
       file: rel,
       hunks: records,
