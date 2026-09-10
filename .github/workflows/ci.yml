@@ -101,7 +101,11 @@ jobs:
 
     services:
       postgres:
-        image: postgres:17
+        # 2026-09-10 修复:postgres:17 不含 pgvector,迁移 0123(embedding) 到
+        # vector(1536) 列时抛 `type "vector" does not exist` 并回滚整个 DDL 事务
+        # → 全库无表 → schema_check 大面积报"表不存在"。与 test-real-db.yml 对齐,
+        # 统一用官方 pgvector 镜像(内置扩展文件,仍需 CREATE EXTENSION,见下方 step)。
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -138,9 +142,26 @@ jobs:
       - name: Build api-client package
         run: pnpm --filter @ihui/api-client build
 
-      - name: Push schema to test DB
+      # 2026-09-10 根因修复:pgvector 镜像只是把扩展文件放进镜像,每个 database 仍需
+      # 显式 CREATE EXTENSION;缺这步 → 迁移到 vector 列必抛 type "vector" does not exist。
+      - name: Enable pgvector extension
         working-directory: packages/database
-        run: npx drizzle-kit push --force
+        run: |
+          node --input-type=module -e "
+            import postgres from 'postgres';
+            const sql = postgres(process.env.DATABASE_URL);
+            await sql.unsafe('CREATE EXTENSION IF NOT EXISTS vector');
+            await sql.end();
+            console.log('pgvector extension enabled');
+          "
+
+      # 2026-09-10 根因修复:原 `drizzle-kit push --force` 只按 schema 现状建表,不执行
+      # packages/database/drizzle/*.sql 迁移(仓库有 250+ 个),导致 agent_ab_tests /
+      # agent_memory_* / publish_accounts 等"TS schema 有定义"的表在 DB 里不存在,
+      # schema_check 恒红。改用与 e2e.yml / Dockerfile.migrate 一致的权威迁移路径。
+      - name: Apply migrations to test DB
+        working-directory: packages/database
+        run: npx drizzle-kit migrate
 
       - name: Setup Python
         uses: actions/setup-python@v5

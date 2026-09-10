@@ -4,16 +4,22 @@
 
 # 数据库迁移专用 Dockerfile(一次性容器)
 # 启动时执行 drizzle-kit migrate,完成后退出
-FROM node:20-alpine AS base
-RUN apk add --no-cache tini && npm install -g pnpm@9.15.0
+#
+# 2026-09-10 修复两处:
+#  ① node:20-alpine + pnpm@9.15.0 与根 package.json engines(node>=22.13 / pnpm>=11)冲突,
+#     `pnpm install` 必挂 ERR_PNPM_UNSUPPORTED_ENGINE → 对齐 CI 口径。
+#  ② 原 COPY packages/config/package.json,但 packages/ 下无 config 包 → COPY 必挂。
+#     database 包唯一 workspace 依赖是 devDep @ihui/eslint-config(tsconfig 直接继承
+#     根 tsconfig.base.json,不需 @ihui/tsconfig),故改为复制 eslint-config。
+FROM node:22-alpine AS base
+RUN apk add --no-cache tini && npm install -g pnpm@11.18.0
 WORKDIR /app
 
 # 仅复制 database 包所需文件(最小化镜像)
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY tsconfig.base.json ./
 COPY packages/database/package.json ./packages/database/
-COPY packages/types/package.json ./packages/types/
-COPY packages/config/package.json ./packages/config/
+COPY packages/eslint-config/package.json ./packages/eslint-config/
 RUN pnpm install --frozen-lockfile
 
 # 复制 database 包源码 + 迁移文件
