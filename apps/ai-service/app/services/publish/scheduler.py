@@ -18,39 +18,38 @@ DB 表(自动建):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import copy
 import json
-import os
-from datetime import datetime, timezone
-from typing import Any, Coroutine, Optional
+from collections.abc import Coroutine
+from datetime import UTC, datetime
+from typing import Any
 
 import asyncpg
 
 from app.core.config import settings
 from app.core.db import get_db_conn
 from app.core.logging import get_logger
-from .base_adapter import BasePlatformAdapter, PublishContent, PublishResult, get_adapter
-from .content_parser import enrich_content, enrich_content_for_platform
-from .credentials_crypto import decrypt
-from .image_uploader import process_external_images
-from .platform_rules import truncate_to_platform, validate_content
+
 from . import notifications
+
 # Anti-Risk 反风控(2026-07-31 强化):发布前冷却检查 + 风险评分检查,
 # 发布后审计日志 + 失败关键词检测 + 自动冷却
 from .anti_risk import (
     AuditLogger,
     CooldownManager,
-    RiskScorer,
     RiskScore,
+    RiskScorer,
     cooldown_duration_for_error,
-    # 深度强化层(2026-08-01 新增)
-    CookieHealthMonitor,
-    ContentDeduplicator,
-    CaptchaSolver,
     get_deduplicator,
     get_monitor,
     get_solver,
 )
+from .base_adapter import PublishContent, PublishResult, get_adapter
+from .content_parser import enrich_content, enrich_content_for_platform
+from .credentials_crypto import decrypt
+from .image_uploader import process_external_images
+from .platform_rules import truncate_to_platform, validate_content
 
 logger = get_logger(__name__)
 
@@ -69,7 +68,7 @@ class PublishScheduler:
     """多平台发布调度器(单例)。"""
 
     def __init__(self) -> None:
-        self._poll_task: Optional[asyncio.Task[None]] = None
+        self._poll_task: asyncio.Task[None] | None = None
         self._running: dict[str, asyncio.Task[None]] = {}  # task_id -> asyncio.Task
         self._user_running: dict[str, int] = {}  # user_id -> 正在执行的任务数
         self._history: list[dict[str, Any]] = []  # 内存 LRU 历史
@@ -99,10 +98,8 @@ class PublishScheduler:
         self._started = False
         if self._poll_task:
             self._poll_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._poll_task
-            except asyncio.CancelledError:
-                pass
             self._poll_task = None
         # 等待所有运行中任务完成(最多 30s)
         if self._running:
@@ -115,7 +112,7 @@ class PublishScheduler:
                     asyncio.gather(*self._running.values(), return_exceptions=True),
                     timeout=30,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 for t in self._running.values():
                     t.cancel()
         self._running.clear()
@@ -123,7 +120,7 @@ class PublishScheduler:
 
     # ===== DB 连接 =====
 
-    async def _get_conn(self) -> Optional[asyncpg.Connection]:
+    async def _get_conn(self) -> asyncpg.Connection | None:
         dsn = getattr(settings, "database_url", None)
         if not dsn:
             return None
@@ -225,7 +222,7 @@ class PublishScheduler:
             return False
         try:
             await self._ensure_tables(conn)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             rows = await conn.fetch(
                 """
                 SELECT task_id, user_id, title, format, content, targets
@@ -270,10 +267,10 @@ class PublishScheduler:
     async def submit_task(
         self,
         task_id: str,
-        user_id: Optional[str],
+        user_id: str | None,
         content: PublishContent,
         targets: list[dict[str, Any]],  # [{'platform': 'wordpress', 'account_id': 123, 'config': {...}}]
-        scheduled_at: Optional[datetime] = None,
+        scheduled_at: datetime | None = None,
     ) -> dict[str, Any]:
         """提交发布任务。
 
@@ -326,7 +323,7 @@ class PublishScheduler:
     async def _run_task(
         self,
         task_id: str,
-        user_id: Optional[str],
+        user_id: str | None,
         content: PublishContent,
         targets: list[dict[str, Any]],
     ) -> None:
@@ -400,7 +397,7 @@ class PublishScheduler:
                 "success_count": success_count,
                 "total": total,
                 "results": results_payload,
-                "finished_at": datetime.now(timezone.utc).isoformat(),
+                "finished_at": datetime.now(UTC).isoformat(),
             })
         except Exception as e:
             logger.exception("[publish.scheduler] task crashed: %s", task_id)
@@ -414,7 +411,7 @@ class PublishScheduler:
     async def _run_single_platform(
         self,
         task_id: str,
-        user_id: Optional[str],
+        user_id: str | None,
         content: PublishContent,
         target: dict[str, Any],
     ) -> PublishResult:
@@ -519,7 +516,7 @@ class PublishScheduler:
         # ===== Anti-Risk:发布前冷却检查 + 风险评分检查(2026-07-31 强化)=====
         # 检查账号是否在冷却中(平台风控触发后自动冷却)
         # 检查账号风险评分(高频/高失败率/指纹变化等 → 强制冷却)
-        risk_score: Optional[RiskScore] = None
+        risk_score: RiskScore | None = None
         if account_id_str and platform:
             try:
                 cooldown_mgr = CooldownManager.get_instance()
@@ -747,7 +744,7 @@ class PublishScheduler:
                     platform, type(e).__name__, e,
                 )
 
-        started = datetime.now(timezone.utc)
+        started = datetime.now(UTC)
         try:
             result = await adapter.publish(platform_content, credentials, platform_config)
         except Exception as e:
@@ -755,7 +752,7 @@ class PublishScheduler:
                 success=False, platform=platform,
                 error_message=f"{type(e).__name__}: {e}",
             )
-        elapsed = int((datetime.now(timezone.utc) - started).total_seconds() * 1000)
+        elapsed = int((datetime.now(UTC) - started).total_seconds() * 1000)
         result.duration_ms = elapsed
 
         # ===== Anti-Risk:验证码失败重试(2026-08-01 深度强化)=====
@@ -923,7 +920,7 @@ class PublishScheduler:
 
         return result
 
-    async def _load_credentials(self, account_id: Optional[int], platform: str) -> Optional[dict[str, Any]]:
+    async def _load_credentials(self, account_id: int | None, platform: str) -> dict[str, Any] | None:
         """从 publish_accounts 表加载并解密凭证。"""
         if account_id is None:
             return None
@@ -951,7 +948,7 @@ class PublishScheduler:
             await conn.close()
 
     async def _write_history(
-        self, task_id: str, user_id: Optional[str], result: PublishResult
+        self, task_id: str, user_id: str | None, result: PublishResult
     ) -> None:
         """写入 publish_history 表。"""
         conn = await self._get_conn()
@@ -1036,7 +1033,7 @@ class PublishScheduler:
         return True
 
     async def retry_platforms(
-        self, task_id: str, platforms: Optional[list[str]] = None
+        self, task_id: str, platforms: list[str] | None = None
     ) -> dict[str, Any]:
         """重试失败的平台。
 
@@ -1074,7 +1071,7 @@ class PublishScheduler:
                 html=row["content"].get("html") if isinstance(row["content"], dict) else None,
                 images=row["content"].get("images", []) if isinstance(row["content"], dict) else [],
             )
-            retry_task_id = f"{task_id}-retry-{int(datetime.now(timezone.utc).timestamp())}"
+            retry_task_id = f"{task_id}-retry-{int(datetime.now(UTC).timestamp())}"
             # 2026-08-17 修复:参数顺序错误 _run_task(task_id, user_id, content, targets),
             # 原代码把 user_id 当 task_id、retry_task_id 当 user_id 传入 → retry 任务身份错乱。
             self._spawn_task(self._run_task(retry_task_id, row["user_id"] or "", content, new_targets))

@@ -13,13 +13,14 @@ model 前缀: doubao-* (doubao-pro / doubao-lite / doubao-vision)
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
+from ..core.llm_gateway import get_http_client
 from .base_provider import ProviderError
 from .openai_provider import OpenAIProvider
-from ..core.llm_gateway import get_http_client
 
 
 class DoubaoProvider(OpenAIProvider):

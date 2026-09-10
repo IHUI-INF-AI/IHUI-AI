@@ -14,43 +14,37 @@
 
 from __future__ import annotations
 
-import json
 import time
 
-import pytest
 from starlette.applications import Starlette
-from starlette.responses import JSONResponse, PlainTextResponse, StreamingResponse
+from starlette.responses import JSONResponse, StreamingResponse
 from starlette.testclient import TestClient
 
+from app.middleware.audit import AuditMiddleware
 from app.middleware.input_sanitizer import (
     InputSanitizerMiddleware,
     RateLimitMiddleware,
     TokenBucket,
     _detect_unsafe_content,
     _scan_value,
-    XSS_PATTERNS,
-    INJECTION_PATTERNS,
+)
+from app.middleware.llm_metrics import (
+    llm_active_sessions,
+    llm_provider_errors_total,
+    llm_request_duration_seconds,
+    llm_tokens_total,
+    record_llm_call,
 )
 from app.middleware.response_sanitizer import (
+    MASK,
     ResponseSanitizerMiddleware,
     _is_sensitive_key,
     _sanitize_response,
-    SENSITIVE_KEYS,
-    MASK,
 )
 from app.middleware.trace_context import (
     TraceContextMiddleware,
     parse_traceparent,
 )
-from app.middleware.llm_metrics import (
-    record_llm_call,
-    llm_tokens_total,
-    llm_request_duration_seconds,
-    llm_provider_errors_total,
-    llm_active_sessions,
-)
-from app.middleware.audit import AuditMiddleware
-
 
 # =============================================================================
 # 辅助:构建最小 Starlette app 测试单个中间件
@@ -411,7 +405,7 @@ class TestRateLimitMiddleware:
 
     def test_llm_endpoint_exceeds_limit_returns_429(self):
         app = _make_rate_limit_app()
-        with TestClient(app) as client:
+        with TestClient(app):
             # /api/llm/ 限制 60/min,令牌桶初始满(60),无法在测试中消费 60 次
             # 改为直接验证令牌桶逻辑:构造小容量场景
             pass  # 令牌桶逻辑已在 TestTokenBucket 覆盖

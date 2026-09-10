@@ -28,11 +28,10 @@ v7 终极版（2026-07-13，DOCX样式层级化+间距统一+真编号+字体fal
 
 from __future__ import annotations
 
-import os
-import sys
-import re
-import time
 import glob
+import os
+import re
+import sys
 from typing import Any, cast
 
 # ===== 路径设置 =====
@@ -42,7 +41,10 @@ sys.path.insert(0, BASE)
 # ── 项目边界硬门禁（导入即生效，fail-closed） ──
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "koubo_workflow"))
 import project_boundary
+
 project_boundary.check_action(tool="build_gpt56_sol.py")
+
+import contextlib
 
 from lib.validate import validate
 
@@ -81,7 +83,7 @@ COLOR_GREEN_DOT = (0x10, 0xB9, 0x81)   # mac 圆点 绿
 def _load_body_from_md() -> str:
     """从已修复的md文件读取正文，确保脚本与md始终同步"""
     if os.path.exists(MD_PATH):
-        with open(MD_PATH, 'r', encoding='utf-8') as f:
+        with open(MD_PATH, encoding='utf-8') as f:
             return f.read()
     return ""
 
@@ -102,7 +104,7 @@ def write_md() -> None:
 
 # ===== 验证 =====
 def run_validate() -> bool:
-    print(f"\n[2/4] 执行22项自检...")
+    print("\n[2/4] 执行22项自检...")
     all_pass, reports = validate(MD_PATH)
     for r in reports:
         print(f"  {r}")
@@ -117,18 +119,18 @@ def build_docx(md_path: str = MD_PATH, docx_path: str = DOCX_PATH,
                cover_img: str | None = None, digest: str = SUBTITLE) -> str | None:
     project_boundary.check_write(docx_path)
     from docx import Document
-    from docx.shared import Pt, Inches, Cm, RGBColor, Emu
     from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
-    from docx.oxml.ns import qn
     from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    from docx.shared import Cm, Inches, Pt, RGBColor
 
-    print(f"\n[构建] 构建DOCX（摸鱼绿主题 v5 极致美化，全标记兼容）...")
+    print("\n[构建] 构建DOCX（摸鱼绿主题 v5 极致美化，全标记兼容）...")
 
     # 读取MD（参数化，不再依赖全局 BODY）
     if not os.path.exists(md_path):
         print(f"  ❌ MD不存在: {md_path}")
         return None
-    with open(md_path, 'r', encoding='utf-8') as f:
+    with open(md_path, encoding='utf-8') as f:
         body_text = f.read()
     # 压空行: 3+连续空行→1空行(避免 doc 导入平台后排版出现大片空白, 用户第二十二反馈)
     body_text = re.sub(r"\n{3,}", "\n\n", body_text)
@@ -535,10 +537,8 @@ def build_docx(md_path: str = MD_PATH, docx_path: str = DOCX_PATH,
         if line.startswith('# ') and not line.startswith('## '):
             title_text = line[2:].strip()
             p = doc.add_paragraph()
-            try:
+            with contextlib.suppress(KeyError):
                 p.style = doc.styles['Heading 1']
-            except KeyError:
-                pass
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p.paragraph_format.space_before = Pt(16)
             p.paragraph_format.space_after = Pt(24)
@@ -564,10 +564,8 @@ def build_docx(md_path: str = MD_PATH, docx_path: str = DOCX_PATH,
             heading_text = re.sub(r'^\d+\.\s*', '', heading_text)
             is_editor = '智汇AI悄悄话' in heading_text
             p = doc.add_paragraph()
-            try:
+            with contextlib.suppress(KeyError):
                 p.style = doc.styles['Heading 2']
-            except KeyError:
-                pass
             p.paragraph_format.space_before = Pt(12)
             p.paragraph_format.space_after = Pt(16)
             if is_editor:
@@ -611,10 +609,8 @@ def build_docx(md_path: str = MD_PATH, docx_path: str = DOCX_PATH,
         if line.startswith('### '):
             sub = line[4:].strip()
             p = doc.add_paragraph()
-            try:
+            with contextlib.suppress(KeyError):
                 p.style = doc.styles['Heading 3']
-            except KeyError:
-                pass
             p.paragraph_format.space_before = Pt(12)
             p.paragraph_format.space_after = Pt(8)
             r = p.add_run(sub)
@@ -631,7 +627,7 @@ def build_docx(md_path: str = MD_PATH, docx_path: str = DOCX_PATH,
         if line.startswith('!['):
             match = re.match(r'!\[(.*?)\]\((.*?)\)', line)
             if match:
-                alt, img_path = match.group(1), match.group(2)
+                _alt, img_path = match.group(1), match.group(2)
                 md_dir = os.path.dirname(os.path.abspath(md_path))
                 full_path = os.path.normpath(os.path.join(md_dir, img_path))
                 if not os.path.exists(full_path):
@@ -719,10 +715,8 @@ def build_docx(md_path: str = MD_PATH, docx_path: str = DOCX_PATH,
     # 清旧备份,避免 C1.5 一直 WARN
     for stale in (tmp_path, new_path):
         if os.path.exists(stale):
-            try:
+            with contextlib.suppress(Exception):
                 os.remove(stale)
-            except Exception:
-                pass
     doc.save(tmp_path)
     # 1) 先尝试直接覆盖 (目标文件未锁时)
     try:
@@ -735,20 +729,16 @@ def build_docx(md_path: str = MD_PATH, docx_path: str = DOCX_PATH,
         # 2) 目标被锁: 退到 .new 备选路径,不阻塞流水线
         new_path = docx_path + '.new'
         if os.path.exists(new_path):
-            try:
+            with contextlib.suppress(Exception):
                 os.remove(new_path)
-            except Exception:
-                pass
         # 把旧的 .tmp 改名到 .new
         try:
             os.rename(tmp_path, new_path)
         except Exception:
             import shutil as _sh
             _sh.copy2(tmp_path, new_path)
-            try:
+            with contextlib.suppress(Exception):
                 os.remove(tmp_path)
-            except Exception:
-                pass
         print(f"  ⚠️ docx 被外部进程锁定({type(e).__name__}),已写入备选路径: {new_path}")
         print(f"      请关闭微信端 docx 预览后手动: copy /Y \"{new_path}\" \"{docx_path}\"")
         return new_path
@@ -757,12 +747,12 @@ def build_docx(md_path: str = MD_PATH, docx_path: str = DOCX_PATH,
 # ===== 验证DOCX内嵌图片数 =====
 def verify_docx_images(docx_path: str = DOCX_PATH) -> int:
     from docx import Document
-    print(f"\n[验证] 验证DOCX内嵌图片...")
+    print("\n[验证] 验证DOCX内嵌图片...")
     doc = Document(docx_path)
     shape_count = len(doc.inline_shapes)
     print(f"  InlineShapes数: {shape_count}")
     if shape_count >= 4:
-        print(f"  ✅ 配图完整性验证通过（≥4张真实嵌入）")
+        print("  ✅ 配图完整性验证通过（≥4张真实嵌入）")
     else:
         print(f"  ⚠️ 期望≥4张图片（正文配图），实际{shape_count}张")
     return shape_count

@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import os
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -27,7 +26,6 @@ if _SCAN_DIR not in sys.path:
     sys.path.insert(0, _SCAN_DIR)
 
 import cross_contam_scan  # noqa: E402
-
 
 # =============================================================================
 # 辅助:每个测试用 tmp_path 模拟 koubo/Output 和 wechat/output
@@ -62,7 +60,7 @@ def test_wechat_ok_ext_contains_expected():
 
 def test_koubo_ok_ext_only_txt():
     """KOUBO_OK_EXT 应只含 .txt。"""
-    assert cross_contam_scan.KOUBO_OK_EXT == {".txt"}
+    assert {".txt"} == cross_contam_scan.KOUBO_OK_EXT
 
 
 # =============================================================================

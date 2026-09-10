@@ -29,11 +29,11 @@ import sys
 from typing import Any
 
 # 统一从 koubo_terms 导入
-from koubo_terms import BANNED_AMBIG_COMP, TERM_CANONICAL_DICT, find_ambig_hits, find_alias_issues
+from koubo_terms import find_alias_issues, find_ambig_hits
 
 
 def scan_file(filepath: str, strict: bool = False) -> list[dict[str, Any]]:
-    with open(filepath, 'r', encoding='utf-8') as fp:
+    with open(filepath, encoding='utf-8') as fp:
         content = fp.read()
     issues: list[dict[str, Any]] = []
     # 1) 4 类歧义压缩正则

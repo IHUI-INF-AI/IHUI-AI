@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from app.core.logging import get_logger
+
 from ..anti_risk import (
     close_stealth_context,
     create_stealth_browser_context,
@@ -147,7 +148,7 @@ class CsdnAdapter(BasePlatformAdapter):
         title = (content.title or "Untitled")[:100]
         tags = platform_config.get("tags", [])[:5]
         category = platform_config.get("category", "")
-        cover = content.cover_path or platform_config.get("cover", "")
+        content.cover_path or platform_config.get("cover", "")
 
         account_id = credentials.get("account_id") or f"{self.platform_id}_{self._extract_account_key(credentials)}"
         try:

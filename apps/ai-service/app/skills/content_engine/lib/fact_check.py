@@ -37,10 +37,8 @@ passed, report = fact_check(article_dict)
 from __future__ import annotations
 
 import re
-import sys
-import os
-from datetime import datetime
-from typing import Any, Callable, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 # ===== 严重级别 =====
 HIGH = 'HIGH'
@@ -212,8 +210,8 @@ def check_data_sources(article: dict[str, Any], texts: list[tuple[str, str]]) ->
                 'severity': HIGH,
                 'location': 'claims_registry',
                 'text': claim_text[:80],
-                'problem': f'具体数据缺少信源标注',
-                'suggestion': f'请补充数据来源（如官方公告、论文、平台页面等）',
+                'problem': '具体数据缺少信源标注',
+                'suggestion': '请补充数据来源（如官方公告、论文、平台页面等）',
                 'numbers': numbers,
             })
         elif source in WEAK_SOURCES or any(w in source for w in WEAK_SOURCES):
@@ -223,7 +221,7 @@ def check_data_sources(article: dict[str, Any], texts: list[tuple[str, str]]) ->
                 'location': 'claims_registry',
                 'text': claim_text[:80],
                 'problem': f'信源强度不足："{source}"',
-                'suggestion': f'建议替换为一手信源（官方公告/论文/平台数据）',
+                'suggestion': '建议替换为一手信源（官方公告/论文/平台数据）',
                 'numbers': numbers,
             })
 
@@ -439,7 +437,7 @@ def check_math_consistency(article: dict[str, Any], texts: list[tuple[str, str]]
                         'location': 'claims_registry',
                         'text': claim.get('claim', '')[:80],
                         'problem': f'计算错误：{calc} = {result}，但文中写的是{stated}',
-                        'suggestion': f'请修正计算结果',
+                        'suggestion': '请修正计算结果',
                     })
             except Exception:
                 pass
@@ -853,7 +851,7 @@ def check_claims_registry(article: dict[str, Any], texts: list[tuple[str, str]])
     """检查信源注册表是否完整"""
     issues = []
     registry = article.get('claims_registry', [])
-    full = _full_text(texts)
+    _full_text(texts)
 
     if not registry:
         issues.append({
@@ -928,7 +926,7 @@ def fact_check(article: dict[str, Any]) -> tuple[bool, list[dict[str, Any]]]:
     print("=" * 60)
 
     texts = _extract_all_text(article)
-    full = _full_text(texts)
+    _full_text(texts)
 
     all_issues: list[dict[str, Any]] = []
 
@@ -979,9 +977,9 @@ def fact_check(article: dict[str, Any]) -> tuple[bool, list[dict[str, Any]]]:
 
     if all_issues:
         print(f"\n  {'='*50}")
-        print(f"  详细问题清单:")
+        print("  详细问题清单:")
         print(f"  {'='*50}")
-        for i, issue in enumerate(all_issues, 1):
+        for _i, issue in enumerate(all_issues, 1):
             sev_mark = {'HIGH': '🔴', 'MEDIUM': '🟡', 'LOW': '🔵'}.get(issue['severity'], '⚪')
             print(f"\n  {sev_mark} [{issue['check']}] {issue['severity']}")
             print(f"    位置: {issue['location']}")

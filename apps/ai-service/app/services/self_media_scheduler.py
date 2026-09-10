@@ -13,10 +13,11 @@
 6. 每 60s 轮询一次当前时间,匹配 hour:minute 后触发,同一日内不重复触发。
 """
 import asyncio
+import contextlib
 import logging
 import os
 from collections.abc import Coroutine
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Literal, TypedDict
 
 logger = logging.getLogger(__name__)
@@ -139,10 +140,8 @@ class SelfMediaScheduler:
         if self._task is None:
             return
         self._task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await self._task
-        except asyncio.CancelledError:
-            pass
         self._task = None
 
     # ===== 主循环 =====
@@ -192,7 +191,7 @@ class SelfMediaScheduler:
             return
         self._running_tasks.add(task_id)
         cfg = self._configs.get(task_id, {})
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         entry: HistoryEntry = {
             "task_id": task_id,
             "triggered_at": started_at.isoformat(),
@@ -227,7 +226,7 @@ class SelfMediaScheduler:
                 "[self_media_scheduler] task %s failed: %s", task_id, entry["error"]
             )
         finally:
-            elapsed = int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000)
+            elapsed = int((datetime.now(UTC) - started_at).total_seconds() * 1000)
             entry["duration_ms"] = elapsed
             self._running_tasks.discard(task_id)
 
@@ -254,8 +253,9 @@ class SelfMediaScheduler:
 
     async def _run_wechat(self, title_template: str, dry_run: bool) -> dict[str, Any]:
         """执行公众号文章生成。"""
-        from app.routers.self_media import _generate_md_with_llm, _safe_filename
         from pathlib import Path
+
+        from app.routers.self_media import _generate_md_with_llm, _safe_filename
 
         now = datetime.now(_CN_TZ)
         date_mmdd = now.strftime("%m%d")

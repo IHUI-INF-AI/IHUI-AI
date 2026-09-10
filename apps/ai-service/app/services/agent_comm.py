@@ -20,7 +20,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from ..core.config import settings
@@ -52,7 +52,7 @@ class AgentMessage:
 
     def __post_init__(self) -> None:
         if not self.timestamp:
-            self.timestamp = datetime.now(timezone.utc).isoformat()
+            self.timestamp = datetime.now(UTC).isoformat()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -81,7 +81,7 @@ class BlackboardEntry:
 
     def __post_init__(self) -> None:
         if not self.timestamp:
-            self.timestamp = datetime.now(timezone.utc).isoformat()
+            self.timestamp = datetime.now(UTC).isoformat()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -192,7 +192,7 @@ class AgentMessageBus:
             return None
         try:
             return await asyncio.wait_for(q.get(), timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return None
 
     async def broadcast(
@@ -241,7 +241,7 @@ class AgentMessageBus:
 
         try:
             return await asyncio.wait_for(future, timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._pending_replies.pop(req_id, None)
             raise TimeoutError(
                 f"请求回复超时({timeout}s): from={from_}, to={to}"

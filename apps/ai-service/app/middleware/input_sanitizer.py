@@ -18,7 +18,8 @@ import json
 import logging
 import re
 import time
-from typing import Any, Awaitable, Callable, Optional
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -73,7 +74,7 @@ INJECTION_PATTERNS: list[re.Pattern[str]] = [
 # ==================== 递归扫描 ====================
 
 
-def _detect_unsafe_content(text: str) -> Optional[str]:
+def _detect_unsafe_content(text: str) -> str | None:
     """检测字符串是否包含 XSS 或 Prompt Injection 内容,返回命中类型或 None。"""
     for pattern in XSS_PATTERNS:
         if pattern.search(text):

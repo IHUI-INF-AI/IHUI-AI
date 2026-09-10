@@ -22,7 +22,7 @@ import json
 import logging
 import re
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, cast
 
 from ..core.llm_gateway import llm_gateway
@@ -188,7 +188,7 @@ class DreamService:
         episodic_list = await self._memory.list_episodic(user_id, limit=500)
         forgotten = 0
         decayed = 0
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for ep in episodic_list:
             ep_id = ep["id"]
@@ -203,7 +203,7 @@ class DreamService:
             if last_dt is None:
                 last_dt = now
             if last_dt.tzinfo is None:
-                last_dt = last_dt.replace(tzinfo=timezone.utc)
+                last_dt = last_dt.replace(tzinfo=UTC)
 
             days_since = max(0.0, (now - last_dt).total_seconds() / 86400.0)
             current_decay = float(ep.get("decayFactor", 1.0))
@@ -242,7 +242,7 @@ class DreamService:
             "topic": topic,
             "tags": self._extract_tags(topic),
             "relatedMemoryCount": len(semantic_list),
-            "generatedAt": datetime.now(timezone.utc).isoformat(),
+            "generatedAt": datetime.now(UTC).isoformat(),
         }
 
     # ------------------------------------------------------------------

@@ -50,61 +50,63 @@
 诚实边界:"零风险"技术上不可达(平台风控黑盒且进化),本模块目标是
 "工业级低风险"—把风险压到接近真人手动操作水平。
 """
-from .browser_factory import close_stealth_context, create_stealth_browser_context
 from .account_profile import AccountProfile, get_account_profile
-from .behavior_humanizer import (
-    human_move_mouse,
-    human_type,
-    human_scroll,
-    human_pause,
-    simulate_reading,
-    human_click,
-    simulate_pre_publish_behavior,
-    human_type_title,
-    human_type_content,
-    pre_submit_warmup,
-    post_publish_dwell,
-)
-from .fingerprint_isolation import BrowserFingerprint, generate_fingerprint
-from .proxy_pool import ProxyConfig, ProxyPool, ProxyPoolStats, get_proxy_pool
-from .stealth import apply_stealth
-from .risk_scoring import RiskScore, RiskScorer
-from .cooldown_manager import CooldownState, CooldownManager, cooldown_duration_for_error
-from .cross_account_guard import IsolationReport, BatchValidation, CrossAccountGuard
-from .audit_logger import AuditEvent, AuditLogger
-# 深度强化层(2026-08-01 新增)
-from .stealth_advanced import apply_advanced_stealth
-from .behavior_samples import HumanBehaviorSampler, ScrollStep, TypingEvent, get_sampler
-from .captcha_solver import CaptchaSolver, CaptchaInfo, get_solver
-from .cookie_health import CookieHealthMonitor, CookieHealth, ExpiryAlert, get_monitor
-from .content_dedup import ContentDeduplicator, SimilarityReport, get_deduplicator
-# 终极强化层(2026-08-01 新增)— 13 个反风控深度模块
-from .device_graph_guard import DeviceGraphGuard, LinkageReport, get_device_graph_guard
-from .canvas_noise import inject_canvas_noise
 from .audio_fingerprint import inject_audio_fingerprint_guard
-from .webrtc_guard import inject_webrtc_guard, verify_no_leak
-from .tls_fingerprint import TLSProfile, get_tls_recommendation, apply_tls_recommendation_to_context
-from .timezone_geo_consistency import (
-    TimezoneGeoValidator,
-    ConsistencyReport,
-    GeoInfo,
-    get_timezone_geo_validator,
-    apply_consistency,
-)
+from .audit_logger import AuditEvent, AuditLogger
 from .behavior_entropy import (
+    BEHAVIOR_CLICK,
+    BEHAVIOR_MOUSE,
+    BEHAVIOR_TYPE,
     BehaviorEntropyAnalyzer,
     EntropyReport,
     get_entropy_analyzer,
-    BEHAVIOR_MOUSE,
-    BEHAVIOR_CLICK,
-    BEHAVIOR_TYPE,
 )
+from .behavior_humanizer import (
+    human_click,
+    human_move_mouse,
+    human_pause,
+    human_scroll,
+    human_type,
+    human_type_content,
+    human_type_title,
+    post_publish_dwell,
+    pre_submit_warmup,
+    simulate_pre_publish_behavior,
+    simulate_reading,
+)
+from .behavior_samples import HumanBehaviorSampler, ScrollStep, TypingEvent, get_sampler
+from .browser_factory import close_stealth_context, create_stealth_browser_context
+from .canvas_noise import inject_canvas_noise
+from .captcha_solver import CaptchaInfo, CaptchaSolver, get_solver
+from .content_dedup import ContentDeduplicator, SimilarityReport, get_deduplicator
+from .cookie_health import CookieHealth, CookieHealthMonitor, ExpiryAlert, get_monitor
+from .cooldown_manager import CooldownManager, CooldownState, cooldown_duration_for_error
+from .cross_account_guard import BatchValidation, CrossAccountGuard, IsolationReport
+
+# 终极强化层(2026-08-01 新增)— 13 个反风控深度模块
+from .device_graph_guard import DeviceGraphGuard, LinkageReport, get_device_graph_guard
+from .fingerprint_isolation import BrowserFingerprint, generate_fingerprint
 from .font_enum_guard import inject_font_enum_guard
-from .media_devices_guard import inject_media_devices_guard
 from .hardware_concurrency_guard import inject_hardware_guard
-from .plugin_enum_guard import inject_plugin_guard
 from .language_consistency import inject_language_guard, validate_language_consistency
+from .media_devices_guard import inject_media_devices_guard
 from .navigator_integrity import inject_navigator_integrity_guard
+from .plugin_enum_guard import inject_plugin_guard
+from .proxy_pool import ProxyConfig, ProxyPool, ProxyPoolStats, get_proxy_pool
+from .risk_scoring import RiskScore, RiskScorer
+from .stealth import apply_stealth
+
+# 深度强化层(2026-08-01 新增)
+from .stealth_advanced import apply_advanced_stealth
+from .timezone_geo_consistency import (
+    ConsistencyReport,
+    GeoInfo,
+    TimezoneGeoValidator,
+    apply_consistency,
+    get_timezone_geo_validator,
+)
+from .tls_fingerprint import TLSProfile, apply_tls_recommendation_to_context, get_tls_recommendation
+from .webrtc_guard import inject_webrtc_guard, verify_no_leak
 
 __all__ = [
     # 五层防线基础

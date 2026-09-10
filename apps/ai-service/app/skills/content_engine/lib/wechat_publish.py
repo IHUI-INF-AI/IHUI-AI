@@ -13,15 +13,15 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 import os
 import sys
 import time
-import urllib.request
-import urllib.parse
 import urllib.error
-import mimetypes
+import urllib.parse
+import urllib.request
 import uuid
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 # ===== 配置 =====
 # 在项目根目录的 .env 文件中设置（和现有API凭证放一起）：
@@ -37,7 +37,7 @@ def _load_env() -> tuple[str, str]:
     """从.env文件加载配置"""
     env_path = os.path.join(PROJECT_ROOT, '.env')
     if os.path.exists(env_path):
-        with open(env_path, 'r', encoding='utf-8') as f:
+        with open(env_path, encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
                 if '=' in line and not line.startswith('#'):
@@ -67,7 +67,7 @@ def _api_post_json(url: str, data: dict[str, Any]) -> dict[str, Any]:
         return {'errcode': -1, 'errmsg': str(e)}
 
 
-def _multipart_upload(url: str, filepath: str, field: str = 'media', content_type: Optional[str] = None) -> dict[str, Any]:
+def _multipart_upload(url: str, filepath: str, field: str = 'media', content_type: str | None = None) -> dict[str, Any]:
     """multipart/form-data文件上传"""
     boundary = uuid.uuid4().hex
     filename = os.path.basename(filepath)
@@ -81,7 +81,7 @@ def _multipart_upload(url: str, filepath: str, field: str = 'media', content_typ
         f'--{boundary}\r\n'
         f'Content-Disposition: form-data; name="{field}"; filename="{filename}"\r\n'
         f'Content-Type: {content_type}\r\n\r\n'
-    ).encode('utf-8') + file_data + f'\r\n--{boundary}--\r\n'.encode('utf-8')
+    ).encode() + file_data + f'\r\n--{boundary}--\r\n'.encode()
 
     req = urllib.request.Request(url, data=body, headers={
         'Content-Type': f'multipart/form-data; boundary={boundary}'
@@ -95,7 +95,7 @@ def _multipart_upload(url: str, filepath: str, field: str = 'media', content_typ
 
 # ===== Token管理 =====
 
-def get_access_token(force_refresh: bool = False) -> Optional[str]:
+def get_access_token(force_refresh: bool = False) -> str | None:
     """获取access_token，自动缓存2小时"""
     app_id, app_secret = _load_env()
     if not app_id or not app_secret:
@@ -105,7 +105,7 @@ def get_access_token(force_refresh: bool = False) -> Optional[str]:
     # 检查缓存
     if not force_refresh and os.path.exists(TOKEN_CACHE):
         try:
-            with open(TOKEN_CACHE, 'r') as f:
+            with open(TOKEN_CACHE) as f:
                 cache = cast(dict[str, Any], json.load(f))
             if cache.get('expires_at', 0) > time.time() + 300:  # 提前5分钟刷新
                 return cast(str, cache['access_token'])
@@ -132,7 +132,7 @@ def get_access_token(force_refresh: bool = False) -> Optional[str]:
 
 # ===== 素材上传 =====
 
-def upload_image(image_path: str) -> Optional[str]:
+def upload_image(image_path: str) -> str | None:
     """上传文章内图片（不占素材库配额，返回URL）"""
     token = get_access_token()
     if not token:
@@ -147,7 +147,7 @@ def upload_image(image_path: str) -> Optional[str]:
         return None
 
 
-def upload_media(media_path: str, media_type: str = 'image') -> Optional[dict[str, Any]]:
+def upload_media(media_path: str, media_type: str = 'image') -> dict[str, Any] | None:
     """上传临时素材（image/voice/video/thumb）"""
     token = get_access_token()
     if not token:
@@ -162,7 +162,7 @@ def upload_media(media_path: str, media_type: str = 'image') -> Optional[dict[st
         return None
 
 
-def upload_permanent_media(media_path: str, media_type: str = 'image') -> Optional[dict[str, Any]]:
+def upload_permanent_media(media_path: str, media_type: str = 'image') -> dict[str, Any] | None:
     """上传永久素材"""
     token = get_access_token()
     if not token:
@@ -179,7 +179,7 @@ def upload_permanent_media(media_path: str, media_type: str = 'image') -> Option
 
 # ===== 草稿箱 =====
 
-def create_draft(articles: list[dict[str, Any]]) -> Optional[str]:
+def create_draft(articles: list[dict[str, Any]]) -> str | None:
     """
     创建草稿。articles是文章列表，每篇格式：
     {
@@ -207,7 +207,7 @@ def create_draft(articles: list[dict[str, Any]]) -> Optional[str]:
         return None
 
 
-def list_drafts(offset: int = 0, count: int = 10) -> Optional[dict[str, Any]]:
+def list_drafts(offset: int = 0, count: int = 10) -> dict[str, Any] | None:
     """获取草稿列表"""
     token = get_access_token()
     if not token:
@@ -243,7 +243,7 @@ def delete_draft(media_id: str) -> bool:
 
 # ===== 发布 =====
 
-def publish_draft(media_id: str) -> Optional[str]:
+def publish_draft(media_id: str) -> str | None:
     """提交草稿发布（异步，返回publish_id用于查询状态）"""
     token = get_access_token()
     if not token:
@@ -258,7 +258,7 @@ def publish_draft(media_id: str) -> Optional[str]:
         return None
 
 
-def check_publish_status(publish_id: str) -> Optional[dict[str, Any]]:
+def check_publish_status(publish_id: str) -> dict[str, Any] | None:
     """查询发布状态"""
     token = get_access_token()
     if not token:
@@ -275,7 +275,7 @@ def check_publish_status(publish_id: str) -> Optional[dict[str, Any]]:
 
 # ===== 一键发布流程 =====
 
-def auto_publish(html_file: str, title: str, thumb_image: Optional[str] = None, author: str = '智汇AI', digest: str = '') -> Optional[dict[str, Any]]:
+def auto_publish(html_file: str, title: str, thumb_image: str | None = None, author: str = '智汇AI', digest: str = '') -> dict[str, Any] | None:
     """
     一键发布：HTML文件 → 上传封面 → 创建草稿 → 提交发布
     html_file: gzh-design生成的HTML文件路径
@@ -284,7 +284,7 @@ def auto_publish(html_file: str, title: str, thumb_image: Optional[str] = None, 
     author: 作者名
     digest: 文章摘要
     """
-    print(f'\n===== 公众号自动发布 =====')
+    print('\n===== 公众号自动发布 =====')
     print(f'标题: {title}')
     print(f'HTML: {html_file}')
 
@@ -292,20 +292,20 @@ def auto_publish(html_file: str, title: str, thumb_image: Optional[str] = None, 
     if not os.path.exists(html_file):
         print(f'❌ HTML文件不存在: {html_file}')
         return None
-    with open(html_file, 'r', encoding='utf-8') as f:
+    with open(html_file, encoding='utf-8') as f:
         content = f.read()
     print(f'✅ 读取HTML: {len(content)}字符')
 
     # 2. 上传封面图
     thumb_media_id = ''
     if thumb_image and os.path.exists(thumb_image):
-        print(f'\n--- 上传封面图 ---')
+        print('\n--- 上传封面图 ---')
         result = upload_permanent_media(thumb_image, 'thumb')
         if result:
             thumb_media_id = result.get('media_id', '')
 
     # 3. 创建草稿
-    print(f'\n--- 创建草稿 ---')
+    print('\n--- 创建草稿 ---')
     article = {
         'title': title,
         'author': author,
@@ -320,14 +320,14 @@ def auto_publish(html_file: str, title: str, thumb_image: Optional[str] = None, 
         return None
 
     # 4. 提交发布
-    print(f'\n--- 提交发布 ---')
+    print('\n--- 提交发布 ---')
     publish_id = publish_draft(draft_id)
     if publish_id:
         print(f'\n🎉 发布流程完成！publish_id={publish_id}')
-        print(f'   请在公众号后台确认发布状态')
+        print('   请在公众号后台确认发布状态')
         return {'draft_id': draft_id, 'publish_id': publish_id}
     else:
-        print(f'\n⚠️ 草稿已创建但未发布，请手动到草稿箱发布')
+        print('\n⚠️ 草稿已创建但未发布，请手动到草稿箱发布')
         return {'draft_id': draft_id, 'publish_id': None}
 
 

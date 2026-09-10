@@ -26,8 +26,7 @@
 
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -43,7 +42,6 @@ from app.services.scheduler import (
     task_scheduler,
 )
 from app.services.task_decomposer import SubTask
-
 
 # =============================================================================
 # 工厂函数
@@ -169,14 +167,14 @@ class TestDataclasses:
 
 class TestUtcNowPlusSeconds:
     def test_zero_seconds_returns_current_time(self):
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         result = _utc_now_plus_seconds(0)
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
         parsed = datetime.fromisoformat(result)
         assert before <= parsed <= after
 
     def test_positive_seconds_future_time(self):
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         result = _utc_now_plus_seconds(60)
         parsed = datetime.fromisoformat(result)
         assert parsed >= before + timedelta(seconds=59)
@@ -824,7 +822,7 @@ class TestExecuteWithFailover:
     async def test_timeout_trigger(self):
         """triggerOn 含 timeout 时,executor 抛 TimeoutError → 转移到下一个。"""
         executor = AsyncMock(side_effect=[
-            asyncio.TimeoutError(),
+            TimeoutError(),
             make_result(status="completed", agent_name="f1"),
         ])
         s = TaskScheduler(executor=executor)
@@ -842,7 +840,7 @@ class TestExecuteWithFailover:
 
     @pytest.mark.asyncio
     async def test_timeout_no_fallback_returns_timeout_result(self):
-        executor = AsyncMock(side_effect=asyncio.TimeoutError())
+        executor = AsyncMock(side_effect=TimeoutError())
         s = TaskScheduler(executor=executor)
         config = FailoverConfig(
             primary="p1", fallbacks=["f1"],

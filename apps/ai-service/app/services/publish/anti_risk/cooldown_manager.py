@@ -28,9 +28,9 @@ import json
 import os
 import threading
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from app.core.logging import get_logger
 
@@ -104,7 +104,7 @@ class CooldownState:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "CooldownState":
+    def from_dict(cls, data: dict[str, Any]) -> CooldownState:
         """从 dict 反序列化。"""
         return cls(
             account_id=data.get("account_id", ""),
@@ -267,7 +267,7 @@ class CooldownManager:
         self,
         account_id: str,
         platform: str,
-    ) -> tuple[bool, Optional[CooldownState]]:
+    ) -> tuple[bool, CooldownState | None]:
         """检查账号是否在冷却中。
 
         Args:
@@ -337,7 +337,7 @@ class CooldownManager:
                 self._persist()
             return list(self._cooldowns.values())
 
-    def record_failure(self, account_id: str, platform: str) -> Optional[CooldownState]:
+    def record_failure(self, account_id: str, platform: str) -> CooldownState | None:
         """记录一次失败,连续 3 次失败自动进入 1 小时冷却。
 
         Returns:
@@ -367,7 +367,7 @@ class CooldownManager:
             self._fail_streaks.pop(key, None)
 
     @classmethod
-    def get_instance(cls) -> "CooldownManager":
+    def get_instance(cls) -> CooldownManager:
         """获取全局 CooldownManager 单例(类方法,便于 scheduler 调用)。"""
         return get_instance()
 
@@ -376,7 +376,7 @@ class CooldownManager:
 # 全局单例
 # ---------------------------------------------------------------------------
 
-_global_manager: Optional[CooldownManager] = None
+_global_manager: CooldownManager | None = None
 _global_manager_lock = threading.Lock()
 
 

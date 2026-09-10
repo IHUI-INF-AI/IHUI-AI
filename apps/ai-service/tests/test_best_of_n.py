@@ -21,7 +21,7 @@ from typing import Any
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.services.best_of_n import BestOfNError, BestOfNRunner, CandidateResult
+from app.services.best_of_n import BestOfNError, BestOfNRunner
 
 
 class FakeGateway:
@@ -237,7 +237,7 @@ async def test_n_clamped_to_max():
         ]}),
     )
     runner, _ = _runner(gw)
-    result = await runner.run(MESSAGES, n=99)
+    await runner.run(MESSAGES, n=99)
     assert gw.candidate_calls == 5
 
 

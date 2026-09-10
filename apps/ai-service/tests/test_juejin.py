@@ -16,15 +16,11 @@
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
 
 from app.services.publish.adapters import juejin
 from app.services.publish.adapters.juejin import JuejinAdapter
 from app.services.publish.base_adapter import PublishContent, PublishResult
-
 
 # =============================================================================
 # 类属性

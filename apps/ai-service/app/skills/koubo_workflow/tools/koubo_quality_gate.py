@@ -25,13 +25,14 @@
 退出码：0=全部通过  1=有 FAIL 项（--strict 时含 WARN）
 """
 
-import sys
-import re
 import os
+import re
+import sys
 
 # ============ 跨项目边界硬门禁（2026-07-20 新增·防止窜工作） ============
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # koubo_workflow/
 import project_boundary
+
 project_boundary.check_action(tool="koubo_quality_gate.py", paths=sys.argv[1:], cwd=os.getcwd())
 
 # ===================== 阈值参数 =====================
@@ -93,10 +94,9 @@ BRAND_WHITELIST = {
     'ai', 'api', 'agent', 'gpt', 'claude', 'google', 'meta', 'openai', 'anthropic',
     'deepseek', 'kimi', 'qwen', 'llama', 'gemini', 'copilot', 'chatgpt', 'grok',
     'perplexity', 'manus', 'midjourney', 'sora', 'runway', 'suno', 'cursor',
-    'glm', 'opus', 'pro', 'claudeopus', 'kimi', 'minimax', 'zhipu', '智谱',
+    'glm', 'opus', 'pro', 'claudeopus', 'minimax', 'zhipu', '智谱',
     'tensorflow', 'pytorch', 'python', 'xai', 'apple', 'tesla', 'nvidia', 'amd',
-    'huawei', 'baidu', 'alibaba', 'tencent', 'bytedance', 'xiaomi', 'minimax',
-    'iphone', 'ipad', 'mac', 'windows', 'android', 'ios', 'app', 'apps',
+    'huawei', 'baidu', 'alibaba', 'tencent', 'bytedance', 'xiaomi', 'iphone', 'ipad', 'mac', 'windows', 'android', 'ios', 'app', 'apps',
     'id', 'url', 'ceo', 'cto', 'coo', 'ai+', 'prompt', 'prompts',
     'sol', 'luna', 'matt', 'shumer', 'code', 'voice', 'vibe', 'coding',
     # 基础英文词（最常用，无需翻译）
@@ -170,8 +170,7 @@ ENDING_DIAG_PATS = ['你对照', '你想想', '你琢磨', '等着看', '你猜'
 
 # ===================== 2026-07-14 v1.1 改造：统一从 koubo_terms 导入术语/歧义压缩词表 =====================
 # BANNED_AMBIG_COMP / TERM_CANONICAL_DICT 已迁出本文件，统一从 koubo_terms 导入
-from koubo_terms import BANNED_AMBIG_COMP, TERM_CANONICAL_DICT, find_ambig_hits, find_alias_issues
-
+from koubo_terms import BANNED_AMBIG_COMP, TERM_CANONICAL_DICT
 
 # ===================== 解析 =====================
 CJK = re.compile(r'[\u4e00-\u9fff]')
@@ -272,13 +271,13 @@ def check_script(sc: dict[str, str], strict: bool = False) -> tuple[list[str], l
     for pat, btype, fix in BUG_PATTERNS:
         m = re.search(pat, body)
         if m:
-            fails.append('语病[%s]：命中「%s」 → %s' % (btype, m.group(0), fix))
+            fails.append(f'语病[{btype}]：命中「{m.group(0)}」 → {fix}')
 
     # --- ⑤ 英文未译（WARN） ---
     for m in re.finditer(r'[a-zA-Z]{2,}', body):
         w = m.group(0).lower()
         if w not in BRAND_WHITELIST:
-            warns.append('英文未译：%s（非品牌词建议译中文）' % m.group(0))
+            warns.append(f'英文未译：{m.group(0)}（非品牌词建议译中文）')
             break
 
     # --- ⑥ 自然度：空头论点 + AI腔收尾反问 ---
@@ -306,7 +305,7 @@ def check_script(sc: dict[str, str], strict: bool = False) -> tuple[list[str], l
                     apos = _ap
                     break
             if apos < jpos:
-                fails.append('空头论点：承诺「%s」后直接跳行动、未先立住论点（必须先给明确判断，再接行动引导）' % anc)
+                fails.append(f'空头论点：承诺「{anc}」后直接跳行动、未先立住论点（必须先给明确判断，再接行动引导）')
             break
     # ⑥b AI腔收尾反问：正文结尾生硬反问
     end_txt = body.rstrip()[-45:]
@@ -324,7 +323,7 @@ def check_script(sc: dict[str, str], strict: bool = False) -> tuple[list[str], l
     for p in RH_PATS:
         m = p.search(end_txt)
         if m:
-            fails.append('AI腔反问收尾：结尾「%s」生硬反问，口播很假，改为自然陈述/态度金句/行动引导' % m.group(0))
+            fails.append(f'AI腔反问收尾：结尾「{m.group(0)}」生硬反问，口播很假，改为自然陈述/态度金句/行动引导')
             break
 
     # --- ⑦ 虚构社会关系/人设（2026-07-11 用户铁律·彻底杜绝：报出全部命中，不 break；正文+置顶同检） ---
@@ -332,7 +331,7 @@ def check_script(sc: dict[str, str], strict: bool = False) -> tuple[list[str], l
     for pat, ftype, fix in FAKE_THIRD_PATTERNS:
         m = re.search(pat, _fake_text)
         if m:
-            fails.append('虚构社会关系[%s]：命中「%s」 → %s' % (ftype, m.group(0), fix))
+            fails.append(f'虚构社会关系[{ftype}]：命中「{m.group(0)}」 → {fix}')
 
     # --- ⑦b 人设真实锚定缺失（WARN，不硬拦） ---
     has_anchor = any(anc in body for anc in IDENTITY_ANCHORS)
@@ -343,14 +342,14 @@ def check_script(sc: dict[str, str], strict: bool = False) -> tuple[list[str], l
     opening_50 = body[:50]
     for tpl in BANNED_TEMPLATE_OPENINGS:
         if tpl in opening_50:
-            fails.append('模板化开头：正文起手「%s」属禁止模板(太X了/吓一跳/炸锅了)，须换成独特情绪钩子' % tpl)
+            fails.append(f'模板化开头：正文起手「{tpl}」属禁止模板(太X了/吓一跳/炸锅了)，须换成独特情绪钩子')
             break
 
     # --- ⑨ 2026-07-12 新规则③：软清单收尾检测 ---
     ending_80 = body[-80:]
     m = SOFT_LIST_ENDING_PAT.search(ending_80)
     if m:
-        fails.append('软清单收尾：结尾「%s」属禁止模式(建议N条/记住N点/给你N条)，建议须自然融入正文、不列举' % m.group(0))
+        fails.append(f'软清单收尾：结尾「{m.group(0)}」属禁止模式(建议N条/记住N点/给你N条)，建议须自然融入正文、不列举')
 
     # --- ⑩ 2026-07-12 新规则②：流水线结构检测 ---
     has_news_start = any(p in body[:80] for p in PIPELINE_NEWS_PATS)
@@ -395,7 +394,7 @@ def check_script(sc: dict[str, str], strict: bool = False) -> tuple[list[str], l
     for pat, atype, fix in AI_TASTE_PATTERNS:
         m = re.search(pat, body)
         if m:
-            fails.append('AI味[%s]：命中「%s」 → %s' % (atype, m.group(0), fix))
+            fails.append(f'AI味[{atype}]：命中「{m.group(0)}」 → {fix}')
 
     # --- ⑫ 2026-07-14 新规则：4项结构优化软警告（soft_warns，·符号显示，不影响all_ok/--strict） ---
     soft_warns = []
@@ -417,7 +416,7 @@ def check_script(sc: dict[str, str], strict: bool = False) -> tuple[list[str], l
         miss = []
         if not hook_s2_ok: miss.append('S2(完播承诺)')
         if not hook_s3_ok: miss.append('S3(完播锁钩)')
-        soft_warns.append('开头3句钩子公式: 缺%s（S2=身份+承诺, S3=锁钩）' % ','.join(miss))
+        soft_warns.append('开头3句钩子公式: 缺{}（S2=身份+承诺, S3=锁钩）'.format(','.join(miss)))
 
     # 优化2·段落收尾金句类型（每篇≥2种）
     ptypes: list[str] = []
@@ -443,7 +442,7 @@ def check_script(sc: dict[str, str], strict: bool = False) -> tuple[list[str], l
     for pat in BANNED_AMBIG_COMP:
         m = pat.search(full_text)
         if m:
-            fails.append('生造/压缩歧义词：命中「%s」 → 听者会误解为不同概念，必须改写为全称/具体数字/官方称谓（详见 AGENTS.md 2.7）' % m.group(0))
+            fails.append(f'生造/压缩歧义词：命中「{m.group(0)}」 → 听者会误解为不同概念，必须改写为全称/具体数字/官方称谓（详见 AGENTS.md 2.7）')
 
     # --- ⑭ 2026-07-14 新规则：跨稿统一词表一致性（WARN 级，不硬拦） ---
     # 命中禁用别名即提示应改推荐写法，确保跨稿称谓一致
@@ -452,11 +451,11 @@ def check_script(sc: dict[str, str], strict: bool = False) -> tuple[list[str], l
         for alias in aliases:
             if alias and alias in full_text and canonical not in full_text:
                 # 检查是仅含"禁用别名"且不含"推荐写法"才告警
-                if not (canonical in full_text):
-                    canonical_hits.append('"%s" → 建议改"%s"' % (alias, canonical))
+                if canonical not in full_text:
+                    canonical_hits.append(f'"{alias}" → 建议改"{canonical}"')
                     break
     if canonical_hits:
-        warns.append('跨稿词表不一致：%s（如本篇确需使用该写法请登记到 TERM_CANONICAL_DICT）' % '; '.join(canonical_hits[:3]))
+        warns.append('跨稿词表不一致：{}（如本篇确需使用该写法请登记到 TERM_CANONICAL_DICT）'.format('; '.join(canonical_hits[:3])))
 
     return fails, warns, soft_warns
 
@@ -469,10 +468,10 @@ def main() -> None:
     path = sys.argv[1]
     strict = '--strict' in sys.argv
     if not os.path.exists(path):
-        print('文件不存在: %s' % path)
+        print(f'文件不存在: {path}')
         sys.exit(2)
 
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(path, encoding='utf-8') as f:
         content = f.read()
 
     scripts = parse_scripts(content)
@@ -488,19 +487,17 @@ def main() -> None:
     for i, sc in enumerate(scripts):
         fails, warns, soft_warns = check_script(sc, strict)
         status = 'FAIL' if fails else ('WARN' if warns else 'PASS')
-        if fails:
-            all_ok = False
-        elif warns and strict:
+        if fails or warns and strict:
             all_ok = False
         bar = {'FAIL': '✗', 'WARN': '△', 'PASS': '✓'}[status]
         print('\n%s 第%d篇: %s  [%s]' % (bar, i + 1, sc['title'][:30], status))
         for fail in fails:
-            print('    ✗ %s' % fail)
+            print(f'    ✗ {fail}')
         for w in warns:
-            print('    △ %s' % w)
+            print(f'    △ {w}')
         # ⑫ 2026-07-14 软警告：·符号显示，不影响all_ok/--strict
         for sw in soft_warns:
-            print('    · %s' % sw)
+            print(f'    · {sw}')
 
     print('\n' + '=' * 72)
     if all_ok:

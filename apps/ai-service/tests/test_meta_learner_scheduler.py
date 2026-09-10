@@ -17,19 +17,17 @@
 
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from app.services.meta_learner_scheduler import (
-    MetaLearnerScheduler,
     _HISTORY_LIMIT,
+    MetaLearnerScheduler,
     _safe_int,
     meta_learner_scheduler,
 )
-
 
 # =============================================================================
 # _safe_int:环境变量解析
@@ -519,7 +517,7 @@ class TestAppendHistory:
 
     def test_lru_keeps_last_n(self):
         sched = MetaLearnerScheduler()
-        base_time = datetime(2026, 7, 25, 10, 0, 0, tzinfo=timezone.utc)
+        base_time = datetime(2026, 7, 25, 10, 0, 0, tzinfo=UTC)
         for i in range(_HISTORY_LIMIT + 10):
             # 用 timedelta 累加,避免字符串拼接歧义
             ts = (base_time + timedelta(minutes=i)).isoformat()

@@ -19,17 +19,16 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from app.services.meta_learner import (
-    MetaLearner,
     _MAX_LESSONS_IN_PROMPT,
     _MIN_CONFIDENCE_FOR_PROMPT,
+    MetaLearner,
     meta_learner,
 )
-
 
 # =============================================================================
 # 工厂函数

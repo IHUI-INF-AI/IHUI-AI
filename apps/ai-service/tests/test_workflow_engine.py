@@ -8,20 +8,17 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
 
 import pytest
-from httpx import AsyncClient, ASGITransport
 from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 
 from app.services.workflow_engine import (
     WorkflowEngine,
-    Workflow,
     WorkflowInstance,
-    WorkflowTask,
     WorkflowLog,
+    WorkflowTask,
 )
-
 
 # =========================================================================
 # Fixtures
@@ -84,8 +81,8 @@ class TestWorkflowCRUD:
 
     def test_list_workflows(self, engine: WorkflowEngine) -> None:
         """列表按创建时间降序返回。"""
-        wf1 = engine.create_workflow("A", "", "manual", [])
-        wf2 = engine.create_workflow("B", "", "manual", [])
+        engine.create_workflow("A", "", "manual", [])
+        engine.create_workflow("B", "", "manual", [])
         lst = engine.list_workflows()
         assert len(lst) == 2
         # 最新的在前

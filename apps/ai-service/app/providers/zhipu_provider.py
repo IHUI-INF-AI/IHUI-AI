@@ -12,13 +12,14 @@ model 前缀: glm-* (glm-4 / glm-4-plus / glm-4-air / glm-4-flash / glm-4v)
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
+from ..core.llm_gateway import get_http_client
 from .base_provider import ProviderError
 from .openai_provider import OpenAIProvider
-from ..core.llm_gateway import get_http_client
 
 
 class ZhipuProvider(OpenAIProvider):

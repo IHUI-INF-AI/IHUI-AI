@@ -23,20 +23,18 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.services.opencompass_scrape import (
     _EXTRACT_JS,
+    OPENCOMPASS_URL,
     _find_col,
     _scrape_opencompass_sync,
     _try_float,
     scrape_opencompass,
 )
-from app.services.opencompass_scrape import OPENCOMPASS_URL
-
 
 # =============================================================================
 # 工厂函数

@@ -20,7 +20,6 @@ import pytest
 
 from app import telemetry
 
-
 # =============================================================================
 # 辅助:每个测试前重置 telemetry 模块级全局状态
 # =============================================================================
@@ -108,9 +107,8 @@ class TestInitTelemetry:
         monkeypatch.setenv("OTEL_ENABLED", "true")
 
         # 直接 patch 真实 opentelemetry 模块的属性(避免真实 SDK 初始化 + exporter 网络调用)
-        import opentelemetry.trace as otel_trace
         import opentelemetry.sdk.trace as otel_sdk_trace
-        from opentelemetry.sdk.resources import Resource as _RealResource  # 真实 Resource 可复用
+        import opentelemetry.trace as otel_trace
 
         # 捕获 set_tracer_provider 调用,但不真正设置全局 provider(避免污染)
         monkeypatch.setattr(otel_trace, "set_tracer_provider", lambda p: None)
@@ -143,10 +141,10 @@ class TestInitTelemetry:
         monkeypatch.delenv("OTEL_TRACES_SAMPLER_ARG", raising=False)
 
         # patch 真实 opentelemetry 模块
-        import opentelemetry.trace as otel_trace
-        import opentelemetry.sdk.trace as otel_sdk_trace
         import opentelemetry.exporter.otlp.proto.http.trace_exporter as otel_exporter
+        import opentelemetry.sdk.trace as otel_sdk_trace
         import opentelemetry.sdk.trace.export as otel_export_sdk
+        import opentelemetry.trace as otel_trace
 
         monkeypatch.setattr(otel_trace, "set_tracer_provider", lambda p: None)
         monkeypatch.setattr(otel_trace, "get_tracer", lambda name: "tracer")

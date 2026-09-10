@@ -28,14 +28,13 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from app.services.long_term_memory import (
     LongTermMemory,
-    long_term_memory,
 )
 from app.services.session_summarizer import (
     SessionSummarizer,
@@ -45,7 +44,6 @@ from app.services.session_summarizer import (
     _truncate_prompt,
     session_summarizer,
 )
-
 
 # =============================================================================
 # 工厂函数
@@ -99,11 +97,11 @@ def make_summary_row(
         "key_decisions": key_decisions if key_decisions is not None else [],
         "message_count": 10,
         "token_count": 100,
-        "start_time": datetime(2025, 7, 25, 10, 0, tzinfo=timezone.utc),
-        "end_time": end_time or datetime(2025, 7, 25, 11, 0, tzinfo=timezone.utc),
+        "start_time": datetime(2025, 7, 25, 10, 0, tzinfo=UTC),
+        "end_time": end_time or datetime(2025, 7, 25, 11, 0, tzinfo=UTC),
         "importance_score": importance_score,
         "embedding": embedding,
-        "created_at": datetime(2025, 7, 25, 11, 0, tzinfo=timezone.utc),
+        "created_at": datetime(2025, 7, 25, 11, 0, tzinfo=UTC),
     }
 
 
@@ -1247,7 +1245,7 @@ class TestExtractDateStr:
         assert result == "2025-07-25"
 
     def test_datetime_object(self):
-        dt = datetime(2025, 7, 25, 11, 0, tzinfo=timezone.utc)
+        dt = datetime(2025, 7, 25, 11, 0, tzinfo=UTC)
         result = LongTermMemory._extract_date_str(dt)
         assert result == "2025-07-25"
 

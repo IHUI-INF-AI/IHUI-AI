@@ -14,13 +14,10 @@
 """
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
-
 import pytest
 
 from app.routers import tools
 from app.services.mcp_server import mcp_server
-
 
 # =============================================================================
 # 辅助 fixtures

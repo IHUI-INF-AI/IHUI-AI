@@ -316,7 +316,7 @@ class TestBwrap:
 class TestRlimit:
     def test_rlimit_spec_values(self) -> None:
         p = _policy(memory_mb=256, cpu_seconds=7, max_processes=9)
-        spec = dict((name, (soft, hard)) for name, soft, hard in rlimit_spec(p))
+        spec = {name: (soft, hard) for name, soft, hard in rlimit_spec(p)}
         assert spec["RLIMIT_AS"] == (256 * 1024 * 1024, 256 * 1024 * 1024)
         assert spec["RLIMIT_CPU"] == (7, 8)
         assert spec["RLIMIT_NPROC"] == (9, 9)
@@ -552,9 +552,8 @@ class TestWindowsJobObject:
 @pytest.mark.skipif(not IS_WIN, reason="非 Windows 平台 Job Object 不可用")
 class TestWindowsApiErrors:
     def test_assign_bad_handle_raises(self) -> None:
-        with WinJob.create() as job:
-            with pytest.raises(sb.WinApiError):
-                job.assign(0)
+        with WinJob.create() as job, pytest.raises(sb.WinApiError):
+            job.assign(0)
 
     def test_winapi_error_carries_winerror(self) -> None:
         e = sb.WinApiError("x", winerror=5)

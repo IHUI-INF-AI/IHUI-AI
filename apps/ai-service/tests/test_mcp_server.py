@@ -16,38 +16,38 @@ from __future__ import annotations
 
 import json
 import os as _os
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 # 项目根目录(tests/ → ai-service/ → IHUI-AI/)
 _REPO = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 
 from app.services.mcp_server import (
-    MCPTool,
-    MCPResource,
-    MCPPrompt,
-    MCPServer,
-    mcp_server,
-    _TOOLS,
-    _TOOL_HANDLERS,
-    _RESOURCES,
     _PROMPTS,
+    _RESOURCES,
+    _TOOL_HANDLERS,
+    _TOOLS,
+    MCPPrompt,
+    MCPResource,
+    MCPServer,
+    MCPTool,
     _parse_ddg_lite_html,
     _render_prompt,
-    _tool_search_codebase,
-    _tool_read_file,
-    _tool_write_file,
-    _tool_run_command,
-    _tool_web_search,
-    _tool_search_web,
     _tool_analyze_code,
-    _tool_generate_test,
-    _tool_file_search,
-    _tool_git_operations,
     _tool_db_query,
+    _tool_file_search,
+    _tool_generate_test,
+    _tool_git_operations,
     _tool_knowledge_lookup,
+    _tool_read_file,
+    _tool_run_command,
+    _tool_search_codebase,
+    _tool_search_web,
+    _tool_web_search,
+    _tool_write_file,
+    mcp_server,
 )
-
 
 # =============================================================================
 # 数据模型
@@ -1124,14 +1124,14 @@ def test_server_independent_instance():
 import httpx  # noqa: E402
 
 from app.services.mcp_server import (  # noqa: E402
-    _tool_fetch_url,
-    _tool_image_generation,
-    _tool_review_pr,
-    _tool_summarize_artifacts,
-    _tool_schedule_task,
-    _tool_proactive_suggestion,
     _ARTIFACTS_CACHE,
     _SCHEDULED_TASKS,
+    _tool_fetch_url,
+    _tool_image_generation,
+    _tool_proactive_suggestion,
+    _tool_review_pr,
+    _tool_schedule_task,
+    _tool_summarize_artifacts,
 )
 
 

@@ -14,8 +14,6 @@
 """
 from __future__ import annotations
 
-import asyncio
-import json
 import time
 from unittest.mock import AsyncMock, MagicMock
 
@@ -25,8 +23,6 @@ from httpx import ASGITransport, AsyncClient
 from app.routers import agent_runtime
 from app.routers.agent_runtime import (
     ExecuteRequest,
-    ExecuteResponse,
-    PermissionCheckResponse,
     SessionMessage,
     SessionState,
     _check_permission,
@@ -36,7 +32,6 @@ from app.routers.agent_runtime import (
     _get_redis,
     _sessions,
 )
-
 
 # =============================================================================
 # 辅助:每个测试前后清空 _sessions,避免互相干扰

@@ -13,8 +13,7 @@
 """
 from __future__ import annotations
 
-import io
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
@@ -27,7 +26,6 @@ from ..services.scan_login import (
     detect_login_from_cdp_session,
     get_qr_image,
     get_task,
-    list_tasks,
     start_scan_task,
 )
 

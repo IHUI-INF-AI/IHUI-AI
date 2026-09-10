@@ -34,23 +34,15 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import sys
-import uuid
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.services import llm_budget_governor as lbg_module
 from app.services.llm_budget_governor import (
-    BudgetCheckResult,
-    BudgetConfig,
-    BudgetExceededError,
-    LLMBudgetGovernor,
-    UsageRecord,
     _MEMORY_USAGE_MAX,
     _REDIS_KEY_CONFIG,
     _REDIS_KEY_DAILY,
@@ -58,6 +50,11 @@ from app.services.llm_budget_governor import (
     _REDIS_KEY_PILLAR,
     _REDIS_KEY_USAGE,
     _VALID_PILLARS,
+    BudgetCheckResult,
+    BudgetConfig,
+    BudgetExceededError,
+    LLMBudgetGovernor,
+    UsageRecord,
     _date_from_days_ago,
     _hour_key,
     _now_iso,
@@ -65,7 +62,6 @@ from app.services.llm_budget_governor import (
     llm_budget_governor,
     with_budget,
 )
-
 
 # =============================================================================
 # 公共 fixture
@@ -126,7 +122,7 @@ class TestHelpers:
 
     def test_date_from_days_ago_positive(self):
         """_date_from_days_ago(1) 是昨天。"""
-        yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+        yesterday = (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%d")
         assert _date_from_days_ago(1) == yesterday
 
     def test_date_from_days_ago_format(self):
@@ -146,7 +142,7 @@ class TestModuleConstants:
 
     def test_valid_pillars_contents(self):
         """_VALID_PILLARS 包含 6 大支柱。"""
-        assert _VALID_PILLARS == {"rules", "hook", "spec", "context", "subagent", "terminal"}
+        assert {"rules", "hook", "spec", "context", "subagent", "terminal"} == _VALID_PILLARS
 
     def test_valid_pillars_count(self):
         """_VALID_PILLARS 恰好 6 个。"""
@@ -662,7 +658,7 @@ class TestScanRecords:
 
     def _make_record(self, minutes_ago: int, pillar: str = "rules") -> UsageRecord:
         """创建 N 分钟前的 UsageRecord。"""
-        ts = (datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)).isoformat()
+        ts = (datetime.now(UTC) - timedelta(minutes=minutes_ago)).isoformat()
         return UsageRecord(
             pillar=pillar, model="gpt-4o",
             input_tokens=100, output_tokens=50,
