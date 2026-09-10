@@ -63,9 +63,11 @@ def test_default_debug():
     assert Settings().debug is False
 
 
-def test_default_node_env():
-    """node_env 默认为 'development'。"""
-    assert Settings().node_env == "development"
+def test_default_node_env(monkeypatch):
+    """node_env 默认为 'development'(隔离 .env 与 NODE_ENV 环境变量:
+    生产部署 .env 写 NODE_ENV=production 属正常配置,不应污染默认值断言)。"""
+    monkeypatch.delenv("NODE_ENV", raising=False)
+    assert Settings(_env_file=None).node_env == "development"
 
 
 def test_default_cors_origin(monkeypatch):
