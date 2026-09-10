@@ -114,6 +114,9 @@ const SKIP_DIRS = new Set([
   '.pnpm', 'target', '.cache', '.vercel', 'storybook-static', '_.husky', '_husky',
   '.husky/_', '.nyc_output', '.gradle', '.idea', '__pycache__', '.pytest_cache',
   '.venv', 'venv', 'vendor', 'expo/dist', '.expo',
+  // 与 check-watermark-syntax.mjs SKIP_DIRS 对齐: 构建/本地产物不纳入水印覆盖
+  'tmp', 'playwright-report', 'test-results', 'vs', '.next-static',
+  '.cxx', 'CMakeFiles', '.externalNativeBuild', '.cmake',
 ])
 
 const SKIP_FILES = new Set([
