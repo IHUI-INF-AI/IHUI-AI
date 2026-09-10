@@ -62,7 +62,7 @@ export default function PlazaNewPage() {
   const valid = title.trim().length >= 2 && description.trim().length >= 10
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6">
+    <div className="mx-auto w-full max-w-2xl px-4 py-4">
       <div className="mb-4 flex items-center justify-between">
         <BackButton fallbackHref="/plaza" />
         <h1 className="text-lg font-medium">{t('title')}</h1>

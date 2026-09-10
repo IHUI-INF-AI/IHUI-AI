@@ -213,7 +213,7 @@ export default function ModelRecordPage() {
   const updatedAt = formatLocalDate(stats?.updatedAt ?? null)
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 py-4">
       <BackButton />
 
       {/* 统计概览卡 */}

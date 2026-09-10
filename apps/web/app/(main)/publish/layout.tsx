@@ -32,7 +32,7 @@ export default function PublishLayout({ children }: { children: React.ReactNode 
   const pathname = usePathname()
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>

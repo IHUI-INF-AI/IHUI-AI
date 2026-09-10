@@ -77,7 +77,7 @@ export default function AgreementTypePage() {
   const displayTitle = data?.title ?? titleMeta.zh
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <Link
         href="/"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"

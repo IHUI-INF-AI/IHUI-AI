@@ -71,7 +71,7 @@ export default function AsksPageClient() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <div className="space-y-1">

@@ -76,7 +76,7 @@ export default function RegistryPage() {
     installedIds.includes(item.id) ? 'installed' : 'not_installed'
 
   return (
-    <div className="space-y-4 p-4 min-[768px]:p-6">
+    <div className="space-y-4 p-4">
       <BackButton />
       <h1 className="text-lg font-semibold">资源更新中心</h1>
 

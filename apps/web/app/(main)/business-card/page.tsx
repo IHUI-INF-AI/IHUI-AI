@@ -115,7 +115,7 @@ export default function BusinessCardPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <BackButton />
       <header className="flex items-center justify-between">
         <div className="space-y-1">

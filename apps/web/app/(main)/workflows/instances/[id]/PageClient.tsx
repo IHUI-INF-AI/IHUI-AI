@@ -72,7 +72,7 @@ export default function InstanceDetailPage() {
   const logs = (logsQ.data ?? []).filter((l) => logLevel === 'all' || l.level === logLevel)
 
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 px-4 py-4">
       <InstanceHeader
         inst={inst}
         fmt={fmt}

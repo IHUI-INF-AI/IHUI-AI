@@ -22,7 +22,7 @@ export function CompareContent({
 
   if (!config) {
     return (
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+      <main className="mx-auto w-full max-w-6xl px-4 py-4 min-[768px]:px-8">
         <section className="space-y-5 text-center">
           <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
             对比页面开发中
@@ -47,7 +47,7 @@ export function CompareContent({
   ).length
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+    <main className="mx-auto w-full max-w-6xl px-4 py-4 min-[768px]:px-8">
       {/* Hero */}
       <section className="space-y-5 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
