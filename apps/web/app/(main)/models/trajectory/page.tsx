@@ -244,7 +244,7 @@ function TraceDetailCard({
 
 function LoadingSkeleton({ t }: { t: ReturnType<typeof useTranslations<'models'>> }) {
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 py-4">
       <BackButton />
       <div className="flex items-center gap-2">
         <History className="h-5 w-5" />
@@ -283,7 +283,7 @@ function ErrorState({
   t: ReturnType<typeof useTranslations<'models'>>
 }) {
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 py-4">
       <BackButton />
       <div className="flex items-center gap-2">
         <History className="h-5 w-5" />
@@ -306,7 +306,7 @@ function ErrorState({
 
 function EmptyState({ t }: { t: ReturnType<typeof useTranslations<'models'>> }) {
   return (
-    <div className="space-y-4 px-4 py-6">
+    <div className="space-y-4 py-4">
       <BackButton />
       <div className="flex items-center gap-2">
         <History className="h-5 w-5" />
@@ -360,7 +360,7 @@ export default function TrajectoryPage() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-4 px-4 py-6">
+      <div className="space-y-4 py-4">
         <BackButton />
 
         {/* 标题 */}

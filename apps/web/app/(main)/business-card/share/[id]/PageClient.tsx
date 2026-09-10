@@ -140,7 +140,7 @@ export default function CardSharePage() {
   const tpl = card.template ?? 'minimal'
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4 px-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
       <Link
         href="/business-card"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

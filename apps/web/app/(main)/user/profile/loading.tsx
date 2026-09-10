@@ -10,7 +10,7 @@
  */
 export default function ProfileLoading() {
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 p-6">
+    <div className="mx-auto w-full max-w-4xl space-y-6 p-4">
       {/* 标题 + 返回按钮 */}
       <div className="flex items-center gap-3">
         <div className="skeleton h-8 w-8 rounded" />

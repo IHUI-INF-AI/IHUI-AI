@@ -80,7 +80,7 @@ export default function TaskReceiverPageClient() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-6">
+    <div className="mx-auto w-full max-w-4xl px-4 py-4">
       <BackButton />
       <header className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">

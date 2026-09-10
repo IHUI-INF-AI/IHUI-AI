@@ -4,7 +4,7 @@
 
 export default function Loading() {
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4 p-4">
       <div className="skeleton h-5 w-20 rounded" />
       <div className="space-y-2">
         <div className="skeleton h-8 w-56 rounded" />
