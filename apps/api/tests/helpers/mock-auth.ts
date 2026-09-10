@@ -32,6 +32,29 @@ import type { FastifyRequest } from 'fastify'
 
 export const mockAuthenticate = vi.fn()
 
+/**
+ * 与真实 checkAuth(apps/api/src/plugins/auth.ts)语义一致的 mock:
+ * authenticate 成功 → true;抛错(如 setMockUnauthorized 的 401)→ 按错误码回复并返回 false。
+ * 路由若从 auth 插件导入 checkAuth,vitest 整模块 mock 后它必须由工厂显式提供,
+ * 否则路由拿到 undefined → 500(而非预期的 401)。(2026-09-10 real-db CI)
+ */
+export const mockCheckAuth = async (...args: unknown[]): Promise<boolean> => {
+  try {
+    await mockAuthenticate(...args)
+    return true
+  } catch (e) {
+    const err = e as Error & { statusCode?: number }
+    const reply = args[1] as {
+      status: (code: number) => { send: (body: unknown) => unknown }
+    }
+    const statusCode = err.statusCode ?? 401
+    reply
+      .status(statusCode)
+      .send({ code: statusCode, message: err.message || 'Authentication required' })
+    return false
+  }
+}
+
 export interface MockJWTPayload {
   userId: string
   roleId: number
