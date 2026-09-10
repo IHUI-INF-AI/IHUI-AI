@@ -264,7 +264,7 @@ export function AgentCanvasClient() {
       setNodes((nds) => [...nds, newNode])
       setSelectedId(id)
     },
-    [nodes.length, setNodes],
+    [nodes.length, setNodes, t],
   )
 
   const onDragOver = React.useCallback((e: React.DragEvent<HTMLDivElement>) => {

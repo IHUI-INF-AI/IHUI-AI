@@ -83,9 +83,10 @@ export async function parseDocx(buffer: Buffer): Promise<ParseOut> {
   const r = await mammoth.convertToHtml({ buffer })
   const $ = loadDom(r.value)
   const tables = $('table').toArray()
-  if (tables.length === 0) return { header: [], rows: [] }
-  // 取行数最多的表格(清单主体);用 any 规避 cheerio 泛型在闭包收窄下的 never 类型
-  let bestEl: unknown = tables[0]
+  const firstTable = tables[0]
+  if (!firstTable) return { header: [], rows: [] }
+  // 取行数最多的表格(清单主体)
+  let bestEl = firstTable
   let bestLen = 0
   for (const el of tables) {
     const n = $(el).find('tr').length
@@ -94,7 +95,7 @@ export async function parseDocx(buffer: Buffer): Promise<ParseOut> {
       bestEl = el
     }
   }
-  const $best = $(bestEl as any)
+  const $best = $(bestEl)
   const rows: string[][] = []
   $best.find('tr').each((_, tr) => {
     rows.push(
@@ -136,7 +137,7 @@ function mapRow(
     no: findIdx(header, ['备案编号']),
     seq: findIdx(header, ['序号']),
   }
-  const get = (i: number) => (i >= 0 ? row[i] ?? '' : '')
+  const get = (i: number) => (i >= 0 ? (row[i] ?? '') : '')
   const recordNo = get(idx.no).trim()
   if (!recordNo) return null // 无备案编号的数据行跳过
   return {
@@ -169,7 +170,12 @@ interface DocxImport {
 }
 
 /** 将一份已下载的清单 docx 全量 upsert 入库。 */
-export async function importOneDocx({ kind, batch, sourceUrl, buffer }: DocxImport): Promise<ImportStats> {
+export async function importOneDocx({
+  kind,
+  batch,
+  sourceUrl,
+  buffer,
+}: DocxImport): Promise<ImportStats> {
   const { header, rows } = await parseDocx(buffer)
   const values = []
   let skipped = 0
@@ -234,9 +240,7 @@ async function importFromPage(
       )
       stats.push(s)
     } catch (e) {
-      log.error(
-        `[algorithm-record] ${kind} 附件导入失败 ${link}: ${(e as Error).message}`,
-      )
+      log.error(`[algorithm-record] ${kind} 附件导入失败 ${link}: ${(e as Error).message}`)
     }
   }
   return stats
@@ -281,7 +285,9 @@ export async function syncAlgorithmRecords(opts: SyncOptions = {}): Promise<Impo
         )
         all.push(...found)
       } catch (e) {
-        log.error(`[algorithm-record] 深度合成批次 ${seed.batch ?? seed.sourceUrl} 失败: ${(e as Error).message}`)
+        log.error(
+          `[algorithm-record] 深度合成批次 ${seed.batch ?? seed.sourceUrl} 失败: ${(e as Error).message}`,
+        )
       }
     }
     // ② 深度合成发现源(beian 系统公告列表,自动发现未列入种子的新批次)
@@ -290,7 +296,11 @@ export async function syncAlgorithmRecords(opts: SyncOptions = {}): Promise<Impo
       if (res.ok) {
         const json = (await res.json()) as { datas?: { title?: string; content?: string }[] }
         const pages = (json.datas ?? [])
-          .filter((n) => n.title?.includes('深度合成服务算法备案') && /www\.cac\.gov\.cn/.test(n.content ?? ''))
+          .filter(
+            (n) =>
+              n.title?.includes('深度合成服务算法备案') &&
+              /www\.cac\.gov\.cn/.test(n.content ?? ''),
+          )
           .map((n) => (n.content ?? '').trim())
         const seen = new Set<string>()
         for (const p of pages) {
@@ -421,7 +431,10 @@ export async function searchAlgorithmRecords(query: RecordQuery): Promise<Record
         .orderBy(desc(algorithmRecord.batch), algorithmRecord.algName)
         .limit(pageSize)
         .offset((page - 1) * pageSize),
-      dbRead.select({ n: sql<number>`count(*)::int` }).from(algorithmRecord).where(cond),
+      dbRead
+        .select({ n: sql<number>`count(*)::int` })
+        .from(algorithmRecord)
+        .where(cond),
       dbRead.select({ n: sql<number>`count(*)::int` }).from(algorithmRecord),
       dbRead.select({ m: sql<string>`max(updated_at)` }).from(algorithmRecord),
       dbRead
@@ -436,11 +449,7 @@ export async function searchAlgorithmRecords(query: RecordQuery): Promise<Record
   const maxRaw = updatedAtRows[0]?.m
   const updatedAt = maxRaw ? new Date(maxRaw).toISOString() : null
   const batches = [
-    ...new Set(
-      distinctBatchRows
-        .map((r) => r.batch)
-        .filter((b): b is string => !!b),
-    ),
+    ...new Set(distinctBatchRows.map((r) => r.batch).filter((b): b is string => !!b)),
   ]
     .sort((a, b) => a.localeCompare(b))
     .reverse()

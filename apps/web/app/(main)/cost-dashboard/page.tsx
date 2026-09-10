@@ -43,29 +43,32 @@ export default function CostDashboardPage() {
   const [error, setError] = React.useState('')
   const [needLogin, setNeedLogin] = React.useState(false)
 
-  const load = React.useCallback(async (gran: Granularity) => {
-    setLoading(true)
-    setError('')
-    setNeedLogin(false)
-    const sRes = await fetchApi<CostSummary>('/api/cost-ledger/summary')
-    const tRes = await fetchApi<CostTimeseries>(`/api/cost-ledger/timeseries?granularity=${gran}`)
-    setLoading(false)
+  const load = React.useCallback(
+    async (gran: Granularity) => {
+      setLoading(true)
+      setError('')
+      setNeedLogin(false)
+      const sRes = await fetchApi<CostSummary>('/api/cost-ledger/summary')
+      const tRes = await fetchApi<CostTimeseries>(`/api/cost-ledger/timeseries?granularity=${gran}`)
+      setLoading(false)
 
-    const handleFailure = (res: { success: false; error: string; status?: number }) => {
-      if (res.status === 401) {
-        setNeedLogin(true)
-      } else {
-        setError((res as { message?: string }).message || t('loadFailed'))
+      const handleFailure = (res: { success: false; error: string; status?: number }) => {
+        if (res.status === 401) {
+          setNeedLogin(true)
+        } else {
+          setError((res as { message?: string }).message || t('loadFailed'))
+        }
+        setSummary(null)
+        setSeries([])
       }
-      setSummary(null)
-      setSeries([])
-    }
 
-    if (!sRes.success) return handleFailure(sRes)
-    if (!tRes.success) return handleFailure(tRes)
-    setSummary(sRes.data)
-    setSeries(tRes.data || [])
-  }, [])
+      if (!sRes.success) return handleFailure(sRes)
+      if (!tRes.success) return handleFailure(tRes)
+      setSummary(sRes.data)
+      setSeries(tRes.data || [])
+    },
+    [t],
+  )
 
   React.useEffect(() => {
     void load(granularity)
@@ -107,9 +110,7 @@ export default function CostDashboardPage() {
           ))}
         </div>
       </div>
-      <p className="mb-4 text-sm text-muted-foreground">
-        {t('subtitle')}
-      </p>
+      <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
 
       {loading && (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
@@ -213,7 +214,9 @@ export default function CostDashboardPage() {
                         {b.tokens.toLocaleString()} tok
                       </span>
                     </div>
-                    <span className="text-right text-muted-foreground">{t('stepsSuffix', { count: b.steps })}</span>
+                    <span className="text-right text-muted-foreground">
+                      {t('stepsSuffix', { count: b.steps })}
+                    </span>
                   </div>
                 ))}
               </div>

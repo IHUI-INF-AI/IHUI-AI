@@ -101,7 +101,7 @@ export default async function LogsPage() {
   ]
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="px-4 space-y-4 py-4">
       <BackButton />
       <Card>
         <CardHeader className="pb-3">

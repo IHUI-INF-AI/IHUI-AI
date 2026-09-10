@@ -771,7 +771,7 @@ export function AISidePanel() {
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
     },
-    [floatMode, floatMinimized, floatPosition, floatWidth, setFloatPosition, setResizing],
+    [floatMode, floatMinimized, floatPosition, setFloatPosition, setResizing, width],
   )
 
   // 性能修复(2026-07-25):WorkspaceNameSync 子组件渲染 null,内部订阅 usePathname,
