@@ -93,7 +93,8 @@ export interface SidebarItemProps {
 
 const levelPadding = ['pl-3', 'pl-8', 'pl-13']
 
-function setRef<T extends HTMLElement>(ref: React.Ref<T>, element: T) {
+function setRef<T extends HTMLElement>(ref: React.Ref<T>, element: T | null) {
+  if (element === null) return
   if (typeof ref === 'function') ref(element)
   else if (ref && 'current' in ref) ref.current = element
 }
