@@ -71,8 +71,10 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     "httpx>=0.28.1",
-    "ruff>=0.16.0",
-    "mypy>=1.20.0",
+    # 2026-09-10 钉版本:CI 用 uv pip install -e ".[dev]" 不走 uv.lock,不钉会解析到
+    # 更新版本导致 lint 行为漂移(本地绿 CI 红的 I001 排序差异即此根因)
+    "ruff==0.16.6",
+    "mypy==2.3.1",
     # 2026-07-24 立:Redis 持久化测试用 fakeredis 隔离(不依赖真实 Redis)
     "fakeredis>=2.37.0",
 ]
