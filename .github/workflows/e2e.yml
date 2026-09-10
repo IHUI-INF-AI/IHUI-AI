@@ -97,7 +97,10 @@ jobs:
 
       - name: Seed E2E 测试用户(test@aizhs.top)
         env:
+          NODE_ENV: test
           DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+          JWT_SECRET: test-jwt-secret-for-e2e
+          CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
         run: pnpm --filter @ihui/api run seed:test-users
 
       - name: Build API

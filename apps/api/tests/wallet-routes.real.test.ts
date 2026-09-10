@@ -258,7 +258,7 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
     })
     expect(res.statusCode).toBe(400)
     const body = res.json()
-    expect(body.message).toBe('可用余额不足')
+    expect(body.message).toBe('可提现余额不足')
   })
 
   it('POST /api/wallet/withdraw — 冻结余额影响可用余额', async () => {

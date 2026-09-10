@@ -246,68 +246,71 @@
 /* 2026-07-25 用户反馈:工作展示区(WebWorkPanel)内嵌 iframe + 截图模式 + 工具栏下拉
    的滚动条全部彻底隐藏,鼠标滚轮/触摸板足够。
    - scrolling="no" 配合 overflow:hidden 在大部分现代浏览器已能彻底隐藏
-   - 这里用 !important 提升优先级,确保覆盖 Tailwind v4 的 overflow-y-auto utility
+   - 覆盖 Tailwind v4 的 overflow-y-auto utility:无需 !important —— Tailwind v4 的 utility
+     位于 @layer utilities,而本文件这些规则未被 @layer 包裹,按 CSS 级联规范 unlayered
+     总是胜过任何 layer 内的同名声明(2026-09-10 去掉 !important,同文件 Checkbox 一处
+     已有同结论的实践先例)。
    - 同时覆盖 Firefox(scrollbar-width:none)+ IE/Edge 老(-ms-overflow-style:none)
    - HMR touch trigger: 2026-07-25 22:44 → 23:35 加强版 → 23:50 终极加强版(全局 * 选择器) */
 .no-scrollbar {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 .no-scrollbar::-webkit-scrollbar {
-  width: 0 !important;
-  height: 0 !important;
-  display: none !important;
+  width: 0;
+  height: 0;
+  display: none;
 }
 /* WebWorkPanel 内容区(被加 .work-panel-content 容器的 div 滚动条)直接干掉 */
 .work-panel-content {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-  overflow: hidden !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overflow: hidden;
 }
 .work-panel-content::-webkit-scrollbar {
-  width: 0 !important;
-  height: 0 !important;
-  display: none !important;
+  width: 0;
+  height: 0;
+  display: none;
 }
 iframe {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-  overflow: hidden !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overflow: hidden;
 }
 iframe::-webkit-scrollbar {
-  width: 0 !important;
-  height: 0 !important;
-  display: none !important;
+  width: 0;
+  height: 0;
+  display: none;
 }
 /* iframe 内容区滚动条:用 wrapper div 包裹 + overflow:hidden,
    即使 iframe 内部文档有滚动条,也被外层裁掉。
    注意:这不会阻止 iframe 内部内容响应鼠标滚轮 — wheel 事件仍冒泡到外层 */
 .work-panel-content iframe {
-  display: block !important;
-  overflow: hidden !important;
+  display: block;
+  overflow: hidden;
 }
 /* 截图模式外层(.screenshot-scroll)与全局规则共用 */
 .screenshot-scroll {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 .screenshot-scroll::-webkit-scrollbar {
-  width: 0 !important;
-  height: 0 !important;
-  display: none !important;
+  width: 0;
+  height: 0;
+  display: none;
 }
 /* 2026-07-25 23:50 终极加强:用属性选择器匹配所有可能是 work-panel 内部子元素的容器,
    强制干掉滚动条,鼠标滚轮/触摸板驱动外层 / iframe 内部滚动
    - 覆盖 [class*="overflow-y-auto"] / [class*="overflow-auto"] 残留 utility
    - 覆盖 Tailwind v4 hover-scroll(已隐藏但兜底) */
 [class*='border-l'][class*='bg-card'] * {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 [class*='border-l'][class*='bg-card'] *::-webkit-scrollbar {
-  width: 0 !important;
-  height: 0 !important;
-  display: none !important;
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 /* ============================================================
@@ -526,7 +529,11 @@ iframe::-webkit-scrollbar {
   outline-offset: -2px;
 }
 
-/* 减少动画偏好:尊重系统设置 */
+/* 减少动画偏好:尊重系统设置。
+   注:此处是本文件唯一允许保留 !important 的位置 —— 选择器为 `*`(特异度 0),
+   必须用 !important 才能压过未被 @layer 包裹的动画类(如 .animate-* 的 animation-duration),
+   否则「减少动画」偏好会失效,属真实无障碍回归。CI 检查器已将此块列为豁免。
+   参考:WCAG 2.3.3 / MDN prefers-reduced-motion 推荐写法。 */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -740,9 +747,9 @@ iframe::-webkit-scrollbar {
 }
 @media (min-width: 768px) and (max-width: 1023px) {
   aside[data-viewport-collapsed='true'] {
-    width: 60px !important;
-    min-width: 60px !important;
-    max-width: 60px !important;
+    width: 60px;
+    min-width: 60px;
+    max-width: 60px;
   }
   /* 2026-09-09 修复(收回态按钮重叠/闪烁):
      SSR 输出展开态 HTML(footer 横排 + 展开 header),hydration 后 React 才切折叠态。
@@ -752,14 +759,14 @@ iframe::-webkit-scrollbar {
      1. footer 工具栏(.sidebar-actions)强制竖排 + 水平居中
      2. 展开态长 logo([data-sidebar-logo])隐藏,header([data-sidebar-header-expanded])居中 */
   aside[data-viewport-collapsed='true'] .sidebar-actions {
-    flex-direction: column !important;
-    align-items: center !important;
+    flex-direction: column;
+    align-items: center;
   }
   aside[data-viewport-collapsed='true'] [data-sidebar-logo] {
     display: none;
   }
   aside[data-viewport-collapsed='true'] [data-sidebar-header-expanded] {
-    justify-content: center !important;
+    justify-content: center;
   }
 
   /* 隐藏导航项文字 span(只显示图标),覆盖 collapsed=false 时的展开态文字 */
@@ -770,10 +777,10 @@ iframe::-webkit-scrollbar {
   /* 折叠态导航项强制居中 + 正方形(覆盖展开态的 w-full + flex-row) */
   aside[data-viewport-collapsed='true'] nav a,
   aside[data-viewport-collapsed='true'] nav button {
-    justify-content: center !important;
-    width: 2.25rem !important; /* 36px = w-9,与 NAV_ITEM_COLLAPSED_CLASS 一致 */
-    margin-left: auto !important;
-    margin-right: auto !important;
+    justify-content: center;
+    width: 2.25rem; /* 36px = w-9,与 NAV_ITEM_COLLAPSED_CLASS 一致 */
+    margin-left: auto;
+    margin-right: auto;
   }
 }
 
@@ -1071,24 +1078,24 @@ body [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-content
 html,
 body {
   height: 100%;
-  overflow: hidden !important;
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  overflow: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
-  width: 0 !important;
-  height: 0 !important;
-  display: none !important;
+  width: 0;
+  height: 0;
+  display: none;
 }
 * {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 *::-webkit-scrollbar {
-  width: 0 !important;
-  height: 0 !important;
-  display: none !important;
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 /* button 默认 outline 全局重置(2026-07-30 立,根治"按钮点击后取消时/弹窗 autofocus 时出现明显描边"bug)

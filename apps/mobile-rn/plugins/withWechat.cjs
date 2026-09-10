@@ -168,7 +168,10 @@ public class WXPayEntryActivity extends android.app.Activity {
 }
 
 /** Android:AndroidManifest.xml 声明 WXEntryActivity / WXPayEntryActivity */
-function withWechatAndroidManifest(config, { androidPackage }) {
+// 2026-09-10 修复:函数体在 intent-filter 的 data scheme 里引用 appId,但签名原只解构
+// androidPackage → prebuild 抛 `ReferenceError: appId is not defined`
+// (withAndroidManifestBaseMod: appId is not defined),Android 构建必挂。
+function withWechatAndroidManifest(config, { appId, androidPackage }) {
   return withAndroidManifest(config, (mod) => {
     const manifest = mod.modResults
     const application = manifest.manifest.application[0]
@@ -232,7 +235,7 @@ module.exports = function withWechat(config, props) {
   if (!androidPackage) throw new Error('[withWechat] 缺少 androidPackage(android.package)')
   config = withWechatInfoPlist(config, { appId })
   config = withWechatAppDelegate(config)
-  config = withWechatAndroidManifest(config, { androidPackage })
+  config = withWechatAndroidManifest(config, { appId, androidPackage })
   config = withWechatAndroidJava(config, { androidPackage })
   return config
 }
