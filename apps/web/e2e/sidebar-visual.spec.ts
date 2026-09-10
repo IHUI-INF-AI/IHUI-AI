@@ -321,9 +321,10 @@ test.describe('Sidebar 折叠态尺寸守门', () => {
         // 避免同一按钮重复计入 count 与断言
         if (el === newChatBtn) continue
         const ariaLabel = el.getAttribute('aria-label') || ''
-        // 排除底部工具栏(语言/下载/消息/主题)和用户头像
+        // 排除底部工具栏(语言/下载/消息/主题/设置)和用户头像
         if (excludeLabels.some((l) => ariaLabel.includes(l))) continue
-        // 排除底部 SidebarActions 区的按钮(它们有 h-[26px] w-[26px])
+        // 排除底部 SidebarActions 区的按钮(它们是 h-7 w-7 即 28×28 图标按钮,
+        // 2026-08-07 起尺寸从 26px 升级为 28px,与侧边栏其他图标按钮视觉统一)
         if (ariaLabel.includes('语言') || ariaLabel.includes('Language')) continue
         if (ariaLabel.includes('下载') || ariaLabel.includes('Download')) continue
         if (ariaLabel.includes('消息') || ariaLabel.includes('Messages')) continue
@@ -703,6 +704,208 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
       hd.btnInsideRowRight,
       `hover 时 avatar 右侧应 > 10px(右侧还有 span + gap + padding),实际 ${hd.btnInsideRowRight}`,
     ).toBeGreaterThan(10)
+  })
+})
+
+/**
+ * Sidebar 折叠/展开布局方向守门测试 (2026-09-09 立)
+ *
+ * 防护近期折叠态布局修复的回归:
+ *   - 折叠态(60px 条)底部工具栏必须是竖排 flex-col(旧 flex-row flex-nowrap 横排
+ *     挤压是"按钮互相重叠"根因,5×28+4×2=148px > 59px 内容区)
+ *   - 折叠态 header 拉出按钮不得与 footer 按钮重叠(SSR 展开 HTML 被 CSS 压进
+ *     60px 条时,长 logo 与折叠按钮曾重叠)
+ *   - 桌面展开态工具栏为横排单行(防止"展开时先竖排再变横排"闪烁回归)
+ *   - 移动抽屉恒展开布局(2026-09-09 修复折叠偏好泄漏:桌面折叠过的用户
+ *     打开手机抽屉不应看到折叠态图标条)
+ *
+ * 定位说明:按钮 aria-label 走 i18n(随语言变),故用结构选择器 .sidebar-actions;
+ * 移动抽屉触发按钮用其唯一 lucide 图标 svg.lucide-panel-left-open 定位。
+ */
+test.describe('Sidebar 折叠/展开布局方向守门', () => {
+  test.describe.configure({ retries: 1 })
+
+  test('平板视口(768-1023px)折叠态:footer 竖排 + 5 按钮在 60px 界内 + 无互相重叠', async ({
+    authenticatedPage,
+  }) => {
+    // 平板区间:不注入 localStorage 偏好,验证的是"视口强制折叠"本身
+    await authenticatedPage.setViewportSize({ width: 900, height: 800 })
+    await authenticatedPage.addInitScript(() => {
+      localStorage.removeItem('sidebar-collapsed')
+    })
+    await authenticatedPage.goto('/')
+    await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
+    // 等 React hydration + isTabletViewport layout effect 切折叠态
+    await authenticatedPage.waitForTimeout(500)
+
+    const data = await authenticatedPage.evaluate(() => {
+      const aside = document.querySelector('aside')
+      const actions = aside?.querySelector('.sidebar-actions')
+      if (!aside || !actions) return { error: 'no aside or .sidebar-actions' }
+      const asideRect = aside.getBoundingClientRect()
+      const btns = Array.from(actions.querySelectorAll('button')).map((b) => {
+        const r = (b as HTMLElement).getBoundingClientRect()
+        return { x: r.x, y: r.y, w: r.width, h: r.height }
+      })
+      return {
+        asideWidth: Math.round(asideRect.width),
+        asideX: asideRect.x,
+        asideRight: asideRect.x + asideRect.width,
+        flexDirection: getComputedStyle(actions).flexDirection,
+        btnCount: btns.length,
+        btns,
+      }
+    })
+
+    expect(data, `应能读取折叠态几何: ${JSON.stringify(data)}`).not.toHaveProperty('error')
+    const d = data as Exclude<typeof data, { error: string }>
+
+    // 1. 平板区间视口强制折叠:aside 60px
+    expect(d.asideWidth, `平板视口 aside 应为 60px,实际 ${d.asideWidth}`).toBe(60)
+
+    // 2. footer 竖排(flex-col;hydration 后 React 折叠分支 + CSS 兜底均为 column)
+    expect(d.flexDirection, `.sidebar-actions 应为 column(竖排),实际 ${d.flexDirection}`).toBe(
+      'column',
+    )
+
+    // 3. 5 个工具按钮(语言/下载客户端/站内消息/深色/设置)
+    expect(d.btnCount, `工具栏按钮数应为 5,实际 ${d.btnCount}`).toBe(5)
+
+    // 4. 每个按钮完整落在 aside 60px 横向边界内(允许 1px border 误差)——
+    //    横排挤压重叠回归时按钮会互相叠且可能溢出
+    for (const [i, b] of d.btns.entries()) {
+      expect(b.x, `按钮${i} 左边界应 ≥ aside 左边界`).toBeGreaterThanOrEqual(d.asideX - 1)
+      expect(
+        b.x + b.w,
+        `按钮${i} 右边界(${b.x + b.w})应 ≤ aside 右边界(${d.asideRight}+1)`,
+      ).toBeLessThanOrEqual(d.asideRight + 1)
+      expect(b.w, `按钮${i} 宽度应为 28px(h-7),实际 ${b.w}`).toBeCloseTo(28, 0)
+    }
+
+    // 5. 竖排相邻按钮垂直不重叠(按 y 排序后,前一个底部 ≤ 后一个顶部)
+    const sorted = [...d.btns].sort((a, b) => a.y - b.y)
+    for (let i = 1; i < sorted.length; i++) {
+      const prevBottom = sorted[i - 1]!.y + sorted[i - 1]!.h
+      expect(
+        sorted[i]!.y,
+        `按钮${i} 顶部(${sorted[i]!.y})应 ≥ 前一按钮底部(${prevBottom}),竖排不得重叠`,
+      ).toBeGreaterThanOrEqual(prevBottom - 0.5)
+    }
+  })
+
+  test('平板视口折叠态:header 拉出按钮与 footer 按钮无重叠', async ({ authenticatedPage }) => {
+    await authenticatedPage.setViewportSize({ width: 900, height: 800 })
+    await authenticatedPage.goto('/')
+    await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
+    await authenticatedPage.waitForTimeout(500)
+
+    // header 拉出(展开)按钮:aria-label 正则,与现有 collapse 按钮测试同源
+    // (2026-08-29 修:自定义 PanelLeftRounded 无 lucide 类名,只能走 getByLabel)
+    const expandBtn = authenticatedPage
+      .locator('aside#main-sidebar')
+      .getByLabel(/^(收起|展开|Collapse|Expand)$/i)
+      .first()
+    await expect(expandBtn).toBeVisible()
+    const expandBox = await expandBtn.boundingBox()
+    expect(expandBox).not.toBeNull()
+
+    // 与 footer 每个按钮断言零相交(矩形面积 = 0)
+    const footerBoxes = await authenticatedPage.evaluate(() => {
+      const actions = document.querySelector('aside .sidebar-actions')
+      if (!actions) return { error: 'no .sidebar-actions' }
+      return {
+        boxes: Array.from(actions.querySelectorAll('button')).map((b) => {
+          const r = (b as HTMLElement).getBoundingClientRect()
+          return { x: r.x, y: r.y, w: r.width, h: r.height }
+        }),
+      }
+    })
+    expect(footerBoxes, '应能读取 footer 按钮几何').not.toHaveProperty('error')
+
+    const eb = expandBox!
+    for (const [i, f] of (
+      footerBoxes as { boxes: Array<{ x: number; y: number; w: number; h: number }> }
+    ).boxes.entries()) {
+      const overlapX = Math.min(eb.x + eb.width, f.x + f.w) - Math.max(eb.x, f.x)
+      const overlapY = Math.min(eb.y + eb.height, f.y + f.h) - Math.max(eb.y, f.y)
+      const overlapArea = Math.max(0, overlapX) * Math.max(0, overlapY)
+      expect(overlapArea, `拉出按钮与 footer 按钮${i} 相交面积应为 0,实际 ${overlapArea}px²`).toBe(
+        0,
+      )
+    }
+  })
+
+  test('桌面视口(≥1024px)展开态:footer 横排单行', async ({ authenticatedPage }) => {
+    await authenticatedPage.setViewportSize({ width: 1280, height: 800 })
+    await authenticatedPage.addInitScript(() => {
+      localStorage.setItem('sidebar-collapsed', 'false')
+    })
+    await authenticatedPage.goto('/')
+    await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
+    await authenticatedPage.waitForTimeout(500)
+
+    const data = await authenticatedPage.evaluate(() => {
+      const actions = document.querySelector('aside .sidebar-actions')
+      if (!actions) return { error: 'no .sidebar-actions' }
+      const btns = Array.from(actions.querySelectorAll('button')).map((b) => {
+        const r = (b as HTMLElement).getBoundingClientRect()
+        return { y: r.y + r.height / 2 }
+      })
+      return {
+        flexDirection: getComputedStyle(actions).flexDirection,
+        btnCount: btns.length,
+        btns,
+      }
+    })
+
+    expect(data, '应能读取展开态几何').not.toHaveProperty('error')
+    const d = data as Exclude<typeof data, { error: string }>
+
+    // 展开态横排(flex-row):防止"先竖排再变横排"闪烁回归固化成常驻竖排
+    expect(d.flexDirection, `展开态应为 row,实际 ${d.flexDirection}`).toBe('row')
+    expect(d.btnCount, `工具栏按钮数应为 5,实际 ${d.btnCount}`).toBe(5)
+
+    // 单行:5 按钮垂直中心一致(±1px)
+    const midYs = d.btns.map((b) => b.y)
+    const firstMid = midYs[0]!
+    for (const [i, mid] of midYs.entries()) {
+      expect(
+        Math.abs(mid - firstMid),
+        `按钮${i} 垂直中心(${mid})应与首按钮(${firstMid})一致(单行)`,
+      ).toBeLessThanOrEqual(1)
+    }
+  })
+
+  test('移动视口(<768px):折叠偏好 true 时抽屉仍恒展开布局', async ({ authenticatedPage }) => {
+    await authenticatedPage.setViewportSize({ width: 375, height: 667 })
+    // 注入桌面折叠偏好(2026-09-09 修复的泄漏场景:旧实现会把它传给抽屉)
+    await authenticatedPage.addInitScript(() => {
+      localStorage.setItem('sidebar-collapsed', 'true')
+    })
+    await authenticatedPage.goto('/')
+
+    // 顶栏汉堡按钮(min-[768px]:hidden,只在 <768px 可见)——
+    // 图标 PanelLeftOpen 为页面唯一 lucide-panel-left-open,作稳定定位器
+    const menuBtn = authenticatedPage.locator('button:has(svg.lucide-panel-left-open)').first()
+    await expect(menuBtn).toBeVisible({ timeout: 15000 })
+    await menuBtn.click()
+
+    // 抽屉是带 role="dialog" 的 aside
+    const drawer = authenticatedPage.locator('aside[role="dialog"]')
+    await expect(drawer).toBeVisible({ timeout: 10000 })
+    await authenticatedPage.waitForTimeout(300)
+
+    // 抽屉内 footer 必须是横排(恒 collapsed={false}),不受桌面折叠偏好影响
+    const drawerActionsDir = await authenticatedPage.evaluate(() => {
+      const drawer = document.querySelector('aside[role="dialog"]')
+      const actions = drawer?.querySelector('.sidebar-actions')
+      if (!actions) return null
+      return getComputedStyle(actions).flexDirection
+    })
+    expect(drawerActionsDir, '抽屉内 .sidebar-actions 应存在').not.toBeNull()
+    expect(drawerActionsDir, `抽屉 footer 应为 row(抽屉恒展开布局),实际 ${drawerActionsDir}`).toBe(
+      'row',
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
