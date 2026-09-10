@@ -202,12 +202,12 @@ export default function PlazaIndex() {
   }, [])
 
   const onSetNeed = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/plaza/set-need/index' })
+    Taro.navigateTo({ url: '/pkg-content/plaza/set-need/index' })
   }, [])
 
   const onOpenDetail = useCallback((id: string | number) => {
     setShowCenter(false)
-    Taro.navigateTo({ url: `/pages/plaza/detail/index?id=${id}` })
+    Taro.navigateTo({ url: `/pkg-content/plaza/detail/index?id=${id}` })
   }, [])
 
   const onIdentityChange = useCallback((key: string) => {

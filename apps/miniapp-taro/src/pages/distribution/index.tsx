@@ -324,7 +324,7 @@ export default function DistributionIndex() {
       <CustomerServiceFloat
         variant="commission"
         commissionAmount={totalCommission}
-        onCommissionClick={() => Taro.navigateTo({ url: '/pages/wallet/commission/index' })}
+        onCommissionClick={() => Taro.navigateTo({ url: '/pkg-shop/wallet/commission/index' })}
         draggable
       />
 

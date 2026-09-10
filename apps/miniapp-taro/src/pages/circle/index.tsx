@@ -145,7 +145,7 @@ export default function CircleIndexPage() {
   }, [])
 
   const goTopic = useCallback((id: string) => {
-    Taro.navigateTo({ url: `/pages/topic/detail?id=${id}` })
+    Taro.navigateTo({ url: `/pkg-content/topic/detail?id=${id}` })
   }, [])
 
   const followUser = useCallback(async (u: RecommendUser) => {

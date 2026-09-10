@@ -202,7 +202,7 @@ export default function VideoDetailPage() {
           onClose={() => setShowPay(false)}
           onPay={() => {
             setShowPay(false)
-            Taro.navigateTo({ url: '/pages/pay/index' })
+            Taro.navigateTo({ url: '/pkg-shop/pay/index' })
           }}
         />
       </View>

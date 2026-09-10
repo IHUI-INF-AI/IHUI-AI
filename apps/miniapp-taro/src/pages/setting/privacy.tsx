@@ -102,7 +102,7 @@ export default function PrivacySettingPage() {
 
   // 跳转隐私政策
   const onPrivacyPolicy = useCallback(() => {
-    Taro.navigateTo({ url: '/pages/about/privacy' })
+    Taro.navigateTo({ url: '/pkg-about/about/privacy' })
   }, [])
 
   const statusText = (s: string) =>
