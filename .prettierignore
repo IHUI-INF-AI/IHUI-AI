@@ -15,3 +15,5 @@ archives/
 .ihui-agent/
 # 自动生成的桌面下载快照(scripts/resolve-desktop-download.mjs 产出,含超长 GitHub URL,跳过格式化)
 apps/web/src/config/desktop-feed.generated.ts
+# loop 自动化运行时日志(循环自写,格式漂移常态,不纳入格式门禁)
+.github/loop-runtime/
