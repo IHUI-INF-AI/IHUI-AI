@@ -7,7 +7,7 @@
  *
  * 背景(2026-07-28 立):
  *   miniapp-taro 端 i18n 历史上多次出现 `tt('key', '...{{n}}...').replace('{{n}}', val)`
- *   反模式,典型案例:apps/miniapp-taro/src/pages/ai/history.tsx:271-274。
+ *   反模式,典型案例:apps/miniapp-taro/src/pkg-ai/ai/history.tsx:271-274(原 src/pages/ai/history.tsx,2026-09-10 主包治理迁入 pkg-ai)。
  *   危险点:next-intl SSR 渲染时会把 `{{n}}` 当 ICU placeholder 走 ICU 通道,
  *   开发者用 `.replace()` 替换后再让 next-intl 解析,会出现 ① 二次替换冲突
  *   ② 英文/日文/韩文版本的 ICU 语法不兼容 ③ 翻译 key 缺失时 fallback 字符串里
@@ -88,14 +88,14 @@ const ICU_KEYS: readonly IcuKey[] = [
   { key: 'ai.historyPage.msgCount', placeholder: 'n' },
 ] as const
 
-// ── 11 处修复后的源文件(用于反模式静态扫)─────────────────────────────────
+// ── 11 处修复后的源文件(用于反模式静态扫;2026-09-10 主包治理后部分页面迁入 pkg-* 分包)───
 const SOURCE_FILES = [
   'src/components/LearningStreak.tsx',
-  'src/pages/model-plaza/index.tsx',
-  'src/pages/pay/index.tsx',
+  'src/pkg-ai/model-plaza/index.tsx',
+  'src/pkg-shop/pay/index.tsx',
   'src/pages/share/index.tsx',
-  'src/pages/wallet/recharge/index.tsx',
-  'src/pages/ai/history.tsx',
+  'src/pkg-shop/wallet/recharge/index.tsx',
+  'src/pkg-ai/ai/history.tsx',
 ] as const
 
 // ── 工具:点分路径取值 ──────────────────────────────────────────────────────
@@ -153,7 +153,7 @@ describe('miniapp-taro · next-intl ICU 反模式回归', () => {
     })
 
     it('ai/history.tsx 第 271 行附近已修复为 t(key, { n: count })', async () => {
-      const abs = join(process.cwd(), 'src/pages/ai/history.tsx')
+      const abs = join(process.cwd(), 'src/pkg-ai/ai/history.tsx')
       const content = await readFile(abs, 'utf-8')
       // 找修复后调用 — 单行 t('ai.historyPage.msgCount', { n: count })
       expect(content).toMatch(
