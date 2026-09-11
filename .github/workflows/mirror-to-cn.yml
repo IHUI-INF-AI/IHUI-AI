@@ -26,9 +26,10 @@ concurrency:
 jobs:
   mirror:
     runs-on: ubuntu-latest
-    # GitCode 步骤的 git lfs push 扫描全量 LFS 对象较慢,20min 超时会把它强杀(job 显示 cancelled
-    # 但 gitee 步已完成)——2026-09-05 根治:超时提到 60min + LFS 扫描限定 main,不再扫全量 tag
-    timeout-minutes: 60
+    # 2026-09-05 根治:超时 20min→60min + LFS 扫描限定 main
+    # 2026-09-11 泄密整改:全历史重写后 force push 需全量重传 ~582MB 对象,
+    # 两次实测 60min 均被强杀(cancelled)——再提到 240min,保证全量镜像可完成
+    timeout-minutes: 240
     steps:
       - name: Checkout（全历史 + LFS）
         uses: actions/checkout@v4
