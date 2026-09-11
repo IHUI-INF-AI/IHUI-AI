@@ -34,7 +34,10 @@ export function useAgentSSE(url: string | null): UseAgentSSEReturn {
         evt.type === 'task_created' ||
         evt.type === 'task_status_changed' ||
         evt.type === 'task_completed' ||
-        evt.type === 'task_failed'
+        evt.type === 'task_failed' ||
+        // 2-2 工作区锁事件:锁徽标(lockedBy/lockedAt)需随流转刷新
+        evt.type === 'workspace_lock_acquired' ||
+        evt.type === 'workspace_lock_released'
       ) {
         queryClient.invalidateQueries({ queryKey: ['agents-kanban'] })
       }
