@@ -7,8 +7,9 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import ThemeRoot from '@/components/ThemeRoot'
+import { aizhsUrl } from '@/constants/icon-urls'
 
-const LICENSE_IMAGE = '/static/images/yyzz.jpg'
+const LICENSE_IMAGE = aizhsUrl('remote-images/yyzz.jpg')
 
 const VALUES = [
   '91440101MA9X0000X1',
