@@ -6636,6 +6636,8 @@
       "empty": "작업이 없습니다",
       "in_progress": "진행 중",
       "lockConflict": "워크스페이스 잠금 충돌",
+      "lockFree": "유휴",
+      "lockStatus": "잠금 상태",
       "locked": "잠김",
       "priority": "우선순위",
       "ready": "준비됨",
