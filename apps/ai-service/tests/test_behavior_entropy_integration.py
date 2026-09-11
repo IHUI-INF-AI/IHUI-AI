@@ -79,9 +79,10 @@ class TestHumanTypeDiversify:
         # 扰动后间隔长度 == 文本长度
         assert len(call_args.args[0]) == 3
 
+    @patch("random.random", return_value=1.0)  # 关闭 1.5% 打错字分支:本用例只测 diversify 降级路径,否则对 "abc" 有 ~3% 概率多出一次 keyboard.type 导致 flaky
     @patch("app.services.publish.anti_risk.behavior_humanizer.get_entropy_analyzer")
     async def test_diversify_failure_falls_back_to_raw_intervals(
-        self, mock_get_analyzer: MagicMock
+        self, mock_get_analyzer: MagicMock, _mock_random: MagicMock
     ):
         """diversify 抛异常时,try/except 降级为原始间隔(不崩溃,继续输入)。"""
         mock_analyzer = MagicMock()
