@@ -6636,6 +6636,8 @@
       "empty": "タスクがありません",
       "in_progress": "進行中",
       "lockConflict": "ワークスペースロック競合",
+      "lockFree": "空き",
+      "lockStatus": "ロック状態",
       "locked": "ロック中",
       "priority": "優先度",
       "ready": "準備完了",
