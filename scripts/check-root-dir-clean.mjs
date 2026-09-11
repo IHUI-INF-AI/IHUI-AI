@@ -68,6 +68,7 @@ const ALLOWED_FILES = new Set([
   'eslint.config.mjs',
   'tsconfig.base.json',
   'knip.jsonc',
+  'knip-baseline.json',
   // 部署配置
   'docker-compose.yml',
   'railway.json',
