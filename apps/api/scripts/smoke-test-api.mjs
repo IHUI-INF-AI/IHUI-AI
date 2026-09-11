@@ -45,11 +45,18 @@ console.log('═'.repeat(60))
 console.log(' API 端到端烟测')
 console.log('═'.repeat(60))
 
+// admin 密码不入仓库:通过环境变量注入(SMOKE_ADMIN_PASSWORD)
+const ADMIN_PASSWORD = process.env.SMOKE_ADMIN_PASSWORD
+if (!ADMIN_PASSWORD) {
+  console.error('✗ 缺少环境变量 SMOKE_ADMIN_PASSWORD,拒绝执行')
+  process.exit(1)
+}
+
 try {
   const h = await req('GET', '/api/health')
   log('GET /api/health', h)
 
-  const login = await req('POST', '/api/auth/login', { account: 'admin', password: '[REDACTED-PW]' })
+  const login = await req('POST', '/api/auth/login', { account: 'admin', password: ADMIN_PASSWORD })
   log('POST /api/auth/login (admin)', login)
   if (login.status !== 200) {
     console.log('登录失败,终止')
