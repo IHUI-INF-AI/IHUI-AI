@@ -339,6 +339,7 @@ def _map_hook_event_to_sse(event: str) -> str:
         "tool.before": "tool_call",
         "tool.after": "tool_result",
         "tool.approval": "tool-approval",  # 2026-08-30:高危工具审批请求(前端弹窗订阅)
+        "self_heal": "self-heal",  # 2-3(2026-09-12):自愈触发/完成事件
         "error": "error",
         "message.receive": "message",
     }.get(event, event)
@@ -357,7 +358,7 @@ async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingRe
         from ..services.hook_engine import hook_engine
 
         subs: dict[str, asyncio.Queue[Any]] = {}
-        for evt in ("session.start", "tool.before", "tool.after", "error", "tool.approval"):
+        for evt in ("session.start", "tool.before", "tool.after", "error", "tool.approval", "self_heal"):
             subs[evt] = hook_engine.subscribe(evt)
         try:
             # 心跳保活(30s) + 事件转发
@@ -409,7 +410,7 @@ async def stream_agent_logs(request: Request, agent_id: str) -> StreamingRespons
         from ..services.hook_engine import hook_engine
 
         subs: dict[str, asyncio.Queue[Any]] = {}
-        for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive", "tool.approval"):
+        for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive", "tool.approval", "self_heal"):
             subs[evt] = hook_engine.subscribe(evt)
         try:
             last_beat = asyncio.get_running_loop().time()
@@ -493,6 +494,17 @@ def _map_hook_event_to_log_entry(event: str, payload: dict[str, Any]) -> dict[st
     elif event == "message.receive":
         content = f"回复完成(content_length={payload.get('content_length', '')})"
         success = True
+    elif event == "self_heal":
+        # 2-3(2026-09-12):自愈触发/完成(heal 引擎内联集成事件)
+        if payload.get("phase") == "started":
+            content = f"self-heal 触发: {str(payload.get('command', ''))[:120]}"
+            success = None
+        else:
+            content = (
+                f"self-heal 完成(ok={payload.get('ok')}, "
+                f"attempts={payload.get('attempts')})"
+            )
+            success = bool(payload.get("ok"))
     elif event == "error":
         content = f"error[{payload.get('error_type', 'unknown')}]: {str(payload.get('message', payload.get('error', '')))[:300]}"
         success = False
@@ -668,7 +680,7 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                 )
                 # 订阅事件 → SSE(只转发本 session 的 tool/error/session 事件)
                 subs: dict[str, asyncio.Queue[Any]] = {}
-                for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive", "tool.approval"):
+                for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive", "tool.approval", "self_heal"):
                     subs[evt] = hook_engine.subscribe(evt)
                 try:
                     # L5-10 打磨(2026-08-12):run() 与事件转发并发——
