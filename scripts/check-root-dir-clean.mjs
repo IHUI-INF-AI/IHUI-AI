@@ -68,6 +68,8 @@ const ALLOWED_FILES = new Set([
   'eslint.config.mjs',
   'tsconfig.base.json',
   'knip.jsonc',
+  // 2026-09-11 补登记:Knip 棘轮基线(4849fd076e4 已入库跟踪的 CI 配套产物)
+  'knip-baseline.json',
   // 部署配置
   'docker-compose.yml',
   'railway.json',
