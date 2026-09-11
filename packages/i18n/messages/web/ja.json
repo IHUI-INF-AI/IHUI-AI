@@ -122,7 +122,20 @@
   },
   "shortcutHelp": {
     "title": "キーボードショートカット",
-    "closeHint": "Esc またはオーバーレイをクリックして閉じる"
+    "closeHint": "Esc またはオーバーレイをクリックして閉じる",
+    "desc": {
+      "ctrlK": "コマンドパレット / インライン編集",
+      "ctrlP": "検索",
+      "ctrlShiftN": "新しいチャット",
+      "ctrlSlash": "ショートカットヘルプ",
+      "ctrlShiftD": "ショートドラマエディター",
+      "ctrlShiftP": "コマンドパレット(ビュー切替)",
+      "ctrlComma": "設定を開く",
+      "ctrl1": "ビルドモードへ切替",
+      "ctrl2": "プランモードへ切替",
+      "ctrl3": "レビューモードへ切替",
+      "ctrl4": "スペックモードへ切替"
+    }
   },
   "teamMemory": {
     "title": "チーム共有メモリ",
@@ -6452,6 +6465,7 @@
     "fieldWorkspace": "ワークスペース",
     "free": "無料",
     "kanban": {
+      "allTeams": "すべてのタスク",
       "cancel": "キャンセル",
       "connected": "接続済み",
       "disconnected": "切断済み",
@@ -6459,7 +6473,10 @@
       "low": "低",
       "medium": "中",
       "newTask": "新規タスク",
-      "priority": "優先度"
+      "noTeam": "チーム未設定",
+      "priority": "優先度",
+      "team": "チーム",
+      "workspace": "ワークスペース"
     },
     "loading": "読み込み中...",
     "marketSubtitle": "なエージェントをつけて",
@@ -6608,18 +6625,30 @@
   },
   "agents": {
     "kanban": {
+      "blocked": "ブロック",
       "cancel": "キャンセル",
       "confirm": "確認",
       "created": "作成済み",
       "delete": "削除",
       "dependencies": "依存関係",
+      "done": "完了",
       "duration": "所要時間",
       "empty": "タスクがありません",
+      "in_progress": "進行中",
+      "lockConflict": "ワークスペースロック競合",
+      "locked": "ロック中",
       "priority": "優先度",
+      "ready": "準備完了",
       "reason": "理由",
       "reasonRequired": "理由を入力してください",
+      "todo": "未着手",
       "transition": "遷移",
-      "worker": "ワーカー"
+      "triage": "トリアージ",
+      "worker": "ワーカー",
+      "workspace": "ワークスペース",
+      "low": "低",
+      "medium": "中",
+      "high": "高"
     }
   },
   "agentsCategoriesPage": {
