@@ -6636,6 +6636,8 @@
       "empty": "No tasks",
       "in_progress": "In Progress",
       "lockConflict": "Workspace lock conflict",
+      "lockFree": "Free",
+      "lockStatus": "Lock status",
       "locked": "Locked",
       "priority": "Priority",
       "ready": "Ready",
