@@ -16,7 +16,7 @@
  * 用法:
  *   ihui login                         # 交互式询问 account + password
  *   ihui login -a admin                 # 命令行指定账号,只问密码
- *   ihui login -a admin -p [REDACTED-PW]     # 全自动(CI/脚本友好,密码会暴露在进程列表)
+ *   ihui login -a admin -p admin123     # 全自动(CI/脚本友好,密码会暴露在进程列表)
  *   ihui login --sso                    # SSO 一键授权(打开浏览器,无需输密码)
  *   ihui login --check                  # 检查当前 token 是否有效
  *   ihui login --logout                 # 清除本地 token
@@ -333,7 +333,7 @@ interface CliLoginOptions {
  * 用法:
  *   ihui login                         # 交互式
  *   ihui login -a admin                # 命令行指定账号
- *   ihui login -a admin -p [REDACTED-PW]    # 全自动
+ *   ihui login -a admin -p admin123    # 全自动
  *   ihui login --sso                    # SSO 一键授权(打开浏览器)
  *   ihui login --check                 # 检查 token
  *   ihui login --logout                # 清除 token

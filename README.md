@@ -147,7 +147,7 @@
 
 <p align="center">
   <strong>邮箱</strong> · <a href="mailto:[REDACTED-EMAIL]">[REDACTED-EMAIL]</a><br/>
-  <strong>微信客服</strong> · <code>ok502319984</code> &nbsp;|&nbsp; <strong>电话</strong> · <code>[REDACTED-PHONE]</code><br/>
+  <strong>微信客服</strong> · <code>ok502319984</code> &nbsp;|&nbsp; <strong>电话</strong> · <code>18643389808</code><br/>
   <strong>官网</strong> · <a href="https://github.com/AIZHS2025">https://github.com/AIZHS2025</a>
 </p>
 
@@ -3731,7 +3731,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | **公司全称** | 吉林省爱智汇人工智能科技有限公司                       |
 | **品牌名**   | 智汇 AI 集团                                           |
 | **公司地址** | 吉林省长春市高新区越达路 107 号 · 人工智能人才孵化基地 |
-| **联系电话** | [REDACTED-PHONE]                                            |
+| **联系电话** | 18643389808                                            |
 | **邮箱**     | [REDACTED-EMAIL]                                       |
 | **微信客服** | ok502319984(微信搜索添加)                              |
 | **ICP 备案** | 吉ICP备2025027274号                                    |
