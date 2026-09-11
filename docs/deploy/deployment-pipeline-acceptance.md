@@ -74,7 +74,7 @@ NSSM 服务全 Running:`IHUI-WEB / IHUI-API / IHUI-AI-SERVICE` 等 18 个服务,
 
 ## 7. 安全与规范
 
-- 部署脚本内健康探测: web 首页、api health、LLM 网关(仅 Bearer 探活,不改数据,admin/[REDACTED-PW] 仅本机风控探测凭据)。
+- 部署脚本内健康探测: web 首页、api health、LLM 网关(仅 Bearer 探活,不改数据,admin/admin123 仅本机风控探测凭据)。
 - 门禁覆盖 LLM 网关真实鉴权,回滚失败亦上报(避免静默失联)。
 - 部署过程不触碰 `.git` 之外的未提交改动(`git pull --ff-only`),fast-forward-only。
 - 静态/CDN 与 build 产物目录已 gitignore。

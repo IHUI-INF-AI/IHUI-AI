@@ -34,7 +34,7 @@ test.describe('分享功能验证', () => {
     console.log('[Step 1] API 登录...')
     const httpReq = await request.newContext()
     const loginResp = await httpReq.post(`${API_URL}/api/auth/login`, {
-      data: { account: 'admin', password: '[REDACTED-PW]' },
+      data: { account: 'admin', password: 'admin123' },
     })
     expect(loginResp.ok()).toBe(true)
     const loginBody = await loginResp.json()

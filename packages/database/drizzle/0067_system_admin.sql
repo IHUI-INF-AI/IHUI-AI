@@ -34,7 +34,7 @@ BEGIN
 END$$;
 
 -- 2) 写入 system admin(若已存在则更新密码哈希并强制 is_system_admin=true)
---    初始密码 "[REDACTED-PW]" bcrypt cost=10 的哈希(由外部生成,见 apps/api/scripts/seed-system-admin.mjs)
+--    初始密码 "admin123" bcrypt cost=10 的哈希(由外部生成,见 apps/api/scripts/seed-system-admin.mjs)
 --    ⚠️ 该默认密码仅限本地开发/CI;生产环境严禁使用,部署后必须立即重置
 --    哈希: $2a$10$ptHqzPRDOrIh/ryWlw7vS.zxDA4nZ4AVvgUgw6AmVSKJUpwSnSXmK
 DO $$

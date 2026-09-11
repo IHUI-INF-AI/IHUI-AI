@@ -123,7 +123,7 @@ docker compose logs -f web api ai-service
 
 # 5. 访问
 open http://localhost:8801
-# 默认管理员:admin / [REDACTED-PW](首次登录强制改密)`}</code>
+# 默认管理员:admin / admin123(首次登录强制改密)`}</code>
           </pre>
 
           <div className="rounded-lg border bg-background p-3 text-sm">
