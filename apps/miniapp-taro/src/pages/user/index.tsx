@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, Image, Slider, CoverView } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
@@ -33,12 +34,12 @@ import UserCard from './components/UserCard'
 import aiIconLocal from '@/assets/remote-images/ai-icon.svg'
 import courseIconLocal from '@/assets/remote-images/course-icon.svg'
 import vipActIconLocal from '@/assets/remote-images/user-vip-act.svg'
-import dingdanIcon from '@/assets/remote/images/dingdan.jpg'
-import gerenIcon from '@/assets/remote/images/geren-icon.png'
-import shezhiIcon from '@/assets/remote/images/shezhi.png'
-import gonggaoIcon from '@/assets/remote/images/gonggao.png'
-import downloadIcon from '@/assets/remote/images/download.png'
-import yejiaoIcon from '@/assets/remote/images/yejiao.png'
+const dingdanIcon = aizhsUrl('remote-images/dingdan.jpg')
+const gerenIcon = aizhsUrl('remote-images/geren-icon.png')
+const shezhiIcon = aizhsUrl('remote-images/shezhi.png')
+const gonggaoIcon = aizhsUrl('remote-images/gonggao.png')
+const downloadIcon = aizhsUrl('remote-images/download.png')
+const yejiaoIcon = aizhsUrl('remote-images/yejiao.png')
 import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
@@ -680,7 +681,11 @@ export default function UserIndex() {
 
   // 对齐原项目 onShareAppMessage:用 getShareInfo 注入 inviteCode(从 storage 读取)
   useShareAppMessage(() =>
-    getShareInfo('/pages/index/index', t('share.appTitle'), '/static/images/share_zhz.png'),
+    getShareInfo(
+      '/pages/index/index',
+      t('share.appTitle'),
+      aizhsUrl('remote-images/share_zhz.png'),
+    ),
   )
   useShareTimeline(() => ({
     title: t('share.timelineTitle'),
