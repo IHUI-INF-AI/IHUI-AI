@@ -2,23 +2,23 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, t } from '@/i18n'
 import { useState } from 'react'
 import { View, Text, Input, Switch, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ModelConfigType } from '@ihui/types'
-import { aizhsUrl } from '@/constants/icon-urls'
 import { Selecter } from './adapters/Selecter.taro'
 import './ModelConfigDialog.css'
 
 // aigc variant 上传按钮图标(对齐原项目 ModelConfigDialog/indexa.vue):
 // icon-album(首帧/尾帧空)/ icon-yinpin(音频空 + 克隆音色行)/ icon-audio-success(音频成功)/
 // icon-kelong(视频空)/ icon-video-success(视频成功)/ model_edit_yes(首帧/尾帧成功)
-import iconAlbumPng from '@/assets/remote/images/icon-album.png'
-import iconYinpinPng from '@/assets/remote/images/icon-yinpin.png'
-import iconAudioSuccessPng from '@/assets/remote/images/icon-audio-success.png'
-import iconKelongPng from '@/assets/remote/images/icon-kelong.png'
-import iconVideoSuccessPng from '@/assets/remote/images/icon-video-success.png'
+const iconAlbumPng = aizhsUrl('remote-images/icon-album.png')
+const iconYinpinPng = aizhsUrl('remote-images/icon-yinpin.png')
+const iconAudioSuccessPng = aizhsUrl('remote-images/icon-audio-success.png')
+const iconKelongPng = aizhsUrl('remote-images/icon-kelong.png')
+const iconVideoSuccessPng = aizhsUrl('remote-images/icon-video-success.png')
 
 // ===== 默认 variant 用:简化版配置 =====
 export interface ModelConfig {
