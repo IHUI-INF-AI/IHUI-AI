@@ -122,7 +122,20 @@
   },
   "shortcutHelp": {
     "title": "鍵盤快速鍵",
-    "closeHint": "按 Esc 或點擊遮罩關閉"
+    "closeHint": "按 Esc 或點擊遮罩關閉",
+    "desc": {
+      "ctrlK": "命令面板 / 行內編輯",
+      "ctrlP": "搜尋",
+      "ctrlShiftN": "新建對話",
+      "ctrlSlash": "快捷鍵說明",
+      "ctrlShiftD": "短劇編輯器",
+      "ctrlShiftP": "命令面板(檢視切換)",
+      "ctrlComma": "開啟設定",
+      "ctrl1": "切換到建置模式",
+      "ctrl2": "切換到計畫模式",
+      "ctrl3": "切換到審查模式",
+      "ctrl4": "切換到規格模式"
+    }
   },
   "teamMemory": {
     "title": "團隊共享記憶",
@@ -6452,6 +6465,7 @@
     "fieldWorkspace": "工作區",
     "free": "免費",
     "kanban": {
+      "allTeams": "全部任務",
       "cancel": "取消",
       "connected": "已連接",
       "disconnected": "已斷開",
@@ -6459,7 +6473,10 @@
       "low": "低",
       "medium": "中",
       "newTask": "新建任務",
-      "priority": "優先級"
+      "noTeam": "不指定團隊",
+      "priority": "優先級",
+      "team": "團隊",
+      "workspace": "工作區"
     },
     "loading": "加載中...",
     "marketSubtitle": "發現和使用優秀的智能體",
@@ -6608,18 +6625,30 @@
   },
   "agents": {
     "kanban": {
+      "blocked": "已封鎖",
       "cancel": "取消",
       "confirm": "確認",
       "created": "已創建",
       "delete": "刪除",
       "dependencies": "依賴",
+      "done": "已完成",
       "duration": "耗時",
       "empty": "暫無任務",
+      "in_progress": "進行中",
+      "lockConflict": "工作區鎖定衝突",
+      "locked": "已鎖定",
       "priority": "優先級",
+      "ready": "已就緒",
       "reason": "原因",
       "reasonRequired": "請輸入原因",
+      "todo": "待辦",
       "transition": "狀態轉換",
-      "worker": "執行者"
+      "triage": "待分類",
+      "worker": "執行者",
+      "workspace": "工作區",
+      "low": "低",
+      "medium": "中",
+      "high": "高"
     }
   },
   "agentsCategoriesPage": {

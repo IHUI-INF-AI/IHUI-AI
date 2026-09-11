@@ -122,7 +122,20 @@
   },
   "shortcutHelp": {
     "title": "Keyboard Shortcuts",
-    "closeHint": "Press Esc or click the overlay to close"
+    "closeHint": "Press Esc or click the overlay to close",
+    "desc": {
+      "ctrlK": "Command palette / inline edit",
+      "ctrlP": "Search",
+      "ctrlShiftN": "New chat",
+      "ctrlSlash": "Shortcut help",
+      "ctrlShiftD": "Drama editor",
+      "ctrlShiftP": "Command palette (view switching)",
+      "ctrlComma": "Open settings",
+      "ctrl1": "Switch to Build mode",
+      "ctrl2": "Switch to Plan mode",
+      "ctrl3": "Switch to Review mode",
+      "ctrl4": "Switch to Spec mode"
+    }
   },
   "teamMemory": {
     "title": "Team Shared Memory",
@@ -6452,6 +6465,7 @@
     "fieldWorkspace": "Workspace",
     "free": "Free",
     "kanban": {
+      "allTeams": "All tasks",
       "cancel": "Cancel",
       "connected": "Connected",
       "disconnected": "Disconnected",
@@ -6459,7 +6473,10 @@
       "low": "Low",
       "medium": "Medium",
       "newTask": "New Task",
-      "priority": "Priority"
+      "noTeam": "No team",
+      "priority": "Priority",
+      "team": "Team",
+      "workspace": "Workspace"
     },
     "loading": "Loading...",
     "marketSubtitle": "Discover and use excellent agents",
@@ -6608,18 +6625,30 @@
   },
   "agents": {
     "kanban": {
+      "blocked": "Blocked",
       "cancel": "Cancel",
       "confirm": "Confirm",
       "created": "Created",
       "delete": "Delete",
       "dependencies": "Dependencies",
+      "done": "Done",
       "duration": "Duration",
       "empty": "No tasks",
+      "in_progress": "In Progress",
+      "lockConflict": "Workspace lock conflict",
+      "locked": "Locked",
       "priority": "Priority",
+      "ready": "Ready",
       "reason": "Reason",
       "reasonRequired": "Please enter a reason",
+      "todo": "To Do",
       "transition": "Transition",
-      "worker": "Worker"
+      "triage": "Triage",
+      "worker": "Worker",
+      "workspace": "Workspace",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
     }
   },
   "agentsCategoriesPage": {

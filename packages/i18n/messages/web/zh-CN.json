@@ -122,7 +122,20 @@
   },
   "shortcutHelp": {
     "title": "键盘快捷键",
-    "closeHint": "按 Esc 或点击遮罩关闭"
+    "closeHint": "按 Esc 或点击遮罩关闭",
+    "desc": {
+      "ctrlK": "命令面板 / 行内编辑",
+      "ctrlP": "搜索",
+      "ctrlShiftN": "新建对话",
+      "ctrlSlash": "快捷键帮助",
+      "ctrlShiftD": "短剧编辑器",
+      "ctrlShiftP": "命令面板(视图切换)",
+      "ctrlComma": "打开设置",
+      "ctrl1": "切换到构建模式",
+      "ctrl2": "切换到计划模式",
+      "ctrl3": "切换到审查模式",
+      "ctrl4": "切换到规格模式"
+    }
   },
   "teamMemory": {
     "title": "团队共享记忆",
@@ -6452,6 +6465,7 @@
     "fieldWorkspace": "工作区",
     "free": "免费",
     "kanban": {
+      "allTeams": "全部任务",
       "cancel": "取消",
       "connected": "已连接",
       "disconnected": "已断开",
@@ -6459,7 +6473,10 @@
       "low": "低",
       "medium": "中",
       "newTask": "新建任务",
-      "priority": "优先级"
+      "noTeam": "不指定团队",
+      "priority": "优先级",
+      "team": "团队",
+      "workspace": "工作区"
     },
     "loading": "加载中...",
     "marketSubtitle": "发现和使用优秀的智能体",
@@ -6608,18 +6625,30 @@
   },
   "agents": {
     "kanban": {
+      "blocked": "阻塞",
       "cancel": "取消",
       "confirm": "确认",
       "created": "已创建",
       "delete": "删除",
       "dependencies": "依赖",
+      "done": "已完成",
       "duration": "耗时",
       "empty": "暂无任务",
+      "in_progress": "进行中",
+      "lockConflict": "工作区锁冲突",
+      "locked": "已锁定",
       "priority": "优先级",
+      "ready": "就绪",
       "reason": "原因",
       "reasonRequired": "请输入原因",
+      "todo": "待办",
       "transition": "状态转换",
-      "worker": "执行者"
+      "triage": "待分类",
+      "worker": "执行者",
+      "workspace": "工作区",
+      "low": "低",
+      "medium": "中",
+      "high": "高"
     }
   },
   "agentsCategoriesPage": {
