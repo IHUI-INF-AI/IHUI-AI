@@ -1325,6 +1325,7 @@ dependencies = [
     { name = "mammoth" },
     { name = "markdown" },
     { name = "mcp" },
+    { name = "merge3" },
     { name = "numpy" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-fastapi" },
@@ -1385,6 +1386,7 @@ requires-dist = [
     { name = "mammoth", specifier = ">=1.12.0" },
     { name = "markdown", specifier = ">=3.10" },
     { name = "mcp", specifier = ">=1.0" },
+    { name = "merge3", specifier = ">=0.0.15" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "==2.3.1" },
     { name = "numpy", specifier = ">=2.4.0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.44.0" },
@@ -1949,6 +1951,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/6a/dd/1c4417dc0b722c23a1669032d5f044e41170fe5d4773b488a50fcce98c32/mcp_types-2.1.1.tar.gz", hash = "sha256:77dcbe48fba73cca71a673f2646a5f037a017b7a0a07ac89cec1113028890eda", size = 66674, upload-time = "2026-08-25T16:14:03.861Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/71/d0/242e63c510f4a17381f55b1549a3f94f5687a0595984febd2b6f87a687a0/mcp_types-2.1.1-py3-none-any.whl", hash = "sha256:26f9f7f03f2a5730717a5b98e2ab7eb640ac352d05a00cdc725c311864778295", size = 69656, upload-time = "2026-08-25T16:14:00.667Z" },
+]
+
+[[package]]
+name = "merge3"
+version = "0.0.16"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/12/71/daaa7978561b9a7bfdcee4ba5ec2ead6162f6a9d2e2edf069def96085c6b/merge3-0.0.16.tar.gz", hash = "sha256:0852de4381cb46be5ef4ed49e3ac20c5a4a0cd46a8ff4bbb870bc27aab543306", size = 15915, upload-time = "2025-10-15T16:22:25.548Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e3/e9/a94184895f008ecc70ae4d227deb6a4209bb4f86c5f35b79b8cf6fc23ee4/merge3-0.0.16-py3-none-any.whl", hash = "sha256:b9d907b7281213a5dca1d711d168c4f8fe8aca20d74e2456bb177c4f31dfd927", size = 16546, upload-time = "2025-10-15T16:22:24.08Z" },
 ]
 
 [[package]]
