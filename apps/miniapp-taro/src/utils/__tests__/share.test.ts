@@ -38,7 +38,7 @@ describe('miniapp-taro share 工具', () => {
     const path = getSharePath('/pkg-learn/course/detail')
     expect(path).toContain('source=share')
     expect(path).toContain('inviteCode=ABC123')
-    expect(path).toMatch(/^\/pages\/course\/detail\?/)
+    expect(path).toMatch(/^\/pkg-learn\/course\/detail\?/)
   })
 
   it('getSharePath 已有 query 时用 & 追加', () => {
