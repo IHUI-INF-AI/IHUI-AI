@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * Windows 沙箱后端 — PowerShell 受限启动 + 环境变量过滤 + 超时/输出上限。
  *
@@ -15,20 +14,42 @@
  *   - denyPaths 在策略层(evaluateCommand)强制拒绝,OS 层不做 ACL 改写
  */
 
-import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import * as path from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import * as path from 'node:path'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 
-import type { SandboxExecOptions, SandboxExecResult, SandboxPolicy } from '../policy.js';
-import { evaluateCommand, validatePolicy } from '../policy.js';
+import type { SandboxExecOptions, SandboxExecResult, SandboxPolicy } from '../policy.js'
+import { evaluateCommand, validatePolicy } from '../policy.js'
 
-const execFileAsync = promisify(execFile);
+const execFileAsync = promisify(execFile)
 
 /** 默认超时 60s */
-const DEFAULT_TIMEOUT_MS = 60_000;
+const DEFAULT_TIMEOUT_MS = 60_000
+
+/**
+ * 解析 powershell.exe 绝对路径。
+ *
+ * Windows 默认 PATH 不含 `System32\WindowsPowerShell\v1.0\`(系统靠 App Paths
+ * 注册让 cmd 能敲 `powershell`,但 Node spawn 不走 App Paths)——直接 spawn
+ * 'powershell.exe' 会 ENOENT 且子进程无任何输出(表现为 exit 1 空 stderr)。
+ * 因此优先按 %SystemRoot% 绝对路径解析,回退 PATH 逐目录探测。
+ */
+function resolvePowerShellPath(): string | null {
+  const systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT ?? 'C:\\Windows'
+  const candidates = [
+    path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+    path.join(systemRoot, 'Sysnative', 'WindowsPowerShell', 'v1.0', 'powershell.exe'), // 32 位进程访问 64 位 System32 的桥
+    'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+  ]
+  for (const c of candidates) {
+    if (existsSync(c)) return c
+  }
+  return null
+}
 
 /**
  * 以 PowerShell Start-Process -NoNewWindow 方式执行命令(Windows 后端)。
@@ -46,11 +67,20 @@ export async function runSandboxedWindows(
   options: SandboxExecOptions = {},
 ): Promise<SandboxExecResult> {
   // 1. 策略层拦截(双保险:门面已拦,后端再拦一次)
-  const policyErrors = validatePolicy(policy);
+  const policyErrors = validatePolicy(policy)
   if (policyErrors.length > 0) {
-    return { backend: 'restricted-token', exitCode: null, signal: null, stdout: '', stderr: policyErrors.join('; '), timedOut: false, truncated: false, refused: true };
+    return {
+      backend: 'restricted-token',
+      exitCode: null,
+      signal: null,
+      stdout: '',
+      stderr: policyErrors.join('; '),
+      timedOut: false,
+      truncated: false,
+      refused: true,
+    }
   }
-  const decision = evaluateCommand(policy, commandLine);
+  const decision = evaluateCommand(policy, commandLine)
   if (!decision.allowed) {
     return {
       backend: 'restricted-token',
@@ -62,70 +92,108 @@ export async function runSandboxedWindows(
       truncated: false,
       refused: true,
       violations: decision.violations,
-    };
+    }
   }
 
-  const cwd = options.cwd ?? policy.workspaceRoot;
-  const timeoutMs = policy.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const maxOutputBytes = policy.maxOutputBytes ?? 512 * 1024;
-  let workDir: string | undefined;
+  const cwd = options.cwd ?? policy.workspaceRoot
+  const timeoutMs = policy.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const maxOutputBytes = policy.maxOutputBytes ?? 512 * 1024
+  let workDir: string | undefined
+  let spawnError: string | null = null
 
   try {
-    workDir = await mkdtemp(path.join(tmpdir(), 'ihui-sandbox-'));
-    const stdoutFile = path.join(workDir, 'stdout.txt');
-    const stderrFile = path.join(workDir, 'stderr.txt');
-    const batchFile = path.join(workDir, 'run.cmd');
+    workDir = await mkdtemp(path.join(tmpdir(), 'ihui-sandbox-'))
+    const stdoutFile = path.join(workDir, 'stdout.txt')
+    const stderrFile = path.join(workDir, 'stderr.txt')
+    const batchFile = path.join(workDir, 'run.cmd')
 
     // 2. 批处理文件:chcp 65001 保证 UTF-8 下中文命令/输出不乱码
-    await writeFile(batchFile, `@echo off\r\nchcp 65001 >nul\r\n${commandLine}\r\n`, 'utf8');
+    await writeFile(batchFile, `@echo off\r\nchcp 65001 >nul\r\n${commandLine}\r\n`, 'utf8')
 
     // 3. PowerShell 脚本(经 -EncodedCommand 传递,规避所有引号转义问题)
     // 注意:Start-Process 的所有参数必须位于同一语句内,按行拼接(不能用 "; " 把续行参数拆成独立语句)
-    const q = (s: string): string => `'${s.replace(/'/g, "''")}'`;
+    const q = (s: string): string => `'${s.replace(/'/g, "''")}'`
     const psScript = [
       `$p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/d','/c',${q(batchFile)} -WorkingDirectory ${q(cwd ?? '')} -NoNewWindow -PassThru -RedirectStandardOutput ${q(stdoutFile)} -RedirectStandardError ${q(stderrFile)}`,
       `$exited = $p.WaitForExit(${timeoutMs})`,
       'if (-not $exited) {',
-      '  Start-Process -FilePath taskkill.exe -ArgumentList \'/PID\', $p.Id, \'/T\', \'/F\' -WindowStyle Hidden -Wait',
+      "  Start-Process -FilePath taskkill.exe -ArgumentList '/PID', $p.Id, '/T', '/F' -WindowStyle Hidden -Wait",
       '  exit 124',
       '}',
       'exit $p.ExitCode',
-    ].join('\n');
+    ].join('\n')
 
     // 4. 环境变量过滤:父进程(PowerShell)的 env 即子进程的 env 来源
-    const childEnv = buildSanitizedEnv(policy, options.env);
+    const childEnv = buildSanitizedEnv(policy, options.env)
+    const psPath = resolvePowerShellPath()
+    if (!psPath) {
+      return {
+        backend: 'restricted-token',
+        exitCode: null,
+        signal: null,
+        stdout: '',
+        stderr:
+          'powershell.exe not found: System32\\WindowsPowerShell\\v1.0 missing from system and PATH',
+        timedOut: false,
+        truncated: false,
+        refused: true,
+      }
+    }
 
     const exitCode = await new Promise<number>((resolve) => {
       const child = spawn(
-        'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', toUtf16LeBase64(psScript)],
+        psPath,
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-EncodedCommand',
+          toUtf16LeBase64(psScript),
+        ],
         { cwd: cwd || undefined, env: childEnv, windowsHide: true },
-      );
+      )
       // Node 侧兜底超时:PowerShell 自身卡死时强杀
       const guard = setTimeout(() => {
-        child.kill('SIGKILL');
-        resolve(124);
-      }, timeoutMs + 10_000);
+        child.kill('SIGKILL')
+        resolve(124)
+      }, timeoutMs + 10_000)
       child.on('exit', (code) => {
-        clearTimeout(guard);
-        resolve(code ?? 1);
-      });
-      child.on('error', () => {
-        clearTimeout(guard);
-        resolve(1);
-      });
-    });
+        clearTimeout(guard)
+        resolve(code ?? 1)
+      })
+      child.on('error', (e) => {
+        clearTimeout(guard)
+        spawnError = e instanceof Error ? e.message : String(e)
+        resolve(1)
+      })
+    })
+    if (spawnError) {
+      return {
+        backend: 'restricted-token',
+        exitCode,
+        signal: null,
+        stdout: '',
+        stderr: `sandbox backend spawn failed: ${spawnError}`,
+        timedOut: false,
+        truncated: false,
+        refused: false,
+      }
+    }
 
     // 5. 收集输出并按字节上限截断
     const [stdoutBuf, stderrBuf] = await Promise.all([
       readFile(stdoutFile, 'utf8').catch(() => ''),
       readFile(stderrFile, 'utf8').catch(() => ''),
-    ]);
-    const truncated = Buffer.byteLength(stdoutBuf, 'utf8') > maxOutputBytes;
-    const stdout = truncated ? stdoutBuf.slice(0, maxOutputBytes) : stdoutBuf;
+    ])
+    const truncated = Buffer.byteLength(stdoutBuf, 'utf8') > maxOutputBytes
+    const stdout = truncated ? stdoutBuf.slice(0, maxOutputBytes) : stdoutBuf
 
     // 6. icacls 只读探测(不修改 ACL,供诊断输出)
-    if (options.onOutput) options.onOutput(`[sandbox] backend=restricted-token exit=${exitCode} timeout=${timeoutMs}ms\n`);
+    if (options.onOutput)
+      options.onOutput(
+        `[sandbox] backend=restricted-token exit=${exitCode} timeout=${timeoutMs}ms\n`,
+      )
 
     return {
       backend: 'restricted-token',
@@ -136,42 +204,48 @@ export async function runSandboxedWindows(
       timedOut: exitCode === 124,
       truncated,
       refused: false,
-    };
+    }
   } finally {
-    if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+    if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => undefined)
   }
 }
 
 /** 构造过滤后的子进程环境变量(blockedEnvVars 支持 * 通配,不区分大小写) */
-export function buildSanitizedEnv(policy: SandboxPolicy, extra?: Record<string, string>): Record<string, string> {
-  const blocked = (policy.blockedEnvVars ?? []).map((b) => b.toLowerCase());
+export function buildSanitizedEnv(
+  policy: SandboxPolicy,
+  extra?: Record<string, string>,
+): Record<string, string> {
+  const blocked = (policy.blockedEnvVars ?? []).map((b) => b.toLowerCase())
   const isBlocked = (key: string): boolean => {
-    const k = key.toLowerCase();
-    return blocked.some((b) => (b.endsWith('*') ? k.startsWith(b.slice(0, -1)) : k === b));
-  };
-  const env: Record<string, string> = {};
+    const k = key.toLowerCase()
+    return blocked.some((b) => (b.endsWith('*') ? k.startsWith(b.slice(0, -1)) : k === b))
+  }
+  const env: Record<string, string> = {}
   for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined && !isBlocked(key)) env[key] = value;
+    if (value !== undefined && !isBlocked(key)) env[key] = value
   }
   if (extra) {
     for (const [key, value] of Object.entries(extra)) {
-      if (!isBlocked(key)) env[key] = value;
+      if (!isBlocked(key)) env[key] = value
     }
   }
-  return env;
+  return env
 }
 
 /** 字符串 → UTF-16LE Base64(PowerShell -EncodedCommand 所需格式) */
 function toUtf16LeBase64(s: string): string {
-  return Buffer.from(s, 'utf16le').toString('base64');
+  return Buffer.from(s, 'utf16le').toString('base64')
 }
 
 /** icacls 只读探测:返回 workspaceRoot 的 ACL 摘要(诊断用,不修改任何 ACL) */
 export async function probeIcacls(target: string): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync('icacls.exe', [target], { timeout: 5000, windowsHide: true });
-    return stdout.trim();
+    const { stdout } = await execFileAsync('icacls.exe', [target], {
+      timeout: 5000,
+      windowsHide: true,
+    })
+    return stdout.trim()
   } catch {
-    return null;
+    return null
   }
 }
