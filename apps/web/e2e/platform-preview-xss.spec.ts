@@ -14,7 +14,7 @@ import { expect, setupTest } from './fixtures'
  *  - <img src=x onerror=...> 事件属性 → escapeHtml 转义 < >,onerror 不成为有效属性
  *
  * 入口:/publish/new(format === 'md' 时渲染 PlatformPreview,见 app/(main)/publish/new/page.tsx)
- * Fixture:adminPage(admin/[REDACTED-PW] 已登录态,见 e2e/fixtures.ts)
+ * Fixture:adminPage(admin/admin123 已登录态,见 e2e/fixtures.ts)
  * 防抖:useDebounced delay=500ms,fill 后需等 ≥500ms 再断言
  */
 

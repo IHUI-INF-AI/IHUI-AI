@@ -170,7 +170,7 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       await installSubmitListener(page)
 
       await page.locator('#login-form-account').fill('admin')
-      await page.getByTestId('login-password-input').fill('[REDACTED-PW]')
+      await page.getByTestId('login-password-input').fill('admin123')
       await page.getByTestId('login-password-input').press('Enter')
       await page.waitForTimeout(500)
 
@@ -186,7 +186,7 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       await installSubmitListener(page)
 
       await page.locator('#login-form-account').fill('admin')
-      await page.getByTestId('login-password-input').fill('[REDACTED-PW]')
+      await page.getByTestId('login-password-input').fill('admin123')
 
       // 鼠标点击 label 左侧 16x16 方框区域(模拟真实用户点击 checkbox 方框)
       // 不能用 locator.click():默认点击 label 中心,中心是"用户协议"链接,会被 closest('a') 拦截
