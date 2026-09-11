@@ -19,8 +19,8 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { CenteredText } from '@/components/common/CenteredText'
 import { TruncatedText } from '@/components/common/TruncatedText'
-import { transitionKanbanTask, deleteKanbanTask } from '@/lib/agent-kanban-api'
-import type { KanbanApiError } from '@/lib/agent-kanban-api'
+import { transitionKanbanTask, deleteKanbanTask, fetchWorkspaceLock } from '@/lib/agent-kanban-api'
+import type { KanbanApiError, WorkspaceLockInfo } from '@/lib/agent-kanban-api'
 import type { AgentTaskStatus, KanbanTask } from '@ihui/types'
 import {
   STATUS_BADGE_CLASS,
@@ -62,6 +62,8 @@ export function TaskDetailDialog({
   const [reason, setReason] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
+  // 2-2 锁徽标实时校验:弹窗打开时查一次工作区锁,展示当前真实持有者
+  const [lockInfo, setLockInfo] = React.useState<WorkspaceLockInfo | null>(null)
 
   const legalTargets = task ? LEGAL_TRANSITIONS[task.status] : []
   const reasonRequired = transitionTo === 'blocked'
@@ -75,6 +77,25 @@ export function TaskDetailDialog({
       setDeleting(false)
     }
   }, [open, task?.id])
+
+  // 打开弹窗且任务有工作区时,实时查询锁状态(失败静默回退到任务行的 lockedBy 审计字段)
+  React.useEffect(() => {
+    if (!open || !task?.workspacePath) {
+      setLockInfo(null)
+      return
+    }
+    let cancelled = false
+    fetchWorkspaceLock(task.workspacePath)
+      .then((info) => {
+        if (!cancelled) setLockInfo(info)
+      })
+      .catch(() => {
+        if (!cancelled) setLockInfo(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, task?.id, task?.workspacePath])
 
   const handleConfirm = async () => {
     if (!task || transitionTo === '') return
@@ -178,11 +199,35 @@ export function TaskDetailDialog({
                 </dd>
               </div>
             )}
-            {task.lockedBy && (
+            {/* 2-2 锁徽标实时校验:优先展示 fetchWorkspaceLock 的实时结果,回退任务行审计字段 */}
+            {(lockInfo || task.lockedBy) && (
               <div>
-                <dt className="text-orange-600 dark:text-orange-400">{t('locked')}</dt>
-                <dd className="truncate text-orange-600/80 dark:text-orange-400/80">
-                  {task.lockedBy}
+                <dt
+                  className={
+                    lockInfo?.held
+                      ? 'text-orange-600 dark:text-orange-400'
+                      : 'text-muted-foreground'
+                  }
+                >
+                  {lockInfo ? t('lockStatus') : t('locked')}
+                </dt>
+                <dd
+                  className={cn(
+                    'truncate',
+                    lockInfo
+                      ? lockInfo.held
+                        ? 'text-orange-600/80 dark:text-orange-400/80'
+                        : 'text-emerald-600/80 dark:text-emerald-400/80'
+                      : 'text-orange-600/80 dark:text-orange-400/80',
+                  )}
+                >
+                  {lockInfo
+                    ? lockInfo.held
+                      ? lockInfo.acquiredAt
+                        ? `${lockInfo.holder || '—'} · ${formatRelativeTime(lockInfo.acquiredAt, locale)}`
+                        : lockInfo.holder || '—'
+                      : t('lockFree')
+                    : task.lockedBy}
                 </dd>
               </div>
             )}
