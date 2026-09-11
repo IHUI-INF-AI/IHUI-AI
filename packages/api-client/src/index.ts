@@ -167,6 +167,8 @@ export * from './endpoints/artifacts'
 export * from './endpoints/agent-plan'
 // Best-of-N 同任务多副本自动择优端点(2026-09-07 立)
 export * from './endpoints/best-of-n'
+// Self-healing 验证自愈引擎端点(2026-09-11 立,2-3 产品化 web 驾驶舱接线)
+export * from './endpoints/self-healing'
 export * from './endpoints/notification'
 export * from './endpoints/order'
 export * from './endpoints/payment'
