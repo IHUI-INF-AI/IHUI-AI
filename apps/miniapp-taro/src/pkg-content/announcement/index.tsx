@@ -154,7 +154,9 @@ export default function AnnouncementList() {
   })
 
   const onPressItem = (item: AnnouncementItem) => {
-    Taro.navigateTo({ url: `/pkg-content/announcement/detail/index?id=${encodeURIComponent(item.id)}` })
+    Taro.navigateTo({
+      url: `/pkg-content/announcement/detail/index?id=${encodeURIComponent(item.id)}`,
+    })
   }
 
   const goBack = () => {

@@ -120,9 +120,7 @@ export default defineConfig(async (merge) => {
               if (process.env.TARO_ENV === 'weapp') {
                 chain
                   .plugin('weappTailwindcss')
-                  .use(WeappTailwindcss, [
-                    { rem2rpx: true, injectAdditionalCssVarScope: true },
-                  ])
+                  .use(WeappTailwindcss, [{ rem2rpx: true, injectAdditionalCssVarScope: true }])
               }
             },
           }
