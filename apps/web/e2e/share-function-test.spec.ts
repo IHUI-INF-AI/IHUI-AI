@@ -53,7 +53,7 @@ test.describe('分享功能 E2E 测试', () => {
     const httpReq = await newRequest.newContext()
     try {
       const loginResp = await httpReq.post(`${API_URL}/api/auth/login`, {
-        data: { account: 'admin', password: '[REDACTED-PW]' },
+        data: { account: 'admin', password: 'admin123' },
       })
       expect(loginResp.ok()).toBe(true)
       const loginBody = await loginResp.json()

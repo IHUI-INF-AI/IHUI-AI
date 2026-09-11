@@ -20,7 +20,7 @@ export type { Page, APIRequestContext }
  *
  * 账号来源：
  * - 普通用户（test@aizhs.top / Test@123456）由 seed 脚本保证
- * - admin（admin / [REDACTED-PW]）是真正的 system admin，由 packages/database/drizzle/0067_system_admin.sql + 0071_restore_admin_immutability.sql 迁移保证；
+ * - admin（admin / admin123）是真正的 system admin，由 packages/database/drizzle/0067_system_admin.sql + 0071_restore_admin_immutability.sql 迁移保证；
  *   由于 0067 触发器让 system admin 不可变，本 fixtures 不再 seed 冗余的 admin@aizhs.top 账号
  *
  * 现有 34 个 spec 文件直接 `import { test } from '@playwright/test'`，不受本文件影响；
@@ -35,7 +35,7 @@ const TEST_USER = {
 
 const ADMIN_USER = {
   account: process.env.E2E_ADMIN_ACCOUNT ?? 'admin',
-  password: process.env.E2E_ADMIN_PASSWORD ?? '[REDACTED-PW]',
+  password: process.env.E2E_ADMIN_PASSWORD ?? 'admin123',
 }
 
 // storageState 文件路径
