@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import difflib
 import json
 import logging
 import os
@@ -29,6 +30,7 @@ import sys
 import tempfile
 import uuid
 import xml.etree.ElementTree as ET
+from collections.abc import Iterator
 from typing import Any
 
 from app.core.llm_gateway import llm_gateway
@@ -373,9 +375,14 @@ def _default_path_validator(path: str) -> tuple[bool, str]:
 def apply_patch_descriptor(
     patch: dict[str, Any], *, validator: Any = None
 ) -> tuple[bool, str]:
-    """把补丁描述写入磁盘(new_content 全量覆写,原子写)。
+    """把补丁描述写入磁盘(原子写)。
 
-    v1 只支持 ``new_content`` 全量写;仅 ``diff`` 的补丁返回失败原因(不半应用)。
+    支持两种形态:
+    - ``new_content``:全量覆写(v1 路径,不变)。
+    - ``diff``(v2,2026-09-12 立):unified diff 三方合并应用——读原文件 →
+      hunk 定位(精确/模糊)→ merge3 合并(文件漂移时同时保留磁盘侧改动)
+      → 原子写。冲突/定位失败/merge3 未安装整体失败,不半应用。
+
     目标路径必须通过 workspace 白名单校验(防 LLM 产出路径穿越)。
     成功返回 (True, file_path);失败返回 (False, 原因)。
     """
@@ -387,9 +394,20 @@ def apply_patch_descriptor(
         return False, f"path outside workspace whitelist: {check[1]}"
     new_content = patch.get("new_content")
     if new_content is None:
-        if patch.get("diff"):
-            return False, "unified-diff patches not supported in v1; provide new_content"
-        return False, "patch missing new_content"
+        diff = str(patch.get("diff") or "")
+        if not diff:
+            return False, "patch missing new_content"
+        if not os.path.exists(file_path):
+            return False, f"diff patch target does not exist: {file_path}"
+        try:
+            with open(file_path, encoding="utf-8") as f:
+                current = f.read()
+        except Exception as exc:  # noqa: BLE001 - 读取失败降级
+            return False, f"read target failed: {type(exc).__name__}: {exc}"
+        ok, info, merged = _apply_unified_diff(diff, current)
+        if not ok:
+            return False, info
+        new_content = merged
     try:
         os.makedirs(os.path.dirname(file_path) or ".", exist_ok=True)
         tmp_path = f"{file_path}.sh_tmp_{uuid.uuid4().hex}"
@@ -400,6 +418,156 @@ def apply_patch_descriptor(
     except Exception as exc:  # noqa: BLE001 - 写入失败降级
         logger.warning("[self_healing_llm] patch apply failed: %s: %s", type(exc).__name__, exc)
         return False, f"{type(exc).__name__}: {exc}"
+
+
+# ---------------------------------------------------------------------------
+# 2c. unified diff 应用(v2,merge3 三方合并)
+# ---------------------------------------------------------------------------
+
+_HUNK_HEADER_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+\d+(?:,\d+)? @@")
+# hunk 模糊定位的搜索窗口(期望行号前后的行数)
+_HUNK_SEARCH_WINDOW = 400
+# 模糊定位的相似度阈值;达到即交给 merge3 合并漂移区域
+_HUNK_FUZZY_THRESHOLD = 0.5
+
+
+def _parse_unified_hunks(diff: str) -> list[tuple[int, list[str], list[str]]]:
+    """解析 unified diff 为 ``[(old_start, old_lines, new_lines), ...]``。
+
+    上下文行进 old/new 两侧;``\\ No newline`` 标记忽略;文件头
+    (diff --git / --- / +++)跳过。hunk 头非法抛 ValueError(由上层降级)。
+    """
+    hunks: list[tuple[int, list[str], list[str]]] = []
+    old_start = 0
+    old: list[str] = []
+    new: list[str] = []
+    in_hunk = False
+    for line in diff.splitlines():
+        if line.startswith("@@"):
+            if in_hunk:
+                hunks.append((old_start, old, new))
+            m = _HUNK_HEADER_RE.match(line)
+            if not m:
+                raise ValueError(f"malformed hunk header: {line!r}")
+            old_start = max(1, int(m.group(1)))
+            old, new = [], []
+            in_hunk = True
+        elif not in_hunk or line.startswith("\\"):
+            continue
+        elif line.startswith("-"):
+            old.append(line[1:])
+        elif line.startswith("+"):
+            new.append(line[1:])
+        else:
+            # 上下文行:标准为单空格前缀;空行容错为空串
+            ctx = line[1:] if line.startswith(" ") else line
+            old.append(ctx)
+            new.append(ctx)
+    if in_hunk:
+        hunks.append((old_start, old, new))
+    return hunks
+
+
+def _locate_hunk(
+    lines: list[str], pos: int, expected: int, old: list[str]
+) -> int | None:
+    """在文件行中定位 hunk 旧文本,返回起始下标(0-based)。
+
+    先在期望位置前后窗口内精确匹配;失败再做 difflib 模糊匹配(阈值
+    ``_HUNK_FUZZY_THRESHOLD``,达标区域交给 merge3 合并磁盘侧漂移)。
+    找不到返回 None。``pos`` 为已消费下界(hunk 须按序应用)。
+    """
+    n = len(old)
+    window = _HUNK_SEARCH_WINDOW
+
+    def _candidates() -> Iterator[int]:
+        for d in range(window + 1):
+            if d == 0:
+                yield expected
+            else:
+                yield expected + d
+                yield expected - d
+
+    for idx in _candidates():
+        if idx < pos or idx + n > len(lines):
+            continue
+        if lines[idx : idx + n] == old:
+            return idx
+
+    best_idx: int | None = None
+    best_ratio = _HUNK_FUZZY_THRESHOLD
+    for idx in _candidates():
+        if idx < pos or idx + n > len(lines):
+            continue
+        region = lines[idx : idx + n]
+        sm = difflib.SequenceMatcher(None, old, region)
+        if sm.real_quick_ratio() < best_ratio or sm.quick_ratio() < best_ratio:
+            continue
+        ratio = sm.ratio()
+        # 严格 > :ratio 并列时保留先遍历到的候选(candidates 按与期望位置的距离
+        # 升序生成),避免同分时取到更远的错位区域制造假冲突。
+        if ratio > best_ratio:
+            best_idx, best_ratio = idx, ratio
+    return best_idx
+
+
+def _apply_unified_diff(diff: str, current: str) -> tuple[bool, str, str]:
+    """把 unified diff 应用到当前文件内容,返回 (ok, message, new_content)。
+
+    每个 hunk:精确命中 → 直接替换;区域漂移 → merge3 三方合并
+    (base=diff 旧文本, a=diff 新文本, b=磁盘当前区域),同时保留
+    LLM 变更与磁盘漂移;冲突则整体失败(不半应用)。
+    merge3 未安装时优雅降级为失败原因(不影响 new_content 路径)。
+    """
+    try:
+        hunks = _parse_unified_hunks(diff)
+    except ValueError as exc:
+        return False, f"malformed unified diff: {exc}", ""
+    if not hunks:
+        return False, "diff contains no hunks", ""
+    try:
+        from merge3 import Merge3
+    except ImportError:
+        return False, "unified-diff patches require the merge3 package", ""
+
+    def _nl(raw: list[str], last_raw: bool) -> list[str]:
+        out = [x + "\n" for x in raw]
+        if last_raw and out:
+            out[-1] = out[-1].removesuffix("\n")
+        return out
+
+    lines = current.splitlines(keepends=True)
+    out: list[str] = []
+    pos = 0
+    for old_start, old_raw, new_raw in hunks:
+        applied = False
+        # 两种行尾形态:全 '\n' 结尾 / 末行无 '\n'(对应文件末行无换行)
+        for last_raw in (False, True):
+            old = _nl(old_raw, last_raw)
+            idx = _locate_hunk(lines, pos, old_start - 1, old)
+            if idx is None:
+                continue
+            out.extend(lines[pos:idx])
+            region = lines[idx : idx + len(old)]
+            new = _nl(new_raw, last_raw)
+            if region == old:
+                out.extend(new)
+            else:
+                m3 = Merge3(old, new, region)
+                if any(r[0] == "conflict" for r in m3.merge_regions()):
+                    return False, f"merge conflict in hunk at old line {old_start}", ""
+                out.extend(m3.merge_lines())
+            pos = idx + len(old)
+            applied = True
+            break
+        if not applied:
+            return (
+                False,
+                f"hunk at old line {old_start} not located (file drifted too far?)",
+                "",
+            )
+    out.extend(lines[pos:])
+    return True, "", "".join(out)
 
 
 def llm_patch_and_apply(

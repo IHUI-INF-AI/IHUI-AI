@@ -56,6 +56,9 @@ dependencies = [
     # CTranslate2 后端,base 模型 74MB,首次下载后离线可用,零成本
     "faster-whisper>=1.2.0",
     "mcp>=1.0",
+    # 自愈补丁 v2(2026-09-12 立):unified diff 三方合并应用(self_healing_llm)
+    # 注意:merge3 为 GPL-2.0-or-later;代码侧可选导入,未安装时 diff 补丁优雅降级
+    "merge3>=0.0.15",
 ]
 
 [build-system]
