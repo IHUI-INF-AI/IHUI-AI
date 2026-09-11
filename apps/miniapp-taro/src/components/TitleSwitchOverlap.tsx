@@ -8,6 +8,7 @@ import Taro from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import type { TitleSwitchOverlapItem, TitleSwitchOverlapProps } from '@ihui/types'
+import { aizhsUrl } from '@/constants/icon-urls'
 
 // 共享类型 TitleSwitchOverlapItem / TitleSwitchOverlapProps 已下沉到 packages/types,两端复用。
 // 重新导出以维持本模块公开 API(原文件 export 这些类型)。
@@ -124,12 +125,12 @@ export default function TitleSwitchOverlap(props: TitleSwitchOverlapProps) {
       <View className="flex items-center justify-around box-border w-[60%] gap-[40rpx]">
         <Image
           className="w-[80rpx] h-[80rpx]"
-          src="/static/images/saidao_title_left.png"
+          src={aizhsUrl('remote-images/saidao_title_left.png')}
           onClick={prev}
         />
         <Image
           className="w-[80rpx] h-[80rpx]"
-          src="/static/images/saidao_title_right.png"
+          src={aizhsUrl('remote-images/saidao_title_right.png')}
           onClick={next}
         />
       </View>
