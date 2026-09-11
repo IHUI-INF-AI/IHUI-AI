@@ -27,6 +27,7 @@ import {
   type PriceOption,
 } from '@/components'
 import './index.css'
+import { aizhsUrl } from '@/constants/icon-urls'
 
 // 4 项会员特权(对齐原项目 zhs_app-ZZ,垂直列表展示)
 interface VipFeature {
@@ -258,7 +259,11 @@ export default function VipIndexPage() {
       <View className="vip-page">
         {/* 头部 400rpx + vip_back.png 背景 */}
         <View className="header">
-          <Image className="bg-image" src="/static/images/vip_back.png" mode="aspectFill" />
+          <Image
+            className="bg-image"
+            src={aizhsUrl('remote-images/vip_back.png')}
+            mode="aspectFill"
+          />
           <View className="content">
             <View className="title">{tt('vip.index.brandTitle', 'AI智汇社 VIP会员')}</View>
             <View className="subtitle">{t('vip.openHint')}</View>

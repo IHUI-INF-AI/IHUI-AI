@@ -17,6 +17,7 @@ import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import LoginPopUp from '@/components/LoginPopUp'
 import ThemeRoot from '@/components/ThemeRoot'
 import './login.css'
+import { aizhsUrl } from '@/constants/icon-urls'
 
 /** 登录 tab(对齐 mobile-rn LoginScreen TABS:邮箱验证码/手机验证码/密码) */
 type LoginTab = 'email' | 'phone' | 'password'
@@ -343,7 +344,11 @@ export default function Login() {
         {/* ===== 顶部:logo + 品牌(对齐 RN header) ===== */}
         <View className="login-header">
           <View className="login-logo-box">
-            <Image className="login-logo" src="/static/images/sqlogo.svg" mode="aspectFit" />
+            <Image
+              className="login-logo"
+              src={aizhsUrl('remote-images/sqlogo.svg')}
+              mode="aspectFit"
+            />
           </View>
           <Text className="login-welcome">{t('login.brand')}</Text>
         </View>
@@ -621,7 +626,11 @@ export default function Login() {
         {/* ===== 第三方登录区:微信主推按钮 + "或" + 图标网格(对齐 RN) ===== */}
         <View className="login-thirdparty">
           <View className="login-wechat-btn" hoverClass="opacity-60" onClick={handleWechatLogin}>
-            <Image className="login-wechat-icon" src="/static/images/wx.svg" mode="aspectFit" />
+            <Image
+              className="login-wechat-icon"
+              src={aizhsUrl('remote-images/wx.svg')}
+              mode="aspectFit"
+            />
             <Text>{t('login.wechatLogin')}</Text>
           </View>
 
@@ -635,7 +644,7 @@ export default function Login() {
             <View className="login-oauth-btn" hoverClass="opacity-60" onClick={handleSsoLogin}>
               <Image
                 className="login-oauth-icon"
-                src="/static/images/google.svg"
+                src={aizhsUrl('remote-images/google.svg')}
                 mode="aspectFit"
               />
             </View>

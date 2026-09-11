@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { aizhsUrl } from '@/constants/icon-urls'
 import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
@@ -9,17 +10,15 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import type { Course } from '@/api'
-import aiallIcon from '@/assets/remote/images/aiall.png'
-import kechengIcon from '@/assets/remote/images/kecheng.png'
-import rankoneIcon from '@/assets/remote/images/rankone.png'
-import useNumIcon from '@/assets/remote/images/useNum.png'
+const aiallIcon = aizhsUrl('remote-images/aiall.png')
+const kechengIcon = aizhsUrl('remote-images/kecheng.png')
+const rankoneIcon = aizhsUrl('remote-images/rankone.png')
+const useNumIcon = aizhsUrl('remote-images/useNum.png')
 import ThemeRoot from '@/components/ThemeRoot'
 
-// chuangke.png 体积 644 KB,直接 import 会被打包进 chunk 导致页面体积 887 KB。
-// 改为字符串路径,Taro copy 配置(src/static/ → dist/static/)会将其复制到
-// dist/static/images/chuangke.png,运行时通过 /static/images/chuangke.png 访问。
-// 对齐原项目 zhs_app-ZZ 的字符串路径引用模式(rankings.vue: /static/images/...)。
-const chuangkeIcon = '/static/images/chuangke.png'
+// chuangke.png 已外置到 CDN(与 src/assets/remote/images/chuangke.png 字节一致),
+// 通过 aizhsUrl 运行时加载,不再复制进主包。
+const chuangkeIcon = aizhsUrl('remote-images/chuangke.png')
 
 function isImagePath(s: string): boolean {
   return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')

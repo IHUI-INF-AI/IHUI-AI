@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { aizhsUrl } from '@/constants/icon-urls'
 import { useI18n } from '@/i18n'
 import { View, Text, Textarea, ScrollView, Image, Video } from '@tarojs/components'
 import Taro from '@tarojs/taro'
@@ -11,16 +12,16 @@ import voiceRecorder from '@/utils/voice-recorder'
 import { cn } from '@ihui/design-tokens'
 // ai-home 模式图标(对齐原项目 InputArea.vue):
 // search-hua(文字模式切语音)/ input_qie(语音模式切文字)/ search-add(附件)/ sand_msg(发送)
-import searchHuaPng from '@/assets/remote/images/search-hua.png'
-import inputQiePng from '@/assets/remote/images/input_qie.png'
-import searchAddPng from '@/assets/remote/images/search-add.png'
-import sandMsgPng from '@/assets/remote/images/sand_msg.png'
+const searchHuaPng = aizhsUrl('remote-images/search-hua.png')
+const inputQiePng = aizhsUrl('remote-images/input_qie.png')
+const searchAddPng = aizhsUrl('remote-images/search-add.png')
+const sandMsgPng = aizhsUrl('remote-images/sand_msg.png')
 // 附件回显/全屏放大/清空按钮图标
-import closeChatPng from '@/assets/remote/images/close_chat.png'
-import fangdaPng from '@/assets/remote/images/fangda.png'
-import suoxiaoPng from '@/assets/remote/images/suoxiao.png'
-import closeInputPng from '@/assets/remote/images/close_input.png'
-import filePng from '@/assets/remote/images/file.png'
+const closeChatPng = aizhsUrl('remote-images/close_chat.png')
+const fangdaPng = aizhsUrl('remote-images/fangda.png')
+const suoxiaoPng = aizhsUrl('remote-images/suoxiao.png')
+const closeInputPng = aizhsUrl('remote-images/close_input.png')
+const filePng = aizhsUrl('remote-images/file.png')
 import { rpx } from '@/utils/rpx'
 
 export interface InputFileItem {
