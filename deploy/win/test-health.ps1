@@ -32,10 +32,11 @@ try {
     $apiDetail = "status=$($h.status)"
 } catch { $apiDetail = "err=$_" }
 
-# 3) llm 网关(需 Bearer,用 demo admin 探活)
+# 3) llm 网关(需 Bearer,用 admin 探活;密码经环境变量 IHUI_ADMIN_PASSWORD 注入)
 $llmOk = $false; $llmDetail = ''
 try {
-    $b = @{ username='admin'; password='[REDACTED-PW]' } | ConvertTo-Json
+    if (-not $env:IHUI_ADMIN_PASSWORD) { throw 'missing IHUI_ADMIN_PASSWORD' }
+    $b = @{ username='admin'; password=$env:IHUI_ADMIN_PASSWORD } | ConvertTo-Json
     $lg = Invoke-RestMethod -Uri "$Base/api/auth/login/username" -Method Post -Body $b -ContentType 'application/json' -TimeoutSec 20 -ErrorAction Stop
     $tok = $lg.data.accessToken
     if ($tok) {

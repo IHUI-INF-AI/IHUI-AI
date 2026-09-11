@@ -81,9 +81,12 @@ function Test-Http {
 }
 
 function BackendLogin-Token {
-    # 探测 LLM 网关需带 Bearer;用 demo admin 获取 token(仅作健康探测,不改数据)
+    # 探测 LLM 网关需带 Bearer;用 admin 获取 token(仅作健康探测,不改数据)
+    # 凭据不入仓库:密码经环境变量 IHUI_ADMIN_PASSWORD 注入
+    $adminPwd = $env:IHUI_ADMIN_PASSWORD
+    if (-not $adminPwd) { return $null }
     try {
-        $b = @{ username='admin'; password='[REDACTED-PW]' } | ConvertTo-Json
+        $b = @{ username='admin'; password=$adminPwd } | ConvertTo-Json
         $login = Invoke-RestMethod -Uri "$PublicWeb/api/auth/login/username" -Method Post `
                         -Body $b -ContentType 'application/json' -TimeoutSec 20 -ErrorAction Stop
         if ($login.data.accessToken) { return $login.data.accessToken }
