@@ -134,7 +134,8 @@ export default function LiveCalendar() {
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
 
   const selectedLives = liveMap.get(selected) || []
-  const goDetail = (id: string | number) => Taro.navigateTo({ url: `/pkg-learn/live/detail?id=${id}` })
+  const goDetail = (id: string | number) =>
+    Taro.navigateTo({ url: `/pkg-learn/live/detail?id=${id}` })
 
   const onAction = (live: Live) => {
     if (live.status === 'upcoming') {
