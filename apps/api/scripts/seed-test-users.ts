@@ -17,9 +17,9 @@
  * - E2E 测试前初始化认证用户（修复 auth.setup.ts 500）
  * - 数据库重置后恢复测试账号
  *
- * 注意：admin 用户由 0067/0071 migration 永久保证（username='admin' /
- * password='[REDACTED-PW]' / email='[REDACTED-EMAIL]' / role_id=1 /
- * is_system_admin=true），本脚本不 seed admin，避免和 system admin 触发器冲突。
+ * 注意：admin 用户由 0067/0071 migration 永久保证（username='admin' / role_id=1 /
+ * is_system_admin=true，真实 phone/email 标识不入仓库），本脚本不 seed admin，
+ * 避免和 system admin 触发器冲突。
  */
 import 'dotenv/config'
 import { hashPassword } from '../src/utils/password-crypto.js'

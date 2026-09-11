@@ -6,7 +6,7 @@
  * Crew 工具调用端到端测试
  *
  * 验证目标:
- * 1. 真实登录 (admin/[REDACTED-PW]) 获取 token
+ * 1. 真实登录 (admin / 环境变量 SMOKE_ADMIN_PASSWORD) 获取 token
  * 2. 创建需要工具调用的 Crew 会话
  * 3. 触发流式执行 /api/crew/runs/{id}/stream
  * 4. 解析 SSE 流,收集所有事件
@@ -112,7 +112,8 @@ try {
   console.log('\n[1/5] 登录获取 token...')
   const login = await req('POST', '/api/auth/login', {
     account: 'admin',
-    password: '[REDACTED-PW]',
+    // admin 密码不入仓库:通过环境变量注入(SMOKE_ADMIN_PASSWORD)
+    password: process.env.SMOKE_ADMIN_PASSWORD,
   })
   if (login.status !== 200) {
     console.error('❌ 登录失败:', login.status, login.body)
