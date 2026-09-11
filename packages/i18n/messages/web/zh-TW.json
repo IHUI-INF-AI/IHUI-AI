@@ -6636,6 +6636,8 @@
       "empty": "暫無任務",
       "in_progress": "進行中",
       "lockConflict": "工作區鎖定衝突",
+      "lockFree": "空閒",
+      "lockStatus": "鎖定狀態",
       "locked": "已鎖定",
       "priority": "優先級",
       "ready": "已就緒",
