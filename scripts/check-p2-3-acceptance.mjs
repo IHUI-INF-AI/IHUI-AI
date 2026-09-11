@@ -10,7 +10,7 @@
 // 全程闭环,验证 P2-3 服务端编排链路(含 2026-09-02 ws-ticket 脱敏修复)真实可用。
 //
 // 用法:
-//   node scripts/check-p2-3-acceptance.mjs            # 默认 admin/[REDACTED-PW]
+//   node scripts/check-p2-3-acceptance.mjs            # 默认 admin/admin123
 //   ACCOUNT=test@aizhs.top PASSWORD=Test@123456 node scripts/check-p2-3-acceptance.mjs
 //   node scripts/check-p2-3-acceptance.mjs <account> <password>
 //
@@ -20,7 +20,7 @@
 
 const BASE = process.env.API_BASE ?? 'http://localhost:8802'
 const ACCOUNT = process.argv[2] ?? process.env.ACCOUNT ?? 'admin'
-const PASSWORD = process.argv[3] ?? process.env.PASSWORD ?? '[REDACTED-PW]'
+const PASSWORD = process.argv[3] ?? process.env.PASSWORD ?? 'admin123'
 
 const log = (...a) => console.log(...a)
 const step = (n, msg) => log(`\n[${n}] ${msg}`)

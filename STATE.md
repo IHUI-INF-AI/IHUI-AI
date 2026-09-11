@@ -97,7 +97,7 @@
 
 - nav-data.ts 379-382 四个入口稳定（深度研究/云托管Agent/上下文压缩/浏览器控制→labelKey=deepResearch/cloudAgent/contextCompaction/computerUse）；
   共享包 packages/i18n/messages/web/{zh-CN,zh-TW,en,ja,ko}.json 已含 4 键（各 5 处）。
-- browser_use 自验（admin/[REDACTED-PW] 登录，web:8801）：
+- browser_use 自验（admin/admin123 登录，web:8801）：
   - 登录 PASS（密码页签，无需验证码）
   - 侧边栏"高级 AI 工具"4 入口可见 PASS
   - /deep-research /cloud-agent /context-compaction /computer-use 四页 **light+dark 双态渲染 PASS**，无 404/白屏/JS 错误（仅 HMR net::ERR_ABORTED 属开发态正常）

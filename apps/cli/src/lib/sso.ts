@@ -13,7 +13,7 @@
  *
  * 使用场景:
  *   - 用户已在 web 端登录,CLI 一键授权拿 token(无需在终端输密码)
- *   - 比 ihui login -a admin -p [REDACTED-PW] 更安全(不暴露密码到进程列表)
+ *   - 比 ihui login -a admin -p admin123 更安全(不暴露密码到进程列表)
  *
  * 流程:
  *   1. 启动本地 loopback HTTP 服务器监听 http://localhost:1738/callback
