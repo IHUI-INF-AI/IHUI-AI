@@ -108,7 +108,10 @@ def test_default_max_agent_iterations():
 
 def test_default_api_service_url():
     """api_service_url 默认指向后端 8802。"""
-    assert Settings().api_service_url == "http://localhost:8802"
+    # 2026-09-11 修复:本机生产 .env 设 API_SERVICE_URL=http://127.0.0.1:8802(部署需要,
+    # 避免 localhost 解析到 ::1),直接用 Settings() 会读 .env 使断言与部署环境耦合;
+    # 与同文件其它用例一致用 _env_file=None,只断言仓库默认值。
+    assert Settings(_env_file=None).api_service_url == "http://localhost:8802"
 
 
 def test_default_jwt_issuer():
