@@ -124,7 +124,7 @@ deploy/prod-bundle/cloudflared/*.local.txt
 # ============================================================================
 .idea/
 .vscode/
-.ihui-agent/
+.trae/
 .ihui-agent/
 .qoder/
 *.swp
