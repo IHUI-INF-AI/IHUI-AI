@@ -163,8 +163,8 @@ test.describe('分享功能 E2E 测试', () => {
                 refreshExpiresIn: 2592000,
                 user: {
                   id: '6b8cd0f6-546f-44c8-853a-5f96edbe08be',
-                  phone: '[REDACTED-PHONE]',
-                  email: '[REDACTED-EMAIL]',
+                  phone: '13800000000',
+                  email: 'e2e-share@example.com',
                   username: 'admin',
                   nickname: '系统管理员',
                   avatar: '/images/logo.png?v=20260719-unify',

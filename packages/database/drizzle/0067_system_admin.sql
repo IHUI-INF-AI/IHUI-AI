@@ -6,8 +6,10 @@
 -- 0067: 系统内置管理员 + 不可变保护
 -- 目标:
 --   1. users 表新增 is_system_admin boolean(默认 false,NOT NULL)
---   2. 写入 system admin 账号 (username=admin / password=[REDACTED-PW] 的 bcrypt 哈希 /
---      email=[REDACTED-EMAIL] / phone=[REDACTED-PHONE] / role_id=1)
+--   2. 写入 system admin 账号 (username=admin / role_id=1)
+--      初始 phone/email 为占位值;生产部署后必须立即用
+--      `pnpm --filter @ihui/api reset:admin-password` 重置为强密码,
+--      并将真实 phone/email 通过运维流程更新(勿写入本仓库)
 --   3. 创建 BEFORE UPDATE / BEFORE DELETE 触发器:对 is_system_admin=true 的行
 --      拒绝任何修改和删除(包含直接 SQL 写入),保证永久不可变
 --   4. 创建辅助函数用于应用层预检
@@ -32,7 +34,8 @@ BEGIN
 END$$;
 
 -- 2) 写入 system admin(若已存在则更新密码哈希并强制 is_system_admin=true)
---    密码 "[REDACTED-PW]" bcrypt cost=10 的哈希(由外部生成,见 apps/api/scripts/seed-system-admin.mjs)
+--    初始密码 "[REDACTED-PW]" bcrypt cost=10 的哈希(由外部生成,见 apps/api/scripts/seed-system-admin.mjs)
+--    ⚠️ 该默认密码仅限本地开发/CI;生产环境严禁使用,部署后必须立即重置
 --    哈希: $2a$10$ptHqzPRDOrIh/ryWlw7vS.zxDA4nZ4AVvgUgw6AmVSKJUpwSnSXmK
 DO $$
 DECLARE
@@ -43,9 +46,9 @@ BEGIN
   SELECT "id" INTO v_id
   FROM "users"
   WHERE "username" = 'admin'
-     OR "email"    = '[REDACTED-EMAIL]'
-     OR "phone"    = '[REDACTED-PHONE]'
-  ORDER BY ("username" = 'admin') DESC, ("email" = '[REDACTED-EMAIL]') DESC
+     OR "email"    = 'admin@ihui.local'
+     OR "phone"    = '13000000000'
+  ORDER BY ("username" = 'admin') DESC, ("email" = 'admin@ihui.local') DESC
   LIMIT 1;
 
   IF v_id IS NULL THEN
@@ -53,15 +56,15 @@ BEGIN
     INSERT INTO "users"
       ("username","phone","email","password_hash","nickname","role_id","status","is_vip","level","is_system_admin")
     VALUES
-      ('admin','[REDACTED-PHONE]','[REDACTED-EMAIL]',v_hash,'系统管理员',1,1,0,0,true)
+      ('admin','13000000000','admin@ihui.local',v_hash,'系统管理员',1,1,0,0,true)
     RETURNING "id" INTO v_id;
   ELSE
     -- 已存在:同步 username/phone/email/password/nickname/role/status,确保字段一致
     -- 此时 is_system_admin 触发器还未创建,可安全 UPDATE
     UPDATE "users"
        SET "username"        = 'admin',
-           "phone"           = '[REDACTED-PHONE]',
-           "email"           = '[REDACTED-EMAIL]',
+           "phone"           = '13000000000',
+           "email"           = 'admin@ihui.local',
            "password_hash"   = v_hash,
            "nickname"        = '系统管理员',
            "role_id"         = 1,
