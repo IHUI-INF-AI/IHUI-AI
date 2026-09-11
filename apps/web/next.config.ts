@@ -334,6 +334,14 @@ const nextConfig: NextConfig = {
           source: '/api/lsp/:path*',
           destination: 'http://localhost:8803/api/v1/lsp/:path*',
         },
+        // 2026-09-11 新增(2-3 自愈引擎产品化第一批):/api/self-healing/* 转发到
+        // ai-service 8803 的 /api/v1/self-healing/*。self_healing router 注册在
+        // prefix="/api/v1" 之下的 /self-healing,web 驾驶舱调用 api-client 的
+        // runSelfHealing(路径 /api/self-healing/run),若走 /api/:path* 兜底 → 8802 必 404。
+        {
+          source: '/api/self-healing/:path*',
+          destination: 'http://localhost:8803/api/v1/self-healing/:path*',
+        },
         // 2026-07-31 新增:MCP 路由直接转发到 ai-service 8803
         // 原因:MCP 工具/资源/提示词/skill/slash 命令的 router 注册在 ai-service 8803 的 /api 前缀下,
         // IDE McpPane 组件调用 listMCPTools 等端点路径为 /mcp/*,normalizeUrl 加 /api 前缀后变成 /api/mcp/*,
