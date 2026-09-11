@@ -122,7 +122,20 @@
   },
   "shortcutHelp": {
     "title": "키보드 단축키",
-    "closeHint": "Esc 또는 오버레이를 클릭하여 닫기"
+    "closeHint": "Esc 또는 오버레이를 클릭하여 닫기",
+    "desc": {
+      "ctrlK": "명령 팔레트 / 인라인 편집",
+      "ctrlP": "검색",
+      "ctrlShiftN": "새 대화",
+      "ctrlSlash": "단축키 도움말",
+      "ctrlShiftD": "숏드라마 에디터",
+      "ctrlShiftP": "명령 팔레트(보기 전환)",
+      "ctrlComma": "설정 열기",
+      "ctrl1": "빌드 모드로 전환",
+      "ctrl2": "플랜 모드로 전환",
+      "ctrl3": "리뷰 모드로 전환",
+      "ctrl4": "스펙 모드로 전환"
+    }
   },
   "teamMemory": {
     "title": "팀 공유 메모리",
@@ -6452,6 +6465,7 @@
     "fieldWorkspace": "워크스페이스",
     "free": "무료",
     "kanban": {
+      "allTeams": "전체 작업",
       "cancel": "취소",
       "connected": "연결됨",
       "disconnected": "연결 끊김",
@@ -6459,7 +6473,10 @@
       "low": "낮음",
       "medium": "중간",
       "newTask": "새 작업",
-      "priority": "우선순위"
+      "noTeam": "팀 없음",
+      "priority": "우선순위",
+      "team": "팀",
+      "workspace": "워크스페이스"
     },
     "loading": "로딩 중...",
     "marketSubtitle": "우수한 에이전트를 발견하고 사용",
@@ -6608,18 +6625,30 @@
   },
   "agents": {
     "kanban": {
+      "blocked": "차단됨",
       "cancel": "취소",
       "confirm": "확인",
       "created": "생성됨",
       "delete": "삭제",
       "dependencies": "종속성",
+      "done": "완료",
       "duration": "소요 시간",
       "empty": "작업이 없습니다",
+      "in_progress": "진행 중",
+      "lockConflict": "워크스페이스 잠금 충돌",
+      "locked": "잠김",
       "priority": "우선순위",
+      "ready": "준비됨",
       "reason": "사유",
       "reasonRequired": "사유를 입력해 주세요",
+      "todo": "할 일",
       "transition": "상태 전환",
-      "worker": "작업자"
+      "triage": "분류 대기",
+      "worker": "작업자",
+      "workspace": "워크스페이스",
+      "low": "낮음",
+      "medium": "보통",
+      "high": "높음"
     }
   },
   "agentsCategoriesPage": {

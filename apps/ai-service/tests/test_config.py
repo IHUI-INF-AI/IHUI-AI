@@ -116,9 +116,15 @@ def test_default_jwt_issuer():
     assert Settings().jwt_issuer == "ihui-ai"
 
 
-def test_default_jwt_public_paths():
-    """jwt_public_paths 默认含 /api/health /metrics 等。"""
-    paths = Settings().jwt_public_paths
+def test_default_jwt_public_paths(monkeypatch):
+    """jwt_public_paths 默认含 /api/health /metrics 等。
+
+    2026-09-10 修复:改用 _env_file=None 隔离本地 .env(兄弟测试同模式)。
+    此前 Settings() 会加载本地 .env 的 JWT_PUBLIC_PATHS 运行时覆盖值,
+    本地 .env 陈旧时该测试必挂(与代码默认值无关)。
+    """
+    monkeypatch.delenv("JWT_PUBLIC_PATHS", raising=False)
+    paths = Settings(_env_file=None).jwt_public_paths
     assert "/api/health" in paths
     assert "/metrics" in paths
     assert "/health" in paths
