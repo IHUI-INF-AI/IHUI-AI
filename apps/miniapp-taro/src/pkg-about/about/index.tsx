@@ -98,7 +98,11 @@ export default function AboutIndexPage() {
         url: '/pkg-about/about/app-permission/index',
       },
       { key: 'help', label: tt('about.help.title', '帮助中心'), url: '/pkg-about/about/help' },
-      { key: 'contact', label: tt('about.contact.title', '联系我们'), url: '/pkg-about/about/contact' },
+      {
+        key: 'contact',
+        label: tt('about.contact.title', '联系我们'),
+        url: '/pkg-about/about/contact',
+      },
     ],
     [tt],
   )
