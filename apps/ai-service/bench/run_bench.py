@@ -11,6 +11,10 @@ agent 执行任务,再逐条运行检查器评分,产出 markdown 报告 + JSON 
              用于验证完整链路(工具调用 → 结果回填 → 评分)在离线环境跑通。
 - ``loop_v2``:真实 ``llm_gateway.complete`` 路径;无 key 时网关降级为 stub
              响应,行为与 stub 类似,但走完整 LLM 网关调用链。
+- ``self-healing``:loop_v2 路径 + 强制开启 ``AGENT_SELF_HEALING_ENABLED``——
+             agent 工具结果出现失败测试信号时自动触发 heal(2026-09-12 立,
+             fix-8 评测闭环),用于对比 loop_v2 与自愈开启后的通过率差异;
+             结果 JSON 附 ``self_heal_runs`` 触发计数。
 - ``golden``:跳过 agent 循环,直接拷贝 fixtures_golden 下的参考答案评分。
              参考答案覆盖全部任务的检查(含 pytest 全绿),因此通过率必须为
              100%。用于校验 bench 评分链路自身(checker/fixture/任务定义)无回归,
@@ -298,6 +302,7 @@ async def _run_task(task: dict[str, Any], executor: str, base_workdir: Path) -> 
             "iterations": 0,
             "duration_ms": 0.0,
             "stop_reason": "golden",
+            "self_heal_runs": 0,
             "checks": checks,
             "checks_passed": passed,
             "checks_total": total,
@@ -308,6 +313,12 @@ async def _run_task(task: dict[str, Any], executor: str, base_workdir: Path) -> 
     # 工具路径校验依赖 MCP_WORKSPACE_ROOTS;指向本次副本,避免越权访问仓库真实代码
     prev_roots = os.environ.get("MCP_WORKSPACE_ROOTS")
     os.environ["MCP_WORKSPACE_ROOTS"] = str(workdir)
+    # self-healing 执行器:强制开启自愈门控(评测即对比「开自愈」的通过率)
+    self_healing = executor == "self-healing"
+    prev_enabled = os.environ.get("AGENT_SELF_HEALING_ENABLED")
+    if self_healing:
+        os.environ["AGENT_SELF_HEALING_ENABLED"] = "true"
+    heal_runs = 0
     try:
         llm = _build_stub_llm() if executor == "stub" else _build_loop_v2_llm()
         tools = _build_tools(task.get("allowed_tools", []), workdir)
@@ -324,6 +335,7 @@ async def _run_task(task: dict[str, Any], executor: str, base_workdir: Path) -> 
         duration_ms = (time.time() - start) * 1000
         iterations = len(result.iterations)
         stop_reason = result.stop_reason
+        heal_runs = int(getattr(loop, "_self_heal_runs", 0) or 0)
         # IHUI_BENCH_DEBUG=1 时输出每轮 tool_calls / tool_results 全量 trace,
         # 用于定位「agent 迭代了却不改文件」等行为问题(如工具未调、参数错、路径越权)。
         if os.environ.get("IHUI_BENCH_DEBUG"):
@@ -363,6 +375,11 @@ async def _run_task(task: dict[str, Any], executor: str, base_workdir: Path) -> 
             os.environ.pop("MCP_WORKSPACE_ROOTS", None)
         else:
             os.environ["MCP_WORKSPACE_ROOTS"] = prev_roots
+        if self_healing:
+            if prev_enabled is None:
+                os.environ.pop("AGENT_SELF_HEALING_ENABLED", None)
+            else:
+                os.environ["AGENT_SELF_HEALING_ENABLED"] = prev_enabled
 
     checks, passed, total = score_task(task, workdir)
     task_pass = total > 0 and passed == total
@@ -374,6 +391,7 @@ async def _run_task(task: dict[str, Any], executor: str, base_workdir: Path) -> 
         "iterations": iterations,
         "duration_ms": round(duration_ms, 1),
         "stop_reason": stop_reason,
+        "self_heal_runs": heal_runs,
         "checks": checks,
         "checks_passed": passed,
         "checks_total": total,
@@ -397,6 +415,7 @@ async def _run_all(tasks: list[dict[str, Any]], executor: str, base_workdir: Pat
                 "iterations": 0,
                 "duration_ms": 0.0,
                 "stop_reason": "error",
+                "self_heal_runs": 0,
                 "checks": [],
                 "checks_passed": 0,
                 "checks_total": 0,
@@ -461,7 +480,7 @@ def _write_reports(results: list[dict[str, Any]], report_path: Path) -> dict[str
         lines.append(f"- 类别: {r['category']} / 夹具: {r['fixture']}")
         lines.append(
             f"- 迭代: {r['iterations']} / 停止原因: {r['stop_reason']} "
-            f"/ 耗时: {r['duration_ms']}ms"
+            f"/ 耗时: {r['duration_ms']}ms / 自愈触发: {r.get('self_heal_runs', 0)} 次"
         )
         lines.append("")
         for c in r.get("checks", []):
@@ -486,9 +505,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--category", type=str, default=None, help="按 category 过滤(fix/test/refactor/multifile)")
     parser.add_argument(
         "--executor",
-        choices=["loop_v2", "stub", "golden"],
+        choices=["loop_v2", "stub", "golden", "self-healing"],
         default="stub",
         help="执行器: stub=确定性简化 LLM(无需 key); loop_v2=真实 llm_gateway 路径; "
+        "self-healing=loop_v2 + 强制开启自愈(失败测试信号自动触发 heal); "
         "golden=参考答案直评(bench 链路自检,应全部通过)",
     )
     parser.add_argument(
