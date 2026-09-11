@@ -31,8 +31,14 @@ import {
 import { CenteredText } from '@/components/common/CenteredText'
 import { useToast } from '@/hooks/use-toast'
 import { useAgentSSE } from '@/hooks/useAgentSSE'
-import { fetchKanbanColumns, createKanbanTask, getKanbanStreamUrl } from '@/lib/agent-kanban-api'
-import type { KanbanTask } from '@ihui/types'
+import {
+  fetchKanbanColumns,
+  fetchKanbanTasks,
+  fetchMyTeams,
+  createKanbanTask,
+  getKanbanStreamUrl,
+} from '@/lib/agent-kanban-api'
+import type { KanbanColumn as KanbanColumnData, KanbanTask } from '@ihui/types'
 import { KanbanColumn } from './KanbanColumn'
 import { TaskDetailDialog } from './TaskDetailDialog'
 
@@ -56,10 +62,30 @@ export function KanbanBoard() {
   const queryClient = useQueryClient()
   const { success } = useToast()
 
+  // 2-2 团队任务板过滤('all' = 全部任务)
+  const [teamFilter, setTeamFilter] = React.useState('all')
+  const activeTeamId = teamFilter !== 'all' ? teamFilter : undefined
+
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['agents-kanban'],
-    queryFn: fetchKanbanColumns,
+    queryKey: ['agents-kanban', activeTeamId ?? 'all'],
+    queryFn: async (): Promise<KanbanColumnData[]> => {
+      // 2-2 团队过滤:选了团队时走 tasks?teamId= 再前端组列;未选走默认 6 列视图
+      if (!activeTeamId) return fetchKanbanColumns()
+      const tasks = await fetchKanbanTasks(undefined, activeTeamId)
+      return COLUMN_STATUSES.map((status) => ({
+        status,
+        titleKey: `agents.kanban.${status}`,
+        tasks: tasks.filter((task) => task.status === status),
+      }))
+    },
   })
+
+  // 2-2 团队过滤下拉数据源(失败静默降级为无团队可选)
+  const { data: myTeams } = useQuery({
+    queryKey: ['my-teams'],
+    queryFn: fetchMyTeams,
+  })
+  const teams = myTeams ?? []
 
   const streamUrl = React.useMemo(() => getKanbanStreamUrl(), [])
   const { connected } = useAgentSSE(streamUrl)
@@ -71,7 +97,15 @@ export function KanbanBoard() {
   const [createDesc, setCreateDesc] = React.useState('')
   const [createPriority, setCreatePriority] = React.useState('5')
   const [createAgentId, setCreateAgentId] = React.useState('')
+  const [createWorkspace, setCreateWorkspace] = React.useState('')
+  const [createTeamId, setCreateTeamId] = React.useState('none')
   const [createError, setCreateError] = React.useState<string | null>(null)
+
+  // 切换团队过滤时,创建表单的团队默认跟随
+  const handleTeamFilterChange = (value: string) => {
+    setTeamFilter(value)
+    setCreateTeamId(value !== 'all' ? value : 'none')
+  }
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -80,6 +114,8 @@ export function KanbanBoard() {
         description: createDesc.trim() || undefined,
         priority: parseInt(createPriority, 10),
         agentId: createAgentId.trim(),
+        workspacePath: createWorkspace.trim() || undefined,
+        teamId: createTeamId !== 'none' && createTeamId ? createTeamId : undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agents-kanban'] })
@@ -89,6 +125,7 @@ export function KanbanBoard() {
       setCreateDesc('')
       setCreatePriority('5')
       setCreateAgentId('')
+      setCreateWorkspace('')
       setCreateError(null)
     },
     onError: (e: Error) => setCreateError(e.message),
@@ -125,6 +162,7 @@ export function KanbanBoard() {
       setCreateDesc('')
       setCreatePriority('5')
       setCreateAgentId('')
+      setCreateWorkspace('')
       setCreateError(null)
     }
   }
@@ -139,6 +177,23 @@ export function KanbanBoard() {
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         </div>
         <div className="flex items-center gap-2">
+          {/* 2-2 团队过滤(无团队时隐藏) */}
+          {teams.length > 0 && (
+            <Select value={teamFilter} onValueChange={handleTeamFilterChange}>
+              <SelectTrigger className="h-8 w-[160px] text-xs">
+                <SelectValue placeholder={t('kanban.allTeams')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('kanban.allTeams')}</SelectItem>
+                {teams.map((team) => (
+                  <SelectItem key={team.id} value={team.id}>
+                    {team.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           {/* SSE 状态 */}
           <span
             className={cn(
@@ -226,6 +281,38 @@ export function KanbanBoard() {
                     />
                   </div>
                 </div>
+
+                {/* 2-2 工作区路径(进入 in_progress 时据此抢工作区锁) */}
+                <div className="space-y-2">
+                  <Label htmlFor="task-workspace">{t('kanban.workspace')}</Label>
+                  <Input
+                    id="task-workspace"
+                    value={createWorkspace}
+                    onChange={(e) => setCreateWorkspace(e.target.value)}
+                    maxLength={512}
+                    placeholder="/workspaces/demo"
+                  />
+                </div>
+
+                {/* 2-2 归属团队(团队任务板) */}
+                {teams.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>{t('kanban.team')}</Label>
+                    <Select value={createTeamId} onValueChange={setCreateTeamId}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{t('kanban.noTeam')}</SelectItem>
+                        {teams.map((team) => (
+                          <SelectItem key={team.id} value={team.id}>
+                            {team.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <DialogFooter>
                   <Button
