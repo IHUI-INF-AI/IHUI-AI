@@ -352,7 +352,7 @@
 
 - [x] ✅(2026-08-02) F16(P2):`apps/web/src/components/login/LoginDialog.tsx` 行 38 `isTauri()` → `useDesktop().isDesktop`,与项目其他 Tauri 检测点统一(MainShell 标题栏等),消除 Tauri 2.x 异步注入时机的理论隐患(**TAURI_INTERNALS** 在 webview 加载后 100-500ms 才注入)。import 调整:移除 `isTauri` from `tauri-bridge`(保留 `openExternalUrl`),新增 `import { useDesktop } from '@/hooks/use-desktop'`。`pnpm --filter @ihui/web typecheck` exit 0
 - [x] ✅(2026-08-02) F17(P1 Desktop 动态实测):启动 web 8801 + api 8802 + desktop tauri dev(Rust 编译 58.45s,`ihui-desktop.exe` 运行),SSO API 闭环 curl 实测全绿:
-  - POST `/api/auth/login` {account:'[REDACTED-PHONE]', password:'[REDACTED-PW]'} → 200(accessToken 333 字符)
+  - POST `/api/auth/login` {account:'<admin-account>', password:'<admin-password>'} → 200(accessToken 333 字符)
   - POST `/api/auth/sso/code` {clientId:'desktop', redirectUri:'ihui://sso'} → 200(返回 sso_code,F5 ihui:// scheme 接受验证通过)
   - POST `/api/auth/sso/exchange` {code, clientId:'desktop'} → 200(返回 accessToken+refreshToken+user,F1 redis get+del 修复验证通过,F2 jti 防重放验证通过)
   - GET `/api/developer/relay/subscriptions` → 200(activePlan=null, remainingTokens=***, history=[], plans=[],F13.5 新端点验证通过)
@@ -1469,7 +1469,7 @@
 
 - [x] ✅(2026-07-30) **P0 ai_pricing 数据状态收尾** — 验证 `ai_pricing.step-3.7-flash` 价格回退到 StepFun 官方价位。**结果**:数据库实测 `input=1分, output=2分`(seed 文件 `stepfun/step-3.5-flash` 也是 1/1),已是 StepFun flash 模型典型价位 1~2 分范围,**无需任何改动**(前序报告"临时调整 100 分"在数据库中不成立,可能已被回退或描述与实际不符)。**取消该任务**(无源码改动,无 commit)
 - [x] ✅(2026-07-30) **P1 Cloudflare base_url 模板替换** — 验证 BYOK 配置 resolve 阶段是否需要补 `account_id` 占位符注入。**结果**:Read `apps/ai-service/app/core/llm_gateway.py:591-599` 确认现有设计已合理——代码注释明确"cloudflare_account_id 字段已删除,api_base 必须配置完整 URL(含 account_id,如 https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1)",`_resolve_from_db` 行 321 直接用 `row["base_url"]` 字段。用户在 `ai_model_config.base_url` 填完整 URL 即可,系统原样传给 LiteLLM。**取消该任务**(现有设计已合理,无源码改动)
-- [x] ✅(2026-07-30) **P1 reset-admin-password.ts 补齐** — `apps/api/package.json:17` 声明 `reset:admin-password: tsx scripts/reset-admin-password.ts` 但文件缺失。**Subagent A** 新建 `apps/api/scripts/reset-admin-password.ts`(76 行):① 从 `argv[2]` 读取新密码(默认 `[REDACTED-PW]`,符合 §user_profile 测试账号规则);② `hashPassword(argon2id)` 生成 hash;③ 先尝试直接 UPDATE,失败走降级路径 `DISABLE TRIGGER ALL` → UPDATE → `ENABLE TRIGGER ALL`(try/finally 保证触发器必定重新启用);④ 查询 admin 用户名+邮箱确认,打印结果;⑤ `process.exit(0/1)`。TypeScript 类型零技术债(无 `any`,错误用 `e: unknown` + `errMsg()` 类型守卫);`pnpm --filter @ihui/api typecheck` exit 0
+- [x] ✅(2026-07-30) **P1 reset-admin-password.ts 补齐** — `apps/api/package.json:17` 声明 `reset:admin-password: tsx scripts/reset-admin-password.ts` 但文件缺失。**Subagent A** 新建 `apps/api/scripts/reset-admin-password.ts`(76 行):① 从 `argv[2]` 读取新密码;② `hashPassword(argon2id)` 生成 hash;③ 先尝试直接 UPDATE,失败走降级路径 `DISABLE TRIGGER ALL` → UPDATE → `ENABLE TRIGGER ALL`(try/finally 保证触发器必定重新启用);④ 查询 admin 用户名+邮箱确认,打印结果;⑤ `process.exit(0/1)`。TypeScript 类型零技术债(无 `any`,错误用 `e: unknown` + `errMsg()` 类型守卫);`pnpm --filter @ihui/api typecheck` exit 0
 - [x] ✅(2026-07-30) **P2 PATCH 201 状态码 UX** — 后端 PATCH `/admin/relay/commission/:providerCode` 已升级为 upsert(HTTP 200=update / 201=insert),前端 `updateCommission.onSuccess` 只显示统一 toast "抽成率已更新",无法区分。**Subagent B** 改造 `apps/web/app/(main)/admin/relay/page.tsx`(345 → 385 行,+40):① 探查 `packages/types/src/api.ts` 确认 `ApiResult<T>` success 分支不含 `status` 字段;② `mutationFn` 改用原生 `fetch` 直读 `response.status`,返回类型显式标注 `{ data: {...}; status: number }`;③ `onSuccess` 区分 `status === 201` → "已为新 provider 创建默认抽成配置 (xxx)" / 200 → "抽成率已更新 (xxx)";④ Tauri 环境检测 + Token 注入与 `apps/web/src/lib/api.ts` 完全一致;⑤ `pnpm --filter @ihui/web typecheck` 本任务文件 0 错误
 - [x] ✅(2026-07-30) **P2 守门脚本增强 + subagent 行为约束** — 防污染事故复发(2026-07-30 真实事故:agent 只 add 1 个文件,commit 实际包含 8 个文件,污染 7 个其他 agent 改的 M 文件,post-commit 钩子自动 push 到 origin)。**Subagent C** 新建 `scripts/check-staged-files-count.mjs`(65 行):① 读取 `git diff --cached --name-only` 统计 staged 文件数;② 默认阈值 10,超过打印警告到 stderr(不阻断,exit 0);③ CLI 参数 `--max=N` / `--strict`(超过阈值 exit 1)/ `--quiet` / `HUSKY_SKIP_STAGED_COUNT=1`;④ `.husky/pre-commit` 集成在 `takeStagingSnapshot()` 之前(第 0 项,最早执行),try/catch 兜底;⑤ 5 个测试用例全过(`--max=1`/`--max=10`/`--quiet`/`--strict`/skip env)。**主 agent** 修改 `AGENTS.md` §11 联动规则,新增 2 条:(a) subagent 完成任务后必须 `git status --short` 自检,发现意外文件立即停止报告主 agent;(b) subagent 执行 `git stash push/pop/apply` 后必须用 Read 验证任务清单内文件内容完整,防止 stash 误操作吞文件。**与现有 staging-snapshot 机制互补**:staging-snapshot 在 hook 退出前自动 unstage 新增文件(被动防御),本机制在 hook 入口显式预检(主动告警)
 
@@ -1734,7 +1734,7 @@ FoldableSection / ThinkingSection / ToolCallsSection / SubagentSection / Changes
 - ✅ i18n 5 语言 parity:Phase 21-23 持续维护
 - ✅ Hydration 错误:Phase 24 修复 + 浏览器实测 0 errors
 - ✅ 测试 regression:Phase 24 修复(67 个测试从失败恢复)
-- ✅ 浏览器 4 状态自验:admin/[REDACTED-PW] 登录态全过
+- ✅ 浏览器 4 状态自验:admin 账号登录态全过
 - ✅ Git 同步:local == origin,git-push-guard exit 0
 - ✅ 类型零技术债:无 any,精确类型
 - ✅ 圆角守门:无 rounded-full
@@ -3250,7 +3250,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 `(main)/{user,edu,edu-ai,member,notifications,refund}/loading.tsx`(skeleton 类 + rounded-xl/rounded,无分割线,符 AGENTS.md 守门)。
 
-### 定量实测(v6 Playwright,admin/[REDACTED-PW] 同页连续软点击,预热完成后)
+### 定量实测(v6 Playwright,admin 账号同页连续软点击,预热完成后)
 
 | 场景 | 结果 |
 | 未预热冷编译 /ranking·/cost-dashboard | 15.3s / 16.5s |

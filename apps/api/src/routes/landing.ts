@@ -324,7 +324,7 @@ const LANDING_HTML = `<!DOCTYPE html>
       <h3>登录后购买</h3>
       <div class="field">
         <label>账号(用户名 / 邮箱 / 手机号)</label>
-        <input type="text" id="account" placeholder="admin 或 [REDACTED-EMAIL]">
+        <input type="text" id="account" placeholder="用户名 / 邮箱 / 手机号">
       </div>
       <div class="field">
         <label>密码</label>

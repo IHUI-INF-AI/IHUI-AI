@@ -39,8 +39,8 @@ export function cleanupExpiredCodes(): void {
  *
  * 测试 bypass(仅 NODE_ENV !== 'production'):
  * - 先查 test_verify_code_bypass 表,命中且 code 匹配 → true(不消耗内存 code)
- * - admin 账号(email=[REDACTED-EMAIL] / phone=[REDACTED-PHONE])固定验证码 123456
- * - 生产环境永远走真实验证码流程
+ * - bypass 名单由该表驱动(仅本地/CI seed 占位开发账号,真实账号标识不入仓库)
+ * - 生产环境永远走真实验证码流程,且生产库此表保持 is_active=false
  *
  * @param identifier phone 或 email(与发送时存入 codeStore 的 key 一致)
  */

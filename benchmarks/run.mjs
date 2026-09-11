@@ -84,9 +84,11 @@ function selftest(ids) {
 async function run(ids) {
   const cmd = resolveCmd();
   const timeoutMs = Number(process.env.BENCH_TIMEOUT_MS || 300000);
-  // 每次 agent 执行前自动 login（确保 token 有效）
+  // 每次 agent 执行前自动 login（确保 token 有效;密码经 BENCH_ADMIN_PASSWORD 注入,不入仓库）
+  const benchPwd = process.env.BENCH_ADMIN_PASSWORD;
+  if (!benchPwd) { console.error('[LOGIN] 缺少 BENCH_ADMIN_PASSWORD'); process.exit(1); }
   const loginExe = cmd[0];
-  const loginArgs = [...cmd.slice(1), 'login', '-a', 'admin', '-p', '[REDACTED-PW]'];
+  const loginArgs = [...cmd.slice(1), 'login', '-a', 'admin', '-p', benchPwd];
   const loginR = spawnSync(loginExe, loginArgs, { encoding: 'utf8', timeout: 30000 });
   if (loginR.status !== 0) console.error('[LOGIN] 失败:\n' + (loginR.stderr || loginR.stdout || '').split('\n').slice(0, 5).join('\n'));
   else console.log('[LOGIN] admin token 刷新成功');
