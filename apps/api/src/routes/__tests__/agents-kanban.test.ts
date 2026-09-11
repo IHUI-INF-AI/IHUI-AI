@@ -9,10 +9,13 @@
  * 1. 鉴权:未登录 401
  * 2. workspace-lock 查询端点(held/holder/ttl;workspace 缺失 400)
  * 3. teamId 过滤:非成员 403 / 成员 200 / admin 放行(不查成员表)
- * 4. transition 进 in_progress:锁获取成功(token 入 payload,lockedBy 审计)/ 被占 409+持有者
- * 5. transition 离开 in_progress:凭 payload token 释放锁,清除审计字段
+ * 4. transition 进 in_progress:锁获取成功(token 入 payload,lockedBy 审计,P0-1 启动心跳)/ 被占 409+持有者
+ * 5. transition 离开 in_progress:P0-2 统一释放原语(releaseLockToken)/ 无 token 时 stopLockHeartbeat
+ * 6. P0-3 状态映射:cancelled/quota_exceeded/preempted → blocked 列
+ * 7. P0-4 团队过滤:默认视图非 admin 仅见所属团队 / :id 越权 404
+ * 8. DELETE:P0-2 删除前 releaseTaskLockByTaskId 统一释放
  *
- * db / 鉴权 / workspace-lock 服务均 mock,不连真实 PG 与 Redis。
+ * db / 鉴权 / workspace-lock / workspace-lock-heartbeat 均 mock,不连真实 PG 与 Redis。
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
@@ -210,7 +213,48 @@ vi.mock('../../services/workspace-lock.js', () => ({
   _resetMemoryLocks: () => {},
 }))
 
+// ─────────────────────────────────────────────────────────────
+// Mock:workspace-lock-heartbeat(P0-1/P0-2;避免真实定时器)
+// ─────────────────────────────────────────────────────────────
+const heartbeatState = vi.hoisted(() => ({
+  started: [] as Array<{ taskId: string; workspace: string; token: string }>,
+  stopped: [] as string[],
+  releasedTokens: [] as Array<{ taskId: string; workspace: string; token: string }>,
+  releasedByTaskId: [] as string[],
+  reset: () => {
+    heartbeatState.started.length = 0
+    heartbeatState.stopped.length = 0
+    heartbeatState.releasedTokens.length = 0
+    heartbeatState.releasedByTaskId.length = 0
+  },
+}))
+
+vi.mock('../../services/workspace-lock-heartbeat.js', () => ({
+  LOCK_HEARTBEAT_INTERVAL_MS: 40_000,
+  startLockHeartbeat: (taskId: string, workspace: string, token: string) => {
+    heartbeatState.started.push({ taskId, workspace, token })
+  },
+  stopLockHeartbeat: (taskId: string) => {
+    heartbeatState.stopped.push(taskId)
+  },
+  releaseLockToken: async (taskId: string, workspace: string, token: string) => {
+    heartbeatState.releasedTokens.push({ taskId, workspace, token })
+    return true
+  },
+  releaseTaskLockFromRow: async () => ({ hadLock: false, released: false }),
+  releaseTaskLockByTaskId: async (taskId: string) => {
+    heartbeatState.releasedByTaskId.push(taskId)
+    return { hadLock: false, released: false }
+  },
+  _resetLockHeartbeats: () => {},
+}))
+
 import { agentsKanbanRoutes } from '../agents-kanban.js'
+import {
+  mapStatus,
+  isTransitionAllowed,
+  STATUS_VARIANTS,
+} from '../../services/agent-task-status.js'
 
 // ─────────────────────────────────────────────────────────────
 // 测试数据
@@ -273,6 +317,7 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
   beforeEach(() => {
     store.reset()
     lockState.reset()
+    heartbeatState.reset()
     authState.fail = false
     authState.userId = 'user-1'
     authState.roleId = 1 // 默认 admin(transition/create 为 admin 端点)
@@ -406,6 +451,10 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
       expect(res.json().data.allowed).toBe(true)
       // 锁获取调用
       expect(lockState.acquireCalls).toEqual([{ workspace: '/ws/a', holder: `task:${ID_A}` }])
+      // P0-1:抢锁成功即启动心跳续期
+      expect(heartbeatState.started).toEqual([
+        { taskId: ID_A, workspace: '/ws/a', token: 'tok-123' },
+      ])
       // DB 更新:payload 携带 token + 审计字段
       const set = store.updateSets[0] as Record<string, unknown>
       expect((set.payload as Record<string, unknown>).workspaceLockToken).toBe('tok-123')
@@ -470,7 +519,7 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
   // 5. transition 离开 in_progress:锁释放
   // ───────────────────────────────────────────────────────────
   describe('transition 离开 in_progress(锁释放)', () => {
-    it('in_progress → done:凭 payload token 释放,清除审计字段', async () => {
+    it('in_progress → done:P0-2 统一释放(releaseLockToken),清除审计字段', async () => {
       store.pushSelect([
         makeRow({
           status: 'in_progress',
@@ -487,14 +536,17 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
       })
 
       expect(res.statusCode).toBe(200)
-      expect(lockState.releaseCalls).toEqual([{ workspace: '/ws/a', token: 'tok-123' }])
+      // P0-2:统一释放原语(内部停心跳 + 凭 token 释放)
+      expect(heartbeatState.releasedTokens).toEqual([
+        { taskId: ID_A, workspace: '/ws/a', token: 'tok-123' },
+      ])
       const set = store.updateSets[0] as Record<string, unknown>
       expect((set.payload as Record<string, unknown>).workspaceLockToken).toBeUndefined()
       expect(set.lockedBy).toBeNull()
       expect(set.lockedAt).toBeNull()
     })
 
-    it('payload 无 token(历史任务) → 不调 release,仍广播释放', async () => {
+    it('payload 无 token(历史任务) → stopLockHeartbeat 兜底,不调释放', async () => {
       store.pushSelect([makeRow({ status: 'in_progress', workspacePath: '/ws/a', payload: {} })])
       store.pushUpdate([makeRow({ status: 'blocked' })])
 
@@ -505,6 +557,9 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
       })
 
       expect(res.statusCode).toBe(200)
+      // P0-2:无 token 时至少停掉可能残留的心跳定时器
+      expect(heartbeatState.stopped).toEqual([ID_A])
+      expect(heartbeatState.releasedTokens).toHaveLength(0)
       expect(lockState.releaseCalls).toHaveLength(0)
       const set = store.updateSets[0] as Record<string, unknown>
       expect(set.lockedBy).toBeNull()
@@ -533,6 +588,135 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
       expect(values.teamId).toBe(ID_TEAM)
       expect(res.json().data.workspacePath).toBe('/ws/new')
       expect(res.json().data.teamId).toBe(ID_TEAM)
+    })
+  })
+
+  // ───────────────────────────────────────────────────────────
+  // 7. P0-3 状态映射:cancelled/quota_exceeded/preempted → blocked
+  // ───────────────────────────────────────────────────────────
+  describe('P0-3 状态映射', () => {
+    it('mapStatus:遗留终态全部映射进 blocked', () => {
+      expect(mapStatus('cancelled')).toBe('blocked')
+      expect(mapStatus('quota_exceeded')).toBe('blocked')
+      expect(mapStatus('preempted')).toBe('blocked')
+      expect(mapStatus('failed')).toBe('blocked')
+      expect(mapStatus('running')).toBe('in_progress')
+      expect(mapStatus('completed')).toBe('done')
+    })
+
+    it('STATUS_VARIANTS.blocked 覆盖全部遗留终态(?status=blocked 过滤数据源)', () => {
+      expect(STATUS_VARIANTS.blocked).toEqual(
+        expect.arrayContaining(['blocked', 'failed', 'cancelled', 'quota_exceeded', 'preempted']),
+      )
+    })
+
+    it('isTransitionAllowed:blocked 可回 todo/ready,done 终态', () => {
+      expect(isTransitionAllowed('blocked', 'todo')).toBe(true)
+      expect(isTransitionAllowed('blocked', 'ready')).toBe(true)
+      expect(isTransitionAllowed('done', 'todo')).toBe(false)
+      expect(isTransitionAllowed('ready', 'in_progress')).toBe(true)
+    })
+
+    it('GET /:id 返回 cancelled 行 → status 归一为 blocked(不丢卡)', async () => {
+      store.pushSelect([makeRow({ status: 'cancelled', teamId: null })])
+      const res = await app.inject({ method: 'GET', url: `/api/agents/kanban/tasks/${ID_A}` })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.status).toBe('blocked')
+    })
+
+    it('transition 从 blocked(遗留 cancelled 行)→ todo 放行', async () => {
+      store.pushSelect([makeRow({ status: 'cancelled' })])
+      store.pushUpdate([makeRow({ status: 'todo' })])
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/agents/kanban/tasks/${ID_A}/transition`,
+        payload: { taskId: ID_A, toStatus: 'todo' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.allowed).toBe(true)
+      const set = store.updateSets[0] as Record<string, unknown>
+      expect(set.errorMessage).toBeNull() // 从 blocked 恢复清除错误信息
+    })
+  })
+
+  // ───────────────────────────────────────────────────────────
+  // 8. P0-4 团队过滤安全边界:默认视图 / :id 越权 404
+  // ───────────────────────────────────────────────────────────
+  describe('P0-4 团队过滤', () => {
+    it('GET /agents/kanban 非 admin:先查所属团队再查任务(可见集过滤)', async () => {
+      authState.roleId = 0
+      store.pushSelect([{ teamId: ID_TEAM }]) // getUserVisibleTeamIds → teamMembers
+      store.pushSelect([makeRow({ status: 'todo', teamId: ID_TEAM })]) // agentTasks
+      const res = await app.inject({ method: 'GET', url: '/api/agents/kanban' })
+      expect(res.statusCode).toBe(200)
+      const columns = res.json().data as Array<{ status: string; tasks: unknown[] }>
+      expect(columns).toHaveLength(6)
+      const todo = columns.find((c) => c.status === 'todo')
+      expect(todo?.tasks).toHaveLength(1)
+    })
+
+    it('GET /agents/kanban admin:不查成员表,直接全量', async () => {
+      authState.roleId = 1
+      // 仅预置任务查询结果;若误查成员表会被消费导致任务列表为空 → 断言失败
+      store.pushSelect([makeRow({ status: 'todo', teamId: ID_TEAM })])
+      const res = await app.inject({ method: 'GET', url: '/api/agents/kanban' })
+      expect(res.statusCode).toBe(200)
+      const columns = res.json().data as Array<{ status: string; tasks: unknown[] }>
+      expect(columns.find((c) => c.status === 'todo')?.tasks).toHaveLength(1)
+    })
+
+    it('GET /tasks 无 teamId 非 admin:按可见团队过滤', async () => {
+      authState.roleId = 0
+      store.pushSelect([{ teamId: ID_TEAM }]) // 可见团队
+      store.pushSelect([makeRow({ teamId: ID_TEAM })]) // 任务
+      const res = await app.inject({ method: 'GET', url: '/api/agents/kanban/tasks' })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data).toHaveLength(1)
+    })
+
+    it('GET /tasks/:id 非 admin 查他人团队任务 → 404(不泄露存在性)', async () => {
+      authState.roleId = 0
+      store.pushSelect([makeRow({ teamId: ID_TEAM })]) // 任务行
+      store.pushSelect([]) // isTeamMember → 空
+      const res = await app.inject({ method: 'GET', url: `/api/agents/kanban/tasks/${ID_A}` })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('GET /tasks/:id 非 admin 但为团队成员 → 200', async () => {
+      authState.roleId = 0
+      store.pushSelect([makeRow({ teamId: ID_TEAM })]) // 任务行
+      store.pushSelect([{ id: 'm-1' }]) // isTeamMember → 命中
+      const res = await app.inject({ method: 'GET', url: `/api/agents/kanban/tasks/${ID_A}` })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.teamId).toBe(ID_TEAM)
+    })
+
+    it('GET /tasks/:id 非 admin 查无团队任务 → 200', async () => {
+      authState.roleId = 0
+      store.pushSelect([makeRow({ teamId: null })])
+      const res = await app.inject({ method: 'GET', url: `/api/agents/kanban/tasks/${ID_A}` })
+      expect(res.statusCode).toBe(200)
+    })
+  })
+
+  // ───────────────────────────────────────────────────────────
+  // 9. DELETE:P0-2 删除前统一释放残留锁
+  // ───────────────────────────────────────────────────────────
+  describe('DELETE /api/agents/kanban/tasks/:id', () => {
+    it('triage 可删,删除前 releaseTaskLockByTaskId 统一释放', async () => {
+      store.pushSelect([makeRow({ status: 'triage' })])
+      store.deleteQueue.push([makeRow({ status: 'triage' })])
+      const res = await app.inject({ method: 'DELETE', url: `/api/agents/kanban/tasks/${ID_A}` })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.deleted).toBe(true)
+      expect(heartbeatState.releasedByTaskId).toEqual([ID_A])
+    })
+
+    it('in_progress 不可删 → 409,不触发释放', async () => {
+      store.pushSelect([makeRow({ status: 'in_progress' })])
+      const res = await app.inject({ method: 'DELETE', url: `/api/agents/kanban/tasks/${ID_A}` })
+      expect(res.statusCode).toBe(409)
+      expect(heartbeatState.releasedByTaskId).toHaveLength(0)
     })
   })
 })

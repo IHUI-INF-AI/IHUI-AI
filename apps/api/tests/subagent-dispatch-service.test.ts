@@ -7,18 +7,21 @@
  *
  * 覆盖:
  *  - _createAgentTask:无 agentId 跳过 / insert agent_tasks(running)成功返回 id / db 抛错静默返回 undefined
- *  - _syncAgentTask:无 taskId 跳过 / 非终态跳过 / completed 写回 result / failed·quota_exceeded 写回 errorMessage /
- *    preempted 归一为 cancelled / db 抛错静默
+ *  - _syncAgentTask:无 taskId 跳过 / 非终态跳过 / 终态先释放工作区锁(P0-2) / completed 写回 result /
+ *    failed·quota_exceeded 写回 errorMessage / preempted 归一为 cancelled / db 抛错静默
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { mockLoggerWarn, mockInsert, mockUpdate, mockWhere, mockSet } = vi.hoisted(() => ({
-  mockLoggerWarn: vi.fn(),
-  mockInsert: vi.fn(),
-  mockUpdate: vi.fn(),
-  mockWhere: vi.fn(),
-  mockSet: vi.fn(),
-}))
+const { mockLoggerWarn, mockInsert, mockUpdate, mockWhere, mockSet, mockSelectResult } = vi.hoisted(
+  () => ({
+    mockLoggerWarn: vi.fn(),
+    mockInsert: vi.fn(),
+    mockUpdate: vi.fn(),
+    mockWhere: vi.fn(),
+    mockSet: vi.fn(),
+    mockSelectResult: vi.fn().mockResolvedValue([]),
+  }),
+)
 
 vi.mock('../src/utils/logger.js', () => ({
   logger: {
@@ -30,13 +33,36 @@ vi.mock('../src/utils/logger.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => ({
-  db: { insert: mockInsert, update: mockUpdate },
+  db: {
+    insert: mockInsert,
+    update: mockUpdate,
+    // _syncAgentTask 终态释放锁后会 db.select 查 taskRow(取 teamId 供 SSE 广播)
+    select: vi.fn(() => ({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockImplementation(() => mockSelectResult()),
+        }),
+      }),
+    })),
+  },
   dbRead: {},
 }))
 
 // mock @ihui/database:避免真实导入该 workspace 包导致 vitest 退出码非 0(仓库既有问题)
 vi.mock('@ihui/database', () => ({
   agentTasks: { id: 'agent_tasks_id' },
+}))
+
+// mock workspace-lock-heartbeat:_syncAgentTask 终态先 releaseTaskLockByTaskId(内部走 db.select/心跳),
+// 测试 db mock 仅含 insert/update,不 mock 该模块会让释放调用抛错被吞,终态 update 不再执行。
+vi.mock('../src/services/workspace-lock-heartbeat.js', () => ({
+  LOCK_HEARTBEAT_INTERVAL_MS: 30_000,
+  startLockHeartbeat: vi.fn(),
+  stopLockHeartbeat: vi.fn(),
+  releaseLockToken: vi.fn().mockResolvedValue(undefined),
+  releaseTaskLockFromRow: vi.fn().mockResolvedValue(undefined),
+  releaseTaskLockByTaskId: vi.fn().mockResolvedValue(undefined),
+  _resetLockHeartbeats: vi.fn(),
 }))
 
 import { subagentDispatchService } from '../src/services/subagent-dispatch-service'
