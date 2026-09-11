@@ -58,6 +58,24 @@ def test_run_command_derives_test_evidence() -> None:
     assert evidence["rollback"] is None
 
 
+def test_run_command_derives_test_evidence_snake_exit_code() -> None:
+    """2-3(2026-09-12):mcp_server._tool_run_command 返回蛇形 exit_code(无
+    passed/failed),此前只认驼峰 exitCode 导致纯命令执行 test 证据推不出来。"""
+    evidence = derive_step_evidence(
+        "run_command",
+        {"command": "pytest tests/x.py"},
+        {"exit_code": 2, "stdout": "...", "stderr": "..."},
+    )
+    assert evidence["test"] == {
+        "command": "pytest tests/x.py",
+        "exit_code": 2,
+        "passed": None,
+        "failed": None,
+    }
+    assert evidence["diff"] is None
+    assert evidence["rollback"] is None
+
+
 def test_unknown_tool_has_no_derived_evidence() -> None:
     evidence = derive_step_evidence("read_file", {"path": "a.py"}, {"content": "x"})
     assert evidence == {"diff": None, "test": None, "rollback": None}
