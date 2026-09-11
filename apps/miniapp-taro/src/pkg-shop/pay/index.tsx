@@ -155,7 +155,9 @@ export default function PayIndex() {
         }
         try {
           await requestAliPayment({ tradeNO: res.tradeNo } as AnyPayParams)
-          Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${res.outTradeNo}&status=paid` })
+          Taro.redirectTo({
+            url: `/pkg-shop/pay/result/index?orderNo=${res.outTradeNo}&status=paid`,
+          })
         } catch {
           Taro.redirectTo({
             url: `/pkg-shop/pay/result/index?orderNo=${res.outTradeNo}&status=failed`,
@@ -190,7 +192,9 @@ export default function PayIndex() {
       payInfo.paySign
     ) {
       requestWxPayment(payInfo as AnyPayParams)
-        .then(() => Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${no}&status=paid` }))
+        .then(() =>
+          Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${no}&status=paid` }),
+        )
         .catch(() =>
           Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${no}&status=failed` }),
         )
