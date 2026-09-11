@@ -15,7 +15,7 @@
  * - 本脚本必须能清掉 seed 创建的账号,否则 E2E 测试会因账号已存在而失败
  *
  * 保护机制(强制保留):
- * 1. is_system_admin=true 的用户永不删除(包括真实 admin [REDACTED-EMAIL])
+ * 1. is_system_admin=true 的用户永不删除(包括真实 system admin)
  * 2. SET LOCAL app.allow_cleanup='true' 启用清理开关
  * 3. 先删 refresh_tokens 避免 FK 约束
  * 4. 校验剩余用户数 + 打印保留的 system admin
