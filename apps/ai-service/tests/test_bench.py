@@ -11,10 +11,13 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+from app.core.llm_gateway import VENDOR_ENV_KEYS
 
 
 def _run_bench(args: list[str]) -> subprocess.CompletedProcess:
@@ -72,3 +75,47 @@ def test_bench_smoke_stub() -> None:
                 assert "pass" in c
 
         # 明确不断言 pass_rate(本测试只验证链路与结构)
+
+
+def test_bench_smoke_self_healing() -> None:
+    """self-healing 执行器结构冒烟:强制开自愈跑 1 任务,断言 self_heal_runs 字段。
+
+    网络隔离:self-healing 走 loop_v2 真实 llm_gateway 路径,而 .env 含真实
+    API key。子进程 cwd 换到临时目录(config 的 env_file=".env" 相对 cwd,
+    读不到 → settings 无 key),同时清空全部 vendor key env(os.environ 层
+    也无 key)→ gateway 落 stub 降级,不真实调网。
+    """
+    ai_service_root = Path(__file__).resolve().parents[1]
+    with tempfile.TemporaryDirectory() as td:
+        report = Path(td) / "report.md"
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in VENDOR_ENV_KEYS and k != "LLM_PROVIDERS"
+        }
+        env["PYTHONPATH"] = str(ai_service_root) + os.pathsep + env.get("PYTHONPATH", "")
+        proc = subprocess.run(
+            [
+                sys.executable, "-m", "bench.run_bench",
+                "--executor", "self-healing",
+                "--limit", "1",
+                "--report", str(report),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            cwd=td,
+            env=env,
+        )
+        assert proc.returncode == 0, proc.stderr
+
+        assert report.exists(), proc.stdout
+        data = json.loads(
+            report.with_suffix(".json").read_text(encoding="utf-8")
+        )
+        assert len(data["tasks"]) == 1
+        task = data["tasks"][0]
+        # 评测闭环契约:结果必须携带自愈触发计数(stub 响应不产生失败测试
+        # 信号,计数值应为 0,但字段必须存在且为 int)
+        assert "self_heal_runs" in task
+        assert isinstance(task["self_heal_runs"], int)

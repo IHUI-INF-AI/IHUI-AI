@@ -9,8 +9,10 @@
 
 from __future__ import annotations
 
+import difflib
 import json
 import os
+import sys
 import textwrap
 from typing import Any
 
@@ -113,13 +115,117 @@ def test_llm_patch_and_apply_writes_file(tmp_path: Any) -> None:
     assert out is not None  # 默认 validator 下写入可能被白名单拒;只断言不抛
 
 
-def test_apply_patch_rejects_diff_only() -> None:
+# ---------------------------------------------------------------------------
+# 补丁 v2:unified diff 应用(merge3 三方合并,2026-09-12 立,fix-8)
+# ---------------------------------------------------------------------------
+
+
+def _udiff(old_text: str, new_text: str, path: str = "mod.py") -> str:
+    """生成标准 unified diff(与 LLM patch_fn 产出的 diff 形态一致)。"""
+    return "".join(
+        difflib.unified_diff(
+            old_text.splitlines(keepends=True),
+            new_text.splitlines(keepends=True),
+            fromfile=f"a/{path}",
+            tofile=f"b/{path}",
+        )
+    )
+
+
+def test_apply_patch_rejects_missing_content_and_diff() -> None:
+    """既无 new_content 也无 diff → 明确拒绝(原 diff-only 拒绝语义的 v2 拆分)。"""
     ok, info = apply_patch_descriptor(
-        {"file_path": "/tmp/a.py", "diff": "--- a\n+++ b"},
-        validator=lambda p: (True, p),
+        {"file_path": "/tmp/a.py"}, validator=lambda p: (True, p)
     )
     assert not ok
     assert "new_content" in info
+
+
+def test_apply_patch_diff_no_hunks(tmp_path: Any) -> None:
+    """diff 只有文件头没有 hunk → 拒绝且不落盘。"""
+    target = tmp_path / "mod.py"
+    target.write_text("l1\n", encoding="utf-8")
+    ok, info = apply_patch_descriptor(
+        {"file_path": str(target), "diff": "--- a/mod.py\n+++ b/mod.py\n"},
+        validator=lambda p: (True, p),
+    )
+    assert not ok
+    assert "no hunks" in info
+    assert target.read_text(encoding="utf-8") == "l1\n"
+
+
+def test_apply_patch_diff_target_missing(tmp_path: Any) -> None:
+    """diff 补丁的目标文件不存在 → 拒绝(diff 不能凭空建文件)。"""
+    target = tmp_path / "nope.py"
+    ok, info = apply_patch_descriptor(
+        {"file_path": str(target), "diff": _udiff("l1\n", "l2\n")},
+        validator=lambda p: (True, p),
+    )
+    assert not ok
+    assert "does not exist" in info
+
+
+def test_apply_patch_diff_clean_apply(tmp_path: Any) -> None:
+    """磁盘未漂移:diff 干净应用,结果与 new_content 全量覆写一致。"""
+    target = tmp_path / "mod.py"
+    old_text, new_text = "l1\nl2\nl3\n", "l1\nL2\nl3\n"
+    target.write_text(old_text, encoding="utf-8")
+    ok, info = apply_patch_descriptor(
+        {"file_path": str(target), "diff": _udiff(old_text, new_text)},
+        validator=lambda p: (True, p),
+    )
+    assert ok, info
+    assert target.read_text(encoding="utf-8") == new_text
+
+
+def test_apply_patch_diff_drift_merged(tmp_path: Any) -> None:
+    """磁盘侧漂移(区域内插入行):merge3 三方合并,LLM 变更与磁盘漂移都保留。"""
+    base, patched = "a1\na2\na3\na4\n", "a1x\na2\na3\na4\n"
+    drifted = "a1\na2\na3-inserted\na3\na4\nb-extra\n"
+    target = tmp_path / "mod.py"
+    target.write_text(drifted, encoding="utf-8")
+    ok, info = apply_patch_descriptor(
+        {"file_path": str(target), "diff": _udiff(base, patched)},
+        validator=lambda p: (True, p),
+    )
+    assert ok, info
+    result = target.read_text(encoding="utf-8")
+    assert "a1x" in result  # diff 侧变更被应用
+    assert "a3-inserted" in result  # 磁盘侧漂移被保留
+    assert "b-extra" in result  # hunk 区域之外的磁盘内容原样保留
+
+
+def test_apply_patch_diff_conflict_rejected(tmp_path: Any) -> None:
+    """磁盘侧已改 diff 要改的同一行 → 双边修改冲突,整体失败且不半应用。"""
+    base, patched = "l1\nl2\nl3\n", "l1\nL2\nl3\n"
+    drifted = "l1\nY\nl3\n"
+    target = tmp_path / "mod.py"
+    target.write_text(drifted, encoding="utf-8")
+    ok, info = apply_patch_descriptor(
+        {"file_path": str(target), "diff": _udiff(base, patched)},
+        validator=lambda p: (True, p),
+    )
+    assert not ok
+    assert "conflict" in info.lower()
+    assert target.read_text(encoding="utf-8") == drifted
+
+
+def test_apply_patch_diff_merge3_missing(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """merge3 未安装(可选依赖)→ 优雅降级为失败原因,不抛错不落盘。"""
+    target = tmp_path / "mod.py"
+    old_text, new_text = "l1\nl2\nl3\n", "l1\nL2\nl3\n"
+    target.write_text(old_text, encoding="utf-8")
+    # sys.modules[name] = None 时 import 语句抛 ImportError(模拟包缺失)
+    monkeypatch.setitem(sys.modules, "merge3", None)
+    ok, info = apply_patch_descriptor(
+        {"file_path": str(target), "diff": _udiff(old_text, new_text)},
+        validator=lambda p: (True, p),
+    )
+    assert not ok
+    assert "merge3" in info
+    assert target.read_text(encoding="utf-8") == old_text
 
 
 def test_apply_patch_rejects_outside_workspace() -> None:
