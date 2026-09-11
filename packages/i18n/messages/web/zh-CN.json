@@ -6636,6 +6636,8 @@
       "empty": "暂无任务",
       "in_progress": "进行中",
       "lockConflict": "工作区锁冲突",
+      "lockFree": "空闲",
+      "lockStatus": "锁状态",
       "locked": "已锁定",
       "priority": "优先级",
       "ready": "就绪",
