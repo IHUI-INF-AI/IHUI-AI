@@ -11,7 +11,7 @@ import { test } from '@playwright/test'
 test('探查 TagsView DOM 结构和样式', async ({ page }) => {
   // API 登录
   const resp = await page.request.post('http://localhost:8801/api/auth/login', {
-    data: { account: 'admin', password: '[REDACTED-PW]' },
+    data: { account: 'admin', password: 'admin123' },
   })
   const body = (await resp.json()) as any
   const token = body.data?.accessToken ?? body.data?.token

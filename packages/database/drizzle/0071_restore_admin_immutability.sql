@@ -3,7 +3,7 @@
 -- [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 -- ============================================================================
--- 0071: 恢复 system admin 完全不可变 + 修正 [REDACTED-PW] 密码
+-- 0071: 恢复 system admin 完全不可变 + 修正 admin123 密码
 --
 -- 背景:
 --   0069_system_admin_password_reset.sql 放行了 password_hash 修改(应急重置)
@@ -13,7 +13,7 @@
 -- 修复内容:
 --   1. 重建 users_block_system_admin_modify 触发器函数,恢复完全不可变
 --      (包含 password_hash)
---   2. 重置 admin 账号 password_hash 为正确的 [REDACTED-PW] 哈希
+--   2. 重置 admin 账号 password_hash 为正确的 admin123 哈希
 --   3. 重新绑定触发器
 --
 -- 应急场景:如果 admin 密码丢失,需绕过触发器(参考 0071 应急流程:停服 →
@@ -69,7 +69,7 @@ BEGIN
 END;
 $$;
 
--- 2) 重置 admin 密码为正确的 [REDACTED-PW] 哈希
+-- 2) 重置 admin 密码为正确的 admin123 哈希
 --    临时禁用触发器以允许修改 password_hash
 DO $$
 DECLARE
@@ -98,7 +98,7 @@ BEGIN
   -- 重新启用触发器
   ALTER TABLE users ENABLE TRIGGER users_system_admin_immutable_update;
 
-  RAISE NOTICE 'admin password reset to correct [REDACTED-PW] hash';
+  RAISE NOTICE 'admin password reset to correct admin123 hash';
 END$$;
 
 -- 3) 重新绑定触发器(幂等)

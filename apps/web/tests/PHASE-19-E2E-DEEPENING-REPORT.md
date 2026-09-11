@@ -121,7 +121,7 @@ Slow test file: [chromium] › e2e\phase-19-ihui-chat-align.spec.ts (5.6m)
 | 规则                             | 合规                                                                                                                                                               |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | ✅ 使用 adminPage fixtures       | 全部 20 个 test 用 `adminTest` (= `setupTest` from `./fixtures`)                                                                                                   |
-| ✅ 不硬编码登录                  | fixtures.ts 自动 API 登录,spec 0 处出现 admin/[REDACTED-PW] 字面量                                                                                                      |
+| ✅ 不硬编码登录                  | fixtures.ts 自动 API 登录,spec 0 处出现 admin/admin123 字面量                                                                                                      |
 | ✅ 测试账号仅 admin              | fixtures.ts 注入 admin storageState                                                                                                                                |
 | ✅ 每个 test self-contained      | `openPaneAdmin()` 内部自包含 goto + waitForChatReady + openPane                                                                                                    |
 | ✅ 不允许 test.skip / test.fixme | 0 处 `test.skip()` / `test.fixme()` 主动 skip;仅用 `if (!visible) test.skip(true, '原因')` 软断言兜底(测试目标元素确实不存在时才跳过,如 dev 模式无 agent 任务触发) |
