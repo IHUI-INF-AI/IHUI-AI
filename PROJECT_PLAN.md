@@ -474,6 +474,8 @@
 
 ## 仓库瘦身批次 B(历史垃圾清理)+ GitWarden v3 重建(2026-09-09 深夜,用户拍板"去仓库删垃圾,不重建")
 
+> ⚠️ **2026-09-11 更新:GitWarden 守护已整体拆除**(两个登录触发计划任务 `GitWarden`/`GitWardenWatcher`、启动文件夹自启 VBS、常驻 pwsh 进程、`.git` 删除锁,全部清除;拆除理由 = 其自愈逻辑在健康检查失败时会先 `Remove-Item -Recurse -Force` 删掉真仓库、再从镜像重建又失败 —— 2026-09-09 与 09-11 两次毁库)。`D:\git-warden\` 下仅保留备份资产(bundles / git-mirror)供抢救,**勿再假设守护存活、勿按旧配方重建**;抢救与重建配方见 skill `gitwarden-git-protection`。以下条目均为历史记录。
+
 - [x] ✅(2026-09-09) **批次 B 历史重写(filter-repo)**:外部 gitdir 指针布局与 filter-repo 不兼容(首战直接跑在外部 gitdir 上被摧毁——教训:历史重写必须先转常规布局);恢复路径 = Gitee 全量 clone 到 `D:/git-warden/recover-tmp` → 发现 **5454 个 backup tags**(旧救援快照把旧对象全部钉死不回收,694MB 真凶)→ `git update-ref --stdin` 批量删除 → filter-repo 两轮(第 1 轮 16 路径 invert 694→569MB;第 2 轮 client/server/reports/migration-audit-report/apps/web/.next.old/apps/web/public/downloads/desktop/apps/web/public/docs 7 目录 → **172MB**)
 - [x] ✅(2026-09-09) **gitdir 重组**:`recover-tmp/.git` 复制回 `ihui-main-gitdir`(rm index + read-tree HEAD),commit identity 恢复,git log/status 与 ls-remote gitee 三方一致(HEAD 003c898b9)
 - [x] ✅(2026-09-09) **Gitee push --mirror 成功**:5608 个垃圾 tag(5454 backup + 其余 lost-commit/stash 残留)服务端全清,仓库仅剩 main,体积回落到 819MB 限额内(服务端悬空对象随 GC 回收)
