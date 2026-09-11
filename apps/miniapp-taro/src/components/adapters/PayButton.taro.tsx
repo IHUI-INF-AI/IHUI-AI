@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { aizhsUrl } from '@/constants/icon-urls'
 import { useState, useCallback } from 'react'
 import { useTt, type TtFn, t } from '@/i18n'
 import type { CSSProperties } from 'react'
@@ -15,12 +16,12 @@ import {
 } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import type { TFunction } from '@ihui/types'
-import freeVipIcon from '@/assets/remote/images/xtk/free_vip_icon.png'
-import freeUseIcon from '@/assets/remote/images/xtk/free_use_icon.png'
-import freeTimeIcon from '@/assets/remote/images/xtk/free_time_icon.png'
-import buymonthIcon from '@/assets/remote/images/xtk/buymonth_icon.png'
-import hasbuyIcon from '@/assets/remote/images/xtk/hasbuy_icon.png'
-import agentAvatarFallbackIcon from '@/assets/remote/images/agent-avatar.png'
+const freeVipIcon = aizhsUrl('remote-images/xtk/free_vip_icon.png')
+const freeUseIcon = aizhsUrl('remote-images/xtk/free_use_icon.png')
+const freeTimeIcon = aizhsUrl('remote-images/xtk/free_time_icon.png')
+const buymonthIcon = aizhsUrl('remote-images/xtk/buymonth_icon.png')
+const hasbuyIcon = aizhsUrl('remote-images/xtk/hasbuy_icon.png')
+const agentAvatarFallbackIcon = aizhsUrl('remote-images/agent-avatar.png')
 
 /**
  * Taro 适配层:PayButton

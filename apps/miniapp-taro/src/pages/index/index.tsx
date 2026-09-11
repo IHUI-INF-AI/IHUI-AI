@@ -29,6 +29,7 @@
  * - 语音输入模式(切换按钮 + 录音动画)
  * - ModelConfigDialog 模型配置弹窗
  */
+import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Image, Text, ScrollView, Button } from '@tarojs/components'
 import Taro, {
@@ -56,7 +57,7 @@ import type { ModelConfig } from '@/components/ModelConfigDialog'
 import AgentListPanel, { type AgentInfo } from '@/components/AgentListPanel'
 import SkillsPopup, { type AgentItem } from '@/components/SkillsPopup'
 import { FloatBox, ModelTypeButtonGroup } from '@/components'
-import closeInputPng from '@/assets/remote/images/close_input.png'
+const closeInputPng = aizhsUrl('remote-images/close_input.png')
 import { rpx } from '@/utils/rpx'
 import * as api from '@/api'
 import type { ChatMessage } from '@/api'
@@ -69,8 +70,8 @@ import './index.css'
 const DEFAULT_AVATAR = TABBAR_HOME_ICON_URL
 
 // 首页静态资源(Taro config copy.patterns 把 src/static/* 复制到 dist/static/*)
-const SHARE_ZHZ_IMG = '/static/images/share_zhz.png'
-const QRCODE_IMG = '/static/images/qewm.png'
+const SHARE_ZHZ_IMG = aizhsUrl('remote-images/share_zhz.png')
+const QRCODE_IMG = aizhsUrl('remote-images/qewm.png')
 
 // 已验证兜底模型(仅后端 /llm/models 不可达或返回空时降级,映射自共享 FALLBACK_MODELS)
 const FALLBACK_MODEL_ITEMS: ModelItem[] = FALLBACK_MODELS.map((f) => ({
@@ -1271,7 +1272,7 @@ export default function Index() {
                 <Image
                   className="share-image"
                   style={{ width: rpx(80), height: rpx(80) }}
-                  src="/static/images/share_zhuanmi.png"
+                  src={aizhsUrl('remote-images/share_zhuanmi.png')}
                   mode="widthFix"
                   onClick={() => {
                     Taro.switchTab({

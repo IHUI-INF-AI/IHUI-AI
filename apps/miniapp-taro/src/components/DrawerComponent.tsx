@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
@@ -9,15 +10,15 @@ import type { CSSProperties } from 'react'
 import LineIcon from '@/components/LineIcon'
 import { ICONS } from '@/components/LineIcon/icons'
 // 抽屉静态资源:对齐原项目 DrawerComponentall.vue,统一从 @/assets/remote/ 引入本地副本
-import choutilogoH from '@/assets/remote/images/choutilogo_h.png'
-import drawerMenu2Png from '@/assets/remote/images/drawer_menu2.png'
-import tabbar1Png from '@/assets/remote/tabbar/tabbar_1.png'
-import tabbar4Png from '@/assets/remote/tabbar/tabbar_4.png'
-import kechengPng from '@/assets/remote/images/kecheng.png'
-import gongsiPng from '@/assets/remote/images/gongsi.png'
-import mianLabelPng from '@/assets/remote/images/mian_label.png'
-import settingIconPng from '@/assets/remote/images/setting_icon.png'
-import daixaodimingPng from '@/assets/remote/images/daixaodiming.png'
+const choutilogoH = aizhsUrl('remote-images/choutilogo_h.png')
+const drawerMenu2Png = aizhsUrl('remote-images/drawer_menu2.png')
+const tabbar1Png = aizhsUrl('remote-images/tabbar/tabbar_1.png')
+const tabbar4Png = aizhsUrl('remote-images/tabbar/tabbar_4.png')
+const kechengPng = aizhsUrl('remote-images/kecheng.png')
+const gongsiPng = aizhsUrl('remote-images/gongsi.png')
+const mianLabelPng = aizhsUrl('remote-images/mian_label.png')
+const settingIconPng = aizhsUrl('remote-images/setting_icon.png')
+const daixaodimingPng = aizhsUrl('remote-images/daixaodiming.png')
 import { rpx } from '@/utils/rpx'
 
 /**
