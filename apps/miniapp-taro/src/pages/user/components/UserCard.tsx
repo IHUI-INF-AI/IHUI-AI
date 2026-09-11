@@ -2,13 +2,14 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import dingdanIcon from '@/assets/remote/images/dingdan.jpg'
-import gerenIcon from '@/assets/remote/images/geren-icon.png'
-import xianLabelIcon from '@/assets/remote/images/xian_label.png'
-import shezhiIcon from '@/assets/remote/images/shezhi.png'
+const dingdanIcon = aizhsUrl('remote-images/dingdan.jpg')
+const gerenIcon = aizhsUrl('remote-images/geren-icon.png')
+const xianLabelIcon = aizhsUrl('remote-images/xian_label.png')
+const shezhiIcon = aizhsUrl('remote-images/shezhi.png')
 import ThemeRoot from '@/components/ThemeRoot'
 
 export interface UserCardProps {
