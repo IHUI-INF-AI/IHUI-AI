@@ -80,7 +80,8 @@ export default function LiveSubscribe() {
     })
   }
 
-  const goDetail = (id: string | number) => Taro.navigateTo({ url: `/pkg-learn/live/detail?id=${id}` })
+  const goDetail = (id: string | number) =>
+    Taro.navigateTo({ url: `/pkg-learn/live/detail?id=${id}` })
 
   const goDiscover = () => Taro.navigateTo({ url: '/pkg-learn/live/list' })
 

@@ -75,7 +75,10 @@ export default function CartePage() {
   }, [])
 
   const displayName = info.name || info.nickname || t('carte.anonymous')
-  const shareInfo = getShareInfo('/pkg-content/carte/index', `${displayName}${t('carte.cardSuffix')}`)
+  const shareInfo = getShareInfo(
+    '/pkg-content/carte/index',
+    `${displayName}${t('carte.cardSuffix')}`,
+  )
 
   return (
     <ThemeRoot>
