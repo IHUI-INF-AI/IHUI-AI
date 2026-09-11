@@ -15,9 +15,8 @@
  *   DELETE /agents/kanban/tasks/:id          — 删除任务(仅 triage/done)
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
-import { EventEmitter } from 'events'
 import { z } from 'zod'
-import { eq, desc, inArray, and } from 'drizzle-orm'
+import { eq, desc, inArray, and, or, isNull } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { agentTasks, teamMembers } from '@ihui/database'
 import { checkAuth } from '../plugins/auth.js'
@@ -27,9 +26,16 @@ import { withAuditBoth } from '../utils/audit.js'
 import {
   acquireWorkspaceLock,
   getWorkspaceLock,
-  releaseWorkspaceLock,
   WORKSPACE_LOCK_TTL,
 } from '../services/workspace-lock.js'
+import {
+  startLockHeartbeat,
+  stopLockHeartbeat,
+  releaseLockToken,
+  releaseTaskLockByTaskId,
+} from '../services/workspace-lock-heartbeat.js'
+import { sseEventBus, broadcastSSEEvent } from '../services/agent-sse-bus.js'
+import { ALLOWED_TRANSITIONS, STATUS_VARIANTS, mapStatus } from '../services/agent-task-status.js'
 import type {
   KanbanTask,
   KanbanColumn,
@@ -37,12 +43,6 @@ import type {
   KanbanTransitionResponse,
   AgentSSEEvent,
 } from '@ihui/types'
-
-// ---------------------------------------------------------------------------
-// SSE 事件总线(进程内广播,transition / create 触发事件)
-// ---------------------------------------------------------------------------
-const sseEventBus = new EventEmitter()
-sseEventBus.setMaxListeners(0)
 
 // ---------------------------------------------------------------------------
 // Kanban 6 列定义
@@ -55,42 +55,6 @@ const KANBAN_COLUMNS: { status: AgentTaskStatus; titleKey: string }[] = [
   { status: 'blocked', titleKey: 'agents.kanban.blocked' },
   { status: 'done', titleKey: 'agents.kanban.done' },
 ]
-
-// ---------------------------------------------------------------------------
-// 合法状态流转图
-// ---------------------------------------------------------------------------
-const ALLOWED_TRANSITIONS: Record<AgentTaskStatus, AgentTaskStatus[]> = {
-  triage: ['todo', 'blocked', 'done'],
-  todo: ['ready', 'blocked', 'done'],
-  ready: ['in_progress', 'blocked'],
-  in_progress: ['done', 'blocked'],
-  blocked: ['todo', 'ready'],
-  done: [],
-}
-
-// ---------------------------------------------------------------------------
-// 旧表 status 兼容映射(读取时转换 legacy → Kanban)
-// ---------------------------------------------------------------------------
-const LEGACY_STATUS_MAP: Record<string, AgentTaskStatus> = {
-  pending: 'triage',
-  running: 'in_progress',
-  completed: 'done',
-  failed: 'blocked',
-}
-
-// 过滤时 Kanban status → DB status 变体(含 legacy)
-const STATUS_VARIANTS: Record<AgentTaskStatus, string[]> = {
-  triage: ['triage', 'pending'],
-  todo: ['todo'],
-  ready: ['ready'],
-  in_progress: ['in_progress', 'running'],
-  blocked: ['blocked', 'failed'],
-  done: ['done', 'completed'],
-}
-
-function mapStatus(raw: string): AgentTaskStatus {
-  return LEGACY_STATUS_MAP[raw] ?? (raw as AgentTaskStatus)
-}
 
 // ---------------------------------------------------------------------------
 // agent_tasks 行 → KanbanTask 映射
@@ -134,11 +98,18 @@ function toKanbanTask(row: AgentTaskRow): KanbanTask {
 
 // ---------------------------------------------------------------------------
 // 构建 Kanban 6 列(按 priority 降序)— 供 admin 端点复用
+// visibleTeamIds: 传入数组时仅返回"无团队 + 这些团队"的任务(P0-4 团队过滤;
+// undefined 表示不过滤,admin 全量视图用)
 // ---------------------------------------------------------------------------
-export async function buildKanbanColumns(): Promise<KanbanColumn[]> {
+export async function buildKanbanColumns(visibleTeamIds?: string[]): Promise<KanbanColumn[]> {
+  const conditions =
+    visibleTeamIds === undefined
+      ? undefined
+      : or(isNull(agentTasks.teamId), inArray(agentTasks.teamId, visibleTeamIds))
   const rows = await db
     .select()
     .from(agentTasks)
+    .where(conditions)
     .orderBy(desc(agentTasks.priority), desc(agentTasks.createdAt))
   const tasks = rows.map(toKanbanTask)
   return KANBAN_COLUMNS.map((col) => ({
@@ -146,13 +117,6 @@ export async function buildKanbanColumns(): Promise<KanbanColumn[]> {
     titleKey: col.titleKey,
     tasks: tasks.filter((t) => t.status === col.status),
   }))
-}
-
-// ---------------------------------------------------------------------------
-// SSE 事件广播
-// ---------------------------------------------------------------------------
-function broadcastSSEEvent(event: AgentSSEEvent): void {
-  sseEventBus.emit('agent-sse', event)
 }
 
 // ---------------------------------------------------------------------------
@@ -208,6 +172,34 @@ async function isTeamMember(teamId: string, userId: string | undefined): Promise
   return !!row
 }
 
+/**
+ * 请求者可见团队集合(P0-4 团队过滤)。
+ * admin(roleId>=1)返回 undefined(不过滤,全量视图);
+ * 普通用户返回其所属团队 id 数组(可能为空 → 仅见无团队任务)。
+ */
+async function getUserVisibleTeamIds(request: FastifyRequest): Promise<string[] | undefined> {
+  const roleId = request.jwtPayload?.roleId ?? 0
+  if (roleId >= ADMIN_ROLE_ID) return undefined
+  const userId = request.userId
+  if (!userId) return []
+  const rows = await db
+    .select({ teamId: teamMembers.teamId })
+    .from(teamMembers)
+    .where(eq(teamMembers.userId, userId))
+  return rows.map((r) => r.teamId)
+}
+
+/** P0-4:校验请求者是否有权查看某团队的任务行 */
+async function canViewTaskTeam(
+  request: FastifyRequest,
+  row: { teamId: string | null },
+): Promise<boolean> {
+  if (row.teamId === null) return true
+  const roleId = request.jwtPayload?.roleId ?? 0
+  if (roleId >= ADMIN_ROLE_ID) return true
+  return isTeamMember(row.teamId, request.userId)
+}
+
 // ---------------------------------------------------------------------------
 // 路由插件
 // ---------------------------------------------------------------------------
@@ -218,8 +210,10 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /agents/kanban — 6 列 Kanban 视图
-  server.get('/agents/kanban', async (_request, reply) => {
-    const columns = await buildKanbanColumns()
+  // P0-4:非 admin 默认仅见「无团队 + 我所在团队」的任务
+  server.get('/agents/kanban', async (request, reply) => {
+    const visibleTeamIds = await getUserVisibleTeamIds(request)
+    const columns = await buildKanbanColumns(visibleTeamIds)
     return reply.send(success(columns))
   })
 
@@ -239,7 +233,19 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
     }
     const conditions = []
     if (status) conditions.push(inArray(agentTasks.status, STATUS_VARIANTS[status]))
-    if (teamId) conditions.push(eq(agentTasks.teamId, teamId))
+    if (teamId) {
+      conditions.push(eq(agentTasks.teamId, teamId))
+    } else {
+      // P0-4:未显式指定 teamId 时,非 admin 仅见「无团队 + 我所在团队」
+      const visibleTeamIds = await getUserVisibleTeamIds(request)
+      if (visibleTeamIds !== undefined) {
+        if (visibleTeamIds.length === 0) {
+          conditions.push(isNull(agentTasks.teamId))
+        } else {
+          conditions.push(or(isNull(agentTasks.teamId), inArray(agentTasks.teamId, visibleTeamIds)))
+        }
+      }
+    }
     const where = conditions.length > 0 ? and(...conditions) : undefined
     const rows = await db
       .select()
@@ -270,6 +276,7 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /agents/kanban/tasks/stream — SSE 实时流
   // 必须在 /:id 之前注册(Fastify radix tree 优先匹配静态路由)
+  // P0-4:非 admin 订阅者只收到「无团队 + 我所在团队」的事件(按 teamId 过滤)
   server.get('/agents/kanban/tasks/stream', async (request, reply) => {
     reply.hijack()
     reply.raw.setHeader('Content-Type', 'text/event-stream')
@@ -277,8 +284,25 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
     reply.raw.setHeader('Connection', 'keep-alive')
     reply.raw.setHeader('X-Accel-Buffering', 'no')
 
+    const visibleTeamIds = await getUserVisibleTeamIds(request)
+    const teamVisible = (eventTeamId: unknown): boolean => {
+      if (visibleTeamIds === undefined) return true // admin 全量
+      if (typeof eventTeamId !== 'string' || eventTeamId.length === 0) return true // 无团队任务
+      return visibleTeamIds.includes(eventTeamId)
+    }
+    // 事件 payload 里的 task 对象可能携带 teamId(transition/心跳回写均带)
+    const eventTaskTeamId = (event: AgentSSEEvent): unknown => {
+      const p = event.payload as Record<string, unknown> | undefined
+      const direct = p?.teamId
+      if (typeof direct === 'string') return direct
+      const task = p?.task
+      if (task && typeof task === 'object') return (task as Record<string, unknown>).teamId
+      return undefined
+    }
+
     const listener = (event: AgentSSEEvent) => {
       try {
+        if (!teamVisible(eventTaskTeamId(event))) return
         reply.raw.write(`data: ${JSON.stringify(event)}\n\n`)
       } catch {
         // P1 修复:异常路径也要移除 listener,防止 sseEventBus listener 泄漏
@@ -307,10 +331,14 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /agents/kanban/tasks/:id — 单个任务详情
+  // P0-4:非 admin 查看他人团队任务 → 404(不泄露存在性)
   server.get('/agents/kanban/tasks/:id', async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
     const [row] = await db.select().from(agentTasks).where(eq(agentTasks.id, id)).limit(1)
     if (!row) return reply.status(404).send(error(404, '任务不存在'))
+    if (!(await canViewTaskTeam(request, row))) {
+      return reply.status(404).send(error(404, '任务不存在'))
+    }
     return reply.send(success(toKanbanTask(row)))
   })
 
@@ -409,10 +437,13 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
         }
         // token 存入 payload,离开 in_progress 时凭此释放
         nextPayload = { ...payload, workspaceLockToken: lockInfo.token }
+        // P0-1:抢锁成功即启动心跳续期(TTL 120s / 间隔 40s),
+        // 防止长任务超过 TTL 后锁静默过期被抢;离开 in_progress 时停止
+        startLockHeartbeat(id, workspace, lockInfo.token)
         broadcastSSEEvent({
           type: 'workspace_lock_acquired',
           taskId: id,
-          payload: { workspace, holder, task: id },
+          payload: { workspace, holder, task: id, teamId: current.teamId ?? undefined },
           timestamp: new Date().toISOString(),
         })
       }
@@ -422,16 +453,20 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
         const token =
           typeof payload.workspaceLockToken === 'string' ? payload.workspaceLockToken : undefined
         if (token) {
-          await releaseWorkspaceLock(workspace, token)
+          // P0-2:统一释放原语(停心跳 + 凭 token 释放 + 广播含释放结果)
+          await releaseLockToken(id, workspace, token, current.teamId)
           const { workspaceLockToken: _removed, ...rest } = payload
           nextPayload = rest
+        } else {
+          // 历史 payload 无 token:至少停掉可能残留的心跳定时器
+          stopLockHeartbeat(id)
+          broadcastSSEEvent({
+            type: 'workspace_lock_released',
+            taskId: id,
+            payload: { workspace, task: id, teamId: current.teamId ?? undefined, released: false },
+            timestamp: new Date().toISOString(),
+          })
         }
-        broadcastSSEEvent({
-          type: 'workspace_lock_released',
-          taskId: id,
-          payload: { workspace, task: id },
-          timestamp: new Date().toISOString(),
-        })
       }
 
       // 合法流转 → 更新 DB
@@ -506,6 +541,10 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
       if (status !== 'triage' && status !== 'done') {
         return reply.status(409).send(error(409, `仅 triage/done 状态可删除,当前状态: ${status}`))
       }
+
+      // P0-2:删除前统一释放残留锁(停心跳 + 凭 token 释放 + 清审计字段 + 广播)。
+      // dispatch 写入的终态行可能残留 lockedBy/payload token;无锁时仅停心跳,幂等。
+      await releaseTaskLockByTaskId(id)
 
       const [row] = await db.delete(agentTasks).where(eq(agentTasks.id, id)).returning()
       if (!row) return reply.status(404).send(error(404, '任务不存在'))

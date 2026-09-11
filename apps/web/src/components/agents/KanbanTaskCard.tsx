@@ -40,15 +40,12 @@ export const PRIORITY_DOT_CLASS: Record<'high' | 'medium' | 'low', string> = {
   low: 'bg-gray-400',
 }
 
-/** 合法状态流转(基于 agent-runtime.ts 状态机) */
-export const LEGAL_TRANSITIONS: Record<AgentTaskStatus, AgentTaskStatus[]> = {
-  triage: ['todo'],
-  todo: ['ready'],
-  ready: ['in_progress', 'blocked'],
-  in_progress: ['done', 'blocked'],
-  blocked: ['ready', 'in_progress'],
-  done: [],
-}
+/**
+ * 合法状态流转 — 单一来源在 @ihui/types(agent-runtime.ts ALLOWED_TRANSITIONS),
+ * 与 api transition 校验共用同一张表,避免前后端漂移。
+ * re-export 保持 TaskDetailDialog 等下游 import 兼容。
+ */
+export { ALLOWED_TRANSITIONS as LEGAL_TRANSITIONS } from '@ihui/types'
 
 // re-export 自 date-utils,保持 TaskDetailDialog 等下游 import 兼容
 export { formatRelativeTime }

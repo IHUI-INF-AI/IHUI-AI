@@ -32,6 +32,8 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { agentTasks } from '@ihui/database'
 import { logger } from '../utils/logger.js'
+import { releaseTaskLockByTaskId } from './workspace-lock-heartbeat.js'
+import { broadcastSSEEvent } from './agent-sse-bus.js'
 import type {
   SubagentDispatch,
   DispatchInput,
@@ -1212,6 +1214,10 @@ class SubagentDispatchService {
         tokenUsage: s.tokenUsage,
         error: s.error,
       }))
+      // P0-2(2026-09-11):终态前统一释放工作区锁(停心跳 + 凭 token 释放 +
+      // 清 lockedBy 审计字段 + 广播 workspace_lock_released),防止锁悬挂
+      await releaseTaskLockByTaskId(taskId)
+      const [taskRow] = await db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).limit(1)
       await db
         .update(agentTasks)
         .set({
@@ -1229,6 +1235,16 @@ class SubagentDispatchService {
           updatedAt: new Date(),
         })
         .where(eq(agentTasks.id, taskId))
+      // P0-2:终态广播 SSE(原先 dispatch 写库不广播,看板需手动刷新才能看到)
+      broadcastSSEEvent({
+        type: status === 'completed' ? 'task_completed' : 'task_failed',
+        taskId,
+        payload: {
+          dispatchStatus: status,
+          task: { id: taskId, status: terminalStatus, teamId: taskRow?.teamId ?? undefined },
+        },
+        timestamp: new Date().toISOString(),
+      })
     } catch (err) {
       logger.warn(`[subagent-dispatch] _syncAgentTask 失败(不阻塞): ${String(err)}`)
     }

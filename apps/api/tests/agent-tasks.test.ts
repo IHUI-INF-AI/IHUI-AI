@@ -156,6 +156,8 @@ describe('agent-tasks admin routes — /api/admin/agent-task/*', () => {
 
   it('PUT /admin/agent-task/:id 更新成功 200', async () => {
     mockAdmin()
+    // P0-2 改造后 PUT 先查 current 行做状态机校验,预置待更新行
+    mockSelectResult.mockResolvedValueOnce([makeTask({ name: '更新前', status: 'pending' })])
     mockUpdateReturning.mockResolvedValueOnce([makeTask({ name: '更新后' })])
     const res = await server.inject({
       method: 'PUT',

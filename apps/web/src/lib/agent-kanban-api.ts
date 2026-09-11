@@ -47,13 +47,6 @@ export async function fetchKanbanTasks(
   return res.data
 }
 
-export async function fetchKanbanTask(id: string): Promise<KanbanTask> {
-  // data 即 task 对象(api 侧 success(toKanbanTask(row))),无 {task} 包装
-  const res = await fetchApi<KanbanTask>(`${BASE}/tasks/${encodeURIComponent(id)}`)
-  if (!res.success) throw new Error(res.error)
-  return res.data
-}
-
 export interface CreateKanbanTaskInput {
   name: string
   description?: string
