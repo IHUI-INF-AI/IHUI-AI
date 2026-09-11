@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, t } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
@@ -9,11 +10,11 @@ import LineIcon from '@/components/LineIcon'
 import InputArea, { type InputAreaProps } from './InputArea'
 // 4 个图标按钮 + 选中勾 PNG:对齐原项目 BottomActionBar.vue line 65-80,统一从 @/assets/remote/ 引入
 // 修复 (2026-08-12):微信文件改用 wenjian.png 区别于本地文件 floder_input.png
-import cammerInputPng from '@/assets/remote/images/cammer_input.png'
-import picterInputPng from '@/assets/remote/images/picter_input.png'
-import floderInputPng from '@/assets/remote/images/floder_input.png'
-import wenjianPng from '@/assets/remote/images/wenjian.png'
-import selectedModelPng from '@/assets/remote/images/selected_model.png'
+const cammerInputPng = aizhsUrl('remote-images/cammer_input.png')
+const picterInputPng = aizhsUrl('remote-images/picter_input.png')
+const floderInputPng = aizhsUrl('remote-images/floder_input.png')
+const wenjianPng = aizhsUrl('remote-images/wenjian.png')
+const selectedModelPng = aizhsUrl('remote-images/selected_model.png')
 import { rpx } from '@/utils/rpx'
 
 /**

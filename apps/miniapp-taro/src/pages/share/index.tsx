@@ -22,6 +22,7 @@ import NewTitle, { type NewTitleItem } from './components/NewTitle'
 import CenterItem, { type CenterItemData } from './components/CenterItem'
 import InterestTrackModal from './components/InterestTrackModal'
 import './index.css'
+import { aizhsUrl } from '@/constants/icon-urls'
 import ThemeRoot from '@/components/ThemeRoot'
 
 type Tab = 'latest' | 'hot' | 'following'
@@ -365,7 +366,7 @@ export default function ShareIndexPage() {
   useShareAppMessage(() => ({
     title: tt('share.index.title', 'AI资讯'),
     path: '/pages/share/index?source=share',
-    imageUrl: '/static/images/share_zhz.png',
+    imageUrl: aizhsUrl('remote-images/share_zhz.png'),
   }))
 
   useShareTimeline(() => ({

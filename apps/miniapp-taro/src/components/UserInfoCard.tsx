@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
@@ -10,12 +11,12 @@ import type { UserInfoCardMinimalProps } from '@ihui/types'
 import vipActIcon from '@/assets/remote-images/user-vip-act.svg'
 // 图标引用对齐原项目 zhs_app-ZZ/UserInfoCard.vue
 // 本地有副本(@/assets/remote/,从原项目 src/static/ 复制)→ import 引入
-import defaultAvatarImg from '@/assets/remote/images/daixaodiming.png'
-import userIconImg from '@/assets/remote/images/userIcon.jpg'
-import editIconImg from '@/assets/remote/images/xiugai.jpg'
-import wirelessLogoImg from '@/assets/remote/images/wirelesslogo.jpg'
-import rechargeBtnImg from '@/assets/remote/images/default/rechargebtn.png'
-import vipNorIcon from '@/assets/remote/images/userVip_nor.png'
+const defaultAvatarImg = aizhsUrl('remote-images/daixaodiming.png')
+const userIconImg = aizhsUrl('remote-images/userIcon.jpg')
+const editIconImg = aizhsUrl('remote-images/xiugai.jpg')
+const wirelessLogoImg = aizhsUrl('remote-images/wirelesslogo.jpg')
+const rechargeBtnImg = aizhsUrl('remote-images/default/rechargebtn.png')
+const vipNorIcon = aizhsUrl('remote-images/userVip_nor.png')
 
 // 共享类型 UserInfoCardMinimalProps 已下沉到 @ihui/types,
 // 本地 Props extends Minimal 并追加 level/levelTitle/className(miniapp-taro 专属字段)
