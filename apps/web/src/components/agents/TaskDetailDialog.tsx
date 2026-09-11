@@ -18,7 +18,9 @@ import {
 } from '@ihui/ui-react'
 import { useToast } from '@/hooks/use-toast'
 import { CenteredText } from '@/components/common/CenteredText'
+import { TruncatedText } from '@/components/common/TruncatedText'
 import { transitionKanbanTask, deleteKanbanTask } from '@/lib/agent-kanban-api'
+import type { KanbanApiError } from '@/lib/agent-kanban-api'
 import type { AgentTaskStatus, KanbanTask } from '@ihui/types'
 import {
   STATUS_BADGE_CLASS,
@@ -54,7 +56,7 @@ export function TaskDetailDialog({
   const t = useTranslations('agents.kanban')
   const tc = useTranslations('common')
   const locale = useLocale()
-  const { success, error } = useToast()
+  const { success, error, warning } = useToast()
 
   const [transitionTo, setTransitionTo] = React.useState<AgentTaskStatus | ''>('')
   const [reason, setReason] = React.useState('')
@@ -91,7 +93,13 @@ export function TaskDetailDialog({
         error(result.reason || tc('errorTitle'))
       }
     } catch (e) {
-      error(e instanceof Error ? e.message : tc('unknownError'))
+      const err = e as KanbanApiError
+      // 2-2 工作区锁冲突(409):后端消息含持有者信息,用 warning 区别于一般错误
+      if (err.status === 409) {
+        warning(t('lockConflict'), err.message)
+      } else {
+        error(err.message || tc('unknownError'))
+      }
     } finally {
       setSubmitting(false)
     }
@@ -161,6 +169,23 @@ export function TaskDetailDialog({
               <dt className="text-muted-foreground">{t('created')}</dt>
               <dd>{formatRelativeTime(task.createdAt, locale)}</dd>
             </div>
+            {/* 2-2 工作区与锁信息 */}
+            {task.workspacePath && (
+              <div>
+                <dt className="text-muted-foreground">{t('workspace')}</dt>
+                <dd>
+                  <TruncatedText value={task.workspacePath} className="text-xs" mono />
+                </dd>
+              </div>
+            )}
+            {task.lockedBy && (
+              <div>
+                <dt className="text-orange-600 dark:text-orange-400">{t('locked')}</dt>
+                <dd className="truncate text-orange-600/80 dark:text-orange-400/80">
+                  {task.lockedBy}
+                </dd>
+              </div>
+            )}
             {task.startedAt && (
               <div>
                 <dt className="text-muted-foreground">{t('worker')}</dt>

@@ -6,7 +6,9 @@
 
 import * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
+import { Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback/Tooltip'
 import { CenteredText } from '@/components/common/CenteredText'
 import { formatRelativeTime } from '@/lib/date-utils'
 import type { AgentTaskStatus, KanbanTask } from '@ihui/types'
@@ -101,6 +103,15 @@ export function KanbanTaskCard({ task, onSelect }: KanbanTaskCardProps) {
             >
               {t(task.status)}
             </span>
+            {/* 2-2 工作区锁徽标:任务持锁(进入 in_progress 抢到工作区锁)时显示 */}
+            {task.lockedBy && (
+              <Tooltip content={`${t('locked')}: ${task.lockedBy}`}>
+                <span className="inline-flex items-center gap-0.5 rounded-md bg-orange-500/15 px-1.5 py-0.5 text-[10px] font-medium leading-none text-orange-600 dark:text-orange-400">
+                  <Lock className="h-2.5 w-2.5" aria-hidden />
+                  {t('locked')}
+                </span>
+              </Tooltip>
+            )}
             <span className="text-[10px] text-muted-foreground">
               {t('created')} {formatRelativeTime(task.createdAt, locale)}
             </span>
