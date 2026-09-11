@@ -363,10 +363,20 @@ def derive_step_evidence(
                 "after": safe_args.get("content", ""),
             }
         elif tool_name == "run_command" and isinstance(result, dict):
-            if "exitCode" in result or "passed" in result or "failed" in result:
+            # 2-3(2026-09-11):exitCode/exit_code 双键名兼容——mcp_server 的
+            # _tool_run_command 实际返回蛇形 exit_code,此前只认驼峰 exitCode,
+            # 纯命令执行(无 passed/failed)时 test 证据永远推不出来。
+            if (
+                "exitCode" in result
+                or "exit_code" in result
+                or "passed" in result
+                or "failed" in result
+            ):
                 test = {
                     "command": safe_args.get("command", ""),
-                    "exit_code": result.get("exitCode"),
+                    "exit_code": (
+                        result["exitCode"] if "exitCode" in result else result.get("exit_code")
+                    ),
                     "passed": result.get("passed"),
                     "failed": result.get("failed"),
                 }
@@ -402,6 +412,88 @@ def _derive_step_decision(tr: ToolResult) -> tuple[str, str]:
     if tr.retry_count > 0:
         return "execute_tool_retried", f"瞬时失败自动重试 {tr.retry_count} 次后成功"
     return "execute_tool", ""
+
+
+# ---------------------------------------------------------------------------
+# 2-3 验证自愈集成(2026-09-12 立):run_command 出现失败 pytest 信号时,
+# agent loop 内联触发 self_healing 引擎(默认 off,见 _maybe_self_heal)。
+# ---------------------------------------------------------------------------
+
+# 自愈触发单 run 次数上限(env AGENT_SELF_HEAL_MAX_PER_RUN,默认 1:
+# LLM 补丁无效时避免同一失败反复 heal 烧 token)
+_SELF_HEAL_DEFAULT_MAX_PER_RUN = 1
+
+
+def _self_heal_enabled_from_env() -> bool:
+    """2-3 自愈集成总开关(env AGENT_SELF_HEALING_ENABLED,与 routers/self_healing.py 同源)。
+
+    默认 off:agent loop 行为与现状逐零差异;设为 on/1/true/yes 时,
+    _run_loop 检测到失败的 pytest 类 run_command 即触发 heal。
+    """
+    return os.environ.get("AGENT_SELF_HEALING_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _self_heal_max_per_run_from_env() -> int:
+    """单次 run 内 heal 触发次数上限(env AGENT_SELF_HEAL_MAX_PER_RUN,默认 1)。"""
+    try:
+        return max(
+            1, int(os.environ.get("AGENT_SELF_HEAL_MAX_PER_RUN", _SELF_HEAL_DEFAULT_MAX_PER_RUN))
+        )
+    except ValueError:
+        return _SELF_HEAL_DEFAULT_MAX_PER_RUN
+
+
+def _extract_pytest_target(command: str) -> str | None:
+    """从 pytest 命令行提取目标路径(nodeid / 文件 / 目录)。
+
+    取 "pytest" 后第一个不以 "-" 开头的 token;找不到返回 None。
+    覆盖 "pytest tests/x.py" 与 "python -m pytest tests/x.py::test_a" 两种形态。
+    """
+    tokens = (command or "").split()
+    if "pytest" not in tokens:
+        return None
+    for tok in tokens[tokens.index("pytest") + 1 :]:
+        if tok.startswith("-"):
+            continue
+        return tok
+    return None
+
+
+def _detect_failed_test_signal(
+    tool_calls: list[ToolCall], tool_results: list[ToolResult]
+) -> dict[str, Any] | None:
+    """2-3:从本轮工具结果检测失败的 pytest 类 run_command(heal 触发依据)。
+
+    命中条件:run_command 无 error + 命令含 pytest + test 证据 failed>0
+    (或 failed 缺失但 exit_code 非零)。返回
+    {"command","exit_code","failed","target"} 或 None。
+    """
+    for tc, tr in zip(tool_calls, tool_results, strict=False):
+        if tr.error or (tr.name or tc.name) != "run_command":
+            continue
+        args = tc.args if isinstance(tc.args, dict) else {}
+        command = str(args.get("command", ""))
+        target = _extract_pytest_target(command)
+        if target is None:
+            continue
+        evidence = derive_step_evidence("run_command", args, tr.result)
+        test = evidence.get("test") if isinstance(evidence, dict) else None
+        if not isinstance(test, dict):
+            continue
+        failed = test.get("failed")
+        exit_code = test.get("exit_code")
+        failed_hit = isinstance(failed, int) and failed > 0
+        exit_hit = failed is None and isinstance(exit_code, int) and exit_code != 0
+        if failed_hit or exit_hit:
+            return {
+                "command": command,
+                "exit_code": exit_code,
+                "failed": failed,
+                "target": target,
+            }
+    return None
 
 
 class AgentEventStream:
@@ -875,6 +967,10 @@ class AgentLoopV2:
         # 写盘工具(file_edit/write_file/edit_file)首次执行前 snapshot(编辑前内容),
         # _save_checkpoint_safe 传入 checkpoint → restore(rollback_files=true)可真正回滚。
         self._run_file_snapshots: dict[str, dict[str, Any]] = {}
+        # 2-3 自愈集成(2026-09-12):本次 run 已触发 heal 次数 + 已 heal 过的失败命令
+        # (去重防烧 token;每次 run 重置,见 _reset_run_state)。
+        self._self_heal_runs: int = 0
+        self._self_heal_commands: set[str] = set()
 
     def _ensure_session_id(self) -> str:
         """获取或自动生成 session_id。"""
@@ -893,6 +989,9 @@ class AgentLoopV2:
         self._compaction_events = []
         # 1-7 团队接力:每次 run 重置注入元信息(避免跨 run 残留)
         self._team_relay_info = None
+        # 2-3 自愈集成:每次 run 重置 heal 计数与命令去重集合
+        self._self_heal_runs = 0
+        self._self_heal_commands = set()
 
     def _maybe_compact_context(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """1-8 上下文超限压缩(2026-09-07 立):占用 ≥ context_limit*0.85 时压缩旧消息。
@@ -1001,6 +1100,164 @@ class AgentLoopV2:
                 e,
             )
             return None
+
+    async def _maybe_self_heal(
+        self,
+        iteration: int,
+        messages: list[dict[str, Any]],
+        tool_calls: list[ToolCall],
+        tool_results: list[ToolResult],
+    ) -> None:
+        """2-3 自愈集成(2026-09-12):本轮 run_command 出现失败 pytest 信号时触发 heal。
+
+        门控:AGENT_SELF_HEALING_ENABLED(默认 off)+ 单 run 次数上限 +
+        同命令去重;全链路 fail-open(任一环节失败仅 warning,不阻塞主循环)。
+        护栏:patch_fn 落盘前对将被补丁的文件拍快照(pre-heal 内容),
+        heal 未修复时按 version_id 回滚全部被补丁文件。
+        结果:以 user 消息注入对话(所有 provider 契约安全),LLM 感知后继续。
+        """
+        if not _self_heal_enabled_from_env():
+            return
+        if self._self_heal_runs >= _self_heal_max_per_run_from_env():
+            return
+        signal = _detect_failed_test_signal(tool_calls, tool_results)
+        if signal is None:
+            return
+        if signal["command"] in self._self_heal_commands:
+            return
+        self._self_heal_runs += 1
+        self._self_heal_commands.add(signal["command"])
+        session_id = self._ensure_session_id()
+
+        # heal 安全 checkpoint(供人工 rewind;文件级回滚护栏走补丁前快照)
+        checkpoint_id = await self._save_checkpoint_safe(
+            iteration=iteration,
+            messages=messages,
+            status="running",
+            metadata={
+                "self_heal": True,
+                "command": signal["command"],
+                "failed": signal["failed"],
+                "exit_code": signal["exit_code"],
+            },
+        )
+        await self._events.emit("self_heal", {
+            "session_id": session_id,
+            "iteration": iteration,
+            "phase": "started",
+            "command": signal["command"],
+            "failed": signal["failed"],
+            "exit_code": signal["exit_code"],
+            "checkpoint_id": checkpoint_id,
+        })
+
+        # 工作区白名单校验(与 MCP 同一套根,防 heal 目标越界)
+        from .mcp_server import _validate_path_in_workspace
+
+        ok, info = _validate_path_in_workspace(signal["target"])
+        if not ok:
+            logger.warning("[self_heal] 目标不在工作区白名单,跳过 heal: %s", info)
+            return
+
+        # 回滚护栏:补丁落盘前对目标文件拍快照(每文件首次,保留 pre-heal 内容)
+        heal_snapshots: dict[str, str] = {}  # file_path -> version_id
+
+        def _patch_adapter(task: Any, result: Any) -> dict[str, Any] | None:
+            """heal patch_fn 契约 (task, result):生成补丁 → 落盘前快照 → 应用。"""
+            from .self_healing_llm import apply_patch_descriptor, llm_patch_fn
+
+            failures = result.get("failures") if isinstance(result, dict) else None
+            failure = failures[0] if failures else task
+            patch = llm_patch_fn(failure, result)
+            if patch is None:
+                return None
+            file_path = str(patch.get("file_path") or "")
+            if file_path and file_path not in heal_snapshots:
+                try:
+                    from .file_editor import snapshot_file
+
+                    snap = snapshot_file(session_id, file_path)
+                    heal_snapshots[file_path] = str(snap["version_id"])
+                except Exception as e:  # noqa: BLE001 - 快照失败不阻断补丁
+                    logger.debug("[self_heal] 补丁前快照失败(%s): %s", file_path, e)
+            applied, apply_info = apply_patch_descriptor(patch)
+            patch = {**patch, "applied": applied}
+            if not applied:
+                patch["apply_error"] = apply_info
+            return patch
+
+        try:
+            from starlette.concurrency import run_in_threadpool
+
+            from .self_healing import heal
+            from .self_healing_llm import PytestSubprocessRunner, llm_gen_fn
+
+            task_desc = (
+                f"修复失败测试并让 pytest 通过。失败命令: {signal['command']}"
+                f"(exit_code={signal['exit_code']}, failed={signal['failed']})"
+            )
+            runner = PytestSubprocessRunner(info)
+            # heal 是同步函数(内部 LLM 桥自带事件循环),必须 threadpool 包装,
+            # 避免在 agent loop 的事件循环内同 loop await 造成死锁。
+            outcome = await run_in_threadpool(
+                heal,
+                task_desc,
+                None,  # test_cases -> 由 gen_fn 生成
+                gen_fn=llm_gen_fn,
+                runner=runner,
+                patch_fn=_patch_adapter,
+            )
+            outcome_dict = outcome.to_dict() if hasattr(outcome, "to_dict") else {}
+        except Exception as e:  # noqa: BLE001 - heal 失败不阻塞主循环
+            logger.warning("[self_heal] heal 执行失败(降级,不阻塞主循环): %s", e)
+            outcome_dict = {"ok": False, "error": str(e)}
+
+        # 回滚护栏:heal 未修复时,把所有被补丁文件回滚到 pre-heal 快照
+        rollback_results: list[dict[str, Any]] = []
+        if outcome_dict.get("ok") is not True and heal_snapshots:
+            try:
+                from .file_editor import rollback_file
+
+                for path, version_id in heal_snapshots.items():
+                    try:
+                        rollback_results.append(
+                            rollback_file(session_id, path, version_id=version_id)
+                        )
+                    except Exception as e:  # noqa: BLE001 - 单文件回滚失败继续其余
+                        rollback_results.append({"ok": False, "path": path, "message": str(e)})
+            except Exception as e:  # noqa: BLE001 - 回滚层失败不阻塞主循环
+                logger.warning("[self_heal] 回滚护栏执行失败: %s", e)
+        rolled = sum(1 for r in rollback_results if r.get("ok"))
+
+        await self._events.emit("self_heal", {
+            "session_id": session_id,
+            "iteration": iteration,
+            "phase": "finished",
+            "command": signal["command"],
+            "ok": outcome_dict.get("ok"),
+            "attempts": outcome_dict.get("attempts"),
+            "rollbacks": rollback_results,
+            "checkpoint_id": checkpoint_id,
+        })
+
+        if outcome_dict.get("ok") is True:
+            summary = (
+                f"[self-heal] 自动修复成功:{signal['command']} 的失败测试已修复"
+                f"(attempts={outcome_dict.get('attempts')})。"
+            )
+        else:
+            summary = (
+                f"[self-heal] 自动修复未成功(attempts={outcome_dict.get('attempts')}),"
+                f"已回滚 {rolled} 个补丁文件到自愈前内容;请继续用其他方式修复。"
+            )
+        messages.append({"role": "user", "content": summary})
+        logger.info(
+            "[self_heal] iter=%d heal 完成(ok=%s, attempts=%s, 回滚 %d 文件)",
+            iteration,
+            outcome_dict.get("ok"),
+            outcome_dict.get("attempts"),
+            rolled,
+        )
 
     async def run(self, messages: list[dict[str, Any]]) -> AgentLoopResult:
         """执行完整 ReAct 循环。
@@ -1905,6 +2162,10 @@ class AgentLoopV2:
                             ),
                         }
                     )
+
+                # 7. 2-3 自愈集成(2026-09-12):本轮出现失败 pytest 信号时触发
+                #    heal(默认 off,fail-open;结果以 user 消息注入,LLM 感知后继续)
+                await self._maybe_self_heal(i, messages, tool_calls, tool_results)
 
                 iteration.end_time = datetime.now(UTC).isoformat()
                 iteration.duration_ms = (
