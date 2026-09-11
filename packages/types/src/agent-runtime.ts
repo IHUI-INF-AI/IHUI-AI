@@ -1148,6 +1148,56 @@ export type GitHubOperation =
  */
 export type AgentTaskStatus = 'triage' | 'todo' | 'ready' | 'in_progress' | 'blocked' | 'done'
 
+// ---------------------------------------------------------------------------
+// 状态机运行时常量(2026-09-11 2-2 P1:跨端单一来源)
+// api(transition/admin PUT 校验)与 web(流转按钮禁用)共用,避免两处表漂移。
+// ---------------------------------------------------------------------------
+
+/** Kanban 6 列合法流转图(单一来源) */
+export const ALLOWED_TRANSITIONS: Record<AgentTaskStatus, AgentTaskStatus[]> = {
+  triage: ['todo', 'blocked', 'done'],
+  todo: ['ready', 'blocked', 'done'],
+  ready: ['in_progress', 'blocked'],
+  in_progress: ['done', 'blocked'],
+  blocked: ['todo', 'ready'],
+  done: [],
+}
+
+/**
+ * 旧表 status 兼容映射(读取时转换 legacy → Kanban)。
+ * cancelled / quota_exceeded / preempted 为 subagent-dispatch 写入的终态,
+ * 全部归一为 blocked(原先缺映射导致任务从看板消失)。
+ */
+export const LEGACY_STATUS_MAP: Record<string, AgentTaskStatus> = {
+  pending: 'triage',
+  running: 'in_progress',
+  completed: 'done',
+  failed: 'blocked',
+  cancelled: 'blocked',
+  quota_exceeded: 'blocked',
+  preempted: 'blocked',
+}
+
+/** 过滤时 Kanban status → DB status 变体(含 legacy) */
+export const STATUS_VARIANTS: Record<AgentTaskStatus, string[]> = {
+  triage: ['triage', 'pending'],
+  todo: ['todo'],
+  ready: ['ready'],
+  in_progress: ['in_progress', 'running'],
+  blocked: ['blocked', 'failed', 'cancelled', 'quota_exceeded', 'preempted'],
+  done: ['done', 'completed'],
+}
+
+/** DB status(含 legacy 终态)→ Kanban status */
+export function mapStatus(raw: string): AgentTaskStatus {
+  return LEGACY_STATUS_MAP[raw] ?? (raw as AgentTaskStatus)
+}
+
+/** 流转合法性校验(transition / admin PUT 共用) */
+export function isTransitionAllowed(from: AgentTaskStatus, to: AgentTaskStatus): boolean {
+  return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false
+}
+
 /** Kanban 列定义(Web 工作台渲染用) */
 export interface KanbanColumn {
   /** 列状态 */
