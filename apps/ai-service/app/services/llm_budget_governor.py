@@ -57,7 +57,11 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
-from ..core.model_pricing import snapshot_per_1k
+from ..core.model_pricing import (
+    cost_micro_usd_from_per_1k,
+    micro_usd_to_usd,
+    snapshot_per_1k,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +73,8 @@ _REDIS_KEY_PILLAR = "hub:budget:pillar:{pillar}:{date}"     # hash: field=tokens
 _REDIS_KEY_CONFIG = "hub:budget:config"                     # hash: 配置覆盖
 # 内存降级上限
 _MEMORY_USAGE_MAX = 10000
+# 预算事件环形缓冲上限(预算看板"最近超支事件"数据源,进程级)
+_BUDGET_EVENT_MAX = 200
 # 支柱白名单
 _VALID_PILLARS = {"rules", "hook", "spec", "context", "subagent", "terminal"}
 
@@ -196,6 +202,8 @@ class LLMBudgetGovernor:
         self._memory_hourly: dict[str, dict[str, float]] = {}   # hour -> {tokens, cost}
         self._memory_pillar: dict[str, dict[str, dict[str, float]]] = {}  # pillar -> date -> {tokens, cost}
         self._degraded_models: dict[str, str] = {}  # pillar -> 当前降级到的模型
+        # 预算事件环形缓冲(warning/critical/degrade/degrade_reset),预算看板数据源
+        self._budget_events: deque[dict[str, Any]] = deque(maxlen=_BUDGET_EVENT_MAX)
 
     # ------------------------------------------------------------------
     # Redis 连接
@@ -225,12 +233,21 @@ class LLMBudgetGovernor:
     # ------------------------------------------------------------------
 
     def _calc_cost(self, model: str, input_tokens: int, output_tokens: int) -> float:
-        """计算单次调用成本(美元)。未知模型用 default 费率。"""
+        """计算单次调用成本(美元)。未知模型用 default 费率。
+
+        2026-09-12 精度改造(2-6 成本真实计价):改走 core.model_pricing 的
+        Decimal 微元整数引擎(per-1K 表语义不变,仅消除 float 累积漂移),
+        对外仍返回 USD float(round 6 位口径不变)。
+        """
         table = self.config.model_cost_table
         rates = table.get(model) or table.get("default") or {"input": 0.002, "output": 0.008}
-        cost = (input_tokens / 1000.0) * rates.get("input", 0.002) + \
-               (output_tokens / 1000.0) * rates.get("output", 0.008)
-        return round(cost, 6)
+        micro = cost_micro_usd_from_per_1k(
+            rates.get("input", 0.002),
+            rates.get("output", 0.008),
+            input_tokens,
+            output_tokens,
+        )
+        return micro_usd_to_usd(micro)
 
     # ------------------------------------------------------------------
     # 内部:用量累加与读取(Redis + 内存降级)
@@ -396,6 +413,40 @@ class LLMBudgetGovernor:
         except Exception as e:
             logger.debug("事件发射失败(忽略): %s", e)
 
+    def _record_budget_event(self, event_type: str, payload: dict[str, Any]) -> None:
+        """把预算事件写入进程级环形缓冲(预算看板"最近超支事件"数据源)。
+
+        去重:check_budget 每次 LLM 调用都会触发,同 (event_type, pillar) 且
+        usage_percent 较最近一条无 >=1 个百分点增长(且未回落,回落=新预算
+        周期)时不重复记录,避免高频调用把缓冲刷成重复快照。
+        """
+        if "usage_percent" in payload:
+            pct = float(payload["usage_percent"])
+            for e in reversed(self._budget_events):
+                if e.get("event_type") == event_type and e.get("pillar") == payload.get("pillar"):
+                    last = float(e.get("usage_percent") or 0.0)
+                    if 0.0 <= pct - last < 0.01:
+                        return  # 同支柱同类型且用量无明显增长 → 去重
+                    break
+        self._budget_events.append(
+            {"event_type": event_type, "timestamp": _now_iso(), **payload}
+        )
+
+    def get_budget_events(
+        self, limit: int = 50, event_type: str | None = None
+    ) -> list[dict[str, Any]]:
+        """最近预算事件(最新在前)。
+
+        数据源为进程级环形缓冲(重启即清空),仅供看板展示;event_type 可选
+        过滤(budget.warning / budget.critical / budget.degrade / budget.degrade_reset)。
+        """
+        events = list(self._budget_events)
+        if event_type:
+            events = [e for e in events if e.get("event_type") == event_type]
+        if limit <= 0:
+            return []
+        return list(reversed(events[-limit:]))
+
     def _pick_degrade_model(self, pillar: str) -> str | None:
         """从降级链选下一个更便宜的模型。"""
         chain = self.config.degrade_chain
@@ -527,6 +578,11 @@ class LLMBudgetGovernor:
                 "pillar": pillar, "usage_percent": usage_percent,
                 "daily_tokens": daily_tokens, "daily_cost": daily_cost,
             })
+            self._record_budget_event("budget.critical", {
+                "pillar": pillar, "usage_percent": usage_percent,
+                "daily_tokens": daily_tokens, "daily_cost": daily_cost,
+                "hard_stop": True,
+            })
             return BudgetCheckResult(
                 allowed=False,
                 degrade_to_model=None,
@@ -549,14 +605,25 @@ class LLMBudgetGovernor:
                 "usage_percent": usage_percent,
                 "pillar_usage_percent": pillar_usage_percent,
             })
+            self._record_budget_event("budget.degrade", {
+                "pillar": pillar, "degrade_to": degrade_to,
+                "usage_percent": usage_percent,
+                "pillar_usage_percent": pillar_usage_percent,
+            })
 
         # 严重 / 预警阈值事件
         if usage_percent >= self.config.critical_threshold:
             await self._emit_event("budget.critical", {
                 "pillar": pillar, "usage_percent": usage_percent,
             })
+            self._record_budget_event("budget.critical", {
+                "pillar": pillar, "usage_percent": usage_percent,
+            })
         elif usage_percent >= self.config.warning_threshold:
             await self._emit_event("budget.warning", {
+                "pillar": pillar, "usage_percent": usage_percent,
+            })
+            self._record_budget_event("budget.warning", {
                 "pillar": pillar, "usage_percent": usage_percent,
             })
 
@@ -705,6 +772,7 @@ class LLMBudgetGovernor:
         if pillar in self._degraded_models:
             del self._degraded_models[pillar]
             await self._emit_event("budget.degrade_reset", {"pillar": pillar})
+            self._record_budget_event("budget.degrade_reset", {"pillar": pillar})
             return True
         return False
 

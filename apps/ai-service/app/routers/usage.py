@@ -92,6 +92,29 @@ async def record_usage(
     }
 
 
+@router.get("/budget-events")
+async def get_budget_events(
+    limit: int = Query(50, ge=1, le=200, description="返回条数(最新在前)"),
+    event_type: str | None = Query(
+        None,
+        description="按事件类型过滤(budget.warning/budget.critical/budget.degrade/budget.degrade_reset)",
+    ),
+) -> dict[str, Any]:
+    """最近预算超支/预警事件(预算看板数据端点)。
+
+    数据源:budget governor 进程级环形缓冲(_record_budget_event),
+    含 usage_percent/pillar/时间戳;进程重启即清空,仅供看板展示。
+    """
+    try:
+        from app.services.llm_budget_governor import llm_budget_governor
+
+        events = llm_budget_governor.get_budget_events(limit=limit, event_type=event_type)
+    except Exception as e:
+        logger.warning("budget events 获取失败(降级): %s", e)
+        return {"code": 0, "message": "ok", "data": {"events": [], "error": str(e)}}
+    return {"code": 0, "message": "ok", "data": {"events": events}}
+
+
 @router.get("/agent")
 async def get_agent_budget_usage() -> dict[str, Any]:
     """Agent 主循环预算治理摘要(供 web 面板未来接入)。
