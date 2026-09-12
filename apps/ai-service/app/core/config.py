@@ -318,6 +318,12 @@ def _sync_env_file_to_os() -> None:
              "_SECRET_ID", "_SECRET_KEY", "_ACCESS_KEY")
         ) or key in (
             "AGENT_EXECUTOR",
+            # 2026-09-12 2-3 自愈产品化:自愈三键由 routers/self_healing.py、
+            # services/agent_loop_v2.py、services/self_healing_llm.py 以
+            # os.environ.get 直读,不在白名单则 .env 配置静默失效(门控恒 off)。
+            "AGENT_SELF_HEALING_ENABLED",
+            "AGENT_SELF_HEAL_MAX_PER_RUN",
+            "AGENT_SELF_HEALING_MODEL",
             # 出站代理(2026-09-04):httpx(openai/litellm 底层)读 os.environ 的
             # 代理变量,.env 值必须同步进环境才会生效。NO_PROXY 保证国内 Provider
             # 与本机服务直连。
