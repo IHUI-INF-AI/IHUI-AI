@@ -10,7 +10,7 @@
 > 修改 guardian-runner.mjs 后请运行 `pnpm guardian:docs` 重新生成。
 > **禁止手工编辑**——下次生成会覆盖。
 >
-> 最后生成：2026-07-28（共 59 项：blocking 41 / warn 16 / info 2）
+> 最后生成：2026-09-12（共 77 项：blocking 58 / warn 17 / info 2）
 
 ## 目录
 
@@ -25,7 +25,7 @@
 
 按 mode 分组，每组按 guardian-runner.mjs 中的出现顺序排列。
 
-### 1.1 blocking 项（41 项）
+### 1.1 blocking 项（58 项）
 
 | ID | Label | Script | Args | onFailHint |
 |----|-------|--------|------|------------|
@@ -34,6 +34,7 @@
 | 2b | 🔍 zh-TW 简体字残留 | scan-i18n-zh-residue.mjs | zh-TW | — |
 | 2c | 🔍 ko.json 中文残留 | scan-i18n-zh-residue.mjs | ko | — |
 | 2e | 🔍 en.json 破碎英文 | check-i18n-broken-en.mjs | — | — |
+| 2e-dupns | 🧬 i18n 重复命名空间/重复键(blocking,防 JSON last-wins 静默遮蔽) | check-i18n-duplicate-namespaces.mjs | — | 有 |
 | 2f-web | 🌐 i18n AI 翻译流水线(blocking) | i18n-diff.mjs | — | 有 |
 | 2f-miniapp-taro | 🌐 [miniapp-taro] i18n AI 翻译流水线(blocking) | i18n-diff.mjs | --target=miniapp-taro | 有 |
 | 3 | 🗄️ schema drift | check-db-schema-drift.mjs | — | — |
@@ -44,7 +45,12 @@
 | 7 | 📦 依赖碎片化 | check-dedupe.mjs | — | — |
 | 8 | 🔗 前端↔后端路由一致性 | check-api-routes.mjs | — | — |
 | 11 | ⭕ 容器圆角违规 | check-rounded-full.mjs | — | — |
+| 11c | 🏷️  选中态描边定稿防回退(禁纯黑/纯白,全站) | check-tagsview-visual.mjs | — | — |
 | 11d | 🚫 分割线违规(divide-y / divide-x) | check-no-divider.mjs | — | — |
+| 11h | 🚫 UI 图标位 emoji 违规(icon 字段/渲染位) | check-no-emoji-icons.mjs | — | — |
+| 11e | 📏 单文件行数上限 (仅拦新增) | check-file-size.mjs | — | — |
+| 11f | 🚫 原生 alert/confirm/prompt 弹窗 | check-no-native-dialog.mjs | — | — |
+| 11g | 🚫 mask-image 渐变遮罩 | check-no-mask-image.mjs | — | — |
 | 12 | 📋 交付报告一致性 | check-delivery-report-consistency.mjs | — | — |
 | 13c | 🗂️  PROJECT_PLAN.md 已完成任务防误删 | check-project-plan-archive.mjs | — | — |
 | 15 | 📊 迁移完整性(7 大类 29 子项) | check-api-migration-completeness.mjs | — | — |
@@ -54,15 +60,20 @@
 | 24a | 📏 侧边栏宽度一致性 | check-sidebar-width-consistency.mjs | — | — |
 | 25 | 🧹 项目外路径违规(blocking) | check-workspace-hygiene.mjs | — | — |
 | 26 | 🛡️  项目父目录污染巡查(blocking) | check-parent-pollution.mjs | — | — |
-| 27 | 🛡️  z-index 层叠防护(防 IDE 注入 + 遮罩 fade-in 回归) | check-z-index-guard.mjs | — | — |
+| 27 | 🛡️  z-index 层叠防护(防第三方 IDE 注入 + 遮罩 fade-in 回归) | check-z-index-guard.mjs | — | — |
 | 28 | 🛡️  全屏遮罩 z-index 层级(防 fixed inset-0 + z-50 复发) | check-overlay-zindex.mjs | — | 有 |
 | 29 | 🚀 Push 同步兜底(防"commit 后忘记 push"复发,AGENTS.md §21 第三道防线) | check-push-sync.mjs | — | 有 |
 | 30 | 🛡️ i18n 文件完整性(防 prettier 截断事故复发) | validate-i18n-integrity.mjs | — | 有 |
 | 30a | 🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit) | check-commit-loss-guard.mjs | --blocking --filter-stash | — |
+| 30b | 🛡️  Stash 滞留源码改动守门(blocking,AGENTS.md §12d,防已完成工作滞留 stash 静默失联) | check-stale-stashes.mjs | --blocking | 有 |
+| 16c | 🛡️  staged-typecheck 源/测镜像同步(blocking,AGENTS.md §22b 镜像同步义务) | check-staged-typecheck-mirror-sync.mjs | — | — |
 | 35 | 🐍 mypy 类型检查(防 ai-service Python 类型回退) | check-mypy.mjs | — | 有 |
 | 36 | 🎨 [miniapp-taro] design-tokens 同步(防 app.css 漂移) | check-miniapp-tokens-sync.mjs | — | 有 |
 | 37 | 🎨 [web] design-tokens 同步(防 globals.css 漂移) | check-web-tokens-sync.mjs | — | 有 |
 | 38 | 🛡️  solito 幽灵依赖回归守门(blocking,防 P0 优化被回退) | check-solito-residue.mjs | — | 有 |
+| 39 | 📱 mobile-rn screen 迁移完整性(blocking,防独立实现回升) | check-rn-app-migration.mjs | --staged | 有 |
+| 40 | 🔗 共享层重复检测(blocking,防端内重新实现 shared hook/util) | check-shared-layer-duplication.mjs | — | 有 |
+| 41 | 🌿 单分支开发守门(blocking,AGENTS.md §9b) | check-single-branch.mjs | — | 有 |
 | 2f-shared | 🌐 [shared] i18n 键完整性(blocking,零变更验证通过) | check-i18n-keys.mjs | --target=shared | — |
 | 2j-shared | 🔍 [shared] zh-TW 简体字残留(blocking) | scan-i18n-zh-residue.mjs | zh-TW --target=shared | — |
 | 2k-shared | 🔍 [shared] ko.json 中文残留(blocking) | scan-i18n-zh-residue.mjs | ko --target=shared | — |
@@ -71,12 +82,19 @@
 | 2n-web | 🌐 [web] 5 语言 i18n parity 强制校验 (blocking,2026-08-02 升级,兜底 item 2 漏检场景) | check-i18n-keys.mjs | --parity-only | — |
 | 9 | 🔍 safeParse 静默忽略(blocking,2026-07-26 升级) | check-safe-parse.mjs | — | 有 |
 | 33 | 🛡️  LLM provider schema 守门 (blocking,阶段 3 主体已落地) | check-llm-provider-schema.mjs | — | 有 |
+| 42 | 🛡️  React SyntheticEvent 闭包陷阱(防 popover 常驻显示复发) | check-event-closure-leak.mjs | — | 有 |
+| 44 | 🧹 根目录整洁守门(一级目录白名单) | check-root-dir-clean.mjs | — | 有 |
+| 46 | 🔙 统一返回键防私接守门(禁页面私写 router.back/history.back) | check-inline-back-button.mjs | — | 有 |
+| 47 | 💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区) | check-watermark-coverage.mjs | — | 有 |
+| 48 | 🧩 GitHub Actions 步骤顺序守门(setup-node cache:pnpm 必须在 pnpm/action-setup 之后) | check-workflow-step-order.mjs | — | 有 |
 
-### 1.2 warn 项（16 项）
+### 1.2 warn 项（17 项）
 
 | ID | Label | Script | Args | onFailHint |
 |----|-------|--------|------|------------|
 | 2g-web | 🔍 i18n 命名空间传递(web→共享组件) | check-i18n-namespace-passing.mjs | — | — |
+| 11b | 📐 圆角溢出(父 rounded + 子 bg 贴边) | check-rounded-overflow.mjs | — | — |
+| 45 | 🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26) | check-c-drive-paths.mjs | — | 有 |
 | 2d | 🔍 ja.json 中文残留(warn-only) | scan-i18n-zh-residue.mjs | ja | — |
 | 2f-ext | 🌐 [extension] i18n 键完整性(warn-only) | check-i18n-keys.mjs | --target=extension | — |
 | 2g-ext | 🔍 [extension] zh-TW 简体字残留(warn-only) | scan-i18n-zh-residue.mjs | zh-TW --target=extension | — |
@@ -89,8 +107,7 @@
 | 19 | ⚠️  staged 污染预警(warn-only) | check-staged-pollution.mjs | — | — |
 | 21 | 🌐 多端同步开发守门(warn-only) | check-multi-end-sync.mjs | — | — |
 | 22 | 📖 README 同步守门(warn-only) | check-readme-sync.mjs | — | — |
-| 24b | 🔌 端口注册表守门(warn-only) | check-port-registry.mjs | — | — |
-| 31 | 🛡️  AuthShell 共享实现静态守门(warn-only,防 web/extension 视觉漂移) | verify-auth-shell.mjs | — | — |
+| 24b | 🔌 端口注册表守门(warn-only,monorepo-wide 全量) | check-port-registry.mjs | --all | — |
 | 34 | 🔍 @ts-ignore 新增检测(warn-only,防 215 处历史遗留复发) | check-ts-ignore.mjs | — | 有 |
 
 ### 1.3 info 项（2 项）
@@ -102,7 +119,18 @@
 
 ### 1.4 失败提示详情（onFailHint）
 
-仅展示有 onFailHint 的守门项（共 15 项），按 guardian-runner.mjs 出现顺序排列。
+仅展示有 onFailHint 的守门项（共 26 项），按 guardian-runner.mjs 出现顺序排列。
+
+#### [2e-dupns] 🧬 i18n 重复命名空间/重复键(blocking,防 JSON last-wins 静默遮蔽)
+
+```
+
+  💡 检测到 messages JSON 存在重复命名空间/重复键(last-wins 遮蔽风险):
+     1. node scripts/check-i18n-duplicate-namespaces.mjs  (定位文件与行号)
+     2. 保留正确版本块,删除重复块(通常是写入侧误追加的尾部块)
+     3. 重新 commit;禁止以"追加新块"方式修改既有命名空间
+
+```
 
 #### [2f-web] 🌐 i18n AI 翻译流水线(blocking)
 
@@ -168,6 +196,30 @@
 
 ```
 
+#### [30b] 🛡️  Stash 滞留源码改动守门(blocking,AGENTS.md §12d,防已完成工作滞留 stash 静默失联)
+
+```
+
+  💡 存在滞留 ≥48h 的 stash 含源码改动且未做零损失备份,
+     处置二选一:A. git stash apply "stash@{n}" → 验证 → commit 落地 → drop;
+                B. git tag backup/stash-<slug>-<sha7> "stash@{n}" 后 drop(内容永不丢)。
+     跳过(应急):HUSKY_SKIP_STALE_STASH_CHECK=1 git commit ...
+
+```
+
+#### [45] 🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26)
+
+```
+
+  💡 staged 文件中检测到硬编码 C 盘写入路径(如 C:\temp\ / C:\Users\*\AppData\Local\Temp\)。
+     修复:用 os.tmpdir() (Node) 或 $env:TEMP (PowerShell) 替代,自动走 D 盘;
+           用户配置目录用工具自带配置 (pnpm config / npm config / pip config);
+           系统日志写 $env:TEMP (已指向 D 盘)。
+     唯一例外:apps/desktop/src-tauri/ 内部 API (已自动排除)。
+     跳过方法 (应急):HUSKY_SKIP_C_DRIVE_PATHS=1 git commit ...
+
+```
+
 #### [35] 🐍 mypy 类型检查(防 ai-service Python 类型回退)
 
 ```
@@ -206,6 +258,43 @@
      packages/app 已改用纯 props 注入式跨端共享组件(无外部导航库依赖)。
      修复:从 package.json 删除 solito 依赖,从 pnpm-workspace.yaml 删除 *solito* hoist,
      删除 patches/solito@*.patch,删除 packages/app 源码中 import from "solito/..." 语句。
+
+```
+
+#### [39] 📱 mobile-rn screen 迁移完整性(blocking,防独立实现回升)
+
+```
+
+  💡 发现 mobile-rn screen 未迁移到 @ihui/rn-app 共享层。
+     P3-3.3 目标要求所有 screen(除白名单豁免)必须 import from "@ihui/rn-app"。
+     修复(二选一):
+       A. 迁移到共享层:packages/app/src/features/<feature>/ 创建共享组件 + wrapper 改造
+       B. 若确属 RN 端独占,在 scripts/check-rn-app-migration.mjs WHITELIST 登记并附理由
+     详见 scripts/check-rn-app-migration.mjs --help
+
+```
+
+#### [40] 🔗 共享层重复检测(blocking,防端内重新实现 shared hook/util)
+
+```
+
+  💡 发现端内(apps/*)独立实现了 packages/shared 已提供的 hook/util。
+     AGENTS.md §3 "共享层优先" 要求:能共用的一定共用,禁止端内重新实现。
+     修复:
+       A. 删除端内实现,改为 import { xxx } from "@ihui/shared"
+       B. 若确属平台特有(依赖 DOM/RN/Taro API),在脚本 whitelist 登记并附理由
+     详见: node scripts/check-shared-layer-duplication.mjs
+
+```
+
+#### [41] 🌿 单分支开发守门(blocking,AGENTS.md §9b)
+
+```
+
+  💡 AGENTS.md §9b:除 main 外禁止创建任何分支,所有改动统一往 main 合并。
+     修复:git branch -d <已合并分支> / git branch -D <未合并分支>(先 tag 备份)
+     或 git push origin --delete <远程分支>
+     goal/ 临时分支需在 .ihui-agent/goal-runtime/STATE.md 标注 active 才豁免
 
 ```
 
@@ -277,6 +366,64 @@
 
 ```
 
+#### [42] 🛡️  React SyntheticEvent 闭包陷阱(防 popover 常驻显示复发)
+
+```
+
+  💡 在异步回调闭包内访问了 React SyntheticEvent 属性(如 e.currentTarget)。
+     React 17+ 在 handler 返回后 currentTarget 置 null,异步闭包内访问永远为 null。
+     修复:在 handler 同步阶段 const el = e.currentTarget 缓存到闭包变量,
+     或用 useRef 管理 DOM 元素(anchorRef.current 替代 e.currentTarget)。
+     参考:apps/web/src/components/chat/model-selector.tsx MemberDiscountSection
+
+```
+
+#### [44] 🧹 根目录整洁守门(一级目录白名单)
+
+```
+
+  💡 一级目录存在白名单外条目,已阻断 commit。
+     处置(二选一):
+       ① 临时/垃圾产物 → 删除,或移入 tmp/ 或 logs/
+       ② 合法新增(新配置/新文档/新目录) → 加入 scripts/check-root-dir-clean.mjs 白名单后重新 commit
+     白名单四组:ALLOWED_FILES / ALLOWED_DIRS / ALLOWED_HIDDEN_FILES / ALLOWED_HIDDEN_DIRS。
+
+```
+
+#### [46] 🔙 统一返回键防私接守门(禁页面私写 router.back/history.back)
+
+```
+
+  💡 页面私接了 router.back()/history.back(),绕过顶栏统一返回键。
+     修复方式(声明而非实现):
+       ① 二级及以上子页面:零代码,TopBarBackAutoRegister 已自动声明;
+       ② 页内视图级返回(详情→列表):useTopBarBack(selected ? { onBack: () => setX(null) } : null);
+       ③ 指定降级路由:<BackButton fallbackHref="/parent" />。
+     唯一豁免:apps/web/src/components/layout/GlobalTopBar.tsx(统一返回键本体)。
+
+```
+
+#### [47] 💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区)
+
+```
+
+  💡 已有跟踪文件缺失/损坏溯源水印,且自动补齐未能达标(通常 = 缺口 > 200 个, 或类型不可注入)。
+     CI 会因 Provenance watermark check 失败,请先修复。
+     手动修复: node scripts/watermark.mjs inject <file>
+     列出全部缺口: node scripts/watermark.mjs list-uncovered
+     排查批量改写来源(文本级 sed/prettier/生成器)后整体重注入: node scripts/watermark.mjs inject
+
+```
+
+#### [48] 🧩 GitHub Actions 步骤顺序守门(setup-node cache:pnpm 必须在 pnpm/action-setup 之后)
+
+```
+
+  💡 workflow 里 actions/setup-node 用了 cache: pnpm,但 pnpm/action-setup 排在它后面。
+     修复: 把 pnpm/action-setup 步骤移到 actions/setup-node 之前。
+
+```
+
 ---
 
 ## 2. P2-G: warn→blocking 升级时间表
@@ -291,7 +438,6 @@
 | ID | Label | 建议升级时间 | 前置条件 | 风险点 |
 |----|-------|--------------|----------|--------|
 | 2g-web | 🔍 i18n 命名空间传递(web→共享组件) | 2026-08-03 | 1 周观察期(2026-07-27 立)无误报 | 共享登录组件命名空间 bug 模式可能漏报(检测目标 8 个组件) |
-| 31 | 🛡️  AuthShell 共享实现静态守门(warn-only,防 web/extension 视觉漂移) | ~2026-08-02 | 1 周观察期(2026-07-26 立)无误报 | 7 项静态扫描可能不覆盖所有视觉漂移场景 |
 
 ### 2.2 中长期升级（1-3 个月）
 
@@ -325,14 +471,17 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 19 | ⚠️  staged 污染预警(warn-only) | 跨 agent 协作场景复杂,机械阻塞会误伤正常 commit |
 | 21 | 🌐 多端同步开发守门(warn-only) | 平台独占豁免需人工判断,无法机械阻塞(AGENTS.md §9 明确 warn-only) |
 | 22 | 📖 README 同步守门(warn-only) | bug 修复/重构场景合理不更新 README(AGENTS.md §21 豁免场景) |
-| 24b | 🔌 端口注册表守门(warn-only) | 端口冲突可后期修复,不应阻塞 commit |
+| 24b | 🔌 端口注册表守门(warn-only,monorepo-wide 全量) | 端口冲突可后期修复,不应阻塞 commit |
 | 34 | 🔍 @ts-ignore 新增检测(warn-only,防 215 处历史遗留复发) | @ts-ignore 有合理压制场景(第三方库类型缺陷),不强制阻塞 |
 
 ### 2.5 未分类 warn 项
 
 以下 warn 项未在 UPGRADE_TIMELINE 配置中，需补充评估。
 
-（无）
+| ID | Label | Script |
+|----|-------|--------|
+| 11b | 📐 圆角溢出(父 rounded + 子 bg 贴边) | check-rounded-overflow.mjs |
+| 45 | 🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26) | check-c-drive-paths.mjs |
 
 ---
 
@@ -373,6 +522,7 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 2b | `i18n/zh-tw-residue-web` | 🔍 zh-TW 简体字残留 | scan-i18n-zh-residue.mjs |
 | 2c | `i18n/ko-residue-web` | 🔍 ko.json 中文残留 | scan-i18n-zh-residue.mjs |
 | 2e | `i18n/en-broken-web` | 🔍 en.json 破碎英文 | check-i18n-broken-en.mjs |
+| 2e-dupns | `—（待补充）` | 🧬 i18n 重复命名空间/重复键(blocking,防 JSON last-wins 静默遮蔽) | check-i18n-duplicate-namespaces.mjs |
 | 2f-web | `i18n/pipeline-web` | 🌐 i18n AI 翻译流水线(blocking) | i18n-diff.mjs |
 | 2f-miniapp-taro | `i18n/pipeline-miniapp-taro` | 🌐 [miniapp-taro] i18n AI 翻译流水线(blocking) | i18n-diff.mjs |
 | 2g-web | `i18n/namespace-passing-web` | 🔍 i18n 命名空间传递(web→共享组件) | check-i18n-namespace-passing.mjs |
@@ -384,7 +534,13 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 7 | `code-quality/dedupe` | 📦 依赖碎片化 | check-dedupe.mjs |
 | 8 | `code-quality/api-routes` | 🔗 前端↔后端路由一致性 | check-api-routes.mjs |
 | 11 | `ui/rounded-full` | ⭕ 容器圆角违规 | check-rounded-full.mjs |
-| 11d | `ui/no-divider` | 🚫 分割线违规(divide-y / divide-x) | check-no-divider.mjs |
+| 11b | `—（待补充）` | 📐 圆角溢出(父 rounded + 子 bg 贴边) | check-rounded-overflow.mjs |
+| 11c | `—（待补充）` | 🏷️  选中态描边定稿防回退(禁纯黑/纯白,全站) | check-tagsview-visual.mjs |
+| 11d | `—（待补充）` | 🚫 分割线违规(divide-y / divide-x) | check-no-divider.mjs |
+| 11h | `—（待补充）` | 🚫 UI 图标位 emoji 违规(icon 字段/渲染位) | check-no-emoji-icons.mjs |
+| 11e | `—（待补充）` | 📏 单文件行数上限 (仅拦新增) | check-file-size.mjs |
+| 11f | `—（待补充）` | 🚫 原生 alert/confirm/prompt 弹窗 | check-no-native-dialog.mjs |
+| 11g | `—（待补充）` | 🚫 mask-image 渐变遮罩 | check-no-mask-image.mjs |
 | 12 | `engineering/delivery-report` | 📋 交付报告一致性 | check-delivery-report-consistency.mjs |
 | 13c | `engineering/project-plan-archive` | 🗂️  PROJECT_PLAN.md 已完成任务防误删 | check-project-plan-archive.mjs |
 | 15 | `engineering/migration-completeness` | 📊 迁移完整性(7 大类 29 子项) | check-api-migration-completeness.mjs |
@@ -394,15 +550,21 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 24a | `ui/sidebar-width` | 📏 侧边栏宽度一致性 | check-sidebar-width-consistency.mjs |
 | 25 | `workspace/external-paths` | 🧹 项目外路径违规(blocking) | check-workspace-hygiene.mjs |
 | 26 | `workspace/parent-pollution` | 🛡️  项目父目录污染巡查(blocking) | check-parent-pollution.mjs |
-| 27 | `ui/z-index` | 🛡️  z-index 层叠防护(防 IDE 注入 + 遮罩 fade-in 回归) | check-z-index-guard.mjs |
+| 27 | `ui/z-index` | 🛡️  z-index 层叠防护(防第三方 IDE 注入 + 遮罩 fade-in 回归) | check-z-index-guard.mjs |
 | 28 | `ui/overlay-zindex` | 🛡️  全屏遮罩 z-index 层级(防 fixed inset-0 + z-50 复发) | check-overlay-zindex.mjs |
 | 29 | `push/sync` | 🚀 Push 同步兜底(防"commit 后忘记 push"复发,AGENTS.md §21 第三道防线) | check-push-sync.mjs |
 | 30 | `i18n/integrity` | 🛡️ i18n 文件完整性(防 prettier 截断事故复发) | validate-i18n-integrity.mjs |
 | 30a | `commit-loss/guard` | 🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit) | check-commit-loss-guard.mjs |
+| 30b | `—（待补充）` | 🛡️  Stash 滞留源码改动守门(blocking,AGENTS.md §12d,防已完成工作滞留 stash 静默失联) | check-stale-stashes.mjs |
+| 16c | `—（待补充）` | 🛡️  staged-typecheck 源/测镜像同步(blocking,AGENTS.md §22b 镜像同步义务) | check-staged-typecheck-mirror-sync.mjs |
+| 45 | `—（待补充）` | 🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26) | check-c-drive-paths.mjs |
 | 35 | `code-quality/mypy` | 🐍 mypy 类型检查(防 ai-service Python 类型回退) | check-mypy.mjs |
 | 36 | `ui/design-tokens-miniapp-taro` | 🎨 [miniapp-taro] design-tokens 同步(防 app.css 漂移) | check-miniapp-tokens-sync.mjs |
 | 37 | `ui/design-tokens-web` | 🎨 [web] design-tokens 同步(防 globals.css 漂移) | check-web-tokens-sync.mjs |
 | 38 | `dependencies/solito-residue` | 🛡️  solito 幽灵依赖回归守门(blocking,防 P0 优化被回退) | check-solito-residue.mjs |
+| 39 | `—（待补充）` | 📱 mobile-rn screen 迁移完整性(blocking,防独立实现回升) | check-rn-app-migration.mjs |
+| 40 | `—（待补充）` | 🔗 共享层重复检测(blocking,防端内重新实现 shared hook/util) | check-shared-layer-duplication.mjs |
+| 41 | `—（待补充）` | 🌿 单分支开发守门(blocking,AGENTS.md §9b) | check-single-branch.mjs |
 | 2d | `i18n/ja-residue-web` | 🔍 ja.json 中文残留(warn-only) | scan-i18n-zh-residue.mjs |
 | 2f-ext | `i18n/parity-extension` | 🌐 [extension] i18n 键完整性(warn-only) | check-i18n-keys.mjs |
 | 2f-shared | `i18n/parity-shared` | 🌐 [shared] i18n 键完整性(blocking,零变更验证通过) | check-i18n-keys.mjs |
@@ -422,10 +584,14 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 19 | `engineering/staged-pollution` | ⚠️  staged 污染预警(warn-only) | check-staged-pollution.mjs |
 | 21 | `engineering/multi-end-sync` | 🌐 多端同步开发守门(warn-only) | check-multi-end-sync.mjs |
 | 22 | `engineering/readme-sync` | 📖 README 同步守门(warn-only) | check-readme-sync.mjs |
-| 24b | `engineering/port-registry` | 🔌 端口注册表守门(warn-only) | check-port-registry.mjs |
-| 31 | `ui/auth-shell-shared` | 🛡️  AuthShell 共享实现静态守门(warn-only,防 web/extension 视觉漂移) | verify-auth-shell.mjs |
+| 24b | `engineering/port-registry` | 🔌 端口注册表守门(warn-only,monorepo-wide 全量) | check-port-registry.mjs |
 | 34 | `code-quality/ts-ignore` | 🔍 @ts-ignore 新增检测(warn-only,防 215 处历史遗留复发) | check-ts-ignore.mjs |
 | 33 | `llm/provider-schema` | 🛡️  LLM provider schema 守门 (blocking,阶段 3 主体已落地) | check-llm-provider-schema.mjs |
+| 42 | `—（待补充）` | 🛡️  React SyntheticEvent 闭包陷阱(防 popover 常驻显示复发) | check-event-closure-leak.mjs |
+| 44 | `—（待补充）` | 🧹 根目录整洁守门(一级目录白名单) | check-root-dir-clean.mjs |
+| 46 | `—（待补充）` | 🔙 统一返回键防私接守门(禁页面私写 router.back/history.back) | check-inline-back-button.mjs |
+| 47 | `—（待补充）` | 💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区) | check-watermark-coverage.mjs |
+| 48 | `—（待补充）` | 🧩 GitHub Actions 步骤顺序守门(setup-node cache:pnpm 必须在 pnpm/action-setup 之后) | check-workflow-step-order.mjs |
 | 10 | `code-quality/openapi-info` | 📋 OpenAPI spec(informational) | openapi-check.mjs |
 | 23 | `engineering/staged-files-info` | 📋 staged 文件清单(info) | check-staged-files.mjs |
 
