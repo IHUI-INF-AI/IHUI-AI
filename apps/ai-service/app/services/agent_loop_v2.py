@@ -1168,7 +1168,17 @@ class AgentLoopV2:
 
             failures = result.get("failures") if isinstance(result, dict) else None
             failure = failures[0] if failures else task
-            patch = llm_patch_fn(failure, result)
+            # 2026-09-12 修复:显式注入真实工作区路径。否则 LLM 只看到 pytest 失败文本
+            # 会编造容器式路径(实测 /app/src/*.py),补丁被工作区白名单拒绝 → 自愈
+            # 永远落不了盘(applied=false)。
+            ctx: Any = dict(result) if isinstance(result, dict) else {"result": result}
+            ctx["task"] = task
+            ctx["workspace_root"] = str(info)
+            ctx["target_path"] = str(info)
+            from .self_healing_llm import list_workspace_files
+
+            ctx["workspace_files"] = list_workspace_files(str(info))
+            patch = llm_patch_fn(failure, ctx)
             if patch is None:
                 return None
             file_path = str(patch.get("file_path") or "")
