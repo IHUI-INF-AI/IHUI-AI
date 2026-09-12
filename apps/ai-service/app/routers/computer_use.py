@@ -26,6 +26,14 @@ headless Chromium(打开页面/交互元素快照/点击/输入/截图/提取文
   GET  /api/computer-use/screenshot  → 返回 base64 PNG(视口/整页)
   POST /api/computer-use/extract-text→ 提取当前页可见文本
   POST /api/computer-use/close       → 关闭浏览器并释放进程
+
+trace 录制/回放(2-4,H9 失败可回放):
+  POST /api/computer-use/trace/start     → 开启录制(后续操作自动记录为结构化 trace)
+  POST /api/computer-use/trace/stop      → 结束录制,返回 trace 摘要
+  GET  /api/computer-use/trace           → 列出全部 trace 摘要
+  GET  /api/computer-use/trace/{id}      → 取单个 trace 详情(含全部步骤)
+  DELETE /api/computer-use/trace/{id}    → 删除 trace
+  POST /api/computer-use/replay          → 按序回放 trace,返回成功率与失败差异报告
 """
 
 from __future__ import annotations
@@ -33,12 +41,15 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..core.jwt_auth import get_current_user_id
+from ..services.browser_replay import PageDriver, classify_error, replay_trace
+from ..services.browser_trace import browser_trace_store, new_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +65,11 @@ _lock: asyncio.Lock | None = None
 
 # 最近一次快照的元素(供 ref → 坐标换算,click/type 复用)
 _last_snapshot: list[dict[str, Any]] = []
+
+# trace 录制状态:当前活跃 trace_id(None=未录制)。
+# /trace/start 开启后,open/click/type/screenshot/extract-text 每次调用都会
+# 自动追加结构化步骤到 browser_trace_store,供 /replay 按序回放。
+_recording_trace_id: str | None = None
 
 # 只收集这些可交互标签/角色
 _SNAPSHOT_SELECTOR = (
@@ -211,6 +227,45 @@ def _resolve_target(
     raise HTTPException(status_code=422, detail="必须提供 selector / ref / x,y 三者之一")
 
 
+# ============ trace 录制钩子 ============
+
+
+def _record_step(
+    action: str,
+    *,
+    target: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
+    expect: dict[str, Any] | None = None,
+    status: str = "ok",
+    result_summary: str = "",
+    error: dict[str, str] | None = None,
+    duration_ms: float = 0.0,
+) -> dict[str, Any] | None:
+    """录制活跃时把一步操作追加到 browser_trace_store;未录制返回 None。
+
+    记录失败只打日志不影响主操作(录制是旁路可观测,不引入新失败面)。
+    """
+    if _recording_trace_id is None:
+        return None
+    try:
+        return browser_trace_store.append_step(
+            _recording_trace_id,
+            {
+                "action": action,
+                "target": target,
+                "params": params,
+                "expect": expect,
+                "status": status,
+                "result_summary": result_summary,
+                "error": error,
+                "duration_ms": round(duration_ms, 2),
+            },
+        )
+    except Exception as e:
+        logger.warning("[computer_use] trace 步骤记录失败(忽略): %s", e)
+        return None
+
+
 # ============ 数据模型 ============
 
 
@@ -245,11 +300,25 @@ async def computer_use_open(
 ) -> dict[str, Any]:
     """打开指定 URL,返回最终 url + title。"""
     page = await _ensure_page()
+    started = time.monotonic()
     try:
         await page.goto(body.url, timeout=body.timeout_ms, wait_until="domcontentloaded")
         title = (await page.title()) or ""
+        _record_step(
+            "navigate",
+            params={"url": body.url, "timeout_ms": body.timeout_ms},
+            result_summary=f"url={page.url} title={title}",
+            duration_ms=(time.monotonic() - started) * 1000,
+        )
         return {"url": page.url, "title": title, "status": "opened"}
     except Exception as e:
+        _record_step(
+            "navigate",
+            params={"url": body.url, "timeout_ms": body.timeout_ms},
+            status="error",
+            error={"kind": "navigation_error", "message": f"{type(e).__name__}: {str(e)[:300]}"},
+            duration_ms=(time.monotonic() - started) * 1000,
+        )
         raise HTTPException(
             status_code=502,
             detail=f"打开页面失败: {type(e).__name__}: {str(e)[:300]}",
@@ -275,13 +344,27 @@ async def computer_use_click(
     """点击请求目标(ref / selector / x,y)。"""
     page = _require_page()
     t = _resolve_target(ref=body.ref, selector=body.selector, x=body.x, y=body.y)
+    started = time.monotonic()
     try:
         if "selector" in t:
             await page.click(t["selector"])
         else:
             await page.mouse.click(int(t["x"]), int(t["y"]))
+        _record_step(
+            "click",
+            target=t,
+            result_summary=f"clicked {t}",
+            duration_ms=(time.monotonic() - started) * 1000,
+        )
         return {"ok": True, "target": t}
     except Exception as e:
+        _record_step(
+            "click",
+            target=t,
+            status="error",
+            error=classify_error(e, "click"),
+            duration_ms=(time.monotonic() - started) * 1000,
+        )
         raise HTTPException(
             status_code=500, detail=f"点击失败: {type(e).__name__}: {str(e)[:300]}"
         ) from e
@@ -295,6 +378,7 @@ async def computer_use_type(
     """向请求目标输入文本(ref / selector / x,y,可选清空)。"""
     page = _require_page()
     t = _resolve_target(ref=body.ref, selector=body.selector, x=body.x, y=body.y)
+    started = time.monotonic()
     try:
         if "selector" in t:
             loc = page.locator(t["selector"]).first
@@ -307,8 +391,23 @@ async def computer_use_type(
             if body.clear:
                 await page.keyboard.press("Control+A")
             await page.keyboard.type(body.text, delay=10)
+        _record_step(
+            "type",
+            target=t,
+            params={"text": body.text, "clear": body.clear},
+            result_summary=f"typed {len(body.text)} chars into {t}",
+            duration_ms=(time.monotonic() - started) * 1000,
+        )
         return {"ok": True, "target": t, "length": len(body.text)}
     except Exception as e:
+        _record_step(
+            "type",
+            target=t,
+            params={"text": body.text, "clear": body.clear},
+            status="error",
+            error=classify_error(e, "type"),
+            duration_ms=(time.monotonic() - started) * 1000,
+        )
         raise HTTPException(
             status_code=500, detail=f"输入失败: {type(e).__name__}: {str(e)[:300]}"
         ) from e
@@ -321,9 +420,18 @@ async def computer_use_screenshot(
 ) -> dict[str, Any]:
     """返回当前页截图 base64 PNG(默认视口,full_page=true 整页)。"""
     page = _require_page()
+    started = time.monotonic()
     try:
         data = await page.screenshot(full_page=full_page, type="png")
         viewport = await page.viewport_size()
+        step = _record_step(
+            "screenshot",
+            params={"full_page": full_page},
+            result_summary=f"png {len(data)}B",
+            duration_ms=(time.monotonic() - started) * 1000,
+        )
+        if step is not None and _recording_trace_id is not None:
+            browser_trace_store.attach_screenshot(_recording_trace_id, step["step_index"], data)
         return {
             "screenshot": base64.b64encode(data).decode("ascii"),
             "full_page": full_page,
@@ -331,6 +439,13 @@ async def computer_use_screenshot(
             "height": (viewport or {}).get("height"),
         }
     except Exception as e:
+        _record_step(
+            "screenshot",
+            params={"full_page": full_page},
+            status="error",
+            error={"kind": "exception", "message": f"{type(e).__name__}: {str(e)[:300]}"},
+            duration_ms=(time.monotonic() - started) * 1000,
+        )
         raise HTTPException(
             status_code=500, detail=f"截图失败: {type(e).__name__}: {str(e)[:300]}"
         ) from e
@@ -342,13 +457,25 @@ async def computer_use_extract_text(
 ) -> dict[str, Any]:
     """提取当前页可见文本(HTML 换行归一化)。"""
     page = _require_page()
+    started = time.monotonic()
     try:
         text = await page.evaluate(
             "() => document.body ? document.body.innerText : ''"
         )
         text = "\n".join(line.strip() for line in (text or "").splitlines() if line.strip())
+        _record_step(
+            "extract_text",
+            result_summary=text[:200],
+            duration_ms=(time.monotonic() - started) * 1000,
+        )
         return {"url": page.url, "length": len(text), "text": text[:50000]}
     except Exception as e:
+        _record_step(
+            "extract_text",
+            status="error",
+            error={"kind": "exception", "message": f"{type(e).__name__}: {str(e)[:300]}"},
+            duration_ms=(time.monotonic() - started) * 1000,
+        )
         raise HTTPException(
             status_code=500, detail=f"提取文本失败: {type(e).__name__}: {str(e)[:300]}"
         ) from e
@@ -361,6 +488,129 @@ async def computer_use_close(
     """关闭浏览器并释放 Chromium 进程(幂等)。"""
     await _close_page()
     return {"ok": True, "status": "closed"}
+
+
+# ============ trace 录制 / 回放端点(2-4,H9 失败可回放)============
+
+
+class TraceStartRequest(BaseModel):
+    trace_id: str | None = Field(
+        None, description="指定 trace_id(缺省自动生成);已有同名 trace 则续录"
+    )
+
+
+class ReplayRequest(BaseModel):
+    trace_id: str = Field(..., min_length=1, description="要回放的 trace_id")
+    stop_on_error: bool = Field(True, description="失败步骤是否立即中止回放")
+    save_failure_screenshot: bool = Field(
+        True, description="失败步骤是否落盘截图(供失败取证)"
+    )
+
+
+@router.post("/trace/start")
+async def computer_use_trace_start(
+    body: TraceStartRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """开启 trace 录制:此后 open/click/type/screenshot/extract-text 自动记步。"""
+    global _recording_trace_id
+    trace_id = body.trace_id or new_trace_id()
+    existing = browser_trace_store.get_trace(trace_id)
+    _recording_trace_id = trace_id
+    return {
+        "trace_id": trace_id,
+        "status": "recording",
+        "resumed": existing is not None,
+        "step_count": len(existing["steps"]) if existing else 0,
+    }
+
+
+@router.post("/trace/stop")
+async def computer_use_trace_stop(
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """结束录制,返回该 trace 摘要。未在录制时返回 idle。"""
+    global _recording_trace_id
+    if _recording_trace_id is None:
+        return {"trace_id": None, "status": "idle", "step_count": 0}
+    trace_id = _recording_trace_id
+    _recording_trace_id = None
+    trace = browser_trace_store.get_trace(trace_id)
+    steps = trace["steps"] if trace else []
+    ok = sum(1 for s in steps if s.get("status") == "ok")
+    return {
+        "trace_id": trace_id,
+        "status": "stopped",
+        "step_count": len(steps),
+        "ok_count": ok,
+        "error_count": len(steps) - ok,
+    }
+
+
+@router.get("/trace")
+async def computer_use_trace_list(
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """列出全部 trace 摘要(新的在前)。"""
+    items = browser_trace_store.list_traces()
+    return {"count": len(items), "traces": items}
+
+
+@router.get("/trace/{trace_id}")
+async def computer_use_trace_detail(
+    trace_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """取单个 trace 详情(含全部步骤与断言)。"""
+    trace = browser_trace_store.get_trace(trace_id)
+    if trace is None:
+        raise HTTPException(status_code=404, detail=f"trace 不存在: {trace_id}")
+    return trace
+
+
+@router.delete("/trace/{trace_id}")
+async def computer_use_trace_delete(
+    trace_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """删除 trace(幂等)。"""
+    ok = browser_trace_store.delete_trace(trace_id)
+    return {"ok": ok, "trace_id": trace_id}
+
+
+@router.post("/replay")
+async def computer_use_replay(
+    body: ReplayRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """按序回放 trace:navigate/click/type 真实驱动,失败步骤记录差异+截图。"""
+    trace = browser_trace_store.get_trace(body.trace_id)
+    if trace is None:
+        raise HTTPException(status_code=404, detail=f"trace 不存在: {body.trace_id}")
+    if not trace["steps"]:
+        raise HTTPException(status_code=409, detail="trace 无步骤,无法回放")
+
+    page = await _ensure_page()
+    driver = PageDriver(page)
+
+    async def _failure_screenshot(step_index: int) -> str | None:
+        if not body.save_failure_screenshot:
+            return None
+        data = await driver.screenshot_bytes()
+        if data is None:
+            return None
+        return browser_trace_store.save_trace_file(
+            body.trace_id, f"replay_step_{step_index:03d}_fail.png", data
+        )
+
+    report = await replay_trace(
+        trace["steps"],
+        driver,
+        stop_on_error=body.stop_on_error,
+        on_step_failure=_failure_screenshot,
+    )
+    report["trace_id"] = body.trace_id
+    return report
 
 
 __all__ = ["router"]
