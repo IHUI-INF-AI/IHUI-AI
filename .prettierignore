@@ -17,3 +17,5 @@ archives/
 apps/web/src/config/desktop-feed.generated.ts
 # loop 自动化运行时日志(循环自写,格式漂移常态,不纳入格式门禁)
 .github/loop-runtime/
+# 小程序 i18n 生成文件(scripts/gen-i18n-compressed.mjs 产出,含超长 base64,跳过格式化)
+apps/miniapp-taro/src/i18n/generated/
