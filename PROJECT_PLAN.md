@@ -2555,7 +2555,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 ### 第三梯队 P2:拉开身位(竞品没有或很弱的)
 
 - [ ] **12. 小程序 AI 增强**:miniapp-taro 现为 webview 套壳,是 8 端最薄。做:核心对话/工具卡片原生渲染,流式 SSE 小程序端适配。
-- [ ] **13. deploy 运维 AI 化**:部署脚本(`deploy/scripts/`)无任何 AI 参与。做:AI 部署助手(失败日志自动诊断/修复建议),生产异常时自动生成诊断报告。
+- [x] ✅(2026-09-13) **13. deploy 运维 AI 化**:部署脚本(`deploy/scripts/`)无任何 AI 参与。做:AI 部署助手(失败日志自动诊断/修复建议),生产异常时自动生成诊断报告。 ✅ 完成(2026-09-13):新增零依赖 `deploy/scripts/ai-diagnose.mjs`(OpenAI 兼容网关,env IHUI_AI_KEY/IHUI_AI_BASE/IHUI_AI_MODEL/IHUI_AI_TIMEOUT_MS;发送前密钥脱敏 api key/token/password/Bearer/sk-;--log/--tail/--context/--out + stdin 双输入;退出码 0 成功/2 缺配置/3 API 失败/4 空日志,无 key 拒绝运行绝不编造)+ `deploy.sh` 四个失败分支(切换/回滚 × nginx -t 失败/健康检查失败)接线 `ai_diagnose`(nginx -t 详细错误改 tee 入 LOG_FILE 供诊断;默认零行为变化,node 或 IHUI_AI_KEY 缺失时静默跳过)。验证:bash -n / node --check 通过;stub 网关端到端(请求形状/模型/上下文注入/三类密钥全脱敏/报告落盘)通过;真实网关 401×3(x5m5x/AGNES/OpenRouter 存量 key 均已失效)错误路径正确暴露退出码 3——上线时在部署机设有效 IHUI_AI_KEY 即用。
 - [ ] **14. 自进化 Skill 市场产品化**:`skills.py`(1091 行)已有自进化 SKILL.md 底座,补前端 Skill 商店页(浏览/启用/评分/一键导入),对标 WorkBuddy Skill 市场与 Qoder 专家团。
 
 ### 对标基线备忘(2026-09-12 摸排结论)
