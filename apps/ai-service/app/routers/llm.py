@@ -640,13 +640,18 @@ def _record_compaction_step(
     compaction_info: dict[str, Any],
     session_id: str | None,
     user_id: str | None,
+    duration_ms: float = 0.0,
 ) -> None:
     """把一次真实发生的上下文语义压缩登记到 /api/context-compaction 感知队列。
 
     P0-1 LLM 语义压缩闭环:llm 压缩命中时,除向量回捞外还要把 original/compressed
     tokens + 摘要写进 context_compaction 的进程内历史,供"上下文压缩感知"面板读取。
     用延迟 import 规避 llm.py 顶层导入环路;失败仅 warning,绝不影响主请求链路。
+
+    1-3(2026-09-12):同步上报压缩生产指标(Prometheus + 进程内报告通道,
+    source="llm_router"),H7 压缩比/耗时进入指标报告。
     """
+    sid = session_id or (f"chat:{user_id}" if user_id else "global")
     try:
         from .context_compaction import record_compaction as _record
 
@@ -657,7 +662,7 @@ def _record_compaction_step(
                 summary_text = content
                 break
         _record(
-            session_id or (f"chat:{user_id}" if user_id else "global"),
+            sid,
             original_tokens=int(compaction_info.get("original_tokens") or 0),
             compressed_tokens=int(compaction_info.get("compressed_tokens") or 0),
             summary=summary_text[:500],
@@ -666,6 +671,17 @@ def _record_compaction_step(
         )
     except Exception as e:
         logger.warning("record_compaction 登记失败(不影响主流程): %s", e)
+    try:
+        from ..services.compaction_metrics import record_compaction_event
+
+        record_compaction_event(
+            session_id=sid,
+            info=compaction_info,
+            source="llm_router",
+            duration_ms=duration_ms,
+        )
+    except Exception as e:
+        logger.warning("compaction 指标上报失败(不影响主流程): %s", e)
 
 
 @router.post("/llm/complete", response_model=None)
@@ -678,7 +694,9 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     if req.context_limit and req.context_limit > 0:
         original_messages = messages
+        _compact_started = time.perf_counter()
         messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        _compact_duration_ms = (time.perf_counter() - _compact_started) * 1000
         if compaction_info["compressed"]:
             logger.info(
                 "Context auto-compressed (Python fallback): %d → %d tokens, removed %d msgs",
@@ -708,6 +726,7 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
                     else None
                 ),
                 user_id=owner_uuid,
+                duration_ms=_compact_duration_ms,
             )
     # 构造透传 kwargs(只透传非 None 的字段)
     kwargs: dict[str, Any] = {}
@@ -1156,7 +1175,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:
         original_messages = messages
+        _compact_started = time.perf_counter()
         messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        _compact_duration_ms = (time.perf_counter() - _compact_started) * 1000
         if compaction_info.get("compressed"):
             # 压缩回捞:把被移除旧消息异步快照入向量库(不阻塞主链路)
             _snapshot_compaction_if_needed(
@@ -1180,6 +1201,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     else None
                 ),
                 user_id=owner_uuid,
+                duration_ms=_compact_duration_ms,
             )
 
     # P1 流式配套 pre-flight check:检测 api_key 缺失(MODEL_NOT_CONFIGURED),

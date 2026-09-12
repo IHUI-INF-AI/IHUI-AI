@@ -38,6 +38,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ..core.model_pricing import cost_micro_usd_from_per_1k, micro_usd_to_usd
 from ..core.model_pricing import estimate_cost_usd as estimate_cost_usd_core
 from .agent_step_recorder import AgentStepRecorder, agent_step_recorder
 
@@ -446,15 +447,16 @@ class CostLedger:
         (模型级前缀匹配 > 厂商级兜底 > 全局默认)。
         命中实例覆盖或统一源模型级价目 → estimated=False;走兜底价 → estimated=True。
         仅当录入时没带 cost 才走估算。
+        2026-09-12 精度改造(2-6):两条路径均改走 Decimal 微元整数计价,
+        对外契约(USD float / round 6 位 / estimated 标志)不变。
         """
         model = str(model or "").strip()
         if model and model in self._pricing:
             rates = self._pricing[model]
-            cost = (
-                (float(tokens_in) / 1000.0) * float(rates["per_in"])
-                + (float(tokens_out) / 1000.0) * float(rates["per_out"])
+            micro = cost_micro_usd_from_per_1k(
+                rates["per_in"], rates["per_out"], tokens_in, tokens_out
             )
-            return {"cost_usd": round(cost, 6), "estimated": model == "default"}
+            return {"cost_usd": micro_usd_to_usd(micro), "estimated": model == "default"}
         return estimate_cost_usd_core(model, tokens_in, tokens_out)
 
 
