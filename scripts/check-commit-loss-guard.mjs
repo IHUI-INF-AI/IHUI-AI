@@ -743,6 +743,17 @@ function main() {
     console.log(
       `\n${C.red}${C.bold}❌ commit 丢失风险,阻塞 commit${C.reset} (请先处理:备份 / 确认 reset 安全)`,
     )
+    // 2026-09-12 补:本机宿主会清理 gitdir 下 depth>=2 的嵌套 ref 目录
+    // (refs/remotes/<remote>/、refs/tags/<ns>/) → 表现为"仅远端/仅本地"抖动,
+    // 并非真的丢 commit。离线重建命令见下(无需联网)。
+    console.log(
+      `   ${C.cyan}若上表是"仅远端 tag / origin 变 [gone]"(宿主清理嵌套 ref 的典型征状):${C.reset}`,
+    )
+    console.log(`     node scripts/git-refs-heal.mjs                  # 离线重建 + 固化进 packed-refs`)
+    console.log(
+      `     node scripts/git-refs-heal.mjs --refresh-remote # 联网从 origin 校准后再固化(需 http_proxy)`,
+    )
+    console.log(`     (机制说明见 AGENTS.md §5b「嵌套 ref 存续」)`)
     console.log(
       `   1. 若 reset 是有意的,先备份:${C.cyan}git tag lost-commit/<name> <hash>${C.reset}`,
     )
