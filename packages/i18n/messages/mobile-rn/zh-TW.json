@@ -295,7 +295,11 @@
     "chatTools": "AI 對話 / 工具",
     "cart": "購物車",
     "circleIndex": "圈子廣場",
-    "topicList": "話題"
+    "topicList": "話題",
+    "spec": "規範模板庫",
+    "selfMedia": "自媒體助手",
+    "context": "上下文引擎",
+    "pdfTools": "文件轉 Markdown"
   },
   "error": {
     "network": "網路錯誤,請稍後重試"
@@ -439,28 +443,15 @@
     "searchPlaceholder": "搜尋AI助手"
   },
   "assistant": {
-    "edit": {
-      "title": "操作",
-      "message": "設定「{name}」的售賣配置"
-    },
-    "offline": {
-      "title": "下架確認",
-      "message": "是否確定下架「{name}」?",
-      "confirmBtn": "確定下架",
-      "done": "已下架"
-    },
     "actionOffline": "下線",
     "actionReedit": "重新編輯",
     "actionSettings": "設定",
-    "audienceAll": "全部",
-    "audienceVip": "會員",
     "badgeDraft": "草稿",
     "badgeOffline": "已下線",
     "badgePublished": "已發布",
     "badgeRejected": "已拒絕",
     "badgeReviewing": "審核中",
     "empty": "暫無智慧體",
-    "loadFailed": "載入失敗",
     "loading": "載入中...",
     "metaAudience": "可見範圍",
     "metaCategory": "分類",
@@ -2112,7 +2103,32 @@
     "deleteFailed": "刪除失敗",
     "source": "來源",
     "updatedAt": "更新時間",
-    "loginRequired": "請先登入"
+    "loginRequired": "請先登入",
+    "all": "全部",
+    "scope": {
+      "global": "全域",
+      "user": "使用者",
+      "session": "工作階段",
+      "project": "專案"
+    },
+    "type": {
+      "preference": "偏好",
+      "convention": "約定",
+      "decision": "決策",
+      "fact": "事實",
+      "feedback": "回饋",
+      "skill_ref": "技能引用"
+    },
+    "searchPlaceholder": "搜尋記憶內容 / 分類…",
+    "create": "新增",
+    "createTitle": "新增記憶",
+    "textPlaceholder": "輸入記憶內容(必填,最多 2000 字)…",
+    "categoryPlaceholder": "分類(如 UI 偏好)",
+    "typeLabel": "類型",
+    "scopeLabel": "作用域",
+    "save": "儲存",
+    "saveFailed": "儲存失敗",
+    "textRequired": "請輸入記憶內容"
   },
   "aiWorld": {
     "title": "AI 世界",
@@ -2122,7 +2138,21 @@
     "history": "瀏覽歷史",
     "kindLabel": "類型",
     "loadFailed": "載入失敗",
-    "viewCount": "瀏覽"
+    "viewCount": "瀏覽",
+    "tools": "工具",
+    "apps": "應用",
+    "news": "資訊",
+    "rankings": "榜單",
+    "searchPlaceholder": "搜尋 AI 工具 / 應用 / 資訊…",
+    "categoryAll": "全部",
+    "rank": "排名",
+    "model": "模型",
+    "provider": "廠商",
+    "score": "分數",
+    "votes": "票數",
+    "rankLoadFailed": "榜單載入失敗",
+    "rankEmpty": "該榜單暫無資料",
+    "updateAt": "更新"
   },
   "publish": {
     "title": "內容發布",
@@ -2133,14 +2163,33 @@
     "scheduled": "已排期",
     "statsFailed": "統計載入失敗",
     "statsSuccess": "發布成功",
-    "statsTotal": "總計"
+    "statsTotal": "總計",
+    "cancelTask": "取消",
+    "cancelTitle": "取消發布任務",
+    "cancelConfirm": "確定取消該任務嗎?",
+    "retryTask": "重試",
+    "operateFailed": "操作失敗,請重試"
   },
   "imageGen": {
     "title": "圖像生成",
     "historyEmpty": "暫無生成歷史",
     "favoritesEmpty": "暫無收藏",
     "loadFailed": "載入失敗",
-    "promptFallback": "未命名作品"
+    "promptFallback": "未命名作品",
+    "create": "生成",
+    "createTitle": "AI 生成圖像",
+    "promptPlaceholder": "描述你想生成的畫面…",
+    "promptRequired": "請輸入畫面描述",
+    "sizeSquare": "方形 1:1",
+    "sizePortrait": "直式 9:16",
+    "sizeLandscape": "橫式 16:9",
+    "generate": "開始生成",
+    "generating": "生成中…",
+    "genFailed": "生成失敗,請重試",
+    "saveToAlbum": "儲存到相簿",
+    "saveSuccess": "已儲存到相簿",
+    "saveFailed": "儲存失敗,請重試",
+    "needPermission": "需要媒體庫權限才能儲存"
   },
   "webView": {
     "loadFailed": "頁面載入失敗",
@@ -2296,5 +2345,48 @@
       "error": "載入失敗"
     },
     "empty": "暫無內容"
+  },
+  "spec": {
+    "title": "規範模板庫",
+    "loadFailed": "模板載入失敗",
+    "empty": "暫無模板",
+    "desktopHint": "模板瀏覽僅作參考;Spec 生成需服務端 workspace 路徑,請在 Web/桌面端使用完整生成流程"
+  },
+  "selfMedia": {
+    "title": "自媒體助手",
+    "tabSkills": "技能",
+    "tabRecords": "記錄",
+    "loadFailed": "載入失敗",
+    "promptRequired": "請輸入生成要求",
+    "promptPlaceholder": "描述你的創作需求…",
+    "invoke": "調用技能生成",
+    "invoking": "生成中…",
+    "invokeFailed": "技能調用失敗,請重試",
+    "duration": "耗時 {{ms}} ms",
+    "share": "分享",
+    "empty": "暫無生成/發布記錄"
+  },
+  "context": {
+    "title": "上下文引擎",
+    "loadFailed": "統計載入失敗",
+    "totalEvents": "壓縮次數",
+    "avgRatio": "平均壓縮率",
+    "avgQuality": "平均品質分",
+    "recentEvents": "最近壓縮事件",
+    "tokensRange": "{{before}} → {{after}} tokens · 壓縮 {{ratio}} · 品質 {{quality}}",
+    "mentionsSearch": "上下文提及檢索",
+    "mentionsPlaceholder": "搜尋檔案/表/符號…",
+    "empty": "暫無符合結果"
+  },
+  "pdfTools": {
+    "title": "文件轉 Markdown",
+    "hint": "支援 PDF/Word/Excel/PPT/TXT/CSV,單檔 ≤10MB;上傳後由服務端轉換為 Markdown",
+    "pick": "選擇文件",
+    "converting": "轉換中…",
+    "unsupportedType": "不支援的檔案類型",
+    "tooLarge": "檔案超過 10MB 上限",
+    "uploadFailed": "上傳失敗,請重試",
+    "convertFailed": "轉換失敗,請重試",
+    "share": "分享"
   }
 }
