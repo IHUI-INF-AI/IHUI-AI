@@ -2546,8 +2546,8 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [ ] **7. temperature/top_p/system prompt 参数面板(对标:CodeX/Qoder)**:模型选择器旁加"高级参数"抽屉(temperature/top_p/max_tokens/自定义 system prompt),按会话生效,后端透传 LLM 网关。
 - [ ] **8. Qoder Repo Wiki 对应物——项目知识库自动生成**:利用既有五维索引 + `context_engine.py`,给每个工作区自动生成"项目百科"页(目录结构/核心模块/依赖图/关键决策),AI 对话自动引用,可手动触发更新。
 - [ ] **9. FIM 专用模型 + 接受率闭环(对标:Trae CUE Tab)**:FIM 现混用对话模型。做:模型目录立"补全专用"档位(接轻量代码模型);`window.__ihuiFimMetrics` 埋点接管理看板,接受率 <30% 自动告警。
-- [ ] **10. 后台任务完成通知感知页面可见性**:`background-agents-panel` 现盲目轮询。做:页面隐藏时降频(5s→30s)/回前台立即刷;完成通知走 Notification API(有权限时)。
-- [ ] **11. 截图输入 + AI 朗读(对标:WorkBuddy 多模态/各家 TTS)**:输入框加截图粘贴(已有图片上传链路,补粘贴/截图按钮);AI 回复加 TTS 朗读按钮(接既有 voice 服务)。
+- [x] ✅(2026-09-13) **10. 后台任务完成通知感知页面可见性**:`background-agents-panel` 现盲目轮询。做:页面隐藏时降频(5s→30s)/回前台立即刷;完成通知走 Notification API(有权限时)。**落地**:use-page-visibility(DOM visibilitychange 监听)+use-subagent-dispatch 轮询 5s/30s 降频+useRefetchOnVisible 回前台立即刷(PageClient runtime 查询同步接入)+use-background-agent-notify(running→completed/failed 跳变仅触发一次,仅页面不可见且已授权时发 Notification,点击 focus);面板仅在 permission=default 时显示 Bell「开启通知」按钮,不自动请求权限。
+- [x] ✅(2026-09-13) **11. 截图输入 + AI 朗读(对标:WorkBuddy 多模态/各家 TTS)**:输入框加截图粘贴(已有图片上传链路,补粘贴/截图按钮);AI 回复加 TTS 朗读按钮(接既有 voice 服务)。**落地**:use-tts.ts(复用 fetchRaw POST /api/voice/tts,edge 引擎+5 语白名单音色,MAX_CHARS=2000 与后端对齐,模块级 activeStop 保证新朗读停上一条,卸载 revokeObjectURL)+AI 消息操作区朗读/停止按钮(Volume2/Square,streaming 禁用);输入框 Camera 按钮走文件选择+Ctrl+V 粘贴提示(粘贴链路既有,零新依赖)。i18n 9 keys×5 locale。
 
 ### 第三梯队 P2:拉开身位(竞品没有或很弱的)
 
