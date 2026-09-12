@@ -23,7 +23,7 @@ import { CanvasTaskNode } from './components/canvas-task-node'
 import { NodePalette, CANVAS_DND_MIME } from './components/node-palette'
 import { InspectorPanel } from './components/inspector-panel'
 import { TopToolbar } from './components/top-toolbar'
-import { buildTrialInput, runCanvasDag } from './canvas-api'
+import { runCanvasDag } from './canvas-api'
 import {
   makeNodeId,
   toDag,
@@ -73,11 +73,6 @@ function makeLog(level: CanvasLogEntry['level'], message: string): CanvasLogEntr
   }
 }
 
-/** 与 canvas-api.runCanvasDag 的降级策略一致:第一个 agent/tool 节点作为试运行目标 */
-function pickTrialNodeId(dag: CanvasDag): string | null {
-  return dag.nodes.find((n) => n.type === 'agent' || n.type === 'tool')?.id ?? null
-}
-
 /** SSE data → 可读日志文本(兼容 stdout/stderr/message/output 等字段) */
 function sseDataToText(data: unknown): string {
   if (data === undefined || data === null) return ''
@@ -116,8 +111,6 @@ export function AgentCanvasClient() {
   const [isStarting, setIsStarting] = React.useState(false)
   const [runError, setRunError] = React.useState<string | null>(null)
   const flowRef = React.useRef<HTMLDivElement>(null)
-  // 试运行目标节点(整图编排端点就绪后可扩展为多节点映射)
-  const trialNodeIdRef = React.useRef<string | null>(null)
 
   // ---- SSE 事件 → 节点状态/日志 ----
   const appendLog = React.useCallback(
@@ -147,16 +140,39 @@ export function AgentCanvasClient() {
 
   const handleSseEvent = React.useCallback(
     (evt: SSEEvent) => {
-      // nodeId 优先取事件本身;缺省回落试运行节点
-      const targetId = evt.nodeId ?? trialNodeIdRef.current
-      if (!targetId) return
+      // 整图执行:node_* 事件必须携带 nodeId 才能定位画布节点
+      const targetId = evt.nodeId
+      if (!targetId) {
+        // 无 nodeId 的全局事件:error → 所有 running 节点标记 failed;done → 收尾
+        if (evt.type === 'error') {
+          setRunError(sseDataToText(evt.data) || t('logErrorFallback'))
+          setNodes((nds) =>
+            nds.map((n) =>
+              n.data.status === 'running' ? { ...n, data: { ...n.data, status: 'failed' } } : n,
+            ),
+          )
+        } else if (evt.type === 'done') {
+          setNodes((nds) =>
+            nds.map((n) =>
+              n.data.status === 'running' ? { ...n, data: { ...n.data, status: 'success' } } : n,
+            ),
+          )
+        }
+        return
+      }
       switch (evt.type) {
         case 'node_start':
           setStatus(targetId, 'running')
-          appendLog(targetId, 'info', `▶ 节点开始执行${evt.nodeId ? ` (${evt.nodeId})` : ''}`)
+          appendLog(targetId, 'info', '▶ 节点开始执行')
           break
         case 'node_end': {
           const text = sseDataToText(evt.data)
+          // 上游失败 → 后端返回 skipped,需在 failed 之前判断(避免 exitCode=null 误判)
+          if (/"status"\s*:\s*"skipped"/.test(text)) {
+            setStatus(targetId, 'skipped')
+            appendLog(targetId, 'warn', `⏭ ${t('logSkippedUpstream')}`)
+            break
+          }
           const failed = /"status"\s*:\s*"failed"/.test(text) || /\[exit [^0]/.test(text)
           setStatus(targetId, failed ? 'failed' : 'success')
           if (text) appendLog(targetId, failed ? 'error' : 'info', text)
@@ -216,11 +232,12 @@ export function AgentCanvasClient() {
     onEvent: handleSseEvent,
     onError: (msg) => {
       setRunError(msg)
-      const id = trialNodeIdRef.current
-      if (id) {
-        setStatus(id, 'failed')
-        appendLog(id, 'error', `${t('logConnectFail')}${msg}`)
-      }
+      // 连接失败:所有仍在 running 的节点标记 failed
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.data.status === 'running' ? { ...n, data: { ...n.data, status: 'failed' } } : n,
+        ),
+      )
     },
   })
   const streamRef = React.useRef(stream)
@@ -312,14 +329,21 @@ export function AgentCanvasClient() {
     [setNodes],
   )
 
-  // ---- Run:后端暂无整图编排端点 → 单节点试运行(见 canvas-api.ts TODO 契约) ----
+  // ---- Run:整图 DAG 一次性执行(POST /api/agent-canvas/run → runId 即 langgraph threadId) ----
   const handleRun = React.useCallback(async () => {
     setRunError(null)
+    if (nodes.length === 0) {
+      setRunError(t('errorEmptyCanvas'))
+      return
+    }
     setIsStarting(true)
     try {
       const dag = toDag(nodes, edges)
+      // 重置所有节点状态与日志,避免残留上一次运行结果
+      setNodes((nds) =>
+        nds.map((n) => ({ ...n, data: { ...n.data, status: 'idle' as const, logs: [] } })),
+      )
       const id = await runCanvasDag(dag)
-      trialNodeIdRef.current = pickTrialNodeId(dag)
       setRunId(id)
       // threadId state 更新后由 effect 启动流(闭包内 stream.start 仍是旧 threadId)
     } catch (err) {
@@ -327,44 +351,41 @@ export function AgentCanvasClient() {
     } finally {
       setIsStarting(false)
     }
-  }, [nodes, edges])
+  }, [nodes, edges, setNodes, t])
 
-  // runId 就绪后启动 SSE 流,并把试运行节点标记为 running
+  // runId 就绪后启动 SSE 流(后端已按 threadId 注册 canvas 图,input 可为空)
   const startedRunRef = React.useRef('')
   React.useEffect(() => {
     if (!runId || startedRunRef.current === runId) return
     startedRunRef.current = runId
-    const trialId = trialNodeIdRef.current
-    if (trialId) {
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === trialId
-            ? {
-                ...n,
-                data: {
-                  ...n.data,
-                  status: 'running' as const,
-                  logs: [makeLog('info', t('logTrialStarted'))],
-                },
-              }
-            : n,
-        ),
-      )
-      const dag = toDag(nodes, edges)
-      const trialNode = dag.nodes.find((n) => n.id === trialId)
-      if (trialNode) streamRef.current.start(buildTrialInput(trialNode))
-    }
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        data: { ...n.data, logs: [makeLog('info', t('logGraphStarted'))] },
+      })),
+    )
+    streamRef.current.start()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId])
 
   const handleStop = React.useCallback(() => {
     streamRef.current.stop()
-    const id = trialNodeIdRef.current
-    if (id) {
-      setStatus(id, 'idle')
-      appendLog(id, 'warn', '⏹ 用户手动停止')
-    }
-  }, [appendLog, setStatus])
+    // 手动停止:所有 running 节点回到 idle
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.data.status === 'running'
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                status: 'idle',
+                logs: [...n.data.logs, makeLog('warn', t('logUserStop'))],
+              },
+            }
+          : n,
+      ),
+    )
+  }, [setNodes, t])
 
   const handleClear = React.useCallback(() => {
     streamRef.current.stop()
@@ -373,7 +394,6 @@ export function AgentCanvasClient() {
     setSelectedId(null)
     setRunId('')
     setRunError(null)
-    trialNodeIdRef.current = null
     startedRunRef.current = ''
     try {
       window.localStorage.removeItem(CANVAS_DAG_STORAGE_KEY)

@@ -134,6 +134,8 @@ import { adminFaqRoutes } from './admin-faq.js'
 // P3 深度层:AI 教育引擎(SRS 间隔复习)+ LangGraph 升级(interrupt HITL + streaming)
 import { srsReviewRoutes } from './srs-review.js'
 import { agentLanggraphRoutes } from './agent-langgraph.js'
+// P0:Agent Canvas 整图 DAG 一次性执行(转发 ai-service /api/langgraph/canvas/run)
+import { agentCanvasRoutes } from './agent-canvas.js'
 import { adminZoneRoutes } from './admin-zone.js'
 import { adminDemandSquareRoutes } from './admin-demand-square.js'
 import { zhsLegacyRoutes } from './zhs-legacy.js'
@@ -1033,6 +1035,8 @@ export function registerRoutes(server: FastifyInstance) {
   // P3 深度层:AI 教育引擎 SRS 间隔复习(SM-2 算法)+ LangGraph 升级(interrupt HITL + 5 模式 streaming + Time Travel)
   server.register(srsReviewRoutes, { prefix: '/api/srs-review' })
   server.register(agentLanggraphRoutes, { prefix: '/api/agent-langgraph' })
+  // P0:Agent Canvas 整图执行(POST /api/agent-canvas/run,SSE 复用 /api/agent-langgraph/:runId/stream)
+  server.register(agentCanvasRoutes, { prefix: '/api/agent-canvas' })
 
   // A 套壳:SaaS Admin API 代理(透传到 admin-api 8830,迁移自 web 端 API route)
   // 注意:配额真实数据源路由先注册,其更具体的 /customers/:slug/quota 优先于代理的 /* 通配
