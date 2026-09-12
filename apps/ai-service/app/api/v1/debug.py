@@ -4,14 +4,16 @@
 
 """DAP 调试路由 — 封装 DebugSessionManager 为 HTTP 端点。
 
-提供 10 个端点(对齐 DAP 协议生命周期):
+提供 12 个端点(对齐 DAP 协议生命周期):
 - POST /api/v1/debug/launch                          启动调试会话
 - POST /api/v1/debug/attach                           附加到已运行进程
 - POST /api/v1/debug/sessions/{id}/breakpoints        设置断点
 - POST /api/v1/debug/sessions/{id}/continue           继续执行
 - POST /api/v1/debug/sessions/{id}/step               单步执行
 - GET  /api/v1/debug/sessions/{id}/stack              获取调用栈
-- GET  /api/v1/debug/sessions/{id}/variables          获取变量
+- GET  /api/v1/debug/sessions/{id}/scopes             获取 scope 分组(DAP scopes)
+- GET  /api/v1/debug/sessions/{id}/threads            获取线程列表(DAP threads)
+- GET  /api/v1/debug/sessions/{id}/variables          获取变量(variablesReference 优先)
 - POST /api/v1/debug/sessions/{id}/eval               表达式求值
 - DELETE /api/v1/debug/sessions/{id}                   断开会话
 - GET  /api/v1/debug/sessions                          列出所有会话
@@ -203,20 +205,71 @@ async def get_stack_trace(session_id: str) -> dict[str, Any]:
     return _ok({"stackFrames": stack_frames})
 
 
+@router.get("/sessions/{session_id}/scopes")
+async def get_scopes(
+    session_id: str,
+    frameId: int = Query(..., description="栈帧 ID(必填,从 stackTrace 获取)"),
+) -> dict[str, Any]:
+    """GET /api/v1/debug/sessions/{id}/scopes — 获取 frame 的 scope 分组(DAP scopes)。"""
+    manager = get_debug_manager()
+    try:
+        scopes = await manager.get_scopes(session_id=session_id, frame_id=frameId)
+    except Exception as e:
+        _handle_debug_error(session_id, e)
+        raise
+    return _ok({"scopes": scopes})
+
+
+@router.get("/sessions/{session_id}/threads")
+async def get_threads(session_id: str) -> dict[str, Any]:
+    """GET /api/v1/debug/sessions/{id}/threads — 获取线程列表(DAP threads)。"""
+    manager = get_debug_manager()
+    try:
+        threads = await manager.get_threads(session_id)
+    except Exception as e:
+        _handle_debug_error(session_id, e)
+        raise
+    return _ok({"threads": threads})
+
+
 @router.get("/sessions/{session_id}/variables")
 async def get_variables(
     session_id: str,
-    frameId: int = Query(..., description="栈帧 ID(必填,从 stackTrace 获取)"),
+    variablesReference: int | None = Query(
+        None, description="DAP 变量引用(优先,支持子树懒加载)"
+    ),
+    frameId: int | None = Query(None, description="栈帧 ID(兼容旧接口)"),
     scope: str = Query("local", description="变量作用域: local/globals/closure"),
 ) -> dict[str, Any]:
-    """GET /api/v1/debug/sessions/{id}/variables — 获取变量。"""
+    """GET /api/v1/debug/sessions/{id}/variables — 获取变量。
+
+    DAP 语义:variablesReference 优先(直接透传 DAP variables 请求,支持子树懒加载);
+    未传时回退到 frameId + scope(旧接口,scopes+variables 组合)。
+    """
+    if variablesReference is None and frameId is None:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": 422,
+                "message": "需要 variablesReference 或 frameId 参数",
+                "data": None,
+            },
+        )
     manager = get_debug_manager()
     try:
-        variables = await manager.get_variables(
-            session_id=session_id,
-            frame_id=frameId,
-            scope=scope,
-        )
+        if variablesReference is not None:
+            variables = await manager.get_variables_by_reference(
+                session_id=session_id,
+                variables_reference=variablesReference,
+            )
+        else:
+            # 前面已校验 variablesReference/frameId 至少一个非空,此处 frameId 必有值
+            assert frameId is not None
+            variables = await manager.get_variables(
+                session_id=session_id,
+                frame_id=frameId,
+                scope=scope,
+            )
     except Exception as e:
         _handle_debug_error(session_id, e)
         raise

@@ -617,4 +617,97 @@ async def test_step_invalid_type() -> None:
 
     with pytest.raises(RuntimeError, match="无效 stepType"):
         await mgr.step(session_id, step_type="invalidStep")
+
+
+# =============================================================================
+# 19. test_get_scopes(DAP scopes 透传)
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_scopes() -> None:
+    """get_scopes 透传 DAP scopes 请求,返回 scope 分组。"""
+    scopes_response = {
+        "scopes": [
+            {"name": "Locals", "variablesReference": 1000, "expensive": False},
+            {"name": "Globals", "variablesReference": 1001, "expensive": True},
+        ]
+    }
+    mgr, client = _make_manager_with_responses(
+        responses={"launch": {}, "scopes": scopes_response}
+    )
+    session_id = await mgr.launch(language="python", command="script.py")
+
+    scopes = await mgr.get_scopes(session_id, frame_id=100)
+    assert len(scopes) == 2
+    assert scopes[0]["name"] == "Locals"
+    assert scopes[0]["variablesReference"] == 1000
+    assert scopes[0]["expensive"] is False
+    # 验证 DAP 请求参数
+    scopes_call = next((a for c, a in client.call_log if c == "scopes"), None)
+    assert scopes_call is not None
+    assert scopes_call["frameId"] == 100
+
+
+# =============================================================================
+# 20. test_get_variables_by_reference(DAP 子树懒加载)
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_variables_by_reference() -> None:
+    """get_variables_by_reference 透传 DAP variables 请求,支持子树懒加载。"""
+    variables_response = {
+        "variables": [
+            {
+                "name": "arr",
+                "value": "list[3]",
+                "type": "list",
+                "variablesReference": 2000,
+            },
+            {"name": "n", "value": "42", "type": "int", "variablesReference": 0},
+        ]
+    }
+    mgr, client = _make_manager_with_responses(
+        responses={"launch": {}, "variables": variables_response}
+    )
+    session_id = await mgr.launch(language="python", command="script.py")
+
+    variables = await mgr.get_variables_by_reference(session_id, variables_reference=1000)
+    assert len(variables) == 2
+    assert variables[0]["name"] == "arr"
+    assert variables[0]["variablesReference"] == 2000
+    # 验证 DAP 请求参数(只传 variablesReference,不需要 frameId)
+    variables_call = next((a for c, a in client.call_log if c == "variables"), None)
+    assert variables_call is not None
+    assert variables_call["variablesReference"] == 1000
+    assert "frameId" not in variables_call
+
+
+# =============================================================================
+# 21. test_get_threads(DAP threads 透传)
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_threads() -> None:
+    """get_threads 透传 DAP threads 请求,返回线程列表。"""
+    threads_response = {
+        "threads": [
+            {"id": 1, "name": "main"},
+            {"id": 2, "name": "worker"},
+        ]
+    }
+    mgr, client = _make_manager_with_responses(
+        responses={"launch": {}, "threads": threads_response}
+    )
+    session_id = await mgr.launch(language="python", command="script.py")
+
+    threads = await mgr.get_threads(session_id)
+    assert len(threads) == 2
+    assert threads[0]["id"] == 1
+    assert threads[0]["name"] == "main"
+    # 验证发送了 threads 请求
+    commands = [c for c, _ in client.call_log]
+    assert "threads" in commands
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
