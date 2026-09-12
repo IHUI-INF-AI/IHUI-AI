@@ -64,7 +64,7 @@
 | 28 | 🛡️  全屏遮罩 z-index 层级(防 fixed inset-0 + z-50 复发) | check-overlay-zindex.mjs | — | 有 |
 | 29 | 🚀 Push 同步兜底(防"commit 后忘记 push"复发,AGENTS.md §21 第三道防线) | check-push-sync.mjs | — | 有 |
 | 30 | 🛡️ i18n 文件完整性(防 prettier 截断事故复发) | validate-i18n-integrity.mjs | — | 有 |
-| 30a | 🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit) | check-commit-loss-guard.mjs | --blocking --filter-stash | — |
+| 30a | 🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit) | check-commit-loss-guard.mjs | --blocking --filter-stash | 有 |
 | 30b | 🛡️  Stash 滞留源码改动守门(blocking,AGENTS.md §12d,防已完成工作滞留 stash 静默失联) | check-stale-stashes.mjs | --blocking | 有 |
 | 16c | 🛡️  staged-typecheck 源/测镜像同步(blocking,AGENTS.md §22b 镜像同步义务) | check-staged-typecheck-mirror-sync.mjs | — | — |
 | 35 | 🐍 mypy 类型检查(防 ai-service Python 类型回退) | check-mypy.mjs | — | 有 |
@@ -119,7 +119,7 @@
 
 ### 1.4 失败提示详情（onFailHint）
 
-仅展示有 onFailHint 的守门项（共 26 项），按 guardian-runner.mjs 出现顺序排列。
+仅展示有 onFailHint 的守门项（共 27 项），按 guardian-runner.mjs 出现顺序排列。
 
 #### [2e-dupns] 🧬 i18n 重复命名空间/重复键(blocking,防 JSON last-wins 静默遮蔽)
 
@@ -193,6 +193,19 @@
   💡 staged 的 i18n JSON 文件行数异常减少(>50% 且 >100 行),
      通常是 lint-staged 的 prettier --write 解析大 JSON 失败导致截断事故。
      修复:git restore --staged --worktree <file> 后重新编辑/格式化。
+
+```
+
+#### [30a] 🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit)
+
+```
+
+  💡 若上表是"仅远端 tag"或 origin 变 [gone],通常是宿主清理嵌套 ref 导致的抖动,
+     并非真的丢 commit。处理(离线即可恢复):
+       node scripts/git-refs-heal.mjs                  # 按清单重建 + 固化进 packed-refs
+       node scripts/git-refs-heal.mjs --refresh-remote # 联网从 origin 校准(需 http_proxy)
+     守护 IHUI-GIT-GUARD 每 10s 巡检,会自动修 —— 也可等它自动恢复。
+     机制说明:AGENTS.md §5b「嵌套 ref 存续」。
 
 ```
 
