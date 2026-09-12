@@ -32,6 +32,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { agentTasks } from '@ihui/database'
 import { logger } from '../utils/logger.js'
+import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { releaseTaskLockByTaskId } from './workspace-lock-heartbeat.js'
 import { broadcastSSEEvent } from './agent-sse-bus.js'
 import type {
@@ -44,11 +45,6 @@ import type {
   DispatchStatus,
 } from '@ihui/shared/subagents'
 
-/** ai-service 基础 URL(优先 env,回退 AGENTS.md §6 文档值 8803) */
-const AI_SERVICE_URL =
-  process.env.AI_SERVICE_URL && process.env.AI_SERVICE_URL.length > 0
-    ? process.env.AI_SERVICE_URL.replace(/\/$/, '')
-    : 'http://localhost:8803'
 
 /** 跨服务调用超时(ms) */
 const AI_SERVICE_TIMEOUT_MS = 30_000
@@ -635,7 +631,7 @@ async function callAiServiceEndpoint(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), AI_SERVICE_TIMEOUT_MS)
   try {
-    const res = await fetch(`${AI_SERVICE_URL}${path}`, {
+    const res = await aiServiceSystemFetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -858,7 +854,7 @@ async function callAiServiceCritique(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), AI_SERVICE_TIMEOUT_MS * 3)
   try {
-    const res = await fetch(`${AI_SERVICE_URL}${debatePath}`, {
+    const res = await aiServiceSystemFetch(debatePath, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(debateBody),
