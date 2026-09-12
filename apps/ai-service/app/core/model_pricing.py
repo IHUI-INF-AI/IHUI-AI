@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import threading
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -189,6 +190,58 @@ def is_model_price_known(model: str) -> bool:
     return False
 
 
+def cost_micro_usd(
+    model: str, tokens_in: int, tokens_out: int, provider: str | None = None
+) -> int:
+    """按模型计算成本,返回微美元整数(1 micro-USD = 1e-6 USD)。
+
+    2026-09-12 精度改造(2-6 成本真实计价):Decimal 全程精确乘加、仅在最终
+    一次性舍入(ROUND_HALF_UP)到微元,替代旧 float 链路(tokens/1e6 × rate)
+    的累积漂移。per-1M 单价 × token 数恰以微元为量纲(USD×1e6),全程无除法;
+    价目解析优先级与 resolve_model_pricing_per_1m 一致。
+    """
+    rates = resolve_model_pricing_per_1m(model, provider)
+    return cost_micro_usd_from_per_1m(
+        rates["input"], rates["output"], tokens_in, tokens_out
+    )
+
+
+def cost_micro_usd_from_per_1m(
+    rate_in: float, rate_out: float, tokens_in: int, tokens_out: int
+) -> int:
+    """按 per-1M(USD/1M tokens)费率精确计算成本(微美元整数)。
+
+    供已持有费率 dict 的调用方(如 llm_usage_service 厂商级查表)复用
+    同一 Decimal 舍入口径。
+    """
+    micro = (
+        Decimal(int(tokens_in)) * Decimal(str(rate_in))
+        + Decimal(int(tokens_out)) * Decimal(str(rate_out))
+    )
+    return int(micro.to_integral_value(rounding=ROUND_HALF_UP))
+
+
+def cost_micro_usd_from_per_1k(
+    rate_in: float, rate_out: float, tokens_in: int, tokens_out: int
+) -> int:
+    """按 per-1K(USD/1K tokens)费率精确计算成本(微美元整数)。
+
+    供仍以 per-1K 表存储的调用方(llm_budget_governor.model_cost_table /
+    cost_ledger.set_pricing)复用同一 Decimal 舍入口径:
+    tokens × USD/1K × 1000 = 微美元。
+    """
+    micro = (
+        Decimal(int(tokens_in)) * Decimal(str(rate_in))
+        + Decimal(int(tokens_out)) * Decimal(str(rate_out))
+    ) * 1000
+    return int(micro.to_integral_value(rounding=ROUND_HALF_UP))
+
+
+def micro_usd_to_usd(micro: int) -> float:
+    """微美元整数 → USD float(微元内精确,round 6 位口径与账本一致)。"""
+    return round(int(micro) / 1_000_000, 6)
+
+
 def estimate_cost_usd(
     model: str, tokens_in: int, tokens_out: int, provider: str | None = None
 ) -> dict[str, Any]:
@@ -196,12 +249,10 @@ def estimate_cost_usd(
 
     返回 {"cost_usd", "estimated"};estimated=True 表示未命中模型级价目,
     用了厂商兜底价或全局默认价(口径与 cost_ledger.estimated 一致)。
+    2026-09-12 起内部走 cost_micro_usd(Decimal 微元整数)计算,对外契约不变。
     """
-    rates = resolve_model_pricing_per_1m(model, provider)
-    cost = (float(tokens_in) / 1_000_000.0) * float(rates["input"]) + (
-        float(tokens_out) / 1_000_000.0
-    ) * float(rates["output"])
-    return {"cost_usd": round(cost, 6), "estimated": not is_model_price_known(model)}
+    micro = cost_micro_usd(model, tokens_in, tokens_out, provider)
+    return {"cost_usd": micro_usd_to_usd(micro), "estimated": not is_model_price_known(model)}
 
 
 def snapshot_per_1k(models: list[str]) -> dict[str, dict[str, float]]:

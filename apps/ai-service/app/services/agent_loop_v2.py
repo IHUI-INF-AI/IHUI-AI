@@ -65,6 +65,7 @@ from .agent_checkpoint import (
 )
 
 if TYPE_CHECKING:
+    from .compaction_canary import CompactionDecision
     from .memory_service import MemoryService
 
 from .hook_engine import hook_engine
@@ -707,6 +708,17 @@ def _compaction_context_limit_from_env() -> int:
         return 0
 
 
+def _resolve_compaction_decision_for(session_id: str | None) -> "CompactionDecision":
+    """1-3 灰度决策接入(2026-09-12 立):AGENT_COMPACTION_MODE + CANARY_PERCENT。
+
+    延迟 import 规避模块加载顺序问题(纯函数无副作用);决策逻辑见
+    services/compaction_canary.py(MODE 未设置时 legacy 行为,默认与现状逐零差异)。
+    """
+    from .compaction_canary import resolve_compaction_decision
+
+    return resolve_compaction_decision(session_id)
+
+
 @dataclass
 class AgentLoopResult:
     """Agent 循环结果。"""
@@ -914,6 +926,14 @@ class AgentLoopV2:
             else max(0, int(compaction_context_limit))
         )
         self._compaction_llm_enabled: bool = _compaction_llm_enabled_from_env()
+        # 1-3 灰度机制(2026-09-12 立):构造参数未显式给 compaction_enabled 时,
+        # 生效开关由灰度决策(AGENT_COMPACTION_MODE/CANARY_PERCENT 按 session_id
+        # 稳定哈希)决定;决策懒解析(session_id 可能在 run 时才生成,保证哈希稳定)。
+        # 显式传参(含既有测试)路径与现状逐零差异。
+        self._compaction_enabled_explicit: bool = compaction_enabled is not None
+        self._compaction_decision: CompactionDecision | None = None
+        # 1-3 压缩生产指标:本次 run 的压缩指标关联标识(每次 run 重置)
+        self._compaction_run_id: str = ""
         # 本次 run 的压缩事件列表(写入 AgentLoopResult.compaction_events)
         self._compaction_events: list[dict[str, Any]] = []
         self.enable_checkpoint = enable_checkpoint
@@ -987,33 +1007,105 @@ class AgentLoopV2:
         self._last_checkpoint_id = None
         # 1-8 上下文压缩:每次 run 重置事件列表(避免跨 run 残留)
         self._compaction_events = []
+        # 1-3 压缩生产指标:每次 run 重置指标关联标识
+        self._compaction_run_id = uuid.uuid4().hex
         # 1-7 团队接力:每次 run 重置注入元信息(避免跨 run 残留)
         self._team_relay_info = None
         # 2-3 自愈集成:每次 run 重置 heal 计数与命令去重集合
         self._self_heal_runs = 0
         self._self_heal_commands = set()
 
-    def _maybe_compact_context(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _effective_compaction_settings(self) -> tuple[bool, bool]:
+        """解析本次 run 生效的 (enabled, llm_enabled) 压缩配置。
+
+        1-3 灰度机制(2026-09-12 立):
+        - 构造参数显式传 compaction_enabled → 与现状逐零差异(测试/调用方直控);
+        - 未显式传 → 灰度决策(AGENT_COMPACTION_MODE=off/ratio/full +
+          AGENT_COMPACTION_CANARY_PERCENT 按 session_id 稳定哈希);
+          决策首次解析后缓存(同 session 稳定,MODE 未设置时等价 legacy env)。
+        """
+        if self._compaction_enabled_explicit:
+            return self._compaction_enabled, self._compaction_llm_enabled
+        if self._compaction_decision is None:
+            self._compaction_decision = _resolve_compaction_decision_for(
+                self._ensure_session_id()
+            )
+        return bool(self._compaction_decision.enabled), bool(
+            self._compaction_decision.llm_enabled
+        )
+
+    def _record_compaction_metric(self, info: dict[str, Any], duration_ms: float) -> None:
+        """1-3 压缩生产指标上报(fail-open:失败仅 log,不影响主循环)。"""
+        try:
+            from app.services.compaction_metrics import record_compaction_event
+
+            record_compaction_event(
+                session_id=self._ensure_session_id(),
+                info=info,
+                source="agent_loop",
+                run_id=self._compaction_run_id,
+                duration_ms=duration_ms,
+            )
+        except Exception as e:  # noqa: BLE001 - 指标上报绝不影响主链路
+            logger.debug("compaction 指标上报失败: %s", e)
+
+    def _record_compaction_run_outcome(self, result: AgentLoopResult) -> None:
+        """1-3 压缩生产指标:发生过压缩的 run 记录最终结果(压缩后任务是否继续成功)。
+
+        H7「真实任务成功率下降 ≤2%」的 run 维度观测输入;无压缩事件的 run 不记录。
+        """
+        if not self._compaction_events:
+            return
+        try:
+            from app.services.compaction_metrics import record_compaction_run_outcome
+
+            record_compaction_run_outcome(
+                run_id=self._compaction_run_id,
+                session_id=self._ensure_session_id(),
+                success=bool(result.success),
+                event_count=len(self._compaction_events),
+            )
+        except Exception as e:  # noqa: BLE001 - 指标上报绝不影响主链路
+            logger.debug("compaction run outcome 上报失败: %s", e)
+
+    async def _maybe_compact_context(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """1-8 上下文超限压缩(2026-09-07 立):占用 ≥ context_limit*0.85 时压缩旧消息。
 
         确定性压缩复用 core/context_compaction.compress_messages_if_needed
         (system 保留+尾部 keep_recent 配对组对齐+结构化摘要),零 LLM 调用零额外成本;
-        LLM 语义压缩(AGENT_COMPACTION_LLM_ENABLED=on)失败自动降级确定性路径。
+        LLM 语义压缩(灰度 MODE=full 或 AGENT_COMPACTION_LLM_ENABLED=on)走
+        compact_with_llm,失败自动降级确定性路径。
         压缩幂等防抖:压缩由占用率驱动,压缩后 usage 回落自然低于阈值,不会反复触发。
         未启用/limit<=0 时原样返回(与现状逐零差异)。
+        1-3(2026-09-12):压缩事件同步上报生产指标(压缩比/耗时/trigger)。
         """
-        if not self._compaction_enabled or self._compaction_context_limit <= 0:
+        enabled, llm_enabled = self._effective_compaction_settings()
+        if not enabled or self._compaction_context_limit <= 0:
             return messages
+        started = time.perf_counter()
         try:
-            from app.core.context_compaction import compress_messages_if_needed
+            if llm_enabled:
+                from app.services.compact_with_llm import compact_with_llm
 
-            compressed, info = compress_messages_if_needed(
-                messages,
-                self._compaction_context_limit,
-                trigger_ratio=DEFAULT_COMPACTION_TRIGGER_RATIO,
-                target_ratio=DEFAULT_COMPACTION_TARGET_RATIO,
-                keep_recent=DEFAULT_COMPACTION_KEEP_RECENT,
-            )
+                compressed, info = await compact_with_llm(
+                    messages,
+                    self._compaction_context_limit,
+                    self._llm_complete,
+                    trigger_ratio=DEFAULT_COMPACTION_TRIGGER_RATIO,
+                    target_ratio=DEFAULT_COMPACTION_TARGET_RATIO,
+                    keep_recent=DEFAULT_COMPACTION_KEEP_RECENT,
+                )
+            else:
+                from app.core.context_compaction import compress_messages_if_needed
+
+                compressed, info = compress_messages_if_needed(
+                    messages,
+                    self._compaction_context_limit,
+                    trigger_ratio=DEFAULT_COMPACTION_TRIGGER_RATIO,
+                    target_ratio=DEFAULT_COMPACTION_TARGET_RATIO,
+                    keep_recent=DEFAULT_COMPACTION_KEEP_RECENT,
+                )
+            duration_ms = (time.perf_counter() - started) * 1000
             if not info.get("compressed"):
                 return messages
             self._compaction_events.append(
@@ -1022,7 +1114,7 @@ class AgentLoopV2:
                     "original_tokens": info.get("original_tokens"),
                     "compressed_tokens": info.get("compressed_tokens"),
                     "removed_count": info.get("removed_count"),
-                    "trigger": "deterministic",
+                    "trigger": "llm" if info.get("llm_summary") else "deterministic",
                 }
             )
             logger.warning(
@@ -1032,6 +1124,8 @@ class AgentLoopV2:
                 info.get("removed_count"),
                 self._current_iteration,
             )
+            # 1-3 压缩生产指标(Prometheus + 进程内报告通道)
+            self._record_compaction_metric(info, duration_ms)
             return compressed
         except Exception as e:
             # 压缩失败降级:原样返回继续执行(宁可硬停也不因压缩引入新故障)
@@ -1418,6 +1512,8 @@ class AgentLoopV2:
             agent_loop_runs_total.labels(result.stop_reason).inc()
         except Exception as exc:
             logger.debug("agent_loop_runs_total 指标埋点失败(不阻塞): %s", exc)
+        # 1-3 压缩生产指标:发生过压缩的 run 记录最终结果(压缩后任务是否继续成功)
+        self._record_compaction_run_outcome(result)
         return result
 
     # ------------------------------------------------------------------
@@ -2068,7 +2164,7 @@ class AgentLoopV2:
                     tools_count=len(tools_schema) if tools_schema else 0,
                 )
                 # 1. 调 LLM(带 tools,带指数退避重试);调用前按占用率自动压缩上下文(1-8)
-                messages = self._maybe_compact_context(messages)
+                messages = await self._maybe_compact_context(messages)
                 llm_response = await self._llm_call_with_retry(messages, tools_schema)
 
                 content = llm_response.get("content", "")
@@ -2332,13 +2428,16 @@ class AgentLoopV2:
             start_iteration,
         )
 
-        return await self._run_loop(
+        resume_result = await self._run_loop(
             messages=messages,
             start_iteration=start_iteration,
             prior_iterations=[],
             prior_tokens=0,
             start_time=datetime.now(UTC),
         )
+        # 1-3 压缩生产指标:续跑 run 同样记录压缩后任务结果
+        self._record_compaction_run_outcome(resume_result)
+        return resume_result
 
     async def pause(self) -> str | None:
         """暂停当前 loop。

@@ -23,6 +23,7 @@ import contextlib
 import json
 import logging
 import os
+import time
 import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any, cast
@@ -30,6 +31,7 @@ from typing import Any, cast
 import httpx
 
 from app.core.tunables import DEFAULT_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS
+from app.services import mcp_quality
 from app.services.mcp_oauth import MCPOAuthClient, MCPOAuthConfig
 
 logger = logging.getLogger(__name__)
@@ -901,13 +903,22 @@ class MCPClientManager:
     async def call_external_tool(
         self, server_name: str, tool_name: str, args: dict[str, Any]
     ) -> dict[str, Any]:
-        """调用指定 Server 的工具。"""
+        """调用指定 Server 的工具(2026-09-12 起附带质量指标采集,1-4)。"""
         client = self._clients.get(server_name)
         if client is None:
             return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
         if not client.is_connected():
             return {"ok": False, "error": f"MCP Server 未连接: {server_name}"}
-        return cast(dict[str, Any], await client.call_tool(tool_name, args))
+        start = time.perf_counter()
+        result = cast(dict[str, Any], await client.call_tool(tool_name, args))
+        # 出站调用无 input_schema 缓存,schema_valid 默认 True(仅采集延迟/成败)
+        mcp_quality.record_tool_call(
+            server_name,
+            tool_name,
+            time.perf_counter() - start,
+            success=bool(result.get("ok")) if isinstance(result, dict) else True,
+        )
+        return result
 
 
 # =========================================================================
