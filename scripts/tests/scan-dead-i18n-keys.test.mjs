@@ -290,21 +290,23 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     assert.equal(fs.existsSync(expectedReport), true, '非 web 输出路径应为 i18n-dead-keys-{date}-{target}.md')
   })
 
-  test('场景 14:web target 扫描多目录(web/src + web/app + miniapp-taro/src + cli/src + mobile-rn/src)', () => {
+  test('场景 14:web target 扫描多目录(web/src + web/app + miniapp-taro/src + mobile-rn/src + packages/app/src)', () => {
     // web target 的 scanTargets 含 5 个目录,验证跨目录 key 引用都被识别
+    // 2026-09-12 修复:commit a80496f6f8d 把 web scanTargets 的 apps/cli/src 换成 packages/app/src
+    // (消除 865 个跨端共享 key 假阳性),但本场景未同步更新 → cli.src 引用不在扫描范围 → 存量失败
     setupFixture({
       target: 'web',
       zhCN: {
         web: { src: 'web/src', app: 'web/app' },
         miniapp: { src: 'miniapp/src' },
-        cli: { src: 'cli/src' },
+        appPkg: { src: 'packages/app/src' },
         mobile: { src: 'mobile/src' },
       },
       codeFiles: {
         'apps/web/src/web-src.ts': "t('web.src')",
         'apps/web/app/web-app.ts': "t('web.app')",
         'apps/miniapp-taro/src/miniapp.ts': "t('miniapp.src')",
-        'apps/cli/src/cli.ts': "t('cli.src')",
+        'packages/app/src/rn-app.ts': "t('appPkg.src')",
         'apps/mobile-rn/src/mobile.ts': "t('mobile.src')",
       },
     })
