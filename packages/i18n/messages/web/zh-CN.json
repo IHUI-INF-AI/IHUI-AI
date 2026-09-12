@@ -6579,6 +6579,7 @@
     "statusSuccess": "成功",
     "statusFailed": "失败",
     "statusIdle": "空闲",
+    "statusSkipped": "已跳过",
     "inspectorTitle": "属性 / 日志",
     "inspectorEmpty": "点击画布中的节点以编辑参数并查看运行日志",
     "nodeName": "节点名称",
@@ -6595,13 +6596,15 @@
     "logsTitle": "运行日志",
     "noLogs": "暂无运行日志",
     "defaultReviewPrompt": "请人工确认上一步输出是否通过",
+    "errorEmptyCanvas": "画布为空,请先添加节点后再运行",
     "logNodeStart": "▶ 节点开始执行",
     "logWaitReview": "⏸ 等待人工审核: ",
     "logRunError": "✖ ",
     "logErrorFallback": "运行错误",
     "logDone": "■ 运行结束 (done)",
     "logConnectFail": "连接失败: ",
-    "logTrialStarted": "● 已发起试运行,等待流…",
+    "logGraphStarted": "● 整图执行已发起,等待流…",
+    "logSkippedUpstream": "上游节点失败,本节点已跳过",
     "logUserStop": "⏹ 用户手动停止",
     "logToolCall": "🔧 tool_call: ",
     "logToolResult": "↩ tool_result: ",
@@ -9081,62 +9084,77 @@
     "commands": {
       "agent": {
         "description": "管理并调度 AI 智能体",
+        "keywords": ["智能体", "调度", "agent"],
         "label": "AI 智能体"
       },
       "browser": {
         "description": "在工作区内浏览网页",
+        "keywords": ["浏览器", "网页", "browser"],
         "label": "内置浏览器"
       },
       "capabilityMarket": {
         "description": "发现并安装能力包",
+        "keywords": ["能力", "市场", "插件", "market"],
         "label": "能力市场"
       },
       "codeChanges": {
         "description": "查看工作区代码改动",
+        "keywords": ["代码", "变更", "改动", "diff"],
         "label": "代码变更"
       },
       "connectors": {
         "description": "管理外部服务连接",
+        "keywords": ["连接", "外部服务", "connector"],
         "label": "连接器"
       },
       "document": {
         "description": "编辑工作区文档",
+        "keywords": ["文档", "编辑", "doc"],
         "label": "文档"
       },
       "editor": {
         "description": "打开代码编辑器",
+        "keywords": ["编辑器", "代码", "code"],
         "label": "编辑器"
       },
       "mcp": {
         "description": "管理 MCP 服务器与工具",
+        "keywords": ["MCP", "服务器", "工具"],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "浏览与安装 MCP 服务",
+        "keywords": ["MCP", "广场", "市场", "store"],
         "label": "MCP 广场"
       },
       "modeBuild": {
         "description": "让 AI 直接构建与修改",
+        "keywords": ["构建", "模式", "build"],
         "label": "构建模式"
       },
       "modePlan": {
         "description": "先制定计划再执行",
+        "keywords": ["规划", "计划", "plan"],
         "label": "规划模式"
       },
       "modeReview": {
         "description": "审查与评审现有代码",
+        "keywords": ["审查", "评审", "review"],
         "label": "审查模式"
       },
       "modeSpec": {
         "description": "从规格生成实现",
+        "keywords": ["规格", "spec"],
         "label": "规格模式"
       },
       "skill": {
         "description": "管理与调用 AI 技能",
+        "keywords": ["技能", "skill"],
         "label": "技能"
       },
       "terminal": {
         "description": "打开集成终端",
+        "keywords": ["终端", "命令行", "terminal"],
         "label": "终端"
       },
       "ai-world": {
