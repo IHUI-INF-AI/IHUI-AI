@@ -55,11 +55,18 @@ const TARGETS = {
   },
   'miniapp-taro': {
     localeDir: 'packages/i18n/messages/miniapp-taro',
-    scanTargets: ['apps/miniapp-taro/src'],
+    // packages/shared/src = @ihui/shared 的 useLoginForm/useRegisterForm 被 miniapp-taro
+    // login/register 页消费,其内部 setError('auth.xxx') 返回的 key 由本端 t() 渲染,
+    // 2026-09-12 修复跨包引用漏检(auth.ssoFailed 等误判为死 key的同类模式)
+    scanTargets: ['apps/miniapp-taro/src', 'packages/shared/src'],
   },
   'mobile-rn': {
     localeDir: 'packages/i18n/messages/mobile-rn',
-    scanTargets: ['apps/mobile-rn/src', 'packages/app/src'], // packages/app = @ihui/rn-app 共享屏,由 mobile-rn wrapper 传入本端 t 消费其 key
+    // packages/app = @ihui/rn-app 共享屏,由 mobile-rn wrapper 传入本端 t 消费其 key
+    // packages/shared/src = @ihui/shared 的 useLoginForm/useRegisterForm 被 mobile-rn
+    // LoginScreen/RegisterScreen 消费(2026-09-12 修复跨包引用漏检:
+    // setError('auth.ssoFailed') 的 key 在 shared 包内,原 scanTargets 不含它,被误判为死 key)
+    scanTargets: ['apps/mobile-rn/src', 'packages/app/src', 'packages/shared/src'],
   },
   cli: {
     localeDir: 'packages/i18n/messages/cli',

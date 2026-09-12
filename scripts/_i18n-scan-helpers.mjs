@@ -192,9 +192,13 @@ export const WRAPPER_ARG_KEY_RE = /,\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-
 //     ...
 //   ]
 // 原扫描器无法识别数组元素中的点分 key,导致 benefit1-5 误判为死 key。
-// 此正则:匹配行首(含缩进空格)的单/双引号包裹的多段点分 key(如 'page.benefit1')。
+// 此正则:匹配行首/空白/`[`/`(` 后的单/双引号包裹的多段点分 key(如 'page.benefit1')。
 // 注:为避免误命中非数组字符串字面量,只在行含 `[` 时启用此扫描。
-export const STRING_ARRAY_KEY_RE = /(?:^|\s)['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+// 2026-09-12 增强:前缀字符类新增 `[` 与 `(` —
+// 背景:miniapp-taro pkg-shop/pay/result/index.tsx 用 `pending: ['pay.result.pending', '支付处理中']`
+// [key, fallback] 数组元组形式引用 key,首元素引号前是 `[` 而非空白,
+// 原 `(?:^|\s)` 不命中,导致 pay.result.pending / pay.result.failed 2 个 key 被误判为死 key。
+export const STRING_ARRAY_KEY_RE = /(?:^|[\s[(])['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
 // 2026-08-21 新增:JSX prop 传递 i18n key (emptyKey/descKey/titleKey 等)
 // 背景:extension FollowingPage/FansPage 用 `<EmptyState emptyKey="page.follow.emptyFollowing" />` JSX prop 形式
 // 传递 i18n key,原扫描器只识别冒号赋值(PROP_KEY_RE)不识别等号(JSX prop),导致 emptyFollowing/emptyFans 误判。
