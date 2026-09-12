@@ -6,6 +6,7 @@ import { parseStreamLine } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { useModeStore } from '@/stores/mode'
+import { getSamplingParams } from '@/stores/sampling-params'
 import { toast } from '@/components/common'
 import { fetchApi, getToken, getStreamBaseUrl, isAbortError } from '@/lib/api'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
@@ -177,6 +178,8 @@ export async function resumePendingMessage(
   try {
     const base = getStreamBaseUrl()
     const token = getToken()
+    // P1-7(2026-09-13 立):续接前快照会话级高级参数(全局默认 + 会话覆盖)
+    const samplingParams = getSamplingParams(p.conversationId)
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
@@ -194,6 +197,12 @@ export async function resumePendingMessage(
         messages: buildResumeMessages(p),
         model: store.currentModel,
         mode: useModeStore.getState().currentMode,
+        // P1-7(2026-09-13):续接保持会话级高级参数,与 send-message/send-answer 一致
+        temperature: samplingParams.temperature,
+        topP: samplingParams.topP,
+        topK: samplingParams.topK,
+        maxTokens: samplingParams.maxTokens,
+        ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
         contextLimit: getModelContextCapacity(store.currentModel),
         metadata: {
           conversationId: p.conversationId,

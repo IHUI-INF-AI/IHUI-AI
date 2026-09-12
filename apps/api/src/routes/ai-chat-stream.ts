@@ -72,6 +72,18 @@ const chatStreamSchema = z.object({
   tools: z.array(z.record(z.string(), z.unknown())).max(200).optional(),
   /** 工具选择策略: 'auto'/'none'/'required' 或 {type:'function',function:{name:'xxx'}} */
   tool_choice: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
+  /** P1-7(2026-09-13 立,四竞品对标 CodeX/Qoder 高级参数面板):
+   *  会话级采样参数与自定义 system prompt。此前 model-selector 旁无参数入口,
+   *  api-client streamChat 已支持这些字段(body 构造见 client.ts),
+   *  但网关 schema 未声明 → zod strip 静默丢弃(与 workspaceContext/mode 同型断链)。
+   *  此处补声明并透传到 ai-service /api/llm/complete/stream。 */
+  temperature: z.number().min(0).max(2).optional(),
+  topP: z.number().min(0).max(1).optional(),
+  topK: z.number().int().min(1).max(1000).optional(),
+  maxTokens: z.number().int().min(1).max(200_000).optional(),
+  /** 自定义 system prompt,ai-service 注入到 system 消息最顶部(与工作区记忆叠加)。
+   *  上限 8000 字符,与前端 UI 限制对齐,防超长提示词拖垮上下文。 */
+  systemPrompt: z.string().max(8000).optional(),
   metadata: z
     .object({
       conversationId: z.string().optional(),
@@ -145,6 +157,12 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       /** 原生 function calling(OpenAI tools 格式),undefined 时 JSON.stringify 自动省略,不注入 */
       tools?: Array<Record<string, unknown>>
       toolChoice?: string | Record<string, unknown>
+      /** P1-7(2026-09-13 立):高级参数面板采样参数与自定义 system prompt */
+      temperature?: number
+      topP?: number
+      topK?: number
+      maxTokens?: number
+      systemPrompt?: string
       metadata?: { conversationId?: string; userId?: string; messageId?: string }
     },
     extraFirstEvents: Array<{ key: string; payload: unknown }> = [],
@@ -222,6 +240,13 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // undefined 时 JSON.stringify 省略该 key,不会注入到上游请求。
           tools: opts.tools,
           tool_choice: opts.toolChoice,
+          // P1-7(2026-09-13 立):高级参数面板透传(snake_case 对齐 ai-service Pydantic 字段名)。
+          // undefined 时 JSON.stringify 自动省略,不注入上游请求。
+          temperature: opts.temperature,
+          top_p: opts.topP,
+          top_k: opts.topK,
+          max_tokens: opts.maxTokens,
+          system_prompt: opts.systemPrompt,
           metadata: mergedMetadata,
         }),
         signal: controller.signal,
@@ -328,6 +353,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         plan_mode: planMode,
         tools,
         tool_choice: toolChoice,
+        temperature,
+        topP,
+        topK,
+        maxTokens,
+        systemPrompt,
         metadata,
       } = parsed.data
       const resolvedModel = model ?? modelId
@@ -463,6 +493,12 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           planMode,
           tools,
           toolChoice,
+          // P1-7(2026-09-13):会话级采样参数 + 自定义 system prompt 透传
+          temperature,
+          topP,
+          topK,
+          maxTokens,
+          systemPrompt,
           metadata,
         },
         extraFirstEvents,
@@ -508,6 +544,13 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         plan_mode: planMode,
         tools,
         tool_choice: toolChoice,
+        // P1-7(2026-09-13 立):chatAnswerSchema extends chatStreamSchema,
+        // 续答同样支持会话级采样参数与自定义 system prompt(否则 zod strip 丢弃)。
+        temperature,
+        topP,
+        topK,
+        maxTokens,
+        systemPrompt,
         metadata,
         questionId,
         answer,
@@ -692,6 +735,12 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           planMode,
           tools,
           toolChoice,
+          // P1-7(2026-09-13):续答透传会话级采样参数
+          temperature,
+          topP,
+          topK,
+          maxTokens,
+          systemPrompt,
           metadata,
         },
         extraFirstEvents,
