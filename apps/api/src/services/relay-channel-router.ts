@@ -96,6 +96,7 @@ interface KeyPoolRow {
   apiKeyEnc: string
   providerCode: string
   weight: number
+  extraMetadata: unknown
 }
 
 interface WeightedItem {
@@ -519,10 +520,12 @@ async function selectByStrategy(
 /**
  * 按模型路由选 channel key 候选列表(按切换优先级排序,供转发层逐请求 failover)。
  *
- * 流程:
- * 1. 查 aiModelConfigModels 找该 model 对应的 configId(需 enabled + isRelayPublic)
- * 2. 查 aiModelConfig 找该 configId 的 providerCode + baseUrl(需 enabled)
- * 3. 查 aiRelayKeyPool 找该 providerCode 的可用 key(需 isEnabled=true)
+ * 流程(2026-09-13 多上游同模型改造):
+ * 1. 查 aiModelConfigModels 找该 model 对应的**全部** configId(需 enabled + isRelayPublic;
+ *    同一 modelId 可在多个 provider/config 上架,如 token6688 与 swiftapi 同时供同一模型)
+ * 2. 查 aiModelConfig 找这些 configId 的 providerCode + baseUrl(需 enabled)
+ * 3. 查 aiRelayKeyPool 找这些 providerCode 的可用 key(需 isEnabled=true;
+ *    key 级 extraMetadata.baseUrl 覆盖 config.baseUrl——同一聚合上游多端点各自成渠,按 key 粒度测速/熔断/切换)
  * 4. 过滤掉熔断 open 的 key
  * 5. 查 aiRelayChannelGroupMembers 找这些 key 所属的组
  * 6. 查 aiRelayChannelGroups 找启用的组,按优先级排序(高的先)
@@ -546,7 +549,7 @@ export async function selectChannelCandidates(
   // session-affinity 策略的亲和性 key:优先用传入的 affinityKey,否则回退到 userId
   const effectiveAffinityKey = affinityKey ?? userId
 
-  // 1. 查 model → configId
+  // 1. 查 model → 全部匹配的 configId(多上游同模型:同一 modelId 允许多 config 同时上架)
   const modelRows = await dbRead
     .select({ configId: aiModelConfigModels.configId })
     .from(aiModelConfigModels)
@@ -557,37 +560,42 @@ export async function selectChannelCandidates(
         eq(aiModelConfigModels.isRelayPublic, true),
       ),
     )
-    .limit(1)
   if (modelRows.length === 0) return []
-  const modelRow = modelRows[0]
-  if (!modelRow) return []
-  const configId = modelRow.configId
+  const configIds = [...new Set(modelRows.map((r) => r.configId))]
+  if (configIds.length === 0) return []
 
-  // 2. 查 config → providerCode + baseUrl
-  const configRows = await dbRead
+  // 2. 查全部启用 config → providerCode + baseUrl(每个 config = 一条独立上游链路)
+  const configs = await dbRead
     .select({
       id: aiModelConfig.id,
       providerCode: aiModelConfig.providerCode,
       baseUrl: aiModelConfig.baseUrl,
     })
     .from(aiModelConfig)
-    .where(and(eq(aiModelConfig.id, configId), eq(aiModelConfig.enabled, true)))
-    .limit(1)
-  if (configRows.length === 0) return []
-  const config = configRows[0]
-  if (!config) return []
+    .where(and(inArray(aiModelConfig.id, configIds), eq(aiModelConfig.enabled, true)))
+  if (configs.length === 0) return []
 
-  // 3. 查 key_pool → 该 providerCode 的可用 key(按权重降序,天然成为备选顺序)
+  /** providerCode → 首个启用 config(同一 provider 多 config 时取第一条;key 级覆盖可改 baseUrl) */
+  const configByProvider = new Map<string, { id: number; providerCode: string; baseUrl: string }>()
+  for (const c of configs) {
+    if (!configByProvider.has(c.providerCode)) {
+      configByProvider.set(c.providerCode, c)
+    }
+  }
+
+  // 3. 查 key_pool → 所有相关 providerCode 的可用 key(按权重降序,天然成为备选顺序)
+  const providerCodes = [...new Set(configs.map((c) => c.providerCode))]
   const keys = await dbRead
     .select({
       id: aiRelayKeyPool.id,
       apiKeyEnc: aiRelayKeyPool.apiKeyEnc,
       providerCode: aiRelayKeyPool.providerCode,
       weight: aiRelayKeyPool.weight,
+      extraMetadata: aiRelayKeyPool.extraMetadata,
     })
     .from(aiRelayKeyPool)
     .where(
-      and(eq(aiRelayKeyPool.providerCode, config.providerCode), eq(aiRelayKeyPool.isEnabled, true)),
+      and(inArray(aiRelayKeyPool.providerCode, providerCodes), eq(aiRelayKeyPool.isEnabled, true)),
     )
   if (keys.length === 0) return []
 
@@ -633,16 +641,42 @@ export async function selectChannelCandidates(
   /** 有序候选(未去重/未查配额),以 keyPoolId 标识 */
   const ordered: Array<{ candidate: SelectedChannelKey }> = []
   const seen = new Set<string>()
+
+  /** 安全解析 extra_metadata(保留未知字段)。 */
+  const readKeyMetadata = (raw: unknown): Record<string, unknown> => {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
+    return raw as Record<string, unknown>
+  }
+
+  /**
+   * 解析候选上游 baseUrl:key 级 extraMetadata.baseUrl 覆盖 > config.baseUrl。
+   * 同一聚合上游(如 swiftapi)的多端点各建一条 key_pool 条目、各自覆写 baseUrl,
+   * 即得以 key 粒度参与测速(least-latency)/熔断/自动切换。
+   */
+  const resolveCandidateTarget = (
+    keyData: KeyPoolRow,
+  ): { baseUrl: string; configId: string; providerCode: string } | null => {
+    const cfg = configByProvider.get(keyData.providerCode)
+    if (!cfg) return null
+    const meta = readKeyMetadata(keyData.extraMetadata)
+    const override = meta['baseUrl']
+    const baseUrl =
+      typeof override === 'string' && override.trim() !== '' ? override.trim() : cfg.baseUrl
+    return { baseUrl, configId: String(cfg.id), providerCode: keyData.providerCode }
+  }
+
   const pushCandidate = (keyData: KeyPoolRow, groupId: string, groupName: string) => {
     if (seen.has(keyData.id)) return
+    const target = resolveCandidateTarget(keyData)
+    if (!target) return
     seen.add(keyData.id)
     ordered.push({
       candidate: {
         keyPoolId: keyData.id,
         apiKey: decryptApiKey(keyData.apiKeyEnc),
-        baseUrl: config.baseUrl,
-        providerCode: config.providerCode,
-        configId: String(config.id),
+        baseUrl: target.baseUrl,
+        providerCode: target.providerCode,
+        configId: target.configId,
         groupId,
         groupName,
       },

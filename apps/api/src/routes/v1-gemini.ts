@@ -215,8 +215,15 @@ const v1GeminiRoutes: FastifyPluginAsync = async (server) => {
         .where(
           and(eq(aiModelConfigModels.enabled, true), eq(aiModelConfigModels.isRelayPublic, true)),
         )
+      // 跨上游去重(2026-09-13):同一 modelId 多 provider 上架只展示一条
+      const seenModelIds = new Set<string>()
+      const deduped = rows.filter((r) => {
+        if (seenModelIds.has(r.modelId)) return false
+        seenModelIds.add(r.modelId)
+        return true
+      })
       return reply.send({
-        models: rows.map((r) =>
+        models: deduped.map((r) =>
           toGeminiModelEntry(r.modelId, r.relayDisplayName ?? r.displayName ?? r.modelId),
         ),
       })
