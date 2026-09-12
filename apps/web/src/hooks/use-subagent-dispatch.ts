@@ -14,18 +14,23 @@
  * 设计:
  *  - 与 useSubagentDispatchStore 互补:hooks 负责数据获取 + 缓存,
  *    store 负责跨组件同步状态(Dialog 提交 → TopologyView 立即看到新节点)
- *  - 轮询间隔 5s(平衡实时性 + 服务器压力)
+ *  - 轮询间隔页面可见 5s、隐藏 30s(隐藏时降频,平衡实时性 + 服务器压力)
  *  - 拓扑/活跃列表失败时静默降级(不弹 toast,避免 501 噪音)
  */
 
 'use client'
 
+import * as React from 'react'
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchApi } from '@/lib/api'
+import { usePageVisibility } from '@/hooks/use-page-visibility'
 import { useSubagentDispatchStore } from '@/stores/subagent-dispatch'
 import type { SubagentDispatch, DispatchInput, SwarmTopologyV2 } from '@ihui/shared/subagents'
 
 const POLL_INTERVAL_MS = 5_000
+/** 页面隐藏时降频:后台标签页不做 5s 实时轮询 */
+const POLL_INTERVAL_HIDDEN_MS = 30_000
 
 /** 活跃派单列表 query key */
 export const activeDispatchesKey = ['subagent-dispatch', 'active'] as const
@@ -46,24 +51,42 @@ async function fetchSwarmTopology(): Promise<SwarmTopologyV2> {
   return r.data?.topology ?? { nodes: [], edges: [] }
 }
 
-/** 活跃派单列表(5s 轮询,失败静默降级) */
-export function useActiveDispatches() {
-  return useQuery({
-    queryKey: activeDispatchesKey,
-    queryFn: fetchActiveDispatches,
-    refetchInterval: POLL_INTERVAL_MS,
-    refetchOnWindowFocus: true,
-  })
+/** 回到前台立即刷新一次,不等下一个轮询周期 */
+function useRefetchOnVisible(refetch: () => void, visible: boolean): void {
+  const firstRef = React.useRef(true)
+  React.useEffect(() => {
+    if (firstRef.current) {
+      firstRef.current = false
+      return
+    }
+    if (visible) refetch()
+  }, [visible, refetch])
 }
 
-/** Swarm 拓扑(5s 轮询,失败静默降级) */
-export function useSwarmTopology() {
-  return useQuery({
-    queryKey: swarmTopologyKey,
-    queryFn: fetchSwarmTopology,
-    refetchInterval: POLL_INTERVAL_MS,
+/** 活跃派单列表(页面可见 5s 轮询 / 隐藏 30s,失败静默降级) */
+export function useActiveDispatches() {
+  const visible = usePageVisibility()
+  const query = useQuery({
+    queryKey: activeDispatchesKey,
+    queryFn: fetchActiveDispatches,
+    refetchInterval: visible ? POLL_INTERVAL_MS : POLL_INTERVAL_HIDDEN_MS,
     refetchOnWindowFocus: true,
   })
+  useRefetchOnVisible(query.refetch, visible)
+  return query
+}
+
+/** Swarm 拓扑(页面可见 5s 轮询 / 隐藏 30s,失败静默降级) */
+export function useSwarmTopology() {
+  const visible = usePageVisibility()
+  const query = useQuery({
+    queryKey: swarmTopologyKey,
+    queryFn: fetchSwarmTopology,
+    refetchInterval: visible ? POLL_INTERVAL_MS : POLL_INTERVAL_HIDDEN_MS,
+    refetchOnWindowFocus: true,
+  })
+  useRefetchOnVisible(query.refetch, visible)
+  return query
 }
 
 /** 创建派单 mutation(同时更新 store) */
