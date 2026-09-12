@@ -6635,6 +6635,16 @@
       "sseConnectionError": "SSE connection failed ({status})",
       "sseConnectionFailed": "SSE connection failed"
     },
+    "selfHealTimeline": {
+      "attemptsLabel": "{count} attempts",
+      "failedLabel": "{count} failed tests",
+      "iterationLabel": "Round {n}",
+      "phaseStarted": "Healing",
+      "resultFail": "Fix failed",
+      "resultOk": "Fixed",
+      "rollbacksLabel": "{count} rollbacks",
+      "title": "Self-Heal Timeline"
+    },
     "tokenStream": {
       "connecting": "Connecting...",
       "empty": "No token stream",
