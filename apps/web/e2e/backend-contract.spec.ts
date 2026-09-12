@@ -44,7 +44,7 @@ test.describe.parallel('后端契约专项', () => {
     if (testInfo.status !== testInfo.expectedStatus) {
       await page
         .screenshot({
-          path: `e2e/screenshots/backend-${testInfo.title.replace(/\s+/g, '-')}.png`,
+          path: `e2e/test-screenshots/backend-${testInfo.title.replace(/[^\p{L}\p{N}]+/gu, '-')}.png`,
         })
         .catch(() => {})
     }
