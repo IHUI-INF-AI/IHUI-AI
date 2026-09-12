@@ -291,5 +291,93 @@ describe('DebugPanel', () => {
     // variables/watch/breakpoints/callStack 标题均不出现
     expect(() => getByText('debug.variables')).toThrow()
   })
+
+  it('断点生命周期:会话中删除断点后发送空 lines 清除后端断点(DAP 全量替换)', async () => {
+    useDebugStore.setState({
+      breakpoints: [{ id: 'bp-1', file: 'src/app.ts', line: 10, enabled: true }],
+    })
+    debugApi.launchDebugSession.mockResolvedValue({ sessionId: 'sid-1' })
+    debugApi.continueExecution.mockResolvedValue({ stopped: null })
+    debugApi.setBreakpoints.mockResolvedValue({ breakpoints: [] })
+    const { getByRole, getAllByRole } = render(<DebugPanel />)
+    fireEvent.click(getByRole('button', { name: 'debug.start' }))
+    // 启动后断点同步到后端
+    await waitFor(() =>
+      expect(debugApi.setBreakpoints).toHaveBeenCalledWith('sid-1', {
+        file: 'src/app.ts',
+        lines: [{ line: 10 }],
+      }),
+    )
+    // 会话中删除断点 → 后端收到空 lines(否则 adapter 仍会命中已删除断点)
+    const deleteBtn = getAllByRole('button', { name: 'debug.delete' })[0]
+    if (!deleteBtn) throw new Error('delete button not found')
+    fireEvent.click(deleteBtn)
+    await waitFor(() =>
+      expect(debugApi.setBreakpoints).toHaveBeenLastCalledWith('sid-1', {
+        file: 'src/app.ts',
+        lines: [],
+      }),
+    )
+  })
+
+  it('断点生命周期:禁用断点后同步的 lines 不含该断点', async () => {
+    useDebugStore.setState({
+      breakpoints: [
+        { id: 'bp-1', file: 'src/app.ts', line: 10, enabled: true },
+        { id: 'bp-2', file: 'src/app.ts', line: 20, enabled: true },
+      ],
+    })
+    debugApi.launchDebugSession.mockResolvedValue({ sessionId: 'sid-1' })
+    debugApi.continueExecution.mockResolvedValue({ stopped: null })
+    debugApi.setBreakpoints.mockResolvedValue({ breakpoints: [] })
+    const { getByRole, getByText, getAllByRole } = render(<DebugPanel />)
+    fireEvent.click(getByRole('button', { name: 'debug.start' }))
+    await waitFor(() =>
+      expect(debugApi.setBreakpoints).toHaveBeenCalledWith('sid-1', {
+        file: 'src/app.ts',
+        lines: [{ line: 10 }, { line: 20 }],
+      }),
+    )
+    // 禁用 bp-1 → 重新同步,lines 仅剩 20(两个断点各有一个 toggle 按钮,取第一个)
+    const toggleBtn = getAllByRole('button', { name: 'debug.toggle' })[0]
+    if (!toggleBtn) throw new Error('toggle button not found')
+    fireEvent.click(toggleBtn)
+    await waitFor(() =>
+      expect(debugApi.setBreakpoints).toHaveBeenLastCalledWith('sid-1', {
+        file: 'src/app.ts',
+        lines: [{ line: 20 }],
+      }),
+    )
+    expect(getByText('1/2')).not.toBeNull()
+  })
+
+  it('stopped reason=timeout:程序仍在运行,状态保持 running 且不拉取调用栈', async () => {
+    debugApi.launchDebugSession.mockResolvedValue({ sessionId: 'sid-1' })
+    debugApi.continueExecution.mockResolvedValue({
+      stopped: { reason: 'timeout', threadId: 1 },
+    })
+    const { getByRole, getByText, queryByText } = render(<DebugPanel />)
+    fireEvent.click(getByRole('button', { name: 'debug.start' }))
+    // 超时非暂停:状态应为 running 而非 paused
+    await waitFor(() => expect(getByText('debug.stateRunning')).not.toBeNull())
+    expect(queryByText('debug.statePaused')).toBeNull()
+    expect(debugApi.getStackTrace).not.toHaveBeenCalled()
+  })
+
+  it('stopped reason=terminated:会话结束回到 stopped 并清空 sessionId', async () => {
+    debugApi.launchDebugSession.mockResolvedValue({ sessionId: 'sid-1' })
+    debugApi.continueExecution.mockResolvedValue({
+      stopped: { reason: 'terminated', threadId: 1 },
+    })
+    const { getByRole, getByText } = render(<DebugPanel />)
+    fireEvent.click(getByRole('button', { name: 'debug.start' }))
+    // 程序结束:回到 stopped 态,sessionId 清空,不拉取调用栈
+    await waitFor(() => expect(getByText('debug.stateStopped')).not.toBeNull())
+    await waitFor(() => expect(useDebugStore.getState().sessionId).toBeNull())
+    expect(debugApi.getStackTrace).not.toHaveBeenCalled()
+    // console 记录 terminated
+    const logs = useDebugStore.getState().consoleLogs
+    expect(logs.some((l) => l.text.includes('terminated'))).toBe(true)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
