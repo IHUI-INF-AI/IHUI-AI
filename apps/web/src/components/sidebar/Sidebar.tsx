@@ -32,6 +32,20 @@ import {
   SIDEBAR_WIDTH_STORAGE_KEY,
 } from '../sidebar'
 
+// 2026-09-13 性能重构:侧栏"与路由无关"的子组件统一包 memo。
+// Sidebar 自身订阅 pathname,每次导航落地都会重渲染(这是乐观/真实 active 高亮所必需),
+// 但下列子组件的 props 全部是稳定引用(布尔字面量 / 组件内 useCallback([]) 产生的共享回调),
+// 与路由毫无关系 —— 不 memo 的话每次导航都会被连带重渲染:
+//   - SidebarChatHistory(639 行,会话列表,侧栏最重子组件)
+//   - SidebarActions(679 行,底部操作区)
+//   - SidebarQuickActions / SidebarUserRow / SidebarHeader
+// memo 后仅在自身 props 或自身 store/context 订阅变化时才重渲染;Context 更新可穿透 memo,不会漏更新。
+const SidebarChatHistoryMemo = React.memo(SidebarChatHistory)
+const SidebarActionsMemo = React.memo(SidebarActions)
+const SidebarQuickActionsMemo = React.memo(SidebarQuickActions)
+const SidebarUserRowMemo = React.memo(SidebarUserRow)
+const SidebarHeaderMemo = React.memo(SidebarHeader)
+
 const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: SidebarProps) {
   // 性能优化(2026-09-04 用户授权"最快速度"):折叠状态 collapsed 从 GlobalShell 下沉到 Sidebar 内部。
   // 根因:collapsed 原先在 GlobalShell 顶层 useState,点击折叠 → setCollapsed → GlobalShell 重渲染 →
@@ -372,10 +386,10 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
       )}
     >
       {/* 顶部快捷操作区:新建任务 / 插件市场 / 自动化任务 */}
-      <SidebarQuickActions collapsed={collapsedState} onCloseMobile={onCloseMobile} />
+      <SidebarQuickActionsMemo collapsed={collapsedState} onCloseMobile={onCloseMobile} />
 
       {/* 侧边栏任务列表卡片(展开态显示) */}
-      <SidebarChatHistory collapsed={collapsedState} />
+      <SidebarChatHistoryMemo collapsed={collapsedState} />
 
       {visibleGroups.map((group, gi) => (
         <NavGroupSection
@@ -413,8 +427,8 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   const footerCollapsed = collapsed || isTabletViewport
   const desktopFooter = (
     <div className="shrink-0">
-      <SidebarActions collapsed={footerCollapsed} />
-      <SidebarUserRow collapsed={footerCollapsed} onCloseMobile={onCloseMobile} />
+      <SidebarActionsMemo collapsed={footerCollapsed} />
+      <SidebarUserRowMemo collapsed={footerCollapsed} onCloseMobile={onCloseMobile} />
     </div>
   )
 
@@ -423,8 +437,8 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
    *  桌面折叠过的用户(collapsed=true 持久化)打开手机抽屉也应看到完整 footer。 */
   const mobileFooter = (
     <div className="shrink-0">
-      <SidebarActions collapsed={false} />
-      <SidebarUserRow collapsed={false} onCloseMobile={onCloseMobile} />
+      <SidebarActionsMemo collapsed={false} />
+      <SidebarUserRowMemo collapsed={false} onCloseMobile={onCloseMobile} />
     </div>
   )
 
@@ -468,7 +482,7 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
               }
         }
       >
-        <SidebarHeader
+        <SidebarHeaderMemo
           variant="desktop"
           collapsed={effectiveCollapsed}
           onToggleCollapse={onToggleCollapse}
@@ -536,7 +550,7 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
         >
           {/* collapsed 恒 false(2026-09-09 统一):抽屉 160px+ 宽恒展开布局,
               不接用户桌面折叠偏好;header mobile 分支本身忽略该值,此处显式传 false 保持语义一致 */}
-          <SidebarHeader variant="mobile" collapsed={false} onCloseMobile={onCloseMobile} />
+          <SidebarHeaderMemo variant="mobile" collapsed={false} onCloseMobile={onCloseMobile} />
           {navContent(mobileNavId, mobileNavRef, 'mobile', false)}
           {mobileFooter}
           {/* 移动端拖拽手柄(2026-07-31 第十五次新增):复用 desktop 同款结构
