@@ -365,15 +365,15 @@ function Show-Status {
   Write-Host "  日志目录:   $LogDir" -ForegroundColor DarkGray
 
   # 2026-08-27:web Turbopack 缓存卫生提示(预防缓存膨胀 → dev 高内存/CPU)。
-  # 缓存由 apps/web dev 脚本前置的 clean-turbopack-cache.mjs 自动治理,超 3GB 启动时自动清;
+  # 缓存由 apps/web dev 脚本前置的 clean-turbopack-cache.mjs 自动治理,超 8GB 启动时自动清;
   # 此处仅作诊断辅助,一眼看出当前缓存是否已逼近阈值。
   $nextCache = Join-Path $RepoRoot 'apps\web\.next\dev\cache\turbopack'
   if (Test-Path $nextCache) {
     $cacheMB = [math]::Round((Get-ChildItem $nextCache -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum / 1MB, 0)
-    if ($cacheMB -gt 3072) {
-      Write-Host "  web turbopack 缓存: $cacheMB MB ⚠ 超 3GB(重启 web 时自动清理)" -ForegroundColor Yellow
+    if ($cacheMB -gt 8192) {
+      Write-Host "  web turbopack 缓存: $cacheMB MB ⚠ 超 8GB(重启 web 时自动清理)" -ForegroundColor Yellow
     } else {
-      Write-Host "  web turbopack 缓存: $cacheMB MB (阈值 3GB,启动时自动清理)" -ForegroundColor DarkGray
+      Write-Host "  web turbopack 缓存: $cacheMB MB (阈值 8GB,启动时自动清理)" -ForegroundColor DarkGray
     }
   } else {
     Write-Host "  web turbopack 缓存: 无(首次 dev 启动时生成)" -ForegroundColor DarkGray
@@ -649,38 +649,23 @@ foreach ($name in $toStart) {
 }
 
 # ============================================================
-# 后台预热高频 nav 路由(2026-09-02 立 · 2026-09-03 回滚 --all → 高频 12 条):
+# 高频 nav 路由预热(2026-09-02 立 · 2026-09-03 回滚 --all → 高频 12 条):
 # dev 模式 Turbopack 按需编译,首次点击导航实测 9.8~11.1s/页(见 web.log
-# "○ Compiling /publish/history" → 11.8s)。启动器在 web 自检 PASS 后后台
-# 有界并发 GET 高频 12 条路由,把编译提前到启动阶段,
-# 用户首次点击命中已编译路由(~1s dev 固有开销,非冷编译 3~36s)。
-# 2026-09-03 关键回滚(全量 --all → 高频,直击"根本没做到极致"终极根因):
+# "○ Compiling /publish/history" → 11.8s)。预热把编译提前到启动阶段,
+# 用户首次点击即命中已编译路由(~130ms,非冷编译 2.5~4s)。
+#
+# 2026-09-12 迁移:预热不再由本启动器派生,已并入 dev 入口本身 ——
+#   apps/web/package.json 的 `dev` = clean-turbopack-cache.mjs && dev-with-warmup.mjs,
+#   由 scripts/dev-with-warmup.mjs 在 next dev 就绪后以 detached 后台进程跑
+#   `warm-dev-routes.mjs --top 18`(高频 12 + 18 ≈ 30 条,
+#   日志 .ihui-agent/tmp/dev-logs/web-warmup.log)。
+#   本注册表里 web 走 `pnpm --filter @ihui/web dev`,desktop 的 beforeDevCommand 亦然,
+#   故此处【不得】再派生一次 —— 双份预热互抢 Turbopack 编译队列,反而拖慢首次点击。
+#
+# 历史教训(勿重蹈):
 #   曾升级为 --all 全量预热(194 条)以为"彻底消除时机依赖",但实测反而更慢:
 #   全量 194 条 + 客户端 Sidebar 第七刀 ~100 条双份叠加,单次会话把 Turbopack
-#   缓存(RocksDB)从 3GB 撑到 40GB(阈值 3GB,clean 脚本只在下次启动前触发,
-#   会话内无法清——next dev 运行中文件被锁)。40GB 缓存使会话内所有路由(含
-#   已编译)每次读写 40GB RocksDB → 单路由 15~19s,这才是"根本没做到极致"的真因。
-#   故回滚为仅高频 12 条(单次会话缓存增长 <1GB),非高频页由客户端视口预取 +
-#   点击时按需编译兜底,不再追求"全量预热"的伪极致。
-# 不阻塞启动器,日志: $LogDir\web-warmup.log
+#   缓存(RocksDB)从 3GB 撑到 40GB → 会话内所有路由(含已编译)单路由 15~19s。
+#   故上限维持"约 30 条"(单次会话缓存增长 <1GB),严禁再走 --all。
 # ============================================================
-if ($toStart -contains 'web') {
-  $warmLog = Join-Path $LogDir 'web-warmup.log'
-  $nodeCmd = (Get-Command node -ErrorAction SilentlyContinue).Source
-  if ($nodeCmd) {
-    try {
-      Start-Process -FilePath $nodeCmd `
-        -ArgumentList @((Join-Path $RepoRoot 'scripts\warm-dev-routes.mjs')) `
-        -WorkingDirectory $RepoRoot `
-        -WindowStyle Hidden `
-        -RedirectStandardOutput $warmLog `
-        -RedirectStandardError "$warmLog.err" | Out-Null
-      Write-Ok "web 高频路由预热已后台启动(日志: $warmLog)"
-    } catch {
-      Write-Warn "路由预热启动失败(不影响 dev):$($_.Exception.Message)"
-    }
-  } else {
-    Write-Warn "未找到 node,跳过路由预热"
-  }
-}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

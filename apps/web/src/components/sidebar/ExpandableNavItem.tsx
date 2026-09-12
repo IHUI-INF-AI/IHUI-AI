@@ -14,7 +14,7 @@ import {
   NAV_CHILD_CLASS,
 } from '@/lib/nav-styles'
 import { Dropdown } from '@/components/feedback'
-import { useNavigateWithProgress } from '@/stores/navigation'
+import { useNavigateWithProgress, useOptimisticNavStore } from '@/stores/navigation'
 import { useNotificationStore } from '@/stores/notification'
 import type { NavItem, RegisterRef } from './types'
 
@@ -44,7 +44,23 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
   const navigate = useNavigateWithProgress()
   const children = item.children ?? []
   // 性能修复:使用预计算的 activeHref 替代 pathname，避免 isHrefActive 遍历 ALL_NAV_HREFS。
-  const parentActive = activeHref ? children.some((child) => child.href === activeHref) : false
+  const realParentActive = activeHref ? children.some((child) => child.href === activeHref) : false
+
+  // 乐观高亮(2026-09-13):与 NavLink 同策略 —— 只订阅**值稳定**的结果,让未受影响的
+  // ExpandableNavItem 选择器输出保持不变、从而零重渲染。
+  // 返回值语义:null = 当前无导航中(回落真实态);'' = 导航中去往别处、且本项原本有
+  // 激活子项(需熄灭旧高亮);否则 = 命中的目标子 href。
+  // 若本项原本就无激活子项则返回 null(与导航前一致),避免"其余项"被无谓唤醒。
+  const optimisticTarget = useOptimisticNavStore((s) => {
+    if (s.href === null) return null
+    if (children.some((child) => child.href === s.href)) return s.href
+    return realParentActive ? '' : null
+  })
+  // 生效的激活 href:导航中优先用乐观目标,否则用真实 activeHref
+  const effActiveHref = optimisticTarget === null ? activeHref : optimisticTarget
+  const parentActive = effActiveHref
+    ? children.some((child) => child.href === effActiveHref)
+    : false
   const storageKey = `sidebar-expand-${item.href}`
   // hydration-safe 持久化展开(2026-08-28 根因修复,与 NavGroupSection 同模式):
   // 旧实现(2026-07-22)用 lazy initializer 读 localStorage,存在两个问题:
@@ -138,7 +154,7 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
     <div id={listId} role="group" aria-label={label} className="flex flex-col gap-0.5">
       {children.map((child) => {
         const ChildIcon = child.icon
-        const active = activeHref === child.href
+        const active = effActiveHref === child.href
         const childLabel = child.dynamicLabel ?? t(child.labelKey)
         const badgeCount = getBadgeCount(child.badge)
         const refCb = (el: HTMLElement | null) => registerRef(child.href, el)
