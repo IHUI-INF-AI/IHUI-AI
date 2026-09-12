@@ -28,6 +28,7 @@ import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-mo
 import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel'
 import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
 import { ModeSwitcher } from '@/components/chat/mode-switcher'
+import { SamplingParamsButton } from '@/components/chat/sampling-params-panel'
 import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
 import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
@@ -764,6 +765,9 @@ export function MessageInput({
               {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
                   与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
               <ModeSwitcher disabled={isStreaming} />
+              {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
+                  自定义 system prompt,会话级持久化,随请求下发 LLM 网关 */}
+              <SamplingParamsButton disabled={isStreaming} />
               <input
                 ref={fileInputRef}
                 type="file"

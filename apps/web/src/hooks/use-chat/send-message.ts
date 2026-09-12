@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useModeStore } from '@/stores/mode'
+import { getSamplingParams } from '@/stores/sampling-params'
 import { useTimelineStore } from '@/stores/timeline-store'
 import { toast } from '@/components/common'
 import {
@@ -391,11 +392,21 @@ export function createSendMessage(
         effectiveModel,
       )
 
+      // P1-7(2026-09-13 立):读取会话级高级参数(全局默认 + 会话覆盖),
+      // 发送时一次性快照,避免流式过程中用户改参数导致同一轮请求参数不一致。
+      const samplingParams = getSamplingParams(conversationId)
+
       await streamChat({
         model: effectiveModel,
         // 重新生成模式:用户消息已在 store/历史中,直接作为完整上下文发送,不重复追加
         messages: isRegenerate ? history : [...history, { role: 'user', content: text }],
         signal: controller.signal,
+        // P1-7(2026-09-13 立):会话级采样参数(高级参数面板),undefined = 用模型默认,
+        // api-client 仅在字段存在时写入 body(见 client.ts streamChat body 构造)。
+        temperature: samplingParams.temperature,
+        topP: samplingParams.topP,
+        topK: samplingParams.topK,
+        maxTokens: samplingParams.maxTokens,
         metadata: {
           conversationId,
           userId,
@@ -406,6 +417,9 @@ export function createSendMessage(
         extraBody: {
           // ChatMode 4 态唯一模式字段(2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已废弃,语义合并到 mode)
           mode: useModeStore.getState().currentMode,
+          // P1-7:自定义 system prompt(会话级),ai-service 注入系统消息最顶部;
+          // 未设置时不传该 key,保持上游默认行为。
+          ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
         },
         workspacePath,
         workspaceContext,
