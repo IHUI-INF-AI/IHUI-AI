@@ -32,15 +32,36 @@ export interface ToolCallEvent {
   errorType?: string
 }
 
+/**
+ * 自愈事件(2-3 第四批 2026-09-12):agent_loop_v2._maybe_self_heal 经
+ * /api/agents/tasks/stream 的 `event: self-heal` SSE 事件推送。
+ * phase=started(检测到失败 pytest,heal 启动)/ finished(ok=修复结果)。
+ */
+export interface SelfHealEvent {
+  id: string
+  sessionId: string
+  iteration: number | null
+  phase: 'started' | 'finished'
+  command: string
+  failed: number | null
+  ok: boolean | null
+  attempts: number | null
+  rollbackCount: number
+  ts: number
+}
+
 export interface UseAgentRuntimeReturn {
   sessionTree: AgentSession[]
   loading: boolean
   tokenStream: TokenEvent[]
   toolCallChain: ToolCallEvent[]
+  healEvents: SelfHealEvent[]
   connected: boolean
 }
 
 const MAX_TOKENS = 1000
+/** 自愈事件 FIFO 上限(单 run 事件量小,50 条足够覆盖长会话) */
+const MAX_HEAL_EVENTS = 50
 
 type SsePayload =
   | ({ id: string; timestamp: number } & TokenEvent)
@@ -57,12 +78,19 @@ function appendFifo(prev: TokenEvent[], evt: TokenEvent): TokenEvent[] {
   return next.length > MAX_TOKENS ? next.slice(next.length - MAX_TOKENS) : next
 }
 
+function appendHealFifo(prev: SelfHealEvent[], evt: SelfHealEvent): SelfHealEvent[] {
+  const next = [...prev, evt]
+  return next.length > MAX_HEAL_EVENTS ? next.slice(next.length - MAX_HEAL_EVENTS) : next
+}
+
 /** Agent 运行时 Hook:session 列表(fetch)+ 实时 token/工具调用流(SSE)。 */
 export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
   const [sessionTree, setSessionTree] = React.useState<AgentSession[]>([])
   const [loading, setLoading] = React.useState(false)
   const [tokenStream, setTokenStream] = React.useState<TokenEvent[]>([])
   const [toolCallChain, setToolCallChain] = React.useState<ToolCallEvent[]>([])
+  /** 2-3 第四批(2026-09-12):自愈事件 FIFO(带 event: self-heal 的命名 SSE 事件) */
+  const [healEvents, setHealEvents] = React.useState<SelfHealEvent[]>([])
   const [connected, setConnected] = React.useState(false)
   const esRef = React.useRef<EventSource | null>(null)
 
@@ -97,6 +125,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     if (!agentId || typeof window === 'undefined' || !('EventSource' in window)) {
       setTokenStream([])
       setToolCallChain([])
+      setHealEvents([])
       setConnected(false)
       return
     }
@@ -163,6 +192,46 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       }
     }
 
+    // 2-3 第四批(2026-09-12):self-heal 是命名 SSE 事件(带 `event: self-heal` 行),
+    // 不触发 onmessage,必须 addEventListener(参照 tool-approval-dialog 模式)。
+    // 后端 agents.py 输出 {"type":"self-heal","payload":{session_id,iteration,phase,command,failed,ok,attempts,rollbacks,checkpoint_id}}
+    es.addEventListener('self-heal', (e) => {
+      try {
+        const data = JSON.parse(e.data) as {
+          type?: string
+          payload?: {
+            session_id?: string
+            iteration?: number | null
+            phase?: 'started' | 'finished'
+            command?: string
+            failed?: number | null
+            ok?: boolean | null
+            attempts?: number | null
+            rollbacks?: number
+          }
+        }
+        const p = data.payload
+        const phase = p?.phase
+        if (!p || (phase !== 'started' && phase !== 'finished')) return
+        setHealEvents((prev) =>
+          appendHealFifo(prev, {
+            id: `${p.session_id ?? 'unknown'}-${phase}-${p.iteration ?? 0}-${Date.now()}`,
+            sessionId: p.session_id ?? '',
+            iteration: p.iteration ?? null,
+            phase,
+            command: p.command ?? '',
+            failed: phase === 'started' ? (p.failed ?? null) : null,
+            ok: phase === 'finished' ? (p.ok ?? null) : null,
+            attempts: phase === 'finished' ? (p.attempts ?? null) : null,
+            rollbackCount: p.rollbacks ?? 0,
+            ts: Date.now(),
+          }),
+        )
+      } catch {
+        /* 忽略非 JSON 事件 */
+      }
+    })
+
     return () => {
       es.close()
       esRef.current = null
@@ -170,6 +239,6 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     }
   }, [agentId])
 
-  return { sessionTree, loading, tokenStream, toolCallChain, connected }
+  return { sessionTree, loading, tokenStream, toolCallChain, healEvents, connected }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

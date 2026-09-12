@@ -16,12 +16,26 @@ import {
   Pause,
   Play,
   RotateCw,
+  ShieldCheck,
+  ShieldAlert,
+  Sparkles,
 } from 'lucide-react'
 import { Button, cn } from '@ihui/ui-react'
 import { useAuthStore } from '@/stores/auth'
 import { Tooltip } from '@/components/feedback'
 
-type LogType = 'token' | 'tool_call' | 'tool_result' | 'error'
+// 2-3 第四批(2026-09-12):补齐后端 _map_hook_event_to_log_entry 全部可推送类型。
+// 此前只有 4 类,session/tool-approval/self-heal/message 日志到达时
+// TYPE_CONFIG[entry.type] 解构 undefined 导致整个日志面板崩溃。
+type LogType =
+  | 'token'
+  | 'tool_call'
+  | 'tool_result'
+  | 'error'
+  | 'session'
+  | 'tool-approval'
+  | 'self-heal'
+  | 'message'
 
 interface LogEntry {
   ts: string
@@ -43,6 +57,10 @@ const TYPE_CONFIG: Record<
   tool_call: { icon: Wrench, color: 'text-sky-600 dark:text-sky-400' },
   tool_result: { icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-500' },
   error: { icon: AlertTriangle, color: 'text-destructive' },
+  session: { icon: Sparkles, color: 'text-violet-600 dark:text-violet-400' },
+  'tool-approval': { icon: ShieldAlert, color: 'text-amber-600 dark:text-amber-500' },
+  'self-heal': { icon: ShieldCheck, color: 'text-cyan-600 dark:text-cyan-400' },
+  message: { icon: MessageSquare, color: 'text-foreground' },
 }
 
 // 2026-08-02 修复 Bug #9:删除 SAMPLE_LOGS 假数据,
@@ -118,7 +136,13 @@ export function AgentRuntimeLog({ agentId, running }: Props) {
               const json = JSON.parse(payload) as Partial<LogEntry>
               const entryType = json.type
               const entryContent = json.content
-              if (entryType && typeof entryContent === 'string') {
+              // 2-3 第四批(2026-09-12):运行时白名单校验,后端新增类型未同步时
+              // 丢弃该行而非渲染崩溃(TYPE_CONFIG[未知] 解构 undefined)
+              if (
+                entryType &&
+                typeof entryContent === 'string' &&
+                Object.prototype.hasOwnProperty.call(TYPE_CONFIG, entryType)
+              ) {
                 const entry: LogEntry = {
                   ts: json.ts ?? new Date().toISOString(),
                   type: entryType,
