@@ -48,7 +48,8 @@ vi.mock('../clawdbot/logger.js', () => ({
   logger: { info: () => {}, warn: () => {}, error: () => {} },
 }))
 
-const { budgetRepoFiles, generateRepoWiki } = await import('../repo-wiki-service.js')
+const { budgetRepoFiles, generateRepoWiki, extractImportEdges, renderDependencyGraph } =
+  await import('../repo-wiki-service.js')
 
 function file(path: string, sizeChars: number): { path: string; content: string } {
   return { path, content: 'x'.repeat(sizeChars) }
@@ -167,6 +168,116 @@ describe('generateRepoWiki — 主流程(LLM mock 注入)', () => {
     await expect(
       generateRepoWiki({ userId: null, repoName: 'demo', files: [] }, { callLlm: okCaller }),
     ).rejects.toThrow()
+  })
+})
+
+describe('extractImportEdges — 模块依赖图静态解析', () => {
+  it('TS 相对导入跨模块成边(含 .. 归一化与补扩展名)', () => {
+    const edges = extractImportEdges([
+      { path: 'apps/api/src/a.ts', content: "import { util } from '../../../web/util'\n" },
+      { path: 'web/util.ts', content: 'export const util = 1\n' },
+    ])
+    expect(edges).toEqual([{ from: 'apps', to: 'web', count: 1 }])
+  })
+
+  it('JS require 相对导入成边(可命中 /index.*)', () => {
+    const edges = extractImportEdges([
+      { path: 'apps/api/server.js', content: "const u = require('./utils')\n" },
+      { path: 'apps/api/utils/index.js', content: 'module.exports = {}\n' },
+    ])
+    // 同属 apps 模块 → 自环被丢弃
+    expect(edges).toEqual([])
+    const cross = extractImportEdges([
+      { path: 'apps/api/server.js', content: "const u = require('../../shared/utils')\n" },
+      { path: 'shared/utils/index.js', content: 'module.exports = {}\n' },
+    ])
+    expect(cross).toEqual([{ from: 'apps', to: 'shared', count: 1 }])
+  })
+
+  it('Python from x import y / import x 成边', () => {
+    const edges = extractImportEdges([
+      { path: 'services/a.py', content: 'from utils.b import thing\nimport utils.helpers\n' },
+      { path: 'utils/b.py', content: 'x = 1\n' },
+      { path: 'utils/helpers.py', content: 'y = 2\n' },
+    ])
+    expect(edges).toEqual([{ from: 'services', to: 'utils', count: 2 }])
+  })
+
+  it('第三方包(react / @ihui/xxx)被跳过', () => {
+    const edges = extractImportEdges([
+      {
+        path: 'apps/web/app/page.tsx',
+        content: "import React from 'react'\nimport { db } from '@ihui/database'\n",
+      },
+    ])
+    expect(edges).toEqual([])
+  })
+
+  it('自环(from===to)被丢弃', () => {
+    const edges = extractImportEdges([
+      { path: 'src/a.ts', content: "import { b } from './b'\n" },
+      { path: 'src/b.ts', content: 'export const b = 1\n' },
+    ])
+    expect(edges).toEqual([])
+  })
+
+  it('聚合与排序确定性(count 降序 → from 升序 → to 升序)', () => {
+    const files = [
+      { path: 'a/one.ts', content: "import { t } from '../b/two'\nimport { h } from '../c/three'\n" },
+      { path: 'a/two.ts', content: "import { o } from '../b/other'\n" },
+      { path: 'b/one.ts', content: "import { o } from '../c/other'\n" },
+      { path: 'b/two.ts', content: "import { t } from '../c/three'\n" },
+      { path: 'b/other.ts', content: '' },
+      { path: 'c/three.ts', content: '' },
+      { path: 'c/other.ts', content: '' },
+    ]
+    const expected = [
+      { from: 'a', to: 'b', count: 2 },
+      { from: 'b', to: 'c', count: 2 },
+      { from: 'a', to: 'c', count: 1 },
+    ]
+    const first = extractImportEdges(files)
+    const second = extractImportEdges(files)
+    expect(first).toEqual(expected)
+    expect(second).toEqual(first)
+  })
+
+  it('空数组返回 []', () => {
+    expect(extractImportEdges([])).toEqual([])
+  })
+})
+
+describe('renderDependencyGraph — 依赖图渲染', () => {
+  it('空数组返回空字符串', () => {
+    expect(renderDependencyGraph([])).toBe('')
+  })
+
+  it('非空时含标题/说明/mermaid 代码块/表头', () => {
+    const out = renderDependencyGraph([{ from: 'apps', to: 'packages', count: 3 }])
+    expect(out).toContain('## 模块依赖图')
+    expect(out).toContain('```mermaid')
+    expect(out).toContain('graph LR')
+    expect(out).toContain('| 模块 | 依赖 | 引用数 |')
+    expect(out).toContain('apps["apps"] --> packages["packages"]')
+    expect(out).toContain('| apps | packages | 3 |')
+  })
+
+  it('模块名含特殊字符时 mermaid 节点加双引号包裹', () => {
+    const out = renderDependencyGraph([{ from: '(root)', to: 'apps', count: 1 }])
+    expect(out).toContain('"(root)"["(root)"]')
+    expect(out).toContain('apps["apps"]')
+  })
+
+  it('超过 60 条时只渲染前 60 条并追加说明', () => {
+    const edges = Array.from({ length: 61 }, (_, i) => ({
+      from: `m${String(i).padStart(3, '0')}`,
+      to: 'target',
+      count: 1,
+    }))
+    const out = renderDependencyGraph(edges)
+    expect(out).toContain('（仅显示引用数最高的 60 条）')
+    const tableRows = out.split('\n').filter((l) => l.startsWith('| m'))
+    expect(tableRows).toHaveLength(60)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

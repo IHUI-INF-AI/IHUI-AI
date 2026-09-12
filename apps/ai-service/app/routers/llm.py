@@ -341,6 +341,68 @@ def _inject_workspace_memory(
     return new_messages
 
 
+def _escape_xml_attr(value: str) -> str:
+    """转义 XML 属性值中的 & < > " ',防止属性注入破坏标签结构。"""
+    return (
+        value.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
+
+
+def _inject_repo_wiki(
+    messages: list[dict[str, Any]],
+    wiki_context: str | None,
+    wiki_repo: str | None = None,
+) -> list[dict[str, Any]]:
+    """P1-8(2026-09-13 立,Repo Wiki):将「项目百科」摘要注入为 system message。
+
+    独立实现,不改动 _inject_workspace_memory 的任何行为。语义与工作区记忆同型:
+    - wiki_context 为空/纯空白 → 原样返回 messages
+    - messages[0].role == 'system' → 追加到现有 system content 末尾
+    - messages 无 system → 在开头 insert 一条新 system message
+    - 用 <repo_wiki repo="...">...</repo_wiki> 包裹正文(repo 值做 XML 属性转义,防注入)
+    - 去重 marker:<!-- repo_wiki:{repo} -->(repo 为空时用 unknown),
+      目标 system content 中已存在该 marker 则原样返回 messages
+    - 不修改入参列表本身(拷贝后返回)
+
+    Args:
+        messages: 原始消息列表
+        wiki_context: 项目百科正文(为空/纯空白时跳过)
+        wiki_repo: 仓库名(None/空 → 标签与 marker 用 'unknown')
+
+    Returns:
+        注入项目百科后的新消息列表(不修改原列表)
+    """
+    if not wiki_context or not str(wiki_context).strip():
+        return messages
+    repo_label = (wiki_repo or "").strip() or "unknown"
+    marker = f"<!-- repo_wiki:{repo_label} -->"
+    body = (
+        "以下为该项目自动生成的「项目百科」(Repo Wiki)摘要,"
+        "可作为回答代码/架构问题的权威背景:\n\n"
+        f"{wiki_context}"
+    )
+    isolated = (
+        f'<repo_wiki repo="{_escape_xml_attr(repo_label)}">\n'
+        f"{body}\n"
+        f"</repo_wiki>"
+    )
+    new_messages = list(messages)
+    if new_messages and new_messages[0].get("role") == "system":
+        existing = new_messages[0].get("content", "")
+        if marker in str(existing):
+            return messages
+        merged = f"{existing}\n\n{marker}\n{isolated}" if existing else f"{marker}\n{isolated}"
+        new_messages[0] = {**new_messages[0], "content": merged}
+    else:
+        # 新插入的 system 也带上 marker,保证二次调用可命中去重
+        new_messages.insert(0, {"role": "system", "content": f"{marker}\n{isolated}"})
+    return new_messages
+
+
 # Plan/Act 模式引导 prompt(2026-07-24 立,自研双模切换)
 # plan 模式:LLM 只制定计划不调用工具;act 模式:正常 tool loop 执行
 _PLAN_MODE_PROMPT = (
@@ -511,6 +573,15 @@ class LLMCompleteRequest(BaseModel):
     # 优先级:workspace_context > workspace_path
     workspace_context: str | None = Field(
         None, description="浏览器端预加载的工作区文件内容,直接注入 system prompt(优先于 workspace_path)"
+    )
+    # P1-8(2026-09-13 立,Repo Wiki):项目百科摘要注入
+    # API 网关按 repo_name 从 repo_wiki_docs 读出最新一版 overview 文档,截断后经此字段传入,
+    # 由 _inject_repo_wiki 独立注入(与 workspace_context 互不影响)。
+    wiki_context: str | None = Field(
+        None, description="项目百科(Repo Wiki)摘要,注入 system prompt 作为代码/架构问答背景"
+    )
+    wiki_repo: str | None = Field(
+        None, description="项目百科对应仓库名(用于去重 marker 与 <repo_wiki repo> 标签标注)"
     )
     # 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一,Python 端兜底)
     context_limit: int | None = Field(
@@ -719,6 +790,8 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     owner_uuid = _resolve_owner_uuid(request)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(req.messages, req.workspace_path, req.workspace_context)
+    # P1-8(2026-09-13 立,Repo Wiki):项目百科独立注入(紧邻工作区记忆,互不影响)
+    messages = _inject_repo_wiki(messages, req.wiki_context, req.wiki_repo)
     # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
     messages = _inject_custom_system_prompt(messages, req.system_prompt)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
@@ -1206,6 +1279,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     messages = _inject_plan_mode_prompt(req.messages, req.plan_mode)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(messages, req.workspace_path, req.workspace_context)
+    # P1-8(2026-09-13 立,Repo Wiki):项目百科独立注入(紧邻工作区记忆,互不影响)
+    messages = _inject_repo_wiki(messages, req.wiki_context, req.wiki_repo)
     # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
     messages = _inject_custom_system_prompt(messages, req.system_prompt)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
