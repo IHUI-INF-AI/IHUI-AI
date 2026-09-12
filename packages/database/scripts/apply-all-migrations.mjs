@@ -9,13 +9,14 @@
 import postgres from 'postgres'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const targets = [
   { url: 'postgresql://postgres:postgres@localhost:5432/ihui', name: 'dev ihui' },
   { url: 'postgresql://postgres:postgres@localhost:5432/ihui_test', name: 'test ihui_test' },
 ]
 
-const drizzleDir = 'g:/IHUI-AI/packages/database/drizzle'
+const drizzleDir = fileURLToPath(new URL('../drizzle', import.meta.url))
 const files = readdirSync(drizzleDir)
   .filter((f) => /^\d{4}_.*\.sql$/.test(f))
   .sort()
@@ -84,7 +85,10 @@ for (const { url, name } of targets) {
           await sql.unsafe(s)
         } catch (e) {
           const msg = e?.message ?? String(e)
-          if (msg.includes('already exists') || (msg.includes('does not exist') && s.includes('DROP'))) {
+          if (
+            msg.includes('already exists') ||
+            (msg.includes('does not exist') && s.includes('DROP'))
+          ) {
             // 幂等:跳过
           } else {
             throw e

@@ -7,7 +7,8 @@
  * 用法:cd apps/api && node --import tsx scripts/check-category-distribution.mts
  */
 import { config } from 'dotenv'
-config({ path: 'g:/IHUI-AI/apps/api/.env' })
+import { fileURLToPath } from 'node:url'
+config({ path: fileURLToPath(new URL('../.env', import.meta.url)) })
 import { createDb } from '@ihui/database'
 import { sql } from 'drizzle-orm'
 
