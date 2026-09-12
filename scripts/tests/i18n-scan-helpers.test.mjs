@@ -478,6 +478,7 @@ describe('scanCode — 黑盒集成测试(通过临时 fixture 文件)', () => {
   let multiLineFile
   let tListFile
   let i18nKeyFile
+  let arrayFormFile
 
   before(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-scan-test-'))
@@ -487,6 +488,7 @@ describe('scanCode — 黑盒集成测试(通过临时 fixture 文件)', () => {
     multiLineFile = path.join(tmpDir, 'multi-line.tsx')
     tListFile = path.join(tmpDir, 'tlist-page.tsx')
     i18nKeyFile = path.join(tmpDir, 'tab-bar.tsx')
+    arrayFormFile = path.join(tmpDir, 'array-form.tsx')
     fs.writeFileSync(
       clientFile,
       [
@@ -582,6 +584,20 @@ describe('scanCode — 黑盒集成测试(通过临时 fixture 文件)', () => {
         "  { key: 'live', i18nKey: 'nav.live', icon: 'video' },",
         "  { key: 'profile', i18nKey: 'nav.profile', icon: 'user' },",
         "]",
+      ].join('\n'),
+      'utf8',
+    )
+    // 2026-09-12 增强:[key, fallback] 数组元组形式 fixture(模拟 miniapp-taro pkg-shop/pay/result/index.tsx)
+    // `pending: ['pay.result.pending', '支付处理中']` 首元素引号前是 `[` 而非空白,
+    // 原 STRING_ARRAY_KEY_RE 的 `(?:^|\s)` 前缀不命中,导致 pay.result.pending/failed 被误判为死 key
+    fs.writeFileSync(
+      arrayFormFile,
+      [
+        "const map = {",
+        "  pending: ['pay.result.pending', '支付处理中'],",
+        '  success: ["pay.result.success", "支付成功"],',
+        "  failed: ['pay.result.failed', '支付失败'],",
+        "}",
       ].join('\n'),
       'utf8',
     )
@@ -710,6 +726,18 @@ describe('scanCode — 黑盒集成测试(通过临时 fixture 文件)', () => {
     assert.ok(staticRefs.has('nav.courses'), "应识别 i18nKey: 'nav.courses'")
     assert.ok(staticRefs.has('nav.live'), "应识别 i18nKey: 'nav.live'")
     assert.ok(staticRefs.has('nav.profile'), "应识别 i18nKey: 'nav.profile'(原误判为死 key)")
+  })
+
+  test('scanCode 识别 [key, fallback] 数组元组形式引用(2026-09-12 STRING_ARRAY_KEY_RE 增强,2 个 miniapp-taro 死 key 误报关键场景)', () => {
+    // 关键回归测试:miniapp-taro pkg-shop/pay/result/index.tsx 用
+    // `pending: ['pay.result.pending', '支付处理中']` 数组元组引用 key,
+    // 首元素引号前是 `[` 而非空白,原 (?:^|\s) 前缀不命中,
+    // 导致 pay.result.pending / pay.result.failed 被误判为死 key
+    const { staticRefs, scanned } = scanCode([arrayFormFile])
+    assert.equal(scanned, 1)
+    assert.ok(staticRefs.has('pay.result.pending'), "应识别 ['pay.result.pending', '支付处理中'] 数组首元素")
+    assert.ok(staticRefs.has('pay.result.success'), '应识别双引号数组首元素')
+    assert.ok(staticRefs.has('pay.result.failed'), '应识别 [key, fallback] 数组首元素(原误判为死 key)')
   })
 
   test('scanCode 多文件聚合(client + server + propKey + multiLine + tList + i18nKey 混合)', () => {
