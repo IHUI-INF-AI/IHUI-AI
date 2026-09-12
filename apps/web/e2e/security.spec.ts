@@ -28,7 +28,9 @@ test.describe.parallel('安全专项', () => {
     // 失败时截图
     if (testInfo.status !== testInfo.expectedStatus) {
       await page
-        .screenshot({ path: `e2e/screenshots/security-${testInfo.title.replace(/\s+/g, '-')}.png` })
+        .screenshot({
+          path: `e2e/test-screenshots/security-${testInfo.title.replace(/[^\p{L}\p{N}]+/gu, '-')}.png`,
+        })
         .catch(() => {})
     }
   })
