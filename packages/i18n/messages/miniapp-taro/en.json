@@ -56,7 +56,6 @@
     "login": "Login",
     "logging": "Logging in…",
     "brand": "IHUI AI",
-    "slogan": "Learn more efficiently",
     "phoneLogin": "Phone login",
     "passwordLogin": "Password login",
     "phonePlaceholder": "Enter phone number",
@@ -67,15 +66,10 @@
     "passwordPlaceholder": "Enter password",
     "forgotPassword": "Forgot password",
     "wechatLogin": "WeChat login",
-    "wechatOnly": "Only WeChat login is supported",
-    "ssoLogin": "SSO login",
-    "ssoLoginHint": "One-click enterprise login",
-    "agreement": "I have read and agree to the Terms of Service and Privacy Policy",
     "cancelAuth": "Cancel Authorization",
     "codeCountdownSuffix": "s to resend",
     "getPhoneFail": "Failed to get phone number",
     "loginFailed": "Login failed, please try again",
-    "quickLogin": "Quick Login",
     "wechatOneClick": "One-click WeChat Login"
   },
   "forgot": {
@@ -296,7 +290,6 @@
     "cancelSuccess": "Order cancelled",
     "cancelFailed": "Failed to cancel order",
     "list": {
-      "orderTime": "Order time",
       "refundTime": "Refund time",
       "applyRefund": "Apply for Refund",
       "cancel": "Cancel",
@@ -325,31 +318,10 @@
       "submitting": "Recharging…",
       "invalidAmount": "Please enter a valid amount",
       "success": {
-        "title": "Recharge successful",
-        "desc": "The top-up has arrived",
-        "backHome": "Back to home",
-        "backWallet": "Back to wallet",
-        "tipsTitle": "Notice",
-        "arriveTime": "Arrival time",
-        "orderNoLabel": "Order No.",
-        "shareFriend": "Share with a Friend",
-        "tipsText": "The recharge amount has been credited. You can view the changes in the wallet details. If you have any questions, please contact customer service.",
-        "viewDetail": "View Details"
+        "shareFriend": "Share with a Friend"
       },
       "fail": {
-        "title": "Recharge failed",
-        "desc": "Recharge unsuccessful, please retry later",
-        "retry": "Retry",
-        "backWallet": "Back to wallet",
-        "orderNoLabel": "Order No.",
-        "hintTitle": "Notice",
-        "contactService": "Contact customer service",
-        "faqQ": "Will I be charged if recharge fails?",
-        "amountLabel": "Recharge Amount",
-        "faqA": "If the payment is not completed, no charge will be made; if you have been charged but the failure is shown, the amount will be refunded to the original account. Please keep an eye on your account changes.",
-        "hintText": "If the recharge has not arrived, please confirm whether the payment was completed. The amount will be refunded to the original account within 1-3 business days, or contact customer service for assistance.",
-        "reasonLabel": "Failure Reason",
-        "viewDetail": "View Details"
+        "contactService": "Contact customer service"
       },
       "tokenRate": "1 CNY = {n} IHUI points",
       "activityTitle": "Limited-time event",
@@ -434,7 +406,6 @@
     "language": {
       "chooseHint": "Choose app language",
       "tip": "Language switch will be saved and take effect automatically",
-      "currentLabel": "Current Language",
       "note": "Some content may still be displayed in the original language. We are continuously improving multilingual support."
     },
     "notification": {
@@ -789,7 +760,6 @@
       "contentNotExist": "Share content does not exist",
       "tokenCost": "Cost {n} tokens",
       "thinkingProcess": "Thinking process",
-      "aiAnswer": "AI answer",
       "regenerate": "Regenerate",
       "shareFriend": "Share to friends",
       "voiceAnswer": "🔊 Voice answer",
@@ -949,10 +919,7 @@
       "publishFail": "Publish failed"
     },
     "list": {
-      "title": "Works plaza",
       "unnamed": "Untitled work",
-      "anonymous": "Anonymous author",
-      "empty": "No works",
       "catText": "Text",
       "catImage": "Image",
       "catVideo": "Video",
@@ -961,8 +928,7 @@
       "invalidVideo": "Invalid video URL",
       "invalidAudio": "Invalid audio URL",
       "audioFail": "Audio playback failed",
-      "untitled": "Text content",
-      "promptLabel": "Prompt"
+      "untitled": "Text content"
     }
   },
   "coursePlanet": {
@@ -1244,7 +1210,6 @@
       "verifyOk": "Verification successful",
       "verifyFail": "Verification failed"
     },
-    "rankTitle": "Distribution Ranking",
     "rankEmpty": "No ranking data",
     "statsTitle": "Revenue Overview",
     "thisMonth": "This Month",
@@ -2223,14 +2188,10 @@
     "codePlaceholder": "Enter code",
     "hide": "Hide",
     "show": "Show",
-    "pwdHint": "6-20 characters, letters and numbers recommended",
     "submitting": "Signing up…",
     "agreePrefix": "I have read and agree to",
     "userAgreement": "《User Agreement》",
-    "privacyPolicy": "《Privacy Policy》",
-    "hasAccount": "Already have an account?",
-    "toLogin": "Log in",
-    "text1": "Quick third-party binding"
+    "privacyPolicy": "《Privacy Policy》"
   },
   "message": {
     "tabs": {
@@ -2652,9 +2613,7 @@
     "email": {
       "emailInvalid": "Invalid email",
       "bindSuccess": "Email bound",
-      "email": "Email",
       "emailPlaceholder": "Enter your email",
-      "code": "Code",
       "codePlaceholder": "Enter the code",
       "getCode": "Get code",
       "bind": "Bind",
@@ -2718,8 +2677,6 @@
       "phoneInvalid": "Invalid phone number",
       "codeSendFailed": "Code send failed",
       "bindSuccess": "Phone bound",
-      "phone": "Phone",
-      "code": "Code",
       "codePlaceholder": "Enter the code",
       "getCode": "Get code",
       "bind": "Bind",
