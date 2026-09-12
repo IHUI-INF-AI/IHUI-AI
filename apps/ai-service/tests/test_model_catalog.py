@@ -28,6 +28,8 @@ from app.services.model_catalog import (
     ModelTier,
     annotate_models,
     classify_model,
+    is_fim_model,
+    pick_fim_model,
 )
 
 NOW = datetime(2026, 8, 29, tzinfo=UTC)
@@ -241,7 +243,7 @@ def test_annotate_models_fills_all_fields() -> None:
     models = [_mk("deepseek-v4-pro"), _mk("@cf/baai/bge-m3", "cloudflare_workers_ai")]
     annotate_models(models, now=NOW)
     for m in models:
-        for field in ("category", "model_tier", "family", "classify_reason"):
+        for field in ("category", "model_tier", "family", "classify_reason", "fim"):
             assert field in m, f"缺少字段 {field}: {m}"
 
 
@@ -255,4 +257,98 @@ def test_unknown_tier_defaults_to_latest() -> None:
     annotate_models(models, now=NOW)
     assert models[0]["model_tier"] == ModelTier.STANDARD.value
     assert models[0]["category"] == ModelCategory.CHAT.value
+
+
+# ---------------------------------------------------------------------------
+# FIM 补全档位(2026-09-13 P1-9):轻量/代码专用模型 → fim=True
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "model_id",
+    [
+        "codestral-latest",
+        "qwen2.5-coder-7b",
+        "deepseek-coder-v2",
+        "codegemma-7b",
+        "starcoder2-15b",
+        "tabby-1.0",
+        "stable-code-3b",
+        "~mistralai/codestral-latest",  # openrouter 命名空间前缀
+        "internal-fim-v1",
+    ],
+)
+def test_is_fim_model_positive(model_id: str) -> None:
+    assert is_fim_model(model_id) is True, f"{model_id} 应命中 FIM 档位"
+
+
+@pytest.mark.parametrize(
+    "model_id",
+    ["gpt-4o", "deepseek-chat", "claude-opus-5", "gemini-3.1-flash", "qwen3.8-27b"],
+)
+def test_is_fim_model_negative(model_id: str) -> None:
+    assert is_fim_model(model_id) is False, f"{model_id} 不应命中 FIM 档位"
+
+
+def test_annotate_models_attaches_fim_flag() -> None:
+    """annotate_models 必须给每个模型 dict 追加 fim 布尔字段。"""
+    models = [_mk("codestral-latest"), _mk("gpt-4o"), _mk("deepseek-chat")]
+    annotate_models(models, now=NOW)
+    assert models[0]["fim"] is True
+    assert models[1]["fim"] is False
+    assert models[2]["fim"] is False
+
+
+# ---------------------------------------------------------------------------
+# 补全专用档位选型(2026-09-13 P1-9):pick_fim_model 纯函数
+# ---------------------------------------------------------------------------
+
+
+def test_pick_fim_model_explicit_request_passthrough() -> None:
+    """显式指定模型 → 原样透传(不受候选列表影响)。"""
+    models = [{"id": "qwen2.5-coder-7b", "fim": True}]
+    assert pick_fim_model(models, "claude-opus-5") == "claude-opus-5"
+
+
+def test_pick_fim_model_auto_picks_first_fim() -> None:
+    """auto + 有 fim 模型 → 取列表**原顺序**第一个 fim True。"""
+    models = [
+        {"id": "gpt-4o", "fim": False},
+        {"id": "codestral-latest", "fim": True},
+        {"id": "qwen2.5-coder-7b", "fim": True},
+    ]
+    assert pick_fim_model(models, "auto") == "codestral-latest"
+    assert pick_fim_model(models, None) == "codestral-latest"
+    assert pick_fim_model(models, "AUTO") == "codestral-latest"
+
+
+def test_pick_fim_model_no_fim_returns_none() -> None:
+    """auto + 无 fim 模型 → None(调用方回退 auto)。"""
+    models = [{"id": "gpt-4o", "fim": False}, {"id": "deepseek-chat"}]
+    assert pick_fim_model(models, "auto") is None
+    assert pick_fim_model(models, None) is None
+
+
+def test_pick_fim_model_empty_or_none_list() -> None:
+    assert pick_fim_model([], "auto") is None
+    assert pick_fim_model(None, "auto") is None
+    assert pick_fim_model(None, None) is None
+
+
+def test_pick_fim_model_skips_malformed_elements() -> None:
+    """畸形元素(非 dict / 缺 id / id 非字符串 / fim 非布尔)→ 跳过不崩。"""
+    models: list = [
+        None,
+        "codestral-latest",
+        123,
+        {"fim": True},  # 缺 id
+        {"id": "", "fim": True},  # 空 id
+        {"id": 42, "fim": True},  # id 非字符串
+        {"id": "x", "fim": 1},  # 1 不是严格 True
+        {"id": "y", "fim": "true"},  # 字符串也不是严格 True
+        {"id": "starcoder2-15b", "fim": True},
+    ]
+    assert pick_fim_model(models, "auto") == "starcoder2-15b"
+    # 全是畸形元素 → None,且不抛异常
+    assert pick_fim_model([None, {"fim": True}, {"id": "z", "fim": 1}], "auto") is None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

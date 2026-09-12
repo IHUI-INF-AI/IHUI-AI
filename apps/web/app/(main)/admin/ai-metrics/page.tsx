@@ -7,10 +7,30 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
-import { Activity, Database, Crown, AlertCircle, Loader2, ArrowLeft, RefreshCw } from 'lucide-react'
+import {
+  Activity,
+  Database,
+  Crown,
+  AlertCircle,
+  Loader2,
+  ArrowLeft,
+  RefreshCw,
+  Code2,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatNumber as fmtNum } from '@/lib/date-utils'
 
@@ -32,6 +52,20 @@ interface VipMetrics {
   applies: number
   totalDiscounted: number
   byLevel: Record<string, number>
+}
+
+/** FIM 补全接受率单模型汇总(P1-9,来自 ai-service /api/llm/fim/metrics/summary) */
+interface FimModelMetrics {
+  model: string
+  requests: number
+  suggestions: number
+  accepted: number
+  acceptanceRate: number | null
+  failures: number
+  p50LatencyMs: number | null
+  p95LatencyMs: number | null
+  alert: boolean
+  alertReason: string | null
 }
 
 async function api<T>(url: string): Promise<T> {
@@ -68,24 +102,30 @@ export default function AiMetricsPage() {
   const [sse, setSse] = React.useState<SseMetrics | null>(null)
   const [pc, setPc] = React.useState<PromptCacheMetrics | null>(null)
   const [vip, setVip] = React.useState<VipMetrics | null>(null)
+  const [fim, setFim] = React.useState<FimModelMetrics[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState(false)
   const [lastRefresh, setLastRefresh] = React.useState<Date | null>(null)
 
   const refresh = React.useCallback(async () => {
     try {
-      const [sseData, costData, vipData] = await Promise.all([
+      const [sseData, costData, vipData, fimData] = await Promise.all([
         api<SseMetrics>('/api/ai/admin/ai/chat/metrics'),
         api<{ promptCacheMetrics?: PromptCacheMetrics }>(
           '/api/admin/ai/cost/dashboard?startDate=&endDate=',
         ),
         api<VipMetrics>('/api/admin/token-balance/metrics'),
+        // FIM 补全接受率:ai-service 端点。单独 catch 兜底,避免其不可用拖垮整页看板
+        api<{ models: FimModelMetrics[] }>('/api/llm/fim/metrics/summary').catch(() => ({
+          models: [] as FimModelMetrics[],
+        })),
       ])
       setSse(sseData)
       setPc(
         costData.promptCacheMetrics ?? { hits: 0, misses: 0, l2Hits: 0, l2Misses: 0, errors: 0 },
       )
       setVip(vipData)
+      setFim(fimData.models ?? [])
       setError(false)
       setLastRefresh(new Date())
     } catch {
@@ -140,6 +180,7 @@ export default function AiMetricsPage() {
     : []
 
   const vipLevels = vip?.byLevel ? Object.entries(vip.byLevel) : []
+  const fimAlerts = fim.filter((m) => m.alert)
   const showError = error && !sse && !pc && !vip
 
   return (
@@ -243,6 +284,77 @@ export default function AiMetricsPage() {
                   />
                 ))}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Code2 className="h-4 w-4" />
+                {t('fimAcceptance')}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">{t('fimAcceptanceDesc')}</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {fimAlerts.length > 0 && (
+                <div className="flex items-start gap-2 rounded-md border border-red-600/40 bg-red-600/5 p-3 text-sm text-red-600">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div className="space-y-1">
+                    <p>{t('fimAlert')}</p>
+                    {fimAlerts.map((m) => (
+                      <p key={m.model} className="text-xs">
+                        {m.model}: {m.alertReason}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {fim.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">{t('fimNoData')}</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('fimModel')}</TableHead>
+                        <TableHead className="text-right">{t('fimRequests')}</TableHead>
+                        <TableHead className="text-right">{t('fimSuggestions')}</TableHead>
+                        <TableHead className="text-right">{t('fimAccepted')}</TableHead>
+                        <TableHead className="text-right">{t('fimAcceptanceRate')}</TableHead>
+                        <TableHead className="text-right">{t('fimLatency')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {fim.map((m) => (
+                        <TableRow key={m.model}>
+                          <TableCell className="font-mono text-xs">{m.model}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {fmtNum(m.requests)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {fmtNum(m.suggestions)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {fmtNum(m.accepted)}
+                          </TableCell>
+                          <TableCell
+                            className={cn('text-right tabular-nums', m.alert && 'text-red-600')}
+                          >
+                            {m.acceptanceRate === null
+                              ? '—'
+                              : `${(m.acceptanceRate * 100).toFixed(1)}%`}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {m.p50LatencyMs === null
+                              ? '—'
+                              : `${m.p50LatencyMs} / ${m.p95LatencyMs ?? '—'}`}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </>
