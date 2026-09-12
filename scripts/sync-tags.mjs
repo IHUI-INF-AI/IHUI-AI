@@ -14,7 +14,7 @@ import { spawnSync } from 'node:child_process'
 import { appendFileSync } from 'node:fs'
 
 const G = 'C:/Program Files/Git/cmd/git.exe'
-const cwd = 'g:/IHUI-AI'
+const cwd = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LOG = 'push_tags.log'
 const log = (s) => {
   const line = `[${new Date().toISOString()}] ${s}`
@@ -52,17 +52,18 @@ for (const remote of process.argv.slice(2)) {
     .map((t) => t.replace('refs/tags/', ''))
   const missing = localTags.filter(
     (t) =>
-      !rt.has(t) &&
-      (MIRROR_NS.some((ns) => t.startsWith(ns)) ||
-        /^(v|desktop-v)[0-9]/.test(t)),
+      !rt.has(t) && (MIRROR_NS.some((ns) => t.startsWith(ns)) || /^(v|desktop-v)[0-9]/.test(t)),
   )
   log(`${remote}: local=${localTags.length} remote=${rt.size} to-sync=${missing.length}`)
   let pushed = 0
   for (let i = 0; i < missing.length; i += BATCH) {
     const batch = missing.slice(i, i + BATCH)
-    const r = run(
-      ['push', '--no-verify', remote, ...batch.map((t) => `refs/tags/${t}:refs/tags/${t}`)],
-    )
+    const r = run([
+      'push',
+      '--no-verify',
+      remote,
+      ...batch.map((t) => `refs/tags/${t}:refs/tags/${t}`),
+    ])
     if (r.status === 0) {
       pushed += batch.length
       log(`${remote} batch@${i} OK (${pushed}/${missing.length})`)

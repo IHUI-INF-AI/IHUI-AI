@@ -18,7 +18,8 @@
  * 建议集成到 ai-feed-process cron(在 computeTrendSignals 之前调用)。
  */
 import { config } from 'dotenv'
-config({ path: 'g:/IHUI-AI/apps/api/.env' })
+import { fileURLToPath } from 'node:url'
+config({ path: fileURLToPath(new URL('../.env', import.meta.url)) })
 
 import { createDb } from '@ihui/database'
 import { sql } from 'drizzle-orm'

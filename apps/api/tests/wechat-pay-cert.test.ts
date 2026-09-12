@@ -30,7 +30,7 @@ import {
  */
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-// apps/api/tests → g:/IHUI-AI
+// apps/api/tests → D:/IHUI-AI
 const PROJECT_ROOT = resolve(__dirname, '..', '..', '..')
 const CERT_DIR = join(PROJECT_ROOT, 'cert')
 

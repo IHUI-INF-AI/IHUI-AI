@@ -14,7 +14,7 @@ import io
 import sys
 from pathlib import Path
 
-README = Path("g:/IHUI-AI/README.md")
+README = Path(__file__).resolve().parents[1] / "README.md"
 
 # ── SRS 误判修正(13 处)──
 SRS_REPLACEMENTS = [

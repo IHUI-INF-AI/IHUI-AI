@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * check-parent-pollution.mjs — 项目父目录污染巡查(运行时项目外文件创建禁令)
  *
@@ -38,26 +37,56 @@
  * 退出码:0 = 无污染;1 = 发现项目外污染(阻塞 commit)
  */
 
-import { readFileSync, existsSync, readdirSync, unlinkSync, statSync } from 'node:fs';
-import * as os from 'node:os';
-import { execSync } from 'node:child_process';
-import { join, resolve, relative, dirname, basename, extname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { createLogger } from './lib/logger.mjs';
+import { readFileSync, existsSync, readdirSync, unlinkSync, statSync } from 'node:fs'
+import * as os from 'node:os'
+import { execSync } from 'node:child_process'
+import { join, resolve, relative, dirname, basename, extname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { createLogger } from './lib/logger.mjs'
 
-const log = createLogger();
+const log = createLogger()
 
-const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)));
-const PROJECT_NAME = basename(ROOT); // IHUI-AI
-const PARENT_DIR = dirname(ROOT);    // 项目父目录(动态推导,符合 AGENTS.md §15)
-const GRANDPARENT_DIR = dirname(PARENT_DIR); // 项目祖父目录(动态推导)
+const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)))
+const PROJECT_NAME = basename(ROOT) // IHUI-AI
+const PARENT_DIR = dirname(ROOT) // 项目父目录(动态推导,符合 AGENTS.md §15)
+const GRANDPARENT_DIR = dirname(PARENT_DIR) // 项目祖父目录(动态推导)
+
+/**
+ * 主仓真实 gitdir(兼容 separate-git-dir 布局)。
+ * 2026-09-12 起本仓 `.git` 是 28 字节指针文件(`gitdir: D:/IHUI-AI-git-repo`),
+ * 真 gitdir 在工作区之外;若将来改回 `.git` 目录形态,这里同样返回 `<ROOT>/.git`。
+ */
+function resolveRealGitDir() {
+  const dotGit = join(ROOT, '.git')
+  try {
+    if (!existsSync(dotGit)) return null
+    if (!statSync(dotGit).isFile()) return dotGit
+    const m = readFileSync(dotGit, 'utf8')
+      .trim()
+      .match(/^gitdir:\s*(.+)$/i)
+    return m ? resolve(ROOT, m[1].trim()) : null
+  } catch {
+    return null
+  }
+}
+const REAL_GIT_DIR = resolveRealGitDir()
 
 // ===== 可疑扩展名(agent 临时产物典型格式) =====
 const SUSPICIOUS_EXTS = new Set([
-  '.ps1', '.psm1', '.bat', '.cmd', '.sh',
-  '.py', '.js', '.mjs', '.cjs', '.ts',
-  '.txt', '.log', '.tmp',
-]);
+  '.ps1',
+  '.psm1',
+  '.bat',
+  '.cmd',
+  '.sh',
+  '.py',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.ts',
+  '.txt',
+  '.log',
+  '.tmp',
+])
 
 // ===== 文件名 agent 临时产物模式(强信号,直接判定) =====
 const AGENT_FILENAME_PATTERNS = [
@@ -77,7 +106,7 @@ const AGENT_FILENAME_PATTERNS = [
   /_result\.txt$/i,
   /_output\.txt$/i,
   /_list\.txt$/i,
-];
+]
 
 // ===== 内容 agent 操作痕迹(PowerShell/Node 自动化命令) =====
 const AGENT_OP_TRACES = [
@@ -98,7 +127,7 @@ const AGENT_OP_TRACES = [
   /WriteAllBytes|WriteAllText/i,
   /require\(['"]fs['"]\)/,
   /import.*from\s+['"]node:fs['"]/,
-];
+]
 
 // ===== 项目路径引用(同时命中即判定污染) =====
 const PROJECT_REF_PATTERNS = [
@@ -120,23 +149,27 @@ const PROJECT_REF_PATTERNS = [
   /packages[\\/]ui([-_]?react)?[\\/]/,
   /@ihui\//i,
   /@ihui[-_]/i,
-];
+]
 
 // ===== 用户合法文件名模式(白名单,不算污染) =====
 const USER_LEGIT_PATTERNS = [
-  /\.lnk$/i,                  // 快捷方式
-  /\.url$/i,                  // URL 快捷方式
+  /\.lnk$/i, // 快捷方式
+  /\.url$/i, // URL 快捷方式
   /\.(docx?|xlsx?|pptx?|pdf|odt|ods|odp)$/i, // Office 文档
   /\.(jpg|jpeg|png|gif|bmp|webp|svg|ico|tiff?)$/i, // 图片
   /\.(mp4|mp3|wav|avi|mkv|flv|mov|wma|flac)$/i, // 音视频
-  /\.(zip|rar|7z|tar|gz|bz2|xz)$/i,  // 压缩包
-  /\.(exe|msi|dmg|pkg|deb|rpm|appimage)$/i,  // 安装包(用户下载)
+  /\.(zip|rar|7z|tar|gz|bz2|xz)$/i, // 压缩包
+  /\.(exe|msi|dmg|pkg|deb|rpm|appimage)$/i, // 安装包(用户下载)
   /^desktop\.ini$/i,
   /^Thumbs\.db$/i,
-  /^项目端口分析与维护成本优化\.md$/i,  // 已迁移到 docs/port-cost-analysis.md
-  /^check-stale-dist\.old\.mjs$/i,   // 历史遗留脚本,已不在项目内
-  /^inject_wb_i18n\.mjs$/i,          // 历史遗留脚本,已不在项目内
-];
+  /^项目端口分析与维护成本优化\.md$/i, // 已迁移到 docs/port-cost-analysis.md
+  /^check-stale-dist\.old\.mjs$/i, // 历史遗留脚本,已不在项目内
+  /^inject_wb_i18n\.mjs$/i, // 历史遗留脚本,已不在项目内
+  // 用户自有的 Android 发布签名说明(网盘 密钥/ 目录内,与 ihui-release.keystore 配套)。
+  // 2026-09-12 立:文件名 `ihui-` 前缀会命中强信号规则,但它不是 agent 产物,
+  // 且 `pnpm hygiene:parent:clean` 会把强信号命中当作可自动清理目标 → 必须显式豁免,防止误删用户文件。
+  /^ihui-release\.keystore\.说明\.txt$/i,
+]
 
 /**
  * 获取用户真实桌面路径(跨驱动器场景)。
@@ -148,41 +181,42 @@ const USER_LEGIT_PATTERNS = [
  * 扫描所有驱动器根的"桌面"/"Desktop"文件夹。
  */
 function getRealDesktopPaths() {
-  const paths = new Set();
+  const paths = new Set()
 
   // 1. PowerShell 获取真实桌面路径(最可靠,处理重定向)
   try {
-    const out = execSync(
-      'pwsh -NoProfile -Command "[Environment]::GetFolderPath(\'Desktop\')"',
-      { encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] }
-    ).trim();
-    if (out) paths.add(resolve(out));
+    const out = execSync('pwsh -NoProfile -Command "[Environment]::GetFolderPath(\'Desktop\')"', {
+      encoding: 'utf8',
+      timeout: 3000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+    if (out) paths.add(resolve(out))
   } catch {
     // PowerShell 失败(非 Windows / 超时),走兜底
   }
 
   // 2. 兜底:用户主目录下的 Desktop / 桌面
-  const home = os.homedir();
-  paths.add(join(home, 'Desktop'));
-  paths.add(join(home, '桌面'));
+  const home = os.homedir()
+  paths.add(join(home, 'Desktop'))
+  paths.add(join(home, '桌面'))
 
   // 3. 兜底:所有驱动器根的"桌面"/"Desktop"文件夹(跨驱动器重定向场景)
   for (let code = 65; code <= 90; code++) {
-    const drive = String.fromCharCode(code) + ':\\';
+    const drive = String.fromCharCode(code) + ':\\'
     for (const name of ['桌面', 'Desktop']) {
-      paths.add(join(drive, name));
+      paths.add(join(drive, name))
     }
   }
 
   // 过滤不存在的路径,避免无意义扫描
-  return [...paths].filter(p => existsSync(p));
+  return [...paths].filter((p) => existsSync(p))
 }
 
 // 预计算桌面路径(模块加载时一次性计算,避免每次 main() 重复调用 PowerShell)
-const DESKTOP_PATHS = getRealDesktopPaths();
+const DESKTOP_PATHS = getRealDesktopPaths()
 
 function isUserLegit(filename) {
-  return USER_LEGIT_PATTERNS.some(p => p.test(filename));
+  return USER_LEGIT_PATTERNS.some((p) => p.test(filename))
 }
 
 /**
@@ -197,80 +231,88 @@ function isUserLegit(filename) {
  * 判定:dir/.git 存在且为文件,且其 gitdir 指向本仓库 ROOT/.git → 豁免。
  */
 function isLinkedWorktree(dir) {
-  const gitPath = join(dir, '.git');
+  const gitPath = join(dir, '.git')
   try {
-    if (!existsSync(gitPath)) return false;
-    const stat = statSync(gitPath);
-    if (!stat.isFile()) return false; // .git 目录 = 独立主仓,不属于本守门豁免
-    const content = readFileSync(gitPath, 'utf8').trim();
-    const normalizedGitDir = content.replace(/^gitdir:\s*/i, '').replace(/\\/g, '/').toLowerCase();
-    // 指向本仓库 .git(含 worktrees 子目录)才豁免;指向别的仓库不算。
-    // 分隔符与大小写归一化:worktree .git 文件常写正斜杠(G:/IHUI-AI/...),
-    // 而 join(ROOT) 产生反斜杠,Windows 盘符大小写也可能漂移。
-    const expectedPrefix = join(ROOT, '.git').replace(/\\/g, '/').toLowerCase();
-    return normalizedGitDir.startsWith(expectedPrefix);
+    if (!existsSync(gitPath)) return false
+    const stat = statSync(gitPath)
+    if (!stat.isFile()) return false // .git 目录 = 独立主仓,不属于本守门豁免
+    const content = readFileSync(gitPath, 'utf8').trim()
+    const normalizedGitDir = content
+      .replace(/^gitdir:\s*/i, '')
+      .replace(/\\/g, '/')
+      .toLowerCase()
+    // 指向本仓库真实 gitdir(含 worktrees 子目录)才豁免;指向别的仓库不算。
+    // 分隔符与大小写归一化:worktree .git 文件常写正斜杠,而 join(ROOT) 产生反斜杠,
+    // Windows 盘符大小写也可能漂移。
+    // ⚠️ 2026-09-12:本仓改为 separate-git-dir 布局后,`.git` 只是 28 字节**指针文件**,
+    // 真 gitdir 在工作区之外(现为 D:/IHUI-AI-git-repo),worktree 的 .git 指向
+    // `<真实gitdir>/worktrees/<名>`,旧实现硬拼 ROOT/.git 会恒不匹配 →
+    // 合法 worktree 会被误判为污染、阻塞一切提交。故改为解析真实 gitdir。
+    const baseGitDir = REAL_GIT_DIR || join(ROOT, '.git')
+    const expectedPrefix = baseGitDir.replace(/\\/g, '/').toLowerCase()
+    return normalizedGitDir.startsWith(expectedPrefix)
   } catch {
-    return false;
+    return false
   }
 }
 
 function matchesAgentFilenamePattern(filename) {
-  return AGENT_FILENAME_PATTERNS.some(p => p.test(filename));
+  return AGENT_FILENAME_PATTERNS.some((p) => p.test(filename))
 }
 
 function scanFileContent(filePath) {
-  let content;
+  let content
   try {
-    content = readFileSync(filePath, 'utf8');
+    content = readFileSync(filePath, 'utf8')
   } catch {
-    return null;
+    return null
   }
 
   // 截断前 50KB,避免大文件耗时
   if (content.length > 50 * 1024) {
-    content = content.slice(0, 50 * 1024);
+    content = content.slice(0, 50 * 1024)
   }
 
-  const hasProjectRef = PROJECT_REF_PATTERNS.some(p => p.test(content));
-  const hasAgentOp = AGENT_OP_TRACES.some(p => p.test(content));
+  const hasProjectRef = PROJECT_REF_PATTERNS.some((p) => p.test(content))
+  const hasAgentOp = AGENT_OP_TRACES.some((p) => p.test(content))
 
-  return { hasProjectRef, hasAgentOp, content };
+  return { hasProjectRef, hasAgentOp, content }
 }
 
 function findPollution(dir, recursive = false, depth = 0) {
-  const pollutions = [];
-  if (!existsSync(dir) || depth > 2) return pollutions;
+  const pollutions = []
+  if (!existsSync(dir) || depth > 2) return pollutions
 
-  let entries;
+  let entries
   try {
-    entries = readdirSync(dir, { withFileTypes: true });
+    entries = readdirSync(dir, { withFileTypes: true })
   } catch {
-    return pollutions;
+    return pollutions
   }
 
   for (const entry of entries) {
     // 跳过项目目录自身
-    if (dir === PARENT_DIR && entry.name === PROJECT_NAME) continue;
+    if (dir === PARENT_DIR && entry.name === PROJECT_NAME) continue
     // 跳过系统隐藏目录
-    if (entry.name === 'System Volume Information' || entry.name === '$RECYCLE.BIN') continue;
+    if (entry.name === 'System Volume Information' || entry.name === '$RECYCLE.BIN') continue
 
-    const full = join(dir, entry.name);
-    const relPath = relative(ROOT, full).replace(/\\/g, '/');
+    const full = join(dir, entry.name)
+    const relPath = relative(ROOT, full).replace(/\\/g, '/')
 
     if (entry.isDirectory()) {
       // 豁免本仓库的关联 git worktree(并行会话合法工作区,2026-09-07 立)
-      if (isLinkedWorktree(full)) continue;
+      if (isLinkedWorktree(full)) continue
       if (recursive && depth < 2) {
-        pollutions.push(...findPollution(full, recursive, depth + 1));
+        pollutions.push(...findPollution(full, recursive, depth + 1))
       }
-      continue;
+      continue
     }
 
-    if (!entry.isFile()) continue;
+    if (!entry.isFile()) continue
 
-    const ext = extname(entry.name).toLowerCase();
-    if (!SUSPICIOUS_EXTS.has(ext)) continue;
-    if (isUserLegit(entry.name)) continue;
+    const ext = extname(entry.name).toLowerCase()
+    if (!SUSPICIOUS_EXTS.has(ext)) continue
+    if (isUserLegit(entry.name)) continue
 
     // 强信号:文件名匹配 agent 临时产物模式 → 直接判定
     if (matchesAgentFilenamePattern(entry.name)) {
@@ -279,122 +321,124 @@ function findPollution(dir, recursive = false, depth = 0) {
         relPath: `[项目外] ${relPath}`,
         reason: `文件名匹配 agent 临时产物模式(${entry.name})`,
         level: 'blocking',
-      });
-      continue;
+      })
+      continue
     }
 
     // 弱信号:内容同时包含项目路径引用 + agent 操作痕迹
-    const scan = scanFileContent(full);
+    const scan = scanFileContent(full)
     if (scan && scan.hasProjectRef && scan.hasAgentOp) {
       pollutions.push({
         file: full,
         relPath: `[项目外] ${relPath}`,
         reason: '内容同时包含项目路径引用 + agent 自动化操作痕迹',
         level: 'blocking',
-      });
+      })
     }
   }
 
-  return pollutions;
+  return pollutions
 }
 
 function main() {
-  const args = process.argv.slice(2);
-  const isWarn = args.includes('--warn');
-  const isAutoClean = args.includes('--auto-clean');
+  const args = process.argv.slice(2)
+  const isWarn = args.includes('--warn')
+  const isAutoClean = args.includes('--auto-clean')
   // --quiet 由共享 logger 处理(见 ./lib/logger.mjs),无需在此手动解析
 
-  const allPollutions = [];
+  const allPollutions = []
 
   // 1. 扫描项目父目录(递归到 2 层,捕获父目录根级 *.ps1 和子目录中的污染)
-  allPollutions.push(...findPollution(PARENT_DIR, true, 0));
+  allPollutions.push(...findPollution(PARENT_DIR, true, 0))
 
   // 2. 扫描项目祖父目录(桌面)的根级文件(不递归,避免误伤其他项目)
-  allPollutions.push(...findPollution(GRANDPARENT_DIR, false, 0));
+  allPollutions.push(...findPollution(GRANDPARENT_DIR, false, 0))
 
   // 3. 扫描用户主目录根级(只扫 agent 临时产物命名模式的文件,不递归)
   //    覆盖 agent 误写到 ~/ 的情况(如 ~/*.ps1 / ~/*.txt 调试日志)
-  const homeDir = os.homedir();
-  allPollutions.push(...findPollution(homeDir, false, 0));
+  const homeDir = os.homedir()
+  allPollutions.push(...findPollution(homeDir, false, 0))
 
   // 4. 扫描用户真实桌面路径(跨驱动器场景,2026-07-25 立)
   //    历史教训:用户桌面重定向到 E:\桌面,原守门脚本只扫 G:\ 父目录,盲区!
   //    本扫描覆盖所有可能的桌面路径(PowerShell 获取 + 驱动器兜底),
   //    根级不递归(避免误伤桌面合法子目录),捕获 agent 在桌面创建的污染文件。
   for (const desktopPath of DESKTOP_PATHS) {
-    allPollutions.push(...findPollution(desktopPath, false, 0));
+    allPollutions.push(...findPollution(desktopPath, false, 0))
   }
 
   // --auto-clean: 自动清理强信号命中(文件名匹配 agent 临时产物模式)的污染
   // 只清理文件名强信号命中,不清理内容双信号命中(避免误删用户合法脚本)
   if (isAutoClean && allPollutions.length > 0) {
-    const cleaned = [];
-    const remaining = [];
+    const cleaned = []
+    const remaining = []
     for (const p of allPollutions) {
       if (p.reason.includes('文件名匹配 agent 临时产物模式')) {
         try {
-          unlinkSync(p.file);
-          cleaned.push(p);
+          unlinkSync(p.file)
+          cleaned.push(p)
         } catch (_e) {
-          remaining.push(p);
+          remaining.push(p)
         }
       } else {
-        remaining.push(p);
+        remaining.push(p)
       }
     }
 
     if (cleaned.length > 0) {
-      log.info(`🧹 parent-pollution [auto-clean]: 已自动清理 ${cleaned.length} 个 agent 污染文件`);
+      log.info(`🧹 parent-pollution [auto-clean]: 已自动清理 ${cleaned.length} 个 agent 污染文件`)
       for (const p of cleaned) {
-        log.info(`  ✓ 已删除 ${p.relPath}`);
+        log.info(`  ✓ 已删除 ${p.relPath}`)
       }
     }
 
     if (remaining.length === 0) {
-      log.info('✅ parent-pollution: 清理完成,无剩余污染');
-      process.exit(0);
+      log.info('✅ parent-pollution: 清理完成,无剩余污染')
+      process.exit(0)
     }
 
     // 剩余的是内容双信号命中,需要人工确认(警告级别,--quiet 时静默)
-    log.warn(`⚠️  parent-pollution: ${remaining.length} 个文件需人工确认(内容双信号命中,不自动删除)`);
+    log.warn(
+      `⚠️  parent-pollution: ${remaining.length} 个文件需人工确认(内容双信号命中,不自动删除)`,
+    )
     for (const p of remaining) {
-      log.warn(`  ${p.relPath}`);
-      log.warn(`    原因: ${p.reason}`);
-      log.warn(`    手动删除: Remove-Item "${p.file}" -Force`);
+      log.warn(`  ${p.relPath}`)
+      log.warn(`    原因: ${p.reason}`)
+      log.warn(`    手动删除: Remove-Item "${p.file}" -Force`)
     }
-    process.exit(1);
+    process.exit(1)
   }
 
   if (allPollutions.length === 0) {
-    log.info('✅ parent-pollution: 项目父目录及桌面根目录无 agent 污染');
-    process.exit(0);
+    log.info('✅ parent-pollution: 项目父目录及桌面根目录无 agent 污染')
+    process.exit(0)
   }
 
-  const mode = isWarn ? 'WARN' : 'BLOCK';
-  const prefix = isWarn ? '⚠️ ' : '❌ ';
+  const mode = isWarn ? 'WARN' : 'BLOCK'
+  const prefix = isWarn ? '⚠️ ' : '❌ '
   // 主报告(BLOCK/WARN 概要)始终输出(error 级别,--quiet 不静默)
-  log.error(`${prefix}parent-pollution [${mode}]: 发现 ${allPollutions.length} 个项目外污染文件`);
-  log.error('');
-  log.error('违反 AGENTS.md §15 项目外路径禁令 + §15 运行时禁令:');
-  log.error('  agent 不得在项目目录外用 RunCommand / PowerShell 创建任何文件。');
-  log.error('  所有临时脚本必须放 .ihui-agent/tmp/<脚本名>,所有产物必须放项目内。');
-  log.error('');
+  log.error(`${prefix}parent-pollution [${mode}]: 发现 ${allPollutions.length} 个项目外污染文件`)
+  log.error('')
+  log.error('违反 AGENTS.md §15 项目外路径禁令 + §15 运行时禁令:')
+  log.error('  agent 不得在项目目录外用 RunCommand / PowerShell 创建任何文件。')
+  log.error('  所有临时脚本必须放 .ihui-agent/tmp/<脚本名>,所有产物必须放项目内。')
+  log.error('')
   for (const p of allPollutions.slice(0, 30)) {
-    log.error(`  ${p.relPath}`);
-    log.error(`    原因: ${p.reason}`);
+    log.error(`  ${p.relPath}`)
+    log.error(`    原因: ${p.reason}`)
   }
-  log.error('');
-  log.error('清理方法:');
-  log.error('  自动清理: pnpm hygiene:parent:clean  (只清文件名强信号命中)');
-  log.error('  手动清理: Remove-Item "<文件路径>" -Force');
-  log.error('');
+  log.error('')
+  log.error('清理方法:')
+  log.error('  自动清理: pnpm hygiene:parent:clean  (只清文件名强信号命中)')
+  log.error('  手动清理: Remove-Item "<文件路径>" -Force')
+  log.error('')
 
   if (isWarn) {
-    log.info('(warn-only 模式,不阻塞 commit)');
-    process.exit(0);
+    log.info('(warn-only 模式,不阻塞 commit)')
+    process.exit(0)
   }
-  process.exit(1);
+  process.exit(1)
 }
 
-main();
+main()
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
