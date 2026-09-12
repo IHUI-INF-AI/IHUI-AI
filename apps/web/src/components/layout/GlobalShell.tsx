@@ -52,14 +52,29 @@ import { startAutoRefresh } from '@/lib/tokenUtils'
  *   · WebWorkPanel 内部 `if (!mounted || !open) return null`(web-work-panel.tsx:230),
  *     SSR 下 mounted=false 本就渲染 null → ssr:false 行为完全一致
  * - 两个模块均为**具名导出**,故需 .then(m => m.Xxx) 取具名成员
+ *
+ * 2026-09-13 性能重构:外层包 React.memo。两者都**不接收任何 props**,其自身的
+ * 开关/宽度/浮窗状态全部由内部 zustand 订阅获得 —— memo 后 GlobalShell 因导航
+ * 落地(children 变化)而重渲染时,这两个重组件**直接跳过**:
+ *   - AISidePanel 拖着 chat 全套 + markdown 栈(katex/mermaid/shiki),是全站最重组件;
+ *   - WebWorkPanel 拖着 @ihui/ui-react WorkPanel / WebViewFrame → cdp-browser-view。
+ * 实测(memo 化前):每次导航提交阶段出现 2~6 个 50~98ms 长任务,中位合计 420ms。
+ * Context 订阅可穿透 memo,因此不会漏更新;仅屏蔽"父组件重渲染导致的连带重渲染"。
  */
-const AISidePanel = dynamic(
-  () => import('@/components/ai/ai-side-panel').then((m) => m.AISidePanel),
-  { ssr: false },
+// 2026-09-13 性能重构:GlobalTopBar 包 memo。其唯一入参 mobileMenu 已提取为 useMemo 稳定引用,
+// 因此导航落地(GlobalShell 因 children 变化重渲染)时 GlobalTopBar 整体跳过 —— 顶栏不再被
+// 每次路由切换连带重渲染。它自身依赖的返回键 store / 状态订阅不受影响(Context 与内部订阅可穿透 memo)。
+const GlobalTopBarMemo = React.memo(GlobalTopBar)
+
+const AISidePanel = React.memo(
+  dynamic(() => import('@/components/ai/ai-side-panel').then((m) => m.AISidePanel), {
+    ssr: false,
+  }),
 )
-const WebWorkPanel = dynamic(
-  () => import('@/components/work-panel/web-work-panel').then((m) => m.WebWorkPanel),
-  { ssr: false },
+const WebWorkPanel = React.memo(
+  dynamic(() => import('@/components/work-panel/web-work-panel').then((m) => m.WebWorkPanel), {
+    ssr: false,
+  }),
 )
 
 /**
@@ -206,6 +221,35 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [mobileOpen])
 
+  // 移动端菜单按钮节点(2026-09-13 从 <GlobalTopBar mobileMenu={...}> 内联 JSX 提取):
+  // 原先每次 GlobalShell 渲染都生成新元素 → GlobalTopBar 的 memo 永远失效。
+  // useMemo 后引用稳定,仅 mobileOpen 变化时才更新。
+  // 视觉/交互沿用 2026-07-31 定版:
+  // - 改用 nav-styles.ts 共享的 TOPBAR_BTN_BASE + TOPBAR_BTN_W9,跟 GlobalTopBar
+  //   的搜索/Plus/chevron/窗口控制 4 类按钮字节级一致(同 bg-card / hover:bg-accent / focus-visible:bg-accent)
+  // - icon 用 h-3.5 w-3.5 (14px) 跟顶栏 Plus / 窗口控制 X 完全统一;h-9 w-9 经 TOPBAR_BTN_W9 应用
+  // - 跟 X 关闭按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致
+  // - 仅 <768px 显示(min-[768px]:hidden);抽屉打开时提升 z-popover(2001) 保证可点回
+  const mobileMenuNode = React.useMemo(
+    () => (
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setMobileOpen((o) => !o)}
+        className={cn(
+          'relative ml-1.5 shrink-0 min-[768px]:hidden',
+          mobileOpen && 'z-popover',
+          TOPBAR_BTN_BASE,
+          TOPBAR_BTN_W9,
+        )}
+        aria-label={mobileOpen ? t('close') : t('menu')}
+      >
+        {mobileOpen ? <X className="h-3.5 w-3.5" /> : <PanelLeftOpen className="h-3.5 w-3.5" />}
+      </Button>
+    ),
+    [mobileOpen, t],
+  )
+
   // /login 路由:嵌入式二维码面板(mobile-rn WebView/iframe 加载)或 QR 完整模式,
   // 不需要 Sidebar / AISidePanel / WebWorkPanel,只渲染 children(PageClient.tsx 内容)。
   // 2026-08-04 修复:此前 /login?method=qr&embed=true 被 GlobalShell 包裹,
@@ -323,44 +367,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                   放 GlobalTopBar 旁挂载一次即可,/login 早退分支(上方)不经过此处。 */}
               <TopBarBackAutoRegister />
               <React.Suspense fallback={null}>
-                <GlobalTopBar
-                  mobileMenu={
-                    // 2026-07-31 第十八次微调(用户反馈"button 这个图标和 X 关闭按钮也不是 web 端那个,为什么要单独额外又配置图标"):
-                    // - 改用 nav-styles.ts 共享的 TOPBAR_BTN_BASE + TOPBAR_BTN_W9,跟 GlobalTopBar
-                    //   的搜索/Plus/chevron/窗口控制 4 类按钮字节级一致(同 bg-card / hover:bg-accent / focus-visible:bg-accent)
-                    // - 去掉之前单独加的 `border border-border` 和 `hover:text-foreground` —— web 顶栏的
-                    //   4 类按钮都没 border,移动端"凭空多出边框"是视觉不一致的根因
-                    // - icon 仍用 h-3.5 w-3.5 (14px) 跟顶栏 Plus / 窗口控制 X 完全统一
-                    // - h-9 w-9 通过 TOPBAR_BTN_W9 自动应用,跟顶栏 h-9 父容器 + h-full 子元素视觉等价
-                    // - ml-1.5 (6px) 跟其他顶栏按钮 gap-1 (4px) + 按钮视觉中心对齐
-                    // - 跟 X 关闭按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致,改一处生效所有同源按钮
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setMobileOpen((o) => !o)}
-                      // 2026-09-05 修复:抽屉打开时该按钮被抽屉+遮罩盖住(z-auto < z-modal 2000),
-                      // 用户点原位置无反应(=反馈"无法点击收回按钮")。提升到 z-popover(2001)
-                      // 使同一按钮在抽屉打开时仍可点,图标切换为 X,构成"拉出/收回"切换语义。
-                      // 2026-09-07 阈值 1024→768:768-1023px 区间侧边栏已常驻 60px 图标条,
-                      // 汉堡/抽屉入口不再需要;且该按钮曾把顶栏搜索按钮挤到 46px,
-                      // 经 --topbar-content-left 传导为工作区卡片 pl-46px,
-                      // 造成 AI 面板与工作区之间出现 ~52px 大空隙(用户反馈红框)。隐藏后间距归 6px。
-                      className={cn(
-                        'relative ml-1.5 shrink-0 min-[768px]:hidden',
-                        mobileOpen && 'z-popover',
-                        TOPBAR_BTN_BASE,
-                        TOPBAR_BTN_W9,
-                      )}
-                      aria-label={mobileOpen ? t('close') : t('menu')}
-                    >
-                      {mobileOpen ? (
-                        <X className="h-3.5 w-3.5" />
-                      ) : (
-                        <PanelLeftOpen className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                  }
-                />
+                <GlobalTopBarMemo mobileMenu={mobileMenuNode} />
               </React.Suspense>
               {/* 2026-08-01 架构改动:WebWorkPanel 从右列独立区域改为嵌入 work-area 内覆盖 children
                 (用户规则:"不允许额外出来一个窗口,所有内容必须在工作内容展示区内展示")
