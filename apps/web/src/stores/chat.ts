@@ -220,13 +220,12 @@ interface ChatState {
   updateMessageMeta: (messageId: string, meta: Record<string, unknown>) => void
   /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
   setMessages: (messages: ChatMessage[]) => void
-   * P1-6 断点续传(2026-09-13 立):标记助手消息流是否已完整结束。
+  /** P1-6 断点续传(2026-09-13 立):标记助手消息流是否已完整结束。
    * false = 流被中断(刷新页面/网络抖动),刷新后由 resume-stream 自动续接;
    * true  = 正常收尾(done/error/用户 stop),不再续接。
    * 未定义 = 旧消息(视为已完成)。
    */
   setMessageStreamCompleted: (messageId: string, completed: boolean) => void
-}
   /** 截断消息列表:删除指定消息及其之后的所有消息(重新生成用,保留该消息之前的历史) */
   truncateMessagesFrom: (messageId: string) => void
   /** 设置自动压缩状态(用于在对话框底部显示压缩进度) */
