@@ -6,6 +6,7 @@
 
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 # 确保 app 包可导入
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -116,6 +117,38 @@ def _isolate_llm_env(monkeypatch, request):
         monkeypatch.setattr(
             "app.services.key_pool_selector.KeyPoolSelector.select_key", _noop_select_key
         )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_ab_test_db(monkeypatch):
+    """隔离 ab_test_tracker 的真实 DB:全局把 `_get_pool` 换成 mock pool。
+
+    2026-09-12 修复(生产库被测试污染 + 断言随 DB 状态漂移):
+    多个用例在 monkeypatch `_get_pool` **之前**就调 `create_test` /
+    `load_active_tests`,真实连上生产 PG,造成两类事故:
+
+      ① 写入污染:`test_ab_test_tracker::TestLoadActiveTests::test_duplicate_skill_skipped`
+         与 `test_shadow_runner` 系列在 mock 前 create_test →
+         INSERT 真实 `agent_ab_tests`(累积 16 行 skill-a 测试垃圾);
+      ② 读取漂移:`_ensure_loaded → load_active_tests` 把生产库残留的 running 行
+         hydrate 进内存 → `len(stopped)==2`、`totalTests==3`,
+         使 test_filter_by_status / test_filter_by_skill / test_with_tests 必失败。
+
+    需要**断言** DB 调用的测试(TestPersistTestToDb / TestLoadActiveTests 的 mock 用例)
+    在用例体内 monkeypatch 覆盖本值 —— 用例体晚于 autouse fixture 执行,覆盖后生效,
+    其断言仍作用于自己的 mock,不受影响。
+    """
+    mock_pool = MagicMock()
+    mock_conn = MagicMock()
+    mock_conn.execute = AsyncMock()
+    mock_conn.fetch = AsyncMock(return_value=[])
+    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+
+    async def _mock_get_pool():
+        return mock_pool
+
+    monkeypatch.setattr("app.services.ab_test_tracker._get_pool", _mock_get_pool)
 
 
 @pytest.fixture(autouse=True)
