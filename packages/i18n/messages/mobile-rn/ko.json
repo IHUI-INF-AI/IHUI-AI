@@ -295,7 +295,11 @@
     "chatTools": "AI 채팅 / 도구",
     "cart": "장바구니",
     "circleIndex": "커뮤니티 광장",
-    "topicList": "토픽"
+    "topicList": "토픽",
+    "spec": "스펙 템플릿",
+    "selfMedia": "셀프미디어",
+    "context": "컨텍스트 엔진",
+    "pdfTools": "문서→Markdown"
   },
   "error": {
     "network": "네트워크 오류"
@@ -439,28 +443,15 @@
     "searchPlaceholder": "AI 어시스턴트 검색"
   },
   "assistant": {
-    "edit": {
-      "title": "작업",
-      "message": "「{name}」의 판매 설정"
-    },
-    "offline": {
-      "title": "게시 중단 확인",
-      "message": "「{name}」을(를) 게시 중단하시겠습니까?",
-      "confirmBtn": "게시 중단",
-      "done": "게시 중단됨"
-    },
     "actionOffline": "오프라인",
     "actionReedit": "재편집",
     "actionSettings": "설정",
-    "audienceAll": "전체",
-    "audienceVip": "회원",
     "badgeDraft": "초안",
     "badgeOffline": "오프라인",
     "badgePublished": "게시됨",
     "badgeRejected": "거부됨",
     "badgeReviewing": "검토 중",
     "empty": "어시스턴트가 없습니다",
-    "loadFailed": "불러오기 실패",
     "loading": "불러오는 중...",
     "metaAudience": "공개 범위",
     "metaCategory": "카테고리",
@@ -2112,7 +2103,32 @@
     "deleteFailed": "삭제 실패",
     "source": "출처",
     "updatedAt": "업데이트",
-    "loginRequired": "로그인이 필요합니다"
+    "loginRequired": "로그인이 필요합니다",
+    "all": "전체",
+    "scope": {
+      "global": "전역",
+      "user": "사용자",
+      "session": "세션",
+      "project": "프로젝트"
+    },
+    "type": {
+      "preference": "선호",
+      "convention": "관례",
+      "decision": "결정",
+      "fact": "사실",
+      "feedback": "피드백",
+      "skill_ref": "스킬 참조"
+    },
+    "searchPlaceholder": "기억 내용 / 카테고리 검색…",
+    "create": "새로 만들기",
+    "createTitle": "새 기억 만들기",
+    "textPlaceholder": "기억 내용 입력(필수, 최대 2000자)…",
+    "categoryPlaceholder": "분류(예: UI 선호)",
+    "typeLabel": "유형",
+    "scopeLabel": "범위",
+    "save": "저장",
+    "saveFailed": "저장 실패",
+    "textRequired": "기억 내용을 입력하세요"
   },
   "aiWorld": {
     "title": "AI 월드",
@@ -2122,7 +2138,21 @@
     "history": "기록",
     "kindLabel": "유형",
     "loadFailed": "로드 실패",
-    "viewCount": "조회"
+    "viewCount": "조회",
+    "tools": "도구",
+    "apps": "앱",
+    "news": "뉴스",
+    "rankings": "랭킹",
+    "searchPlaceholder": "AI 도구 / 앱 / 뉴스 검색…",
+    "categoryAll": "전체",
+    "rank": "순위",
+    "model": "모델",
+    "provider": "제공사",
+    "score": "점수",
+    "votes": "투표수",
+    "rankLoadFailed": "랭킹 로드 실패",
+    "rankEmpty": "이 랭킹에 데이터가 없습니다",
+    "updateAt": "업데이트"
   },
   "publish": {
     "title": "콘텐츠 게시",
@@ -2133,14 +2163,33 @@
     "scheduled": "예약됨",
     "statsFailed": "통계 로드 실패",
     "statsSuccess": "게시됨",
-    "statsTotal": "합계"
+    "statsTotal": "합계",
+    "cancelTask": "취소",
+    "cancelTitle": "게시 작업 취소",
+    "cancelConfirm": "이 작업을 취소하시겠습니까?",
+    "retryTask": "재시도",
+    "operateFailed": "작업 실패, 다시 시도하세요"
   },
   "imageGen": {
     "title": "이미지 생성",
     "historyEmpty": "생성 기록이 없습니다",
     "favoritesEmpty": "즐겨찾기가 없습니다",
     "loadFailed": "로드 실패",
-    "promptFallback": "제목 없음"
+    "promptFallback": "제목 없음",
+    "create": "생성",
+    "createTitle": "AI 이미지 생성",
+    "promptPlaceholder": "생성하고 싶은 이미지를 설명…",
+    "promptRequired": "프롬프트를 입력하세요",
+    "sizeSquare": "정사각형 1:1",
+    "sizePortrait": "세로 9:16",
+    "sizeLandscape": "가로 16:9",
+    "generate": "생성 시작",
+    "generating": "생성 중…",
+    "genFailed": "생성 실패, 다시 시도하세요",
+    "saveToAlbum": "앨범에 저장",
+    "saveSuccess": "앨범에 저장했습니다",
+    "saveFailed": "저장 실패, 다시 시도하세요",
+    "needPermission": "저장하려면 미디어 라이브러리 권한이 필요합니다"
   },
   "webView": {
     "loadFailed": "페이지 로드 실패",
@@ -2296,5 +2345,48 @@
       "error": "로드 실패"
     },
     "empty": "콘텐츠가 없습니다"
+  },
+  "spec": {
+    "title": "스펙 템플릿",
+    "loadFailed": "템플릿 로드 실패",
+    "empty": "템플릿 없음",
+    "desktopHint": "템플릿 열람은 참고용입니다. Spec 생성은 서버 측 workspace 경로가 필요하므로 Web/데스크톱에서 전체 흐름을 사용하세요"
+  },
+  "selfMedia": {
+    "title": "셀프미디어 어시스턴트",
+    "tabSkills": "스킬",
+    "tabRecords": "기록",
+    "loadFailed": "로드 실패",
+    "promptRequired": "생성 요청을 입력하세요",
+    "promptPlaceholder": "만들고 싶은 내용을 설명…",
+    "invoke": "스킬 호출 생성",
+    "invoking": "생성 중…",
+    "invokeFailed": "스킬 호출 실패, 다시 시도하세요",
+    "duration": "소요 {{ms}} ms",
+    "share": "공유",
+    "empty": "생성/게시 기록 없음"
+  },
+  "context": {
+    "title": "컨텍스트 엔진",
+    "loadFailed": "통계 로드 실패",
+    "totalEvents": "압축 횟수",
+    "avgRatio": "평균 압축률",
+    "avgQuality": "평균 품질 점수",
+    "recentEvents": "최근 압축 이벤트",
+    "tokensRange": "{{before}} → {{after}} tokens · 압축 {{ratio}} · 품질 {{quality}}",
+    "mentionsSearch": "컨텍스트 멘션 검색",
+    "mentionsPlaceholder": "파일/테이블/심볼 검색…",
+    "empty": "일치하는 결과 없음"
+  },
+  "pdfTools": {
+    "title": "문서→Markdown",
+    "hint": "PDF/Word/Excel/PPT/TXT/CSV 지원, 파일당 최대 10MB. 업로드 후 서버에서 Markdown으로 변환됩니다",
+    "pick": "문서 선택",
+    "converting": "변환 중…",
+    "unsupportedType": "지원하지 않는 파일 형식",
+    "tooLarge": "파일이 10MB 한도를 초과했습니다",
+    "uploadFailed": "업로드 실패, 다시 시도하세요",
+    "convertFailed": "변환 실패, 다시 시도하세요",
+    "share": "공유"
   }
 }

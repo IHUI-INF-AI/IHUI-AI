@@ -295,7 +295,11 @@
     "chatTools": "AI チャット / ツール",
     "cart": "カート",
     "circleIndex": "サークル広場",
-    "topicList": "トピック"
+    "topicList": "トピック",
+    "spec": "規範テンプレート",
+    "selfMedia": "セルフメディア",
+    "context": "コンテキストエンジン",
+    "pdfTools": "ドキュメント→Markdown"
   },
   "error": {
     "network": "ネットワークエラー"
@@ -439,28 +443,15 @@
     "searchPlaceholder": "AIアシスタントを検索"
   },
   "assistant": {
-    "edit": {
-      "title": "操作",
-      "message": "「{name}」の販売設定"
-    },
-    "offline": {
-      "title": "公開停止の確認",
-      "message": "「{name}」を公開停止しますか?",
-      "confirmBtn": "公開停止",
-      "done": "公開停止しました"
-    },
     "actionOffline": "オフラインにする",
     "actionReedit": "再編集",
     "actionSettings": "設定",
-    "audienceAll": "すべて",
-    "audienceVip": "会員",
     "badgeDraft": "下書き",
     "badgeOffline": "オフライン",
     "badgePublished": "公開済み",
     "badgeRejected": "却下",
     "badgeReviewing": "レビュー中",
     "empty": "アシスタントがありません",
-    "loadFailed": "読み込みに失敗",
     "loading": "読み込み中...",
     "metaAudience": "公開範囲",
     "metaCategory": "カテゴリ",
@@ -2112,7 +2103,32 @@
     "deleteFailed": "削除に失敗",
     "source": "出典",
     "updatedAt": "更新日",
-    "loginRequired": "ログインしてください"
+    "loginRequired": "ログインしてください",
+    "all": "すべて",
+    "scope": {
+      "global": "グローバル",
+      "user": "ユーザー",
+      "session": "セッション",
+      "project": "プロジェクト"
+    },
+    "type": {
+      "preference": "好み",
+      "convention": "規約",
+      "decision": "決定",
+      "fact": "事実",
+      "feedback": "フィードバック",
+      "skill_ref": "スキル参照"
+    },
+    "searchPlaceholder": "記憶内容 / カテゴリを検索…",
+    "create": "新規作成",
+    "createTitle": "記憶を新規作成",
+    "textPlaceholder": "記憶内容を入力(必須、最大 2000 字)…",
+    "categoryPlaceholder": "分類(例: UI の好み)",
+    "typeLabel": "タイプ",
+    "scopeLabel": "スコープ",
+    "save": "保存",
+    "saveFailed": "保存に失敗しました",
+    "textRequired": "記憶内容を入力してください"
   },
   "aiWorld": {
     "title": "AI ワールド",
@@ -2122,7 +2138,21 @@
     "history": "履歴",
     "kindLabel": "種類",
     "loadFailed": "読み込みに失敗",
-    "viewCount": "閲覧"
+    "viewCount": "閲覧",
+    "tools": "ツール",
+    "apps": "アプリ",
+    "news": "ニュース",
+    "rankings": "ランキング",
+    "searchPlaceholder": "AI ツール / アプリ / ニュースを検索…",
+    "categoryAll": "すべて",
+    "rank": "ランク",
+    "model": "モデル",
+    "provider": "プロバイダー",
+    "score": "スコア",
+    "votes": "票数",
+    "rankLoadFailed": "ランキングの読み込みに失敗しました",
+    "rankEmpty": "このランキングにはデータがありません",
+    "updateAt": "更新"
   },
   "publish": {
     "title": "コンテンツ公開",
@@ -2133,14 +2163,33 @@
     "scheduled": "予約済み",
     "statsFailed": "統計の読み込みに失敗",
     "statsSuccess": "公開しました",
-    "statsTotal": "合計"
+    "statsTotal": "合計",
+    "cancelTask": "キャンセル",
+    "cancelTitle": "公開タスクをキャンセル",
+    "cancelConfirm": "このタスクをキャンセルしますか?",
+    "retryTask": "再試行",
+    "operateFailed": "操作に失敗しました。再試行してください"
   },
   "imageGen": {
     "title": "画像生成",
     "historyEmpty": "生成履歴がありません",
     "favoritesEmpty": "お気に入りがありません",
     "loadFailed": "読み込みに失敗",
-    "promptFallback": "無題"
+    "promptFallback": "無題",
+    "create": "生成",
+    "createTitle": "AI 画像生成",
+    "promptPlaceholder": "生成したい画像を記述…",
+    "promptRequired": "画像の説明を入力してください",
+    "sizeSquare": "正方形 1:1",
+    "sizePortrait": "縦 9:16",
+    "sizeLandscape": "横 16:9",
+    "generate": "生成開始",
+    "generating": "生成中…",
+    "genFailed": "生成に失敗しました。再試行してください",
+    "saveToAlbum": "アルバムに保存",
+    "saveSuccess": "アルバムに保存しました",
+    "saveFailed": "保存に失敗しました。再試行してください",
+    "needPermission": "保存にはメディアライブラリの権限が必要です"
   },
   "webView": {
     "loadFailed": "ページの読み込みに失敗",
@@ -2296,5 +2345,48 @@
       "error": "読み込みに失敗しました"
     },
     "empty": "コンテンツはまだありません"
+  },
+  "spec": {
+    "title": "規範テンプレート",
+    "loadFailed": "テンプレートの読み込みに失敗しました",
+    "empty": "テンプレートがありません",
+    "desktopHint": "テンプレートの閲覧は参考用です。Spec 生成にはサーバー側の workspace パスが必要なため、Web/デスクトップで完全なフローをご利用ください"
+  },
+  "selfMedia": {
+    "title": "セルフメディアアシスタント",
+    "tabSkills": "スキル",
+    "tabRecords": "履歴",
+    "loadFailed": "読み込みに失敗しました",
+    "promptRequired": "生成内容を入力してください",
+    "promptPlaceholder": "作成したい内容を記述…",
+    "invoke": "スキルを呼び出して生成",
+    "invoking": "生成中…",
+    "invokeFailed": "スキルの呼び出しに失敗しました。再試行してください",
+    "duration": "所要 {{ms}} ms",
+    "share": "共有",
+    "empty": "生成/公開の記録がありません"
+  },
+  "context": {
+    "title": "コンテキストエンジン",
+    "loadFailed": "統計の読み込みに失敗しました",
+    "totalEvents": "圧縮回数",
+    "avgRatio": "平均圧縮率",
+    "avgQuality": "平均品質スコア",
+    "recentEvents": "最近の圧縮イベント",
+    "tokensRange": "{{before}} → {{after}} tokens · 圧縮 {{ratio}} · 品質 {{quality}}",
+    "mentionsSearch": "コンテキスト記述検索",
+    "mentionsPlaceholder": "ファイル/テーブル/シンボルを検索…",
+    "empty": "一致する結果がありません"
+  },
+  "pdfTools": {
+    "title": "ドキュメント→Markdown",
+    "hint": "PDF/Word/Excel/PPT/TXT/CSV 対応、1 ファイル 10MB まで。アップロード後サーバー側で Markdown に変換されます",
+    "pick": "ドキュメントを選択",
+    "converting": "変換中…",
+    "unsupportedType": "サポートされていないファイル形式です",
+    "tooLarge": "ファイルが 10MB の上限を超えています",
+    "uploadFailed": "アップロードに失敗しました。再試行してください",
+    "convertFailed": "変換に失敗しました。再試行してください",
+    "share": "共有"
   }
 }

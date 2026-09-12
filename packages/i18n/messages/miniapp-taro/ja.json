@@ -56,7 +56,6 @@
     "login": "ログイン",
     "logging": "ログイン中…",
     "brand": "IHUI AI",
-    "slogan": "学習をより効率的に",
     "phoneLogin": "電話番号ログイン",
     "passwordLogin": "パスワードログイン",
     "phonePlaceholder": "電話番号を入力",
@@ -67,15 +66,10 @@
     "passwordPlaceholder": "パスワードを入力",
     "forgotPassword": "パスワードをお忘れですか?",
     "wechatLogin": "WeChat ログイン",
-    "wechatOnly": "WeChat ログインのみ対応",
-    "ssoLogin": "SSO ログイン",
-    "ssoLoginHint": "企業アカウントでワンクリックログイン",
-    "agreement": "《利用規約》と《プライバシーポリシー》を読み同意しました",
     "cancelAuth": "認証をキャンセル",
     "codeCountdownSuffix": "秒後に再取得",
     "getPhoneFail": "電話番号の取得に失敗しました",
     "loginFailed": "ログインに失敗しました。もう一度お試しください",
-    "quickLogin": "クイックログイン",
     "wechatOneClick": "WeChatワンタップログイン"
   },
   "forgot": {
@@ -296,7 +290,6 @@
     "cancelSuccess": "注文をキャンセルしました",
     "cancelFailed": "注文のキャンセルに失敗しました",
     "list": {
-      "orderTime": "注文日時",
       "refundTime": "返金日時",
       "applyRefund": "返金申請",
       "cancel": "キャンセル",
@@ -325,31 +318,10 @@
       "submitting": "チャージ中…",
       "invalidAmount": "有効な金額を入力",
       "success": {
-        "title": "チャージ成功",
-        "desc": "チャージ完了",
-        "backHome": "ホームへ戻る",
-        "backWallet": "ウォレットへ戻る",
-        "tipsTitle": "ご注意",
-        "arriveTime": "入金日時",
-        "orderNoLabel": "注文番号",
-        "shareFriend": "友達にシェア",
-        "tipsText": "チャージ金額は反映されました。ウォレットの明細で変更履歴を確認できます。ご不明な点はカスタマーサービスにお問い合わせください。",
-        "viewDetail": "明細を表示"
+        "shareFriend": "友達にシェア"
       },
       "fail": {
-        "title": "チャージ失敗",
-        "desc": "チャージ失敗、後で再試行してください",
-        "retry": "再チャージ",
-        "backWallet": "ウォレットへ戻る",
-        "orderNoLabel": "注文番号",
-        "hintTitle": "ご注意",
-        "contactService": "カスタマーサービスに連絡",
-        "faqQ": "チャージ失敗時に引き落としされますか?",
-        "amountLabel": "チャージ金額",
-        "faqA": "支払いが完了していない場合は引き落としされません。既に引き落とされていても失敗と表示された場合は、返金されますので入出金の変化にご注意ください。",
-        "hintText": "チャージが反映されない場合は、支払いが完了しているかご確認ください。金額は1〜3営業日以内に返金されます。またはカスタマーサービスにお問い合わせください。",
-        "reasonLabel": "失敗理由",
-        "viewDetail": "明細を表示"
+        "contactService": "カスタマーサービスに連絡"
       },
       "tokenRate": "1元 = {n} IHUIポイント",
       "activityTitle": "期間限定キャンペーン",
@@ -434,7 +406,6 @@
     "language": {
       "chooseHint": "アプリ言語を選択",
       "tip": "言語切替後は自動保存されて有効になります",
-      "currentLabel": "現在の言語",
       "note": "一部のコンテンツは原文のまま表示される場合があります。多言語対応を継続的に改善しています。"
     },
     "notification": {
@@ -789,7 +760,6 @@
       "contentNotExist": "共有コンテンツが存在しません",
       "tokenCost": "{n} トークン消費",
       "thinkingProcess": "思考プロセス",
-      "aiAnswer": "AI回答",
       "regenerate": "再生成",
       "shareFriend": "友達に共有",
       "voiceAnswer": "🔊 音声回答",
@@ -949,10 +919,7 @@
       "publishFail": "公開失敗"
     },
     "list": {
-      "title": "作品広場",
       "unnamed": "無題作品",
-      "anonymous": "匿名作者",
-      "empty": "作品なし",
       "catText": "テキスト",
       "catImage": "画像",
       "catVideo": "動画",
@@ -961,8 +928,7 @@
       "invalidVideo": "動画のアドレスが無効です",
       "invalidAudio": "音声のアドレスが無効です",
       "audioFail": "音声の再生に失敗しました",
-      "untitled": "テキスト内容",
-      "promptLabel": "プロンプト"
+      "untitled": "テキスト内容"
     }
   },
   "coursePlanet": {
@@ -1244,7 +1210,6 @@
       "verifyOk": "確認成功",
       "verifyFail": "確認失敗"
     },
-    "rankTitle": "ディストリビューションランキング",
     "rankEmpty": "ランキングデータがありません",
     "statsTitle": "収益概要",
     "thisMonth": "今月",
@@ -2217,14 +2182,10 @@
     "codePlaceholder": "認証コードを入力",
     "hide": "非表示",
     "show": "表示",
-    "pwdHint": "6〜20文字、英数字の組み合わせを推奨",
     "submitting": "登録中…",
     "agreePrefix": "読み同意しました",
     "userAgreement": "《利用規約》",
-    "privacyPolicy": "《プライバシーポリシー》",
-    "hasAccount": "アカウントをお持ちですか?",
-    "toLogin": "ログインへ",
-    "text1": "サードパーティー簡易連携"
+    "privacyPolicy": "《プライバシーポリシー》"
   },
   "message": {
     "tabs": {
@@ -2646,9 +2607,7 @@
     "email": {
       "emailInvalid": "無効なメール",
       "bindSuccess": "メール登録成功",
-      "email": "メール",
       "emailPlaceholder": "メール入力",
-      "code": "コード",
       "codePlaceholder": "コード入力",
       "getCode": "コード取得",
       "bind": "登録",
@@ -2712,8 +2671,6 @@
       "phoneInvalid": "無効な電話番号",
       "codeSendFailed": "コード送信失敗",
       "bindSuccess": "電話番号登録成功",
-      "phone": "電話番号",
-      "code": "コード",
       "codePlaceholder": "コード入力",
       "getCode": "コード取得",
       "bind": "登録",
