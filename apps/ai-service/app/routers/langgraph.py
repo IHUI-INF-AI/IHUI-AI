@@ -4,12 +4,14 @@
 
 """LangGraph API 路由(P3 Q1.8)。
 
-5 端点:
+7 端点:
+- POST /canvas/run — Agent Canvas 整图 DAG 注册执行(P0)
 - POST /{thread_id}/interrupt — 触发暂停(HITL)
 - POST /resume — 恢复执行
 - GET  /{thread_id}/state — 查询当前状态
 - GET  /{thread_id}/history — 查询历史(Time Travel)
 - GET  /{thread_id}/stream — SSE 流式输出
+- POST /{thread_id}/stream — SSE 流式输出(POST body 传图输入,apps/api 代理用)
 
 设计:
 - 路由自注册:main agent 挂载 `router` 即可,无需改 main.py。
@@ -24,11 +26,18 @@ import json
 import logging
 from collections.abc import AsyncIterator
 from typing import Any
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.services.canvas_graph import (
+    build_canvas_graph,
+    get_canvas_graph_entry,
+    register_canvas_graph,
+    validate_canvas_dag,
+)
 from app.services.langgraph_checkpoint import (
     LangGraphCheckpointManager,
     get_langgraph_checkpoint_manager,
@@ -127,6 +136,47 @@ class StreamQuery(BaseModel):
 
     input: dict[str, Any] | None = Field(default=None, description="图输入(JSON)")
     stream_modes: list[str] | None = Field(default=None, description="stream_mode 列表")
+
+
+class CanvasRunRequest(BaseModel):
+    """Agent Canvas 整图执行请求(对齐 canvas-api.ts 契约)。"""
+
+    dag: dict[str, Any] = Field(..., description="画布 DAG {nodes, edges}")
+    thread_id: str | None = Field(default=None, description="复用的线程 id(缺省自动生成)")
+    input: str | None = Field(default=None, description="整图初始输入文本")
+
+
+# ----------------------------------------------------------------------
+# 0. POST /canvas/run — Agent Canvas 整图 DAG 注册执行(P0)
+# ----------------------------------------------------------------------
+
+
+@router.post("/canvas/run")
+async def post_canvas_run(req: CanvasRunRequest) -> dict[str, Any]:
+    """校验并注册画布 DAG 整图,返回 runId(即 langgraph threadId)。
+
+    实际执行由 GET/POST /{runId}/stream 完成:stream 端点按 threadId 命中
+    canvas 注册表后用已注册图驱动 SSE(nodeId 与 dag.nodes[].id 对齐)。
+    """
+    errors = validate_canvas_dag(req.dag)
+    if errors:
+        raise HTTPException(status_code=400, detail="; ".join(errors))
+
+    thread_id = req.thread_id or uuid4().hex
+    try:
+        graph = build_canvas_graph(req.dag)
+    except Exception as e:
+        logger.warning("canvas 图构建失败 thread=%s: %s", thread_id, e)
+        raise HTTPException(status_code=400, detail=f"canvas 图构建失败: {e}") from None
+
+    register_canvas_graph(thread_id, graph, input_=req.input)
+    logger.info(
+        "canvas 图已注册 thread=%s nodes=%d edges=%d",
+        thread_id,
+        len(req.dag.get("nodes", [])),
+        len(req.dag.get("edges", []) or []),
+    )
+    return _ok({"runId": thread_id}, "canvas graph registered")
 
 
 # ----------------------------------------------------------------------
@@ -281,57 +331,55 @@ async def get_history(
 
 
 # ----------------------------------------------------------------------
-# 5. GET /{thread_id}/stream — SSE 流式输出
+# 5. GET / POST /{thread_id}/stream — SSE 流式输出
 # ----------------------------------------------------------------------
 
 
-@router.get("/{thread_id}/stream")
-async def get_stream(
+def _resolve_stream_graph(
+    thread_id: str,
+    graph_input: dict[str, Any] | None,
+) -> tuple[Any, dict[str, Any] | None]:
+    """解析 stream 用图:canvas 注册表优先,未命中降级默认图。
+
+    canvas 命中且调用方未显式传输入时,回填注册时的初始输入,
+    使前端只需带 threadId 即可触发整图执行。
+    """
+    canvas_entry = get_canvas_graph_entry(thread_id)
+    if canvas_entry is not None:
+        if graph_input is None and canvas_entry.get("input"):
+            graph_input = {"input": canvas_entry["input"]}
+        return canvas_entry["graph"], graph_input
+    graph = _ensure_graph()
+    return graph, graph_input
+
+
+def _parse_stream_modes(stream_modes: str | None) -> list[str] | None:
+    """解析逗号分隔的 stream_mode,非法值抛 400。"""
+    if not stream_modes:
+        return None
+    modes = [m.strip() for m in stream_modes.split(",") if m.strip()]
+    invalid = [m for m in modes if m not in VALID_STREAM_MODES]
+    if invalid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"非法 stream_mode: {invalid},允许 {sorted(VALID_STREAM_MODES)}",
+        )
+    return modes
+
+
+def _stream_response(
     thread_id: str,
     request: Request,
-    input: str | None = Query(
-        default=None, description="图输入 JSON 字符串(首次执行传入,恢复时省略)"
-    ),
-    stream_modes: str | None = Query(
-        default=None,
-        description="stream_mode 逗号分隔,如 updates,messages,events",
-    ),
+    graph_input: dict[str, Any] | None,
+    modes: list[str] | None,
 ) -> StreamingResponse:
-    """SSE 流式输出 agent 执行过程。
-
-    Query 参数:
-    - input: 图输入 JSON 字符串(可选;恢复执行时不传)
-    - stream_modes: stream_mode 逗号分隔(可选,默认 updates,messages,events)
-
-    SSE 输出:`event: <type>\\ndata: <json>\\n\\n`
-    """
-    graph = _ensure_graph()
+    """stream 端点共享实现:canvas 图优先 → 默认图 → 503。"""
+    graph, graph_input = _resolve_stream_graph(thread_id, graph_input)
     if graph is None:
         raise HTTPException(
             status_code=503,
             detail="未注册编译图,请先调用 register_langgraph_graph(graph)",
         )
-
-    # 解析 input
-    graph_input: dict[str, Any] | None = None
-    if input:
-        try:
-            graph_input = json.loads(input)
-            if not isinstance(graph_input, dict):
-                raise ValueError("input 必须是 JSON 对象")
-        except (json.JSONDecodeError, ValueError) as e:
-            raise HTTPException(status_code=400, detail=f"input JSON 解析失败: {e}") from None
-
-    # 解析 stream_modes
-    modes: list[str] | None = None
-    if stream_modes:
-        modes = [m.strip() for m in stream_modes.split(",") if m.strip()]
-        invalid = [m for m in modes if m not in VALID_STREAM_MODES]
-        if invalid:
-            raise HTTPException(
-                status_code=400,
-                detail=f"非法 stream_mode: {invalid},允许 {sorted(VALID_STREAM_MODES)}",
-            )
 
     async def event_stream() -> AsyncIterator[str]:
         try:
@@ -363,6 +411,58 @@ async def get_stream(
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },
+    )
+
+
+@router.get("/{thread_id}/stream")
+async def get_stream(
+    thread_id: str,
+    request: Request,
+    input: str | None = Query(
+        default=None, description="图输入 JSON 字符串(首次执行传入,恢复时省略)"
+    ),
+    stream_modes: str | None = Query(
+        default=None,
+        description="stream_mode 逗号分隔,如 updates,messages,events",
+    ),
+) -> StreamingResponse:
+    """SSE 流式输出 agent 执行过程(GET)。
+
+    Query 参数:
+    - input: 图输入 JSON 字符串(可选;恢复执行时不传)
+    - stream_modes: stream_mode 逗号分隔(可选,默认 updates,messages,events)
+
+    SSE 输出:`event: <type>\\ndata: <json>\\n\\n`
+    """
+    graph_input: dict[str, Any] | None = None
+    if input:
+        try:
+            graph_input = json.loads(input)
+            if not isinstance(graph_input, dict):
+                raise ValueError("input 必须是 JSON 对象")
+        except (json.JSONDecodeError, ValueError) as e:
+            raise HTTPException(status_code=400, detail=f"input JSON 解析失败: {e}") from None
+
+    return _stream_response(thread_id, request, graph_input, _parse_stream_modes(stream_modes))
+
+
+@router.post("/{thread_id}/stream")
+async def post_stream(
+    thread_id: str,
+    request: Request,
+    payload: dict[str, Any] | None = None,
+    stream_modes: str | None = Query(
+        default=None,
+        description="stream_mode 逗号分隔,如 updates,messages,events",
+    ),
+) -> StreamingResponse:
+    """SSE 流式输出 agent 执行过程(POST,body 即图输入状态对象)。
+
+    供 apps/api langgraph 代理调用(其 streamAgentExecution 以 POST + JSON body
+    转发图输入);body 为空对象时视为未传输入(canvas 图回填注册时输入)。
+    """
+    return _stream_response(
+        thread_id, request, payload or None, _parse_stream_modes(stream_modes)
     )
 
 
