@@ -785,6 +785,9 @@ export interface StreamChatOptions {
    * 把内容通过此字段传给后端,后端直接注入 system prompt(跳过从文件系统读取)。
    * Tauri 桌面端为 undefined,走 workspacePath 逻辑。 */
   workspaceContext?: string
+  /** Repo Wiki（项目百科）仓库名（2026-09-13 立）：后端据此把该仓库最新 overview 文档
+   *  注入 AI 对话 system prompt；为空时不注入。 */
+  repoName?: string
   /** 阶段 2:工具委托执行回调(浏览器端收到 tool-delegate SSE 事件时触发)
    * 前端用 FileSystemDirectoryHandle 执行 fs 类工具,通过 postToolResult 回传结果 */
   onToolDelegate?: (event: ToolDelegateEvent) => void | Promise<void>
@@ -1556,6 +1559,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   if (opts.stop !== undefined) body.stop = opts.stop
   if (opts.workspacePath) body.workspacePath = opts.workspacePath
   if (opts.workspaceContext) body.workspaceContext = opts.workspaceContext
+  if (opts.repoName) body.repoName = opts.repoName
   if (opts.contextLimit !== undefined) body.contextLimit = opts.contextLimit
   if (opts.agentId) body.agentId = opts.agentId
   if (opts.agentTools && opts.agentTools.length > 0) body.agentTools = opts.agentTools

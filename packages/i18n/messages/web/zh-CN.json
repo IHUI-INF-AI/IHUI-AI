@@ -228,7 +228,9 @@
     "delete": "删除",
     "deleteConfirm": "确认删除该文档？",
     "backToList": "返回列表",
-    "loadingDetail": "加载文档中…"
+    "loadingDetail": "加载文档中…",
+    "regenerate": "重新生成",
+    "regenerateDisabledHint": "请先选择项目文件夹后再重新生成"
   },
   "a11y": {
     "addAttachment": "添加附件（图片/视频/文件）",

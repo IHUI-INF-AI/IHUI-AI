@@ -228,7 +228,9 @@
     "delete": "刪除",
     "deleteConfirm": "確認刪除該文件？",
     "backToList": "返回列表",
-    "loadingDetail": "載入文件中…"
+    "loadingDetail": "載入文件中…",
+    "regenerate": "重新產生",
+    "regenerateDisabledHint": "請先選擇專案資料夾後再重新產生"
   },
   "a11y": {
     "addAttachment": "添加附件（圖片/視頻/文件）",

@@ -228,7 +228,9 @@
     "delete": "삭제",
     "deleteConfirm": "이 문서를 삭제하시겠습니까?",
     "backToList": "목록으로",
-    "loadingDetail": "문서 불러오는 중…"
+    "loadingDetail": "문서 불러오는 중…",
+    "regenerate": "다시 생성",
+    "regenerateDisabledHint": "다시 생성하려면 먼저 프로젝트 폴더를 선택하세요"
   },
   "a11y": {
     "addAttachment": "첨부 파일 추가(이미지/비디오/파일)",
