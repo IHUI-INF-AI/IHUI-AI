@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import dynamic from 'next/dynamic'
-import { Check, Copy, Download, FileText, Play } from 'lucide-react'
+import { Check, Copy, Download, FileText, Play, Maximize2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
 import ReactMarkdown, { type Components } from 'react-markdown'
@@ -16,6 +16,7 @@ import rehypeKatex from 'rehype-katex'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { useCanvasStore } from '@/stores/canvas-store'
 // 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
@@ -106,6 +107,39 @@ class CodeBlockErrorBoundary extends React.PureComponent<
 // 这些语言用纯文本渲染,不走 SyntaxHighlighter(避免开销)
 const PLAIN_TEXT_LANGS = new Set(['', 'text', 'plain', 'txt'])
 
+// P0-4(2026-09-13):inline 预览守卫——仅当 content 以 <!DOCTYPE html / <html / <svg 开头
+// 才渲染迷你预览条(WorkBuddy 即时可视化风格),避免流式期间无谓 iframe 抖动
+const INLINE_PREVIEW_RE = /^\s*(<!DOCTYPE\s+html|<html[\s>]|<svg[\s>])/i
+
+/** html/svg 代码块的 inline 迷你预览条:沙箱 iframe(~160px)+「在画布打开」按钮 */
+function InlineHtmlPreview({ code }: { code: string }) {
+  const t = useTranslations('chat')
+  const openCanvas = useCanvasStore((s) => s.openCanvas)
+  return (
+    <div className="relative my-2 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
+      <div className="flex items-center justify-between gap-2 bg-zinc-100 px-2 py-1 dark:bg-zinc-900">
+        <span className="text-[10px] font-medium text-muted-foreground">
+          {t('artifactPreview')}
+        </span>
+        <button
+          type="button"
+          onClick={() => openCanvas(code)}
+          className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+        >
+          <Maximize2 className="h-3 w-3" />
+          {t('canvasOpenInCanvas')}
+        </button>
+      </div>
+      <iframe
+        title="inline-html-preview"
+        sandbox="allow-scripts"
+        srcDoc={code}
+        className="h-[160px] w-full bg-white"
+      />
+    </div>
+  )
+}
+
 const CodeBlockImpl = function CodeBlock({
   language,
   code,
@@ -146,6 +180,13 @@ const CodeBlockImpl = function CodeBlock({
 
   const lang = (language ?? '').trim().toLowerCase()
   const isPlain = PLAIN_TEXT_LANGS.has(lang)
+
+  // P0-4(2026-09-13):html/svg 代码块 inline 迷你预览条(渲染在代码块上方,
+  // 仿 mermaid 特例;点击「在画布打开」进入全屏画布闭环)
+  const inlinePreview =
+    (lang === 'html' || lang === 'svg') && INLINE_PREVIEW_RE.test(debouncedCode) ? (
+      <InlineHtmlPreview code={debouncedCode} />
+    ) : null
 
   // 复制按钮(absolute 定位在 <pre> 右上角)
   // 2026-07-31 对标 主流 AI IDE + 与 code-generator.tsx 保持一致:
@@ -196,11 +237,14 @@ const CodeBlockImpl = function CodeBlock({
   // 纯文本或无语言:不调 SyntaxHighlighter,避免开销
   if (isPlain) {
     return (
-      <pre ref={preRef} className={preClassName}>
-        {copyButton}
-        {collapseButton}
-        <code className="font-mono">{displayCode}</code>
-      </pre>
+      <>
+        {inlinePreview}
+        <pre ref={preRef} className={preClassName}>
+          {copyButton}
+          {collapseButton}
+          <code className="font-mono">{displayCode}</code>
+        </pre>
+      </>
     )
   }
 
@@ -214,24 +258,27 @@ const CodeBlockImpl = function CodeBlock({
   )
 
   return (
-    <CodeBlockErrorBoundary fallback={fallback}>
-      <pre ref={preRef} className={preClassName}>
-        {copyButton}
-        {collapseButton}
-        <SyntaxHighlighter
-          language={lang}
-          style={syntaxStyle}
-          customStyle={{
-            margin: 0,
-            padding: 0,
-            background: 'transparent',
-            fontSize: '15px',
-          }}
-        >
-          {displayCode}
-        </SyntaxHighlighter>
-      </pre>
-    </CodeBlockErrorBoundary>
+    <>
+      {inlinePreview}
+      <CodeBlockErrorBoundary fallback={fallback}>
+        <pre ref={preRef} className={preClassName}>
+          {copyButton}
+          {collapseButton}
+          <SyntaxHighlighter
+            language={lang}
+            style={syntaxStyle}
+            customStyle={{
+              margin: 0,
+              padding: 0,
+              background: 'transparent',
+              fontSize: '15px',
+            }}
+          >
+            {displayCode}
+          </SyntaxHighlighter>
+        </pre>
+      </CodeBlockErrorBoundary>
+    </>
   )
 }
 
