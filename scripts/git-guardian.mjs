@@ -290,9 +290,33 @@ function writeLooseRef(ref, sha) {
 }
 
 /**
+ * 从 FETCH_HEAD(gitdir 顶层文件 → 宿主清理不到)取 `origin/main` 的权威值。
+ *
+ * 为什么需要:git fetch 把新值写成**松散** refs/remotes/origin/main(嵌套目录),
+ * 该文件实测在 1 秒内即被宿主清理;若 packed-refs 里还留着上一次的旧值,
+ * git 就回落到旧值 → 明明同 sha 却显示 `## main...origin/main [ahead 1]`。
+ */
+function fetchHeadMain() {
+  let text
+  try {
+    text = readFileSync(join(GITDIR, 'FETCH_HEAD'), 'utf8')
+  } catch {
+    return null
+  }
+  const lines = text.split('\n').filter((l) => /^[0-9a-f]{40}\b/.test(l.trim()))
+  if (lines.length === 0) return null
+  const mainLine =
+    lines.find((l) => /branch\s+'?main'?\b/.test(l)) ?? (lines.length === 1 ? lines[0] : null)
+  if (!mainLine) return null
+  const m = mainLine.trim().match(/^([0-9a-f]{40})/)
+  return m ? m[1] : null
+}
+
+/**
  * ref 自愈:①把当前可见的嵌套 ref 纳入清单(自维护,含 manifest 缺失时的 bootstrap)
- *          ②清单里有、当前解析不到的 → 按清单重建并 pack
- * 返回:true = 清单内全部可解析
+ *          ②origin/main 以 FETCH_HEAD 为准(松散 ref 被 1s 内清理,packed 可能留旧值)
+ *          ③清单里有、当前解析不到或值不符的 → 按清单重建并 pack
+ * 返回:true = 清单内全部可解析且与清单一致
  */
 function healRefs() {
   const cur = currentRefs()
@@ -305,6 +329,15 @@ function healRefs() {
       learned++
     }
   }
+  // FETCH_HEAD 是 fetch 自己写的顶层文件,权威度高于残留的 packed 旧值
+  const fh = fetchHeadMain()
+  if (fh && map['refs/remotes/origin/main'] && map['refs/remotes/origin/main'] !== fh) {
+    log(
+      `修复: origin/main 以 FETCH_HEAD 为准 ${map['refs/remotes/origin/main'].slice(0, 12)} -> ${fh.slice(0, 12)}`,
+    )
+    map['refs/remotes/origin/main'] = fh
+    learned++
+  }
   if (learned) {
     try {
       writeFileSync(REFS_MANIFEST, JSON.stringify(map, null, 1) + '\n', 'utf8')
@@ -313,8 +346,11 @@ function healRefs() {
     }
   }
 
-  // 合并后清单里"当前不可见"的即为缺失(cur[ref] === undefined);已存在的同步过值,不会误判
-  const broken = Object.entries(map).filter(([ref, sha]) => cur[ref] !== sha)
+  // 合并后清单里"当前不可见或值不符"的即为待修复项
+  const broken = Object.entries(map).filter(([ref, sha]) => {
+    const resolved = git(['rev-parse', '--verify', '--quiet', ref], true)
+    return !resolved || resolved !== sha
+  })
   if (broken.length === 0) return true
 
   log(`修复: 重建 ${broken.length} 个缺失的嵌套 ref(宿主清理 depth>=2 目录所致)`)
