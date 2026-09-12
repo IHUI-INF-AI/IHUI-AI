@@ -98,6 +98,7 @@
 - **市场审核**(`mcp_market_review.py`):审核结论 JSON 原子落盘持久化;`mcp.py` 4 新端点(`GET store/{key}/score`、`GET quality/dashboard`、`GET/POST review`)+ `confirm_risk` 双闸门(高危需显式确认)。
 - **指标挂载**:`mcp_stdio_bridge`/`mcp_client` 工具调用延迟/成功率/schema 兼容上报。
 - **验收**:test_mcp_quality 49 用例 + test_mcp_store 7 处补 confirm_risk;mypy/ruff 0 错。
+- **前端接线补全(2026-09-12)**:mcp-store 页接入质量看板区块(GET /api/mcp/quality/dashboard,失败静默降级不渲染)+ 评分徽章抽出 `mcp-scoring-badges.tsx` 共享组件(**根治旧代码 Badge 原生 `title` prop 违反 Tooltip 规范**)+ ReviewBadge 审核状态;api-client mcp.ts 补 `McpReviewStatus`/`McpQualityDashboardResponse` 等契约镜像;专项测试 mcp-store-scoring.test.tsx 7/7(含禁原生 title 回归断言)。
 
 ### 1-6 键盘优先交互完成报告(2026-09-12,batch-1)
 
@@ -130,6 +131,7 @@
 - **微元计价引擎**(`model_pricing.py`):4 个 Decimal 微元计价函数,全程无除法消除 float 漂移;`llm_budget_governor._calc_cost` 切换微元引擎。
 - **预算事件流**:200 条环形缓冲预算事件(去重);`llm_usage_service`/`cost_ledger` 挂载;`usage.py` 新增 `GET /usage/budget-events` 前端看板数据源。
 - **验收**:test_cost_precision 39 用例(含 float 漂移回归断言);mypy strict 430 文件 0 错。
+- **前端看板消费补全(2026-09-12)**:cost-dashboard 页新增「预算事件」时间线区块(类型徽章 预警/严重/自动降级/降级恢复 + 支柱/用量%/当日成本/降级模型/硬停止标记,最新在前,失败静默隐藏、空态提示);`cost-ledger-api.ts` 补 `BudgetEvent`/`fetchBudgetEvents`(走既有 `/api/v1/ai/usage/:path*` rewrite,未新增配置);i18n costDashboard 命名空间 11 键 5 语言全译。验收:web typecheck 0 错 / 触及文件 eslint 0 错 / i18n parity 14326 键 OK / mcp-store-scoring 7 测试全绿。
 
 ### P3 生态与长期领先(6-12 个月)
 

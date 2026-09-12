@@ -9,7 +9,9 @@
 // 消费:
 //   GET /api/cost-ledger/summary        → totals + by_tool/by_model + window
 //   GET /api/cost-ledger/timeseries     → 按日/小时的 cost + token 走势(?granularity)
-// 渲染聚合卡片 + by_tool/by_model 清单 + 纯 CSS 条形走势 + 空态提示。
+//   GET /api/v1/ai/usage/budget-events  → 预算事件时间线(governor 环形缓冲,最新在前)
+// 渲染聚合卡片 + by_tool/by_model 清单 + 纯 CSS 条形走势 + 预算事件时间线 + 空态提示。
+// 预算事件端点失败时静默隐藏区块(不阻断主看板)。后端:ai-service routers/usage.py。
 // 未登录(401)提示"请先登录"。后端:ai-service routers/cost_ledger.py。
 
 'use client'
@@ -17,6 +19,7 @@
 import * as React from 'react'
 import {
   Activity,
+  AlertTriangle,
   CircleX,
   Coins,
   Cpu,
@@ -30,7 +33,8 @@ import {
 import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import { Tooltip } from '@/components/feedback'
-import type { CostSummary, CostTimeseries } from '@/api/cost-ledger-api'
+import type { BudgetEvent, CostSummary, CostTimeseries } from '@/api/cost-ledger-api'
+import { fetchBudgetEvents } from '@/api/cost-ledger-api'
 
 type Granularity = 'day' | 'hour'
 
@@ -42,6 +46,8 @@ export default function CostDashboardPage() {
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState('')
   const [needLogin, setNeedLogin] = React.useState(false)
+  // 预算事件(独立于成本账本加载,null = 端点不可用 → 静默隐藏区块,不阻断主看板)
+  const [budgetEvents, setBudgetEvents] = React.useState<BudgetEvent[] | null>(null)
 
   const load = React.useCallback(
     async (gran: Granularity) => {
@@ -74,8 +80,37 @@ export default function CostDashboardPage() {
     void load(granularity)
   }, [load, granularity])
 
+  // 预算事件:独立加载,失败静默降级(null → 隐藏区块),空数组 → 空态提示
+  React.useEffect(() => {
+    let cancelled = false
+    fetchBudgetEvents(50)
+      .then((data) => {
+        if (!cancelled) setBudgetEvents(data?.events ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setBudgetEvents(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const fmtUsd = (cost: number) => (cost > 0 ? `$${cost.toFixed(4)}` : '$0')
   const fmtDur = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`)
+
+  // 预算事件类型徽章(design token 颜色;类型语义见 budgetBadge 的映射)
+  const budgetBadge = (type: string): { label: string; cls: string } => {
+    switch (type) {
+      case 'budget.critical':
+        return { label: t('budgetCritical'), cls: 'bg-destructive/10 text-destructive' }
+      case 'budget.degrade':
+        return { label: t('budgetDegrade'), cls: 'bg-primary/10 text-primary' }
+      case 'budget.degrade_reset':
+        return { label: t('budgetDegradeReset'), cls: 'bg-emerald-500/10 text-emerald-600' }
+      default:
+        return { label: t('budgetWarning'), cls: 'bg-amber-500/10 text-amber-600' }
+    }
+  }
 
   // 条形走势:把桶展开为等宽横柱(cost 与 token 各一个对照柱)
   const maxCost = Math.max(0, ...series.map((b) => b.cost))
@@ -275,6 +310,82 @@ export default function CostDashboardPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* 预算事件时间线(独立于成本账本;端点不可用时 null → 静默隐藏) */}
+      {budgetEvents !== null && (
+        <div className="mt-4 rounded-xl border p-3">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <AlertTriangle className="h-4 w-4" /> {t('budgetEvents')}
+            <Tooltip content={t('budgetEventsHint')}>
+              <span className="cursor-help rounded-sm border px-1.5 text-[10px] font-normal leading-4 text-muted-foreground">
+                ?
+              </span>
+            </Tooltip>
+          </h2>
+          {budgetEvents.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+              <Activity className="h-5 w-5" /> {t('budgetEventsEmpty')}
+            </div>
+          ) : (
+            <ul className="space-y-1.5">
+              {budgetEvents.map((e, i) => {
+                const badge = budgetBadge(e.event_type)
+                const pct =
+                  typeof e.usage_percent === 'number'
+                    ? `${(e.usage_percent * 100).toFixed(1)}%`
+                    : ''
+                const ts = e.timestamp ? new Date(e.timestamp).toLocaleString() : ''
+                return (
+                  <li
+                    key={`${e.timestamp}-${i}`}
+                    className="flex flex-wrap items-center gap-2 border-l-2 border-muted pl-3 text-sm"
+                  >
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${badge.cls}`}
+                    >
+                      {badge.label}
+                    </span>
+                    {e.hard_stop && (
+                      <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive">
+                        {t('budgetHardStop')}
+                      </span>
+                    )}
+                    {e.pillar && (
+                      <Tooltip content={e.pillar}>
+                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs">
+                          {e.pillar}
+                        </span>
+                      </Tooltip>
+                    )}
+                    {pct && (
+                      <Tooltip content={t('budgetUsagePercent', { percent: pct })}>
+                        <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
+                          {pct}
+                        </span>
+                      </Tooltip>
+                    )}
+                    {typeof e.daily_cost === 'number' && e.daily_cost > 0 && (
+                      <Tooltip content={t('budgetDailyCost', { cost: fmtUsd(e.daily_cost) })}>
+                        <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
+                          {fmtUsd(e.daily_cost)}
+                        </span>
+                      </Tooltip>
+                    )}
+                    {e.degrade_to && (
+                      <Tooltip content={t('budgetDegradedTo', { model: e.degrade_to })}>
+                        <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+                          → {e.degrade_to}
+                        </span>
+                      </Tooltip>
+                    )}
+                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">{ts}</span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   )
