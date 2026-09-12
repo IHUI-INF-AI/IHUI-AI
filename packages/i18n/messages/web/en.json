@@ -228,7 +228,9 @@
     "delete": "Delete",
     "deleteConfirm": "Delete this document?",
     "backToList": "Back to list",
-    "loadingDetail": "Loading document…"
+    "loadingDetail": "Loading document…",
+    "regenerate": "Regenerate",
+    "regenerateDisabledHint": "Select a project folder before regenerating"
   },
   "a11y": {
     "addAttachment": "Add attachment (image / video / file)",
