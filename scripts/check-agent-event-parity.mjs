@@ -107,7 +107,12 @@ const WHITELIST = [
   // 属任务约定的「SSE 客户端库统一分发」合法场景。
   { name: 'start', reason: 'execute/stream 起始事件(resume_from 重连锚点),api-client onEvent 兜底统一分发' },
   { name: 'status', reason: 'langgraph 状态流转事件,api-client onEvent 兜底统一分发' },
+  // P0-5(2026-09-13):agents.py /agents/tasks/stream 新增 "thinking.delta"→"thinking"
+  // 映射,与 langgraph 同名 SSE 事件共用本条目;前端 workbench 逐名消费接线后复核
   { name: 'thinking', reason: 'langgraph 思考提示事件,api-client onEvent 兜底统一分发' },
+  // P0-5(2026-09-13):agents.py "plan.step"→"plan-step" 新映射,后端已生产,
+  // 前端 use-agent-runtime 消费点由 P0-5 web 端任务接线 —— P0-5 web 端接线后移除本条目
+  { name: 'plan-step', reason: 'P0-5 工作台 plan 步骤事件(started/completed),web 端接线未完成,待消费豁免 —— P0-5 web 端接线后移除' },
   { name: 'memory_context', reason: 'langgraph 记忆上下文事件,api-client onEvent 兜底统一分发' },
   { name: 'step_start', reason: 'langgraph 步骤开始事件,api-client onEvent 兜底统一分发' },
   { name: 'step_done', reason: 'langgraph 步骤完成事件,api-client onEvent 兜底统一分发' },
