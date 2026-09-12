@@ -133,7 +133,14 @@ async function runHealthCheck(row: KeyRowForCheck): Promise<HealthCheckResult> {
     }
   }
 
-  const baseUrl = await findBaseUrlByProvider(row.providerCode)
+  // key 级 extraMetadata.baseUrl 覆盖(2026-09-13):同一聚合上游多端点各建一条 key
+  // 条目并各自覆写 baseUrl,巡检按 key 粒度测速 → 与渠道路由的 per-key 覆盖同源
+  const keyMeta = readExtraMetadata(row.extraMetadata)
+  const keyBaseUrlOverride = keyMeta['baseUrl']
+  const baseUrl =
+    typeof keyBaseUrlOverride === 'string' && keyBaseUrlOverride.trim() !== ''
+      ? keyBaseUrlOverride.trim()
+      : await findBaseUrlByProvider(row.providerCode)
   if (!baseUrl) {
     return {
       keyId: row.id,
