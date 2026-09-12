@@ -105,17 +105,22 @@ if (!localHead) {
   process.exit(2)
 }
 
-// 尝试从本地 remote-tracking 读取
-let remoteHead = run(`git rev-parse origin/${branch}`, { allowFail: true })
-
-// 本地没有 origin/branch 引用时,实时查 remote
+// 远端 tip 必须以 ls-remote(网络真值)为准(2026-09-12 修)
+// 背景:本机存在「宿主清理 gitdir 嵌套目录」病理 → `refs/remotes/<remote>/<branch>` 会被静默清除,
+//   而 packed-refs 里可能残留**旧值**,于是 `git rev-parse origin/<branch>` 返回过期 sha。
+//   旧逻辑「优先本地 tracking ref、仅缺失时才 ls-remote」在这台机器上**必然取到旧值**,已真实造成两类误判:
+//     ① push 明明成功(远端已是新 sha),却报「push 报告成功但验证失败」→ 让 agent 以为没推上去;
+//     ② 本地已与远端同步,却报「本地落后 N 个 commit」→ 诱导执行 pull --rebase(本机禁用,曾两次删库)。
+//   现改为:先 ls-remote(权威),失败才回退本地 tracking ref。
+let remoteHead = null
+const lsRemoteOut = run(`git ls-remote origin refs/heads/${branch}`, { allowFail: true })
+if (lsRemoteOut) {
+  // ls-remote 输出格式: "<sha>\trefs/heads/<branch>"
+  remoteHead = lsRemoteOut.split('\t')[0].trim() || null
+}
 if (!remoteHead) {
-  log('info', `本地无 origin/${branch} 引用,实时查询 remote...`)
-  remoteHead = run(`git ls-remote origin refs/heads/${branch}`, { allowFail: true })
-  if (remoteHead) {
-    // ls-remote 输出格式: "<sha>\trefs/heads/<branch>"
-    remoteHead = remoteHead.split('\t')[0].trim()
-  }
+  log('info', `ls-remote 不可用,回退本地 origin/${branch} 引用(本机可能过期)`)
+  remoteHead = run(`git rev-parse origin/${branch}`, { allowFail: true })
 }
 
 if (!remoteHead) {
@@ -146,7 +151,9 @@ if (revList) {
 }
 
 if (behind > 0 && ahead === 0) {
-  log('warn', `本地落后 origin/${branch} ${behind} 个 commit,无法 fast-forward push(请先 git pull --rebase)`)
+  log('warn', `本地落后 origin/${branch} ${behind} 个 commit,无法 fast-forward push`)
+  log('warn', '  同步姿势(本机铁律,禁用 pull --rebase):')
+  log('warn', `    git fetch origin ${branch} && git merge --ff-only FETCH_HEAD`)
   process.exit(1)
 }
 
@@ -282,15 +289,18 @@ if (pushResult.status !== 0) {
 
 if (pushResult.status !== 0) {
   log('err', `git push 最终失败(exit code: ${pushResult.status},即使 --no-verify 也无法推送)`)
-  console.log(`${C.dim}   可能原因: (a) 远端有更新的 commit 需先 pull --rebase;(b) 分支保护规则需 PR;(c) 凭据失效;(d) 网络问题${C.reset}`)
+  console.log(`${C.dim}   可能原因: (a) 远端有更新的 commit,需先同步 —— git fetch origin main && git merge --ff-only FETCH_HEAD(本机禁用 pull --rebase);(b) 分支保护规则需 PR;(c) 凭据失效;(d) 网络问题${C.reset}`)
   process.exit(1)
 }
 
 // ─── 5. 再次验证 ────────────────────────────────────────────
 const newLocalHead = run('git rev-parse HEAD', { allowFail: true })
-const newRemoteHead = run(`git rev-parse origin/${branch}`, { allowFail: true })
 const newRemoteLs = run(`git ls-remote origin refs/heads/${branch}`, { allowFail: true })
-const verifiedRemote = newRemoteHead || (newRemoteLs ? newRemoteLs.split('\t')[0].trim() : null)
+const newRemoteHead = run(`git rev-parse origin/${branch}`, { allowFail: true })
+// 同前述:ls-remote 是网络真值,优先级高于本地 tracking ref(本机后者可能过期,会造成"假失败")
+const verifiedRemote = newRemoteLs
+  ? newRemoteLs.split('\t')[0].trim()
+  : newRemoteHead
 
 if (!verifiedRemote) {
   log('err', 'push 后无法验证远端状态(请手动检查)')
