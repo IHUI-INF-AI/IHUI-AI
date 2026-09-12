@@ -739,6 +739,16 @@
       "total": "총 {total}건"
     },
     "aiMetrics": {
+      "fimAcceptance": "FIM 완성 수락률",
+      "fimAcceptanceDesc": "모델별 완성 수락률과 지연입니다. 수락률 30% 미만이고 제안 20건 이상이면 경고",
+      "fimAcceptanceRate": "수락률",
+      "fimAccepted": "수락 수",
+      "fimAlert": "완성 수락률이 낮습니다. 모델 라우팅 또는 완성 프롬프트를 확인하세요",
+      "fimLatency": "지연 P50 / P95 (ms)",
+      "fimModel": "모델",
+      "fimNoData": "완성 데이터 없음",
+      "fimRequests": "요청 수",
+      "fimSuggestions": "제안 수",
       "backToCost": "비용 대시보드로 돌아가기",
       "lastRefresh": "마지막 새로고침: {time}",
       "loadFailed": "로딩 실패, 잠시 후 재시도해 주세요",

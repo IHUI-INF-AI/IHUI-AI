@@ -739,6 +739,16 @@
       "total": "共 {total} 條"
     },
     "aiMetrics": {
+      "fimAcceptance": "FIM 補全接受率",
+      "fimAcceptanceDesc": "按模型統計的補全建議接受率與延遲;接受率低於 30% 且建議數 ≥ 20 時告警",
+      "fimAcceptanceRate": "接受率",
+      "fimAccepted": "接受數",
+      "fimAlert": "補全接受率偏低,建議檢查模型路由或補全提示詞",
+      "fimLatency": "延遲 P50 / P95 (ms)",
+      "fimModel": "模型",
+      "fimNoData": "暫無補全數據",
+      "fimRequests": "請求數",
+      "fimSuggestions": "建議數",
       "backToCost": "返回成本看板",
       "lastRefresh": "最後刷新: {time}",
       "loadFailed": "加載失敗,請稍後重試",

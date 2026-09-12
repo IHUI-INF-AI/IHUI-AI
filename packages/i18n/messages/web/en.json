@@ -739,6 +739,16 @@
       "total": "Total {total} items"
     },
     "aiMetrics": {
+      "fimAcceptance": "FIM Completion Acceptance",
+      "fimAcceptanceDesc": "Per-model completion acceptance and latency; alerts when acceptance < 30% with at least 20 suggestions",
+      "fimAcceptanceRate": "Acceptance Rate",
+      "fimAccepted": "Accepted",
+      "fimAlert": "Completion acceptance is low; check model routing or the completion prompt",
+      "fimLatency": "Latency P50 / P95 (ms)",
+      "fimModel": "Model",
+      "fimNoData": "No completion data yet",
+      "fimRequests": "Requests",
+      "fimSuggestions": "Suggestions",
       "backToCost": "Back to Cost Dashboard",
       "lastRefresh": "Last refresh: {time}",
       "loadFailed": "Load failed, please retry later",
