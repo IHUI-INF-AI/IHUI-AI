@@ -40,7 +40,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import uuid as _uuid
 from typing import Any
 
 import asyncpg
@@ -488,13 +487,15 @@ class FederatedLearner:
             async with pool.acquire() as conn:
                 # 先查是否存在(按 lesson_type + title)
                 row = await conn.fetchrow(
-                    """SELECT id::text AS fid FROM agent_federated_lessons
+                    """SELECT id AS fid FROM agent_federated_lessons
                        WHERE lesson_type = $1 AND title = $2""",
                     lesson_type,
                     title,
                 )
                 if row:
-                    db_id = str(row["fid"])
+                    # 修复(2026-09-12):id 列是 bigint,必须传 int;
+                    # 旧代码 _uuid.UUID(db_id) 会把 bigint 主键传出 int64 范围/解析失败。
+                    db_id = int(row["fid"])
                     await conn.execute(
                         """UPDATE agent_federated_lessons SET
                                content = $1,
@@ -512,7 +513,7 @@ class FederatedLearner:
                         confidence,
                         occurrence_count,
                         dp_noise_added,
-                        _uuid.UUID(db_id),
+                        db_id,
                     )
                 else:
                     await conn.execute(

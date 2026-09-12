@@ -34,6 +34,7 @@ L4 元学习闭环:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import uuid as _uuid
 from datetime import UTC, datetime
@@ -380,14 +381,18 @@ class MetaLearner:
                 await conn.execute(
                     """
                     CREATE TABLE IF NOT EXISTS agent_meta_lessons (
-                        id uuid PRIMARY KEY,
-                        lesson_type varchar(64) NOT NULL,
-                        title varchar(512) NOT NULL,
+                        id bigserial PRIMARY KEY,
+                        user_id text,
+                        lesson_type varchar,
+                        title text,
                         content text,
-                        source_skills text[] DEFAULT '{}',
+                        anonymized_content text,
+                        source_user_ids_hash text,
+                        dp_noise_added boolean DEFAULT false,
+                        source_skills jsonb DEFAULT '[]'::jsonb,
                         failure_pattern_id varchar(64),
-                        occurrence_count integer DEFAULT 1,
-                        confidence double precision DEFAULT 0.5,
+                        occurrence_count integer DEFAULT 0,
+                        confidence double precision DEFAULT 0,
                         system_prompt_snippet text,
                         created_at timestamptz DEFAULT NOW(),
                         updated_at timestamptz DEFAULT NOW()
@@ -485,41 +490,46 @@ class MetaLearner:
                     title,
                 )
                 if row:
-                    db_id = str(row["id"])
+                    db_id = int(row["id"])
                     db_occ = int(row["occ"] or 0)
                     new_occ = db_occ + occurrence_count
                     # 合并 source_skills(数组 union)
                     merged_skills = await self._merge_source_skills(
                         conn, db_id, source_skills
                     )
+                    # 修复(2026-09-12):生产库 source_skills 实为 jsonb(非 text[]);
+                    # asyncpg 未注册 jsonb codec 时不接受 Python list,须显式序列化 +
+                    # $2::jsonb 转型(共享池不注册 codec,避免污染其它使用者)。
                     await conn.execute(
                         """UPDATE agent_meta_lessons SET
                                content = $1,
-                               source_skills = $2,
+                               source_skills = $2::jsonb,
                                occurrence_count = $3,
                                confidence = LEAST(1.0, confidence + $4 * 0.1),
                                system_prompt_snippet = $5,
                                updated_at = NOW()
                            WHERE id = $6""",
                         content,
-                        merged_skills,
+                        json.dumps(merged_skills, ensure_ascii=False),
                         new_occ,
                         confidence,
                         snippet,
-                        _uuid.UUID(db_id),
+                        db_id,
                     )
                 else:
+                    # 修复(2026-09-12):id 列是 bigint(有 DEFAULT nextval 序列),
+                    # 由数据库生成主键;不得显式传 UUID(UUID 超出 int64 范围)。
+                    # source_skills 是 jsonb:显式 json.dumps + $4::jsonb 转型。
                     await conn.execute(
                         """INSERT INTO agent_meta_lessons
-                               (id, lesson_type, title, content, source_skills,
+                               (lesson_type, title, content, source_skills,
                                 failure_pattern_id, occurrence_count, confidence,
                                 system_prompt_snippet)
-                           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)""",
-                        _uuid.UUID(lesson_id),
+                           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)""",
                         lesson_type,
                         title,
                         content,
-                        source_skills,
+                        json.dumps(source_skills, ensure_ascii=False),
                         failure_pattern_id,
                         occurrence_count,
                         confidence,
@@ -533,24 +543,48 @@ class MetaLearner:
             return True  # 仅写内存也算成功(不影响主流程)
         return True
 
+    @staticmethod
+    def _coerce_source_skills(value: Any) -> list[str]:
+        """把 DB 读回的 source_skills 归一化为 list[str]。
+
+        修复(2026-09-12):生产库 source_skills 是 jsonb,而共享池未注册 jsonb
+        codec → asyncpg 返回 str(如 '["a","b"]')。旧代码直接 list(str) 会得到
+        逐字符列表。此处:str → json.loads;已是 list/tuple → 原样规范化;
+        非法值/None → 空列表(不抛错)。
+        """
+        if value is None:
+            return []
+        if isinstance(value, (str, bytes, bytearray)):
+            try:
+                parsed = json.loads(value)
+            except (ValueError, TypeError):
+                return []
+            return [str(s) for s in parsed] if isinstance(parsed, list) else []
+        if isinstance(value, (list, tuple)):
+            return [str(s) for s in value]
+        return []
+
     async def _merge_source_skills(
         self,
         conn: asyncpg.Connection,
-        lesson_id: str,
+        lesson_id: int,
         new_skills: list[str],
     ) -> list[str]:
-        """合并 DB 中已有 source_skills 与新 skills(去重 + 排序)。"""
+        """合并 DB 中已有 source_skills 与新 skills(去重 + 排序)。
+
+        lesson_id 为 DB 主键 bigint(不是 UUID),直接按 int 查询。
+        """
         try:
             row = await conn.fetchrow(
                 "SELECT source_skills FROM agent_meta_lessons WHERE id = $1",
-                _uuid.UUID(lesson_id),
+                lesson_id,
             )
         except Exception as e:
             logger.warning("meta_learner._merge_source_skills 加载 source_skills 失败: %s", e, exc_info=True)
             return new_skills
         if not row:
             return new_skills
-        existing = list(row["source_skills"] or [])
+        existing = self._coerce_source_skills(row["source_skills"])
         merged = sorted(set(existing) | set(new_skills))
         return merged
 
@@ -600,7 +634,7 @@ class MetaLearner:
                 continue
             lesson_type = str(row["lesson_type"])
             title = str(row["title"])
-            source_skills = list(row["source_skills"] or [])
+            source_skills = self._coerce_source_skills(row["source_skills"])
             failure_pattern_id = row["failure_pattern_id"]
             snippet = row["snippet"]
 
@@ -628,7 +662,8 @@ class MetaLearner:
         """从 DB 删除 meta_lesson(用于手动清理低质量 lesson)。
 
         Args:
-            lesson_id: lesson ID(UUID)
+            lesson_id: 内存 lesson key(hydrate 自 DB 时为 bigint 数字串,
+                本进程新建时为 UUID 字符串)
 
         Returns:
             True 表示删除成功(或内存已清除)
@@ -640,13 +675,28 @@ class MetaLearner:
         if lesson:
             key = (str(lesson.get("lessonType", "")), str(lesson.get("title", "")))
             self._title_index.pop(key, None)
+        # DB 的 id 列是 bigint:来自 load_all_lessons hydrate 的 lesson_id 是数字串,
+        # 可直接转 int 按主键删除;本进程新建的 lesson_id 是 UUID 字符串(内存 key 语义),
+        # 无法映射 bigint 主键,改按 (lesson_type, title) 定位删行(与 UPSERT 身份一致)。
+        try:
+            db_id: int | None = int(lesson_id)
+        except (TypeError, ValueError):
+            db_id = None
         try:
             pool = await _get_pool()
             async with pool.acquire() as conn:
-                await conn.execute(
-                    """DELETE FROM agent_meta_lessons WHERE id = $1""",
-                    _uuid.UUID(lesson_id),
-                )
+                if db_id is not None:
+                    await conn.execute(
+                        """DELETE FROM agent_meta_lessons WHERE id = $1""",
+                        db_id,
+                    )
+                elif lesson:
+                    await conn.execute(
+                        """DELETE FROM agent_meta_lessons
+                           WHERE lesson_type = $1 AND title = $2""",
+                        str(lesson.get("lessonType", "")),
+                        str(lesson.get("title", "")),
+                    )
             return True
         except Exception as e:
             logger.warning(

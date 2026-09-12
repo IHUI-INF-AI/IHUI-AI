@@ -917,4 +917,46 @@ class TestDifferentialPrivacySingleton:
         """单例 anonymize_text 正常工作。"""
         result = differential_privacy.anonymize_text("email: x@y.com")
         assert "[EMAIL]" in result
+
+
+# =============================================================================
+# 回归:agent_federated_lessons.id 为 bigint(UPDATE 主键参数必须是 int)
+# =============================================================================
+
+
+class TestFederatedBigintIdWrite:
+    """bigint 主键:UPDATE 的 WHERE id 参数必须是 int,不能是 uuid.UUID。"""
+
+    @pytest.mark.asyncio
+    async def test_update_passes_int_id_not_uuid(self, monkeypatch):
+        learner = FederatedLearner()
+        mock_pool = MagicMock()
+        mock_conn = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+        # 已存在同 (lesson_type, title) 行 → 走 UPDATE 分支
+        mock_conn.fetchrow = AsyncMock(return_value={"fid": 456})
+        mock_conn.execute = AsyncMock(return_value="UPDATE 1")
+
+        async def fake_get_pool():
+            return mock_pool
+
+        monkeypatch.setattr("app.services.federated_learner._get_pool", fake_get_pool)
+
+        ok = await learner._upsert_federated_lesson(
+            lesson_type="failure_pattern",
+            title="T1",
+            content="C1",
+            source_user_count=5,
+            source_user_ids_hash="abc123",
+            confidence=0.7,
+            occurrence_count=3,
+            dp_noise_added=0.1,
+        )
+        assert ok is True
+        sql, *args = mock_conn.execute.await_args.args
+        assert "UPDATE agent_federated_lessons" in sql
+        assert "WHERE id = $7" in sql
+        assert args[6] == 456
+        assert isinstance(args[6], int)  # UUID 不是 int,此断言即排除 UUID 对象
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
