@@ -13507,7 +13507,21 @@
     "riskGeneric": "Potential security risk detected",
     "riskRecommendation": "Recommendation",
     "riskCancel": "Cancel Install",
-    "riskConfirmProceed": "Install Anyway"
+    "riskConfirmProceed": "Install Anyway",
+    "qualityScore": "Quality score: {score}/100",
+    "securityScore": "Security score: {score}/100",
+    "reviewPending": "Pending review",
+    "reviewApproved": "Approved",
+    "reviewRejected": "Rejected",
+    "dashboardTitle": "Quality Dashboard",
+    "dashboardSubtitle": "Runtime metrics and quality/security scores for each MCP server",
+    "dashboardServer": "Server",
+    "dashboardScoring": "Score",
+    "dashboardCalls": "Calls",
+    "dashboardSuccessRate": "Success rate",
+    "dashboardAvgLatency": "Avg latency",
+    "dashboardNoData": "No data",
+    "dashboardLatency": "{value}s"
   },
   "member": {
     "feedback": {
@@ -14695,7 +14709,18 @@
     "noSeries": "No time-series data",
     "stepsSuffix": "{count} steps",
     "byTool": "By Tool",
-    "byModel": "By Model"
+    "byModel": "By Model",
+    "budgetEvents": "Budget Events",
+    "budgetEventsHint": "From an in-process ring buffer (latest 200, cleared on restart); same-pillar same-type events deduplicated by usage growth, newest first",
+    "budgetEventsEmpty": "No budget events — budget usage is healthy, or the service process was just restarted",
+    "budgetWarning": "Warning",
+    "budgetCritical": "Critical",
+    "budgetDegrade": "Auto-degrade",
+    "budgetDegradeReset": "Degrade reset",
+    "budgetUsagePercent": "Global budget usage {percent}",
+    "budgetDailyCost": "Daily cost {cost}",
+    "budgetDegradedTo": "Degraded to {model}",
+    "budgetHardStop": "Hard stop"
   },
   "memoryManager": {
     "title": "Memory Manager",
