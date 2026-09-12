@@ -309,6 +309,10 @@ export function createSendMessage(
     store.setStreaming(true)
     store.setError(null)
     store.resetSubAgentActivities()
+    // P1-6 断点续传(2026-09-13 立):流开始 → 标记该助手消息「未完成」。
+    // 若中途刷新页面,finally 不会执行,此标记保持 false 落盘,
+    // 页面重新挂载时据此判定可续接;正常/异常收尾在 finally 里置回 true。
+    store.setMessageStreamCompleted(assistantId, false)
     // P4-2: 清除上一轮 fallback 通知,避免旧横幅残留到新对话轮次
     setFallbackNotice(null)
 
@@ -782,6 +786,10 @@ export function createSendMessage(
         useChatStore.getState().setStreaming(false)
         useChatStore.getState().markAllAgentStreamsDone()
       }
+      // P1-6:流已收尾(正常完成 / 报错 / 超时 / 主动 stop)→ 标记完成,刷新后不再续接。
+      // 注意:必须在 generation 守卫之外 —— 被「切换会话」abort 的旧流同样已终止,
+      // 不置 true 会导致用户切回该会话时误触发续接。
+      useChatStore.getState().setMessageStreamCompleted(assistantId, true)
       // 2026-08-06 修复:发送完成(成功/异常)释放 in-flight 锁,允许下一次发送
       sendInFlightRef.current = false
     }
