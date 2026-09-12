@@ -5,7 +5,7 @@
 /**
  * DAP Debug 路由代理 — 把 /api/debug/* 透传到 ai-service 的 /api/v1/debug/*。
  *
- * 端点清单(完整代理,10 个):
+ * 端点清单(完整代理,12 个):
  *   POST   /debug/launch                              启动调试会话
  *   POST   /debug/attach                              附加到已运行进程
  *   GET    /debug/sessions                            列出所有会话
@@ -13,7 +13,9 @@
  *   POST   /debug/sessions/:sessionId/continue        继续执行
  *   POST   /debug/sessions/:sessionId/step            单步执行
  *   GET    /debug/sessions/:sessionId/stack           获取调用栈
- *   GET    /debug/sessions/:sessionId/variables       获取变量(frameId 查询参数)
+ *   GET    /debug/sessions/:sessionId/scopes          获取 scope 分组(frameId 查询参数)
+ *   GET    /debug/sessions/:sessionId/threads         获取线程列表
+ *   GET    /debug/sessions/:sessionId/variables       获取变量(variablesReference/frameId 查询参数)
  *   POST   /debug/sessions/:sessionId/eval            求值表达式
  *   DELETE /debug/sessions/:sessionId                 断开调试会话
  *
@@ -113,7 +115,21 @@ export const debugRoutes: FastifyPluginAsync = async (app) => {
     await proxyDebug(request, reply, `/sessions/${encodeURIComponent(sessionId)}/stack`)
   })
 
-  // 获取变量:?frameId=X → {variables}
+  // 获取 scope 分组:?frameId=X → {scopes}
+  app.get('/sessions/:sessionId/scopes', async (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string }
+    const qs = request.url.split('?')[1] ?? ''
+    const base = `/sessions/${encodeURIComponent(sessionId)}/scopes`
+    await proxyDebug(request, reply, qs ? `${base}?${qs}` : base)
+  })
+
+  // 获取线程列表 → {threads}
+  app.get('/sessions/:sessionId/threads', async (request, reply) => {
+    const { sessionId } = request.params as { sessionId: string }
+    await proxyDebug(request, reply, `/sessions/${encodeURIComponent(sessionId)}/threads`)
+  })
+
+  // 获取变量:?variablesReference=X 或 ?frameId=X → {variables}
   app.get('/sessions/:sessionId/variables', async (request, reply) => {
     const { sessionId } = request.params as { sessionId: string }
     const qs = request.url.split('?')[1] ?? ''

@@ -20,20 +20,20 @@
 
 - [ ] H1 黄金 E2E:20 个真实编码任务(打开工作区→理解→修改→测试→修复→review→checkpoint 恢复),CLI agent 通过率 ≥90%,每周回归
 - [ ] H2 FIM/Monaco 闭环:Web 编辑器 inline completion 接入 `/api/llm/fim`,P50 首包 ≤250ms,P95 ≤800ms,补全接受率有埋点
-- [ ] H3 LSP 四核心:diagnostics / hover / definition / references 全接 Web IDE,并有失败降级提示
+- [x] H3 LSP 四核心:diagnostics / hover / definition / references 全接 Web IDE,并有失败降级提示 ✅(2026-09-09,0-4;降级见 CodeEditor.tsx LSP 不可用静默降级 + 一次性提示)
 - [ ] H4 Agent 补丁审查:每个 diff 绑定工具调用、理由、测试结果、回滚入口、成本
-- [ ] H5 沙箱默认禁网:`allow_network` 默认 False,显式审批才开网,Windows/Linux/macOS 三平台测试
-- [ ] H6 Web 直接 `fetch` 清零:除 SDK 示例与静态资源,全部迁移 `@ihui/api-client`
+- [x] H5 沙箱默认禁网:`allow_network` 默认 False,显式审批才开网,Windows/Linux/macOS 三平台测试 ✅(2026-09-07,见 0-1 完成记录)
+- [x] H6 Web 直接 `fetch` 清零:除 SDK 示例与静态资源,全部迁移 `@ihui/api-client` ✅(2026-09-09,0-5:四批迁移 + 14 处豁免固化注释)
 - [ ] H7 上下文压缩质量:真实任务成功率下降 ≤2%,工具调用准确率、回捞命中率、压缩比进入报告
 - [ ] H8 MCP 质量:工具延迟、成功率、schema 兼容率、冲突率、权限风险评分进入看板
 - [ ] H9 终端/浏览器自动化:真实站点操作成功率 ≥90%,失败可回放
-- [ ] H10 Agent runtime 架构:agent_loop_v2 拆分为权限/审批/压缩/checkpoint/预算/工具执行/事件流
+- [x] H10 Agent runtime 架构:agent_loop_v2 拆分为权限/审批/压缩/checkpoint/预算/工具执行/事件流 ✅(2026-09-08,1-5:AgentEventStream + agent_checkpoint + llm_budget_governor + approval registry + permission_modes)
 - [ ] H11 跨端一致:Agent 事件、API 契约、样式 token parity 守门全绿
 - [ ] H12 全量验证:`pnpm turbo build typecheck lint test` + ai-service mypy/pytest 全绿
 
 ### P0 立即执行(1 周内)
 
-- [ ] 0-1 沙箱默认禁网 + 三平台策略测试
+- [x] 0-1 沙箱默认禁网 + 三平台策略测试 ✅(2026-09-07,见下方"本轮开发状态"完成记录)
 - [ ] 0-2 黄金 E2E runner 固化:复用 IHUI-Bench 20 任务,增加端到端 review/checkpoint 断言
 - [x] 0-3 Monaco FIM Provider ✅(2026-09-07):已有 provider 基础上补齐 AbortController、3s 超时、30 条 LRU 缓存、请求/取消/失败/建议指标(`window.__ihuiFimMetrics`),专项测试 4/4
 - [x] **0-4 LSP 四核心前端接线与类型契约** ✅(2026-09-09):见下方完成报告
