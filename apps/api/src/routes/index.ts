@@ -170,6 +170,8 @@ import skillCategoriesRoutes from './skill-categories.js'
 import metaLearnerRoutes from './meta-learner.js'
 import { fileVersionRoutes } from './file-version.js'
 import { callbackLogRoutes } from './callback-log.js'
+// P1-6 断点续传(2026-09-13 立):独立路由文件,避免改动并行会话 WIP 中的 chat.ts
+import { chatResumeRoutes } from './chat-resume.js'
 
 // R65 补建：M-52 分片上传 + M-54 财务扩展 + M-56 支付扩展 + M-67 实名认证
 import { chunkedUploadRoutes } from './chunked-upload.js'
@@ -774,6 +776,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(fileVersionRoutes, { prefix: '/api' })
   // 通用回调日志：外呼/短信/支付回调记录 + 列表/详情/删除
   server.register(callbackLogRoutes, { prefix: '/api/callback-log' })
+
+  // P1-6 断点续传:GET /api/chat/resume/status + POST /api/chat/resume(SSE 续生成)
+  server.register(chatResumeRoutes, { prefix: '/api/chat' })
 
   // ===== R65 补建：M-52/M-54/M-56/M-67 =====
   // M-52: 分片上传（大文件上传核心功能）: init/upload/merge/cancel/status

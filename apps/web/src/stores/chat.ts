@@ -73,6 +73,9 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'createdAt' | 'toolCa
    * - 用于消息气泡的徽章展示,让用户事后能识别"这条回答是基于哪种权限模式生成的"
    * - 前端 addMessage 写入,后端 streamChat 事件不携带(纯前端元数据) */
   permissionMode?: WorkspacePermissionMode
+  /** P1-6 断点续传(2026-09-13 立):该助手消息的流是否已完整结束。
+   *  false = 中断未完成(刷新页面后可自动续接);true/undefined = 已完成,不续接。 */
+  streamCompleted?: boolean
 }
 
 /** 自动压缩上下文状态(2026-08-16 立)
@@ -217,6 +220,13 @@ interface ChatState {
   updateMessageMeta: (messageId: string, meta: Record<string, unknown>) => void
   /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
   setMessages: (messages: ChatMessage[]) => void
+   * P1-6 断点续传(2026-09-13 立):标记助手消息流是否已完整结束。
+   * false = 流被中断(刷新页面/网络抖动),刷新后由 resume-stream 自动续接;
+   * true  = 正常收尾(done/error/用户 stop),不再续接。
+   * 未定义 = 旧消息(视为已完成)。
+   */
+  setMessageStreamCompleted: (messageId: string, completed: boolean) => void
+}
   /** 截断消息列表:删除指定消息及其之后的所有消息(重新生成用,保留该消息之前的历史) */
   truncateMessagesFrom: (messageId: string) => void
   /** 设置自动压缩状态(用于在对话框底部显示压缩进度) */
@@ -335,6 +345,19 @@ export const useChatStore = create<ChatState>()(
           const next = s.messages.slice()
           next[idx] = { ...target, error: true, content: target.content || error }
           return { messages: next, error }
+        }),
+
+      /** 标记助手消息的流完成态(P1-6 断点续传,2026-09-13 立):
+       *  流开始时置 false(中断/刷新后据此判定可续接),正常收尾或错误收尾时置 true。 */
+      setMessageStreamCompleted: (messageId, completed) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const next = s.messages.slice()
+          next[idx] = { ...target, streamCompleted: completed }
+          return { messages: next }
         }),
 
       clearMessages: () => set({ messages: [], error: null }),
