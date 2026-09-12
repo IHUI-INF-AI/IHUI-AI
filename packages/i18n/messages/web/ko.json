@@ -6579,6 +6579,7 @@
     "statusSuccess": "성공",
     "statusFailed": "실패",
     "statusIdle": "대기",
+    "statusSkipped": "건너뜀",
     "inspectorTitle": "속성 / 로그",
     "inspectorEmpty": "캔버스에서 노드를 클릭해 매개변수를 편집하고 실행 로그를 확인하세요",
     "nodeName": "노드 이름",
@@ -6595,13 +6596,15 @@
     "logsTitle": "실행 로그",
     "noLogs": "실행 로그가 없습니다",
     "defaultReviewPrompt": "이전 단계 출력 통과 여부를 직접 확인해 주세요",
+    "errorEmptyCanvas": "캔버스가 비어 있습니다. 실행 전에 노드를 추가하세요",
     "logNodeStart": "▶ 노드 실행 시작",
     "logWaitReview": "⏸ 사람 검토 대기:",
     "logRunError": "✖",
     "logErrorFallback": "실행 오류",
     "logDone": "■ 실행 종료 (done)",
     "logConnectFail": "연결 실패:",
-    "logTrialStarted": "● 시험 실행 요청됨, 스트림 대기…",
+    "logGraphStarted": "● 그래프 실행 시작됨, 스트림 대기…",
+    "logSkippedUpstream": "상위 노드 실패로 이 노드는 건너뛰었습니다",
     "logUserStop": "⏹ 사용자가 수동 중지",
     "logToolCall": "🔧 tool_call:",
     "logToolResult": "↩ tool_result:",
@@ -9081,62 +9084,77 @@
     "commands": {
       "agent": {
         "description": "AI 에이전트 관리 및 디스패치",
+        "keywords": ["에이전트", "agent", "bot"],
         "label": "AI 에이전트"
       },
       "browser": {
         "description": "작업 공간에서 웹 탐색",
+        "keywords": ["브라우저", "웹", "browser"],
         "label": "내장 브라우저"
       },
       "capabilityMarket": {
         "description": "기능 팩 탐색 및 설치",
+        "keywords": ["기능", "마켓", "market"],
         "label": "기능 마켓"
       },
       "codeChanges": {
         "description": "작업 공간 코드 변경 확인",
+        "keywords": ["코드", "변경", "diff"],
         "label": "코드 변경"
       },
       "connectors": {
         "description": "외부 서비스 연결 관리",
+        "keywords": ["커넥터", "연결", "connector"],
         "label": "커넥터"
       },
       "document": {
         "description": "작업 공간 문서 편집",
+        "keywords": ["문서", "편집", "doc"],
         "label": "문서"
       },
       "editor": {
         "description": "코드 에디터 열기",
+        "keywords": ["에디터", "코드", "editor"],
         "label": "에디터"
       },
       "mcp": {
         "description": "MCP 서버 및 도구 관리",
+        "keywords": ["MCP", "서버", "도구"],
         "label": "MCP 관리"
       },
       "mcpStore": {
         "description": "MCP 서비스 탐색 및 설치",
+        "keywords": ["MCP", "스토어", "store"],
         "label": "MCP 스토어"
       },
       "modeBuild": {
         "description": "AI가 직접 빌드하고 수정",
+        "keywords": ["빌드", "모드", "build"],
         "label": "빌드 모드"
       },
       "modePlan": {
         "description": "계획 수립 후 실행",
+        "keywords": ["계획", "모드", "plan"],
         "label": "계획 모드"
       },
       "modeReview": {
         "description": "기존 코드 검토",
+        "keywords": ["리뷰", "모드", "review"],
         "label": "리뷰 모드"
       },
       "modeSpec": {
         "description": "스펙에서 구현 생성",
+        "keywords": ["스펙", "모드", "spec"],
         "label": "스펙 모드"
       },
       "skill": {
         "description": "AI 스킬 관리 및 호출",
+        "keywords": ["스킬", "skill"],
         "label": "스킬"
       },
       "terminal": {
         "description": "통합 터미널 열기",
+        "keywords": ["터미널", "콘솔", "terminal"],
         "label": "터미널"
       },
       "ai-world": {

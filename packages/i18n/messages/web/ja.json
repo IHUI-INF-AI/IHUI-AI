@@ -6579,6 +6579,7 @@
     "statusSuccess": "成功",
     "statusFailed": "失敗",
     "statusIdle": "アイドル",
+    "statusSkipped": "スキップ",
     "inspectorTitle": "プロパティ / ログ",
     "inspectorEmpty": "キャンバス上のノードをクリックしてパラメータを編集し、実行ログを表示",
     "nodeName": "ノード名",
@@ -6595,13 +6596,15 @@
     "logsTitle": "実行ログ",
     "noLogs": "実行ログはまだありません",
     "defaultReviewPrompt": "前のステップの出力が合格かどうかを人力で確認してください",
+    "errorEmptyCanvas": "キャンバスが空です。実行前にノードを追加してください",
     "logNodeStart": "▶ ノード実行開始",
     "logWaitReview": "⏸ 人によるレビュー待ち:",
     "logRunError": "✖",
     "logErrorFallback": "実行エラー",
     "logDone": "■ 実行終了 (done)",
     "logConnectFail": "接続失敗:",
-    "logTrialStarted": "● 試験実行を開始しました、ストリーム待ち…",
+    "logGraphStarted": "● グラフ実行を開始しました、ストリーム待ち…",
+    "logSkippedUpstream": "上流ノードが失敗したため、このノードはスキップされました",
     "logUserStop": "⏹ ユーザーにより停止",
     "logToolCall": "🔧 tool_call:",
     "logToolResult": "↩ tool_result:",
@@ -9081,62 +9084,77 @@
     "commands": {
       "agent": {
         "description": "AI エージェントの管理とディスパッチ",
+        "keywords": ["エージェント", "agent", "bot"],
         "label": "AI エージェント"
       },
       "browser": {
         "description": "ワークスペース内でウェブを閲覧",
+        "keywords": ["ブラウザ", "ウェブ", "browser"],
         "label": "組み込みブラウザ"
       },
       "capabilityMarket": {
         "description": "ケイパビリティパックの発見とインストール",
+        "keywords": ["ケイパビリティ", "マーケット", "market"],
         "label": "ケイパビリティマーケット"
       },
       "codeChanges": {
         "description": "ワークスペースのコード変更を確認",
+        "keywords": ["コード", "変更", "diff"],
         "label": "コード変更"
       },
       "connectors": {
         "description": "外部サービス接続を管理",
+        "keywords": ["コネクタ", "接続", "connector"],
         "label": "コネクタ"
       },
       "document": {
         "description": "ワークスペースのドキュメントを編集",
+        "keywords": ["ドキュメント", "編集", "doc"],
         "label": "ドキュメント"
       },
       "editor": {
         "description": "コードエディタを開く",
+        "keywords": ["エディタ", "コード", "editor"],
         "label": "エディタ"
       },
       "mcp": {
         "description": "MCP サーバーとツールを管理",
+        "keywords": ["MCP", "サーバー", "ツール"],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "MCP サービスの閲覧とインストール",
+        "keywords": ["MCP", "ストア", "store"],
         "label": "MCP ストア"
       },
       "modeBuild": {
         "description": "AI に直接構築・修正させる",
+        "keywords": ["ビルド", "モード", "build"],
         "label": "ビルドモード"
       },
       "modePlan": {
         "description": "計画を立ててから実行",
+        "keywords": ["計画", "モード", "plan"],
         "label": "計画モード"
       },
       "modeReview": {
         "description": "既存コードをレビュー",
+        "keywords": ["レビュー", "モード", "review"],
         "label": "レビューモード"
       },
       "modeSpec": {
         "description": "仕様から実装を生成",
+        "keywords": ["仕様", "モード", "spec"],
         "label": "仕様モード"
       },
       "skill": {
         "description": "AI スキルの管理と呼び出し",
+        "keywords": ["スキル", "skill"],
         "label": "スキル"
       },
       "terminal": {
         "description": "統合ターミナルを開く",
+        "keywords": ["ターミナル", "端末", "terminal"],
         "label": "ターミナル"
       },
       "ai-world": {

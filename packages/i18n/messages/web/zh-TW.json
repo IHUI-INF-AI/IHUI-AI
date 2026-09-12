@@ -6579,6 +6579,7 @@
     "statusSuccess": "成功",
     "statusFailed": "失敗",
     "statusIdle": "閒置",
+    "statusSkipped": "已跳過",
     "inspectorTitle": "屬性 / 日誌",
     "inspectorEmpty": "點擊畫布中的節點以編輯參數並檢視執行日誌",
     "nodeName": "節點名稱",
@@ -6595,13 +6596,15 @@
     "logsTitle": "執行日誌",
     "noLogs": "暫無執行日誌",
     "defaultReviewPrompt": "請人工確認上一步輸出是否通過",
+    "errorEmptyCanvas": "畫布為空,請先新增節點後再執行",
     "logNodeStart": "▶ 節點開始執行",
     "logWaitReview": "⏸ 等待人工審核:",
     "logRunError": "✖",
     "logErrorFallback": "執行錯誤",
     "logDone": "■ 執行結束 (done)",
     "logConnectFail": "連線失敗:",
-    "logTrialStarted": "● 已發起試執行,等待流…",
+    "logGraphStarted": "● 整圖執行已發起,等待串流…",
+    "logSkippedUpstream": "上游節點失敗,本節點已跳過",
     "logUserStop": "⏹ 使用者手動停止",
     "logToolCall": "🔧 tool_call:",
     "logToolResult": "↩ tool_result:",
@@ -9081,62 +9084,77 @@
     "commands": {
       "agent": {
         "description": "管理並調度 AI 智能體",
+        "keywords": ["智能體", "調度", "agent"],
         "label": "AI 智能體"
       },
       "browser": {
         "description": "在工作區內瀏覽網頁",
+        "keywords": ["瀏覽器", "網頁", "browser"],
         "label": "內建瀏覽器"
       },
       "capabilityMarket": {
         "description": "發現並安裝能力包",
+        "keywords": ["能力", "市場", "market"],
         "label": "能力市場"
       },
       "codeChanges": {
         "description": "查看工作區程式碼變更",
+        "keywords": ["程式碼", "變更", "diff"],
         "label": "程式碼變更"
       },
       "connectors": {
         "description": "管理外部服務連接",
+        "keywords": ["連接", "外部服務", "connector"],
         "label": "連接器"
       },
       "document": {
         "description": "編輯工作區文件",
+        "keywords": ["文件", "編輯", "doc"],
         "label": "文件"
       },
       "editor": {
         "description": "開啟程式碼編輯器",
+        "keywords": ["編輯器", "程式碼", "code"],
         "label": "編輯器"
       },
       "mcp": {
         "description": "管理 MCP 伺服器與工具",
+        "keywords": ["MCP", "伺服器", "工具"],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "瀏覽與安裝 MCP 服務",
+        "keywords": ["MCP", "廣場", "store"],
         "label": "MCP 廣場"
       },
       "modeBuild": {
         "description": "讓 AI 直接建構與修改",
+        "keywords": ["建構", "模式", "build"],
         "label": "建構模式"
       },
       "modePlan": {
         "description": "先制定計劃再執行",
+        "keywords": ["規劃", "計劃", "plan"],
         "label": "規劃模式"
       },
       "modeReview": {
         "description": "審查與評審現有程式碼",
+        "keywords": ["審查", "評審", "review"],
         "label": "審查模式"
       },
       "modeSpec": {
         "description": "從規格生成實現",
+        "keywords": ["規格", "spec"],
         "label": "規格模式"
       },
       "skill": {
         "description": "管理與呼叫 AI 技能",
+        "keywords": ["技能", "skill"],
         "label": "技能"
       },
       "terminal": {
         "description": "開啟整合終端機",
+        "keywords": ["終端機", "命令列", "terminal"],
         "label": "終端機"
       },
       "ai-world": {
