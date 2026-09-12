@@ -23,7 +23,9 @@ test.describe.parallel('PWA 专项', () => {
   test.afterEach(async ({ page }: { page: Page }, testInfo) => {
     if (testInfo.status !== testInfo.expectedStatus) {
       await page
-        .screenshot({ path: `e2e/screenshots/pwa-${testInfo.title.replace(/\s+/g, '-')}.png` })
+        .screenshot({
+          path: `e2e/test-screenshots/pwa-${testInfo.title.replace(/[^\p{L}\p{N}]+/gu, '-')}.png`,
+        })
         .catch(() => {})
     }
   })
