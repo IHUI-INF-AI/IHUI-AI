@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 离线 i18n 压缩生成脚本:把非中文 4 语言包(shared + miniapp-taro)合并后
 // JSON.stringify → gzip(level 9) → base64,生成 src/i18n/generated/remote-locales.gen.ts。
@@ -9,6 +9,7 @@
 
 import { gzipSync, strToU8 } from 'fflate'
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
@@ -87,4 +88,18 @@ lines.push('')
 
 mkdirSync(outDir, { recursive: true })
 writeFileSync(outFile, lines.join('\n'), 'utf8')
-console.log(`[gen:i18n] 已写入 ${outFile} (${Buffer.byteLength(lines.join('\n'), 'utf8')} 字节)`)
+
+// 溯源水印:生成产物同样是 git 跟踪文件,受 `scripts/check-watermark-coverage.mjs` 门禁约束。
+// 此前生成器不写横幅 → 该文件长期缺失水印,使 pre-commit 与 CI 的 watermark 门禁必红。
+// 统一改为复用仓库水印工具(单一事实源),幂等:重复生成不产生 diff。
+const watermarkScript = resolve(repoRoot, 'scripts/watermark.mjs')
+try {
+  execFileSync(process.execPath, [watermarkScript, 'inject', outFile], { stdio: 'inherit' })
+} catch (e) {
+  console.error(
+    `[gen:i18n] ❌ 溯源水印注入失败,产物将导致 check-watermark-coverage 红: ${e.message || e}`,
+  )
+  process.exit(1)
+}
+
+console.log(`[gen:i18n] 已写入 ${outFile} (${readFileSync(outFile).length} 字节, 含溯源水印)`)
