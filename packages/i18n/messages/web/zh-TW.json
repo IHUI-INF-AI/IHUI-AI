@@ -8244,6 +8244,13 @@
   "chat": {
     "artifactPreview": "預覽",
     "artifactCode": "程式碼",
+    "canvasApplyRefresh": "套用並重新整理預覽",
+    "canvasOpenInCanvas": "在畫布開啟",
+    "canvasVersions": "版本歷史",
+    "canvasRevert": "回復至此版本",
+    "canvasFullscreen": "全螢幕畫布",
+    "canvasExitFullscreen": "結束全螢幕",
+    "canvasEdited": "手動編輯",
     "sessionUsage": {
       "promptTokens": "輸入",
       "completionTokens": "輸出",
