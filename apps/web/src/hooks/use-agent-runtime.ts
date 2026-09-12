@@ -50,18 +50,39 @@ export interface SelfHealEvent {
   ts: number
 }
 
+/**
+ * P0-5(2026-09-13):plan 步骤事件(agent_loop_v2.emit_plan_step 经
+ * /api/agents/tasks/stream 的 `event: plan-step` SSE 推送)。
+ * status=started/completed;blocked 由拦截/审批路径承载(本层不发射,契约保留)。
+ */
+export interface AgentPlanStepEvent {
+  runId: string
+  stepIndex: number
+  toolName: string
+  status: 'started' | 'completed' | 'blocked'
+  decision: string | null
+  reason: string | null
+  ts: number
+}
+
 export interface UseAgentRuntimeReturn {
   sessionTree: AgentSession[]
   loading: boolean
   tokenStream: TokenEvent[]
   toolCallChain: ToolCallEvent[]
   healEvents: SelfHealEvent[]
+  /** P0-5:workbench reasoning 累积(多次 thinking 事件拼接,is_final 收尾) */
+  thinkingContent: string
+  /** P0-5:plan 步骤时间线(step_index 幂等 upsert) */
+  planSteps: AgentPlanStepEvent[]
   connected: boolean
 }
 
 const MAX_TOKENS = 1000
 /** 自愈事件 FIFO 上限(单 run 事件量小,50 条足够覆盖长会话) */
 const MAX_HEAL_EVENTS = 50
+/** plan 步骤 FIFO 上限(长任务步骤数有限,100 条兜底) */
+const MAX_PLAN_STEPS = 100
 
 type SsePayload =
   | ({ id: string; timestamp: number } & TokenEvent)
@@ -91,6 +112,10 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
   const [toolCallChain, setToolCallChain] = React.useState<ToolCallEvent[]>([])
   /** 2-3 第四批(2026-09-12):自愈事件 FIFO(带 event: self-heal 的命名 SSE 事件) */
   const [healEvents, setHealEvents] = React.useState<SelfHealEvent[]>([])
+  /** P0-5(2026-09-13):workbench reasoning 累积(命名 SSE 事件 thinking) */
+  const [thinkingContent, setThinkingContent] = React.useState('')
+  /** P0-5(2026-09-13):plan 步骤时间线(命名 SSE 事件 plan-step) */
+  const [planSteps, setPlanSteps] = React.useState<AgentPlanStepEvent[]>([])
   const [connected, setConnected] = React.useState(false)
   const esRef = React.useRef<EventSource | null>(null)
 
@@ -126,6 +151,8 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       setTokenStream([])
       setToolCallChain([])
       setHealEvents([])
+      setThinkingContent('')
+      setPlanSteps([])
       setConnected(false)
       return
     }
@@ -232,13 +259,90 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       }
     })
 
+    // P0-5(2026-09-13):thinking 是命名 SSE 事件(agents.py "thinking.delta"→"thinking"),
+    // payload {run_id, content, iteration, is_final}。reasoning 整段一次性到达,
+    // 同一 run 多次事件拼接累积;is_final 收尾(当前实现整段透传,追加即可)。
+    es.addEventListener('thinking', (e) => {
+      try {
+        const data = JSON.parse(e.data) as {
+          type?: string
+          payload?: {
+            run_id?: string
+            content?: string
+            iteration?: number | null
+            is_final?: boolean
+          }
+        }
+        const p = data.payload
+        if (!p || typeof p.content !== 'string' || p.content.length === 0) return
+        setThinkingContent((prev) => (prev.length > 0 ? `${prev}\n\n${p.content}` : p.content!))
+      } catch {
+        /* 忽略非 JSON 事件 */
+      }
+    })
+
+    // P0-5(2026-09-13):plan-step 是命名 SSE 事件(agents.py "plan.step"→"plan-step"),
+    // payload {run_id, step_index, tool_name, status, decision, reason}。
+    // started upsert 条目,completed/blocked 更新状态;同 step_index 幂等。
+    es.addEventListener('plan-step', (e) => {
+      try {
+        const data = JSON.parse(e.data) as {
+          type?: string
+          payload?: {
+            run_id?: string
+            step_index?: number
+            tool_name?: string
+            status?: string
+            decision?: string | null
+            reason?: string | null
+          }
+        }
+        const p = data.payload
+        const status = p?.status
+        if (!p || typeof p.step_index !== 'number' || typeof p.tool_name !== 'string') return
+        if (status !== 'started' && status !== 'completed' && status !== 'blocked') return
+        const evt: AgentPlanStepEvent = {
+          runId: p.run_id ?? '',
+          stepIndex: p.step_index,
+          toolName: p.tool_name,
+          status,
+          decision: typeof p.decision === 'string' ? p.decision : null,
+          reason: typeof p.reason === 'string' ? p.reason : null,
+          ts: Date.now(),
+        }
+        setPlanSteps((prev) => {
+          const idx = prev.findIndex((s) => s.stepIndex === evt.stepIndex)
+          if (idx === -1) {
+            const next = [...prev, evt]
+            return next.length > MAX_PLAN_STEPS ? next.slice(next.length - MAX_PLAN_STEPS) : next
+          }
+          const next = [...prev]
+          next[idx] = { ...next[idx]!, ...evt }
+          return next
+        })
+      } catch {
+        /* 忽略非 JSON 事件 */
+      }
+    })
+
     return () => {
       es.close()
       esRef.current = null
       setConnected(false)
+      setThinkingContent('')
+      setPlanSteps([])
     }
   }, [agentId])
 
-  return { sessionTree, loading, tokenStream, toolCallChain, healEvents, connected }
+  return {
+    sessionTree,
+    loading,
+    tokenStream,
+    toolCallChain,
+    healEvents,
+    thinkingContent,
+    planSteps,
+    connected,
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
