@@ -30,12 +30,26 @@
  *   故回滚为仅高频 12 条(单次会话缓存增长 <1GB,符合本脚本原始设计警告第 51 行),
  *   非高频页面由客户端视口预取 + 点击时按需编译兜底,不再追求"全量预热"的伪极致。
  *
+ * 2026-09-12 迁移 + 扩容(12 → ~30 条):
+ *   预热不再只挂在 scripts/start-dev.ps1,已并入 dev 入口本身:
+ *   apps/web/package.json 的 `dev` = clean-turbopack-cache.mjs && dev-with-warmup.mjs,
+ *   由 scripts/dev-with-warmup.mjs 在 next dev 就绪后以 detached 后台进程跑本脚本
+ *   `--top 18`(高频 12 + 18 ≈ 30 条)。这样普通 `pnpm dev`(含 turbo、
+ *   start-dev.ps1 注册表的 `pnpm --filter @ihui/web dev`、desktop 的 beforeDevCommand)
+ *   都自动预热,无需换命令;start-dev.ps1 里原有的派生已删除,避免双份预热互抢编译队列。
+ *   扩到 ~30 条的依据:dev 下所有预取都是空操作(Next 对 NODE_ENV=development 直接
+ *   return null),预热是唯一杠杆;30 条实测单次会话缓存 +1256 MB(4984 → 6240 MB),
+ *   阈值已相应由 6GB 上调至 8GB(见 clean-turbopack-cache.mjs 阈值调整记录②)。
+ *
  * 用法:
- *   node scripts/warm-dev-routes.mjs                        # 默认:仅高频 12 条
+ *   node scripts/warm-dev-routes.mjs                        # 默认:PRIORITY_ROUTES 全量 36 条
  *   node scripts/warm-dev-routes.mjs --base http://localhost:8801
  *   node scripts/warm-dev-routes.mjs --wait 120             # 等服务就绪秒数(默认 90)
- *   node scripts/warm-dev-routes.mjs --top 30               # 高频 12 + 其余按序取 30
- *   node scripts/warm-dev-routes.mjs --all                  # 侧边栏全部路由(nav-data.ts 自动解析)
+ *   node scripts/warm-dev-routes.mjs --top 6                # 清单 36 + 追加 6 ≈ 42 条
+ *                                                           # ⚠ --top N 是"追加条数",总量 = 36 + N
+ *                                                           # ⚠ 追加源是 nav-data.ts 文件顺序,易腐化,兜底用
+ *   node scripts/warm-dev-routes.mjs --all                  # 清单 + 侧边栏全部路由(nav-data.ts 自动解析)
+ *                                                           # ⚠ 禁用于日常:194 条曾把缓存撑到 40GB
  */
 
 import { promises as fs } from 'node:fs'
@@ -57,9 +71,17 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--all') all = true
 }
 
-// 高频路由(与 sidebar 主导航对齐,控制在 12 条:冷缓存最坏 ~12×12s≈2.5min,
-// 常态命中 Turbopack 持久化缓存 <1min;过多会加速缓存膨胀触发 3GB 自清,得不偿失)
-const HIGH_FREQUENCY = [
+// 2026-09-12 二次修正(预热"清单腐化"—— 这才是"扩容了还是卡"的真因):
+//   上一版把扩容交给 `--top 18`,而 `--top` 的追加源是 nav-data.ts 里 href 的**文件顺序**。
+//   nav-data.ts 前 130 行是 admin 分组,随后是 MODELS_CHILDREN,故 `--top 18` 实际追加的是
+//   `/admin/theme`(含 create/colors/fonts/dark-mode/assets/presets/export 8 条)
+//   + `/models/{overview,channels,keys,logs,chats,users,groups,usage,trajectory,prompts}`(10 条)
+//   = 30 条里有一半是"主题配置页 + 模型子页",而用户真正会点的 `/news`、`/vip`、`/points`、
+//   `/orders`、`/member`、`/personas`、`/about`、`/plugins` 一条都没预热。
+//   修正:改用本文件显式维护的有序清单(与 sidebar 主导航 + 实测慢页对齐),不再依赖 nav-data 顺序。
+//   `--top N` 保留为"在清单之后追加 N 条 sidebar 路由"的兜底旋钮,默认不再使用。
+const PRIORITY_ROUTES = [
+  // 主工作流(最先预热,1 分钟内必就绪)
   '/dashboard',
   '/chat',
   '/agents',
@@ -72,6 +94,32 @@ const HIGH_FREQUENCY = [
   '/ai-news',
   '/articles',
   '/wallet',
+  // 高频内容/账号/交易页(2026-09-12 新增:此前从未预热,用户点击即撞 2.8~4.2s 冷编译)
+  '/news',
+  '/plugins',
+  '/vip',
+  '/points',
+  '/orders',
+  '/payment',
+  '/user/profile',
+  '/favorites',
+  '/memory',
+  '/playground',
+  '/agent-teams',
+  '/computer-use',
+  '/media-tasks',
+  '/web-tools',
+  '/voices',
+  '/ai-world',
+  '/publish',
+  '/blog',
+  '/personas',
+  '/member',
+  '/messages',
+  // 静态信息页(实测冷编译最慢的一批,首页/页脚直达)
+  '/about',
+  '/faq',
+  '/contact',
 ]
 
 // 从 nav-data.ts 运行时解析全部 href(与侧边栏单一来源同步,避免脚本清单漂移)。
@@ -88,11 +136,15 @@ async function loadSidebarHrefs() {
 }
 
 const sidebarHrefs = await loadSidebarHrefs()
+// 默认:PRIORITY_ROUTES 全量(36 条,已按用户高频度排序)。
+// --top N:在清单之后追加 N 条 sidebar 路由(⚠ 追加源是 nav-data.ts 文件顺序,易"腐化",
+//          仅作兜底旋钮,默认不用);slice 上界 = PRIORITY_ROUTES.length + N。
+// --all  :清单 + 侧边栏全部路由(⚠ 194 条曾把 Turbopack 缓存撑到 40GB,禁用)。
 const ROUTES = all
-  ? [...new Set([...HIGH_FREQUENCY, ...sidebarHrefs])]
+  ? [...new Set([...PRIORITY_ROUTES, ...sidebarHrefs])]
   : topN > 0
-    ? [...new Set([...HIGH_FREQUENCY, ...sidebarHrefs.filter((h) => !HIGH_FREQUENCY.includes(h))])].slice(0, HIGH_FREQUENCY.length + topN)
-    : HIGH_FREQUENCY
+    ? [...new Set([...PRIORITY_ROUTES, ...sidebarHrefs.filter((h) => !PRIORITY_ROUTES.includes(h))])].slice(0, PRIORITY_ROUTES.length + topN)
+    : PRIORITY_ROUTES
 
 const log = (...m) => console.log(`[warm-routes ${new Date().toISOString().slice(11, 19)}]`, ...m)
 
@@ -125,7 +177,7 @@ if (!(await waitUntilUp())) {
 //   - 有界并发(4):Turbopack 编译本身串行(实测并发 6 请求呈梯度 1.2s→5.4s 排队),
 //     但并发让请求在网络层提前排队、消除串行循环的"等前一个发起"空档,
 //     高频 12 条 1 分钟内就绪;任意时刻最多 4 编译在飞,用户点击最坏只排 4 个之后。
-//   - 优先级序:高频 12 条(用户最可能点)最先,1 分钟内必就绪;其余路由由客户端视口预取兜底。
+//   - 优先级序:PRIORITY_ROUTES(用户最可能点)最先,1 分钟内必就绪;其余路由由客户端视口预取兜底。
 const CONCURRENCY = 4
 const warmOne = async (route) => {
   const t0 = Date.now()
@@ -147,7 +199,7 @@ const warmOne = async (route) => {
 }
 
 const results = []
-// 优先级序:ROUTES 已按 HIGH_FREQUENCY 在前 + sidebarHrefs 在后拼接;
+// 优先级序:ROUTES 已按 PRIORITY_ROUTES 在前 + sidebarHrefs 在后拼接;
 // 有界并发 worker 池从游标取任务,严格保持数组序(高频先发)。
 let cursor = 0
 const worker = async () => {
