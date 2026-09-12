@@ -299,10 +299,19 @@ def _build_tools(allowed_tools: list[str], workdir: Path) -> list[Any]:
     return tools
 
 
-async def _run_task(task: dict[str, Any], executor: str, base_workdir: Path) -> dict[str, Any]:
+async def _run_task(
+    task: dict[str, Any],
+    executor: str,
+    base_workdir: Path,
+    *,
+    compaction_enabled: bool | None = None,
+    compaction_context_limit: int | None = None,
+) -> dict[str, Any]:
     """拷贝 fixture → 临时目录 → 构造 AgentLoopV2 执行 → 评分。
 
     golden 执行器跳过 agent 循环,直接拷贝 fixtures_golden 参考答案评分。
+    compaction_enabled/context_limit:1-3 对比模式(--compare-compaction)显式
+    控制压缩开关与窗口;默认 None 走 AgentLoopV2 既有 env/灰度决策路径。
     """
     from app.services.agent_loop_v2 import AgentLoopV2
 
@@ -352,6 +361,8 @@ async def _run_task(task: dict[str, Any], executor: str, base_workdir: Path) -> 
             enable_checkpoint=False,
             enable_memory=False,
             approval_enabled=False,
+            compaction_enabled=compaction_enabled,
+            compaction_context_limit=compaction_context_limit,
         )
         start = time.time()
         result = await loop.run([{"role": "user", "content": task["instructions"]}])
@@ -423,12 +434,25 @@ async def _run_task(task: dict[str, Any], executor: str, base_workdir: Path) -> 
     }
 
 
-async def _run_all(tasks: list[dict[str, Any]], executor: str, base_workdir: Path) -> list[dict[str, Any]]:
+async def _run_all(
+    tasks: list[dict[str, Any]],
+    executor: str,
+    base_workdir: Path,
+    *,
+    compaction_enabled: bool | None = None,
+    compaction_context_limit: int | None = None,
+) -> list[dict[str, Any]]:
     """顺序执行所有(已过滤)任务,逐条打印进度并收集结果。"""
     results: list[dict[str, Any]] = []
     for task in tasks:
         try:
-            rec = await _run_task(task, executor, base_workdir)
+            rec = await _run_task(
+                task,
+                executor,
+                base_workdir,
+                compaction_enabled=compaction_enabled,
+                compaction_context_limit=compaction_context_limit,
+            )
         except Exception as e:  # noqa: BLE001 - 单任务异常不应中断整轮 bench
             rec = {
                 "id": task.get("id"),
@@ -458,20 +482,66 @@ async def _run_all(tasks: list[dict[str, Any]], executor: str, base_workdir: Pat
 
 
 # ---------------------------------------------------------------------------
+# 1-3 压缩质量对比(--compare-compaction:开启 vs 关闭压缩的任务成功率 A/B)
+# ---------------------------------------------------------------------------
+
+async def _run_comparison(
+    tasks: list[dict[str, Any]],
+    executor: str,
+    base_workdir: Path,
+    on_context_limit: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    """同一任务集跑两轮:压缩 off vs 压缩 on,产出成功率对比报告(H7 可量化)。
+
+    - off 轮:compaction_enabled=False(显式关闭,不受 env/灰度影响);
+    - on 轮:compaction_enabled=True + on_context_limit(压低窗口确保压缩真实触发)。
+    对比结论用 app.services.compaction_metrics.build_comparison_report 生成,
+    H7 门禁:成功率下降 ≤ 2%(within_threshold)。
+    """
+    from app.services.compaction_metrics import build_comparison_report
+
+    print("=== 压缩对比 leg 1/2: 关闭压缩(off) ===", flush=True)
+    off_results = await _run_all(tasks, executor, base_workdir, compaction_enabled=False)
+    print(
+        f"=== 压缩对比 leg 2/2: 开启压缩(on, context_limit={on_context_limit}) ===",
+        flush=True,
+    )
+    on_results = await _run_all(
+        tasks,
+        executor,
+        base_workdir,
+        compaction_enabled=True,
+        compaction_context_limit=on_context_limit,
+    )
+    comparison = build_comparison_report(off_results, on_results)
+    return off_results, on_results, comparison
+
+
+# ---------------------------------------------------------------------------
 # 报告
 # ---------------------------------------------------------------------------
 
-def _write_reports(results: list[dict[str, Any]], report_path: Path) -> dict[str, Any]:
-    """写出 markdown 报告 + JSON 汇总,返回汇总字典。"""
+def _write_reports(
+    results: list[dict[str, Any]],
+    report_path: Path,
+    comparison: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """写出 markdown 报告 + JSON 汇总,返回汇总字典。
+
+    comparison(--compare-compaction 模式):压缩 off/on 成功率对比结论,
+    一并写入 markdown 与 JSON(H7「成功率下降 ≤2% 可量化」的落地报告)。
+    """
     total = len(results)
     passed = sum(1 for r in results if r.get("pass"))
     pass_rate = (passed / total) if total else 0.0
-    summary = {
+    summary: dict[str, Any] = {
         "total": total,
         "passed": passed,
         "pass_rate": round(pass_rate, 4),
         "tasks": results,
     }
+    if comparison is not None:
+        summary["compaction_comparison"] = comparison
     json_path = report_path.with_suffix(".json")
     json_path.write_text(
         json.dumps(summary, ensure_ascii=False, indent=2),
@@ -485,6 +555,25 @@ def _write_reports(results: list[dict[str, Any]], report_path: Path) -> dict[str
     lines.append(f"- 通过: {passed}")
     lines.append(f"- 通过率: {pass_rate:.1%}")
     lines.append("")
+    if comparison is not None:
+        lines.append("## 压缩质量对比(1-3,H7)")
+        lines.append("")
+        lines.append(
+            f"- 关闭压缩(off): {comparison['off']['passed']}/{comparison['off']['total']} "
+            f"通过,成功率 {comparison['off']['pass_rate']:.1%}"
+        )
+        lines.append(
+            f"- 开启压缩(on): {comparison['on']['passed']}/{comparison['on']['total']} "
+            f"通过,成功率 {comparison['on']['pass_rate']:.1%}"
+        )
+        lines.append(
+            f"- 成功率下降: {comparison['success_rate_drop']:.1%} "
+            f"(阈值 {comparison['max_drop']:.1%},"
+            f"{'达标' if comparison['within_threshold'] else '超阈值'})"
+        )
+        if not comparison["comparison_valid"]:
+            lines.append("- ⚠ off/on 任务数不一致,对比无效")
+        lines.append("")
     lines.append("| 任务ID | 类别 | 夹具 | 迭代 | 耗时(ms) | 检查 | 结果 |")
     lines.append("|---|---|---|---|---|---|---|")
     for r in results:
@@ -540,6 +629,18 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="CI 门禁:通过率低于该值(0.0~1.0)时向 stderr 报错并以退出码 1 结束",
     )
+    parser.add_argument(
+        "--compare-compaction",
+        action="store_true",
+        help="1-3 压缩质量对比:同一任务集跑两轮(压缩 off vs on),"
+        "产出成功率差异报告(H7:下降 ≤2%% 可量化);on 轮启用压缩并压低窗口强制触发",
+    )
+    parser.add_argument(
+        "--compaction-context-limit",
+        type=int,
+        default=300,
+        help="--compare-compaction 的 on 轮压缩窗口(tokens,默认 300:压低窗口确保压缩真实触发)",
+    )
     parser.add_argument("--report", type=str, default="bench_report.md", help="markdown 报告输出路径(JSON 汇总同名 .json)")
     parser.add_argument("--workdir", type=str, default=None, help="临时目录根,默认系统临时目录")
     args = parser.parse_args(argv)
@@ -564,6 +665,37 @@ def main(argv: list[str] | None = None) -> int:
         f"workdir={base_workdir}",
         flush=True,
     )
+
+    if args.compare_compaction:
+        # 1-3 压缩质量对比模式:off/on 两轮 → 成功率对比报告(H7 门禁)
+        off_results, on_results, comparison = asyncio.run(
+            _run_comparison(
+                tasks, args.executor, base_workdir, args.compaction_context_limit
+            )
+        )
+        summary = _write_reports(on_results, Path(args.report), comparison=comparison)
+        print(
+            f"完成: [off] {comparison['off']['passed']}/{comparison['off']['total']} "
+            f"通过({comparison['off']['pass_rate']:.1%}) / "
+            f"[on] {comparison['on']['passed']}/{comparison['on']['total']} "
+            f"通过({comparison['on']['pass_rate']:.1%}); "
+            f"成功率下降 {comparison['success_rate_drop']:.1%} "
+            f"(阈值 {comparison['max_drop']:.1%}, "
+            f"{'达标' if comparison['within_threshold'] else '超阈值'}); "
+            f"报告: {args.report}",
+            flush=True,
+        )
+        # H7 门禁:压缩开启后成功率下降 > 2%(或对比无效)→ 退出码 1 阻塞回归
+        if not comparison["within_threshold"]:
+            print(
+                f"压缩质量对比未达标: 成功率下降 {comparison['success_rate_drop']:.1%} "
+                f"> 阈值 {comparison['max_drop']:.1%}"
+                + ("" if comparison["comparison_valid"] else "(且 off/on 任务数不一致)"),
+                file=sys.stderr,
+                flush=True,
+            )
+            return 1
+        return 0
 
     results = asyncio.run(_run_all(tasks, args.executor, base_workdir))
     summary = _write_reports(results, Path(args.report))
