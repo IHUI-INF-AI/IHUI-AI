@@ -5,6 +5,7 @@
 import 'dotenv/config'
 import postgres from 'postgres'
 import { writeFileSync } from 'fs'
+import { fileURLToPath } from 'node:url'
 
 const url = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/ihui'
 const sql = postgres(url, { max: 1 })
@@ -26,7 +27,10 @@ try {
     WHERE event_object_table = 'users'
     ORDER BY trigger_name
   `
-  writeFileSync('g:/IHUI-AI/users-schema.json', JSON.stringify({ cols, idx, trig }, null, 2))
+  writeFileSync(
+    fileURLToPath(new URL('../../../users-schema.json', import.meta.url)),
+    JSON.stringify({ cols, idx, trig }, null, 2),
+  )
   console.log('OK cols=' + cols.length + ' idx=' + idx.length + ' trig=' + trig.length)
 } catch (e) {
   console.error('ERR:', e.message)
