@@ -32,8 +32,8 @@
  *   node scripts/git-guardian.mjs            # 检查 + 自动修复(默认)
  *   node scripts/git-guardian.mjs --check    # 只检查不修复(退出码 1 = 异常;供 CI/巡检用)
  *   node scripts/git-guardian.mjs --status   # 只打印健康详情
- *   node scripts/git-guardian.mjs --daemon   # 常驻巡检(被 nssm 服务 IHUI-GIT-GUARD 托管)
- *   node scripts/git-guardian.mjs --install  # 注册 Windows 任务计划(每 2 分钟自检一次;本机被安全策略拦截,备用)
+ *   node scripts/git-guardian.mjs --daemon   # 常驻巡检(需自备托管;本机未装 nssm,实际未用)
+ *   node scripts/git-guardian.mjs --install  # 注册 Windows 任务计划(每 2 分钟自检;2026-09-12 实测可用并已启用,任务名 IHUI-AI git-guardian)
  */
 import { execFileSync } from 'node:child_process'
 import {
@@ -52,6 +52,13 @@ const WORKTREE = 'D:/IHUI-AI'
 const GITDIR = 'D:/IHUI-AI-git-repo'
 const BACKUP = 'D:/IHUI-AI.git-backup-20260912'
 const GITEE_URL = 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git'
+/** origin = GitHub SSH(仓库唯一权威源;严禁改回 https,见 AGENTS.md §5b 铁律) */
+const GITHUB_SSH_URL = 'ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git'
+/** 国内镜像仓(由 mirror-to-cn.yml 覆盖,本机不直推) */
+const GITCODE_URL = 'https://gitcode.com/IHUI-AI/IHUI-AI.git'
+/** GitHub 部署私钥;服务账户/交互账户都要用它,故写入仓库级 core.sshCommand */
+const SSH_COMMAND =
+  'ssh -i C:/Users/Administrator/.ssh/id_ed25519_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20'
 const TASK_NAME = 'IHUI-AI git-guardian'
 const LOG = join(WORKTREE, '.workbuddy', 'git-guardian.log')
 const POINTER = join(WORKTREE, '.git')
@@ -257,7 +264,13 @@ function readRefsManifest() {
 /** 当前全部 ref(name → sha),含 packed 与松散 */
 function currentRefs() {
   const out = git(
-    ['for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads', 'refs/tags', 'refs/remotes'],
+    [
+      'for-each-ref',
+      '--format=%(refname) %(objectname)',
+      'refs/heads',
+      'refs/tags',
+      'refs/remotes',
+    ],
     true,
   )
   const map = {}
@@ -445,12 +458,33 @@ function healFromRemote() {
   git(['fetch', 'origin', 'main'], true)
   const head = git(['rev-parse', 'FETCH_HEAD'], true)
   if (head) git(['reset', '--mixed', head], true)
-  git(['remote', 'set-url', 'origin', 'https://github.com/IHUI-INF-AI/IHUI-AI.git'], true)
+  // —— 还原完整远端与仓库配置(2026-09-12 15:30 补齐)——
+  // 旧版只设 origin=https,会丢掉 gitee/gitcode 镜像远端与部署私钥 sshCommand,
+  // 导致「自愈成功后 origin 变成 https」违反 AGENTS.md §5b「严禁改回 https」。
+  restoreRemoteConfig()
   git(['config', 'core.hooksPath', '.husky'], true)
   git(['config', 'gc.auto', '0'], true)
   git(['config', 'gc.autodetach', 'false'], true)
   git(['config', 'maintenance.auto', 'false'], true)
   return gitUsable()
+}
+
+/**
+ * 把 origin(github SSH)/gitee/gitcode 三个远端 + 部署私钥 sshCommand 写回仓库配置。
+ * 幂等:已存在则 set-url,不存在才 add。用于远端重建后的配置收口。
+ */
+function restoreRemoteConfig() {
+  git(['remote', 'set-url', 'origin', GITHUB_SSH_URL], true)
+  if (!git(['remote', 'get-url', 'origin'], true))
+    git(['remote', 'add', 'origin', GITHUB_SSH_URL], true)
+  for (const [name, url] of [
+    ['gitee', GITEE_URL],
+    ['gitcode', GITCODE_URL],
+  ]) {
+    if (git(['remote', 'get-url', name], true)) git(['remote', 'set-url', name, url], true)
+    else git(['remote', 'add', name, url], true)
+  }
+  git(['config', 'core.sshCommand', SSH_COMMAND], true)
 }
 
 function status() {
@@ -533,7 +567,7 @@ function main() {
   return ok ? 0 : 1
 }
 
-/** 常驻守护模式:被 nssm 服务托管,每 intervalMs 巡检一次(默认 10 秒) */
+/** 常驻守护模式:需自备托管(nssm/服务/计划任务);本机实际用的是 `--install` 注册的计划任务(每 2 分钟),此模式未启用 */
 function startDaemon() {
   const intervalMs = Number(process.env.GIT_GUARDIAN_INTERVAL_MS || 10000)
   const bin = resolveGitBin()
@@ -555,7 +589,9 @@ function startDaemon() {
         )
       } else if (!h.refsOk) {
         // 核心健康但嵌套 ref 被宿主清理(实测高频) → 离线重建, 不打扰人
-        log(`⚠️ 检测到嵌套 ref 缺失 ${(h.refsMissing || []).length} 个: ${(h.refsMissing || []).join(', ')}`)
+        log(
+          `⚠️ 检测到嵌套 ref 缺失 ${(h.refsMissing || []).length} 个: ${(h.refsMissing || []).join(', ')}`,
+        )
         healRefs()
       }
     } catch (e) {
