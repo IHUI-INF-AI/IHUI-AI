@@ -362,7 +362,11 @@ export function createSendMessage(
     // 从 auth store 获取 userId(用于回调链路关联)
     const userId = useAuthStore.getState().user?.id ?? ''
     // 从 ai-panel store 获取当前绑定的本地工作区路径(用于注入 CLAUDE.md/AGENTS.md 项目记忆)
-    const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
+    const activeWorkspace = useAiPanelStore.getState().activeWorkspace
+    const workspacePath = activeWorkspace?.path
+    // P1-8 Repo Wiki(2026-09-13 立):取仓库名透传后端,
+    // 由后端注入该仓库最新 overview 文档到 system prompt(无活跃工作区时不注入)
+    const repoName = activeWorkspace?.name
     // web 非 Tauri 环境:用 FileSystemDirectoryHandle 预加载工作区文件内容(阶段 1)
     // Tauri 桌面端返回 undefined,走原有 workspacePath 逻辑
     const workspaceContext = await loadBrowserWorkspaceContext()
@@ -427,6 +431,7 @@ export function createSendMessage(
         },
         workspacePath,
         workspaceContext,
+        repoName,
         // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,API 端调用共享包压缩
         contextLimit: resolvedContextLimit,
         // 2026-08-16 修复:显式声明流式,与 sendAnswer 保持一致,

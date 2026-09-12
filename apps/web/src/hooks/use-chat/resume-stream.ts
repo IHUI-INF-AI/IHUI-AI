@@ -5,6 +5,7 @@ import type { MutableRefObject } from 'react'
 import { parseStreamLine } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
+import { useAiPanelStore } from '@/stores/ai-panel'
 import { useModeStore } from '@/stores/mode'
 import { getSamplingParams } from '@/stores/sampling-params'
 import { toast } from '@/components/common'
@@ -203,6 +204,9 @@ export async function resumePendingMessage(
         topK: samplingParams.topK,
         maxTokens: samplingParams.maxTokens,
         ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
+        // P1-8 Repo Wiki(2026-09-13 立):仓库名透传后端,注入该仓库最新 overview 文档到
+        // system prompt;无活跃工作区时为 undefined(JSON.stringify 自动省略该 key)。
+        repoName: useAiPanelStore.getState().activeWorkspace?.name,
         contextLimit: getModelContextCapacity(store.currentModel),
         metadata: {
           conversationId: p.conversationId,
