@@ -200,7 +200,11 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水
 **判据(2026-09-12 加严)**:载荷必须**可解码且等于 `WATERMARK_TEXT`**,仅"存在"不算数。四态:`完好` / `残迹`(有横幅无载荷)/ `载荷损坏`(存在但解码不符)/ `未覆盖`。后三者 `watermark.mjs verify` 与 `check-watermark-coverage` 均 **exit 1**。
 
 - 新建源文件后必跑:`node scripts/watermark.mjs inject <file>`;然后 `node scripts/check-watermark-coverage.mjs`(pre-commit + CI 门禁,只统计 git 跟踪文件)。
-- **生成器必须自带注入(根因规则)**:任何 `writeFileSync` 产出 git 跟踪文件后,必须紧随一次水印注入,失败即 `process.exit(1)`:
+- **门禁是自愈式(2026-09-12 立,根治"恒红只能靠跳过"的历史痛点)**:`check-watermark-coverage.mjs` 检出缺口后**自动 `clean+inject` 回写并 `git add` 回暂存区**,修复后 `exit 0`。因此**任何**来源(生成器 / `sed` / 批量脚本 / 手工编辑)产出的无水印或载荷损坏文件,都不可能进入提交 —— 无需再 `HUSKY_SKIP_WATERMARK_GUARD=1`。
+  - 纯判定不改文件(CI / 审计):`node scripts/check-watermark-coverage.mjs --no-fix`。
+  - 安全闸:单次缺口 > 200 个时**拒绝**自动回写并报错(疑似批量改写事故,须先排查来源再整体 `inject`),避免静默整体重写。
+  - CI 侧仍用 `node scripts/watermark.mjs verify` **严格判定**(不自动修复),保证"本地能自愈、远端不掩盖"。
+- **生成器仍应自带注入(更早一步,非唯一防线)**:任何 `writeFileSync` 产出 git 跟踪文件后,必须紧随一次水印注入,失败即 `process.exit(1)`:
 
   ```js
   execFileSync(process.execPath, [resolve(repoRoot, 'scripts/watermark.mjs'), 'inject', outFile], {
