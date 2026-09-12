@@ -9,7 +9,16 @@ export default [
   ...reactConfig,
   ...crossEndConfig,
   {
-    ignores: ['dist/**', 'dist-alipay/**', '.swc/**', 'config/**', 'babel.config.js', 'scripts/**'],
+    ignores: [
+      'dist/**',
+      'dist-alipay/**',
+      '.swc/**',
+      'config/**',
+      'babel.config.js',
+      'scripts/**',
+      // i18n 生成文件超长 base64,跳过 lint(源由 scripts/gen-i18n-compressed.mjs 校验)
+      'src/i18n/generated/**',
+    ],
   },
   {
     files: ['src/**/*.js'],
