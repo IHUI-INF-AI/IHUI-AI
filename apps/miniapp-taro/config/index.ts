@@ -33,6 +33,20 @@ export default defineConfig(async (merge) => {
     outputRoot,
     plugins: [],
     defineConstants: {},
+    // 2026-09-11 主包体积治理:关闭 Terser 的 ascii_only。
+    // Taro webpack5-runner 在 MiniBaseConfig.js 里硬编码了 `output.ascii_only: true`
+    // (见 @tarojs/webpack5-runner/dist/webpack/MiniBaseConfig.js:44),它会把所有
+    // 非 ASCII 字符转义成 \uXXXX —— 中文因此按 6 字节/字 计费,而非 UTF-8 的 3 字节。
+    // 实测 dist/common.js 里虚增了 194,424 个转义序列 ≈ 570KB。
+    // 小程序 JS 文件本身就是 UTF-8,微信开发者工具与运行时都能正常处理原生中文,
+    // 故设为 false:功能与视觉零变化,主包显著变小。
+    // (Taro 支持用顶层 terser.config 覆盖其默认值,见 BaseConfig.setMinimizer 的 recursiveMerge)
+    terser: {
+      enable: true,
+      config: {
+        output: { ascii_only: false },
+      },
+    },
     copy: {
       patterns: [
         { from: 'src/static/', to: `${outputRoot}/static/` },
