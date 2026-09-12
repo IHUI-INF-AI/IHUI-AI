@@ -56,7 +56,6 @@
     "login": "로그인",
     "logging": "로그인 중…",
     "brand": "IHUI AI",
-    "slogan": "더 효율적인 학습",
     "phoneLogin": "휴대폰 로그인",
     "passwordLogin": "비밀번호 로그인",
     "phonePlaceholder": "휴대폰 번호 입력",
@@ -67,15 +66,10 @@
     "passwordPlaceholder": "비밀번호 입력",
     "forgotPassword": "비밀번호 찾기",
     "wechatLogin": "WeChat 로그인",
-    "wechatOnly": "WeChat 로그인만 지원됩니다",
-    "ssoLogin": "SSO 로그인",
-    "ssoLoginHint": "기업 계정 원클릭 로그인",
-    "agreement": "이용약관 및 개인정보처리방침에 동의합니다",
     "cancelAuth": "인증 취소",
     "codeCountdownSuffix": "초 후 재요청",
     "getPhoneFail": "전화번호 가져오기 실패",
     "loginFailed": "로그인 실패, 다시 시도해 주세요",
-    "quickLogin": "빠른 로그인",
     "wechatOneClick": "WeChat 원클릭 로그인"
   },
   "forgot": {
@@ -296,7 +290,6 @@
     "cancelSuccess": "주문 취소됨",
     "cancelFailed": "주문 취소 실패",
     "list": {
-      "orderTime": "주문 시간",
       "refundTime": "환불 시간",
       "applyRefund": "환불 신청",
       "cancel": "취소",
@@ -325,31 +318,10 @@
       "submitting": "충전 중…",
       "invalidAmount": "유효한 금액 입력",
       "success": {
-        "title": "충전 성공",
-        "desc": "충전 완료",
-        "backHome": "홈으로",
-        "backWallet": "지갑으로",
-        "tipsTitle": "안내",
-        "arriveTime": "입금 시간",
-        "orderNoLabel": "주문번호",
-        "shareFriend": "친구에게 공유",
-        "tipsText": "충전 금액이 입금되었습니다. 지갑 내역에서 변동 기록을 확인할 수 있습니다. 문의 사항이 있으면 고객센터에 연락하세요.",
-        "viewDetail": "내역 보기"
+        "shareFriend": "친구에게 공유"
       },
       "fail": {
-        "title": "충전 실패",
-        "desc": "충전 미완료, 나중에 재시도",
-        "retry": "재시도",
-        "backWallet": "지갑으로",
-        "orderNoLabel": "주문 번호",
-        "hintTitle": "안내",
-        "contactService": "고객센터 문의",
-        "faqQ": "충전 실패 시 결제가 되나요?",
-        "amountLabel": "충전 금액",
-        "faqA": "결제가 완료되지 않으면 출금되지 않습니다. 이미 결제됐지만 실패로 표시되면 원래 계정으로 환불됩니다. 계좌 변동에 유의하세요.",
-        "hintText": "충전이 반영되지 않으면 결제가 완료되었는지 확인하세요. 금액은 1-3 영업일 내에 원래 계정으로 환불되며, 고객센터에 문의할 수도 있습니다.",
-        "reasonLabel": "실패 사유",
-        "viewDetail": "내역 보기"
+        "contactService": "고객센터 문의"
       },
       "tokenRate": "1위안 = {n} IHUI 포인트",
       "activityTitle": "한정 이벤트",
@@ -434,7 +406,6 @@
     "language": {
       "chooseHint": "앱 언어 선택",
       "tip": "언어 변경 시 자동 저장되어 적용됩니다",
-      "currentLabel": "현재 언어",
       "note": "일부 콘텐츠는 원문으로 표시될 수 있습니다. 저희는 다국어 지원을 지속적으로 개선하고 있습니다."
     },
     "notification": {
@@ -789,7 +760,6 @@
       "contentNotExist": "공유 콘텐츠가 없습니다",
       "tokenCost": "{n} 토큰 소모",
       "thinkingProcess": "생각 과정",
-      "aiAnswer": "AI 답변",
       "regenerate": "다시 생성",
       "shareFriend": "친구에게 공유",
       "voiceAnswer": "🔊 음성 답변",
@@ -949,10 +919,7 @@
       "publishFail": "게시 실패"
     },
     "list": {
-      "title": "작품 광장",
       "unnamed": "제목 없는 작품",
-      "anonymous": "익명 작성자",
-      "empty": "작품 없음",
       "catText": "텍스트",
       "catImage": "이미지",
       "catVideo": "비디오",
@@ -961,8 +928,7 @@
       "invalidVideo": "비디오 주소가 잘못되었습니다",
       "invalidAudio": "오디오 주소가 잘못되었습니다",
       "audioFail": "오디오 재생 실패",
-      "untitled": "텍스트 내용",
-      "promptLabel": "프롬프트"
+      "untitled": "텍스트 내용"
     }
   },
   "coursePlanet": {
@@ -1244,7 +1210,6 @@
       "verifyOk": "확인 성공",
       "verifyFail": "확인 실패"
     },
-    "rankTitle": "배포 랭킹",
     "rankEmpty": "랭킹 데이터 없음",
     "statsTitle": "수익 개요",
     "thisMonth": "이번 달",
@@ -2217,14 +2182,10 @@
     "codePlaceholder": "인증코드 입력",
     "hide": "숨기기",
     "show": "표시",
-    "pwdHint": "6-20자, 영문/숫자 조합 권장",
     "submitting": "가입 중…",
     "agreePrefix": "읽고 동의합니다",
     "userAgreement": "《이용약관》",
-    "privacyPolicy": "《개인정보처리방침》",
-    "hasAccount": "이미 계정이 있으신가요?",
-    "toLogin": "로그인으로",
-    "text1": "제3자 빠른 연동"
+    "privacyPolicy": "《개인정보처리방침》"
   },
   "message": {
     "tabs": {
@@ -2646,9 +2607,7 @@
     "email": {
       "emailInvalid": "잘못된 이메일",
       "bindSuccess": "이메일 연결 성공",
-      "email": "이메일",
       "emailPlaceholder": "이메일 입력",
-      "code": "인증코드",
       "codePlaceholder": "코드 입력",
       "getCode": "코드 받기",
       "bind": "연결",
@@ -2712,8 +2671,6 @@
       "phoneInvalid": "잘못된 전화번호",
       "codeSendFailed": "코드 발송 실패",
       "bindSuccess": "전화번호 연결 성공",
-      "phone": "전화번호",
-      "code": "인증코드",
       "codePlaceholder": "코드 입력",
       "getCode": "코드 받기",
       "bind": "연결",
