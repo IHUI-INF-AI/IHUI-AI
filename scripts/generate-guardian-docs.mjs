@@ -676,17 +676,67 @@ if (checks.length === 0) {
 
 const md = generateMarkdown(checks)
 
+/**
+ * 剥离溯源水印(可见横幅块 + L3 零宽尾行),使 `--check` 与"已注入水印的文档"可比对。
+ *
+ * 背景(2026-09-12): 本生成器整文件覆写 `docs/guardian-reference.md`,而该文件是 git 跟踪文件、
+ * 必须携带溯源水印 —— 于是 `--check` 若按原始字节比对,会与已经过 `watermark inject` 的文档
+ * 永远不等(假红)。修法: 比对前两侧都剥掉水印,只比"内容语义"。
+ * 生成路径不注入水印: pre-commit 的 `check-watermark-coverage.mjs` 是自愈式门禁,
+ * 会在提交前自动补齐(见 AGENTS.md §5c)。
+ */
+const BANNER_TEXT_RE =
+  /^(?:©\s*\d{4}\s+IHUI\s+AI|Provenance-watermarked(?:\.|\s)|\[IHUI-AI-PROVENANCE\]:)/
+const ZW_ONLY_RE = /^[\u200b\u200c\u200d\u2060]+$/
+const ZW_COMMENTED_RE = /^(?:<!--|\/\/|#|--|\/\*)\s*[\u200b\u200c\u200d\u2060]+\s*(?:-->|\*\/)?$/
+
+/** 剥掉行首注释前缀(// # -- <!--)与行尾 `-->`,用于识别横幅文案行 */
+function bareOf(line) {
+  return line
+    .trim()
+    .replace(/^\s*(?:\/\/|#|--|<!--)\s*/, '')
+    .replace(/\s*-->\s*$/, '')
+}
+
+function stripWatermark(text) {
+  const lines = text.split('\n')
+  const out = []
+  let inBanner = false
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const bareNext = bareOf(lines[i + 1] ?? '')
+    if (!inBanner && /^\s*(?:<!--|\/\*)\s*$/.test(line) && BANNER_TEXT_RE.test(bareNext)) {
+      inBanner = true
+      continue
+    }
+    if (BANNER_TEXT_RE.test(bareOf(line))) {
+      inBanner = true
+      continue
+    }
+    if (inBanner && /^\s*(?:-->|\*\/)\s*$/.test(line)) {
+      inBanner = false
+      continue
+    }
+    inBanner = false
+    const t = line.trim()
+    if (ZW_ONLY_RE.test(t) || ZW_COMMENTED_RE.test(t)) continue
+    out.push(line)
+  }
+  return out.join('\n').replace(/^\n+/, '').replace(/\n+$/, '\n')
+}
+
 if (argv.includes('--check')) {
   if (!existsSync(DOC_PATH)) {
     console.error('❌ docs/guardian-reference.md 不存在,请运行 pnpm guardian:docs 生成')
     process.exit(1)
   }
   const existing = readFileSync(DOC_PATH, 'utf8')
-  if (existing !== md) {
+  // 两侧都剥水印后比对: 水印有无/形态不影响"文档是否过期"的判定
+  if (stripWatermark(existing) !== stripWatermark(md)) {
     console.error('❌ docs/guardian-reference.md 已过期,请运行 pnpm guardian:docs 重新生成')
     process.exit(1)
   }
-  console.log(`✅ docs/guardian-reference.md 已是最新(${checks.length} 项)`)
+  console.log(`✅ docs/guardian-reference.md 已是最新(${checks.length} 项, 已忽略水印差异)`)
   process.exit(0)
 }
 
