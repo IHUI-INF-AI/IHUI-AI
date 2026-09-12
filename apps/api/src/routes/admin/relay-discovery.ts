@@ -21,7 +21,7 @@ import { dbRead } from '../../db/index.js'
 import { aiRelayDiscovery, aiModelConfig, aiModelConfigModels } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
-import { config } from '../../config/index.js'
+import { aiServiceSystemFetch } from '../../utils/ai-service-fetch.js'
 import { paginationSchema, idParamSchema } from './_shared.js'
 
 const scanBodySchema = z.object({
@@ -82,7 +82,7 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
       capabilities?: string[]
     }> = []
     try {
-      const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/models`, { method: 'GET' })
+      const resp = await aiServiceSystemFetch('/api/llm/models', { method: 'GET' })
       if (resp.ok) {
         const data = (await resp.json()) as unknown
         if (Array.isArray(data)) upstreamModels = data as typeof upstreamModels
