@@ -374,6 +374,10 @@ const checks = [
   },
 
   // --- 12 项(2026-07-25 升级 commit 丢失防护为 blocking,id 改 30a 避免与 30 冲突) ---
+  // 2026-09-12 补注:本机宿主会清理 gitdir 下 depth>=2 的嵌套 ref 目录
+  //   (refs/remotes/<remote>/、refs/tags/<ns>/) → 该守门会因"仅远端 tag"抖动性阻塞。
+  //   守护 IHUI-GIT-GUARD 已内建离线自愈(见 git-guardian.mjs healRefs);
+  //   手工触发:node scripts/git-refs-heal.mjs [--refresh-remote]
   {
     id: '30a',
     label:
@@ -381,6 +385,16 @@ const checks = [
     script: 'check-commit-loss-guard.mjs',
     args: ['--blocking', '--filter-stash'],
     mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 若上表是"仅远端 tag"或 origin 变 [gone],通常是宿主清理嵌套 ref 导致的抖动,',
+      '     并非真的丢 commit。处理(离线即可恢复):',
+      '       node scripts/git-refs-heal.mjs                  # 按清单重建 + 固化进 packed-refs',
+      '       node scripts/git-refs-heal.mjs --refresh-remote # 联网从 origin 校准(需 http_proxy)',
+      '     守护 IHUI-GIT-GUARD 每 10s 巡检,会自动修 —— 也可等它自动恢复。',
+      '     机制说明:AGENTS.md §5b「嵌套 ref 存续」。',
+      '',
+    ].join('\n'),
   },
   // --- 30b (2026-09-08 新增,stash 滞留源码改动守门,AGENTS.md §12d 配套) ---
   // blocking:stash 是黑盒,滞留的已完成工作在并行合流下必然造成"功能被回滚"假象
