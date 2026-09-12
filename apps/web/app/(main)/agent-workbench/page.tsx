@@ -41,6 +41,7 @@ import { AgentCreator } from './components/AgentCreator'
 import { AgentRuntimeLog } from './components/AgentRuntimeLog'
 import { AgentSessionList } from './components/AgentSessionList'
 import { SessionTree } from './components/SessionTree'
+import { SelfHealTimeline } from './components/SelfHealTimeline'
 import { TokenStream } from './components/TokenStream'
 import { ToolCallChain } from './components/ToolCallChain'
 import { useAgentRuntime } from '@/hooks/use-agent-runtime'
@@ -346,6 +347,12 @@ export default function AgentWorkbenchPage() {
                   running={selected?.status === 'running'}
                 />
               </div>
+              {/* 2-3 第四批(2026-09-12):自愈时间线(事件到达时才渲染,平时不占布局) */}
+              {runtime.healEvents.length > 0 && (
+                <div className="h-[240px]">
+                  <SelfHealTimeline events={runtime.healEvents} />
+                </div>
+              )}
             </div>
             <div className="min-[1024px]:col-span-4">
               <div className="h-[420px] min-[1024px]:h-[600px]">

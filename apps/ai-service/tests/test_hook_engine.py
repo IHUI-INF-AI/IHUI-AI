@@ -85,7 +85,9 @@ class TestConstants:
         assert "error" in HOOK_EVENTS
         # 9 个事件:8e37213ae3 新增 permission.mode(权限三模式生效事件)后未同步本断言
         assert "permission.mode" in HOOK_EVENTS
-        assert len(HOOK_EVENTS) == 9
+        # 2-3(2026-09-12):self_heal 加入白名单(agent_loop_v2 _maybe_self_heal 事件源)
+        assert "self_heal" in HOOK_EVENTS
+        assert len(HOOK_EVENTS) == 10
 
     def test_action_types(self):
         assert "webhook" in HOOK_ACTION_TYPES
@@ -1212,4 +1214,28 @@ async def test_emit_broadcasts_to_subscriber(engine):
     item = q.get_nowait()
     assert item["session_id"] == "s9"
     assert item["content"] == "hi"
+
+
+@pytest.mark.asyncio
+async def test_emit_self_heal_reaches_subscriber(engine):
+    """2-3(2026-09-12)回归:self_heal 在 HOOK_EVENTS 白名单内,emit 可达订阅者。
+
+    此前 self_heal 缺失白名单,agent_loop_v2._maybe_self_heal 发出的
+    started/finished 事件被 emit() 拦截丢弃,前端 self-heal 呈现无数据源。
+    """
+    q = engine.subscribe("self_heal")
+    await engine.emit(
+        "self_heal",
+        {"session_id": "s-heal", "phase": "started", "command": "pytest tests/x.py"},
+    )
+    item = q.get_nowait()
+    assert item["session_id"] == "s-heal"
+    assert item["phase"] == "started"
+    await engine.emit(
+        "self_heal",
+        {"session_id": "s-heal", "phase": "finished", "ok": True, "attempts": 2},
+    )
+    item2 = q.get_nowait()
+    assert item2["phase"] == "finished"
+    assert item2["ok"] is True
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
