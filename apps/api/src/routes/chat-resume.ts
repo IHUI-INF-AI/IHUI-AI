@@ -46,6 +46,13 @@ const resumeSchema = z.object({
   model: z.string().optional(),
   /** ChatMode 5 态透传(与 /ai/chat/stream 同语义) */
   mode: z.string().optional(),
+  /** P1-7(2026-09-13):会话级高级参数——刷新续接同样要保持原有采样参数与自定义 system prompt,
+   *  否则刷新页面后续写的回复会悄悄回落到模型默认(参数"半途丢失")。 */
+  temperature: z.number().min(0).max(2).optional(),
+  topP: z.number().min(0).max(1).optional(),
+  topK: z.number().int().min(1).max(1000).optional(),
+  maxTokens: z.number().int().min(1).max(200_000).optional(),
+  systemPrompt: z.string().max(8000).optional(),
   contextLimit: z.number().int().min(0).max(2_000_000).optional(),
   metadata: z
     .object({
@@ -129,8 +136,20 @@ export const chatResumeRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { conversationId, messageId, messages, model, mode, contextLimit, metadata } =
-        parsed.data
+      const {
+        conversationId,
+        messageId,
+        messages,
+        model,
+        mode,
+        temperature,
+        topP,
+        topK,
+        maxTokens,
+        systemPrompt,
+        contextLimit,
+        metadata,
+      } = parsed.data
 
       if (!(await assertOwnedConversation(request, conversationId))) {
         return reply.status(404).send(error(404, '对话不存在或无权限'))
@@ -183,6 +202,12 @@ export const chatResumeRoutes: FastifyPluginAsync = async (server) => {
             messages: finalMessages,
             model,
             mode,
+            // P1-7(2026-09-13):续接保持会话级参数(undefined 时 JSON.stringify 自动省略)
+            temperature,
+            top_p: topP,
+            top_k: topK,
+            max_tokens: maxTokens,
+            system_prompt: systemPrompt,
             contextLimit: contextLimit ?? 0,
             metadata: {
               conversationId,
