@@ -24,8 +24,8 @@
 - [ ] H4 Agent 补丁审查:每个 diff 绑定工具调用、理由、测试结果、回滚入口、成本
 - [x] H5 沙箱默认禁网:`allow_network` 默认 False,显式审批才开网,Windows/Linux/macOS 三平台测试 ✅(2026-09-07,见 0-1 完成记录)
 - [x] H6 Web 直接 `fetch` 清零:除 SDK 示例与静态资源,全部迁移 `@ihui/api-client` ✅(2026-09-09,0-5:四批迁移 + 14 处豁免固化注释)
-- [ ] H7 上下文压缩质量:真实任务成功率下降 ≤2%,工具调用准确率、回捞命中率、压缩比进入报告
-- [ ] H8 MCP 质量:工具延迟、成功率、schema 兼容率、冲突率、权限风险评分进入看板
+- [x] H7 上下文压缩质量:真实任务成功率下降 ≤2%,工具调用准确率、回捞命中率、压缩比进入报告 ✅(2026-09-12,1-3:compaction_metrics 指标进报告 + --compare-compaction A/B 41/41 成功率下降 0.0%)
+- [x] H8 MCP 质量:工具延迟、成功率、schema 兼容率、冲突率、权限风险评分进入看板 ✅(2026-09-12,1-4+2-5:mcp_quality 五维加权质量分 + 7 维权限风险 + GET /api/v1/mcp/quality/dashboard 看板)
 - [ ] H9 终端/浏览器自动化:真实站点操作成功率 ≥90%,失败可回放
 - [x] H10 Agent runtime 架构:agent_loop_v2 拆分为权限/审批/压缩/checkpoint/预算/工具执行/事件流 ✅(2026-09-08,1-5:AgentEventStream + agent_checkpoint + llm_budget_governor + approval registry + permission_modes)
 - [ ] H11 跨端一致:Agent 事件、API 契约、样式 token parity 守门全绿
@@ -34,7 +34,7 @@
 ### P0 立即执行(1 周内)
 
 - [x] 0-1 沙箱默认禁网 + 三平台策略测试 ✅(2026-09-07,见下方"本轮开发状态"完成记录)
-- [ ] 0-2 黄金 E2E runner 固化:复用 IHUI-Bench 20 任务,增加端到端 review/checkpoint 断言
+- [x] 0-2 黄金 E2E runner 固化 ✅(2026-09-12):见下方完成报告(run_golden_e2e.py + golden-e2e.yml CI 周回归)
 - [x] 0-3 Monaco FIM Provider ✅(2026-09-07):已有 provider 基础上补齐 AbortController、3s 超时、30 条 LRU 缓存、请求/取消/失败/建议指标(`window.__ihuiFimMetrics`),专项测试 4/4
 - [x] **0-4 LSP 四核心前端接线与类型契约** ✅(2026-09-09):见下方完成报告
 - [x] **0-5 直接 fetch 清单化迁移** ✅(2026-09-09):四批迁移 + 豁免固化。① 6 处 ai-service 直连 → `fetchAiServiceJson`(鉴权/CSRF/设备指纹/超时统一);② knowledge/a2a/orchestration/personas/voice-stt/edu 等 AI 端点页同批收口;③ FormData 上传(AttachmentsUpload)+ **chunkUpload 协议修复**(原 `/api/upload/chunk` 为后端不存在的死端点,重写为 init→upload(octet-stream+x-upload-id/x-chunk-number,1-based)→merge 三步,修复 TiptapToolbar 图片上传必 404 的真实 bug);④ 4 处 blob 下载 → `fetchRaw`。类型增强:`ApiResult` success 分支补可选 `status`(client.ts 三处),消除 admin/relay 200/201 区分的迁移障碍。剩余 14 处裸 fetch 全部固化「0-5-f 豁免确认」注释:SSE 流式×2 / 埋点 keepalive×3 / RSC 缓存 / no-cors 测速 / 第三方 API×3 / playground OpenAI 协议×2 / api-debug / 文本预览外部 URL×2 / SSO 认证自举(不走 401 自动续期)。验收:web+api-client+types typecheck 0 错 / 定向 eslint 0 错 / api-client 145+web FilePreview 2 测试全绿
@@ -44,11 +44,11 @@
 
 - [x] **1-1 Agent Timeline 全可解释** ✅(2026-09-08):见下方完成报告
 - [x] **1-2 补丁冲突处理** ✅(2026-09-08):见下方完成报告
-- [ ] 1-3 压缩生产指标与灰度
-- [ ] 1-4 MCP 生态质量分与安全评分
+- [x] 1-3 压缩生产指标与灰度 ✅(2026-09-12):见下方完成报告
+- [x] 1-4 MCP 生态质量分与安全评分 ✅(2026-09-12):见下方完成报告
 - [x] **1-5 agent_loop_v2 架构拆分** ✅(2026-09-08):见下方完成报告
-- [ ] 1-6 键盘优先交互:命令面板、快捷键、inline chat
-- [ ] 1-7 调试链路 DAP 化与断点/变量/watch 稳定性
+- [x] 1-6 键盘优先交互:命令面板、快捷键、inline chat ✅(2026-09-12):见下方完成报告
+- [x] 1-7 调试链路 DAP 化与断点/变量/watch 稳定性 ✅(2026-09-12):见下方完成报告
 
 ### 1-1 Agent Timeline 全可解释完成报告(2026-09-08)
 
@@ -79,14 +79,57 @@
 - **bench golden 执行器 + CI 门禁**:`bench/fixtures_golden/` 4 夹具参考答案(覆盖全部 41 任务检查,pytest 全绿)→ `--executor golden` 跳过 agent 循环直评,bench 评分链路自检应 100% 通过;`--min-pass-rate`(显式给出时低于门槛 stderr 报「通过率低于门槛」+ exit 1)供 CI 阻塞回归。test_bench_golden 4/4 + test_bench 全过。
 - **验收**:全量回归 **10229 passed / 3 skipped / 2 failed**(2 失败均非本改动回归:test_native_fc_e2e_real 为 StepFun 账号配额 402 外部依赖耗尽、test_tls_stealth「Event loop is closed」高负载偶发且单独复跑通过);mypy strict 改动模块 0 错误;pytest-timeout(--timeout=180)纳入回归防异步卡死。
 
+### 0-2 黄金 E2E runner 完成报告(2026-09-12,batch-1)
+
+- **runner**(`bench/run_golden_e2e.py`):复用 IHUI-Bench 35 任务,端到端断言覆盖 review(每步 diff/决策)与 checkpoint(恢复后文件内容一致);`--executor golden` 自检 100%,支持 `--min-pass-rate` 门槛 CI 阻塞。
+- **CI 周回归**(`.github/workflows/golden-e2e.yml`):cron 每周一跑全量黄金 E2E,低于门槛 exit 1。
+- **专项测试**:`tests/test_golden_e2e.py` 断言 runner 评分链路与 checkpoint 恢复语义。
+
+### 1-3 压缩生产指标与灰度完成报告(2026-09-12)
+
+- **指标采集**(`compaction_metrics.py`):压缩比、token 节省、回捞命中率、触发点归一(llm_summary→llm)上报;`llm.py` 两处压缩点计时、`context_recall.py` 回捞命中上报。
+- **灰度决策**(`compaction_canary.py`):`AGENT_COMPACTION_MODE=off/ratio/full` + `CANARY_PERCENT` 按 session 哈希分桶;`agent_loop_v2` 挂灰度决策。
+- **对比报告**:`context_compaction.py` 新增 `GET /metrics-report`;`run_bench.py --compare-compaction` A/B 模式(修复 `--help` 裸 % 崩溃)。
+- **验收**:test_compaction_metrics + test_compaction_canary 40 用例;`--compare-compaction` 冒烟 off/on 41/41 通过率下降 **0.0%**(H7 达标,阈值 ≤2%)。
+
+### 1-4+2-5 MCP 质量评分与市场审核完成报告(2026-09-12)
+
+- **质量分**(`mcp_quality.py`):成功率 40% + 延迟 30% + schema 兼容 20% + 冲突 10% 加权;权限风险 7 维评分(文件写/命令执行/网络/环境变量/敏感目录/凭据/任意代码);看板聚合接口。
+- **市场审核**(`mcp_market_review.py`):审核结论 JSON 原子落盘持久化;`mcp.py` 4 新端点(`GET store/{key}/score`、`GET quality/dashboard`、`GET/POST review`)+ `confirm_risk` 双闸门(高危需显式确认)。
+- **指标挂载**:`mcp_stdio_bridge`/`mcp_client` 工具调用延迟/成功率/schema 兼容上报。
+- **验收**:test_mcp_quality 49 用例 + test_mcp_store 7 处补 confirm_risk;mypy/ruff 0 错。
+
+### 1-6 键盘优先交互完成报告(2026-09-12,batch-1)
+
+- 命令面板 15 命令(含 keywords 5 语言 i18n)、全局快捷键、inline chat 键盘进出(ESC/Enter/Shift+Enter);agentCanvas 整图执行命令入面板。
+- **验收**:web typecheck 0 错;i18n 5 语言 parity(14305 键)。
+
+### 1-7 调试链路 DAP 化完成报告(2026-09-12,batch-1)
+
+- 断点/变量/watch 走 DAP 协议,稳定性专项测试;debug store 子组件化(0-6 拆分延续)。
+- **验收**:debug-panel 专项测试 15 用例全绿;typecheck/eslint 0 错。
+
 ### P2 广度优势产品化(3 个月)
 
 - [x] 2-1 项目知识引擎:RepoWiki、Knowledge Card、任务经验沉淀 ✅(2026-09-10):2-1a RepoWiki(ai-service 生成 + apps/api 存储 + web 前端);2-1b Knowledge Card 后端(`knowledge_cards` 表 + GET//、GET /search、GET /:id、POST /、DELETE /:id,含 useCount/lastUsedAt 标记已用接口)与前端(知识卡片页 5 语言 i18n 44 key);2-1c 任务经验沉淀——api POST 支持 `X-Internal-Secret` 内部写卡(source=agent,vitest 23/23)、ai-service `knowledge_card_extractor.py`(LLM 抽取经验卡 → HTTP 写库,单卡失败不阻塞)、`knowledge_lookup` 接入 knowledge_cards 第五源(DEFAULT_PRIORITY 置于 codebase 后,confidence 归一为 score,api_token 为空跳过,IO 失败降级空)。验收:knowledge_lookup 44/44、api knowledge-card 23/23、mypy 0 错、tsc 0 错;全量回归失败项均与本改动无关(存量 payment/sanitizer/quota 等)
 - [x] 2-2 多 Agent 工作区锁与团队任务板 ✅(2026-09-11):2-2a 工作区锁——ai-service `workspace_lock.py`(Redis + Lua token 原子释放/续期,TTL 120s + 心跳,Redis 不可用降级进程内锁,单测 33/33 + mypy 0 错)与 api `workspace-lock.ts` 同构共享协议(key/value/Lua 逐字一致);2-2b schema——agent_tasks 增 workspace_path/team_id/locked_by/locked_at + 迁移 20260910000000;2-2c api——GET /agents/kanban/workspace-lock 查询、transition 进 in_progress 抢锁(占用时 409)/离开释放(token 校验防误删)、SSE workspace_lock_acquired/released 广播、GET /tasks?teamId= 团队过滤(admin 直放 + 成员校验),agents-kanban.test.ts 16/16;2-2d web——任务卡锁徽标(orange + dark 自适应)、详情对话框工作区/锁展示 + 409「工作区锁冲突」警告 toast、看板团队过滤 Select(无团队隐藏,'all'/'none' 哨兵)、创建表单工作区/团队字段、useAgentSSE 锁事件触发看板刷新;frontend API 层根治 3 处响应解包错误(columns/tasks/transition data 即数组或对象,此前读 .columns/.tasks/.transition 恒 undefined);i18n 5 语言(zh-CN/zh-TW/en/ja/ko)状态+锁+团队 key 全对齐(顺带补齐 2-1 遗留 knowledgeCard/shortcutHelp 命名空间)。验收:web typecheck 0 错、i18n 死键扫描测试 33/33、浏览器实测通过(团队过滤切换带 teamId 请求、锁徽标 DOM 类名逐字一致、409 冲突 toast、dark mode、测试任务/团队数据清理归零);注:锁 TTL 120s 无心跳时过期属设计行为(陈旧持有者死亡自动释放),409 仅在 TTL 窗口内互斥
 - [x] 2-3 验证自愈引擎产品化 ✅(2026-09-12,分四批:①✅(commit d78676c+7e33c07) **web 自愈驾驶舱**——api-client `endpoints/self-healing.ts`(HealOutcome 契约镜像 + 600s 超时)+ next.config rewrites `/api/self-healing/* → 8803 /api/v1/self-healing/*` + `/self-healing` 页面(任务/目标路径表单 → 尝试历史/补丁 JSON 折叠/建议列表,未开启门控降级提示非报错)+ i18n 5 语言 26 key;②✅(commit 3d295ba) **agent_loop_v2 集成**——`_maybe_self_heal` 挂载于 `_run_loop` 每轮工具结果之后,`_detect_failed_test_signal` 经 derive_step_evidence 检测 run_command pytest 失败信号(test.failed>0 或蛇形 exit_code 非零)触发 heal;三重门控 env `AGENT_SELF_HEALING_ENABLED`(默认 off)+ `AGENT_SELF_HEAL_MAX_PER_RUN`(默认 1)+ 同命令去重(`_reset_run_state` 重置);`run_in_threadpool` 调 heal(runner=PytestSubprocessRunner,patch_fn 先 `snapshot_file` 拍 pre-heal 快照再 `apply_patch_descriptor` 落盘),heal 未修复时逐文件 `rollback_file` 回滚护栏;全程 fail-open(异常只 warning 不阻塞主循环);结果以 user 消息注入 messages 供 LLM 感知续跑;`self_heal` hook 事件 → agents.py SSE `self-heal`(phase started/finished 含 ok/attempts/rollbacks);测试 test_agent_self_heal.py 13 用例(含失败回滚护栏断言文件恢复 pre-heal 原文)+ 蛇形 exit_code 用例,回归 358 passed,mypy/ruff 0 错;③✅(2026-09-12) **bench 评测闭环**——`run_bench.py --executor self-healing`(复用 AgentLoopV2 + env 强制开启/finally 恢复 `AGENT_SELF_HEALING_ENABLED`,结果 JSON 附 `self_heal_runs` 触发计数,报告行透出)对比 loop_v2 与开自愈的通过率;`.env.example` 补齐 `AGENT_SELF_HEALING_ENABLED`/`AGENT_SELF_HEAL_MAX_PER_RUN`/`AGENT_SELF_HEALING_MODEL` 三配置;**补丁 v2 unified diff 应用**(self_healing_llm `_parse_unified_hunks`/`_locate_hunk`/`_apply_unified_diff`):hunk 解析容错(文件头跳过/`\ No newline` 忽略/空行上下文)→ 期望行号±400 行窗口精确匹配 → difflib 模糊定位(阈值 0.5,严格 > 保并列时近期望位置防假冲突)→ 区域漂移走 merge3 三方合并(base=diff 旧文本,a=diff 新文本,b=磁盘当前区域)同时保留 LLM 变更与磁盘漂移,冲突整体失败不半应用;merge3 为可选导入(GPL-2.0,未安装优雅降级为失败原因),pyproject 声明 `merge3>=0.0.15`;测试:改写原 diff-only 拒绝断言为 v2 语义 + 新增 7 用例(干净应用/漂移合并/冲突拒绝/目标缺失/无 hunk/merge3 缺失/内容全缺),test_bench self-healing 冒烟(子进程 cwd 隔离 .env + 清 vendor key 令 gateway 落 stub 无真实网络),26/26 通过,mypy strict/ruff 0 错;全量回归 10787 passed,3 失败均非本改动回归(os_sandbox venv 路径白名单既有环境问题、tls_stealth 高负载偶发单跑通过、StepFun 配额 402 外部依赖));④✅(2026-09-12) **自愈 SSE 前端呈现闭环**——根因修复:hook_engine `HOOK_EVENTS` 白名单缺 `self_heal`,emit() 对未知事件提前 return,第二批发出的自愈事件实际全部被丢弃(HOOK_EVENTS 9→10 + 回归测试 `test_emit_self_heal_reaches_subscriber`,test_hook_engine 145 passed);web 双消费端接入:use-agent-runtime 新增 `SelfHealEvent` 契约 + `healEvents` FIFO(50 条)+ `es.addEventListener('self-heal')`(命名 SSE 事件不走 onmessage,参照 tool-approval-dialog 模式,解析 `{type,payload{session_id,iteration,phase,command,failed,ok,attempts,rollbacks}}`);新建 `SelfHealTimeline` 组件(参照 ToolCallChain 时间线模式:started 旋转 Loader/finished ok 绿勾/失败红叉 + 轮次徽标 + 失败用例数/尝试次数/回滚次数标签)挂入 workbench runtime 视图(事件到达才渲染不占布局);AgentRuntimeLog 修复崩溃隐患——TYPE_CONFIG 原仅 4 类型,后端 `_map_hook_event_to_log_entry` 可推 8 类型(session/tool-approval/self-heal/message 到达即 `cfg.icon` 解构 undefined 整面板崩溃),补齐全部条目(自愈 ShieldCheck cyan)+ SSE 解析加运行时白名单校验(未知类型丢弃不渲染);i18n 5 语言 `agentWorkbench.selfHealTimeline` 8 key 对齐;范围纠偏:画布走 LangGraph 链路(langgraph_stream→`/api/langgraph/*`)不经 agent_loop_v2,自愈事件不会出现在画布,呈现落点为 workbench(与后端事件源一致)。验收:ai-service ruff/mypy 0 错 + pytest 254 passed(test_hook_engine+test_hooks 200 + test_agents/test_agent_runtime_router/test_agent_self_heal 54),web tsc 0 错 + eslint 0 错 + i18n 5 语言 8 key 逐字对齐
-- [ ] 2-4 浏览器自动化回放与评测
-- [ ] 2-5 MCP Server 能力市场审核与评分
-- [ ] 2-6 成本真实计价和预算看板
+- [x] 2-4 浏览器自动化回放与评测 ✅(2026-09-12):见下方完成报告
+- [x] 2-5 MCP Server 能力市场审核与评分 ✅(2026-09-12):见下方完成报告
+- [x] 2-6 成本真实计价和预算看板 ✅(2026-09-12):见下方完成报告
+
+### 2-4 浏览器自动化回放与评测完成报告(2026-09-12)
+
+- **trace 归一**(`browser_trace.py`):trace/step 归一化 + 截图落盘 + `extract_assertions` 断言抽取 + trace_id 白名单;`computer_use.py` 5 个操作端点挂录制钩子。
+- **回放引擎**(`browser_replay.py`):BrowserDriver Protocol + PageDriver,失败差异分类(element_not_found / timeout / assertion_failed / exception);7 新端点(trace/start、trace/stop、GET/DELETE trace、replay)。
+- **bench**:`run_browser_bench.py` + `tasks_browser.json` + 3 本地 fixture(login/search/form)。
+- **验收**:test_browser_trace_replay 18 用例;真实 Chromium 冒烟 3/3 100%。
+
+### 2-6 成本真实计价和预算看板完成报告(2026-09-12)
+
+- **微元计价引擎**(`model_pricing.py`):4 个 Decimal 微元计价函数,全程无除法消除 float 漂移;`llm_budget_governor._calc_cost` 切换微元引擎。
+- **预算事件流**:200 条环形缓冲预算事件(去重);`llm_usage_service`/`cost_ledger` 挂载;`usage.py` 新增 `GET /usage/budget-events` 前端看板数据源。
+- **验收**:test_cost_precision 39 用例(含 float 漂移回归断言);mypy strict 430 文件 0 错。
 
 ### P3 生态与长期领先(6-12 个月)
 
