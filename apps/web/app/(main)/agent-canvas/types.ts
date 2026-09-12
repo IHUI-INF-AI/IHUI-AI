@@ -9,8 +9,8 @@
 /** 节点类型:AI 智能体 / 工具调用 / 人工审核 */
 export type CanvasNodeType = 'agent' | 'tool' | 'human-review'
 
-/** 节点运行状态(由 SSE node_start/node_end/error/done 事件驱动) */
-export type CanvasRunStatus = 'idle' | 'running' | 'success' | 'failed'
+/** 节点运行状态(由 SSE node_start/node_end/error/done 事件驱动;skipped = 上游失败被跳过) */
+export type CanvasRunStatus = 'idle' | 'running' | 'success' | 'failed' | 'skipped'
 
 /** 单条节点日志(stdout/stderr/系统事件均归一化到此结构) */
 export interface CanvasLogEntry {
