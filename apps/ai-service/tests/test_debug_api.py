@@ -4,17 +4,19 @@
 
 """debug.py HTTP API 层测试(app/api/v1/debug.py)。
 
-测试覆盖 10 个端点(前缀 /api/v1/debug):
+测试覆盖 12 个端点(前缀 /api/v1/debug):
 1. POST /launch — 启动调试会话
 2. POST /attach — 附加到已运行进程
 3. POST /sessions/{id}/breakpoints — 设置断点
 4. POST /sessions/{id}/continue — 继续执行
 5. POST /sessions/{id}/step — 单步执行
 6. GET /sessions/{id}/stack — 获取调用栈
-7. GET /sessions/{id}/variables — 获取变量
-8. POST /sessions/{id}/eval — 表达式求值
-9. DELETE /sessions/{id} — 断开会话
-10. GET /sessions — 列出所有会话
+7. GET /sessions/{id}/scopes — 获取 scope 分组(DAP scopes)
+8. GET /sessions/{id}/threads — 获取线程列表(DAP threads)
+9. GET /sessions/{id}/variables — 获取变量(variablesReference 优先)
+10. POST /sessions/{id}/eval — 表达式求值
+11. DELETE /sessions/{id} — 断开会话
+12. GET /sessions — 列出所有会话
 
 设计:
 - mock app.api.v1.debug.get_debug_manager 返回 MagicMock + AsyncMock 方法,不启动真实 DAP adapter。
@@ -86,6 +88,28 @@ def _make_mock_manager() -> MagicMock:
         return_value=[
             {"name": "x", "value": "42", "type": "int", "variablesReference": 0},
             {"name": "msg", "value": '"hello"', "type": "str", "variablesReference": 0},
+        ]
+    )
+    mgr.get_scopes = AsyncMock(
+        return_value=[
+            {"name": "Locals", "variablesReference": 1000, "expensive": False},
+            {"name": "Globals", "variablesReference": 1001, "expensive": True},
+        ]
+    )
+    mgr.get_variables_by_reference = AsyncMock(
+        return_value=[
+            {
+                "name": "arr",
+                "value": "list[3]",
+                "type": "list",
+                "variablesReference": 2000,
+            }
+        ]
+    )
+    mgr.get_threads = AsyncMock(
+        return_value=[
+            {"id": 1, "name": "main"},
+            {"id": 2, "name": "worker"},
         ]
     )
     mgr.evaluate = AsyncMock(
@@ -329,12 +353,77 @@ async def test_get_stack_session_not_found_returns_404(client, mock_manager) -> 
 
 
 # =============================================================================
-# 7. GET /api/v1/debug/sessions/{id}/variables
+# 7. GET /api/v1/debug/sessions/{id}/scopes
+# =============================================================================
+
+
+async def test_get_scopes_ok(client, mock_manager) -> None:
+    """正常获取 scope 分组,响应 200 且透传 frameId。"""
+    resp = await client.get(
+        "/api/v1/debug/sessions/session-abc-123/scopes",
+        params={"frameId": 100},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["code"] == 200
+    scopes = body["data"]["scopes"]
+    assert len(scopes) == 2
+    assert scopes[0]["name"] == "Locals"
+    assert scopes[0]["variablesReference"] == 1000
+    assert scopes[0]["expensive"] is False
+    mock_manager.get_scopes.assert_awaited_once_with(
+        session_id="session-abc-123", frame_id=100
+    )
+
+
+async def test_get_scopes_missing_frame_id_returns_422(client, mock_manager) -> None:
+    """缺少 frameId 参数返回 422(Query 必填)。"""
+    resp = await client.get("/api/v1/debug/sessions/session-abc-123/scopes")
+    assert resp.status_code == 422
+    mock_manager.get_scopes.assert_not_awaited()
+
+
+async def test_get_scopes_session_not_found_returns_404(client, mock_manager) -> None:
+    """session 不存在返回 404。"""
+    mock_manager.get_scopes.side_effect = RuntimeError("debug session 不存在: ghost-id")
+    resp = await client.get(
+        "/api/v1/debug/sessions/ghost-id/scopes", params={"frameId": 1}
+    )
+    assert resp.status_code == 404
+
+
+# =============================================================================
+# 8. GET /api/v1/debug/sessions/{id}/threads
+# =============================================================================
+
+
+async def test_get_threads_ok(client, mock_manager) -> None:
+    """正常获取线程列表,响应 200。"""
+    resp = await client.get("/api/v1/debug/sessions/session-abc-123/threads")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["code"] == 200
+    threads = body["data"]["threads"]
+    assert len(threads) == 2
+    assert threads[0]["id"] == 1
+    assert threads[0]["name"] == "main"
+    mock_manager.get_threads.assert_awaited_once_with("session-abc-123")
+
+
+async def test_get_threads_session_not_found_returns_404(client, mock_manager) -> None:
+    """session 不存在返回 404。"""
+    mock_manager.get_threads.side_effect = RuntimeError("debug session 不存在: ghost-id")
+    resp = await client.get("/api/v1/debug/sessions/ghost-id/threads")
+    assert resp.status_code == 404
+
+
+# =============================================================================
+# 9. GET /api/v1/debug/sessions/{id}/variables
 # =============================================================================
 
 
 async def test_get_variables_ok(client, mock_manager) -> None:
-    """正常获取变量,响应 200。"""
+    """正常获取变量(frameId + scope 旧接口),响应 200。"""
     resp = await client.get(
         "/api/v1/debug/sessions/session-abc-123/variables",
         params={"frameId": 100, "scope": "local"},
@@ -353,15 +442,55 @@ async def test_get_variables_ok(client, mock_manager) -> None:
     assert call_kwargs["scope"] == "local"
 
 
-async def test_get_variables_missing_frame_id_returns_422(client, mock_manager) -> None:
-    """缺少 frameId 参数返回 422(Query 必填)。"""
-    resp = await client.get("/api/v1/debug/sessions/session-abc-123/variables")
-    assert resp.status_code == 422
+async def test_get_variables_by_reference_ok(client, mock_manager) -> None:
+    """variablesReference 优先(DAP 子树懒加载),不调用旧接口 get_variables。"""
+    resp = await client.get(
+        "/api/v1/debug/sessions/session-abc-123/variables",
+        params={"variablesReference": 1000},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["code"] == 200
+    variables = body["data"]["variables"]
+    assert len(variables) == 1
+    assert variables[0]["name"] == "arr"
+    assert variables[0]["variablesReference"] == 2000
+    mock_manager.get_variables_by_reference.assert_awaited_once_with(
+        session_id="session-abc-123", variables_reference=1000
+    )
     mock_manager.get_variables.assert_not_awaited()
 
 
+async def test_get_variables_reference_takes_priority(client, mock_manager) -> None:
+    """variablesReference 与 frameId 同时传时,variablesReference 优先。"""
+    resp = await client.get(
+        "/api/v1/debug/sessions/session-abc-123/variables",
+        params={"variablesReference": 1000, "frameId": 100},
+    )
+    assert resp.status_code == 200
+    mock_manager.get_variables_by_reference.assert_awaited_once()
+    mock_manager.get_variables.assert_not_awaited()
+
+
+async def test_get_variables_missing_params_returns_422(client, mock_manager) -> None:
+    """缺少 variablesReference 与 frameId 参数返回 422(至少传一个)。"""
+    resp = await client.get("/api/v1/debug/sessions/session-abc-123/variables")
+    assert resp.status_code == 422
+    mock_manager.get_variables.assert_not_awaited()
+    mock_manager.get_variables_by_reference.assert_not_awaited()
+
+
+async def test_get_variables_session_not_found_returns_404(client, mock_manager) -> None:
+    """session 不存在返回 404。"""
+    mock_manager.get_variables.side_effect = RuntimeError("debug session 不存在: ghost-id")
+    resp = await client.get(
+        "/api/v1/debug/sessions/ghost-id/variables", params={"frameId": 1}
+    )
+    assert resp.status_code == 404
+
+
 # =============================================================================
-# 8. POST /api/v1/debug/sessions/{id}/eval
+# 10. POST /api/v1/debug/sessions/{id}/eval
 # =============================================================================
 
 
@@ -396,7 +525,7 @@ async def test_eval_without_frame_id_ok(client, mock_manager) -> None:
 
 
 # =============================================================================
-# 9. DELETE /api/v1/debug/sessions/{id}
+# 11. DELETE /api/v1/debug/sessions/{id}
 # =============================================================================
 
 
@@ -418,7 +547,7 @@ async def test_disconnect_session_not_found_returns_404(client, mock_manager) ->
 
 
 # =============================================================================
-# 10. GET /api/v1/debug/sessions
+# 12. GET /api/v1/debug/sessions
 # =============================================================================
 
 

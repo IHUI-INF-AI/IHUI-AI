@@ -157,6 +157,72 @@ describe('Debug API (/api/debug/*) — 代理到 ai-service', () => {
     })
   })
 
+  describe('GET /api/debug/sessions/:sessionId/scopes — 获取 scope 分组', () => {
+    it('成功透传:frameId 查询参数拼接到上游路径', async () => {
+      vi.mocked(aiServiceFetch).mockResolvedValue(
+        makeUpstream(200, {
+          code: 0,
+          data: { scopes: [{ name: 'Locals', variablesReference: 1000, expensive: false }] },
+        }),
+      )
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/debug/sessions/dbg-1/scopes?frameId=100',
+        headers: AUTH_HEADERS,
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.scopes).toHaveLength(1)
+      expect(aiServiceFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        '/api/v1/debug/sessions/dbg-1/scopes?frameId=100',
+        expect.objectContaining({ method: 'GET' }),
+      )
+    })
+  })
+
+  describe('GET /api/debug/sessions/:sessionId/threads — 获取线程列表', () => {
+    it('成功透传', async () => {
+      vi.mocked(aiServiceFetch).mockResolvedValue(
+        makeUpstream(200, { code: 0, data: { threads: [{ id: 1, name: 'main' }] } }),
+      )
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/debug/sessions/dbg-1/threads',
+        headers: AUTH_HEADERS,
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.threads).toHaveLength(1)
+      expect(aiServiceFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        '/api/v1/debug/sessions/dbg-1/threads',
+        expect.objectContaining({ method: 'GET' }),
+      )
+    })
+  })
+
+  describe('GET /api/debug/sessions/:sessionId/variables — 获取变量', () => {
+    it('variablesReference 查询参数透传(DAP 子树懒加载)', async () => {
+      vi.mocked(aiServiceFetch).mockResolvedValue(
+        makeUpstream(200, {
+          code: 0,
+          data: { variables: [{ name: 'x', value: '42', variablesReference: 0 }] },
+        }),
+      )
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/debug/sessions/dbg-1/variables?variablesReference=1000',
+        headers: AUTH_HEADERS,
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.variables[0].name).toBe('x')
+      expect(aiServiceFetch).toHaveBeenCalledWith(
+        expect.anything(),
+        '/api/v1/debug/sessions/dbg-1/variables?variablesReference=1000',
+        expect.objectContaining({ method: 'GET' }),
+      )
+    })
+  })
+
   describe('POST /api/debug/sessions/:sessionId/continue — 继续执行', () => {
     it('成功透传', async () => {
       vi.mocked(aiServiceFetch).mockResolvedValue(

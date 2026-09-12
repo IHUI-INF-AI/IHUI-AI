@@ -608,6 +608,37 @@ class DebugSessionManager:
         session.touch()
         return (var_body or {}).get("variables", []) if var_body else []
 
+    async def get_scopes(self, session_id: str, frame_id: int) -> list[dict[str, Any]]:
+        """获取 frame 的 scope 分组(DAP scopes 请求透传,返回 name/variablesReference/expensive)。"""
+        session = self._get_session(session_id)
+        if session.client is None:
+            raise RuntimeError("session 未初始化")
+        body = await session.client.send_request("scopes", {"frameId": frame_id})
+        session.touch()
+        return (body or {}).get("scopes", []) if body else []
+
+    async def get_variables_by_reference(
+        self, session_id: str, variables_reference: int
+    ) -> list[dict[str, Any]]:
+        """按 variablesReference 获取变量(DAP variables 请求透传,支持子树懒加载)。"""
+        session = self._get_session(session_id)
+        if session.client is None:
+            raise RuntimeError("session 未初始化")
+        body = await session.client.send_request(
+            "variables", {"variablesReference": variables_reference}
+        )
+        session.touch()
+        return (body or {}).get("variables", []) if body else []
+
+    async def get_threads(self, session_id: str) -> list[dict[str, Any]]:
+        """获取线程列表(DAP threads 请求透传)。"""
+        session = self._get_session(session_id)
+        if session.client is None:
+            raise RuntimeError("session 未初始化")
+        body = await session.client.send_request("threads", {})
+        session.touch()
+        return (body or {}).get("threads", []) if body else []
+
     async def evaluate(
         self,
         session_id: str,
