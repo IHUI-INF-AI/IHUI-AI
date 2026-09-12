@@ -33,6 +33,7 @@ from starlette.concurrency import run_in_threadpool
 from app.services.self_healing import heal
 from app.services.self_healing_llm import (
     PytestSubprocessRunner,
+    list_workspace_files,
     llm_gen_fn,
     llm_patch_and_apply,
 )
@@ -68,15 +69,39 @@ def _validate_workspace(target_path: str) -> tuple[bool, str]:
     return bool(ok), str(info)
 
 
-def _patch_adapter(task: Any, result: Any) -> dict[str, Any] | None:
+def _patch_adapter(
+    task: Any, result: Any, *, workspace_root: str | None = None
+) -> dict[str, Any] | None:
     """heal 引擎的 patch_fn 契约是 (task, result_dict)。
 
     取 result 里第一条失败作为补丁上下文喂给 LLM;生成后落盘应用,
     任一环节失败返回 None(引擎优雅降级继续循环)。
+
+    ``workspace_root``(2026-09-12 修复):LLM 只看到 pytest 失败信息时会**编造**
+    路径(实测输出 /app/src/calculator.py 之类),补丁必被工作区白名单拦下 →
+    自愈永远落不了盘。此处把真实绝对路径显式写进 context,抑制路径幻觉。
     """
     failures = result.get("failures") if isinstance(result, dict) else None
     failure = failures[0] if failures else task
-    return llm_patch_and_apply(failure, result)
+    ctx: Any = dict(result) if isinstance(result, dict) else {"result": result}
+    # 任务描述同样要进 prompt:否则 LLM 只知道"测试失败",不知道期望语义
+    # (例如要求除零返回 0 而非抛异常),补丁方向就会猜错。
+    if isinstance(task, str) and task.strip():
+        ctx["task"] = task
+    if workspace_root:
+        ctx["workspace_root"] = str(workspace_root)
+        ctx["target_path"] = str(workspace_root)
+        ctx["workspace_files"] = list_workspace_files(str(workspace_root))
+    return llm_patch_and_apply(failure, ctx)
+
+
+def _make_patch_adapter(workspace_root: str) -> Any:
+    """构造绑定了真实工作区路径的 patch_fn(供 heal 循环使用)。"""
+
+    def _adapter(task: Any, result: Any) -> dict[str, Any] | None:
+        return _patch_adapter(task, result, workspace_root=workspace_root)
+
+    return _adapter
 
 
 @router.post("/run")
@@ -106,7 +131,7 @@ async def run_self_healing(body: SelfHealingRunRequest) -> Any:
         None,  # test_cases -> 由 gen_fn 生成
         gen_fn=llm_gen_fn,
         runner=runner,
-        patch_fn=_patch_adapter,
+        patch_fn=_make_patch_adapter(info),
     )
     return {"code": 0, "message": "ok", "data": outcome.to_dict()}
 
