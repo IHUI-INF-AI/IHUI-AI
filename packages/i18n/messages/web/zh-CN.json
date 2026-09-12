@@ -8244,6 +8244,13 @@
   "chat": {
     "artifactPreview": "预览",
     "artifactCode": "代码",
+    "canvasApplyRefresh": "应用并刷新预览",
+    "canvasOpenInCanvas": "在画布打开",
+    "canvasVersions": "版本历史",
+    "canvasRevert": "回退到此版本",
+    "canvasFullscreen": "全屏画布",
+    "canvasExitFullscreen": "退出全屏",
+    "canvasEdited": "手动编辑",
     "sessionUsage": {
       "promptTokens": "输入",
       "completionTokens": "输出",
