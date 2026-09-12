@@ -10,16 +10,36 @@ import { LOCALE_KEY } from '@/constants/storage'
 // 2026-07-25 i18n 单一来源:翻译文件迁移到 @ihui/i18n/messages/{shared,miniapp-taro}/
 // 2026-07-26 loader.getValueByPath 扩展为返回 unknown,resolveList 支持 fallback,
 // 删除本地 mergeDict/resolveRaw,完全复用 @ihui/i18n/loader
+// 2026-09-12 体积优化:非中文 4 语言包改为离线 gzip+base64 内联(见 generated/remote-locales.gen.ts),
+// 运行时经 fflate 惰性解压,主包不再静态打包这 8 个 JSON(净省约 540KB),功能零损失。
+import { gunzipSync, strFromU8 } from 'fflate'
 import sharedZhCN from '@ihui/i18n/messages/shared/zh-CN.json'
-import sharedEn from '@ihui/i18n/messages/shared/en.json'
-import sharedJa from '@ihui/i18n/messages/shared/ja.json'
-import sharedKo from '@ihui/i18n/messages/shared/ko.json'
-import sharedZhTW from '@ihui/i18n/messages/shared/zh-TW.json'
 import miniappZhCN from '@ihui/i18n/messages/miniapp-taro/zh-CN.json'
-import miniappEn from '@ihui/i18n/messages/miniapp-taro/en.json'
-import miniappJa from '@ihui/i18n/messages/miniapp-taro/ja.json'
-import miniappKo from '@ihui/i18n/messages/miniapp-taro/ko.json'
-import miniappZhTW from '@ihui/i18n/messages/miniapp-taro/zh-TW.json'
+import { REMOTE_LOCALE_B64, type RemoteLocale } from './generated/remote-locales.gen'
+
+// 纯 JS base64 → Uint8Array 查表解码:小程序真机 JSCore 未必提供 atob,不依赖任何运行时 API
+const B64_TABLE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+const B64_LOOKUP = new Uint8Array(256)
+for (let i = 0; i < B64_TABLE.length; i++) B64_LOOKUP[B64_TABLE.charCodeAt(i)] = i
+
+function b64ToBytes(b64: string): Uint8Array {
+  const len = b64.length
+  let pad = 0
+  if (len > 0 && b64[len - 1] === '=') pad++
+  if (len > 1 && b64[len - 2] === '=') pad++
+  const out = new Uint8Array((len / 4) * 3 - pad)
+  for (let i = 0, o = 0; i < len; i += 4) {
+    const n =
+      ((B64_LOOKUP[b64.charCodeAt(i)] ?? 0) << 18) |
+      ((B64_LOOKUP[b64.charCodeAt(i + 1)] ?? 0) << 12) |
+      ((B64_LOOKUP[b64.charCodeAt(i + 2)] ?? 0) << 6) |
+      (B64_LOOKUP[b64.charCodeAt(i + 3)] ?? 0)
+    if (o < out.length) out[o++] = (n >> 16) & 0xff
+    if (o < out.length) out[o++] = (n >> 8) & 0xff
+    if (o < out.length) out[o++] = n & 0xff
+  }
+  return out
+}
 
 export type { Locale }
 
@@ -37,13 +57,21 @@ const I18nContext = createContext<I18nContextValue>({
   setLocale: () => {},
 })
 
-// 各 locale 的合并 messages:shared 作 base,miniapp-taro 覆盖(端 key 优先)
-const messages: Record<Locale, Messages> = {
-  'zh-CN': mergeMessages(sharedZhCN as Messages, miniappZhCN as Messages),
-  en: mergeMessages(sharedEn as Messages, miniappEn as Messages),
-  ja: mergeMessages(sharedJa as Messages, miniappJa as Messages),
-  ko: mergeMessages(sharedKo as Messages, miniappKo as Messages),
-  'zh-TW': mergeMessages(sharedZhTW as Messages, miniappZhTW as Messages),
+// 各 locale 的合并 messages:shared 作 base,miniapp-taro 覆盖(端 key 优先)。
+// zh-CN 仍静态打包(中文为默认语言,无体积大头);非中文 4 语言运行时惰性解压。
+const zhCNMessages: Messages = mergeMessages(sharedZhCN as Messages, miniappZhCN as Messages)
+
+// 非中文语言包惰性解压缓存:首次访问某 locale 时解压并缓存,后续复用同一引用
+const remoteCache = new Map<Locale, Messages>()
+export function getMessages(locale: Locale): Messages {
+  if (locale === 'zh-CN') return zhCNMessages
+  const hit = remoteCache.get(locale)
+  if (hit) return hit
+  const merged = JSON.parse(
+    strFromU8(gunzipSync(b64ToBytes(REMOTE_LOCALE_B64[locale as RemoteLocale]))),
+  ) as Messages
+  remoteCache.set(locale, merged)
+  return merged
 }
 
 const LOCALES: Locale[] = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
@@ -59,7 +87,7 @@ let currentLocale: Locale = 'zh-CN'
  * - locale 切换由 I18nProvider 同步到 currentLocale
  */
 export function t(key: string, params?: Record<string, string | number>): string {
-  return translate(messages[currentLocale], key, { fallback: messages['zh-CN'], params })
+  return translate(getMessages(currentLocale), key, { fallback: zhCNMessages, params })
 }
 
 /** 带回退的翻译函数类型(供模块级数据工厂函数注入,避免在数据常量里调用 hook) */
@@ -92,13 +120,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const t = useCallback(
     (key: string, params?: Record<string, string | number>) => {
-      return translate(messages[locale], key, { fallback: messages['zh-CN'], params })
+      return translate(getMessages(locale), key, { fallback: zhCNMessages, params })
     },
     [locale],
   )
 
   const tList = useCallback(
-    (key: string) => resolveList(messages[locale], key, messages['zh-CN']),
+    (key: string) => resolveList(getMessages(locale), key, zhCNMessages),
     [locale],
   )
 

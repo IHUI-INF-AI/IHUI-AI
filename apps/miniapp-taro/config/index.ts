@@ -51,6 +51,12 @@ export default defineConfig(async (merge) => {
       patterns: [
         { from: 'src/static/', to: `${outputRoot}/static/` },
         { from: 'src/assets/tabbar/', to: `${outputRoot}/assets/tabbar/` },
+        // 2026-09-12 主包体积治理:以下静态图只被对应分包页面用字符串路径引用,
+        // 整目录下沉进分包避免占主包(约减 640KB)。default-avatar/default-agent/share
+        // 因主包分包混用、record_back 因跨分包(pages/study 与 pkg-ai)引用,保留主包。
+        { from: 'src/pages/member/assets/', to: `${outputRoot}/pages/member/assets/` },
+        { from: 'src/pkg-learn/assets/', to: `${outputRoot}/pkg-learn/assets/` },
+        { from: 'src/pkg-about/assets/', to: `${outputRoot}/pkg-about/assets/` },
         { from: 'src/mini.project.json', to: `${outputRoot}/mini.project.json` },
         // 微信原生 darkmode:Taro vite-runner 从 src/theme.json 读取,copy 保证与 dist/app.json 同级(themeLocation 引用)
         { from: 'src/theme.json', to: `${outputRoot}/theme.json` },
