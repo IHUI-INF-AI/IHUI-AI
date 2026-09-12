@@ -13,3 +13,13 @@ node_modules/
 e2e/*.png
 e2e/test-screenshots/
 test-share-*
+
+# e2e 失败快照兜底(2026-09-12):测试名里的 / ( ) + { 曾被当作路径分隔符,
+# 把截图写进 e2e/screenshots/ 的子目录并误入库。根因已在 6 个 spec 的 afterEach 修掉
+# (改为写入上方已忽略的 e2e/test-screenshots/ 并清洗非法字符);下列规则防止旧代码/旧分支再生。
+e2e/screenshots/backend-*/
+e2e/screenshots/pwa-*/
+e2e/screenshots/seo-*/
+e2e/screenshots/web-vitals-*/
+e2e/screenshots/security-*.png
+e2e/screenshots/ws-*.png

@@ -21,7 +21,9 @@ test.describe.parallel('WebSocket 集成专项', () => {
   test.afterEach(async ({ page }: { page: Page }, testInfo) => {
     if (testInfo.status !== testInfo.expectedStatus) {
       await page
-        .screenshot({ path: `e2e/screenshots/ws-${testInfo.title.replace(/\s+/g, '-')}.png` })
+        .screenshot({
+          path: `e2e/test-screenshots/ws-${testInfo.title.replace(/[^\p{L}\p{N}]+/gu, '-')}.png`,
+        })
         .catch(() => {})
     }
   })
