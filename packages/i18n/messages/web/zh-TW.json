@@ -6635,6 +6635,16 @@
       "sseConnectionError": "SSE 連接失敗({status})",
       "sseConnectionFailed": "SSE 連接失敗"
     },
+    "selfHealTimeline": {
+      "attemptsLabel": "嘗試 {count} 次",
+      "failedLabel": "{count} 個失敗用例",
+      "iterationLabel": "第 {n} 輪",
+      "phaseStarted": "自癒中",
+      "resultFail": "修復失敗",
+      "resultOk": "修復成功",
+      "rollbacksLabel": "回滾 {count} 次",
+      "title": "自癒時間線"
+    },
     "tokenStream": {
       "connecting": "連接中...",
       "empty": "暫無 token 流",
