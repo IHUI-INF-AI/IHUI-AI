@@ -39,7 +39,7 @@ test.describe.parallel('Web Vitals 性能专项', () => {
     if (testInfo.status !== testInfo.expectedStatus) {
       await page
         .screenshot({
-          path: `e2e/screenshots/web-vitals-${testInfo.title.replace(/\s+/g, '-')}.png`,
+          path: `e2e/test-screenshots/web-vitals-${testInfo.title.replace(/[^\p{L}\p{N}]+/gu, '-')}.png`,
         })
         .catch(() => {})
     }
