@@ -115,8 +115,14 @@ def test_store_list_initial(api_client):
 
 
 def test_install_success_persists(api_client, store_path, bridge_mock, clean_registry):
-    """安装成功:热挂载调用参数正确 + 持久化记录 + GET store 反映 installed。"""
-    r = api_client.post("/api/mcp/store/install", json={"key": "git"})
+    """安装成功:热挂载调用参数正确 + 持久化记录 + GET store 反映 installed。
+
+    git 声明 command_exec/repo_write 高危能力(安全分 55/high),2026-09-12
+    起安装需 confirm_risk: True(1-4 风险确认门)。
+    """
+    r = api_client.post(
+        "/api/mcp/store/install", json={"key": "git", "confirm_risk": True}
+    )
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True
@@ -165,7 +171,11 @@ def test_install_env_supplied_ok(api_client, bridge_mock, clean_registry):
     """提供必需 env 后安装成功,env 传入热挂载并持久化。"""
     r = api_client.post(
         "/api/mcp/store/install",
-        json={"key": "postgres", "env": {"DATABASE_URL": "postgres://u:p@h/db"}},
+        json={
+            "key": "postgres",
+            "env": {"DATABASE_URL": "postgres://u:p@h/db"},
+            "confirm_risk": True,
+        },
     )
     assert r.status_code == 200
     assert bridge_mock["add"][0]["env"]["DATABASE_URL"] == "postgres://u:p@h/db"
@@ -181,8 +191,15 @@ def test_install_unknown_key_404(api_client, bridge_mock, clean_registry):
 
 def test_install_duplicate_enabled_409(api_client, bridge_mock, clean_registry):
     """已安装且启用 → 409。"""
-    assert api_client.post("/api/mcp/store/install", json={"key": "git"}).status_code == 200
-    r = api_client.post("/api/mcp/store/install", json={"key": "git"})
+    assert (
+        api_client.post(
+            "/api/mcp/store/install", json={"key": "git", "confirm_risk": True}
+        ).status_code
+        == 200
+    )
+    r = api_client.post(
+        "/api/mcp/store/install", json={"key": "git", "confirm_risk": True}
+    )
     assert r.status_code == 409
     assert "已安装" in r.json()["error"]
     assert len(bridge_mock["add"]) == 1  # 未重复热挂载
@@ -190,9 +207,16 @@ def test_install_duplicate_enabled_409(api_client, bridge_mock, clean_registry):
 
 def test_install_after_disable_reenables(api_client, bridge_mock, clean_registry):
     """安装后停用,再安装 → 成功(重新热挂载 + enabled 回到 True),不 409。"""
-    assert api_client.post("/api/mcp/store/install", json={"key": "git"}).status_code == 200
+    assert (
+        api_client.post(
+            "/api/mcp/store/install", json={"key": "git", "confirm_risk": True}
+        ).status_code
+        == 200
+    )
     assert api_client.post("/api/mcp/store/git/disable").status_code == 200
-    r = api_client.post("/api/mcp/store/install", json={"key": "git"})
+    r = api_client.post(
+        "/api/mcp/store/install", json={"key": "git", "confirm_risk": True}
+    )
     assert r.status_code == 200
     assert r.json()["ok"] is True
     assert mcp_store.get_installed("git")["enabled"] is True
@@ -217,7 +241,12 @@ def test_install_workspace_path_used(api_client, bridge_mock, clean_registry):
 
 def test_uninstall_cleans_store_and_tools(api_client, store_path, bridge_mock, clean_registry):
     """卸载:关闭子进程 + 从工具表清理 + 删除持久化记录。"""
-    assert api_client.post("/api/mcp/store/install", json={"key": "git"}).status_code == 200
+    assert (
+        api_client.post(
+            "/api/mcp/store/install", json={"key": "git", "confirm_risk": True}
+        ).status_code
+        == 200
+    )
     # 模拟该 server 注入过两个工具到外部工具名单
     injected = {"git__tool1", "git__tool2"}
     mcp_server._EXTERNAL_TOOL_NAMES.update(injected)
@@ -265,7 +294,12 @@ def test_uninstall_not_injected_tools_ok(api_client, bridge_mock, clean_registry
 
 def test_disable_then_enable_cycle(api_client, store_path, bridge_mock, clean_registry):
     """停用 → 关闭子进程 + 清理工具 + 持久化 enabled=False;启用 → 重新热挂载。"""
-    assert api_client.post("/api/mcp/store/install", json={"key": "git"}).status_code == 200
+    assert (
+        api_client.post(
+            "/api/mcp/store/install", json={"key": "git", "confirm_risk": True}
+        ).status_code
+        == 200
+    )
 
     # disable
     r = api_client.post("/api/mcp/store/git/disable")
@@ -293,7 +327,12 @@ def test_disable_then_enable_cycle(api_client, store_path, bridge_mock, clean_re
 
 def test_disable_idempotent(api_client, bridge_mock, clean_registry):
     """重复停用幂等,不重复关闭子进程。"""
-    assert api_client.post("/api/mcp/store/install", json={"key": "git"}).status_code == 200
+    assert (
+        api_client.post(
+            "/api/mcp/store/install", json={"key": "git", "confirm_risk": True}
+        ).status_code
+        == 200
+    )
     assert api_client.post("/api/mcp/store/git/disable").status_code == 200
     r = api_client.post("/api/mcp/store/git/disable")
     assert r.status_code == 200
@@ -303,7 +342,12 @@ def test_disable_idempotent(api_client, bridge_mock, clean_registry):
 
 def test_enable_idempotent(api_client, bridge_mock, clean_registry):
     """已启用再 enable 幂等,不重复热挂载。"""
-    assert api_client.post("/api/mcp/store/install", json={"key": "git"}).status_code == 200
+    assert (
+        api_client.post(
+            "/api/mcp/store/install", json={"key": "git", "confirm_risk": True}
+        ).status_code
+        == 200
+    )
     r = api_client.post("/api/mcp/store/git/enable")
     assert r.status_code == 200
     assert r.json()["enabled"] is True

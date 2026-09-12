@@ -1,0 +1,109 @@
+[
+  {
+    "id": "browser-login-form",
+    "title": "登录表单填写并提交",
+    "category": "form",
+    "fixture": "login.html",
+    "steps": [
+      {
+        "action": "navigate",
+        "params": { "url": "{fixture_url}", "timeout_ms": 15000 },
+        "expect": { "type": "url_contains", "value": "login.html" }
+      },
+      {
+        "action": "type",
+        "target": { "selector": "#username" },
+        "params": { "text": "admin", "clear": true }
+      },
+      {
+        "action": "type",
+        "target": { "selector": "#password" },
+        "params": { "text": "ihui2026", "clear": true }
+      },
+      { "action": "click", "target": { "selector": "#login-btn" } }
+    ],
+    "checks": [
+      {
+        "type": "selector_text_contains",
+        "params": { "selector": "#status", "text": "登录成功" }
+      },
+      {
+        "type": "selector_text_contains",
+        "params": { "selector": "#status", "text": "admin" }
+      }
+    ]
+  },
+  {
+    "id": "browser-search-filter",
+    "title": "关键词搜索并过滤结果",
+    "category": "search",
+    "fixture": "search.html",
+    "steps": [
+      {
+        "action": "navigate",
+        "params": { "url": "{fixture_url}", "timeout_ms": 15000 },
+        "expect": { "type": "title_contains", "value": "搜索" }
+      },
+      {
+        "action": "type",
+        "target": { "selector": "#search-box" },
+        "params": { "text": "浏览器", "clear": true }
+      },
+      { "action": "click", "target": { "selector": "#search-btn" } }
+    ],
+    "checks": [
+      {
+        "type": "selector_text_contains",
+        "params": { "selector": "#result-count", "text": "共 2 条" }
+      },
+      {
+        "type": "selector_text_contains",
+        "params": { "selector": "#results", "text": "浏览器插件开发实战" }
+      },
+      {
+        "type": "input_value",
+        "params": { "selector": "#search-box", "value": "浏览器" }
+      }
+    ]
+  },
+  {
+    "id": "browser-signup-form",
+    "title": "报名表选择城市与爱好并提交",
+    "category": "form",
+    "fixture": "form.html",
+    "steps": [
+      {
+        "action": "navigate",
+        "params": { "url": "{fixture_url}", "timeout_ms": 15000 },
+        "expect": { "type": "text_contains", "value": "活动报名表" }
+      },
+      {
+        "action": "select_option",
+        "target": { "selector": "#city" },
+        "params": { "value": "上海" }
+      },
+      { "action": "click", "target": { "selector": "input[value='编程']" } },
+      { "action": "click", "target": { "selector": "input[value='阅读']" } },
+      { "action": "click", "target": { "selector": "#submit-btn" } }
+    ],
+    "checks": [
+      {
+        "type": "selector_text_contains",
+        "params": { "selector": "#summary", "text": "提交成功" }
+      },
+      {
+        "type": "selector_text_contains",
+        "params": { "selector": "#summary", "text": "城市:上海" }
+      },
+      {
+        "type": "selector_text_contains",
+        "params": { "selector": "#summary", "text": "编程" }
+      },
+      {
+        "type": "input_value",
+        "params": { "selector": "#city", "value": "上海" }
+      },
+      { "type": "selector_exists", "params": { "selector": "#submit-btn" } }
+    ]
+  }
+]

@@ -98,11 +98,21 @@ class McpStoreInstallRequest(BaseModel):
 
     从目录条目一键安装:可选 env(必需环境变量)+ workspace_path(filesystem 类
     server 的工作区参数)。经 mcp_stdio_bridge 热挂载,工具注入对话工具表。
+    2026-09-12(1-4):新增 confirm_risk —— 高风险(high/critical)server 需
+    用户在风险确认对话框明确同意后才允许安装(后端兜底拦截)。
     """
 
     key: str = Field(..., min_length=1, description="目录条目 key")
     env: dict[str, str] = Field(default_factory=dict, description="必需环境变量(如 DATABASE_URL)")
     workspace_path: str = Field("", description="filesystem 类 server 的工作区路径")
+    confirm_risk: bool = Field(False, description="高风险 server 需确认为 true 才能安装")
+
+
+class McpStoreReviewRequest(BaseModel):
+    """MCP 市场审核请求(P2-5,2026-09-12 立,admin-only)。"""
+
+    action: str = Field(..., min_length=1, description="审核动作: approve | reject")
+    note: str = Field("", description="审核备注(驳回原因等)")
 
 
 # ---------------------------------------------------------------------------
@@ -490,9 +500,13 @@ async def call_external_tool(req: ExternalToolCallRequest) -> dict[str, Any] | J
 
 @router.get("/mcp/store", response_model=None)
 async def list_mcp_store() -> dict[str, Any]:
-    """MCP 商店合并列表:目录条目 + 安装状态(一个接口渲染整页)。"""
+    """MCP 商店合并列表:目录条目 + 安装状态(一个接口渲染整页)。
+
+    2026-09-12(1-4/2-5):每条附 scoring(质量分+安全分摘要,契约对齐
+    api-client McpScoringSummary)与 review_status(市场审核状态)。
+    """
     try:
-        from ..services import mcp_store
+        from ..services import mcp_market_review, mcp_quality, mcp_store
         from ..services.mcp_directory import get_directory
 
         entries = get_directory()
@@ -516,6 +530,8 @@ async def list_mcp_store() -> dict[str, Any]:
                     "enabled": bool(rec and rec.get("enabled")),
                     "tool_count": int((rec or {}).get("tool_count") or 0),
                     "last_error": str((rec or {}).get("last_error") or ""),
+                    "scoring": mcp_quality.scoring_summary(e["key"], e["name"]),
+                    "review_status": mcp_market_review.get_status(e["key"]),
                 }
             )
         return {"servers": servers, "count": len(servers)}
@@ -536,9 +552,11 @@ async def install_mcp_store_server(
 
     缺必需 env → 400;未知 key → 404;已安装且启用 → 409;
     已安装但停用(disabled)→ 重新热挂载并启用(幂等语义)。
+    2026-09-12(1-4/2-5):审核驳回的条目 → 403;高风险条目未 confirm_risk
+    → 409 RISK_CONFIRM_REQUIRED(前端风险确认对话框对齐)。
     """
     try:
-        from ..services import mcp_store
+        from ..services import mcp_market_review, mcp_quality, mcp_store
         from ..services.mcp_directory import get_entry, to_client_config
         from ..services.mcp_stdio_bridge import add_stdio_server_tool
 
@@ -557,6 +575,23 @@ async def install_mcp_store_server(
             return JSONResponse(
                 status_code=400,
                 content={"error": f"缺少必需环境变量: {', '.join(missing)}"},
+            )
+        # 市场审核闸门:驳回的条目不允许安装(P2-5)
+        if mcp_market_review.get_status(req.key) == "rejected":
+            return JSONResponse(
+                status_code=403,
+                content={"error": f"MCP Server 已被市场审核驳回,禁止安装: {req.key}"},
+            )
+        # 权限风险确认闸门:high/critical 风险条目需显式 confirm_risk(1-4)
+        security = mcp_quality.security_assessment(req.key, entry.name)
+        if security["confirm_required"] and not req.confirm_risk:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "error": f"MCP Server 存在{security['level']}安全风险,需确认后安装",
+                    "errorCode": "RISK_CONFIRM_REQUIRED",
+                    "scoring": mcp_quality.scoring_summary(req.key, entry.name),
+                },
             )
         # 2026-09-02 fix:stdio bridge 名必须是合法标识符(禁冒号,见
         # mcp_stdio_bridge._NAME_RE),不能用 cfg_dict["name"](mcp:{key},
@@ -684,6 +719,94 @@ async def disable_mcp_store_server(name: str) -> dict[str, Any] | JSONResponse:
     except Exception as e:
         logger.error("停用 MCP Server 失败(%s): %s", name, e)
         return JSONResponse(status_code=500, content={"error": f"停用 MCP Server 失败: {e}"})
+
+
+# ---------------------------------------------------------------------------
+# MCP 质量分与安全评分端点(P1 1-4 / H8 看板,2026-09-12 立)
+# 指标采集在 mcp_stdio_bridge(入站)与 mcp_client(出站)每次调用后上报
+# mcp_quality;此处只做查询聚合,无副作用。
+# ---------------------------------------------------------------------------
+
+
+def _resolve_server_name(key: str) -> str:
+    """把 key 解析为展示名:目录条目名 > key 本身。"""
+    from ..services.mcp_directory import get_entry
+
+    entry = get_entry(key)
+    if entry is not None:
+        return entry.name
+    return key
+
+
+@router.get("/mcp/store/{key}/score", response_model=None)
+async def get_mcp_store_server_score(key: str) -> dict[str, Any]:
+    """单 server 评分明细:质量分(四维度)+ 安全分(风险维度)。
+
+    契约对齐 api-client McpScoringDetail(getMcpServerScore)。
+    """
+    from ..services import mcp_quality
+
+    return mcp_quality.score_detail(key, _resolve_server_name(key))
+
+
+@router.get("/mcp/quality/dashboard", response_model=None)
+async def get_mcp_quality_dashboard() -> dict[str, Any]:
+    """质量看板(H8):各 server 运行时指标 + 质量分 + 安全分明细。"""
+    from ..services import mcp_quality
+
+    servers = mcp_quality.quality_dashboard()
+    return {"servers": servers, "count": len(servers)}
+
+
+# ---------------------------------------------------------------------------
+# MCP 市场审核端点(P2-5,2026-09-12 立,admin-only)
+# 审核状态持久化在 mcp_market_review(data/mcp_market_review.json);
+# 内置目录条目默认 approved,其余默认 pending,驳回后安装闸门返回 403。
+# ---------------------------------------------------------------------------
+
+
+@router.get("/mcp/store/{key}/review", response_model=None)
+async def get_mcp_store_review(key: str) -> dict[str, Any]:
+    """查询单个市场条目的审核状态(pending/approved/rejected)。"""
+    from ..services import mcp_market_review
+
+    return mcp_market_review.get_review(key)
+
+
+@router.post("/mcp/store/{key}/review", response_model=None)
+async def review_mcp_store_server(
+    key: str,
+    req: McpStoreReviewRequest,
+    request: Request,
+) -> dict[str, Any] | JSONResponse:
+    """审核市场条目(approve/reject)——admin-only(role_id >= 1)。"""
+    try:
+        from ..services import mcp_market_review
+
+        user_role = getattr(request.state, "role_id", 0) or 0
+        if user_role < 1:
+            return JSONResponse(
+                status_code=403,
+                content={"error": "需要管理员权限才能审核市场条目"},
+            )
+        action = req.action.strip().lower()
+        if action not in ("approve", "reject"):
+            return JSONResponse(
+                status_code=400,
+                content={"error": "action 必须为 approve 或 reject"},
+            )
+        status = "approved" if action == "approve" else "rejected"
+        reviewed_by = str(getattr(request.state, "user_id", "") or "")
+        rec = mcp_market_review.set_status(key, status, reviewed_by=reviewed_by, note=req.note)
+        if rec is None:
+            return JSONResponse(status_code=500, content={"error": "审核状态持久化失败"})
+        logger.info("市场审核: %s -> %s(by %s)", key, status, reviewed_by or "admin")
+        return {"ok": True, **rec}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("审核市场条目失败(%s): %s", key, e)
+        return JSONResponse(status_code=500, content={"error": f"审核市场条目失败: {e}"})
 
 
 # ---------------------------------------------------------------------------

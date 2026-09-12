@@ -30,7 +30,8 @@ from ..core.model_pricing import (
     PROVIDER_PRICES_PER_1M as PROVIDER_PRICING,
 )
 from ..core.model_pricing import (
-    resolve_model_pricing_per_1m,
+    cost_micro_usd,
+    cost_micro_usd_from_per_1m,
 )
 
 # 默认配额(每月 token 上限)
@@ -57,14 +58,18 @@ def _estimate_cost(
 
     2026-09-07 起:有 model 时优先走统一价目源模型级匹配(前缀匹配 +
     厂商级兜底),未传 model 时维持原厂商级查表行为。
+    2026-09-12 精度改造(2-6 成本真实计价):内部改走 Decimal 微元整数
+    计价(core.model_pricing),仅最终一次舍入,消除 float 累积漂移;
+    对外仍返回 USD float(保留 round 4 位口径不变)。
     """
     if model:
-        pricing = resolve_model_pricing_per_1m(model, provider)
+        micro = cost_micro_usd(model, input_tokens, output_tokens, provider)
     else:
         pricing = PROVIDER_PRICING.get(provider, DEFAULT_PRICING)
-    input_cost = (input_tokens / 1_000_000) * pricing["input"]
-    output_cost = (output_tokens / 1_000_000) * pricing["output"]
-    return round(input_cost + output_cost, 4)
+        micro = cost_micro_usd_from_per_1m(
+            pricing["input"], pricing["output"], input_tokens, output_tokens
+        )
+    return round(micro / 1_000_000, 4)
 
 
 class LLMUsageService:

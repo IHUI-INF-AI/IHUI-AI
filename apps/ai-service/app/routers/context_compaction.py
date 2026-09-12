@@ -156,5 +156,27 @@ async def list_compaction_history(
     }
 
 
+@router.get("/metrics-report", response_model=dict[str, Any])
+async def get_compaction_metrics(
+    request: Request,
+    limit: int = Query(50, ge=1, le=MAX_QUERY_LIMIT, description="最近事件条数"),
+) -> dict[str, Any]:
+    """压缩生产指标汇总报告(1-3,H7:压缩比/回捞命中率/压缩后任务成功率进入报告)。
+
+    汇总全量(跨会话)指标:events_total/avg_ratio/avg_duration_ms/avg_retention_ratio/
+    by_trigger/recall{queries,hits,hit_rate}/runs{total,success,success_rate} +
+    最近 limit 条事件(含 session_id,故限 admin 访问)。
+    """
+    # 全局指标含跨会话 session_id 明细:仅 admin 可读(role >= 1,与 _authorize_session 一致)
+    user_id = get_current_user_id_sync(request)
+    role_id = int(getattr(request.state, "role_id", 0) or 0)
+    if role_id < 1:
+        raise HTTPException(status_code=403, detail="仅 admin 可访问压缩指标报告")
+    logger.debug("compaction metrics-report requested by user=%s", user_id)
+    from ..services.compaction_metrics import get_compaction_metrics_report
+
+    return get_compaction_metrics_report(limit=limit)
+
+
 __all__ = ["router", "record_compaction", "list_compaction_events", "_history"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
