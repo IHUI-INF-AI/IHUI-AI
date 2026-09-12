@@ -61,6 +61,57 @@ export interface McpScoreDetail {
   recommendation: string
 }
 
+/** 市场审核状态(P2-5,2026-09-12 立):待审 / 通过 / 驳回(驳回后安装闸门 403) */
+export type McpReviewStatus = 'pending' | 'approved' | 'rejected'
+
+/** 审核动作(POST /mcp/store/{key}/review,admin-only) */
+export type McpReviewAction = 'approve' | 'reject'
+
+/** 市场审核记录(GET /mcp/store/{key}/review) */
+export interface McpStoreReview {
+  key: string
+  status: McpReviewStatus
+  /** 审核人标识(user_id,默认条目为空) */
+  reviewed_by: string
+  /** 审核时间戳(默认条目为空) */
+  reviewed_at: string
+  /** 审核备注(驳回原因等) */
+  note: string
+}
+
+/** 单 server 运行时派生指标(看板明细;无调用数据时各"率"为 null) */
+export interface McpServerRuntimeMetrics {
+  calls: number
+  successes: number
+  failures: number
+  /** 成功率(0-1,无数据 null) */
+  success_rate: number | null
+  /** 平均延迟秒数(无数据 null) */
+  avg_latency_s: number | null
+  schema_mismatches: number
+  /** schema 兼容率(0-1,无数据 null) */
+  schema_compatibility: number | null
+  /** 注入的工具总数 */
+  tools: number
+  /** 与其他 server 重名的工具数 */
+  collision_tools: number
+}
+
+/** 质量看板单条(H8,GET /mcp/quality/dashboard):指标 + 质量分 + 安全分 */
+export interface McpQualityDashboardServer {
+  key: string
+  name: string
+  metrics: McpServerRuntimeMetrics
+  quality: { score: number; grade: McpQualityGrade; dimensions: McpScoreDimension[] }
+  security: { score: number; level: McpSecurityLevel; risk_factors: string[] }
+}
+
+/** 质量看板响应 */
+export interface McpQualityDashboardResponse {
+  servers: McpQualityDashboardServer[]
+  count: number
+}
+
 /** 内置 MCP Server 目录条目(商店列表项) */
 export interface McpDirectoryEntry {
   /** 唯一标识(URL path 安全,小写连字符) */
@@ -135,6 +186,11 @@ export interface McpStoreEntry {
    * confirm_required(高风险安装需确认)。旧后端缺省时为 undefined,前端需判空。
    */
   scoring?: McpScoringSummary
+  /**
+   * 市场审核状态(P2-5,2026-09-12 立):pending / approved / rejected。
+   * rejected 条目安装会被后端 403 拒绝。旧后端缺省时为 undefined,前端需判空。
+   */
+  review_status?: McpReviewStatus
 }
 
 /** MCP 商店合并列表响应 */
@@ -248,6 +304,31 @@ export async function setStoreServerEnabled(
 /** 获取目录条目评分完整明细(P1 1-4:质量/安全维度、风险因素、安装建议) */
 export async function getMcpServerScore(key: string): Promise<ApiResult<McpScoreDetail>> {
   return fetchApi<McpScoreDetail>(`/api/mcp/store/${encodeURIComponent(key)}/score`)
+}
+
+/** 获取质量看板(H8:各 server 运行时指标 + 质量分 + 安全分明细) */
+export async function getMcpQualityDashboard(): Promise<ApiResult<McpQualityDashboardResponse>> {
+  return fetchApi<McpQualityDashboardResponse>('/api/mcp/quality/dashboard')
+}
+
+/** 查询单个市场条目的审核状态(pending/approved/rejected) */
+export async function getMcpStoreReview(key: string): Promise<ApiResult<McpStoreReview>> {
+  return fetchApi<McpStoreReview>(`/api/mcp/store/${encodeURIComponent(key)}/review`)
+}
+
+/** 审核市场条目(admin-only;approve/reject,可选备注如驳回原因) */
+export async function reviewMcpStoreServer(
+  key: string,
+  action: McpReviewAction,
+  note = '',
+): Promise<ApiResult<McpStoreReview & { ok: boolean }>> {
+  return fetchApi<McpStoreReview & { ok: boolean }>(
+    `/api/mcp/store/${encodeURIComponent(key)}/review`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ action, note }),
+    },
+  )
 }
 
 // ===================== 能力市场(P2-8 供给侧,2026-09 立) =====================

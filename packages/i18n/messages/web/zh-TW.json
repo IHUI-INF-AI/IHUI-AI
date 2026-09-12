@@ -13497,7 +13497,21 @@
     "riskGeneric": "檢測到潛在安全風險",
     "riskRecommendation": "建議",
     "riskCancel": "取消安裝",
-    "riskConfirmProceed": "仍要安裝"
+    "riskConfirmProceed": "仍要安裝",
+    "qualityScore": "品質分: {score}/100",
+    "securityScore": "安全分: {score}/100",
+    "reviewPending": "待審核",
+    "reviewApproved": "已通過",
+    "reviewRejected": "已駁回",
+    "dashboardTitle": "品質看板",
+    "dashboardSubtitle": "各 MCP Server 執行時指標與品質 / 安全評分",
+    "dashboardServer": "Server",
+    "dashboardScoring": "評分",
+    "dashboardCalls": "呼叫次數",
+    "dashboardSuccessRate": "成功率",
+    "dashboardAvgLatency": "平均延遲",
+    "dashboardNoData": "暫無資料",
+    "dashboardLatency": "{value}s"
   },
   "member": {
     "feedback": {
@@ -14680,7 +14694,18 @@
     "noSeries": "無時間序列資料",
     "stepsSuffix": "{count} 步",
     "byTool": "按工具",
-    "byModel": "按模型"
+    "byModel": "按模型",
+    "budgetEvents": "預算事件",
+    "budgetEventsHint": "來自服務處理程序級環形緩衝(最近 200 條,重啟後清空);同支柱同類型事件按用量增幅去重,最新在前",
+    "budgetEventsEmpty": "暫無預算事件 —— 預算水位正常,或服務處理程序剛重啟",
+    "budgetWarning": "預警",
+    "budgetCritical": "嚴重",
+    "budgetDegrade": "自動降級",
+    "budgetDegradeReset": "降級恢復",
+    "budgetUsagePercent": "全域預算用量 {percent}",
+    "budgetDailyCost": "當日成本 {cost}",
+    "budgetDegradedTo": "已降級至 {model}",
+    "budgetHardStop": "硬停止"
   },
   "memoryManager": {
     "title": "長期記憶管理",

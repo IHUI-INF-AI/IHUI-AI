@@ -36,13 +36,12 @@ import {
   type McpStoreEntry,
   type McpStoreResponse,
   type McpExternalServersResponse,
-  type McpScoringSummary,
   type McpScoreDetail,
-  type McpSecurityLevel,
-  type McpQualityGrade,
 } from '@ihui/api-client/endpoints/mcp'
 import { BackButton } from '@/components/common'
 import { Badge } from '@/components/data'
+import { McpQualityDashboard } from '@/components/mcp/mcp-quality-dashboard'
+import { ReviewBadge, ScoringBadges } from '@/components/mcp/mcp-scoring-badges'
 import {
   Button,
   Dialog,
@@ -65,28 +64,6 @@ const KEY_ICON: Record<string, LucideIcon> = {
   time: Clock,
   postgres: Database,
   github: GitBranch,
-}
-
-/** P1 1-4:安全风险等级 → 徽章变体 / i18n key */
-const RISK_BADGE_VARIANT: Record<McpSecurityLevel, 'success' | 'warning' | 'danger'> = {
-  low: 'success',
-  medium: 'warning',
-  high: 'danger',
-  critical: 'danger',
-}
-const RISK_LABEL_KEY: Record<McpSecurityLevel, string> = {
-  low: 'riskLow',
-  medium: 'riskMedium',
-  high: 'riskHigh',
-  critical: 'riskCritical',
-}
-
-/** P1 1-4:质量等级 → 徽章变体 */
-const GRADE_BADGE_VARIANT: Record<McpQualityGrade, 'success' | 'primary' | 'warning' | 'danger'> = {
-  A: 'success',
-  B: 'primary',
-  C: 'warning',
-  D: 'danger',
 }
 
 /**
@@ -321,6 +298,9 @@ export default function McpStorePageClient() {
         </div>
       )}
 
+      {/* 质量看板(H8:各 server 运行时指标 + 质量/安全评分;端点不可用时静默降级不渲染) */}
+      <McpQualityDashboard />
+
       {/* 已注册外部 Server(手动注册通道,保留原有功能) */}
       <section className="space-y-3">
         <div className="flex items-center gap-1.5">
@@ -479,28 +459,9 @@ function StatusBadge({ entry }: { entry: McpStoreEntry }) {
 }
 
 /**
- * P1 1-4 评分徽章:质量分等级(A/B/C/D 色标)+ 安全风险等级(低/中/高/极高)。
- * title 提示完整分数(质量分/安全分悬停可见)。
+ * P1 1-4 评分徽章与 P2-5 审核徽章已抽出为独立组件(Tooltip 提示完整分数):
+ * @/components/mcp/mcp-scoring-badges(ScoringBadges / ReviewBadge)。
  */
-function ScoringBadges({ scoring }: { scoring: McpScoringSummary }) {
-  const t = useTranslations('mcpStore')
-  return (
-    <>
-      <Badge
-        variant={GRADE_BADGE_VARIANT[scoring.grade]}
-        title={`${t('quality')}: ${scoring.score}/100`}
-      >
-        {t('quality')} {scoring.grade}
-      </Badge>
-      <Badge
-        variant={RISK_BADGE_VARIANT[scoring.security_level]}
-        title={`${t('riskTitle')}: ${scoring.security_score}/100`}
-      >
-        {t(RISK_LABEL_KEY[scoring.security_level])}
-      </Badge>
-    </>
-  )
-}
 
 /** 单个目录条目卡片:名称/状态徽章/描述/tool_count + 安装/启停/卸载按钮 */
 function DirectoryCard({
@@ -537,7 +498,15 @@ function DirectoryCard({
               {entry.source === 'official' ? t('official') : t('community')}
             </Badge>
             <StatusBadge entry={entry} />
-            {entry.scoring && <ScoringBadges scoring={entry.scoring} />}
+            {entry.scoring && (
+              <ScoringBadges
+                score={entry.scoring.score}
+                grade={entry.scoring.grade}
+                securityScore={entry.scoring.security_score}
+                securityLevel={entry.scoring.security_level}
+              />
+            )}
+            {entry.review_status && <ReviewBadge status={entry.review_status} />}
           </div>
           <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-0.5">
@@ -572,7 +541,7 @@ function DirectoryCard({
           <Button
             variant={needsEnv ? 'outline' : 'default'}
             onClick={onInstall}
-            disabled={installing || acting}
+            disabled={installing || acting || entry.review_status === 'rejected'}
             className="w-full"
           >
             {installing ? (

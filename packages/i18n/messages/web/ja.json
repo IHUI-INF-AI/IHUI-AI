@@ -13497,7 +13497,21 @@
     "riskGeneric": "潜在的なセキュリティリスクを検出しました",
     "riskRecommendation": "推奨事項",
     "riskCancel": "インストールをキャンセル",
-    "riskConfirmProceed": "それでもインストール"
+    "riskConfirmProceed": "それでもインストール",
+    "qualityScore": "品質スコア: {score}/100",
+    "securityScore": "セキュリティスコア: {score}/100",
+    "reviewPending": "審査待ち",
+    "reviewApproved": "承認済み",
+    "reviewRejected": "却下",
+    "dashboardTitle": "品質ダッシュボード",
+    "dashboardSubtitle": "各 MCP サーバーのランタイム指標と品質 / セキュリティスコア",
+    "dashboardServer": "サーバー",
+    "dashboardScoring": "スコア",
+    "dashboardCalls": "呼び出し回数",
+    "dashboardSuccessRate": "成功率",
+    "dashboardAvgLatency": "平均レイテンシ",
+    "dashboardNoData": "データなし",
+    "dashboardLatency": "{value}秒"
   },
   "member": {
     "feedback": {
@@ -14685,7 +14699,18 @@
     "noSeries": "時系列データはありません",
     "stepsSuffix": "{count} ステップ",
     "byTool": "ツール別",
-    "byModel": "モデル別"
+    "byModel": "モデル別",
+    "budgetEvents": "予算イベント",
+    "budgetEventsHint": "プロセスレベルのリングバッファ(直近 200 件、再起動で消去)。同一ピラー・同一種別のイベントは使用量増加に基づき重複除外、新しい順",
+    "budgetEventsEmpty": "予算イベントはありません — 予算使用率は正常、またはサービスプロセスが再起動された直後です",
+    "budgetWarning": "警告",
+    "budgetCritical": "重大",
+    "budgetDegrade": "自動ダウングレード",
+    "budgetDegradeReset": "ダウングレード解除",
+    "budgetUsagePercent": "グローバル予算使用量 {percent}",
+    "budgetDailyCost": "当日コスト {cost}",
+    "budgetDegradedTo": "{model} へダウングレード",
+    "budgetHardStop": "ハードストップ"
   },
   "memoryManager": {
     "title": "長期記憶管理",
