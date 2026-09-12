@@ -328,6 +328,7 @@ import { agentCategoriesCacheRoutes } from './agent-categories-cache.js'
 import { categorySyncRoutes } from './category-sync.js'
 // 对外公开 API(/v1/*,API Key 鉴权,2026-07-22 立)
 import v1PublicRoutes from './v1-public.js'
+import v1GeminiRoutes from './v1-gemini.js'
 // 对外公开 API — AI 核心类路由(/v1/*,2026-07-22 立,20 个 AI 核心端点:chat/embeddings/models/agent 高级执行)
 import v1AiCoreRoutes from './v1-ai-core.js'
 // 对外公开 API — 多模态类路由(/v1/*,2026-07-22 立,21 个端点:audio/images/videos/3d/generation)
@@ -1000,6 +1001,8 @@ export function registerRoutes(server: FastifyInstance) {
 
   // 对外公开 API(/v1/*,API Key 鉴权,2026-07-22 立)
   server.register(v1PublicRoutes, { prefix: '/v1' })
+  // 对外公开 API — Gemini 协议入站(/v1beta/*,generateContent/streamGenerateContent/ListModels,2026-09-13 立)
+  server.register(v1GeminiRoutes, { prefix: '/v1beta' })
   // 对外公开 API — AI 核心类路由(/v1/*,20 个端点:chat/embeddings/models/agent 高级执行)
   server.register(v1AiCoreRoutes, { prefix: '/v1' })
   // 对外公开 API — 多模态类路由(/v1/*,21 个端点:audio/images/videos/3d/generation)
