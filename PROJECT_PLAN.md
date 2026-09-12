@@ -2542,7 +2542,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 ### 第二梯队 P1:能力补课(一周内跟上)
 
-- [ ] **6. 断点续传——流断了不用整条重来**:SSE 中断(网络抖动/刷新页面)现只能整条重新生成。做:消息级 resume 端点(按 session+message 偏移续传),前端刷新页面后自动续接未完成流。验收:刷新页面 3 秒内恢复流式输出。
+- [x] ✅(2026-09-13) **6. 断点续传——流断了不用整条重来**:SSE 中断(网络抖动/刷新页面)现只能整条重新生成。做:消息级 resume 端点(按 session+message 偏移续传),前端刷新页面后自动续接未完成流。验收:刷新页面 3 秒内恢复流式输出。**落地**:后端新增独立路由 chat-resume.ts(GET /api/chat/resume/status 查落库状态 + POST /api/chat/resume SSE 续生成,把已生成前缀作为末条 assistant 放入上下文继续生成;独立文件避免改动并行会话 WIP 的 chat.ts)+routes/index 注册;web 端 resume-stream.ts(findPendingResume 依据 streamCompleted=false 判定中断消息 / resumePendingMessage 调续接端点刷新后回填已生成内容再接管流 / autoResumeAfterHistory 在 loadHistory 结算后接管,失败降级「重新生成」提示)+chat store streamCompleted 标记+ai-side-panel 接线(会话切换 abort);i18n resumeFailed/resumeNoProgress/resumeRegenerate ×5 locale;resume-stream.test.ts 5 用例通过,web tsc 零错误。
 - [ ] **7. temperature/top_p/system prompt 参数面板(对标:CodeX/Qoder)**:模型选择器旁加"高级参数"抽屉(temperature/top_p/max_tokens/自定义 system prompt),按会话生效,后端透传 LLM 网关。
 - [ ] **8. Qoder Repo Wiki 对应物——项目知识库自动生成**:利用既有五维索引 + `context_engine.py`,给每个工作区自动生成"项目百科"页(目录结构/核心模块/依赖图/关键决策),AI 对话自动引用,可手动触发更新。
 - [ ] **9. FIM 专用模型 + 接受率闭环(对标:Trae CUE Tab)**:FIM 现混用对话模型。做:模型目录立"补全专用"档位(接轻量代码模型);`window.__ihuiFimMetrics` 埋点接管理看板,接受率 <30% 自动告警。
