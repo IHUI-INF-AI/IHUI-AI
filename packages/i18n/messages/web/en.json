@@ -6579,6 +6579,7 @@
     "statusSuccess": "Success",
     "statusFailed": "Failed",
     "statusIdle": "Idle",
+    "statusSkipped": "Skipped",
     "inspectorTitle": "Properties / Logs",
     "inspectorEmpty": "Click a node on the canvas to edit parameters and view run logs",
     "nodeName": "Node name",
@@ -6595,13 +6596,15 @@
     "logsTitle": "Run logs",
     "noLogs": "No run logs yet",
     "defaultReviewPrompt": "Please manually confirm whether the previous output passes",
+    "errorEmptyCanvas": "The canvas is empty. Add nodes before running",
     "logNodeStart": "▶ Node started",
     "logWaitReview": "⏸ Waiting for human review:",
     "logRunError": "✖",
     "logErrorFallback": "Run error",
     "logDone": "■ Run finished (done)",
     "logConnectFail": "Connection failed:",
-    "logTrialStarted": "● Trial run started, waiting for stream…",
+    "logGraphStarted": "● Graph run started, waiting for stream…",
+    "logSkippedUpstream": "Upstream node failed; this node was skipped",
     "logUserStop": "⏹ Stopped by user",
     "logToolCall": "🔧 tool_call:",
     "logToolResult": "↩ tool_result:",
@@ -9091,62 +9094,77 @@
     "commands": {
       "agent": {
         "description": "Manage and dispatch AI agents",
+        "keywords": ["agent", "bot", "dispatch"],
         "label": "AI Agents"
       },
       "browser": {
         "description": "Browse the web inside the workspace",
+        "keywords": ["browser", "web", "preview"],
         "label": "Built-in Browser"
       },
       "capabilityMarket": {
         "description": "Discover and install capability packs",
+        "keywords": ["capability", "market", "pack", "install"],
         "label": "Capability Market"
       },
       "codeChanges": {
         "description": "Review workspace code changes",
+        "keywords": ["changes", "diff", "git"],
         "label": "Code Changes"
       },
       "connectors": {
         "description": "Manage external service connections",
+        "keywords": ["connector", "integration", "service"],
         "label": "Connectors"
       },
       "document": {
         "description": "Edit workspace documents",
+        "keywords": ["document", "docs", "edit"],
         "label": "Documents"
       },
       "editor": {
         "description": "Open the code editor",
+        "keywords": ["editor", "code", "monaco"],
         "label": "Editor"
       },
       "mcp": {
         "description": "Manage MCP servers and tools",
+        "keywords": ["mcp", "server", "tools"],
         "label": "MCP Manager"
       },
       "mcpStore": {
         "description": "Browse and install MCP services",
+        "keywords": ["mcp", "store", "market", "install"],
         "label": "MCP Store"
       },
       "modeBuild": {
         "description": "Let the AI build and modify directly",
+        "keywords": ["build", "mode", "generate"],
         "label": "Build Mode"
       },
       "modePlan": {
         "description": "Plan first, then execute",
+        "keywords": ["plan", "mode", "todo"],
         "label": "Plan Mode"
       },
       "modeReview": {
         "description": "Review and assess existing code",
+        "keywords": ["review", "mode", "audit"],
         "label": "Review Mode"
       },
       "modeSpec": {
         "description": "Generate implementations from specs",
+        "keywords": ["spec", "mode", "generate"],
         "label": "Spec Mode"
       },
       "skill": {
         "description": "Manage and invoke AI skills",
+        "keywords": ["skill", "ability", "plugin"],
         "label": "Skills"
       },
       "terminal": {
         "description": "Open the integrated terminal",
+        "keywords": ["terminal", "shell", "console"],
         "label": "Terminal"
       },
       "ai-world": {
