@@ -63,6 +63,13 @@ const nextConfig: NextConfig = {
   enablePrerenderSourceMaps: false,
   // 关闭 Next.js 16 自带的左下角 N 圆圈 dev indicator (2026-07-21)
   devIndicators: false,
+  // 2026-09-12 修复 dev 下"点侧栏整页硬重载、等好几秒"的根因之一:
+  // Next 16 默认拦截非同源 dev 资源(见 next/dist/server/lib/router-utils/block-cross-site-dev.js),
+  // 内置白名单只有 'localhost' / '**.localhost'。用 http://127.0.0.1:8801 或局域网
+  // IP(如 http://192.168.1.54:8801)打开时,所有 /_next/* 资源返回 403 Unauthorized,
+  // HMR WebSocket 握手也被拒(code 1006),客户端每秒重连并在超过上限后 location.reload(),
+  // 表现为"每次路由切换都整页硬重载、耗时数秒"。放行回环地址与私有网段即可。
+  allowedDevOrigins: ['127.0.0.1', '192.168.*.*', '10.*.*.*', '172.*.*.*'],
   transpilePackages: [
     '@ihui/ui-react',
     '@ihui/design-tokens',
@@ -213,7 +220,19 @@ const nextConfig: NextConfig = {
     // 2026-08-05 00:15 生产构建排障(P0 项,官方 memory-usage 文档):
     // 显式关闭 server source map,降低构建内存峰值。
     serverSourceMaps: false,
+    // 2026-09-12 路由提速改造(barrel 拆分):
+    // dev 下 Turbopack 按需编译,单路由冷编译 2.8~4.2s,是"路由切换卡"的绝对主因
+    // (已编译路由只要 0.3~0.5s,差 10 倍)。一个放大器是 barrel 入口把整包模块都拖进
+    // 该路由的编译图 —— 桌面端 200 个文件/204 处引用的 @ihui/ui-react(src/index.ts
+    // 一次性 re-export 近 30 个组件)尤其明显:任何页面只要 import 一个 Button,
+    // 就要连带编译 Card/Table/DataTable/LoginForm 等全部组件及其依赖。
+    // optimizePackageImports 让编译器按"实际具名导入"改写为深路径,只加载用到的模块。
+    // Turbopack 已支持该选项(见 next/dist/lib/turbopack-warning.js:62 该键已从
+    // unsupportedTurbopackNextConfigOptions 注释掉)。
     optimizePackageImports: [
+      // 本项目内部 barrel(workspace 包,已列入 transpilePackages 才会被编译)
+      '@ihui/ui-react',
+      '@ihui/api-client',
       'lucide-react',
       '@radix-ui/react-dialog',
       '@radix-ui/react-dropdown-menu',

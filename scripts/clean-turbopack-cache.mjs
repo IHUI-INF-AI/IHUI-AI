@@ -13,7 +13,17 @@
  *   数十次 dev 会话累积后实测膨胀到 34.4GB / 10758 个文件 → dev server 启动时
  *   加载 34GB 缓存库导致内存 20GB+、CPU 满载(进程 23200 实锤)。
  *   本脚本在每次 `pnpm --filter @ihui/web dev` 启动前检查,超阈值自动清理,
- *   从源头杜绝缓存失控。正常会话单次增长 <1GB,3GB 阈值安全(不影响冷热编译体验)。
+ *   从源头杜绝缓存失控,同时尽量避免误清(误清 = 热路由归零,退回冷编译)。
+ *
+ * 阈值调整记录(2026-09-12 路由提速改造):
+ *   ① 3GB → 6GB(刀 D):缓存跨重启持久(turbopackFileSystemCacheForDev 默认 true),
+ *      但 3GB 阈值一超就被全量清空,把攒下的热路由全部打回"冷编译 ~3s"。
+ *   ② 6GB → 8GB(二次上调):预热扩容到 ~30 条后实测单次会话缓存 4984 → 6240 MB
+ *      (+1256 MB),直接越过 6GB(6144 MB)阈值 → 下次重启必被清空,预热成果自我抵消。
+ *      故抬到 8GB,给"30 条预热 + 日常浏览"留出安全边际。
+ *   40GB 事故的成因是"全量预热 194 条路由"(194 × ~200MB + Sidebar 双份叠加),
+ *   该行为已于 2026-09-04 移除(现预热 PRIORITY_ROUTES 全量 36 条,见 warm-dev-routes.mjs
+ *   的 PRIORITY_ROUTES),单次数百 MB~1.5GB 量级,8GB 上限足够。
  *
  * 铁律(2026-09-03 血泪教训,禁止再犯):
  *   【严禁在 next dev 运行中清理缓存】Turbopack 进程运行时持有 .sst 文件句柄,
@@ -24,7 +34,7 @@
  *   任何手动清理请先 `pwsh scripts/start-dev.ps1 -Stop` 停掉所有 next dev 进程。
  *
  * 用法:
- *   node scripts/clean-turbopack-cache.mjs            # 默认:超 3GB 自动清理
+ *   node scripts/clean-turbopack-cache.mjs            # 默认:超 8GB 自动清理
  *   node scripts/clean-turbopack-cache.mjs --force    # 无条件清理
  *   node scripts/clean-turbopack-cache.mjs --check    # 只报告不清理(exit 1=需清理)
  *   node scripts/clean-turbopack-cache.mjs --threshold 2048   # 自定义阈值 MB
@@ -38,7 +48,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '..')
 const TARGET = path.join(REPO_ROOT, 'apps', 'web', '.next', 'dev', 'cache', 'turbopack')
-const DEFAULT_THRESHOLD_MB = 3072 // 3GB
+const DEFAULT_THRESHOLD_MB = 8192 // 8GB(2026-09-12 二次上调,见文件头"阈值调整记录")
 
 function parseArgs(argv) {
   const args = { thresholdMB: DEFAULT_THRESHOLD_MB, force: false, check: false, selftest: false }
@@ -87,7 +97,7 @@ async function selfTest() {
     const mb = toMB(actualBytes)
     check('MB 换算', mb > 1 && mb < 100, `${mb.toFixed(2)} MB`)
 
-    // 阈值判定:默认 3GB 不触发,1MB 触发
+    // 阈值判定:默认 8GB 不触发,1MB 触发
     check('阈值判定', toMB(actualBytes) > 1, '1MB 阈值应触发')
 
     await fs.rm(fakeTarget, { recursive: true, force: true })
@@ -168,7 +178,7 @@ if (args.force || sizeMB > args.thresholdMB) {
     // 2026-09-03 强化:原来只 warn 不阻塞 → next dev 带 40GB 缓存启动,会话内所有路由
     // 退化到 15~19s(用户实测"根本没做到极致"的真因)。现改为:清理失败时 exit 1,
     // 阻断 next dev 启动(&& 短路),强制开发者先停掉占用进程再启动,避免带病缓存。
-    // 注意:仅当缓存已超阈值(3GB)时阻塞;健康态(<阈值)不受影响,保持零摩擦启动。
+    // 注意:仅当缓存已超阈值(8GB)时阻塞;健康态(<阈值)不受影响,保持零摩擦启动。
     console.error(`[turbopack-cache] 清理失败(进程占用缓存文件): ${err.message}`)
     console.error('[turbopack-cache] 缓存已超阈值但被占用,阻断启动以杜绝"带病缓存导致全站慢"。')
     console.error('[turbopack-cache] 解决:① 停掉所有 next dev 进程(pwsh scripts/start-dev.ps1 -Clean);')

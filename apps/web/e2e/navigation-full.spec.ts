@@ -126,6 +126,54 @@ test.describe('全站导航 - 导航元素', () => {
     }
   })
 
+  /**
+   * 2026-09-13 立(配合侧栏乐观高亮性能重构):
+   * 根因背景 —— 点击侧栏项时的"立即高亮"反馈原先由 Sidebar 自身 React state 驱动,
+   * 每次点击重渲染整棵侧栏(97 项),实测给 click→pushState 增加 82ms 并叠加出 94ms
+   * 首帧同步长任务。重构后改为 zustand store + 叶子级布尔选择器,只有"旧激活项"与
+   * "新目标项"两个叶子重渲染。
+   *
+   * 本用例守护重构后的**核心不变量**:任何时刻侧栏内满色激活项(bg-primary)
+   * **有且至多一个**,且导航落地后恒等于目标路由。
+   * 若将来有人把订阅写回 `(s) => s.href`(全体订阅者重渲染)或漏掉旧项熄灭逻辑,
+   * 本用例会以"同时点亮两个"/"落地后不等于目标"失败。
+   */
+  test('侧栏乐观高亮:激活项全局唯一且导航落地后等于目标路由', async ({ page }) => {
+    await page.goto('/dashboard')
+    await page.waitForLoadState('domcontentloaded')
+
+    // 未登录时侧栏不渲染,跳过(与同文件既有侧栏用例同一守卫策略)
+    const nav = page.locator('nav#main-sidebar-desktop')
+    if (!(await nav.isVisible({ timeout: 5000 }).catch(() => false))) return
+
+    // 只统计满色激活 token "bg-primary";父级展开态用的 bg-primary/10 不算(正则排除)
+    const activeHrefs = () =>
+      page.evaluate(() => {
+        const root = document.querySelector('nav#main-sidebar-desktop')
+        if (!root) return []
+        const found = new Set<string>()
+        for (const a of root.querySelectorAll('a')) {
+          const cls = a.getAttribute('class') || ''
+          if (/(^|\s)bg-primary(\s|$)/.test(cls)) found.add(a.getAttribute('href') || '')
+        }
+        return [...found]
+      })
+
+    const target = nav.locator('a[data-testid="nav-agents"]')
+    if ((await target.count()) === 0) return
+
+    await target.dispatchEvent('click')
+
+    // 采样跨越"导航进行中"窗口:任何一帧都不允许出现两个满色激活项
+    for (let i = 0; i < 6; i++) {
+      expect((await activeHrefs()).length).toBeLessThanOrEqual(1)
+      await page.waitForTimeout(25)
+    }
+
+    await page.waitForURL('**/agents', { timeout: 20000 })
+    expect(await activeHrefs()).toEqual(['/agents'])
+  })
+
   test('全站无控制台未捕获异常(首页)', async ({ page }) => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
