@@ -52,13 +52,32 @@ def _run_async(coro: Any) -> Any:
 
     同步测试 / run_in_threadpool 内无运行中的 loop -> 直接 asyncio.run;
     FastAPI async 端点内已有 loop -> 丢到自带 loop 的临时线程执行。
+
+    2026-09-12 修复:临时 loop 结束前关闭"本临时 loop"的共享连接池。
+    asyncio.run 返回后不会再执行任何协程,故清理必须放在协程内部 try/finally;
+    否则临时 loop 的池既不关闭也不释放,且会被下一个 loop 误用。
     """
+
+    async def _guarded() -> Any:
+        try:
+            return await coro
+        finally:
+            # 延迟导入,避免模块级循环依赖。
+            from app.core.db_pool import close_current_loop_pool
+
+            try:
+                await close_current_loop_pool()
+            except Exception as e:  # noqa: BLE001 清理失败不得掩盖业务异常
+                logger.warning(
+                    "[self_healing_llm] 临时 loop 共享池清理失败(忽略): %s", e
+                )
+
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(coro)
+        return asyncio.run(_guarded())
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-        return ex.submit(lambda: asyncio.run(coro)).result()
+        return ex.submit(lambda: asyncio.run(_guarded())).result()
 
 
 # ---------------------------------------------------------------------------
@@ -139,7 +158,9 @@ _PATCH_SYSTEM = (
     "IMPORTANT: `file_path` MUST be one of the real absolute paths present in the "
     "provided context (e.g. the value of `workspace_root` / `target_path`). "
     "Never invent container-style paths such as /app/...; patches outside the "
-    "workspace are rejected by the sandbox whitelist."
+    "workspace are rejected by the sandbox whitelist. "
+    "If the failing test's source is provided, it is authoritative: the fix MUST "
+    "make its assertions pass, and you MUST NOT edit the test to match a wrong fix."
 )
 
 
@@ -201,6 +222,110 @@ def list_workspace_files(root: str, limit: int = 60) -> list[str]:
         return []
 
 
+def _resolve_test_file(test_id: str, workspace_root: str | None) -> str | None:
+    """从 pytest 归因 ``test_id`` 解析失败测试的源文件(绝对路径);解析不出返回 None。
+
+    支持两种形态的前缀(``::`` 之前的部分):
+    - 路径式:``tests/test_x.py`` / ``C:\\...\\test_x.py``(含分隔符或 .py 后缀);
+    - 点分模块式:pytest junit 的 ``classname``(``test_x`` / ``tests.test_x``)
+      —— 还原为 ``test_x.py`` / ``tests/test_x.py``。
+
+    相对路径以 ``workspace_root`` 为基准拼接;无法得到绝对路径则返回 None。
+    """
+    from pathlib import Path
+
+    prefix = str(test_id).split("::", 1)[0].strip()
+    if not prefix:
+        return None
+    cand: Path | None = None
+    if "/" in prefix or "\\" in prefix or prefix.endswith(".py"):
+        cand = Path(prefix)
+    else:
+        parts = [p for p in prefix.split(".") if p]
+        if parts and all(p.isidentifier() for p in parts):
+            cand = Path(*parts).with_suffix(".py")
+    if cand is None:
+        return None
+    if not cand.is_absolute() and workspace_root:
+        cand = Path(workspace_root) / cand
+    return str(cand) if cand.is_absolute() else None
+
+
+def _path_within(root: str, path: str) -> bool:
+    """``path`` 解析(realpath,含 symlink)后是否落在 ``root`` 之内(防目录穿越)。"""
+    try:
+        root_r = os.path.normcase(os.path.realpath(root))
+        path_r = os.path.normcase(os.path.realpath(path))
+    except Exception:  # noqa: BLE001 - 解析失败一律判越界
+        return False
+    if root_r == path_r:
+        return True
+    try:
+        return os.path.commonpath([root_r, path_r]) == root_r
+    except ValueError:  # 不同盘符等
+        return False
+
+
+# 单个失败测试源文件注入 prompt 的行数上限
+_FAILURE_SOURCE_MAX_LINES = 200
+
+
+def read_failure_sources(
+    failure: Any, context: Any, limit_chars: int = 4000
+) -> str:
+    """读取失败测试的真实源码(断言),供补丁生成对齐"测试到底断言了什么"。
+
+    2026-09-12 立:LLM 只看 pytest 归因消息(test_id/message/exception_type)时
+    无法知道断言,实测会把"除零应返回 0"改成"抛 ValueError"——方向猜错。
+    注入失败测试源码后补丁命中率显著提升(端到端演练 HEALED=True)。
+
+    安全:解析出的路径必须落在 ``context["workspace_root"]`` 之内(realpath 校验,
+    防 symlink / ``..`` 目录穿越);越界、读失败、解析不出文件一律返回空串,
+    绝不抛错。内容按 ``_FAILURE_SOURCE_MAX_LINES`` 行 / ``limit_chars`` 字符截断
+    并注明截断。
+    """
+    try:
+        if not isinstance(context, dict):
+            return ""
+        root = context.get("workspace_root")
+        if not root:
+            return ""
+        if isinstance(failure, dict):
+            test_id = failure.get("test_id")
+        elif isinstance(failure, str):
+            test_id = failure
+        else:
+            test_id = None
+        if not test_id:
+            return ""
+        path = _resolve_test_file(str(test_id), str(root))
+        if not path or not _path_within(str(root), path) or not os.path.isfile(path):
+            return ""
+        with open(path, encoding="utf-8", errors="replace") as f:
+            text = f.read()
+        lines = text.splitlines()
+        truncated = len(lines) > _FAILURE_SOURCE_MAX_LINES
+        if truncated:
+            lines = lines[:_FAILURE_SOURCE_MAX_LINES]
+        text = "\n".join(lines)
+        if limit_chars > 0 and len(text) > limit_chars:
+            text = text[:limit_chars]
+            truncated = True
+        if truncated:
+            text += (
+                f"\n# [truncated: showing at most {_FAILURE_SOURCE_MAX_LINES} lines "
+                f"/ {limit_chars} chars]"
+            )
+        return text
+    except Exception as exc:  # noqa: BLE001 - 任何失败都优雅降级为空
+        logger.warning(
+            "[self_healing_llm] read_failure_sources failed (%s): %s",
+            type(exc).__name__,
+            exc,
+        )
+        return ""
+
+
 def _dump_context(context: Any) -> str:
     # 2026-09-12 修复:workspace_root / target_path 必须进 prompt,否则 LLM 只看到
     # pytest 失败文本会编造容器式路径(/app/...、/home/user/...),补丁被工作区
@@ -251,9 +376,21 @@ def llm_patch_fn(
         if files
         else ""
     )
+    # 失败测试的真实源码走独立段落(不塞进 _dump_context,避免重复与上下文膨胀)。
+    # 优先用 _patch_adapter 显式注入的 context["failing_test_source"],缺失时自行收集。
+    src = context.get("failing_test_source") if isinstance(context, dict) else None
+    if not src:
+        src = read_failure_sources(failure, context)
+    source_block = (
+        "Failing test source (authoritative — the fix MUST make these assertions pass):\n"
+        f"{src}\n\n"
+        if src
+        else ""
+    )
     prompt = (
         f"{root_line}{files_line}"
         f"Failing test:\n{_dump_failure(failure)}\n\n"
+        f"{source_block}"
         f"Context (recent run result):\n{_dump_context(context)}"
     )
     try:
@@ -371,8 +508,12 @@ class PytestSubprocessRunner:
         passed: list[str] = []
         failures: list[dict[str, Any]] = []
         for suite in suites:
-            classname = suite.get("name", "")
+            suite_name = suite.get("name", "")
             for tc in suite.iter("testcase"):
+                # junit 的 testsuite.name 恒为 "pytest"(无定位价值);testcase.classname
+                # 才是模块(点分)名,是自愈层把失败测试还原回源文件的唯一线索。
+                # 2026-09-12 立:补丁命中质量依赖 test_id 可解析出测试文件。
+                classname = tc.get("classname") or suite_name
                 name = tc.get("name", "")
                 tcid = f"{classname}::{name}" if classname else name
                 # 注意:Element 空子元素为 falsy,必须显式 is not None 判断,
@@ -659,5 +800,6 @@ __all__ = [
     "llm_gen_fn",
     "llm_patch_and_apply",
     "llm_patch_fn",
+    "read_failure_sources",
 ]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

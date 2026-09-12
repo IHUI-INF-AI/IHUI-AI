@@ -43,6 +43,29 @@ FIXTURES_ROOT = BENCH_ROOT / "fixtures"
 GOLDEN_FIXTURES_ROOT = BENCH_ROOT / "fixtures_golden"
 TASKS_FILE = BENCH_ROOT / "tasks_v1.json"
 
+# bench 的上一级即 ai-service 根目录(Settings 与 .env 所在处)
+AI_SERVICE_ROOT = BENCH_ROOT.parent
+
+# 2026-09-12 修复:bench 以 ``python -m bench.run_bench`` 直接运行,不经过 app.main
+# 启动流程。而 Settings(model_config 的 env_file=".env")与
+# config._sync_env_file_to_os() 里的 dotenv_values(".env") 都是「相对 cwd」解析,
+# 一旦 cwd 不是 ai-service(CI/测试会切到临时目录),整份 .env 读不到 ——
+# REDIS_URL / LLM key 全部缺失,Redis、事件总线、长期记忆静默降级为内存模式。
+# 这里在 argparse 之前按**绝对路径**加载 .env(override=False,不覆盖已注入的
+# 系统环境变量,与 main.py 的 setdefault 策略一致);无 .env 时为 no-op,
+# 不改变 CI(--executor stub/golden)既有行为。
+try:
+    from dotenv import load_dotenv as _load_dotenv
+
+    _load_dotenv(AI_SERVICE_ROOT / ".env")
+except Exception:  # noqa: BLE001 - 缺 dotenv 依赖时静默跳过
+    pass
+
+try:
+    from app.core.config import settings  # noqa: F401  导入即触发 Settings() 与 _sync_env_file_to_os()
+except Exception:  # noqa: BLE001 - CI 无 .env 或缺失必填项时静默降级
+    pass
+
 # stub 模式下允许 agent 探查工作目录所用的工具名
 _PROBE_TOOL = "list_files"
 
