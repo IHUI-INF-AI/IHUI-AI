@@ -8,11 +8,10 @@ import * as React from 'react'
 import { PanelLeftOpen, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { usePathname } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { Sidebar } from '@/components/sidebar'
-import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { TooltipProvider } from '@/components/feedback'
-import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
 import {
   PWAInstallPrompt,
   PWAUpdatePrompt,
@@ -30,11 +29,38 @@ import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useMounted } from '@/hooks/use-mounted'
 import { useAuthStore } from '@/stores/auth'
-import { useNavigationStore } from '@/stores/navigation'
-import { PageSkeleton } from '@/components/common/PageSkeleton'
+import { NavLoadingOverlay } from '@/components/common/NavLoadingOverlay'
 import { useNativeShortcuts } from '@/hooks/use-native-shortcuts'
 import { dispatchMenuAction } from '@/lib/menu-actions'
 import { startAutoRefresh } from '@/lib/tokenUtils'
+
+/**
+ * 2026-09-12 路由切换提速改造(刀 A:重依赖懒加载 + 客户端分包)
+ *
+ * 问题:GlobalShell 挂在根 layout.tsx 上,被全部路由组共享。此前静态 import
+ * AISidePanel / WebWorkPanel,使**每个路由**的编译图都被迫包含整条重依赖链:
+ *   AISidePanel → chat 全套(message-list / message-input)→ markdown 栈(katex/mermaid/shiki)
+ *              → ai-terminal-dock(@xterm)→ brand-icon → @lobehub/icons
+ *   WebWorkPanel → @ihui/ui-react WorkPanel / WebViewFrame → cdp-browser-view
+ * 后果:dev(Turbopack 按需编译)下每个路由冷编译 ~3s、缓存增量 ~150MB/路由。
+ *
+ * 方案:改为 next/dynamic({ ssr: false }) 懒加载,把这两块从路由初始编译图中摘出,
+ * 改为按需拉取的独立客户端分包。
+ * - ssr: false 对两者无视觉副作用:
+ *   · AISidePanel 外层已有 React.Suspense + 等宽占位 fallback(见下方 width: var(--ai-panel-width)),
+ *     SSR/首帧渲染占位,客户端分包到位后原地替换,宽度一致 → 无 CLS
+ *   · WebWorkPanel 内部 `if (!mounted || !open) return null`(web-work-panel.tsx:230),
+ *     SSR 下 mounted=false 本就渲染 null → ssr:false 行为完全一致
+ * - 两个模块均为**具名导出**,故需 .then(m => m.Xxx) 取具名成员
+ */
+const AISidePanel = dynamic(
+  () => import('@/components/ai/ai-side-panel').then((m) => m.AISidePanel),
+  { ssr: false },
+)
+const WebWorkPanel = dynamic(
+  () => import('@/components/work-panel/web-work-panel').then((m) => m.WebWorkPanel),
+  { ssr: false },
+)
 
 /**
  * GlobalShell — 真正的全局外壳(2026-07-19 立)
@@ -92,7 +118,10 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 2026-08-17 工作展示区折叠:true 时隐藏 work-area,AI 面板占满右侧(用户需求)
   const workAreaCollapsed = useAiPanelStore((s) => s.workAreaCollapsed)
   const currentUserId = useAuthStore((s) => s.user?.id)
-  const pending = useNavigationStore((s) => s.pending)
+  // 2026-09-13 性能修复:此处**不要**订阅 useNavigationStore 的 pending。
+  // GlobalShell 包着整棵路由树(children),在这里订阅会让每次点击侧栏都重渲染全站,
+  // 实测给 click→pushState 增加 85ms 并产生 56ms 首帧同步长任务。
+  // 需要 pending 的覆盖层已下沉为叶子组件 NavLoadingOverlay(自带订阅)。
   // 2026-07-26 用户反馈:TagsView 从 GlobalShell 移到 MainShell(只覆盖 main 同宽容器)
   // 之前放右列顶部会横跨 work-area-portal-root + WebWorkPanel,违反"只覆盖 main 同宽"要求
   // 现在 TagsView 跟随 MainShell 一起渲染,所有 (main) 路由组都能看到,
@@ -341,26 +370,13 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                 - open=true 时 WebWorkPanel 替换展示工作区内容(非右列独立窗口) */}
               <div className="relative flex min-h-0 flex-1 flex-col">
                 {/*
-                内容区加载覆盖层(2026-08-05 立,2026-09-02 第三刀重做时序):
-                始终在 DOM 中,不依赖条件渲染(点击后立即进入过渡状态,无 React 渲染滞后)。
-                时序关键:显示走 delay-150(延迟淡入),隐藏走 duration-75(立即淡出) —
-                - 预取命中时路由切换 <50ms,pending 在 150ms 内就复位,骨架淡入从未开始 → 用户直接看到新页面,零骨架、零闪烁;
-                - 真正慢的导航(>150ms)骨架才淡入,保留加载反馈;
-                - 原"pending 后立即 opacity-100"方案会让预取提速被骨架闪现完全抵消。
-                pointer-events 无 delay:pending 期间立即拦截点击,防导航中途重复触发。
-              */}
-                <div
-                  className={cn(
-                    'absolute inset-0 z-10 bg-background transition-opacity',
-                    pending
-                      ? 'opacity-100 duration-100 delay-150'
-                      : 'pointer-events-none opacity-0 duration-75',
-                  )}
-                  role="status"
-                  aria-label="页面加载中"
-                >
-                  <PageSkeleton />
-                </div>
+                  内容区加载覆盖层 —— 2026-09-13 已下沉为独立叶子组件 NavLoadingOverlay。
+                  原因:覆盖层需要订阅 pending,而 GlobalShell 包着整棵路由树(children),
+                  在这里订阅会让每次点击都重渲染全站;下沉后 GlobalShell 零重渲染。
+                  时序(delay-150 淡入 / duration-75 淡出)与"始终在 DOM 中"的设计
+                  见 NavLoadingOverlay.tsx 内说明。
+                */}
+                <NavLoadingOverlay />
                 {children}
                 <WebWorkPanel />
               </div>
