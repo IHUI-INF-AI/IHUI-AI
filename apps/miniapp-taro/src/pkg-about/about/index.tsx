@@ -126,7 +126,7 @@ export default function AboutIndexPage() {
           <View className="pt-[80rpx] pb-[60rpx] text-center bg-card">
             <Image
               className="w-[160rpx] h-[160rpx]"
-              src={info.logo || '/static/logo.png'}
+              src={info.logo || '/pkg-about/assets/images/logo.png'}
               mode="aspectFit"
             />
             <Text className="block text-[32rpx] text-foreground font-semibold mt-[24rpx]">
