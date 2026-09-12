@@ -821,6 +821,30 @@ async function streamChatCompletion(
 }
 
 // =============================================================================
+// 共享处理核引用(v1-gemini 协议入站复用,2026-09-13 立)
+// =============================================================================
+/** chat/completions 共享处理核签名 */
+export type V1ChatCore = (
+  request: FastifyRequest,
+  reply: FastifyReply,
+  body: z.infer<typeof chatCompletionSchema>,
+  flavor: 'chat' | 'text',
+) => Promise<void>
+
+let chatCoreRef: V1ChatCore | null = null
+
+/**
+ * 获取 chat/completions 共享处理核(含两段式计费/渠道 failover/响应缓存全链路)。
+ * v1-gemini 插件经此复用 OpenAI 链路,Gemini 协议转换在其外层完成。
+ */
+export function getV1ChatCore(): V1ChatCore {
+  if (!chatCoreRef) {
+    throw new Error('v1 chat core not initialized (v1PublicRoutes not registered?)')
+  }
+  return chatCoreRef
+}
+
+// =============================================================================
 // 路由插件
 // =============================================================================
 
@@ -1653,6 +1677,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
     }
   }
+
+  // 绑定共享处理核(供 getV1ChatCore / v1-gemini 使用)
+  chatCoreRef = processChatCompletion
 
   // ===== 5. GET /models — 模型列表(5min 缓存 + X-Model-Source 标识来源) =====
   server.get(
