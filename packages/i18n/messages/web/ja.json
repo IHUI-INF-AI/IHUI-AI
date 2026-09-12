@@ -8244,6 +8244,13 @@
   "chat": {
     "artifactPreview": "プレビュー",
     "artifactCode": "コード",
+    "canvasApplyRefresh": "適用してプレビューを更新",
+    "canvasOpenInCanvas": "キャンバスで開く",
+    "canvasVersions": "バージョン履歴",
+    "canvasRevert": "このバージョンに戻す",
+    "canvasFullscreen": "フルスクリーンキャンバス",
+    "canvasExitFullscreen": "フルスクリーンを終了",
+    "canvasEdited": "手動編集",
     "sessionUsage": {
       "promptTokens": "入力",
       "completionTokens": "出力",

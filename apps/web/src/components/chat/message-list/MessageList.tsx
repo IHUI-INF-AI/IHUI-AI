@@ -18,6 +18,7 @@ import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useChatStore } from '@/stores/chat'
 
 import { MessageItem } from './MessageItem'
+import { CanvasOverlay } from '@/components/chat/canvas-overlay'
 import { EmptyState } from './EmptyState'
 import { FallbackBanner } from './FallbackBanner'
 import { useMessageListScroll } from './use-message-list-scroll'
@@ -401,6 +402,9 @@ export function MessageList({
       {/* 工具调用审批弹窗(2026-08-30 立):高危工具执行前请求用户批准/拒绝。
           全局单实例,通过 EventSource 订阅 tool-approval SSE 事件自驱动弹窗。 */}
       <ToolApprovalDialog />
+      {/* P0-4(2026-09-13):全屏画布 overlay(全局单实例,store.open 驱动;
+          入口:ArtifactCanvas 卡片 Maximize2 / 消息内 html|svg 代码块「在画布打开」) */}
+      <CanvasOverlay />
     </div>
   )
 }
