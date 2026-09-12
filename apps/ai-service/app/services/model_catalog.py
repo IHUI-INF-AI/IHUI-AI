@@ -23,6 +23,10 @@ TTS / ASR / 图像生成等非对话模型,以及 `-preview-09-2025` 快照、`:
 2. **model_tier(代次档位)** —— 决定默认展示还是折叠:
    latest(最新最强,默认展示)/ standard(可用但非最新)/ legacy(已过时)
 
+另有一个与上述二者正交的布尔标记(2026-09-13 P1-9 立):
+3. **fim** —— 是否适合做 FIM 代码补全(`is_fim_model`),供补全档位选型用;
+   不进入 ModelUsageCategory 枚举,不影响默认展示/折叠语义。
+
 判定优先级(先具体后通用,避免误判)
 ----------------------------------
 1. 用途分类:rerank → embedding → tts → asr → image → video → guard → ocr → vision → chat
@@ -73,6 +77,8 @@ __all__ = [
     "CURATED_LATEST",
     "classify_model",
     "annotate_models",
+    "is_fim_model",
+    "pick_fim_model",
 ]
 
 # ---------------------------------------------------------------------------
@@ -166,6 +172,29 @@ _CATEGORY_RULES: tuple[tuple[ModelCategory, str], ...] = (
         r"vision|-vl(?:$|[-_])|vl-|omni|4o|claude-3|gemini-.*-flash$|audio-preview",
     ),
 )
+
+# ---------------------------------------------------------------------------
+# FIM(补全专用)模型规则(2026-09-13 P1-9 立,对标 Trae CUE Tab)
+#
+# 与用途分类 category 正交:补全专用模型大多本身也是 chat 模型,不能靠 category 表达。
+# 命中即给模型 dict 附加 `fim: true`,供前端/网关挑选"补全档位"模型
+# (低延迟、代码专精),而不改变聊天选择器的默认展示/折叠语义。
+#
+# 覆盖两类:
+# 1. 厂商原生 FIM 专用模型(名字里带 coder / fim / 补全品牌)
+# 2. 代码专用基座(codestral/codegemma/starcoder/tabby/stable-code)
+# ---------------------------------------------------------------------------
+_FIM_MODEL_RULES: tuple[str, ...] = (
+    r"codestral",
+    r"codegemma",
+    r"starcoder",
+    r"tabby",
+    r"stable-code",
+    r"qwen[\w.-]*coder",
+    r"deepseek[\w.-]*coder",
+    r"\bfim\b",
+)
+
 
 # ---------------------------------------------------------------------------
 # 精选白名单(代次关键词,不是具体 id —— 新 provider 接入自动覆盖)
@@ -423,6 +452,47 @@ def _classify_category(name: str, raw_id: str) -> tuple[ModelCategory, str]:
     return (ModelCategory.CHAT, "chat:default")
 
 
+def is_fim_model(model_id: str) -> bool:
+    """该模型是否适合做 FIM 补全(纯函数,无 I/O)。
+
+    对 `raw_id` 与归一化后的 `name` 分别匹配:部分 provider 的 raw_id 带命名空间
+    (如 `~mistralai/codestral-latest`),取路径最后一段后才命中 `codestral`。
+    """
+    raw = (model_id or "").strip().lower()
+    if not raw:
+        return False
+    targets = (raw, _normalize(raw))
+    return any(re.search(p, t) for p in _FIM_MODEL_RULES for t in targets)
+
+
+def pick_fim_model(
+    models: list[dict[str, Any]] | None, requested: str | None = None
+) -> str | None:
+    """「补全专用档位」选型(纯函数,无 I/O,不抛异常)。
+
+    优先级(2026-09-13 P1-9):
+    1. `requested` 有值且归一化后不是 `"auto"` → 原样返回(用户显式指定优先)
+    2. 否则按 **列表原顺序** 返回第一个 `fim is True` 的模型 `id`
+    3. 没有命中 / `models` 为空或 None → `None`(调用方回退 `auto`)
+
+    防御:元素为 None / 非 dict / 缺 `id` / `id` 非字符串 / `fim` 非严格布尔 True
+    一律跳过,绝不抛异常。
+    """
+    if isinstance(requested, str) and requested.strip() and requested.strip().lower() != "auto":
+        return requested
+    if not models:
+        return None
+    for m in models:
+        if not isinstance(m, dict):
+            continue
+        if m.get("fim") is not True:
+            continue
+        model_id = m.get("id")
+        if isinstance(model_id, str) and model_id.strip():
+            return model_id
+    return None
+
+
 def _is_curated(name: str, raw_id: str) -> bool:
     """是否命中精选白名单。
 
@@ -573,8 +643,9 @@ def annotate_models(
 
     classifications: list[ModelClassification] = []
     for m in models:
+        model_id = str(m.get("id") or m.get("model") or "")
         cls = classify_model(
-            str(m.get("id") or m.get("model") or ""),
+            model_id,
             provider=str(m.get("provider") or ""),
             release_date=m.get("release_date"),
             tags=m.get("tags"),
@@ -586,6 +657,8 @@ def annotate_models(
         if preset_tier in {t.value for t in ModelTier}:
             patch["model_tier"] = preset_tier
             patch["classify_reason"] = f"preset:{preset_tier}"
+        # FIM 补全档位(与 category/tier 正交)
+        patch["fim"] = is_fim_model(model_id)
         m.update(patch)
 
     # ---- 第二趟:同系列代次比较 ----
