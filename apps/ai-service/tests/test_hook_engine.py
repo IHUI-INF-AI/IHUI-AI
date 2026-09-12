@@ -87,7 +87,11 @@ class TestConstants:
         assert "permission.mode" in HOOK_EVENTS
         # 2-3(2026-09-12):self_heal 加入白名单(agent_loop_v2 _maybe_self_heal 事件源)
         assert "self_heal" in HOOK_EVENTS
-        assert len(HOOK_EVENTS) == 10
+        # P0-5(2026-09-13):thinking.delta / plan.step 加入白名单
+        # (agent_loop_v2 发出,agents.py /agents/tasks/stream 订阅转发)
+        assert "thinking.delta" in HOOK_EVENTS
+        assert "plan.step" in HOOK_EVENTS
+        assert len(HOOK_EVENTS) == 12
 
     def test_action_types(self):
         assert "webhook" in HOOK_ACTION_TYPES
