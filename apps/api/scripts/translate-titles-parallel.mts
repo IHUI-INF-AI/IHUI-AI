@@ -9,7 +9,8 @@
  * 用原生 SQL,不依赖 @ihui/database 的 schema 导入路径。
  */
 import { config } from 'dotenv'
-config({ path: 'g:/IHUI-AI/apps/api/.env' })
+import { fileURLToPath } from 'node:url'
+config({ path: fileURLToPath(new URL('../.env', import.meta.url)) })
 
 import { createDb } from '@ihui/database'
 import { sql } from 'drizzle-orm'
@@ -123,7 +124,9 @@ for (let ci = 0; ci < chunks.length; ci++) {
     if (r.ok) processed++
     else failed++
   }
-  console.log(`[chunk ${ci + 1}/${chunks.length}] 完成 ${results.length} 条(成功 ${processed}, 失败 ${failed})`)
+  console.log(
+    `[chunk ${ci + 1}/${chunks.length}] 完成 ${results.length} 条(成功 ${processed}, 失败 ${failed})`,
+  )
 }
 
 console.log('')

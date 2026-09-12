@@ -19,7 +19,7 @@ from pathlib import Path
 
 import app.core.tunables as tunables  # 杀手锏常量唯一真源(Py 侧)
 
-# ---- 路径:仓库根(g:/IHUI-AI) ----
+# ---- 路径:仓库根(D:/IHUI-AI) ----
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _TS_CONSTANTS = _REPO_ROOT / "packages/shared/src/constants.ts"
 
