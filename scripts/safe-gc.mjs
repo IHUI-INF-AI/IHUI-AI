@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- CLI 工具,需 console 输出诊断信息 */
 /**
  * safe-gc.mjs — 带锁的手动 git gc(2026-08-06 立)。
@@ -44,9 +43,12 @@ function main() {
     console.error('❌ 不在 git 仓库中')
     process.exit(1)
   }
-  // 锁文件存在即说明有其他写操作
-  const lockPath = join(repoRoot, '.git', 'ihui-git-write.lock')
-  if (existsSync(lockPath)) {
+  // separate-git-dir 布局下 repoRoot/.git 只是指针文件,直接拼路径恒不存在;
+  // 用 rev-parse --absolute-git-dir 动态取真实 gitdir 再拼锁路径。
+  // 若取不到真实 gitdir,则跳过预检(不抛异常中断 gc)。
+  const absGitDir = run('git rev-parse --absolute-git-dir', true)
+  const lockPath = absGitDir ? join(absGitDir, 'ihui-git-write.lock') : null
+  if (lockPath && existsSync(lockPath)) {
     console.log('⏭  检测到 git 写锁,跳过 gc(有其他写操作进行中)')
     return
   }

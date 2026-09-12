@@ -7,7 +7,8 @@
  * 用法:cd apps/api && pnpm exec tsx scripts/compute-trend-once.mts
  */
 import { config } from 'dotenv'
-config({ path: 'g:/IHUI-AI/apps/api/.env' })
+import { fileURLToPath } from 'node:url'
+config({ path: fileURLToPath(new URL('../.env', import.meta.url)) })
 
 console.log('触发趋势信号计算...')
 const { computeTrendSignals } = await import('../src/services/ai-feed-service.js')

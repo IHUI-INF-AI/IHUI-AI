@@ -13,7 +13,7 @@ import io
 import sys
 from pathlib import Path
 
-README = Path("g:/IHUI-AI/README.md")
+README = Path(__file__).resolve().parents[1] / "README.md"
 
 REPLACEMENTS = [
     # L9 副标题 + L239 表头(两处相同子串)
