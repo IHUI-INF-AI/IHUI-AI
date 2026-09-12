@@ -926,22 +926,28 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- watermark coverage (blocking, 2026-09-10 立) ---
-  //   历史事故: 新增文件未注入溯源水印 -> 本地提交通过、CI `Provenance watermark check` 红。
-  //   本检查把 CI 判定前移到 pre-commit, 只看 git 已跟踪文件(与 CI 检出范围一致, 本地未跟踪
-  //   构建产物不计入)。修复: node scripts/watermark.mjs inject <file>。
-  //   跳过: HUSKY_SKIP_WATERMARK_GUARD=1 git commit ...
+  // --- watermark coverage (blocking, 2026-09-10 立; 2026-09-12 升级**自愈式**) ---
+  //   历史事故 ①: 新增文件未注入溯源水印 -> 本地提交通过、CI `Provenance watermark check` 红。
+  //   历史事故 ②: 生成器/sed 等文本级改写把已跟踪文件的水印弄丢/弄坏 -> 门禁**恒红**,
+  //   而旧版工具无法复现自己强制的版式, 只能靠 HUSKY_SKIP_WATERMARK_GUARD=1 绕过提交。
+  //   2026-09-12: 门禁自带自愈 —— 检出缺口后自动 clean+inject 并 git add 回暂存区,
+  //   "未加水印的文件进入提交"在结构上不再可能。CI 仍用 `watermark.mjs verify` 严格判定。
+  //   只看 git 已跟踪文件(含本次新 git add, 与 CI 检出范围一致, 本地未跟踪构建产物不计入)。
+  //   纯判定(不改文件, 审计用): node scripts/check-watermark-coverage.mjs --no-fix
+  //   跳过: HUSKY_SKIP_WATERMARK_GUARD=1 git commit ...(紧急; 正常流程不再需要)
   {
     id: '47',
-    label: '💧 溯源水印覆盖守门(新增文件必须携带完整水印)',
+    label: '💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区)',
     script: 'check-watermark-coverage.mjs',
     args: [],
     mode: 'blocking',
     onFailHint: [
       '',
-      '  💡 新增/修改的已跟踪文件缺少溯源水印,会导致 CI 的 Provenance watermark check 失败。',
-      '     修复: node scripts/watermark.mjs inject <file>',
+      '  💡 已有跟踪文件缺失/损坏溯源水印,且自动补齐未能达标(通常 = 缺口 > 200 个, 或类型不可注入)。',
+      '     CI 会因 Provenance watermark check 失败,请先修复。',
+      '     手动修复: node scripts/watermark.mjs inject <file>',
       '     列出全部缺口: node scripts/watermark.mjs list-uncovered',
+      '     排查批量改写来源(文本级 sed/prettier/生成器)后整体重注入: node scripts/watermark.mjs inject',
       '',
     ].join('\n'),
   },
