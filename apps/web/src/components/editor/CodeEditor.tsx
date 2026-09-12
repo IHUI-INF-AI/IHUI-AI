@@ -112,8 +112,12 @@ type MonacoEditorInstance = {
       source?: string
     }>,
   ): void
-  /** 模型内容变化(0-4c:diagnostics debounce 触发源) */
-  onDidChangeModelContent(cb: (e: unknown) => void): { dispose(): void }
+  /** 模型内容变化(0-4c:diagnostics debounce 触发源;P1-9:补全接受检测) */
+  onDidChangeModelContent(
+    cb: (e: {
+      changes?: Array<{ rangeOffset: number; rangeLength: number; text: string }>
+    }) => void,
+  ): { dispose(): void }
   /** 跨文件 definition 跳转落点(pendingReveal 揭示用) */
   setPosition(position: MonacoPosition): void
   revealPositionInCenter(position: MonacoPosition): void
@@ -180,6 +184,10 @@ declare global {
       cancellationCount: number
       failureCount: number
       suggestionCount: number
+      /** 用户按 Tab 接受建议的次数(2026-09-13 P1-9 补全接受率分子) */
+      acceptedCount: number
+      /** 建议展示后被忽略/取消的次数(接受率副指标,不参与接受率计算) */
+      dismissedCount: number
       latencyMs: number[]
       last?: { durationMs: number; fromCache: boolean; cancelled: boolean; language: string }
     }
@@ -192,9 +200,76 @@ const fimMetrics = {
   cancellationCount: 0,
   failureCount: 0,
   suggestionCount: 0,
+  acceptedCount: 0,
+  dismissedCount: 0,
   latencyMs: [] as number[],
   last: undefined as
     { durationMs: number; fromCache: boolean; cancelled: boolean; language: string } | undefined,
+}
+
+// ---- 补全指标上报(P1-9 接受率闭环)----
+// 后端按 model **累加**增量,故这里只上报"自上次上报以来的差值",
+// 避免全量累计值被反复相加。防抖 5s,失败静默,绝不阻塞编辑器。
+const FIM_REPORT_DEBOUNCE_MS = 5_000
+let fimReportModel = 'auto'
+// 待上报延迟样本(上报后清空)
+let fimReportLatency: number[] = []
+// 上次已上报的累计值基线
+const fimReportBaseline = {
+  requestCount: 0,
+  cacheHitCount: 0,
+  cancellationCount: 0,
+  failureCount: 0,
+  suggestionCount: 0,
+  acceptedCount: 0,
+  dismissedCount: 0,
+}
+let fimReportTimer: ReturnType<typeof setTimeout> | null = null
+
+/** 立即上报增量快照(无变化则跳过;失败静默,不阻塞编辑器) */
+function flushFimReport(): void {
+  fimReportTimer = null
+  const delta = {
+    requestCount: fimMetrics.requestCount - fimReportBaseline.requestCount,
+    cacheHitCount: fimMetrics.cacheHitCount - fimReportBaseline.cacheHitCount,
+    cancellationCount: fimMetrics.cancellationCount - fimReportBaseline.cancellationCount,
+    failureCount: fimMetrics.failureCount - fimReportBaseline.failureCount,
+    suggestionCount: fimMetrics.suggestionCount - fimReportBaseline.suggestionCount,
+    acceptedCount: fimMetrics.acceptedCount - fimReportBaseline.acceptedCount,
+    dismissedCount: fimMetrics.dismissedCount - fimReportBaseline.dismissedCount,
+  }
+  const latencyMs = fimReportLatency
+  const changed = latencyMs.length > 0 || Object.values(delta).some((value) => value > 0)
+  if (!changed) return
+  // 先推进基线再发请求:即便上报失败也不重复投递(指标尽力而为)
+  fimReportBaseline.requestCount = fimMetrics.requestCount
+  fimReportBaseline.cacheHitCount = fimMetrics.cacheHitCount
+  fimReportBaseline.cancellationCount = fimMetrics.cancellationCount
+  fimReportBaseline.failureCount = fimMetrics.failureCount
+  fimReportBaseline.suggestionCount = fimMetrics.suggestionCount
+  fimReportBaseline.acceptedCount = fimMetrics.acceptedCount
+  fimReportBaseline.dismissedCount = fimMetrics.dismissedCount
+  fimReportLatency = []
+  try {
+    // Promise.resolve 包裹:即便 fetchApi 返回非 Promise(mock/异常实现)也不抛错
+    void Promise.resolve(
+      fetchApi('/api/llm/fim/metrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: fimReportModel || 'auto', ...delta, latencyMs }),
+      }),
+    ).catch((error) => {
+      console.warn('[ihui-fim] 补全指标上报失败(已忽略)', error)
+    })
+  } catch (error) {
+    console.warn('[ihui-fim] 补全指标上报异常(已忽略)', error)
+  }
+}
+
+/** 防抖调度上报(5s 内的多次指标变更合并为一次) */
+function scheduleFimReport(): void {
+  if (fimReportTimer) clearTimeout(fimReportTimer)
+  fimReportTimer = setTimeout(flushFimReport, FIM_REPORT_DEBOUNCE_MS)
 }
 
 function fimCacheKey(prefix: string, suffix: string, language: string): string {
@@ -208,16 +283,20 @@ function recordFimMetric(
     fromCache: boolean
     cancelled: boolean
     language: string
+    /** 后端实际使用的模型 id(用于按模型聚合接受率) */
+    model?: string
   },
 ): void {
   const durationMs = Date.now() - metrics.requestStartedAt
   fimMetrics.requestCount += 1
   fimMetrics.latencyMs.push(durationMs)
+  fimReportLatency.push(durationMs)
   if (fimMetrics.latencyMs.length > 100) fimMetrics.latencyMs.shift()
   if (result.fromCache) fimMetrics.cacheHitCount += 1
   if (result.cancelled) fimMetrics.cancellationCount += 1
   if (!result.completion && !result.cancelled) fimMetrics.failureCount += 1
   if (result.completion) fimMetrics.suggestionCount += 1
+  if (result.model) fimReportModel = result.model
   fimMetrics.last = {
     durationMs,
     fromCache: result.fromCache,
@@ -225,6 +304,7 @@ function recordFimMetric(
     language: result.language,
   }
   if (typeof window !== 'undefined') window.__ihuiFimMetrics = fimMetrics
+  scheduleFimReport()
 }
 
 type MonacoInlineCompletionsProvider = {
@@ -353,6 +433,8 @@ export type MonacoSelection = {
 /** /ai/llm/fim 响应体(2026-09-07 升级,fetchApi 已解包 {code,message,data} 外层,失败静默降级) */
 interface FimCompletionData {
   completion?: string
+  /** 后端实际使用的模型 id(auto 路由结果,用于按模型聚合接受率) */
+  model?: string
 }
 
 export interface CodeEditorProps {
@@ -424,6 +506,8 @@ export function CodeEditor({
   const completionDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const inlineCompletionAbortRef = React.useRef<AbortController | null>(null)
   const inlineCompletionCacheRef = React.useRef(new Map<string, string>())
+  // 最近一次返回给 Monaco 的非空建议(Tab 接受 / 忽略判定用;内容变化时结算并清空)
+  const lastSuggestionRef = React.useRef<{ insertText: string; offset: number } | null>(null)
 
   // ---- 断点 gutter(1-7c 调试链路) ----
   // filePathRef:编辑器实例跨文件复用(切换 tab 不重挂载),事件回调需实时读取当前文件,
@@ -560,6 +644,7 @@ export function CodeEditor({
           fromCache: false,
           cancelled: controller.signal.aborted,
           language: lang,
+          model: res.success ? res.data?.model : undefined,
         })
         return completion
       } catch (error) {
@@ -651,26 +736,60 @@ export function CodeEditor({
                   : suggestion
 
               const wordUntilPosition = model.getWordUntilPosition(position)
-              return {
+              const startColumn = wordUntilPosition.endColumn
+              const completions: MonacoInlineCompletions = {
                 items: [
                   {
                     insertText,
                     range: {
                       startLineNumber: position.lineNumber,
-                      startColumn: wordUntilPosition.endColumn,
+                      startColumn,
                       endLineNumber: position.lineNumber,
-                      endColumn: wordUntilPosition.endColumn,
+                      endColumn: startColumn,
                     },
                   },
                 ],
               }
+              // 记录待决建议:Monaco 接受时会把它原样插入模型,
+              // 供 onDidChangeModelContent 按 (offset, insertText) 精确识别 Tab 接受
+              lastSuggestionRef.current = {
+                insertText,
+                offset: model.getOffsetAt({ lineNumber: position.lineNumber, column: startColumn }),
+              }
+              return completions
             },
-            freeInlineCompletions() {},
+            freeInlineCompletions() {
+              // 接受/忽略的计数统一由下方 onDidChangeModelContent 判定,
+              // 避免 "free 先于内容变化触发" 时把 Tab 接受误记成忽略。
+            },
           }
           inlineProviderDisposableRef.current = monacoNs.editor.registerInlineCompletionsProvider(
             '*',
             provider,
           )
+          // ---- 补全接受率(Tab 接受检测,P1-9)----
+          // Monaco 接受内联补全时把 insertText 原样插入模型,体现为一次
+          // rangeLength=0、rangeOffset=记录的插入点、text===insertText 的内容变化。
+          // 命中 → acceptedCount+1;内容以其他方式变化(用户继续输入) → dismissedCount+1。
+          // 计数只在内容变化处判定,避免与 freeInlineCompletions 的时序竞争。
+          e.onDidChangeModelContent((ev) => {
+            const pending = lastSuggestionRef.current
+            if (!pending) return
+            const change = ev.changes?.[0]
+            const accepted =
+              !!change &&
+              change.rangeLength === 0 &&
+              change.rangeOffset === pending.offset &&
+              change.text === pending.insertText
+            if (accepted) {
+              fimMetrics.acceptedCount += 1
+            } else {
+              // 内容以其他方式变化(用户继续输入)→ 建议被忽略
+              fimMetrics.dismissedCount += 1
+            }
+            scheduleFimReport()
+            lastSuggestionRef.current = null
+          })
         }
       } catch {
         // 静默降级:inline completion 不可用,不影响编辑器其他功能
@@ -909,6 +1028,11 @@ export function CodeEditor({
       if (breakpointUnsubRef.current) {
         breakpointUnsubRef.current()
         breakpointUnsubRef.current = null
+      }
+      // P1-9:卸载时补发一次未上报的补全指标(尽力而为,失败静默)
+      if (fimReportTimer) {
+        clearTimeout(fimReportTimer)
+        flushFimReport()
       }
     }
   }, [])
