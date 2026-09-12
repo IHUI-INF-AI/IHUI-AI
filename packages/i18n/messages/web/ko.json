@@ -8244,6 +8244,13 @@
   "chat": {
     "artifactPreview": "미리보기",
     "artifactCode": "코드",
+    "canvasApplyRefresh": "적용 후 미리보기 새로고침",
+    "canvasOpenInCanvas": "캔버스에서 열기",
+    "canvasVersions": "버전 기록",
+    "canvasRevert": "이 버전으로 되돌리기",
+    "canvasFullscreen": "전체 화면 캔버스",
+    "canvasExitFullscreen": "전체 화면 종료",
+    "canvasEdited": "수동 편집",
     "sessionUsage": {
       "promptTokens": "입력",
       "completionTokens": "출력",
