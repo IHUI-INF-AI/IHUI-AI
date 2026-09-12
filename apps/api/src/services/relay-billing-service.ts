@@ -95,6 +95,12 @@ export interface RecordCallInput {
   httpStatus?: number
   /** Time To First Token 毫秒数(首 token 耗时,流式才有),未传则不写入 */
   ttftMs?: number
+  /**
+   * 两段式计费(2026-09-12 立):调用前 preDeductQuota 的预扣凭证。
+   * 传入时:recordCall 不再全额扣减余额(预扣已发生),只累计统计并在结尾调用
+   * settlePreDeduction 按实际用量「补差价 / 退差额」,保证总扣减 = 实际用量。
+   */
+  preDeducted?: PreDeduction | null
 }
 
 export interface RecordCallResult {
@@ -767,11 +773,58 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   // 无组则扣 Key 个人余额(向后兼容)
   // tokenBalance/costBalanceCents = -1 时不扣减(无限额度),只累加统计
   // BYOK 模式:costBalanceCents 只扣 platformFeeCents(不扣大厂成本 upstreamCostCents)
+  //
+  // 两段式计费(2026-09-12 立):preDeducted 传入时跳过全额扣减(预扣已在 preDeductQuota 发生),
+  // 只累计统计,并在结尾 settlePreDeduction 按实际用量补差价/退差额。
+  const pre = input.preDeducted ?? null
+  const hasPreDeduction = !!pre && (pre.tokens > 0 || pre.cents > 0)
+
   let newTokenBalance = -1
   let newCostBalanceCents = -1
 
   const groupInfoForDeduct = await getKeyGroup(input.apiKeyId)
-  if (groupInfoForDeduct && groupInfoForDeduct.enabled) {
+  if (hasPreDeduction && pre) {
+    // === 两段式:只累计统计(余额调整由 settlePreDeduction 统一处理)===
+    await db
+      .update(developerApiKeys)
+      .set({
+        tokenUsedTotal: sql`${developerApiKeys.tokenUsedTotal} + ${input.totalTokens}`,
+        costUsedTotalCents: sql`${developerApiKeys.costUsedTotalCents} + ${costCentsToDeduct}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(developerApiKeys.id, input.apiKeyId))
+      .catch((err: unknown) => {
+        logger.error('[billing] 统计累加失败(两段式)', {
+          apiKeyId: input.apiKeyId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      })
+    await settlePreDeduction(pre, input.totalTokens, costCentsToDeduct)
+    // 读取结算后余额供返回值/余额告警使用(组池优先)
+    if (groupInfoForDeduct && groupInfoForDeduct.enabled) {
+      const [g] = await dbRead
+        .select({
+          sharedTokenBalance: apiKeyGroups.sharedTokenBalance,
+          sharedCostBalanceCents: apiKeyGroups.sharedCostBalanceCents,
+        })
+        .from(apiKeyGroups)
+        .where(eq(apiKeyGroups.id, groupInfoForDeduct.groupId))
+        .limit(1)
+      newTokenBalance = g?.sharedTokenBalance ?? -1
+      newCostBalanceCents = g?.sharedCostBalanceCents ?? -1
+    } else {
+      const [k] = await dbRead
+        .select({
+          tokenBalance: developerApiKeys.tokenBalance,
+          costBalanceCents: developerApiKeys.costBalanceCents,
+        })
+        .from(developerApiKeys)
+        .where(eq(developerApiKeys.id, input.apiKeyId))
+        .limit(1)
+      newTokenBalance = k?.tokenBalance ?? -1
+      newCostBalanceCents = k?.costBalanceCents ?? -1
+    }
+  } else if (groupInfoForDeduct && groupInfoForDeduct.enabled) {
     // === 扣组池(2026-08-01 立;P0-8 修复 2026-08-05)===
     // P0-8 原实现:dbRead 读余额 → 应用层计算 → db UPDATE,并发 Lost Update 超用平台额度。
     // 改为原子 CASE WHEN 条件更新(与个人余额同模式),-1(无限额度)保持 -1,余额不足不扣减。
@@ -1082,5 +1135,234 @@ export async function rechargeByKey(
     .returning({ tokenBalance: developerApiKeys.tokenBalance })
 
   return updated ? { newTokenBalance: updated.tokenBalance } : null
+}
+
+// =============================================================================
+// 6. 两段式计费:预扣 + 结算(2026-09-12 立)
+// -----------------------------------------------------------------------------
+// 解决问题:原「事前 checkQuota + 事后 recordCall 扣费」只挡余额为 0 的 Key,
+// 余额充足的 Key 发起长请求(如 10 万 token 生成)可透支到任意负成本敞口。
+// 两段式:调用前按预估用量预扣(封顶当前余额),调用后按实际用量结算,
+// 总扣减恒等于实际用量(预扣多退少补),敞口上限 = 单次预扣额。
+// 预扣凭证 PreDeduction 由调用方透传回 recordCall({ preDeducted }),结算自动完成。
+// =============================================================================
+
+/** 预扣凭证:记录调用前实际预扣的 token / 成本(分),0 = 对应维度无限额度未预扣 */
+export interface PreDeduction {
+  apiKeyId: string
+  userId: string
+  tokens: number
+  cents: number
+}
+
+export interface PreDeductInput {
+  apiKeyId: string
+  model: string
+  userId?: string
+  /** 预估 prompt token 数(调用方按字符数/4 估算) */
+  estimatedPromptTokens: number
+  /** 预估 completion token 数(调用方传 max_tokens,未传建议 1024) */
+  estimatedCompletionTokens: number
+}
+
+/**
+ * 调用前预扣余额(两段式第一阶段)。
+ *
+ * - 预估成本 = calculateCost(model, estPrompt, estCompletion)(含中转站/分组/阶梯倍率)
+ * - 预扣额封顶当前余额(余额不足按余额全额预扣,尽量覆盖敞口)
+ * - tokenBalance 与 costBalanceCents 任一为 -1(无限额度)则该维度不预扣
+ * - 两者均无需预扣(无限额度)或预扣额为 0 → 返回 null(调用方无需透传凭证)
+ * - 组池 Key 扣 sharedTokenBalance / sharedCostBalanceCents,个人 Key 扣自身余额
+ * - 失败容错:任何 db 错误只 log 并返回 null(降级为无预扣,主链路不受影响)
+ */
+export async function preDeductQuota(input: PreDeductInput): Promise<PreDeduction | null> {
+  try {
+    const [row] = await dbRead
+      .select({
+        id: developerApiKeys.id,
+        userId: developerApiKeys.userId,
+        status: developerApiKeys.status,
+        tokenBalance: developerApiKeys.tokenBalance,
+        costBalanceCents: developerApiKeys.costBalanceCents,
+      })
+      .from(developerApiKeys)
+      .where(eq(developerApiKeys.id, input.apiKeyId))
+      .limit(1)
+    if (!row || row.status !== 'active') return null
+
+    const estTokens = Math.max(
+      0,
+      Math.ceil(input.estimatedPromptTokens + input.estimatedCompletionTokens),
+    )
+    const cost = await calculateCost(
+      input.model,
+      Math.max(0, Math.ceil(input.estimatedPromptTokens)),
+      Math.max(0, Math.ceil(input.estimatedCompletionTokens)),
+      undefined,
+      input.userId,
+    )
+    const estCents = Math.max(0, cost.totalCostCents)
+
+    const tokensToDeduct = row.tokenBalance === -1 ? 0 : Math.min(estTokens, row.tokenBalance)
+    const centsToDeduct = row.costBalanceCents === -1 ? 0 : Math.min(estCents, row.costBalanceCents)
+    if (tokensToDeduct <= 0 && centsToDeduct <= 0) return null
+
+    const groupInfo = await getKeyGroup(input.apiKeyId)
+    const base = { apiKeyId: row.id, userId: row.userId }
+
+    if (groupInfo && groupInfo.enabled) {
+      if (groupInfo.sharedTokenBalance === -1 && groupInfo.sharedCostBalanceCents === -1)
+        return null
+      const t =
+        groupInfo.sharedTokenBalance === -1
+          ? 0
+          : Math.min(estTokens, Math.max(0, groupInfo.sharedTokenBalance))
+      const c =
+        groupInfo.sharedCostBalanceCents === -1
+          ? 0
+          : Math.min(estCents, Math.max(0, groupInfo.sharedCostBalanceCents))
+      if (t <= 0 && c <= 0) return null
+      const [updated] = await db
+        .update(apiKeyGroups)
+        .set({
+          sharedTokenBalance:
+            t > 0
+              ? sql`CASE WHEN ${apiKeyGroups.sharedTokenBalance} = -1 THEN -1 WHEN ${apiKeyGroups.sharedTokenBalance} >= ${t} THEN ${apiKeyGroups.sharedTokenBalance} - ${t} ELSE 0 END`
+              : sql`${apiKeyGroups.sharedTokenBalance}`,
+          sharedCostBalanceCents:
+            c > 0
+              ? sql`CASE WHEN ${apiKeyGroups.sharedCostBalanceCents} = -1 THEN -1 WHEN ${apiKeyGroups.sharedCostBalanceCents} >= ${c} THEN ${apiKeyGroups.sharedCostBalanceCents} - ${c} ELSE 0 END`
+              : sql`${apiKeyGroups.sharedCostBalanceCents}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(apiKeyGroups.id, groupInfo.groupId))
+        .returning({
+          sharedTokenBalance: apiKeyGroups.sharedTokenBalance,
+          sharedCostBalanceCents: apiKeyGroups.sharedCostBalanceCents,
+        })
+      if (!updated) return null
+      // 实际扣减额按扣后余额反推(并发下可能与预估值不同,以实际为准)
+      const actualTokens =
+        groupInfo.sharedTokenBalance === -1
+          ? 0
+          : Math.max(0, groupInfo.sharedTokenBalance - (updated.sharedTokenBalance ?? 0))
+      const actualCents =
+        groupInfo.sharedCostBalanceCents === -1
+          ? 0
+          : Math.max(0, groupInfo.sharedCostBalanceCents - (updated.sharedCostBalanceCents ?? 0))
+      if (actualTokens <= 0 && actualCents <= 0) return null
+      return { ...base, tokens: actualTokens, cents: actualCents }
+    }
+
+    // 个人余额
+    if (row.tokenBalance === -1 && row.costBalanceCents === -1) return null
+    const [updated] = await db
+      .update(developerApiKeys)
+      .set({
+        tokenBalance:
+          tokensToDeduct > 0
+            ? sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 WHEN ${developerApiKeys.tokenBalance} >= ${tokensToDeduct} THEN ${developerApiKeys.tokenBalance} - ${tokensToDeduct} ELSE 0 END`
+            : sql`${developerApiKeys.tokenBalance}`,
+        costBalanceCents:
+          centsToDeduct > 0
+            ? sql`CASE WHEN ${developerApiKeys.costBalanceCents} = -1 THEN -1 WHEN ${developerApiKeys.costBalanceCents} >= ${centsToDeduct} THEN ${developerApiKeys.costBalanceCents} - ${centsToDeduct} ELSE 0 END`
+            : sql`${developerApiKeys.costBalanceCents}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(developerApiKeys.id, row.id))
+      .returning({
+        tokenBalance: developerApiKeys.tokenBalance,
+        costBalanceCents: developerApiKeys.costBalanceCents,
+      })
+    if (!updated) return null
+    const actualTokens =
+      row.tokenBalance === -1 ? 0 : Math.max(0, row.tokenBalance - (updated.tokenBalance ?? 0))
+    const actualCents =
+      row.costBalanceCents === -1
+        ? 0
+        : Math.max(0, row.costBalanceCents - (updated.costBalanceCents ?? 0))
+    if (actualTokens <= 0 && actualCents <= 0) return null
+    return { ...base, tokens: actualTokens, cents: actualCents }
+  } catch (err) {
+    logger.error('[billing] preDeductQuota failed(降级为无预扣)', {
+      apiKeyId: input.apiKeyId,
+      model: input.model,
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return null
+  }
+}
+
+/**
+ * 结算预扣(两段式第二阶段):按实际用量与预扣额对账,多退少补。
+ *
+ * - delta = 预扣 - 实际;delta > 0 退款(余额回补),delta < 0 补扣(余额够则扣,不够扣到 0 为止)
+ * - 组池 Key 结算组池余额,个人 Key 结算自身余额
+ * - 总扣减恒等式:预扣 + 结算调整 = 实际用量(补扣不足时存在少量敞口,log 可审计)
+ * - 失败容错:只 log 不抛错(计费调整失败不影响已返回的响应)
+ */
+export async function settlePreDeduction(
+  pre: PreDeduction,
+  actualTokens: number,
+  actualCostCents: number,
+): Promise<void> {
+  try {
+    const deltaTokens = pre.tokens - Math.max(0, actualTokens)
+    const deltaCents = pre.cents - Math.max(0, actualCostCents)
+    if (deltaTokens === 0 && deltaCents === 0) return
+
+    const buildSet =
+      (tokenCol: typeof developerApiKeys.tokenBalance | typeof apiKeyGroups.sharedTokenBalance) =>
+      (
+        centsCol:
+          typeof developerApiKeys.costBalanceCents | typeof apiKeyGroups.sharedCostBalanceCents,
+      ) => {
+        const tokenExpr =
+          deltaTokens === 0
+            ? sql`${tokenCol}`
+            : deltaTokens > 0
+              ? sql`CASE WHEN ${tokenCol} = -1 THEN -1 ELSE ${tokenCol} + ${deltaTokens} END`
+              : sql`CASE WHEN ${tokenCol} = -1 THEN -1 WHEN ${tokenCol} >= ${-deltaTokens} THEN ${tokenCol} - ${-deltaTokens} ELSE 0 END`
+        const centsExpr =
+          deltaCents === 0
+            ? sql`${centsCol}`
+            : deltaCents > 0
+              ? sql`CASE WHEN ${centsCol} = -1 THEN -1 ELSE ${centsCol} + ${deltaCents} END`
+              : sql`CASE WHEN ${centsCol} = -1 THEN -1 WHEN ${centsCol} >= ${-deltaCents} THEN ${centsCol} - ${-deltaCents} ELSE 0 END`
+        return { tokenExpr, centsExpr }
+      }
+
+    const groupInfo = await getKeyGroup(pre.apiKeyId)
+    if (groupInfo && groupInfo.enabled) {
+      const { tokenExpr, centsExpr } = buildSet(apiKeyGroups.sharedTokenBalance)(
+        apiKeyGroups.sharedCostBalanceCents,
+      )
+      await db
+        .update(apiKeyGroups)
+        .set({
+          sharedTokenBalance: tokenExpr,
+          sharedCostBalanceCents: centsExpr,
+          updatedAt: new Date(),
+        })
+        .where(eq(apiKeyGroups.id, groupInfo.groupId))
+    } else {
+      const { tokenExpr, centsExpr } = buildSet(developerApiKeys.tokenBalance)(
+        developerApiKeys.costBalanceCents,
+      )
+      await db
+        .update(developerApiKeys)
+        .set({ tokenBalance: tokenExpr, costBalanceCents: centsExpr, updatedAt: new Date() })
+        .where(eq(developerApiKeys.id, pre.apiKeyId))
+    }
+  } catch (err) {
+    logger.error('[billing] settlePreDeduction failed(预扣对账未完成,需人工核对)', {
+      apiKeyId: pre.apiKeyId,
+      preTokens: pre.tokens,
+      preCents: pre.cents,
+      actualTokens,
+      actualCostCents,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

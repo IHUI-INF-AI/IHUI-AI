@@ -125,6 +125,7 @@
 - [x] 2-4 浏览器自动化回放与评测 ✅(2026-09-12):见下方完成报告
 - [x] 2-5 MCP Server 能力市场审核与评分 ✅(2026-09-12):见下方完成报告
 - [x] 2-6 成本真实计价和预算看板 ✅(2026-09-12):见下方完成报告
+- [x] 2-7 中转站转发层工程化补全(渠道 failover + 两段式计费 + legacy completions + 熔断 Redis 化)✅(2026-09-12):①公开 /v1 链路接通渠道路由——新增 `relay-upstream-forwarder.ts`(selectChannelCandidates 有序候选 → 直连上游 OpenAI 兼容 /chat/completions → 失败逐候选切换,首字节前 failover;无渠道配置/全部失败回退 ai-service 双通道韧性,流式 verbatim 管道 + 用量聚合含 cache 字段),渠道路径与 ai-service 路径同源应用 applyParamOps;②两段式计费——`preDeductQuota`(预扣封顶余额,无限额度跳过)→ `recordCall({preDeducted})`(跳过全额扣减只累计统计)→ `settlePreDeduction`(多退少补,总扣减=实际用量,敞口上限=单次预扣额),个人/组池余额双路径对齐;③legacy `POST /v1/completions`(prompt/suffix→messages 适配,text_completion 响应/流式 chunk 形态,复用 chat 处理核 processChatCompletion);④熔断/亲和/轮询状态迁 Redis(relay:circuit/* TTL 600s、relay:affinity:_、relay:rr:_ INCR;Redis 不可用逐操作降级内存,recentCalls/activeConnections 保持进程本地语义),admin getCircuitState/resetCircuit 异步化;测试:relay-billing-two-phase 10/10 + billing 全量 33/33,apps/api tsc --noEmit 0 错
 
 ### 2-4 浏览器自动化回放与评测完成报告(2026-09-12)
 
