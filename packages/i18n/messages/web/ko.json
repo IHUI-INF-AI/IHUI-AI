@@ -6635,6 +6635,16 @@
       "sseConnectionError": "SSE 연결 실패 ({status})",
       "sseConnectionFailed": "SSE 연결 실패"
     },
+    "selfHealTimeline": {
+      "attemptsLabel": "{count}회 시도",
+      "failedLabel": "실패 {count}건",
+      "iterationLabel": "{n}회차",
+      "phaseStarted": "치유 중",
+      "resultFail": "수정 실패",
+      "resultOk": "수정 완료",
+      "rollbacksLabel": "롤백 {count}회",
+      "title": "셀프힐 타임라인"
+    },
     "tokenStream": {
       "connecting": "연결 중...",
       "empty": "token 스트림 없음",
