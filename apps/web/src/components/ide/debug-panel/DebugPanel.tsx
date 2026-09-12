@@ -38,6 +38,7 @@ export function DebugPanel() {
   const currentFrameId = useDebugStore((s) => s.currentFrameId)
   const scopes = useDebugStore((s) => s.scopes)
   const watches = useDebugStore((s) => s.watches)
+  const breakpoints = useDebugStore((s) => s.breakpoints)
   const loading = useDebugStore((s) => s.loading)
 
   // ---- store actions(回调中经 getState 取最新值,避免闭包过期) ----
@@ -96,6 +97,68 @@ export function DebugPanel() {
     }
   }, [sessionId, currentFrameId, watches, setWatchValues])
 
+  // ---- 断点生命周期同步(DAP setBreakpoints 语义:每次请求为该文件的全量替换) ----
+  // syncedFiles 记录上次已同步到后端的文件集合:某文件断点被全部删除/禁用时,
+  // 仍需发送空 lines 清除,否则后端 adapter 会继续命中已删除的断点。
+  const syncedFilesRef = React.useRef<Set<string>>(new Set())
+  const syncedSigRef = React.useRef<string>('[]')
+  const syncInflightRef = React.useRef<Promise<void>>(Promise.resolve())
+
+  const syncBreakpoints = React.useCallback(async (sid: string) => {
+    const all = useDebugStore.getState().breakpoints
+    const byFile = new Map<string, number[]>()
+    all.forEach((b) => {
+      if (!b.enabled) return
+      const arr = byFile.get(b.file) ?? []
+      arr.push(b.line)
+      byFile.set(b.file, arr)
+    })
+    // 上次同步过、本次无启用断点的文件 → 发送空列表清除
+    syncedFilesRef.current.forEach((file) => {
+      if (!byFile.has(file)) byFile.set(file, [])
+    })
+    const sig = JSON.stringify(
+      [...byFile.entries()].map(([file, lines]) => [file, [...lines].sort((a, b) => a - b)]),
+    )
+    if (byFile.size === 0 || sig === syncedSigRef.current) return
+    const prev = syncInflightRef.current
+    const run = async () => {
+      await prev.catch(() => {})
+      if (syncedSigRef.current === sig) return
+      await Promise.all(
+        [...byFile.entries()].map(([file, lines]) =>
+          setBreakpointsApi(sid, { file, lines: lines.map((line) => ({ line })) }),
+        ),
+      )
+      syncedFilesRef.current = new Set(byFile.keys())
+      syncedSigRef.current = sig
+    }
+    syncInflightRef.current = run()
+    await syncInflightRef.current
+  }, [])
+
+  // 会话中增删/启停断点后重新同步到后端(launch 后首次同步由 onPlay 显式 await,
+  // 此处通过 sig 去重,不会重复请求)
+  React.useEffect(() => {
+    if (!sessionId) {
+      syncedFilesRef.current = new Set()
+      syncedSigRef.current = '[]'
+      return
+    }
+    let cancelled = false
+    syncBreakpoints(sessionId).catch((e: unknown) => {
+      if (!cancelled) {
+        appendLog({
+          level: 'error',
+          text: `[breakpoints] ${e instanceof Error ? e.message : String(e)}`,
+        })
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId, breakpoints, syncBreakpoints, appendLog])
+
   if (activeView !== 'debug') return null
 
   const meta = STATE_META[debugState]
@@ -104,30 +167,30 @@ export function DebugPanel() {
   const program = activeTab?.path ?? workspacePath ?? ''
   const language = activeTab?.language ?? getLanguageFromPath(program) ?? 'typescript'
 
-  const syncBreakpoints = async (sid: string) => {
-    const enabled = useDebugStore.getState().breakpoints.filter((b) => b.enabled)
-    if (enabled.length === 0) return
-    const byFile = new Map<string, typeof enabled>()
-    enabled.forEach((b) => {
-      const arr = byFile.get(b.file) ?? []
-      arr.push(b)
-      byFile.set(b.file, arr)
-    })
-    await Promise.all(
-      Array.from(byFile.entries()).map(([file, bps]) =>
-        setBreakpointsApi(sid, { file, lines: bps.map((b) => ({ line: b.line })) }),
-      ),
-    )
-  }
-
   const handleStopped = async (sid: string, stopped: { reason?: string } | null) => {
     if (!stopped) {
       setDebugState('running')
       clearRuntime()
       return
     }
+    const reason = stopped.reason ?? 'unknown'
+    // 后端 continue/step 等待 stopped 超时的合成 reason:程序仍在运行,保持 running 态
+    if (reason === 'timeout') {
+      setDebugState('running')
+      clearRuntime()
+      appendLog({ level: 'info', text: '[stopped] reason=timeout(程序仍在运行)' })
+      return
+    }
+    // 程序已正常结束(DAP terminated 语义):会话失效,回到初始态
+    if (reason === 'terminated') {
+      appendLog({ level: 'info', text: `[terminated] session=${sid}` })
+      setSessionId(null)
+      setDebugState('stopped')
+      clearRuntime()
+      return
+    }
     setDebugState('paused')
-    appendLog({ level: 'info', text: `[stopped] reason=${stopped.reason ?? 'unknown'}` })
+    appendLog({ level: 'info', text: `[stopped] reason=${reason}` })
     try {
       const stack = await getStackTrace(sid)
       setStackFrames(stack.stackFrames)

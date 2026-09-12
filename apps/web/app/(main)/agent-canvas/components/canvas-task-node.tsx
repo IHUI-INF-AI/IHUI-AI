@@ -7,7 +7,16 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
-import { Bot, Wrench, UserCheck, CircleDot, Loader2, CircleCheck, CircleX } from 'lucide-react'
+import {
+  Bot,
+  Wrench,
+  UserCheck,
+  CircleDot,
+  Loader2,
+  CircleCheck,
+  CircleX,
+  MinusCircle,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NODE_TYPE_META, type CanvasNodeData, type CanvasNodeType } from '../types'
 
@@ -28,6 +37,13 @@ function StatusIcon({ status }: { status: CanvasNodeData['status'] }) {
     return <CircleCheck className="h-3.5 w-3.5 text-emerald-500" aria-label={t('statusSuccess')} />
   if (status === 'failed')
     return <CircleX className="h-3.5 w-3.5 text-red-500" aria-label={t('statusFailed')} />
+  if (status === 'skipped')
+    return (
+      <MinusCircle
+        className="h-3.5 w-3.5 text-muted-foreground/70"
+        aria-label={t('statusSkipped')}
+      />
+    )
   return <CircleDot className="h-3.5 w-3.5 text-muted-foreground/50" aria-label={t('statusIdle')} />
 }
 
