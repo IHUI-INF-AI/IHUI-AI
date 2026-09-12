@@ -34,7 +34,6 @@
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { config } from '../config/index.js'
 import { db, dbRead } from '../db/index.js'
 import { zhsAiUserModelChatConfig } from '@ihui/database'
 import type {
@@ -65,6 +64,8 @@ import {
 } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
 import { getUserId, maskKey, jsonInit, deriveModelCapabilities } from './v1-shared.js'
+// /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
+import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 
 // =============================================================================
 // Zod schemas
@@ -178,7 +179,7 @@ async function forwardAiService(
   init: RequestInit,
 ): Promise<void> {
   try {
-    const resp = await fetch(`${config.AI_SERVICE_URL}${path}`, init)
+    const resp = await aiServiceSystemFetch(path, init)
     if (!resp.ok) {
       const txt = await resp.text().catch(() => '')
       return reply
@@ -201,7 +202,7 @@ async function forwardAiService(
 async function fetchAiServiceModels(): Promise<
   Array<{ id: string; ownedBy?: string; created?: number }>
 > {
-  const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/models`, { method: 'GET' })
+  const resp = await aiServiceSystemFetch('/api/llm/models', { method: 'GET' })
   if (!resp.ok) return []
   const data = (await resp.json()) as unknown
   let models: unknown[] = []
@@ -334,7 +335,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       try {
         const body: Record<string, unknown> = { model, input }
         if (dimensions !== undefined) body.dimensions = dimensions
-        const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/embeddings`, {
+        const resp = await aiServiceSystemFetch('/api/llm/embeddings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -427,7 +428,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       const body: Record<string, unknown> = { model, image, prompt }
       if (maxTokens !== undefined) body.max_tokens = maxTokens
       try {
-        const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/vision`, jsonInit(body))
+        const resp = await aiServiceSystemFetch('/api/llm/vision', jsonInit(body))
         if (!resp.ok) {
           const txt = await resp.text().catch(() => '')
           return reply
@@ -520,7 +521,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       const body: Record<string, unknown> = { messages }
       if (presetId) body.preset_name = presetId
       try {
-        const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/moa-complete`, jsonInit(body))
+        const resp = await aiServiceSystemFetch('/api/llm/moa-complete', jsonInit(body))
         if (!resp.ok) {
           const txt = await resp.text().catch(() => '')
           return reply
@@ -587,7 +588,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
     },
     async (_request, reply) => {
       try {
-        const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/moa-presets`, { method: 'GET' })
+        const resp = await aiServiceSystemFetch('/api/llm/moa-presets', { method: 'GET' })
         if (!resp.ok) {
           const txt = await resp.text().catch(() => '')
           return reply
@@ -1104,7 +1105,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       if (maxIterations) body.max_iterations = maxIterations
 
       try {
-        const resp = await fetch(`${config.AI_SERVICE_URL}/api/agents/execute`, jsonInit(body))
+        const resp = await aiServiceSystemFetch('/api/agents/execute', jsonInit(body))
         if (!resp.ok) {
           const txt = await resp.text().catch(() => '')
           return reply
@@ -1199,7 +1200,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       const serverTimeout = setTimeout(() => controller.abort(), 5 * 60_000)
 
       try {
-        const resp = await fetch(`${config.AI_SERVICE_URL}/api/agents/execute/stream`, {
+        const resp = await aiServiceSystemFetch('/api/agents/execute/stream', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1285,8 +1286,8 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       try {
-        const resp = await fetch(
-          `${config.AI_SERVICE_URL}/api/agents/${encodeURIComponent(id)}/status`,
+        const resp = await aiServiceSystemFetch(
+          `/api/agents/${encodeURIComponent(id)}/status`,
           { method: 'GET' },
         )
         if (!resp.ok) {
@@ -1381,7 +1382,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
     },
     async (_request, reply) => {
       try {
-        const resp = await fetch(`${config.AI_SERVICE_URL}/api/agents/sessions`, { method: 'GET' })
+        const resp = await aiServiceSystemFetch('/api/agents/sessions', { method: 'GET' })
         if (!resp.ok) {
           const txt = await resp.text().catch(() => '')
           return reply
@@ -1455,8 +1456,8 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       try {
-        const resp = await fetch(
-          `${config.AI_SERVICE_URL}/api/agents/sessions/${encodeURIComponent(id)}`,
+        const resp = await aiServiceSystemFetch(
+          `/api/agents/sessions/${encodeURIComponent(id)}`,
           { method: 'DELETE' },
         )
         if (!resp.ok) {
@@ -1532,8 +1533,8 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         })),
       }
       try {
-        const resp = await fetch(
-          `${config.AI_SERVICE_URL}/api/v1/ai/agent/pipeline`,
+        const resp = await aiServiceSystemFetch(
+          '/api/v1/ai/agent/pipeline',
           jsonInit(body),
         )
         if (!resp.ok) {
@@ -1623,8 +1624,8 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         tasks: tasks.map((t) => ({ agent_id: t.agentId, input: t.input })),
       }
       try {
-        const resp = await fetch(
-          `${config.AI_SERVICE_URL}/api/v1/ai/agent/parallel`,
+        const resp = await aiServiceSystemFetch(
+          '/api/v1/ai/agent/parallel',
           jsonInit(body),
         )
         if (!resp.ok) {
