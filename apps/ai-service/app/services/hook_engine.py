@@ -59,6 +59,10 @@ HOOK_EVENTS: tuple[str, ...] = (
     "session.end",
     "error",
     "permission.mode",  # 2026-09-02:权限三模式生效事件(plan 拦截/auto 免审批,agent_loop_v2 发出)
+    # 2-3(2026-09-12):agent_loop_v2 内联自愈触发/完成事件(_maybe_self_heal 发出,
+    # agents.py 三个 SSE 端点均已订阅 self_heal;此前缺失导致事件被 emit() 白名单
+    # 拦截丢弃,前端 self-heal 呈现无数据源)
+    "self_heal",
 )
 
 HOOK_ACTION_TYPES: tuple[str, ...] = ("webhook", "script", "log", "notify")
