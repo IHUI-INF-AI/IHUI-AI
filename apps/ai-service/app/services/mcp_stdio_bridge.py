@@ -28,6 +28,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
@@ -36,7 +37,7 @@ from typing import Any
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from app.services import mcp_server
+from app.services import mcp_quality, mcp_server
 
 logger = logging.getLogger(__name__)
 
@@ -164,11 +165,38 @@ async def _restart_server(name: str) -> None:
 
 
 def _make_forward_handler(
-    server_name: str, tool_name: str
+    server_name: str,
+    tool_name: str,
+    input_schema: dict[str, Any] | None = None,
 ) -> Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]:
-    """构造转发 handler:内部 call_tool → 外部 stdio session.call_tool。"""
+    """构造转发 handler:内部 call_tool → 外部 stdio session.call_tool。
+
+    2026-09-12(1-4):外层包装质量指标采集 —— 每次调用的延迟/成败/
+    schema 兼容上报 mcp_quality(采集失败静默降级,不影响调用链)。
+    """
 
     async def _forward(arguments: dict[str, Any]) -> dict[str, Any]:
+        start = time.perf_counter()
+        result = await _do_call(arguments)
+        try:
+            visible_args = {
+                k: v
+                for k, v in (arguments or {}).items()
+                if not str(k).startswith(_INTERNAL_ARG_PREFIX)
+            }
+            schema_valid = mcp_quality.validate_arguments(input_schema, visible_args)
+        except Exception:  # noqa: BLE001 - 校验异常视为兼容(不阻塞调用)
+            schema_valid = True
+        mcp_quality.record_tool_call(
+            server_name,
+            tool_name,
+            time.perf_counter() - start,
+            success=bool(result.get("ok")),
+            schema_valid=schema_valid,
+        )
+        return result
+
+    async def _do_call(arguments: dict[str, Any]) -> dict[str, Any]:
         handle = _STDIO_SERVERS.get(server_name)
         if handle is None:
             return {
@@ -262,12 +290,14 @@ async def add_stdio_server_tool(
             }
             registered = mcp_server.register_external_tool(
                 mcp_server.MCPTool(name=tool_name, description=tool_desc, input_schema=tool_schema),
-                _make_forward_handler(name, tool_name),
+                _make_forward_handler(name, tool_name, tool_schema),
             )
             if registered:
                 count += 1
                 handle.registered_tools.append(tool_name)
                 logger.info("[mcp_stdio] 注册工具 %s <- server %s", tool_name, name)
+        # 登记/更新工具名集合(供跨 server 工具名冲突检测,1-4)
+        mcp_quality.note_server_tools(name, list(handle.registered_tools))
         logger.info("[mcp_stdio] server '%s' 注册完成,新增 %d 个工具", name, count)
         return count
 
@@ -292,6 +322,8 @@ async def remove_stdio_server(name: str) -> list[str]:
         await handle.stack.aclose()
     except Exception as e:  # noqa: BLE001 - 单连接关闭失败不阻断移除
         logger.warning("[mcp_stdio] 关闭 server %s 异常(忽略): %s", name, e)
+    # 清空该 server 的工具名登记(跨 server 冲突检测,1-4)
+    mcp_quality.note_server_tools(name, [])
     tools = list(handle.registered_tools)
     logger.info("[mcp_stdio] server '%s' 已移除,清理 %d 个工具", name, len(tools))
     return tools
