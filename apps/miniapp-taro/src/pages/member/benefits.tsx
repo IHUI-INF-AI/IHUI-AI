@@ -13,17 +13,17 @@ import { REMOTE_ICONS, icon } from '@/constants/remote-icons'
 import ThemeRoot from '@/components/ThemeRoot'
 // 会员权益主题图标(2026-07-30 生成,扁平化设计统一风格)
 // 用字符串路径让 Taro copy 到 dist/static/ 而非打包进 benefits.js chunk(11 个图标 ~1MB,base64 内联会让 chunk 暴涨)
-const shoppingIcon = '/static/images/benefits/shopping.png'
-const sparkleIcon = '/static/images/benefits/sparkle.png'
-const giftIcon = '/static/images/benefits/gift.png'
-const calendarIcon = '/static/images/benefits/calendar.png'
-const mailIcon = '/static/images/benefits/mail.png'
-const silverIcon = '/static/images/benefits/silver.png'
-const birthdayIcon = '/static/images/benefits/birthday.png'
-const truckIcon = '/static/images/benefits/truck.png'
-const ticketIcon = '/static/images/benefits/ticket.png'
-const partyIcon = '/static/images/benefits/party.png'
-const trophyIcon = '/static/images/benefits/trophy.png'
+const shoppingIcon = '/pages/member/assets/benefits/shopping.png'
+const sparkleIcon = '/pages/member/assets/benefits/sparkle.png'
+const giftIcon = '/pages/member/assets/benefits/gift.png'
+const calendarIcon = '/pages/member/assets/benefits/calendar.png'
+const mailIcon = '/pages/member/assets/benefits/mail.png'
+const silverIcon = '/pages/member/assets/benefits/silver.png'
+const birthdayIcon = '/pages/member/assets/benefits/birthday.png'
+const truckIcon = '/pages/member/assets/benefits/truck.png'
+const ticketIcon = '/pages/member/assets/benefits/ticket.png'
+const partyIcon = '/pages/member/assets/benefits/party.png'
+const trophyIcon = '/pages/member/assets/benefits/trophy.png'
 
 // 统一判断 icon 是否为图片路径(http(s):// 远程 URL 或 / 开头本地路径或 import 路径)
 function isImagePath(s: string): boolean {
