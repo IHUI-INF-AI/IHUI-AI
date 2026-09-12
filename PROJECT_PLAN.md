@@ -2545,12 +2545,12 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 ### 第二梯队 P1:能力补课(一周内跟上)
 
-- [ ] **6. 断点续传——流断了不用整条重来**:SSE 中断(网络抖动/刷新页面)现只能整条重新生成。做:消息级 resume 端点(按 session+message 偏移续传),前端刷新页面后自动续接未完成流。验收:刷新页面 3 秒内恢复流式输出。
-- [ ] **7. temperature/top_p/system prompt 参数面板(对标:CodeX/Qoder)**:模型选择器旁加"高级参数"抽屉(temperature/top_p/max_tokens/自定义 system prompt),按会话生效,后端透传 LLM 网关。
-- [ ] **8. Qoder Repo Wiki 对应物——项目知识库自动生成**:利用既有五维索引 + `context_engine.py`,给每个工作区自动生成"项目百科"页(目录结构/核心模块/依赖图/关键决策),AI 对话自动引用,可手动触发更新。
-- [ ] **9. FIM 专用模型 + 接受率闭环(对标:Trae CUE Tab)**:FIM 现混用对话模型。做:模型目录立"补全专用"档位(接轻量代码模型);`window.__ihuiFimMetrics` 埋点接管理看板,接受率 <30% 自动告警。
-- [ ] **10. 后台任务完成通知感知页面可见性**:`background-agents-panel` 现盲目轮询。做:页面隐藏时降频(5s→30s)/回前台立即刷;完成通知走 Notification API(有权限时)。
-- [ ] **11. 截图输入 + AI 朗读(对标:WorkBuddy 多模态/各家 TTS)**:输入框加截图粘贴(已有图片上传链路,补粘贴/截图按钮);AI 回复加 TTS 朗读按钮(接既有 voice 服务)。
+- [x] ✅(2026-09-13) **6. 断点续传——流断了不用整条重来**:SSE 中断(网络抖动/刷新页面)现只能整条重新生成。做:消息级 resume 端点(按 session+message 偏移续传),前端刷新页面后自动续接未完成流。验收:刷新页面 3 秒内恢复流式输出。 ✅ 完成(2026-09-13):apps/api `routes/chat-resume.ts`(GET /api/chat/resume/status + POST /api/chat/resume,SSE 事件格式与主链路一致)+ web `use-chat/resume-stream.ts`(刷新页面按消息自动续接,未落库则把已生成前缀落库后续流)+ resume-stream.test.ts。commit `d609b43a4b4`。
+- [x] ✅(2026-09-13) **7. temperature/top_p/system prompt 参数面板(对标:CodeX/Qoder)**:模型选择器旁加"高级参数"抽屉(temperature/top_p/max_tokens/自定义 system prompt),按会话生效,后端透传 LLM 网关。 ✅ 完成(2026-09-13):web `chat/sampling-params-panel.tsx`(temperature/top_p/top_k/max_tokens + 自定义 system prompt,接线 message-input,按会话生效)+ ai-service 透传 LLM 网关 + `tests/test_advanced_params_passthrough.py`。commit `158c17dd732`。
+- [x] ✅(2026-09-13) **8. Qoder Repo Wiki 对应物——项目知识库自动生成**:利用既有五维索引 + `context_engine.py`,给每个工作区自动生成"项目百科"页(目录结构/核心模块/依赖图/关键决策),AI 对话自动引用,可手动触发更新。 ✅ 完成(2026-09-13):后端 repo-wiki 生成(五维索引+模块依赖图静态解析)+ AI 对话自动引用项目百科 + 前端 `app/(main)/repo-wiki/`(目录/核心模块/依赖图/关键决策)+「重新生成」入口 + 5 语言 i18n。commit `9ae715982fc`+`9de68a9ebfb`。
+- [x] ✅(2026-09-13) **9. FIM 专用模型 + 接受率闭环(对标:Trae CUE Tab)**:FIM 现混用对话模型。做:模型目录立"补全专用"档位(接轻量代码模型);`window.__ihuiFimMetrics` 埋点接管理看板,接受率 <30% 自动告警。 ✅ 完成(2026-09-13):model_catalog `is_fim_model()` 补全专用档位 + `POST/GET /llm/fim/metrics(/summary)`(接受率/p50/p95,接受率<30% 且建议≥20 自动告警)+ web FIM 埋点增量差值上报 + admin ai-metrics FIM 卡片。commit `aeebe3d61a5`。
+- [x] ✅(2026-09-13) **10. 后台任务完成通知感知页面可见性**:`background-agents-panel` 现盲目轮询。做:页面隐藏时降频(5s→30s)/回前台立即刷;完成通知走 Notification API(有权限时)。 ✅ 完成(2026-09-13):`use-page-visibility.ts`(visibilitychange)+ 页面隐藏轮询 5s→30s 降频、回前台立即刷新 + `use-background-agent-notify.ts`(Notification API,面板内授权开关)。commit `510b76887e0`。
+- [x] ✅(2026-09-13) **11. 截图输入 + AI 朗读(对标:WorkBuddy 多模态/各家 TTS)**:输入框加截图粘贴(已有图片上传链路,补粘贴/截图按钮);AI 回复加 TTS 朗读按钮(接既有 voice 服务)。 ✅ 完成(2026-09-13):`use-message-send.handlePaste` 接管剪贴板截图(输入区提示 Ctrl+V)+ `use-tts.ts` AI 回复朗读/停止(MessageItem 按钮)+ 5 语言 i18n。commit `510b76887e0`。
 
 ### 第三梯队 P2:拉开身位(竞品没有或很弱的)
 
