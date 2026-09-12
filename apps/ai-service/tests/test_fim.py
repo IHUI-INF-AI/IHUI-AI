@@ -90,3 +90,181 @@ async def test_fim_validation_errors(client):
     assert resp.status_code == 422
     resp = await client.post("/api/llm/fim", json={"prefix": "x", "max_tokens": 9999})
     assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# 补全接受率闭环(2026-09-13 P1-9)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _reset_fim_metrics():
+    """指标是进程内全局状态,每个用例前后清空,保证测试相互隔离。"""
+    fim._METRICS_BY_MODEL.clear()
+    yield
+    fim._METRICS_BY_MODEL.clear()
+
+
+async def test_fim_metrics_aggregates_by_model(client):
+    """两次增量上报 → 汇总为累计值,接受率/延迟分位正确。"""
+    await client.post(
+        "/api/llm/fim/metrics",
+        json={
+            "model": "codestral-latest",
+            "requestCount": 3,
+            "suggestionCount": 2,
+            "acceptedCount": 1,
+            "failureCount": 1,
+            "latencyMs": [10, 20, 30],
+        },
+    )
+    await client.post(
+        "/api/llm/fim/metrics",
+        json={
+            "model": "codestral-latest",
+            "requestCount": 1,
+            "suggestionCount": 1,
+            "acceptedCount": 1,
+            "latencyMs": [40, 50],
+        },
+    )
+    resp = await client.get("/api/llm/fim/metrics/summary")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["code"] == 0 and body["message"] == "ok"
+    rows = body["data"]["models"]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["model"] == "codestral-latest"
+    assert row["requests"] == 4
+    assert row["suggestions"] == 3
+    assert row["accepted"] == 2
+    assert row["acceptanceRate"] == pytest.approx(2 / 3)
+    assert row["failures"] == 1
+    # 延迟 [10,20,30,40,50] → p50=30;p95 线性插值 40+(50-40)*0.8=48
+    assert row["p50LatencyMs"] == 30
+    assert row["p95LatencyMs"] == 48
+    assert row["alert"] is False  # suggestions=3 < 20,样本不足
+
+
+@pytest.mark.parametrize(
+    "suggestions,accepted,expected_alert",
+    [
+        (19, 0, False),  # 建议数 19 < 20:样本不足,不告警
+        (20, 5, True),  # rate=0.25 < 0.3 且样本达标 → 告警
+        (20, 6, False),  # rate=0.30 不满足严格小于 → 不告警
+        (100, 29, True),  # rate=0.29 → 告警
+        (100, 31, False),  # rate=0.31 → 不告警
+    ],
+)
+async def test_fim_metrics_alert_threshold(
+    client, suggestions: int, accepted: int, expected_alert: bool
+):
+    """告警阈值边界:suggestions >= 20 且 acceptanceRate < 0.3。"""
+    await client.post(
+        "/api/llm/fim/metrics",
+        json={
+            "model": "m",
+            "requestCount": suggestions,
+            "suggestionCount": suggestions,
+            "acceptedCount": accepted,
+        },
+    )
+    row = (await client.get("/api/llm/fim/metrics/summary")).json()["data"]["models"][0]
+    assert row["alert"] is expected_alert
+    if expected_alert:
+        assert row["alertReason"]
+    else:
+        assert row["alertReason"] is None
+
+
+async def test_fim_metrics_latency_null_when_no_samples(client):
+    """无延迟样本时 p50/p95 返回 null,接受率为 1.0。"""
+    await client.post(
+        "/api/llm/fim/metrics",
+        json={"model": "m", "suggestionCount": 1, "acceptedCount": 1},
+    )
+    row = (await client.get("/api/llm/fim/metrics/summary")).json()["data"]["models"][0]
+    assert row["p50LatencyMs"] is None
+    assert row["p95LatencyMs"] is None
+    assert row["acceptanceRate"] == 1.0
+
+
+async def test_fim_metrics_empty_summary_no_crash(client):
+    """无任何上报时汇总为空列表,不崩。"""
+    resp = await client.get("/api/llm/fim/metrics/summary")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["code"] == 0
+    assert body["data"]["models"] == []
+
+
+async def test_fim_metrics_default_model_is_auto(client):
+    """缺省 model → 归入 'auto' 桶(后端自选模型)。"""
+    await client.post("/api/llm/fim/metrics", json={"requestCount": 1})
+    row = (await client.get("/api/llm/fim/metrics/summary")).json()["data"]["models"][0]
+    assert row["model"] == "auto"
+
+
+# ---------------------------------------------------------------------------
+# 补全专用档位选型(P1-9):_resolve_fim_model 接线
+# ---------------------------------------------------------------------------
+
+
+async def test_fim_uses_env_preferred_model(client, monkeypatch):
+    """env FIM_PREFERRED_MODEL 最高优先级 → 直接作为补全模型。"""
+    monkeypatch.setenv("FIM_PREFERRED_MODEL", "codestral-latest")
+    mock = AsyncMock(return_value={"content": "x", "model": "codestral-latest", "stub": True})
+    monkeypatch.setattr(fim.llm_gateway, "complete", mock)
+    await client.post("/api/llm/fim", json={"prefix": "a"})
+    assert mock.call_args.args[1] == "codestral-latest"
+
+
+async def test_fim_uses_candidate_fim_model(client, monkeypatch):
+    """env 未设 + auto → 取候选清单首个 fim 模型。"""
+    monkeypatch.delenv("FIM_PREFERRED_MODEL", raising=False)
+    monkeypatch.setattr(
+        fim, "_load_fim_candidates", lambda: [{"id": "qwen2.5-coder-7b", "fim": True}]
+    )
+    mock = AsyncMock(return_value={"content": "c", "model": "qwen2.5-coder-7b", "stub": True})
+    monkeypatch.setattr(fim.llm_gateway, "complete", mock)
+    await client.post("/api/llm/fim", json={"prefix": "a"})
+    assert mock.call_args.args[1] == "qwen2.5-coder-7b"
+
+
+async def test_fim_explicit_model_wins_over_candidates(client, monkeypatch):
+    """用户显式指定 model → 优先于候选清单。"""
+    monkeypatch.delenv("FIM_PREFERRED_MODEL", raising=False)
+    monkeypatch.setattr(
+        fim, "_load_fim_candidates", lambda: [{"id": "qwen2.5-coder-7b", "fim": True}]
+    )
+    mock = AsyncMock(return_value={"content": "c", "model": "gpt-4o", "stub": True})
+    monkeypatch.setattr(fim.llm_gateway, "complete", mock)
+    await client.post("/api/llm/fim", json={"prefix": "a", "model": "gpt-4o"})
+    assert mock.call_args.args[1] == "gpt-4o"
+
+
+async def test_fim_falls_back_to_auto_without_fim_candidates(client, monkeypatch):
+    """候选清单无 fim 模型 → 回退 'auto'。"""
+    monkeypatch.delenv("FIM_PREFERRED_MODEL", raising=False)
+    monkeypatch.setattr(fim, "_load_fim_candidates", lambda: [{"id": "gpt-4o", "fim": False}])
+    mock = AsyncMock(return_value={"content": "c", "model": "auto", "stub": True})
+    monkeypatch.setattr(fim.llm_gateway, "complete", mock)
+    await client.post("/api/llm/fim", json={"prefix": "a"})
+    assert mock.call_args.args[1] == "auto"
+
+
+async def test_fim_candidate_load_failure_degrades_to_auto(client, monkeypatch):
+    """候选加载抛异常 → 静默回退 'auto',补全照常返回。"""
+    monkeypatch.delenv("FIM_PREFERRED_MODEL", raising=False)
+
+    def _boom() -> list:
+        raise RuntimeError("candidates boom")
+
+    monkeypatch.setattr(fim, "_load_fim_candidates", _boom)
+    mock = AsyncMock(return_value={"content": "c", "model": "auto", "stub": True})
+    monkeypatch.setattr(fim.llm_gateway, "complete", mock)
+    resp = await client.post("/api/llm/fim", json={"prefix": "a"})
+    assert resp.status_code == 200
+    assert resp.json()["code"] == 0
+    assert mock.call_args.args[1] == "auto"
