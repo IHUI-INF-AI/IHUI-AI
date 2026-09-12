@@ -21,6 +21,8 @@ import { decryptJSON, type EncryptedPayload } from '../utils/crypto.js'
 const HEALTH_CHECK_TIMEOUT_MS = 10_000
 const CONSECUTIVE_FAILURES_THRESHOLD = 3
 const CF_KEY = 'consecutiveFailures'
+/** 单轮恢复探测的禁用 key 数上限(防上游大面积失效时探测风暴) */
+const RECOVER_PROBE_MAX_KEYS = 20
 
 export type HealthStatus = 'healthy' | 'degraded' | 'down'
 
@@ -37,6 +39,8 @@ export interface HealthCheckSummary {
   degraded: number
   down: number
   disabled: number
+  /** 本轮从禁用状态恢复探测成功的 key 数(2026-09-13 立) */
+  recovered: number
 }
 
 interface KeyRowForCheck {
@@ -218,7 +222,67 @@ export async function checkSingleKey(keyId: string): Promise<HealthCheckResult> 
   return result
 }
 
-/** 巡检所有 is_enabled=true 的 key。返回各状态计数（串行避免上游并发冲击）。 */
+/**
+ * 禁用 key 恢复探测(2026-09-13 立)。
+ *
+ * 背景:熔断只禁不查——checkAllKeys 只巡 is_enabled=true 的 key,被禁的 key
+ * 永远不会被重新探测,上游侧恢复(如充值/解限)后不会自动回到售卖池,必须
+ * 手动 re-enable。这里对禁用 key 做低频旁路探测:
+ * - healthy → is_enabled=true + consecutiveFailures=0(单次成功即恢复;若上游
+ *   仍不稳定,正常流量会再次触发 3 连败熔断,误恢复代价可控)
+ * - 其他状态 → 仅刷新健康信息,保持禁用
+ * 返回恢复数量。
+ */
+async function recoverDisabledKeys(): Promise<number> {
+  const disabledKeys = await dbRead
+    .select({
+      id: aiRelayKeyPool.id,
+      providerCode: aiRelayKeyPool.providerCode,
+      apiKeyEnc: aiRelayKeyPool.apiKeyEnc,
+      extraMetadata: aiRelayKeyPool.extraMetadata,
+    })
+    .from(aiRelayKeyPool)
+    .where(eq(aiRelayKeyPool.isEnabled, false))
+    .limit(RECOVER_PROBE_MAX_KEYS)
+
+  let recovered = 0
+  for (const row of disabledKeys) {
+    try {
+      const result = await runHealthCheck(row)
+      if (result.status === 'healthy') {
+        const meta = readExtraMetadata(row.extraMetadata)
+        await db
+          .update(aiRelayKeyPool)
+          .set({
+            isEnabled: true,
+            healthStatus: 'healthy',
+            healthCheckedAt: new Date(),
+            lastErrorMessage: null,
+            extraMetadata: { ...meta, [CF_KEY]: 0 },
+            updatedAt: new Date(),
+          })
+          .where(eq(aiRelayKeyPool.id, row.id))
+        recovered++
+      } else {
+        // 保持禁用,仅刷新健康信息便于 admin 观察上游是否恢复
+        await db
+          .update(aiRelayKeyPool)
+          .set({
+            healthStatus: result.status,
+            healthCheckedAt: new Date(),
+            lastErrorMessage: result.errorMessage ?? null,
+            updatedAt: new Date(),
+          })
+          .where(eq(aiRelayKeyPool.id, row.id))
+      }
+    } catch {
+      // 单 key 探测异常不中断恢复流程
+    }
+  }
+  return recovered
+}
+
+/** 巡检所有 is_enabled=true 的 key + 禁用 key 恢复探测。返回各状态计数(串行避免上游并发冲击)。 */
 export async function checkAllKeys(): Promise<HealthCheckSummary> {
   const keys = await dbRead
     .select({
@@ -236,6 +300,7 @@ export async function checkAllKeys(): Promise<HealthCheckSummary> {
     degraded: 0,
     down: 0,
     disabled: 0,
+    recovered: 0,
   }
 
   for (const row of keys) {
@@ -250,6 +315,9 @@ export async function checkAllKeys(): Promise<HealthCheckSummary> {
       void err
     }
   }
+
+  // 禁用 key 恢复探测:上游侧恢复(充值/解限)后自动回到售卖池
+  summary.recovered = await recoverDisabledKeys()
 
   return summary
 }
