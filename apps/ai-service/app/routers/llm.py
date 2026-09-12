@@ -372,6 +372,27 @@ def _inject_plan_mode_prompt(
     return new_messages
 
 
+def _inject_custom_system_prompt(
+    messages: list[dict[str, Any]], prefix: str | None
+) -> list[dict[str, Any]]:
+    """P1-7(2026-09-13 立):会话级自定义 system prompt 前置注入。
+
+    与 _inject_system_prefix 同语义(在 system 消息最顶部合并,无 system 消息则新插一条);
+    此处独立实现,保证本次 P1-7 提交不依赖其他并行改动的中间态。
+    prefix 为空时原样返回,调用点可无条件调用。
+    """
+    if not prefix:
+        return messages
+    new_messages = list(messages)
+    if new_messages and new_messages[0].get("role") == "system":
+        existing = new_messages[0].get("content", "")
+        merged = f"{prefix}\n\n{existing}" if existing else prefix
+        new_messages[0] = {**new_messages[0], "content": merged}
+    else:
+        new_messages.insert(0, {"role": "system", "content": prefix})
+    return new_messages
+
+
 # ===== 多 agent 编排引导 prompt(2026-07-24 立,2026-07-24 升级 5→10 agent + invoke_parallel)=====
 # 仅当请求 agent_tools 含 dispatch_subagent 时,在 tool loop 入口注入此 system message,
 # 引导 LLM 在复杂任务时主动派发子智能体而非单打独斗。
@@ -466,6 +487,13 @@ class LLMCompleteRequest(BaseModel):
     )
     temperature: float | None = Field(None, description="采样温度")
     max_tokens: int | None = Field(None, description="最大生成 token 数")
+    # P1-7(2026-09-13 立,四竞品对标:CodeX/Qoder 高级参数面板):
+    # 会话级采样参数与自定义 system prompt,由前端"高级参数"抽屉按会话下发。
+    top_p: float | None = Field(None, description="核采样 top-p(0-1),None=用模型默认")
+    top_k: int | None = Field(None, description="top-k 采样(>0),None=用模型默认")
+    system_prompt: str | None = Field(
+        None, description="自定义 system prompt,注入到 system 消息最顶部(与工作区记忆叠加)"
+    )
     # Phase 3 集成字段(可选)
     metadata: dict[str, Any] | None = Field(
         None, description="调用方元数据(conversation_id/message_id/user_id 等),原样透传到 done 事件"
@@ -691,6 +719,8 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     owner_uuid = _resolve_owner_uuid(request)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(req.messages, req.workspace_path, req.workspace_context)
+    # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
+    messages = _inject_custom_system_prompt(messages, req.system_prompt)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     if req.context_limit and req.context_limit > 0:
         original_messages = messages
@@ -738,6 +768,11 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
         kwargs["temperature"] = req.temperature
     if req.max_tokens is not None:
         kwargs["max_tokens"] = req.max_tokens
+    # P1-7(2026-09-13 立):高级参数面板 top_p / top_k 透传(厂商不支持时 filter_call_kwargs 兜底剔除)
+    if req.top_p is not None:
+        kwargs["top_p"] = req.top_p
+    if req.top_k is not None:
+        kwargs["top_k"] = req.top_k
     result = await llm_gateway.complete(messages, model=req.model, owner_uuid=owner_uuid, **kwargs)
     # 错误前置返回(P1 错误标准化,2026-07-22 立):
     # 之前 LLM 错误一律 HTTP 200 + result.error:True,网关/监控层无法通过状态码识别失败,
@@ -1171,6 +1206,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     messages = _inject_plan_mode_prompt(req.messages, req.plan_mode)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(messages, req.workspace_path, req.workspace_context)
+    # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
+    messages = _inject_custom_system_prompt(messages, req.system_prompt)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:
@@ -2044,6 +2081,16 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 _native_fc_kwargs["tools"] = req.tools
                 if req.tool_choice is not None:
                     _native_fc_kwargs["tool_choice"] = req.tool_choice
+            # P1-7(2026-09-13 立):高级参数面板 temperature/top_p/top_k/max_tokens 透传
+            # (厂商不支持时由 llm_gateway.filter_call_kwargs 兜底剔除)
+            if req.temperature is not None:
+                _native_fc_kwargs["temperature"] = req.temperature
+            if req.top_p is not None:
+                _native_fc_kwargs["top_p"] = req.top_p
+            if req.top_k is not None:
+                _native_fc_kwargs["top_k"] = req.top_k
+            if req.max_tokens is not None:
+                _native_fc_kwargs["max_tokens"] = req.max_tokens
             # 2026-09-03 修复(agent 通道污染):原生 FC 本轮是否已发出 tool-call-start。
             # agent 场景模型常返回 tool_calls + 0 content,下方空回复兜底若不排除该情况,
             # 会往流里插一条"抱歉,未能生成有效回复"假文案,被 CLI 存入 assistant 消息回传 provider,污染上下文。
