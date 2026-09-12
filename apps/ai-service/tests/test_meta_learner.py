@@ -19,7 +19,9 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, MagicMock
+from uuid import UUID
 
 import pytest
 
@@ -665,4 +667,295 @@ class TestSingleton:
     def test_singleton_exists(self):
         assert meta_learner is not None
         assert isinstance(meta_learner, MetaLearner)
+
+
+# =============================================================================
+# 回归:agent_meta_lessons.id 为 bigint(禁止向 asyncpg 传 UUID)
+# =============================================================================
+
+
+def _make_pool_mock() -> tuple[MagicMock, MagicMock]:
+    """构造 asyncpg mock 连接池 + 连接(不连真实 DB)。"""
+    mock_pool = MagicMock()
+    mock_conn = MagicMock()
+    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+    mock_conn.execute = AsyncMock(return_value="INSERT 0 1")
+    mock_conn.fetchrow = AsyncMock(return_value=None)
+    return mock_pool, mock_conn
+
+
+def _make_lesson(lesson_id: str = "d3483336-d3a9-48fd-a0f8-ca9a5de23255") -> dict:
+    return {
+        "lessonId": lesson_id,
+        "lessonType": "failure_pattern",
+        "title": "T1",
+        "content": "C1",
+        "sourceSkills": ["s1"],
+        "failurePatternId": "fp_1",
+        "occurrenceCount": 1,
+        "confidence": 0.6,
+    }
+
+
+class TestBigintIdWrite:
+    """id 列是 bigint:SQL 不得显式写 id,参数不得是 uuid.UUID。"""
+
+    @pytest.mark.asyncio
+    async def test_insert_omits_id_and_never_passes_uuid(self, monkeypatch):
+        """INSERT 路径:不写 id 列,不传 UUID(交给 DB 序列生成)。"""
+        learner = MetaLearner()
+        mock_pool, mock_conn = _make_pool_mock()
+        mock_conn.fetchrow = AsyncMock(return_value=None)  # 不存在 → INSERT
+
+        async def fake_get_pool():
+            return mock_pool
+
+        monkeypatch.setattr("app.services.meta_learner._get_pool", fake_get_pool)
+
+        ok = await learner._upsert_lesson(_make_lesson())
+        assert ok is True
+        assert mock_conn.execute.await_count == 1  # 只 INSERT,无 UPDATE
+
+        sql, *args = mock_conn.execute.await_args.args
+        assert "INSERT INTO agent_meta_lessons" in sql
+        # 列清单里没有 id 列(交给 bigint 序列生成)
+        col_list = sql.split("(", 1)[1].split(")", 1)[0]
+        assert "id" not in [c.strip() for c in col_list.split(",")]
+        assert "$9" not in sql
+        assert len(args) == 8
+        # 关键回归断言:任何参数都不是 UUID 对象
+        assert not any(isinstance(a, UUID) for a in args)
+        assert args[0] == "failure_pattern"
+        assert args[1] == "T1"
+
+    @pytest.mark.asyncio
+    async def test_update_and_lookup_pass_int_id(self, monkeypatch):
+        """UPDATE 路径:主键查找与 WHERE id 都传 int,不传 UUID。"""
+        learner = MetaLearner()
+        mock_pool, mock_conn = _make_pool_mock()
+        # 第 1 次:主键查找(bigint)→ 第 2 次:_merge_source_skills 查已有 skills
+        mock_conn.fetchrow = AsyncMock(
+            side_effect=[{"id": 123, "occ": 2}, {"source_skills": ["old"]}]
+        )
+
+        async def fake_get_pool():
+            return mock_pool
+
+        monkeypatch.setattr("app.services.meta_learner._get_pool", fake_get_pool)
+
+        ok = await learner._upsert_lesson(_make_lesson())
+        assert ok is True
+        assert mock_conn.execute.await_count == 1
+
+        sql, *args = mock_conn.execute.await_args.args
+        assert "UPDATE agent_meta_lessons" in sql
+        assert "WHERE id = $6" in sql
+        assert args[5] == 123
+        assert not any(isinstance(a, UUID) for a in args)
+        # _merge_source_skills 的查询同样传 int
+        lookup_sql, lookup_arg = mock_conn.fetchrow.await_args_list[1].args
+        assert "WHERE id = $1" in lookup_sql
+        assert lookup_arg == 123
+
+    @pytest.mark.asyncio
+    async def test_delete_numeric_key_passes_int(self, monkeypatch):
+        """delete_lesson:hydrate 自 DB 的数字串 key → 按 int 主键删除。"""
+        learner = MetaLearner()
+        mock_pool, mock_conn = _make_pool_mock()
+
+        async def fake_get_pool():
+            return mock_pool
+
+        monkeypatch.setattr("app.services.meta_learner._get_pool", fake_get_pool)
+
+        ok = await learner.delete_lesson("123")
+        assert ok is True
+        sql, *args = mock_conn.execute.await_args.args
+        assert "DELETE FROM agent_meta_lessons WHERE id = $1" in sql
+        assert args == [123]
+        assert not any(isinstance(a, UUID) for a in args)
+
+    @pytest.mark.asyncio
+    async def test_delete_uuid_key_falls_back_to_type_title(self, monkeypatch):
+        """delete_lesson:UUID 内存 key 无 bigint 映射 → 按 (lesson_type,title) 删。"""
+        learner = MetaLearner()
+        mock_pool, mock_conn = _make_pool_mock()
+        uuid_key = "d3483336-d3a9-48fd-a0f8-ca9a5de23255"
+        learner._lessons[uuid_key] = {
+            "lessonId": uuid_key,
+            "lessonType": "failure_pattern",
+            "title": "T1",
+        }
+        learner._title_index[("failure_pattern", "T1")] = uuid_key
+
+        async def fake_get_pool():
+            return mock_pool
+
+        monkeypatch.setattr("app.services.meta_learner._get_pool", fake_get_pool)
+
+        ok = await learner.delete_lesson(uuid_key)
+        assert ok is True
+        sql, *args = mock_conn.execute.await_args.args
+        assert "lesson_type = $1 AND title = $2" in sql
+        assert args == ["failure_pattern", "T1"]
+        assert not any(isinstance(a, UUID) for a in args)
+
+    @pytest.mark.asyncio
+    async def test_ensure_lesson_table_creates_bigint_id(self, monkeypatch):
+        """自愈建表 DDL 的 id 必须是 bigint(与生产库一致),不是 uuid。"""
+        learner = MetaLearner()
+        mock_pool, mock_conn = _make_pool_mock()
+
+        async def fake_get_pool():
+            return mock_pool
+
+        monkeypatch.setattr("app.services.meta_learner._get_pool", fake_get_pool)
+
+        await learner._ensure_lesson_table()
+        create_sql = mock_conn.execute.await_args_list[0].args[0]
+        assert "CREATE TABLE IF NOT EXISTS agent_meta_lessons" in create_sql
+        assert "id bigserial PRIMARY KEY" in create_sql
+        assert "id uuid PRIMARY KEY" not in create_sql
+
+
+# =============================================================================
+# 回归:source_skills 生产库为 jsonb(非 text[])
+# =============================================================================
+
+
+class TestSourceSkillsJsonb:
+    """source_skills jsonb:DDL / 写入序列化 / 读取归一化三处必须一致。"""
+
+    @pytest.mark.asyncio
+    async def test_ddl_uses_jsonb_not_text_array(self, monkeypatch):
+        """DDL 必须与生产库一致:jsonb DEFAULT '[]'::jsonb,且不缺列。"""
+        learner = MetaLearner()
+        mock_pool, mock_conn = _make_pool_mock()
+
+        async def fake_get_pool():
+            return mock_pool
+
+        monkeypatch.setattr("app.services.meta_learner._get_pool", fake_get_pool)
+
+        await learner._ensure_lesson_table()
+        create_sql = mock_conn.execute.await_args_list[0].args[0]
+        assert "source_skills jsonb DEFAULT '[]'::jsonb" in create_sql
+        assert "text[]" not in create_sql
+        # 生产库存在但旧 DDL 缺失的列,必须补齐
+        for col in (
+            "user_id text",
+            "anonymized_content text",
+            "source_user_ids_hash text",
+            "dp_noise_added boolean DEFAULT false",
+        ):
+            assert col in create_sql
+        # 默认值与生产库对齐
+        assert "occurrence_count integer DEFAULT 0" in create_sql
+        assert "confidence double precision DEFAULT 0" in create_sql
+
+    @pytest.mark.asyncio
+    async def test_insert_passes_json_string_and_cast(self, monkeypatch):
+        """INSERT:source_skills 参数是 JSON 字符串,SQL 含 $4::jsonb。"""
+        learner = MetaLearner()
+        mock_pool, mock_conn = _make_pool_mock()
+        mock_conn.fetchrow = AsyncMock(return_value=None)  # 不存在 → INSERT
+
+        async def fake_get_pool():
+            return mock_pool
+
+        monkeypatch.setattr("app.services.meta_learner._get_pool", fake_get_pool)
+
+        lesson = _make_lesson()
+        lesson["sourceSkills"] = ["甲-skill", "b"]
+        ok = await learner._upsert_lesson(lesson)
+        assert ok is True
+
+        sql, *args = mock_conn.execute.await_args.args
+        assert "INSERT INTO agent_meta_lessons" in sql
+        assert "$4::jsonb" in sql
+        assert isinstance(args[3], str)
+        assert json.loads(args[3]) == ["甲-skill", "b"]
+        # 不得把 list/tuple 直接交给 asyncpg(未注册 codec 会类型报错)
+        assert not any(isinstance(a, (list, tuple)) for a in args)
+
+    @pytest.mark.asyncio
+    async def test_update_passes_json_string_and_cast(self, monkeypatch):
+        """UPDATE:source_skills 参数是 JSON 字符串,SQL 含 $2::jsonb(与 INSERT 一并处理)。"""
+        learner = MetaLearner()
+        mock_pool, mock_conn = _make_pool_mock()
+        # 第 1 次:主键查找;第 2 次:_merge_source_skills 读到 jsonb 的 str 形态
+        mock_conn.fetchrow = AsyncMock(
+            side_effect=[{"id": 123, "occ": 2}, {"source_skills": '["old"]'}]
+        )
+
+        async def fake_get_pool():
+            return mock_pool
+
+        monkeypatch.setattr("app.services.meta_learner._get_pool", fake_get_pool)
+
+        ok = await learner._upsert_lesson(_make_lesson())
+        assert ok is True
+
+        sql, *args = mock_conn.execute.await_args.args
+        assert "UPDATE agent_meta_lessons" in sql
+        assert "source_skills = $2::jsonb" in sql
+        assert isinstance(args[1], str)
+        assert json.loads(args[1]) == ["old", "s1"]
+        assert not any(isinstance(a, (list, tuple)) for a in args)
+
+    def test_coerce_source_skills_str_and_list(self):
+        """读取归一化:str(jsonb 无 codec)与 list 都得到 list[str]。"""
+        coerce = MetaLearner._coerce_source_skills
+        assert coerce('["a","b"]') == ["a", "b"]
+        assert coerce(["a", "b"]) == ["a", "b"]
+        assert coerce(None) == []
+        assert coerce("not-json") == []
+        assert coerce('{"a":1}') == []
+
+    @pytest.mark.asyncio
+    async def test_load_all_lessons_handles_jsonb_str(self, monkeypatch):
+        """load_all_lessons 对 str / list 两种返回都得到 list[str]。"""
+        learner = MetaLearner()
+        rows = [
+            make_db_row(
+                lesson_id="11111111-1111-1111-1111-111111111111",
+                source_skills='["x","y"]',  # asyncpg jsonb 无 codec 时返回 str
+            ),
+            make_db_row(
+                lesson_id="22222222-2222-2222-2222-222222222222",
+                title="T2",
+                source_skills=["z"],  # 已注册 codec 时返回 list
+            ),
+        ]
+        mock_pool = MagicMock()
+        mock_conn = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+        mock_conn.fetch = AsyncMock(return_value=rows)
+
+        async def fake_get_pool():
+            return mock_pool
+
+        monkeypatch.setattr("app.services.meta_learner._get_pool", fake_get_pool)
+
+        count = await learner.load_all_lessons()
+        assert count == 2
+        assert learner._lessons[
+            "11111111-1111-1111-1111-111111111111"
+        ]["sourceSkills"] == ["x", "y"]
+        assert learner._lessons[
+            "22222222-2222-2222-2222-222222222222"
+        ]["sourceSkills"] == ["z"]
+
+    @pytest.mark.asyncio
+    async def test_merge_source_skills_handles_str_and_list(self):
+        """_merge_source_skills 对 str / list 都能合并,返回类型恒为 list。"""
+        learner = MetaLearner()
+        conn = MagicMock()
+        for raw in ('["a"]', ["a"]):
+            conn.fetchrow = AsyncMock(return_value={"source_skills": raw})
+            merged = await learner._merge_source_skills(conn, 1, ["b"])
+            assert isinstance(merged, list)
+            assert merged == ["a", "b"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

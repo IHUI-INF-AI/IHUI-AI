@@ -1178,6 +1178,11 @@ class AgentLoopV2:
             from .self_healing_llm import list_workspace_files
 
             ctx["workspace_files"] = list_workspace_files(str(info))
+            # 失败测试的真实源码(断言)注入:否则 LLM 只看归因消息会猜错修复方向。
+            # 与 routers/self_healing._patch_adapter 保持同一行为(同一函数、同一时机)。
+            from .self_healing_llm import read_failure_sources
+
+            ctx["failing_test_source"] = read_failure_sources(failure, ctx)
             patch = llm_patch_fn(failure, ctx)
             if patch is None:
                 return None

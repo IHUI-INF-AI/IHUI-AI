@@ -28,6 +28,7 @@ from app.services.self_healing_llm import (
     llm_gen_fn,
     llm_patch_and_apply,
     llm_patch_fn,
+    read_failure_sources,
 )
 
 # ---------------------------------------------------------------------------
@@ -355,3 +356,124 @@ def test_route_success_contract(monkeypatch: pytest.MonkeyPatch) -> None:
     body = resp.json()
     assert body["code"] == 0
     assert body["data"]["ok"] is True
+
+
+# ---------------------------------------------------------------------------
+# read_failure_sources:失败测试真实源码收集(2026-09-12,补丁命中质量)
+# ---------------------------------------------------------------------------
+
+
+def test_read_failure_sources_dotted_module_resolves(tmp_path: Any) -> None:
+    """pytest junit classname 是点分模块名(test_calc)-> 还原到 test_calc.py。"""
+    src = "from calc import divide\n\n\ndef test_divide_by_zero():\n    assert divide(6, 0) == 0\n"
+    (tmp_path / "test_calc.py").write_text(src, encoding="utf-8")
+    out = read_failure_sources(
+        {"test_id": "test_calc::test_divide_by_zero"},
+        {"workspace_root": str(tmp_path)},
+    )
+    assert "assert divide(6, 0) == 0" in out
+
+
+def test_read_failure_sources_relative_path_and_root(tmp_path: Any) -> None:
+    """test_id 相对路径(tests/test_x.py::test_a)+ workspace_root 拼接。"""
+    d = tmp_path / "tests"
+    d.mkdir()
+    (d / "test_x.py").write_text("def test_a():\n    assert 1\n", encoding="utf-8")
+    out = read_failure_sources(
+        {"test_id": "tests/test_x.py::test_a"}, {"workspace_root": str(tmp_path)}
+    )
+    assert "def test_a()" in out
+
+
+def test_read_failure_sources_absolute_path(tmp_path: Any) -> None:
+    """test_id 为绝对路径时直接读取(仍在 workspace_root 内)。"""
+    f = tmp_path / "test_abs.py"
+    f.write_text("def test_abs():\n    assert True\n", encoding="utf-8")
+    out = read_failure_sources(
+        {"test_id": f"{f}::test_abs"}, {"workspace_root": str(tmp_path)}
+    )
+    assert "test_abs" in out
+
+
+def test_read_failure_sources_rejects_traversal(tmp_path: Any) -> None:
+    """目录穿越(../ 逃出 workspace_root)-> 拒绝,返回空串。"""
+    root = tmp_path / "ws"
+    root.mkdir()
+    (tmp_path / "outside.py").write_text("SECRET = 1\n", encoding="utf-8")
+    out = read_failure_sources(
+        {"test_id": "../outside.py::test_x"}, {"workspace_root": str(root)}
+    )
+    assert out == ""
+
+
+def test_read_failure_sources_no_file_returns_empty(tmp_path: Any) -> None:
+    """test_id 解析不出文件 -> 优雅返回空串(不抛错)。"""
+    assert (
+        read_failure_sources({"test_id": "test_a"}, {"workspace_root": str(tmp_path)})
+        == ""
+    )
+    assert read_failure_sources({"test_id": "pytest::test_x"}, {"workspace_root": str(tmp_path)}) == ""
+
+
+def test_read_failure_sources_no_root_or_bad_context() -> None:
+    """缺 workspace_root / context 非 dict / failure 非 dict-str -> 空串。"""
+    assert read_failure_sources({"test_id": "test_x"}, {}) == ""
+    assert read_failure_sources({"test_id": "test_x"}, "nope") == ""
+    assert read_failure_sources(123, {"workspace_root": "x"}) == ""
+    assert read_failure_sources(None, {"workspace_root": "x"}) == ""
+
+
+def test_read_failure_sources_truncates_long_file(tmp_path: Any) -> None:
+    """超长文件按 200 行 / limit_chars 截断并注明截断。"""
+    (tmp_path / "test_big.py").write_text(
+        "\n".join(f"assert {i}" for i in range(500)), encoding="utf-8"
+    )
+    out = read_failure_sources(
+        {"test_id": "test_big::test_x"}, {"workspace_root": str(tmp_path)}
+    )
+    assert "[truncated" in out
+    assert out.count("\n") <= 201
+    # 字符上限同样生效
+    out2 = read_failure_sources(
+        {"test_id": "test_big::test_x"},
+        {"workspace_root": str(tmp_path)},
+        limit_chars=50,
+    )
+    assert "[truncated" in out2
+    assert len(out2) < 200
+
+
+# ---------------------------------------------------------------------------
+# llm_patch_fn:失败测试源码必须进 user prompt
+# ---------------------------------------------------------------------------
+
+
+def test_llm_patch_fn_prompt_includes_failing_test_source(tmp_path: Any) -> None:
+    """context 只给 workspace_root -> llm_patch_fn 自行收集源码并写入 prompt。"""
+    src = "def test_divide_by_zero():\n    assert divide(6, 0) == 0\n"
+    (tmp_path / "test_calc.py").write_text(src, encoding="utf-8")
+    gw = FakeGateway(json.dumps({"file_path": str(tmp_path / "calc.py"), "new_content": "x"}))
+    failure = {"test_id": "test_calc::test_divide_by_zero", "message": "ZeroDivisionError"}
+    out = llm_patch_fn(failure, {"workspace_root": str(tmp_path)}, llm=gw)
+    assert out is not None
+    user = gw.calls[0][1]["content"]
+    assert "Failing test source (authoritative" in user
+    assert "assert divide(6, 0) == 0" in user
+    # 位置:源码段落紧跟在 "Failing test:" 之后
+    assert user.index("Failing test:") < user.index("Failing test source (authoritative")
+
+
+def test_llm_patch_fn_uses_injected_source(tmp_path: Any) -> None:
+    """_patch_adapter 显式注入的 context["failing_test_source"] 被直接采用。"""
+    gw = FakeGateway(json.dumps({"file_path": "x.py", "new_content": "y"}))
+    ctx = {"workspace_root": str(tmp_path), "failing_test_source": "MARKER_ASSERT_SRC"}
+    llm_patch_fn({"test_id": "t"}, ctx, llm=gw)
+    assert "MARKER_ASSERT_SRC" in gw.calls[0][1]["content"]
+
+
+def test_llm_patch_fn_no_source_still_works(tmp_path: Any) -> None:
+    """无源码可注入时 prompt 不含段落,契约不变(仍返回补丁)。"""
+    gw = FakeGateway(json.dumps({"file_path": "x.py", "new_content": "y"}))
+    out = llm_patch_fn({"test_id": "t"}, {"workspace_root": str(tmp_path)}, llm=gw)
+    assert out is not None
+    assert "Failing test source (authoritative" not in gw.calls[0][1]["content"]
