@@ -197,6 +197,9 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
         maxTokensPerReq: d.maxTokensPerReq,
       })
       // 脱敏:不返回 secret 哈希,仅返回明文 secret(仅此一次)
+      // 跳过响应脱敏(2026-09-13 修复):否则 response-sanitizer 把 apiKey/secret
+      // 字段打成 '***',开发者永远拿不到明文 key,key 创建即作废
+      request.skipResponseSanitization = true
       const { secret: _s, ...safe } = result.apiKey
       return reply.status(201).send(success({ apiKey: safe, secret: result.secret }))
     } catch (e) {
