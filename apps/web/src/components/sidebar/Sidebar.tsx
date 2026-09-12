@@ -11,7 +11,7 @@ import { LayoutDashboard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminRouters } from '@/hooks/use-admin-routers'
-import { useNavigationStore } from '@/stores/navigation'
+import { useNavigationStore, useOptimisticNavStore } from '@/stores/navigation'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
 import { ADMIN_NAV_GROUPS } from '@/components/layout/AdminNav'
@@ -88,24 +88,23 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   // 都触发 Sidebar 根重渲染 → 80+ NavLink/ExpandableNavItem/NavGroupSection 连锁。
   const userRoleId = useAuthStore((s) => s.user?.roleId)
 
-  // 乐观路由状态(2026-08-05 立):
+  // 乐观路由高亮(2026-08-05 立,2026-09-13 性能重构为 store 订阅):
   // 根因:usePathname() 在 Next.js 16 中不随点击立即更新,而是等导航完成(新页面 RSC 数据返回)后才变。
   // 这导致用户点击侧边栏菜单后,active 状态不立即变化,用户感知不到"已响应点击"。
-  // 方案:点击链接时立即设置 pendingHref,activeHref 基于 pendingHref 计算,
-  //      导航完成后用 useEffect 检测 pathname 与 pendingHref 一致时清空。
-  // 效果:用户点击菜单 → 侧边栏 active 状态立即更新 → 页面加载中 → 新页面出现
-  const [pendingHref, setPendingHref] = React.useState<string | null>(null)
+  //
+  // 2026-09-13 重构:这里**不再持有 React state**。旧实现 `setPendingHref` 会重渲染整棵
+  // Sidebar(97 个导航项 + 分组 + 快捷区 + 历史列表),实测给 click→pushState 增加 82ms
+  // 且与 startNav() 叠加后首帧同步长任务 94ms。
+  // 现在只把目标 href 写入 store,由叶子项(NavLink / ExpandableNavItem)用布尔选择器
+  // 自行订阅 —— 单次点击只有"旧激活项"和"新目标项"两个叶子重渲染,本组件零重渲染。
+  const setOptimisticHref = useOptimisticNavStore((s) => s.set)
+  const clearOptimisticHref = useOptimisticNavStore((s) => s.clear)
 
-  // 显示用 pathname:有 pendingHref 且与真实 pathname 不一致时用 pendingHref,
-  // 让 activeHref 在导航完成前就指向新路由。
-  const displayPathname = pendingHref ?? pathname
-
-  // 导航完成后清空 pendingHref
+  // 导航落地后释放乐观态(任何 pathname 变化都要清,否则用户经页面内链接跳到别处时
+  // 侧栏会残留旧的高亮)。pathname 变化本就会让 Sidebar 重渲染,此处不额外触发点击链成本。
   React.useEffect(() => {
-    if (pendingHref && pendingHref === pathname) {
-      setPendingHref(null)
-    }
-  }, [pathname, pendingHref])
+    clearOptimisticHref()
+  }, [pathname, clearOptimisticHref])
 
   // 预取策略(2026-09-04 修正:恢复生产预取,只删过度预热):
   // next 16.3.4 升级后 Turbopack 编译已快到 17~49ms,专为"对抗 3-5s 冷编译"设计的
@@ -116,8 +115,11 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   // 点击 314ms→143ms(prefetchRsc 缓存命中),这是"立马响应"的关键:
   //   · <Link> 默认视口预取(NavLink/ExpandableNavItem 不设 prefetch={false})
   //   · NavLink onPointerEnter/onFocus → router.prefetch(悬停按需,精准幂等)
-  // dev 模式 cache-bypass 使预取缓存失效(点击仍走 RSC 往返,~350-850ms 为 Next dev 架构下限),
-  // 但预取请求由 Next 内部去重,不构成额外负担。
+  // dev(2026-09-12 实测+源码复核):上述预取在 dev 全部失效——app-router-utils.js 的
+  // createPrefetchURL() 第 45-48 行 `if (NODE_ENV === 'development') return null`
+  // 统一拦截,<Link> 视口/悬停预取与 router.prefetch 都不会发出请求(浏览器实测:
+  // 悬停侧栏链接 3s 后无任何 ?_rsc= 请求)。dev 下无法用预取规避首次访问的
+  // Turbopack 按需编译,只能靠"降低单路由编译量 + 预热高频路由"。
   const startNav = useNavigationStore((s) => s.start)
 
   // 点击导航项时立即设置乐观路由 + 触发全局进度条。
@@ -127,10 +129,10 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   const handleBeforeNav = React.useCallback(
     (href: string) => {
       if (href === pathname) return
-      setPendingHref(href)
+      setOptimisticHref(href)
       startNav()
     },
-    [startNav, pathname],
+    [startNav, setOptimisticHref, pathname],
   )
 
   // 稳定引用 registerRef(2026-08-05 深度修复):
@@ -326,9 +328,9 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   )
 
   const activeHref = React.useMemo(() => {
-    const found = allVisibleItems.find((item) => isHrefActive(item.href, displayPathname))
+    const found = allVisibleItems.find((item) => isHrefActive(item.href, pathname))
     return found?.href
-  }, [allVisibleItems, displayPathname])
+  }, [allVisibleItems, pathname])
 
   React.useEffect(() => {
     if (!activeHref) return

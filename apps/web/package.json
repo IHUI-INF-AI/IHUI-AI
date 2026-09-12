@@ -6,9 +6,9 @@
   "scripts": {
     "predev": "node ../../scripts/check-stale-stashes.mjs && node ../../scripts/deploy-lock.mjs acquire --mode dev",
     "postinstall": "node scripts/copy-monaco-to-public.mjs",
-    "dev": "node ../../scripts/clean-turbopack-cache.mjs && next dev --turbopack -p 8801",
-    "dev:clean": "rimraf .next .dev.lock && node ../../scripts/deploy-lock.mjs acquire --mode dev && next dev --turbopack -p 8801",
-    "dev:stable": "rimraf .next .dev.lock && node ../../scripts/deploy-lock.mjs acquire --mode dev && next dev -p 8801",
+    "dev": "node ../../scripts/unlock-dev-prefetch.mjs && node ../../scripts/clean-turbopack-cache.mjs && node ../../scripts/dev-with-warmup.mjs",
+    "dev:clean": "node ../../scripts/unlock-dev-prefetch.mjs && rimraf .next .dev.lock && node ../../scripts/deploy-lock.mjs acquire --mode dev && next dev --turbopack -p 8801",
+    "dev:stable": "node ../../scripts/unlock-dev-prefetch.mjs && rimraf .next .dev.lock && node ../../scripts/deploy-lock.mjs acquire --mode dev && next dev -p 8801",
     "prebuild": "node ../../scripts/deploy-lock.mjs acquire --mode build --timeout 600000 --stale 600000 && pnpm --filter @ihui/extension build && node ../../scripts/sync-downloads.mjs --platform=extension",
     "build": "node --max-old-space-size=8192 node_modules/next/dist/bin/next build",
     "build:analyze": "pnpm exec next experimental-analyze",
