@@ -156,6 +156,16 @@ class ContextRecallService:
                     "compressed_at": entry.get("compressed_at"),
                 }
             )
+        # 1-3 压缩生产指标(2026-09-12 立,H7 回捞命中率):每次回捞查询上报
+        # hit(检索到 ≥1 条被压缩内容)/ miss;fail-open,绝不影响回捞主链路。
+        try:
+            from .compaction_metrics import record_recall_query
+
+            record_recall_query(
+                session_id=session_id, hit=bool(results), result_count=len(results)
+            )
+        except Exception as e:  # noqa: BLE001 - 指标上报绝不影响回捞链路
+            logger.debug("context_recall 指标上报失败: %s", e)
         return {"ok": True, "results": results}
 
 

@@ -184,4 +184,158 @@ async def test_compaction_off_small_context_noop():
     assert result.success is True
     assert result.compaction_events == []
     assert len(seen[0]) == 2
+
+
+# =============================================================================
+# 1-3 压缩灰度机制(2026-09-12 立):AGENT_COMPACTION_MODE=off/ratio/full +
+# AGENT_COMPACTION_CANARY_PERCENT 按 session_id 稳定哈希。
+# 以下测试均不传 compaction_enabled(构造参数显式传参 = 与现状逐零差异,
+# 走灰度决策路径);显式传 compaction_context_limit 便于构造超限场景。
+# =============================================================================
+
+
+async def test_canary_mode_off_disables_compaction(monkeypatch):
+    """MODE=off 优先级最高:即使 legacy env enabled 也不压缩(一键回滚)。"""
+    seen_sizes: list[int] = []
+
+    async def mock_llm(messages, tools):
+        seen_sizes.append(len(messages))
+        return {"content": "完成", "tool_calls": None}
+
+    monkeypatch.setenv("AGENT_COMPACTION_ENABLED", "true")
+    monkeypatch.setenv("AGENT_COMPACTION_MODE", "off")
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool()],
+        max_iterations=3,
+        session_id="canary-off-session",
+        compaction_context_limit=8000,
+    )
+    result = await loop.run(_big_history_messages())
+
+    assert result.success is True
+    assert result.compaction_events == []
+    # off 模式:LLM 原样看到全部 13 条消息
+    assert seen_sizes[0] == len(_big_history_messages())
+
+
+async def test_canary_mode_ratio_triggers_deterministic(monkeypatch):
+    """MODE=ratio(默认 100% 灰度)→ 确定性压缩触发,指标进入报告。"""
+    import app.services.agent_loop_v2 as mod
+    from app.services.compaction_metrics import (
+        get_compaction_metrics_report,
+        reset_compaction_metrics,
+    )
+
+    reset_compaction_metrics()
+    monkeypatch.setenv("AGENT_COMPACTION_MODE", "ratio")
+    monkeypatch.setattr(mod, "DEFAULT_COMPACTION_KEEP_RECENT", 2)
+
+    seen: list[list[dict]] = []
+
+    async def mock_llm(messages, tools):
+        seen.append(list(messages))
+        return {"content": "北京晴", "tool_calls": None}
+
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool()],
+        max_iterations=3,
+        session_id="canary-ratio-session",
+        compaction_context_limit=8000,
+    )
+    result = await loop.run(_big_history_messages())
+
+    assert result.success is True
+    assert len(result.compaction_events) == 1
+    assert result.compaction_events[0]["trigger"] == "deterministic"
+    assert len(seen[0]) < len(_big_history_messages())
+    # 1-3 指标:压缩事件 + run 成功结果进入报告
+    report = get_compaction_metrics_report()
+    assert report["events_total"] >= 1
+    # 确定性路径:沿用压缩器机制标签(ratio)
+    assert report["by_trigger"].get("ratio", 0) >= 1
+    assert report["runs"]["total"] == 1
+    assert report["runs"]["success_rate"] == 1.0
+
+
+async def test_canary_mode_full_uses_llm_path(monkeypatch):
+    """MODE=full → 走 compact_with_llm 语义压缩路径,trigger 记为 llm。"""
+    import app.services.compact_with_llm as cwl
+    from app.services.compaction_metrics import (
+        get_compaction_metrics_report,
+        reset_compaction_metrics,
+    )
+
+    reset_compaction_metrics()
+    monkeypatch.setenv("AGENT_COMPACTION_MODE", "full")
+
+    llm_calls: list[int] = []
+
+    async def mock_llm(messages, tools):
+        llm_calls.append(len(messages))
+        return {"content": "北京晴", "tool_calls": None}
+
+    async def fake_compact_with_llm(
+        messages, context_limit, llm_complete_fn, **kwargs
+    ):
+        # 语义压缩成功:返回压缩后消息 + 带 llm_summary 的 info
+        compressed = [
+            messages[0],
+            {"role": "user", "content": "[LLM 摘要] 此前多轮天气问答已压缩。"},
+            messages[-1],
+        ]
+        info = {
+            "compressed": True,
+            "original_tokens": 16100,
+            "compressed_tokens": 4000,
+            "removed_count": 10,
+            "llm_summary": "此前多轮天气问答已压缩。",
+        }
+        return compressed, info
+
+    monkeypatch.setattr(cwl, "compact_with_llm", fake_compact_with_llm)
+
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool()],
+        max_iterations=3,
+        session_id="canary-full-session",
+        compaction_context_limit=8000,
+    )
+    result = await loop.run(_big_history_messages())
+
+    assert result.success is True
+    assert len(result.compaction_events) == 1
+    assert result.compaction_events[0]["trigger"] == "llm"
+    # 压缩后的消息(3 条 < 13 条)进入 LLM
+    assert llm_calls[0] < len(_big_history_messages())
+    # 1-3 指标:llm trigger 事件进入报告
+    report = get_compaction_metrics_report()
+    assert report["by_trigger"].get("llm", 0) == 1
+
+
+async def test_canary_zero_percent_falls_back_to_legacy(monkeypatch):
+    """MODE=ratio + PERCENT=0(未命中灰度)→ 回退 legacy(默认关闭),不压缩。"""
+    seen_sizes: list[int] = []
+
+    async def mock_llm(messages, tools):
+        seen_sizes.append(len(messages))
+        return {"content": "完成", "tool_calls": None}
+
+    monkeypatch.setenv("AGENT_COMPACTION_MODE", "ratio")
+    monkeypatch.setenv("AGENT_COMPACTION_CANARY_PERCENT", "0")
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool()],
+        max_iterations=3,
+        session_id="canary-zero-percent-session",
+        compaction_context_limit=8000,
+    )
+    result = await loop.run(_big_history_messages())
+
+    assert result.success is True
+    assert result.compaction_events == []
+    # legacy(env 未设 AGENT_COMPACTION_ENABLED,默认 off)→ 原样消息
+    assert seen_sizes[0] == len(_big_history_messages())
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
