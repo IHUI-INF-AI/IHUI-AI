@@ -71,6 +71,17 @@ export interface RepoWikiBudgetResult {
   fileCount: number
 }
 
+/**
+ * 模块依赖边(P1-8 2026-09-13 立)。
+ * from/to 均为顶层模块名(规则同 budgetRepoFiles:路径首段;无 '/' → '(root)'),
+ * count 为该依赖在源码中被引用的次数。
+ */
+export interface RepoWikiModuleEdge {
+  from: string
+  to: string
+  count: number
+}
+
 export interface GenerateRepoWikiInput {
   /** 所属用户(NULL = 全局 wiki) */
   userId: string | null
@@ -89,6 +100,8 @@ export interface RepoWikiDocRef {
 export interface GenerateRepoWikiResult {
   docs: RepoWikiDocRef[]
   skippedModules: string[]
+  /** P1-8(2026-09-13 立):确定性静态解析出的模块依赖边(纯新增字段,非 LLM 推断) */
+  edges: RepoWikiModuleEdge[]
 }
 
 /** LLM 调用函数签名(可注入 mock) */
@@ -150,6 +163,185 @@ export function budgetRepoFiles(files: RepoWikiFile[]): RepoWikiBudgetResult {
     skippedModules,
     fileCount: kept.reduce((sum, m) => sum + m.files.length, 0),
   }
+}
+
+// =============================================================================
+// 模块依赖图(纯函数,确定性静态解析;非 LLM 推断)
+// =============================================================================
+
+/** 模块归属规则(与 budgetRepoFiles 完全一致):路径首段;无 '/' → '(root)' */
+function moduleOfPath(path: string): string {
+  return path.includes('/') ? path.slice(0, path.indexOf('/')) : '(root)'
+}
+
+/** 相对导入去/补扩展名时尝试的扩展名(按此顺序匹配,取首个命中) */
+const RESOLVE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py'] as const
+
+/** JS/TS 导入候选:import ... from 'x' / import 'x' / require('x') */
+const JS_IMPORT_PATTERNS = [
+  /from\s*['"]([^'"]+)['"]/g,
+  /import\s*['"]([^'"]+)['"]/g,
+  /require\(\s*['"]([^'"]+)['"]/g,
+] as const
+
+/**
+ * Python 导入候选:from x import y / import x。
+ * 仅对 .py 文件应用——否则 TS 默认导入 `import foo from 'bar'` 会被 `import x` 规则
+ * 误捕获为说明符 `foo`,引入不确定的假边。
+ */
+const PY_IMPORT_PATTERNS = [
+  /^\s*from\s+([A-Za-z_][\w.]*)\s+import\b/gm,
+  /^\s*import\s+([A-Za-z_][\w.]*)/gm,
+] as const
+
+/** 归一化仓库内相对路径:折叠空段与 '.',处理 '..' 回退 */
+function normalizeRepoPath(path: string): string {
+  const out: string[] = []
+  for (const part of path.split('/')) {
+    if (part === '' || part === '.') continue
+    if (part === '..') {
+      out.pop()
+      continue
+    }
+    out.push(part)
+  }
+  return out.join('/')
+}
+
+/** 收集单个文件内容中的候选导入说明符(按扩展名选择语言对应的规则集) */
+function collectImportSpecifiers(path: string, content: string): string[] {
+  const patterns = path.toLowerCase().endsWith('.py') ? PY_IMPORT_PATTERNS : JS_IMPORT_PATTERNS
+  const specifiers: string[] = []
+  for (const re of patterns) {
+    re.lastIndex = 0
+    let m: RegExpExecArray | null
+    while ((m = re.exec(content)) !== null) {
+      const spec = m[1]
+      if (spec) specifiers.push(spec)
+      // 防零宽匹配导致死循环
+      if (m.index === re.lastIndex) re.lastIndex++
+    }
+  }
+  return specifiers
+}
+
+/**
+ * 解析相对导入:以导入文件所在目录拼接后归一化,再依次尝试
+ * 「原样路径 / 补扩展名 / 补 /index.*」匹配已知文件路径集合。
+ * 命中返回被导入文件路径,未命中返回 null。
+ */
+function resolveRelativeImport(
+  fromPath: string,
+  specifier: string,
+  knownPaths: Set<string>,
+): string | null {
+  const dir = fromPath.includes('/') ? fromPath.slice(0, fromPath.lastIndexOf('/')) : ''
+  const base = normalizeRepoPath(dir ? `${dir}/${specifier}` : specifier)
+  if (!base) return null
+  if (knownPaths.has(base)) return base
+  for (const ext of RESOLVE_EXTENSIONS) {
+    if (knownPaths.has(base + ext)) return base + ext
+  }
+  for (const ext of RESOLVE_EXTENSIONS) {
+    const indexPath = `${base}/index${ext}`
+    if (knownPaths.has(indexPath)) return indexPath
+  }
+  return null
+}
+
+/**
+ * 从源码文件提取模块级依赖边(确定性静态解析,非 LLM 推断)。
+ *
+ * 规则:
+ * - 模块归属与 budgetRepoFiles 一致:path 首段;无 '/' → '(root)'
+ * - 相对导入(以 '.' 开头):按导入文件目录解析、归一化 '..'/'.',去扩展名后与
+ *   已知文件路径匹配(补 .ts/.tsx/.js/.jsx/.mjs/.cjs/.py 及 /index.*),命中才计边
+ * - 非相对导入:说明符首段(按 '/' 与 '.' 切分)命中仓库内已知顶层模块才计边,
+ *   否则视为外部依赖跳过(如 react / @ihui/xxx)
+ * - 丢弃自环(from === to);按 from+to 聚合 count;
+ *   排序:count 降序 → from 升序 → to 升序
+ * - 入参为空数组 → 返回 [],不抛异常
+ */
+export function extractImportEdges(files: RepoWikiFile[]): RepoWikiModuleEdge[] {
+  if (files.length === 0) return []
+  const knownPaths = new Set<string>(files.map((f) => f.path))
+  const knownModules = new Set<string>(files.map((f) => moduleOfPath(f.path)))
+  const counter = new Map<string, RepoWikiModuleEdge>()
+
+  for (const f of files) {
+    const from = moduleOfPath(f.path)
+    for (const spec of collectImportSpecifiers(f.path, f.content)) {
+      let to: string | null = null
+      if (spec.startsWith('.')) {
+        const resolved = resolveRelativeImport(f.path, spec, knownPaths)
+        if (resolved) to = moduleOfPath(resolved)
+      } else {
+        // Python 点分模块(pkg.sub)与 JS 路径(apps/api)统一按首段归属顶层模块
+        const firstSeg = spec.split(/[./]/)[0]
+        if (firstSeg && knownModules.has(firstSeg)) to = firstSeg
+      }
+      if (!to || to === from) continue
+      const key = `${from}\u0000${to}`
+      const existing = counter.get(key)
+      if (existing) existing.count++
+      else counter.set(key, { from, to, count: 1 })
+    }
+  }
+
+  return [...counter.values()].sort(
+    (a, b) =>
+      b.count - a.count ||
+      (a.from < b.from ? -1 : a.from > b.from ? 1 : 0) ||
+      (a.to < b.to ? -1 : a.to > b.to ? 1 : 0),
+  )
+}
+
+/** mermaid 节点:普通标识符直接用 id,含特殊字符(如 '(root)')时 id 也加引号;label 一律双引号包裹 */
+function mermaidNode(name: string): string {
+  const escaped = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+  const label = `"${escaped}"`
+  const id = /^[A-Za-z0-9_]+$/.test(name) ? name : `"${escaped}"`
+  return `${id}[${label}]`
+}
+
+/** 转义 Markdown 表格单元格(竖线与换行会破坏表格结构) */
+function escapeTableCell(value: string): string {
+  return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
+}
+
+/** 依赖图最多展示的边数(超出仅保留 count 最高的 N 条并追加说明) */
+const MAX_GRAPH_EDGES = 60
+
+/**
+ * 将模块依赖边渲染为 Markdown 章节(mermaid 图 + 表格)。
+ * edges 为空 → 返回 ''(调用方据此决定不追加章节);纯函数,无副作用、无 I/O。
+ */
+export function renderDependencyGraph(edges: RepoWikiModuleEdge[]): string {
+  if (edges.length === 0) return ''
+  const shown = edges.slice(0, MAX_GRAPH_EDGES)
+  const truncated = edges.length > MAX_GRAPH_EDGES
+  const lines: string[] = []
+  lines.push('## 模块依赖图')
+  lines.push('')
+  lines.push('由源码 import / require 静态解析得出（确定性生成，非 LLM 推断）。')
+  lines.push('')
+  lines.push('```mermaid')
+  lines.push('graph LR')
+  for (const e of shown) {
+    lines.push(`  ${mermaidNode(e.from)} --> ${mermaidNode(e.to)}`)
+  }
+  lines.push('```')
+  lines.push('')
+  lines.push('| 模块 | 依赖 | 引用数 |')
+  lines.push('| --- | --- | --- |')
+  for (const e of shown) {
+    lines.push(`| ${escapeTableCell(e.from)} | ${escapeTableCell(e.to)} | ${e.count} |`)
+  }
+  if (truncated) {
+    lines.push('')
+    lines.push(`（仅显示引用数最高的 ${MAX_GRAPH_EDGES} 条）`)
+  }
+  return lines.join('\n')
 }
 
 // =============================================================================
@@ -308,6 +500,12 @@ export async function generateRepoWiki(
     buildOverviewUserContent(input.repoName, input.files, budget),
   )
 
+  // P1-8(2026-09-13 立):模块依赖图——纯静态解析(不依赖 LLM),只追加到 overview 正文末尾。
+  // 解析结果为空时不追加章节(renderDependencyGraph 返回 '')。
+  const edges = extractImportEdges(input.files)
+  const graphSection = renderDependencyGraph(edges)
+  const overviewContent = graphSection ? `${overview.content}\n\n${graphSection}` : overview.content
+
   // 3. 逐模块生成文档(≤6 个,按采样体积降序;失败不阻断)
   const targetModules = budget.modules.slice(0, MAX_MODULE_DOCS)
   const moduleDocs: Array<{ module: RepoWikiModule; content: string; model: string | null }> = []
@@ -334,7 +532,7 @@ export async function generateRepoWiki(
         kind: 'overview',
         modulePath: null,
         title: `${input.repoName} 仓库总览`,
-        content: overview.content,
+        content: overviewContent,
         model: overview.model,
         fileCount: budget.fileCount,
       },
@@ -374,6 +572,7 @@ export async function generateRepoWiki(
       modulePath: row.modulePath,
     })),
     skippedModules,
+    edges,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
