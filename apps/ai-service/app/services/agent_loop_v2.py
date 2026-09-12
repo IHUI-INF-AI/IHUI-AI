@@ -707,6 +707,47 @@ class AgentEventStream:
             "session_id": session_id,
         })
 
+    async def emit_thinking_delta(
+        self, run_id: str, content: str, *, iteration: int
+    ) -> None:
+        """P0-5(2026-09-13):thinking 整段透出(workbench /agents/tasks/stream)。
+
+        阻塞式 LLM 调用拿到全量 reasoning 后一次性发射(is_final=True),不做
+        token 级流式(改造阻塞式调用风险大;前端 reasoningBatcher 做逐字动画,
+        语义上已是"流式可见")。调用方仅在 reasoning 非空时发射。
+        run_id 此处即 workbench session_id(SSE 消费方关联键)。
+        """
+        await self.emit("thinking.delta", {
+            "run_id": run_id,
+            "content": content,
+            "iteration": iteration,
+            "is_final": True,
+        })
+
+    async def emit_plan_step(
+        self,
+        run_id: str,
+        step_index: int,
+        tool_name: str,
+        status: str,
+        *,
+        decision: str | None = None,
+        reason: str | None = None,
+    ) -> None:
+        """P0-5(2026-09-13):plan 步骤事件(workbench 工具步骤时间线)。
+
+        status: started/completed/blocked;blocked 不在本层发射(拦截/审批路径
+        由 tool.after/error 事件承载)。run_id 此处即 workbench session_id。
+        """
+        await self.emit("plan.step", {
+            "run_id": run_id,
+            "step_index": step_index,
+            "tool_name": tool_name,
+            "status": status,
+            "decision": decision,
+            "reason": reason,
+        })
+
 
 # ---------------------------------------------------------------------------
 # 1-8 上下文超限压缩(2026-09-07 立):接近 token 上限时自动压缩旧消息,
@@ -2218,6 +2259,13 @@ class AgentLoopV2:
 
                 iteration.reasoning = content
 
+                # P0-5(2026-09-13):thinking 整段透出(仅非空时,is_final=True)。
+                # 阻塞式调用不做 token 级流式,前端 reasoningBatcher 做逐字动画。
+                if content:
+                    await self._events.emit_thinking_delta(
+                        self._session_id or "", content, iteration=i
+                    )
+
                 # 估算 token(粗略)
                 total_tokens += len(content) // 4 + 50
 
@@ -2811,6 +2859,14 @@ class AgentLoopV2:
 
     async def _execute_tools(self, tool_calls: list[ToolCall]) -> list[ToolResult]:
         """执行工具调用(并行或串行)。"""
+        # P0-5(2026-09-13):plan.step 事件——本批每工具执行前发 started、录制后发
+        # completed(成对);拦截/审批路径不发 blocked(由 tool.after/error 承载)。
+        # decision/reason 取结果可见路径推导(_derive_step_decision),auto 免审批
+        # 等不可见路径仍以录制器内的 hint 为准,此处尽力透出即可。
+        for idx, tc in enumerate(tool_calls):
+            await self._events.emit_plan_step(
+                self._session_id or "", idx, tc.name, "started"
+            )
         if self.parallel_tool_calls and len(tool_calls) > 1:
             # 并行执行
             # 2026-08-01 P1 修复:return_exceptions=True 防止单个工具异常崩溃整个 gather,
@@ -2818,7 +2874,7 @@ class AgentLoopV2:
             tasks = [self._execute_single(tc) for tc in tool_calls]
             gathered_raw = await asyncio.gather(*tasks, return_exceptions=True)
             results: list[ToolResult] = []
-            for tc, item in zip(tool_calls, gathered_raw, strict=False):
+            for idx, (tc, item) in enumerate(zip(tool_calls, gathered_raw, strict=False)):
                 if isinstance(item, BaseException):
                     logger.error("工具 %s 未捕获异常: %s", tc.name, item)
                     tr = ToolResult(
@@ -2833,14 +2889,25 @@ class AgentLoopV2:
                 else:
                     results.append(item)
                     self._maybe_record_step(tc, item)
+                    tr = item
+                decision, reason = _derive_step_decision(tr)
+                await self._events.emit_plan_step(
+                    self._session_id or "", idx, tc.name, "completed",
+                    decision=decision, reason=reason,
+                )
             return results
         else:
             # 串行执行(2026-08-01 P1 修复:变量名改为 serial_results,避免与并行分支的 results 重定义)
             serial_results: list[ToolResult] = []
-            for tc in tool_calls:
+            for idx, tc in enumerate(tool_calls):
                 result = await self._execute_single(tc)
                 serial_results.append(result)
                 self._maybe_record_step(tc, result)
+                decision, reason = _derive_step_decision(result)
+                await self._events.emit_plan_step(
+                    self._session_id or "", idx, tc.name, "completed",
+                    decision=decision, reason=reason,
+                )
             return serial_results
 
     @staticmethod
