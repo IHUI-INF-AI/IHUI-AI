@@ -23,6 +23,7 @@ import {
   X,
   Timer,
   AlertCircle,
+  Ban,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
@@ -37,6 +38,8 @@ import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useTimelineStore } from '@/stores/timeline-store'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
+import { useAgentRuntime } from '@/hooks/use-agent-runtime'
+import type { AgentPlanStepEvent } from '@/hooks/use-agent-runtime'
 import { useHoverPreview } from '@/hooks/use-hover-preview'
 import type { PlanStep, PlanStepStatus, AgentToolCall, Subagent } from '@/hooks/use-agent-progress'
 import {
@@ -513,6 +516,39 @@ function MinimizedSummaryBar({
 }
 
 // ─── 主组件(v13:Phase 20 全量集成) ─────────────────────────────────
+
+/** P0-5(2026-09-13):workbench plan-step 单行(状态图标 + 工具名 + 决策/原因) */
+function RuntimeStepRow({ step }: { step: AgentPlanStepEvent }) {
+  return (
+    <div
+      className="flex items-center gap-1.5 py-0.5 text-[11px]"
+      role="listitem"
+      data-testid={`runtime-step-${step.stepIndex}`}
+      data-status={step.status}
+    >
+      {step.status === 'completed' ? (
+        <Check className="h-3 w-3 shrink-0 text-emerald-500" aria-hidden />
+      ) : step.status === 'blocked' ? (
+        <Ban className="h-3 w-3 shrink-0 text-amber-500" aria-hidden />
+      ) : (
+        <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary" aria-hidden />
+      )}
+      <span className="w-5 shrink-0 text-right tabular-nums text-muted-foreground/60">
+        {step.stepIndex + 1}
+      </span>
+      <TruncatedText
+        value={step.toolName}
+        className="min-w-0 flex-1 font-mono text-foreground/80"
+      />
+      {(step.decision || step.reason) && (
+        <span className="max-w-[40%] shrink-0 truncate text-muted-foreground/60">
+          {step.decision ?? step.reason}
+        </span>
+      )}
+    </div>
+  )
+}
+
 export function AgentTaskProgressPane() {
   const t = useTranslations('ai.pane')
   const open = useAgentProgressPaneStore((s) => s.open)
@@ -573,6 +609,13 @@ export function AgentTaskProgressPane() {
   const progress = useAgentProgress(open ? threadId : null)
   const { planSteps, isStreaming, subagents, tools, changes, terminals, overview, currentTask } =
     progress
+
+  // P0-5(2026-09-13):workbench 运行时链路(/agents/tasks/stream 命名事件)。
+  // - runtimeThinking:loop_v2 reasoning 整段(多次事件拼接),chat 流无内容时兜底展示
+  // - runtimePlanSteps:工具步骤 started/completed 时间线(step_index 幂等)
+  const { thinkingContent: runtimeThinking, planSteps: runtimePlanSteps } = useAgentRuntime(
+    open && threadId ? threadId : null,
+  )
 
   // v15: 实时计时器 — 仅在 streaming 或 sessionStart 存在时每秒 tick,空闲时停止
   // elapsed 派生:基于 sessionStart + 累计 tick 秒数,避免依赖当前 Date.now()(避免重渲染后时间跳变)
@@ -1446,6 +1489,21 @@ export function AgentTaskProgressPane() {
             </>
           )}
 
+          {/* P0-5(2026-09-13):workbench plan-step 时间线(命名 SSE 事件,step_index 幂等);
+              仅当运行时链路有步骤时渲染,复用 planListLabel 文案 */}
+          {runtimePlanSteps.length > 0 && (
+            <div
+              className="mx-2 mt-1.5"
+              role="list"
+              aria-label={t('planListLabel')}
+              data-testid="pane-runtime-steps"
+            >
+              {runtimePlanSteps.map((step) => (
+                <RuntimeStepRow key={`${step.runId}-${step.stepIndex}`} step={step} />
+              ))}
+            </div>
+          )}
+
           {threadId && (
             <FoldableSectionProvider value={{ expandAll, setExpandAll }}>
               <div
@@ -1456,9 +1514,10 @@ export function AgentTaskProgressPane() {
                 className="min-h-0 overflow-y-auto overflow-x-hidden"
               >
                 <ThinkingSection
-                  content={overview.content}
+                  content={overview.content || runtimeThinking}
                   currentNode={overview.currentNode}
                   isStreaming={isStreaming}
+                  isGrowing={!isStreaming && runtimeThinking.length > 0}
                 />
                 {/* v19(2026-08-02 整合):当前任务摘要条 — 替代之前 v9 在 trigger 下方弹
                   的 TaskListPopover。当前任务(规划/MCP/插件调用/工具调用/终端/子代理)
