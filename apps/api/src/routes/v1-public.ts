@@ -328,9 +328,17 @@ async function fetchModels(userId?: string): Promise<{
         owned_by: 'byok',
         available: true,
       }))
+      // 跨上游去重(2026-09-13):同一 modelId 在多 provider 上架时,无前缀映射会
+      // 产出重复 id——按 id 保留排序最靠前(relaySortOrder 升序)的首个条目。
+      const seenIds = new Set<string>()
+      const relayListDeduped = relayList.filter((m) => {
+        if (seenIds.has(m.id)) return false
+        seenIds.add(m.id)
+        return true
+      })
       const mapped: V1ModelsResponse = {
         object: 'list',
-        data: [...relayList, ...byokList],
+        data: [...relayListDeduped, ...byokList],
       }
       modelsCache = { data: mapped, fetchedAt: now }
       return { body: mapped, source: 'db' }

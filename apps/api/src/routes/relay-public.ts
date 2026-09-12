@@ -89,11 +89,18 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
         )
         .orderBy(aiModelConfigModels.relaySortOrder, aiModelConfigModels.modelId)
 
-      const items: PublicRelayModelItem[] = rows.map((r) => {
+      // 跨上游去重(2026-09-13):同一 modelId 可在多个 provider/config 上架
+      // (如 token6688 与 swiftapi 同时供同一模型),对外目录只展示一条——
+      // 保留排序最靠前(relaySortOrder 升序)的首个条目。
+      const seenModelIds = new Set<string>()
+      const items: PublicRelayModelItem[] = []
+      for (const r of rows) {
+        if (seenModelIds.has(r.modelId)) continue
+        seenModelIds.add(r.modelId)
         const multiplier = Math.max(0, toNumber(r.relayPriceMultiplier, 1))
         const inputBase = toNumber(r.inputPricePer1k, 0)
         const outputBase = toNumber(r.outputPricePer1k, 0)
-        return {
+        items.push({
           modelId: r.modelId,
           displayName: r.relayDisplayName ?? r.displayName ?? r.modelId,
           providerCode: r.providerCode ?? r.configName ?? 'unknown',
@@ -104,8 +111,8 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
           relayInputPricePer1k: Math.round(inputBase * multiplier),
           relayOutputPricePer1k: Math.round(outputBase * multiplier),
           relaySortOrder: toNumber(r.relaySortOrder, 0),
-        }
-      })
+        })
+      }
 
       return reply.send(success({ items }))
     } catch {
