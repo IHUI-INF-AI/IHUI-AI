@@ -132,6 +132,24 @@ export interface ToolCallInfo {
   args: Record<string, unknown>
 }
 
+/** P0-5(2026-09-13):thinking SSE 事件 payload(agents.py "thinking.delta"→"thinking") */
+export interface AgentThinkingEvent {
+  runId: string
+  content: string
+  iteration: number | null
+  isFinal: boolean
+}
+
+/** P0-5(2026-09-13):plan-step SSE 事件 payload(agents.py "plan.step"→"plan-step") */
+export interface AgentPlanStepEvent {
+  runId: string
+  stepIndex: number
+  toolName: string
+  status: 'started' | 'completed' | 'blocked'
+  decision: string | null
+  reason: string | null
+}
+
 export interface AgentStreamCallbacks {
   onDelta?: (delta: string) => void
   onToolCall?: (toolCall: ToolCallInfo) => void
@@ -140,6 +158,10 @@ export interface AgentStreamCallbacks {
    *  前端据此弹窗请求用户批准/拒绝,再调 sendToolApprovalResponse 回传决策。 */
   onApprovalRequest?: (req: ToolApprovalRequest) => void
   onPlanProposed?: (plan: PlanProposal) => void
+  /** P0-5:reasoning 整段透出(前端逐字动画) */
+  onThinking?: (data: AgentThinkingEvent) => void
+  /** P0-5:工具步骤 started/completed/blocked */
+  onPlanStep?: (data: AgentPlanStepEvent) => void
   onDone?: (event: AgentStreamEvent) => void
   onError?: (error: string) => void
   onEvent?: (event: AgentStreamEvent) => void
@@ -494,6 +516,38 @@ function dispatchSSEEvent(event: AgentStreamEvent, callbacks: AgentStreamCallbac
     case 'tool-approval':
       callbacks.onApprovalRequest?.(toToolApprovalRequest(event))
       break
+    // P0-5(2026-09-13):workbench thinking/plan-step 归一化分发
+    // (payload 内 snake_case 字段,顶层 content 兜底)
+    case 'thinking': {
+      const p = (event.payload as Record<string, unknown> | undefined) ?? {}
+      const content =
+        typeof p.content === 'string'
+          ? p.content
+          : typeof event.content === 'string'
+            ? event.content
+            : ''
+      callbacks.onThinking?.({
+        runId: typeof p.run_id === 'string' ? p.run_id : '',
+        content,
+        iteration: typeof p.iteration === 'number' ? p.iteration : null,
+        isFinal: p.is_final === true,
+      })
+      break
+    }
+    case 'plan-step': {
+      const p = (event.payload as Record<string, unknown> | undefined) ?? {}
+      const rawStatus = typeof p.status === 'string' ? p.status : ''
+      callbacks.onPlanStep?.({
+        runId: typeof p.run_id === 'string' ? p.run_id : '',
+        stepIndex: typeof p.step_index === 'number' ? p.step_index : Number(p.step_index ?? 0),
+        toolName: typeof p.tool_name === 'string' ? p.tool_name : '',
+        status:
+          rawStatus === 'completed' ? 'completed' : rawStatus === 'blocked' ? 'blocked' : 'started',
+        decision: typeof p.decision === 'string' ? p.decision : null,
+        reason: typeof p.reason === 'string' ? p.reason : null,
+      })
+      break
+    }
     case 'done':
       callbacks.onDone?.(event)
       break
@@ -501,8 +555,8 @@ function dispatchSSEEvent(event: AgentStreamEvent, callbacks: AgentStreamCallbac
       callbacks.onError?.(event.message || '未知错误')
       break
     default:
-      // thinking / status / step_start / step_done / usage / trace / trace_summary / start
-      // 由 onEvent 兜底处理
+      // status / step_start / step_done / usage / trace / trace_summary / start
+      // 由 onEvent 兜底处理(thinking / plan-step 已升级为显式 case,P0-5)
       break
   }
 }

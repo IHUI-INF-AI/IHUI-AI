@@ -112,7 +112,8 @@ const WHITELIST = [
   { name: 'thinking', reason: 'langgraph 思考提示事件,api-client onEvent 兜底统一分发' },
   // P0-5(2026-09-13):agents.py "plan.step"→"plan-step" 新映射,后端已生产,
   // 前端 use-agent-runtime 消费点由 P0-5 web 端任务接线 —— P0-5 web 端接线后移除本条目
-  { name: 'plan-step', reason: 'P0-5 工作台 plan 步骤事件(started/completed),web 端接线未完成,待消费豁免 —— P0-5 web 端接线后移除' },
+  // P0-5(2026-09-13):plan-step 待消费豁免已移除 —— use-agent-runtime 已接线逐名消费,
+  // plan-step 现为强制对账事件(后端生产但前端漏消费将告警)
   { name: 'memory_context', reason: 'langgraph 记忆上下文事件,api-client onEvent 兜底统一分发' },
   { name: 'step_start', reason: 'langgraph 步骤开始事件,api-client onEvent 兜底统一分发' },
   { name: 'step_done', reason: 'langgraph 步骤完成事件,api-client onEvent 兜底统一分发' },
