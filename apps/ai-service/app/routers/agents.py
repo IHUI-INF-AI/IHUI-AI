@@ -567,6 +567,48 @@ class ApprovalResponseRequest(BaseModel):
     decision: str = Field(..., description="决策: approve=批准 / reject=拒绝(其他值视为拒绝)")
 
 
+class SecurityConfigUpdateRequest(BaseModel):
+    """安全配置更新请求(P0-3,2026-09-12 立)。部分更新,未传字段保持不变。"""
+
+    prompt_guard_enabled: bool | None = Field(None, description="提示注入防护总开关")
+    prompt_guard_policy: str | None = Field(None, description="注入防护策略: flag|sanitize|refuse")
+    exec_policy_mode: str | None = Field(None, description="命令执行策略: enforce|audit|off")
+    input_scan_enabled: bool | None = Field(None, description="危险入参扫描总开关")
+    pipeline_record_enabled: bool | None = Field(None, description="安全管线步骤录制开关")
+
+
+@router.get("/agent/security-config")
+async def get_agent_security_config() -> dict[str, Any]:
+    """读取 Agent 安全配置(P0-3 安全三件套单一事实源)。
+
+    返回当前生效配置(env 默认 + 进程内更新;重启回 env 默认)。
+    """
+    from ..services.security_config import get_security_config
+
+    cfg = get_security_config()
+    return {"code": 0, "message": "ok", "data": cfg.to_dict()}
+
+
+@router.put("/agent/security-config")
+async def update_agent_security_config(req: SecurityConfigUpdateRequest) -> dict[str, Any]:
+    """更新 Agent 安全配置(P0-3 安全三件套单一事实源)。
+
+    部分更新:仅传入字段被修改;非法值(未知枚举)返回 400;
+    进程内生效(不落盘,重启回 env 默认;持久化属后续 P1)。
+    """
+    from ..services.security_config import set_security_config
+
+    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="无更新字段")
+    try:
+        cfg = set_security_config(**updates)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    logger.info("Agent 安全配置已更新: %s", cfg.to_dict())
+    return {"code": 0, "message": "ok", "data": cfg.to_dict()}
+
+
 # ---------------------------------------------------------------------------
 # 端点
 # ---------------------------------------------------------------------------
