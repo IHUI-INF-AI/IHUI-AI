@@ -48,7 +48,7 @@
     "check:adapter-parity": "node scripts/check-adapter-style-parity.mjs",
     "check:auth-refresh-singleton": "node scripts/check-auth-refresh-singleton.mjs",
     "check:killer-parity-ends": "node scripts/check-killer-parity-ends.mjs",
-    "check:all": "pnpm check:api-key-leak && pnpm check:i18n-keys && pnpm check:stale-dist && pnpm check:db-schema-drift && pnpm check:sanitizer-bypass && pnpm check:api-routes:warn && pnpm check:safe-parse && pnpm check:nav-dead-links && pnpm check:popover-trigger-data-state && pnpm check:miniapp-parity && pnpm check:rn-parity && pnpm check:cross-end-tokens && pnpm check:adapter-parity && pnpm check:killer-parity-ends && node scripts/scan-dead-i18n-keys.mjs --target web --exit 1 && pnpm check:auth-refresh-singleton",
+    "check:all": "pnpm check:api-key-leak && pnpm check:i18n-keys && pnpm check:stale-dist && pnpm check:db-schema-drift && pnpm check:sanitizer-bypass && pnpm check:api-routes:warn && pnpm check:safe-parse && pnpm check:nav-dead-links && pnpm check:popover-trigger-data-state && pnpm check:miniapp-parity && pnpm check:rn-parity && pnpm check:cross-end-tokens && pnpm check:adapter-parity && pnpm check:killer-parity-ends && node scripts/scan-dead-i18n-keys.mjs --target web --exit 1 && pnpm check:auth-refresh-singleton && node scripts/check-agent-event-parity.mjs",
     "knip": "knip",
     "openapi-check": "node scripts/openapi-check.mjs",
     "miniapp:preview": "node scripts/miniapp-preview.mjs",
