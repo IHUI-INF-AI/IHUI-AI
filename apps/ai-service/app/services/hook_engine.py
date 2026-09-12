@@ -63,6 +63,11 @@ HOOK_EVENTS: tuple[str, ...] = (
     # agents.py 三个 SSE 端点均已订阅 self_heal;此前缺失导致事件被 emit() 白名单
     # 拦截丢弃,前端 self-heal 呈现无数据源)
     "self_heal",
+    # P0-5(2026-09-13):工作台链路 thinking/plan-step 事件(agent_loop_v2 发出,
+    # agents.py /agents/tasks/stream 订阅并映射为 SSE thinking/plan-step,
+    # 供 use-agent-runtime 呈现 reasoning 与工具步骤 started/completed)
+    "thinking.delta",
+    "plan.step",
 )
 
 HOOK_ACTION_TYPES: tuple[str, ...] = ("webhook", "script", "log", "notify")

@@ -340,6 +340,8 @@ def _map_hook_event_to_sse(event: str) -> str:
         "tool.after": "tool_result",
         "tool.approval": "tool-approval",  # 2026-08-30:高危工具审批请求(前端弹窗订阅)
         "self_heal": "self-heal",  # 2-3(2026-09-12):自愈触发/完成事件
+        "thinking.delta": "thinking",  # P0-5(2026-09-13):reasoning 整段透出(前端逐字动画)
+        "plan.step": "plan-step",  # P0-5(2026-09-13):工具步骤 started/completed
         "error": "error",
         "message.receive": "message",
     }.get(event, event)
@@ -358,7 +360,11 @@ async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingRe
         from ..services.hook_engine import hook_engine
 
         subs: dict[str, asyncio.Queue[Any]] = {}
-        for evt in ("session.start", "tool.before", "tool.after", "error", "tool.approval", "self_heal"):
+        for evt in (
+            "session.start", "tool.before", "tool.after", "error",
+            "tool.approval", "self_heal",
+            "thinking.delta", "plan.step",  # P0-5(2026-09-13):工作台 thinking/plan-step
+        ):
             subs[evt] = hook_engine.subscribe(evt)
         try:
             # 心跳保活(30s) + 事件转发
@@ -373,7 +379,11 @@ async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingRe
                     except asyncio.QueueEmpty:
                         continue
                     got = True
-                    if agentId and payload.get("session_id") not in (agentId, ""):
+                    # P0-5:thinking.delta/plan.step payload 以 run_id(=workbench
+                    # session_id)承载,无 session_id 键 → 回退 run_id 参与会话过滤
+                    if agentId and (
+                        payload.get("session_id") or payload.get("run_id")
+                    ) not in (agentId, ""):
                         continue
                     sse_evt = {
                         "type": _map_hook_event_to_sse(evt),
