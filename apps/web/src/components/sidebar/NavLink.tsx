@@ -14,6 +14,7 @@ import {
   NAV_ITEM_EXPANDED_CLASS,
 } from '@/lib/nav-styles'
 import { Tooltip } from '@/components/feedback'
+import { useOptimisticNavStore } from '@/stores/navigation'
 import type { NavItem, RegisterRef } from './types'
 
 interface NavLinkProps {
@@ -37,9 +38,16 @@ const NavLink = React.memo(function NavLink({
   onBeforeNav,
 }: NavLinkProps) {
   const Icon = item.icon
+  // 乐观高亮(2026-09-13):订阅 store,但**只返回布尔值**。
+  // 语义:导航进行中(store.href 非 null)完全以目标 href 为准 —— 命中的项高亮,
+  // 未命中的项一律不高亮(从而让旧的激活项立刻熄灭);不在导航中则回落到真实 active。
+  // 这样一次点击只会有"旧激活项"和"新目标项"两个叶子的选择器结果翻转,
+  // 其余 95 个 NavLink 选择器输出不变 → zustand 不通知 → 零重渲染。
+  // 绝不可写成 `useOptimisticNavStore((s) => s.href)`:那会让全部订阅者每次都变化。
+  const isActive = useOptimisticNavStore((s) => (s.href === null ? active : s.href === item.href))
   const className = cn(
     NAV_ITEM_BASE_CLASS,
-    active
+    isActive
       ? 'bg-primary text-primary-foreground'
       : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
     collapsed ? NAV_ITEM_COLLAPSED_CLASS : NAV_ITEM_EXPANDED_CLASS,
@@ -52,14 +60,19 @@ const NavLink = React.memo(function NavLink({
     onCloseMobile()
   }, [onBeforeNav, item.href, onCloseMobile])
 
-  // 悬停/聚焦即显式预取(2026-09-02 页面切换提速·第二刀):
-  // <Link> 仅对"视口内"链接自动预取(生产);折叠态/子菜单/未入视口链接在点击时才发 RSC 请求。
-  // 此处 onPointerEnter/onFocus 触发 useRouter().prefetch:生产模式把目标路由 RSC 拉进
-  // 客户端缓存(staleTimes.dynamic=30s),点击命中即瞬时切换;幂等,Next 内部去重。
-  // 注:dev 模式 Next 16 有 cache-bypass-in-dev 机制,预取请求被显式绕过(实测 0 请求),
-  // 本逻辑对 dev 无效果也无开销;dev 切换延迟是 Next 架构性下限(每次必走服务端往返)。
+  // 悬停/聚焦即显式**全量**预取(2026-09-12 路由瞬切终版):
+  // dev 下 Next 默认禁用客户端预取,scripts/unlock-dev-prefetch.mjs 已在启动前解除
+  // 两处硬编码守卫(createPrefetchURL / <Link> hover),本处调用因此真实发出 RSC 请求。
+  // 但默认策略是 PPR(partial):link.js getFetchStrategyFromPrefetchIntent 把 auto 解析为
+  // FetchStrategy.PPR,cache.js upgradeToPendingSegment 只对 Full 置 isPartial=false,
+  // 于是 ppr-navigations.js:729 `doesSegmentNeedDynamicRequest = isCachedRscPartial`
+  // 仍会在点击时放行一次 dynamic 请求(实测点击 420ms + 1 条新 RSC)。
+  // 显式传 kind:'full' → FetchStrategy.Full → 缓存条目 isPartial=false,
+  // 点击时命中完整缓存、零请求、瞬时切换。幂等,Next 内部按 cacheKey 去重。
+  // 注:Next 的 PrefetchKind 是**字符串枚举**(TS 标称类型),字面量 'full' 不能直接赋给
+  // 枚举类型,故断言为 prefetch 第二参类型;运行时值仍是 'full'。
   const prefetchTarget = React.useCallback(() => {
-    router.prefetch(item.href)
+    router.prefetch(item.href, { kind: 'full' } as Parameters<typeof router.prefetch>[1])
   }, [router, item.href])
 
   if (collapsed) {
@@ -72,7 +85,7 @@ const NavLink = React.memo(function NavLink({
           onPointerEnter={prefetchTarget}
           onFocus={prefetchTarget}
           aria-label={label}
-          aria-current={active ? 'page' : undefined}
+          aria-current={isActive ? 'page' : undefined}
           data-testid={`nav-${item.labelKey}`}
           className={className}
         >
@@ -82,10 +95,11 @@ const NavLink = React.memo(function NavLink({
     )
   }
 
-  // 保留 Next 默认视口预取(生产模式 prefetchRsc 缓存命中,点击瞬时;2026-09-04 实测
-  // 悬停预取后点击 314ms→143ms,预取是"立马响应"的关键)。dev 模式 cache-bypass 使预取
-  // 请求不缓存,但 Next 内部去重 + pingVisibleLinks 多数情况不重复发请求;悬停/聚焦
-  // 再叠加 onPointerEnter 的 router.prefetch 精准预取。两者并存不冲突(Next 幂等去重)。
+  // <Link> 自身仍保留默认视口预取。<Link> 的 auto 策略经 links.js/ link.js 解析为 PPR,
+  // 且 dev 下 links.js onLinkVisibilityChanged 有 `NODE_ENV !== 'production'` 早退
+  // (instance.isVisible 恒 false → rescheduleLinkPrefetch 直接 return),故 <Link> 自身的
+  // 视口/悬停预取在 dev 下不生效 —— 上面的 onPointerEnter/onFocus → router.prefetch(full)
+  // 才是 dev 下的实际预取路径。生产环境两者都生效,互为补充。
   return (
     <Link
       key={item.href}
@@ -94,7 +108,7 @@ const NavLink = React.memo(function NavLink({
       onClick={handleClick}
       onPointerEnter={prefetchTarget}
       onFocus={prefetchTarget}
-      aria-current={active ? 'page' : undefined}
+      aria-current={isActive ? 'page' : undefined}
       data-testid={`nav-${item.labelKey}`}
       className={className}
     >
