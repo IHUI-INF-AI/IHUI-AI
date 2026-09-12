@@ -173,7 +173,37 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 | `D:/IHUI-AI.git-backup-20260912` | gitdir 完整备份,守护的本地恢复源                            |
 
 **守护**:`IHUI-GIT-GUARD`(nssm 常驻服务,`AUTO_START`,10s 巡检)→ `scripts/git-guardian.mjs --daemon`。
-分层自愈:`指针 → 环境 → HEAD 语法 → 本地备份 → 远端`;每步破坏性覆盖前先归档现场。实测自愈 **0.9s**。
+分层自愈:`指针 → 环境 → HEAD 语法 → 嵌套 ref → 本地备份 → 远端`;每步破坏性覆盖前先归档现场。实测自愈 **0.9s**(refs 自愈实测 **0.14s**)。
+
+### 嵌套 ref 存续(2026-09-12 立,与 `.git` 同源问题)
+
+**现象**:`refs/remotes/origin/main` 反复变 `[gone]`、`refs/tags/backup/push4-*` 反复"仅远端" → 守门 `30a`(commit 丢失防护)**抖动性阻塞**(刚 fetch 完绿,宿主一清理又红)。曾误判为"真的丢 commit"。
+
+**机理(对照实验,可复现)**:宿主清理层删除 gitdir 下 **depth ≥ 2** 的嵌套命名空间目录:
+
+| ref 路径                                        | 层级 | 结果                     |
+| ----------------------------------------------- | ---- | ------------------------ |
+| `refs/heads/main`                               | 1    | ✅ 存活                  |
+| `refs/tags/nightly-*`                           | 1    | ✅ 存活                  |
+| `refs/remotes/origin/main`                      | 2    | ❌ 目录被删 → `[gone]`   |
+| `refs/tags/backup/push4-*`、`refs/tags/<ns>/*`  | 2    | ❌ 目录被删 → "仅远端"   |
+
+且 `git update-ref` 对这类嵌套 ref **返回 0 却不落盘**(静默失败)—— 所以"fetch 成功"不等于"ref 存在"。
+
+**解法(载体替换,非 workaround)**:把嵌套 ref 固化进 `packed-refs`(gitdir **顶层单文件** → 清理不到),期望值另存 `refs-manifest.json`(同为顶层文件)。松散文件被删也照样解析。
+
+- 期望值清单:`<gitdir>/refs-manifest.json`(含 `refs/remotes/origin/main`、`refs/tags/<ns>/*`)
+- 固化:`git pack-refs --all --prune`(松散文件被 prune,只剩 packed)
+- 手工命令:
+
+  ```bash
+  node scripts/git-refs-heal.mjs                   # 离线:按清单重建缺失 ref + 固化(无需网络)
+  node scripts/git-refs-heal.mjs --status          # 只看健康
+  node scripts/git-refs-heal.mjs --refresh-remote  # 联网:从 origin 校准全量 tag/heads 后固化
+  ```
+
+- 守护已在每个 tick 检查 `refsOk`,缺失即离线重建并写审计日志 —— **一般无需人工介入**。
+- **禁止**把嵌套 ref 的存续寄托在松散文件上(必被清理);**禁止**用 `HUSKY_SKIP_COMMIT_LOSS_CHECK=1` 绕过 30a —— 先跑 `git-refs-heal.mjs` 判定是真丢 commit 还是 ref 抖动。
 
 **铁律**:
 
@@ -186,8 +216,9 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 **诊断**:
 
 ```bash
-node scripts/git-guardian.mjs --status      # pointer/gitdir/git/HEAD/dirty/备份 全量健康
+node scripts/git-guardian.mjs --status      # pointer/gitdir/git/HEAD/dirty/备份/嵌套ref 全量健康
 node scripts/git-guardian.mjs --check       # 只检查,异常 exit 1(CI/巡检用)
+node scripts/git-refs-heal.mjs --status     # 嵌套 ref 与清单比对(缺失即 exit 1)
 nssm status IHUI-GIT-GUARD                  # SERVICE_RUNNING / SERVICE_AUTO_START
 tail -20 .workbuddy/git-guardian.log        # 自愈审计流水
 ```

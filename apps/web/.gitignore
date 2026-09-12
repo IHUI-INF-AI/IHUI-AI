@@ -17,9 +17,14 @@ test-share-*
 # e2e 失败快照兜底(2026-09-12):测试名里的 / ( ) + { 曾被当作路径分隔符,
 # 把截图写进 e2e/screenshots/ 的子目录并误入库。根因已在 6 个 spec 的 afterEach 修掉
 # (改为写入上方已忽略的 e2e/test-screenshots/ 并清洗非法字符);下列规则防止旧代码/旧分支再生。
-e2e/screenshots/backend-*/
-e2e/screenshots/pwa-*/
-e2e/screenshots/seo-*/
-e2e/screenshots/web-vitals-*/
-e2e/screenshots/security-*.png
-e2e/screenshots/ws-*.png
+#
+# 注意:一律**不带尾斜杠** —— 带尾斜杠只匹配目录,会漏掉同名形态的"文件"
+# (实例:pwa-*/ 挡不住 pwa-theme-color-meta-标签存在.png)。不带斜杠则文件与目录通吃。
+# 该目录下已跟踪的 13 张基线图(agreement-* / download-* / im-channels-* / tagsview-*)
+# 不匹配以下任何前缀,故不会被遮蔽(gitignore 本就不影响已跟踪文件)。
+e2e/screenshots/backend-*
+e2e/screenshots/pwa-*
+e2e/screenshots/seo-*
+e2e/screenshots/web-vitals-*
+e2e/screenshots/security-*
+e2e/screenshots/ws-*
