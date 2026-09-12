@@ -64,6 +64,8 @@ import {
 // 渠道直连转发器(2026-09-12 立):公开链路接通渠道路由 + 逐请求 failover
 import { forwardToChannel, pipeChannelStream } from '../services/relay-upstream-forwarder.js'
 import type { SelectedChannelKey } from '../services/relay-channel-router.js'
+// /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
+import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 // P0 中转站造血能力批次(2026-07-31 立):模型映射解析(Key 级 > 用户级 > 全局)
 import { resolveModelMapping } from '../services/model-mapping-service.js'
 // P0 第二批次(2026-07-31 立):响应缓存(Redis)省钱大法,对非流式 chat completions 启用
@@ -352,7 +354,7 @@ async function fetchModels(userId?: string): Promise<{
     return { body: modelsCache.data, source: 'cache' }
   }
   try {
-    const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/models`, { method: 'GET' })
+    const resp = await aiServiceSystemFetch('/api/llm/models', { method: 'GET' })
     if (resp.ok) {
       const data = (await resp.json()) as unknown
       let models: unknown[] = []
@@ -709,7 +711,7 @@ async function streamChatCompletion(
     const paramOpsResult = await applyParamOpsToBody(body, { model })
     const upstreamBody = paramOpsResult.body
 
-    const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete/stream`, {
+    const resp = await aiServiceSystemFetch('/api/llm/complete/stream', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1017,7 +1019,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       messages.push({ role: 'user', content: input })
 
       try {
-        const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
+        const resp = await aiServiceSystemFetch('/api/llm/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1489,7 +1491,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         const paramOpsResult = await applyParamOpsToBody(body, { model: resolvedModel })
         const upstreamBody = paramOpsResult.body
 
-        resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
+        resp = await aiServiceSystemFetch('/api/llm/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(upstreamBody),
