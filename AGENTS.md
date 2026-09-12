@@ -6,7 +6,7 @@
 
 # AGENTS.md — IHUI-AI 项目 Agent 指南
 
-> 作用域:`g:\IHUI-AI` 仓库根目录及所有子目录。
+> 作用域:`D:/IHUI-AI` 仓库根目录及所有子目录（2026-09-12 修正:仓库早已从 `G:` 迁到 `D:`，旧盘符路径已全部改为从脚本自身位置推导）。
 > 历史案例归档见 `.ihui-agent/archive/AGENTS_history.md`。
 > 本文件为精简版(2026-07-25 重构,原 783 行 → ≤400 行),保留所有强制规则核心条款。
 
@@ -172,7 +172,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 | `D:/IHUI-AI-git-repo`            | 真实 gitdir(544MB),在工作区之外                             |
 | `D:/IHUI-AI.git-backup-20260912` | gitdir 完整备份,守护的本地恢复源                            |
 
-**守护**:`IHUI-GIT-GUARD`(nssm 常驻服务,`AUTO_START`,10s 巡检)→ `scripts/git-guardian.mjs --daemon`。
+**守护**:计划任务 **`IHUI-AI git-guardian`**(每 2 分钟)→ `"C:/Program Files/nodejs/node.exe" D:/IHUI-AI/scripts/git-guardian.mjs`。本机**未安装 nssm**,故未采用 `--daemon` 常驻服务形态,改用脚本自带的 schtasks 兜底(2026-09-12 15:30 实测启用;16:12 实测**自愈已生效**)。
 分层自愈:`指针 → 环境 → HEAD 语法 → 嵌套 ref → 本地备份 → 远端`;每步破坏性覆盖前先归档现场。实测自愈 **0.9s**(refs 自愈实测 **0.14s**)。
 
 ### 嵌套 ref 存续(2026-09-12 立,与 `.git` 同源问题)
@@ -181,12 +181,12 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 **机理(对照实验,可复现)**:宿主清理层删除 gitdir 下 **depth ≥ 2** 的嵌套命名空间目录:
 
-| ref 路径                                        | 层级 | 结果                     |
-| ----------------------------------------------- | ---- | ------------------------ |
-| `refs/heads/main`                               | 1    | ✅ 存活                  |
-| `refs/tags/nightly-*`                           | 1    | ✅ 存活                  |
-| `refs/remotes/origin/main`                      | 2    | ❌ 目录被删 → `[gone]`   |
-| `refs/tags/backup/push4-*`、`refs/tags/<ns>/*`  | 2    | ❌ 目录被删 → "仅远端"   |
+| ref 路径                                       | 层级 | 结果                   |
+| ---------------------------------------------- | ---- | ---------------------- |
+| `refs/heads/main`                              | 1    | ✅ 存活                |
+| `refs/tags/nightly-*`                          | 1    | ✅ 存活                |
+| `refs/remotes/origin/main`                     | 2    | ❌ 目录被删 → `[gone]` |
+| `refs/tags/backup/push4-*`、`refs/tags/<ns>/*` | 2    | ❌ 目录被删 → "仅远端" |
 
 且 `git update-ref` 对这类嵌套 ref **返回 0 却不落盘**(静默失败)—— 所以"fetch 成功"不等于"ref 存在"。
 
@@ -212,9 +212,10 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 - **禁止**把 `.git` 改回目录形态:`git init` 必须带 `--separate-git-dir=D:/IHUI-AI-git-repo`;不带参数重建会把 544MB 实体拉回工作区,直接暴露给宿主删除。
 - **禁止**删除/清理 `D:/IHUI-AI-git-repo`、`D:/IHUI-AI.git-backup-20260912`,以及两目录的 `*.broken-*` 归档。
-- **禁止**手工 `git init` 抢修`:git` 消失 —— 先等守护(≤10s),再查 `.workbuddy/git-guardian.log`。
+- **禁止**手工 `git init` 抢修`:git` 消失 —— 先等守护(≤2 分钟;急可 `schtasks /run /tn "IHUI-AI git-guardian"` 立即触发),再查 `.workbuddy/git-guardian.log`(健康时**不写行**,别把「无日志」当没跑)。
 - git 调用**不得依赖环境**:脚本一律 `execFileSync(<绝对路径 git>, ['-c','safe.directory=*', ...])`;服务账户(LocalSystem)与交互账户的 `safe.directory` 互不相通。
-- **提交/推送优先走 GitHub Git Data API**(`~/.git-credentials` 取 token + 代理 `http://127.0.0.1:7897`),避免本地 git 写操作触发 safe-delete;本机不直推 Gitee/GitCode,交给 CI 镜像。
+- **提交/推送**:`origin`(GitHub,唯一权威源)已固化为 `ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git` + 仓库级 `core.sshCommand`(部署私钥),本地 `git push origin main` 直连可用、无需代理。⚠️ `~/.git-credentials` 在本机**并不存在**,不要按它取 token(HTTPS 走的是凭据管理器)。本机**不直推 Gitee/GitCode**,交给 `mirror-to-cn.yml` 镜像收敛。自 2026-09-12 15:30 起 gitdir 已移出工作区(仅剩 28 字节指针),本地 git 写操作不再暴露给宿主批量删除层。
+- **禁止 `git pull --rebase`**:2026-09-12 15:2x 一次 rebase 崩溃导致真 gitdir 目录被原生删除。同步一律用 `git fetch <remote> main` + `git merge --ff-only FETCH_HEAD`。
 
 **诊断**:
 
@@ -222,8 +223,8 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 node scripts/git-guardian.mjs --status      # pointer/gitdir/git/HEAD/dirty/备份/嵌套ref 全量健康
 node scripts/git-guardian.mjs --check       # 只检查,异常 exit 1(CI/巡检用)
 node scripts/git-refs-heal.mjs --status     # 嵌套 ref 与清单比对(缺失即 exit 1)
-nssm status IHUI-GIT-GUARD                  # SERVICE_RUNNING / SERVICE_AUTO_START
-tail -20 .workbuddy/git-guardian.log        # 自愈审计流水
+schtasks /query /tn "IHUI-AI git-guardian"  # 守护任务实况(本机无 nssm;急用 schtasks /run 立即触发)
+tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写行)
 ```
 
 ---
@@ -256,6 +257,19 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水
 - 注入是**幂等**的(同一载荷 → 同一字节),重复生成不产生 diff;`clean → inject` 往返**零漂移**(已回归验证:可见内容逐字节不变)。
 - `clean` 按**行首锚定**(`© YYYY IHUI AI` / `Provenance-watermarked.` / `[IHUI-AI-PROVENANCE]:`)识别横幅,**不会**误伤源码里的 `BANNER_ID` 常量或正则定义。
 - **禁止**为加水印而整体重写文件内容(会破坏零宽溯源链),一律用 `watermark.mjs`。
+
+---
+
+## 5d. 模型密钥引导与 `.env` 回填(强制,2026-09-12 立)
+
+**密钥不入仓、不入聊天记录。** 本机模型密钥的唯一权威来源是百度网盘同步目录 `D:/BaiduSyncdisk/密钥/模型/`(每厂商一个 txt,内容为裸 token)。目录可用环境变量 `IHUI_MODEL_KEY_DIR` 或 `--key-dir` 覆盖。
+
+- 回填流程:先 `node scripts/env-backfill-model-keys.mjs --verify` 巡检(不写盘),确认无误后 `--verify --apply` 写盘。
+- 硬性约束:只写 `.env` 中**值为空**的键;已有值一律跳过、**绝不覆盖**;apply 前自动备份到 `.ihui-agent/env-backup/`(已被 `.gitignore` 忽略)。
+- 输出恒为脱敏态 `前6位***后2位 (len=N)`,任何情况下不打印完整 key。`.env` 由 `.gitignore` 第 98 行忽略,**永不入库**。
+- 多候选消歧:同一源文件出现多把 key 时(如 AGNES 曾有两把),`--verify` 会逐把请求厂商官方 `/models` 端点,取**真能鉴权通过**的那把 —— 不靠猜测、不靠索引。
+- 判读规则:`网络不可达` **不等于** key 无效(本机访问不到 Google,`GEMINI_API_KEY` 探测必然超时);只有 `鉴权通过` 才是有效判据。
+- 换机器 / 重装后若 ai-service 静默降级,首选动作就是跑一次本脚本巡检。
 
 ---
 
