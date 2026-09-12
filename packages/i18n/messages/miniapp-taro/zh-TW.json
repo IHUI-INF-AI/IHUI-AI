@@ -56,7 +56,6 @@
     "login": "登入",
     "logging": "登入中…",
     "brand": "智匯 AI",
-    "slogan": "讓學習更高效",
     "phoneLogin": "手機號登入",
     "passwordLogin": "密碼登入",
     "phonePlaceholder": "請輸入手機號",
@@ -67,15 +66,10 @@
     "passwordPlaceholder": "請輸入密碼",
     "forgotPassword": "忘記密碼",
     "wechatLogin": "微信登入",
-    "wechatOnly": "僅支援微信登入",
-    "ssoLogin": "SSO 登入",
-    "ssoLoginHint": "企業帳號一鍵登入",
-    "agreement": "我已閱讀並同意《使用者協議》和《隱私政策》",
     "cancelAuth": "取消授權",
     "codeCountdownSuffix": "秒後重新獲取",
     "getPhoneFail": "獲取手機號碼失敗",
     "loginFailed": "登入失敗,請重試",
-    "quickLogin": "快速登入",
     "wechatOneClick": "微信一鍵登入"
   },
   "forgot": {
@@ -296,7 +290,6 @@
     "cancelSuccess": "訂單已取消",
     "cancelFailed": "取消訂單失敗",
     "list": {
-      "orderTime": "下單時間",
       "refundTime": "退款時間",
       "applyRefund": "申請退款",
       "cancel": "取消",
@@ -325,31 +318,10 @@
       "submitting": "儲值中…",
       "invalidAmount": "請輸入有效金額",
       "success": {
-        "title": "儲值成功",
-        "desc": "儲值已到帳",
-        "backHome": "返回首頁",
-        "backWallet": "返回錢包",
-        "tipsTitle": "溫馨提示",
-        "arriveTime": "到賬時間",
-        "orderNoLabel": "訂單號",
-        "shareFriend": "分享給好友",
-        "tipsText": "充值金額已到帳,可在錢包明細中查看變動記錄。如有疑問請聯絡客服。",
-        "viewDetail": "查看明細"
+        "shareFriend": "分享給好友"
       },
       "fail": {
-        "title": "儲值失敗",
-        "desc": "儲值未成功,請稍後重試",
-        "retry": "重新儲值",
-        "backWallet": "返回錢包",
-        "orderNoLabel": "訂單編號",
-        "hintTitle": "溫馨提示",
-        "contactService": "聯絡客服",
-        "faqQ": "充值失敗會扣款嗎?",
-        "amountLabel": "充值金額",
-        "faqA": "若支付未完成則不會扣款;若已扣款但顯示失敗,款項將原路退回,請留意帳戶變動。",
-        "hintText": "如充值未到帳,請確認支付是否完成。款項將在 1-3 個工作日內原路退回,或聯絡客服協助處理。",
-        "reasonLabel": "失敗原因",
-        "viewDetail": "查看明細"
+        "contactService": "聯絡客服"
       },
       "tokenRate": "1元 = {n} 智匯值",
       "activityTitle": "限時活動",
@@ -434,7 +406,6 @@
     "language": {
       "chooseHint": "選擇應用語言",
       "tip": "切換語言後將自動儲存並生效",
-      "currentLabel": "目前語言",
       "note": "部分內容可能仍以原文顯示,我們正在持續完善多語言支援。"
     },
     "notification": {
@@ -784,7 +755,6 @@
       "contentNotExist": "分享內容不存在",
       "tokenCost": "消耗 {n} 智匯值",
       "thinkingProcess": "思考過程",
-      "aiAnswer": "AI 回答",
       "regenerate": "再生成一個",
       "shareFriend": "分享給好友",
       "voiceAnswer": "🔊 語音回答",
@@ -944,10 +914,7 @@
       "publishFail": "發布失敗"
     },
     "list": {
-      "title": "作品廣場",
       "unnamed": "未命名作品",
-      "anonymous": "匿名作者",
-      "empty": "暫無作品",
       "catText": "文本",
       "catImage": "圖片",
       "catVideo": "影片",
@@ -956,8 +923,7 @@
       "invalidVideo": "影片位址無效",
       "invalidAudio": "音訊位址無效",
       "audioFail": "音訊播放失敗",
-      "untitled": "文本內容",
-      "promptLabel": "提示詞"
+      "untitled": "文本內容"
     }
   },
   "coursePlanet": {
@@ -1239,7 +1205,6 @@
       "verifyOk": "驗證成功",
       "verifyFail": "驗證失敗"
     },
-    "rankTitle": "分銷排行榜",
     "rankEmpty": "暫無排行數據",
     "statsTitle": "收益概覽",
     "thisMonth": "本月",
@@ -2205,14 +2170,10 @@
     "codePlaceholder": "請輸入驗證碼",
     "hide": "隱藏",
     "show": "顯示",
-    "pwdHint": "6-20 位,建議字母數字組合",
     "submitting": "註冊中…",
     "agreePrefix": "我已閱讀並同意",
     "userAgreement": "《使用者協議》",
-    "privacyPolicy": "《隱私協議》",
-    "hasAccount": "已有帳號?",
-    "toLogin": "去登入",
-    "text1": "第三方快速綁定"
+    "privacyPolicy": "《隱私協議》"
   },
   "message": {
     "tabs": {
@@ -2627,9 +2588,7 @@
     "email": {
       "emailInvalid": "郵箱格式不正確",
       "bindSuccess": "郵箱綁定成功",
-      "email": "郵箱",
       "emailPlaceholder": "請輸入郵箱",
-      "code": "驗證碼",
       "codePlaceholder": "請輸入驗證碼",
       "getCode": "取得驗證碼",
       "bind": "綁定",
@@ -2693,8 +2652,6 @@
       "phoneInvalid": "手機號碼格式不正確",
       "codeSendFailed": "驗證碼發送失敗",
       "bindSuccess": "手機號碼綁定成功",
-      "phone": "手機號碼",
-      "code": "驗證碼",
       "codePlaceholder": "請輸入驗證碼",
       "getCode": "取得驗證碼",
       "bind": "綁定",
