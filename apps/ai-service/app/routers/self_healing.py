@@ -36,6 +36,7 @@ from app.services.self_healing_llm import (
     list_workspace_files,
     llm_gen_fn,
     llm_patch_and_apply,
+    read_failure_sources,
 )
 
 router = APIRouter(prefix="/self-healing", tags=["self-healing"])
@@ -92,6 +93,9 @@ def _patch_adapter(
         ctx["workspace_root"] = str(workspace_root)
         ctx["target_path"] = str(workspace_root)
         ctx["workspace_files"] = list_workspace_files(str(workspace_root))
+    # 失败测试的真实源码(断言)注入:否则 LLM 只看归因消息会猜错修复方向。
+    # 与 agent_loop_v2._patch_adapter 保持同一行为(同一函数、同一时机)。
+    ctx["failing_test_source"] = read_failure_sources(failure, ctx)
     return llm_patch_and_apply(failure, ctx)
 
 
