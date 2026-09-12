@@ -613,6 +613,19 @@ const nextConfig: NextConfig = {
           source: '/api/web-tools/:path*',
           destination: 'http://localhost:8803/api/web-tools/:path*',
         },
+        // 2026-09-13 新增(模型池对外出售接入):OpenAI 兼容 /v1 与 Gemini 兼容 /v1beta
+        // 公开网关,直连 api server 8802(走 API Key 鉴权,不经 web 登录态)。
+        // 与 deploy/nginx/nginx-blue-green.conf 的 /v1 /v1beta /ws location 意图一致,
+        // 但本机走 web rewrites 机制(Cloudflared 隧道 -> web 8801 -> rewrites 反代),
+        // 零新增组件、无回归。必须放在 /api/:path* 兜底之前先命中。
+        {
+          source: '/v1/:path*',
+          destination: 'http://localhost:8802/v1/:path*',
+        },
+        {
+          source: '/v1beta/:path*',
+          destination: 'http://localhost:8802/v1beta/:path*',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',
