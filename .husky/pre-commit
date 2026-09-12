@@ -59,7 +59,15 @@ setupRestoreOnExit(INITIAL_STAGED_SNAPSHOT, {
 auditStagingFiles()
 
 // 5. lint-staged：对暂存文件运行 eslint --fix 和 prettier --write
-if (!run('🎨 运行 lint-staged...', 'npx lint-staged --max-arg-length 4096')) {
+// ⚠️ 必须带 --no-stash(2026-09-12 立,事故根治):
+//   lint-staged 默认在跑任务前用 `git stash` 备份现场。本机存在「宿主清理 gitdir 嵌套目录」
+//   的病理,而 **git stash 路径会连带删掉工作区之外的整个 gitdir** —— 2026-09-12 当天两次
+//   实证:① `git pull --rebase` 的 autostash;② 本文件 lint-staged 的备份 stash(16:10,
+//   gitdir 整目录消失、deploy 失效、需守护从备份重建)。两次事故 100% 落在 stash 路径上。
+//   staging area 的安全性已由本文件顶部的 staging-snapshot 机制兜住(hook 退出前自动
+//   unstage 非预期新增文件),故不需要 lint-staged 自带备份。
+//   回退方式:删掉 --no-stash 即可(但请先确认宿主清理病理已消失)。
+if (!run('🎨 运行 lint-staged...', 'npx lint-staged --max-arg-length 4096 --no-stash')) {
   process.exit(1)
 }
 

@@ -16,6 +16,10 @@
  *   5. git reset 重建 index —— 工作区文件完全不动
  *   6. 输出后续操作指引(git status 查看差异 → 重新 add/commit 未推送改动)
  *
+ * ⚠️ 布局约束(2026-09-12 起):本仓库为 separate-git-dir 布局,工作区 .git 仅是指向
+ *    工作区外真 gitdir 的指针文件。**重建必须保住「.git 是 1 行指针、真 gitdir 在工作区外」
+ *    这一形态**,绝不可把克隆出的 .git 目录直接覆盖到指针文件上。
+ *
  * 用法:
  *   node scripts/git-rebuild-local.mjs           # 检查 + 自动重建(仅当损坏)
  *   node scripts/git-rebuild-local.mjs --check   # 只检查健康度,不重建
@@ -56,13 +60,52 @@ function remoteUrl(repoRoot) {
   return 'https://github.com/IHUI-INF-AI/IHUI-AI.git'
 }
 
-/** 健康检查:HEAD commit/tree 对象可读 + refs 有效 */
+/**
+ * 健康检查:HEAD commit/tree 对象可读 + refs 有效。
+ * 注意本机已知坑:git fetch 写 refs/remotes/* 会静默不落盘,因此**不要**把
+ * 「fetch 后的 ahead/behind 判断」当作健康/同步的唯一判据;需要比对远端时
+ * 用 `git ls-remote` 直接查远端引用更可靠。
+ */
 function isHealthy(repoRoot) {
   const head = run(`git -C ${repoRoot} rev-parse HEAD`, true)
   if (!head) return false
   const commitOk = run(`git -C ${repoRoot} cat-file -e ${head}^{commit}`, true) !== null || true
   const treeOk = run(`git -C ${repoRoot} cat-file -e ${head}^{tree}`, true) !== null || true
   return !!head && !!commitOk && !!treeOk
+}
+
+/**
+ * 重建后逐条写回完整远端与仓库配置(修复旧逻辑会丢 gitee/gitcode 远端、
+ * core.sshCommand、core.hooksPath 等的问题)。
+ */
+function restoreConfig(repoRoot) {
+  const cfg = [
+    // 远端
+    ['remote.origin.url', 'ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git'],
+    ['remote.gitee.url', 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git'],
+    ['remote.gitee.fetch', '+refs/heads/*:refs/remotes/gitee/*'],
+    ['remote.gitcode.url', 'https://gitcode.com/IHUI-AI/IHUI-AI.git'],
+    ['remote.gitcode.fetch', '+refs/heads/*:refs/remotes/gitcode/*'],
+    // 部署用 SSH 私钥与钩子
+    [
+      'core.sshCommand',
+      'ssh -i C:/Users/Administrator/.ssh/id_ed25519_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20',
+    ],
+    ['core.hooksPath', '.husky'],
+    // 禁用自动 gc(历史损坏主因)
+    ['gc.auto', '0'],
+    ['gc.autodetach', 'false'],
+    ['maintenance.auto', 'false'],
+    // 分支跟踪
+    ['branch.main.remote', 'origin'],
+    ['branch.main.merge', 'refs/heads/main'],
+    // 提交身份
+    ['user.name', '智汇AGI社区'],
+    ['user.email', 'ok502319984@gmail.com'],
+  ]
+  for (const [k, v] of cfg) {
+    run(`git -C ${repoRoot} config ${k} ${JSON.stringify(v)}`, true)
+  }
 }
 
 function main() {
@@ -78,7 +121,9 @@ function main() {
     return
   }
   if (CHECK_ONLY) {
-    console.log('⚠️  仓库健康检查未通过(或 --force)。重建需执行: node scripts/git-rebuild-local.mjs')
+    console.log(
+      '⚠️  仓库健康检查未通过(或 --force)。重建需执行: node scripts/git-rebuild-local.mjs',
+    )
     process.exit(1)
   }
 
@@ -87,7 +132,6 @@ function main() {
   // 同一 unitId 可重入;锁被他人持有时快速失败,严禁绕过。
   const lockUnit = 'git-rebuild-local'
   const lockScript = join(repoRoot, 'scripts', 'git-lock.mjs')
-  let lockHeld = false
   if (run(`node "${lockScript}" check`, true) !== null) {
     // check exit 0 = 无锁,可安全获取
     if (run(`node "${lockScript}" acquire --unit ${lockUnit} --timeout 5000`, true) === null) {
@@ -95,41 +139,60 @@ function main() {
       console.error('   请等待其完成后再试;严禁绕过锁强行重建(会互相删除对方的 .git)')
       process.exit(1)
     }
-    lockHeld = true
     process.on('exit', () => {
       run(`node "${lockScript}" release --unit ${lockUnit}`, true)
     })
   }
 
   const url = remoteUrl(repoRoot)
+
+  // ── separate-git-dir 布局探测(2026-09-12 起) ────────────────────────────
+  // 优先读工作区 .git:若是文件且首行形如 `gitdir: <路径>`,则用该路径作为真
+  // gitdir(兼容将来路径变化,不硬编码);若是目录才用旧逻辑的 <repo>/.git。
+  const dotGit = join(repoRoot, '.git')
+  let targetGitDir = dotGit
+  let isSeparate = false
+  if (existsSync(dotGit)) {
+    const st = statSync(dotGit)
+    if (st.isFile()) {
+      const firstLine = readFileSync(dotGit, 'utf8').split('\n')[0].trim()
+      const m = firstLine.match(/^gitdir:\s*(.+)$/)
+      if (m) {
+        targetGitDir = m[1].trim()
+        isSeparate = true
+      }
+    } else if (st.isDirectory()) {
+      targetGitDir = dotGit // 旧布局:真 gitdir 就是工作区内的 .git 目录
+    }
+  } else {
+    // 无 .git:默认采用外部 gitdir 布局,兼容将来路径变化
+    targetGitDir = 'D:/IHUI-AI-git-repo'
+    isSeparate = true
+  }
+
   const ts = new Date().toISOString().replace(/[:.]/g, '-')
-  const gitDir = join(repoRoot, '.git')
-  const backupDir = join(repoRoot, `.git.broken-${ts}`)
+  const archiveDir = `${targetGitDir}.broken-${ts}`
   const cloneDir = join(tmpdir(), `ihui-git-rebuild-${ts}`)
 
   console.log('🔧 检测到仓库异常,开始从远端重建...')
   console.log(`   远端: ${url}`)
+  console.log(`   真 gitdir: ${targetGitDir}${isSeparate ? ' (separate-git-dir)' : ''}`)
 
-  // 1. 备份损坏 .git
-  if (existsSync(gitDir)) {
-    console.log(`   ① 备份损坏 .git → ${backupDir}`)
+  // 0. 破坏性覆盖前先归档现场;归档失败则放弃重建,绝不硬来
+  if (existsSync(targetGitDir)) {
+    console.log(`   ⓪ 归档现有 gitdir → ${archiveDir}`)
     try {
-      execSync(`mv "${gitDir}" "${backupDir}"`, { stdio: 'ignore' })
-    } catch {
-      // Windows 下 mv 失败(文件占用)时用 robocopy/cp 兜底
-      try {
-        execSync(`cp -r "${gitDir}" "${backupDir}"`, { stdio: 'ignore' })
-        rmSync(gitDir, { recursive: true, force: true })
-      } catch (e) {
-        console.error(`❌ 备份 .git 失败(可能有进程占用): ${String(e.message ?? e)}`)
-        console.error('   请关闭其他 git 进程后重试')
-        process.exit(1)
-      }
+      execSync(`cp -r "${targetGitDir}" "${archiveDir}"`, { stdio: 'ignore' })
+    } catch (e) {
+      console.error(`❌ 归档现有 gitdir 失败: ${String(e.message ?? e)}`)
+      console.error('   放弃破坏性重建,仓库保持原状。请排查磁盘/权限后重试。')
+      process.exit(1)
     }
+    rmSync(targetGitDir, { recursive: true, force: true })
   }
 
-  // 2. 从远端 clone(不 checkout,仅获取 .git)
-  console.log(`   ② 从远端 clone(--no-checkout)到 ${cloneDir}`)
+  // 1. 从远端 clone(不 checkout,仅获取 .git)
+  console.log(`   ① 从远端 clone(--no-checkout)到 ${cloneDir}`)
   mkdirSync(cloneDir, { recursive: true })
   const cloneCmd = `git clone --no-checkout "${url}" "${cloneDir}"`
   const cloneOut = run(cloneCmd, true)
@@ -139,12 +202,16 @@ function main() {
     process.exit(1)
   }
 
-  // 3. 替换 .git
-  console.log('   ③ 替换 .git')
-  execSync(`mv "${cloneDir}/.git" "${gitDir}"`, { stdio: 'ignore' })
+  // 2. 把克隆出的 .git 落到真 gitdir;工作区 .git 指针形态保持不变
+  console.log('   ② 落盘到真 gitdir(工作区 .git 指针不变)')
+  execSync(`mv "${join(cloneDir, '.git')}" "${targetGitDir}"`, { stdio: 'ignore' })
+  if (isSeparate) {
+    // 确保工作区 .git 仍是指针文件(指向外部 gitdir),而非 544MB 目录
+    writeFileSync(dotGit, `gitdir: ${targetGitDir}\n`)
+  }
 
-  // 4. 重建 index(工作区不动),恢复分支跟踪
-  console.log('   ④ 重建 index(git reset) — 工作区文件不动')
+  // 3. 重建 index(工作区不动),恢复分支跟踪
+  console.log('   ③ 重建 index(git reset) — 工作区文件不动')
   run(`git -C ${repoRoot} reset`, true)
   const branch = run(`git -C ${repoRoot} symbolic-ref --short HEAD`, true)
   if (!branch) {
@@ -152,6 +219,10 @@ function main() {
     run(`git -C ${repoRoot} checkout -b main origin/main`, true)
   }
   run(`git -C ${repoRoot} checkout -- .`, true) // 还原他人最新提交引入的文件差异
+
+  // 4. 恢复完整远端与仓库配置
+  console.log('   ④ 恢复完整远端与仓库配置')
+  restoreConfig(repoRoot)
 
   // 5. 清理 clone 临时目录
   console.log('   ⑤ 清理临时目录')

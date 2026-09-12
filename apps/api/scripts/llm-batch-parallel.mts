@@ -10,7 +10,8 @@
  * 不依赖 @ihui/database 的 schema 导入路径。
  */
 import { config } from 'dotenv'
-config({ path: 'g:/IHUI-AI/apps/api/.env' })
+import { fileURLToPath } from 'node:url'
+config({ path: fileURLToPath(new URL('../.env', import.meta.url)) })
 
 import { createDb } from '@ihui/database'
 import { sql } from 'drizzle-orm'
@@ -48,10 +49,22 @@ function inferCategoryByTitle(title: string, sourceCode?: string): string {
   if (sourceCode && sourceCode.startsWith('arxiv')) return 'paper'
   const lower = title.toLowerCase()
   if (/论文|paper|arxiv|research|研究|emnlp|neurips|icml|iclr|cvpr/.test(lower)) return 'paper'
-  if (/融资|收购|ipo|funding|acquisition|市场|行业|政策|监管|ipo|上市/.test(lower)) return 'industry'
-  if (/教程|技巧|实践|guide|tutorial|tip|best practice|最佳实践|how-to|入门/.test(lower)) return 'tip'
-  if (/产品|应用|上线|product|app|platform|chatgpt|cursor|copilot|agent|智能体|机器人|机器人|平台|workspace|服务/.test(lower)) return 'ai-products'
-  if (/发布|推出|升级|launch|release|announce|gpt|claude|gemini|llama|mistral|qwen|deepseek|kimi|moonshot|glm|混元|hunyuan|模型|llm|foundation model|vlm|多模态|推理|reasoning/.test(lower)) return 'ai-models'
+  if (/融资|收购|ipo|funding|acquisition|市场|行业|政策|监管|ipo|上市/.test(lower))
+    return 'industry'
+  if (/教程|技巧|实践|guide|tutorial|tip|best practice|最佳实践|how-to|入门/.test(lower))
+    return 'tip'
+  if (
+    /产品|应用|上线|product|app|platform|chatgpt|cursor|copilot|agent|智能体|机器人|机器人|平台|workspace|服务/.test(
+      lower,
+    )
+  )
+    return 'ai-products'
+  if (
+    /发布|推出|升级|launch|release|announce|gpt|claude|gemini|llama|mistral|qwen|deepseek|kimi|moonshot|glm|混元|hunyuan|模型|llm|foundation model|vlm|多模态|推理|reasoning/.test(
+      lower,
+    )
+  )
+    return 'ai-models'
   return 'ai-models'
 }
 
@@ -149,7 +162,12 @@ for (let ci = 0; ci < chunks.length; ci++) {
         }
         return { item, category, ok: true }
       } catch (e) {
-        return { item, category: inferCategoryByTitle(item.title, item.source_code), ok: false, err: (e as Error).message }
+        return {
+          item,
+          category: inferCategoryByTitle(item.title, item.source_code),
+          ok: false,
+          err: (e as Error).message,
+        }
       }
     }),
   )
@@ -166,7 +184,9 @@ for (let ci = 0; ci < chunks.length; ci++) {
     if (r.ok) processed++
     else failed++
   }
-  console.log(`[chunk ${ci + 1}/${chunks.length}] 完成 ${results.length} 条(成功 ${processed}, 失败 ${failed})`)
+  console.log(
+    `[chunk ${ci + 1}/${chunks.length}] 完成 ${results.length} 条(成功 ${processed}, 失败 ${failed})`,
+  )
 }
 
 console.log('')

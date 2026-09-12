@@ -7,7 +7,8 @@
  * 用法:cd apps/api && pnpm exec tsx scripts/llm-batch-once.mts [limit]
  */
 import { config } from 'dotenv'
-config({ path: 'g:/IHUI-AI/apps/api/.env' })
+import { fileURLToPath } from 'node:url'
+config({ path: fileURLToPath(new URL('../.env', import.meta.url)) })
 
 const limit = Number(process.argv[2] ?? 20)
 console.log(`触发 LLM 分类批处理,limit=${limit}...`)
