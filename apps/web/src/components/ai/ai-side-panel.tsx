@@ -43,6 +43,11 @@ import { getConversation, getMessages } from '@ihui/api-client'
 import type { ChatMode } from '@ihui/types'
 import { parsePendingQuestion } from '@/lib/pending-question'
 import { fetchApi } from '@/lib/api'
+import {
+  findPendingResume,
+  autoResumeAfterHistory,
+  type PendingResume,
+} from '@/hooks/use-chat/resume-stream'
 import { useMediaQuery } from '@/hooks/use-media-query'
 
 /** 全局 AI docked 侧边面板(对齐旧架构 .ai-side-panel 设计)。
@@ -248,6 +253,18 @@ export function AISidePanel() {
   const [hasMoreHistory, setHasMoreHistory] = React.useState(false)
   const oldestCursorRef = React.useRef<string | null>(null)
   const [loadingMoreHistory, setLoadingMoreHistory] = React.useState(false)
+  // P1-6 断点续传(2026-09-13 立):待续接的"被中断助手消息"候选。
+  // 在会话 effect 里、loadHistory 覆盖 messages 之前捕获;历史加载完成后由 useAutoResume 消费。
+  const pendingResumeRef = React.useRef<PendingResume | null>(null)
+  // 续接失败降级文案(useMemo 保证引用稳定,不触发 useAutoResume 重跑)
+  const resumeLabels = React.useMemo(
+    () => ({
+      title: t('resumeFailed'),
+      action: t('regenerate'),
+      noProgress: t('resumeNoProgress'),
+    }),
+    [t],
+  )
   // #11 切换会话 LRU 缓存(2026-07-25 立):
   // 缓存最近 5 个会话的 messages + 分页状态,切回会话时同步从缓存恢复(无闪烁),
   // 后台异步拉取最新消息对比更新。用 Map 维护插入顺序,delete + set 重新插入实现 LRU。
@@ -383,6 +400,18 @@ export function AISidePanel() {
     prevConversationIdRef.current = storeConversationId
 
     let cancelled = false
+    // P1-6 断点续传:本轮会话的续接中止控制器(切会话 / 卸载时 abort)
+    const resumeAbort = new AbortController()
+
+    // 2026-09-12 W1 修复(本地在途消息被历史快照覆盖 → 正文 / plan / terminal 卡片整条消失):
+    // 历史拉取是异步的,期间本地可能已写入新消息(新建会话后 addMessage + 流式增量)。
+    // 以 messages 数组引用是否变化作为"本地已被写入"的判据 —— zustand 每次 set 都生成新引用。
+    // 后端在流式期间尚未持久化 assistant 消息,快照里不含它;此时若用远端快照整体覆盖
+    // (或拉取失败时清空 / 把 conversationId 置 null),会把流式中的 assistant 消息抹掉,
+    // 后续 setMessagePlanSteps / appendMessageTerminalTask 因找不到消息而静默落空。
+    function isLocalMessagesChanged(before: ChatMessage[]): boolean {
+      return useChatStore.getState().messages !== before
+    }
 
     async function loadHistory(id: string) {
       // 缓存命中:同步从缓存恢复(无闪烁),后台异步拉取最新消息对比更新
@@ -399,6 +428,8 @@ export function AISidePanel() {
 
         // 后台异步拉取最新消息对比更新(不阻塞 UI,完成后覆盖缓存数据)
         void (async () => {
+          // 记录拉取前的 messages 引用,识别拉取期间本地是否被写入(见 isLocalMessagesChanged)
+          const localBefore = useChatStore.getState().messages
           try {
             const [convRes, msgRes] = await Promise.all([
               getConversation(id),
@@ -413,8 +444,12 @@ export function AISidePanel() {
                 createdAt: new Date(m.createdAt).getTime(),
                 reasoning: m.reasoning,
               }))
-              // 仅当当前仍在该会话时才更新 store(避免覆盖用户已切换到的新会话)
-              if (useChatStore.getState().conversationId === id) {
+              // 仅当当前仍在该会话、且拉取期间本地未被写入时才更新 store
+              // (前者避免覆盖用户已切换到的新会话;后者避免覆盖流式中的在途消息)
+              if (
+                useChatStore.getState().conversationId === id &&
+                !isLocalMessagesChanged(localBefore)
+              ) {
                 useChatStore.setState({ messages: hydrated, error: null })
                 setConversationTitle(convRes.data.conversation.title || null)
                 oldestCursorRef.current = msgRes.data.nextCursor
@@ -449,6 +484,8 @@ export function AISidePanel() {
 
       // 缓存未命中:正常拉取
       setLoadingHistory(true)
+      // 记录拉取前的 messages 引用,识别拉取期间本地是否被写入(见 isLocalMessagesChanged)
+      const localBefore = useChatStore.getState().messages
       try {
         // #8 分页加载:默认 page=1 返回最新 pageSize 条(后端 offset 模式按 desc + reverse)
         const [convRes, msgRes] = await Promise.all([
@@ -464,7 +501,11 @@ export function AISidePanel() {
             createdAt: new Date(m.createdAt).getTime(),
             reasoning: m.reasoning,
           }))
-          useChatStore.setState({ messages: hydrated, error: null })
+          // 拉取期间本地已写入(新建会话后在途的 assistant 消息)时保留本地,
+          // 不用远端快照覆盖 —— 否则正文 / plan / terminal 卡片会被整条抹掉。
+          if (!isLocalMessagesChanged(localBefore)) {
+            useChatStore.setState({ messages: hydrated, error: null })
+          }
           setConversationTitle(convRes.data.conversation.title || null)
           // 记录分页游标:oldestCursor = 当前最旧一条 id,hasMoreHistory = 是否还有更早历史
           oldestCursorRef.current = msgRes.data.nextCursor
@@ -499,14 +540,17 @@ export function AISidePanel() {
             // 无挂起提问或数据非法时清空(避免上一会话的弹窗残留 / 脏数据崩溃)
             useChatStore.getState().clearPendingQuestion()
           }
-        } else {
+        } else if (!isLocalMessagesChanged(localBefore)) {
+          // 拉取失败但期间本地已写入(新建会话后的在途流式消息)时按成功路径同等对待:
+          // 保留本地消息与 conversationId,不做任何清空(见 isLocalMessagesChanged)
           setConversationId(null)
           useChatStore.setState({ messages: [], error: null })
           setConversationTitle(null)
           useChatStore.getState().clearPendingQuestion()
         }
       } catch {
-        if (!cancelled) {
+        if (!cancelled && !isLocalMessagesChanged(localBefore)) {
+          // 同上:异常路径同样不得抹掉在途消息
           setConversationId(null)
           useChatStore.setState({ messages: [], error: null })
           setConversationTitle(null)
@@ -543,8 +587,22 @@ export function AISidePanel() {
         })
       }
 
-      void loadHistory(storeConversationId)
+      // P1-6 断点续传(2026-09-13 立):必须在 loadHistory 之前捕获 ——
+      // 未落库的本地助手消息不在服务端快照里,loadHistory 会用快照整体覆盖 messages,
+      // 覆盖后就再也找不到了。捕获后由 autoResumeAfterHistory 在 loadHistory 结算后接管续接。
+      pendingResumeRef.current = findPendingResume(storeConversationId)
+
+      void loadHistory(storeConversationId).finally(() => {
+        // P1-6:历史结算之后才续接 —— 此前服务端快照会覆盖掉未落库的本地助手消息
+        void autoResumeAfterHistory(
+          pendingResumeRef,
+          storeConversationId,
+          resumeAbort.signal,
+          resumeLabels,
+        )
+      })
     } else {
+      pendingResumeRef.current = null
       useChatStore.setState({ messages: [], error: null })
       setConversationTitle(null)
       oldestCursorRef.current = null
@@ -553,6 +611,8 @@ export function AISidePanel() {
 
     return () => {
       cancelled = true
+      // P1-6:切会话/卸载时中止在途续接,避免把旧会话的 token 写进新会话
+      resumeAbort.abort()
     }
     // hasMoreHistory 用于切换会话前保存旧会话到缓存,但不放入依赖:
     // 避免 hasMoreHistory 变化触发 loadHistory 重载(分页加载由 handleLoadMoreHistory +
@@ -1077,10 +1137,12 @@ export function AISidePanel() {
                   {/* 工作区选择器(参考 主流 IDE 顶部 project selector):
                   空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除 */}
                   <WorkspaceSelector />
-                  {/* 会话累计 Token / 估算费用徽章(2026-09-07 工作线 A):hover 展开输入/输出/请求数明细 */}
+                  {/* 会话累计 Token / 费用徽章(2026-09-07 工作线 A;2026-09-12 W4 成本真网计价):
+                  hover 展开输入/输出/请求数明细,按 currentModel 查真实价目表计费 */}
                   <SessionUsageBadge
                     conversationId={storeConversationId}
                     isStreaming={isStreaming}
+                    model={currentModel}
                   />
                 </span>
               </div>
