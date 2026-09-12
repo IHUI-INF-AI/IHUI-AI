@@ -75,6 +75,11 @@ function makeCapturingReply(
 ): FastifyReply {
   return new Proxy(real, {
     get(target, prop, receiver) {
+      // Fastify 5 的 Reply 是 thenable(实现了 then)。若透传 then,调用方
+      // `await chatCore(...)` 会挂到 reply 生命周期事件上,而真正的发送又在
+      // await 之后 → 死锁(2026-09-13 实测 /v1beta 全量挂起)。捕获式 reply
+      // 的 await 语义必须与 reply 生命周期解耦,故屏蔽 thenable 三件套。
+      if (prop === 'then' || prop === 'catch' || prop === 'finally') return undefined
       if (prop === 'send') {
         return (body?: unknown) => {
           outcome.body = body
@@ -155,9 +160,10 @@ function createGeminiStreamBridge(
     }
   }
 
-  return new Writable({
+  const bridge = new Writable({
     write(chunk: Buffer, _enc, cb) {
       if (!headerWritten) {
+        // 兜底:共享核可能不经 writeHead 直接 write,按 SSE 头补写
         real.raw.writeHead(200, {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
@@ -181,7 +187,17 @@ function createGeminiStreamBridge(
       real.raw.end()
       cb()
     },
-  })
+  }) as Writable & { writeHead: (status: number, headers: Record<string, string>) => void }
+
+  // 共享核流式路径(v1-public streamChatCompletion)在 fakeReply.raw 上调用
+  // writeHead/write/end;裸 Writable 没有 writeHead,缺了会 TypeError 且此时
+  // reply 已 hijack 无法回错误 → 连接吊死(2026-09-13 修)。这里桥接到真实 raw。
+  bridge.writeHead = (status: number, headers: Record<string, string>) => {
+    if (headerWritten) return
+    real.raw.writeHead(status, headers)
+    headerWritten = true
+  }
+  return bridge
 }
 
 /** 非流式/流式错误统一回发 */
@@ -296,9 +312,11 @@ const v1GeminiRoutes: FastifyPluginAsync = async (server) => {
       await chatCore(request, fakeReply, coreBody, 'chat')
 
       if (outcome.status === 200) {
-        return reply.send(chatToGeminiResponse(outcome.body as V1ChatCompletionResponse))
+        reply.send(chatToGeminiResponse(outcome.body as V1ChatCompletionResponse))
+        return
       }
-      return reply.status(outcome.status).send(openAiErrorToGemini(outcome.status, outcome.body))
+      reply.status(outcome.status).send(openAiErrorToGemini(outcome.status, outcome.body))
+      return
     },
   )
 }
