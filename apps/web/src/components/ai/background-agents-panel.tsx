@@ -6,12 +6,18 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Cpu, RefreshCw, X, Loader2, CheckCircle2, XCircle, MinusCircle } from 'lucide-react'
+import { Cpu, RefreshCw, X, Loader2, CheckCircle2, XCircle, MinusCircle, Bell } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 import { formatTimeOnly } from '@/lib/date-utils'
 import { Tooltip } from '@/components/feedback'
+import { useBackgroundAgentNotify } from '@/hooks/use-background-agent-notify'
+import {
+  getDesktopPermission,
+  requestDesktopNotificationPermission,
+  type DesktopPermission,
+} from '@ihui/shared/notifications/notification-store'
 import type { BackgroundAgent, AgentStatus } from './types'
 
 interface BackgroundAgentsPanelProps {
@@ -52,6 +58,17 @@ export function BackgroundAgentsPanel({
 }: BackgroundAgentsPanelProps) {
   const t = useTranslations('ai.backgroundAgents')
   const ts = useTranslations('ai.status')
+  // SSR 安全:首帧按未授权渲染,挂载后再读真实权限,避免 hydration 不一致
+  const [permission, setPermission] = React.useState<DesktopPermission>('unsupported')
+  React.useEffect(() => setPermission(getDesktopPermission()), [])
+
+  useBackgroundAgentNotify(agents)
+
+  const enableNotifications = React.useCallback(async () => {
+    await requestDesktopNotificationPermission()
+    setPermission(getDesktopPermission())
+  }, [])
+
   const stats = React.useMemo(() => {
     const s = { running: 0, completed: 0, failed: 0, cancelled: 0 }
     for (const a of agents) {
@@ -74,6 +91,13 @@ export function BackgroundAgentsPanel({
           )}
         </div>
         <div className="flex items-center gap-1">
+          {permission === 'default' && (
+            <Tooltip content={t('enableNotifications')} side="bottom">
+              <Button variant="ghost" size="icon" onClick={enableNotifications}>
+                <Bell className="h-3.5 w-3.5" />
+              </Button>
+            </Tooltip>
+          )}
           <Button variant="ghost" size="icon" onClick={onRefresh} disabled={loading}>
             <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
           </Button>
