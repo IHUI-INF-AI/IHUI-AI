@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, URL as NodeURL } from 'node:url'
 import { gunzipSync, strFromU8 } from 'fflate'
 import { mergeMessages } from '@ihui/i18n/loader'
 import type { Locale, Messages } from '@ihui/i18n/types'
@@ -30,13 +30,20 @@ function b64ToBytes(b64: string): Uint8Array {
 function readLocaleMessages(locale: Locale): Messages {
   const base = JSON.parse(
     readFileSync(
-      fileURLToPath(new URL(`../../../../../packages/i18n/messages/shared/${locale}.json`, import.meta.url)),
+      fileURLToPath(
+        new NodeURL(`../../../../../packages/i18n/messages/shared/${locale}.json`, import.meta.url),
+      ),
       'utf8',
     ),
   ) as Messages
   const override = JSON.parse(
     readFileSync(
-      fileURLToPath(new URL(`../../../../../packages/i18n/messages/miniapp-taro/${locale}.json`, import.meta.url)),
+      fileURLToPath(
+        new NodeURL(
+          `../../../../../packages/i18n/messages/miniapp-taro/${locale}.json`,
+          import.meta.url,
+        ),
+      ),
       'utf8',
     ),
   ) as Messages
@@ -49,7 +56,9 @@ describe('非中文语言包离线 gzip+base64 无损性', () => {
     it(`${locale}: 解压数据 === mergeMessages(shared, miniapp-taro) 源 JSON`, () => {
       const merged = readLocaleMessages(locale)
       const inflated = JSON.parse(
-        strFromU8(gunzipSync(b64ToBytes(REMOTE_LOCALE_B64[locale as 'en' | 'ja' | 'ko' | 'zh-TW']))),
+        strFromU8(
+          gunzipSync(b64ToBytes(REMOTE_LOCALE_B64[locale as 'en' | 'ja' | 'ko' | 'zh-TW'])),
+        ),
       ) as Messages
       // 深比较证明字节级无损
       expect(inflated).toEqual(merged)
