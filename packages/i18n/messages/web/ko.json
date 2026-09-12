@@ -13497,7 +13497,21 @@
     "riskGeneric": "잠재적 보안 위험이 감지되었습니다",
     "riskRecommendation": "권장 사항",
     "riskCancel": "설치 취소",
-    "riskConfirmProceed": "그래도 설치"
+    "riskConfirmProceed": "그래도 설치",
+    "qualityScore": "품질 점수: {score}/100",
+    "securityScore": "보안 점수: {score}/100",
+    "reviewPending": "검토 대기",
+    "reviewApproved": "승인됨",
+    "reviewRejected": "반려됨",
+    "dashboardTitle": "품질 대시보드",
+    "dashboardSubtitle": "각 MCP 서버의 런타임 지표 및 품질 / 보안 점수",
+    "dashboardServer": "서버",
+    "dashboardScoring": "점수",
+    "dashboardCalls": "호출 수",
+    "dashboardSuccessRate": "성공률",
+    "dashboardAvgLatency": "평균 지연",
+    "dashboardNoData": "데이터 없음",
+    "dashboardLatency": "{value}초"
   },
   "member": {
     "feedback": {
@@ -14704,7 +14718,18 @@
     "noSeries": "시계열 데이터 없음",
     "stepsSuffix": "단계 {count}개",
     "byTool": "도구별",
-    "byModel": "모델별"
+    "byModel": "모델별",
+    "budgetEvents": "예산 이벤트",
+    "budgetEventsHint": "프로세스 수준 링 버퍼(최근 200건, 재시작 시 초기화). 동일 필러·동일 유형 이벤트는 사용량 증가 기준으로 중복 제거, 최신 순",
+    "budgetEventsEmpty": "예산 이벤트가 없습니다 — 예산 사용량이 정상이거나 서비스 프로세스가 방금 재시작되었습니다",
+    "budgetWarning": "경고",
+    "budgetCritical": "심각",
+    "budgetDegrade": "자동 강등",
+    "budgetDegradeReset": "강등 해제",
+    "budgetUsagePercent": "전역 예산 사용량 {percent}",
+    "budgetDailyCost": "당일 비용 {cost}",
+    "budgetDegradedTo": "{model}(으)로 강등",
+    "budgetHardStop": "하드 스톱"
   },
   "computerUse": {
     "title": "컴퓨터 사용 콕핏",
