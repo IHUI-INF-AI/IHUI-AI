@@ -58,7 +58,12 @@ import {
   recordCall,
   isByokCall,
   modelToProviderCode,
+  preDeductQuota,
+  type PreDeduction,
 } from '../services/relay-billing-service.js'
+// 渠道直连转发器(2026-09-12 立):公开链路接通渠道路由 + 逐请求 failover
+import { forwardToChannel, pipeChannelStream } from '../services/relay-upstream-forwarder.js'
+import type { SelectedChannelKey } from '../services/relay-channel-router.js'
 // P0 中转站造血能力批次(2026-07-31 立):模型映射解析(Key 级 > 用户级 > 全局)
 import { resolveModelMapping } from '../services/model-mapping-service.js'
 // P0 第二批次(2026-07-31 立):响应缓存(Redis)省钱大法,对非流式 chat completions 启用
@@ -120,6 +125,33 @@ const agentCallSchema = z.object({
   input: z.string().min(1),
   sessionId: z.string().optional(),
 })
+
+/** legacy /v1/completions 请求 schema(prompt 支持字符串或数组;max_tokens 为主、maxTokens 兼容) */
+const completionRequestSchema = z.object({
+  model: z.string().min(1),
+  prompt: z.union([z.string(), z.array(z.string())]),
+  suffix: z.string().optional(),
+  stream: z.boolean().optional(),
+  temperature: z.number().optional(),
+  max_tokens: z.number().int().positive().optional(),
+  maxTokens: z.number().int().positive().optional(),
+})
+
+/** chat.completion → legacy text_completion 响应形态适配(/v1/completions 用) */
+function toTextCompletion(result: V1ChatCompletionResponse): Record<string, unknown> {
+  return {
+    id: result.id,
+    object: 'text_completion',
+    created: result.created,
+    model: result.model,
+    choices: result.choices.map((c) => ({
+      text: c.message?.content ?? '',
+      index: c.index,
+      finish_reason: c.finish_reason,
+    })),
+    usage: result.usage,
+  }
+}
 
 // =============================================================================
 // Fastify OpenAPI schemas(共享)
@@ -507,6 +539,12 @@ async function streamChatCompletion(
     responseFormat?: unknown
     /** OpenAI 协议扩展:seed 透传(符合范围 0-999999) */
     seed?: number
+    /** 响应形态:'chat'=chat.completion.chunk(默认)| 'text'=legacy text_completion chunk(/v1/completions) */
+    flavor?: 'chat' | 'text'
+    /** 两段式计费:preDeductQuota 预扣凭证(recordCall 透传结算) */
+    preDeducted?: PreDeduction | null
+    /** session-affinity 亲和性 key(建议 apiKeyId) */
+    affinityKey?: string
   },
 ): Promise<void> {
   reply.hijack()
@@ -521,6 +559,7 @@ async function streamChatCompletion(
   const id = `chatcmpl-${randomUUID()}`
   const created = Math.floor(Date.now() / 1000)
   const { model, messages, temperature, maxTokens, userId } = opts
+  const isTextFlavor = opts.flavor === 'text'
   /** 累计响应文本用于估算 token(P0-5 流式无准确 usage) */
   let responseText = ''
   let streamError: string | null = null
@@ -535,23 +574,118 @@ async function streamChatCompletion(
   let upstreamHttpStatus: number | null = null
 
   const writeChunk = (delta: Record<string, unknown>, finishReason: string | null) => {
+    // legacy /v1/completions 流式:text_completion chunk(delta.content → text 字段)
+    const choice = isTextFlavor
+      ? {
+          text: typeof delta['content'] === 'string' ? delta['content'] : '',
+          finish_reason: finishReason,
+        }
+      : { index: 0, delta, finish_reason: finishReason }
     raw.write(
       `data: ${JSON.stringify({
         id,
-        object: 'chat.completion.chunk',
+        object: isTextFlavor ? 'text_completion' : 'chat.completion.chunk',
         created,
         model,
-        choices: [{ index: 0, delta, finish_reason: finishReason }],
+        choices: [choice],
       })}\n\n`,
     )
   }
 
-  // 首个 chunk:role
-  writeChunk({ role: 'assistant', content: '' }, null)
-
   const controller = new AbortController()
   const onClose = () => controller.abort()
   request.raw.on('close', onClose)
+
+  // ==========================================================================
+  // 渠道直连优先(2026-09-12 立):渠道路由 + 逐请求 failover + 两段式计费。
+  // BYOK 模式不走渠道(用户自有 key 由 ai-service 处理)。
+  // fwd === null(无渠道配置)或 ok:false(全部候选失败)→ 回退 ai-service 既有链路。
+  // ==========================================================================
+  if (opts.mode !== 'byok') {
+    try {
+      // 渠道路径同样应用参数覆盖系统(与 ai-service 路径同源)
+      const baseBody: Record<string, unknown> = { messages, model }
+      if (temperature !== undefined) baseBody.temperature = temperature
+      if (maxTokens !== undefined) baseBody.max_tokens = maxTokens
+      if (opts.responseFormat !== undefined) baseBody.response_format = opts.responseFormat
+      if (opts.seed !== undefined) baseBody.seed = opts.seed
+      const channelParamOps = await applyParamOpsToBody(baseBody, { model })
+      const fwd = await forwardToChannel({
+        model,
+        messages,
+        temperature,
+        maxTokens,
+        stream: true,
+        responseFormat: opts.responseFormat,
+        seed: opts.seed,
+        userId,
+        affinityKey: opts.affinityKey,
+        bodyOverride: channelParamOps.body,
+        signal: controller.signal,
+      })
+      if (fwd && fwd.ok) {
+        upstreamHttpStatus = fwd.response.status
+        const stats = await pipeChannelStream(fwd.response, {
+          // verbatim 转发上游 OpenAI chunk;legacy text 模式改为解析后按 text chunk 重发
+          ...(isTextFlavor
+            ? { emitText: (text: string) => writeChunk({ content: text }, null) }
+            : { writeLine: (line: string) => raw.write(line) }),
+          signal: controller.signal,
+        })
+        responseText = stats.responseText
+        streamCacheReadTokens = stats.cacheReadTokens
+        streamCacheCreationTokens = stats.cacheCreationTokens
+        streamPromptTokens = stats.promptTokens
+        streamCompletionTokens = stats.completionTokens
+        firstTokenTime = stats.ttftMs !== null ? Date.now() - stats.ttftMs : null
+        if (opts.streamUsageEnabled && (streamPromptTokens > 0 || streamCompletionTokens > 0)) {
+          raw.write(buildStreamUsageChunk(id, model, streamPromptTokens, streamCompletionTokens))
+        }
+        writeChunk({}, 'stop')
+        raw.write('data: [DONE]\n\n')
+        request.raw.off('close', onClose)
+        raw.end()
+        if (opts.apiKeyId && opts.userId) {
+          const promptTokens = Math.ceil((opts.promptText ?? '').length / 4)
+          const completionTokens = stats.completionTokens
+          void recordCall({
+            apiKeyId: opts.apiKeyId,
+            userId: opts.userId,
+            model,
+            prompt: opts.promptText ?? '',
+            response: responseText,
+            promptTokens,
+            completionTokens,
+            totalTokens: promptTokens + completionTokens,
+            cacheReadTokens: stats.cacheReadTokens,
+            cacheCreationTokens: stats.cacheCreationTokens,
+            latencyMs: Date.now() - (opts.startTime ?? Date.now()),
+            status: 'success',
+            metadata: {
+              stream: true,
+              channel: fwd.channel.groupName,
+              ...(opts.modelMappingMeta ?? {}),
+            },
+            mode: opts.mode ?? 'relay',
+            providerCode: fwd.channel.providerCode,
+            configId: fwd.channel.configId,
+            keyPoolId: fwd.channel.keyPoolId,
+            clientIp: opts.clientIp,
+            httpStatus: stats.httpStatus,
+            ttftMs: stats.ttftMs ?? undefined,
+            preDeducted: opts.preDeducted ?? null,
+          }).catch(() => {})
+        }
+        return // 渠道链路全程接管,不进入 ai-service 分支
+      }
+      // fwd === null(无渠道)/ fwd.ok === false(全部候选失败)→ 落入下方 ai-service 链路
+    } catch {
+      // 渠道链路任何异常 → 回退 ai-service(首个 chunk 尚未写出,客户端无感)
+    }
+  }
+
+  // 首个 chunk:role
+  writeChunk({ role: 'assistant', content: '' }, null)
 
   try {
     const body: Record<string, unknown> = { messages, model }
@@ -680,6 +814,7 @@ async function streamChatCompletion(
         httpStatus: upstreamHttpStatus ?? undefined,
         ttftMs:
           firstTokenTime !== null ? firstTokenTime - (opts.startTime ?? firstTokenTime) : undefined,
+        preDeducted: opts.preDeducted ?? null,
       }).catch(() => {})
     }
   }
@@ -986,173 +1121,329 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const {
-        model,
-        messages,
-        stream,
+      return processChatCompletion(request, reply, parsed.data, 'chat')
+    },
+  )
+
+  // ===== 4b. POST /completions — legacy 文本补全(OpenAI 兼容,2026-09-12 立) =====
+  server.post(
+    '/completions',
+    {
+      schema: {
+        description:
+          '文本补全(OpenAI legacy /v1/completions 兼容:prompt/suffix → messages 适配,复用 chat/completions 转发链与计费)',
+        tags: ['Completions'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            prompt: { type: ['string', 'array'], items: { type: 'string' } },
+            suffix: { type: 'string' },
+            stream: { type: 'boolean' },
+            temperature: { type: 'number' },
+            max_tokens: { type: 'number' },
+            maxTokens: { type: 'number' },
+          },
+          required: ['model', 'prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              object: { type: 'string' },
+              created: { type: 'number' },
+              model: { type: 'string' },
+              choices: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    text: { type: 'string' },
+                    index: { type: 'number' },
+                    finish_reason: { type: 'string' },
+                  },
+                },
+              },
+              usage: {
+                type: 'object',
+                properties: {
+                  prompt_tokens: { type: 'number' },
+                  completion_tokens: { type: 'number' },
+                  total_tokens: { type: 'number' },
+                },
+              },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          402: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
+      preHandler: [requireApiKeyAuth, requireApiKeyPermission('chat:write'), requireApiKeyQuota()],
+    },
+    async (request, reply) => {
+      const parsed = completionRequestSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const promptText = Array.isArray(parsed.data.prompt)
+        ? parsed.data.prompt.join('\n\n')
+        : parsed.data.prompt
+      // legacy prompt/suffix → messages 适配(chat 上游统一处理)
+      const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+        { role: 'user', content: promptText + (parsed.data.suffix ?? '') },
+      ]
+      return processChatCompletion(
+        request,
+        reply,
+        {
+          model: parsed.data.model,
+          messages,
+          stream: parsed.data.stream ?? false,
+          temperature: parsed.data.temperature,
+          maxTokens: parsed.data.max_tokens ?? parsed.data.maxTokens,
+        },
+        'text',
+      )
+    },
+  )
+
+  /**
+   * chat/completions 与 legacy completions 共用处理核(2026-09-12 从路由 lambda 提取):
+   * 协议扩展 → 余额预检 → 两段式预扣 → 模型映射 → 渠道直连(failover)→ ai-service 兜底 → 计费。
+   * @param flavor 'chat' = chat.completion 响应;'text' = legacy text_completion 响应
+   */
+  const processChatCompletion = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    body: z.infer<typeof chatCompletionSchema>,
+    flavor: 'chat' | 'text',
+  ): Promise<void> => {
+    const {
+      model,
+      messages,
+      stream,
+      temperature,
+      maxTokens,
+      stream_options,
+      response_format,
+      seed,
+    } = body
+
+    // OpenAI 协议扩展:json_schema 注入 system 提示 + seed 透传 + stream_usage 检测
+    // - json_schema:工具函数在 system message 末尾追加 schema 提示,提升非原生模型命中率
+    // - text/json_object:原样透传 response_format 给上游
+    // - seed:符合范围(0-999999)透传
+    // - streamUsageEnabled:stream=true && stream_options.include_usage=true 时为 true
+    const protocolResult = applyProtocolExtensions({
+      model,
+      messages: messages as ChatCompletionRequest['messages'],
+      stream,
+      temperature,
+      max_tokens: maxTokens,
+      stream_options: stream_options as ChatCompletionRequest['stream_options'],
+      response_format: response_format as ChatCompletionRequest['response_format'],
+      seed,
+    })
+    const streamUsageEnabled = protocolResult.streamUsageEnabled
+    // json_schema 启用时 messages 可能被注入 system 提示;否则保持原始 messages
+    const upstreamMessages = (protocolResult.openaiBody.messages ?? messages) as typeof messages
+    const upstreamResponseFormat = protocolResult.openaiBody.response_format
+    const upstreamSeed = protocolResult.openaiBody.seed as number | undefined
+
+    // P0-5 中转站计费:调用前检查 API Key 余额
+    const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
+    const startTime = Date.now()
+    const promptText = messages.map((m) => `${m.role}: ${m.content}`).join('\n')
+    if (apiKey) {
+      const estimatedTokens = messages.reduce((sum, m) => sum + Math.ceil(m.content.length / 4), 0)
+      const quotaCheck = await checkQuota(apiKey.id, estimatedTokens)
+      if (!quotaCheck.allowed) {
+        const reasonMap: Record<string, string> = {
+          no_balance_token: 'Token 余额不足,请充值或联系管理员',
+          no_balance_cost: '成本余额不足,请充值或联系管理员',
+          key_not_found: 'API Key 不存在',
+          key_revoked: 'API Key 已被吊销',
+        }
+        const statusCode = quotaCheck.reason === 'key_not_found' ? 401 : 402
+        return reply
+          .status(statusCode)
+          .send(error(statusCode, reasonMap[quotaCheck.reason ?? ''] ?? '额度不足'))
+      }
+    }
+
+    // BYOK 平台模式(2026-07-30):若用户对该 model 有私有 ai_model_config,走 BYOK 计费分支
+    // mode='byok' 时 recordCall 只扣 platformFeeCents(上游原价 × 抽成率),不扣大厂成本
+    let mode: 'relay' | 'byok' = 'relay'
+    if (apiKey?.userId) {
+      try {
+        if (await isByokCall(apiKey.userId, model)) mode = 'byok'
+      } catch {
+        // isByokCall 失败默认走 relay,不影响主链路
+      }
+    }
+
+    // P0 模型映射(2026-07-31 立):Key 级 > 用户级 > 全局,admin 可配全局映射,
+    // 用户可配 Key 级映射,实现"gpt-4o→deepseek-chat 偷偷换后端降本 90%"等场景。
+    // 解析失败默认走原 model,不影响主链路。metadata 记录原始 model 供 recordCall 审计。
+    let resolvedModel = model
+    let modelMappingMeta: Record<string, unknown> | undefined
+    if (apiKey?.userId) {
+      try {
+        const mappingResult = await resolveModelMapping(model, apiKey.userId, apiKey.id)
+        if (mappingResult.mapped && mappingResult.resolvedModel) {
+          resolvedModel = mappingResult.resolvedModel
+          modelMappingMeta = {
+            originalModel: model,
+            mappedModel: resolvedModel,
+            mappingId: mappingResult.mapping?.id,
+            mappingScope: mappingResult.mapping?.apiKeyId
+              ? 'key'
+              : mappingResult.mapping?.userId
+                ? 'user'
+                : 'global',
+          }
+        }
+      } catch {
+        // 映射解析失败默认走原 model,不影响主链路
+      }
+    }
+
+    // 两段式计费第一阶段(2026-09-12 立):预扣预估用量(封顶当前余额),
+    // recordCall 收到凭证后自动结算(多退少补),敞口上限 = 单次预扣额。
+    // 仅 relay 模式预扣;BYOK 只抽成不预扣;无限额度 Key preDeductQuota 返回 null。
+    let preDeduction: PreDeduction | null = null
+    if (apiKey && mode === 'relay') {
+      preDeduction = await preDeductQuota({
+        apiKeyId: apiKey.id,
+        model: resolvedModel,
+        userId: apiKey.userId,
+        estimatedPromptTokens: Math.ceil(promptText.length / 4),
+        estimatedCompletionTokens: maxTokens ?? 1024,
+      })
+    }
+
+    if (stream) {
+      return streamChatCompletion(request, reply, {
+        model: resolvedModel,
+        // json_schema 启用时 upstreamMessages 已注入 system 提示
+        messages: upstreamMessages,
         temperature,
         maxTokens,
-        stream_options,
-        response_format,
-        seed,
-      } = parsed.data
-
-      // OpenAI 协议扩展:json_schema 注入 system 提示 + seed 透传 + stream_usage 检测
-      // - json_schema:工具函数在 system message 末尾追加 schema 提示,提升非原生模型命中率
-      // - text/json_object:原样透传 response_format 给上游
-      // - seed:符合范围(0-999999)透传
-      // - streamUsageEnabled:stream=true && stream_options.include_usage=true 时为 true
-      const protocolResult = applyProtocolExtensions({
-        model,
-        messages: messages as ChatCompletionRequest['messages'],
-        stream,
-        temperature,
-        max_tokens: maxTokens,
-        stream_options: stream_options as ChatCompletionRequest['stream_options'],
-        response_format: response_format as ChatCompletionRequest['response_format'],
-        seed,
+        apiKeyId: apiKey?.id,
+        userId: apiKey?.userId,
+        promptText,
+        startTime,
+        mode,
+        modelMappingMeta,
+        providerCode: modelToProviderCode(resolvedModel),
+        clientIp: request.ip,
+        // OpenAI 协议扩展透传
+        streamUsageEnabled,
+        responseFormat: upstreamResponseFormat,
+        seed: upstreamSeed,
+        // 响应形态 + 两段式计费凭证 + 渠道亲和性
+        flavor,
+        preDeducted: preDeduction,
+        affinityKey: apiKey?.id,
       })
-      const streamUsageEnabled = protocolResult.streamUsageEnabled
-      // json_schema 启用时 messages 可能被注入 system 提示;否则保持原始 messages
-      const upstreamMessages = (protocolResult.openaiBody.messages ?? messages) as typeof messages
-      const upstreamResponseFormat = protocolResult.openaiBody.response_format
-      const upstreamSeed = protocolResult.openaiBody.seed as number | undefined
+    }
 
-      // P0-5 中转站计费:调用前检查 API Key 余额
-      const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
-      const startTime = Date.now()
-      const promptText = messages.map((m) => `${m.role}: ${m.content}`).join('\n')
-      if (apiKey) {
-        const estimatedTokens = messages.reduce(
-          (sum, m) => sum + Math.ceil(m.content.length / 4),
-          0,
-        )
-        const quotaCheck = await checkQuota(apiKey.id, estimatedTokens)
-        if (!quotaCheck.allowed) {
-          const reasonMap: Record<string, string> = {
-            no_balance_token: 'Token 余额不足,请充值或联系管理员',
-            no_balance_cost: '成本余额不足,请充值或联系管理员',
-            key_not_found: 'API Key 不存在',
-            key_revoked: 'API Key 已被吊销',
-          }
-          const statusCode = quotaCheck.reason === 'key_not_found' ? 401 : 402
-          return reply
-            .status(statusCode)
-            .send(error(statusCode, reasonMap[quotaCheck.reason ?? ''] ?? '额度不足'))
-        }
-      }
-
-      // BYOK 平台模式(2026-07-30):若用户对该 model 有私有 ai_model_config,走 BYOK 计费分支
-      // mode='byok' 时 recordCall 只扣 platformFeeCents(上游原价 × 抽成率),不扣大厂成本
-      let mode: 'relay' | 'byok' = 'relay'
-      if (apiKey?.userId) {
-        try {
-          if (await isByokCall(apiKey.userId, model)) mode = 'byok'
-        } catch {
-          // isByokCall 失败默认走 relay,不影响主链路
-        }
-      }
-
-      // P0 模型映射(2026-07-31 立):Key 级 > 用户级 > 全局,admin 可配全局映射,
-      // 用户可配 Key 级映射,实现"gpt-4o→deepseek-chat 偷偷换后端降本 90%"等场景。
-      // 解析失败默认走原 model,不影响主链路。metadata 记录原始 model 供 recordCall 审计。
-      let resolvedModel = model
-      let modelMappingMeta: Record<string, unknown> | undefined
-      if (apiKey?.userId) {
-        try {
-          const mappingResult = await resolveModelMapping(model, apiKey.userId, apiKey.id)
-          if (mappingResult.mapped && mappingResult.resolvedModel) {
-            resolvedModel = mappingResult.resolvedModel
-            modelMappingMeta = {
-              originalModel: model,
-              mappedModel: resolvedModel,
-              mappingId: mappingResult.mapping?.id,
-              mappingScope: mappingResult.mapping?.apiKeyId
-                ? 'key'
-                : mappingResult.mapping?.userId
-                  ? 'user'
-                  : 'global',
-            }
-          }
-        } catch {
-          // 映射解析失败默认走原 model,不影响主链路
-        }
-      }
-
-      if (stream) {
-        return streamChatCompletion(request, reply, {
-          model: resolvedModel,
-          // json_schema 启用时 upstreamMessages 已注入 system 提示
-          messages: upstreamMessages,
-          temperature,
-          maxTokens,
-          apiKeyId: apiKey?.id,
-          userId: apiKey?.userId,
-          promptText,
-          startTime,
-          mode,
-          modelMappingMeta,
-          providerCode: modelToProviderCode(resolvedModel),
-          clientIp: request.ip,
-          // OpenAI 协议扩展透传
-          streamUsageEnabled,
-          responseFormat: upstreamResponseFormat,
-          seed: upstreamSeed,
+    // 非流式:转发到 ai-service /api/llm/complete
+    try {
+      // P0 第二批次响应缓存(2026-07-31 立):对非流式 chat completions 启用 Redis 缓存。
+      // 跳过条件:stream/tools/media/超大请求/X-Cache-Bypass header(见 shouldSkipCache)
+      // 命中:直接返回缓存结果,加 X-Cache: HIT header,recordCall 记 cacheHit:true(成本为 0)
+      // 未命中:正常调用上游,成功后写入缓存,加 X-Cache: MISS header
+      const cache = getRelayResponseCache()
+      let cacheKey: string | null = null
+      if (cache) {
+        const skip = shouldSkipCache({
+          stream: false,
+          bypassHeader: request.headers['x-cache-bypass'] as string | undefined,
+          tools: (request.body as { tools?: unknown }).tools,
+          messages: messages as CacheableMessage[],
         })
-      }
-
-      // 非流式:转发到 ai-service /api/llm/complete
-      try {
-        // P0 第二批次响应缓存(2026-07-31 立):对非流式 chat completions 启用 Redis 缓存。
-        // 跳过条件:stream/tools/media/超大请求/X-Cache-Bypass header(见 shouldSkipCache)
-        // 命中:直接返回缓存结果,加 X-Cache: HIT header,recordCall 记 cacheHit:true(成本为 0)
-        // 未命中:正常调用上游,成功后写入缓存,加 X-Cache: MISS header
-        const cache = getRelayResponseCache()
-        let cacheKey: string | null = null
-        if (cache) {
-          const skip = shouldSkipCache({
-            stream: false,
-            bypassHeader: request.headers['x-cache-bypass'] as string | undefined,
-            tools: (request.body as { tools?: unknown }).tools,
+        if (!skip.skip) {
+          cacheKey = computeCacheKey({
+            model: resolvedModel,
             messages: messages as CacheableMessage[],
+            temperature,
+            max_tokens: maxTokens,
           })
-          if (!skip.skip) {
-            cacheKey = computeCacheKey({
-              model: resolvedModel,
-              messages: messages as CacheableMessage[],
-              temperature,
-              max_tokens: maxTokens,
-            })
-            const cached = await cache.get<V1ChatCompletionResponse>(cacheKey)
-            if (cached.hit) {
-              // 缓存命中:成本为 0,记录 cacheHit 标志供统计
-              reply.header('X-Cache', 'HIT')
-              if (apiKey) {
-                void recordCall({
-                  apiKeyId: apiKey.id,
-                  userId: apiKey.userId,
-                  model: resolvedModel,
-                  prompt: promptText,
-                  response: cached.data.choices[0]?.message?.content ?? '',
-                  promptTokens: cached.data.usage?.prompt_tokens ?? 0,
-                  completionTokens: cached.data.usage?.completion_tokens ?? 0,
-                  totalTokens: cached.data.usage?.total_tokens ?? 0,
-                  latencyMs: Date.now() - startTime,
-                  status: 'success',
-                  mode,
-                  providerCode: modelToProviderCode(resolvedModel),
-                  clientIp: request.ip,
-                  httpStatus: 200,
-                  metadata: { cacheHit: true, ...(modelMappingMeta ?? {}) },
-                }).catch((e) => {
-                  console.error('[v1/chat] cache hit recordCall FAIL', e?.message || e)
-                })
-              }
-              return reply.send(cached.data)
+          const cached = await cache.get<V1ChatCompletionResponse>(cacheKey)
+          if (cached.hit) {
+            // 缓存命中:成本为 0,记录 cacheHit 标志供统计
+            reply.header('X-Cache', 'HIT')
+            if (apiKey) {
+              void recordCall({
+                apiKeyId: apiKey.id,
+                userId: apiKey.userId,
+                model: resolvedModel,
+                prompt: promptText,
+                response: cached.data.choices[0]?.message?.content ?? '',
+                promptTokens: cached.data.usage?.prompt_tokens ?? 0,
+                completionTokens: cached.data.usage?.completion_tokens ?? 0,
+                totalTokens: cached.data.usage?.total_tokens ?? 0,
+                latencyMs: Date.now() - startTime,
+                status: 'success',
+                mode,
+                providerCode: modelToProviderCode(resolvedModel),
+                clientIp: request.ip,
+                httpStatus: 200,
+                metadata: { cacheHit: true, ...(modelMappingMeta ?? {}) },
+                preDeducted: preDeduction,
+              }).catch((e) => {
+                console.error('[v1/chat] cache hit recordCall FAIL', e?.message || e)
+              })
             }
+            return reply.send(cached.data)
           }
         }
+      }
 
+      // 渠道直连(2026-09-12 立):relay 模式优先渠道路由直连上游(候选间逐请求 failover 内建);
+      // 返回 null(无渠道配置)或 ok:false(全部候选失败)→ 回退 ai-service 既有链路(向后兼容)。
+      let usedChannel: SelectedChannelKey | null = null
+      let resp: Response | null = null
+      if (mode === 'relay') {
+        try {
+          const baseBody: Record<string, unknown> = {
+            messages: upstreamMessages,
+            model: resolvedModel,
+          }
+          if (temperature !== undefined) baseBody.temperature = temperature
+          if (maxTokens !== undefined) baseBody.max_tokens = maxTokens
+          if (upstreamResponseFormat !== undefined)
+            baseBody.response_format = upstreamResponseFormat
+          if (upstreamSeed !== undefined) baseBody.seed = upstreamSeed
+          // 参数覆盖系统与 ai-service 路径同源(渠道路径同样生效)
+          const paramOpsResult = await applyParamOpsToBody(baseBody, { model: resolvedModel })
+          const fwd = await forwardToChannel({
+            model: resolvedModel,
+            messages: upstreamMessages,
+            temperature,
+            maxTokens,
+            stream: false,
+            responseFormat: upstreamResponseFormat,
+            seed: upstreamSeed,
+            userId: apiKey?.userId,
+            affinityKey: apiKey?.id,
+            bodyOverride: paramOpsResult.body,
+          })
+          if (fwd && fwd.ok) {
+            resp = fwd.response
+            usedChannel = fwd.channel
+          }
+        } catch {
+          // 渠道链路异常 → 回退 ai-service
+        }
+      }
+
+      if (!resp) {
         const body: Record<string, unknown> = { messages, model: resolvedModel }
         if (temperature !== undefined) body.temperature = temperature
         if (maxTokens !== undefined) body.max_tokens = maxTokens
@@ -1166,163 +1457,202 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         const paramOpsResult = await applyParamOpsToBody(body, { model: resolvedModel })
         const upstreamBody = paramOpsResult.body
 
-        const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
+        resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(upstreamBody),
         })
+      }
 
-        if (!resp.ok) {
-          if (apiKey) {
-            void recordCall({
-              apiKeyId: apiKey.id,
-              userId: apiKey.userId,
-              model: resolvedModel,
-              prompt: promptText,
-              metadata: modelMappingMeta,
-              response: null,
-              promptTokens: 0,
-              completionTokens: 0,
-              totalTokens: 0,
-              latencyMs: Date.now() - startTime,
-              status: 'error',
-              errorMessage: `AI service unavailable (${resp.status})`,
-              mode,
-              providerCode: modelToProviderCode(resolvedModel),
-              clientIp: request.ip,
-              httpStatus: resp.status,
-            }).catch(() => {})
-          }
-          return reply.status(503).send(error(503, `AI service unavailable (${resp.status})`))
-        }
-
-        const data = (await resp.json()) as {
-          content?: string
-          model?: string
-          usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
-          error?: boolean
-          error_message?: string
-        }
-
-        if (data.error) {
-          if (apiKey) {
-            void recordCall({
-              apiKeyId: apiKey.id,
-              userId: apiKey.userId,
-              model: resolvedModel,
-              prompt: promptText,
-              metadata: modelMappingMeta,
-              response: null,
-              promptTokens: 0,
-              completionTokens: 0,
-              totalTokens: 0,
-              latencyMs: Date.now() - startTime,
-              status: 'error',
-              errorMessage: data.error_message ?? 'AI service error',
-              mode,
-              providerCode: modelToProviderCode(resolvedModel),
-              clientIp: request.ip,
-              httpStatus: resp.status,
-            }).catch(() => {})
-          }
-          return reply.status(502).send(error(502, data.error_message ?? 'AI service error'))
-        }
-
-        const promptTokens = data.usage?.prompt_tokens ?? 0
-        const completionTokens = data.usage?.completion_tokens ?? 0
-        const totalTokens = data.usage?.total_tokens ?? 0
-        // P0-5b prompt cache:从 usage 解析 cache_read/cache_creation tokens(OpenAI/Anthropic 风格)
-        const cacheTokens = parseCacheTokens(data.usage)
-        // P0-5 防御:ai-service 偶发把 usage 序列化为 '***' 字符串(LLMMetrics 中间件脱敏),
-        // 此时按字符数估算(1 token ≈ 4 字符,中英文混合),避免 recordCall 写库失败。
-        const safeInt = (v: unknown, fallbackChars: number): number => {
-          if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return Math.floor(v)
-          if (typeof v === 'string') {
-            const n = Number(v)
-            if (Number.isFinite(n) && n >= 0) return Math.floor(n)
-            return Math.max(1, Math.ceil(fallbackChars / 4))
-          }
-          return Math.max(1, Math.ceil(fallbackChars / 4))
-        }
-        const safePrompt = safeInt(promptTokens, promptText.length)
-        const safeCompletion = safeInt(completionTokens, (data.content ?? '').length)
-        const safeTotal = safeInt(totalTokens, promptText.length + (data.content ?? '').length)
-
-        const result: V1ChatCompletionResponse = {
-          id: `chatcmpl-${randomUUID()}`,
-          object: 'chat.completion',
-          created: Math.floor(Date.now() / 1000),
-          model: data.model ?? model,
-          choices: [
-            {
-              index: 0,
-              message: { role: 'assistant', content: data.content ?? '' },
-              finish_reason: 'stop',
-            },
-          ],
-          usage: {
-            prompt_tokens: safePrompt,
-            completion_tokens: safeCompletion,
-            total_tokens: safeTotal,
-          },
-        }
-
-        // P0-5 中转站计费:调用成功,记录流水 + 扣减余额
-        if (apiKey) {
-          recordCall({
-            apiKeyId: apiKey.id,
-            userId: apiKey.userId,
-            model,
-            prompt: promptText,
-            response: data.content ?? '',
-            promptTokens: safePrompt,
-            completionTokens: safeCompletion,
-            totalTokens: safeTotal,
-            cacheReadTokens: cacheTokens.cacheReadTokens,
-            cacheCreationTokens: cacheTokens.cacheCreationTokens,
-            latencyMs: Date.now() - startTime,
-            status: 'success',
-            mode,
-            providerCode: modelToProviderCode(resolvedModel),
-            clientIp: request.ip,
-            httpStatus: resp.status,
-          }).catch((e) => {
-            console.error('[v1/chat] recordCall FAIL', e?.message || e)
-          })
-        }
-
-        // P0 第二批次响应缓存(2026-07-31 立):未命中时成功响应后写入缓存,下次同样请求直接命中
-        if (cache && cacheKey) {
-          void cache.set(cacheKey, result).catch((e) => {
-            console.error('[v1/chat] cache set FAIL', e?.message || e)
-          })
-        }
-        reply.header('X-Cache', 'MISS')
-
-        return reply.send(result)
-      } catch (e) {
+      if (!resp.ok) {
         if (apiKey) {
           void recordCall({
             apiKeyId: apiKey.id,
             userId: apiKey.userId,
-            model,
+            model: resolvedModel,
             prompt: promptText,
+            metadata: modelMappingMeta,
             response: null,
             promptTokens: 0,
             completionTokens: 0,
             totalTokens: 0,
             latencyMs: Date.now() - startTime,
             status: 'error',
-            errorMessage: (e as Error).message || 'AI service unavailable',
+            errorMessage: `AI service unavailable (${resp.status})`,
             mode,
             providerCode: modelToProviderCode(resolvedModel),
             clientIp: request.ip,
+            httpStatus: resp.status,
+            preDeducted: preDeduction,
           }).catch(() => {})
         }
-        return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
+        return reply.status(503).send(error(503, `AI service unavailable (${resp.status})`))
       }
-    },
-  )
+
+      const rawJson = (await resp.json()) as Record<string, unknown>
+      // 归一化:ai-service 简化格式 {content, usage} 与渠道直连的 OpenAI 原生格式二选一
+      let data: {
+        content?: string
+        model?: string
+        usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
+        error?: boolean
+        error_message?: string
+      }
+      if (usedChannel) {
+        const choices = rawJson['choices'] as Array<Record<string, unknown>> | undefined
+        const message = choices?.[0]?.['message'] as Record<string, unknown> | undefined
+        const rawUsage = rawJson['usage'] as Record<string, unknown> | undefined
+        data = {
+          content: typeof message?.['content'] === 'string' ? message['content'] : '',
+          model: typeof rawJson['model'] === 'string' ? rawJson['model'] : undefined,
+          usage: rawUsage
+            ? {
+                prompt_tokens:
+                  typeof rawUsage['prompt_tokens'] === 'number' ? rawUsage['prompt_tokens'] : 0,
+                completion_tokens:
+                  typeof rawUsage['completion_tokens'] === 'number'
+                    ? rawUsage['completion_tokens']
+                    : 0,
+                total_tokens:
+                  typeof rawUsage['total_tokens'] === 'number' ? rawUsage['total_tokens'] : 0,
+              }
+            : undefined,
+        }
+      } else {
+        data = rawJson as {
+          content?: string
+          model?: string
+          usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
+          error?: boolean
+          error_message?: string
+        }
+      }
+
+      if (data.error) {
+        if (apiKey) {
+          void recordCall({
+            apiKeyId: apiKey.id,
+            userId: apiKey.userId,
+            model: resolvedModel,
+            prompt: promptText,
+            metadata: modelMappingMeta,
+            response: null,
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            latencyMs: Date.now() - startTime,
+            status: 'error',
+            errorMessage: data.error_message ?? 'AI service error',
+            mode,
+            providerCode: modelToProviderCode(resolvedModel),
+            clientIp: request.ip,
+            httpStatus: resp.status,
+            preDeducted: preDeduction,
+          }).catch(() => {})
+        }
+        return reply.status(502).send(error(502, data.error_message ?? 'AI service error'))
+      }
+
+      const promptTokens = data.usage?.prompt_tokens ?? 0
+      const completionTokens = data.usage?.completion_tokens ?? 0
+      const totalTokens = data.usage?.total_tokens ?? 0
+      // P0-5b prompt cache:从 usage 解析 cache_read/cache_creation tokens(OpenAI/Anthropic 风格)
+      const cacheTokens = parseCacheTokens(data.usage)
+      // P0-5 防御:ai-service 偶发把 usage 序列化为 '***' 字符串(LLMMetrics 中间件脱敏),
+      // 此时按字符数估算(1 token ≈ 4 字符,中英文混合),避免 recordCall 写库失败。
+      const safeInt = (v: unknown, fallbackChars: number): number => {
+        if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return Math.floor(v)
+        if (typeof v === 'string') {
+          const n = Number(v)
+          if (Number.isFinite(n) && n >= 0) return Math.floor(n)
+          return Math.max(1, Math.ceil(fallbackChars / 4))
+        }
+        return Math.max(1, Math.ceil(fallbackChars / 4))
+      }
+      const safePrompt = safeInt(promptTokens, promptText.length)
+      const safeCompletion = safeInt(completionTokens, (data.content ?? '').length)
+      const safeTotal = safeInt(totalTokens, promptText.length + (data.content ?? '').length)
+
+      const result: V1ChatCompletionResponse = {
+        id: `chatcmpl-${randomUUID()}`,
+        object: 'chat.completion',
+        created: Math.floor(Date.now() / 1000),
+        model: data.model ?? model,
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: data.content ?? '' },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: safePrompt,
+          completion_tokens: safeCompletion,
+          total_tokens: safeTotal,
+        },
+      }
+
+      // P0-5 中转站计费:调用成功,记录流水 + 扣减余额(两段式:结算预扣差额)
+      if (apiKey) {
+        recordCall({
+          apiKeyId: apiKey.id,
+          userId: apiKey.userId,
+          model,
+          prompt: promptText,
+          response: data.content ?? '',
+          promptTokens: safePrompt,
+          completionTokens: safeCompletion,
+          totalTokens: safeTotal,
+          cacheReadTokens: cacheTokens.cacheReadTokens,
+          cacheCreationTokens: cacheTokens.cacheCreationTokens,
+          latencyMs: Date.now() - startTime,
+          status: 'success',
+          mode,
+          providerCode: usedChannel?.providerCode ?? modelToProviderCode(resolvedModel),
+          configId: usedChannel?.configId,
+          keyPoolId: usedChannel?.keyPoolId,
+          clientIp: request.ip,
+          httpStatus: resp.status,
+          preDeducted: preDeduction,
+        }).catch((e) => {
+          console.error('[v1/chat] recordCall FAIL', e?.message || e)
+        })
+      }
+
+      // P0 第二批次响应缓存(2026-07-31 立):未命中时成功响应后写入缓存,下次同样请求直接命中
+      if (cache && cacheKey) {
+        void cache.set(cacheKey, result).catch((e) => {
+          console.error('[v1/chat] cache set FAIL', e?.message || e)
+        })
+      }
+      reply.header('X-Cache', 'MISS')
+
+      // legacy /v1/completions:chat.completion → text_completion 形态适配
+      if (flavor === 'text') return reply.send(toTextCompletion(result))
+      return reply.send(result)
+    } catch (e) {
+      if (apiKey) {
+        void recordCall({
+          apiKeyId: apiKey.id,
+          userId: apiKey.userId,
+          model,
+          prompt: promptText,
+          response: null,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          latencyMs: Date.now() - startTime,
+          status: 'error',
+          errorMessage: (e as Error).message || 'AI service unavailable',
+          mode,
+          providerCode: modelToProviderCode(resolvedModel),
+          clientIp: request.ip,
+          preDeducted: preDeduction,
+        }).catch(() => {})
+      }
+      return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
+    }
+  }
 
   // ===== 5. GET /models — 模型列表(5min 缓存 + X-Model-Source 标识来源) =====
   server.get(
