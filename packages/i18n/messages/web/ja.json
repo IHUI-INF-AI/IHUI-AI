@@ -739,6 +739,16 @@
       "total": "{total}"
     },
     "aiMetrics": {
+      "fimAcceptance": "FIM 補完の採用率",
+      "fimAcceptanceDesc": "モデル別の補完採用率とレイテンシ。採用率 30% 未満かつ候補 20 件以上で警告",
+      "fimAcceptanceRate": "採用率",
+      "fimAccepted": "採用数",
+      "fimAlert": "補完の採用率が低いです。モデルルーティングまたは補完プロンプトを確認してください",
+      "fimLatency": "レイテンシ P50 / P95 (ms)",
+      "fimModel": "モデル",
+      "fimNoData": "補完データがありません",
+      "fimRequests": "リクエスト数",
+      "fimSuggestions": "候補数",
       "backToCost": "コストダッシュボードに戻る",
       "lastRefresh": "最終更新: {time}",
       "loadFailed": "読み込みに失敗しました。後でもう一度お試しください",
