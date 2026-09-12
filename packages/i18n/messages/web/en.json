@@ -8254,6 +8254,13 @@
   "chat": {
     "artifactPreview": "Preview",
     "artifactCode": "Code",
+    "canvasApplyRefresh": "Apply & Refresh Preview",
+    "canvasOpenInCanvas": "Open in Canvas",
+    "canvasVersions": "Version History",
+    "canvasRevert": "Revert to this version",
+    "canvasFullscreen": "Fullscreen Canvas",
+    "canvasExitFullscreen": "Exit Fullscreen",
+    "canvasEdited": "Manual edit",
     "sessionUsage": {
       "promptTokens": "Input",
       "completionTokens": "Output",
