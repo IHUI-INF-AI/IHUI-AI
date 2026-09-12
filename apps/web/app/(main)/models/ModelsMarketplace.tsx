@@ -160,13 +160,6 @@ export function ModelsMarketplace({ list }: Props) {
     [configuredTemplateCodes],
   )
 
-  // 收集所有能力标签(用于卡片 tag 展示,不再单独提供筛选,filter 由 quickFilter 承担)
-  const allCapabilities = React.useMemo(() => {
-    const set = new Set<string>()
-    list.forEach((m) => m.features.forEach((f) => set.add(f)))
-    return Array.from(set).sort()
-  }, [list])
-
   const matchesQuickFilter = React.useCallback(
     (m: Model, filter: QuickFilter | 'all'): boolean => {
       if (filter === 'all') return true
@@ -454,10 +447,9 @@ export function ModelsMarketplace({ list }: Props) {
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {visible.map((m) => (
-            <ModelCardGrid
+            <ModelCardGridMemo
               key={m.id}
               model={m}
-              allCapabilities={allCapabilities}
               isFavorite={favoriteIds.has(m.id)}
               isConfigured={isModelConfigured(m)}
               canConfigure={hasPresetTemplate(m.provider)}
@@ -472,7 +464,7 @@ export function ModelsMarketplace({ list }: Props) {
       ) : (
         <div className="flex flex-col gap-2">
           {visible.map((m) => (
-            <ModelCardList
+            <ModelCardListMemo
               key={m.id}
               model={m}
               isFavorite={favoriteIds.has(m.id)}
@@ -568,9 +560,14 @@ function FilterChip({
   )
 }
 
+// 2026-09-13 性能重构:模型卡片包 memo。父组件因数据分批到达而多次重渲染时,
+// 只有 props 真正变化的卡片才重渲染(model/布尔位/handler 全部 useCallback/useMemo 稳定),
+// 整列表不再随每批数据全量重渲染。函数声明已提升,此处引用安全。
+const ModelCardGridMemo = React.memo(ModelCardGrid)
+const ModelCardListMemo = React.memo(ModelCardList)
+
 function ModelCardGrid({
   model,
-  allCapabilities: _allCapabilities,
   isFavorite,
   isConfigured,
   canConfigure,
@@ -581,7 +578,6 @@ function ModelCardGrid({
   onRelayKeys,
 }: {
   model: Model
-  allCapabilities: string[]
   isFavorite: boolean
   isConfigured: boolean
   canConfigure: boolean
