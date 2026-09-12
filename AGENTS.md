@@ -203,6 +203,9 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
   ```
 
 - 守护已在每个 tick 检查 `refsOk`,缺失即离线重建并写审计日志 —— **一般无需人工介入**。
+- **`origin/main` 以 `FETCH_HEAD` 为准**:fetch 写入的松散 remote-tracking ref 在 **1 秒内**即被清理,
+  若 `packed-refs` 残留旧值,同 sha 也会显示 `## main...origin/main [ahead 1]`。
+  修复器已内建该规则(`git-refs-heal.mjs` / 守护 `healRefs()` 均读取 FETCH_HEAD 权威值)。
 - **禁止**把嵌套 ref 的存续寄托在松散文件上(必被清理);**禁止**用 `HUSKY_SKIP_COMMIT_LOSS_CHECK=1` 绕过 30a —— 先跑 `git-refs-heal.mjs` 判定是真丢 commit 还是 ref 抖动。
 
 **铁律**:

@@ -156,6 +156,32 @@ function packRefs() {
   git(['pack-refs', '--all', '--prune'], true)
 }
 
+/**
+ * 从 FETCH_HEAD(gitdir 顶层文件 → 宿主清理不到)取 `origin/main` 的权威值。
+ *
+ * 为什么需要:git fetch 把新值写成**松散** refs/remotes/origin/main(嵌套目录),
+ * 该文件实测在 1 秒内即被宿主清理;若 packed-refs 里还留着上一次的旧值,
+ * git 就回落到旧值 → 明明同 sha 却显示 `## main...origin/main [ahead 1]`。
+ * FETCH_HEAD 是 fetch 自己写的顶层文件,内容形如:
+ *   <sha>\t\tbranch 'main' of https://github.com/...
+ */
+function fetchHeadMain() {
+  let text
+  try {
+    text = readFileSync(join(GITDIR, 'FETCH_HEAD'), 'utf8')
+  } catch {
+    return null
+  }
+  const lines = text.split('\n').filter((l) => /^[0-9a-f]{40}\b/.test(l.trim()))
+  if (lines.length === 0) return null
+  // 优先取显式提到 main 的那一行;仅一行时直接采用(单 ref fetch 的常规形态)
+  const mainLine =
+    lines.find((l) => /branch\s+'?main'?\b/.test(l)) ?? (lines.length === 1 ? lines[0] : null)
+  if (!mainLine) return null
+  const m = mainLine.trim().match(/^([0-9a-f]{40})/)
+  return m ? m[1] : null
+}
+
 /** 从 origin 校准:全量 tag + refs/heads/main(需网络;代理走环境变量) */
 function refreshFromRemote() {
   const out = git(['ls-remote', '--tags', '--heads', 'origin'], true)
@@ -210,13 +236,25 @@ function main() {
       learned++
     }
   }
+  // 1b) FETCH_HEAD 是 origin/main 的权威值(松散 ref 被 1 秒内清理,packed 可能留旧值)
+  const fh = fetchHeadMain()
+  if (fh && map['refs/remotes/origin/main'] && map['refs/remotes/origin/main'] !== fh) {
+    console.log(
+      `[fetch-head] origin/main 以 FETCH_HEAD 为准: ${map['refs/remotes/origin/main'].slice(0, 12)} -> ${fh.slice(0, 12)}`,
+    )
+    map['refs/remotes/origin/main'] = fh
+  }
   if (learned) console.log(`[learning] 纳入 ${learned} 个新出现的嵌套 ref`)
   saveManifest(map)
 
-  // 2) 清单里有、当前解析不到的 → 按清单重建
-  const broken = Object.entries(map).filter(([ref]) => !refResolvable(ref))
+  // 2) 清单里与当前解析值不符的(缺失 or 旧值残留)→ 按清单重建
+  const broken = Object.entries(map).filter(([ref, sha]) => {
+    if (!refResolvable(ref)) return true
+    const resolved = git(['rev-parse', ref], true)
+    return !!resolved && resolved !== sha
+  })
   if (broken.length === 0) {
-    console.log(`[refs-heal] ✅ 清单内 ${Object.keys(map).length} 个嵌套 ref 全部可解析`)
+    console.log(`[refs-heal] ✅ 清单内 ${Object.keys(map).length} 个嵌套 ref 全部与清单一致`)
     process.exit(0)
   }
 
@@ -227,12 +265,15 @@ function main() {
   }
   packRefs()
 
-  // 3) 回读校验(不信任写入动作)
+  // 3) 回读校验(不信任写入动作): 既要可解析,也要与清单值一致
   const still = Object.entries(map)
-    .filter(([ref]) => !refResolvable(ref))
+    .filter(([ref, sha]) => {
+      const resolved = git(['rev-parse', ref], true)
+      return !resolved || resolved !== sha
+    })
     .map(([ref]) => ref)
   if (still.length) {
-    console.error(`❌ 重建后仍有 ${still.length} 个 ref 不可解析: ${still.join(', ')}`)
+    console.error(`❌ 重建后仍有 ${still.length} 个 ref 不可解析或值不符: ${still.join(', ')}`)
     process.exit(1)
   }
   console.log(`[refs-heal] ✅ 已重建 ${broken.length} 个 ref 并固化进 packed-refs(无需联网)`)
