@@ -8,6 +8,7 @@ import { checkAuth } from '../plugins/auth.js'
 import { error, success } from '../utils/response.js'
 import { findConversationById, findMessageById } from '../db/chat-queries.js'
 import { aiServiceFetchStream } from '../utils/ai-service-fetch.js'
+import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
 
 /**
  * P1-6 断点续传(2026-09-13 立,PROJECT_PLAN.md 2549 行)
@@ -54,6 +55,10 @@ const resumeSchema = z.object({
   maxTokens: z.number().int().min(1).max(200_000).optional(),
   systemPrompt: z.string().max(8000).optional(),
   contextLimit: z.number().int().min(0).max(2_000_000).optional(),
+  /** P1-8(2026-09-13 立,Repo Wiki):续流同样按仓库名注入「项目百科」,
+   *  否则刷新续接后的回复会突然失去项目百科背景(与采样参数"半途丢失"同型的一致性问题)。
+   *  上限与 /repo-wiki 生成接口对齐(200)。 */
+  repoName: z.string().max(200).optional(),
   metadata: z
     .object({
       conversationId: z.string().optional(),
@@ -148,6 +153,7 @@ export const chatResumeRoutes: FastifyPluginAsync = async (server) => {
         maxTokens,
         systemPrompt,
         contextLimit,
+        repoName,
         metadata,
       } = parsed.data
 
@@ -192,6 +198,8 @@ export const chatResumeRoutes: FastifyPluginAsync = async (server) => {
           })}\n\n`,
         )
 
+        // P1-8(2026-09-13 立):读取「项目百科」总览(失败/未命中一律 null,不阻塞续流)
+        const wiki = await loadRepoWikiContext(metadata?.userId ?? request.userId ?? null, repoName)
         const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
           method: 'POST',
           headers: {
@@ -208,6 +216,9 @@ export const chatResumeRoutes: FastifyPluginAsync = async (server) => {
             top_k: topK,
             max_tokens: maxTokens,
             system_prompt: systemPrompt,
+            // P1-8(2026-09-13):项目百科透传(undefined 时 JSON.stringify 自动省略)
+            wiki_context: wiki?.content,
+            wiki_repo: wiki?.repoName,
             contextLimit: contextLimit ?? 0,
             metadata: {
               conversationId,
