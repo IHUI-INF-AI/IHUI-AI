@@ -16,6 +16,8 @@ import {
   Download,
   Code,
   Megaphone,
+  Volume2,
+  Square,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { ChatMessage } from '@/stores/chat'
@@ -31,6 +33,7 @@ import { TerminalSection } from '@/components/ai/progress-sections/terminal-sect
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
 import { plainTextForClipboard } from '@/components/ai/progress-sections/message-context-menu'
 import { useChatStore } from '@/stores/chat'
+import { useTts } from '@/hooks/use-tts'
 import { fetchApi } from '@/lib/api'
 import { toast } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
@@ -83,6 +86,8 @@ const MessageItem = React.memo(function MessageItem({
   const streamingThis = !isUser && isStreaming && isLast
   // Copy 按钮短暂"已复制"状态(2026-07-28 立),1.5s 后自动隐藏
   const [copied, setCopied] = React.useState(false)
+  // AI 回复朗读(TTS):speaking 时按钮显示停止态
+  const { speaking, speak, stop } = useTts()
   const copyTimerRef = React.useRef<number | null>(null)
   // 2026-07-28 立:Reasoning 折叠状态(2026-07-28 抽出为独立 state,供外部事件如键盘 Enter 切换)
   // 默认 false(折叠),点击展开按钮 / 收到 'ihui:toggle-reasoning' 事件时切换
@@ -634,6 +639,32 @@ const MessageItem = React.memo(function MessageItem({
                 )}
               </button>
             </Tooltip>
+            {/* AI 消息:朗读(TTS)/停止朗读 — 走 ai-service /api/voice/tts */}
+            {!isUser && (
+              <Tooltip
+                content={speaking ? t('message.stopReadAloud') : t('message.readAloud')}
+                side="top"
+              >
+                <button
+                  type="button"
+                  onClick={() => (speaking ? stop() : void speak(m.content))}
+                  disabled={streamingThis}
+                  data-testid={`message-read-aloud-${m.id}`}
+                  aria-label={speaking ? t('message.stopReadAloud') : t('message.readAloud')}
+                  className={cn(
+                    ACTION_BTN_CLASS,
+                    speaking && 'text-primary bg-muted/60',
+                    'disabled:opacity-40 disabled:cursor-not-allowed',
+                  )}
+                >
+                  {speaking ? (
+                    <Square className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <Volume2 className="h-4 w-4" aria-hidden />
+                  )}
+                </button>
+              </Tooltip>
+            )}
             {/* AI 消息:Download(下载图片)— 原项目 downloadAssistantImages,有图片时显示 */}
             {!isUser && messageImages.length > 0 && (
               <Tooltip content={t('message.downloadImages')} side="top">
