@@ -28,7 +28,11 @@ import { AgentRuntimePanel } from '@/components/ai/agent-runtime-panel'
 import { DispatchSubagentDialog } from '@/components/ai/dispatch-subagent-dialog'
 import type { SwarmData, BackgroundAgent } from '@/components/ai/types'
 import { getAgentPermission } from '@ihui/api-client'
+import { usePageVisibility } from '@/hooks/use-page-visibility'
 import { useChatStore } from '@/stores/chat'
+
+const RUNTIME_POLL_MS = 5_000
+const RUNTIME_POLL_HIDDEN_MS = 30_000
 
 interface Agent {
   agentId: string
@@ -151,12 +155,24 @@ export default function AgentDetailPage() {
 
   // Agent 运行时数据(progress/swarm/checkpoint/plan/background 5 个 Tab)。
   // 请求失败时保持 undefined → 各组件走内置空态,不造假数据。
-  const { data: runtime } = useQuery({
+  // 页面可见时 5s 轮询、隐藏时降频 30s(后台任务完成通知依赖本查询的状态跳变)
+  const visible = usePageVisibility()
+  const { data: runtime, refetch: refetchRuntime } = useQuery({
     queryKey: ['agents', 'runtime', id],
     queryFn: () => api<AgentRuntimeSummary>(`/api/subagents/by-agent/${id}/summary`),
     enabled: !!id,
     retry: false,
+    refetchInterval: visible ? RUNTIME_POLL_MS : RUNTIME_POLL_HIDDEN_MS,
   })
+
+  const firstRef = React.useRef(true)
+  React.useEffect(() => {
+    if (firstRef.current) {
+      firstRef.current = false
+      return
+    }
+    if (visible) void refetchRuntime()
+  }, [visible, refetchRuntime])
 
   const priceFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' })
   const dateFmt = new Intl.DateTimeFormat(locale, {
