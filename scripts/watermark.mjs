@@ -14,8 +14,9 @@
  *   L3 独立隐形标记 —— 文件末尾一行仅含零宽字符的"空行", 删除可见横幅仍可检出
  *
  * 用法:
- *   node scripts/watermark.mjs inject          # 注入水印(幂等, 已注入则跳过)
- *   node scripts/watermark.mjs verify          # 校验全仓库水印覆盖率
+ *   node scripts/watermark.mjs inject          # 注入水印(幂等: 已注入且载荷完整则跳过; 残迹/载荷损坏先清洗再重注)
+ *   node scripts/watermark.mjs verify          # 校验覆盖率 + **载荷可解码性**(未覆盖/残迹/载荷损坏 均 exit 1)
+ *   node scripts/watermark.mjs list-uncovered  # 列出 载荷损坏 + 残迹 + 未覆盖(供批量修复管道消费)
  *   node scripts/watermark.mjs decode <file>   # 解码指定文件中的隐写内容
  *   node scripts/watermark.mjs clean <file>    # 移除指定文件的水印(仅限版权所有者自查用)
  */
@@ -30,6 +31,8 @@ const ROOT = join(fileURLToPath(import.meta.url), '..', '..')
 const WATERMARK_TEXT = 'IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026'
 const BANNER_ID = 'IHUI-AI-PROVENANCE'
 const BANNER_LINES = [
+  '© 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top',
+  'Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。',
 ]
 
 // ---------- 零宽字符编解码 ----------
@@ -51,7 +54,7 @@ function encodePayload(text) {
           .padStart(8, '0')
           .split('')
           .map((b) => (b === '0' ? ZWSP : ZWNJ))
-          .join('')
+          .join(''),
       )
       .join(ZWJ)
   })
@@ -65,14 +68,7 @@ function decodePayload(zwString) {
     .map((unit) => {
       const codeUnits = unit.split(ZWJ)
       const codes = codeUnits.map((cu) =>
-        String.fromCharCode(
-          parseInt(
-            [...cu]
-              .map((b) => (b === ZWNJ ? '1' : '0'))
-              .join(''),
-            2
-          )
-        )
+        String.fromCharCode(parseInt([...cu].map((b) => (b === ZWNJ ? '1' : '0')).join(''), 2)),
       )
       return codes.join('')
     })
@@ -92,49 +88,160 @@ const STYLES = {
 }
 
 const EXT_MAP = {
-  '.ts': 'slash', '.tsx': 'slash', '.js': 'slash', '.jsx': 'slash',
-  '.mjs': 'slash', '.cjs': 'slash', '.mts': 'slash', '.cts': 'slash',
-  '.go': 'slash', '.java': 'slash', '.rs': 'slash', '.kt': 'slash', '.kts': 'slash',
-  '.swift': 'slash', '.c': 'slash', '.h': 'slash', '.cpp': 'slash', '.hpp': 'slash',
-  '.cc': 'slash', '.scala': 'slash', '.dart': 'slash',
-  '.scss': 'slash', '.sass': 'slash', '.less': 'slash',
+  '.ts': 'slash',
+  '.tsx': 'slash',
+  '.js': 'slash',
+  '.jsx': 'slash',
+  '.mjs': 'slash',
+  '.cjs': 'slash',
+  '.mts': 'slash',
+  '.cts': 'slash',
+  '.go': 'slash',
+  '.java': 'slash',
+  '.rs': 'slash',
+  '.kt': 'slash',
+  '.kts': 'slash',
+  '.swift': 'slash',
+  '.c': 'slash',
+  '.h': 'slash',
+  '.cpp': 'slash',
+  '.hpp': 'slash',
+  '.cc': 'slash',
+  '.scala': 'slash',
+  '.dart': 'slash',
+  '.scss': 'slash',
+  '.sass': 'slash',
+  '.less': 'slash',
   // 注意:.vue/.svelte/.astro 首行是 <template>/<script>,插 // 行注释会被编译器当模板文本,故不映射(跳过)
-  '.py': 'hash', '.sh': 'hash', '.bash': 'hash', '.zsh': 'hash', '.fish': 'hash',
-  '.yml': 'hash', '.yaml': 'hash', '.toml': 'hash', '.rb': 'hash', '.ini': 'hash',
-  '.conf': 'hash', '.cfg': 'hash', '.env': 'hash', '.properties': 'hash',
-  '.ps1': 'hash', '.psm1': 'hash', '.pl': 'hash', '.r': 'hash', '.lua': 'hash',
-  '.css': 'block', '.jsonc': 'block',
-  '.html': 'html', '.htm': 'html', '.xml': 'html',
-  '.md': 'html', '.markdown': 'html',
+  '.py': 'hash',
+  '.sh': 'hash',
+  '.bash': 'hash',
+  '.zsh': 'hash',
+  '.fish': 'hash',
+  '.yml': 'hash',
+  '.yaml': 'hash',
+  '.toml': 'hash',
+  '.rb': 'hash',
+  '.ini': 'hash',
+  '.conf': 'hash',
+  '.cfg': 'hash',
+  '.env': 'hash',
+  '.properties': 'hash',
+  '.ps1': 'hash',
+  '.psm1': 'hash',
+  '.pl': 'hash',
+  '.r': 'hash',
+  '.lua': 'hash',
+  '.css': 'block',
+  '.jsonc': 'block',
+  '.html': 'html',
+  '.htm': 'html',
+  '.xml': 'html',
+  '.md': 'html',
+  '.markdown': 'html',
   '.sql': 'sql',
 }
 
 const SKIP_DIRS = new Set([
-  'node_modules', '.git', '.turbo', 'dist', 'build', '.next', 'out', 'coverage',
-  '.pnpm', 'target', '.cache', '.vercel', 'storybook-static', '_.husky', '_husky',
-  '.husky/_', '.nyc_output', '.gradle', '.idea', '__pycache__', '.pytest_cache',
-  '.venv', 'venv', 'vendor', 'expo/dist', '.expo',
+  'node_modules',
+  '.git',
+  '.turbo',
+  'dist',
+  'build',
+  '.next',
+  'out',
+  'coverage',
+  '.pnpm',
+  'target',
+  '.cache',
+  '.vercel',
+  'storybook-static',
+  '_.husky',
+  '_husky',
+  '.husky/_',
+  '.nyc_output',
+  '.gradle',
+  '.idea',
+  '__pycache__',
+  '.pytest_cache',
+  '.venv',
+  'venv',
+  'vendor',
+  'expo/dist',
+  '.expo',
   // 与 check-watermark-syntax.mjs SKIP_DIRS 对齐: 构建/本地产物不纳入水印覆盖
-  'tmp', 'playwright-report', 'test-results', 'vs', '.next-static',
+  'tmp',
+  'playwright-report',
+  'test-results',
+  'vs',
+  '.next-static',
   // WXT 扩展框架的生成目录(.gitignore 已忽略, 无源码, 否则本地 verify 假阳性)
   '.wxt',
-  '.cxx', 'CMakeFiles', '.externalNativeBuild', '.cmake',
+  '.cxx',
+  'CMakeFiles',
+  '.externalNativeBuild',
+  '.cmake',
 ])
 
 const SKIP_FILES = new Set([
-  'pnpm-lock.yaml', 'uv.lock', 'yarn.lock', 'package-lock.json',
-  'bun.lockb', 'Cargo.lock', 'poetry.lock', 'go.sum', '.gitignore', '.dockerignore',
-  '.npmignore', '.prettierignore', '.gitattributes', '.editorconfig', '.actrc',
-  '.prettierrc', '.eslintignore', '.env', '.env.local', '.env.production',
+  'pnpm-lock.yaml',
+  'uv.lock',
+  'yarn.lock',
+  'package-lock.json',
+  'bun.lockb',
+  'Cargo.lock',
+  'poetry.lock',
+  'go.sum',
+  '.gitignore',
+  '.dockerignore',
+  '.npmignore',
+  '.prettierignore',
+  '.gitattributes',
+  '.editorconfig',
+  '.actrc',
+  '.prettierrc',
+  '.eslintignore',
+  '.env',
+  '.env.local',
+  '.env.production',
 ])
 
 const BINARY_EXT = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.bmp', '.avif',
-  '.woff', '.woff2', '.ttf', '.otf', '.eot',
-  '.pdf', '.zip', '.gz', '.tar', '.7z', '.rar',
-  '.exe', '.dll', '.so', '.dylib', '.bin', '.wasm',
-  '.mp4', '.mp3', '.wav', '.ogg', '.mov', '.webm',
-  '.db', '.sqlite', '.sqlite3', '.lock',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.ico',
+  '.webp',
+  '.bmp',
+  '.avif',
+  '.woff',
+  '.woff2',
+  '.ttf',
+  '.otf',
+  '.eot',
+  '.pdf',
+  '.zip',
+  '.gz',
+  '.tar',
+  '.7z',
+  '.rar',
+  '.exe',
+  '.dll',
+  '.so',
+  '.dylib',
+  '.bin',
+  '.wasm',
+  '.mp4',
+  '.mp3',
+  '.wav',
+  '.ogg',
+  '.mov',
+  '.webm',
+  '.db',
+  '.sqlite',
+  '.sqlite3',
+  '.lock',
 ])
 
 function styleFor(absPath) {
@@ -189,11 +296,12 @@ function injectFile(absPath) {
   const buf = readFileSync(absPath)
   if (isBinary(buf)) return 'skip-binary'
   let text = buf.toString('utf8').replace(/^\uFEFF/, '') // strip BOM, 避免 shebang 检测失败
-  if (INVISIBLE_RE.test(text)) return 'skip-done'
-  // 残迹态(只有横幅文本、载荷被剥离):先清干净再注入,避免横幅重复
+  // 载荷存在**且可解码** → 已完成(幂等跳过)
+  if (INVISIBLE_RE.test(text) && payloadIntact(text)) return 'skip-done'
   // 注意: 本工具自身源码包含横幅常量定义, clean 会"自噬", 故跳过自身
   if (absPath === fileURLToPath(import.meta.url)) return 'skip-self'
-  if (text.includes(BANNER_ID)) {
+  // 残迹态(只有横幅文本、载荷被剥离)与**载荷损坏**(存在但解码不符)统一走清洗重注
+  if (text.includes(BANNER_ID) || INVISIBLE_RE.test(text)) {
     try {
       cleanFile(absPath)
       text = readFileSync(absPath, 'utf8').replace(/^\uFEFF/, '')
@@ -227,10 +335,39 @@ function injectFile(absPath) {
   else tail = '/* ' + INVISIBLE_MARK + ' */\n'
 
   // 统一去末尾换行再追加,保证 L3 恒为独立末行(绝不与末行内容拼接,也不落在中间空行)
-  const body = (shebang + xmlDecl + banner + '\n' + text).replace(/\r?\n$/, '')
+  // 正文若已以空行起始,横幅后不再补分隔空行 → clean→inject 往返零漂移
+  const sep = text.startsWith('\n') ? '' : '\n'
+  const body = (shebang + xmlDecl + banner + sep + text).replace(/\r?\n$/, '')
   const out = body + '\n' + tail
   writeFileSync(absPath, out, 'utf8')
   return 'injected'
+}
+
+// 横幅行形态:剥掉行首注释前缀(// # --)后按**行首锚定**判定,
+// 避免误伤源码里出现的 BANNER_ID 常量 / 正则定义(如 check-watermark-syntax.mjs)。
+const BANNER_TEXT_RE =
+  /^(?:©\s*\d{4}\s+IHUI\s+AI|Provenance-watermarked(?:\.|\s)|\[IHUI-AI-PROVENANCE\]\s*:)/
+function isBannerLine(line) {
+  return BANNER_TEXT_RE.test(line.trim().replace(/^\s*(\/\/|#|--)\s*/, ''))
+}
+
+/** 提取文本内全部零宽载荷片段 */
+function extractMarks(text) {
+  return text.match(new RegExp(`${SENTINEL}[${ZWSP}${ZWNJ}${ZWJ}]+${SENTINEL}`, 'g')) ?? []
+}
+
+/**
+ * 载荷是否**完整可解码**(而非仅"存在")。
+ *
+ * 背景: U+200B / U+200C / U+200D / U+2060 属 Unicode Cf 类不可见字符, 会被
+ * 文本级工具(reflow、空白归一、正则替换、sed -i、编辑器编码往返)改写 ——
+ * 改写后 `INVISIBLE_RE` 仍能命中, 但解码结果是垃圾(如 `PROVENCE-2026`、
+ * `IHUHU-AI`、`IIUIUIUI-AI`、混入控制字符)。
+ * 旧版只验"存在性", 使 144 个已跟踪文件的载荷静默损坏而无人察觉。
+ */
+function payloadIntact(text) {
+  const marks = extractMarks(text)
+  return marks.length > 0 && marks.every((m) => decodePayload(m) === WATERMARK_TEXT)
 }
 
 function cleanFile(absPath) {
@@ -242,16 +379,12 @@ function cleanFile(absPath) {
     const line = lines[i]
     const next = lines[i + 1] ?? ''
     // 块横幅 opener(/* 或 <!-- 独占一行)且下一行是横幅文案 → 整块跳过
-    if (
-      !inBanner &&
-      /^\s*(\/\*|<!--)\s*$/.test(line) &&
-      (next.includes(BANNER_ID) || BANNER_LINES.some((b) => next.includes(b)))
-    ) {
+    if (!inBanner && /^\s*(\/\*|<!--)\s*$/.test(line) && isBannerLine(next)) {
       inBanner = true
       continue
     }
-    // 命中横幅内容行(含 BANNER_ID 或横幅文案)→ 整块跳过
-    if (line.includes(BANNER_ID) || BANNER_LINES.some((b) => line.includes(b))) {
+    // 命中横幅内容行(行首锚定:版权行 / 溯源声明 / [ID]: 载荷行)→ 整块跳过
+    if (isBannerLine(line)) {
       inBanner = true
       continue
     }
@@ -281,9 +414,12 @@ function findMarks(text) {
 }
 
 function scanCoverage() {
-  let total = 0, marked = 0, residue = 0
+  let total = 0,
+    marked = 0,
+    residue = 0
   const missing = []
   const residues = []
+  const corrupted = []
   for (const abs of walk(ROOT)) {
     const name = basename(abs)
     if (SKIP_FILES.has(name)) continue
@@ -293,28 +429,37 @@ function scanCoverage() {
     const text = readFileSync(abs, 'utf8')
     const hasPayload = INVISIBLE_RE.test(text)
     const hasBannerText = text.includes(BANNER_ID)
-    if (hasPayload) marked++
+    if (hasPayload && payloadIntact(text)) marked++
+    else if (hasPayload)
+      corrupted.push(relative(ROOT, abs).replaceAll('\\', '/')) // 载荷存在但已损坏
     else if (hasBannerText) {
       residue++ // 残迹: 只有横幅文本、载荷已丢失,水印形同虚设
       residues.push(relative(ROOT, abs).replaceAll('\\', '/'))
     } else missing.push(relative(ROOT, abs).replaceAll('\\', '/'))
   }
-  return { total, marked, residue, missing, residues }
+  return { total, marked, residue, missing, residues, corrupted }
 }
 
 function verifyAll() {
-  const { total, marked, residue, missing, residues } = scanCoverage()
+  const { total, marked, residue, missing, residues, corrupted } = scanCoverage()
   const skipped = 0
-  console.log(`[watermark:verify] 覆盖 ${marked}/${total} 个文件, 残迹(载荷丢失) ${residue} 个, 跳过 ${skipped} 个`)
+  console.log(
+    `[watermark:verify] 覆盖 ${marked}/${total} 个文件, 残迹(载荷丢失) ${residue} 个, 载荷损坏 ${corrupted.length} 个, 跳过 ${skipped} 个`,
+  )
   if (residue) {
     console.log(`残迹文件 ${residue} 个(需 clean 后重新注入), 示例(前 15):`)
     residues.slice(0, 15).forEach((f) => console.log('  - ' + f))
+  }
+  if (corrupted.length) {
+    console.log(`载荷损坏 ${corrupted.length} 个(存在但解码不符, 需重新 inject), 示例(前 15):`)
+    corrupted.slice(0, 15).forEach((f) => console.log('  - ' + f))
+    process.exitCode = 1
   }
   if (missing.length) {
     console.log(`未覆盖 ${missing.length} 个, 示例(前 30):`)
     missing.slice(0, 30).forEach((f) => console.log('  - ' + f))
     process.exitCode = 1
-  } else if (!residue) {
+  } else if (!residue && !corrupted.length) {
     console.log('全部源文件均已携带完整溯源水印。')
   }
 }
@@ -334,23 +479,25 @@ if (cmd === 'inject') {
     console.log(`[watermark:inject] ${relative(ROOT, abs).replaceAll('\\', '/')} → ${r}`)
     if (r === 'skip-type' || r === 'skip-binary') process.exitCode = 1
   } else {
-  let n = 0, done = 0, skip = 0
-  for (const abs of walk(ROOT)) {
-    if (SKIP_FILES.has(basename(abs))) continue
-    if (BINARY_EXT.has(extname(abs).toLowerCase())) continue
-    const r = injectFile(abs)
-    if (r === 'injected') n++
-    else if (r === 'skip-done') done++
-    else skip++
-  }
-  console.log(`[watermark:inject] 新注入 ${n} 个, 已有 ${done} 个, 跳过(类型/二进制) ${skip} 个`)
+    let n = 0,
+      done = 0,
+      skip = 0
+    for (const abs of walk(ROOT)) {
+      if (SKIP_FILES.has(basename(abs))) continue
+      if (BINARY_EXT.has(extname(abs).toLowerCase())) continue
+      const r = injectFile(abs)
+      if (r === 'injected') n++
+      else if (r === 'skip-done') done++
+      else skip++
+    }
+    console.log(`[watermark:inject] 新注入 ${n} 个, 已有 ${done} 个, 跳过(类型/二进制) ${skip} 个`)
   }
 } else if (cmd === 'verify') {
   verifyAll()
 } else if (cmd === 'list-uncovered') {
-  // 供批量修复管道消费: 先残迹后未覆盖, 每行一个相对路径
-  const { missing, residues } = scanCoverage()
-  ;[...residues, ...missing].forEach((f) => console.log(f))
+  // 供批量修复管道消费: 先损坏后残迹再未覆盖, 每行一个相对路径
+  const { missing, residues, corrupted } = scanCoverage()
+  ;[...corrupted, ...residues, ...missing].forEach((f) => console.log(f))
 } else if (cmd === 'decode') {
   if (!target || !existsSync(target)) {
     console.error('用法: node scripts/watermark.mjs decode <file>')
