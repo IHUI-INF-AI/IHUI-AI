@@ -29,7 +29,7 @@ const MOCK_COURSES = (tt: TtFn): PlanetCourse[] => [
   {
     id: 'mock-1',
     title: tt('courseplanet.d1', 'AI 绘画入门:从零到精通'),
-    coverUrl: '/static/images/courseplanet/cover-1.jpg',
+    coverUrl: '/pkg-learn/assets/courseplanet/cover-1.jpg',
     teacher: tt('courseplanet.d2', 'AI 教研组'),
     price: 0,
     students: 1280,
@@ -38,7 +38,7 @@ const MOCK_COURSES = (tt: TtFn): PlanetCourse[] => [
   {
     id: 'mock-2',
     title: tt('courseplanet.d3', '短视频制作全流程实战'),
-    coverUrl: '/static/images/courseplanet/cover-2.jpg',
+    coverUrl: '/pkg-learn/assets/courseplanet/cover-2.jpg',
     teacher: tt('courseplanet.d4', '实战导师'),
     price: 99,
     students: 856,
@@ -47,7 +47,7 @@ const MOCK_COURSES = (tt: TtFn): PlanetCourse[] => [
   {
     id: 'mock-3',
     title: tt('courseplanet.d5', 'ChatGPT 提示词工程'),
-    coverUrl: '/static/images/courseplanet/cover-3.jpg',
+    coverUrl: '/pkg-learn/assets/courseplanet/cover-3.jpg',
     teacher: tt('courseplanet.d6', 'AI 教研组'),
     price: 199,
     students: 2340,
@@ -56,7 +56,7 @@ const MOCK_COURSES = (tt: TtFn): PlanetCourse[] => [
   {
     id: 'mock-4',
     title: tt('courseplanet.d7', 'AI 办公效率提升指南'),
-    coverUrl: '/static/images/courseplanet/cover-4.jpg',
+    coverUrl: '/pkg-learn/assets/courseplanet/cover-4.jpg',
     teacher: tt('courseplanet.d8', '效率专家'),
     price: 0,
     students: 1560,
@@ -65,7 +65,7 @@ const MOCK_COURSES = (tt: TtFn): PlanetCourse[] => [
   {
     id: 'mock-5',
     title: tt('courseplanet.d9', '大模型应用开发实战'),
-    coverUrl: '/static/images/courseplanet/cover-5.jpg',
+    coverUrl: '/pkg-learn/assets/courseplanet/cover-5.jpg',
     teacher: tt('courseplanet.d10', '技术大牛'),
     price: 299,
     students: 678,
