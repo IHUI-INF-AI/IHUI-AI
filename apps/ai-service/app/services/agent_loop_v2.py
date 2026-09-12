@@ -68,12 +68,18 @@ if TYPE_CHECKING:
     from .compaction_canary import CompactionDecision
     from .memory_service import MemoryService
 
+from .guarded_tool_pipeline import (
+    ERROR_INJECTION_BLOCKED,
+    ERROR_SCAN_BLOCKED,
+    GuardedToolPipeline,
+)
 from .hook_engine import hook_engine
 from .llm_budget_governor import (
     BudgetExceededError,
     llm_budget_governor,
 )
 from .plan_mode import READONLY_TOOLS, is_readonly_tool
+from .security_config import get_security_config
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +108,42 @@ def _summarize_step(value: Any) -> str:
     except Exception:
         text = str(value)
     return f"{text[: _STEP_SUMMARY_LIMIT]}…" if len(text) > _STEP_SUMMARY_LIMIT else text
+
+
+# =====================================================================
+# P0-3 安全三件套接入主链路(2026-09-12 立,对标 Codex 安全栈)。
+# guarded_pipeline 作为工具执行默认包装层:每次工具执行前先跑
+# prompt 注入探测 + 危险入参扫描(均 fail-closed),命中即拦截——
+# 不进审批流、不执行,直接以结构化错误回填给 LLM。
+# 配置单一事实源 security_config(env 默认 + 设置页 /agent/security-config 热更)。
+# =====================================================================
+
+
+class _ScanPass:
+    """入参扫描禁用时的占位结果(永不拦截)。"""
+
+    dangerous = False
+    findings: tuple[Any, ...] = ()
+
+
+def _no_prompt_guard(text: str, **_kw: Any) -> dict[str, Any]:
+    """提示注入探测禁用时的占位实现(永不拦截)。
+
+    pipeline 构造器对 None 依赖会回退到默认实现,无法经 None 关停,
+    故用占位函数显式禁用(契约与 prompt_guard.act 同构:含 blocked 键)。
+    """
+    return {
+        "action": "pass",
+        "blocked": False,
+        "output": text,
+        "risk_level": "none",
+        "hits": [],
+    }
+
+
+def _no_input_scanner(args: Any, **_kw: Any) -> _ScanPass:
+    """入参扫描禁用时的占位实现(永不拦截)。"""
+    return _ScanPass()
 
 
 # =====================================================================
@@ -401,6 +443,10 @@ def _derive_step_decision(tr: ToolResult) -> tuple[str, str]:
     """
     if tr.error_type == "permission_denied":
         return "plan_blocked", "plan 模式:工具不在只读白名单,未执行"
+    if tr.error_type == ERROR_INJECTION_BLOCKED:
+        return "security_blocked", "提示注入探测拦截,未执行"
+    if tr.error_type == ERROR_SCAN_BLOCKED:
+        return "security_blocked", "危险入参扫描拦截,未执行"
     if tr.error_type == "user_rejected":
         return "rejected_by_user", "用户在审批门拒绝,未执行"
     if tr.error_type == "approval_timeout":
@@ -2561,6 +2607,208 @@ class AgentLoopV2:
             session_id=self._session_id or "",
         )
 
+    async def _pre_guard_check(self, tc: ToolCall) -> ToolResult | None:
+        """P0-3:guarded_pipeline 前置守卫(prompt 注入探测 + 危险入参扫描)。
+
+        - 两开关(prompt_guard_enabled / input_scan_enabled)均关闭时零开销直通;
+        - 配置每次实时读取(get_security_config),设置页热更立即生效;
+        - 安全阶段 fail-closed:探测/扫描自身异常一律按拦截处理;
+        - 拦截 → ToolResult(error_type=injection_blocked / scan_blocked),
+          不进审批流、不执行,LLM 收到结构化错误可自行调整。
+        """
+        cfg = get_security_config()
+        if not (cfg.prompt_guard_enabled or cfg.input_scan_enabled):
+            return None
+        pipeline_kwargs: dict[str, Any] = {
+            # 两阶段共用 scan_enabled 门;各自再经占位依赖实现独立开关
+            "scan_enabled": True,
+            "guard_enabled": False,   # budget 治理由 loop 1-6 独立链路承担,不在此重复
+            "record_enabled": False,  # 步骤录制由 _maybe_record_step 统一(含决策提示),防双写
+        }
+        if not cfg.prompt_guard_enabled:
+            pipeline_kwargs["prompt_guard"] = _no_prompt_guard
+        if not cfg.input_scan_enabled:
+            pipeline_kwargs["input_scanner"] = _no_input_scanner
+        pipeline = GuardedToolPipeline(**pipeline_kwargs)
+        try:
+            pr = await pipeline.run(
+                tc.name,
+                tc.args,
+                fn=lambda _a: None,  # 仅跑前置守卫;真实执行在 _execute_single 原有链路
+                run_id=f"agent-loop:{self._session_id or 'anon'}:{tc.id}",
+                session_id=self._session_id,
+                prompt_source="mcp",
+                prompt_policy=cfg.prompt_guard_policy,
+                scan_source="mcp",
+                scan_policy="flag",
+                block_on_scan=True,
+            )
+        except Exception as e:  # fail-closed:管线自身异常按拦截处理
+            msg = f"安全前置守卫异常,已拦截: {e}"
+            logger.warning("工具 %s 前置守卫异常(fail-closed): %s, session=%s",
+                           tc.name, e, self._session_id or "")
+            self._report_tool_error(tc, msg, ERROR_INJECTION_BLOCKED, 0.0)
+            self._decision_hints[tc.id] = ("security_blocked", msg)
+            return ToolResult(
+                tool_call_id=tc.id,
+                name=tc.name,
+                result={"blocked": True, "reason": msg},
+                error=msg,
+                duration_ms=0,
+                error_type=ERROR_INJECTION_BLOCKED,
+            )
+        if pr.ok:
+            return None
+        err = pr.errors[0] if pr.errors else None
+        err_type = err.error_type if err is not None else ERROR_INJECTION_BLOCKED
+        msg = err.message if err is not None else "安全前置守卫拦截"
+        scan_hits = pr.scan.get("hits") if isinstance(pr.scan, dict) else None
+        if scan_hits:
+            msg = f"{msg}: {scan_hits}"
+        logger.info(
+            "工具 %s 被安全前置守卫拦截[%s]: %s, session=%s",
+            tc.name, err_type, msg, self._session_id or "",
+        )
+        self._report_tool_error(tc, msg, err_type, 0.0)
+        self._decision_hints[tc.id] = ("security_blocked", msg)
+        return ToolResult(
+            tool_call_id=tc.id,
+            name=tc.name,
+            result={"blocked": True, "reason": msg, "scan": pr.scan},
+            error=msg,
+            duration_ms=0,
+            error_type=err_type,
+        )
+
+    async def _resolve_exec_policy_approval(
+        self,
+        tc: ToolCall,
+        tool: ToolDefinition,
+        result: Any,
+        start: float,
+        retry_count: int,
+        *,
+        gate_approved: bool = False,
+    ) -> ToolResult | None:
+        """P0-3:run_command 的 EXEC_POLICY_NEEDS_APPROVAL → 真实审批弹窗。
+
+        mcp_server 在 exec_policy 命中 PROMPT 规则时返回结构化"待审批"结果而
+        不执行;此处把该结果升级为真实审批流(tool.approval 事件 → 前端弹窗):
+        - 批准 → 经 mcp_server.approve_exec_command 登记一次性放行,原样重执行
+          (放行仅跳过 PROMPT 分支;DENY 硬拦截/危险命令硬门/黑白名单不受影响);
+        - 拒绝/超时 → 不执行,与审批门同语义回填 user_rejected / approval_timeout;
+        - audit/off 模式或审批门关闭 → 返回 None 维持旧行为(结构化文本回给 LLM);
+        - gate_approved=True(本 tc 已过审批门)→ 跳过二次弹窗,直接登记放行。
+        """
+        if not (
+            isinstance(result, dict)
+            and result.get("errorCode") == "EXEC_POLICY_NEEDS_APPROVAL"
+        ):
+            return None
+        cfg = get_security_config()
+        if cfg.exec_policy_mode != "enforce" or not self._approval_enabled:
+            return None
+        if not gate_approved:
+            logger.info(
+                "命令命中 exec_policy PROMPT 规则,转真实用户审批: tool=%s, session=%s",
+                tc.name,
+                self._session_id or "",
+            )
+            denial = await self._request_approval(tc)
+            if denial is not None:
+                error_msg = (
+                    "User rejected tool call"
+                    if denial == "user_rejected"
+                    else "Approval timeout"
+                )
+                logger.info(
+                    "exec_policy 审批%s,命令不执行: tool=%s, session=%s",
+                    "被拒绝" if denial == "user_rejected" else "超时",
+                    tc.name,
+                    self._session_id or "",
+                )
+                self._report_tool_error(
+                    tc, error_msg, denial, (time.time() - start) * 1000
+                )
+                return ToolResult(
+                    tool_call_id=tc.id,
+                    name=tc.name,
+                    result={"approved": False, "reason": denial},
+                    error=error_msg,
+                    duration_ms=(time.time() - start) * 1000,
+                    error_type=denial,
+                )
+        # 用户已批准:登记一次性放行后原样重执行。
+        approval_request = result.get("approval_request")
+        command = ""
+        if isinstance(approval_request, dict):
+            command = str(approval_request.get("command") or "")
+        if not command and isinstance(tc.args, dict):
+            command = str(tc.args.get("command") or "")
+        if command:
+            try:
+                from .mcp_server import approve_exec_command
+
+                approve_exec_command(command)
+            except Exception as e:  # 放行通道不可用 → 不重执行(绝不静默绕过策略)
+                msg = f"exec_policy 审批放行登记失败,命令不执行: {e}"
+                logger.warning("%s, session=%s", msg, self._session_id or "")
+                self._report_tool_error(
+                    tc, msg, "unknown", (time.time() - start) * 1000
+                )
+                return ToolResult(
+                    tool_call_id=tc.id,
+                    name=tc.name,
+                    result={"approved": True, "executed": False},
+                    error=msg,
+                    duration_ms=(time.time() - start) * 1000,
+                    error_type="unknown",
+                )
+        self._decision_hints[tc.id] = (
+            "exec_policy_approved",
+            "命令命中策略引擎 PROMPT 规则,经用户批准后执行",
+        )
+        try:
+            new_result = await asyncio.wait_for(
+                tool.executor(tc.args),
+                timeout=self.tool_timeout,
+            )
+        except TimeoutError:
+            error_msg = f"工具执行超时({self.tool_timeout}s)"
+            self._report_tool_error(
+                tc, error_msg, "timeout", (time.time() - start) * 1000
+            )
+            return ToolResult(
+                tool_call_id=tc.id,
+                name=tc.name,
+                result=None,
+                error=error_msg,
+                duration_ms=(time.time() - start) * 1000,
+                retry_count=retry_count,
+                error_type="timeout",
+            )
+        except Exception as e:
+            error_type = self._classify_error(e)
+            self._report_tool_error(
+                tc, str(e), error_type, (time.time() - start) * 1000
+            )
+            return ToolResult(
+                tool_call_id=tc.id,
+                name=tc.name,
+                result=None,
+                error=str(e),
+                duration_ms=(time.time() - start) * 1000,
+                retry_count=retry_count,
+                error_type=error_type,
+            )
+        return ToolResult(
+            tool_call_id=tc.id,
+            name=tc.name,
+            result=new_result,
+            duration_ms=(time.time() - start) * 1000,
+            retry_count=retry_count,
+        )
+
     async def _execute_tools(self, tool_calls: list[ToolCall]) -> list[ToolResult]:
         """执行工具调用(并行或串行)。"""
         if self.parallel_tool_calls and len(tool_calls) > 1:
@@ -2688,6 +2936,14 @@ class AgentLoopV2:
           不执行、不进审批流(防御性再校验,理论上已被构造期收窄覆盖)。
         - auto 模式:只读白名单工具直接执行,跳过 _request_approval 审批门。
         - default 模式:本方法行为与现状完全一致(回归红线)。
+
+        P0-3 安全三件套(2026-09-12 立,对标 Codex 安全栈):
+        - guarded_pipeline 前置守卫:prompt 注入探测 + 危险入参扫描(fail-closed),
+          拦截不进审批流、不执行(error_type=injection_blocked/scan_blocked)。
+        - exec_policy PROMPT 档转真实审批:run_command 命中策略引擎 PROMPT 规则时,
+          mcp_server 返回 EXEC_POLICY_NEEDS_APPROVAL 结构,此处升级为真实用户审批
+          弹窗(enforce 模式);批准后经 mcp_server.approve_exec_command 一次性放行
+          重执行,拒绝/超时不执行。
         """
         start = time.time()
 
@@ -2715,6 +2971,7 @@ class AgentLoopV2:
 
         # 审批门:高危工具执行前请求用户批准(审批等待不阻塞非高危工具)。
         # auto 模式:只读白名单工具免审批直接执行(跳过 _request_approval)。
+        gate_approved = False  # P0-3:审批门已批准 → exec_policy PROMPT 不再二次弹窗
         needs_approval = self._approval_enabled and self._is_high_risk_tool_instance(tc.name)
         if self._permission_mode == "auto" and is_readonly_tool(tc.name):
             if needs_approval:
@@ -2760,6 +3017,8 @@ class AgentLoopV2:
                     duration_ms=(time.time() - start) * 1000,
                     error_type=error_type,
                 )
+            # 审批门已批准(本 tc 一次会话内不再二次弹窗)
+            gate_approved = True
 
         tool = self._tools.get(tc.name)
         if not tool:
@@ -2771,6 +3030,13 @@ class AgentLoopV2:
                 duration_ms=0,
                 error_type="unknown",
             )
+
+        # P0-3(2026-09-12):guarded_pipeline 前置守卫——prompt 注入探测 +
+        # 危险入参扫描(fail-closed),作为所有工具执行的默认包装层。
+        # 拦截结果不进审批流、不执行,直接以结构化错误回填给 LLM。
+        blocked = await self._pre_guard_check(tc)
+        if blocked is not None:
+            return blocked
 
         # 1-2 自动回滚:写盘工具执行前捕获文件快照(编辑前内容,每文件仅首次)。
         # 快照引用随 checkpoint 落库,restore(rollback_files=true)时经
@@ -2784,6 +3050,12 @@ class AgentLoopV2:
                     tool.executor(tc.args),
                     timeout=self.tool_timeout,
                 )
+                # P0-3:exec_policy PROMPT 档转真实用户审批(命中时升级处理)。
+                tr_override = await self._resolve_exec_policy_approval(
+                    tc, tool, result, start, retry_count, gate_approved=gate_approved
+                )
+                if tr_override is not None:
+                    return tr_override
                 return ToolResult(
                     tool_call_id=tc.id,
                     name=tc.name,

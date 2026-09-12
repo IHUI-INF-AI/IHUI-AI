@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 from .context_recall import context_recall
 from .exec_policy import PolicyDecision, RuleDecision
 from .exec_policy import evaluate as exec_policy_evaluate
+from .security_config import get_security_config
 from .merge3 import merge3_for_edit
 
 # 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
@@ -1279,6 +1280,32 @@ def _load_command_policy() -> dict[str, Any]:
         return _COMMAND_POLICY_DEFAULT
 
 
+# =====================================================================
+# P0-3(2026-09-12):exec_policy 一次性审批放行登记表。
+# agent_loop_v2 在用户批准 exec_policy PROMPT 命令后调用 approve_exec_command
+# 登记;_tool_run_command 首次执行到该命令时消费放行(仅跳过 PROMPT 分支,
+# DENY 硬拦截/危险命令硬门/黑白名单不受影响)。LLM 无法伪造——登记仅在真实
+# 审批通过后由服务端代码写入,工具入参不可触及。命令串键 + 一次性消费 + 容量上限。
+# =====================================================================
+_EXEC_APPROVED_MAX = 128
+_exec_approved_commands: set[str] = set()
+
+
+def approve_exec_command(command: str) -> None:
+    """登记一次性 exec_policy 审批放行(由 agent_loop_v2 在用户批准后调用)。"""
+    if len(_exec_approved_commands) >= _EXEC_APPROVED_MAX:
+        _exec_approved_commands.clear()
+    _exec_approved_commands.add(command)
+
+
+def _consume_exec_approval(command: str) -> bool:
+    """消费一次性放行(命中即移除并返回 True)。"""
+    if command in _exec_approved_commands:
+        _exec_approved_commands.discard(command)
+        return True
+    return False
+
+
 async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
     """run_command: 运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,长命令不超时)。
 
@@ -1332,41 +1359,62 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
             }
 
     # exec_policy 策略引擎评估(在硬门之后、cwd 校验之前)
-    # deny → 拒绝执行并返回命中规则;prompt → 返回需审批结构(由 agent_loop 处理);allow → 继续放行
-    _exec_decision: PolicyDecision = exec_policy_evaluate(command, cwd=cwd)
-    if _exec_decision.action == RuleDecision.DENY:
-        return {
-            "ok": False, "tool": "run_command",
-            "error": "exec_policy_denied",
-            "errorCode": "EXEC_POLICY_DENIED",
-            "command": command,
-            "matched_rules": [
-                {"pattern": r.pattern, "reason": r.reason, "source": r.source}
-                for r in _exec_decision.matched_rules
-            ],
-            "risk_notes": _exec_decision.risk_notes,
-            "message": (
-                f"命令被策略引擎拒绝:{_exec_decision.matched_rules[0].reason if _exec_decision.matched_rules else '未匹配规则'}"
-                "(安全策略禁止执行)"
-            ),
-        }
-    if _exec_decision.action == RuleDecision.PROMPT:
-        return {
-            "ok": False, "tool": "run_command",
-            "error": "exec_policy_needs_approval",
-            "errorCode": "EXEC_POLICY_NEEDS_APPROVAL",
-            "command": command,
-            "matched_rules": [
-                {"pattern": r.pattern, "decision": r.decision.value, "reason": r.reason, "source": r.source}
-                for r in _exec_decision.matched_rules
-            ],
-            "risk_notes": _exec_decision.risk_notes,
-            "approval_request": {
-                "command": command,
-                "reason": "; ".join(_exec_decision.risk_notes) if _exec_decision.risk_notes else "命令需要人工审批",
-            },
-            "message": "命令需要用户审批后方可执行",
-        }
+    # P0-3(2026-09-12):三档模式由 security_config 决定(设置页可热更)——
+    # enforce = DENY 拒绝;PROMPT 返回审批结构(agent_loop_v2 转真实用户审批弹窗,
+    #           批准后经 approve_exec_command 一次性放行重执行);
+    # audit   = PROMPT 仅记录后放行(观察期);DENY 硬红线仍拒绝,不降级;
+    # off     = 跳过评估(危险命令硬门/黑白名单等其他防线不受影响)。
+    _exec_mode = get_security_config().exec_policy_mode
+    _exec_approved = _consume_exec_approval(command)
+    if _exec_mode != "off" and not _exec_approved:
+        _exec_decision: PolicyDecision = exec_policy_evaluate(command, cwd=cwd)
+        if _exec_decision.action == RuleDecision.DENY:
+            if _exec_mode == "audit":
+                logger.info(
+                    "[exec_policy][audit] DENY 记录后放行: command=%r, rules=%s",
+                    command[:200],
+                    [r.pattern for r in _exec_decision.matched_rules],
+                )
+            else:
+                return {
+                    "ok": False, "tool": "run_command",
+                    "error": "exec_policy_denied",
+                    "errorCode": "EXEC_POLICY_DENIED",
+                    "command": command,
+                    "matched_rules": [
+                        {"pattern": r.pattern, "reason": r.reason, "source": r.source}
+                        for r in _exec_decision.matched_rules
+                    ],
+                    "risk_notes": _exec_decision.risk_notes,
+                    "message": (
+                        f"命令被策略引擎拒绝:{_exec_decision.matched_rules[0].reason if _exec_decision.matched_rules else '未匹配规则'}"
+                        "(安全策略禁止执行)"
+                    ),
+                }
+        elif _exec_decision.action == RuleDecision.PROMPT:
+            if _exec_mode == "audit":
+                logger.info(
+                    "[exec_policy][audit] PROMPT 记录后放行: command=%r, rules=%s",
+                    command[:200],
+                    [r.pattern for r in _exec_decision.matched_rules],
+                )
+            else:
+                return {
+                    "ok": False, "tool": "run_command",
+                    "error": "exec_policy_needs_approval",
+                    "errorCode": "EXEC_POLICY_NEEDS_APPROVAL",
+                    "command": command,
+                    "matched_rules": [
+                        {"pattern": r.pattern, "decision": r.decision.value, "reason": r.reason, "source": r.source}
+                        for r in _exec_decision.matched_rules
+                    ],
+                    "risk_notes": _exec_decision.risk_notes,
+                    "approval_request": {
+                        "command": command,
+                        "reason": "; ".join(_exec_decision.risk_notes) if _exec_decision.risk_notes else "命令需要人工审批",
+                    },
+                    "message": "命令需要用户审批后方可执行",
+                }
 
     # cwd 校验(非默认 . 时需在工作区白名单内,防任意目录读写)
     if cwd and cwd != ".":
