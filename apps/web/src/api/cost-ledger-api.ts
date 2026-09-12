@@ -66,7 +66,50 @@ export async function fetchCostSummary(): Promise<CostSummary> {
   return r.data
 }
 
-/** 拉取成本/ token 时间序列走势(granularity: hour | day)。失败抛错。 */
+// 预算事件(2026-09-12 新增,成本看板"预算事件"时间线数据源):
+// 服务端契约(apps/ai-service 的 routers/usage.py,挂载到 /api/v1/ai/usage,
+// 经 web rewrites /api/v1/ai/usage/:path* → 8803 同路径暴露):
+//  - GET /api/v1/ai/usage/budget-events?limit=50
+//    → data: {events: [...], error?: string}
+// 事件来自 llm_budget_governor 进程级环形缓冲(上限 200 条,重启清空,最新在前),
+// 同 (event_type, pillar) 且 usage_percent 无 ≥1 个百分点增长时去重。
+/** 单条预算事件(warning/critical/degrade/degrade_reset 的字段并集,均可选) */
+export interface BudgetEvent {
+  /** budget.warning | budget.critical | budget.degrade | budget.degrade_reset */
+  event_type: string
+  /** UTC ISO 8601 */
+  timestamp: string
+  /** 触发支柱:rules/hook/spec/context/subagent/terminal */
+  pillar?: string
+  /** 全局预算用量占比(0-1 小数) */
+  usage_percent?: number
+  /** 支柱维度用量占比(0-1 小数,degrade 事件携带) */
+  pillar_usage_percent?: number
+  /** 当日累计 token(critical 硬停止分支携带) */
+  daily_tokens?: number
+  /** 当日累计成本 USD(critical 硬停止分支携带) */
+  daily_cost?: number
+  /** 降级目标模型(degrade 事件携带) */
+  degrade_to?: string | null
+  /** 是否触发硬停止(critical 硬停止分支携带) */
+  hard_stop?: boolean
+}
+
+/** GET /api/v1/ai/usage/budget-events 响应 data */
+export interface BudgetEventsData {
+  events: BudgetEvent[]
+  /** 后端降级时的错误说明(events 为空数组) */
+  error?: string
+}
+
+/** 拉取最近预算事件(最新在前,环形缓冲语义)。失败抛错。 */
+export async function fetchBudgetEvents(limit = 50): Promise<BudgetEventsData> {
+  const r = await fetchApi<BudgetEventsData>(`/api/v1/ai/usage/budget-events?limit=${limit}`)
+  if (!r.success) throw new Error(r.error || '加载预算事件失败')
+  return r.data
+}
+
+/** 拉取成本/token 时间序列走势(granularity: hour | day)。失败抛错。 */
 export async function fetchCostTimeseries(
   granularity: 'hour' | 'day' = 'day',
 ): Promise<CostTimeseries> {

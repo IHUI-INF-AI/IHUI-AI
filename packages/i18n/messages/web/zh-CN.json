@@ -13497,7 +13497,21 @@
     "riskGeneric": "检测到潜在安全风险",
     "riskRecommendation": "建议",
     "riskCancel": "取消安装",
-    "riskConfirmProceed": "仍要安装"
+    "riskConfirmProceed": "仍要安装",
+    "qualityScore": "质量分: {score}/100",
+    "securityScore": "安全分: {score}/100",
+    "reviewPending": "待审核",
+    "reviewApproved": "已通过",
+    "reviewRejected": "已驳回",
+    "dashboardTitle": "质量看板",
+    "dashboardSubtitle": "各 MCP Server 运行时指标与质量 / 安全评分",
+    "dashboardServer": "Server",
+    "dashboardScoring": "评分",
+    "dashboardCalls": "调用次数",
+    "dashboardSuccessRate": "成功率",
+    "dashboardAvgLatency": "平均延迟",
+    "dashboardNoData": "暂无数据",
+    "dashboardLatency": "{value}s"
   },
   "member": {
     "feedback": {
@@ -14680,7 +14694,18 @@
     "noSeries": "无时间序列数据",
     "stepsSuffix": "{count} 步",
     "byTool": "按工具",
-    "byModel": "按模型"
+    "byModel": "按模型",
+    "budgetEvents": "预算事件",
+    "budgetEventsHint": "来自服务进程级环形缓冲(最近 200 条,重启后清空);同支柱同类型事件按用量增幅去重,最新在前",
+    "budgetEventsEmpty": "暂无预算事件 —— 预算水位正常,或服务进程刚重启",
+    "budgetWarning": "预警",
+    "budgetCritical": "严重",
+    "budgetDegrade": "自动降级",
+    "budgetDegradeReset": "降级恢复",
+    "budgetUsagePercent": "全局预算用量 {percent}",
+    "budgetDailyCost": "当日成本 {cost}",
+    "budgetDegradedTo": "已降级至 {model}",
+    "budgetHardStop": "硬停止"
   },
   "memoryManager": {
     "title": "长期记忆管理",
