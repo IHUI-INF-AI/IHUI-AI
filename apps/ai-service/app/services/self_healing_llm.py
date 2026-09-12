@@ -135,7 +135,11 @@ _PATCH_SYSTEM = (
     "Respond ONLY with a JSON object: "
     "{\"file_path\": str (absolute path to edit), "
     "\"new_content\": str (full new file content) OR \"diff\": str (unified diff), "
-    "\"explanation\": str}. No prose, no markdown fences."
+    "\"explanation\": str}. No prose, no markdown fences. "
+    "IMPORTANT: `file_path` MUST be one of the real absolute paths present in the "
+    "provided context (e.g. the value of `workspace_root` / `target_path`). "
+    "Never invent container-style paths such as /app/...; patches outside the "
+    "workspace are rejected by the sandbox whitelist."
 )
 
 
@@ -167,10 +171,55 @@ def _dump_failure(failure: Any) -> str:
     return str(failure)
 
 
+def list_workspace_files(root: str, limit: int = 60) -> list[str]:
+    """列出工作区内可编辑的源文件绝对路径(供补丁生成定位真实目标文件)。
+
+    2026-09-12 立:实测 LLM 拿到 workspace_root 后仍会猜文件名(把 calc.py 猜成
+    divide.py / math_ops.py),补丁虽然落盘却不命中失败文件。给出真实文件清单后
+    LLM 才能选中正确文件。
+    """
+    import os
+    from pathlib import Path
+
+    SKIP = {".venv", "__pycache__", ".git", "node_modules", ".mypy_cache", ".pytest_cache"}
+    try:
+        base = Path(root)
+        if base.is_file():
+            return [str(base)]
+        if not base.is_dir():
+            return []
+        out: list[str] = []
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames if d not in SKIP]
+            for name in sorted(filenames):
+                if name.endswith((".py", ".ts", ".tsx", ".js", ".jsx")):
+                    out.append(str(Path(dirpath) / name))
+                    if len(out) >= limit:
+                        return sorted(out)
+        return sorted(out)
+    except Exception:  # noqa: BLE001 - 列目录失败不影响主流程
+        return []
+
+
 def _dump_context(context: Any) -> str:
+    # 2026-09-12 修复:workspace_root / target_path 必须进 prompt,否则 LLM 只看到
+    # pytest 失败文本会编造容器式路径(/app/...、/home/user/...),补丁被工作区
+    # 白名单拒绝,自愈永远落不了盘。
     if isinstance(context, dict):
         return json.dumps(
-            {k: context[k] for k in ("passed", "failed", "failures") if k in context},
+            {
+                k: context[k]
+                for k in (
+                    "task",
+                    "passed",
+                    "failed",
+                    "failures",
+                    "workspace_root",
+                    "target_path",
+                    "workspace_files",
+                )
+                if k in context
+            },
             ensure_ascii=False,
             default=str,
         )
@@ -187,7 +236,23 @@ def llm_patch_fn(
     """
     gateway = llm if llm is not None else llm_gateway
     used_model = model or DEFAULT_MODEL
+    root = context.get("workspace_root") if isinstance(context, dict) else None
+    files = context.get("workspace_files") if isinstance(context, dict) else None
+    root_line = (
+        f"Workspace root (every file_path you return MUST be inside it): {root}\n\n"
+        if root
+        else ""
+    )
+    files_line = (
+        "Editable source files in the workspace "
+        "(file_path MUST be exactly one of these paths):\n"
+        + "\n".join(f"- {f}" for f in files)
+        + "\n\n"
+        if files
+        else ""
+    )
     prompt = (
+        f"{root_line}{files_line}"
         f"Failing test:\n{_dump_failure(failure)}\n\n"
         f"Context (recent run result):\n{_dump_context(context)}"
     )
