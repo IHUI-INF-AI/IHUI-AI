@@ -17,7 +17,7 @@
  *                                          → 可用(lenient)
  *   - health 拉取失败返回空 Map            → 全部视为可用(lenient,不因瞬时抖动清空列表)
  */
-import { config } from '../config/index.js'
+import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 
 export interface ProviderHealth {
   status: string
@@ -38,7 +38,7 @@ export async function fetchProviderHealth(): Promise<HealthMap> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 5000)
   try {
-    const resp = await fetch(`${config.AI_SERVICE_URL}/llm/providers/availability`, {
+    const resp = await aiServiceSystemFetch('/llm/providers/availability', {
       method: 'GET',
       signal: controller.signal,
     })
