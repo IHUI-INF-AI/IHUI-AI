@@ -56,6 +56,8 @@ const TASK_NAME = 'IHUI-AI git-guardian'
 const LOG = join(WORKTREE, '.workbuddy', 'git-guardian.log')
 const POINTER = join(WORKTREE, '.git')
 const EXPECTED_POINTER = `gitdir: ${GITDIR}\n`
+// 嵌套 ref( depth>=2 )的期望值清单 —— gitdir 顶层文件,宿主清理不到(2026-09-12 立)
+const REFS_MANIFEST = join(GITDIR, 'refs-manifest.json')
 
 const CHECK_ONLY = process.argv.includes('--check')
 const STATUS_ONLY = process.argv.includes('--status')
@@ -226,8 +228,121 @@ function healHead() {
   return gitUsable()
 }
 
+// ─────────── 嵌套 ref 存续(2026-09-12 立) ───────────
+//
+// 事故:`refs/remotes/origin/main` 反复变 `[gone]`、`refs/tags/backup/push4-*` 反复"仅远端",
+// 使守门 #30a(commit 丢失防护,blocking)**抖动性阻塞** —— 刚 fetch 完是绿的,宿主一清理又红。
+// 机理(对照实验):宿主清理层会删除 gitdir 下 **depth >= 2** 的嵌套命名空间目录
+//   refs/heads/main / refs/tags/<tag>     → depth1 文件 → 存活
+//   refs/remotes/origin/main / refs/tags/backup/<tag> → depth2 目录 → 被删
+//   (且 `git update-ref` 对这类 ref 返回 0 却不落盘 —— 静默失败)
+// 解法:把嵌套 ref 固化进 `packed-refs`(gitdir 顶层单文件 → 存活),期望值另存
+// `refs-manifest.json`(同为顶层文件),任一时点缺失即可**离线**重建 + 重新 pack。
+// 详见 scripts/git-refs-heal.mjs(支持 --refresh-remote 联网校准)。
+
+/** depth>=2 的命名空间才需要固化(refs/heads/* 天然存活) */
+function isNestedRef(ref) {
+  return !ref.startsWith('refs/heads/') && ref.split('/').length >= 4
+}
+
+function readRefsManifest() {
+  try {
+    const m = JSON.parse(readFileSync(REFS_MANIFEST, 'utf8'))
+    return m && typeof m === 'object' ? m : {}
+  } catch {
+    return {}
+  }
+}
+
+/** 当前全部 ref(name → sha),含 packed 与松散 */
+function currentRefs() {
+  const out = git(
+    ['for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads', 'refs/tags', 'refs/remotes'],
+    true,
+  )
+  const map = {}
+  if (!out) return map
+  for (const line of out.split('\n')) {
+    const [ref, sha] = line.trim().split(/\s+/)
+    if (ref && sha) map[ref] = sha
+  }
+  return map
+}
+
+/** 清单中解析不到(或值与清单不符)的 ref */
+function missingRefs() {
+  const cur = currentRefs()
+  return Object.entries(readRefsManifest())
+    .filter(([ref, sha]) => cur[ref] !== sha)
+    .map(([ref]) => ref)
+}
+
+/** 把松散 ref 固化进 packed-refs(顶层单文件, 宿主清理不到) */
+function packRefs() {
+  git(['pack-refs', '--all', '--prune'], true)
+}
+
+/** 直写松散 ref:`git update-ref` 对嵌套命名空间静默不落盘,故用 node fs */
+function writeLooseRef(ref, sha) {
+  const p = join(GITDIR, ref)
+  mkdirSync(dirname(p), { recursive: true })
+  writeFileSync(p, sha + '\n', 'utf8')
+}
+
+/**
+ * ref 自愈:①把当前可见的嵌套 ref 纳入清单(自维护,含 manifest 缺失时的 bootstrap)
+ *          ②清单里有、当前解析不到的 → 按清单重建并 pack
+ * 返回:true = 清单内全部可解析
+ */
+function healRefs() {
+  const cur = currentRefs()
+  const map = readRefsManifest()
+  let learned = 0
+  for (const [ref, sha] of Object.entries(cur)) {
+    if (!isNestedRef(ref)) continue
+    if (map[ref] !== sha) {
+      map[ref] = sha
+      learned++
+    }
+  }
+  if (learned) {
+    try {
+      writeFileSync(REFS_MANIFEST, JSON.stringify(map, null, 1) + '\n', 'utf8')
+    } catch (e) {
+      log(`refs 清单写入失败: ${String(e.message || e)}`)
+    }
+  }
+
+  // 合并后清单里"当前不可见"的即为缺失(cur[ref] === undefined);已存在的同步过值,不会误判
+  const broken = Object.entries(map).filter(([ref, sha]) => cur[ref] !== sha)
+  if (broken.length === 0) return true
+
+  log(`修复: 重建 ${broken.length} 个缺失的嵌套 ref(宿主清理 depth>=2 目录所致)`)
+  for (const [ref, sha] of broken) {
+    writeLooseRef(ref, sha)
+    log(`  - ${ref} = ${sha.slice(0, 12)}`)
+  }
+  packRefs()
+  const still = Object.entries(map)
+    .filter(([ref]) => !git(['rev-parse', '--verify', '--quiet', ref], true))
+    .map(([ref]) => ref)
+  if (still.length) {
+    log(`refs 修复未完全达标: ${still.join(', ')}`)
+    return false
+  }
+  log(`✅ refs 自愈成功(${broken.length} 个已重建并固化进 packed-refs)`)
+  return true
+}
+
+function refsOk() {
+  const m = readRefsManifest()
+  if (Object.keys(m).length === 0) return true // 未 bootstrap 时不算异常(healRefs 会补)
+  return missingRefs().length === 0
+}
+
 /** 破坏性覆盖前先归档现场(保留可回溯副本;同一轮只归档一次) */
 let ARCHIVED_PATH = null
+
 function archiveGitdir(tag) {
   if (ARCHIVED_PATH) return ARCHIVED_PATH
   const dst = `${GITDIR}.broken-${tag}`
@@ -258,6 +373,8 @@ function remediate(before) {
     if (!archiveGitdir(Date.now())) return false
     return !!(healFromBackup() || healFromRemote())
   }
+  // git 可用 ≠ 健康:宿主会单独清理 depth>=2 的嵌套 ref 目录(见上文事故注释)
+  if (!refsOk()) healRefs()
   return true
 }
 
@@ -312,17 +429,20 @@ function status() {
     branch: git(['rev-parse', '--abbrev-ref', 'HEAD'], true),
     dirty: (git(['status', '--porcelain'], true) || '').split('\n').filter(Boolean).length,
     backupOk: existsSync(join(BACKUP, 'HEAD')),
+    refsOk: refsOk(),
+    refsMissing: missingRefs(),
   }
   return health
 }
 
-/** 异常行描述(含 HEAD 提示),main 与 daemon 共用 */
+/** 异常行描述(含 HEAD / refs 提示),main 与 daemon 共用 */
 function anomalyLine(h) {
   const hint =
     h.pointerOk && h.gitdirOk && !h.gitUsable
       ? ` | HEAD=${JSON.stringify(headContent().slice(0, 60))}`
       : ''
-  return `⚠️ 检测到 .git 异常: pointer=${h.pointerOk} gitdir=${h.gitdirOk} git=${h.gitUsable}${hint}`
+  const refsHint = h.refsOk === false ? ` | 缺失嵌套 ref ${(h.refsMissing || []).length} 个` : ''
+  return `⚠️ 检测到 .git 异常: pointer=${h.pointerOk} gitdir=${h.gitdirOk} git=${h.gitUsable}${hint}${refsHint}`
 }
 
 function main() {
@@ -352,23 +472,27 @@ function main() {
     return 0
   }
 
-  const healthy = before.pointerOk && before.gitdirOk && before.gitUsable
-  if (healthy) {
-    if (CHECK_ONLY) console.log('✅ .git 健康(pointer + gitdir + git 可用)')
+  const coreOk = before.pointerOk && before.gitdirOk && before.gitUsable
+  if (coreOk && before.refsOk) {
+    if (CHECK_ONLY) console.log('✅ .git 健康(pointer + gitdir + git 可用 + 嵌套 ref 完整)')
     return 0
   }
 
-  log(anomalyLine(before))
+  if (!coreOk) log(anomalyLine(before))
   if (CHECK_ONLY) {
-    console.log('❌ .git 异常(未修复,--check 模式)')
+    console.log(
+      coreOk
+        ? `❌ 嵌套 ref 异常(未修复,--check 模式):${(before.refsMissing || []).length} 个缺失`
+        : '❌ .git 异常(未修复,--check 模式)',
+    )
     return 1
   }
 
-  // 分层自愈:指针 -> 环境 -> HEAD 语法 -> 备份 -> 远端
+  // 分层自愈:指针 -> 环境 -> HEAD 语法 -> refs -> 备份 -> 远端
   remediate(before)
 
   const after = status()
-  const ok = after.pointerOk && after.gitdirOk && after.gitUsable
+  const ok = after.pointerOk && after.gitdirOk && after.gitUsable && after.refsOk
   log(ok ? `✅ 自愈成功(HEAD=${after.head})` : '❌ 自愈失败,需人工介入')
   return ok ? 0 : 1
 }
@@ -379,18 +503,24 @@ function startDaemon() {
   const bin = resolveGitBin()
   log(`守护模式启动(间隔 ${intervalMs}ms) — 监控 ${POINTER} + ${GITDIR}`)
   log(`git=${bin || '(未找到!)'} ${GIT_VERSION || ''} safe.directory=* (每次调用显式传入)`)
+  log(`嵌套 ref 存续守护: 清单 ${REFS_MANIFEST}(缺失即离线重建 + packed-refs 固化)`)
   const tick = () => {
     try {
       const h = status()
-      if (!(h.pointerOk && h.gitdirOk && h.gitUsable)) {
+      const coreOk = h.pointerOk && h.gitdirOk && h.gitUsable
+      if (!coreOk) {
         log(anomalyLine(h))
         remediate(h)
         const a = status()
         log(
-          a.pointerOk && a.gitdirOk && a.gitUsable
+          a.pointerOk && a.gitdirOk && a.gitUsable && a.refsOk
             ? `✅ 自愈成功(HEAD=${a.head})`
             : '❌ 自愈失败,需人工介入',
         )
+      } else if (!h.refsOk) {
+        // 核心健康但嵌套 ref 被宿主清理(实测高频) → 离线重建, 不打扰人
+        log(`⚠️ 检测到嵌套 ref 缺失 ${(h.refsMissing || []).length} 个: ${(h.refsMissing || []).join(', ')}`)
+        healRefs()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))
