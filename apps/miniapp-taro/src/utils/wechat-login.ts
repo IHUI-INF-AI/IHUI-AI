@@ -17,31 +17,29 @@
  * - 网络失败 / code 失效有清晰错误(错误信息 i18n 化,根据当前 locale 返回)
  * - 单元测试可独立运行(纯函数 + 注入依赖)
  */
-import { t } from '@/i18n'
+import { t, getMessages, type Locale } from '@/i18n'
 import Taro from '@tarojs/taro'
 import { loginByWechat } from '../api'
 import { setToken, setRefreshToken, setUserInfo, type UserInfo } from './auth'
 import { useUserStore } from '../stores/user'
 import { LOCALE_KEY } from '@/constants/storage'
-// 2026-07-25 i18n 单一来源:翻译文件迁移到 @ihui/i18n/messages/miniapp-taro/
-import zhCN from '@ihui/i18n/messages/miniapp-taro/zh-CN.json'
-import en from '@ihui/i18n/messages/miniapp-taro/en.json'
-import ja from '@ihui/i18n/messages/miniapp-taro/ja.json'
-import ko from '@ihui/i18n/messages/miniapp-taro/ko.json'
-import zhTW from '@ihui/i18n/messages/miniapp-taro/zh-TW.json'
+import type { Messages } from '@ihui/i18n/types'
 
-/** 读取当前 locale 下的 i18n 字典(非 hook 场景,供工具函数使用) */
-function getCurrentDict(): typeof zhCN {
+/**
+ * 读取当前 locale 下的合并 i18n 字典(非 hook 场景,供工具函数使用)。
+ * 2026-09-12 主包体积优化:不再静态 import 5 语言 JSON,统一走 @/i18n 的 getMessages
+ * (zh-CN 直出,非中文惰性解压,与全局 t() 同一数据源,login 命名空间语义不变)。
+ */
+function getCurrentDict(): Messages {
   try {
     const stored = Taro.getStorageSync(LOCALE_KEY) as string
-    if (stored === 'en') return en as typeof zhCN
-    if (stored === 'ja') return ja as typeof zhCN
-    if (stored === 'ko') return ko as typeof zhCN
-    if (stored === 'zh-TW') return zhTW as typeof zhCN
+    if (stored === 'en' || stored === 'ja' || stored === 'ko' || stored === 'zh-TW') {
+      return getMessages(stored as Locale)
+    }
   } catch {
     /* ignore */
   }
-  return zhCN
+  return getMessages('zh-CN')
 }
 
 function loginT(key: string, fallback: string): string {

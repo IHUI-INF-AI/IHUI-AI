@@ -9,10 +9,10 @@ import { useState, useCallback } from 'react'
 import ThemeRoot from '@/components/ThemeRoot'
 
 const IMAGE_LIST = [
-  '/static/images/modelRecord1.png',
-  '/static/images/modelRecord2.png',
-  '/static/images/modelRecord3.png',
-  '/static/images/modelRecord4.png',
+  '/pkg-about/assets/images/modelRecord1.png',
+  '/pkg-about/assets/images/modelRecord2.png',
+  '/pkg-about/assets/images/modelRecord3.png',
+  '/pkg-about/assets/images/modelRecord4.png',
 ]
 
 const VALUES = [
