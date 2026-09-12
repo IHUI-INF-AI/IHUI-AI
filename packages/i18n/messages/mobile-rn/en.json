@@ -443,28 +443,15 @@
     "searchPlaceholder": "Search AI assistants"
   },
   "assistant": {
-    "edit": {
-      "title": "Actions",
-      "message": "Configure sales settings for \"{name}\""
-    },
-    "offline": {
-      "title": "Confirm Offline",
-      "message": "Are you sure you want to take \"{name}\" offline?",
-      "confirmBtn": "Take Offline",
-      "done": "Taken Offline"
-    },
     "actionOffline": "Take offline",
     "actionReedit": "Re-edit",
     "actionSettings": "Settings",
-    "audienceAll": "All",
-    "audienceVip": "VIP",
     "badgeDraft": "Draft",
     "badgeOffline": "Offline",
     "badgePublished": "Published",
     "badgeRejected": "Rejected",
     "badgeReviewing": "In review",
     "empty": "No assistants",
-    "loadFailed": "Failed to load",
     "loading": "Loading...",
     "metaAudience": "Visibility",
     "metaCategory": "Category",
@@ -2332,7 +2319,8 @@
       "authorized": "Authorizations"
     },
     "enterprise": "Enterprise",
-    "featureCenter": "Feature Center"
+    "featureCenter": "Feature Center",
+    "workspacePermissions": "Workspace Permissions"
   },
   "knowledgeRag": {
     "title": "RAG Knowledge Base",

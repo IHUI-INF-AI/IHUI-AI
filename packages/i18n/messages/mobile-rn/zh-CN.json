@@ -443,28 +443,15 @@
     "searchPlaceholder": "搜索AI助手"
   },
   "assistant": {
-    "edit": {
-      "title": "操作",
-      "message": "设置「{name}」的售卖配置"
-    },
-    "offline": {
-      "title": "下架确认",
-      "message": "是否确定下架「{name}」?",
-      "confirmBtn": "确定下架",
-      "done": "已下架"
-    },
     "actionOffline": "下线",
     "actionReedit": "重新编辑",
     "actionSettings": "设置",
-    "audienceAll": "全部",
-    "audienceVip": "会员",
     "badgeDraft": "草稿",
     "badgeOffline": "已下线",
     "badgePublished": "已发布",
     "badgeRejected": "已拒绝",
     "badgeReviewing": "审核中",
     "empty": "暂无智能体",
-    "loadFailed": "加载失败",
     "loading": "加载中...",
     "metaAudience": "可见范围",
     "metaCategory": "分类",
