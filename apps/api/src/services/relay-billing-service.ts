@@ -83,8 +83,8 @@ export interface RecordCallInput {
   // apiKeyId 已在上方声明(必填,用于 developerApiKeys 余额扣减)
   /** 上游 provider 代码(如 'openai'/'anthropic'/'stepfun'),未传则不写入 */
   providerCode?: string
-  /** 所用模型配置 id(关联 ai_model_config.id),未传则不写入 */
-  configId?: string
+  /** 所用模型配置 id(关联 ai_model_config.id,bigserial 主键),未传则不写入 */
+  configId?: number
   /** 所用 key 池条目 id(关联 ai_relay_key_pool.id),未传则不写入 */
   keyPoolId?: string
   /** 调用方 IP(支持 IPv4/IPv6),未传则不写入 */
