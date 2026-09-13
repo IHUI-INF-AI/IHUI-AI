@@ -30,7 +30,9 @@ export async function seedRelayPricing(): Promise<void> {
       AND relay_price_multiplier = '1.0000'
   `)
 
-  // ── 2. glm-5.3-flash 保底价(ai_pricing 无有效价时插入) ──
+  // ── 2. glm-5.3-flash 保底价(ai_pricing 无有效价时插入;已有 0/0 有效价则升为保底价) ──
+  // 注意:ai_pricing 是 calculateCost 第一优先源,若存在 0/0 有效价记录会永久压制后续定价,
+  //      故必须把 0/0 的有效记录同步升价,否则仅 INSERT 兜底不够。
   const floorRes = await db.execute(sql`
     INSERT INTO ai_pricing (model_id, input_token_price, output_token_price, region_pricing, currency)
     SELECT 'glm-5.3-flash', 15, 30, '{"cn":1.0}'::jsonb, 'CNY'
@@ -40,6 +42,14 @@ export async function seedRelayPricing(): Promise<void> {
         AND effective_at <= now()
         AND (expires_at IS NULL OR expires_at > now())
     )
+  `)
+  const floorUpdRes = await db.execute(sql`
+    UPDATE ai_pricing
+    SET input_token_price = 15, output_token_price = 30, updated_at = now()
+    WHERE model_id = 'glm-5.3-flash'
+      AND input_token_price = 0 AND output_token_price = 0
+      AND effective_at <= now()
+      AND (expires_at IS NULL OR expires_at > now())
   `)
 
   // ── 3. ai_pricing 有效价回填到中转站公开模型的 0/0 进价 ──
@@ -64,7 +74,7 @@ export async function seedRelayPricing(): Promise<void> {
 
   console.info(
     `[relay-pricing] multiplier→1.2: ${mulRes.rowCount ?? 0} 行, ` +
-      `glm-5.3-flash 保底价: ${floorRes.rowCount ?? 0} 行, ` +
+      `glm-5.3-flash 保底价(insert/update): ${floorRes.rowCount ?? 0}/${floorUpdRes.rowCount ?? 0} 行, ` +
       `ai_pricing→model_config 回填: ${backfillRes.rowCount ?? 0} 行`,
   )
 }
