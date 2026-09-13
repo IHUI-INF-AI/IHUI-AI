@@ -80,7 +80,7 @@ export const aiModelConfig = pgTable(
     /** 30 天累计 token 用量 */
     usage30dTokens: bigint('usage_30d_tokens', { mode: 'number' }).default(0),
     /** 30 天累计费用(分) */
-    usage30dCostCents: integer('usage_30d_cost_cents').default(0),
+    usage30dCostCents: numeric('usage_30d_cost_cents', { precision: 18, scale: 6, mode: 'number' }).default(0),
     /**
      * BYOK 平台服务费抽成率(2026-07-30 立,numeric(5,4),默认 0.1000=10%)。
      * 用户用自己的 API Key 调用大厂模型时,平台只收抽成(上游原价 × 抽成率),不碰大厂成本。
