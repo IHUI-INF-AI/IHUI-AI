@@ -51,6 +51,7 @@ import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { aiModelConfig } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { normalizeModelId } from '@ihui/shared'
 import { encryptJSON, decryptJSON, isEncryptedPayload } from '../utils/crypto.js'
 import { AppError } from '../errors/AppError.js'
 import {
@@ -781,6 +782,9 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     }
     const data = body.data
+    // 2026-09-13:模型名统一为官方名/小写写库,防同一模型大小写并存
+    // (ai_model_config_models 已有 (config_id, LOWER(model_id)) 表达式唯一索引,不归一会直接撞索引)。
+    const normalizedModelId = normalizeModelId(data.modelId)
     const userId = request.userId!
     const [parent] = await db
       .select({ id: aiModelConfig.id })
@@ -808,7 +812,7 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
             usage_30d_tokens, usage_30d_cost_cents,
             created_at, updated_at
           ) VALUES (
-            ${p.data.id}, ${data.modelId}, ${data.displayName ?? data.modelId}, ${data.contextLength},
+            ${p.data.id}, ${normalizedModelId}, ${data.displayName ?? normalizedModelId}, ${data.contextLength},
             ${data.inputPricePer1k}, ${data.outputPricePer1k},
             ${JSON.stringify(data.defaultParams)}::jsonb, ${data.enabled}, ${data.isDefault}, ${data.sortOrder},
             'unknown', NULL, ${JSON.stringify(data.extraMetadata)}::jsonb,
@@ -823,7 +827,9 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
         return rows[0]?.id
       })
       if (!result) return reply.status(500).send(error(500, '创建失败'))
-      return reply.status(201).send(success({ id: result, created: true, modelId: data.modelId }))
+      return reply
+        .status(201)
+        .send(success({ id: result, created: true, modelId: normalizedModelId }))
     } catch (e) {
       if (isSchemaMissingError(e)) {
         return reply.status(503).send(error(503, SCHEMA_NOT_READY_MSG))

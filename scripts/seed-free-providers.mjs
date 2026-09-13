@@ -29,6 +29,7 @@ import { createRequire } from 'node:module'
 import { createCipheriv, randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { normalizeModelId } from './lib/model-names.mjs'
 
 const require = createRequire(import.meta.url)
 const postgres = require('postgres')
@@ -425,6 +426,8 @@ async function seedFreeProviders(db, isDryRun) {
 
     // ai_model_config_models upsert(is_relay_public=true + relay_price_multiplier='0.0000' + 定价 0)
     for (const m of p.models) {
+      // 2026-09-13:写入前归一为官方名/小写,避免与目录内既有条目大小写重复
+      const modelId = normalizeModelId(m.model_id)
       if (!isDryRun && configId) {
         const result = await db`
           INSERT INTO ai_model_config_models
@@ -433,7 +436,7 @@ async function seedFreeProviders(db, isDryRun) {
              is_relay_public, relay_price_multiplier, relay_sort_order,
              created_at, updated_at)
           VALUES
-            (${configId}, ${m.model_id}, ${m.display_name}, ${m.context_window},
+            (${configId}, ${modelId}, ${m.display_name}, ${m.context_window},
              0, 0, true,
              true, '0.0000', 0,
              now(), now())

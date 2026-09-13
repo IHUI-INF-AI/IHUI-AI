@@ -361,7 +361,9 @@ export async function calculateCost(
   // 用户计费分组倍率(2026-08-01 立):userId 传入时查分组倍率并叠加
   // 中转站倍率 × 用户分组倍率 = 实际计费倍率(如 svip 组 gpt-4o = 1.0 × 0.8 = 0.8)
   if (userId) {
-    const groupMultiplier = await getUserModelMultiplier(userId, model)
+    // 2026-09-13 修正:改用归一后的 dbModelId 查询,与上方 aiPricing/aiModelConfigModels
+    // 同一键空间——否则客户端大小写与分组覆盖倍率配置不一致时静默取不到覆盖(少收/多收)。
+    const groupMultiplier = await getUserModelMultiplier(userId, dbModelId)
     multiplier *= groupMultiplier
   }
 
