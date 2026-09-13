@@ -36,6 +36,8 @@ import { getCurrentTierMultiplier } from './tiered-pricing-service.js'
 // Relay 返佣(2026-07-31 立,扣费后异步触发,失败不影响主链路)
 import { recordRelayCommission } from './relay-commission-service.js'
 import { getUserModelMultiplier } from './user-billing-group-service.js'
+// 模型名官方归一(2026-09-13 立):计费键空间与 DB 归一后的 model_id 对齐
+import { normalizeModelId } from '@ihui/shared'
 // Relay Webhook 通知(2026-08-01 立,扣费后异步触发 relay.call.completed/failed/balance.low 事件)
 import { notifyRelayEvent } from './webhook-relay-notifier.js'
 // API Key 分组(2026-08-01 立,组池余额检查/扣减)
@@ -318,7 +320,8 @@ export async function calculateCost(
 ): Promise<CalculateCostResult> {
   // P0-5 修复(2026-07-30):去 LiteLLM 前缀(stepfun/agnes)再查 DB,
   // 因为 DB ai_model_config_models.model_id 存的是不带前缀的原始 model 名。
-  const dbModelId = stripLiteLLMPrefix(model)
+  // 2026-09-13:追加官方名归一,客户端任意大小写都能命中(计费漏损兜底)。
+  const dbModelId = normalizeModelId(stripLiteLLMPrefix(model))
 
   // 1. 查 aiModelConfigModels 获取中转站倍率 + 兜底定价
   const [modelRow] = await dbRead
@@ -536,7 +539,7 @@ export async function calculateByokCost(
   completionTokens: number,
   commissionRate: number,
 ): Promise<ByokCostResult> {
-  const dbModelId = stripLiteLLMPrefix(model)
+  const dbModelId = normalizeModelId(stripLiteLLMPrefix(model))
 
   const [modelRow] = await dbRead
     .select({
