@@ -30,6 +30,8 @@ export interface UseMessageSendParams {
   references: ReferenceItem[]
   resetReferences: () => void
   addFileReference: (file: File) => void
+  /** 添加文本型引用(引用选中文本/代码片段,展示为 "> 📎 label" 参考块) */
+  addTextReference: (text: string) => void
   onSend: (content: string) => Promise<boolean> | boolean
   inputCoreRef: React.RefObject<MessageSendInputCoreHandle | null>
   /** localStorage 草稿 key(发送成功后清空),由主组件传入以保证 key 来源单一 */
