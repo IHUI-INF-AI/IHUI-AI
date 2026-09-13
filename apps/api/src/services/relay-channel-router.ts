@@ -72,7 +72,8 @@ export interface SelectedChannelKey {
   apiKey: string
   baseUrl: string
   providerCode: string
-  configId: string
+  /** ai_model_config.id(bigserial 数字主键);llm_call_logs.config_id 也是 bigint(2026-09-13 修正) */
+  configId: number
   groupId: string
   groupName: string
 }
@@ -655,14 +656,14 @@ export async function selectChannelCandidates(
    */
   const resolveCandidateTarget = (
     keyData: KeyPoolRow,
-  ): { baseUrl: string; configId: string; providerCode: string } | null => {
+  ): { baseUrl: string; configId: number; providerCode: string } | null => {
     const cfg = configByProvider.get(keyData.providerCode)
     if (!cfg) return null
     const meta = readKeyMetadata(keyData.extraMetadata)
     const override = meta['baseUrl']
     const baseUrl =
       typeof override === 'string' && override.trim() !== '' ? override.trim() : cfg.baseUrl
-    return { baseUrl, configId: String(cfg.id), providerCode: keyData.providerCode }
+    return { baseUrl, configId: cfg.id, providerCode: keyData.providerCode }
   }
 
   const pushCandidate = (keyData: KeyPoolRow, groupId: string, groupName: string) => {
