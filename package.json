@@ -29,6 +29,7 @@
     "typecheck:full": "node scripts/typecheck-full.mjs",
     "check:staged-typecheck": "node scripts/check-staged-typecheck.mjs",
     "check:api-key-leak": "node scripts/check-api-key-leak.mjs",
+    "check:api-credential-prefix": "node scripts/check-api-credential-prefix.mjs",
     "check:i18n-keys": "node scripts/check-i18n-keys.mjs",
     "check:api-routes": "node scripts/check-api-routes.mjs",
     "check:api-routes:strict": "node scripts/check-api-routes.mjs --strict",
