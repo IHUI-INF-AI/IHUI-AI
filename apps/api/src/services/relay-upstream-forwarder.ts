@@ -21,6 +21,7 @@
  * - 模型名:传给上游的是 DB 原始 model_id(去 LiteLLM 前缀),与 ai_model_config_models 一致
  */
 import type { SelectedChannelKey } from './relay-channel-router.js'
+export type { SelectedChannelKey }
 import { selectChannelCandidates, recordChannelResult } from './relay-channel-router.js'
 
 // =============================================================================
@@ -30,7 +31,10 @@ import { selectChannelCandidates, recordChannelResult } from './relay-channel-ro
 export interface UpstreamForwardRequest {
   /** 模型名(允许带 LiteLLM 前缀,内部去前缀后选渠道与直呼上游) */
   model: string
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  /** chat 端点必填;images 端点忽略(body 由 bodyOverride 提供) */
+  messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  /** 上游端点(2026-09-13):chat=POST /chat/completions(默认);images=POST /images/generations */
+  endpoint?: 'chat' | 'images'
   temperature?: number
   maxTokens?: number
   stream: boolean
@@ -88,14 +92,14 @@ function stripLiteLLMModelPrefix(model: string): string {
 }
 
 /**
- * baseUrl → OpenAI 兼容 chat/completions 端点。
+ * baseUrl → OpenAI 兼容端点(chat/completions 或 images/generations)。
  * 约定:ai_model_config.baseUrl 存到版本段(如 https://api.openai.com/v1),
- * 已以 /v{n} 结尾直接拼 /chat/completions,否则补 /v1(主流厂商默认)。
+ * 已以 /v{n} 结尾直接拼,否则补 /v1(主流厂商默认)。
  */
-function upstreamChatCompletionsUrl(baseUrl: string): string {
+function upstreamEndpointUrl(baseUrl: string, endpoint: 'chat' | 'images'): string {
   const trimmed = baseUrl.replace(/\/+$/, '')
-  if (/\/v\d+$/.test(trimmed)) return `${trimmed}/chat/completions`
-  return `${trimmed}/v1/chat/completions`
+  const base = /\/v\d+$/.test(trimmed) ? trimmed : `${trimmed}/v1`
+  return endpoint === 'images' ? `${base}/images/generations` : `${base}/chat/completions`
 }
 
 const MAX_CANDIDATES = 3 // 逐请求 failover 最多尝试的渠道数
@@ -110,6 +114,7 @@ const MAX_CANDIDATES = 3 // 逐请求 failover 最多尝试的渠道数
  */
 export async function forwardToChannel(req: UpstreamForwardRequest): Promise<ForwardResult> {
   const rawModel = stripLiteLLMModelPrefix(req.model)
+  const endpoint = req.endpoint ?? 'chat'
   let candidates: SelectedChannelKey[]
   try {
     candidates = await selectChannelCandidates(
@@ -123,17 +128,25 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
   }
   if (candidates.length === 0) return null
 
-  let body: Record<string, unknown> = {
-    model: rawModel,
-    messages: req.messages,
-    stream: req.stream,
-  }
-  if (req.temperature !== undefined) body.temperature = req.temperature
-  if (req.maxTokens !== undefined) body.max_tokens = req.maxTokens
-  if (req.responseFormat !== undefined) body.response_format = req.responseFormat
-  if (req.seed !== undefined) body.seed = req.seed
-  if (req.bodyOverride) {
-    body = { ...req.bodyOverride, model: rawModel, stream: req.stream }
+  let body: Record<string, unknown>
+  if (endpoint === 'images') {
+    // OpenAI images/generations:无 stream/messages;body 由调用方 bodyOverride 提供(prompt/n/size...)
+    body = { model: rawModel, ...(req.bodyOverride ?? {}) }
+    delete body.stream
+    delete body.messages
+  } else {
+    body = {
+      model: rawModel,
+      messages: req.messages ?? [],
+      stream: req.stream,
+    }
+    if (req.temperature !== undefined) body.temperature = req.temperature
+    if (req.maxTokens !== undefined) body.max_tokens = req.maxTokens
+    if (req.responseFormat !== undefined) body.response_format = req.responseFormat
+    if (req.seed !== undefined) body.seed = req.seed
+    if (req.bodyOverride) {
+      body = { ...req.bodyOverride, model: rawModel, stream: req.stream }
+    }
   }
 
   let lastError = 'no channel candidate succeeded'
@@ -142,7 +155,7 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
   for (const channel of candidates) {
     const startedAt = Date.now()
     try {
-      const resp = await fetch(upstreamChatCompletionsUrl(channel.baseUrl), {
+      const resp = await fetch(upstreamEndpointUrl(channel.baseUrl, endpoint), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

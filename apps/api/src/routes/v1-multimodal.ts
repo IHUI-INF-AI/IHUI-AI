@@ -60,6 +60,7 @@ import {
 import { error } from '../utils/response.js'
 import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
 import { recordCall, refundTaskCall } from '../services/relay-billing-service.js'
+import { forwardToChannel, type SelectedChannelKey } from '../services/relay-upstream-forwarder.js'
 
 // =============================================================================
 // 常量
@@ -91,6 +92,7 @@ function apiKeyOf(request: Parameters<typeof getUserId>[0]): { id: string; userI
 /**
  * 多模态调用计费(fire-and-forget,失败只 log 不影响主链路)。
  * units:image=张数;video=次数或秒数(按定价行 videoUnit)。
+ * channel:relay 直连成功时传入(渠道审计进流水 provider_code/config_id/key_pool_id)。
  */
 function chargeMultimodal(
   request: Parameters<typeof getUserId>[0],
@@ -100,6 +102,7 @@ function chargeMultimodal(
     units: number
     prompt: string
     taskId?: string
+    channel?: Pick<SelectedChannelKey, 'keyPoolId' | 'providerCode' | 'configId'> | null
   },
 ): void {
   const apiKey = apiKeyOf(request)
@@ -117,8 +120,12 @@ function chargeMultimodal(
     status: 'success',
     callType: args.callType,
     billingUnits: Math.max(1, Math.ceil(args.units || 1)),
+    providerCode: args.channel?.providerCode,
+    configId: args.channel?.configId,
+    keyPoolId: args.channel?.keyPoolId,
     metadata: {
       endpoint: `v1_${args.callType === 'image' ? 'images' : 'videos'}_generations`,
+      ...(args.channel ? { relayDirect: true } : {}),
       ...(args.taskId ? { task_id: args.taskId } : {}),
     },
   })
@@ -932,6 +939,53 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { model, prompt, n, size, vendor } = parsed.data
+
+      // 0. relay 渠道直连优先(2026-09-13):渠道目录上架的生图模型走 OpenAI 兼容
+      //    /images/generations 直连(failover 由 forwarder 内置);fwd=null(目录无此模型)
+      //    或直连失败/空产出 → 回落下方 vendor 内部实现,行为与改造前完全一致。
+      {
+        const relayBody: Record<string, unknown> = { model, prompt }
+        if (n !== undefined) relayBody.n = n
+        if (size !== undefined) relayBody.size = size
+        if (parsed.data.quality !== undefined) relayBody.quality = parsed.data.quality
+        if (parsed.data.style !== undefined) relayBody.style = parsed.data.style
+        const fwd = await forwardToChannel({
+          model,
+          endpoint: 'images',
+          stream: false,
+          bodyOverride: relayBody,
+          userId,
+          affinityKey: apiKeyOf(request)?.id,
+        })
+        if (fwd && fwd.ok) {
+          const upstream = (await fwd.response.json().catch(() => null)) as {
+            data?: unknown[]
+          } | null
+          const arr = Array.isArray(upstream?.data) ? upstream.data : []
+          if (arr.length > 0) {
+            chargeMultimodal(request, {
+              model,
+              callType: 'image',
+              units: arr.length,
+              prompt,
+              channel: fwd.channel,
+            })
+            return reply.send({
+              created: Math.floor(Date.now() / 1000),
+              data: arr.map((img) => {
+                const o = asObj(img)
+                return {
+                  url: typeof o.url === 'string' ? o.url : undefined,
+                  ...(typeof o.b64_json === 'string' ? { b64_json: o.b64_json } : {}),
+                }
+              }),
+            })
+          }
+          // 上游 200 但空 data → 视为本次候选产出失败,继续回落内部实现
+        }
+        // fwd === null(渠道目录无此模型)或 ok:false(候选全败)→ 回落
+      }
+
       const v = (vendor ?? 'tongyi').toLowerCase()
       let path: string
       let body: Record<string, unknown>
