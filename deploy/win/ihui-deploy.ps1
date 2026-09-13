@@ -38,6 +38,15 @@ $ActiveFile = "$Root\deploy\win\active-env"   # active-env 标记,当前恒 'win
 $PublicWeb  = 'https://aizhs.top'
 $ApiHealth  = "$PublicWeb/api/health"
 
+# ── 工具链 PATH(2026-09-13 加,实测):服务/SYSTEM 上下文的 PATH 不含 node/pnpm,
+#    否则 `pnpm run db:migrate`(以及 pnpm build)会报 '"node"' 不是内部或外部命令
+#    (09:23 由 IHUI-DEPLOYLOOP 服务实测复现)。与 deploy\prod-bundle\svc\run-api.ps1
+#    的 PATH 前置保持一致;额外补 WindowsPowerShell\v1.0(web prebuild 的 sync-downloads
+#    链会调 powershell.exe)以及 pnpm 自带的 node_modules\.bin。
+foreach ($p in @('D:\DevEnv\runtimes\node','D:\DevEnv\tools\npm-global','C:\windows\System32\WindowsPowerShell\v1.0')) {
+    if ((Test-Path $p) -and ($env:PATH -notlike "*$p*")) { $env:PATH = "$p;$env:PATH" }
+}
+
 # ── 并发锁(2026-09-07 加固):手动 -deployLatest 与计划任务 loop 可能同时进入,
 #    两者会互相 Remove-Item/.next 与 .next-staging,导致构建期 ENOENT(实测
 #    _buildManifest.js.tmp.* 被对端删除)。用 PID 锁保证同一时刻仅一个部署实例。
@@ -62,7 +71,7 @@ function Release-DeployLock {
 }
 
 function Log   { param([string]$m) Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $m" }
-function Fail  { param([string]$m) Log "FAIL  $m"; exit 1 }
+function Fail  { param([string]$m) Log "FAIL  $m"; try { Release-DeployLock } catch {}; exit 1 }
 function Ok    { param([string]$m) Log "OK    $m" }
 
 function Invoke-Step { param([string]$name,[scriptblock]$body)
@@ -217,14 +226,41 @@ function Invoke-DbMigrate {
 }
 if (-not $dryrun) { Invoke-DbMigrate }
 
+# ── 代理解析(2026-09-13 修复,实测):GitHub 直连在本机被墙,系统/SYSTEM 上下文
+#    没有 http_proxy 环境变量 → `git fetch` 报 "Failed to connect to github.com:443"
+#    (实测 09-13 09:13),且失败时 stdout 为空 → 旧代码 `[int](...)` 得 0 →
+#    误判"已是最新"静默 exit 0。此为「部署循环永不部署」的第二重根因(静默失效),
+#    比 origin/main ref 被吞更隐蔽。对策:① 探测本机 Clash 代理显式传给 git;
+#    ② fetch 与 behind 全程 fail-closed —— 任何一步失败即非 0 退出,绝不伪装成"已最新"。
+$ProxyCandidates = @('http://127.0.0.1:7897')
+$Proxy = $null
+foreach ($p in $ProxyCandidates) {
+    try {
+        $u = [Uri]$p
+        $cli = New-Object System.Net.Sockets.TcpClient
+        $iar = $cli.BeginConnect($u.Host, $u.Port, $null, $null)
+        if ($iar.AsyncWaitHandle.WaitOne(600) -and $cli.Connected) { $Proxy = $p; $cli.Close(); break }
+        $cli.Close()
+    } catch {}
+}
+$gitNet = @()
+if ($Proxy) { $gitNet = @('-c', "http.proxy=$Proxy", '-c', "https.proxy=$Proxy"); Log "git 网络走代理 $Proxy" }
+else { Log "WARN  未探测到可用代理(候选:$($ProxyCandidates -join ',')),将尝试直连" }
+
 Log "fetch origin main ..."
-& git fetch origin main 2>&1 | Out-String | Write-Host
+$fetchOut = & git @gitNet fetch origin main 2>&1 | Out-String
+$fetchOut.Trim() | Write-Host
+if ($LASTEXITCODE -ne 0 -or $fetchOut -match 'fatal:|Could not connect|RPC failed|Could not resolve host') {
+    Fail "git fetch origin main 失败(fetch 未成功则无法判定是否落后),本轮不部署"
+}
 # 落后提交数 = 本地未含 origin/main 的提交数
 # 2026-09-13 修复(实测):本机 origin/main 这个嵌套 remote-tracking ref 会被宿主吞掉、永不更新
 # (fetch 打印 6eedf5b0f1..adcc23136a 但 rev-parse origin/main 仍读回旧值)→
 # 旧写法 git rev-list --count HEAD..origin/main 恒 0 → 循环判定"已是最新"提前退出、永不部署。
 # 改为对齐刚 fetch 下来的 FETCH_HEAD(fetch 之后它必然是远端最新),彻底免疫该问题。
-$behind = [int](git rev-list --count HEAD..FETCH_HEAD | Out-String).Trim()
+$behindRaw = (& git @gitNet rev-list --count HEAD..FETCH_HEAD 2>&1 | Out-String).Trim()
+if ($behindRaw -notmatch '^\d+$') { Fail "无法计算 behind(FETCH_HEAD 无效:'$behindRaw'),本轮不部署" }
+$behind = [int]$behindRaw
 
 if ($behind -eq 0 -and -not $deployLatest) {
     Ok "本地已是最新 main,无需部署(behind=$behind)"
