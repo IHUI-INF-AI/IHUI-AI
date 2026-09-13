@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.llm_gateway import llm_gateway, moa_router
+from ..core.model_naming import to_official_model_name
 from ..core.provider_caps import (
     cap_to_dict,
     cap_with_max_context,
@@ -624,12 +625,17 @@ RESTRICTED_MODEL_IDS = {"deepseek-chat", "deepseek-reasoner", "gpt-4o", "gpt-4o-
 
 
 def _is_restricted_model(model: str | None) -> bool:
-    """判断模型是否属于受限(真实付费 key)集合。"""
+    """判断模型是否属于受限(真实付费 key)集合。
+
+    2026-09-13 修复:先做小写归一,避免客户端传大写写法(如 GPT-4o)绕过前缀/集合
+    判定导致非管理员越权消费付费额度(下游仍按小写解析到 openai 真实 key)。
+    """
     if not model:
         return False
-    if model in RESTRICTED_MODEL_IDS:
+    m = model.lower()
+    if m in RESTRICTED_MODEL_IDS:
         return True
-    return any(model.startswith(p) for p in RESTRICTED_PREFIXES)
+    return any(m.startswith(p) for p in RESTRICTED_PREFIXES)
 
 
 async def _ensure_restricted_model_access(request: Request, model: str | None) -> None:
@@ -786,6 +792,11 @@ def _record_compaction_step(
 @router.post("/llm/complete", response_model=None)
 async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, Any] | JSONResponse:
     """直接调用 LLM 完成对话(支持 function calling)。"""
+    # 2026-09-13 立:入站模型名官方改写(大小写归一),须在受限模型权限判定前完成,
+    # 让权限判定与后续链路共用同一个归一值。
+    # model 为可选字段(None = 由下游选默认模型),此时保持 None 不改写。
+    if req.model:
+        req.model = to_official_model_name(req.model)
     await _ensure_restricted_model_access(request, req.model)
     owner_uuid = _resolve_owner_uuid(request)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
@@ -1269,6 +1280,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
       透传 errorCode 到 Error 对象 → onError 回调。
     """
 
+    # 2026-09-13 立:入站模型名官方改写(大小写归一),须在受限模型权限判定前完成,
+    # 让权限判定与后续链路共用同一个归一值。
+    # model 为可选字段(None = 由下游选默认模型),此时保持 None 不改写。
+    if req.model:
+        req.model = to_official_model_name(req.model)
     accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
     await _ensure_restricted_model_access(request, req.model)
     owner_uuid = _resolve_owner_uuid(request)
