@@ -867,6 +867,9 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     relayCost = cost
   }
 
+  // 2026-09-13 修复:写库 model 统一为归一值(与定价查表键空间一致,防用量统计按大小写分裂)
+  const normalizedModelId = normalizeModelId(stripLiteLLMPrefix(input.model))
+
   // 2. 写 llm_call_logs(prompt 截断 5000 字符防止超大字段)
   const truncatedPrompt =
     input.prompt.length > 5000 ? input.prompt.slice(0, 5000) + '...[truncated]' : input.prompt
@@ -914,7 +917,7 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     .insert(llmCallLogs)
     .values({
       userId: input.userId,
-      model: input.model,
+      model: normalizedModelId,
       prompt: truncatedPrompt,
       response: truncatedResponse,
       promptTokens: input.promptTokens,
