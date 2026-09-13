@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import { Key, Plus, Trash2, RotateCcw, Copy, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Key, Plus, Trash2, RotateCcw, Copy, Eye, EyeOff, Loader2, Power } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
   Button,
@@ -86,8 +86,10 @@ export default function RelayKeysPage() {
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState('')
   const [scopes, setScopes] = React.useState<string[]>(['chat:write', 'models:read'])
-  // 2026-09-13 新增:创建成功后展示明文 secret(仅此一次,后端只返回一次)
+  // 2026-09-13 修复:创建成功后展示明文 secret(仅此一次,后端只返回一次);
+  // mode 区分「创建」与「重置」,重置同样会返回新 secret,复用同一弹窗展示
   const [created, setCreated] = React.useState<{
+    mode: 'create' | 'reset'
     apiKey: { id: string; name: string; key: string }
     secret: string
   } | null>(null)
@@ -118,24 +120,51 @@ export default function RelayKeysPage() {
       setOpen(false)
       setName('')
       setScopes(['chat:write', 'models:read'])
-      setCreated(data)
+      setCreated({ mode: 'create', ...data })
       setSecretVisible(false)
     },
     onError: (e: Error) => toast.error(e.message),
   })
-  const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/developer/keys/${id}`, { method: 'DELETE' }),
+  // 2026-09-13 修复:原 DELETE /api/developer/keys/:id 端点不存在,
+  // 中转站吊销语义 = PATCH /api/developer/relay/keys/:id { status: 'revoked' }
+  const revokeMut = useMutation({
+    mutationFn: (id: string) =>
+      api(`/api/developer/relay/keys/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'revoked' }),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
       toast.success('Key 已吊销')
     },
     onError: (e: Error) => toast.error(e.message),
   })
-  const resetMut = useMutation({
-    mutationFn: (id: string) => api(`/api/developer/keys/${id}/reset`, { method: 'POST' }),
+  // 2026-09-13 新增:误吊销可恢复,避免一次性不可逆操作
+  const restoreMut = useMutation({
+    mutationFn: (id: string) =>
+      api(`/api/developer/relay/keys/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'active' }),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
-      toast.success('Key 已重置')
+      toast.success('Key 已启用')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+  // 2026-09-13 修复:原 /api/developer/keys/:id/reset 不是中转站端点;
+  // 改为 relay 侧新增的 reset 端点,新 secret 仅此一次返回,复用创建成功弹窗展示
+  const resetMut = useMutation({
+    mutationFn: (id: string) =>
+      api<{ apiKey: { id: string; name: string; key: string }; secret: string }>(
+        `/api/developer/relay/keys/${id}/reset`,
+        { method: 'POST' },
+      ),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
+      setCreated({ mode: 'reset', ...data })
+      setSecretVisible(false)
+      toast.success('Key 已重置,请保存新的 Secret')
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -284,25 +313,37 @@ export default function RelayKeysPage() {
                         <RotateCcw className="h-3.5 w-3.5" />
                         重置
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          if (
-                            await confirm({
-                              title: '确认吊销该 Key?此操作不可撤销',
-                              variant: 'destructive',
-                            })
-                          ) {
-                            delMut.mutate(k.id)
-                          }
-                        }}
-                        disabled={delMut.isPending}
-                        className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        吊销
-                      </Button>
+                      {k.status === 'active' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            if (
+                              await confirm({
+                                title: '确认吊销该 Key?吊销后可随时重新启用',
+                                variant: 'destructive',
+                              })
+                            ) {
+                              revokeMut.mutate(k.id)
+                            }
+                          }}
+                          disabled={revokeMut.isPending}
+                          className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          吊销
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => restoreMut.mutate(k.id)}
+                          disabled={restoreMut.isPending}
+                        >
+                          <Power className="h-3.5 w-3.5" />
+                          启用
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -365,11 +406,13 @@ export default function RelayKeysPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 2026-09-13 新增:创建成功后展示明文 secret,仅此一次可复制 */}
+      {/* 2026-09-13 新增:创建/重置成功后展示明文 secret,仅此一次可复制 */}
       <Dialog open={!!created} onOpenChange={(o) => !o && setCreated(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Key 创建成功</DialogTitle>
+            <DialogTitle>
+              {created?.mode === 'reset' ? 'Secret 已重置' : 'Key 创建成功'}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <Alert
