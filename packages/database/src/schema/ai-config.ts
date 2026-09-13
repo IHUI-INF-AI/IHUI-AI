@@ -112,8 +112,10 @@ export const aiModelConfigModels = pgTable(
     modelId: varchar('model_id', { length: 128 }).notNull(),
     displayName: varchar('display_name', { length: 256 }),
     contextLength: integer('context_length').default(32000),
-    inputPricePer1k: integer('input_price_per_1k').default(0),
-    outputPricePer1k: integer('output_price_per_1k').default(0),
+    // 2026-09-13: integer → numeric(18,6)。分/千 token 进价实为小数(如 glm-5.3 到手 0.04 分/千),
+    // integer 会把 seed 回填与 discovery 落库的小数价全部归零,导致公开价目恒 0。
+    inputPricePer1k: numeric('input_price_per_1k', { precision: 18, scale: 6, mode: 'number' }).default(0),
+    outputPricePer1k: numeric('output_price_per_1k', { precision: 18, scale: 6, mode: 'number' }).default(0),
     enabled: boolean('enabled').default(true),
     defaultParams: jsonb('default_params').default({}),
     isDefault: boolean('is_default').default(false),
