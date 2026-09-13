@@ -48,7 +48,7 @@ export interface UpstreamForwardRequest {
   signal?: AbortSignal
 }
 
-export interface ForwardSuccess {
+interface ForwardSuccess {
   ok: true
   /** 上游 Response(非流式:待 .json();流式:body 为 SSE 可读流) */
   response: Response
@@ -57,7 +57,7 @@ export interface ForwardSuccess {
   latencyMs: number
 }
 
-export interface ForwardFailure {
+interface ForwardFailure {
   ok: false
   /** 全部候选均失败的原因摘要 */
   reason: string
