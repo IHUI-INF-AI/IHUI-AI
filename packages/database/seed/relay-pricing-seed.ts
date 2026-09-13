@@ -15,11 +15,11 @@ const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@lo
  *
  * 三步(全部幂等,可重复执行):
  *   1. 倍率 1.0000 → 1.2000(仅 is_relay_public=true;不覆盖管理员手动调整过的值)
- *   2. glm-5.3-flash 保底价(in=15/out=30 分/千token,对标 glm-5.2 半价)写入 ai_pricing
- *      —— ai_pricing 是 calculateCost 的第一优先定价源;flash 档 45 token 量级探针调用
- *         也能产生非零 costCents(15in+30out ≈ 1.35 分 → round 1)
+ *   2. swiftapi 渠道进价快照写入 ai_pricing(2026-09-13 取自上游报价页「到手」价,
+ *      元/百万 token ÷ 10 = 分/千 token)—— ai_pricing 是 calculateCost 的第一优先定价源
  *   3. 从 ai_pricing 有效价回填 is_relay_public 且 0/0 的模型进价
  *      —— 计费虽以 ai_pricing 优先,但公开价目表读 model config,回填让价格可见
+ *      (2026-09-13:价格列 integer→numeric(18,6),小数进价可回填,不再 ::int 归零)
  */
 export async function seedRelayPricing(): Promise<void> {
   // ── 1. 倍率:仅把仍是默认 1.0000 的中转站公开模型提到 1.2 ──
@@ -30,33 +30,49 @@ export async function seedRelayPricing(): Promise<void> {
       AND relay_price_multiplier = '1.0000'
   `)
 
-  // ── 2. glm-5.3-flash 保底价(ai_pricing 无有效价时插入;已有 0/0 有效价则升为保底价) ──
-  // 注意:ai_pricing 是 calculateCost 第一优先源,若存在 0/0 有效价记录会永久压制后续定价,
-  //      故必须把 0/0 的有效记录同步升价,否则仅 INSERT 兜底不够。
-  const floorRes = await db.execute(sql`
+  // ── 2. swiftapi 渠道进价快照(2026-09-13 取自上游报价页「到手」价,元/百万 token ÷ 10 = 分/千 token)。
+  //      幂等:无记录则插入;已有记录仅当 0/0 时升价(不覆盖管理员手动调价)。
+  //      数据源:https://api.x5m5x.com/pricing/(按量计费 · 到手价)
+  const snapshotRes = await db.execute(sql`
     INSERT INTO ai_pricing (model_id, input_token_price, output_token_price, region_pricing, currency)
-    SELECT 'glm-5.3-flash', 15, 30, '{"cn":1.0}'::jsonb, 'CNY'
-    WHERE NOT EXISTS (
-      SELECT 1 FROM ai_pricing
-      WHERE model_id = 'glm-5.3-flash'
-        AND effective_at <= now()
-        AND (expires_at IS NULL OR expires_at > now())
-    )
+    VALUES
+      ('glm-5.3-flash',             0.008,   0.028,   '{"cn":1.0}'::jsonb, 'CNY'),
+      ('deepseek-v4-flash-vision-exp', 0.01,   0.04,   '{"cn":1.0}'::jsonb, 'CNY'),
+      ('qwen3.7-max',               0.096,   0.288,   '{"cn":1.0}'::jsonb, 'CNY'),
+      ('qwen3.8-flash',             0.0064,  0.0216,  '{"cn":1.0}'::jsonb, 'CNY'),
+      ('mimo-v2.5',                 0.005,   0.01,    '{"cn":1.0}'::jsonb, 'CNY'),
+      ('mimo-v2.5-pro',             0.0155,  0.0305,  '{"cn":1.0}'::jsonb, 'CNY'),
+      ('hy3',                       0.005,   0.02,    '{"cn":1.0}'::jsonb, 'CNY'),
+      ('claude-fable-5.1',          0.5,     2.5,     '{"cn":1.0}'::jsonb, 'CNY'),
+      ('gemini-3.1-pro-preview',    0.05,    0.3,     '{"cn":1.0}'::jsonb, 'CNY')
+    ON CONFLICT DO NOTHING
   `)
-  const floorUpdRes = await db.execute(sql`
-    UPDATE ai_pricing
-    SET input_token_price = 15, output_token_price = 30, updated_at = now()
-    WHERE model_id = 'glm-5.3-flash'
-      AND input_token_price = 0 AND output_token_price = 0
-      AND effective_at <= now()
-      AND (expires_at IS NULL OR expires_at > now())
+  const snapshotUpdRes = await db.execute(sql`
+    UPDATE ai_pricing p
+    SET input_token_price = v.ip, output_token_price = v.op, updated_at = now()
+    FROM (VALUES
+      ('glm-5.3-flash',             0.008::numeric,  0.028::numeric),
+      ('deepseek-v4-flash-vision-exp', 0.01::numeric,   0.04::numeric),
+      ('qwen3.7-max',               0.096::numeric,  0.288::numeric),
+      ('qwen3.8-flash',             0.0064::numeric, 0.0216::numeric),
+      ('mimo-v2.5',                 0.005::numeric,  0.01::numeric),
+      ('mimo-v2.5-pro',             0.0155::numeric, 0.0305::numeric),
+      ('hy3',                       0.005::numeric,  0.02::numeric),
+      ('claude-fable-5.1',          0.5::numeric,    2.5::numeric),
+      ('gemini-3.1-pro-preview',    0.05::numeric,   0.3::numeric)
+    ) AS v(model_id, ip, op)
+    WHERE p.model_id = v.model_id
+      AND p.input_token_price = 0 AND p.output_token_price = 0
+      AND p.effective_at <= now()
+      AND (p.expires_at IS NULL OR p.expires_at > now())
   `)
 
   // ── 3. ai_pricing 有效价回填到中转站公开模型的 0/0 进价 ──
+  //      2026-09-13:价格列已 integer→numeric(18,6),小数进价可直接回填,不再 ::int 归零
   const backfillRes = await db.execute(sql`
     UPDATE ai_model_config_models m
-    SET input_price_per_1k  = p.input_token_price::int,
-        output_price_per_1k = p.output_token_price::int
+    SET input_price_per_1k  = p.input_token_price,
+        output_price_per_1k = p.output_token_price
     FROM (
       SELECT DISTINCT ON (model_id)
              model_id, input_token_price, output_token_price
@@ -74,7 +90,7 @@ export async function seedRelayPricing(): Promise<void> {
 
   console.info(
     `[relay-pricing] multiplier→1.2: ${mulRes.rowCount ?? 0} 行, ` +
-      `glm-5.3-flash 保底价(insert/update): ${floorRes.rowCount ?? 0}/${floorUpdRes.rowCount ?? 0} 行, ` +
+      `swiftapi 进价快照(insert/zero-upd): ${snapshotRes.rowCount ?? 0}/${snapshotUpdRes.rowCount ?? 0} 行, ` +
       `ai_pricing→model_config 回填: ${backfillRes.rowCount ?? 0} 行`,
   )
 }
