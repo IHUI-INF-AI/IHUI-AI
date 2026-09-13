@@ -30,6 +30,7 @@ import { createRequire } from 'node:module'
 import { createCipheriv, randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { normalizeModelId } from './lib/model-names.mjs'
 
 const require = createRequire(import.meta.url)
 const postgres = require('postgres')
@@ -255,12 +256,14 @@ async function seedFreeProviders(db, isDryRun) {
     // --- 步骤 3:ai_model_config_models upsert(按 config_id + model_id,有 unique 约束)---
     if (!isDryRun && configId) {
       for (const m of p.models) {
+        // 2026-09-13:写入前归一为官方名/小写,避免与目录内既有条目大小写重复
+        const modelId = normalizeModelId(m.model_id)
         const result = await db`
           INSERT INTO ai_model_config_models
             (config_id, model_id, display_name, context_length, enabled,
              is_relay_public, relay_price_multiplier, relay_sort_order, created_at, updated_at)
           VALUES
-            (${configId}, ${m.model_id}, ${m.display_name}, ${m.context_window}, true,
+            (${configId}, ${modelId}, ${m.display_name}, ${m.context_window}, true,
              ${m.is_relay_public}, '1.0000', 0, now(), now())
           ON CONFLICT (config_id, model_id) DO UPDATE
             SET display_name = EXCLUDED.display_name,

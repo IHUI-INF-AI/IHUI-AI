@@ -21,6 +21,7 @@ import { eq, and } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { aiModelConfigModels, aiModelConfig } from '@ihui/database'
 import { success } from '../utils/response.js'
+import { normalizeModelId } from '@ihui/shared'
 
 /** 公开返回的模型条目结构(前端 Model 类型扩展用) */
 interface PublicRelayModelItem {
@@ -92,11 +93,12 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
       // 跨上游去重(2026-09-13):同一 modelId 可在多个 provider/config 上架
       // (如 token6688 与 swiftapi 同时供同一模型),对外目录只展示一条——
       // 保留排序最靠前(relaySortOrder 升序)的首个条目。
-      // 官方名归一兜底(2026-09-13 立):键用小写,防 DB 存量大小写重复导致目录双条目。
+      // 官方名归一兜底(2026-09-13 立):去重键走共享 normalizeModelId,
+      // 与 /v1/models(v1-public.ts)同一口径,防 DB 存量大小写重复导致目录双条目。
       const seenModelIds = new Set<string>()
       const items: PublicRelayModelItem[] = []
       for (const r of rows) {
-        const key = r.modelId.toLowerCase()
+        const key = normalizeModelId(r.modelId)
         if (seenModelIds.has(key)) continue
         seenModelIds.add(key)
         const multiplier = Math.max(0, toNumber(r.relayPriceMultiplier, 1))
