@@ -43,6 +43,7 @@ import { execSync } from 'node:child_process'
 import { join, resolve, relative, dirname, basename, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createLogger } from './lib/logger.mjs'
+import { isRootLinkedWorktree } from './lib/worktree.mjs'
 
 const log = createLogger()
 
@@ -256,28 +257,9 @@ function isLinkedWorktree(dir) {
   }
 }
 
-/**
- * 本守门自身是否运行在 linked worktree 中。
- *
- * worktree 的 `.git` 是指针文件,内容为 "gitdir: <真实gitdir>/worktrees/<名>"。
- * 此时 ROOT 的父目录没有"项目父目录"语义(通常正是主工作区所在位置),
- * 继续巡查会把主工作区的历史 agent 临时文件误判为本 worktree 的父目录污染。
- *
- * 仅豁免"指针文件 + 指向 worktrees/ 子目录"的情形;主工作区自身(独立 gitdir)
- * 与普通子目录的巡查行为完全不变。
- */
-function isRootLinkedWorktree() {
-  const gitPath = join(ROOT, '.git')
-  try {
-    if (!existsSync(gitPath) || !statSync(gitPath).isFile()) return false
-    const content = readFileSync(gitPath, 'utf8')
-      .trim()
-      .replace(/^gitdir:\s*/i, '')
-    return content.replace(/\\/g, '/').toLowerCase().includes('/worktrees/')
-  } catch {
-    return false
-  }
-}
+// 2026-09-13:判定逻辑提取到共享层 scripts/lib/worktree.mjs(守门 [15] 有同类需求),
+// 行为不变:worktree 的 `.git` 是指针文件且指向 `<真实gitdir>/worktrees/<名>`。
+// 主工作区自身(独立 gitdir)与普通子目录的巡查行为完全不变。
 
 function matchesAgentFilenamePattern(filename) {
   return AGENT_FILENAME_PATTERNS.some((p) => p.test(filename))
