@@ -16,6 +16,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.core.llm_gateway import VENDOR_ENV_KEYS
 from app.main import app
+from app.middleware.input_sanitizer import RateLimitMiddleware
 
 
 @pytest.fixture
@@ -24,6 +25,43 @@ async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limit_buckets():
+    """每个测试前清空共享 app 的进程内限流令牌桶(根治跨测试累积的偶发 429)。
+
+    RateLimitMiddleware 按 (ip, prefix) 维护进程内 TokenBucket,而本文件的
+    client fixture 复用同一全局 app 单例 → 桶状态跨测试文件累积。全量 CI 中
+    13 个测试文件打 /api/llm/*,60 次/分钟的桶在 60s 窗口内被耗尽后,后续
+    用例收到 429(2026-09-13 CI 实证:test_gemini_invalid_json_returns_400
+    断言 400 实得 429;同代码前一轮通过,属时序敏感偶发,非代码回归)。
+
+    逐层解包找到 RateLimitMiddleware 实例并清空桶。解包链(2026-09-13 实测):
+    app.main.app 是 socketio.ASGIApp 包装器 → other_asgi_app = FastAPI 实例 →
+    middleware_stack = 已构建的中间件链根 → 各层中间件经 .app 逐级下钻。
+    三种属性名按序尝试,兼容包装层/框架层/中间件层各自不同的持有字段。
+    找不到实例(栈尚未构建 / 中间件被移除)则无事可做 —— 没有活动限流器
+    就不会产生跨测试 429,安全跳过。限流中间件自身行为由
+    test_middleware.py::TestRateLimitMiddleware 与 test_input_sanitizer.py
+    (独立最小 app + monkeypatch RATE_RULES)专项覆盖,不依赖共享桶状态,
+    故清空不影响任何限流断言。
+    """
+
+    def _next(n):
+        for attr in ("other_asgi_app", "middleware_stack", "app"):
+            v = getattr(n, attr, None)
+            if v is not None:
+                return v
+        return None
+
+    node = app
+    while node is not None:
+        if isinstance(node, RateLimitMiddleware):
+            node._buckets.clear()
+            break
+        node = _next(node)
+    yield
 
 
 # vendor env key 列表单一来源:app/core/llm_gateway.py 模块级 VENDOR_ENV_KEYS
