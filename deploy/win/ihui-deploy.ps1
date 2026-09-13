@@ -270,8 +270,33 @@ else { Log "WARN  未探测到可用代理(候选:$($ProxyCandidates -join ','))
 Log "fetch origin main ..."
 $fetchOut = & git @gitNet fetch origin main 2>&1 | Out-String
 $fetchOut.Trim() | Write-Host
-if ($LASTEXITCODE -ne 0 -or $fetchOut -match 'fatal:|Could not connect|RPC failed|Could not resolve host') {
-    Fail "git fetch origin main 失败(fetch 未成功则无法判定是否落后),本轮不部署"
+# ── 镜像回退(2026-09-13 加):本机 GitHub 直连被墙,依赖 Clash 代理(127.0.0.1:7897);
+#    代理未运行/被防火墙拦时 fetch 必失败 → fail-closed → 部署循环长时间停摆(实测 09-13
+#    出现 uptime 单调上升 35 分钟、新提交不入库)。三仓 main 由本项目推送流程保证同步,
+#    故 origin 失败时回退国内镜像;镜像落后时 behind=0 会自然跳过,不会回滚。
+#    注意:镜像 fetch 同样写 FETCH_HEAD,下游 behind/merge 逻辑无需改动。
+$MirrorUrls = @(
+    'https://gitcode.com/IHUI-AI/IHUI-AI.git',
+    'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git'
+)
+$fetched = $false
+if ($LASTEXITCODE -eq 0 -and -not ($fetchOut -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
+    $fetched = $true
+} else {
+    Log "WARN  origin fetch 失败,尝试国内镜像回退 ..."
+    foreach ($m in $MirrorUrls) {
+        Log "fetch $m main ..."
+        $mOut = & git fetch $m main 2>&1 | Out-String
+        $mOut.Trim() | Write-Host
+        if ($LASTEXITCODE -eq 0 -and -not ($mOut -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
+            $fetched = $true
+            Log "镜像回退成功:$m"
+            break
+        }
+    }
+}
+if (-not $fetched) {
+    Fail "git fetch 全部来源失败(origin + 镜像),fetch 未成功则无法判定是否落后,本轮不部署"
 }
 # 落后提交数 = 本地未含 origin/main 的提交数
 # 2026-09-13 修复(实测):本机 origin/main 这个嵌套 remote-tracking ref 会被宿主吞掉、永不更新
