@@ -8,8 +8,8 @@
 # 由本机定时任务轮询 origin/main 触发;也可手动执行。
 #
 # 行为(每个阶段失败即中止,不切流):
-#   1. git fetch origin main + 计算本地落后提交数
-#   2. 落后>0 才继续;git pull --ff-only(禁 force,不动他人未提交改动)
+#   1. git fetch origin main + 以 FETCH_HEAD 计算本地落后提交数(不用被宿主吞掉的 origin/main ref)
+#   2. 落后>0 才继续;git merge --ff-only FETCH_HEAD(禁 force,不动他人未提交改动)
 #   3. 备份当前 web 构建产物(.next → .rollback)
 #   4. 重建 web(next build);api/ai-service 跑源码(tsx/uvicorn)无需独立构建
 #   5. 重启 NSSM 服务(走非活跃逻辑,健康全过才保留)
@@ -205,9 +205,14 @@ function Invoke-DbMigrate {
     }
     Push-Location "$Root\packages\database"
     try {
-        & "D:\DevEnv\tools\npm-global\pnpm.cmd" run db:migrate 2>&1 | Out-String | Write-Host
+        $migOut = & "D:\DevEnv\tools\npm-global\pnpm.cmd" run db:migrate 2>&1 | Out-String
+        $migOut | Write-Host
         if ($LASTEXITCODE -eq 0) { Ok "db:migrate 完成(exit 0)" }
-        else { Log "WARN  db:migrate 失败(exit $LASTEXITCODE),本轮继续但需人工核查" }
+        else {
+            # 2026-09-13 加固:失败必须能定位到具体迁移,而不是只报退出码
+            $bad = ($migOut -split "`n" | Where-Object { $_ -match "\.sql|ERROR|error:" } | Select-Object -First 6) -join " | "
+            Log "WARN  db:migrate 失败(exit $LASTEXITCODE),本轮继续但需人工核查;线索: $bad"
+        }
     } finally { Pop-Location }
 }
 if (-not $dryrun) { Invoke-DbMigrate }
@@ -215,20 +220,24 @@ if (-not $dryrun) { Invoke-DbMigrate }
 Log "fetch origin main ..."
 & git fetch origin main 2>&1 | Out-String | Write-Host
 # 落后提交数 = 本地未含 origin/main 的提交数
-$behind = [int](git rev-list --count HEAD..origin/main | Out-String).Trim()
+# 2026-09-13 修复(实测):本机 origin/main 这个嵌套 remote-tracking ref 会被宿主吞掉、永不更新
+# (fetch 打印 6eedf5b0f1..adcc23136a 但 rev-parse origin/main 仍读回旧值)→
+# 旧写法 git rev-list --count HEAD..origin/main 恒 0 → 循环判定"已是最新"提前退出、永不部署。
+# 改为对齐刚 fetch 下来的 FETCH_HEAD(fetch 之后它必然是远端最新),彻底免疫该问题。
+$behind = [int](git rev-list --count HEAD..FETCH_HEAD | Out-String).Trim()
 
 if ($behind -eq 0 -and -not $deployLatest) {
     Ok "本地已是最新 main,无需部署(behind=$behind)"
     Release-DeployLock
     exit 0
 }
-if ($dryrun) { Ok "dryrun 模式: behind=$behind,即将部署到 origin/main=$($(git rev-parse --short origin/main | Out-String).Trim())"; Release-DeployLock; exit 0 }
+if ($dryrun) { Ok "dryrun 模式: behind=$behind,即将部署到 origin/main=$($(git rev-parse --short FETCH_HEAD | Out-String).Trim())"; Release-DeployLock; exit 0 }
 
 if ($behind -gt 0) {
-    Log "本地落后 origin/main $behind 个提交,进行 fast-forward pull"
-    & git pull --ff-only origin main 2>&1 | Out-String | Write-Host
-    if ($LASTEXITCODE -ne 0) { Fail "git pull 失败(可能冲突/未提交改动),已停止,未切流" }
-    Ok "pull 完成,HEAD=$(git rev-parse --short HEAD | Out-String)"
+    Log "本地落后远端 $behind 个提交,进行 fast-forward merge(FETCH_HEAD)"
+    & git merge --ff-only FETCH_HEAD 2>&1 | Out-String | Write-Host
+    if ($LASTEXITCODE -ne 0) { Fail "git merge --ff-only FETCH_HEAD 失败(可能冲突/未提交改动),已停止,未切流" }
+    Ok "merge 完成,HEAD=$(git rev-parse --short HEAD | Out-String)"
 }
 
 # 1) 备份当前 web 构建 → .rollback(web 保持在线,只读复制)
