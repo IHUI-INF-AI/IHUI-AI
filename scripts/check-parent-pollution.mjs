@@ -256,6 +256,29 @@ function isLinkedWorktree(dir) {
   }
 }
 
+/**
+ * 本守门自身是否运行在 linked worktree 中。
+ *
+ * worktree 的 `.git` 是指针文件,内容为 "gitdir: <真实gitdir>/worktrees/<名>"。
+ * 此时 ROOT 的父目录没有"项目父目录"语义(通常正是主工作区所在位置),
+ * 继续巡查会把主工作区的历史 agent 临时文件误判为本 worktree 的父目录污染。
+ *
+ * 仅豁免"指针文件 + 指向 worktrees/ 子目录"的情形;主工作区自身(独立 gitdir)
+ * 与普通子目录的巡查行为完全不变。
+ */
+function isRootLinkedWorktree() {
+  const gitPath = join(ROOT, '.git')
+  try {
+    if (!existsSync(gitPath) || !statSync(gitPath).isFile()) return false
+    const content = readFileSync(gitPath, 'utf8')
+      .trim()
+      .replace(/^gitdir:\s*/i, '')
+    return content.replace(/\\/g, '/').toLowerCase().includes('/worktrees/')
+  } catch {
+    return false
+  }
+}
+
 function matchesAgentFilenamePattern(filename) {
   return AGENT_FILENAME_PATTERNS.some((p) => p.test(filename))
 }
@@ -345,6 +368,17 @@ function main() {
   const isWarn = args.includes('--warn')
   const isAutoClean = args.includes('--auto-clean')
   // --quiet 由共享 logger 处理(见 ./lib/logger.mjs),无需在此手动解析
+
+  // 0. linked worktree 场景跳过(2026-09-13 立)
+  // worktree 的 ROOT 是 worktree 路径,其 PARENT_DIR 通常正是主工作区所在盘
+  // (如 G:/IHUI-AI),巡查会把主工作区里的历史 agent 临时文件误判为本 worktree
+  // 的父目录污染 → 每次 worktree 提交都被 [26] 阻塞。此前只能临时改脚本绕过,
+  // 现固化为正式判定(仅豁免指针式 .git 且指向 <真实gitdir>/worktrees/ 的情形;
+  // 主工作区自身的巡查行为完全不变)。
+  if (isRootLinkedWorktree()) {
+    log.info('✅ parent-pollution: 当前运行于 linked worktree,项目父目录巡查不适用,跳过')
+    process.exit(0)
+  }
 
   const allPollutions = []
 

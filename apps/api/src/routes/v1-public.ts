@@ -39,6 +39,7 @@ import {
   aiModelConfigModels,
   aiModelConfig,
 } from '@ihui/database'
+import { normalizeModelId, toOfficialModelName } from '@ihui/shared'
 import type {
   V1AgentInfo,
   V1AgentsListResponse,
@@ -327,7 +328,7 @@ async function fetchModels(userId?: string): Promise<{
       // relaySortOrder 升序在前者优先,防 DB 存量大小写重复导致目录双条目。
       const seenModelIds = new Set<string>()
       const dedupedRelayList = relayList.filter((m) => {
-        const key = m.id.toLowerCase()
+        const key = normalizeModelId(m.id)
         if (seenModelIds.has(key)) return false
         seenModelIds.add(key)
         return true
@@ -1346,6 +1347,13 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         // 映射解析失败默认走原 model,不影响主链路
       }
     }
+
+    // 官方名改写(2026-09-13 立,入站兜底):客户端若用非官方大小写(如 minimax-m3)
+    // 请求,在此改写为官方名(MiniMax-M3)再进入路由/转发/计费链路。
+    // 原因:通道路由 selectChannelCandidates 按 model_id 精确 eq 查号池,
+    // 大小写不符会查空 → 落到默认 provider → 上游 422(实测 minimax-m3 → openai 422)。
+    // 保守实现:仅命中官方名映射表才改写,未知模型原样透传(不改变既有上游契约)。
+    resolvedModel = toOfficialModelName(resolvedModel)
 
     // 两段式计费第一阶段(2026-09-12 立):预扣预估用量(封顶当前余额),
     // recordCall 收到凭证后自动结算(多退少补),敞口上限 = 单次预扣额。

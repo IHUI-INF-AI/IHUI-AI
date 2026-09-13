@@ -19,6 +19,7 @@
  *   node scripts/seed-all-providers.mjs --dry-run  # 预览
  */
 import { createRequire } from 'node:module'
+import { normalizeModelId } from './lib/model-names.mjs'
 const require = createRequire(import.meta.url)
 const postgres = require('postgres')
 
@@ -517,9 +518,11 @@ async function main() {
 
     // 添加模型(dry-run 时跳过 DB 查询)
     for (const m of p.models) {
+      // 2026-09-13:写入前归一为官方名/小写,与中转站目录同一键空间
+      const modelId = normalizeModelId(m.id)
       if (!dryRun && configId > 0) {
         const existingModel = await sql`
-          SELECT id FROM ai_model_config_models WHERE config_id = ${configId} AND model_id = ${m.id}
+          SELECT id FROM ai_model_config_models WHERE config_id = ${configId} AND model_id = ${modelId}
         `
         if (existingModel.length > 0) {
           skippedModels++
@@ -532,7 +535,7 @@ async function main() {
           INSERT INTO ai_model_config_models
             (config_id, model_id, display_name, context_length, input_price_per_1k, output_price_per_1k, enabled, is_relay_public, relay_price_multiplier, created_at, updated_at)
           VALUES
-            (${configId}, ${m.id}, ${m.name}, ${m.context}, 0, 0, true, false, '1.0000', now(), now())
+            (${configId}, ${modelId}, ${m.name}, ${m.context}, 0, 0, true, false, '1.0000', now(), now())
           ON CONFLICT (config_id, model_id) DO NOTHING
         `
       }
