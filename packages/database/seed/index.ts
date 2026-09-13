@@ -14,6 +14,7 @@ import { seedLeaderboard } from './leaderboard-seed.js'
 import { seedAiPricing } from './ai-pricing-seed.js'
 import { seedCourses } from './courses-seed.js'
 import { seedAiCostRecords } from './ai-cost-records-seed.js'
+import { seedRelayPricing } from './relay-pricing-seed.js'
 
 interface SeedStep {
   /** 步骤编号(1-based) */
@@ -110,6 +111,12 @@ const STEPS: SeedStep[] = [
     description:
       '8 门示范课程(AI 编程入门 / LangGraph / MCP / AI 教育方法论 / 多模态 / RAG / Agent 评测 / AI 安全)+ 章节大纲 + 2 个证书视觉模板(紧凑 / 古典)',
     fn: seedCourses,
+  },
+  {
+    index: 13,
+    name: '中转站定价配置',
+    description: '倍率 1.0→1.2 + glm-5.3-flash 保底价 + ai_pricing 有效价回填(幂等)',
+    fn: seedRelayPricing,
   },
 ]
 
