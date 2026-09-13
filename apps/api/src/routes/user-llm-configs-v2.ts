@@ -182,7 +182,6 @@ async function getApiKey(row: { apiKeyEnc: string | null }): Promise<string | nu
   }
 }
 
-
 interface TestResult {
   ok: boolean
   status: 'success' | 'failed'
