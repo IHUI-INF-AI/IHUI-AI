@@ -83,6 +83,8 @@
     "resolve:desktop-download:dry-run": "node scripts/resolve-desktop-download.mjs --dry-run",
     "watermark": "node scripts/watermark.mjs inject",
     "watermark:check": "node scripts/watermark.mjs verify",
+    "migration:check": "node scripts/check-migration-bookkeeping.mjs",
+    "migration:check:db": "node scripts/check-migration-bookkeeping.mjs --db",
     "check:miniapp-parity": "node scripts/check-miniapp-taro-style-parity.mjs"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
