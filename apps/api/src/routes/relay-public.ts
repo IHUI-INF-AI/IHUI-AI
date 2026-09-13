@@ -110,8 +110,9 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
           inputPricePer1k: inputBase,
           outputPricePer1k: outputBase,
           relayPriceMultiplier: multiplier,
-          relayInputPricePer1k: Math.round(inputBase * multiplier),
-          relayOutputPricePer1k: Math.round(outputBase * multiplier),
+          // 2026-09-13: 价格列已 numeric,小数分价是常态;Math.round 会把 0.0126 抹成 0
+          relayInputPricePer1k: inputBase * multiplier,
+          relayOutputPricePer1k: outputBase * multiplier,
           relaySortOrder: toNumber(r.relaySortOrder, 0),
         })
       }
