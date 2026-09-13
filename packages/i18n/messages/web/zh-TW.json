@@ -80,8 +80,8 @@
     "disabledHint": "自癒引擎未開啟:請在 ai-service .env 設定 AGENT_SELF_HEALING_ENABLED=true 後重啟服務",
     "durationHint": "自癒循環會真實執行 pytest 並呼叫 LLM 生成補丁,可能耗時數分鐘",
     "failedCount": "失敗 {count}",
-      "notifyCompletedTitle": "任務完成：{name}",
-      "notifyFailedTitle": "任務失敗：{name}",
+    "notifyCompletedTitle": "任務完成：{name}",
+    "notifyFailedTitle": "任務失敗：{name}",
     "healed": "已自癒",
     "history": "嘗試歷史",
     "lastRun": "末輪通過/失敗",
@@ -4210,8 +4210,8 @@
       "priorityLabel": "優先級(數字越大越優先)",
       "refresh": "刷新",
       "retry": "重試",
-    "screenshot": "截圖",
-    "screenshotHint": "也可直接 Ctrl+V 貼上截圖",
+      "screenshot": "截圖",
+      "screenshotHint": "也可直接 Ctrl+V 貼上截圖",
       "save": "保存",
       "status": "狀態",
       "subtitle": "轉發層 applyParamOps 規則管理(15 種 op + 條件 + JSON 路徑)",
@@ -6013,7 +6013,10 @@
       "share": "分享",
       "showContent": "顯示內容",
       "stopReadAloud": "停止朗讀",
-      "toggleMetadata": "切換元資料"
+      "toggleMetadata": "切換元資料",
+      "readAloud": "朗讀",
+      "readAloudFailed": "朗讀失敗,請稍後重試",
+      "readAloudTruncated": "內容過長,只朗讀前 {max} 字"
     },
     "next": "下一頁",
     "prev": "上一頁",
@@ -8270,7 +8273,7 @@
       "scopeDefault": "尚未選擇工作階段,修改會儲存為所有工作階段的預設參數",
       "promoteToDefaults": "設為所有工作階段預設",
       "temperature": "隨機性 temperature",
-      "temperatureHint": "0–2。越低回答越穩定保守,越高越有創造性;留空用模型預設值。",
+      "temperatureHint": "0–2。越低輸出越穩定保守,越高越有創造性;留空用模型預設值。",
       "topP": "核取樣 top_p",
       "topPHint": "0–1。只從累計機率最高的詞中取樣,通常與 temperature 只調其中一個。",
       "topK": "候選詞數 top_k",
@@ -8482,7 +8485,8 @@
       "share": "分享",
       "shareLinkCopied": "已複製內容與連結",
       "showContent": "顯示內容",
-      "toggleMetadata": "切換元數據"
+      "toggleMetadata": "切換元數據",
+      "stopReadAloud": "停止朗讀"
     },
     "messageDeleted": "已刪除消息",
     "modeAlreadyActive": "當前已是{mode}模式",
@@ -8997,7 +9001,10 @@
     "voiceInputSttFailed": "轉寫失敗，請稍後重試或檢查本地語音服務",
     "voiceInputEmpty": "未識別到語音內容，請靠近麥克風後重試",
     "voiceInputUnauthorized": "登入已過期，請刷新頁面後重試",
-    "voiceInputNetworkError": "網路異常，請檢查連線後重試"
+    "voiceInputNetworkError": "網路異常，請檢查連線後重試",
+    "regenerate": "重新生成",
+    "screenshot": "截圖",
+    "screenshotHint": "已開啟檔案選擇,也可直接 Ctrl+V 貼上剪貼簿截圖"
   },
   "chatHistory": {
     "backToHistory": "返回任務列表",
