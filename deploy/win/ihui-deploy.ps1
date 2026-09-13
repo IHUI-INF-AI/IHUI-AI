@@ -226,6 +226,26 @@ function Invoke-DbMigrate {
 }
 if (-not $dryrun) { Invoke-DbMigrate }
 
+# ── DB seed(2026-09-13 加):仅跑 13 号中转站定价步骤,幂等可重复 ──
+# 与 Invoke-DbMigrate 共用 apps/api/.env 的 DATABASE_URL(进程级 env 已设置,这里再兜底一次)
+function Invoke-DbSeedRelayPricing {
+    Log "DB seed(packages/database 中转站定价,--only=13)"
+    $apiEnv = "$Root\apps\api\.env"
+    if (Test-Path $apiEnv) {
+        Get-Content $apiEnv | ForEach-Object {
+            if ($_ -match '^\s*DATABASE_URL\s*=\s*(.+)\s*$') { $env:DATABASE_URL = $Matches[1].Trim('"',"'") }
+        }
+    }
+    Push-Location "$Root\packages\database"
+    try {
+        $seedOut = & "D:\DevEnv\tools\npm-global\pnpm.cmd" exec tsx seed/index.ts --only=13 2>&1 | Out-String
+        $seedOut | Write-Host
+        if ($LASTEXITCODE -eq 0) { Ok "seed 完成(exit 0)" }
+        else { Log "WARN  seed 失败(exit $LASTEXITCODE),本轮继续但需人工核查" }
+    } finally { Pop-Location }
+}
+if (-not $dryrun) { Invoke-DbSeedRelayPricing }
+
 # ── 代理解析(2026-09-13 修复,实测):GitHub 直连在本机被墙,系统/SYSTEM 上下文
 #    没有 http_proxy 环境变量 → `git fetch` 报 "Failed to connect to github.com:443"
 #    (实测 09-13 09:13),且失败时 stdout 为空 → 旧代码 `[int](...)` 得 0 →
