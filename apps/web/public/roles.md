@@ -46,7 +46,7 @@ https://aizhs.top/register
 
 # 3. 调用 API
 curl -X POST https://api.aizhs.top/v1/agents/agt_12345/chat \
-  -H "Authorization: Bearer sk-xxx" \
+  -H "Authorization: Bearer ihui_xxx" \
   -d '{"message": "你好"}'
 ```
 
