@@ -8,6 +8,7 @@ import {
   varchar,
   text,
   integer,
+  numeric,
   bigint,
   timestamp,
   jsonb,
@@ -44,7 +45,9 @@ export const relayConversations = pgTable(
     model: varchar('model', { length: 100 }),
     messageCount: integer('message_count').default(0).notNull(),
     totalTokens: bigint('total_tokens', { mode: 'number' }).default(0).notNull(),
-    totalCostCents: integer('total_cost_cents').default(0).notNull(),
+    totalCostCents: numeric('total_cost_cents', { precision: 18, scale: 6, mode: 'number' })
+      .default(0)
+      .notNull(),
     lastMessageAt: timestamp('last_message_at', { withTimezone: true }).defaultNow().notNull(),
     metadata: jsonb('metadata').default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -73,7 +76,9 @@ export const relayMessages = pgTable(
     promptTokens: integer('prompt_tokens').default(0).notNull(),
     completionTokens: integer('completion_tokens').default(0).notNull(),
     totalTokens: integer('total_tokens').default(0).notNull(),
-    costCents: integer('cost_cents').default(0).notNull(),
+    costCents: numeric('cost_cents', { precision: 18, scale: 6, mode: 'number' })
+      .default(0)
+      .notNull(),
     latencyMs: integer('latency_ms'),
     /** success/error */
     status: varchar('status', { length: 20 }).default('success').notNull(),
