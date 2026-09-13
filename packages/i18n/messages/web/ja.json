@@ -80,8 +80,8 @@
     "disabledHint": "自己修復エンジンは無効です:ai-service の .env で AGENT_SELF_HEALING_ENABLED=true を設定して再起動してください",
     "durationHint": "修復ループは実際に pytest を実行し LLM でパッチを生成するため、数分かかる場合があります",
     "failedCount": "失敗 {count}",
-      "notifyCompletedTitle": "タスク完了：{name}",
-      "notifyFailedTitle": "タスク失敗：{name}",
+    "notifyCompletedTitle": "タスク完了：{name}",
+    "notifyFailedTitle": "タスク失敗：{name}",
     "healed": "修復済み",
     "history": "試行履歴",
     "lastRun": "最終ラウンド 成功/失敗",
@@ -4210,8 +4210,8 @@
       "priorityLabel": "優先度(数値が大きいほど優先)",
       "refresh": "更新",
       "retry": "再試行",
-    "screenshot": "スクリーンショット",
-    "screenshotHint": "Ctrl+V でスクリーンショットを貼り付けることもできます",
+      "screenshot": "スクリーンショット",
+      "screenshotHint": "Ctrl+V でスクリーンショットを貼り付けることもできます",
       "save": "保存",
       "status": "状態",
       "subtitle": "転送層 applyParamOps ルール管理(15 種 op + 条件 + JSON パス)",
@@ -6013,7 +6013,10 @@
       "share": "共有",
       "showContent": "コンテンツを表示",
       "stopReadAloud": "読み上げ停止",
-      "toggleMetadata": "メタデータを切り替え"
+      "toggleMetadata": "メタデータを切り替え",
+      "readAloud": "読み上げ",
+      "readAloudFailed": "読み上げに失敗しました。後でもう一度お試しください",
+      "readAloudTruncated": "テキストが長すぎるため、最初の {max} 文字のみ読み上げます"
     },
     "next": "へ",
     "prev": "へ",
@@ -8482,7 +8485,8 @@
       "share": "共有",
       "shareLinkCopied": "コンテンツとリンクをコピーしました",
       "showContent": "コンテンツを表示",
-      "toggleMetadata": "メタデータ切替"
+      "toggleMetadata": "メタデータ切替",
+      "stopReadAloud": "読み上げ停止"
     },
     "messageDeleted": "メッセージを削除しました",
     "modeAlreadyActive": "現在既に{mode}モードです",
@@ -8997,7 +9001,10 @@
     "voiceInputSttFailed": "文字起こしに失敗しました。後でもう一度お試しいただくか、ローカル音声サービスをご確認ください",
     "voiceInputEmpty": "音声が認識できませんでした。マイクに近づいてもう一度お試しください",
     "voiceInputUnauthorized": "ログインの有効期限が切れました。ページを更新してもう一度お試しください",
-    "voiceInputNetworkError": "ネットワークエラーが発生しました。接続を確認してもう一度お試しください"
+    "voiceInputNetworkError": "ネットワークエラーが発生しました。接続を確認してもう一度お試しください",
+    "regenerate": "再生成",
+    "screenshot": "スクリーンショット",
+    "screenshotHint": "ファイル選択を開きました。Ctrl+V でクリップボードのスクリーンショットを貼り付けることもできます"
   },
   "chatHistory": {
     "backToHistory": "にる",

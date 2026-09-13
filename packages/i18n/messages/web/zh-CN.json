@@ -80,8 +80,8 @@
     "disabledHint": "自愈引擎未开启:请在 ai-service .env 设置 AGENT_SELF_HEALING_ENABLED=true 后重启服务",
     "durationHint": "自愈循环会真实运行 pytest 并调用 LLM 生成补丁,可能耗时数分钟",
     "failedCount": "失败 {count}",
-      "notifyCompletedTitle": "任务完成：{name}",
-      "notifyFailedTitle": "任务失败：{name}",
+    "notifyCompletedTitle": "任务完成：{name}",
+    "notifyFailedTitle": "任务失败：{name}",
     "healed": "已自愈",
     "history": "尝试历史",
     "lastRun": "末轮通过/失败",
@@ -4210,8 +4210,8 @@
       "priorityLabel": "优先级(数字越大越优先)",
       "refresh": "刷新",
       "retry": "重试",
-    "screenshot": "截图",
-    "screenshotHint": "也可直接 Ctrl+V 粘贴截图",
+      "screenshot": "截图",
+      "screenshotHint": "也可直接 Ctrl+V 粘贴截图",
       "save": "保存",
       "status": "状态",
       "subtitle": "转发层 applyParamOps 规则管理(15 种 op + 条件 + JSON 路径)",
@@ -8482,7 +8482,11 @@
       "share": "分享",
       "shareLinkCopied": "已复制内容与链接",
       "showContent": "显示内容",
-      "toggleMetadata": "切换元数据"
+      "toggleMetadata": "切换元数据",
+      "readAloud": "朗读",
+      "readAloudFailed": "朗读失败,请稍后重试",
+      "readAloudTruncated": "内容过长,只朗读前 {max} 字",
+      "stopReadAloud": "停止朗读"
     },
     "messageDeleted": "已删除消息",
     "modeAlreadyActive": "当前已是{mode}模式",
@@ -8997,7 +9001,10 @@
     "voiceInputSttFailed": "转写失败，请稍后重试或检查本地语音服务",
     "voiceInputEmpty": "未识别到语音内容，请靠近麦克风后重试",
     "voiceInputUnauthorized": "登录已过期，请刷新页面后重试",
-    "voiceInputNetworkError": "网络异常，请检查连接后重试"
+    "voiceInputNetworkError": "网络异常，请检查连接后重试",
+    "regenerate": "重新生成",
+    "screenshot": "截图",
+    "screenshotHint": "已打开文件选择,也可直接 Ctrl+V 粘贴剪贴板截图"
   },
   "chatHistory": {
     "backToHistory": "返回任务列表",

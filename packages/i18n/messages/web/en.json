@@ -80,8 +80,8 @@
     "disabledHint": "Self-healing engine is disabled: set AGENT_SELF_HEALING_ENABLED=true in ai-service .env and restart",
     "durationHint": "The healing loop runs real pytest and LLM patches; it may take several minutes",
     "failedCount": "Failed {count}",
-      "notifyCompletedTitle": "Task completed: {name}",
-      "notifyFailedTitle": "Task failed: {name}",
+    "notifyCompletedTitle": "Task completed: {name}",
+    "notifyFailedTitle": "Task failed: {name}",
     "healed": "Healed",
     "history": "Attempt history",
     "lastRun": "Last run passed/failed",
@@ -4210,8 +4210,8 @@
       "priorityLabel": "Priority (higher = earlier)",
       "refresh": "Refresh",
       "retry": "Retry",
-    "screenshot": "Screenshot",
-    "screenshotHint": "You can also paste a screenshot with Ctrl+V",
+      "screenshot": "Screenshot",
+      "screenshotHint": "You can also paste a screenshot with Ctrl+V",
       "save": "Save",
       "status": "Status",
       "subtitle": "Forwarding layer applyParamOps rules (15 ops + conditions + JSON path)",
@@ -8492,7 +8492,11 @@
       "share": "Share",
       "shareLinkCopied": "Content and link copied",
       "showContent": "Show content",
-      "toggleMetadata": "Toggle metadata"
+      "toggleMetadata": "Toggle metadata",
+      "readAloud": "Read aloud",
+      "readAloudFailed": "Read aloud failed, please retry later",
+      "readAloudTruncated": "Content too long, reading the first {max} characters only",
+      "stopReadAloud": "Stop reading"
     },
     "messageDeleted": "Message deleted",
     "modeAlreadyActive": "Already in {mode} mode",
@@ -9007,7 +9011,10 @@
     "voiceInputSttFailed": "Transcription failed. Please retry later or check the local speech service",
     "voiceInputEmpty": "No speech detected. Please speak closer to the microphone and try again",
     "voiceInputUnauthorized": "Login expired. Please refresh the page and try again",
-    "voiceInputNetworkError": "Network error. Please check your connection and try again"
+    "voiceInputNetworkError": "Network error. Please check your connection and try again",
+    "regenerate": "Regenerate",
+    "screenshot": "Screenshot",
+    "screenshotHint": "File picker opened; you can also paste a screenshot with Ctrl+V"
   },
   "chatHistory": {
     "backToHistory": "Back to History",
