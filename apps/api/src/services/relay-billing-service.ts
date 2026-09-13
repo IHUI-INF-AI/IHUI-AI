@@ -429,7 +429,10 @@ export async function calculateCost(
   // 用户计费分组倍率(2026-08-01 立):userId 传入时查分组倍率并叠加
   // 中转站倍率 × 用户分组倍率 = 实际计费倍率(如 svip 组 gpt-4o = 1.0 × 0.8 = 0.8)
   if (userId) {
-    const groupMultiplier = await getUserModelMultiplier(userId, model)
+    // 2026-09-13 修复(回归复现):必须用归一后的 dbModelId 查询,与上方 aiPricing /
+    // aiModelConfigModels 及 getCurrentTierMultiplier 同一键空间——否则客户端大小写
+    // 与分组覆盖倍率配置不一致时静默取不到覆盖(少收/多收)。
+    const groupMultiplier = await getUserModelMultiplier(userId, dbModelId)
     multiplier *= groupMultiplier
   }
 
@@ -674,7 +677,8 @@ export interface ByokCostResult {
  *
  * - upstreamCostCents = roundCents(baseInput × promptTokens/1000 + baseOutput × completionTokens/1000)
  * - isFree = isFreeProvider(model)
- * - platformFeeCents = isFree ? 0 : Math.round(upstreamCostCents × commissionRate)
+ * - platformFeeCents = isFree ? 0 : roundCents(upstreamCostCents × commissionRate)
+ *   (2026-09-13 起统一 6 位小数,不再整数取整——整数取整下 <0.5 分抽成恒为 0,形成免费敞口)
  */
 export async function calculateByokCost(
   model: string,
