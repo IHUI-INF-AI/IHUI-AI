@@ -1793,6 +1793,20 @@
       "when": 1722118400000,
       "tag": "20260913140000_model_price_numeric",
       "breakpoints": true
+    },
+    {
+      "idx": 257,
+      "version": "7",
+      "when": 1722204800000,
+      "tag": "20260913160000_multimodal_billing",
+      "breakpoints": true
+    },
+    {
+      "idx": 258,
+      "version": "7",
+      "when": 1722291200000,
+      "tag": "20260913170000_cost_cents_numeric",
+      "breakpoints": true
     }
   ]
 }

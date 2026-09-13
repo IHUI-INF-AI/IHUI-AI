@@ -41,6 +41,14 @@ export interface UpsertPricingInput {
   currency?: string
   effectiveAt?: Date
   expiresAt?: Date | null
+  /** 计费模式(2026-09-13):token | per_call | per_image | per_video,默认 token */
+  billingMode?: 'token' | 'per_call' | 'per_image' | 'per_video'
+  /** 单位价(分):per_image=分/张;per_video=分/次或分/秒 */
+  perUnitPrice?: number | null
+  /** per_call 三档价(分/次):{ le256k, mid, gt512k } */
+  tieredCallPrices?: { le256k: number; mid: number; gt512k: number } | null
+  /** per_video 计价单位:'call' | 'second' */
+  videoUnit?: 'call' | 'second' | null
 }
 
 // =============================================================================
@@ -138,6 +146,11 @@ export async function upsertPricing(input: UpsertPricingInput): Promise<AiPricin
       .set({
         inputTokenPrice: input.inputTokenPrice,
         outputTokenPrice: input.outputTokenPrice,
+        billingMode: input.billingMode ?? existing.billingMode,
+        perUnitPrice: input.perUnitPrice !== undefined ? input.perUnitPrice : existing.perUnitPrice,
+        tieredCallPrices:
+          input.tieredCallPrices !== undefined ? input.tieredCallPrices : existing.tieredCallPrices,
+        videoUnit: input.videoUnit !== undefined ? input.videoUnit : existing.videoUnit,
         regionPricing: input.regionPricing ?? (existing.regionPricing as Record<string, number>),
         discount: input.discount ?? existing.discount,
         currency: input.currency ?? existing.currency,
@@ -157,6 +170,10 @@ export async function upsertPricing(input: UpsertPricingInput): Promise<AiPricin
       modelId: input.modelId,
       inputTokenPrice: input.inputTokenPrice,
       outputTokenPrice: input.outputTokenPrice,
+      billingMode: input.billingMode ?? 'token',
+      perUnitPrice: input.perUnitPrice ?? null,
+      tieredCallPrices: input.tieredCallPrices ?? null,
+      videoUnit: input.videoUnit ?? null,
       regionPricing: input.regionPricing ?? { cn: 1.0 },
       discount: input.discount ?? null,
       currency: input.currency ?? DEFAULT_CURRENCY,
@@ -194,9 +211,11 @@ export async function calculateCost(params: CalculateCostParams): Promise<Calcul
     }
   }
 
-  // inputCost = (inputTokens / 1000) * inputTokenPrice（分，四舍五入到整数）
-  const inputCost = Math.round((params.inputTokens / 1000) * pricing.inputTokenPrice)
-  const outputCost = Math.round((params.outputTokens / 1000) * pricing.outputTokenPrice)
+  // inputCost = (inputTokens / 1000) * inputTokenPrice(分,保留 6 位小数 — 2026-09-13
+  // 根因修复:低价模型 0.01 分/千 × 短对话在整数取整下恒为 0)
+  const roundCents = (v: number): number => Math.round(v * 1e6) / 1e6
+  const inputCost = roundCents((params.inputTokens / 1000) * pricing.inputTokenPrice)
+  const outputCost = roundCents((params.outputTokens / 1000) * pricing.outputTokenPrice)
 
   // 区域系数
   const regionMap = (pricing.regionPricing ?? {}) as Record<string, number>
@@ -207,8 +226,8 @@ export async function calculateCost(params: CalculateCostParams): Promise<Calcul
   const totalTokens = params.inputTokens + params.outputTokens
   const discountMultiplier = computeDiscountMultiplier(pricing.discount, totalTokens)
 
-  // totalCost = (inputCost + outputCost) * regionMultiplier * discountMultiplier（分，整数）
-  const totalCost = Math.round((inputCost + outputCost) * regionMultiplier * discountMultiplier)
+  // totalCost = (inputCost + outputCost) * regionMultiplier * discountMultiplier(分,6 位小数)
+  const totalCost = roundCents((inputCost + outputCost) * regionMultiplier * discountMultiplier)
 
   return {
     inputCost,
