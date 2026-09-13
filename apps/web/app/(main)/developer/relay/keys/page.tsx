@@ -418,6 +418,14 @@ export default function RelayKeysPage() {
                 </Button>
               </div>
             </div>
+            {/* 2026-09-13 实测闭环补注:网关鉴权 Bearer 用 Key 标识(ihui_ 开头),sk_ Secret 仅用于 X-Api-Secret 辅助校验——不注明用户拿 sk_ 调用会 401 */}
+            <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+              调用网关时,请求头使用
+              <code className="mx-1 rounded bg-background px-1 py-0.5">
+                Authorization: Bearer &lt;Key 标识&gt;
+              </code>
+              (即 ihui_ 开头的 Key 标识;Secret 请妥善保管,勿放进请求头)。
+            </p>
           </div>
           <DialogFooter>
             <Button onClick={() => setCreated(null)}>我已保存,关闭</Button>
