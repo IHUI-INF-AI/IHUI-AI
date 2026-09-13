@@ -1779,6 +1779,13 @@
       "when": 1721945600000,
       "tag": "20260910030000_create_knowledge_cards",
       "break": true
+    },
+    {
+      "idx": 255,
+      "version": "7",
+      "when": 1722032000000,
+      "tag": "20260913120000_unify_model_names",
+      "break": true
     }
   ]
 }

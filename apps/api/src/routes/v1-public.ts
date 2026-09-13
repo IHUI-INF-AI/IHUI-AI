@@ -323,6 +323,15 @@ async function fetchModels(userId?: string): Promise<{
           owned_by: m.providerCode || m.configName || 'ihui',
           available: !isProviderHardUnavailable(m.providerCode, healthMap),
         }))
+      // 官方名归一兜底(2026-09-13 立):同一模型(大小写不敏感)目录只允许出现一条,
+      // relaySortOrder 升序在前者优先,防 DB 存量大小写重复导致目录双条目。
+      const seenModelIds = new Set<string>()
+      const dedupedRelayList = relayList.filter((m) => {
+        const key = m.id.toLowerCase()
+        if (seenModelIds.has(key)) return false
+        seenModelIds.add(key)
+        return true
+      })
       const byokList = byokModels.map((m) => ({
         id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
         object: 'model' as const,
@@ -330,17 +339,9 @@ async function fetchModels(userId?: string): Promise<{
         owned_by: 'byok',
         available: true,
       }))
-      // 跨上游去重(2026-09-13):同一 modelId 在多 provider 上架时,无前缀映射会
-      // 产出重复 id——按 id 保留排序最靠前(relaySortOrder 升序)的首个条目。
-      const seenIds = new Set<string>()
-      const relayListDeduped = relayList.filter((m) => {
-        if (seenIds.has(m.id)) return false
-        seenIds.add(m.id)
-        return true
-      })
       const mapped: V1ModelsResponse = {
         object: 'list',
-        data: [...relayListDeduped, ...byokList],
+        data: [...dedupedRelayList, ...byokList],
       }
       modelsCache = { data: mapped, fetchedAt: now }
       return { body: mapped, source: 'db' }

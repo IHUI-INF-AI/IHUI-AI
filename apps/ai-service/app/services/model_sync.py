@@ -2104,6 +2104,10 @@ class ModelSyncService:
         Returns:
             (aliased_id, is_aliased)
         """
+        # 官方名归一(2026-09-13 立):同一模型全库仅允许一条(官方书写形式或统一小写)。
+        # 与 packages/shared/src/constants/model-names.ts 同源,见 app/core/model_naming.py。
+        from app.core.model_naming import normalize_model_id
+
         if provider_code == "openrouter":
             # 已知前缀(小写匹配,剥离时保持原大小写)
             known_prefixes = (
@@ -2114,8 +2118,8 @@ class ModelSyncService:
             mid_lower = model_id.lower()
             for prefix in known_prefixes:
                 if mid_lower.startswith(prefix):
-                    return (model_id[len(prefix):], True)
-        return (model_id, False)
+                    return (normalize_model_id(model_id[len(prefix):]), True)
+        return (normalize_model_id(model_id), False)
 
     @staticmethod
     def _parse_price(raw: Any) -> int:
