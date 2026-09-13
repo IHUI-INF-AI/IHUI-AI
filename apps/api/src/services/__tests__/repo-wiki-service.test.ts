@@ -223,7 +223,10 @@ describe('extractImportEdges — 模块依赖图静态解析', () => {
 
   it('聚合与排序确定性(count 降序 → from 升序 → to 升序)', () => {
     const files = [
-      { path: 'a/one.ts', content: "import { t } from '../b/two'\nimport { h } from '../c/three'\n" },
+      {
+        path: 'a/one.ts',
+        content: "import { t } from '../b/two'\nimport { h } from '../c/three'\n",
+      },
       { path: 'a/two.ts', content: "import { o } from '../b/other'\n" },
       { path: 'b/one.ts', content: "import { o } from '../c/other'\n" },
       { path: 'b/two.ts', content: "import { t } from '../c/three'\n" },

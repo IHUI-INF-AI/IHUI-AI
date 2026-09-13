@@ -1286,10 +1286,9 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       try {
-        const resp = await aiServiceSystemFetch(
-          `/api/agents/${encodeURIComponent(id)}/status`,
-          { method: 'GET' },
-        )
+        const resp = await aiServiceSystemFetch(`/api/agents/${encodeURIComponent(id)}/status`, {
+          method: 'GET',
+        })
         if (!resp.ok) {
           const txt = await resp.text().catch(() => '')
           return reply
@@ -1456,10 +1455,9 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       try {
-        const resp = await aiServiceSystemFetch(
-          `/api/agents/sessions/${encodeURIComponent(id)}`,
-          { method: 'DELETE' },
-        )
+        const resp = await aiServiceSystemFetch(`/api/agents/sessions/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        })
         if (!resp.ok) {
           const txt = await resp.text().catch(() => '')
           return reply
@@ -1533,10 +1531,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         })),
       }
       try {
-        const resp = await aiServiceSystemFetch(
-          '/api/v1/ai/agent/pipeline',
-          jsonInit(body),
-        )
+        const resp = await aiServiceSystemFetch('/api/v1/ai/agent/pipeline', jsonInit(body))
         if (!resp.ok) {
           const txt = await resp.text().catch(() => '')
           return reply
@@ -1624,10 +1619,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         tasks: tasks.map((t) => ({ agent_id: t.agentId, input: t.input })),
       }
       try {
-        const resp = await aiServiceSystemFetch(
-          '/api/v1/ai/agent/parallel',
-          jsonInit(body),
-        )
+        const resp = await aiServiceSystemFetch('/api/v1/ai/agent/parallel', jsonInit(body))
         if (!resp.ok) {
           const txt = await resp.text().catch(() => '')
           return reply

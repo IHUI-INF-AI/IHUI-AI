@@ -72,6 +72,9 @@ const { mockT, toastMock, IconSpan } = vi.hoisted(() => {
 
 vi.mock('next-intl', () => ({
   useTranslations: () => mockT,
+  // MessageItem → useTts() 会调用 useLocale();mock 必须覆盖到该导出,否则整棵子树抛
+  // "No \"useLocale\" export is defined on the next-intl mock"(与 ide/timeline 等测试同约定)
+  useLocale: () => 'zh-CN',
 }))
 
 vi.mock('@radix-ui/react-tooltip', () => ({
