@@ -142,6 +142,8 @@ interface ChatState {
   addMessage: (msg: Pick<ChatMessage, 'role' | 'content' | 'model' | 'permissionMode'>) => string
   appendToMessage: (id: string, delta: string) => void
   appendReasoningToMessage: (id: string, delta: string) => void
+  /** 覆盖式重写消息正文(resume 补全权威内容时使用) */
+  editMessageContent: (id: string, content: string) => void
   setMessageError: (id: string, error: string) => void
   clearMessages: () => void
   setStreaming: (v: boolean) => void
@@ -321,6 +323,17 @@ export const useChatStore = create<ChatState>()(
           if (!target) return s
           const next = s.messages.slice()
           next[idx] = { ...target, content: target.content + delta }
+          return { messages: next }
+        }),
+
+      editMessageContent: (id, content) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === id)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const next = s.messages.slice()
+          next[idx] = { ...target, content }
           return { messages: next }
         }),
 
