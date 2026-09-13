@@ -1744,6 +1744,41 @@
       "when": 1721513600000,
       "tag": "20260913000000_llm_call_logs_config_id_bigint",
       "break": true
+    },
+    {
+      "idx": 250,
+      "version": "7",
+      "when": 1721600000000,
+      "tag": "20260906210000_add_perf_indexes",
+      "break": true
+    },
+    {
+      "idx": 251,
+      "version": "7",
+      "when": 1721686400000,
+      "tag": "20260906_algorithm_record",
+      "break": true
+    },
+    {
+      "idx": 252,
+      "version": "7",
+      "when": 1721772800000,
+      "tag": "20260908000000_create_agent_event_triggers",
+      "break": true
+    },
+    {
+      "idx": 253,
+      "version": "7",
+      "when": 1721859200000,
+      "tag": "20260908000000_create_team_memories",
+      "break": true
+    },
+    {
+      "idx": 254,
+      "version": "7",
+      "when": 1721945600000,
+      "tag": "20260910030000_create_knowledge_cards",
+      "break": true
     }
   ]
 }
