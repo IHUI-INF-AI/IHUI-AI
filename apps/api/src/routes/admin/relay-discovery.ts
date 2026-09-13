@@ -22,6 +22,7 @@ import { aiRelayDiscovery, aiModelConfig, aiModelConfigModels } from '@ihui/data
 import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { aiServiceSystemFetch } from '../../utils/ai-service-fetch.js'
+import { normalizeModelId } from '@ihui/shared'
 import { paginationSchema, idParamSchema } from './_shared.js'
 
 const scanBodySchema = z.object({
@@ -107,7 +108,8 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
     const rowsToInsert: typeof upstreamModels = []
     for (const m of upstreamModels) {
       if (!m.id) continue
-      rowsToInsert.push(m)
+      // 官方名归一(2026-09-13 立):发现表即以标准名落库,审批写入天然统一
+      rowsToInsert.push({ ...m, id: normalizeModelId(m.id) })
     }
     let newDiscovered = 0
     if (rowsToInsert.length > 0) {
@@ -230,6 +232,9 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
           .status(400)
           .send(error(400, `未找到 providerCode=${discovery.providerCode} 的启用配置`))
 
+      // 官方名归一(2026-09-13 立):存量发现行可能是旧大小写写法,写入前强制归一
+      const normalizedModelId = normalizeModelId(discovery.modelId)
+
       // 查 aiModelConfigModels 是否已有该 modelId(避免 unique 冲突)
       const [existingModel] = await dbRead
         .select({ id: aiModelConfigModels.id, isRelayPublic: aiModelConfigModels.isRelayPublic })
@@ -237,7 +242,7 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
         .where(
           and(
             eq(aiModelConfigModels.configId, configRow.id),
-            eq(aiModelConfigModels.modelId, discovery.modelId),
+            eq(aiModelConfigModels.modelId, normalizedModelId),
           ),
         )
         .limit(1)
@@ -263,8 +268,8 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
           .insert(aiModelConfigModels)
           .values({
             configId: configRow.id,
-            modelId: discovery.modelId,
-            displayName: discovery.modelName ?? discovery.modelId,
+            modelId: normalizedModelId,
+            displayName: discovery.modelName ?? normalizedModelId,
             contextLength: discovery.contextLength ?? 32000,
             inputPricePer1k: upstreamPrice?.input ?? 0,
             outputPricePer1k: upstreamPrice?.output ?? 0,
