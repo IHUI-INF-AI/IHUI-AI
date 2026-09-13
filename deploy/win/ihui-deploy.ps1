@@ -193,6 +193,25 @@ if (-not $dryrun) { Get-DeployLock }     # 仅实际构建占用;dryrun 只读�
 
 if ($rollbackOnly) { try { Do-Rollback; exit 0 } finally { Release-DeployLock } }
 
+# ── DB 迁移(2026-09-13 加):幂等,每轮执行;drizzle journal 保证仅 pending 迁移实际跑 ──
+# 失败只告警不中止部署(数据库连接失败不应阻断 web 发布;计费修复依赖本步,失败会有监控/验证兜底)
+function Invoke-DbMigrate {
+    Log "DB 迁移检查(packages/database db:migrate)"
+    $apiEnv = "$Root\apps\api\.env"
+    if (Test-Path $apiEnv) {
+        Get-Content $apiEnv | ForEach-Object {
+            if ($_ -match '^\s*DATABASE_URL\s*=\s*(.+)\s*$') { $env:DATABASE_URL = $Matches[1].Trim('"',"'") }
+        }
+    }
+    Push-Location "$Root\packages\database"
+    try {
+        & "D:\DevEnv\tools\npm-global\pnpm.cmd" run db:migrate 2>&1 | Out-String | Write-Host
+        if ($LASTEXITCODE -eq 0) { Ok "db:migrate 完成(exit 0)" }
+        else { Log "WARN  db:migrate 失败(exit $LASTEXITCODE),本轮继续但需人工核查" }
+    } finally { Pop-Location }
+}
+if (-not $dryrun) { Invoke-DbMigrate }
+
 Log "fetch origin main ..."
 & git fetch origin main 2>&1 | Out-String | Write-Host
 # 落后提交数 = 本地未含 origin/main 的提交数
@@ -249,6 +268,30 @@ if (-not (Test-HealthGate)) {
 } else {
     Ok "健康门禁通过,部署成功"
     Remove-Item "$WebDir\.rollback" -Recurse -Force -ErrorAction SilentlyContinue
+
+    # ── 重启 api(2026-09-13 加):api 为源码直跑,pull 后需重载才能吃到后端新代码 ──
+    # 服务名不确定,按候选精确匹配;找不到则跳过(tsx watch 形态会自动重载)
+    $apiName = @('IHUI-API','ihui-api','svc-api','IHUI-API-SVC') |
+        Where-Object { $null -ne (Get-Service -Name $_ -ErrorAction SilentlyContinue) } |
+        Select-Object -First 1
+    if ($apiName) {
+        Log "重启 api 服务($apiName)使后端新代码生效"
+        try {
+            sc.exe stop $apiName | Out-Null
+            Start-Sleep -Seconds 4
+            sc.exe start $apiName | Out-Null
+            Start-Sleep -Seconds 6
+            $apiOk = $false
+            for ($i = 1; $i -le 5; $i++) {
+                if (Test-Http -url $ApiHealth -contains '"status":"ok"') { $apiOk = $true; break }
+                Start-Sleep -Seconds 6
+            }
+            if ($apiOk) { Ok "api 重启完成且健康" }
+            else { Log "WARN  api 重启后健康未即时通过(冷启动可能较慢),需人工核查 $apiName" }
+        } catch { Log "WARN  api 重启异常: $_" }
+    } else {
+        Log "未找到 api 服务(候选:IHUI-API/ihui-api/svc-api),跳过重启(tsx watch 形态自动重载)"
+    }
 }
 Write-Host ""
 Log "=== 部署完成,HEAD=$(git rev-parse --short HEAD | Out-String).Trim() 活跃组=win(8801/8802/8803) ==="
