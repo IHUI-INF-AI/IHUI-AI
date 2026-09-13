@@ -58,6 +58,21 @@ SET is_relay_public = k.is_relay_public OR s.any_public,
 FROM merged s
 WHERE k.id = s.kid;
 
+-- 注意:CTE 作用域仅限单条语句,DELETE 必须自带完整 CTE,不可引用上一条 UPDATE 的 CTE
+WITH grouped AS (
+  SELECT config_id, LOWER(model_id) AS lkey
+  FROM ai_model_config_models
+  GROUP BY config_id, LOWER(model_id)
+  HAVING COUNT(*) > 1
+),
+keeper AS (
+  SELECT DISTINCT ON (m.config_id, LOWER(m.model_id))
+         m.config_id, LOWER(m.model_id) AS lkey, m.id AS kid
+  FROM ai_model_config_models m
+  JOIN grouped g ON g.config_id = m.config_id AND g.lkey = LOWER(m.model_id)
+  ORDER BY m.config_id, LOWER(m.model_id),
+           (m.model_id <> LOWER(m.model_id)) DESC, m.updated_at DESC, m.id DESC
+)
 DELETE FROM ai_model_config_models m
 USING keeper k
 WHERE m.config_id = k.config_id
