@@ -9,9 +9,11 @@
  * resolveModelMapping 在 v1-public.ts 调用 ai-service 前替换 model 名,
  * 实现客户端代码不变但后端成本下降(gpt-4o → deepseek-chat 降本 90%)。
  */
-import { eq, and, or, isNull, desc, asc, type SQL } from 'drizzle-orm'
+import { eq, and, or, isNull, desc, asc, sql, type SQL } from 'drizzle-orm'
 import { dbRead, db } from '../db/index.js'
 import { aiModelMappings, type AiModelMapping, type NewAiModelMapping } from '@ihui/database'
+// 模型名官方归一(2026-09-13 立):映射键空间与 DB 归一后的 model_id 对齐
+import { normalizeModelId } from '@ihui/shared'
 
 export interface ResolveResult {
   /** 实际应调用的 model 名 */
@@ -33,12 +35,13 @@ export async function resolveModelMapping(
   apiKeyId?: string,
 ): Promise<ResolveResult> {
   // 一次查询拉取所有候选(Key 级 + 用户级 + 全局),应用层排序选择
+  // 2026-09-13:source_model 大小写不敏感匹配(LOWER 表达式,归一后的 DB 键空间兜底)
   const rows = await dbRead
     .select()
     .from(aiModelMappings)
     .where(
       and(
-        eq(aiModelMappings.sourceModel, model),
+        sql`LOWER(${aiModelMappings.sourceModel}) = ${normalizeModelId(model).toLowerCase()}`,
         eq(aiModelMappings.enabled, true),
         or(
           // Key 级映射
