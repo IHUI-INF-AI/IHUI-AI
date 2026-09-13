@@ -26,6 +26,13 @@ const isStaticExport = process.env.EXPORT_STATIC === 'true' || process.env.GITHU
 // 避免应用被 XSS 时经 http://localhost:* 反向探测/触达本机 8802/8803 等后端。
 const isDev = process.env.NODE_ENV === 'development'
 
+// 2026-09-13(2-18①):rewrites 反代 target 环境变量化,默认值不变(8802/8803)。
+// 用途:本地 e2e 隔离——生产 api(8802)/ai-service(8803) 被占用时,可在隔离端口起
+// api/web 实例,IHUI_API_PROXY_TARGET/IHUI_AI_PROXY_TARGET 指向隔离端口,
+// 避免测试写入生产库(ihui_dev)。CI 与生产不设这两个变量,行为与硬编码完全一致。
+const IHUI_API_PROXY_TARGET = process.env.IHUI_API_PROXY_TARGET ?? 'http://localhost:8802'
+const IHUI_AI_PROXY_TARGET = process.env.IHUI_AI_PROXY_TARGET ?? 'http://localhost:8803'
+
 // 2026-09-05 修复桌面 SaaS 出包挂死:静态导出 next build 与常驻 next dev/next start
 // (本地 8801)共享同一 apps/web/.next 目录,构建在加载 config 后获取 .next 锁时与
 // dev server 死锁(实测:config 加载后零编译、CPU 归零、.next/build 18 分钟不写入)。
@@ -309,7 +316,7 @@ const nextConfig: NextConfig = {
         // :path* 匹配 0 个或多个路径段,覆盖 /api/ai-skills 和 /api/ai-skills/{id}/invoke。
         {
           source: '/api/ai-skills/:path*',
-          destination: 'http://localhost:8803/api/ai-skills/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/ai-skills/:path*`,
         },
         // 2026-08-31 新增:语音 STT 端点转发到 ai-service 8803。
         // 原因:voice-input 的 fallback 路径(MediaRecorder → faster-whisper)此前浏览器
@@ -318,7 +325,7 @@ const nextConfig: NextConfig = {
         // Bearer token(ai-service jwt_public_paths 已放行 /api/voice/stt 双保险)。
         {
           source: '/api/voice/:path*',
-          destination: 'http://localhost:8803/api/voice/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/voice/:path*`,
         },
         // 2026-08-17 修复(删除原 /api/publish/:path* → 8803 转发):
         // 原规则 2026-07-29 立,当时 api server 未注册 /api/publish 路由,
@@ -342,7 +349,7 @@ const nextConfig: NextConfig = {
         // + POST /llm/gemini/v1beta/models/{model}:generateContent + GET /llm/models + POST /llm/complete 等
         {
           source: '/api/llm/:path*',
-          destination: 'http://localhost:8803/api/llm/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/llm/:path*`,
         },
         // 2026-09-09 新增(0-4 LSP 四核心前端接线):/api/lsp/* 转发到 ai-service 8803 的 /api/v1/lsp/*。
         // 原因:lsp router 注册在 ai-service prefix="/api/v1" 之下的 /lsp(APIRouter prefix="/lsp"),
@@ -351,7 +358,7 @@ const nextConfig: NextConfig = {
         // 覆盖端点:POST definition/references/diagnostics/hover 四核心。
         {
           source: '/api/lsp/:path*',
-          destination: 'http://localhost:8803/api/v1/lsp/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/v1/lsp/:path*`,
         },
         // 2026-09-11 新增(2-3 自愈引擎产品化第一批):/api/self-healing/* 转发到
         // ai-service 8803 的 /api/v1/self-healing/*。self_healing router 注册在
@@ -359,7 +366,7 @@ const nextConfig: NextConfig = {
         // runSelfHealing(路径 /api/self-healing/run),若走 /api/:path* 兜底 → 8802 必 404。
         {
           source: '/api/self-healing/:path*',
-          destination: 'http://localhost:8803/api/v1/self-healing/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/v1/self-healing/:path*`,
         },
         // 2026-07-31 新增:MCP 路由直接转发到 ai-service 8803
         // 原因:MCP 工具/资源/提示词/skill/slash 命令的 router 注册在 ai-service 8803 的 /api 前缀下,
@@ -367,34 +374,34 @@ const nextConfig: NextConfig = {
         // 必须直连 ai-service 8803 才能命中。必须放在 /api/:path* 通配符之前。
         {
           source: '/api/mcp/:path*',
-          destination: 'http://localhost:8803/api/mcp/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/mcp/:path*`,
         },
         // 2026-09-07 新增:打通 3 个孤儿路由(审计发现 routers 存在但 web 端无转发=用户永远够不到):
         // mcp-official(公网 MCP OAuth)/ patch(补丁应用)/ sandbox-exec(沙箱执行)
         {
           source: '/api/mcp-official/:path*',
-          destination: 'http://localhost:8803/api/mcp-official/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/mcp-official/:path*`,
         },
         {
           source: '/api/patch/:path*',
-          destination: 'http://localhost:8803/api/patch/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/patch/:path*`,
         },
         {
           source: '/api/sandbox-exec/:path*',
-          destination: 'http://localhost:8803/api/sandbox-exec/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/sandbox-exec/:path*`,
         },
         // 2026-09-02 新增:Connectors 路由直连 ai-service 8803(P2-2 中文连接器)
         // 原因:connectors router 注册在 ai-service(prefix="/api"),必须直连 8803 才命中
         {
           source: '/api/connectors/:path*',
-          destination: 'http://localhost:8803/api/connectors/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/connectors/:path*`,
         },
         // 2026-08-12 新增:Agent 轨迹可视化 API 路由转发到 ai-service 8803
         // 原因:agent/trace 端点注册在 ai-service(prefix="/api"),
         // 必须在 /api/agents/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
         {
           source: '/api/agent/:path*',
-          destination: 'http://localhost:8803/api/agent/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agent/:path*`,
         },
         // 2026-08-15 新增:A2A 智能体协作路由转发到 ai-service 8803
         // 原因:a2a router 注册在 ai-service(prefix="/api",路径 /api/a2a/*),
@@ -402,7 +409,7 @@ const nextConfig: NextConfig = {
         // 否则落到 /api/:path* → 8802(api server)无此路由 → 404。
         {
           source: '/api/a2a/:path*',
-          destination: 'http://localhost:8803/api/a2a/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/a2a/:path*`,
         },
         // 2026-08-31 修复:知识图谱页(/(main)/knowledge-graph)前端调用 /api/ai/knowledge-graph/*,
         // 后端实际注册在 ai-service 8803 的 /api/v1/ai/knowledge-graph/*(v1-knowledge-tools.ts 的
@@ -410,7 +417,7 @@ const nextConfig: NextConfig = {
         // /api/:path* 通配符之前,否则浏览器同源请求落到 8802 → 404。
         {
           source: '/api/ai/knowledge-graph/:path*',
-          destination: 'http://localhost:8803/api/v1/ai/knowledge-graph/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/v1/ai/knowledge-graph/:path*`,
         },
         // 2026-07-31 新增:Agent 路由直接转发到 ai-service 8803
         // 原因:Agent runtime 的 router 注册在 ai-service 8803 的 /api 前缀下,
@@ -420,39 +427,39 @@ const nextConfig: NextConfig = {
         // 改为白名单只转发 ai-service 独有的执行类端点,其余回落 8802 兜底。
         {
           source: '/api/agents/execute/stream',
-          destination: 'http://localhost:8803/api/agents/execute/stream',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/execute/stream`,
         },
         {
           source: '/api/agents/execute',
-          destination: 'http://localhost:8803/api/agents/execute',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/execute`,
         },
         {
           source: '/api/agents/running',
-          destination: 'http://localhost:8803/api/agents/running',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/running`,
         },
         {
           source: '/api/agents/sessions/:path*',
-          destination: 'http://localhost:8803/api/agents/sessions/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/sessions/:path*`,
         },
         {
           source: '/api/agents/memory/search',
-          destination: 'http://localhost:8803/api/agents/memory/search',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/memory/search`,
         },
         {
           source: '/api/agents/:taskId/status',
-          destination: 'http://localhost:8803/api/agents/:taskId/status',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:taskId/status`,
         },
         {
           source: '/api/agents/:taskId/cancel',
-          destination: 'http://localhost:8803/api/agents/:taskId/cancel',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:taskId/cancel`,
         },
         {
           source: '/api/agents/skill-evolution',
-          destination: 'http://localhost:8803/api/agents/skill-evolution',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/skill-evolution`,
         },
         {
           source: '/api/agents/debate',
-          destination: 'http://localhost:8803/api/agents/debate',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/debate`,
         },
         // 2026-07-31 新增:Browser Hub CDP 内置浏览器路由转发到 ai-service 8803
         // 原因:browser_hub router 注册在 ai-service(prefix="/browser",应用挂载 /api 前缀),
@@ -462,21 +469,21 @@ const nextConfig: NextConfig = {
         // WebSocket(/api/browser/ws/*)不走 Next.js rewrites,前端直连 ws://localhost:8803(dev)。
         {
           source: '/api/browser/sessions/:path*',
-          destination: 'http://localhost:8803/api/browser/sessions/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/browser/sessions/:path*`,
         },
         // 2026-08-08 新增:Meta-Learner 自进化系统路由转发到 ai-service 8803
         // 原因:meta_learning router 注册在 ai-service(prefix="/api/admin/meta-learner"),
         // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
         {
           source: '/api/admin/meta-learner/:path*',
-          destination: 'http://localhost:8803/api/admin/meta-learner/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/admin/meta-learner/:path*`,
         },
         // 2026-08-12 新增:AgentLoopV2 实时任务事件订阅转发到 ai-service 8803
         // 原因:agents router 注册在 ai-service(8803),workbench runtime 视图
         // (use-agent-runtime) 的 SSE 订阅端点必须在 /api/:path* 之前匹配。
         {
           source: '/api/agents/tasks/stream',
-          destination: 'http://localhost:8803/api/agents/tasks/stream',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/tasks/stream`,
         },
         // 2026-08-12 新增:Agent 运行日志 SSE(AgentRuntimeLog)转发到 ai-service 8803
         // 原因:/agents/{id}/stream 注册在 8803(新增),白名单必须覆盖,否则
@@ -484,18 +491,18 @@ const nextConfig: NextConfig = {
         // 数组顺序匹配,与 :agentId/stream 无冲突。
         {
           source: '/api/agents/:agentId/stream',
-          destination: 'http://localhost:8803/api/agents/:agentId/stream',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:agentId/stream`,
         },
         // 2026-08-12 新增:agent-runtime ToolCallTree/ErrorHeatmap 端点转发到 8803
         // 原因:/agents/{id}/tool-calls + /errors 注册在 8803,白名单须覆盖,
         // 否则落到 /api/:path* → 8802 404(此前实测页面空态)。
         {
           source: '/api/agents/:agentId/tool-calls',
-          destination: 'http://localhost:8803/api/agents/:agentId/tool-calls',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:agentId/tool-calls`,
         },
         {
           source: '/api/agents/:agentId/errors',
-          destination: 'http://localhost:8803/api/agents/:agentId/errors',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:agentId/errors`,
         },
         // 2026-08-12 新增:agent-runtime SessionTree/TokenUsageChart 端点转发到 8803
         // 原因:/agents/{id}/sessions + /token-usage 新注册在 8803(此前双端 404),
@@ -503,39 +510,39 @@ const nextConfig: NextConfig = {
         // :path*(8802 兜底)无冲突:动态段 :agentId/ 静态段 sessions 路径不同。
         {
           source: '/api/agents/:agentId/sessions',
-          destination: 'http://localhost:8803/api/agents/:agentId/sessions',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:agentId/sessions`,
         },
         {
           source: '/api/agents/:agentId/token-usage',
-          destination: 'http://localhost:8803/api/agents/:agentId/token-usage',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agents/:agentId/token-usage`,
         },
         // 2026-08-11 新增:LLM 用量统计 API 路由转发到 ai-service 8803
         // 原因:usage router 注册在 ai-service(prefix="/api/v1/ai/usage"),
         // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
         {
           source: '/api/v1/ai/usage/:path*',
-          destination: 'http://localhost:8803/api/v1/ai/usage/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/v1/ai/usage/:path*`,
         },
         // 2026-08-11 新增:评估/评测 API 路由转发到 ai-service 8803
         // 原因:eval router 注册在 ai-service(prefix="/api/v1/ai/eval"),
         // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
         {
           source: '/api/v1/ai/eval/:path*',
-          destination: 'http://localhost:8803/api/v1/ai/eval/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/v1/ai/eval/:path*`,
         },
         // 2026-08-11 新增:Prompt 管理 API 路由转发到 ai-service 8803
         // 原因:prompts router 注册在 ai-service(prefix="/api"),
         // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
         {
           source: '/api/prompts/:path*',
-          destination: 'http://localhost:8803/api/prompts/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/prompts/:path*`,
         },
         // 2026-08-12 新增:News 自动刷新 admin 端点(LLM 每日生成新闻写入 news_articles)
         // 原因:news router 注册在 ai-service 8803 (prefix="/api/admin/news"),
         // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
         {
           source: '/api/admin/news/:path*',
-          destination: 'http://localhost:8803/api/admin/news/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/admin/news/:path*`,
         },
         // 2026-09-01 新增:Artifact 预览 API 路由转发到 ai-service 8803
         // 原因:artifacts router 注册在 ai-service(prefix="/api",路径 /api/artifacts/*),
@@ -544,7 +551,7 @@ const nextConfig: NextConfig = {
         // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
         {
           source: '/api/artifacts/:path*',
-          destination: 'http://localhost:8803/api/artifacts/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/artifacts/:path*`,
         },
         // 2026-09-03 新增:对标杀手锏四件套 + Computer Use 路由直连 ai-service 8803。
         // 原因:research / checkpoints / cloud-runs / context-compaction / computer-use
@@ -552,58 +559,58 @@ const nextConfig: NextConfig = {
         // 且要放在 /api/:path* 通配符(→8802)之前,否则被 api server 吞掉返回 404/401。
         {
           source: '/api/research/:path*',
-          destination: 'http://localhost:8803/api/research/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/research/:path*`,
         },
         {
           source: '/api/checkpoints/:path*',
-          destination: 'http://localhost:8803/api/checkpoints/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/checkpoints/:path*`,
         },
         {
           source: '/api/cloud-runs/:path*',
-          destination: 'http://localhost:8803/api/cloud-runs/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/cloud-runs/:path*`,
         },
         {
           source: '/api/context-compaction/:path*',
-          destination: 'http://localhost:8803/api/context-compaction/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/context-compaction/:path*`,
         },
         {
           source: '/api/computer-use/:path*',
-          destination: 'http://localhost:8803/api/computer-use/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/computer-use/:path*`,
         },
         // 2026-09-03 新增:Agent Step 录制回放(Record & Replay)路由直连 ai-service 8803。
         // 原因:step_recorder router 注册在 ai-service(prefix="/api",路径 /api/agent-recorder/*),
         // 必须直连 8803 才能命中,且要放在 /api/:path* 通配符(→8802)之前,否则被 api server 吞掉 404。
         {
           source: '/api/agent-recorder/:path*',
-          destination: 'http://localhost:8803/api/agent-recorder/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agent-recorder/:path*`,
         },
         // 2026-09-07 新增:全活动时间线回放(P1-4)路由直连 ai-service 8803。
         // 原因:timeline router 注册在 ai-service(prefix="/api",路径 /api/timeline),
         // 与 agent-recorder 同理必须直连 8803,且置于 /api/:path* 通配符(→8802)之前。
         {
           source: '/api/timeline',
-          destination: 'http://localhost:8803/api/timeline',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/timeline`,
         },
         // 2026-09-07 新增:模型定价看板(P3-9)直连 ai-service 8803。
         // 原因:model_pricing_api router 注册在 ai-service(prefix="/api",路径 /api/model-pricing),
         // 与 agent-recorder / timeline 同理必须直连 8803,且置于 /api/:path* 通配符(→8802)之前。
         {
           source: '/api/model-pricing',
-          destination: 'http://localhost:8803/api/model-pricing',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/model-pricing`,
         },
         // 2026-09-03 新增:Plan Mode 任务进度路由直连 ai-service 8803。
         // 原因:agent_plan router 注册在 ai-service(prefix="/api",路径 /api/agent-plan/*),
         // 必须直连 8803 才能命中,否则落到 /api/:path* → 8802 404。
         {
           source: '/api/agent-plan/:path*',
-          destination: 'http://localhost:8803/api/agent-plan/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/agent-plan/:path*`,
         },
         // 2026-09-07 新增:Best-of-N 同任务多副本自动择优路由直连 ai-service 8803。
         // 原因:best_of_n router 注册在 ai-service(prefix="/api",路径 /api/best-of-n/*),
         // 必须直连 8803 才能命中,且要放在 /api/:path* 通配符(→8802)之前。
         {
           source: '/api/best-of-n/:path*',
-          destination: 'http://localhost:8803/api/best-of-n/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/best-of-n/:path*`,
         },
         // 2026-09-03 新增:成本看板 / 长期记忆管理路由直连 ai-service 8803。
         // 原因:cost_ledger / agent_memory(prefix="/longterm-memory")router 均注册在
@@ -611,18 +618,18 @@ const nextConfig: NextConfig = {
         // 通配符(→8802)之前,否则被 api server 吞掉返回 404/401。
         {
           source: '/api/cost-ledger/:path*',
-          destination: 'http://localhost:8803/api/cost-ledger/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/cost-ledger/:path*`,
         },
         {
           source: '/api/longterm-memory/:path*',
-          destination: 'http://localhost:8803/api/longterm-memory/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/longterm-memory/:path*`,
         },
         // 2026-09-09 新增:媒体任务统一管理路由直连 ai-service 8803。
         // 原因:media_tasks router 注册在 ai-service(prefix="/api",路径 /api/media/tasks/*),
         // 必须直连 8803 才能命中,否则落到 /api/:path* → 8802 404(任务中心列表/取消/删除/清理全失效)。
         {
           source: '/api/media/:path*',
-          destination: 'http://localhost:8803/api/media/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/media/:path*`,
         },
         // 2026-09-09 新增:网页工具页(/web-tools)路由直连 ai-service 8803。
         // 原因:web_tools router 注册在 ai-service(prefix="/api",路径 /api/web-tools/call),
@@ -630,7 +637,7 @@ const nextConfig: NextConfig = {
         // 否则落到 /api/:path* → 8802 404。
         {
           source: '/api/web-tools/:path*',
-          destination: 'http://localhost:8803/api/web-tools/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/web-tools/:path*`,
         },
         // 2026-09-13 新增(模型池对外出售接入):OpenAI 兼容 /v1 与 Gemini 兼容 /v1beta
         // 公开网关,直连 api server 8802(走 API Key 鉴权,不经 web 登录态)。
@@ -639,15 +646,15 @@ const nextConfig: NextConfig = {
         // 零新增组件、无回归。必须放在 /api/:path* 兜底之前先命中。
         {
           source: '/v1/:path*',
-          destination: 'http://localhost:8802/v1/:path*',
+          destination: `${IHUI_API_PROXY_TARGET}/v1/:path*`,
         },
         {
           source: '/v1beta/:path*',
-          destination: 'http://localhost:8802/v1beta/:path*',
+          destination: `${IHUI_API_PROXY_TARGET}/v1beta/:path*`,
         },
         {
           source: '/api/:path*',
-          destination: 'http://localhost:8802/api/:path*',
+          destination: `${IHUI_API_PROXY_TARGET}/api/:path*`,
         },
         // 2026-08-31 修复:WebSocket 通知链路 404。
         // use-websocket.ts 以 window.location.origin(8801)为 baseUrl,fetchWsTicket
@@ -658,7 +665,7 @@ const nextConfig: NextConfig = {
         // 故一条规则同时覆盖换票 HTTP 与 WS 升级。
         {
           source: '/ws/:path*',
-          destination: 'http://localhost:8802/ws/:path*',
+          destination: `${IHUI_API_PROXY_TARGET}/ws/:path*`,
         },
       ],
     }
