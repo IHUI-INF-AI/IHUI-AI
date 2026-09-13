@@ -1786,6 +1786,13 @@
       "when": 1722032000000,
       "tag": "20260913120000_unify_model_names",
       "break": true
+    },
+    {
+      "idx": 256,
+      "version": "7",
+      "when": 1722118400000,
+      "tag": "20260913140000_model_price_numeric",
+      "breakpoints": true
     }
   ]
 }
