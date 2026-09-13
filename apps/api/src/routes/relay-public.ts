@@ -92,11 +92,13 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
       // 跨上游去重(2026-09-13):同一 modelId 可在多个 provider/config 上架
       // (如 token6688 与 swiftapi 同时供同一模型),对外目录只展示一条——
       // 保留排序最靠前(relaySortOrder 升序)的首个条目。
+      // 官方名归一兜底(2026-09-13 立):键用小写,防 DB 存量大小写重复导致目录双条目。
       const seenModelIds = new Set<string>()
       const items: PublicRelayModelItem[] = []
       for (const r of rows) {
-        if (seenModelIds.has(r.modelId)) continue
-        seenModelIds.add(r.modelId)
+        const key = r.modelId.toLowerCase()
+        if (seenModelIds.has(key)) continue
+        seenModelIds.add(key)
         const multiplier = Math.max(0, toNumber(r.relayPriceMultiplier, 1))
         const inputBase = toNumber(r.inputPricePer1k, 0)
         const outputBase = toNumber(r.outputPricePer1k, 0)
