@@ -23,7 +23,11 @@ import { eq, desc, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { developerApiKeys, apiLogs, apiKeyQuotas } from '@ihui/database'
 import type { DeveloperApiKey } from '@ihui/database'
-import { isValidApiKeyPermission, type ApiKeyPermission } from '@ihui/types'
+import {
+  isValidApiKeyPermission,
+  DEFAULT_API_KEY_PERMISSIONS,
+  type ApiKeyPermission,
+} from '@ihui/types'
 import { generateApiKey, hashSecret } from '../utils/api-key-hash.js'
 
 /** 创建 API Key 入参。permissions 接受 unknown(防御性过滤后再写入)。 */
@@ -74,7 +78,11 @@ export async function createKey(
 ): Promise<{ apiKey: DeveloperApiKey; secret: string }> {
   const { key, secret } = generateApiKey()
   const hashed = hashSecret(secret)
-  const permissions = filterPermissions(input.permissions)
+  const filtered = filterPermissions(input.permissions)
+  // 2026-09-13 修复:新建 Key 权限为空(未传或全部非法)时赋予默认权限,
+  // 保证开箱即用可直接调用 /v1/chat/completions,否则 403 "Missing permission: chat:write"
+  const permissions: ApiKeyPermission[] =
+    filtered.length > 0 ? filtered : [...DEFAULT_API_KEY_PERMISSIONS]
   const [record] = await db
     .insert(developerApiKeys)
     .values({
