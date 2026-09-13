@@ -209,8 +209,7 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
     it('cacheCreationTokens = promptTokens → input cost = 125% 原价', async () => {
       // inputPrice=10 分/千 token, promptTokens=1000, 全部 cache creation
       // 原价 input = 10 分
-      // cache creation cost = 10*1000*1.25/1000 = 12.5 → round = 13 分(125% 原价)
-      // 注意:Math.round(12.5) = 13(JS Math.round 对 .5 向上取整)
+      // cache creation cost = 10*1000*1.25/1000 = 12.5 分(2026-09-13 起 roundCents 保留小数,不再取整)
       mockDbReadSelect
         .mockReturnValueOnce(
           chain([{ inputPricePer1k: 10, outputPricePer1k: 30, relayPriceMultiplier: '1.0' }]),
@@ -220,8 +219,8 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
       const result = await calculateCost('gpt-4o', 1000, 0, { cacheCreationTokens: 1000 })
       expect(result.inputCostCents).toBe(0)
       expect(result.cacheReadCostCents).toBe(0)
-      expect(result.cacheCreationCostCents).toBe(13) // round(12.5) = 13
-      expect(result.totalCostCents).toBe(13)
+      expect(result.cacheCreationCostCents).toBe(12.5)
+      expect(result.totalCostCents).toBe(12.5)
     })
   })
 
@@ -232,9 +231,9 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
     it('promptTokens=1000, 500 普通 + 300 cache hit + 200 cache creation', async () => {
       // inputPrice=10 分/千 token
       // 普通 input = 10*500/1000 = 5 分
-      // cache read = 10*300*0.1/1000 = 0.3 → round = 0 分
-      // cache creation = 10*200*1.25/1000 = 2.5 → round = 3 分
-      // total input-side = 5 + 0 + 3 = 8 分
+      // cache read = 10*300*0.1/1000 = 0.3 分(2026-09-13 起保留小数)
+      // cache creation = 10*200*1.25/1000 = 2.5 分
+      // total input-side = 5 + 0.3 + 2.5 = 7.8 分
       mockDbReadSelect
         .mockReturnValueOnce(
           chain([{ inputPricePer1k: 10, outputPricePer1k: 30, relayPriceMultiplier: '1.0' }]),
@@ -246,16 +245,16 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
         cacheCreationTokens: 200,
       })
       expect(result.inputCostCents).toBe(5) // 普通 500 × 10/1000
-      expect(result.cacheReadCostCents).toBe(0) // round(0.3) = 0
-      expect(result.cacheCreationCostCents).toBe(3) // round(2.5) = 3
-      expect(result.totalCostCents).toBe(8)
+      expect(result.cacheReadCostCents).toBe(0.3)
+      expect(result.cacheCreationCostCents).toBe(2.5)
+      expect(result.totalCostCents).toBe(7.8)
     })
 
     it('混合场景 + output tokens:total = 普通 + cache read + cache creation + output', async () => {
       // inputPrice=10, outputPrice=30, promptTokens=1000, completion=500
-      // 普通 input(500)= 5,cache read(300)= 0,cache creation(200)= 3
+      // 普通 input(500)= 5,cache read(300)= 0.3,cache creation(200)= 2.5
       // output = 30*500/1000 = 15
-      // total = 5 + 0 + 3 + 15 = 23
+      // total = 5 + 0.3 + 2.5 + 15 = 22.8
       mockDbReadSelect
         .mockReturnValueOnce(
           chain([{ inputPricePer1k: 10, outputPricePer1k: 30, relayPriceMultiplier: '1.0' }]),
@@ -267,10 +266,10 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
         cacheCreationTokens: 200,
       })
       expect(result.inputCostCents).toBe(5)
-      expect(result.cacheReadCostCents).toBe(0)
-      expect(result.cacheCreationCostCents).toBe(3)
+      expect(result.cacheReadCostCents).toBe(0.3)
+      expect(result.cacheCreationCostCents).toBe(2.5)
       expect(result.outputCostCents).toBe(15)
-      expect(result.totalCostCents).toBe(23)
+      expect(result.totalCostCents).toBe(22.8)
     })
   })
 
@@ -301,9 +300,9 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
     it('cacheReadTokens=800 + cacheCreationTokens=800 > promptTokens=1000 → clamp 到 800+200', async () => {
       // promptTokens=1000, cacheRead=800(优先),cacheCreation clamp 到 200(剩余)
       // 普通 input = 0
-      // cache read = 10*800*0.1/1000 = 0.8 → round = 1 分
-      // cache creation = 10*200*1.25/1000 = 2.5 → round = 3 分
-      // total = 0 + 1 + 3 + 0 = 4 分
+      // cache read = 10*800*0.1/1000 = 0.8 分(2026-09-13 起保留小数)
+      // cache creation = 10*200*1.25/1000 = 2.5 分
+      // total = 0 + 0.8 + 2.5 + 0 = 3.3 分
       mockDbReadSelect
         .mockReturnValueOnce(
           chain([{ inputPricePer1k: 10, outputPricePer1k: 30, relayPriceMultiplier: '1.0' }]),
@@ -317,15 +316,15 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
       // 普通 input = max(0, 1000-800-200) = 0
       expect(result.inputCostCents).toBe(0)
       // cache read = 800(原值)
-      expect(result.cacheReadCostCents).toBe(1) // round(0.8) = 1
+      expect(result.cacheReadCostCents).toBe(0.8)
       // cache creation clamp 到 200(剩余 1000-800)
-      expect(result.cacheCreationCostCents).toBe(3) // round(2.5) = 3
-      expect(result.totalCostCents).toBe(4)
+      expect(result.cacheCreationCostCents).toBe(2.5)
+      expect(result.totalCostCents).toBe(3.3)
     })
 
     it('cacheReadTokens > promptTokens 时 clamp 到 promptTokens,普通 input = 0', async () => {
       // promptTokens=500, cacheRead=1000(>500)→clamp 到 500,cacheCreation=0
-      // 普通 input = 0,cache read = 10*500*0.1/1000 = 0.5 → round = 1 分(注意 JS:round(0.5)=1)
+      // 普通 input = 0,cache read = 10*500*0.1/1000 = 0.5 分(2026-09-13 起保留小数)
       mockDbReadSelect
         .mockReturnValueOnce(
           chain([{ inputPricePer1k: 10, outputPricePer1k: 30, relayPriceMultiplier: '1.0' }]),
@@ -334,7 +333,7 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
 
       const result = await calculateCost('gpt-4o', 500, 0, { cacheReadTokens: 1000 })
       expect(result.inputCostCents).toBe(0)
-      expect(result.cacheReadCostCents).toBe(1) // round(0.5) = 1
+      expect(result.cacheReadCostCents).toBe(0.5)
       expect(result.cacheCreationCostCents).toBe(0)
     })
 
@@ -419,8 +418,9 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
         cacheCreationTokens: 200,
       })
 
-      // 成本:普通 input(200)=2 + cache read(600)=1 + cache creation(200)=3 + output(500)=15 = 21
-      expect(result.costCents).toBe(21)
+      // 成本(2026-09-13 起保留小数):普通 input(200)=2 + cache read(600)=0.6
+      //   + cache creation(200)=2.5 + output(500)=15 = 20.1
+      expect(result.costCents).toBe(20.1)
 
       // 验证 insert 时透传 cache 字段
       const insertedValues = valuesFn.mock.calls[0]?.[0] as Record<string, unknown> | undefined
@@ -511,7 +511,12 @@ describe('relay-billing-service — prompt cache 折扣计费', () => {
         cacheCreationTokens: 300,
       })
 
-      expect(result.costCents).toBe(45)
+      // 普通 input(300)= 10*300/1000×2 = 6 分
+      // cache read(400)= 10*400*0.1/1000×2 = 0.8 分(2026-09-13 起保留小数)
+      // cache creation(300)= 10*300*1.25/1000×2 = 7.5 分
+      // output(500)= 30*500/1000×2 = 30 分
+      // total = 6 + 0.8 + 7.5 + 30 = 44.3 分
+      expect(result.costCents).toBe(44.3)
 
       // 验证 insert 透传 cache 字段
       const insertedValues = valuesFnTotal.mock.calls[0]?.[0] as Record<string, unknown> | undefined
