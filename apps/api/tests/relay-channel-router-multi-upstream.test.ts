@@ -2,9 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-
 /**
  * selectChannelCandidates 多上游同模型路由单测(2026-09-13 立)。
  *
@@ -169,9 +166,9 @@ describe('selectChannelCandidates 多上游同模型路由', () => {
     // 另一上游 token6688 的 key 也成为候选(跨上游择优/切换的基础)
     expect(byKey.get('key-c')?.baseUrl).toBe('https://k.token6688.com')
     expect(byKey.get('key-c')?.providerCode).toBe('token6688')
-    // configId 按各自 provider 解析
-    expect(byKey.get('key-a')?.configId).toBe('31')
-    expect(byKey.get('key-c')?.configId).toBe('66')
+    // configId 按各自 provider 解析(ai_model_config.id 为 bigint → 路由返回 number,非字符串)
+    expect(byKey.get('key-a')?.configId).toBe(31)
+    expect(byKey.get('key-c')?.configId).toBe(66)
   })
 
   it('候选按 keyPoolId 去重:同一 key 属多组只出现一次', async () => {
