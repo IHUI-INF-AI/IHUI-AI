@@ -282,8 +282,9 @@ export async function getPricingSuggestions(): Promise<PricingSuggestion[]> {
       currentMultiplier,
       suggestedMultiplier,
       reason,
-      avgCostCentsPerCall: Math.round(cost),
-      avgRevenueCentsPerCall: Math.round(revenue),
+      // 保留 6 位小数:低价模型平均单次成本/收入在整数分下恒显示 0(2026-09-13)
+      avgCostCentsPerCall: Math.round(cost * 1e6) / 1e6,
+      avgRevenueCentsPerCall: Math.round(revenue * 1e6) / 1e6,
       marginRate: Number(marginRate.toFixed(4)),
     })
   }
