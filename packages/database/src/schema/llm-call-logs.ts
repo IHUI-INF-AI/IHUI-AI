@@ -8,6 +8,7 @@ import {
   varchar,
   text,
   integer,
+  numeric,
   jsonb,
   timestamp,
   index,
@@ -61,11 +62,13 @@ export const llmCallLogs = pgTable(
     /** 调用方 IP(支持 IPv4/IPv6) */
     clientIp: varchar('client_ip', { length: 45 }),
     /** 本次调用总成本(分,= input + output + cacheRead + cacheCreation) */
-    costCents: integer('cost_cents'),
+    costCents: numeric('cost_cents', { precision: 18, scale: 6, mode: 'number' }),
     /** 上游 HTTP 状态码(如 200/429/500) */
     httpStatus: integer('http_status'),
     /** Time To First Token 毫秒数(首 token 耗时,流式才有) */
     ttftMs: integer('ttft_ms'),
+    /** 调用类型(2026-09-13 立):chat(默认)|image|video——多模态计费/审计维度 */
+    callType: varchar('call_type', { length: 16 }).default('chat').notNull(),
   },
   (t) => ({
     userIdx: index('llm_call_logs_user_idx').on(t.userId),
