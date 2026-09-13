@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌‌​‌‍‍​​‌​‌‌​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​‌‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌‌‌‌‍‍​‌‌‌‌​‌‌‌​‌‌‌​‍‍‌‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌‌​‌‌‌‌‍‍​‌‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​​‌‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​‌‌‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { pgTable, uuid, varchar, text, integer, jsonb, timestamp, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, text, integer, jsonb, timestamp, index, bigint } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
 /**
@@ -42,10 +42,10 @@ export const llmCallLogs = pgTable(
     /** P0 中转站造血能力批次(2026-08-01):8 个审计/统计字段 */
     /** 调用所用 API Key id(关联 developer_api_keys.id) */
     apiKeyId: uuid('api_key_id'),
-    /** 上游 provider 代码(如 'openai'/'anthropic'/'stepfun';与 ai_relay_key_pool.provider_code 对齐为 64) */
-    providerCode: varchar('provider_code', { length: 64 }),
-    /** 所用模型配置 id(关联 ai_model_config.id) */
-    configId: uuid('config_id'),
+    /** 上游 provider 代码(如 'openai'/'anthropic'/'stepfun') */
+    providerCode: varchar('provider_code', { length: 32 }),
+    /** 所用模型配置 id(关联 ai_model_config.id,bigint 主键;2026-09-13 由 uuid 修正以对齐实库列类型) */
+    configId: bigint('config_id', { mode: 'number' }),
     /** 所用 key 池条目 id(关联 ai_relay_key_pool.id) */
     keyPoolId: uuid('key_pool_id'),
     /** 调用方 IP(支持 IPv4/IPv6) */
