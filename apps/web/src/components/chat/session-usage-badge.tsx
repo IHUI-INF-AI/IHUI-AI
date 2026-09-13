@@ -29,6 +29,8 @@ export interface SessionUsageBadgeProps {
   conversationId: string | null
   /** 是否流式中:流式 SSE 无 usage 事件,结束(true→false)后拉端点刷新 */
   isStreaming: boolean
+  /** 当前会话模型(预留展示位,统计口径以 usage 接口返回为准) */
+  model?: string
 }
 
 /**
