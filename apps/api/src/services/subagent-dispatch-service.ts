@@ -45,7 +45,6 @@ import type {
   DispatchStatus,
 } from '@ihui/shared/subagents'
 
-
 /** 跨服务调用超时(ms) */
 const AI_SERVICE_TIMEOUT_MS = 30_000
 
