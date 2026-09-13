@@ -99,6 +99,14 @@ export const API_KEY_PERMISSIONS = [
   'stats:read',
 ] as const
 
+/**
+ * 新建 API Key 的默认权限集(2026-09-13 立)。
+ * 保证 Key 创建后开箱即用:可直接 GET /v1/models + POST /v1/chat/completions。
+ * 修复问题:此前新建 Key permissions 为空,调用即 403 "Missing permission: chat:write"。
+ * 注意:创建时显式传入合法权限数组将覆盖默认值;updateKey 不受影响(可显式清空)。
+ */
+export const DEFAULT_API_KEY_PERMISSIONS = ['chat:write', 'models:read'] as const
+
 /** 权限点类型(联合类型,编译期枚举校验)。 */
 export type ApiKeyPermission = (typeof API_KEY_PERMISSIONS)[number]
 
