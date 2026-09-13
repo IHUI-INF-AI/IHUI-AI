@@ -45,7 +45,16 @@ interface KeysData {
   list: RelayKey[]
 }
 
-const SCOPES = ['read', 'write', 'admin', 'billing', 'webhook']
+// 2026-09-13 修复:原先的 read/write/admin/billing/webhook 不是合法权限点,
+// 会被后端 isValidApiKeyPermission 全部过滤掉,导致新建 Key permissions 为空
+const SCOPES: Array<{ value: string; label: string }> = [
+  { value: 'chat:write', label: '对话补全' },
+  { value: 'models:read', label: '模型列表' },
+  { value: 'embeddings:write', label: '向量' },
+  { value: 'images:write', label: '图片生成' },
+  { value: 'audio:write', label: '语音' },
+  { value: 'videos:write', label: '视频生成' },
+]
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -76,7 +85,13 @@ export default function RelayKeysPage() {
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState('')
-  const [scopes, setScopes] = React.useState<string[]>(['read'])
+  const [scopes, setScopes] = React.useState<string[]>(['chat:write', 'models:read'])
+  // 2026-09-13 新增:创建成功后展示明文 secret(仅此一次,后端只返回一次)
+  const [created, setCreated] = React.useState<{
+    apiKey: { id: string; name: string; key: string }
+    secret: string
+  } | null>(null)
+  const [secretVisible, setSecretVisible] = React.useState(false)
   const [visible, setVisible] = React.useState<Record<string, boolean>>({})
   const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
 
@@ -87,18 +102,24 @@ export default function RelayKeysPage() {
   })
   const list = data?.list ?? []
 
+  // 2026-09-13 修复:原 POST /api/developer/keys + scopes 字段名均错误,
+  // 改为中转站端点 /api/developer/relay/keys + permissions 字段
   const createMut = useMutation({
     mutationFn: () =>
-      api('/api/developer/keys', {
-        method: 'POST',
-        body: JSON.stringify({ name, scopes }),
-      }),
-    onSuccess: () => {
+      api<{ apiKey: { id: string; name: string; key: string }; secret: string }>(
+        '/api/developer/relay/keys',
+        {
+          method: 'POST',
+          body: JSON.stringify({ name, permissions: scopes }),
+        },
+      ),
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
       setOpen(false)
       setName('')
-      setScopes(['read'])
-      toast.success('Key 已创建')
+      setScopes(['chat:write', 'models:read'])
+      setCreated(data)
+      setSecretVisible(false)
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -310,20 +331,23 @@ export default function RelayKeysPage() {
               <div className="flex flex-wrap gap-2">
                 {SCOPES.map((s) => (
                   <button
-                    key={s}
+                    key={s.value}
                     type="button"
-                    onClick={() => toggleScope(s)}
+                    onClick={() => toggleScope(s.value)}
                     className={cn(
                       'rounded-md border px-2.5 py-1 text-xs transition-colors',
-                      scopes.includes(s)
+                      scopes.includes(s.value)
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:bg-accent',
                     )}
                   >
-                    {s}
+                    {s.label}
                   </button>
                 ))}
               </div>
+              <p className="text-xs text-muted-foreground">
+                不勾选任何权限时,新建 Key 将默认携带「对话补全 + 模型列表」权限
+              </p>
             </div>
           </div>
           <DialogFooter>
@@ -337,6 +361,66 @@ export default function RelayKeysPage() {
               {createMut.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
               创建
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 2026-09-13 新增:创建成功后展示明文 secret,仅此一次可复制 */}
+      <Dialog open={!!created} onOpenChange={(o) => !o && setCreated(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Key 创建成功</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Alert
+              variant="warning"
+              title="请立即保存 Secret"
+              description="Secret 仅在创建时显示一次,关闭后无法再次查看。"
+            />
+            <div className="space-y-1">
+              <Label className="text-sm">Key 标识</Label>
+              <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1.5 text-xs">
+                  {created?.apiKey.key}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => created && copyKey(created.apiKey.key)}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Secret</Label>
+              <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1.5 text-xs">
+                  {created ? (secretVisible ? created.secret : maskKey(created.secret)) : ''}
+                </code>
+                <button
+                  onClick={() => setSecretVisible((v) => !v)}
+                  className="text-muted-foreground hover:text-foreground"
+                  aria-label="切换显示"
+                >
+                  {secretVisible ? (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5" />
+                  )}
+                </button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => created && copyKey(created.secret)}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setCreated(null)}>我已保存,关闭</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
