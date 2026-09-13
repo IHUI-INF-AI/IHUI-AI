@@ -13,6 +13,7 @@
  * 5. GET   /developer/relay/logs     — 当前用户的调用日志(分页)
  * 6. POST  /developer/relay/keys/:id/recharge — 充值(用钱包余额充值 API Key 余额,生产环境需接支付)
  * 7. POST  /developer/relay/redeem   — 兑换码充值
+ * 8. POST  /developer/relay/keys/:id/reset — 重置 secret(轮换,新 secret 仅此一次返回)
  *
  * 复用 developerApiKeys + llmCallLogs 表。
  */
@@ -29,7 +30,7 @@ import { rechargeApiKeyFromWallet } from '../services/relay-billing-service.js'
 import { createMapping, listMappings } from '../services/model-mapping-service.js'
 import { redeemCode } from '../services/redemption-code-service.js'
 import { idParamSchema } from './admin/_shared.js'
-import { createKey, updateKey } from '../services/developer-api-keys-service.js'
+import { createKey, updateKey, rotateSecret } from '../services/developer-api-keys-service.js'
 import { claimCoupon, listUserCoupons } from '../services/coupon-service.js'
 import { listUserCommissions } from '../services/relay-commission-service.js'
 import { getTieredProgress } from '../services/tiered-pricing-service.js'
@@ -237,6 +238,26 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '更新 API Key 失败'))
+    }
+  })
+
+  // ===== 1d. POST /developer/relay/keys/:id/reset — 重置 secret(轮换) =====
+  // 2026-09-13 新增:此前前端「重置」按钮调用的 /api/developer/keys/:id/reset 属兼容路由,
+  // 中转站用户侧无对应端点。轮换后新 secret 仅此一次返回(跳过响应脱敏)。
+  server.post('/developer/relay/keys/:id/reset', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      const result = await rotateSecret(p.data.id, userId)
+      if (!result) return reply.status(404).send(error(404, 'API Key 不存在或无权操作'))
+      request.skipResponseSanitization = true
+      const { secret: _s, ...safe } = result.apiKey
+      return reply.send(success({ apiKey: safe, secret: result.secret }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '重置 API Key 失败'))
     }
   })
 
