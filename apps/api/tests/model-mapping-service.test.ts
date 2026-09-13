@@ -30,6 +30,13 @@ vi.mock('drizzle-orm', () => ({
   isNull: (col: unknown) => ({ op: 'isNull', col }),
   desc: (col: unknown) => ({ op: 'desc', col }),
   asc: (col: unknown) => ({ op: 'asc', col }),
+  // 2026-09-13:service 改用 sql`LOWER(...)` 模板做大小写不敏感匹配,b787 归一批次
+  // 引入;mock 需提供 sql 模板标签,否则 vi.mock 工厂缺导出 → 渲染即抛错
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
+    op: 'sql',
+    strings,
+    values,
+  }),
 }))
 
 vi.mock('@ihui/database', () => ({
