@@ -9578,6 +9578,11 @@
         "description": "System preferences and configuration",
         "keywords": ["settings", "preferences", "config"],
         "label": "Settings"
+      },
+      "skillsMarket": {
+        "description": "Browse and install self-evolving skills",
+        "keywords": ["skill", "market", "plugin"],
+        "label": "Skill Market"
       }
     },
     "keyboardHint": "↑↓ Navigate · Enter Execute",
@@ -20229,7 +20234,8 @@
   "topBar": {
     "editor": "Editor",
     "close": "Close",
-    "plus": "New"
+    "plus": "New",
+    "skillsMarket": "Skill Market"
   },
   "statusBar": {
     "sync": "Sync",
@@ -21860,5 +21866,41 @@
     "configureByok": "Configure BYOK",
     "configureByokDesc": "Use your own API keys (BYOK) to reduce costs and increase your quota.",
     "loading": "Loading..."
+  },
+  "skillMarket": {
+    "title": "Skill Market",
+    "subtitle": "Self-evolving skill market: search by keyword or tag, check ratings and install counts, one-click install into your Agent workflow.",
+    "count": "{count} skills",
+    "searchPlaceholder": "Search skill name or description",
+    "tag": "Tag",
+    "allTags": "All tags",
+    "loading": "Loading…",
+    "loadFailed": "Failed to load. Please try again later.",
+    "empty": "No skills yet",
+    "emptyHint": "Try a different keyword or tag, or publish your own skill.",
+    "prevPage": "Previous",
+    "nextPage": "Next",
+    "pageIndicator": "Page {page} of {total}",
+    "ratingCount": "{count} ratings",
+    "noRatings": "No ratings yet",
+    "installs": "{count} installs",
+    "disable": "Disable",
+    "enable": "Enable",
+    "install": "Install",
+    "installSuccess": "Installed {name} ({count} installs)",
+    "enableSuccess": "Enabled {name}",
+    "disableSuccess": "Disabled {name}",
+    "actionFailed": "Action failed. Please try again.",
+    "subscribe": "Subscribe",
+    "unsubscribe": "Unsubscribe",
+    "subscribed": "Subscribed to {name} updates",
+    "unsubscribed": "Unsubscribed from {name}",
+    "close": "Close",
+    "ratingsTitle": "User ratings",
+    "rateTitle": "Rate this skill",
+    "yourScore": "Your score",
+    "commentPlaceholder": "Share your experience (optional)",
+    "submitRating": "Submit rating",
+    "ratingSuccess": "Rating submitted"
   }
 }

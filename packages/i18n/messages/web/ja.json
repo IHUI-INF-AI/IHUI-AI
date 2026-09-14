@@ -9568,6 +9568,11 @@
         "description": "システム環境設定と構成",
         "keywords": ["設定", "環境設定", "構成"],
         "label": "設定"
+      },
+      "skillsMarket": {
+        "description": "自己進化スキルの閲覧と導入",
+        "keywords": ["skill", "スキル", "マーケット", "market"],
+        "label": "Skill マーケット"
       }
     },
     "keyboardHint": "↑↓ 選択 · Enter 実行",
@@ -20219,7 +20224,8 @@
   "topBar": {
     "editor": "エディタ",
     "close": "閉じる",
-    "plus": "新規"
+    "plus": "新規",
+    "skillsMarket": "Skill マーケット"
   },
   "statusBar": {
     "sync": "同期",
@@ -21850,5 +21856,41 @@
     "configureByok": "BYOK を設定",
     "configureByokDesc": "独自の API キー（BYOK）を使用してコストを削減し、利用上限を引き上げます。",
     "loading": "読み込み中..."
+  },
+  "skillMarket": {
+    "title": "Skill マーケット",
+    "subtitle": "自己進化スキルマーケット:キーワード/タグで検索し、評価とインストール数を確認して、ワンクリックで Agent ワークフローへ導入。",
+    "count": "スキル {count} 件",
+    "searchPlaceholder": "Skill 名または説明を検索",
+    "tag": "タグ",
+    "allTags": "すべてのタグ",
+    "loading": "読み込み中…",
+    "loadFailed": "読み込みに失敗しました。しばらくしてから再試行してください。",
+    "empty": "スキルはまだありません",
+    "emptyHint": "キーワードやタグを変えて試すか、自分の Skill を公開しましょう。",
+    "prevPage": "前へ",
+    "nextPage": "次へ",
+    "pageIndicator": "{page} / {total} ページ",
+    "ratingCount": "評価 {count} 件",
+    "noRatings": "評価はまだありません",
+    "installs": "{count} 回インストール",
+    "disable": "無効化",
+    "enable": "有効化",
+    "install": "ワンクリック導入",
+    "installSuccess": "{name} を導入しました(現在 {count} 回)",
+    "enableSuccess": "{name} を有効化しました",
+    "disableSuccess": "{name} を無効化しました",
+    "actionFailed": "操作に失敗しました。再試行してください。",
+    "subscribe": "更新を購読",
+    "unsubscribe": "購読解除",
+    "subscribed": "{name} の更新を購読しました",
+    "unsubscribed": "{name} の購読を解除しました",
+    "close": "閉じる",
+    "ratingsTitle": "ユーザー評価",
+    "rateTitle": "このスキルを評価",
+    "yourScore": "あなたの評価",
+    "commentPlaceholder": "使用感を書いてください(任意)",
+    "submitRating": "評価を送信",
+    "ratingSuccess": "評価を送信しました"
   }
 }
