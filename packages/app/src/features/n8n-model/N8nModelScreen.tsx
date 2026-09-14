@@ -170,7 +170,9 @@ export function N8nModelScreen({
                   onPress={() => onToggle(item)}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.actionText}>
+                  <Text
+                    style={[styles.actionText, item.status === 'running' && styles.actionStopText]}
+                  >
                     {item.status === 'running'
                       ? t('n8nModel.actionStop')
                       : t('n8nModel.actionStart')}
@@ -289,6 +291,8 @@ function createStyles(tk: AppThemeTokens) {
     actionStart: { backgroundColor: tk.success.DEFAULT },
     actionStop: { backgroundColor: tk.brandAccent.DEFAULT },
     actionText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    // 浅灰蓝底上白字不可读,停止按钮文字改用 brandAccent.foreground(2026-09-14 灰蓝定稿)
+    actionStopText: { color: tk.brandAccent.foreground },
     actionEdit: {
       paddingHorizontal: 10,
       height: 34,

@@ -87,13 +87,13 @@
 }
 
 /* RN trackBtnActive: bg rgba(248,249,252,0.65)→--color-track-active-bg /
-   borderColor brandAccent.light→--color-brand-orange-light /
+   borderColor brandAccent.light→--color-brand-accent-light /
    shadow black 0.06 offsetY 1dp→2rpx radius 3dp→6rpx / 文字 gray.black→foreground 700 */
 .community-fenlei-btn.active {
   color: var(--color-foreground);
   border-bottom: none;
   font-weight: 700;
-  border: 1px solid var(--color-brand-orange-light);
+  border: 1px solid var(--color-brand-accent-light);
   background: var(--color-track-active-bg);
   box-shadow: 0 2rpx 6rpx var(--color-black-6);
 }

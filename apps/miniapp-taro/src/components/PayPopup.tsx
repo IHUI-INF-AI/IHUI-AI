@@ -232,7 +232,7 @@ export default function PayPopup({
         <View className="flex space-x-3">
           {!isFree && !isLimitFree && !isPaid && (
             <View
-              className="flex-1 py-3 rounded-md border border-[var(--color-brand-orange)] bg-[var(--color-brand-orange-light)] text-center"
+              className="flex-1 py-3 rounded-md border border-[var(--color-brand-accent-deep)] bg-[var(--color-brand-accent-light)] text-center"
               onClick={onPay}
               hoverClass="opacity-60"
             >

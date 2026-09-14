@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
   },
   mediaLink: {
     fontSize: rpx(24),
-    color: tokens.brandAccent.DEFAULT, // 历史 #1890ff 链接色(indigo 已被全项目统一强调色 brandAccent 取代)
+    color: tokens.brandAccent.deep, // 历史 #1890ff 链接色(indigo 已被全项目统一强调色 brandAccent 取代)
     textDecorationLine: 'underline',
   },
   systemRow: {

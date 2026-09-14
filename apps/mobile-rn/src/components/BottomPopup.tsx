@@ -35,6 +35,7 @@ export interface BottomPopupProps {
 }
 
 // 主题色:1:1 复刻 Uniapp 主题色(原硬编码 #5088fa,治理后映射至 tokens.brandAccent.DEFAULT,非项目 brand.DEFAULT)
+// 仅作底色用;文字/边框等前景场景请用 brandAccent.deep(浅灰蓝上对比度足够)
 const ACCENT_COLOR = tokens.brandAccent.DEFAULT
 
 const SHEET_RADIUS = 16
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   levelItemSelected: {
     backgroundColor: tokens.brandAccent.light,
-    borderColor: tokens.brandAccent.DEFAULT,
+    borderColor: tokens.brandAccent.deep,
   } as ViewStyle,
   levelItemPressed: {
     opacity: 0.7,
@@ -276,7 +277,7 @@ const styles = StyleSheet.create({
     fontSize: LEVEL_PRICE_FONT_SIZE,
     lineHeight: LEVEL_PRICE_FONT_SIZE + 2,
     fontWeight: '700',
-    color: ACCENT_COLOR,
+    color: tokens.brandAccent.deep,
   } as TextStyle,
   confirmButton: {
     height: BUTTON_HEIGHT,
@@ -295,7 +296,7 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: BUTTON_FONT_SIZE,
     lineHeight: BUTTON_FONT_SIZE + 2,
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
     fontWeight: '600',
   } as TextStyle,
 })
