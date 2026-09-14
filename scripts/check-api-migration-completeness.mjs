@@ -37,7 +37,6 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import http from 'node:http';
 import https from 'node:https';
-import { isRootLinkedWorktree } from './lib/worktree.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -158,16 +157,6 @@ if (stagedMode) {
     console.log(`\n${C.green}✅ 所有硬约束通过, 允许 commit (staged-aware skip)${C.reset}`)
     process.exit(0)
   }
-}
-// 2026-09-13 环境适配:4 份审计报告(及 .md 别名)位于 `.ihui-agent/archive/`
-// 与 `.trae-cn/archive/`,而 `.ihui-agent/` 已被 .gitignore(.gitignore:132)——
-// 这些文件只存在于主工作区,任何 `git worktree add` 出来的干净 worktree 都没有。
-// 在 linked worktree 中找不到报告是**环境差异**,不是"未跑审计"的历史欠账,
-// 故跳过本项而非阻塞提交(与守门 [26] 父目录污染同类处理)。
-// 主工作区(审计报告存在)行为完全不变。
-if (isRootLinkedWorktree(ROOT)) {
-  skipAuditReportCheck = true
-  console.log(`${C.green}✅ 审计报告存在性检查跳过${C.reset} ${C.dim}(linked worktree:审计报告位于 gitignore 的 .ihui-agent/ 下,干净 worktree 无此文件,属环境差异)${C.reset}`)
 }
 if (!skipAuditReportCheck) {
   // R83 修复: 接受实际存在的 .md 审计报告作为 .txt 的别名(任一存在即视为通过)

@@ -178,7 +178,21 @@
     "voiceSttFailed": "转写失败,请稍后重试或检查本地语音服务",
     "voiceEmpty": "未识别到语音内容,请靠近麦克风后重试",
     "voiceUnauthorized": "登录已过期,请刷新页面后重试",
-    "voiceNetworkError": "网络异常,请检查连接后重试"
+    "voiceNetworkError": "网络异常,请检查连接后重试",
+    "reasoning": "推理过程",
+    "toolStatusRunning": "运行中",
+    "toolStatusSuccess": "成功",
+    "toolStatusError": "失败",
+    "toolDetail": "调用详情",
+    "terminal": "终端",
+    "terminalStatusRunning": "运行中",
+    "terminalStatusCompleted": "已完成",
+    "terminalStatusFailed": "失败",
+    "planStatusPending": "待执行",
+    "planStatusInProgress": "进行中",
+    "planStatusCompleted": "已完成",
+    "subagentTools": "子代理工具 ×{count}",
+    "usage": "用量"
   },
   "settings": {
     "language": "界面语言",
@@ -225,7 +239,13 @@
     "usable": "可使用",
     "needVip": "需要 VIP",
     "needPurchase": "需要购买",
-    "loadFailed": "加载失败"
+    "loadFailed": "加载失败",
+    "approve": "允许",
+    "reject": "拒绝",
+    "approvalSubmitting": "提交中...",
+    "approvalSent": "已提交",
+    "approvalFailed": "提交失败",
+    "approvalUnavailable": "当前通道暂不支持在线审批"
   },
   "course": {
     "title": "课程",
@@ -261,6 +281,15 @@
     "translate": "IHUI AI · 翻译选区",
     "vocab": "IHUI AI · 查词",
     "send": "IHUI AI · 发送到对话"
+  },
+  "content": {
+    "translate": "翻译",
+    "highlight": "高亮",
+    "vocab": "查词",
+    "sendAi": "问 AI",
+    "saveWord": "保存到生词本",
+    "saved": "已保存",
+    "close": "关闭"
   },
   "page": {
     "benefitsTitle": "会员专属权益",

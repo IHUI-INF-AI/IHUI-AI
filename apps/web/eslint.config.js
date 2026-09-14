@@ -12,6 +12,7 @@ export default [
   {
     ignores: [
       '.next/**',
+      '.next-static/**',
       'out/**',
       'coverage/**',
       'playwright-report/**',

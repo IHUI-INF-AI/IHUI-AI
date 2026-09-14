@@ -97,10 +97,8 @@ test.describe('AI panel env-info (重构后)', () => {
     await expect(authenticatedPage.locator('button[aria-label="打开终端"]')).toBeVisible({
       timeout: 10000,
     })
-    // 切换工作展示区(PanelRightRounded)→ WebWorkPanel toggle
-    // 2026-09-14 校准:aria-label 已状态化为 打开/关闭工作展示区(不再是"切换"),
-    // 用子串匹配同时覆盖两态
-    await expect(authenticatedPage.locator('button[aria-label*="工作展示区"]')).toBeVisible({
+    // 切换工作展示区(PanelRight)→ WebWorkPanel toggle
+    await expect(authenticatedPage.locator('button[aria-label="切换工作展示区"]')).toBeVisible({
       timeout: 10000,
     })
   })
@@ -249,8 +247,7 @@ test.describe('AI panel env-info (重构后)', () => {
     })
 
     const workArea = authenticatedPage.locator('#work-area-portal-root')
-    // 2026-09-14 校准:按钮 aria-label 状态化为 打开/关闭工作展示区,用子串匹配
-    const wpBtn = authenticatedPage.locator('button[aria-label*="工作展示区"]')
+    const wpBtn = authenticatedPage.locator('button[aria-label="切换工作展示区"]')
     await expect(wpBtn).toBeVisible({ timeout: 10000 })
 
     // 初始:work-area 可见

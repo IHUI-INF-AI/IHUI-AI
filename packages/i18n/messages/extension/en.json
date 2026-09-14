@@ -178,7 +178,21 @@
     "voiceSttFailed": "Transcription failed. Please retry later or check the local speech service",
     "voiceEmpty": "No speech detected. Please speak closer to the microphone and try again",
     "voiceUnauthorized": "Login expired. Please refresh the page and try again",
-    "voiceNetworkError": "Network error. Please check your connection and try again"
+    "voiceNetworkError": "Network error. Please check your connection and try again",
+    "reasoning": "Reasoning",
+    "toolStatusRunning": "Running",
+    "toolStatusSuccess": "Succeeded",
+    "toolStatusError": "Failed",
+    "toolDetail": "Call details",
+    "terminal": "Terminal",
+    "terminalStatusRunning": "Running",
+    "terminalStatusCompleted": "Completed",
+    "terminalStatusFailed": "Failed",
+    "planStatusPending": "Pending",
+    "planStatusInProgress": "In progress",
+    "planStatusCompleted": "Completed",
+    "subagentTools": "Sub-agent tools ×{count}",
+    "usage": "Usage"
   },
   "settings": {
     "language": "Interface language",
@@ -225,7 +239,13 @@
     "usable": "Usable",
     "needVip": "Requires VIP",
     "needPurchase": "Requires purchase",
-    "loadFailed": "Load failed"
+    "loadFailed": "Load failed",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approvalSubmitting": "Submitting...",
+    "approvalSent": "Submitted",
+    "approvalFailed": "Submit failed",
+    "approvalUnavailable": "Online approval is not supported on this channel"
   },
   "course": {
     "title": "Courses",
@@ -261,6 +281,15 @@
     "translate": "IHUI AI · Translate Selection",
     "vocab": "IHUI AI · Look Up Word",
     "send": "IHUI AI · Send to Chat"
+  },
+  "content": {
+    "translate": "Translate",
+    "highlight": "Highlight",
+    "vocab": "Dictionary",
+    "sendAi": "Ask AI",
+    "saveWord": "Save to wordbook",
+    "saved": "Saved",
+    "close": "Close"
   },
   "page": {
     "benefitsTitle": "Membership Benefits",
