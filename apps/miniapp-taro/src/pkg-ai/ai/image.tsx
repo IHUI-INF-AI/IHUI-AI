@@ -228,7 +228,7 @@ export default function ImagePage() {
                 key={s.value}
                 className={`py-[12rpx] px-[24rpx] rounded-[12rpx] text-[20rpx] ${
                   size === s.value
-                    ? 'bg-[var(--color-brand-orange)] text-[var(--color-surface-light)]'
+                    ? 'bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)]'
                     : 'bg-secondary text-muted-foreground'
                 }`}
                 onClick={() => setSize(s.value)}
@@ -245,7 +245,7 @@ export default function ImagePage() {
                 key={s}
                 className={`px-[24rpx] py-[12rpx] text-[20rpx] rounded-[12rpx] ${
                   style === s
-                    ? 'bg-[var(--color-brand-orange)] text-[var(--color-surface-light)]'
+                    ? 'bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)]'
                     : 'bg-secondary text-muted-foreground'
                 }`}
                 onClick={() => setStyle(s)}
@@ -256,7 +256,7 @@ export default function ImagePage() {
           </View>
         ) : null}
         <Button
-          className="bg-[var(--color-brand-orange)] text-[var(--color-surface-light)] rounded-[12rpx] text-[20rpx] font-medium mt-[32rpx] w-full h-[88rpx] leading-[88rpx] disabled:opacity-60"
+          className="bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] rounded-[12rpx] text-[20rpx] font-medium mt-[32rpx] w-full h-[88rpx] leading-[88rpx] disabled:opacity-60"
           onClick={onGenerate}
           disabled={!prompt || loading}
         >

@@ -241,7 +241,7 @@ export default function PlazaIndex() {
             {item.track ? <Text className="pza-track">{item.track}</Text> : null}
             {(item.attention ?? 0) > 0 ? (
               <View className="pza-attention">
-                <LineIcon name="heart" size={28} color="var(--color-brand-orange)" />
+                <LineIcon name="heart" size={28} color="var(--color-brand-accent-deep)" />
                 <Text className="pza-attention-count">{item.attention}</Text>
               </View>
             ) : null}

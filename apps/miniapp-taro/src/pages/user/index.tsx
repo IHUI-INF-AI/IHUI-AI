@@ -1286,7 +1286,7 @@ export default function UserIndex() {
             >
               {renderIcon(item.icon, 'text-[40rpx]', 'w-[40rpx] h-[40rpx]')}
               <Text className="flex-1 ml-[20rpx] text-[30rpx] text-foreground">{t(item.key)}</Text>
-              <Text className="text-[26rpx] text-[var(--color-brand-orange)]">{'>'}</Text>
+              <Text className="text-[26rpx] text-[var(--color-brand-accent-deep)]">{'>'}</Text>
             </View>
           ))}
         </View>
