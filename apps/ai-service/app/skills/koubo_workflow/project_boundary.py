@@ -24,6 +24,13 @@
 #   python project_boundary.py check-write --path P [--path Q ...]
 #       在写文件前校验每个目标路径；违反直接 sys.exit(3)。
 #
+# 用法（服务化，2026-09-14 立）：
+#   ai-service 把本 skills 目录包成 HTTP 能力后，一个进程会并发处理
+#   wechat / koubo 两类请求，而 .session/SESSION_DOMAIN 是全局单文件，
+#   并发下必然串域。故改由调用方在派生子进程时注入环境变量：
+#     IHUI_SESSION_DOMAIN=wechat  (或 koubo)
+#   read_session() 优先读该环境变量；未注入时回落到文件（CLI 单会话场景）。
+#
 # 作为模块被其他脚本 import：
 #   import project_boundary
 #   project_boundary.check_action(tool="publish_pipeline.py", paths=sys.argv[1:], cwd=os.getcwd())
@@ -37,6 +44,7 @@ WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # skill
 KOUBO = os.path.join(WORKSPACE, "koubo_workflow")
 WECHAT = os.path.join(WORKSPACE, "content_engine")
 SESSION_FILE = os.path.join(WORKSPACE, ".session", "SESSION_DOMAIN")
+SESSION_ENV = "IHUI_SESSION_DOMAIN"  # 服务化调用时由调用方注入子进程环境变量
 STALE_SECONDS = 24 * 3600  # 锁超过 24h 视为过期，强制重新 init（fail-closed）
 
 # 每个 domain 禁止的工具 / 路径片段 / 产物后缀
@@ -80,7 +88,23 @@ def _under(path: str, root: str) -> bool:
         return False
 
 def read_session() -> str | None:
-    """返回当前会话 domain；未声明/非法/过期 均返回 None（fail-closed）。"""
+    """返回当前会话 domain；未声明/非法/过期 均返回 None（fail-closed）。
+
+    两条声明通道，按优先级：
+
+    1. 环境变量 `IHUI_SESSION_DOMAIN`（服务化调用，2026-09-14 立）
+       ai-service 把 skills 包成 HTTP 能力后，同一进程会并发处理 wechat / koubo
+       两类请求，而 .session/SESSION_DOMAIN 是**全局单文件**，并发下必然串域。
+       故服务端在派生子进程时把 domain 注入子进程环境变量：每个子进程独占一份，
+       天然隔离且无 TTL（进程存活期即会话期）。
+    2. `.session/SESSION_DOMAIN` 文件（人类 / AI 在 CLI 下的单会话声明，24h 过期）。
+
+    环境变量已设置但取值非法时直接判 None（不回落到文件）——fail-closed，
+    避免"注入错误值"被旧文件里的合法会话顶掉而放行。
+    """
+    env_domain = os.environ.get(SESSION_ENV, "").strip()
+    if env_domain:
+        return env_domain if env_domain in FORBID else None
     try:
         with open(SESSION_FILE, encoding="utf-8") as f:
             raw = f.read().strip()
