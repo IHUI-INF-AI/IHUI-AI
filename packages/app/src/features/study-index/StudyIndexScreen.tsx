@@ -704,7 +704,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 28,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: tk.brandAccent.DEFAULT,
+      borderColor: tk.brandAccent.deep,
       backgroundColor: tk.brandAccent.light,
       alignItems: 'center',
       justifyContent: 'center',

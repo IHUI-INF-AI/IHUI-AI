@@ -18,13 +18,13 @@ import { cn } from '../lib/utils'
  *   - 投影: 3px 3px 0 foreground — 硬阴影偏移,非柔光弥散
  *   - 按下: 阴影收缩至 1px + 2px 位移 — 实体按键反馈
  *
- * ON 配色: var(--color-brand-orange) (#ff6b35 亮 / #ff8e53 暗)
- *   - 避开蓝色,采用项目品牌橙,暖色高识别度,与黑投影对比强烈
- *   - 明暗主题自动适配 (tokens.css .dark 覆盖 brand-orange)
+ * ON 配色: var(--color-brand-accent) (#8fb8cc 亮 / #a3c4d6 暗)
+ *   - 采用项目高级灰蓝,冷色高识别度,与黑投影对比强烈
+ *   - 明暗主题自动适配 (tokens.css .dark 覆盖 brand-accent)
  *
  * 状态色:
  *   - OFF: bg-background + border-foreground + thumb bg-foreground
- *   - ON:  bg-brand-orange + border-foreground + thumb bg-background
+ *   - ON:  bg-brand-accent + border-foreground + thumb bg-background
  *
  * 尺寸: sm (20×36 / thumb 12×12) / md (24×44 / thumb 16×16) / lg (28×52 / thumb 20×20)
  * 位移经精确计算: W - 2×1.5(border) - 2×3(padding) - T
@@ -57,8 +57,8 @@ const Switch = React.forwardRef<React.ElementRef<typeof SwitchPrimitives.Root>, 
           'transition-[background,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
           'disabled:cursor-not-allowed disabled:opacity-50',
-          // ON: 品牌橙背景 + 保持黑边
-          'data-[state=checked]:bg-[var(--color-brand-orange)] data-[state=checked]:border-foreground',
+          // ON: 高级灰蓝背景 + 保持黑边
+          'data-[state=checked]:bg-[var(--color-brand-accent)] data-[state=checked]:border-foreground',
           // 按下: 阴影收缩 + 2px 位移,实体按键反馈
           'active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--color-foreground)]',
           // 无障碍: prefers-reduced-motion 停用过渡与位移,保留阴影设计

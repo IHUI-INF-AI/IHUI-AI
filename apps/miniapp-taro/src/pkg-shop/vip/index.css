@@ -6,7 +6,7 @@
 
 /* VIP 页 — 视觉对齐 RN 端 VipScreen(mobile-rn + @ihui/rn-app 共享屏,2026-09-08)
    金色 = RN vip token(--color-vip-gold-start #FFD700,明暗同值)仅作 VIP 身份标识
-   (价格徽章/头部价格);主 CTA/底部价格对齐 RN planAmount/subscribeButton 品牌橙;
+   (价格徽章/头部价格);主 CTA/底部价格对齐 RN planAmount/subscribeButton 品牌灰蓝;
    会员状态卡对齐 SharedVipScreen membershipCard(深灰 var(--color-vip-card) + 白字)。
    表面/文字全 token 化,暗色经语义 token 自动适配。头部 vip_back.png 为深色背景素材,
    图上方保留白字。 */
@@ -189,7 +189,7 @@
   border-radius: var(--radius-lg);
 }
 
-/* VipPriceSelector 选中态已在组件内用 brand-orange token(border/bg/text),
+/* VipPriceSelector 选中态已在组件内用 brand-accent token(border/bg/text),
    原浅色父级覆盖(border-yellow-400/bg-yellow-50/text-yellow-700)已删除 */
 .vip-page .border-border {
   border-color: var(--vip-border);
@@ -223,11 +223,12 @@
   flex-shrink: 0;
 }
 .auto-check.checked {
-  background: var(--color-brand-orange);
-  border-color: var(--color-brand-orange);
+  background: var(--color-brand-accent);
+  border-color: var(--color-brand-accent);
 }
 .auto-mark {
-  color: var(--color-white-98);
+  /* accent 底配 foreground 文字 */
+  color: var(--color-brand-accent-foreground);
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1;
@@ -281,28 +282,29 @@
   align-items: baseline;
 }
 .symbol {
-  /* 对齐 RN planAmount 颜色:brandAccent.DEFAULT → var(--color-brand-orange) */
+  /* 对齐 RN planAmount 颜色:brandAccent 前景色 → var(--color-brand-accent-deep) */
   font-size: 32rpx;
-  color: var(--color-brand-orange);
+  color: var(--color-brand-accent-deep);
   margin-right: 4rpx;
   font-weight: 600;
 }
 .number {
-  /* 对齐 RN planAmount:22dp→44rpx / 700 / 品牌橙 */
+  /* 对齐 RN planAmount:22dp→44rpx / 700 / 品牌灰蓝 */
   font-size: 44rpx;
   font-weight: 700;
-  color: var(--color-brand-orange);
+  color: var(--color-brand-accent-deep);
 }
 .buy-btn {
-  /* 对齐 RN subscribeButton:高 36dp→72rpx / 圆角 8dp→16rpx / 品牌橙底白字 13dp→26rpx 600 */
+  /* 对齐 RN subscribeButton:高 36dp→72rpx / 圆角 8dp→16rpx / 品牌灰蓝底前景文字 13dp→26rpx 600 */
   flex: 1;
   height: 72rpx;
   line-height: 72rpx;
   padding: 0 48rpx;
-  background: var(--color-brand-orange);
+  background: var(--color-brand-accent);
   border-radius: var(--radius-lg);
   font-size: 26rpx;
-  color: var(--color-white-98);
+  /* accent 底配 foreground 文字(浅灰蓝上白字对比不足) */
+  color: var(--color-brand-accent-foreground);
   font-weight: 600;
   border: none;
   text-align: center;
@@ -387,9 +389,9 @@
   margin-bottom: 12rpx;
 }
 .pp-plan-price {
-  /* 对齐 RN BottomPopup 金额色:brandAccent.DEFAULT → var(--color-brand-orange) */
+  /* 对齐 RN BottomPopup 金额色:brandAccent 前景色 → var(--color-brand-accent-deep) */
   font-size: 56rpx;
-  color: var(--color-brand-orange);
+  color: var(--color-brand-accent-deep);
   font-weight: 700;
   margin-bottom: 8rpx;
 }
@@ -415,12 +417,13 @@
   flex-shrink: 0;
 }
 .pp-checkbox.checked {
-  /* 对齐 RN 弹窗强调色语言:brandAccent → var(--color-brand-orange) */
-  background: var(--color-brand-orange);
-  border-color: var(--color-brand-orange);
+  /* 对齐 RN 弹窗强调色语言:brandAccent → var(--color-brand-accent) */
+  background: var(--color-brand-accent);
+  border-color: var(--color-brand-accent);
 }
 .pp-check-mark {
-  color: var(--color-white-98);
+  /* accent 底配 foreground 文字 */
+  color: var(--color-brand-accent-foreground);
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1;
@@ -439,9 +442,9 @@
   border: 1px solid var(--vip-border);
 }
 .pp-pay-item.active {
-  /* 选中态对齐 RN brandAccent.light 浅底 + brandAccent 描边 */
-  background: var(--color-brand-orange-light);
-  border-color: var(--color-brand-orange);
+  /* 选中态对齐 RN brandAccent.light 浅底 + brandAccent 描边(前景描边用 deep 保对比) */
+  background: var(--color-brand-accent-light);
+  border-color: var(--color-brand-accent-deep);
 }
 .pp-pay-icon {
   width: 64rpx;
@@ -470,7 +473,7 @@
 }
 .pp-pay-check {
   font-size: 32rpx;
-  color: var(--color-brand-orange);
+  color: var(--color-brand-accent-deep);
   font-weight: 700;
 }
 .pp-success-icon {

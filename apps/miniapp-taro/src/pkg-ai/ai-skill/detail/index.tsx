@@ -89,10 +89,10 @@ const viewStyles = {
     paddingBottom: toRpx(4),
     overflow: 'hidden',
   }),
-  // bg-orange-50 / dark:bg-neutral-700 → 统一品牌橙浅底 token(明暗成对)
+  // bg-orange-50 / dark:bg-neutral-700 → 统一品牌灰蓝浅底 token(明暗成对)
   tagBadge: (_tk: RnThemeTokens): CSSProperties => ({
     borderRadius: toRpx(2),
-    backgroundColor: 'var(--color-brand-orange-light)',
+    backgroundColor: 'var(--color-brand-accent-light)',
     paddingLeft: toRpx(8),
     paddingRight: toRpx(8),
     paddingTop: toRpx(4),
@@ -142,7 +142,7 @@ const textStyles = {
   }),
   tagText: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(12),
-    color: 'var(--color-brand-orange)',
+    color: 'var(--color-brand-accent-deep)',
   }),
   sectionTitle: (_tk: RnThemeTokens): CSSProperties => ({
     marginTop: toRpx(20),

@@ -2045,14 +2045,14 @@ const shellStyles = {
   } as const,
   selectedChipText: {
     fontSize: 11,
-    color: tokens.brandAccent.DEFAULT,
+    color: tokens.brandAccent.deep,
     fontWeight: '600',
     maxWidth: 200,
   } as const,
   selectedChipClose: {
     fontSize: 14,
     lineHeight: 16,
-    color: tokens.brandAccent.DEFAULT,
+    color: tokens.brandAccent.deep,
     marginLeft: rpx(12),
     fontWeight: '700',
   } as const,

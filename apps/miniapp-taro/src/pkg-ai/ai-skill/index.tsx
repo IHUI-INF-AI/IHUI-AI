@@ -108,8 +108,8 @@ const viewStyles = {
   }),
   tagBadge: (_tk: RnThemeTokens): CSSProperties => ({
     borderRadius: toRpx(2),
-    // bg-orange-50 / dark:bg-neutral-700 → 统一品牌橙浅底 token(明暗成对)
-    backgroundColor: 'var(--color-brand-orange-light)',
+    // bg-orange-50 / dark:bg-neutral-700 → 统一品牌灰蓝浅底 token(明暗成对)
+    backgroundColor: 'var(--color-brand-accent-light)',
     paddingLeft: toRpx(6),
     paddingRight: toRpx(6),
     paddingTop: toRpx(2),
@@ -161,7 +161,7 @@ const textStyles = {
   }),
   tagText: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(12),
-    color: 'var(--color-brand-orange)',
+    color: 'var(--color-brand-accent-deep)',
   }),
 }
 

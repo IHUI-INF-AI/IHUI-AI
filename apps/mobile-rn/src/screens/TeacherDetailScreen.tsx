@@ -495,7 +495,7 @@ const createStyles = (tk: RnThemeTokens) =>
     },
     expandText: {
       fontSize: 13,
-      color: tk.brandAccent.DEFAULT,
+      color: tk.brandAccent.deep,
     },
     /* 主讲课程 */
     courseCard: {

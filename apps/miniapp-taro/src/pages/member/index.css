@@ -396,8 +396,8 @@
 }
 .member-progress-fill {
   height: 100%;
-  /* 金色进度填充收敛至 token(品牌橙) */
-  background: linear-gradient(90deg, var(--color-warning), var(--color-brand-orange));
+  /* 金色进度填充收敛至 token(品牌灰蓝) */
+  background: linear-gradient(90deg, var(--color-warning), var(--color-brand-accent));
   border-radius: var(--radius-sm);
   transition: width 0.3s ease;
 }
