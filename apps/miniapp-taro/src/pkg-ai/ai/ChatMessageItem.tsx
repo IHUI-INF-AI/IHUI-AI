@@ -6,6 +6,7 @@ import { aizhsUrl } from '@/constants/icon-urls'
 import { useI18n } from '@/i18n'
 import { View, Text, Image, Video, Button } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
+import { StreamActivityCards } from './cards/ai-cards'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/api'
@@ -129,6 +130,8 @@ export default function ChatMessageItem({
   const [voicePlaying, setVoicePlaying] = useState(false)
   // 显示/隐藏答案(对标原 ai_assistant.vue toggleAnswerVisibility + eye-closed/eye-open.svg)
   const [answerHidden, setAnswerHidden] = useState(false)
+  // #12 小程序 AI 增强:工具卡片(计划 / 工具 / 终端)折叠态
+  const [cardsExpanded, setCardsExpanded] = useState(true)
 
   // 音频上下文 ref(避免每次播放创建新实例导致资源泄漏)
   const audioContextRef = useRef<Taro.InnerAudioContext | null>(null)
@@ -488,6 +491,20 @@ export default function ChatMessageItem({
                     {t('ai.chatMessageItem.digitalHuman')}
                   </Text>
                 </View>
+              ) : null}
+              {/* #12 小程序 AI 增强:工具卡片(计划 / 工具 / 终端),由 assistant 消息 aiCards 累积渲染 */}
+              {msg.aiCards &&
+              msg.aiCards.planSteps.length +
+                msg.aiCards.toolCalls.length +
+                msg.aiCards.terminalTasks.length >
+                0 ? (
+                <StreamActivityCards
+                  planSteps={msg.aiCards.planSteps}
+                  toolCalls={msg.aiCards.toolCalls}
+                  terminalTasks={msg.aiCards.terminalTasks}
+                  expanded={cardsExpanded}
+                  onToggleExpand={() => setCardsExpanded((v) => !v)}
+                />
               ) : null}
             </View>
           ) : (
