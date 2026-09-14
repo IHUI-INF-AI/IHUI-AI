@@ -1313,8 +1313,14 @@ def _score_opening_hook(full_text: str) -> tuple[int, str]:
     if not full_text:
         return 0, '无正文'
 
+    # 2026-09-14 修：本项目所有文章 md 都在文件头带版权/溯源注释块
+    # （`<!-- ... -->`），它属于元数据不是正文。此前未剥离，
+    # 导致 opening 恒等于注释内容 → 所有文章开头钩子都被误判为 1/10（假阴性）。
+    # 这里先剥掉开头连续的 HTML 注释与空白，再取正文开头。
+    body = re.sub(r'^(?:\s*<!--.*?-->\s*)+', '', full_text, flags=re.DOTALL)
+
     # 提取开头（前200字或前3句）
-    opening = full_text[:200]
+    opening = body[:200]
 
     score = 0
     hooks_found: list[str] = []
