@@ -150,7 +150,13 @@ function Build-Web {
     # 管线(lightningcss,与 Turbopack/webpack 无关)偶发在此巨行上报假性
     # "Parsing CSS failed / Unexpected token Delim('\u{1a}')" 中断构建;成功可达但概率失败。
     # 对策:冷构建(每次清空 staging 缓存)+ 多轮重试,落在成功态为止。
+    # 2026-09-14 堆内存加固(实测):next build(Turbopack/webpack 皆然)Node 侧堆
+    # 需求 >4GB(本机 4GB 默认堆实测 OOM "Ineffective mark-compacts",12GB 堆通过);
+    # 生产机若默认堆不足会连续 4 轮构建失败 → 部署 exit 1 → web 永久滞留旧构建。
+    # 对策:显式放宽 Node 堆到 8GB(按需分配,不预占),构建结束在 finally 还原。
     $env:NEXT_TELEMETRY_DISABLED = '1'
+    $prevNodeOptions = $env:NODE_OPTIONS
+    $env:NODE_OPTIONS = "--max-old-space-size=8192$(if ($prevNodeOptions -and $prevNodeOptions -notmatch 'max-old-space-size') { ' ' + $prevNodeOptions })"
     try {
         for ($try = 1; $try -le $MaxTries; $try++) {
             Log "构建尝试 $try/$MaxTries -> .next-$DistDir"
@@ -165,6 +171,7 @@ function Build-Web {
     } finally {
         Remove-Item Env:\IHUI_BUILD_DIST -ErrorAction SilentlyContinue
         Remove-Item Env:\NEXT_TELEMETRY_DISABLED -ErrorAction SilentlyContinue
+        if ($prevNodeOptions) { $env:NODE_OPTIONS = $prevNodeOptions } else { Remove-Item Env:\NODE_OPTIONS -ErrorAction SilentlyContinue }
     }
 }
 
