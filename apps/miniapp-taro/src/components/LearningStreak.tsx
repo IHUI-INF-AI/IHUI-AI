@@ -76,7 +76,7 @@ export default function LearningStreak({
         className={`w-full py-2 rounded-md text-center text-sm ${
           signedToday
             ? 'bg-muted text-muted-foreground'
-            : 'bg-gradient-to-r from-[var(--color-brand-orange)] to-[var(--color-danger)] text-[var(--color-surface-light)]'
+            : 'bg-gradient-to-r from-[var(--color-brand-accent)] to-[var(--color-danger)] text-[var(--color-brand-accent-foreground)]'
         }`}
         onClick={() => !signedToday && onSign?.()}
         hoverClass="opacity-60"

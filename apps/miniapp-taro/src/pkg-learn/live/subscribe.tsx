@@ -174,7 +174,7 @@ export default function LiveSubscribe() {
               {tt('live.subscribe.empty', '暂无订阅')}
             </Text>
             <Text
-              className="mt-[24rpx] text-[28rpx] font-semibold text-[var(--color-brand-orange)]"
+              className="mt-[24rpx] text-[28rpx] font-semibold text-[var(--color-brand-accent-deep)]"
               onClick={goDiscover}
             >
               {tt('live.subscribe.discover', '去发现直播')}
