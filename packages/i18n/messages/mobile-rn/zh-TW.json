@@ -1092,20 +1092,6 @@
     "title": "學習開發",
     "contactLabel": "直接聯繫李總"
   },
-  "lecturerDetail": {
-    "title": "講師詳情",
-    "subtitle": "瞭解講師,選課不迷路",
-    "empty": "暫無簡介",
-    "courses": "課程",
-    "followers": "粉絲",
-    "students": "學員",
-    "followBtn": "關注",
-    "unfollowBtn": "已關注",
-    "retry": "重試",
-    "level": "難度",
-    "studentCount": "{count} 人學過",
-    "free": "免費"
-  },
   "liveChat": {
     "title": "直播間互動",
     "empty": "暫無互動,快來搶個頭香吧",

@@ -27,6 +27,21 @@ import { db } from '../src/db/index.js'
 import { users } from '@ihui/database'
 import { eq } from 'drizzle-orm'
 
+/**
+ * 生产库防呆(2026-09-14 立):本脚本只允许写 E2E 专用库。
+ * dotenv 会兜底读 apps/api/.env(生产 ihui_dev),本地跑 Playwright 时若忘记
+ * 显式覆盖 DATABASE_URL,测试账号会被 seed 进生产库。CI 场景 e2e.yml 显式传
+ * CI 容器库 + CI=true,不受影响;本地显式传 ihui_e2e 也放行。
+ */
+const DATABASE_URL = process.env.DATABASE_URL ?? ''
+if (DATABASE_URL.includes('ihui_dev') && process.env.CI !== 'true') {
+  console.error(
+    '[seed-test-users] 拒绝执行:DATABASE_URL 指向生产库 ihui_dev。' +
+      'E2E 种子只允许写入隔离库,请显式传 DATABASE_URL(如 ihui_e2e);CI 环境不受影响。',
+  )
+  process.exit(1)
+}
+
 interface SeedUser {
   email: string
   username: string

@@ -9,7 +9,7 @@
   尺寸换算: RN raw dp M → M*2 rpx。颜色映射(值一一对应):
   surface.bg #F5F5F5→--color-background / surface.light #FFFFFF→--color-card /
   surface.muted #EBEBEB→--color-muted / border.light #E5E5E5→--color-border /
-  brand.DEFAULT #000000→--color-brand / brandAccent #ff6b35→--color-brand-orange /
+  brand.DEFAULT #000000→--color-brand / brandAccent #8fb8cc→--color-brand-accent /
   text.primary→--color-foreground / text.secondary #666→--color-muted-foreground /
   text.tertiary #A3A3A3→--color-text-tertiary / text.medium #404040→--color-text-medium /
   success.DEFAULT→--color-success
@@ -282,7 +282,7 @@
 .pza-empty-main {
   font-size: 40rpx;
   font-weight: 700;
-  color: var(--color-brand-orange);
+  color: var(--color-brand-accent-deep);
   text-align: center;
 }
 
@@ -536,6 +536,6 @@
 
 /* 选中态用跨端统一强调色 brandAccent(对齐 RN brandAccent.DEFAULT) */
 .pza-sheet-item.active text {
-  color: var(--color-brand-orange);
+  color: var(--color-brand-accent-deep);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

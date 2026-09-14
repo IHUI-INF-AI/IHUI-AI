@@ -72,6 +72,9 @@ const { mockT, toastMock, IconSpan } = vi.hoisted(() => {
 
 vi.mock('next-intl', () => ({
   useTranslations: () => mockT,
+  // 2026-09-14:MessageItem 引入 AI 朗读(TTS)后,use-tts.ts 依赖 useLocale
+  // (选择 edge-tts 音色),本 mock 需同步提供,否则 34 例因 next-intl mock 缺导出全红。
+  useLocale: () => 'zh-CN',
 }))
 
 vi.mock('@radix-ui/react-tooltip', () => ({
@@ -747,6 +750,11 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
         }),
       ]
       render(<MessageList {...baseProps} messages={msgs} />)
+      // 2026-09-14:#17「折叠中间步骤」后 planSteps 默认折叠在「查看 N 个中间步骤」内,
+      // 断言前需先展开折叠区;纯 planSteps 消息(无 toolCalls)现在同样会渲染折叠区
+      // (此前 gate 仅判 toolCalls,plan 步骤永久不可见)。
+      const collapsible = screen.getByTestId('message-steps-collapsible-a1')
+      fireEvent.click(collapsible.querySelector('button') as HTMLButtonElement)
       const card = screen.queryByTestId('message-plan-steps-a1')
       expect(card).toBeTruthy()
     })

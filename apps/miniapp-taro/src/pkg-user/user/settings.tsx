@@ -114,7 +114,7 @@ export default function Settings() {
       {/* 对齐 RN 共享 SettingsScreen:页面浅灰底 + 体边距 20rpx + 分组间距 32rpx;
           分组标题 28rpx 次级字色;行卡圆角 16rpx(亮 card/暗 muted),行高 120rpx;
           行文字 32rpx(亮 text.medium/暗 foreground),箭头 40rpx 三级字色;
-          通知开关品牌橙 track(RN switchTrackColor true = brandAccent);退出登录 100rpx 危险红字 */}
+          通知开关品牌灰蓝 track(RN switchTrackColor true = brandAccent);退出登录 100rpx 危险红字 */}
       <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[48rpx] box-border">
         {/* 账号与安全 */}
         <View className="mb-[32rpx]">
@@ -191,7 +191,7 @@ export default function Settings() {
 
               <Switch
                 checked={notifEnabled}
-                color="var(--color-brand-orange)"
+                color="var(--color-brand-accent-deep)"
                 onChange={onNotifChange}
               />
             </View>

@@ -21276,20 +21276,6 @@
   "menu": {
     "sectionDiscover": "發現"
   },
-  "lecturerDetail": {
-    "retry": "重試",
-    "title": "講師詳情",
-    "subtitle": "講師簡介",
-    "empty": "暫無簡介",
-    "courses": "課程",
-    "students": "學員",
-    "followers": "粉絲",
-    "unfollowBtn": "已關注",
-    "followBtn": "關注",
-    "level": "等級",
-    "studentCount": "{count} 名學生",
-    "free": "免費"
-  },
   "messageCenter": {
     "type": {
       "system": "系統",

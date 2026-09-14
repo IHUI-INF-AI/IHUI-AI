@@ -60,7 +60,7 @@ export default function VipPriceSelector(props: VipPriceSelectorProps) {
             key={opt.id}
             className={`flex-1 relative px-3 py-3 rounded-xl border-2 ${
               selected
-                ? 'border-[var(--color-brand-orange)] bg-[var(--color-brand-orange-light)]'
+                ? 'border-[var(--color-brand-accent-deep)] bg-[var(--color-brand-accent-light)]'
                 : 'border-border bg-card'
             }`}
             onClick={() => onSelect?.(opt)}
@@ -78,7 +78,7 @@ export default function VipPriceSelector(props: VipPriceSelectorProps) {
             )}
             <Text
               className={`block text-sm font-medium text-center ${
-                selected ? 'text-[var(--color-brand-orange)]' : 'text-foreground'
+                selected ? 'text-[var(--color-brand-accent-deep)]' : 'text-foreground'
               }`}
             >
               {opt.name}
@@ -87,7 +87,7 @@ export default function VipPriceSelector(props: VipPriceSelectorProps) {
               <Text className="text-xs text-muted-foreground">¥</Text>
               <Text
                 className={`text-xl font-bold ${
-                  selected ? 'text-[var(--color-brand-orange)]' : 'text-foreground'
+                  selected ? 'text-[var(--color-brand-accent-deep)]' : 'text-foreground'
                 }`}
               >
                 {opt.price}

@@ -23,7 +23,7 @@ function useCollapsibleContext(component: string): CollapsibleContextValue {
   return ctx
 }
 
-export interface CollapsibleProps {
+export interface CollapsibleProps extends React.HTMLAttributes<HTMLDivElement> {
   open?: boolean
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
@@ -32,7 +32,7 @@ export interface CollapsibleProps {
 }
 
 const Collapsible = React.forwardRef<HTMLDivElement, CollapsibleProps>(
-  ({ open: openProp, defaultOpen = false, onOpenChange, children, className }, ref) => {
+  ({ open: openProp, defaultOpen = false, onOpenChange, children, className, ...rest }, ref) => {
     const [internalOpen, setInternalOpen] = React.useState(defaultOpen)
     const isControlled = openProp !== undefined
     const open = isControlled ? openProp : internalOpen
@@ -52,7 +52,12 @@ const Collapsible = React.forwardRef<HTMLDivElement, CollapsibleProps>(
 
     return (
       <CollapsibleContext.Provider value={value}>
-        <div ref={ref} className={cn('w-full', className)} data-state={open ? 'open' : 'closed'}>
+        <div
+          ref={ref}
+          className={cn('w-full', className)}
+          data-state={open ? 'open' : 'closed'}
+          {...rest}
+        >
           {children}
         </div>
       </CollapsibleContext.Provider>

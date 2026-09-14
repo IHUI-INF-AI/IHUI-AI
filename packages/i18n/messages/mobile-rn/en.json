@@ -1092,20 +1092,6 @@
     "title": "Learning & Development",
     "contactLabel": "Contact Mr. Li directly"
   },
-  "lecturerDetail": {
-    "title": "Lecturer Profile",
-    "subtitle": "Get to know the lecturer before enrolling",
-    "empty": "No introduction yet",
-    "courses": "Courses",
-    "followers": "Followers",
-    "students": "Students",
-    "followBtn": "Follow",
-    "unfollowBtn": "Following",
-    "retry": "Retry",
-    "level": "Level",
-    "studentCount": "{count} learners",
-    "free": "Free"
-  },
   "liveChat": {
     "title": "Live Chat",
     "empty": "No messages yet. Say hi!",

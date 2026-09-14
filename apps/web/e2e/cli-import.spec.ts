@@ -45,6 +45,8 @@ const PARSE_MOCK = {
 test.describe('CLI 配置导入', () => {
   // 2026-08-26:dev 环境偶发浏览器崩溃(Target page closed),加 1 次重试兜底
   test.describe.configure({ retries: 1 })
+  // 2026-09-14:已登录场景多步操作,全量负载下 30s 默认 timeout 偶发不足(flaky,纯预算)
+  test.describe.configure({ timeout: 90_000 })
   test('未登录访问 /settings/import 显示登录墙(不重定向)', async ({ page }) => {
     // 2026-08-26 修复:应用未登录不重定向(显示登录墙"请先登录"/登录弹窗),原断言期望跳
     // /login 过时(redirects 仅 /login→/sso/login 一条)。改为验证未登录态呈现。
