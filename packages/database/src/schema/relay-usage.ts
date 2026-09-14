@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { pgTable, uuid, date, integer, bigint, timestamp, index, unique } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, date, integer, bigint, numeric, timestamp, index, unique } from 'drizzle-orm/pg-core'
 import { aiRelayKeyPool } from './ai-relay.js'
 import { developerApiKeys } from './developer-api-keys.js'
 
@@ -29,7 +29,7 @@ export const aiRelayChannelDailyUsage = pgTable(
     /** 当日累计 token 数 */
     totalTokens: bigint('total_tokens', { mode: 'number' }).default(0),
     /** 当日累计成本(分) */
-    totalCostCents: integer('total_cost_cents').default(0),
+    totalCostCents: numeric('total_cost_cents', { precision: 18, scale: 6, mode: 'number' }).default(0),
     /** 当日错误次数 */
     errorCount: integer('error_count').default(0),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),

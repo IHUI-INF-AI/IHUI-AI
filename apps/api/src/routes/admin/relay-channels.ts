@@ -546,26 +546,30 @@ const relayChannelsRoutes: FastifyPluginAsync = async (server) => {
         .leftJoin(aiRelayKeyPool, eq(aiRelayKeyPool.id, aiRelayChannelGroupMembers.keyPoolId))
         .where(eq(aiRelayChannelGroupMembers.groupId, p.data.id))
 
-      const memberList: MemberWithCircuit[] = members.map((m) => {
-        const circuit = getCircuitState(m.keyPoolId)
-        const recent = getRecentCalls(m.keyPoolId)
-        const avgLatency =
-          recent.length > 0 ? recent.reduce((sum, r) => sum + r.latencyMs, 0) / recent.length : null
-        return {
-          memberId: m.memberId,
-          keyPoolId: m.keyPoolId,
-          weight: m.weight,
-          keyPoolName: m.keyPoolName,
-          keyPoolProviderCode: m.keyPoolProviderCode,
-          keyPoolEnabled: m.keyPoolEnabled,
-          circuitState: circuit.state,
-          failureCount: circuit.failureCount,
-          lastFailureAt: circuit.lastFailureAt || null,
-          recentCallsCount: recent.length,
-          avgLatencyMs: avgLatency,
-          createdAt: m.createdAt,
-        }
-      })
+      const memberList: MemberWithCircuit[] = await Promise.all(
+        members.map(async (m) => {
+          const circuit = await getCircuitState(m.keyPoolId)
+          const recent = getRecentCalls(m.keyPoolId)
+          const avgLatency =
+            recent.length > 0
+              ? recent.reduce((sum, r) => sum + r.latencyMs, 0) / recent.length
+              : null
+          return {
+            memberId: m.memberId,
+            keyPoolId: m.keyPoolId,
+            weight: m.weight,
+            keyPoolName: m.keyPoolName,
+            keyPoolProviderCode: m.keyPoolProviderCode,
+            keyPoolEnabled: m.keyPoolEnabled,
+            circuitState: circuit.state,
+            failureCount: circuit.failureCount,
+            lastFailureAt: circuit.lastFailureAt || null,
+            recentCallsCount: recent.length,
+            avgLatencyMs: avgLatency,
+            createdAt: m.createdAt,
+          }
+        }),
+      )
 
       // 汇总统计
       const totalMembers = memberList.length
@@ -663,7 +667,9 @@ const relayChannelsRoutes: FastifyPluginAsync = async (server) => {
   server.post('/admin/relay/channels/test/:keyPoolId/reset-circuit', async (request, reply) => {
     const p = keyPoolParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '无效的 keyPoolId'))
-    resetCircuit(p.data.keyPoolId)
+    resetCircuit(p.data.keyPoolId).catch((e: unknown) => {
+      request.log.warn(e, 'resetCircuit failed (redis del + memory clear)')
+    })
     return reply.send(success({ keyPoolId: p.data.keyPoolId, circuitReset: true }))
   })
 

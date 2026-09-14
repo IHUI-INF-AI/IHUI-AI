@@ -59,6 +59,23 @@ ensure_dirs() {
   mkdir -p "$(dirname "${NGINX_CONF}")"
 }
 
+# ── 可选: AI 诊断助手(P2-13 deploy 运维 AI 化) ──
+# 部署失败时把 ${LOG_FILE} 尾部交给 LLM 网关做根因诊断,报告打到 stderr。
+# 默认零行为变化:仅当 node 可用 + 设置了 IHUI_AI_KEY 时才启用,否则静默跳过。
+# 可选环境变量:IHUI_AI_BASE / IHUI_AI_MODEL / IHUI_AI_TIMEOUT_MS(见 ai-diagnose.mjs 头注释)。
+AI_DIAGNOSE_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ai-diagnose.mjs"
+ai_diagnose() {
+  local context=$1
+  if ! command -v node >/dev/null 2>&1; then return 0; fi
+  if [[ -z "${IHUI_AI_KEY:-}" || ! -f "${AI_DIAGNOSE_SCRIPT}" ]]; then return 0; fi
+  log INFO "调用 AI 诊断助手分析失败日志(P2-13)..."
+  if node "${AI_DIAGNOSE_SCRIPT}" --log "${LOG_FILE}" --tail 300 --context "${context}"; then
+    log INFO "AI 诊断报告已生成(见上方输出)"
+  else
+    log WARN "AI 诊断不可用(退出码 $?),不影响回滚流程"
+  fi
+}
+
 # ── 工具函数: 备份当前 nginx 配置 ──
 # 返回备份文件路径(写到 stdout)
 backup_conf() {
@@ -170,8 +187,9 @@ switch_to() {
   # 4. nginx -t 验证
   if ! nginx -t >/dev/null 2>&1; then
     log ERROR "nginx -t 验证失败,执行自动回滚"
-    nginx -t || true  # 输出详细错误到 stderr
+    nginx -t 2>&1 | tee -a "${LOG_FILE}" || true  # 详细错误入日志(供 AI 诊断)与 stderr
     restore_backup "${backup}"
+    ai_diagnose "deploy.sh 切换 ${current} → ${target} 时 nginx -t 验证失败,已自动恢复备份"
     exit 1
   fi
   log INFO "nginx -t 验证通过"
@@ -184,6 +202,7 @@ switch_to() {
     # 7. 健康检查失败 → 自动回滚
     log ERROR "切换后健康检查失败,自动回滚到 ${current}"
     restore_backup "${backup}"
+    ai_diagnose "deploy.sh 切换 ${current} → ${target} 后健康检查失败(${HEALTH_URL}),已自动回滚"
     exit 1
   fi
   # 8. 记录切换日志
@@ -223,6 +242,7 @@ cmd_rollback() {
   if ! nginx -t >/dev/null 2>&1; then
     log ERROR "回滚后 nginx -t 失败,恢复备份"
     restore_backup "${backup}"
+    ai_diagnose "deploy.sh 回滚 ${current} → ${prev} 后 nginx -t 失败,已恢复备份"
     exit 1
   fi
   nginx -s reload
@@ -230,6 +250,7 @@ cmd_rollback() {
   if ! health_check; then
     log ERROR "回滚后健康检查失败,恢复备份"
     restore_backup "${backup}"
+    ai_diagnose "deploy.sh 回滚 ${current} → ${prev} 后健康检查失败(${HEALTH_URL}),已恢复备份"
     exit 1
   fi
   # 回滚成功后,更新上一个环境记录为当前(被回滚的)环境

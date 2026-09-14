@@ -6,7 +6,6 @@ import {
   pgTable,
   uuid,
   varchar,
-  integer,
   numeric,
   boolean,
   timestamp,
@@ -33,9 +32,17 @@ export const modelPriceHistory = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     modelId: varchar('model_id', { length: 128 }).notNull(),
     /** 输入单价(分/千 token) */
-    inputTokenPriceCents: integer('input_token_price_cents').notNull(),
+    inputTokenPriceCents: numeric('input_token_price_cents', {
+      precision: 18,
+      scale: 6,
+      mode: 'number',
+    }).notNull(),
     /** 输出单价(分/千 token) */
-    outputTokenPriceCents: integer('output_token_price_cents').notNull(),
+    outputTokenPriceCents: numeric('output_token_price_cents', {
+      precision: 18,
+      scale: 6,
+      mode: 'number',
+    }).notNull(),
     /** 中转站倍率 numeric(5,2),1.00=原价,0.80=8 折 */
     relayMultiplier: numeric('relay_multiplier', { precision: 5, scale: 2 })
       .default('1.00')

@@ -29,11 +29,11 @@ if TYPE_CHECKING:
 from .context_recall import context_recall
 from .exec_policy import PolicyDecision, RuleDecision
 from .exec_policy import evaluate as exec_policy_evaluate
-from .security_config import get_security_config
 from .merge3 import merge3_for_edit
 
 # 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
 from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
+from .security_config import get_security_config
 
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120

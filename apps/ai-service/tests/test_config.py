@@ -106,11 +106,18 @@ def test_default_max_agent_iterations():
     assert Settings().max_agent_iterations == 8
 
 
-def test_default_api_service_url():
+def test_default_api_service_url(monkeypatch):
     """api_service_url 默认指向后端 8802。"""
     # 2026-09-11 修复:本机生产 .env 设 API_SERVICE_URL=http://127.0.0.1:8802(部署需要,
     # 避免 localhost 解析到 ::1),直接用 Settings() 会读 .env 使断言与部署环境耦合;
     # 与同文件其它用例一致用 _env_file=None,只断言仓库默认值。
+    #
+    # 2026-09-13 补强(仅补 _env_file=None 仍不够):litellm/__init__.py:27 在**导入时**
+    # 调 load_dotenv() 把整个本地 .env 灌进 os.environ,而环境变量优先级高于 _env_file,
+    # 于是全量套件跑到本用例时实得 'http://127.0.0.1:8802'(单独跑则通过)——CI 无 .env
+    # 故不受影响,属本机专属假失败。与 test_default_jwt_public_paths 同法显式清掉该
+    # 环境变量,断言只针对仓库默认值,与运行顺序/本机 .env 解耦。
+    monkeypatch.delenv("API_SERVICE_URL", raising=False)
     assert Settings(_env_file=None).api_service_url == "http://localhost:8802"
 
 
