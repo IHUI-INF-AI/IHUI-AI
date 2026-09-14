@@ -107,9 +107,13 @@ jobs:
         run: pnpm --filter @ihui/api run seed:test-users
 
       - name: Seed E2E 知识库条目(knowledge-base.spec 依赖)
+        # JWT_SECRET/CREDENTIALS_ENCRYPTION_KEY 必传:src/config import 链顶层 zod 校验
+        # 缺失即 process.exit(1);CI 无 apps/api/.env,dotenv 无从兜底(2026-09-14 实锤)
         env:
           NODE_ENV: test
           DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+          CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
         run: pnpm --filter @ihui/api run seed:e2e-knowledge
 
       - name: Build database package
