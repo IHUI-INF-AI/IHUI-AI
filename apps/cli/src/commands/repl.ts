@@ -11,6 +11,7 @@ import * as path from 'node:path';
 import * as readline from 'node:readline';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { createSession, saveSession, repairSessionHistory, type Session, type ChatMessage } from './session.js';
@@ -578,7 +579,13 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   if (opts.sessionId && state.history.length === 0) {
     const loaded = loadSessionState(opts.sessionId);
     if (loaded?.messages && Array.isArray(loaded.messages) && loaded.messages.length > 0) {
-      state.history = loaded.messages.map((m) => ({ role: m.role, content: m.content }));
+      // 2026-09-14:ChatMessage 改为 @ihui/types 完整版(id 必填 / role 不含 'tool'),
+      // SessionMessage.role 含 'tool' → 断言保留既有恢复行为(repairMessages 入 LLM 前清理)。
+      state.history = loaded.messages.map((m) => ({
+        id: randomUUID(),
+        role: m.role as ChatMessage['role'],
+        content: m.content,
+      }));
       console.info(chalk.dim(`  📂 已从 sessions 模块恢复 ${loaded.messages.length} 条消息`));
     } else if (opts.sessionId) {
       console.info(chalk.yellow(`  session not found: ${opts.sessionId},启动新会话`));
@@ -813,7 +820,13 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
           console.info(chalk.yellow(`未找到 session: ${id}(/sessions 查看可用列表)`));
           break;
         }
-        state.history = loaded.messages.map((m) => ({ role: m.role, content: m.content }));
+        // 2026-09-14:ChatMessage 改为 @ihui/types 完整版(id 必填 / role 不含 'tool'),
+      // SessionMessage.role 含 'tool' → 断言保留既有恢复行为(repairMessages 入 LLM 前清理)。
+      state.history = loaded.messages.map((m) => ({
+        id: randomUUID(),
+        role: m.role as ChatMessage['role'],
+        content: m.content,
+      }));
         if (state.session) {
           state.session.history = state.history;
           saveSession(state.session);
@@ -1139,7 +1152,7 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
           state.planMachine.transition('start');
         }
         const rejectMsg = '用户拒绝了上一个 plan,请重新规划任务步骤(输出 ```plan 代码块),再执行工具。';
-        state.history.push({ role: 'user', content: rejectMsg });
+        state.history.push({ id: randomUUID(), role: 'user', content: rejectMsg });
         if (state.session) {
           state.session.history = state.history;
           saveSession(state.session);
@@ -2031,7 +2044,7 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
   if (state.rewindStack.length > 20) {
     state.rewindStack.shift();
   }
-  state.history.push({ role: 'user', content: prompt });
+  state.history.push({ id: randomUUID(), role: 'user', content: prompt });
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     { role: 'system', content: state.systemPrompt! },
@@ -2182,7 +2195,7 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     state.agentRunning = false;
 
     if (result.assistantText) {
-      state.history.push({ role: 'assistant', content: result.assistantText });
+      state.history.push({ id: randomUUID(), role: 'assistant', content: result.assistantText });
     }
     if (state.session) {
       state.session.history = state.history;

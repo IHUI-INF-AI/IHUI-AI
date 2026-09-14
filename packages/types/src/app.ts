@@ -3715,40 +3715,71 @@ export interface CustomerServiceScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 讲师信息(LecturerDetailScreen) */
+/**
+ * 讲师详情信息(LecturerDetailScreen)
+ *
+ * 2026-09-14 重塑:迁移 mobile-rn TeacherDetailScreen(P0 补页 7585d0493,
+ * 对齐 miniapp pages/teacher/detail)到共享层,替换原批次 17 的简版死代码契约。
+ * 字段映射自 @ihui/api-client Teacher(name→nickname,fans/rating 随 /teacher/:id 返回)。
+ */
 export interface LecturerDetailInfo {
   id: string
+  /** 姓名 */
   nickname: string
   avatar: string | null
-  bio: string
-  followers: number
-  following: number
-  isFollowing: boolean
+  /** 头衔(如「高级讲师」) */
+  title?: string
+  /** 简介(超过 60 字共享层提供展开/收起,阈值对齐 miniapp) */
+  intro?: string
+  /** 粉丝数 */
+  fans?: number
+  /** 评分 */
+  rating?: number
+  /** 课程数(金牌讲师判定输入之一:courseCount>=10) */
   courseCount: number
+  /** 学员数(金牌讲师判定输入之二:studentCount>=1000) */
   studentCount: number
+  /** 是否已关注(wrapper 乐观更新驱动) */
+  isFollowing: boolean
+  /** 金牌徽章(wrapper 按课程数/学员数阈值计算后传入) */
+  isGold?: boolean
 }
 
-/** 讲师课程 */
+/** 讲师主讲课程(price 单位:分,0/undefined = 免费;对齐 miniapp TeacherCourse) */
 export interface LecturerDetailCourse {
   id: string
   title: string
-  level: string
-  price: number
-  studentCount: number
+  coverUrl?: string | null
+  price?: number
+  students?: number
 }
 
-/** LecturerDetailScreen props */
+/** 学员评价(对齐 miniapp review 渲染字段) */
+export interface LecturerDetailReview {
+  id?: string
+  nickname?: string
+  avatar?: string
+  rating?: number
+  content?: string
+  time?: string
+}
+
+/**
+ * LecturerDetailScreen props(props 注入式:API/导航/Alert 留 wrapper)
+ *
+ * 共享层负责:头部(头像/姓名/金牌徽章/关注)→ 统计行 → 简介展开收起
+ * → 主讲课程卡 → 学员评价(星级) → 底部联系条;关注态由 info.isFollowing 驱动。
+ */
 export interface LecturerDetailScreenProps {
   t: TFunction
   info: LecturerDetailInfo | null
   courses: LecturerDetailCourse[]
+  reviews: LecturerDetailReview[]
   loading: boolean
-  refreshing: boolean
   error: string
-  followLoading: boolean
-  onRefresh: () => void
-  onFollow: () => void
-  onRetry: () => void
+  onToggleFollow: () => void
+  onContact: () => void
+  onOpenCourse: (courseId: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }

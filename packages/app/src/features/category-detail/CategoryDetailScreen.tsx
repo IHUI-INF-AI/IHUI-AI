@@ -155,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     tabTextActive: {
-      color: tk.surface.light,
+      color: tk.brandAccent.foreground,
       fontWeight: '600',
     },
     listContent: { paddingHorizontal: 10, paddingBottom: 24 },
@@ -191,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    retryText: { fontSize: 14, fontWeight: '600', color: tk.brandAccent.foreground },
     emptyText: { fontSize: 16, color: tk.text.secondary },
     footerLoading: { paddingVertical: 12, alignItems: 'center' },
     footerText: { fontSize: 14, color: tk.text.secondary },

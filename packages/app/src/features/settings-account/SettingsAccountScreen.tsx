@@ -131,7 +131,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     btnDisabled: { opacity: 0.6 },
-    saveText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    saveText: { color: tk.brandAccent.foreground, fontSize: 16, fontWeight: '600' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 14 },
     muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
   })

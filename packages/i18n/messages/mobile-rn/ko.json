@@ -1092,20 +1092,6 @@
     "title": "학습 개발",
     "contactLabel": "이 대표에게 직접 문의"
   },
-  "lecturerDetail": {
-    "title": "강사 상세",
-    "subtitle": "강사를 알아보고 현명하게 강좌를 선택하세요",
-    "empty": "소개가 없습니다",
-    "courses": "강좌",
-    "followers": "팔로워",
-    "students": "학습자",
-    "followBtn": "팔로우",
-    "unfollowBtn": "팔로우 중",
-    "retry": "재시도",
-    "level": "난이도",
-    "studentCount": "{count}명 학습",
-    "free": "무료"
-  },
   "liveChat": {
     "title": "라이브 채팅",
     "empty": "아직 메시지가 없습니다. 첫 댓글을 남겨보세요",

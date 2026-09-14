@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   offlineBtn: {
     fontSize: 14,
-    color: tokens.brandAccent.DEFAULT,
+    color: tokens.brandAccent.deep,
     fontWeight: '500',
     textDecorationLine: 'underline',
   } as TextStyle,
