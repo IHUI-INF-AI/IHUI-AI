@@ -136,6 +136,7 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
     // Ctrl+1/2/3/4 模式切换(2026-08-27 根因修复,见 MODE_SHORTCUT_EVENTS 注释):
     // use-global-shortcuts 统一做按键匹配 + preventDefault 后派发事件,这里消费。
     const MODE_LABEL_KEYS: Record<ChatMode, string> = {
+      ask: 'modeAsk',
       build: 'modeBuild',
       plan: 'modePlan',
       review: 'modeReview',
