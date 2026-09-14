@@ -408,4 +408,18 @@ async def test_fim_metrics_models_cap(client):
     rows = (await client.get("/api/llm/fim/metrics/summary")).json()["data"]["models"]
     target = next(r for r in rows if r["model"] == "m-cap-0")
     assert target["requests"] == 6
+
+
+async def test_fim_strip_fences_mixed_reasoning_text():
+    """_strip_fences 加固:思考文本 + 中段围栏混排 → 提取围栏内代码。"""
+    cases = [
+        # (输入, 期望输出)
+        ("```python\nreturn a + b\n```", "return a + b"),
+        ("We need to complete the function. ```python\nreturn a + b\n```", "return a + b"),
+        ("The user wants Go code. ```go\nreturn sum\n``` done", "return sum"),
+        ("Reasoning ```py\nx := 1\n", "x := 1"),  # 未闭合围栏(max_tokens 截断)
+        ("plain code line", "plain code line"),  # 无围栏原样保留
+    ]
+    for raw, expected in cases:
+        assert fim._strip_fences(raw) == expected, f"input={raw!r}"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
