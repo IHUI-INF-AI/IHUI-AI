@@ -12,8 +12,10 @@
 - 无会话/无记忆/无流式:单次 POST,返回首补全,延迟优先
 - 前缀截尾(6000 字符)+ 后缀截头(2000 字符),控制 token 上限
 - max_tokens 默认 128(补全只需数行),temperature=0
-- 模型默认 'auto':经 _resolve_auto_model 优先 zero_cost/LOCAL → cheap,
-  补全流量天然适合本地小模型(qwen-coder 等)
+- 模型选型(2026-09-13 P1-9 立):env `FIM_PREFERRED_MODEL` > 用户显式 model >
+  模型目录「补全专用档位」(`fim is True`)首个命中 > `'auto'`;
+  候选清单带 TTL 惰性缓存、只读文件不查库,任何异常静默回退 `'auto'`,
+  绝不阻塞补全主链路。`'auto'` 最终由网关 _resolve_auto_model 优先 zero_cost/LOCAL → cheap
 - 鉴权沿用 llm 路由族约定(网关/代理层统一处理,路由内不做 JWT)
 
 用法:
@@ -28,8 +30,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import math
+import os
 import threading
 import time
 from typing import Any
@@ -37,7 +41,15 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
+from ..services.model_catalog import annotate_models, pick_fim_model
+
+# Redis 可选依赖(缺失时静默降级为纯内存,与 legacy.py 同规则)
+try:
+    import redis.asyncio as aioredis
+except ImportError:  # pragma: no cover — CI/精简环境无 redis 包
+    aioredis = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +59,69 @@ router = APIRouter()
 _PREFIX_TAIL_CHARS = 6_000
 _SUFFIX_HEAD_CHARS = 2_000
 _MAX_TOKENS_CAP = 512
+
+# ---------------------------------------------------------------------------
+# 补全专用档位选型(2026-09-13 P1-9)
+#
+# 方案落定:模块级 TTL 惰性缓存 + 同源基线清单,不查库、不做可用性过滤、
+# 不引入任何远端调用,保证补全低延迟路径不被拖慢。
+#   - 候选来源复用 /llm/models 同源基线 `llm._load_default_models()`
+#     (data/default_models.json),再经 model_catalog.annotate_models 打上 fim 标记。
+#   - DB 同步的补全模型(如 openrouter/...-coder)可用 env `FIM_PREFERRED_MODEL` 显式指定。
+#   - 任何异常一律吞掉 → 回退 'auto',绝不影响补全。
+# ---------------------------------------------------------------------------
+_FIM_CANDIDATE_TTL_S = 300.0  # 候选清单缓存 5 分钟
+_fim_candidates_cache: list[dict[str, Any]] = []
+_fim_candidates_cached_at = 0.0
+_fim_candidates_lock = threading.Lock()
+
+
+def _load_fim_candidates() -> list[dict[str, Any]]:
+    """加载「补全专用档位」候选模型(TTL 300s 缓存,失败返回空列表)。
+
+    只加载 /llm/models 的同源基线清单(文件解析一次 + 分类标注),不做 DB 查询、
+    不做 provider 可用性过滤,单次成本极低且带缓存。异常一律吞掉并返回空列表。
+    """
+    global _fim_candidates_cache, _fim_candidates_cached_at
+    now = time.monotonic()
+    if _fim_candidates_cached_at > 0 and now - _fim_candidates_cached_at < _FIM_CANDIDATE_TTL_S:
+        return _fim_candidates_cache
+    with _fim_candidates_lock:
+        # 双检:并发请求只让第一个真正加载
+        now = time.monotonic()
+        if _fim_candidates_cached_at > 0 and now - _fim_candidates_cached_at < _FIM_CANDIDATE_TTL_S:
+            return _fim_candidates_cache
+        candidates: list[dict[str, Any]] = []
+        try:
+            from .llm import _load_default_models  # 与 /llm/models 同源基线
+
+            loaded = _load_default_models()
+            if isinstance(loaded, list):
+                candidates = [m for m in loaded if isinstance(m, dict)]
+                annotate_models(candidates)
+        except Exception as e:  # noqa: BLE001 — 候选加载失败必须静默降级,不能影响补全
+            logger.debug("fim 候选模型加载失败(降级 auto): %s", e)
+            candidates = []
+        _fim_candidates_cache = candidates
+        _fim_candidates_cached_at = time.monotonic()
+        return _fim_candidates_cache
+
+
+def _resolve_fim_model(requested: str | None) -> str:
+    """解析本次补全使用的模型,绝不抛异常、绝不阻塞。
+
+    优先级:env `FIM_PREFERRED_MODEL` > 用户显式 model > 候选清单首个 fim 模型 > 'auto'。
+    """
+    try:
+        preferred = (os.environ.get("FIM_PREFERRED_MODEL") or "").strip()
+        if preferred:
+            return preferred
+        picked = pick_fim_model(_load_fim_candidates(), requested)
+        if picked:
+            return picked
+    except Exception as e:  # noqa: BLE001 — 选型失败静默回退,补全不能被选型拖垮
+        logger.debug("fim 模型选型降级(auto): %s", e)
+    return requested or "auto"
 
 _SYSTEM_PROMPT = (
     "You are a code completion engine (fill-in-the-middle). "
@@ -76,13 +151,28 @@ class FIMRequest(BaseModel):
 # 补全接受率闭环(2026-09-13 P1-9 立,对标 Trae CUE Tab 的接受率反馈)
 #
 # 前端 CodeEditor 防抖 5s 上报**增量快照**(累计值之差,非全量累计),
-# 后端进程内按 model 聚合,供管理看板「FIM 补全接受率」区块消费。
-# 单进程内存态:不持久化、重启清零,与 llm 路由族其他运行指标口径一致。
+# 后端按 model 聚合,供管理看板「FIM 补全接受率」区块消费。
+# 持久化(2026-09-14,H2 收尾):Redis 写穿 + 进程启动后首次访问惰性恢复,
+# 重启不再清零(真实流量积累不被部署重启打断);Redis 不可用/读写异常
+# 一律静默降级为纯内存,绝不阻塞上报或补全主链路。
 # ---------------------------------------------------------------------------
 
 _LATENCY_SAMPLES_CAP = 500  # 每模型延迟样本上限,防止无界增长
 _ALERT_ACCEPTANCE_RATE = 0.3  # 接受率告警阈值(严格小于才告警)
 _ALERT_MIN_SUGGESTIONS = 20  # 触发告警的最少建议数(样本不足不告警)
+_METRICS_MODELS_CAP = 50  # 聚合模型数上限:防伪造 model 字段造成无界 keys
+_FIM_METRICS_REDIS_KEY = "ihui:fim:metrics"  # 全量快照 JSON,无 TTL(持续积累)
+
+_METRICS_ZERO_SLOT: dict[str, Any] = {
+    "requests": 0,
+    "suggestions": 0,
+    "accepted": 0,
+    "dismissed": 0,
+    "failures": 0,
+    "cancellations": 0,
+    "cacheHits": 0,
+    "latencies": [],
+}
 
 
 class FIMMetricsReport(BaseModel):
@@ -102,6 +192,90 @@ class FIMMetricsReport(BaseModel):
 #: 进程内聚合:model → 计数 + 延迟滑窗。threading.Lock 保护读写(端点极短,同步锁足够)。
 _METRICS_BY_MODEL: dict[str, dict[str, Any]] = {}
 _METRICS_LOCK = threading.Lock()
+
+# --- Redis 持久化状态(均静默降级:任何异常不外抛) ---
+_redis_client: Any = None
+_use_redis = bool(settings.redis_url) and aioredis is not None
+_restored = False
+_restore_lock = threading.Lock()
+
+
+async def _get_redis() -> Any:
+    """获取 Redis 客户端,连接失败时永久降级(本进程)返回 None(legacy.py 同模式)。"""
+    global _redis_client, _use_redis
+    if not _use_redis:
+        return None
+    if _redis_client is None:
+        try:
+            # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3,老 Redis/Memurai 不支持 HELLO 3
+            _redis_client = aioredis.from_url(
+                settings.redis_url, decode_responses=True, protocol=2, socket_connect_timeout=2
+            )
+            await _redis_client.ping()
+        except Exception:  # noqa: BLE001 — 降级纯内存
+            _use_redis = False
+            _redis_client = None
+    return _redis_client
+
+
+def _merge_restored_slot(model: str, slot: dict[str, Any]) -> None:
+    """把 Redis 恢复的单 model 槽位合并进内存聚合(叠加计数、拼接延迟滑窗)。"""
+    cur = _METRICS_BY_MODEL.setdefault(model, {**_METRICS_ZERO_SLOT, "latencies": []})
+    for key in ("requests", "suggestions", "accepted", "dismissed", "failures", "cancellations", "cacheHits"):
+        try:
+            cur[key] += max(0, int(slot.get(key) or 0))
+        except (TypeError, ValueError):
+            continue
+    raw_lat = slot.get("latencies")
+    if isinstance(raw_lat, list):
+        lat = [float(x) for x in raw_lat[-_LATENCY_SAMPLES_CAP:] if isinstance(x, (int, float)) and math.isfinite(x)]
+        cur["latencies"] = (cur["latencies"] + lat)[-_LATENCY_SAMPLES_CAP:]
+
+
+async def _ensure_restored() -> None:
+    """进程内一次性惰性恢复:从 Redis 读回上次快照合并进内存(失败只试一次,降级内存态)。
+
+    合并(而非覆盖):若恢复前内存已有少量上报(理论竞态窗口极小),叠加保证不丢数。
+    """
+    global _restored
+    if _restored:
+        return
+    with _restore_lock:
+        if _restored:
+            return
+        _restored = True  # 先置位:恢复失败也只试一次,绝不反复拖慢上报
+        client = await _get_redis()
+        if client is None:
+            return
+        try:
+            raw = await client.get(_FIM_METRICS_REDIS_KEY)
+            if not raw:
+                return
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                return
+            with _METRICS_LOCK:
+                for model, slot in data.items():
+                    if isinstance(model, str) and model and isinstance(slot, dict):
+                        _merge_restored_slot(model, slot)
+        except Exception as e:  # noqa: BLE001 — 恢复失败静默降级
+            logger.debug("fim 指标 Redis 恢复失败(降级内存态): %s", e)
+
+
+async def _persist_snapshot() -> None:
+    """写穿:把内存聚合全量快照落 Redis(数据量小;失败静默,不影响上报响应)。"""
+    try:
+        client = await _get_redis()
+        if client is None:
+            return
+        with _METRICS_LOCK:
+            snapshot = {
+                model: {**slot, "latencies": list(slot["latencies"])}
+                for model, slot in _METRICS_BY_MODEL.items()
+            }
+        await client.set(_FIM_METRICS_REDIS_KEY, json.dumps(snapshot, separators=(",", ":")))
+    except Exception as e:  # noqa: BLE001 — 持久化失败静默
+        logger.debug("fim 指标 Redis 写穿失败: %s", e)
 
 
 def _percentile(sorted_values: list[float], pct: float) -> int | None:
@@ -162,10 +336,12 @@ async def fim_complete(req: FIMRequest) -> dict[str, Any]:
         {"role": "system", "content": _SYSTEM_PROMPT},
         {"role": "user", "content": _build_user_prompt(req.prefix, req.suffix, req.language)},
     ]
+    # 补全专用档位选型(内部已吞异常,不会抛出、不阻塞)
+    model = _resolve_fim_model(req.model)
     try:
         result = await llm_gateway.complete(
             messages,
-            req.model or "auto",
+            model,
             owner_uuid=req.owner_uuid,
             max_tokens=req.max_tokens,
             temperature=0.0,
@@ -201,20 +377,14 @@ async def report_fim_metrics(req: FIMMetricsReport) -> dict[str, Any]:
         {code, message, data: {model}} —— 仅回执,不做重计算。
     """
     model = (req.model or "auto").strip() or "auto"
+    await _ensure_restored()
     with _METRICS_LOCK:
-        slot = _METRICS_BY_MODEL.setdefault(
-            model,
-            {
-                "requests": 0,
-                "suggestions": 0,
-                "accepted": 0,
-                "dismissed": 0,
-                "failures": 0,
-                "cancellations": 0,
-                "cacheHits": 0,
-                "latencies": [],
-            },
-        )
+        slot = _METRICS_BY_MODEL.get(model)
+        if slot is None:
+            # 模型数上限:超出后丢弃新 model 的上报(既有 model 不受影响),防无界 keys
+            if len(_METRICS_BY_MODEL) >= _METRICS_MODELS_CAP:
+                return {"code": 0, "message": "ok", "data": {"model": model, "capped": True}}
+            slot = _METRICS_BY_MODEL.setdefault(model, {**_METRICS_ZERO_SLOT, "latencies": []})
         slot["requests"] += req.requestCount
         slot["suggestions"] += req.suggestionCount
         slot["accepted"] += req.acceptedCount
@@ -227,6 +397,7 @@ async def report_fim_metrics(req: FIMMetricsReport) -> dict[str, Any]:
             slot["latencies"].extend(float(x) for x in req.latencyMs[-_LATENCY_SAMPLES_CAP:])
             if len(slot["latencies"]) > _LATENCY_SAMPLES_CAP:
                 slot["latencies"] = slot["latencies"][-_LATENCY_SAMPLES_CAP:]
+    await _persist_snapshot()
     return {"code": 0, "message": "ok", "data": {"model": model}}
 
 
@@ -239,6 +410,7 @@ async def fim_metrics_summary() -> dict[str, Any]:
          acceptanceRate, failures, p50LatencyMs, p95LatencyMs, alert, alertReason}]}}
         无数据时 models=[](空列表,不报错)。
     """
+    await _ensure_restored()
     with _METRICS_LOCK:
         snapshot = {
             model: {**slot, "latencies": list(slot["latencies"])}
@@ -281,3 +453,4 @@ async def fim_metrics_summary() -> dict[str, Any]:
             }
         )
     return {"code": 0, "message": "ok", "data": {"models": rows}}
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
