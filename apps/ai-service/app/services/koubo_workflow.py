@@ -79,7 +79,11 @@ def _trace(node: str, start: float, end: float, status: str = "ok", **meta: Any)
 
 
 async def _run_koubo_script(script_name: str, args: list[str], timeout_sec: int = 60) -> tuple[int, str, str]:
-    """subprocess 调 koubo_workflow/tools/*.py(隔离 project_boundary 副作用)。"""
+    """subprocess 调 koubo_workflow/tools/*.py(隔离 project_boundary 副作用)。
+
+    IHUI_SESSION_DOMAIN=koubo 注入子进程:project_boundary 的全局 .session 文件
+    是单会话设计,服务化并发下会串域;走环境变量让每个子进程独占自己的会话归属。
+    """
     script_path = KOUBO_WORKFLOW_DIR / "tools" / script_name
     if not script_path.is_file():
         return 127, "", f"script not found: {script_path}"
@@ -89,7 +93,7 @@ async def _run_koubo_script(script_name: str, args: list[str], timeout_sec: int 
             cwd=str(KOUBO_WORKFLOW_DIR / "tools"),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+            env={**os.environ, "PYTHONIOENCODING": "utf-8", "IHUI_SESSION_DOMAIN": "koubo"},
         )
         try:
             stdout_b, stderr_b = await asyncio.wait_for(
