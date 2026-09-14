@@ -81,11 +81,50 @@ test.describe('分享功能 E2E 测试', () => {
       const conversations = convBody.data?.conversations ?? []
       console.log(`[share-test] 找到 ${conversations.length} 个对话`)
 
-      if (conversations.length === 0) {
-        test.skip(true, '没有对话数据，跳过测试')
+      // 2026-09-14 CI 实锤(2-18):CI 隔离库对话可能全部无消息(空对话),分享页
+      // 「暂无对话内容」→ 消息卡片恒 0。改为优先选有消息的对话;没有则自建对话+消息,
+      // 保证测试自给自足、环境无关。
+      let conversation: { id: string; title: string } | null = null
+      for (const c of conversations.slice(0, 5)) {
+        if (!c.id) continue
+        const mr = await convReq.get(
+          `${API_URL}/api/chat/conversations/${c.id}/messages?page=1&pageSize=5`,
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        )
+        if (!mr.ok()) continue
+        const mb = await mr.json()
+        const list: unknown[] = mb.data?.messages ?? []
+        if (Array.isArray(list) && list.length > 0) {
+          conversation = c
+          break
+        }
       }
 
-      const conversation = conversations.find((c: any) => c.id && c.title)
+      if (!conversation) {
+        console.log('[share-test] 现有对话均无消息,自建对话+消息')
+        const createResp = await convReq.post(`${API_URL}/api/chat/conversations`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          data: { title: `E2E 分享流程验证 ${Date.now()}` },
+        })
+        expect(createResp.ok()).toBe(true)
+        const createBody = await createResp.json()
+        expect(createBody.code).toBe(0)
+        const createdId = createBody.data?.id ?? createBody.data?.conversation?.id
+        expect(createdId).toBeDefined()
+        const msgResp = await convReq.post(
+          `${API_URL}/api/chat/conversations/${createdId}/messages`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            data: { role: 'user', content: 'E2E 分享流程验证消息:你好,这是一条用于分享页渲染验证的消息。' },
+          },
+        )
+        expect(msgResp.ok()).toBe(true)
+        conversation = {
+          id: createdId,
+          title: createBody.data?.conversation?.title ?? createBody.data?.title ?? '',
+        }
+      }
+
       expect(conversation).toBeDefined()
       conversationId = conversation.id
       conversationTitle = conversation.title
@@ -245,11 +284,22 @@ test.describe('分享功能 E2E 测试', () => {
 
     // 检查消息内容（卡片格式）
     // Card 组件使用 rounded-lg border bg-card，CardContent 使用 p-3（无 card-content 类）
+    // 2026-09-14 CI 实锤(2-18):消息列表为异步加载,CI 慢机下瞬时 count 恒 0
+    // (title 有 poll 而消息没有 → 时序缺口)。改轮询等待消息卡片渲染(15s)。
+    await expect
+      .poll(
+        async () => {
+          return sharePage
+            .locator('[class*="rounded-lg"][class*="border"][class*="bg-card"]')
+            .count()
+        },
+        { timeout: 15000 },
+      )
+      .toBeGreaterThan(0)
     const messageCards = await sharePage
       .locator('[class*="rounded-lg"][class*="border"][class*="bg-card"]')
       .count()
     console.log(`[share-test] 消息卡片数量: ${messageCards}`)
-    expect(messageCards).toBeGreaterThan(0)
 
     // 检查页面内容包含消息文本
     const pageContent = await sharePage.evaluate(

@@ -822,29 +822,7 @@ class SkillEvolutionService:
 
     @staticmethod
     def _build_eval_prompt(request: dict[str, Any]) -> list[dict[str, Any]]:
-        """构建评估 prompt(判断是否沉淀 + 生成符合本仓库 SKILL.md 标准的 skillContent)。
-
-        prompt 内容基于本技能体系自身的约定(skill 的"自有内容")生成:
-
-        1. **SKILL.md 结构标准(对齐 ``skill_md.py``)**:``---`` frontmatter 必含
-           ``name`` + ``description``,正文为 instructions;frontmatter 允许前置
-           HTML 注释块(Provenance 溯源头);description 支持多行块标量/引号/缩进续行;
-           其余字段(metadata / allowed-tools / version / license / source /
-           relatedSkills 等)原样保留不丢弃。
-        2. **命名规范**:`name` 用 kebab-case(与落盘文件名 ``<skillName>.md`` 一致,
-           落盘后由 ``SkillRegistry._load_auto_skills`` 以 frontmatter ``name`` 注册,
-           同名覆盖 builtin/ai-top 时 auto 不覆盖)。
-        3. **描述规范**:`description` ≤ 1024 字符;写清「做什么 + 何时触发」(对照
-           内置 skill 的「类别: 做什么」两段式写法,以及 ai-top skill 的单句风格)。
-        4. **instructions 正文规范**:可执行的分步步骤(Step 1/2/3…),面向 agent
-           直接执行;不写 frontmatter、不写版本表(版本由系统管理);避免与
-           已有 skill(尤其 builtin 的 6 代码类 + 7 聊天模板 + 19 ai-top)重复造轮子。
-        5. **质量门对齐**:生成的 skillContent 会被 ``SkillTester`` 自动测试,
-           通过率 < 0.6(``QUALITY_GATE_PASS_RATE``)拒绝落盘——所以步骤必须
-           具体、可测试,不能写笼统的「注意质量」「认真检查」。
-        6. **Provenance 头**:落盘文件由 ``_render_skill_md`` 统一渲染,无需
-           LLM 生成;但 LLM 在 skillContent 中不应假设文件已有版权头。
-        """
+        """构建评估 prompt(明确约束:仅可复用模式才生成,kebab-case 命名)。"""
         goal = request.get("goal", "")
         steps = request.get("steps", [])
         final_result = request.get("finalResult", "")
@@ -854,47 +832,15 @@ class SkillEvolutionService:
             {
                 "role": "system",
                 "content": (
-                    "你是本仓库(智汇AI / IHUI-AI)的 Skill 沉淀专家,职责是把一条真实"
-                    "任务执行记录提炼为可复用的 SKILL.md 技能文件。\n\n"
-                    "## 判断准则(先判断,再生成)\n"
-                    "1. 仅当任务包含「可复用模式」时才生成:同类任务再次出现时,"
-                    "该模式(步骤/命令/模板/检查清单)能直接套用。一次性、依赖特殊"
-                    "环境、或仅凭单次结果无法泛化的任务,shouldCreate=false。\n"
-                    "2. 对照「已有 Skills」:若已存在功能重叠的 skill(尤其 builtin "
-                    "code-review/debug-fix/test-generator/doc-writer/refactor-helper/"
-                    "api-designer + 19 个 ai-top),优先复用/扩展而非新建;确实无重叠"
-                    "才新建。\n\n"
-                    "## 输出字段(严格返回纯 JSON,不要 markdown 包裹)\n"
-                    '{"shouldCreate": bool, "skillName": "kebab-case 名", '
-                    '"skillContent": "instructions 正文", "reason": "≤1024 字符描述,兼作 description", '
-                    '"relatedSkills": ["相关 skill 名(可空)"]}\n\n'
-                    "### skillName 规则\n"
-                    "- kebab-case(小写字母+数字+连字符),如 batch-fix-ts-errors、"
-                    "koubo-daily-schedule。文件名将直接取自此名(app/skills/auto/"
-                    "<skillName>.md),勿含空格/中文/下划线。\n"
-                    "- 与「已有 Skills」中任何名字不冲突(冲突会被覆盖注册表条目,"
-                    "造成隐性回归)。\n\n"
-                    "### reason 规则(= frontmatter description)\n"
-                    "- ≤1024 字符,写清「做什么 + 何时触发/输入」,风格对齐 builtin "
-                    "「代码审查: 检查代码质量、潜在 bug、最佳实践」的「类别: 做什么」"
-                    "两段式;可含触发词(对齐 content-engine 描述里的「触发词:…」写法)。\n"
-                    "- 禁止空话(「提升效率」「智能化」),必须可让调用方据此判断该"
-                    "用哪个 skill。\n\n"
-                    "### skillContent 规则(= SKILL.md 正文 instructions)\n"
-                    "- 只写正文,不写 frontmatter / 不写版本历史 / 不写版权头(由系统"
-                    "``_render_skill_md`` 统一渲染,含 Provenance 水印与 license: MIT)。\n"
-                    "- 结构:``# 技能名 标题`` + 分步说明(Step 1 / Step 2 / …),每步"
-                    "给可直接执行的指令(命令、代码片段、检查清单、输入/输出约定),与"
-                    " builtin skill 的 prompt_template 颗粒度一致。\n"
-                    "- 每步可被自动测试验证:给出具体的通过/失败判据(如「步骤 2 输出"
-                    "JSON 数组,长度≥3」),不要写「保证质量」这类笼统描述——质量门"
-                    "``SkillTester`` 通过率 < 0.6 会直接拒绝落盘。\n"
-                    "- 步骤数控制在 3-10 步;与 relatedSkills 列出真正可协作的 skill,"
-                    "不要为凑数而列。\n\n"
-                    "## 返回\n"
-                    "严格纯 JSON(不要 ```json 包裹、不要前后多余文字):\n"
+                    "你是 Skill 评估专家。分析任务执行记录,判断是否值得沉淀为可复用的 Skill。\n"
+                    "约束:\n"
+                    "1. 只在任务确实包含可复用模式时才生成 skill,不要为一次性任务生成。\n"
+                    "2. skill 名用 kebab-case(如 batch-fix-ts-errors)。\n"
+                    "3. 描述 ≤ 1024 字符。\n"
+                    "4. skillContent 是 SKILL.md 正文 Instructions 部分(可执行步骤)。\n"
+                    "返回纯 JSON(不要 markdown 包裹):\n"
                     '{"shouldCreate": bool, "skillName": "kebab-case", '
-                    '"skillContent": "instructions 正文", "reason": "≤1024 字符描述", '
+                    '"skillContent": "Instructions 正文", "reason": "理由", '
                     '"relatedSkills": ["相关 skill 名"]}'
                 ),
             },
@@ -904,7 +850,7 @@ class SkillEvolutionService:
                     f"任务目标: {goal}\n\n"
                     f"执行步骤: {steps_text}\n\n"
                     f"最终结果: {str(final_result)[:2000]}\n\n"
-                    f"已有 Skills(勿重复造轮子): {json.dumps(existing, ensure_ascii=False)}"
+                    f"已有 Skills: {json.dumps(existing, ensure_ascii=False)}"
                 ),
             },
         ]

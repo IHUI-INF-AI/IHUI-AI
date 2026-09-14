@@ -269,7 +269,7 @@ class TestAstream:
 
         async def fake_astream(messages: list[dict[str, str]], model: str) -> AsyncIterator[dict[str, Any]]:
             raise RuntimeError("stream failed")
-            yield {"type": "chunk", "content": "never"}  # noqa: unreachable
+            yield {"type": "chunk", "content": "never"}  # 不可达:仅为把本函数标记为 async generator
 
         with patch.object(ai_assistant, "llm_gateway") as mock_gw:
             mock_gw.astream = fake_astream

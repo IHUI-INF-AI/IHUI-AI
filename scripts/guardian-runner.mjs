@@ -39,10 +39,10 @@ const C = {
   reset: '\x1b[0m',
 }
 
-// === 检查配置(60 项,顺序与原 pre-commit 一致) ===
+// === 检查配置(按 mode 分组;项数与分级见 `--help`,勿在此写死数字——写死必然过期) ===
 
 const checks = [
-  // --- blocking (36 项) ---
+  // --- blocking(项数见 --help) ---
   {
     id: '1',
     label: '🔐 API key 泄露',
@@ -980,6 +980,31 @@ const checks = [
       '',
       '  💡 workflow 里 actions/setup-node 用了 cache: pnpm,但 pnpm/action-setup 排在它后面。',
       '     修复: 把 pnpm/action-setup 步骤移到 actions/setup-node 之前。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 49 (2026-09-13 新增,迁移记账守门,blocking) ---
+  //   背景: drizzle-kit migrate 按 `Number(DB.created_at) < entry.when` 判定是否应用。
+  //   仓库 journal 的 when 一度是合成时间戳(等差 +86400000,止于 1721513600000),而库内
+  //   created_at 是真实时间(1788717703662)→ 判据恒假 → migrate 每轮空转、一条也不应用,
+  //   且无任何守门 → 静默数周。修复后 journal 与库双射对齐(254 ↔ 254,when 集合完全相同)。
+  //   本项校验: journal↔.sql 双向一一对应、tag 唯一、when 严格递增且唯一;idx 断号仅告警
+  //   (drizzle 按 tag 配对 SQL、按 when 排序,idx 只是元数据)。
+  //   库内双射(B6~B8)需数据库连接,故不在 pre-commit 跑;用 pnpm migration:check:db 手工校验。
+  //   跳过方法(应急): HUSKY_SKIP_MIGRATION_BOOKKEEPING=1 git commit ...
+  {
+    id: '49',
+    label: '🧾 迁移记账守门(journal ↔ .sql 一一对应 / when 单调唯一)',
+    script: 'check-migration-bookkeeping.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 packages/database/drizzle 的 journal 与 .sql 记账结构漂移:',
+      '     1. node scripts/check-migration-bookkeeping.mjs        (离线诊断)',
+      '     2. node scripts/check-migration-bookkeeping.mjs --db   (对照库内 drizzle.__drizzle_migrations)',
+      '     常见成因: 迁移文件被文本级改写导致命名/内容漂移;手工增删 journal 条目未同步 .sql。',
       '',
     ].join('\n'),
   },
