@@ -13,13 +13,13 @@
  *   - NODE_ENV=production 必须显式 --force:否则打印「生产环境」并拒绝退出。
  *
  * 注意: 目标账号由 0067/0071 migration 触发器保护,SQL 直接 UPDATE 会被拒绝,
- *       本脚本通过临时 DISABLE TRIGGER ALL 绕过,更新后立即 ENABLE。
+ *       本脚本通过临时 DISABLE TRIGGER <保护触发器> 绕过,更新后立即 ENABLE。
  *
  * 流程:
  * 1. 解析 args → 校验护栏(--help 立即返回,不触库)
  * 2. 取得新密码(--generate 随机生成 或 --password 指定),用 hashPassword(argon2id)生成 hash
  * 3. 先尝试直接 UPDATE,失败(触发器拒绝)走降级路径:
- *    DISABLE TRIGGER ALL → UPDATE → ENABLE TRIGGER ALL
+ *    DISABLE TRIGGER <保护触发器> → UPDATE → ENABLE TRIGGER <保护触发器>
  * 4. 查询目标用户名+邮箱确认,打印结果
  */
 import 'dotenv/config'
@@ -59,7 +59,7 @@ const USAGE = `用法: pnpm --filter @ihui/api reset:admin-password [选项]
   pnpm --filter @ihui/api reset:admin-password --password 'MyP@ssw0rd' --yes
 
 注意: admin 用户受 0067/0071 migration 触发器保护,SQL 直接 UPDATE 会被拒绝,
-      脚本会自动降级为 DISABLE TRIGGER ALL → UPDATE → ENABLE TRIGGER ALL。`
+      脚本会自动降级为 DISABLE TRIGGER <保护触发器> → UPDATE → ENABLE TRIGGER <保护触发器>。`
 
 function parseArgs(argv: string[]): CliOptions {
   const opts: CliOptions = {
@@ -189,13 +189,42 @@ async function main() {
     console.info('[reset-admin-password] 直接 UPDATE 成功(触发器未拦截)')
   } catch (e) {
     console.warn(`[reset-admin-password] 直接 UPDATE 失败,走降级路径(禁用触发器): ${errMsg(e)}`)
-    await db.execute(sql`ALTER TABLE users DISABLE TRIGGER ALL`)
+    // 2026-09-14 修复(生产实测):原实现用 `DISABLE TRIGGER ALL`,但 users 表带有外键约束触发器
+    // (RI_ConstraintTrigger_a_*,属 system trigger),仅超级用户可禁用 → 应用角色必然报
+    // `permission denied: "RI_ConstraintTrigger_a_xxx" is a system trigger`(SQLSTATE 42501),
+    // 降级路径从未跑通,导致生产上无法轮换系统管理员口令。实测:ALL 形式 100% 失败、具名形式成功。
+    // 故改为只禁用本表自有的保护触发器(不动 search_vector 触发器,减少影响面)。
+    const IMMUTABLE_TRIGGERS = [
+      'users_system_admin_immutable_update',
+      'users_system_admin_immutable_delete',
+    ]
+    const setTrigger = (t: string, action: 'DISABLE' | 'ENABLE') =>
+      db.execute(sql.raw(`ALTER TABLE users ${action} TRIGGER ${t}`))
+    let disabledAny = false
+    for (const t of IMMUTABLE_TRIGGERS) {
+      try {
+        await setTrigger(t, 'DISABLE')
+        disabledAny = true
+      } catch (de) {
+        console.warn(`[reset-admin-password] 禁用触发器 ${t} 失败: ${errMsg(de)}`)
+      }
+    }
+    if (!disabledAny) throw new Error('无法禁用系统管理员保护触发器,降级路径不可用')
     try {
       await updateAdminPassword(hash)
       console.info('[reset-admin-password] 降级路径 UPDATE 成功')
     } finally {
-      await db.execute(sql`ALTER TABLE users ENABLE TRIGGER ALL`)
-      console.info('[reset-admin-password] 已重新 ENABLE TRIGGER ALL')
+      for (const t of IMMUTABLE_TRIGGERS) {
+        try {
+          await setTrigger(t, 'ENABLE')
+        } catch (re) {
+          console.error(
+            `[reset-admin-password] 严重:恢复触发器 ${t} 失败,users 的系统管理员保护可能仍处禁用态,需立即人工核查! ${errMsg(re)}`,
+          )
+          throw re
+        }
+      }
+      console.info('[reset-admin-password] 已重新 ENABLE 保护触发器')
     }
   }
 
