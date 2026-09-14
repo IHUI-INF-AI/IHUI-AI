@@ -77,7 +77,7 @@ export function ColorfulLoader({
             borderRadius: size / 2,
             borderWidth: Math.max(2, size / 12),
             borderColor: tokens.border.light,
-            borderTopColor: tokens.brandAccent.DEFAULT,
+            borderTopColor: tokens.brandAccent.deep,
           },
           { transform: [{ rotate: spin }, { scale }] },
         ]}

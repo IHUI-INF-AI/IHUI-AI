@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   } as ViewStyle,
   primaryLabel: {
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
     fontSize: PRIMARY_FONT_SIZE,
     fontWeight: '600',
     textAlign: 'center',

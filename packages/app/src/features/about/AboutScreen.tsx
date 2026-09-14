@@ -106,7 +106,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    logoText: { fontSize: 20, fontWeight: '700', color: tk.surface.light },
+    logoText: { fontSize: 20, fontWeight: '700', color: tk.brandAccent.foreground },
     appName: { marginTop: 12, fontSize: 18, fontWeight: '700', color: tk.text.primary },
     appTagline: { marginTop: 8, fontSize: 14, color: tk.text.secondary, textAlign: 'center' },
     infoCard: {
