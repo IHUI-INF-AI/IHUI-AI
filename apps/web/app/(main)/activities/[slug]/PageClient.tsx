@@ -72,7 +72,7 @@ export default function ActivityDetailPage() {
   })
 
   const joinMut = useMutation({
-    mutationFn: (id: string) => api(`/api/activities/${id}/join`, { method: 'POST' }),
+    mutationFn: (id: string) => api(`/api/activities/${id}`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['activities', slug] }),
   })
   const leaveMut = useMutation({
