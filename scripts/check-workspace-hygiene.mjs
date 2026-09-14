@@ -54,7 +54,10 @@ const SCRIPT_EXTS = new Set(['.ps1', '.py', '.js', '.mjs', '.cjs', '.ts', '.tsx'
 
 // ===== 排除目录(基于共享 EXCLUDE_DIRS,追加脚本特有) =====
 // 'tmp' 是脚本特有排除(原 .ihui-agent/tmp 扫描场景)
-const EXCLUDED_DIRS = withExcludes(['tmp']);
+// 2026-09-15 补 'public':public/ 是静态资产目录(web 的 monaco 副本、mobile-cap
+// Capacitor 构建回填),非手写脚本;其 minified chunk 里的路径字符串曾被误判为
+// "相对路径跳出项目"违规,blocking 全体 commit。
+const EXCLUDED_DIRS = withExcludes(['tmp', 'public']);
 
 // ===== 文件级白名单(这些文件可以引用项目外路径作为规则文档) =====
 const FILE_WHITELIST = [

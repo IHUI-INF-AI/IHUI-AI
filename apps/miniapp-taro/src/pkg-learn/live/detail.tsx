@@ -8,6 +8,7 @@ import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/t
 import { useState, useEffect, useCallback } from 'react'
 import { getLiveDetail, subscribeLive, type Live } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 const STATUS_KEY: Record<Live['status'], { key: string; fb: string }> = {
   living: { key: 'live.liveNow', fb: '直播中' },
@@ -142,7 +143,7 @@ export default function LiveDetail() {
               onClick={enterLive}
               hoverClass="opacity-60"
             >
-              <Text className="text-[48rpx] leading-none text-[var(--color-surface-light)]">▶</Text>
+              <LineIcon name="play" size={56} color="var(--color-surface-light)" />
               {live.status === 'living' && (
                 <View className="mt-[24rpx] px-[20rpx] py-[20rpx] rounded-[24rpx] bg-primary flex items-center justify-center">
                   <Text className="text-[32rpx] font-semibold text-[var(--color-primary-foreground)]">
