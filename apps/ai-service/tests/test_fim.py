@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock
 
 import pytest
@@ -99,10 +100,20 @@ async def test_fim_validation_errors(client):
 
 @pytest.fixture(autouse=True)
 def _reset_fim_metrics():
-    """指标是进程内全局状态,每个用例前后清空,保证测试相互隔离。"""
+    """指标是进程内全局状态,每个用例前后清空,保证测试相互隔离。
+
+    同时重置 Redis 持久化状态并默认关闭 _use_redis:
+    既有用例在纯内存模式运行(行为与持久化改造前一致),Redis 相关用例自行开启。
+    """
     fim._METRICS_BY_MODEL.clear()
+    fim._restored = False
+    fim._redis_client = None
+    fim._use_redis = False
     yield
     fim._METRICS_BY_MODEL.clear()
+    fim._restored = False
+    fim._redis_client = None
+    fim._use_redis = False
 
 
 async def test_fim_metrics_aggregates_by_model(client):
@@ -204,3 +215,197 @@ async def test_fim_metrics_default_model_is_auto(client):
     await client.post("/api/llm/fim/metrics", json={"requestCount": 1})
     row = (await client.get("/api/llm/fim/metrics/summary")).json()["data"]["models"][0]
     assert row["model"] == "auto"
+
+
+# ---------------------------------------------------------------------------
+# 补全专用档位选型(P1-9):_resolve_fim_model 接线
+# ---------------------------------------------------------------------------
+
+
+async def test_fim_uses_env_preferred_model(client, monkeypatch):
+    """env FIM_PREFERRED_MODEL 最高优先级 → 直接作为补全模型。"""
+    monkeypatch.setenv("FIM_PREFERRED_MODEL", "codestral-latest")
+    mock = AsyncMock(return_value={"content": "x", "model": "codestral-latest", "stub": True})
+    monkeypatch.setattr(fim.llm_gateway, "complete", mock)
+    await client.post("/api/llm/fim", json={"prefix": "a"})
+    assert mock.call_args.args[1] == "codestral-latest"
+
+
+async def test_fim_uses_candidate_fim_model(client, monkeypatch):
+    """env 未设 + auto → 取候选清单首个 fim 模型。"""
+    monkeypatch.delenv("FIM_PREFERRED_MODEL", raising=False)
+    monkeypatch.setattr(
+        fim, "_load_fim_candidates", lambda: [{"id": "qwen2.5-coder-7b", "fim": True}]
+    )
+    mock = AsyncMock(return_value={"content": "c", "model": "qwen2.5-coder-7b", "stub": True})
+    monkeypatch.setattr(fim.llm_gateway, "complete", mock)
+    await client.post("/api/llm/fim", json={"prefix": "a"})
+    assert mock.call_args.args[1] == "qwen2.5-coder-7b"
+
+
+async def test_fim_explicit_model_wins_over_candidates(client, monkeypatch):
+    """用户显式指定 model → 优先于候选清单。"""
+    monkeypatch.delenv("FIM_PREFERRED_MODEL", raising=False)
+    monkeypatch.setattr(
+        fim, "_load_fim_candidates", lambda: [{"id": "qwen2.5-coder-7b", "fim": True}]
+    )
+    mock = AsyncMock(return_value={"content": "c", "model": "gpt-4o", "stub": True})
+    monkeypatch.setattr(fim.llm_gateway, "complete", mock)
+    await client.post("/api/llm/fim", json={"prefix": "a", "model": "gpt-4o"})
+    assert mock.call_args.args[1] == "gpt-4o"
+
+
+async def test_fim_falls_back_to_auto_without_fim_candidates(client, monkeypatch):
+    """候选清单无 fim 模型 → 回退 'auto'。"""
+    monkeypatch.delenv("FIM_PREFERRED_MODEL", raising=False)
+    monkeypatch.setattr(fim, "_load_fim_candidates", lambda: [{"id": "gpt-4o", "fim": False}])
+    mock = AsyncMock(return_value={"content": "c", "model": "auto", "stub": True})
+    monkeypatch.setattr(fim.llm_gateway, "complete", mock)
+    await client.post("/api/llm/fim", json={"prefix": "a"})
+    assert mock.call_args.args[1] == "auto"
+
+
+async def test_fim_candidate_load_failure_degrades_to_auto(client, monkeypatch):
+    """候选加载抛异常 → 静默回退 'auto',补全照常返回。"""
+    monkeypatch.delenv("FIM_PREFERRED_MODEL", raising=False)
+
+    def _boom() -> list:
+        raise RuntimeError("candidates boom")
+
+    monkeypatch.setattr(fim, "_load_fim_candidates", _boom)
+    mock = AsyncMock(return_value={"content": "c", "model": "auto", "stub": True})
+    monkeypatch.setattr(fim.llm_gateway, "complete", mock)
+    resp = await client.post("/api/llm/fim", json={"prefix": "a"})
+    assert resp.status_code == 200
+    assert resp.json()["code"] == 0
+    assert mock.call_args.args[1] == "auto"
+
+
+# ---------------------------------------------------------------------------
+# Redis 持久化(2026-09-14,H2 收尾):写穿 + 惰性恢复 + 静默降级
+# 不依赖真实 Redis:极简 in-memory FakeRedis 替身(与 test_file_editor_redis 同规则)
+# ---------------------------------------------------------------------------
+
+
+class _FakeRedis:
+    """极简 async get/set 替身,覆盖 fim.py 用到的命令。"""
+
+    def __init__(self) -> None:
+        self.store: dict[str, str] = {}
+
+    async def get(self, key: str):
+        return self.store.get(key)
+
+    async def set(self, key: str, value: str):
+        self.store[key] = value
+        return True
+
+
+class _BrokenRedis(_FakeRedis):
+    """读写一律抛异常的替身,验证静默降级。"""
+
+    async def get(self, key: str):
+        raise ConnectionError("redis get boom")
+
+    async def set(self, key: str, value: str):
+        raise ConnectionError("redis set boom")
+
+
+@pytest.fixture
+def fake_redis(monkeypatch) -> _FakeRedis:
+    """开启 Redis 持久化并注入替身客户端。"""
+    r = _FakeRedis()
+    monkeypatch.setattr(fim, "_use_redis", True)
+    monkeypatch.setattr(fim, "_redis_client", r)
+    return r
+
+
+async def test_fim_metrics_redis_write_through(client, fake_redis):
+    """上报后全量快照写穿 Redis:JSON 内计数与内存一致。"""
+    await client.post(
+        "/api/llm/fim/metrics",
+        json={"model": "m1", "requestCount": 3, "suggestionCount": 2, "acceptedCount": 1, "latencyMs": [100, 200]},
+    )
+    raw = fake_redis.store.get(fim._FIM_METRICS_REDIS_KEY)
+    assert raw is not None
+    data = json.loads(raw)
+    assert data["m1"]["requests"] == 3
+    assert data["m1"]["accepted"] == 1
+    assert data["m1"]["latencies"] == [100.0, 200.0]
+
+
+async def test_fim_metrics_redis_restore_on_first_access(client, fake_redis):
+    """重启模拟:内存清零 + _restored 复位后,首次访问从 Redis 恢复(计数叠加正确)。"""
+    fake_redis.store[fim._FIM_METRICS_REDIS_KEY] = json.dumps(
+        {
+            "m-restore": {
+                "requests": 7,
+                "suggestions": 5,
+                "accepted": 4,
+                "dismissed": 1,
+                "failures": 0,
+                "cancellations": 0,
+                "cacheHits": 2,
+                "latencies": [150.0, 700.0],
+            }
+        }
+    )
+    resp = await client.get("/api/llm/fim/metrics/summary")
+    assert resp.status_code == 200
+    rows = resp.json()["data"]["models"]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["model"] == "m-restore"
+    assert row["requests"] == 7
+    assert row["suggestions"] == 5
+    assert row["accepted"] == 4
+    assert row["acceptanceRate"] == 0.8
+    # 2 样本 [150,700] 线性插值:p50=(150+700)/2=425;p95=150+550*0.95=672.5→round 银行家舍入 672
+    assert row["p50LatencyMs"] == 425
+    assert row["p95LatencyMs"] == 672
+
+
+async def test_fim_metrics_restore_merges_with_new_reports(client, fake_redis):
+    """恢复与新上报叠加不丢数:Redis 旧值 + 本次增量 = 累计值,且恢复只执行一次。"""
+    fake_redis.store[fim._FIM_METRICS_REDIS_KEY] = json.dumps(
+        {"m-merge": {"requests": 10, "suggestions": 0, "accepted": 0, "dismissed": 0, "failures": 0, "cancellations": 0, "cacheHits": 0, "latencies": []}}
+    )
+    await client.post("/api/llm/fim/metrics", json={"model": "m-merge", "requestCount": 2})
+    rows = (await client.get("/api/llm/fim/metrics/summary")).json()["data"]["models"]
+    assert rows[0]["requests"] == 12
+
+
+async def test_fim_metrics_redis_outage_silent_degrade(client, monkeypatch):
+    """Redis 读写异常 → 上报/汇总照常 200,纯内存行为不变(绝不外抛)。"""
+    broken = _BrokenRedis()
+    monkeypatch.setattr(fim, "_use_redis", True)
+    monkeypatch.setattr(fim, "_redis_client", broken)
+    resp = await client.post("/api/llm/fim/metrics", json={"model": "m-out", "requestCount": 1, "latencyMs": [50]})
+    assert resp.status_code == 200
+    assert resp.json()["code"] == 0
+    rows = (await client.get("/api/llm/fim/metrics/summary")).json()["data"]["models"]
+    assert rows[0]["model"] == "m-out"
+    assert rows[0]["requests"] == 1
+
+
+async def test_fim_metrics_no_redis_pure_memory(client):
+    """_use_redis=False(未配置/降级)→ 行为与改造前完全一致,不触碰 Redis。"""
+    await client.post("/api/llm/fim/metrics", json={"model": "m-mem", "requestCount": 1})
+    rows = (await client.get("/api/llm/fim/metrics/summary")).json()["data"]["models"]
+    assert rows[0]["model"] == "m-mem"
+
+
+async def test_fim_metrics_models_cap(client):
+    """伪造 51 个不同 model → 聚合模型数封顶 50,超限上报被忽略但不报错。"""
+    for i in range(51):
+        resp = await client.post("/api/llm/fim/metrics", json={"model": f"m-cap-{i}", "requestCount": 1})
+        assert resp.status_code == 200
+    rows = (await client.get("/api/llm/fim/metrics/summary")).json()["data"]["models"]
+    assert len(rows) == fim._METRICS_MODELS_CAP
+    # 既有 model 不受封顶影响:封顶后对已存在 model 的上报仍生效
+    resp = await client.post("/api/llm/fim/metrics", json={"model": "m-cap-0", "requestCount": 5})
+    assert resp.json()["code"] == 0
+    rows = (await client.get("/api/llm/fim/metrics/summary")).json()["data"]["models"]
+    target = next(r for r in rows if r["model"] == "m-cap-0")
+    assert target["requests"] == 6
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
