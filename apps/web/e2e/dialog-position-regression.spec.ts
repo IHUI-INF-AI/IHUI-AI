@@ -101,8 +101,14 @@ async function triggerAndMeasure(
   // 再开菜单后 aria-label="登录" 按钮可见)—— 按真实用户路径走:
   // 关 AI 面板 → 点「菜单」→ 点「登录」
   if (opts.mobile) {
+    // 2026-09-14 补:goto 后 AI 面板水合渲染需要时间,isVisible 即时检查会误判跳过
+    // (sidebar-visual 同款实测),改 waitFor 轮询;≤8s 未出现视为已关闭。
     const closePanel = page.locator('button[aria-label="关闭"]').first()
-    if (await closePanel.isVisible().catch(() => false)) {
+    const panelShown = await closePanel
+      .waitFor({ state: 'visible', timeout: 8000 })
+      .then(() => true)
+      .catch(() => false)
+    if (panelShown) {
       await closePanel.click()
       await page.waitForTimeout(500)
     }
@@ -196,6 +202,11 @@ async function triggerAndMeasure(
 }
 
 test.describe('AgreementNoticeDialog Position Regression (issue: deltaY=406px)', () => {
+  // 2026-09-14:移动端用例走 重路径(关面板→菜单→登录→切 tab→填表→提交),
+  // 全量 2 workers 负载下 30s 默认 timeout 不够(实测 failed + teardown 连锁超时);
+  // 单跑恒过,纯预算问题。
+  test.describe.configure({ timeout: 90_000 })
+
   test('桌面端视口 (1440x900):协议弹窗居中 |deltaX|<5 && |deltaY|<5', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
 
