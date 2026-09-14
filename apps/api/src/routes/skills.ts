@@ -618,26 +618,6 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(resp))
   })
 
-  // POST /skills/:name/unlist — 从市场下架 skill(移除目录条目;前端 admin SkillMarketDialog 使用)
-  server.post<{ Params: { name: string } }>('/skills/:name/unlist', async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
-
-    const parsed = nameParamSchema.safeParse(request.params)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-
-    const entries = await readMarket(server.redis, MARKET_KEY)
-    const idx = entries.findIndex((e) => e.name === parsed.data.name)
-    if (idx < 0) {
-      return reply.status(404).send(error(404, '市场 Skill 不存在'))
-    }
-    const [removed] = entries.splice(idx, 1)
-    await writeMarket(server.redis, MARKET_KEY, entries)
-
-    return reply.send(success({ name: removed!.name, unlisted: true }))
-  })
-
   // POST /skills/market — 发布 skill 到市场(用户上架自己的 skill)
   server.post('/skills/market', async (request: FastifyRequest, reply: FastifyReply) => {
     // 内部服务调用(self-evolution 自进化同步)可通过 X-Internal-Secret 绕过 JWT

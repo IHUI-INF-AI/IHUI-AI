@@ -179,7 +179,7 @@ export default function ApiDocsPage() {
         {/* 2026-08-17 P3:dark 模式代码块用 zinc-950,light 用 zinc-100(原实现 light 比 dark 更深,已修正) */}
         <pre className="overflow-x-auto rounded-md bg-zinc-100 p-3 text-xs text-zinc-800 dark:bg-zinc-950 dark:text-zinc-100">
           <code className="font-mono">{`curl https://api.ihui.ai/v1/chat/completions \\
-  -H "Authorization: Bearer ihui_xxx" \\
+  -H "Authorization: Bearer sk-xxx" \\
   -H "Content-Type: application/json" \\
   -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}'`}</code>
         </pre>
@@ -189,7 +189,7 @@ export default function ApiDocsPage() {
         <p className="text-xs text-muted-foreground">
           请求需在 Header 携带
           <code className="mx-1 rounded bg-muted px-1 py-0.5 font-mono">
-            Authorization: Bearer ihui_xxx
+            Authorization: Bearer sk-xxx
           </code>
           (Anthropic 端点亦支持
           <code className="mx-1 rounded bg-muted px-1 py-0.5 font-mono">x-api-key</code>)。

@@ -178,7 +178,21 @@
     "voiceSttFailed": "文字起こしに失敗しました。しばらくしてから再度お試しいただくか、ローカル音声サービスをご確認ください",
     "voiceEmpty": "音声が認識できませんでした。マイクに近づいて再度お試しください",
     "voiceUnauthorized": "ログインの有効期限が切れました。ページを更新して再度お試しください",
-    "voiceNetworkError": "ネットワークエラーが発生しました。接続を確認して再度お試しください"
+    "voiceNetworkError": "ネットワークエラーが発生しました。接続を確認して再度お試しください",
+    "reasoning": "推論プロセス",
+    "toolStatusRunning": "実行中",
+    "toolStatusSuccess": "成功",
+    "toolStatusError": "失敗",
+    "toolDetail": "呼び出し詳細",
+    "terminal": "ターミナル",
+    "terminalStatusRunning": "実行中",
+    "terminalStatusCompleted": "完了",
+    "terminalStatusFailed": "失敗",
+    "planStatusPending": "待機中",
+    "planStatusInProgress": "進行中",
+    "planStatusCompleted": "完了",
+    "subagentTools": "サブエージェントツール ×{count}",
+    "usage": "使用量"
   },
   "settings": {
     "language": "インターフェース言語",
@@ -225,7 +239,13 @@
     "usable": "使用可能",
     "needVip": "VIP が必要",
     "needPurchase": "購入が必要",
-    "loadFailed": "読み込み失敗"
+    "loadFailed": "読み込み失敗",
+    "approve": "許可",
+    "reject": "拒否",
+    "approvalSubmitting": "送信中...",
+    "approvalSent": "送信済み",
+    "approvalFailed": "送信に失敗しました",
+    "approvalUnavailable": "このチャネルはオンライン承認に対応していません"
   },
   "course": {
     "title": "コース",
@@ -261,6 +281,15 @@
     "translate": "IHUI AI · 選択範囲を翻訳",
     "vocab": "IHUI AI · 単語を調べる",
     "send": "IHUI AI · チャットに送信"
+  },
+  "content": {
+    "translate": "翻訳",
+    "highlight": "ハイライト",
+    "vocab": "辞書",
+    "sendAi": "AI に質問",
+    "saveWord": "単語帳に保存",
+    "saved": "保存済み",
+    "close": "閉じる"
   },
   "page": {
     "benefitsTitle": "会員限定特典",

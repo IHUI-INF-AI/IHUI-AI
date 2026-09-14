@@ -53,6 +53,12 @@ interface MonacoEditorLike {
     }>,
   ): boolean
   focus(): void
+  getSelection(): {
+    startLineNumber: number
+    startColumn: number
+    endLineNumber: number
+    endColumn: number
+  }
 }
 
 export function CodeEditorPane() {
@@ -184,6 +190,37 @@ export function CodeEditorPane() {
       registerApplyPatchCallback(null)
     }
   }, [registerApplyPatchCallback])
+
+  // P0-2(2026-09-12):AI 对话代码块「插入光标处」事件消费
+  // 在当前活动 tab 的 Monaco 光标位置插入代码,插入后聚焦编辑器(内容经 onChange 正常同步 isDirty)
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ code?: string; language?: string }>).detail
+      const codeText = detail?.code
+      if (typeof codeText !== 'string' || codeText.length === 0) return
+      const editorInstance = editorRef.current
+      if (!editorInstance || !tabIdRef.current) {
+        useIDEWorkspace.setState({ error: '请先在编辑器中打开一个文件' })
+        return
+      }
+      const sel = editorInstance.getSelection()
+      editorInstance.executeEdits('ai-code-block', [
+        {
+          range: {
+            startLineNumber: sel.startLineNumber,
+            startColumn: sel.startColumn,
+            endLineNumber: sel.endLineNumber,
+            endColumn: sel.endColumn,
+          },
+          text: codeText,
+          forceMoveMarkers: true,
+        },
+      ])
+      editorInstance.focus()
+    }
+    window.addEventListener('ihui:insert-at-cursor', handler)
+    return () => window.removeEventListener('ihui:insert-at-cursor', handler)
+  }, [])
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
