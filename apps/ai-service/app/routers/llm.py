@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.llm_gateway import llm_gateway, moa_router
+from ..core.model_naming import to_official_model_name
 from ..core.provider_caps import (
     cap_to_dict,
     cap_with_max_context,
@@ -80,133 +81,6 @@ _TOOL_ALIASES: dict[str, str] = {
     "list_directory": "list_files",
 }
 
-# W1(2026-09-12 立)终端类工具集合(即计划文档所指 shell/exec/command 类别)。
-# 命中时 tool loop 在执行前后分别产出 terminal_start / terminal_end SSE 事件,
-# 前端 apps/web MessageItem 的 TerminalSection 据此展示命令执行区块
-# (对齐 Codex 终端可视化 / Qoder 命令回放)。判断用的是 _TOOL_ALIASES 归一化后的名字。
-_TERMINAL_TOOL_NAMES = {"run_command", "run_shell", "shell_command"}
-
-
-def _resolve_message_id(metadata: Any) -> str | None:
-    """W1(2026-09-12 立):从请求 metadata 取出前端 assistant 消息 ID。
-
-    链路:前端 streamChat({metadata:{messageId}}) → apps/api ai-chat-stream.ts mergedMetadata
-    → ai-service。plan_updated / terminal_* 事件必须携带该字段,否则前端回调的
-    `if (!evt.messageId) return` 守卫会直接丢弃事件
-    (apps/web/src/hooks/use-chat/send-message.ts:598)。
-    """
-    if isinstance(metadata, dict):
-        _mid = metadata.get("messageId")
-        if isinstance(_mid, str) and _mid:
-            return _mid
-    return None
-
-
-def _format_plan_updated_event(
-    tool_calls_history: list[dict[str, Any]],
-    *,
-    explanation: str,
-    message_id: str | None,
-) -> str:
-    """W1(2026-09-12 立):把 tool loop 的工具调用历史格式化为 plan_updated SSE 事件。
-
-    链路 A(普通对话 /api/ai/chat/stream)此前**没有任何 plan 生产者**,
-    前端只能基于 reasoning/toolCalls/content 伪派生步骤
-    (apps/web/src/components/chat/message-list/use-message-list-derivations.ts)。
-    本函数把 tool loop 的每次工具调用作为权威计划快照发出:
-
-    - result 为 None → in_progress(工具执行中)
-    - 已写回 result → completed
-
-    字段与 packages/types/src/ai.ts 的 PlanUpdateEvent 严格对齐(plan[].status
-    仅允许 pending / in_progress / completed)。
-
-    空历史返回空串:调用点可无条件 yield(空串不产生 SSE 输出),
-    同时避免发出空 plan 数组把前端 message.planSteps 清空。
-    """
-    if not tool_calls_history:
-        return ""
-    _steps: list[dict[str, Any]] = []
-    for _rec in tool_calls_history:
-        _done = _rec.get("result") is not None
-        _name = str(_rec.get("toolName") or "tool")
-        # 步骤标签:工具名 + 关键参数摘要(命令/查询/路径等),便于用户辨识这一步在做什么
-        _label = _name
-        _args = _rec.get("args")
-        if isinstance(_args, dict):
-            for _k in ("command", "query", "path", "file", "url", "pattern", "name"):
-                _v = _args.get(_k)
-                if isinstance(_v, str) and _v.strip():
-                    _label = f"{_name}: {_v.strip()[:80]}"
-                    break
-        _step: dict[str, Any] = {
-            "step": _label,
-            "status": "completed" if _done else "in_progress",
-        }
-        if _done:
-            _dur = _rec.get("durationMs")
-            if isinstance(_dur, int) and _dur >= 0:
-                _step["durationMs"] = _dur
-        _steps.append(_step)
-
-    _evt: dict[str, Any] = {
-        "type": "plan_updated",
-        "plan": _steps,
-        "explanation": explanation,
-        "timestamp": datetime.now(UTC).isoformat(),
-    }
-    if message_id:
-        _evt["messageId"] = message_id
-    return f"event: plan_updated\ndata: {json.dumps(_evt, ensure_ascii=False)}\n\n"
-
-
-def _format_terminal_end_event(
-    terminal_id: str,
-    exec_result: Any,
-    ok: bool,
-    started_ms: float,
-    message_id: str | None,
-) -> str:
-    """W1(2026-09-12 立):把 run_command 类工具的执行结果格式化为 terminal_end SSE 事件。
-
-    字段与 packages/types/src/ai.ts 的 TerminalEndEvent 严格对齐
-    (注意契约字段是 `terminalId`,不是 `id`)。
-    run_command handler 返回 {exit_code, stdout, stderr, output?},此处合并为 output。
-    """
-    _output = ""
-    _exit_code: int | None = None
-    if isinstance(exec_result, dict):
-        _raw_output = exec_result.get("output")
-        if isinstance(_raw_output, str) and _raw_output:
-            _output = _raw_output
-        else:
-            _stdout = exec_result.get("stdout")
-            _stderr = exec_result.get("stderr")
-            _output = "\n".join(
-                _p for _p in (
-                    _stdout if isinstance(_stdout, str) else "",
-                    _stderr if isinstance(_stderr, str) else "",
-                ) if _p
-            )
-        _ec = exec_result.get("exit_code", exec_result.get("exitCode"))
-        if isinstance(_ec, int):
-            _exit_code = _ec
-
-    _evt: dict[str, Any] = {
-        "type": "terminal_end",
-        "terminalId": terminal_id,
-        "status": "completed" if ok else "failed",
-        "endedAt": datetime.now(UTC).isoformat(),
-        "durationMs": int((time.time() - started_ms) * 1000),
-    }
-    if _output:
-        # 截断:与 tool-result 的 4000 字符上限保持同一量级,避免事件体积膨胀
-        _evt["output"] = _output[:8000]
-    if _exit_code is not None:
-        _evt["exitCode"] = _exit_code
-    if message_id:
-        _evt["messageId"] = message_id
-    return f"event: terminal_end\ndata: {json.dumps(_evt, ensure_ascii=False)}\n\n"
 
 
 def _wrap_ok(data: Any, message: str = "ok") -> dict[str, Any]:
@@ -396,54 +270,6 @@ def _format_tool_summary_event(tool_calls_history: list[dict[str, Any]]) -> str 
     return f"event: tool-summary\ndata: {json.dumps(summary, ensure_ascii=False)}\n\n"
 
 
-def _collect_citations(tool_calls_history: list[dict[str, Any]]) -> list[dict[str, str]]:
-    """#11 Citations 全链路(2026-09-13 立):从 tool_calls_history 提取 knowledge_lookup
-    的引用溯源条目,按 (source, label) 去重,最多 10 条避免事件体积膨胀。"""
-    seen: set[tuple[str, str]] = set()
-    out: list[dict[str, str]] = []
-    for tc in tool_calls_history:
-        if tc.get("toolName") != "knowledge_lookup" or tc.get("isError"):
-            continue
-        result = tc.get("result")
-        if not isinstance(result, dict):
-            continue
-        hits = result.get("hits")
-        if not isinstance(hits, list):
-            continue
-        for h in hits:
-            if not isinstance(h, dict):
-                continue
-            source = h.get("source") or "knowledge"
-            for c in h.get("citations") or []:
-                if not isinstance(c, str) or not c.strip():
-                    continue
-                label = c.strip()[:200]
-                key = (str(source), label)
-                if key in seen:
-                    continue
-                seen.add(key)
-                out.append({"source": str(source), "label": label})
-                if len(out) >= 10:
-                    return out
-    return out
-
-
-def _format_citations_event(
-    tool_calls_history: list[dict[str, Any]], message_id: str | None = None
-) -> str | None:
-    """构造 citations SSE 事件字符串,无引用时返回 None(避免无意义事件)。
-
-    前端 streamChat 的 onCitations 回调解析后写入 ChatMessage.citations,
-    MessageItem 渲染 CitationBar(来源标签 + 可点击 URL)。"""
-    citations = _collect_citations(tool_calls_history)
-    if not citations:
-        return None
-    evt: dict[str, Any] = {"type": "citations", "citations": citations}
-    if message_id:
-        evt["messageId"] = message_id
-    return f"event: citations\ndata: {json.dumps(evt, ensure_ascii=False)}\n\n"
-
-
 def _inject_workspace_memory(
     messages: list[dict[str, Any]],
     workspace_path: str | None,
@@ -516,6 +342,68 @@ def _inject_workspace_memory(
     return new_messages
 
 
+def _escape_xml_attr(value: str) -> str:
+    """转义 XML 属性值中的 & < > " ',防止属性注入破坏标签结构。"""
+    return (
+        value.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
+
+
+def _inject_repo_wiki(
+    messages: list[dict[str, Any]],
+    wiki_context: str | None,
+    wiki_repo: str | None = None,
+) -> list[dict[str, Any]]:
+    """P1-8(2026-09-13 立,Repo Wiki):将「项目百科」摘要注入为 system message。
+
+    独立实现,不改动 _inject_workspace_memory 的任何行为。语义与工作区记忆同型:
+    - wiki_context 为空/纯空白 → 原样返回 messages
+    - messages[0].role == 'system' → 追加到现有 system content 末尾
+    - messages 无 system → 在开头 insert 一条新 system message
+    - 用 <repo_wiki repo="...">...</repo_wiki> 包裹正文(repo 值做 XML 属性转义,防注入)
+    - 去重 marker:<!-- repo_wiki:{repo} -->(repo 为空时用 unknown),
+      目标 system content 中已存在该 marker 则原样返回 messages
+    - 不修改入参列表本身(拷贝后返回)
+
+    Args:
+        messages: 原始消息列表
+        wiki_context: 项目百科正文(为空/纯空白时跳过)
+        wiki_repo: 仓库名(None/空 → 标签与 marker 用 'unknown')
+
+    Returns:
+        注入项目百科后的新消息列表(不修改原列表)
+    """
+    if not wiki_context or not str(wiki_context).strip():
+        return messages
+    repo_label = (wiki_repo or "").strip() or "unknown"
+    marker = f"<!-- repo_wiki:{repo_label} -->"
+    body = (
+        "以下为该项目自动生成的「项目百科」(Repo Wiki)摘要,"
+        "可作为回答代码/架构问题的权威背景:\n\n"
+        f"{wiki_context}"
+    )
+    isolated = (
+        f'<repo_wiki repo="{_escape_xml_attr(repo_label)}">\n'
+        f"{body}\n"
+        f"</repo_wiki>"
+    )
+    new_messages = list(messages)
+    if new_messages and new_messages[0].get("role") == "system":
+        existing = new_messages[0].get("content", "")
+        if marker in str(existing):
+            return messages
+        merged = f"{existing}\n\n{marker}\n{isolated}" if existing else f"{marker}\n{isolated}"
+        new_messages[0] = {**new_messages[0], "content": merged}
+    else:
+        # 新插入的 system 也带上 marker,保证二次调用可命中去重
+        new_messages.insert(0, {"role": "system", "content": f"{marker}\n{isolated}"})
+    return new_messages
+
+
 # Plan/Act 模式引导 prompt(2026-07-24 立,自研双模切换)
 # plan 模式:LLM 只制定计划不调用工具;act 模式:正常 tool loop 执行
 _PLAN_MODE_PROMPT = (
@@ -537,59 +425,13 @@ def _inject_plan_mode_prompt(
     """
     if not plan_mode or str(plan_mode).lower() != "plan":
         return messages
-    return _inject_system_prefix(messages, _PLAN_MODE_PROMPT)
-
-
-# ChatMode 5 态引导 prompt(2026-09-13 矩阵 A #24):
-# ask=纯问答禁工具;review=只读审查;spec=规格生成。plan 走 _PLAN_MODE_PROMPT;build 不注入。
-_CHAT_MODE_PROMPTS: dict[str, str] = {
-    "ask": (
-        "## Ask Mode Active\n"
-        "You are in ASK mode. DO NOT call any tools. Answer the user's question directly "
-        "and concisely based on the conversation context."
-    ),
-    "review": (
-        "## Review Mode Active\n"
-        "You are in REVIEW mode. Focus on read-only code review: point out bugs, risks and "
-        "improvements with evidence. DO NOT modify anything."
-    ),
-    "spec": (
-        "## Spec Mode Active\n"
-        "You are in SPEC mode. Produce or refine a structured specification document "
-        "(goals, scope, interfaces, data models, acceptance criteria)."
-    ),
-}
-
-
-def _resolve_chat_mode(mode: str | None, plan_mode: str | None) -> str | None:
-    """归一化 ChatMode(2026-09-13 矩阵 A #24)。
-
-    - mode 字段('ask'/'build'/'plan'/'review'/'spec',大小写不敏感)优先于 legacy plan_mode
-    - legacy plan_mode 兼容:'plan'→plan,'act'→build(不注入,正常 tool loop)
-    - 未知值 → None(保持默认行为,不猜测)
-    """
-    m = (mode or "").strip().lower() or None
-    if m in ("ask", "build", "plan", "review", "spec"):
-        return m
-    legacy = (plan_mode or "").strip().lower()
-    if legacy == "plan":
-        return "plan"
-    return None
-
-
-def _inject_system_prefix(messages: list[dict[str, Any]], prefix: str) -> list[dict[str, Any]]:
-    """在 system prompt 最顶部前置注入 prefix(无 system message 时在开头插入新 system message)。
-
-    抽取自 _inject_plan_mode_prompt 的合并逻辑(2026-09-13 矩阵 A #24),
-    供 plan/ask/review/spec 各模式复用。
-    """
     new_messages = list(messages)
     if new_messages and new_messages[0].get("role") == "system":
         existing = new_messages[0].get("content", "")
-        merged = f"{prefix}\n\n{existing}" if existing else prefix
+        merged = f"{_PLAN_MODE_PROMPT}\n\n{existing}" if existing else _PLAN_MODE_PROMPT
         new_messages[0] = {**new_messages[0], "content": merged}
     else:
-        new_messages.insert(0, {"role": "system", "content": prefix})
+        new_messages.insert(0, {"role": "system", "content": _PLAN_MODE_PROMPT})
     return new_messages
 
 
@@ -733,6 +575,15 @@ class LLMCompleteRequest(BaseModel):
     workspace_context: str | None = Field(
         None, description="浏览器端预加载的工作区文件内容,直接注入 system prompt(优先于 workspace_path)"
     )
+    # P1-8(2026-09-13 立,Repo Wiki):项目百科摘要注入
+    # API 网关按 repo_name 从 repo_wiki_docs 读出最新一版 overview 文档,截断后经此字段传入,
+    # 由 _inject_repo_wiki 独立注入(与 workspace_context 互不影响)。
+    wiki_context: str | None = Field(
+        None, description="项目百科(Repo Wiki)摘要,注入 system prompt 作为代码/架构问答背景"
+    )
+    wiki_repo: str | None = Field(
+        None, description="项目百科对应仓库名(用于去重 marker 与 <repo_wiki repo> 标签标注)"
+    )
     # 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一,Python 端兜底)
     context_limit: int | None = Field(
         None, description="模型上下文窗口大小(tokens),达 88% 阈值自动压缩。0 或 None = 不压缩"
@@ -746,11 +597,6 @@ class LLMCompleteRequest(BaseModel):
     # plan_mode='plan' 时前置注入 Plan Mode system prompt,LLM 只制定计划不调用工具;
     # 'act' 或 None = 正常 tool loop 执行(默认)
     plan_mode: str | None = Field(None, description="Plan/Act 模式:'plan'=只制定计划,'act'=正常执行(默认)")
-    # ChatMode 5 态(2026-09-13 矩阵 A #24):ask=纯问答禁工具;build=正常执行;
-    # plan/review/spec=对应模式引导。优先级高于 legacy plan_mode(见 _resolve_chat_mode)。
-    mode: str | None = Field(
-        None, description="对话模式:ask/build/plan/review/spec(优先于 plan_mode)"
-    )
 
 
 # =============================================================================
@@ -779,12 +625,17 @@ RESTRICTED_MODEL_IDS = {"deepseek-chat", "deepseek-reasoner", "gpt-4o", "gpt-4o-
 
 
 def _is_restricted_model(model: str | None) -> bool:
-    """判断模型是否属于受限(真实付费 key)集合。"""
+    """判断模型是否属于受限(真实付费 key)集合。
+
+    2026-09-13 修复:先做小写归一,避免客户端传大写写法(如 GPT-4o)绕过前缀/集合
+    判定导致非管理员越权消费付费额度(下游仍按小写解析到 openai 真实 key)。
+    """
     if not model:
         return False
-    if model in RESTRICTED_MODEL_IDS:
+    m = model.lower()
+    if m in RESTRICTED_MODEL_IDS:
         return True
-    return any(model.startswith(p) for p in RESTRICTED_PREFIXES)
+    return any(m.startswith(p) for p in RESTRICTED_PREFIXES)
 
 
 async def _ensure_restricted_model_access(request: Request, model: str | None) -> None:
@@ -941,10 +792,17 @@ def _record_compaction_step(
 @router.post("/llm/complete", response_model=None)
 async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, Any] | JSONResponse:
     """直接调用 LLM 完成对话(支持 function calling)。"""
+    # 2026-09-13 立:入站模型名官方改写(大小写归一),须在受限模型权限判定前完成,
+    # 让权限判定与后续链路共用同一个归一值。
+    # model 为可选字段(None = 由下游选默认模型),此时保持 None 不改写。
+    if req.model:
+        req.model = to_official_model_name(req.model)
     await _ensure_restricted_model_access(request, req.model)
     owner_uuid = _resolve_owner_uuid(request)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(req.messages, req.workspace_path, req.workspace_context)
+    # P1-8(2026-09-13 立,Repo Wiki):项目百科独立注入(紧邻工作区记忆,互不影响)
+    messages = _inject_repo_wiki(messages, req.wiki_context, req.wiki_repo)
     # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
     messages = _inject_custom_system_prompt(messages, req.system_prompt)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
@@ -1422,23 +1280,23 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
       透传 errorCode 到 Error 对象 → onError 回调。
     """
 
+    # 2026-09-13 立:入站模型名官方改写(大小写归一),须在受限模型权限判定前完成,
+    # 让权限判定与后续链路共用同一个归一值。
+    # model 为可选字段(None = 由下游选默认模型),此时保持 None 不改写。
+    if req.model:
+        req.model = to_official_model_name(req.model)
     accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
     await _ensure_restricted_model_access(request, req.model)
     owner_uuid = _resolve_owner_uuid(request)
     # 2026-08-06 修复:透传用户角色给 call_tool(权限矩阵),否则 admin 也按 role=0 拒绝
     user_role = _resolve_user_role(request)
-    # ChatMode 模式注入(2026-09-13 矩阵 A #24):mode 优先于 legacy plan_mode。
-    # plan → Plan Mode 引导;ask/review/spec → 对应模式引导;build/None → 原样返回。
-    # 注入在 _inject_workspace_memory 之前,确保模式引导位于 system prompt 最顶部。
-    chat_mode = _resolve_chat_mode(req.mode, req.plan_mode)
-    if chat_mode == "plan":
-        messages = _inject_plan_mode_prompt(req.messages, "plan")
-    elif chat_mode in _CHAT_MODE_PROMPTS:
-        messages = _inject_system_prefix(req.messages, _CHAT_MODE_PROMPTS[chat_mode])
-    else:
-        messages = req.messages
+    # Plan/Act 模式注入:plan 模式前置注入 Plan Mode system prompt(在 workspace memory 之前,
+    # 确保 Plan Mode 引导位于 system prompt 最顶部);act 模式原样返回
+    messages = _inject_plan_mode_prompt(req.messages, req.plan_mode)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(messages, req.workspace_path, req.workspace_context)
+    # P1-8(2026-09-13 立,Repo Wiki):项目百科独立注入(紧邻工作区记忆,互不影响)
+    messages = _inject_repo_wiki(messages, req.wiki_context, req.wiki_repo)
     # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
     messages = _inject_custom_system_prompt(messages, req.system_prompt)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
@@ -1509,9 +1367,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # 每次 tool-call-start 事件发出时 append 一条记录,tool-result 事件到达时更新 result/durationMs/isError。
         # 在 SSE 流末尾(每个 done 事件之前)聚合统计,发出 tool-summary 事件。
         tool_calls_history: list[dict[str, Any]] = []
-        # W1(2026-09-12 立):前端 assistant 消息 ID。plan_updated / terminal_* 事件必须携带,
-        # 否则前端 onPlanUpdate/onTerminalStart/onTerminalEnd 回调的 messageId 守卫会丢弃事件。
-        message_id = _resolve_message_id(req.metadata)
         # 阶段 2:浏览器端工具委托 session_id(workspace_context 模式下生成)
         session_id: str | None = None
         if req.workspace_context:
@@ -1531,8 +1386,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 2. 调 llm_gateway.complete() 带 tools,获取 LLM 决策(tool_calls)
             # 3. 如有 tool_calls:推送 SSE 事件 → 执行工具 → 回灌结果 → 继续 astream 生成最终回复
             # 4. 如无 tool_calls:推送 content + done,跳过 astream
-            # ask 模式(2026-09-13 矩阵 A #24):纯问答禁工具,即使携带 agent_tools 也跳过 tool loop
-            if req.agent_tools and chat_mode != "ask":
+            if req.agent_tools:
                 from ..services.mcp_server import mcp_server as _mcp
                 all_tools = _mcp.list_tools()
                 tool_map = {t.name: t for t in all_tools}
@@ -1753,12 +1607,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 }
                                 if req.metadata:
                                     done_event["metadata"] = req.metadata
-                                # W1(2026-09-12 立):最终回答前发一次 plan 快照(全部步骤已完成)
-                                yield _format_plan_updated_event(
-                                    tool_calls_history,
-                                    explanation="全部步骤已完成",
-                                    message_id=message_id,
-                                )
                                 # 2026-07-31 A2:done 之前发出 tool-summary
                                 _ts_str = _format_tool_summary_event(tool_calls_history)
                                 if _ts_str:
@@ -1822,32 +1670,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "isError": False,
                                 "result": None,
                             })
-
-                            # W1(2026-09-12 立)终端类工具:执行前发 terminal_start 事件。
-                            # 前端 onTerminalStart → chatStore.appendMessageTerminalTask
-                            # → MessageItem 的 TerminalSection 实时显示"运行中"命令区块。
-                            _is_terminal_tool = tool_name in _TERMINAL_TOOL_NAMES
-                            _terminal_id = ""
-                            if _is_terminal_tool:
-                                _terminal_id = tc.get("id") or f"term-{uuid.uuid4().hex[:8]}"
-                                _term_start_evt: dict[str, Any] = {
-                                    "type": "terminal_start",
-                                    "terminalId": _terminal_id,
-                                    "command": str(args.get("command", "") or ""),
-                                    "status": "running",
-                                    "startedAt": datetime.now(UTC).isoformat(),
-                                }
-                                if message_id:
-                                    _term_start_evt["messageId"] = message_id
-                                yield f"event: terminal_start\ndata: {json.dumps(_term_start_evt, ensure_ascii=False)}\n\n"
-
-                            # W1(2026-09-12 立)plan_updated 权威快照(本轮工具开始执行 → in_progress)。
-                            # 前端 onPlanUpdate → chatStore.setMessagePlanSteps → PlanStepsCard 实时更新。
-                            yield _format_plan_updated_event(
-                                tool_calls_history,
-                                explanation=f"开始执行工具 {tool_name}",
-                                message_id=message_id,
-                            )
 
                             # Subagent 派发生成事件(2026-07-28 立,自动派发):
                             # dispatch_subagent 工具执行前,解析 args.tasks 数组或 args.name+args.task 单任务,
@@ -1919,17 +1741,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "isError": False,
                                         "durationMs": int((time.time() - _tc_start_ts) * 1000),
                                     })
-                                # W1(2026-09-12 立):终端类工具收尾(去重跳过分支视为已完成)
-                                if _is_terminal_tool:
-                                    yield _format_terminal_end_event(
-                                        _terminal_id, exec_result, ok, _tc_start_ts, message_id
-                                    )
-                                # W1(2026-09-12 立):plan 快照收尾(result 已写回 → 该步转 completed)
-                                yield _format_plan_updated_event(
-                                    tool_calls_history,
-                                    explanation=f"工具 {tool_name} 已完成(重复调用已跳过)",
-                                    message_id=message_id,
-                                )
                                 # 回灌工具结果(简短提示,让 LLM 知道工具被跳过,完整结果见之前 tool 消息)
                                 result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
                                 messages.append({
@@ -2014,16 +1825,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             "isError": True,
                                             "durationMs": int((time.time() - _tc_start_ts) * 1000),
                                         })
-                                    # W1(2026-09-12 立):委托超时收尾(该步记 failed,plan 快照同步)
-                                    if _is_terminal_tool:
-                                        yield _format_terminal_end_event(
-                                            _terminal_id, exec_result, ok, _tc_start_ts, message_id
-                                        )
-                                    yield _format_plan_updated_event(
-                                        tool_calls_history,
-                                        explanation=f"工具 {tool_name} 委托超时",
-                                        message_id=message_id,
-                                    )
                                     result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
                                     messages.append({
                                         "role": "tool",
@@ -2087,16 +1888,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "isError": not ok,
                                         "durationMs": int((time.time() - _tc_start_ts) * 1000),
                                     })
-                                # W1(2026-09-12 立):委托结束收尾(终端类发 terminal_end,plan 快照同步)
-                                if _is_terminal_tool:
-                                    yield _format_terminal_end_event(
-                                        _terminal_id, exec_result, ok, _tc_start_ts, message_id
-                                    )
-                                yield _format_plan_updated_event(
-                                    tool_calls_history,
-                                    explanation=f"工具 {tool_name} 已{'完成' if ok else '失败'}",
-                                    message_id=message_id,
-                                )
                                 # 回灌工具结果到 messages
                                 result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
                                 messages.append({
@@ -2236,20 +2027,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "durationMs": int((time.time() - _tc_start_ts) * 1000),
                                 })
 
-                            # W1(2026-09-12 立):工具执行收尾。
-                            # 终端类工具(归一化后名命中 _TERMINAL_TOOL_NAMES)发 terminal_end,
-                            # 携带 output/exitCode/durationMs;所有工具都发 plan_updated 快照
-                            # (该步 result 已写回 → completed),前端 PlanStepsCard 实时勾选。
-                            if _is_terminal_tool:
-                                yield _format_terminal_end_event(
-                                    _terminal_id, exec_result, ok, _tc_start_ts, message_id
-                                )
-                            yield _format_plan_updated_event(
-                                tool_calls_history,
-                                explanation=f"工具 {tool_name} 已{'完成' if ok else '失败'}",
-                                message_id=message_id,
-                            )
-
                             # Subagent 派发结束事件(2026-07-28 立,自动派发):
                             # dispatch_subagent 工具执行后,为每个已 spawn 的 sub_id 发 subagent_end 事件,
                             # status=done(成功)或 failed(失败),失败时附 failureReason(截断 500 字符)。
@@ -2348,20 +2125,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             }
                             if req.metadata:
                                 done_event["metadata"] = req.metadata
-                            # W1(2026-09-12 立):全部失败收尾前发 plan 快照(每步 result 已写回)
-                            yield _format_plan_updated_event(
-                                tool_calls_history,
-                                explanation="工具执行失败",
-                                message_id=message_id,
-                            )
                             # 2026-07-31 A2:done 之前发出 tool-summary(全部工具失败场景,tool_calls_history 非空)
                             _ts_str = _format_tool_summary_event(tool_calls_history)
                             if _ts_str:
                                 yield _ts_str
-                            # #11 Citations 全链路(2026-09-13 立):全部失败收尾同样下发引用溯源
-                            _cit_str = _format_citations_event(tool_calls_history, message_id)
-                            if _cit_str:
-                                yield _cit_str
                             yield f"event: done\ndata: {json.dumps(done_event, ensure_ascii=False)}\n\n"
                             has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
                             if has_association and not accumulated.get("error") and not await request.is_disconnected():
@@ -2491,22 +2258,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # 在 done 事件中透传 metadata
                     if req.metadata:
                         event["metadata"] = req.metadata
-                    # W1(2026-09-12 立):tool loop 结束走 astream 时,最终 done 前发 plan 快照
-                    # (tool_calls_history 为空时返回空串,no-op)
-                    yield _format_plan_updated_event(
-                        tool_calls_history,
-                        explanation="全部步骤已完成",
-                        message_id=message_id,
-                    )
                     # 2026-07-31 A2:done 之前发出 tool-summary(tool loop 完成后走 astream 的场景)
                     _ts_str = _format_tool_summary_event(tool_calls_history)
                     if _ts_str:
                         yield _ts_str
-                    # #11 Citations 全链路(2026-09-13 立):done 前下发引用溯源
-                    # (本轮有 knowledge_lookup 成功调用且带 citations 时才发,否则 no-op)
-                    _cit_str = _format_citations_event(tool_calls_history, message_id)
-                    if _cit_str:
-                        yield _cit_str
                     # 2026-08-06 修复:空回复兜底 —— 模型可能返回 0 content
                     # (step_plan 只返回 tool_calls 或空文本),不能给用户一条空消息。
                     # 此时通常已发生工具调用,提示用户可基于工具结果重试。

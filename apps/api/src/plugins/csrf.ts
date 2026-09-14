@@ -187,6 +187,13 @@ const csrfPlugin: FastifyPluginAsync<CsrfPluginOptions> = async (
     // Internal service token 请求豁免(服务间调用,非浏览器,无 CSRF 风险)
     if (request.headers['x-internal-service-token']) return
 
+    // Gemini 协议入站豁免(2026-09-13):Gemini SDK 默认用 x-goog-api-key 头或
+    // ?key= 查询参数携带 API Key(非浏览器自动携带的凭证,与 Bearer 同级防 CSRF),
+    // 且该鉴权映射发生在路由 preHandler(mapGeminiAuth),晚于本钩子——不豁免
+    // 会被 403 拦死,外部 Gemini SDK 客户端无法接入 /v1beta。
+    if (request.headers['x-goog-api-key']) return
+    if (typeof (request.query as { key?: unknown } | undefined)?.key === 'string') return
+
     const cookieValue = (request as FastifyRequest & { cookies?: Record<string, string> })
       .cookies?.[CSRF_COOKIE_NAME]
     const rawHeader = request.headers[CSRF_HEADER_NAME]

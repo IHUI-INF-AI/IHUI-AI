@@ -6,7 +6,7 @@
  * v1-realtime.ts — OpenAI Realtime API 兼容 WebSocket 端点。
  *
  * 端点: GET /v1/realtime?model=xxx
- * 鉴权: query 参数 api_key 或 header Authorization: Bearer sk-xxx
+ * 鉴权: query 参数 api_key 或 header Authorization: Bearer ihui_xxx
  *
  * 协议兼容 OpenAI Realtime API:
  *   - 客户端→服务端事件:session.update / input_audio_buffer.append / .commit /
@@ -326,8 +326,10 @@ const MODEL_WHITELIST = ['gpt-4o-realtime', 'gpt-4o-mini-realtime', 'qwen-audio-
 
 /** 上游 provider 映射。 */
 function resolveProvider(model: string): 'openai' | 'dashscope' | null {
-  if (model.startsWith('gpt-4o')) return 'openai'
-  if (model.startsWith('qwen')) return 'dashscope'
+  // 2026-09-13 修复:provider 前缀判定大小写不敏感(model 形参保持原样)
+  const m = model.trim().toLowerCase()
+  if (m.startsWith('gpt-4o')) return 'openai'
+  if (m.startsWith('qwen')) return 'dashscope'
   return null
 }
 
@@ -618,7 +620,8 @@ async function handleRealtimeConnection(socket: WebSocket, request: FastifyReque
     safeClose(socket, CLOSE_CODE.MODEL_NOT_ALLOWED, 'Missing model parameter')
     return
   }
-  if (!MODEL_WHITELIST.includes(model as (typeof MODEL_WHITELIST)[number])) {
+  // 2026-09-13 修复:白名单大小写不敏感(GPT-4o-Realtime 等同 gpt-4o-realtime,仅比较归一)
+  if (!MODEL_WHITELIST.includes(model.trim().toLowerCase() as (typeof MODEL_WHITELIST)[number])) {
     safeClose(socket, CLOSE_CODE.MODEL_NOT_ALLOWED, `Model "${model}" not allowed`)
     return
   }
