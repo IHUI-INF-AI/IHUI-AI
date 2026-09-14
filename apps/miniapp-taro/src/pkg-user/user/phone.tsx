@@ -171,7 +171,7 @@ export default function Phone() {
     <ThemeRoot>
       {/* 对齐 RN 共享 ChangePhoneScreen:页面浅灰底 + 内容边距 48rpx;居中大标题 44rpx/700 +
           说明行 28rpx 次级字色;输入盒描边 border.light + muted 底 + 高 100rpx + 圆角 24rpx;
-          发送按钮 28rpx/700 品牌橙纯文字;提交钮品牌底 100rpx 高圆角 24rpx */}
+          发送按钮 28rpx/700 品牌灰蓝纯文字;提交钮品牌底 100rpx 高圆角 24rpx */}
       <View className="min-h-screen bg-background">
         {step === 1 ? (
           <View className="p-[48rpx]">
@@ -195,7 +195,7 @@ export default function Phone() {
                   className={`shrink-0 pl-[24rpx] text-[28rpx] ${
                     oldCountdown > 0
                       ? 'text-muted-foreground'
-                      : 'font-bold text-[var(--color-brand-orange)]'
+                      : 'font-bold text-[var(--color-brand-accent-deep)]'
                   }`}
                   onClick={onGetOldCode}
                 >
@@ -253,7 +253,7 @@ export default function Phone() {
                   className={`shrink-0 pl-[24rpx] text-[28rpx] ${
                     newCountdown > 0
                       ? 'text-muted-foreground'
-                      : 'font-bold text-[var(--color-brand-orange)]'
+                      : 'font-bold text-[var(--color-brand-accent-deep)]'
                   }`}
                   onClick={onGetNewCode}
                 >
@@ -277,7 +277,7 @@ export default function Phone() {
               </Text>
             </View>
             <View className="mt-[24rpx] rounded-[24rpx] bg-muted p-[24rpx]">
-              <Text className="mb-[12rpx] block text-[28rpx] font-semibold text-[var(--color-brand-orange)]">
+              <Text className="mb-[12rpx] block text-[28rpx] font-semibold text-[var(--color-brand-accent-deep)]">
                 {tt('user.phone.noticeTitle', '【更换后影响】')}
               </Text>
               <Text className="block text-[28rpx] leading-[1.6] text-foreground">
