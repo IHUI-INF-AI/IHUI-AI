@@ -664,24 +664,24 @@ export function LoginScreen() {
     void performCarrierOneClickLogin()
   }, [checkAgreement, performCarrierOneClickLogin])
 
-  // "本机号码一键登录"按钮节点(wrapper 注入 SharedLoginScreen phone tab 内)。
+  // "本机号码一键登录"按钮节点(wrapper 注入 SharedLoginScreen phone tab 置顶首选 CTA)。
   // 颜色严格取自 AppThemeTokens(getTokens),禁止硬编码;未配置则不注入节点(hidden)。
   const carrierEntryNode = useMemo(() => {
     const tk = getTokens(resolvedTheme)
+    // 底色主题黑白(brand.DEFAULT:亮色纯黑/暗色纯白,2026-09-14 用户定稿,不再用强调色 token),
+    // 对齐主登录按钮;文字/spinner 取主题反色(黑底白字/白底黑字)
+    const onCarrierColor = resolvedTheme === 'dark' ? tk.gray.black : tk.surface.light
     return (
       <TouchableOpacity
-        style={[
-          styles.carrierOneKeyBtn,
-          { borderColor: tk.border.light, backgroundColor: tk.brand.DEFAULT },
-        ]}
+        style={[styles.carrierOneKeyBtn, { backgroundColor: tk.brand.DEFAULT }]}
         onPress={handleCarrierOneClickLogin}
         disabled={carrierLoading}
         activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityLabel="本机号码一键登录"
       >
-        <ActivityIndicator size="small" color={tk.surface.light} />
-        <Text style={[styles.carrierOneKeyText, { color: tk.surface.light }]}>
+        {carrierLoading ? <ActivityIndicator size="small" color={onCarrierColor} /> : null}
+        <Text style={[styles.carrierOneKeyText, { color: onCarrierColor }]}>
           {carrierLoading ? '正在拉起运营商授权...' : '本机号码一键登录'}
         </Text>
       </TouchableOpacity>
@@ -1202,18 +1202,17 @@ const styles = StyleSheet.create({
   devFillText: {
     fontSize: 11,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
   },
   // ===== 运营商一键登录按钮(布局;颜色在组件内按主题取 AppThemeTokens) =====
+  // 规格对齐主登录按钮 loginBtn(高 40 / 圆角 6),作为 phone tab 置顶首选 CTA
   carrierOneKeyBtn: {
-    height: 44,
-    borderRadius: 8,
-    borderWidth: 1,
+    height: 40,
+    borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 12,
   },
   carrierOneKeyText: {
     fontSize: 15,

@@ -200,7 +200,7 @@ export default function RegisterIndex() {
             </View>
           </View>
 
-          {/* 注册按钮(对齐 RN submitBtn:品牌橙底) */}
+          {/* 注册按钮(对齐 RN submitBtn:品牌灰蓝底) */}
           <AuthButton onClick={form.register} disabled={form.submitting} variant="register">
             {form.submitting ? tt('register.submitting', '注册中…') : tt('register.submit', '注册')}
           </AuthButton>

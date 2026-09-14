@@ -201,7 +201,7 @@ function formatBlock(lines, indent = '  ') {
  *
  * 2026-08-06:移除 --color-brand-/--color-vip-/--color-rank- 三个前缀。
  * tokens.css @theme 块已定义业务品牌色(--color-vip-gold-start/end、--color-rank-gold/silver/bronze、
- * --color-brand-orange、--color-brand-50..900、--color-brand),此前被跳过导致小程序端无法 var() 引用,
+ * --color-brand-accent、--color-brand-50..900、--color-brand),此前被跳过导致小程序端无法 var() 引用,
  * 只能硬编码 hex。现全部同步到 app.css,页面可引用 var(--color-rank-*) / var(--color-vip-*) / var(--color-brand*)。
  *
  * --color-white-/--color-black- 前缀也一并移除:这两组透明度色板定义在 tokens.css 独立 :root 块(非 @theme),

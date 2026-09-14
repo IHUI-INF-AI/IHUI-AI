@@ -12,7 +12,7 @@
  *    校验 name 集一致性守护。
  *
  * BRAND_PRIMARY / BRAND_PRIMARY_DARK / BRAND_BG 为 Swagger 后台文档主题品牌色,
- * BRAND_PRIMARY = 全项目统一强调橙 #ff6b35(对齐 --color-brand-orange),遵循"相近色统一为一个 token"。
+ * BRAND_PRIMARY = --chart-1 数据蓝 #3b82f6(Swagger 文档主题,与 App 强调色独立)。
  */
 export const CHART_PALETTE: readonly string[] = [
   '#3b82f6', // --chart-1 blue

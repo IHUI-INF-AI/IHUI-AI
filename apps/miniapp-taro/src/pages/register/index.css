@@ -10,7 +10,7 @@
  * tk.surface.muted→var(--color-muted) / tk.border.light→var(--color-border) /
  * tk.text.primary→var(--color-foreground) / tk.text.secondary→var(--color-muted-foreground) /
  * tk.text.tertiary→var(--color-text-tertiary) / tk.brand.DEFAULT→var(--color-primary) /
- * tk.brandAccent.DEFAULT→var(--color-brand-orange) / tk.danger→var(--color-danger)。
+ * tk.brandAccent.DEFAULT→var(--color-brand-accent) / tk.danger→var(--color-danger)。
  */
 
 /* ===== 容器(对齐 RN container:bg surface.bg + paddingH 10 + paddingTop 48 + paddingBottom 32) ===== */
@@ -178,7 +178,7 @@
   color: var(--color-primary);
 }
 
-/* ===== 注册按钮(AuthButton 组件用,对齐 RN submitBtn:brandAccent 橙底 + 圆角 12 + 高 50) ===== */
+/* ===== 注册按钮(AuthButton 组件用,对齐 RN submitBtn:brandAccent 灰蓝底 + 圆角 12 + 高 50) ===== */
 .login-btn {
   width: 100%;
   height: 100rpx;
@@ -196,10 +196,11 @@
 
 .btn-register {
   border-radius: 24rpx;
-  background-color: var(--color-brand-orange);
+  background-color: var(--color-brand-accent);
   font-size: 32rpx;
   font-weight: 600;
-  color: var(--color-card);
+  /* accent 底配 foreground 文字(浅灰蓝上白字对比不足) */
+  color: var(--color-brand-accent-foreground);
 }
 
 .btn-text {
