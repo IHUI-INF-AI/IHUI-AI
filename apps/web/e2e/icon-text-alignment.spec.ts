@@ -81,8 +81,34 @@ async function measureAlignment(
     const iconMidY = iconRect.top + iconRect.height / 2
 
     // text ink midY(用 Range 测文字 ink 几何中心,排除 span 自身 padding)
+    // 2026-09-14 修复:只统计非 aria-hidden 的文本节点 —— ExpandableNavItem 的文字
+    // span 内含装饰性底部指示符(absolute -bottom-1 h-[2px] w-10,探出按钮 4px),
+    // 整内容 selectNodeContents 会把指示符矩形并入测量框,ink 中心被拖低 ~3px
+    // (实测 nav-myLearning/nav-user delta=3.3px 假阳性,组件视觉本身对齐)。
     const range = document.createRange()
-    range.selectNodeContents(span)
+    const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        let p = node.parentElement
+        while (p && p !== span) {
+          if (p.getAttribute('aria-hidden') === 'true') return NodeFilter.FILTER_REJECT
+          p = p.parentElement
+        }
+        return (node.textContent ?? '').trim()
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_REJECT
+      },
+    })
+    const first = walker.nextNode()
+    if (!first) {
+      // 纯装饰 span(无可见文本)回退为整内容测量,保持旧行为
+      range.selectNodeContents(span)
+    } else {
+      let last = first
+      let n: Node | null = null
+      while ((n = walker.nextNode())) last = n
+      range.setStartBefore(first)
+      range.setEndAfter(last)
+    }
     const textRect = range.getBoundingClientRect()
     const textInkMidY = textRect.top + textRect.height / 2
 

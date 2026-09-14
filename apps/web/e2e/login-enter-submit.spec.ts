@@ -126,6 +126,22 @@ async function openLoginDialog(
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 })
   await page.waitForLoadState('domcontentloaded').catch(() => {})
 
+  // 2026-09-14 根因加固:647 例全量负载下 hydration 可拖到 15s+,盲点重试 10 次仍
+  // 全落在静态 DOM(triage worker60 实证)。等 localStorage['ihui-language'].state
+  // .initialized === true(I18nProvider effect 已跑 = React 事件已接)再点,确定性问题前置。
+  await page
+    .waitForFunction(() => {
+      try {
+        const raw = localStorage.getItem('ihui-language')
+        if (!raw) return false
+        return (JSON.parse(raw as string) as { state?: { initialized?: boolean } }).state
+          ?.initialized === true
+      } catch {
+        return false
+      }
+    }, undefined, { timeout: 20000 })
+    .catch(() => {}) // 超时不阻断(下方点击重试循环仍兜底)
+
   // 2026-08-28 根因修复:登录按钮(如 sidebar 底部"登录"入口)由 SSR 首屏渲染,
   // clickButtonByText 只等按钮存在就 DOM click —— 若 React hydration 尚未完成,
   // click 落在无 onClick 的静态 DOM 上,login-dialog 永不打开。
