@@ -7841,6 +7841,33 @@
     "title": "分享項目",
     "viewCount": "{count} 次瀏覽"
   },
+  "aiToolsPanel": {
+    "title": "工具面板",
+    "empty": "暫無資料",
+    "dispatchSubagent": "派發子代理",
+    "checkpointRestored": "檢查點已還原",
+    "restoreFailed": "還原檢查點失敗",
+    "bestOfAdopted": "已把選中的候選寫入對話",
+    "tabs": {
+      "goal": "目標",
+      "memory": "記憶",
+      "plan": "計畫",
+      "tasks": "任務",
+      "progress": "進度",
+      "agents": "代理",
+      "background": "背景",
+      "swarm": "集群",
+      "orchestration": "編排",
+      "routines": "例行",
+      "trace": "軌跡",
+      "checkpoints": "檢查點",
+      "tokens": "用量",
+      "spec": "規格",
+      "runtime": "執行時",
+      "bestof": "擇優",
+      "hooks": "鉤子"
+    }
+  },
   "announcements": {
     "backToList": "返回公告列表",
     "empty": "暫無公告",
@@ -8465,6 +8492,8 @@
     "loginRequiredTitle": "登錄後開始 AI 對話",
     "manageModels": "自定義配置模型",
     "me": "我",
+    "modeAsk": "問答",
+    "modeAskDesc": "AI 只回答問題,不執行任何工具",
     "mentionPopover": {
       "removeLabel": "移除 {label}"
     },
@@ -8474,6 +8503,9 @@
       "downloadImages": "下載圖片",
       "edit": "編輯",
       "hideContent": "隱藏內容",
+    "taskProgressOpen": "任務進度",
+    "toolsPanelOpen": "展開工具面板",
+    "toolsPanelClose": "收起工具面板",
       "jumpToLatest": "跳至最新",
       "like": "點讚",
       "publishToCommunity": "發佈到社區",
