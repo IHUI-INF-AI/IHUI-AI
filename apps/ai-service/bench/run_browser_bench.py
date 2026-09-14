@@ -8,6 +8,9 @@
 trace 步骤(navigate/type/select_option/click),再对最终 DOM 逐条运行检查器,
 产出 markdown 报告 + JSON 汇总,支持 ``--min-success-rate`` CI 门禁。
 
+真实站点评测(H9「真实站点操作成功率 ≥90%」):``--tasks`` 传入不含 ``fixture``
+键的任务集(步骤内为绝对 https URL),配合 ``--proxy`` 走本机代理出网。
+
 任务通过 = 回放全部步骤 ok 且全部检查通过;否则记录失败差异
 (element_not_found / timeout / assertion_failed / exception)供回放取证。
 
@@ -152,8 +155,11 @@ async def _run_task(task: dict[str, Any], driver: Any) -> dict[str, Any]:
     """在给定驱动上回放任务 trace 并运行检查,返回单任务结果。"""
     from app.services.browser_replay import replay_trace
 
-    fixture_uri = _fixture_uri(task["fixture"])
-    steps = _materialize_steps(list(task.get("steps", [])), fixture_uri)
+    steps = list(task.get("steps", []))
+    if task.get("fixture"):
+        # 本地 fixture 任务:占位符 {fixture_url} 替换为 file:// 绝对地址
+        steps = _materialize_steps(steps, _fixture_uri(task["fixture"]))
+    # 真实站点任务(无 fixture 键):步骤内已是绝对 URL,原样回放
     started = time.monotonic()
 
     replay = await replay_trace(steps, driver, stop_on_error=True)
@@ -178,8 +184,13 @@ async def _run_task(task: dict[str, Any], driver: Any) -> dict[str, Any]:
     }
 
 
-async def _run_all(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """启动 Chromium,逐任务(独立 context 隔离)回放+检查。"""
+async def _run_all(
+    tasks: list[dict[str, Any]], proxy: str | None = None
+) -> list[dict[str, Any]]:
+    """启动 Chromium,逐任务(独立 context 隔离)回放+检查。
+
+    proxy 非空时经 --proxy-server 走代理(真实站点评测在本机需经 Clash 出网)。
+    """
     from app.services.browser_replay import PageDriver
 
     try:
@@ -194,8 +205,11 @@ async def _run_all(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         raise SystemExit(2) from e
 
     results: list[dict[str, Any]] = []
+    launch_args = list(_LAUNCH_ARGS)
+    if proxy:
+        launch_args.append(f"--proxy-server={proxy}")
     async with async_playwright() as pw:
-        browser = await pw.chromium.launch(headless=True, args=_LAUNCH_ARGS)
+        browser = await pw.chromium.launch(headless=True, args=launch_args)
         try:
             for task in tasks:
                 context = await browser.new_context(
@@ -276,6 +290,18 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="IHUI-Browser-Bench 浏览器自动化回放成功率评测(本地 fixture,零外网)"
     )
+    parser.add_argument(
+        "--tasks",
+        type=str,
+        default=None,
+        help="自定义任务集 JSON 路径(默认 bench/tasks_browser.json;真实站点评测传不含 fixture 键的任务集)",
+    )
+    parser.add_argument(
+        "--proxy",
+        type=str,
+        default=None,
+        help="Chromium 代理地址(如 http://127.0.0.1:7897),真实站点评测走本机代理出网",
+    )
     parser.add_argument("--limit", type=int, default=None, help="只运行前 N 个任务")
     parser.add_argument("--category", type=str, default=None, help="按 category 过滤(form/search)")
     parser.add_argument(
@@ -289,7 +315,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    tasks = _load_tasks()
+    tasks = _load_tasks(Path(args.tasks) if args.tasks else TASKS_FILE)
     if args.category:
         tasks = [t for t in tasks if t.get("category") == args.category]
     if args.limit is not None:
@@ -298,8 +324,8 @@ def main(argv: list[str] | None = None) -> int:
         print("没有匹配的任务,退出。", flush=True)
         return 0
 
-    print(f"IHUI-Browser-Bench: tasks={len(tasks)}", flush=True)
-    results = asyncio.run(_run_all(tasks))
+    print(f"IHUI-Browser-Bench: tasks={len(tasks)} proxy={args.proxy or 'none'}", flush=True)
+    results = asyncio.run(_run_all(tasks, proxy=args.proxy))
     summary = _write_reports(results, Path(args.report))
     print(
         f"完成: {summary['passed']}/{summary['total']} 通过, "

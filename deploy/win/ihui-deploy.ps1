@@ -39,6 +39,8 @@ $BackupDir  = 'D:\DevEnv\backups\deploy'
 $ActiveFile = "$Root\deploy\win\active-env"   # active-env 标记,当前恒 'win'
 $PublicWeb  = 'https://aizhs.top'
 $ApiHealth  = "$PublicWeb/api/health"
+# ai-service 健康端点(2026-09-14 ai-service 重启步骤引入;直连本机端口,无 JWT)
+$AiServiceHealth = "http://127.0.0.1:8803/health"
 
 # ── 工具链 PATH(2026-09-13 加,实测):服务/SYSTEM 上下文的 PATH 不含 node/pnpm,
 #    否则 `pnpm run db:migrate`(以及 pnpm build)会报 '"node"' 不是内部或外部命令
@@ -589,6 +591,31 @@ if (-not (Test-HealthGate)) {
         } catch { Log "WARN  api 重启异常: $_" }
     } else {
         Log "未找到 api 服务(候选:IHUI-API/ihui-api/svc-api),跳过重启(tsx watch 形态自动重载)"
+    }
+
+    # ── 重启 ai-service(2026-09-14 加):uvicorn 源码直跑,pull 后需重载才能吃到
+    # 新路由/新代码——当日实证:ai-service 停在旧版(FIM summary 路由 404),根因
+    # 即部署只重启 web+api 漏了 ai-service。服务名按候选精确匹配;找不到则跳过。
+    $aiName = @('IHUI-AI-SERVICE','ihui-ai-service','svc-ai','IHUI-AI-SVC') |
+        Where-Object { $null -ne (Get-Service -Name $_ -ErrorAction SilentlyContinue) } |
+        Select-Object -First 1
+    if ($aiName) {
+        Log "重启 ai-service 服务($aiName)使 AI 新代码生效"
+        try {
+            sc.exe stop $aiName | Out-Null
+            Start-Sleep -Seconds 4
+            sc.exe start $aiName | Out-Null
+            Start-Sleep -Seconds 8
+            $aiOk = $false
+            for ($i = 1; $i -le 5; $i++) {
+                if (Test-Http -url $AiServiceHealth) { $aiOk = $true; break }
+                Start-Sleep -Seconds 6
+            }
+            if ($aiOk) { Ok "ai-service 重启完成且健康" }
+            else { Log "WARN  ai-service 重启后健康未即时通过(冷启动可能较慢),需人工核查 $aiName" }
+        } catch { Log "WARN  ai-service 重启异常: $_" }
+    } else {
+        Log "未找到 ai-service 服务(候选:IHUI-AI-SERVICE/ihui-ai-service/svc-ai),跳过重启"
     }
 }
 Set-BuildMarker
