@@ -6,6 +6,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, sql, asc } from 'drizzle-orm'
 import { db } from '../db/index.js'
+import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { aiModelConfig } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
@@ -72,10 +73,6 @@ async function getApiKey(row: { apiKeyEnc: string | null }): Promise<string | nu
   }
 }
 
-function aiServiceUrl(): string {
-  return process.env.AI_SERVICE_URL || 'http://localhost:8803'
-}
-
 interface TestResult {
   ok: boolean
   status: 'success' | 'failed'
@@ -104,7 +101,7 @@ async function testConnectivity(row: {
   }
   const start = Date.now()
   try {
-    const resp = await fetch(`${aiServiceUrl()}/api/llm/complete`, {
+    const resp = await aiServiceSystemFetch('/api/llm/complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -491,7 +488,7 @@ export const userLlmConfigRoutes: FastifyPluginAsync = async (server) => {
 
     const start = Date.now()
     try {
-      const resp = await fetch(`${aiServiceUrl()}/api/llm/complete`, {
+      const resp = await aiServiceSystemFetch('/api/llm/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

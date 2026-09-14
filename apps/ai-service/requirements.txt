@@ -56,8 +56,3 @@ opentelemetry-instrumentation-fastapi>=0.65b0
 
 # --- 测试 ---
 fakeredis>=2.37.0
-
-# --- 自媒体 content_engine 技能(2026-09-14 补声明) ---
-# publish_pipeline→build_gpt56_sol DOCX 构建 + 封面图渲染
-python-docx>=1.2.0
-pillow>=12.0.0

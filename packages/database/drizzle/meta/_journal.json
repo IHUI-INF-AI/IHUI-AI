@@ -1737,6 +1737,83 @@
       "when": 1721427200000,
       "tag": "20260910000000_agent_tasks_workspace_team",
       "break": true
+    },
+    {
+      "idx": 249,
+      "version": "7",
+      "when": 1721513600000,
+      "tag": "20260913000000_llm_call_logs_config_id_bigint",
+      "break": true
+    },
+    {
+      "idx": 250,
+      "version": "7",
+      "when": 1721600000000,
+      "tag": "20260906210000_add_perf_indexes",
+      "break": true
+    },
+    {
+      "idx": 251,
+      "version": "7",
+      "when": 1721686400000,
+      "tag": "20260906_algorithm_record",
+      "break": true
+    },
+    {
+      "idx": 252,
+      "version": "7",
+      "when": 1721772800000,
+      "tag": "20260908000000_create_agent_event_triggers",
+      "break": true
+    },
+    {
+      "idx": 253,
+      "version": "7",
+      "when": 1721859200000,
+      "tag": "20260908000000_create_team_memories",
+      "break": true
+    },
+    {
+      "idx": 254,
+      "version": "7",
+      "when": 1721945600000,
+      "tag": "20260910030000_create_knowledge_cards",
+      "break": true
+    },
+    {
+      "idx": 255,
+      "version": "7",
+      "when": 1722032000000,
+      "tag": "20260913120000_unify_model_names",
+      "break": true
+    },
+    {
+      "idx": 256,
+      "version": "7",
+      "when": 1722118400000,
+      "tag": "20260913140000_model_price_numeric",
+      "breakpoints": true
+    },
+    {
+      "idx": 257,
+      "version": "7",
+      "when": 1722204800000,
+      "tag": "20260913160000_multimodal_billing",
+      "breakpoints": true
+    },
+    {
+      "idx": 258,
+      "version": "7",
+      "when": 1722291200000,
+      "tag": "20260913170000_cost_cents_numeric",
+      "breakpoints": true
+    },
+    {
+      "idx": 259,
+      "version": "7",
+      "when": 1722377600000,
+      "tag": "20260913180000_llm_call_logs_provider_code_widen",
+      "breakpoints": true
     }
   ]
 }

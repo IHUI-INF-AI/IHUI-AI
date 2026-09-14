@@ -438,7 +438,7 @@ async def test_execute_stream_emits_error_on_graph_exception(monkeypatch):
 
     async def astream_boom(state):
         raise RuntimeError("stream failed")
-        yield {}  # noqa: unreachable
+        yield {}  # 不可达:仅为把本函数标记为 async generator(无对应 ruff 规则,勿用 noqa)
 
     fake_graph.astream = astream_boom
     monkeypatch.setattr(agent_runtime, "get_agent_graph", lambda: fake_graph)

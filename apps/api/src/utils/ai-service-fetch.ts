@@ -120,23 +120,21 @@ export async function aiServiceFetchStream(
 }
 
 /**
- * 系统身份调用 ai-service(不绑定当前 request,后台任务 / admin 工具用)。
- * 与 aiServiceFetch(null, ...) 的差异:始终注入系统 access token(即使用方在
- * admin 路由中无用户 Authorization 头也能工作),traceparent 生成新 trace。
+ * /v1 OpenAI 兼容网关专用:无用户 JWT 上下文的 ai-service 调用,注入系统 access token。
+ *
+ * 背景(2026-09-13 修):ai-service jwt_auth 上线后,所有非白名单请求必须携带有效
+ * JWT。/v1* 网关端点的调用方用 API Key(ihui_xxx)鉴权,request 里的
+ * Authorization 是 API Key 而非用户 JWT——既不能透传(会被 ai-service 401),
+ * 也没有用户上下文可透传。与后台任务同语义,统一注入系统 access token
+ * (sub='system-worker');真实 userId 已通过请求体 metadata.userId 透传,
+ * 身份语义不丢失(与 ws-ai.ts 同约定)。
  */
 export async function aiServiceSystemFetch(
   path: string,
-  init: AiServiceFetchOptions = {},
+  init: RequestInit = {},
 ): Promise<Response> {
-  const { traceparent, traceId } = buildTraceHeaders(null)
-  const headers: Record<string, string> = {
-    ...(init.headers ?? {}),
-    traceparent,
-    'X-Trace-Id': traceId,
-  }
-  if (!headers.Authorization && !headers.authorization) {
-    headers.Authorization = `Bearer ${await getSystemAccessToken()}`
-  }
+  const headers = new Headers(init.headers ?? {})
+  headers.set('Authorization', `Bearer ${await getSystemAccessToken()}`)
   return fetch(`${config.AI_SERVICE_URL}${path}`, {
     ...init,
     headers,

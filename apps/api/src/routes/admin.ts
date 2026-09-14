@@ -24,6 +24,7 @@ import {
 import { createUser, isSystemAdminUser, type CreateUserInput } from '../db/queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { syncLiteLLMPricing } from '../services/litellm-price-sync.js'
+import { upsertPricing } from '../services/pricing-service.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { hashPassword } from '../utils/password-crypto.js'
 import { db } from '../db/index.js'
@@ -142,6 +143,97 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(502).send(error(502, `LiteLLM 价表同步失败: ${stats.error}`))
       }
       return reply.send(success(stats))
+    },
+  )
+
+  // POST /ai-pricing/upsert - 模型定价写入(多模态计费 2026-09-13:四模式全字段)
+  server.post(
+    '/ai-pricing/upsert',
+    {
+      schema: {
+        summary: '写入/更新模型定价(支持 token/按次/按张/按视频四种计费模式)',
+        description:
+          'billingMode=token 时用 input/outputTokenPrice(分/千token);' +
+          'per_call 用 tieredCallPrices 三档(分/次);' +
+          'per_image 用 perUnitPrice(分/张);per_video 用 perUnitPrice(分/次或分/秒,videoUnit)',
+        tags: ['admin'],
+        body: {
+          type: 'object',
+          required: ['modelId'],
+          properties: {
+            modelId: { type: 'string', maxLength: 128 },
+            inputTokenPrice: { type: 'number', minimum: 0 },
+            outputTokenPrice: { type: 'number', minimum: 0 },
+            billingMode: {
+              type: 'string',
+              enum: ['token', 'per_call', 'per_image', 'per_video'],
+            },
+            perUnitPrice: { type: ['number', 'null'], minimum: 0 },
+            tieredCallPrices: {
+              type: ['object', 'null'],
+              properties: {
+                le256k: { type: 'number', minimum: 0 },
+                mid: { type: 'number', minimum: 0 },
+                gt512k: { type: 'number', minimum: 0 },
+              },
+              required: ['le256k', 'mid', 'gt512k'],
+              additionalProperties: false,
+            },
+            videoUnit: { type: ['string', 'null'], enum: ['call', 'second', null] },
+            currency: { type: 'string', maxLength: 8 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const b = request.body as {
+          modelId: string
+          inputTokenPrice?: number
+          outputTokenPrice?: number
+          billingMode?: 'token' | 'per_call' | 'per_image' | 'per_video'
+          perUnitPrice?: number | null
+          tieredCallPrices?: { le256k: number; mid: number; gt512k: number } | null
+          videoUnit?: 'call' | 'second' | null
+          currency?: string
+        }
+        const billingMode = b.billingMode ?? 'token'
+        // 模式校验:各模式必填的单价字段缺一不可,防止写出"声明了模式却无价可算"的死配置
+        if (billingMode === 'per_image' || billingMode === 'per_video') {
+          const per = b.perUnitPrice
+          if (typeof per !== 'number' || per <= 0) {
+            return reply
+              .status(400)
+              .send(error(400, `${billingMode} 模式必须提供大于 0 的 perUnitPrice`))
+          }
+        }
+        if (billingMode === 'per_call') {
+          const t = b.tieredCallPrices
+          if (
+            !t ||
+            [t.le256k, t.mid, t.gt512k].some((v) => typeof v !== 'number' || v <= 0)
+          ) {
+            return reply
+              .status(400)
+              .send(error(400, 'per_call 模式必须提供完整 tieredCallPrices 三档(均大于 0)'))
+          }
+        }
+        // token 模式沿用既有语义:未传单价按 0 处理(免费模型),历史行为不变
+        const row = await upsertPricing({
+          modelId: b.modelId,
+          inputTokenPrice: b.inputTokenPrice ?? 0,
+          outputTokenPrice: b.outputTokenPrice ?? 0,
+          billingMode,
+          perUnitPrice: b.perUnitPrice ?? null,
+          tieredCallPrices: b.tieredCallPrices ?? null,
+          videoUnit: b.videoUnit ?? null,
+          currency: b.currency,
+        })
+        return reply.send(success(row))
+      } catch (e) {
+        return reply.status(500).send(error(500, `定价写入失败: ${toUserFriendlyMessage(e)}`))
+      }
     },
   )
 
