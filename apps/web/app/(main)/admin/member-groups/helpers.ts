@@ -14,7 +14,7 @@ export const selectClass =
 export const textareaClass =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
-export const EMPTY_FORM: GroupForm = { name: '', type: 'custom', description: '' }
+export const EMPTY_FORM: GroupForm = { name: '', description: '' }
 
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -22,15 +22,13 @@ export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-export async function fetchGroups(type?: string): Promise<MemberGroup[]> {
-  const qs = new URLSearchParams()
-  if (type) qs.set('type', type)
-  const data = await api<GroupsListData>(`/api/groups?${qs.toString()}`)
+export async function fetchGroups(): Promise<MemberGroup[]> {
+  const data = await api<GroupsListData>('/api/members/groups?pageSize=200')
   return data.list
 }
 
 export function groupToForm(item: MemberGroup): GroupForm {
-  return { name: item.name, type: item.type, description: item.description ?? '' }
+  return { name: item.name, description: item.description ?? '' }
 }
 
 export function formatTime(iso: string): string {
