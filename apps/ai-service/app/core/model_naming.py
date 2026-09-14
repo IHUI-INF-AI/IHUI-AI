@@ -46,21 +46,4 @@ def normalize_model_id(raw: str) -> str:
         return trimmed[: slash_idx + 1] + normalize_model_id(trimmed[slash_idx + 1 :])
     lower = trimmed.lower()
     return OFFICIAL_MODEL_NAMES.get(lower, lower)
-
-
-def to_official_model_name(raw: str) -> str:
-    """入站请求侧的「官方名改写」(与 TS 侧 toOfficialModelName 完全对称)。
-
-    与 normalize_model_id 的区别:仅当命中官方名映射表时才改写,其它名称**原样返回**。
-    用于转发链路(通道路由 / 出站 model 字符串)——避免把小写归一的强规则施加到未知模型上
-    (某些上游要求原样大小写,误改写会直接 422)。
-    """
-    trimmed = (raw or "").strip()
-    if not trimmed:
-        return trimmed
-    slash_idx = trimmed.find("/")
-    if slash_idx > 0:
-        # openrouter 风格带厂商前缀:前缀保留,后段改写
-        return trimmed[: slash_idx + 1] + to_official_model_name(trimmed[slash_idx + 1 :])
-    return OFFICIAL_MODEL_NAMES.get(trimmed.lower(), trimmed)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

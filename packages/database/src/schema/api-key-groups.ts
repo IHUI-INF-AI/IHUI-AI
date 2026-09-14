@@ -7,7 +7,6 @@ import {
   uuid,
   varchar,
   integer,
-  numeric,
   timestamp,
   jsonb,
   index,
@@ -33,13 +32,7 @@ export const apiKeyGroups = pgTable(
     /** 共享 token 余额(-1 = 无限额度,0 = 耗尽,>0 = 可用) */
     sharedTokenBalance: integer('shared_token_balance').default(0).notNull(),
     /** 共享成本余额(分,-1 = 无限额度,0 = 耗尽,>0 = 可用) */
-    sharedCostBalanceCents: numeric('shared_cost_balance_cents', {
-      precision: 18,
-      scale: 6,
-      mode: 'number',
-    })
-      .default(0)
-      .notNull(),
+    sharedCostBalanceCents: integer('shared_cost_balance_cents').default(0).notNull(),
     /** 组级 QPM(所有 Key 合计每分钟请求上限) */
     rateLimitQpm: integer('rate_limit_qpm').default(100).notNull(),
     /** 组级模型白名单(子 Key 继承,null/空 = 不限制) */

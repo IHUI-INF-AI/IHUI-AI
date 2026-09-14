@@ -357,7 +357,24 @@
     "emptyNoAgent": "워크플로가 연결된 에이전트를 먼저 선택해 주세요",
     "send": "보내기",
     "streaming": "생성 중...",
-    "callFailed": "호출에 실패했습니다. 다시 시도해 주세요"
+    "callFailed": "호출에 실패했습니다. 다시 시도해 주세요",
+    "compactionToast": "컨텍스트가 자동 압축되었습니다({before} → {after} tokens)",
+    "planStatusCompleted": "완료",
+    "planStatusInProgress": "진행 중",
+    "planStatusPending": "대기 중",
+    "planSteps": "실행 계획",
+    "terminalExitCode": "종료 코드",
+    "terminalOutput": "출력",
+    "terminalStatusCompleted": "완료",
+    "terminalStatusFailed": "실패",
+    "terminalStatusRunning": "실행 중",
+    "terminalTasks": "터미널 작업",
+    "toolArgs": "인수",
+    "toolCalls": "도구 호출",
+    "toolResult": "출력",
+    "toolStatusError": "실패",
+    "toolStatusRunning": "실행 중",
+    "toolStatusSuccess": "성공"
   },
   "aigcCover": {
     "applied": {

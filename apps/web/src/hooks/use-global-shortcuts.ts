@@ -74,6 +74,8 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   { key: 'Ctrl+2', description: '切换到计划模式', event: 'global-shortcut:mode-plan' },
   { key: 'Ctrl+3', description: '切换到审查模式', event: 'global-shortcut:mode-review' },
   { key: 'Ctrl+4', description: '切换到规格模式', event: 'global-shortcut:mode-spec' },
+  // Ctrl+5 → ask(2026-09-13 矩阵 A #24:ChatMode 扩为 5 态,补纯问答模式)
+  { key: 'Ctrl+5', description: '切换到问答模式', event: 'global-shortcut:mode-ask' },
 ]
 
 // ============================================================================

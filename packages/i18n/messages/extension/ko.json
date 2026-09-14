@@ -178,7 +178,21 @@
     "voiceSttFailed": "받아쓰기에 실패했습니다. 나중에 다시 시도하거나 로컬 음성 서비스를 확인해 주세요",
     "voiceEmpty": "음성이 인식되지 않았습니다. 마이크에 가까이서 다시 시도해 주세요",
     "voiceUnauthorized": "로그인이 만료되었습니다. 페이지를 새로고침하고 다시 시도해 주세요",
-    "voiceNetworkError": "네트워크 오류가 발생했습니다. 연결을 확인하고 다시 시도해 주세요"
+    "voiceNetworkError": "네트워크 오류가 발생했습니다. 연결을 확인하고 다시 시도해 주세요",
+    "reasoning": "추론 과정",
+    "toolStatusRunning": "실행 중",
+    "toolStatusSuccess": "성공",
+    "toolStatusError": "실패",
+    "toolDetail": "호출 상세",
+    "terminal": "터미널",
+    "terminalStatusRunning": "실행 중",
+    "terminalStatusCompleted": "완료",
+    "terminalStatusFailed": "실패",
+    "planStatusPending": "대기 중",
+    "planStatusInProgress": "진행 중",
+    "planStatusCompleted": "완료",
+    "subagentTools": "하위 에이전트 도구 ×{count}",
+    "usage": "사용량"
   },
   "settings": {
     "language": "인터페이스 언어",
@@ -225,7 +239,13 @@
     "usable": "사용 가능",
     "needVip": "VIP 필요",
     "needPurchase": "구매 필요",
-    "loadFailed": "로딩 실패"
+    "loadFailed": "로딩 실패",
+    "approve": "허용",
+    "reject": "거부",
+    "approvalSubmitting": "제출 중...",
+    "approvalSent": "제출됨",
+    "approvalFailed": "제출 실패",
+    "approvalUnavailable": "이 채널은 온라인 승인을 지원하지 않습니다"
   },
   "course": {
     "title": "코스",
@@ -261,6 +281,15 @@
     "translate": "IHUI AI · 선택 영역 번역",
     "vocab": "IHUI AI · 단어 조회",
     "send": "IHUI AI · 채팅으로 보내기"
+  },
+  "content": {
+    "translate": "번역",
+    "highlight": "하이라이트",
+    "vocab": "단어 조회",
+    "sendAi": "AI에게 질문",
+    "saveWord": "단어장에 저장",
+    "saved": "저장됨",
+    "close": "닫기"
   },
   "page": {
     "benefitsTitle": "회원 전용 혜택",

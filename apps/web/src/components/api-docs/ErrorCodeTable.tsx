@@ -32,7 +32,7 @@ const ERROR_CODES: ErrorCode[] = [
     code: 1000,
     httpStatus: 401,
     meaning: 'API Key 无效',
-    fix: '检查 Authorization: Bearer ihui_xxx 头',
+    fix: '检查 Authorization: Bearer sk-xxx 头',
   },
   { code: 1001, httpStatus: 401, meaning: 'API Key 已过期', fix: '重新生成 Key 或联系管理员续期' },
   { code: 1002, httpStatus: 403, meaning: 'IP 不在白名单', fix: '在 Key 配置中添加 IP' },

@@ -33,6 +33,7 @@ import { Menu, ExternalLink } from 'lucide-react-native'
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
+import { FREE_RESOURCE_URL } from '../constants/links'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { navigateDrawerTab } from '../navigation/tab-utils'
@@ -70,9 +71,6 @@ const CATEGORIES: readonly { id: string; label: string; code: string }[] = [
   { id: 'chip', label: 'AI芯片', code: 'CHIP' },
   { id: 'rec', label: '智能推荐', code: 'REC' },
 ] as const
-
-const FREE_RESOURCE_URL =
-  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 const navigateRoot = (nav: RootNav | undefined, route: keyof RootStackParamList | string) => {
   if (!nav) return

@@ -932,7 +932,7 @@ server.post('/login', {
 
 ```bash
 curl https://api.aizhs.top/v1/chat \
-  -H "X-API-Key: ihui_xxxxxxxx"
+  -H "X-API-Key: ihui_sk_xxxxxxxx"
 ```
 
 ### 14.3 PAT(个人访问令牌)

@@ -10,6 +10,7 @@ interface PreviewCanvasProps {
   iframeRef: RefObject<HTMLIFrameElement | null>
   srcDoc: string
   currentWidth: number
+  currentHeight?: number
   showFrame: boolean
   deviceRadius: number
 }
@@ -18,9 +19,12 @@ export function PreviewCanvas({
   iframeRef,
   srcDoc,
   currentWidth,
+  currentHeight,
   showFrame,
   deviceRadius,
 }: PreviewCanvasProps) {
+  // 非桌面设备(手机/平板)使用固定高度匹配设备视口;桌面/自定义保留 flex 撑满。
+  const hasFixedHeight = currentHeight !== null
   return (
     <section
       style={{
@@ -35,8 +39,9 @@ export function PreviewCanvas({
         style={{
           width: '100%',
           maxWidth: currentWidth,
+          height: hasFixedHeight ? currentHeight : undefined,
           margin: '0 auto',
-          flex: '1 1 auto',
+          flex: hasFixedHeight ? '0 0 auto' : '1 1 auto',
           minHeight: 0,
           border: '1px solid var(--border)',
           borderRadius: showFrame ? deviceRadius : 8,
@@ -45,7 +50,7 @@ export function PreviewCanvas({
           display: 'flex',
           flexDirection: 'column',
           boxShadow: showFrame ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
-          transition: 'max-width 0.2s ease, border-radius 0.2s ease',
+          transition: 'max-width 0.2s ease, height 0.2s ease, border-radius 0.2s ease',
         }}
       >
         <iframe
