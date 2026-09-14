@@ -24,7 +24,7 @@
       }
     },
     "android": {
-      "package": "ai.ihui.mobile",
+      "package": "zh.ai.sq",
       "config": {
         "usesNonExemptEncryption": false
       }
