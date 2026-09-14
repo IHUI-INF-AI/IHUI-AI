@@ -297,7 +297,7 @@
   overflow: hidden;
 }
 
-/* ===== 回到顶部按钮(对齐 RN SquareScreen backToTop:brand-orange 底 / 68rpx / 圆角8) ===== */
+/* ===== 回到顶部按钮(对齐 RN SquareScreen backToTop:brand-accent 底 / 68rpx / 圆角8) ===== */
 .share-toodown-wrapper {
   position: fixed;
   left: 50%;
@@ -313,7 +313,7 @@
   align-items: center;
   justify-content: center;
   margin: 0 auto;
-  background: var(--color-brand-orange);
+  background: var(--color-brand-accent);
   border-radius: 8rpx;
   /* 对齐 RN elevation 2 / shadowOpacity 0.15 */
   box-shadow: 0 2rpx 4rpx var(--color-black-15);
@@ -328,7 +328,8 @@
 .share-toodown-arrow {
   font-size: 40rpx;
   font-weight: 600;
-  color: var(--color-foreground);
+  /* accent 底配 foreground 文字(暗色下前景为白字,浅灰蓝底上对比不足) */
+  color: var(--color-brand-accent-foreground);
   transition: transform 0.2s ease;
 }
 

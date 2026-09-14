@@ -51,17 +51,20 @@ export default function ConfirmDialog({
           >
             <Text className="text-sm text-foreground">{cancelText}</Text>
           </View>
-          {/* 确认=品牌橙渐变点缀(2026-09-07 复刻旧App隐私弹窗"同意"主按钮形态;纯色主按钮走 bg-primary) */}
+          {/* 确认=品牌灰蓝渐变点缀(2026-09-07 复刻旧App隐私弹窗"同意"主按钮形态;纯色主按钮走 bg-primary) */}
           <View
             className="flex-1 py-2.5 rounded-md text-center"
             style={{
               background:
-                'linear-gradient(135deg, var(--color-brand-orange-grad-from) 0%, var(--color-brand-orange-grad-to) 100%)',
+                'linear-gradient(135deg, var(--color-brand-accent-grad-from) 0%, var(--color-brand-accent-grad-to) 100%)',
             }}
             onClick={onConfirm}
             hoverClass="opacity-60"
           >
-            <Text className="text-sm text-[var(--color-white-98)]">{confirmText}</Text>
+            {/* 浅灰蓝渐变底上白字对比不足,改用 accent-foreground */}
+            <Text className="text-sm text-[var(--color-brand-accent-foreground)]">
+              {confirmText}
+            </Text>
           </View>
         </View>
       </View>
