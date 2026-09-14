@@ -42,7 +42,10 @@ jobs:
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 2026-09-14 复评:647 例全量在 2 workers 下实测 ~14m(本地同量级机器),
+    # CI runner(4c)按 1.5x 余量 + install/build/migrate ≈ 10m → 60min 消除 30min 硬顶
+    # (2026-08-20 起 e2e 连续 400+ 次 cancelled 的直接根因,见 PROJECT_PLAN 2-18)
+    timeout-minutes: 60
 
     services:
       postgres:
@@ -103,6 +106,16 @@ jobs:
           CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
         run: pnpm --filter @ihui/api run seed:test-users
 
+      - name: Seed E2E 知识库条目(knowledge-base.spec 依赖)
+        # JWT_SECRET/CREDENTIALS_ENCRYPTION_KEY 必传:src/config import 链顶层 zod 校验
+        # 缺失即 process.exit(1);CI 无 apps/api/.env,dotenv 无从兜底(2026-09-14 实锤)
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+          CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+        run: pnpm --filter @ihui/api run seed:e2e-knowledge
+
       - name: Build database package
         # web 产物引用 @ihui/database 的 dist;缺此步 next build 预渲染时
         # 解析 src/index.ts → src/client.js 报 ERR_MODULE_NOT_FOUND(2026-09-10)
@@ -112,6 +125,12 @@ jobs:
         run: pnpm --filter @ihui/api run build
 
       - name: Build web (production)
+        # JWT_SECRET 构建期必传:proxy.ts 中间件 verifyAccessTokenEdge 在 edge bundle
+        # 中读取 process.env.JWT_SECRET;构建期缺失 → 验签恒败 → 所有 /admin/* 被
+        # 307 进 SSO 授权链(im-channels ×4 卡死「授权并跳转」,2026-09-14 实锤;
+        # 本地 .next-e2e 构建带了该 secret 所以从未暴露)
+        env:
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
         run: pnpm --filter @ihui/web run build
 
       - name: Start API server (background)
@@ -124,6 +143,10 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
           CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+          # 2026-09-14 CI 实锤(2-18):access token 默认 TTL 15min,CI 全量 45.6m
+          # → 中途过期;应用侧 refresh 轮转消费与 storage 文件互踩 → 晚段用例被
+          # SSO 授权页接管(im-channels ×4 等)。e2e 拉长到 24h 根治,生产不变。
+          JWT_ACCESS_TTL_SECONDS: '86400'
         run: |
           # --import tsx:api dist 引用 @ihui/database 的 src/index.ts(纯 TS,无 dist 条件),
           # 纯 node 无法加载;tsx 同时解决 .ts 导入与 .js→.ts 扩展名解析(2026-09-10)
@@ -144,6 +167,7 @@ jobs:
         working-directory: apps/web
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8802
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
         run: |
           pnpm start &
           sleep 5

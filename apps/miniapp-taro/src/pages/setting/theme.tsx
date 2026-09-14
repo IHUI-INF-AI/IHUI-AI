@@ -126,14 +126,14 @@ export default function ThemePage() {
               >
                 <View className="flex min-w-0 flex-1 flex-row items-center">
                   {/* 主题图标为小程序端补充信息(RN SelectRow 仅 label+✓):40rpx,
-                      选中态随 RN brandAccent.DEFAULT→--color-brand-orange */}
+                      选中态随 RN brandAccent.DEFAULT→--color-brand-accent */}
                   <LineIcon
                     className="shrink-0"
                     name={th.icon as IconName}
                     size={40}
                     color={
                       current === th.value
-                        ? 'var(--color-brand-orange)'
+                        ? 'var(--color-brand-accent-deep)'
                         : 'var(--color-muted-foreground)'
                     }
                   />
@@ -148,10 +148,10 @@ export default function ThemePage() {
                     </Text>
                   </View>
                 </View>
-                {/* 选中态对齐 RN SelectRow checkMark: 16dp→32rpx bold + brandAccent→--color-brand-orange;
+                {/* 选中态对齐 RN SelectRow checkMark: 16dp→32rpx bold + brandAccent→--color-brand-accent;
                     选中项由 ✓ 呈现,不再渲染 RN 没有的 Radio/RadioGroup 展示件 */}
                 {current === th.value ? (
-                  <Text className="ml-[16rpx] shrink-0 text-[32rpx] font-bold text-[color:var(--color-brand-orange)]">
+                  <Text className="ml-[16rpx] shrink-0 text-[32rpx] font-bold text-[color:var(--color-brand-accent-deep)]">
                     ✓
                   </Text>
                 ) : null}

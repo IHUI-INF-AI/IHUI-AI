@@ -54,8 +54,8 @@ const TABS: TabItem[] = [
   },
 ]
 
-// 配色:激活用品牌橙,未激活用 muted-foreground(2026-09-07 复刻旧App TabBar 品牌色选中态)
-const ACTIVE_COLOR = 'var(--color-brand-orange)'
+// 配色:激活用品牌灰蓝,未激活用 muted-foreground(2026-09-07 复刻旧App TabBar 品牌色选中态)
+const ACTIVE_COLOR = 'var(--color-brand-accent)'
 const INACTIVE_COLOR = 'var(--color-muted-foreground)'
 
 export default function CustomTabBar() {

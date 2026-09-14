@@ -82,13 +82,13 @@
   top: 16rpx;
   right: 16rpx;
   padding: 4rpx 12rpx;
-  background: var(--color-brand-orange-tint);
-  border: 2rpx solid var(--color-brand-orange-tint-strong);
+  background: var(--color-brand-accent-tint);
+  border: 2rpx solid var(--color-brand-accent-tint-strong);
   border-radius: var(--radius-sm);
 }
 .pinned-tag-text {
   font-size: 20rpx;
-  color: var(--color-brand-orange);
+  color: var(--color-brand-accent-deep);
   font-weight: 600;
 }
 .pinned-cover {
@@ -159,7 +159,7 @@
 .unread-dot {
   width: 12rpx;
   height: 12rpx;
-  background: var(--color-brand-orange);
+  background: var(--color-brand-accent);
   border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
