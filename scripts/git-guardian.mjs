@@ -47,10 +47,19 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import {
+  resolveGitBin,
+  gitVersion,
+  resolveWorktree,
+  resolveGitdir,
+  needsGitdirPointer,
+  resolveBackupDir,
+} from './lib/gitdir.mjs'
 
-const WORKTREE = 'D:/IHUI-AI'
-const GITDIR = 'D:/IHUI-AI-git-repo'
-const BACKUP = 'D:/IHUI-AI.git-backup-20260912'
+// 工作树 / 真实 gitdir / 备份目录动态解析(不再硬编码 D: 盘;见 scripts/lib/gitdir.mjs 2026-09-15)
+const WORKTREE = resolveWorktree()
+const GITDIR = resolveGitdir(WORKTREE)
+const BACKUP = resolveBackupDir(WORKTREE)
 const GITEE_URL = 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git'
 /** origin = GitHub SSH(仓库唯一权威源;严禁改回 https,见 AGENTS.md §5b 铁律) */
 const GITHUB_SSH_URL = 'ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git'
@@ -82,35 +91,13 @@ function log(msg) {
   }
 }
 
-// —— git 可执行文件解析:不依赖 PATH(nssm 服务账户可能没有 PATH) ——
-const GIT_CANDIDATES = [
-  process.env.GIT_BIN,
-  'git',
-  'C:/Program Files/Git/cmd/git.exe',
-  'C:/Program Files (x86)/Git/cmd/git.exe',
-  'C:/Users/Administrator/.workbuddy/binaries/PortableGit/versions/1.2.0/cmd/git.exe',
-].filter(Boolean)
-
+// —— git 可执行文件解析:复用共享库(不依赖 PATH,服务账户如 LocalSystem 仍可定位 PortableGit) ——
+// 解析结果缓存于共享库;本处仅镜像 GIT_BIN / GIT_VERSION 供日志与 status() 展示。
 let GIT_BIN = null
 let GIT_VERSION = null
-
-function resolveGitBin() {
-  if (GIT_BIN) return GIT_BIN
-  for (const c of GIT_CANDIDATES) {
-    try {
-      const v = execFileSync(c, ['--version'], {
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 15000,
-      }).trim()
-      GIT_BIN = c
-      GIT_VERSION = v
-      return GIT_BIN
-    } catch {
-      /* 试下一个候选 */
-    }
-  }
-  return null
+function syncGitMeta() {
+  GIT_BIN = resolveGitBin()
+  GIT_VERSION = gitVersion()
 }
 
 /**
@@ -138,8 +125,18 @@ function git(args, allowFail = false) {
   }
 }
 
-/** 指针文件是否为期望的 1 行内容 */
+/**
+ * `.git` 指针文件是否与期望一致。
+ * 关键(2026-09-15):常规仓库的 `.git` 是**真实目录**(非指针文件),此时绝不可按
+ * separate-git-dir 逻辑去校验/重建指针,否则 healPointer 会 rm -rf 整个 `.git` 目录 → 删库。
+ * 判定:needsGitdirPointer()=true(`.git` 本应是指针)才校验指针内容;
+ *       否则只要 `.git` 目录存在即视为 OK。
+ */
 function pointerOk() {
+  if (!needsGitdirPointer()) {
+    // 常规仓库:`.git` 即 gitdir 目录,存在即可
+    return existsSync(POINTER)
+  }
   try {
     return readFileSync(POINTER, 'utf8').trim() === `gitdir: ${GITDIR}`
   } catch {
@@ -162,8 +159,16 @@ function gitUsable() {
   return !!head
 }
 
-/** 重建 .git 指针文件(原子写 + 回读校验) */
+/**
+ * 重建 `.git` 指针文件(原子写 + 回读校验)。
+ * 安全护栏(2026-09-15):仅当 needsGitdirPointer()=true(separate-git-dir 形态)才执行。
+ * 常规仓库的 `.git` 是真实目录,若误执行会删除整个 gitdir → 不可逆删库,故直接跳过。
+ */
 function healPointer() {
+  if (!needsGitdirPointer()) {
+    log('修复跳过: 当前为常规仓库(.git 即 gitdir 目录),无需也不应重建指针文件')
+    return true
+  }
   const tmp = `${POINTER}.tmp-${process.pid}`
   writeFileSync(tmp, EXPECTED_POINTER)
   try {
@@ -183,12 +188,13 @@ function healPointer() {
  * ① 由 resolveGitBin() 绝对路径兜住;② 在此幂等补写 system/global 配置。
  */
 function healEnv() {
-  const bin = resolveGitBin()
+  syncGitMeta()
+  const bin = GIT_BIN
   if (!bin) {
     log('环境修复失败: 未找到可调用的 git 可执行文件')
     return false
   }
-  log(`环境修复: 使用 git=${bin} (${GIT_VERSION || 'unknown'})`)
+  log(`环境修复: 使用 git=${bin} (${gitVersion() || 'unknown'})`)
   for (const scope of ['--system', '--global']) {
     for (const p of [WORKTREE, GITDIR]) {
       try {
@@ -488,7 +494,7 @@ function restoreRemoteConfig() {
 }
 
 function status() {
-  resolveGitBin()
+  syncGitMeta()
   const health = {
     pointerOk: pointerOk(),
     gitdirOk: gitdirOk(),
@@ -570,7 +576,8 @@ function main() {
 /** 常驻守护模式:需自备托管(nssm/服务/计划任务);本机实际用的是 `--install` 注册的计划任务(每 2 分钟),此模式未启用 */
 function startDaemon() {
   const intervalMs = Number(process.env.GIT_GUARDIAN_INTERVAL_MS || 10000)
-  const bin = resolveGitBin()
+  syncGitMeta()
+  const bin = GIT_BIN
   log(`守护模式启动(间隔 ${intervalMs}ms) — 监控 ${POINTER} + ${GITDIR}`)
   log(`git=${bin || '(未找到!)'} ${GIT_VERSION || ''} safe.directory=* (每次调用显式传入)`)
   log(`嵌套 ref 存续守护: 清单 ${REFS_MANIFEST}(缺失即离线重建 + packed-refs 固化)`)
