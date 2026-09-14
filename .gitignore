@@ -81,6 +81,16 @@ __pycache__/
 .next-failrec-*/
 # 2026-09-07 零停机蓝绿部署:staging 构建目录与回滚点,均为本地构建产物不入库
 .next-staging/
+# 2026-09-13 e2e 隔离构建 distDir(IHUI_BUILD_DIST=.next-e2e,本地 e2e triage 用)。
+# 与 .next-bak-* 同坑:Tailwind 4 自动源检测会扫到构建产物,从 minified JS 里
+# 抽出含控制字符的坏 candidate 注入 globals.css → Lightning CSS parse 失败,
+# 构建非确定性地失败(首次构建成功、增量复建即炸)。必须忽略。
+.next-e2e*/
+# 2026-09-14 全量验证隔离 distDir(IHUI_BUILD_DIST=.next-h12,H12 全量门专用)。
+# 与 .next-e2e* 同坑:不忽略则 Tailwind 4 扫描产物,把编译后扁平化的
+# @import '../src/styles/animations.css' 当源码候选抽回 globals.css,
+# enhanced-resolve 以 web 根为上下文解析必炸(build:static/web build 非确定性失败)
+.next-h12*/
 .rollback/
 .turbo/
 # TypeScript 增量构建缓存

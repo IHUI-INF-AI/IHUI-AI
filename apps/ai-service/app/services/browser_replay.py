@@ -29,7 +29,9 @@ from typing import Any, Protocol, runtime_checkable
 # 检查器/断言比对所用页面文本截断长度(防 diff 记录超长)
 _ACTUAL_LIMIT = 300
 # 回放单步默认超时 ms
-_STEP_TIMEOUT_MS = 5000
+# 2026-09-14:5s→15s——本地 fixture 毫秒级命中无感,但真实站点(H9 评测)经代理
+# 加载时 5s click/type 偶发超时造成假失败;15s 与导航级超时同一量级
+_STEP_TIMEOUT_MS = 15000
 
 
 # ---------------------------------------------------------------------------
