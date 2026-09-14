@@ -12,7 +12,12 @@ export default [
   {
     ignores: [
       '.next/**',
-      '.next-static/**',
+      // 2026-09-14 加:.next-* 覆盖 e2e 隔离栈(.next-e2e)/静态导出(.next-static)/
+      // 全量验证隔离构建(.next-h12,IHUI_BUILD_DIST)等产物目录,
+      // 否则编译产物(编译后 var 等)被 lint 误报为真实错误污染 lint 门禁
+      '.next-*/**',
+      // 2026-09-14 加:.rollback 是部署回滚产物目录(含编译 chunk),同属产物非源码
+      '.rollback/**',
       'out/**',
       'coverage/**',
       'playwright-report/**',

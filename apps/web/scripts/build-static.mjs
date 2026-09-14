@@ -93,7 +93,12 @@ try {
   // 2026-09-05: 弃用 --webpack。本机实测 --webpack 3/3 挂死(config 加载后 0 CPU 冻结,
   // distDir 从未创建,无存活子进程);Turbopack(Next 16 默认构建器)静态导出实测成功
   // (EXIT:0,.next-static/index.html 产出,全路由清单生成)。生产链路 build:desktop:saas 同用此路径。
-  const r = spawnSync(process.execPath, ['--max-old-space-size=8192', nextBin, 'build'], {
+  // 2026-09-14:静态导出改走 --webpack——Turbopack(Next 16 默认构建器)在当前
+  // 代码树对 output:export 的 middleware/server-actions 路径确定性 panic
+  // ("Cell AssetIdent no longer exists in task",两次清 .next-static 缓存后同
+  // TaskId 复现,上游 bug);server 模式构建(next build 默认 turbopack)不受影响。
+  // webpack 构建静态导出产物供 Tauri/GH Pages,行为等价且确定性通过。
+  const r = spawnSync(process.execPath, ['--max-old-space-size=8192', nextBin, 'build', '--webpack'], {
     cwd: webRoot,
     stdio: 'inherit',
     shell: false,

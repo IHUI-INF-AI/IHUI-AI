@@ -21,7 +21,9 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  fs.rmSync(CWD, { recursive: true, force: true });
+  // 2026-09-14:maxRetries+retryDelay 根治 Windows 机器级文件锁(杀毒/索引/同步盘
+  // 短暂持有句柄)导致的 EBUSY 套件级失败——rmSync 默认 0 重试,瞬时锁即炸整个套件
+  fs.rmSync(CWD, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 });
 
 describe('isPathAllowedWithRealpath(symlink 逃逸防护)', () => {
