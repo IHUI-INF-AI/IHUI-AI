@@ -4,6 +4,7 @@
 
 import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
+import LineIcon from '@/components/LineIcon'
 import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
@@ -121,7 +122,7 @@ export default function Avatar() {
               </View>
             </View>
             <View className="avatar-edit-badge">
-              <Text className="avatar-edit-badge-text">✎</Text>
+              <LineIcon name="pencil" size={22} color="currentColor" className="avatar-edit-badge-text" />
             </View>
           </View>
           {nickname ? <Text className="avatar-nickname">{nickname}</Text> : null}

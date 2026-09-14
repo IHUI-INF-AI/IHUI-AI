@@ -71,6 +71,8 @@ check-no-emoji-icons.mjs — emoji 图标守门(UI 图标位置禁 emoji)
 }
 
 // 排除目录:共享 EXCLUDE_DIRS + 构建产物/测试
+// 2026-09-15 补:.next-static / .next-e2e* 为 Next 构建产物目录(并行会话构建时生成),
+// 之前未排除导致 minified chunk 里的 emoji 字面量被误判为 UI 图标违规,blocking 全体 commit。
 const EXCLUDE_DIRS = withExcludes([
   '.ihui-agent',
   'tests',
@@ -81,6 +83,8 @@ const EXCLUDE_DIRS = withExcludes([
   'dist',
   'build',
   '.next',
+  '.next-static',
+  '.next-e2e',
   'public',
   'coverage',
   'output',
@@ -183,7 +187,10 @@ function isExempt(line, file) {
 function collectFiles(dir, result = []) {
   if (!existsSync(dir)) return result
   for (const entry of readdirSync(dir)) {
-    if (EXCLUDE_DIRS.has(entry)) continue
+    // 2026-09-15:.next* 前缀统一跳过(.next-static/.next-e2e-*/.next-bak-* 等构建产物
+    // 目录名带随机/日期后缀,EXCLUDE_DIRS 精确名匹配覆盖不到,曾致 minified chunk
+    // 里的 emoji 字面量被误判为 UI 图标违规,blocking 全体 commit)
+    if (EXCLUDE_DIRS.has(entry) || entry.startsWith('.next')) continue
     const full = join(dir, entry)
     const st = statSync(full)
     if (st.isDirectory()) {
