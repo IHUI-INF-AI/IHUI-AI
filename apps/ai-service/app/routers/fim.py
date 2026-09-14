@@ -294,14 +294,23 @@ def _percentile(sorted_values: list[float], pct: float) -> int | None:
 
 
 def _strip_fences(text: str) -> str:
-    """剥离模型偶尔输出的 markdown 代码围栏(补全场景禁止围栏)。"""
+    """剥离模型偶尔输出的 markdown 代码围栏(补全场景禁止围栏)。
+
+    2026-09-14 加固:推理型模型偶尔先输出思考文本("We need..." / "The user...")
+    再给 ``` 围栏代码块——原实现只在**整体以围栏开头**时剥离,对「思考文本+中段
+    围栏」混排不生效,导致补全里混入自然语言。现升级为:输出中存在任意围栏块时
+    取**最后一个**围栏内代码(补全主体通常在推理结论处);无围栏则原样返回。
+    """
     stripped = text.strip()
-    if stripped.startswith("```"):
-        first_nl = stripped.find("\n")
-        if first_nl != -1:
-            stripped = stripped[first_nl + 1 :]
-        if stripped.rstrip().endswith("```"):
-            stripped = stripped.rstrip()[:-3]
+    if "```" in stripped:
+        # 取最后一个围栏块内的代码(忽略语言标识行);围栏成对,开/闭各取其一
+        parts = stripped.split("```")
+        # parts 形如 [前文, 语言行\n代码, 后文, 语言行\n代码, ...] —— 取最后一段
+        block = parts[-1] if len(parts) % 2 == 0 else (parts[-2] if len(parts) >= 2 else stripped)
+        if block is not None:
+            first_nl = block.find("\n")
+            body = block[first_nl + 1 :] if first_nl != -1 else block
+            return body.strip("\n")
     return stripped.strip("\n")
 
 
