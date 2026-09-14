@@ -4,101 +4,116 @@
 
 'use client'
 
-import { Loader2, Send, Power, Pencil, Trash2 } from 'lucide-react'
+import * as React from 'react'
+import { toast } from 'sonner'
+import { Trash2, Copy, RefreshCw, Loader2, Eye, EyeOff } from 'lucide-react'
 import { Card, CardContent, Button } from '@ihui/ui-react'
-import { cn } from '@/lib/utils'
-import type { WebhookItem } from './types'
+import { Tooltip } from '@/components/feedback'
+import type { ApiKey } from './types'
 
 interface Props {
-  list: WebhookItem[]
+  list: ApiKey[]
   isLoading: boolean
   dateFmt: Intl.DateTimeFormat
-  testPending: boolean
-  onTest: (id: string) => void
-  onToggle: (wh: WebhookItem) => void
-  onEdit: (wh: WebhookItem) => void
+  resetPending: boolean
+  delPending: boolean
+  onReset: (id: string) => void
   onDelete: (id: string) => void
 }
 
-export function WebhooksList({
+function maskKey(k: string) {
+  if (k.length <= 8) return k
+  return k.slice(0, 4) + '****' + k.slice(-4)
+}
+
+export function KeysList({
   list,
   isLoading,
   dateFmt,
-  testPending,
-  onTest,
-  onToggle,
-  onEdit,
+  resetPending,
+  delPending,
+  onReset,
   onDelete,
 }: Props) {
+  const [visible, setVisible] = React.useState<Record<string, boolean>>({})
+
+  function copyKey(k: string) {
+    navigator.clipboard?.writeText(k).then(
+      () => toast.success('已复制'),
+      () => toast.error('复制失败'),
+    )
+  }
+
   return (
     <Card>
       <CardContent className="p-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            加载中...
+            <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+            <span className="whitespace-nowrap">加载中...</span>
           </div>
         ) : list.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">暂无 Webhook 配置</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">暂无 API 密钥</p>
         ) : (
           <div className="space-y-2">
-            {list.map((wh) => (
-              <div key={wh.id} className="px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium">{wh.url}</p>
-                      <span
-                        className={cn(
-                          'shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium',
-                          wh.isEnabled
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                            : 'bg-muted text-muted-foreground',
-                        )}
-                      >
-                        {wh.isEnabled ? '启用' : '停用'}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {wh.events.map((ev) => (
+            {list.map((k) => (
+              <div key={k.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-medium">{k.name}</p>
+                    <div className="flex gap-1">
+                      {k.scopes.map((s) => (
                         <span
-                          key={ev}
+                          key={s}
                           className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
                         >
-                          {ev}
+                          {s}
                         </span>
                       ))}
                     </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      创建于 {dateFmt.format(new Date(wh.createdAt))}
-                      {wh.lastTriggeredAt &&
-                        ` · 最近触发 ${dateFmt.format(new Date(wh.lastTriggeredAt))}`}
-                    </p>
                   </div>
-                  <div className="flex shrink-0 gap-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onTest(wh.id)}
-                      disabled={testPending}
+                  <div className="mt-0.5 flex items-center gap-2">
+                    <Tooltip content={visible[k.id] ? k.key : maskKey(k.key)}>
+                      <code className="truncate font-mono text-xs text-muted-foreground">
+                        {visible[k.id] ? k.key : maskKey(k.key)}
+                      </code>
+                    </Tooltip>
+                    <button
+                      onClick={() => setVisible((v) => ({ ...v, [k.id]: !v[k.id] }))}
+                      className="text-muted-foreground hover:text-foreground"
                     >
-                      <Send className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => onToggle(wh)}>
-                      <Power className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => onEdit(wh)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => confirm('确认删除?') && onDelete(wh.id)}
-                      className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
+                      {visible[k.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    </button>
+                    <button
+                      onClick={() => copyKey(k.key)}
+                      className="text-muted-foreground hover:text-foreground"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                      <Copy className="h-3 w-3" />
+                    </button>
                   </div>
+                  <p className="mt-0.5 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+                    创建于 {dateFmt.format(new Date(k.createdAt))}
+                    {k.lastUsedAt && ` · 最近使用 ${dateFmt.format(new Date(k.lastUsedAt))}`}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onReset(k.id)}
+                    disabled={resetPending}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => confirm('确认删除该密钥?') && onDelete(k.id)}
+                    disabled={delPending}
+                    className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
             ))}

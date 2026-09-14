@@ -15,7 +15,11 @@ import { createPortal } from 'react-dom'
 import { useChatStore } from '@/stores/chat'
 import { compressConversation } from '@ihui/api-client'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
-import { estimateChatMessagesTokens } from '@/lib/token-estimate'
+import {
+  estimateChatMessagesTokens,
+  estimateMessageTokens,
+  estimateTokens,
+} from '@/lib/token-estimate'
 
 // ============================================================================
 // 圆环尺寸常量
@@ -58,6 +62,116 @@ function getUsageLevel(ratio: number): UsageLevel {
   if (ratio >= 0.8) return 'high'
   if (ratio >= 0.5) return 'medium'
   return 'low'
+}
+
+// ============================================================================
+// W19 分类明细(系统 / 历史 / 工具 / 文件)
+// ============================================================================
+
+type BreakdownKind = 'system' | 'history' | 'tools' | 'files'
+
+interface BreakdownSegment {
+  key: BreakdownKind
+  tokens: number
+  colorClass: string
+  labelKey: 'categorySystem' | 'categoryHistory' | 'categoryTools' | 'categoryFiles'
+}
+
+const BREAKDOWN_COLORS: Record<BreakdownKind, string> = {
+  system: 'bg-sky-500',
+  history: 'bg-emerald-500',
+  tools: 'bg-amber-500',
+  files: 'bg-violet-500',
+}
+
+const BREAKDOWN_LABELS: Record<BreakdownKind, BreakdownSegment['labelKey']> = {
+  system: 'categorySystem',
+  history: 'categoryHistory',
+  tools: 'categoryTools',
+  files: 'categoryFiles',
+}
+
+/** 安全序列化(循环引用等 JSON.stringify 抛错时降级为空串) */
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * 从用户消息正文中提取附件派生的文本块(估算文件类 token 占用)。
+ *
+ * use-message-send.ts 的 doSend 把附件以引用块形式内联进正文:
+ * - 图片/视频:`![label](url)` / `<video src="...">` / `> 📎 label`
+ * - 文本引用:```fenced code block```
+ * - 其他文件:`> 📎 label (preview)`
+ * 据此启发式抽取,误差在客户端估算可接受范围内(±10%)。
+ */
+function extractAttachmentBlocks(content: string): string {
+  const out: string[] = []
+  let inFence = false
+  for (const line of content.split('\n')) {
+    if (line.trimStart().startsWith('```')) {
+      inFence = !inFence
+      out.push(line)
+      continue
+    }
+    if (inFence) {
+      out.push(line)
+      continue
+    }
+    const trimmed = line.trimStart()
+    if (trimmed.startsWith('> 📎') || trimmed.startsWith('![') || trimmed.startsWith('<video')) {
+      out.push(line)
+    }
+  }
+  return out.join('\n')
+}
+
+interface TokenBreakdown {
+  system: number
+  history: number
+  tools: number
+  files: number
+}
+
+/** 按分类聚合消息 token:系统提示 / 工具调用参数 / 附件文本块;历史 = 总量 − 其余(clamp ≥ 0) */
+function computeTokenBreakdown(
+  messages: ChatMessageForBreakdown[],
+  usedTokens: number,
+): TokenBreakdown {
+  let system = 0
+  let tools = 0
+  let files = 0
+  for (const m of messages) {
+    if (m.error) continue
+    if (m.role === 'system') {
+      system += estimateMessageTokens(m)
+      continue
+    }
+    if (m.role === 'assistant') {
+      for (const tc of m.toolCalls ?? []) {
+        // 工具名 + 参数 JSON + 错误信息计入工具类
+        tools += estimateTokens(tc.toolName ?? '') + 4
+        tools += estimateTokens(safeStringify(tc.args))
+        if (tc.error) tools += estimateTokens(tc.error)
+      }
+    }
+    if (m.role === 'user') {
+      files += estimateTokens(extractAttachmentBlocks(m.content))
+    }
+  }
+  return { system, tools, files, history: Math.max(0, usedTokens - system - tools - files) }
+}
+
+/** computeTokenBreakdown 的消息入参最小结构(避免依赖 store 类型导致耦合) */
+interface ChatMessageForBreakdown {
+  role: string
+  content: string
+  error?: boolean
+  toolCalls?: Array<{ toolName?: string; args?: Record<string, unknown>; error?: string }>
 }
 
 // ============================================================================
@@ -238,6 +352,20 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
     (m) => !m.error && (m.role === 'user' || m.role === 'assistant') && m.content,
   ).length
 
+  // W19:分类明细(系统 / 历史 / 工具 / 文件)token 占用
+  const breakdown = React.useMemo(
+    () => computeTokenBreakdown(messages, usedTokens),
+    [messages, usedTokens],
+  )
+  const segments: BreakdownSegment[] = (Object.keys(BREAKDOWN_COLORS) as BreakdownKind[]).map(
+    (key) => ({
+      key,
+      tokens: breakdown[key],
+      colorClass: BREAKDOWN_COLORS[key],
+      labelKey: BREAKDOWN_LABELS[key],
+    }),
+  )
+
   const [compressing, setCompressing] = React.useState(false)
   const [compressResult, setCompressResult] = React.useState<{
     originalChars: number
@@ -397,9 +525,6 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
           ref={triggerRef}
           onClick={() => setIsOpen((prev) => !prev)}
           type="button"
-          // E2E 锚点(2026-09-14 补回):aria-label 是百分比动态插值,floating-panel-viewport
-          // 等 e2e 需要稳定 testid 选中触发按钮
-          data-testid="context-usage-trigger"
           aria-label={triggerLabel}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
@@ -420,9 +545,7 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
         createPortal(
           <div
             ref={panelRef}
-            // z-popover(2026-09-14 补):portal 挂 body 且 z-auto,营销首页 hero 区
-            // 祖先 z-10 会整体压住弹层(与 add-menu-popover 同根因)
-            className="z-popover w-72 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-72 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={
               coords
                 ? { position: 'fixed', top: coords.top, left: coords.left }
@@ -455,6 +578,39 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
                 <StatRow label={t('used')} value={formatTokenCount(usedTokens)} mono />
                 <StatRow label={t('max')} value={formatTokenCount(maxTokens)} mono />
                 <StatRow label={t('messages')} value={String(messageCount)} mono />
+              </div>
+            </div>
+
+            {/* W19:分类明细(系统 / 历史 / 工具 / 文件)分段进度条 */}
+            <div className="mt-3" data-testid="context-usage-breakdown">
+              <div className="mb-1.5 text-xs font-medium">{t('breakdownTitle')}</div>
+              <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
+                {segments.map((seg) => {
+                  const pct = maxTokens > 0 ? (seg.tokens / maxTokens) * 100 : 0
+                  return (
+                    <div
+                      key={seg.key}
+                      className={cn('h-full', seg.colorClass)}
+                      style={{ width: `${Math.min(pct, 100)}%` }}
+                      data-testid={`context-usage-breakdown-${seg.key}`}
+                    />
+                  )
+                })}
+              </div>
+              <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1">
+                {segments.map((seg) => (
+                  <div
+                    key={seg.key}
+                    className="flex items-center gap-1.5 text-[11px]"
+                    data-testid={`context-usage-breakdown-legend-${seg.key}`}
+                  >
+                    <span className={cn('h-2 w-2 shrink-0 rounded-sm', seg.colorClass)} />
+                    <span className="min-w-0 truncate text-muted-foreground">{t(seg.labelKey)}</span>
+                    <span className="ml-auto tabular-nums text-foreground">
+                      {formatTokenCount(seg.tokens)}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
 

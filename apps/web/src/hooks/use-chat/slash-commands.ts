@@ -5,8 +5,15 @@
 import { toast } from '@/components/common'
 import { useModeStore } from '@/stores/mode'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { useChatStore } from '@/stores/chat'
+import { useGoalStore } from '@/stores/goal'
+import { useIDEWorkspace } from '@/stores/ide-workspace'
+import { emitAgentHook } from '@/stores/agent-hooks'
+import { runCommand } from '@ihui/api-client'
 import { isFullAccessConfirmSuppressed } from '@/components/ai/full-access-confirm-dialog'
 import { fetchApi } from '@/lib/api'
+import { runBestOfN } from '@/api/best-of-api'
+import { useBestOfStore } from '@/stores/best-of'
 import type { SlashCommandData, SlashCommandResult } from './types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import type { ChatMode } from '@ihui/types'
@@ -169,12 +176,14 @@ export function tryHandlePlanModeSlash(
   return true
 }
 
-/** /build /review /spec 动作型斜杠命令(2026-07-28 立,补全 ChatMode 4态三通道)
+/** /ask /build /review /spec 动作型斜杠命令(2026-07-28 立,补全 ChatMode 三通道;
+ *  2026-09-13 矩阵 A #24 补 /ask)
+ * - /ask:    切换到问答模式(纯问答,禁工具)
  * - /build:  切换到构建模式(正常执行,全工具开放)
  * - /review: 切换到审查模式(只读审查,deny write 工具 + 强化审查 prompt)
  * - /spec:   切换到规格模式(从代码反向生成 spec 文档)
  * - 命中即返回 true,不发送给 LLM,清空输入框。toast 给反馈。
- * - 仅当输入完全匹配 /build /review /spec 开头(后接空白或行尾)时命中。
+ * - 仅当输入完全匹配 /ask /build /review /spec 开头(后接空白或行尾)时命中。
  * - t: next-intl 翻译函数(由 useChat hook 顶层 useTranslations('chat') 传入,
  *   因模块级函数无法直接调 hook,2026-07-28 i18n 补全) */
 export function tryHandleChatModeSlash(
@@ -182,12 +191,18 @@ export function tryHandleChatModeSlash(
   t: (key: string, vars?: Record<string, string>) => string,
 ): boolean {
   const trimmed = text.trimStart()
-  const m = /^\/(build|review|spec)\b\s*/.exec(trimmed)
+  const m = /^\/(ask|build|review|spec)\b\s*/.exec(trimmed)
   if (!m) return false
-  const target = m[1] as 'build' | 'review' | 'spec'
+  const target = m[1] as 'ask' | 'build' | 'review' | 'spec'
   const modeStore = useModeStore.getState()
   const labelKey =
-    target === 'build' ? 'modeBuild' : target === 'review' ? 'modeReview' : 'modeSpec'
+    target === 'ask'
+      ? 'modeAsk'
+      : target === 'build'
+        ? 'modeBuild'
+        : target === 'review'
+          ? 'modeReview'
+          : 'modeSpec'
   const label = t(labelKey)
   if (modeStore.currentMode === target) {
     toast.info(t('modeAlreadyActive', { mode: label }))
@@ -195,7 +210,13 @@ export function tryHandleChatModeSlash(
   }
   modeStore.setMode(target)
   const descKey =
-    target === 'build' ? 'modeBuildDesc' : target === 'review' ? 'modeReviewDesc' : 'modeSpecDesc'
+    target === 'ask'
+      ? 'modeAskDesc'
+      : target === 'build'
+        ? 'modeBuildDesc'
+        : target === 'review'
+          ? 'modeReviewDesc'
+          : 'modeSpecDesc'
   toast.success(t('modeSwitched', { mode: label }), { description: t(descKey) })
   return true
 }
@@ -289,11 +310,219 @@ export async function tryHandlePermissionSlash(
   return true
 }
 
+/** /goal 会话目标斜杠命令(W24,2026-09-14 立,对标 AGENTS.md §8 goal 模式工作流)
+ * - /goal <目标>:设定 / 更新当前会话目标(goal store 状态机置 active)
+ * - /goal:查看当前目标(无目标时提示用法)
+ * - /goal done:标记当前目标完成;/goal clear:清除目标
+ * - 命中即返回 true,不发送给 LLM,清空输入框;GoalCard 在工具面板「目标」tab 推进
+ * - t: next-intl 'chat' 翻译函数(与 tryHandleChatModeSlash 一致) */
+export function tryHandleGoalSlash(
+  text: string,
+  t: (key: string, vars?: Record<string, string>) => string,
+): boolean {
+  const trimmed = text.trim()
+  if (
+    trimmed !== '/goal' &&
+    !trimmed.startsWith('/goal ') &&
+    !trimmed.startsWith('/goal\n')
+  ) {
+    return false
+  }
+  const rest = trimmed.slice('/goal'.length).trim()
+  const goalStore = useGoalStore.getState()
+  // 无参数:查看当前目标
+  if (!rest) {
+    const g = goalStore.goal
+    if (!g) {
+      toast.info(t('goalNone'))
+    } else {
+      toast.info(t('goalCurrent', { goal: g.text, progress: String(g.progress) }))
+    }
+    return true
+  }
+  // 操作子命令:done / clear
+  if (rest === 'done') {
+    if (goalStore.goal) {
+      goalStore.setStatus('done')
+      toast.success(t('goalDone'))
+    } else {
+      toast.info(t('goalNone'))
+    }
+    return true
+  }
+  if (rest === 'clear') {
+    goalStore.clear()
+    toast.success(t('goalCleared'))
+    return true
+  }
+  // 设定 / 更新目标文本
+  goalStore.setGoal(rest)
+  toast.success(t('goalSet'))
+  return true
+}
+
+/** /btw 临时侧聊斜杠命令(W24,2026-09-14 立,对标 Claude Code 侧聊不污染主线上下文)
+ * - /btw <问题>:直调 REST 单副本问答(复用 /api/best-of-n/run N=1 通道),
+ *   回答作为 assistant 消息写入本地消息流,但携带 meta.sidechat 标记:
+ *   1) LLM 主线历史构建时过滤(send-message.ts buildHistory)
+ *   2) 持久化预填充(partialize recentMessages)过滤
+ *   3) 不调 persistMessageSafe —— 服务端会话历史不含侧聊
+ * - 回答正文以引用块前缀标注「侧聊」,随 markdown 渲染与主消息区分
+ * - t: next-intl 'chat' 翻译函数 */
+export async function tryHandleBtwSlash(
+  text: string,
+  t: (key: string, vars?: Record<string, string>) => string,
+): Promise<boolean> {
+  const trimmed = text.trim()
+  if (
+    trimmed !== '/btw' &&
+    !trimmed.startsWith('/btw ') &&
+    !trimmed.startsWith('/btw\n')
+  ) {
+    return false
+  }
+  const rest = trimmed.slice('/btw'.length).trim()
+  if (!rest) {
+    toast.info(t('btwUsage'))
+    return true
+  }
+  try {
+    // 单副本直调:不走 LLM chat 流,不写主线历史
+    const d = await runBestOfN(rest, 1)
+    const c = d.candidates[0]
+    const answer = c?.content || t('btwNoAnswer')
+    const store = useChatStore.getState()
+    store.addMessage({
+      role: 'assistant',
+      content: `> 💬 **${t('btwBadge')}** · ${rest}\n\n${answer}`,
+      model: c?.model ?? store.currentModel,
+      meta: { sidechat: true },
+    })
+    toast.info(t('btwNotSaved'))
+  } catch (e: unknown) {
+    toast.error(t('btwFailed', { error: e instanceof Error ? e.message : String(e) }))
+  }
+  return true
+}
+
+/** W28 Smart Commit(2026-09-14 立,对标 CodeBuddy AI 提交):
+ * - /commit [补充说明]:AI 生成提交信息并自动 git add + commit
+ * - 流程:commit.before 钩子 → git status 检查变更 → git diff 拿变更内容
+ *   → runBestOfN(N=1) 让 LLM 生成 Conventional Commits 信息
+ *   → git add -A + git commit → commit.after 钩子 → 侧聊消息回显结果
+ * - 无工作区 / 无变更时提前终止并提示
+ * - t: next-intl 'chat' 翻译函数 */
+function escapeCommitMessage(msg: string): string {
+  return msg.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+export async function tryHandleCommitSlash(
+  text: string,
+  t: (key: string, vars?: Record<string, string>) => string,
+): Promise<boolean> {
+  const trimmed = text.trim()
+  if (
+    trimmed !== '/commit' &&
+    !trimmed.startsWith('/commit ') &&
+    !trimmed.startsWith('/commit\n')
+  ) {
+    return false
+  }
+  const hint = trimmed.slice('/commit'.length).trim()
+  const workspacePath = useIDEWorkspace.getState().workspacePath
+  if (!workspacePath) {
+    toast.warning(t('commitNoWorkspace'))
+    return true
+  }
+  try {
+    // commit.before 钩子
+    emitAgentHook('commit.before', { summary: hint || 'auto' })
+    // 1. 检查是否有变更
+    const statusRes = await runCommand({
+      command: 'git status --porcelain',
+      workspacePath,
+      mode: 'read-only',
+    })
+    if (!statusRes.success) {
+      toast.error(t('commitStatusFailed', { error: statusRes.error ?? '' }))
+      return true
+    }
+    const statusOut = statusRes.data.stdout.trim()
+    if (!statusOut) {
+      toast.info(t('commitNothing'))
+      return true
+    }
+    // 2. 拿变更内容(暂存 + 未暂存,截断到 6000 字符防 prompt 爆炸)
+    const diffRes = await runCommand({
+      command: 'git diff HEAD --stat',
+      workspacePath,
+      mode: 'read-only',
+    })
+    const diffStat = diffRes.success ? diffRes.data.stdout.slice(0, 3000) : statusOut
+    // 3. LLM 生成提交信息(单副本直调,复用 /api/best-of-n/run 通道)
+    const prompt = [
+      'You are a git commit message generator. Output ONLY one line in Conventional Commits format',
+      '(type(scope): subject), max 72 chars. Reply in the primary language of the changes,',
+      'no explanations, no quotes, no markdown.',
+      hint ? `User hint: ${hint}` : '',
+      `Changed files:\n${diffStat.slice(0, 3000)}`,
+    ]
+      .filter(Boolean)
+      .join('\n')
+    const d = await runBestOfN(prompt, 1)
+    const c = d.candidates[0]
+    let message = (c?.content ?? '').trim().split('\n')[0]?.slice(0, 72) ?? ''
+    if (!message) message = 'chore: update workspace files'
+    // 4. 暂存 + 提交
+    const addRes = await runCommand({
+      command: 'git add -A',
+      workspacePath,
+      mode: 'workspace-write',
+    })
+    if (!addRes.success) {
+      toast.error(t('commitAddFailed', { error: addRes.error ?? '' }))
+      return true
+    }
+    const commitRes = await runCommand({
+      command: `git commit -m "${escapeCommitMessage(message)}"`,
+      workspacePath,
+      mode: 'workspace-write',
+    })
+    const ok = commitRes.success
+    // 5. 刷新源码管理面板(git log / diff / staged)
+    if (ok) {
+      void useIDEWorkspace.getState().fetchGitLog()
+      void useIDEWorkspace.getState().fetchDiffFiles()
+    }
+    // commit.after 钩子
+    emitAgentHook('commit.after', { summary: `${ok ? 'ok' : 'failed'}: ${message}` })
+    // 侧聊消息回显结果(不污染主线历史,同 /btw 模式)
+    const store = useChatStore.getState()
+    store.addMessage({
+      role: 'assistant',
+      content: [
+        `> 🔧 **${t('commitBadge')}**`,
+        '',
+        `- ${t('commitResult', { ok: ok ? '✅' : '❌' })}`,
+        `- ${t('commitMessageLabel')}: \`${message}\``,
+        `- ${t('commitFilesLabel')}: ${statusOut.split('\n').length}`,
+        ...(ok ? [] : [`- ${t('commitErrorLabel')}: ${commitRes.error ?? ''}`]),
+      ].join('\n'),
+      model: store.currentModel,
+      meta: { sidechat: true },
+    })
+  } catch (e: unknown) {
+    toast.error(t('commitFailed', { error: e instanceof Error ? e.message : String(e) }))
+  }
+  return true
+}
+
 /** 关键词 → ChatMode 映射(2026-07-28 立,AI 自动判断模式)
  * - 与原 mode-switcher.tsx 的 SUGGEST_KEYWORDS 完全一致,迁移到 use-chat.ts
  *   统一为单一事实源,移除 4 按钮后避免散落
  * - 关键词匹配采用"首次命中优先"策略,与文本子串 includes() 检测
- * - 优先级顺序:plan → build → review → spec(数组顺序决定优先级)
+ * - 优先级顺序:plan → build → review → spec → ask(数组顺序决定优先级;
+ *   ask 置末位,避免"如何修复X"这类含 ask 关键词的构建任务被抢命中)
  * - 中英文混排:关键词里既包含中文("修改"/"分析")也包含英文("build"/"plan")
  *   兼容用户纯英文输入或中英混输场景 */
 export const SUGGEST_KEYWORDS: { mode: ChatMode; keywords: string[] }[] = [
@@ -307,6 +536,11 @@ export const SUGGEST_KEYWORDS: { mode: ChatMode; keywords: string[] }[] = [
   },
   { mode: 'review', keywords: ['审查', '检查', '对比', '评审', 'review', 'diff'] },
   { mode: 'spec', keywords: ['规格', '规范', '契约', 'spec', 'specification'] },
+  // ask 置末位(2026-09-13 矩阵 A #24):纯问答关键词,仅在未命中 plan/build/review/spec 时兜底
+  {
+    mode: 'ask',
+    keywords: ['什么是', '解释一下', '介绍一下', '为什么', '讲讲', 'explain', 'what is', 'why'],
+  },
 ]
 
 /** 根据用户输入文本推荐 ChatMode(关键词匹配,首次命中优先)
@@ -382,41 +616,9 @@ export async function tryHandleBestOfSlash(
     return true
   }
   try {
-    const r = await fetchApi<{
-      winner: {
-        candidate_id: number
-        content: string
-        model: string
-        ok: boolean
-        error: string
-        score: number | null
-        latency_ms: number
-      }
-      candidates: Array<{
-        candidate_id: number
-        content: string
-        model: string
-        ok: boolean
-        error: string
-        score: number | null
-        latency_ms: number
-      }>
-      nRequested: number
-      evaluatorModel: string
-      evaluatorFallback: boolean
-      rationale: string
-      totalCostUsd: number
-      runId: string
-    }>('/api/best-of-n/run', {
-      method: 'POST',
-      body: JSON.stringify({ messages: [{ role: 'user', content: rest }], n }),
-      timeoutMs: 180_000,
-    })
-    if (!r.success || !r.data) {
-      onResult(`❌ Best-of-N 执行失败: ${r.error || '未知错误'}`)
-      return true
-    }
-    const d = r.data
+    // W23(2026-09-14):直调 REST 后把完整结果写入 best-of store,工具面板 BestOfCompare 并排对比
+    const d = await runBestOfN(rest, n)
+    useBestOfStore.getState().setResult(rest, d)
     const lines = [
       `### 🏆 Best-of-N 择优(N=${d.nRequested},${d.evaluatorFallback ? '评审兜底' : `评审 ${d.evaluatorModel}`},总成本 $${d.totalCostUsd.toFixed(4)})`,
       '',

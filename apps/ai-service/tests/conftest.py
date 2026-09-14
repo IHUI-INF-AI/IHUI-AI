@@ -16,7 +16,6 @@ from httpx import ASGITransport, AsyncClient
 
 from app.core.llm_gateway import VENDOR_ENV_KEYS
 from app.main import app
-from app.middleware.input_sanitizer import RateLimitMiddleware
 
 
 @pytest.fixture
@@ -25,43 +24,6 @@ async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
-
-
-@pytest.fixture(autouse=True)
-def _reset_rate_limit_buckets():
-    """每个测试前清空共享 app 的进程内限流令牌桶(根治跨测试累积的偶发 429)。
-
-    RateLimitMiddleware 按 (ip, prefix) 维护进程内 TokenBucket,而本文件的
-    client fixture 复用同一全局 app 单例 → 桶状态跨测试文件累积。全量 CI 中
-    13 个测试文件打 /api/llm/*,60 次/分钟的桶在 60s 窗口内被耗尽后,后续
-    用例收到 429(2026-09-13 CI 实证:test_gemini_invalid_json_returns_400
-    断言 400 实得 429;同代码前一轮通过,属时序敏感偶发,非代码回归)。
-
-    逐层解包找到 RateLimitMiddleware 实例并清空桶。解包链(2026-09-13 实测):
-    app.main.app 是 socketio.ASGIApp 包装器 → other_asgi_app = FastAPI 实例 →
-    middleware_stack = 已构建的中间件链根 → 各层中间件经 .app 逐级下钻。
-    三种属性名按序尝试,兼容包装层/框架层/中间件层各自不同的持有字段。
-    找不到实例(栈尚未构建 / 中间件被移除)则无事可做 —— 没有活动限流器
-    就不会产生跨测试 429,安全跳过。限流中间件自身行为由
-    test_middleware.py::TestRateLimitMiddleware 与 test_input_sanitizer.py
-    (独立最小 app + monkeypatch RATE_RULES)专项覆盖,不依赖共享桶状态,
-    故清空不影响任何限流断言。
-    """
-
-    def _next(n):
-        for attr in ("other_asgi_app", "middleware_stack", "app"):
-            v = getattr(n, attr, None)
-            if v is not None:
-                return v
-        return None
-
-    node = app
-    while node is not None:
-        if isinstance(node, RateLimitMiddleware):
-            node._buckets.clear()
-            break
-        node = _next(node)
-    yield
 
 
 # vendor env key 列表单一来源:app/core/llm_gateway.py 模块级 VENDOR_ENV_KEYS
@@ -187,6 +149,40 @@ def _isolate_ab_test_db(monkeypatch):
         return mock_pool
 
     monkeypatch.setattr("app.services.ab_test_tracker._get_pool", _mock_get_pool)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_model_sync_db(monkeypatch):
+    """隔离 model_sync 的真实 DB:全局把 `get_shared_pool` 换成"不可用"实现。
+
+    2026-09-12 修复(测试直连生产库 → 断言随生产库状态漂移 + 反向删生产数据):
+    test_model_sync::TestCleanupOldLogs / TestGetAggregatedStats 直接调
+    `ModelSyncService.cleanup_old_logs()` / `get_aggregated_stats()`,二者内部
+    `get_shared_pool()` 会真实连上共享 PostgreSQL,并真实执行 DELETE
+    ai_model_sync_log。后果:
+      ① 断言漂移:test_cleanup_returns_zero_when_no_table 断言"无表→deleted_count=0",
+         实际返回值 = 生产库中 30 天前的历史行数;全量跑时库里恰有 6 条超龄行
+         → 真删 6 条 → `assert 6 == 0` 失败(单跑时库内无超龄行 → 通过)。
+      ② 数据破坏:该 DELETE 删的是生产库真实同步历史。
+      ③ 污染来源:`with TestClient(app)` 用例触发 lifespan → model_sync
+         `_sync_loop`(app/main.py:214 → model_sync.py:348)后台真实同步 + 清理,
+         向生产库写 ai_model_sync_log;测试进程不应触碰生产库。
+
+    注意:model_sync.py:70 是 `from ..core.db_pool import get_shared_pool` 绑定式导入,
+    patch `app.core.db_pool.get_shared_pool` 对它无效,必须 patch
+    `app.services.model_sync.get_shared_pool`。替换为抛异常后,model_sync 的全部
+    DB 方法按既有契约优雅降级(cleanup→deleted_count=0 / stats→零值 dict /
+    history→[] / _write_sync_log 静默),断言确定且不再触碰生产库。
+    """
+
+    async def _unavailable_get_shared_pool():
+        raise RuntimeError(
+            "测试隔离:model_sync 的 DB 访问已被 mock(不连真实 PostgreSQL)"
+        )
+
+    monkeypatch.setattr(
+        "app.services.model_sync.get_shared_pool", _unavailable_get_shared_pool
+    )
 
 
 @pytest.fixture(autouse=True)

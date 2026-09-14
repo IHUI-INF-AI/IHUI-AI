@@ -12,11 +12,15 @@ import { fetchApi } from '@/lib/api'
  *
  * 服务端契约(apps/ai-service 的 routers/checkpoint_rewind.py,已由后端挂载到 /api):
  *  - GET  /api/checkpoints?session_id=...            → 该会话可回滚的 checkpoint 列表
- *  - POST /api/checkpoints/{checkpoint_id}/restore   body { sessionId, rollbackFiles }
- *         → 恢复到该 checkpoint(对话历史 + 迭代数 + tool state,可选文件回滚)
+ *  - POST /api/checkpoints/{checkpoint_id}/restore   body { sessionId, scope }
+ *         → 恢复到该 checkpoint(scope: conversation=仅对话 | code=仅文件 | both=对话+文件)
+ *           (旧 rollbackFiles 布尔仍被服务端兼容接受)
  *
  * 响应统一用 ApiResult 包装,成功时 data 为对应结构体。
  */
+
+/** 回退范围:仅回滚对话历史 / 仅回滚代码文件 / 两者都回滚 */
+export type CheckpointScope = 'conversation' | 'code' | 'both'
 
 /** checkpoint 元数据(列表项,不全量返回消息历史) */
 export interface CheckpointMeta {
@@ -58,18 +62,18 @@ export async function listCheckpoints(sessionId: string): Promise<CheckpointList
   return r.data
 }
 
-/** 恢复到指定 checkpoint(可携带是否需要回滚文件) */
+/** 恢复到指定 checkpoint(可指定回退范围:对话 / 文件 / 两者) */
 export async function restoreCheckpoint(
   checkpointId: string,
   sessionId: string,
-  rollbackFiles = false,
+  scope: CheckpointScope = 'both',
 ): Promise<CheckpointRestoreResult> {
   const r = await fetchApi<CheckpointRestoreResult>(
     `/api/checkpoints/${encodeURIComponent(checkpointId)}/restore`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, rollbackFiles }),
+      body: JSON.stringify({ sessionId, scope }),
     },
   )
   if (!r.success) throw new Error(r.error || '恢复 checkpoint 失败')

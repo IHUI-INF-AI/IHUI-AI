@@ -22,6 +22,10 @@
       "types": "./src/ai.ts",
       "import": "./src/ai.ts"
     },
+    "./chat": {
+      "types": "./src/chat.ts",
+      "import": "./src/chat.ts"
+    },
     "./message-repair": {
       "types": "./src/message-repair.ts",
       "import": "./src/message-repair.ts"

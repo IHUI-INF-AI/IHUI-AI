@@ -146,6 +146,17 @@ export function regenerateConversation(conversationId: string, messageId: string
   )
 }
 
+/** 编辑重跑(2026-09-12 立,四竞品对标 P0-1):更新目标用户消息内容并删除其后的所有消息(后端事务) */
+export function editAndRerunConversation(conversationId: string, messageId: string, content: string) {
+  return fetchApi<{ message: { id: string; role: string; content: string } }>(
+    `/api/chat/conversations/${encodeURIComponent(conversationId)}/edit-rerun`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ messageId, content }),
+    },
+  )
+}
+
 /** 分支/回退(2026-08-30 立):基于指定消息之前的内容创建新会话,返回新会话 */
 export function branchConversation(
   conversationId: string,

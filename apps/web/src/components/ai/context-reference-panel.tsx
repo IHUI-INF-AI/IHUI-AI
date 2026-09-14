@@ -6,7 +6,17 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { FileText, Link as LinkIcon, Type, ImageIcon, Film, ChevronDown, X } from 'lucide-react'
+import {
+  FileText,
+  Link as LinkIcon,
+  Type,
+  ImageIcon,
+  Film,
+  ChevronDown,
+  X,
+  Loader2,
+  TriangleAlert,
+} from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -87,6 +97,24 @@ export function ContextReferencePanel({ references, onRemove }: ContextReference
                   >
                     <span className="break-words">{ref.label}</span>
                   </button>
+                  {/* 矩阵 A #19:附件上传状态指示(uploading 转圈 / error 红色警示)。
+                      面板文案与既有风格一致用中文,SVG 无原生 title 提示,外包一层 span 承载 */}
+                  {ref.uploadState === 'uploading' && (
+                    <span className="shrink-0" title="附件上传中">
+                      <Loader2
+                        className="h-3.5 w-3.5 animate-spin text-muted-foreground"
+                        aria-label="附件上传中"
+                      />
+                    </span>
+                  )}
+                  {ref.uploadState === 'error' && (
+                    <span className="shrink-0" title="附件上传失败,请移除后重新添加">
+                      <TriangleAlert
+                        className="h-3.5 w-3.5 text-destructive"
+                        aria-label="附件上传失败"
+                      />
+                    </span>
+                  )}
                   {hasPreview && (
                     <ChevronDown
                       className={cn(

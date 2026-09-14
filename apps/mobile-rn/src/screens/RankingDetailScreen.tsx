@@ -26,12 +26,9 @@ import Drawer, {
 } from '../components/Drawer'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useI18n } from '../i18n'
+import { FREE_RESOURCE_URL } from '../constants/links'
 import { Menu } from 'lucide-react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
-
-/** 免费资料飞书链接(对齐 Uniapp lingqu → 复制链接;与 ProfileScreen 等屏同源) */
-const FREE_RESOURCE_URL =
-  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>

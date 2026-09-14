@@ -86,6 +86,13 @@ export function useChat(): UseChatReturn {
   const sendAnswer = React.useCallback(createSendAnswer(ctx), [t])
 
   const stop = React.useCallback(() => {
+    // #21 中断后追加指令继续(2026-09-13 立):abort 前记录被中断的 assistant 消息,
+    // 输入框上方据此显示「追加指令继续」提示条。
+    const st = useChatStore.getState()
+    const streaming = st.messages.find(
+      (m) => m.role === 'assistant' && m.streamCompleted === false,
+    )
+    st.setInterruptedMessage(streaming?.id ?? null)
     abortRef.current?.abort()
   }, [])
 
@@ -108,7 +115,8 @@ export function useChat(): UseChatReturn {
   const clearFallbackNotice = React.useCallback(() => setFallbackNotice(null), [])
 
   // P3 Inline Diff Apply 工作流:Accept 调 API 写入文件,Reject 纯前端标记
-  const { applyDiff, rejectDiff } = useApplyDiff()
+  // #14 批量:applyAllDiffs/rejectAllDiffs 面向消息内全部待决 diff 卡(2026-09-13 立)
+  const { applyDiff, rejectDiff, applyAllDiffs, rejectAllDiffs } = useApplyDiff()
 
   return {
     messages,
@@ -126,6 +134,8 @@ export function useChat(): UseChatReturn {
     clearFallbackNotice,
     applyDiff,
     rejectDiff,
+    applyAllDiffs,
+    rejectAllDiffs,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

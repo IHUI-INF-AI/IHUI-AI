@@ -17,10 +17,19 @@ import {
   getMessages,
   createConversation,
   regenerateConversation,
+  editAndRerunConversation,
   branchConversation,
   type ToolDelegateEvent,
   type WorkspacePermissionMode,
 } from '@ihui/api-client'
+import {
+  listCheckpoints,
+  restoreCheckpoint,
+  type CheckpointMeta,
+} from '@/api/checkpoint-api'
+import { expandRuleToken } from '@/stores/memory'
+import { emitAgentHook } from '@/stores/agent-hooks'
+import { maybeAutoCaptureWiki } from '@/stores/repo-wiki'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
@@ -46,6 +55,9 @@ import {
   tryHandlePermissionSlash,
   tryAutoDetectMode,
   tryHandleSelfMediaSlash,
+  tryHandleGoalSlash,
+  tryHandleBtwSlash,
+  tryHandleCommitSlash,
 } from './slash-commands'
 import { persistMessageSafe, persistQuestionSafe } from './persistence'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
@@ -94,6 +106,9 @@ export function createSendMessage(
     // 但 setStreaming(true) 在网络往返之后才执行,存在竞态窗口)。
     if (sendInFlightRef.current) return false
 
+    // W25(2026-09-14):#Rule token 展开 —— 正文含 #Rule 时把规则 YAML 内联进发送文本,
+    // 仅影响发给 LLM 的内容,store/持久化仍保留原始用户输入(避免展开块污染历史气泡)。
+    const llmText = expandRuleToken(text)
     const store = useChatStore.getState()
     if (store.isStreaming) return false
 
@@ -114,6 +129,30 @@ export function createSendMessage(
     // - 纯 ChatMode 切换,不需要登录,不调用 LLM,不创建会话
     // - 命中即清空输入框 + toast 反馈(返回 true 与 tryHandlePlanModeSlash 一致)
     if (!isRegenerate && tryHandleChatModeSlash(text, t)) {
+      sendInFlightRef.current = false
+      return true
+    }
+
+    // /goal 会话目标斜杠命令拦截(W24,2026-09-14 立):
+    // - 纯 goal store 状态机操作,不需要登录,不调用 LLM,不创建会话
+    // - 设定/查看/标记完成/清除,命中即清空输入框 + toast 反馈
+    if (!isRegenerate && tryHandleGoalSlash(text, t)) {
+      sendInFlightRef.current = false
+      return true
+    }
+
+    // /btw 临时侧聊斜杠命令拦截(W24,2026-09-14 立,对标 Claude Code 侧聊):
+    // - 直调 REST 单副本问答,不走 LLM chat 流,不创建会话,不写主线历史
+    // - 回答携带 meta.sidechat 标记,主线历史构建与持久化均过滤
+    if (!isRegenerate && (await tryHandleBtwSlash(text, t))) {
+      sendInFlightRef.current = false
+      return true
+    }
+
+    // /commit Smart Commit 斜杠命令拦截(W28,2026-09-14 立,对标 CodeBuddy AI 提交):
+    // - AI 生成提交信息并自动 git add + commit,不走 LLM chat 流,不创建会话
+    // - commit.before/after 钩子事件在此触发
+    if (!isRegenerate && (await tryHandleCommitSlash(text, t))) {
       sendInFlightRef.current = false
       return true
     }
@@ -270,6 +309,8 @@ export function createSendMessage(
         }),
       })
       store.setConversationId(conversationId)
+      // W28 Hooks 事件:session.start(新会话创建完成)
+      emitAgentHook('session.start', { summary: conversationId })
       // 工作区按会话隔离(2026-09-04):新会话挂上当前待绑定工作区,
       // 必须先于 ai-side-panel 的换装 effect 执行,否则会被"未绑定→解绑"逻辑清掉
       useAiPanelStore.getState().bindWorkspaceToConversation(conversationId)
@@ -285,8 +326,15 @@ export function createSendMessage(
       void persistMessageSafe(conversationId, text, 'user')
     }
 
+    // W24(2026-09-14):/btw 侧聊消息(meta.sidechat)不进入主线 LLM 历史
     const history = store.messages
-      .filter((m) => !m.error && (m.role === 'user' || m.role === 'assistant') && m.content)
+      .filter(
+        (m) =>
+          !m.error &&
+          (m.role === 'user' || m.role === 'assistant') &&
+          m.content &&
+          m.meta?.sidechat !== true,
+      )
       .map((m) => ({ role: m.role, content: m.content }))
 
     // 重新生成模式跳过用户消息重复添加(历史已截断到该用户消息之前,store 已包含它)
@@ -306,9 +354,14 @@ export function createSendMessage(
       permissionMode: currentMode,
     })
 
+    // 2026-09-13 批次 2 #16:记录流开始时间戳,用于消息级运行时长展示
+    const streamStartedAt = Date.now()
+
     store.setStreaming(true)
     store.setError(null)
     store.resetSubAgentActivities()
+    // #21 中断后追加指令继续(2026-09-13 立):新流开始 → 清除中断提示态
+    store.setInterruptedMessage(null)
     // P1-6 断点续传(2026-09-13 立):流开始 → 标记该助手消息「未完成」。
     // 若中途刷新页面,finally 不会执行,此标记保持 false 落盘,
     // 页面重新挂载时据此判定可续接;正常/异常收尾在 finally 里置回 true。
@@ -362,11 +415,7 @@ export function createSendMessage(
     // 从 auth store 获取 userId(用于回调链路关联)
     const userId = useAuthStore.getState().user?.id ?? ''
     // 从 ai-panel store 获取当前绑定的本地工作区路径(用于注入 CLAUDE.md/AGENTS.md 项目记忆)
-    const activeWorkspace = useAiPanelStore.getState().activeWorkspace
-    const workspacePath = activeWorkspace?.path
-    // P1-8 Repo Wiki(2026-09-13 立):取仓库名透传后端,
-    // 由后端注入该仓库最新 overview 文档到 system prompt(无活跃工作区时不注入)
-    const repoName = activeWorkspace?.name
+    const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
     // web 非 Tauri 环境:用 FileSystemDirectoryHandle 预加载工作区文件内容(阶段 1)
     // Tauri 桌面端返回 undefined,走原有 workspacePath 逻辑
     const workspaceContext = await loadBrowserWorkspaceContext()
@@ -404,10 +453,13 @@ export function createSendMessage(
       // 发送时一次性快照,避免流式过程中用户改参数导致同一轮请求参数不一致。
       const samplingParams = getSamplingParams(conversationId)
 
+      // W28 Hooks 事件:message.send(用户消息即将发送给 LLM)
+      emitAgentHook('message.send', { summary: llmText.slice(0, 80) })
+
       await streamChat({
         model: effectiveModel,
-        // 重新生成模式:用户消息已在 store/历史中,直接作为完整上下文发送,不重复追加
-        messages: isRegenerate ? history : [...history, { role: 'user', content: text }],
+        // W25:#Rule 展开后的文本发给 LLM(重新生成模式:用户消息已在 store/历史中,直接作为完整上下文发送,不重复追加)
+        messages: isRegenerate ? history : [...history, { role: 'user', content: llmText }],
         signal: controller.signal,
         // P1-7(2026-09-13 立):会话级采样参数(高级参数面板),undefined = 用模型默认,
         // api-client 仅在字段存在时写入 body(见 client.ts streamChat body 构造)。
@@ -431,7 +483,6 @@ export function createSendMessage(
         },
         workspacePath,
         workspaceContext,
-        repoName,
         // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,API 端调用共享包压缩
         contextLimit: resolvedContextLimit,
         // 2026-08-16 修复:显式声明流式,与 sendAnswer 保持一致,
@@ -653,6 +704,15 @@ export function createSendMessage(
             durationMs: evt.durationMs,
           })
         },
+        // #11 Citations 全链路(2026-09-13 立):引用溯源落地
+        // 后端 knowledge_lookup 工具执行后 done 前下发 citations 事件,
+        // 写入 message.citations,MessageItem 渲染 CitationBar。
+        // messageId 缺省时回退到本条 assistant 消息 ID(事件必然属于当前流)。
+        onCitations: (evt) => {
+          const targetId = evt.messageId ?? assistantId
+          if (!targetId || !evt.citations?.length) return
+          useChatStore.getState().setMessageCitations(targetId, evt.citations)
+        },
         // 阶段 2:浏览器端工具执行代理(2026-08-02 立)
         // ai-service 在远程服务器无法访问本地文件,LLM 调用 fs 类工具时通过 SSE
         // tool-delegate 事件委托前端用 FileSystemDirectoryHandle 执行,通过 postToolResult 回传
@@ -692,6 +752,8 @@ export function createSendMessage(
           contentBatcher.flush()
           reasoningBatcher.flush()
           agentBatcher.flushAll()
+          // W28 Hooks 事件:error(SSE 流式错误)
+          emitAgentHook('error', { summary: errMsg?.slice(0, 120) })
           const formatted = formatSSEError(errMsg, info)
           useChatStore.getState().setMessageError(assistantId, formatted.message)
           useChatStore.getState().setError(formatted.message)
@@ -729,6 +791,8 @@ export function createSendMessage(
       contentBatcher.flush()
       reasoningBatcher.flush()
       agentBatcher.flushAll()
+      // W28 Hooks 事件:error(请求异常,含超时/中止之外的网络错误)
+      emitAgentHook('error', { summary: err instanceof Error ? err.message.slice(0, 120) : 'unknown' })
       if (err instanceof DOMException && err.name === 'AbortError') {
         // #13 区分两种超时:15s 完全冷启动 vs 60s reasoning 已收到但 content 未到
         // 用户主动 stop 触发的 abort(abortedByTimeout* 均为 false)静默不报错
@@ -790,13 +854,37 @@ export function createSendMessage(
         abortRef.current = null
         useChatStore.getState().setStreaming(false)
         useChatStore.getState().markAllAgentStreamsDone()
+        // #23 撤回未执行工具卡(2026-09-13 立):流收尾时把仍处 running 的工具卡置为
+        // cancelled(报错/中断/超时路径下后端不会再返回 tool-result)。
+        // 正常 done 路径所有工具卡已有终态,此调用为空操作。
+        useChatStore.getState().revokePendingToolCalls(assistantId)
       }
       // P1-6:流已收尾(正常完成 / 报错 / 超时 / 主动 stop)→ 标记完成,刷新后不再续接。
       // 注意:必须在 generation 守卫之外 —— 被「切换会话」abort 的旧流同样已终止,
       // 不置 true 会导致用户切回该会话时误触发续接。
       useChatStore.getState().setMessageStreamCompleted(assistantId, true)
+      // 2026-09-13 批次 2 #16:写入消息级运行时长(耗时 = 流结束 - 流开始)
+      const streamEndedAt = Date.now()
+      useChatStore.getState().updateMessageMeta(assistantId, {
+        durationMs: streamEndedAt - streamStartedAt,
+        startedAt: streamStartedAt,
+        toolCallCount: useChatStore.getState().messages.find((m) => m.id === assistantId)?.toolCalls?.length ?? 0,
+      })
       // 2026-08-06 修复:发送完成(成功/异常)释放 in-flight 锁,允许下一次发送
       sendInFlightRef.current = false
+      // W28 Hooks 事件:message.receive(助手回复收尾,异常路径下跳过)+ session.end(本轮流结束)
+      const finalMsg = useChatStore
+        .getState()
+        .messages.find((m) => m.id === assistantId)
+      if (!finalMsg?.error) {
+        emitAgentHook('message.receive', {
+          summary: finalMsg?.content.slice(0, 80) ?? '',
+        })
+        // W29 Repo Wiki 自动捕获(开启 autoCapture 时):对最近一轮问答提取知识卡片,
+        // fire-and-forget,失败静默不打断主链路。
+        maybeAutoCaptureWiki(llmText, finalMsg?.content ?? '', conversationId ?? undefined)
+      }
+      emitAgentHook('session.end', { summary: conversationId })
     }
     // 消息已提交到 store(即使流式出错也有 error 标记 + retry 按钮),可清空输入框
     return true
@@ -851,6 +939,116 @@ export async function regenerateMessage(messageId: string): Promise<boolean> {
   useChatStore.getState().truncateMessagesFrom(messageId)
   // 复用 sendMessage(regenerate 模式):不重复添加用户消息,直接流式生成新回复
   return sendMessage(userMsg.content, { regenerate: true })
+}
+
+/**
+ * 编辑重跑(2026-09-12 立,四竞品对标 P0-1,对标 Cursor/Trae 消息编辑)。
+ * 由 MessageList 监听 `ihui:edit-message` 后调用,完整闭环:
+ * 1. 调后端 POST /conversations/:id/edit-rerun —— 事务更新目标用户消息 content + 删除其后所有消息
+ * 2. store.editMessageContent 同步更新前端该消息内容,truncateMessagesFrom(messageId) 删除其后的消息
+ * 3. 复用 sendMessage(regenerate 模式)以新内容重新流式生成回复 —— 不重复添加/持久化用户消息,
+ *    走既有流式链路(超时/节流/工具调用/错误重试全部复用,不重写)。
+ * 注意:truncateMessagesFrom(目标用户消息 id) 会把该用户消息也从前端列表移除,
+ * 但 regenerate 模式的 sendMessage 不重复 addMessage,而是把 content 直接作为历史末尾 ——
+ * 因此这里先 editMessageContent 更新内容,再截断到该消息之后(保留编辑后的用户消息在 store 中)。
+ *
+ * 2026-09-14 W16 扩展(对标 Qoder 编辑消息可选回滚工作区文件):rollbackFiles=true 时,
+ * 在编辑重跑前先把工作区(文件 + 对话历史)回滚到目标用户消息之前最近的 checkpoint:
+ * 1. listCheckpoints 找 created_at <= 目标消息 createdAt 的最近 checkpoint
+ * 2. restoreCheckpoint(checkpointId, conversationId, 'both') —— 服务端恢复对话历史 + 回滚文件版本
+ * 3. getMessages 重新拉取服务端历史快照覆盖前端 store(checkpoint 时点可能早于目标消息前一条,
+ *    不能只做本地截断,必须以服务端为准)
+ * 4. 以新内容走普通 sendMessage(非 regenerate 模式)—— 用户消息作为全新消息追加到已回滚历史末尾
+ * 无可用 checkpoint 时降级为不回滚文件的既有 edit-rerun 链路(toast 提示)。
+ */
+export async function editMessageAndRerun(
+  messageId: string,
+  newContent: string,
+  rollbackFiles = false,
+): Promise<boolean> {
+  const sendMessage = sendMessageInstance
+  if (!sendMessage || !sendActionCtx) return false
+
+  const text = newContent.trim()
+  if (!text) return false
+
+  const store = useChatStore.getState()
+  const conversationId = store.conversationId
+  if (!conversationId || store.isStreaming) return false
+
+  const messages = store.messages
+  const targetIdx = messages.findIndex((m) => m.id === messageId)
+  if (targetIdx === -1) return false
+  const target = messages[targetIdx]
+  if (!target || target.role !== 'user') return false
+  // 内容未变化时无需重跑,直接关闭编辑态即可
+  if (target.content === text) return true
+
+  // W16(2026-09-14):编辑前可选回滚工作区到目标消息之前的最近 checkpoint
+  if (rollbackFiles) {
+    try {
+      const list = await listCheckpoints(conversationId)
+      const targetTime = target.createdAt ?? Number.MAX_SAFE_INTEGER
+      const candidates = list.checkpoints.filter((c) => c.created_at <= targetTime)
+      const cp = candidates.reduce<CheckpointMeta | undefined>(
+        (best, c) => (!best || c.created_at >= best.created_at ? c : best),
+        undefined,
+      )
+      if (cp) {
+        await restoreCheckpoint(cp.checkpoint_id, conversationId, 'both')
+        // 服务端历史已回滚到 checkpoint 时点(可能早于目标消息前一条),以服务端为准刷新前端
+        const snap = await getMessages(conversationId, { pageSize: 100 })
+        if (snap.success && snap.data) {
+          useChatStore.setState({
+            messages: snap.data.messages.map((m) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              createdAt: new Date(m.createdAt).getTime(),
+              model: '',
+              reasoning: m.reasoning,
+            })),
+            error: null,
+          })
+        } else {
+          // 快照拉取失败时至少截断本地目标消息及其后,避免与已回滚的服务端历史错位
+          useChatStore.getState().truncateMessagesFrom(messageId)
+        }
+        // 已回滚到 checkpoint,编辑后的内容作为全新用户消息追加并发送
+        return sendMessage(text)
+      }
+      toast.warning('未找到可回滚的 checkpoint', {
+        description: '将仅编辑消息内容,不回滚文件改动',
+      })
+    } catch (err) {
+      toast.error('工作区回滚失败', {
+        description: err instanceof Error ? err.message : String(err),
+      })
+      return false
+    }
+  }
+
+  try {
+    const res = await editAndRerunConversation(conversationId, messageId, text)
+    if (!res.success) {
+      toast.error('编辑重跑失败', {
+        description: res.error || `服务异常(${res.status ?? '未知'})`,
+      })
+      return false
+    }
+  } catch (err) {
+    toast.error('编辑重跑失败', {
+      description: err instanceof Error ? err.message : String(err),
+    })
+    return false
+  }
+
+  // 后端已更新内容并删除其后消息,同步前端:先更新内容,再截断该消息之后的所有消息
+  useChatStore.getState().editMessageContent(messageId, text)
+  // 截断该用户消息之后的所有消息(该用户消息保留,regenerate 模式不重复添加用户消息)
+  useChatStore.getState().truncateMessagesFromAfter(messageId)
+  // 复用 sendMessage(regenerate 模式):以新内容重新流式生成回复,不重复添加用户消息
+  return sendMessage(text, { regenerate: true })
 }
 
 /**

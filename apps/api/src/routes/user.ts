@@ -6,7 +6,14 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { and, eq, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { signInRecords, userPoints, userThirdPartyAccounts, users, auditLogs } from '@ihui/database'
+import {
+  signInRecords,
+  userPoints,
+  userThirdPartyAccounts,
+  users,
+  auditLogs,
+  tokenFlows,
+} from '@ihui/database'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { revokeRefreshToken } from '../db/queries.js'
@@ -216,6 +223,44 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
       })
       .returning({ id: userThirdPartyAccounts.id, platform: userThirdPartyAccounts.platform })
     return reply.status(201).send(success({ bound: record }))
+  })
+
+  // GET /user/token-balance - Token 余额 + 月配额 + 累计收支(2026-09-13 矩阵 A #26 配额/用量展示)
+  // 数据源:server.tokenBalance.getBalance(Redis 缓存优先 5min + user_margins 兜底 + VIP 权益/促销期判定),
+  // 累计收支由 token_flows 按 op_type 聚合:1=扣减 → totalUsed;0/3/4/5/6(充值/退款/佣金/管理员调整/订阅发放) → totalEarned。
+  // 此前 packages/api-client/src/endpoints/token.ts 的 getTokenBalance 契约存在但后端无路由(404 断链),本端点补齐。
+  server.get('/user/token-balance', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+    const info = await server.tokenBalance.getBalance(userId)
+    const flows = await db
+      .select({
+        opType: tokenFlows.opType,
+        total: sql<number>`COALESCE(SUM(${tokenFlows.quantity}), 0)::int`,
+      })
+      .from(tokenFlows)
+      .where(eq(tokenFlows.userId, userId))
+      .groupBy(tokenFlows.opType)
+    let totalUsed = 0
+    let totalEarned = 0
+    for (const f of flows) {
+      if (f.opType === 1) {
+        totalUsed += f.total
+      } else if (f.opType === 0 || f.opType === 3 || f.opType === 4 || f.opType === 5 || f.opType === 6) {
+        totalEarned += f.total
+      }
+    }
+    return reply.send(
+      success({
+        balance: info.balance,
+        vipLevel: info.vipLevel,
+        monthlyQuota: info.monthlyQuota,
+        discountRate: info.discountRate,
+        isPromotionPeriod: info.isPromotionPeriod,
+        totalEarned,
+        totalUsed,
+      }),
+    )
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -22,7 +22,6 @@ import {
   primeSemanticSummary,
 } from '../utils/semantic-summary.js'
 import { persistMessageArchive } from '../utils/conversation-archive.js'
-import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
 
 // P3-1 SSE 流式对话实时指标(admin 调试用,不直接进 Prometheus;Prometheus 抓取由 business-metrics.ts 负责)
 const sseMetrics = {
@@ -55,10 +54,6 @@ const chatStreamSchema = z.object({
    *  此前该字段未在 schema 中声明 → zod 解析时被剥离 → ai-service 永远收不到,
    *  导致"添加工作区后 AI 读不到任何项目文件"。上限与前端 MAX_TOTAL_SIZE(2MB)对齐。 */
   workspaceContext: z.string().max(2_500_000).optional(),
-  /** P1-8(2026-09-13 立,Repo Wiki 对话自动引用):当前对话绑定的仓库名,
-   *  后端据此读取 repo_wiki_docs 中最新一版「项目百科」总览并注入 system prompt。
-   *  与 workspaceContext 同型坑:不在此声明会被 zod strip 静默丢弃,ai-service 永远收不到。上限与 /repo-wiki 生成接口对齐(200)。 */
-  repoName: z.string().max(200).optional(),
   /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩。0 或不传 = 不压缩 */
   contextLimit: z.number().int().min(0).max(2_000_000).optional(),
   /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
@@ -69,6 +64,11 @@ const chatStreamSchema = z.object({
    * plan=只制定计划不执行工具(后端注入 Plan Mode system prompt),act=正常执行(默认)
    * 前端 extraBody 传 plan_mode(snake_case),透传到 ai-service /api/llm/complete/stream */
   plan_mode: z.string().optional(),
+  /** ChatMode 5 态(2026-09-13 矩阵 A #24):ask=纯问答禁工具/build=执行/plan/review/spec。
+   *  此前前端 extraBody.mode(send-message.ts:409 / send-answer.ts:171)未在 schema 声明
+   *  → zod strip 静默丢弃(断链根因,与上方 workspaceContext 2026-09-04 同型);
+   *  legacy plan_mode 继续兼容,ai-service 端 _resolve_chat_mode 以 mode 优先。 */
+  mode: z.enum(['ask', 'build', 'plan', 'review', 'spec']).optional(),
   /** 原生 function calling(2026-08-31 立,OpenAI tools 格式弱类型透传):
    *  CLI 直连 ai-service 已支持(tools + tool_choice → tool-call-start SSE 事件),
    *  经网关中转的客户端(Web 等)同样需要透传。元素为 OpenAI tool 定义
@@ -156,11 +156,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       workspacePath?: string
       /** 浏览器端预加载工作区内容,透传为 ai-service 的 workspace_context */
       workspaceContext?: string
-      /** P1-8(2026-09-13 立):对话绑定的仓库名,用于读取并注入「项目百科」 */
-      repoName?: string
       contextLimit?: number
       agentTools?: string[]
       planMode?: string
+      /** ChatMode 5 态(2026-09-13 矩阵 A #24),透传到 ai-service req.mode */
+      mode?: 'ask' | 'build' | 'plan' | 'review' | 'spec'
       /** 原生 function calling(OpenAI tools 格式),undefined 时 JSON.stringify 自动省略,不注入 */
       tools?: Array<Record<string, unknown>>
       toolChoice?: string | Record<string, unknown>
@@ -219,8 +219,6 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         userId: opts.metadata?.userId ?? request.userId,
         messageId: opts.metadata?.messageId,
       }
-      // P1-8(2026-09-13 立):读取「项目百科」总览(失败/未命中一律 null,不阻塞主链路)
-      const wiki = await loadRepoWikiContext(mergedMetadata.userId ?? null, opts.repoName)
       const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
         method: 'POST',
         headers: {
@@ -237,9 +235,6 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // 2026-09-04 修复:浏览器端工作区上下文透传(此前在网关层被丢弃,见 schema 注释)。
           // undefined 时 JSON.stringify 自动省略,不注入上游请求。
           workspace_context: opts.workspaceContext,
-          // P1-8(2026-09-13 立):项目百科透传(undefined 时 JSON.stringify 自动省略,不注入上游请求)。
-          wiki_context: wiki?.content,
-          wiki_repo: wiki?.repoName,
           contextLimit: opts.contextLimit ?? 0,
           // 2026-07-27 修复 tool loop 不触发:API 层接收前端驼峰 agentTools,
           // 透传到 ai-service 必须用下划线 agent_tools(Pydantic schema 字段名)。
@@ -247,6 +242,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // tool loop 入口 `if req.agent_tools:` 永远 false,从未触发工具调用。
           agent_tools: opts.agentTools,
           plan_mode: opts.planMode,
+          // ChatMode 5 态透传(2026-09-13 矩阵 A #24):undefined 时 JSON.stringify 自动省略
+          mode: opts.mode,
           // 原生 function calling 透传:字段名与 ai-service LLMCompleteRequest
           // (tools: list[dict] | None, tool_choice: str | dict | None) 对齐;
           // undefined 时 JSON.stringify 省略该 key,不会注入到上游请求。
@@ -360,10 +357,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         materialContent,
         workspacePath,
         workspaceContext,
-        repoName,
         contextLimit,
         agentTools,
         plan_mode: planMode,
+        mode,
         tools,
         tool_choice: toolChoice,
         temperature,
@@ -501,10 +498,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           materialContent,
           workspacePath,
           workspaceContext,
-          repoName,
           contextLimit,
           agentTools,
           planMode,
+          mode,
           tools,
           toolChoice,
           // P1-7(2026-09-13):会话级采样参数 + 自定义 system prompt 透传
@@ -553,10 +550,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         materialContent,
         workspacePath,
         workspaceContext,
-        repoName,
         contextLimit,
         agentTools,
         plan_mode: planMode,
+        mode,
         tools,
         tool_choice: toolChoice,
         // P1-7(2026-09-13 立):chatAnswerSchema extends chatStreamSchema,
@@ -745,10 +742,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           materialContent,
           workspacePath,
           workspaceContext,
-          repoName,
           contextLimit,
           agentTools,
           planMode,
+          mode,
           tools,
           toolChoice,
           // P1-7(2026-09-13):续答透传会话级采样参数

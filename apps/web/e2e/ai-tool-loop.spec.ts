@@ -427,4 +427,176 @@ test.describe('SSE retry-after 限流降级', () => {
     await authenticatedPage.unroute('**/api/ai/chat/conversations')
   })
 })
+
+/**
+ * W1(2026-09-12 立)plan/terminal SSE 事件端到端渲染 E2E。
+ *
+ * 全链路:前端请求 body 携带 metadata.messageId(assistant 消息 id,前端生成)
+ *  → route mock 从请求 body 取该 messageId 并回显到 plan_updated / terminal_start / terminal_end 事件
+ *  → client.ts tryParsePlanUpdate / tryParseTerminal 解析 → send-message.ts 回调
+ *  → chat store setMessagePlanSteps / appendMessageTerminalTask
+ *  → MessageItem 渲染 message-plan-steps-<id> / message-terminal-<id>。
+ *
+ * 关键点:SSE 事件的 messageId 必须与请求 body 的 metadata.messageId 一致,
+ * 否则 send-message.ts 回调内 `if (!evt.messageId) return` 或按 id 写入落空 → 卡片不渲染。
+ * 断言对象为"计划卡可能是折叠态",故仅断言 attached,不断言 visible,避免假失败。
+ */
+test.describe('plan/terminal 事件端到端渲染', () => {
+  test('plan_updated/terminal_start/terminal_end 事件驱动消息级卡片渲染', async ({
+    authenticatedPage,
+  }) => {
+    const consoleErrors: string[] = []
+    authenticatedPage.on('pageerror', (err) => consoleErrors.push(err.message))
+
+    // 从请求 body 读取前端生成的 assistant messageId,SSE 事件回显该 id
+    let capturedMessageId: string | undefined
+    const nowIso = new Date().toISOString()
+
+    await authenticatedPage.route('**/api/ai/chat/stream', async (route) => {
+      const reqBody = route.request().postDataJSON() as
+        | { messageId?: string; metadata?: { messageId?: string } }
+        | undefined
+      // 请求 body 结构为 { ..., metadata: { messageId } }(client.ts:1551)
+      capturedMessageId = reqBody?.metadata?.messageId ?? reqBody?.messageId ?? capturedMessageId
+      // 兜底:拿不到 messageId 时用固定 id,避免 mock 构造失败导致假失败
+      const mid = capturedMessageId ?? 'e2e-plan-terminal-fallback'
+
+      // plan_updated 事件裸构造(两次:in_progress → completed)
+      const planData = (status: 'in_progress' | 'completed') =>
+        JSON.stringify({
+          type: 'plan_updated',
+          plan: [{ step: 'run_command: echo hi', status }],
+          explanation: '开始执行工具 run_command',
+          messageId: mid,
+        })
+
+      const sseBody = [
+        `event: plan_updated\ndata: ${planData('in_progress')}\n\n`,
+        `event: terminal_start\ndata: ${JSON.stringify({
+          type: 'terminal_start',
+          terminalId: 'e2e-term-1',
+          command: 'echo hi',
+          status: 'running',
+          startedAt: nowIso,
+          messageId: mid,
+        })}\n\n`,
+        `event: plan_updated\ndata: ${planData('completed')}\n\n`,
+        `event: terminal_end\ndata: ${JSON.stringify({
+          type: 'terminal_end',
+          terminalId: 'e2e-term-1',
+          status: 'completed',
+          output: 'hi',
+          exitCode: 0,
+          endedAt: nowIso,
+          durationMs: 12,
+          messageId: mid,
+        })}\n\n`,
+        // chunk 事件保证有可见正文(清掉前端 15s 冷启动超时定时器)
+        'event: chunk\ndata: {"content":"已完成"}\n\n',
+        'event: done\ndata: {"content":"已完成"}\n\n',
+      ].join('')
+
+      await route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        body: sseBody,
+      })
+    })
+    // 会话态 mock:同一路由覆盖 3 个真实端点(api-client endpoints/chat.ts):
+    //   POST /api/chat/conversations          → createConversation
+    //   GET  /api/chat/conversations/:id      → getConversation(loadHistory 内)
+    //   GET  /api/chat/conversations/:id/messages → getMessages(loadHistory 内)
+    // 注意 1:真实路径是 `/api/chat/conversations`,不是 `/api/ai/chat/conversations`
+    //   (后者是 endpoints/ai.ts 的 createAiConversation,与本用例无关)。
+    // 注意 2:用 URL 谓词而非 glob —— `/messages` 带 `?pageSize=50` 查询串,glob 难以同时精确覆盖。
+    // 注意 3:若不 mock 这两条 GET,ai-side-panel 的 loadHistory 会打到真实后端(8802 在跑),
+    //   新会话返回空消息快照,与流式在途消息形成覆盖竞态(守卫见 ai-side-panel.ts isLocalMessagesChanged)。
+    const e2eConversationId = 'e2e-conv-plan-terminal'
+    const conversationRouteMatcher = (url: URL) =>
+      url.pathname === '/api/chat/conversations' ||
+      url.pathname.startsWith('/api/chat/conversations/')
+    await authenticatedPage.route(conversationRouteMatcher, async (route) => {
+      const method = route.request().method()
+      const pathname = new URL(route.request().url()).pathname
+      const accept = (data: unknown) =>
+        route.fulfill({
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: 0, message: 'ok', data }),
+        })
+
+      if (method === 'POST' && pathname === '/api/chat/conversations') {
+        await accept({ conversation: { id: e2eConversationId } })
+        return
+      }
+      if (method === 'GET' && /^\/api\/chat\/conversations\/[^/]+\/messages$/.test(pathname)) {
+        // 新会话无历史消息:返回空快照(不得覆盖本地在途消息,由 ai-side-panel 守卫保证)
+        await accept({ messages: [], nextCursor: null, hasMore: false })
+        return
+      }
+      if (method === 'GET' && /^\/api\/chat\/conversations\/[^/]+$/.test(pathname)) {
+        await accept({ conversation: { id: e2eConversationId, title: null, metadata: null } })
+        return
+      }
+      await route.continue()
+    })
+
+    await authenticatedPage.goto('/chat')
+    await authenticatedPage.waitForLoadState('domcontentloaded')
+    if (!authenticatedPage.url().includes('/chat')) return
+
+    // 注意:locator.isVisible() 不重试(立即返回当前可见性),不能用于"等待元素出现"。
+    // Next.js dev(Turbopack)首次访问 /chat 需冷编译 + hydrate,输入框可能数秒后才挂载,
+    // 故这里改用会真正等待的 waitFor;超时仍按文件统一风格 early return。
+    const textarea = authenticatedPage.locator('textarea').first()
+    try {
+      await textarea.waitFor({ state: 'visible', timeout: 20000 })
+    } catch {
+      return
+    }
+
+    await textarea.fill('执行 echo hi')
+    await authenticatedPage.keyboard.press('Enter').catch(() => {})
+
+    // 断言 1:计划卡渲染(可能折叠 → 仅断言 attached,不断言 visible)
+    await authenticatedPage
+      .locator('[data-testid^="message-plan-steps-"]')
+      .first()
+      .waitFor({ state: 'attached', timeout: 10000 })
+
+    // 断言 2:终端区渲染(同上,仅 attached)
+    // 若已捕获 messageId 则按精确 id 定位,否则退化为前缀匹配
+    const planTestIds = await authenticatedPage
+      .locator('[data-testid^="message-plan-steps-"]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')))
+    const termCount = await authenticatedPage.locator('[data-testid^="message-terminal-"]').count()
+    const termTestIds = await authenticatedPage
+      .locator('[data-testid^="message-terminal-"]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')))
+    console.log(
+      '[DIAG] capturedMessageId=',
+      capturedMessageId,
+      '| planTestIds=',
+      JSON.stringify(planTestIds),
+      '| termCount=',
+      termCount,
+      '| termTestIds=',
+      JSON.stringify(termTestIds),
+    )
+    const terminalLocator = capturedMessageId
+      ? authenticatedPage.locator(`[data-testid="message-terminal-${capturedMessageId}"]`)
+      : authenticatedPage.locator('[data-testid^="message-terminal-"]').first()
+    await terminalLocator.waitFor({ state: 'attached', timeout: 10000 })
+
+    // 断言 3:页面不崩溃,仍在 /chat,无未捕获异常
+    expect(authenticatedPage.url()).toContain('/chat')
+    const realErrors = consoleErrors.filter(
+      (e) => !e.includes('favicon') && !e.includes('React DevTools'),
+    )
+    expect(realErrors).toHaveLength(0)
+
+    await authenticatedPage.unroute('**/api/ai/chat/stream')
+    await authenticatedPage.unroute(conversationRouteMatcher)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

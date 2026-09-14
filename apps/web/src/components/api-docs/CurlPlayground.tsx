@@ -21,7 +21,7 @@ interface PlaygroundPrefill {
 }
 
 const SAMPLE_CURL = `curl https://api.ihui.ai/v1/chat/completions \\
-  -H "Authorization: Bearer ihui_xxx" \\
+  -H "Authorization: Bearer sk-your-api-key" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "gpt-4o-mini",

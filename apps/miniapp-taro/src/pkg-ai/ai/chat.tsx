@@ -115,6 +115,16 @@ export default function ChatPage() {
   // 思考过程独立浮层(对标原项目 .agent-content1-overlay,点击 AI 气泡"思考过程"按钮打开)
   const [reasoningPopupVisible, setReasoningPopupVisible] = useState<boolean>(false)
   const [reasoningPopupContent, setReasoningPopupContent] = useState<string>('')
+  // W5:流式执行事件(工具调用 / subagent / 计划 / 终端 / 用量等)的最小可视化列表
+  const [streamActivities, setStreamActivities] = useState<{ id: string; text: string }[]>([])
+  const [streamActivityExpanded, setStreamActivityExpanded] = useState(true)
+  const activitySeqRef = useRef(0)
+  const pushStreamActivity = useCallback((text: string) => {
+    activitySeqRef.current += 1
+    const id = `act_${activitySeqRef.current}`
+    // 仅保留最近 20 条,避免长会话列表无限增长
+    setStreamActivities((prev) => [...prev, { id, text }].slice(-20))
+  }, [])
 
   const activeAgentId = currentAgentId || routeAgentId
 
@@ -280,6 +290,11 @@ export default function ChatPage() {
     path: '/pkg-ai/ai/chat',
   }))
 
+  /**
+   * 语义匹配:识别用户是否在请求「图片 / 语音 / 视频」类任务,命中后引导跳转对应 AIGC 页面。
+   * 注意:下方三个正则中的中文属于「用户输入语义匹配」逻辑,并非 UI 展示文案,
+   * 因此刻意不做 i18n;若替换为翻译文本会导致中文提问匹配失效。
+   */
   const checkSpecialModel = useCallback(
     (text: string): boolean => {
       if (/画|生成图|画图|绘图|画一个|画张|画幅/.test(text)) {
@@ -332,6 +347,8 @@ export default function ChatPage() {
       const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() }
       setMessages((prev) => [...prev, userMsg, assistantMsg])
       setThinking(true)
+      // W5:新一轮对话开始,清空上一轮的执行过程列表
+      setStreamActivities([])
       startThinkingProgress()
       scrollToBottom()
       const controller = new AbortController()
@@ -370,8 +387,12 @@ export default function ChatPage() {
           controller.signal,
           (info) => {
             // 后端自动压缩完成,toast 提示用户(对标 CLI /compact 命令的可见性)
+            // W5:i18n 化,文案与参数映射见 ai.stream.compact
             Taro.showToast({
-              title: `上下文已压缩 ${formatTokenCount(info.tokensBefore)} → ${formatTokenCount(info.tokensAfter)}`,
+              title: t('ai.stream.compact', {
+                before: formatTokenCount(info.tokensBefore),
+                after: formatTokenCount(info.tokensAfter),
+              }),
               icon: 'none',
               duration: 2500,
             })
@@ -388,6 +409,40 @@ export default function ChatPage() {
                 ),
               )
             }
+          },
+          // W5:新增流式事件回调(第 10 个参数),为 tool-call / subagent / 计划 / 终端 /
+          // fallback / usage / 断线重连等事件提供最小可用渲染(统一压入执行过程列表)
+          {
+            onToolCallStart: (evt) =>
+              pushStreamActivity(t('ai.stream.toolCall', { name: evt.toolName })),
+            onToolResult: (evt) =>
+              pushStreamActivity(t('ai.stream.toolResult', { name: evt.toolName })),
+            onSubagentSpawn: (evt) =>
+              pushStreamActivity(t('ai.stream.subagent', { phase: evt.role })),
+            onSubagentProgress: (evt) =>
+              pushStreamActivity(t('ai.stream.subagent', { phase: evt.phase })),
+            onSubagentEnd: (evt) =>
+              pushStreamActivity(t('ai.stream.subagent', { phase: evt.status })),
+            onToolSummary: (evt) =>
+              pushStreamActivity(t('ai.stream.toolSummary', { calls: evt.totalCalls })),
+            onToolDelegate: (evt) =>
+              pushStreamActivity(t('ai.stream.toolCall', { name: evt.tool_name })),
+            onPlanUpdate: () => pushStreamActivity(t('ai.stream.planUpdate')),
+            onTerminalStart: (evt) =>
+              pushStreamActivity(t('ai.stream.terminal', { status: evt.command })),
+            onTerminalEnd: (evt) =>
+              pushStreamActivity(t('ai.stream.terminal', { status: evt.status })),
+            onFallback: (evt) =>
+              pushStreamActivity(t('ai.stream.fallback', { model: evt.backupModel })),
+            onUsage: (info) => {
+              if (typeof info.totalTokens === 'number') {
+                pushStreamActivity(t('ai.stream.usage', { n: info.totalTokens }))
+              }
+            },
+            onReconnect: (attempt, delayMs) =>
+              pushStreamActivity(
+                t('ai.stream.reconnect', { attempt, seconds: Math.round(delayMs / 1000) }),
+              ),
           },
         )
       } catch (e) {
@@ -420,6 +475,7 @@ export default function ChatPage() {
       selectedMaterial,
       t,
       checkSpecialModel,
+      pushStreamActivity,
     ],
   )
 
@@ -849,6 +905,38 @@ export default function ChatPage() {
             }
           />
         ))}
+
+        {/* W5:流式执行事件最小可视化(工具调用 / subagent / 计划 / 终端等),简化列表 + 可折叠 */}
+        {streamActivities.length > 0 ? (
+          <View className="msg-item assistant">
+            <View className="avatar assistant">{t('ai.chatMessageItem.ai')}</View>
+            <View className="bubble">
+              <Text
+                className="bubble-text"
+                style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}
+                onClick={() => setStreamActivityExpanded((v) => !v)}
+              >
+                {t('ai.stream.title')} ({streamActivities.length}){' '}
+                {streamActivityExpanded
+                  ? t('ai.chatMessageItem.collapse')
+                  : t('ai.tishi.view')}
+              </Text>
+              {streamActivityExpanded ? (
+                <View style={{ marginTop: '8rpx' }}>
+                  {streamActivities.map((a) => (
+                    <Text
+                      key={a.id}
+                      className="bubble-text"
+                      style={{ display: 'block', fontSize: '22rpx', lineHeight: '1.6' }}
+                    >
+                      · {a.text}
+                    </Text>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
 
         {thinking && messages[messages.length - 1]?.role === 'assistant' ? (
           <View className="msg-item assistant">

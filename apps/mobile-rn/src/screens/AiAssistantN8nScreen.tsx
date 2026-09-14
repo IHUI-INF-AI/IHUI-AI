@@ -93,6 +93,18 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { FREE_RESOURCE_URL } from '../constants/links'
+import {
+  applyPlanUpdate,
+  applyTerminalEnd,
+  applyTerminalStart,
+  applyToolCallEvent,
+  formatDurationMs,
+  formatStructured,
+  type PlanStepItem,
+  type TerminalTaskItem,
+  type ToolCallItem,
+} from '../utils/chat-render-model'
 
 type LocalParamList = RootStackParamList & {
   AiAssistantN8n: {
@@ -123,6 +135,14 @@ interface N8nMessage {
   thinkingContent?: string
   /** 对齐 Uniapp copyContent:复制按钮优先复制的内容,缺失时降级复制 content。 */
   copyContent?: string
+  /** 工具调用可视化(W7):onToolCall 事件折叠后的消息级列表(对齐 web Message.toolCalls)。 */
+  toolCalls?: ToolCallItem[]
+  /** 计划步骤可视化(W7):onPlanUpdate 权威快照整体替换后的步骤列表(对齐 web Message.planSteps)。 */
+  planSteps?: PlanStepItem[]
+  /** 计划整体解释(W7):PlanUpdateEvent.explanation。 */
+  planExplanation?: string
+  /** 终端任务可视化(W7):onTerminalStart/onTerminalEnd 折叠后的列表(对齐 web Message.terminalTasks)。 */
+  terminalTasks?: TerminalTaskItem[]
 }
 
 /**
@@ -136,10 +156,6 @@ const QUICK_SUGGESTIONS: readonly string[] = [
   '写一段代码',
   '翻译这段话',
 ]
-
-/** 免费资料飞书链接(Drawer 领取免费资料 → 复制到剪贴板,对齐 Uniapp lingqu → setClipboardData) */
-const FREE_RESOURCE_URL =
-  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 // ── 图片 URL 提取(对齐 Uniapp processContent + isValidImageUrl)──
 
@@ -195,6 +211,189 @@ function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem 
     createdAt,
     favorited: c.favorite === true,
   }
+}
+
+// ── W7:对话可视化原生渲染(工具调用 / 计划步骤 / 终端任务) ──
+// 说明:路径 B(原生)补齐与路径 A(WebView 复用 web 全量能力)对等的能力。
+// W6 计划抽出的共享「消息 → 可渲染模型」纯函数尚未落地,数据折叠逻辑见
+// ../utils/chat-render-model(W7 独立实现);本区块只负责原生渲染。
+
+/** 状态徽标语义四态(工具/计划/终端共用):pending=待开始 / active=进行中 / done=已完成 / failed=失败 */
+type BadgeKind = 'pending' | 'active' | 'done' | 'failed'
+
+/** 状态徽标(pending/active/done/failed 四态配色,工具调用/计划步骤/终端任务共用) */
+function StatusBadge({ kind, label }: { kind: BadgeKind; label: string }): React.JSX.Element {
+  const tone =
+    kind === 'pending'
+      ? { badge: bubbleStyles.badgePending, text: bubbleStyles.badgePendingText }
+      : kind === 'active'
+        ? { badge: bubbleStyles.badgeActive, text: bubbleStyles.badgeActiveText }
+        : kind === 'done'
+          ? { badge: bubbleStyles.badgeDone, text: bubbleStyles.badgeDoneText }
+          : { badge: bubbleStyles.badgeFailed, text: bubbleStyles.badgeFailedText }
+  return (
+    <View style={[bubbleStyles.badge, tone.badge]}>
+      <Text style={[bubbleStyles.badgeText, tone.text]}>{label}</Text>
+    </View>
+  )
+}
+
+/** 工具调用列表(W7):工具名 + 状态徽标 + 耗时;点击卡片行折叠查看参数/输出 */
+function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.Element {
+  const { t } = useI18n()
+  const [openIds, setOpenIds] = useState<Record<string, boolean>>({})
+  return (
+    <View style={bubbleStyles.block}>
+      <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.toolCalls')}</Text>
+      {items.map((item) => {
+        const statusLabel =
+          item.status === 'running'
+            ? t('aiAssistantN8n.toolStatusRunning')
+            : item.status === 'success'
+              ? t('aiAssistantN8n.toolStatusSuccess')
+              : t('aiAssistantN8n.toolStatusError')
+        const toneKind: BadgeKind =
+          item.status === 'running' ? 'active' : item.status === 'success' ? 'done' : 'failed'
+        const duration = formatDurationMs(item.durationMs)
+        const argsText = formatStructured(item.args)
+        const resultText = formatStructured(item.result)
+        const expandable = Boolean(argsText) || Boolean(resultText)
+        const open = expandable && openIds[item.id] === true
+        return (
+          <View key={item.id} style={bubbleStyles.card}>
+            <Pressable
+              style={bubbleStyles.cardHead}
+              onPress={() => setOpenIds((prev) => ({ ...prev, [item.id]: !open }))}
+              accessibilityRole="button"
+              accessibilityLabel={item.name}
+            >
+              {expandable ? (
+                <Text style={bubbleStyles.cardCaret}>{open ? '▾' : '▸'}</Text>
+              ) : null}
+              <Text style={bubbleStyles.cardTitle} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <StatusBadge kind={toneKind} label={statusLabel} />
+              {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
+            </Pressable>
+            {open ? (
+              <View style={bubbleStyles.cardBody}>
+                {argsText ? (
+                  <View>
+                    <Text style={bubbleStyles.sectionLabel}>{t('aiAssistantN8n.toolArgs')}</Text>
+                    <Text style={bubbleStyles.monoText}>{argsText}</Text>
+                  </View>
+                ) : null}
+                {resultText ? (
+                  <View style={argsText ? bubbleStyles.sectionGap : null}>
+                    <Text style={bubbleStyles.sectionLabel}>{t('aiAssistantN8n.toolResult')}</Text>
+                    <Text style={bubbleStyles.monoText}>{resultText}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
+        )
+      })}
+    </View>
+  )
+}
+
+/** 计划步骤列表(W7):序号 + 步骤文本 + 状态徽标 + 耗时,顶部可选整体 explanation */
+function PlanStepList({
+  steps,
+  explanation,
+}: {
+  steps: readonly PlanStepItem[]
+  explanation?: string
+}): React.JSX.Element {
+  const { t } = useI18n()
+  return (
+    <View style={bubbleStyles.block}>
+      <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.planSteps')}</Text>
+      {explanation ? <Text style={bubbleStyles.blockHint}>{explanation}</Text> : null}
+      {steps.map((step, index) => {
+        const statusLabel =
+          step.status === 'completed'
+            ? t('aiAssistantN8n.planStatusCompleted')
+            : step.status === 'in_progress'
+              ? t('aiAssistantN8n.planStatusInProgress')
+              : t('aiAssistantN8n.planStatusPending')
+        const toneKind: BadgeKind =
+          step.status === 'completed'
+            ? 'done'
+            : step.status === 'in_progress'
+              ? 'active'
+              : 'pending'
+        const duration = formatDurationMs(step.durationMs)
+        return (
+          <View key={step.id} style={bubbleStyles.planRow}>
+            <Text style={bubbleStyles.planIndex}>{index + 1}</Text>
+            <Text style={bubbleStyles.planText}>{step.step}</Text>
+            <StatusBadge kind={toneKind} label={statusLabel} />
+            {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
+          </View>
+        )
+      })}
+    </View>
+  )
+}
+
+/** 终端任务列表(W7):命令 + 状态徽标 + 耗时;点击折叠查看等宽输出 + 退出码 */
+function TerminalTaskList({ tasks }: { tasks: readonly TerminalTaskItem[] }): React.JSX.Element {
+  const { t } = useI18n()
+  const [openIds, setOpenIds] = useState<Record<string, boolean>>({})
+  return (
+    <View style={bubbleStyles.block}>
+      <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.terminalTasks')}</Text>
+      {tasks.map((task) => {
+        const statusLabel =
+          task.status === 'completed'
+            ? t('aiAssistantN8n.terminalStatusCompleted')
+            : task.status === 'failed'
+              ? t('aiAssistantN8n.terminalStatusFailed')
+              : t('aiAssistantN8n.terminalStatusRunning')
+        const toneKind: BadgeKind =
+          task.status === 'completed' ? 'done' : task.status === 'failed' ? 'failed' : 'active'
+        const duration = formatDurationMs(task.durationMs)
+        const open = openIds[task.id] === true
+        return (
+          <View key={task.id} style={bubbleStyles.card}>
+            <Pressable
+              style={bubbleStyles.cardHead}
+              onPress={() => setOpenIds((prev) => ({ ...prev, [task.id]: !open }))}
+              accessibilityRole="button"
+              accessibilityLabel={task.command}
+            >
+              <Text style={bubbleStyles.cardCaret}>{open ? '▾' : '▸'}</Text>
+              <Text style={bubbleStyles.terminalCommand} numberOfLines={1}>
+                {task.command}
+              </Text>
+              <StatusBadge kind={toneKind} label={statusLabel} />
+              {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
+            </Pressable>
+            {open ? (
+              <View style={bubbleStyles.cardBody}>
+                {task.exitCode !== undefined ? (
+                  <Text style={bubbleStyles.sectionLabel}>
+                    {t('aiAssistantN8n.terminalExitCode')}: {task.exitCode}
+                  </Text>
+                ) : null}
+                {task.output ? (
+                  <View style={task.exitCode !== undefined ? bubbleStyles.sectionGap : null}>
+                    <Text style={bubbleStyles.sectionLabel}>
+                      {t('aiAssistantN8n.terminalOutput')}
+                    </Text>
+                    <Text style={bubbleStyles.monoText}>{task.output}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
+        )
+      })}
+    </View>
+  )
 }
 
 interface MessageBubbleProps {
@@ -298,6 +497,18 @@ function MessageBubble({
               </View>
             ) : null}
           </View>
+          {/* 工具调用可视化(W7:原生卡片,点击折叠查看参数/输出) */}
+          {answerVisible && message.toolCalls && message.toolCalls.length > 0 ? (
+            <ToolCallList items={message.toolCalls} />
+          ) : null}
+          {/* 计划步骤可视化(W7:步骤 + 状态徽标 + 可选 explanation) */}
+          {answerVisible && message.planSteps && message.planSteps.length > 0 ? (
+            <PlanStepList steps={message.planSteps} explanation={message.planExplanation} />
+          ) : null}
+          {/* 终端任务可视化(W7:命令 + 等宽输出 + 退出码) */}
+          {answerVisible && message.terminalTasks && message.terminalTasks.length > 0 ? (
+            <TerminalTaskList tasks={message.terminalTasks} />
+          ) : null}
           {/* 思考过程展开区(仅 isHaveSikao 时显示按钮,展开后渲染思考内容) */}
           {sikaoOpen && message.thinkingContent ? (
             <View style={bubbleStyles.thinkingBox}>
@@ -653,6 +864,78 @@ export default function AiAssistantN8nScreen() {
             }
             return next
           })
+        },
+        // 工具调用可视化(W7):tool-call-start/tool-result 折叠进最后一条 assistant 消息
+        onToolCall: (event) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = {
+                ...last,
+                toolCalls: applyToolCallEvent(last.toolCalls, event),
+              }
+            }
+            return next
+          })
+          scrollToEnd()
+        },
+        // 计划步骤可视化(W7):plan 为权威快照,整体替换(不可与现有步骤增量合并)
+        onPlanUpdate: (event) => {
+          const reduced = applyPlanUpdate(event)
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = {
+                ...last,
+                planSteps: reduced.steps,
+                planExplanation: reduced.explanation,
+              }
+            }
+            return next
+          })
+          scrollToEnd()
+        },
+        // 终端任务可视化(W7):terminal_start 按 terminalId 新增/重置为 running
+        onTerminalStart: (event) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = {
+                ...last,
+                terminalTasks: applyTerminalStart(last.terminalTasks, event),
+              }
+            }
+            return next
+          })
+          scrollToEnd()
+        },
+        // 终端任务可视化(W7):terminal_end 更新终态/输出/退出码/耗时
+        onTerminalEnd: (event) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = {
+                ...last,
+                terminalTasks: applyTerminalEnd(last.terminalTasks, event),
+              }
+            }
+            return next
+          })
+          scrollToEnd()
+        },
+        // 上下文自动压缩提示(W7):后端达阈值自动压缩时提示用户(对齐 onCompaction 契约)
+        onCompaction: (info) => {
+          showToast(
+            'info',
+            t('aiAssistantN8n.compactionToast', {
+              before: info.tokensBefore,
+              after: info.tokensAfter,
+            }),
+          )
         },
         onError: (err) => {
           const formatted = formatSSEError(new Error(err))
@@ -1172,6 +1455,88 @@ const bubbleStyles = StyleSheet.create({
   actionBtn: {
     padding: rpx(4),
   },
+  // ── W7:对话可视化区块样式(工具调用 / 计划步骤 / 终端任务) ──
+  // 区块容器(标题 + 卡片/行列表),与 assistant 气泡同宽上限
+  block: {
+    maxWidth: '78%',
+    marginTop: rpx(8),
+    gap: rpx(6),
+  },
+  blockTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: tokens.text.tertiary,
+  },
+  blockHint: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: tokens.text.secondary,
+  },
+  // 卡片(工具调用 / 终端任务共用外壳)
+  card: {
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.muted,
+    overflow: 'hidden',
+  },
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(8),
+    paddingHorizontal: rpx(12),
+    paddingVertical: rpx(8),
+  },
+  cardCaret: { fontSize: 10, color: tokens.text.tertiary },
+  cardTitle: { flex: 1, fontSize: 12, color: tokens.text.primary },
+  cardMeta: { fontSize: 10, color: tokens.text.tertiary },
+  cardBody: {
+    paddingHorizontal: rpx(12),
+    paddingBottom: rpx(10),
+    gap: rpx(6),
+  },
+  sectionLabel: { fontSize: 10, fontWeight: '600', color: tokens.text.tertiary },
+  sectionGap: { marginTop: rpx(6) },
+  // 等宽文本(工具参数/输出、终端命令与输出)
+  monoText: {
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+    fontSize: 11,
+    lineHeight: 16,
+    color: tokens.text.medium,
+  },
+  terminalCommand: {
+    flex: 1,
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+    fontSize: 11,
+    color: tokens.text.primary,
+  },
+  // 计划步骤行(序号 + 步骤文本 + 状态徽标 + 耗时)
+  planRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(8),
+  },
+  planIndex: {
+    width: 16,
+    fontSize: 11,
+    color: tokens.text.tertiary,
+  },
+  planText: { flex: 1, fontSize: 12, lineHeight: 18, color: tokens.text.primary },
+  // 状态徽标(pending/active/done/failed 四态:底色 + 文字色成对)
+  badge: {
+    paddingHorizontal: rpx(8),
+    paddingVertical: rpx(2),
+    borderRadius: 4,
+  },
+  badgeText: { fontSize: 10, fontWeight: '600' },
+  badgePending: { backgroundColor: tokens.gray[200] },
+  badgePendingText: { color: tokens.text.secondary },
+  badgeActive: { backgroundColor: tokens.warning.amberLight },
+  badgeActiveText: { color: tokens.warning.amberText },
+  badgeDone: { backgroundColor: tokens.success.lighter },
+  badgeDoneText: { color: tokens.success.deepText },
+  badgeFailed: { backgroundColor: tokens.error.bg },
+  badgeFailedText: { color: tokens.danger.DEFAULT },
 })
 
 const pickerStyles = StyleSheet.create({
