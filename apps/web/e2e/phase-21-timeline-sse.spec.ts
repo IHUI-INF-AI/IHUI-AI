@@ -550,18 +550,19 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     // 初始为中文空态标题
     expect(textBefore).toContain('等待')
 
-    // 切换语言到 en(language store 已暴露到 window.__IHUI_LANGUAGE_STORE__)
+    // 切换语言到 en(2026-09-14 校准:production build 下 language store 不挂载到
+    // window.__IHUI_LANGUAGE_STORE__(language.ts:42 仅 NODE_ENV !== 'production'),
+    // 改为持久化 locale 后重新打开 pane —— openPane 内含 goto,persist rehydrate 生效)
     await page.evaluate(() => {
-      const store = (
-        window as unknown as {
-          __IHUI_LANGUAGE_STORE__?: {
-            getState: () => { setLocale: (l: string) => void }
-          }
-        }
-      ).__IHUI_LANGUAGE_STORE__
-      store?.getState().setLocale('en')
+      const raw = localStorage.getItem('ihui-language')
+      const obj = raw
+        ? (JSON.parse(raw) as { state: Record<string, unknown>; version: number })
+        : { state: {}, version: 0 }
+      obj.state.locale = 'en'
+      localStorage.setItem('ihui-language', JSON.stringify(obj))
     })
-    await page.waitForTimeout(500)
+    await openPane(page)
+    await expect(emptyTitle).toBeVisible()
 
     const textAfter = (await emptyTitle.textContent()) ?? ''
     // zh-CN: "等待任务开始",en: "Waiting for tasks" → 文本应变化
