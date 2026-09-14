@@ -142,7 +142,7 @@ def gate_fact_check(md_path: str, title: str) -> bool:
 def gate_emphasis_components(html: str) -> bool:
     """门禁B：渲染HTML必须含足够多的重点颜色区分组件"""
     print('\n[门禁B] 重点颜色组件检查（防止"文章无重点标注"）...')
-    c_oneliner = html.count('border:1px dashed')          # 金句卡
+    c_oneliner = html.count('border-top:1px dashed')       # 金句卡(每卡 1 处 border-top:1px dashed)
     c_tip = html.count('border-left:4px solid')            # 提示块
     c_quote = html.count('#F9FAFB') + html.count('#f9fafb')  # 引用灰底
     c_code = html.count('#1E293B') + html.count('#1e293b')  # 代码块
@@ -404,10 +404,18 @@ def main() -> None:
         print('   公众号铁律: 配图统一放 output/images/')
 
     # 推送模式必填校验（仅清理模式豁免）
+    # 2026-09-14 修:digest/cover 只在**真推草稿箱**时才是硬需求
+    #   —— digest 进草稿摘要,cover 决定 thumb_media_id(封面)。
+    #   dry-run 不推送,却因缺这两个参数被 sys.exit(1) 拦下,
+    #   导致 Web 工作台「生成」(generate 端点走 --dry-run) 与 `wechat/validate`
+    #   链路必然失败;而生成阶段本就没有封面可传。故按"是否真推"分档校验。
     if not args.only_cleanup:
-        _missing = [n for n, v in (('title', args.title), ('digest', args.digest), ('cover', args.cover)) if not v]
+        _required = [('title', args.title)]
+        if not args.dry_run:
+            _required += [('digest', args.digest), ('cover', args.cover)]
+        _missing = [n for n, v in _required if not v]
         if _missing:
-            print(f'❌ 推送模式缺少必填参数: {", ".join(_missing)}（--only-cleanup 模式无需这些）')
+            print(f'❌ 缺少必填参数: {", ".join(_missing)}（--only-cleanup 模式无需这些）')
             sys.exit(1)
 
     # === 仅清理模式：用户明确说"今天文章发完了"才走这里 ===
@@ -420,14 +428,17 @@ def main() -> None:
         print('=' * 64)
         return
 
-    # 3) --cover 封面路径校验
-    cover_abs = os.path.normpath(os.path.abspath(args.cover))
-    if '口播稿' in cover_abs or '\\koubo\\' in cover_abs or '/koubo/' in cover_abs:
-        _fail_guard(f'--cover 封面路径指向口播稿 ({cover_abs})')
-    if cover_abs.lower().endswith('.txt'):
-        _fail_guard(f'--cover 封面是 .txt 文件 ({cover_abs})')
-    if not cover_abs.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp')):
-        print(f'\n⚠️ 入口守卫 WARN: --cover 不是常见图片格式 ({cover_abs})')
+    # 3) --cover 封面路径校验（cover 可缺省 → dry-run 无封面，跳过校验）
+    #    2026-09-14 修:cover 缺省时 abspath(None) 抛 TypeError 直接崩栈，
+    #    使 dry-run 连渲染都跑不到，故加空值短路。
+    cover_abs = os.path.normpath(os.path.abspath(args.cover)) if args.cover else ''
+    if cover_abs:
+        if '口播稿' in cover_abs or '\\koubo\\' in cover_abs or '/koubo/' in cover_abs:
+            _fail_guard(f'--cover 封面路径指向口播稿 ({cover_abs})')
+        if cover_abs.lower().endswith('.txt'):
+            _fail_guard(f'--cover 封面是 .txt 文件 ({cover_abs})')
+        if not cover_abs.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp')):
+            print(f'\n⚠️ 入口守卫 WARN: --cover 不是常见图片格式 ({cover_abs})')
 
     # 4) --title 标题内容校验（防止 AI 把口播稿标题塞进公众号）
     # 移除"智汇AI"/"李总"等公众号合法词；只检测标题党+口播稿专属
@@ -439,13 +450,14 @@ def main() -> None:
     if len(title_hits) >= 1:
         _fail_guard(f'--title 命中口播稿标题党词 {title_hits} (原: {args.title!r})')
 
-    # 5) --digest 摘要内容校验
+    # 5) --digest 摘要内容校验（digest 可缺省 → dry-run 无摘要，跳过校验）
+    #    2026-09-14 修:digest 缺省时 `k in None` 抛 TypeError 崩栈，故加空值短路。
     KOUBO_DIGEST_KW = ('咱就说', '你品品', '你想想', '你猜怎么着', '废话不多说',
                        '记住我这句话', '核心来了', '重点来了', '今儿',
                        '完播率', '涨粉', '直播间', '橱窗', '带货',
                        '巨亏', '血赚', '翻车', '爆单', '破防',
                        '[置顶]', '#科技', '#AI取代工作')
-    digest_hits = [k for k in KOUBO_DIGEST_KW if k in args.digest]
+    digest_hits = [k for k in KOUBO_DIGEST_KW if args.digest and k in args.digest]
     if len(digest_hits) >= 1:
         _fail_guard(f'--digest 命中口播稿话术词 {digest_hits} (原: {args.digest!r})')
 
@@ -466,6 +478,10 @@ def main() -> None:
     # 三道保险：[0/6] 渲染前 + [4.5/6] 三件套生成后 + [6.5/6] 物理审计前
     print('\n[0/6] 清旧版（防 output 残留多版本）...')
     output_dir = os.path.join(BASE, 'output')
+    # 2026-09-14 修:output/ 未随仓库分发(空目录不入 git),fresh clone 下首次运行
+    # 渲染即 FileNotFoundError。产物目录由流水线自愈创建,不再依赖人手预建。
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(os.path.join(output_dir, 'images'), exist_ok=True)
     purged = _purge_old_outputs(safe_title, output_dir)
     if purged:
         print(f'  ✅ 已清 {len(purged)} 个旧版: {purged}')
@@ -547,7 +563,13 @@ def main() -> None:
         print('\n[--dry-run] 跳过草稿箱推送（仅验证门禁+构建）')
     else:
         print('\n[5/6] 推送草稿箱...')
-        push_draft(html, args.title, args.digest, args.author, args.cover, images=args.images, account=args.account)
+        draft_id = push_draft(html, args.title, args.digest, args.author, args.cover, images=args.images, account=args.account)
+        # 2026-09-14 修：此前 push_draft 返回 None（如 access_token 获取失败/图片上传失败）
+        # 时流程照常走完并打印"✅ 已推送完整摸鱼绿草稿"——静默假成功。
+        # 现在推送失败必须硬失败，绝不许把"没推上去"说成"已推送"。
+        if not draft_id:
+            print('\n❌ 流水线中止：草稿推送失败（未拿到 draft media_id），不得宣称已推送')
+            sys.exit(1)
         print('\n[6/6] 当前草稿箱状态：')
         list_drafts(offset=0, count=5)
 
