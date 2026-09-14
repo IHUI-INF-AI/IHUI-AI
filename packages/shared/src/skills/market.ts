@@ -14,6 +14,8 @@ export interface SkillMarketEntry {
   author: string
   version: string
   license: string
+  /** lucide 图标名(可选,前端按名渲染;缺省回退通用图标) */
+  icon?: string
   installCount: number
   rating: number
   ratingCount: number
