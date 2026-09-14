@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { BookOpen, FileText, Hammer, Search, Loader2 } from 'lucide-react'
+import { BookOpen, FileText, Hammer, MessageCircle, Search, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -19,11 +19,12 @@ import { useModeStore } from '@/stores/mode'
 import type { ChatMode } from '@ihui/types'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 
-// ChatMode 4 态元信息(从 current-mode-badge.tsx 整合而来)
+// ChatMode 5 态元信息(从 current-mode-badge.tsx 整合而来;2026-09-14 补 ask 态)
 const CHAT_MODE_META: Record<
   ChatMode,
   { icon: React.ComponentType<{ className?: string }>; i18nKey: string }
 > = {
+  ask: { icon: MessageCircle, i18nKey: 'modeAsk' },
   build: { icon: Hammer, i18nKey: 'modeBuild' },
   plan: { icon: BookOpen, i18nKey: 'modePlan' },
   review: { icon: Search, i18nKey: 'modeReview' },
