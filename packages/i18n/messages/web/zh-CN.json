@@ -7841,33 +7841,6 @@
     "title": "分享项目",
     "viewCount": "{count} 次浏览"
   },
-  "aiToolsPanel": {
-    "title": "工具面板",
-    "empty": "暂无数据",
-    "dispatchSubagent": "派发子代理",
-    "checkpointRestored": "检查点已恢复",
-    "restoreFailed": "恢复检查点失败",
-    "bestOfAdopted": "已把选中的候选写入对话",
-    "tabs": {
-      "goal": "目标",
-      "memory": "记忆",
-      "plan": "计划",
-      "tasks": "任务",
-      "progress": "进度",
-      "agents": "代理",
-      "background": "后台",
-      "swarm": "集群",
-      "orchestration": "编排",
-      "routines": "例行",
-      "trace": "轨迹",
-      "checkpoints": "检查点",
-      "tokens": "用量",
-      "spec": "规格",
-      "runtime": "运行时",
-      "bestof": "择优",
-      "hooks": "钩子"
-    }
-  },
   "announcements": {
     "backToList": "返回公告列表",
     "empty": "暂无公告",
@@ -8503,9 +8476,9 @@
       "downloadImages": "下载图片",
       "edit": "编辑",
       "hideContent": "隐藏内容",
-    "taskProgressOpen": "任务进度",
-    "toolsPanelOpen": "展开工具面板",
-    "toolsPanelClose": "收起工具面板",
+      "taskProgressOpen": "任务进度",
+      "toolsPanelOpen": "展开工具面板",
+      "toolsPanelClose": "收起工具面板",
       "jumpToLatest": "跳至最新",
       "like": "点赞",
       "publishToCommunity": "发布到社区",
@@ -20928,20 +20901,6 @@
   },
   "menu": {
     "sectionDiscover": "发现"
-  },
-  "lecturerDetail": {
-    "retry": "重试",
-    "title": "讲师详情",
-    "subtitle": "讲师简介",
-    "empty": "暂无简介",
-    "courses": "课程",
-    "students": "学员",
-    "followers": "粉丝",
-    "unfollowBtn": "已关注",
-    "followBtn": "关注",
-    "level": "等级",
-    "studentCount": "{count} 名学生",
-    "free": "免费"
   },
   "messageCenter": {
     "type": {

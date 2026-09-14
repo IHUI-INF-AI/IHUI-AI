@@ -7841,33 +7841,6 @@
     "title": "分享項目",
     "viewCount": "{count} 次瀏覽"
   },
-  "aiToolsPanel": {
-    "title": "工具面板",
-    "empty": "暫無資料",
-    "dispatchSubagent": "派發子代理",
-    "checkpointRestored": "檢查點已還原",
-    "restoreFailed": "還原檢查點失敗",
-    "bestOfAdopted": "已把選中的候選寫入對話",
-    "tabs": {
-      "goal": "目標",
-      "memory": "記憶",
-      "plan": "計畫",
-      "tasks": "任務",
-      "progress": "進度",
-      "agents": "代理",
-      "background": "背景",
-      "swarm": "集群",
-      "orchestration": "編排",
-      "routines": "例行",
-      "trace": "軌跡",
-      "checkpoints": "檢查點",
-      "tokens": "用量",
-      "spec": "規格",
-      "runtime": "執行時",
-      "bestof": "擇優",
-      "hooks": "鉤子"
-    }
-  },
   "announcements": {
     "backToList": "返回公告列表",
     "empty": "暫無公告",
@@ -8503,9 +8476,9 @@
       "downloadImages": "下載圖片",
       "edit": "編輯",
       "hideContent": "隱藏內容",
-    "taskProgressOpen": "任務進度",
-    "toolsPanelOpen": "展開工具面板",
-    "toolsPanelClose": "收起工具面板",
+      "taskProgressOpen": "任務進度",
+      "toolsPanelOpen": "展開工具面板",
+      "toolsPanelClose": "收起工具面板",
       "jumpToLatest": "跳至最新",
       "like": "點讚",
       "publishToCommunity": "發佈到社區",
@@ -20928,20 +20901,6 @@
   },
   "menu": {
     "sectionDiscover": "發現"
-  },
-  "lecturerDetail": {
-    "retry": "重試",
-    "title": "講師詳情",
-    "subtitle": "講師簡介",
-    "empty": "暫無簡介",
-    "courses": "課程",
-    "students": "學員",
-    "followers": "粉絲",
-    "unfollowBtn": "已關注",
-    "followBtn": "關注",
-    "level": "等級",
-    "studentCount": "{count} 名學生",
-    "free": "免費"
   },
   "messageCenter": {
     "type": {
