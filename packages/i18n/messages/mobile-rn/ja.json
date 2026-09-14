@@ -1075,20 +1075,6 @@
     "title": "学習開発",
     "contactLabel": "直接 李総 に連絡"
   },
-  "lecturerDetail": {
-    "title": "講師詳細",
-    "subtitle": "講師を理解して、コース選びに迷わない",
-    "empty": "紹介はありません",
-    "courses": "コース",
-    "followers": "フォロワー",
-    "students": "受講生",
-    "followBtn": "フォロー",
-    "unfollowBtn": "フォロー済み",
-    "retry": "再試行",
-    "level": "難易度",
-    "studentCount": "{count} 人が学習",
-    "free": "無料"
-  },
   "liveChat": {
     "title": "ライブチャット",
     "empty": "まだメッセージはありません。最初の投稿をしましょう",
