@@ -50,6 +50,12 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      // 2026-09-14 CI 实锤(2-18):setup 不挂依赖时,storageState 首登全部挤在
+      // worker 测试内 → CI 慢机(全量 45.6m vs 本地 13.6m)下 28 例死于登录
+      // 竞争(fixture setup 30s 超时 ×18 + storage 锁 45s 超时 ×10)。
+      // 挂 dependencies 后 chromium 前先串行完成双账号 API 预登录,
+      // fixtures.ts ensureStorageState 仍保留作本地/兜底路径。
+      dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
     // 登录态 setup：仅匹配 *.setup.ts，预先登录并写入 e2e/.auth/*.json
