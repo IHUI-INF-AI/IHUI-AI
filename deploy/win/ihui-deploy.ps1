@@ -18,10 +18,12 @@
 #
 # 用例:
 #   powershell -ExecutionPolicy Bypass -File deploy\win\ihui-deploy.ps1 -dryrun
+#   powershell -ExecutionPolicy Bypass -File deploy\win\ihui-deploy.ps1 -diagnose
 #   powershell -ExecutionPolicy Bypass -File deploy\win\ihui-deploy.ps1 -deployLatest
 # =============================================================================
 param(
     [switch]$dryrun,          # 只 fetch + 报告差距,不部署
+    [switch]$diagnose,        # 只读诊断:仓库状态/网络/服务/锁/日志/线上一致性,不做任何构建或迁移
     [switch]$deployLatest,    # 忽略是否落后,强制部署到当前 origin/main
     [switch]$rollbackOnly,    # 仅用上次 .rollback 恢复
     [switch]$force            # 跳过健康门禁直接切流(谨慎)
@@ -193,6 +195,176 @@ function Do-Rollback {
     Start-Sleep -Seconds 8
     if (Test-HealthGate) { Ok "回滚完成,健康检查通过" } else { Fail "回滚后健康仍异常,需人工介入" }
 }
+
+# =============================================================================
+# -diagnose —— 只读诊断(2026-09-13 加)
+#
+# 背景:生产出现「服务在重启但代码不更新」时,旧脚本只报一句 FAIL,无法定位。
+# 本模式一次性打印定位所需的全部事实:仓库 HEAD / dirty / 分叉、fetch 三源可达性、
+# NSSM 服务与进程启动时间、deploy\prod-bundle 是否被用作 API 载体、线上与主干的
+# 一致性探针、部署日志尾部、并发锁状态、判读提示。
+# **不做**:不加锁、不建备份目录、不迁移、不 seed、不构建、不合并、不切流。
+# 唯一副作用:`git fetch`(只更新 .git/FETCH_HEAD,不动工作树)——这是判定 behind/ahead 的必要输入。
+# 需 PowerShell 7(pwsh)。
+# =============================================================================
+function Invoke-Diagnose {
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $script:diagDirty = 0
+    $script:diagAhead = -1
+    $script:diagFetched = $false
+    $script:diagDivergent = $false
+
+    function GitText { param([string[]]$a)
+        $o = & git @a 2>&1 | Out-String
+        return $o.Trim()
+    }
+    function DiagLog { param([string]$m) Write-Host $m }
+
+    DiagLog "================ -diagnose 只读诊断 ================"
+    DiagLog ("主机:$env:COMPUTERNAME  用户:$env:USERNAME  PID=$PID  时间:{0}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
+    DiagLog ("仓库根:{0}  存在:{1}" -f $Root, (Test-Path $Root))
+
+    if (Test-Path $Root) {
+        Push-Location $Root
+        try {
+            # ── [1] 仓库状态:定位「为何合并失败 / 为何不部署」──
+            DiagLog "── [1] git 状态 ──"
+            DiagLog ("HEAD   : {0} | {1} | {2}" -f (GitText @('log','-1','--format=%h')), (GitText @('log','-1','--format=%cI')), (GitText @('log','-1','--format=%s')))
+            DiagLog ("分支   : {0}" -f (GitText @('rev-parse','--abbrev-ref','HEAD')))
+            DiagLog ("origin : {0}" -f (GitText @('remote','get-url','origin')))
+            $porcelain = GitText @('status','--porcelain')
+            if ($porcelain) { $script:diagDirty = ($porcelain -split "`n").Count } else { $script:diagDirty = 0 }
+            DiagLog ("未提交改动条目数: {0}" -f $script:diagDirty)
+            if ($script:diagDirty -gt 0) {
+                DiagLog "  ↓ 前 15 条(这些会让 git merge --ff-only 直接失败)"
+                ($porcelain -split "`n" | Select-Object -First 15) | ForEach-Object { DiagLog ("    {0}" -f $_) }
+            }
+            # 官方名归一后字段的旁证:本目录源码是否等于 origin/main
+            $apiRouteFile = Join-Path $Root 'apps\api\src\routes\ai-pricing.ts'
+            if (Test-Path $apiRouteFile) {
+                $script:diagDivergent = [bool](Select-String -Path $apiRouteFile -Pattern 'billingMode|perUnitPrice|tieredCallPrices|videoUnit' -Quiet)
+                DiagLog ("apps\api\src\routes\ai-pricing.ts 含「主干从未有过」的字段: {0}(期望 False)" -f $script:diagDivergent)
+            }
+        } finally { Pop-Location }
+    }
+
+    # ── [2] 网络:代理与三源 fetch 可达性 ──
+    DiagLog "── [2] git 网络 ──"
+    $proxyOk = $false
+    try {
+        $cli = New-Object System.Net.Sockets.TcpClient
+        $iar = $cli.BeginConnect('127.0.0.1', 7897, $null, $null)
+        $proxyOk = ($iar.AsyncWaitHandle.WaitOne(600) -and $cli.Connected)
+        $cli.Close()
+    } catch {}
+    DiagLog ("Clash 代理 127.0.0.1:7897 可用: {0}" -f $proxyOk)
+    $gitNet = @()
+    if ($proxyOk) { $gitNet = @('-c','http.proxy=http://127.0.0.1:7897','-c','https.proxy=http://127.0.0.1:7897') }
+    if (Test-Path $Root) {
+        Push-Location $Root
+        try {
+            $srcs = @('origin', 'https://gitcode.com/IHUI-AI/IHUI-AI.git', 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git')
+            foreach ($s in $srcs) {
+                $o = & git @gitNet fetch $s main 2>&1 | Out-String
+                if ($LASTEXITCODE -eq 0) {
+                    DiagLog ("fetch {0} → OK" -f $s)
+                    $script:diagFetched = $true
+                } else {
+                    DiagLog ("fetch {0} → FAIL:{1}" -f $s, (($o.Trim() -split "`n" | Select-Object -First 2) -join ' / '))
+                }
+            }
+            if ($script:diagFetched) {
+                $bN = GitText @('rev-list','--count','HEAD..FETCH_HEAD')
+                $aN = GitText @('rev-list','--count','FETCH_HEAD..HEAD')
+                if ($bN -match '^\d+$') { DiagLog ("相对 FETCH_HEAD: behind={0} ahead={1}" -f $bN, $aN) }
+                if ($aN -match '^\d+$') { $script:diagAhead = [int]$aN }
+            }
+        } finally { Pop-Location }
+    }
+
+    # ── [3] 服务与进程启动时间(判断"重启过但代码没换") ──
+    DiagLog "── [3] NSSM 服务 ──"
+    foreach ($svc in @('IHUI-WEB','IHUI-API','IHUI-AI-SERVICE','IHUI-DEPLOYLOOP')) {
+        $s = Get-Service -Name $svc -ErrorAction SilentlyContinue
+        if ($s) { DiagLog ("  {0} : {1}" -f $svc, $s.Status) } else { DiagLog ("  {0} : 不存在" -f $svc) }
+    }
+    DiagLog "── [3b] node/pwsh 进程(命令行为 API 真实载体) ──"
+    try {
+        Get-CimInstance Win32_Process -Filter "Name='node.exe' OR Name='pwsh.exe'" -ErrorAction Stop |
+            Select-Object -First 12 | ForEach-Object {
+                $cmd = $_.CommandLine
+                if ($cmd -and $cmd.Length -gt 180) { $cmd = $cmd.Substring(0, 180) + '…' }
+                DiagLog ("  pid={0} {1} start={2}" -f $_.ProcessId, $_.Name, $_.CreationDate)
+                DiagLog ("      cmd: {0}" -f $cmd)
+            }
+    } catch { DiagLog ("  (取进程命令失败:{0})" -f $_.Exception.Message) }
+
+    # ── [4] API 载体:A 套壳产物目录是否被使用 ──
+    DiagLog "── [4] API 载体 ──"
+    $bundle = Join-Path $Root 'deploy\prod-bundle'
+    DiagLog ("deploy\prod-bundle 存在: {0}" -f (Test-Path $bundle))
+    $runApi = Join-Path $bundle 'svc\run-api.ps1'
+    if (Test-Path $runApi) {
+        DiagLog "  run-api.ps1 启动相关行:"
+        (Select-String -Path $runApi -Pattern 'Start-Process|tsx|dist|node |Set-Location|WorkingDirectory|-File|-c ' -ErrorAction SilentlyContinue |
+            Select-Object -First 12) | ForEach-Object { DiagLog ("    {0}" -f $_.Line.Trim()) }
+    }
+
+    # ── [5] 线上与主干一致性探针 ──
+    DiagLog "── [5] 线上一致性探针 ──"
+    $probes = @(
+        @{ u = "$ApiHealth"; n = '' },
+        @{ u = "$PublicWeb/api/ai-pricing/gemini-3-pro"; n = '' },
+        @{ u = "$PublicWeb/developer/keys"; n = 'developerKeys' }
+    )
+    foreach ($p in $probes) {
+        try {
+            $r = Invoke-WebRequest -Uri $p.u -TimeoutSec 15 -ErrorAction Stop -UseBasicParsing -SkipHttpErrorCheck
+            $hit = ''
+            if ($p.n) {
+                if ($r.Content -match [regex]::Escape($p.n)) { $hit = "  命中 '$($p.n)'(=旧构建仍在)" } else { $hit = "  未命中 '$($p.n)'" }
+            }
+            $body = ''
+            if ($r.Content) { $body = $r.Content.Substring(0, [Math]::Min(160, $r.Content.Length)) }
+            DiagLog ("  {0} → HTTP {1}{2}" -f $p.u, $r.StatusCode, $hit)
+            DiagLog ("      body: {0}" -f ($body -replace "`r?`n", ' '))
+        } catch {
+            DiagLog ("  {0} → 探测失败:{1}" -f $p.u, $_.Exception.Message)
+        }
+    }
+
+    # ── [6] 部署日志尾部 ──
+    DiagLog "── [6] deploy-loop.log 尾部 25 行 ──"
+    $loopLog = Join-Path $Root 'deploy\win\deploy-loop.log'
+    if (Test-Path $loopLog) {
+        Get-Content $loopLog -Tail 25 -ErrorAction SilentlyContinue | ForEach-Object { DiagLog ("  {0}" -f $_) }
+    } else { DiagLog "  (日志不存在:$loopLog)" }
+
+    # ── [7] 并发锁 ──
+    DiagLog "── [7] 并发锁 ──"
+    foreach ($lf in @((Join-Path $Root 'deploy\win\.deploy.lock'), (Join-Path $Root 'deploy\win\.deploy-loop.lock'))) {
+        if (Test-Path $lf) {
+            $pidIn = (Get-Content $lf -Raw -ErrorAction SilentlyContinue)
+            if ($pidIn) { $pidIn = $pidIn.Trim() }
+            $alive = $false
+            if ($pidIn -match '^\d+$') { $alive = $null -ne (Get-Process -Id ([int]$pidIn) -ErrorAction SilentlyContinue) }
+            DiagLog ("  {0}: 内容='{1}' 进程存活={2}" -f (Split-Path $lf -Leaf), $pidIn, $alive)
+        } else { DiagLog ("  {0}: 不存在" -f (Split-Path $lf -Leaf)) }
+    }
+
+    # ── [8] 判读提示 ──
+    DiagLog "── [8] 判读提示 ──"
+    if ($script:diagDirty -gt 0) { DiagLog ("  · 工作树有 {0} 条未提交改动 → git merge --ff-only 会被拒,现象是「每轮 behind>0 却永不部署」。先确认这些是本地修改还是产物目录再处理。" -f $script:diagDirty) }
+    if ($script:diagAhead -gt 0) { DiagLog "  · 本地领先 FETCH_HEAD(分叉)→ ff-only 必失败,需人工决定处理策略(勿盲目 reset)。" }
+    if (-not $script:diagFetched) { DiagLog "  · 三源 fetch 全失败 → 部署循环必然停摆;先恢复网络/代理(Clash 127.0.0.1:7897),或用镜像手动 fetch。" }
+    if ($script:diagDivergent) { DiagLog "  · apps/api 源码含主干从未有过的字段 → 本目录源码并非 origin/main,须核对来源后再部署。" }
+    if ($script:diagDirty -eq 0 -and $script:diagAhead -le 0 -and $script:diagFetched) { DiagLog "  · 仓库侧未见异常;若线上仍是旧代码,重点看 [3]/[4]:服务是否真的重启、API 是否跑在非 git 载体上。" }
+    DiagLog "================ 诊断结束(未做任何变更) ================"
+    $ErrorActionPreference = $prevEAP
+}
+
+if ($diagnose) { Invoke-Diagnose; exit 0 }
 
 # ── 零停机蓝绿式部署主流程 ──
 New-BackupDir
