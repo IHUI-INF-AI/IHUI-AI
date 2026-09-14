@@ -7851,33 +7851,6 @@
     "title": "Share Project",
     "viewCount": "{count} views"
   },
-  "aiToolsPanel": {
-    "title": "Tools",
-    "empty": "No data yet",
-    "dispatchSubagent": "Dispatch subagent",
-    "checkpointRestored": "Checkpoint restored",
-    "restoreFailed": "Failed to restore checkpoint",
-    "bestOfAdopted": "Selected candidate added to the conversation",
-    "tabs": {
-      "goal": "Goal",
-      "memory": "Memory",
-      "plan": "Plan",
-      "tasks": "Tasks",
-      "progress": "Progress",
-      "agents": "Agents",
-      "background": "Background",
-      "swarm": "Swarm",
-      "orchestration": "Orchestration",
-      "routines": "Routines",
-      "trace": "Trace",
-      "checkpoints": "Checkpoints",
-      "tokens": "Usage",
-      "spec": "Spec",
-      "runtime": "Runtime",
-      "bestof": "Best-of-N",
-      "hooks": "Hooks"
-    }
-  },
   "announcements": {
     "backToList": "Back to announcements",
     "empty": "No announcements",
@@ -8513,9 +8486,9 @@
       "downloadImages": "Download images",
       "edit": "Edit",
       "hideContent": "Hide content",
-    "taskProgressOpen": "Task progress",
-    "toolsPanelOpen": "Show tools panel",
-    "toolsPanelClose": "Hide tools panel",
+      "taskProgressOpen": "Task progress",
+      "toolsPanelOpen": "Show tools panel",
+      "toolsPanelClose": "Hide tools panel",
       "jumpToLatest": "Jump to latest",
       "like": "Like",
       "publishToCommunity": "Publish to community",
@@ -20961,20 +20934,6 @@
   },
   "menu": {
     "sectionDiscover": "Discover"
-  },
-  "lecturerDetail": {
-    "retry": "Retry",
-    "title": "Lecturer Details",
-    "subtitle": "Lecturer Profile",
-    "empty": "No profile yet",
-    "courses": "Courses",
-    "students": "Students",
-    "followers": "Followers",
-    "unfollowBtn": "Following",
-    "followBtn": "Follow",
-    "level": "Level",
-    "studentCount": "{count} students",
-    "free": "Free"
   },
   "messageCenter": {
     "type": {
