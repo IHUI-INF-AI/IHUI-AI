@@ -34,10 +34,17 @@ const chatStoreState = {
   conversationId: 'conv-1',
   draftInput: null,
   selectedTools: [],
+  // W27 输入历史(2026-09-14):发送成功后经 useChatStore.getState().pushInputHistory() 写入
+  pushInputHistory: () => {},
 }
 vi.mock('@/stores/chat', () => ({
-  useChatStore: (selector: (s: typeof chatStoreState) => unknown) =>
-    selector ? selector(chatStoreState) : chatStoreState,
+  // getState 静态方法为 zustand 真实 store 自带;mock 若不提供,use-message-send 的
+  // W27 写入会产生未处理拒绝(TypeError: useChatStore.getState is not a function)。
+  useChatStore: Object.assign(
+    (selector: (s: typeof chatStoreState) => unknown) =>
+      selector ? selector(chatStoreState) : chatStoreState,
+    { getState: () => chatStoreState },
+  ),
 }))
 
 // ai-panel store mock

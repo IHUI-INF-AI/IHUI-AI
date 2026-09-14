@@ -432,7 +432,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     backToTopIcon: {
       fontSize: 20,
-      color: tk.text.primary,
+      color: tk.brandAccent.foreground,
       fontWeight: '600',
       includeFontPadding: false,
     } as TextStyle,

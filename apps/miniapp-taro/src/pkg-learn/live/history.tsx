@@ -164,7 +164,7 @@ export default function LiveHistory() {
                         : item.watchTime || item.startTime || ''}
                     </Text>
                     <Text
-                      className="text-[28rpx] font-semibold text-[var(--color-brand-orange)]"
+                      className="text-[28rpx] font-semibold text-[var(--color-brand-accent-deep)]"
                       onClick={(e) => {
                         e.stopPropagation()
                         goDetail(item.id)

@@ -57,25 +57,22 @@ async function switchLocale(page: import('@playwright/test').Page, locale: Local
       sameSite: 'Lax',
     },
   ])
-  await page.evaluate((l) => {
+  // 2026-09-14 确定性修复(负载 flaky):evaluate 写 localStorage 发生在「当前文档」,
+  // goto 后新文档首帧 SSR 恒 zh-CN(src/i18n/request.ts 硬编码),目标语言要等
+  // zustand persist rehydrate + I18nProvider 重渲染,全量负载下可能超出轮询预算。
+  // 改 addInitScript:每次导航在新文档任何脚本前写入,首帧客户端渲染即目标语言,
+  // 消灭"写→导航→rehydrate→重渲染"四段竞态(多次注册时后注册者后执行、最终值正确)。
+  await page.addInitScript((l) => {
     try {
-      const raw = localStorage.getItem('ihui-language')
-      const obj = raw ? JSON.parse(raw) : { state: { locale: 'zh-CN' }, version: 0 }
-      obj.state = obj.state || {}
-      obj.state.locale = l
-      localStorage.setItem('ihui-language', JSON.stringify(obj))
+      localStorage.setItem(
+        'ihui-language',
+        JSON.stringify({ state: { locale: l, initialized: true }, version: 0 }),
+      )
     } catch {
       // localStorage 不可用时忽略
     }
   }, locale)
-  // 2026-08-28 根因修复(并发负载 flaky):
-  // 切换链路是 goto → SSR(zh-CN,见 src/i18n/request.ts 硬编码)→ 客户端
-  // zustand persist rehydrate → I18nProvider 重渲染(目标语言)。
-  // 高并发(多 worker)下新文档就绪 + rehydrate + 重渲染可能超过调用方 8s
-  // 轮询预算,旧语言文档仍滞留 body → 假报"语言未切换"(实测 en 用例失败
-  // 时页面仍为 zh-TW)。根治:switchLocale 内 goto 后轮询目标语言关键字,
-  // 未命中则重新 goto(有界 4 次 × 12s),覆盖 dev server 编译慢 /
-  // 客户端重渲染抖动 / 旧文档滞留三类场景;返回是否命中供调用方断言。
+  // 轮询保留作兜底(rehydrate 后重渲染仍需时间),预算 4 × 12s。
   const keywords = I18N_KEYWORDS[locale] ?? []
   for (let attempt = 0; attempt < 4; attempt++) {
     await page.goto('/', { waitUntil: 'domcontentloaded' })

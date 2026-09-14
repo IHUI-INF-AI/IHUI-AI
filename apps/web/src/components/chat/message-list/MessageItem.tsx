@@ -128,6 +128,17 @@ const MessageItem = React.memo(function MessageItem({
   // 默认 false(折叠),点击展开按钮 / 收到 'ihui:toggle-reasoning' 事件时切换
   const [reasoningExpanded, setReasoningExpanded] = React.useState(false)
 
+  // #17 折叠中间步骤区总数(2026-09-14 修正):
+  // 原 gate 仅判 `m.toolCalls.length > 0`,导致"只有 planSteps / 终端任务 / subagent 活动
+  // 而没有工具调用"的消息完全不渲染折叠区 —— plan 步骤永久不可见(tests/message-list
+  // 的 PlanStepsCard 用例实证:纯 planSteps 消息 queryByTestId 恒为 null)。
+  // 现取四类区段总数:既做折叠区 gate,也做「查看 N 个中间步骤」计数,语义一致。
+  const stepSectionsCount =
+    (m.toolCalls?.length ?? 0) +
+    (m.planSteps?.length ?? 0) +
+    (m.terminalTasks?.length ?? 0) +
+    (m.subagentActivities?.length ?? 0)
+
   // #14 批量 Accept/Reject 派生统计(2026-09-13 立):
   // 统计消息内 diff 卡(hasDiffCard)的 applyStatus 分布,驱动消息级批量按钮条与聚合徽章
   const diffStats = React.useMemo(() => {
@@ -535,8 +546,9 @@ const MessageItem = React.memo(function MessageItem({
               />
             )}
             {/* 2026-09-13 批次 2 #17:折叠中间步骤(工具卡 + plan 步骤 + 终端任务)
-                默认折叠,点击"查看 N 个中间步骤"展开后显示完整内容 */}
-            {(m.toolCalls?.length ?? 0) > 0 && (
+                默认折叠,点击"查看 N 个中间步骤"展开后显示完整内容
+                2026-09-14 修正:gate 由"仅 toolCalls"改为四类区段总数(见 stepSectionsCount) */}
+            {stepSectionsCount > 0 && (
               <Collapsible
                 open={showSteps}
                 onOpenChange={setShowSteps}
@@ -552,7 +564,7 @@ const MessageItem = React.memo(function MessageItem({
                   />
                   <span className="flex-1 truncate text-sm font-medium">
                     {t('viewNIntermediateSteps', {
-                      count: m.toolCalls?.length ?? 0,
+                      count: stepSectionsCount,
                     })}
                   </span>
                 </CollapsibleTrigger>

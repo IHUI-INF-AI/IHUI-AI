@@ -13,6 +13,15 @@ vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
 }))
 
+// 2026-09-14:MarkdownStream 的"应用至文件"等按钮由原生 title 改为项目 <Tooltip>
+// (守门强制),其 Radix Root 要求 TooltipProvider 祖先。本单测直接 render 组件、
+// 不经过应用根布局(app/layout.tsx 已全局挂 TooltipProvider),故此处透传 mock;
+// 用例仅断言 markdown 渲染 / 高亮 / 复制行为,不覆盖 tooltip 交互本身。
+vi.mock('@/components/feedback', () => ({
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
 const renderWithIntl = (ui: React.ReactElement) => render(ui)
 
 // 提升 vi.fn 引用,便于在 mock 工厂和测试用例中共享(支持运行时改主题)
