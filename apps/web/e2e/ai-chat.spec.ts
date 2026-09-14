@@ -213,7 +213,8 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': 'http://localhost:8801',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Last-Event-ID',
+  'Access-Control-Allow-Headers':
+    'Content-Type, Authorization, Accept, Last-Event-ID, X-Requested-With, x-device-fingerprint',
 }
 
 /**

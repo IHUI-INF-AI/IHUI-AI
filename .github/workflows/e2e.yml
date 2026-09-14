@@ -125,6 +125,12 @@ jobs:
         run: pnpm --filter @ihui/api run build
 
       - name: Build web (production)
+        # JWT_SECRET 构建期必传:proxy.ts 中间件 verifyAccessTokenEdge 在 edge bundle
+        # 中读取 process.env.JWT_SECRET;构建期缺失 → 验签恒败 → 所有 /admin/* 被
+        # 307 进 SSO 授权链(im-channels ×4 卡死「授权并跳转」,2026-09-14 实锤;
+        # 本地 .next-e2e 构建带了该 secret 所以从未暴露)
+        env:
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
         run: pnpm --filter @ihui/web run build
 
       - name: Start API server (background)
@@ -161,6 +167,7 @@ jobs:
         working-directory: apps/web
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8802
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
         run: |
           pnpm start &
           sleep 5
