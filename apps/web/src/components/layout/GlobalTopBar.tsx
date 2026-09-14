@@ -22,6 +22,7 @@ import {
   Plug,
   Sparkles,
   Store,
+  Wand2,
   Library,
   Boxes,
   X,
@@ -61,6 +62,7 @@ type PlusMenuAction = {
     | 'skill'
     | 'mcpStore'
     | 'capabilityMarket'
+    | 'skillsMarket'
     | 'connectors'
   icon: LucideIcon
   /** 跳转路径(相对路径,会经 next/navigation 解析) */
@@ -117,6 +119,8 @@ const PLUS_MENU_GROUPS: Array<{
       { key: 'mcpStore', icon: Store, href: '/mcp-store' },
       // 2026-09 P2-8 能力市场入口(平台自研 MCP 能力一键启用)
       { key: 'capabilityMarket', icon: Boxes, href: '/capability-market' },
+      // 2026-09-15 第三梯队 #14 Skill 市场入口(自进化技能一键安装/评分/订阅)
+      { key: 'skillsMarket', icon: Wand2, href: '/skills-market' },
       // 2026-09-02 中文连接器入口(P2-2 语雀/飞书/企微/钉钉文档接入)
       { key: 'connectors', icon: Library, href: '/connectors' },
       // 2026-08-14 用户要求"把设置按钮从功能菜单内拿出来":

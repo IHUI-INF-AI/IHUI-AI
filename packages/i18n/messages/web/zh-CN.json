@@ -9568,6 +9568,11 @@
         "description": "系统偏好与配置",
         "keywords": ["设置", "偏好", "配置"],
         "label": "系统设置"
+      },
+      "skillsMarket": {
+        "description": "浏览并安装自进化 Skill",
+        "keywords": ["skill", "技能", "市场", "market"],
+        "label": "Skill 市场"
       }
     },
     "keyboardHint": "↑↓ 选择 · Enter 执行",
@@ -20196,7 +20201,8 @@
   "topBar": {
     "editor": "编辑器",
     "close": "关闭",
-    "plus": "新建"
+    "plus": "新建",
+    "skillsMarket": "Skill 市场"
   },
   "statusBar": {
     "sync": "同步",
@@ -21827,5 +21833,41 @@
     "configureByok": "配置 BYOK",
     "configureByokDesc": "使用您自己的 API 密钥（BYOK）以降低成本并提升调用额度。",
     "loading": "加载中..."
+  },
+  "skillMarket": {
+    "title": "Skill 市场",
+    "subtitle": "自进化技能市场:按关键词/标签检索,查看评分与安装量,一键安装并接入你的 Agent 工作流。",
+    "count": "{count} 个技能",
+    "searchPlaceholder": "搜索 Skill 名称或描述",
+    "tag": "标签",
+    "allTags": "全部标签",
+    "loading": "加载中…",
+    "loadFailed": "加载失败,请稍后重试",
+    "empty": "暂无技能",
+    "emptyHint": "换个关键词或标签试试,或发布你自己的 Skill。",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
+    "pageIndicator": "第 {page} / {total} 页",
+    "ratingCount": "{count} 条评分",
+    "noRatings": "暂无评分",
+    "installs": "{count} 次安装",
+    "disable": "停用",
+    "enable": "启用",
+    "install": "一键安装",
+    "installSuccess": "已安装 {name}(当前 {count} 次安装)",
+    "enableSuccess": "已启用 {name}",
+    "disableSuccess": "已停用 {name}",
+    "actionFailed": "操作失败,请重试",
+    "subscribe": "订阅更新",
+    "unsubscribe": "取消订阅",
+    "subscribed": "已订阅 {name} 的更新",
+    "unsubscribed": "已取消订阅 {name}",
+    "close": "关闭",
+    "ratingsTitle": "用户评分",
+    "rateTitle": "为这个 Skill 评分",
+    "yourScore": "你的评分",
+    "commentPlaceholder": "写下你的使用体验(可选)",
+    "submitRating": "提交评分",
+    "ratingSuccess": "评分已提交"
   }
 }
