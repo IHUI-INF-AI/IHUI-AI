@@ -728,7 +728,7 @@ export function Drawer(props: DrawerProps) {
                   android_ripple={{ color: tokens.surface.muted }}
                 >
                   <View className="w-8 h-8 rounded-lg items-center justify-center bg-purple-light mr-3">
-                    <Plus size={18} color={tokens.brandAccent.DEFAULT} />
+                    <Plus size={18} color={tokens.brandAccent.deep} />
                   </View>
                   <Text className="flex-1 text-[14px] text-gray-900">创建新对话</Text>
                   <ChevronRight size={16} color={tokens.text.tertiary} />

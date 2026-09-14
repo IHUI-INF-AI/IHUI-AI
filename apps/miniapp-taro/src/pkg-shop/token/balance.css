@@ -11,7 +11,7 @@
  *   surface.bg → --color-background   surface.card → --color-card
  *   brand.DEFAULT → --color-primary   text.primary → --color-foreground
  *   text.secondary → --color-muted-foreground   text.tertiary → --color-text-tertiary
- *   border.light → --color-border     brandAccent.DEFAULT → --color-brand-orange
+ *   border.light → --color-border     brandAccent.DEFAULT → --color-brand-accent
  * 暗色修正:RN balanceCard/StudyBar 用 surface.light 作文字/激活底,暗色下不可读,
  *   按语义 token 改用 --color-primary-foreground / --color-muted(报告已注明)。
  */
@@ -158,7 +158,7 @@
 .record-count {
   /* 对齐 RN amountRed(brandAccent)/ amount fontSize 16 / fontWeight 700 (dp→rpx 1:2) */
   font-size: 32rpx;
-  color: var(--color-brand-orange);
+  color: var(--color-brand-accent-deep);
   font-weight: 700;
 }
 

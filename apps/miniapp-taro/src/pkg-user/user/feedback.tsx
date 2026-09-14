@@ -86,8 +86,8 @@ export default function Feedback() {
   return (
     <ThemeRoot>
       {/* 对齐 RN 共享 FeedbackScreen:页面浅灰底 + 单张白卡(描边 border.light + 圆角 24rpx +
-          内边距 28rpx);label 28rpx 次级字色;类型药丸 muted 底/激活品牌橙;textarea 188rpx;
-          缩略图 70dp→140rpx/圆角 16rpx;提交钮品牌橙 100rpx 高圆角 24rpx */}
+          内边距 28rpx);label 28rpx 次级字色;类型药丸 muted 底/激活品牌灰蓝;textarea 188rpx;
+          缩略图 70dp→140rpx/圆角 16rpx;提交钮品牌灰蓝 100rpx 高圆角 24rpx */}
       <View className="min-h-screen bg-background">
         <View className="p-[28rpx]">
           <View className="rounded-[24rpx] border border-[var(--color-border)] bg-card p-[28rpx]">
@@ -100,7 +100,7 @@ export default function Feedback() {
                   key={item.key}
                   className={`px-[24rpx] py-[12rpx] rounded-[24rpx] text-[28rpx] ${
                     activeType === item.key
-                      ? 'bg-[var(--color-brand-orange)] text-[var(--color-surface-light)]'
+                      ? 'bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)]'
                       : 'bg-muted text-muted-foreground'
                   }`}
                   hoverClass="opacity-60"
@@ -178,7 +178,7 @@ export default function Feedback() {
             )}
 
             <Button
-              className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-[var(--color-brand-orange)] text-[28rpx] font-semibold text-[var(--color-surface-light)] ${
+              className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-[var(--color-brand-accent)] text-[28rpx] font-semibold text-[var(--color-brand-accent-foreground)] ${
                 content.trim() ? '' : 'opacity-60'
               }`}
               disabled={!content.trim()}
