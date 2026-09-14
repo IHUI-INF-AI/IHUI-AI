@@ -22,6 +22,16 @@ import { db } from '../src/db/index.js'
 import { knowledgeBase } from '@ihui/database'
 import { eq } from 'drizzle-orm'
 
+// 生产库防呆(与 seed-test-users 同规则):E2E 种子禁止写入 ihui_dev
+const DATABASE_URL = process.env.DATABASE_URL ?? ''
+if (DATABASE_URL.includes('ihui_dev') && process.env.CI !== 'true') {
+  console.error(
+    '[seed-e2e-knowledge] 拒绝执行:DATABASE_URL 指向生产库 ihui_dev。' +
+      'E2E 种子只允许写入隔离库,请显式传 DATABASE_URL(如 ihui_e2e);CI 环境不受影响。',
+  )
+  process.exit(1)
+}
+
 interface SeedKnowledge {
   title: string
   summary: string
