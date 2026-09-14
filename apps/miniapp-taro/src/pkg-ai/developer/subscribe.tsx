@@ -255,7 +255,7 @@ export default function DeveloperSubscribePage() {
                     </Text>
                   </View>
                   <Text
-                    className="flex-shrink-0 px-[24rpx] py-[12rpx] text-[24rpx] font-medium text-[var(--color-brand-orange)] border-[2rpx] border-[var(--color-brand-orange)] rounded-[24rpx]"
+                    className="flex-shrink-0 px-[24rpx] py-[12rpx] text-[24rpx] font-medium text-[var(--color-brand-accent-deep)] border-[2rpx] border-[var(--color-brand-accent-deep)] rounded-[24rpx]"
                     onClick={() => handleUseModel(m)}
                   >
                     {tt('developer.subscribe.use', '使用')}

@@ -57,13 +57,13 @@
    * 值源自 packages/design-tokens/src/rn-tokens.ts(rnLightTokens)。
    * 用 --rn-* 前缀避免被 check-rn-global-css-sync.mjs 拦截(该脚本只校验 --color-*)。
    * 暗色覆盖见下方 .dark 块。 */
-  --rn-accent: #ff6b35;
-  --rn-accent-light: #fff7ed;
-  --rn-accent-soft: #ffeddc;
-  --rn-accent-50: #fff7ed;
-  /* 品牌橙渐变(2026-09-07 立,值同步 rnLightTokens.brandAccent.gradFrom/gradTo) */
-  --rn-accent-grad-from: #ffb27d;
-  --rn-accent-grad-to: #ff6b35;
+  --rn-accent: #8fb8cc;
+  --rn-accent-light: #eaf2f7;
+  --rn-accent-soft: #dce9f0;
+  --rn-accent-50: #eaf2f7;
+  /* 品牌灰蓝渐变(2026-09-07 立,值同步 rnLightTokens.brandAccent.gradFrom/gradTo) */
+  --rn-accent-grad-from: #b8d4e3;
+  --rn-accent-grad-to: #8fb8cc;
   --rn-tertiary: #a3a3a3;
   --rn-body: #404040;
   --rn-danger: #ff3333;
@@ -102,13 +102,13 @@
   --color-info-foreground: hsl(0 0% 98%);
 
   /* RN 扩展语义色暗色覆盖(值源自 rnDarkTokens) */
-  --rn-accent: #ff8e53;
-  --rn-accent-light: #431407;
-  --rn-accent-soft: #431407;
-  --rn-accent-50: #431407;
-  /* 品牌橙渐变暗色覆盖(值同步 rnDarkTokens.brandAccent.gradFrom/gradTo) */
-  --rn-accent-grad-from: #ff9a5b;
-  --rn-accent-grad-to: #ff8e53;
+  --rn-accent: #a3c4d6;
+  --rn-accent-light: #1e2e36;
+  --rn-accent-soft: #1e2e36;
+  --rn-accent-50: #1e2e36;
+  /* 品牌灰蓝渐变暗色覆盖(值同步 rnDarkTokens.brandAccent.gradFrom/gradTo) */
+  --rn-accent-grad-from: #b8d4e3;
+  --rn-accent-grad-to: #a3c4d6;
   --rn-tertiary: #737373;
   --rn-body: #d4d4d4;
   --rn-danger: #ff3333;

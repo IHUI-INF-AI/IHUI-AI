@@ -169,7 +169,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    avatarText: { fontSize: 28, fontWeight: '700', color: tk.surface.light },
+    avatarText: { fontSize: 28, fontWeight: '700', color: tk.brandAccent.foreground },
     userMeta: { flex: 1, gap: 4 },
     nickname: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     subText: { fontSize: 14, color: tk.text.secondary },

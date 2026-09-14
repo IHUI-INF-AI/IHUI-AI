@@ -176,8 +176,8 @@ export default function CoursePlanet() {
   if (loading && allList.length === 0) {
     return (
       <ThemeRoot>
-        {/* 对齐 RN CoursePlanetScreen:root 底色 brandAccent.light → --color-brand-orange-light */}
-        <View className="min-h-screen bg-[var(--color-brand-orange-light)]">
+        {/* 对齐 RN CoursePlanetScreen:root 底色 brandAccent.light → --color-brand-accent-light */}
+        <View className="min-h-screen bg-[var(--color-brand-accent-light)]">
           {/* 对齐 RN NavBar:bg surface.card / 高 44dp→88rpx / 底边框 border.light */}
           <View className="h-[88rpx] flex items-center px-[24rpx] bg-card border-b border-border">
             <Text className="text-[36rpx] font-semibold text-foreground">
@@ -197,7 +197,7 @@ export default function CoursePlanet() {
   if (error && allList.length === 0) {
     return (
       <ThemeRoot>
-        <View className="min-h-screen bg-[var(--color-brand-orange-light)]">
+        <View className="min-h-screen bg-[var(--color-brand-accent-light)]">
           <View className="h-[88rpx] flex items-center px-[24rpx] bg-card border-b border-border">
             <Text className="text-[36rpx] font-semibold text-foreground">
               {t('coursePlanet.title')}
@@ -222,8 +222,8 @@ export default function CoursePlanet() {
 
   return (
     <ThemeRoot>
-      {/* 对齐 RN root 底色 brandAccent.light → --color-brand-orange-light;scrollContent padding rpx(20) */}
-      <View className="min-h-screen bg-[var(--color-brand-orange-light)]">
+      {/* 对齐 RN root 底色 brandAccent.light → --color-brand-accent-light;scrollContent padding rpx(20) */}
+      <View className="min-h-screen bg-[var(--color-brand-accent-light)]">
         {/* 对齐 RN NavBar:bg surface.card / 高 44dp→88rpx / 底边框 border.light */}
         <View className="h-[88rpx] flex items-center px-[24rpx] bg-card border-b border-border">
           <Text className="text-[36rpx] font-semibold text-foreground">
