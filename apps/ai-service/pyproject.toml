@@ -59,6 +59,10 @@ dependencies = [
     # 自愈补丁 v2(2026-09-12 立):unified diff 三方合并应用(self_healing_llm)
     # 注意:merge3 为 GPL-2.0-or-later;代码侧可选导入,未安装时 diff 补丁优雅降级
     "merge3>=0.0.15",
+    # 自媒体 content_engine 技能(publish_pipeline→build_gpt56_sol DOCX 构建 / 封面图渲染)
+    # 2026-09-14 补声明:此前未声明,publish_pipeline 在 [4/6] 构建 DOCX 时 ModuleNotFoundError
+    "python-docx>=1.2.0",
+    "pillow>=12.0.0",
 ]
 
 [build-system]
