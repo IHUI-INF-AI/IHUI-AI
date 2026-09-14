@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
   purchaseBenefitHighlight: {
     fontSize: 14,
     lineHeight: 22,
-    color: tokens.brandAccent.DEFAULT,
+    color: tokens.brandAccent.deep,
     fontWeight: '600',
   } as TextStyle,
   purchasePayment: {

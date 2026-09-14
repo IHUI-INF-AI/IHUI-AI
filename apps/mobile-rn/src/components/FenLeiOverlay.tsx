@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   headTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: tokens.brandAccent.DEFAULT,
+    color: tokens.brandAccent.deep,
     textAlign: 'center',
     marginBottom: 10,
   },

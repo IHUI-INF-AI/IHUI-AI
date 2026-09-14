@@ -167,6 +167,8 @@ export { MessageChatScreen } from './features/message-chat/MessageChatScreen'
 export { OrderRefundScreen } from './features/order-refund/OrderRefundScreen'
 export { PaymentScreen } from './features/payment/PaymentScreen'
 export { VipTraderScreen } from './features/vip-trader/VipTraderScreen'
+/** 2026-09-14:IM 聊天室(迁移自 mobile-rn AssistantScreen,历史 Uniapp pagesA/assistant) */
+export { ChatRoomScreen, detectChatRoomMediaType } from './features/chat-room/ChatRoomScreen'
 /** 批次 35(2026-08-15):账号注销/充值/分类详情/课程星球/开发者入口/分销订单/知识星球/学习中心/更多课程/需求广场(10 屏迁移自 mobile-rn) */
 export { AccountCancelScreen } from './features/account-cancel/AccountCancelScreen'
 export { AppTopupScreen } from './features/app-topup/AppTopupScreen'
@@ -537,6 +539,7 @@ export type {
   CustomerServiceScreenProps,
   LecturerDetailInfo,
   LecturerDetailCourse,
+  LecturerDetailReview,
   LecturerDetailScreenProps,
   NoteItem,
   NoteScreenProps,
@@ -646,6 +649,14 @@ export type {
   VipTraderFeature,
   VipTraderScreenProps,
 } from './features/vip-trader/VipTraderScreen'
+/** 2026-09-14:IM 聊天室类型(内联定义在组件文件) */
+export type {
+  ChatRoomMediaType,
+  ChatRoomIconType,
+  ChatRoomMessageItem,
+  ChatRoomItem,
+  ChatRoomScreenProps,
+} from './features/chat-room/ChatRoomScreen'
 /** 批次 29(2026-07-29):AI 主聊天 + 开发者入口(2 屏迁移自 mobile-rn) */
 export { ChatScreen } from './features/chat/ChatScreen'
 export { DeveloperScreen } from './features/developer/DeveloperScreen'

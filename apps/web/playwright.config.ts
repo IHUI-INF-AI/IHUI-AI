@@ -28,8 +28,11 @@ export default defineConfig({
   // 本地默认 workers=undefined 时 Playwright 取 CPU/2(本机 20 线程 → 10 worker),
   // 10 个并发 chromium 压单线程 Turbopack dev server → 每请求 10-15s → 30s 超时雪崩
   // (2026-08-29 实锤,20 用例全部 beforeEach goto 超时)。固定 2 worker,可用
-  // PLAYWRIGHT_WORKERS 覆盖;CI 保持 1 保证确定性。
-  workers: process.env.CI ? 1 : Number(process.env.PLAYWRIGHT_WORKERS ?? 2),
+  // PLAYWRIGHT_WORKERS 覆盖。
+  // 2026-09-14 CI 复评(2-18 第 3 步):CI 跑的是 next start 生产服务器 + 4c runner,
+  // workers=1 的教训只适用于本地 Turbopack dev;CI 1 worker 全量 27m+ 直接撞 30min
+  // 硬顶(400+ 次 cancelled 根因之一),改 CI=2(本地 2 workers 实测 13.6m 全绿)。
+  workers: process.env.CI ? 2 : Number(process.env.PLAYWRIGHT_WORKERS ?? 2),
   // 本地也加 1 次重试兜底环境抖动(dev 模式首访编译/后台进程抢占 CPU 导致
   // 偶发超时;重试时页面 chunk 已编译,基本必过)。CI 保持 2。
   retries: process.env.CI ? 2 : 1,
@@ -47,6 +50,12 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      // 2026-09-14 CI 实锤(2-18):setup 不挂依赖时,storageState 首登全部挤在
+      // worker 测试内 → CI 慢机(全量 45.6m vs 本地 13.6m)下 28 例死于登录
+      // 竞争(fixture setup 30s 超时 ×18 + storage 锁 45s 超时 ×10)。
+      // 挂 dependencies 后 chromium 前先串行完成双账号 API 预登录,
+      // fixtures.ts ensureStorageState 仍保留作本地/兜底路径。
+      dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
     // 登录态 setup：仅匹配 *.setup.ts，预先登录并写入 e2e/.auth/*.json
