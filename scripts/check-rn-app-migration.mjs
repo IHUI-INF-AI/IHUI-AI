@@ -84,9 +84,6 @@ const WHITELIST = new Set([
   'CircleIndexScreen.tsx', // 圈子广场:RN 端独占 FlatList 社区流 + Image 预览 + FAB 发布,Web/Miniapp 有独立实现
   'TopicDetailScreen.tsx', // 话题详情:RN 端独占关注翻转 + 时间相对化 + 帖子详情流,Web/Miniapp 有独立实现
   'TopicListScreen.tsx', // 话题列表:RN 端独占搜索 + 三 Tab 筛选 + FlatList 分页,Web/Miniapp 有独立实现
-  // ── 待迁移独立实现(2026-09-14 登记放行颜色 token 统一提交;迁移排期 P3-3.3) ──
-  'AssistantScreen.tsx', // AI 助手聊天室:RN 端 mock 驱动实现(待接后端 cozeZhsApi),与 packages/app AssistantScreen 职责不同,迁移待排期
-  'TeacherDetailScreen.tsx', // 讲师详情:RN 端独占实现(P0 补页 7585d0493),共享层暂无 TeacherDetail,miniapp 为独立页,迁移待排期
 ])
 
 /** 检查文件内容是否 import from '@ihui/rn-app' */
