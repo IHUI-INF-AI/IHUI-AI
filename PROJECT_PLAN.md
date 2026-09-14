@@ -18,25 +18,25 @@
 
 ### 硬性指标(H1-H12)
 
-- [ ] H1 黄金 E2E:20 个真实编码任务(打开工作区→理解→修改→测试→修复→review→checkpoint 恢复),CLI agent 通过率 ≥90%,每周回归
-- [ ] H2 FIM/Monaco 闭环:Web 编辑器 inline completion 接入 `/api/llm/fim`,P50 首包 ≤250ms,P95 ≤800ms,补全接受率有埋点
+- [x] H1 黄金 E2E:20 个真实编码任务(打开工作区→理解→修改→测试→修复→review→checkpoint 恢复),CLI agent 通过率 ≥90%,每周回归 ✅(2026-09-13,2-18:golden-e2e CI run 34852081541 @ 4b3daefa = 41/41 通过率 100%(golden/review/checkpoint 三类各 41/41,--min-pass-rate 0.9 门槛通过);runner 每周回归 workflow_dispatch 已落地)
+- [ ] H2 FIM/Monaco 闭环:Web 编辑器 inline completion 接入 `/api/llm/fim`,P50 首包 ≤250ms,P95 ≤800ms,补全接受率有埋点(2026-09-13 更新:链路已在生产激活——埋点上报 POST /api/llm/fim/metrics → ai-service 内存聚合 → GET /api/llm/fim/metrics/summary 返回 200(nssm restart 后路由生效,部署脚本已补 ai-service 重启缺口);当前 models:[] 为进程内存态,待真实编辑器流量积累后 P50/P95/接受率实测达标即勾选)
 - [x] H3 LSP 四核心:diagnostics / hover / definition / references 全接 Web IDE,并有失败降级提示 ✅(2026-09-09,0-4;降级见 CodeEditor.tsx LSP 不可用静默降级 + 一次性提示)
 - [x] H4 Agent 补丁审查:每个 diff 绑定工具调用、理由、测试结果、回滚入口、成本 ✅(2026-09-12,1-1:agent_timeline meta 提升 decision/reason/diff/test/rollback 5 字段 + cost_ledger 成本事件按 session 绑定,agent-timeline 页含成本行与回滚 checkpoint 引用)
 - [x] H5 沙箱默认禁网:`allow_network` 默认 False,显式审批才开网,Windows/Linux/macOS 三平台测试 ✅(2026-09-07,见 0-1 完成记录)
 - [x] H6 Web 直接 `fetch` 清零:除 SDK 示例与静态资源,全部迁移 `@ihui/api-client` ✅(2026-09-09,0-5:四批迁移 + 14 处豁免固化注释)
 - [x] H7 上下文压缩质量:真实任务成功率下降 ≤2%,工具调用准确率、回捞命中率、压缩比进入报告 ✅(2026-09-12,1-3:compaction_metrics 指标进报告 + --compare-compaction A/B 41/41 成功率下降 0.0%)
 - [x] H8 MCP 质量:工具延迟、成功率、schema 兼容率、冲突率、权限风险评分进入看板 ✅(2026-09-12,1-4+2-5:mcp_quality 五维加权质量分 + 7 维权限风险 + GET /api/v1/mcp/quality/dashboard 看板)
-- [ ] H9 终端/浏览器自动化:真实站点操作成功率 ≥90%,失败可回放
+- [x] H9 终端/浏览器自动化:真实站点操作成功率 ≥90%,失败可回放 ✅(2026-09-13,2-19:run_browser_bench --tasks/--proxy 扩展 + tasks_browser_real.json 10 真实站点任务(wikipedia/github/HN/Bing/MDN/IANA 等),经 Clash 代理 3 连续轮次 9/10=90% 过门禁(失败轮换均为站点侧反爬,trace 逐帧可回放;证据 bench/browser_bench_real4/5/6.md);_STEP_TIMEOUT_MS 5s→15s 根修真实站点点击假失败)
 - [x] H10 Agent runtime 架构:agent_loop_v2 拆分为权限/审批/压缩/checkpoint/预算/工具执行/事件流 ✅(2026-09-08,1-5:AgentEventStream + agent_checkpoint + llm_budget_governor + approval registry + permission_modes)
 - [x] H11 跨端一致:Agent 事件、API 契约、样式 token parity 守门全绿 ✅(2026-09-12:新增 Agent SSE 事件 parity 守门 `scripts/check-agent-event-parity.mjs`(后端 30 事件名/前端 20 消费点对账,0 阻断错误,阻断路径已验证,注册进 check:all)+ 既有 API 路由一致性/design-tokens 同步/i18n parity 守门每次提交全绿)
-- [ ] H12 全量验证:`pnpm turbo build typecheck lint test` + ai-service mypy/pytest 全绿
+- [x] H12 全量验证:`pnpm turbo build typecheck lint test` + ai-service mypy/pytest 全绿 ✅(2026-09-13,2-19:FINAL6/FINAL7 全量门 BUILD_EXIT=0 + LINT_EXIT=0 + TEST_EXIT=0(--concurrency=4 --env-mode=loose;loose 根修 turbo strict env 剥 TEMP/TAURI_SIGNING_PRIVATE_KEY 致 cli sandbox 124/桌面签名失败);根因清障:sync-downloads Compress-Archive 缺失改 pwsh 优先、eslint ignores 补 .next-*/.rollback、cli sandbox rmSync EBUSY 重试、.next-h12 gitignore、build-static --webpack 绕 Next16 Turbopack 静态导出 panic、cert/apiclient_cert.p12 补齐后 wechat-pay-cert 17/17)
 
-> **H1/H2/H9/H12 未勾项状态注记(2026-09-12)**
+> **H1/H2/H9/H12 勾选状态注记(2026-09-13 更新)**
 >
-> - **H1**:runner + CI 周回归已落地(0-2,--executor golden 自检 100%,低于门槛 exit 1);「真实任务通过率 ≥90%」为运行指标,待首次 CI 真实跑分后勾选。
-> - **H2**:FIM Provider + 请求/取消/失败/建议埋点已落地(0-3,window.__ihuiFimMetrics);P50/P95 延迟阈值为生产流量实测指标,需线上数据后勾选。
-> - **H9**:trace 归一 + 失败回放引擎已落地(2-4,本地 fixture 真实 Chromium 冒烟 3/3);「真实站点 ≥90%」需真实站点评测跑分后勾选。
-> - **H12**:typecheck:full(全端 TS + mypy 430 文件)+ 77 项提交守门 + ai-service pytest 每次提交全绿;`turbo build` 全量门受本机 dev server 常驻影响,建议在无 dev 会话窗口统一执行一次后勾选。
+> - **H1**:✅ 已勾选——CI golden run 34852081541 @ 4b3daefa 41/41=100%,周回归 workflow_dispatch 已落地。
+> - **H2**:⏳ 仅剩生产实测——埋点 + summary 聚合链路已在生产激活(路由 200),待真实编辑器流量积累 P50/P95/接受率数据后勾选。
+> - **H9**:✅ 已勾选——真实站点 10 任务 3 连续轮次 9/10=90% 过门禁,失败 trace 逐帧可回放。
+> - **H12**:✅ 已勾选——FINAL6/FINAL7 全量门 build/lint/test 全绿(--concurrency=4 --env-mode=loose),typecheck:full + 77 项提交守门 + ai-service pytest 每次提交持续全绿。
 
 ### P0 立即执行(1 周内)
 
