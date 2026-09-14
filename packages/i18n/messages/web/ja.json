@@ -7841,33 +7841,6 @@
     "title": "プロジェクトを共有",
     "viewCount": "{count} 回閲覧"
   },
-  "aiToolsPanel": {
-    "title": "ツールパネル",
-    "empty": "データがありません",
-    "dispatchSubagent": "サブエージェントを派遣",
-    "checkpointRestored": "チェックポイントを復元しました",
-    "restoreFailed": "チェックポイントの復元に失敗しました",
-    "bestOfAdopted": "選択した候補を会話に書き込みました",
-    "tabs": {
-      "goal": "目標",
-      "memory": "メモリ",
-      "plan": "計画",
-      "tasks": "タスク",
-      "progress": "進捗",
-      "agents": "エージェント",
-      "background": "バックグラウンド",
-      "swarm": "スウォーム",
-      "orchestration": "オーケストレーション",
-      "routines": "ルーティン",
-      "trace": "トレース",
-      "checkpoints": "チェックポイント",
-      "tokens": "使用量",
-      "spec": "仕様",
-      "runtime": "ランタイム",
-      "bestof": "最適選択",
-      "hooks": "フック"
-    }
-  },
   "announcements": {
     "backToList": "るリスト",
     "empty": "コンテンツはまだありません。おしみに",
@@ -8503,9 +8476,9 @@
       "downloadImages": "画像をダウンロード",
       "edit": "編集",
       "hideContent": "コンテンツを非表示",
-    "taskProgressOpen": "タスクの進行状況",
-    "toolsPanelOpen": "ツールパネルを開く",
-    "toolsPanelClose": "ツールパネルを閉じる",
+      "taskProgressOpen": "タスクの進行状況",
+      "toolsPanelOpen": "ツールパネルを開く",
+      "toolsPanelClose": "ツールパネルを閉じる",
       "jumpToLatest": "最新へ",
       "like": "いいね",
       "publishToCommunity": "コミュニティに投稿",
@@ -20951,20 +20924,6 @@
   },
   "menu": {
     "sectionDiscover": "発見"
-  },
-  "lecturerDetail": {
-    "retry": "再試行",
-    "title": "講師詳細",
-    "subtitle": "講師プロフィール",
-    "empty": "プロフィールはありません",
-    "courses": "コース",
-    "students": "受講生",
-    "followers": "フォロワー",
-    "unfollowBtn": "フォロー中",
-    "followBtn": "フォロー",
-    "level": "レベル",
-    "studentCount": "{count} 人の受講生",
-    "free": "無料"
   },
   "messageCenter": {
     "type": {
