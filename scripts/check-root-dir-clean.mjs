@@ -242,7 +242,13 @@ for (const name of entries) {
   if (isHidden) {
     if (isDir) {
       if (!ALLOWED_HIDDEN_DIRS.has(name)) violations.push({ name, kind: '隐藏目录' })
-    } else if (!ALLOWED_HIDDEN_FILES.has(name)) {
+    } else if (
+      !ALLOWED_HIDDEN_FILES.has(name) &&
+      // 2026-09-14 显式豁免:workbuddy「发布为应用」(genie-baas)插件在项目根写入的
+      // 应用配置标记,后缀为随机串(如 .wbapp_pXZ3aJucQJpY00VrF24uYs.genie),
+      // 由插件生成与消费,不入库;并行会话发布期间合法存在。
+      !/^\.wbapp_[A-Za-z0-9]+\.genie$/.test(name)
+    ) {
       violations.push({ name, kind: '隐藏文件' })
     }
   } else if (isDir) {
