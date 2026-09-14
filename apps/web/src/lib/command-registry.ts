@@ -20,6 +20,7 @@ import {
   Bot,
   Plug,
   Store,
+  Wand2,
   Library,
   Boxes,
 } from 'lucide-react'
@@ -154,6 +155,12 @@ export const BUILTIN_COMMANDS: CommandDef[] = [
     group: 'settings',
     icon: Boxes,
     action: { type: 'navigate', href: '/capability-market' },
+  },
+  {
+    id: 'skillsMarket',
+    group: 'settings',
+    icon: Wand2,
+    action: { type: 'navigate', href: '/skills-market' },
   },
   {
     id: 'connectors',
