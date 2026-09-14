@@ -149,21 +149,23 @@
 
   /* ============ 跨端扩展语义色(2026-07-29 上提自 miniapp-taro,8 端共享) ============
    * 源: apps/miniapp-taro/src/app.css 扩展色板(2026-07-27 之前为小程序本地管理)
-   * 用途: 链接 / 微信品牌 / 聊天气泡 / 分销品牌橙 / 通知色等跨端通用语义色
+   * 用途: 链接 / 微信品牌 / 聊天气泡 / 分销品牌天蓝 / 通知色等跨端通用语义色
    * 上提理由: 单一真相源,避免小程序端漂移,web/mobile-rn 端也可引用
    * 暗色覆盖见下方 .dark 块 */
-  --color-link: #ff6b35;
-  --color-link-bg: rgba(255, 107, 53, 0.08);
+  --color-link: #4a7a96;
+  --color-link-bg: rgba(143, 184, 204, 0.15);
   --color-wechat-green: #4cd964;
   --color-chat-bubble-user: #95ec69;
-  --color-brand-orange: #ff6b35;
-  /* 品牌橙底上的恒定白字(对标 --color-danger-foreground 成对写法,明暗同值:
-   * 亮 #ff6b35 / 暗 #ff8e53 橙底均需白字保证对比度) */
-  --color-brand-orange-foreground: #ffffff;
-  /* 品牌橙渐变(2026-09-07 立,复刻旧App渐变主按钮形态,仅作CTA/头部"局部渐变点缀",
-   * 主按钮仍用纯色 --color-brand-orange。dark 覆盖见 .dark 块) */
-  --color-brand-orange-grad-from: #ffb27d;
-  --color-brand-orange-grad-to: #ff6b35;
+  --color-brand-accent: #8fb8cc;
+  /* 高级灰蓝底上的深色前景(2026-09-14 用户改选浅灰蓝 #8fb8cc,亮度高白字不可读,
+   * 前景改深蓝灰 #1e3a47,对比度约 6.5:1 过 WCAG AA) */
+  --color-brand-accent-foreground: #1e3a47;
+  /* 强调色"文字/图标"变体:灰蓝浅底做正文色对比不足,表面文字/图标/链接用此深档 */
+  --color-brand-accent-deep: #4a7a96;
+  /* 品牌灰蓝渐变(2026-09-07 立,复刻旧App渐变主按钮形态,仅作CTA/头部"局部渐变点缀",
+   * 主按钮仍用纯色 --color-brand-accent。dark 覆盖见 .dark 块) */
+  --color-brand-accent-grad-from: #b8d4e3;
+  --color-brand-accent-grad-to: #8fb8cc;
   --color-brand: #000000;
   --color-notification-bg: #fff8e1;
   --color-notification-text: #7c5e1e;
@@ -184,7 +186,7 @@
 
   /* 彩色语义 tint(2026-09-06 立,统一小程序端彩色 rgba/rgb 硬编码色)
    * 基准色相对齐语义 token:success=green-600 / warning=amber-500 / danger=red-600 /
-   *   info=sky-500(cyan-blue) / pink=chart-6 / gold=金 / brand-orange=品牌橙
+   *   info=sky-500(cyan-blue) / pink=chart-6 / gold=金 / brand-accent=品牌天蓝
    * -tint:低透明底色(徽章/标签/悬浮态)  -tint-strong:更高透明强调(激活/辉光/渐变主色)
    * dark 覆盖见 .dark 块:基色提亮 + alpha 提高,保证深色背景可读 */
   --color-danger: #dc2626;
@@ -201,14 +203,14 @@
   --color-gold-tint: rgba(255, 215, 0, 0.3);
   /* VIP 金浅底(2026-09-08 立,RN SharedVipTraderScreen heroBadge 'rgba(255,215,0,0.18)',明暗同值) */
   --color-vip-gold-tint: rgba(255, 215, 0, 0.18);
-  --color-brand-orange-tint: rgba(255, 107, 53, 0.12);
-  --color-brand-orange-tint-strong: rgba(255, 107, 53, 0.3);
+  --color-brand-accent-tint: rgba(143, 184, 204, 0.18);
+  --color-brand-accent-tint-strong: rgba(143, 184, 204, 0.4);
   --color-warm-bg: #fff4e6;
 
   /* RN 端细分语义色补齐(2026-09-08 立,对齐 packages/design-tokens rn-tokens.ts):
    * - --color-text-tertiary:三级文字(RN text.tertiary,划线价/时间戳/占位文字)
    * - --color-border-medium:中档描边(RN border.medium)
-   * - --color-brand-orange-light:品牌橙浅底(RN brandAccent.light,页面浅橙底)
+   * - --color-brand-accent-light:品牌灰蓝浅底(RN brandAccent.light,页面浅灰蓝底)
    * - --color-surface-dark:RN surface.dark(hero/深色卡片背景)
    * - --color-vip-card:RN VIP 会员卡背景(gray.800,明暗同值)+ 金底徽章/按钮深字
    * - --color-success-deep-text:RN success.deepText(成功徽章深绿文字)
@@ -217,7 +219,7 @@
   --color-text-tertiary: #a3a3a3;
   --color-text-medium: #404040;
   --color-border-medium: #d4d4d4;
-  --color-brand-orange-light: #fff7ed;
+  --color-brand-accent-light: #eaf2f7;
   --color-surface-dark: #262626;
   --color-vip-card: #262626;
   --color-success-deep-text: #065f46;
@@ -507,16 +509,19 @@ select:-webkit-autofill:focus {
 
   /* 跨端扩展语义色暗色覆盖(2026-07-29 上提自 miniapp-taro)
    * dark 模式值提高亮度以保证暗色背景下的可读性 */
-  --color-link: #ff8e53;
-  --color-link-bg: rgba(255, 138, 101, 0.14);
+  --color-link: #a3c4d6;
+  --color-link-bg: rgba(163, 196, 214, 0.14);
   --color-wechat-green: #4cd964;
   --color-chat-bubble-user: #4cd964;
-  --color-brand-orange: #ff8e53;
-  --color-brand-orange-foreground: #ffffff;
+  --color-brand-accent: #a3c4d6;
+  /* 暗色同为浅灰蓝底,前景用极深蓝灰保证对比 */
+  --color-brand-accent-foreground: #16262e;
+  /* 暗色下"文字/图标"变体即浅灰蓝本身(深背景上足够亮) */
+  --color-brand-accent-deep: #a3c4d6;
   --color-brand: #ffffff;
-  /* 品牌橙渐变暗色覆盖(与上方 @theme 亮色值成对,柔和橙) */
-  --color-brand-orange-grad-from: #ff9a5b;
-  --color-brand-orange-grad-to: #ff8e53;
+  /* 品牌灰蓝渐变暗色覆盖(与上方 @theme 亮色值成对) */
+  --color-brand-accent-grad-from: #b8d4e3;
+  --color-brand-accent-grad-to: #a3c4d6;
   --color-notification-bg: rgba(245, 158, 11, 0.15);
   --color-notification-text: hsl(38 85% 70%);
   /* 暗色自适应:金/浅金/浅绿标签提亮(深色背景可读) */
@@ -536,8 +541,8 @@ select:-webkit-autofill:focus {
   --color-info-tint-strong: rgba(96, 165, 250, 0.3);
   --color-pink-tint: rgba(244, 114, 182, 0.34);
   --color-gold-tint: rgba(230, 201, 134, 0.3);
-  --color-brand-orange-tint: rgba(255, 138, 101, 0.16);
-  --color-brand-orange-tint-strong: rgba(255, 138, 101, 0.32);
+  --color-brand-accent-tint: rgba(163, 196, 214, 0.16);
+  --color-brand-accent-tint-strong: rgba(163, 196, 214, 0.32);
   --color-warm-bg: rgba(250, 204, 21, 0.14);
   /* RN 对齐色暗色覆盖(与上方 @theme 亮色值成对,取自 rnDarkTokens):
    * 文字层级 text.tertiary #737373 / text.medium #D4D4D4,描边 border.medium #525252,
@@ -547,7 +552,7 @@ select:-webkit-autofill:focus {
   --color-border-medium: #525252;
   --color-surface-dark: #171717;
   --color-vip-card: #262626;
-  --color-brand-orange-light: #431407;
+  --color-brand-accent-light: #1e2e36;
   --color-success-deep-text: #86efac;
   /* RN success.deep 暗色覆盖(rnDarkTokens 同值 #16a34a,与上方亮色成对) */
   --color-success-deep: #16a34a;
