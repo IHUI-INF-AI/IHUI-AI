@@ -138,6 +138,33 @@ function Test-HealthGate {
 
 function New-BackupDir { if (-not (Test-Path $BackupDir)) { New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null } }
 
+# ── 构建新鲜度判据(2026-09-14 加:第三重「部署循环永不部署」根因) ──────────────
+# 背景:本脚本原先只在 behind>0 时才重建 web。一旦他方抢在部署循环轮次前直接把机上源码
+#       fast-forward 到新提交(实测存在 reflog 无记录的外部改动),behind 恒 0 →
+#       循环每轮「已是最新,无需部署」退出,而线上 web 构建长期停留在旧提交
+#       (现象:源码已更新、构建没更新)。
+# 判据:标记文件 .next\IHUI_BUILD_SHA 记录本次构建/尝试所基于的提交;标记提交与 HEAD
+#       之间在 web 相关路径上的差异提交数 >0 即判定陈旧 → 强制重建。
+#       标记在每次尝试后写入,避免构建/门禁持续失败时每轮重复重建(6 分钟级抖动)。
+function Get-BuildStale {
+    $marker = "$WebDir\.next\IHUI_BUILD_SHA"
+    if (-not (Test-Path $marker)) { return $true }                     # 无标记 → 无法证明新鲜 → 重建
+    $built = (Get-Content $marker -Raw -ErrorAction SilentlyContinue).Trim()
+    if ($built -notmatch '^[0-9a-f]{7,40}$') { return $true }
+    & git -C $Root cat-file -e "$built^{commit}" 2>$null
+    if ($LASTEXITCODE -ne 0) { return $true }                          # 标记提交不可达(强推/rebase)→ 重建
+    $webPaths = @('apps/web','packages','package.json','pnpm-lock.yaml','pnpm-workspace.yaml','tsconfig.json','turbo.json')
+    $n = (& git -C $Root rev-list --count "$built..HEAD" -- @webPaths 2>&1 | Out-String).Trim()
+    if ($n -notmatch '^\d+$') { return $true }                         # 计算失败 → 保守重建
+    return ([int]$n -gt 0)
+}
+function Set-BuildMarker {
+    $dirNext = "$WebDir\.next"
+    if (-not (Test-Path $dirNext)) { return }
+    $sha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+    if ($sha -match '^[0-9a-f]{7,40}$') { Set-Content -Path "$dirNext\IHUI_BUILD_SHA" -Value $sha -NoNewline -ErrorAction SilentlyContinue }
+}
+
 function Build-Web {
     param([string]$DistDir = 'staging', [int]$MaxTries = 4)
     Set-Location $WebDir
@@ -486,11 +513,12 @@ $behindRaw = (& git @gitNet rev-list --count HEAD..FETCH_HEAD 2>&1 | Out-String)
 if ($behindRaw -notmatch '^\d+$') { Fail "无法计算 behind(FETCH_HEAD 无效:'$behindRaw'),本轮不部署" }
 $behind = [int]$behindRaw
 
-if ($behind -eq 0 -and -not $deployLatest) {
+if ($behind -eq 0 -and -not $deployLatest -and -not (Get-BuildStale)) {
     Ok "本地已是最新 main,无需部署(behind=$behind)"
     Release-DeployLock
     exit 0
 }
+if ($behind -eq 0 -and -not $deployLatest) { Log "WARN  触发原因=构建新鲜度:源码未落后但 web 构建非当前提交产物 → 强制重建" }
 if ($dryrun) { Ok "dryrun 模式: behind=$behind,即将部署到 origin/main=$($(git rev-parse --short FETCH_HEAD | Out-String).Trim())"; Release-DeployLock; exit 0 }
 
 if ($behind -gt 0) {
@@ -516,6 +544,7 @@ try {
         Remove-Item "$WebDir\.next-staging" -Recurse -Force -ErrorAction SilentlyContinue
         Build-Web -DistDir 'staging'
     } catch {
+        Set-BuildMarker
         Log "构建失败($_) → 保持当前在线版本,不动 web"
         Release-DeployLock
         exit 1
@@ -533,7 +562,7 @@ Start-Sleep -Seconds 8
 Log "健康门禁检查"
 if (-not (Test-HealthGate)) {
     if ($force) { Log "force=true,忽略门禁直接切流(违规操作,请确认)" }
-    else       { Do-Rollback }
+    else       { Set-BuildMarker; Do-Rollback }
 } else {
     Ok "健康门禁通过,部署成功"
     Remove-Item "$WebDir\.rollback" -Recurse -Force -ErrorAction SilentlyContinue
@@ -562,6 +591,7 @@ if (-not (Test-HealthGate)) {
         Log "未找到 api 服务(候选:IHUI-API/ihui-api/svc-api),跳过重启(tsx watch 形态自动重载)"
     }
 }
+Set-BuildMarker
 Write-Host ""
 Log "=== 部署完成,HEAD=$(git rev-parse --short HEAD | Out-String).Trim() 活跃组=win(8801/8802/8803) ==="
 Release-DeployLock
