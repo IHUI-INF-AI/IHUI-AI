@@ -35,7 +35,11 @@ const EXCLUDE_DIRS = Object.freeze(new Set([
   // 版本控制
   '.git',
   // 构建产物
-  'dist', 'build', 'out', '.output', '.next', '.turbo', '.wxt',
+  'dist', 'build', 'out', '.output', '.next', '.next-static', '.turbo', '.wxt',
+  // 2026-09-15 补:mobile-cap Capacitor 构建输出(gitignore 的 www/),
+  // minified monaco worker 里的路径字符串曾被 workspace-hygiene 误判为
+  // "相对路径跳出项目"违规,blocking 全体 commit
+  'www',
   // 测试产物(playwright 测试报告,2026-08-31 补:与 coverage 同类,已 .gitignore)
   'playwright-report', 'playwright-report-staging',
   // 测试覆盖率
