@@ -196,6 +196,7 @@ export * from './endpoints/workspace'
 export * from './endpoints/auth-codes'
 export * from './endpoints/chat-skills'
 // AI Skills TOP 19 个 skill 端点(2026-07-23 新增,跨端共享)
+export * from './endpoints/skills-market'
 export * from './endpoints/ai-skills'
 export * from './endpoints/exam-marking'
 export * from './endpoints/mail'
