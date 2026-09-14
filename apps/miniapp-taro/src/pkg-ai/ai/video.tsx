@@ -228,13 +228,13 @@ export default function VideoPage() {
             <View
               key={v.key}
               className={`flex-1 py-[12rpx] text-center rounded-[12rpx] ${
-                vendor === v.key ? 'bg-[var(--color-brand-orange)]' : 'bg-secondary'
+                vendor === v.key ? 'bg-[var(--color-brand-accent)]' : 'bg-secondary'
               }`}
               onClick={() => setVendor(v.key)}
               hoverClass="opacity-60"
             >
               <Text
-                className={`block text-[24rpx] ${vendor === v.key ? 'text-[var(--color-surface-light)]' : 'text-muted-foreground'}`}
+                className={`block text-[24rpx] ${vendor === v.key ? 'text-[var(--color-brand-accent-foreground)]' : 'text-muted-foreground'}`}
               >
                 {t(v.nameKey)}
               </Text>
@@ -270,7 +270,7 @@ export default function VideoPage() {
                       key={opt}
                       className={`flex-1 py-[12rpx] text-center text-[20rpx] rounded-[12rpx] ${
                         params[p.key] === opt
-                          ? 'bg-[var(--color-brand-orange)] text-[var(--color-surface-light)]'
+                          ? 'bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)]'
                           : 'bg-secondary text-muted-foreground'
                       }`}
                       onClick={() => setParams((prev) => ({ ...prev, [p.key]: opt }))}
@@ -283,7 +283,7 @@ export default function VideoPage() {
             ))}
           </View>
           <Button
-            className="mt-[24rpx] w-full h-[88rpx] leading-[88rpx] rounded-[12rpx] text-[24rpx] font-medium bg-[var(--color-brand-orange)] text-[var(--color-surface-light)] disabled:opacity-60"
+            className="mt-[24rpx] w-full h-[88rpx] leading-[88rpx] rounded-[12rpx] text-[24rpx] font-medium bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] disabled:opacity-60"
             disabled={!prompt || status === 'pending' || status === 'running'}
             onClick={onGenerate}
           >

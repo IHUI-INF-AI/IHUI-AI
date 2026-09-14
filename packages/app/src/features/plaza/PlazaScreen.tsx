@@ -468,7 +468,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyTextStrong: {
       fontSize: 20,
       fontWeight: '700',
-      color: tk.brandAccent.DEFAULT,
+      color: tk.brandAccent.deep,
       textAlign: 'center',
     } as TextStyle,
     emptyBtn: {

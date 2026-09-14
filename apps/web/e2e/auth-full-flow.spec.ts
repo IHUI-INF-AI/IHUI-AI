@@ -119,7 +119,10 @@ test.describe('完整认证流程', () => {
         (e) =>
           !e.includes('favicon') &&
           !/\/api\/(ai|llm|agents|tools|mcp|a2a|workflow|llm-tools)\/.*\b(5\d{2})\b/.test(e) &&
-          !/(\/sso\/(login|register)|\/login|\/register|\/forgot-password).*\b500\b/.test(e),
+          !/(\/sso\/(login|register)|\/login|\/register|\/forgot-password).*\b500\b/.test(e) &&
+          // /api/admin/news/* 注册在 ai-service(8803),e2e 环境不启动 ai-service
+          // → web 代理 connect refused → 500;非本页缺陷(2026-09-14 CI 实锤)
+          !e.includes('/api/admin/news/'),
       ),
     ).toHaveLength(0)
   })

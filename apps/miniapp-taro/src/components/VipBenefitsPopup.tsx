@@ -327,7 +327,7 @@ export default function VipBenefitsPopup({
             <View className="px-4 py-2">
               {list.map((b) => (
                 <View key={b.id} className="flex items-start py-3 mb-2">
-                  <View className="flex items-center justify-center w-8 h-8 mr-3 rounded-lg bg-[var(--color-brand-orange-light)]">
+                  <View className="flex items-center justify-center w-8 h-8 mr-3 rounded-lg bg-[var(--color-brand-accent-light)]">
                     <Image src={pigeonaImg} mode="aspectFit" className="w-4 h-4" />
                   </View>
                   <View className="flex-1">

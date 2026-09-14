@@ -102,13 +102,26 @@ const EXPECTED_VENDOR_KEYWORDS = [
   'MiniMax',
 ]
 
-const MODEL_SELECTOR_TRIGGER_SELECTOR =
-  'button[aria-label*="模型" i], button[aria-label*="model" i]'
+// 2026-09-14 两层根因修复 + 产品回归修复(全量 6 例恒红,单跑 18 分钟):
+// ① 旧选择器 button[aria-label*="模型"] 模糊前缀匹配,先命中 DOM 靠前的侧边栏
+//    「模型市场」按钮 → 改用组件私有 class 锚点(model-selector.tsx:756 .model-selector-text)。
+// ② AI 面板 300px(ai-side-panel.tsx:171 SSR 默认宽)时 2026-09-13 新增的 ModeSwitcher
+//    文字("构建任务",sm: 视口断点管不住容器宽)把 toolbar 右组挤到 justify-end 向左溢出,
+//    模型按钮中心被其 svg path 覆盖 → click actionability 永久失败。已产品修复:
+//    globals.css 窄容器降级阶梯(≤407 隐 Mode 文字/≤319 隐 Sampling/≤259 隐截图+Mode),
+//    探针实测 300px 面板模型按钮中心恢复命中自己、宽度 18→30px。
+//    position:{x:2,y:16} 点击保留:对任何未来挤压场景均稳健。
+const MODEL_SELECTOR_TRIGGER_SELECTOR = 'button:has(.model-selector-text)'
 
 async function navigateToModels(page: Page) {
   await page.goto('/models', { waitUntil: 'domcontentloaded' })
   // 等待页面主内容出现
   await page.waitForLoadState('domcontentloaded', { timeout: 15000 })
+  // 2026-09-14 修复:/models 为客户端组件,厂商 pill(ModelsNav,数据为前端常量
+  // PROVIDER_GROUPS)在水合后才渲染。此前「SSR 渲染厂商名称」与「新增国外厂商
+  // 图标守护」两用例在水合前 page.content(),缺失 55/67 关键词(生产实测:
+  // 水合前 miss 55,水合后 90 pill 全命中)——非数据缺失,是断言时机缺陷。
+  await page.waitForSelector('a[href^="/models?provider="]', { timeout: 20000 })
 }
 
 test.describe('模型选择器 - SSR 厂商图标渲染', () => {
@@ -189,7 +202,7 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
       test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
       return
     }
-    await trigger.click()
+    await trigger.click({ position: { x: 2, y: 16 } })
     await page.waitForTimeout(500)
 
     // 下拉菜单应出现(Radix DropdownMenu.Content)
@@ -231,7 +244,7 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
       test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
       return
     }
-    await trigger.click()
+    await trigger.click({ position: { x: 2, y: 16 } })
     await page.waitForTimeout(500)
     const menu = page.locator('[role="menu"], [data-radix-popper-content-wrapper]').first()
     if ((await menu.count()) === 0) {
@@ -257,7 +270,7 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
       test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
       return
     }
-    await trigger.click()
+    await trigger.click({ position: { x: 2, y: 16 } })
     await page.waitForTimeout(500)
     const menu = page.locator('[role="menu"], [data-radix-popper-content-wrapper]').first()
     if ((await menu.count()) === 0) {
@@ -281,7 +294,7 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
       test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
       return
     }
-    await trigger.click()
+    await trigger.click({ position: { x: 2, y: 16 } })
     await page.waitForTimeout(500)
     const item = page.locator('[role="menuitem"]').first()
     if ((await item.count()) === 0) {
@@ -307,7 +320,7 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
       test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
       return
     }
-    await trigger.click()
+    await trigger.click({ position: { x: 2, y: 16 } })
     await page.waitForTimeout(500)
     const firstItem = page.locator('[role="menuitem"]').first()
     expect(await firstItem.count(), '第一个 menuitem 应渲染').toBeGreaterThan(0)
@@ -365,7 +378,7 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
       test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
       return
     }
-    await trigger.click()
+    await trigger.click({ position: { x: 2, y: 16 } })
     await page.waitForTimeout(500)
     const menu = page.locator('[role="menu"]:visible').first()
     if ((await menu.count()) === 0) {
