@@ -23,7 +23,6 @@ import { randomUUID } from 'node:crypto'
 import { db, dbRead } from '../db/index.js'
 import { systemConfigs } from '@ihui/database'
 import { logger } from '../utils/logger.js'
-import { normalizeModelId } from '@ihui/shared'
 import {
   applyParamOps,
   validateParamOps,
@@ -274,8 +273,7 @@ export async function getMatchingParamOps(
     if (!rule.enabled) return false
     const mc = rule.matchConditions
     if (mc.global === true) return true
-    // 2026-09-13 修复:规则 model 精确比较改为归一后比较(官方名 MiniMax-M3 配置可命中 minimax-m3 入参)
-    if (mc.model && normalizeModelId(mc.model) !== normalizeModelId(model)) return false
+    if (mc.model && mc.model !== model) return false
     if (mc.channelId && (channelId === undefined || mc.channelId !== channelId)) return false
     // 至少匹配一个条件(model 或 channelId);两个都未配置视为不匹配(避免误伤)
     if (!mc.model && !mc.channelId) return false

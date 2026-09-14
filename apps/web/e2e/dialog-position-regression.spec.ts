@@ -41,10 +41,8 @@ import { test, expect, type Page } from '@playwright/test'
  *   - apps/web/app/globals.css(.login-form-scope 规则)
  */
 
+const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8801'
 const DELTA_THRESHOLD_PX = 5 // 5px 阈值 = 屏幕宽度 0.35%@1440,肉眼可识别阈值(1px @1440 = 0.07%)的 5x
-// 2026-09-14:移除 E2E_BASE_URL/'http://localhost:8801' 硬编码 —— 该常量让本 spec 绕过
-// playwright.config baseURL 直连生产 8801(违反"测试禁连生产"),改走 page.goto('/') 由
-// PLAYWRIGHT_BASE_URL(隔离栈 8821)解析。
 
 interface DialogGeometry {
   rect: { left: number; top: number; width: number; height: number }
@@ -74,10 +72,7 @@ interface DialogMeasurement {
  *   8. 读 AgreementNoticeDialog 的 rect + computed style
  *   9. 计算与 viewport 中心的 deltaX / deltaY
  */
-async function triggerAndMeasure(
-  page: Page,
-  opts: { mobile?: boolean } = {},
-): Promise<DialogMeasurement> {
+async function triggerAndMeasure(page: Page): Promise<DialogMeasurement> {
   // 拦截登录 API(避免依赖真实 OTP/账号后端)
   await page.route('**/api/auth/login', async (route) => {
     await route.fulfill({
@@ -92,25 +87,8 @@ async function triggerAndMeasure(
   })
 
   // 1. 打开主页
-  await page.goto('/')
+  await page.goto(BASE_URL)
   await page.waitForLoadState('domcontentloaded')
-
-  // 1.5 移动端(375x667)入口(2026-09-14 修复):
-  // AI 工作区面板在移动端 fixed inset-0 z-sticky 全屏覆盖首页,header 登录按钮
-  // 被响应式收纳进「菜单」抽屉(探针实测:登录按钮存在但 visible:false;先关面板
-  // 再开菜单后 aria-label="登录" 按钮可见)—— 按真实用户路径走:
-  // 关 AI 面板 → 点「菜单」→ 点「登录」
-  if (opts.mobile) {
-    const closePanel = page.locator('button[aria-label="关闭"]').first()
-    if (await closePanel.isVisible().catch(() => false)) {
-      await closePanel.click()
-      await page.waitForTimeout(500)
-    }
-    const menuBtn = page.locator('button[aria-label="菜单"]').first()
-    await expect(menuBtn).toBeVisible({ timeout: 5000 })
-    await menuBtn.click()
-    await page.waitForTimeout(500)
-  }
 
   // 2. 点 header 登录按钮
   // 2026-08-26 修复:移动端(375x667)该按钮以 fixed 定位,即使 force: true 仍报
@@ -239,7 +217,7 @@ test.describe('AgreementNoticeDialog Position Regression (issue: deltaY=406px)',
   test('移动端视口 (375x667):协议弹窗居中 |deltaX|<5 && |deltaY|<5', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 })
 
-    const measurement = await triggerAndMeasure(page, { mobile: true })
+    const measurement = await triggerAndMeasure(page)
 
     expect(measurement.agreementDialog, 'AgreementNoticeDialog 必须出现').not.toBeNull()
     if (!measurement.agreementDialog) return

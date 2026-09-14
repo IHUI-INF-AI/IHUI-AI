@@ -53,9 +53,9 @@ export default function DictPage() {
         remark: input.description,
       }
       const r = editingType
-        ? await fetchApi('/api/admin/dict/type', {
+        ? await fetchApi(`/api/admin/dict/type/${editingType.id}`, {
             method: 'PUT',
-            body: JSON.stringify({ ...body, dictId: editingType.id }),
+            body: JSON.stringify(body),
           })
         : await fetchApi('/api/admin/dict/type', { method: 'POST', body: JSON.stringify(body) })
       if (!r.success) throw new Error(r.error)
@@ -98,9 +98,9 @@ export default function DictPage() {
         remark: input.remark,
       }
       const r = editingItem
-        ? await fetchApi('/api/admin/dict/data', {
+        ? await fetchApi(`/api/admin/dict/data/${editingItem.id}`, {
             method: 'PUT',
-            body: JSON.stringify({ ...body, dictCode: editingItem.id }),
+            body: JSON.stringify(body),
           })
         : await fetchApi('/api/admin/dict/data', { method: 'POST', body: JSON.stringify(body) })
       if (!r.success) throw new Error(r.error)

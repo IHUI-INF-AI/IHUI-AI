@@ -23,7 +23,6 @@
 import { createRequire } from 'node:module'
 import { createDecipheriv } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { normalizeModelId } from './lib/model-names.mjs'
 
 const require = createRequire(import.meta.url)
 const postgres = require('postgres')
@@ -196,8 +195,7 @@ async function main() {
     } else {
       let approvedCount = 0
       for (const m of newModels) {
-        // 2026-09-13:写库前归一为官方名/小写,与目录其它写入管道同一键空间
-        const modelId = normalizeModelId(m.id)
+        const modelId = m.id
         const modelName = m.id || modelId
         try {
           // 4a. 写 ai_relay_discovery(ON CONFLICT 不重复)

@@ -7,7 +7,6 @@ import {
   uuid,
   varchar,
   integer,
-  numeric,
   bigint,
   timestamp,
   jsonb,
@@ -40,23 +39,11 @@ export const developerApiKeys = pgTable(
     /** Token 余额(-1 = 无限额度,0 = 余额耗尽,>0 = 可用 token 数) */
     tokenBalance: bigint('token_balance', { mode: 'number' }).default(-1).notNull(),
     /** 成本余额(分,-1 = 无限额度,0 = 余额耗尽,>0 = 可用分) */
-    costBalanceCents: numeric('cost_balance_cents', {
-      precision: 18,
-      scale: 6,
-      mode: 'number',
-    })
-      .default(-1)
-      .notNull(),
+    costBalanceCents: integer('cost_balance_cents').default(-1).notNull(),
     /** 已用 token 累计(用于统计,不回退) */
     tokenUsedTotal: bigint('token_used_total', { mode: 'number' }).default(0).notNull(),
     /** 已用成本累计(分,用于统计,不回退) */
-    costUsedTotalCents: numeric('cost_used_total_cents', {
-      precision: 18,
-      scale: 6,
-      mode: 'number',
-    })
-      .default(0)
-      .notNull(),
+    costUsedTotalCents: integer('cost_used_total_cents').default(0).notNull(),
     // --- P0-7 API Key 安全粒度字段(2026-07-31 立,对齐 New API 行业标准)---
     /** 过期时间(null = 永不过期),过期后 Key 自动失效 */
     expiresAt: timestamp('expires_at', { withTimezone: true }),

@@ -141,17 +141,17 @@ describe('relay-billing-service — BYOK 计费链路', () => {
   // 2. calculateByokCost — 上游原价 + 抽成(不乘倍率,免费 provider 抽成 0)
   // ===========================================================================
   describe('calculateByokCost', () => {
-    it('付费 provider + 10% 抽成:platformFeeCents = upstream × 0.1(保留小数)', async () => {
+    it('付费 provider + 10% 抽成:platformFeeCents = round(upstream × 0.1)', async () => {
       // aiPricing 返回 inputPrice=10 分/千 token,outputPrice=30 分/千 token
       // 100 prompt + 200 completion → upstream = 10*100/1000 + 30*200/1000 = 1 + 6 = 7 分
-      // platformFee = 7 × 0.1 = 0.7 分(2026-09-13 起 roundCents 保留小数,不再取整)
+      // platformFee = round(7 × 0.1) = 1 分
       mockDbReadSelect
         .mockReturnValueOnce(chain([])) // modelRow 空(第 1 次 select)
         .mockReturnValueOnce(chain([{ inputTokenPrice: 10, outputTokenPrice: 30 }])) // pricingRow(第 2 次)
 
       const result = await calculateByokCost('gpt-4o', 100, 200, 0.1)
       expect(result.upstreamCostCents).toBe(7)
-      expect(result.platformFeeCents).toBe(0.7)
+      expect(result.platformFeeCents).toBe(1)
       expect(result.commissionRate).toBe(0.1)
       expect(result.isFree).toBe(false)
       expect(result.source).toBe('ai_pricing')
@@ -290,13 +290,12 @@ describe('relay-billing-service — BYOK 计费链路', () => {
         commissionRate: 0.1,
       })
 
-      // upstream = 10*100/1000 + 10*100/1000 = 2 分,platformFee = 2 × 0.1 = 0.2 分(保留小数)
+      // upstream = 10*100/1000 + 10*100/1000 = 2 分,platformFee = round(2 × 0.1) = 0 分
       expect(result.upstreamCostCents).toBe(2)
-      expect(result.platformFeeCents).toBe(0.2)
-      expect(result.costCents).toBe(0.2) // 只扣 platformFee,不扣 upstream
+      expect(result.platformFeeCents).toBe(0)
+      expect(result.costCents).toBe(0) // 只扣 platformFee,不扣 upstream
       expect(result.newTokenBalance).toBe(800) // 1000 - 200
-      // mock 的 update.returning 返回固定值,不模拟 SQL 扣减表达式 → 余额仍为初始 500
-      expect(result.newCostBalanceCents).toBe(500)
+      expect(result.newCostBalanceCents).toBe(500) // 500 - 0
       expect(result.logId).toBe('log-1')
 
       // 验证 insert 时 metadata 含 byokMode=true + upstreamCostCents + platformFeeCents
@@ -305,7 +304,7 @@ describe('relay-billing-service — BYOK 计费链路', () => {
       const meta = insertedValues!.metadata as Record<string, unknown>
       expect(meta.byokMode).toBe(true)
       expect(meta.upstreamCostCents).toBe(2)
-      expect(meta.platformFeeCents).toBe(0.2)
+      expect(meta.platformFeeCents).toBe(0)
       expect(meta.commissionRate).toBe(0.1)
     })
 

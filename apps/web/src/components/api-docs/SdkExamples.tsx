@@ -268,7 +268,7 @@ try (Response resp = client.newCall(request).execute()) {
 ]
 
 function maskKey(k: string): string {
-  if (!k) return 'ihui_xxx'
+  if (!k) return 'sk-your-api-key'
   if (k.length <= 10) return k
   return k.slice(0, 6) + '...' + k.slice(-4)
 }
@@ -285,7 +285,7 @@ export function SdkExamples(): React.JSX.Element {
   })
 
   const realKey = keys[0]?.key ?? ''
-  const apiKey = reveal ? realKey || 'ihui_xxx' : maskKey(realKey)
+  const apiKey = reveal ? realKey || 'sk-your-api-key' : maskKey(realKey)
 
   async function handleCopy(id: string, code: string) {
     const ok = await copy(code)

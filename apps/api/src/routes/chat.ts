@@ -38,6 +38,7 @@ import {
   setConversationShareToken,
   findConversationByShareToken,
   regenerateConversationMessages,
+  editMessageAndTruncateAfter,
   branchConversationFrom,
   replaceMessages,
 } from '../db/chat-queries.js'
@@ -48,7 +49,12 @@ import {
   findMessageArchive,
   persistMessageArchive,
 } from '../utils/conversation-archive.js'
-import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { config } from '../config/index.js'
+
+// 压缩调用兜底模型(2026-09-12 去硬编码):优先取请求上下文的对话模型,
+// 其次读环境变量 LITELLM_MODEL(与 utils/semantic-summary.ts 同源,最终默认值由部署环境 .env 决定);
+// 二者皆空时不传 model,由 ai-service 网关按自身默认模型处理。
+const FALLBACK_MODEL = process.env.LITELLM_MODEL
 
 // =============================================================================
 // Coze conversation_id 自动管理（迁移自 coze_zhs_py/api/chat.py）
@@ -185,6 +191,15 @@ const compressSchema = z.object({
 // 重新生成(2026-08-30 立):指定要重新生成的 AI 消息 id
 const regenerateSchema = z.object({
   messageId: z.uuid('messageId 必须是有效的 UUID'),
+})
+
+// 编辑重跑(2026-09-12 立,四竞品对标 P0-1):目标用户消息 id + 新内容
+const editRerunSchema = z.object({
+  messageId: z.uuid('messageId 必须是有效的 UUID'),
+  content: z
+    .string()
+    .min(1, '消息内容不能为空')
+    .max(64 * 1024, '消息内容过长(最大 64KB)'),
 })
 
 // 分支(2026-08-30 立):指定从哪条消息开始分叉,可选覆盖新会话标题/模型
@@ -694,6 +709,38 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // POST /conversations/:id/edit-rerun - 编辑重跑(2026-09-12 立,四竞品对标 P0-1)
+  // 对标 Cursor/Trae 消息编辑:更新目标用户消息内容(事务),并删除其后的所有消息;
+  // 前端随后以新内容复用 sendMessage(regenerate 模式)重新流式生成回复。
+  server.post('/conversations/:id/edit-rerun', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
+
+    const parsed = editRerunSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const message = await editMessageAndTruncateAfter(
+        id,
+        parsed.data.messageId,
+        parsed.data.content,
+      )
+      return reply.send(success({ message: serializeMessage(message) }))
+    } catch (err) {
+      request.log.error({ err }, '编辑重跑失败')
+      const msg = err instanceof Error ? err.message : '编辑重跑失败'
+      const isNotFound = msg.includes('不存在或不属于')
+      return reply.code(isNotFound ? 404 : 500).send(error(isNotFound ? 404 : 500, msg))
+    }
+  })
+
   // POST /conversations/:id/branch - 分支/回退
   // 2026-08-30 立:基于指定消息(含该消息)之前的内容创建新会话,旧会话原样保留。
   // 相当于 Git 分支:从历史某条消息处"重新分叉",而非删除旧内容。
@@ -905,11 +952,14 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       error?: string
     }
     try {
-      // aiServiceFetch:透传用户 JWT(ai-service jwt_auth 强制鉴权,裸 fetch 恒 401)
-      const resp = await aiServiceFetch(request, '/api/llm/complete', {
+      const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: llmMessages, model: 'stepfun/step-3.7-flash' }),
+        body: JSON.stringify({
+          messages: llmMessages,
+          // 优先对话配置的模型(请求上下文),回退环境变量默认(LITELLM_MODEL)
+          model: owned.conversation.model || FALLBACK_MODEL,
+        }),
         signal: controller.signal,
       })
       if (!resp.ok) {

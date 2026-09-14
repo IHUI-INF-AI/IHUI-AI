@@ -37,7 +37,7 @@
  * 20. GET    /v1/generation/status/:id     — 生成队列状态(generation:write)
  * 21. POST   /v1/generation/cancel/:id     — 生成队列取消(generation:write)
  */
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import type {
   V1AudioVoicesResponse,
@@ -59,8 +59,6 @@ import {
 } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
 import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
-import { recordCall, refundTaskCall } from '../services/relay-billing-service.js'
-import { forwardToChannel, type SelectedChannelKey } from '../services/relay-upstream-forwarder.js'
 
 // =============================================================================
 // 常量
@@ -68,68 +66,6 @@ import { forwardToChannel, type SelectedChannelKey } from '../services/relay-ups
 
 /** 内部 /api/* 路由 base url(保持 API Key 鉴权隔离,不混用用户 JWT)。 */
 const INTERNAL_BASE = `http://localhost:${process.env.PORT || 8802}`
-
-// =============================================================================
-// 多模态计费挂钩(2026-09-13 立)
-// -----------------------------------------------------------------------------
-// 生图按张 / 生视频按次(或按秒) / 按次计费模型,定价行在 ai_pricing(billing_mode):
-//   per_image  → 分/张 × 张数
-//   per_video  → 分/次 或 分/秒(video_unit)
-//   per_call   → 三档价按上下文(chat 端点场景,这里不涉及)
-// 无定价行的模型 calculateCost 回退 0(免费),不阻断调用。
-// 计费时机:提交/返回成功即扣(乐观计费,防漏损);任务查询发现 failed 时
-// refundTaskCall 按 costCents 全额退款(幂等,refunded 标记防重)。
-// =============================================================================
-
-/** 取鉴权后的 API Key 上下文(计费需要 apiKeyId)。 */
-function apiKeyOf(request: Parameters<typeof getUserId>[0]): { id: string; userId: string } | null {
-  const apiKey = (
-    request as FastifyRequest & { apiKey?: { id: string; userId: string } }
-  ).apiKey
-  return apiKey ?? null
-}
-
-/**
- * 多模态调用计费(fire-and-forget,失败只 log 不影响主链路)。
- * units:image=张数;video=次数或秒数(按定价行 videoUnit)。
- * channel:relay 直连成功时传入(渠道审计进流水 provider_code/config_id/key_pool_id)。
- */
-function chargeMultimodal(
-  request: Parameters<typeof getUserId>[0],
-  args: {
-    model: string
-    callType: 'image' | 'video'
-    units: number
-    prompt: string
-    taskId?: string
-    channel?: Pick<SelectedChannelKey, 'keyPoolId' | 'providerCode' | 'configId'> | null
-  },
-): void {
-  const apiKey = apiKeyOf(request)
-  if (!apiKey) return
-  void recordCall({
-    apiKeyId: apiKey.id,
-    userId: apiKey.userId,
-    model: args.model,
-    prompt: args.prompt,
-    response: null,
-    promptTokens: 0,
-    completionTokens: 0,
-    totalTokens: 0,
-    latencyMs: 0,
-    status: 'success',
-    callType: args.callType,
-    billingUnits: Math.max(1, Math.ceil(args.units || 1)),
-    providerCode: args.channel?.providerCode,
-    configId: args.channel?.configId,
-    keyPoolId: args.channel?.keyPoolId,
-    metadata: {
-      endpoint: `v1_${args.callType === 'image' ? 'images' : 'videos'}_generations`,
-      ...(args.channel ? { relayDirect: true } : {}),
-      ...(args.taskId ? { task_id: args.taskId } : {}),
-    },
-  })
-}
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致)。 */
 
@@ -939,53 +875,6 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { model, prompt, n, size, vendor } = parsed.data
-
-      // 0. relay 渠道直连优先(2026-09-13):渠道目录上架的生图模型走 OpenAI 兼容
-      //    /images/generations 直连(failover 由 forwarder 内置);fwd=null(目录无此模型)
-      //    或直连失败/空产出 → 回落下方 vendor 内部实现,行为与改造前完全一致。
-      {
-        const relayBody: Record<string, unknown> = { model, prompt }
-        if (n !== undefined) relayBody.n = n
-        if (size !== undefined) relayBody.size = size
-        if (parsed.data.quality !== undefined) relayBody.quality = parsed.data.quality
-        if (parsed.data.style !== undefined) relayBody.style = parsed.data.style
-        const fwd = await forwardToChannel({
-          model,
-          endpoint: 'images',
-          stream: false,
-          bodyOverride: relayBody,
-          userId,
-          affinityKey: apiKeyOf(request)?.id,
-        })
-        if (fwd && fwd.ok) {
-          const upstream = (await fwd.response.json().catch(() => null)) as {
-            data?: unknown[]
-          } | null
-          const arr = Array.isArray(upstream?.data) ? upstream.data : []
-          if (arr.length > 0) {
-            chargeMultimodal(request, {
-              model,
-              callType: 'image',
-              units: arr.length,
-              prompt,
-              channel: fwd.channel,
-            })
-            return reply.send({
-              created: Math.floor(Date.now() / 1000),
-              data: arr.map((img) => {
-                const o = asObj(img)
-                return {
-                  url: typeof o.url === 'string' ? o.url : undefined,
-                  ...(typeof o.b64_json === 'string' ? { b64_json: o.b64_json } : {}),
-                }
-              }),
-            })
-          }
-          // 上游 200 但空 data → 视为本次候选产出失败,继续回落内部实现
-        }
-        // fwd === null(渠道目录无此模型)或 ok:false(候选全败)→ 回落
-      }
-
       const v = (vendor ?? 'tongyi').toLowerCase()
       let path: string
       let body: Record<string, unknown>
@@ -1017,13 +906,6 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       // 2. 同步路径:已有 images → 直接返回 OpenAI 同步格式 data:[{url}]
       const imagesArray = Array.isArray(d.images) ? d.images : Array.isArray(d.data) ? d.data : null
       if (imagesArray && imagesArray.length > 0) {
-        // 按张计费(2026-09-13):成功产出多少张扣多少张
-        chargeMultimodal(request, {
-          model,
-          callType: 'image',
-          units: imagesArray.length,
-          prompt,
-        })
         return reply.send({
           created: Math.floor(Date.now() / 1000),
           data: imagesArray.map((img) => {
@@ -1042,15 +924,6 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         // 既无 images 也无 taskId → 返回空数据(避免误导客户端)
         return reply.send({ created: Math.floor(Date.now() / 1000), data: [] })
       }
-      // 按张计费(2026-09-13):异步任务提交成功即扣(乐观计费防漏损),
-      // 任务 failed 由 GET /v1/generation/status/:id 触发全额退款
-      chargeMultimodal(request, {
-        model,
-        callType: 'image',
-        units: n ?? 1,
-        prompt,
-        taskId,
-      })
       const polled = await pollInternalJob(taskId, userId, 30_000)
       if (polled.completed && polled.result) {
         const r = asObj(polled.result)
@@ -1388,46 +1261,28 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { model, prompt, image, duration, vendor } = parsed.data
+      const { model, prompt, image, vendor } = parsed.data
       const v = (vendor ?? 'sora2').toLowerCase()
       let path: string
       const body: Record<string, unknown> = { prompt, model }
       if (image) body.image = image
-      if (duration) body.duration = duration
       if (v === 'dashscope') path = '/api/ai/dashscope/video'
       else if (v === 'doubao') path = '/api/ai/doubao/video'
       else if (v === 'gemini') path = '/api/ai/gemini/video'
       else path = '/api/ai/sora2/generate'
-      // 视频计费(2026-09-13):提交成功即按次/按秒扣费(乐观计费防漏损),
-      // 任务 failed 由 GET /v1/videos/tasks/:id 触发全额退款。
-      // taskId 由 mapper 闭包捕获(forwardInternal 仅在提交成功时调用 mapper)。
-      let submittedTaskId = ''
-      const replyResult = await forwardInternal(reply, path, jsonInit(body), userId, (data) => {
+      return forwardInternal(reply, path, jsonInit(body), userId, (data) => {
         const d = asObj(data)
-        submittedTaskId =
-          (typeof d.taskId === 'string' && d.taskId) ||
-          (typeof d.task_id === 'string' && d.task_id) ||
-          ''
         const result: V1VideoGenerationsResponse = {
-          taskId: submittedTaskId,
+          taskId:
+            (typeof d.taskId === 'string' && d.taskId) ||
+            (typeof d.task_id === 'string' && d.task_id) ||
+            '',
           status:
             (mapJobStatus(d.status) as 'pending' | 'processing' | 'completed' | 'failed') ||
             'pending',
         }
         return result
       })
-      if (submittedTaskId) {
-        chargeMultimodal(request, {
-          model,
-          callType: 'video',
-          // videoUnit='second' 时按秒计价(units=duration);='call' 时按次(单位数恒 1,
-          // calculateCost 内部对 per_video+call 会忽略 units,这里传 duration 无副作用)
-          units: duration && duration > 0 ? duration : 1,
-          prompt,
-          taskId: submittedTaskId,
-        })
-      }
-      return replyResult
     },
   )
 
@@ -1499,12 +1354,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           { method: 'GET' },
           userId,
         )
-        if (sora2.ok) {
-          const mapped = tryMap(sora2.data)
-          // 视频任务失败退款(2026-09-13):提交时已乐观扣费,失败全额退(幂等)
-          if (mapped.status === 'failed') void refundTaskCall(id)
-          return reply.send(mapped)
-        }
+        if (sora2.ok) return reply.send(tryMap(sora2.data))
         // sora2 404 → 回退 jimeng4
         if (sora2.status !== 404) {
           const httpStatus = sora2.status >= 400 && sora2.status < 600 ? sora2.status : 502
@@ -1517,12 +1367,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           { method: 'GET' },
           userId,
         )
-        if (jimeng4.ok) {
-          const mapped = tryMap(jimeng4.data)
-          // 视频任务失败退款(2026-09-13):同上,幂等
-          if (mapped.status === 'failed') void refundTaskCall(id)
-          return reply.send(mapped)
-        }
+        if (jimeng4.ok) return reply.send(tryMap(jimeng4.data))
         const httpStatus = jimeng4.status >= 400 && jimeng4.status < 600 ? jimeng4.status : 502
         if (jimeng4.status === 404) {
           return reply.status(404).send(error(404, `Video task not found: ${id}`))
@@ -1799,7 +1644,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       const userId = getUserId(request, reply)
       if (!userId) return
       const { id } = request.params as { id: string }
-      const statusResult = await forwardInternal(
+      return forwardInternal(
         reply,
         `/api/ai/generation/${encodeURIComponent(id)}/status`,
         { method: 'GET' },
@@ -1816,13 +1661,9 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
             ...(typeof d.failedReason === 'string' ? { error: d.failedReason } : {}),
             ...(typeof d.progress === 'number' ? { progress: d.progress } : {}),
           }
-          // 多模态任务失败退款(2026-09-13):提交时已乐观扣费,失败全额退(幂等)。
-          // 覆盖生图异步任务(202 轮询此端点);视频另有 videos/tasks 退款入口。
-          if (result.status === 'failed') void refundTaskCall(id)
           return result
         },
       )
-      return statusResult
     },
   )
 

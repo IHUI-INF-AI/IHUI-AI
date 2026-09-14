@@ -99,13 +99,13 @@ export interface TerminalTask {
   exitCode?: number
 }
 
-/** 工具调用(保留原有,用于 changes 派生) */
+/** 工具调用(保留原有,用于 changes 派生);cancelled=已撤回未执行(#23,2026-09-13 立) */
 export interface AgentToolCall {
   id: string
   toolName: string
   args: Record<string, unknown>
   result?: unknown
-  status: 'running' | 'success' | 'error'
+  status: 'running' | 'success' | 'error' | 'cancelled'
   startedAt: string
   endedAt?: string
   durationMs?: number

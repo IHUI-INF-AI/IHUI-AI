@@ -725,6 +725,19 @@
       "confirm": "確認切換",
       "hint": "提示"
     },
+    "stream": {
+      "compact": "上下文已壓縮 {before} → {after}",
+      "fallback": "已切換備用模型:{model}",
+      "planUpdate": "執行計劃已更新",
+      "reconnect": "連線中斷,{seconds}s 後第 {attempt} 次重連",
+      "subagent": "子任務:{phase}",
+      "title": "執行過程",
+      "toolCall": "調用工具:{name}",
+      "toolResult": "工具返回:{name}",
+      "toolSummary": "工具彙總:{calls} 次調用",
+      "terminal": "終端任務:{status}",
+      "usage": "用量:{n} tokens"
+    },
     "switchAgent": {
       "confirm": "確認切換"
     }

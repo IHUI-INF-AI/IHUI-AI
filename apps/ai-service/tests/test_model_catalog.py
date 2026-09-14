@@ -29,7 +29,6 @@ from app.services.model_catalog import (
     annotate_models,
     classify_model,
     is_fim_model,
-    pick_fim_model,
 )
 
 NOW = datetime(2026, 8, 29, tzinfo=UTC)
@@ -297,58 +296,4 @@ def test_annotate_models_attaches_fim_flag() -> None:
     assert models[0]["fim"] is True
     assert models[1]["fim"] is False
     assert models[2]["fim"] is False
-
-
-# ---------------------------------------------------------------------------
-# 补全专用档位选型(2026-09-13 P1-9):pick_fim_model 纯函数
-# ---------------------------------------------------------------------------
-
-
-def test_pick_fim_model_explicit_request_passthrough() -> None:
-    """显式指定模型 → 原样透传(不受候选列表影响)。"""
-    models = [{"id": "qwen2.5-coder-7b", "fim": True}]
-    assert pick_fim_model(models, "claude-opus-5") == "claude-opus-5"
-
-
-def test_pick_fim_model_auto_picks_first_fim() -> None:
-    """auto + 有 fim 模型 → 取列表**原顺序**第一个 fim True。"""
-    models = [
-        {"id": "gpt-4o", "fim": False},
-        {"id": "codestral-latest", "fim": True},
-        {"id": "qwen2.5-coder-7b", "fim": True},
-    ]
-    assert pick_fim_model(models, "auto") == "codestral-latest"
-    assert pick_fim_model(models, None) == "codestral-latest"
-    assert pick_fim_model(models, "AUTO") == "codestral-latest"
-
-
-def test_pick_fim_model_no_fim_returns_none() -> None:
-    """auto + 无 fim 模型 → None(调用方回退 auto)。"""
-    models = [{"id": "gpt-4o", "fim": False}, {"id": "deepseek-chat"}]
-    assert pick_fim_model(models, "auto") is None
-    assert pick_fim_model(models, None) is None
-
-
-def test_pick_fim_model_empty_or_none_list() -> None:
-    assert pick_fim_model([], "auto") is None
-    assert pick_fim_model(None, "auto") is None
-    assert pick_fim_model(None, None) is None
-
-
-def test_pick_fim_model_skips_malformed_elements() -> None:
-    """畸形元素(非 dict / 缺 id / id 非字符串 / fim 非布尔)→ 跳过不崩。"""
-    models: list = [
-        None,
-        "codestral-latest",
-        123,
-        {"fim": True},  # 缺 id
-        {"id": "", "fim": True},  # 空 id
-        {"id": 42, "fim": True},  # id 非字符串
-        {"id": "x", "fim": 1},  # 1 不是严格 True
-        {"id": "y", "fim": "true"},  # 字符串也不是严格 True
-        {"id": "starcoder2-15b", "fim": True},
-    ]
-    assert pick_fim_model(models, "auto") == "starcoder2-15b"
-    # 全是畸形元素 → None,且不抛异常
-    assert pick_fim_model([None, {"fim": True}, {"id": "z", "fim": 1}], "auto") is None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

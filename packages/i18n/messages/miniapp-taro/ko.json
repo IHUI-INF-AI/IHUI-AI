@@ -687,6 +687,19 @@
       "confirm": "전환 확인",
       "hint": "안내"
     },
+    "stream": {
+      "compact": "컨텍스트 압축됨 {before} → {after}",
+      "fallback": "백업 모델로 전환: {model}",
+      "planUpdate": "실행 계획이 업데이트됨",
+      "reconnect": "연결 끊김, {seconds}초 후 {attempt}번째 재연결",
+      "subagent": "하위 작업: {phase}",
+      "title": "실행 과정",
+      "toolCall": "도구 호출: {name}",
+      "toolResult": "도구 반환: {name}",
+      "toolSummary": "도구 집계: {calls}회",
+      "terminal": "터미널 작업: {status}",
+      "usage": "사용량: {n} tokens"
+    },
     "switchAgent": {
       "confirm": "전환 확인"
     },

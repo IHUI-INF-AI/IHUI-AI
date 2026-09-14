@@ -109,10 +109,11 @@ export function WorkspaceFolderSelector({
   selected,
   onSelect,
 }: WorkspaceFolderSelectorProps) {
+  const t = useTranslations('workspacePanel')
   return (
-    <div className="rounded-xl border bg-card p-2">
+    <div className="rounded-xl border bg-card p-2" data-testid="workspace-folder-tree">
       {folders.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">暂无文件夹</p>
+        <p className="py-6 text-center text-sm text-muted-foreground">{t('noFolders')}</p>
       ) : (
         <ul>
           {folders.map((folder) => (

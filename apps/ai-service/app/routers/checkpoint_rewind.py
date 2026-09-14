@@ -78,8 +78,23 @@ class RestoreRequest(BaseModel):
     rollback_files: bool = Field(
         False,
         validation_alias="rollbackFiles",
-        description="是否同时回滚该 checkpoint 记录的文件版本",
+        description="是否同时回滚该 checkpoint 记录的文件版本(向后兼容,等价 scope=both/none)",
     )
+    scope: str = Field(
+        "both",
+        pattern="^(conversation|code|both)$",
+        description="回退范围: conversation=仅对话 | code=仅文件 | both=对话+文件",
+    )
+
+    def effective_scope(self) -> str:
+        """把旧 rollbackFiles 布尔与新 scope 枚举归一为单一语义。
+
+        - 显式传了 scope → 以 scope 为准
+        - 只传 rollbackFiles=true → both;false → conversation
+        """
+        if "scope" in self.model_fields_set:
+            return self.scope
+        return "both" if self.rollback_files else "conversation"
 
 
 class RestoreResponse(BaseModel):
@@ -174,12 +189,16 @@ async def restore_checkpoint(
     except CheckpointSessionMismatchError as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
 
-    # 同步恢复后的消息历史到会话运行时存储(用户可感知的核心闭环)
-    _sync_session_messages(request, session_id, restored["messages"])
+    # 按 scope 决定回退范围:
+    # - conversation / both:同步恢复后的消息历史到会话运行时存储(用户可感知的核心闭环)
+    # - code / both:按 checkpoint 记录的文件版本回滚文件
+    scope = body.effective_scope()
+    if scope in ("conversation", "both"):
+        _sync_session_messages(request, session_id, restored["messages"])
 
     file_versions = restored.get("file_versions", [])
     file_changes = 0
-    if body.rollback_files and file_versions:
+    if scope in ("code", "both") and file_versions:
         file_changes = _rollback_files(session_id, file_versions)
 
     return RestoreResponse(

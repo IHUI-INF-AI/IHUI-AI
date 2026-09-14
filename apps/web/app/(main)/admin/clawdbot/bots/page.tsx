@@ -19,7 +19,7 @@ interface BotItem {
   name: string
   description?: string
   model: string
-  isActive: boolean
+  enabled: boolean
   createdAt: number
 }
 
@@ -88,9 +88,8 @@ export default function ClawdbotBotsPage() {
   }
 
   const toggle = async (b: BotItem) => {
-    const res = await fetchApi(`/api/admin/clawdbot/bots/${b.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ isActive: !b.isActive }),
+    const res = await fetchApi(`/api/admin/clawdbot/bots/${b.id}/${b.enabled ? 'stop' : 'start'}`, {
+      method: 'POST',
     })
     if (res.success) void load()
   }
@@ -175,12 +174,12 @@ export default function ClawdbotBotsPage() {
                     <span
                       className={cn(
                         'rounded px-1.5 py-0.5 text-xs',
-                        b.isActive
+                        b.enabled
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-muted text-muted-foreground',
                       )}
                     >
-                      {b.isActive ? '运行中' : '已停止'}
+                      {b.enabled ? '运行中' : '已停止'}
                     </span>
                   </div>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -189,7 +188,7 @@ export default function ClawdbotBotsPage() {
                 </div>
                 <div className="flex items-center gap-1">
                   <Button variant="ghost" size="sm" onClick={() => toggle(b)}>
-                    {b.isActive ? (
+                    {b.enabled ? (
                       <Square className="h-4 w-4" />
                     ) : (
                       <Play className="h-4 w-4 text-emerald-600" />

@@ -7,7 +7,6 @@ import {
   uuid,
   varchar,
   integer,
-  numeric,
   bigint,
   boolean,
   timestamp,
@@ -50,7 +49,7 @@ export const aiRelayKeyPool = pgTable(
     healthCheckedAt: timestamp('health_checked_at', { withTimezone: true }),
     lastErrorMessage: text('last_error_message'),
     /** 额度信息(可选,从上游拉取或 admin 手填,单位:分,-1=无限) */
-    balanceCents: numeric('balance_cents', { precision: 18, scale: 6, mode: 'number' }).default(-1),
+    balanceCents: integer('balance_cents').default(-1),
     /** 备注 */
     remark: text('remark'),
     extraMetadata: jsonb('extra_metadata').default({}),

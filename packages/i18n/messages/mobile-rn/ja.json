@@ -357,7 +357,24 @@
     "emptyNoAgent": "ワークフローが設定されたエージェントを先に選択してください",
     "send": "送信",
     "streaming": "生成中...",
-    "callFailed": "呼び出しに失敗しました。再試行してください"
+    "callFailed": "呼び出しに失敗しました。再試行してください",
+    "compactionToast": "コンテキストを自動圧縮しました({before} → {after} tokens)",
+    "planStatusCompleted": "完了",
+    "planStatusInProgress": "進行中",
+    "planStatusPending": "待機中",
+    "planSteps": "実行計画",
+    "terminalExitCode": "終了コード",
+    "terminalOutput": "出力",
+    "terminalStatusCompleted": "完了",
+    "terminalStatusFailed": "失敗",
+    "terminalStatusRunning": "実行中",
+    "terminalTasks": "ターミナルタスク",
+    "toolArgs": "引数",
+    "toolCalls": "ツール呼び出し",
+    "toolResult": "出力",
+    "toolStatusError": "失敗",
+    "toolStatusRunning": "実行中",
+    "toolStatusSuccess": "成功"
   },
   "aigcCover": {
     "applied": {

@@ -6,117 +6,121 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import {
-  OpenAI,
-  Anthropic,
-  Google,
-  DeepSeek,
-  Qwen,
-  Zhipu,
-  Moonshot,
-  Doubao,
-  Stepfun,
-  Meta,
-  Minimax,
-  Hunyuan,
-  Baidu,
-  Kimi,
-  Baichuan,
-  Spark,
-  Wenxin,
-  Yi,
-  ZeroOne,
-  SenseNova,
-  Tiangong,
-  InternLM,
-  ByteDance,
-  Coze,
-  Qingyan,
-  ChatGLM,
-  AgnesAI, // 2026-08-02 新增:Agnes 安格(国内厂商)
-  Alibaba,
-  Tencent,
-  Huawei,
-  // 国际原厂
-  Mistral,
-  XAI,
-  Cohere,
-  Nvidia,
-  Ai21,
-  Microsoft,
-  Perplexity,
-  // 国际推理平台
-  Groq,
-  Together,
-  Fireworks,
-  // 国际云/平台/聚合(本次新增)
-  Aws,
-  Bedrock,
-  Azure,
-  AzureAI,
-  OpenRouter,
-  HuggingFace,
-  Replicate,
-  Stability,
-  Inflection,
-  IBM,
-  Cerebras,
-  SambaNova,
-  Snowflake,
-  DeepInfra,
-  AlephAlpha,
-  NousResearch,
-  Github,
-  GithubCopilot,
-  VertexAI,
-  GoogleCloud,
-  Gemma,
-  PaLM,
-  Copilot,
-  Bing,
-  // 国际推理/云平台扩展(本次新增)
-  Novita,
-  Lambda,
-  Baseten,
-  Crusoe,
-  Targon,
-  CentML,
-  Nebius,
-  Ollama,
-  Upstage,
-  LeptonAI,
-  Hyperbolic,
-  Featherless,
-  Parasail,
-  OpenWebUI,
-  LmStudio,
-  Friendli,
-  Anyscale,
-  Infermatic,
-  Replit,
-  // 国内推理/云平台扩展
-  SiliconCloud,
-  ModelScope,
-  PPIO,
-  Volcengine,
-  Bailian,
-  BAAI,
-  TII,
-  Liquid,
-  Ai2,
-  Figma,
-  // 2026-07-31 补全:plugins-data.ts 中已有 vendor 但此前未映射的 7 个真实矢量
-  Vercel,
-  Cloudflare,
-  Notion,
-  Adobe,
-  Brave,
-  AlibabaCloud,
-  HuaweiCloud,
-  // 2026-08-02 补全:ModelsNav PROVIDER_GROUPS 缺失映射的 provider
-  OpenCode, // opencode_zen(OpenCode Zen 开源推理框架)
-  Qoder, // qoder/if(Qoder AI 代码平台)
-} from '@lobehub/icons'
+// 2026-09-12 路由提速改造(深路径导入):
+// 原写法 `import { ... } from '@lobehub/icons'` 会命中包的 barrel 入口
+// (es/index.js → es/icons.js,~300 条 re-export),被迫解析/编译 es/ 下 2231 个 js 模块,
+// 是每个路由冷编译(dev 下 ~3s)与缓存膨胀(~150MB/路由)的主要放大器之一。
+// 改为深路径 default 导入(es/<Name>/index.js 为 `export default Icons`,包无 exports 字段
+// 不阻断深路径),编译期只解析实际用到的 102 个厂商目录。
+import OpenAI from '@lobehub/icons/es/OpenAI'
+import Anthropic from '@lobehub/icons/es/Anthropic'
+import Google from '@lobehub/icons/es/Google'
+import DeepSeek from '@lobehub/icons/es/DeepSeek'
+import Qwen from '@lobehub/icons/es/Qwen'
+import Zhipu from '@lobehub/icons/es/Zhipu'
+import Moonshot from '@lobehub/icons/es/Moonshot'
+import Doubao from '@lobehub/icons/es/Doubao'
+import Stepfun from '@lobehub/icons/es/Stepfun'
+import Meta from '@lobehub/icons/es/Meta'
+import Minimax from '@lobehub/icons/es/Minimax'
+import Hunyuan from '@lobehub/icons/es/Hunyuan'
+import Baidu from '@lobehub/icons/es/Baidu'
+import Kimi from '@lobehub/icons/es/Kimi'
+import Baichuan from '@lobehub/icons/es/Baichuan'
+import Spark from '@lobehub/icons/es/Spark'
+import Wenxin from '@lobehub/icons/es/Wenxin'
+import Yi from '@lobehub/icons/es/Yi'
+import ZeroOne from '@lobehub/icons/es/ZeroOne'
+import SenseNova from '@lobehub/icons/es/SenseNova'
+import Tiangong from '@lobehub/icons/es/Tiangong'
+import InternLM from '@lobehub/icons/es/InternLM'
+import ByteDance from '@lobehub/icons/es/ByteDance'
+import Coze from '@lobehub/icons/es/Coze'
+import Qingyan from '@lobehub/icons/es/Qingyan'
+import ChatGLM from '@lobehub/icons/es/ChatGLM'
+import AgnesAI from '@lobehub/icons/es/AgnesAI' // 2026-08-02 新增:Agnes 安格(国内厂商)
+import Alibaba from '@lobehub/icons/es/Alibaba'
+import Tencent from '@lobehub/icons/es/Tencent'
+import Huawei from '@lobehub/icons/es/Huawei'
+// 国际原厂
+import Mistral from '@lobehub/icons/es/Mistral'
+import XAI from '@lobehub/icons/es/XAI'
+import Cohere from '@lobehub/icons/es/Cohere'
+import Nvidia from '@lobehub/icons/es/Nvidia'
+import Ai21 from '@lobehub/icons/es/Ai21'
+import Microsoft from '@lobehub/icons/es/Microsoft'
+import Perplexity from '@lobehub/icons/es/Perplexity'
+// 国际推理平台
+import Groq from '@lobehub/icons/es/Groq'
+import Together from '@lobehub/icons/es/Together'
+import Fireworks from '@lobehub/icons/es/Fireworks'
+// 国际云/平台/聚合(本次新增)
+import Aws from '@lobehub/icons/es/Aws'
+import Bedrock from '@lobehub/icons/es/Bedrock'
+import Azure from '@lobehub/icons/es/Azure'
+import AzureAI from '@lobehub/icons/es/AzureAI'
+import OpenRouter from '@lobehub/icons/es/OpenRouter'
+import HuggingFace from '@lobehub/icons/es/HuggingFace'
+import Replicate from '@lobehub/icons/es/Replicate'
+import Stability from '@lobehub/icons/es/Stability'
+import Inflection from '@lobehub/icons/es/Inflection'
+import IBM from '@lobehub/icons/es/IBM'
+import Cerebras from '@lobehub/icons/es/Cerebras'
+import SambaNova from '@lobehub/icons/es/SambaNova'
+import Snowflake from '@lobehub/icons/es/Snowflake'
+import DeepInfra from '@lobehub/icons/es/DeepInfra'
+import AlephAlpha from '@lobehub/icons/es/AlephAlpha'
+import NousResearch from '@lobehub/icons/es/NousResearch'
+import Github from '@lobehub/icons/es/Github'
+import GithubCopilot from '@lobehub/icons/es/GithubCopilot'
+import VertexAI from '@lobehub/icons/es/VertexAI'
+import GoogleCloud from '@lobehub/icons/es/GoogleCloud'
+import Gemma from '@lobehub/icons/es/Gemma'
+import PaLM from '@lobehub/icons/es/PaLM'
+import Copilot from '@lobehub/icons/es/Copilot'
+import Bing from '@lobehub/icons/es/Bing'
+// 国际推理/云平台扩展(本次新增)
+import Novita from '@lobehub/icons/es/Novita'
+import Lambda from '@lobehub/icons/es/Lambda'
+import Baseten from '@lobehub/icons/es/Baseten'
+import Crusoe from '@lobehub/icons/es/Crusoe'
+import Targon from '@lobehub/icons/es/Targon'
+import CentML from '@lobehub/icons/es/CentML'
+import Nebius from '@lobehub/icons/es/Nebius'
+import Ollama from '@lobehub/icons/es/Ollama'
+import Upstage from '@lobehub/icons/es/Upstage'
+import LeptonAI from '@lobehub/icons/es/LeptonAI'
+import Hyperbolic from '@lobehub/icons/es/Hyperbolic'
+import Featherless from '@lobehub/icons/es/Featherless'
+import Parasail from '@lobehub/icons/es/Parasail'
+import OpenWebUI from '@lobehub/icons/es/OpenWebUI'
+import LmStudio from '@lobehub/icons/es/LmStudio'
+import Friendli from '@lobehub/icons/es/Friendli'
+import Anyscale from '@lobehub/icons/es/Anyscale'
+import Infermatic from '@lobehub/icons/es/Infermatic'
+import Replit from '@lobehub/icons/es/Replit'
+// 国内推理/云平台扩展
+import SiliconCloud from '@lobehub/icons/es/SiliconCloud'
+import ModelScope from '@lobehub/icons/es/ModelScope'
+import PPIO from '@lobehub/icons/es/PPIO'
+import Volcengine from '@lobehub/icons/es/Volcengine'
+import Bailian from '@lobehub/icons/es/Bailian'
+import BAAI from '@lobehub/icons/es/BAAI'
+import TII from '@lobehub/icons/es/TII'
+import Liquid from '@lobehub/icons/es/Liquid'
+import Ai2 from '@lobehub/icons/es/Ai2'
+import Figma from '@lobehub/icons/es/Figma'
+// 2026-07-31 补全:plugins-data.ts 中已有 vendor 但此前未映射的 7 个真实矢量
+import Vercel from '@lobehub/icons/es/Vercel'
+import Cloudflare from '@lobehub/icons/es/Cloudflare'
+import Notion from '@lobehub/icons/es/Notion'
+import Adobe from '@lobehub/icons/es/Adobe'
+import Brave from '@lobehub/icons/es/Brave'
+import AlibabaCloud from '@lobehub/icons/es/AlibabaCloud'
+import HuaweiCloud from '@lobehub/icons/es/HuaweiCloud'
+// 2026-08-02 补全:ModelsNav PROVIDER_GROUPS 缺失映射的 provider
+import OpenCode from '@lobehub/icons/es/OpenCode' // opencode_zen(OpenCode Zen 开源推理框架)
+import Qoder from '@lobehub/icons/es/Qoder' // qoder/if(Qoder AI 代码平台)
 
 import { AppWindow, Video, Server, Cpu, Globe, Boxes, type LucideIcon } from 'lucide-react'
 
