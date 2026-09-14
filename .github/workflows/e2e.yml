@@ -42,7 +42,10 @@ jobs:
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 2026-09-14 复评:647 例全量在 2 workers 下实测 ~14m(本地同量级机器),
+    # CI runner(4c)按 1.5x 余量 + install/build/migrate ≈ 10m → 60min 消除 30min 硬顶
+    # (2026-08-20 起 e2e 连续 400+ 次 cancelled 的直接根因,见 PROJECT_PLAN 2-18)
+    timeout-minutes: 60
 
     services:
       postgres:
@@ -102,6 +105,12 @@ jobs:
           JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
           CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
         run: pnpm --filter @ihui/api run seed:test-users
+
+      - name: Seed E2E 知识库条目(knowledge-base.spec 依赖)
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+        run: pnpm --filter @ihui/api run seed:e2e-knowledge
 
       - name: Build database package
         # web 产物引用 @ihui/database 的 dist;缺此步 next build 预渲染时

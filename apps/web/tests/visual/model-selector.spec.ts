@@ -102,15 +102,15 @@ const EXPECTED_VENDOR_KEYWORDS = [
   'MiniMax',
 ]
 
-// 2026-09-14 两层根因修复(全量 6 例恒红,单跑 18 分钟):
+// 2026-09-14 两层根因修复 + 产品回归修复(全量 6 例恒红,单跑 18 分钟):
 // ① 旧选择器 button[aria-label*="模型"] 模糊前缀匹配,先命中 DOM 靠前的侧边栏
 //    「模型市场」按钮 → 改用组件私有 class 锚点(model-selector.tsx:756 .model-selector-text)。
-// ② AI 面板宽 300px(ai-side-panel.tsx:171 SSR 默认宽,未持久化拖拽宽度时生效)时
-//    输入 toolbar 进入 ≤359px 紧凑分支,模型按钮塌缩为 18px 图标态,且中心点被上方
-//    「构建任务」浮动按钮的 svg path 覆盖 → click actionability 永久失败(120s 超时,
-//    teardown context.close() 连锁卡死)。探针实测仅左边缘 dx≤2px 可点(position 点击
-//    后菜单正常打开,groups=3)—— 窄面板下真实用户同样几乎点不到,UI 重叠待产品修复。
-//    测试侧用 position:{x:2,y:16} 点击按钮左边缘(h-8=32px 的垂直中心)。
+// ② AI 面板 300px(ai-side-panel.tsx:171 SSR 默认宽)时 2026-09-13 新增的 ModeSwitcher
+//    文字("构建任务",sm: 视口断点管不住容器宽)把 toolbar 右组挤到 justify-end 向左溢出,
+//    模型按钮中心被其 svg path 覆盖 → click actionability 永久失败。已产品修复:
+//    globals.css 窄容器降级阶梯(≤407 隐 Mode 文字/≤319 隐 Sampling/≤259 隐截图+Mode),
+//    探针实测 300px 面板模型按钮中心恢复命中自己、宽度 18→30px。
+//    position:{x:2,y:16} 点击保留:对任何未来挤压场景均稳健。
 const MODEL_SELECTOR_TRIGGER_SELECTOR = 'button:has(.model-selector-text)'
 
 async function navigateToModels(page: Page) {
