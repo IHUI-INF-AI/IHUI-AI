@@ -7851,6 +7851,33 @@
     "title": "Share Project",
     "viewCount": "{count} views"
   },
+  "aiToolsPanel": {
+    "title": "Tools",
+    "empty": "No data yet",
+    "dispatchSubagent": "Dispatch subagent",
+    "checkpointRestored": "Checkpoint restored",
+    "restoreFailed": "Failed to restore checkpoint",
+    "bestOfAdopted": "Selected candidate added to the conversation",
+    "tabs": {
+      "goal": "Goal",
+      "memory": "Memory",
+      "plan": "Plan",
+      "tasks": "Tasks",
+      "progress": "Progress",
+      "agents": "Agents",
+      "background": "Background",
+      "swarm": "Swarm",
+      "orchestration": "Orchestration",
+      "routines": "Routines",
+      "trace": "Trace",
+      "checkpoints": "Checkpoints",
+      "tokens": "Usage",
+      "spec": "Spec",
+      "runtime": "Runtime",
+      "bestof": "Best-of-N",
+      "hooks": "Hooks"
+    }
+  },
   "announcements": {
     "backToList": "Back to announcements",
     "empty": "No announcements",
@@ -8475,6 +8502,8 @@
     "loginRequiredTitle": "Sign in to start AI chat",
     "manageModels": "Customize model configurations",
     "me": "Me",
+    "modeAsk": "Ask",
+    "modeAskDesc": "AI only answers questions, no tools are executed",
     "mentionPopover": {
       "removeLabel": "Remove {label}"
     },
@@ -8484,6 +8513,9 @@
       "downloadImages": "Download images",
       "edit": "Edit",
       "hideContent": "Hide content",
+    "taskProgressOpen": "Task progress",
+    "toolsPanelOpen": "Show tools panel",
+    "toolsPanelClose": "Hide tools panel",
       "jumpToLatest": "Jump to latest",
       "like": "Like",
       "publishToCommunity": "Publish to community",

@@ -7841,6 +7841,33 @@
     "title": "프로젝트 공유",
     "viewCount": "{count}회 조회"
   },
+  "aiToolsPanel": {
+    "title": "도구 패널",
+    "empty": "데이터가 없습니다",
+    "dispatchSubagent": "서브에이전트 디스패치",
+    "checkpointRestored": "체크포인트가 복원되었습니다",
+    "restoreFailed": "체크포인트 복원 실패",
+    "bestOfAdopted": "선택한 후보가 대화에 추가되었습니다",
+    "tabs": {
+      "goal": "목표",
+      "memory": "메모리",
+      "plan": "계획",
+      "tasks": "작업",
+      "progress": "진행률",
+      "agents": "에이전트",
+      "background": "백그라운드",
+      "swarm": "스웜",
+      "orchestration": "오케스트레이션",
+      "routines": "루틴",
+      "trace": "추적",
+      "checkpoints": "체크포인트",
+      "tokens": "사용량",
+      "spec": "스펙",
+      "runtime": "런타임",
+      "bestof": "최적 선택",
+      "hooks": "훅"
+    }
+  },
   "announcements": {
     "backToList": "목록으로 돌아가기",
     "empty": "콘텐츠가 없습니다",
@@ -8465,6 +8492,8 @@
     "loginRequiredTitle": "로그인 후 AI 대화 시작",
     "manageModels": "사용자 지정 모델 구성",
     "me": "나",
+    "modeAsk": "질문",
+    "modeAskDesc": "AI가 질문에만 답변하고 도구를 실행하지 않습니다",
     "mentionPopover": {
       "removeLabel": "{label} 제거"
     },
@@ -8474,6 +8503,9 @@
       "downloadImages": "이미지 다운로드",
       "edit": "편집",
       "hideContent": "콘텐츠 숨기기",
+    "taskProgressOpen": "작업 진행 상황",
+    "toolsPanelOpen": "도구 패널 열기",
+    "toolsPanelClose": "도구 패널 숨기기",
       "jumpToLatest": "최신으로 이동",
       "like": "좋아요",
       "publishToCommunity": "커뮤니티에 게시",
