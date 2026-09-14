@@ -20,6 +20,7 @@
  */
 
 import { Readable, Writable } from 'node:stream';
+import { randomUUID } from 'node:crypto';
 import * as acp from '@agentclientprotocol/sdk';
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import {
@@ -255,7 +256,7 @@ export class IhuiAcpAgent {
     state.pendingAbort = abort;
 
     const userText = extractTextFromPrompt(params.prompt);
-    state.session.history.push({ role: 'user', content: userText });
+    state.session.history.push({ id: randomUUID(), role: 'user', content: userText });
 
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
       { role: 'system', content: state.systemPrompt! },
@@ -287,7 +288,7 @@ export class IhuiAcpAgent {
       });
 
       if (result.assistantText) {
-        state.session.history.push({ role: 'assistant', content: result.assistantText });
+        state.session.history.push({ id: randomUUID(), role: 'assistant', content: result.assistantText });
       }
       if (result.usage && result.usage.totalTokens > 0) {
         const costStr = result.usage.estimatedCostUsd > 0
@@ -310,7 +311,11 @@ export class IhuiAcpAgent {
       if (abort.signal.aborted) {
         const lastAssistant = messages.filter((m) => m.role === 'assistant').pop();
         if (lastAssistant) {
-          state.session.history.push({ role: 'assistant', content: lastAssistant.content });
+          state.session.history.push({
+            id: randomUUID(),
+            role: 'assistant',
+            content: lastAssistant.content,
+          });
           saveSession(state.session);
         }
         return { stopReason: 'cancelled' };

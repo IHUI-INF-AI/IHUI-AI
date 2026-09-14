@@ -368,9 +368,9 @@ export default function DeveloperIndex() {
                         ? tt('developer.index.editBtn2', '修改')
                         : tt('developer.index.editBtn', '设置')}
                     </Text>
-                    {/* RN offlineBtn: 14dp=28rpx brandAccent(→brand-orange) 下划线文字钮 */}
+                    {/* RN offlineBtn: 14dp=28rpx brandAccent(→brand-accent) 下划线文字钮 */}
                     <Text
-                      className="text-[28rpx] text-[var(--color-brand-orange)] font-medium underline"
+                      className="text-[28rpx] text-[var(--color-brand-accent-deep)] font-medium underline"
                       onClick={() => onDelete(agent)}
                     >
                       {tt('developer.index.deleteBtn', '删除')}

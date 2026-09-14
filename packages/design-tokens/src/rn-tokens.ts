@@ -22,7 +22,7 @@
  * - success.lighter / lightest:更浅的成功绿背景(d1fae5 / f0fdf4)
  * - success.deepText:深绿色文字(065F46,用于 success 卡片标签)
  * - warning.amber / amberLight / amberText / orangeLight:amber 警告色变体
- *   （强调橙统一用 brandAccent.DEFAULT,详见下方「全项目统一强调色」;已删除 warning.deep）
+ *   （强调天蓝统一用 brandAccent.DEFAULT,详见下方「全项目统一强调色」;已删除 warning.deep）
  * - danger.bright:亮红色(ef4444,职位薪资等强调红)
  */
 export type RnSuccessTokens = {
@@ -89,13 +89,16 @@ export const rnTokens = {
   overlay: {
     modal: 'rgba(0,0,0,0.4)',
   },
-  /** 全项目统一强调色(品牌橙),对齐 web --color-brand-orange。替换原 indigo/purple/blue 三强调色。 */
+  /** 全项目统一强调色(高级灰蓝,2026-09-14 用户定稿),对齐 web --color-brand-accent。
+   * DEFAULT=按钮/填充底色(浅灰蓝),foreground=其上的文字色(深蓝灰,浅底白字不可读),
+   * deep=白/深底上的"文字/图标"变体(对比度足够)。 */
   brandAccent: {
-    light: '#fff7ed',
-    DEFAULT: '#ff6b35',
-    deep: '#c2410c',
-    gradFrom: '#ffb27d',
-    gradTo: '#ff6b35',
+    light: '#eaf2f7',
+    DEFAULT: '#8fb8cc',
+    deep: '#4a7a96',
+    foreground: '#1e3a47',
+    gradFrom: '#b8d4e3',
+    gradTo: '#8fb8cc',
   },
   warning: {
     light: '#fffbeb',
@@ -150,9 +153,16 @@ export type RnThemeTokens = {
   border: { light: string; medium: string }
   error: { bg: string; text: string }
   overlay: { modal: string }
-  /* brandAccent.gradFrom/gradTo:品牌橙渐变(2026-09-07 立),仅作 CTA/头部"局部渐变点缀",
-   * 主按钮仍用纯色 brandAccent.DEFAULT(= 橙色)。 */
-  brandAccent: { light: string; DEFAULT: string; deep: string; gradFrom: string; gradTo: string }
+  /* brandAccent:高级灰蓝(2026-09-14 定稿)。DEFAULT=底色,foreground=其上文字,
+   * deep=表面文字/图标变体,gradFrom/gradTo=CTA 局部渐变点缀。 */
+  brandAccent: {
+    light: string
+    DEFAULT: string
+    deep: string
+    foreground: string
+    gradFrom: string
+    gradTo: string
+  }
   warning: RnWarningTokens
   success: RnSuccessTokens
   danger: RnDangerTokens
@@ -196,11 +206,12 @@ export const rnLightTokens: RnThemeTokens = {
   error: { bg: '#FFE5E5', text: '#FF3333' },
   overlay: { modal: 'rgba(0,0,0,0.4)' },
   brandAccent: {
-    light: '#fff7ed',
-    DEFAULT: '#ff6b35',
-    deep: '#c2410c',
-    gradFrom: '#ffb27d',
-    gradTo: '#ff6b35',
+    light: '#eaf2f7',
+    DEFAULT: '#8fb8cc',
+    deep: '#4a7a96',
+    foreground: '#1e3a47',
+    gradFrom: '#b8d4e3',
+    gradTo: '#8fb8cc',
   },
   warning: {
     light: '#fffbeb',
@@ -260,11 +271,12 @@ export const rnDarkTokens: RnThemeTokens = {
   error: { bg: '#7F1D1D', text: '#FF3333' },
   overlay: { modal: 'rgba(0,0,0,0.6)' },
   brandAccent: {
-    light: '#431407',
-    DEFAULT: '#ff8e53',
-    deep: '#ff8e53',
-    gradFrom: '#ff9a5b',
-    gradTo: '#ff8e53',
+    light: '#1e2e36',
+    DEFAULT: '#a3c4d6',
+    deep: '#a3c4d6',
+    foreground: '#16262e',
+    gradFrom: '#b8d4e3',
+    gradTo: '#a3c4d6',
   },
   warning: {
     light: '#451a03',

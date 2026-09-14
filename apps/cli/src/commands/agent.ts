@@ -20,6 +20,7 @@
  */
 
 import * as fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
@@ -1714,7 +1715,14 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     if (opts.session) {
       opts.session.history = messages
         .filter((m) => m.role !== 'system')
-        .map((m) => ({ role: m.role, content: m.content }));
+        // 2026-09-14:ChatMessage.id 为必填(W16 消息树地基);本文件 messages 为本地
+        // 极简形态(无 id),落库时补生成。role 断言:'tool' 由 repairMessages 在入 LLM
+        // 请求前按 VALID_ROLES 清理,此处保持既有落库行为不变。
+        .map((m) => ({
+          id: randomUUID(),
+          role: m.role as 'system' | 'user' | 'assistant',
+          content: m.content,
+        }));
       saveSession(opts.session);
     }
     // P3-2 Telemetry:session_end + shutdown(失败不阻塞退出)

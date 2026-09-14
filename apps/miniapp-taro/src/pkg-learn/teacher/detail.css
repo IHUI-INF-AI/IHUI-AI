@@ -164,10 +164,10 @@
   -webkit-box-orient: vertical;
 }
 
-/* 展开/收起(RN expandText: brandAccent 橙) */
+/* 展开/收起(RN expandText: brandAccent 灰蓝,前景用 deep 保白底对比) */
 .tdetail-intro-toggle {
   font-size: 26rpx;
-  color: var(--color-brand-orange);
+  color: var(--color-brand-accent-deep);
 }
 
 /* ===== 主讲课程(RN courseCard: row/gap20/padding20/radius16 白底) ===== */
