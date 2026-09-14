@@ -54,4 +54,25 @@ export function normalizeModelId(raw: string): string {
   const lower = trimmed.toLowerCase()
   return OFFICIAL_MODEL_NAMES[lower] ?? lower
 }
+
+/**
+ * 入站请求侧的"官方名改写"(2026-09-13 立,比 normalizeModelId 更保守)。
+ *
+ * 与 normalizeModelId 的区别:仅当命中官方名映射表时才改写,其它名称**原样返回**。
+ * 用于转发链路(通道路由 / 出站 model 字符串)——避免把小写归一的强规则
+ * 施加到未知模型上(某些上游要求原样大小写,误改写会直接 422)。
+ *
+ * 场景:客户端传 `minimax-m3` → 改写为 `MiniMax-M3` 后再路由,才能命中
+ * 号池里以官方名上架的渠道组;否则通道路由按精确 eq 查不到 → 落到默认 provider → 上游 422。
+ */
+export function toOfficialModelName(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return trimmed
+  const slashIdx = trimmed.indexOf('/')
+  if (slashIdx > 0) {
+    // openrouter 风格带厂商前缀:前缀保留,后段改写
+    return trimmed.slice(0, slashIdx + 1) + toOfficialModelName(trimmed.slice(slashIdx + 1))
+  }
+  return OFFICIAL_MODEL_NAMES[trimmed.toLowerCase()] ?? trimmed
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

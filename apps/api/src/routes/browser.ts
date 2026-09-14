@@ -19,9 +19,10 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error, parseOrThrow } from '../utils/response.js'
+import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 
 /** ai-service 基础 URL(默认 http://localhost:8803) */
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL ?? 'http://localhost:8803'
+// AI_SERVICE_URL 局部常量已由 aiServiceFetch(config.AI_SERVICE_URL) 取代(2026-09-13 jwt_auth 鉴权修复)
 
 const screenshotSchema = z.object({
   url: z.url({ error: 'Invalid URL' }),
@@ -45,7 +46,7 @@ export const browserRoutes: FastifyPluginAsync = async (server) => {
     const req = parseOrThrow(screenshotSchema, request.body)
 
     try {
-      const resp = await fetch(`${AI_SERVICE_URL}/api/screenshot/take`, {
+      const resp = await aiServiceFetch(request, '/api/screenshot/take', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -104,7 +105,7 @@ export const browserRoutes: FastifyPluginAsync = async (server) => {
     const req = parseOrThrow(probeSchema, request.body)
 
     try {
-      const resp = await fetch(`${AI_SERVICE_URL}/api/screenshot/probe`, {
+      const resp = await aiServiceFetch(request, '/api/screenshot/probe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: req.url }),
