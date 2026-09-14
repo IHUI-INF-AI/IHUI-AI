@@ -32,11 +32,8 @@ const AI_PANEL = 'aside[data-testid="ai-side-panel-aside"]'
 const ADD_BTN = `${AI_PANEL} button[aria-label="添加"]`
 const MENU = '[role="menu"][aria-label*="添加菜单"]'
 const PROMPT_ITEM = `${MENU} button:has-text("提示词模板")`
-// 模板 Popover 是含"总结"模板按钮的 menu 容器(2026-09-14 校准:①2026-09-02 弹层治理后
-// 容器从 role=dialog 改为自写 popover 的 role=menu;②popover 内模板名 i18n 已简化为
-// "总结"/"翻译"/…(zh-CN.json tplSummary),空状态 chips 才是"总结任务"(EmptyState 独立文案)。
-// 旧选择器 role=dialog + "总结任务" 双双失配 → 恒红)
-const POPOVER = '[role="menu"]:has(button:has-text("总结"))'
+// 模板 Popover 是含"总结任务"按钮的 dialog(区分页面里其他 dialog,如移动端 aside)
+const POPOVER = '[role="dialog"]:has(button:has-text("总结任务"))'
 const TEXTAREA = `${AI_PANEL} textarea[aria-label]:not([disabled])`
 const CHIPS_WRAPPER = `${AI_PANEL} .flex.flex-wrap.items-center.justify-center.gap-2`
 

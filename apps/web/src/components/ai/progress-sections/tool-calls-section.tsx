@@ -10,6 +10,7 @@ import {
   Loader2,
   Check,
   X,
+  Ban,
   FileText,
   Search,
   FileEdit,
@@ -79,11 +80,14 @@ const TOOL_STATUS_ICON: Record<
   running: Loader2,
   success: Check,
   error: X,
+  // #23 撤回未执行工具卡(2026-09-13 立):cancelled 状态用 Ban 图标
+  cancelled: Ban,
 }
 const TOOL_STATUS_CLS: Record<AgentToolCall['status'], string> = {
   running: 'text-primary',
   success: 'text-emerald-500',
   error: 'text-red-500',
+  cancelled: 'text-muted-foreground',
 }
 
 /** 从工具 args 提取关键参数预览(如 file_path / query / command) */
@@ -208,6 +212,15 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
             </span>
           </Tooltip>
         )}
+        {/* #23 撤回未执行工具卡(2026-09-13 立):cancelled 状态显示撤回徽章 */}
+        {tool.status === 'cancelled' && (
+          <span
+            className="shrink-0 rounded-sm bg-muted px-1 text-[10px] text-muted-foreground"
+            data-testid={`tool-revoked-${tool.id}`}
+          >
+            {t('tools.revoked')}
+          </span>
+        )}
         {tool.durationMs !== undefined && tool.status !== 'running' && (
           <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
             {formatDuration(tool.durationMs)}
@@ -284,13 +297,15 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
   )
 })
 
-type ToolStatusFilter = 'all' | 'running' | 'success' | 'error'
+type ToolStatusFilter = 'all' | 'running' | 'success' | 'error' | 'cancelled'
 
 const STATUS_FILTER_TKEY: Record<ToolStatusFilter, string> = {
   all: 'tools.filterAll',
   running: 'tools.filterRunning',
   success: 'tools.filterSuccess',
   error: 'tools.filterError',
+  // #23: cancelled(已撤回)复用 tools.revoked 文案
+  cancelled: 'tools.revoked',
 }
 
 /**
@@ -320,7 +335,7 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
   const [statusFilter, setStatusFilter] = React.useState<ToolStatusFilter>('all')
 
   const statusCounts = React.useMemo(() => {
-    const counts = { all: tools.length, running: 0, success: 0, error: 0 }
+    const counts = { all: tools.length, running: 0, success: 0, error: 0, cancelled: 0 }
     for (const tool of tools) {
       counts[tool.status]++
     }
@@ -382,7 +397,7 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
         {/* v11: 状态过滤 chips(有失败/运行中时显示) */}
         {showStatusFilter && (
           <div className="flex items-center gap-0.5" data-testid="tool-status-filter">
-            {(['all', 'running', 'success', 'error'] as const).map((f) => {
+            {(['all', 'running', 'success', 'error', 'cancelled'] as const).map((f) => {
               const count = statusCounts[f]
               if (f !== 'all' && count === 0) return null
               return (

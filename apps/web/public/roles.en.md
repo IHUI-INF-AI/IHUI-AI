@@ -48,7 +48,7 @@ Workspace → Agent Marketplace → Pick the "Customer Service Agent" template �
 
 # 3. Call the API
 curl -X POST https://api.aizhs.top/v1/agents/agt_12345/chat \
-  -H "Authorization: Bearer ihui_xxx" \
+  -H "Authorization: Bearer sk-xxx" \
   -d '{"message": "Hello"}'
 ```
 

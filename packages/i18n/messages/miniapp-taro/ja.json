@@ -730,6 +730,19 @@
       "confirm": "切り替えを確認",
       "hint": "お知らせ"
     },
+    "stream": {
+      "compact": "コンテキストを圧縮しました {before} → {after}",
+      "fallback": "予備モデルに切り替え: {model}",
+      "planUpdate": "実行計画を更新しました",
+      "reconnect": "接続が切断、{seconds}秒後に{attempt}回目の再接続",
+      "subagent": "サブタスク: {phase}",
+      "title": "実行プロセス",
+      "toolCall": "ツール呼び出し: {name}",
+      "toolResult": "ツール応答: {name}",
+      "toolSummary": "ツール集計: {calls} 回",
+      "terminal": "ターミナルタスク: {status}",
+      "usage": "使用量: {n} tokens"
+    },
     "switchAgent": {
       "confirm": "切り替えを確認"
     }
