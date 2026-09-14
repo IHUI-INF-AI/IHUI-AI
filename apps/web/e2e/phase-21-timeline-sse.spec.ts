@@ -207,10 +207,10 @@ async function openPane(page: Page): Promise<void> {
   await page.goto(CHAT_URL)
   await page.waitForLoadState('domcontentloaded').catch(() => {})
   // 确保仍在 /chat(已登录态下不会被重定向)
-  await expect(page).toHaveURL(/\/chat/, { timeout: 15000 })
+  await expect(page).toHaveURL(/\/chat/, { timeout: 30000 })
 
   const trigger = page.locator(TRIGGER)
-  await expect(trigger).toBeVisible({ timeout: 15000 })
+  await expect(trigger).toBeVisible({ timeout: 30000 })
   await trigger.click()
 
   const pane = page.locator(PANE)
@@ -229,7 +229,7 @@ async function sendMessage(page: Page, text: string): Promise<void> {
  * 等待 pane 进入"会话就绪"状态:会话已建立(threadId 同步完成)、AI 尚未下发 plan。
  * 这是重构后 pane 对"SSE 事件流被消费"的可见响应(取代原 timeline-event-row 出现)。
  */
-async function waitForPaneReady(page: Page, timeout = 15000): Promise<void> {
+async function waitForPaneReady(page: Page, timeout = 30000): Promise<void> {
   await expect(page.locator(PANE_WAITING)).toBeVisible({ timeout })
 }
 
@@ -238,6 +238,11 @@ async function waitForPaneReady(page: Page, timeout = 15000): Promise<void> {
 // ──────────────────────────────────────────────────────────────────────────
 
 test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
+  // 2026-09-14:SSE mock 链路(mockConversation→openPane→sendMessage→poll→paneReady)
+  // 单用例 5+ 步,全量负载下 poll 30s + paneReady 30s 会顶穿 30s 默认 test timeout
+  // (实测 flaky,重试必过,纯预算问题)。
+  test.describe.configure({ timeout: 120_000 })
+
   test('1. subagent_spawn → pane 进入会话就绪状态(SSE 端点被调用)', async ({ adminPage: page }) => {
     await mockConversation(page)
     const sse = await mockSSE(page, [
@@ -253,7 +258,7 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     await sendMessage(page, 'test spawn event')
 
     // SSE 端点确实被调用(subagent 事件序列被 api-client tryParseSubagent 消费)
-    await expect.poll(() => sse.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(1)
+    await expect.poll(() => sse.count(), { timeout: 30000 }).toBeGreaterThanOrEqual(1)
     // pane 面板对会话建立作出响应(threadId 同步 → 等待 AI 规划)
     await waitForPaneReady(page)
   })
@@ -279,7 +284,7 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     await openPane(page)
     await sendMessage(page, 'test thinking progress')
 
-    await expect.poll(() => sse.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(1)
+    await expect.poll(() => sse.count(), { timeout: 30000 }).toBeGreaterThanOrEqual(1)
     await waitForPaneReady(page)
   })
 
@@ -305,7 +310,7 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     await openPane(page)
     await sendMessage(page, 'test tool_call progress')
 
-    await expect.poll(() => sse.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(1)
+    await expect.poll(() => sse.count(), { timeout: 30000 }).toBeGreaterThanOrEqual(1)
     await waitForPaneReady(page)
   })
 
@@ -333,7 +338,7 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     await openPane(page)
     await sendMessage(page, 'test tool_result progress')
 
-    await expect.poll(() => sse.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(1)
+    await expect.poll(() => sse.count(), { timeout: 30000 }).toBeGreaterThanOrEqual(1)
     await waitForPaneReady(page)
   })
 
@@ -360,7 +365,7 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     await openPane(page)
     await sendMessage(page, 'test output_ready progress')
 
-    await expect.poll(() => sse.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(1)
+    await expect.poll(() => sse.count(), { timeout: 30000 }).toBeGreaterThanOrEqual(1)
     await waitForPaneReady(page)
   })
 
@@ -384,7 +389,7 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     await openPane(page)
     await sendMessage(page, 'test end done')
 
-    await expect.poll(() => sse.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(1)
+    await expect.poll(() => sse.count(), { timeout: 30000 }).toBeGreaterThanOrEqual(1)
     await waitForPaneReady(page)
   })
 
@@ -409,7 +414,7 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     await openPane(page)
     await sendMessage(page, 'test end failed')
 
-    await expect.poll(() => sse.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(1)
+    await expect.poll(() => sse.count(), { timeout: 30000 }).toBeGreaterThanOrEqual(1)
     await waitForPaneReady(page)
   })
 
@@ -434,7 +439,7 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     await openPane(page)
     await sendMessage(page, 'test parallel subagents')
 
-    await expect.poll(() => sse.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(1)
+    await expect.poll(() => sse.count(), { timeout: 30000 }).toBeGreaterThanOrEqual(1)
     await waitForPaneReady(page)
   })
 
@@ -463,7 +468,7 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     await sendMessage(page, 'test out-of-order events')
 
     // 乱序事件不被 api-client 丢弃,SSE 端点照常被调用,pane 照常就绪
-    await expect.poll(() => sse.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(1)
+    await expect.poll(() => sse.count(), { timeout: 30000 }).toBeGreaterThanOrEqual(1)
     await waitForPaneReady(page)
   })
 
