@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n'
 import { View, Text, Textarea, Button, ScrollView } from '@tarojs/components'
 import { useAgentRuntime } from '@ihui/shared'
 import type { AgentRuntimePanelProps } from '@ihui/types'
+import LineIcon from '@/components/LineIcon'
 
 export default function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimePanelProps) {
   const { t } = useI18n()
@@ -36,9 +37,16 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
           <Text className="ml-2 text-xs text-primary">{t('ai.common.loading')}</Text>
         )}
         {status === 'completed' && (
-          <Text className="ml-2 text-xs text-[var(--color-success-deep-text)]">✓</Text>
+          <LineIcon
+            name="check"
+            size={24}
+            color="var(--color-success-deep-text)"
+            className="ml-2"
+          />
         )}
-        {status === 'failed' && <Text className="ml-2 text-xs text-destructive">✗</Text>}
+        {status === 'failed' && (
+          <LineIcon name="x" size={24} color="var(--color-destructive)" className="ml-2" />
+        )}
         <View className="flex-1" />
         <Button
           size="mini"
