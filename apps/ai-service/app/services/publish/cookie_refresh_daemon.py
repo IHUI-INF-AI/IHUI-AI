@@ -220,7 +220,7 @@ class CookieRefreshDaemon:
         # 注入 cookies 并访问首页(sync_playwright 在线程池跑,规避 Windows
         # SelectorEventLoop 下 async_playwright 启动 subprocess 抛 NotImplementedError)
         try:
-            alive = await asyncio.to_thread(
+            alive, updated_cookies = await asyncio.to_thread(
                 self._visit_and_check, platform, login_url, credentials
             )
         except Exception as e:
@@ -231,6 +231,35 @@ class CookieRefreshDaemon:
                 duration_ms=int((time.time() - start) * 1000),
             )
         duration = int((time.time() - start) * 1000)
+
+        # Cookie 回写(2026-09-15 新增):平台在访问时可能轮换 cookie 值(如 z_c0),
+        # 只检查不回写会让 stored cookie 与服务端会话逐渐脱节,最终"保活成功但发布
+        # 时 cookie 过期"。这里把浏览器最终持有的新值合并回凭证并持久化。
+        if alive and updated_cookies:
+            changed = {k: v for k, v in updated_cookies.items() if credentials.get(k) != v}
+            if changed:
+                try:
+                    from app.services.publish.credentials_crypto import decrypt, encrypt
+                    conn = await get_db_conn()
+                    try:
+                        merged = {**credentials, **changed}
+                        enc = encrypt(merged)
+                        await conn.execute(
+                            "UPDATE publish_accounts SET credentials_enc=$1, updated_at=now() WHERE id=$2",
+                            enc, account_id,
+                        )
+                    finally:
+                        await conn.close()
+                    logger.info(
+                        "[cookie_daemon] account=%s cookie 已回写更新字段=%s",
+                        account_id, sorted(changed),
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "[cookie_daemon] account=%s cookie 回写失败(不影响保活结论): %s",
+                        account_id, e,
+                    )
+
         if alive:
             return RefreshResult(
                 account_id=account_id, platform=platform, success=True,
@@ -242,8 +271,8 @@ class CookieRefreshDaemon:
         )
 
     @staticmethod
-    def _visit_and_check(platform: str, login_url: str, credentials: dict[str, Any]) -> bool:
-        """同步版保活:注入 cookies 访问平台首页,返回目标 cookie 是否仍存在。"""
+    def _visit_and_check(platform: str, login_url: str, credentials: dict[str, Any]) -> tuple[bool, dict[str, str]]:
+        """同步版保活:注入 cookies 访问平台首页,返回(目标 cookie 是否仍存在, 平台最终下发的 cookie 值)。"""
         from playwright.sync_api import sync_playwright
 
         from app.services.scan_login import PLATFORM_SCAN_CONFIG, _find_chromium_executable
@@ -270,11 +299,17 @@ class CookieRefreshDaemon:
                 try:
                     page.goto(login_url, wait_until="domcontentloaded", timeout=30000)
                     page.wait_for_timeout(_VISIT_WAIT_SECONDS * 1000)
-                    # 检查 cookie 是否仍存在(保活成功标志)
+                    # 检查 cookie 是否仍存在(保活成功标志),并收集平台最终下发的值
                     final_cookies = context.cookies()
                     final_names = {c["name"] for c in final_cookies}
+                    final_values = {c["name"]: c["value"] for c in final_cookies}
                     target = cfg["success_cookies"][0]
-                    return target in final_names
+                    updated = {
+                        name: final_values[name]
+                        for name in credentials
+                        if name in final_values and final_values[name]
+                    }
+                    return target in final_names, updated
                 finally:
                     context.close()
             finally:
