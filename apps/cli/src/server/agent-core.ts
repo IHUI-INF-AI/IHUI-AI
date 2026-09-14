@@ -10,6 +10,7 @@
  * 不依赖任何 IO 层(console/http/ws),纯回调驱动,可被任意 client(HTTP/WS/TUI/ACP)复用。
  */
 
+import { randomUUID } from 'node:crypto';
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import {
   setupAgentTools,
@@ -148,7 +149,7 @@ export class AgentCore {
       this.sessions.set(session.id, state);
     } else {
       state.messages.push({ role: 'user', content: text });
-      state.session.history.push({ role: 'user', content: text });
+      state.session.history.push({ id: randomUUID(), role: 'user', content: text });
     }
 
     const abort = new AbortController();
@@ -183,7 +184,11 @@ export class AgentCore {
       });
 
       if (result.assistantText) {
-        state.session.history.push({ role: 'assistant', content: result.assistantText });
+        state.session.history.push({
+          id: randomUUID(),
+          role: 'assistant',
+          content: result.assistantText,
+        });
       }
       saveSession(state.session);
 

@@ -21288,20 +21288,6 @@
   "menu": {
     "sectionDiscover": "발견"
   },
-  "lecturerDetail": {
-    "retry": "다시 시도",
-    "title": "강사 상세",
-    "subtitle": "강사 프로필",
-    "empty": "프로필이 없습니다",
-    "courses": "강좌",
-    "students": "수강생",
-    "followers": "팔로워",
-    "unfollowBtn": "팔로잉",
-    "followBtn": "팔로우",
-    "level": "레벨",
-    "studentCount": "수강생 {count}명",
-    "free": "무료"
-  },
   "messageCenter": {
     "type": {
       "system": "시스템",

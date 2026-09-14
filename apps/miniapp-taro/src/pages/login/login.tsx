@@ -739,7 +739,7 @@ function AgreementRow({
   )
 }
 
-/* ===== 主登录按钮(对齐 RN PrimaryLoginButton:橙底圆角) ===== */
+/* ===== 主登录按钮(对齐 RN PrimaryLoginButton:灰蓝底圆角) ===== */
 function PrimaryLoginButton({
   children,
   onClick,

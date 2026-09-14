@@ -40,9 +40,12 @@ export const rnTokens = {
     modal: 'rgba(0,0,0,0.4)',
   },
   brandAccent: {
-    light: '#fff7ed',
-    DEFAULT: '#ff6b35',
-    deep: '#c2410c',
+    light: '#eaf2f7',
+    DEFAULT: '#8fb8cc',
+    deep: '#4a7a96',
+    foreground: '#1e3a47',
+    gradFrom: '#b8d4e3',
+    gradTo: '#8fb8cc',
   },
   warning: {
     light: '#fffbeb',
@@ -86,7 +89,14 @@ export const rnLightTokens = {
   border: { light: '#E5E7EB', medium: '#D1D5DB' },
   error: { bg: '#FEE2E2', text: '#B91C1C' },
   overlay: { modal: 'rgba(0,0,0,0.4)' },
-  brandAccent: { light: '#fff7ed', DEFAULT: '#ff6b35', deep: '#c2410c' },
+  brandAccent: {
+    light: '#eaf2f7',
+    DEFAULT: '#8fb8cc',
+    deep: '#4a7a96',
+    foreground: '#1e3a47',
+    gradFrom: '#b8d4e3',
+    gradTo: '#8fb8cc',
+  },
   warning: {
     light: '#fffbeb',
     amberLight: '#fef3c7',
@@ -127,7 +137,14 @@ export const rnDarkTokens = {
   border: { light: '#374151', medium: '#4B5563' },
   error: { bg: '#7F1D1D', text: '#FCA5A5' },
   overlay: { modal: 'rgba(0,0,0,0.6)' },
-  brandAccent: { light: '#431407', DEFAULT: '#ff8e53', deep: '#ff8e53' },
+  brandAccent: {
+    light: '#1e2e36',
+    DEFAULT: '#a3c4d6',
+    deep: '#a3c4d6',
+    foreground: '#16262e',
+    gradFrom: '#b8d4e3',
+    gradTo: '#a3c4d6',
+  },
   warning: {
     light: '#451a03',
     amberLight: '#78350f',
@@ -172,7 +189,14 @@ export type RnTokens = {
   border: { light: string; medium: string }
   error: { bg: string; text: string }
   overlay: { modal: string }
-  brandAccent: { light: string; DEFAULT: string; deep: string }
+  brandAccent: {
+    light: string
+    DEFAULT: string
+    deep: string
+    foreground: string
+    gradFrom: string
+    gradTo: string
+  }
   warning: RnWarningTokens
   success: RnSuccessTokens
   danger: RnDangerTokens
@@ -186,7 +210,14 @@ export type RnThemeTokens = {
   border: { light: string; medium: string }
   error: { bg: string; text: string }
   overlay: { modal: string }
-  brandAccent: { light: string; DEFAULT: string; deep: string }
+  brandAccent: {
+    light: string
+    DEFAULT: string
+    deep: string
+    foreground: string
+    gradFrom: string
+    gradTo: string
+  }
   warning: RnWarningTokens
   success: RnSuccessTokens
   danger: RnDangerTokens

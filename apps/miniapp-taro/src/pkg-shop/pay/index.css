@@ -7,7 +7,7 @@
 /* Pay 页 — 视觉对齐 RN 端 PaymentScreen / PayButton / ConfirmPurchasePopUp(2026-09-08)
    卡片对齐 RN card:白底 var(--color-card) + 1px 描边 var(--color-border) + 圆角 12dp→24rpx;
    金额色对齐 RN amountValue(success.DEFAULT → var(--color-success));
-   支付方式选中态对齐全项目 brandAccent 语言(brand-orange-light 底 + brand-orange 描边);
+   支付方式选中态对齐全项目 brandAccent 语言(brand-accent-light 底 + brand-accent 描边);
    辅助描边按钮对齐 RN outlineBtn(success 描边 + success 字);
    主按钮对齐 RN primaryBtn/PayButton:高 50dp→100rpx / 圆角 12dp→24rpx / brand 黑底白字。 */
 
@@ -114,9 +114,9 @@
   border: 2rpx solid transparent;
 }
 .py-method--active {
-  /* 选中态对齐全项目 brandAccent 语言(同 vip 页支付方式选中态) */
-  background: var(--color-brand-orange-light);
-  border-color: var(--color-brand-orange);
+  /* 选中态对齐全项目 brandAccent 语言(同 vip 页支付方式选中态;前景描边用 deep 保对比) */
+  background: var(--color-brand-accent-light);
+  border-color: var(--color-brand-accent-deep);
 }
 .py-method-icon {
   width: 64rpx;

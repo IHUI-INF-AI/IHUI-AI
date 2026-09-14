@@ -108,10 +108,10 @@ export default function LanguagePage() {
                     {l.english}
                   </Text>
                 </View>
-                {/* 选中态对齐 RN SelectRow checkMark: 16dp→32rpx bold + brandAccent→--color-brand-orange;
+                {/* 选中态对齐 RN SelectRow checkMark: 16dp→32rpx bold + brandAccent→--color-brand-accent;
                     当前语言由选中行呈现,不再渲染 RN 没有的"当前语言"卡片 */}
                 {current === l.value ? (
-                  <Text className="text-[32rpx] font-bold text-[color:var(--color-brand-orange)]">
+                  <Text className="text-[32rpx] font-bold text-[color:var(--color-brand-accent-deep)]">
                     ✓
                   </Text>
                 ) : null}

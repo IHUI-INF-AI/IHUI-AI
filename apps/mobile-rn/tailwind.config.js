@@ -27,7 +27,7 @@ module.exports = {
       colors: {
         // RN 扩展语义色(2026-07-28 立,消除 screen 文件 hex 硬编码)
         // 值源自 global.css --rn-* 变量,暗色模式自动切换
-        // accent = 全项目统一强调橙(2026-09-06,对齐 --color-brand-orange;替换原 purple)
+        // accent = 全项目统一强调灰蓝(2026-09-06,对齐 --color-brand-accent;替换原 purple)
         accent: {
           DEFAULT: 'var(--rn-accent)',
           light: 'var(--rn-accent-light)',

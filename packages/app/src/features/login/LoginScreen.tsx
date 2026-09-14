@@ -728,6 +728,19 @@ function PhoneTabContent({
   const hasNationSelector = !!nations && !!phoneHead && !!onToggleNationShow
   return (
     <View style={styles.tabContent}>
+      {/* 运营商一键登录:零输入成本的首选登录路径,置顶为第一 CTA(对齐主流 App 登录页);
+          未配置通道时 wrapper 不注入节点,整块隐藏走验证码降级 */}
+      {carrierOneClickEntry ? (
+        <>
+          {carrierOneClickEntry}
+          {/* 分隔线:与下方验证码登录表单区分主次(复用第三方登录区"或"分隔样式) */}
+          <View style={styles.thirdPartyDivider}>
+            <View style={styles.thirdPartyDividerLine} />
+            <Text style={styles.thirdPartyDividerText}>{'或'}</Text>
+            <View style={styles.thirdPartyDividerLine} />
+          </View>
+        </>
+      ) : null}
       <View style={styles.field}>
         <Text style={styles.label}>{t('auth.phone')}</Text>
         {hasNationSelector ? (
@@ -868,8 +881,6 @@ function PhoneTabContent({
         showAgreeErr={showAgreeErr}
       />
       <PrimaryLoginButton t={t} styles={styles} loading={loading} onPress={onLogin} />
-      {/* 运营商一键登录入口(wrapper 注入,可选;未传/未配置则不渲染) */}
-      {carrierOneClickEntry ?? null}
     </View>
   )
 }
@@ -1911,12 +1922,12 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: tk.text.tertiary,
     },
     // ===== 主按钮 =====
-    // CTA 用品牌橙(brandAccent.DEFAULT)作"局部渐变点缀"(2026-09-07 复刻旧App品牌色 CTA 形态;
-    // 其他通用主按钮仍用 tk.brand.DEFAULT 纯黑,遵循"纯色为主+局部点缀")
+    // CTA 用主题黑白(brand.DEFAULT:亮色纯黑/暗色纯白,2026-09-14 用户定稿,不再用强调色 token),
+    // 与其他通用主按钮同语义;文字取主题反色 onBrandText(黑底白字/白底黑字)
     loginBtn: {
       height: 40,
       borderRadius: 6,
-      backgroundColor: tk.brandAccent.DEFAULT,
+      backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
