@@ -195,15 +195,28 @@ async def _run_script(
     cwd: Path,
     timeout_sec: int = 120,
     stdin_data: str | None = None,
+    domain: str | None = None,
 ) -> tuple[int, str, str]:
     """以 subprocess 方式调用 Python 脚本。
 
     返回 (returncode, stdout, stderr)。
     项目边界硬门禁(project_boundary.py)在脚本导入阶段自动生效,
-    fail-closed:路径越界会 sys.exit(2)。
+    fail-closed:未声明会话/路径越界均直接 sys.exit(3)。
+
+    Args:
+        domain: 'wechat' | 'koubo'。注入子进程环境变量 IHUI_SESSION_DOMAIN,
+            让 project_boundary 知道本次调用的项目归属。
+            2026-09-14 修:此前不注入 → 子进程读到全局 .session 文件(未声明/过期)
+            → publish_pipeline 等流水线在导入期直接 sys.exit(3),
+            导致 /self-media/wechat/* 与 /self-media/koubo/* 全链路不可用。
+            走环境变量而非改全局文件,是为了让 wechat/koubo 两类请求可并发而不串域。
     """
     if not script_path.is_file():
         return 2, "", f"script not found: {script_path}"
+
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    if domain:
+        env["IHUI_SESSION_DOMAIN"] = domain
 
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -214,7 +227,7 @@ async def _run_script(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             stdin=asyncio.subprocess.PIPE if stdin_data else None,
-            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+            env=env,
         )
     except Exception as e:
         return 3, "", f"subprocess spawn failed: {e}"
@@ -363,6 +376,7 @@ async def invoke_skill(skill_id: str, req: InvokeRequest) -> InvokeResponse:
                 args,
                 cwd=CONTENT_ENGINE_DIR,
                 timeout_sec=180,
+                domain="wechat",
             )
             output_lines.append(out)
             error_lines.append(err)
@@ -387,6 +401,7 @@ async def invoke_skill(skill_id: str, req: InvokeRequest) -> InvokeResponse:
                 [str(resolved_file)],
                 cwd=KOUBO_WORKFLOW_DIR / "tools",
                 timeout_sec=120,
+                domain="koubo",
             )
             output_lines.append(out)
             error_lines.append(err)
@@ -518,6 +533,7 @@ async def wechat_generate(req: WechatGenerateRequest) -> dict[str, Any]:
         args,
         cwd=CONTENT_ENGINE_DIR,
         timeout_sec=180,
+        domain="wechat",
     )
     duration_ms = int((time.monotonic() - t0) * 1000)
     return {
@@ -600,6 +616,7 @@ async def wechat_publish(req: WechatPublishRequest) -> dict[str, Any]:
         args,
         cwd=CONTENT_ENGINE_DIR,
         timeout_sec=300,
+        domain="wechat",
     )
     return {
         "ok": rc == 0,
@@ -685,6 +702,7 @@ async def koubo_validate(req: KouboValidateRequest) -> dict[str, Any]:
         [str(file_path)],
         cwd=KOUBO_WORKFLOW_DIR / "tools",
         timeout_sec=120,
+        domain="koubo",
     )
     return {
         "ok": rc == 0,
