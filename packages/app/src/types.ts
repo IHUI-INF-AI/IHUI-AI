@@ -347,6 +347,7 @@ export type {
   CustomerServiceScreenProps,
   LecturerDetailInfo,
   LecturerDetailCourse,
+  LecturerDetailReview,
   LecturerDetailScreenProps,
   NoteItem,
   NoteScreenProps,
