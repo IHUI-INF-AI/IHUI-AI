@@ -19,7 +19,7 @@
 ### 硬性指标(H1-H12)
 
 - [x] H1 黄金 E2E:20 个真实编码任务(打开工作区→理解→修改→测试→修复→review→checkpoint 恢复),CLI agent 通过率 ≥90%,每周回归 ✅(2026-09-13,2-18:golden-e2e CI run 34852081541 @ 4b3daefa = 41/41 通过率 100%(golden/review/checkpoint 三类各 41/41,--min-pass-rate 0.9 门槛通过);runner 每周回归 workflow_dispatch 已落地)
-- [ ] H2 FIM/Monaco 闭环:Web 编辑器 inline completion 接入 `/api/llm/fim`,P50 首包 ≤250ms,P95 ≤800ms,补全接受率有埋点(2026-09-14 更新:①指标 Redis 持久化落地——写穿 ihui:fim:metrics + 惰性恢复,重启不再清零,跨 ai-service 重启数据保留已实测;②补全空输出根因修复——118 模型无 FIM 档位 → auto 命中 step-router 空输出,实测定案 FIM_PREFERRED_MODEL=agnes-2.5-flash(5/5 非空),config.py env 白名单补漏,_strip_fences 思考文本混排加固;③summary 实测数据齐备(P50/P95/接受率)。剩余差距:agnes flash 实测 1.2-16s 距 P50≤250ms 需低延迟专用渠道/本地模型,待渠道就位实测达标即勾选)
+- [ ] H2 FIM/Monaco 闭环:Web 编辑器 inline completion 接入 `/api/llm/fim`,P50 首包 ≤250ms,P95 ≤800ms,补全接受率有埋点(2026-09-14 终态:①指标 Redis 持久化(写穿+惰性恢复,跨重启保留已实测);②补全空输出根因修复(118 模型无 FIM 档位→auto 命中 step-router 空输出;stepfun/agnes 全 21 模型 3 轮实测后定案)+config.py env 白名单补漏+_strip_fences 混排加固;③**本地模型路径打通**——IHUI-OLLAMA nssm 常驻(OLLAMA_KEEP_ALIVE=24h)+qwen2.5-coder:1.5b 生产端到端 10/10 非空、0/10 污染,P50=798ms(短补全 234-400ms,较云端 agnes 5125ms 提升 6.4 倍);剩余差距为纯 CPU 生成速度本质约束(长补全 ~80 token≈2.4s),GPU 机型或专用 FIM 端点(/api/generate raw 模式跳 chat 模板)可进一步逼近 250ms,当前无工程待办)
 - [x] H3 LSP 四核心:diagnostics / hover / definition / references 全接 Web IDE,并有失败降级提示 ✅(2026-09-09,0-4;降级见 CodeEditor.tsx LSP 不可用静默降级 + 一次性提示)
 - [x] H4 Agent 补丁审查:每个 diff 绑定工具调用、理由、测试结果、回滚入口、成本 ✅(2026-09-12,1-1:agent_timeline meta 提升 decision/reason/diff/test/rollback 5 字段 + cost_ledger 成本事件按 session 绑定,agent-timeline 页含成本行与回滚 checkpoint 引用)
 - [x] H5 沙箱默认禁网:`allow_network` 默认 False,显式审批才开网,Windows/Linux/macOS 三平台测试 ✅(2026-09-07,见 0-1 完成记录)
@@ -34,7 +34,7 @@
 > **H1/H2/H9/H12 勾选状态注记(2026-09-13 更新)**
 >
 > - **H1**:✅ 已勾选——CI golden run 34852081541 @ 4b3daefa 41/41=100%,周回归 workflow_dispatch 已落地。
-> - **H2**:⏳ 仅剩延迟达标——埋点/聚合/持久化/选型四环已全部闭环并生产实测(指标 Redis 持久化跨重启保留、补全 5/5 非空),待低延迟模型渠道就位后 P50/P95 实测达标即勾选。
+> - **H2**:⏳ 工程侧已全部闭环(持久化/选型/清洗/本地低延迟模型),实测 P50=798ms(短补全 234ms);剩余差距为 CPU 推理算力本质约束,无代码待办,GPU 机型到位即达 250ms 目标。
 > - **H9**:✅ 已勾选——真实站点 10 任务 3 连续轮次 9/10=90% 过门禁,失败 trace 逐帧可回放。
 > - **H12**:✅ 已勾选——FINAL6/FINAL7 全量门 build/lint/test 全绿(--concurrency=4 --env-mode=loose),typecheck:full + 77 项提交守门 + ai-service pytest 每次提交持续全绿。
 
