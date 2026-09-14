@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, SquareSlash, AtSign, Info, Camera } from 'lucide-react'
+import { Send, Square, SquareSlash, AtSign, Info } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -27,8 +27,6 @@ import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-m
 import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
 import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel'
 import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
-import { ModeSwitcher } from '@/components/chat/mode-switcher'
-import { SamplingParamsButton } from '@/components/chat/sampling-params-panel'
 import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
 import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
@@ -184,7 +182,6 @@ export function MessageInput({
     references,
     resetReferences,
     addFileReference,
-    addTextReference,
     onSend,
     inputCoreRef,
     draftKey: DRAFT_KEY,
@@ -336,14 +333,6 @@ export function MessageInput({
     })
     requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
-
-  // 截图入口:Web 无系统级截图 API(Tauri 未暴露截图命令),退化为文件选择,
-  // 并提示可直接 Ctrl+V 粘贴剪贴板截图(粘贴链路见 useMessageSend.handlePaste)
-  const handleScreenshot = React.useCallback(() => {
-    if (isStreaming) return
-    fileInputRef.current?.click()
-    toast.info(t('screenshotHint'))
-  }, [isStreaming, t])
 
   // 手动压缩上下文(2026-09-02 立):点击触发 POST /api/chat/compact
   // - 请求进行中 loading + 禁用;compressed=true → 成功 toast + 重新拉取当前会话消息列表
@@ -742,37 +731,10 @@ export function MessageInput({
                   </button>
                 </span>
               </Tooltip>
-              {/* 截图入口:浏览器无系统截图 API(非 Electron/Tauri 截图命令),
-                  按钮走文件选择,并提示可直接粘贴剪贴板截图(handlePaste 已接管图片) */}
-              <Tooltip content={t('screenshot')} side="top">
-                <span className="inline-flex">
-                  <button
-                    type="button"
-                    onClick={handleScreenshot}
-                    disabled={isStreaming}
-                    data-testid="input-screenshot"
-                    aria-label={t('screenshot')}
-                    className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                      'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                      'disabled:cursor-not-allowed disabled:opacity-50',
-                    )}
-                  >
-                    <Camera className="h-4 w-4" />
-                  </button>
-                </span>
-              </Tooltip>
-              {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
-                  与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
-              <ModeSwitcher disabled={isStreaming} />
-              {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
-                  自定义 system prompt,会话级持久化,随请求下发 LLM 网关 */}
-              <SamplingParamsButton disabled={isStreaming} />
               <input
                 ref={fileInputRef}
                 type="file"
-                // 矩阵 A #19:与 use-message-references UPLOADABLE_EXTENSIONS 白名单对齐
-                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.json,.zip,.odt,.rtf,.epub"
+                accept="image/*,video/*"
                 multiple
                 onChange={handleFileInputChange}
                 className="hidden"

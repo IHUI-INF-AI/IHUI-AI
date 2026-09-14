@@ -114,16 +114,7 @@ export type NewPayment = typeof payments.$inferInsert
 /**
  * AI 模型定价表（ai_pricing）。
  * - modelId: 模型标识（对应 ai_model_config.name 与 ai_cost_records.model，按模型名匹配定价）。
- * - inputTokenPrice/outputTokenPrice: 输入/输出 token 单价，单位"分/千 token"（numeric(18,6)）。
- * - billingMode: 计费模式(2026-09-13 立,四选一):
- *     'token'     按 token 计费(默认,用 input/outputTokenPrice)
- *     'per_call'  按次计费(用 tieredCallPrices 三档,档位按请求 promptTokens 划分)
- *     'per_image' 按张计费(用 perUnitPrice,分/张)
- *     'per_video' 按视频计费(用 perUnitPrice,单位看 videoUnit:'call'=分/次,'second'=分/秒)
- * - perUnitPrice: 单位价(分),per_image=分/张;per_video 看 videoUnit(分/次 或 分/秒)。
- * - tieredCallPrices: per_call 三档价(分/次),键 le256k/mid/gt512k,
- *     档位阈值 256K=262144、512K=524288(按请求 promptTokens)。
- * - videoUnit: per_video 计价单位,'call'(默认)|'second'。
+ * - inputTokenPrice/outputTokenPrice: 输入/输出 token 单价，单位"分/千 token"（整数，避免浮点误差）。
  * - regionPricing: 区域差价系数 JSON，如 { "cn": 1.0, "us": 1.2, "eu": 1.15 }。
  * - discount: 折扣规则 JSON，如 { "type": "percentage", "value": 0.8, "minTokens": 100000 }。
  * - currency: 货币类型，默认 CNY。
@@ -147,14 +138,6 @@ export const aiPricing = pgTable(
       scale: 6,
       mode: 'number',
     }).notNull(),
-    // 计费模式(2026-09-13):token | per_call | per_image | per_video,默认 token 向后兼容
-    billingMode: varchar('billing_mode', { length: 16 }).default('token').notNull(),
-    // 单位价(分):per_image=分/张;per_video=分/次 或 分/秒(videoUnit)
-    perUnitPrice: numeric('per_unit_price', { precision: 18, scale: 6, mode: 'number' }),
-    // per_call 三档价(分/次):{ le256k, mid, gt512k }
-    tieredCallPrices: jsonb('tiered_call_prices'),
-    // per_video 计价单位:'call'(按次) | 'second'(按秒)
-    videoUnit: varchar('video_unit', { length: 8 }),
     regionPricing: jsonb('region_pricing').notNull().default({ cn: 1.0 }),
     discount: jsonb('discount'),
     currency: varchar('currency', { length: 8 }).default('CNY').notNull(),

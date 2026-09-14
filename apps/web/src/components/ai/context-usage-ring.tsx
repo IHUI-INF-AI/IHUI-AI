@@ -397,9 +397,6 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
           ref={triggerRef}
           onClick={() => setIsOpen((prev) => !prev)}
           type="button"
-          // E2E 锚点(2026-09-14 补回):aria-label 是百分比动态插值,floating-panel-viewport
-          // 等 e2e 需要稳定 testid 选中触发按钮
-          data-testid="context-usage-trigger"
           aria-label={triggerLabel}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
@@ -420,9 +417,7 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
         createPortal(
           <div
             ref={panelRef}
-            // z-popover(2026-09-14 补):portal 挂 body 且 z-auto,营销首页 hero 区
-            // 祖先 z-10 会整体压住弹层(与 add-menu-popover 同根因)
-            className="z-popover w-72 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-72 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={
               coords
                 ? { position: 'fixed', top: coords.top, left: coords.left }

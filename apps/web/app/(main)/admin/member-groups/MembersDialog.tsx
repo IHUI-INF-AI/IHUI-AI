@@ -5,45 +5,100 @@
 'use client'
 
 import * as React from 'react'
-import { cn } from '@/lib/utils'
-import { useNavigationStore } from '@/stores/navigation'
-import { PageSkeleton } from './PageSkeleton'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { Loader2, UserPlus } from 'lucide-react'
+import {
+  Button,
+  Input,
+  Label,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@ihui/ui-react'
+import { selectClass, api } from './helpers'
+import type { MemberGroup } from './types'
 
-// PageSkeleton 无 props,memo 后在 pending 切换时可整体跳过重渲染。
-const MemoPageSkeleton = React.memo(PageSkeleton)
-
-/**
- * NavLoadingOverlay — 内容区导航加载覆盖层(2026-09-13 从 GlobalShell 拆出)
- *
- * 拆分原因(实测):覆盖层原本直接渲染在 GlobalShell 内,于是 GlobalShell 必须订阅
- * `pending`。GlobalShell 是**包住整棵路由树(children)的壳**,它一重渲染就带着全站
- * 页面、侧栏容器、WebWorkPanel、PWA 提示、埋点组件一起走一遍渲染。
- * A/B 四模式实测:点击侧栏时 `startNav()` 这一路给 click→pushState 增加 85ms,
- * 并产生 56ms 首帧同步长任务(both 模式叠加后达 94ms)。
- *
- * 根治:把订阅下沉到这个只渲染"一个 div + 骨架"的叶子组件。GlobalShell 不再订阅
- * pending → 点击时零重渲染;覆盖层自身重渲染成本仅一个 div 的 className 切换。
- *
- * 时序设计沿用 2026-09-02 第三刀:始终在 DOM 中(不条件渲染),
- * 显示走 delay-150 延迟淡入、隐藏走 duration-75 立即淡出 ——
- * 预取命中的快切换(<150ms)骨架从未开始淡入,用户直接看到新页面,零骨架闪现。
- */
-export function NavLoadingOverlay() {
-  const pending = useNavigationStore((s) => s.pending)
-  return (
-    <div
-      className={cn(
-        'absolute inset-0 z-10 bg-background transition-opacity',
-        pending
-          ? 'opacity-100 duration-100 delay-150'
-          : 'pointer-events-none opacity-0 duration-75',
-      )}
-      role="status"
-      aria-label="页面加载中"
-    >
-      <MemoPageSkeleton />
-    </div>
-  )
+interface Props {
+  group: MemberGroup | null
+  onClose: () => void
 }
 
+export function MembersDialog({ group, onClose }: Props) {
+  const qc = useQueryClient()
+  const [userId, setUserId] = React.useState('')
+  const [role, setRole] = React.useState('member')
+
+  const addMut = useMutation({
+    mutationFn: () =>
+      api(`/api/groups/${group?.id}/members`, {
+        method: 'POST',
+        body: JSON.stringify({ userId: userId.trim(), role: role || 'member' }),
+      }),
+    onSuccess: () => {
+      toast.success('添加成员成功')
+      qc.invalidateQueries({ queryKey: ['admin', 'member-groups'] })
+      setUserId('')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  React.useEffect(() => {
+    if (!group) {
+      setUserId('')
+      setRole('member')
+    }
+  }, [group])
+
+  return (
+    <Dialog open={group !== null} onOpenChange={(o) => (o ? null : onClose())}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            成员管理 · {group?.name}
+          </DialogTitle>
+          <DialogDescription>当前成员数：{group?.memberCount ?? 0}</DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!userId.trim()) return
+            addMut.mutate()
+          }}
+          className="space-y-3"
+        >
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">用户 ID</Label>
+            <Input
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              className="h-9"
+              placeholder="用户 UUID"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">角色</Label>
+            <select value={role} onChange={(e) => setRole(e.target.value)} className={selectClass}>
+              <option value="member">member</option>
+              <option value="admin">admin</option>
+            </select>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={addMut.isPending}>
+              关闭
+            </Button>
+            <Button type="submit" disabled={addMut.isPending || !userId.trim()}>
+              {addMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              添加成员
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

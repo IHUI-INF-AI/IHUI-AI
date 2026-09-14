@@ -4,24 +4,87 @@
 
 'use client'
 
-// 平台特有:依赖 document.visibilityState / visibilitychange(DOM API),不适合共享层。
+import { Loader2 } from 'lucide-react'
+import { Button, Input, Label } from '@ihui/ui-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui-react'
+import { cn } from '@/lib/utils'
 
-import * as React from 'react'
+const ALL_SCOPES = ['read', 'write', 'admin', 'billing', 'webhook']
 
-/**
- * 页面是否可见(SSR 安全:服务端与首帧默认 true)。
- * 用于后台轮询降频:隐藏时低频、回到前台立即刷新。
- */
-export function usePageVisibility(): boolean {
-  const [visible, setVisible] = React.useState(true)
+interface Props {
+  open: boolean
+  name: string
+  scopes: string[]
+  isPending: boolean
+  onOpenChange: (v: boolean) => void
+  onNameChange: (v: string) => void
+  onToggleScope: (s: string) => void
+  onCreate: () => void
+  onCancel: () => void
+}
 
-  React.useEffect(() => {
-    const sync = (): void => setVisible(document.visibilityState === 'visible')
-    sync()
-    document.addEventListener('visibilitychange', sync)
-    return () => document.removeEventListener('visibilitychange', sync)
-  }, [])
-
-  return visible
+export function KeyDialog({
+  open,
+  name,
+  scopes,
+  isPending,
+  onOpenChange,
+  onNameChange,
+  onToggleScope,
+  onCreate,
+  onCancel,
+}: Props) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>新建 API 密钥</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="space-y-1">
+            <Label className="text-sm">密钥名称</Label>
+            <Input
+              value={name}
+              onChange={(e) => onNameChange(e.target.value)}
+              placeholder="如:生产环境密钥"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-sm">权限范围</Label>
+            <div className="flex flex-wrap gap-2">
+              {ALL_SCOPES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => onToggleScope(s)}
+                  className={cn(
+                    'rounded-md border px-2.5 py-1 text-xs transition-colors',
+                    scopes.includes(s)
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-accent',
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>
+            取消
+          </Button>
+          <Button
+            onClick={onCreate}
+            disabled={!name.trim() || isPending}
+            className="whitespace-nowrap"
+          >
+            {isPending && <Loader2 className="mr-1 h-4 w-4 shrink-0 animate-spin" />}
+            <span className="whitespace-nowrap">创建</span>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

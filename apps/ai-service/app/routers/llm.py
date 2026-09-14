@@ -32,7 +32,6 @@ from pydantic import BaseModel, Field
 from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.llm_gateway import llm_gateway, moa_router
-from ..core.model_naming import to_official_model_name
 from ..core.provider_caps import (
     cap_to_dict,
     cap_with_max_context,
@@ -342,68 +341,6 @@ def _inject_workspace_memory(
     return new_messages
 
 
-def _escape_xml_attr(value: str) -> str:
-    """转义 XML 属性值中的 & < > " ',防止属性注入破坏标签结构。"""
-    return (
-        value.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-        .replace("'", "&apos;")
-    )
-
-
-def _inject_repo_wiki(
-    messages: list[dict[str, Any]],
-    wiki_context: str | None,
-    wiki_repo: str | None = None,
-) -> list[dict[str, Any]]:
-    """P1-8(2026-09-13 立,Repo Wiki):将「项目百科」摘要注入为 system message。
-
-    独立实现,不改动 _inject_workspace_memory 的任何行为。语义与工作区记忆同型:
-    - wiki_context 为空/纯空白 → 原样返回 messages
-    - messages[0].role == 'system' → 追加到现有 system content 末尾
-    - messages 无 system → 在开头 insert 一条新 system message
-    - 用 <repo_wiki repo="...">...</repo_wiki> 包裹正文(repo 值做 XML 属性转义,防注入)
-    - 去重 marker:<!-- repo_wiki:{repo} -->(repo 为空时用 unknown),
-      目标 system content 中已存在该 marker 则原样返回 messages
-    - 不修改入参列表本身(拷贝后返回)
-
-    Args:
-        messages: 原始消息列表
-        wiki_context: 项目百科正文(为空/纯空白时跳过)
-        wiki_repo: 仓库名(None/空 → 标签与 marker 用 'unknown')
-
-    Returns:
-        注入项目百科后的新消息列表(不修改原列表)
-    """
-    if not wiki_context or not str(wiki_context).strip():
-        return messages
-    repo_label = (wiki_repo or "").strip() or "unknown"
-    marker = f"<!-- repo_wiki:{repo_label} -->"
-    body = (
-        "以下为该项目自动生成的「项目百科」(Repo Wiki)摘要,"
-        "可作为回答代码/架构问题的权威背景:\n\n"
-        f"{wiki_context}"
-    )
-    isolated = (
-        f'<repo_wiki repo="{_escape_xml_attr(repo_label)}">\n'
-        f"{body}\n"
-        f"</repo_wiki>"
-    )
-    new_messages = list(messages)
-    if new_messages and new_messages[0].get("role") == "system":
-        existing = new_messages[0].get("content", "")
-        if marker in str(existing):
-            return messages
-        merged = f"{existing}\n\n{marker}\n{isolated}" if existing else f"{marker}\n{isolated}"
-        new_messages[0] = {**new_messages[0], "content": merged}
-    else:
-        # 新插入的 system 也带上 marker,保证二次调用可命中去重
-        new_messages.insert(0, {"role": "system", "content": f"{marker}\n{isolated}"})
-    return new_messages
-
-
 # Plan/Act 模式引导 prompt(2026-07-24 立,自研双模切换)
 # plan 模式:LLM 只制定计划不调用工具;act 模式:正常 tool loop 执行
 _PLAN_MODE_PROMPT = (
@@ -432,27 +369,6 @@ def _inject_plan_mode_prompt(
         new_messages[0] = {**new_messages[0], "content": merged}
     else:
         new_messages.insert(0, {"role": "system", "content": _PLAN_MODE_PROMPT})
-    return new_messages
-
-
-def _inject_custom_system_prompt(
-    messages: list[dict[str, Any]], prefix: str | None
-) -> list[dict[str, Any]]:
-    """P1-7(2026-09-13 立):会话级自定义 system prompt 前置注入。
-
-    与 _inject_system_prefix 同语义(在 system 消息最顶部合并,无 system 消息则新插一条);
-    此处独立实现,保证本次 P1-7 提交不依赖其他并行改动的中间态。
-    prefix 为空时原样返回,调用点可无条件调用。
-    """
-    if not prefix:
-        return messages
-    new_messages = list(messages)
-    if new_messages and new_messages[0].get("role") == "system":
-        existing = new_messages[0].get("content", "")
-        merged = f"{prefix}\n\n{existing}" if existing else prefix
-        new_messages[0] = {**new_messages[0], "content": merged}
-    else:
-        new_messages.insert(0, {"role": "system", "content": prefix})
     return new_messages
 
 
@@ -550,13 +466,6 @@ class LLMCompleteRequest(BaseModel):
     )
     temperature: float | None = Field(None, description="采样温度")
     max_tokens: int | None = Field(None, description="最大生成 token 数")
-    # P1-7(2026-09-13 立,四竞品对标:CodeX/Qoder 高级参数面板):
-    # 会话级采样参数与自定义 system prompt,由前端"高级参数"抽屉按会话下发。
-    top_p: float | None = Field(None, description="核采样 top-p(0-1),None=用模型默认")
-    top_k: int | None = Field(None, description="top-k 采样(>0),None=用模型默认")
-    system_prompt: str | None = Field(
-        None, description="自定义 system prompt,注入到 system 消息最顶部(与工作区记忆叠加)"
-    )
     # Phase 3 集成字段(可选)
     metadata: dict[str, Any] | None = Field(
         None, description="调用方元数据(conversation_id/message_id/user_id 等),原样透传到 done 事件"
@@ -574,15 +483,6 @@ class LLMCompleteRequest(BaseModel):
     # 优先级:workspace_context > workspace_path
     workspace_context: str | None = Field(
         None, description="浏览器端预加载的工作区文件内容,直接注入 system prompt(优先于 workspace_path)"
-    )
-    # P1-8(2026-09-13 立,Repo Wiki):项目百科摘要注入
-    # API 网关按 repo_name 从 repo_wiki_docs 读出最新一版 overview 文档,截断后经此字段传入,
-    # 由 _inject_repo_wiki 独立注入(与 workspace_context 互不影响)。
-    wiki_context: str | None = Field(
-        None, description="项目百科(Repo Wiki)摘要,注入 system prompt 作为代码/架构问答背景"
-    )
-    wiki_repo: str | None = Field(
-        None, description="项目百科对应仓库名(用于去重 marker 与 <repo_wiki repo> 标签标注)"
     )
     # 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一,Python 端兜底)
     context_limit: int | None = Field(
@@ -625,17 +525,12 @@ RESTRICTED_MODEL_IDS = {"deepseek-chat", "deepseek-reasoner", "gpt-4o", "gpt-4o-
 
 
 def _is_restricted_model(model: str | None) -> bool:
-    """判断模型是否属于受限(真实付费 key)集合。
-
-    2026-09-13 修复:先做小写归一,避免客户端传大写写法(如 GPT-4o)绕过前缀/集合
-    判定导致非管理员越权消费付费额度(下游仍按小写解析到 openai 真实 key)。
-    """
+    """判断模型是否属于受限(真实付费 key)集合。"""
     if not model:
         return False
-    m = model.lower()
-    if m in RESTRICTED_MODEL_IDS:
+    if model in RESTRICTED_MODEL_IDS:
         return True
-    return any(m.startswith(p) for p in RESTRICTED_PREFIXES)
+    return any(model.startswith(p) for p in RESTRICTED_PREFIXES)
 
 
 async def _ensure_restricted_model_access(request: Request, model: str | None) -> None:
@@ -792,19 +687,10 @@ def _record_compaction_step(
 @router.post("/llm/complete", response_model=None)
 async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, Any] | JSONResponse:
     """直接调用 LLM 完成对话(支持 function calling)。"""
-    # 2026-09-13 立:入站模型名官方改写(大小写归一),须在受限模型权限判定前完成,
-    # 让权限判定与后续链路共用同一个归一值。
-    # model 为可选字段(None = 由下游选默认模型),此时保持 None 不改写。
-    if req.model:
-        req.model = to_official_model_name(req.model)
     await _ensure_restricted_model_access(request, req.model)
     owner_uuid = _resolve_owner_uuid(request)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(req.messages, req.workspace_path, req.workspace_context)
-    # P1-8(2026-09-13 立,Repo Wiki):项目百科独立注入(紧邻工作区记忆,互不影响)
-    messages = _inject_repo_wiki(messages, req.wiki_context, req.wiki_repo)
-    # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
-    messages = _inject_custom_system_prompt(messages, req.system_prompt)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     if req.context_limit and req.context_limit > 0:
         original_messages = messages
@@ -852,11 +738,6 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
         kwargs["temperature"] = req.temperature
     if req.max_tokens is not None:
         kwargs["max_tokens"] = req.max_tokens
-    # P1-7(2026-09-13 立):高级参数面板 top_p / top_k 透传(厂商不支持时 filter_call_kwargs 兜底剔除)
-    if req.top_p is not None:
-        kwargs["top_p"] = req.top_p
-    if req.top_k is not None:
-        kwargs["top_k"] = req.top_k
     result = await llm_gateway.complete(messages, model=req.model, owner_uuid=owner_uuid, **kwargs)
     # 错误前置返回(P1 错误标准化,2026-07-22 立):
     # 之前 LLM 错误一律 HTTP 200 + result.error:True,网关/监控层无法通过状态码识别失败,
@@ -1280,11 +1161,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
       透传 errorCode 到 Error 对象 → onError 回调。
     """
 
-    # 2026-09-13 立:入站模型名官方改写(大小写归一),须在受限模型权限判定前完成,
-    # 让权限判定与后续链路共用同一个归一值。
-    # model 为可选字段(None = 由下游选默认模型),此时保持 None 不改写。
-    if req.model:
-        req.model = to_official_model_name(req.model)
     accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
     await _ensure_restricted_model_access(request, req.model)
     owner_uuid = _resolve_owner_uuid(request)
@@ -1295,10 +1171,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     messages = _inject_plan_mode_prompt(req.messages, req.plan_mode)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(messages, req.workspace_path, req.workspace_context)
-    # P1-8(2026-09-13 立,Repo Wiki):项目百科独立注入(紧邻工作区记忆,互不影响)
-    messages = _inject_repo_wiki(messages, req.wiki_context, req.wiki_repo)
-    # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
-    messages = _inject_custom_system_prompt(messages, req.system_prompt)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:
@@ -2172,16 +2044,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 _native_fc_kwargs["tools"] = req.tools
                 if req.tool_choice is not None:
                     _native_fc_kwargs["tool_choice"] = req.tool_choice
-            # P1-7(2026-09-13 立):高级参数面板 temperature/top_p/top_k/max_tokens 透传
-            # (厂商不支持时由 llm_gateway.filter_call_kwargs 兜底剔除)
-            if req.temperature is not None:
-                _native_fc_kwargs["temperature"] = req.temperature
-            if req.top_p is not None:
-                _native_fc_kwargs["top_p"] = req.top_p
-            if req.top_k is not None:
-                _native_fc_kwargs["top_k"] = req.top_k
-            if req.max_tokens is not None:
-                _native_fc_kwargs["max_tokens"] = req.max_tokens
             # 2026-09-03 修复(agent 通道污染):原生 FC 本轮是否已发出 tool-call-start。
             # agent 场景模型常返回 tool_calls + 0 content,下方空回复兜底若不排除该情况,
             # 会往流里插一条"抱歉,未能生成有效回复"假文案,被 CLI 存入 assistant 消息回传 provider,污染上下文。

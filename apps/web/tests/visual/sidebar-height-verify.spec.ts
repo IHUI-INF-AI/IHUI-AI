@@ -95,14 +95,15 @@ test.describe('侧边栏按钮高度统一验证', () => {
         r.newTask_class = newTask.className.substring(0, 150)
       }
 
-      // header 折叠按钮(2026-09-14 校准:图标已换为 PanelLeftRounded 且实测 svg 无
-      // lucide-panel-left 类名,改按 aria-label(收起/展开)+ 类名兜底匹配;实测高度 36)
+      // header 折叠按钮(PanelLeftClose/PanelLeftOpen 图标)
       const allBtns = aside.querySelectorAll('button')
       for (const b of Array.from(allBtns)) {
-        const aria = b.getAttribute('aria-label') ?? ''
         const svg = b.querySelector('svg')
-        const svgClass = svg?.getAttribute('class') ?? ''
-        if (aria === '收起' || aria === '展开' || /panel-left/.test(svgClass)) {
+        if (
+          svg &&
+          (svg.classList.contains('lucide-panel-left-close') ||
+            svg.classList.contains('lucide-panel-left-open'))
+        ) {
           r.collapseBtn_height = b.getBoundingClientRect().height
           r.collapseBtn_class = b.className.substring(0, 150)
           break

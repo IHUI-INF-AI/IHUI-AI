@@ -80,8 +80,6 @@
     "disabledHint": "자가 치유 엔진이 비활성화되어 있습니다: ai-service .env에 AGENT_SELF_HEALING_ENABLED=true를 설정하고 재시작하세요",
     "durationHint": "치유 루프는 실제 pytest를 실행하고 LLM으로 패치를 생성하므로 수 분이 걸릴 수 있습니다",
     "failedCount": "실패 {count}",
-    "notifyCompletedTitle": "작업 완료: {name}",
-    "notifyFailedTitle": "작업 실패: {name}",
     "healed": "치유 완료",
     "history": "시도 기록",
     "lastRun": "마지막 라운드 성공/실패",
@@ -163,7 +161,8 @@
       "ctrl1": "빌드 모드로 전환",
       "ctrl2": "플랜 모드로 전환",
       "ctrl3": "리뷰 모드로 전환",
-      "ctrl4": "스펙 모드로 전환"
+      "ctrl4": "스펙 모드로 전환",
+      "ctrl5": "질문 모드로 전환"
     }
   },
   "teamMemory": {
@@ -228,9 +227,7 @@
     "delete": "삭제",
     "deleteConfirm": "이 문서를 삭제하시겠습니까?",
     "backToList": "목록으로",
-    "loadingDetail": "문서 불러오는 중…",
-    "regenerate": "다시 생성",
-    "regenerateDisabledHint": "다시 생성하려면 먼저 프로젝트 폴더를 선택하세요"
+    "loadingDetail": "문서 불러오는 중…"
   },
   "a11y": {
     "addAttachment": "첨부 파일 추가(이미지/비디오/파일)",
@@ -739,6 +736,7 @@
       "total": "총 {total}건"
     },
     "aiMetrics": {
+      "backToCost": "비용 대시보드로 돌아가기",
       "fimAcceptance": "FIM 완성 수락률",
       "fimAcceptanceDesc": "모델별 완성 수락률과 지연입니다. 수락률 30% 미만이고 제안 20건 이상이면 경고",
       "fimAcceptanceRate": "수락률",
@@ -749,7 +747,6 @@
       "fimNoData": "완성 데이터 없음",
       "fimRequests": "요청 수",
       "fimSuggestions": "제안 수",
-      "backToCost": "비용 대시보드로 돌아가기",
       "lastRefresh": "마지막 새로고침: {time}",
       "loadFailed": "로딩 실패, 잠시 후 재시도해 주세요",
       "pcErrors": "오류",
@@ -4210,8 +4207,6 @@
       "priorityLabel": "우선순위(숫자가 클수록 우선)",
       "refresh": "새로고침",
       "retry": "재시도",
-      "screenshot": "스크린샷",
-      "screenshotHint": "Ctrl+V로 스크린샷을 바로 붙여넣을 수도 있습니다",
       "save": "저장",
       "status": "상태",
       "subtitle": "전달 계층 applyParamOps 규칙 관리(15종 op + 조건 + JSON 경로)",
@@ -6008,15 +6003,11 @@
       "hideContent": "내용 숨기기",
       "like": "좋아요",
       "publishToCommunity": "커뮤니티에 게시",
-      "readAloud": "읽어주기",
-      "readAloudFailed": "읽기에 실패했습니다. 나중에 다시 시도해 주세요",
-      "readAloudTruncated": "내용이 너무 길어 앞의 {max}자만 읽습니다",
       "regenerate": "재생성",
       "reply": "답글",
       "share": "공유",
       "showContent": "내용 표시",
-      "toggleMetadata": "메타데이터 전환",
-      "stopReadAloud": "읽기 중지"
+      "toggleMetadata": "메타데이터 전환"
     },
     "next": "다음",
     "prev": "이전",
@@ -6774,6 +6765,8 @@
       "emptyHint": "/agents 또는 API로 백그라운드 작업 시작",
       "enableNotifications": "알림 켜기",
       "failedCount": "실패 {count}",
+      "notifyCompletedTitle": "작업 완료: {name}",
+      "notifyFailedTitle": "작업 실패: {name}",
       "runningCount": "{count} 실행 중",
       "title": "백그라운드 에이전트",
       "total": "총 {count}개",
@@ -6782,7 +6775,11 @@
     "checkpointHistory": {
       "empty": "체크포인트가 없습니다",
       "restore": "복원",
-      "title": "체크포인트 기록"
+      "title": "체크포인트 기록",
+      "scopeLabel": "롤백 범위",
+      "scopeConversation": "대화",
+      "scopeCode": "코드",
+      "scopeBoth": "둘 다"
     },
     "pane": {
       "ariaLabel": "Agent 작업 진행 패널",
@@ -6922,6 +6919,20 @@
       "subagentBatch": "서브에이전트 배치",
       "tabInline": "대화",
       "tabTimeline": "타임라인",
+      "citationBar": {
+        "title": "참조 출처"
+      },
+      "thumbRail": {
+        "title": "메시지 지도",
+        "userNode": "질문",
+        "toolNode": "도구",
+        "errorNode": "오류"
+      },
+      "appendAfterInterrupt": {
+        "title": "중단되었습니다. 지시를 입력하여 작업을 계속할 수 있습니다",
+        "continue": "계속",
+        "continueText": "계속"
+      },
       "terminal": {
         "copyOutput": "터미널 출력 복사",
         "failed": "{n} 실패",
@@ -6994,6 +7005,7 @@
         "moreItems": "…{n}개 더",
         "noMatch": "일치 없음",
         "result": "결과",
+        "revoked": "취소됨",
         "searchPlaceholder": "도구 검색...",
         "title": "도구 호출"
       },
@@ -7020,6 +7032,14 @@
       "coordinated": "{count}개 서브 에이전트 조정 완료",
       "defaultName": "서브 에이전트",
       "totalSteps": "(총 {count}단계)",
+      "lane.architect": "아키텍트",
+      "lane.coder": "코더",
+      "lane.debugger": "디버거",
+      "lane.general": "일반",
+      "lane.researcher": "리서처",
+      "lane.reviewer": "리뷰어",
+      "laneEmpty": "대기 중",
+      "viewToggle": "보기 전환",
       "working": "{count}개 서브 에이전트 협업 중"
     },
     "swarmMonitor": {
@@ -7065,6 +7085,7 @@
       "statusFailed": "실패",
       "statusRunning": "실행 중",
       "statusSuccess": "성공",
+      "statusRevoked": "철회됨 (실행 안 됨)",
       "callingTool": "도구 {name} 호출 중",
       "thinking": "생각 중: {preview}",
       "waitingResponse": "모델 응답을 기다리는 중…",
@@ -7147,9 +7168,30 @@
       "unpin": "상단 고정 해제",
       "branchFromHere": "여기에서 분기"
     },
+    "checkpoint": {
+      "title": "체크포인트 되돌리기",
+      "rewindHere": "여기로 되돌리기",
+      "total": "되돌릴 수 있는 지점 {count}개",
+      "loading": "불러오는 중…",
+      "refresh": "새로고침",
+      "empty": "체크포인트가 없습니다",
+      "item": "반복 #{iteration} · {status} · 메시지 {count}개",
+      "restoring": "복원 중…",
+      "rollback": "되돌리기",
+      "confirmTitle": "되돌리시겠습니까?",
+      "confirmDescription": "되돌리면 해당 체크포인트의 대화와 파일 상태로 복원됩니다. 이 작업은 취소할 수 없습니다.",
+      "confirmText": "되돌리기",
+      "restoreSuccess": "체크포인트로 되돌렸습니다",
+      "restoreFailed": "되돌리기에 실패했습니다"
+    },
     "addWorkspace": "워크스페이스 추가",
+    "assistant": "어시스턴트",
+    "back": "뒤로",
     "clearWorkspace": "워크스페이스 해제",
     "confirmDeleteConversation": "삭제 확인채팅？삭제후없음복원。",
+    "copied": "복사됨",
+    "copyFailed": "복사 실패",
+    "copyLink": "링크 복사",
     "deleteConversation": "삭제채팅",
     "deleteFailed": "삭제 실패",
     "deleteSuccess": "삭제됨",
@@ -7237,9 +7279,11 @@
     "floatMode": "플로팅 모드",
     "handleHint": "클릭하거나 오른쪽으로 드래그해 AI 작업공간 열기",
     "history": "채팅",
+    "loading": "로딩 중...",
     "messages": "메시지",
     "minimize": "최소화",
     "newConversation": "새 대화",
+    "noContent": "대화 내용이 없습니다",
     "noHistory": "없음채팅",
     "noRecentWorkspaces": "최근 워크스페이스 없음",
     "openTerminal": "터미널 열기",
@@ -7253,6 +7297,8 @@
     "resizeHandleHint": "드래그하여 너비 조정",
     "settings": "설정",
     "share": "공유",
+    "shareConversation": "공유된 대화",
+    "shareCopied": "링크가 복사되었습니다",
     "templates": "템플릿",
     "terminalDock": {
       "collapse": "접기",
@@ -7281,7 +7327,8 @@
     "today": "오늘",
     "openWorkPanel": "작업 패널 열기",
     "closeWorkPanel": "작업 패널 닫기",
-    "toggleWorkPanel": "작업 패널 전환"
+    "toggleWorkPanel": "작업 패널 전환",
+    "user": "사용자"
   },
   "aiCost": {
     "budgetAlerts": "예산 경고",
@@ -7864,9 +7911,61 @@
       "tokens": "사용량",
       "spec": "스펙",
       "runtime": "런타임",
-      "bestof": "최적 선택",
-      "hooks": "훅"
+      "bestof": "최적 선택"
     }
+  },
+  "bestOfCompare": {
+    "empty": "Best-of-N 기록이 없습니다. /bestof <작업> [#N] 으로 시작하세요",
+    "meta": "Best-of-N 선택(N={n}, {evaluator}, 총 비용 ${cost})",
+    "evaluatorFallback": "평가 폴백",
+    "diffToggle": "차이 비교",
+    "clear": "지우기",
+    "task": "작업: {task}",
+    "rationale": "평가 이유",
+    "score": "점수",
+    "noScore": "미평가",
+    "failed": "실패",
+    "adopt": "답변으로 채택",
+    "adopted": "채택됨",
+    "adoptHint": "선택한 후보 내용을 현재 대화에 기록"
+  },
+  "goalCard": {
+    "empty": "아직 대화 목표가 설정되지 않았습니다",
+    "emptyHint": "입력창에 /goal <목표>를 입력하거나 AI가 자동으로 추진합니다",
+    "progress": "진행률",
+    "statusActive": "진행 중",
+    "statusPaused": "일시정지",
+    "statusBlocked": "차단됨",
+    "statusDone": "완료",
+    "blockers": "차단 사유",
+    "noBlockers": "없음",
+    "blockerPlaceholder": "차단 사유 입력…",
+    "blockerAdd": "추가",
+    "blockerRemove": "차단 사유 제거",
+    "continue": "자동 재개",
+    "continuePrompt": "목표 「{goal}」 계속 추진(현재 진행률 {progress}%{blockers}). 계속 진행할 수 있으면 바로 진행하고, 여전히 막혀 있다면 이유를 설명하세요.",
+    "continueQueued": "재개 지시가 입력창에 추가되었습니다. 전송 후 자동 실행됩니다",
+    "pause": "일시정지",
+    "resume": "재개",
+    "done": "완료로 표시",
+    "clear": "지우기",
+    "cleared": "목표가 삭제되었습니다",
+    "resetProgress": "초기화",
+    "fullProgress": "100%로 설정"
+  },
+  "memoryCards": {
+    "title": "Typed Memory 메모리",
+    "rule": "규칙",
+    "fact": "사실",
+    "preference": "선호",
+    "project": "프로젝트",
+    "empty": "이 카테고리에는 아직 항목이 없습니다",
+    "placeholder": "기억할 내용을 입력…",
+    "add": "추가",
+    "remove": "이 메모리 삭제",
+    "copyYaml": "카테고리 YAML 복사(#Rule 확장과 동일 소스)",
+    "copied": "YAML이 클립보드에 복사되었습니다",
+    "copyFailed": "복사에 실패했습니다. 수동으로 복사해 주세요"
   },
   "announcements": {
     "backToList": "목록으로 돌아가기",
@@ -8290,63 +8389,45 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
-    "sampling": {
-      "trigger": "고급 파라미터",
-      "triggerActive": "고급 파라미터({count}개 사용자 지정)",
-      "triggerAria": "고급 파라미터 패널 열기",
-      "title": "고급 파라미터",
-      "desc": "샘플링 파라미터와 사용자 지정 시스템 프롬프트를 이번 요청에 적용합니다. 비워 두면 모델 기본값을 사용합니다.",
-      "scopeSession": "현재 세션 파라미터(이 세션에만 적용)",
-      "scopeDefault": "세션이 선택되지 않아 변경 사항이 모든 세션의 기본값으로 저장됩니다",
-      "promoteToDefaults": "모든 세션 기본값으로 설정",
-      "temperature": "무작위성 temperature",
-      "temperatureHint": "0~2. 낮을수록 안정적·보수적, 높을수록 창의적입니다. 비워 두면 모델 기본값.",
-      "topP": "핵 샘플링 top_p",
-      "topPHint": "0~1. 누적 확률이 높은 단어만 샘플링합니다. 보통 temperature와 함께 조정하지 않습니다.",
-      "topK": "후보 단어 수 top_k",
-      "topKHint": "1~1000. 각 단계에서 확률 상위 K개 단어만 선택합니다. 작을수록 보수적입니다.",
-      "maxTokens": "최대 출력 max_tokens",
-      "maxTokensHint": "1~200000. 이번 응답의 최대 길이이며 초과분은 잘립니다.",
-      "systemPrompt": "사용자 지정 시스템 프롬프트",
-      "systemPromptHint": "최대 8000자. 시스템 메시지 맨 앞에 주입되어 워크스페이스 기억과 합쳐집니다. 이전 대화는 변경되지 않습니다.",
-      "systemPromptPlaceholder": "예: 항상 한국어로 답변하고 결론을 먼저 제시",
-      "useModelDefault": "모델 기본값",
-      "clearParam": "{name} 지우기",
-      "resetAll": "모두 초기화",
-      "done": "완료"
-    },
-    "artifactPreview": "미리보기",
-    "artifactCode": "코드",
-    "canvasApplyRefresh": "적용 후 미리보기 새로고침",
-    "canvasOpenInCanvas": "캔버스에서 열기",
-    "canvasVersions": "버전 기록",
-    "canvasRevert": "이 버전으로 되돌리기",
-    "canvasFullscreen": "전체 화면 캔버스",
-    "canvasExitFullscreen": "전체 화면 종료",
-    "canvasEdited": "수동 편집",
-    "sessionUsage": {
-      "promptTokens": "입력",
-      "completionTokens": "출력",
-      "requests": "요청 수",
-      "estimateHint": "비용은 혼합 단가 기준 추정입니다(1K 토큰당 ¥0.02, 실제 청구 아님)",
-      "ariaLabel": "세션 누적 토큰 사용량"
-    },
     "addContextHint": "컨텍스트 파일 또는 참조 추가",
     "addContextReference": "컨텍스트 참조로 추가",
     "addMenuDesc": "추가 메뉴(템플릿/참조/Skill/첨부/플러그인/압축)",
     "addMenuLabel": "추가",
+    "artifactCode": "코드",
+    "artifactPreview": "미리보기",
     "assistant": "AI 어시스턴트",
+    "attachUploadFailed": "첨부 파일 업로드에 실패했습니다. 삭제 후 다시 추가해 주세요",
+    "attachUploading": "첨부 파일 업로드 중입니다. 잠시만 기다려 주세요",
     "cancel": "취소",
+    "canvasApplyRefresh": "적용 후 미리보기 새로고침",
+    "canvasEdited": "수동 편집",
+    "canvasExitFullscreen": "전체 화면 종료",
+    "canvasFullscreen": "전체 화면 캔버스",
+    "canvasOpenInCanvas": "캔버스에서 열기",
+    "canvasRevert": "이 버전으로 되돌리기",
+    "canvasVersions": "버전 기록",
     "clearInputAriaLabel": "입력 지우기",
     "clearInputTitle": "입력 내용 지우기",
     "cmdCode": "다음 기능을 코드로 구현하고 주석을 추가해 주세요:",
     "cmdExplain": "다음 개념을 자세히 설명해 주세요:",
-    "deepResearchEntry": "딥 리서치",
     "cmdKouboScript": "오늘의 더우인 나레이션 대본 8편을 생성해 주세요. 요구사항:\n1. 날짜: MMDD\n2. 주제 방향:\n3. 이중 문턱 검증(모호성 압축 / 교차 대본 어휘 / 전량 검증 / 어병 / 핫토픽 커버리지)\nkoubo-workflow 파이프라인을 실행하세요(제약 우선 작성법).",
     "cmdPolish": "다음 텍스트를 다듬어 더 전문적이고 유창하게 만들어 주세요:",
     "cmdSummary": "위 대화를 요약하고 핵심 정보를 추출해 주세요",
+    "viewNIntermediateSteps": "{count}개 중간 단계 보기",
+    "hideIntermediateSteps": "중간 단계 숨기기",
+    "batchDiff": {
+      "acceptAll": "모두 수락",
+      "rejectAll": "모두 거부",
+      "pendingCount": "{count}/{total}개 파일 변경 대기 중",
+      "applying": "파일 변경 적용 중…",
+      "done": "{applied}개 적용, {rejected}개 거부됨"
+    },
     "cmdTranslate": "다음 내용을 영어로 번역해 주세요:",
     "cmdWechatArticle": "위챗 공식계정 글을 생성해 주세요. 요구사항:\n1. 주제:\n2. 요약:\n3. 하이라이트 마커(금구 카드 / 팁 블록 / 인용 / 코드 블록 / 소제목)\n4. 이미지 제안:\ncontent-engine 파이프라인을 실행하세요(모위 그린 테마 + 22항목 자체 검증 + 임시 보관함 푸시).",
+    "codeBlock": {
+      "applyToFile": "파일에 적용",
+      "insertAtCursor": "커서 위치에 삽입"
+    },
     "commandArg": {
       "goalBenchmark": {
         "description": "대상 제품 인터랙션 세부 사항 참조, 항목별 구현 정렬, 4상태 자체 검증",
@@ -8441,6 +8522,11 @@
       "branch": "여기에서 분기"
     },
     "contextUsage": {
+      "breakdownTitle": "토큰 분류",
+      "categoryFiles": "파일",
+      "categoryHistory": "기록",
+      "categorySystem": "시스템 프롬프트",
+      "categoryTools": "도구 호출",
       "compressFailed": "압축 실패",
       "compressResultDesc": "원본 {original}자 → 압축 후 {compressed}자",
       "compressSuccess": "압축 성공",
@@ -8465,9 +8551,9 @@
     "copy": "복사",
     "copyFailed": "복사 실패",
     "createConversationFailed": "대화 생성 실패",
+    "deepResearchEntry": "딥 리서치",
     "downloadStarted": "다운로드가 시작되었습니다",
     "dropAttachmentHint": "마우스를 놓아 첨부파일 추가(이미지/동영상)",
-    "editComingSoon": "편집 기능이 곧 출시됩니다",
     "empty": "콘텐츠가 없습니다",
     "emptyHint": "아래에 메시지를 입력하여 AI와 대화를 시작하세요",
     "errorTimeout15s": "AI 응답 시간 초과(15초 내에 콘텐츠를 받지 못함), 나중에 다시 시도해 주세요",
@@ -8475,6 +8561,19 @@
     "errors": {
       "timeout15s": "AI 응답 시간 초과(15초 내 콘텐츠를 받지 못했습니다). 나중에 다시 시도해 주세요",
       "timeout60s": "AI 사고 시간 초과(60초 내 답변이 생성되지 않았습니다. 추론 모델의 사고가 너무 길 수 있음). 나중에 다시 시도하거나 일반 모델로 전환해 주세요"
+    },
+    "exportMenu": {
+      "label": "대화 내보내기 / 공유",
+      "exportMd": "Markdown 내보내기",
+      "exportJson": "JSON 내보내기",
+      "snapshot": "스냅샷 내보내기 (PNG)",
+      "share": "공유 링크 복사",
+      "exportStarted": "내보내기가 시작되었습니다",
+      "snapshotFailed": "스냅샷 생성 실패",
+      "shareFailed": "공유 링크를 가져오지 못했습니다",
+      "shareLinkCopied": "공유 링크가 복사되었습니다",
+      "roleUser": "사용자",
+      "roleAssistant": "어시스턴트"
     },
     "fallbackNotice": "백업 모델 {backup}(으)로 전환됨(원본 모델 {primary} 일시 사용 불가)",
     "feedbackRecorded": "피드백이 기록되었습니다",
@@ -8492,8 +8591,6 @@
     "loginRequiredTitle": "로그인 후 AI 대화 시작",
     "manageModels": "사용자 지정 모델 구성",
     "me": "나",
-    "modeAsk": "질문",
-    "modeAskDesc": "AI가 질문에만 답변하고 도구를 실행하지 않습니다",
     "mentionPopover": {
       "removeLabel": "{label} 제거"
     },
@@ -8502,27 +8599,28 @@
       "delete": "삭제",
       "downloadImages": "이미지 다운로드",
       "edit": "편집",
+      "editAndRerun": "저장 후 다시 실행",
+      "editRollbackFiles": "파일 변경도 롤백",
       "hideContent": "콘텐츠 숨기기",
-    "taskProgressOpen": "작업 진행 상황",
-    "toolsPanelOpen": "도구 패널 열기",
-    "toolsPanelClose": "도구 패널 숨기기",
       "jumpToLatest": "최신으로 이동",
       "like": "좋아요",
       "publishToCommunity": "커뮤니티에 게시",
+      "readAloud": "읽어주기",
+      "readAloudFailed": "읽기에 실패했습니다. 나중에 다시 시도해 주세요",
+      "readAloudTruncated": "내용이 너무 길어 앞의 {max}자만 읽습니다",
       "regenerate": "다시 생성",
       "reply": "답글",
       "share": "공유",
       "shareLinkCopied": "내용과 링크를 복사했습니다",
       "showContent": "콘텐츠 표시",
       "stopReadAloud": "읽기 중지",
-      "toggleMetadata": "메타데이터 전환",
-      "readAloud": "읽어주기",
-      "readAloudFailed": "읽기에 실패했습니다. 나중에 다시 시도해 주세요",
-      "readAloudTruncated": "내용이 너무 길어 앞의 {max}자만 읽습니다"
+      "toggleMetadata": "메타데이터 전환"
     },
     "messageDeleted": "메시지 삭제됨",
     "modeAlreadyActive": "현재 이미 {mode} 모드입니다",
-    "modeBadgeSwitchHint": "/build /plan /review /spec 입력 또는 Ctrl+1-4로 전환",
+    "modeAsk": "질문",
+    "modeAskDesc": "AI가 질문에만 답변하고 도구를 실행하지 않습니다",
+    "modeBadgeSwitchHint": "/ask /build /plan /review /spec 입력 또는 Ctrl+1-5로 전환",
     "modeBadgeTooltip": "AI 현재 모드: {mode}",
     "modeBuild": "빌드",
     "modeBuildDesc": "AI가 모든 도구를 활성화하여 정상 실행합니다",
@@ -8533,6 +8631,10 @@
     "modeSpec": "스펙",
     "modeSpecDesc": "AI가 코드에서 spec 문서를 역방향 생성합니다",
     "modeSwitched": "{mode} 모드로 전환됨",
+    "modeSwitcherLabel": "AI 모드 전환",
+    "taskProgressOpen": "작업 진행 상황",
+    "toolsPanelOpen": "도구 패널 열기",
+    "toolsPanelClose": "도구 패널 숨기기",
     "model": "모델",
     "modelAuto": "자동",
     "modelAutoDescription": "최적 모델 자동 선택",
@@ -8557,14 +8659,16 @@
     "modelLockedHint": "멤버십 업그레이드 필요",
     "modelNotConfigured": "현재 모델의 API Key가 설정되지 않았습니다. 모델 광장 페이지에서 원클릭 설정 가능",
     "modelOfficialBadge": "공식",
-    "modelSmartSaveBadge": "스마트 절약",
     "modelPointsMultiplier": "포인트 소비 배수",
     "modelPopoverMemberDesc": "유료 멤버로 업그레이드하고 75% 할인을 받으세요, 포인트 소비 속도가 {from}x에서 {to}x로 감소",
     "modelPopoverMemberTitle": "멤버 추가 75% 할인",
     "modelPopoverUpgradeButton": "업그레이드",
+    "modelSmartSaveBadge": "스마트 절약",
     "modelTagMemberDiscount": "멤버 75% 할인",
     "modelTagOfficial": "정식 버전",
     "modelTagSubsidy": "전용 보조금",
+    "pasteLongToChip": "붙여넣은 텍스트가 너무 길어 참조로 첨부했습니다",
+    "imageCompressed": "이미지가 압축되었습니다:{before} → {after}",
     "permission": {
       "buttonHintShortcut": "Shift+Tab으로 전환",
       "buttonLabel": "승인 모드",
@@ -8762,6 +8866,10 @@
       "title": "실행 계획",
       "totalDuration": "총 {duration}"
     },
+    "messageUsage": {
+      "total": "합계",
+      "ariaLabel": "이 메시지의 토큰 사용량"
+    },
     "promptOnlyTooltip": "참조 전용: 프론트엔드 prompt 의도이며 백엔드에 해당 도구 구현이 없음",
     "promptTemplate": "프롬프트 템플릿",
     "providerHealthTip": "지연 {latency}ms · {count}개 모델 사용 가능",
@@ -8776,6 +8884,16 @@
     "realIntegratedTooltip": "통합됨: ai-service 백엔드에 해당 MCP 도구가 있어 LLM이 실제로 호출 가능",
     "reconnectAttempt": "{n}번째 시도, {ms}ms 후 재시도",
     "reconnecting": "재연결 중",
+    "goalSet": "목표가 설정되었습니다",
+    "goalDone": "목표가 완료로 표시되었습니다",
+    "goalCleared": "목표가 삭제되었습니다",
+    "goalNone": "아직 목표가 없습니다. 사용법: /goal <목표>",
+    "goalCurrent": "현재 목표: {goal}({progress}%)",
+    "btwUsage": "임시 사이드 채팅, 메인 기록에 저장되지 않습니다. 사용법: /btw <질문>",
+    "btwBadge": "사이드 채팅",
+    "btwNoAnswer": "(답변 내용 없음)",
+    "btwNotSaved": "사이드 채팅 답변은 메인 기록에 저장되지 않습니다",
+    "btwFailed": "사이드 채팅 실패: {error}",
     "referenceCount": "{count}개 참조",
     "regenerating": "재생성 중…",
     "removeTool": "{name} 제거",
@@ -8783,6 +8901,8 @@
     "resumeNoProgress": "이어받기를 시도했지만 새 내용이 생성되지 않았습니다",
     "resumeRegenerate": "다시 생성",
     "retry": "재시도",
+    "screenshot": "스크린샷",
+    "screenshotHint": "Ctrl+V로 스크린샷을 바로 붙여넣을 수도 있습니다",
     "search": "메시지 검색",
     "searchClose": "검색 닫기",
     "searchNext": "다음",
@@ -8794,6 +8914,20 @@
     "selectedToolsTitle": "선택된 도구",
     "selfMediaSkill": "셀프미디어 Skill",
     "send": "보내기",
+    "sessionUsage": {
+      "promptTokens": "입력",
+      "completionTokens": "출력",
+      "requests": "요청 수",
+      "inputCost": "입력 비용",
+      "outputCost": "출력 비용",
+      "pricingHint": "현재 모델 단가표 기준 환산(1K 토큰당 위안), 최종 청구 금액 아님",
+      "noPriceHint": "이 모델의 가격 데이터가 없어 토큰 수만 표시",
+      "ariaLabel": "세션 누적 토큰 사용량",
+      "balance": "토큰 잔액",
+      "vipDiscount": "VIP{level} · {rate}% 과금",
+      "promotionHint": "프로모션 기간 추가 20% 할인",
+      "quotaUsedPercent": "월 할당량 {percent}% 사용"
+    },
     "showReasoning": "추론 표시",
     "skillLibrary": {
       "builtin": {
@@ -8903,6 +9037,7 @@
     "stop": "녹음 중지",
     "streamingIndicator": "AI가 생성 중",
     "streamingIndicatorHint": "AI가 생성 중입니다. 다음 메시지를 입력할 수 있습니다",
+    "historyNavPosition": "입력 기록 {current}/{total}",
     "thinking": "생각 중…",
     "timelineAiReply": "AI 응답",
     "timelineUserMessage": "사용자 메시지",
@@ -9026,17 +9161,14 @@
       "yi": "영일만물",
       "zhipu": "지푸"
     },
+    "voiceInputEmpty": "음성이 인식되지 않았습니다. 마이크에 가까이서 다시 시도해 주세요",
+    "voiceInputError": "음성 인식을 사용할 수 없습니다. 네트워크를 확인하거나 Chrome/Edge를 사용해 주세요",
+    "voiceInputNativeFallback": "브라우저 음성 서비스를 사용할 수 없습니다. 로컬 받아쓰기로 전환되었습니다. 다시 시도해 주세요",
+    "voiceInputNetworkError": "네트워크 오류가 발생했습니다. 연결을 확인하고 다시 시도해 주세요",
     "voiceInputStart": "음성 입력",
     "voiceInputStop": "음성 입력 중지",
-    "voiceInputNativeFallback": "브라우저 음성 서비스를 사용할 수 없습니다. 로컬 받아쓰기로 전환되었습니다. 다시 시도해 주세요",
-    "voiceInputError": "음성 인식을 사용할 수 없습니다. 네트워크를 확인하거나 Chrome/Edge를 사용해 주세요",
     "voiceInputSttFailed": "받아쓰기에 실패했습니다. 나중에 다시 시도하거나 로컬 음성 서비스를 확인해 주세요",
-    "voiceInputEmpty": "음성이 인식되지 않았습니다. 마이크에 가까이서 다시 시도해 주세요",
-    "voiceInputUnauthorized": "로그인이 만료되었습니다. 페이지를 새로고침하고 다시 시도해 주세요",
-    "voiceInputNetworkError": "네트워크 오류가 발생했습니다. 연결을 확인하고 다시 시도해 주세요",
-    "regenerate": "재생성",
-    "screenshot": "스크린샷",
-    "screenshotHint": "파일 선택이 열렸습니다. Ctrl+V로 클립보드 스크린샷을 붙여넣을 수도 있습니다"
+    "voiceInputUnauthorized": "로그인이 만료되었습니다. 페이지를 새로고침하고 다시 시도해 주세요"
   },
   "chatHistory": {
     "backToHistory": "기록으로 돌아가기",
@@ -9189,12 +9321,12 @@
       },
       "capabilityMarket": {
         "description": "기능 팩 탐색 및 설치",
-        "keywords": ["기능", "마켓", "market"],
+        "keywords": ["기능", "마켓", "market", "플러그인"],
         "label": "기능 마켓"
       },
       "codeChanges": {
         "description": "작업 공간 코드 변경 확인",
-        "keywords": ["코드", "변경", "diff"],
+        "keywords": ["코드", "변경", "diff", "수정"],
         "label": "코드 변경"
       },
       "connectors": {
@@ -9219,8 +9351,13 @@
       },
       "mcpStore": {
         "description": "MCP 서비스 탐색 및 설치",
-        "keywords": ["MCP", "스토어", "store"],
+        "keywords": ["MCP", "스토어", "store", "설치"],
         "label": "MCP 스토어"
+      },
+      "modeAsk": {
+        "description": "질문 모드로 전환(도구 비활성)",
+        "keywords": ["질문", "ask", "모드"],
+        "label": "질문 모드"
       },
       "modeBuild": {
         "description": "AI가 직접 빌드하고 수정",
@@ -9244,7 +9381,7 @@
       },
       "skill": {
         "description": "AI 스킬 관리 및 호출",
-        "keywords": ["스킬", "skill"],
+        "keywords": ["스킬", "skill", "능력"],
         "label": "스킬"
       },
       "terminal": {
@@ -11707,6 +11844,45 @@
   "fileMention": {
     "fileSearchPlaceholder": "파일 검색…",
     "noMatch": "일치하는 파일 없음"
+  },
+  "contextSelector": {
+    "title": "컨텍스트 선택기 · # 참조",
+    "noMatch": "일치하는 항목이 없습니다",
+    "removeChip": "참조 제거",
+    "kindFile": "파일",
+    "descFile": "워크스페이스 파일을 참조합니다",
+    "kindFolder": "폴더",
+    "descFolder": "폴더 전체를 참조합니다",
+    "kindCode": "코드",
+    "descCode": "코드 조각이나 선택 영역을 참조합니다",
+    "kindProblems": "문제",
+    "descProblems": "워크스페이스 진단 결과를 참조합니다",
+    "kindTerminal": "터미널",
+    "descTerminal": "터미널 출력을 참조합니다",
+    "kindWeb": "웹",
+    "descWeb": "웹 페이지 내용을 참조합니다",
+    "kindDoc": "문서",
+    "descDoc": "문서 내용을 참조합니다",
+    "kindPastChats": "과거 채팅",
+    "descPastChats": "이전 대화를 참조합니다",
+    "kindRule": "규칙",
+    "descRule": "프로젝트 규칙 파일을 참조합니다"
+  },
+  "planReview": {
+    "title": "실행 계획",
+    "empty": "아직 계획이 없습니다. 에이전트를 실행하면 여기에 표시됩니다",
+    "approve": "승인",
+    "modify": "수정",
+    "submitReview": "검토 제출",
+    "startExecute": "실행 시작",
+    "markDone": "완료로 표시",
+    "rollback": "이전 단계로 되돌리기",
+    "replan": "재계획",
+    "phaseDraft": "초안",
+    "phaseReview": "검토",
+    "phaseApproved": "승인됨",
+    "phaseExecuting": "실행 중",
+    "phaseDone": "완료됨"
   },
   "floatingChat": {
     "openclaw": {
@@ -15013,6 +15189,7 @@
     "developerApiDocs": "API 문서",
     "developerBilling": "청구",
     "developerGroup": "개발자",
+    "developerKeys": "API 키",
     "developerLimits": "속도 제한",
     "developerLogs": "호출 로그",
     "developerNotifications": "알림",
@@ -16106,6 +16283,8 @@
     "loadMore": "더 보기",
     "loading": "로딩 중...",
     "noConversations": "대화 없음",
+    "branchBadge": "포크",
+    "branchSourceTooltip": "이 대화는 다른 대화에서 분기되었습니다",
     "noMessages": "메시지 없음",
     "noMessagesHint": "메시지가 없습니다. 인사를 보내보세요!",
     "searchPlaceholder": "대화 검색",
@@ -17543,6 +17722,24 @@
     "pushNotif": "인앱 알림",
     "pushNotifDesc": "플랫폼 내 메시지 수신",
     "revokeAuth": "세션 취소",
+    "sampling": {
+      "title": "AI 답변 설정",
+      "desc": "AI가 답변할 때의 동작을 조정합니다. 설정은 모든 대화에 적용됩니다. 보통은 기본값 그대로 사용하면 충분하며, 세부 조정이 필요한 분을 위한 설정입니다.",
+      "temperature": "답변 스타일 (temperature)",
+      "temperatureHint": "값이 낮으면 정확하고 안정적, 높으면 자유롭고 창의적입니다. 범위 0~2.",
+      "topP": "단어 선택 범위 (top_p)",
+      "topPHint": "AI가 단어를 고르는 범위를 조절합니다:낮을수록 보수적, 높을수록 다양합니다. 범위 0~1. 보통 '답변 스타일'과 둘 중 하나만 조정하면 됩니다.",
+      "topK": "후보 단어 수 (top_k)",
+      "topKHint": "매 단계 가능성 높은 소수의 단어에서만 선택합니다:작을수록 보수적입니다. 범위 1~1000.",
+      "maxTokens": "답변 길이 제한 (max_tokens)",
+      "maxTokensHint": "한 번의 답변에 담을 수 있는 분량의 상한이며, 초과분은 잘립니다.",
+      "systemPrompt": "고정 지시 (사용자 지정)",
+      "systemPromptHint": "매 대화마다 AI에 전달되는 고정 지시입니다. 예: 답변 언어나 출력 형식 지정. 최대 8000자.",
+      "systemPromptPlaceholder": "예: 항상 한국어로 답변하고 결론을 먼저 제시",
+      "useModelDefault": "기본값",
+      "clearParam": "{name} 기본값으로 되돌리기",
+      "resetAll": "모두 기본값으로 되돌리기"
+    },
     "score": {
       "empty": "콘텐츠가 없습니다",
       "excellent": "우수",

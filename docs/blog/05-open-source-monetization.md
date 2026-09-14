@@ -224,7 +224,7 @@ helm install ihui ihui/ihui-enterprise \
 ```python
 from ihui import IHUIClient
 
-client = IHUIClient(api_key="ihui_...")
+client = IHUIClient(api_key="sk-ihui-...")
 response = client.chat.create(
     model="gpt-4o",
     messages=[{"role": "user", "content": "你好"}],

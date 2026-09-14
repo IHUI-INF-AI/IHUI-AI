@@ -22,7 +22,6 @@ import {
   KeyRound,
   Bot,
   Lock,
-  ShieldCheck,
 } from 'lucide-react'
 
 export const SIDEBAR_KEY = 'sidebar-collapsed'
@@ -59,7 +58,6 @@ export const NAV_GROUPS: readonly SettingsNavGroup[] = [
       { href: '/settings/authorizations', labelKey: 'authorizationsTitle', icon: Lock },
       { href: '/settings/security-log', labelKey: 'securityLogTitle', icon: FileText },
       { href: '/settings/privacy', labelKey: 'privacyTitle', icon: Shield },
-      { href: '/settings/agent-security', labelKey: 'agentSecurityTitle', icon: ShieldCheck },
     ],
   },
   {
@@ -138,12 +136,6 @@ export const SUB_PAGES = [
     descKey: 'accountDeletionDesc',
   },
   { href: '/settings/privacy', icon: Shield, titleKey: 'privacyTitle', descKey: 'privacyDesc' },
-  {
-    href: '/settings/agent-security',
-    icon: ShieldCheck,
-    titleKey: 'agentSecurityTitle',
-    descKey: 'agentSecurityDesc',
-  },
   {
     href: '/settings/data-export',
     icon: Download,

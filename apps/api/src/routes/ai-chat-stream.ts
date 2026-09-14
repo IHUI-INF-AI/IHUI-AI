@@ -22,7 +22,6 @@ import {
   primeSemanticSummary,
 } from '../utils/semantic-summary.js'
 import { persistMessageArchive } from '../utils/conversation-archive.js'
-import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
 
 // P3-1 SSE 流式对话实时指标(admin 调试用,不直接进 Prometheus;Prometheus 抓取由 business-metrics.ts 负责)
 const sseMetrics = {
@@ -55,10 +54,6 @@ const chatStreamSchema = z.object({
    *  此前该字段未在 schema 中声明 → zod 解析时被剥离 → ai-service 永远收不到,
    *  导致"添加工作区后 AI 读不到任何项目文件"。上限与前端 MAX_TOTAL_SIZE(2MB)对齐。 */
   workspaceContext: z.string().max(2_500_000).optional(),
-  /** P1-8(2026-09-13 立,Repo Wiki 对话自动引用):当前对话绑定的仓库名,
-   *  后端据此读取 repo_wiki_docs 中最新一版「项目百科」总览并注入 system prompt。
-   *  与 workspaceContext 同型坑:不在此声明会被 zod strip 静默丢弃,ai-service 永远收不到。上限与 /repo-wiki 生成接口对齐(200)。 */
-  repoName: z.string().max(200).optional(),
   /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩。0 或不传 = 不压缩 */
   contextLimit: z.number().int().min(0).max(2_000_000).optional(),
   /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
@@ -77,18 +72,6 @@ const chatStreamSchema = z.object({
   tools: z.array(z.record(z.string(), z.unknown())).max(200).optional(),
   /** 工具选择策略: 'auto'/'none'/'required' 或 {type:'function',function:{name:'xxx'}} */
   tool_choice: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
-  /** P1-7(2026-09-13 立,四竞品对标 CodeX/Qoder 高级参数面板):
-   *  会话级采样参数与自定义 system prompt。此前 model-selector 旁无参数入口,
-   *  api-client streamChat 已支持这些字段(body 构造见 client.ts),
-   *  但网关 schema 未声明 → zod strip 静默丢弃(与 workspaceContext/mode 同型断链)。
-   *  此处补声明并透传到 ai-service /api/llm/complete/stream。 */
-  temperature: z.number().min(0).max(2).optional(),
-  topP: z.number().min(0).max(1).optional(),
-  topK: z.number().int().min(1).max(1000).optional(),
-  maxTokens: z.number().int().min(1).max(200_000).optional(),
-  /** 自定义 system prompt,ai-service 注入到 system 消息最顶部(与工作区记忆叠加)。
-   *  上限 8000 字符,与前端 UI 限制对齐,防超长提示词拖垮上下文。 */
-  systemPrompt: z.string().max(8000).optional(),
   metadata: z
     .object({
       conversationId: z.string().optional(),
@@ -156,20 +139,12 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       workspacePath?: string
       /** 浏览器端预加载工作区内容,透传为 ai-service 的 workspace_context */
       workspaceContext?: string
-      /** P1-8(2026-09-13 立):对话绑定的仓库名,用于读取并注入「项目百科」 */
-      repoName?: string
       contextLimit?: number
       agentTools?: string[]
       planMode?: string
       /** 原生 function calling(OpenAI tools 格式),undefined 时 JSON.stringify 自动省略,不注入 */
       tools?: Array<Record<string, unknown>>
       toolChoice?: string | Record<string, unknown>
-      /** P1-7(2026-09-13 立):高级参数面板采样参数与自定义 system prompt */
-      temperature?: number
-      topP?: number
-      topK?: number
-      maxTokens?: number
-      systemPrompt?: string
       metadata?: { conversationId?: string; userId?: string; messageId?: string }
     },
     extraFirstEvents: Array<{ key: string; payload: unknown }> = [],
@@ -219,8 +194,6 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         userId: opts.metadata?.userId ?? request.userId,
         messageId: opts.metadata?.messageId,
       }
-      // P1-8(2026-09-13 立):读取「项目百科」总览(失败/未命中一律 null,不阻塞主链路)
-      const wiki = await loadRepoWikiContext(mergedMetadata.userId ?? null, opts.repoName)
       const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
         method: 'POST',
         headers: {
@@ -237,9 +210,6 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // 2026-09-04 修复:浏览器端工作区上下文透传(此前在网关层被丢弃,见 schema 注释)。
           // undefined 时 JSON.stringify 自动省略,不注入上游请求。
           workspace_context: opts.workspaceContext,
-          // P1-8(2026-09-13 立):项目百科透传(undefined 时 JSON.stringify 自动省略,不注入上游请求)。
-          wiki_context: wiki?.content,
-          wiki_repo: wiki?.repoName,
           contextLimit: opts.contextLimit ?? 0,
           // 2026-07-27 修复 tool loop 不触发:API 层接收前端驼峰 agentTools,
           // 透传到 ai-service 必须用下划线 agent_tools(Pydantic schema 字段名)。
@@ -252,13 +222,6 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // undefined 时 JSON.stringify 省略该 key,不会注入到上游请求。
           tools: opts.tools,
           tool_choice: opts.toolChoice,
-          // P1-7(2026-09-13 立):高级参数面板透传(snake_case 对齐 ai-service Pydantic 字段名)。
-          // undefined 时 JSON.stringify 自动省略,不注入上游请求。
-          temperature: opts.temperature,
-          top_p: opts.topP,
-          top_k: opts.topK,
-          max_tokens: opts.maxTokens,
-          system_prompt: opts.systemPrompt,
           metadata: mergedMetadata,
         }),
         signal: controller.signal,
@@ -360,17 +323,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         materialContent,
         workspacePath,
         workspaceContext,
-        repoName,
         contextLimit,
         agentTools,
         plan_mode: planMode,
         tools,
         tool_choice: toolChoice,
-        temperature,
-        topP,
-        topK,
-        maxTokens,
-        systemPrompt,
         metadata,
       } = parsed.data
       const resolvedModel = model ?? modelId
@@ -501,18 +458,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           materialContent,
           workspacePath,
           workspaceContext,
-          repoName,
           contextLimit,
           agentTools,
           planMode,
           tools,
           toolChoice,
-          // P1-7(2026-09-13):会话级采样参数 + 自定义 system prompt 透传
-          temperature,
-          topP,
-          topK,
-          maxTokens,
-          systemPrompt,
           metadata,
         },
         extraFirstEvents,
@@ -553,19 +503,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         materialContent,
         workspacePath,
         workspaceContext,
-        repoName,
         contextLimit,
         agentTools,
         plan_mode: planMode,
         tools,
         tool_choice: toolChoice,
-        // P1-7(2026-09-13 立):chatAnswerSchema extends chatStreamSchema,
-        // 续答同样支持会话级采样参数与自定义 system prompt(否则 zod strip 丢弃)。
-        temperature,
-        topP,
-        topK,
-        maxTokens,
-        systemPrompt,
         metadata,
         questionId,
         answer,
@@ -745,18 +687,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           materialContent,
           workspacePath,
           workspaceContext,
-          repoName,
           contextLimit,
           agentTools,
           planMode,
           tools,
           toolChoice,
-          // P1-7(2026-09-13):续答透传会话级采样参数
-          temperature,
-          topP,
-          topK,
-          maxTokens,
-          systemPrompt,
           metadata,
         },
         extraFirstEvents,

@@ -8,10 +8,11 @@ import * as React from 'react'
 import { PanelLeftOpen, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { usePathname } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { Sidebar } from '@/components/sidebar'
+import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { TooltipProvider } from '@/components/feedback'
+import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
 import {
   PWAInstallPrompt,
   PWAUpdatePrompt,
@@ -29,71 +30,11 @@ import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useMounted } from '@/hooks/use-mounted'
 import { useAuthStore } from '@/stores/auth'
-import { NavLoadingOverlay } from '@/components/common/NavLoadingOverlay'
+import { useNavigationStore } from '@/stores/navigation'
+import { PageSkeleton } from '@/components/common/PageSkeleton'
 import { useNativeShortcuts } from '@/hooks/use-native-shortcuts'
 import { dispatchMenuAction } from '@/lib/menu-actions'
 import { startAutoRefresh } from '@/lib/tokenUtils'
-
-/**
- * 2026-09-12 路由切换提速改造(刀 A:重依赖懒加载 + 客户端分包)
- *
- * 问题:GlobalShell 挂在根 layout.tsx 上,被全部路由组共享。此前静态 import
- * AISidePanel / WebWorkPanel,使**每个路由**的编译图都被迫包含整条重依赖链:
- *   AISidePanel → chat 全套(message-list / message-input)→ markdown 栈(katex/mermaid/shiki)
- *              → ai-terminal-dock(@xterm)→ brand-icon → @lobehub/icons
- *   WebWorkPanel → @ihui/ui-react WorkPanel / WebViewFrame → cdp-browser-view
- * 后果:dev(Turbopack 按需编译)下每个路由冷编译 ~3s、缓存增量 ~150MB/路由。
- *
- * 方案:改为 next/dynamic({ ssr: false }) 懒加载,把这两块从路由初始编译图中摘出,
- * 改为按需拉取的独立客户端分包。
- * - ssr: false 对两者无视觉副作用:
- *   · AISidePanel 外层已有 React.Suspense + 等宽占位 fallback(见下方 width: var(--ai-panel-width)),
- *     SSR/首帧渲染占位,客户端分包到位后原地替换,宽度一致 → 无 CLS
- *   · WebWorkPanel 内部 `if (!mounted || !open) return null`(web-work-panel.tsx:230),
- *     SSR 下 mounted=false 本就渲染 null → ssr:false 行为完全一致
- * - 两个模块均为**具名导出**,故需 .then(m => m.Xxx) 取具名成员
- *
- * 2026-09-13 性能重构:外层包 React.memo。两者都**不接收任何 props**,其自身的
- * 开关/宽度/浮窗状态全部由内部 zustand 订阅获得 —— memo 后 GlobalShell 因导航
- * 落地(children 变化)而重渲染时,这两个重组件**直接跳过**:
- *   - AISidePanel 拖着 chat 全套 + markdown 栈(katex/mermaid/shiki),是全站最重组件;
- *   - WebWorkPanel 拖着 @ihui/ui-react WorkPanel / WebViewFrame → cdp-browser-view。
- * 实测(memo 化前):每次导航提交阶段出现 2~6 个 50~98ms 长任务,中位合计 420ms。
- * Context 订阅可穿透 memo,因此不会漏更新;仅屏蔽"父组件重渲染导致的连带重渲染"。
- */
-// 2026-09-13 性能重构:GlobalTopBar 包 memo。其唯一入参 mobileMenu 已提取为 useMemo 稳定引用,
-// 因此导航落地(GlobalShell 因 children 变化重渲染)时 GlobalTopBar 整体跳过 —— 顶栏不再被
-// 每次路由切换连带重渲染。它自身依赖的返回键 store / 状态订阅不受影响(Context 与内部订阅可穿透 memo)。
-const GlobalTopBarMemo = React.memo(GlobalTopBar)
-
-// 2026-09-14 CLS 真根治:AISidePanel 的等宽占位必须挂到 dynamic 的 loading 插槽。
-// 根因:next/dynamic({ ssr:false }) 内部自带 Suspense 边界(fallback = loading ?? null),
-// 组件挂起被**内层**边界接住 —— 外层 React.Suspense 的等宽占位 fallback 从未渲染过
-// (实测 t+800ms 面板挂载把 work-area 从 x=160 推到 x=466,一次性 CLS 0.21,
-// web-vitals.spec.ts 实锤)。Sidebar 能用外层 fallback 是因为它同步挂起(useSearchParams),
-// 没有 dynamic 内层边界,两者机制不同。
-// 占位几何与真实容器对齐:width 引用 layout.tsx inline script 预设的 --ai-panel-width
-// (读 localStorage ihui-ai-panel state.width,范围 320-720,fallback 380),
-// hidden + min-[768px]:block 复制真实容器响应式显隐,mr-1.5 py-2 shrink-0 对齐展开态。
-const AiPanelPlaceholder = () => (
-  <div
-    aria-hidden
-    className="relative hidden h-full shrink-0 mr-1.5 py-2 min-[768px]:block"
-    style={{ width: 'var(--ai-panel-width, 380px)' }}
-  />
-)
-
-const AISidePanel = React.memo(
-  dynamic(() => import('@/components/ai/ai-side-panel').then((m) => m.AISidePanel), {
-    ssr: false,
-    loading: AiPanelPlaceholder,
-  }),
-)
-const WebWorkPanel = React.memo(
-  dynamic(() => import('@/components/work-panel/web-work-panel').then((m) => m.WebWorkPanel), {
-    ssr: false,
-  }),
-)
 
 /**
  * GlobalShell — 真正的全局外壳(2026-07-19 立)
@@ -151,10 +92,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 2026-08-17 工作展示区折叠:true 时隐藏 work-area,AI 面板占满右侧(用户需求)
   const workAreaCollapsed = useAiPanelStore((s) => s.workAreaCollapsed)
   const currentUserId = useAuthStore((s) => s.user?.id)
-  // 2026-09-13 性能修复:此处**不要**订阅 useNavigationStore 的 pending。
-  // GlobalShell 包着整棵路由树(children),在这里订阅会让每次点击侧栏都重渲染全站,
-  // 实测给 click→pushState 增加 85ms 并产生 56ms 首帧同步长任务。
-  // 需要 pending 的覆盖层已下沉为叶子组件 NavLoadingOverlay(自带订阅)。
+  const pending = useNavigationStore((s) => s.pending)
   // 2026-07-26 用户反馈:TagsView 从 GlobalShell 移到 MainShell(只覆盖 main 同宽容器)
   // 之前放右列顶部会横跨 work-area-portal-root + WebWorkPanel,违反"只覆盖 main 同宽"要求
   // 现在 TagsView 跟随 MainShell 一起渲染,所有 (main) 路由组都能看到,
@@ -238,35 +176,6 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [mobileOpen])
-
-  // 移动端菜单按钮节点(2026-09-13 从 <GlobalTopBar mobileMenu={...}> 内联 JSX 提取):
-  // 原先每次 GlobalShell 渲染都生成新元素 → GlobalTopBar 的 memo 永远失效。
-  // useMemo 后引用稳定,仅 mobileOpen 变化时才更新。
-  // 视觉/交互沿用 2026-07-31 定版:
-  // - 改用 nav-styles.ts 共享的 TOPBAR_BTN_BASE + TOPBAR_BTN_W9,跟 GlobalTopBar
-  //   的搜索/Plus/chevron/窗口控制 4 类按钮字节级一致(同 bg-card / hover:bg-accent / focus-visible:bg-accent)
-  // - icon 用 h-3.5 w-3.5 (14px) 跟顶栏 Plus / 窗口控制 X 完全统一;h-9 w-9 经 TOPBAR_BTN_W9 应用
-  // - 跟 X 关闭按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致
-  // - 仅 <768px 显示(min-[768px]:hidden);抽屉打开时提升 z-popover(2001) 保证可点回
-  const mobileMenuNode = React.useMemo(
-    () => (
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setMobileOpen((o) => !o)}
-        className={cn(
-          'relative ml-1.5 shrink-0 min-[768px]:hidden',
-          mobileOpen && 'z-popover',
-          TOPBAR_BTN_BASE,
-          TOPBAR_BTN_W9,
-        )}
-        aria-label={mobileOpen ? t('close') : t('menu')}
-      >
-        {mobileOpen ? <X className="h-3.5 w-3.5" /> : <PanelLeftOpen className="h-3.5 w-3.5" />}
-      </Button>
-    ),
-    [mobileOpen, t],
-  )
 
   // /login 路由:嵌入式二维码面板(mobile-rn WebView/iframe 加载)或 QR 完整模式,
   // 不需要 Sidebar / AISidePanel / WebWorkPanel,只渲染 children(PageClient.tsx 内容)。
@@ -385,7 +294,44 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                   放 GlobalTopBar 旁挂载一次即可,/login 早退分支(上方)不经过此处。 */}
               <TopBarBackAutoRegister />
               <React.Suspense fallback={null}>
-                <GlobalTopBarMemo mobileMenu={mobileMenuNode} />
+                <GlobalTopBar
+                  mobileMenu={
+                    // 2026-07-31 第十八次微调(用户反馈"button 这个图标和 X 关闭按钮也不是 web 端那个,为什么要单独额外又配置图标"):
+                    // - 改用 nav-styles.ts 共享的 TOPBAR_BTN_BASE + TOPBAR_BTN_W9,跟 GlobalTopBar
+                    //   的搜索/Plus/chevron/窗口控制 4 类按钮字节级一致(同 bg-card / hover:bg-accent / focus-visible:bg-accent)
+                    // - 去掉之前单独加的 `border border-border` 和 `hover:text-foreground` —— web 顶栏的
+                    //   4 类按钮都没 border,移动端"凭空多出边框"是视觉不一致的根因
+                    // - icon 仍用 h-3.5 w-3.5 (14px) 跟顶栏 Plus / 窗口控制 X 完全统一
+                    // - h-9 w-9 通过 TOPBAR_BTN_W9 自动应用,跟顶栏 h-9 父容器 + h-full 子元素视觉等价
+                    // - ml-1.5 (6px) 跟其他顶栏按钮 gap-1 (4px) + 按钮视觉中心对齐
+                    // - 跟 X 关闭按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致,改一处生效所有同源按钮
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setMobileOpen((o) => !o)}
+                      // 2026-09-05 修复:抽屉打开时该按钮被抽屉+遮罩盖住(z-auto < z-modal 2000),
+                      // 用户点原位置无反应(=反馈"无法点击收回按钮")。提升到 z-popover(2001)
+                      // 使同一按钮在抽屉打开时仍可点,图标切换为 X,构成"拉出/收回"切换语义。
+                      // 2026-09-07 阈值 1024→768:768-1023px 区间侧边栏已常驻 60px 图标条,
+                      // 汉堡/抽屉入口不再需要;且该按钮曾把顶栏搜索按钮挤到 46px,
+                      // 经 --topbar-content-left 传导为工作区卡片 pl-46px,
+                      // 造成 AI 面板与工作区之间出现 ~52px 大空隙(用户反馈红框)。隐藏后间距归 6px。
+                      className={cn(
+                        'relative ml-1.5 shrink-0 min-[768px]:hidden',
+                        mobileOpen && 'z-popover',
+                        TOPBAR_BTN_BASE,
+                        TOPBAR_BTN_W9,
+                      )}
+                      aria-label={mobileOpen ? t('close') : t('menu')}
+                    >
+                      {mobileOpen ? (
+                        <X className="h-3.5 w-3.5" />
+                      ) : (
+                        <PanelLeftOpen className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  }
+                />
               </React.Suspense>
               {/* 2026-08-01 架构改动:WebWorkPanel 从右列独立区域改为嵌入 work-area 内覆盖 children
                 (用户规则:"不允许额外出来一个窗口,所有内容必须在工作内容展示区内展示")
@@ -395,13 +341,26 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                 - open=true 时 WebWorkPanel 替换展示工作区内容(非右列独立窗口) */}
               <div className="relative flex min-h-0 flex-1 flex-col">
                 {/*
-                  内容区加载覆盖层 —— 2026-09-13 已下沉为独立叶子组件 NavLoadingOverlay。
-                  原因:覆盖层需要订阅 pending,而 GlobalShell 包着整棵路由树(children),
-                  在这里订阅会让每次点击都重渲染全站;下沉后 GlobalShell 零重渲染。
-                  时序(delay-150 淡入 / duration-75 淡出)与"始终在 DOM 中"的设计
-                  见 NavLoadingOverlay.tsx 内说明。
-                */}
-                <NavLoadingOverlay />
+                内容区加载覆盖层(2026-08-05 立,2026-09-02 第三刀重做时序):
+                始终在 DOM 中,不依赖条件渲染(点击后立即进入过渡状态,无 React 渲染滞后)。
+                时序关键:显示走 delay-150(延迟淡入),隐藏走 duration-75(立即淡出) —
+                - 预取命中时路由切换 <50ms,pending 在 150ms 内就复位,骨架淡入从未开始 → 用户直接看到新页面,零骨架、零闪烁;
+                - 真正慢的导航(>150ms)骨架才淡入,保留加载反馈;
+                - 原"pending 后立即 opacity-100"方案会让预取提速被骨架闪现完全抵消。
+                pointer-events 无 delay:pending 期间立即拦截点击,防导航中途重复触发。
+              */}
+                <div
+                  className={cn(
+                    'absolute inset-0 z-10 bg-background transition-opacity',
+                    pending
+                      ? 'opacity-100 duration-100 delay-150'
+                      : 'pointer-events-none opacity-0 duration-75',
+                  )}
+                  role="status"
+                  aria-label="页面加载中"
+                >
+                  <PageSkeleton />
+                </div>
                 {children}
                 <WebWorkPanel />
               </div>

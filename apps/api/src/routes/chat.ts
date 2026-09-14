@@ -48,7 +48,7 @@ import {
   findMessageArchive,
   persistMessageArchive,
 } from '../utils/conversation-archive.js'
-import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { config } from '../config/index.js'
 
 // =============================================================================
 // Coze conversation_id 自动管理（迁移自 coze_zhs_py/api/chat.py）
@@ -905,8 +905,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       error?: string
     }
     try {
-      // aiServiceFetch:透传用户 JWT(ai-service jwt_auth 强制鉴权,裸 fetch 恒 401)
-      const resp = await aiServiceFetch(request, '/api/llm/complete', {
+      const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: llmMessages, model: 'stepfun/step-3.7-flash' }),

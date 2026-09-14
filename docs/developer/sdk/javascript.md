@@ -181,7 +181,7 @@ const newModel = await client.ai.createUserModel({
   name: 'my-gpt',
   provider: 'openai',
   model: 'gpt-4',
-  apiKey: 'ihui_xxx',
+  apiKey: 'sk-xxx',
   baseUrl: 'https://api.openai.com/v1',
 })
 await client.ai.updateUserModel(newModel.id, { ... })

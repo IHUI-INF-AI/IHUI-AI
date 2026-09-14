@@ -98,13 +98,6 @@ export interface RecordCallInput {
   /** Time To First Token 毫秒数(首 token 耗时,流式才有),未传则不写入 */
   ttftMs?: number
   /**
-   * 调用类型(2026-09-13 多模态计费):chat(默认)|image|video。
-   * 写入 llm_call_logs.call_type,并驱动 calculateCost 的多模态计费分支。
-   */
-  callType?: 'chat' | 'image' | 'video'
-  /** 多模态计费单位数:image=张数(默认 1);video=次数或秒数(按定价行 videoUnit,默认 1) */
-  billingUnits?: number
-  /**
    * 两段式计费(2026-09-12 立):调用前 preDeductQuota 的预扣凭证。
    * 传入时:recordCall 不再全额扣减余额(预扣已发生),只累计统计并在结尾调用
    * settlePreDeduction 按实际用量「补差价 / 退差额」,保证总扣减 = 实际用量。
@@ -143,71 +136,14 @@ export interface CalculateCostResult {
   baseOutputPricePer1k: number
   /** 定价来源:'ai_pricing' | 'model_config' | 'default' */
   source: 'ai_pricing' | 'model_config' | 'default'
-  /** 计费模式(2026-09-13):token | per_call | per_image | per_video(无定价时 'token') */
-  billingMode: 'token' | 'per_call' | 'per_image' | 'per_video'
-  /** 多模态计费单位数(张/次/秒;token 模式为 0) */
-  unitsApplied: number
-  /** per_call 命中档位(仅 per_call 有值) */
-  callTier?: 'le256k' | 'mid' | 'gt512k'
 }
 
-/** calculateCost 第 4 个参数:cache 折扣计费选项 + 多模态计费选项(2026-09-13) */
+/** calculateCost 第 4 个参数:cache 折扣计费选项 */
 export interface CalculateCostCacheOptions {
   /** prompt cache 命中读取的 token 数(按 input price × 0.1 计费) */
   cacheReadTokens?: number
   /** prompt cache 创建写入的 token 数(按 input price × 1.25 计费) */
   cacheCreationTokens?: number
-  /**
-   * 调用类型(2026-09-13 多模态计费):chat(默认)|image|video。
-   * 定价行 billingMode 与之匹配时走按次/按张/按视频分支:
-   *   per_image → perUnitPrice × units(张数)
-   *   per_video → perUnitPrice × units(videoUnit='second' 按秒,'call' 按次)
-   *   per_call  → tieredCallPrices 按 promptTokens 分档(≤256K/≤512K/>512K),chat 专用
-   */
-  callType?: 'chat' | 'image' | 'video'
-  /** 多模态计费单位数:image=张数;video=次数或秒数(默认 1) */
-  units?: number
-}
-
-/** per_call 上下文分档阈值(与上游报价页对齐):256K=262144,512K=524288 */
-const PER_CALL_TIER_LE256K = 262144
-const PER_CALL_TIER_LE512K = 524288
-
-/**
- * 金额(分)保留 6 位小数(2026-09-13)。
- * 根因修复:cost 类列已 integer→numeric(18,6);低价计费(按次 0.01 分/次、
- * token 0.0105 分/千 × 短对话)在 Math.round 整数取整下恒为 0,形成免费敞口。
- * 6 位小数 = 百万分之一分,远小于任何计费粒度,同时消除浮点噪声。
- */
-export const roundCents = (value: number): number => Math.round(value * 1e6) / 1e6
-
-/** per_call 三档价 jsonb 形状(分/次) */
-export interface TieredCallPrices {
-  le256k: number
-  mid: number
-  gt512k: number
-}
-
-/** 按 promptTokens 选 per_call 档位价;三档缺失时逐级回退(缺失档按最低非空档)。 */
-export function pickPerCallPrice(
-  tiered: unknown,
-  promptTokens: number,
-): { price: number; tier: 'le256k' | 'mid' | 'gt512k' } | null {
-  if (!tiered || typeof tiered !== 'object') return null
-  const t = tiered as Partial<TieredCallPrices>
-  const tier =
-    promptTokens <= PER_CALL_TIER_LE256K
-      ? ('le256k' as const)
-      : promptTokens <= PER_CALL_TIER_LE512K
-        ? ('mid' as const)
-        : ('gt512k' as const)
-  const order: Array<'le256k' | 'mid' | 'gt512k'> = ['le256k', 'mid', 'gt512k']
-  // 首选本档;缺失时回退到最低非空档(保守少收),全空才返回 null
-  for (const key of [tier, ...order]) {
-    const v = t[key]
-    if (typeof v === 'number' && v > 0) return { price: v, tier: key === tier ? tier : key }
-  }
-  return null
 }
 
 // =============================================================================
@@ -405,10 +341,6 @@ export async function calculateCost(
     .select({
       inputTokenPrice: aiPricing.inputTokenPrice,
       outputTokenPrice: aiPricing.outputTokenPrice,
-      billingMode: aiPricing.billingMode,
-      perUnitPrice: aiPricing.perUnitPrice,
-      tieredCallPrices: aiPricing.tieredCallPrices,
-      videoUnit: aiPricing.videoUnit,
     })
     .from(aiPricing)
     .where(
@@ -429,10 +361,7 @@ export async function calculateCost(
   // 用户计费分组倍率(2026-08-01 立):userId 传入时查分组倍率并叠加
   // 中转站倍率 × 用户分组倍率 = 实际计费倍率(如 svip 组 gpt-4o = 1.0 × 0.8 = 0.8)
   if (userId) {
-    // 2026-09-13 修复(回归复现):必须用归一后的 dbModelId 查询,与上方 aiPricing /
-    // aiModelConfigModels 及 getCurrentTierMultiplier 同一键空间——否则客户端大小写
-    // 与分组覆盖倍率配置不一致时静默取不到覆盖(少收/多收)。
-    const groupMultiplier = await getUserModelMultiplier(userId, dbModelId)
+    const groupMultiplier = await getUserModelMultiplier(userId, model)
     multiplier *= groupMultiplier
   }
 
@@ -446,92 +375,19 @@ export async function calculateCost(
   let baseInputPricePer1k = 0
   let baseOutputPricePer1k = 0
   let source: CalculateCostResult['source'] = 'default'
-  let billingMode: CalculateCostResult['billingMode'] = 'token'
-  const callType = options?.callType ?? 'chat'
-  const units = Math.max(0, Math.ceil(options?.units ?? 1))
 
   if (pricingRow) {
     baseInputPricePer1k = pricingRow.inputTokenPrice
     baseOutputPricePer1k = pricingRow.outputTokenPrice
     source = 'ai_pricing'
-    billingMode = (pricingRow.billingMode as CalculateCostResult['billingMode']) ?? 'token'
   } else if (modelRow) {
     baseInputPricePer1k = modelRow.inputPricePer1k ?? 0
     baseOutputPricePer1k = modelRow.outputPricePer1k ?? 0
     source = 'model_config'
   }
 
-  // ── 多模态计费分支(2026-09-13):per_image / per_video / per_call ──
-  // 仅当定价行声明了对应 billingMode 且请求 callType 匹配时生效;
-  // 不匹配(如 image 端点打到 token 价模型)回退 token 计费,调用方应保证定价行正确。
-  if (pricingRow && billingMode !== 'token') {
-    if (billingMode === 'per_image' && callType === 'image') {
-      const unit = pricingRow.perUnitPrice ?? 0
-      const total = Math.max(0, roundCents(unit * units * multiplier))
-      return {
-        inputCostCents: 0,
-        outputCostCents: 0,
-        totalCostCents: total,
-        cacheReadCostCents: 0,
-        cacheCreationCostCents: 0,
-        multiplier,
-        baseInputPricePer1k: 0,
-        baseOutputPricePer1k: 0,
-        source,
-        billingMode,
-        unitsApplied: units,
-      }
-    }
-
-    if (billingMode === 'per_video' && callType === 'video') {
-      const unit = pricingRow.perUnitPrice ?? 0
-      const vUnit = pricingRow.videoUnit === 'second' ? 'second' : 'call'
-      const applied = vUnit === 'second' ? units : 1
-      const total = Math.max(0, roundCents(unit * applied * multiplier))
-      return {
-        inputCostCents: 0,
-        outputCostCents: 0,
-        totalCostCents: total,
-        cacheReadCostCents: 0,
-        cacheCreationCostCents: 0,
-        multiplier,
-        baseInputPricePer1k: 0,
-        baseOutputPricePer1k: 0,
-        source,
-        billingMode,
-        unitsApplied: applied,
-      }
-    }
-
-    if (billingMode === 'per_call') {
-      // 分档按请求上下文(promptTokens);image/video 端点打到 per_call 模型时
-      // promptTokens 为 0 → 命中 le256k 档(即基础档价),不额外惩罚
-      const picked = pickPerCallPrice(pricingRow.tieredCallPrices, promptTokens)
-      if (picked) {
-        const total = Math.max(0, roundCents(picked.price * units * multiplier))
-        return {
-          inputCostCents: 0,
-          outputCostCents: 0,
-          totalCostCents: total,
-          cacheReadCostCents: 0,
-          cacheCreationCostCents: 0,
-          multiplier,
-          baseInputPricePer1k: 0,
-          baseOutputPricePer1k: 0,
-          source,
-          billingMode,
-          unitsApplied: units,
-          callTier: picked.tier,
-        }
-      }
-      // 三档价未配置 → 回退 token 计费(避免免费敞口),调用方可据此告警
-      billingMode = 'token'
-    }
-    // per_image/per_video 与 callType 不匹配 → 落到下方 token 计费兜底
-  }
-
   // 成本 = (inputPrice × promptTokens/1000 + outputPrice × completionTokens/1000) × multiplier
-  // 单位:分(2026-09-13 起保留 6 位小数,roundCents 消除浮点噪声;不再整数取整)
+  // 单位:分(整数,Math.round 四舍五入避免浮点)
   //
   // prompt cache 折扣计费(2026-07-31 立,OpenAI/Claude 标准):
   //   - cacheReadTokens:按 input price × 0.1 计费(10% 折扣,命中已缓存的 prompt)
@@ -553,10 +409,10 @@ export async function calculateCost(
   const rawCacheReadCost = (baseInputPricePer1k * cacheReadTokens * 0.1) / 1000
   const rawCacheCreationCost = (baseInputPricePer1k * cacheCreationTokens * 1.25) / 1000
   const rawOutputCost = (baseOutputPricePer1k * completionTokens) / 1000
-  const inputCostCents = roundCents(rawNormalInputCost * multiplier)
-  const cacheReadCostCents = roundCents(rawCacheReadCost * multiplier)
-  const cacheCreationCostCents = roundCents(rawCacheCreationCost * multiplier)
-  const outputCostCents = roundCents(rawOutputCost * multiplier)
+  const inputCostCents = Math.round(rawNormalInputCost * multiplier)
+  const cacheReadCostCents = Math.round(rawCacheReadCost * multiplier)
+  const cacheCreationCostCents = Math.round(rawCacheCreationCost * multiplier)
+  const outputCostCents = Math.round(rawOutputCost * multiplier)
   const totalCostCents =
     inputCostCents + cacheReadCostCents + cacheCreationCostCents + outputCostCents
 
@@ -570,8 +426,6 @@ export async function calculateCost(
     baseInputPricePer1k,
     baseOutputPricePer1k,
     source,
-    billingMode: 'token',
-    unitsApplied: 0,
   }
 }
 
@@ -675,10 +529,9 @@ export interface ByokCostResult {
  * 复用 calculateCost 的定价查询逻辑(aiPricing 优先 → aiModelConfigModels 兜底 → 默认 0),
  * 但**不乘中转站倍率**(BYOK 模式用户用自己的 key,平台不参与上游定价)。
  *
- * - upstreamCostCents = roundCents(baseInput × promptTokens/1000 + baseOutput × completionTokens/1000)
+ * - upstreamCostCents = Math.round(baseInput × promptTokens/1000 + baseOutput × completionTokens/1000)
  * - isFree = isFreeProvider(model)
- * - platformFeeCents = isFree ? 0 : roundCents(upstreamCostCents × commissionRate)
- *   (2026-09-13 起统一 6 位小数,不再整数取整——整数取整下 <0.5 分抽成恒为 0,形成免费敞口)
+ * - platformFeeCents = isFree ? 0 : Math.round(upstreamCostCents × commissionRate)
  */
 export async function calculateByokCost(
   model: string,
@@ -727,11 +580,11 @@ export async function calculateByokCost(
     source = 'model_config'
   }
 
-  const upstreamCostCents = roundCents(
+  const upstreamCostCents = Math.round(
     (baseInputPricePer1k * promptTokens) / 1000 + (baseOutputPricePer1k * completionTokens) / 1000,
   )
   const isFree = isFreeProvider(model)
-  const platformFeeCents = isFree ? 0 : roundCents(upstreamCostCents * commissionRate)
+  const platformFeeCents = isFree ? 0 : Math.round(upstreamCostCents * commissionRate)
 
   return {
     upstreamCostCents,
@@ -830,7 +683,6 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   let upstreamCostCents: number | undefined
   let platformFeeCents: number | undefined
   let commissionRate: number | undefined
-  let relayCost: CalculateCostResult | undefined
 
   if (isCacheHit) {
     // 缓存命中:成本为 0,不扣减余额,只记录流水供统计
@@ -860,19 +712,13 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
       {
         cacheReadTokens: input.cacheReadTokens,
         cacheCreationTokens: input.cacheCreationTokens,
-        callType: input.callType,
-        units: input.billingUnits,
       },
       input.userId,
     )
     costCentsToDeduct = cost.totalCostCents
     multiplier = cost.multiplier
     pricingSource = cost.source
-    relayCost = cost
   }
-
-  // 2026-09-13 修复:写库 model 统一为归一值(与定价查表键空间一致,防用量统计按大小写分裂)
-  const normalizedModelId = normalizeModelId(stripLiteLLMPrefix(input.model))
 
   // 2. 写 llm_call_logs(prompt 截断 5000 字符防止超大字段)
   const truncatedPrompt =
@@ -887,31 +733,11 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     pricingSource,
     ...(input.metadata ?? {}),
   }
-  if (input.callType && input.callType !== 'chat') {
-    // 多模态计费审计(2026-09-13):记录计费模式与单位数,结算/退款依赖 task_id
-    metadata.callType = input.callType
-    metadata.billingUnits = input.billingUnits ?? 1
-  }
-  if (relayCost) {
-    // 计费模式审计(2026-09-13):token/per_call/per_image/per_video + 命中档位
-    metadata.billingMode = relayCost.billingMode
-    if (relayCost.unitsApplied > 0) metadata.unitsApplied = relayCost.unitsApplied
-    if (relayCost.callTier) metadata.callTier = relayCost.callTier
-  }
   if (mode === 'byok') {
     metadata.byokMode = true
     metadata.upstreamCostCents = upstreamCostCents
     metadata.platformFeeCents = platformFeeCents
     metadata.commissionRate = commissionRate
-  }
-
-  // 失败调用不计费(2026-09-13):上游错误(4xx/5xx)时平台未获得服务。
-  // per_call/per_image/per_video 与 token 数无关、失败仍有价,必须置 0,
-  // 否则上游一抖动用户就被扣钱(token 模式失败调用 tokens=0 本就为 0,语义统一)。
-  // 两段式计费下 settlePreDeduction 会按 0 退还预扣额。
-  if (input.status && input.status !== 'success') {
-    if (costCentsToDeduct > 0) metadata.noChargeReason = `status=${input.status}`
-    costCentsToDeduct = 0
   }
 
   // P0 中转站造血能力批次(2026-08-01):8 个审计/统计字段写入顶层列
@@ -921,7 +747,7 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     .insert(llmCallLogs)
     .values({
       userId: input.userId,
-      model: normalizedModelId,
+      model: input.model,
       prompt: truncatedPrompt,
       response: truncatedResponse,
       promptTokens: input.promptTokens,
@@ -942,7 +768,6 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
       costCents: input.costCents ?? costCentsToDeduct,
       httpStatus: input.httpStatus ?? null,
       ttftMs: input.ttftMs ?? null,
-      callType: input.callType ?? 'chat',
     })
     .returning({ id: llmCallLogs.id })
 
@@ -1316,104 +1141,6 @@ export async function rechargeByKey(
 }
 
 // =============================================================================
-// 5.5 异步任务失败退款(2026-09-13 立,多模态计费配套)
-// -----------------------------------------------------------------------------
-// 生图/生视频为异步任务:提交时已按次/按张扣费(乐观计费,防漏损),
-// 任务查询发现 failed 时按 costCents 全额退款,并把该流水标记 metadata.refunded=true。
-// 幂等保证:refunded 标记在查询条件里,重复查询/并发退款只会退一次。
-// =============================================================================
-
-export interface RefundTaskResult {
-  refunded: boolean
-  /** 退款金额(分);refunded=false 时为 0 */
-  refundedCents: number
-  /** 退款原因:无流水(未扣费)|已退款过|退款成功|流水缺 apiKeyId */
-  reason: 'refunded' | 'no_log' | 'ok' | 'no_api_key'
-}
-
-/**
- * 按 taskId 退款(生图/生视频任务失败时调用)。
- * 查找该任务提交时写入的计费流水(call_type in image/video + metadata.task_id),
- * 未退款过则把 costCents 原样退回组池或个人余额并打标记。
- * 失败容错:任何 db 错误只 log 并返回 refunded:false(主链路不受影响)。
- */
-export async function refundTaskCall(taskId: string): Promise<RefundTaskResult> {
-  try {
-    if (!taskId) return { refunded: false, refundedCents: 0, reason: 'no_log' }
-
-    const [log] = await dbRead
-      .select({
-        id: llmCallLogs.id,
-        apiKeyId: llmCallLogs.apiKeyId,
-        costCents: llmCallLogs.costCents,
-        metadata: llmCallLogs.metadata,
-      })
-      .from(llmCallLogs)
-      .where(
-        and(
-          sql`${llmCallLogs.metadata}->>'task_id' = ${taskId}`,
-          sql`${llmCallLogs.callType} in ('image','video')`,
-          eq(llmCallLogs.status, 'success'),
-          sql`COALESCE(${llmCallLogs.metadata}->>'refunded','false') <> 'true'`,
-        ),
-      )
-      .orderBy(desc(llmCallLogs.createdAt))
-      .limit(1)
-
-    if (!log) return { refunded: false, refundedCents: 0, reason: 'no_log' }
-    if (!log.apiKeyId) return { refunded: false, refundedCents: 0, reason: 'no_api_key' }
-
-    const cents = Math.max(0, log.costCents ?? 0)
-    if (cents <= 0) {
-      // 0 成本流水只需打标记,无需动余额
-      await markTaskRefunded(log.id)
-      return { refunded: true, refundedCents: 0, reason: 'ok' }
-    }
-
-    const groupInfo = await getKeyGroup(log.apiKeyId)
-    if (groupInfo && groupInfo.enabled) {
-      // 组池退款:-1(无限额度)不退,否则原额加回
-      await db
-        .update(apiKeyGroups)
-        .set({
-          sharedTokenBalance: sql`CASE WHEN ${apiKeyGroups.sharedTokenBalance} = -1 THEN -1 ELSE ${apiKeyGroups.sharedTokenBalance} + ${cents} END`,
-          updatedAt: new Date(),
-        })
-        .where(eq(apiKeyGroups.id, groupInfo.groupId))
-    } else {
-      // 个人余额退款:-1(无限额度)不退
-      await db
-        .update(developerApiKeys)
-        .set({
-          tokenBalance: sql`CASE WHEN ${developerApiKeys.tokenBalance} = -1 THEN -1 ELSE ${developerApiKeys.tokenBalance} + ${cents} END`,
-          updatedAt: new Date(),
-        })
-        .where(eq(developerApiKeys.id, log.apiKeyId))
-    }
-
-    await markTaskRefunded(log.id)
-    logger.info('[billing] 多模态任务失败退款', { taskId, apiKeyId: log.apiKeyId, cents })
-    return { refunded: true, refundedCents: cents, reason: 'ok' }
-  } catch (err) {
-    logger.error('[billing] refundTaskCall failed', {
-      taskId,
-      error: err instanceof Error ? err.message : String(err),
-    })
-    return { refunded: false, refundedCents: 0, reason: 'no_log' }
-  }
-}
-
-/** 给流水打已退款标记(jsonb_set,幂等) */
-async function markTaskRefunded(logId: string): Promise<void> {
-  await db
-    .update(llmCallLogs)
-    .set({
-      metadata: sql`jsonb_set(COALESCE(${llmCallLogs.metadata},'{}'::jsonb), '{refunded}', 'true'::jsonb)`,
-    })
-    .where(eq(llmCallLogs.id, logId))
-}
-
-// =============================================================================
 // 6. 两段式计费:预扣 + 结算(2026-09-12 立)
 // -----------------------------------------------------------------------------
 // 解决问题:原「事前 checkQuota + 事后 recordCall 扣费」只挡余额为 0 的 Key,
@@ -1439,12 +1166,6 @@ export interface PreDeductInput {
   estimatedPromptTokens: number
   /** 预估 completion token 数(调用方传 max_tokens,未传建议 1024) */
   estimatedCompletionTokens: number
-  /**
-   * 多模态计费(2026-09-13):callType=image|video 时按定价行 billingMode 预估;
-   * units=image 张数 / video 次数或秒数。per_call 走 estimatedPromptTokens 分档。
-   */
-  callType?: 'chat' | 'image' | 'video'
-  billingUnits?: number
 }
 
 /**
@@ -1480,10 +1201,7 @@ export async function preDeductQuota(input: PreDeductInput): Promise<PreDeductio
       input.model,
       Math.max(0, Math.ceil(input.estimatedPromptTokens)),
       Math.max(0, Math.ceil(input.estimatedCompletionTokens)),
-      {
-        callType: input.callType,
-        units: input.billingUnits,
-      },
+      undefined,
       input.userId,
     )
     const estCents = Math.max(0, cost.totalCostCents)

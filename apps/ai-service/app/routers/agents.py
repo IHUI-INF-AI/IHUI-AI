@@ -340,8 +340,6 @@ def _map_hook_event_to_sse(event: str) -> str:
         "tool.after": "tool_result",
         "tool.approval": "tool-approval",  # 2026-08-30:高危工具审批请求(前端弹窗订阅)
         "self_heal": "self-heal",  # 2-3(2026-09-12):自愈触发/完成事件
-        "thinking.delta": "thinking",  # P0-5(2026-09-13):reasoning 整段透出(前端逐字动画)
-        "plan.step": "plan-step",  # P0-5(2026-09-13):工具步骤 started/completed
         "error": "error",
         "message.receive": "message",
     }.get(event, event)
@@ -360,11 +358,7 @@ async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingRe
         from ..services.hook_engine import hook_engine
 
         subs: dict[str, asyncio.Queue[Any]] = {}
-        for evt in (
-            "session.start", "tool.before", "tool.after", "error",
-            "tool.approval", "self_heal",
-            "thinking.delta", "plan.step",  # P0-5(2026-09-13):工作台 thinking/plan-step
-        ):
+        for evt in ("session.start", "tool.before", "tool.after", "error", "tool.approval", "self_heal"):
             subs[evt] = hook_engine.subscribe(evt)
         try:
             # 心跳保活(30s) + 事件转发
@@ -379,11 +373,7 @@ async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingRe
                     except asyncio.QueueEmpty:
                         continue
                     got = True
-                    # P0-5:thinking.delta/plan.step payload 以 run_id(=workbench
-                    # session_id)承载,无 session_id 键 → 回退 run_id 参与会话过滤
-                    if agentId and (
-                        payload.get("session_id") or payload.get("run_id")
-                    ) not in (agentId, ""):
+                    if agentId and payload.get("session_id") not in (agentId, ""):
                         continue
                     sse_evt = {
                         "type": _map_hook_event_to_sse(evt),
@@ -575,48 +565,6 @@ class ApprovalResponseRequest(BaseModel):
 
     approval_id: str = Field(..., description="审批请求 id(tool-approval SSE 事件返回)")
     decision: str = Field(..., description="决策: approve=批准 / reject=拒绝(其他值视为拒绝)")
-
-
-class SecurityConfigUpdateRequest(BaseModel):
-    """安全配置更新请求(P0-3,2026-09-12 立)。部分更新,未传字段保持不变。"""
-
-    prompt_guard_enabled: bool | None = Field(None, description="提示注入防护总开关")
-    prompt_guard_policy: str | None = Field(None, description="注入防护策略: flag|sanitize|refuse")
-    exec_policy_mode: str | None = Field(None, description="命令执行策略: enforce|audit|off")
-    input_scan_enabled: bool | None = Field(None, description="危险入参扫描总开关")
-    pipeline_record_enabled: bool | None = Field(None, description="安全管线步骤录制开关")
-
-
-@router.get("/agent/security-config")
-async def get_agent_security_config() -> dict[str, Any]:
-    """读取 Agent 安全配置(P0-3 安全三件套单一事实源)。
-
-    返回当前生效配置(env 默认 + 进程内更新;重启回 env 默认)。
-    """
-    from ..services.security_config import get_security_config
-
-    cfg = get_security_config()
-    return {"code": 0, "message": "ok", "data": cfg.to_dict()}
-
-
-@router.put("/agent/security-config")
-async def update_agent_security_config(req: SecurityConfigUpdateRequest) -> dict[str, Any]:
-    """更新 Agent 安全配置(P0-3 安全三件套单一事实源)。
-
-    部分更新:仅传入字段被修改;非法值(未知枚举)返回 400;
-    进程内生效(不落盘,重启回 env 默认;持久化属后续 P1)。
-    """
-    from ..services.security_config import set_security_config
-
-    updates = {k: v for k, v in req.model_dump().items() if v is not None}
-    if not updates:
-        raise HTTPException(status_code=400, detail="无更新字段")
-    try:
-        cfg = set_security_config(**updates)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    logger.info("Agent 安全配置已更新: %s", cfg.to_dict())
-    return {"code": 0, "message": "ok", "data": cfg.to_dict()}
 
 
 # ---------------------------------------------------------------------------

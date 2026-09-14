@@ -7,7 +7,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useModeStore } from '@/stores/mode'
-import { getSamplingParams } from '@/stores/sampling-params'
 import { useTimelineStore } from '@/stores/timeline-store'
 import { toast } from '@/components/common'
 import {
@@ -309,10 +308,6 @@ export function createSendMessage(
     store.setStreaming(true)
     store.setError(null)
     store.resetSubAgentActivities()
-    // P1-6 断点续传(2026-09-13 立):流开始 → 标记该助手消息「未完成」。
-    // 若中途刷新页面,finally 不会执行,此标记保持 false 落盘,
-    // 页面重新挂载时据此判定可续接;正常/异常收尾在 finally 里置回 true。
-    store.setMessageStreamCompleted(assistantId, false)
     // P4-2: 清除上一轮 fallback 通知,避免旧横幅残留到新对话轮次
     setFallbackNotice(null)
 
@@ -362,11 +357,7 @@ export function createSendMessage(
     // 从 auth store 获取 userId(用于回调链路关联)
     const userId = useAuthStore.getState().user?.id ?? ''
     // 从 ai-panel store 获取当前绑定的本地工作区路径(用于注入 CLAUDE.md/AGENTS.md 项目记忆)
-    const activeWorkspace = useAiPanelStore.getState().activeWorkspace
-    const workspacePath = activeWorkspace?.path
-    // P1-8 Repo Wiki(2026-09-13 立):取仓库名透传后端,
-    // 由后端注入该仓库最新 overview 文档到 system prompt(无活跃工作区时不注入)
-    const repoName = activeWorkspace?.name
+    const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
     // web 非 Tauri 环境:用 FileSystemDirectoryHandle 预加载工作区文件内容(阶段 1)
     // Tauri 桌面端返回 undefined,走原有 workspacePath 逻辑
     const workspaceContext = await loadBrowserWorkspaceContext()
@@ -400,21 +391,11 @@ export function createSendMessage(
         effectiveModel,
       )
 
-      // P1-7(2026-09-13 立):读取会话级高级参数(全局默认 + 会话覆盖),
-      // 发送时一次性快照,避免流式过程中用户改参数导致同一轮请求参数不一致。
-      const samplingParams = getSamplingParams(conversationId)
-
       await streamChat({
         model: effectiveModel,
         // 重新生成模式:用户消息已在 store/历史中,直接作为完整上下文发送,不重复追加
         messages: isRegenerate ? history : [...history, { role: 'user', content: text }],
         signal: controller.signal,
-        // P1-7(2026-09-13 立):会话级采样参数(高级参数面板),undefined = 用模型默认,
-        // api-client 仅在字段存在时写入 body(见 client.ts streamChat body 构造)。
-        temperature: samplingParams.temperature,
-        topP: samplingParams.topP,
-        topK: samplingParams.topK,
-        maxTokens: samplingParams.maxTokens,
         metadata: {
           conversationId,
           userId,
@@ -425,13 +406,9 @@ export function createSendMessage(
         extraBody: {
           // ChatMode 4 态唯一模式字段(2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已废弃,语义合并到 mode)
           mode: useModeStore.getState().currentMode,
-          // P1-7:自定义 system prompt(会话级),ai-service 注入系统消息最顶部;
-          // 未设置时不传该 key,保持上游默认行为。
-          ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
         },
         workspacePath,
         workspaceContext,
-        repoName,
         // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,API 端调用共享包压缩
         contextLimit: resolvedContextLimit,
         // 2026-08-16 修复:显式声明流式,与 sendAnswer 保持一致,
@@ -791,10 +768,6 @@ export function createSendMessage(
         useChatStore.getState().setStreaming(false)
         useChatStore.getState().markAllAgentStreamsDone()
       }
-      // P1-6:流已收尾(正常完成 / 报错 / 超时 / 主动 stop)→ 标记完成,刷新后不再续接。
-      // 注意:必须在 generation 守卫之外 —— 被「切换会话」abort 的旧流同样已终止,
-      // 不置 true 会导致用户切回该会话时误触发续接。
-      useChatStore.getState().setMessageStreamCompleted(assistantId, true)
       // 2026-08-06 修复:发送完成(成功/异常)释放 in-flight 锁,允许下一次发送
       sendInFlightRef.current = false
     }

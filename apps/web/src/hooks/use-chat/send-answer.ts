@@ -7,7 +7,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useModeStore } from '@/stores/mode'
-import { getSamplingParams } from '@/stores/sampling-params'
 import { useTimelineStore } from '@/stores/timeline-store'
 import { toast } from '@/components/common'
 import {
@@ -145,9 +144,6 @@ export function createSendAnswer(
         duration: 6000,
       })
     }
-    // P1-6 断点续传(2026-09-13 立):与 sendMessage 对称——续答流开始先标记该助手消息
-    // 「未完成」;中途刷新页面时 finally 不执行,标记保持 false,页面重挂载后据此续接。
-    useChatStore.getState().setMessageStreamCompleted(assistantId, false)
     try {
       // 显示压缩中状态(发送消息后、流式响应前,给用户即时反馈)
       useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
@@ -162,18 +158,10 @@ export function createSendAnswer(
         history.length,
       )
 
-      // P1-7(2026-09-13 立):续答同样应用会话级高级参数(与 sendMessage 对称)
-      const samplingParams = getSamplingParams(store.conversationId)
-
       await streamChat({
         model: effectiveModel,
         messages: history,
         path: '/ai/chat/answer',
-        // P1-7:采样参数透传(undefined = 模型默认)
-        temperature: samplingParams.temperature,
-        topP: samplingParams.topP,
-        topK: samplingParams.topK,
-        maxTokens: samplingParams.maxTokens,
         extraBody: {
           // 2026-08-21 修复(C4):fromRetry 时 pending 为 null,用入口恢复的 questionId
           questionId,
@@ -181,8 +169,6 @@ export function createSendAnswer(
           // 模式透传(2026-07-22 立,对标 主流 AI IDE Plan/Spec):build/plan/review/spec
           // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已废弃,仅传 mode
           mode: useModeStore.getState().currentMode,
-          // P1-7:自定义 system prompt(未设置时不传,保持上游默认)
-          ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
         },
         signal: controller.signal,
         metadata: {
@@ -512,9 +498,6 @@ export function createSendAnswer(
         useChatStore.getState().setStreaming(false)
         useChatStore.getState().markAllAgentStreamsDone()
       }
-      // P1-6:流已收尾(正常/报错/超时/主动 stop)→ 标记完成,刷新后不再续接。
-      // 与 sendMessage 同理,必须放在代际守卫之外:被切会话 abort 的旧流同样已终止。
-      useChatStore.getState().setMessageStreamCompleted(assistantId, true)
     }
     return
   }

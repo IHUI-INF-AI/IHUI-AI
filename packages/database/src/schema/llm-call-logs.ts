@@ -2,18 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import {
-  pgTable,
-  uuid,
-  varchar,
-  text,
-  integer,
-  numeric,
-  jsonb,
-  timestamp,
-  index,
-  bigint,
-} from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, text, integer, jsonb, timestamp, index } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
 /**
@@ -55,20 +44,18 @@ export const llmCallLogs = pgTable(
     apiKeyId: uuid('api_key_id'),
     /** 上游 provider 代码(如 'openai'/'anthropic'/'stepfun') */
     providerCode: varchar('provider_code', { length: 32 }),
-    /** 所用模型配置 id(关联 ai_model_config.id,bigint 主键;2026-09-13 由 uuid 修正以对齐实库列类型) */
-    configId: bigint('config_id', { mode: 'number' }),
+    /** 所用模型配置 id(关联 ai_model_config.id) */
+    configId: uuid('config_id'),
     /** 所用 key 池条目 id(关联 ai_relay_key_pool.id) */
     keyPoolId: uuid('key_pool_id'),
     /** 调用方 IP(支持 IPv4/IPv6) */
     clientIp: varchar('client_ip', { length: 45 }),
     /** 本次调用总成本(分,= input + output + cacheRead + cacheCreation) */
-    costCents: numeric('cost_cents', { precision: 18, scale: 6, mode: 'number' }),
+    costCents: integer('cost_cents'),
     /** 上游 HTTP 状态码(如 200/429/500) */
     httpStatus: integer('http_status'),
     /** Time To First Token 毫秒数(首 token 耗时,流式才有) */
     ttftMs: integer('ttft_ms'),
-    /** 调用类型(2026-09-13 立):chat(默认)|image|video——多模态计费/审计维度 */
-    callType: varchar('call_type', { length: 16 }).default('chat').notNull(),
   },
   (t) => ({
     userIdx: index('llm_call_logs_user_idx').on(t.userId),
