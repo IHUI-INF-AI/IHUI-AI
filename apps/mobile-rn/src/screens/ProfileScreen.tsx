@@ -55,6 +55,7 @@ import { useAuth } from '../context/AuthContext'
 import { rnAuthStore } from '../stores/auth-store'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
+import { FREE_RESOURCE_URL } from '../constants/links'
 import { LoginPopUp } from '../components/LoginPopUp'
 import StudyBar from '../components/StudyBar'
 import type { StudyBarItem } from '../components/StudyBar'
@@ -1770,10 +1771,6 @@ function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem 
     favorited: c.favorite === true,
   }
 }
-
-/** 免费资料飞书链接(Drawer 领取免费资料 → 复制到剪贴板,对齐 Uniapp user/index.vue 行 682 lingqu) */
-const FREE_RESOURCE_URL =
-  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 /** 格式化音频时间(对齐 Uniapp formatAudioTime 行 1243-1247) */
 function formatAudioTime(seconds: number): string {

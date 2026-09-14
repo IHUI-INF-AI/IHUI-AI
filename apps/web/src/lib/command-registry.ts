@@ -8,6 +8,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Search,
   MessageSquare,
+  MessageCircleQuestion,
   Sparkles,
   Globe,
   User,
@@ -22,7 +23,7 @@ import {
   Library,
   Boxes,
 } from 'lucide-react'
-import type { IDETabType } from '@ihui/types'
+import type { ChatMode, IDETabType } from '@ihui/types'
 
 /**
  * 统一命令注册表(1-6 键盘优先交互核心)
@@ -47,7 +48,7 @@ export type CommandAction =
   | { type: 'navigate'; href: string }
   | { type: 'ideTab'; tab: IDETabType; href: string }
   | { type: 'workPanel' }
-  | { type: 'mode'; mode: 'build' | 'plan' | 'review' | 'spec' }
+  | { type: 'mode'; mode: ChatMode }
 
 export interface CommandDef {
   /** 唯一 id,i18n 用 `commandPalette.commands.<id>.*` 解析 */
@@ -161,7 +162,7 @@ export const BUILTIN_COMMANDS: CommandDef[] = [
     action: { type: 'navigate', href: '/connectors' },
   },
 
-  // ---- mode:ChatMode 4 态(Ctrl+1-4 对应) ----
+  // ---- mode:ChatMode 5 态(Ctrl+1-5 对应;2026-09-13 矩阵 A #24 补 modeAsk) ----
   {
     id: 'modeBuild',
     group: 'mode',
@@ -189,6 +190,13 @@ export const BUILTIN_COMMANDS: CommandDef[] = [
     icon: MessageSquare,
     action: { type: 'mode', mode: 'spec' },
     shortcut: 'Ctrl+4',
+  },
+  {
+    id: 'modeAsk',
+    group: 'mode',
+    icon: MessageCircleQuestion,
+    action: { type: 'mode', mode: 'ask' },
+    shortcut: 'Ctrl+5',
   },
 ]
 

@@ -786,7 +786,14 @@ def create_app() -> FastAPI:
 
     # 2026-09-07 立:Best-of-N 同任务多副本自动择优(对标 Cursor 多副本自动评审择优)
     from app.routers import best_of_n as best_of_n_router
+
+    # 2026-09-13 立:Memory Sweeper(长期记忆 SQLite 存储 + 记忆清扫策略,
+    # 对标 Codex/Claude Code 记忆衰减机制;纯标准库 sqlite3,WAL + 事务 + 线程锁)
+    from app.routers.memory_sweeper import router as memory_sweeper_router
     app.include_router(best_of_n_router.router, prefix="/api", tags=["best-of-n"])
+
+    # Memory Sweeper(2026-09-13 立,长期记忆 SQLite 存储 + 记忆清扫策略)
+    app.include_router(memory_sweeper_router, prefix="/api", tags=["memory-sweeper"])
 
     # 企业级补齐(2026-09-06 立):审计日志查询(RBAC audit:read)+ SSO/OIDC
     app.include_router(audit_log_router, prefix="/api", tags=["audit-log"])

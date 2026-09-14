@@ -6,7 +6,16 @@
 
 import * as React from 'react'
 import dynamic from 'next/dynamic'
-import { Check, Copy, Download, FileText, Play, Maximize2 } from 'lucide-react'
+import {
+  Check,
+  Copy,
+  Download,
+  FileText,
+  Play,
+  FilePlus2,
+  TextCursorInput,
+  Maximize2,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
 import ReactMarkdown, { type Components } from 'react-markdown'
@@ -15,8 +24,10 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useCanvasStore } from '@/stores/canvas-store'
+import { applyCodeBlockToFile } from '@/lib/apply-code-block'
 // 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
@@ -154,9 +165,41 @@ const CodeBlockImpl = function CodeBlock({
   collapseLines?: number
 }): React.ReactElement {
   const tA11y = useTranslations('a11y')
+  const t = useTranslations('chat')
   const { copied, copy } = useCopy()
   // 流式场景下 mermaid 代码会频繁变化,用 debounce 减少 mermaid.render 调用
   const debouncedCode = useDebounce(code, 300)
+
+  // P0-2「应用到文件」状态:idle / applying / done(成功后短暂显示 Check)
+  const [applyState, setApplyState] = React.useState<'idle' | 'applying' | 'done'>('idle')
+  const applyTimerRef = React.useRef<number | null>(null)
+  React.useEffect(() => {
+    return () => {
+      if (applyTimerRef.current) window.clearTimeout(applyTimerRef.current)
+    }
+  }, [])
+
+  /** 应用到工作区文件(P0-2):流式中禁用;完成后 1.5s 恢复图标 */
+  const handleApplyToFile = React.useCallback(() => {
+    if (isStreaming || applyState === 'applying') return
+    setApplyState('applying')
+    void applyCodeBlockToFile(code, language).then((r) => {
+      if (r.ok) {
+        setApplyState('done')
+        applyTimerRef.current = window.setTimeout(() => setApplyState('idle'), 1500)
+      } else {
+        setApplyState('idle')
+      }
+    })
+  }, [code, language, isStreaming, applyState])
+
+  /** 插入到编辑器当前光标处(P0-2):派发全局事件由 code-editor-pane 消费 */
+  const handleInsertAtCursor = React.useCallback(() => {
+    if (isStreaming) return
+    window.dispatchEvent(
+      new CustomEvent('ihui:insert-at-cursor', { detail: { code, language: language ?? '' } }),
+    )
+  }, [code, language, isStreaming])
 
   // 代码块折叠状态:默认折叠超过阈值的代码块
   const [collapsed, setCollapsed] = React.useState(true)
@@ -191,21 +234,61 @@ const CodeBlockImpl = function CodeBlock({
   // 复制按钮(absolute 定位在 <pre> 右上角)
   // 2026-07-31 对标 主流 AI IDE + 与 code-generator.tsx 保持一致:
   // 默认无背景色,hover 时显示 bg-muted,backdrop-blur-sm 确保按钮在任意代码块背景上都可读。
+  // 2026-09-12 P0-2:追加「应用到文件」「插入光标」(对标 CodeX/Trae/Qoder 代码块动作)。
+  const iconBtnClass = cn(
+    'inline-flex h-9 w-9 items-center justify-center rounded-md',
+    'text-foreground transition-colors',
+    'hover:bg-muted',
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+    'disabled:pointer-events-none disabled:opacity-50',
+  )
   const copyButton = (
-    <button
-      type="button"
-      onClick={() => copy(code)}
-      data-testid="copy-button"
-      className={cn(
-        'absolute right-2 top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md',
-        'text-foreground transition-colors',
-        'hover:bg-muted',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+    <div className="absolute right-2 top-2 z-10 flex items-center gap-0.5">
+      {/* 应用到工作区文件:仅非流式且有语言标记的代码块显示 */}
+      {!isStreaming && (
+        <Tooltip content={t('codeBlock.applyToFile')}>
+          <button
+            type="button"
+            onClick={handleApplyToFile}
+            disabled={applyState === 'applying'}
+            data-testid="apply-to-file-button"
+            className={iconBtnClass}
+            aria-label={t('codeBlock.applyToFile')}
+          >
+            {applyState === 'done' ? (
+              <Check className="h-4 w-4 text-green-600" />
+            ) : applyState === 'applying' ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <FilePlus2 className="h-4 w-4" />
+            )}
+          </button>
+        </Tooltip>
       )}
-      aria-label={copied ? tA11y('codeCopied') : tA11y('copyCode')}
-    >
-      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-    </button>
+      {/* 插入到编辑器光标处:仅非流式显示 */}
+      {!isStreaming && (
+        <Tooltip content={t('codeBlock.insertAtCursor')}>
+          <button
+            type="button"
+            onClick={handleInsertAtCursor}
+            data-testid="insert-at-cursor-button"
+            className={iconBtnClass}
+            aria-label={t('codeBlock.insertAtCursor')}
+          >
+            <TextCursorInput className="h-4 w-4" />
+          </button>
+        </Tooltip>
+      )}
+      <button
+        type="button"
+        onClick={() => copy(code)}
+        data-testid="copy-button"
+        className={iconBtnClass}
+        aria-label={copied ? tA11y('codeCopied') : tA11y('copyCode')}
+      >
+        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+      </button>
+    </div>
   )
 
   // 流式中的代码块用 opacity-60 标记(临时闭合位置)

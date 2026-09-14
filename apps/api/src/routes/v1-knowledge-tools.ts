@@ -132,8 +132,7 @@ import {
   requireApiKeyQuota,
 } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
-// /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
-import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
+import { config } from '../config/index.js'
 import { dbRead } from '../db/index.js'
 import { users, apiLogs, apiKeyQuotas, llmCallLogs, aiCostRecords } from '@ihui/database'
 import { knowledgeRagService } from '../services/knowledge-rag-service.js'
@@ -482,7 +481,7 @@ async function forwardAiService(
   mapper?: (data: unknown) => unknown,
 ): Promise<void> {
   try {
-    const resp = await aiServiceSystemFetch(path, init)
+    const resp = await fetch(`${config.AI_SERVICE_URL}${path}`, init)
     if (!resp.ok) {
       const txt = await resp.text().catch(() => '')
       return reply
@@ -2468,8 +2467,8 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       try {
-        const resp = await aiServiceSystemFetch(
-          `/api/message-bus/subscribe/${encodeURIComponent(id)}`,
+        const resp = await fetch(
+          `${config.AI_SERVICE_URL}/api/message-bus/subscribe/${encodeURIComponent(id)}`,
           { method: 'DELETE' },
         )
         if (!resp.ok) {
