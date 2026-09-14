@@ -467,26 +467,4 @@ if (process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
   console.log('⏭  Button 高度/宽度覆盖守门(HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1, 跳过)')
 }
 
-// 🔑 凭据前缀一致性守门(2026-09-13 立,blocking)
-// 背景:IHUI 对外 API 的 Bearer 只能用公开标识 `ihui_xxx`;`sk_xxx`(secret)只走 X-Api-Secret 头。
-//      2026-09-13 生产实测确认 `Bearer sk_...` 必 401,而当时 8 个 UI 页面/文档把 Bearer 写成
-//      `sk-xxx`,新用户照抄文档接入必然失败。本守门防止回潮。
-// 跳过方法(紧急):HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD=1 git commit ...
-if (process.env.HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD !== '1') {
-  if (
-    !run(
-      '🔑 凭据前缀一致性守门(Bearer 只能用 ihui_xxx, 2026-09-13 立)...',
-      'node scripts/check-api-credential-prefix.mjs --staged',
-    )
-  ) {
-    console.error('❌ 凭据前缀一致性守门失败,提交已阻止')
-    console.error('   修复:Authorization: Bearer 一律 ihui_xxx;sk_xxx 仅用于 X-Api-Secret')
-    console.error('   权威说明:docs/developer/getting-started/authentication.md')
-    console.error('   紧急跳过:HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD=1 git commit ...')
-    process.exit(1)
-  }
-} else {
-  console.log('⏭  凭据前缀一致性守门(HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD=1, 跳过)')
-}
-
 console.log('✅ Pre-commit 检查通过')

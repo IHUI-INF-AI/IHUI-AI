@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Mic, Square, Play, Pause, Trash2, Download } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 
@@ -22,6 +23,7 @@ interface VoiceRecordProps {
  * 基于 MediaRecorder API 录制音频，支持播放/删除/下载
  */
 export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordProps) {
+  const t = useTranslations('voiceRecord')
   const [isRecording, setIsRecording] = React.useState(false)
   const [isPaused, setIsPaused] = React.useState(false)
   const [duration, setDuration] = React.useState(0)
@@ -86,7 +88,7 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
         })
       }, 1000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '无法访问麦克风')
+      setError(e instanceof Error ? e.message : t('micError'))
     }
   }
 
@@ -150,11 +152,11 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
         </div>
       )}
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" data-testid="voice-record">
         {!isRecording ? (
-          <Button onClick={startRecording} size="sm">
+          <Button onClick={startRecording} size="sm" data-testid="voice-record-start">
             <Mic className="h-4 w-4" />
-            开始录制
+            {t('startRecording')}
           </Button>
         ) : (
           <>
@@ -165,13 +167,23 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
               )}
             />
             <span className="font-mono text-sm tabular-nums">{formatTime(duration)}</span>
-            <Button variant="outline" size="sm" onClick={togglePause}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={togglePause}
+              data-testid="voice-record-pause"
+            >
               {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-              {isPaused ? '继续' : '暂停'}
+              {isPaused ? t('resume') : t('pause')}
             </Button>
-            <Button variant="destructive" size="sm" onClick={stopRecording}>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={stopRecording}
+              data-testid="voice-record-stop"
+            >
               <Square className="h-4 w-4" />
-              停止
+              {t('stop')}
             </Button>
           </>
         )}
@@ -194,13 +206,23 @@ export function VoiceRecord({ maxDuration = 60, onRecordComplete }: VoiceRecordP
             <track kind="captions" />
           </audio>
           <div className="ml-auto flex items-center gap-1">
-            <Tooltip content="下载">
-              <Button variant="ghost" size="icon-sm" onClick={downloadRecording}>
+            <Tooltip content={t('download')}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={downloadRecording}
+                data-testid="voice-record-download"
+              >
                 <Download className="h-4 w-4" />
               </Button>
             </Tooltip>
-            <Tooltip content="删除">
-              <Button variant="ghost" size="icon-sm" onClick={deleteRecording}>
+            <Tooltip content={t('remove')}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={deleteRecording}
+                data-testid="voice-record-remove"
+              >
                 <Trash2 className="h-4 w-4" />
               </Button>
             </Tooltip>

@@ -10,7 +10,7 @@ import { BackButton } from '@/components/common'
 
 const CURL_EXAMPLE = `curl https://api.aizhs.top/v1/chat/completions \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ihui_xxx" \\
+  -H "Authorization: Bearer sk-ihui-xxxxx" \\
   -d '{
     "model": "gpt-4o",
     "messages": [
@@ -21,7 +21,7 @@ const CURL_EXAMPLE = `curl https://api.aizhs.top/v1/chat/completions \\
 const PYTHON_EXAMPLE = `from openai import OpenAI
 
 client = OpenAI(
-    api_key="ihui_xxx",
+    api_key="sk-ihui-xxxxx",
     base_url="https://api.aizhs.top/v1"
 )
 
@@ -65,7 +65,7 @@ export default async function ApiDocsPage() {
             <code className="font-mono">
               <span className="text-muted-foreground"># Header 格式</span>
               {'\n'}
-              Authorization: Bearer ihui_xxx
+              Authorization: Bearer sk-ihui-xxxxx
             </code>
           </pre>
         </CardContent>

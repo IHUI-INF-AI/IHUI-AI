@@ -687,6 +687,19 @@
       "confirm": "Confirm Switch",
       "hint": "Notice"
     },
+    "stream": {
+      "compact": "Context compacted {before} → {after}",
+      "fallback": "Switched to backup model: {model}",
+      "planUpdate": "Execution plan updated",
+      "reconnect": "Connection lost, retrying #{attempt} in {seconds}s",
+      "subagent": "Subtask: {phase}",
+      "title": "Execution",
+      "toolCall": "Calling tool: {name}",
+      "toolResult": "Tool returned: {name}",
+      "toolSummary": "Tool summary: {calls} calls",
+      "terminal": "Terminal task: {status}",
+      "usage": "Usage: {n} tokens"
+    },
     "switchAgent": {
       "confirm": "Confirm Switch"
     },

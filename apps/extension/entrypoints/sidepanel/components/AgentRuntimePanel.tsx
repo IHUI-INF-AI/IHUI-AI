@@ -2,10 +2,12 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useRef, useState } from 'react'
-import { executeAgentRuntimeStream } from '@ihui/api-client'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { executeAgentRuntimeStream, sendToolApprovalResponse } from '@ihui/api-client'
+import { parsePlanText, type RenderPlanStep } from '@ihui/shared'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
+import { PlanStepsView } from './MessageContent'
 
 type AgentStatus = 'idle' | 'running' | 'completed' | 'failed'
 
@@ -14,6 +16,9 @@ interface PermissionEvent {
   toolName?: string
   dangerLevel?: string
   decision: string
+  /** W6:审批 ID。当前 /agent-runtime 通道的 onPermission 载荷未提供该字段,
+   *  后端补齐后「允许/拒绝」按钮即可直接走 sendToolApprovalResponse 生效。 */
+  approvalId?: string
 }
 
 interface AgentRuntimePanelProps {
@@ -38,7 +43,15 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
   const [output, setOutput] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [permission, setPermission] = useState<PermissionEvent | null>(null)
+  // W6:审批提交状态(提交中 / 已提交 / 失败),无 approvalId 时保持 idle。
+  const [approvalState, setApprovalState] = useState<'idle' | 'submitting' | 'sent' | 'failed'>(
+    'idle',
+  )
   const abortRef = useRef<AbortController | null>(null)
+
+  // W6:链路 B 的 onPlan 只给纯文本,用共享纯函数 parsePlanText 降级解析为结构化步骤,
+  // 与 ChatPage 的 plan 渲染共用同一套数据模型(parsePlanText 位于 @ihui/shared)。
+  const planSteps = useMemo<RenderPlanStep[]>(() => (plan ? parsePlanText(plan) : []), [plan])
 
   const handleSend = useCallback(async () => {
     const message = input.trim()
@@ -49,6 +62,7 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
     setOutput('')
     setError(null)
     setPermission(null)
+    setApprovalState('idle')
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -97,7 +111,25 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
     setOutput('')
     setError(null)
     setPermission(null)
+    setApprovalState('idle')
   }, [])
+
+  // W6:提交审批决策。当前 /agent-runtime 通道的 onPermission 载荷未带 approvalId,
+  // 此时按钮禁用(降级只读);后端补齐后即可直接生效。
+  const handleApproval = useCallback(
+    async (decision: 'approve' | 'reject') => {
+      const approvalId = permission?.approvalId
+      if (!approvalId) return
+      setApprovalState('submitting')
+      try {
+        await sendToolApprovalResponse({ approvalId, decision })
+        setApprovalState('sent')
+      } catch {
+        setApprovalState('failed')
+      }
+    },
+    [permission],
+  )
 
   const statusDotClass =
     status === 'running'
@@ -151,7 +183,12 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
             <div className="text-xs text-muted-foreground mb-1 font-medium">
               {t('agent.executePlan')}
             </div>
-            <pre className="m-0 whitespace-pre-wrap text-xs leading-normal">{plan}</pre>
+            {/* W6:plan 由 <pre> 纯文本改为结构化步骤列表(共用 MessageContent 的 PlanStepsView) */}
+            {planSteps.length > 0 ? (
+              <PlanStepsView steps={planSteps} />
+            ) : (
+              <pre className="m-0 whitespace-pre-wrap text-xs leading-normal">{plan}</pre>
+            )}
           </section>
         )}
 
@@ -166,6 +203,46 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
               {permission.toolName ?? 'unknown'} · {t('agent.level') + ':'}
               {permission.dangerLevel ?? 'read'} · {t('agent.mode') + ': '}
               {permission.mode}
+            </div>
+            {/* W6:审批按钮。缺 approvalId 时降级只读并给出提示 */}
+            <div className="flex items-center gap-1.5 mt-2">
+              <button
+                type="button"
+                className="bg-primary text-primary-foreground border-none rounded-md px-2.5 py-1 text-xs font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => void handleApproval('approve')}
+                disabled={
+                  !permission.approvalId ||
+                  approvalState === 'submitting' ||
+                  approvalState === 'sent'
+                }
+                data-testid="agent-approval-approve"
+              >
+                {t('agent.approve')}
+              </button>
+              <button
+                type="button"
+                className="bg-destructive text-white border-none rounded-md px-2.5 py-1 text-xs font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => void handleApproval('reject')}
+                disabled={
+                  !permission.approvalId ||
+                  approvalState === 'submitting' ||
+                  approvalState === 'sent'
+                }
+                data-testid="agent-approval-reject"
+              >
+                {t('agent.reject')}
+              </button>
+              <span className="text-[10px] text-muted-foreground">
+                {approvalState === 'submitting'
+                  ? t('agent.approvalSubmitting')
+                  : approvalState === 'sent'
+                    ? t('agent.approvalSent')
+                    : approvalState === 'failed'
+                      ? t('agent.approvalFailed')
+                      : !permission.approvalId
+                        ? t('agent.approvalUnavailable')
+                        : ''}
+              </span>
             </div>
           </section>
         )}

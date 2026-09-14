@@ -4,6 +4,7 @@
 
 import { useTranslations } from 'next-intl'
 import type { ChatMessage } from '@/stores/chat'
+import { computeMessageCostCny, formatCompactTokens, useModelPriceCny } from './use-model-price'
 
 /** 2026-09-01 立,工具调用过程流式可视化:i18n 化等待态文案。
  *  依赖 message.toolCalls 中 status==='running' 的工具,让"正在调用工具 X"走 5 语言翻译。 */
@@ -55,31 +56,93 @@ export function formatMessageTimestamp(createdAt: number): string {
 }
 
 /** 元数据 usage 展开面板(2026-08-02 立,原项目 toggleMetadata 展开内容)
- *  展示 promptTokens / completionTokens / totalTokens 细分,类型安全读取 unknown 字段 */
-export function UsageBreakdown({ usage }: { usage: unknown }) {
+ *  展示 promptTokens / completionTokens / totalTokens 细分,类型安全读取 unknown 字段
+ *  W12(2026-09-13):i18n 化标签 + 模型价目折算人民币成本明细 */
+export function UsageBreakdown({ usage, model }: { usage: unknown; model?: string }) {
+  const t = useTranslations('chat')
+  const price = useModelPriceCny(model)
   if (typeof usage !== 'object' || usage === null) return null
   const u = usage as Record<string, unknown>
   const prompt = typeof u.promptTokens === 'number' ? u.promptTokens : null
   const completion = typeof u.completionTokens === 'number' ? u.completionTokens : null
   const total = typeof u.totalTokens === 'number' ? u.totalTokens : null
+  const { inputCost, outputCost, totalCost } = computeMessageCostCny(price, {
+    promptTokens: prompt,
+    completionTokens: completion,
+  })
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
       {prompt !== null && (
         <span className="text-muted-foreground">
-          Prompt: <span className="font-medium text-foreground">{prompt}</span>
+          {t('sessionUsage.promptTokens')}:{' '}
+          <span className="font-medium text-foreground">{prompt}</span>
         </span>
       )}
       {completion !== null && (
         <span className="text-muted-foreground">
-          Completion: <span className="font-medium text-foreground">{completion}</span>
+          {t('sessionUsage.completionTokens')}:{' '}
+          <span className="font-medium text-foreground">{completion}</span>
         </span>
       )}
       {total !== null && (
         <span className="text-muted-foreground">
-          Total: <span className="font-medium text-foreground">{total}</span>
+          {t('messageUsage.total')}: <span className="font-medium text-foreground">{total}</span>
         </span>
       )}
+      {inputCost !== null && (
+        <span className="text-muted-foreground">
+          {t('sessionUsage.inputCost')}: ¥{inputCost.toFixed(6)}
+        </span>
+      )}
+      {outputCost !== null && (
+        <span className="text-muted-foreground">
+          {t('sessionUsage.outputCost')}: ¥{outputCost.toFixed(6)}
+        </span>
+      )}
+      {totalCost !== null && (
+        <span className="text-muted-foreground">
+          {t('messageUsage.total')} ¥{totalCost.toFixed(6)}
+        </span>
+      )}
+      {price === null && model !== null && model !== '' && (
+        <span className="text-muted-foreground/60">{t('sessionUsage.noPriceHint')}</span>
+      )}
     </div>
+  )
+}
+
+/** 消息级 token/成本内联徽章(W12,2026-09-13 立)
+ *  在消息气泡 hover 行(时间戳 · 时长 · 工具数之后)显示紧凑用量:
+ *  `· 1.2k tok · ¥0.0034`,无价目数据时仅显示 token 数。 */
+export function MessageUsageBadge({
+  usage,
+  model,
+  messageId,
+}: {
+  usage: unknown
+  model?: string
+  messageId: string
+}) {
+  const t = useTranslations('chat')
+  const price = useModelPriceCny(model)
+  if (typeof usage !== 'object' || usage === null) return null
+  const u = usage as Record<string, unknown>
+  const total = typeof u.totalTokens === 'number' ? u.totalTokens : 0
+  if (total <= 0) return null
+  const { totalCost } = computeMessageCostCny(price, {
+    promptTokens: typeof u.promptTokens === 'number' ? u.promptTokens : null,
+    completionTokens: typeof u.completionTokens === 'number' ? u.completionTokens : null,
+  })
+  return (
+    <span
+      className="text-muted-foreground/70"
+      title={t('sessionUsage.pricingHint')}
+      aria-label={t('messageUsage.ariaLabel')}
+      data-testid={`message-usage-${messageId}`}
+    >
+      · {formatCompactTokens(total)} tok
+      {totalCost !== null && <span> · ¥{totalCost.toFixed(4)}</span>}
+    </span>
   )
 }
 
