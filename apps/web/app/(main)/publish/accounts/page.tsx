@@ -304,7 +304,7 @@ export default function AccountsPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {accounts.map((a) => {
             const schema = getPlatformSchema(a.platform)
             const isVerifying = verifyingId === a.id
@@ -403,9 +403,9 @@ export default function AccountsPage() {
                       {t('accounts.edit')}
                     </Button>
                     <Button
-                      size="default"
+                      size="xs"
                       variant="ghost"
-                      className="text-xs text-destructive hover:text-destructive px-3"
+                      className="text-destructive hover:text-destructive"
                       onClick={() => {
                         setDeleteTarget(a)
                         setDeleteOpen(true)
