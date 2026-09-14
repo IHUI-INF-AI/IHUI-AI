@@ -10,7 +10,20 @@ export * from './use-pagination'
 export * from './use-auth'
 export * from './use-agents'
 export * from './use-articles'
-export * from './use-chat'
+// 死抽象聊天 hook 已删除(2026-09-12),类型迁移至 @ihui/types/chat;
+// 此处保留类型 re-export,兼容既有 `from '@ihui/shared/hooks'` / `from '@ihui/shared'` 导入路径。
+export type {
+  ChatRole,
+  ToolCall,
+  BaseToolCall,
+  ChatMessage,
+  SendMessageParams,
+  ApiChatMessage,
+  StreamRunnerCallbacks,
+  StreamRunnerParams,
+  UseChatOptions,
+  UseChatReturn,
+} from '@ihui/types/chat'
 export * from './use-load-more'
 export * from './use-social-list'
 export * from './use-paginated-list'

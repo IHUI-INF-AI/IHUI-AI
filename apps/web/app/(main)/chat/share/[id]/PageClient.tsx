@@ -8,18 +8,26 @@ import * as React from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, ArrowLeft, Share2, Copy, User, Bot } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { MarkdownStream } from '@/components/ai/markdown-stream'
+import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
+import { ToolCallCard } from '@/components/ai/tool-call-card'
+import type { ToolCall } from '@/stores/chat'
 
 interface Message {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
+  /** 推理过程:后端分享端点直接返回 chat_messages 原始行(含 reasoning),旧数据可能缺省 */
+  reasoning?: string | null
+  /** 工具调用:后端当前未持久化该字段(chat_messages 表无对应列),按存在性防御性渲染 */
+  toolCalls?: ToolCall[]
   createdAt: string
 }
 
@@ -43,6 +51,7 @@ async function api<T>(url: string): Promise<T> {
 export default function ChatSharePage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
+  const t = useTranslations('aiChat')
   const [copied, setCopied] = React.useState(false)
 
   const { data, isLoading, error } = useQuery({
@@ -80,10 +89,10 @@ export default function ChatSharePage() {
       .writeText(shareUrl)
       .then(() => {
         setCopied(true)
-        toast.success('链接已复制')
+        toast.success(t('shareCopied'))
         setTimeout(() => setCopied(false), 2000)
       })
-      .catch(() => toast.error('复制失败'))
+      .catch(() => toast.error(t('copyFailed')))
   }
 
   const conversation = data?.conversation
@@ -96,14 +105,14 @@ export default function ChatSharePage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回
+        {t('back')}
       </Link>
 
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <Share2 className="h-6 w-6 text-primary" />
-            {conversation?.title ?? '分享对话'}
+            {conversation?.title ?? t('shareConversation')}
           </h1>
           {conversation && (
             <p className="mt-1 text-sm text-muted-foreground">{fmt(conversation.createdAt)}</p>
@@ -111,14 +120,14 @@ export default function ChatSharePage() {
         </div>
         <Button size="sm" onClick={copyLink}>
           <Copy className="mr-1.5 h-4 w-4" />
-          {copied ? '已复制' : '复制链接'}
+          {copied ? t('copied') : t('copyLink')}
         </Button>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : error ? (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -127,7 +136,7 @@ export default function ChatSharePage() {
       ) : messages.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center text-muted-foreground">
           <Share2 className="h-8 w-8 opacity-40" />
-          <p className="text-sm">暂无对话内容</p>
+          <p className="text-sm">{t('noContent')}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -147,10 +156,31 @@ export default function ChatSharePage() {
                   </div>
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="font-medium">{isUser ? '用户' : '助手'}</span>
+                      <span className="font-medium">{isUser ? t('user') : t('assistant')}</span>
                       <span>{fmt(msg.createdAt)}</span>
                     </div>
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
+                    {/* 只读分享:assistant 消息复用对话内的推理/工具卡组件展示,不传任何可变操作回调 */}
+                    {!isUser && msg.reasoning ? (
+                      <ThinkingSection
+                        content={msg.reasoning}
+                        currentNode={null}
+                        isStreaming={false}
+                      />
+                    ) : null}
+                    {!isUser &&
+                      msg.toolCalls?.map((tc) => (
+                        <ToolCallCard
+                          key={tc.id}
+                          toolName={tc.toolName}
+                          args={tc.args}
+                          result={tc.result}
+                          status={tc.status}
+                          duration={tc.duration ?? tc.durationMs}
+                          error={tc.error}
+                          iteration={tc.iteration}
+                        />
+                      ))}
+                    <MarkdownStream content={msg.content} isStreaming={false} />
                   </div>
                 </CardContent>
               </Card>

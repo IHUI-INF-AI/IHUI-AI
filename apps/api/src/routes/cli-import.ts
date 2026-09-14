@@ -39,7 +39,6 @@ import {
 import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
-import { normalizeModelId } from '@ihui/shared'
 import { encryptJSON } from '../utils/crypto.js'
 import {
   listSupportedSources,
@@ -226,19 +225,14 @@ async function insertProvider(
         await db
           .insert(aiModelConfigModels)
           .values(
-            models.map((rawModelId, idx) => {
-              // 2026-09-13:写入前归一为官方名/小写,与中转站目录同一键空间
-              // (ai_model_config_models 有 (config_id, LOWER(model_id)) 表达式唯一索引)。
-              const modelId = normalizeModelId(rawModelId)
-              return {
-                configId: row.id,
-                modelId,
-                displayName: modelId,
-                isDefault: idx === 0,
-                sortOrder: idx,
-                enabled: true,
-              }
-            }),
+            models.map((modelId, idx) => ({
+              configId: row.id,
+              modelId,
+              displayName: modelId,
+              isDefault: idx === 0,
+              sortOrder: idx,
+              enabled: true,
+            })),
           )
           .onConflictDoNothing({
             target: [aiModelConfigModels.configId, aiModelConfigModels.modelId],

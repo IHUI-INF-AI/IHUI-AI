@@ -178,7 +178,21 @@
     "voiceSttFailed": "轉寫失敗,請稍後重試或檢查本地語音服務",
     "voiceEmpty": "未識別到語音內容,請靠近麥克風後重試",
     "voiceUnauthorized": "登入已過期,請刷新頁面後重試",
-    "voiceNetworkError": "網路異常,請檢查連線後重試"
+    "voiceNetworkError": "網路異常,請檢查連線後重試",
+    "reasoning": "推理過程",
+    "toolStatusRunning": "執行中",
+    "toolStatusSuccess": "成功",
+    "toolStatusError": "失敗",
+    "toolDetail": "呼叫詳情",
+    "terminal": "終端機",
+    "terminalStatusRunning": "執行中",
+    "terminalStatusCompleted": "已完成",
+    "terminalStatusFailed": "失敗",
+    "planStatusPending": "待執行",
+    "planStatusInProgress": "進行中",
+    "planStatusCompleted": "已完成",
+    "subagentTools": "子代理工具 ×{count}",
+    "usage": "用量"
   },
   "settings": {
     "language": "介面語言",
@@ -225,7 +239,13 @@
     "usable": "可使用",
     "needVip": "需要 VIP",
     "needPurchase": "需要購買",
-    "loadFailed": "載入失敗"
+    "loadFailed": "載入失敗",
+    "approve": "允許",
+    "reject": "拒絕",
+    "approvalSubmitting": "提交中...",
+    "approvalSent": "已提交",
+    "approvalFailed": "提交失敗",
+    "approvalUnavailable": "當前通道暫不支援線上審批"
   },
   "course": {
     "title": "課程",
@@ -261,6 +281,15 @@
     "translate": "IHUI AI · 翻譯選區",
     "vocab": "IHUI AI · 查詞",
     "send": "IHUI AI · 傳送到對話"
+  },
+  "content": {
+    "translate": "翻譯",
+    "highlight": "高亮",
+    "vocab": "查詞",
+    "sendAi": "問 AI",
+    "saveWord": "儲存到生詞本",
+    "saved": "已儲存",
+    "close": "關閉"
   },
   "page": {
     "benefitsTitle": "會員專屬權益",

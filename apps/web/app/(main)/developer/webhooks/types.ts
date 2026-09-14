@@ -6,7 +6,7 @@ export interface WebhookItem {
   id: string
   url: string
   events: string[]
-  enabled: boolean
+  isEnabled: boolean
   createdAt: string
   lastTriggeredAt?: string
 }

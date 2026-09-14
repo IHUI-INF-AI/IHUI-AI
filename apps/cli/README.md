@@ -108,7 +108,7 @@ ihui agent "为 src/utils.ts 添加单元测试"
 ### 示例 3:配置 API key 和模型
 
 ```bash
-ihui config set apiKey ihui_your_api_key
+ihui config set apiKey sk-your-api-key
 ihui config set model gpt-4o
 ```
 
@@ -136,10 +136,10 @@ ihui config set model gpt-4o
 
 ```bash
 # 环境变量(推荐)
-export IHUI_API_KEY="ihui_your_api_key"
+export IHUI_API_KEY="sk-your-api-key"
 
 # 或通过 config 命令
-ihui config set apiKey ihui_your_api_key
+ihui config set apiKey sk-your-api-key
 ```
 
 配置文件路径:`~/.ihui/config.json`

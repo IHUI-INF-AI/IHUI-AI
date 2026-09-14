@@ -55,4 +55,20 @@ export const SUPPORTED_PROTOCOL_VERSIONS = [
  */
 export const AGENT_COMPACTION_QUALITY_THRESHOLD_DEFAULT = 0.5
 export const AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS_DEFAULT = 4
+
+/**
+ * W5:SSE 流式传输健壮性常量(跨端单一真源)。
+ *
+ * 取值与 @ihui/api-client 的 client.ts 内部实现保持一致(该文件因不依赖
+ * @ihui/shared 而无法反向 import 本段,故此处为唯一可复用真源,各端引用本段,
+ * 禁止再各自硬编码)。miniapp-taro 的 streamChat 读超时 / 指数退避重试直接复用。
+ */
+/** 单次读流超时(ms):超过则视为连接卡死并触发重试 */
+export const STREAM_READ_TIMEOUT_MS = 30000
+/** 最大重试次数(业务错误 401/403/429 不计入重试) */
+export const STREAM_MAX_RETRIES = 3
+/** 指数退避初始延迟(ms):delay = INITIAL * 2^attempt */
+export const STREAM_INITIAL_RETRY_DELAY = 1000
+/** 指数退避延迟上限(ms):同时约束 retry-after 头换算出的等待时长 */
+export const STREAM_MAX_RETRY_DELAY = 30000
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

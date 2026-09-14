@@ -92,10 +92,6 @@ function listBranches() {
       .split('\n')
       .map((line) => line.trim().replace(/^[*+]\s*/, ''))
       .filter(Boolean)
-      // 2026-09-13:detached HEAD 是本仓 sanctioned 的 worktree 提交姿态(AGENTS.md §12d),
-      // `git branch -a` 在 detached 状态会输出 `(HEAD detached at <sha>)` / `(no branch)`
-      // 这类伪条目——它们不是分支,不应被判为"非法分支"而阻塞 worktree 提交。
-      .filter((line) => !line.startsWith('('))
       .map((line) => line.replace(/^remotes\//, ''))
   } catch {
     console.error(`${C.yellow}⚠️ git branch -a 执行失败,跳过单分支检查${C.reset}`)
