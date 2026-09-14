@@ -21,7 +21,6 @@ import {
   CHART_BG_DARK,
   CHART_RED,
   BRAND_PRIMARY,
-  BRAND_PRIMARY_DARK,
 } from './chart-colors'
 
 // ─── 明色文档配色 ──────────────────────────────────────────────────
@@ -44,14 +43,14 @@ export const DOC_TEXT_MUTED = CHART_TEXT_LIGHT
 export const DOC_BORDER = CHART_AXIS_LIGHT
 /** 表格直边框(比 DOC_BORDER 略深一档) */
 export const DOC_BORDER_HARD = '#e2e8f0'
-/** 文档品牌主色(深橙,报表/证书标题;对齐全项目强调橙) */
-export const DOC_BRAND = '#c2410c'
-/** 文档品牌浅色强调(章节卡片底,orange-100) */
-export const DOC_BRAND_SOFT = '#ffedd5'
-/** 文档品牌橙浅档(orange-400,渐变装饰线/强调;与品牌深橙 #c2410c 同色调浅档) */
-export const DOC_BRAND_LIGHT = '#fb923c'
-/** CTA/主按钮品牌橙(浅一档,用于按钮 hover 态品牌) */
-export const DOC_BRAND_HOVER = BRAND_PRIMARY_DARK
+/** 文档品牌主色(深灰蓝,报表/证书标题;对齐全项目强调灰蓝 --color-brand-accent-deep) */
+export const DOC_BRAND = '#4a7a96'
+/** 文档品牌浅色强调(章节卡片底,灰蓝浅档) */
+export const DOC_BRAND_SOFT = '#dce9f0'
+/** 文档品牌灰蓝浅档(渐变装饰线/强调;与品牌深灰蓝 #4a7a96 同色调浅档) */
+export const DOC_BRAND_LIGHT = '#a3c4d6'
+/** CTA/主按钮品牌灰蓝(浅一档,用于按钮 hover 态品牌) */
+export const DOC_BRAND_HOVER = '#8fb8cc'
 
 // ─── 暗色落地页配色 ────────────────────────────────────────────────
 

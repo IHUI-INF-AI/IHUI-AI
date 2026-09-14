@@ -8,7 +8,7 @@
  * - 页面底 tk.surface.bg → var(--color-background);内容边距 24dp → 48rpx
  * - 标题 22dp → 44rpx/700 居中,下距 24dp → 48rpx
  * - 输入框 inputBox:描边 border.light + muted 底 + 高 50dp→100rpx + 圆角 12dp→24rpx + 字 16dp→32rpx
- * - 发送按钮 sendBtn:14dp→28rpx/700 品牌橙纯文字;倒计时 28rpx 次级色
+ * - 发送按钮 sendBtn:14dp→28rpx/700 品牌灰蓝纯文字;倒计时 28rpx 次级色
  * - 提交 submitBtn:100rpx 高 / 圆角 24rpx / 32rpx/700,禁用 opacity 0.6 */
 .email-page {
   min-height: 100vh;
@@ -57,13 +57,13 @@
 .email-placeholder {
   color: var(--color-text-tertiary);
 }
-/* RN sendBtn: 28rpx/700 品牌橙;倒计时态 28rpx 次级色 */
+/* RN sendBtn: 28rpx/700 品牌灰蓝;倒计时态 28rpx 次级色 */
 .email-code-btn {
   flex-shrink: 0;
   margin-left: 24rpx;
   font-size: 28rpx;
   font-weight: 700;
-  color: var(--color-brand-orange);
+  color: var(--color-brand-accent-deep);
   white-space: nowrap;
 }
 .email-code-btn.disabled {

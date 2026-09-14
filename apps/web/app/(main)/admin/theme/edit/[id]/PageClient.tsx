@@ -32,7 +32,7 @@ const EMPTY_FORM: ThemeForm = {
   name: '',
   description: '',
   baseColor: '#ffffff',
-  accentColor: '#ff6b35',
+  accentColor: '#8fb8cc',
   bgColor: '#ffffff',
   textColor: '#1f2937',
   borderColor: '#e5e7eb',

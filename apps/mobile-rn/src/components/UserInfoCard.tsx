@@ -311,7 +311,7 @@ const newStyles = StyleSheet.create({
   },
   editText: {
     fontSize: 12,
-    color: tokens.brandAccent.DEFAULT,
+    color: tokens.brandAccent.deep,
     marginLeft: 4,
   },
   roleRow: {
@@ -352,12 +352,12 @@ const newStyles = StyleSheet.create({
   },
   tokenLabel: {
     fontSize: 12,
-    color: tokens.brandAccent.DEFAULT,
+    color: tokens.brandAccent.deep,
   },
   tokenValue: {
     fontSize: 12,
     fontWeight: '700',
-    color: tokens.brandAccent.DEFAULT,
+    color: tokens.brandAccent.deep,
     marginLeft: 4,
   },
   rechargeBtn: {
@@ -368,7 +368,7 @@ const newStyles = StyleSheet.create({
   },
   rechargeBtnText: {
     fontSize: 12,
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
     fontWeight: '500',
   },
   unsubscribeBtn: {
@@ -405,7 +405,7 @@ const newStyles = StyleSheet.create({
   growthValue: {
     fontSize: 11,
     fontWeight: '600',
-    color: tokens.brandAccent.DEFAULT,
+    color: tokens.brandAccent.deep,
   },
   growthBarBg: {
     height: 4,
@@ -499,7 +499,7 @@ const newStyles = StyleSheet.create({
   },
   modalCloseBtnText: {
     fontSize: 14,
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
     fontWeight: '600',
   },
 })
