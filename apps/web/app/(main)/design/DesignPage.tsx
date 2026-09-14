@@ -120,6 +120,10 @@ export default function DesignPage({ onComment }: DesignPageProps) {
     [selectedDeviceId],
   )
   const currentWidth = currentDevice.id === 'custom' ? customWidth : currentDevice.width
+  const currentHeight =
+    currentDevice.category === 'mobile' || currentDevice.category === 'tablet'
+      ? currentDevice.height
+      : undefined
   const deviceRadius = getDeviceRadius(currentDevice.category)
   const showFrame = showDeviceFrame && currentDevice.category !== 'desktop'
 
@@ -550,6 +554,7 @@ export default function DesignPage({ onComment }: DesignPageProps) {
           iframeRef={iframeRef}
           srcDoc={srcDoc}
           currentWidth={currentWidth}
+          currentHeight={currentHeight}
           showFrame={showFrame}
           deviceRadius={deviceRadius}
         />

@@ -33,8 +33,14 @@ interface ToolCallSummaryCardProps {
   /** 本地 toolCalls 数组(后端未发 tool-summary 时降级聚合)
    *  - 优先级低于 summary prop(summary 非空时直接用)
    *  - 仅当 summary 为 undefined 时才用本地聚合
-   *  - status 可选:运行时携带工具状态(running/success/failed),用于 fingerprint */
-  toolCalls?: Array<{ toolName: string; args?: Record<string, unknown>; status?: string }>
+   *  - status 可选:运行时携带工具状态(running/success/failed),用于 fingerprint
+   *  - durationMs 可选:本地聚合总耗时(W11 起与后端 totalDurationMs 口径一致) */
+  toolCalls?: Array<{
+    toolName: string
+    args?: Record<string, unknown>
+    status?: string
+    durationMs?: number
+  }>
   /** 是否流式中(流式时折叠态显示 "统计中..." 提示,完成后显示数字) */
   isStreaming?: boolean
   'data-testid'?: string
@@ -44,17 +50,79 @@ interface ToolCallSummaryCardProps {
 
 const FILE_SEARCH_TOOLS = new Set(['read_file', 'search_codebase', 'file_search', 'list_dir'])
 const WEB_SEARCH_TOOLS = new Set(['web_search', 'search_web', 'fetch_url'])
-const FILE_MODIFY_TOOLS = new Set(['edit_file', 'write_file', 'create_file', 'delete_file'])
+// edit_file/file_edit 双写:后端 llm.py 用 file_edit,前端历史用 edit_file,取并集对齐
+const FILE_MODIFY_TOOLS = new Set([
+  'edit_file',
+  'file_edit',
+  'write_file',
+  'create_file',
+  'delete_file',
+])
 
 // ─── 本地聚合降级实现(后端未发 tool-summary 时使用) ──
 
+/**
+ * 按 Python str.splitlines() 口径切分行(W11 修复:对齐后端 llm.py 的算法,
+ * 覆盖 \r\n / \r / \n / \v / \f / \u0085 / \u2028 / \u2029,并去除末尾空行)
+ */
+function pySplitLines(s: string): string[] {
+  const parts = s.split(/\r\n|\r|\n|\u000B|\u000C|\u0085|\u2028|\u2029/)
+  if (parts.length > 0 && parts[parts.length - 1] === '') parts.pop()
+  return parts
+}
+
+/**
+ * 从单个 tool_call 的 args 提取新增行数(W11 修复:原降级路径恒写 0,
+ * 现复刻后端 ai-service/app/routers/llm.py calculate_added_lines 的口径):
+ * - diff 字符串:统计以 + 开头但非 +++ 的行(unified diff added 行)
+ * - content 字符串:整体写入,全部算 added(write_file)
+ * - new_string 字符串:统计行数(file_edit)
+ */
+function calculateAddedLines(args: Record<string, unknown> | undefined): number {
+  if (!args) return 0
+  const diff = args['diff']
+  if (typeof diff === 'string' && diff) {
+    return pySplitLines(diff).filter((l) => l.startsWith('+') && !l.startsWith('+++')).length
+  }
+  const content = args['content']
+  if (typeof content === 'string' && content) return pySplitLines(content).length
+  const newString = args['new_string']
+  if (typeof newString === 'string' && newString) return pySplitLines(newString).length
+  return 0
+}
+
+/**
+ * 从单个 tool_call 的 args 提取删除行数(复刻后端 calculate_deleted_lines 口径):
+ * - diff 字符串:统计以 - 开头但非 --- 的行(unified diff deleted 行)
+ * - old_string 字符串:统计行数(file_edit)
+ * - content 整体写入无删除 → 0
+ */
+function calculateDeletedLines(args: Record<string, unknown> | undefined): number {
+  if (!args) return 0
+  const diff = args['diff']
+  if (typeof diff === 'string' && diff) {
+    return pySplitLines(diff).filter((l) => l.startsWith('-') && !l.startsWith('---')).length
+  }
+  const oldString = args['old_string']
+  if (typeof oldString === 'string' && oldString) return pySplitLines(oldString).length
+  return 0
+}
+
 function deriveToolSummary(
-  toolCalls: Array<{ toolName: string; args?: Record<string, unknown>; status?: string }>,
+  toolCalls: Array<{
+    toolName: string
+    args?: Record<string, unknown>
+    status?: string
+    durationMs?: number
+  }>,
 ): ToolCallSummary {
   const toolsByCategory: Record<string, number> = {}
   let filesSearched = 0
   let webSearched = 0
   const modifiedFiles = new Set<string>()
+  let linesAdded = 0
+  let linesDeleted = 0
+  let totalDurationMs = 0
 
   for (const tc of toolCalls) {
     const name = tc.toolName
@@ -62,20 +130,23 @@ function deriveToolSummary(
     if (FILE_SEARCH_TOOLS.has(name)) filesSearched++
     if (WEB_SEARCH_TOOLS.has(name)) webSearched++
     if (FILE_MODIFY_TOOLS.has(name)) {
-      const fp = tc.args?.file_path ?? tc.args?.path
-      if (typeof fp === 'string') modifiedFiles.add(fp)
+      const fp = tc.args?.['file_path'] ?? tc.args?.['path']
+      if (typeof fp === 'string' && fp) modifiedFiles.add(fp)
+      linesAdded += calculateAddedLines(tc.args)
+      linesDeleted += calculateDeletedLines(tc.args)
     }
+    totalDurationMs += tc.durationMs ?? 0
   }
 
   return {
     filesSearched,
     webSearched,
     filesModified: modifiedFiles.size,
-    linesAdded: 0, // 本地聚合无法准确计算行数,留 0(后端聚合才有)
-    linesDeleted: 0,
+    linesAdded,
+    linesDeleted,
     toolsByCategory,
     totalCalls: toolCalls.length,
-    totalDurationMs: undefined,
+    totalDurationMs: totalDurationMs > 0 ? totalDurationMs : undefined,
   }
 }
 

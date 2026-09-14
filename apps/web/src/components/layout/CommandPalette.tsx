@@ -127,6 +127,7 @@ export function CommandPalette({
           // 与 GlobalHooksProvider Ctrl+1-4 逻辑一致:重复切换提示 + 成功提示
           const mode = cmd.action.mode
           const MODE_LABEL_KEYS: Record<string, string> = {
+            ask: 'modeAsk',
             build: 'modeBuild',
             plan: 'modePlan',
             review: 'modeReview',

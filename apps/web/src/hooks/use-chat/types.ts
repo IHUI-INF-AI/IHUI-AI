@@ -54,6 +54,10 @@ export interface UseChatReturn {
   applyDiff: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   /** Reject:纯前端标记为 rejected,无 API 调用 */
   rejectDiff: (messageId: string, toolCallId: string) => void
+  /** #14 批量 Accept(2026-09-13 立):消息内全部待决 diff 卡逐文件顺序应用,失败不回滚已成功项 */
+  applyAllDiffs: (messageId: string) => Promise<void>
+  /** #14 批量 Reject(2026-09-13 立):消息内全部待决 diff 卡整体标记 rejected,纯前端 */
+  rejectAllDiffs: (messageId: string) => void
 }
 
 export interface ChatActionContext {

@@ -324,8 +324,7 @@ const DEVELOPER_TOOLS_CHILDREN: NavItem[] = [
 const DEVELOPER_ITEMS: NavItem[] = [
   { href: '/developer', labelKey: 'developer', icon: Terminal },
   { href: '/developer/api-docs', labelKey: 'developerApiDocs', icon: Code },
-  // 2026-09-13:原 /developer/keys 独立入口与「中转站 → API 密钥」重复且旧页 API 不存在,
-  // 统一收敛到 /developer/relay/keys(旧路由保留重定向,见 developer/keys/page.tsx)
+  { href: '/developer/keys', labelKey: 'developerKeys', icon: Key },
   // P0-5 模型 API 中转站(2026-07-29 立);2026-08-30 密钥/用量挂为中转站子项
   {
     href: '/developer/relay',

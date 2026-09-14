@@ -11,6 +11,8 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
+import type { CheckpointScope } from '@/api/checkpoint-api'
+
 interface Checkpoint {
   id: string
   label: string
@@ -20,12 +22,13 @@ interface Checkpoint {
 
 interface CheckpointHistoryPanelProps {
   checkpoints: Checkpoint[]
-  onRestore?: (id: string) => void
+  onRestore?: (id: string, scope: CheckpointScope) => void
 }
 
 export function CheckpointHistoryPanel({ checkpoints, onRestore }: CheckpointHistoryPanelProps) {
   const t = useTranslations('ai.checkpointHistory')
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
+  const [scope, setScope] = React.useState<CheckpointScope>('both')
 
   const toggle = (id: string) => {
     setExpanded((prev) => {
@@ -42,6 +45,38 @@ export function CheckpointHistoryPanel({ checkpoints, onRestore }: CheckpointHis
         <History className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold">{t('title')}</h3>
       </div>
+      {onRestore && checkpoints.length > 0 && (
+        <div
+          className="flex items-center gap-2 border-b px-4 py-2"
+          data-testid="checkpoint-scope-selector"
+        >
+          <span className="text-xs text-muted-foreground">{t('scopeLabel')}</span>
+          <div className="flex overflow-hidden rounded-md border" role="group">
+            {(
+              [
+                ['conversation', t('scopeConversation')],
+                ['code', t('scopeCode')],
+                ['both', t('scopeBoth')],
+              ] as Array<[CheckpointScope, string]>
+            ).map(([s, label]) => (
+              <button
+                key={s}
+                type="button"
+                data-testid={`checkpoint-scope-${s}`}
+                onClick={() => setScope(s)}
+                className={cn(
+                  'px-2 py-0.5 text-xs transition-colors',
+                  scope === s
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="p-3">
         {checkpoints.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
@@ -89,7 +124,8 @@ export function CheckpointHistoryPanel({ checkpoints, onRestore }: CheckpointHis
                         variant="ghost"
                         size="xs"
                         className="mt-1 px-2 text-xs text-muted-foreground hover:text-primary"
-                        onClick={() => onRestore(cp.id)}
+                        onClick={() => onRestore(cp.id, scope)}
+                        data-testid={`checkpoint-restore-${cp.id}`}
                       >
                         <RotateCcw className="h-3 w-3" />
                         {t('restore')}
