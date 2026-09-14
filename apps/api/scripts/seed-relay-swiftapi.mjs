@@ -77,32 +77,6 @@ const MODELS = [
 ]
 const GROUP_NAME = 'upstream-pool'
 
-// 模型名官方归一(2026-09-13 立):同一模型全库仅允许一条。
-// 同源实现:packages/shared/src/constants/model-names.ts / apps/ai-service/app/core/model_naming.py
-// (本脚本是独立 node 脚本,故内联同表;两端映射表更新时需同步此副本)
-const OFFICIAL_MODEL_NAMES = {
-  'auto-model': 'Auto-Model',
-  'minimax-m1': 'MiniMax-M1',
-  'minimax-m2': 'MiniMax-M2',
-  'minimax-m2-highspeed': 'MiniMax-M2-highspeed',
-  'minimax-m2.5': 'MiniMax-M2.5',
-  'minimax-m2.5-highspeed': 'MiniMax-M2.5-highspeed',
-  'minimax-m2.7': 'MiniMax-M2.7',
-  'minimax-m2.7-highspeed': 'MiniMax-M2.7-highspeed',
-  'minimax-m3': 'MiniMax-M3',
-  'minimax-m3-highspeed': 'MiniMax-M3-highspeed',
-  'minimax-text-01': 'MiniMax-Text-01',
-  'minimax-vl-01': 'MiniMax-VL-01',
-}
-function normalizeModelId(raw) {
-  const t = String(raw).trim()
-  if (!t) return t
-  const slashIdx = t.indexOf('/')
-  if (slashIdx > 0) return t.slice(0, slashIdx + 1) + normalizeModelId(t.slice(slashIdx + 1))
-  const lower = t.toLowerCase()
-  return OFFICIAL_MODEL_NAMES[lower] ?? lower
-}
-
 const sql = postgres(DB, { max: 1 })
 
 try {
@@ -154,7 +128,7 @@ try {
     // 5. 模型上架(is_relay_public=true;同 (config_id, model_id) 幂等)
     let upserted = 0
     for (let i = 0; i < MODELS.length; i++) {
-      const m = normalizeModelId(MODELS[i])
+      const m = MODELS[i]
       const r = await tx`SELECT id FROM ai_model_config_models WHERE config_id=${configId} AND model_id=${m}`
       if (r.length > 0) {
         await tx`

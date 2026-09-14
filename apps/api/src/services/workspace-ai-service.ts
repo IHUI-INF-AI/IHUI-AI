@@ -11,7 +11,7 @@
 
 import { exec, execFile } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
-import { config } from '../config/index.js'
+import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import {
   existsSync,
   mkdirSync,
@@ -417,7 +417,7 @@ class AgentLoopRuntime {
         // LLM 思考步骤 — 调用 ai-service 的 /llm/chat 端点
         let llmContent: string
         try {
-          const llmResp = await fetch(`${config.AI_SERVICE_URL}/llm/chat`, {
+          const llmResp = await aiServiceSystemFetch('/llm/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
