@@ -215,7 +215,10 @@ async function openPane(page: Page): Promise<void> {
   await trigger.click()
 
   const pane = page.locator(PANE)
-  await expect(pane).toBeVisible({ timeout: 5000 })
+  // 2026-09-14 CI 实锤(2-18):case 15 切语言后 openPane 触发 reload,CI 慢机
+  // 重水合 >5s → pane 可见超时(3 次重试全挂)。openPane 其余预算均 30s,
+  // 此处 5s 失衡,放宽到 15s。
+  await expect(pane).toBeVisible({ timeout: 15000 })
 }
 
 /** 在 textarea 输入消息并发送(Enter) */

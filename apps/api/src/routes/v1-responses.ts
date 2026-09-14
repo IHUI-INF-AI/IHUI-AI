@@ -33,12 +33,13 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import { config } from '../config/index.js'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
 import { checkQuota, recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
 // P0-20b 参数覆盖系统转发层集成(2026-08-01 立):转发前应用 applyParamOps
 import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
 import { error } from '../utils/response.js'
+// /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
+import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 v1-public.ts ApiKeyContext 结构一致) */
 interface ApiKeyContext {
@@ -298,7 +299,7 @@ async function streamResponses(
   request.raw.on('close', onClose)
 
   try {
-    const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete/stream`, {
+    const resp = await aiServiceSystemFetch('/api/llm/complete/stream', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -547,7 +548,7 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
 
       // 非流式:转发到 ai-service /api/llm/complete
       try {
-        const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete`, {
+        const resp = await aiServiceSystemFetch('/api/llm/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(modifiedOpenaiBody),

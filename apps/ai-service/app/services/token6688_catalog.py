@@ -88,7 +88,7 @@ async def get_model_metadata(model_id: str) -> dict[str, Any] | None:
                    JOIN ai_model_config c ON m.config_id = c.id
                    WHERE c.provider_code = 'token6688'
                      AND c.enabled = true
-                     AND (m.model_id = $1 OR m.model_id = $2)
+                     AND (LOWER(m.model_id) = LOWER($1) OR LOWER(m.model_id) = LOWER($2))
                      AND m.enabled = true
                    LIMIT 1""",
                 mid,

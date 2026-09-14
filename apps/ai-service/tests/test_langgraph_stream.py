@@ -70,7 +70,7 @@ class _RaisingAstream:
     def __call__(self, *args: Any, **kwargs: Any):
         return self._iter()
 
-    async def _iter(self):  # noqa: BUG - yield 使其成为 async generator
+    async def _iter(self):  # yield 使其成为 async generator
         raise self._exc
         yield  # pragma: no cover
 
