@@ -189,12 +189,25 @@ async function main() {
     console.info('[reset-admin-password] 直接 UPDATE 成功(触发器未拦截)')
   } catch (e) {
     console.warn(`[reset-admin-password] 直接 UPDATE 失败,走降级路径(禁用触发器): ${errMsg(e)}`)
+    // 2026-09-14 修复(生产实测触发):上一条 UPDATE 被保护触发器拒绝后,当前事务已进入
+    // aborted 状态,此时直接执行 DDL 必然报 `current transaction is aborted, commands
+    // ignored until end of transaction block`(实测:ALTER 失败 → 脚本 exit 1,降级路径
+    // 完全不可用,生产上无法轮换系统管理员口令)。先 ROLLBACK 结束该事务(无事务时 PG
+    // 仅告警,属无害 no-op),再在干净事务里 DISABLE → UPDATE → ENABLE。
+    await db.execute(sql`ROLLBACK`)
     await db.execute(sql`ALTER TABLE users DISABLE TRIGGER ALL`)
     try {
       await updateAdminPassword(hash)
       console.info('[reset-admin-password] 降级路径 UPDATE 成功')
     } finally {
-      await db.execute(sql`ALTER TABLE users ENABLE TRIGGER ALL`)
+      try {
+        await db.execute(sql`ALTER TABLE users ENABLE TRIGGER ALL`)
+      } catch (re) {
+        console.error(
+          `[reset-admin-password] 严重:恢复 ENABLE TRIGGER ALL 失败,users 的系统管理员保护可能仍处禁用态,需立即人工核查! ${errMsg(re)}`,
+        )
+        throw re
+      }
       console.info('[reset-admin-password] 已重新 ENABLE TRIGGER ALL')
     }
   }
