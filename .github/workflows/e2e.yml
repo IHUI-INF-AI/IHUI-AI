@@ -137,6 +137,10 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
           CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+          # 2026-09-14 CI 实锤(2-18):access token 默认 TTL 15min,CI 全量 45.6m
+          # → 中途过期;应用侧 refresh 轮转消费与 storage 文件互踩 → 晚段用例被
+          # SSO 授权页接管(im-channels ×4 等)。e2e 拉长到 24h 根治,生产不变。
+          JWT_ACCESS_TTL_SECONDS: '86400'
         run: |
           # --import tsx:api dist 引用 @ihui/database 的 src/index.ts(纯 TS,无 dist 条件),
           # 纯 node 无法加载;tsx 同时解决 .ts 导入与 .js→.ts 扩展名解析(2026-09-10)
