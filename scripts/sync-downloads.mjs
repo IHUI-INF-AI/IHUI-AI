@@ -232,8 +232,21 @@ async function checkCopyNeeded(sourcePath, targetPath) {
 function zipDirectoryContents(srcDir, targetZip) {
   if (process.platform === 'win32') {
     // PowerShell Compress-Archive;-Path "src\*" 打包目录内容(不含外层目录)
+    // 2026-09-14:优先 pwsh(PS7 自带 Compress-Archive);部分机器
+    // System32\WindowsPowerShell\v1.0 目录被 PS7 覆盖后 Windows PowerShell 5.1
+    // 缺失 Microsoft.PowerShell.Archive 模块(Compress-Archive 不存在),故 pwsh 优先
     const psSrc = `${srcDir}\\*`
-    const cmd = `powershell -NoProfile -Command "Compress-Archive -Path '${psSrc.replace(/'/g, "''")}' -DestinationPath '${targetZip.replace(/'/g, "''")}' -Force"`
+    const inner = `Compress-Archive -Path '${psSrc.replace(/'/g, "''")}' -DestinationPath '${targetZip.replace(/'/g, "''")}' -Force`
+    let cmd = `pwsh -NoProfile -Command "${inner}"`
+    try {
+      execSync('pwsh -NoProfile -Command "$PSVersionTable.PSVersion.Major"', {
+        encoding: 'utf8',
+        stdio: 'pipe',
+      })
+    } catch {
+      // 无 pwsh 时回退 Windows PowerShell(传统环境)
+      cmd = `powershell -NoProfile -Command "${inner}"`
+    }
     execSync(cmd, { encoding: 'utf8', stdio: 'pipe' })
   } else {
     // macOS/Linux: cd 到源目录后 zip 内容(-X 不保留额外文件属性,-r 递归)
