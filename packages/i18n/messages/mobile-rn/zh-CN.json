@@ -1075,20 +1075,6 @@
     "title": "学习开发",
     "contactLabel": "直接联系李总"
   },
-  "lecturerDetail": {
-    "title": "讲师详情",
-    "subtitle": "了解讲师,选课不迷路",
-    "empty": "暂无简介",
-    "courses": "课程",
-    "followers": "粉丝",
-    "students": "学员",
-    "followBtn": "关注",
-    "unfollowBtn": "已关注",
-    "retry": "重试",
-    "level": "难度",
-    "studentCount": "{count} 人学过",
-    "free": "免费"
-  },
   "liveChat": {
     "title": "直播间互动",
     "empty": "暂无互动,来抢个沙发吧",
