@@ -97,6 +97,9 @@ export * from './pay'
 // 跨端分享信息类型(2026-07-28 立,从 miniapp-taro 下沉:ShareInfo/TimelineShareInfo)
 export * from './share'
 
+// Skill 市场「启停」(用户级启用/停用)跨端共享类型(2026-09 立,第三梯队 #14)
+export * from './skill-market'
+
 // 跨端同名组件共享 props 类型(2026-07-28 立,mobile-rn + miniapp-taro 14 对组件类型去重)
 export * from './ui-native-components'
 

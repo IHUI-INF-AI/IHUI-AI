@@ -2,91 +2,36 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * Skills 市场跨端共享类型(2026-07-23 立)。
- * 自研技能市场能力:IHUI-AI 补齐搜索/安装/评分分发闭环。
- */
-
-export interface SkillMarketEntry {
-  name: string
-  description: string
-  tags: string[]
-  author: string
-  version: string
-  license: string
-  /** lucide 图标名(可选,前端按名渲染;缺省回退通用图标) */
-  icon?: string
-  installCount: number
-  rating: number
-  ratingCount: number
-  createdAt: string
-  updatedAt: string
-}
-
-export interface SkillRating {
-  id: string
-  userId: number
-  userName: string
-  skillName: string
-  score: number
-  comment?: string
-  createdAt: string
-}
-
-export interface SkillMarketQuery {
-  q?: string
-  tag?: string
-  page?: number
-  pageSize?: number
-}
-
-export interface SkillMarketListResponse {
-  items: SkillMarketEntry[]
-  total: number
-  page: number
-  pageSize: number
-}
-
-export interface SkillInstallResponse {
-  name: string
-  installed: boolean
-  installCount: number
-}
-
-export interface SkillRateRequest {
-  score: number
-  comment?: string
-}
+import { fetchApi } from '../client'
+import type { SkillEnabledList, SkillEnabledState } from '@ihui/types'
 
 /**
- * 发布 skill 到市场的请求体。
- * content 为 skill 正文(供安装时复制到用户私有库),市场条目本身只存元数据。
+ * Skill 市场「启停」(用户级启用/停用)API(2026-09 立,第三梯队 #14)。
+ *
+ * 对应后端 apps/api/src/routes/skills.ts:
+ *  - GET  /api/skills/enabled          → 当前用户已启用 skill 名称列表
+ *  - POST /api/skills/:name/enable      → 启用(加入用户启用集)
+ *  - POST /api/skills/:name/disable     → 停用(移出用户启用集)
+ *
+ * install 是一次性入库动作,enable/disable 是运行态开关,二者正交。
  */
-export interface SkillPublishRequest {
-  name: string
-  description: string
-  tags: string[]
-  author: string
-  version: string
-  license: string
-  content: string
+
+/** 当前用户已启用的 skill 名称列表(初始化页面 启停状态用) */
+export function fetchEnabledSkills() {
+  return fetchApi<SkillEnabledList>('/api/skills/enabled')
 }
 
-/** 发布端点响应(返回新建的市场条目) */
-export type SkillPublishResponse = SkillMarketEntry
-
-/** 订阅状态查询响应 */
-export interface SkillSubscriptionResponse {
-  subscribed: boolean
-  subscriberCount: number
+/** 启用一个 skill(写入用户启用集) */
+export function enableSkill(name: string) {
+  return fetchApi<SkillEnabledState>(`/api/skills/${encodeURIComponent(name)}/enable`, {
+    method: 'POST',
+  })
 }
 
-/** Skill 更新通知(存储于 Redis List skill-notifications:<userId>) */
-export interface SkillNotification {
-  id: string
-  skillName: string
-  message: string
-  version?: string
-  timestamp: string
+/** 停用一个 skill(移出用户启用集) */
+export function disableSkill(name: string) {
+  return fetchApi<SkillEnabledState>(`/api/skills/${encodeURIComponent(name)}/disable`, {
+    method: 'POST',
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

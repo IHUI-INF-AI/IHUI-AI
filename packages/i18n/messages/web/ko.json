@@ -9568,6 +9568,11 @@
         "description": "시스템 환경 설정 및 구성",
         "keywords": ["설정", "환경설정", "구성"],
         "label": "설정"
+      },
+      "skillsMarket": {
+        "description": "자가 진화 스킬 탐색 및 설치",
+        "keywords": ["skill", "스킬", "마켓", "market"],
+        "label": "스킬 마켓"
       }
     },
     "keyboardHint": "↑↓ 선택 · Enter 실행",
@@ -20208,7 +20213,8 @@
   "topBar": {
     "editor": "편집기",
     "close": "닫기",
-    "plus": "새로 만들기"
+    "plus": "새로 만들기",
+    "skillsMarket": "스킬 마켓"
   },
   "statusBar": {
     "sync": "동기화",
@@ -21839,5 +21845,41 @@
     "configureByok": "BYOK 설정",
     "configureByokDesc": "직접 보유한 API 키(BYOK)를 사용하여 비용을 절감하고 할당량을 늘리세요.",
     "loading": "불러오는 중..."
+  },
+  "skillMarket": {
+    "title": "스킬 마켓",
+    "subtitle": "자가 진화 스킬 마켓: 키워드/태그로 검색하고, 평점과 설치 수를 확인하고, 원클릭으로 설치해 Agent 워크플로에 연결하세요.",
+    "count": "스킬 {count}개",
+    "searchPlaceholder": "스킬 이름 또는 설명 검색",
+    "tag": "태그",
+    "allTags": "전체 태그",
+    "loading": "불러오는 중…",
+    "loadFailed": "불러오기에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+    "empty": "아직 스킬이 없습니다",
+    "emptyHint": "다른 키워드나 태그로 검색하거나, 직접 스킬을 게시해 보세요.",
+    "prevPage": "이전",
+    "nextPage": "다음",
+    "pageIndicator": "{page} / {total} 페이지",
+    "ratingCount": "평점 {count}건",
+    "noRatings": "평점 없음",
+    "installs": "{count}회 설치",
+    "disable": "비활성화",
+    "enable": "활성화",
+    "install": "원클릭 설치",
+    "installSuccess": "{name} 설치 완료(현재 {count}회 설치)",
+    "enableSuccess": "{name} 활성화됨",
+    "disableSuccess": "{name} 비활성화됨",
+    "actionFailed": "작업에 실패했습니다. 다시 시도해 주세요.",
+    "subscribe": "업데이트 구독",
+    "unsubscribe": "구독 취소",
+    "subscribed": "{name} 업데이트를 구독했습니다",
+    "unsubscribed": "{name} 구독을 취소했습니다",
+    "close": "닫기",
+    "ratingsTitle": "사용자 평점",
+    "rateTitle": "이 스킬 평점 남기기",
+    "yourScore": "내 평점",
+    "commentPlaceholder": "사용 경험을 적어주세요(선택)",
+    "submitRating": "평점 제출",
+    "ratingSuccess": "평점이 제출되었습니다"
   }
 }
