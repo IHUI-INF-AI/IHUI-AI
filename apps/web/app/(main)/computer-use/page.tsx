@@ -15,6 +15,7 @@
 import * as React from 'react'
 import {
   Camera,
+  Check,
   CircleX,
   ExternalLink,
   FileText,
@@ -386,7 +387,10 @@ export default function ComputerUsePage() {
                     {el.name || t('noTextElement')}
                   </span>
                   {el.checked && (
-                    <span className="shrink-0 text-xs text-emerald-600">✓{t('checked')}</span>
+                    <span className="shrink-0 text-xs text-emerald-600">
+                      <Check className="mr-0.5 inline-block h-3 w-3" />
+                      {t('checked')}
+                    </span>
                   )}
                   {el.disabled && (
                     <span className="shrink-0 text-xs text-muted-foreground">{t('disabled')}</span>
