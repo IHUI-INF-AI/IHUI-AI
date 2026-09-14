@@ -133,6 +133,25 @@ test.describe('分享功能验证', () => {
     expect(convBody.code).toBe(0)
     const conversations = convBody.data?.conversations ?? []
     console.log(`    找到 ${conversations.length} 个对话`)
+    // 2026-09-14 CI 实锤(2-18):CI 隔离库全新无历史对话,本地 ihui_e2e 有存量
+    // → 改为自建数据:列表为空时先创建一个对话再取,不再依赖环境存量
+    if (conversations.length === 0) {
+      const createReq = await request.newContext()
+      const createResp = await createReq.post(`${API_URL}/api/chat/conversations`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        data: { title: `E2E 分享验证 ${Date.now()}` },
+      })
+      expect(createResp.ok()).toBe(true)
+      const createBody = await createResp.json()
+      expect(createBody.code).toBe(0)
+      await createReq.dispose()
+      const cr2 = await convReq.get(`${API_URL}/api/chat/conversations?page=1&pageSize=10`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      expect(cr2.ok()).toBe(true)
+      const convBody2 = await cr2.json()
+      conversations.push(...(convBody2.data?.conversations ?? []))
+    }
     expect(conversations.length).toBeGreaterThan(0)
 
     const conv = conversations.find((c: any) => c.id && c.title)
