@@ -39,6 +39,13 @@ const EXT_MIME_MAP: Record<string, string[]> = {
   odt: ['application/vnd.oasis.opendocument.text'],
   rtf: ['application/rtf', 'text/rtf'],
   epub: ['application/epub+zip'],
+  // 2026-09-13 矩阵 A #19:聊天附件链路开放视频与纯文本格式
+  // (web 端 addFileReference 此前已接受 video/*,但服务端无 video 白名单导致上传必 400)
+  mp4: ['video/mp4'],
+  webm: ['video/webm'],
+  mov: ['video/quicktime'],
+  md: ['text/markdown', 'text/plain'],
+  json: ['application/json', 'text/plain'],
 }
 
 export const ALLOWED_EXTENSIONS = Object.keys(EXT_MIME_MAP)
@@ -80,6 +87,8 @@ function matchesAny(buf: Buffer, signatures: number[][], offset = 0): boolean {
  *   ZIP   50 4B 03 04  (docx/xlsx/pptx/odt/epub 共用)
  *   OLE2  D0 CF 11 E0 A1 B1 1A E1  (doc/xls/ppt 共用)
  *   RTF   7B 5C 72 74 66  ({\rtf)
+ *   MP4/MOV  bytes 4..8 = 'ftyp'  (ISO-BMFF 容器,mp4/mov 共用)
+ *   WEBM     1A 45 DF A3  (EBML/Matroska 头)
  */
 function checkMagicNumber(ext: string, buf: Buffer): boolean {
   switch (ext) {
@@ -126,8 +135,17 @@ function checkMagicNumber(ext: string, buf: Buffer): boolean {
       ])
     case 'txt':
     case 'csv':
+    case 'md':
+    case 'json':
       // 纯文本无固定 magic number,跳过文件头校验
       return true
+    case 'mp4':
+    case 'mov':
+      // ISO-BMFF 容器(mp4/mov 共用):box header 4 字节 + 'ftyp' brand(共 8 字节)
+      return buf.length >= 8 && buf.subarray(4, 8).toString('latin1') === 'ftyp'
+    case 'webm':
+      // Matroska/EBML 容器头
+      return matchesAny(buf, [[0x1a, 0x45, 0xdf, 0xa3]])
     default:
       return false
   }

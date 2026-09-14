@@ -58,6 +58,7 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { FREE_RESOURCE_URL } from '../constants/links'
 import { type LucideIcon, Bot, Film, FolderOpen, Menu, Palette, Search } from 'lucide-react-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -83,10 +84,6 @@ const AGENT_MAIN_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
   { id: 'office', name: '办公' },
   { id: 'learning', name: '学习' },
 ]
-
-/** 飞书免费资料链接(对齐 Uniapp lingqu → 复制链接) */
-const FREE_RESOURCE_URL =
-  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 function mapToItem(a: Agent): AgentScreenItem {
   return {

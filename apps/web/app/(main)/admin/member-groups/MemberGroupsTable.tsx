@@ -4,7 +4,7 @@
 
 'use client'
 
-import { Loader2, Users, Pencil, Trash2 } from 'lucide-react'
+import { Loader2, Users, Pencil, Trash2, UserPlus } from 'lucide-react'
 import {
   Button,
   Table,
@@ -19,24 +19,26 @@ import { Tooltip } from '@/components/feedback'
 import { formatTime } from './helpers'
 import type { MemberGroup } from './types'
 
-const COLSPAN = 6
+const COLSPAN = 7
 
 interface Props {
   list: MemberGroup[]
   isLoading: boolean
   onEdit: (item: MemberGroup) => void
   onDelete: (id: string) => void
+  onMembers: (item: MemberGroup) => void
 }
 
-export function MemberGroupsTable({ list, isLoading, onEdit, onDelete }: Props) {
+export function MemberGroupsTable({ list, isLoading, onEdit, onDelete, onMembers }: Props) {
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
             <TableHead className="px-4 py-2.5">名称</TableHead>
+            <TableHead className="px-4 py-2.5">类型</TableHead>
             <TableHead className="px-4 py-2.5">描述</TableHead>
-            <TableHead className="px-4 py-2.5">排序</TableHead>
+            <TableHead className="px-4 py-2.5">成员数</TableHead>
             <TableHead className="px-4 py-2.5">状态</TableHead>
             <TableHead className="px-4 py-2.5">创建时间</TableHead>
             <TableHead className="px-4 py-2.5 text-right">操作</TableHead>
@@ -61,10 +63,13 @@ export function MemberGroupsTable({ list, isLoading, onEdit, onDelete }: Props) 
             list.map((item) => (
               <TableRow key={item.id} className="hover:bg-muted/30">
                 <TableCell className="px-4 py-2.5 font-medium">{item.name}</TableCell>
+                <TableCell className="px-4 py-2.5">
+                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{item.type}</code>
+                </TableCell>
                 <TableCell className="max-w-xs truncate px-4 py-2.5 text-muted-foreground">
                   {item.description ?? '-'}
                 </TableCell>
-                <TableCell className="px-4 py-2.5 tabular-nums">{item.sort}</TableCell>
+                <TableCell className="px-4 py-2.5">{item.memberCount}</TableCell>
                 <TableCell className="px-4 py-2.5">
                   <span
                     className={cn(
@@ -82,6 +87,11 @@ export function MemberGroupsTable({ list, isLoading, onEdit, onDelete }: Props) 
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
+                    <Tooltip content="成员管理">
+                      <Button variant="ghost" size="sm" onClick={() => onMembers(item)}>
+                        <UserPlus className="h-4 w-4" />
+                      </Button>
+                    </Tooltip>
                     <Tooltip content="编辑">
                       <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
                         <Pencil className="h-4 w-4" />

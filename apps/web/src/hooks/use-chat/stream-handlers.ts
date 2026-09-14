@@ -4,6 +4,7 @@
 
 import { useChatStore, type ToolCall } from '@/stores/chat'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { emitAgentHook } from '@/stores/agent-hooks'
 import type { ToolSummaryEvent } from '@ihui/api-client'
 import { BROWSER_TOOL_NAMES, extractToolUrl } from './tool-config'
 
@@ -34,6 +35,8 @@ export function createToolCallHandler(assistantMessageId: string) {
     task_id?: string
   }) => {
     if (event.type === 'tool-call-start') {
+      // W28 Hooks 事件:tool.before(工具开始调用)
+      emitAgentHook('tool.before', { toolName: event.toolName })
       startTimes.set(event.toolCallId, Date.now())
       useChatStore.getState().addToolCall(assistantMessageId, {
         id: event.toolCallId,
@@ -54,6 +57,11 @@ export function createToolCallHandler(assistantMessageId: string) {
       }
     } else {
       // tool-result
+      // W28 Hooks 事件:tool.after(工具返回结果,summary 标注成败)
+      emitAgentHook('tool.after', {
+        toolName: event.toolName,
+        summary: event.isError ? 'failed' : 'success',
+      })
       const updates: Partial<ToolCall> = {
         status: event.isError ? 'error' : 'success',
         result: event.result,

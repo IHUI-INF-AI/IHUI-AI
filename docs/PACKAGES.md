@@ -264,7 +264,7 @@ packages/api-client/src/endpoints/
 | `@ihui/eslint-config` | (无) | packages/* + apps/* |
 | `@ihui/tsconfig` | (无) | packages/* + apps/* |
 | `@ihui/api-client` | types | apps/web, apps/cli |
-| `@ihui/context-compaction` | (无) | apps/web, apps/api |
+| `@ihui/context-compaction` | (无) | apps/cli, apps/api(ai-service 为 Python 等价实现) |
 | `@ihui/sdk` | types, tsconfig | 外部用户(TS SDK) |
 
 ---

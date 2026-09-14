@@ -357,7 +357,24 @@
     "emptyNoAgent": "请先选择已绑定工作流的智能体",
     "send": "发送",
     "streaming": "正在生成...",
-    "callFailed": "调用失败,请稍后重试"
+    "callFailed": "调用失败,请稍后重试",
+    "toolCalls": "工具调用",
+    "toolStatusRunning": "运行中",
+    "toolStatusSuccess": "成功",
+    "toolStatusError": "失败",
+    "toolArgs": "参数",
+    "toolResult": "输出",
+    "planSteps": "执行计划",
+    "planStatusPending": "待开始",
+    "planStatusInProgress": "进行中",
+    "planStatusCompleted": "已完成",
+    "terminalTasks": "终端任务",
+    "terminalStatusRunning": "运行中",
+    "terminalStatusCompleted": "已完成",
+    "terminalStatusFailed": "失败",
+    "terminalExitCode": "退出码",
+    "terminalOutput": "输出",
+    "compactionToast": "上下文已自动压缩({before} → {after} tokens)"
   },
   "aigcCover": {
     "applied": {

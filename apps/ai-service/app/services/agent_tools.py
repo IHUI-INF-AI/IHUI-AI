@@ -91,7 +91,7 @@ def make_knowledge_lookup_tool(
                 "duration_ms": 0.0,
             }
 
-        # 序列化为 LLM 友好 dict(hits 含 source/score/content,不含 raw 避免冗长)
+        # 序列化为 LLM 友好 dict(hits 含 source/score/content/citations,不含 raw 避免冗长)
         return {
             "query": result.query,
             "hits": [
@@ -99,6 +99,8 @@ def make_knowledge_lookup_tool(
                     "source": h.source,
                     "score": h.score,
                     "content": h.content,
+                    # #11 Citations 全链路(2026-09-13):透传引用溯源,供 llm.py 下发 citations SSE 事件
+                    "citations": h.citations,
                 }
                 for h in result.hits
             ],

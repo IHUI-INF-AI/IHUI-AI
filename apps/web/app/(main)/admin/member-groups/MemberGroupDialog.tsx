@@ -47,7 +47,7 @@ export function MemberGroupDialog({
         <DialogHeader>
           <DialogTitle>{editing ? '编辑分组' : '新建分组'}</DialogTitle>
           <DialogDescription>
-            {editing ? '修改分组的名称与描述。' : '创建一个新的会员分组。'}
+            {editing ? '修改分组的名称、类型与描述。' : '创建一个新的会员分组。'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-3">
@@ -58,6 +58,15 @@ export function MemberGroupDialog({
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="h-9"
               placeholder="分组名称"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">类型</Label>
+            <Input
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              className="h-9"
+              placeholder="custom / team / class"
             />
           </div>
           <div className="space-y-1">

@@ -64,7 +64,6 @@ export function startRelayHealthCheckWorker(server: FastifyInstance): Worker {
           degraded: result.degraded,
           down: result.down,
           disabled: result.disabled,
-          recovered: result.recovered,
         },
         'relay-health-check done',
       )

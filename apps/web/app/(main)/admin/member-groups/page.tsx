@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { Loader2, Plus, Users } from 'lucide-react'
 import {
   Button,
+  Label,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -17,35 +18,46 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@ihui/ui-react'
-import { PAGE_SIZE, EMPTY_FORM, api, fetchGroups, groupToForm } from './helpers'
+import { PAGE_SIZE, selectClass, EMPTY_FORM, api, fetchGroups, groupToForm } from './helpers'
 import { MemberGroupDialog } from './MemberGroupDialog'
 import { MemberGroupsTable } from './MemberGroupsTable'
+import { MembersDialog } from './MembersDialog'
 import type { GroupForm, MemberGroup } from './types'
 import { BackButton } from '@/components/common'
 
+const TYPE_OPTIONS = [
+  { value: '', label: '全部类型' },
+  { value: 'custom', label: '自定义' },
+  { value: 'team', label: '团队' },
+  { value: 'class', label: '班级' },
+]
+
 export default function AdminMemberGroupsPage() {
   const qc = useQueryClient()
+  const [type, setType] = React.useState('')
   const [page, setPage] = React.useState(1)
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<MemberGroup | null>(null)
   const [form, setForm] = React.useState<GroupForm>(EMPTY_FORM)
   const [err, setErr] = React.useState<string | null>(null)
   const [delId, setDelId] = React.useState<string | null>(null)
+  const [membersGroup, setMembersGroup] = React.useState<MemberGroup | null>(null)
 
   const { data: list = [], isLoading } = useQuery({
-    queryKey: ['admin', 'member-groups'],
-    queryFn: () => fetchGroups(),
+    queryKey: ['admin', 'member-groups', type],
+    queryFn: () => fetchGroups(type || undefined),
   })
 
   const saveMut = useMutation({
     mutationFn: () => {
       const body = {
         name: form.name.trim(),
+        type: form.type.trim() || 'custom',
         description: form.description.trim() || undefined,
       }
       return editing
-        ? api(`/api/members/groups/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
-        : api('/api/members/groups', { method: 'POST', body: JSON.stringify(body) })
+        ? api(`/api/groups/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) })
+        : api('/api/groups', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       toast.success(editing ? '更新成功' : '创建成功')
@@ -56,7 +68,7 @@ export default function AdminMemberGroupsPage() {
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/members/groups/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`/api/groups/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success('删除成功')
       qc.invalidateQueries({ queryKey: ['admin', 'member-groups'] })
@@ -111,11 +123,33 @@ export default function AdminMemberGroupsPage() {
         </Button>
       </div>
 
+      <div className="flex items-end gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">类型</Label>
+          <select
+            value={type}
+            onChange={(e) => {
+              setType(e.target.value)
+              setPage(1)
+            }}
+            className={selectClass}
+            style={{ width: '160px' }}
+          >
+            {TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <MemberGroupsTable
         list={pageList}
         isLoading={isLoading}
         onEdit={openEdit}
         onDelete={(id) => setDelId(id)}
+        onMembers={setMembersGroup}
       />
 
       {total > 0 && (
@@ -183,6 +217,8 @@ export default function AdminMemberGroupsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <MembersDialog group={membersGroup} onClose={() => setMembersGroup(null)} />
     </div>
   )
 }

@@ -357,7 +357,24 @@
     "emptyNoAgent": "Please select an agent with a bound workflow first",
     "send": "Send",
     "streaming": "Generating...",
-    "callFailed": "Call failed, please retry"
+    "callFailed": "Call failed, please retry",
+    "toolCalls": "Tool Calls",
+    "toolStatusRunning": "Running",
+    "toolStatusSuccess": "Success",
+    "toolStatusError": "Failed",
+    "toolArgs": "Arguments",
+    "toolResult": "Output",
+    "planSteps": "Plan",
+    "planStatusPending": "Pending",
+    "planStatusInProgress": "In Progress",
+    "planStatusCompleted": "Completed",
+    "terminalTasks": "Terminal Tasks",
+    "terminalStatusRunning": "Running",
+    "terminalStatusCompleted": "Completed",
+    "terminalStatusFailed": "Failed",
+    "terminalExitCode": "Exit code",
+    "terminalOutput": "Output",
+    "compactionToast": "Context auto-compacted ({before} → {after} tokens)"
   },
   "aigcCover": {
     "applied": {

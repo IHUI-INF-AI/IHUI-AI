@@ -24,7 +24,6 @@
  */
 import { eq, and, sql, desc, lte, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import { roundCents } from './relay-billing-service.js'
 import { relayCommissionRecords, systemConfigs, users, developerApiKeys } from '@ihui/database'
 import type { RelayCommissionRecord } from '@ihui/database'
 
@@ -219,7 +218,7 @@ export async function recordRelayCommission(input: RecordCommissionInput): Promi
 
   const rows = chain.map((entry) => {
     const rate = entry.level === 1 ? config.level1Rate : config.level2Rate
-    const commissionCents = roundCents(input.sourceCostCents * rate)
+    const commissionCents = Math.round(input.sourceCostCents * rate)
     return {
       sourceUserId: input.sourceUserId,
       sourceCallLogId: input.sourceCallLogId,

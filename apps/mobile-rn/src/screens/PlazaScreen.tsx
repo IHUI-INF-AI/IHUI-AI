@@ -56,16 +56,13 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { navigateDrawerTab } from '../navigation/tab-utils'
 import { rpx } from '../utils/rpx'
+import { FREE_RESOURCE_URL } from '../constants/links'
 import { Search, User, Menu, FolderOpen, X } from 'lucide-react-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 const PAGE_SIZE = 10
-
-/** 免费资料链接(对齐原项目 plaza/index.vue lingqu → setClipboardData) */
-const FREE_RESOURCE_URL =
-  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 const PLAZA_TASK_STATUS = {
   waiting: 'waiting',

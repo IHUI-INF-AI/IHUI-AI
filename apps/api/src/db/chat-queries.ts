@@ -597,10 +597,69 @@ export async function regenerateConversationMessages(
 }
 
 /**
+ * 编辑重跑(2026-09-12 立,四竞品对标 P0-1,对标 Cursor/Trae 消息编辑):
+ * 事务内完成两步 —— ① 更新目标用户消息的 content;
+ * ② 删除该用户消息之后的所有消息(AI 回复及后续轮次全部作废)。
+ * 前端随后以新内容复用 sendMessage(regenerate 模式)重新流式生成回复。
+ * 校验:消息必须存在、属于该对话、且 role 为 user(只允许编辑用户消息)。
+ * 返回更新后的消息;校验失败抛错由路由层转 400/404。
+ */
+export async function editMessageAndTruncateAfter(
+  conversationId: string,
+  messageId: string,
+  content: string,
+): Promise<ChatMessage> {
+  const target = await findMessageById(messageId)
+  if (!target || target.conversationId !== conversationId) {
+    throw new Error('消息不存在或不属于该对话')
+  }
+  if (target.role !== 'user') {
+    throw new Error('只能编辑用户消息')
+  }
+
+  return db.transaction(async (tx) => {
+    const updated = await tx
+      .update(chatMessages)
+      .set({ content })
+      .where(eq(chatMessages.id, messageId))
+      .returning()
+    const message = updated[0]
+    if (!message) throw new Error('消息更新失败')
+
+    // 删除该用户消息之后的所有消息(createdAt > target.createdAt,严格大于保留自身)
+    await tx
+      .delete(chatMessages)
+      .where(
+        and(
+          eq(chatMessages.conversationId, conversationId),
+          gt(chatMessages.createdAt, target.createdAt),
+        ),
+      )
+
+    // 同步 lastMessageAt 到最后一条剩余消息(编辑消息自身必在,故非 null;仍按剩余最大值取)
+    const last = await tx
+      .select({ createdAt: chatMessages.createdAt })
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, conversationId))
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(1)
+    await tx
+      .update(chatConversations)
+      .set({ lastMessageAt: last[0]?.createdAt ?? null, updatedAt: new Date() })
+      .where(eq(chatConversations.id, conversationId))
+
+    return message
+  })
+}
+
+/**
  * 分支:基于指定消息(含该消息)之前的所有消息创建新会话(事务)。
  * - 新会话复制源会话的 title/model/systemPrompt
  * - 消息逐条复制到新会话(生成新 UUID 避免主键冲突,保留 createdAt 时间线)
  * - metadata 写入 originalConversationId 供溯源
+ * - W17(2026-09-14):metadata 额外写入 forkedFromMessageId(分叉点消息)、
+ *   forkedFromMessageCount(复制的历史条数)、forkedAt(分叉时间),
+ *   供前端会话列表「分支来源」标注与分支树溯源
  * 返回新创建的会话。
  */
 export async function branchConversationFrom(
@@ -654,6 +713,20 @@ export async function branchConversationFrom(
         })),
       )
     }
+    // W17(2026-09-14):补写分叉点元数据(分叉点消息 id / 复制条数 / 分叉时间)
+    await tx
+      .update(chatConversations)
+      .set({
+        metadata: {
+          ...sourceMeta,
+          originalConversationId: conversationId,
+          forkedFromMessageId: messageId,
+          forkedFromMessageCount: history.length,
+          forkedAt: new Date().toISOString(),
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(chatConversations.id, conv.id))
     return conv
   })
 }

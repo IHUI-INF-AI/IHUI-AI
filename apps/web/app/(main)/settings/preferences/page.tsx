@@ -15,6 +15,7 @@ import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { useDesktop } from '@/hooks/use-desktop'
 import { clearWebViewCache } from '@/lib/tauri-bridge'
+import { SamplingParamsCard } from '@/components/settings/sampling-params-card'
 import { cn } from '@/lib/utils'
 
 const SIDEBAR_KEY = 'sidebar-collapsed'
@@ -160,6 +161,9 @@ export default function PreferencesPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* AI 回答偏好(2026-09-14 自聊天输入区高级参数面板迁入统一设置页) */}
+        <SamplingParamsCard />
 
         {isDesktop && (
           <Card>

@@ -51,12 +51,12 @@ export function WebhooksList({
                       <span
                         className={cn(
                           'shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium',
-                          wh.enabled
+                          wh.isEnabled
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                             : 'bg-muted text-muted-foreground',
                         )}
                       >
-                        {wh.enabled ? '启用' : '停用'}
+                        {wh.isEnabled ? '启用' : '停用'}
                       </span>
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1">
