@@ -721,7 +721,7 @@ const QR_CLOSE_BUTTON_HEIGHT = 40
 const QR_CLOSE_BUTTON_RADIUS = 8
 const QR_CLOSE_FONT_SIZE = 13
 
-// 主题色 #5088fa:对齐 BottomPopup.tsx 同款 Uniapp 主题色常量
+// 主题色 #5088fa:对齐 BottomPopup.tsx 同款 Uniapp 主题色常量(仅作底色;前景文字用 foreground)
 const ACCENT_COLOR = tokens.brandAccent.DEFAULT
 
 const styles = StyleSheet.create({
@@ -860,7 +860,7 @@ const styles = StyleSheet.create({
   trialTagText: {
     fontSize: TAG_FONT_SIZE,
     lineHeight: TAG_FONT_SIZE + 2,
-    color: tokens.brandAccent.DEFAULT,
+    color: tokens.brandAccent.deep,
     fontWeight: '600',
   } as TextStyle,
   planDetail: {
@@ -879,7 +879,7 @@ const styles = StyleSheet.create({
     fontSize: PLAN_AMOUNT_FONT_SIZE,
     lineHeight: PLAN_AMOUNT_FONT_SIZE + 2,
     fontWeight: '700',
-    color: ACCENT_COLOR,
+    color: tokens.brandAccent.deep,
   } as TextStyle,
   planDefAmount: {
     fontSize: PLAN_DEF_AMOUNT_FONT_SIZE,
@@ -903,7 +903,7 @@ const styles = StyleSheet.create({
   subscribeButtonText: {
     fontSize: SUBSCRIBE_BUTTON_FONT_SIZE,
     lineHeight: SUBSCRIBE_BUTTON_FONT_SIZE + 2,
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
     fontWeight: '600',
   } as TextStyle,
   agreementText: {
@@ -928,7 +928,7 @@ const styles = StyleSheet.create({
   diamondIcon: {
     fontSize: DIAMOND_FONT_SIZE,
     lineHeight: DIAMOND_FONT_SIZE + 2,
-    color: tokens.brandAccent.DEFAULT,
+    color: tokens.brandAccent.deep,
   } as TextStyle,
   levelBannerText: {
     flex: 1,
@@ -961,13 +961,13 @@ const styles = StyleSheet.create({
     fontSize: TRADER_TITLE_FONT_SIZE,
     lineHeight: TRADER_TITLE_FONT_SIZE + 4,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
   } as TextStyle,
   traderBannerSubtitle: {
     marginTop: rpx(6),
     fontSize: TRADER_SUBTITLE_FONT_SIZE,
     lineHeight: TRADER_SUBTITLE_FONT_SIZE + 4,
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
     opacity: 0.9,
   } as TextStyle,
   // ── 私董会服务弹窗(BottomPops 子内容样式) ──
@@ -1029,7 +1029,7 @@ const styles = StyleSheet.create({
   qrCloseText: {
     fontSize: QR_CLOSE_FONT_SIZE,
     lineHeight: QR_CLOSE_FONT_SIZE + 2,
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
     fontWeight: '600',
     textAlign: 'center',
   } as TextStyle,

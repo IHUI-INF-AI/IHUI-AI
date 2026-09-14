@@ -331,7 +331,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    avatarText: { fontSize: 20, fontWeight: '700', color: tk.surface.light },
+    avatarText: { fontSize: 20, fontWeight: '700', color: tk.brandAccent.foreground },
     userMeta: { flex: 1, gap: 2 },
     nickname: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     subText: { fontSize: 14, color: tk.text.secondary },
@@ -354,7 +354,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: cardBg,
     },
     rowLabel: { fontSize: 16, color: rowLabelColor },
-    checkMark: { fontSize: 16, color: tk.brandAccent.DEFAULT, fontWeight: '700' },
+    checkMark: { fontSize: 16, color: tk.brandAccent.deep, fontWeight: '700' },
     switchRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -402,7 +402,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     modalBtnSecondary: { backgroundColor: tk.surface.card },
     modalBtnSecondaryText: { fontSize: 16, fontWeight: '600', color: tk.text.medium },
     modalBtnPrimary: { backgroundColor: tk.brandAccent.DEFAULT },
-    modalBtnPrimaryText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    modalBtnPrimaryText: { fontSize: 16, fontWeight: '600', color: tk.brandAccent.foreground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

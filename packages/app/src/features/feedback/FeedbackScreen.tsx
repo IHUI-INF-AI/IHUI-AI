@@ -222,7 +222,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     typeBtnActive: { backgroundColor: tk.brandAccent.DEFAULT },
     typeText: { fontSize: 14, color: tk.text.secondary },
-    typeTextActive: { color: tk.surface.light },
+    typeTextActive: { color: tk.brandAccent.foreground },
     textarea: {
       marginTop: 8,
       minHeight: 94, // 对齐 Uniapp fankui text_area min-height 188rpx
@@ -284,7 +284,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     submitBtnDisabled: { opacity: 0.6 },
-    submitText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    submitText: { fontSize: 14, fontWeight: '600', color: tk.brandAccent.foreground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

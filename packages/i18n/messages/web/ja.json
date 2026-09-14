@@ -21299,20 +21299,6 @@
   "menu": {
     "sectionDiscover": "発見"
   },
-  "lecturerDetail": {
-    "retry": "再試行",
-    "title": "講師詳細",
-    "subtitle": "講師プロフィール",
-    "empty": "プロフィールはありません",
-    "courses": "コース",
-    "students": "受講生",
-    "followers": "フォロワー",
-    "unfollowBtn": "フォロー中",
-    "followBtn": "フォロー",
-    "level": "レベル",
-    "studentCount": "{count} 人の受講生",
-    "free": "無料"
-  },
   "messageCenter": {
     "type": {
       "system": "システム",

@@ -21309,20 +21309,6 @@
   "menu": {
     "sectionDiscover": "Discover"
   },
-  "lecturerDetail": {
-    "retry": "Retry",
-    "title": "Lecturer Details",
-    "subtitle": "Lecturer Profile",
-    "empty": "No profile yet",
-    "courses": "Courses",
-    "students": "Students",
-    "followers": "Followers",
-    "unfollowBtn": "Following",
-    "followBtn": "Follow",
-    "level": "Level",
-    "studentCount": "{count} students",
-    "free": "Free"
-  },
   "messageCenter": {
     "type": {
       "system": "System",

@@ -88,7 +88,7 @@ export default function DistributionWithdraw() {
             placeholder-style="color: var(--color-text-tertiary)"
           />
           <Button
-            className="text-[24rpx] text-[var(--color-brand-orange)] bg-transparent border-none leading-[48rpx] p-0 min-h-0"
+            className="text-[24rpx] text-[var(--color-brand-accent-deep)] bg-transparent border-none leading-[48rpx] p-0 min-h-0"
             onClick={fillAll}
           >
             {t('distribution.withdraw.all')}

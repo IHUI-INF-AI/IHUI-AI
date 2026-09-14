@@ -53,7 +53,7 @@ const VIP_TAG_LABELS = (tt: TtFn): Record<VipType, string> => ({
 const VIP_TAG_CLASSES: Record<VipType, string> = {
   1: 'bg-[var(--color-gold-muted)] text-[var(--color-gold)]',
   2: 'bg-[var(--color-success-tint)] text-[var(--color-success)]',
-  3: 'bg-[var(--color-brand-orange-tint)] text-[var(--color-brand-orange)]',
+  3: 'bg-[var(--color-brand-accent-tint)] text-[var(--color-brand-accent-deep)]',
   4: 'bg-[var(--color-info-tint)] text-[var(--color-info)]',
   5: 'bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]',
 }

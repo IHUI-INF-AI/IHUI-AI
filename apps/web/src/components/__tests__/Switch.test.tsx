@@ -64,13 +64,13 @@ describe('Switch 粗野硬阴影 (Neo-Brutalist,2026-08-01 重设计)', () => {
     expect(cls, '按下应阴影收缩').toContain('active:shadow-[1px_1px_0_var(--color-foreground)]')
   })
 
-  it('ON 状态:Track 品牌橙背景 + Thumb 变白', () => {
+  it('ON 状态:Track 高级灰蓝背景 + Thumb 变白', () => {
     render(<Switch data-testid="sw" defaultChecked />)
     const rootCls = screen.getByTestId('sw').getAttribute('class') ?? ''
     const thumb = screen.getByTestId('sw').querySelector('span')
     const thumbCls = thumb?.getAttribute('class') ?? ''
-    expect(rootCls, 'ON 应为品牌橙').toContain(
-      'data-[state=checked]:bg-[var(--color-brand-orange)]',
+    expect(rootCls, 'ON 应为高级灰蓝').toContain(
+      'data-[state=checked]:bg-[var(--color-brand-accent)]',
     )
     expect(thumbCls, 'ON 拇指应变白').toContain('data-[state=checked]:bg-background')
   })

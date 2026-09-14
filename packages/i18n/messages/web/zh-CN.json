@@ -21276,20 +21276,6 @@
   "menu": {
     "sectionDiscover": "发现"
   },
-  "lecturerDetail": {
-    "retry": "重试",
-    "title": "讲师详情",
-    "subtitle": "讲师简介",
-    "empty": "暂无简介",
-    "courses": "课程",
-    "students": "学员",
-    "followers": "粉丝",
-    "unfollowBtn": "已关注",
-    "followBtn": "关注",
-    "level": "等级",
-    "studentCount": "{count} 名学生",
-    "free": "免费"
-  },
   "messageCenter": {
     "type": {
       "system": "系统",
