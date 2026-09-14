@@ -36,10 +36,14 @@ test.describe.parallel('安全专项', () => {
   })
 
   test('HTTPS 强制跳转(dev 环境跳过)', async ({ request }) => {
-    test.skip(!IS_CI, 'dev 环境不强制 HTTPS,跳过')
-    // CI/生产环境下,HTTP 请求应跳转到 HTTPS
+    // 2026-09-14 CI 实锤(2-18):HTTP→HTTPS 跳转由生产 Cloudflare 隧道层实施,
+    // Next 本身无论本地还是 CI(8801 纯 HTTP)都不跳转 → 本测试在 e2e 环境
+    // 永远不成立(先前 IS_CI 判断反而使其只在 CI 恒红)。改为仅在显式提供
+    // 生产形态目标(E2E_HTTPS_PROBE_URL)时执行,e2e 套件默认跳过。
+    test.skip(!process.env.E2E_HTTPS_PROBE_URL, 'e2e 环境无 HTTPS 强制跳转层,跳过')
+    const probeUrl = process.env.E2E_HTTPS_PROBE_URL as string
     const response = await request
-      .get('http://localhost:8801/', { maxRedirects: 0 })
+      .get(probeUrl, { maxRedirects: 0 })
       .catch(() => null)
     if (response) {
       const status = response.status()
