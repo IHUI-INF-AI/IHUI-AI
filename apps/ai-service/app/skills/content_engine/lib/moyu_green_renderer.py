@@ -463,6 +463,44 @@ def flush_editor(out: list[str], label: str | None, paras: list[str]) -> None:
     out.append('</section>')
 
 
+_COLON_WARNINGS: list[str] = []
+
+
+def _split_inline_colon(rest: str) -> tuple[str, str]:
+    """拆 `前缀  正文`（两个及以上空格为分隔）。只有一段时视为正文，前缀留空。"""
+    parts = re.split(r'\s{2,}', rest.strip(), maxsplit=1)
+    if len(parts) == 2:
+        return parts[0].strip(), parts[1].strip()
+    return '', parts[0].strip() if parts else ''
+
+
+def _flush_colon_block(out: list[str], buf_type: str, buf: list[str]) -> None:
+    """把未闭合的 ::: 块按已收集内容落盘，并给醒目告警（绝不静默丢内容）。
+
+    2026-09-14 立：此前 `:::oneliner 金句` 忘写闭合行 `:::` 时，
+    解析器会把其后**全文**逐行并进该块的 buf，直到文末才丢弃 —— 实测
+    一份 2672 字的文稿因此丢掉 60 余行正文与全部图片，且流水线无任何报错。
+    现在改为「落盘 + 告警」：内容不丢，问题可见。
+    """
+    btype = buf[0] if buf else buf_type.removeprefix('colon_')
+    barg = buf[1] if len(buf) > 1 else ''
+    body_lines = buf[2:] if len(buf) > 2 else []
+    out.append(render_colon_block(btype, barg, body_lines))
+    msg = (
+        f'[renderer][WARN] :::{btype} 块缺少闭合行 ":::"，已按已收集内容落盘。'
+        f'请补齐闭合行，否则同块后的正文会被并入本块。'
+    )
+    _COLON_WARNINGS.append(msg)
+    print(msg)
+
+
+def take_colon_warnings() -> list[str]:
+    """取出并清空本次渲染的 ::: 块告警（供流水线做质量断言）。"""
+    out = list(_COLON_WARNINGS)
+    _COLON_WARNINGS.clear()
+    return out
+
+
 def md_to_moyu_green_html(md_text: Any, cover: dict[str, Any] | None = None, title: str | None = None, digest: str | None = None) -> str:
     md_text = md_text or ''
     title = title or ''
@@ -567,8 +605,24 @@ def md_to_moyu_green_html(md_text: Any, cover: dict[str, Any] | None = None, tit
         if line.startswith(':::') and not line.startswith('::::'):
             block_type_match = re.match(r'^:::\s*(\w+)(?:\s+(.*))?$', line)
             if block_type_match:
-                buf_type = 'colon_' + block_type_match.group(1)
-                buf = [block_type_match.group(1), block_type_match.group(2) or '']
+                # 2026-09-14 修：开新 ::: 块前，若上一块仍未闭合，先落盘再开新块。
+                # 此前直接覆盖 buf_type/buf → 上一块连同其后正文被静默丢弃。
+                if buf_type and buf_type.startswith('colon_'):
+                    _flush_colon_block(out, buf_type, buf)
+                btype_raw = block_type_match.group(1)
+                rest = (block_type_match.group(2) or '').strip()
+                # 支持同行闭合写法 `:::oneliner 前缀  金句  :::`（本文件头部文档即此写法）
+                if rest.endswith(':::'):
+                    arg, inline_body = _split_inline_colon(rest[:-3].rstrip())
+                    out.append(
+                        render_colon_block(btype_raw, arg, [inline_body] if inline_body else [])
+                    )
+                    buf_type = None
+                    buf = []
+                    i += 1
+                    continue
+                buf_type = 'colon_' + btype_raw
+                buf = [btype_raw, rest]
                 i += 1
                 continue
         if buf_type and buf_type.startswith('colon_'):
@@ -663,6 +717,11 @@ def md_to_moyu_green_html(md_text: Any, cover: dict[str, Any] | None = None, tit
         out.append(f'<p style="margin:0 0 16px;font-size:14px;line-height:1.9;text-align:justify;"><span leaf="">{render_inline(line)}</span></p>')
         i += 1
     # 收尾
+    if buf_type and buf_type.startswith('colon_'):
+        # 文末仍未闭合的 ::: 块 → 落盘 + 告警（不静默丢内容）
+        _flush_colon_block(out, buf_type, buf)
+        buf_type = None
+        buf = []
     if quote_buf:
         flush_quote(out, quote_buf)
     if in_editor and editor_paras:
