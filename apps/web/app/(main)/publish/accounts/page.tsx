@@ -364,13 +364,13 @@ export default function AccountsPage() {
                       onRefreshed={() => void reload()}
                     />
                   </div>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-x-1 gap-y-1.5">
                     <Button
                       size="xs"
                       variant="outline"
                       onClick={() => verify(a.id)}
                       disabled={isVerifying}
-                      className="text-xs"
+                      className="flex-1 min-w-fit"
                     >
                       {isVerifying ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -385,7 +385,7 @@ export default function AccountsPage() {
                           size="xs"
                           variant="ghost"
                           onClick={() => openScanLogin(a.platform)}
-                          className="text-xs"
+                          className="flex-1 min-w-fit"
                         >
                           <QrCode className="h-3 w-3" />
                           {t('accounts.scan')}
@@ -397,7 +397,7 @@ export default function AccountsPage() {
                       size="xs"
                       variant="ghost"
                       onClick={() => openEdit(a)}
-                      className="text-xs"
+                      className="flex-1 min-w-fit"
                     >
                       <Pencil className="h-3 w-3" />
                       {t('accounts.edit')}
@@ -405,7 +405,7 @@ export default function AccountsPage() {
                     <Button
                       size="xs"
                       variant="ghost"
-                      className="text-destructive hover:text-destructive"
+                      className="flex-1 min-w-fit text-destructive hover:text-destructive"
                       onClick={() => {
                         setDeleteTarget(a)
                         setDeleteOpen(true)
