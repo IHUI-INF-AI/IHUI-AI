@@ -599,27 +599,36 @@ class PublishScheduler:
                     account_id_str, platform, credentials,
                 )
                 if cookie_health.status in ("expired", "invalid"):
-                    err_msg = "Cookie 已过期或无效,请重新登录"
-                    logger.warning(
-                        "[publish.scheduler] %s account %s cookie %s",
-                        platform, account_id_str, cookie_health.status,
-                    )
-                    result = PublishResult(
-                        success=False, platform=platform,
-                        error_message=err_msg,
-                    )
-                    await self._write_history(task_id, user_id, result)
-                    try:
-                        await notifications.notify_progress(
-                            task_id, user_id, platform, "failed", err_msg,
-                        )
-                    except Exception as e:
+                    # 2026-09-15 修复死锁:status=invalid 表示"从未实测过"(fail-closed
+                    # 默认值),不阻断——真实登录态由适配器 publish 内的 /signin 重定向
+                    # 检测兜底;否则扫码刷新凭据后仍被旧缓存永久拦截,只能重扫死循环。
+                    # 仅 status=expired(有实测过期证据)才在此拦截。
+                    if cookie_health.status == "expired":
+                        err_msg = "Cookie 已过期或无效,请重新登录"
                         logger.warning(
-                            "publish.scheduler 进度通知(cookie)失败: %s",
-                            e, exc_info=True,
+                            "[publish.scheduler] %s account %s cookie expired,预检拦截",
+                            platform, account_id_str,
                         )
-                    return result
-                if cookie_health.status == "expiring_soon":
+                        result = PublishResult(
+                            success=False, platform=platform,
+                            error_message=err_msg,
+                        )
+                        await self._write_history(task_id, user_id, result)
+                        try:
+                            await notifications.notify_progress(
+                                task_id, user_id, platform, "failed", err_msg,
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "publish.scheduler 进度通知(cookie)失败: %s",
+                                e, exc_info=True,
+                            )
+                        return result
+                    logger.info(
+                        "[publish.scheduler] %s account %s cookie health=invalid(未实测),跳过预检拦截,交由适配器实测",
+                        platform, account_id_str,
+                    )
+                elif cookie_health.status == "expiring_soon":
                     # 即将过期:记录但不阻塞(适配器发布时会自动续期)
                     logger.info(
                         "[publish.scheduler] %s account %s cookie 即将过期(剩余 %d 天)",
