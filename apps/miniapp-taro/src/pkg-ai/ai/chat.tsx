@@ -37,6 +37,7 @@ import {
 import { useUserStore } from '@/stores/user'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
+import type { AICardsData } from './cards/types'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
 import AgentTipDialog from './AgentTipDialog'
 import './chat.css'
@@ -124,6 +125,24 @@ export default function ChatPage() {
     const id = `act_${activitySeqRef.current}`
     // 仅保留最近 20 条,避免长会话列表无限增长
     setStreamActivities((prev) => [...prev, { id, text }].slice(-20))
+  }, [])
+
+  /**
+   * #12 小程序 AI 增强:把 SSE 工具事件(计划 / 工具 / 终端)累积写入最后一条 assistant 消息的
+   * aiCards 字段,使其随消息气泡渲染并随历史持久化;对齐 web 端 message.planSteps/toolCalls/terminalTasks。
+   */
+  const upsertCard = useCallback((mutate: (cards: AICardsData) => AICardsData) => {
+    setMessages((prev) => {
+      const idx = prev.length - 1
+      if (idx < 0) return prev
+      const m = prev[idx]
+      if (!m || m.role !== 'assistant') return prev
+      const cur: AICardsData = m.aiCards ?? { planSteps: [], toolCalls: [], terminalTasks: [] }
+      const next = mutate(cur)
+      const copy = prev.slice()
+      copy[idx] = { ...m, aiCards: next }
+      return copy
+    })
   }, [])
 
   const activeAgentId = currentAgentId || routeAgentId
@@ -414,9 +433,32 @@ export default function ChatPage() {
           // fallback / usage / 断线重连等事件提供最小可用渲染(统一压入执行过程列表)
           {
             onToolCallStart: (evt) =>
-              pushStreamActivity(t('ai.stream.toolCall', { name: evt.toolName })),
+              upsertCard((c) => ({
+                ...c,
+                toolCalls: [
+                  ...c.toolCalls.filter((x) => x.id !== evt.toolCallId),
+                  {
+                    id: evt.toolCallId,
+                    name: evt.toolName,
+                    status: 'running',
+                    serverSource: evt.serverSource,
+                  },
+                ],
+              })),
             onToolResult: (evt) =>
-              pushStreamActivity(t('ai.stream.toolResult', { name: evt.toolName })),
+              upsertCard((c) => ({
+                ...c,
+                toolCalls: c.toolCalls.map((x) =>
+                  x.id === evt.toolCallId
+                    ? {
+                        ...x,
+                        // isError 只在 tool-result 变体上存在,收窄后取值
+                        status: evt.type === 'tool-result' && evt.isError ? 'error' : 'done',
+                        isError: evt.type === 'tool-result' ? evt.isError : x.isError,
+                      }
+                    : x,
+                ),
+              })),
             onSubagentSpawn: (evt) =>
               pushStreamActivity(t('ai.stream.subagent', { phase: evt.role })),
             onSubagentProgress: (evt) =>
@@ -427,11 +469,42 @@ export default function ChatPage() {
               pushStreamActivity(t('ai.stream.toolSummary', { calls: evt.totalCalls })),
             onToolDelegate: (evt) =>
               pushStreamActivity(t('ai.stream.toolCall', { name: evt.tool_name })),
-            onPlanUpdate: () => pushStreamActivity(t('ai.stream.planUpdate')),
+            onPlanUpdate: (evt) =>
+              upsertCard((c) => ({
+                ...c,
+                // plan 为权威快照,整体替换(对齐 web 端 message.planSteps 写入方式)
+                planSteps: (evt.plan ?? []).map((p, i) => ({
+                  id: String(i),
+                  step: p.step,
+                  status: p.status,
+                  explanation: evt.explanation,
+                  durationMs: p.durationMs,
+                  error: false,
+                })),
+              })),
             onTerminalStart: (evt) =>
-              pushStreamActivity(t('ai.stream.terminal', { status: evt.command })),
+              upsertCard((c) => ({
+                ...c,
+                terminalTasks: [
+                  ...c.terminalTasks.filter((x) => x.id !== evt.terminalId),
+                  { id: evt.terminalId, command: evt.command, status: 'running' },
+                ],
+              })),
             onTerminalEnd: (evt) =>
-              pushStreamActivity(t('ai.stream.terminal', { status: evt.status })),
+              upsertCard((c) => ({
+                ...c,
+                terminalTasks: c.terminalTasks.map((x) =>
+                  x.id === evt.terminalId
+                    ? {
+                        ...x,
+                        status: evt.status,
+                        output: evt.output,
+                        exitCode: evt.exitCode,
+                        durationMs: evt.durationMs,
+                      }
+                    : x,
+                ),
+              })),
             onFallback: (evt) =>
               pushStreamActivity(t('ai.stream.fallback', { model: evt.backupModel })),
             onUsage: (info) => {
@@ -476,6 +549,7 @@ export default function ChatPage() {
       t,
       checkSpecialModel,
       pushStreamActivity,
+      upsertCard,
     ],
   )
 
