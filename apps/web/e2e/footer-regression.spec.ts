@@ -140,27 +140,21 @@ test.describe('SiteFooter v10/v11 防回归', () => {
     await adminPage.waitForTimeout(500)
 
     // 切到英文
-    // 2026-08-26 修复:应用 locale 由 useLanguageStore 驱动(i18n-provider.tsx 读
-    // ihui-language localStorage),NEXT_LOCALE cookie 无效(reload 后仍 zh-CN)。
-    // 直接调 store + 写 localStorage 持久化(与 chat-mode-badge.spec 的 switchLocale 一致)。
-    await adminPage.evaluate(() => {
-      const store = (
-        window as unknown as {
-          __IHUI_LANGUAGE_STORE__?: { getState: () => { setLocale: (x: string) => void } }
-        }
-      ).__IHUI_LANGUAGE_STORE__
-      if (store) store.getState().setLocale('en')
+    // 2026-09-14 确定性修复(原 flaky):旧法 evaluate 写 localStorage + reload,竞态在
+    // reload 后 en 语言消息异步就绪慢于 expect 重试窗口(全量负载下偶发)。改 addInitScript
+    // 预置 locale —— 文档首次执行脚本即写入,首帧客户端渲染就是 en,无二次回写竞态
+    // (zustand persist rehydrate 同步读该值;initialized 预置 true 跳过 hydration 等待)。
+    await adminPage.addInitScript(() => {
       try {
-        const raw = localStorage.getItem('ihui-language')
-        const obj = raw ? JSON.parse(raw) : { state: { locale: 'zh-CN' }, version: 0 }
-        obj.state = obj.state || {}
-        obj.state.locale = 'en'
-        localStorage.setItem('ihui-language', JSON.stringify(obj))
+        localStorage.setItem(
+          'ihui-language',
+          JSON.stringify({ state: { locale: 'en', initialized: true }, version: 0 }),
+        )
       } catch {
         // localStorage 不可用时静默
       }
     })
-    await adminPage.reload()
+    await adminPage.goto('/')
     await adminPage.locator('footer').waitFor({ state: 'visible', timeout: 15000 })
 
     // 英文版 footer 应包含 "International Models" / "Chinese Models"
