@@ -37,10 +37,6 @@ interface AiPricing {
   regionPricing: RegionPricing
   currency: 'CNY' | 'USD'
   effectiveAt?: string | null
-  billingMode?: 'token' | 'per_call' | 'per_image' | 'per_video' | null
-  perUnitPrice?: number | null
-  tieredCallPrices?: Record<string, number> | null
-  videoUnit?: string | null
 }
 
 interface AiPricingResponse {
@@ -86,47 +82,6 @@ const formatPrice = (centsPerKToken: number): string => {
   return yuan.toLocaleString('zh-CN', { maximumFractionDigits: 4 })
 }
 
-const BILLING_MODE_LABEL: Record<string, string> = {
-  per_call: '按次',
-  per_image: '按张',
-  per_video: '按视频',
-}
-
-// 按次/按张/按秒单价: 分 → 元, 除以 100
-const formatUnitPrice = (cents: number): string =>
-  (cents / 100).toLocaleString('zh-CN', { maximumFractionDigits: 4 })
-
-const TIER_LABELS: Array<{ key: string; label: string }> = [
-  { key: 'le256k', label: '≤256K' },
-  { key: 'mid', label: '256K–512K' },
-  { key: 'gt512k', label: '>512K' },
-]
-
-function formatMultimodalPrice(p: AiPricing): string {
-  const sym = CURRENCY_SYMBOL[p.currency] ?? p.currency
-  if (p.billingMode === 'per_call') {
-    const tiers = p.tieredCallPrices ?? {}
-    const parts = TIER_LABELS.map((t) => ({ label: t.label, price: tiers[t.key] })).filter(
-      (t): t is { label: string; price: number } =>
-        typeof t.price === 'number' && t.price > 0
-    )
-    if (parts.length > 0) {
-      return parts.map((t) => `${t.label} ${sym}${formatUnitPrice(t.price)}`).join(' / ')
-    }
-    if (p.perUnitPrice != null && p.perUnitPrice > 0) {
-      return `${sym}${formatUnitPrice(p.perUnitPrice)} / 次`
-    }
-    return '—'
-  }
-  if (p.billingMode === 'per_image' && p.perUnitPrice != null && p.perUnitPrice > 0) {
-    return `${sym}${formatUnitPrice(p.perUnitPrice)} / 张`
-  }
-  if (p.billingMode === 'per_video' && p.perUnitPrice != null && p.perUnitPrice > 0) {
-    return `${sym}${formatUnitPrice(p.perUnitPrice)} / ${p.videoUnit === 'second' ? '秒' : '次'}`
-  }
-  return '—'
-}
-
 export function ModelsPricingContent(): React.JSX.Element {
   const [keyword, setKeyword] = React.useState('')
 
@@ -155,7 +110,7 @@ export function ModelsPricingContent(): React.JSX.Element {
           模型定价
         </h1>
         <p className="mx-auto max-w-2xl text-xs text-muted-foreground min-[768px]:text-base">
-          对话模型按输入/输出 token 计价(元 / 百万 token);生图按张、生视频按次或按秒、按次对话按上下文长度分档计价。按厂商分组,支持关键词搜索。
+          所有模型输入/输出 token 单价,单位:元 / 百万 token。按厂商分组,支持关键词搜索。
         </p>
       </header>
 
@@ -208,7 +163,6 @@ export function ModelsPricingContent(): React.JSX.Element {
                   <TableBody>
                     {items.map((p) => {
                       const sym = CURRENCY_SYMBOL[p.currency] ?? p.currency
-                      const mode = p.billingMode ?? 'token'
                       const regions = [
                         p.regionPricing?.cn !== null &&
                           p.regionPricing?.cn !== undefined &&
@@ -230,25 +184,14 @@ export function ModelsPricingContent(): React.JSX.Element {
                           >
                             {p.modelId}
                           </TableCell>
-                          {mode === 'token' ? (
-                            <>
-                              <TableCell className="text-right tabular-nums">
-                                {sym}
-                                {formatPrice(p.inputTokenPrice)}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums">
-                                {sym}
-                                {formatPrice(p.outputTokenPrice)}
-                              </TableCell>
-                            </>
-                          ) : (
-                            <TableCell colSpan={2} className="text-right tabular-nums">
-                              <span className="mr-1.5 inline-block rounded bg-muted px-1.5 py-0.5 align-middle text-[10px] font-normal text-muted-foreground">
-                                {BILLING_MODE_LABEL[mode] ?? mode}
-                              </span>
-                              {formatMultimodalPrice(p)}
-                            </TableCell>
-                          )}
+                          <TableCell className="text-right tabular-nums">
+                            {sym}
+                            {formatPrice(p.inputTokenPrice)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {sym}
+                            {formatPrice(p.outputTokenPrice)}
+                          </TableCell>
                           <TableCell className="text-muted-foreground">{p.currency}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">
                             {regions || '—'}

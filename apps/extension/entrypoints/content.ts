@@ -28,10 +28,54 @@ import { ContentToolbar } from './content/content-toolbar'
 import { computePositionWithMemory, type RectLike } from '../src/content/position-memory'
 import { executeDomAction } from '../lib/agent-control'
 import type { BrowserControlActionType } from '@ihui/types'
+// 2026-09-12 W6:内容脚本无 React 上下文,复用 background.ts 的翻译表 + locale 读取模式
+import { translate, mergeMessages, isLocale, type Locale, type Messages } from '@ihui/i18n'
+import sharedZhCN from '@ihui/i18n/messages/shared/zh-CN.json'
+import sharedEn from '@ihui/i18n/messages/shared/en.json'
+import sharedJa from '@ihui/i18n/messages/shared/ja.json'
+import sharedKo from '@ihui/i18n/messages/shared/ko.json'
+import sharedZhTW from '@ihui/i18n/messages/shared/zh-TW.json'
+import extZhCN from '@ihui/i18n/messages/extension/zh-CN.json'
+import extEn from '@ihui/i18n/messages/extension/en.json'
+import extJa from '@ihui/i18n/messages/extension/ja.json'
+import extKo from '@ihui/i18n/messages/extension/ko.json'
+import extZhTW from '@ihui/i18n/messages/extension/zh-TW.json'
 
 const TX_CLASS = 'ihui-tx'
 const CTX_POPUP_ID = 'ihui-ctx-popup'
 const CTX_POPUP_TTL_MS = 6000
+
+// ---- i18n(内容脚本) ----
+const LOCALE_STORAGE_KEY = 'ihui_locale'
+const DEFAULT_LOCALE: Locale = 'zh-CN'
+const contentMessages: Record<Locale, Messages> = {
+  'zh-CN': mergeMessages(sharedZhCN, extZhCN),
+  en: mergeMessages(sharedEn, extEn),
+  ja: mergeMessages(sharedJa, extJa),
+  ko: mergeMessages(sharedKo, extKo),
+  'zh-TW': mergeMessages(sharedZhTW, extZhTW),
+}
+let activeLocale: Locale = DEFAULT_LOCALE
+
+/** 异步预加载用户语言(与 background.ts 读同一键),失败时保持默认 zh-CN。 */
+async function loadActiveLocale(): Promise<void> {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      const result = await chrome.storage.local.get(LOCALE_STORAGE_KEY)
+      const value: unknown = result[LOCALE_STORAGE_KEY]
+      if (typeof value === 'string' && isLocale(value)) activeLocale = value
+    }
+  } catch {
+    // ignore and fall through
+  }
+}
+
+/** 同步翻译:内容脚本无 React,直接按模块级 locale 查表。 */
+function t(key: string): string {
+  return translate(contentMessages[activeLocale], key, {
+    fallback: contentMessages[DEFAULT_LOCALE],
+  })
+}
 
 let hideTimer: ReturnType<typeof setTimeout> | null = null
 let highlightEnabled = false
@@ -43,10 +87,10 @@ function getToolbar(doc: Document): ContentToolbar {
   if (!toolbar) {
     toolbar = new ContentToolbar(doc)
     toolbar.setLabels({
-      translate: '翻译',
-      highlight: '高亮',
-      vocab: '查词',
-      send: '问 AI',
+      translate: t('content.translate'),
+      highlight: t('content.highlight'),
+      vocab: t('content.vocab'),
+      send: t('content.sendAi'),
     })
     toolbar.bindHandlers({
       translate: () => void handleTranslate(),
@@ -308,7 +352,7 @@ function showContextResultPopup(payload: CtxVocabResult, rect: RectLike | null) 
   const saveBtn = document.createElement('button')
   saveBtn.type = 'button'
   saveBtn.className = 'ihui-ctx-btn'
-  saveBtn.textContent = '保存到生词本'
+  saveBtn.textContent = t('content.saveWord')
   saveBtn.addEventListener('click', async () => {
     try {
       const { addWord } = await import('../src/idb/vocab-db')
@@ -317,7 +361,7 @@ function showContextResultPopup(payload: CtxVocabResult, rect: RectLike | null) 
         translation: payload.translation,
         source: 'context-menu',
       })
-      saveBtn.textContent = '已保存'
+      saveBtn.textContent = t('content.saved')
     } catch (err) {
       console.warn('[IHUI AI] save word failed:', err)
     }
@@ -325,7 +369,7 @@ function showContextResultPopup(payload: CtxVocabResult, rect: RectLike | null) 
   const closeBtn = document.createElement('button')
   closeBtn.type = 'button'
   closeBtn.className = 'ihui-ctx-btn'
-  closeBtn.textContent = '关闭'
+  closeBtn.textContent = t('content.close')
   closeBtn.addEventListener('click', () => popup.remove())
   actions.append(saveBtn, closeBtn)
   popup.appendChild(actions)
@@ -377,6 +421,8 @@ export default defineContentScript({
   ],
   runAt: 'document_idle',
   main(ctx: ContentScriptContext) {
+    // W6:预加载语言(异步),使工具栏/弹窗文案跟随侧边栏语言设置
+    void loadActiveLocale()
     document.addEventListener('mouseup', () => {
       setTimeout(onSelectionChange, 10)
     })

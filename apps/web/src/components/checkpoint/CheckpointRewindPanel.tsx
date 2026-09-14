@@ -8,8 +8,16 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 
-import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/checkpoint-api'
+import {
+  listCheckpoints,
+  restoreCheckpoint,
+  type CheckpointMeta,
+  type CheckpointScope,
+} from '@/api/checkpoint-api'
+import { useConfirm } from '@/hooks/use-confirm'
+import { toast } from '@/components/common'
 
 /**
  * Checkpoint / Rewind 撤销面板(独立组件,2026-09-03 立)。
@@ -20,15 +28,17 @@ import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/c
  * 独立组件、独立命名,不改动既有共享布局/路由;接入方只需传 `sessionId` 放置即可。
  *
  * @param sessionId 会话 id
- * @param rollbackFiles 恢复时是否同时回滚该 checkpoint 记录的文件版本(默认 false)
+ * @param scope 恢复时的回退范围:conversation=仅对话 | code=仅文件 | both=对话+文件(默认 conversation)
  */
 export default function CheckpointRewindPanel({
   sessionId,
-  rollbackFiles = false,
+  scope = 'conversation',
 }: {
   sessionId: string
-  rollbackFiles?: boolean
+  scope?: CheckpointScope
 }) {
+  const t = useTranslations('aiChat')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [checkpoints, setCheckpoints] = useState<CheckpointMeta[]>([])
   const [loading, setLoading] = useState(false)
   const [restoring, setRestoring] = useState(false)
@@ -42,14 +52,14 @@ export default function CheckpointRewindPanel({
     try {
       const data = await listCheckpoints(sessionId)
       setCheckpoints(data.checkpoints)
-      setMessage(`共有 ${data.total} 个可回滚点`)
+      setMessage(t('checkpoint.total', { count: data.total }))
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
       setCheckpoints([])
     } finally {
       setLoading(false)
     }
-  }, [sessionId])
+  }, [sessionId, t])
 
   useEffect(() => {
     void load()
@@ -57,49 +67,64 @@ export default function CheckpointRewindPanel({
 
   const onRestore = useCallback(
     async (checkpointId: string) => {
+      // 2026-09-12 立:回退不可撤销,复用项目既有 useConfirm 做二次确认
+      const ok = await confirm({
+        title: t('checkpoint.confirmTitle'),
+        description: t('checkpoint.confirmDescription'),
+        confirmText: t('checkpoint.confirmText'),
+        variant: 'destructive',
+      })
+      if (!ok) return
       setRestoring(true)
       setError('')
       try {
-        const data = await restoreCheckpoint(checkpointId, sessionId, rollbackFiles)
-        setMessage(data.message)
+        await restoreCheckpoint(checkpointId, sessionId, scope)
+        toast.success(t('checkpoint.restoreSuccess'))
         await load()
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
+        toast.error(t('checkpoint.restoreFailed'))
       } finally {
         setRestoring(false)
       }
     },
-    [sessionId, rollbackFiles, load],
+    [confirm, t, sessionId, scope, load],
   )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <button type="button" onClick={() => void load()} disabled={loading}>
-          {loading ? '加载中…' : '刷新'}
+          {loading ? t('checkpoint.loading') : t('checkpoint.refresh')}
         </button>
         <span>{message}</span>
       </div>
       {error && <span style={{ color: '#d33' }}>{error}</span>}
-      {checkpoints.length === 0 && !loading && <span>暂无 checkpoint</span>}
+      {checkpoints.length === 0 && !loading && <span>{t('checkpoint.empty')}</span>}
       {checkpoints.length > 0 && (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {checkpoints.map((cp) => (
             <li key={cp.checkpoint_id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>
-                迭代 #{cp.iteration} · {cp.status} · {cp.message_count} 条消息
+                {t('checkpoint.item', {
+                  iteration: cp.iteration,
+                  status: cp.status,
+                  count: cp.message_count,
+                })}
               </span>
               <button
                 type="button"
                 onClick={() => void onRestore(cp.checkpoint_id)}
                 disabled={restoring}
               >
-                {restoring ? '恢复中…' : '回滚'}
+                {restoring ? t('checkpoint.restoring') : t('checkpoint.rollback')}
               </button>
             </li>
           ))}
         </ul>
       )}
+      {/* 2026-09-12 立:useConfirm 的弹窗必须挂载到组件树中,否则二次确认不显示 */}
+      <ConfirmDialogRenderer />
     </div>
   )
 }

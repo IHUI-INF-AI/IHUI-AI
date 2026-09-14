@@ -50,7 +50,7 @@ https://aizhs.top/register
 
 # 3. API 호출
 curl -X POST https://api.aizhs.top/v1/agents/agt_12345/chat \
-  -H "Authorization: Bearer ihui_xxx" \
+  -H "Authorization: Bearer sk-xxx" \
   -d '{"message": "안녕하세요"}'
 ```
 

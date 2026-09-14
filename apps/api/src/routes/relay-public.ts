@@ -17,10 +17,9 @@
  * 中转站定价(基础价 × 倍率)+ "获取 API Key"快捷入口。
  */
 import type { FastifyPluginAsync } from 'fastify'
-import { eq, and, sql, desc } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
-import { aiModelConfigModels, aiModelConfig, aiPricing } from '@ihui/database'
-import { normalizeModelId } from '@ihui/shared'
+import { aiModelConfigModels, aiModelConfig } from '@ihui/database'
 import { success } from '../utils/response.js'
 
 /** 公开返回的模型条目结构(前端 Model 类型扩展用) */
@@ -45,14 +44,6 @@ interface PublicRelayModelItem {
   relayOutputPricePer1k: number
   /** 中转站展示排序(越小越靠前) */
   relaySortOrder: number
-  /** 计费模式(2026-09-13):token(默认)| per_call(按次三档)| per_image(按张)| per_video(按次/按秒) */
-  billingMode: 'token' | 'per_call' | 'per_image' | 'per_video'
-  /** 单位售价(分):per_image=分/张;per_video=分/次或分/秒(videoUnit);其余 0 */
-  relayPerUnitPriceCents: number
-  /** per_video 计价单位:'call'(按次)|'second'(按秒);非 per_video 为 null */
-  videoUnit: 'call' | 'second' | null
-  /** per_call 三档售价(分/次,已乘倍率);非 per_call 为 null */
-  relayTieredCallPricesCents: { le256k: number; mid: number; gt512k: number } | null
 }
 
 /** 数字字符串 → number,容错 */
@@ -101,50 +92,16 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
       // 跨上游去重(2026-09-13):同一 modelId 可在多个 provider/config 上架
       // (如 token6688 与 swiftapi 同时供同一模型),对外目录只展示一条——
       // 保留排序最靠前(relaySortOrder 升序)的首个条目。
-      // 官方名归一兜底(2026-09-13 立):去重键走共享 normalizeModelId,
-      // 与 /v1/models(v1-public.ts)同一口径,防 DB 存量大小写/前缀差异导致目录双条目。
-      // 多模态计费(2026-09-13):一次性读 ai_pricing 生效行,取 billingMode/单位价/三档价。
-      const pricingRows = await dbRead
-        .select({
-          modelId: aiPricing.modelId,
-          billingMode: aiPricing.billingMode,
-          perUnitPrice: aiPricing.perUnitPrice,
-          tieredCallPrices: aiPricing.tieredCallPrices,
-          videoUnit: aiPricing.videoUnit,
-        })
-        .from(aiPricing)
-        .where(
-          and(
-            sql`${aiPricing.effectiveAt} <= now()`,
-            sql`(${aiPricing.expiresAt} IS NULL OR ${aiPricing.expiresAt} > now())`,
-          ),
-        )
-        .orderBy(desc(aiPricing.effectiveAt))
-      const pricingMap = new Map<string, (typeof pricingRows)[number]>()
-      for (const p of pricingRows) {
-        const k = normalizeModelId(p.modelId)
-        if (!pricingMap.has(k)) pricingMap.set(k, p)
-      }
-
+      // 官方名归一兜底(2026-09-13 立):键用小写,防 DB 存量大小写重复导致目录双条目。
       const seenModelIds = new Set<string>()
       const items: PublicRelayModelItem[] = []
       for (const r of rows) {
-        const key = normalizeModelId(r.modelId)
+        const key = r.modelId.toLowerCase()
         if (seenModelIds.has(key)) continue
         seenModelIds.add(key)
         const multiplier = Math.max(0, toNumber(r.relayPriceMultiplier, 1))
         const inputBase = toNumber(r.inputPricePer1k, 0)
         const outputBase = toNumber(r.outputPricePer1k, 0)
-        const p = pricingMap.get(key)
-        const billingMode = (p?.billingMode as PublicRelayModelItem['billingMode']) ?? 'token'
-        const perUnit = toNumber(p?.perUnitPrice, 0)
-        const tiered = p?.tieredCallPrices as {
-          le256k?: unknown
-          mid?: unknown
-          gt512k?: unknown
-        } | null
-        const tierPrice = (v: unknown): number =>
-          billingMode === 'per_call' && typeof v === 'number' && v > 0 ? v * multiplier : 0
         items.push({
           modelId: r.modelId,
           displayName: r.relayDisplayName ?? r.displayName ?? r.modelId,
@@ -153,25 +110,9 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
           inputPricePer1k: inputBase,
           outputPricePer1k: outputBase,
           relayPriceMultiplier: multiplier,
-          // 2026-09-13: 价格列已 numeric,小数分价是常态;Math.round 会把 0.0126 抹成 0
-          relayInputPricePer1k: inputBase * multiplier,
-          relayOutputPricePer1k: outputBase * multiplier,
+          relayInputPricePer1k: Math.round(inputBase * multiplier),
+          relayOutputPricePer1k: Math.round(outputBase * multiplier),
           relaySortOrder: toNumber(r.relaySortOrder, 0),
-          billingMode,
-          relayPerUnitPriceCents:
-            (billingMode === 'per_image' || billingMode === 'per_video') && perUnit > 0
-              ? perUnit * multiplier
-              : 0,
-          videoUnit:
-            billingMode === 'per_video' ? (p?.videoUnit === 'second' ? 'second' : 'call') : null,
-          relayTieredCallPricesCents:
-            billingMode === 'per_call' && tiered
-              ? {
-                  le256k: tierPrice(tiered.le256k),
-                  mid: tierPrice(tiered.mid),
-                  gt512k: tierPrice(tiered.gt512k),
-                }
-              : null,
         })
       }
 

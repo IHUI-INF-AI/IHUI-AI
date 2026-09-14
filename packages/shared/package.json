@@ -43,6 +43,18 @@
       "types": "./src/plan/*.ts",
       "import": "./src/plan/*.ts"
     },
+    "./chat": {
+      "types": "./src/chat/index.ts",
+      "import": "./src/chat/index.ts"
+    },
+    "./chat/index": {
+      "types": "./src/chat/index.ts",
+      "import": "./src/chat/index.ts"
+    },
+    "./chat/*": {
+      "types": "./src/chat/*.ts",
+      "import": "./src/chat/*.ts"
+    },
     "./notifications": {
       "types": "./src/notifications/index.ts",
       "import": "./src/notifications/index.ts"

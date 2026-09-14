@@ -53,6 +53,10 @@ export interface UseApplyDiffReturn {
   applyDiff: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   /** Reject:纯前端标记为 rejected,无 API 调用 */
   rejectDiff: (messageId: string, toolCallId: string) => void
+  /** #14 全部接受(2026-09-13 立):消息内所有待决 diff 卡逐个调 API(best-effort),汇总 toast */
+  applyAllDiffs: (messageId: string) => Promise<void>
+  /** #14 全部拒绝:纯前端批量标记 rejected,无 API 调用 */
+  rejectAllDiffs: (messageId: string) => void
 }
 
 export function useApplyDiff(): UseApplyDiffReturn {
@@ -106,7 +110,68 @@ export function useApplyDiff(): UseApplyDiffReturn {
     useChatStore.getState().setToolCallApplyStatus(messageId, toolCallId, 'rejected')
   }, [])
 
-  return { applyDiff, rejectDiff }
+  // #14 全部接受(2026-09-13 立):收集消息内所有待决 diff 卡,逐个调 API(best-effort),
+  // 后端 /api/v1/ai/apply-diff 为单文件原子写,批量语义=逐文件顺序应用,失败不回滚已成功项。
+  const applyAllDiffs = React.useCallback(async (messageId: string) => {
+    const store = useChatStore.getState()
+    const target = store.messages.find((m) => m.id === messageId)
+    if (!target?.toolCalls) return
+    const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
+    if (!workspacePath) {
+      toast.error('未绑定工作区', {
+        description: '请先在 AI 面板选择本地工作区,Apply 才能写入文件',
+      })
+      return
+    }
+    const pending = target.toolCalls.filter(
+      (tc) =>
+        (!!tc.diffInfo || (tc.applyStatus !== undefined && tc.applyStatus !== null)) &&
+        tc.applyStatus !== 'applied' &&
+        tc.applyStatus !== 'rejected' &&
+        tc.applyStatus !== 'applying',
+    )
+    if (pending.length === 0) return
+    let okCount = 0
+    let failCount = 0
+    for (const tc of pending) {
+      const diffInfo = tc.diffInfo
+      if (!diffInfo) continue
+      store.setToolCallApplyStatus(messageId, tc.id, 'applying')
+      try {
+        const result = await callApplyDiffApi({
+          path: diffInfo.file_path,
+          oldContent: diffInfo.old_content,
+          newContent: diffInfo.new_content,
+          workspacePath,
+        })
+        if (result.ok) {
+          useChatStore.getState().setToolCallApplyStatus(messageId, tc.id, 'applied')
+          okCount++
+        } else {
+          useChatStore.getState().setToolCallApplyStatus(messageId, tc.id, 'error', result.error)
+          failCount++
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        useChatStore.getState().setToolCallApplyStatus(messageId, tc.id, 'error', msg)
+        failCount++
+      }
+    }
+    if (failCount === 0) {
+      toast.success(`已应用全部 ${okCount} 个文件改动`)
+    } else if (okCount === 0) {
+      toast.error('全部改动应用失败')
+    } else {
+      toast.warning(`部分成功:${okCount} 个成功,${failCount} 个失败`)
+    }
+  }, [])
+
+  // #14 全部拒绝(2026-09-13 立):与单卡 Reject 一致,纯前端标记,无 API 调用。
+  const rejectAllDiffs = React.useCallback((messageId: string) => {
+    useChatStore.getState().setAllDiffApplyStatus(messageId, 'rejected')
+  }, [])
+
+  return { applyDiff, rejectDiff, applyAllDiffs, rejectAllDiffs }
 }
 
 export default useApplyDiff

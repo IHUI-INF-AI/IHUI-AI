@@ -233,7 +233,7 @@ const preset = await client.ai.createMoaPreset({
   "name": "我的 GPT-4",
   "provider": "openai",
   "model": "gpt-4",
-  "apiKey": "ihui_xxx",
+  "apiKey": "sk-xxx",
   "baseUrl": "https://api.openai.com/v1"
 }
 ```
@@ -257,7 +257,7 @@ const userModel = await client.ai.createUserModel({
   name: '我的 GPT-4',
   provider: 'openai',
   model: 'gpt-4',
-  apiKey: 'ihui_xxx',
+  apiKey: 'sk-xxx',
   baseUrl: 'https://api.openai.com/v1',
 })
 ```
@@ -273,7 +273,7 @@ const userModel = await client.ai.createUserModel({
 ```json
 {
   "name": "我的 GPT-4(更新)",
-  "apiKey": "ihui_xxx"
+  "apiKey": "sk-new"
 }
 ```
 

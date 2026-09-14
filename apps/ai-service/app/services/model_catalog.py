@@ -78,7 +78,6 @@ __all__ = [
     "classify_model",
     "annotate_models",
     "is_fim_model",
-    "pick_fim_model",
 ]
 
 # ---------------------------------------------------------------------------
@@ -463,34 +462,6 @@ def is_fim_model(model_id: str) -> bool:
         return False
     targets = (raw, _normalize(raw))
     return any(re.search(p, t) for p in _FIM_MODEL_RULES for t in targets)
-
-
-def pick_fim_model(
-    models: list[dict[str, Any]] | None, requested: str | None = None
-) -> str | None:
-    """「补全专用档位」选型(纯函数,无 I/O,不抛异常)。
-
-    优先级(2026-09-13 P1-9):
-    1. `requested` 有值且归一化后不是 `"auto"` → 原样返回(用户显式指定优先)
-    2. 否则按 **列表原顺序** 返回第一个 `fim is True` 的模型 `id`
-    3. 没有命中 / `models` 为空或 None → `None`(调用方回退 `auto`)
-
-    防御:元素为 None / 非 dict / 缺 `id` / `id` 非字符串 / `fim` 非严格布尔 True
-    一律跳过,绝不抛异常。
-    """
-    if isinstance(requested, str) and requested.strip() and requested.strip().lower() != "auto":
-        return requested
-    if not models:
-        return None
-    for m in models:
-        if not isinstance(m, dict):
-            continue
-        if m.get("fim") is not True:
-            continue
-        model_id = m.get("id")
-        if isinstance(model_id, str) and model_id.strip():
-            return model_id
-    return None
 
 
 def _is_curated(name: str, raw_id: str) -> bool:

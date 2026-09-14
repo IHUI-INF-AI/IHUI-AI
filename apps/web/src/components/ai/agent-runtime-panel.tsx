@@ -20,6 +20,8 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { executeAgentRuntimeStream } from '@ihui/api-client'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
+// 2026-09-14 接线 CollapsibleOutput 孤儿组件(规划 5.8 长输出折叠):运行时输出不再裸 pre-wrap 撑爆面板
+import { CollapsibleOutput } from '@/components/ai/collapsible-output'
 
 interface AgentRuntimePanelProps {
   className?: string
@@ -181,10 +183,24 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
           )}
 
           {output && (
-            <section className="mb-3">
-              <div className="mb-1.5 text-xs font-medium text-muted-foreground">{t('output')}</div>
-              <div className="whitespace-pre-wrap text-sm leading-relaxed">{output}</div>
-            </section>
+            // 2026-09-14 接线 CollapsibleOutput(规划 5.8):状态图标 + 折叠头 + CodeBlock 呈现,
+            // maxCollapsedLines=10 折叠超长输出,流式期间自动展开
+            <CollapsibleOutput
+              title={t('output')}
+              status={
+                status === 'running'
+                  ? 'running'
+                  : status === 'failed'
+                    ? 'error'
+                    : status === 'completed'
+                      ? 'success'
+                      : 'idle'
+              }
+              content={output}
+              maxCollapsedLines={10}
+              defaultOpen
+              className="mb-3"
+            />
           )}
 
           {error && (

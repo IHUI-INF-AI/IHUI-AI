@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl'
 import {
   BookOpen,
   FileText,
+  GitBranch,
   Hammer,
   Repeat,
   Search,
@@ -106,6 +107,20 @@ export function useSlashCommands(aiSkills: AiSkillMeta[], skillsLoading: boolean
         kind: 'template' as const,
         category: 'goal' as const,
         icon: <Trophy className="h-4 w-4" />,
+      },
+      // 🔧 Smart Commit(W28,2026-09-14 立,对标 CodeBuddy AI 提交):
+      // /commit [补充说明] — AI 生成 Conventional Commits 信息并自动 add+commit
+      // 前端 tryHandleCommitSlash 拦截,不走 LLM chat 流
+      {
+        id: 'commit',
+        label: '/commit',
+        description: t('slashCmd.commit'),
+        usage: '/commit [补充说明]',
+        kind: 'action' as const,
+        category: 'goal' as const,
+        icon: <GitBranch className="h-4 w-4" />,
+        hasArgs: true,
+        argsTitle: t('slashCmd.commitArgTitle'),
       },
       // ⚡ 模式切换(2026-07-25 立,对标 主流 AI IDE SOLO Plan 模式):切换 plan/act 模式
       {

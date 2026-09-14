@@ -12,10 +12,8 @@
 - 无会话/无记忆/无流式:单次 POST,返回首补全,延迟优先
 - 前缀截尾(6000 字符)+ 后缀截头(2000 字符),控制 token 上限
 - max_tokens 默认 128(补全只需数行),temperature=0
-- 模型选型(2026-09-13 P1-9 立):env `FIM_PREFERRED_MODEL` > 用户显式 model >
-  模型目录「补全专用档位」(`fim is True`)首个命中 > `'auto'`;
-  候选清单带 TTL 惰性缓存、只读文件不查库,任何异常静默回退 `'auto'`,
-  绝不阻塞补全主链路。`'auto'` 最终由网关 _resolve_auto_model 优先 zero_cost/LOCAL → cheap
+- 模型默认 'auto':经 _resolve_auto_model 优先 zero_cost/LOCAL → cheap,
+  补全流量天然适合本地小模型(qwen-coder 等)
 - 鉴权沿用 llm 路由族约定(网关/代理层统一处理,路由内不做 JWT)
 
 用法:
@@ -32,7 +30,6 @@ from __future__ import annotations
 
 import logging
 import math
-import os
 import threading
 import time
 from typing import Any
@@ -41,7 +38,6 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from ..core.llm_gateway import llm_gateway
-from ..services.model_catalog import annotate_models, pick_fim_model
 
 logger = logging.getLogger(__name__)
 
@@ -51,69 +47,6 @@ router = APIRouter()
 _PREFIX_TAIL_CHARS = 6_000
 _SUFFIX_HEAD_CHARS = 2_000
 _MAX_TOKENS_CAP = 512
-
-# ---------------------------------------------------------------------------
-# 补全专用档位选型(2026-09-13 P1-9)
-#
-# 方案落定:模块级 TTL 惰性缓存 + 同源基线清单,不查库、不做可用性过滤、
-# 不引入任何远端调用,保证补全低延迟路径不被拖慢。
-#   - 候选来源复用 /llm/models 同源基线 `llm._load_default_models()`
-#     (data/default_models.json),再经 model_catalog.annotate_models 打上 fim 标记。
-#   - DB 同步的补全模型(如 openrouter/...-coder)可用 env `FIM_PREFERRED_MODEL` 显式指定。
-#   - 任何异常一律吞掉 → 回退 'auto',绝不影响补全。
-# ---------------------------------------------------------------------------
-_FIM_CANDIDATE_TTL_S = 300.0  # 候选清单缓存 5 分钟
-_fim_candidates_cache: list[dict[str, Any]] = []
-_fim_candidates_cached_at = 0.0
-_fim_candidates_lock = threading.Lock()
-
-
-def _load_fim_candidates() -> list[dict[str, Any]]:
-    """加载「补全专用档位」候选模型(TTL 300s 缓存,失败返回空列表)。
-
-    只加载 /llm/models 的同源基线清单(文件解析一次 + 分类标注),不做 DB 查询、
-    不做 provider 可用性过滤,单次成本极低且带缓存。异常一律吞掉并返回空列表。
-    """
-    global _fim_candidates_cache, _fim_candidates_cached_at
-    now = time.monotonic()
-    if _fim_candidates_cached_at > 0 and now - _fim_candidates_cached_at < _FIM_CANDIDATE_TTL_S:
-        return _fim_candidates_cache
-    with _fim_candidates_lock:
-        # 双检:并发请求只让第一个真正加载
-        now = time.monotonic()
-        if _fim_candidates_cached_at > 0 and now - _fim_candidates_cached_at < _FIM_CANDIDATE_TTL_S:
-            return _fim_candidates_cache
-        candidates: list[dict[str, Any]] = []
-        try:
-            from .llm import _load_default_models  # 与 /llm/models 同源基线
-
-            loaded = _load_default_models()
-            if isinstance(loaded, list):
-                candidates = [m for m in loaded if isinstance(m, dict)]
-                annotate_models(candidates)
-        except Exception as e:  # noqa: BLE001 — 候选加载失败必须静默降级,不能影响补全
-            logger.debug("fim 候选模型加载失败(降级 auto): %s", e)
-            candidates = []
-        _fim_candidates_cache = candidates
-        _fim_candidates_cached_at = time.monotonic()
-        return _fim_candidates_cache
-
-
-def _resolve_fim_model(requested: str | None) -> str:
-    """解析本次补全使用的模型,绝不抛异常、绝不阻塞。
-
-    优先级:env `FIM_PREFERRED_MODEL` > 用户显式 model > 候选清单首个 fim 模型 > 'auto'。
-    """
-    try:
-        preferred = (os.environ.get("FIM_PREFERRED_MODEL") or "").strip()
-        if preferred:
-            return preferred
-        picked = pick_fim_model(_load_fim_candidates(), requested)
-        if picked:
-            return picked
-    except Exception as e:  # noqa: BLE001 — 选型失败静默回退,补全不能被选型拖垮
-        logger.debug("fim 模型选型降级(auto): %s", e)
-    return requested or "auto"
 
 _SYSTEM_PROMPT = (
     "You are a code completion engine (fill-in-the-middle). "
@@ -229,12 +162,10 @@ async def fim_complete(req: FIMRequest) -> dict[str, Any]:
         {"role": "system", "content": _SYSTEM_PROMPT},
         {"role": "user", "content": _build_user_prompt(req.prefix, req.suffix, req.language)},
     ]
-    # 补全专用档位选型(内部已吞异常,不会抛出、不阻塞)
-    model = _resolve_fim_model(req.model)
     try:
         result = await llm_gateway.complete(
             messages,
-            model,
+            req.model or "auto",
             owner_uuid=req.owner_uuid,
             max_tokens=req.max_tokens,
             temperature=0.0,

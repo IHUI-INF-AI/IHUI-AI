@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { FileText, Plus, Scissors, Sparkles, Loader2, Package, Telescope } from 'lucide-react'
+import { FileText, Mic, Plus, Scissors, Sparkles, Loader2, Package, Telescope } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -13,6 +13,7 @@ import { Tooltip } from '@/components/feedback'
 import { createPortal } from 'react-dom'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { SkillLibrary } from '@/components/chat/skill-library'
+import { VoiceRecord } from '@/components/ai/voice-record'
 import type { PromptTemplate } from '@/hooks/use-slash-action'
 
 /**
@@ -34,8 +35,8 @@ import type { PromptTemplate } from '@/hooks/use-slash-action'
 export function AddMenuPopover(props: {
   open: boolean
   onOpenChange: (next: boolean) => void
-  mode: 'menu' | 'prompt' | 'skill'
-  onModeChange: (mode: 'menu' | 'prompt' | 'skill') => void
+  mode: 'menu' | 'prompt' | 'skill' | 'voice'
+  onModeChange: (mode: 'menu' | 'prompt' | 'skill' | 'voice') => void
   isStreaming: boolean
   /** 当前输入框文本(用于"添加引用" disabled 判定) */
   inputValue: string
@@ -50,6 +51,9 @@ export function AddMenuPopover(props: {
   onSkillSendToChat?: (content: string) => void
   /** "添加附件"回调(主组件负责关闭 + 重置 mode + 触发 file input click) */
   onAddFile: () => void
+  /** 语音录制完成回调(2026-09-14 接线 VoiceRecord 孤儿组件,主组件负责 File 化 + addFileReference;
+   *  停止录制即触发,弹层随后关闭) */
+  onVoiceRecordComplete: (blob: Blob, duration: number) => void
   /** "添加引用"回调(主组件负责关闭 + 重置 mode + addTextReference + 清空 + resize) */
   onAddTextReference: () => void
   /** "插件市场"回调(主组件负责关闭 + 重置 mode + 跳转 /plugins) */
@@ -80,6 +84,7 @@ export function AddMenuPopover(props: {
     onSkillClose,
     onSkillSendToChat,
     onAddFile,
+    onVoiceRecordComplete,
     onAddTextReference,
     onOpenPluginMarket,
     onOpenDeepResearch,
@@ -221,10 +226,7 @@ export function AddMenuPopover(props: {
         createPortal(
           <div
             ref={panelRef}
-            // z-popover(2026-09-14 补):portal 挂 body 且 z-auto,营销首页 hero 区
-            // 祖先 z-10 会整体压住弹层 —— 菜单可见但所有点击被 H1 拦截(实测
-            // prompt-templates/chat-manual-compact e2e 与真实用户同路径失败)。
-            className="z-popover w-60 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-60 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={
               coords
                 ? { position: 'fixed', top: coords.top, left: coords.left }
@@ -253,6 +255,18 @@ export function AddMenuPopover(props: {
                 }}
                 onSendToChat={onSkillSendToChat}
               />
+            ) : mode === 'voice' ? (
+              // 语音录制面板(2026-09-14 接线 VoiceRecord 孤儿组件,对标 Qoder Quest Voice):
+              // 停止录制即回调 onVoiceRecordComplete(主组件 File 化入列附件)并关闭弹层
+              <div className="w-60 p-3" data-testid="voice-record-panel">
+                <VoiceRecord
+                  onRecordComplete={(blob, duration) => {
+                    onVoiceRecordComplete(blob, duration)
+                    onOpenChange(false)
+                    onModeChange('menu')
+                  }}
+                />
+              </div>
             ) : (
               <div className="flex w-60 flex-col gap-0.5 p-1">
                 <button
@@ -321,6 +335,23 @@ export function AddMenuPopover(props: {
                 >
                   <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">{tA11y('addAttachment')}</span>
+                </button>
+                {/* 语音录制入口(2026-09-14 接线 VoiceRecord 孤儿组件):切换到 voice 子面板 */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={isStreaming}
+                  onClick={() => {
+                    onModeChange('voice')
+                  }}
+                  className={cn(
+                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                  )}
+                >
+                  <Mic className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{t('voiceRecord.menuLabel')}</span>
                 </button>
                 <button
                   type="button"

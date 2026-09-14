@@ -9,7 +9,8 @@ import type { ChatMode } from '@ihui/types'
 /**
  * 对话模式 store(2026-07-22 立,对标 自研 IDE Plan/Spec 双模式)。
  *
- * 四态(对齐 CLI apps/cli/src/tui/mode-manager.ts 的 WorkMode,扩展 spec):
+ * 五态(对齐 CLI apps/cli/src/tui/mode-manager.ts 的 WorkMode,扩展 spec;2026-09-13 #24 补 ask):
+ * - ask:    纯问答(禁工具,ai-service 注入 Ask Mode 引导并跳过 tool loop)
  * - build:  正常执行(默认,全工具开放)
  * - plan:   只读分析(deny write 工具:edit_file/write_file/bash 等)
  * - review: 只读审查(deny write 工具 + 强化代码审查 prompt)

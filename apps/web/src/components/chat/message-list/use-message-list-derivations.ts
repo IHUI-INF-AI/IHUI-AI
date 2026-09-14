@@ -56,12 +56,19 @@ export function useMessageListDerivations({
   const prevTRef = React.useRef<typeof t | null>(null)
 
   // PlanStepsCard 数据源(2026-07-31 深度优化,对标 Codex /plan + 折叠态摘要设计):
-  // 普通对话走 streamChat → /api/ai/chat/stream → /api/llm/complete/stream,
+  // W1(2026-09-12 立):真实 SSE 事件优先,伪派生为兜底。
+  //   - 优先级 1(真实):后端 plan_updated SSE 事件经 send-message.ts onPlanUpdate →
+  //     useChatStore.setMessagePlanSteps 写入 msg.planSteps(权威快照,整体替换)。
+  //     某条消息存在真实步骤时,直接透传该消息的真实步骤并跳过其全部伪派生
+  //     (修复 bug D4:否则真实事件落地后会被下方伪派生结果覆盖)。
+  //   - 优先级 2(兜底,以下原始逻辑):msg.planSteps 为空时(旧会话 / 未收到真实事件),
+  //     仍基于 messages 伪派生,覆盖 3 类步骤:
+  //       ① reasoning(推理模型思考过程)→ "思考" 步骤(完整保留 explanation,不截断)
+  //       ② toolCalls(工具调用)→ 每个工具一个步骤(带 error 标记 + 完整 duration)
+  //       ③ content(最终回答)→ "回答" 步骤
+  // 历史背景:普通对话走 streamChat → /api/ai/chat/stream → /api/llm/complete/stream,
   // 不经过 LangGraph agent,因此 useAgentProgress.start() 即使接通也得不到 plan events
-  // (且 graph 未注册时返回 503)。改为基于 messages 派生 planSteps,覆盖 3 类步骤:
-  //   ① reasoning(推理模型思考过程)→ "思考" 步骤(完整保留 explanation,不截断)
-  //   ② toolCalls(工具调用)→ 每个工具一个步骤(带 error 标记 + 完整 duration)
-  //   ③ content(最终回答)→ "回答" 步骤
+  // (且 graph 未注册时返回 503)。
   // 深度优化字段:
   //   - error: toolCalls status=error 时为 true,PlanStepsCard 显示红色错误样式
   //   - sourceMessageId: 关联消息 ID,用于点击步骤跳转消息 + hover 联动
@@ -76,6 +83,28 @@ export function useMessageListDerivations({
     const assistantMsgs = messages.filter((m) => m.role === 'assistant')
     assistantMsgs.forEach((msg, idx) => {
       const groupIndex = idx
+
+      // W1(2026-09-12 立):真实 SSE plan_updated 事件优先(bug D4 修复)。
+      // msg.planSteps 由 setMessagePlanSteps 整体写入(权威快照),元素为完整 PlanStep。
+      // 存在真实步骤时直接透传,跳过本消息全部伪派生(含下方 completedPlanStepsRef 缓存读取),
+      // 避免真实数据被伪派生覆盖。
+      //   - 真实步骤由 send-message.ts 构造,只带 messageId 不带 sourceMessageId,
+      //     此处补齐 sourceMessageId,保证下方 linkPlanStepToMessage 跳转 / hover 联动照常生效。
+      //   - 同步删除该消息的伪派生缓存,防止后续兜底分支读到旧伪派生数据污染真实数据。
+      if (msg.planSteps && msg.planSteps.length > 0) {
+        completedPlanStepsRef.current.delete(msg.id)
+        for (const s of msg.planSteps) {
+          steps.push({
+            ...s,
+            sourceMessageId: s.sourceMessageId ?? s.messageId ?? msg.id,
+            // 与伪派生兜底保持同一分组语义(同一条 assistant 消息的步骤同组,
+            // PlanStepsCard 组间视觉分隔),否则真实步骤会全部落进同一组。
+            groupIndex: s.groupIndex ?? groupIndex,
+          })
+        }
+        return
+      }
+
       const isLast = msg.id === lastAssistantMessageId
       const isStreamingThis = isLast && isStreaming
 
@@ -142,6 +171,9 @@ export function useMessageListDerivations({
       steps.push(...msgSteps)
     })
     return steps
+    // W1(2026-09-12 立):依赖数组中的 messages 即 msg.planSteps 的等价依赖 ——
+    // setMessagePlanSteps 走 `s.messages.slice()` 生成新数组引用,真实事件落地后
+    // messages 引用变化即触发本 useMemo 重算,无需额外依赖。
   }, [messages, lastAssistantMessageId, isStreaming, t])
 
   // Phase 19 集成(2026-07-31 立):把 planStep → message 映射写入 ProgressJumpStore

@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Copy,
   BarChart3,
+  Ban,
 } from 'lucide-react'
 import { getArtifactToken } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
@@ -29,7 +30,7 @@ interface ToolCallCardProps {
   toolName: string
   args: Record<string, unknown>
   result?: unknown
-  status: 'running' | 'success' | 'error'
+  status: 'running' | 'success' | 'error' | 'cancelled'
   duration?: number
   error?: string
   /** 多轮 tool loop 轮次(>1 时显示"第N轮"徽章) */
@@ -80,6 +81,8 @@ const STATUS_CONFIG = {
   running: { icon: Loader2, className: 'animate-spin text-primary', labelKey: 'statusRunning' },
   success: { icon: Check, className: 'text-green-500', labelKey: 'statusSuccess' },
   error: { icon: AlertCircle, className: 'text-red-500', labelKey: 'statusFailed' },
+  // #23 撤回未执行工具卡(2026-09-13 立):cancelled=流中断时未执行的 running 工具,渲染"已撤回"
+  cancelled: { icon: Ban, className: 'text-muted-foreground', labelKey: 'statusRevoked' },
 } as const
 
 /** 2026-09-01 立,工具调用过程流式可视化:耗时格式化
@@ -200,6 +203,11 @@ function extractChartArtifact(
   return { filePath: filePath.trim(), fileName, relativePath }
 }
 
+/** W13(2026-09-13 立):从引用文本中提取首个 http(s) URL。
+ *  knowledge_lookup 等后端 citations 是纯字符串(如 "知识卡片: 标题 https://..."),
+ *  提取后该条渲染为可点击外链(target=_blank + rel),无 URL 时维持纯文本 chip。 */
+const CITATION_URL_RE = /https?:\/\/[^\s<>"')\]]+/
+
 /** 引用溯源标签组:展示 knowledge_lookup 等返回的图谱实体/关系来源 */
 function CitationsBlock({ citations }: { citations: string[] }) {
   const t = useTranslations('ai.toolCall')
@@ -210,15 +218,29 @@ function CitationsBlock({ citations }: { citations: string[] }) {
         {t('citationsTitle')}
       </p>
       <div className="flex flex-wrap gap-1">
-        {citations.map((c) => (
-          <span
-            key={c}
-            data-testid="tool-call-citation"
-            className="rounded-sm border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] leading-4 text-amber-700 dark:text-amber-400"
-          >
-            {c}
-          </span>
-        ))}
+        {citations.map((c) => {
+          const url = c.match(CITATION_URL_RE)?.[0]
+          const chipCls =
+            'rounded-sm border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] leading-4 text-amber-700 dark:text-amber-400'
+          return url ? (
+            <Tooltip content={url}>
+              <a
+                key={c}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="tool-call-citation"
+                className={cn(chipCls, 'cursor-pointer transition-colors hover:bg-amber-500/20')}
+              >
+                {c}
+              </a>
+            </Tooltip>
+          ) : (
+            <span key={c} data-testid="tool-call-citation" className={chipCls}>
+              {c}
+            </span>
+          )
+        })}
       </div>
     </div>
   )

@@ -75,7 +75,7 @@ interface ApiError {
 | Cookie | 浏览器同源页面刷新 | `auth_token` httpOnly cookie(后端 Set-Cookie) | 浏览器自动携带 |
 | X-Tenant-ID | 多租户隔离 | 请求头 `X-Tenant-Id: <uuid 或 slug>` | 见 [architecture.md §12](./architecture.md#12-多租户架构原-server-docsmulti_tenantmd2026-07-22-整合) |
 | WS query token | WebSocket 握手 | `?token=<wsToken>` 或 `socket.handshake.auth.token` | `wss://host/ws/notifications?token=xxx` |
-| API Key | 对外公开 API `/v1/*` | `Authorization: Bearer <apiKey>`(前缀 `ihui_`) | 见 §10 |
+| API Key | 对外公开 API `/v1/*` | `Authorization: Bearer <apiKey>`(前缀 `sk-`) | 见 §10 |
 | Challenge Token | 2FA 登录中间态 | `Authorization: Bearer <challengeToken>`(type=challenge,5min,仅限 `/auth/2fa/login-verify`) | 见 [AUTHENTICATION.md](./AUTHENTICATION.md) |
 
 公开端点(无需认证):`/api/health/*`、`/api/auth/login`、`/api/auth/register`、`/api/auth/send-code`、`/api/csrf-token`、`/api/agreements/*`、`/api/exchange-rates/*`、`/api/share/*`、`/api/carousels`、`/docs`、`/openapi.json`。
@@ -582,7 +582,7 @@ eventSource.onerror = () => eventSource.close()
 
 ## 10. 对外公开 API(/v1/*,API Key 鉴权)
 
-独立于 `/api` 业务路由,使用 API Key 鉴权(前缀 `ihui_`),供第三方开发者集成。路由文件:`routes/v1-public.ts` + `v1-ai-core.ts` + `v1-multimodal.ts` + `v1-knowledge-tools.ts`。
+独立于 `/api` 业务路由,使用 API Key 鉴权(前缀 `sk-`),供第三方开发者集成。路由文件:`routes/v1-public.ts` + `v1-ai-core.ts` + `v1-multimodal.ts` + `v1-knowledge-tools.ts`。
 
 | 类别 | 端点数 | 代表端点 |
 |------|--------|---------|
@@ -596,7 +596,7 @@ eventSource.onerror = () => eventSource.close()
 
 | 凭证 | 路由 | 用途 | 前缀 |
 |------|------|------|------|
-| API Key | `/v1/*` + `routes/developer.ts` | 第三方开发者集成 OpenAPI | `ihui_` |
+| API Key | `/v1/*` + `routes/developer.ts` | 第三方开发者集成 OpenAPI | `sk-` |
 | Personal Access Token (PAT) | `routes/sdks.ts` | 用户个人长期访问令牌 | `pat-` |
 | User SK | `routes/user-sk.ts`(`/ihui-ai-api/user-sk/*`) | 用户 SK 密钥(迁移自 D 盘 coze_zhs_py) | `sk-` |
 

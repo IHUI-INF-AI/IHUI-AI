@@ -4,9 +4,9 @@
 
 /**
  * 历史遗留的极简 ChatMessage(2026-07-31 标注)。
- * 与 packages/shared/src/hooks/use-chat.ts 的 ChatMessage 同名但定义不一致。
- * 新代码应优先使用 shared 版本(含 toolCalls / reasoning / meta 等字段);
- * 本接口仅保留向后兼容,勿再扩展。
+ * 与 ./chat.ts 的 ChatMessage 同名但定义不一致。
+ * 新代码应优先使用 chat.ts 版本(含 toolCalls / reasoning / meta 等字段);
+ * 本接口仅保留向后兼容(供本文件 ChatRequest 使用),勿再扩展。
  */
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
@@ -102,6 +102,28 @@ export interface ToolCallSummary {
   totalDurationMs?: number
 }
 
+// ==================== #11 Citations 全链路(2026-09-13 立) ====================
+// 后端 knowledge_lookup 工具执行后,在 done 前下发 citations SSE 事件,
+// 前端按 messageId 写入 ChatMessage.citations,MessageItem 渲染 CitationBar。
+
+/** 单条引用溯源条目(消息级展示层,与前端 ChatMessage.citations 对齐)。 */
+export interface CitationEntry {
+  /** 来源标识(如 "codebase" / "knowledge_cards" / "rag" / "graph" / "long_term_memory" / 文档名) */
+  source: string
+  /** 人类可读的标签(如文档名 / 实体名 / 关系描述) */
+  label: string
+  /** 可选的 URL(前端可点击跳转) */
+  url?: string
+}
+
+/** citations SSE 事件负载(与 @ihui/api-client 解析逻辑对齐)。 */
+export interface CitationsEvent {
+  /** 关联到所属 assistant 消息 ID(后端 knowledge_lookup 工具执行后下发) */
+  messageId?: string
+  /** 去重后的引用列表(最多 10 条,避免事件体积膨胀) */
+  citations: CitationEntry[]
+}
+
 /**
  * 基础工具调用接口(2026-07-31 立,扩展版,跨端共享)。
  * - web 端在 stores/chat.ts 中继承此接口扩展 InlineDiff/ApplyStatus 等本地字段
@@ -116,8 +138,8 @@ export interface BaseToolCall {
   args?: Record<string, unknown>
   /** 工具调用结果(tool-result 事件的 result 字段) */
   result?: unknown
-  /** 工具调用状态:running=执行中 / success=成功 / error=失败 */
-  status: 'running' | 'success' | 'error'
+  /** 工具调用状态:running=执行中 / success=成功 / error=失败 / cancelled=已撤回(未执行,#23) */
+  status: 'running' | 'success' | 'error' | 'cancelled'
   /** 是否为错误结果(tool-result 事件的 isError 字段) */
   isError?: boolean
   /** 工具调用迭代轮次(LangGraph tool loop 的 iteration) */

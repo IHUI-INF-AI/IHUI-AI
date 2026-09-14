@@ -66,27 +66,9 @@ import { startAutoRefresh } from '@/lib/tokenUtils'
 // 每次路由切换连带重渲染。它自身依赖的返回键 store / 状态订阅不受影响(Context 与内部订阅可穿透 memo)。
 const GlobalTopBarMemo = React.memo(GlobalTopBar)
 
-// 2026-09-14 CLS 真根治:AISidePanel 的等宽占位必须挂到 dynamic 的 loading 插槽。
-// 根因:next/dynamic({ ssr:false }) 内部自带 Suspense 边界(fallback = loading ?? null),
-// 组件挂起被**内层**边界接住 —— 外层 React.Suspense 的等宽占位 fallback 从未渲染过
-// (实测 t+800ms 面板挂载把 work-area 从 x=160 推到 x=466,一次性 CLS 0.21,
-// web-vitals.spec.ts 实锤)。Sidebar 能用外层 fallback 是因为它同步挂起(useSearchParams),
-// 没有 dynamic 内层边界,两者机制不同。
-// 占位几何与真实容器对齐:width 引用 layout.tsx inline script 预设的 --ai-panel-width
-// (读 localStorage ihui-ai-panel state.width,范围 320-720,fallback 380),
-// hidden + min-[768px]:block 复制真实容器响应式显隐,mr-1.5 py-2 shrink-0 对齐展开态。
-const AiPanelPlaceholder = () => (
-  <div
-    aria-hidden
-    className="relative hidden h-full shrink-0 mr-1.5 py-2 min-[768px]:block"
-    style={{ width: 'var(--ai-panel-width, 380px)' }}
-  />
-)
-
 const AISidePanel = React.memo(
   dynamic(() => import('@/components/ai/ai-side-panel').then((m) => m.AISidePanel), {
     ssr: false,
-    loading: AiPanelPlaceholder,
   }),
 )
 const WebWorkPanel = React.memo(

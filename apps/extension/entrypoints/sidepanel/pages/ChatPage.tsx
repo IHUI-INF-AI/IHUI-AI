@@ -18,6 +18,8 @@ import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
 import { categoryLabel, historyLabel, splitModelCatalog } from '../../../src/lib/model-catalog'
 import { VoiceInput } from '../components/VoiceInput'
+import { MessageContent } from '../components/MessageContent'
+import type { PlanStep, TerminalTask } from '@ihui/types'
 import type { ChatMessage } from './types'
 
 interface Ctx {
@@ -74,6 +76,31 @@ export default function ChatPage() {
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
 
+  // W6:把更新应用到「流式输出的当前 assistant 消息」。
+  // 扩展端消息 id 为本地生成,后端 SSE 的 messageId 不一定与本地相等:
+  // 故显式传入 messageId 时优先精确匹配,匹配不到则回退到最后一条 assistant 消息。
+  const updateAssistantMessage = (updater: (m: ChatMessage) => ChatMessage, messageId?: string) => {
+    setMessages((cur) => {
+      const copy = [...cur]
+      let target = -1
+      if (messageId) {
+        target = copy.findIndex((m) => m.id === messageId && m.role === 'assistant')
+      }
+      if (target < 0) {
+        for (let i = copy.length - 1; i >= 0; i -= 1) {
+          if (copy[i]?.role === 'assistant') {
+            target = i
+            break
+          }
+        }
+      }
+      const current = target >= 0 ? copy[target] : undefined
+      if (!current) return cur
+      copy[target] = updater(current)
+      return copy
+    })
+  }
+
   const onSend = async () => {
     const text = input.trim()
     if (!text || streaming) return
@@ -90,6 +117,8 @@ export default function ChatPage() {
 
     const controller = new AbortController()
     const timeoutId = window.setTimeout(() => controller.abort(), 15_000)
+    // W6:记录每个工具调用的起始时间,tool-result 到达时补算耗时(与 web stream-handlers 一致)
+    const toolStartTimes = new Map<string, number>()
 
     const opts: StreamChatOptions = {
       model,
@@ -112,14 +141,12 @@ export default function ChatPage() {
       },
       onDelta: (delta) => {
         window.clearTimeout(timeoutId)
-        setMessages((cur) => {
-          const copy = [...cur]
-          const last = copy[copy.length - 1]
-          if (last?.role === 'assistant') {
-            copy[copy.length - 1] = { ...last, content: last.content + delta }
-          }
-          return copy
-        })
+        updateAssistantMessage((m) => ({ ...m, content: m.content + delta }))
+      },
+      // W6:推理过程(reasoning model),追加到 assistant 消息的 reasoning 字段
+      onReasoning: (delta) => {
+        window.clearTimeout(timeoutId)
+        updateAssistantMessage((m) => ({ ...m, reasoning: (m.reasoning ?? '') + delta }))
       },
       onError: (msg) => {
         window.clearTimeout(timeoutId)
@@ -142,6 +169,112 @@ export default function ChatPage() {
         window.clearTimeout(timeoutId)
         setStreaming(false)
       },
+      // ===== W6 新增回调:与 web 端 use-chat 对齐,补齐工具/用量/计划/终端 =====
+      // 工具调用:start 追加 running 项;result 按 toolCallId 回填状态、结果与耗时
+      onToolCall: (event) => {
+        window.clearTimeout(timeoutId)
+        if (event.type === 'tool-call-start') {
+          toolStartTimes.set(event.toolCallId, Date.now())
+          updateAssistantMessage((m) => ({
+            ...m,
+            toolCalls: [
+              ...(m.toolCalls ?? []),
+              {
+                id: event.toolCallId,
+                toolName: event.toolName,
+                args: event.args ?? {},
+                status: 'running',
+                serverSource: event.serverSource,
+                serverId: event.serverId,
+                serverName: event.serverName,
+              },
+            ],
+          }))
+          return
+        }
+        const startedAt = toolStartTimes.get(event.toolCallId)
+        const durationMs = startedAt !== undefined ? Date.now() - startedAt : undefined
+        updateAssistantMessage((m) => ({
+          ...m,
+          toolCalls: (m.toolCalls ?? []).map((call) =>
+            call.id === event.toolCallId
+              ? {
+                  ...call,
+                  toolName: event.toolName,
+                  status: event.isError ? 'error' : 'success',
+                  isError: event.isError,
+                  result: event.result,
+                  args: event.args ?? call.args,
+                  durationMs,
+                  serverSource: event.serverSource ?? call.serverSource,
+                  serverId: event.serverId ?? call.serverId,
+                  serverName: event.serverName ?? call.serverName,
+                  image_url: event.image_url,
+                  audio_url: event.audio_url,
+                  video_url: event.video_url,
+                  task_id: event.task_id,
+                }
+              : call,
+          ),
+        }))
+      },
+      // 工具调用汇总:流末尾一次性写入 message.toolCallSummary
+      onToolSummary: (summary) => {
+        updateAssistantMessage((m) => ({ ...m, toolCallSummary: summary }))
+      },
+      // Token 用量:写入 message.meta.usage,由共享渲染模型提取并展示
+      onUsage: (usage) => {
+        updateAssistantMessage((m) => ({ ...m, meta: { ...(m.meta ?? {}), usage } }))
+      },
+      // 执行计划:PlanUpdateEvent 为权威快照,整体替换 message.planSteps
+      onPlanUpdate: (evt) => {
+        const steps: PlanStep[] = evt.plan.map((item, i) => ({
+          id: `plan-${i}-${item.step.slice(0, 16)}`,
+          step: item.step,
+          status: item.status,
+          explanation: evt.explanation,
+          startedAt: item.startedAt,
+          endedAt: item.endedAt,
+          durationMs: item.durationMs,
+          tokenUsage: item.tokenUsage,
+          messageId: evt.messageId,
+        }))
+        updateAssistantMessage((m) => ({ ...m, planSteps: steps }), evt.messageId)
+      },
+      // 终端任务:start 追加 running 项;end 回填状态、输出与退出码
+      onTerminalStart: (evt) => {
+        const task: TerminalTask = {
+          id: evt.terminalId,
+          command: evt.command,
+          status: 'running',
+          startedAt: evt.startedAt ?? new Date().toISOString(),
+          messageId: evt.messageId,
+        }
+        updateAssistantMessage(
+          (m) => ({ ...m, terminalTasks: [...(m.terminalTasks ?? []), task] }),
+          evt.messageId,
+        )
+      },
+      onTerminalEnd: (evt) => {
+        updateAssistantMessage(
+          (m) => ({
+            ...m,
+            terminalTasks: (m.terminalTasks ?? []).map((task) =>
+              task.id === evt.terminalId
+                ? {
+                    ...task,
+                    status: evt.status,
+                    output: evt.output,
+                    exitCode: evt.exitCode,
+                    endedAt: evt.endedAt,
+                    durationMs: evt.durationMs,
+                  }
+                : task,
+            ),
+          }),
+          evt.messageId,
+        )
+      },
     }
     try {
       await streamChat(opts)
@@ -152,6 +285,8 @@ export default function ChatPage() {
       setStreaming(false)
     }
   }
+
+  const lastMessageId = messages[messages.length - 1]?.id
 
   return (
     <div className="flex flex-col h-full">
@@ -208,9 +343,15 @@ export default function ChatPage() {
               className={`flex flex-col max-w-[85%] md:max-w-[75%] lg:max-w-[70%] ${m.role === 'user' ? 'self-end' : ''}`}
             >
               <div
-                className={`px-2.5 py-2 rounded-lg text-sm whitespace-pre-wrap break-words leading-relaxed ${m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}
+                className={`px-2.5 py-2 rounded-lg text-sm break-words leading-relaxed ${m.role === 'user' ? 'bg-primary text-primary-foreground whitespace-pre-wrap' : 'bg-muted text-foreground'}`}
               >
-                {m.content || (m.role === 'assistant' ? '...' : '')}
+                {m.role === 'user' ? (
+                  m.content
+                ) : (
+                  // W6:assistant 消息改为结构化渲染(轻量 Markdown + 推理/工具/计划/终端/子代理),
+                  // 数据归一化由共享纯函数 @ihui/shared buildRenderModel 提供
+                  <MessageContent message={m} streaming={streaming && m.id === lastMessageId} />
+                )}
               </div>
             </div>
           ))
