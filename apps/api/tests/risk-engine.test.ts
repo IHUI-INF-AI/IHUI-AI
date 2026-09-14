@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   RiskRuleEngine,
   DEFAULT_RULES,
@@ -10,6 +10,55 @@ import {
   evaluateRisk,
   type RiskRule,
 } from '../src/services/risk-engine-service'
+
+// 2026-09-15 稳定性修复(根因):risk-engine-service.evaluateRisk 在命中非 ALLOW 规则时
+// 会 fire-and-forget 调用 persistRiskHits(异步落库)。该函数在测试环境动态 import
+// '../db/index.js' 与 '@ihui/database' 失败 → catch 中 logger.warn → 回退 console.warn。
+// 高并行负载下,该异步 console 输出在用例结束后才 flush,worker teardown 期 RPC 已关闭,
+// 触发 8 个 EnvironmentTeardownError: Closing rpc while "onUserConsoleLog" was pending,
+// 导致全量 pnpm test exit 1。这里按本仓库既有约定 mock '../src/db/index.js' 为无副作用
+// 链式桩,使 persistRiskHits 静默成功(不触发 console),从而消除 teardown 期排队的日志 RPC。
+// 注意:仅改本测试文件,不改动全局/根级配置,也不影响其他包。
+vi.mock('../src/db/index.js', () => {
+  function createChain(result: unknown[] = []) {
+    const chain: {
+      then: (r: (v: unknown[]) => unknown) => Promise<unknown>
+      [m: string]: unknown
+    } = {
+      then: (resolve) => Promise.resolve(result).then(resolve),
+    }
+    for (const m of [
+      'from',
+      'where',
+      'orderBy',
+      'limit',
+      'offset',
+      'values',
+      'set',
+      'returning',
+      'leftJoin',
+    ]) {
+      chain[m] = () => chain
+    }
+    return chain
+  }
+  return {
+    db: {
+      execute: vi.fn().mockResolvedValue([]),
+      select: vi.fn(() => createChain()),
+      insert: vi.fn(() => createChain()),
+      update: vi.fn(() => createChain()),
+      delete: vi.fn(() => createChain()),
+    },
+    dbRead: {
+      select: vi.fn(() => createChain()),
+    },
+    dbClient: {},
+    poolLeakDetector: { track: vi.fn(), untrack: vi.fn() },
+    stopPoolTracker: vi.fn(),
+    registerPoolTrackerCleanup: vi.fn(),
+  }
+})
 
 describe('RiskRuleEngine 默认规则', () => {
   it('加载 5 条核心规则', () => {

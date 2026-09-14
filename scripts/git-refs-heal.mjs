@@ -36,34 +36,14 @@
  * 退出码:0 = 清单内 ref 全部可解析;1 = 仍有缺失(需人工)
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { resolveGitBin, resolveWorktree, resolveGitdir } from './lib/gitdir.mjs'
 
-const WORKTREE = 'D:/IHUI-AI'
-const POINTER = join(WORKTREE, '.git')
-
-const GIT_CANDIDATES = [
-  process.env.GIT_BIN,
-  'git',
-  'C:/Program Files/Git/cmd/git.exe',
-  'C:/Program Files (x86)/Git/cmd/git.exe',
-  'C:/Users/Administrator/.workbuddy/binaries/PortableGit/versions/1.2.0/cmd/git.exe',
-].filter(Boolean)
-
-let GIT_BIN = null
-function resolveGitBin() {
-  if (GIT_BIN) return GIT_BIN
-  for (const c of GIT_CANDIDATES) {
-    try {
-      execFileSync(c, ['--version'], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 15000 })
-      GIT_BIN = c
-      return GIT_BIN
-    } catch {
-      /* 试下一个候选 */
-    }
-  }
-  return null
-}
+// 工作树 / 真实 gitdir 动态解析(不再硬编码 D: 盘;见 scripts/lib/gitdir.mjs 2026-09-15)
+const WORKTREE = resolveWorktree()
+const GITDIR = resolveGitdir(WORKTREE)
+const REFS_MANIFEST = join(GITDIR, 'refs-manifest.json')
 
 function git(args, allowFail = false) {
   const bin = resolveGitBin()
@@ -83,20 +63,7 @@ function git(args, allowFail = false) {
   }
 }
 
-/** 从 .git 指针文件解析真实 gitdir(支持 separate-git-dir;兼容 .git 为目录的常规仓库) */
-function resolveGitdir() {
-  try {
-    const raw = readFileSync(POINTER, 'utf8').trim()
-    const m = raw.match(/^gitdir:\s*(.+)$/i)
-    if (m) return m[1].trim().replace(/\\/g, '/')
-  } catch {
-    /* 落到默认 */
-  }
-  return POINTER
-}
-
-const GITDIR = resolveGitdir()
-const REFS_MANIFEST = join(GITDIR, 'refs-manifest.json')
+// GITDIR / REFS_MANIFEST 已在文件顶部由共享库解析(动态,不再硬编码 D: 盘,2026-09-15)
 
 /**
  * 是否需要"打包固化"的 ref:
