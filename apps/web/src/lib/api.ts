@@ -94,7 +94,18 @@ function detectStreamBaseUrl(): string {
     }
     // 开发环境:Next.js dev server 运行在 localhost:8801
     // SSE 流直连 API 服务器 localhost:8802,绕过 dev proxy 的超时/缓冲
-    if (window.location.hostname === 'localhost' && window.location.port === '8801') {
+    // 2026-09-14 根因修复(2-18 CI):必须叠加 NODE_ENV==='development' 门控。
+    // process.env.NODE_ENV 在客户端 bundle 构建期内联——生产构建(含 CI e2e 的
+    // next build)此分支被死代码消除,回归同源;否则 CI 的 web 同样跑在
+    // localhost:8801,被误判成 dev → 跨源直连 http://localhost:8802 → 被 CSP
+    // connect-src 'self' https: wss: ws: 拦截(Fetch cannot load),streamChat
+    // 无限重试 → SSE 相关用例全灭(phase-21 ×9 / ai-chat / share,run 34839041078
+    // error-context + trace console 铁证)。生产 aizhs.top 非 localhost 本就不触发。
+    if (
+      process.env.NODE_ENV === 'development' &&
+      window.location.hostname === 'localhost' &&
+      window.location.port === '8801'
+    ) {
       return process.env.NEXT_PUBLIC_STREAM_API_BASE_URL || 'http://localhost:8802'
     }
   }
