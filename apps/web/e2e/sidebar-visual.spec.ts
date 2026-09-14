@@ -724,6 +724,9 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
  */
 test.describe('Sidebar 折叠/展开布局方向守门', () => {
   test.describe.configure({ retries: 1 })
+  // 2026-09-14:移动视口用例全量 2 workers 负载下 30s 默认 timeout 不够
+  // (实测 failed + teardown 连锁超时;单跑恒过,纯预算问题)。
+  test.describe.configure({ timeout: 90_000 })
 
   test('平板视口(768-1023px)折叠态:footer 竖排 + 5 按钮在 60px 界内 + 无互相重叠', async ({
     authenticatedPage,
@@ -883,6 +886,21 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
       localStorage.setItem('sidebar-collapsed', 'true')
     })
     await authenticatedPage.goto('/')
+
+    // 2026-09-14 修复:移动视口下 AI 工作区面板默认全屏(fixed inset-0 z-sticky)盖住
+    // 首页 header,汉堡按钮虽可见但 click 永远等不到 pointer events(与
+    // dialog-position-regression 移动端同根因)—— 按真实用户路径先关面板再点汉堡。
+    // 注意 goto 后面板水合渲染需要时间,isVisible 即时检查会误判跳过(实测单跑即挂),
+    // 必须 waitFor 轮询;面板缺席(≤8s 未出现)则视为已关闭,继续原流程。
+    const closePanel = authenticatedPage.locator('button[aria-label="关闭"]').first()
+    const panelShown = await closePanel
+      .waitFor({ state: 'visible', timeout: 8000 })
+      .then(() => true)
+      .catch(() => false)
+    if (panelShown) {
+      await closePanel.click()
+      await authenticatedPage.waitForTimeout(500)
+    }
 
     // 顶栏汉堡按钮(min-[768px]:hidden,只在 <768px 可见)——
     // 图标 PanelLeftOpen 为页面唯一 lucide-panel-left-open,作稳定定位器

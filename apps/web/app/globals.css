@@ -946,6 +946,43 @@ iframe::-webkit-scrollbar {
 }
 
 /* ============================================================
+ * 窄容器降级:模式切换/高级参数/截图 (2026-09-14 回归修复)
+ * ============================================================
+ * 背景:2026-09-13 引入 ModeSwitcher(默认带文字"构建任务",w≈76px)与
+ * SamplingParamsButton 后,底部 toolbar 左组按钮总宽在窄面板下达 ~346px,
+ * 而右组(ContextRing+ModelSelector+Voice+Send)被 flex-1 min-w-0 squeeze 后
+ * justify-end 溢出向左 —— 实测 300px 面板下模型选择器按钮(塌缩到 18px 图标态)
+ * 中心点命中 ModeSwitcher 的 svg path,真实用户仅 ~2px 边缘可点(model-selector
+ * e2e 6 例 120s 超时的产品侧根因)。
+ *
+ * 降级阶梯(sm: 是视口断点,管不住 300px AI 面板,必须用容器查询):
+ * - ≤407: ModeSwitcher 文字隐藏(仅图标+chevron;tooltip 仍在)
+ * - ≤319: SamplingParamsButton 隐藏(低频高级参数)
+ * - ≤259: 截图按钮 + ModeSwitcher 整体隐藏
+ *   等价入口不丢:模式切换 = Ctrl+1-5 快捷键 + SlashCommandPalette(/build 等,
+ *   三通道共用 useModeStore);截图 = 剪贴板粘贴(handlePaste 已接管)。
+ * 验算(面板宽-48=container 宽):
+ * - 300px 面板(252):左组 slash32+@32+gaps+px ≈ 84,右组 icon-only ≈ 126 → 210 ✓
+ * - 360px 面板(312):Mode 隐文字后左组 ≈ 176,右组 126 → 302 ≤ 312 ✓
+ * - 460px 面板(412):全量显示 346 ≤ 412 ✓ */
+@container (max-width: 407px) {
+  .ai-input-toolbar .mode-switcher-text {
+    display: none;
+  }
+}
+@container (max-width: 319px) {
+  .ai-input-toolbar [data-testid='sampling-params-trigger'] {
+    display: none;
+  }
+}
+@container (max-width: 259px) {
+  .ai-input-toolbar [data-testid='input-screenshot'],
+  .ai-input-toolbar .mode-switcher-trigger {
+    display: none;
+  }
+}
+
+/* ============================================================
  * PasswordInput 眼睛图标弹性动画 (2026-07-22 立)
  * ============================================================
  * 用途:登录框密码输入框的显隐按钮,切换时图标弹性放大回弹。
