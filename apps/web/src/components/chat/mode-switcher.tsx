@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTranslations } from 'next-intl'
-import { Check, ChevronDown, Eye, FileText, Hammer, ClipboardList } from 'lucide-react'
+import { Check, ChevronDown, Eye, FileText, Hammer, ClipboardList, Wrench } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useModeStore } from '@/stores/mode'
+import { useAiToolsPanelStore } from '@/stores/ai-tools-panel'
 import type { ChatMode } from '@ihui/types'
 import { cn } from '@/lib/utils'
 
@@ -20,6 +21,8 @@ import { cn } from '@/lib/utils'
  *
  * 四态语义见 stores/mode.ts(build/plan/review/spec)。
  * 文案复用 chat.modeBuild/modePlan/modeReview/modeSpec 现有 i18n 键,不新增键。
+ *
+ * 2026-09-14 合并收口:额外保留「工具面板」入口(menu-tools-panel),见下方注释。
  */
 
 const MODE_ITEMS: Array<{
@@ -36,8 +39,11 @@ const MODE_ITEMS: Array<{
 
 export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
   const t = useTranslations('chat')
+  const tTools = useTranslations('aiToolsPanel')
   const currentMode = useModeStore((s) => s.currentMode)
   const setMode = useModeStore((s) => s.setMode)
+  const toolsPanelOpen = useAiToolsPanelStore((s) => s.open)
+  const toggleToolsPanel = useAiToolsPanelStore((s) => s.toggle)
   const current = MODE_ITEMS.find((m) => m.mode === currentMode) ?? MODE_ITEMS[0]
   if (!current) return null
   const CurrentIcon = current.icon
@@ -63,6 +69,24 @@ export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
+        {/* 工具面板入口(2026-09-14 合并收口):AiSidePanelTools 的唯一开关。
+            ai-side-panel.tsx 挂载的 <AiSidePanelTools />(承载 Plan/Memory/Checkpoints/
+            Best-of/Hooks/RepoWiki 等 W21–W29 面板)依赖本入口,缺失则永远无法打开。 */}
+        <DropdownMenuItem
+          data-testid="menu-tools-panel"
+          data-panel-open={toolsPanelOpen}
+          onSelect={() => toggleToolsPanel()}
+          className={cn('gap-2', toolsPanelOpen && 'bg-accent')}
+        >
+          <Wrench className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="flex min-w-0 flex-col">
+            <span className="text-sm font-medium leading-tight">{tTools('title')}</span>
+            <span className="truncate text-xs text-muted-foreground leading-tight">
+              {toolsPanelOpen ? t('toolsPanelClose') : t('toolsPanelOpen')}
+            </span>
+          </span>
+          {toolsPanelOpen && <Check className="ml-auto h-4 w-4 shrink-0" />}
+        </DropdownMenuItem>
         {MODE_ITEMS.map((item) => {
           const Icon = item.icon
           const active = item.mode === currentMode
