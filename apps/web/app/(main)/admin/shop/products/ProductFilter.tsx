@@ -4,7 +4,7 @@
 
 'use client'
 
-import { Search, RotateCcw } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
   Button,

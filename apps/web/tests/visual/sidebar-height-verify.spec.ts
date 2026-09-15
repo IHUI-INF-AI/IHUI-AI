@@ -26,7 +26,9 @@ const DESKTOP_ASIDE = 'aside[aria-label="主导航"]:not([role="dialog"])'
 async function gotoHome(page: Page) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      await page.goto('http://localhost:8801/', {
+      const BASE_URL =
+        process.env.E2E_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8801' // 2026-09-15 修:不再写死 8801,本地隔离端口跑 E2E 由环境变量覆盖
+      await page.goto(BASE_URL + '/', {
         waitUntil: 'domcontentloaded',
         timeout: 15000,
       })
