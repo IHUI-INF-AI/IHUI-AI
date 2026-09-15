@@ -81,19 +81,25 @@ export function ScanLoginDialog({
 
   React.useEffect(() => {
     if (!open) return
+    // 2026-09-15 fix:每次打开都强制同步指定平台,避免上次会话遗留的平台残留
+    if (defaultPlatform) setPlatform(defaultPlatform)
     void (async () => {
       try {
         const r = await listScanLoginPlatforms()
         if (r.success && r.data) {
           setPlatforms(r.data.platforms)
-          if (!platform && r.data.platforms.length > 0) setPlatform(r.data.platforms[0]!.platform)
+          // 2026-09-15 fix:指定了平台时不得覆盖;函数式更新避免 stale closure
+          // (此前闭包捕获 open 时的旧 platform='' 导致误覆盖为列表第一个平台=知乎)
+          if (!defaultPlatform) {
+            setPlatform((prev) => prev || r.data.platforms[0]?.platform || '')
+          }
         }
       } catch (e) {
         toast.error((e as Error).message)
       }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [open, defaultPlatform])
 
   React.useEffect(() => {
     return () => {
