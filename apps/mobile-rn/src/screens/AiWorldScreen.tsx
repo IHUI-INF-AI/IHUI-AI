@@ -2,33 +2,35 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/**
+ * AiWorldScreen AI 世界页(mobile-rn 端 wrapper)
+ *
+ * 2026-09-15 迁移:UI 与展示逻辑已下沉共享层 @ihui/rn-app AiWorldScreen
+ * (Web 对应路由 /ai-world*),本 wrapper 仅保留平台特定职责:
+ * - 数据:fetchApi(/api/ai-world、/api/ai-world/{tools|apps|news}、/api/ai-world/rankings*)
+ * - 搜索/分类:防抖调分条目端点,清空回 feed 模式(切 Tab 不发请求)
+ * - 榜单:leaderboard/category 变化即拉取,初次进入拉 leaderboards 元数据并校正 category
+ * - 导航 goBack;主题色 / i18n 注入
+ */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  FlatList,
-  Image,
-  RefreshControl,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  type TextInputProps,
-} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import {
+  AiWorldScreen as SharedAiWorldScreen,
+  type AiWorldEntry,
+  type AiWorldRankingItem,
+  type AiWorldTab,
+} from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-type ItemKind = 'news' | 'paper' | 'project' | 'tool' | 'app'
-type TabKey = 'tools' | 'apps' | 'news' | 'rankings'
-
 /** 分条目端点 GET /api/ai-world/{tools|apps|news} 的分页响应 */
 interface PaginatedItems {
-  items: AiWorldEntry[]
+  items: AiWorldEntryDto[]
   total: number
   limit: number
   offset: number
@@ -58,9 +60,9 @@ interface LeaderboardInfo {
  * AI 世界条目 — 对齐后端 GET /api/ai-world 的 DTO 字段
  * (packages/api-client 旧 AiWorldItem 字段为 name/description/cover,与后端不一致,故端内声明)
  */
-interface AiWorldEntry {
+interface AiWorldEntryDto {
   id: string
-  kind: ItemKind
+  kind: AiWorldEntry['kind']
   categoryId: string | null
   title: string
   summary: string | null
@@ -89,15 +91,13 @@ interface AiWorldCategory {
 
 interface AiWorldFeed {
   categories: AiWorldCategory[]
-  tools: AiWorldEntry[]
-  apps: AiWorldEntry[]
-  news: AiWorldEntry[]
+  tools: AiWorldEntryDto[]
+  apps: AiWorldEntryDto[]
+  news: AiWorldEntryDto[]
 }
 
-const TABS: readonly TabKey[] = ['tools', 'apps', 'news', 'rankings']
-
 /** 各条目 Tab 对应的 REST 端点(榜单走独立端点) */
-const KIND_ENDPOINT: Record<Exclude<TabKey, 'rankings'>, string> = {
+const KIND_ENDPOINT: Record<Exclude<AiWorldTab, 'rankings'>, string> = {
   tools: '/api/ai-world/tools',
   apps: '/api/ai-world/apps',
   news: '/api/ai-world/news',
@@ -106,40 +106,32 @@ const KIND_ENDPOINT: Record<Exclude<TabKey, 'rankings'>, string> = {
 /** 搜索提交去抖(ms) */
 const SEARCH_DEBOUNCE_MS = 400
 
-function Chip({
-  label,
-  active,
-  dark,
-  onPress,
-}: {
-  label: string
-  active: boolean
-  dark: boolean
-  onPress: () => void
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      className={`mr-2 rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : dark ? 'bg-neutral-800' : 'bg-gray-100'}`}
-    >
-      <Text
-        className={`text-xs ${active ? 'text-white' : dark ? 'text-neutral-300' : 'text-gray-600'}`}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  )
+/** AiWorldRanking DTO → 共享层 AiWorldRankingItem(votes 提前自 scores.votes 提取) */
+function toRanking(r: AiWorldRanking): AiWorldRankingItem {
+  return {
+    id: r.id,
+    rank: r.rank,
+    modelName: r.modelName,
+    provider: r.provider,
+    score: r.score,
+    votes:
+      r.scores && typeof r.scores === 'object' && 'votes' in r.scores
+        ? Number((r.scores as Record<string, unknown>).votes)
+        : null,
+  }
 }
 
-function SearchInput(props: TextInputProps) {
-  return (
-    <TextInput
-      placeholderTextColor={tokens.text.tertiary}
-      {...props}
-      className={`mr-3 h-9 flex-1 rounded-md border border-gray-200 px-3 text-sm dark:border-neutral-700 dark:text-neutral-100 ${props.className ?? ''}`}
-    />
-  )
+/** AiWorldEntryDto → 共享层 AiWorldEntry(仅保留展示字段) */
+function toEntry(e: AiWorldEntryDto): AiWorldEntry {
+  return {
+    id: e.id,
+    kind: e.kind,
+    title: e.title,
+    summary: e.summary,
+    coverImage: e.coverImage,
+    source: e.source,
+    viewCount: e.viewCount,
+  }
 }
 
 export function AiWorldScreen() {
@@ -147,7 +139,7 @@ export function AiWorldScreen() {
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const [feed, setFeed] = useState<AiWorldFeed | null>(null)
-  const [tab, setTab] = useState<TabKey>('tools')
+  const [tab, setTab] = useState<AiWorldTab>('tools')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -155,7 +147,7 @@ export function AiWorldScreen() {
   // —— 条目筛选/搜索(tools/apps/news) ——
   const [search, setSearch] = useState('')
   const [activeCategorySlug, setActiveCategorySlug] = useState<string | null>(null)
-  const [filteredItems, setFilteredItems] = useState<AiWorldEntry[] | null>(null)
+  const [filteredItems, setFilteredItems] = useState<AiWorldEntryDto[] | null>(null)
   const [filterLoading, setFilterLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -167,10 +159,8 @@ export function AiWorldScreen() {
   const [rankLoading, setRankLoading] = useState(false)
   const [rankError, setRankError] = useState('')
 
-  const dark = resolvedTheme === 'dark'
-
   // 无搜索/分类筛选时,按当前 Tab 从一次拉取的 feed 中取条目(切换 Tab 不发请求)
-  const feedItems = useMemo<AiWorldEntry[]>(() => {
+  const feedItems = useMemo<AiWorldEntryDto[]>(() => {
     if (!feed) return []
     if (tab === 'apps') return feed.apps
     if (tab === 'news') return feed.news
@@ -252,7 +242,7 @@ export function AiWorldScreen() {
       return
     }
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    const kind = tab as Exclude<TabKey, 'rankings'>
+    const kind = tab as Exclude<AiWorldTab, 'rankings'>
     debounceRef.current = setTimeout(() => {
       setFilterLoading(true)
       void (async () => {
@@ -282,7 +272,7 @@ export function AiWorldScreen() {
     void load()
   }, [load])
 
-  const switchTab = (next: TabKey) => {
+  const switchTab = (next: AiWorldTab) => {
     setTab(next)
     setSearch('')
     setActiveCategorySlug(null)
@@ -294,294 +284,56 @@ export function AiWorldScreen() {
     [leaderboards, activeLeaderboard],
   )
 
-  const renderRanking = ({ item }: { item: AiWorldRanking }) => {
-    const votes =
-      item.scores && typeof item.scores === 'object' && 'votes' in item.scores
-        ? Number((item.scores as Record<string, unknown>).votes)
-        : null
-    return (
-      <View className="mb-2 flex-row items-center rounded-lg border border-gray-200 bg-white px-3 py-2.5 dark:border-neutral-700 dark:bg-neutral-800">
-        <View
-          className={`h-8 w-8 items-center justify-center rounded-md ${
-            item.rank <= 3 ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-gray-100 dark:bg-neutral-700'
-          }`}
-        >
-          <Text
-            className={`text-sm font-semibold ${item.rank <= 3 ? 'text-amber-600' : 'text-gray-500'}`}
-          >
-            {item.rank}
-          </Text>
-        </View>
-        <View className="ml-3 flex-1">
-          <Text className="text-sm font-medium" numberOfLines={1}>
-            {item.modelName}
-          </Text>
-          {item.provider ? (
-            <Text className="mt-0.5 text-xs text-gray-400" numberOfLines={1}>
-              {item.provider}
-            </Text>
-          ) : null}
-        </View>
-        <View className="ml-2 items-end">
-          {item.score ? (
-            <Text className="text-sm font-semibold text-orange-600">
-              {Number(item.score).toFixed(1)}
-            </Text>
-          ) : null}
-          {votes !== null && Number.isFinite(votes) ? (
-            <Text className="mt-0.5 text-[11px] text-gray-400">
-              {votes.toLocaleString()} {t('aiWorld.votes')}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-    )
-  }
-
-  if (loading && !feed) {
-    return (
-      <View
-        className={`flex-1 items-center justify-center ${dark ? 'bg-neutral-900' : 'bg-white'}`}
-      >
-        <Text className="text-gray-500">{t('common.loading')}</Text>
-      </View>
-    )
-  }
-
   const filterActive = Boolean(search.trim() || activeCategorySlug)
 
   return (
-    <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
-      {/* 顶栏:返回 + 标题 + 收藏/浏览历史入口(占位按钮,路由后续接入) */}
-      <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text className="text-sm text-gray-500">{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text className="text-base font-medium">{t('aiWorld.title')}</Text>
-        <View className="flex-row gap-3">
-          <Text className="text-sm text-orange-600">{t('aiWorld.favorites')}</Text>
-          <Text className="text-sm text-orange-600">{t('aiWorld.history')}</Text>
-        </View>
-      </View>
-
-      {/* Tab:工具 / 应用 / 资讯 / 榜单 */}
-      <View className="flex-row gap-2 px-4 pb-2">
-        {TABS.map((key) => {
-          const active = key === tab
-          return (
-            <TouchableOpacity
-              key={key}
-              onPress={() => switchTab(key)}
-              className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : ''}`}
-            >
-              <Text className={`text-sm ${active ? 'text-white' : 'text-gray-500'}`}>
-                {t(`aiWorld.${key}`)}
-              </Text>
-            </TouchableOpacity>
-          )
-        })}
-      </View>
-
-      {error ? (
-        <View className="flex-1 items-center justify-center px-6">
-          <Text className="mb-3 text-center text-sm text-gray-500">{error}</Text>
-          <TouchableOpacity
-            onPress={() => {
-              setLoading(true)
-              void load()
-            }}
-            className="rounded-md bg-gray-200 px-4 py-2"
-          >
-            <Text className="text-sm">{t('common.retry')}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : tab === 'rankings' ? (
-        <View className="flex-1">
-          {/* leaderboard 横向 chips */}
-          <View className="px-4 pb-2">
-            <View className="flex-row">
-              <FlatList
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                data={
-                  leaderboards.length > 0
-                    ? leaderboards
-                    : [{ leaderboard: 'lmsys', categories: [] }]
-                }
-                keyExtractor={(item) => item.leaderboard}
-                renderItem={({ item }) => (
-                  <Chip
-                    label={item.leaderboard}
-                    active={item.leaderboard === activeLeaderboard}
-                    dark={dark}
-                    onPress={() => {
-                      setActiveLeaderboard(item.leaderboard)
-                      const cats = item.categories
-                      if (cats.length > 0 && !cats.includes(activeRankCategory)) {
-                        setActiveRankCategory(cats[0] ?? 'overall')
-                      }
-                    }}
-                  />
-                )}
-              />
-            </View>
-            {activeLbCategories.length > 0 ? (
-              <View className="mt-2 flex-row">
-                <FlatList
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  data={activeLbCategories}
-                  keyExtractor={(item) => item}
-                  renderItem={({ item }) => (
-                    <Chip
-                      label={item}
-                      active={item === activeRankCategory}
-                      dark={dark}
-                      onPress={() => setActiveRankCategory(item)}
-                    />
-                  )}
-                />
-              </View>
-            ) : null}
-          </View>
-          {rankError ? (
-            <View className="flex-1 items-center justify-center px-6">
-              <Text className="mb-3 text-center text-sm text-gray-500">{rankError}</Text>
-              <TouchableOpacity
-                onPress={() => void loadRankings(activeLeaderboard, activeRankCategory)}
-                className="rounded-md bg-gray-200 px-4 py-2"
-              >
-                <Text className="text-sm">{t('common.retry')}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <FlatList
-              data={rankings}
-              keyExtractor={(item) => item.id}
-              refreshControl={
-                <RefreshControl
-                  refreshing={rankLoading}
-                  onRefresh={() => void loadRankings(activeLeaderboard, activeRankCategory)}
-                  tintColor={dark ? tokens.text.tertiary : tokens.text.secondary}
-                />
-              }
-              ListEmptyComponent={
-                rankLoading ? null : (
-                  <View className="items-center py-16">
-                    <Text className="text-sm text-gray-500">{t('aiWorld.rankEmpty')}</Text>
-                  </View>
-                )
-              }
-              contentContainerStyle={{ padding: 16 }}
-              renderItem={renderRanking}
-            />
-          )}
-        </View>
-      ) : (
-        <View className="flex-1">
-          {/* 搜索 + 分类 chips(仅条目 Tab) */}
-          <View className="px-4 pb-2">
-            <View className="flex-row items-center">
-              <SearchInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder={t('aiWorld.searchPlaceholder')}
-                returnKeyType="search"
-              />
-              {filterActive || filterLoading ? (
-                <TouchableOpacity
-                  onPress={() => {
-                    setSearch('')
-                    setActiveCategorySlug(null)
-                  }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text className="text-sm text-gray-500">{t('common.cancel')}</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-            {feed && feed.categories.length > 0 ? (
-              <View className="mt-2 flex-row">
-                <FlatList
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  data={[
-                    { id: '__all__', name: t('aiWorld.categoryAll'), slug: '' },
-                    ...feed.categories,
-                  ]}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
-                    <Chip
-                      label={item.name}
-                      active={item.slug === (activeCategorySlug ?? '')}
-                      dark={dark}
-                      onPress={() => setActiveCategorySlug(item.slug || null)}
-                    />
-                  )}
-                />
-              </View>
-            ) : null}
-          </View>
-          <FlatList
-            data={items}
-            keyExtractor={(item) => item.id}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing || filterLoading}
-                onRefresh={onRefresh}
-                tintColor={dark ? tokens.text.tertiary : tokens.text.secondary}
-              />
-            }
-            ListEmptyComponent={
-              filterLoading ? null : (
-                <View className="items-center py-16">
-                  <Text className="text-sm text-gray-500">{t('aiWorld.empty')}</Text>
-                  <Text className="mt-1 text-xs text-gray-400">{t('aiWorld.emptyHint')}</Text>
-                </View>
-              )
-            }
-            contentContainerStyle={{ padding: 16 }}
-            renderItem={({ item }) => (
-              <View className="mb-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-800">
-                <View className="flex-row">
-                  {item.coverImage ? (
-                    <Image
-                      source={{ uri: item.coverImage }}
-                      style={{ width: 64, height: 64, borderRadius: 8 }}
-                    />
-                  ) : (
-                    <View className="h-16 w-16 items-center justify-center rounded-md bg-gray-100 dark:bg-neutral-700">
-                      <Text className="text-xs text-gray-400">{t('aiWorld.kindLabel')}</Text>
-                    </View>
-                  )}
-                  <View className="ml-3 flex-1">
-                    <Text className="text-base font-medium" numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    {item.summary ? (
-                      <Text className="mt-1 text-xs text-gray-500" numberOfLines={2}>
-                        {item.summary}
-                      </Text>
-                    ) : null}
-                    <View className="mt-2 flex-row items-center gap-3">
-                      <Text className="text-xs text-gray-400">
-                        {item.viewCount} {t('aiWorld.viewCount')}
-                      </Text>
-                      {item.source ? (
-                        <Text className="text-xs text-gray-400">@{item.source}</Text>
-                      ) : null}
-                    </View>
-                  </View>
-                </View>
-              </View>
-            )}
-          />
-        </View>
-      )}
-    </View>
+    <SharedAiWorldScreen
+      t={t}
+      colorScheme={resolvedTheme}
+      loading={loading && feed === null}
+      refreshing={refreshing}
+      filterLoading={filterLoading}
+      error={error}
+      tab={tab}
+      onSwitchTab={switchTab}
+      onBack={() => navigation.goBack()}
+      search={search}
+      onSearchChange={setSearch}
+      filterActive={filterActive}
+      onClearFilter={() => {
+        setSearch('')
+        setActiveCategorySlug(null)
+      }}
+      categories={feed?.categories ?? []}
+      activeCategorySlug={activeCategorySlug}
+      onSelectCategory={setActiveCategorySlug}
+      items={items.map(toEntry)}
+      onRefresh={onRefresh}
+      leaderboards={
+        leaderboards.length > 0
+          ? leaderboards.map((l) => ({ key: l.leaderboard, label: l.leaderboard }))
+          : [{ key: 'lmsys', label: 'lmsys' }]
+      }
+      activeLeaderboard={activeLeaderboard}
+      onSelectLeaderboard={(key) => {
+        setActiveLeaderboard(key)
+        const cats = leaderboards.find((l) => l.leaderboard === key)?.categories ?? []
+        if (cats.length > 0 && !cats.includes(activeRankCategory)) {
+          setActiveRankCategory(cats[0] ?? 'overall')
+        }
+      }}
+      rankCategories={activeLbCategories.map((c) => ({ key: c, label: c }))}
+      activeRankCategory={activeRankCategory}
+      onSelectRankCategory={setActiveRankCategory}
+      rankings={rankings.map(toRanking)}
+      rankLoading={rankLoading}
+      rankError={rankError}
+      onRetryRankings={() => void loadRankings(activeLeaderboard, activeRankCategory)}
+      onRetry={() => {
+        setLoading(true)
+        void load()
+      }}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

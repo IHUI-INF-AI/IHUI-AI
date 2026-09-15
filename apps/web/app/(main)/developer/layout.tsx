@@ -22,7 +22,7 @@ export default function DeveloperLayout({ children }: { children: React.ReactNod
       label: t('navDeveloper'),
       items: [
         { href: '/developer', label: t('navOverview'), icon: Terminal },
-        { href: '/developer/keys', label: t('navApiKeys'), icon: Key },
+        { href: '/developer/relay/keys', label: t('navApiKeys'), icon: Key },
         { href: '/developer/logs', label: t('navLogs'), icon: FileText },
         { href: '/developer/team', label: t('navTeam'), icon: Users },
       ],

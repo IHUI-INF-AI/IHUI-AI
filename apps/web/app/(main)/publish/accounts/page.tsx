@@ -304,7 +304,7 @@ export default function AccountsPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 min-[1280px]:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
           {accounts.map((a) => {
             const schema = getPlatformSchema(a.platform)
             const isVerifying = verifyingId === a.id
@@ -322,7 +322,7 @@ export default function AccountsPage() {
             const inCooldown = (acc.cooldownRemaining ?? 0) > 0
             return (
               <Card key={a.id} className={cn(inCooldown && 'border-orange-500/40 opacity-60')}>
-                <CardContent className="account-card min-[640px]:p-3 space-y-3 p-3">
+                <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-semibold text-primary">
@@ -364,12 +364,13 @@ export default function AccountsPage() {
                       onRefreshed={() => void reload()}
                     />
                   </div>
-                  <div className="account-card-actions">
+                  <div className="flex flex-wrap gap-x-1 gap-y-1.5">
                     <Button
                       size="xs"
                       variant="outline"
                       onClick={() => verify(a.id)}
                       disabled={isVerifying}
+                      className="flex-1 min-w-fit"
                     >
                       {isVerifying ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -380,21 +381,31 @@ export default function AccountsPage() {
                     </Button>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button size="xs" variant="ghost" onClick={() => openScanLogin(a.platform)}>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          onClick={() => openScanLogin(a.platform)}
+                          className="flex-1 min-w-fit"
+                        >
                           <QrCode className="h-3 w-3" />
                           {t('accounts.scan')}
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>{t('accounts.scanLoginHint')}</TooltipContent>
                     </Tooltip>
-                    <Button size="xs" variant="ghost" onClick={() => openEdit(a)}>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => openEdit(a)}
+                      className="flex-1 min-w-fit"
+                    >
                       <Pencil className="h-3 w-3" />
                       {t('accounts.edit')}
                     </Button>
                     <Button
                       size="xs"
                       variant="ghost"
-                      className="text-destructive hover:text-destructive"
+                      className="flex-1 min-w-fit text-destructive hover:text-destructive"
                       onClick={() => {
                         setDeleteTarget(a)
                         setDeleteOpen(true)

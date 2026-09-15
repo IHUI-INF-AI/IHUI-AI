@@ -7,12 +7,10 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
+
 import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
-import { compressImage } from '@/lib/file-utils'
-import { formatFileSize } from '@/config/downloads.config'
 import type { ReferenceItem } from '@/hooks/use-message-references'
 import { useAnalytics } from '@/hooks/use-analytics'
-import { useChatStore } from '@/stores/chat'
 
 /** WebInputCore 句柄 — 与 message-input.tsx 的 WebInputCoreHandle 契约一致。
  * 独立声明(不依赖 message-input.tsx)以避免 hook 反向依赖组件,符合 hooks/ 目录
@@ -32,6 +30,7 @@ export interface UseMessageSendParams {
   references: ReferenceItem[]
   resetReferences: () => void
   addFileReference: (file: File) => void
+  /** 添加文本型引用(引用选中文本/代码片段,展示为 "> 📎 label" 参考块) */
   addTextReference: (text: string) => void
   onSend: (content: string) => Promise<boolean> | boolean
   inputCoreRef: React.RefObject<MessageSendInputCoreHandle | null>
@@ -48,12 +47,13 @@ export interface UseMessageSendResult {
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void
   handleFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   submit: (overrideValue?: string) => Promise<void>
-  /** W27 输入队列(2026-09-14 立,对标 Codex/Cursor 多条排队):流式期间输入的预备消息 FIFO 队列,
-   *  流式结束后自动发送队首,剩余条目随下一次流式结束继续出队 */
-  pendingMessages: Array<{ text: string; refs: ReferenceItem[] }>
-  /** 移除队列中指定条目(输入框上方队列条目「取消」时调用,文本退回主输入框) */
-  removePendingMessage: (index: number) => void
-  /** 立即发送队首预备消息(流式结束后调用) */
+  /** 流式期间输入的预备消息(流式结束后自动发送) */
+  pendingMessage: { text: string; refs: ReferenceItem[] } | null
+  /** 清空预备消息(流式期「取消」悬浮条时调用,把文本退回主输入框编辑) */
+  setPendingMessage: React.Dispatch<
+    React.SetStateAction<{ text: string; refs: ReferenceItem[] } | null>
+  >
+  /** 立即发送预备消息(流式结束后调用) */
   sendPendingMessage: () => Promise<void>
 }
 
@@ -77,20 +77,12 @@ const DANGEROUS_PATTERN_KEY: Record<string, string> = {
   forcePushMain: 'permission.dangerousPattern.forcePushMain',
 }
 
-/** 矩阵 A #19:超长纯文本粘贴阈值,超过则转为文本引用 chip 而非塞入 textarea */
-const PASTE_LONG_TEXT_THRESHOLD = 4000
-
-/** 矩阵 A #19(2026-09-13 立):位图压缩阈值,超过 1.5MB 的图片入列引用前先压缩
- *  (GIF 动图跳过:compressImage 输出 JPEG 会丢动画帧) */
-const IMAGE_COMPRESS_THRESHOLD_BYTES = 1.5 * 1024 * 1024
-
 /**
  * 消息发送 / 拖拽 / 粘贴 / 文件输入 hook(2026-07-30 提取自 message-input.tsx)
  *
  * 职责:
  * - 维护拖拽高亮状态(isDragOver)
- * - 处理文件拖入 / 粘贴图片 / 文件输入选择,统一调用 addFileReference 添加引用;
- *   矩阵 A #19:超长纯文本(>4000 字符)粘贴转为文本引用 chip,不塞入 textarea
+ * - 处理文件拖入 / 粘贴图片 / 文件输入选择,统一调用 addFileReference 添加引用
  * - 处理 submit 发送流程:危险命令检测 → toast 确认(高风险模式)→ 实际发送
  * - 实际发送逻辑(doSend):附件转 markdown + onSend 调用 + 清空输入/引用 + 释放 objectURL
  *
@@ -114,7 +106,6 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     references,
     resetReferences,
     addFileReference,
-    addTextReference,
     onSend,
     inputCoreRef,
     draftKey,
@@ -122,57 +113,19 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
   const t = useTranslations('chat')
   const { track } = useAnalytics()
   const [isDragOver, setIsDragOver] = React.useState(false)
-  // W27(2026-09-14):单条 pendingMessage 升级为 FIFO 队列 —— 流式期间可连续排队多条,
-  // 每次流式结束自动出队一条;失败条目退回主输入框,剩余条目保留
-  const [pendingMessages, setPendingMessages] = React.useState<
-    Array<{ text: string; refs: ReferenceItem[] }>
-  >([])
-
-  // 矩阵 A #19(2026-09-13 立):图片入列统一走压缩守卫 ——
-  // 超过 1.5MB 的位图先 canvas 压缩(1920px/JPEG q0.85),压缩后更小才采用,
-  // 否则(含 GIF/压缩失败)回退原图;toast 提示压缩效果
-  const addImageFileCompressed = React.useCallback(
-    async (file: File) => {
-      const shouldCompress = file.size > IMAGE_COMPRESS_THRESHOLD_BYTES && file.type !== 'image/gif'
-      if (!shouldCompress) {
-        addFileReference(file)
-        return
-      }
-      try {
-        const blob = await compressImage(file)
-        if (blob.size < file.size) {
-          const compressed = new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.jpg`, {
-            type: 'image/jpeg',
-          })
-          addFileReference(compressed)
-          toast(
-            t('imageCompressed', {
-              before: formatFileSize(file.size),
-              after: formatFileSize(blob.size),
-            }),
-          )
-          return
-        }
-        addFileReference(file)
-      } catch {
-        // Canvas 不可用等压缩失败:回退原图,不阻断附件流程
-        addFileReference(file)
-      }
-    },
-    [addFileReference, t],
-  )
+  const [pendingMessage, setPendingMessage] = React.useState<{
+    text: string
+    refs: ReferenceItem[]
+  } | null>(null)
 
   const handleFileInputChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? [])
-      files.forEach((f) => {
-        if (f.type.startsWith('image/')) void addImageFileCompressed(f)
-        else addFileReference(f)
-      })
+      files.forEach(addFileReference)
       // 重置 value,允许重复选择同一文件
       e.target.value = ''
     },
-    [addFileReference, addImageFileCompressed],
+    [addFileReference],
   )
 
   const handleDragOver = React.useCallback(
@@ -201,30 +154,16 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return
       e.preventDefault()
       setIsDragOver(false)
-      // 矩阵 A #19:拖入图片同样走压缩守卫
-      Array.from(e.dataTransfer.files).forEach((f) => {
-        if (f.type.startsWith('image/')) void addImageFileCompressed(f)
-        else addFileReference(f)
-      })
+      Array.from(e.dataTransfer.files).forEach(addFileReference)
       requestAnimationFrame(() => inputCoreRef.current?.focus())
     },
-    [isStreaming, addFileReference, addImageFileCompressed, inputCoreRef],
+    [isStreaming, addFileReference, inputCoreRef],
   )
 
   const handlePaste = React.useCallback(
     (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
       if (isStreaming) return
       const items = e.clipboardData?.items
-      // 矩阵 A #19:超长纯文本粘贴 → 压缩为文本引用 chip,不塞入 textarea。
-      // clipboard 同时含文件项时不拦截,保留图片/文件优先的既有行为。
-      const hasFileItem = items ? Array.from(items).some((item) => item.kind === 'file') : false
-      const plainText = e.clipboardData?.getData('text/plain') ?? ''
-      if (!hasFileItem && plainText.length > PASTE_LONG_TEXT_THRESHOLD) {
-        e.preventDefault()
-        addTextReference(plainText)
-        toast(t('pasteLongToChip'), { duration: 5000 })
-        return
-      }
       if (!items) return
       const imageItems = Array.from(items).filter(
         (item) => item.kind === 'file' && item.type.startsWith('image/'),
@@ -234,48 +173,28 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       imageItems.forEach((item) => {
         const file = item.getAsFile()
         if (file) {
-          // 粘贴的图片无文件名,用时间戳生成;超阈值时压缩(#19)
+          // 粘贴的图片无文件名,用时间戳生成
           const renamed = new File([file], `pasted-${Date.now()}.png`, { type: file.type })
-          void addImageFileCompressed(renamed)
+          addFileReference(renamed)
         }
       })
     },
-    [isStreaming, addFileReference, addTextReference, addImageFileCompressed, t],
+    [isStreaming, addFileReference],
   )
 
   /** 实际发送逻辑(2026-07-25 立,危险命令检测拆分):供 submit / toast action 复用 */
   const doSend = React.useCallback(
     async (text: string, refs: ReferenceItem[]): Promise<boolean> => {
-      // 矩阵 A #19:附件上传守卫 —— 任一附件仍在上传中/上传失败时不发送(不消费输入)。
-      // submit 侧在乐观清空前有同名守卫(避免引用被清空后无法恢复),此处兜底
-      // sendPendingMessage 等直接调用 doSend 的路径。
-      if (refs.some((r) => r.uploadState === 'uploading')) {
-        toast(t('attachUploading'))
-        return false
-      }
-      if (refs.some((r) => r.uploadState === 'error')) {
-        toast(t('attachUploadFailed'))
-        return false
-      }
-      // 附件作为引用文本随消息发送(矩阵 A #19 改造):
-      // - 图片/视频优先用服务端公开 URL(serverUrl),无 serverUrl 时兜底旧 objectURL
-      // - 其他文件用 "> 📎 label (preview)" 引用块
-      // - text 类型引用发送全文 preview(fenced code block),修复此前只发 label 前 30 字符断链
+      // 附件作为引用文本随消息发送:图片用 markdown image 语法,视频/其他文件用引用块
       const attachmentMarkdown = refs
         .map((r) => {
-          if (r.type === 'image') {
-            const url = r.serverUrl ?? r.thumbnail
-            return url ? `![${r.label}](${url})` : `> 📎 ${r.label}`
+          if (r.type === 'image' && r.thumbnail) {
+            return `![${r.label}](${r.thumbnail})`
           }
-          if (r.type === 'video') {
-            const url = r.serverUrl ?? r.thumbnail
-            return url ? `<video src="${url}" controls></video>` : `> 📎 ${r.label}`
+          if (r.type === 'video' && r.thumbnail) {
+            return `<video src="${r.thumbnail}" controls></video>`
           }
-          if (r.type === 'text' && r.preview) {
-            return `\`\`\`\n${r.preview}\n\`\`\``
-          }
-          const previewSuffix = r.preview ? ` (${r.preview})` : ''
-          return `> 📎 ${r.label}${previewSuffix}`
+          return `> 📎 ${r.label}`
         })
         .join('\n')
       const finalContent = attachmentMarkdown ? `${text}\n\n${attachmentMarkdown}` : text
@@ -283,9 +202,6 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       if (!ok) return false
       // 埋点:聊天消息发送成功(web 端)
       track({ name: 'chat_send', category: 'chat', label: 'web' })
-      // W27 输入历史(2026-09-14 立):发送成功后写入 store(纯正文,不含附件 markdown),
-      // 供输入框 Esc+Esc 历史导航取回再编辑
-      useChatStore.getState().pushInputHistory(text)
       // 释放所有 objectURL
       refs.forEach((r) => {
         if (r.thumbnail) URL.revokeObjectURL(r.thumbnail)
@@ -296,7 +212,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       requestAnimationFrame(() => inputCoreRef.current?.resize())
       return true
     },
-    [onSend, draftKey, resetReferences, setValue, inputCoreRef, track, t],
+    [onSend, draftKey, resetReferences, setValue, inputCoreRef, track],
   )
 
   /** overrideValue:外部预填后立即发送场景(如 draftAutoSend)使用,绕开 value state 异步更新
@@ -305,16 +221,6 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     async (overrideValue?: string) => {
       const text = (overrideValue ?? value).trim()
       if (!text) return
-      // 矩阵 A #19:附件上传守卫(在乐观清空之前拦截,避免引用被清空后无法恢复;
-      // doSend 内同名守卫兜底 sendPendingMessage 等路径)
-      if (references.some((r) => r.uploadState === 'uploading')) {
-        toast(t('attachUploading'))
-        return
-      }
-      if (references.some((r) => r.uploadState === 'error')) {
-        toast(t('attachUploadFailed'))
-        return
-      }
       // 危险命令检测(2026-07-25 立,深度对标 OpenAI Codex CLI safety guard):
       // - 仅在高风险模式(bypass-permissions)下拦截,其他模式不阻断(用户已选择低风险)
       // - critical/high → 弹确认 toast(带「仍要发送」action),用户点 action 才真发
@@ -364,9 +270,8 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         }
       }
       if (isStreaming) {
-        // W27 输入队列(2026-09-14):流式期间入队 FIFO(可连续排队多条),
-        // 显示在输入框上方,每次流式结束后自动出队发送
-        setPendingMessages((prev) => [...prev, { text, refs: references.map((r) => ({ ...r })) }])
+        // 流式期间:保存为预备消息(悬浮显示在输入框上方,流式结束后自动发送)
+        setPendingMessage({ text, refs: references.map((r) => ({ ...r })) })
         setValue('')
         resetReferences()
         if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
@@ -401,23 +306,16 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
   )
 
   const sendPendingMessage = React.useCallback(async () => {
-    // W27:每次流式结束出队队首一条;发送失败退回主输入框,剩余队列保留
-    const head = pendingMessages[0]
-    if (!head) return
-    const { text, refs } = head
-    setPendingMessages((prev) => prev.slice(1))
+    if (!pendingMessage) return
+    const { text, refs } = pendingMessage
+    setPendingMessage(null)
     const ok = await doSend(text, refs)
     if (!ok) {
       // 发送失败恢复输入内容
       setValue(text)
       requestAnimationFrame(() => inputCoreRef.current?.resize())
     }
-  }, [pendingMessages, doSend, setValue, inputCoreRef])
-
-  /** W27:移除队列指定条目(「取消」时调用);文本由调用方负责退回主输入框 */
-  const removePendingMessage = React.useCallback((index: number) => {
-    setPendingMessages((prev) => prev.filter((_, i) => i !== index))
-  }, [])
+  }, [pendingMessage, doSend, setValue, inputCoreRef])
 
   return {
     isDragOver,
@@ -427,8 +325,8 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     handlePaste,
     handleFileInputChange,
     submit,
-    pendingMessages,
-    removePendingMessage,
+    pendingMessage,
+    setPendingMessage,
     sendPendingMessage,
   }
 }

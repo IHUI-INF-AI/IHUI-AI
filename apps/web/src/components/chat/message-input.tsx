@@ -28,6 +28,7 @@ import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-mo
 import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel'
 import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
 import { ModeSwitcher } from '@/components/chat/mode-switcher'
+import { SamplingParamsButton } from '@/components/chat/sampling-params-panel'
 import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
 import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
@@ -37,11 +38,6 @@ import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
 import { useSlashAction } from '@/hooks/use-slash-action'
 import { useMessageReferences } from '@/hooks/use-message-references'
-import { useContextSelector, type ContextSelectorCategory } from '@/hooks/use-context-selector'
-import {
-  ContextSelectorPopover,
-  ContextSelectorChips,
-} from '@/components/ai/context-selector-popover'
 import { useAgentMdReference, AGENT_REF_PREFIX } from '@/hooks/use-agent-md-reference'
 import { useMessageSend } from '@/hooks/use-message-send'
 import { useMentionFiles, useAiSkills } from '@/hooks/use-lazy-resource-hooks'
@@ -73,10 +69,12 @@ interface MessageInputProps {
   model: string
   onModelChange: (model: string) => void
   modelLabel: string
-  /** 浮窗折叠态头部按钮(展开/停靠/最小化),渲染在输入卡片内工具栏行 */
+  /** 浮窗折叠态头部按钮(展开/停靠/最小化),与 AgentProgressTrigger 同行渲染在输入卡片内 */
   floatHeader?: React.ReactNode
   /** 浮窗折叠态拖拽回调,绑定在合并行上 */
   onFloatDragStart?: (e: React.PointerEvent) => void
+  /** 浮窗折叠态点击 AgentProgressTrigger 时展开面板(setFloatCollapsed(false)) */
+  onTriggerClick?: () => void
 }
 
 export function MessageInput({
@@ -112,46 +110,23 @@ export function MessageInput({
   // - 用户可点"取消自动撤销"维持当前模式(但视觉警告仍存在)
   // - 用户主动切走其他模式 → 自动清掉计时
   const autoRevert = usePermissionAutoRevert()
-  // 当前会话 ID(W27 草稿 per-conversation 化;手动压缩上下文按钮也消费;未持久化会话按钮禁用)
-  const conversationId = useChatStore((s) => s.conversationId)
-  // W27(2026-09-14):草稿 key 按会话隔离 —— 新会话(未持久化)共用 'chat:draft',
-  // 已持久化会话用 'chat:draft:{id}',切换会话时草稿互不串扰
-  const draftKey = conversationId ? `chat:draft:${conversationId}` : 'chat:draft'
   // P1 草稿自动保存(2026-07-23):刷新/路由切换不丢失未发送内容
-  // W27 升级:初始读取按当前 conversationId 对应的草稿 key
+  const DRAFT_KEY = 'chat:draft'
   const [value, setValue] = React.useState(() => {
     if (typeof window === 'undefined') return ''
-    const convId = useChatStore.getState().conversationId
-    return localStorage.getItem(convId ? `chat:draft:${convId}` : 'chat:draft') ?? ''
+    return localStorage.getItem(DRAFT_KEY) ?? ''
   })
-  // W27:当前草稿 key 的 ref(防抖写入用;会话切换 effect 同步维护)
-  const draftKeyRef = React.useRef<string | null>(null)
   // 防抖写入 localStorage(避免每个 keystroke 写入)
   React.useEffect(() => {
     const timer = setTimeout(() => {
-      const key = draftKeyRef.current
-      if (typeof window !== 'undefined' && key) {
-        localStorage.setItem(key, value)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(DRAFT_KEY, value)
       }
     }, 500)
     return () => clearTimeout(timer)
   }, [value])
   const [slashOpen, setSlashOpen] = React.useState(false)
   const [mentionOpen, setMentionOpen] = React.useState(false)
-  // W20 九类 # 上下文选择器(2026-09-14 立,对标 Trae):
-  // - 正文行首/空格后 `#` 触发浮层(open 状态由 value 派生,见 use-context-selector.ts)
-  // - 选中类目 → 正文尾部 `#query` 替换为类目 token(如 `#Problems `)随消息发送
-  // - chips 仅作类型徽章展示,去重添加;移除时同步删掉正文中的 token
-  const [contextChips, setContextChips] = React.useState<ContextSelectorCategory[]>([])
-  const addContextChip = React.useCallback((category: ContextSelectorCategory) => {
-    setContextChips((prev) =>
-      prev.some((c) => c.token === category.token) ? prev : [...prev, category],
-    )
-  }, [])
-  const removeContextChip = React.useCallback((token: string) => {
-    setContextChips((prev) => prev.filter((c) => c.token !== token))
-    setValue((prev) => prev.replace(`${token} `, '').replace(token, ''))
-  }, [])
   // references 状态管理(2026-07-29 提取到 useMessageReferences hook):
   // - addFileReference / addTextReference / addCodeReference 三种类型添加
   // - removeReference 移除 + 释放 objectURL
@@ -195,8 +170,8 @@ export function MessageInput({
     handlePaste,
     handleFileInputChange,
     submit,
-    pendingMessages,
-    removePendingMessage,
+    pendingMessage,
+    setPendingMessage,
     sendPendingMessage,
   } = useMessageSend({
     value,
@@ -212,7 +187,7 @@ export function MessageInput({
     addTextReference,
     onSend,
     inputCoreRef,
-    draftKey,
+    draftKey: DRAFT_KEY,
   })
   // AI Skills 列表 + @ 提及文件列表:懒加载逻辑已提取到 use-lazy-resource-hooks(2026-07-30)
   const { aiSkills, skillsLoading } = useAiSkills(slashOpen)
@@ -227,20 +202,17 @@ export function MessageInput({
   // - prompt:PromptTemplates 弹层
   // - skill:SkillLibrary 弹层
   const [addMenuOpen, setAddMenuOpen] = React.useState(false)
-  const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'prompt' | 'skill' | 'voice'>(
-    'menu',
-  )
-  // 流式结束后自动发送队首预备消息(W27 2026-09-14:FIFO 队列,每次流结束出队一条,
-  // 剩余条目随下一次流式结束继续出队)
+  const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'prompt' | 'skill'>('menu')
+  // 流式结束后自动发送预备消息(2026-08-14 立,对标 Cursor/ChatGPT 流式期间输入下一条行为)
   const wasStreamingRef = React.useRef(isStreaming)
   React.useEffect(() => {
-    // isStreaming 从 true 变为 false:流式结束,发送队首预备消息
-    if (wasStreamingRef.current && !isStreaming && pendingMessages.length > 0) {
+    // isStreaming 从 true 变为 false:流式结束,发送预备消息
+    if (wasStreamingRef.current && !isStreaming && pendingMessage) {
       wasStreamingRef.current = false
       void sendPendingMessage()
     }
     wasStreamingRef.current = isStreaming
-  }, [isStreaming, pendingMessages, sendPendingMessage])
+  }, [isStreaming, pendingMessage, sendPendingMessage])
 
   // 消费 chat store 中的 draftInput(由 PromptTemplates 等外部触发),填充到 textarea 后清空
   // draftAutoSend(2026-09-08 立,首页「立即体验」CTA):预填后立即自动发送发起对话
@@ -251,28 +223,8 @@ export function MessageInput({
   // 已选工具(用户从插件市场点击"+"添加到对话的 pluginId 列表)
   const selectedToolsIds = useChatStore((s) => s.selectedTools)
   const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
-  // 当前会话 ID 已上移到草稿区(W27 per-conversation 草稿)
-  // W27(2026-09-14):会话切换时草稿迁移 —— 当前输入写回旧会话 key,载入目标会话草稿
-  const valueRef = React.useRef(value)
-  React.useEffect(() => {
-    valueRef.current = value
-  }, [value])
-  React.useEffect(() => {
-    if (draftKeyRef.current === null) {
-      // 首次挂载:仅记录当前 key(初始 value 已按该 key 读取)
-      draftKeyRef.current = draftKey
-      return
-    }
-    if (draftKeyRef.current === draftKey) return
-    const prevKey = draftKeyRef.current
-    draftKeyRef.current = draftKey
-    if (typeof window !== 'undefined') {
-      if (valueRef.current) localStorage.setItem(prevKey, valueRef.current)
-      else localStorage.removeItem(prevKey)
-      setValue(localStorage.getItem(draftKey) ?? '')
-    }
-    requestAnimationFrame(() => inputCoreRef.current?.resize())
-  }, [draftKey])
+  // 当前会话 ID(手动压缩上下文按钮用;未持久化会话时按钮禁用)
+  const conversationId = useChatStore((s) => s.conversationId)
   // 发送按钮可用态(2026-07-30:清除按钮已挪回 WebInputCore 内部悬浮呈现,canClear 不再需要)
   // 2026-08-14 修改:流式期间也允许发送(保存为 pending 消息,流式结束后自动发出)
   const canSend = value.trim().length > 0
@@ -341,8 +293,6 @@ export function MessageInput({
   )
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    // W27:任意打字退出 Esc 历史导航模式
-    if (histNavIndex !== null) setHistNavIndex(null)
     const next = e.target.value.slice(0, MAX_LENGTH)
     setValue(next)
     // 输入 / 作为首个字符时弹出斜杠命令面板
@@ -365,14 +315,6 @@ export function MessageInput({
       inputCoreRef.current?.resize()
     })
   }
-
-  // W20 九类 # 上下文选择器 hook(键盘拦截 + 正文 token 替换 + chips 回调)
-  const contextSelector = useContextSelector({
-    value,
-    setValue,
-    inputRef: inputCoreRef,
-    onAddChip: addContextChip,
-  })
 
   const fillInput = (text: string) => {
     setValue(text)
@@ -456,8 +398,6 @@ export function MessageInput({
   }, [compacting, isStreaming, t])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // W20 # 选择器键盘拦截:浮层打开时 ↑/↓/Enter/Tab/Esc 由选择器消费
-    if (contextSelector.handleKeyDown(e)) return
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       submit()
@@ -471,34 +411,14 @@ export function MessageInput({
       e.preventDefault()
       void cyclePermissionMode()
     }
-    // W27 Esc 语义(2026-09-14 立,深度对标 Codex CLI Esc+Esc 历史导航):
-    // - 浮层(斜杠/提及/上下文选择器)打开时 Esc 由浮层自己消费(不清空/不导航)
-    // - 快速双击 Esc(600ms 内)或已在导航中 → 进入历史导航,取回已发送消息填入输入框
-    //   连续 Esc 继续向更早历史翻页;打字即退出导航(handleChange 置 null)
-    // - 单击 Esc(非导航):清空草稿并 resize(流式中禁用,避免误清下一条草稿)
-    if (e.key === 'Escape' && !slashOpen && !mentionOpen && !contextSelector.open) {
+    // Esc 清空草稿(2026-07-31 对标 主流 AI IDE):
+    // - 斜杠/提及面板打开时 Esc 由面板自己处理(不清空)
+    // - 流式生成中禁用(避免误清下一条草稿)
+    // - 有内容时清空并 resize textarea 高度
+    if (e.key === 'Escape' && !slashOpen && !mentionOpen && !isStreaming && value.length > 0) {
       e.preventDefault()
-      const now = Date.now()
-      const navigating = histNavIndex !== null || now - lastEscAtRef.current < 600
-      lastEscAtRef.current = now
-      if (navigating && inputHistory.length > 0) {
-        const nextIdx = Math.max(0, (histNavIndex ?? inputHistory.length) - 1)
-        const hist = inputHistory[nextIdx]
-        setHistNavIndex(nextIdx)
-        if (hist !== undefined) {
-          setValue(hist)
-          requestAnimationFrame(() => {
-            inputCoreRef.current?.focus()
-            inputCoreRef.current?.setSelectionRange(hist.length, hist.length)
-            inputCoreRef.current?.resize()
-          })
-        }
-        return
-      }
-      if (!isStreaming && value.length > 0) {
-        setValue('')
-        requestAnimationFrame(() => inputCoreRef.current?.resize())
-      }
+      setValue('')
+      requestAnimationFrame(() => inputCoreRef.current?.resize())
     }
   }
 
@@ -507,22 +427,6 @@ export function MessageInput({
   // 流式占位符(2026-07-25 立,2026-07-29 简化):直接读 i18n key,5 语言文件齐备;末尾省略号统一加 "…" 提示持续生成。
   const streamingHint = t('streamingIndicatorHint')
   const effectivePlaceholder = isStreaming ? `${streamingHint}…` : placeholder
-  // #21 中断后追加指令继续(2026-09-13 立):被用户 Stop 中断的 assistant 消息 ID
-  const interruptedMessageId = useChatStore((s) => s.interruptedMessageId)
-  // W27 Esc+Esc 历史导航(2026-09-14 立,对标 Codex CLI):
-  // - 快速双击 Esc(600ms 内)或已在导航中 → 取回上一条已发送消息填入输入框
-  // - 连续 Esc 继续向更早历史翻页;任意打字退出导航模式(histNavIndex 置 null)
-  const inputHistory = useChatStore((s) => s.inputHistory)
-  const [histNavIndex, setHistNavIndex] = React.useState<number | null>(null)
-  const lastEscAtRef = React.useRef(0)
-  // W27:队列条目「取消」—— 移除该条并把文本退回主输入框(已有内容则换行拼接)
-  const handleQueueRemove = (i: number) => {
-    const item = pendingMessages[i]
-    if (!item) return
-    removePendingMessage(i)
-    setValue((prev) => (prev ? `${prev}\n${item.text}` : item.text))
-    requestAnimationFrame(() => inputCoreRef.current?.resize())
-  }
 
   return (
     <div>
@@ -544,74 +448,24 @@ export function MessageInput({
         )}
         {/* 多维 @ 提及 chips(2026-07-22 立,对标 Qoder Context Engineering) */}
         <MentionChips />
-        {/* W20 九类 # 上下文选择器 chips(2026-09-14 立,对标 Trae Context Engineering):
-            选中类目的类型徽章行,token 已随正文发送,chips 仅作可视化展示 */}
-        {contextChips.length > 0 && (
-          <div className="mb-2">
-            <ContextSelectorChips chips={contextChips} onRemove={removeContextChip} />
-          </div>
-        )}
-        {/* W27 输入队列(2026-09-14,对标 Codex/Cursor 多条排队):流式期间排队的消息
-            逐条显示,每次流式结束自动出队发送队首;点「取消」把该条文本退回主输入框 */}
-        {pendingMessages.length > 0 && (
-          <div data-testid="input-queue" className="mb-2 space-y-1">
-            {pendingMessages.map((pm, i) => (
-              <div
-                key={i}
-                data-testid={`input-queue-item-${i}`}
-                className="flex items-center gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm"
-              >
-                <span className="flex-1 truncate text-amber-700 dark:text-amber-300">
-                  {pm.text}
-                </span>
-                <button
-                  type="button"
-                  data-testid={`input-queue-remove-${i}`}
-                  onClick={() => handleQueueRemove(i)}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  {t('cancel') ?? '取消'}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        {/* W27 Esc 历史导航状态 chip(2026-09-14):双击 Esc 激活后显示当前位置,
-            打字或发送即退出导航模式 */}
-        {histNavIndex !== null && (
-          <div
-            data-testid="input-history-nav"
-            className="mb-2 inline-flex items-center rounded-md border border-border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground"
-          >
-            {t('historyNavPosition', { current: histNavIndex + 1, total: inputHistory.length })}
-          </div>
-        )}
-        {/* #21 中断后追加指令继续(2026-09-13 立,对标 Qoder 中断与恢复):
-            用户主动 Stop 后,输入框上方显示提示条 + 一键「继续」按钮(发送固定续跑指令)。
-            点击关闭仅清除提示;发送新消息由 send-message.ts 自动清空中断态 */}
-        {!isStreaming && interruptedMessageId && (
-          <div
-            className="mb-2 flex items-center gap-2 rounded-lg border border-sky-500/40 bg-sky-500/5 px-3 py-2 text-sm"
-            data-testid="interrupted-continue-banner"
-          >
-            <span className="flex-1 truncate text-sky-700 dark:text-sky-300">
-              {t('appendAfterInterrupt.title')}
+        {/* 流式期间预备消息悬浮(2026-08-14 立,对标 Cursor/ChatGPT):流式中输入的消息
+            暂存为 pending,显示在输入框上方,流式结束后自动发送 */}
+        {pendingMessage && (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm">
+            <span className="flex-1 truncate text-amber-700 dark:text-amber-300">
+              {pendingMessage.text}
             </span>
             <button
               type="button"
-              onClick={() => void submit(t('appendAfterInterrupt.continueText'))}
-              data-testid="interrupted-continue-button"
-              className="rounded-md bg-sky-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-600"
-            >
-              {t('appendAfterInterrupt.continue')}
-            </button>
-            <button
-              type="button"
-              onClick={() => useChatStore.getState().setInterruptedMessage(null)}
-              aria-label={t('cancel') ?? '取消'}
+              onClick={() => {
+                setPendingMessage(null)
+                setValue(pendingMessage.text)
+                resetReferences()
+                requestAnimationFrame(() => inputCoreRef.current?.resize())
+              }}
               className="text-xs text-muted-foreground hover:text-foreground"
             >
-              ✕
+              {t('cancel') ?? '取消'}
             </button>
           </div>
         )}
@@ -621,15 +475,6 @@ export function MessageInput({
             open={mentionOpen}
             onSelect={handleMentionSelect}
             onClose={() => setMentionOpen(false)}
-          />
-          {/* W20 九类 # 上下文选择器浮层(2026-09-14 立,对标 Trae):键盘导航在 textarea 层 */}
-          <ContextSelectorPopover
-            open={contextSelector.open}
-            query={contextSelector.query}
-            filtered={contextSelector.filtered}
-            activeIndex={contextSelector.activeIndex}
-            onHover={contextSelector.setActiveIndex}
-            onSelect={contextSelector.select}
           />
           {/* 极简风格输入容器:描边卡片 + textarea 主区 + 底部工具栏。拖拽文件时高亮边框。
               高风险模式(bypass-permissions)时,边框使用琥珀色 + 轻微阴影以视觉警告
@@ -707,13 +552,6 @@ export function MessageInput({
                   setAddMenuOpen(false)
                   setAddMenuMode('menu')
                   fileInputRef.current?.click()
-                }}
-                onVoiceRecordComplete={(blob) => {
-                  // 语音录制完成(2026-09-14 接线 VoiceRecord):Blob 转 File 走统一附件引用链路,
-                  // 上传/入列/移除全部复用既有附件 chip 体系,误录可在引用区删除
-                  const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' })
-                  addFileReference(file)
-                  toast(t('voiceRecord.added'))
                 }}
                 onAddTextReference={() => {
                   const text = value.trim()
@@ -927,6 +765,9 @@ export function MessageInput({
               {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
                   与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
               <ModeSwitcher disabled={isStreaming} />
+              {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
+                  自定义 system prompt,会话级持久化,随请求下发 LLM 网关 */}
+              <SamplingParamsButton disabled={isStreaming} />
               <input
                 ref={fileInputRef}
                 type="file"
@@ -938,9 +779,7 @@ export function MessageInput({
                 aria-hidden="true"
                 tabIndex={-1}
               />
-              {/* 2026-09-14:去掉 min-w-0 — 窄面板(≤300px)时右侧按钮组不允许收缩到内容宽度以下,
-                  否则 justify-end 溢出会向左压住模式切换器,导致其无法点击 */}
-              <div className="ml-auto flex flex-1 items-center justify-end gap-1">
+              <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
                 {/* 手动压缩上下文入口已整合到"添加"下拉菜单(2026-09-06),工具栏不再保留独立按钮 */}
                 <ContextUsageRing model={model} isStreaming={isStreaming} />
                 <ModelSelector
