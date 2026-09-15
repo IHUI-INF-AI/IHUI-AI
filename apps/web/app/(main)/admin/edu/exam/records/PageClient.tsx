@@ -9,25 +9,24 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-  CheckCircle2,
-  XCircle,
-} from 'lucide-react'
+import {} from 'lucide-react'
 import { eduApi, buildQs } from '@/lib/edu'
 import { cn } from '@/lib/utils'
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
   Button,
-  Input,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Loader2,
+  SearchInput,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  XCircle,
 } from '@ihui/ui-react'
 import { type PageData } from '@ihui/api-client'
 import { BackButton } from '@/components/common'
@@ -205,11 +204,12 @@ function RecordsContent() {
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
-          <Input
+          <SearchInput
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             placeholder={t('searchPlaceholder')}
-            className="h-9 w-48"
+            size="lg"
+            wrapperClassName="w-48"
           />
           <Button
             variant="outline"

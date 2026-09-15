@@ -6,11 +6,11 @@
 
 import { Search } from 'lucide-react'
 import {
-  Input,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
 import { selectClass } from './helpers'
@@ -27,15 +27,13 @@ interface Props {
 export function SignupFilter({ search, setSearch, statusFilter, setStatusFilter, t }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative w-full max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('signupsSearchPlaceholder')}
-          className="h-9 pl-8"
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={t('signupsSearchPlaceholder')}
+        size="lg"
+        wrapperClassName="w-full max-w-xs"
+      />
       <div className="w-40">
         <Select
           value={statusFilter}

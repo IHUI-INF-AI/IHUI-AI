@@ -4,14 +4,13 @@
 
 'use client'
 import type React from 'react'
-import { Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
-  Input,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
 import { STATUS_OPTIONS, STATUS_KEY, selectClass } from './helpers'
@@ -34,16 +33,14 @@ export function AgentsFilter({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative w-full max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onSearchChange(e.target.value)}
-          placeholder={t('searchPlaceholder')}
-          className="h-9 pl-8"
-          aria-label={tc('search')}
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onSearchChange(e.target.value)}
+        placeholder={t('searchPlaceholder')}
+        aria-label={tc('search')}
+        size="lg"
+        wrapperClassName="w-full max-w-xs"
+      />
       <Select value={status} onValueChange={onStatusChange}>
         <SelectTrigger className={selectClass} aria-label={t('fieldStatus')}>
           <SelectValue />

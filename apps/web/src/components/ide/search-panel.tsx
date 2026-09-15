@@ -9,6 +9,7 @@ import { toast } from '@/components/common'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { grepFiles } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
+import { SearchInput } from '@ihui/ui-react'
 import {
   Search,
   CaseSensitive,
@@ -191,14 +192,14 @@ export function SearchPanel() {
             className={cn('h-3 w-3 transition-transform', showReplace && 'rotate-90')}
           />
         </button>
-        <div className="relative flex-1">
-          <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input
+        <div className="flex-1">
+          {/* 全项目统一搜索框(共享 SearchInput 圆角输入井) */}
+          <SearchInput
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder={t('searchPanel.searchPlaceholder')}
-            className="w-full rounded-md border border-border bg-background py-1 pl-7 pr-2 text-xs focus:outline-none"
+            size="sm"
           />
         </div>
         <button

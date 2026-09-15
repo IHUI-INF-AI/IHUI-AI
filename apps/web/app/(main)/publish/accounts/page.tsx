@@ -20,6 +20,7 @@ import {
   ChevronDown,
   FolderKanban,
   KeyRound,
+  CloudUpload,
 } from 'lucide-react'
 import {
   Button,
@@ -47,12 +48,15 @@ import { fetchApi, isAbortError } from '@/lib/api'
 import { PLATFORM_KEY } from '../helpers'
 import { usePublishAccounts, type PublishAccount } from '@/hooks/use-publish-accounts'
 import { CredentialGuide } from '@/components/publish/CredentialGuide'
+import { PlatformIcon } from '@/components/publish/platform-icon'
 import {
   PLATFORM_SCHEMAS,
   getPlatformSchema,
   normalizeCredentials,
 } from '@/lib/publish/platform-schemas'
+import { isSamePlatformName, splitDisplayNameParts } from '@/lib/publish/display-name'
 import { ScanLoginDialog } from './ScanLoginDialog'
+import { BatchScanLoginDialog } from './BatchScanLoginDialog'
 import { Dropdown, type DropdownItem } from '@/components/feedback'
 import { RiskBadge, type RiskLevel } from '@/components/publish/RiskBadge'
 import { CookieHealthIndicator } from '@/components/publish/CookieHealthIndicator'
@@ -83,6 +87,9 @@ interface RiskView {
   readonly level: RiskLevel
   readonly cooldownRemaining?: number
 }
+
+// 账号卡片操作按钮统一样式:淡底色 + 细描边、无投影,悬停时显现浅投影
+const CARD_ACTION_CLS = 'border bg-muted/40 shadow-none hover:bg-muted/60 hover:shadow-sm'
 
 const STATUS_STYLE: Record<string, string> = {
   active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -128,6 +135,13 @@ export default function AccountsPage() {
     const configured = new Set(accounts.map((a) => a.platform))
     return PLATFORM_SCHEMAS.filter((s) => !configured.has(s.platformId))
   }, [accounts])
+
+  // 一键扫码登录队列:未配置平台按 schema 顺序串行扫码
+  const [quickScanOpen, setQuickScanOpen] = React.useState(false)
+  const quickScanQueue = React.useMemo(
+    () => pendingPlatforms.map((s) => s.platformId),
+    [pendingPlatforms],
+  )
 
   // 2026-08-17:风控评分并行拉取(失败静默,保持"未评估")
   React.useEffect(() => {
@@ -271,8 +285,21 @@ export default function AccountsPage() {
 
       {!loading && pendingPlatforms.length > 0 && (
         <div className="rounded-md border border-dashed border-orange-500/30 bg-orange-500/5 p-3">
-          <div className="mb-1.5 text-xs font-medium text-orange-600 dark:text-orange-400">
-            待配置平台({pendingPlatforms.length} 个)— 点击直接配置
+          <div className="mb-1.5 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setQuickScanOpen(true)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-orange-500 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-orange-600"
+            >
+              <QrCode className="h-3.5 w-3.5" />
+              <span>{t('accounts.batchScanBtn')}</span>
+              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-white/20 px-1 text-[10px] font-semibold leading-none tabular-nums">
+                {pendingPlatforms.length}
+              </span>
+            </button>
+            <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
+              待配置平台 — 也可点击下方平台逐个配置
+            </span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {pendingPlatforms.map((s) => (
@@ -304,10 +331,11 @@ export default function AccountsPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3 xl:grid-cols-3">
           {accounts.map((a) => {
             const schema = getPlatformSchema(a.platform)
             const isVerifying = verifyingId === a.id
+            const nameParts = splitDisplayNameParts(a.displayName)
             const risk = riskMap[a.id]
             const acc: AccountWithRisk = {
               ...a,
@@ -323,54 +351,88 @@ export default function AccountsPage() {
             return (
               <Card key={a.id} className={cn(inCooldown && 'border-orange-500/40 opacity-60')}>
                 <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-semibold text-primary">
-                        {(schema?.platformName ?? a.platform).charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{a.displayName}</div>
-                        <div className="truncate text-xs text-muted-foreground">
-                          {schema?.platformName ??
-                            t(PLATFORM_KEY[a.platform] ?? 'platforms.unknown')}
+                  {(() => {
+                    // 头部:图标在左,右侧两行(第一行主名+补充信息,第二行徽章);
+                    // 主名与平台名指向同一平台(如 "B站" vs "哔哩哔哩")时不重复显示平台名
+                    const platformLabel =
+                      schema?.platformName ?? t(PLATFORM_KEY[a.platform] ?? 'platforms.unknown')
+                    const dup = isSamePlatformName(nameParts.name, platformLabel)
+                    const subtitle = [dup ? '' : platformLabel, nameParts.suffix]
+                      .filter(Boolean)
+                      .join(' · ')
+                    return (
+                      <div className="flex min-w-0 items-start gap-2">
+                        <PlatformIcon
+                          platform={a.platform}
+                          platformName={schema?.platformName ?? a.platform}
+                          size={44}
+                        />
+                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-sm font-medium">
+                              {nameParts.name || a.displayName}
+                            </span>
+                            {subtitle ? (
+                              <span className="truncate text-xs text-muted-foreground">
+                                {subtitle}
+                              </span>
+                            ) : null}
+                            {/* 刷新 Cookie 按钮:紧跟补充信息右侧 */}
+                            <CookieHealthIndicator
+                              accountId={a.id}
+                              variant="button"
+                              onRefreshed={() => void reload()}
+                            />
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={cn(
+                                'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+                                STATUS_STYLE[a.status] ?? STATUS_STYLE.disabled,
+                              )}
+                            >
+                              {t(ACCOUNTS_STATUS_KEY[a.status] ?? 'accounts.statusUnknown')}
+                            </span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex shrink-0 cursor-default items-center gap-1 rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:text-sky-400">
+                                  <CloudUpload className="h-2.5 w-2.5" aria-hidden="true" />
+                                  {t('accounts.cloudCred')}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-56">
+                                {t('accounts.cloudCredTip')}
+                              </TooltipContent>
+                            </Tooltip>
+                            {acc.riskLevel ? (
+                              <RiskBadge
+                                riskScore={acc.riskScore ?? 0}
+                                riskLevel={acc.riskLevel}
+                                cooldownRemaining={acc.cooldownRemaining}
+                                size="sm"
+                              />
+                            ) : (
+                              <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                {t('riskNotEvaluated')}
+                              </span>
+                            )}
+                            <CookieHealthIndicator
+                              accountId={a.id}
+                              compact={false}
+                              variant="badge"
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-md px-2 py-0.5 text-xs font-medium',
-                        STATUS_STYLE[a.status] ?? STATUS_STYLE.disabled,
-                      )}
-                    >
-                      {t(ACCOUNTS_STATUS_KEY[a.status] ?? 'accounts.statusUnknown')}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {acc.riskLevel ? (
-                      <RiskBadge
-                        riskScore={acc.riskScore ?? 0}
-                        riskLevel={acc.riskLevel}
-                        cooldownRemaining={acc.cooldownRemaining}
-                        size="sm"
-                      />
-                    ) : (
-                      <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        {t('riskNotEvaluated')}
-                      </span>
-                    )}
-                    <CookieHealthIndicator
-                      accountId={a.id}
-                      compact={false}
-                      onRefreshed={() => void reload()}
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-x-1 gap-y-1.5">
+                    )
+                  })()}
+                  <div className="grid grid-cols-2 gap-1.5">
                     <Button
                       size="xs"
-                      variant="outline"
+                      variant="ghost"
+                      className={CARD_ACTION_CLS}
                       onClick={() => verify(a.id)}
                       disabled={isVerifying}
-                      className="flex-1 min-w-fit"
                     >
                       {isVerifying ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -384,8 +446,8 @@ export default function AccountsPage() {
                         <Button
                           size="xs"
                           variant="ghost"
+                          className={CARD_ACTION_CLS}
                           onClick={() => openScanLogin(a.platform)}
-                          className="flex-1 min-w-fit"
                         >
                           <QrCode className="h-3 w-3" />
                           {t('accounts.scan')}
@@ -396,8 +458,8 @@ export default function AccountsPage() {
                     <Button
                       size="xs"
                       variant="ghost"
+                      className={CARD_ACTION_CLS}
                       onClick={() => openEdit(a)}
-                      className="flex-1 min-w-fit"
                     >
                       <Pencil className="h-3 w-3" />
                       {t('accounts.edit')}
@@ -405,7 +467,7 @@ export default function AccountsPage() {
                     <Button
                       size="xs"
                       variant="ghost"
-                      className="flex-1 min-w-fit text-destructive hover:text-destructive"
+                      className={cn(CARD_ACTION_CLS, 'text-destructive hover:text-destructive')}
                       onClick={() => {
                         setDeleteTarget(a)
                         setDeleteOpen(true)
@@ -514,6 +576,13 @@ export default function AccountsPage() {
         onOpenChange={setScanOpen}
         onSuccess={() => void reload()}
         defaultPlatform={scanDefaultPlatform}
+      />
+
+      <BatchScanLoginDialog
+        open={quickScanOpen}
+        onOpenChange={setQuickScanOpen}
+        onSuccess={() => void reload()}
+        queuePlatforms={quickScanQueue}
       />
 
       <BatchImportDialog

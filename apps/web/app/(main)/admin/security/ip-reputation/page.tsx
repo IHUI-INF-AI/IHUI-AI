@@ -8,23 +8,24 @@ import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Loader2, Search, Ban, ShieldCheck, ShieldAlert, Trash2 } from 'lucide-react'
+import { Ban, Loader2, Search, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react'
 import {
+  Badge,
+  Button,
   Card,
-  CardHeader,
-  CardTitle,
   CardContent,
   CardDescription,
   CardFooter,
-  Button,
+  CardHeader,
+  CardTitle,
+  cn,
   Input,
-  Badge,
+  SearchInput,
   Select,
-  SelectTrigger,
-  SelectValue,
   SelectContent,
   SelectItem,
-  cn,
+  SelectTrigger,
+  SelectValue,
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import {
@@ -122,18 +123,15 @@ export default function IpReputationPage() {
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={ip}
-            onChange={(e) => setIp(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleQuery()
-            }}
-            placeholder={t('searchPlaceholder')}
-            className="pl-8"
-          />
-        </div>
+        <SearchInput
+          value={ip}
+          onChange={(e) => setIp(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleQuery()
+          }}
+          placeholder={t('searchPlaceholder')}
+          wrapperClassName="flex-1 max-w-sm"
+        />
         <Button onClick={handleQuery} disabled={busy}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           {t('query')}

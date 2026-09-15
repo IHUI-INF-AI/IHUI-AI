@@ -34,6 +34,7 @@ import {
   DialogFooter,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { splitDisplayNameParts } from '@/lib/publish/display-name'
 import {
   listPublishGroups,
   createPublishGroup,
@@ -46,6 +47,7 @@ import {
 } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
 import type { PublishAccount } from '@/hooks/use-publish-accounts'
+import { PlatformIcon } from './platform-icon'
 
 export interface AccountGroupManagerProps {
   readonly accounts: readonly PublishAccount[]
@@ -325,11 +327,13 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                             className="flex items-center justify-between gap-2 rounded-md bg-muted/30 px-2 py-1"
                           >
                             <div className="flex min-w-0 items-center gap-1.5">
-                              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-semibold text-primary">
-                                {(acc?.platform ?? '?').charAt(0).toUpperCase()}
-                              </div>
+                              <PlatformIcon
+                                platform={acc?.platform ?? '?'}
+                                platformName={acc?.platform}
+                                size={20}
+                              />
                               <span className="truncate text-xs">
-                                {acc?.displayName ?? `#${aid}`}
+                                {acc ? splitDisplayNameParts(acc.displayName).name : `#${aid}`}
                               </span>
                               <span className="shrink-0 text-[10px] text-muted-foreground">
                                 {acc?.platform ?? ''}
@@ -454,10 +458,10 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                       }}
                       className="h-3.5 w-3.5"
                     />
-                    <div className="flex h-5 w-5 items-center justify-center rounded bg-primary/10 text-[10px] font-semibold text-primary">
-                      {a.platform.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="flex-1 truncate text-xs">{a.displayName}</span>
+                    <PlatformIcon platform={a.platform} platformName={a.platform} size={20} />
+                    <span className="flex-1 truncate text-xs">
+                      {splitDisplayNameParts(a.displayName).name}
+                    </span>
                     <span className="text-[10px] text-muted-foreground">{a.platform}</span>
                   </label>
                 )

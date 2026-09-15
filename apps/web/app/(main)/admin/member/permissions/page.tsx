@@ -6,17 +6,16 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, Key, Lock, Search, Copy, Check } from 'lucide-react'
-
+import { Check, Copy, Key, Loader2, Lock } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
-  Input,
+  SearchInput,
   Table,
-  TableHeader,
   TableBody,
-  TableHead,
-  TableRow,
   TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 
@@ -83,15 +82,13 @@ export default function AdminMemberPermissionsPage() {
         <p className="mt-1 text-sm text-muted-foreground">会员体系权限点管理</p>
       </div>
 
-      <div className="relative w-full max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          placeholder="搜索权限"
-          className="h-9 pl-8"
-        />
-      </div>
+      <SearchInput
+        value={keyword}
+        onChange={(e) => setKeyword(e.target.value)}
+        placeholder="搜索权限"
+        size="lg"
+        wrapperClassName="w-full max-w-xs"
+      />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">

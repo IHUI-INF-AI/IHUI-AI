@@ -12037,7 +12037,12 @@
   },
   "fileMention": {
     "fileSearchPlaceholder": "Search files…",
-    "noMatch": "No matching files"
+    "noMatch": "No matching files",
+    "clearAriaLabel": "Clear search",
+    "hintSelect": "Select",
+    "hintConfirm": "Confirm",
+    "hintClose": "Close",
+    "hintFilesCount": "{n} files"
   },
   "contextSelector": {
     "title": "Context selector · # references",
@@ -16773,7 +16778,25 @@
       "openExternalBrowserWithPlatform": "Opened {name} login page in the built-in browser on the right, please scan to log in",
       "webFallbackHint": "Currently in web mode, please log in and paste Cookie to save manually",
       "cloudCred": "Cloud Credential",
-      "cloudCredTip": "Credentials are encrypted on our server. Log in to your account on any computer to use them."
+      "cloudCredTip": "Credentials are encrypted on our server. Log in to your account on any computer to use them.",
+      "batchScanBtn": "One-click Scan Login",
+      "batchScanTitle": "One-click Scan Login",
+      "batchScanDescription": "Opens each pending platform's login page in turn. Just keep scanning with your phone — each successful login is saved automatically and the next platform opens.",
+      "batchScanProgress": "{current}/{total} · {name}",
+      "batchScanWaitingHint": "Scan or log in on the built-in browser on the right. Each platform times out after 2 minutes and is skipped automatically; you can also skip manually.",
+      "batchScanLoading": "Preparing platform queue...",
+      "batchScanSkip": "Skip this platform",
+      "batchScanStop": "Stop queue",
+      "batchScanRestart": "Restart",
+      "batchScanClose": "Close",
+      "batchScanDone": "Queue finished",
+      "batchScanSummary": "Success {success} · Timeout {timeout} · Failed {error} · Skipped {skipped}",
+      "batchScanSuccessCount": "{count} platforms configured",
+      "batchScanItemTimeout": "timeout",
+      "batchScanItemSkipped": "skipped",
+      "batchScanDetectError": "detect error",
+      "batchScanNoLoginUrl": "No login page configured for this platform",
+      "batchScanStopped": "stopped"
     },
     "ai": {
       "analyzeAll": "Batch Analysis",
@@ -17018,6 +17041,7 @@
     "riskLevelMedium": "Medium risk",
     "riskLevelSafe": "Safe",
     "riskNotEvaluated": "Not evaluated",
+    "riskScoreTooltip": "Risk score: {score}",
     "stats": {
       "successRate": "Success Rate",
       "totalFailed": "Failed Count",

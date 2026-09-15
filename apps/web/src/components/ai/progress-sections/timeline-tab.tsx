@@ -8,8 +8,6 @@ import * as React from 'react'
 import {
   MessageSquare,
   ListTree,
-  Search,
-  X,
   Download,
   Check,
   Inbox,
@@ -17,6 +15,7 @@ import {
   TriangleAlert,
   Clock,
 } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -411,17 +410,16 @@ export const TimelineTab = React.memo(function TimelineTab({
       {/* Search row(只在有事件时显示) */}
       {events.length > 0 && (
         <div className="relative shrink-0 bg-muted/20 px-2 py-1" data-testid="timeline-search-row">
-          <Search
-            className="pointer-events-none absolute left-3.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-muted-foreground/60"
-            aria-hidden
-          />
-          <input
-            type="text"
+          <SearchInput
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={safeT(t, 'timelineSearchPlaceholder', 'Search timeline...')}
             aria-label={safeT(t, 'timelineSearchAriaLabel', 'Search timeline events')}
-            className="w-full rounded-sm border border-border/60 bg-background/40 py-0.5 pl-6 pr-14 text-[10px] placeholder:text-muted-foreground/50 focus:border-ring/40 focus:outline-none focus:ring-1 focus:ring-ring/20"
+            size="sm"
+            clearable
+            clearAriaLabel={safeT(t, 'timelineSearchClear', 'Clear search')}
+            className="pr-8"
+            wrapperClassName="w-full"
             data-testid="timeline-search-input"
           />
           {/* Phase 20 P1-3: 导出 Markdown 按钮 */}
@@ -444,17 +442,6 @@ export const TimelineTab = React.memo(function TimelineTab({
               )}
             </button>
           </Tooltip>
-          {searchQuery.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              aria-label={safeT(t, 'timelineSearchClear', 'Clear search')}
-              className="absolute right-3.5 top-1/2 inline-flex h-3.5 w-3.5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent/40 hover:text-foreground"
-              data-testid="timeline-search-clear"
-            >
-              <X className="h-2.5 w-2.5" aria-hidden />
-            </button>
-          )}
         </div>
       )}
 

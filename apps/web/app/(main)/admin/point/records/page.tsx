@@ -8,26 +8,25 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Search, Loader2, ChevronLeft, ChevronRight, History } from 'lucide-react'
-
+import { ChevronLeft, ChevronRight, History, Loader2 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
   Button,
-  Input,
   Label,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@ihui/ui-react'
 
 interface PointRecord {
@@ -122,16 +121,14 @@ export default function AdminPointRecordsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={memberId}
-            onChange={(e) => setMemberId(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-8"
-            aria-label={t('search')}
-          />
-        </div>
+        <SearchInput
+          value={memberId}
+          onChange={(e) => setMemberId(e.target.value)}
+          placeholder={t('searchPlaceholder')}
+          aria-label={t('search')}
+          size="lg"
+          wrapperClassName="w-full max-w-xs"
+        />
         <div className="w-[160px]">
           <Label htmlFor="rec-type" className="sr-only">
             {t('colType')}

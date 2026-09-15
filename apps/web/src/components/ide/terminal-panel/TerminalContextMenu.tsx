@@ -30,8 +30,12 @@ export function TerminalContextMenu({
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
-      className="fixed z-50 min-w-36 overflow-hidden rounded-md border border-border bg-popover py-0.5 shadow-md"
-      style={{ left: state.x, top: state.y }}
+      className="fixed z-popover min-w-36 overflow-hidden rounded-md border border-border bg-popover py-0.5 shadow-md"
+      style={{
+        // 视口 clamp:6 项约 200px 高,防止贴近屏幕边缘时溢出
+        left: Math.min(state.x, window.innerWidth - 160),
+        top: Math.min(state.y, window.innerHeight - 208),
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       <button

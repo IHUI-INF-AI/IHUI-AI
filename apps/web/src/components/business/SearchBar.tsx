@@ -13,11 +13,14 @@
 // 保留全部 props 不变(对 TagsView 契约零破坏)。
 
 import * as React from 'react'
-import { Search, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { SearchInput } from '@ihui/ui-react'
 import { useSearchHistory } from '@/hooks/use-search-history'
 import { useSearchPopular } from '@/hooks/use-search-popular'
+// 2026-09-15 治理:定位/portal/外点关闭统一收敛到 PortalPanel(此前 absolute 就地渲染,
+// 会被 overflow-hidden 祖先裁剪)。
+import { PortalPanel } from '@/components/feedback/portal-panel'
 import {
   HistorySection,
   PopularSection,
@@ -62,25 +65,11 @@ export function SearchBar({
   const hookHistory = useSearchHistory()
   const history = isStandalone ? hookHistory.history : historyProp
 
-  // 2026-07-28 修复(用户反馈"输入内容后没下拉 + Enter 没反应"):
-  // 原 useClickOutside hook 在 SearchBar 挂载时立即注册 document mousedown 监听器,
-  // 与 focusOnMount=true 的 inputRef.current?.focus() 时序冲突。
-  // 修复:用 focused 状态作为 enabled gate,只有 input 已聚焦后才监听外部 mousedown。
-  React.useEffect(() => {
-    if (!focused) return
-    const handler = (event: MouseEvent | TouchEvent) => {
-      const el = containerRef.current
-      if (el && !el.contains(event.target as Node)) {
-        setFocused(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    document.addEventListener('touchstart', handler)
-    return () => {
-      document.removeEventListener('mousedown', handler)
-      document.removeEventListener('touchstart', handler)
-    }
-  }, [focused])
+  // 2026-09-15 治理:外点关闭改由 PortalPanel onClose 统一提供(原 2026-07-28 的
+  // focused gate + document mousedown/touchstart 监听已删除,面板 portal 到 body 后
+  // 仍以 containerRef 为锚点,面板内部点击被自动排除)。
+  // PortalPanel 面板与输入框同宽(原 w-full)需同步锚点宽度。
+  const [anchorWidth, setAnchorWidth] = React.useState(0)
 
   // focusOnMount:用 ref + effect + setTimeout(0) 主动聚焦
   React.useEffect(() => {
@@ -129,8 +118,19 @@ export function SearchBar({
   //   静默段(!value):有历史 或 有热门
   const popular = useSearchPopular()
   const hasSilentSection = !value && (history.length > 0 || popular.length > 0)
-  const hasQuerySection = value && filteredSuggestions.length > 0
+  const hasQuerySection = value.length > 0 && filteredSuggestions.length > 0
   const showDropdown = focused && (hasSilentSection || hasQuerySection)
+
+  React.useLayoutEffect(() => {
+    if (!showDropdown) return
+    const el = containerRef.current
+    if (!el) return
+    const sync = () => setAnchorWidth(el.offsetWidth)
+    sync()
+    const ro = new ResizeObserver(sync)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [showDropdown])
 
   // 2026-07-28 注:点击历史项触发外层 onHistoryClick(由外层写持久化);
   // standalone 模式下额外写 hook 内部状态。
@@ -163,47 +163,43 @@ export function SearchBar({
   return (
     <div ref={containerRef} className={cn('relative w-full', className)}>
       <form onSubmit={handleSubmit}>
-        <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
+        {/* 全项目统一搜索框(共享 SearchInput 圆角输入井,父容器 p-1.5 留内边距) */}
+        <SearchInput
           ref={inputRef}
-          type="search"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onFocus={() => setFocused(true)}
           onKeyDown={handleEnter}
           placeholder={resolvedPlaceholder}
-          className="h-10 w-full bg-transparent pl-9 pr-9 text-sm transition-colors placeholder:text-muted-foreground/70 focus-visible:outline-none"
+          clearable
+          size="lg"
+          wrapperClassName="p-1.5"
         />
-        {value && (
-          <button
-            type="button"
-            onClick={() => setValue('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
       </form>
-      {showDropdown && (
-        <div className="absolute z-popover mt-1 w-full overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
-          {!value ? (
-            <>
-              <HistorySection
-                items={history}
-                onItemClick={handleHistoryItemClick}
-                {...(onClearHistory ? { onClear: onClearHistory } : {})}
-              />
-              {history.length > 0 && popular.length > 0 ? <SectionDivider /> : null}
-              <PopularSection items={popular} onItemClick={handlePopularItemClick} />
-            </>
-          ) : (
-            <SuggestionsSection
-              items={filteredSuggestions}
-              onItemClick={handleSuggestionItemClick}
+      <PortalPanel
+        open={showDropdown}
+        anchorRef={containerRef}
+        onClose={() => setFocused(false)}
+        side="bottom"
+        align="start"
+        gap={4}
+        style={anchorWidth ? { width: anchorWidth } : undefined}
+        className="overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+      >
+        {!value ? (
+          <>
+            <HistorySection
+              items={history}
+              onItemClick={handleHistoryItemClick}
+              {...(onClearHistory ? { onClear: onClearHistory } : {})}
             />
-          )}
-        </div>
-      )}
+            {history.length > 0 && popular.length > 0 ? <SectionDivider /> : null}
+            <PopularSection items={popular} onItemClick={handlePopularItemClick} />
+          </>
+        ) : (
+          <SuggestionsSection items={filteredSuggestions} onItemClick={handleSuggestionItemClick} />
+        )}
+      </PortalPanel>
     </div>
   )
 }

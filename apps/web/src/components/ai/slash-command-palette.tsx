@@ -6,11 +6,12 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Search, X, ArrowLeft, Sparkles, Loader2, Target, Zap, Lock, FileText } from 'lucide-react'
-import { Input } from '@ihui/ui-react'
+import { ArrowLeft, Sparkles, Loader2, Target, Zap, Lock, FileText } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
-import { createPortal } from 'react-dom'
+// 2026-09-15 治理:定位/portal/Escape/外点关闭统一收敛到 PortalPanel(全项目浮层一套逻辑)
+import { PortalPanel } from '@/components/feedback/portal-panel'
 
 /** 命令分组(2026-07-29 立,按重要性排序)
  * 2026-07-29 二次深化:新增 skill 分组(AI 技能,从 /api/ai-skills 拉取) */
@@ -63,7 +64,7 @@ interface SlashCommandPaletteProps {
   onOpenChange: (open: boolean) => void
   /** trigger 元素(斜杠按钮),弹层锚定到该元素上方 */
   children: React.ReactElement
-  /** hover 时显示的轻量文字提示(可选,由 Popover 内部 Tooltip 渲染) */
+  /** hover 时显示的轻量文字提示(可选,由内部 Tooltip 渲染) */
   tooltip?: React.ReactNode
 }
 
@@ -121,7 +122,7 @@ const CATEGORY_ICON_COLOR: Record<SlashCommandCategory, string> = {
  *   /api/ai-skills 后组装成 Command 项,点击后填充 /skill <name> 到 textarea
  * - footer 快捷键提示:↑↓ 选择 · Enter 确认 · ESC 关闭,带 kbd 样式
  *
- * 弹层用 Popover position="top" align="start" portal,锚定 trigger 按钮上方,
+ * 弹层用 PortalPanel side="top" align="start",锚定 trigger 按钮上方,
  * 无遮罩轻弹出,符合"按钮上方轻弹出"的视觉预期。
  */
 export function SlashCommandPalette({
@@ -145,99 +146,6 @@ export function SlashCommandPalette({
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listRef = React.useRef<HTMLDivElement>(null)
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
-  const panelRef = React.useRef<HTMLDivElement>(null)
-  const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null)
-  const rafRef = React.useRef<number | null>(null)
-
-  const updateCoords = React.useCallback(() => {
-    if (!triggerRef.current || !panelRef.current) return
-    const r = triggerRef.current.getBoundingClientRect()
-    const panelRect = panelRef.current.getBoundingClientRect()
-    const gap = 8
-    const pad = 8
-    const VW = window.innerWidth
-
-    let top = r.top - gap - panelRect.height
-    let left = r.right - panelRect.width
-
-    if (left + panelRect.width > VW - pad) {
-      left = VW - pad - panelRect.width
-    }
-    left = Math.max(pad, left)
-
-    if (top < pad) {
-      top = r.bottom + gap
-    }
-    top = Math.max(pad, top)
-
-    setCoords({ top, left })
-  }, [])
-
-  React.useLayoutEffect(() => {
-    if (!open) return
-    const id = window.requestAnimationFrame(() => {
-      updateCoords()
-    })
-    return () => window.cancelAnimationFrame(id)
-  }, [open, updateCoords])
-
-  React.useEffect(() => {
-    if (!open) return
-    const throttledUpdate = () => {
-      if (rafRef.current !== null) return
-      rafRef.current = window.requestAnimationFrame(() => {
-        rafRef.current = null
-        updateCoords()
-      })
-    }
-
-    window.addEventListener('scroll', throttledUpdate, { capture: true, passive: true })
-    window.addEventListener('resize', throttledUpdate, { passive: true })
-
-    const roTrigger =
-      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
-    if (roTrigger && triggerRef.current) roTrigger.observe(triggerRef.current)
-
-    const roPanel = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
-    if (roPanel && panelRef.current) roPanel.observe(panelRef.current)
-
-    return () => {
-      if (rafRef.current !== null) window.cancelAnimationFrame(rafRef.current)
-      window.removeEventListener('scroll', throttledUpdate, true)
-      window.removeEventListener('resize', throttledUpdate)
-      roTrigger?.disconnect()
-      roPanel?.disconnect()
-    }
-  }, [open, updateCoords])
-
-  React.useEffect(() => {
-    if (!open) return
-    const handler = (event: MouseEvent | TouchEvent) => {
-      const triggerEl = triggerRef.current
-      const contentEl = panelRef.current
-      const target = event.target as Node
-      if (triggerEl && triggerEl.contains(target)) return
-      if (contentEl && contentEl.contains(target)) return
-      onOpenChange(false)
-    }
-    document.addEventListener('mousedown', handler)
-    document.addEventListener('touchstart', handler)
-    return () => {
-      document.removeEventListener('mousedown', handler)
-      document.removeEventListener('touchstart', handler)
-    }
-  }, [open, onOpenChange])
-
-  React.useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onOpenChange(false)
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, onOpenChange])
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -351,13 +259,15 @@ export function SlashCommandPalette({
 
   let runningIdx = -1 // 扁平索引累加器(跨分组连续编号)
 
+  // role="dialog" 与 aria-modal 需在同一元素(e2e keyboard-navigation.spec 以
+  // [role="dialog"][aria-modal="true"] 统计),PortalPanel 不透传 aria-modal → 保留在此
   const content = (
-    <div className="flex flex-col">
+    <div className="flex flex-col" role="dialog" aria-modal="true">
       {/* 顶部搜索框(2026-07-29 二次深化:参数补全模式前置返回按钮 + 标题)
        *  - 普通模式:Search 图标 + 搜索框 + clear
        *  - 参数补全模式:返回按钮 + 标题 + 搜索框 + clear(键盘导航仍可用) */}
       <div className="relative flex items-center gap-2 bg-muted/30 px-3 py-2">
-        {argMode ? (
+        {argMode && (
           <button
             type="button"
             onClick={() => {
@@ -370,32 +280,24 @@ export function SlashCommandPalette({
           >
             <ArrowLeft className="h-3.5 w-3.5" />
           </button>
-        ) : (
-          <Search className="pointer-events-none h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         )}
         {argMode && (
           <span className="shrink-0 text-xs font-medium text-muted-foreground">
             {argMode.title}
           </span>
         )}
-        <Input
+        <SearchInput
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={argMode ? t('searchArgsPlaceholder') : t('searchPlaceholder')}
-          className="h-7 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+          size="sm"
+          clearable
+          clearAriaLabel={t('clearAriaLabel')}
+          className="border-0 bg-transparent"
+          wrapperClassName="p-1.5 min-w-0 flex-1"
         />
-        {query && (
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            aria-label={t('clearAriaLabel')}
-            className="ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        )}
       </div>
       {/* 中部:参数补全模式显示候选列表;普通模式显示分组命令列表 */}
       <div ref={listRef} className="thin-scroll max-h-80 overflow-y-auto p-1.5">
@@ -605,26 +507,23 @@ export function SlashCommandPalette({
     'data-state': existingDataState ?? (open ? 'open' : 'closed'),
   } as React.HTMLAttributes<HTMLButtonElement> & { ref?: React.Ref<HTMLButtonElement> })
 
-  const panelStyle: React.CSSProperties = coords
-    ? { position: 'fixed', top: coords.top, left: coords.left }
-    : { position: 'fixed', top: -9999, left: -9999 }
-
   return (
     <div>
       {tooltip ? <Tooltip content={tooltip}>{trigger}</Tooltip> : trigger}
-      {open &&
-        createPortal(
-          <div
-            ref={panelRef}
-            style={panelStyle}
-            role="dialog"
-            aria-modal="true"
-            className="z-popover w-96 overflow-hidden p-0 shadow-lg"
-          >
-            {content}
-          </div>,
-          document.body,
-        )}
+      {/* 2026-09-15 治理:定位/portal/Escape/外点关闭统一收敛到 PortalPanel
+          (z-popover 已内置)。side="top" 面板在输入区上方、align="end" 右缘对齐
+          (与原手写 left = r.right - panelW 一致)、gap=8,均保持原视觉意图。 */}
+      <PortalPanel
+        open={open}
+        anchorRef={triggerRef}
+        onClose={() => onOpenChange(false)}
+        side="top"
+        align="end"
+        gap={8}
+        className="w-96 overflow-hidden rounded-md border border-border bg-popover p-0 shadow-md"
+      >
+        {content}
+      </PortalPanel>
     </div>
   )
 }

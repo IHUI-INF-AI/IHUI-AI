@@ -6,10 +6,10 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2, Plus, Download, Search } from 'lucide-react'
+import { Download, Loader2, Plus, Search } from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button, Input, Label } from '@ihui/ui-react'
+import { Button, Label, SearchInput } from '@ihui/ui-react'
 import { th } from './helpers'
 import type { Item, FormState } from './types'
 
@@ -78,11 +78,12 @@ export function VipTable({
         {searchFields.map((f) => (
           <div key={f.key} className="space-y-1">
             <Label className="text-xs">{f.label}</Label>
-            <Input
-              className="h-9 w-36"
+            <SearchInput
               value={search[f.key] ?? ''}
               onChange={(e) => onSearchChange({ ...search, [f.key]: e.target.value })}
               placeholder={t('searchPlaceholder', { label: f.label })}
+              size="lg"
+              wrapperClassName="w-36"
             />
           </div>
         ))}

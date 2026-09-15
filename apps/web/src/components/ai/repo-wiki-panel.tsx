@@ -5,6 +5,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { SearchInput } from '@ihui/ui-react'
 import { AlertTriangle, BookOpen, Braces, Copy, Sparkles, Trash2 } from 'lucide-react'
 
 import { toast } from '@/components/common'
@@ -145,13 +146,14 @@ export function RepoWikiPanel() {
         })}
       </div>
 
-      {/* 搜索 */}
-      <input
+      {/* 搜索(统一共享 SearchInput) */}
+      <SearchInput
         data-testid="wiki-search-input"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={t('searchPlaceholder')}
-        className="w-full rounded-md border bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+        size="sm"
+        wrapperClassName="w-full"
       />
 
       {/* 卡片列表 */}

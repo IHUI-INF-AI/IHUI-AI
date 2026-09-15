@@ -6,24 +6,25 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Eye, Users, RefreshCw, MapPin, Loader2, Search } from 'lucide-react'
+import { Eye, Loader2, MapPin, RefreshCw, Search, Users } from 'lucide-react'
 import { eduApi, buildQs } from '@/lib/edu'
 import { CHART_ORANGE } from '@ihui/design-tokens'
 import { StatCard } from '@/components/data'
 import { BarChart } from '@/components/charts'
 import {
+  Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  Button,
   Input,
+  SearchInput,
   Table,
-  TableHeader,
   TableBody,
-  TableRow,
-  TableHead,
   TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@ihui/ui-react'
 import { TruncatedText, BackButton } from '@/components/common'
 
@@ -213,12 +214,12 @@ export default function VisitTrackingPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="text-base">访问明细</CardTitle>
             <div className="flex items-center gap-2">
-              <Input
+              <SearchInput
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && refreshAll()}
                 placeholder="输入 IP / 路径搜索"
-                className={`${inputCls} w-56`}
+                className="{`${inputCls} w-56`}"
               />
               <Button size="sm" variant="outline" onClick={refreshAll}>
                 <Search className="h-4 w-4" />

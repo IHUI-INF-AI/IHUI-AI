@@ -12045,7 +12045,12 @@
   },
   "fileMention": {
     "fileSearchPlaceholder": "搜索文件…",
-    "noMatch": "无匹配文件"
+    "noMatch": "无匹配文件",
+    "clearAriaLabel": "清空搜索",
+    "hintSelect": "选择",
+    "hintConfirm": "确认",
+    "hintClose": "关闭",
+    "hintFilesCount": "{n} 个文件"
   },
   "contextSelector": {
     "title": "上下文选择器 · # 引用",
@@ -16764,7 +16769,25 @@
       "openExternalBrowserWithPlatform": "已在右侧内置浏览器打开 {name} 登录页,请扫码登录",
       "webFallbackHint": "当前为 web 端,请登录后手动粘贴 Cookie 保存",
       "cloudCred": "云端凭据",
-      "cloudCredTip": "凭据已加密存储在服务器,任何电脑登录本站账号即可使用"
+      "cloudCredTip": "凭据已加密存储在服务器,任何电脑登录本站账号即可使用",
+      "batchScanBtn": "一键扫码登录",
+      "batchScanTitle": "一键扫码登录",
+      "batchScanDescription": "自动逐个打开待配置平台的登录页:保持手机扫码状态连续扫即可,每个平台登录成功后自动保存并切换下一个。",
+      "batchScanProgress": "第 {current}/{total} 个 · {name}",
+      "batchScanWaitingHint": "请在右侧内置浏览器完成该平台扫码/登录;超时(2 分钟)会自动跳过,也可手动跳过",
+      "batchScanLoading": "正在准备平台队列...",
+      "batchScanSkip": "跳过此平台",
+      "batchScanStop": "停止队列",
+      "batchScanRestart": "重新开始",
+      "batchScanClose": "关闭",
+      "batchScanDone": "队列已结束",
+      "batchScanSummary": "成功 {success} · 超时 {timeout} · 失败 {error} · 跳过 {skipped}",
+      "batchScanSuccessCount": "成功 {count} 个平台",
+      "batchScanItemTimeout": "超时",
+      "batchScanItemSkipped": "手动跳过",
+      "batchScanDetectError": "检测异常",
+      "batchScanNoLoginUrl": "未找到该平台登录页配置",
+      "batchScanStopped": "已停止"
     },
     "ai": {
       "analyzeAll": "批量分析",
@@ -17009,6 +17032,7 @@
     "riskLevelMedium": "中风险",
     "riskLevelSafe": "安全",
     "riskNotEvaluated": "未评估",
+    "riskScoreTooltip": "风险评分: {score}",
     "stats": {
       "successRate": "成功率",
       "totalFailed": "失败次数",

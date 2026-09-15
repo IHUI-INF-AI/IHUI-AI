@@ -19,7 +19,8 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { toast } from '@/components/common/Toaster'
 import { runCommand } from '@ihui/api-client'
-import { Search, FilePlus, FolderPlus, RefreshCw } from 'lucide-react'
+import { FilePlus, FolderPlus, RefreshCw } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 import type { FileNode } from '@ihui/types'
 import { flattenFiles, getRenamedPath, isPathInWorkspace, validateFileName } from './model'
 
@@ -268,15 +269,13 @@ export function FileExplorer() {
 
       {subTab === 'files' && (
         <div className="flex items-center gap-1 px-2 pb-1.5">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('fileExplorer.searchPlaceholder')}
-              className="w-full rounded-md border border-border bg-background py-1 pl-7 pr-2 text-xs focus:outline-none"
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('fileExplorer.searchPlaceholder')}
+            size="sm"
+            wrapperClassName="flex-1 min-w-0"
+          />
           <Tooltip content={t('fileExplorer.newFile')}>
             <button
               onClick={() => {
