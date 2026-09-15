@@ -18,7 +18,6 @@ import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useChatStore } from '@/stores/chat'
 
 import { MessageItem } from './MessageItem'
-import { QueryThumbRail } from './query-thumb-rail'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
 import { EmptyState } from './EmptyState'
 import { FallbackBanner } from './FallbackBanner'
@@ -26,11 +25,7 @@ import { useMessageListScroll } from './use-message-list-scroll'
 import { useMessageListDerivations } from './use-message-list-derivations'
 import { useMessageListSearch } from './use-message-list-search'
 import { useMessageListContextMenu } from './use-message-list-context-menu'
-import {
-  regenerateMessage,
-  branchMessage,
-  editMessageAndRerun,
-} from '@/hooks/use-chat/send-message'
+import { regenerateMessage, branchMessage } from '@/hooks/use-chat/send-message'
 import { ToolApprovalDialog } from '@/components/ai/tool-approval-dialog'
 
 interface MessageListProps {
@@ -47,10 +42,6 @@ interface MessageListProps {
   onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   /** Inline Diff Reject 回调:纯前端标记为 rejected */
   onRejectDiff?: (messageId: string, toolCallId: string) => void
-  /** #14 批量 Accept 回调(2026-09-13 立):消息内全部待决 diff 卡逐文件顺序应用 */
-  onApplyAllDiffs?: (messageId: string) => Promise<void>
-  /** #14 批量 Reject 回调(2026-09-13 立):消息内全部待决 diff 卡整体标记 rejected */
-  onRejectAllDiffs?: (messageId: string) => void
   /** #8 是否还有更早的历史消息可加载(滚动到顶部时触发 onLoadMoreHistory) */
   hasMoreHistory?: boolean
   /** #8 是否正在加载更早的历史消息(显示顶部 loading 指示器) */
@@ -82,8 +73,6 @@ export function MessageList({
   onTemplateSelect,
   onApplyDiff,
   onRejectDiff,
-  onApplyAllDiffs,
-  onRejectAllDiffs,
   hasMoreHistory,
   loadingMoreHistory,
   onLoadMoreHistory,
@@ -195,8 +184,7 @@ export function MessageList({
   }, [flashHighlight, containerRef])
 
   // 2026-08-30 立:重新生成 / 分支事件监听(MessageItem 按钮 + 右键菜单派发)。
-  // 2026-09-12 立:编辑重跑事件监听(四竞品对标 P0-1,MessageItem 编辑 Dialog 派发)。
-  // 完整闭环在 send-message.ts 的 regenerateMessage / branchMessage / editMessageAndRerun(复用既有流式发送逻辑)。
+  // 完整闭环在 send-message.ts 的 regenerateMessage / branchMessage(复用既有流式发送逻辑)。
   React.useEffect(() => {
     const onRegenerate = (e: Event) => {
       const detail = (e as CustomEvent<{ messageId: string }>).detail
@@ -208,25 +196,11 @@ export function MessageList({
       if (!detail?.messageId) return
       void branchMessage(detail.messageId)
     }
-    const onEdit = (e: Event) => {
-      // W16(2026-09-14):detail 新增 rollbackFiles(编辑 Dialog 勾选「同时回滚文件改动」时为 true)
-      const detail = (
-        e as CustomEvent<{
-          messageId: string
-          content: string
-          rollbackFiles?: boolean
-        }>
-      ).detail
-      if (!detail?.messageId || !detail.content) return
-      void editMessageAndRerun(detail.messageId, detail.content, detail.rollbackFiles === true)
-    }
     window.addEventListener('ihui:regenerate-message', onRegenerate as EventListener)
     window.addEventListener('ihui:branch-message', onBranch as EventListener)
-    window.addEventListener('ihui:edit-message', onEdit as EventListener)
     return () => {
       window.removeEventListener('ihui:regenerate-message', onRegenerate as EventListener)
       window.removeEventListener('ihui:branch-message', onBranch as EventListener)
-      window.removeEventListener('ihui:edit-message', onEdit as EventListener)
     }
   }, [])
 
@@ -330,8 +304,6 @@ export function MessageList({
                   assistantLabel={assistantLabel}
                   onApplyDiff={onApplyDiff}
                   onRejectDiff={onRejectDiff}
-                  onApplyAllDiffs={onApplyAllDiffs}
-                  onRejectAllDiffs={onRejectAllDiffs}
                   isHighlighted={highlightedMessageId === m.id}
                   isFocused={focusedIndex === realIdx}
                   linkedPlanStepId={messageToPlanStepIds[m.id]?.[0] ?? null}
@@ -398,8 +370,6 @@ export function MessageList({
         </button>
       )}
       {inlinePanelNode}
-      {/* #18 对话流缩略导航(2026-09-13 立):右侧 Query 刻度条,点击跳转任一提问 */}
-      <QueryThumbRail messages={messages} />
       {userScrolledUp && messages.length > 0 && (
         <button
           type="button"

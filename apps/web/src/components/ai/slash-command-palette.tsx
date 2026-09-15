@@ -619,7 +619,7 @@ export function SlashCommandPalette({
             style={panelStyle}
             role="dialog"
             aria-modal="true"
-            className="w-96 overflow-hidden p-0 shadow-lg"
+            className="z-popover w-96 overflow-hidden p-0 shadow-lg"
           >
             {content}
           </div>,

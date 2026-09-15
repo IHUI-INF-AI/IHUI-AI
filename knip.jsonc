@@ -6,6 +6,10 @@
 
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
+  // 运维/守门脚本(scripts/**、deploy/scripts/**):由 nssm 服务、CI 或人工直接执行调用,
+  // 不在产品运行时依赖图中,knip 会把它们误判为「未引用文件」→ 统一忽略以消除此类误报,
+  // 并避免后续新增运维脚本再次打破棘轮。(这些脚本的 next 等运行时解析依赖随之免检。)
+  "ignore": ["scripts/**", "deploy/scripts/**"],
   "workspaces": {
     "apps/api": {
       "entry": ["src/server.ts"],

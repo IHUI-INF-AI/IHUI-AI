@@ -3,36 +3,23 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * PayResultScreen 支付结果页(mobile-rn 端)
+ * PayResultScreen 支付结果页(mobile-rn 端 wrapper)
  *
- * 镜像 miniapp-taro pages/pay/result(P0 统一支付结果页补齐):
- * - 路由参数:orderNo(对齐小程序 ?orderNo=)
- * - 数据源:复用共享层 @ihui/api-client getPaymentOrderDetail(GET /payment/orders/:orderNo),
+ * 2026-09-15 迁移:UI 与展示逻辑已下沉共享层 @ihui/rn-app PayResultScreen
+ * (对齐 miniapp pages/pay/result),本 wrapper 仅保留平台特定职责:
+ * - 数据:复用共享层 @ihui/api-client getPaymentOrderDetail(GET /payment/orders/:orderNo),
  *   状态映射对齐 miniapp getPayResult:paid→paid / pending→pending / 其余(cancelled/refunded/failed)→failed
  * - 轮询:进入页立即查一次,未出结果每 2s 轮询,最多 30 次(对齐 miniapp),出结果或超时停止
- * - UI:状态圆标(pending=warning / paid=success / failed=danger)+ 金额展示 + 回跳按钮(回首页/查订单)
- * - 样式:getRnTokens 语义 token(零 hex,过 check:rn-parity);图标 lucide-react-native(无 emoji)
+ * - 导航:回首页(Main/HomeMain)/ 订单列表(Order)/ goBack;主题色 / i18n 注入
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
-import { Check, Clock, X } from 'lucide-react-native'
 import { getPaymentOrderDetail } from '@ihui/api-client'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
-import { NavBar } from '../components/NavBar'
+import { PayResultScreen as SharedPayResultScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'PayResult'>
@@ -49,8 +36,6 @@ export function PayResultScreen() {
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const { orderNo } = useRoute<Route>().params
-  const tk = getRnTokens(resolvedTheme)
-  const styles = useMemo(() => createStyles(tk), [tk])
 
   const [status, setStatus] = useState<PayStatus>('pending')
   const [amount, setAmount] = useState(0)
@@ -105,131 +90,18 @@ export function PayResultScreen() {
   /** 查订单(对齐 miniapp navigateTo /pages/order/list → RN Order 订单列表) */
   const goOrders = () => navigation.navigate('Order')
 
-  const statusBg: Record<PayStatus, string> = {
-    pending: tk.warning.amber,
-    paid: tk.success.DEFAULT,
-    failed: tk.danger.DEFAULT,
-  }
-  const statusKey: Record<PayStatus, string> = {
-    pending: 'payResult.pending',
-    paid: 'payResult.paid',
-    failed: 'payResult.failed',
-  }
-
   return (
-    <View style={styles.container}>
-      <NavBar title={t('payResult.title')} onBack={() => navigation.goBack()} />
-      <View style={styles.body}>
-        {/* 状态圆标(对齐 miniapp 160rpx 圆形图标位) */}
-        <View style={[styles.statusIcon, { backgroundColor: statusBg[status] }]}>
-          {status === 'paid' ? (
-            <Check size={rpx(80)} color={tk.surface.light} />
-          ) : status === 'failed' ? (
-            <X size={rpx(80)} color={tk.surface.light} />
-          ) : (
-            <Clock size={rpx(80)} color={tk.surface.light} />
-          )}
-        </View>
-        <Text style={styles.statusText}>{t(statusKey[status])}</Text>
-        {amount > 0 && <Text style={styles.amountText}>¥{amount.toFixed(2)}</Text>}
-        {checking && <ActivityIndicator style={styles.checking} color={tk.text.secondary} />}
-      </View>
-      <View style={styles.actions}>
-        {status !== 'pending' ? (
-          <>
-            <Pressable
-              style={({ pressed }) => [styles.primaryBtn, pressed ? styles.btnPressed : null]}
-              onPress={goHome}
-              accessibilityRole="button"
-              accessibilityLabel={t('payResult.backHome')}
-            >
-              <Text style={styles.primaryText}>{t('payResult.backHome')}</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.secondaryBtn, pressed ? styles.btnPressed : null]}
-              onPress={goOrders}
-              accessibilityRole="button"
-              accessibilityLabel={t('payResult.viewOrders')}
-            >
-              <Text style={styles.secondaryText}>{t('payResult.viewOrders')}</Text>
-            </Pressable>
-          </>
-        ) : (
-          <Pressable
-            style={({ pressed }) => [styles.primaryBtn, pressed ? styles.btnPressed : null]}
-            onPress={() => void check()}
-            accessibilityRole="button"
-            accessibilityLabel={t('payResult.refresh')}
-          >
-            <Text style={styles.primaryText}>{t('payResult.refresh')}</Text>
-          </Pressable>
-        )}
-      </View>
-    </View>
+    <SharedPayResultScreen
+      t={t}
+      status={status}
+      amount={amount}
+      checking={checking}
+      onRefresh={() => void check()}
+      onBackHome={goHome}
+      onViewOrders={goOrders}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
-
-const createStyles = (tk: RnThemeTokens) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: tk.surface.bg,
-    },
-    body: {
-      alignItems: 'center',
-      paddingVertical: rpx(120),
-    },
-    statusIcon: {
-      width: rpx(160),
-      height: rpx(160),
-      borderRadius: rpx(24),
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    statusText: {
-      marginTop: rpx(32),
-      fontSize: 18,
-      fontWeight: '600',
-      color: tk.text.primary,
-    },
-    amountText: {
-      marginTop: rpx(16),
-      fontSize: 20,
-      fontWeight: '600',
-      color: tk.danger.DEFAULT,
-    },
-    checking: {
-      marginTop: rpx(20),
-    },
-    actions: {
-      paddingHorizontal: rpx(60),
-      gap: rpx(32),
-    },
-    primaryBtn: {
-      height: rpx(88),
-      borderRadius: rpx(16),
-      backgroundColor: tk.brand.DEFAULT,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    secondaryBtn: {
-      height: rpx(88),
-      borderRadius: rpx(16),
-      backgroundColor: tk.surface.card,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    btnPressed: {
-      opacity: 0.85,
-    },
-    primaryText: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: tk.surface.light,
-    },
-    secondaryText: {
-      fontSize: 15,
-      color: tk.text.primary,
-    },
-  } satisfies Record<string, ViewStyle | TextStyle>)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

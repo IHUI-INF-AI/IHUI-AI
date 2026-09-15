@@ -946,10 +946,7 @@ export function AgentTaskProgressPane() {
     const onClick = (e: MouseEvent) => {
       const target = e.target as Node
       if (paneRef.current && !paneRef.current.contains(target)) {
-        // 排除任务进度入口(现位于模式切换器下拉菜单内,2026-09-14 迁移自 agent-progress-trigger)
-        const trigger = document.querySelector(
-          '[data-testid="agent-progress-trigger"], [data-testid="menu-task-progress"]',
-        )
+        const trigger = document.querySelector('[data-testid="agent-progress-trigger"]')
         if (trigger && trigger.contains(target)) return
         closePane()
       }

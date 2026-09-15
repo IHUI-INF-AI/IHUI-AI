@@ -45,5 +45,22 @@ export default async function globalSetup(): Promise<void> {
       err instanceof Error ? err.message : err,
     )
   }
+
+  // knowledge-base.spec 依赖 /api/knowledge 非空列表,隔离库重建后 knowledge_base 为空,
+  // 同机制 seed 公开知识条目(幂等,失败只 warn 不阻塞)
+  try {
+    execSync('pnpm --filter @ihui/api run seed:e2e-knowledge', {
+      cwd: repoRoot,
+      stdio: 'inherit',
+      env: { ...process.env },
+      timeout: 30000,
+    })
+    console.log('[e2e:global-setup] knowledge seed 完成')
+  } catch (err) {
+    console.warn(
+      '[e2e:global-setup] knowledge seed 失败,knowledge-base 相关用例可能失败:',
+      err instanceof Error ? err.message : err,
+    )
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
