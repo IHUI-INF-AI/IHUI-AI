@@ -38,7 +38,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { withExcludes } from './lib/exclude-dirs.mjs'
+import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -112,7 +112,7 @@ function countLines(file) {
 function collectFiles(dir, result = []) {
   if (!existsSync(dir)) return result
   for (const entry of readdirSync(dir)) {
-    if (EXCLUDE_DIRS.has(entry)) continue
+    if (isExcludedDirName(entry)) continue
     const full = join(dir, entry)
     const st = statSync(full)
     if (st.isDirectory()) {
@@ -151,7 +151,7 @@ function getStagedAddedFiles() {
       .split('\n')
       .filter(Boolean)
       .filter((f) => SCAN_EXTS.some((e) => f.endsWith(e)))
-      .filter((f) => !EXCLUDE_DIRS.has(f.split('/')[0]))
+      .filter((f) => !isExcludedDirName(f.split('/')[0]))
       .map((f) => join(ROOT, f))
       .filter((f) => existsSync(f))
   } catch {

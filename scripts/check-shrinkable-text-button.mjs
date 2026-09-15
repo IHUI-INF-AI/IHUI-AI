@@ -51,6 +51,7 @@
  */
 import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, relative, dirname } from 'node:path'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 
 // ─── CLI 参数解析 ────────────────────────────────────────────────
 const args = process.argv.slice(2)
@@ -166,7 +167,7 @@ function walkDir(dir, results = []) {
   if (!existsSync(dir)) return results
   for (const entry of readdirSync(dir)) {
     const fullPath = join(dir, entry)
-    if (EXCLUDED_DIRS.has(entry)) continue
+    if (EXCLUDED_DIRS.has(entry) || isExcludedDirName(entry)) continue
     let st
     try {
       st = statSync(fullPath)
