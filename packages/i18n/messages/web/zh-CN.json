@@ -322,6 +322,8 @@
     "scanLoginSucceeded": "扫码登录成功",
     "scanLoginSuccess": "扫码成功",
     "scanLoginTimeout": "扫码超时,请重试",
+    "cloudCred": "云端凭据",
+    "cloudCredTip": "凭据已加密存储在服务器,任何电脑登录本站账号即可使用",
     "scanLoginTitle": "扫码登录",
     "scanWithPhoneHint": "请使用手机扫描二维码登录",
     "selectPlatform": "请选择平台",
@@ -16762,7 +16764,9 @@
       "verifySuccess": "连接成功",
       "waitingForScan": "等待 {platform} App 扫码...",
       "openExternalBrowserWithPlatform": "已在右侧内置浏览器打开 {name} 登录页,请扫码登录",
-      "webFallbackHint": "当前为 web 端,请登录后手动粘贴 Cookie 保存"
+      "webFallbackHint": "当前为 web 端,请登录后手动粘贴 Cookie 保存",
+      "cloudCred": "云端凭据",
+      "cloudCredTip": "凭据已加密存储在服务器,任何电脑登录本站账号即可使用"
     },
     "ai": {
       "analyzeAll": "批量分析",
