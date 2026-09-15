@@ -17,6 +17,7 @@ import {
   isNull,
   inArray,
   count,
+  type SQL,
 } from 'drizzle-orm'
 import { randomBytes } from 'node:crypto'
 import { db, dbRead } from './index.js'
@@ -552,7 +553,8 @@ export async function findMessagesCursor(
     .select()
     .from(chatMessages)
     .where(condition)
-    .orderBy(desc(chatMessages.createdAt))
+    // 复合排序:created_at DESC + id DESC(同时间戳用 id 字典序决胜,保证 keyset 切分稳定)
+    .orderBy(desc(chatMessages.createdAt), desc(chatMessages.id))
     .limit(limit + 1)
 
   const hasMore = rows.length > limit
