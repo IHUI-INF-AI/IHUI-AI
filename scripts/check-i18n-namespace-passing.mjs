@@ -44,7 +44,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
-import { withExcludes } from './lib/exclude-dirs.mjs'
+import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
@@ -76,7 +76,7 @@ const UI_REACT_IMPORT_RE = /import\s+\{([^}]+)\}\s+from\s+['"]@ihui\/ui-react['"
 function collectTsxFiles(dir, result = []) {
   if (!existsSync(dir)) return result
   for (const entry of readdirSync(dir)) {
-    if (EXCLUDE_DIRS.has(entry)) continue
+    if (isExcludedDirName(entry)) continue
     const full = path.join(dir, entry)
     const st = statSync(full)
     if (st.isDirectory()) {

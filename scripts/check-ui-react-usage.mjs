@@ -36,7 +36,7 @@
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
-import { withExcludes } from './lib/exclude-dirs.mjs'
+import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = resolve(process.cwd())
@@ -76,7 +76,7 @@ function findTsxFiles(root) {
       const name = entry.name
       const full = join(dir, name)
       if (entry.isDirectory()) {
-        if (EXCLUDE_DIRS.has(name)) continue
+        if (isExcludedDirName(name)) continue
         if (name.startsWith('.') && !ALLOWED_DOT_DIRS.has(name)) continue
         stack.push(full)
         continue

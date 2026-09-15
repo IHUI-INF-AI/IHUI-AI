@@ -36,7 +36,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, statSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { withExcludes } from './lib/exclude-dirs.mjs'
+import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -94,7 +94,7 @@ function walkTsx(dir) {
   }
   for (const ent of entries) {
     if (ent.isDirectory()) {
-      if (EXCLUDE_DIRS.has(ent.name)) continue
+      if (isExcludedDirName(ent.name)) continue
       out.push(...walkTsx(join(dir, ent.name)))
     } else if (ent.isFile() && ent.name.endsWith('.tsx')) {
       out.push(join(dir, ent.name))
