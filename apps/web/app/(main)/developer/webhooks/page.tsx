@@ -46,15 +46,16 @@ export default function WebhooksPage() {
     error,
   } = useQuery({
     queryKey: ['developer', 'webhooks'],
-    queryFn: () => api<WebhookItem[]>('/api/developer/webhooks').catch(() => [] as WebhookItem[]),
+    queryFn: () =>
+      api<WebhookItem[]>('/api/developer/webhooks/subscriptions').catch(() => [] as WebhookItem[]),
   })
 
   const saveMut = useMutation({
     mutationFn: () => {
       const body = JSON.stringify({ url, events })
       return editing
-        ? api(`/api/developer/webhooks/${editing.id}`, { method: 'PUT', body })
-        : api('/api/developer/webhooks', { method: 'POST', body })
+        ? api(`/api/developer/webhooks/subscriptions/${editing.id}`, { method: 'PATCH', body })
+        : api('/api/developer/webhooks/subscriptions', { method: 'POST', body })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'webhooks'] })
@@ -65,7 +66,8 @@ export default function WebhooksPage() {
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/developer/webhooks/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      api(`/api/developer/webhooks/subscriptions/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'webhooks'] })
       toast.success('Webhook 已删除')
@@ -75,16 +77,17 @@ export default function WebhooksPage() {
 
   const toggleMut = useMutation({
     mutationFn: (wh: WebhookItem) =>
-      api(`/api/developer/webhooks/${wh.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ isEnabled: !wh.isEnabled }),
+      api(`/api/developer/webhooks/subscriptions/${wh.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ enabled: !wh.enabled }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['developer', 'webhooks'] }),
     onError: (e: Error) => toast.error(e.message),
   })
 
   const testMut = useMutation({
-    mutationFn: (id: string) => api(`/api/developer/webhooks/${id}/test`, { method: 'POST' }),
+    mutationFn: (id: string) =>
+      api(`/api/developer/webhooks/subscriptions/${id}/test`, { method: 'POST' }),
     onSuccess: () => toast.success('测试消息已发送'),
     onError: (e: Error) => toast.error(e.message),
   })

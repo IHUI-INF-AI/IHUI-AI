@@ -31,8 +31,7 @@ vi.mock('drizzle-orm', () => ({
   desc: (col: unknown) => ({ op: 'desc', col }),
   asc: (col: unknown) => ({ op: 'asc', col }),
   // 2026-09-13:service 改用 sql`LOWER(...)` 模板做大小写不敏感匹配,b787 归一批次
-  // 引入;mock 需提供 sql 模板标签,否则 vi.mock 工厂缺导出 → 渲染即抛错。
-  // (2026-09-14 恢复:该 mock 曾在 ai-chat 批次清理中被误删,致本文件 6 例恒红)
+  // 引入;mock 需提供 sql 模板标签,否则 vi.mock 工厂缺导出 → 渲染即抛错
   sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
     op: 'sql',
     strings,

@@ -73,7 +73,7 @@ export default function DeveloperHomePageClient() {
       label: t('statApiKeys'),
       value: summary.keyCount ?? 0,
       icon: Key,
-      href: '/developer/keys',
+      href: '/developer/relay/keys',
       cls: 'text-amber-600 dark:text-amber-400',
       fmt: (v: number | string) => numFmt.format(Number(v)),
     },
