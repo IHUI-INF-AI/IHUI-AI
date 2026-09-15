@@ -2131,7 +2131,8 @@
     "scopeLabel": "Scope",
     "save": "Save",
     "saveFailed": "Save failed",
-    "textRequired": "Memory text is required"
+    "textRequired": "Memory text is required",
+    "uncategorized": "Uncategorized"
   },
   "aiWorld": {
     "title": "AI World",
@@ -2164,20 +2165,37 @@
     "loadFailed": "Failed to load",
     "retry": "Retry",
     "scheduled": "Scheduled",
-    "statsFailed": "Failed to load stats",
+    "statsFailed": "Publish Failed",
     "statsSuccess": "Published",
     "statsTotal": "Total",
     "cancelTask": "Cancel",
     "cancelTitle": "Cancel Publish Task",
     "cancelConfirm": "Cancel this task?",
     "retryTask": "Retry",
-    "operateFailed": "Operation failed, please retry"
+    "operateFailed": "Operation failed, please retry",
+    "statusSuccess": "Success",
+    "statusFailed": "Failed",
+    "statusPartial": "Partial",
+    "statusRunning": "Running",
+    "statusPending": "Pending",
+    "statusSkipped": "Skipped",
+    "platformBilibili": "Bilibili",
+    "platformDouyin": "Douyin",
+    "platformKuaishou": "Kuaishou",
+    "platformWechat": "WeChat Official Account",
+    "platformToutiao": "Toutiao",
+    "platformWeibo": "Weibo",
+    "platformXiaohongshu": "Xiaohongshu (RED)",
+    "platformZhihu": "Zhihu",
+    "platformJuejin": "Juejin",
+    "platformShipinhao": "WeChat Channels"
   },
   "spec": {
     "title": "Spec Templates",
     "loadFailed": "Failed to load templates",
     "empty": "No templates",
-    "desktopHint": "Template browsing is for reference only; Spec generation requires a server-side workspace path — use the full flow on Web/Desktop"
+    "desktopHint": "Template browsing is for reference only; Spec generation requires a server-side workspace path — use the full flow on Web/Desktop",
+    "generateEntry": "Generate on Web"
   },
   "selfMedia": {
     "title": "Self-Media Assistant",
@@ -2235,7 +2253,13 @@
     "saveToAlbum": "Save to album",
     "saveSuccess": "Saved to album",
     "saveFailed": "Save failed, please retry",
-    "needPermission": "Media library permission required"
+    "needPermission": "Media library permission required",
+    "tabHistory": "History",
+    "tabFavorites": "Favorites",
+    "statusPending": "Queued",
+    "statusRunning": "Generating",
+    "statusSucceeded": "Done",
+    "statusFailed": "Failed"
   },
   "webView": {
     "loadFailed": "Failed to load page",
