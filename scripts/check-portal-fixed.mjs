@@ -28,7 +28,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { withExcludes } from './lib/exclude-dirs.mjs'
+import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -41,7 +41,7 @@ function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
     const full = join(dir, name)
     if (statSync(full).isDirectory()) {
-      if (EXCLUDE_DIRS.has(name) || name === 'node_modules') continue
+      if (isExcludedDirName(name) || name === 'node_modules') continue
       walk(full, out)
     } else if (SCAN_EXTS.some((e) => name.endsWith(e))) {
       out.push(full)

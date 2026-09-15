@@ -35,7 +35,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { withExcludes } from './lib/exclude-dirs.mjs'
+import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -190,7 +190,7 @@ function collectFiles(dir, result = []) {
     // 2026-09-15:.next* 前缀统一跳过(.next-static/.next-e2e-*/.next-bak-* 等构建产物
     // 目录名带随机/日期后缀,EXCLUDE_DIRS 精确名匹配覆盖不到,曾致 minified chunk
     // 里的 emoji 字面量被误判为 UI 图标违规,blocking 全体 commit)
-    if (EXCLUDE_DIRS.has(entry) || entry.startsWith('.next')) continue
+    if (isExcludedDirName(entry) || entry.startsWith('.next')) continue
     const full = join(dir, entry)
     const st = statSync(full)
     if (st.isDirectory()) {
@@ -262,7 +262,7 @@ function getStagedFiles() {
       .split('\n')
       .filter(Boolean)
       .filter((f) => SCAN_EXTS.some((e) => f.endsWith(e)))
-      .filter((f) => !EXCLUDE_DIRS.has(f.split('/')[0]))
+      .filter((f) => !isExcludedDirName(f.split('/')[0]))
       .map((f) => join(ROOT, f))
       .filter((f) => existsSync(f))
   } catch {

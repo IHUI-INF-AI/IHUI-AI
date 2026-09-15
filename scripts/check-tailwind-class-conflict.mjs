@@ -46,6 +46,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
@@ -216,7 +217,7 @@ function getStagedFiles() {
       .split('\n')
       .filter(Boolean)
       .filter((f) => SCAN_EXTS.some((e) => f.endsWith(e)))
-      .filter((f) => !EXCLUDE_DIRS.has(f.split('/')[0]))
+      .filter((f) => !EXCLUDE_DIRS.has(f.split('/')[0]) && !isExcludedDirName(f.split('/')[0]))
       .map((f) => join(ROOT, f))
       .filter((f) => existsSync(f))
   } catch {
