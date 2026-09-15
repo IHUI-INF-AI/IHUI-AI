@@ -190,6 +190,40 @@ def _isolate_ab_test_db(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _isolate_model_sync_db(monkeypatch):
+    """隔离 model_sync 的真实 DB:全局把 `get_shared_pool` 换成"不可用"实现。
+
+    2026-09-12 修复(测试直连生产库 → 断言随生产库状态漂移 + 反向删生产数据):
+    test_model_sync::TestCleanupOldLogs / TestGetAggregatedStats 直接调
+    `ModelSyncService.cleanup_old_logs()` / `get_aggregated_stats()`,二者内部
+    `get_shared_pool()` 会真实连上共享 PostgreSQL,并真实执行 DELETE
+    ai_model_sync_log。后果:
+      ① 断言漂移:test_cleanup_returns_zero_when_no_table 断言"无表→deleted_count=0",
+         实际返回值 = 生产库中 30 天前的历史行数;全量跑时库里恰有 6 条超龄行
+         → 真删 6 条 → `assert 6 == 0` 失败(单跑时库内无超龄行 → 通过)。
+      ② 数据破坏:该 DELETE 删的是生产库真实同步历史。
+      ③ 污染来源:`with TestClient(app)` 用例触发 lifespan → model_sync
+         `_sync_loop`(app/main.py:214 → model_sync.py:348)后台真实同步 + 清理,
+         向生产库写 ai_model_sync_log;测试进程不应触碰生产库。
+
+    注意:model_sync.py:70 是 `from ..core.db_pool import get_shared_pool` 绑定式导入,
+    patch `app.core.db_pool.get_shared_pool` 对它无效,必须 patch
+    `app.services.model_sync.get_shared_pool`。替换为抛异常后,model_sync 的全部
+    DB 方法按既有契约优雅降级(cleanup→deleted_count=0 / stats→零值 dict /
+    history→[] / _write_sync_log 静默),断言确定且不再触碰生产库。
+    """
+
+    async def _unavailable_get_shared_pool():
+        raise RuntimeError(
+            "测试隔离:model_sync 的 DB 访问已被 mock(不连真实 PostgreSQL)"
+        )
+
+    monkeypatch.setattr(
+        "app.services.model_sync.get_shared_pool", _unavailable_get_shared_pool
+    )
+
+
+@pytest.fixture(autouse=True)
 def _isolate_jwt_auth(monkeypatch, request):
     """隔离 JWT 中间件:清空 jwt_secret → middleware 走跳过路径(node_env=development)。
 
