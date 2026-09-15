@@ -322,6 +322,8 @@
     "scanLoginSucceeded": "QR 로그인 성공",
     "scanLoginSuccess": "스캔 성공",
     "scanLoginTimeout": "스캔 시간 초과. 다시 시도하세요.",
+    "cloudCred": "클라우드 자격 증명",
+    "cloudCredTip": "자격 증명은 서버에 암호화되어 저장됩니다. 어떤 컴퓨터에서든 계정에 로그인하면 사용할 수 있습니다",
     "scanLoginTitle": "QR 로그인",
     "scanWithPhoneHint": "휴대폰으로 QR 코드를 스캔하여 로그인하세요.",
     "selectPlatform": "플랫폼 선택",
@@ -16750,7 +16752,9 @@
       "verifySuccess": "연결 성공",
       "waitingForScan": "{platform} 앱 스캔 대기 중...",
       "openExternalBrowserWithPlatform": "오른쪽 내장 브라우저에서 {name} 로그인 페이지를 열었습니다. QR 코드를 스캔하여 로그인하세요",
-      "webFallbackHint": "현재 웹 모드입니다. 로그인 후 Cookie를 붙여넣어 수동으로 저장하세요"
+      "webFallbackHint": "현재 웹 모드입니다. 로그인 후 Cookie를 붙여넣어 수동으로 저장하세요",
+      "cloudCred": "클라우드 자격 증명",
+      "cloudCredTip": "자격 증명은 서버에 암호화되어 저장됩니다. 어떤 컴퓨터에서든 계정에 로그인하면 사용할 수 있습니다"
     },
     "ai": {
       "analyzeAll": "일괄 분석",
