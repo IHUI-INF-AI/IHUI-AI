@@ -61,7 +61,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
-import { withExcludes } from './lib/exclude-dirs.mjs'
+import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C, createLogger } from './lib/logger.mjs'
 
 const ROOT = resolve(process.cwd())
@@ -136,7 +136,7 @@ const WHITELIST_PATTERNS = [
 function collectFiles(dir, result = []) {
   if (!existsSync(dir)) return result
   for (const entry of readdirSync(dir)) {
-    if (EXCLUDE_DIRS.has(entry)) continue
+    if (isExcludedDirName(entry)) continue
     const full = join(dir, entry)
     const st = statSync(full)
     if (st.isDirectory()) {
@@ -165,7 +165,7 @@ function getStagedFiles() {
       .filter((f) => {
         // 排除归档/测试目录
         const parts = f.split('/')
-        return !parts.some((p) => EXCLUDE_DIRS.has(p))
+        return !parts.some((p) => isExcludedDirName(p))
       })
       .map((f) => join(ROOT, f))
       .filter((f) => existsSync(f))
