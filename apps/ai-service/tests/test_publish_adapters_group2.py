@@ -945,7 +945,7 @@ class TestZhihuAdapter:
         assert ZhihuAdapter.platform_id == "zhihu"
         assert ZhihuAdapter.platform_name == "知乎"
         assert ZhihuAdapter.supported_formats == ["md", "html"]
-        assert ZhihuAdapter.requires_credentials == ["z_c0"]
+        assert ZhihuAdapter.requires_credentials == ["z_c0", "_xsrf"]
         assert ZhihuAdapter.needs_browser is True
 
     def test_instantiation(self):
@@ -956,7 +956,7 @@ class TestZhihuAdapter:
     def test_cookies(self):
         """_cookies:凭证 dict → cookies list,验证 name/value/domain/path/httpOnly。"""
         adapter = ZhihuAdapter()
-        cookies = adapter._cookies({"z_c0": "cookie456"})
+        cookies = adapter._all_cookies({"z_c0": "cookie456"})
         assert len(cookies) == 1
         c = cookies[0]
         assert c["name"] == "z_c0"
