@@ -12,9 +12,10 @@
  *          + 语音切换按钮(🎤/⌨️ 20pt,键盘模式显 🎤 进入语音,语音模式显 ⌨️ 回键盘)
  * - 语音模式:中间 TextInput 替换为「按住说话」长按区(Pressable onLongPress,500ms),
  *   录音中背景 success.lightest + 边框 success.DEFAULT,提示切换为「松开结束」
- * - 容器:胶囊形(h 40 / paddingHorizontal 12 / borderRadius 20 / bgColor surface.muted / gap 8)
- *   胶囊形为输入框视觉惯例,符合 AGENTS.md §4 圆角守门(输入框例外)
- * - 聚焦态:borderWidth 1 + borderColor brand.DEFAULT,覆盖在 surface.muted 上
+ * - 容器:圆角输入井(h 40 / paddingHorizontal 12 / borderRadius 8 / bgColor surface.muted
+ *   / borderWidth 1 + borderColor border.light / gap 8),对齐全项目搜索框统一规范
+ *   (web 基准:rounded-md + border-border + bg-muted/40,见 packages/ui-react SearchInput)
+ * - 聚焦态:borderColor brand.DEFAULT 高亮
  *
  * Props(保留现有契约,语音能力全部可选,不破坏调用方):
  * - value:受控值
@@ -45,7 +46,7 @@ import {
   type NativeSyntheticEvent,
   type TextInputSubmitEditingEventData,
 } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { getRnTokens } from '@ihui/design-tokens'
 import { Search, Mic, Keyboard, X } from 'lucide-react-native'
 
 export interface SearchInputProps {
@@ -66,11 +67,14 @@ export interface SearchInputProps {
   onVoiceToggle?: (isVoice: boolean) => void
   /** 是否启用语音入口 */
   voiceEnabled?: boolean
+  /** 明暗模式(默认 light,决定输入井配色取哪套 RN token) */
+  colorScheme?: 'light' | 'dark'
 }
 
 const CONTAINER_HEIGHT = 40
 const CONTAINER_PADDING_HORIZONTAL = 12
-const CONTAINER_BORDER_RADIUS = 20
+const CONTAINER_BORDER_RADIUS = 8
+const CONTAINER_BORDER_WIDTH = 1
 const CONTAINER_GAP = 8
 const ICON_FONT_SIZE = 16
 const INPUT_FONT_SIZE = 14
@@ -96,7 +100,9 @@ export function SearchInput({
   voiceText,
   onVoiceToggle,
   voiceEnabled = true,
+  colorScheme = 'light',
 }: SearchInputProps) {
+  const tokens = getRnTokens(colorScheme)
   const [focused, setFocused] = useState(false)
   const [isVoiceMode, setIsVoiceMode] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
@@ -163,12 +169,27 @@ export function SearchInput({
   const showClear = value.length > 0
 
   return (
-    <View style={[styles.container, focused ? styles.containerFocused : null]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: tokens.surface.muted, borderColor: tokens.border.light },
+        focused ? { borderColor: tokens.brand.DEFAULT } : null,
+      ]}
+    >
       <Search size={ICON_FONT_SIZE} color={tokens.text.tertiary} />
 
       {isVoiceMode ? (
         <Pressable
-          style={[styles.voiceArea, isRecording ? styles.voiceAreaRecording : null]}
+          style={[
+            styles.voiceArea,
+            isRecording
+              ? {
+                  backgroundColor: tokens.success.lightest,
+                  borderWidth: 1,
+                  borderColor: tokens.success.DEFAULT,
+                }
+              : null,
+          ]}
           onPressIn={handleVoicePressIn}
           onLongPress={handleVoiceLongPress}
           onPressOut={handleVoicePressOut}
@@ -176,13 +197,18 @@ export function SearchInput({
           accessibilityRole="button"
           accessibilityLabel="按住说话"
         >
-          <Text style={[styles.voiceAreaText, isRecording ? styles.voiceAreaTextRecording : null]}>
+          <Text
+            style={[
+              styles.voiceAreaText,
+              { color: isRecording ? tokens.success.deepText : tokens.text.secondary },
+            ]}
+          >
             {isRecording ? VOICE_RECORDING_TEXT : VOICE_IDLE_TEXT}
           </Text>
         </Pressable>
       ) : (
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: tokens.text.primary }]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
@@ -200,12 +226,12 @@ export function SearchInput({
 
       {showClear ? (
         <Pressable
-          style={styles.clearButton}
+          style={[styles.clearButton, { backgroundColor: tokens.text.tertiary }]}
           onPress={handleClear}
           hitSlop={CLEAR_BUTTON_HIT_SLOP}
           accessibilityLabel="清除"
         >
-          <X size={CLEAR_ICON_FONT_SIZE} color={tokens.text.tertiary} />
+          <X size={CLEAR_ICON_FONT_SIZE} color={tokens.surface.light} />
         </Pressable>
       ) : null}
 
@@ -235,23 +261,12 @@ const styles = StyleSheet.create({
     height: CONTAINER_HEIGHT,
     paddingHorizontal: CONTAINER_PADDING_HORIZONTAL,
     borderRadius: CONTAINER_BORDER_RADIUS,
-    backgroundColor: tokens.surface.muted,
+    borderWidth: CONTAINER_BORDER_WIDTH,
     gap: CONTAINER_GAP,
-  },
-  containerFocused: {
-    borderWidth: 1,
-    borderColor: tokens.brand.DEFAULT,
-  },
-  icon: {
-    fontSize: ICON_FONT_SIZE,
-    lineHeight: ICON_FONT_SIZE + 2,
-    color: tokens.text.tertiary,
-    includeFontPadding: false,
   },
   input: {
     flex: 1,
     fontSize: INPUT_FONT_SIZE,
-    color: tokens.text.primary,
     paddingVertical: 0,
     margin: 0,
   },
@@ -259,32 +274,14 @@ const styles = StyleSheet.create({
     width: CLEAR_BUTTON_SIZE,
     height: CLEAR_BUTTON_SIZE,
     borderRadius: CLEAR_BUTTON_SIZE / 2,
-    backgroundColor: tokens.text.tertiary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  clearIcon: {
-    fontSize: CLEAR_ICON_FONT_SIZE,
-    lineHeight: CLEAR_ICON_FONT_SIZE + 2,
-    color: tokens.surface.light,
-    fontWeight: '600',
-    textAlign: 'center',
-    includeFontPadding: false,
   },
   voiceToggleButton: {
     width: 28,
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  voiceToggleIcon: {
-    fontSize: VOICE_ICON_FONT_SIZE,
-    lineHeight: VOICE_ICON_FONT_SIZE + 4,
-    color: tokens.text.secondary,
-    includeFontPadding: false,
-  },
-  voiceToggleIconActive: {
-    color: tokens.brand.DEFAULT,
   },
   voiceArea: {
     flex: 1,
@@ -293,17 +290,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: CONTAINER_BORDER_RADIUS / 2,
   },
-  voiceAreaRecording: {
-    backgroundColor: tokens.success.lightest,
-    borderWidth: 1,
-    borderColor: tokens.success.DEFAULT,
-  },
   voiceAreaText: {
     fontSize: INPUT_FONT_SIZE,
-    color: tokens.text.secondary,
-  },
-  voiceAreaTextRecording: {
-    color: tokens.success.deepText,
   },
 })
 

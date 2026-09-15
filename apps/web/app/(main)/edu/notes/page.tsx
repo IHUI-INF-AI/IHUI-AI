@@ -7,10 +7,10 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
-import { NotebookPen, Loader2, Trash2, Search } from 'lucide-react'
+import { NotebookPen, Loader2, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, Input } from '@ihui/ui-react'
+import { Button, Card, CardContent, SearchInput } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
 
@@ -80,15 +80,13 @@ export default function EduNotesPage() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      <div className="relative w-full max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('searchPlaceholder')}
-          className="h-9 pl-8"
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={t('searchPlaceholder')}
+        size="lg"
+        wrapperClassName="w-full max-w-xs"
+      />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">

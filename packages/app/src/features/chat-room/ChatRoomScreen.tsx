@@ -9,7 +9,6 @@ import {
   Modal,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   type ImageStyle,
@@ -17,6 +16,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { ChevronLeft, FileText, Music, Video, X } from 'lucide-react-native'
+import { SearchInput } from '../../components/SearchInput'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
 // ── 类型定义(强类型,禁用 any;内联定义对齐 MessageChatScreen 模式) ──
@@ -259,13 +259,11 @@ export function ChatRoomScreen({
     <View style={styles.shell}>
       <Header title="消息" onBack={onExit} styles={styles} />
       <View style={styles.searchBar}>
-        <TextInput
-          style={styles.searchInput}
+        <SearchInput
           value={searchKeyword}
           onChangeText={setSearchKeyword}
           placeholder="搜索聊天记录/联系人/服务号"
-          placeholderTextColor={tk.text.tertiary}
-          returnKeyType="search"
+          colorScheme={colorScheme}
         />
       </View>
       <FlatList
