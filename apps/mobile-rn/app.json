@@ -4,6 +4,7 @@
     "slug": "ihui-ai-mobile",
     "version": "0.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "ihui",
     "splash": {
@@ -25,6 +26,10 @@
     },
     "android": {
       "package": "zh.ai.sq",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
+      },
       "config": {
         "usesNonExemptEncryption": false
       }
