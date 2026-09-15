@@ -57,7 +57,16 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const NAV_DATA = path.resolve(__dirname, '..', 'apps', 'web', 'src', 'components', 'sidebar', 'nav-data.ts')
+const NAV_DATA = path.resolve(
+  __dirname,
+  '..',
+  'apps',
+  'web',
+  'src',
+  'components',
+  'sidebar',
+  'nav-data.ts',
+)
 
 const args = process.argv.slice(2)
 let base = 'http://localhost:8801'
@@ -143,7 +152,12 @@ const sidebarHrefs = await loadSidebarHrefs()
 const ROUTES = all
   ? [...new Set([...PRIORITY_ROUTES, ...sidebarHrefs])]
   : topN > 0
-    ? [...new Set([...PRIORITY_ROUTES, ...sidebarHrefs.filter((h) => !PRIORITY_ROUTES.includes(h))])].slice(0, PRIORITY_ROUTES.length + topN)
+    ? [
+        ...new Set([
+          ...PRIORITY_ROUTES,
+          ...sidebarHrefs.filter((h) => !PRIORITY_ROUTES.includes(h)),
+        ]),
+      ].slice(0, PRIORITY_ROUTES.length + topN)
     : PRIORITY_ROUTES
 
 const log = (...m) => console.log(`[warm-routes ${new Date().toISOString().slice(11, 19)}]`, ...m)
@@ -215,6 +229,8 @@ await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ROUTES.length) }, (
 results.sort((a, b) => ROUTES.indexOf(a.route) - ROUTES.indexOf(b.route))
 
 const slow = results.filter((r) => r.ms > 2000)
-log(`预热完成: ${results.length} 条(并发 ${CONCURRENCY}),慢编译(>2s)${slow.length} 条${slow.length ? ' → ' + slow.map((r) => r.route).join(', ') : ''}`)
+log(
+  `预热完成: ${results.length} 条(并发 ${CONCURRENCY}),慢编译(>2s)${slow.length} 条${slow.length ? ' → ' + slow.map((r) => r.route).join(', ') : ''}`,
+)
 process.exit(0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -45,6 +45,27 @@ test.describe('登录弹窗 3 步 Enter 键盘交互流', () => {
     })
 
     await page.goto(BASE_URL)
+    // 2026-09-14 根因加固:全量负载下 hydration 可拖到 15s+,点击落在静态 DOM 上
+    // login-dialog 永不出现。等 I18nProvider 挂载完成(localStorage initialized 标记,
+    // = React 事件已接)再进入用例;超时不阻断(用例内 toBeVisible 仍兜底)。
+    await page
+      .waitForFunction(
+        () => {
+          try {
+            const raw = localStorage.getItem('ihui-language')
+            if (!raw) return false
+            return (
+              (JSON.parse(raw as string) as { state?: { initialized?: boolean } }).state
+                ?.initialized === true
+            )
+          } catch {
+            return false
+          }
+        },
+        undefined,
+        { timeout: 20000 },
+      )
+      .catch(() => {})
   })
 
   test('Enter 1 → 协议通知窗打开(中文翻译生效,无 i18n key 泄漏)', async ({ page }) => {
