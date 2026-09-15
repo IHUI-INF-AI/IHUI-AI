@@ -43,6 +43,7 @@ export type {
   SubagentSpawnEvent,
   SubagentEndEvent,
   SubagentProgressEvent,
+  CitationsEvent,
 } from './client'
 // AI 对话可视化 Phase 4a 事件类型 re-export(2026-08-01,消息级 plan/terminal inline 展示)
 export type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
@@ -97,6 +98,8 @@ export * from './endpoints/agent'
 export * from './endpoints/agent-runtime'
 // Agent 会话 Token 用量(2026-09-07 工作线 A)
 export * from './endpoints/agent-usage'
+// AI 模型定价查询(W4 成本真网计价,2026-09-12)
+export * from './endpoints/ai-pricing'
 // Deep Research 深度研究(2026-09-07 工作线 B)
 export * from './endpoints/research'
 export * from './endpoints/ai'
@@ -193,6 +196,7 @@ export * from './endpoints/workspace'
 export * from './endpoints/auth-codes'
 export * from './endpoints/chat-skills'
 // AI Skills TOP 19 个 skill 端点(2026-07-23 新增,跨端共享)
+export * from './endpoints/skills-market'
 export * from './endpoints/ai-skills'
 export * from './endpoints/exam-marking'
 export * from './endpoints/mail'
