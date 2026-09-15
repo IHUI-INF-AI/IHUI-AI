@@ -38,7 +38,11 @@ export const relayCommissionRecords = pgTable(
     sourceCallLogId: uuid('source_call_log_id').references(() => llmCallLogs.id, {
       onDelete: 'set null',
     }),
-    sourceCostCents: numeric('source_cost_cents', { precision: 18, scale: 6, mode: 'number' }).notNull(),
+    sourceCostCents: numeric('source_cost_cents', {
+      precision: 18,
+      scale: 6,
+      mode: 'number',
+    }).notNull(),
     // 返佣收益方(邀请人)
     beneficiaryUserId: uuid('beneficiary_user_id')
       .references(() => users.id, { onDelete: 'cascade' })
@@ -48,7 +52,11 @@ export const relayCommissionRecords = pgTable(
     /** 返佣率 numeric(5,4),0.0500=5% */
     commissionRate: numeric('commission_rate', { precision: 5, scale: 4 }).notNull(),
     /** 返佣金额(分) */
-    commissionCents: numeric('commission_cents', { precision: 18, scale: 6, mode: 'number' }).notNull(),
+    commissionCents: numeric('commission_cents', {
+      precision: 18,
+      scale: 6,
+      mode: 'number',
+    }).notNull(),
     /** 'frozen'=冻结 / 'released'=已释放 / 'expired'=已过期 */
     status: varchar('status', { length: 16 }).default('frozen').notNull(),
     /** 冻结到期时间(默认 +7d,到期后可被 releaseExpiredCommissions 释放) */

@@ -22,12 +22,18 @@
     "steps": [
       {
         "action": "navigate",
-        "params": { "url": "https://zh.wikipedia.org/wiki/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD", "timeout_ms": 30000 },
+        "params": {
+          "url": "https://zh.wikipedia.org/wiki/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD",
+          "timeout_ms": 30000
+        },
         "expect": { "type": "title_contains", "value": "人工智能" }
       }
     ],
     "checks": [
-      { "type": "selector_text_contains", "params": { "selector": "#firstHeading", "text": "人工智能" } }
+      {
+        "type": "selector_text_contains",
+        "params": { "selector": "#firstHeading", "text": "人工智能" }
+      }
     ]
   },
   {
@@ -72,9 +78,7 @@
         "expect": { "type": "title_contains", "value": "Hacker News" }
       }
     ],
-    "checks": [
-      { "type": "selector_exists", "params": { "selector": "#hnmain" } }
-    ]
+    "checks": [{ "type": "selector_exists", "params": { "selector": "#hnmain" } }]
   },
   {
     "id": "real-hn-login-form",
@@ -97,9 +101,7 @@
       },
       { "action": "click", "target": { "selector": "input[type='submit']" } }
     ],
-    "checks": [
-      { "type": "url_contains", "params": { "text": "news.ycombinator.com" } }
-    ]
+    "checks": [{ "type": "url_contains", "params": { "text": "news.ycombinator.com" } }]
   },
   {
     "id": "real-bing-results",
@@ -111,9 +113,7 @@
         "params": { "url": "https://www.bing.com/search?q=IHUI+AI", "timeout_ms": 30000 }
       }
     ],
-    "checks": [
-      { "type": "selector_exists", "params": { "selector": "#b_results" } }
-    ]
+    "checks": [{ "type": "selector_exists", "params": { "selector": "#b_results" } }]
   },
   {
     "id": "real-github-login-form",
@@ -148,7 +148,10 @@
     "steps": [
       {
         "action": "navigate",
-        "params": { "url": "https://developer.mozilla.org/zh-CN/docs/Web/JavaScript", "timeout_ms": 30000 }
+        "params": {
+          "url": "https://developer.mozilla.org/zh-CN/docs/Web/JavaScript",
+          "timeout_ms": 30000
+        }
       }
     ],
     "checks": [
@@ -167,7 +170,10 @@
       }
     ],
     "checks": [
-      { "type": "selector_text_contains", "params": { "selector": "h1", "text": "Reserved Domains" } }
+      {
+        "type": "selector_text_contains",
+        "params": { "selector": "h1", "text": "Reserved Domains" }
+      }
     ]
   }
 ]
