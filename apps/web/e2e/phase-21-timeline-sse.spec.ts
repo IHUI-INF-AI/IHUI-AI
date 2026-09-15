@@ -60,9 +60,12 @@ function nowISO(): string {
 
 /** CORS 响应头(streamBaseUrl 直连 API 服务器 localhost:8802,跨域需 preflight)
  *  streamChat 使用 credentials:'include',因此 Access-Control-Allow-Origin 不能用通配 '*',
- *  必须用具体 origin(http://localhost:8801)+ Access-Control-Allow-Credentials: true */
+ *  必须用具体 origin(page 实际 origin,2026-09-15 修:从 E2E_BASE_URL/PLAYWRIGHT_BASE_URL 推导,不再写死 8801)
+ *  + Access-Control-Allow-Credentials: true */
+const PAGE_ORIGIN =
+  process.env.E2E_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8801'
 const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': 'http://localhost:8801',
+  'Access-Control-Allow-Origin': PAGE_ORIGIN,
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers':
