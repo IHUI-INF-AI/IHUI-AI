@@ -46,6 +46,9 @@ module.exports = ({ config }) => {
         { appId: carrierAppId, webSdkUrl: carrierWebSdkUrl, androidPackage },
       ],
       './plugins/withExpoImportFix.cjs',
+      // Android 开屏图 + 样式:未装 expo-splash-screen 时 prebuild 的 legacy 分支
+      // 不会写 drawable 资源,原生目录里留的是模板灰白占位图(详见插件头注释)
+      './plugins/withSplash.cjs',
       // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
       // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
       // build-time linking,font-family 名称取字体内部 PostScript name
