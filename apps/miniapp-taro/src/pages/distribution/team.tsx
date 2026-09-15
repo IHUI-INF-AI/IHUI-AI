@@ -3,8 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt } from '@/i18n'
-import { View, Text, Image, Input, Picker } from '@tarojs/components'
+import { View, Text, Image, Picker } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
+import SearchBar from '@/components/SearchBar'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionTeam } from '@/api'
@@ -151,22 +152,13 @@ export default function DistributionTeam() {
      奖牌/团队总人数行/查看下级按钮为小程序特有静态元素,按 RN 卡片与按钮语言收敛 */
   return (
     <ThemeRoot className="min-h-screen bg-background pb-[64rpx]">
-      {/* 对齐 RN TeamScreen searchRow/searchInput:px 10dp→20rpx pb 8dp→16rpx;高 40dp→80rpx */}
-      <View className="mx-[20rpx] mt-[20rpx] flex flex-row items-center h-[80rpx] px-[24rpx] rounded-[24rpx] border border-border bg-card">
-        <LineIcon
-          className="mr-[16rpx] flex-shrink-0"
-          name="search"
-          size={40}
-          color="var(--color-muted-foreground)"
-        />
-        <Input
-          className="flex-1 text-[28rpx] text-foreground"
-          value={searchText}
-          onInput={(e) => setSearchText(e.detail.value)}
-          placeholder={tt('distribution.team.searchPlaceholder', '搜索我的团友')}
-          placeholder-style="color: var(--color-text-tertiary)"
-        />
-      </View>
+      {/* 对齐 RN TeamScreen searchRow:px 10dp→20rpx pb 8dp→16rpx;搜索框统一圆角输入井(共享 SearchBar) */}
+      <SearchBar
+        value={searchText}
+        onInput={setSearchText}
+        placeholder={tt('distribution.team.searchPlaceholder', '搜索我的团友')}
+        onClear={() => setSearchText('')}
+      />
 
       {/* 团队总人数 — 小程序特有统计行,按 RN 文字层级着色 */}
       <View className="mx-[20rpx] mt-[16rpx]">

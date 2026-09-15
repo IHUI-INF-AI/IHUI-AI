@@ -4,12 +4,13 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Image, ScrollView, Input } from '@tarojs/components'
+import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import SearchBar from '@/components/SearchBar'
 import './index.css'
 
 /** 广场卡片项(对标原项目 CardContent info) */
@@ -270,17 +271,15 @@ export default function PlazaIndex() {
         </View>
 
         {searchOpen ? (
-          <View className="pza-search">
-            <Input
-              className="pza-search-input"
-              type="text"
-              placeholder={tt('plaza.index.searchPlaceholder', '搜索需求')}
-              value={search}
-              onInput={(e) => setSearch(e.detail.value)}
-              onConfirm={onSearchConfirm}
-              confirmType="search"
-            />
-          </View>
+          /* 搜索栏(统一圆角输入井,共享 SearchBar) */
+          <SearchBar
+            className=""
+            value={search}
+            placeholder={tt('plaza.index.searchPlaceholder', '搜索需求')}
+            onInput={setSearch}
+            onSearch={onSearchConfirm}
+            onClear={() => setSearch('')}
+          />
         ) : null}
 
         {/* 状态筛选 tab */}

@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getHelp, submitFeedback } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import SearchBar from '@/components/SearchBar'
 
 interface HelpItem {
   id: string
@@ -98,12 +99,14 @@ export default function HelpPage() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx]">
+        {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
         <View className="mb-[24rpx]">
-          <Input
-            className="h-[80rpx] px-[24rpx] bg-muted border-[2rpx] border-border rounded-[24rpx] text-[28rpx] text-foreground"
-            placeholder={tt('about.help.search', '搜索帮助')}
+          <SearchBar
+            className=""
             value={keyword}
-            onInput={(e) => setKeyword(e.detail.value)}
+            placeholder={tt('about.help.search', '搜索帮助')}
+            onInput={setKeyword}
+            onClear={() => setKeyword('')}
           />
         </View>
 
