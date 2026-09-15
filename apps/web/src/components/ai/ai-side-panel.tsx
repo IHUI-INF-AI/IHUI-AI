@@ -29,8 +29,10 @@ import { EnvironmentInfoPopover } from '@/components/ai/environment-info-popover
 import { AiTerminalDock } from '@/components/ai/ai-terminal-dock'
 import { QuestionDialog } from '@/components/chat/question-dialog'
 import { SessionUsageBadge } from '@/components/chat/session-usage-badge'
+import { ChatExportMenu } from '@/components/chat/chat-export-menu'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
+import { AiSidePanelTools } from '@/components/ai/ai-side-panel-tools'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
@@ -1144,6 +1146,8 @@ export function AISidePanel() {
                     isStreaming={isStreaming}
                     model={currentModel}
                   />
+                  {/* W15(2026-09-13 立):会话级导出/分享菜单(MD/JSON/快照图/分享链接) */}
+                  <ChatExportMenu title={displayTitle} disabled={isStreaming} />
                 </span>
               </div>
               {/* Plan/Act 模式切换(2026-07-24 立,对标 AI 工作台 plan/act toggle + Codex)
@@ -1309,6 +1313,11 @@ export function AISidePanel() {
             {/* Sub-agent 活动流:已移至 MessageList 中 inline 渲染(Phase 18.2,AI 工作台 风格)
             历史:此区域之前独立在 AI 面板底部,但 AI 工作台 的 subagent 卡片是 inline 在对话流中。
             为保持视觉一致性,所有 subagent 卡片现在统一在最后一条 AI 消息下方展示。 */}
+
+            {/* W10 工具面板(2026-09-13 立):tab 化挂载 15 个孤儿组件(plan/tasks/progress/agents/
+              background/swarm/orchestration/trace/checkpoints/tokens/spec/runtime),位于消息区与
+              压缩状态栏之间,默认折叠 */}
+            <AiSidePanelTools />
 
             {/* 压缩状态栏(2026-08-16 立):在输入框上方显示压缩进度和结果 */}
             <CompactionStatusBar />
