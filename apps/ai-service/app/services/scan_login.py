@@ -251,6 +251,47 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "success_cookies": ["hupu_username", "hupu_uid"],
         "success_url_pattern": r"passport\.hupu\.com/iframe/loginSuccess|my\.hupu\.com",
     },
+    # ===== 第五批:API/OAuth 平台扫码兜底(2026-09-16 补齐)=====
+    # 背景:批量扫码队列此前对 wordpress/medium/youtube/toutiao/wechat 报
+    # "未找到该平台登录页配置"——这 5 个平台在前端 PLATFORM_SCHEMAS(38 个)中
+    # 存在但缺扫码配置。与 douyin/kuaishou(oauth 类型已有扫码配置)同一设计:
+    # 扫码捕获浏览器登录态 cookies 保存到账号;API 凭据发布仍走各自的凭据配置。
+    "wordpress": {
+        "name": "WordPress",
+        "login_url": "https://wordpress.com/log-in",
+        # WordPress 登录 cookie 名带哈希后缀(wordpress_logged_in_<hash>),
+        # 必须用前缀通配;wordpress.com 登录后跳 /home,自建站跳 /wp-admin/
+        "success_cookies": ["wordpress_logged_in*"],
+        "success_url_pattern": r"wordpress\.com/(home|me)\b|wp-admin/",
+    },
+    "medium": {
+        "name": "Medium",
+        "login_url": "https://medium.com/m/signin",
+        "success_cookies": ["uid", "sid"],  # Medium 登录后会话 cookie
+        "success_url_pattern": r"^https?://(www\.)?medium\.com/?($|#|\?)|medium\.com/me\b",
+    },
+    "youtube": {
+        "name": "YouTube",
+        "login_url": "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fwww.youtube.com%2F",
+        # Google 会话 cookie(域名 .google.com/.youtube.com 均可取到)
+        "success_cookies": ["SID", "HSID", "SSID", "SAPISID", "__Secure-1PSID"],
+        # 登录页在 accounts.google.com(path 含 login → _url_is_login_page 拦住),
+        # 登录成功后 continue 跳回 youtube.com 首页
+        "success_url_pattern": r"^https?://(www\.)?youtube\.com/?($|#|\?)",
+        "require_url_match": True,
+    },
+    "toutiao": {
+        "name": "今日头条",
+        "login_url": "https://www.toutiao.com/",
+        "success_cookies": ["sid_tt", "sessionid", "tt_scid"],
+        "success_url_pattern": r"^https?://(www\.)?toutiao\.com/?($|#|\?)|mp\.toutiao\.com/(dashboard|home|main)",
+    },
+    "wechat": {
+        "name": "微信公众号",
+        "login_url": "https://mp.weixin.qq.com/",
+        "success_cookies": ["slave_sid", "slave_user"],
+        "success_url_pattern": r"mp\.weixin\.qq\.com/cgi-bin/",
+    },
 }
 
 
@@ -277,6 +318,29 @@ def _url_matches_success(config: dict[str, Any], url: str) -> bool:
         return False
     pattern = config.get("success_url_pattern", "")
     return bool(pattern and re.search(pattern, url) and not _url_is_login_page(url))
+
+
+def _cookie_hits(
+    config: dict[str, Any], cookies_dict: dict[str, str], min_len: int = 5
+) -> list[str]:
+    """success_cookies 命中检测(2026-09-16 新增:支持 `前缀*` 通配)。
+
+    WordPress 等平台的登录 cookie 名带哈希后缀(wordpress_logged_in_<hash>),
+    旧版精确匹配永远命中不了 → 条目以 `*` 结尾时按前缀匹配。
+    min_len=5:非空且长度足够才视为有效会话;min_len=0:仅判断存在(URL 兜底用)。
+    """
+    hits: list[str] = []
+    for target in config["success_cookies"]:
+        if target.endswith("*"):
+            prefix = target[:-1]
+            hits.extend(
+                k
+                for k in cookies_dict
+                if k.startswith(prefix) and len(cookies_dict[k]) > min_len
+            )
+        elif target in cookies_dict and len(cookies_dict[target]) > min_len:
+            hits.append(target)
+    return hits
 
 
 # ---------------------------------------------------------------------------
@@ -715,7 +779,6 @@ def _run_scan_task(task: ScanTask) -> None:
             timeout_seconds = 5 * 60  # 5 分钟超时
             start_time = time.time()
             last_screenshot_time = 0.0
-            import re
 
             while not task._stop_event.is_set():
                 # P2 修复(2026-08-06): 检测其它实例的状态变更(取消/过期),
@@ -761,27 +824,29 @@ def _run_scan_task(task: ScanTask) -> None:
                 _require_url_match = bool(config.get("require_url_match"))
                 _url_ok = _url_matches_success(config, page.url)
 
-                # 命中目标 cookie?
-                for target in config["success_cookies"]:
-                    if target in cookies_dict and len(cookies_dict[target]) > 5 and (_url_ok or not _require_url_match):
-                        logger.info(f"[scan_login] 任务 {task.task_id} 检测到登录 cookie: {target}")
-                        task.cookies = {k: v for k, v in cookies_dict.items() if k in config["success_cookies"]}
-                        # 收集所有非 tracker 的相关 cookies
-                        task.all_relevant_cookies = {
-                            k: v for k, v in cookies_dict.items()
-                            if not any(s in k.lower() for s in ["google", "baidu", "cnzz", "_ga", "hm.baidu"])
-                        }
-                        task.status = "success"
-                        task.message = f"登录成功,获取到 {len(task.all_relevant_cookies)} 个 cookies"
-                        task.completed_at = time.time()
+                # 命中目标 cookie?(2026-09-16:改用 _cookie_hits,支持前缀通配)
+                _matched = [
+                    t for t in _cookie_hits(config, cookies_dict)
+                    if _url_ok or not _require_url_match
+                ]
+                if _matched:
+                    logger.info(f"[scan_login] 任务 {task.task_id} 检测到登录 cookie: {_matched[0]}")
+                    task.cookies = {k: v for k, v in cookies_dict.items() if k in _matched}
+                    # 收集所有非 tracker 的相关 cookies
+                    task.all_relevant_cookies = {
+                        k: v for k, v in cookies_dict.items()
+                        if not any(s in k.lower() for s in ["google", "baidu", "cnzz", "_ga", "hm.baidu"])
+                    }
+                    task.status = "success"
+                    task.message = f"登录成功,获取到 {len(task.all_relevant_cookies)} 个 cookies"
+                    task.completed_at = time.time()
 
-                        # 截图最终状态
-                        _update_qr_screenshot(task, page)
+                    # 截图最终状态
+                    _update_qr_screenshot(task, page)
 
-                        # 异步保存到后端账号
-                        _schedule_account_save(task)
-                        _persist_task(task)  # P2 修复(2026-08-06): 成功终态同步到 Redis
-                        break
+                    # 异步保存到后端账号
+                    _schedule_account_save(task)
+                    _persist_task(task)  # P2 修复(2026-08-06): 成功终态同步到 Redis
 
                 if task.status == "success":
                     break
@@ -791,9 +856,10 @@ def _run_scan_task(task: ScanTask) -> None:
                 if _url_matches_success(config, current_url):
                     # URL 已跳转,可能已登录
                     logger.info(f"[scan_login] 任务 {task.task_id} URL 跳转: {current_url}")
-                    # 再检查一次 cookies(可能还没设置)
-                    if cookies_dict and any(target in cookies_dict for target in config["success_cookies"]):
-                        task.cookies = {k: v for k, v in cookies_dict.items() if k in config["success_cookies"]}
+                    # 再检查一次 cookies(可能还没设置;2026-09-16:通配感知,min_len=0)
+                    _present = _cookie_hits(config, cookies_dict, min_len=0) if cookies_dict else []
+                    if _present:
+                        task.cookies = {k: v for k, v in cookies_dict.items() if k in _present}
                         task.all_relevant_cookies = {
                             k: v for k, v in cookies_dict.items()
                             if not any(s in k.lower() for s in ["google", "baidu", "cnzz", "_ga", "hm.baidu"])
@@ -955,20 +1021,19 @@ async def detect_login_from_cdp_session(
     require_url_match = bool(config.get("require_url_match"))
     url_ok = _url_matches_success(config, current_url)
 
-    # 主检测:success_cookies 命中(值长度 > 5 视为有效)
-    hit = [
-        target for target in config["success_cookies"]
-        if target in cookies_dict and len(cookies_dict.get(target, "")) > 5
-    ]
+    # 主检测:success_cookies 命中(2026-09-16:改用 _cookie_hits,支持前缀通配)
+    hit = _cookie_hits(config, cookies_dict)
     if hit and require_url_match and not url_ok:
         hit = []
 
     # 2026-09-15 修复:URL 跳转兜底检测(与 _run_scan_task 对齐)。
     # 场景:平台 cookie 名单过时/变更时,主检测永远不命中 → 永远无法保存账号。
-    # 条件:URL 命中 success_url_pattern + 不在登录页 + 至少 1 个期望 cookie 存在。
-    if not hit and url_ok and any(target in cookies_dict for target in config["success_cookies"]):
-        hit = [t for t in config["success_cookies"] if t in cookies_dict]
-        logger.info(f"[scan_login] CDP URL 兜底命中: platform={platform}, url={current_url}, cookies={hit}")
+    # 条件:URL 命中 success_url_pattern + 不在登录页 + 至少 1 个期望 cookie 存在(通配感知,min_len=0)。
+    if not hit and url_ok:
+        present = _cookie_hits(config, cookies_dict, min_len=0)
+        if present:
+            hit = present
+            logger.info(f"[scan_login] CDP URL 兜底命中: platform={platform}, url={current_url}, cookies={hit}")
 
     if not hit:
         return {
