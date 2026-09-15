@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Image, Input, ScrollView } from '@tarojs/components'
+import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getFavorites, deleteFavorite, type FavoriteItem } from '@/api/social'
@@ -11,6 +11,7 @@ import { useSocialList } from '@/hooks/use-social-list'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import SearchBar from '@/components/SearchBar'
 
 const PAGE_SIZE = 20
 
@@ -182,20 +183,14 @@ export default function FavoritesPage() {
             {manageMode ? tt('favorites.done', '完成') : tt('favorites.manage', '管理')}
           </Text>
         </View>
-        <View className="flex items-center h-[72rpx] px-[20rpx] bg-card border-[2rpx] border-border rounded-[24rpx]">
-          <LineIcon
-            name="search"
-            size={28}
-            className="mr-[12rpx] shrink-0"
-            color="var(--color-muted-foreground)"
-          />
-          <Input
-            className="flex-1 text-[28rpx] text-foreground"
-            value={searchText}
-            onInput={(e) => setSearchText(e.detail.value)}
-            placeholder={tt('favorites.searchPlaceholder', '搜索收藏的内容')}
-          />
-        </View>
+        {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
+        <SearchBar
+          className=""
+          value={searchText}
+          onInput={setSearchText}
+          placeholder={tt('favorites.searchPlaceholder', '搜索收藏的内容')}
+          onClear={() => setSearchText('')}
+        />
       </View>
 
       {/* 分类 Tab:横向滚动(对齐 RN FavoriteScreen tab:paddingHorizontal 14dp/paddingVertical 6dp/radius 12dp/激活 bg brand) */}

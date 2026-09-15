@@ -3,8 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Input, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView, Image } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
+import SearchBar from '@/components/SearchBar'
 import type { Agent } from '@ihui/api-client'
 import { useState, useMemo, useCallback } from 'react'
 import DrawerComponent from './DrawerComponent'
@@ -65,10 +66,6 @@ export default function SkillsPopup({
     [onSelect],
   )
 
-  const handleSearch = useCallback((e: { detail: { value?: string } }) => {
-    setKeyword(e.detail.value || '')
-  }, [])
-
   return (
     <DrawerComponent visible={visible} onClose={onClose} height="70vh">
       <View className="px-4 py-3 mb-2">
@@ -77,14 +74,14 @@ export default function SkillsPopup({
         </Text>
       </View>
 
+      {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
       <View className="px-4 py-2">
-        <Input
-          className="w-full h-9 px-3 text-sm bg-muted rounded-lg text-foreground dark:text-muted-foreground"
-          type="text"
-          placeholder={t('ai.skillsPopup.searchPlaceholder')}
-          placeholderClass="text-muted-foreground"
+        <SearchBar
+          className=""
           value={keyword}
-          onInput={handleSearch}
+          placeholder={t('ai.skillsPopup.searchPlaceholder')}
+          onInput={setKeyword}
+          onClear={() => setKeyword('')}
         />
       </View>
 
