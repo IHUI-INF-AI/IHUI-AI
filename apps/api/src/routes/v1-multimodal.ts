@@ -83,9 +83,7 @@ const INTERNAL_BASE = `http://localhost:${process.env.PORT || 8802}`
 
 /** 取鉴权后的 API Key 上下文(计费需要 apiKeyId)。 */
 function apiKeyOf(request: Parameters<typeof getUserId>[0]): { id: string; userId: string } | null {
-  const apiKey = (
-    request as FastifyRequest & { apiKey?: { id: string; userId: string } }
-  ).apiKey
+  const apiKey = (request as FastifyRequest & { apiKey?: { id: string; userId: string } }).apiKey
   return apiKey ?? null
 }
 
