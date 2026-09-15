@@ -16737,7 +16737,7 @@
       "subtitle": "Configure login credentials for each platform (encrypted storage)",
       "taskId": "Task",
       "title": "Account Management",
-      "verify": "Test Connection",
+      "verify": "Verify",
       "verifyFailed": "Connection Failed",
       "verifySuccess": "Connection Successful",
       "waitingForScan": "Waiting for {platform} app to scan...",
