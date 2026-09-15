@@ -983,7 +983,7 @@ iframe::-webkit-scrollbar {
 }
 
 /* ============================================================
- * 账号卡片按钮行等宽网格 (2026-09-15, v2 跨语言实测校准)
+ * 账号卡片按钮行等宽网格 (2026-09-15, v3 跨语言实测校准)
  * ============================================================
  * 背景:发布平台账号管理页卡片操作行(测试连接/扫码/编辑/删除)此前用
  * flex flex-wrap + flex-1 min-w-fit,存在两个残留缺陷:
@@ -991,27 +991,27 @@ iframe::-webkit-scrollbar {
  *    flex 均分被 min-width 钳制 → 同行按钮宽度不严格相等;
  * ② 极窄容器下 flex 换行退化为 1 行 1 按钮的全宽堆叠,形态参差。
  *
- * v1 教训:首版 @container 阈值 440px 只按中文 fit-content(98px)校准,
- * 且误用 border-box 口径 —— 实测卡片 border-box 443px ≥ 440 仍 2 列,
- * 因 @container 按容器 content-box 计(443 - 24 内边距 = 419 < 440)。
- * 跨语言实测(clone + nowrap,5 locale)global maxFit:
- *   zh-CN/zh-TW = 98px, ja = 110px, ko = 113.25px, en = 139.56px
- * → 4 列需容器 content ≥ 4×139.56 + 3×4 = 570.24px,而本布局卡片
- *   content 上限 ≈ 512px(publish 布局 max-w-6xl 1152px 容器、2 列卡片,
- *   1920 视口实测),4 列对 en 永远放不下 —— 故废除 4 列档,仅留 1/2 列。
+ * 校准数据(clone + nowrap,5 locale 实测 fit-content):
+ *   v2: zh-CN/zh-TW = 98px, ja = 110px, ko = 113.25px, en = 139.56px
+ *       (en "Test Connection" 139.56 为全局上界,4 列需 content ≥570px,
+ *       超出布局上限 ~512px → v2 被迫废除 4 列档)
+ *   v3: en 文案 accounts.verify 缩短为 "Verify"(配合同 commit 的
+ *       web/en.json 改动),en maxFit 降至 84.02("Delete")→ 全局上界
+ *       变为 ko 113.25 → 4 列需 content ≥ 4×113.25 + 3×4 = 465px
  *
- * 方案(v2):
+ * 方案(v3)三档,content 口径(@container 按 content-box 计,勿用 border-box):
  * - 基础 1 列:content < 290px 时全宽堆叠(任何语言不裁字)。
- *   落入此档的 reality:320-360px 手机视口(卡片 content ≈ 248-288px);
+ *   落入此档的 reality:320-375px 手机视口(卡片 content ≈ 176-231px);
  *   全宽堆叠是移动端操作按钮常规形态,优于 2 列裁字溢出;
- * - content ≥ 290px 升 2 列:轨道 = (290-4)/2 = 143 ≥ 139.56
- *   (en 上界,留 3.4px slack),≥640px 视口全区间 2 列 × 2 行,
- *   minmax(0,1fr) 强制四只按钮严格等宽。
+ * - content ≥ 290px 升 2 列:轨道 = (290-4)/2 = 143 ≥ 113.25
+ *   (留 29.75px slack),640-1599px 视口全区间 2 列 × 2 行严格等宽;
+ * - content ≥ 480px 升 4 列:轨道 = (480-12)/4 = 117 ≥ 113.25
+ *   (留 3.75px slack),reality:1920 视口卡片 content 512px 触发。
  *
  * 配套(同 commit):page.tsx 卡片网格 min-[640px]:grid-cols-2 →
  * min-[1280px]:grid-cols-2。否则 768-1279px 视口下 2 列卡片 content
- * 仅 133-339px,2 列按钮轨道 64.5-167.5px < en 139.56px,nowrap 文字
- * 溢出按钮盒子(h 不变、盒子不溢出行,但文字画到相邻按钮上)。
+ * 仅 133-339px,2 列按钮轨道 64.5-167.5px,nowrap 文字溢出按钮盒子
+ * (h 不变、盒子不溢出行,但文字画到相邻按钮上)。
  *
  * 用原生 CSS 而非 Tailwind v4 container variant:
  * 实测 Tailwind v4 仅编译 .@container 类(container-type: inline-size),
@@ -1027,6 +1027,11 @@ iframe::-webkit-scrollbar {
 @container (min-width: 290px) {
   .account-card .account-card-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container (min-width: 480px) {
+  .account-card .account-card-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
