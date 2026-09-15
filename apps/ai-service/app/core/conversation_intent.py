@@ -20,9 +20,9 @@ import logging
 import re
 from typing import Any
 
+from ..services.mcp_server import mcp_server
 from .conversation_models import INTENT_LABELS, IntentResult
 from .llm_gateway import llm_gateway
-from ..services.mcp_server import mcp_server
 
 logger = logging.getLogger(__name__)
 
