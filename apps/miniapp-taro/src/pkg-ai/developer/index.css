@@ -72,19 +72,6 @@
   font-weight: 600;
 }
 
-/* 搜索框 */
-.search-bar {
-  margin: 20rpx;
-  padding: 0 24rpx;
-  background: var(--color-card);
-  border-radius: var(--radius-md);
-}
-.search-input {
-  height: 72rpx;
-  font-size: 28rpx;
-  color: var(--color-foreground);
-}
-
 /* 子 tab */
 .sub-tabs {
   display: flex;
