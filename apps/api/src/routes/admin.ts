@@ -210,10 +210,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         }
         if (billingMode === 'per_call') {
           const t = b.tieredCallPrices
-          if (
-            !t ||
-            [t.le256k, t.mid, t.gt512k].some((v) => typeof v !== 'number' || v <= 0)
-          ) {
+          if (!t || [t.le256k, t.mid, t.gt512k].some((v) => typeof v !== 'number' || v <= 0)) {
             return reply
               .status(400)
               .send(error(400, 'per_call 模式必须提供完整 tieredCallPrices 三档(均大于 0)'))
