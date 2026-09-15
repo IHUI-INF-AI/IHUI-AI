@@ -23,8 +23,10 @@ from httpx import ASGITransport, AsyncClient
 from app.routers.agents import (
     SecurityConfigUpdateRequest,
     get_agent_security_config,
-    router as agents_router,
     update_agent_security_config,
+)
+from app.routers.agents import (
+    router as agents_router,
 )
 from app.services.security_config import (
     GUARD_POLICIES,
@@ -88,8 +90,8 @@ def test_set_rejects_invalid_enum() -> None:
 
 
 def test_policy_constants() -> None:
-    assert POLICY_MODES == frozenset({"enforce", "audit", "off"})
-    assert GUARD_POLICIES == frozenset({"flag", "sanitize", "refuse"})
+    assert frozenset({"enforce", "audit", "off"}) == POLICY_MODES
+    assert frozenset({"flag", "sanitize", "refuse"}) == GUARD_POLICIES
 
 
 def test_reset_restores_env_default() -> None:
