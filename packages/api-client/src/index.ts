@@ -45,7 +45,12 @@ export type {
   SubagentProgressEvent,
 } from './client'
 // AI 对话可视化 Phase 4a 事件类型 re-export(2026-08-01,消息级 plan/terminal inline 展示)
-export type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
+export type {
+  PlanUpdateEvent,
+  TerminalStartEvent,
+  TerminalEndEvent,
+  CitationsEvent,
+} from '@ihui/types'
 export { ApiError, isNotFound, isErrorCode } from './api-error'
 export { setTransport, getTransport } from './transport'
 export type { Transport, TransportResponse, TransportInit } from './transport'
@@ -250,3 +255,7 @@ export * from './endpoints/team-memory'
 
 // 用户侧 Agent 定时自动化端点(2026-09-07 新增)
 export * from './endpoints/automations'
+export * from './endpoints/admin-tool-gen'
+export * from './endpoints/ai-pricing'
+export * from './endpoints/distribution'
+export * from './endpoints/skills-market'

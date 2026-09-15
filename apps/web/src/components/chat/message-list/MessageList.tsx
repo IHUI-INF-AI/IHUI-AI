@@ -40,6 +40,8 @@ interface MessageListProps {
   /** Inline Diff Accept 回调:把 edit_file/write_file 的 diff 写入文件系统
    *  2026-07-22 立,P3 Inline Diff 卡片 Apply 工作流 */
   onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
+  onApplyAllDiffs?: (messageId: string) => Promise<void>
+  onRejectAllDiffs?: (messageId: string) => void
   /** Inline Diff Reject 回调:纯前端标记为 rejected */
   onRejectDiff?: (messageId: string, toolCallId: string) => void
   /** #8 是否还有更早的历史消息可加载(滚动到顶部时触发 onLoadMoreHistory) */
