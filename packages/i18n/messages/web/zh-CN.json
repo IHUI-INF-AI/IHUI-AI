@@ -8523,6 +8523,13 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "usageEstimated": "估算",
+    "turnChanges": {
+      "title": "本轮变更",
+      "revert": "恢复到本轮之前",
+      "noCheckpoints": "无可用检查点",
+      "revertConfirm": "即将把对话与文件恢复到本条 AI 回复之前。共 {count} 个文件改动将回退,此操作不可撤销。"
+    },
     "addContextHint": "添加上下文文件或引用",
     "addContextReference": "添加为上下文引用",
     "addMenuDesc": "添加菜单(模板/引用/Skill/附件/插件/压缩)",
@@ -12044,6 +12051,11 @@
     }
   },
   "fileMention": {
+    "groupDir": "目录",
+    "groupSemantic": "语义源",
+    "semanticCodebaseDesc": "注入活跃工作区目录树摘要",
+    "semanticTerminalDesc": "注入最近终端输出",
+    "semanticDocsDesc": "注入 CLAUDE.md/AGENTS.md/README.md",
     "fileSearchPlaceholder": "搜索文件…",
     "noMatch": "无匹配文件",
     "clearAriaLabel": "清空搜索",
@@ -16774,6 +16786,11 @@
       "batchScanTitle": "一键扫码登录",
       "batchScanDescription": "自动逐个打开待配置平台的登录页:保持手机扫码状态连续扫即可,每个平台登录成功后自动保存并切换下一个。",
       "batchScanProgress": "第 {current}/{total} 个 · {name}",
+      "batchScanModeLabel": "批量扫码模式",
+      "batchScanModeInternal": "内置浏览器",
+      "batchScanModeExternal": "外部浏览器",
+      "batchScanWaitingHintExternal": "请在外部浏览器完成扫码登录",
+      "batchScanStart": "开始批量扫码",
       "batchScanWaitingHint": "请在右侧内置浏览器完成该平台扫码/登录;超时(2 分钟)会自动跳过,也可手动跳过",
       "batchScanLoading": "正在准备平台队列...",
       "batchScanSkip": "跳过此平台",
