@@ -102,7 +102,6 @@ const MARKET_SEED: SkillMarketEntry[] = [
     name: 'content_engine',
     description: '内容引擎 — 自动生成公众号文章/口播稿/短视频脚本',
     tags: ['content', 'writing', 'media'],
-    icon: 'file-text',
     author: 'IHUI',
     version: '1.2.0',
     license: 'MIT',
@@ -129,7 +128,6 @@ const MARKET_SEED: SkillMarketEntry[] = [
     name: 'code-reviewer',
     description: '代码审查 — 自动 PR review,安全漏洞/坏味道/性能检查',
     tags: ['code', 'review', 'devops'],
-    icon: 'code',
     author: 'OpenSource',
     version: '2.0.0',
     license: 'Apache-2.0',
@@ -169,7 +167,6 @@ const MARKET_SEED: SkillMarketEntry[] = [
     name: 'doc-summarizer',
     description: '文档摘要 — 长文档自动摘要 + 关键点提取 + 多语言翻译',
     tags: ['content', 'ai', 'docs'],
-    icon: 'file-search',
     author: 'IHUI',
     version: '1.0.3',
     license: 'MIT',
@@ -866,85 +863,6 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       notifFallback.delete(key)
     }
     return reply.send(success({ marked: count }))
-  })
-
-  // ===================== 启停(用户级启用/停用)P3-产品化 =====================
-  // Redis key:skill-enabled:<userId> → Set<skillName>(该用户启用的 skill 集合)
-  // 进程内降级:enabledFallback(Map<key, Set<string>>)
-
-  const enabledFallback = new Map<string, Set<string>>()
-
-  function enabledKey(userId: string): string {
-    return `skill-enabled:${userId}`
-  }
-
-  async function readEnabled(redis: RedisSetOps, key: string): Promise<string[]> {
-    try {
-      return await setMembers(redis, key)
-    } catch {
-      return Array.from(enabledFallback.get(key) ?? [])
-    }
-  }
-
-  async function addEnabled(redis: RedisSetOps, key: string, member: string): Promise<void> {
-    try {
-      await setAdd(redis, key, member)
-    } catch {
-      if (!enabledFallback.has(key)) enabledFallback.set(key, new Set())
-      enabledFallback.get(key)!.add(member)
-    }
-  }
-
-  async function removeEnabled(redis: RedisSetOps, key: string, member: string): Promise<void> {
-    try {
-      await setRemove(redis, key, member)
-    } catch {
-      enabledFallback.get(key)?.delete(member)
-    }
-  }
-
-  // GET /skills/enabled — 当前用户已启用的 skill 名称列表(页面初始化 启停状态)
-  server.get('/skills/enabled', async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
-    const userId = request.userId!
-    const enabled = await readEnabled(server.redis, enabledKey(userId))
-    return reply.send(success({ enabled }))
-  })
-
-  // POST /skills/:name/enable — 启用 skill(写入用户启用集合)
-  server.post<{ Params: { name: string } }>('/skills/:name/enable', async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
-    const userId = request.userId!
-
-    const parsed = nameParamSchema.safeParse(request.params)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const skillName = parsed.data.name
-
-    // 校验 skill 存在于市场(可启用市场内任意 skill,含未安装的)
-    const entries = await readMarket(server.redis, MARKET_KEY)
-    if (!entries.some((e) => e.name === skillName)) {
-      return reply.status(404).send(error(404, '市场 Skill 不存在'))
-    }
-
-    await addEnabled(server.redis, enabledKey(userId), skillName)
-    return reply.send(success({ name: skillName, enabled: true }))
-  })
-
-  // POST /skills/:name/disable — 停用 skill(从用户启用集合移除)
-  server.post<{ Params: { name: string } }>('/skills/:name/disable', async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
-    const userId = request.userId!
-
-    const parsed = nameParamSchema.safeParse(request.params)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const skillName = parsed.data.name
-
-    await removeEnabled(server.redis, enabledKey(userId), skillName)
-    return reply.send(success({ name: skillName, enabled: false }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
