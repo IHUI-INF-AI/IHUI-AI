@@ -74,7 +74,8 @@ const MODE_LABEL: Record<BillingMode, string> = {
 /** 价格摘要(与公开定价页同口径:token=元/百万 token,其余=元/次|张|秒) */
 function priceSummary(row: PricingRow): string {
   const mode = row.billingMode ?? 'token'
-  const yuan = (cents: number) => (cents / 100).toLocaleString('zh-CN', { maximumFractionDigits: 4 })
+  const yuan = (cents: number) =>
+    (cents / 100).toLocaleString('zh-CN', { maximumFractionDigits: 4 })
   if (mode === 'token') {
     return `入 ${(row.inputTokenPrice * 10).toLocaleString('zh-CN', { maximumFractionDigits: 4 })} / 出 ${(row.outputTokenPrice * 10).toLocaleString('zh-CN', { maximumFractionDigits: 4 })} 元/百万token`
   }
@@ -83,8 +84,13 @@ function priceSummary(row: PricingRow): string {
     if (!t) return '—'
     return `≤256K ${yuan(t.le256k)} / 256K–512K ${yuan(t.mid)} / >512K ${yuan(t.gt512k)} 元/次`
   }
-  if (mode === 'per_image') return row.perUnitPrice !== null && row.perUnitPrice !== undefined ? `${yuan(row.perUnitPrice)} 元/张` : '—'
-  return row.perUnitPrice !== null && row.perUnitPrice !== undefined ? `${yuan(row.perUnitPrice)} 元/${row.videoUnit === 'second' ? '秒' : '次'}` : '—'
+  if (mode === 'per_image')
+    return row.perUnitPrice !== null && row.perUnitPrice !== undefined
+      ? `${yuan(row.perUnitPrice)} 元/张`
+      : '—'
+  return row.perUnitPrice !== null && row.perUnitPrice !== undefined
+    ? `${yuan(row.perUnitPrice)} 元/${row.videoUnit === 'second' ? '秒' : '次'}`
+    : '—'
 }
 
 interface FormState {
@@ -122,7 +128,8 @@ function toForm(row: PricingRow): FormState {
     le256k: row.tieredCallPrices ? String(row.tieredCallPrices.le256k) : '',
     mid: row.tieredCallPrices ? String(row.tieredCallPrices.mid) : '',
     gt512k: row.tieredCallPrices ? String(row.tieredCallPrices.gt512k) : '',
-    perUnitPrice: row.perUnitPrice !== null && row.perUnitPrice !== undefined ? String(row.perUnitPrice) : '',
+    perUnitPrice:
+      row.perUnitPrice !== null && row.perUnitPrice !== undefined ? String(row.perUnitPrice) : '',
     videoUnit: row.videoUnit ?? 'call',
     currency: row.currency ?? 'CNY',
   }
@@ -169,7 +176,14 @@ export default function AdminAiPricingPage() {
         const le256k = num(form, 'le256k')
         const mid = num(form, 'mid')
         const gt512k = num(form, 'gt512k')
-        if (le256k === undefined || mid === undefined || gt512k === undefined || le256k <= 0 || mid <= 0 || gt512k <= 0) {
+        if (
+          le256k === undefined ||
+          mid === undefined ||
+          gt512k === undefined ||
+          le256k <= 0 ||
+          mid <= 0 ||
+          gt512k <= 0
+        ) {
           throw new Error('按次模式必须填写完整三档价且均大于 0')
         }
         body.tieredCallPrices = { le256k, mid, gt512k }
@@ -200,8 +214,7 @@ export default function AdminAiPricingPage() {
     setDialogOpen(true)
   }
 
-  const setField = (key: keyof FormState, value: string) =>
-    setForm((f) => ({ ...f, [key]: value }))
+  const setField = (key: keyof FormState, value: string) => setForm((f) => ({ ...f, [key]: value }))
 
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE))
 
@@ -275,7 +288,10 @@ export default function AdminAiPricingPage() {
               ) : (
                 (data?.items ?? []).map((row) => (
                   <TableRow key={row.id}>
-                    <TableCell className="max-w-[220px] truncate font-mono text-xs" title={row.modelId}>
+                    <TableCell
+                      className="max-w-[220px] truncate font-mono text-xs"
+                      title={row.modelId}
+                    >
                       {row.modelId}
                     </TableCell>
                     <TableCell>
@@ -300,7 +316,12 @@ export default function AdminAiPricingPage() {
 
       {data && data.total > PAGE_SIZE && (
         <div className="flex items-center justify-center gap-3 text-sm">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+          >
             上一页
           </Button>
           <span className="text-muted-foreground">
@@ -440,7 +461,9 @@ export default function AdminAiPricingPage() {
             </div>
 
             {(formError || saveMutation.isError) && (
-              <p className="text-sm text-destructive">{formError || (saveMutation.error as Error)?.message}</p>
+              <p className="text-sm text-destructive">
+                {formError || (saveMutation.error as Error)?.message}
+              </p>
             )}
           </div>
 
@@ -448,7 +471,10 @@ export default function AdminAiPricingPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               取消
             </Button>
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !form.modelId.trim()}>
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending || !form.modelId.trim()}
+            >
               {saveMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
               保存
             </Button>
