@@ -49,7 +49,6 @@ export function RefundFilter({
 
       <form onSubmit={onSearch} className="flex items-center gap-2">
         <SearchInput
-          type="text"
           value={searchInput}
           onChange={(e) => onSearchInputChange(e.target.value)}
           placeholder={t('searchPlaceholder')}

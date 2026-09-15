@@ -10,7 +10,6 @@ import { Ban, Loader2, RotateCcw, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import {
-  Input,
   Button,
   Select,
   SelectTrigger,
