@@ -41,6 +41,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve, join, relative } from 'node:path'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -146,7 +147,7 @@ const BANNED = ['outline-black', 'dark:outline-white']
 function walkFiles(dir, out) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      if (!EXCLUDE_DIRS.has(entry.name)) walkFiles(join(dir, entry.name), out)
+      if (!EXCLUDE_DIRS.has(entry.name) && !isExcludedDirName(entry.name)) walkFiles(join(dir, entry.name), out)
     } else if (/\.(tsx?|jsx?)$/.test(entry.name)) {
       out.push(join(dir, entry.name))
     }

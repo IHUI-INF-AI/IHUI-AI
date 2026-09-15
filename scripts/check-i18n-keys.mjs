@@ -39,6 +39,7 @@ import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { createRequire } from 'node:module'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 
 const ROOT = process.cwd()
 // 2026-09:解析端内 lib/*.ts 的 messagesZhCN TS 对象字面量。
@@ -155,7 +156,7 @@ const APP_SRC_DIR = isMobileRn
 function collectSourceFiles(dir, result = []) {
   if (!existsSync(dir)) return result
   for (const entry of readdirSync(dir)) {
-    if (EXCLUDE_DIRS.has(entry)) continue
+    if (EXCLUDE_DIRS.has(entry) || isExcludedDirName(entry)) continue
     const full = join(dir, entry)
     const st = statSync(full)
     if (st.isDirectory()) {
