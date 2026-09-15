@@ -322,8 +322,6 @@
     "scanLoginSucceeded": "掃碼登入成功",
     "scanLoginSuccess": "掃碼成功",
     "scanLoginTimeout": "掃碼超時,請重試",
-    "cloudCred": "雲端憑證",
-    "cloudCredTip": "憑證已加密儲存在伺服器,任何電腦登入本站帳號即可使用",
     "scanLoginTitle": "掃碼登入",
     "scanWithPhoneHint": "請使用手機掃描二維碼登入",
     "selectPlatform": "請選擇平臺",
