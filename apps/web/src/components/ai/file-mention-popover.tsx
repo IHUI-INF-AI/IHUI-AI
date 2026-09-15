@@ -10,6 +10,9 @@ import { Search, FileText } from 'lucide-react'
 
 import { Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+// 2026-09-15 治理:定位/portal/关闭逻辑统一收敛到 PortalPanel(此前手写一套
+// createPortal + 坐标 + 监听,与全项目其余浮层重复约 10 份)。
+import { PortalPanel } from '@/components/feedback/portal-panel'
 
 interface MentionFile {
   id: string
@@ -20,11 +23,19 @@ interface MentionFile {
 interface FileMentionPopoverProps {
   files: MentionFile[]
   open: boolean
+  // 锚点元素(输入区容器):PortalPanel 以它做 fixed 定位
+  anchorRef: React.RefObject<HTMLElement | null>
   onSelect: (file: MentionFile) => void
   onClose: () => void
 }
 
-export function FileMentionPopover({ files, open, onSelect, onClose }: FileMentionPopoverProps) {
+export function FileMentionPopover({
+  files,
+  open,
+  anchorRef,
+  onSelect,
+  onClose,
+}: FileMentionPopoverProps) {
   const t = useTranslations('fileMention')
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
@@ -74,10 +85,17 @@ export function FileMentionPopover({ files, open, onSelect, onClose }: FileMenti
     el?.scrollIntoView({ block: 'nearest' })
   }, [activeIndex])
 
-  if (!open) return null
-
   return (
-    <div className="absolute bottom-full left-0 z-popover mb-2 w-80 overflow-hidden rounded-lg border bg-popover shadow-lg">
+    <PortalPanel
+      open={open}
+      anchorRef={anchorRef}
+      onClose={onClose}
+      side="top"
+      align="start"
+      gap={8}
+      testId="file-mention-popover"
+      className="flex w-80 flex-col overflow-hidden rounded-lg border bg-popover shadow-lg"
+    >
       <div className="flex items-center gap-2 bg-muted/40 px-3 py-2">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
         <Input
@@ -89,7 +107,7 @@ export function FileMentionPopover({ files, open, onSelect, onClose }: FileMenti
           className="h-7 border-0 px-0 shadow-none focus-visible:ring-0"
         />
       </div>
-      <ul ref={listRef} className="max-h-60 overflow-y-auto p-1">
+      <ul ref={listRef} className="max-h-60 min-h-0 flex-1 overflow-y-auto p-1">
         {filtered.length === 0 ? (
           <li className="px-3 py-6 text-center text-sm text-muted-foreground">{t('noMatch')}</li>
         ) : (
@@ -118,9 +136,8 @@ export function FileMentionPopover({ files, open, onSelect, onClose }: FileMenti
           ))
         )}
       </ul>
-    </div>
+    </PortalPanel>
   )
 }
 
 export default FileMentionPopover
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
