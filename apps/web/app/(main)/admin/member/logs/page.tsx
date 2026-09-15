@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, ScrollText, Search } from 'lucide-react'
+import { Loader2, ScrollText } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import {
@@ -17,7 +17,15 @@ import {
   SelectItem,
   SelectValue,
 } from '@ihui/ui-react'
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
+import {
+  SearchInput,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/date-utils'
 import { BackButton } from '@/components/common'
@@ -71,15 +79,13 @@ export default function AdminMemberLogsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索用户/操作"
-            className="h-9 pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="搜索用户/操作"
+          size="lg"
+          wrapperClassName="w-full max-w-xs"
+        />
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className={selectClass} aria-label="状态">
             <SelectValue />

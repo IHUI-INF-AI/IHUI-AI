@@ -39,6 +39,7 @@ vi.mock('lucide-react', () => {
     ChevronDown: Icon,
     FolderKanban: Icon,
     KeyRound: Icon,
+    CloudUpload: Icon,
   }
 })
 
@@ -150,6 +151,10 @@ vi.mock('@/components/publish/BatchImportDialog', () => ({
 vi.mock('../ScanLoginDialog', () => ({
   ScanLoginDialog: ({ open }: { open?: boolean }) =>
     open ? <div data-testid="scan-dialog" /> : null,
+}))
+vi.mock('../BatchScanLoginDialog', () => ({
+  BatchScanLoginDialog: ({ open }: { open?: boolean }) =>
+    open ? <div data-testid="batch-scan-dialog" /> : null,
 }))
 vi.mock('@/components/publish/AccountGroupManager', () => ({
   AccountGroupManager: () => <div data-testid="group-manager" />,

@@ -4,27 +4,25 @@
 
 'use client'
 
+import {} from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
-  Loader2,
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  FileText,
+  Button,
   ChevronLeft,
   ChevronRight,
-} from 'lucide-react'
-import { useLocale } from 'next-intl'
-
-import {
+  Edit,
+  FileText,
+  Loader2,
+  Plus,
+  Search,
+  SearchInput,
   Table,
-  TableHeader,
   TableBody,
-  TableRow,
-  TableHead,
   TableCell,
-  Button,
-  Input,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Trash2,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -83,15 +81,13 @@ export function ArticleTable(props: ArticleTableProps) {
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索文章标题"
-            className="h-9 pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="搜索文章标题"
+          size="lg"
+          wrapperClassName="w-full max-w-xs"
+        />
         <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
           {(['all', 'draft', 'published'] as const).map((s) => (
             <button

@@ -17,11 +17,11 @@ import {
   History,
   Loader2,
   Lock,
-  Search,
   Settings,
   Sparkles,
   TriangleAlert,
 } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -431,12 +431,24 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
     const el = anchorRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
+    // 2026-09-15 bugfix:弹层用 fixed 定位,坐标必须是视口坐标。
+    // 原实现叠加 window.scrollY/scrollX,页面滚动后弹层错位(偏移正好等于滚动量)。
     setPos({
-      top: rect.top + window.scrollY,
-      left: rect.right + window.scrollX + 8,
+      top: rect.top,
+      left: rect.right + 8,
     })
     setOpen(true)
   }, [eligible, cancelHide])
+
+  // 渲染后按卡片实际尺寸 clamp,防止右侧/底部溢出视口(与全项目浮层治理一致)
+  const cardRef = React.useRef<HTMLDivElement | null>(null)
+  React.useLayoutEffect(() => {
+    if (!open || !pos || !cardRef.current) return
+    const r = cardRef.current.getBoundingClientRect()
+    const left = Math.max(8, Math.min(pos.left, window.innerWidth - r.width - 8))
+    const top = Math.max(8, Math.min(pos.top, window.innerHeight - r.height - 8))
+    if (left !== pos.left || top !== pos.top) setPos({ left, top })
+  }, [open, pos])
 
   // 徽章/弹层都共用 scheduleHide,实现 hover bridge
   const scheduleHide = React.useCallback(() => {
@@ -460,6 +472,7 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
       </div>
       {open && pos && opt.pointsMultiplier !== undefined && (
         <div
+          ref={cardRef}
           role="dialog"
           aria-label={t('modelPopoverMemberTitle')}
           className={cn(
@@ -883,17 +896,15 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                       onKeyDown stopPropagation 防止 Radix DropdownMenu 的
                       typeahead 键盘导航吃掉输入。 */}
                   <div className="px-2 py-1.5">
-                    <div className="flex items-center gap-1.5 rounded-md border bg-background px-2">
-                      <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <input
-                        value={historyQuery}
-                        onChange={(e) => setHistoryQuery(e.target.value)}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        placeholder={t('modelHistorySearch')}
-                        aria-label={t('modelHistorySearch')}
-                        className="h-7 w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
-                      />
-                    </div>
+                    <SearchInput
+                      value={historyQuery}
+                      onChange={(e) => setHistoryQuery(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      placeholder={t('modelHistorySearch')}
+                      aria-label={t('modelHistorySearch')}
+                      size="sm"
+                      wrapperClassName="w-full"
+                    />
                   </div>
                   {archivedGroups.length === 0 ? (
                     <div className="px-2 py-3 text-center text-xs text-muted-foreground">

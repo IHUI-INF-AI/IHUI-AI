@@ -7,30 +7,28 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  BarChart3,
-  Building2,
-  Users,
-  Clock,
-} from 'lucide-react'
-
+import {} from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
 import { BackButton } from '@/components/common'
 import {
+  BarChart3,
+  Building2,
+  Button,
   Card,
   CardContent,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Loader2,
+  SearchInput,
   Table,
-  TableHeader,
   TableBody,
-  TableRow,
-  TableHead,
   TableCell,
-  Button,
-  Input,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Users,
 } from '@ihui/ui-react'
 
 interface CompanyStudyReport {
@@ -125,11 +123,12 @@ export default function EduReportsCompanyStudyPage() {
             返回
           </Link>
         </Button>
-        <Input
+        <SearchInput
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="搜索公司名称"
-          className="h-9 max-w-xs"
+          size="lg"
+          wrapperClassName="max-w-xs"
         />
       </div>
 

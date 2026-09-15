@@ -7,9 +7,9 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { Wallet as WalletIcon, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Wallet as WalletIcon } from 'lucide-react'
 import { z } from 'zod'
-import { Input, Button } from '@ihui/ui-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useZodForm } from '@/hooks/use-zod-form'
 import { fetchApi } from '@/lib/api'
@@ -75,15 +75,12 @@ export default function AdminWalletPage() {
       </div>
 
       <form onSubmit={form.handleSubmit(() => undefined)} className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            {...form.register('keyword')}
-            placeholder={t('searchPlaceholder')}
-            className="pl-8"
-            aria-invalid={!!form.formState.errors.keyword}
-          />
-        </div>
+        <SearchInput
+          {...form.register('keyword')}
+          placeholder={t('searchPlaceholder')}
+          aria-invalid={!!form.formState.errors.keyword}
+          wrapperClassName="flex-1 max-w-sm"
+        />
       </form>
 
       <div className="rounded-lg border border-border bg-card">
