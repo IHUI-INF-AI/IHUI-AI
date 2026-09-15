@@ -4,29 +4,28 @@
 
 'use client'
 
-import {
-  Loader2,
-  Plus,
-  Edit,
-  Trash2,
-  Download,
-  RotateCcw,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'
+import {} from 'lucide-react'
 import { useTranslations } from 'next-intl'
-
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import {
   Button,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Edit,
   Input,
   Label,
+  Loader2,
+  Plus,
+  RotateCcw,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
+  Trash2,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -69,11 +68,12 @@ export function WithdrawalFlowTable(props: Props) {
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1.5">
           <Label className="text-xs">{t('withdrawals.flow.searchUserId')}</Label>
-          <Input
-            className={inputSm}
+          <SearchInput
             value={fSearch.userId}
             onChange={(e) => setFSearch({ ...fSearch, userId: e.target.value })}
             placeholder={t('withdrawals.flow.searchUserId')}
+            size="lg"
+            wrapperClassName="w-full"
           />
         </div>
         <div className="space-y-1.5">
@@ -87,11 +87,12 @@ export function WithdrawalFlowTable(props: Props) {
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">{t('withdrawals.flow.searchOutBillNo')}</Label>
-          <Input
-            className={inputSm}
+          <SearchInput
             value={fSearch.outBillNo}
             onChange={(e) => setFSearch({ ...fSearch, outBillNo: e.target.value })}
             placeholder={t('withdrawals.flow.searchOutBillNo')}
+            size="lg"
+            wrapperClassName="w-full"
           />
         </div>
         <div className="space-y-1.5">
@@ -114,11 +115,12 @@ export function WithdrawalFlowTable(props: Props) {
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">{t('withdrawals.flow.searchTransferDetail')}</Label>
-          <Input
-            className={inputSm}
+          <SearchInput
             value={fSearch.transferDetail}
             onChange={(e) => setFSearch({ ...fSearch, transferDetail: e.target.value })}
             placeholder={t('withdrawals.flow.searchTransferDetail')}
+            size="lg"
+            wrapperClassName="w-full"
           />
         </div>
         <div className="space-y-1.5">

@@ -15,6 +15,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Card, CardContent, Button, Badge } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { splitDisplayNameParts } from '@/lib/publish/display-name'
 
 export type AnalyticsPeriod = '7d' | '30d' | '90d'
 
@@ -182,7 +183,9 @@ export function AnalyticsDashboard({
                         className={cn('bg-card', idx % 2 === 1 && 'bg-muted/20')}
                       >
                         <td className="py-2 pr-3">
-                          <div className="font-medium">{a.displayName}</div>
+                          <div className="font-medium">
+                            {splitDisplayNameParts(a.displayName).name}
+                          </div>
                           <div className="text-[10px] text-muted-foreground">{a.platform}</div>
                         </td>
                         <td className="px-3">

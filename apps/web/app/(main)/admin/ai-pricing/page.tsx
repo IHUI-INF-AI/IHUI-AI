@@ -7,8 +7,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Coins, Loader2, Pencil, Plus, Search } from 'lucide-react'
-
+import { ArrowLeft, Coins, Loader2, Pencil, Plus } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
   Button,
@@ -21,6 +20,7 @@ import {
   DialogTitle,
   Input,
   Label,
+  SearchInput,
   Select,
   SelectContent,
   SelectItem,
@@ -236,18 +236,15 @@ export default function AdminAiPricingPage() {
           token=分/千token · 按次/按张/按视频=分(入库单位),展示按 元/百万token · 元/次|张|秒
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
-              placeholder="搜索模型 ID"
-              className="w-56 pl-8"
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
+            placeholder="搜索模型 ID"
+            wrapperClassName="w-56"
+          />
           <Button onClick={() => openEdit(null)}>
             <Plus className="mr-1 h-4 w-4" /> 新增定价
           </Button>

@@ -21,7 +21,9 @@ import { useMounted } from '@/hooks/use-mounted'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { DOWNLOADS, isDownloadAvailable, isExternalDownloadHref } from '@/lib/downloads'
 import { Tooltip } from '@/components/feedback'
-import { createPortal } from 'react-dom'
+// 2026-09-15 治理:定位/portal/关闭逻辑统一收敛到 PortalPanel(此前语言/下载/消息 3 个
+// 浮层各自手写一套 createPortal + 坐标计算 + scroll/resize 监听 + 外点/Escape 关闭,全部删除)。
+import { PortalPanel } from '@/components/feedback/portal-panel'
 import { NotificationCenter, type NoticeItem } from '@/components/feature-center'
 import { LANGUAGES } from './nav-data'
 
@@ -66,13 +68,13 @@ export function SidebarActions({ collapsed }: { collapsed: boolean }) {
         collapsed ? 'flex-col items-center pl-[9px] pr-2' : 'flex-row flex-wrap justify-center',
       )}
     >
-      {/* 语言切换 — 自定义 portal,脱离 MainShell overflow-hidden 祖先避免被裁剪 */}
+      {/* 语言切换 — PortalPanel 浮层(脱离 overflow-hidden 祖先避免被裁剪) */}
       <LanguageSwitcher collapsed={collapsed} />
 
-      {/* 下载客户端 — 自定义 portal */}
+      {/* 下载客户端 — PortalPanel 浮层 */}
       <DownloadPopover collapsed={collapsed} />
 
-      {/* 消息中心 — 自定义 portal */}
+      {/* 消息中心 — PortalPanel 浮层 */}
       <MessageCenter collapsed={collapsed} />
 
       {/* 主题切换 — isDark 来自 useMounted 门控, SSR 永远 false (Moon + "深色模式") */}
@@ -131,9 +133,6 @@ function LanguageSwitcher({ collapsed }: { collapsed: boolean }) {
 
   const [langOpen, setLangOpen] = React.useState(false)
   const langTriggerRef = React.useRef<HTMLButtonElement | null>(null)
-  const langPanelRef = React.useRef<HTMLDivElement | null>(null)
-  const [langCoords, setLangCoords] = React.useState<{ top: number; left: number } | null>(null)
-  const langRafRef = React.useRef<number | null>(null)
 
   const handleLocaleChange = (code: Language) => {
     if (code === locale) return
@@ -142,93 +141,6 @@ function LanguageSwitcher({ collapsed }: { collapsed: boolean }) {
     document.cookie = `locale=${code};path=/;max-age=31536000`
     setLocale(code)
   }
-
-  const updateLangCoords = React.useCallback(() => {
-    if (!langTriggerRef.current || !langPanelRef.current) return
-    const r = langTriggerRef.current.getBoundingClientRect()
-    const panelRect = langPanelRef.current.getBoundingClientRect()
-    const gap = 8
-    const pad = 8
-    const VW = window.innerWidth
-
-    let top: number
-    let left = r.left
-
-    if (collapsed) {
-      // 折叠态:右侧弹出,底边对齐 trigger 底边
-      top = r.bottom - panelRect.height
-      left = r.right + gap
-    } else {
-      // 展开态:上方弹出,水平居中
-      top = r.top - gap - panelRect.height
-      left = r.left + r.width / 2 - panelRect.width / 2
-    }
-
-    if (left + panelRect.width > VW - pad) {
-      left = VW - pad - panelRect.width
-    }
-    left = Math.max(pad, left)
-
-    if (top < pad) {
-      top = collapsed ? r.top + gap : r.bottom + gap
-    }
-    top = Math.max(pad, top)
-
-    setLangCoords({ top, left })
-  }, [collapsed])
-
-  React.useLayoutEffect(() => {
-    if (!langOpen) return
-    const id = window.requestAnimationFrame(() => {
-      updateLangCoords()
-    })
-    return () => window.cancelAnimationFrame(id)
-  }, [langOpen, updateLangCoords])
-
-  React.useEffect(() => {
-    if (!langOpen) return
-    const throttledUpdate = () => {
-      if (langRafRef.current !== null) return
-      langRafRef.current = requestAnimationFrame(() => {
-        langRafRef.current = null
-        updateLangCoords()
-      })
-    }
-    window.addEventListener('scroll', throttledUpdate, { capture: true, passive: true })
-    window.addEventListener('resize', throttledUpdate, { passive: true })
-    return () => {
-      if (langRafRef.current !== null) cancelAnimationFrame(langRafRef.current)
-      window.removeEventListener('scroll', throttledUpdate, true)
-      window.removeEventListener('resize', throttledUpdate)
-    }
-  }, [langOpen, updateLangCoords])
-
-  React.useEffect(() => {
-    if (!langOpen) return
-    const handler = (event: MouseEvent | TouchEvent) => {
-      const triggerEl = langTriggerRef.current
-      const contentEl = langPanelRef.current
-      const target = event.target as Node
-      if (triggerEl && triggerEl.contains(target)) return
-      if (contentEl && contentEl.contains(target)) return
-      setLangOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    document.addEventListener('touchstart', handler)
-    return () => {
-      document.removeEventListener('mousedown', handler)
-      document.removeEventListener('touchstart', handler)
-    }
-  }, [langOpen])
-
-  React.useEffect(() => {
-    if (!langOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLangOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [langOpen])
 
   return (
     <>
@@ -249,45 +161,41 @@ function LanguageSwitcher({ collapsed }: { collapsed: boolean }) {
           <Flag className="h-[18px] w-[18px]" />
         </Button>
       </Tooltip>
-      {langOpen &&
-        createPortal(
-          <div
-            ref={langPanelRef}
-            className="fixed z-popover flex w-36 flex-col gap-px rounded-md border bg-popover p-2 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            style={
-              langCoords
-                ? { top: langCoords.top, left: langCoords.left }
-                : { top: -9999, left: -9999 }
-            }
-            role="menu"
-            aria-label={t('language')}
-            tabIndex={-1}
+      {/* 2026-09-15 迁移 PortalPanel:原折叠态向右弹出/展开态向上居中弹出,统一为
+          向下弹出 + 右缘对齐(side="bottom" + align="end"),不会遮住触发器。 */}
+      <PortalPanel
+        open={langOpen}
+        anchorRef={langTriggerRef}
+        onClose={() => setLangOpen(false)}
+        side="bottom"
+        align="end"
+        gap={8}
+        role="menu"
+        className="flex w-36 flex-col gap-px rounded-md border bg-popover p-2 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {LANGUAGES.map((lang) => (
+          <button
+            key={lang.code}
+            role="menuitem"
+            onClick={() => {
+              handleLocaleChange(lang.code)
+              setLangOpen(false)
+            }}
+            className={cn(
+              'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent',
+              locale === lang.code && 'bg-accent font-medium',
+            )}
           >
-            {LANGUAGES.map((lang) => (
-              <button
-                key={lang.code}
-                role="menuitem"
-                onClick={() => {
-                  handleLocaleChange(lang.code)
-                  setLangOpen(false)
-                }}
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent',
-                  locale === lang.code && 'bg-accent font-medium',
-                )}
-              >
-                <span
-                  data-lang-code={lang.code}
-                  className="flex h-5 w-7 shrink-0 items-center justify-center rounded-sm border border-border text-[10px] font-bold tracking-wide text-foreground"
-                >
-                  {lang.badge}
-                </span>
-                <span>{lang.name}</span>
-              </button>
-            ))}
-          </div>,
-          document.body,
-        )}
+            <span
+              data-lang-code={lang.code}
+              className="flex h-5 w-7 shrink-0 items-center justify-center rounded-sm border border-border text-[10px] font-bold tracking-wide text-foreground"
+            >
+              {lang.badge}
+            </span>
+            <span>{lang.name}</span>
+          </button>
+        ))}
+      </PortalPanel>
     </>
   )
 }
@@ -300,86 +208,6 @@ function DownloadPopover({ collapsed }: { collapsed: boolean }) {
 
   const [dlOpen, setDlOpen] = React.useState(false)
   const dlTriggerRef = React.useRef<HTMLButtonElement | null>(null)
-  const dlPanelRef = React.useRef<HTMLDivElement | null>(null)
-  const [dlCoords, setDlCoords] = React.useState<{ top: number; left: number } | null>(null)
-  const dlRafRef = React.useRef<number | null>(null)
-
-  const updateDlCoords = React.useCallback(() => {
-    if (!dlTriggerRef.current || !dlPanelRef.current) return
-    const r = dlTriggerRef.current.getBoundingClientRect()
-    const panelRect = dlPanelRef.current.getBoundingClientRect()
-    const gap = 8
-    const pad = 8
-    const VW = window.innerWidth
-
-    let top = r.bottom - gap - panelRect.height
-    let left = r.right + gap
-
-    if (left + panelRect.width > VW - pad) {
-      left = VW - pad - panelRect.width
-    }
-    left = Math.max(pad, left)
-
-    if (top < pad) {
-      top = r.bottom + gap
-    }
-    top = Math.max(pad, top)
-
-    setDlCoords({ top, left })
-  }, [])
-
-  React.useLayoutEffect(() => {
-    if (!dlOpen) return
-    const id = window.requestAnimationFrame(() => {
-      updateDlCoords()
-    })
-    return () => window.cancelAnimationFrame(id)
-  }, [dlOpen, updateDlCoords])
-
-  React.useEffect(() => {
-    if (!dlOpen) return
-    const throttledUpdate = () => {
-      if (dlRafRef.current !== null) return
-      dlRafRef.current = requestAnimationFrame(() => {
-        dlRafRef.current = null
-        updateDlCoords()
-      })
-    }
-    window.addEventListener('scroll', throttledUpdate, { capture: true, passive: true })
-    window.addEventListener('resize', throttledUpdate, { passive: true })
-    return () => {
-      if (dlRafRef.current !== null) cancelAnimationFrame(dlRafRef.current)
-      window.removeEventListener('scroll', throttledUpdate, true)
-      window.removeEventListener('resize', throttledUpdate)
-    }
-  }, [dlOpen, updateDlCoords])
-
-  React.useEffect(() => {
-    if (!dlOpen) return
-    const handler = (event: MouseEvent | TouchEvent) => {
-      const triggerEl = dlTriggerRef.current
-      const contentEl = dlPanelRef.current
-      const target = event.target as Node
-      if (triggerEl && triggerEl.contains(target)) return
-      if (contentEl && contentEl.contains(target)) return
-      setDlOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    document.addEventListener('touchstart', handler)
-    return () => {
-      document.removeEventListener('mousedown', handler)
-      document.removeEventListener('touchstart', handler)
-    }
-  }, [dlOpen])
-
-  React.useEffect(() => {
-    if (!dlOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDlOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [dlOpen])
 
   return (
     <>
@@ -400,120 +228,117 @@ function DownloadPopover({ collapsed }: { collapsed: boolean }) {
           <Download className="h-5 w-5" />
         </Button>
       </Tooltip>
-      {dlOpen &&
-        createPortal(
-          <div
-            ref={dlPanelRef}
-            className="fixed z-popover w-60 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            style={
-              dlCoords ? { top: dlCoords.top, left: dlCoords.left } : { top: -9999, left: -9999 }
-            }
-            role="dialog"
-            aria-label={t('downloadTitle')}
-            aria-modal="true"
-            tabIndex={-1}
-          >
-            <div className="w-60 p-1">
-              <div className="px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                {t('downloadTitle')}
-              </div>
-              {DOWNLOADS.map((item) => {
-                const Icon = item.icon
-                const isExternal = isExternalDownloadHref(item.href)
-                const available = isDownloadAvailable(item.platform)
-                const isInternalRoute = available && !isExternal
+      {/* 2026-09-15 迁移 PortalPanel:原向右弹出(右侧贴 trigger 底边),统一为
+          向下弹出 + 右缘对齐(side="bottom" + align="end"),不会遮住触发器。 */}
+      <PortalPanel
+        open={dlOpen}
+        anchorRef={dlTriggerRef}
+        onClose={() => setDlOpen(false)}
+        side="bottom"
+        align="end"
+        gap={8}
+        role="dialog"
+        className="w-60 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <div className="w-60 p-1">
+          <div className="px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            {t('downloadTitle')}
+          </div>
+          {DOWNLOADS.map((item) => {
+            const Icon = item.icon
+            const isExternal = isExternalDownloadHref(item.href)
+            const available = isDownloadAvailable(item.platform)
+            const isInternalRoute = available && !isExternal
 
-                const inner = (
-                  <>
-                    <Icon
+            const inner = (
+              <>
+                <Icon
+                  className={cn(
+                    'mt-0.5 h-4 w-4 shrink-0 transition-colors',
+                    available
+                      ? 'text-foreground/80 group-hover:text-foreground'
+                      : 'text-muted-foreground/40',
+                  )}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span
                       className={cn(
-                        'mt-0.5 h-4 w-4 shrink-0 transition-colors',
-                        available
-                          ? 'text-foreground/80 group-hover:text-foreground'
-                          : 'text-muted-foreground/40',
+                        'truncate font-medium',
+                        available ? 'text-foreground' : 'text-muted-foreground',
                       )}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-1.5">
-                        <span
-                          className={cn(
-                            'truncate font-medium',
-                            available ? 'text-foreground' : 'text-muted-foreground',
-                          )}
-                        >
-                          {t(item.labelKey)}
-                        </span>
-                        {item.version && available && (
-                          <span className="shrink-0 rounded-sm bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground">
-                            v{item.version}
-                          </span>
-                        )}
-                        {!available && (
-                          <span className="shrink-0 rounded-sm bg-amber-500/15 px-1 py-px text-[9px] font-medium text-amber-600 dark:text-amber-400">
-                            {t('downloadComingSoon')}
-                          </span>
-                        )}
-                      </span>
-                      {item.descKey && (
-                        <span className="block truncate text-[11px] text-muted-foreground">
-                          {t(item.descKey)}
-                        </span>
-                      )}
-                    </span>
-                  </>
-                )
-
-                const className = cn(
-                  'group flex items-start gap-2.5 rounded px-2 py-1.5 text-sm transition-colors',
-                  available
-                    ? 'hover:bg-accent focus-visible:bg-accent focus-visible:outline-none cursor-pointer'
-                    : 'cursor-not-allowed opacity-60',
-                )
-
-                if (!available) {
-                  return (
-                    <div key={item.platform} className={className} aria-disabled="true">
-                      {inner}
-                    </div>
-                  )
-                }
-
-                if (isInternalRoute) {
-                  return (
-                    <Link
-                      key={item.platform}
-                      href={item.href}
-                      onClick={() => {
-                        trackClick(`download_${item.platform}`, 'download_popover')
-                        trackDownload(item.platform, 'sidebar')
-                      }}
-                      className={className}
                     >
-                      {inner}
-                    </Link>
-                  )
-                }
+                      {t(item.labelKey)}
+                    </span>
+                    {item.version && available && (
+                      <span className="shrink-0 rounded-sm bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground">
+                        v{item.version}
+                      </span>
+                    )}
+                    {!available && (
+                      <span className="shrink-0 rounded-sm bg-amber-500/15 px-1 py-px text-[9px] font-medium text-amber-600 dark:text-amber-400">
+                        {t('downloadComingSoon')}
+                      </span>
+                    )}
+                  </span>
+                  {item.descKey && (
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                      {t(item.descKey)}
+                    </span>
+                  )}
+                </span>
+              </>
+            )
 
-                return (
-                  <a
-                    key={item.platform}
-                    href={item.href}
-                    target={isExternal ? '_blank' : undefined}
-                    rel={isExternal ? 'noopener noreferrer' : undefined}
-                    onClick={() => {
-                      trackClick(`download_${item.platform}`, 'download_popover')
-                      trackDownload(item.platform, 'sidebar')
-                    }}
-                    className={className}
-                  >
-                    {inner}
-                  </a>
-                )
-              })}
-            </div>
-          </div>,
-          document.body,
-        )}
+            const className = cn(
+              'group flex items-start gap-2.5 rounded px-2 py-1.5 text-sm transition-colors',
+              available
+                ? 'hover:bg-accent focus-visible:bg-accent focus-visible:outline-none cursor-pointer'
+                : 'cursor-not-allowed opacity-60',
+            )
+
+            if (!available) {
+              return (
+                <div key={item.platform} className={className} aria-disabled="true">
+                  {inner}
+                </div>
+              )
+            }
+
+            if (isInternalRoute) {
+              return (
+                <Link
+                  key={item.platform}
+                  href={item.href}
+                  onClick={() => {
+                    trackClick(`download_${item.platform}`, 'download_popover')
+                    trackDownload(item.platform, 'sidebar')
+                  }}
+                  className={className}
+                >
+                  {inner}
+                </Link>
+              )
+            }
+
+            return (
+              <a
+                key={item.platform}
+                href={item.href}
+                target={isExternal ? '_blank' : undefined}
+                rel={isExternal ? 'noopener noreferrer' : undefined}
+                onClick={() => {
+                  trackClick(`download_${item.platform}`, 'download_popover')
+                  trackDownload(item.platform, 'sidebar')
+                }}
+                className={className}
+              >
+                {inner}
+              </a>
+            )
+          })}
+        </div>
+      </PortalPanel>
     </>
   )
 }
@@ -537,97 +362,6 @@ function MessageCenter({ collapsed }: { collapsed: boolean }) {
 
   const [msgOpen, setMsgOpen] = React.useState(false)
   const msgTriggerRef = React.useRef<HTMLButtonElement | null>(null)
-  const msgPanelRef = React.useRef<HTMLDivElement | null>(null)
-  const [msgCoords, setMsgCoords] = React.useState<{ top: number; left: number } | null>(null)
-  const msgRafRef = React.useRef<number | null>(null)
-
-  const updateMsgCoords = React.useCallback(() => {
-    if (!msgTriggerRef.current) {
-      return
-    }
-    const r = msgTriggerRef.current.getBoundingClientRect()
-
-    // If panel ref is not ready yet, use trigger position as fallback
-    if (!msgPanelRef.current) {
-      const fallbackLeft = Math.min(r.right + 8, window.innerWidth - 328)
-      const fallbackTop = Math.max(r.bottom + 8, 8)
-      setMsgCoords({ top: fallbackTop, left: fallbackLeft })
-      return
-    }
-
-    const panelRect = msgPanelRef.current.getBoundingClientRect()
-    const gap = 8
-    const pad = 8
-    const VW = window.innerWidth
-
-    let top = r.bottom - gap - panelRect.height
-    let left = r.right + gap
-
-    if (left + panelRect.width > VW - pad) {
-      left = VW - pad - panelRect.width
-    }
-    left = Math.max(pad, left)
-
-    if (top < pad) {
-      top = r.bottom + gap
-    }
-    top = Math.max(pad, top)
-
-    setMsgCoords({ top, left })
-  }, [])
-
-  React.useLayoutEffect(() => {
-    if (!msgOpen) return
-    const id = window.requestAnimationFrame(() => {
-      updateMsgCoords()
-    })
-    return () => window.cancelAnimationFrame(id)
-  }, [msgOpen, updateMsgCoords])
-
-  React.useEffect(() => {
-    if (!msgOpen) return
-    const throttledUpdate = () => {
-      if (msgRafRef.current !== null) return
-      msgRafRef.current = requestAnimationFrame(() => {
-        msgRafRef.current = null
-        updateMsgCoords()
-      })
-    }
-    window.addEventListener('scroll', throttledUpdate, { capture: true, passive: true })
-    window.addEventListener('resize', throttledUpdate, { passive: true })
-    return () => {
-      if (msgRafRef.current !== null) cancelAnimationFrame(msgRafRef.current)
-      window.removeEventListener('scroll', throttledUpdate, true)
-      window.removeEventListener('resize', throttledUpdate)
-    }
-  }, [msgOpen, updateMsgCoords])
-
-  React.useEffect(() => {
-    if (!msgOpen) return
-    const handler = (event: MouseEvent | TouchEvent) => {
-      const triggerEl = msgTriggerRef.current
-      const contentEl = msgPanelRef.current
-      const target = event.target as Node
-      if (triggerEl && triggerEl.contains(target)) return
-      if (contentEl && contentEl.contains(target)) return
-      setMsgOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    document.addEventListener('touchstart', handler)
-    return () => {
-      document.removeEventListener('mousedown', handler)
-      document.removeEventListener('touchstart', handler)
-    }
-  }, [msgOpen])
-
-  React.useEffect(() => {
-    if (!msgOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMsgOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [msgOpen])
 
   return (
     <>
@@ -656,23 +390,20 @@ function MessageCenter({ collapsed }: { collapsed: boolean }) {
           )}
         </Button>
       </Tooltip>
-      {msgOpen &&
-        createPortal(
-          <div
-            ref={msgPanelRef}
-            className="fixed z-popover w-80 max-w-[calc(100vw-2rem)] rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            style={
-              msgCoords ? { top: msgCoords.top, left: msgCoords.left } : { top: -9999, left: -9999 }
-            }
-            role="dialog"
-            aria-label={t('messages')}
-            aria-modal="true"
-            tabIndex={-1}
-          >
-            <NotificationCenter items={noticeItems} onMarkAllRead={() => markAllAsRead()} />
-          </div>,
-          document.body,
-        )}
+      {/* 2026-09-15 迁移 PortalPanel:原向右弹出(右侧贴 trigger 底边),统一为
+          向下弹出 + 右缘对齐(side="bottom" + align="end"),不会遮住触发器。 */}
+      <PortalPanel
+        open={msgOpen}
+        anchorRef={msgTriggerRef}
+        onClose={() => setMsgOpen(false)}
+        side="bottom"
+        align="end"
+        gap={8}
+        role="dialog"
+        className="w-80 max-w-[calc(100vw-2rem)] rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <NotificationCenter items={noticeItems} onMarkAllRead={() => markAllAsRead()} />
+      </PortalPanel>
     </>
   )
 }

@@ -294,8 +294,12 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
       {menuPos && (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 右键菜单遮罩点击外部关闭;键盘用户通过 Escape/菜单项提供等价交互
         <div
-          className="fixed z-50 min-w-36 rounded-md border border-border bg-popover py-1 text-xs shadow-md"
-          style={{ left: menuPos.x, top: menuPos.y }}
+          className="fixed z-popover min-w-36 rounded-md border border-border bg-popover py-1 text-xs shadow-md"
+          style={{
+            // 视口 clamp:最多 4 项约 130px 高,防止贴近屏幕边缘时溢出
+            left: Math.min(menuPos.x, window.innerWidth - 160),
+            top: Math.min(menuPos.y, window.innerHeight - 140),
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           {menuItems.map((item) => (

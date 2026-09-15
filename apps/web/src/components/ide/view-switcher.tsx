@@ -18,9 +18,11 @@ import {
   Settings,
   Plug,
   Plus,
-  Search,
 } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+// 2026-09-15 治理:浮层定位/portal/关闭逻辑统一收敛到 PortalPanel
+import { PortalPanel } from '@/components/feedback/portal-panel'
 
 type OptionItem = {
   id: IDETabType
@@ -66,14 +68,6 @@ export function ViewSwitcher() {
   const itemLabel = (item: OptionItem) => (item.labelKey ? t(item.labelKey) : (item.label ?? ''))
 
   React.useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  React.useEffect(() => {
     if (!open) return
     setQuery('')
     const id = requestAnimationFrame(() => inputRef.current?.focus())
@@ -101,54 +95,58 @@ export function ViewSwitcher() {
         <Plus className="h-3.5 w-3.5" />
         <ChevronDown className="h-3 w-3" />
       </button>
-      {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-md border border-border bg-popover p-1 shadow-md">
-          <div className="px-1 pb-1 pt-0.5">
-            <div className="flex items-center gap-1.5 rounded-sm bg-muted/50 px-2 py-1">
-              <Search className="h-3 w-3 shrink-0 text-muted-foreground" />
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t('viewSwitcher.searchPlaceholder')}
-                className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
-              />
-            </div>
-          </div>
-          {filteredGroups.length === 0 ? (
-            <div className="px-3 py-3 text-center text-xs text-muted-foreground">
-              {t('viewSwitcher.noMatch')}
-            </div>
-          ) : (
-            filteredGroups.map((group) => (
-              <div key={group.titleKey} className="px-1 pb-1 pt-1">
-                <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {t(group.titleKey)}
-                </div>
-                {group.items.map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => {
-                      setActiveTopTab(opt.id)
-                      setOpen(false)
-                    }}
-                    className={cn(
-                      'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs transition-colors',
-                      activeTopTab === opt.id
-                        ? 'bg-muted text-foreground'
-                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
-                    )}
-                  >
-                    <opt.icon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="flex-1 min-w-0 text-left">{itemLabel(opt)}</span>
-                    <span className="text-[10px] text-muted-foreground/80">{opt.shortcut}</span>
-                  </button>
-                ))}
-              </div>
-            ))
-          )}
+      <PortalPanel
+        open={open}
+        anchorRef={ref}
+        onClose={() => setOpen(false)}
+        side="bottom"
+        align="start"
+        gap={4}
+        className="w-64 rounded-md border border-border bg-popover p-1 shadow-md"
+      >
+        <div className="px-1 pb-1 pt-0.5">
+          <SearchInput
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('viewSwitcher.searchPlaceholder')}
+            size="sm"
+            wrapperClassName="w-full"
+          />
         </div>
-      )}
+        {filteredGroups.length === 0 ? (
+          <div className="px-3 py-3 text-center text-xs text-muted-foreground">
+            {t('viewSwitcher.noMatch')}
+          </div>
+        ) : (
+          filteredGroups.map((group) => (
+            <div key={group.titleKey} className="px-1 pb-1 pt-1">
+              <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                {t(group.titleKey)}
+              </div>
+              {group.items.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => {
+                    setActiveTopTab(opt.id)
+                    setOpen(false)
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs transition-colors',
+                    activeTopTab === opt.id
+                      ? 'bg-muted text-foreground'
+                      : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                  )}
+                >
+                  <opt.icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="flex-1 min-w-0 text-left">{itemLabel(opt)}</span>
+                  <span className="text-[10px] text-muted-foreground/80">{opt.shortcut}</span>
+                </button>
+              ))}
+            </div>
+          ))
+        )}
+      </PortalPanel>
     </div>
   )
 }

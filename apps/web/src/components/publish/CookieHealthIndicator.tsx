@@ -24,11 +24,20 @@ import { getCookieHealth, refreshAccountCookie, type CookieHealthLevel } from '@
 import { Tooltip } from '@/components/feedback'
 import { useToast } from '@/hooks/use-toast'
 
+/**
+ * 展示形态:
+ * - badge+button(默认):健康徽章 + 刷新按钮(整组)
+ * - badge:仅健康徽章(按钮由页面放到其他位置)
+ * - button:仅刷新按钮
+ */
+export type CookieHealthVariant = 'badge+button' | 'badge' | 'button'
+
 export interface CookieHealthIndicatorProps {
   readonly accountId: number
   readonly initialLevel?: CookieHealthLevel
   readonly compact?: boolean
   readonly onRefreshed?: () => void
+  readonly variant?: CookieHealthVariant
 }
 
 const LEVEL_CONFIG: Record<CookieHealthLevel, { dot: string; label: string; text: string }> = {
@@ -63,6 +72,7 @@ export function CookieHealthIndicator({
   initialLevel,
   compact,
   onRefreshed,
+  variant = 'badge+button',
 }: CookieHealthIndicatorProps) {
   const t = useTranslations('publish')
   const toast = useToast()
@@ -120,6 +130,8 @@ export function CookieHealthIndicator({
   }
 
   const cfg = LEVEL_CONFIG[level]
+  const showBadge = variant !== 'button'
+  const showButton = variant !== 'badge'
 
   return (
     <div
@@ -127,31 +139,38 @@ export function CookieHealthIndicator({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div
-        className={cn(
-          'inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
-          cfg.text,
-          !compact && 'bg-muted/40',
-        )}
-      >
-        <span className={cn('inline-block h-2 w-2 rounded-full', cfg.dot)} aria-hidden />
-        {!compact && <span>{t(cfg.label)}</span>}
-      </div>
-      <Tooltip content={t('cookieHealth.refresh')}>
-        <button
-          type="button"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-          aria-label={t('cookieHealth.refresh')}
-        >
-          {refreshing ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <RefreshCw className="h-3 w-3" />
+      {showBadge && (
+        <div
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+            cfg.text,
+            !compact && 'bg-muted/40',
           )}
-        </button>
-      </Tooltip>
+        >
+          <span className={cn('inline-block h-2 w-2 rounded-full', cfg.dot)} aria-hidden />
+          {!compact && <span>{t(cfg.label)}</span>}
+        </div>
+      )}
+      {showButton && (
+        <Tooltip content={t('cookieHealth.refresh')}>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className={cn(
+              'inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50',
+              showBadge && 'ml-1',
+            )}
+            aria-label={t('cookieHealth.refresh')}
+          >
+            {refreshing ? (
+              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-2.5 w-2.5" />
+            )}
+          </button>
+        </Tooltip>
+      )}
 
       {hovered && detail && (
         <div className="absolute bottom-full left-0 z-50 mb-1 w-48 rounded-md border border-border bg-popover p-2 text-xs shadow-md">

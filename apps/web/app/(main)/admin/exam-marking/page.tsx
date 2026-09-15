@@ -14,6 +14,7 @@ import {
   Button,
   Input,
   Label,
+  SearchInput,
   Table,
   TableHeader,
   TableBody,
@@ -146,12 +147,13 @@ export default function ExamMarkingPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold tracking-tight">考试答题批阅</h1>
         <div className="flex items-center gap-2">
-          <Input
+          <SearchInput
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && search()}
             placeholder="学生昵称 / 手机号"
-            className="h-9 w-56"
+            size="lg"
+            wrapperClassName="w-56"
           />
           <Button size="sm" onClick={search}>
             <Search className="h-4 w-4" />

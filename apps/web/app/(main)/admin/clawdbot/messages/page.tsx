@@ -6,10 +6,10 @@
 
 import * as React from 'react'
 import { useLocale } from 'next-intl'
-import { MessageSquare, Loader2, Search, X } from 'lucide-react'
+import { Loader2, MessageSquare, X } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Button, Input } from '@ihui/ui-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
 
@@ -87,15 +87,12 @@ export default function ClawdbotMessagesPage() {
       </h1>
 
       <div className="flex gap-2">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-8"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="搜索消息内容..."
-          />
-        </div>
+        <SearchInput
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          placeholder="搜索消息内容..."
+          wrapperClassName="flex-1 min-w-0"
+        />
         <select
           className="h-9 rounded-md border bg-background px-3 text-sm"
           value={intentFilter}

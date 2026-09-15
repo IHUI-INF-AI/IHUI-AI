@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Input, Label } from '@ihui/ui-react'
+import { Button, Label, SearchInput } from '@ihui/ui-react'
 import { SEARCH_KEYS, FIELDS } from './helpers'
 
 interface Props {
@@ -26,13 +26,14 @@ export function AboutUsFilter({ search, setSearch, onSearch, onReset }: Props) {
         return (
           <div key={k} className="space-y-1">
             <Label className="text-xs">{label}</Label>
-            <Input
-              className="h-9 w-40"
+            <SearchInput
               value={search[k]}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setSearch({ ...search, [k]: e.target.value })
               }
               placeholder={t('searchPlaceholder', { field: label })}
+              size="lg"
+              wrapperClassName="w-40"
             />
           </div>
         )

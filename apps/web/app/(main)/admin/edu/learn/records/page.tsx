@@ -8,24 +8,24 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, ChevronLeft, ChevronRight, ListOrdered, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ListOrdered, Loader2 } from 'lucide-react'
 import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
   Button,
-  Input,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@ihui/ui-react'
 
 interface LearnRecord {
@@ -92,15 +92,13 @@ export default function EduLearnRecordsPage() {
             {t('backToLearn')}
           </Link>
         </Button>
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t('searchPlaceholder')}
+          size="lg"
+          wrapperClassName="w-full max-w-xs"
+        />
         <div className="w-full max-w-[160px]">
           <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger className={selectClass} aria-label={t('type.label')}>

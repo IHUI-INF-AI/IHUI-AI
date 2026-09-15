@@ -6,9 +6,9 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, ChevronDown, Building2, Users, Loader2, Search } from 'lucide-react'
+import { Building2, ChevronDown, ChevronRight, Loader2, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Input } from '@ihui/ui-react'
+import { SearchInput } from '@ihui/ui-react'
 import { fetchDeptList } from './helpers'
 import type { DeptItem } from './types'
 
@@ -147,16 +147,14 @@ export function DeptTree({ selectedId, onSelect }: Props) {
         部门
       </div>
       <div className="shrink-0 p-2">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="搜索部门"
-            className="h-7 pl-7 text-xs"
-            aria-label="搜索部门"
-          />
-        </div>
+        <SearchInput
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          placeholder="搜索部门"
+          aria-label="搜索部门"
+          size="sm"
+          className="pl-7 text-xs"
+        />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
         <button

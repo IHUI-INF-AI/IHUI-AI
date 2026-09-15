@@ -6,8 +6,8 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Search, History } from 'lucide-react'
-import { Dialog, DialogContent } from '@ihui/ui-react'
+import { History } from 'lucide-react'
+import { Dialog, DialogContent, SearchInput } from '@ihui/ui-react'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { useWorkPanelStore } from '@/stores/work-panel'
@@ -170,17 +170,17 @@ export function CommandPalette({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl gap-0 p-0">
-        <div className="flex items-center gap-2 bg-muted/30 px-4 py-3">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <input
+        <div className="flex items-center bg-muted/30 px-2 py-1.5">
+          <SearchInput
             ref={inputRef}
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="text-sm"
             placeholder={t('searchPlaceholder')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
+            wrapperClassName="p-1.5 flex-1 min-w-0"
           />
-          <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+          <kbd className="mr-2 shrink-0 rounded border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             ESC
           </kbd>
         </div>

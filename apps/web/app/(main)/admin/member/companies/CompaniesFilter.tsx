@@ -4,16 +4,15 @@
 
 'use client'
 
-import { Search, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-
 import {
   Button,
-  Input,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
 
@@ -35,16 +34,14 @@ export function CompaniesFilter({
   const t = useTranslations('admin.member')
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative w-full max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={t('namePlaceholder')}
-          className="h-9 pl-8"
-          aria-label={t('colName')}
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={(e) => onSearchChange(e.target.value)}
+        placeholder={t('namePlaceholder')}
+        aria-label={t('colName')}
+        size="lg"
+        wrapperClassName="w-full max-w-xs"
+      />
       <Select value={status} onValueChange={onStatusChange}>
         <SelectTrigger className="h-9 w-[140px]" id="company-status-filter">
           <SelectValue />
