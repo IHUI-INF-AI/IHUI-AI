@@ -15,6 +15,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 
 const ROOT = process.cwd()
 const WEB_DIR = join(ROOT, 'apps/web')
@@ -37,7 +38,7 @@ const EXCLUDE_DIRS = new Set(['.git', '.next', '.ihui-agent', '.turbo', '.worktr
 function collectFiles(dir, exts, result = []) {
   if (!existsSync(dir)) return result
   for (const entry of readdirSync(dir)) {
-    if (EXCLUDE_DIRS.has(entry)) continue
+    if (EXCLUDE_DIRS.has(entry) || isExcludedDirName(entry)) continue
     const full = join(dir, entry)
     const st = statSync(full)
     if (st.isDirectory()) {
