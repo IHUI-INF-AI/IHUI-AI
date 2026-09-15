@@ -10,6 +10,7 @@ import { SearchScreen as SharedSearchScreen, type SearchScreenItem } from '@ihui
 import { fetchApi } from '@ihui/api-client'
 import { SearchInput } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
@@ -25,6 +26,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
  */
 export function SearchScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const [keyword, setKeyword] = useState('')
   const [results, setResults] = useState<SearchScreenItem[]>([])
@@ -69,6 +71,7 @@ export function SearchScreen() {
           onChangeText={setKeyword}
           placeholder={t('search.placeholder')}
           onSubmit={onSearch}
+          colorScheme={resolvedTheme}
         />
       </View>
       <View style={styles.body}>
