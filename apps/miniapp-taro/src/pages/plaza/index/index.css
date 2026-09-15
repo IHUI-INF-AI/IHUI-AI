@@ -56,28 +56,6 @@
   border-radius: 32rpx;
 }
 
-/* 搜索栏对齐 RN searchBar:px 10dp→20rpx / py 12dp→24rpx / bg surface.light */
-.pza-search {
-  padding: 24rpx 20rpx;
-  background: var(--color-card);
-}
-
-/* 输入框对齐 RN searchInput:border border.light / radius 12dp→24rpx / bg surface.muted /
-   px 12dp→24rpx / py 14dp→28rpx / 字 16dp→32rpx text.primary */
-.pza-search-input {
-  padding: 28rpx 24rpx;
-  font-size: 32rpx;
-  color: var(--color-foreground);
-  background: var(--color-muted);
-  border: 1px solid var(--color-border);
-  border-radius: 24rpx;
-  box-sizing: border-box;
-}
-
-.pza-search-placeholder {
-  color: var(--color-text-tertiary);
-}
-
 /* 状态 chips 对齐 RN chipsBar:bg surface.light + hairline 底边 /
    chipsContent px 10dp→20rpx py 12dp→24rpx gap 12dp→24rpx */
 .pza-tabs {

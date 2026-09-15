@@ -523,6 +523,7 @@ export function StudyIndexScreen() {
             onChangeText={setSearchInput}
             placeholder="搜索视频"
             onSubmit={onSubmitSearch}
+            colorScheme={resolvedTheme}
           />
         </View>
       ) : null}

@@ -44,6 +44,7 @@ import { NavBar } from '../components/NavBar'
 import Empty from '../components/common/Empty'
 import { SearchInput } from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
@@ -87,6 +88,7 @@ export default function DevEnterScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const { user } = useAuth()
+  const { resolvedTheme } = useTheme()
 
   const [headTab, setHeadTab] = useState<AgentStatus>('draft')
   const [subTab, setSubTab] = useState<AgentStatus>('draft')
@@ -275,6 +277,7 @@ export default function DevEnterScreen() {
             onChangeText={setSearchInput}
             placeholder="搜索智能体名称"
             onSubmit={handleSearch}
+            colorScheme={resolvedTheme}
             voiceEnabled={false}
           />
         </View>

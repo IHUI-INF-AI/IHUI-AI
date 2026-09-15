@@ -15,18 +15,6 @@
   padding: 0 20rpx 120rpx;
 }
 
-/* 搜索栏(小程序独有,bg card 与 RN 卡片同层) */
-.search-bar {
-  padding: 16rpx 0;
-}
-.search-input {
-  height: 72rpx;
-  padding: 0 24rpx;
-  background: var(--color-card);
-  border-radius: 24rpx;
-  font-size: 28rpx;
-}
-
 /* 分类 tab(小程序独有,active 用 --color-primary 对齐 RN 强调) */
 .tabs {
   display: flex;

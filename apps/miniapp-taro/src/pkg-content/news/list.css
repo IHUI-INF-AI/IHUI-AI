@@ -11,29 +11,6 @@
   box-sizing: border-box;
 }
 
-/* ===== 搜索栏 ===== */
-.search-bar {
-  display: flex;
-  align-items: center;
-  padding: 24rpx 32rpx 16rpx;
-}
-.search-icon {
-  margin-right: 12rpx;
-  font-size: 30rpx;
-  color: var(--color-muted-foreground);
-  flex-shrink: 0;
-}
-.search-input {
-  flex: 1;
-  height: 72rpx;
-  padding: 0 24rpx;
-  background: var(--color-card);
-  border: 2rpx solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: 26rpx;
-  color: var(--color-foreground);
-}
-
 /* ===== 分类 Tab(对齐 RN SingleTypeBar:categoryBar py8/px10/gap8 bg surface.card
    + typeItem py6/px12/radius8/border border.light/bg surface.light
    + typeItemActive bg brand.DEFAULT + typeText 14/600 text.secondary→primary-foreground)===== */
