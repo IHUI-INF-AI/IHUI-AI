@@ -2,22 +2,27 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/**
+ * KnowledgeBaseScreen 知识库列表(mobile-rn 端 wrapper)
+ *
+ * 2026-09-15 迁移:UI 与展示逻辑已下沉共享层 @ihui/rn-app KnowledgeBaseScreen,
+ * 本 wrapper 仅保留平台特定职责:
+ * - 数据:listKnowledgeDocs(ownerUuid=当前用户)+ deleteKnowledgeDoc(Alert 二次确认后删除)
+ * - 导航:goBack / KnowledgeDoc 详情 / KnowledgeCreate 新建;主题与 i18n 注入
+ */
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, FlatList, Text, TouchableOpacity, View, RefreshControl } from 'react-native'
+import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAuthStore } from '../stores/auth-store'
 import { listKnowledgeDocs, deleteKnowledgeDoc, type KnowledgeDocSummary } from '@ihui/api-client'
+import { KnowledgeBaseScreen as SharedKnowledgeBaseScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-/**
- * 知识库列表(M3 补齐:web /knowledge-rag 在移动端的原生入口)
- * 数据源:listKnowledgeDocs(ownerUuid=当前用户)
- */
 export function KnowledgeBaseScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
@@ -67,94 +72,30 @@ export function KnowledgeBaseScreen() {
     ])
   }
 
-  const onOpen = (doc: KnowledgeDocSummary) => {
-    navigation.navigate('KnowledgeDoc', { id: doc.id, title: doc.title })
-  }
-
-  if (loading) {
-    return (
-      <View
-        className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}
-      >
-        <Text className="text-gray-500">{t('common.loading')}</Text>
-      </View>
-    )
-  }
-
   return (
-    <View className={`flex-1 ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}>
-      <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text className="text-sm text-gray-500">{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text className="text-base font-medium">{t('knowledgeBase.title')}</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('KnowledgeCreate')}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text className="text-sm text-orange-600">{t('knowledgeBase.add')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {error ? (
-        <View className="flex-1 items-center justify-center px-6">
-          <Text className="mb-3 text-center text-sm text-gray-500">{error}</Text>
-          <TouchableOpacity
-            onPress={() => {
-              setLoading(true)
-              void load()
-            }}
-            className="rounded-md bg-gray-200 px-4 py-2"
-          >
-            <Text className="text-sm">{t('knowledgeBase.retry')}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(item) => String(item.id)}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true)
-                void load()
-              }}
-            />
-          }
-          ListEmptyComponent={
-            <View className="items-center py-16">
-              <Text className="text-sm text-gray-500">{t('knowledgeBase.empty')}</Text>
-              <Text className="mt-1 text-xs text-gray-400">{t('knowledgeBase.emptyHint')}</Text>
-            </View>
-          }
-          contentContainerStyle={{ padding: 16 }}
-          renderItem={({ item }) => (
-            <View className="mb-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
-              <TouchableOpacity onPress={() => onOpen(item)}>
-                <Text className="text-base font-medium" numberOfLines={1}>
-                  {item.title}
-                </Text>
-                <Text className="mt-1 text-xs text-gray-500">
-                  {item.chunkCount} {t('knowledgeBase.chunks')}
-                  {item.createdAt ? ` · ${String(item.createdAt).slice(0, 10)}` : ''}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => onDelete(item)}
-                disabled={deleting}
-                className="mt-2 self-start rounded-md border border-red-200 px-2 py-1"
-              >
-                <Text className="text-xs text-red-500">{t('knowledgeBase.delete')}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        />
-      )}
-    </View>
+    <SharedKnowledgeBaseScreen
+      t={t}
+      docs={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      deleting={deleting}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onRetry={() => {
+        setLoading(true)
+        void load()
+      }}
+      onOpenDoc={(doc: KnowledgeDocSummary) =>
+        navigation.navigate('KnowledgeDoc', { id: doc.id, title: doc.title })
+      }
+      onDeleteDoc={onDelete}
+      onCreate={() => navigation.navigate('KnowledgeCreate')}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
