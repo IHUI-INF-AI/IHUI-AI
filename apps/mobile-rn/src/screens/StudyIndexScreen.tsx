@@ -60,7 +60,7 @@ import Drawer, {
   type DrawerTab,
 } from '../components/Drawer'
 import ModelList, { type ModelListGroup } from '../components/ModelList'
-import { SearchInput } from '../components/SearchInput'
+import { SearchInput } from '@ihui/rn-app'
 import { SingleTypeBar } from '../components/SingleTypeBar'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
