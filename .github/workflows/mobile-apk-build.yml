@@ -13,6 +13,21 @@ name: Build Android APK
 #   - 构建成功后自动发布为 GitHub Release 资产(固定文件名 ihui-ai-latest.apk)
 #   - 下载页 APK_URL 指向最新 Release 固定地址,引导页自动生效(无需人工放入)
 # 生产配置:API 指向 https://api.aizhs.top(已实测 /api/health 200)。
+#
+# 2026-09-15 修复(GitHub runner 环境漂移,与仓库代码无关):
+#   run #318~#327 连续 10 次失败,均 51~55s 挂在 `Setup Android SDK` 步骤,其后
+#   prebuild / gradle / 打包 / 发布全部 skipped —— APK 完全出不来(#317 及之前全 success)。
+#   失败日志实锤(run #327 的 "6_Setup Android SDK" 段):
+#     Found preinstalled sdkmanager in /usr/local/lib/android/sdk/cmdline-tools/latest ...
+#     Wrong version in preinstalled sdkmanager      ← action 版本判定写死,不认新镜像
+#     [command] .../cmdline-tools/16.0/bin/sdkmanager tools
+#     Warning: Failed to find package 'tools'       ← Google 已下架 legacy tools 包
+#     Error: The process '.../sdkmanager' failed with exit code 1
+#   根因:runner 镜像把 cmdline-tools 升到 16.0,android-actions/setup-android@v3 判定
+#        "Wrong version" 后回退去装早已下架的 `tools` 包,非零退出掐死整条流水线。
+#   修法:直接删掉该 action。ubuntu-latest 本身预装完整 Android SDK
+#        (/usr/local/lib/android/sdk),下面只做「导出 ANDROID_HOME + 接受 licenses」,
+#        AGP 会据此自动补装缺失的 platform/NDK。不引第三方 action = 不再被其版本判定绑架。
 
 on:
   workflow_dispatch:
@@ -23,6 +38,8 @@ on:
       - 'apps/mobile-rn/**'
       - 'packages/**'
       - 'pnpm-lock.yaml'
+      # 本 workflow 自身也纳入触发:改流水线必须能立即自验,否则修了也不知道通没通
+      - '.github/workflows/mobile-apk-build.yml'
     tags: ['v*']
 
 # 防止并发重复构建:同一时间只保留一个构建(新 push 排队等待,不取消进行中的旧构建)
@@ -51,13 +68,30 @@ jobs:
           cache: 'pnpm'
 
       - name: Setup Java (Temurin 17)
-        uses: actions/setup-java@v4
+        # v4 已进入弃用状态(GitHub 注解明确建议迁移到 v5),v5 参数签名与之兼容
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # 替代原 android-actions/setup-android@v3(2026-09-15 移除,原因见文件头注释)。
+      # runner 已预装 SDK,这里只补齐两件 AGP 依赖的前提:环境变量 + licenses。
+      - name: Setup Android SDK (runner 预装,仅接受 licenses)
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -1)"
+          fi
+          echo "sdkmanager = $SDKMANAGER"
+          "$SDKMANAGER" --version || true
+          # licenses 必须接受,否则 AGP 无法自动下载缺失的 platform / NDK;
+          # 用 || true 兜底:个别 license 交互失败不应掐死整条流水线(build 阶段会再暴露)。
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          echo "--- 已装组件(前 30 行) ---"
+          "$SDKMANAGER" --list_installed 2>/dev/null | head -30 || true
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
