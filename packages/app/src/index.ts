@@ -685,4 +685,70 @@ export { EarnCommissionScreen } from './features/earn-commission/EarnCommissionS
 /** 批次 34(2026-08-15):Mock 数据屏(团队成员详情/排行榜详情,2 屏迁移自 mobile-rn) */
 export { TeamDetailScreen } from './features/team-detail/TeamDetailScreen'
 export { RankingDetailScreen } from './features/ranking-detail/RankingDetailScreen'
+
+/** 2026-09-15:mobile-rn 迁移守门全量清零批(14 屏,props 类型 inline 定义在组件文件) */
+export { LecturerListScreen } from './features/lecturer-list/LecturerListScreen'
+export type {
+  LecturerListItem,
+  LecturerListScreenProps,
+} from './features/lecturer-list/LecturerListScreen'
+export { AiSkillScreen } from './features/ai-skill/AiSkillScreen'
+export type { AiSkillListItem, AiSkillScreenProps } from './features/ai-skill/AiSkillScreen'
+export { AiSkillDetailScreen } from './features/ai-skill/AiSkillDetailScreen'
+export type {
+  AiSkillDetailData,
+  AiSkillDetailScreenProps,
+} from './features/ai-skill/AiSkillDetailScreen'
+export { KnowledgeBaseScreen } from './features/knowledge-base/KnowledgeBaseScreen'
+export type {
+  KnowledgeDocListItem,
+  KnowledgeBaseScreenProps,
+} from './features/knowledge-base/KnowledgeBaseScreen'
+export { KnowledgeCreateScreen } from './features/knowledge-base/KnowledgeCreateScreen'
+export type { KnowledgeCreateScreenProps } from './features/knowledge-base/KnowledgeCreateScreen'
+export { KnowledgeDocScreen } from './features/knowledge-base/KnowledgeDocScreen'
+export type {
+  KnowledgeDocDetailItem,
+  KnowledgeChunkPreviewItem,
+  KnowledgeDocScreenProps,
+} from './features/knowledge-base/KnowledgeDocScreen'
+export { ContextScreen } from './features/context/ContextScreen'
+export type {
+  ContextCompressionEventData,
+  ContextCompressionStatsData,
+  ContextMentionItem,
+  ContextScreenProps,
+} from './features/context/ContextScreen'
+export { MemoryScreen } from './features/memory/MemoryScreen'
+export type { MemoryScreenProps } from './features/memory/MemoryScreen'
+export { PayResultScreen } from './features/pay-result/PayResultScreen'
+export type { PayResultStatus, PayResultScreenProps } from './features/pay-result/PayResultScreen'
+export { AiWorldScreen } from './features/ai-world/AiWorldScreen'
+export type {
+  AiWorldTab,
+  AiWorldEntry,
+  AiWorldRankingItem,
+  AiWorldCategoryOption,
+  AiWorldChipOption,
+  AiWorldScreenProps,
+} from './features/ai-world/AiWorldScreen'
+export { PublishScreen } from './features/publish/PublishScreen'
+export type { PublishTaskItem, PublishScreenProps } from './features/publish/PublishScreen'
+export { SelfMediaScreen } from './features/self-media/SelfMediaScreen'
+export type {
+  SelfMediaTab,
+  SelfMediaSkillItem,
+  SelfMediaRecordItem,
+  SelfMediaResultItem,
+  SelfMediaScreenProps,
+} from './features/self-media/SelfMediaScreen'
+export { SpecScreen } from './features/spec/SpecScreen'
+export type { SpecTemplateItem, SpecScreenProps } from './features/spec/SpecScreen'
+export { ImageGenHistoryScreen } from './features/image-gen-history/ImageGenHistoryScreen'
+export type {
+  ImageGenTaskStatus,
+  ImageGenHistoryGridItem,
+  ImageGenHistoryTab,
+  ImageGenHistoryScreenProps,
+} from './features/image-gen-history/ImageGenHistoryScreen'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
