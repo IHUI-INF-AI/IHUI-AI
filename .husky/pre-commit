@@ -489,4 +489,25 @@ if (process.env.HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD !== '1') {
   console.log('⏭  凭据前缀一致性守门(HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD=1, 跳过)')
 }
 
+// 🐧 PowerShell 版本声明守门(2026-09-15 立,blocking)
+// 背景:项目内 .ps1 必须首行 `#requires -Version 7`,强制 pwsh 7+,
+//      弃用 EOL 的 Windows PowerShell 5.1(编码/解析已知 bug)。
+//      全仓已于 2026-09-15 清零(隔离归档已排除);staged 模式守住新增/修改。
+// 跳过方法(紧急):HUSKY_SKIP_PWSH_VERSION_GUARD=1 git commit ...
+if (process.env.HUSKY_SKIP_PWSH_VERSION_GUARD !== '1') {
+  if (
+    !run(
+      '🐧 PowerShell 版本声明守门(.ps1 必须 #requires -Version 7)...',
+      'node scripts/check-pwsh-version.mjs --staged',
+    )
+  ) {
+    console.error('❌ PowerShell 版本声明守门失败,提交已阻止')
+    console.error('   修复:每个 .ps1 首行加 #requires -Version 7')
+    console.error('   紧急跳过:HUSKY_SKIP_PWSH_VERSION_GUARD=1 git commit ...')
+    process.exit(1)
+  }
+} else {
+  console.log('⏭  PowerShell 版本声明守门(HUSKY_SKIP_PWSH_VERSION_GUARD=1, 跳过)')
+}
+
 console.log('✅ Pre-commit 检查通过')
