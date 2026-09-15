@@ -7044,12 +7044,14 @@
       "coordinated": "{count} 個のサブエージェントを調整して完了",
       "defaultName": "サブエージェント",
       "totalSteps": "(全 {count} ステップ)",
-      "lane.architect": "アーキテクト",
-      "lane.coder": "コーダー",
-      "lane.debugger": "デバッガー",
-      "lane.general": "汎用",
-      "lane.researcher": "リサーチャー",
-      "lane.reviewer": "レビュアー",
+      "lane": {
+        "architect": "アーキテクト",
+        "coder": "コーダー",
+        "debugger": "デバッガー",
+        "general": "汎用",
+        "researcher": "リサーチャー",
+        "reviewer": "レビュアー"
+      },
       "laneEmpty": "アイドル",
       "viewToggle": "表示切替",
       "working": "{count} 個のサブエージェントが協力中"
@@ -7944,15 +7946,23 @@
     "clearLog": "クリア",
     "noEvents": "イベント記録なし",
     "event": {
-      "tool.before": "ツール呼び出し前",
-      "tool.after": "ツール結果後",
-      "message.send": "メッセージ送信",
-      "message.receive": "メッセージ受信",
-      "session.start": "セッション開始",
-      "session.end": "セッション終了",
+      "tool": {
+        "before": "ツール呼び出し前",
+        "after": "ツール結果後"
+      },
+      "message": {
+        "send": "メッセージ送信",
+        "receive": "メッセージ受信"
+      },
+      "session": {
+        "start": "セッション開始",
+        "end": "セッション終了"
+      },
       "error": "エラー発生",
-      "commit.before": "コミット前",
-      "commit.after": "コミット後"
+      "commit": {
+        "before": "コミット前",
+        "after": "コミット後"
+      }
     },
     "action": {
       "log": "ログ記録",
@@ -8048,15 +8058,23 @@
     "clearLog": "クリア",
     "noLog": "転送記録はありません",
     "event": {
-      "tool.before": "ツール呼び出し前",
-      "tool.after": "ツール返却後",
-      "message.send": "メッセージ送信",
-      "message.receive": "メッセージ受信",
-      "session.start": "セッション開始",
-      "session.end": "セッション終了",
+      "tool": {
+        "before": "ツール呼び出し前",
+        "after": "ツール返却後"
+      },
+      "message": {
+        "send": "メッセージ送信",
+        "receive": "メッセージ受信"
+      },
+      "session": {
+        "start": "セッション開始",
+        "end": "セッション終了"
+      },
       "error": "エラー発生",
-      "commit.before": "コミット前",
-      "commit.after": "コミット後"
+      "commit": {
+        "before": "コミット前",
+        "after": "コミット後"
+      }
     },
     "pushPerm": {
       "default": "未询问",
@@ -16989,7 +17007,8 @@
       "analytics": "データ分析",
       "calendar": "公開カレンダー",
       "history": "公開履歴",
-      "new": "新規タスク"
+      "new": "新規タスク",
+      "monitor": "モニター"
     },
     "taskAllComplete": "すべて完了",
     "taskProgress": "完了",
@@ -17013,6 +17032,52 @@
     "uploadFailed": "アップロード失敗",
     "uploadProgress": "アップロード中",
     "uploadSuccess": "アップロード成功"
+  },
+  "publishMonitor": {
+    "title": "公開モニター",
+    "subtitle": "各記事の公開状況・スタイル検証・エンゲージメントをリアルタイムで確認",
+    "refresh": "更新",
+    "refreshing": "更新中…",
+    "emptyTitle": "モニターデータがありません",
+    "emptyHint": "まず「新規公開」でタスクを作成してください。公開されると各記事のモニターがここに表示されます",
+    "goCreate": "新規公開へ",
+    "summarySuccess": "成功",
+    "summaryFailed": "失敗",
+    "summaryUnverified": "未検証",
+    "blockStatus": "公開状況",
+    "blockVerify": "スタイル検証",
+    "blockResubmit": "再送回数",
+    "blockMetrics": "エンゲージメント",
+    "platform": "プラットフォーム",
+    "statusSuccess": "成功",
+    "statusFailed": "失敗",
+    "statusRunning": "処理中",
+    "statusPending": "待機中",
+    "status": "ステータス",
+    "statusUnknown": "不明",
+    "publishedAt": "公開日時",
+    "finishedAt": "完了日時",
+    "lastError": "エラー",
+    "openUrl": "元記事を表示",
+    "verifyPassed": "検証済み",
+    "verifyFailed": "検証失敗",
+    "verifyPending": "未検証",
+    "verifyAt": "検証日時",
+    "issues": "問題一覧",
+    "noIssues": "問題なし",
+    "contentLength": "本文文字数",
+    "images": "読み込み画像",
+    "resubmitCount": "再送回数",
+    "metricsViews": "閲覧数",
+    "metricsLikes": "いいね",
+    "metricsComments": "コメント",
+    "metricsShares": "シェア",
+    "metricsCollectedAt": "収集日時",
+    "noMetrics": "エンゲージメントデータなし",
+    "reVerify": "再検証",
+    "reVerifying": "検証中…",
+    "refreshMetrics": "データ更新",
+    "refreshMetricsLoading": "収集中…"
   },
   "quickKey": {
     "apiKeyLabel": "APIキー",
