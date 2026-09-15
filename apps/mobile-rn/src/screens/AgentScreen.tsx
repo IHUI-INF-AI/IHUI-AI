@@ -55,6 +55,7 @@ import IntelligentAssistant from '../components/IntelligentAssistant'
 import { SearchInput } from '@ihui/rn-app'
 import type { CarouselItem } from '@ihui/ui-native'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
@@ -141,6 +142,7 @@ function buildModelGroups(models: AiModel[]): ModelListGroup[] {
 export function AgentScreen() {
   const { t } = useI18n()
   const { token, user } = useAuth()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
   const [viewMode, setViewMode] = useState<ViewMode>('shared')
@@ -653,6 +655,7 @@ export function AgentScreen() {
             value={searchKeyword}
             onChangeText={setSearchKeyword}
             placeholder="搜索AI应用"
+            colorScheme={resolvedTheme}
             voiceEnabled={false}
           />
         ) : null}
