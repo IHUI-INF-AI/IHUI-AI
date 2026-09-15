@@ -157,12 +157,15 @@ const CodeBlockImpl = function CodeBlock({
   isStreaming,
   syntaxStyle,
   collapseLines = 5,
+  lineNumberStyle,
 }: {
   language?: string
   code: string
   isStreaming?: boolean
   syntaxStyle: Record<string, React.CSSProperties>
   collapseLines?: number
+  /** 四竞品对标 V2 #17(2026-09-15):行号样式,undefined = 不显示行号(纯文本/降级路径不传) */
+  lineNumberStyle?: React.CSSProperties
 }): React.ReactElement {
   const tA11y = useTranslations('a11y')
   const t = useTranslations('chat')
@@ -350,6 +353,8 @@ const CodeBlockImpl = function CodeBlock({
           <SyntaxHighlighter
             language={lang}
             style={syntaxStyle}
+            showLineNumbers={!!lineNumberStyle}
+            lineNumberStyle={lineNumberStyle}
             customStyle={{
               margin: 0,
               padding: 0,
@@ -381,7 +386,14 @@ function ThemedCodeBlock(props: {
 }) {
   const { resolvedTheme } = useTheme()
   const syntaxStyle = resolvedTheme === 'dark' ? ONE_DARK : ONE_LIGHT
-  return <CodeBlock {...props} syntaxStyle={syntaxStyle} />
+  // 四竞品对标 V2 #17(2026-09-15 立):语法高亮路径显示行号(对标 Codex/Trae/Qoder)。
+  // 行号色随主题:dark=zinc-400 / light=zinc-500,半透明 + 禁止选中(复制不夹带行号)。
+  // 纯文本/高亮降级路径不传 → 无行号(优雅降级,与高亮能力同生命周期)。
+  const lineNumberStyle: React.CSSProperties =
+    resolvedTheme === 'dark'
+      ? { color: '#a1a1aa', opacity: 0.7, userSelect: 'none' }
+      : { color: '#71717a', opacity: 0.7, userSelect: 'none' }
+  return <CodeBlock {...props} syntaxStyle={syntaxStyle} lineNumberStyle={lineNumberStyle} />
 }
 
 // 图片放大容器:点击图片在 WorkPanel 打开(同源);外链在新标签页打开
