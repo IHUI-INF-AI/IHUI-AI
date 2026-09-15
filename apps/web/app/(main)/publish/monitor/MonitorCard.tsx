@@ -129,13 +129,7 @@ function Metric({ label, value }: { label: string; value: number }) {
   )
 }
 
-export function MonitorCard({
-  item,
-  onChanged,
-}: {
-  item: MonitorItem
-  onChanged: () => void
-}) {
+export function MonitorCard({ item, onChanged }: { item: MonitorItem; onChanged: () => void }) {
   const t = useTranslations('publishMonitor')
   const tp = useTranslations('publish')
   const toast = useToast()
