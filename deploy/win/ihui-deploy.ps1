@@ -557,6 +557,14 @@ Log "交换 staging → 线上(.next),重启 web"
 Stop-Web
 Remove-Item "$WebDir\.next" -Recurse -Force -ErrorAction SilentlyContinue
 Move-Item "$WebDir\.next-staging" "$WebDir\.next"
+# 2026-09-15 修复:next build 在 IHUI_BUILD_DIST 覆盖 distDir 时会把被跟踪的
+#   next-env.d.ts 改写为引用 .next-staging/types/...,但上方只移动 .next 目录、
+#   不还原该文件 → 残留污染源码树(违反 AGENTS.md「.next-* 变体永不提交」铁律)。
+#   交换完成后立即还原为已提交版本;git 不可用时静默跳过(不阻塞部署)。
+try {
+    $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+    if ($gitCmd) { & git -C $Root checkout -- apps/web/next-env.d.ts 2>$null }
+} catch { /* 还原失败不阻塞部署,下次本地 git checkout 即可 */ }
 Start-Web
 Start-Sleep -Seconds 8
 
