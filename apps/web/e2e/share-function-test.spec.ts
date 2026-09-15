@@ -115,7 +115,10 @@ test.describe('分享功能 E2E 测试', () => {
           `${API_URL}/api/chat/conversations/${createdId}/messages`,
           {
             headers: { Authorization: `Bearer ${accessToken}` },
-            data: { role: 'user', content: 'E2E 分享流程验证消息:你好,这是一条用于分享页渲染验证的消息。' },
+            data: {
+              role: 'user',
+              content: 'E2E 分享流程验证消息:你好,这是一条用于分享页渲染验证的消息。',
+            },
           },
         )
         expect(msgResp.ok()).toBe(true)
