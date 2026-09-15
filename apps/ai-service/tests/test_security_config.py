@@ -2,9 +2,6 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-
 """P0-3 安全三件套:security_config + /agent/security-config 端点测试。
 
 覆盖:
@@ -23,8 +20,10 @@ from httpx import ASGITransport, AsyncClient
 from app.routers.agents import (
     SecurityConfigUpdateRequest,
     get_agent_security_config,
-    router as agents_router,
     update_agent_security_config,
+)
+from app.routers.agents import (
+    router as agents_router,
 )
 from app.services.security_config import (
     GUARD_POLICIES,
@@ -88,8 +87,8 @@ def test_set_rejects_invalid_enum() -> None:
 
 
 def test_policy_constants() -> None:
-    assert POLICY_MODES == frozenset({"enforce", "audit", "off"})
-    assert GUARD_POLICIES == frozenset({"flag", "sanitize", "refuse"})
+    assert frozenset({"enforce", "audit", "off"}) == POLICY_MODES
+    assert frozenset({"flag", "sanitize", "refuse"}) == GUARD_POLICIES
 
 
 def test_reset_restores_env_default() -> None:
