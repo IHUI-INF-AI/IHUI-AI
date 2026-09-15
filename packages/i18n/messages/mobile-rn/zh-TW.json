@@ -2131,7 +2131,8 @@
     "scopeLabel": "作用域",
     "save": "儲存",
     "saveFailed": "儲存失敗",
-    "textRequired": "請輸入記憶內容"
+    "textRequired": "請輸入記憶內容",
+    "uncategorized": "未分類"
   },
   "aiWorld": {
     "title": "AI 世界",
@@ -2164,14 +2165,30 @@
     "loadFailed": "載入失敗",
     "retry": "重試",
     "scheduled": "已排期",
-    "statsFailed": "統計載入失敗",
+    "statsFailed": "發布失敗",
     "statsSuccess": "發布成功",
     "statsTotal": "總計",
     "cancelTask": "取消",
     "cancelTitle": "取消發布任務",
     "cancelConfirm": "確定取消該任務嗎?",
     "retryTask": "重試",
-    "operateFailed": "操作失敗,請重試"
+    "operateFailed": "操作失敗,請重試",
+    "statusSuccess": "成功",
+    "statusFailed": "失敗",
+    "statusPartial": "部分成功",
+    "statusRunning": "執行中",
+    "statusPending": "待處理",
+    "statusSkipped": "跳過",
+    "platformBilibili": "嗶哩嗶哩",
+    "platformDouyin": "抖音",
+    "platformKuaishou": "快手",
+    "platformWechat": "微信公眾號",
+    "platformToutiao": "今日頭條",
+    "platformWeibo": "微博",
+    "platformXiaohongshu": "小紅書",
+    "platformZhihu": "知乎",
+    "platformJuejin": "掘金",
+    "platformShipinhao": "微信視頻號"
   },
   "imageGen": {
     "title": "圖像生成",
@@ -2192,7 +2209,13 @@
     "saveToAlbum": "儲存到相簿",
     "saveSuccess": "已儲存到相簿",
     "saveFailed": "儲存失敗,請重試",
-    "needPermission": "需要媒體庫權限才能儲存"
+    "needPermission": "需要媒體庫權限才能儲存",
+    "tabHistory": "生成歷史",
+    "tabFavorites": "我的收藏",
+    "statusPending": "排隊中",
+    "statusRunning": "生成中",
+    "statusSucceeded": "已完成",
+    "statusFailed": "失敗"
   },
   "webView": {
     "loadFailed": "頁面載入失敗",
@@ -2353,7 +2376,8 @@
     "title": "規範模板庫",
     "loadFailed": "模板載入失敗",
     "empty": "暫無模板",
-    "desktopHint": "模板瀏覽僅作參考;Spec 生成需服務端 workspace 路徑,請在 Web/桌面端使用完整生成流程"
+    "desktopHint": "模板瀏覽僅作參考;Spec 生成需服務端 workspace 路徑,請在 Web/桌面端使用完整生成流程",
+    "generateEntry": "去 Web 端生成"
   },
   "selfMedia": {
     "title": "自媒體助手",
