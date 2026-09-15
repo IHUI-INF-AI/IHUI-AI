@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Zap } from 'lucide-react'
 import { listAiSkills, type AiSkillMeta } from '@ihui/api-client'
-import { Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
+import { Card, CardContent, CardHeader, CardTitle, SearchInput } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
@@ -85,12 +85,11 @@ export default function AiSkillsPage() {
         <h3 className="m-0 text-sm font-semibold">{t('apps.aiSkills')}</h3>
         <span className="text-xs text-muted-foreground tabular-nums">{filtered.length}</span>
       </div>
-      <Input
-        type="search"
+      <SearchInput
+        size="lg"
         value={keyword}
         onChange={(e) => setKeyword(e.target.value)}
         placeholder={t('common.search')}
-        className="text-sm h-9"
         aria-label={t('common.search')}
       />
       {filtered.length === 0 ? (

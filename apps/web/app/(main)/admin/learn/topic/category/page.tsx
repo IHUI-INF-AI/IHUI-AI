@@ -9,16 +9,22 @@ import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Edit, FolderTree, Loader2, Plus, Trash2 } from 'lucide-react'
+import {} from 'lucide-react'
 import {
   Button,
+  ChevronLeft,
+  ChevronRight,
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Edit,
+  FolderTree,
   Input,
   Label,
+  Loader2,
+  Plus,
   SearchInput,
   Select,
   SelectContent,
@@ -26,12 +32,13 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
+  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  Table,
+  Trash2,
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'

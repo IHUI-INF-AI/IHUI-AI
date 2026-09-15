@@ -12,6 +12,7 @@ import {
   Download,
   FileText,
   Play,
+  Loader2,
   FilePlus2,
   TextCursorInput,
   Maximize2,
@@ -28,6 +29,7 @@ import { Tooltip } from '@/components/feedback'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { applyCodeBlockToFile } from '@/lib/apply-code-block'
+import { useCodeBlockRun, isRunnableLanguage, type RunResult } from '@/components/ai/code-block-run'
 // 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
@@ -151,6 +153,72 @@ function InlineHtmlPreview({ code }: { code: string }) {
   )
 }
 
+// P1 #28(2026-09-16):代码块运行结果内联输出面板。
+// 样式与代码块一致(zinc-100 / dark:zinc-950),含命令、合并 stdout/stderr、exitCode 徽章、关闭按钮。
+function CodeRunOutput({
+  result,
+  onClose,
+}: {
+  result: RunResult
+  onClose: () => void
+}) {
+  const t = useTranslations('chat')
+  const isSuccess = result.status === 'success'
+  const isRunning = result.status === 'running'
+  const exitBadge =
+    result.exitCode !== null ? (
+      <span
+        className={cn(
+          'shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium tabular-nums',
+          isSuccess
+            ? 'bg-green-500/15 text-green-600 dark:text-green-400'
+            : 'bg-red-500/15 text-red-600 dark:text-red-400',
+        )}
+        aria-label={`${t('codeRun.exit')} ${result.exitCode}`}
+      >
+        {isSuccess ? `exit 0` : `exit ${result.exitCode}`}
+      </span>
+    ) : null
+
+  return (
+    <div
+      data-testid="code-run-output"
+      className="mt-2 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950"
+    >
+      <div className="flex items-center justify-between gap-2 bg-zinc-200/60 px-2 py-1 dark:bg-zinc-900">
+        <span className="truncate text-[10px] font-medium text-muted-foreground">
+          {t('codeRun.title')}
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          data-testid="code-run-close"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={t('codeRun.close')}
+        >
+          <span className="text-xs leading-none">×</span>
+        </button>
+      </div>
+      <div className="max-h-[240px] overflow-auto p-2">
+        <code className="block break-all font-mono text-[11px] text-muted-foreground">
+          {result.command}
+        </code>
+        <pre className="mt-1 whitespace-pre-wrap break-all font-mono text-[12px] leading-relaxed text-zinc-800 dark:text-zinc-200">
+          {isRunning ? (
+            <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              {t('codeRun.running')}
+            </span>
+          ) : (
+            result.output || t('codeRun.failed')
+          )}
+        </pre>
+        <div className="mt-1 flex items-center gap-2">{exitBadge}</div>
+      </div>
+    </div>
+  )
+}
+
 const CodeBlockImpl = function CodeBlock({
   language,
   code,
@@ -219,13 +287,25 @@ const CodeBlockImpl = function CodeBlock({
     }
   }, [collapsed])
 
+  const lang = (language ?? '').trim().toLowerCase()
+  const isPlain = PLAIN_TEXT_LANGS.has(lang)
+
+  // P1 #28(2026-09-16):代码块一键运行(对标 Codex/Trae 对话内运行回显)。
+  // 复用的执行 API 仅需 workspacePath(从既有 store 取值),无需 messageId,不改动 props 链。
+  // 置于 mermaid 提前 return 之前,遵守 rules-of-hooks(所有 hook 在任意 return 前调用)。
+  const { result: runResult, run: runCodeBlock, clear: clearRunResult } = useCodeBlockRun()
+  const showRunButton = !isStreaming && isRunnableLanguage(lang)
+  const isRunning = runResult?.status === 'running'
+
+  const handleRun = React.useCallback(() => {
+    if (runResult?.status === 'running') return
+    void runCodeBlock({ language: lang, code })
+  }, [runResult, runCodeBlock, lang, code])
+
   // mermaid 块交给 MermaidDiagram 客户端渲染
   if (language === 'mermaid') {
     return <MermaidDiagram code={debouncedCode} />
   }
-
-  const lang = (language ?? '').trim().toLowerCase()
-  const isPlain = PLAIN_TEXT_LANGS.has(lang)
 
   // P0-4(2026-09-13):html/svg 代码块 inline 迷你预览条(渲染在代码块上方,
   // 仿 mermaid 特例;点击「在画布打开」进入全屏画布闭环)
@@ -247,6 +327,25 @@ const CodeBlockImpl = function CodeBlock({
   )
   const copyButton = (
     <div className="absolute right-2 top-2 z-10 flex items-center gap-0.5">
+      {/* 一键运行:仅非流式且语言在可运行集合内显示(对标 Codex/Trae 对话内运行) */}
+      {showRunButton && (
+        <Tooltip content={isRunning ? t('codeRun.running') : t('codeRun.run')}>
+          <button
+            type="button"
+            onClick={handleRun}
+            disabled={isRunning}
+            data-testid="run-code-button"
+            className={iconBtnClass}
+            aria-label={isRunning ? t('codeRun.running') : t('codeRun.run')}
+          >
+            {isRunning ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
+          </button>
+        </Tooltip>
+      )}
       {/* 应用到工作区文件:仅非流式且有语言标记的代码块显示 */}
       {!isStreaming && (
         <Tooltip content={t('codeBlock.applyToFile')}>
@@ -330,6 +429,7 @@ const CodeBlockImpl = function CodeBlock({
           {collapseButton}
           <code className="font-mono">{displayCode}</code>
         </pre>
+        {runResult && <CodeRunOutput result={runResult} onClose={clearRunResult} />}
       </>
     )
   }
@@ -366,6 +466,7 @@ const CodeBlockImpl = function CodeBlock({
           </SyntaxHighlighter>
         </pre>
       </CodeBlockErrorBoundary>
+      {runResult && <CodeRunOutput result={runResult} onClose={clearRunResult} />}
     </>
   )
 }

@@ -10,7 +10,6 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
-  Search,
   Sparkles,
   ExternalLink,
   Loader2,
@@ -37,7 +36,9 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  SearchInput,
 } from '@ihui/ui-react'
+
 import { cn } from '@/lib/utils'
 
 /**
@@ -210,17 +211,13 @@ export default function AiSkillsPageClient() {
             </button>
           ))}
         </div>
-        <div className="relative w-full min-[640px]:max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            aria-label={t('searchPlaceholder')}
-            className="w-full rounded-md border border-border bg-background py-1.5 pl-8 pr-3 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-foreground/30"
-          />
-        </div>
+        <SearchInput
+          wrapperClassName="w-full min-[640px]:max-w-xs"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          placeholder={t('searchPlaceholder')}
+          aria-label={t('searchPlaceholder')}
+        />
       </div>
 
       {/* 列表区 */}

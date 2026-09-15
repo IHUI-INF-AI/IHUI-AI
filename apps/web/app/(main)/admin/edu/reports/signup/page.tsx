@@ -7,29 +7,28 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import {} from 'lucide-react'
+import { eduApi, buildQs, type PageData } from '@/lib/edu'
+import { isNotFound } from '@/lib/api-error'
+import { BackButton } from '@/components/common'
 import {
   BarChart3,
+  Button,
+  Card,
+  CardContent,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
   DollarSign,
   Loader2,
-  Users,
-} from 'lucide-react'
-import { eduApi, buildQs, type PageData } from '@/lib/edu'
-import { isNotFound } from '@/lib/api-error'
-import { BackButton } from '@/components/common'
-import {
-  Button,
-  Card,
-  CardContent,
   SearchInput,
+  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  Table,
+  Users,
 } from '@ihui/ui-react'
 
 interface SignupReport {
