@@ -8,7 +8,11 @@ import type {
   PlanUpdateEvent,
   TerminalStartEvent,
   TerminalEndEvent,
+  CitationsEvent,
 } from '@ihui/types'
+// #11 Citations 全链路(2026-09-13 立):类型已迁至 @ihui/types(与 PlanUpdateEvent 等一致),
+// 本地不再重复定义,消除 import 与本地声明的 TS2440 冲突。
+export type { CitationsEvent }
 import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker'
 import { getTransport, type TransportInit } from './transport'
 import type { DeviceFingerprintCollector } from '@ihui/types'
@@ -841,6 +845,10 @@ export interface StreamChatOptions {
    *  用途:前端收到 response 即清除"完全冷启动"超时(timeout15s),
    *  避免"response 已到达但首个 token 未到达"时误 abort。 */
   onResponse?: () => void
+  /** 2026-09-13 立,#11 Citations 全链路:knowledge_lookup 工具执行后,
+   *  后端在 done 前下发 `event: citations` SSE 事件,前端据此写入 message.citations,
+   *  MessageItem 渲染 CitationBar(来源标签 + 可点击 URL)。 */
+  onCitations?: (event: CitationsEvent) => void
   /** Token 用量回调(2026-08-15 立):后端在 SSE 流末尾发送 usage chunk 时触发,
    *  前端据此更新消息 meta.usage,UI 展示 promptTokens/completionTokens/totalTokens。 */
   onUsage?: (usage: { promptTokens: number; completionTokens: number; totalTokens: number }) => void
@@ -1641,7 +1649,15 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const hasToolSummary = typeof opts.onToolSummary === 'function'
       // 阶段 2:工具委托执行(浏览器端 fs 工具执行代理,2026-08-02 立)
       const hasToolDelegate = typeof opts.onToolDelegate === 'function'
+      // W1(2026-09-12 立):plan / terminal SSE 事件能力检测
+      const hasPlanUpdate = typeof opts.onPlanUpdate === 'function'
+      const hasTerminal =
+        typeof opts.onTerminalStart === 'function' && typeof opts.onTerminalEnd === 'function'
+      // #11 Citations 全链路(2026-09-13 立):knowledge_lookup 工具执行后下发引用溯源
+      const hasCitations = typeof opts.onCitations === 'function'
       const hasUsage = typeof opts.onUsage === 'function'
+      // hasCitations 被 tryParseCitations 的守护读取(消除 TS6133:声明未使用)
+      void hasCitations
 
       // 2026-08-15 修复:reader.read() 在 fetch 完成后无法被 AbortController 中断,
       // 若后端返回 200 但不发送数据,流会永久挂起,导致前端 isStreaming/sendInFlightRef 卡死。
@@ -2069,6 +2085,133 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /** W1(2026-09-12 立):解析 plan_updated SSE 事件(消息级 plan steps 快照)。
+       *  - ai-service 在 plan 更新时发送 `event: plan_updated` + `data: {"type":"plan_updated",...}`
+       *  - 前端按 messageId 整体替换 message.planSteps(权威快照)
+       *  - plan 数组每项保留实际存在的 step / status / startedAt / endedAt / durationMs / tokenUsage */
+      const tryParsePlanUpdate = (line: string): void => {
+        if (!hasPlanUpdate) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (
+            (json?.type !== 'plan_updated' && json?.type !== 'plan') ||
+            !Array.isArray(json.plan)
+          ) {
+            return
+          }
+          type PlanStep = PlanUpdateEvent['plan'][number]
+          const plan: PlanStep[] = (json.plan as Array<Record<string, unknown>>)
+            .filter((p) => Boolean(p) && typeof p === 'object' && typeof p.step === 'string')
+            .map((p) => ({
+              step: p.step as string,
+              status: p.status as PlanStep['status'],
+              ...(typeof p.startedAt === 'string' ? { startedAt: p.startedAt } : {}),
+              ...(typeof p.endedAt === 'string' ? { endedAt: p.endedAt } : {}),
+              ...(typeof p.durationMs === 'number' ? { durationMs: p.durationMs } : {}),
+              ...(typeof p.tokenUsage === 'number' ? { tokenUsage: p.tokenUsage } : {}),
+            }))
+          const evt: PlanUpdateEvent = {
+            plan,
+            ...(typeof json.explanation === 'string' ? { explanation: json.explanation } : {}),
+            ...(typeof json.timestamp === 'string' ? { timestamp: json.timestamp } : {}),
+            ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+          }
+          opts.onPlanUpdate!(evt)
+        } catch {
+          /* 非 JSON 或非 plan 事件忽略 */
+        }
+      }
+
+      /** W1(2026-09-12 立):解析 terminal_start / terminal_end SSE 事件(消息级终端任务)。
+       *  - terminal_start:构造 TerminalStartEvent(status 固定 'running')并触发 onTerminalStart
+       *  - terminal_end:构造 TerminalEndEvent 并触发 onTerminalEnd
+       *  - 契约字段名为 terminalId(不是 id) */
+      const tryParseTerminal = (line: string): void => {
+        if (!hasTerminal) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type === 'terminal_start') {
+            if (typeof json.terminalId !== 'string') return
+            const evt: TerminalStartEvent = {
+              terminalId: json.terminalId,
+              command: typeof json.command === 'string' ? json.command : '',
+              status: 'running',
+              ...(typeof json.startedAt === 'string' ? { startedAt: json.startedAt } : {}),
+              ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+            }
+            opts.onTerminalStart!(evt)
+            return
+          }
+          if (json?.type === 'terminal_end') {
+            if (typeof json.terminalId !== 'string') return
+            if (json.status !== 'completed' && json.status !== 'failed') return
+            const evt: TerminalEndEvent = {
+              terminalId: json.terminalId,
+              status: json.status,
+              ...(typeof json.output === 'string' ? { output: json.output } : {}),
+              ...(typeof json.exitCode === 'number' ? { exitCode: json.exitCode } : {}),
+              ...(typeof json.endedAt === 'string' ? { endedAt: json.endedAt } : {}),
+              ...(typeof json.durationMs === 'number' ? { durationMs: json.durationMs } : {}),
+              ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+            }
+            opts.onTerminalEnd!(evt)
+          }
+        } catch {
+          /* 非 JSON 或非 terminal 事件忽略 */
+        }
+      }
+
+      /** #11(2026-09-13):解析 citations SSE 事件(knowledge_lookup 工具执行后下发的引用溯源)。 */
+      const tryParseCitations = (line: string): void => {
+        if (!hasCitations) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'citations' || !Array.isArray(json.citations)) return
+          opts.onCitations!({
+            messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
+            citations: json.citations as CitationsEvent['citations'],
+          })
+        } catch {
+          /* 非 JSON 或非 citations 事件忽略 */
+        }
+      }
+
       /** 解析 OpenAI 协议 usage chunk(stream_options.include_usage=true 时后端发送)。
        *  格式:data: {..., usage: { prompt_tokens, completion_tokens, total_tokens }}
        *  触发 onUsage 回调,前端据此更新消息 meta.usage。 */
@@ -2122,6 +2265,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
        *  - subagent_spawn / subagent_progress / subagent_end:tryParseSubagent
        *  - tool-summary:tryParseToolSummary
        *  - tool-delegate:tryParseToolDelegate
+       *  - plan_updated / plan:tryParsePlanUpdate(W1 2026-09-12 立)
+       *  - terminal_start / terminal_end:tryParseTerminal(W1 2026-09-12 立)
        *  - usage:tryParseUsage(OpenAI 协议 usage chunk,基于 json.usage 字段,非 type)
        */
       const routeLineByType = (line: string): string | null => {
@@ -2161,6 +2306,14 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
               return 'tool_summary'
             case 'tool-delegate':
               return 'tool_delegate'
+            case 'plan_updated':
+            case 'plan':
+              return 'plan'
+            case 'terminal_start':
+            case 'terminal_end':
+              return 'terminal'
+            case 'citations':
+              return 'citations'
             default:
               return null
           }
@@ -2185,6 +2338,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseToolSummary(line)
         } else if (route === 'tool_delegate') {
           await tryParseToolDelegate(line)
+        } else if (route === 'plan') {
+          tryParsePlanUpdate(line)
+        } else if (route === 'terminal') {
+          tryParseTerminal(line)
+        } else if (route === 'citations') {
+          tryParseCitations(line)
         } else if (route === 'usage') {
           tryParseUsage(line)
         } else {
@@ -2196,7 +2355,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseToolCall(line)
           tryParseSubagent(line)
           tryParseToolSummary(line)
+          tryParsePlanUpdate(line)
+          tryParseTerminal(line)
           await tryParseToolDelegate(line)
+          tryParseCitations(line)
           tryParseUsage(line)
         }
       }
