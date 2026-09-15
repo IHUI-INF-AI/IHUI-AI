@@ -23,6 +23,7 @@ import {
   Wand2,
   X,
 } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 import {
@@ -410,18 +411,15 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
         ))}
       </div>
 
-      {/* 搜索框 */}
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="text"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          placeholder={t('searchPlaceholder')}
-          aria-label={t('searchPlaceholder')}
-          className="w-full rounded-md border border-border bg-background py-1 pl-7 pr-2 text-xs outline-none placeholder:text-muted-foreground/60 focus:border-foreground/20"
-        />
-      </div>
+      {/* 搜索框(统一共享 SearchInput) */}
+      <SearchInput
+        value={keyword}
+        onChange={(e) => setKeyword(e.target.value)}
+        placeholder={t('searchPlaceholder')}
+        aria-label={t('searchPlaceholder')}
+        size="sm"
+        wrapperClassName="w-full"
+      />
 
       {error && (
         <div className="rounded-md bg-destructive/10 px-2 py-1 text-[11px] text-destructive">

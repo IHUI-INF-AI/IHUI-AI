@@ -59,8 +59,27 @@ export interface ButtonProps
   asChild?: boolean
 }
 
+/**
+ * 2026-09-15 根治:自动为裸文本 children 包裹 <span>。
+ *
+ * 背景:design-tokens/tokens.css 的 icon-text 垂直居中补偿规则
+ * `:where(button,...):has(>span) > span { translate: 0 var(--text-vcenter-offset) }`
+ * 只能命中直接子 <span> 元素;<Button><Icon/>{text}</Button> 中裸文本节点
+ * 永远命中不了规则,导致全项目按钮图标与中文文字轻微不居中(复发 3 次以上)。
+ * 在组件层统一包装后,所有 Button 自动获得补偿,开发者无需手写 <span>。
+ * 手写原生 <button> 时仍须按 AGENTS.md §4 自行包裹(守门:e2e icon-text-alignment)。
+ */
+function wrapRawTextChildren(children: React.ReactNode): React.ReactNode {
+  return React.Children.map(children, (child) => {
+    if (typeof child === 'string' || typeof child === 'number') {
+      return <span>{child}</span>
+    }
+    return child
+  })
+}
+
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, children, ...props }, ref) => {
     if (process.env.NODE_ENV !== 'production' && 'title' in props) {
       console.warn(
         '[Button] 不要使用 title 属性作为 hover 提示,请改用 <Tooltip content="..."><Button>...</Button></Tooltip> 包裹。详见 AGENTS.md 第 4 节前端 UI 约束 + pre-commit 第 18 项守门。',
@@ -68,7 +87,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     }
     const Comp = asChild ? Slot : 'button'
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props}>
+        {asChild ? children : wrapRawTextChildren(children)}
+      </Comp>
     )
   },
 )

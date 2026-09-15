@@ -597,7 +597,8 @@ export function CdpBrowserView({
           </div>
         </div>
       )}
-      {/* 右键菜单(portal 到 body,避免 overflow 裁剪) */}
+      {/* 右键菜单(portal 到 body,避免 overflow 裁剪;坐标 clamp 进视口,
+          避免在屏幕右/下边缘右键时菜单溢出视口) */}
       {ctxMenu &&
         menuItems.length > 0 &&
         typeof document !== 'undefined' &&
@@ -606,7 +607,10 @@ export function CdpBrowserView({
             role="menu"
             tabIndex={-1}
             className="fixed z-popover min-w-[180px] rounded-md border border-border bg-popover p-1 shadow-md animate-in fade-in-0 zoom-in-95 duration-(--duration-unified) ease-unified focus:outline-none"
-            style={{ left: ctxMenu.x, top: ctxMenu.y }}
+            style={{
+              left: Math.min(ctxMenu.x, window.innerWidth - 188),
+              top: Math.min(ctxMenu.y, window.innerHeight - menuItems.length * 30 - 16),
+            }}
             onMouseDown={(e) => e.stopPropagation()}
           >
             {menuItems.map((item) => {

@@ -22,6 +22,7 @@ import {
   type CredentialAuthType,
 } from '@/lib/publish/platform-schemas'
 import { PlatformCredentialForm } from './PlatformCredentialForm'
+import { PlatformIcon } from './platform-icon'
 
 interface CredentialGuideProps {
   platformId: string
@@ -79,9 +80,12 @@ export function CredentialGuide({ platformId, value, onChange, disabled }: Crede
     <div className="space-y-3">
       {/* 平台头部:图标 + 名称 + authType 徽章 */}
       <div className="flex items-center gap-2">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-sm font-semibold text-primary">
-          {schema.platformName.charAt(0)}
-        </div>
+        <PlatformIcon
+          platform={platformId}
+          platformName={schema.platformName}
+          size={36}
+          className="rounded-md"
+        />
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium">{schema.platformName}</div>
           <div className="text-xs text-muted-foreground">{schema.helpText}</div>

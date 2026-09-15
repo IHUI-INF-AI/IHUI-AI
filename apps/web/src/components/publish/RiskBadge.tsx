@@ -83,7 +83,7 @@ export function RiskBadge({
   const inCooldown = cooldownRemaining > 0
 
   return (
-    <Tooltip content={`risk score: ${riskScore}`}>
+    <Tooltip content={t('riskScoreTooltip', { score: riskScore })}>
       <span
         className={cn(
           'inline-flex items-center gap-1 rounded-md font-medium',

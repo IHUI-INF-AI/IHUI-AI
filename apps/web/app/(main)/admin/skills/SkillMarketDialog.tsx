@@ -8,17 +8,16 @@ import * as React from 'react'
 import { Loader2, Search, Download, Star, X, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
-
 import {
+  Badge,
+  Button,
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
-  Button,
-  Input,
-  Badge,
+  DialogHeader,
+  DialogTitle,
+  SearchInput,
 } from '@ihui/ui-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -102,18 +101,15 @@ export function SkillMarketDialog({ open, onClose }: Props) {
         </DialogHeader>
 
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchQ}
-              onChange={(e) => setSearchQ(e.target.value)}
-              placeholder={t('searchMarketPlaceholder')}
-              className="pl-8"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSearch()
-              }}
-            />
-          </div>
+          <SearchInput
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            placeholder={t('searchMarketPlaceholder')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSearch()
+            }}
+            wrapperClassName="flex-1"
+          />
           <Button variant="outline" size="sm" onClick={handleSearch}>
             <Search className="mr-1.5 h-3.5 w-3.5" />
             {t('search')}

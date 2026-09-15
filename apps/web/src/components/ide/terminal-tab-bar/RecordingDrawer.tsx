@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import type { TerminalRecordingListItem } from '@ihui/types'
 import { useTranslations } from 'next-intl'
+// 2026-09-15 治理:浮层定位/portal/关闭逻辑统一收敛到 PortalPanel
+import { PortalPanel } from '@/components/feedback/portal-panel'
 import { formatRecordingDuration, formatRecordingStartedAt } from './model'
 
 interface RecordingDrawerProps {
@@ -31,18 +33,6 @@ export function RecordingDrawer({ recordings, onRefresh, onPlay, onDelete }: Rec
   const t = useTranslations('ide')
   const [open, setOpen] = React.useState(false)
   const drawerRef = React.useRef<HTMLDivElement>(null)
-
-  // 外部点击关闭抽屉
-  React.useEffect(() => {
-    if (!open) return
-    const handle = (e: MouseEvent) => {
-      if (drawerRef.current && !drawerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [open])
 
   // 打开时拉取最新列表
   React.useEffect(() => {
@@ -70,79 +60,85 @@ export function RecordingDrawer({ recordings, onRefresh, onPlay, onDelete }: Rec
           {recordings.length > 99 ? '99+' : recordings.length}
         </span>
       )}
-      {open && (
-        <div className="absolute right-0 top-7 z-50 w-80 overflow-hidden rounded-md border border-border bg-popover shadow-md">
-          <div className="flex items-center justify-between bg-muted/40 px-2.5 py-1.5">
-            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-              {t('terminalTabBar.recordingListWithCount', { count: recordings.length })}
-            </span>
-            <button
-              type="button"
-              className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              onClick={() => setOpen(false)}
-              aria-label={t('terminalPanel.close')}
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-          <div className="max-h-80 overflow-y-auto">
-            {recordings.length === 0 ? (
-              <div className="px-2.5 py-4 text-center text-xs text-muted-foreground">
-                {t('terminalTabBar.noRecordingsHint')}
-              </div>
-            ) : (
-              recordings.map((rec) => (
-                <div
-                  key={rec.id}
-                  className="group flex items-center gap-2 px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
-                >
-                  <Play className="h-3 w-3 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-foreground">
-                      {rec.title ||
-                        t('terminalTabBar.defaultRecTitle', {
-                          time: formatRecordingStartedAt(rec.startedAt),
-                        })}
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                      <span>{formatRecordingStartedAt(rec.startedAt)}</span>
-                      <span>{formatRecordingDuration(rec.durationMs)}</span>
-                      <span>{t('terminalTabBar.eventCount', { count: rec.eventCount })}</span>
-                    </div>
-                  </div>
-                  <Tooltip content={t('terminalTabBar.play')}>
-                    <button
-                      type="button"
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onPlay(rec.id)
-                        setOpen(false)
-                      }}
-                      aria-label={t('terminalTabBar.play')}
-                    >
-                      <Play className="h-3 w-3" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content={t('terminalTabBar.delete')}>
-                    <button
-                      type="button"
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/15 hover:text-destructive group-hover:opacity-100"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onDelete(rec.id)
-                      }}
-                      aria-label={t('terminalTabBar.delete')}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </Tooltip>
-                </div>
-              ))
-            )}
-          </div>
+      <PortalPanel
+        open={open}
+        anchorRef={drawerRef}
+        onClose={() => setOpen(false)}
+        side="bottom"
+        align="end"
+        gap={4}
+        className="w-80 overflow-hidden rounded-md border border-border bg-popover shadow-md"
+      >
+        <div className="flex items-center justify-between bg-muted/40 px-2.5 py-1.5">
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            {t('terminalTabBar.recordingListWithCount', { count: recordings.length })}
+          </span>
+          <button
+            type="button"
+            className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onClick={() => setOpen(false)}
+            aria-label={t('terminalPanel.close')}
+          >
+            <X className="h-3 w-3" />
+          </button>
         </div>
-      )}
+        <div className="max-h-80 overflow-y-auto">
+          {recordings.length === 0 ? (
+            <div className="px-2.5 py-4 text-center text-xs text-muted-foreground">
+              {t('terminalTabBar.noRecordingsHint')}
+            </div>
+          ) : (
+            recordings.map((rec) => (
+              <div
+                key={rec.id}
+                className="group flex items-center gap-2 px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
+              >
+                <Play className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-foreground">
+                    {rec.title ||
+                      t('terminalTabBar.defaultRecTitle', {
+                        time: formatRecordingStartedAt(rec.startedAt),
+                      })}
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <span>{formatRecordingStartedAt(rec.startedAt)}</span>
+                    <span>{formatRecordingDuration(rec.durationMs)}</span>
+                    <span>{t('terminalTabBar.eventCount', { count: rec.eventCount })}</span>
+                  </div>
+                </div>
+                <Tooltip content={t('terminalTabBar.play')}>
+                  <button
+                    type="button"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onPlay(rec.id)
+                      setOpen(false)
+                    }}
+                    aria-label={t('terminalTabBar.play')}
+                  >
+                    <Play className="h-3 w-3" />
+                  </button>
+                </Tooltip>
+                <Tooltip content={t('terminalTabBar.delete')}>
+                  <button
+                    type="button"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/15 hover:text-destructive group-hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete(rec.id)
+                    }}
+                    aria-label={t('terminalTabBar.delete')}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </Tooltip>
+              </div>
+            ))
+          )}
+        </div>
+      </PortalPanel>
     </div>
   )
 }

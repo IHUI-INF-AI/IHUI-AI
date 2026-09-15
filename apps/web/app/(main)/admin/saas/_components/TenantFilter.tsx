@@ -7,8 +7,8 @@
  */
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Search } from 'lucide-react'
-import { Input } from '@ihui/ui-react'
+import {} from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 
 import { selectClass } from '../helpers'
 
@@ -23,16 +23,14 @@ export function TenantFilter({ search, onSearchChange, state, onStateChange }: T
   const t = useTranslations('admin.saas')
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative max-w-xs flex-1">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          className="h-9 pl-8"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={t('searchPlaceholder')}
-          aria-label={t('search')}
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={(e) => onSearchChange(e.target.value)}
+        placeholder={t('searchPlaceholder')}
+        aria-label={t('search')}
+        size="lg"
+        wrapperClassName="max-w-xs flex-1"
+      />
       <select
         className={selectClass}
         value={state}

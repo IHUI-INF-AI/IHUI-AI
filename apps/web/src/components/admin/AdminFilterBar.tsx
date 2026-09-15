@@ -5,8 +5,8 @@
 'use client'
 
 import * as React from 'react'
-import { Search, Plus, Download } from 'lucide-react'
-import { Button, Input } from '@ihui/ui-react'
+import { Download, Plus } from 'lucide-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 
 export interface AdminFilterBarProps {
@@ -56,15 +56,13 @@ export function AdminFilterBar({
       <div className="flex items-center gap-2">
         {extraActions}
         {onSearchChange && (
-          <div className="relative w-full max-w-xs">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search ?? ''}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={searchPlaceholder ?? '搜索...'}
-              className="h-9 pl-8"
-            />
-          </div>
+          <SearchInput
+            value={search ?? ''}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={searchPlaceholder ?? '搜索...'}
+            size="lg"
+            wrapperClassName="w-full max-w-xs"
+          />
         )}
         {onExport && (
           <Button variant="outline" size="sm" onClick={onExport}>

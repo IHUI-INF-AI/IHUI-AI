@@ -211,8 +211,12 @@ export function EditorTabBar() {
       {menu && menuTab && (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 右键菜单遮罩点击外部关闭;键盘用户通过 Escape/菜单项提供等价交互
         <div
-          className="fixed z-50 min-w-[160px] rounded-md border border-border bg-popover py-1 text-xs shadow-md"
-          style={{ left: menu.x, top: menu.y }}
+          className="fixed z-popover min-w-[160px] rounded-md border border-border bg-popover py-1 text-xs shadow-md"
+          style={{
+            // 视口 clamp:右键菜单 5 项约 170px 高,防止贴近屏幕边缘时溢出
+            left: Math.min(menu.x, window.innerWidth - 176),
+            top: Math.min(menu.y, window.innerHeight - 180),
+          }}
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => {
             e.preventDefault()

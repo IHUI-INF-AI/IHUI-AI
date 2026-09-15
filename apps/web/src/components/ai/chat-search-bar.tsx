@@ -6,8 +6,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
-import { Search } from 'lucide-react'
-import { Input } from '@ihui/ui-react'
+import { SearchInput } from '@ihui/ui-react'
 import type { SearchResult } from '@/hooks/use-chat-search'
 
 interface ChatSearchBarProps {
@@ -66,15 +65,15 @@ export function ChatSearchBar({
 
   return (
     <div className="bg-background/95 backdrop-blur">
-      <div className="flex items-center gap-2 px-3 py-2">
-        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <Input
+      {/* 全项目统一搜索框(共享 SearchInput 圆角输入井) */}
+      <div className="px-3 py-2">
+        <SearchInput
           ref={inputRef}
           value={value}
           onChange={(e) => onSearch(e.target.value)}
           placeholder={t('searchPlaceholder')}
           aria-label={t('searchAriaLabel')}
-          className="h-7 border-none bg-transparent px-0 shadow-none focus-visible:ring-0"
+          size="sm"
         />
       </div>
       {results.length > 0 && (

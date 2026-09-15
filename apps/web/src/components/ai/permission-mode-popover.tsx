@@ -26,7 +26,10 @@ import {
 } from '@ihui/api-client/endpoints/workspace'
 
 import { Tooltip } from '@/components/feedback'
-import { createPortal } from 'react-dom'
+// 2026-09-15 治理:定位/portal/外点关闭逻辑统一收敛到 PortalPanel(此前手写一套
+// createPortal + 坐标 + scroll/resize/RO 监听 + 外点关闭;Escape 关闭因需归还
+// 焦点到 trigger 的特殊语义,仍由本组件自理)
+import { PortalPanel } from '@/components/feedback/portal-panel'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { cn } from '@/lib/utils'
 import { isFullAccessConfirmSuppressed } from './full-access-confirm-dialog'
@@ -131,136 +134,6 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
   // 避免闭包陈旧),不需要在闭包外捕获这个 action。
   const focusedMode = MODE_OPTIONS_LIST[focusedIndex]?.value ?? currentMode
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
-  const panelRef = React.useRef<HTMLDivElement>(null)
-  const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null)
-  const rafRef = React.useRef<number | null>(null)
-
-  // 定位常量（避免魔法数字，2026-08-31 P2 修复）
-  const POPOVER_GAP = 8
-  const POPOVER_PAD = 8
-
-  const updateCoords = React.useCallback(() => {
-    if (!triggerRef.current || !panelRef.current) return
-    const r = triggerRef.current.getBoundingClientRect()
-    const panelRect = panelRef.current.getBoundingClientRect()
-    const gap = POPOVER_GAP
-    const pad = POPOVER_PAD
-    // 移动端安全区域适配：优先使用 visualViewport，否则 fallback 到 window（2026-08-31 P2 修复）
-    const vw =
-      typeof window !== 'undefined' && window.visualViewport
-        ? window.visualViewport.width
-        : window.innerWidth
-    const vh =
-      typeof window !== 'undefined' && window.visualViewport
-        ? window.visualViewport.height
-        : window.innerHeight
-    // 读取 CSS 安全区域（刘海屏 / 底部指示条）
-    const safeLeft = parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-left)') ||
-        '0',
-    )
-    const safeTop = parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-top)') ||
-        '0',
-    )
-    const safeRight = parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-right)') ||
-        '0',
-    )
-    const safeBottom = parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)') ||
-        '0',
-    )
-
-    let top = r.top - gap - panelRect.height
-    let left = r.right - panelRect.width
-
-    if (left + panelRect.width > vw - pad - safeRight) {
-      left = vw - pad - safeRight - panelRect.width
-    }
-
-    // 避让左侧 Sidebar，避免弹层被遮挡
-    const sidebarEl = document.getElementById('main-sidebar')
-    if (sidebarEl) {
-      const sidebarRect = sidebarEl.getBoundingClientRect()
-      const minLeft = sidebarRect.right + gap
-      if (left < minLeft) {
-        left = minLeft
-      }
-    }
-    left = Math.max(pad + safeLeft, left)
-
-    if (top < pad + safeTop) {
-      top = r.bottom + gap
-    }
-    top = Math.max(pad + safeTop, top)
-    // 底部安全区域避让
-    if (top + panelRect.height > vh - pad - safeBottom) {
-      top = vh - pad - safeBottom - panelRect.height
-      // 如果上方空间更大，翻转到上方
-      if (top < pad + safeTop) {
-        top = r.bottom + gap
-      }
-      top = Math.max(pad + safeTop, top)
-    }
-
-    setCoords({ top, left })
-  }, [])
-
-  React.useLayoutEffect(() => {
-    if (!isOpen) return
-    const id = window.requestAnimationFrame(() => {
-      updateCoords()
-    })
-    return () => window.cancelAnimationFrame(id)
-  }, [isOpen, updateCoords])
-
-  React.useEffect(() => {
-    if (!isOpen) return
-    const throttledUpdate = () => {
-      if (rafRef.current !== null) return
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null
-        updateCoords()
-      })
-    }
-
-    window.addEventListener('scroll', throttledUpdate, { capture: true, passive: true })
-    window.addEventListener('resize', throttledUpdate, { passive: true })
-
-    const roTrigger =
-      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
-    if (roTrigger && triggerRef.current) roTrigger.observe(triggerRef.current)
-
-    const roPanel = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
-    if (roPanel && panelRef.current) roPanel.observe(panelRef.current)
-
-    return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-      window.removeEventListener('scroll', throttledUpdate, true)
-      window.removeEventListener('resize', throttledUpdate)
-      roTrigger?.disconnect()
-      roPanel?.disconnect()
-    }
-  }, [isOpen, updateCoords])
-
-  React.useEffect(() => {
-    if (!isOpen) return
-    const handler = (event: MouseEvent | TouchEvent) => {
-      const triggerEl = triggerRef.current
-      const contentEl = panelRef.current
-      const target = event.target as Node
-      if (triggerEl && triggerEl.contains(target)) return
-      if (contentEl && contentEl.contains(target)) return
-      setIsOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    document.addEventListener('touchstart', handler)
-    return () => {
-      document.removeEventListener('mousedown', handler)
-      document.removeEventListener('touchstart', handler)
-    }
-  }, [isOpen])
 
   React.useEffect(() => {
     if (!isOpen) return
@@ -526,176 +399,182 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
       {/* 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard)
           - 统一由 message-input 渲染 FullAccessConfirmDialog(共享 store,Slash/Popover/Shift+Tab 共用)
           - 本组件只负责 setPendingFullAccess(true) 触发弹窗 */}
-      {isOpen &&
-        createPortal(
-          <div
-            ref={panelRef}
-            className="fixed z-popover w-[min(360px,calc(100vw-2rem))] space-y-2 rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
-            role="dialog"
-            aria-label={t('popoverTitle')}
-            aria-modal="true"
-            tabIndex={-1}
-          >
-            {/* 顶部标题 + 了解更多链接(Codex 风格:左标题,右链接) */}
-            <div className="flex items-start justify-between gap-2 px-1 pb-1">
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-foreground">{t('popoverTitle')}</span>
-                {!hasWorkspace && (
-                  <span className="text-[11px] text-muted-foreground">
-                    {t('popoverHintNoWorkspace')}
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof window !== 'undefined') {
-                    window.open('/docs/SECURITY', '_blank', 'noopener,noreferrer')
-                  }
-                }}
-                className="inline-flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <span className="underline-offset-2 hover:underline">{t('learnMore')}</span>
-                <ExternalLink className="h-3 w-3" />
-              </button>
+      <PortalPanel
+        open={isOpen}
+        anchorRef={triggerRef}
+        onClose={() => setIsOpen(false)}
+        side="top"
+        align="end"
+        gap={8}
+        className="w-[min(360px,calc(100vw-2rem))] rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
+      >
+        {/* dialog 语义与焦点属性保留在内容层(PortalPanel 容器只负责定位,
+            不透传 aria 属性与 tabIndex;与原 panel div 属性一致,行为等价) */}
+        <div
+          role="dialog"
+          aria-label={t('popoverTitle')}
+          aria-modal="true"
+          tabIndex={-1}
+          className="space-y-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {/* 顶部标题 + 了解更多链接(Codex 风格:左标题,右链接) */}
+          <div className="flex items-start justify-between gap-2 px-1 pb-1">
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-foreground">{t('popoverTitle')}</span>
+              {!hasWorkspace && (
+                <span className="text-[11px] text-muted-foreground">
+                  {t('popoverHintNoWorkspace')}
+                </span>
+              )}
             </div>
-
-            {/* 三个模式单选卡片(键盘可聚焦) */}
-            <div className="space-y-1.5" role="radiogroup" aria-label={t('popoverTitle')}>
-              {MODE_OPTIONS_LIST.map((opt, idx) => {
-                const Icon = opt.icon
-                const isSel = opt.value === currentMode
-                const isFocused = idx === focusedIndex
-                return (
-                  <button
-                    key={opt.value}
-                    ref={(el) => {
-                      radioRefs.current[idx] = el
-                    }}
-                    type="button"
-                    role="radio"
-                    aria-checked={isSel}
-                    onClick={() => handleSelect(opt.value)}
-                    onMouseEnter={() => setFocusedIndex(idx)}
-                    disabled={updateMode.isPending}
-                    className={cn(
-                      'group relative flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-colors',
-                      'disabled:cursor-not-allowed disabled:opacity-60',
-                      // 当前选中:实心高亮
-                      isSel
-                        ? cn(
-                            'bg-primary/5',
-                            // 高风险:琥珀色 outline(替代普通 border,避免双层边框)
-                            opt.risk === 'high'
-                              ? 'outline outline-1 outline-amber-500/60 dark:outline-amber-500/60 bg-amber-500/5'
-                              : 'border border-primary/60',
-                          )
-                        : cn(
-                            'border border-border',
-                            isFocused && 'border-ring/60',
-                            opt.risk === 'high'
-                              ? 'hover:border-red-500/80 hover:bg-red-500/5'
-                              : 'hover:border-foreground/20 hover:bg-muted/30',
-                          ),
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        'mt-0.5 h-4 w-4 shrink-0',
-                        isSel
-                          ? opt.risk === 'high'
-                            ? 'text-amber-500'
-                            : 'text-primary'
-                          : opt.risk === 'high'
-                            ? 'text-amber-500'
-                            : opt.risk === 'medium'
-                              ? 'text-emerald-500'
-                              : 'text-muted-foreground',
-                      )}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={cn(
-                            'text-xs font-medium',
-                            opt.risk === 'high' && isSel && 'text-amber-600 dark:text-amber-400',
-                          )}
-                        >
-                          {t(opt.titleKey)}
-                        </span>
-                        {opt.risk === 'high' && (
-                          <span className="rounded-sm bg-amber-500/10 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                            {t('highRisk')}
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                        {t(opt.descKey)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center self-center">
-                      {updateMode.isPending && isSel ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                      ) : isSel ? (
-                        <Check className="h-3.5 w-3.5 text-primary" />
-                      ) : null}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* 底部"完全访问"快捷链接(对标 Codex 顶部展开的深色卡片) */}
             <button
               type="button"
-              onClick={() => handleSelect('bypass-permissions')}
-              disabled={updateMode.isPending}
-              className={cn(
-                'mt-1 flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors',
-                currentMode === 'bypass-permissions'
-                  ? 'border-amber-500/40 bg-amber-500/5'
-                  : 'border-border/60 hover:border-amber-500/30 hover:bg-amber-500/5',
-                'disabled:cursor-not-allowed disabled:opacity-60',
-              )}
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.open('/docs/SECURITY', '_blank', 'noopener,noreferrer')
+                }
+              }}
+              className="inline-flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
-              <ShieldX className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-              <span className="flex-1 min-w-0 text-xs font-medium text-amber-700 dark:text-amber-400">
-                {t('quickFullAccess')}
-              </span>
-              {currentMode === 'bypass-permissions' && <Check className="h-3 w-3 text-amber-500" />}
+              <span className="underline-offset-2 hover:underline">{t('learnMore')}</span>
+              <ExternalLink className="h-3 w-3" />
             </button>
+          </div>
 
-            {/* 键盘提示(2026-07-25 深化):底部小字,提醒用户可用 ↑/↓/Enter/1-3 键盘操作 */}
-            <div className="flex items-center gap-1.5 px-1 pt-0.5 text-[10px] text-muted-foreground">
-              <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
-                ↑
-              </kbd>
-              <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
-                ↓
-              </kbd>
-              <span>{t('kbdNavigate')}</span>
-              <span className="ml-auto inline-flex items-center gap-0.5">
-                <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
-                  1
-                </kbd>
-                <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
-                  2
-                </kbd>
-                <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
-                  3
-                </kbd>
-              </span>
-            </div>
+          {/* 三个模式单选卡片(键盘可聚焦) */}
+          <div className="space-y-1.5" role="radiogroup" aria-label={t('popoverTitle')}>
+            {MODE_OPTIONS_LIST.map((opt, idx) => {
+              const Icon = opt.icon
+              const isSel = opt.value === currentMode
+              const isFocused = idx === focusedIndex
+              return (
+                <button
+                  key={opt.value}
+                  ref={(el) => {
+                    radioRefs.current[idx] = el
+                  }}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSel}
+                  onClick={() => handleSelect(opt.value)}
+                  onMouseEnter={() => setFocusedIndex(idx)}
+                  disabled={updateMode.isPending}
+                  className={cn(
+                    'group relative flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-colors',
+                    'disabled:cursor-not-allowed disabled:opacity-60',
+                    // 当前选中:实心高亮
+                    isSel
+                      ? cn(
+                          'bg-primary/5',
+                          // 高风险:琥珀色 outline(替代普通 border,避免双层边框)
+                          opt.risk === 'high'
+                            ? 'outline outline-1 outline-amber-500/60 dark:outline-amber-500/60 bg-amber-500/5'
+                            : 'border border-primary/60',
+                        )
+                      : cn(
+                          'border border-border',
+                          isFocused && 'border-ring/60',
+                          opt.risk === 'high'
+                            ? 'hover:border-red-500/80 hover:bg-red-500/5'
+                            : 'hover:border-foreground/20 hover:bg-muted/30',
+                        ),
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      'mt-0.5 h-4 w-4 shrink-0',
+                      isSel
+                        ? opt.risk === 'high'
+                          ? 'text-amber-500'
+                          : 'text-primary'
+                        : opt.risk === 'high'
+                          ? 'text-amber-500'
+                          : opt.risk === 'medium'
+                            ? 'text-emerald-500'
+                            : 'text-muted-foreground',
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={cn(
+                          'text-xs font-medium',
+                          opt.risk === 'high' && isSel && 'text-amber-600 dark:text-amber-400',
+                        )}
+                      >
+                        {t(opt.titleKey)}
+                      </span>
+                      {opt.risk === 'high' && (
+                        <span className="rounded-sm bg-amber-500/10 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                          {t('highRisk')}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                      {t(opt.descKey)}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center self-center">
+                    {updateMode.isPending && isSel ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                    ) : isSel ? (
+                      <Check className="h-3.5 w-3.5 text-primary" />
+                    ) : null}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
 
-            {updateMode.isError && (
-              <p className="px-1 text-[11px] text-destructive">
-                {(updateMode.error as Error)?.message || tCommon('error')}
-              </p>
+          {/* 底部"完全访问"快捷链接(对标 Codex 顶部展开的深色卡片) */}
+          <button
+            type="button"
+            onClick={() => handleSelect('bypass-permissions')}
+            disabled={updateMode.isPending}
+            className={cn(
+              'mt-1 flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors',
+              currentMode === 'bypass-permissions'
+                ? 'border-amber-500/40 bg-amber-500/5'
+                : 'border-border/60 hover:border-amber-500/30 hover:bg-amber-500/5',
+              'disabled:cursor-not-allowed disabled:opacity-60',
             )}
-          </div>,
-          document.body,
-        )}
+          >
+            <ShieldX className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+            <span className="flex-1 min-w-0 text-xs font-medium text-amber-700 dark:text-amber-400">
+              {t('quickFullAccess')}
+            </span>
+            {currentMode === 'bypass-permissions' && <Check className="h-3 w-3 text-amber-500" />}
+          </button>
+
+          {/* 键盘提示(2026-07-25 深化):底部小字,提醒用户可用 ↑/↓/Enter/1-3 键盘操作 */}
+          <div className="flex items-center gap-1.5 px-1 pt-0.5 text-[10px] text-muted-foreground">
+            <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+              ↑
+            </kbd>
+            <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+              ↓
+            </kbd>
+            <span>{t('kbdNavigate')}</span>
+            <span className="ml-auto inline-flex items-center gap-0.5">
+              <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+                1
+              </kbd>
+              <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+                2
+              </kbd>
+              <kbd className="rounded-sm border border-border bg-muted px-1 py-px font-mono text-[9px]">
+                3
+              </kbd>
+            </span>
+          </div>
+
+          {updateMode.isError && (
+            <p className="px-1 text-[11px] text-destructive">
+              {(updateMode.error as Error)?.message || tCommon('error')}
+            </p>
+          )}
+        </div>
+      </PortalPanel>
     </div>
   )
 }

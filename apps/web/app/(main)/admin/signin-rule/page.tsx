@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl'
 import { CalendarCheck, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { Button, Input } from '@ihui/ui-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useZodForm } from '@/hooks/use-zod-form'
 import { fetchApi } from '@/lib/api'
@@ -81,10 +81,11 @@ export default function AdminSigninRulePage() {
         </h1>
         <div className="flex items-center gap-2">
           <form onSubmit={form.handleSubmit(() => undefined)}>
-            <Input
+            <SearchInput
               {...form.register('keyword')}
               placeholder={t('searchPlaceholder')}
-              className="h-9 w-64"
+              size="lg"
+              wrapperClassName="w-64"
             />
           </form>
           <Button size="sm">

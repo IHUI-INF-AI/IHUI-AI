@@ -8,8 +8,8 @@ import * as React from 'react'
 import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Package, ChevronLeft, ChevronRight, Plus, Trash2, Save, X } from 'lucide-react'
-import { Button, Input } from '@ihui/ui-react'
+import { ChevronLeft, ChevronRight, Package, Plus, Save, Trash2, X } from 'lucide-react'
+import { Button, Input, SearchInput } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import type { ResourceProduct, ResourceProductListData, ResourceProductForm } from './types'
 import { BackButton } from '@/components/common'
@@ -141,14 +141,14 @@ export default function AdminResourceProductPage() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Input
+        <SearchInput
           value={search}
           onChange={(e) => {
             setSearch(e.target.value)
             setPage(1)
           }}
           placeholder="搜索产品名称"
-          className="max-w-sm"
+          wrapperClassName="max-w-sm"
         />
       </div>
 

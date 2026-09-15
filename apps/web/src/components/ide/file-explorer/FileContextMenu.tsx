@@ -20,8 +20,12 @@ export function FileContextMenu({ x, y, onRename, onDelete }: FileContextMenuPro
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 右键菜单弹窗;键盘用户通过 Escape + 菜单项 Enter 提供等价交互
     <div
-      className="fixed z-50 min-w-32 rounded-md border border-border bg-popover p-1 text-xs shadow-md"
-      style={{ left: x, top: y }}
+      className="fixed z-popover min-w-32 rounded-md border border-border bg-popover p-1 text-xs shadow-md"
+      style={{
+        // 视口 clamp:2 项约 72px 高,防止贴近屏幕边缘时溢出
+        left: Math.min(x, window.innerWidth - 144),
+        top: Math.min(y, window.innerHeight - 88),
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex flex-col gap-1">

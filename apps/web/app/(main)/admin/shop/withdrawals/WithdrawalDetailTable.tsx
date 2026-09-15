@@ -4,31 +4,30 @@
 
 'use client'
 
-import {
-  Loader2,
-  Check,
-  X,
-  Plus,
-  Edit,
-  Trash2,
-  Download,
-  RotateCcw,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'
+import {} from 'lucide-react'
 import { useTranslations } from 'next-intl'
-
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import {
   Button,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Edit,
   Input,
   Label,
+  Loader2,
+  Plus,
+  RotateCcw,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
+  Trash2,
+  X,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -82,38 +81,42 @@ export function WithdrawalDetailTable(props: Props) {
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1.5">
           <Label className="text-xs">{t('withdrawals.detail.searchUser')}</Label>
-          <Input
-            className={inputSm}
+          <SearchInput
             value={dSearch.user}
             onChange={(e) => setDSearch({ ...dSearch, user: e.target.value })}
             placeholder={t('withdrawals.detail.searchUser')}
+            size="lg"
+            wrapperClassName="w-full"
           />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">{t('withdrawals.detail.searchUserName')}</Label>
-          <Input
-            className={inputSm}
+          <SearchInput
             value={dSearch.userName}
             onChange={(e) => setDSearch({ ...dSearch, userName: e.target.value })}
             placeholder={t('withdrawals.detail.searchUserName')}
+            size="lg"
+            wrapperClassName="w-full"
           />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">{t('withdrawals.detail.searchOutBillNo')}</Label>
-          <Input
-            className={inputSm}
+          <SearchInput
             value={dSearch.outBillNo}
             onChange={(e) => setDSearch({ ...dSearch, outBillNo: e.target.value })}
             placeholder={t('withdrawals.detail.searchOutBillNo')}
+            size="lg"
+            wrapperClassName="w-full"
           />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">{t('withdrawals.detail.searchReviewer')}</Label>
-          <Input
-            className={inputSm}
+          <SearchInput
             value={dSearch.reviewer}
             onChange={(e) => setDSearch({ ...dSearch, reviewer: e.target.value })}
             placeholder={t('withdrawals.detail.searchReviewer')}
+            size="lg"
+            wrapperClassName="w-full"
           />
         </div>
         <div className="space-y-1.5">

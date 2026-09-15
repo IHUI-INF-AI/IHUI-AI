@@ -564,6 +564,7 @@ export function MessageInput({
             query={contextSelector.query}
             filtered={contextSelector.filtered}
             activeIndex={contextSelector.activeIndex}
+            anchorRef={inputAreaRef}
             onHover={contextSelector.setActiveIndex}
             onSelect={contextSelector.select}
           />

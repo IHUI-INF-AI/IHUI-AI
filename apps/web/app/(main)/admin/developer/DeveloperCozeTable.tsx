@@ -4,35 +4,33 @@
 
 'use client'
 
-import {
-  Loader2,
-  Plus,
-  Search,
-  Pencil,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  UserCog,
-} from 'lucide-react'
+import {} from 'lucide-react'
 import { useTranslations } from 'next-intl'
-
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
 import {
   Button,
-  Input,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Trash2,
+  UserCog,
 } from '@ihui/ui-react'
 import { COZE_STATUS_CLASS } from './helpers'
 import type { CozeAccount } from './types'
@@ -77,15 +75,13 @@ export function DeveloperCozeTable({
           {t('cozeSectionTitle')}
         </h2>
         <div className="flex items-center gap-2">
-          <div className="relative w-full max-w-xs">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={t('cozeSearchPlaceholder')}
-              className="h-9 pl-8"
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={t('cozeSearchPlaceholder')}
+            size="lg"
+            wrapperClassName="w-full max-w-xs"
+          />
           <HasPermi code="ai:developer:add">
             <Button size="sm" onClick={onCreate}>
               <Plus className="h-4 w-4" />

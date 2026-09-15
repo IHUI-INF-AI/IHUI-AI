@@ -8,18 +8,18 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Loader2, ChevronLeft, ClipboardList, CheckCircle2, Circle } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, Circle, ClipboardList, Loader2 } from 'lucide-react'
 import { eduApi, buildQs } from '@/lib/edu'
 import { cn } from '@/lib/utils'
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
   Button,
-  Input,
+  SearchInput,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@ihui/ui-react'
 import { type PageData } from '@ihui/api-client'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -203,13 +203,14 @@ function CardContent2() {
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
-          <Input
+          <SearchInput
             value={search}
             onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
               onSearch(e.target.value)
             }
             placeholder={t('searchPlaceholder')}
-            className="h-9 w-48"
+            size="lg"
+            wrapperClassName="w-48"
           />
           <Button
             variant="outline"

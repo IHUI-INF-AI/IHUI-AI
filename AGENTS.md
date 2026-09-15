@@ -94,7 +94,9 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 ### 中文字体 + 图标垂直对齐硬约束(强制)
 
 - **根治方案**:`apps/web/app/globals.css` 设 `--text-vcenter-offset: 0.3px` + 全局规则 `:where(button, a, [role='button'], [role='menuitem']):has(>svg):has(>span) > span { transform: translateY(var(--text-vcenter-offset)); }`,button/a 内 "icon + 中文 span" 同行布局自动应用,text-xs (12px) 用专用 0.7px 规则。配套:`apps/web/src/lib/nav-styles.ts` 5 个共享类 + `<CenteredText>` 组件(`apps/web/src/components/common/CenteredText.tsx`)。
+- **编码强制 — icon + 文字必须包 `<span>`(2026-09-15 组件层根治)**:根因是补偿规则 `:has(>span) > span` 只能命中 `<span>` 元素,裸文本节点永远无法对齐(复发 3 次以上)。**根治:`@ihui/ui-react` 的 `<Button>` 已内置 `wrapRawTextChildren`,裸文本 children 自动包裹 `<span>`,使用 Button 无需手写。** 手写原生 `<button>`/`<a>`/`[role=button]` 时仍**必须**自行把文字包 `<span>`(自检口诀:**button 里有 svg,则每个直接文字都写 `<span>文字</span>`**)。守门:`apps/web/e2e/icon-text-alignment.spec.ts`(阈值 |delta| ≤ 0.15px)+ code review 必查项。
 - **守门**:`apps/web/e2e/icon-text-alignment.spec.ts` 阈值 |delta| ≤ 0.15px,漏改 → CI fail。**严禁** `-mt-px` / `margin-top: -1px` 反向微调 hack。
+- **数字计数徽章强制规范(2026-09-15 立,复发根治)**:按钮/标签内嵌数字计数(如待办数、队列数)**禁止**裸 `<span class="px-1">数字</span>` 手搓 — 行高、字形侧空、位数变化都会导致数字在色块内偏移。**必须**使用确定性居中模板:`inline-flex h-4 min-w-4 items-center justify-center rounded bg-*/… px-1 text-[10px] font-semibold leading-none tabular-nums`。要点:`inline-flex + justify-center` 保证任意位数水平居中;`h-4 + leading-none + items-center` 保证垂直居中(不依赖字体行高);`min-w-4` 保证单位数不掉宽;`tabular-nums` 保证多位数字等宽不抖动。
 
 ### 禁止分割线(强制)
 
