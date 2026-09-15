@@ -51,6 +51,11 @@ import {
 } from '../utils/conversation-archive.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 
+// 压缩调用兜底模型(2026-09-12 去硬编码):优先取请求上下文的对话模型,
+// 其次读环境变量 LITELLM_MODEL(与 utils/semantic-summary.ts 同源,最终默认值由部署环境 .env 决定);
+// 二者皆空时不传 model,由 ai-service 网关按自身默认模型处理。
+const FALLBACK_MODEL = process.env.LITELLM_MODEL
+
 // =============================================================================
 // Coze conversation_id 自动管理（迁移自 coze_zhs_py/api/chat.py）
 // =============================================================================
@@ -954,7 +959,11 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       const resp = await aiServiceFetch(request, '/api/llm/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: llmMessages, model: 'stepfun/step-3.7-flash' }),
+        body: JSON.stringify({
+          messages: llmMessages,
+          // 优先对话配置的模型(请求上下文),回退环境变量默认(LITELLM_MODEL)
+          model: owned.conversation.model || FALLBACK_MODEL,
+        }),
         signal: controller.signal,
       })
       if (!resp.ok) {
