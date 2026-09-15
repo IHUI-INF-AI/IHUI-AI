@@ -4,12 +4,12 @@
 
 import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Image, Input, ScrollView } from '@tarojs/components'
+import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
-import { NavBar } from '@/components'
+import { NavBar, SearchBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 
@@ -133,25 +133,14 @@ export default function TopicListPage() {
         <ScrollView scrollY className="flex-1 box-border">
           {/* 对齐 RN TopicListScreen:listContent paddingBottom rpx(40) */}
           <View className="p-[24rpx] pb-[40rpx]">
-            {/* 搜索栏对齐 RN searchWrap:margin 24 / mb 20 / h 72 / px 20 / radius 24 / bg card */}
-            <View className="flex items-center h-[72rpx] px-[20rpx] bg-card rounded-[24rpx] mb-[20rpx]">
-              {/* RN Search size 16dp→32rpx / color text.tertiary */}
-              <LineIcon
-                name="search"
-                size={32}
-                className="mr-[16rpx] shrink-0"
-                color="var(--color-text-tertiary)"
-              />
-              <Input
-                className="flex-1 text-[28rpx] text-foreground"
-                value={searchText}
-                placeholder={tt('topic.list.searchPlaceholder', '搜索话题')}
-                placeholderClass="text-[var(--color-text-tertiary)]"
-                onInput={(e) => setSearchText(e.detail.value)}
-                onConfirm={onSearch}
-                confirmType="search"
-              />
-            </View>
+            {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
+            <SearchBar
+              value={searchText}
+              placeholder={tt('topic.list.searchPlaceholder', '搜索话题')}
+              onInput={setSearchText}
+              onSearch={onSearch}
+              onClear={() => setSearchText('')}
+            />
 
             {/* 分类 tab 对齐 RN tab:radius 20dp(rpx)→20rpx / bg card;active bg muted + text.primary */}
             <View className="flex gap-[16rpx] mb-[20rpx]">

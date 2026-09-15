@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Image, Input } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getFollowing, unfollowUser, type FollowingItem } from '@/api/social'
@@ -11,6 +11,7 @@ import { useSocialList } from '@/hooks/use-social-list'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import SearchBar from '@/components/SearchBar'
 
 const PAGE_SIZE = 20
 const defaultAvatar = '/static/default-avatar.png'
@@ -92,20 +93,14 @@ export default function FollowingPage() {
           <Text className="mx-[8rpx] text-[40rpx] font-bold text-primary">{totalCount}</Text>
           <Text className="text-[24rpx] text-muted-foreground">{tt('following.people', '人')}</Text>
         </View>
-        <View className="flex items-center h-[72rpx] px-[20rpx] bg-card border-[2rpx] border-border rounded-[24rpx]">
-          <LineIcon
-            name="search"
-            size={28}
-            className="mr-[12rpx] shrink-0"
-            color="var(--color-muted-foreground)"
-          />
-          <Input
-            className="flex-1 text-[28rpx] text-foreground"
-            value={searchText}
-            onInput={(e) => setSearchText(e.detail.value)}
-            placeholder={tt('following.searchPlaceholder', '搜索关注的用户')}
-          />
-        </View>
+        {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
+        <SearchBar
+          className=""
+          value={searchText}
+          onInput={setSearchText}
+          placeholder={tt('following.searchPlaceholder', '搜索关注的用户')}
+          onClear={() => setSearchText('')}
+        />
       </View>
 
       {/* 排序 tab:关注时间 / 最近活跃(对齐 RN FollowScreen tabs:paddingVertical 8dp/gap 8dp/胶囊 radius 12dp/激活 bg brand) */}
