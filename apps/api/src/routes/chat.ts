@@ -41,9 +41,14 @@ import {
   editMessageAndTruncateAfter,
   branchConversationFrom,
   replaceMessages,
+  updateConversationTitle,
 } from '../db/chat-queries.js'
 import { success, error } from '../utils/response.js'
 import { generateSemanticSummary, getCachedSemanticSummary } from '../utils/semantic-summary.js'
+import {
+  generateConversationTitle,
+  DEFAULT_CONVERSATION_TITLE,
+} from '../utils/conversation-title.js'
 import {
   listMessageArchives,
   findMessageArchive,
@@ -501,6 +506,47 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
 
     const updated = await updateConversation(id, parsed.data)
     return reply.send(success({ conversation: serializeConversation(updated) }))
+  })
+
+  // POST /conversations/:id/auto-title - 会话标题自动生成(2026-09-15 立,四竞品对标 V2 #15)
+  // 首轮回复完成后由前端 fire-and-forget 调用:LLM 依据首条用户消息生成 ≤24 字标题回写。
+  // 仅当当前标题仍为默认值「新对话」时才覆盖(schema 默认值)——用户手动重命名后不再自动改。
+  // 失败(超时/stub/上游错误)一律 success({ok:false}) 静默返回,保持默认标题,绝不打扰用户。
+  const autoTitleSchema = z.object({
+    /** 首条用户消息文本(用于生成标题;后端再截断到 2000 字符) */
+    text: z.string().min(1).max(4_000),
+    /** 当前会话模型(标题生成沿用,undefined 时用 LITELLM_MODEL 兜底) */
+    model: z.string().max(200).optional(),
+  })
+  server.post('/conversations/:id/auto-title', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const parsed = autoTitleSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
+
+    // 用户已手动重命名(标题 ≠ 默认值)→ 不覆盖,直接 OK
+    if (owned.conversation.title !== DEFAULT_CONVERSATION_TITLE) {
+      return reply.send(success({ ok: true, title: owned.conversation.title, updated: false }))
+    }
+
+    const title = await generateConversationTitle(request, parsed.data.text, parsed.data.model)
+    if (!title) {
+      // 生成失败:静默成功(前端保持默认标题,不重试不报错)
+      return reply.send(success({ ok: true, updated: false }))
+    }
+    const updated = await updateConversationTitle(id, userId, title)
+    if (!updated) {
+      return reply.status(404).send(error(404, '对话不存在'))
+    }
+    return reply.send(success({ ok: true, title, updated: true }))
   })
 
   // DELETE /conversations/:id - 删除对话（级联删除消息）

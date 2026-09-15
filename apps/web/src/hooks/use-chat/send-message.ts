@@ -18,6 +18,7 @@ import {
   createConversation,
   regenerateConversation,
   editAndRerunConversation,
+  autoTitleConversation,
   branchConversation,
   type ToolDelegateEvent,
   type WorkspacePermissionMode,
@@ -76,6 +77,28 @@ export interface SendMessageOptions {
 let sendMessageInstance: ((content: string, opts?: SendMessageOptions) => Promise<boolean>) | null =
   null
 let sendActionCtx: ChatActionContext | null = null
+
+/**
+ * 首轮回复后自动生成会话标题(2026-09-15 立,四竞品对标 V2 #15):
+ * 调 POST /conversations/:id/auto-title(LLM 依据首条用户消息生成,仅默认标题「新对话」被覆盖)。
+ * 成功后 invalidate 会话列表缓存,侧栏即时显示新标题。任何失败静默(不打扰用户)。
+ */
+async function autoTitleAfterFirstTurn(
+  queryClient: ChatActionContext['queryClient'],
+  conversationId: string,
+  firstUserText: string,
+  model: string,
+): Promise<void> {
+  try {
+    const res = await autoTitleConversation(conversationId, firstUserText, { model })
+    if (res.success && res.data?.updated && res.data.title) {
+      await queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
+      await queryClient.invalidateQueries({ queryKey: ['chat', 'favorites'] })
+    }
+  } catch {
+    // 标题生成失败:静默降级,保持默认标题(与后端静默策略对称)
+  }
+}
 
 export function createSendMessage(
   ctx: ChatActionContext,
@@ -332,6 +355,10 @@ export function createSendMessage(
           m.meta?.sidechat !== true,
       )
       .map((m) => ({ role: m.role, content: m.content }))
+
+    // 四竞品对标 V2 #15(2026-09-15 立):是否为该会话首轮对话(无历史 assistant 回复)。
+    // 仅首轮结束后自动生成会话标题;后续轮次/重新生成不触发。
+    const isFirstAssistantTurn = !isRegenerate && !history.some((m) => m.role === 'assistant')
 
     // 重新生成模式跳过用户消息重复添加(历史已截断到该用户消息之前,store 已包含它)
     if (!isRegenerate) {
@@ -881,6 +908,12 @@ export function createSendMessage(
         // W29 Repo Wiki 自动捕获(开启 autoCapture 时):对最近一轮问答提取知识卡片,
         // fire-and-forget,失败静默不打断主链路。
         maybeAutoCaptureWiki(llmText, finalMsg?.content ?? '', conversationId ?? undefined)
+        // 四竞品对标 V2 #15(2026-09-15 立):首轮回复完成后自动生成会话标题。
+        // fire-and-forget:后端 LLM 生成失败/超时静默保持默认标题,绝不 toast 打扰;
+        // 仅首轮触发(history 无 assistant),重新生成/后续轮次跳过。
+        if (isFirstAssistantTurn && conversationId && finalMsg?.content) {
+          void autoTitleAfterFirstTurn(queryClient, conversationId, text, model)
+        }
       }
       emitAgentHook('session.end', { summary: conversationId })
     }

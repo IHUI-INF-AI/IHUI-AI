@@ -161,6 +161,23 @@ export function editAndRerunConversation(
   )
 }
 
+/** 会话标题自动生成(2026-09-15 立,四竞品对标 V2 #15):
+ * 首轮回复完成后由前端 fire-and-forget 调用,LLM 依据首条用户消息生成标题。
+ * 仅默认标题「新对话」会被覆盖;生成失败静默返回 ok:true/updated:false,调用方无需重试。 */
+export function autoTitleConversation(
+  conversationId: string,
+  text: string,
+  options?: { model?: string },
+) {
+  return fetchApi<{ ok: boolean; title?: string; updated: boolean }>(
+    `/api/chat/conversations/${encodeURIComponent(conversationId)}/auto-title`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ text, model: options?.model }),
+    },
+  )
+}
+
 /** 分支/回退(2026-08-30 立):基于指定消息之前的内容创建新会话,返回新会话 */
 export function branchConversation(
   conversationId: string,
