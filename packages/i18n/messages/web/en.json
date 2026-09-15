@@ -322,8 +322,6 @@
     "scanLoginSucceeded": "Scan login successful",
     "scanLoginSuccess": "Scan Successful",
     "scanLoginTimeout": "Scan timed out. Please try again.",
-    "cloudCred": "Cloud Credential",
-    "cloudCredTip": "Credentials are encrypted on our server. Log in to your account on any computer to use them.",
     "scanLoginTitle": "Scan Login",
     "scanWithPhoneHint": "Please scan the QR code with your phone to log in.",
     "selectPlatform": "Please select a platform",
