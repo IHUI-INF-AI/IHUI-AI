@@ -322,8 +322,6 @@
     "scanLoginSucceeded": "スキャンログインに成功しました",
     "scanLoginSuccess": "スキャン成功",
     "scanLoginTimeout": "スキャンタイムアウトです。もう一度お試しください。",
-    "cloudCred": "クラウド認証情報",
-    "cloudCredTip": "認証情報はサーバー上で暗号化して保存されています。任意のパソコンからアカウントにログインすれば利用できます。",
     "scanLoginTitle": "スキャンログイン",
     "scanWithPhoneHint": "スマートフォンでQRコードをスキャンしてください。",
     "selectPlatform": "プラットフォームを選択",
