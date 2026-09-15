@@ -4,7 +4,7 @@
 
 'use client'
 import Link from 'next/link'
-import { Plus, ChevronLeft, Search } from 'lucide-react'
+import { Plus, ChevronLeft } from 'lucide-react'
 import { selectClass } from '@/lib/edu'
 import {
   Button,

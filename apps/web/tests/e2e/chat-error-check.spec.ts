@@ -18,7 +18,9 @@ test('check chat page error', async ({ page }) => {
     pageErrors.push(error.message)
   })
 
-  await page.goto('http://localhost:8801/chat', { waitUntil: 'networkidle', timeout: 30000 })
+  const BASE_URL =
+    process.env.E2E_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8801' // 2026-09-15 修:不再写死 8801,本地隔离端口跑 E2E 由环境变量覆盖
+  await page.goto(BASE_URL + '/chat', { waitUntil: 'networkidle', timeout: 30000 })
   await page.waitForTimeout(3000)
 
   const content = await page.content()

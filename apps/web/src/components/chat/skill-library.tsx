@@ -17,7 +17,6 @@ import {
   Newspaper,
   Pencil,
   Plus,
-  Search,
   Sparkles,
   Trash2,
   Wand2,
