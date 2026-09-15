@@ -24,13 +24,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type ImageStyle,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { SearchInput } from '../../components/SearchInput'
 import { Lightbulb, Play, Flame, Bot, Clapperboard } from 'lucide-react-native'
 import type { AppIcon } from '@ihui/types'
 
@@ -225,14 +225,12 @@ export function StudyIndexScreen({
     <View style={styles.container}>
       {showSearch ? (
         <View style={styles.searchBar}>
-          <TextInput
-            style={styles.searchInput}
+          <SearchInput
             value={searchInput}
             onChangeText={onSearchInputChange}
             placeholder="搜索视频"
-            placeholderTextColor={tk.text.tertiary}
-            returnKeyType="search"
-            onSubmitEditing={onSubmitSearch}
+            onSubmit={onSubmitSearch}
+            colorScheme={colorScheme}
           />
         </View>
       ) : null}
