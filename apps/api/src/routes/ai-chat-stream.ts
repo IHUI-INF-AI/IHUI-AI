@@ -69,6 +69,11 @@ const chatStreamSchema = z.object({
    * plan=只制定计划不执行工具(后端注入 Plan Mode system prompt),act=正常执行(默认)
    * 前端 extraBody 传 plan_mode(snake_case),透传到 ai-service /api/llm/complete/stream */
   plan_mode: z.string().optional(),
+  /** ChatMode 5 态(2026-09-13 矩阵 A #24):ask/build/plan/review/spec。
+   *  前端 send-message.ts:475 / send-answer.ts:183 发 mode(当前 ChatMode 选择),
+   *  此前未在 schema 声明 → zod strip 静默丢弃,ai-service 永远收不到(链路掐断)。
+   *  legacy plan_mode 继续兼容,ai-service 端 _resolve_chat_mode 以 mode 优先。 */
+  mode: z.enum(['ask', 'build', 'plan', 'review', 'spec']).optional(),
   /** 原生 function calling(2026-08-31 立,OpenAI tools 格式弱类型透传):
    *  CLI 直连 ai-service 已支持(tools + tool_choice → tool-call-start SSE 事件),
    *  经网关中转的客户端(Web 等)同样需要透传。元素为 OpenAI tool 定义
@@ -161,6 +166,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       contextLimit?: number
       agentTools?: string[]
       planMode?: string
+      /** ChatMode 5 态(2026-09-13 矩阵 A #24),透传到 ai-service req.mode */
+      mode?: 'ask' | 'build' | 'plan' | 'review' | 'spec'
       /** 原生 function calling(OpenAI tools 格式),undefined 时 JSON.stringify 自动省略,不注入 */
       tools?: Array<Record<string, unknown>>
       toolChoice?: string | Record<string, unknown>
@@ -247,6 +254,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // tool loop 入口 `if req.agent_tools:` 永远 false,从未触发工具调用。
           agent_tools: opts.agentTools,
           plan_mode: opts.planMode,
+          mode: opts.mode,
           // 原生 function calling 透传:字段名与 ai-service LLMCompleteRequest
           // (tools: list[dict] | None, tool_choice: str | dict | None) 对齐;
           // undefined 时 JSON.stringify 省略该 key,不会注入到上游请求。
@@ -364,6 +372,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         contextLimit,
         agentTools,
         plan_mode: planMode,
+        mode,
         tools,
         tool_choice: toolChoice,
         temperature,
@@ -505,6 +514,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           contextLimit,
           agentTools,
           planMode,
+          mode,
           tools,
           toolChoice,
           // P1-7(2026-09-13):会话级采样参数 + 自定义 system prompt 透传
@@ -557,6 +567,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         contextLimit,
         agentTools,
         plan_mode: planMode,
+        mode,
         tools,
         tool_choice: toolChoice,
         // P1-7(2026-09-13 立):chatAnswerSchema extends chatStreamSchema,
@@ -749,6 +760,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           contextLimit,
           agentTools,
           planMode,
+          mode,
           tools,
           toolChoice,
           // P1-7(2026-09-13):续答透传会话级采样参数
