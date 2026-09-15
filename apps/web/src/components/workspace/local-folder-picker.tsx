@@ -17,13 +17,12 @@ import {
   Keyboard,
   Loader2,
   RefreshCw,
-  Search,
   X,
 } from 'lucide-react'
 
 import {
   Button,
-  Input,
+  SearchInput,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -744,27 +743,16 @@ export function LocalFolderPicker({
 
             {/* 工具栏:筛选 + 父级 + 系统选择器 */}
             <div className="flex items-center gap-1.5">
-              <div className="relative flex-1 min-w-0">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  placeholder={t('filterPlaceholder')}
-                  className="h-8 pl-8 pr-8 text-xs"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-                {filter && (
-                  <button
-                    type="button"
-                    onClick={() => setFilter('')}
-                    className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    aria-label={t('clearFilter')}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
+              <SearchInput
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder={t('filterPlaceholder')}
+                autoComplete="off"
+                spellCheck={false}
+                clearable
+                clearAriaLabel={t('clearFilter')}
+                wrapperClassName="flex-1 min-w-0"
+              />
 
               {/* 父级(常驻,根时禁用) */}
               <TooltipProvider delayDuration={200}>

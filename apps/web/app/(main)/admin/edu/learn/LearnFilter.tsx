@@ -8,11 +8,11 @@ import { Plus, Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
   Button,
-  Input,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
 import { selectClass } from '@/lib/edu'
@@ -38,15 +38,13 @@ export function LearnFilter({
   const t = useTranslations('admin.edu.learn.index')
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative w-full max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={t('searchPlaceholder')}
-          className="h-9 pl-8"
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={(e) => onSearchChange(e.target.value)}
+        placeholder={t('searchPlaceholder')}
+        size="lg"
+        wrapperClassName="w-full max-w-xs"
+      />
       <div className="w-full max-w-[200px]">
         <Select value={categoryId} onValueChange={onCategoryChange}>
           <SelectTrigger className={selectClass} aria-label={t('category')}>

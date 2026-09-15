@@ -18,6 +18,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
@@ -422,17 +423,14 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
         )}
         {/* v9: 搜索框(工具数量>5时显示) */}
         {tools.length > 5 && (
-          <div className="relative mb-1">
-            <Search className="absolute left-1 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground/60" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t('tools.searchPlaceholder')}
-              className="w-full rounded-sm border border-border/60 bg-muted/50 py-0.5 pl-5 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring/50"
-              data-testid="tool-search-input"
-            />
-          </div>
+          <SearchInput
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t('tools.searchPlaceholder')}
+            size="sm"
+            wrapperClassName="mb-1 w-full"
+            data-testid="tool-search-input"
+          />
         )}
         {recentTools.map((tool) => (
           <ToolCallItem key={tool.id} tool={tool} />

@@ -8,21 +8,20 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
-import { Loader2, ChevronLeft, ChevronRight, Download, Upload, Layers } from 'lucide-react'
-
+import { ChevronLeft, ChevronRight, Download, Layers, Loader2, Upload } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { exportToExcel } from '@/lib/export-utils'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
   Button,
-  Input,
+  SearchInput,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@ihui/ui-react'
 
 interface SignupBatch {
@@ -125,11 +124,11 @@ export default function AdminLearnSignupBatchPage() {
           </Link>
         </Button>
         <div className="relative w-full max-w-xs">
-          <Input
+          <SearchInput
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索批次号或名称"
-            className="h-9"
+            size="lg"
           />
         </div>
         <Button variant="outline" size="sm" onClick={handleExport} disabled={rows.length === 0}>

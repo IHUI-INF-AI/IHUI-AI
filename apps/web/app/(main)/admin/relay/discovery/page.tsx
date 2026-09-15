@@ -8,33 +8,32 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  Activity,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  ScanLine,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  Zap,
-} from 'lucide-react'
-
+import {} from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
+  Activity,
   Button,
-  Input,
-  Label,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
+  Input,
+  Label,
+  Loader2,
+  ScanLine,
+  Search,
+  SearchInput,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  XCircle,
+  Zap,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
@@ -213,18 +212,15 @@ export default function AdminRelayDiscoveryPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative max-w-xs flex-1">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => {
-              setPage(1)
-              setSearch(e.target.value)
-            }}
-            placeholder="搜索 modelId / 名称"
-            className="pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => {
+            setPage(1)
+            setSearch(e.target.value)
+          }}
+          placeholder="搜索 modelId / 名称"
+          wrapperClassName="max-w-xs flex-1"
+        />
         <Input
           value={provider}
           onChange={(e) => {

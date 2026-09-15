@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Input, Label } from '@ihui/ui-react'
+import { Button, Label, SearchInput } from '@ihui/ui-react'
 import { FIELDS } from './helpers'
 
 interface Props {
@@ -24,11 +24,12 @@ export function ContactFilter({ search, setSearch, onSearch, onReset }: Props) {
       {FIELDS.map((f) => (
         <div key={f.key} className="space-y-1">
           <Label className="text-xs">{t(f.label)}</Label>
-          <Input
-            className="h-9 w-48"
+          <SearchInput
             value={search[f.key]}
             onChange={(e) => setSearch({ ...search, [f.key]: e.target.value })}
             placeholder={t('searchPlaceholder', { label: t(f.label) })}
+            size="lg"
+            wrapperClassName="w-48"
           />
         </div>
       ))}

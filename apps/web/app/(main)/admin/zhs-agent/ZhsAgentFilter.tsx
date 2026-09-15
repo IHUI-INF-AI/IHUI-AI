@@ -4,8 +4,8 @@
 
 'use client'
 
-import { Search } from 'lucide-react'
-import { Input } from '@ihui/ui-react'
+import {} from 'lucide-react'
+import { Input, SearchInput } from '@ihui/ui-react'
 
 interface Props {
   searchName: string
@@ -22,15 +22,13 @@ export function ZhsAgentFilter({
 }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative w-full max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={searchName}
-          onChange={(e) => setSearchName(e.target.value)}
-          placeholder="搜索名称"
-          className="h-9 pl-8"
-        />
-      </div>
+      <SearchInput
+        value={searchName}
+        onChange={(e) => setSearchName(e.target.value)}
+        placeholder="搜索名称"
+        size="lg"
+        wrapperClassName="w-full max-w-xs"
+      />
       <Input
         value={searchField1}
         onChange={(e) => setSearchField1(e.target.value)}

@@ -6,9 +6,12 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { ChevronDown, Check, Search } from 'lucide-react'
+import { ChevronDown, Check } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { useClickOutside } from '@/hooks/use-click-outside'
+// 2026-09-15 治理:定位/portal/关闭逻辑统一收敛到 PortalPanel(此前 absolute 就地渲染,
+// 会被 overflow-hidden 祖先裁剪;Escape/外点关闭与全项目其余浮层重复)。
+import { PortalPanel } from '@/components/feedback/portal-panel'
 
 export interface Option {
   label: string
@@ -45,9 +48,22 @@ export function Select({
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
-  const ref = useClickOutside<HTMLDivElement>(() => setOpen(false))
   const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const listRef = React.useRef<HTMLDivElement>(null)
+  // PortalPanel 面板 portal 到 body,与触发器同宽(原 w-full)需同步锚点宽度
+  const [anchorWidth, setAnchorWidth] = React.useState(0)
   const listboxId = React.useId()
+
+  React.useLayoutEffect(() => {
+    if (!open) return
+    const el = triggerRef.current
+    if (!el) return
+    const sync = () => setAnchorWidth(el.offsetWidth)
+    sync()
+    const ro = new ResizeObserver(sync)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [open])
 
   const selected = React.useMemo(() => {
     if (multiple) {
@@ -91,7 +107,7 @@ export function Select({
   const focusOption = (idx: number) => {
     const clamped = Math.max(0, Math.min(idx, filtered.length - 1))
     setActiveIndex(clamped)
-    const el = ref.current?.querySelector(`[data-idx="${clamped}"]`)
+    const el = listRef.current?.querySelector(`[data-idx="${clamped}"]`)
     el?.scrollIntoView({ block: 'nearest' })
   }
 
@@ -138,7 +154,7 @@ export function Select({
           {label}
         </label>
       )}
-      <div ref={ref} className="relative">
+      <div className="relative">
         <button
           ref={triggerRef}
           type="button"
@@ -175,26 +191,32 @@ export function Select({
             )}
           />
         </button>
-        {open && (
+        <PortalPanel
+          open={open}
+          anchorRef={triggerRef}
+          onClose={() => setOpen(false)}
+          side="bottom"
+          align="start"
+          gap={4}
+          panelRef={listRef}
+          style={anchorWidth ? { width: anchorWidth } : undefined}
+        >
           <div
             role="listbox"
             id={listboxId}
             tabIndex={-1}
             onKeyDown={handleListKeyDown}
-            className="absolute z-popover mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none"
+            className="max-h-60 w-full overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none"
           >
             {searchable && (
-              <div className="relative mb-1">
-                <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  role="searchbox"
-                  aria-label={t('searchOption')}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="搜索..."
-                  className="h-8 w-full rounded-sm bg-transparent pl-8 pr-2 text-sm outline-none"
-                />
-              </div>
+              <SearchInput
+                role="searchbox"
+                aria-label={t('searchOption')}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="搜索..."
+                wrapperClassName="mb-1"
+              />
             )}
             {filtered.length === 0 ? (
               <div className="py-4 text-center text-sm text-muted-foreground">无匹配项</div>
@@ -228,7 +250,7 @@ export function Select({
               ))
             )}
           </div>
-        )}
+        </PortalPanel>
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
