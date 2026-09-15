@@ -8515,6 +8515,13 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "usageEstimated": "Est.",
+    "turnChanges": {
+      "title": "Changes in this turn",
+      "revert": "Revert this turn",
+      "noCheckpoints": "No checkpoint available",
+      "revertConfirm": "This will restore the conversation and files to before this AI reply. All {count} file changes will be reverted. This cannot be undone."
+    },
     "addContextHint": "Add context file or reference",
     "addContextReference": "Add as Context Reference",
     "addMenuDesc": "Add menu (Templates / References / Skills / Attachments / Plugins / Compact)",
@@ -12036,6 +12043,11 @@
     }
   },
   "fileMention": {
+    "groupDir": "Directory",
+    "groupSemantic": "Semantic source",
+    "semanticCodebaseDesc": "Inject active workspace directory tree",
+    "semanticTerminalDesc": "Inject recent terminal output",
+    "semanticDocsDesc": "Inject CLAUDE.md/AGENTS.md/README.md",
     "fileSearchPlaceholder": "Search files…",
     "noMatch": "No matching files",
     "clearAriaLabel": "Clear search",
@@ -16783,6 +16795,11 @@
       "batchScanTitle": "One-click Scan Login",
       "batchScanDescription": "Opens each pending platform's login page in turn. Just keep scanning with your phone — each successful login is saved automatically and the next platform opens.",
       "batchScanProgress": "{current}/{total} · {name}",
+      "batchScanModeLabel": "Batch scan mode",
+      "batchScanModeInternal": "Built-in browser",
+      "batchScanModeExternal": "External browser",
+      "batchScanWaitingHintExternal": "Complete the scan login in an external browser",
+      "batchScanStart": "Start batch scan",
       "batchScanWaitingHint": "Scan or log in on the built-in browser on the right. Each platform times out after 2 minutes and is skipped automatically; you can also skip manually.",
       "batchScanLoading": "Preparing platform queue...",
       "batchScanSkip": "Skip this platform",
