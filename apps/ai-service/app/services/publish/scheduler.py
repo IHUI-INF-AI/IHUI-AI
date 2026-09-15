@@ -22,6 +22,7 @@ import contextlib
 import copy
 import json
 from collections.abc import Coroutine
+from dataclasses import replace as _dc_replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -764,6 +765,33 @@ class PublishScheduler:
         elapsed = int((datetime.now(UTC) - started).total_seconds() * 1000)
         result.duration_ms = elapsed
 
+        # ===== 发布后存活监测 + 自动修复重提(2026-09-15 新增)=====
+        # 内容平台(知乎等)会在发布后数分钟内做内容风控,营销外链类内容被静默移除。
+        # 后台看护:180s 后 API 实核;被移除 → 自动去外链重提一次并全程留痕。
+        if (
+            result.success
+            and result.published_url
+            and result.platform_content_id
+            and platform == "zhihu"
+        ):
+            asyncio.create_task(
+                _survival_watch_zhihu(
+                    scheduler=self,
+                    task_id=task_id,
+                    user_id=user_id,
+                    content=platform_content,
+                    content_id=str(result.platform_content_id),
+                    credentials=credentials,
+                    platform_config=platform_config,
+                    adapter=adapter,
+                    attempt=1,
+                )
+            )
+            logger.info(
+                "[publish.scheduler] %s 存活看护已启动 task=%s content_id=%s",
+                platform, task_id, result.platform_content_id,
+            )
+
         # ===== Anti-Risk:验证码失败重试(2026-08-01 深度强化)=====
         # 发布失败且错误含验证码关键词时,记录验证码事件(供适配器后续处理)
         # 注意:scheduler 无 Page 访问权限,实际验证码解决需适配器集成 CaptchaSolver
@@ -1094,3 +1122,64 @@ class PublishScheduler:
 # 单例
 publish_scheduler = PublishScheduler()
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+async def _survival_watch_zhihu(
+    scheduler: Any,
+    *,
+    task_id: str,
+    user_id: str | None,
+    content: PublishContent,
+    content_id: str,
+    credentials: dict[str, Any],
+    platform_config: dict[str, Any],
+    adapter: Any,
+    attempt: int = 1,
+) -> None:
+    """发布后存活看护(2026-09-15 新增):180s 后 API 实核;
+    被平台内容风控静默移除 → 自动去外链重提一次,全程留痕。"""
+    from .anti_risk.cookie_health import get_monitor
+
+    await asyncio.sleep(180)
+    try:
+        alive = await adapter.verify_alive(
+            content_id=str(content_id), credentials=credentials,
+        )
+    except Exception as e:
+        logger.warning("[publish.scheduler] 存活实核异常 task=%s: %s", task_id, e)
+        return
+    if alive:
+        logger.info(
+            "[publish.scheduler] 知乎文章存活确认 task=%s content_id=%s",
+            task_id, content_id,
+        )
+        with contextlib.suppress(Exception):
+            get_monitor().record_cookie_status(
+                str(credentials.get("_account_id") or ""), "zhihu", "healthy",
+            )
+        return
+    if attempt >= 2:
+        logger.warning(
+            "[publish.scheduler] 知乎文章两次被移除 task=%s,停止重提(需人工复核内容合规)",
+            task_id,
+        )
+        return
+    # 被移除 → 去外链重提
+    stripped_html = re.sub(r"<a\s[^>]*href=[^>]*>(.*?)</a>", r"", content.html or "", flags=re.S)
+    variant = _dc_replace(content, html=stripped_html)
+    logger.warning(
+        "[publish.scheduler] 知乎文章被内容风控移除 task=%s,自动去外链重提(第 %d 次)",
+        task_id, attempt,
+    )
+    started = datetime.now(UTC)
+    result = await adapter.publish(variant, credentials, platform_config)
+    result.duration_ms = int((datetime.now(UTC) - started).total_seconds() * 1000)
+    with contextlib.suppress(Exception):
+        await scheduler._write_history(task_id, user_id, result)
+    if result.success and result.platform_content_id:
+        await _survival_watch_zhihu(
+            scheduler, task_id=task_id, user_id=user_id, content=variant,
+            content_id=str(result.platform_content_id),
+            credentials=credentials, platform_config=platform_config,
+            adapter=adapter, attempt=attempt + 1,
+        )
