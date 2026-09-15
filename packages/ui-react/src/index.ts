@@ -5,6 +5,9 @@
 export { cn } from './lib/utils'
 export { Button, buttonVariants } from './components/button'
 export { Input } from './components/input'
+// SearchInput 全项目统一搜索框(2026-09-15 立,圆角输入井唯一视觉来源,web + extension 共用)
+export { SearchInput } from './components/search-input'
+export type { SearchInputProps } from './components/search-input'
 export { Label } from './components/label'
 export {
   Card,

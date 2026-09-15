@@ -5,7 +5,7 @@
 'use client'
 
 import { Search } from 'lucide-react'
-import { Button, Input, Label } from '@ihui/ui-react'
+import { Button, Label, SearchInput } from '@ihui/ui-react'
 import { SEARCH_FIELDS } from './helpers'
 import type { FormState } from './types'
 
@@ -22,11 +22,12 @@ export function SmsFilter({ search, setSearch, onSearch, onReset }: Props) {
       {SEARCH_FIELDS.map((f) => (
         <div key={f.key} className="space-y-1">
           <Label className="text-xs">{f.label}</Label>
-          <Input
-            className="h-9 w-48"
+          <SearchInput
             value={search[f.key] ?? ''}
             onChange={(e) => setSearch({ ...search, [f.key]: e.target.value })}
             placeholder={`搜索${f.label}`}
+            size="lg"
+            wrapperClassName="w-48"
           />
         </div>
       ))}

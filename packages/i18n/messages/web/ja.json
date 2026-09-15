@@ -12045,7 +12045,12 @@
   },
   "fileMention": {
     "fileSearchPlaceholder": "ファイルを検索…",
-    "noMatch": "一致するファイルなし"
+    "noMatch": "一致するファイルなし",
+    "clearAriaLabel": "検索をクリア",
+    "hintSelect": "選択",
+    "hintConfirm": "決定",
+    "hintClose": "閉じる",
+    "hintFilesCount": "{n} 件のファイル"
   },
   "contextSelector": {
     "title": "コンテキストセレクター · # 参照",
@@ -16781,7 +16786,25 @@
       "openExternalBrowserWithPlatform": "右側の内蔵ブラウザで {name} のログインページを開きました。QR コードをスキャンしてログインしてください",
       "webFallbackHint": "現在 Web モードです。ログイン後に Cookie を貼り付けて手動で保存してください",
       "cloudCred": "クラウド認証情報",
-      "cloudCredTip": "認証情報はサーバー上で暗号化して保存されています。任意のパソコンからアカウントにログインすれば利用できます。"
+      "cloudCredTip": "認証情報はサーバー上で暗号化して保存されています。任意のパソコンからアカウントにログインすれば利用できます。",
+      "batchScanBtn": "一括スキャンログイン",
+      "batchScanTitle": "一括スキャンログイン",
+      "batchScanDescription": "未設定のプラットフォームのログインページを順番に開きます。スマホでスキャンを続けるだけで、ログイン成功ごとに自動保存され次のプラットフォームへ切り替わります。",
+      "batchScanProgress": "{current}/{total} · {name}",
+      "batchScanWaitingHint": "右側の内蔵ブラウザでスキャン/ログインしてください。2 分でタイムアウト自動スキップします(手動スキップも可能)。",
+      "batchScanLoading": "プラットフォームキューを準備中...",
+      "batchScanSkip": "このプラットフォームをスキップ",
+      "batchScanStop": "キューを停止",
+      "batchScanRestart": "再開",
+      "batchScanClose": "閉じる",
+      "batchScanDone": "キュー終了",
+      "batchScanSummary": "成功 {success} · タイムアウト {timeout} · 失敗 {error} · スキップ {skipped}",
+      "batchScanSuccessCount": "{count} プラットフォーム設定完了",
+      "batchScanItemTimeout": "タイムアウト",
+      "batchScanItemSkipped": "スキップ",
+      "batchScanDetectError": "検出エラー",
+      "batchScanNoLoginUrl": "このプラットフォームのログインページ設定が見つかりません",
+      "batchScanStopped": "停止済み"
     },
     "ai": {
       "analyzeAll": "一括分析",
@@ -17026,6 +17049,7 @@
     "riskLevelMedium": "中リスク",
     "riskLevelSafe": "安全",
     "riskNotEvaluated": "未評価",
+    "riskScoreTooltip": "リスクスコア: {score}",
     "stats": {
       "successRate": "成功率",
       "totalFailed": "失敗回数",

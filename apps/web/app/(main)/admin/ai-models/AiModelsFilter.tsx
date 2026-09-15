@@ -4,7 +4,7 @@
 
 'use client'
 import { Plus } from 'lucide-react'
-import { Button, Input } from '@ihui/ui-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 
 interface Props {
   search: string
@@ -24,11 +24,11 @@ export function AiModelsFilter({ search, onSearchChange, onCreate }: Props) {
           <span className="whitespace-nowrap">新增</span>
         </Button>
       </div>
-      <Input
+      <SearchInput
         placeholder="搜索模型名称..."
         value={search}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="max-w-sm"
+        wrapperClassName="max-w-sm"
       />
     </>
   )

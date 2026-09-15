@@ -8,25 +8,25 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, ChevronLeft, ChevronRight, Award, Search } from 'lucide-react'
+import { Award, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
 import { cn } from '@/lib/utils'
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
   Button,
-  Input,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
   Card,
   CardContent,
+  SearchInput,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
 import { BackButton } from '@/components/common'
@@ -119,15 +119,13 @@ export default function EduCertificateIssuedPage() {
             {t('backToCertificate')}
           </Link>
         </Button>
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t('searchPlaceholder')}
+          size="lg"
+          wrapperClassName="w-full max-w-xs"
+        />
         <div className="w-full max-w-[140px]">
           <Select value={source} onValueChange={setSource}>
             <SelectTrigger className={selectClass} aria-label={t('colSource')}>
