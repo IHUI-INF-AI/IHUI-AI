@@ -2131,7 +2131,8 @@
     "scopeLabel": "범위",
     "save": "저장",
     "saveFailed": "저장 실패",
-    "textRequired": "기억 내용을 입력하세요"
+    "textRequired": "기억 내용을 입력하세요",
+    "uncategorized": "미분류"
   },
   "aiWorld": {
     "title": "AI 월드",
@@ -2164,14 +2165,30 @@
     "loadFailed": "로드 실패",
     "retry": "재시도",
     "scheduled": "예약됨",
-    "statsFailed": "통계 로드 실패",
+    "statsFailed": "게시 실패",
     "statsSuccess": "게시됨",
     "statsTotal": "합계",
     "cancelTask": "취소",
     "cancelTitle": "게시 작업 취소",
     "cancelConfirm": "이 작업을 취소하시겠습니까?",
     "retryTask": "재시도",
-    "operateFailed": "작업 실패, 다시 시도하세요"
+    "operateFailed": "작업 실패, 다시 시도하세요",
+    "statusSuccess": "성공",
+    "statusFailed": "실패",
+    "statusPartial": "부분 성공",
+    "statusRunning": "실행 중",
+    "statusPending": "대기 중",
+    "statusSkipped": "건너뜀",
+    "platformBilibili": "비리비리",
+    "platformDouyin": "더우인",
+    "platformKuaishou": "콰이쇼우",
+    "platformWechat": "위챗 공식 계정",
+    "platformToutiao": "투티아오",
+    "platformWeibo": "웨이보",
+    "platformXiaohongshu": "샤오홍슈",
+    "platformZhihu": "지후",
+    "platformJuejin": "쥐진",
+    "platformShipinhao": "위챗 채널"
   },
   "imageGen": {
     "title": "이미지 생성",
@@ -2192,7 +2209,13 @@
     "saveToAlbum": "앨범에 저장",
     "saveSuccess": "앨범에 저장했습니다",
     "saveFailed": "저장 실패, 다시 시도하세요",
-    "needPermission": "저장하려면 미디어 라이브러리 권한이 필요합니다"
+    "needPermission": "저장하려면 미디어 라이브러리 권한이 필요합니다",
+    "tabHistory": "생성 기록",
+    "tabFavorites": "즐겨찾기",
+    "statusPending": "대기 중",
+    "statusRunning": "생성 중",
+    "statusSucceeded": "완료",
+    "statusFailed": "실패"
   },
   "webView": {
     "loadFailed": "페이지 로드 실패",
@@ -2353,7 +2376,8 @@
     "title": "스펙 템플릿",
     "loadFailed": "템플릿 로드 실패",
     "empty": "템플릿 없음",
-    "desktopHint": "템플릿 열람은 참고용입니다. Spec 생성은 서버 측 workspace 경로가 필요하므로 Web/데스크톱에서 전체 흐름을 사용하세요"
+    "desktopHint": "템플릿 열람은 참고용입니다. Spec 생성은 서버 측 workspace 경로가 필요하므로 Web/데스크톱에서 전체 흐름을 사용하세요",
+    "generateEntry": "웹에서 생성"
   },
   "selfMedia": {
     "title": "셀프미디어 어시스턴트",
