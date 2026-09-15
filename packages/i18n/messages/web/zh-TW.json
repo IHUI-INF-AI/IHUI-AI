@@ -7044,12 +7044,14 @@
       "coordinated": "已協調 {count} 個子智能體完成",
       "defaultName": "子智能體",
       "totalSteps": "(共 {count} 步)",
-      "lane.architect": "架構",
-      "lane.coder": "編碼",
-      "lane.debugger": "除錯",
-      "lane.general": "通用",
-      "lane.researcher": "研究",
-      "lane.reviewer": "評審",
+      "lane": {
+        "architect": "架構",
+        "coder": "編碼",
+        "debugger": "除錯",
+        "general": "通用",
+        "researcher": "研究",
+        "reviewer": "評審"
+      },
       "laneEmpty": "閒置",
       "viewToggle": "檢視切換",
       "working": "{count} 個子智能體協作中"
@@ -7944,15 +7946,23 @@
     "clearLog": "清空",
     "noEvents": "暫無事件記錄",
     "event": {
-      "tool.before": "工具呼叫前",
-      "tool.after": "工具返回後",
-      "message.send": "訊息發送",
-      "message.receive": "訊息接收",
-      "session.start": "會話開始",
-      "session.end": "會話結束",
+      "tool": {
+        "before": "工具呼叫前",
+        "after": "工具返回後"
+      },
+      "message": {
+        "send": "訊息發送",
+        "receive": "訊息接收"
+      },
+      "session": {
+        "start": "會話開始",
+        "end": "會話結束"
+      },
       "error": "錯誤發生",
-      "commit.before": "提交前",
-      "commit.after": "提交後"
+      "commit": {
+        "before": "提交前",
+        "after": "提交後"
+      }
     },
     "action": {
       "log": "記錄日誌",
@@ -8048,15 +8058,23 @@
     "clearLog": "清空",
     "noLog": "暫無轉發記錄",
     "event": {
-      "tool.before": "工具呼叫前",
-      "tool.after": "工具返回後",
-      "message.send": "訊息傳送",
-      "message.receive": "訊息接收",
-      "session.start": "會話開始",
-      "session.end": "會話結束",
+      "tool": {
+        "before": "工具呼叫前",
+        "after": "工具返回後"
+      },
+      "message": {
+        "send": "訊息傳送",
+        "receive": "訊息接收"
+      },
+      "session": {
+        "start": "會話開始",
+        "end": "會話結束"
+      },
       "error": "錯誤發生",
-      "commit.before": "提交前",
-      "commit.after": "提交後"
+      "commit": {
+        "before": "提交前",
+        "after": "提交後"
+      }
     },
     "pushPerm": {
       "default": "未詢問",
@@ -16972,7 +16990,8 @@
       "analytics": "數據分析",
       "calendar": "發布日歷",
       "history": "發布歷史",
-      "new": "新建任務"
+      "new": "新建任務",
+      "monitor": "發布監測"
     },
     "taskAllComplete": "全部完成",
     "taskProgress": "已完成",
@@ -16996,6 +17015,52 @@
     "uploadFailed": "上傳失敗",
     "uploadProgress": "上傳中",
     "uploadSuccess": "上傳成功"
+  },
+  "publishMonitor": {
+    "title": "發布監測",
+    "subtitle": "即時查看每篇內容的發布狀態、樣式核驗與互動數據",
+    "refresh": "重新整理",
+    "refreshing": "整理中…",
+    "emptyTitle": "暫無監測資料",
+    "emptyHint": "先在「新建發布」建立任務，發布完成後這裡會顯示每篇內容的監測情況",
+    "goCreate": "去新建發布",
+    "summarySuccess": "成功",
+    "summaryFailed": "失敗",
+    "summaryUnverified": "核驗未過",
+    "blockStatus": "發布狀態",
+    "blockVerify": "樣式核驗",
+    "blockResubmit": "修復重提",
+    "blockMetrics": "互動數據",
+    "platform": "平臺",
+    "statusSuccess": "成功",
+    "statusFailed": "失敗",
+    "statusRunning": "進行中",
+    "statusPending": "待發布",
+    "status": "狀態",
+    "statusUnknown": "未知",
+    "publishedAt": "發布時間",
+    "finishedAt": "完成時間",
+    "lastError": "錯誤訊息",
+    "openUrl": "查看原文",
+    "verifyPassed": "核驗通過",
+    "verifyFailed": "核驗未通過",
+    "verifyPending": "待核驗",
+    "verifyAt": "核驗時間",
+    "issues": "問題清單",
+    "noIssues": "無問題",
+    "contentLength": "正文長度",
+    "images": "圖片載入",
+    "resubmitCount": "重提次數",
+    "metricsViews": "閱讀",
+    "metricsLikes": "點讚",
+    "metricsComments": "評論",
+    "metricsShares": "分享",
+    "metricsCollectedAt": "採集時間",
+    "noMetrics": "暫無互動數據",
+    "reVerify": "重新核驗",
+    "reVerifying": "核驗中…",
+    "refreshMetrics": "重新整理資料",
+    "refreshMetricsLoading": "採集中…"
   },
   "quickKey": {
     "apiKeyLabel": "API 金鑰",
