@@ -1009,6 +1009,28 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 50 (2026-09-15 新增,next-env.d.ts 构建污染守门,AGENTS.md「.next-* 变体永不提交」配套) ---
+  // blocking:ihui-deploy.ps1 用 IHUI_BUILD_DIST=.next-staging 做零停机交换时,next build 改写被跟踪的
+  //   next-env.d.ts 为引用 .next-staging,残留污染源码树。pre-commit 阶段仅当该文件被 git add 才判定
+  //   (铁律本就不提交它,避免本地构建脏文件误伤),发现 .next-* 变体引用即阻塞。
+  //   修复: git checkout -- apps/web/next-env.d.ts  (部署脚本已在 swap 后自动还原)。
+  //   跳过: HUSKY_SKIP_NEXT_ENV_DIST=1 git commit ...
+  {
+    id: '50',
+    label: '🛡️ next-env.d.ts 构建污染守门(禁 .next-* 变体引用)',
+    script: 'check-next-env-dist.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 apps/web/next-env.d.ts 引用了 .next-* 变体(.next-staging/.next-static 等),',
+      '     这是 next build 在 IHUI_BUILD_DIST 覆盖 distDir 时的副作用残留。',
+      '     修复: git checkout -- apps/web/next-env.d.ts',
+      '     部署脚本 ihui-deploy.ps1 已在 staging→.next 交换后自动还原,本地误改请手动还原。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (2 项) ---
   {
     id: '10',
