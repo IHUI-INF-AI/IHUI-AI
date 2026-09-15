@@ -19,8 +19,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from .conversation_media_routing import _MEDIA_INTENT_PATTERNS, _WEB_INTENT_PATTERNS
 from ..services.mcp_server import mcp_server
+from .conversation_media_routing import _MEDIA_INTENT_PATTERNS, _WEB_INTENT_PATTERNS
 
 # 默认工具 → 关键词映射(用于无 LLM 时的快速工具选择)
 DEFAULT_TOOL_KEYWORDS: dict[str, list[str]] = {
