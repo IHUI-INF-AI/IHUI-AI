@@ -19,7 +19,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # 意图枚举(对内,LLM 输出 + 后处理)
 # ---------------------------------------------------------------------------
