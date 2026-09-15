@@ -8523,6 +8523,13 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "usageEstimated": "估算",
+    "turnChanges": {
+      "title": "本輪變更",
+      "revert": "恢復到本輪之前",
+      "noCheckpoints": "無可用檢查點",
+      "revertConfirm": "即將把對話與檔案恢復到本條 AI 回覆之前。共 {count} 個檔案改動將回退,此操作不可撤銷。"
+    },
     "addContextHint": "添加上下文文件或引用",
     "addContextReference": "添加為上下文引用",
     "addMenuDesc": "添加菜單(模板/引用/Skill/附件/插件/壓縮)",
@@ -12044,6 +12051,11 @@
     }
   },
   "fileMention": {
+    "groupDir": "目錄",
+    "groupSemantic": "語意源",
+    "semanticCodebaseDesc": "注入活躍工作區目錄樹摘要",
+    "semanticTerminalDesc": "注入最近終端輸出",
+    "semanticDocsDesc": "注入 CLAUDE.md/AGENTS.md/README.md",
     "fileSearchPlaceholder": "搜索文件…",
     "noMatch": "無匹配文件",
     "clearAriaLabel": "清空搜尋",
@@ -16728,6 +16740,11 @@
       "batchScanTitle": "一鍵掃碼登入",
       "batchScanDescription": "自動逐個開啟待配置平臺的登入頁:保持手機掃碼狀態連續掃即可,每個平臺登入成功後自動儲存並切換下一個。",
       "batchScanProgress": "第 {current}/{total} 個 · {name}",
+      "batchScanModeLabel": "批量掃碼模式",
+      "batchScanModeInternal": "內建瀏覽器",
+      "batchScanModeExternal": "外部瀏覽器",
+      "batchScanWaitingHintExternal": "請在外部瀏覽器完成掃碼登入",
+      "batchScanStart": "開始批量掃碼",
       "batchScanWaitingHint": "請在右側內建瀏覽器完成該平臺掃碼/登入;逾時(2 分鐘)會自動跳過,也可手動跳過",
       "batchScanLoading": "正在準備平臺佇列...",
       "batchScanSkip": "跳過此平臺",
