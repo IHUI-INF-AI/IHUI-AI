@@ -2616,12 +2616,12 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 ### 第一梯队 P0:对话流显示层(用户每次对话都感知)
 
 - [x] ✅(2026-09-15) **15. 会话标题 LLM 自动生成(对标:四家全员)**:首轮回复 done 后异步生成标题(失败静默回退现命名);`chat_conversations.title` 更新 + 前端列表即时刷新;5 语言 i18n。**落地**:api 新端点 `POST /chat/conversations/:id/auto-title`(仅默认「新对话」被覆盖)+ `utils/conversation-title.ts`(3s 超时/stub 静默,计费 requestType=conversation-title)+ `updateConversationTitle` 属主校验;web send-message 首轮判定(非 regenerate 且历史无 assistant)fire-and-forget + invalidate 会话列表;sanitizeGeneratedTitle 7 单测。commit `e24ded98f6e`。
-- [ ] **16. 流式平滑渲染 + 滚动跟随审计(对标:各家逐词平滑)**:delta 帧级 flush 加平滑 reveal(非字符级定时器,保性能);审计统一「流式中自动滚动跟随 / 用户上翻即暂停」交互。
+- [x] ✅(2026-09-15) **16. 流式平滑渲染 + 滚动跟随审计(对标:各家逐词平滑)**:delta 帧级 flush 加平滑 reveal(非字符级定时器,保性能);审计统一「流式中自动滚动跟随 / 用户上翻即暂停」交互。**落地**:新建 smooth-delta-batcher.ts(rAF 每帧推进 max(2, remaining/8) 字符,2–3 秒追平,flush/cancel 语义不变),contentBatcher 切换;滚动跟随审计结论=已实现(上翻>120px 暂停/回底恢复),滞回阈值 70px 维持现状。
 - [x] ✅(2026-09-15) **17. 代码块行号(对标:Codex/Trae/Qoder)**:`markdown-stream.tsx` 代码块加行号 gutter(react-syntax-highlighter showLineNumbers),可配置开关。**落地**:高亮路径 showLineNumbers + 主题感知行号色(dark=zinc-400/light=zinc-500,opacity 0.7,userSelect none 复制不夹带);纯文本/高亮降级路径优雅降级不带行号;markdown-stream 11 测试回归全绿。commit `e24ded98f6e`。
-- [ ] **18. @目录级 + # 语义源引用(对标:Trae @文件夹/#Codebase、Qoder @符号)**:① 目录级引用注入目录树摘要;② `#Codebase`(五维索引检索)/`#Terminal`(最近终端输出)/`#Docs` 三语义源 chip,复用 file-mention-popover 交互骨架。
-- [ ] **19. 回复内文件引用 chip 化(对标:Qoder 执行步骤可点击文件引用)**:工具调用涉及路径在消息尾聚合 FileChip 条,点击 openFile+setActiveTopTab(复用 apply-code-block 打开链路)。
-- [ ] **20. turn 级变更汇总 + 整体回滚(对标:Codex turn_diff、Trae Changes、Qoder Changes)**:每轮 done 生成变更文件树(增删行数),逐文件 diff 查看 +「整体恢复到轮前」(复用 checkpoint API);放最后做(依赖面最大)。
-- [ ] **21. 流内实时 token/成本显示(对标:Codex 流中用量)**:SSE 增独立节流 `usage` 事件,context-usage-ring 与消息徽章实时联动。
+- [x] ✅(2026-09-15) **18. @目录级 + # 语义源引用(对标:Trae @文件夹/#Codebase、Qoder @符号)**:① 目录级引用注入目录树摘要;② `#Codebase`(五维索引检索)/`#Terminal`(最近终端输出)/`#Docs` 三语义源 chip,复用 file-mention-popover 交互骨架。**落地**:新建 lib/context-token-expander.ts(expandContextTokens:#Codebase=工作区 2 层树 8000 字符/#Terminal=最近终端输出 4000(降级注入,正确降级)/#Docs=CLAUDE.md+AGENTS.md+README.md 各 4000/@目录:<路径>),零后端改动;popover 新增「语义源」「目录」分组;10 单测;send-message 接线 await expandContextTokens(expandRuleToken(text))。
+- [x] ✅(2026-09-15) **19. 回复内文件引用 chip 化(对标:Qoder 执行步骤可点击文件引用)**:工具调用涉及路径在消息尾聚合 FileChip 条,点击 openFile+setActiveTopTab(复用 apply-code-block 打开链路)。**落地**:新建 file-chips.tsx(写/读类工具白名单,path/file_path/filePath/file/filename 提取,去重保序,点击 openFile+setActiveTopTab),MessageItem 流结束后渲染。
+- [x] ✅(2026-09-15) **20. turn 级变更汇总 + 整体回滚(对标:Codex turn_diff、Trae Changes、Qoder Changes)**:每轮 done 生成变更文件树(增删行数),逐文件 diff 查看 +「整体恢复到轮前」(复用 checkpoint API);放最后做(依赖面最大)。**落地**:新建 turn-changes-card.tsx(折叠卡=写类工具聚合文件+±行数(缺失显示—永不阻塞)+「恢复到本轮之前」=listCheckpoints 找本消息前最近 checkpoint→restoreCheckpoint,无 checkpoint 禁用),确认弹窗 i18n 带 {count} ICU。
+- [x] ✅(2026-09-15) **21. 流内实时 token/成本显示(对标:Codex 流中用量)**:SSE 增独立节流 `usage` 事件,context-usage-ring 与消息徽章实时联动。**落地**:前端估算方案(零后端改动):smooth batcher onProgress 驱动 estimateLiveUsage(CJK×0.6+其他/4)节流 800ms 写 message.meta.usage(estimated 徽章),流结束 onUsage 权威覆盖;真 SSE usage 事件归并 #25 契约化。
 
 ### 第二梯队 P1:传输健壮性 + 智能可见性(一周内跟上)
 
