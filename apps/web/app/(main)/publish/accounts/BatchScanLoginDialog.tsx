@@ -8,12 +8,14 @@
 
 /**
  * 一键扫码登录(批量串行队列,2026-09-15):
- * 自动逐个平台在右侧内置浏览器(CDP)打开登录页,用户只需连续用手机扫码;
+ * 自动逐个平台打开登录页,用户只需连续用手机扫码;
  * 每个平台检测到登录即自动保存凭据并切换下一个。单平台 2 分钟超时自动跳过,
  * 支持"跳过此平台"与"停止队列"。弹窗关闭后队列继续在后台运行,重新打开可查看进度。
  *
- * 复用既有链路:createBrowserSession → openCdpSession → detectLoginFromCdp 轮询
- * (后端检测成功即自动加密入库,无需额外保存调用)。
+ * 2026-09-15:启动前支持选择"内置浏览器(CDP)"或"外部浏览器(系统 Chrome 自动闭环)"。
+ * 内置:createBrowserSession → openCdpSession → detectLoginFromCdp 轮询;
+ * 外部:startExternalScanLogin(系统 Chrome 带 CDP 调试端口)→ 同一 detectLoginFromCdp 轮询,
+ * 登录成功自动保存账号并关闭外部 Chrome。后端检测成功即自动加密入库,无需额外保存调用。
  */
 
 import * as React from 'react'
@@ -26,6 +28,8 @@ import {
   Clock,
   MinusCircle,
   ListChecks,
+  Monitor,
+  ExternalLink,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
@@ -33,6 +37,7 @@ import {
   closeBrowserSession,
   detectLoginFromCdp,
   listScanLoginPlatforms,
+  startExternalScanLogin,
   type ScanLoginPlatform,
 } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
@@ -58,6 +63,8 @@ export interface BatchScanLoginDialogProps {
 
 type ItemStatus = 'pending' | 'active' | 'success' | 'timeout' | 'error' | 'skipped'
 type PollOutcome = 'success' | 'timeout' | 'cancelled' | 'skipped' | 'error'
+/** 扫码打开方式:内置 CDP 视图 / 外部系统 Chrome(自动闭环) */
+type BrowserMode = 'internal' | 'external'
 
 interface QueueItem {
   platform: string
@@ -96,6 +103,7 @@ export function BatchScanLoginDialog({
   const [items, setItems] = React.useState<QueueItem[]>([])
   const [running, setRunning] = React.useState(false)
   const [platMapReady, setPlatMapReady] = React.useState(false)
+  const [mode, setMode] = React.useState<BrowserMode>('internal')
 
   const itemsRef = React.useRef<QueueItem[]>([])
   const platMapRef = React.useRef<Map<string, ScanLoginPlatform>>(new Map())
@@ -104,6 +112,7 @@ export function BatchScanLoginDialog({
   const skipRef = React.useRef(false)
   const sessionRef = React.useRef('')
   const lastQueueKeyRef = React.useRef('')
+  const modeRef = React.useRef<BrowserMode>('internal')
   const queueKey = queuePlatforms.join(',')
 
   const updateItem = React.useCallback((idx: number, patch: Partial<QueueItem>) => {
@@ -146,13 +155,7 @@ export function BatchScanLoginDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, queueKey])
 
-  // 队列就绪后自动开始(打开即扫,无需再点按钮)
-  React.useEffect(() => {
-    if (open && platMapReady && !runningRef.current && itemsRef.current.length > 0) {
-      void startQueue()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, platMapReady])
+  // 2026-09-15:启动前先选择"内置浏览器/外部浏览器",由用户点"开始扫码"触发(不再自动开始)
 
   // 卸载兜底:关闭残留会话
   React.useEffect(() => {
@@ -190,6 +193,7 @@ export function BatchScanLoginDialog({
     skipRef.current = false
     runningRef.current = true
     setRunning(true)
+    const useExternal = modeRef.current === 'external'
     let successCount = 0
 
     for (let i = 0; i < list.length; i++) {
@@ -207,15 +211,25 @@ export function BatchScanLoginDialog({
       }
       updateItem(i, { status: 'active', msg: undefined })
       try {
-        const r = await createBrowserSession({
-          url: plat.login_url,
-          viewport_width: 1024,
-          viewport_height: 720,
-        })
-        if (!r.success || !r.data?.session_id) throw new Error(r.error || '创建浏览器会话失败')
-        const sid = r.data.session_id
+        let sid: string
+        if (useExternal) {
+          // 外部模式:ai-service 用系统 Chrome(--app + CDP 调试端口 + 临时 profile)打开并附着,
+          // 登录成功自动保存账号,closeBrowserSession 时会一并关闭外部 Chrome 窗口
+          const r = await startExternalScanLogin(item.platform)
+          if (!r.success || !r.data?.session_id) throw new Error(r.error || '启动外部浏览器失败')
+          sid = r.data.session_id
+        } else {
+          // 内置模式:BrowserHub Playwright Chromium + WorkPanel CDP 截图流视图
+          const r = await createBrowserSession({
+            url: plat.login_url,
+            viewport_width: 1024,
+            viewport_height: 720,
+          })
+          if (!r.success || !r.data?.session_id) throw new Error(r.error || '创建浏览器会话失败')
+          sid = r.data.session_id
+          openCdpSession(plat.login_url, sid, plat.name)
+        }
         sessionRef.current = sid
-        openCdpSession(plat.login_url, sid, plat.name)
         const outcome = await pollPlatform(sid, item.platform)
         if (sessionRef.current === sid) sessionRef.current = ''
         void closeBrowserSession(sid)
@@ -303,6 +317,39 @@ export function BatchScanLoginDialog({
         </DialogHeader>
 
         <div className="space-y-3">
+          {/* 2026-09-15:浏览器选择(内置/外部),未运行时可切换 */}
+          {!running && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t('accounts.batchScanModeLabel')}</label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={mode === 'internal' ? 'default' : 'outline'}
+                  className="h-auto flex-col gap-1 py-2"
+                  onClick={() => {
+                    modeRef.current = 'internal'
+                    setMode('internal')
+                  }}
+                >
+                  <Monitor className="h-4 w-4" />
+                  <span className="text-xs">{t('accounts.batchScanModeInternal')}</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={mode === 'external' ? 'default' : 'outline'}
+                  className="h-auto flex-col gap-1 py-2"
+                  onClick={() => {
+                    modeRef.current = 'external'
+                    setMode('external')
+                  }}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="text-xs">{t('accounts.batchScanModeExternal')}</span>
+                </Button>
+              </div>
+            </div>
+          )}
+
           {running && activeItem && (
             <div className="flex flex-col items-center gap-2 rounded-lg border bg-muted/30 p-3">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -314,7 +361,9 @@ export function BatchScanLoginDialog({
                 })}
               </p>
               <p className="text-center text-xs text-muted-foreground">
-                {t('accounts.batchScanWaitingHint')}
+                {mode === 'external'
+                  ? t('accounts.batchScanWaitingHintExternal')
+                  : t('accounts.batchScanWaitingHint')}
               </p>
             </div>
           )}
@@ -374,6 +423,12 @@ export function BatchScanLoginDialog({
         </div>
 
         <DialogFooter>
+          {!running && !done && platMapReady && items.length > 0 && (
+            <Button onClick={() => void startQueue()} className="w-full">
+              <QrCode className="h-4 w-4" />
+              {t('accounts.batchScanStart')}
+            </Button>
+          )}
           {running && (
             <>
               <Button variant="outline" onClick={skipCurrent}>
