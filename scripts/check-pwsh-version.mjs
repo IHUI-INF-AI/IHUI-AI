@@ -60,6 +60,8 @@ const SKIP_PATH_PATTERNS = [
   /[\\/]tmp[\\/]/,
   /[\\/]deploy[\\/]prod-bundle[\\/]/,
   /[\\/]\.ihui-agent[\\/]/,
+  // 污染治理隔离归档(2026-09-15 补):历史现场原样保存,不追溯新规则
+  /[\\/]\.workbuddy[\\/]quarantine[\\/]/,
 ]
 
 const violations = []
