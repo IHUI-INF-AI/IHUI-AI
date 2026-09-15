@@ -38,6 +38,7 @@ import {
   setConversationShareToken,
   findConversationByShareToken,
   regenerateConversationMessages,
+  editMessageAndTruncateAfter,
   branchConversationFrom,
   replaceMessages,
 } from '../db/chat-queries.js'
@@ -185,6 +186,17 @@ const compressSchema = z.object({
 // 重新生成(2026-08-30 立):指定要重新生成的 AI 消息 id
 const regenerateSchema = z.object({
   messageId: z.uuid('messageId 必须是有效的 UUID'),
+})
+
+// 编辑重跑(2026-09-12 立,四竞品对标 P0-1):目标用户消息 id + 新内容
+// 2026-09-15 补回:65ecb9dd9「gitdir 灾难后完整重建」在旧基线上覆盖提交,误删本路由,
+// 而 packages/api-client 的 editAndRerunConversation 仍在调用它(前端 404)。
+const editRerunSchema = z.object({
+  messageId: z.uuid('messageId 必须是有效的 UUID'),
+  content: z
+    .string()
+    .min(1, '消息内容不能为空')
+    .max(64 * 1024, '消息内容过长(最大 64KB)'),
 })
 
 // 分支(2026-08-30 立):指定从哪条消息开始分叉,可选覆盖新会话标题/模型
@@ -691,6 +703,39 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       request.log.error({ err }, '重新生成失败')
       const msg = err instanceof Error ? err.message : '重新生成失败'
       return reply.code(500).send(error(500, msg))
+    }
+  })
+
+  // POST /conversations/:id/edit-rerun - 编辑重跑(2026-09-12 立,四竞品对标 P0-1)
+  // 对标 Cursor/Trae 消息编辑:更新目标用户消息内容(事务),并删除其后的所有消息;
+  // 前端随后以新内容复用 sendMessage(regenerate 模式)重新流式生成回复。
+  // 2026-09-15 补回:被 65ecb9dd9 误删,而 api-client 的 editAndRerunConversation 仍在调用。
+  server.post('/conversations/:id/edit-rerun', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const owned = await ensureOwnedConversation(id, userId, reply)
+    if (!owned.conversation) return
+
+    const parsed = editRerunSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    try {
+      const message = await editMessageAndTruncateAfter(
+        id,
+        parsed.data.messageId,
+        parsed.data.content,
+      )
+      return reply.send(success({ message: serializeMessage(message) }))
+    } catch (err) {
+      request.log.error({ err }, '编辑重跑失败')
+      const msg = err instanceof Error ? err.message : '编辑重跑失败'
+      const isNotFound = msg.includes('不存在或不属于')
+      return reply.code(isNotFound ? 404 : 500).send(error(isNotFound ? 404 : 500, msg))
     }
   })
 
