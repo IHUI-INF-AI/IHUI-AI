@@ -8,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   StyleSheet,
@@ -17,6 +16,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { SearchInput } from '../../components/SearchInput'
 import type { TFunction } from '../../types'
 import type { AppIcon } from '@ihui/types'
 import { BarChart3, BookOpen, PenLine, Smartphone, Users } from 'lucide-react-native'
@@ -256,13 +256,11 @@ export function CourseTabScreen({
         {/* 全部课程 */}
         <View style={styles.section}>
           {renderSectionHeader('全部课程', onPressMoreCourses)}
-          <TextInput
-            style={styles.searchInput}
+          <SearchInput
             value={keyword}
             onChangeText={onKeywordChange}
             placeholder="搜索课程"
-            placeholderTextColor={tk.text.tertiary}
-            returnKeyType="search"
+            colorScheme={colorScheme}
           />
           {error ? (
             <View style={styles.errorWrap}>
