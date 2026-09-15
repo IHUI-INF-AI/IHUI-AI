@@ -19,3 +19,10 @@ apps/web/src/config/desktop-feed.generated.ts
 .github/loop-runtime/
 # 小程序 i18n 生成文件(scripts/gen-i18n-compressed.mjs 产出,含超长 base64,跳过格式化)
 apps/miniapp-taro/src/i18n/generated/
+# Drizzle 迁移元数据快照(drizzle-kit generate 产出,紧凑单行写法;格式化后会被下次生成覆盖,
+# 且 diff 达万行级噪声。2026-09-15 加入,根治 ci-monorepo lint 作业 format:check 恒红)
+packages/database/drizzle/meta/
+# 项目任务计划文档(PROJECT_PLAN.md):多会话高频追加的活文档(数千行,含大段实测证据),
+# 非源码;prettier 每次要求补空行的格式化噪声会与并行会话追加动作持续冲突。
+# 与已忽略的 docs/ 同策略,不纳入源码格式门禁。
+PROJECT_PLAN.md
