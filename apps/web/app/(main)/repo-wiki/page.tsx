@@ -364,21 +364,40 @@ export default function RepoWikiPage() {
       {viewingId && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between text-base">
-              <span>{viewingTitle}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setViewingId(null)
-                  setDetailContent(null)
-                }}
-              >
-                {t('backToList')}
-              </Button>
+            <CardTitle className="flex items-center justify-between gap-2 text-base">
+              <span className="truncate">{viewingTitle}</span>
+              <div className="flex shrink-0 items-center gap-2">
+                {/* P1-8(2026-09-13 立):已生成文档支持原地重新生成,复用 handleGenerate 生成链路 */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleGenerate()}
+                  disabled={generating || collecting || !folderName || collectedFiles.length === 0}
+                >
+                  {generating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" aria-hidden />
+                  )}
+                  {generating ? t('generating') : t('regenerate')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setViewingId(null)
+                    setDetailContent(null)
+                  }}
+                >
+                  {t('backToList')}
+                </Button>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {(!folderName || collectedFiles.length === 0) && (
+              <p className="mb-3 text-xs text-muted-foreground">{t('regenerateDisabledHint')}</p>
+            )}
             {loadingDetail || detailContent === null ? (
               <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

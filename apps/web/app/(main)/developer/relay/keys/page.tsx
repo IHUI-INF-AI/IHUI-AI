@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import { Key, Plus, Trash2, RotateCcw, Copy, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Key, Plus, Trash2, RotateCcw, Copy, Eye, EyeOff, Loader2, Power } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
   Button,
@@ -45,7 +45,16 @@ interface KeysData {
   list: RelayKey[]
 }
 
-const SCOPES = ['read', 'write', 'admin', 'billing', 'webhook']
+// 2026-09-13 修复:原先的 read/write/admin/billing/webhook 不是合法权限点,
+// 会被后端 isValidApiKeyPermission 全部过滤掉,导致新建 Key permissions 为空
+const SCOPES: Array<{ value: string; label: string }> = [
+  { value: 'chat:write', label: '对话补全' },
+  { value: 'models:read', label: '模型列表' },
+  { value: 'embeddings:write', label: '向量' },
+  { value: 'images:write', label: '图片生成' },
+  { value: 'audio:write', label: '语音' },
+  { value: 'videos:write', label: '视频生成' },
+]
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -76,7 +85,15 @@ export default function RelayKeysPage() {
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState('')
-  const [scopes, setScopes] = React.useState<string[]>(['read'])
+  const [scopes, setScopes] = React.useState<string[]>(['chat:write', 'models:read'])
+  // 2026-09-13 修复:创建成功后展示明文 secret(仅此一次,后端只返回一次);
+  // mode 区分「创建」与「重置」,重置同样会返回新 secret,复用同一弹窗展示
+  const [created, setCreated] = React.useState<{
+    mode: 'create' | 'reset'
+    apiKey: { id: string; name: string; key: string }
+    secret: string
+  } | null>(null)
+  const [secretVisible, setSecretVisible] = React.useState(false)
   const [visible, setVisible] = React.useState<Record<string, boolean>>({})
   const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
 
@@ -87,34 +104,67 @@ export default function RelayKeysPage() {
   })
   const list = data?.list ?? []
 
+  // 2026-09-13 修复:原 POST /api/developer/keys + scopes 字段名均错误,
+  // 改为中转站端点 /api/developer/relay/keys + permissions 字段
   const createMut = useMutation({
     mutationFn: () =>
-      api('/api/developer/keys', {
-        method: 'POST',
-        body: JSON.stringify({ name, scopes }),
-      }),
-    onSuccess: () => {
+      api<{ apiKey: { id: string; name: string; key: string }; secret: string }>(
+        '/api/developer/relay/keys',
+        {
+          method: 'POST',
+          body: JSON.stringify({ name, permissions: scopes }),
+        },
+      ),
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
       setOpen(false)
       setName('')
-      setScopes(['read'])
-      toast.success('Key 已创建')
+      setScopes(['chat:write', 'models:read'])
+      setCreated({ mode: 'create', ...data })
+      setSecretVisible(false)
     },
     onError: (e: Error) => toast.error(e.message),
   })
-  const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/developer/keys/${id}`, { method: 'DELETE' }),
+  // 2026-09-13 修复:原 DELETE /api/developer/keys/:id 端点不存在,
+  // 中转站吊销语义 = PATCH /api/developer/relay/keys/:id { status: 'revoked' }
+  const revokeMut = useMutation({
+    mutationFn: (id: string) =>
+      api(`/api/developer/relay/keys/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'revoked' }),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
       toast.success('Key 已吊销')
     },
     onError: (e: Error) => toast.error(e.message),
   })
-  const resetMut = useMutation({
-    mutationFn: (id: string) => api(`/api/developer/keys/${id}/reset`, { method: 'POST' }),
+  // 2026-09-13 新增:误吊销可恢复,避免一次性不可逆操作
+  const restoreMut = useMutation({
+    mutationFn: (id: string) =>
+      api(`/api/developer/relay/keys/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'active' }),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
-      toast.success('Key 已重置')
+      toast.success('Key 已启用')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+  // 2026-09-13 修复:原 /api/developer/keys/:id/reset 不是中转站端点;
+  // 改为 relay 侧新增的 reset 端点,新 secret 仅此一次返回,复用创建成功弹窗展示
+  const resetMut = useMutation({
+    mutationFn: (id: string) =>
+      api<{ apiKey: { id: string; name: string; key: string }; secret: string }>(
+        `/api/developer/relay/keys/${id}/reset`,
+        { method: 'POST' },
+      ),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
+      setCreated({ mode: 'reset', ...data })
+      setSecretVisible(false)
+      toast.success('Key 已重置,请保存新的 Secret')
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -263,25 +313,37 @@ export default function RelayKeysPage() {
                         <RotateCcw className="h-3.5 w-3.5" />
                         重置
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          if (
-                            await confirm({
-                              title: '确认吊销该 Key?此操作不可撤销',
-                              variant: 'destructive',
-                            })
-                          ) {
-                            delMut.mutate(k.id)
-                          }
-                        }}
-                        disabled={delMut.isPending}
-                        className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        吊销
-                      </Button>
+                      {k.status === 'active' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            if (
+                              await confirm({
+                                title: '确认吊销该 Key?吊销后可随时重新启用',
+                                variant: 'destructive',
+                              })
+                            ) {
+                              revokeMut.mutate(k.id)
+                            }
+                          }}
+                          disabled={revokeMut.isPending}
+                          className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          吊销
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => restoreMut.mutate(k.id)}
+                          disabled={restoreMut.isPending}
+                        >
+                          <Power className="h-3.5 w-3.5" />
+                          启用
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -310,20 +372,23 @@ export default function RelayKeysPage() {
               <div className="flex flex-wrap gap-2">
                 {SCOPES.map((s) => (
                   <button
-                    key={s}
+                    key={s.value}
                     type="button"
-                    onClick={() => toggleScope(s)}
+                    onClick={() => toggleScope(s.value)}
                     className={cn(
                       'rounded-md border px-2.5 py-1 text-xs transition-colors',
-                      scopes.includes(s)
+                      scopes.includes(s.value)
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:bg-accent',
                     )}
                   >
-                    {s}
+                    {s.label}
                   </button>
                 ))}
               </div>
+              <p className="text-xs text-muted-foreground">
+                不勾选任何权限时,新建 Key 将默认携带「对话补全 + 模型列表」权限
+              </p>
             </div>
           </div>
           <DialogFooter>
@@ -337,6 +402,76 @@ export default function RelayKeysPage() {
               {createMut.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
               创建
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 2026-09-13 新增:创建/重置成功后展示明文 secret,仅此一次可复制 */}
+      <Dialog open={!!created} onOpenChange={(o) => !o && setCreated(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {created?.mode === 'reset' ? 'Secret 已重置' : 'Key 创建成功'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Alert
+              variant="warning"
+              title="请立即保存 Secret"
+              description="Secret 仅在创建时显示一次,关闭后无法再次查看。"
+            />
+            <div className="space-y-1">
+              <Label className="text-sm">Key 标识</Label>
+              <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1.5 text-xs">
+                  {created?.apiKey.key}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => created && copyKey(created.apiKey.key)}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Secret</Label>
+              <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1.5 text-xs">
+                  {created ? (secretVisible ? created.secret : maskKey(created.secret)) : ''}
+                </code>
+                <button
+                  onClick={() => setSecretVisible((v) => !v)}
+                  className="text-muted-foreground hover:text-foreground"
+                  aria-label="切换显示"
+                >
+                  {secretVisible ? (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5" />
+                  )}
+                </button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => created && copyKey(created.secret)}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+            {/* 2026-09-13 实测闭环补注:网关鉴权 Bearer 用 Key 标识(ihui_ 开头),sk_ Secret 仅用于 X-Api-Secret 辅助校验——不注明用户拿 sk_ 调用会 401 */}
+            <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+              调用网关时,请求头使用
+              <code className="mx-1 rounded bg-background px-1 py-0.5">
+                Authorization: Bearer &lt;Key 标识&gt;
+              </code>
+              (即 ihui_ 开头的 Key 标识;Secret 请妥善保管,勿放进请求头)。
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setCreated(null)}>我已保存,关闭</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

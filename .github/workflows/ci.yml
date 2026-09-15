@@ -57,6 +57,12 @@ jobs:
       - name: Schema drift check
         run: node scripts/check-db-schema-drift.mjs
 
+      # 迁移记账守门(2026-09-13 立):journal ↔ .sql 一一对应、when 严格单调唯一。
+      # 背景: journal 的 when 曾是合成时间戳 < 库内真实 created_at → drizzle-kit migrate
+      # 恒空转,静默数周无守门。CI 只跑离线维度(无 DB);库内双射用 pnpm migration:check:db。
+      - name: Migration bookkeeping check
+        run: node scripts/check-migration-bookkeeping.mjs
+
       - name: API route consistency check
         run: node scripts/check-api-routes.mjs
 

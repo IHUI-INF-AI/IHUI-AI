@@ -414,7 +414,8 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
       const data = JSON.parse(readFileSync(filePath, 'utf8'))
       expect(data.auth?.rememberPassword, `${locale} missing auth.rememberPassword`).toBeTruthy()
       expect(data.auth?.autoLogin, `${locale} missing auth.autoLogin`).toBeTruthy()
-      expect(data.auth?.accountHistory, `${locale} missing auth.accountHistory`).toBeTruthy()
+      // 2026-09-14 移除 accountHistory 断言:该 key 从未存在于任何 locale,
+      // UI 也不引用(全仓 0 引用)—— 死键期望,非产品回归。
       expect(data.auth?.noHistory, `${locale} missing auth.noHistory`).toBeTruthy()
       expect(data.auth?.removeAccount, `${locale} missing auth.removeAccount`).toBeTruthy()
       expect(data.auth?.clearHistory, `${locale} missing auth.clearHistory`).toBeTruthy()
