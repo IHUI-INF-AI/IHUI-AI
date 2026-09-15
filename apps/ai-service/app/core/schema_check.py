@@ -342,7 +342,10 @@ def scan_ai_service_sql_tables(app_dir: Path = _APP_DIR) -> set[str]:
     # 其 items / items_fts / meta / relay_summaries / rollbacks / schema_version /
     # threads / turns 都是 SQLite 表,与 Postgres schema 无关 —— 之前被当成本服务
     # 依赖的 Postgres 表,在 CI 里恒报"表不存在 — 数据孤岛"。
-    _SQLITE_FILES = {"session_store.py"}
+    # 2026-09-15 补:memory_sweeper.py 同为"纯标准库 sqlite3 实现"(schema_version /
+    # memories / sweep_logs 是 SQLite 表),与 session_store.py 同理排除 —— 否则被当成
+    # 本服务依赖的 Postgres 表,在 CI 里恒报"表不存在"。
+    _SQLITE_FILES = {"session_store.py", "memory_sweeper.py"}
     for py_file in app_dir.rglob("*.py"):
         if py_file.name.startswith("_") or py_file.name in _SQLITE_FILES | {"schema_check.py"}:
             continue
