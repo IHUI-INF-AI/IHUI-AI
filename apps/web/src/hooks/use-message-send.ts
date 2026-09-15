@@ -246,14 +246,22 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
   /** 实际发送逻辑(2026-07-25 立,危险命令检测拆分):供 submit / toast action 复用 */
   const doSend = React.useCallback(
     async (text: string, refs: ReferenceItem[]): Promise<boolean> => {
-      // 附件作为引用文本随消息发送:图片用 markdown image 语法,视频/其他文件用引用块
+      // 附件作为引用文本随消息发送:图片用 markdown image 语法,视频用 video 标签,
+      // 文本引用(超长粘贴 chip)用 fenced code block 内联全文(矩阵 A #19 合同,
+      // 2026-09-15 修复:恢复被 48228f5937a 弄丢的 0eabb157844 原始分支——
+      // serverUrl 优先于 blob: objectURL,文本引用展开 fenced 全文而非截断 label)
       const attachmentMarkdown = refs
         .map((r) => {
-          if (r.type === 'image' && r.thumbnail) {
-            return `![${r.label}](${r.thumbnail})`
+          if (r.type === 'image') {
+            const url = r.serverUrl ?? r.thumbnail
+            return url ? `![${r.label}](${url})` : `> 📎 ${r.label}`
           }
-          if (r.type === 'video' && r.thumbnail) {
-            return `<video src="${r.thumbnail}" controls></video>`
+          if (r.type === 'video') {
+            const url = r.serverUrl ?? r.thumbnail
+            return url ? `<video src="${url}" controls></video>` : `> 📎 ${r.label}`
+          }
+          if (r.type === 'text' && r.preview) {
+            return `\`\`\`\n${r.preview}\n\`\`\``
           }
           return `> 📎 ${r.label}`
         })
