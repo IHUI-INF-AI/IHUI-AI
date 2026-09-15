@@ -6,7 +6,6 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions -- 桌面端窗口控制(拖拽/resize/双击最大化)是鼠标专用交互,不适用于键盘/屏幕阅读器 */
 
 import * as React from 'react'
-import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useTranslations } from 'next-intl'
@@ -28,7 +27,6 @@ import {
   X,
   Square,
   Minus,
-  Search,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -47,6 +45,10 @@ import {
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { TagsView, TagsViewSearchButton, TagsViewChevronButton } from './TagsView'
 import { Tooltip } from '@/components/feedback'
+import { SearchInput } from '@ihui/ui-react'
+// 2026-09-15 治理:Plus 菜单定位/portal/关闭逻辑统一收敛到 PortalPanel
+// (此前打开时快照 plusRect + 手写 fixed 定位,滚动时不跟随;PortalPanel 自带同步)。
+import { PortalPanel } from '@/components/feedback/portal-panel'
 import { useIsMobile } from '@/hooks/use-media-query'
 
 type PlusMenuAction = {
@@ -184,10 +186,8 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
 
   const [plusOpen, setPlusOpen] = React.useState(false)
   const [plusQuery, setPlusQuery] = React.useState('')
-  // 2026-07-30 用户反馈:"点击后的下拉窗被ai对话框容器裁掉了一半 层级不对啊"
-  // 根因:work-area-portal-root 父容器 overflow-hidden 裁剪 Plus 弹窗(absolute top-full)
-  // 修复:弹窗用 createPortal 渲染到 document.body + fixed 定位,不受祖先 overflow 限制
-  const [plusRect, setPlusRect] = React.useState<{ top: number; left: number } | null>(null)
+  // 2026-09-15 迁移 PortalPanel:原 plusRect 快照 + 手写 fixed 定位已删除,
+  // 弹窗位置由 PortalPanel 依据 plusRef 实时计算(滚动/resize 自动跟随)。
   // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
   // 键盘导航:↑↓ 切换选中项 / Enter 确认 / Ctrl+Shift+P 全局打开
   const [activeIndex, setActiveIndex] = React.useState(0)
@@ -311,18 +311,10 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
     }
   }
 
-  // Plus 弹窗:点击外部关闭
-  React.useEffect(() => {
-    if (!plusOpen) return
-    const handler = (e: MouseEvent) => {
-      if (plusRef.current && !plusRef.current.contains(e.target as Node)) {
-        setPlusOpen(false)
-        setPlusQuery('')
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [plusOpen])
+  // 2026-09-15 迁移 PortalPanel:原手写 mousedown 外点关闭 effect 已删除,
+  // 统一由 PortalPanel 的 onClose 提供(Escape + 外点 mousedown/touchstart)。
+  // 注意:Escape 关闭仍保留在下方合并 keydown 监听器(↑↓←→/Enter/Esc 一套),
+  // PortalPanel 的 Escape 与之等价,双保险无副作用。
 
   // Plus 弹窗:打开后聚焦搜索框 + 重置 activeIndex
   React.useEffect(() => {
@@ -564,16 +556,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
             <Tooltip content={`${plusLabel} (${plusShortcut})`} side="bottom">
               <button
                 type="button"
-                onClick={() => {
-                  setPlusOpen((o) => {
-                    if (!o && plusRef.current) {
-                      // 打开时计算 Plus 按钮位置(fixed 定位用)
-                      const r = plusRef.current.getBoundingClientRect()
-                      setPlusRect({ top: r.bottom + 4, left: r.left })
-                    }
-                    return !o
-                  })
-                }}
+                onClick={() => setPlusOpen((o) => !o)}
                 aria-label={plusLabel}
                 aria-haspopup="menu"
                 aria-expanded={plusOpen}
@@ -599,105 +582,95 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
               </button>
             </Tooltip>
 
-            {plusOpen &&
-              plusRect &&
-              createPortal(
-                <div
-                  role="menu"
-                  aria-label={plusLabel}
-                  data-testid="global-topbar-plus-menu"
-                  // 2026-08-06 修复:menu role 需可聚焦(jsx-a11y/interactive-supports-focus),
-                  // tabIndex=-1 允许编程聚焦且不加入 Tab 序(子菜单项各自可聚焦)
-                  tabIndex={-1}
-                  // 2026-08-01 修复:portal + mousedown 陷阱
-                  // 菜单通过 createPortal 渲染到 body,不在 plusRef 内部。
-                  // 外部点击关闭监听(L286)用 mousedown 检查 !plusRef.contains(target),
-                  // 点击菜单项时 mousedown 先冒泡到 document → 触发关闭 → 菜单 unmount → click 丢失。
-                  // 阻止 mousedown 冒泡,菜单不提前关闭,click 正常触发 handleAction。
-                  // 外部点击仍冒泡到 document 触发关闭(菜单外部不 stopPropagation)。
-                  onMouseDown={(e) => e.stopPropagation()}
-                  style={{
-                    position: 'fixed',
-                    top: plusRect.top,
-                    left: plusRect.left,
-                    zIndex: 'var(--z-header)',
-                  }}
-                  className={cn(
-                    'rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md',
-                    // 移动端:弹窗宽度约束为视口宽度减去边距,最大 288px
-                    isMobile ? 'w-[calc(100vw-2rem)] max-w-72' : 'w-72',
-                  )}
-                >
-                  {/* 搜索框 */}
-                  <div className="px-1 pb-1 pt-0.5">
-                    <div className="flex items-center gap-1.5 rounded-sm bg-muted/50 px-2 py-1">
-                      <Search className="h-3 w-3 shrink-0 text-muted-foreground" />
-                      <input
-                        ref={plusInputRef}
-                        value={plusQuery}
-                        onChange={(e) => setPlusQuery(e.target.value)}
-                        placeholder={t('viewSwitcher.searchPlaceholder')}
-                        className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  {flatItems.length === 0 ? (
-                    <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                      {t('viewSwitcher.noMatch')}
-                    </div>
-                  ) : (
-                    // 2026-07-30 九宫格改造(用户规则:"把这个下拉窗里的一行行按钮编程九宫格的样式 9个正方形")
-                    // 9 项菜单 3×3 网格排列,每个格子 aspect-square 正方形(图标在上 + 文字在下)
-                    // 空间利用:垂直列表 376px 高 → 九宫格 288px 高,节省 23%;宽度 256→288(+12px 容纳 3 列)
-                    // 分组标题去掉(九宫格本身就是视觉组织,分组标题在 9 项场景下增加阅读噪音)
-                    <div className="grid grid-cols-3 gap-1 p-1">
-                      {flatItems.map((item, idx) => {
-                        const Icon = item.icon
-                        const isActive = idx === activeIndex
-                        return (
-                          <button
-                            key={item.key}
-                            type="button"
-                            role="menuitem"
-                            aria-current={isActive ? 'true' : undefined}
-                            onClick={() => handleAction(item)}
-                            // 鼠标 hover 时同步 activeIndex(键盘 ↑↓←→ 跟鼠标 hover 联动)
-                            onMouseEnter={() => setActiveIndex(idx)}
-                            className={cn(
-                              'relative flex aspect-square flex-col items-center justify-center gap-1 rounded-md p-2 text-center transition-colors focus:outline-none',
-                              isActive
-                                ? 'bg-accent text-foreground'
-                                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground focus:bg-muted/50 focus:text-foreground',
-                            )}
-                          >
-                            <Icon className="h-4 w-4 shrink-0" />
-                            <span className="text-[10px] leading-tight">
-                              {t(`topBar.${item.key}`)}
-                            </span>
-                            {/* 快捷键角标(仅"设置"项):右上角小标,不占格子主空间 */}
-                            {item.shortcut && (
-                              <span className="absolute right-1 top-1 text-[9px] opacity-40">
-                                {item.shortcut}
-                              </span>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                  {/* 底部快捷键提示(2026-07-30 用户规则:"做好快捷键写上也行啊")
+            {/* 2026-09-15 迁移 PortalPanel:原 plusRect 快照 + inline fixed 定位 +
+                ResizeObserver 快照测量已删除,位置由 PortalPanel 依据 plusRef 实时计算
+                (滚动/resize 自动跟随,修复"滚动时菜单不跟随"的已知缺陷)。
+                保留 header 层级:zIndexClassName="z-header"(globals.css @layer utilities 已有该 token)。
+                原 onMouseDown stopPropagation 陷阱(2026-08-01)不再需要:
+                PortalPanel 外点关闭自动排除面板内部点击,菜单项 click 正常触发。 */}
+            <PortalPanel
+              open={plusOpen}
+              anchorRef={plusRef}
+              onClose={() => {
+                setPlusOpen(false)
+                setPlusQuery('')
+              }}
+              side="bottom"
+              align="end"
+              gap={4}
+              role="menu"
+              testId="global-topbar-plus-menu"
+              zIndexClassName="z-header"
+              className={cn(
+                'rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md',
+                // 移动端:弹窗宽度约束为视口宽度减去边距,最大 288px
+                isMobile ? 'w-[calc(100vw-2rem)] max-w-72' : 'w-72',
+              )}
+            >
+              {/* 搜索框(统一共享 SearchInput,圆角输入井唯一样式来源) */}
+              <div className="px-1 pb-1 pt-0.5">
+                <SearchInput
+                  ref={plusInputRef}
+                  value={plusQuery}
+                  onChange={(e) => setPlusQuery(e.target.value)}
+                  placeholder={t('viewSwitcher.searchPlaceholder')}
+                  size="sm"
+                  wrapperClassName="w-full"
+                />
+              </div>
+              {flatItems.length === 0 ? (
+                <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                  {t('viewSwitcher.noMatch')}
+                </div>
+              ) : (
+                // 2026-07-30 九宫格改造(用户规则:"把这个下拉窗里的一行行按钮编程九宫格的样式 9个正方形")
+                // 9 项菜单 3×3 网格排列,每个格子 aspect-square 正方形(图标在上 + 文字在下)
+                // 空间利用:垂直列表 376px 高 → 九宫格 288px 高,节省 23%;宽度 256→288(+12px 容纳 3 列)
+                // 分组标题去掉(九宫格本身就是视觉组织,分组标题在 9 项场景下增加阅读噪音)
+                <div className="grid grid-cols-3 gap-1 p-1">
+                  {flatItems.map((item, idx) => {
+                    const Icon = item.icon
+                    const isActive = idx === activeIndex
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        role="menuitem"
+                        aria-current={isActive ? 'true' : undefined}
+                        onClick={() => handleAction(item)}
+                        // 鼠标 hover 时同步 activeIndex(键盘 ↑↓←→ 跟鼠标 hover 联动)
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        className={cn(
+                          'relative flex aspect-square flex-col items-center justify-center gap-1 rounded-md p-2 text-center transition-colors focus:outline-none',
+                          isActive
+                            ? 'bg-accent text-foreground'
+                            : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground focus:bg-muted/50 focus:text-foreground',
+                        )}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="text-[10px] leading-tight">{t(`topBar.${item.key}`)}</span>
+                        {/* 快捷键角标(仅"设置"项):右上角小标,不占格子主空间 */}
+                        {item.shortcut && (
+                          <span className="absolute right-1 top-1 text-[9px] opacity-40">
+                            {item.shortcut}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {/* 底部快捷键提示(2026-07-30 用户规则:"做好快捷键写上也行啊")
                   无 border-t(§4 禁止分割线),用 mt-1 间距 + 低对比度文字视觉分隔
                   2026-07-30 升级:加入 Ctrl+Shift+P 全局打开提示,让用户知道命令面板入口
                   (VS Code 用户最熟悉的快捷键,接入 useGlobalShortcuts 后被 Ctrl+/ 帮助面板自动收录) */}
-                  <div className="mt-1 flex items-center gap-3 px-3 py-1.5 text-[10px] text-muted-foreground/70">
-                    <span>↑↓←→ 导航</span>
-                    <span>↵ 确认</span>
-                    <span>Esc 关闭</span>
-                    <span className="ml-auto">{plusShortcut} 打开</span>
-                  </div>
-                </div>,
-                document.body,
-              )}
+              <div className="mt-1 flex items-center gap-3 px-3 py-1.5 text-[10px] text-muted-foreground/70">
+                <span>↑↓←→ 导航</span>
+                <span>↵ 确认</span>
+                <span>Esc 关闭</span>
+                <span className="ml-auto">{plusShortcut} 打开</span>
+              </div>
+            </PortalPanel>
           </div>
 
           {/* 3. chevron 关闭其他/全部 按钮(从 TagsView 抽出,2026-07-31 第十二轮挪到 Plus 后面) */}

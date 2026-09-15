@@ -8,10 +8,10 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Loader2, Users, Search, ChevronLeft, ChevronRight, UserCheck, UserX } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, UserCheck, Users, UserX } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Input, Button } from '@ihui/ui-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatDateOnly } from '@/lib/date-utils'
 import { BackButton } from '@/components/common'
@@ -102,15 +102,13 @@ export default function AdminMemberUnauditedPage() {
             返回会员列表
           </Link>
         </Button>
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索昵称/手机号"
-            className="h-9 pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="搜索昵称/手机号"
+          size="lg"
+          wrapperClassName="w-full max-w-xs"
+        />
       </div>
 
       <div className="overflow-x-auto rounded-lg border">

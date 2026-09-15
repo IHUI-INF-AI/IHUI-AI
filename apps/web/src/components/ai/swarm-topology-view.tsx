@@ -41,6 +41,7 @@ import { useSwarmTopology } from '@/hooks/use-subagent-dispatch'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { formatDateOnly } from '@/lib/date-utils'
+import { PortalPanel } from '@/components/feedback/portal-panel'
 import {
   CHART_TEXT_LIGHT,
   CHART_RED,
@@ -245,6 +246,12 @@ export function SwarmTopologyView({
   const [hoveredNodeId, setHoveredNodeId] = React.useState<string | null>(null)
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null)
 
+  // 节点 tooltip 锚点(SVG <g> 元素,PortalPanel 支持 Element 锚点):
+  // 原 hover/详情 tooltip 用 absolute 就地渲染,被容器 overflow-hidden 裁剪
+  // (2026-09-15 修复:portal 到 body + fixed 定位,统一走 PortalPanel)。
+  const hoverAnchorRef = React.useRef<SVGGElement | null>(null)
+  const selectedAnchorRef = React.useRef<SVGGElement | null>(null)
+
   const positions = React.useMemo(() => layoutNodes(richNodes), [richNodes])
 
   // dispatch/节点状态 → 中文 label(i18n,替代原模块级硬编码 label 字段)
@@ -294,7 +301,6 @@ export function SwarmTopologyView({
   const isEmpty = richNodes.length === 0
 
   const selectedNode = selectedNodeId ? richNodes.find((n) => n.id === selectedNodeId) : null
-  const selectedPos = selectedNode ? positions.get(selectedNode.id) : null
 
   // 统计各状态节点数(图例用)
   const statusCounts = React.useMemo(() => {
@@ -416,9 +422,19 @@ export function SwarmTopologyView({
                   key={node.id}
                   transform={`translate(${rx}, ${ry})`}
                   className="cursor-pointer"
-                  onMouseEnter={() => setHoveredNodeId(node.id)}
-                  onMouseLeave={() => setHoveredNodeId(null)}
-                  onClick={() => setSelectedNodeId((cur) => (cur === node.id ? null : node.id))}
+                  onMouseEnter={(e) => {
+                    hoverAnchorRef.current = e.currentTarget
+                    setHoveredNodeId(node.id)
+                  }}
+                  onMouseLeave={() => {
+                    hoverAnchorRef.current = null
+                    setHoveredNodeId(null)
+                  }}
+                  onClick={(e) => {
+                    const isSame = selectedNodeId === node.id
+                    selectedAnchorRef.current = isSame ? null : e.currentTarget
+                    setSelectedNodeId(isSame ? null : node.id)
+                  }}
                 >
                   {style.pulse && (
                     <rect
@@ -497,44 +513,48 @@ export function SwarmTopologyView({
         </>
       )}
 
-      {/* Hover Tooltip(简略) */}
-      {hoveredNodeId &&
-        !selectedNodeId &&
-        richNodes.find((n: RichTopologyNode) => n.id === hoveredNodeId) &&
-        (() => {
-          const node = richNodes.find((n: RichTopologyNode) => n.id === hoveredNodeId)!
-          const pos = positions.get(node.id)
-          if (!pos) return null
-          const leftPct = (pos.x / 400) * 100
-          const topPct = (pos.y / 260) * 100
-          return (
-            <div
-              className="pointer-events-none absolute z-10 rounded-md border border-border bg-popover px-2 py-1 text-[10px] shadow-md"
-              style={{
-                left: `${Math.min(leftPct + 6, 70)}%`,
-                top: `${Math.max(topPct - 12, 0)}%`,
-              }}
-            >
-              <div className="font-medium text-foreground">
-                {node.label}
-                {node.isArbiter && <span className="ml-1 text-purple-500">仲裁</span>}
-                {node.isDagNode && <span className="ml-1 text-cyan-500">DAG</span>}
-              </div>
-              <div className="text-muted-foreground">
-                角色:{node.role} · {getNodeDisplayLabel(node)}
-              </div>
+      {/* Hover Tooltip(简略)— PortalPanel 统一浮层(原 absolute 就地渲染被容器
+          overflow-hidden 裁剪,现 portal 到 body + fixed 定位,pointer-events-none
+          避免挡住节点 hover) */}
+      {(() => {
+        const node =
+          hoveredNodeId && !selectedNodeId
+            ? richNodes.find((n: RichTopologyNode) => n.id === hoveredNodeId)
+            : null
+        if (!node || !hoverAnchorRef.current) return null
+        return (
+          <PortalPanel
+            open
+            anchorRef={hoverAnchorRef}
+            side="top"
+            align="start"
+            gap={4}
+            role="tooltip"
+            className="pointer-events-none w-max max-w-[220px] rounded-md border border-border bg-popover px-2 py-1 text-[10px] shadow-md"
+          >
+            <div className="font-medium text-foreground">
+              {node.label}
+              {node.isArbiter && <span className="ml-1 text-purple-500">仲裁</span>}
+              {node.isDagNode && <span className="ml-1 text-cyan-500">DAG</span>}
             </div>
-          )
-        })()}
+            <div className="text-muted-foreground">
+              角色:{node.role} · {getNodeDisplayLabel(node)}
+            </div>
+          </PortalPanel>
+        )
+      })()}
 
-      {/* Click Detail Tooltip(详细:角色 + 状态 + 耗时 + token + DAG 状态) */}
-      {selectedNode && selectedPos && (
-        <div
-          className="absolute z-20 w-48 rounded-md border border-border bg-popover px-2.5 py-2 text-[10px] shadow-lg"
-          style={{
-            left: `${Math.min((selectedPos.x / 400) * 100 + 6, 50)}%`,
-            top: `${Math.max((selectedPos.y / 260) * 100 - 10, 0)}%`,
-          }}
+      {/* Click Detail Tooltip(详细:角色 + 状态 + 耗时 + token + DAG 状态)
+          — PortalPanel 统一浮层;外点/Escape 关闭选中(与"点击空白取消"文案一致) */}
+      {selectedNode && (
+        <PortalPanel
+          open
+          anchorRef={selectedAnchorRef}
+          side="bottom"
+          align="start"
+          gap={4}
+          onClose={() => setSelectedNodeId(null)}
+          className="w-48 rounded-md border border-border bg-popover px-2.5 py-2 text-[10px] shadow-lg"
         >
           <div className="mb-1 flex items-center gap-1 font-medium text-foreground">
             <span>{selectedNode.label}</span>
@@ -582,7 +602,7 @@ export function SwarmTopologyView({
           <div className="mt-1 text-[9px] text-muted-foreground/60">
             点击空白取消 · 再次点击同一节点取消
           </div>
-        </div>
+        </PortalPanel>
       )}
 
       {/* 选中状态提示 */}
