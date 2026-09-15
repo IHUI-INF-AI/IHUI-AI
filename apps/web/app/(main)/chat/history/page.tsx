@@ -9,11 +9,11 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Clock, Loader2, Plus, Search, Star } from 'lucide-react'
+import { Clock, Loader2, Plus, Star } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { BackButton } from '@/components/common'
-import { Button, Input } from '@ihui/ui-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { ConversationList, type Conversation } from '@/components/chat/conversation-list'
 
@@ -77,15 +77,11 @@ export default function ChatHistoryPage() {
         </div>
       </div>
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={t('searchPlaceholder')}
-          className="pl-9"
-        />
-      </div>
+      <SearchInput
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder={t('searchPlaceholder')}
+      />
 
       {isLoading ? (
         <div className="py-10 text-center text-muted-foreground">

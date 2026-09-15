@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
-import { HelpCircle, Loader2, Send, Search, MessageCircle } from 'lucide-react'
+import { HelpCircle, Loader2, Send, MessageCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import {
@@ -15,6 +15,7 @@ import {
   Card,
   CardContent,
   Input,
+  SearchInput,
   Select,
   SelectTrigger,
   SelectContent,
@@ -125,15 +126,13 @@ export default function EduQAPage() {
       </Card>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t('searchPlaceholder')}
+          size="lg"
+          wrapperClassName="w-full max-w-xs"
+        />
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className={cn(selectClass, 'w-32')} aria-label={t('statusAria')}>
             <SelectValue />
