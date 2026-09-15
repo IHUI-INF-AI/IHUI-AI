@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, t } from '@/i18n'
-import { View, Text, Input } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro, {
   useDidShow,
   usePullDownRefresh,
@@ -22,6 +22,7 @@ import NewTitle, { type NewTitleItem } from './components/NewTitle'
 import CenterItem, { type CenterItemData } from './components/CenterItem'
 import InterestTrackModal from './components/InterestTrackModal'
 import './index.css'
+import SearchBar from '@/components/SearchBar'
 import { aizhsUrl } from '@/constants/icon-urls'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -747,16 +748,14 @@ export default function ShareIndexPage() {
           </View>
         </View>
 
-        {/* 搜索栏 */}
-        <View className="share-search">
-          <Input
-            className="share-search-input"
-            placeholder={tt('news.search', '搜索资讯')}
-            value={keyword}
-            onInput={(e) => setKeyword(e.detail.value)}
-            onConfirm={onSearchConfirm}
-          />
-        </View>
+        {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
+        <SearchBar
+          value={keyword}
+          placeholder={tt('news.search', '搜索资讯')}
+          onInput={setKeyword}
+          onSearch={onSearchConfirm}
+          onClear={() => setKeyword('')}
+        />
 
         {/* 热门资讯(NewTitle)— 对齐原项目 hot_data */}
         {hotList.length > 0 ? (
