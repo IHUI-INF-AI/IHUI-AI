@@ -9,24 +9,25 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import {} from 'lucide-react'
-import { eduApi, buildQs } from '@/lib/edu'
-import { cn } from '@/lib/utils'
 import {
-  Button,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
   Loader2,
+  XCircle,
+} from 'lucide-react'
+import { eduApi, buildQs } from '@/lib/edu'
+import { cn } from '@/lib/utils'
+import {
+  Button,
   SearchInput,
-  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  XCircle,
+  Table,
 } from '@ihui/ui-react'
 import { type PageData } from '@ihui/api-client'
 import { BackButton } from '@/components/common'
