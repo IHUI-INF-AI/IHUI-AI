@@ -24,17 +24,7 @@ import { eq } from 'drizzle-orm'
 
 // 生产库防呆(与 seed-test-users 同规则):E2E 种子禁止写入 ihui_dev
 const DATABASE_URL = process.env.DATABASE_URL ?? ''
-// 2026-09-15 修复:与 seed-test-users 同步——改库名段精确匹配,密码含 ihui_dev
-// 的合法隔离库不再被误判;URL 解析失败时保守回退 includes。
-const seedDbName = (() => {
-  try {
-    return new URL(DATABASE_URL).pathname.replace(/\/+$/, '').split('/').pop() ?? ''
-  } catch {
-    return DATABASE_URL.includes('ihui_dev') ? 'ihui_dev' : ''
-  }
-})()
-const isProdDb = seedDbName ? seedDbName === 'ihui_dev' : DATABASE_URL.includes('ihui_dev')
-if (isProdDb && process.env.CI !== 'true') {
+if (DATABASE_URL.includes('ihui_dev') && process.env.CI !== 'true') {
   console.error(
     '[seed-e2e-knowledge] 拒绝执行:DATABASE_URL 指向生产库 ihui_dev。' +
       'E2E 种子只允许写入隔离库,请显式传 DATABASE_URL(如 ihui_e2e);CI 环境不受影响。',

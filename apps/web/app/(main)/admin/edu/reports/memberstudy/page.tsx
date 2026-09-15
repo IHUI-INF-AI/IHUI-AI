@@ -7,30 +7,29 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import {
-  BarChart3,
-  BookOpen,
-  CheckCircle,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Loader2,
-} from 'lucide-react'
+import {} from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
 import { useLocale } from 'next-intl'
 import { BackButton } from '@/components/common'
 import {
+  BarChart3,
+  BookOpen,
   Button,
   Card,
   CardContent,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Loader2,
   SearchInput,
+  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  Table,
 } from '@ihui/ui-react'
 
 interface MemberStudyReport {

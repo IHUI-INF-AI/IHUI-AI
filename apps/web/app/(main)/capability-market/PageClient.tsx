@@ -12,7 +12,6 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
   Boxes,
-  Search,
   Wrench,
   FileText,
   Sparkles,
@@ -37,7 +36,7 @@ import {
 } from '@ihui/api-client/endpoints/mcp'
 import { BackButton } from '@/components/common'
 import { Badge } from '@/components/data'
-import { Button, Input } from '@ihui/ui-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 
 /** 能力类型 → 图标 */
 const KIND_ICON: Record<CapabilityKind, LucideIcon> = {
@@ -127,16 +126,14 @@ export default function CapabilityMarketPageClient() {
 
       {/* 过滤栏:关键词搜索 + 分类下拉 */}
       <div className="flex flex-col gap-2 min-[640px]:flex-row min-[640px]:items-center">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="pl-9"
-            autoComplete="off"
-          />
-        </div>
+        <SearchInput
+          size="lg"
+          wrapperClassName="flex-1"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t('searchPlaceholder')}
+          autoComplete="off"
+        />
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
