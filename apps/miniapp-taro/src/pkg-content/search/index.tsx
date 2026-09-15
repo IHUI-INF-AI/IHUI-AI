@@ -11,12 +11,13 @@
 // success.DEFAULT→--color-success / success.light→--color-success-light / danger→--color-danger)。
 import { Fragment, useCallback, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { View, Text, Input, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useTt } from '@/i18n'
 import { fetchApi } from '@ihui/api-client'
 import type { SearchScreenItem } from '@ihui/types'
 import ThemeRoot from '@/components/ThemeRoot'
+import SearchBar from '@/components/SearchBar'
 
 /** 搜索类型 → 小程序详情页路由(note 暂无对应详情页,点击不跳转) */
 const TYPE_ROUTES: Partial<Record<SearchScreenItem['type'], string>> = {
@@ -63,19 +64,6 @@ const viewStyles: Record<string, CSSProperties> = {
     alignItems: 'center',
     gap: '16rpx',
     marginBottom: '24rpx',
-  },
-  // RN input:paddingH 12 + paddingV 14 + 圆角 12 + border.light + surface.muted
-  input: {
-    flex: 1,
-    paddingLeft: '24rpx',
-    paddingRight: '24rpx',
-    paddingTop: '28rpx',
-    paddingBottom: '28rpx',
-    borderRadius: '24rpx',
-    border: '1rpx solid var(--color-border)',
-    fontSize: '32rpx',
-    color: 'var(--color-foreground)',
-    backgroundColor: 'var(--color-muted)',
   },
   // RN searchBtn:paddingH 14 + paddingV 8 + 圆角 12 + brand 底
   searchBtn: {
@@ -247,14 +235,13 @@ export default function Search() {
         </View>
 
         <View style={viewStyles.searchRow}>
-          <Input
-            style={viewStyles.input}
+          <SearchBar
+            className="flex-1"
             value={keyword}
             placeholder={tt('search.placeholder', '搜索课程、讲师、内容')}
-            placeholderStyle="color: var(--color-text-tertiary);"
-            onInput={(e) => setKeyword(e.detail.value)}
-            onConfirm={() => void runSearch()}
-            confirmType="search"
+            onInput={setKeyword}
+            onSearch={() => void runSearch()}
+            onClear={() => setKeyword('')}
           />
           <View style={viewStyles.searchBtn} onTap={() => void runSearch()} hoverClass="opacity-60">
             <Text style={textStyles.searchText}>{tt('common.search', '搜索')}</Text>
