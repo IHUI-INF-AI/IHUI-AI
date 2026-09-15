@@ -19,11 +19,13 @@ import { attachErrorGuards } from '../tests/e2e/fixtures/helpers'
  * 不依赖登录态(纯前端 UI 状态,useModeStore zustand),localStorage key `ihui-mode`。
  * 触发登录弹窗时优雅 skip(避免后端不可用阻塞整个 e2e 套件)。
  *
- * DOM 锚点(与 apps/web/src/components/chat/message-input.tsx:200-227 CurrentModeBadge 一致):
- *   <span data-testid="agent-progress-trigger" data-mode={currentMode}>
- *     <ModeIcon className="h-3 w-3" />
- *     <span>{t(meta.i18nKey)}</span>
- *   </span>
+ * DOM 锚点(2026-09-14 校准:message-input.tsx 的 AgentProgressTrigger 以 iconOnly
+ * 渲染紧凑工具条(有意设计,不渲染文本 span)——模式文案只存在于
+ * aria-label `${modeLabel}任务` 与 hover Tooltip 中,文本断言一律走 aria-label):
+ *   <button data-testid="agent-progress-trigger" data-mode={currentMode}
+ *           aria-label={`${modeLabel}任务`}>
+ *     <ModeIcon className="h-3.5 w-3.5" />
+ *   </button>
  */
 
 const MODES = ['build', 'plan', 'review', 'spec'] as const
@@ -77,12 +79,41 @@ async function setModeStore(page: Page, mode: Mode) {
   }, mode)
 }
 
+/** 等 app 水合完成(I18nProvider 已挂载)
+ *  2026-09-14 根因修复:语言 store 的 __IHUI_LANGUAGE_STORE__ 仅在 NODE_ENV !==
+ *  'production' 挂载(language.ts:42),production build(CI 与本地隔离栈)恒 undefined,
+ *  旧标记等待白等 20s;且 I18nProvider 挂载时 setInitialized(true) 会触发 zustand
+ *  persist 回写——若在此之前手写 localStorage['ihui-language'] 会被 zh-CN 覆盖
+ *  (switchLocale 竞态,冷加载必现)。故统一等 localStorage 出现 initialized:true
+ *  (= I18nProvider effect 已跑、persist 回写已结束)再操作 store/存储。 */
+async function waitForAppHydrated(page: Page) {
+  await page
+    .waitForFunction(
+      () => {
+        try {
+          const raw = localStorage.getItem('ihui-language')
+          if (!raw) return false
+          const parsed = JSON.parse(raw) as { state?: { initialized?: boolean } }
+          return parsed.state?.initialized === true
+        } catch {
+          return false
+        }
+      },
+      undefined,
+      { timeout: 20_000 },
+    )
+    .catch(() => {}) // 超时不阻断(后续断言仍会暴露真实问题)
+}
+
 /** 设置 locale(对齐 src/stores/language.ts:28-38 推荐方式 + 持久化) */
 async function switchLocale(page: Page, locale: string) {
   // 2026-08-26 修复:先 goto 到目标 origin(否则 evaluate 在 about:blank 上执行,
   // localStorage 写入无效 origin,persist rehydrate 永远恢复 zh-CN),再调
   // window.__IHUI_LANGUAGE_STORE__.setLocale() 同步切换(注释推荐方式,无需等 rehydrate)。
+  // 2026-09-14:先等 I18nProvider 挂载完成(见 waitForAppHydrated),否则
+  // persist 回写竞态会覆盖下面的 localStorage 写入(prod build setLocale 恒 noop)。
   await page.goto('/chat', { waitUntil: 'domcontentloaded' }).catch(() => null)
+  await waitForAppHydrated(page)
   await page.evaluate((l: string) => {
     const store = (
       window as unknown as {
@@ -174,12 +205,9 @@ async function waitForAuthResolved(page: Page) {
  *  bundle 已 eval)再按,验证的是"快捷键最终切到目标模式"这一用户可感知行为。 */
 async function pressModeShortcut(page: Page, digit: string, expectedMode: Mode) {
   const badge = page.locator('[data-testid="agent-progress-trigger"]')
-  // 等客户端 bundle eval 完成(hydration 前置条件;语言 store 模块级暴露)
-  await page
-    .waitForFunction(() => !!(window as any).__IHUI_LANGUAGE_STORE__, undefined, {
-      timeout: 20_000,
-    })
-    .catch(() => {}) // 标记缺失不阻断(badge 断言仍会暴露真实问题)
+  // 等客户端水合完成(快捷键监听已随 GlobalHooksProvider 挂载;2026-09-14 起用
+  // localStorage initialized 标记,兼容 production build 无 __IHUI_LANGUAGE_STORE__)
+  await waitForAppHydrated(page)
   for (let i = 0; i < 40; i++) {
     if ((await badge.getAttribute('data-mode').catch(() => null)) === expectedMode) return
     await page.keyboard.press(`Control+${digit}`)
@@ -215,21 +243,22 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
   test('默认模式为 build,CurrentModeBadge 渲染 "构建"', async ({ authenticatedPage }) => {
     const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
     await expect(badge).toHaveAttribute('data-mode', 'build', { timeout: 5000 })
-    await expect(badge).toContainText('构建')
+    // iconOnly 变体不渲染文本 span,模式文案经 aria-label 暴露(2026-09-14 校准)
+    await expect(badge).toHaveAttribute('aria-label', '构建任务')
   })
 
-  test('CurrentModeBadge DOM 结构:data-testid + data-mode + text', async ({
+  test('CurrentModeBadge DOM 结构:data-testid + data-mode + aria-label(iconOnly)', async ({
     authenticatedPage,
   }) => {
     const result = await authenticatedPage.evaluate(() => {
       const badge = document.querySelector('[data-testid="agent-progress-trigger"]')
       if (!badge) return null
-      const textEl = badge.querySelector('span')
       return {
         tag: badge.tagName,
         dataMode: badge.getAttribute('data-mode'),
         hasIcon: badge.querySelector('svg') !== null,
-        text: textEl?.textContent?.trim() ?? null,
+        ariaLabel: badge.getAttribute('aria-label'),
+        spanCount: badge.querySelectorAll('span').length,
         ariaHidden: badge.querySelector('svg')?.getAttribute('aria-hidden'),
       }
     })
@@ -237,7 +266,9 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
     expect(result?.dataMode).toBe('build')
     expect(result?.hasIcon).toBe(true)
     expect(result?.ariaHidden).toBe('true')
-    expect(result?.text).toBe('构建')
+    // iconOnly 紧凑工具条:无文本 span,文案在 aria-label
+    expect(result?.spanCount).toBe(0)
+    expect(result?.ariaLabel).toBe('构建任务')
   })
 
   // ============================================
@@ -266,13 +297,10 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       }
       // 2026-08-27 修复:dev server 冷编译期 React hydration 可能晚于 fill ——
       // onKeyDown 未挂载时 fill 的文本不进 React state,Enter 静默丢失且输入框稍后
-      // 被 hydration 重置为空(badge 不变、无 toast)。先等客户端 bundle eval 标记,
+      // 被 hydration 重置为空(badge 不变、无 toast)。先等水合完成(2026-09-14:
+      // localStorage initialized 标记,兼容 prod build 无 __IHUI_LANGUAGE_STORE__),
       // 再轮询 fill+Enter 直至 badge 生效(验证"命令最终切到目标模式"的可感知行为)。
-      await authenticatedPage
-        .waitForFunction(() => !!(window as any).__IHUI_LANGUAGE_STORE__, undefined, {
-          timeout: 20_000,
-        })
-        .catch(() => {}) // 标记缺失不阻断(badge 断言仍会暴露真实问题)
+      await waitForAppHydrated(authenticatedPage)
       const textarea = authenticatedPage.locator('textarea').first()
       let switched = false
       for (let i = 0; i < 20 && !switched; i++) {
@@ -286,9 +314,9 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
           await authenticatedPage.waitForTimeout(250)
         }
       }
-      // 断言 badge 已切换
+      // 断言 badge 已切换(文案经 aria-label 暴露,iconOnly 无文本 span)
       await expect(badge).toHaveAttribute('data-mode', mode, { timeout: 3000 })
-      await expect(badge).toContainText(MODE_LABEL_EXPECT['zh-CN']![mode])
+      await expect(badge).toHaveAttribute('aria-label', `${MODE_LABEL_EXPECT['zh-CN']![mode]}任务`)
       // 验证 toast(sonner)出现
       const toast = authenticatedPage.locator('[data-sonner-toast]').first()
       await expect(toast).toContainText(MODE_LABEL_EXPECT['zh-CN']![mode], { timeout: 3000 })
@@ -398,11 +426,14 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       await expect(badge).toHaveAttribute('data-mode', 'build', { timeout: 5000 })
       // 2026-08-28:persist rehydrate + next-intl messages 重载在高负载下可能 >5s
       // (zh-TW 曾命中 zh-CN 初始态"构建"而非"構建")→ 放宽到 15s
-      await expect(badge).toContainText(MODE_LABEL_EXPECT[locale]!.build, { timeout: 15000 })
+      // 2026-09-14:文案经 aria-label 断言(iconOnly 无文本 span)
+      await expect(badge).toHaveAttribute('aria-label', `${MODE_LABEL_EXPECT[locale]!.build}任务`, {
+        timeout: 15000,
+      })
       // 切到 plan(2026-08-27:pressModeShortcut 轮询重按,容忍 hydration 时序)
       await pressModeShortcut(authenticatedPage, '2', 'plan')
       await expect(badge).toHaveAttribute('data-mode', 'plan', { timeout: 3000 })
-      await expect(badge).toContainText(MODE_LABEL_EXPECT[locale]!.plan)
+      await expect(badge).toHaveAttribute('aria-label', `${MODE_LABEL_EXPECT[locale]!.plan}任务`)
       // 2026-08-26 移除 html lang 断言:客户端 setLocale 驱动 next-intl messages 重渲染
       // (badge 文本已断言),但 <html lang> 仅由服务端 layout 渲染,项目无客户端更新机制
       // (与实现不符的过度断言,en/ja/ko 恒失败)。
@@ -413,6 +444,13 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
   // 6. Tooltip:modeBadgeTooltip + modeBadgeSwitchHint
   // ============================================
   test('CurrentModeBadge 鼠标悬停显示 tooltip:模式名 + 切换提示', async ({ authenticatedPage }) => {
+    // 2026-09-14 修复:与 send 类用例同款守卫——间歇性登录模态框的
+    // DialogOverlay(fixed inset-0 z-modal bg-black/80)会拦截 hover 指针事件,
+    // 导致 hover 重试至 90s 超时(实测 run3 现场快照);弹出则 skip。
+    await waitForAuthResolved(authenticatedPage)
+    if (await isLoginModalOpen(authenticatedPage)) {
+      test.skip(true, '登录模态框弹出,跳过 tooltip 测试')
+    }
     const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
     await badge.hover()
     await authenticatedPage.waitForTimeout(400)

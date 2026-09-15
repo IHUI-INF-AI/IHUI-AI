@@ -6,7 +6,7 @@
  * Swagger UI 自定义品牌主题(2026-07-28 立,P0-4a Swagger 公开暴露策略)。
  *
  * 输出:
- * - theme: 自定义 CSS(品牌橙 #ff6b35 + Logo 文字 + 顶栏 + 信息条)
+ * - theme: 自定义 CSS(品牌蓝 BRAND_PRIMARY + Logo 文字 + 顶栏 + 信息条)
  * - logo: 内联 SVG(不依赖外部资源,符合"无外部依赖"约束)
  * - uiConfig: Swagger UI 标准配置(深链/过滤/语法高亮/persistAuthorization)
  * - staticCSP: 显式 CSP 允许 swagger-ui 自己的 inline style/script

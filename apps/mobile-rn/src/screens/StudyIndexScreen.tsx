@@ -67,7 +67,6 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
-import { FREE_RESOURCE_URL } from '../constants/links'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -77,6 +76,10 @@ const API_PATH = '/api/study/videos'
 /** 网格封面高度(对齐 Uniapp study_list .video height: 178rpx ≈ 89dp) */
 const GRID_COVER_HEIGHT = 89
 const BACK_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const
+/** 免费资料飞书链接(对齐 Uniapp user/index.vue 行 682 lingqu,与 ProfileScreen 保持一致) */
+const FREE_RESOURCE_URL =
+  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
+
 /** 页面三态(对齐 Uniapp pageType:index=首页预览 / model=模型全屏 / study=课程全屏) */
 type PageType = 'index' | 'model' | 'study'
 

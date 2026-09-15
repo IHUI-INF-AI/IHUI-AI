@@ -200,7 +200,7 @@ new_model = client.ai.create_user_model(
         "name": "my-gpt",
         "provider": "openai",
         "model": "gpt-4",
-        "apiKey": "sk-xxx",
+        "apiKey": "ihui_xxx",
         "baseUrl": "https://api.openai.com/v1",
     }
 )

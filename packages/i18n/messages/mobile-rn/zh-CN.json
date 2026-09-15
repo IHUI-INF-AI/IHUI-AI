@@ -2131,7 +2131,8 @@
     "scopeLabel": "作用域",
     "save": "保存",
     "saveFailed": "保存失败",
-    "textRequired": "请输入记忆内容"
+    "textRequired": "请输入记忆内容",
+    "uncategorized": "未分类"
   },
   "aiWorld": {
     "title": "AI 世界",
@@ -2164,20 +2165,37 @@
     "loadFailed": "加载失败",
     "retry": "重试",
     "scheduled": "已排期",
-    "statsFailed": "统计加载失败",
+    "statsFailed": "发布失败",
     "statsSuccess": "发布成功",
     "statsTotal": "总计",
     "cancelTask": "取消任务",
     "cancelTitle": "取消发布任务",
     "cancelConfirm": "确定取消该任务吗?",
     "retryTask": "重试",
-    "operateFailed": "操作失败,请重试"
+    "operateFailed": "操作失败,请重试",
+    "statusSuccess": "成功",
+    "statusFailed": "失败",
+    "statusPartial": "部分成功",
+    "statusRunning": "运行中",
+    "statusPending": "待处理",
+    "statusSkipped": "跳过",
+    "platformBilibili": "哔哩哔哩",
+    "platformDouyin": "抖音",
+    "platformKuaishou": "快手",
+    "platformWechat": "微信公众号",
+    "platformToutiao": "今日头条",
+    "platformWeibo": "微博",
+    "platformXiaohongshu": "小红书",
+    "platformZhihu": "知乎",
+    "platformJuejin": "掘金",
+    "platformShipinhao": "微信视频号"
   },
   "spec": {
     "title": "规范模板库",
     "loadFailed": "模板加载失败",
     "empty": "暂无模板",
-    "desktopHint": "模板浏览仅作参考;Spec 生成需服务端 workspace 路径,请在 Web/桌面端使用完整生成流程"
+    "desktopHint": "模板浏览仅作参考;Spec 生成需服务端 workspace 路径,请在 Web/桌面端使用完整生成流程",
+    "generateEntry": "去 Web 端生成"
   },
   "selfMedia": {
     "title": "自媒体助手",
@@ -2235,7 +2253,13 @@
     "saveToAlbum": "保存到相册",
     "saveSuccess": "已保存到相册",
     "saveFailed": "保存失败,请重试",
-    "needPermission": "需要媒体库权限才能保存"
+    "needPermission": "需要媒体库权限才能保存",
+    "tabHistory": "生成历史",
+    "tabFavorites": "我的收藏",
+    "statusPending": "排队中",
+    "statusRunning": "生成中",
+    "statusSucceeded": "已完成",
+    "statusFailed": "失败"
   },
   "webView": {
     "loadFailed": "页面加载失败",

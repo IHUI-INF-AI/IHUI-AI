@@ -2,24 +2,24 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/**
+ * MemoryScreen 我的记忆(mobile-rn 端 wrapper)
+ *
+ * 2026-09-15 迁移:UI 与展示逻辑已下沉共享层 @ihui/rn-app MemoryScreen,
+ * 本 wrapper 仅保留平台特定职责:
+ * - 数据:fetchApi GET/POST/DELETE /api/memory(scope 服务端参数,type/关键词前端过滤)
+ * - 新建:内容必填校验 + Alert;删除:Alert 确认
+ * - 导航:goBack;登录态 / 主题色 / i18n 注入
+ */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  Alert,
-  FlatList,
-  Modal,
-  RefreshControl,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import type { MemoryEntry, MemoryEntryType, MemoryScope } from '@ihui/types'
+import { MemoryScreen as SharedMemoryScreen } from '@ihui/rn-app'
 import { useAuthStore } from '../stores/auth-store'
 import { useI18n } from '../i18n'
-import { getRnTokens } from '@ihui/design-tokens'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -46,48 +46,6 @@ interface MemoryCreateInput {
   source: string
 }
 
-const SCOPE_KEYS: Record<MemoryScope, string> = {
-  global: 'memory.scope.global',
-  user: 'memory.scope.user',
-  session: 'memory.scope.session',
-  project: 'memory.scope.project',
-}
-
-const TYPE_KEYS: Record<MemoryEntryType, string> = {
-  preference: 'memory.type.preference',
-  convention: 'memory.type.convention',
-  decision: 'memory.type.decision',
-  fact: 'memory.type.fact',
-  feedback: 'memory.type.feedback',
-  skill_ref: 'memory.type.skill_ref',
-}
-
-const SCOPES: readonly MemoryScope[] = ['global', 'user', 'session', 'project']
-const TYPES: readonly MemoryEntryType[] = [
-  'preference',
-  'convention',
-  'decision',
-  'fact',
-  'feedback',
-  'skill_ref',
-]
-
-const timeFormatter = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-})
-
-function formatTime(iso: string): string {
-  try {
-    return timeFormatter.format(new Date(iso))
-  } catch {
-    return iso
-  }
-}
-
 /**
  * 记忆列表(M3 补齐:web /memory 在移动端的原生入口)。
  * 数据源:GET /api/memory(聚合当前用户全部 scope),删除走 DELETE /api/memory/:id。
@@ -95,7 +53,6 @@ function formatTime(iso: string): string {
 export function MemoryScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
-  const tk = getRnTokens(resolvedTheme)
   const navigation = useNavigation<NavigationProp>()
   const user = useAuthStore((s) => s.user)
   const [entries, setEntries] = useState<MemoryEntry[]>([])
@@ -156,7 +113,7 @@ export function MemoryScreen() {
       const body: MemoryCreateInput = {
         scope: newScope,
         type: newType,
-        category: newCategory.trim() || '未分类',
+        category: newCategory.trim() || t('memory.uncategorized'),
         text: newText.trim(),
         source: 'mobile-rn',
       }
@@ -204,271 +161,48 @@ export function MemoryScreen() {
     ])
   }
 
-  const renderEntry = ({ item }: { item: MemoryEntry }) => {
-    const expanded = expandedId === item.id
-    return (
-      <View className="mb-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
-        <TouchableOpacity onPress={() => setExpandedId(expanded ? null : item.id)}>
-          <View className="flex-row flex-wrap items-center gap-1.5">
-            <Text className="text-base font-medium" numberOfLines={1}>
-              {item.category}
-            </Text>
-            <View className="rounded-sm bg-gray-100 px-1.5 py-0.5 dark:bg-neutral-700">
-              <Text className="text-[10px] text-gray-500">{t(TYPE_KEYS[item.type])}</Text>
-            </View>
-            <View className="rounded-sm bg-gray-100 px-1.5 py-0.5 dark:bg-neutral-700">
-              <Text className="text-[10px] text-gray-500">{t(SCOPE_KEYS[item.scope])}</Text>
-            </View>
-          </View>
-          <Text
-            className="mt-1 text-xs leading-relaxed text-gray-500"
-            numberOfLines={expanded ? undefined : 3}
-          >
-            {item.text}
-          </Text>
-          <Text className="mt-2 text-[11px] text-gray-400">
-            {t('memory.source')}: {item.source} · {t('memory.updatedAt')}:{' '}
-            {formatTime(item.updatedAt)}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => onDelete(item)}
-          disabled={deleting}
-          className="mt-2 self-start rounded-md border border-red-200 px-2 py-1"
-        >
-          <Text className="text-xs text-red-500">{t('memory.delete')}</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
-
-  if (loading) {
-    return (
-      <View
-        className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}
-      >
-        <Text className="text-gray-500">{t('common.loading')}</Text>
-      </View>
-    )
-  }
-
-  if (!user) {
-    return (
-      <View
-        className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}
-      >
-        <Text className="text-sm text-gray-500">{t('memory.loginRequired')}</Text>
-      </View>
-    )
-  }
-
   return (
-    <View className={`flex-1 ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}>
-      <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text className="text-sm text-gray-500">{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text className="text-base font-medium">{t('memory.title')}</Text>
-        <TouchableOpacity
-          onPress={() => setCreateVisible(true)}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text className="text-sm font-medium text-orange-600">{t('memory.create')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {error ? (
-        <View className="flex-1 items-center justify-center px-6">
-          <Text className="mb-3 text-center text-sm text-gray-500">{error}</Text>
-          <TouchableOpacity
-            onPress={() => {
-              setLoading(true)
-              void load()
-            }}
-            className="rounded-md bg-gray-200 px-4 py-2"
-          >
-            <Text className="text-sm">{t('common.retry')}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={visibleEntries}
-          keyExtractor={(item) => item.id}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true)
-                void load()
-              }}
-            />
-          }
-          ListHeaderComponent={
-            <View className="mb-3">
-              {/* 搜索 */}
-              <TextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder={t('memory.searchPlaceholder')}
-                placeholderTextColor={tk.text.tertiary}
-                returnKeyType="search"
-                className="h-9 rounded-md border border-gray-200 px-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
-              />
-              {/* scope chips */}
-              <View className="mt-2 flex-row flex-wrap gap-2">
-                <TouchableOpacity
-                  onPress={() => setScopeFilter(null)}
-                  className={`rounded-md px-3 py-1.5 ${scopeFilter === null ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
-                >
-                  <Text
-                    className={`text-xs ${scopeFilter === null ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
-                  >
-                    {t('memory.all')}
-                  </Text>
-                </TouchableOpacity>
-                {SCOPES.map((scope) => {
-                  const active = scopeFilter === scope
-                  return (
-                    <TouchableOpacity
-                      key={scope}
-                      onPress={() => setScopeFilter(active ? null : scope)}
-                      className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
-                    >
-                      <Text
-                        className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
-                      >
-                        {t(SCOPE_KEYS[scope])}
-                      </Text>
-                    </TouchableOpacity>
-                  )
-                })}
-              </View>
-              {/* type chips */}
-              <View className="mt-2 flex-row flex-wrap gap-2">
-                <TouchableOpacity
-                  onPress={() => setTypeFilter(null)}
-                  className={`rounded-md px-3 py-1.5 ${typeFilter === null ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
-                >
-                  <Text
-                    className={`text-xs ${typeFilter === null ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
-                  >
-                    {t('memory.all')}
-                  </Text>
-                </TouchableOpacity>
-                {TYPES.map((type) => {
-                  const active = typeFilter === type
-                  return (
-                    <TouchableOpacity
-                      key={type}
-                      onPress={() => setTypeFilter(active ? null : type)}
-                      className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
-                    >
-                      <Text
-                        className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
-                      >
-                        {t(TYPE_KEYS[type])}
-                      </Text>
-                    </TouchableOpacity>
-                  )
-                })}
-              </View>
-            </View>
-          }
-          ListEmptyComponent={
-            <View className="items-center py-16">
-              <Text className="text-sm text-gray-500">{t('memory.empty')}</Text>
-              <Text className="mt-1 text-xs text-gray-400">{t('memory.emptyHint')}</Text>
-            </View>
-          }
-          contentContainerStyle={{ padding: 16 }}
-          renderItem={renderEntry}
-        />
-      )}
-
-      {/* 新建记忆 Modal */}
-      <Modal visible={createVisible} animationType="slide" transparent>
-        <View className="flex-1 justify-end bg-black/40">
-          <View className="rounded-t-2xl bg-white p-4 dark:bg-neutral-800">
-            <View className="mb-3 flex-row items-center justify-between">
-              <Text className="text-base font-medium">{t('memory.createTitle')}</Text>
-              <TouchableOpacity
-                onPress={() => setCreateVisible(false)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text className="text-sm text-gray-500">{t('common.cancel')}</Text>
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              value={newText}
-              onChangeText={setNewText}
-              placeholder={t('memory.textPlaceholder')}
-              placeholderTextColor={tk.text.tertiary}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              className="min-h-[96px] rounded-md border border-gray-200 p-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
-            />
-            <TextInput
-              value={newCategory}
-              onChangeText={setNewCategory}
-              placeholder={t('memory.categoryPlaceholder')}
-              placeholderTextColor={tk.text.tertiary}
-              className="mt-2 h-9 rounded-md border border-gray-200 px-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
-            />
-            <Text className="mt-3 text-xs text-gray-500">{t('memory.typeLabel')}</Text>
-            <View className="mt-1.5 flex-row flex-wrap gap-2">
-              {TYPES.map((type) => {
-                const active = newType === type
-                return (
-                  <TouchableOpacity
-                    key={type}
-                    onPress={() => setNewType(type)}
-                    className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-700'}`}
-                  >
-                    <Text
-                      className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
-                    >
-                      {t(TYPE_KEYS[type])}
-                    </Text>
-                  </TouchableOpacity>
-                )
-              })}
-            </View>
-            <Text className="mt-3 text-xs text-gray-500">{t('memory.scopeLabel')}</Text>
-            <View className="mt-1.5 flex-row flex-wrap gap-2">
-              {SCOPES.map((scope) => {
-                const active = newScope === scope
-                return (
-                  <TouchableOpacity
-                    key={scope}
-                    onPress={() => setNewScope(scope)}
-                    className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-700'}`}
-                  >
-                    <Text
-                      className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
-                    >
-                      {t(SCOPE_KEYS[scope])}
-                    </Text>
-                  </TouchableOpacity>
-                )
-              })}
-            </View>
-            <TouchableOpacity
-              onPress={() => void onCreate()}
-              disabled={saving}
-              className="mt-4 items-center rounded-md bg-orange-600 py-3"
-            >
-              <Text className="text-sm font-medium text-white">
-                {saving ? t('common.loading') : t('memory.save')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </View>
+    <SharedMemoryScreen
+      t={t}
+      loggedIn={Boolean(user)}
+      entries={visibleEntries}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      deleting={deleting}
+      saving={saving}
+      search={search}
+      onSearchChange={setSearch}
+      scopeFilter={scopeFilter}
+      onScopeFilterChange={setScopeFilter}
+      typeFilter={typeFilter}
+      onTypeFilterChange={setTypeFilter}
+      expandedId={expandedId}
+      onToggleExpand={(id: string) => setExpandedId((cur) => (cur === id ? null : id))}
+      createVisible={createVisible}
+      onOpenCreate={() => setCreateVisible(true)}
+      onCloseCreate={() => setCreateVisible(false)}
+      newText={newText}
+      onNewTextChange={setNewText}
+      newCategory={newCategory}
+      onNewCategoryChange={setNewCategory}
+      newType={newType}
+      onNewTypeChange={setNewType}
+      newScope={newScope}
+      onNewScopeChange={setNewScope}
+      onCreateSubmit={() => void onCreate()}
+      onDelete={onDelete}
+      onRefresh={() => {
+        setRefreshing(true)
+        void load()
+      }}
+      onRetry={() => {
+        setLoading(true)
+        void load()
+      }}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

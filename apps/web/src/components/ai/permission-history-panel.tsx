@@ -429,7 +429,7 @@ export function PermissionHistoryPanel() {
         createPortal(
           <div
             ref={panelRef}
-            className="w-[min(320px,calc(100vw-2rem))] space-y-2 rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="z-popover w-[min(320px,calc(100vw-2rem))] space-y-2 rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={
               coords
                 ? { position: 'fixed', top: coords.top, left: coords.left }
