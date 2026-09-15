@@ -164,6 +164,7 @@ export function MessageCenterScreen() {
           value={searchKeyword}
           onChangeText={setSearchKeyword}
           placeholder="搜索聊天记录/联系人/服务号"
+          colorScheme={resolvedTheme}
           voiceEnabled={false}
         />
       </View>
