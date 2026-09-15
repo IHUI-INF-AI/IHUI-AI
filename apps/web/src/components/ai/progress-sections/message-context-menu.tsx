@@ -19,6 +19,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import type { ContextMenuAction, ContextMenuItem } from '@/hooks/use-context-menu'
@@ -323,20 +324,16 @@ export const MessageSearchBar = React.memo(function MessageSearchBar({
       role="search"
       aria-label={t('search')}
     >
-      <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
-      <input
+      <SearchInput
         ref={inputRef}
-        type="text"
         value={query}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder={t('searchPlaceholder')}
         aria-label={t('search')}
         data-testid="message-search-input"
-        className={cn(
-          'h-7 w-44 rounded-md border border-muted-foreground/20 bg-transparent px-2 text-xs text-foreground',
-          'placeholder:text-muted-foreground/50 focus:outline-none focus:border-muted-foreground/40',
-        )}
+        size="sm"
+        wrapperClassName="w-44"
       />
       <span
         className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70"

@@ -22,12 +22,12 @@ import {
   Sparkles,
   Terminal as TerminalIcon,
   RefreshCw,
-  Search,
   Copy,
   Play,
   Loader2,
   AlertCircle,
 } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 import {
   listMCPTools,
   callMCPTool,
@@ -252,17 +252,14 @@ export function McpPane() {
               <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
             </button>
           </Tooltip>
-          <div className="flex h-6 min-w-0 flex-1 items-center gap-1 rounded border border-border bg-background px-1.5">
-            <Search className="h-3 w-3 shrink-0 text-muted-foreground" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('mcpPane.searchPlaceholder')}
-              className="h-full min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
-              aria-label={t('mcpPane.searchPlaceholder')}
-            />
-          </div>
+          <SearchInput
+            size="sm"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('mcpPane.searchPlaceholder')}
+            aria-label={t('mcpPane.searchPlaceholder')}
+            wrapperClassName="min-w-0 flex-1"
+          />
           <span className="shrink-0 text-[10px] text-muted-foreground">
             {filtered.length}/{items.length}
           </span>

@@ -8,23 +8,23 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import { Package, Search, ChevronLeft, ChevronRight, Power, Pencil, Loader2 } from 'lucide-react'
-
+import { ChevronLeft, ChevronRight, Loader2, Package, Pencil, Power } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
   Button,
-  Input,
-  Label,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
+  Input,
+  Label,
+  SearchInput,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
@@ -172,18 +172,15 @@ export default function AdminRelayModelsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative max-w-xs flex-1">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => {
-              setPage(1)
-              setSearch(e.target.value)
-            }}
-            placeholder="搜索 modelId / 展示名"
-            className="pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => {
+            setPage(1)
+            setSearch(e.target.value)
+          }}
+          placeholder="搜索 modelId / 展示名"
+          wrapperClassName="max-w-xs flex-1"
+        />
         <Select
           value={status}
           onValueChange={(v) => {

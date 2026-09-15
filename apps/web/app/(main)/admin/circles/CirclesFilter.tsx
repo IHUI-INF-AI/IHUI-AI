@@ -4,9 +4,9 @@
 
 'use client'
 
-import { Users, Plus } from 'lucide-react'
+import { Plus, Users } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Input } from '@ihui/ui-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 
 interface Props {
   search: string
@@ -27,12 +27,13 @@ export function CirclesFilter({ search, setSearch, onCreate, mockMode }: Props) 
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex items-center gap-2">
-        <Input
+        <SearchInput
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t('searchPlaceholder')}
-          className="h-9 w-64"
           aria-label={t('searchPlaceholder')}
+          size="lg"
+          wrapperClassName="w-64"
         />
         <Button size="sm" onClick={onCreate}>
           <Plus className="h-4 w-4" />

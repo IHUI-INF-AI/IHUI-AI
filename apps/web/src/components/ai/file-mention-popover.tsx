@@ -6,9 +6,9 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Search, FileText } from 'lucide-react'
+import { FileText } from 'lucide-react'
 
-import { Input } from '@ihui/ui-react'
+import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 // 2026-09-15 治理:定位/portal/关闭逻辑统一收敛到 PortalPanel(此前手写一套
 // createPortal + 坐标 + 监听,与全项目其余浮层重复约 10 份)。
@@ -94,48 +94,94 @@ export function FileMentionPopover({
       align="start"
       gap={8}
       testId="file-mention-popover"
-      className="flex w-80 flex-col overflow-hidden rounded-lg border bg-popover shadow-lg"
+      // 外观对齐全项目基准(rounded-md + border-border + bg-popover + shadow-md,与
+      // slash-command-palette / Select / view-switcher 等一致);w-72 收窄避免过宽
+      className="flex w-72 flex-col overflow-hidden rounded-md border border-border bg-popover shadow-md"
     >
-      <div className="flex items-center gap-2 bg-muted/40 px-3 py-2">
-        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <Input
-          ref={inputRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={t('fileSearchPlaceholder')}
-          className="h-7 border-0 px-0 shadow-none focus-visible:ring-0"
-        />
-      </div>
-      <ul ref={listRef} className="max-h-60 min-h-0 flex-1 overflow-y-auto p-1">
+      {/* 顶部搜索框(全项目统一搜索框:引用 @ihui/ui-react 共享 SearchInput,
+          圆角输入井唯一视觉来源;父容器 p-1.5 留内边距) */}
+      <SearchInput
+        ref={inputRef}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder={t('fileSearchPlaceholder')}
+        clearable
+        clearAriaLabel={t('clearAriaLabel')}
+        wrapperClassName="p-1.5"
+      />
+      <ul ref={listRef} className="max-h-60 min-h-0 flex-1 overflow-y-auto p-1.5">
         {filtered.length === 0 ? (
-          <li className="px-3 py-6 text-center text-sm text-muted-foreground">{t('noMatch')}</li>
+          <li className="flex flex-col items-center gap-1 py-8 text-center text-sm text-muted-foreground">
+            {t('noMatch')}
+          </li>
         ) : (
-          filtered.map((file, idx) => (
-            <li key={file.id}>
-              <button
-                type="button"
-                data-idx={idx}
-                onClick={() => {
-                  onSelect(file)
-                  onClose()
-                }}
-                onMouseEnter={() => setActiveIndex(idx)}
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-                  idx === activeIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50',
-                )}
-              >
-                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="break-words font-medium">{file.name}</p>
-                  <p className="break-words text-xs text-muted-foreground">{file.path}</p>
-                </div>
-              </button>
-            </li>
-          ))
+          filtered.map((file, idx) => {
+            const isActive = idx === activeIndex
+            return (
+              <li key={file.id}>
+                <button
+                  type="button"
+                  data-idx={idx}
+                  onClick={() => {
+                    onSelect(file)
+                    onClose()
+                  }}
+                  onMouseEnter={() => setActiveIndex(idx)}
+                  className={cn(
+                    'relative flex w-full items-start gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors',
+                    isActive
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-foreground hover:bg-accent/50',
+                  )}
+                >
+                  {/* active 项左侧高亮条(与 slash-command-palette 同款,2px primary 色条) */}
+                  {isActive && (
+                    <span
+                      className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-sm bg-primary"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  {/* 单行截断:文件名 + 等宽字体路径(此前 break-words 多行换行显杂乱) */}
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="truncate text-sm font-medium leading-tight">{file.name}</span>
+                    <span className="truncate font-mono text-[10px] leading-snug text-muted-foreground">
+                      {file.path}
+                    </span>
+                  </div>
+                </button>
+              </li>
+            )
+          })
         )}
       </ul>
+      {/* 底部快捷键提示条(与 slash-command-palette 同款:kbd 样式 + 右侧计数) */}
+      <div className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
+            ↑↓
+          </kbd>
+          {t('hintSelect')}
+        </span>
+        <span className="text-muted-foreground/40">·</span>
+        <span className="flex items-center gap-1">
+          <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
+            Enter
+          </kbd>
+          {t('hintConfirm')}
+        </span>
+        <span className="text-muted-foreground/40">·</span>
+        <span className="flex items-center gap-1">
+          <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
+            ESC
+          </kbd>
+          {t('hintClose')}
+        </span>
+        <span className="ml-auto text-muted-foreground/60">
+          {t('hintFilesCount', { n: filtered.length })}
+        </span>
+      </div>
     </PortalPanel>
   )
 }

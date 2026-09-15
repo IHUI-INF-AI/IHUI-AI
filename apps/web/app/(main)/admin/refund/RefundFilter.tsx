@@ -8,8 +8,8 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
-import { Button } from '@ihui/ui-react'
-import { STATUS_TABS, TAB_LABEL_KEY, inputClass } from './helpers'
+import { Button, SearchInput } from '@ihui/ui-react'
+import { STATUS_TABS, TAB_LABEL_KEY } from './helpers'
 
 interface RefundFilterProps {
   status: string
@@ -48,12 +48,13 @@ export function RefundFilter({
       </div>
 
       <form onSubmit={onSearch} className="flex items-center gap-2">
-        <input
+        <SearchInput
           type="text"
           value={searchInput}
           onChange={(e) => onSearchInputChange(e.target.value)}
           placeholder={t('searchPlaceholder')}
-          className={inputClass}
+          size="lg"
+          wrapperClassName="flex-1"
         />
         <Button type="submit" variant="outline" size="sm">
           {t('search')}

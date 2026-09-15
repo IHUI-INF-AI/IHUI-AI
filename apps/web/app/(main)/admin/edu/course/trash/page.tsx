@@ -10,26 +10,25 @@ import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
-import {
-  RotateCcw,
-  Trash2,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  BookOpen,
-  Search,
-} from 'lucide-react'
+import {} from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { cn } from '@/lib/utils'
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
+  BookOpen,
   Button,
-  Input,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  RotateCcw,
+  Search,
+  SearchInput,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Trash2,
 } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
 import { BackButton } from '@/components/common'
@@ -108,15 +107,13 @@ export default function EduCourseTrashPage() {
             {t('backToCourse')}
           </Link>
         </Button>
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t('searchPlaceholder')}
+          size="lg"
+          wrapperClassName="w-full max-w-xs"
+        />
       </div>
 
       <div className="overflow-x-auto rounded-lg border">

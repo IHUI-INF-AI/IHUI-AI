@@ -7,20 +7,20 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
-import { FileText, Search, ChevronLeft, ChevronRight, Clock, Coins } from 'lucide-react'
-
+import { ChevronLeft, ChevronRight, Clock, Coins, FileText } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
+  Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  Button,
   Input,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -184,18 +184,15 @@ export default function AdminRelayLogsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative max-w-xs flex-1">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => {
-              setPage(1)
-              setSearch(e.target.value)
-            }}
-            placeholder="搜索 model / errorMessage"
-            className="pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => {
+            setPage(1)
+            setSearch(e.target.value)
+          }}
+          placeholder="搜索 model / errorMessage"
+          wrapperClassName="max-w-xs flex-1"
+        />
         <Input
           value={model}
           onChange={(e) => {

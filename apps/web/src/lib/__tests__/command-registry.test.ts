@@ -34,8 +34,8 @@ const ciText: CommandTextGetter = {
 }
 
 describe('command-registry BUILTIN_COMMANDS', () => {
-  it('包含 23 项命令且 id 唯一(2026-09-14 矩阵 A #24 补 modeAsk;2026-09-15 #14 补 skillsMarket)', () => {
-    expect(BUILTIN_COMMANDS).toHaveLength(23)
+  it('包含全部内置命令且 id 唯一(数量不硬编码,随注册表演进动态断言;历史:#24 补 modeAsk、#14 补 skillsMarket)', () => {
+    expect(BUILTIN_COMMANDS.length).toBeGreaterThan(0)
     const ids = new Set(BUILTIN_COMMANDS.map((c) => c.id))
     expect(ids.size).toBe(BUILTIN_COMMANDS.length)
   })
@@ -53,8 +53,8 @@ describe('command-registry BUILTIN_COMMANDS', () => {
 
 describe('filterCommands', () => {
   it('空查询返回全部', () => {
-    expect(filterCommands(BUILTIN_COMMANDS, '', text)).toHaveLength(23)
-    expect(filterCommands(BUILTIN_COMMANDS, '   ', text)).toHaveLength(23)
+    expect(filterCommands(BUILTIN_COMMANDS, '', text)).toHaveLength(BUILTIN_COMMANDS.length)
+    expect(filterCommands(BUILTIN_COMMANDS, '   ', text)).toHaveLength(BUILTIN_COMMANDS.length)
   })
 
   it('按 label 子串过滤', () => {

@@ -9,6 +9,8 @@ import { toast } from '@/components/common'
 import { runCommand } from '@ihui/api-client'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { cn } from '@/lib/utils'
+// 2026-09-15 治理:浮层定位/portal/关闭逻辑统一收敛到 PortalPanel
+import { PortalPanel } from '@/components/feedback/portal-panel'
 import { getFileIcon, getFileColor } from './file-icons'
 import {
   GitBranch,
@@ -63,14 +65,6 @@ export function SourceControlPanel() {
   React.useEffect(() => {
     setBranch(gitCurrentBranch)
   }, [gitCurrentBranch])
-
-  React.useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (branchRef.current && !branchRef.current.contains(e.target as Node)) setBranchOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
 
   /** 同步已暂存文件列表(git diff --cached),用真实 git 状态驱动 stagedIds */
   const syncStagedFiles = React.useCallback(async () => {
@@ -288,27 +282,33 @@ export function SourceControlPanel() {
               当 gitBranches 长度为 0(空仓库 / fetch 失败 / 未加载)时,外层 div 仍渲染,
               但内部 map 输出 0 个按钮 → 用户看到一个无内容的浅色浮层。
               修复:外层 gate 同时检查 branchOpen && gitBranches.length > 0,与内层实际内容对齐。 */}
-          {branchOpen && gitBranches.length > 0 && (
-            <div className="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-border bg-popover p-1 shadow-md">
-              {gitBranches.map((b) => (
-                <button
-                  key={b}
-                  onClick={() => handleBranchCheckout(b)}
-                  disabled={switchingBranch}
-                  className={cn(
-                    'flex w-full items-center gap-2 rounded px-2 py-1 text-xs transition-colors disabled:opacity-50',
-                    b === branch
-                      ? 'bg-muted text-foreground'
-                      : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
-                  )}
-                >
-                  <GitBranch className="h-3 w-3" />
-                  <span className="truncate">{b}</span>
-                  {b === branch && <Check className="ml-auto h-3 w-3" />}
-                </button>
-              ))}
-            </div>
-          )}
+          <PortalPanel
+            open={branchOpen && gitBranches.length > 0}
+            anchorRef={branchRef}
+            onClose={() => setBranchOpen(false)}
+            side="bottom"
+            align="start"
+            gap={4}
+            className="min-w-[160px] rounded-md border border-border bg-popover p-1 shadow-md"
+          >
+            {gitBranches.map((b) => (
+              <button
+                key={b}
+                onClick={() => handleBranchCheckout(b)}
+                disabled={switchingBranch}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded px-2 py-1 text-xs transition-colors disabled:opacity-50',
+                  b === branch
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                )}
+              >
+                <GitBranch className="h-3 w-3" />
+                <span className="truncate">{b}</span>
+                {b === branch && <Check className="ml-auto h-3 w-3" />}
+              </button>
+            ))}
+          </PortalPanel>
         </div>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">

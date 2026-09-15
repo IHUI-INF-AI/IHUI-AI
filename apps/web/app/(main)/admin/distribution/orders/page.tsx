@@ -8,10 +8,10 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
-import { ArrowLeft, Search } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Input } from '@ihui/ui-react'
+import { Card, CardContent, SearchInput } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { OrdersTable } from './OrdersTable'
 import { PAGE_SIZE } from './types'
@@ -87,15 +87,12 @@ export default function AdminDistributionOrdersPage() {
 
       <Card>
         <CardContent className="min-[640px]:p-3 flex items-center gap-2 p-3">
-          <div className="relative max-w-xs flex-1">
-            <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="搜索订单号 / 用户"
-              className="pl-8"
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜索订单号 / 用户"
+            wrapperClassName="max-w-xs flex-1"
+          />
         </CardContent>
       </Card>
 

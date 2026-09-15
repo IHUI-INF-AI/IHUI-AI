@@ -9,25 +9,24 @@ import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  ChevronLeft,
-  ChevronRight,
-  Edit,
-  FolderTree,
-  Loader2,
-  Plus,
-  Search,
-  Trash2,
-} from 'lucide-react'
+import {} from 'lucide-react'
 import {
   Button,
+  ChevronLeft,
+  ChevronRight,
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Edit,
+  FolderTree,
   Input,
   Label,
+  Loader2,
+  Plus,
+  Search,
+  SearchInput,
   Select,
   SelectContent,
   SelectItem,
@@ -40,6 +39,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Trash2,
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -276,15 +276,13 @@ export default function AdminLearnTopicCategoryPage() {
             返回学习管理
           </Link>
         </Button>
-        <div className="relative ml-auto">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索分类名称"
-            className="h-9 w-56 pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="搜索分类名称"
+          size="lg"
+          wrapperClassName="ml-auto w-56"
+        />
         <Select
           value={statusFilter}
           onValueChange={(v) => {

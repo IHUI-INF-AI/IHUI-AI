@@ -4,8 +4,8 @@
 
 'use client'
 
-import { Search } from 'lucide-react'
-import { Input } from '@ihui/ui-react'
+import {} from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 import { DatePicker } from '@/components/form/DatePicker'
 
 interface Props {
@@ -23,15 +23,13 @@ export function ZhsActivityFilter({
 }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative w-full max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={searchName}
-          onChange={(e) => setSearchName(e.target.value)}
-          placeholder="搜索活动名称"
-          className="h-9 pl-8"
-        />
-      </div>
+      <SearchInput
+        value={searchName}
+        onChange={(e) => setSearchName(e.target.value)}
+        placeholder="搜索活动名称"
+        size="lg"
+        wrapperClassName="w-full max-w-xs"
+      />
       <DatePicker
         value={searchBegin}
         onChange={(v) => setSearchBegin(v as string)}

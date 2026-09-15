@@ -8,8 +8,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { ShieldAlert, ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
-import { Button, Input } from '@ihui/ui-react'
+import { Check, ChevronLeft, ChevronRight, ShieldAlert, X } from 'lucide-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useZodForm } from '@/hooks/use-zod-form'
 import { fetchApi } from '@/lib/api'
@@ -80,10 +80,12 @@ export default function AdminSensitiveWordPage() {
           <span className="truncate">{t('title')}</span>
         </h1>
         <form onSubmit={form.handleSubmit(() => undefined)}>
-          <Input
+          <SearchInput
             {...form.register('word')}
             placeholder={t('searchPlaceholder')}
-            className="h-9 w-full shrink-0 sm:w-64"
+            size="lg"
+            wrapperClassName="w-full"
+            className="shrink-0 sm:w-64"
           />
         </form>
       </div>
