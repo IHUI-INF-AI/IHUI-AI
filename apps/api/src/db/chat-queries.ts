@@ -194,6 +194,33 @@ export async function updateConversation(
 }
 
 /**
+ * 仅更新对话标题(2026-09-15 立,四竞品对标 V2 #15 会话标题自动生成):
+ * 带 ownership 校验(非本人对话返回 undefined),供 /conversations/:id/auto-title 使用。
+ * 与 updateConversation 的区别:updateConversation 无属主校验(内部端点用),
+ * 本函数先校验 userId 再 update,防越权改标题。
+ */
+export async function updateConversationTitle(
+  id: string,
+  userId: string,
+  title: string,
+): Promise<ChatConversation | undefined> {
+  const owned = await db
+    .select({ userId: chatConversations.userId })
+    .from(chatConversations)
+    .where(eq(chatConversations.id, id))
+    .limit(1)
+  const row = owned[0]
+  if (!row || row.userId !== userId) return undefined
+
+  const rows = await db
+    .update(chatConversations)
+    .set({ title, updatedAt: new Date() })
+    .where(eq(chatConversations.id, id))
+    .returning()
+  return rows[0]
+}
+
+/**
  * 仅更新对话的 metadata 字段(merge 模式,不覆盖未传入的 key)。
  * 用于 AI 主动提问挂起状态持久化:在 chat_conversations.metadata.pendingQuestion 写入/清除挂起状态。
  *
