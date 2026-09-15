@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, useI18n } from '@/i18n'
-import { View, Text, Input, Image } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import Taro, {
   usePullDownRefresh,
   useReachBottom,
@@ -16,6 +16,7 @@ import { getCourseList, type Course } from '@/api'
 // P2-F 接线:SectionHeader/ColorfulLoader 切换为 Taro 适配层导出(props 契约与旧实现一致)
 import { SectionHeader, ColorfulLoader } from '@/components/adapters'
 import ThemeRoot from '@/components/ThemeRoot'
+import SearchBar from '@/components/SearchBar'
 
 export default function CourseList() {
   const { t } = useI18n()
@@ -93,18 +94,16 @@ export default function CourseList() {
     <ThemeRoot>
       {/* 对齐 RN CourseTabScreen:容器底 surface.bg(--color-background),内容内边距 = section padding 14dp→28rpx,底部 scrollContent 24dp→48rpx */}
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[48rpx]">
-        {/* 搜索区对齐 RN searchInput:高 50dp→100rpx / 圆角 8dp→16rpx / bg muted / 边框 border.light / 字号 16dp→32rpx */}
+        {/* 搜索区对齐 RN searchInput(统一为圆角输入井,共享 SearchBar);RN 无独立搜索按钮,保留功能入口 */}
         <View className="flex items-center mb-[24rpx]">
-          <Input
-            className="flex-1 h-[100rpx] px-[24rpx] bg-muted border border-border rounded-[16rpx] text-[32rpx] text-foreground"
-            type="text"
-            placeholder={t('course.list.searchPlaceholder')}
-            placeholderStyle="color: var(--color-text-tertiary)"
+          <SearchBar
+            className="flex-1"
             value={keyword}
-            onInput={(e) => setKeyword(e.detail.value)}
-            onConfirm={onSearch}
+            placeholder={t('course.list.searchPlaceholder')}
+            onInput={setKeyword}
+            onSearch={onSearch}
+            onClear={() => setKeyword('')}
           />
-          {/* RN 无独立搜索按钮(returnKeyType=search),保留功能入口并按 RN moreLink 字号/色对齐(14dp→28rpx,text.secondary) */}
           <View
             className="ml-[16rpx] px-[24rpx] h-[100rpx] leading-[100rpx] text-muted-foreground text-[28rpx]"
             hoverClass="opacity-60"

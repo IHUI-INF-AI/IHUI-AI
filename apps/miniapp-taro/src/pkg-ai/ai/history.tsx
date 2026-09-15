@@ -3,12 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n, type TtFn } from '@/i18n'
-import { View, Text, Input, Button, ScrollView, Image } from '@tarojs/components'
+import { View, Text, Button, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
 import { REMOTE_ICONS } from '@/constants/remote-icons'
 import ThemeRoot from '@/components/ThemeRoot'
+import SearchBar from '@/components/SearchBar'
 
 /**
  * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
@@ -226,15 +227,17 @@ export default function HistoryPage() {
   return (
     <View className="flex flex-col h-screen bg-background">
       <View className="flex items-center gap-[16rpx] pt-[120rpx] px-[32rpx] pb-[16rpx] bg-card">
-        <Input
-          className="flex-1 h-[72rpx] px-[24rpx] bg-background rounded-[12rpx] text-[28rpx] box-border"
-          placeholder={tt('ai.historyPage.searchPlaceholder', '搜索对话历史')}
+        {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
+        <SearchBar
+          className="flex-1"
           value={keyword}
-          onInput={(e) => {
-            setKeyword(e.detail.value)
+          placeholder={tt('ai.historyPage.searchPlaceholder', '搜索对话历史')}
+          onInput={(v) => {
+            setKeyword(v)
             setPage(1)
             setHasMore(true)
           }}
+          onClear={() => setKeyword('')}
         />
         {list.length > 0 ? (
           <Text className="text-[26rpx] text-destructive flex-shrink-0" onClick={onClearAll}>

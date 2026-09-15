@@ -8,6 +8,7 @@ import Taro, { useDidShow, navigateTo } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import SearchBar from '@/components/SearchBar'
 
 // 智能体小类(对标原 category() 返回的 modelTypes)
 interface ModelType {
