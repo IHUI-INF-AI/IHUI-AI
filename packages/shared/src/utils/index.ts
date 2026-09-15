@@ -30,7 +30,7 @@ export * from './object'
 export * from './role'
 export * from './search-suggestions'
 export * from './select-class'
-export * from './sse-parse'
+export { parseSSEChunk, type SSEEvent as ParsedSSEEvent } from './sse-parse'
 export * from './status-colors'
 export * from './storage-migration'
 // 跨端 Token 估算工具(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/token-estimate.ts 下沉)

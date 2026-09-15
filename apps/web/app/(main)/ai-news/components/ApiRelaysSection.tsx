@@ -14,12 +14,11 @@ import {
   User,
   AlertTriangle,
   Lightbulb,
-  Search,
   ArrowUp,
   ArrowDown,
   Gauge,
-  X,
 } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 import { COMPANY_RELAYS, PERSONAL_RELAY_NOTE } from './api-relays'
 import { encodePrefill } from './vendor-platforms'
 import { highlight } from './text-utils'
@@ -211,25 +210,15 @@ export function ApiRelaysSection() {
 
           {/* 搜索 + 厂商筛选 */}
           <div className="space-y-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t('searchPlaceholder')}
-                className="w-full rounded-md border border-input bg-background py-1.5 pl-7 pr-7 text-xs placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={() => setQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              ) : null}
-            </div>
+            <SearchInput
+              size="sm"
+              clearable
+              clearAriaLabel="clear"
+              wrapperClassName="w-full"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('searchPlaceholder')}
+            />
             <div className="flex flex-wrap gap-1">
               <button
                 type="button"

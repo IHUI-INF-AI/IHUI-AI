@@ -5,8 +5,9 @@
 'use client'
 
 import * as React from 'react'
-import { Check, ChevronDown, ChevronRight, Search } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { SearchInput } from './search-input'
 
 export interface TreeNode {
   id: string
@@ -206,14 +207,14 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
         </button>
         {open && (
           <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-popover rounded-md border bg-popover text-popover-foreground shadow-md">
-            <div className="flex items-center gap-2 border-b px-2 py-1.5">
-              <Search className="h-3.5 w-3.5 shrink-0 opacity-50" />
-              <input
-                className="flex-1 bg-transparent py-0.5 text-sm outline-none placeholder:text-muted-foreground"
+            <div className="border-b px-2 py-1.5">
+              <SearchInput
                 placeholder="搜索..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 autoFocus
+                size="sm"
+                wrapperClassName="w-full"
               />
             </div>
             <div className="max-h-64 overflow-auto p-1" role="tree" aria-label="树形选择">
