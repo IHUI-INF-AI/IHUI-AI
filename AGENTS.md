@@ -190,6 +190,13 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 且 `git update-ref` 对这类嵌套 ref **返回 0 却不落盘**(静默失败)—— 所以"fetch 成功"不等于"ref 存在"。
 
+**边界精化(2026-09-15 受控实验二次实证)**:
+
+- `git update-ref` 对 **refs/heads 一级松散 ref 可靠**(新建 `refs/heads/<name>` 与覆盖既有 loose 均真实落盘);静默失败**仅限 depth ≥ 2 嵌套命名空间**(`refs/remotes/**`、`refs/tags/<ns>/**`)。
+- 假成功链路:update-ref 先成功创建嵌套目录(如 `refs/remotes/origin/`)→ ref 文件被秒清 → 同命令内紧接的 `rev-parse` 读回 `packed-refs` 旧值。**"读回旧值"不代表 packed-refs 被改过**,勿朝 packed 损坏方向排查。
+- bash 直写(`printf >` / `cp`)与 bash `mv` 对 gitdir 任意路径均真实落盘——清理层只针对 git ref 命名空间,不是文件系统级拦截;`git pack-refs --all --prune` 重写 `packed-refs` 本身可靠。
+- 因此**对齐 `origin/main` 的唯一正解**:`git fetch origin main` → `node scripts/git-refs-heal.mjs`(FETCH_HEAD 权威值 → 固化 packed-refs)。**禁止**手工 `git update-ref` / 松散直写 `origin/main`(写了也会被清,且假成功会误导排查方向)。
+
 **解法(载体替换,非 workaround)**:把嵌套 ref 固化进 `packed-refs`(gitdir **顶层单文件** → 清理不到),期望值另存 `refs-manifest.json`(同为顶层文件)。松散文件被删也照样解析。
 
 - 期望值清单:`<gitdir>/refs-manifest.json`(含 `refs/remotes/origin/main`、`refs/tags/<ns>/*`)
