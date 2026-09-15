@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍​‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
@@ -69,14 +69,14 @@ function flattenSql(node: unknown, out: FlatToken[]): void {
     for (const child of obj.queryChunks) flattenSql(child, out)
     return
   }
-  // Column 对象:有 name 且无 value 数组
-  if (typeof obj.name === 'string' && !Array.isArray(obj.value)) {
-    out.push({ kind: 'col', name: obj.name })
-    return
-  }
   // 字符串块(drizzle 把操作符/括号包成 { value: [' and '] })
   if (Array.isArray(obj.value) && obj.value.every((v) => typeof v === 'string')) {
     for (const v of obj.value as string[]) out.push({ kind: 'op', text: v })
+    return
+  }
+  // Column 对象:有 name 且无 value(RLS 包装列同样暴露 name)
+  if ('name' in obj && obj.value === undefined) {
+    out.push({ kind: 'col', name: String(obj.name) })
     return
   }
   // Param/原始值包装
@@ -87,60 +87,88 @@ function flattenSql(node: unknown, out: FlatToken[]): void {
   // 未知对象(如 encoder):忽略
 }
 
-/** 三连求值(col op value) */
-function evalTriple(colName: string, op: string, value: unknown, row: MockRow): boolean {
-  const left = row[colProp(colName)]
-  const right = value instanceof Date ? value : value
-  return applyOp(op.trim(), left, right)
+/** 比较符/逻辑符优先级(and 高于 or;括号由栈处理) */
+function precedence(op: string): number {
+  if (op === 'and') return 2
+  if (op === 'or') return 1
+  return 4 // 比较符最高
 }
 
-/** 扁平 token 序列 → 布尔(col op val 三连 + and/or 连接,括号降序合并) */
+/**
+ * 扁平 token 序列 → 布尔:经典双栈(Shunting-yard)求值,
+ * 正确处理括号与 and/or 优先级(keyset 的 or( lt, and(eq, lt) ) 必须按 SQL 语义求值)。
+ */
 function evalTokens(tokens: FlatToken[], row: MockRow): boolean {
-  // 第一遍:col+op+val 三连 → 布尔
-  const stage1: Array<{ kind: 'bool'; value: boolean } | { kind: 'op'; text: string } | { kind: 'paren' }> = []
+  const out: Array<unknown> = [] // 操作数栈(值)
+  const ops: string[] = [] // 运算符栈
+  const applyTop = (): void => {
+    const op = ops.pop()
+    if (!op) return
+    if (op === 'not') {
+      const v = out.pop()
+      out.push(!v)
+      return
+    }
+    const b = out.pop()
+    const a = out.pop()
+    if (op === 'and') out.push(Boolean(a) && Boolean(b))
+    else if (op === 'or') out.push(Boolean(a) || Boolean(b))
+    else out.push(applyOp(op, a, b))
+  }
+  const cmpOps = new Set(['=', '<', '>', '<=', '>=', '!=', '<>'])
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i]!
-    if (t.kind === 'col' && tokens[i + 1]?.kind === 'op' && tokens[i + 2]?.kind === 'val') {
-      const op = (tokens[i + 1] as { kind: 'op'; text: string }).text
-      const val = (tokens[i + 2] as { kind: 'val'; value: unknown }).value
-      if (/^(=|<|>|<=|>=|!=|<>|like|ilike)/i.test(op.trim())) {
-        stage1.push({ kind: 'bool', value: evalTriple(t.name, op, val, row) })
+    if (t.kind === 'val') {
+      out.push(t.value)
+      continue
+    }
+    if (t.kind === 'col') {
+      // 列引用:后跟比较符则留待三连求值;否则取行值(布尔上下文)
+      const next = tokens[i + 1]
+      if (next && next.kind === 'op' && cmpOps.has(next.text.trim())) {
+        const op = next.text.trim()
+        const valT = tokens[i + 2]
+        out.push(
+          applyOp(op, row[colProp(t.name)], valT && valT.kind === 'val' ? valT.value : undefined),
+        )
         i += 2
-        continue
+      } else {
+        out.push(Boolean(row[colProp(t.name)]))
       }
-    }
-    if (t.kind === 'col') stage1.push({ kind: 'bool', value: Boolean(row[t.name]) })
-    else if (t.kind === 'op') stage1.push({ kind: 'op', text: t.text })
-    else stage1.push({ kind: 'paren' })
-  }
-  // 第二遍:去括号,按 and/or 求值(and 优先)
-  const noParen = stage1.filter((t) => t.kind !== 'paren')
-  // 先算 and
-  const afterAnd: Array<{ kind: 'bool'; value: boolean } | { kind: 'op'; text: string }> = []
-  for (let i = 0; i < noParen.length; i++) {
-    const t = noParen[i]!
-    if (t.kind === 'bool') {
-      afterAnd.push(t)
       continue
     }
-    const op = t as { kind: 'op'; text: string }
-    if (op.text.trim() === 'and' && afterAnd.length > 0 && afterAnd[afterAnd.length - 1]!.kind === 'bool' && noParen[i + 1]?.kind === 'bool') {
-      const prev = afterAnd.pop() as { kind: 'bool'; value: boolean }
-      const next = noParen[i + 1] as { kind: 'bool'; value: boolean }
-      afterAnd.push({ kind: 'bool', value: prev.value && next.value })
-      i++
+    // op / paren
+    const text = t.kind === 'paren' ? t.text : t.text
+    const trimmed = text.trim()
+    if (trimmed === '(') {
+      ops.push('(')
       continue
     }
-    afterAnd.push(op)
-  }
-  // 再算 or
-  let result: boolean | null = null
-  for (const t of afterAnd) {
-    if (t.kind === 'bool') {
-      result = result === null ? t.value : result || t.value
+    if (trimmed === ')') {
+      while (ops.length > 0 && ops[ops.length - 1] !== '(') applyTop()
+      ops.pop() // 弹出 "("
+      continue
     }
+    const lower = trimmed.toLowerCase()
+    if (lower === 'and' || lower === 'or') {
+      while (
+        ops.length > 0 &&
+        ops[ops.length - 1] !== '(' &&
+        precedence(ops[ops.length - 1]) >= precedence(lower)
+      )
+        applyTop()
+      ops.push(lower)
+      continue
+    }
+    if (cmpOps.has(lower)) {
+      ops.push(lower)
+      continue
+    }
+    // 其他文本(空白/关键字 like 等):忽略
   }
-  return result ?? true
+  while (ops.length > 0) applyTop()
+  const result = out.pop()
+  return typeof result === 'boolean' ? result : Boolean(result)
 }
 
 function evalSql(node: unknown, row: MockRow): boolean {
@@ -183,9 +211,9 @@ class SelectBuilder {
     this.offsetVal = n
     return this
   }
-  limit(n: number): Promise<MockRow[]> {
+  limit(_n: number): Promise<MockRow[]> {
     let rows = this.tableRows.filter((r) => evalSql(this.condition, r))
-    
+
     if (this.orderByCols.length > 0) {
       rows = rows.slice().sort((a, b) => {
         for (const o of this.orderByCols) {
@@ -282,7 +310,7 @@ function getTable(table: unknown): MockRow[] {
   } else {
     result = []
   }
-  
+
   return result
 }
 
@@ -378,7 +406,8 @@ describe('findMessagesCursor — keyset 复合游标分页', () => {
     cursor = initial.nextCursor
     pages++
     // 续传直到 hasMore=false
-    while (cursor) {
+    while (cursor && pages < 20) {
+      // 上限防死循环(求值缺陷时快速失败)
       const res = await findMessagesCursor(CONV_ID, { limit: 10, direction: 'older', cursor })
       for (const m of res.messages) allIds.add(m.id)
       pages++
@@ -428,20 +457,33 @@ describe('findMessagesCursor — keyset 复合游标分页', () => {
     expect(first.messages.map((m) => m.id)).toEqual(['id-04', 'id-05'])
     expect(first.nextCursor?.id).toBe('id-04')
     // older from id-04 → (createdAt,id) < (t, id-04) → id-01,id-02,id-03
+    // limit=2 → 返回最新的 2 条(id-02,id-03),hasMore=true,nextCursor 指向 id-02
     const second = await findMessagesCursor(CONV_ID, {
       limit: 2,
       direction: 'older',
       cursor: first.nextCursor,
     })
-    expect(second.messages.map((m) => m.id)).toEqual(['id-01', 'id-02', 'id-03'])
-    expect(second.hasMore).toBe(false)
-    expect(second.nextCursor).toBeNull()
+    expect(second.messages.map((m) => m.id)).toEqual(['id-02', 'id-03'])
+    expect(second.hasMore).toBe(true)
+    expect(second.nextCursor?.id).toBe('id-02')
+    // 第三页:取剩余的 id-01,hasMore=false
+    const third = await findMessagesCursor(CONV_ID, {
+      limit: 2,
+      direction: 'older',
+      cursor: second.nextCursor,
+    })
+    expect(third.messages.map((m) => m.id)).toEqual(['id-01'])
+    expect(third.hasMore).toBe(false)
+    expect(third.nextCursor).toBeNull()
   })
 })
 
 describe('encodeMessageCursor / decodeMessageCursor', () => {
   it('round-trip 还原一致', () => {
-    const c: MessageCursor = { createdAt: new Date(Date.UTC(2026, 0, 2, 3, 4, 5)).toISOString(), id: 'abc-123' }
+    const c: MessageCursor = {
+      createdAt: new Date(Date.UTC(2026, 0, 2, 3, 4, 5)).toISOString(),
+      id: 'abc-123',
+    }
     const encoded = encodeMessageCursor(c)
     expect(typeof encoded).toBe('string')
     expect(encoded).not.toContain('{') // base64url,非明文
@@ -455,3 +497,4 @@ describe('encodeMessageCursor / decodeMessageCursor', () => {
     expect(decodeMessageCursor('')).toBeNull()
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
