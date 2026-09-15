@@ -47,12 +47,12 @@ import FloatBox, { type FloatBoxType } from '../components/FloatBox'
 import { GlobalFloatBox } from '../components/GlobalFloatBox'
 // 底部导航(对齐原 customTabBar 5 主 Tab,AgentScreen 对应「AI」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
-import InputArea from '../components/InputArea'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import NavBar from '../components/NavBar'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
 import MyAgents, { type MyAgentItem } from '../components/MyAgents'
 import IntelligentAssistant from '../components/IntelligentAssistant'
+import { SearchInput } from '@ihui/rn-app'
 import type { CarouselItem } from '@ihui/ui-native'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
@@ -646,13 +646,14 @@ export function AgentScreen() {
             />
           </View>
         ) : null}
-        {/* 搜索框位置对齐 Uniapp tools/index.vue 行 44:轮播图之后、RecentAgents 之前 */}
+        {/* 搜索框位置对齐 Uniapp tools/index.vue 行 44:轮播图之后、RecentAgents 之前;
+            原 InputArea 被误用作搜索框,统一替换为共享 SearchInput(原 UI 无语音入口故 voiceEnabled 关闭) */}
         {showSearchBox ? (
-          <InputArea
+          <SearchInput
             value={searchKeyword}
             onChangeText={setSearchKeyword}
             placeholder="搜索AI应用"
-            onSubmit={(text) => setSearchKeyword(text)}
+            voiceEnabled={false}
           />
         ) : null}
         {recentAgents.length > 0 ? (
