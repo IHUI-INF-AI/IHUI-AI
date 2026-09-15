@@ -42,7 +42,7 @@ import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, relative, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
-import { withExcludes } from './lib/exclude-dirs.mjs';
+import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs';
 import { createLogger } from './lib/logger.mjs';
 
 const log = createLogger();
@@ -192,7 +192,7 @@ function scanDir(dir, allFiles = []) {
     let s;
     try { s = statSync(full); } catch { continue; }
     if (s.isDirectory()) {
-      if (EXCLUDED_DIRS.has(entry)) continue;
+      if (isExcludedDirName(entry)) continue;
       scanDir(full, allFiles);
     } else if (SCRIPT_EXTS.has(extname(full).toLowerCase())) {
       allFiles.push(full);
