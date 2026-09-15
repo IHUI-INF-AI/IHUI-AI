@@ -40,7 +40,6 @@ const SHORTCUT_ROUTES: Record<string, string> = {
  * 与斜杠命令 + AI 关键词自动判断三通道联动(ai-side-panel 的重复监听已移除)。
  */
 const MODE_SHORTCUT_EVENTS: Record<string, ChatMode> = {
-  'global-shortcut:mode-ask': 'ask',
   'global-shortcut:mode-build': 'build',
   'global-shortcut:mode-plan': 'plan',
   'global-shortcut:mode-review': 'review',
@@ -64,7 +63,6 @@ const SHORTCUT_DESC_KEYS: Record<string, string> = {
   'Ctrl+2': 'desc.ctrl2',
   'Ctrl+3': 'desc.ctrl3',
   'Ctrl+4': 'desc.ctrl4',
-  'Ctrl+5': 'desc.ctrl5',
 }
 
 /**
