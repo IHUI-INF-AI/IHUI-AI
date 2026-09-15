@@ -16,20 +16,13 @@ import {
   Download,
   Code,
   Megaphone,
-  RotateCcw,
   Volume2,
   Square,
-  ChevronDown,
-  CheckCheck,
-  Ban,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ihui/ui-react'
 import type { ChatMessage } from '@/stores/chat'
 import type { InlineDiffInfo } from '@/components/ai/types'
 import { CommunityPublishDialog } from '@/components/chat/community-publish-dialog'
-import CheckpointRewindPanel from '@/components/checkpoint/CheckpointRewindPanel'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { ArtifactCanvas, type Artifact } from '@/components/chat/artifact-canvas'
@@ -38,7 +31,6 @@ import { ToolCallSummaryCard } from '@/components/ai/progress-sections/tool-call
 import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
 import { TerminalSection } from '@/components/ai/progress-sections/terminal-section'
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
-import { CitationBar } from '@/components/ai/progress-sections/citation-bar'
 import { plainTextForClipboard } from '@/components/ai/progress-sections/message-context-menu'
 import { useChatStore } from '@/stores/chat'
 import { useTts } from '@/hooks/use-tts'
@@ -46,24 +38,12 @@ import { fetchApi } from '@/lib/api'
 import { toast } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
-import { formatDuration } from '@/lib/permission-mode-history'
 import {
   TypingIndicator,
   formatMessageTimestamp,
-  MessageUsageBadge,
   UsageBreakdown,
   ACTION_BTN_CLASS,
 } from './message-item-parts'
-
-// W16(2026-09-13):文件修改类工具集合(与 tool-call-summary-card 口径一致,前后端并集)。
-// 用于编辑重跑 Dialog 判断"该消息之后是否产生了文件改动",决定是否展示文件回滚勾选项。
-const FILE_MODIFY_TOOLS = new Set([
-  'edit_file',
-  'file_edit',
-  'write_file',
-  'create_file',
-  'delete_file',
-])
 
 interface MessageItemProps {
   message: ChatMessage
@@ -72,10 +52,6 @@ interface MessageItemProps {
   assistantLabel: string
   onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   onRejectDiff?: (messageId: string, toolCallId: string) => void
-  /** #14 批量 Accept 回调(2026-09-13 立):消息内全部待决 diff 卡逐文件顺序应用 */
-  onApplyAllDiffs?: (messageId: string) => Promise<void>
-  /** #14 批量 Reject 回调(2026-09-13 立):消息内全部待决 diff 卡整体标记 rejected */
-  onRejectAllDiffs?: (messageId: string) => void
   isHighlighted?: boolean
   isFocused?: boolean
   onContextMenu?: (e: React.MouseEvent) => void
@@ -95,8 +71,6 @@ const MessageItem = React.memo(function MessageItem({
   isStreaming,
   onApplyDiff,
   onRejectDiff,
-  onApplyAllDiffs,
-  onRejectAllDiffs,
   isHighlighted = false,
   isFocused = false,
   onContextMenu,
@@ -107,56 +81,17 @@ const MessageItem = React.memo(function MessageItem({
   codeCollapseLines,
 }: MessageItemProps) {
   const t = useTranslations('chat')
-  // 2026-09-12 立:Checkpoint/Rewind 相关文案走 aiChat 命名空间(与 CheckpointRewindPanel 保持一致)
-  const tAiChat = useTranslations('aiChat')
   const isUser = m.role === 'user'
   const showTyping = !isUser && m.content === '' && isStreaming
   const streamingThis = !isUser && isStreaming && isLast
-  // 2026-09-12 立:Checkpoint 面板按会话维度的 session_id 查询,
-  // 前端当前可用的会话标识即 chat store 的 conversationId(详见交付说明)。
-  const conversationId = useChatStore((s) => s.conversationId)
-  // 2026-09-12 立:Checkpoint 回退弹窗开关
-  const [rewindDialogOpen, setRewindDialogOpen] = React.useState(false)
-  // #17:折叠中间步骤(工具卡 + plan 步骤)默认折叠,展开后显示完整内容
-  const [showSteps, setShowSteps] = React.useState(false)
   // Copy 按钮短暂"已复制"状态(2026-07-28 立),1.5s 后自动隐藏
   const [copied, setCopied] = React.useState(false)
-  const copyTimerRef = React.useRef<number | null>(null)
   // AI 回复朗读(TTS):speaking 时按钮显示停止态
   const { speaking, speak, stop } = useTts()
+  const copyTimerRef = React.useRef<number | null>(null)
   // 2026-07-28 立:Reasoning 折叠状态(2026-07-28 抽出为独立 state,供外部事件如键盘 Enter 切换)
   // 默认 false(折叠),点击展开按钮 / 收到 'ihui:toggle-reasoning' 事件时切换
   const [reasoningExpanded, setReasoningExpanded] = React.useState(false)
-
-  // #17 折叠中间步骤区总数(2026-09-14 修正):
-  // 原 gate 仅判 `m.toolCalls.length > 0`,导致"只有 planSteps / 终端任务 / subagent 活动
-  // 而没有工具调用"的消息完全不渲染折叠区 —— plan 步骤永久不可见(tests/message-list
-  // 的 PlanStepsCard 用例实证:纯 planSteps 消息 queryByTestId 恒为 null)。
-  // 现取四类区段总数:既做折叠区 gate,也做「查看 N 个中间步骤」计数,语义一致。
-  const stepSectionsCount =
-    (m.toolCalls?.length ?? 0) +
-    (m.planSteps?.length ?? 0) +
-    (m.terminalTasks?.length ?? 0) +
-    (m.subagentActivities?.length ?? 0)
-
-  // #14 批量 Accept/Reject 派生统计(2026-09-13 立):
-  // 统计消息内 diff 卡(hasDiffCard)的 applyStatus 分布,驱动消息级批量按钮条与聚合徽章
-  const diffStats = React.useMemo(() => {
-    const cards = (m.toolCalls ?? []).filter(
-      (tc) => !!tc.diffInfo || (tc.applyStatus !== undefined && tc.applyStatus !== null),
-    )
-    let pending = 0
-    let applied = 0
-    let rejected = 0
-    let applying = false
-    for (const tc of cards) {
-      if (tc.applyStatus === 'applied') applied++
-      else if (tc.applyStatus === 'rejected') rejected++
-      else if (tc.applyStatus === 'applying') applying = true
-      else pending++
-    }
-    return { total: cards.length, pending, applied, rejected, applying }
-  }, [m.toolCalls])
   // 2026-08-29 修复:思考过程自动展开/收起生命周期
   // - 思考中(reasoning 流式)自动展开;思考结束(正文开始输出或流结束)自动收起
   // - autoExpandedRef 标记"本次展开是自动的":用户手动 toggle 过则不再自动收起
@@ -355,47 +290,10 @@ const MessageItem = React.memo(function MessageItem({
     window.dispatchEvent(new CustomEvent('ihui:reply-message', { detail: { messageId: m.id } }))
   }, [m.id])
 
-  // 编辑(2026-09-12 立,四竞品对标 P0-1,替换原 editComingSoon 占位):
-  // 打开编辑 Dialog,保存时派发 ihui:edit-message,由 MessageList → editMessageAndRerun 闭环。
-  // W16(2026-09-13):若该消息之后有文件修改类工具调用,提供"同时回滚文件改动"选项(对标 Qoder)。
-  const [editDialogOpen, setEditDialogOpen] = React.useState(false)
-  const [editDraft, setEditDraft] = React.useState('')
-  const [editRollbackFiles, setEditRollbackFiles] = React.useState(true)
-  // 该消息之后是否存在已成功的文件修改工具调用(决定是否展示回滚勾选项)。
-  // 每次渲染直接计算(开销极小):编辑 Dialog 打开 / 消息列表变化时自然取到最新值
-  const hasFileChangesAfter = ((): boolean => {
-    const all = useChatStore.getState().messages
-    const idx = all.findIndex((mm) => mm.id === m.id)
-    if (idx === -1) return false
-    return all
-      .slice(idx + 1)
-      .some((mm) =>
-        mm.toolCalls?.some((tc) => FILE_MODIFY_TOOLS.has(tc.toolName) && tc.status === 'success'),
-      )
-  })()
+  // 编辑(对应原项目 editMessage)— toast 兜底
   const handleEdit = React.useCallback(() => {
-    if (isStreaming) return
-    setEditDraft(m.content)
-    setEditRollbackFiles(true)
-    setEditDialogOpen(true)
-  }, [m.content, isStreaming])
-  // 保存并重跑:派发编辑事件,关闭 Dialog;由 MessageList 监听后走 editMessageAndRerun 闭环
-  const handleEditSave = React.useCallback(() => {
-    const text = editDraft.trim()
-    if (!text || text === m.content || isStreaming) return
-    window.dispatchEvent(
-      new CustomEvent('ihui:edit-message', {
-        detail: {
-          messageId: m.id,
-          content: text,
-          // W16:勾选时编辑重跑前先回滚该消息之后产生的文件改动
-          rollbackFiles: hasFileChangesAfter && editRollbackFiles,
-        },
-      }),
-    )
-    setEditDialogOpen(false)
-    setEditDraft('')
-  }, [editDraft, m.content, m.id, isStreaming, hasFileChangesAfter, editRollbackFiles])
+    toast.info(t('editComingSoon') === 'editComingSoon' ? 'Edit coming soon' : t('editComingSoon'))
+  }, [t])
 
   // 2026-08-02:补建原项目 AIChat.vue 4 个缺失 AI 消息按钮
   // 1. 内容可见性切换(Eye/EyeOff)— 原项目 toggleAssistantContentVisibility
@@ -545,230 +443,140 @@ const MessageItem = React.memo(function MessageItem({
                 onToggle={toggleReasoning}
               />
             )}
-            {/* 2026-09-13 批次 2 #17:折叠中间步骤(工具卡 + plan 步骤 + 终端任务)
-                默认折叠,点击"查看 N 个中间步骤"展开后显示完整内容
-                2026-09-14 修正:gate 由"仅 toolCalls"改为四类区段总数(见 stepSectionsCount) */}
-            {stepSectionsCount > 0 && (
-              <Collapsible
-                open={showSteps}
-                onOpenChange={setShowSteps}
-                className="rounded-lg border bg-muted/50"
-                data-testid={`message-steps-collapsible-${m.id}`}
-              >
-                <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/50">
-                  <ChevronDown
-                    className={cn(
-                      'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
-                      showSteps && 'rotate-180',
-                    )}
+            {m.toolCalls?.map((tc) => {
+              // edit_file/write_file:为 Accept/Reject 回调构造 diffInfo
+              // 优先用 store 中的 tc.diffInfo,否则从 args 推导(与 ToolCallCard 内部逻辑一致)
+              const effectiveDiffInfo =
+                tc.diffInfo ?? deriveDiffInfo(tc.toolName, tc.args) ?? undefined
+              const hasDiff = !!effectiveDiffInfo
+
+              // image_generation/summarize_artifacts:从 tc 显式字段或 result 推导 imageUrl/summaryData
+              // 优先用 tc.image_url / tc.summary_data(SSE 推送已填充时),
+              // 否则从 tc.result 兜底推导(适配旧后端不显式推 image_url 字段的场景)
+              const tcResult =
+                tc.result && typeof tc.result === 'object'
+                  ? (tc.result as Record<string, unknown>)
+                  : null
+              const effectiveImageUrl: string | undefined =
+                tc.image_url ||
+                (typeof tcResult?.image_url === 'string' ? tcResult.image_url : undefined) ||
+                (typeof tcResult?.imageUrl === 'string' ? tcResult.imageUrl : undefined)
+              // music_generation/video_generation:从 result 兜底推导播放地址
+              // (完成后 result 顶层含 audio_url/video_url;未完成时无 URL 走通用 result 展示)
+              const effectiveAudioUrl: string | undefined =
+                (typeof tcResult?.audio_url === 'string' ? tcResult.audio_url : undefined) ||
+                (typeof tcResult?.audioUrl === 'string' ? tcResult.audioUrl : undefined)
+              const effectiveVideoUrl: string | undefined =
+                (typeof tcResult?.video_url === 'string' ? tcResult.video_url : undefined) ||
+                (typeof tcResult?.videoUrl === 'string' ? tcResult.videoUrl : undefined)
+              // 2026-09-09 长任务 task_id:后端 SSE tool-result 顶层扁平化已填充 tc.task_id,
+              // 无 URL 时透传给 ToolCallCard 渲染"任务进行中"状态
+              const effectiveTaskId: string | undefined =
+                tc.task_id || (typeof tcResult?.task_id === 'string' ? tcResult.task_id : undefined)
+              const effectiveSummaryData =
+                tc.summary_data ??
+                (tcResult &&
+                (tcResult.plans ||
+                  tcResult.sources ||
+                  tcResult.artifacts ||
+                  tcResult.tool_calls_summary)
+                  ? ({
+                      plans: Array.isArray(tcResult.plans) ? tcResult.plans : undefined,
+                      sources: Array.isArray(tcResult.sources) ? tcResult.sources : undefined,
+                      artifacts: Array.isArray(tcResult.artifacts) ? tcResult.artifacts : undefined,
+                      tool_calls_summary:
+                        tcResult.tool_calls_summary &&
+                        typeof tcResult.tool_calls_summary === 'object'
+                          ? tcResult.tool_calls_summary
+                          : undefined,
+                    } as unknown as React.ComponentProps<typeof ToolCallCard>['summaryData'])
+                  : undefined)
+
+              // 内联 content 型 artifact(html/css/js 等)→ Artifact 画布渲染对象
+              const effectiveArtifacts: Artifact[] | undefined =
+                tcResult && Array.isArray(tcResult.artifacts)
+                  ? (tcResult.artifacts as Array<Record<string, unknown>>).map((a) => ({
+                      type: typeof a.type === 'string' ? a.type : undefined,
+                      content: typeof a.content === 'string' ? a.content : undefined,
+                      path: typeof a.path === 'string' ? a.path : undefined,
+                      name: typeof a.name === 'string' ? a.name : undefined,
+                      created_at: typeof a.created_at === 'string' ? a.created_at : undefined,
+                    }))
+                  : undefined
+
+              return (
+                <React.Fragment key={tc.id}>
+                  <ToolCallCard
+                    toolName={tc.toolName}
+                    args={tc.args}
+                    result={tc.result}
+                    status={tc.status}
+                    duration={tc.duration ?? tc.durationMs}
+                    error={tc.error}
+                    iteration={tc.iteration}
+                    diffInfo={tc.diffInfo}
+                    applyStatus={tc.applyStatus}
+                    applyError={tc.applyError}
+                    repeated={tc.repeated}
+                    imageUrl={effectiveImageUrl}
+                    audioUrl={effectiveAudioUrl}
+                    videoUrl={effectiveVideoUrl}
+                    taskId={effectiveTaskId}
+                    summaryData={effectiveSummaryData}
+                    serverSource={tc.serverSource}
+                    serverId={tc.serverId}
+                    serverName={tc.serverName}
+                    onApply={
+                      hasDiff && onApplyDiff
+                        ? () => onApplyDiff(m.id, tc.id, effectiveDiffInfo!)
+                        : undefined
+                    }
+                    onReject={hasDiff && onRejectDiff ? () => onRejectDiff(m.id, tc.id) : undefined}
                   />
-                  <span className="flex-1 truncate text-sm font-medium">
-                    {t('viewNIntermediateSteps', {
-                      count: stepSectionsCount,
-                    })}
-                  </span>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="space-y-2 px-3 pb-3">
-                    {/* #14 批量 Accept/Reject 按钮条(2026-09-13 立):
-                      仅当消息含 ≥2 个 diff 卡且已注册批量回调时显示;左侧聚合徽章展示应用进度 */}
-                    {diffStats.total >= 2 && (onApplyAllDiffs || onRejectAllDiffs) && (
-                      <div
-                        className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-1.5"
-                        data-testid={`batch-diff-bar-${m.id}`}
-                      >
-                        <span className="text-xs text-muted-foreground">
-                          {diffStats.applying
-                            ? t('batchDiff.applying')
-                            : diffStats.pending === 0
-                              ? t('batchDiff.done', {
-                                  applied: diffStats.applied,
-                                  rejected: diffStats.rejected,
-                                })
-                              : t('batchDiff.pendingCount', {
-                                  count: diffStats.pending,
-                                  total: diffStats.total,
-                                })}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          {onApplyAllDiffs && diffStats.pending > 0 && !diffStats.applying && (
-                            <Button
-                              size="xs"
-                              className="px-2 text-xs"
-                              onClick={() => void onApplyAllDiffs(m.id)}
-                              data-testid={`batch-diff-accept-all-${m.id}`}
-                            >
-                              <CheckCheck className="mr-1 h-3.5 w-3.5" />
-                              {t('batchDiff.acceptAll')}
-                            </Button>
-                          )}
-                          {onRejectAllDiffs && diffStats.pending > 0 && !diffStats.applying && (
-                            <Button
-                              size="xs"
-                              variant="outline"
-                              className="px-2 text-xs"
-                              onClick={() => onRejectAllDiffs(m.id)}
-                              data-testid={`batch-diff-reject-all-${m.id}`}
-                            >
-                              <Ban className="mr-1 h-3.5 w-3.5" />
-                              {t('batchDiff.rejectAll')}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {m.toolCalls?.map((tc) => {
-                      // edit_file/write_file:为 Accept/Reject 回调构造 diffInfo
-                      // 优先用 store 中的 tc.diffInfo,否则从 args 推导(与 ToolCallCard 内部逻辑一致)
-                      const effectiveDiffInfo =
-                        tc.diffInfo ?? deriveDiffInfo(tc.toolName, tc.args) ?? undefined
-                      const hasDiff = !!effectiveDiffInfo
-
-                      // image_generation/summarize_artifacts:从 tc 显式字段或 result 推导 imageUrl/summaryData
-                      // 优先用 tc.image_url / tc.summary_data(SSE 推送已填充时),
-                      // 否则从 tc.result 兜底推导(适配旧后端不显式推 image_url 字段的场景)
-                      const tcResult =
-                        tc.result && typeof tc.result === 'object'
-                          ? (tc.result as Record<string, unknown>)
-                          : null
-                      const effectiveImageUrl: string | undefined =
-                        tc.image_url ||
-                        (typeof tcResult?.image_url === 'string'
-                          ? tcResult.image_url
-                          : undefined) ||
-                        (typeof tcResult?.imageUrl === 'string' ? tcResult.imageUrl : undefined)
-                      // music_generation/video_generation:从 result 兜底推导播放地址
-                      // (完成后 result 顶层含 audio_url/video_url;未完成时无 URL 走通用 result 展示)
-                      const effectiveAudioUrl: string | undefined =
-                        (typeof tcResult?.audio_url === 'string'
-                          ? tcResult.audio_url
-                          : undefined) ||
-                        (typeof tcResult?.audioUrl === 'string' ? tcResult.audioUrl : undefined)
-                      const effectiveVideoUrl: string | undefined =
-                        (typeof tcResult?.video_url === 'string'
-                          ? tcResult.video_url
-                          : undefined) ||
-                        (typeof tcResult?.videoUrl === 'string' ? tcResult.videoUrl : undefined)
-                      // 2026-09-09 长任务 task_id:后端 SSE tool-result 顶层扁平化已填充 tc.task_id,
-                      // 无 URL 时透传给 ToolCallCard 渲染"任务进行中"状态
-                      const effectiveTaskId: string | undefined =
-                        tc.task_id ||
-                        (typeof tcResult?.task_id === 'string' ? tcResult.task_id : undefined)
-                      const effectiveSummaryData =
-                        tc.summary_data ??
-                        (tcResult &&
-                        (tcResult.plans ||
-                          tcResult.sources ||
-                          tcResult.artifacts ||
-                          tcResult.tool_calls_summary)
-                          ? ({
-                              plans: Array.isArray(tcResult.plans) ? tcResult.plans : undefined,
-                              sources: Array.isArray(tcResult.sources)
-                                ? tcResult.sources
-                                : undefined,
-                              artifacts: Array.isArray(tcResult.artifacts)
-                                ? tcResult.artifacts
-                                : undefined,
-                              tool_calls_summary:
-                                tcResult.tool_calls_summary &&
-                                typeof tcResult.tool_calls_summary === 'object'
-                                  ? tcResult.tool_calls_summary
-                                  : undefined,
-                            } as unknown as React.ComponentProps<
-                              typeof ToolCallCard
-                            >['summaryData'])
-                          : undefined)
-
-                      // 内联 content 型 artifact(html/css/js 等)→ Artifact 画布渲染对象
-                      const effectiveArtifacts: Artifact[] | undefined =
-                        tcResult && Array.isArray(tcResult.artifacts)
-                          ? (tcResult.artifacts as Array<Record<string, unknown>>).map((a) => ({
-                              type: typeof a.type === 'string' ? a.type : undefined,
-                              content: typeof a.content === 'string' ? a.content : undefined,
-                              path: typeof a.path === 'string' ? a.path : undefined,
-                              name: typeof a.name === 'string' ? a.name : undefined,
-                              created_at:
-                                typeof a.created_at === 'string' ? a.created_at : undefined,
-                            }))
-                          : undefined
-
-                      return (
-                        <React.Fragment key={tc.id}>
-                          <ToolCallCard
-                            toolName={tc.toolName}
-                            args={tc.args}
-                            result={tc.result}
-                            status={tc.status}
-                            duration={tc.duration ?? tc.durationMs}
-                            error={tc.error}
-                            iteration={tc.iteration}
-                            diffInfo={tc.diffInfo}
-                            applyStatus={tc.applyStatus}
-                            applyError={tc.applyError}
-                            repeated={tc.repeated}
-                            imageUrl={effectiveImageUrl}
-                            audioUrl={effectiveAudioUrl}
-                            videoUrl={effectiveVideoUrl}
-                            taskId={effectiveTaskId}
-                            summaryData={effectiveSummaryData}
-                            serverSource={tc.serverSource}
-                            serverId={tc.serverId}
-                            serverName={tc.serverName}
-                            onApply={
-                              hasDiff && onApplyDiff
-                                ? () => onApplyDiff(m.id, tc.id, effectiveDiffInfo!)
-                                : undefined
-                            }
-                            onReject={
-                              hasDiff && onRejectDiff ? () => onRejectDiff(m.id, tc.id) : undefined
-                            }
-                          />
-                          {/* 内联 content 型 artifact:HTML 走沙箱 iframe 预览,代码型走代码视图 */}
-                          {effectiveArtifacts?.map((art, i) => (
-                            <ArtifactCanvas key={`${tc.id}-${i}`} artifact={art} />
-                          ))}
-                        </React.Fragment>
-                      )
-                    })}
-                    {/* 2026-07-31 立,AI 对话可视化深度接入:工具调用汇总卡片 inline 到 AI 回复末尾 */}
-                    <ToolCallSummaryCard
-                      summary={m.toolCallSummary}
-                      toolCalls={m.toolCalls}
-                      isStreaming={streamingThis}
-                      data-testid={`message-tool-call-summary-${m.id}`}
-                    />
-                    {/* 2026-08-01 Phase 4b/4c/4d:消息级 subagent/terminal/plan inline 到消息气泡 */}
-                    {m.subagentActivities && m.subagentActivities.length > 0 && (
-                      <SubAgentActivityFeed
-                        swarmId={m.id}
-                        activities={m.subagentActivities}
-                        completed={!streamingThis}
-                      />
-                    )}
-                    {/* W1(2026-09-12 立):终端区外层套一层纯定位容器 */}
-                    {m.terminalTasks && m.terminalTasks.length > 0 && (
-                      <div data-testid={`message-terminal-${m.id}`}>
-                        <TerminalSection terminals={m.terminalTasks} />
-                      </div>
-                    )}
-                    {m.planSteps && m.planSteps.length > 0 && (
-                      <PlanStepsCard
-                        steps={m.planSteps}
-                        isStreaming={streamingThis}
-                        data-testid={`message-plan-steps-${m.id}`}
-                      />
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            )}
+                  {/* 内联 content 型 artifact:HTML 走沙箱 iframe 预览,代码型走代码视图 */}
+                  {effectiveArtifacts?.map((art, i) => (
+                    <ArtifactCanvas key={`${tc.id}-${i}`} artifact={art} />
+                  ))}
+                </React.Fragment>
+              )
+            })}
             <MarkdownStream
               content={m.content}
               isStreaming={streamingThis}
               collapseLines={codeCollapseLines}
             />
-            {/* #11 Citations 全链路(2026-09-13 立):引用溯源条 inline 到消息正文下方 */}
-            {m.citations && m.citations.length > 0 && <CitationBar citations={m.citations} />}
+            {/* 2026-07-31 立,AI 对话可视化深度接入:工具调用汇总卡片 inline 到 AI 回复末尾
+                - 优先用 SSE tool-summary 事件聚合结果(m.toolCallSummary)
+                - 缺失时降级从 m.toolCalls 本地聚合
+                - 显示:文件搜索 N 个 / 网页搜索 N 个 / 修改 N 个文件 / +N -N 行 / 耗时 */}
+            <ToolCallSummaryCard
+              summary={m.toolCallSummary}
+              toolCalls={m.toolCalls}
+              isStreaming={streamingThis}
+              data-testid={`message-tool-call-summary-${m.id}`}
+            />
+            {/* 2026-08-01 Phase 4b/4c/4d:消息级 subagent/terminal/plan inline 到消息气泡
+                - subagentActivities:SubAgentActivityFeed 实时刷新 subagent 生命周期
+                - terminalTasks:TerminalSection 展示命令执行 + 输出
+                - planSteps:PlanStepsCard 展示计划步骤
+                - 仅当消息级数据存在时渲染(后端 SSE 事件携带 messageId 时填充) */}
+            {m.subagentActivities && m.subagentActivities.length > 0 && (
+              <SubAgentActivityFeed
+                swarmId={m.id}
+                activities={m.subagentActivities}
+                completed={!streamingThis}
+              />
+            )}
+            {m.terminalTasks && m.terminalTasks.length > 0 && (
+              <TerminalSection terminals={m.terminalTasks} />
+            )}
+            {m.planSteps && m.planSteps.length > 0 && (
+              <PlanStepsCard
+                steps={m.planSteps}
+                isStreaming={streamingThis}
+                data-testid={`message-plan-steps-${m.id}`}
+              />
+            )}
           </div>
         )}
       </div>
@@ -785,25 +593,12 @@ const MessageItem = React.memo(function MessageItem({
           {/* 时间戳 — 随按钮一起 hover 显示,所有消息都展示 */}
           {(() => {
             const label = formatMessageTimestamp(m.createdAt) || '--'
-            // 2026-09-13 批次 2 #16:消息级运行时长 + 工具调用计数
-            const durationMs = m.meta?.durationMs as number | undefined
-            const toolCallCount = m.meta?.toolCallCount as number | undefined
             return (
               <span
-                className="text-xs text-muted-foreground shrink-0 mr-auto flex items-center gap-1"
+                className="text-xs text-muted-foreground shrink-0 mr-auto"
                 data-testid={`message-timestamp-${m.id}`}
               >
-                <span>{label}</span>
-                {durationMs !== undefined && durationMs > 0 && (
-                  <span className="text-muted-foreground/70">· {formatDuration(durationMs)}</span>
-                )}
-                {toolCallCount !== undefined && toolCallCount > 0 && (
-                  <span className="text-muted-foreground/70">· {toolCallCount} tools</span>
-                )}
-                {/* W12(2026-09-13 立):AI 消息 token/成本内联徽章 `· 1.2k tok · ¥0.0034` */}
-                {!isUser && (
-                  <MessageUsageBadge usage={m.meta?.usage} model={m.model} messageId={m.id} />
-                )}
+                {label}
               </span>
             )
           })()}
@@ -930,25 +725,6 @@ const MessageItem = React.memo(function MessageItem({
                 </button>
               </Tooltip>
             )}
-            {/* AI 消息:Rewind(回退到此处)— 2026-09-12 立,修复 D9:接入 Checkpoint/Rewind 面板。
-                无会话 id 时禁用;点击后打开面板,由面板自行加载 checkpoint 列表(空态不报错)。 */}
-            {!isUser && (
-              <Tooltip content={tAiChat('checkpoint.rewindHere')} side="top">
-                <button
-                  type="button"
-                  onClick={() => setRewindDialogOpen(true)}
-                  disabled={!conversationId}
-                  data-testid={`message-rewind-${m.id}`}
-                  aria-label={tAiChat('checkpoint.rewindHere')}
-                  className={cn(
-                    ACTION_BTN_CLASS,
-                    'disabled:opacity-40 disabled:cursor-not-allowed',
-                  )}
-                >
-                  <RotateCcw className="h-4 w-4" aria-hidden />
-                </button>
-              </Tooltip>
-            )}
             {/* AI 消息:Megaphone(发布到社区)— 原项目 publishToCommunity,Promotion 图标不在 lucide-react 用 Megaphone 替代 */}
             {!isUser && (
               <Tooltip content={t('message.publishToCommunity')} side="top">
@@ -963,19 +739,15 @@ const MessageItem = React.memo(function MessageItem({
                 </button>
               </Tooltip>
             )}
-            {/* 用户消息:Edit(编辑)— 2026-09-12 立,四竞品对标 P0-1,打开编辑 Dialog(保存后从该条重跑) */}
+            {/* 用户消息:Edit(编辑)— 原项目 editMessage */}
             {isUser && (
               <Tooltip content={t('message.edit')} side="top">
                 <button
                   type="button"
                   onClick={handleEdit}
-                  disabled={isStreaming}
                   data-testid={`message-edit-${m.id}`}
                   aria-label={t('message.edit')}
-                  className={cn(
-                    ACTION_BTN_CLASS,
-                    'disabled:opacity-40 disabled:cursor-not-allowed',
-                  )}
+                  className={ACTION_BTN_CLASS}
                 >
                   <Pencil className="h-4 w-4" aria-hidden />
                 </button>
@@ -1017,7 +789,7 @@ const MessageItem = React.memo(function MessageItem({
           className="mt-1.5 rounded-md border border-border bg-muted/30 p-2 text-xs"
           data-testid={`message-metadata-panel-${m.id}`}
         >
-          <UsageBreakdown usage={m.meta?.usage} model={m.model} />
+          <UsageBreakdown usage={m.meta?.usage} />
         </div>
       )}
 
@@ -1046,90 +818,6 @@ const MessageItem = React.memo(function MessageItem({
           content={plainTextForClipboard(m.content)}
           images={messageImages}
         />
-      )}
-      {/* 2026-09-12 立(修复 D9):Checkpoint/Rewind 面板(RotateCcw 按钮触发)。
-          面板为纯内容组件 + 自带网络调用,故用项目既有 Dialog 包裹;无 checkpoint 时面板显示空态。 */}
-      {!isUser && (
-        <Dialog open={rewindDialogOpen} onOpenChange={setRewindDialogOpen}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>{tAiChat('checkpoint.title')}</DialogTitle>
-            </DialogHeader>
-            <CheckpointRewindPanel sessionId={conversationId ?? ''} />
-          </DialogContent>
-        </Dialog>
-      )}
-      {/* 2026-09-12 立(四竞品对标 P0-1):消息编辑 Dialog(Edit 按钮触发)。
-          保存并重跑 → 派发 ihui:edit-message → MessageList → editMessageAndRerun:
-          后端事务更新用户消息内容 + 删除其后消息,前端截断后以新内容流式重跑。 */}
-      {isUser && (
-        <Dialog
-          open={editDialogOpen}
-          onOpenChange={(open) => {
-            setEditDialogOpen(open)
-            if (!open) setEditDraft('')
-          }}
-        >
-          <DialogContent className="sm:max-w-xl">
-            <DialogHeader>
-              <DialogTitle>{t('message.edit')}</DialogTitle>
-            </DialogHeader>
-            <textarea
-              value={editDraft}
-              onChange={(e) => setEditDraft(e.target.value)}
-              onKeyDown={(e) => {
-                // Ctrl/Cmd+Enter 快捷保存;Escape 由 Dialog 默认关闭行为处理
-                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                  e.preventDefault()
-                  handleEditSave()
-                }
-              }}
-              rows={5}
-              data-testid={`message-edit-textarea-${m.id}`}
-              className={cn(
-                'w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm',
-                'text-foreground placeholder:text-muted-foreground',
-                'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-              )}
-              placeholder={t('message.edit')}
-            />
-            {/* W16(2026-09-13):编辑重跑可选文件回滚(对标 Qoder)。
-                仅当该消息之后存在已成功的文件修改工具调用时展示,默认勾选。 */}
-            {hasFileChangesAfter && (
-              <label
-                className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-                data-testid={`message-edit-rollback-${m.id}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={editRollbackFiles}
-                  onChange={(e) => setEditRollbackFiles(e.target.checked)}
-                  className="h-4 w-4 accent-primary"
-                  data-testid={`message-edit-rollback-checkbox-${m.id}`}
-                />
-                {t('message.editRollbackFiles')}
-              </label>
-            )}
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setEditDialogOpen(false)}
-                data-testid={`message-edit-cancel-${m.id}`}
-              >
-                {t('cancel')}
-              </Button>
-              <Button
-                size="sm"
-                disabled={!editDraft.trim() || editDraft.trim() === m.content || isStreaming}
-                onClick={handleEditSave}
-                data-testid={`message-edit-save-${m.id}`}
-              >
-                {t('message.editAndRerun')}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       )}
     </div>
   )
