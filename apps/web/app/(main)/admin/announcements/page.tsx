@@ -34,15 +34,15 @@ export default function AdminAnnouncementsPage() {
       const body = {
         title: form.title,
         content: form.content,
-        isTop: form.isPinned,
+        isPinned: form.isPinned,
         isPublished: form.isPublished,
       }
       return editing
-        ? api(`/api/admin/messages/announcements/${editing.id}`, {
-            method: 'PUT',
+        ? api(`/api/announcements/${editing.id}`, {
+            method: 'PATCH',
             body: JSON.stringify(body),
           })
-        : api('/api/admin/messages/announcements', { method: 'POST', body: JSON.stringify(body) })
+        : api('/api/announcements', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'announcements'] })
@@ -51,8 +51,7 @@ export default function AdminAnnouncementsPage() {
     onError: (e: Error) => setErr(e.message),
   })
   const delMut = useMutation({
-    mutationFn: (id: string) =>
-      api(`/api/admin/messages/announcements/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`/api/announcements/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'announcements'] }),
   })
 
