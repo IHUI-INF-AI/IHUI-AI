@@ -23,6 +23,7 @@ import {
 } from '../utils/semantic-summary.js'
 import { persistMessageArchive } from '../utils/conversation-archive.js'
 import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
+import { loadKnowledgeContext } from '../services/knowledge-chat-context.js'
 
 // P3-1 SSE 流式对话实时指标(admin 调试用,不直接进 Prometheus;Prometheus 抓取由 business-metrics.ts 负责)
 const sseMetrics = {
@@ -94,6 +95,11 @@ const chatStreamSchema = z.object({
   /** 自定义 system prompt,ai-service 注入到 system 消息最顶部(与工作区记忆叠加)。
    *  上限 8000 字符,与前端 UI 限制对齐,防超长提示词拖垮上下文。 */
   systemPrompt: z.string().max(8000).optional(),
+  /** P1 #26(2026-09-16 立,知识库默认注入主聊天):是否注入知识库检索结果。
+   *  默认 true(轻量、可关)。关闭后不检索也不注入,降级为纯对话。
+   *  检索结果折叠进 system_prompt 末尾(见 streamToClient),与 workspaceContext/wiki 同型:
+   *  不在此声明会被 zod strip 静默丢弃。false 时显式关闭知识增强。 */
+  knowledgeContext: z.boolean().optional(),
   metadata: z
     .object({
       conversationId: z.string().optional(),
@@ -177,6 +183,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       topK?: number
       maxTokens?: number
       systemPrompt?: string
+      /** P1 #26(2026-09-16 立):知识库默认注入开关。undefined/true = 注入(默认);false = 关闭 */
+      knowledgeContext?: boolean
       metadata?: { conversationId?: string; userId?: string; messageId?: string }
     },
     extraFirstEvents: Array<{ key: string; payload: unknown }> = [],
@@ -228,6 +236,37 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
       // P1-8(2026-09-13 立):读取「项目百科」总览(失败/未命中一律 null,不阻塞主链路)
       const wiki = await loadRepoWikiContext(mergedMetadata.userId ?? null, opts.repoName)
+      // P1 #26(2026-09-16 立):知识库检索注入(失败/未命中一律 null,不阻塞主链路)。
+      // 取末尾 user 消息文本(截 500 字符)作 query,检索 top-3 条,折叠进 system prompt 末尾。
+      let knowledgeBlock: string | null = null
+      if (opts.knowledgeContext !== false) {
+        const lastUser = [...finalMessages].reverse().find((m) => m.role === 'user')
+        const queryText = lastUser?.content?.slice(0, 500) ?? ''
+        const knowledge = await loadKnowledgeContext(mergedMetadata.userId ?? null, queryText)
+        knowledgeBlock = knowledge?.block ?? null
+        if (knowledge) {
+          console.warn('[KnowledgeContext] hit:', {
+            conversationTail: mergedMetadata.conversationId?.slice(-4),
+            hitCount: knowledge.hitCount,
+            blockLength: knowledge.block.length,
+          })
+        }
+      }
+      // 与 wiki_context 合计限制在 20000 字符内:知识块超长时截断,防撑爆上下文窗口
+      if (knowledgeBlock) {
+        const wikiLen = wiki?.content?.length ?? 0
+        const budget = 20000 - wikiLen
+        if (knowledgeBlock.length > budget) {
+          knowledgeBlock = budget > 0 ? knowledgeBlock.slice(0, budget) : ''
+        }
+      }
+      // 折叠知识块进 system_prompt 末尾(用户自定义 systemPrompt 在前,knowledge 在后)
+      let finalSystemPrompt: string | undefined = opts.systemPrompt
+      if (knowledgeBlock) {
+        finalSystemPrompt = opts.systemPrompt
+          ? `${opts.systemPrompt}\n\n${knowledgeBlock}`
+          : knowledgeBlock
+      }
       const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
         method: 'POST',
         headers: {
@@ -266,7 +305,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           top_p: opts.topP,
           top_k: opts.topK,
           max_tokens: opts.maxTokens,
-          system_prompt: opts.systemPrompt,
+          // P1 #26(2026-09-16 立):system_prompt 已折叠知识库检索块(末尾追加,knowledgeContext 默认开)
+          system_prompt: finalSystemPrompt,
           metadata: mergedMetadata,
         }),
         signal: controller.signal,
@@ -380,6 +420,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         topK,
         maxTokens,
         systemPrompt,
+        knowledgeContext,
         metadata,
       } = parsed.data
       const resolvedModel = model ?? modelId
@@ -523,6 +564,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           topK,
           maxTokens,
           systemPrompt,
+          // P1 #26(2026-09-16):知识库注入开关(默认开,false 关闭)
+          knowledgeContext,
           metadata,
         },
         extraFirstEvents,
@@ -577,6 +620,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         topK,
         maxTokens,
         systemPrompt,
+        knowledgeContext,
         metadata,
         questionId,
         answer,
@@ -769,6 +813,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           topK,
           maxTokens,
           systemPrompt,
+          // P1 #26(2026-09-16):续答同样支持知识库注入开关(默认开)
+          knowledgeContext,
           metadata,
         },
         extraFirstEvents,

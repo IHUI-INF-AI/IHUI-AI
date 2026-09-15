@@ -5,6 +5,7 @@
 import {
   eq,
   and,
+  or,
   desc,
   asc,
   ilike,
@@ -451,6 +452,121 @@ export async function findMessages(
   }
 
   return { list, total, hasMore, nextCursor }
+}
+
+// =============================================================================
+// P1 #24(2026-09-16):消息 keyset 复合游标分页
+// 复合游标 (createdAt, id) 严格 keyset,解决 createdAt 相同时 offset/单键游标分页
+// 会重复或遗漏的问题。旧 findMessages 的 before/after/page 模式保持不变(向后兼容)。
+// =============================================================================
+
+/** keyset 游标:续传起点 = 已读取的"最旧一条"消息的 (createdAt, id)。
+ * createdAt 为 ISO 字符串(便于 JSON 序列化与 base64 传输),id 为消息 UUID。 */
+export interface MessageCursor {
+  createdAt: string
+  id: string
+}
+
+export interface FindMessagesCursorOpts {
+  /** 续传游标;initial 方向可省略(取最新一页) */
+  cursor?: MessageCursor | null
+  /** 单页条数(1..100) */
+  limit: number
+  /** initial=取最新 N 条(反转成时间正序);older=在 cursor 之前取更早的 N 条 */
+  direction: 'initial' | 'older'
+}
+
+export interface FindMessagesCursorResult {
+  /** 时间正序的消息列表 */
+  messages: ChatMessage[]
+  /** 下一页续传游标(本页最旧一条的 createdAt+id);无更多时为 null */
+  nextCursor: MessageCursor | null
+  /** 是否还有更早的消息 */
+  hasMore: boolean
+}
+
+/**
+ * 将游标序列化为前端安全的字符串(base64url(JSON))。
+ * 客户端透传此字符串,无需理解内部结构;服务端 decodeMessageCursor 还原。
+ */
+export function encodeMessageCursor(cursor: MessageCursor): string {
+  return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url')
+}
+
+/**
+ * 从 base64url(JSON) 还原游标;格式非法返回 null(路由层转 400)。
+ * 严格校验 createdAt/id 均为字符串,防注入/越权读取。
+ */
+export function decodeMessageCursor(raw: string): MessageCursor | null {
+  try {
+    const json = Buffer.from(raw, 'base64url').toString('utf8')
+    const parsed: unknown = JSON.parse(json)
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      typeof (parsed as Record<string, unknown>).createdAt === 'string' &&
+      typeof (parsed as Record<string, unknown>).id === 'string'
+    ) {
+      const obj = parsed as Record<string, unknown>
+      return { createdAt: obj.createdAt as string, id: obj.id as string }
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+/**
+ * keyset 复合游标分页:
+ * - initial:WHERE conversation_id = ? ORDER BY created_at DESC LIMIT limit+1,
+ *   取回后反转成时间正序;nextCursor = 本页最旧一条(供 older 续传)。
+ * - older:严格 keyset WHERE (created_at, id) < (cursor.createdAt, cursor.id),
+ *   即 created_at < c.createdAt OR (created_at = c.createdAt AND id < c.id),
+ *   ORDER BY created_at DESC LIMIT limit+1,反转成时间正序。
+ * - hasMore 用 limit+1 模式判定(多取 1 条)。
+ */
+export async function findMessagesCursor(
+  conversationId: string,
+  opts: FindMessagesCursorOpts,
+): Promise<FindMessagesCursorResult> {
+  const where = eq(chatMessages.conversationId, conversationId)
+  const limit = Math.min(Math.max(opts.limit, 1), 100)
+
+  let condition: SQL<unknown> = where
+  if (opts.direction === 'older' && opts.cursor) {
+    const cCreated = new Date(opts.cursor.createdAt)
+    const cId = opts.cursor.id
+    // 严格 keyset:(created_at, id) < (cCreated, cId);and/or 入参恒非空,返回值可安全收窄
+    const combined = and(
+      where,
+      or(
+        lt(chatMessages.createdAt, cCreated),
+        and(eq(chatMessages.createdAt, cCreated), lt(chatMessages.id, cId)),
+      ),
+    )
+    if (!combined) throw new Error('unreachable: keyset condition builder')
+    condition = combined
+  }
+
+  const rows = await db
+    .select()
+    .from(chatMessages)
+    .where(condition)
+    .orderBy(desc(chatMessages.createdAt))
+    .limit(limit + 1)
+
+  const hasMore = rows.length > limit
+  // 取前 limit 条(反转前先切片),反转成时间正序
+  const slice = hasMore ? rows.slice(0, limit) : rows
+  const messages = slice.reverse()
+
+  let nextCursor: MessageCursor | null = null
+  const oldest = messages.at(0)
+  if (hasMore && oldest) {
+    nextCursor = { createdAt: oldest.createdAt.toISOString(), id: oldest.id }
+  }
+
+  return { messages, nextCursor, hasMore }
 }
 
 /** 分享页面专用：走只读副本，无数量上限 */

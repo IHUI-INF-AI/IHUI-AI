@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 
@@ -19,7 +19,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  Input,
+  SearchInput,
   Label,
   Select,
   SelectContent,
@@ -162,18 +162,16 @@ export function ResourceLibrary({ type }: ResourceLibraryProps) {
           </div>
           <div className="flex-1 min-w-0 space-y-2">
             <Label>{t('search')}</Label>
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value)
-                  setPage(1)
-                }}
-                placeholder={t('searchPlaceholder')}
-                className="pl-8"
-              />
-            </div>
+            <SearchInput
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
+              placeholder={t('searchPlaceholder')}
+              size="lg"
+              wrapperClassName="w-full"
+            />
           </div>
         </div>
 
