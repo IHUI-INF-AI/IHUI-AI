@@ -10,7 +10,7 @@ import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import type { SubagentSpawnEvent, SubagentEndEvent, SubagentProgressEvent } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
-import type { ToolCallSummary, PlanStep, TerminalTask, CitationEntry } from '@ihui/types/ai'
+import type { ToolCallSummary, PlanStep, TerminalTask } from '@ihui/types/ai'
 
 export type { ChatRole } from '@ihui/shared'
 
@@ -139,11 +139,11 @@ interface ChatState {
   removeSelectedTool: (pluginId: string) => void
   /** 清空已选工具 */
   clearSelectedTools: () => void
-  addMessage: (
-    msg: Pick<ChatMessage, 'role' | 'content' | 'model' | 'permissionMode' | 'meta'>,
-  ) => string
+  addMessage: (msg: Pick<ChatMessage, 'role' | 'content' | 'model' | 'permissionMode'>) => string
   appendToMessage: (id: string, delta: string) => void
   appendReasoningToMessage: (id: string, delta: string) => void
+  /** 覆盖式重写消息正文(resume 补全权威内容时使用) */
+  editMessageContent: (id: string, content: string) => void
   setMessageError: (id: string, error: string) => void
   clearMessages: () => void
   setStreaming: (v: boolean) => void
@@ -197,8 +197,6 @@ interface ChatState {
     status: DiffApplyStatus,
     errorMessage?: string,
   ) => void
-  /** #14 Diff 文件级批量状态(2026-09-13 立):消息内所有待决 diff 卡整体置为 status */
-  setAllDiffApplyStatus: (messageId: string, status: DiffApplyStatus) => void
   /** 写入工具调用汇总到指定消息(2026-07-31 立,AI 对话可视化深度接入)
    *  - SSE 流末尾发出 type='tool-summary' 事件时触发
    *  - 收到后直接写入 message.toolCallSummary,无需前端本地聚合
@@ -219,45 +217,21 @@ interface ChatState {
     terminalId: string,
     updates: Partial<TerminalTask>,
   ) => void
-  /** #11 Citations 全链路(2026-09-13 立):写入消息级引用溯源(SSE citations 事件)
-   *  - 后端 knowledge_lookup 工具执行后 done 前下发,前端整体替换 message.citations
-   *  - 用于消息气泡内 inline CitationBar(来源标签 + 可点击 URL) */
-  setMessageCitations: (messageId: string, citations: CitationEntry[]) => void
   /** P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
    *  前端 onUsage 回调调用此方法把 usage 写入 assistant 消息 meta.usage,UI 展示 token 计数。 */
   updateMessageMeta: (messageId: string, meta: Record<string, unknown>) => void
   /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
   setMessages: (messages: ChatMessage[]) => void
-  /** 编辑用户消息内容(2026-09-12 立,四竞品对标 P0-1):只改内容不改时间线,配合 truncateMessagesFrom 使用 */
-  editMessageContent: (messageId: string, content: string) => void
-  /** 截断消息列表:删除指定消息及其之后的所有消息(重新生成用,保留该消息之前的历史) */
-  truncateMessagesFrom: (messageId: string) => void
-  /** 截断消息列表:保留指定消息,删除其之后的所有消息(2026-09-12 立,编辑重跑用) */
-  truncateMessagesFromAfter: (messageId: string) => void
-  /** 设置自动压缩状态(用于在对话框底部显示压缩进度) */
-  setCompactionStatus: (status: CompactionStatus) => void
-  /**
-   * P1-6 断点续传(2026-09-13 立):标记助手消息流是否已完整结束。
+  /** P1-6 断点续传(2026-09-13 立):标记助手消息流是否已完整结束。
    * false = 流被中断(刷新页面/网络抖动),刷新后由 resume-stream 自动续接;
    * true  = 正常收尾(done/error/用户 stop),不再续接。
    * 未定义 = 旧消息(视为已完成)。
    */
   setMessageStreamCompleted: (messageId: string, completed: boolean) => void
-  /** #21 中断后追加指令继续(2026-09-13 立):被用户主动 Stop 中断的 assistant 消息 ID。
-   *  null = 无中断;非 null = 输入框上方显示「追加指令继续」提示条 + 一键继续按钮。
-   *  用户发送新消息或点击继续后由 send-message.ts 清空。 */
-  setInterruptedMessage: (id: string | null) => void
-  /** #21 中断后追加指令继续(2026-09-13 立):被中断的 assistant 消息 id,null=无 */
-  interruptedMessageId: string | null
-  /** #23 撤回未执行工具卡(2026-09-13 立,对标 Trae 错误重试撤回):
-   *  流收尾(报错/中断/超时)时,把该消息中所有仍处 running 状态的工具卡
-   *  置为 cancelled(后端未返回 tool-result,不会再执行)。 */
-  revokePendingToolCalls: (messageId: string) => void
-  /** W27 输入历史(2026-09-14 立,对标 Codex CLI Esc+Esc 历史导航):
-   *  最近发送的消息正文(纯文本,不含附件 markdown),去重、最新在后、上限 50 条。 */
-  inputHistory: string[]
-  /** W27 写入输入历史(发送成功后由 useMessageSend.doSend 调用);去重 + 上限 50 */
-  pushInputHistory: (text: string) => void
+  /** 截断消息列表:删除指定消息及其之后的所有消息(重新生成用,保留该消息之前的历史) */
+  truncateMessagesFrom: (messageId: string) => void
+  /** 设置自动压缩状态(用于在对话框底部显示压缩进度) */
+  setCompactionStatus: (status: CompactionStatus) => void
 }
 
 // P1-1 修复(2026-07-28):长会话 messages 数组无上限会导致内存爆炸,
@@ -300,10 +274,6 @@ export const useChatStore = create<ChatState>()(
       selectedTools: [],
       recentMessages: null,
       compactionStatus: null,
-      // #21 中断后追加指令继续(2026-09-13 立)
-      interruptedMessageId: null,
-      // W27 输入历史(2026-09-14 立):Esc+Esc 历史导航数据源
-      inputHistory: [],
 
       // 2026-08-06 立:Auto 模式真正跨厂商路由(用户反馈"应该是自动切换所有可使用的模型")
       // 历史:之前静默转 'auto' → 'stepfun/step-router-v1',导致 Auto 永远绑死 Step 厂家路由。
@@ -331,16 +301,9 @@ export const useChatStore = create<ChatState>()(
           // 透传权限模式(2026-07-25 深化,深度对标 Codex 透明性):
           // 用户消息不传(无模式),AI 消息由调用方传入当前工作区模式
           permissionMode: msg.permissionMode,
-          // W24(2026-09-14):透传附加元数据(/btw 侧聊标记 meta.sidechat 等)
-          meta: msg.meta,
         }
         set((s) => {
-          // W16(2026-09-13):消息树地基 —— 新消息自动指向前一条消息(parentMessageId)。
-          // 截断重跑(regenerate/edit-rerun)场景下截断后末尾即触发消息,天然形成正确父子链,
-          // 为 W17 Fork 与编辑历史追溯提供数据结构支撑。
-          const prev = s.messages[s.messages.length - 1]
-          const full: ChatMessage = { ...message, parentMessageId: prev?.id }
-          const messages = s.messages.concat(full)
+          const messages = s.messages.concat(message)
           // P1-1 修复:超过上限时丢弃最旧消息(滑动窗口),防止长会话内存爆炸
           if (messages.length > MAX_MESSAGES) {
             messages.splice(0, messages.length - MAX_MESSAGES)
@@ -360,6 +323,17 @@ export const useChatStore = create<ChatState>()(
           if (!target) return s
           const next = s.messages.slice()
           next[idx] = { ...target, content: target.content + delta }
+          return { messages: next }
+        }),
+
+      editMessageContent: (id, content) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === id)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const next = s.messages.slice()
+          next[idx] = { ...target, content }
           return { messages: next }
         }),
 
@@ -398,44 +372,9 @@ export const useChatStore = create<ChatState>()(
           return { messages: next }
         }),
 
-      // #21 中断后追加指令继续(2026-09-13 立)
-      setInterruptedMessage: (id) => set({ interruptedMessageId: id }),
-
-      // #23 撤回未执行工具卡(2026-09-13 立)
-      revokePendingToolCalls: (messageId) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const pending = target.toolCalls?.filter((tc) => tc.status === 'running') ?? []
-          if (pending.length === 0) return s
-          const revokedIds = new Set(pending.map((tc) => tc.id))
-          const next = s.messages.slice()
-          next[idx] = {
-            ...target,
-            toolCalls: target.toolCalls?.map((tc) =>
-              revokedIds.has(tc.id) ? { ...tc, status: 'cancelled' as const } : tc,
-            ),
-          }
-          return { messages: next }
-        }),
-
       clearMessages: () => set({ messages: [], error: null }),
       /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
       setMessages: (messages: ChatMessage[]) => set({ messages }),
-      /** 编辑用户消息内容(2026-09-12 立,四竞品对标 P0-1):
-       *  只更新目标消息 content,引用替换配合 React.memo 精准重渲染。 */
-      editMessageContent: (messageId, content) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const next = s.messages.slice()
-          next[idx] = { ...target, content }
-          return { messages: next }
-        }),
       /** 截断消息列表:删除指定消息及其之后的所有消息(重新生成用)
        *  2026-08-30 立,与后端 /regenerate 端点配套:
        *  后端已删除 DB 中该消息及之后的内容,前端同步删除内存中的对应消息,
@@ -445,15 +384,6 @@ export const useChatStore = create<ChatState>()(
           const idx = s.messages.findIndex((m) => m.id === messageId)
           if (idx === -1) return s
           return { messages: s.messages.slice(0, idx) }
-        }),
-      /** 保留指定消息,删除其之后的所有消息(2026-09-12 立,编辑重跑用):
-       *  编辑重跑时后端已更新目标用户消息内容并删除其后消息,
-       *  前端保留该用户消息(内容已由 editMessageContent 更新),截掉其后的 AI 回复。 */
-      truncateMessagesFromAfter: (messageId) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          return { messages: s.messages.slice(0, idx + 1) }
         }),
       setCompactionStatus: (status) => set({ compactionStatus: status }),
       setStreaming: (v) => set({ isStreaming: v }),
@@ -738,32 +668,6 @@ export const useChatStore = create<ChatState>()(
           return { messages: next }
         }),
 
-      /** #14 Diff 文件级批量状态(2026-09-13 立,对标 Qoder/WorkBuddy 逐项+文件级):
-       *  把消息内所有 diff 工具卡(edit_file/write_file,applyStatus 处于非终态)整体置为 status。
-       *  终态(applied/rejected)与 applying 中的卡片跳过,避免覆盖已决结果。 */
-      setAllDiffApplyStatus: (messageId, status) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target?.toolCalls) return s
-          const hasDiffCard = (tc: ToolCall) =>
-            !!tc.diffInfo || (tc.applyStatus !== undefined && tc.applyStatus !== null)
-          const next = s.messages.slice()
-          next[idx] = {
-            ...target,
-            toolCalls: target.toolCalls.map((tc) =>
-              hasDiffCard(tc) &&
-              tc.applyStatus !== 'applied' &&
-              tc.applyStatus !== 'rejected' &&
-              tc.applyStatus !== 'applying'
-                ? { ...tc, applyStatus: status, applyError: undefined }
-                : tc,
-            ),
-          }
-          return { messages: next }
-        }),
-
       // 2026-07-31 立,AI 对话可视化深度接入:SSE tool-summary 事件落地
       setMessageToolSummary: (messageId, summary) =>
         set((s) => {
@@ -789,18 +693,6 @@ export const useChatStore = create<ChatState>()(
           if (!target) return s
           const next = s.messages.slice()
           next[idx] = { ...target, planSteps: steps }
-          return { messages: next }
-        }),
-
-      // #11 Citations 全链路(2026-09-13 立):写入消息级引用溯源(SSE citations 事件,整体替换)
-      setMessageCitations: (messageId, citations) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const next = s.messages.slice()
-          next[idx] = { ...target, citations }
           return { messages: next }
         }),
 
@@ -850,16 +742,6 @@ export const useChatStore = create<ChatState>()(
           next[idx] = { ...target, meta: { ...(target.meta ?? {}), ...meta } }
           return { messages: next }
         }),
-
-      // W27 输入历史(2026-09-14 立):去重 + 最新在后 + 上限 50(与 recentMessages 同量级)
-      pushInputHistory: (text) =>
-        set((s) => {
-          const trimmed = text.trim()
-          if (!trimmed) return s
-          const deduped = s.inputHistory.filter((h) => h !== trimmed)
-          deduped.push(trimmed)
-          return { inputHistory: deduped.slice(-50) }
-        }),
     }),
     {
       name: 'ihui-chat',
@@ -868,8 +750,6 @@ export const useChatStore = create<ChatState>()(
         currentModel: s.currentModel,
         conversationId: s.conversationId,
         draftInput: s.draftInput,
-        // W27(2026-09-14):输入历史持久化 —— Esc+Esc 历史导航跨会话/刷新可用
-        inputHistory: s.inputHistory,
         // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除
         // ChatMode 由 useModeStore 独立管理,持久化不重复存储
         // #12 store messages 持久化(2026-07-25 立):
@@ -878,8 +758,7 @@ export const useChatStore = create<ChatState>()(
         recentMessages: s.conversationId
           ? {
               conversationId: s.conversationId,
-              // W24(2026-09-14):/btw 侧聊消息(meta.sidechat)不写入主线历史——持久化预填充同样排除
-              messages: s.messages.filter((m) => m.meta?.sidechat !== true).slice(-50),
+              messages: s.messages.slice(-50),
             }
           : null,
       }),
