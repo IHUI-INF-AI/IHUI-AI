@@ -13,6 +13,7 @@ import { Check, Code2, Eye, History, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
+import { PortalPanel } from '@/components/feedback/portal-panel'
 import { useCanvasStore, type CanvasVersion } from '@/stores/canvas-store'
 
 /** 相对时间格式化(Intl.RelativeTimeFormat,遵守 locale) */
@@ -39,15 +40,8 @@ export function CanvasVersionMenu({ versions, onRevert }: CanvasVersionMenuProps
   const [open, setOpen] = React.useState(false)
   const rootRef = React.useRef<HTMLDivElement>(null)
 
-  // 点击外部关闭
-  React.useEffect(() => {
-    if (!open) return
-    const handle = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [open])
+  // 2026-09-15 治理:Escape/外点关闭与定位统一收敛到 PortalPanel
+  // (原手写 document mousedown 外点关闭 + absolute z-modal 就地渲染已删除)。
 
   if (versions.length === 0) return null
 
@@ -64,33 +58,39 @@ export function CanvasVersionMenu({ versions, onRevert }: CanvasVersionMenuProps
           <History className="h-3.5 w-3.5" />
         </button>
       </Tooltip>
-      {open && (
-        <div className="absolute right-0 top-full z-modal mt-1 max-h-48 w-64 overflow-y-auto rounded-sm border border-border/40 bg-popover p-1 shadow-lg">
-          <p className="px-2 py-1 text-[10px] font-medium text-muted-foreground">
-            {t('canvasVersions')}
-          </p>
-          {versions.map((v, i) => (
-            <button
-              key={`${v.savedAt}-${i}`}
-              type="button"
-              onClick={() => {
-                onRevert(i)
-                setOpen(false)
-              }}
-              title={t('canvasRevert')}
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-muted/60"
-            >
-              <span className="w-20 shrink-0 text-[10px] text-muted-foreground">
-                {i === 0 ? t('canvasEdited') : formatRelativeTime(v.savedAt, locale)}
-              </span>
-              <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground/70">
-                {v.content.slice(0, 60) || '—'}
-              </span>
-              <Check className="h-3 w-3 shrink-0 text-transparent" aria-hidden />
-            </button>
-          ))}
-        </div>
-      )}
+      <PortalPanel
+        open={open}
+        anchorRef={rootRef}
+        onClose={() => setOpen(false)}
+        side="bottom"
+        align="end"
+        gap={4}
+        className="max-h-48 w-64 overflow-y-auto rounded-sm border border-border/40 bg-popover p-1 shadow-lg"
+      >
+        <p className="px-2 py-1 text-[10px] font-medium text-muted-foreground">
+          {t('canvasVersions')}
+        </p>
+        {versions.map((v, i) => (
+          <button
+            key={`${v.savedAt}-${i}`}
+            type="button"
+            onClick={() => {
+              onRevert(i)
+              setOpen(false)
+            }}
+            aria-label={t('canvasRevert')}
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-muted/60"
+          >
+            <span className="w-20 shrink-0 text-[10px] text-muted-foreground">
+              {i === 0 ? t('canvasEdited') : formatRelativeTime(v.savedAt, locale)}
+            </span>
+            <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground/70">
+              {v.content.slice(0, 60) || '—'}
+            </span>
+            <Check className="h-3 w-3 shrink-0 text-transparent" aria-hidden />
+          </button>
+        ))}
+      </PortalPanel>
     </div>
   )
 }
