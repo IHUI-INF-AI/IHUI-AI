@@ -4,33 +4,25 @@
 
 'use client'
 
-import {} from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Trash2, UserCog } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
 import {
   Button,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  Pencil,
-  Plus,
-  Search,
   SearchInput,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  Trash2,
-  UserCog,
+  Table,
 } from '@ihui/ui-react'
 import { COZE_STATUS_CLASS } from './helpers'
 import type { CozeAccount } from './types'

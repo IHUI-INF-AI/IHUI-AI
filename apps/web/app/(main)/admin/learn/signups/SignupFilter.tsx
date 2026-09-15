@@ -4,7 +4,6 @@
 
 'use client'
 
-import { Search } from 'lucide-react'
 import {
   SearchInput,
   Select,
