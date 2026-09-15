@@ -31,6 +31,7 @@ import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { COLORS as C } from './lib/logger.mjs'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 
 const ROOT = process.cwd()
 const argv = process.argv.slice(2)
@@ -147,7 +148,7 @@ function inScope(file) {
 
 /** 该文件是否命中排除目录。 */
 function isExcluded(file) {
-  return file.split('/').some((seg) => EXCLUDE_DIR_NAMES.has(seg))
+  return file.split('/').some((seg) => EXCLUDE_DIR_NAMES.has(seg) || isExcludedDirName(seg))
 }
 
 const SUPPRESS = /check-api-credential-prefix-disable-next-line|api-credential-prefix-ignore/i
