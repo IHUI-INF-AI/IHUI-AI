@@ -2131,7 +2131,8 @@
     "scopeLabel": "スコープ",
     "save": "保存",
     "saveFailed": "保存に失敗しました",
-    "textRequired": "記憶内容を入力してください"
+    "textRequired": "記憶内容を入力してください",
+    "uncategorized": "未分類"
   },
   "aiWorld": {
     "title": "AI ワールド",
@@ -2164,14 +2165,30 @@
     "loadFailed": "読み込みに失敗",
     "retry": "再試行",
     "scheduled": "予約済み",
-    "statsFailed": "統計の読み込みに失敗",
+    "statsFailed": "配信失敗",
     "statsSuccess": "公開しました",
     "statsTotal": "合計",
     "cancelTask": "キャンセル",
     "cancelTitle": "公開タスクをキャンセル",
     "cancelConfirm": "このタスクをキャンセルしますか?",
     "retryTask": "再試行",
-    "operateFailed": "操作に失敗しました。再試行してください"
+    "operateFailed": "操作に失敗しました。再試行してください",
+    "statusSuccess": "成功",
+    "statusFailed": "失敗",
+    "statusPartial": "部分成功",
+    "statusRunning": "実行中",
+    "statusPending": "待処理",
+    "statusSkipped": "スキップ",
+    "platformBilibili": "ビリビリ",
+    "platformDouyin": "抖音",
+    "platformKuaishou": "快手",
+    "platformWechat": "WeChat公式アカウント",
+    "platformToutiao": "今日頭条",
+    "platformWeibo": "Weibo（微博）",
+    "platformXiaohongshu": "小紅書（RED）",
+    "platformZhihu": "知乎",
+    "platformJuejin": "掘金（Juejin）",
+    "platformShipinhao": "微信视频号"
   },
   "imageGen": {
     "title": "画像生成",
@@ -2192,7 +2209,13 @@
     "saveToAlbum": "アルバムに保存",
     "saveSuccess": "アルバムに保存しました",
     "saveFailed": "保存に失敗しました。再試行してください",
-    "needPermission": "保存にはメディアライブラリの権限が必要です"
+    "needPermission": "保存にはメディアライブラリの権限が必要です",
+    "tabHistory": "生成履歴",
+    "tabFavorites": "お気に入り",
+    "statusPending": "待機中",
+    "statusRunning": "生成中",
+    "statusSucceeded": "完了",
+    "statusFailed": "失敗"
   },
   "webView": {
     "loadFailed": "ページの読み込みに失敗",
@@ -2353,7 +2376,8 @@
     "title": "規範テンプレート",
     "loadFailed": "テンプレートの読み込みに失敗しました",
     "empty": "テンプレートがありません",
-    "desktopHint": "テンプレートの閲覧は参考用です。Spec 生成にはサーバー側の workspace パスが必要なため、Web/デスクトップで完全なフローをご利用ください"
+    "desktopHint": "テンプレートの閲覧は参考用です。Spec 生成にはサーバー側の workspace パスが必要なため、Web/デスクトップで完全なフローをご利用ください",
+    "generateEntry": "Webで生成"
   },
   "selfMedia": {
     "title": "セルフメディアアシスタント",
