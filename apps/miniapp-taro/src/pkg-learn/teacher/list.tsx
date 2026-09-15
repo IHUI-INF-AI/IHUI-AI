@@ -3,12 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Input, Image } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getTeacherList, type Teacher } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import SearchBar from '@/components/SearchBar'
 
 export default function TeacherList() {
   const { t } = useI18n()
@@ -70,18 +71,14 @@ export default function TeacherList() {
     <ThemeRoot>
       {/* 对齐 RN TeacherListScreen container:bg surface.bg */}
       <View className="min-h-screen bg-background">
-        {/* 搜索栏(RN searchWrap:row+center gap16 margin24 h72 胶囊36 px24 bg card) */}
-        <View className="m-3 flex items-center gap-2 h-[72rpx] px-3 rounded-full bg-card">
-          <LineIcon name="search" size={32} color="var(--color-text-tertiary)" />
-          <Input
-            className="flex-1 text-sm text-foreground"
-            placeholder={t('teacher.list.searchPlaceholder')}
-            placeholderStyle="color: var(--color-text-tertiary)"
-            value={keyword}
-            onInput={(e) => setKeyword(e.detail.value)}
-            onConfirm={onSearch}
-          />
-        </View>
+        {/* 搜索栏(RN searchWrap 胶囊,统一为圆角输入井,共享 SearchBar) */}
+        <SearchBar
+          value={keyword}
+          placeholder={t('teacher.list.searchPlaceholder')}
+          onInput={setKeyword}
+          onSearch={onSearch}
+          onClear={() => setKeyword('')}
+        />
         {list.length > 0 && (
           <View className="px-3 pb-[40rpx]">
             {list.map((item) => (
