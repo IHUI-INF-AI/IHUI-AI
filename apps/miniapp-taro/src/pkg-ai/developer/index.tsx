@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, useI18n, t } from '@/i18n'
-import { View, Text, Input, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow, navigateTo } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import * as api from '@/api'
@@ -274,16 +274,15 @@ export default function DeveloperIndex() {
           ))}
         </View>
 
-        {/* RN searchRow: gap 12rpx px 20rpx pb 8rpx;输入框 h 38dp=76rpx radius 8dp=16rpx
-            描边 1dp=2rpx bg card;搜索钮 h 76rpx px 20rpx radius 16rpx bg brand(→primary) 白字 */}
+        {/* RN searchRow: gap 12rpx px 20rpx pb 8rpx;搜索框统一圆角输入井(共享 SearchBar) */}
         <View className="flex items-center gap-[12rpx] px-[20rpx] pb-[8rpx]">
-          <Input
-            className="flex-1 h-[76rpx] rounded-[16rpx] border border-[var(--color-border)] bg-card px-[16rpx] text-[28rpx] text-foreground"
-            type="text"
-            placeholder={tt('developer.index.searchPlaceholder', '搜索智能体名称')}
+          <SearchBar
+            className="flex-1"
             value={search}
-            onInput={(e) => setSearch(e.detail.value)}
-            onConfirm={onSearchConfirm}
+            placeholder={tt('developer.index.searchPlaceholder', '搜索智能体名称')}
+            onInput={setSearch}
+            onSearch={onSearchConfirm}
+            onClear={() => setSearch('')}
           />
           <View
             className="h-[76rpx] px-[20rpx] rounded-[16rpx] bg-primary flex items-center justify-center"
