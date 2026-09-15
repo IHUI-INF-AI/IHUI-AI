@@ -11,7 +11,7 @@
  */
 import { useState, type FormEvent } from 'react'
 import { searchContent, type SearchResult } from '@ihui/api-client'
-import { Badge, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
+import { Badge, Card, CardContent, CardHeader, CardTitle, SearchInput } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { openInWeb as openItemInWeb, openWebUrl } from '../../../lib/open-in-web'
 
@@ -71,12 +71,12 @@ export default function SearchPage() {
         <h3 className="m-0 text-sm font-semibold">{t('apps.search')}</h3>
       </div>
       <form onSubmit={onSubmit} className="flex gap-1.5">
-        <Input
-          type="text"
+        <SearchInput
+          size="lg"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('apps.searchDesc')}
-          className="flex-1 text-sm"
+          wrapperClassName="min-w-0 flex-1"
           disabled={loading}
           aria-label={t('common.search')}
         />

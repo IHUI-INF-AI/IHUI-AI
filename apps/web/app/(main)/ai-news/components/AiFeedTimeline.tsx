@@ -6,7 +6,8 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Flame, TrendingUp, TrendingDown, ExternalLink, Rss, Search, LineChart } from 'lucide-react'
+import { Flame, TrendingUp, TrendingDown, ExternalLink, Rss, LineChart } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 import type { AiFeedTimelineItem } from '@/lib/ai-news-api'
 import { CHART_TEXT_LIGHT } from '@ihui/design-tokens'
 import { formatCompact, getLocale } from '@/lib/number-format'
@@ -249,16 +250,13 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
         </div>
 
         {/* 搜索框 */}
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
-          <input
-            type="text"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder={t('feed.searchPlaceholder')}
-            className="w-full rounded-md border bg-background/50 py-1.5 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-ring/40 focus:outline-none focus:ring-1 focus:ring-ring/20"
-          />
-        </div>
+        <SearchInput
+          size="sm"
+          wrapperClassName="w-full"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          placeholder={t('feed.searchPlaceholder')}
+        />
 
         {/* Channel 筛选 Tab + 语言切换 */}
         <div className="flex flex-wrap items-center justify-between gap-2">

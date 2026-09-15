@@ -7,8 +7,8 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { Search, Newspaper } from 'lucide-react'
-import { Input } from '@ihui/ui-react'
+import { Newspaper } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 
 import { BackButton } from '@/components/common'
 import { ArticlesList } from './ArticlesList'
@@ -67,16 +67,14 @@ export default function ArticlesPageClient() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      <div className="relative w-full max-w-md">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('search')}
-          className="h-9 pl-8"
-          aria-label={t('search')}
-        />
-      </div>
+      <SearchInput
+        size="lg"
+        wrapperClassName="w-full max-w-md"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={t('search')}
+        aria-label={t('search')}
+      />
 
       <div className="flex flex-col gap-6 min-[1024px]:flex-row">
         <ArticlesList

@@ -41,21 +41,14 @@ async function ensureShotDir() {
 }
 
 async function gotoAuthorize(page: Page) {
-  const BASE_URL =
-    process.env.E2E_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8801' // 2026-09-15 修:不再写死 8801,本地隔离端口跑 E2E 由环境变量覆盖
   // /oauth/authorize 检测未登录会 router.replace('/'),LoginDialog 全局挂载在首页 layout
   // 流程:goto /oauth/authorize → 自动跳 / → LoginDialog open → dialog 可见
   await page.goto(
-    `${BASE_URL}/oauth/authorize?client_id=test&redirect_uri=${BASE_URL}/&state=xyz`,
+    'http://localhost:8801/oauth/authorize?client_id=test&redirect_uri=http://localhost:8801/&state=xyz',
     { waitUntil: 'domcontentloaded', timeout: 20000 },
   )
   // 等跳转完成(URL 变成 / 或带回调路径)
-  await page
-    .waitForURL(
-      new RegExp('^' + BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '/(\\?.*)?$', 'i'),
-      { timeout: 15000 },
-    )
-    .catch(() => {})
+  await page.waitForURL(/^(http:\/\/localhost:8801\/(\?.*)?)$/i, { timeout: 15000 }).catch(() => {})
   // 清 theme 残留,确保从 light 开始
   await page.evaluate(() => {
     try {
