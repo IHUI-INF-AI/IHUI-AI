@@ -180,8 +180,21 @@ jobs:
       - name: Create ai-service runtime tables (ensure_table)
         working-directory: apps/ai-service
         # media_tasks 由 ai-service 启动时幂等自建(ensure_table),不在 drizzle 迁移内;
-        # CI 校验前先按生产同等路径建表,否则 schema_check 恒报 exists=False(2026-09-10)
-        run: python -c "import asyncio; from app.services.media_tasks import ensure_table; asyncio.run(ensure_table())"
+        # CI 校验前先按生产同等路径建表,否则 schema_check 恒报 exists=False(2026-09-10)。
+        # 2026-09-15 补:publish 指标/风格检查表同为运行时懒建表(_ensure_metrics_table /
+        # _ensure_style_check_table),与 media_tasks 同模式,否则 schema_check 恒红。
+        run: |
+          python -c "
+          import asyncio
+          from app.services.media_tasks import ensure_table
+          asyncio.run(ensure_table())
+          from app.services.publish.metrics_collector import (
+              _ensure_metrics_table,
+              _ensure_style_check_table,
+          )
+          asyncio.run(_ensure_metrics_table())
+          asyncio.run(_ensure_style_check_table())
+          "
 
       - name: Run ai-service schema_check against test DB
         working-directory: apps/ai-service
