@@ -11,8 +11,9 @@ import { request } from '@playwright/test'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-const WEB_URL = 'http://localhost:8801'
-const API_URL = 'http://localhost:8802'
+const WEB_URL =
+  process.env.E2E_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8801' // 2026-09-15 修:不再写死 8801
+const API_URL = process.env.E2E_API_URL || 'http://localhost:8802' // 2026-09-15 修:必须与 web 构建时烘焙的 IHUI_API_PROXY_TARGET 同库
 const SCREENSHOT_DIR = path.join(process.cwd(), 'e2e', 'test-screenshots')
 
 test.describe('分享功能验证', () => {
