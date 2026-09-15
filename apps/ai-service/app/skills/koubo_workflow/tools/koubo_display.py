@@ -163,6 +163,7 @@ def main() -> None:
     print('═' * 62)
 
     if args.mark:
+        os.makedirs(os.path.dirname(HASH_FILE), exist_ok=True)  # 2026-09-14 补:.cache 目录缺失时自愈,防 FileNotFoundError
         with open(HASH_FILE, 'w', encoding='utf-8') as f:
             f.write(h)
         print(f'\n[检查点已更新] sha={h}（段#{sid}，{len(articles)}篇）')

@@ -8,7 +8,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Users, Plus, History, Calendar, BarChart3 } from 'lucide-react'
+import { Users, Plus, History, Calendar, BarChart3, Activity } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -18,6 +18,7 @@ const TABS = [
   { href: '/publish/history', labelKey: 'history', icon: History },
   { href: '/publish/calendar', labelKey: 'calendar', icon: Calendar },
   { href: '/publish/analytics', labelKey: 'analytics', icon: BarChart3 },
+  { href: '/publish/monitor', labelKey: 'monitor', icon: Activity },
 ] as const
 
 /**
