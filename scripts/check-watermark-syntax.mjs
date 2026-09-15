@@ -22,6 +22,7 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { join, relative, basename, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..')
 
@@ -110,7 +111,7 @@ function* walk(dir) {
     const abs = join(dir, entry.name)
     if (entry.isDirectory()) {
       const rel = relative(ROOT, abs).replaceAll('\\', '/')
-      if (SKIP_DIRS.has(entry.name) || rel.split('/').some((s) => SKIP_DIRS.has(s))) continue
+      if (SKIP_DIRS.has(entry.name) || rel.split('/').some((s) => SKIP_DIRS.has(s)) || isExcludedDirName(entry.name)) continue
       yield* walk(abs)
     } else if (entry.isFile()) {
       yield abs
