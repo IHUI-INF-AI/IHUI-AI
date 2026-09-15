@@ -13,6 +13,7 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 
 const args = process.argv.slice(2)
 const rootIdx = args.indexOf('--root')
@@ -73,7 +74,7 @@ function scan(dir) {
   for (const e of entries) {
     const full = join(dir, e.name)
     if (e.isDirectory()) {
-      if (SKIP_DIRS.has(e.name)) continue
+      if (SKIP_DIRS.has(e.name) || isExcludedDirName(e.name)) continue
       scan(full)
     } else if (e.name.endsWith('.ps1')) {
       if (SKIP_PATH_PATTERNS.some((p) => p.test(full))) continue
