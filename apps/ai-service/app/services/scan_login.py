@@ -33,6 +33,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlparse
 
 from ..core.config import settings
 from ..core.logging import get_logger
@@ -232,8 +233,11 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     "people": {
         "name": "人民网",
         "login_url": "https://login.peopleweb.com.cn/login",
+        # 2026-09-15 终审修复:JSESSIONID 是 Java 框架通用会话 cookie,登录页一打开就存在,
+        # 仅靠 cookie 必然误报 → 必须同时命中登录后 URL 才判定成功
         "success_cookies": ["JSESSIONID"],
         "success_url_pattern": r"login\.peopleweb\.com\.cn/(success|home)",
+        "require_url_match": True,
     },
     "china_news": {
         "name": "中国新闻网",
@@ -248,6 +252,31 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
         "success_url_pattern": r"passport\.hupu\.com/iframe/loginSuccess|my\.hupu\.com",
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# URL 判定工具(2026-09-15 终审:登录页判定只看 path,避免 login.* 域名的成功页被误伤)
+# ---------------------------------------------------------------------------
+def _url_is_login_page(url: str) -> bool:
+    """判断 URL 路径是否为登录/注册页。
+
+    仅判定 path:域名含 login/passport(如 login.peopleweb.com.cn/success)不算登录页,
+    否则这类平台的登录后跳转页永远无法通过检测。
+    """
+    try:
+        parsed = urlparse(url)
+        path = ((parsed.path or "") + "?" + (parsed.query or "")).lower()
+    except Exception:
+        path = url.lower()
+    return any(s in path for s in ("login", "signin", "signup", "sign_in"))
+
+
+def _url_matches_success(config: dict[str, Any], url: str) -> bool:
+    """URL 是否命中登录后特征页(success_url_pattern 且不在登录页)。"""
+    if not url:
+        return False
+    pattern = config.get("success_url_pattern", "")
+    return bool(pattern and re.search(pattern, url) and not _url_is_login_page(url))
 
 
 # ---------------------------------------------------------------------------
@@ -727,9 +756,14 @@ def _run_scan_task(task: ScanTask) -> None:
                 cookies = context.cookies()
                 cookies_dict = {c["name"]: c["value"] for c in cookies if c.get("value")}
 
+                # 2026-09-15 终审修复:people 等平台使用框架通用会话 cookie,
+                # 主检测必须同时命中登录后 URL,否则登录页一打开就误报
+                _require_url_match = bool(config.get("require_url_match"))
+                _url_ok = _url_matches_success(config, page.url)
+
                 # 命中目标 cookie?
                 for target in config["success_cookies"]:
-                    if target in cookies_dict and len(cookies_dict[target]) > 5:
+                    if target in cookies_dict and len(cookies_dict[target]) > 5 and (_url_ok or not _require_url_match):
                         logger.info(f"[scan_login] 任务 {task.task_id} 检测到登录 cookie: {target}")
                         task.cookies = {k: v for k, v in cookies_dict.items() if k in config["success_cookies"]}
                         # 收集所有非 tracker 的相关 cookies
@@ -752,10 +786,9 @@ def _run_scan_task(task: ScanTask) -> None:
                 if task.status == "success":
                     break
 
-                # 检查 URL 跳转
+                # 检查 URL 跳转(2026-09-15 终审:改用统一的 _url_matches_success 判定)
                 current_url = page.url
-                pattern = config.get("success_url_pattern", "")
-                if pattern and re.search(pattern, current_url) and "login" not in current_url.lower() and "signin" not in current_url.lower():
+                if _url_matches_success(config, current_url):
                     # URL 已跳转,可能已登录
                     logger.info(f"[scan_login] 任务 {task.task_id} URL 跳转: {current_url}")
                     # 再检查一次 cookies(可能还没设置)
@@ -917,26 +950,25 @@ async def detect_login_from_cdp_session(
     except Exception:
         pass
 
+    # 2026-09-15 终审修复:people(JSESSIONID 为框架通用会话 cookie)需要 URL 双重确认,
+    # 否则登录页一打开就会误报登录成功
+    require_url_match = bool(config.get("require_url_match"))
+    url_ok = _url_matches_success(config, current_url)
+
     # 主检测:success_cookies 命中(值长度 > 5 视为有效)
     hit = [
         target for target in config["success_cookies"]
         if target in cookies_dict and len(cookies_dict.get(target, "")) > 5
     ]
+    if hit and require_url_match and not url_ok:
+        hit = []
 
     # 2026-09-15 修复:URL 跳转兜底检测(与 _run_scan_task 对齐)。
     # 场景:平台 cookie 名单过时/变更时,主检测永远不命中 → 永远无法保存账号。
     # 条件:URL 命中 success_url_pattern + 不在登录页 + 至少 1 个期望 cookie 存在。
-    if not hit and current_url:
-        pattern = config.get("success_url_pattern", "")
-        lowered = current_url.lower()
-        if (
-            pattern
-            and re.search(pattern, current_url)
-            and not any(s in lowered for s in ["login", "signin", "signup", "passport."])
-            and any(target in cookies_dict for target in config["success_cookies"])
-        ):
-            hit = [t for t in config["success_cookies"] if t in cookies_dict]
-            logger.info(f"[scan_login] CDP URL 兜底命中: platform={platform}, url={current_url}, cookies={hit}")
+    if not hit and url_ok and any(target in cookies_dict for target in config["success_cookies"]):
+        hit = [t for t in config["success_cookies"] if t in cookies_dict]
+        logger.info(f"[scan_login] CDP URL 兜底命中: platform={platform}, url={current_url}, cookies={hit}")
 
     if not hit:
         return {
