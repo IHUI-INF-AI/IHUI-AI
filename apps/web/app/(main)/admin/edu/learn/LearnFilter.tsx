@@ -4,7 +4,7 @@
 
 'use client'
 
-import { Plus, Search } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
   Button,
