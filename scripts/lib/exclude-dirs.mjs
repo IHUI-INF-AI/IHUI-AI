@@ -36,6 +36,9 @@ const EXCLUDE_DIRS = Object.freeze(new Set([
   '.git',
   // 构建产物
   'dist', 'build', 'out', '.output', '.next', '.next-static', '.turbo', '.wxt',
+  // 2026-09-15 补:next build 回滚快照(gitignore 的 2.6GB minified 产物),
+  // minified chunk 里的裸 refreshAccessToken 等曾被 auth-refresh 守门误判阻断 commit
+  '.rollback',
   // 2026-09-15 补:mobile-cap Capacitor 构建输出(gitignore 的 www/),
   // minified monaco worker 里的路径字符串曾被 workspace-hygiene 误判为
   // "相对路径跳出项目"违规,blocking 全体 commit
@@ -67,5 +70,18 @@ function withExcludes(extra) {
   return s
 }
 
-export { EXCLUDE_DIRS, withExcludes }
+/**
+ * 判断目录名是否应被守门扫描排除(推荐入口)。
+ * = EXCLUDE_DIRS.has(name) + 前缀族匹配(如 .next-staging / 未来 .next-* 变体)。
+ * 2026-09-15 立:.next-* 变体(实际在存 .next-staging)与 .rollback 构建产物
+ * 曾多脚本漏排,minified 产物内容误触发源码守门(blocking)阻断正常提交。
+ * @param {string} name readdirSync 条目名
+ * @returns {boolean}
+ */
+function isExcludedDirName(name) {
+  if (EXCLUDE_DIRS.has(name)) return true
+  return name.startsWith('.next-')
+}
+
+export { EXCLUDE_DIRS, withExcludes, isExcludedDirName }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
