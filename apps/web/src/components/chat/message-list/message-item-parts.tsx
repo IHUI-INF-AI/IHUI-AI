@@ -67,6 +67,8 @@ export function UsageBreakdown({ usage, model }: { usage: unknown; model?: strin
   const prompt = typeof u.promptTokens === 'number' ? u.promptTokens : null
   const completion = typeof u.completionTokens === 'number' ? u.completionTokens : null
   const total = typeof u.totalTokens === 'number' ? u.totalTokens : null
+  // #21 流内实时估算标记:权威 usage 到达后此标记消失,徽章仅出现在流式估算阶段
+  const estimated = u.estimated === true
   const { inputCost, outputCost, totalCost } = computeMessageCostCny(price, {
     promptTokens: prompt,
     completionTokens: completion,
@@ -83,6 +85,9 @@ export function UsageBreakdown({ usage, model }: { usage: unknown; model?: strin
         <span className="text-muted-foreground">
           {t('sessionUsage.completionTokens')}:{' '}
           <span className="font-medium text-foreground">{completion}</span>
+          {estimated && (
+            <span className="ml-1 text-[10px] text-muted-foreground">{t('usageEstimated')}</span>
+          )}
         </span>
       )}
       {total !== null && (

@@ -40,6 +40,8 @@ import { TerminalSection } from '@/components/ai/progress-sections/terminal-sect
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
 import { CitationBar } from '@/components/ai/progress-sections/citation-bar'
 import { plainTextForClipboard } from '@/components/ai/progress-sections/message-context-menu'
+import { MessageFileChips } from '@/components/chat/message-list/file-chips'
+import { TurnChangesCard } from '@/components/chat/message-list/turn-changes-card'
 import { useChatStore } from '@/stores/chat'
 import { useTts } from '@/hooks/use-tts'
 import { fetchApi } from '@/lib/api'
@@ -769,6 +771,13 @@ const MessageItem = React.memo(function MessageItem({
             />
             {/* #11 Citations 全链路(2026-09-13 立):引用溯源条 inline 到消息正文下方 */}
             {m.citations && m.citations.length > 0 && <CitationBar citations={m.citations} />}
+            {/* #19 + #20 流结束后:turn 级变更汇总卡 + 文件引用 chip(先卡后 chips) */}
+            {!isStreaming && (
+              <>
+                <TurnChangesCard message={m} conversationId={conversationId} />
+                <MessageFileChips toolCalls={m.toolCalls} />
+              </>
+            )}
           </div>
         )}
       </div>

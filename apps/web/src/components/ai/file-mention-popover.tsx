@@ -1,17 +1,17 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍​‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { FileText } from 'lucide-react'
+import { BookOpen, Code2, Folder, Terminal, FileText } from 'lucide-react'
 
 import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-// 2026-09-15 治理:定位/portal/关闭逻辑统一收敛到 PortalPanel(此前手写一套
-// createPortal + 坐标 + 监听,与全项目其余浮层重复约 10 份)。
+import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
+import { useAiPanelStore } from '@/stores/ai-panel'
 import { PortalPanel } from '@/components/feedback/portal-panel'
 
 interface MentionFile {
@@ -20,10 +20,36 @@ interface MentionFile {
   path: string
 }
 
+type MentionKind = 'file' | 'dir' | 'semantic'
+
+interface MentionItem extends MentionFile {
+  kind: MentionKind
+  icon?: React.ComponentType<{ className?: string }>
+  desc?: string
+}
+
+// 新增分组 UI 文案(i18n 键 groupDir/groupSemantic/semantic*Desc 已入 packages/i18n 5 语言,组件内 t() 引用)
+
+const SKIP_DIRS = new Set([
+  'node_modules',
+  '.git',
+  '.next',
+  'dist',
+  'build',
+  '.turbo',
+  '.cache',
+  'coverage',
+  '__pycache__',
+  'target',
+  'out',
+  '.output',
+  'venv',
+  'env',
+])
+
 interface FileMentionPopoverProps {
   files: MentionFile[]
   open: boolean
-  // 锚点元素(输入区容器):PortalPanel 以它做 fixed 定位
   anchorRef: React.RefObject<HTMLElement | null>
   onSelect: (file: MentionFile) => void
   onClose: () => void
@@ -39,14 +65,89 @@ export function FileMentionPopover({
   const t = useTranslations('fileMention')
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
+  // 活跃工作区第 1 层目录(异步读取 FileSystemDirectoryHandle)
+  const [dirItems, setDirItems] = React.useState<MentionItem[]>([])
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listRef = React.useRef<HTMLUListElement>(null)
 
-  const filtered = React.useMemo(() => {
+  React.useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    const ws = useAiPanelStore.getState().activeWorkspace
+    const handle = ws?.name ? getBrowserWorkspaceHandle(ws.name) : null
+    if (!handle) {
+      setDirItems([])
+    } else {
+      const run = async () => {
+        try {
+          const iterable = handle as unknown as {
+            values(): AsyncIterableIterator<FileSystemHandle>
+          }
+          const items: MentionItem[] = []
+          for await (const entry of iterable.values()) {
+            if (entry.kind === 'directory' && !SKIP_DIRS.has(entry.name)) {
+              items.push({
+                id: `dir:${entry.name}`,
+                name: entry.name,
+                path: `@目录:${entry.name}`,
+                kind: 'dir',
+                icon: Folder,
+              })
+            }
+          }
+          if (!cancelled) setDirItems(items)
+        } catch {
+          if (!cancelled) setDirItems([])
+        }
+      }
+      void run()
+    }
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
+  const semanticItems = React.useMemo<MentionItem[]>(
+    () => [
+      {
+        id: 'sem-codebase',
+        name: '#Codebase',
+        path: '#Codebase',
+        kind: 'semantic',
+        icon: Code2,
+        desc: t('semanticCodebaseDesc'),
+      },
+      {
+        id: 'sem-terminal',
+        name: '#Terminal',
+        path: '#Terminal',
+        kind: 'semantic',
+        icon: Terminal,
+        desc: t('semanticTerminalDesc'),
+      },
+      {
+        id: 'sem-docs',
+        name: '#Docs',
+        path: '#Docs',
+        kind: 'semantic',
+        icon: BookOpen,
+        desc: t('semanticDocsDesc'),
+      },
+    ],
+    [t],
+  )
+
+  // 语义源 + 目录 + 文件 统一过滤(对齐现有文件过滤姿势)
+  const allItems = React.useMemo<MentionItem[]>(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return files
-    return files.filter((f) => f.name.toLowerCase().includes(q) || f.path.toLowerCase().includes(q))
-  }, [files, query])
+    const match = (item: MentionItem) =>
+      !q || item.name.toLowerCase().includes(q) || item.path.toLowerCase().includes(q)
+    return [
+      ...semanticItems.filter(match),
+      ...dirItems.filter(match),
+      ...files.map((f) => ({ ...f, kind: 'file' as const })).filter(match),
+    ]
+  }, [query, semanticItems, dirItems, files])
 
   React.useEffect(() => {
     if (open) {
@@ -61,15 +162,16 @@ export function FileMentionPopover({
   }, [query])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    const count = allItems.length
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActiveIndex((prev) => Math.min(prev + 1, filtered.length - 1))
+      setActiveIndex((prev) => (count === 0 ? 0 : Math.min(prev + 1, count - 1)))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setActiveIndex((prev) => Math.max(prev - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      const current = filtered[activeIndex]
+      const current = allItems[activeIndex]
       if (current) {
         onSelect(current)
         onClose()
@@ -81,8 +183,9 @@ export function FileMentionPopover({
   }
 
   React.useEffect(() => {
-    const el = listRef.current?.querySelector(`[data-idx="${activeIndex}"]`)
-    el?.scrollIntoView({ block: 'nearest' })
+    listRef.current
+      ?.querySelector(`[data-idx="${activeIndex}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
   }, [activeIndex])
 
   return (
@@ -94,12 +197,8 @@ export function FileMentionPopover({
       align="start"
       gap={8}
       testId="file-mention-popover"
-      // 外观对齐全项目基准(rounded-md + border-border + bg-popover + shadow-md,与
-      // slash-command-palette / Select / view-switcher 等一致);w-72 收窄避免过宽
       className="flex w-72 flex-col overflow-hidden rounded-md border border-border bg-popover shadow-md"
     >
-      {/* 顶部搜索框(全项目统一搜索框:引用 @ihui/ui-react 共享 SearchInput,
-          圆角输入井唯一视觉来源;父容器 p-1.5 留内边距) */}
       <SearchInput
         ref={inputRef}
         value={query}
@@ -111,52 +210,65 @@ export function FileMentionPopover({
         wrapperClassName="p-1.5"
       />
       <ul ref={listRef} className="max-h-60 min-h-0 flex-1 overflow-y-auto p-1.5">
-        {filtered.length === 0 ? (
+        {allItems.length === 0 ? (
           <li className="flex flex-col items-center gap-1 py-8 text-center text-sm text-muted-foreground">
             {t('noMatch')}
           </li>
         ) : (
-          filtered.map((file, idx) => {
+          allItems.map((item, idx) => {
+            const prev = allItems[idx - 1]
+            const showHeading =
+              idx === 0 ||
+              (prev !== undefined &&
+                item.kind !== prev.kind &&
+                (item.kind === 'semantic' || item.kind === 'dir'))
             const isActive = idx === activeIndex
+            const Icon = item.icon ?? FileText
             return (
-              <li key={file.id}>
-                <button
-                  type="button"
-                  data-idx={idx}
-                  onClick={() => {
-                    onSelect(file)
-                    onClose()
-                  }}
-                  onMouseEnter={() => setActiveIndex(idx)}
-                  className={cn(
-                    'relative flex w-full items-start gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors',
-                    isActive
-                      ? 'bg-accent text-accent-foreground'
-                      : 'text-foreground hover:bg-accent/50',
-                  )}
-                >
-                  {/* active 项左侧高亮条(与 slash-command-palette 同款,2px primary 色条) */}
-                  {isActive && (
-                    <span
-                      className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-sm bg-primary"
-                      aria-hidden="true"
-                    />
-                  )}
-                  <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  {/* 单行截断:文件名 + 等宽字体路径(此前 break-words 多行换行显杂乱) */}
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="truncate text-sm font-medium leading-tight">{file.name}</span>
-                    <span className="truncate font-mono text-[10px] leading-snug text-muted-foreground">
-                      {file.path}
-                    </span>
-                  </div>
-                </button>
-              </li>
+              <React.Fragment key={`wrap-${item.id}`}>
+                {showHeading && (
+                  <li className="px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {item.kind === 'semantic' ? t('groupSemantic') : t('groupDir')}
+                  </li>
+                )}
+                <li>
+                  <button
+                    type="button"
+                    data-idx={idx}
+                    onClick={() => {
+                      onSelect(item)
+                      onClose()
+                    }}
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    className={cn(
+                      'relative flex w-full items-start gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors',
+                      isActive
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-foreground hover:bg-accent/50',
+                    )}
+                  >
+                    {isActive && (
+                      <span
+                        className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-sm bg-primary"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="truncate text-sm font-medium leading-tight">
+                        {item.name}
+                      </span>
+                      <span className="truncate font-mono text-[10px] leading-snug text-muted-foreground">
+                        {item.kind === 'semantic' ? (item.desc ?? item.path) : item.path}
+                      </span>
+                    </div>
+                  </button>
+                </li>
+              </React.Fragment>
             )
           })
         )}
       </ul>
-      {/* 底部快捷键提示条(与 slash-command-palette 同款:kbd 样式 + 右侧计数) */}
       <div className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1">
           <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
@@ -179,7 +291,7 @@ export function FileMentionPopover({
           {t('hintClose')}
         </span>
         <span className="ml-auto text-muted-foreground/60">
-          {t('hintFilesCount', { n: filtered.length })}
+          {t('hintFilesCount', { n: allItems.length })}
         </span>
       </div>
     </PortalPanel>
