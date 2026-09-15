@@ -52,7 +52,9 @@ function collectFiles(dir, acc = []) {
     if (
       name === 'node_modules' ||
       name === 'dist' ||
-      name === '.next' ||
+      // 2026-09-15 修复:.next-e2e/.next-static 等 IHUI_BUILD_DIST 变体同样是构建产物,
+      // 压缩 chunk 内含 api-client 单例实现本身,裸字符串匹配会误报 blocking。
+      name.startsWith('.next') ||
       name === '.pnpm' ||
       name === '.git' ||
       name === '.output' ||
