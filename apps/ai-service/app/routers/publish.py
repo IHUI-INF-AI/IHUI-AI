@@ -55,6 +55,13 @@ from app.services.publish.base_adapter import (
     list_all_adapter_classes,
 )
 from app.services.publish.credentials_crypto import decrypt, encrypt, generate_key_b64
+from app.services.publish.metrics_collector import (
+    collect_metrics,
+    latest_metrics,
+    latest_style_check,
+    persist_style_check,
+)
+from app.services.publish.post_publish_verifier import verify_published
 from app.services.publish.scheduler import publish_scheduler
 
 logger = get_logger(__name__)
@@ -1349,4 +1356,200 @@ async def ai_analyze_all(
     except Exception as e:
         logger.warning("[publish.ai/analyze-all] failed: %s", e)
         return JSONResponse(status_code=500, content={"code": 1, "message": str(e)})
+
+
+# =============================================================================
+# 监测端点(R4,2026-09-15 新增)
+# 契约固定:字段名不可改(前端并行开发依赖)。
+# - overview: 每个已发布平台一行(task_id/title/platform/account_id/status/
+#   published_url/platform_content_id/created_at/finished_at/last_error/
+#   resubmit_count/style_check/metrics)
+# - verify: 对任务已发布内容跑 post_publish_verifier 并持久化
+# - refresh-metrics: 对任务跑指标采集并返回最新快照
+# =============================================================================
+
+class MonitorVerifyRequest(BaseModel):
+    task_id: str
+
+
+class MonitorRefreshMetricsRequest(BaseModel):
+    task_id: str
+
+
+async def _account_id_for_task(conn: asyncpg.Connection, task_id: str, platform: str) -> int | None:
+    """从 publish_tasks.targets 取该平台对应的 account_id。"""
+    row = await conn.fetchrow("SELECT targets FROM publish_tasks WHERE task_id=$1", task_id)
+    if not row:
+        return None
+    targets = _json_or_raw(row["targets"])
+    if not isinstance(targets, list):
+        return None
+    for t in targets:
+        if isinstance(t, dict) and t.get("platform") == platform:
+            return t.get("account_id")
+    if targets and isinstance(targets[0], dict):
+        return targets[0].get("account_id")
+    return None
+
+
+async def _load_account_credentials(account_id: int, platform: str) -> dict[str, Any] | None:
+    """从 publish_accounts 解密账号凭证。"""
+    conn = await _get_conn()
+    try:
+        row = await conn.fetchrow(
+            "SELECT credentials_enc FROM publish_accounts WHERE id=$1 AND platform=$2",
+            account_id, platform,
+        )
+        if not row or not row["credentials_enc"]:
+            return None
+        return decrypt(row["credentials_enc"])
+    finally:
+        await conn.close()
+
+
+async def _resolve_published(conn: asyncpg.Connection, task_id: str, user_id: str) -> asyncpg.Record | None:
+    """取任务最近一次成功发布的(平台/内容id/标题/账号归属),含越权校验。"""
+    row = await conn.fetchrow(
+        """
+        SELECT h.platform, h.platform_content_id, h.published_url, t.title, t.user_id
+        FROM publish_history h
+        JOIN publish_tasks t ON t.task_id = h.task_id
+        WHERE h.task_id=$1 AND h.success=true
+        ORDER BY h.created_at DESC LIMIT 1
+        """,
+        task_id,
+    )
+    if row is None:
+        row = await conn.fetchrow(
+            """
+            SELECT h.platform, h.platform_content_id, h.published_url, t.title, t.user_id
+            FROM publish_history h
+            JOIN publish_tasks t ON t.task_id = h.task_id
+            WHERE h.task_id=$1
+            ORDER BY h.created_at DESC LIMIT 1
+            """,
+            task_id,
+        )
+    if row is None:
+        return None
+    if row["user_id"] != user_id:
+        return None
+    return row
+
+
+@router.get("/monitor/overview")
+async def monitor_overview(
+    limit: int = Query(20, ge=1, le=200),
+    request: Request = None,  # type: ignore[assignment]
+) -> dict[str, Any]:
+    """监测总览:每个已发布平台一行,含核验与最新指标。"""
+    user_id = _get_user_id(request)  # 鉴权 + IDOR 防护
+    conn = await _get_conn()
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT t.task_id, t.title, t.status, t.created_at, t.finished_at, t.error AS task_error,
+                   h.platform, h.published_url, h.platform_content_id, h.error_message AS hist_error,
+                   h.created_at AS hist_created
+            FROM publish_history h
+            JOIN publish_tasks t ON t.task_id = h.task_id
+            WHERE t.user_id = $1
+            ORDER BY t.created_at DESC
+            LIMIT $2
+            """,
+            user_id, limit,
+        )
+        items: list[dict[str, Any]] = []
+        for r in rows:
+            task_id = r["task_id"]
+            platform = r["platform"]
+            title = r["title"]
+            content_id = r["platform_content_id"]
+            account_id = await _account_id_for_task(conn, task_id, platform)
+            rc = await conn.fetchval(
+                """
+                SELECT count(*) FROM publish_history h2
+                JOIN publish_tasks t2 ON t2.task_id = h2.task_id
+                WHERE t2.title = $1 AND h2.platform = $2
+                """,
+                title, platform,
+            )
+            attempts = int(rc) if rc else 0
+            resubmit_count = max(0, attempts - 1)
+            style_check = await latest_style_check(task_id, platform)
+            metrics = await latest_metrics(task_id, platform)
+            last_error = r["hist_error"] or r["task_error"]
+            items.append({
+                "task_id": task_id,
+                "title": title,
+                "platform": platform,
+                "account_id": account_id,
+                "status": r["status"],
+                "published_url": r["published_url"],
+                "platform_content_id": content_id,
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                "finished_at": r["finished_at"].isoformat() if r["finished_at"] else None,
+                "last_error": last_error,
+                "resubmit_count": resubmit_count,
+                "style_check": style_check,  # 无核验时为 null
+                "metrics": metrics,  # 无指标时为 null
+            })
+        return _wrap_ok({"items": items})
+    finally:
+        await conn.close()
+
+
+@router.post("/monitor/verify")
+async def monitor_verify(body: MonitorVerifyRequest, request: Request) -> dict[str, Any]:
+    """对已发布内容跑 R2 核验,持久化并返回结果。"""
+    user_id = _get_user_id(request)
+    conn = await _get_conn()
+    try:
+        row = await _resolve_published(conn, body.task_id, user_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="任务不存在 / 未发布 / 无访问权限")
+        platform = row["platform"]
+        content_id = row["platform_content_id"]
+        title = row["title"]
+        if not content_id:
+            raise HTTPException(status_code=400, detail="任务无 platform_content_id,无法核验")
+        account_id = await _account_id_for_task(conn, body.task_id, platform)
+        if account_id is None:
+            raise HTTPException(status_code=400, detail="无法解析目标账号")
+        credentials = await _load_account_credentials(account_id, platform)
+        if credentials is None:
+            raise HTTPException(status_code=400, detail="无法加载账号凭证")
+    finally:
+        await conn.close()
+
+    result = await verify_published(platform, credentials, content_id, title)
+    await persist_style_check(body.task_id, platform, content_id, result)
+    return _wrap_ok(result)
+
+
+@router.post("/monitor/refresh-metrics")
+async def monitor_refresh_metrics(body: MonitorRefreshMetricsRequest, request: Request) -> dict[str, Any]:
+    """对已发布内容跑 R3 指标采集,返回最新快照。"""
+    user_id = _get_user_id(request)
+    conn = await _get_conn()
+    try:
+        row = await _resolve_published(conn, body.task_id, user_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="任务不存在 / 未发布 / 无访问权限")
+        platform = row["platform"]
+        content_id = row["platform_content_id"]
+        if not content_id:
+            raise HTTPException(status_code=400, detail="任务无 platform_content_id,无法采集")
+        account_id = await _account_id_for_task(conn, body.task_id, platform)
+        if account_id is None:
+            raise HTTPException(status_code=400, detail="无法解析目标账号")
+        credentials = await _load_account_credentials(account_id, platform)
+        if credentials is None:
+            raise HTTPException(status_code=400, detail="无法加载账号凭证")
+    finally:
+        await conn.close()
+
+    await collect_metrics(body.task_id, platform, content_id, credentials)
+    latest = await latest_metrics(body.task_id, platform)
+    return _wrap_ok(latest)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
