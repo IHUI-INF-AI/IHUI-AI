@@ -10,6 +10,8 @@ import { Plus, Terminal as TerminalIcon, Check, ChevronDown, Server, FileText } 
 import { cn } from '@/lib/utils'
 import type { TerminalCreateInput } from '@ihui/types'
 import { useTranslations } from 'next-intl'
+// 2026-09-15 治理:浮层定位/portal/关闭逻辑统一收敛到 PortalPanel
+import { PortalPanel } from '@/components/feedback/portal-panel'
 import {
   SHELL_OPTIONS,
   emptySshForm,
@@ -38,19 +40,6 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
   const [selectedShell, setSelectedShell] = React.useState<string>('powershell')
   const [sshForm, setSshForm] = React.useState<SshFormValues>(emptySshForm)
   const [sshError, setSshError] = React.useState<string | null>(null)
-
-  // 外部点击关闭菜单
-  React.useEffect(() => {
-    if (!menuOpen) return
-    const handle = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-        setSshError(null)
-      }
-    }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [menuOpen])
 
   const setSshField = (patch: Partial<SshFormValues>) =>
     setSshForm((prev) => ({ ...prev, ...patch }))
@@ -120,212 +109,217 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
       >
         <ChevronDown className="h-3 w-3" />
       </button>
-      {menuOpen && (
-        <div className="absolute left-0 top-7 z-50 w-64 overflow-hidden rounded-md border border-border bg-popover shadow-md">
-          {/* 连接类型单选 */}
-          <div className="bg-muted/40 px-2.5 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-            {t('terminalTabBar.connectType')}
-          </div>
-          <div className="flex gap-1 px-2 py-1.5">
-            <button
-              type="button"
-              className={cn(
-                'flex flex-1 items-center justify-center gap-1 rounded px-2 py-1 text-xs transition-colors',
-                connectKind === 'local'
-                  ? 'bg-accent text-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-              )}
-              onClick={() => setConnectKind('local')}
-            >
-              <TerminalIcon className="h-3 w-3" />
-              <span>{t('terminalTabBar.local')}</span>
-            </button>
-            <button
-              type="button"
-              className={cn(
-                'flex flex-1 items-center justify-center gap-1 rounded px-2 py-1 text-xs transition-colors',
-                connectKind === 'ssh'
-                  ? 'bg-accent text-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-              )}
-              onClick={() => setConnectKind('ssh')}
-            >
-              <Server className="h-3 w-3" />
-              <span>{t('terminalTabBar.sshRemote')}</span>
-            </button>
-          </div>
+      <PortalPanel
+        open={menuOpen}
+        anchorRef={menuRef}
+        onClose={() => {
+          setMenuOpen(false)
+          setSshError(null)
+        }}
+        side="bottom"
+        align="start"
+        gap={4}
+        className="w-64 overflow-hidden rounded-md border border-border bg-popover shadow-md"
+      >
+        {/* 连接类型单选 */}
+        <div className="bg-muted/40 px-2.5 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+          {t('terminalTabBar.connectType')}
+        </div>
+        <div className="flex gap-1 px-2 py-1.5">
+          <button
+            type="button"
+            className={cn(
+              'flex flex-1 items-center justify-center gap-1 rounded px-2 py-1 text-xs transition-colors',
+              connectKind === 'local'
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+            )}
+            onClick={() => setConnectKind('local')}
+          >
+            <TerminalIcon className="h-3 w-3" />
+            <span>{t('terminalTabBar.local')}</span>
+          </button>
+          <button
+            type="button"
+            className={cn(
+              'flex flex-1 items-center justify-center gap-1 rounded px-2 py-1 text-xs transition-colors',
+              connectKind === 'ssh'
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+            )}
+            onClick={() => setConnectKind('ssh')}
+          >
+            <Server className="h-3 w-3" />
+            <span>{t('terminalTabBar.sshRemote')}</span>
+          </button>
+        </div>
 
-          {/* 本地:Shell 类型选择 */}
-          {connectKind === 'local' && (
-            <>
-              <div className="bg-muted/40 px-2.5 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                {t('terminalTabBar.shellType')}
-              </div>
-              <div className="py-0.5">
-                {SHELL_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    className={cn(
-                      'flex w-full items-center justify-between gap-2 px-2.5 py-1 text-left text-xs transition-colors',
-                      'hover:bg-accent hover:text-accent-foreground',
-                      selectedShell === opt.value && 'text-foreground',
-                    )}
-                    onClick={() => setSelectedShell(opt.value)}
-                  >
-                    <span>{opt.label}</span>
-                    {selectedShell === opt.value && <Check className="h-3 w-3 opacity-70" />}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* SSH:表单 */}
-          {connectKind === 'ssh' && (
-            <div className="flex flex-col gap-1.5 px-2 py-1.5">
-              <label className="flex flex-col gap-0.5">
-                <span className="text-[10px] text-muted-foreground">
-                  {t('terminalTabBar.host')}
-                </span>
-                <input
-                  type="text"
-                  value={sshForm.host}
-                  onChange={(e) => setSshField({ host: e.target.value })}
-                  placeholder={t('terminalTabBar.hostPlaceholder')}
-                  className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
-                />
-              </label>
-              <label className="flex flex-col gap-0.5">
-                <span className="text-[10px] text-muted-foreground">
-                  {t('terminalTabBar.port')}
-                </span>
-                <input
-                  type="number"
-                  min={1}
-                  max={65535}
-                  value={sshForm.port}
-                  onChange={(e) => setSshField({ port: e.target.value })}
-                  className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
-                />
-              </label>
-              <label className="flex flex-col gap-0.5">
-                <span className="text-[10px] text-muted-foreground">
-                  {t('terminalTabBar.username')}
-                </span>
-                <input
-                  type="text"
-                  value={sshForm.username}
-                  onChange={(e) => setSshField({ username: e.target.value })}
-                  placeholder="root"
-                  className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
-                />
-              </label>
-              {/* 认证方式单选 */}
-              <div className="flex gap-1">
+        {/* 本地:Shell 类型选择 */}
+        {connectKind === 'local' && (
+          <>
+            <div className="bg-muted/40 px-2.5 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+              {t('terminalTabBar.shellType')}
+            </div>
+            <div className="py-0.5">
+              {SHELL_OPTIONS.map((opt) => (
                 <button
+                  key={opt.value}
                   type="button"
                   className={cn(
-                    'flex flex-1 items-center justify-center rounded px-2 py-0.5 text-[10px] transition-colors',
-                    sshForm.authMethod === 'password'
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                    'flex w-full items-center justify-between gap-2 px-2.5 py-1 text-left text-xs transition-colors',
+                    'hover:bg-accent hover:text-accent-foreground',
+                    selectedShell === opt.value && 'text-foreground',
                   )}
-                  onClick={() => setSshField({ authMethod: 'password' })}
+                  onClick={() => setSelectedShell(opt.value)}
                 >
-                  <span>{t('terminalTabBar.password')}</span>
+                  <span>{opt.label}</span>
+                  {selectedShell === opt.value && <Check className="h-3 w-3 opacity-70" />}
                 </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* SSH:表单 */}
+        {connectKind === 'ssh' && (
+          <div className="flex flex-col gap-1.5 px-2 py-1.5">
+            <label className="flex flex-col gap-0.5">
+              <span className="text-[10px] text-muted-foreground">{t('terminalTabBar.host')}</span>
+              <input
+                type="text"
+                value={sshForm.host}
+                onChange={(e) => setSshField({ host: e.target.value })}
+                placeholder={t('terminalTabBar.hostPlaceholder')}
+                className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+              />
+            </label>
+            <label className="flex flex-col gap-0.5">
+              <span className="text-[10px] text-muted-foreground">{t('terminalTabBar.port')}</span>
+              <input
+                type="number"
+                min={1}
+                max={65535}
+                value={sshForm.port}
+                onChange={(e) => setSshField({ port: e.target.value })}
+                className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+              />
+            </label>
+            <label className="flex flex-col gap-0.5">
+              <span className="text-[10px] text-muted-foreground">
+                {t('terminalTabBar.username')}
+              </span>
+              <input
+                type="text"
+                value={sshForm.username}
+                onChange={(e) => setSshField({ username: e.target.value })}
+                placeholder="root"
+                className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+              />
+            </label>
+            {/* 认证方式单选 */}
+            <div className="flex gap-1">
+              <button
+                type="button"
+                className={cn(
+                  'flex flex-1 items-center justify-center rounded px-2 py-0.5 text-[10px] transition-colors',
+                  sshForm.authMethod === 'password'
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+                onClick={() => setSshField({ authMethod: 'password' })}
+              >
+                <span>{t('terminalTabBar.password')}</span>
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  'flex flex-1 items-center justify-center rounded px-2 py-0.5 text-[10px] transition-colors',
+                  sshForm.authMethod === 'privateKey'
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+                onClick={() => setSshField({ authMethod: 'privateKey' })}
+              >
+                <span>{t('terminalTabBar.privateKey')}</span>
+              </button>
+            </div>
+            {sshForm.authMethod === 'password' ? (
+              <label className="flex flex-col gap-0.5">
+                <span className="text-[10px] text-muted-foreground">
+                  {t('terminalTabBar.password')}
+                </span>
+                <input
+                  type="password"
+                  value={sshForm.password}
+                  onChange={(e) => setSshField({ password: e.target.value })}
+                  className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                />
+              </label>
+            ) : (
+              <label className="flex flex-col gap-0.5">
+                <span className="text-[10px] text-muted-foreground">
+                  {t('terminalTabBar.privateKeyPem')}
+                </span>
+                <textarea
+                  value={sshForm.privateKey}
+                  onChange={(e) => setSshField({ privateKey: e.target.value })}
+                  placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
+                  rows={3}
+                  className="rounded border border-border bg-background p-1.5 font-mono text-[10px] outline-none focus:border-ring/50"
+                />
                 <button
                   type="button"
-                  className={cn(
-                    'flex flex-1 items-center justify-center rounded px-2 py-0.5 text-[10px] transition-colors',
-                    sshForm.authMethod === 'privateKey'
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                  )}
-                  onClick={() => setSshField({ authMethod: 'privateKey' })}
+                  className="flex items-center gap-1 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  onClick={() => privateKeyFileRef.current?.click()}
                 >
-                  <span>{t('terminalTabBar.privateKey')}</span>
+                  <FileText className="h-3 w-3" />
+                  <span>{t('terminalTabBar.selectPrivateKeyFile')}</span>
                 </button>
-              </div>
-              {sshForm.authMethod === 'password' ? (
+                <input
+                  ref={privateKeyFileRef}
+                  type="file"
+                  accept=".pem,.key,.id_rsa,.id_ed25519,.txt"
+                  onChange={handlePrivateKeyFile}
+                  className="hidden"
+                />
                 <label className="flex flex-col gap-0.5">
                   <span className="text-[10px] text-muted-foreground">
-                    {t('terminalTabBar.password')}
+                    {t('terminalTabBar.privateKeyPassphrase')}
                   </span>
                   <input
                     type="password"
-                    value={sshForm.password}
-                    onChange={(e) => setSshField({ password: e.target.value })}
+                    value={sshForm.passphrase}
+                    onChange={(e) => setSshField({ passphrase: e.target.value })}
                     className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
                   />
                 </label>
-              ) : (
-                <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] text-muted-foreground">
-                    {t('terminalTabBar.privateKeyPem')}
-                  </span>
-                  <textarea
-                    value={sshForm.privateKey}
-                    onChange={(e) => setSshField({ privateKey: e.target.value })}
-                    placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
-                    rows={3}
-                    className="rounded border border-border bg-background p-1.5 font-mono text-[10px] outline-none focus:border-ring/50"
-                  />
-                  <button
-                    type="button"
-                    className="flex items-center gap-1 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    onClick={() => privateKeyFileRef.current?.click()}
-                  >
-                    <FileText className="h-3 w-3" />
-                    <span>{t('terminalTabBar.selectPrivateKeyFile')}</span>
-                  </button>
-                  <input
-                    ref={privateKeyFileRef}
-                    type="file"
-                    accept=".pem,.key,.id_rsa,.id_ed25519,.txt"
-                    onChange={handlePrivateKeyFile}
-                    className="hidden"
-                  />
-                  <label className="flex flex-col gap-0.5">
-                    <span className="text-[10px] text-muted-foreground">
-                      {t('terminalTabBar.privateKeyPassphrase')}
-                    </span>
-                    <input
-                      type="password"
-                      value={sshForm.passphrase}
-                      onChange={(e) => setSshField({ passphrase: e.target.value })}
-                      className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
-                    />
-                  </label>
-                </label>
-              )}
-              {sshError && (
-                <div className="rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] text-destructive">
-                  {sshError}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 新建会话按钮 */}
-          <div className="bg-muted/40 py-0.5">
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-              onClick={handleCreateSession}
-              disabled={loading}
-            >
-              <Plus className="h-3 w-3" />
-              <span>
-                {connectKind === 'ssh'
-                  ? t('terminalTabBar.newSshSession')
-                  : t('terminalTabBar.newSession')}
-              </span>
-            </button>
+              </label>
+            )}
+            {sshError && (
+              <div className="rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] text-destructive">
+                {sshError}
+              </div>
+            )}
           </div>
+        )}
+
+        {/* 新建会话按钮 */}
+        <div className="bg-muted/40 py-0.5">
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+            onClick={handleCreateSession}
+            disabled={loading}
+          >
+            <Plus className="h-3 w-3" />
+            <span>
+              {connectKind === 'ssh'
+                ? t('terminalTabBar.newSshSession')
+                : t('terminalTabBar.newSession')}
+            </span>
+          </button>
         </div>
-      )}
+      </PortalPanel>
     </div>
   )
 }

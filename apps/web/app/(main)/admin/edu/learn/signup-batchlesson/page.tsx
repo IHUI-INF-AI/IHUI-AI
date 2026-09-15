@@ -9,26 +9,25 @@ import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import { Loader2, ChevronLeft, ChevronRight, Download, Upload, BookCopy } from 'lucide-react'
-
+import { BookCopy, ChevronLeft, ChevronRight, Download, Loader2, Upload } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { exportToExcel } from '@/lib/export-utils'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
   Button,
-  Input,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@ihui/ui-react'
 
 interface BatchLesson {
@@ -164,11 +163,11 @@ export default function AdminLearnSignupBatchLessonPage() {
           </Select>
         </div>
         <div className="relative w-full max-w-xs">
-          <Input
+          <SearchInput
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索课程或批次号"
-            className="h-9"
+            size="lg"
           />
         </div>
         <Button variant="outline" size="sm" onClick={handleExport} disabled={rows.length === 0}>

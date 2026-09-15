@@ -9,24 +9,24 @@ import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
-import { Loader2, ChevronLeft, ChevronRight, Receipt, Search, Check } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Loader2, Receipt } from 'lucide-react'
 import { eduApi, buildQs, selectClass, type PageData } from '@/lib/edu'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
   Button,
-  Input,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@ihui/ui-react'
 
 interface Invoice {
@@ -117,15 +117,13 @@ export default function EduFinanceInvoicesPage() {
             {t('backToFinance')}
           </Link>
         </Button>
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t('searchPlaceholder')}
+          size="lg"
+          wrapperClassName="w-full max-w-xs"
+        />
         <div className="w-full max-w-[140px]">
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className={selectClass} aria-label={t('statusLabel')}>

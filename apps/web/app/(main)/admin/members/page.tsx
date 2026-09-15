@@ -8,8 +8,8 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Plus, Search, ChevronLeft, ChevronRight, Crown, UploadCloud } from 'lucide-react'
-import { Button, Input } from '@ihui/ui-react'
+import { ChevronLeft, ChevronRight, Crown, Plus, UploadCloud } from 'lucide-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 import { fetchMembers, type Member, type MemberLevel, api, PAGE_SIZE } from './types'
 import { MemberStats } from './MemberStats'
 import { MembersTable } from './MembersTable'
@@ -86,16 +86,14 @@ export default function AdminMembersPage() {
       <MemberStats t={t} />
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-8"
-            aria-label={t('search')}
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t('searchPlaceholder')}
+          aria-label={t('search')}
+          size="lg"
+          wrapperClassName="w-full max-w-xs"
+        />
       </div>
 
       <MembersTable

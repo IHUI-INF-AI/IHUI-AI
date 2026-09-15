@@ -10,6 +10,8 @@ import { X, Hash } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import type { ContextSelectorCategory } from '@/hooks/use-context-selector'
+// 2026-09-15 治理:定位/portal 逻辑统一收敛到 PortalPanel(全项目浮层一套逻辑)
+import { PortalPanel } from '@/components/feedback/portal-panel'
 
 // ============================================================================
 // W20 九类 # 上下文选择器弹层 + 类型徽章 chips(对标 Trae)
@@ -22,6 +24,8 @@ interface ContextSelectorPopoverProps {
   query: string
   filtered: ContextSelectorCategory[]
   activeIndex: number
+  /** 锚点元素(输入区容器),弹层以它为参照 portal 到 body 上方弹出 */
+  anchorRef: React.RefObject<HTMLElement | null>
   onHover: (idx: number) => void
   onSelect: (category: ContextSelectorCategory) => void
 }
@@ -31,6 +35,7 @@ export function ContextSelectorPopover({
   query,
   filtered,
   activeIndex,
+  anchorRef,
   onHover,
   onSelect,
 }: ContextSelectorPopoverProps) {
@@ -42,12 +47,15 @@ export function ContextSelectorPopover({
     el?.scrollIntoView({ block: 'nearest' })
   }, [activeIndex])
 
-  if (!open) return null
-
   return (
-    <div
-      className="absolute bottom-full left-0 z-popover mb-2 w-80 overflow-hidden rounded-lg border bg-popover shadow-lg"
-      data-testid="context-selector-popover"
+    <PortalPanel
+      open={open}
+      anchorRef={anchorRef}
+      side="top"
+      align="start"
+      gap={8}
+      testId="context-selector-popover"
+      className="flex w-80 flex-col overflow-hidden rounded-md border border-border bg-popover shadow-md"
     >
       <div className="flex items-center gap-2 bg-muted/40 px-3 py-2">
         <Hash className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -58,7 +66,7 @@ export function ContextSelectorPopover({
           </span>
         )}
       </div>
-      <ul ref={listRef} className="max-h-60 overflow-y-auto p-1">
+      <ul ref={listRef} className="max-h-60 min-h-0 flex-1 overflow-y-auto p-1">
         {filtered.length === 0 ? (
           <li
             className="px-3 py-6 text-center text-sm text-muted-foreground"
@@ -100,7 +108,7 @@ export function ContextSelectorPopover({
           })
         )}
       </ul>
-    </div>
+    </PortalPanel>
   )
 }
 

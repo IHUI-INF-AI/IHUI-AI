@@ -8,34 +8,33 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  KeyRound,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Power,
-  RefreshCw,
-  Trash2,
-  Plus,
-  Loader2,
-} from 'lucide-react'
-
+import {} from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
   Button,
-  Input,
-  Label,
-  Switch,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
+  ChevronLeft,
+  ChevronRight,
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
+  Input,
+  KeyRound,
+  Label,
+  Loader2,
+  Plus,
+  Power,
+  RefreshCw,
+  Search,
+  SearchInput,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  Trash2,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
@@ -191,18 +190,15 @@ export default function AdminRelayKeyPoolPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative max-w-xs flex-1">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => {
-              setPage(1)
-              setSearch(e.target.value)
-            }}
-            placeholder="搜索 name / provider / keyPrefix"
-            className="pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => {
+            setPage(1)
+            setSearch(e.target.value)
+          }}
+          placeholder="搜索 name / provider / keyPrefix"
+          wrapperClassName="max-w-xs flex-1"
+        />
         <Input
           value={provider}
           onChange={(e) => {

@@ -192,7 +192,9 @@ function scanDir(dir, allFiles = []) {
     let s;
     try { s = statSync(full); } catch { continue; }
     if (s.isDirectory()) {
-      if (isExcludedDirName(entry)) continue;
+      // 2026-09-15:walker 须同时检查脚本级 EXCLUDED_DIRS(含 'public'/'tmp'),
+      // 仅用 isExcludedDirName(共享集)会漏掉脚本特有排除目录
+      if (isExcludedDirName(entry) || EXCLUDED_DIRS.has(entry)) continue;
       scanDir(full, allFiles);
     } else if (SCRIPT_EXTS.has(extname(full).toLowerCase())) {
       allFiles.push(full);

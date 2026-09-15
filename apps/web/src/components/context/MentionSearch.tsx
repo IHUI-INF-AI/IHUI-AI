@@ -6,8 +6,8 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2, Search } from 'lucide-react'
-import { Input } from '@ihui/ui-react'
+import { Loader2 } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { ContextType, Mention } from '@ihui/shared/context/index'
 
@@ -59,17 +59,16 @@ export function MentionSearch({
   const t = useTranslations('mentionSearch')
   return (
     <div className={cn('flex flex-col gap-3', className)}>
+      {/* 全项目统一搜索框(共享 SearchInput 圆角输入井) */}
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
+        <SearchInput
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={`搜索${TYPE_TABS.find((t) => t.value === activeType)?.label ?? ''}…`}
-          className="pl-9"
           aria-label={t('keywordAriaLabel')}
         />
         {isLoading && (
-          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+          <Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
         )}
       </div>
 

@@ -6,11 +6,11 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Users, LogOut, Smartphone, Monitor } from 'lucide-react'
+import { LogOut, Monitor, Smartphone, Users } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input } from '@ihui/ui-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 import { DataTable, type Column, Badge } from '@/components/data'
 import { BackButton } from '@/components/common'
 
@@ -162,14 +162,14 @@ export default function OnlineUsersPage() {
         </Badge>
       </div>
 
-      <Input
+      <SearchInput
         placeholder="搜索用户名或IP地址..."
         value={search}
         onChange={(e) => {
           setSearch(e.target.value)
           setPage(1)
         }}
-        className="max-w-sm"
+        wrapperClassName="max-w-sm"
       />
 
       <DataTable

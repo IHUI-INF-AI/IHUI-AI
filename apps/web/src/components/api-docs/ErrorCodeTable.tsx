@@ -6,11 +6,11 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Search, AlertTriangle } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import {
   Card,
   CardContent,
-  Input,
+  SearchInput,
   Table,
   TableHeader,
   TableBody,
@@ -125,15 +125,13 @@ export function ErrorCodeTable(): React.JSX.Element {
           所有 API 错误码、HTTP 状态码含义与修复建议,支持搜索。
         </p>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-9"
-          />
-        </div>
+        <SearchInput
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          placeholder={t('searchPlaceholder')}
+          size="lg"
+          wrapperClassName="w-full"
+        />
 
         <div className="overflow-hidden rounded-md border">
           <Table>

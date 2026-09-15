@@ -686,7 +686,14 @@ describe('MessageContextMenu — 自定义 icon prop 覆盖', () => {
   })
 
   it('item.icon 优先于默认 buildIcon(根据 action 派生的图标)', () => {
-    const customIcon = <span data-testid="custom-icon-123">★</span>
+    // 2026-09-15:★ 命中 emoji 图标守门,改用 SVG 圆点(测试仅断言 data-testid 优先级,字形无关)
+    const customIcon = (
+      <span data-testid="custom-icon-123">
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+          <circle cx="5" cy="5" r="4" fill="currentColor" />
+        </svg>
+      </span>
+    )
     const items: ContextMenuItem[] = [
       { id: 'copy', label: '复制', action: 'copy', icon: customIcon },
     ]
