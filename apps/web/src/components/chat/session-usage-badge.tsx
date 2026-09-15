@@ -8,9 +8,17 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Coins, Loader2 } from 'lucide-react'
 
-import { getAgentTokenUsage, type AgentTokenUsageSummary } from '@ihui/api-client'
+import {
+  getAgentTokenUsage,
+  getModelPriceCny,
+  getTokenBalance,
+  type AgentTokenUsageSummary,
+  type ModelPriceCny,
+  type TokenBalance,
+} from '@ihui/api-client'
 import { Tooltip } from '@/components/feedback'
 import { formatNumber } from '@/lib/date-utils'
+import { cn } from '@/lib/utils'
 
 /**
  * 混合模型粗估单价(¥ / 1K token)。
@@ -39,16 +47,24 @@ export interface SessionUsageBadgeProps {
  * hover 展开明细(输入 / 输出 / 请求数 / 估算口径)。数据源 checkpoint 逐轮估算,
  * 会话切换拉取一次;流式结束后再刷新兜底。
  */
-export function SessionUsageBadge({ conversationId, isStreaming }: SessionUsageBadgeProps) {
+export function SessionUsageBadge({ conversationId, isStreaming, model }: SessionUsageBadgeProps) {
   const t = useTranslations('chat.sessionUsage')
   const [usage, setUsage] = React.useState<AgentTokenUsageSummary | null>(null)
   const [loading, setLoading] = React.useState(false)
+  // W4:当前模型真实单价(元/千 token);null = 未命中 / 非 CNY / 接口不可用 → 不展示 ¥
+  const [price, setPrice] = React.useState<ModelPriceCny | null>(null)
+  // #26(2026-09-13):用户 Token 余额/月配额(GET /api/user/token-balance);接口不可用 → null 不展示
+  const [quota, setQuota] = React.useState<TokenBalance | null>(null)
 
   const refresh = React.useCallback(async (id: string) => {
     setLoading(true)
     try {
-      const summary = await getAgentTokenUsage(id)
+      const [summary, balanceRes] = await Promise.all([
+        getAgentTokenUsage(id),
+        getTokenBalance().catch(() => null),
+      ])
       setUsage(summary.totalTokens > 0 ? summary : null)
+      setQuota(balanceRes?.success ? (balanceRes.data ?? null) : null)
     } catch {
       setUsage(null)
     } finally {
@@ -60,6 +76,7 @@ export function SessionUsageBadge({ conversationId, isStreaming }: SessionUsageB
   React.useEffect(() => {
     if (!conversationId) {
       setUsage(null)
+      setQuota(null)
       return
     }
     void refresh(conversationId)
@@ -74,9 +91,56 @@ export function SessionUsageBadge({ conversationId, isStreaming }: SessionUsageB
     prevStreamingRef.current = isStreaming
   }, [isStreaming, conversationId, refresh])
 
+  // W4:模型变化 → 查真实价目表;竞态用 cancelled 丢弃过期结果
+  React.useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const p = await getModelPriceCny(model ?? '')
+        if (!cancelled) setPrice(p)
+      } catch {
+        if (!cancelled) setPrice(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [model])
+
   if (!conversationId || !usage) return null
 
   const cost = estimateCostCny(usage.totalTokens)
+
+  // W4:输入/输出分别按各自单价折算(单价单位:元/千 token);价目缺失则整体不显示 ¥
+  const inputCost = price ? (usage.promptTokens / 1000) * price.inputPricePer1kCny : null
+  const outputCost = price ? (usage.completionTokens / 1000) * price.outputPricePer1kCny : null
+  const totalCost = inputCost !== null && outputCost !== null ? inputCost + outputCost : null
+
+  // #26(2026-09-13 立):月配额使用率 = 1 - 余额/月配额;无月配额(未配 VIP/接口缺失)为 null。
+  // 分级告警沿用 context-usage-ring 的 used 阈值口径:≥0.95 红 / ≥0.8 橙 / ≥0.5 琥珀
+  const monthlyQuota = quota ? (typeof quota.monthlyQuota === 'number' ? quota.monthlyQuota : 0) : 0
+  const quotaUsedRatio =
+    monthlyQuota > 0 && quota ? Math.min(1, Math.max(0, 1 - quota.balance / monthlyQuota)) : null
+  const quotaBarClass =
+    quotaUsedRatio === null
+      ? null
+      : quotaUsedRatio >= 0.95
+        ? 'bg-red-500'
+        : quotaUsedRatio >= 0.8
+          ? 'bg-orange-500'
+          : quotaUsedRatio >= 0.5
+            ? 'bg-amber-500'
+            : 'bg-primary'
+  const quotaTextClass =
+    quotaUsedRatio === null
+      ? 'text-muted-foreground'
+      : quotaUsedRatio >= 0.95
+        ? 'text-red-500'
+        : quotaUsedRatio >= 0.8
+          ? 'text-orange-500'
+          : quotaUsedRatio >= 0.5
+            ? 'text-amber-500'
+            : 'text-muted-foreground'
   return (
     <Tooltip
       content={
@@ -90,6 +154,59 @@ export function SessionUsageBadge({ conversationId, isStreaming }: SessionUsageB
           <span className="tabular-nums">
             {t('requests')}: {usage.requests}
           </span>
+          {/* #26:用户 Token 余额/月配额行(接口可用且 vipLevel 缺省时不展示折扣) */}
+          {quota && (
+            <>
+              <span className="tabular-nums">
+                {t('balance')}: {formatNumber(quota.balance)}
+                {typeof quota.monthlyQuota === 'number' && quota.monthlyQuota > 0
+                  ? ` / ${formatNumber(quota.monthlyQuota)}`
+                  : ''}
+              </span>
+              {/* #26:月配额余量进度条 + 使用率百分比(仅当月配额有效) */}
+              {quotaUsedRatio !== null && (
+                <div className="mt-1 w-44">
+                  <div className="h-1.5 w-full overflow-hidden rounded-sm bg-muted-foreground/20">
+                    <div
+                      className={cn('h-full rounded-sm transition-all', quotaBarClass)}
+                      style={{
+                        width: `${Math.max(2, Math.round(quotaUsedRatio * 100))}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="tabular-nums text-[10px]">
+                    {t('quotaUsedPercent', { percent: Math.round(quotaUsedRatio * 100) })}
+                  </span>
+                </div>
+              )}
+              {typeof quota.discountRate === 'number' && quota.discountRate < 1 && (
+                <>
+                  <span className="tabular-nums">
+                    {t('vipDiscount', {
+                      level: quota.vipLevel ?? 0,
+                      rate: Math.round(quota.discountRate * 100),
+                    })}
+                  </span>
+                  {quota.isPromotionPeriod && (
+                    <span className="text-muted-foreground">{t('promotionHint')}</span>
+                  )}
+                </>
+              )}
+            </>
+          )}
+          {inputCost !== null && outputCost !== null ? (
+            <>
+              <span className="tabular-nums">
+                {t('inputCost')}: ¥{inputCost.toFixed(3)}
+              </span>
+              <span className="tabular-nums">
+                {t('outputCost')}: ¥{outputCost.toFixed(3)}
+              </span>
+              <span className="text-muted-foreground">{t('pricingHint')}</span>
+            </>
+          ) : (
+            <span className="text-muted-foreground">{t('noPriceHint')}</span>
+          )}
           <span className="text-muted-foreground">{t('estimateHint')}</span>
         </div>
       }
@@ -106,6 +223,18 @@ export function SessionUsageBadge({ conversationId, isStreaming }: SessionUsageB
         )}
         <span className="whitespace-nowrap">{formatNumber(usage.totalTokens)}</span>
         <span className="whitespace-nowrap text-foreground">¥{cost.toFixed(3)}</span>
+        {totalCost !== null ? (
+          <span className="whitespace-nowrap text-foreground">¥{totalCost.toFixed(3)}</span>
+        ) : null}
+        {/* #26:badge 本体直接展示月配额使用率,分级变色(≥0.5 琥珀 / ≥0.8 橙 / ≥0.95 红) */}
+        {quotaUsedRatio !== null && (
+          <span
+            data-testid="session-usage-quota-percent"
+            className={cn('whitespace-nowrap font-semibold', quotaTextClass)}
+          >
+            {Math.round(quotaUsedRatio * 100)}%
+          </span>
+        )}
       </span>
     </Tooltip>
   )
