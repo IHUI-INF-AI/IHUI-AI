@@ -27,7 +27,10 @@ import { test, expect } from '@playwright/test'
  *  - apps/web/messages/{zh-CN,zh-TW,en,ko,ja}.json
  */
 
-const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8801'
+// 2026-09-15 修:回退链补 PLAYWRIGHT_BASE_URL(与 playwright.config baseURL 同源),
+// 本地隔离端口(8821)跑 E2E 时不再误打 8801 dev server(dev overlay 会拦截点击)。
+const BASE_URL =
+  process.env.E2E_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8801'
 
 test.describe('登录弹窗 3 步 Enter 键盘交互流', () => {
   test.beforeEach(async ({ page }) => {
