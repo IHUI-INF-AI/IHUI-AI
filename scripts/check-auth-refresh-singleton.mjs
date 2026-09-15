@@ -59,7 +59,9 @@ function collectFiles(dir, acc = []) {
       name === 'build' ||
       name === 'coverage' ||
       name === 'out' ||
-      name === '.turbo'
+      name === '.turbo' ||
+      name === '.rollback' ||
+      name.startsWith('.next-')
     ) continue
     const p = join(dir, name)
     let st
