@@ -147,24 +147,6 @@
   padding: 24rpx 20rpx 96rpx;
 }
 
-/* 搜索栏 */
-.share-search {
-  padding: 16rpx 24rpx;
-  background: var(--color-card);
-}
-.share-search-input {
-  height: 72rpx;
-  padding: 0 28rpx;
-  background: var(--color-muted);
-  border-radius: 36rpx;
-  font-size: 26rpx;
-  color: var(--color-foreground);
-  border: 1rpx solid var(--color-border);
-}
-.share-search-input::placeholder {
-  color: var(--color-muted-foreground);
-}
-
 /* 资讯卡片样式由 InformationItem 组件内联实现,此处仅保留空状态/加载样式 */
 .share-empty {
   text-align: center;
