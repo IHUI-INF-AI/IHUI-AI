@@ -2,22 +2,27 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/**
+ * KnowledgeCreateScreen 知识库新建(mobile-rn 端 wrapper)
+ *
+ * 2026-09-15 迁移:UI 与展示逻辑已下沉共享层 @ihui/rn-app KnowledgeCreateScreen,
+ * 本 wrapper 仅保留平台特定职责:
+ * - 数据:ingestKnowledgeText 文本入库(必填校验 + Alert 成功/失败反馈)
+ * - 导航:提交成功后 goBack;主题与 i18n 注入
+ */
 import { useState } from 'react'
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAuthStore } from '../stores/auth-store'
 import { ingestKnowledgeText } from '@ihui/api-client'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { KnowledgeCreateScreen as SharedKnowledgeCreateScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-/**
- * 知识库新建(M3 补齐:文本入库 ingestKnowledgeText)
- */
 export function KnowledgeCreateScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
@@ -45,56 +50,18 @@ export function KnowledgeCreateScreen() {
     }
   }
 
-  const dark = resolvedTheme === 'dark'
-
   return (
-    <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
-      <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text className="text-sm text-gray-500">{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text className="text-base font-medium">{t('knowledgeCreate.title')}</Text>
-        <TouchableOpacity
-          onPress={() => void onSubmit()}
-          disabled={submitting}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text className="text-sm text-orange-600">{t('knowledgeCreate.submit')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView className="flex-1 px-4 pt-2" keyboardShouldPersistTaps="handled">
-        <Text className={`mb-1.5 text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
-          {t('knowledgeCreate.titleLabel')}
-        </Text>
-        <TextInput
-          value={title}
-          onChangeText={setTitle}
-          placeholder={t('knowledgeCreate.titlePlaceholder')}
-          placeholderTextColor={dark ? tokens.text.secondary : tokens.text.tertiary}
-          maxLength={200}
-          className={`mb-4 rounded-md border p-3 text-base ${dark ? 'border-neutral-700 bg-neutral-800 text-white' : 'border-gray-300 bg-white text-black'}`}
-        />
-        <Text className={`mb-1.5 text-sm ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
-          {t('knowledgeCreate.textLabel')}
-        </Text>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder={t('knowledgeCreate.textPlaceholder')}
-          placeholderTextColor={dark ? tokens.text.secondary : tokens.text.tertiary}
-          multiline
-          textAlignVertical="top"
-          className={`min-h-[220px] rounded-md border p-3 text-base ${dark ? 'border-neutral-700 bg-neutral-800 text-white' : 'border-gray-300 bg-white text-black'}`}
-        />
-        <Text className={`mt-2 text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
-          {t('knowledgeCreate.hint')}
-        </Text>
-      </ScrollView>
-    </View>
+    <SharedKnowledgeCreateScreen
+      t={t}
+      title={title}
+      onTitleChange={setTitle}
+      text={text}
+      onTextChange={setText}
+      submitting={submitting}
+      onSubmit={() => void onSubmit()}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
