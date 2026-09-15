@@ -239,7 +239,9 @@
     "autoOn": "Auto-capture: on",
     "autoOff": "Auto-capture: off",
     "export": "Export",
-    "clear": "Clear"
+    "clear": "Clear",
+    "regenerate": "Regenerate",
+    "regenerateDisabledHint": "No repository folder selected or no files collected yet."
   },
   "a11y": {
     "addAttachment": "Add attachment (image / video / file)",
@@ -9060,7 +9062,8 @@
       "balance": "Token balance",
       "vipDiscount": "VIP{level} · billed at {rate}%",
       "promotionHint": "Extra 20% off during promotion",
-      "quotaUsedPercent": "Monthly quota {percent}% used"
+      "quotaUsedPercent": "Monthly quota {percent}% used",
+      "estimateHint": "Usage is estimated locally; the bill is authoritative"
     },
     "showReasoning": "Show Reasoning",
     "skillLibrary": {
@@ -9332,7 +9335,33 @@
       "userNode": "User message",
       "toolNode": "Tool call",
       "errorNode": "Failed message"
-    }
+    },
+    "sampling": {
+      "clearParam": "Reset {{name}}",
+      "useModelDefault": "Use model default",
+      "title": "Sampling parameters",
+      "desc": "Adjust temperature, top_p and other inference parameters. Applies to the current conversation only.",
+      "scopeSession": "Session",
+      "scopeDefault": "Default",
+      "promoteToDefaults": "Save as defaults",
+      "temperature": "Temperature",
+      "temperatureHint": "Higher = more creative, lower = more deterministic.",
+      "topP": "Top P",
+      "topPHint": "Upper bound of nucleus sampling probability mass.",
+      "topK": "Top K",
+      "topKHint": "Sample only from the K most likely candidates at each step.",
+      "maxTokens": "Max output tokens",
+      "maxTokensHint": "Limits the maximum length of a single reply.",
+      "systemPrompt": "System prompt",
+      "systemPromptPlaceholder": "Enter a system prompt for this conversation…",
+      "systemPromptHint": "Applies to this session only; not saved as default.",
+      "resetAll": "Reset all",
+      "done": "Done",
+      "triggerActive": "Sampling · {{count}} overrides",
+      "trigger": "Sampling parameters",
+      "triggerAria": "Open sampling parameters"
+    },
+    "editComingSoon": "Message editing is coming soon"
   },
   "chatHistory": {
     "backToHistory": "Back to History",
@@ -21949,5 +21978,9 @@
     "commentPlaceholder": "Share your experience (optional)",
     "submitRating": "Submit rating",
     "ratingSuccess": "Rating submitted"
+  },
+  "chatSearchBar": {
+    "searchPlaceholder": "Search conversations…",
+    "searchAriaLabel": "Search conversations"
   }
 }
