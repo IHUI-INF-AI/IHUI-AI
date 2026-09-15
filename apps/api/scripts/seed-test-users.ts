@@ -34,7 +34,18 @@ import { eq } from 'drizzle-orm'
  * CI 容器库 + CI=true,不受影响;本地显式传 ihui_e2e 也放行。
  */
 const DATABASE_URL = process.env.DATABASE_URL ?? ''
-if (DATABASE_URL.includes('ihui_dev') && process.env.CI !== 'true') {
+// 2026-09-15 修复:原裸 includes('ihui_dev') 会把密码含 ihui_dev 的合法隔离库
+// (如 ihui:ihui_dev_xxx@host/ihui_e2e)误判为生产库。改为解析 URL 取库名段精确匹配;
+// URL 解析失败时保守回退 includes(宁可误杀不可漏放)。
+const seedDbName = (() => {
+  try {
+    return new URL(DATABASE_URL).pathname.replace(/\/+$/, '').split('/').pop() ?? ''
+  } catch {
+    return DATABASE_URL.includes('ihui_dev') ? 'ihui_dev' : ''
+  }
+})()
+const isProdDb = seedDbName ? seedDbName === 'ihui_dev' : DATABASE_URL.includes('ihui_dev')
+if (isProdDb && process.env.CI !== 'true') {
   console.error(
     '[seed-test-users] 拒绝执行:DATABASE_URL 指向生产库 ihui_dev。' +
       'E2E 种子只允许写入隔离库,请显式传 DATABASE_URL(如 ihui_e2e);CI 环境不受影响。',
