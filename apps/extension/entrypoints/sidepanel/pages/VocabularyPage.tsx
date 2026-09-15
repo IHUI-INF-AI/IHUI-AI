@@ -14,7 +14,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { sendMessage } from '../../../lib/message-router'
 import { useI18n } from '../../../src/i18n'
-import { Button, Card, CardContent, Input } from '@ihui/ui-react'
+import { Button, Card, CardContent, Input, SearchInput } from '@ihui/ui-react'
 import {
   addWord,
   getAllWords,
@@ -218,12 +218,11 @@ export default function VocabularyPage() {
               {t('wordbook.countLabel', { count: total })}
             </span>
           </div>
-          <Input
-            type="text"
+          <SearchInput
+            size="sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('wordbook.searchPlaceholder')}
-            className="flex-1 text-xs px-1.5 py-1"
           />
           {wordbook.length === 0 ? (
             <div className="text-xs text-muted-foreground whitespace-nowrap py-2">
