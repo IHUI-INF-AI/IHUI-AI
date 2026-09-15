@@ -15,6 +15,11 @@
  *
  * 用法: node scripts/patch-rn-release-signing.mjs        # 幂等注入
  *       node scripts/patch-rn-release-signing.mjs -f     # --force 先还原模板再注入(验注入路径)
+ *
+ * ⚠️ 2026-09-15 修复: 第 1 段注入的 versionCode 表达式原先缺一层外层括号,
+ *    Groovy 会把 `(expr).toString().toInteger()` 当成独立调用链, 使 `versionCode`
+ *    退化为属性读取并读到 null → `Value is null` 配置阶段直接失败(整个 assembleRelease 不可用)。
+ *    详见 SECTIONS[1].apply 内注释, 改动请勿简化括号。
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -38,9 +43,12 @@ const SECTIONS = [
           '',
           `// 版本号(${MARK}): versionName 同步 apps/mobile-rn/package.json, 与 JS 侧保持一致;`,
           '// versionCode 支持 -PversionCode=N 覆盖(脚本内自增), 缺省 1。',
-          'def appVersionName = new File(',
-          "    [\"node\", \"--print\", \"require('./package.json').version\"].execute(null, rootDir.getAbsoluteFile().getParentFile()).text.trim()",
-          ')',
+          // ⚠️ 必须让 appVersionName 保持 **String** 类型。
+          // 曾写成 `new File([...].execute(...).text.trim())` —— 拿到的是 File 对象,
+          // 而 AGP 的 versionName 是 Property<String>, File → String 转换失败被置为 null,
+          // 抛 `IllegalArgumentException: Value is null`(行号指向 versionName 那一行)。
+          // 2026-09-15 实测修复, 请勿再包 new File。
+          'def appVersionName = ["node", "--print", "require(\'./package.json\').version"].execute(null, rootDir.getAbsoluteFile().getParentFile()).text.trim()',
           '',
           'android {',
         ].join('\n')
@@ -48,11 +56,19 @@ const SECTIONS = [
   },
   {
     label: 'defaultConfig 版本号接入',
-    detect: (s) => s.includes("versionCode (findProperty('versionCode')"),
+    // detect 只认 findProperty('versionCode') 本身, 兼容 2026-09-15 前后的两种写法
+    detect: (s) => s.includes("findProperty('versionCode')"),
     apply: (s) =>
       s.replace(
         '        versionCode 1\n        versionName "0.0.0"\n',
-        "        versionCode (findProperty('versionCode') ?: '1').toString().toInteger()\n        versionName appVersionName\n"
+        // ⚠️ 参数必须再包一层括号。写成 `versionCode (expr).toString().toInteger()` 时,
+        // Groovy 会把 `(expr).toString().toInteger()` 当成**独立的调用链**, 于是
+        // `versionCode` 退化为属性读取 → 读到 null → Gradle 报
+        // `IllegalArgumentException: Value is null`
+        // (堆栈: ConfigureDelegate.invokeMethod → MixInClosurePropertiesAsMethodsDynamicObject
+        //        → BeanDynamicObject.<init> → "Value is null", 指向本行)。
+        // 2026-09-15 实测踩坑并修复, 请勿简化回无外层括号的写法。
+        "        versionCode((findProperty('versionCode') ?: '1').toString().toInteger())\n        versionName appVersionName\n"
       ),
   },
   {
@@ -122,22 +138,39 @@ const SECTIONS = [
 function restoreTemplate(s) {
   // 把三段注入还原为 Expo prebuild 模板原文(供 -f 重注入验证)
   let t = s
-  t = t.replace(
+  // 2026-09-15: appVersionName 有新旧两种注入写法, 都要能还原 ——
+  //   新: 单行 String(Gradle 里直接可用)
+  //   旧: `new File(...)` 三行(返回 File 对象 → Property<String> 转换失败 → "Value is null")
+  const VER_COMMENT = [
+    `// 版本号(${MARK}): versionName 同步 apps/mobile-rn/package.json, 与 JS 侧保持一致;`,
+    '// versionCode 支持 -PversionCode=N 覆盖(脚本内自增), 缺省 1。',
+  ]
+  for (const verBlock of [
     [
       '',
-      `// 版本号(${MARK}): versionName 同步 apps/mobile-rn/package.json, 与 JS 侧保持一致;`,
-      '// versionCode 支持 -PversionCode=N 覆盖(脚本内自增), 缺省 1。',
+      ...VER_COMMENT,
+      "def appVersionName = [\"node\", \"--print\", \"require('./package.json').version\"].execute(null, rootDir.getAbsoluteFile().getParentFile()).text.trim()",
+      '',
+    ].join('\n'),
+    [
+      '',
+      ...VER_COMMENT,
       'def appVersionName = new File(',
       "    [\"node\", \"--print\", \"require('./package.json').version\"].execute(null, rootDir.getAbsoluteFile().getParentFile()).text.trim()",
       ')',
       '',
     ].join('\n'),
-    ''
-  )
-  t = t.replace(
+  ]) {
+    t = t.replace(verBlock, '')
+  }
+  // 2026-09-15: 兼容还原"旧注入写法" —— 旧写法缺外层括号, 会让 Groovy 把 versionCode
+  // 降级为属性读取并崩溃(详见 SECTIONS 内注释)。两种写法都要能还原。
+  for (const injected of [
+    "        versionCode((findProperty('versionCode') ?: '1').toString().toInteger())\n        versionName appVersionName\n",
     "        versionCode (findProperty('versionCode') ?: '1').toString().toInteger()\n        versionName appVersionName\n",
-    '        versionCode 1\n        versionName "0.0.0"\n'
-  )
+  ]) {
+    t = t.replace(injected, '        versionCode 1\n        versionName "0.0.0"\n')
+  }
   const rel = [
     `        // ${MARK}: release 真签名 —— 凭据读用户级 ~/.gradle/gradle.properties(IHUI_RELEASE_*),`,
     '        // keystore 在仓库外(~/.android/ihui-release.keystore), 两者均不入库。',
