@@ -5,18 +5,14 @@
 /**
  * API 接口定义 - 对接新架构后端 http://localhost:8801/api
  */
-import { t } from '@/i18n'
-import Taro from '@tarojs/taro'
 import { BASE_URL } from '../utils/api-config'
-import { getToken, type UserInfo, type LoginResult } from '../utils/auth'
-import { parseSSEChunk, type SSEEvent } from '../utils/sse-parse'
-// W5:SSE 传输健壮性常量跨端单一真源(读超时 / 重试上限 / 指数退避),禁止本端二次硬编码
-import {
-  STREAM_READ_TIMEOUT_MS,
-  STREAM_MAX_RETRIES,
-  STREAM_INITIAL_RETRY_DELAY,
-  STREAM_MAX_RETRY_DELAY,
-} from '@ihui/shared/constants'
+import { type UserInfo, type LoginResult } from '../utils/auth'
+import type { SSEEvent } from '../utils/sse-parse'
+// #12 小程序 AI 增强:传输层收敛到 src/lib/sse.ts 的 streamSSE(单一可测试真源),
+// 仅本端保留读超时常量;重试上限 / 指数退避退避常量已下沉到 sse.ts。
+import { STREAM_READ_TIMEOUT_MS } from '@ihui/shared/constants'
+// W5:chatStream 传输层收敛到 src/lib/sse.ts(enableChunked + H5 fetch + 断点续传 + 指数退避 + 读超时 + AbortSignal)
+import { streamSSE } from '@/lib/sse'
 import type {
   FetchModelsResult,
   AgentPermission,
@@ -50,6 +46,7 @@ import type {
 } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
+import type { AICardsData } from '@/pkg-ai/ai/cards/types'
 import {
   signRecurringContract as _signRecurringContract,
   listRecurringContracts as _listRecurringContracts,
@@ -242,6 +239,9 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'id' | 'createdAt' | 
   tokenCount?: number
   /** 代码块内容(对标原 ai_assistant.vue content_code) */
   codeContent?: string
+  /** #12 小程序 AI 增强:工具卡片渲染数据(计划 / 工具 / 终端),
+   *  由 SSE 事件累积写入助手消息,随历史持久化;对齐 web 端 message.planSteps/toolCalls/terminalTasks */
+  aiCards?: AICardsData
 }
 
 // ChatOptions / ChatResult 已下沉到 @ihui/api-client(endpoints/chat.ts),上方 re-export
@@ -319,46 +319,6 @@ export interface StreamEventCallbacks {
 /** SSE 错误对象携带的元信息(字段名与 @ihui/api-client client.ts attachErrorMeta 一致) */
 type SSEError = Error & { code?: number; errorCode?: string; retryAfter?: number }
 
-/** 判断错误是否为用户主动中断(AbortController / Taro abort) */
-function isAbortError(err: unknown): boolean {
-  const name = (err as Error | undefined)?.name
-  return name === 'AbortError' || name === 'CanceledError'
-}
-
-/** 从 SSE 错误对象提取重试元信息(code / errorCode / retryAfter) */
-function extractSSEErrorInfo(
-  err: unknown,
-): { code?: number; errorCode?: string; retryAfter?: number } | undefined {
-  const e = err as SSEError | undefined
-  if (!e || typeof e !== 'object') return undefined
-  if (e.code === undefined && e.errorCode === undefined && e.retryAfter === undefined)
-    return undefined
-  return { code: e.code, errorCode: e.errorCode, retryAfter: e.retryAfter }
-}
-
-/** 可被 AbortSignal 中断的 sleep(参照 client.ts sleepWithAbort) */
-function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    if (signal?.aborted) {
-      const e = new Error('aborted')
-      e.name = 'AbortError'
-      reject(e)
-      return
-    }
-    function onAbort() {
-      clearTimeout(timer)
-      const e = new Error('aborted')
-      e.name = 'AbortError'
-      reject(e)
-    }
-    const timer = setTimeout(() => {
-      signal?.removeEventListener('abort', onAbort)
-      resolve()
-    }, ms)
-    signal?.addEventListener('abort', onAbort, { once: true })
-  })
-}
-
 /** AI 对话 SSE 流式（小程序端 enableChunked / H5 端 fetch ReadableStream 自动降级） */
 export const chatStream = async (
   messages: ChatMessage[],
@@ -384,12 +344,10 @@ export const chatStream = async (
   /** W5:新增事件回调集合(第 10 个可选参数,保持既有位置参数调用兼容) */
   callbacks?: StreamEventCallbacks,
 ): Promise<void> => {
-  let errored = false
   const resolvedModel = options.model ?? options.modelId
 
-  // W5:断点续传游标(捕获 SSE `id:` 行,重连时经 Last-Event-ID 头回传)
-  let lastEventId: string | undefined
-  // W5:内容前缀去重状态(重连后服务端可能从头重发,参照 client.ts emitDelta 跳过已渲染前缀)
+  // #12 小程序 AI 增强:内容前缀去重状态(重连后由 sse.ts streamSSE 触发 onReconnect 时启用,
+  // 跳过已渲染前缀;断点续传游标 / 重试 / 读超时 / abort 统一收敛到 sse.ts)
   let receivedContent = ''
   let dedupeBuffer = ''
   let dedupeActive = false
@@ -423,7 +381,6 @@ export const chatStream = async (
 
   // W5:统一事件分发(6 类既有 + 12 类新增 = 18 类,字段名严格对齐 client.ts 契约)
   const dispatch = (evt: SSEEvent) => {
-    if (errored) return
     switch (evt.type) {
       case 'chunk':
         if (evt.content) emitDelta(evt.content)
@@ -447,7 +404,6 @@ export const chatStream = async (
         break
       case 'error': {
         if (!evt.content) break
-        errored = true
         const err = new Error(evt.content) as SSEError
         err.name = 'SSEError'
         if (typeof evt.code === 'number') err.code = evt.code
@@ -512,218 +468,21 @@ export const chatStream = async (
     tool_choice: options.tool_choice,
   })
 
-  // H5 端: Taro.request 不支持 enableChunked,改用原生 fetch + ReadableStream
-  const runH5Attempt = async (isRetry: boolean): Promise<void> => {
-    const token = getToken()
-    const decoder = new TextDecoder('utf-8')
-    let buffer = ''
-    const headers: Record<string, string> = {
-      Authorization: token ? `Bearer ${token}` : '',
-      'Content-Type': 'application/json',
-    }
-    // W5:断点续传 —— 携带上一条 `id:` 游标,请求服务端从断点重放
-    if (lastEventId) headers['Last-Event-ID'] = lastEventId
-    const res = await fetch(BASE_URL + '/ai/chat/stream', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(buildBody()),
-      signal,
-    })
-    if (!res.ok || !res.body) {
-      const err = new Error(t('api.y1', { p1: res.status })) as SSEError
-      err.name = 'SSEError'
-      err.code = res.status
-      throw err
-    }
-    const reader = res.body.getReader()
-    dedupeActive = isRetry && receivedContent.length > 0
-
-    // W5:30s 读超时(复用 @ihui/shared 常量,与 client.ts readWithTimeout 语义一致)
-    const readWithTimeout = async (): Promise<{ done: boolean; value?: Uint8Array }> => {
-      let timer: ReturnType<typeof setTimeout> | undefined
-      const readPromise = reader.read().catch(() => ({ done: true, value: new Uint8Array() }))
-      const timeoutPromise = new Promise<{ done: boolean; value?: Uint8Array }>((_, reject) => {
-        timer = setTimeout(() => {
-          reader.cancel().catch(() => {})
-          reject(new Error('SSE read timeout'))
-        }, STREAM_READ_TIMEOUT_MS)
-      })
-      try {
-        return await Promise.race([readPromise, timeoutPromise])
-      } finally {
-        if (timer) clearTimeout(timer)
-      }
-    }
-
-    while (true) {
-      const { done, value } = await readWithTimeout()
-      if (done) {
-        if (buffer.trim()) {
-          const { events } = parseSSEChunk(buffer + '\n')
-          for (const evt of events) dispatch(evt)
-        }
-        return
-      }
-      buffer += decoder.decode(value, { stream: true })
-      const { events, remainder, lastId } = parseSSEChunk(buffer)
-      buffer = remainder
-      if (lastId) lastEventId = lastId
-      for (const evt of events) {
-        dispatch(evt)
-        if (errored) return
-      }
-    }
-  }
-
-  // 小程序端: Taro.request + enableChunked 逐 chunk 接收
-  const runWeappAttempt = (isRetry: boolean): Promise<void> =>
-    new Promise<void>((resolve, reject) => {
-      const token = getToken()
-      const decoder = new TextDecoder('utf-8')
-      let buffer = ''
-      let settled = false
-      let idleTimer: ReturnType<typeof setTimeout> | undefined
-      dedupeActive = isRetry && receivedContent.length > 0
-
-      const cleanup = () => {
-        if (idleTimer) clearTimeout(idleTimer)
-        signal?.removeEventListener('abort', onAbort)
-      }
-      const fail = (e: unknown) => {
-        if (settled) return
-        settled = true
-        cleanup()
-        reject(e)
-      }
-      const succeed = () => {
-        if (settled) return
-        settled = true
-        cleanup()
-        resolve()
-      }
-
-      const header: Record<string, string> = {
-        Authorization: token ? `Bearer ${token}` : '',
-        'Content-Type': 'application/json',
-      }
-      // W5:断点续传 —— 携带上一条 `id:` 游标
-      if (lastEventId) header['Last-Event-ID'] = lastEventId
-
-      const task = Taro.request({
-        url: BASE_URL + '/ai/chat/stream',
-        method: 'POST',
-        data: buildBody(),
-        enableChunked: true,
-        responseType: 'text',
-        header,
-        success: (res) => {
-          if (errored) {
-            succeed()
-            return
-          }
-          if (buffer.trim()) {
-            const { events } = parseSSEChunk(buffer + '\n')
-            for (const evt of events) {
-              try {
-                dispatch(evt)
-              } catch (e) {
-                fail(e)
-                return
-              }
-            }
-          }
-          if (res.statusCode >= 400) {
-            const err = new Error(t('api.y2', { p1: res.statusCode })) as SSEError
-            err.name = 'SSEError'
-            err.code = res.statusCode
-            fail(err)
-          } else {
-            succeed()
-          }
-        },
-        fail: (err) => {
-          // W5:用户主动取消统一归一为 AbortError,避免重试循环误判为网络错误而自动重连
-          if (signal?.aborted) {
-            const e = new Error('aborted')
-            e.name = 'AbortError'
-            fail(e)
-          } else {
-            fail(new Error(err.errMsg || '请求失败'))
-          }
-        },
-      })
-
-      // 2026-08-06 修复:请求结束(成功/失败)后移除 abort 监听器,
-      // 防止复用同一 AbortSignal 时监听器累积泄漏(原实现 { once: true }
-      // 只在 signal 真正 abort 时移除,正常完成路径监听器残留)。
-      function onAbort() {
-        task.abort()
-        const e = new Error('aborted')
-        e.name = 'AbortError'
-        fail(e)
-      }
-      if (signal) signal.addEventListener('abort', onAbort, { once: true })
-
-      // W5:30s 读超时 —— 小程序无 reader.read(),以 chunk 间空闲时长等价保护
-      const armIdleTimeout = () => {
-        if (idleTimer) clearTimeout(idleTimer)
-        idleTimer = setTimeout(() => {
-          task.abort()
-          const err = new Error('SSE read timeout') as SSEError
-          err.name = 'SSEError'
-          fail(err)
-        }, STREAM_READ_TIMEOUT_MS)
-      }
-      armIdleTimeout()
-
-      task.onChunkReceived(({ data }) => {
-        if (errored || settled) return
-        armIdleTimeout()
-        buffer += decoder.decode(data, { stream: true })
-        const { events, remainder, lastId } = parseSSEChunk(buffer)
-        buffer = remainder
-        if (lastId) lastEventId = lastId
-        for (const evt of events) {
-          try {
-            dispatch(evt)
-            if (errored) return
-          } catch (e) {
-            fail(e)
-            return
-          }
-        }
-      })
-    })
-
-  // W5:重试主循环 —— 指数退避,上限 STREAM_MAX_RETRIES;
-  // 业务错误(401/403,或 429 无 retryAfter)不重试,直接抛出(与 client.ts 判定一致)
-  let attempt = 0
-  for (;;) {
-    errored = false
-    try {
-      if (Taro.getEnv() === Taro.ENV_TYPE.WEB) {
-        await runH5Attempt(attempt > 0)
-      } else {
-        await runWeappAttempt(attempt > 0)
-      }
-      return
-    } catch (err) {
-      if (isAbortError(err)) throw err
-      const info = extractSSEErrorInfo(err)
-      const code = info?.code
-      const isBusinessError =
-        code === 401 || code === 403 || (code === 429 && info?.retryAfter === undefined)
-      if (isBusinessError || attempt >= STREAM_MAX_RETRIES) throw err
-      // 优先消费 retryAfter(秒转毫秒),否则指数退避 1s → 2s → 4s,均受上限约束
-      const delay =
-        info?.retryAfter !== undefined
-          ? Math.min(info.retryAfter * 1000, STREAM_MAX_RETRY_DELAY)
-          : Math.min(STREAM_INITIAL_RETRY_DELAY * 2 ** attempt, STREAM_MAX_RETRY_DELAY)
-      attempt++
-      callbacks?.onReconnect?.(attempt, delay)
-      await sleepWithAbort(delay, signal)
-    }
-  }
+  // #12 小程序 AI 增强:传输层收敛到 src/lib/sse.ts 的 streamSSE(单一可测试真源)。
+  // streamSSE 内部完成 enableChunked / H5 fetch ReadableStream 双通道、Last-Event-ID 断点续传、
+  // 指数退避重连、读超时、AbortSignal 取消;本端仅保留事件分发(dispatch)与内容前缀去重(dedupe)。
+  await streamSSE({
+    url: BASE_URL + '/ai/chat/stream',
+    body: buildBody(),
+    signal,
+    onEvent: dispatch,
+    onReconnect: (attempt, delayMs) => {
+      // 断点续传去重:重连后服务端可能从断点重发,跳过已渲染前缀
+      dedupeActive = receivedContent.length > 0
+      callbacks?.onReconnect?.(attempt, delayMs)
+    },
+    readTimeoutMs: STREAM_READ_TIMEOUT_MS,
+  })
 }
 
 /* ============ 用户设置 ============ */
