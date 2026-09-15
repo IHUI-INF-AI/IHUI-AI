@@ -11,7 +11,6 @@ import {
   Loader2,
   Plus,
   RefreshCw,
-  Search,
   Sparkles,
   AlertCircle,
   GitBranch,
@@ -21,14 +20,15 @@ import {
   Button,
   Card,
   CardContent,
-  Input,
   Select,
   SelectTrigger,
   SelectContent,
   SelectItem,
   SelectValue,
   cn,
+  SearchInput,
 } from '@ihui/ui-react'
+
 import { fetchApi } from '@/lib/api'
 import {
   AgentCard,
@@ -216,15 +216,13 @@ export default function AgentWorkbenchPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[140px] min-[640px]:min-w-[180px] flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="搜索 Agent 名字或角色..."
-              className="pl-9"
-            />
-          </div>
+          <SearchInput
+            size="lg"
+            wrapperClassName="min-w-[140px] min-[640px]:min-w-[180px] flex-1"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜索 Agent 名字或角色..."
+          />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[140px]">
               <SelectValue />

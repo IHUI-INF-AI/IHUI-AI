@@ -10,18 +10,24 @@ import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
-import { BookOpen, ChevronLeft, ChevronRight, Loader2, RotateCcw, Trash2 } from 'lucide-react'
+import {} from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { cn } from '@/lib/utils'
 import {
+  BookOpen,
   Button,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  RotateCcw,
   SearchInput,
+  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  Table,
+  Trash2,
 } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
 import { BackButton } from '@/components/common'

@@ -6,9 +6,10 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
-import { Button, Input } from '@ihui/ui-react'
+import { Button, SearchInput } from '@ihui/ui-react'
+
 import { fetchAiWorldItems } from './helpers'
 import type { ItemKind } from './types'
 import { ItemCard } from './ItemCard'
@@ -72,15 +73,13 @@ export function ItemList({
       {(showSearch || showOrder) && (
         <div className="flex flex-wrap items-center gap-2">
           {showSearch && (
-            <div className="relative min-w-[140px] min-[640px]:min-w-[200px] flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="搜索标题或摘要..."
-                className="pl-8"
-              />
-            </div>
+            <SearchInput
+              size="lg"
+              wrapperClassName="min-w-[140px] min-[640px]:min-w-[200px] flex-1"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="搜索标题或摘要..."
+            />
           )}
           {showOrder && (
             <div className="flex items-center gap-1 rounded-md border bg-card p-0.5">

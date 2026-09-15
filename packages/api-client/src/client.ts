@@ -745,6 +745,14 @@ export async function fetchRaw(url: string, options: RequestInit = {}): Promise<
 
 // ==================== SSE 流式对话 ====================
 
+/** P1 #27(2026-09-16 立):记忆更新事件(已记住提示条数据源)。 */
+export interface MemoryUpdatesEvent {
+  /** 本轮新增写入长期记忆(LTM)的条目摘要文本;空数组表示本轮无新记忆 */
+  items: string[]
+  /** 关联的 assistant messageId;缺省时前端回退到本流 assistantId */
+  messageId?: string
+}
+
 export interface StreamChatOptions {
   model: string
   // role 含 'tool':与 @ihui/context-compaction 的 ChatMessage 及 OpenAI 兼容协议对齐
@@ -846,6 +854,10 @@ export interface StreamChatOptions {
    *  后端在 done 前下发 `event: citations` SSE 事件,前端据此写入 message.citations,
    *  MessageItem 渲染 CitationBar(来源标签 + 可点击 URL)。 */
   onCitations?: (event: CitationsEvent) => void
+  /** P1 #27(2026-09-16 立):记忆更新可视化「已记住」提示条数据源。
+   *  ai-service 在 done 事件 payload 携带 memoryUpdates: string[](本轮 LTM 新增条目摘要),
+   *  前端据此在对应助手消息下方渲染「已记住:N 条」提示条。空数组表示本轮无新记忆。 */
+  onMemoryUpdates?: (event: MemoryUpdatesEvent) => void
   /** Token 用量回调(2026-08-15 立):后端在 SSE 流末尾发送 usage chunk 时触发,
    *  前端据此更新消息 meta.usage,UI 展示 promptTokens/completionTokens/totalTokens。 */
   onUsage?: (usage: { promptTokens: number; completionTokens: number; totalTokens: number }) => void
@@ -1651,6 +1663,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         typeof opts.onTerminalStart === 'function' && typeof opts.onTerminalEnd === 'function'
       // #11 Citations 全链路(2026-09-13 立):knowledge_lookup 工具执行后下发引用溯源
       const hasCitations = typeof opts.onCitations === 'function'
+      // P1 #27(2026-09-16 立):done 事件携带 memoryUpdates(已记住提示条数据源)
+      const hasMemoryUpdates = typeof opts.onMemoryUpdates === 'function'
       const hasUsage = typeof opts.onUsage === 'function'
       // hasCitations 被 tryParseCitations 的守护读取(消除 TS6133:声明未使用)
       void hasCitations
@@ -2208,6 +2222,35 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /** P1 #27(2026-09-16 立):解析 done 事件携带的 memoryUpdates(已记住提示条数据源)。
+       *  ai-service 在 done 事件 payload 写入 memoryUpdates: string[](本轮 LTM 新增条目摘要),
+       *  前端据此在对应助手消息下方渲染「已记住:N 条」提示条。空数组表示本轮无新记忆。 */
+      const tryParseMemoryUpdates = (line: string): void => {
+        if (!hasMemoryUpdates) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'done' || !Array.isArray(json.memoryUpdates)) return
+          const items = (json.memoryUpdates as unknown[])
+            .filter((v): v is string => typeof v === 'string' && v.length > 0)
+          // 仅在有内容时回调(空数组不触发提示条)
+          if (items.length > 0) opts.onMemoryUpdates!({ items })
+        } catch {
+          /* 非 JSON 或非 done 事件忽略 */
+        }
+      }
+
       /** 解析 OpenAI 协议 usage chunk(stream_options.include_usage=true 时后端发送)。
        *  格式:data: {..., usage: { prompt_tokens, completion_tokens, total_tokens }}
        *  触发 onUsage 回调,前端据此更新消息 meta.usage。 */
@@ -2356,6 +2399,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           await tryParseToolDelegate(line)
           tryParseCitations(line)
           tryParseUsage(line)
+          tryParseMemoryUpdates(line)
         }
       }
 

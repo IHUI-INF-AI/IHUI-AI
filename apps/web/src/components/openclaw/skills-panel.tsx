@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 import { Download, Trash2, Loader2, Package, CheckCircle2 } from 'lucide-react'
 
-import { Button, Input, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { Button, SearchInput, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import {
   listAvailableSkills,
   listInstalledSkills,
@@ -126,10 +126,12 @@ export function SkillsPanel() {
             {t('availableSkills')}
           </CardTitle>
           <div className="flex gap-2">
-            <Input
+            <SearchInput
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder={t('searchSkills')}
+              size="lg"
+              wrapperClassName="w-full"
             />
           </div>
         </CardHeader>

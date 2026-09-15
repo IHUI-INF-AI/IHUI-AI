@@ -8,26 +8,24 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import {
-  ChevronLeft,
-  ChevronRight,
-  KeyRound,
-  Loader2,
-  Plus,
-  Power,
-  RefreshCw,
-  Trash2,
-} from 'lucide-react'
+import {} from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
   Button,
+  ChevronLeft,
+  ChevronRight,
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   Input,
+  KeyRound,
   Label,
+  Loader2,
+  Plus,
+  Power,
+  RefreshCw,
   SearchInput,
   Select,
   SelectContent,
@@ -35,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
+  Trash2,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'

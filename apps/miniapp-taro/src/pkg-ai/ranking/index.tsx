@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n, type TtFn } from '@/i18n'
-import { View, Text, Input, Image, ScrollView } from '@tarojs/components'
+import SearchBar from '@/components/SearchBar'
+import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import * as api from '@/api'
@@ -154,16 +155,14 @@ export default function RankingIndex() {
         </Text>
       </View>
 
-      {/* 搜索框(对齐共享屏胶囊语言:bg-card 圆角24rpx) */}
-      <View className="py-[16rpx] px-[20rpx]">
-        <Input
-          className="block w-full h-[64rpx] px-[24rpx] bg-card border border-solid border-border rounded-[24rpx] text-[28rpx] text-foreground box-border"
-          placeholder={tt('ranking.searchPlaceholder', '搜索 AI 工具')}
-          value={keyword}
-          onInput={(e) => setKeyword(e.detail.value)}
-          onConfirm={onSearchConfirm}
-        />
-      </View>
+      {/* 搜索框(圆角输入井,引用共享 SearchBar) */}
+      <SearchBar
+        value={keyword}
+        placeholder={tt('ranking.searchPlaceholder', '搜索 AI 工具')}
+        onInput={setKeyword}
+        onSearch={onSearchConfirm}
+        onClear={() => setKeyword('')}
+      />
 
       {/* 文件类型筛选 tab(对齐 RN RankingScreen tab:圆角24rpx / bg-card,激活 bg-primary) */}
       <ScrollView scrollX className="whitespace-nowrap">

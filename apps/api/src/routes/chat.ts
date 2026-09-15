@@ -33,6 +33,9 @@ import {
   archiveConversation,
   unarchiveConversation,
   findMessagesForExport,
+  findMessagesCursor,
+  encodeMessageCursor,
+  decodeMessageCursor,
   findMessagesForShare,
   saveCompressedContext,
   setConversationShareToken,
@@ -166,6 +169,10 @@ const messageListSchema = z.object({
   pageSize: z.coerce.number().int().positive().max(100).default(20),
   before: z.uuid().optional(),
   after: z.uuid().optional(),
+  // 2026-09-16 P1 #24:keyset 复合游标(createdAt|id 的 base64url JSON)。
+  // 带 cursor 或显式 direction 时走 findMessagesCursor;否则走旧 findMessages(向后兼容)。
+  cursor: z.string().min(1).max(512).optional(),
+  direction: z.enum(['initial', 'older']).optional(),
 })
 
 // POST /compact 请求体(2026-09-02 立):最简契约,仅 conversationId,无 messageRange 等可选参数
@@ -630,6 +637,16 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
               description: '游标:返回该消息 ID 之前的记录',
             },
             after: { type: 'string', format: 'uuid', description: '游标:返回该消息 ID 之后的记录' },
+            // 2026-09-16 P1 #24:keyset 复合游标(与旧 before/after 互斥但可并存,路由优先用 cursor)
+            cursor: {
+              type: 'string',
+              description: 'keyset 复合游标(base64url JSON {createdAt,id}),与 direction 配合使用',
+            },
+            direction: {
+              type: 'string',
+              enum: ['initial', 'older'],
+              description: 'initial=取最新 N 条;older=在 cursor 之前取更早的消息',
+            },
           },
         },
         response: buildResponseSchema(400, 401, 403, 404),
@@ -649,18 +666,47 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
 
+      const { page, pageSize, before, after, cursor, direction } = parsed.data
+
+      // P1 #24(2026-09-16):keyset 复合游标模式。带 cursor 或显式 direction 时走
+      // findMessagesCursor;否则走旧 findMessages(offset / before / after),保证旧调用方零感知。
+      const useKeyset = cursor !== undefined || direction !== undefined
+      if (useKeyset) {
+        const decoded = cursor ? decodeMessageCursor(cursor) : null
+        if (cursor && !decoded) {
+          return reply.status(400).send(error(400, '游标格式非法'))
+        }
+        const dir: 'initial' | 'older' = direction ?? (decoded ? 'older' : 'initial')
+        const result = await findMessagesCursor(id, {
+          cursor: decoded,
+          limit: pageSize,
+          direction: dir,
+        })
+        return reply.send(
+          success({
+            messages: result.messages.map(serializeMessage),
+            page,
+            pageSize,
+            // keyset 模式无需总数,固定 0 保持响应结构稳定(前端以 hasMore/nextCursor 判定)
+            total: 0,
+            hasMore: result.hasMore,
+            nextCursor: result.nextCursor ? encodeMessageCursor(result.nextCursor) : null,
+          }),
+        )
+      }
+
       const { list, total, hasMore, nextCursor } = await findMessages(id, {
-        page: parsed.data.page,
-        pageSize: parsed.data.pageSize,
-        before: parsed.data.before,
-        after: parsed.data.after,
+        page,
+        pageSize,
+        before,
+        after,
       })
 
       return reply.send(
         success({
           messages: list.map(serializeMessage),
-          page: parsed.data.page,
-          pageSize: parsed.data.pageSize,
+          page,
+          pageSize,
           total,
           hasMore,
           nextCursor,
