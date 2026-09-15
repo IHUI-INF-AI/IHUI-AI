@@ -100,6 +100,8 @@ interface ChatState {
   currentModel: string
   isStreaming: boolean
   error: string | null
+  interruptedMessageId: string | null
+  setInterruptedMessage: (id: string | null) => void
   /** 当前绑定的会话 ID；为 null 表示新会话尚未持久化 */
   conversationId: string | null
   /** 用户是否已手动向上滚动(暂停自动滚动到底部) */
@@ -139,7 +141,9 @@ interface ChatState {
   removeSelectedTool: (pluginId: string) => void
   /** 清空已选工具 */
   clearSelectedTools: () => void
-  addMessage: (msg: Pick<ChatMessage, 'role' | 'content' | 'model' | 'permissionMode'>) => string
+  addMessage: (
+    msg: Pick<ChatMessage, 'role' | 'content' | 'model' | 'permissionMode' | 'meta'>,
+  ) => string
   appendToMessage: (id: string, delta: string) => void
   appendReasoningToMessage: (id: string, delta: string) => void
   /** 覆盖式重写消息正文(resume 补全权威内容时使用) */
@@ -197,6 +201,7 @@ interface ChatState {
     status: DiffApplyStatus,
     errorMessage?: string,
   ) => void
+  setAllDiffApplyStatus: (messageId: string, status: DiffApplyStatus) => void
   /** 写入工具调用汇总到指定消息(2026-07-31 立,AI 对话可视化深度接入)
    *  - SSE 流末尾发出 type='tool-summary' 事件时触发
    *  - 收到后直接写入 message.toolCallSummary,无需前端本地聚合
@@ -264,6 +269,8 @@ export const useChatStore = create<ChatState>()(
       currentModel: 'auto',
       isStreaming: false,
       error: null,
+      interruptedMessageId: null,
+      setInterruptedMessage: (id) => set({ interruptedMessageId: id }),
       conversationId: null,
       userScrolledUp: false,
       userScrolledToTop: false,
@@ -643,6 +650,23 @@ export const useChatStore = create<ChatState>()(
           const newToolCalls = target.toolCalls.slice()
           newToolCalls[tcIdx] = { ...oldTc, ...updates }
           next[idx] = { ...target, toolCalls: newToolCalls }
+          return { messages: next }
+        }),
+      setAllDiffApplyStatus: (messageId, status) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target || !target.toolCalls) return s
+          const next = s.messages.slice()
+          next[idx] = {
+            ...target,
+            toolCalls: target.toolCalls.map((tc) => ({
+              ...tc,
+              applyStatus: status,
+              applyError: status === 'error' ? tc.applyError : undefined,
+            })),
+          }
           return { messages: next }
         }),
 
