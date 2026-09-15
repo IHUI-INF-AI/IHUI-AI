@@ -16,7 +16,6 @@ import {
   ArrowDown,
   ArrowUpDown,
   GitCompare,
-  Search,
   Star,
   Settings2,
   Bot,
@@ -26,9 +25,9 @@ import {
   Music,
   Ruler,
   Sparkles,
-  X,
   Check,
 } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 import type { LeaderboardEntry, LeaderboardCategory } from '@/lib/ai-news-api'
 import { ModelDetailDialog } from './ModelDetailDialog'
 import { ModelCompareBar } from './ModelCompareBar'
@@ -510,25 +509,15 @@ export function Leaderboard({ entries }: Props) {
 
       {/* 搜索 + 厂商筛选 */}
       <div className="space-y-2 border-b bg-muted/10 px-3 py-2">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t('leaderboard.searchPlaceholder')}
-            className="w-full rounded-md border border-input bg-background py-1.5 pl-7 pr-7 text-xs placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          {searchQuery ? (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          ) : null}
-        </div>
+        <SearchInput
+          size="sm"
+          clearable
+          clearAriaLabel="clear"
+          wrapperClassName="w-full"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder={t('leaderboard.searchPlaceholder')}
+        />
         {vendors.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             <button

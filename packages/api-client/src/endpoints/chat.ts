@@ -203,6 +203,11 @@ export interface GetMessagesParams {
   pageSize?: number
   before?: string
   after?: string
+  /** P1 #24 keyset 复合游标:传此值走 findMessagesCursor 模式(direction 默认 'older')。
+   * 值为 base64url JSON {createdAt,id},由服务端生成、客户端透明回传,无需解析。 */
+  cursor?: string
+  /** 仅与 cursor 配合使用:initial=取最新 N 条;older=向前翻更早的消息 */
+  direction?: 'initial' | 'older'
 }
 
 export interface GetMessagesResult {
@@ -211,6 +216,7 @@ export interface GetMessagesResult {
   pageSize: number
   total: number
   hasMore: boolean
+  /** 旧模式为消息 id;keyset 模式为 base64url 复合游标字符串。均透明回传即可。 */
   nextCursor: string | null
 }
 
@@ -220,6 +226,9 @@ export function getMessages(id: string, params: GetMessagesParams = {}) {
   qs.set('pageSize', String(params.pageSize ?? 20))
   if (params.before) qs.set('before', params.before)
   if (params.after) qs.set('after', params.after)
+  // P1 #24(2026-09-16):keyset 复合游标透传
+  if (params.cursor) qs.set('cursor', params.cursor)
+  if (params.direction) qs.set('direction', params.direction)
   return fetchApi<GetMessagesResult>(
     `/api/chat/conversations/${encodeURIComponent(id)}/messages?${qs.toString()}`,
   )

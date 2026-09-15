@@ -4,17 +4,23 @@
 
 'use client'
 
-import { ChevronLeft, ChevronRight, Edit, FileText, Loader2, Plus, Trash2 } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import {
   Button,
+  ChevronLeft,
+  ChevronRight,
+  Edit,
+  FileText,
+  Loader2,
+  Plus,
   SearchInput,
+  Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  Table,
+  Trash2,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'

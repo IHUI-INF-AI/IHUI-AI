@@ -131,6 +131,10 @@ interface ChatState {
    *  { phase: 'compacting' } = 压缩中
    *  { phase: 'done', tokensBefore, tokensAfter, removedCount } = 压缩完成 */
   compactionStatus: CompactionStatus
+  /** P1 #27 记忆更新可视化(2026-09-16 立):本轮对话各助手消息的「已记住」提示条数据,
+   *  键 messageId 对应 assistant 消息,items 为该消息触发的新增长期记忆条目摘要。
+   *  done 事件携带 memoryUpdates 时由 appendMemoryNotice 写入;MessageItem 按 message.id 查找渲染。 */
+  memoryUpdateNotices: { messageId: string; items: string[] }[]
 
   setModel: (model: string) => void
   /** 添加单个工具到已选;已存在则忽略 */
@@ -223,6 +227,10 @@ interface ChatState {
    *  - 后端 knowledge_lookup 工具执行后 done 前下发,前端整体替换 message.citations
    *  - 用于消息气泡内 inline CitationBar(来源标签 + 可点击 URL) */
   setMessageCitations: (messageId: string, citations: CitationEntry[]) => void
+  /** P1 #27 记忆更新可视化(2026-09-16 立):后端 done 事件 payload 携带 memoryUpdates,
+   *  由 send-message.ts onMemoryUpdates 回调调用,把本轮新增的长期记忆条目摘要挂到对应助手消息。
+   *  存储为 store 级数组(键 messageId),MessageItem 按 message.id 过滤渲染「已记住」提示条。 */
+  appendMemoryNotice: (messageId: string, items: string[]) => void
   /** P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
    *  前端 onUsage 回调调用此方法把 usage 写入 assistant 消息 meta.usage,UI 展示 token 计数。 */
   updateMessageMeta: (messageId: string, meta: Record<string, unknown>) => void
@@ -300,6 +308,8 @@ export const useChatStore = create<ChatState>()(
       selectedTools: [],
       recentMessages: null,
       compactionStatus: null,
+      // P1 #27 记忆更新可视化(2026-09-16 立)
+      memoryUpdateNotices: [],
       // #21 中断后追加指令继续(2026-09-13 立)
       interruptedMessageId: null,
       // W27 输入历史(2026-09-14 立):Esc+Esc 历史导航数据源
@@ -421,7 +431,7 @@ export const useChatStore = create<ChatState>()(
           return { messages: next }
         }),
 
-      clearMessages: () => set({ messages: [], error: null }),
+      clearMessages: () => set({ messages: [], error: null, memoryUpdateNotices: [] }),
       /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
       setMessages: (messages: ChatMessage[]) => set({ messages }),
       /** 编辑用户消息内容(2026-09-12 立,四竞品对标 P0-1):
@@ -802,6 +812,27 @@ export const useChatStore = create<ChatState>()(
           const next = s.messages.slice()
           next[idx] = { ...target, citations }
           return { messages: next }
+        }),
+
+      // P1 #27 记忆更新可视化(2026-09-16 立):done 事件 memoryUpdates 落地。
+      // 按 messageId 写入/追加到 memoryUpdateNotices;同 messageId 已存在则合并 items(去重)。
+      // 每条助手消息限一条提示条(本轮),故以 messageId 为键整体替换而非堆叠多个。
+      appendMemoryNotice: (messageId, items) =>
+        set((s) => {
+          if (!items?.length) return s
+          const notices = s.memoryUpdateNotices.slice()
+          const existingIdx = notices.findIndex((n) => n.messageId === messageId)
+          if (existingIdx === -1) {
+            notices.push({ messageId, items: items.slice() })
+          } else {
+            const existing = notices[existingIdx]!
+            const merged = [...existing.items, ...items]
+            notices[existingIdx] = {
+              messageId,
+              items: Array.from(new Set(merged)).filter((v) => v.length > 0),
+            }
+          }
+          return { memoryUpdateNotices: notices }
         }),
 
       // 2026-08-01 Phase 4a:消息级 terminal task append(terminal_start 事件)

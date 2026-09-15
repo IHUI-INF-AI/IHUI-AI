@@ -557,19 +557,6 @@ test.describe('plan/terminal 事件端到端渲染', () => {
     await textarea.fill('执行 echo hi')
     await authenticatedPage.keyboard.press('Enter').catch(() => {})
 
-    // 2026-09-13 批次 2 #17 起:工具卡/plan 步骤/终端收进默认折叠的
-    // message-steps-collapsible-(折叠态 Radix CollapsibleContent 不挂载内容)。
-    // 需先点击「查看 N 个中间步骤」展开,plan/terminal 卡片才进入 DOM。
-    try {
-      const stepsTrigger = authenticatedPage
-        .locator('[data-testid^="message-steps-collapsible-"] button')
-        .first()
-      await stepsTrigger.waitFor({ state: 'visible', timeout: 10000 })
-      await stepsTrigger.click()
-    } catch {
-      // 兜底:折叠区未出现时直接落到下方断言,由其给出真实诊断
-    }
-
     // 断言 1:计划卡渲染(可能折叠 → 仅断言 attached,不断言 visible)
     await authenticatedPage
       .locator('[data-testid^="message-plan-steps-"]')

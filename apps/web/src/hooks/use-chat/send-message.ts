@@ -758,6 +758,14 @@ export function createSendMessage(
           if (!targetId || !evt.citations?.length) return
           useChatStore.getState().setMessageCitations(targetId, evt.citations)
         },
+        // P1 #27 记忆更新可视化(2026-09-16 立):后端 done 事件 payload 携带 memoryUpdates,
+        // 写入 message 级提示条数据,MessageItem 在本条 assistant 消息下方渲染「已记住」提示条。
+        // messageId 缺省时回退到本条 assistant 消息 ID(done 必然属于当前流)。
+        onMemoryUpdates: (evt) => {
+          const targetId = evt.messageId ?? assistantId
+          if (!targetId || !evt.items?.length) return
+          useChatStore.getState().appendMemoryNotice(targetId, evt.items)
+        },
         // 阶段 2:浏览器端工具执行代理(2026-08-02 立)
         // ai-service 在远程服务器无法访问本地文件,LLM 调用 fs 类工具时通过 SSE
         // tool-delegate 事件委托前端用 FileSystemDirectoryHandle 执行,通过 postToolResult 回传

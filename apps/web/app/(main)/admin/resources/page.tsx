@@ -8,14 +8,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import {
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  FolderTree,
-  Package,
-  Plus,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileText, FolderTree, Package, Plus } from 'lucide-react'
 import {
   Button,
   SearchInput,

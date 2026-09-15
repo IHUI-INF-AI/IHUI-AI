@@ -1751,6 +1751,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "model": accumulated["model"],
                                     "usage": accumulated["usage"],
                                     "stub": accumulated["stub"],
+                                    # P1 #27(2026-09-16 立):本轮新增记忆条目摘要(已记住提示条数据源)。
+                                    # LTM 提取为异步后台进程,done 时通常尚未写入,故默认空数组;
+                                    # 字段保留以便后续接入异步回传时不破坏前端契约。
+                                    "memoryUpdates": [],
                                 }
                                 if req.metadata:
                                     done_event["metadata"] = req.metadata
@@ -1860,6 +1864,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "model": accumulated["model"],
                                     "usage": accumulated["usage"],
                                     "stub": accumulated["stub"],
+                                    # P1 #27(2026-09-16 立):本轮新增记忆条目摘要(已记住提示条数据源)。
+                                    # LTM 提取为异步后台进程,done 时通常尚未写入,故默认空数组;
+                                    # 字段保留以便后续接入异步回传时不破坏前端契约。
+                                    "memoryUpdates": [],
                                 }
                                 if req.metadata:
                                     done_event["metadata"] = req.metadata
@@ -2455,6 +2463,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "model": accumulated["model"],
                                 "usage": accumulated["usage"],
                                 "stub": accumulated.get("stub", False),
+                                # P1 #27(2026-09-16 立):本轮新增记忆条目摘要(已记住提示条数据源)。
+                                # LTM 提取为异步后台进程,done 时通常尚未写入,故默认空数组;
+                                # 字段保留以便后续接入异步回传时不破坏前端契约。
+                                "memoryUpdates": [],
                             }
                             if req.metadata:
                                 done_event["metadata"] = req.metadata

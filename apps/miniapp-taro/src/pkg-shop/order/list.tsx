@@ -3,12 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Input, Image } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useRef, useMemo, useCallback } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
 import { getOrderList, type Order } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import SearchBar from '@/components/SearchBar'
 
 type OrderItem = Order & {
   outTradeNo?: string
@@ -258,15 +259,12 @@ export default function OrderList() {
       </View>
 
       {showSearch && (
-        <View className="px-[20rpx] py-[8rpx] bg-background">
-          <Input
-            className="h-[80rpx] px-[24rpx] bg-card rounded-[20rpx] text-[28rpx] border-[2rpx] border-border"
-            placeholder={tt('order.list.searchPlaceholder', '搜索我的订单')}
-            value={keyword}
-            onInput={(e) => onSearchInput(e.detail.value)}
-            confirmType="search"
-          />
-        </View>
+        <SearchBar
+          value={keyword}
+          placeholder={tt('order.list.searchPlaceholder', '搜索我的订单')}
+          onInput={onSearchInput}
+          onClear={() => onSearchInput('')}
+        />
       )}
 
       {filtered.length > 0 && (

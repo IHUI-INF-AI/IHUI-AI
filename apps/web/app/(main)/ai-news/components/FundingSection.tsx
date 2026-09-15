@@ -6,8 +6,8 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { TrendingUp, Building2, Calendar, Search, ArrowUp, ArrowDown, X } from 'lucide-react'
-import { Card, CardContent } from '@ihui/ui-react'
+import { TrendingUp, Building2, Calendar, ArrowUp, ArrowDown } from 'lucide-react'
+import { Card, CardContent, SearchInput } from '@ihui/ui-react'
 import { Badge } from '@/components/data'
 import { getFormatters } from '@/lib/date-utils'
 import type { AiFundingItem } from '@/lib/ai-news-api'
@@ -95,25 +95,15 @@ export function FundingSection({ items }: Props) {
       </div>
 
       <div className="space-y-2 px-4 pb-3">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t('funding.searchPlaceholder')}
-            className="w-full rounded-md border border-input bg-background py-1.5 pl-7 pr-7 text-xs placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          {query ? (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          ) : null}
-        </div>
+        <SearchInput
+          size="sm"
+          clearable
+          clearAriaLabel="clear"
+          wrapperClassName="w-full"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t('funding.searchPlaceholder')}
+        />
         <div className="flex flex-wrap items-center gap-1">
           <span className="text-[10px] text-muted-foreground/70">{t('funding.sortLabel')}:</span>
           {(['date', 'amount'] as const).map((field) => (

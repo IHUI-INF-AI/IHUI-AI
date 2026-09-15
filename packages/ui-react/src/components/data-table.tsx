@@ -26,10 +26,9 @@ import {
   ChevronsUpDown,
   ChevronUp,
   Inbox,
-  Search,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { Input } from './input'
+import { SearchInput } from './search-input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './table'
 
 export type DataTableColumn<TData> = ColumnDef<TData>
@@ -178,16 +177,14 @@ function DataTable<TData>({
       {showToolbar && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           {searchable ? (
-            <div className="relative w-full max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={globalFilter}
-                onChange={(e) => setGlobalFilter(e.target.value)}
-                placeholder={searchPlaceholder}
-                aria-label={searchPlaceholder}
-                className="pl-9"
-              />
-            </div>
+            <SearchInput
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
+              size="lg"
+              wrapperClassName="w-full max-w-sm"
+            />
           ) : (
             <div />
           )}
@@ -261,14 +258,14 @@ function DataTable<TData>({
                             flexRender(header.column.columnDef.header, header.getContext())
                           )}
                           {canFilter ? (
-                            <input
-                              type="text"
+                            <SearchInput
                               value={(header.column.getFilterValue() as string) ?? ''}
                               onChange={(e) => header.column.setFilterValue(e.target.value)}
                               placeholder="筛选..."
                               aria-label={`筛选 ${flexRender(header.column.columnDef.header, header.getContext())}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="h-7 w-full rounded-md border border-input bg-background px-2 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                              size="sm"
+                              wrapperClassName="w-full"
                             />
                           ) : null}
                         </div>

@@ -17,6 +17,14 @@ import { cn } from '../lib/utils'
  * - 可选清空按钮: h-5 w-5 rounded-sm hover:bg-accent
  */
 
+/**
+ * 圆角输入井样式常量(唯一视觉来源)。
+ * 供无法直接替换为 <SearchInput> 的场景引用(如 cmdk CommandInput、
+ * 依赖受控键盘导航的特殊输入),保证与 SearchInput 视觉完全一致。
+ */
+export const searchInputWellClassName =
+  'rounded-md border border-border bg-muted/40 transition-colors focus-within:border-ring/60 focus-within:bg-muted/60'
+
 type SearchInputSize = 'sm' | 'md' | 'lg'
 
 const sizeMap: Record<
