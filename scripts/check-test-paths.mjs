@@ -39,6 +39,7 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { join, relative, resolve, sep } from 'node:path'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 
 const C = {
   red: '\x1b[31m',
@@ -124,7 +125,7 @@ function findDirsByName(root, basename) {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
       const name = entry.name
-      if (EXCLUDE_DIRS.has(name)) continue
+      if (EXCLUDE_DIRS.has(name) || isExcludedDirName(name)) continue
       const full = join(dir, name)
       if (name === basename) {
         results.push(full)
@@ -156,7 +157,7 @@ function findTempDirs(root) {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
       const name = entry.name
-      if (EXCLUDE_DIRS.has(name)) continue
+      if (EXCLUDE_DIRS.has(name) || isExcludedDirName(name)) continue
       if (/\.(tmp|bak)$/i.test(name)) {
         results.push(join(dir, name))
         continue
@@ -185,7 +186,7 @@ function findUnknownDotDirs(root) {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
       const name = entry.name
-      if (EXCLUDE_DIRS.has(name)) continue
+      if (EXCLUDE_DIRS.has(name) || isExcludedDirName(name)) continue
       if (name.startsWith('.') && !ALLOWED_DOT_DIRS.has(name)) {
         results.push(join(dir, name))
         continue
