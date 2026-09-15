@@ -12,7 +12,7 @@
  * - 也可点击面板自身触发器按钮直接打开
  *
  * UI 组成:
- * - Popover 风格(用项目内 Popover 组件,挂到 message-input 末尾,默认不显示)
+ * - Popover 风格(用统一 PortalPanel 浮层,挂到 message-input 末尾,默认不显示)
  * - 触发器:Clock4 / History 图标按钮
  * - 内容:
  *   1. 顶部"清空历史"按钮(确认后调 clearHistory)
@@ -23,7 +23,7 @@
  * - 读取:useEffect 内调 getRecentHistory() + getTotalDurationByMode(),写入 useState
  * - 写入:用户点"清空历史" → clearHistory() → 重新读一次刷新列表
  * - 触发:PermissionModePopover 调 window.__IHUI_OPEN_HISTORY__?.()
- *   → 内部手动调用 triggerRef.current?.click() 复用 Popover 内部 open 状态
+ *   → 内部手动调用 triggerRef.current?.click() 复用面板内部 open 状态
  *
  * 边界:
  * - 隐私模式 / quota 超出:readAll() 内部 try/catch 返回 [],面板显示"暂无历史"
@@ -37,7 +37,8 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { Tooltip } from '@/components/feedback'
-import { createPortal } from 'react-dom'
+// 浮层治理(2026-09-15):迁移到统一 PortalPanel(内置 portal/定位/clamp/翻转/外点与 Escape 关闭)
+import { PortalPanel } from '@/components/feedback/portal-panel'
 import { cn } from '@/lib/utils'
 import {
   getRecentHistory,
@@ -235,7 +236,7 @@ export function PermissionHistoryPanel() {
   }, [])
 
   // 全局句柄(2026-07-25 立):PermissionModePopover 通过 window.__IHUI_OPEN_HISTORY__?.() 触发
-  // 实现:编程式 click 触发器按钮(复用 Popover 内部 open 状态,避免改 Popover 组件)
+  // 实现:编程式 click 触发器按钮(复用面板内部 open 状态,避免改 PortalPanel 组件)
   React.useEffect(() => {
     if (typeof window === 'undefined') return
     const w = window as unknown as {
@@ -279,99 +280,8 @@ export function PermissionHistoryPanel() {
     toast.success(t('resetSuppressedToast'))
   }
 
+  // 面板内容层 ref:供下方 focus trap 的 querySelectorAll 使用(透传给 PortalPanel 挂载)
   const panelRef = React.useRef<HTMLDivElement>(null)
-  const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null)
-  const rafRef = React.useRef<number | null>(null)
-
-  const updateCoords = React.useCallback(() => {
-    if (!triggerRef.current || !panelRef.current) return
-    const r = triggerRef.current.getBoundingClientRect()
-    const panelRect = panelRef.current.getBoundingClientRect()
-    const gap = 8
-    const pad = 8
-    const VW = window.innerWidth
-
-    let top = r.top - gap - panelRect.height
-    let left = r.right - panelRect.width
-
-    if (left + panelRect.width > VW - pad) {
-      left = VW - pad - panelRect.width
-    }
-    left = Math.max(pad, left)
-
-    if (top < pad) {
-      top = r.bottom + gap
-    }
-    top = Math.max(pad, top)
-
-    setCoords({ top, left })
-  }, [])
-
-  React.useLayoutEffect(() => {
-    if (!open) return
-    const id = window.requestAnimationFrame(() => {
-      updateCoords()
-    })
-    return () => window.cancelAnimationFrame(id)
-  }, [open, updateCoords])
-
-  React.useEffect(() => {
-    if (!open) return
-    const throttledUpdate = () => {
-      if (rafRef.current !== null) return
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null
-        updateCoords()
-      })
-    }
-
-    window.addEventListener('scroll', throttledUpdate, { capture: true, passive: true })
-    window.addEventListener('resize', throttledUpdate, { passive: true })
-
-    const roTrigger =
-      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
-    if (roTrigger && triggerRef.current) roTrigger.observe(triggerRef.current)
-
-    const roPanel = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
-    if (roPanel && panelRef.current) roPanel.observe(panelRef.current)
-
-    return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-      window.removeEventListener('scroll', throttledUpdate, true)
-      window.removeEventListener('resize', throttledUpdate)
-      roTrigger?.disconnect()
-      roPanel?.disconnect()
-    }
-  }, [open, updateCoords])
-
-  React.useEffect(() => {
-    if (!open) return
-    const handler = (event: MouseEvent | TouchEvent) => {
-      const triggerEl = triggerRef.current
-      const contentEl = panelRef.current
-      const target = event.target as Node
-      if (triggerEl && triggerEl.contains(target)) return
-      if (contentEl && contentEl.contains(target)) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    document.addEventListener('touchstart', handler)
-    return () => {
-      document.removeEventListener('mousedown', handler)
-      document.removeEventListener('touchstart', handler)
-    }
-  }, [open])
-
-  React.useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open])
 
   React.useEffect(() => {
     if (!open) {
@@ -425,73 +335,75 @@ export function PermissionHistoryPanel() {
       >
         <Clock4 className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
-      {open &&
-        createPortal(
-          <div
-            ref={panelRef}
-            className="z-popover w-[min(320px,calc(100vw-2rem))] space-y-2 rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            style={
-              coords
-                ? { position: 'fixed', top: coords.top, left: coords.left }
-                : { position: 'fixed', top: -9999, left: -9999 }
-            }
-            role="dialog"
-            aria-label={t('historyOpenExternal')}
-            tabIndex={-1}
-            data-testid="permission-history-panel"
-          >
-            {/* 顶部标题 + 清空按钮 */}
-            <div className="flex items-center justify-between gap-2 px-1 pb-1">
-              <div className="flex items-center gap-1.5">
-                <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-                <span className="text-sm font-semibold text-foreground">{t('historyTitle')}</span>
-              </div>
-              {entries.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  aria-label={t('historyClearConfirm')}
-                  className={cn(
-                    'inline-flex items-center gap-0.5 text-[10px] font-medium',
-                    'text-muted-foreground transition-colors hover:text-destructive',
-                  )}
-                >
-                  <Trash2 className="h-3 w-3" aria-hidden="true" />
-                  <span>{t('historyClearConfirm')}</span>
-                </button>
-              )}
+      <PortalPanel
+        open={open}
+        anchorRef={triggerRef}
+        onClose={() => setOpen(false)}
+        side="top"
+        align="end"
+        gap={8}
+        testId="permission-history-panel"
+        panelRef={panelRef}
+        className="w-[min(320px,calc(100vw-2rem))] rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
+      >
+        {/* dialog 语义保留在内容层(PortalPanel 不透传 aria 属性与 tabIndex) */}
+        <div
+          role="dialog"
+          aria-label={t('historyOpenExternal')}
+          tabIndex={-1}
+          className="space-y-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {/* 顶部标题 + 清空按钮 */}
+          <div className="flex items-center justify-between gap-2 px-1 pb-1">
+            <div className="flex items-center gap-1.5">
+              <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              <span className="text-sm font-semibold text-foreground">{t('historyTitle')}</span>
             </div>
-            {/* 列表 */}
-            <div className="max-h-[260px] overflow-y-auto">
-              <HistoryList entries={entries} now={now} />
-            </div>
-            {/* 统计汇总 */}
-            <StatsFooter />
-            {/* 重新提醒高风险(仅当用户已勾"不再提醒"时显示,供恢复确认弹窗) */}
-            {isSuppressed && (
-              <div className="px-1">
-                <button
-                  type="button"
-                  onClick={handleResetSuppressed}
-                  aria-label={t('resetSuppressedButton')}
-                  data-testid="reset-full-access-suppressed"
-                  className={cn(
-                    'inline-flex items-center gap-0.5 text-[10px] font-medium',
-                    'text-muted-foreground transition-colors hover:text-amber-600',
-                  )}
-                >
-                  <BellRing className="h-3 w-3" aria-hidden="true" />
-                  <span>{t('resetSuppressedButton')}</span>
-                </button>
-              </div>
+            {entries.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClear}
+                aria-label={t('historyClearConfirm')}
+                className={cn(
+                  'inline-flex items-center gap-0.5 text-[10px] font-medium',
+                  'text-muted-foreground transition-colors hover:text-destructive',
+                )}
+              >
+                <Trash2 className="h-3 w-3" aria-hidden="true" />
+                <span>{t('historyClearConfirm')}</span>
+              </button>
             )}
-            {/* 屏幕阅读器宣告:打开 + 空状态时宣告"暂无历史" */}
-            <span className="sr-only" aria-live="polite">
-              {entries.length === 0 ? t('historyEmpty') : ''}
-            </span>
-          </div>,
-          document.body,
-        )}
+          </div>
+          {/* 列表 */}
+          <div className="max-h-[260px] overflow-y-auto">
+            <HistoryList entries={entries} now={now} />
+          </div>
+          {/* 统计汇总 */}
+          <StatsFooter />
+          {/* 重新提醒高风险(仅当用户已勾"不再提醒"时显示,供恢复确认弹窗) */}
+          {isSuppressed && (
+            <div className="px-1">
+              <button
+                type="button"
+                onClick={handleResetSuppressed}
+                aria-label={t('resetSuppressedButton')}
+                data-testid="reset-full-access-suppressed"
+                className={cn(
+                  'inline-flex items-center gap-0.5 text-[10px] font-medium',
+                  'text-muted-foreground transition-colors hover:text-amber-600',
+                )}
+              >
+                <BellRing className="h-3 w-3" aria-hidden="true" />
+                <span>{t('resetSuppressedButton')}</span>
+              </button>
+            </div>
+          )}
+          {/* 屏幕阅读器宣告:打开 + 空状态时宣告"暂无历史" */}
+          <span className="sr-only" aria-live="polite">
+            {entries.length === 0 ? t('historyEmpty') : ''}
+          </span>
+        </div>
+      </PortalPanel>
       <ConfirmDialogRenderer />
     </>
   )

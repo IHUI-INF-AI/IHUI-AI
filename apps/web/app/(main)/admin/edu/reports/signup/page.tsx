@@ -7,30 +7,28 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  BarChart3,
-  Users,
-  CheckCircle,
-  DollarSign,
-} from 'lucide-react'
-
+import {} from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
 import { BackButton } from '@/components/common'
 import {
+  BarChart3,
+  Button,
   Card,
   CardContent,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  DollarSign,
+  Loader2,
+  SearchInput,
   Table,
-  TableHeader,
   TableBody,
-  TableRow,
-  TableHead,
   TableCell,
-  Button,
-  Input,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Users,
 } from '@ihui/ui-react'
 
 interface SignupReport {
@@ -126,11 +124,12 @@ export default function EduReportsSignupPage() {
             返回
           </Link>
         </Button>
-        <Input
+        <SearchInput
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="搜索名称"
-          className="h-9 max-w-xs"
+          size="lg"
+          wrapperClassName="max-w-xs"
         />
       </div>
 

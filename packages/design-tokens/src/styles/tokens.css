@@ -403,8 +403,15 @@
    (0.3 + 0.3 = 0.6px,e2e icon-text-alignment 实测),任何同时命中两机制的
    元素(如 nav-styles 的 [&>span]:translate-y-[...])都会被双重下推。
    改用同一 `translate` 属性后,本规则(unlayered,优先于 @layer utilities)
-   与 Tailwind 工具类互斥覆盖,全仓永远单次生效。 */
-:where(button, a, [role='button'], [role='menuitem']):has(> span) > span {
+   与 Tailwind 工具类互斥覆盖,全仓永远单次生效。
+   ★ 2026-09-15 豁免 flex 自居中 span:
+   根因:数字徽章等 span 本身是 inline-flex/flex 容器,内容已由 flexbox 精确居中,
+   整盒再被 translate 下推 0.3/0.7px 反而造成"徽章偏下"(2026-09-15 用户实测)。
+   字形补偿只对"裸文字 inline span"有意义,flex 容器 span 一律豁免。
+   选择器:[class~='flex'] 精确匹配 flex token;[class*='inline-flex'] 覆盖
+   inline-flex 及其响应式变体(sm:inline-flex 等)。 */
+:where(button, a, [role='button'], [role='menuitem']):has(> span)
+  > span:not([class~='flex']):not([class*='inline-flex']) {
   translate: 0 var(--text-vcenter-offset);
 }
 
@@ -413,8 +420,10 @@
    用 0.7px 可让 delta 收敛到 -0.09px (肉眼无感)。
    通过 button 上的 text-xs 类触发(span 继承 12px 但自身无 text-xs 类)。
    2026-07-24 同步放宽到 :has(>span),覆盖纯文字 12px 按钮。
-   2026-08-28 同步 transform → translate(与上方规则保持同一属性)。 */
-:where(button, a, [role='button'], [role='menuitem']).text-xs:has(> span) > span {
+   2026-08-28 同步 transform → translate(与上方规则保持同一属性)。
+   2026-09-15 同步豁免 flex 自居中 span(与上方规则保持一致,徽章不受 0.7px 下推)。 */
+:where(button, a, [role='button'], [role='menuitem']).text-xs:has(> span)
+  > span:not([class~='flex']):not([class*='inline-flex']) {
   translate: 0 0.7px;
 }
 

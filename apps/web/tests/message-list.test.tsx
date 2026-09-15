@@ -31,10 +31,6 @@ const { mockT, toastMock, IconSpan } = vi.hoisted(() => {
     showReasoning: '显示推理过程',
     loading: '加载任务中...',
     fallbackNotice: '已切换到备用模型 {backup}',
-    // 2026-09-01 TypingIndicator i18n 化(useTranslations('ai.toolCall'))后补齐的 mock key
-    thinking: '正在思考: {preview}',
-    callingTool: '正在调用工具 {name}',
-    waitingResponse: '正在等待模型响应…',
     copy: 'Copy',
     copied: 'Copied',
     copyFailed: 'Copy failed',
@@ -750,6 +746,13 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
         }),
       ]
       render(<MessageList {...baseProps} messages={msgs} />)
+      // 2026-09-13 起(#17)plan 步骤折叠进「查看 N 个中间步骤」Collapsible 且默认收起,
+      // CollapsibleContent 关闭时不渲染子树 → 须先点击展开触发器再断言卡片存在
+      const trigger = document.querySelector(
+        '[data-testid="message-steps-collapsible-a1"] button',
+      ) as HTMLElement
+      expect(trigger).toBeTruthy()
+      fireEvent.click(trigger)
       const card = screen.queryByTestId('message-plan-steps-a1')
       expect(card).toBeTruthy()
     })

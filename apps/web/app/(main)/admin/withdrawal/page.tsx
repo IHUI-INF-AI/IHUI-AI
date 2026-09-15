@@ -8,8 +8,8 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
-import { Banknote, ChevronLeft, ChevronRight, Check, X, Search } from 'lucide-react'
-import { Input, Button } from '@ihui/ui-react'
+import { Banknote, Check, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TruncatedText, BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
@@ -101,18 +101,15 @@ export default function AdminWithdrawalPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
-            placeholder={t('searchPlaceholder')}
-            className="pl-8"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          placeholder={t('searchPlaceholder')}
+          wrapperClassName="flex-1 max-w-sm"
+        />
         <select
           value={status}
           onChange={(e) => {

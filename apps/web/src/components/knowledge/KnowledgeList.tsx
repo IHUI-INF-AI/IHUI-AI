@@ -5,7 +5,9 @@
 'use client'
 
 import * as React from 'react'
-import { Search, Tag, Hash } from 'lucide-react'
+import { Tag, Hash } from 'lucide-react'
+
+import { SearchInput } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 
@@ -79,14 +81,14 @@ export function KnowledgeList({ items, onSearch, loading }: KnowledgeListProps) 
   return (
     <div className="space-y-4">
       {/* 搜索输入框 */}
-      <form onSubmit={handleSubmit} className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="text"
+      <form onSubmit={handleSubmit}>
+        <SearchInput
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="搜索知识库..."
-          className="h-10 w-full rounded-xl border bg-background pl-10 pr-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+          size="lg"
+          wrapperClassName="w-full"
+          aria-label="搜索知识库"
         />
       </form>
 

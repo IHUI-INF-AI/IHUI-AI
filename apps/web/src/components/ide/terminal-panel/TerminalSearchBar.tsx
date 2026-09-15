@@ -6,7 +6,8 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
-import { Search as SearchIcon, ChevronUp, ChevronDown, X } from 'lucide-react'
+import { ChevronUp, ChevronDown, X } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 import type { SearchOptions } from './types'
 
 interface TerminalSearchBarProps {
@@ -46,10 +47,8 @@ export function TerminalSearchBar({
   return (
     <div className="flex flex-col gap-1 bg-card px-2 py-1.5">
       <div className="flex items-center gap-1.5">
-        <SearchIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <input
+        <SearchInput
           ref={searchInputRef}
-          type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           onKeyDown={(e) => {
@@ -66,7 +65,8 @@ export function TerminalSearchBar({
               ? t('terminalPanel.searchRegexPlaceholder')
               : t('terminalPanel.searchPlaceholder')
           }
-          className="h-6 min-w-0 flex-1 rounded border border-border bg-background px-2 text-xs outline-none focus:border-ring/50"
+          size="sm"
+          wrapperClassName="min-w-0 flex-1"
           aria-label={t('terminalPanel.searchAria')}
         />
         <span className="shrink-0 text-[10px] text-muted-foreground">

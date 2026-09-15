@@ -8,11 +8,11 @@ import { Search, RotateCcw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
   Button,
-  Input,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -29,29 +29,26 @@ export function ProductFilter({ search, setSearch, onReset }: Props) {
   const t = useTranslations('admin.shop')
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative w-full max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search.name}
-          onChange={(e) => setSearch({ ...search, name: e.target.value })}
-          placeholder={t('products.searchName')}
-          className="h-9 pl-8"
-        />
-      </div>
-      <div className="relative w-full max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search.category}
-          onChange={(e) => setSearch({ ...search, category: e.target.value })}
-          placeholder={t('products.searchCategory')}
-          className="h-9 pl-8"
-        />
-      </div>
-      <Input
+      <SearchInput
+        value={search.name}
+        onChange={(e) => setSearch({ ...search, name: e.target.value })}
+        placeholder={t('products.searchName')}
+        size="lg"
+        wrapperClassName="w-full max-w-xs"
+      />
+      <SearchInput
+        value={search.category}
+        onChange={(e) => setSearch({ ...search, category: e.target.value })}
+        placeholder={t('products.searchCategory')}
+        size="lg"
+        wrapperClassName="w-full max-w-xs"
+      />
+      <SearchInput
         value={search.type}
         onChange={(e) => setSearch({ ...search, type: e.target.value })}
         placeholder={t('products.searchType')}
-        className="h-9 w-full max-w-[160px]"
+        size="lg"
+        wrapperClassName="w-full max-w-[160px]"
       />
       <Select
         value={search.status}

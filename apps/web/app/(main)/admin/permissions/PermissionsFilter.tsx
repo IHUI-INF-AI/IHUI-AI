@@ -7,11 +7,11 @@
 import { Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
-  Input,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -43,15 +43,13 @@ export function PermissionsFilter({
   const t = useTranslations('admin.permissions')
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative min-w-[140px] min-[640px]:min-w-[200px] flex-1">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          placeholder={t('searchPlaceholder')}
-          className="h-9 pl-8"
-        />
-      </div>
+      <SearchInput
+        value={keyword}
+        onChange={(e) => setKeyword(e.target.value)}
+        placeholder={t('searchPlaceholder')}
+        size="lg"
+        wrapperClassName="min-w-[140px] min-[640px]:min-w-[200px] flex-1"
+      />
       <Select value={resourceFilter} onValueChange={(v) => setResourceFilter(v)}>
         <SelectTrigger className={inputClass} aria-label={t('resource')}>
           <SelectValue />

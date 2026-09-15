@@ -5,8 +5,8 @@
 'use client'
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Gift, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button, Input } from '@ihui/ui-react'
+import { ChevronLeft, ChevronRight, Gift } from 'lucide-react'
+import { Button, SearchInput } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import type { Lottery, LotteryListData, LotteryStatus } from './types'
 import { BackButton } from '@/components/common'
@@ -51,14 +51,16 @@ export default function AdminLotteryPage() {
           <Gift className="h-6 w-6 shrink-0 text-primary" />
           <span className="truncate">抽奖活动</span>
         </h1>
-        <Input
+        <SearchInput
           value={search}
           onChange={(e) => {
             setSearch(e.target.value)
             setPage(1)
           }}
           placeholder="搜索活动名"
-          className="h-9 w-full shrink-0 sm:w-64"
+          size="lg"
+          wrapperClassName="w-full"
+          className="shrink-0 sm:w-64"
         />
       </div>
       <div className="rounded-lg border border-border bg-card">

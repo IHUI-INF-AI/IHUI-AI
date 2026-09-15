@@ -4,7 +4,7 @@
 
 'use client'
 import { Search } from 'lucide-react'
-import { Button, Input, Label } from '@ihui/ui-react'
+import { Button, Label, SearchInput } from '@ihui/ui-react'
 
 interface UserSearch {
   nickname: string
@@ -23,20 +23,22 @@ export function UserCenterFilter({ search, onSearchChange, onSearch, onReset }: 
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1">
         <Label className="text-xs">昵称</Label>
-        <Input
-          className="h-9 w-48"
+        <SearchInput
           value={search.nickname}
           onChange={(e) => onSearchChange({ nickname: e.target.value })}
           placeholder="搜索昵称"
+          size="lg"
+          wrapperClassName="w-48"
         />
       </div>
       <div className="space-y-1">
         <Label className="text-xs">父级ID</Label>
-        <Input
-          className="h-9 w-48"
+        <SearchInput
           value={search.parentId}
           onChange={(e) => onSearchChange({ parentId: e.target.value })}
           placeholder="搜索父级ID"
+          size="lg"
+          wrapperClassName="w-48"
         />
       </div>
       <Button size="sm" onClick={onSearch}>

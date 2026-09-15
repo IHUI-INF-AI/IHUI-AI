@@ -7,7 +7,8 @@ import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import type { TerminalHistoryEntry } from '@ihui/types'
-import { History, X } from 'lucide-react'
+import { X } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
 
 interface TerminalHistorySearchProps {
   query: string
@@ -37,10 +38,8 @@ export function TerminalHistorySearch({
   return (
     <div className="absolute left-1/2 top-2 z-30 w-96 -translate-x-1/2 overflow-hidden rounded-md border border-border bg-popover shadow-lg">
       <div className="flex items-center gap-1.5 px-2 py-1.5">
-        <History className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <input
+        <SearchInput
           ref={inputRef}
-          type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
@@ -61,8 +60,9 @@ export function TerminalHistorySearch({
             }
           }}
           placeholder={t('terminalPanel.historySearchPlaceholder')}
-          className="h-6 min-w-0 flex-1 rounded border border-border bg-background px-2 text-xs outline-none focus:border-ring/50"
+          size="sm"
           aria-label={t('terminalPanel.historySearchAria')}
+          wrapperClassName="min-w-0 flex-1"
         />
         <span className="shrink-0 text-[10px] text-muted-foreground">
           {entries.length > 0 ? `${index + 1}/${entries.length}` : '0/0'}

@@ -5,36 +5,34 @@
 'use client'
 
 import {
-  Search,
-  Download,
-  Plus,
-  Edit,
-  Trash2,
-  Loader2,
-  Newspaper,
   ChevronLeft,
   ChevronRight,
+  Download,
+  Edit,
+  Loader2,
+  Newspaper,
+  Plus,
+  Trash2,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
 import { TruncatedText } from '@/components/common'
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
   Button,
-  Input,
+  SearchInput,
   Select,
-  SelectTrigger,
   SelectContent,
   SelectItem,
+  SelectTrigger,
   SelectValue,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -90,16 +88,14 @@ export function NewsArticleTable(props: Props) {
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('searchPlaceholder')}
-            className="h-9 pl-8"
-            aria-label={t('search')}
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t('searchPlaceholder')}
+          aria-label={t('search')}
+          size="lg"
+          wrapperClassName="w-full max-w-xs"
+        />
         <div className="w-full max-w-[180px]">
           <Select value={categoryId} onValueChange={setCategoryId}>
             <SelectTrigger className={selectClass} aria-label={t('allCategories')}>
