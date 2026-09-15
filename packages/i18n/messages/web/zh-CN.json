@@ -322,8 +322,6 @@
     "scanLoginSucceeded": "扫码登录成功",
     "scanLoginSuccess": "扫码成功",
     "scanLoginTimeout": "扫码超时,请重试",
-    "cloudCred": "云端凭据",
-    "cloudCredTip": "凭据已加密存储在服务器,任何电脑登录本站账号即可使用",
     "scanLoginTitle": "扫码登录",
     "scanWithPhoneHint": "请使用手机扫描二维码登录",
     "selectPlatform": "请选择平台",
