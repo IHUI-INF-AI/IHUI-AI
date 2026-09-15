@@ -239,7 +239,9 @@
     "autoOn": "自動捕獲:開",
     "autoOff": "自動捕獲:關",
     "export": "匯出",
-    "clear": "清空"
+    "clear": "清空",
+    "regenerate": "重新產生",
+    "regenerateDisabledHint": "未選擇倉庫目錄或尚未收集到檔案,無法產生。"
   },
   "a11y": {
     "addAttachment": "添加附件（圖片/視頻/文件）",
@@ -9068,7 +9070,8 @@
       "balance": "Token 餘額",
       "vipDiscount": "VIP{level} · {rate}% 計費",
       "promotionHint": "促銷期額外 8 折",
-      "quotaUsedPercent": "月配額已用 {percent}%"
+      "quotaUsedPercent": "月配額已用 {percent}%",
+      "estimateHint": "用量為本機估算,以帳單為準"
     },
     "showReasoning": "顯示推理過程",
     "skillLibrary": {
@@ -9340,7 +9343,33 @@
       "userNode": "使用者訊息",
       "toolNode": "工具呼叫",
       "errorNode": "錯誤訊息"
-    }
+    },
+    "sampling": {
+      "clearParam": "重設參數 {{name}}",
+      "useModelDefault": "使用模型預設值",
+      "title": "取樣參數",
+      "desc": "調整 temperature、top_p 等推論參數,僅對目前對話生效。",
+      "scopeSession": "會話層級",
+      "scopeDefault": "預設",
+      "promoteToDefaults": "儲存為預設",
+      "temperature": "Temperature",
+      "temperatureHint": "越高越有創造性,越低越確定。",
+      "topP": "Top P",
+      "topPHint": "核取樣概率質量上限。",
+      "topK": "Top K",
+      "topKHint": "每步僅從概率最高的 K 個候選中取樣。",
+      "maxTokens": "最大輸出 Token 數",
+      "maxTokensHint": "限制單次回覆的最大長度。",
+      "systemPrompt": "系統提示詞",
+      "systemPromptPlaceholder": "輸入本輪對話的系統提示詞…",
+      "systemPromptHint": "僅對目前會話生效,不會儲存為預設。",
+      "resetAll": "全部重設",
+      "done": "完成",
+      "triggerActive": "取樣參數 · {{count}} 項已覆蓋",
+      "trigger": "取樣參數",
+      "triggerAria": "開啟取樣參數設定"
+    },
+    "editComingSoon": "訊息編輯即將上線,敬請期待"
   },
   "chatHistory": {
     "backToHistory": "返回任務列表",
@@ -21934,5 +21963,9 @@
     "commentPlaceholder": "寫下你的使用體驗(可選)",
     "submitRating": "提交評分",
     "ratingSuccess": "評分已提交"
+  },
+  "chatSearchBar": {
+    "searchPlaceholder": "搜尋對話…",
+    "searchAriaLabel": "搜尋對話"
   }
 }
