@@ -25,8 +25,9 @@ import { request as newRequest } from '@playwright/test'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const WEB_URL = 'http://localhost:8801'
-const API_URL = 'http://localhost:8802'
+const WEB_URL =
+  process.env.E2E_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8801' // 2026-09-15 修:不再写死 8801
+const API_URL = process.env.E2E_API_URL || 'http://localhost:8802' // 2026-09-15 修:必须与 web 构建时烘焙的 IHUI_API_PROXY_TARGET 同库,否则分享 token 跨库 404
 const ADMIN_STORAGE_STATE = path.join(__dirname, '.auth', 'admin.json')
 
 test.describe('分享功能 E2E 测试', () => {
