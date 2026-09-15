@@ -8523,6 +8523,13 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "usageEstimated": "推定",
+    "turnChanges": {
+      "title": "このターンの変更",
+      "revert": "このターンに戻す",
+      "noCheckpoints": "チェックポイントなし",
+      "revertConfirm": "この AI 回復より前の会話とファイルに復元します。{count} 件のファイル変更が取り消されます。この操作は元に戻せません。"
+    },
     "addContextHint": "コンテキストファイルや参照を追加",
     "addContextReference": "コンテキストとして",
     "addMenuDesc": "追加メニュー(テンプレート/参照/Skill/添付/プラグイン/圧縮)",
@@ -12044,6 +12051,11 @@
     }
   },
   "fileMention": {
+    "groupDir": "ディレクトリ",
+    "groupSemantic": "セマンティックソース",
+    "semanticCodebaseDesc": "アクティブWSのツリーを注入",
+    "semanticTerminalDesc": "直近のターミナル出力を注入",
+    "semanticDocsDesc": "CLAUDE.md/AGENTS.md/README.md を注入",
     "fileSearchPlaceholder": "ファイルを検索…",
     "noMatch": "一致するファイルなし",
     "clearAriaLabel": "検索をクリア",
@@ -16791,6 +16803,11 @@
       "batchScanTitle": "一括スキャンログイン",
       "batchScanDescription": "未設定のプラットフォームのログインページを順番に開きます。スマホでスキャンを続けるだけで、ログイン成功ごとに自動保存され次のプラットフォームへ切り替わります。",
       "batchScanProgress": "{current}/{total} · {name}",
+      "batchScanModeLabel": "一括スキャンモード",
+      "batchScanModeInternal": "内蔵ブラウザ",
+      "batchScanModeExternal": "外部ブラウザ",
+      "batchScanWaitingHintExternal": "外部ブラウザでスキャンログインを完了してください",
+      "batchScanStart": "一括スキャン開始",
       "batchScanWaitingHint": "右側の内蔵ブラウザでスキャン/ログインしてください。2 分でタイムアウト自動スキップします(手動スキップも可能)。",
       "batchScanLoading": "プラットフォームキューを準備中...",
       "batchScanSkip": "このプラットフォームをスキップ",

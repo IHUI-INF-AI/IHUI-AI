@@ -8505,6 +8505,13 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "usageEstimated": "추정",
+    "turnChanges": {
+      "title": "이 턴의 변경 사항",
+      "revert": "이 턴으로 되돌리기",
+      "noCheckpoints": "체크포인트 없음",
+      "revertConfirm": "이 AI 답변 이전의 대화와 파일로 복원합니다. {count}개의 파일 변경이 되돌려지며, 이 작업은 되돌릴 수 없습니다."
+    },
     "addContextHint": "컨텍스트 파일 또는 참조 추가",
     "addContextReference": "컨텍스트 참조로 추가",
     "addMenuDesc": "추가 메뉴(템플릿/참조/Skill/첨부/플러그인/압축)",
@@ -12026,6 +12033,11 @@
     }
   },
   "fileMention": {
+    "groupDir": "디렉터리",
+    "groupSemantic": "시맨틱 소스",
+    "semanticCodebaseDesc": "활성 워크스페이스 트리 주입",
+    "semanticTerminalDesc": "최근 터미널 출력 주입",
+    "semanticDocsDesc": "CLAUDE.md/AGENTS.md/README.md 주입",
     "fileSearchPlaceholder": "파일 검색…",
     "noMatch": "일치하는 파일 없음",
     "clearAriaLabel": "검색 지우기",
@@ -16716,6 +16728,11 @@
       "batchScanTitle": "원클릭 QR 코드 로그인",
       "batchScanDescription": "설정 대기 중인 플랫폼의 로그인 페이지를 자동으로 하나씩 엽니다. 휴대폰 QR 스캔 상태를 유지한 채 연속으로 스캔하면 되며, 플랫폼 로그인 성공 시 자동 저장 후 다음 플랫폼으로 전환됩니다.",
       "batchScanProgress": "{current}/{total}번째 · {name}",
+      "batchScanModeLabel": "일괄 스캔 모드",
+      "batchScanModeInternal": "내장 브라우저",
+      "batchScanModeExternal": "외부 브라우저",
+      "batchScanWaitingHintExternal": "외부 브라우저에서 스캔 로그인을 완료하세요",
+      "batchScanStart": "일괄 스캔 시작",
       "batchScanWaitingHint": "오른쪽 내장 브라우저에서 해당 플랫폼의 QR 스캔/로그인을 완료해 주세요. 시간 초과(2분) 시 자동으로 건너뛰며, 수동으로 건너뛸 수도 있습니다",
       "batchScanLoading": "플랫폼 대기열 준비 중...",
       "batchScanSkip": "이 플랫폼 건너뛰기",
