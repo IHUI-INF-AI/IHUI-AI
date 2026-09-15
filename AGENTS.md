@@ -1149,10 +1149,13 @@ Windows PowerShell 5.1(`powershell.exe`)已 EOL(微软停止维护),且存在已
 
 ### 守门(blocking)
 
-- `scripts/check-pwsh-version.mjs`:扫 `g:\IHUI-AI` 下所有 `.ps1`(排除 venv / node_modules / .git / site-packages / .ihui-agent/tmp),检查前 5 行是否含 `#requires -Version 7`,缺失则 exit 1
-- 集成位置:`scripts/guardian-runner.mjs` pre-commit 第 41 项(新增,2026-08-13 立项);跳过 `HUSKY_SKIP_PWSH_VERSION_CHECK=1`(应急,默认不推荐)
-- 检查范围:全项目 `.ps1`,包括 `scripts/`、`deploy/`、`apps/*/scripts/`、`.ihui-agent/scripts/`(项目级,非 `.ihui-agent/tmp/`)
-- 白名单:`*.venv/*`、`venv/*`、`node_modules/*`、`.git/*`、`.ihui-agent/tmp/*`、`site-packages/*`(playwright 驱动)
+- `scripts/check-pwsh-version.mjs`:检查 `.ps1` 前 5 行是否含 `#requires -Version 7`,缺失则 exit 1。ROOT 由脚本自身位置推导(不写死盘符)
+  - `--staged`:仅检查 **git index 中已暂存的** `.ps1`(`.husky/pre-commit` 用此模式)
+  - 缺省:全树扫描(人工 / CI 全量审计用)
+- 集成位置:`.husky/pre-commit` 直接调用 `node scripts/check-pwsh-version.mjs --staged`(blocking);跳过 `HUSKY_SKIP_PWSH_VERSION_GUARD=1`(应急,默认不推荐)
+- 检查范围:项目内 `.ps1`(`scripts/`、`apps/*/scripts/`、`.ihui-agent/scripts/` 等)
+- 白名单:`*.venv/*`、`venv/*`、`node_modules/*`、`.git/*`、`tmp/*`、`deploy/*`、`.ihui-agent/*`、`site-packages/*`(playwright 驱动)、`.workbuddy/quarantine/*`(污染治理隔离归档)
+- **2026-09-15 修复(本守门自身 P0 回归)**:`--staged` 自挂载起只在用法注释里声明、**从未实现**,实现中只有无条件的全树 `scan(ROOT)`,导致工作区里未跟踪且被 gitignore 的遗留 `.ps1`(实测 `.android-toolchain/*.ps1`、`.tmp-wechat-test/watch.ps1`)**阻断每一次提交**——而它们在干净 checkout / CI 里根本不存在。已真正实现 `--staged`,并补齐 `deploy/*` 等白名单口径。
 
 ### 安装指引(机器上没装 PowerShell 7)
 
