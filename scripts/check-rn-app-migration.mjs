@@ -84,6 +84,11 @@ const WHITELIST = new Set([
   'CircleIndexScreen.tsx', // 圈子广场:RN 端独占 FlatList 社区流 + Image 预览 + FAB 发布,Web/Miniapp 有独立实现
   'TopicDetailScreen.tsx', // 话题详情:RN 端独占关注翻转 + 时间相对化 + 帖子详情流,Web/Miniapp 有独立实现
   'TopicListScreen.tsx', // 话题列表:RN 端独占搜索 + 三 Tab 筛选 + FlatList 分页,Web/Miniapp 有独立实现
+  // ── 2026-09-14 全量守门清零批:RN 独占能力/产品定稿回退,无跨端复用需求 ──
+  'AboutScreen.tsx', // 关于页:2026-09-05 产品定稿恢复历史合规跳转列表(对齐 Uniapp about.vue),7 条目跳转 RN 端合规屏集合(Agreement/Privacy/AppPermission/UsageRules/BusinessLicense/IcpRecord/ModelRecord);共享层 app-info 卡版 UI 不适用,曾接 SharedAboutScreen 后有意移除
+  'WebViewScreen.tsx', // 通用 WebView 壳:generateSsoCode SSO 会话打通 + Android 返回键拦截,与已豁免 WebPortalScreen/ChatToolsScreen/KnowledgeRagScreen 同类 RN 独占容器
+  'ImageGenCreateScreen.tsx', // AI 生图创建:expo-file-system + expo-media-library 原生相册保存深度耦合,RN 端独占发布能力
+  'PdfToolsScreen.tsx', // PDF 工具:expo-document-picker + expo-file-system + Share 原生文件选择/分享能力,RN 端独占工具屏
 ])
 
 /** 检查文件内容是否 import from '@ihui/rn-app' */
