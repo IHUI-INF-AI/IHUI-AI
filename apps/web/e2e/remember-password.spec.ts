@@ -13,7 +13,8 @@ import { test, expect, type Page } from '@playwright/test'
  *  - apps/web/messages/{zh-CN,en,zh-TW,ko,ja}.json
  */
 
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8801'
+const BASE_URL =
+  process.env.E2E_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8801' // 2026-09-15 修:不再写死 8801
 
 test.beforeEach(async ({ page }) => {
   // 2026-08-26 修复:仅 clearCookies 不够 —— localStorage 的 ihui-auth / ihui-user /
