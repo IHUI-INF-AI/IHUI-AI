@@ -239,7 +239,9 @@
     "autoOn": "자동 수집: 켬",
     "autoOff": "자동 수집: 끔",
     "export": "내보내기",
-    "clear": "비우기"
+    "clear": "비우기",
+    "regenerate": "다시 생성",
+    "regenerateDisabledHint": "저장소 폴더가 선택되지 않았거나 수집된 파일이 없습니다."
   },
   "a11y": {
     "addAttachment": "첨부 파일 추가(이미지/비디오/파일)",
@@ -9050,7 +9052,8 @@
       "balance": "토큰 잔액",
       "vipDiscount": "VIP{level} · {rate}% 과금",
       "promotionHint": "프로모션 기간 추가 20% 할인",
-      "quotaUsedPercent": "월 할당량 {percent}% 사용"
+      "quotaUsedPercent": "월 할당량 {percent}% 사용",
+      "estimateHint": "사용량은 로컬 추정이며, 청구 내역이 기준입니다"
     },
     "showReasoning": "추론 표시",
     "skillLibrary": {
@@ -9322,7 +9325,33 @@
       "userNode": "사용자 메시지",
       "toolNode": "도구 호출",
       "errorNode": "오류 메시지"
-    }
+    },
+    "sampling": {
+      "clearParam": "{{name}} 초기화",
+      "useModelDefault": "모델 기본값 사용",
+      "title": "샘플링 파라미터",
+      "desc": "temperature, top_p 등 추론 파라미터를 조정합니다. 현재 대화에만 적용됩니다.",
+      "scopeSession": "세션",
+      "scopeDefault": "기본",
+      "promoteToDefaults": "기본값으로 저장",
+      "temperature": "Temperature",
+      "temperatureHint": "높을수록 창의적, 낮을수록 결정론적.",
+      "topP": "Top P",
+      "topPHint": "핵 샘플링 확률 질량 상한.",
+      "topK": "Top K",
+      "topKHint": "각 단계에서 상위 K개 후보에서만 샘플링.",
+      "maxTokens": "최대 출력 토큰 수",
+      "maxTokensHint": "단일 응답의 최대 길이를 제한합니다.",
+      "systemPrompt": "시스템 프롬프트",
+      "systemPromptPlaceholder": "이 대화의 시스템 프롬프트 입력…",
+      "systemPromptHint": "이 세션에만 적용되며 기본값으로 저장되지 않습니다.",
+      "resetAll": "모두 초기화",
+      "done": "완료",
+      "triggerActive": "샘플링 · {{count}}개 재정의",
+      "trigger": "샘플링 파라미터",
+      "triggerAria": "샘플링 파라미터 열기"
+    },
+    "editComingSoon": "메시지 편집 기능이 곧 제공될 예정입니다"
   },
   "chatHistory": {
     "backToHistory": "기록으로 돌아가기",
@@ -21928,5 +21957,9 @@
     "commentPlaceholder": "사용 경험을 적어주세요(선택)",
     "submitRating": "평점 제출",
     "ratingSuccess": "평점이 제출되었습니다"
+  },
+  "chatSearchBar": {
+    "searchPlaceholder": "대화 검색…",
+    "searchAriaLabel": "대화 검색"
   }
 }
