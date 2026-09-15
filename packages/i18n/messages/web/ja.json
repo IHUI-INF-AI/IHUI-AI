@@ -239,7 +239,9 @@
     "autoOn": "自動収集:オン",
     "autoOff": "自動収集:オフ",
     "export": "エクスポート",
-    "clear": "クリア"
+    "clear": "クリア",
+    "regenerate": "再生成",
+    "regenerateDisabledHint": "リポジトリフォルダが未選択か、ファイルが未収集のため生成できません。"
   },
   "a11y": {
     "addAttachment": "添付ファイルを追加(画像/動画/ファイル)",
@@ -9068,7 +9070,8 @@
       "balance": "トークン残高",
       "vipDiscount": "VIP{level} · {rate}% 料金",
       "promotionHint": "キャンペーン期間は追加 20% オフ",
-      "quotaUsedPercent": "月間クォータ使用率 {percent}%"
+      "quotaUsedPercent": "月間クォータ使用率 {percent}%",
+      "estimateHint": "使用量はローカル推定です。請求が正確な値です"
     },
     "showReasoning": "推論過程を表示",
     "skillLibrary": {
@@ -9340,7 +9343,33 @@
       "userNode": "ユーザーメッセージ",
       "toolNode": "ツール呼び出し",
       "errorNode": "エラーメッセージ"
-    }
+    },
+    "sampling": {
+      "clearParam": "{{name}}をリセット",
+      "useModelDefault": "モデルのデフォルトを使用",
+      "title": "サンプリングパラメータ",
+      "desc": "temperature、top_p などの推論パラメータを調整します。現在の会話にのみ適用されます。",
+      "scopeSession": "セッション",
+      "scopeDefault": "デフォルト",
+      "promoteToDefaults": "デフォルトとして保存",
+      "temperature": "Temperature",
+      "temperatureHint": "高いほど創造的、低いほど決定論的。",
+      "topP": "Top P",
+      "topPHint": "核サンプリングの確率質量の上限。",
+      "topK": "Top K",
+      "topKHint": "各ステップで確率上位 K 個の候補からのみサンプリング。",
+      "maxTokens": "最大出力トークン数",
+      "maxTokensHint": "1 回答の最大長を制限します。",
+      "systemPrompt": "システムプロンプト",
+      "systemPromptPlaceholder": "この会話のシステムプロンプトを入力…",
+      "systemPromptHint": "このセッションにのみ適用され、デフォルトには保存されません。",
+      "resetAll": "すべてリセット",
+      "done": "完了",
+      "triggerActive": "サンプリング · {{count}} 項を上書き",
+      "trigger": "サンプリングパラメータ",
+      "triggerAria": "サンプリングパラメータを開く"
+    },
+    "editComingSoon": "メッセージ編集は近日公開予定"
   },
   "chatHistory": {
     "backToHistory": "にる",
@@ -21957,5 +21986,9 @@
     "commentPlaceholder": "使用感を書いてください(任意)",
     "submitRating": "評価を送信",
     "ratingSuccess": "評価を送信しました"
+  },
+  "chatSearchBar": {
+    "searchPlaceholder": "会話を検索…",
+    "searchAriaLabel": "会話を検索"
   }
 }

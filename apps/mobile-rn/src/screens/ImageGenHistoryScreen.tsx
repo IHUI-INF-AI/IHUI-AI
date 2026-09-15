@@ -2,26 +2,34 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useState } from 'react'
-import { FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
+/**
+ * ImageGenHistoryScreen 图像生成历史/收藏(mobile-rn 端 wrapper)
+ *
+ * 2026-09-15 迁移:UI 与展示逻辑已下沉共享层 @ihui/rn-app ImageGenHistoryScreen,
+ * 本 wrapper 仅保留平台特定职责:
+ * - 数据:getAigcTasks(GET /api/ai/aigc/records)历史分页 + fetchApi(GET /api/image-gen/favorites)收藏分页
+ * - URL:resolveFileUrl 解析封面;时间文本按当前 locale 预格式化
+ * - 分页:PAGE_SIZE=20,onEndReached 上拉加载(静默失败,下次触底重试)+ RefreshControl 下拉刷新
+ * - 导航:goBack / ImageGenCreate 跳转;主题色 / i18n 注入
+ */
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getAigcTasks, resolveFileUrl, type AigcTask } from '@ihui/api-client'
+import { ImageGenHistoryScreen as SharedImageGenHistoryScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-type TabKey = 'history' | 'favorites'
-
-/** 历史与收藏统一渲染结构(status 仅历史任务有,收藏无状态) */
+/** 历史与收藏统一渲染结构(status 仅历史任务有,收藏无状态;coverUrl 已 resolve,timeText 已按 locale 格式化) */
 interface GridItem {
   id: string
   coverUrl: string
   prompt: string
   status?: AigcTask['status']
-  createdAt: string
+  timeText: string
 }
 
 interface FavoritesData {
@@ -32,23 +40,6 @@ interface FavoritesData {
 }
 
 const PAGE_SIZE = 20
-
-const timeFormatter = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-})
-
-function formatTime(iso: string): string {
-  if (!iso) return ''
-  try {
-    return timeFormatter.format(new Date(iso))
-  } catch {
-    return iso
-  }
-}
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
@@ -64,48 +55,43 @@ function coverOf(result: unknown): string {
   return raw ? resolveFileUrl(raw) : ''
 }
 
-function toGridHistoryItem(task: AigcTask): GridItem {
+function formatTime(iso: string, formatter: Intl.DateTimeFormat): string {
+  if (!iso) return ''
+  try {
+    return formatter.format(new Date(iso))
+  } catch {
+    return iso
+  }
+}
+
+function toGridHistoryItem(task: AigcTask, formatter: Intl.DateTimeFormat): GridItem {
   const r = isRecord(task.result) ? task.result : {}
   return {
     id: task.taskId,
     coverUrl: coverOf(task.result),
     prompt: asString(r.prompt),
     status: task.status,
-    createdAt: task.createdAt ?? '',
+    timeText: formatTime(task.createdAt ?? '', formatter),
   }
 }
 
-function toGridFavoriteItem(item: FavoritesData['list'][number]): GridItem {
+function toGridFavoriteItem(
+  item: FavoritesData['list'][number],
+  formatter: Intl.DateTimeFormat,
+): GridItem {
   return {
     id: item.id,
     coverUrl: item.imageUrl,
     prompt: item.prompt,
-    createdAt: item.createdAt,
+    timeText: formatTime(item.createdAt, formatter),
   }
 }
 
-const STATUS_KEY: Record<AigcTask['status'], string> = {
-  pending: 'imageGen.statusPending',
-  running: 'imageGen.statusRunning',
-  succeeded: 'imageGen.statusSucceeded',
-  failed: 'imageGen.statusFailed',
-}
-
-const TABS: Array<{ key: TabKey; labelKey: string }> = [
-  { key: 'history', labelKey: 'imageGen.tabHistory' },
-  { key: 'favorites', labelKey: 'imageGen.tabFavorites' },
-]
-
-/**
- * 图像生成历史 / 收藏(M3 补齐:web /image-gen/history、/image-gen/favorites 在移动端的入口)
- * 历史数据源:getAigcTasks(GET /api/ai/aigc/records,含生成状态与封面)
- * 收藏数据源:fetchApi(GET /api/image-gen/favorites,含 prompt + imageUrl 快照)
- */
 export function ImageGenHistoryScreen() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const [tab, setTab] = useState<TabKey>('history')
+  const [tab, setTab] = useState<'history' | 'favorites'>('history')
   const [historyItems, setHistoryItems] = useState<GridItem[]>([])
   const [favItems, setFavItems] = useState<GridItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -115,13 +101,25 @@ export function ImageGenHistoryScreen() {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
 
+  const timeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    [locale],
+  )
+
   const load = useCallback(async () => {
     setError('')
     try {
       if (tab === 'history') {
         const res = await getAigcTasks({ page: 1, pageSize: PAGE_SIZE })
         if (res.success) {
-          setHistoryItems(res.data.list.map(toGridHistoryItem))
+          setHistoryItems(res.data.list.map((task) => toGridHistoryItem(task, timeFormatter)))
           setHasMore(res.data.list.length >= PAGE_SIZE)
         } else {
           setError(res.error || t('imageGen.loadFailed'))
@@ -131,7 +129,7 @@ export function ImageGenHistoryScreen() {
           params: { page: 1, pageSize: PAGE_SIZE },
         })
         if (res.success) {
-          setFavItems(res.data.list.map(toGridFavoriteItem))
+          setFavItems(res.data.list.map((item) => toGridFavoriteItem(item, timeFormatter)))
           setHasMore(res.data.list.length >= PAGE_SIZE)
         } else {
           setError(res.error || t('imageGen.loadFailed'))
@@ -144,7 +142,7 @@ export function ImageGenHistoryScreen() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [tab, t])
+  }, [tab, t, timeFormatter])
 
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || !hasMore) return
@@ -154,7 +152,7 @@ export function ImageGenHistoryScreen() {
       if (tab === 'history') {
         const res = await getAigcTasks({ page: nextPage, pageSize: PAGE_SIZE })
         if (res.success) {
-          const nextItems = res.data.list.map(toGridHistoryItem)
+          const nextItems = res.data.list.map((task) => toGridHistoryItem(task, timeFormatter))
           if (nextItems.length < PAGE_SIZE) setHasMore(false)
           setHistoryItems((prev) => [...prev, ...nextItems])
         }
@@ -163,7 +161,7 @@ export function ImageGenHistoryScreen() {
           params: { page: nextPage, pageSize: PAGE_SIZE },
         })
         if (res.success) {
-          const nextItems = res.data.list.map(toGridFavoriteItem)
+          const nextItems = res.data.list.map((item) => toGridFavoriteItem(item, timeFormatter))
           if (nextItems.length < PAGE_SIZE) setHasMore(false)
           setFavItems((prev) => [...prev, ...nextItems])
         }
@@ -174,7 +172,7 @@ export function ImageGenHistoryScreen() {
     } finally {
       setLoadingMore(false)
     }
-  }, [loading, loadingMore, hasMore, page, tab])
+  }, [loading, loadingMore, hasMore, page, tab, timeFormatter])
 
   useEffect(() => {
     void load()
@@ -185,7 +183,7 @@ export function ImageGenHistoryScreen() {
     void load()
   }
 
-  const onTabPress = (key: TabKey) => {
+  const onTabPress = (key: 'history' | 'favorites') => {
     if (key === tab) return
     setTab(key)
     setHistoryItems([])
@@ -196,113 +194,25 @@ export function ImageGenHistoryScreen() {
 
   const items = tab === 'history' ? historyItems : favItems
 
-  const renderItem = ({ item }: { item: GridItem }) => (
-    <View className="mb-3 flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-neutral-700 dark:bg-neutral-800">
-      {item.coverUrl ? (
-        <Image
-          source={{ uri: item.coverUrl }}
-          style={{ aspectRatio: 1, width: '100%' }}
-          resizeMode="cover"
-        />
-      ) : (
-        <View className="aspect-square w-full items-center justify-center bg-gray-100 px-3 dark:bg-neutral-700">
-          <Text className="text-center text-xs text-gray-400" numberOfLines={4}>
-            {item.prompt || t('imageGen.promptFallback')}
-          </Text>
-        </View>
-      )}
-      {item.status ? (
-        <View className="absolute left-2 top-2 rounded bg-black/40 px-1.5 py-0.5">
-          <Text className="text-[10px] text-white">{t(STATUS_KEY[item.status])}</Text>
-        </View>
-      ) : null}
-      <View className="p-2">
-        <Text className="text-xs font-medium text-gray-800 dark:text-gray-100" numberOfLines={2}>
-          {item.prompt || t('imageGen.promptFallback')}
-        </Text>
-        <Text className="mt-1 text-[10px] text-gray-400">{formatTime(item.createdAt)}</Text>
-      </View>
-    </View>
-  )
-
-  if (loading) {
-    return (
-      <View
-        className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}
-      >
-        <Text className="text-gray-500">{t('common.loading')}</Text>
-      </View>
-    )
-  }
-
   return (
-    <View className={`flex-1 ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}>
-      <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text className="text-sm text-gray-500">{t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text className="text-base font-medium">{t('imageGen.title')}</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('ImageGenCreate')}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text className="text-sm font-medium text-orange-600">{t('imageGen.create')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View className="flex-row gap-2 px-4 pb-2">
-        {TABS.map((item) => (
-          <TouchableOpacity
-            key={item.key}
-            onPress={() => onTabPress(item.key)}
-            className={`rounded-md px-3 py-1.5 ${tab === item.key ? 'bg-gray-200 dark:bg-neutral-700' : ''}`}
-          >
-            <Text
-              className={`text-sm ${tab === item.key ? 'font-medium text-gray-900 dark:text-gray-50' : 'text-gray-500'}`}
-            >
-              {t(item.labelKey)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {error ? (
-        <View className="flex-1 items-center justify-center px-6">
-          <Text className="mb-3 text-center text-sm text-gray-500">{error}</Text>
-          <TouchableOpacity
-            onPress={() => {
-              setLoading(true)
-              void load()
-            }}
-            className="rounded-md bg-gray-200 px-4 py-2 dark:bg-neutral-700"
-          >
-            <Text className="text-sm">{t('common.retry')}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          columnWrapperStyle={{ gap: 12 }}
-          contentContainerStyle={{ padding: 16 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          onEndReachedThreshold={0.3}
-          onEndReached={() => void loadMore()}
-          ListEmptyComponent={
-            <View className="items-center py-16">
-              <Text className="text-sm text-gray-500">
-                {tab === 'history' ? t('imageGen.historyEmpty') : t('imageGen.favoritesEmpty')}
-              </Text>
-            </View>
-          }
-          renderItem={renderItem}
-        />
-      )}
-    </View>
+    <SharedImageGenHistoryScreen
+      t={t}
+      tab={tab}
+      items={items}
+      loading={loading}
+      refreshing={refreshing}
+      error={error}
+      onTabChange={onTabPress}
+      onRefresh={onRefresh}
+      onLoadMore={() => void loadMore()}
+      onRetry={() => {
+        setLoading(true)
+        void load()
+      }}
+      onBack={() => navigation.goBack()}
+      onCreate={() => navigation.navigate('ImageGenCreate')}
+      colorScheme={resolvedTheme}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
