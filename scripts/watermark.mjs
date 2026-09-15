@@ -394,20 +394,8 @@ function cleanFile(absPath) {
       continue
     }
     inBanner = false
-    // 删除含隐写载荷的行。三种形态都必须命中:
-    //   ① 标准载荷 INVISIBLE_MARK(精确匹配)
-    //   ② 任意裸零宽行(无注释前缀)
-    //   ③ **带注释前缀的裸载荷行**(如 `// <零宽串>`,文件尾水印的常见形态)。
-    // ③ 是 2026-09-14 实测的漏网形态:尾部水印被文本工具改写为「载荷损坏」
-    // (解码得 `PBOVENANCE` 等)后,既不等于 INVISIBLE_MARK,剥掉 `//` 后又匹配不上
-    // BANNER_TEXT_RE,于是清洗后残留在文件中部 → payloadIntact 的 every() 恒假 →
-    // 覆盖率守门自愈失败。此处按「剥注释前缀后仅剩零宽字符」统一识别。
-    const bare = line
-      .trim()
-      .replace(/^(\/\/|#|--|\/\*|\*)\s*/, '')
-      .replace(/(\*\/|-->)\s*$/, '')
-      .trim()
-    if (line.includes(INVISIBLE_MARK) || /^[\u200b\u200c\u200d\u2060]+$/.test(bare)) continue
+    // 删除含隐写载荷的行(标准 INVISIBLE_MARK 或任意裸零宽行都命中)
+    if (line.includes(INVISIBLE_MARK) || /^[\u200b\u200c\u200d\u2060]+$/.test(line.trim())) continue
     keep.push(line)
   }
   let out = keep.join('\n')
