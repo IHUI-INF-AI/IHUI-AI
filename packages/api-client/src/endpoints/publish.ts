@@ -215,6 +215,12 @@ export interface CdpDetectResult {
   account_id: number | null
   /** 错误信息(detected=false 时可能有) */
   error?: string | null
+  /** 诊断信息:当前页面 URL(2026-09-15 新增,detected=false 时返回) */
+  current_url?: string
+  /** 诊断信息:会话中实际存在的 cookie 名单(2026-09-15 新增,用于排查过时的 success_cookies) */
+  cookie_names?: string[]
+  /** 诊断信息:平台配置的期望 cookie 名单(2026-09-15 新增) */
+  success_cookies?: string[]
 }
 
 /**

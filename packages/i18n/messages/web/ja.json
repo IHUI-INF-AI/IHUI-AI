@@ -322,6 +322,8 @@
     "scanLoginSucceeded": "スキャンログインに成功しました",
     "scanLoginSuccess": "スキャン成功",
     "scanLoginTimeout": "スキャンタイムアウトです。もう一度お試しください。",
+    "cloudCred": "クラウド認証情報",
+    "cloudCredTip": "認証情報はサーバー上で暗号化して保存されています。任意のパソコンからアカウントにログインすれば利用できます。",
     "scanLoginTitle": "スキャンログイン",
     "scanWithPhoneHint": "スマートフォンでQRコードをスキャンしてください。",
     "selectPlatform": "プラットフォームを選択",
@@ -16779,7 +16781,9 @@
       "verifySuccess": "接続成功",
       "waitingForScan": "{platform} アプリのスキャン待機中...",
       "openExternalBrowserWithPlatform": "右側の内蔵ブラウザで {name} のログインページを開きました。QR コードをスキャンしてログインしてください",
-      "webFallbackHint": "現在 Web モードです。ログイン後に Cookie を貼り付けて手動で保存してください"
+      "webFallbackHint": "現在 Web モードです。ログイン後に Cookie を貼り付けて手動で保存してください",
+      "cloudCred": "クラウド認証情報",
+      "cloudCredTip": "認証情報はサーバー上で暗号化して保存されています。任意のパソコンからアカウントにログインすれば利用できます。"
     },
     "ai": {
       "analyzeAll": "一括分析",
