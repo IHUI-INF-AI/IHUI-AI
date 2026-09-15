@@ -27,6 +27,7 @@ import base64
 import contextlib
 import json
 import os
+import re
 import threading
 import time
 import uuid
@@ -59,7 +60,7 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     "xiaohongshu": {
         "name": "小红书",
         "login_url": "https://www.xiaohongshu.com/explore",
-        "success_cookies": ["web_session", "webId", "a1"],
+        "success_cookies": ["web_session"],  # 2026-09-15:剔除 webId/a1 登录前游客 cookie,避免误报
         "success_url_pattern": r"^https?://(www\.)?xiaohongshu\.com/explore",
     },
     "weibo": {
@@ -108,7 +109,7 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     "segmentfault": {
         "name": "思否",
         "login_url": "https://segmentfault.com/user/login",
-        "success_cookies": ["PHPSESSID", "SFSSID"],
+        "success_cookies": ["SFSSID"],  # 2026-09-15:剔除 PHPSESSID(登录页即存在的服务端会话)
         "success_url_pattern": r"segmentfault\.com/u/",
     },
     "oschina": {
@@ -127,13 +128,13 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     "baijiahao": {
         "name": "百家号",
         "login_url": "https://baijiahao.baidu.com",
-        "success_cookies": ["BDUSS", "STOKEN", "BAIDUID"],
+        "success_cookies": ["BDUSS", "STOKEN"],  # 2026-09-15:剔除 BAIDUID 统计 cookie
         "success_url_pattern": r"baijiahao\.baidu\.com/(ucui|home)",
     },
     "qq": {
         "name": "企鹅号",
         "login_url": "https://om.qq.com/userAuth/login",
-        "success_cookies": ["pgv_pvid", "RK", "ptcz", "p_skey"],
+        "success_cookies": ["p_skey", "ptcz"],  # 2026-09-15:剔除 pgv_pvid/RK 统计 cookie
         "success_url_pattern": r"om\.qq\.com/(main|companion)",
     },
     "dayihao": {
@@ -151,7 +152,7 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     "sohu": {
         "name": "搜狐号",
         "login_url": "https://mp.sohu.com/mp/login",
-        "success_cookies": ["SUV", "IPLOC", "sct", "_mp_key"],
+        "success_cookies": ["sct", "_mp_key"],  # 2026-09-15:剔除 SUV/IPLOC 统计/地域 cookie
         "success_url_pattern": r"mp\.sohu\.com/(mp4|home)",
     },
     "sina": {
@@ -170,7 +171,7 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     "haokan": {
         "name": "好看视频",
         "login_url": "https://haokan.baidu.com",
-        "success_cookies": ["BDUSS", "STOKEN", "BAIDUID"],
+        "success_cookies": ["BDUSS", "STOKEN"],  # 2026-09-15:剔除 BAIDUID 统计 cookie
         "success_url_pattern": r"haokan\.baidu\.com/(u|creator)",
     },
     # ===== 第四批:SEO/GEO 高权重平台(2026-08-01 扩展)=====
@@ -225,7 +226,7 @@ PLATFORM_SCAN_CONFIG: dict[str, dict[str, Any]] = {
     "zhihu_daily": {
         "name": "知乎日报",
         "login_url": "https://daily.zhihu.com/login",
-        "success_cookies": ["z_c0", "d_c0"],
+        "success_cookies": ["z_c0"],  # 2026-09-15:剔除 d_c0 登录前游客 cookie
         "success_url_pattern": r"daily\.zhihu\.com/account",
     },
     "people": {
@@ -909,14 +910,43 @@ async def detect_login_from_cdp_session(
                 "error": "浏览器已关闭,请重新发起扫码登录"}
     cookies_dict = {c["name"]: c["value"] for c in cookies if c.get("value")}
 
-    # 检测 success_cookies 是否命中(值长度 > 5 视为有效)
+    # 2026-09-15:获取当前页面 URL(诊断 + URL 跳转兜底检测)
+    current_url = ""
+    try:
+        current_url = await session.get_current_url()
+    except Exception:
+        pass
+
+    # 主检测:success_cookies 命中(值长度 > 5 视为有效)
     hit = [
         target for target in config["success_cookies"]
         if target in cookies_dict and len(cookies_dict.get(target, "")) > 5
     ]
+
+    # 2026-09-15 修复:URL 跳转兜底检测(与 _run_scan_task 对齐)。
+    # 场景:平台 cookie 名单过时/变更时,主检测永远不命中 → 永远无法保存账号。
+    # 条件:URL 命中 success_url_pattern + 不在登录页 + 至少 1 个期望 cookie 存在。
+    if not hit and current_url:
+        pattern = config.get("success_url_pattern", "")
+        lowered = current_url.lower()
+        if (
+            pattern
+            and re.search(pattern, current_url)
+            and not any(s in lowered for s in ["login", "signin", "signup", "passport."])
+            and any(target in cookies_dict for target in config["success_cookies"])
+        ):
+            hit = [t for t in config["success_cookies"] if t in cookies_dict]
+            logger.info(f"[scan_login] CDP URL 兜底命中: platform={platform}, url={current_url}, cookies={hit}")
+
     if not hit:
-        return {"detected": False, "cookies_count": len(cookies_dict),
-                "account_id": None, "error": None}
+        return {
+            "detected": False, "cookies_count": len(cookies_dict),
+            "account_id": None, "error": None,
+            # 2026-09-15:诊断字段(未命中时返回,便于排查过时的 success_cookies 名单)
+            "current_url": current_url,
+            "cookie_names": sorted(cookies_dict.keys()),
+            "success_cookies": config["success_cookies"],
+        }
 
     # 命中 → 收集相关 cookies(剔除统计类)+ 保存
     all_relevant = {
