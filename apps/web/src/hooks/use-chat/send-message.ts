@@ -25,6 +25,7 @@ import {
 } from '@ihui/api-client'
 import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/checkpoint-api'
 import { expandRuleToken } from '@/stores/memory'
+import { expandContextTokens } from '@/lib/context-token-expander'
 import { emitAgentHook } from '@/stores/agent-hooks'
 import { maybeAutoCaptureWiki } from '@/stores/repo-wiki'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
@@ -46,6 +47,8 @@ import {
   createDeltaBatcher,
   createAgentDeltaBatcher,
 } from './stream-handlers'
+import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
+import { estimateLiveUsage } from './live-usage'
 import {
   tryHandlePlanModeSlash,
   tryHandleChatModeSlash,
@@ -127,7 +130,8 @@ export function createSendMessage(
 
     // W25(2026-09-14):#Rule token 展开 —— 正文含 #Rule 时把规则 YAML 内联进发送文本,
     // 仅影响发给 LLM 的内容,store/持久化仍保留原始用户输入(避免展开块污染历史气泡)。
-    const llmText = expandRuleToken(text)
+    // 四竞品对标 V2 #18(2026-09-15):#Codebase/#Terminal/#Docs/@目录:<路径> 语义源展开。
+    const llmText = await expandContextTokens(expandRuleToken(text))
     const store = useChatStore.getState()
     if (store.isStreaming) return false
 
@@ -425,10 +429,26 @@ export function createSendMessage(
       }
     }, 60000)
 
-    // #9 流式 token 节流(2026-07-25 立):
-    // 用 requestAnimationFrame 每帧合并一次 token,避免每个 token 触发 store 更新 + React 重渲染
-    const contentBatcher = createDeltaBatcher((d) =>
-      useChatStore.getState().appendToMessage(assistantId, d),
+    // #16 流式平滑渲染(2026-09-15 立):content 走平滑 batcher(rAF 逐帧推进,落后越多追越快);
+    // reasoning/agent 保持原帧级 rAF 合并(原样不动)。onProgress 节流估算实时 token 用量(#21)。
+    let finalUsageReceived = false
+    let lastLiveUsageAt = 0
+    const contentBatcher = createSmoothDeltaBatcher(
+      (d) => useChatStore.getState().appendToMessage(assistantId, d),
+      {
+        // #21 流内实时 token 估算:节流 800ms 调 estimateLiveUsage 并写入 meta.usage(estimated)。
+        // 取 store 中真实已生成文本做 CJK 计数(比 charCount 更准确);权威 usage 到达后由 finalUsageReceived 停更。
+        onProgress: (_charCount: number) => {
+          if (finalUsageReceived) return
+          const now = Date.now()
+          if (now - lastLiveUsageAt < 800) return
+          lastLiveUsageAt = now
+          const msg = useChatStore.getState().messages.find((m) => m.id === assistantId)
+          const text = msg?.content ?? ''
+          if (text.length === 0) return
+          useChatStore.getState().updateMessageMeta(assistantId, { usage: estimateLiveUsage(text) })
+        },
+      },
     )
     const reasoningBatcher = createDeltaBatcher((d) =>
       useChatStore.getState().appendReasoningToMessage(assistantId, d),
@@ -627,6 +647,8 @@ export function createSendMessage(
         onUsage: (usage) => {
           // P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
           // 前端收到后更新 assistant 消息 meta.usage,UI 展示 token 计数。
+          // #21 权威值到达:置 finalUsageReceived 停止实时估算覆盖,确保最终展示权威数字。
+          finalUsageReceived = true
           useChatStore.getState().updateMessageMeta(assistantId, { usage })
         },
         onDelta: (delta) => {
