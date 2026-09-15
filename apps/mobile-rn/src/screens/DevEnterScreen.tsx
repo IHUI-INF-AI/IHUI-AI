@@ -30,7 +30,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   type ImageStyle,
@@ -43,6 +42,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { NavBar } from '../components/NavBar'
 import Empty from '../components/common/Empty'
+import { SearchInput } from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -267,17 +267,17 @@ export default function DevEnterScreen() {
         })}
       </View>
 
-      {/* SearchInput 搜索框(对齐 Uniapp SearchInput → searchChange) */}
+      {/* SearchInput 搜索框(对齐 Uniapp SearchInput → searchChange;原 UI 无语音入口故 voiceEnabled 关闭) */}
       <View style={styles.searchRow}>
-        <TextInput
-          value={searchInput}
-          onChangeText={setSearchInput}
-          placeholder="搜索智能体名称"
-          placeholderTextColor={tokens.text.tertiary}
-          style={styles.searchInput}
-          returnKeyType="search"
-          onSubmitEditing={handleSearch}
-        />
+        <View style={styles.searchField}>
+          <SearchInput
+            value={searchInput}
+            onChangeText={setSearchInput}
+            placeholder="搜索智能体名称"
+            onSubmit={handleSearch}
+            voiceEnabled={false}
+          />
+        </View>
         <TouchableOpacity style={styles.searchBtn} onPress={handleSearch} activeOpacity={0.8}>
           <Text style={styles.searchBtnText}>搜索</Text>
         </TouchableOpacity>
@@ -393,17 +393,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(20),
     paddingBottom: rpx(8),
   } as ViewStyle,
-  searchInput: {
+  searchField: {
     flex: 1,
-    height: 38,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.card,
-    paddingHorizontal: rpx(16),
-    fontSize: 14,
-    color: tokens.text.primary,
-  } as TextStyle,
+  } as ViewStyle,
   searchBtn: {
     height: 38,
     paddingHorizontal: rpx(20),

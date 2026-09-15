@@ -11,13 +11,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type ImageStyle,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { SearchInput } from '../../components/SearchInput'
 import { Globe, User } from 'lucide-react-native'
 import type { TFunction } from '../../types'
 
@@ -266,14 +266,12 @@ export function PlazaScreen({
       {/* 搜索栏 */}
       {showSearch ? (
         <View style={styles.searchBar}>
-          <TextInput
-            style={styles.searchInput}
+          <SearchInput
             value={search}
             onChangeText={onSearchChange}
             placeholder="搜索需求"
-            placeholderTextColor={tk.text.tertiary}
-            returnKeyType="search"
-            onSubmitEditing={onSubmitSearch}
+            onSubmit={onSubmitSearch}
+            colorScheme={colorScheme}
           />
         </View>
       ) : null}

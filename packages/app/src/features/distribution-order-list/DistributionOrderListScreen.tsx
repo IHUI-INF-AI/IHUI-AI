@@ -9,11 +9,11 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  TextInput,
   StyleSheet,
   type ListRenderItem,
   type ViewStyle,
 } from 'react-native'
+import { SearchInput } from '../../components/SearchInput'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { DistributionOrderListScreenProps } from '../../types'
 
@@ -115,17 +115,13 @@ export function DistributionOrderListScreen({
         <Text style={styles.title}>分销订单列表</Text>
       </View>
       <View style={styles.searchWrap}>
-        <View style={styles.searchInputWrap}>
-          <TextInput
-            style={styles.searchInput}
-            value={keyword}
-            onChangeText={onKeywordChange}
-            placeholder="搜索订单号或买家"
-            placeholderTextColor={tk.text.tertiary}
-            returnKeyType="search"
-            onSubmitEditing={onSearch}
-          />
-        </View>
+        <SearchInput
+          value={keyword}
+          onChangeText={onKeywordChange}
+          placeholder="搜索订单号或买家"
+          onSubmit={onSearch}
+          colorScheme={colorScheme}
+        />
       </View>
       <View style={styles.tabsBar}>
         <View style={styles.tabsRow}>

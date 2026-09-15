@@ -9,10 +9,10 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { BookOpen, Search, Loader2, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react'
+import { BookOpen, Loader2, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, Input } from '@ihui/ui-react'
+import { Button, Card, CardContent, SearchInput } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
@@ -89,16 +89,14 @@ export default function EduCoursesPage() {
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      <div className="relative w-full max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('searchPlaceholder')}
-          className="h-9 pl-8"
-          aria-label={t('searchAriaLabel')}
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={t('searchPlaceholder')}
+        size="lg"
+        wrapperClassName="w-full max-w-xs"
+        aria-label={t('searchAriaLabel')}
+      />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
