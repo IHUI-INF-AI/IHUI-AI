@@ -42,9 +42,7 @@ test.describe.parallel('安全专项', () => {
     // 生产形态目标(E2E_HTTPS_PROBE_URL)时执行,e2e 套件默认跳过。
     test.skip(!process.env.E2E_HTTPS_PROBE_URL, 'e2e 环境无 HTTPS 强制跳转层,跳过')
     const probeUrl = process.env.E2E_HTTPS_PROBE_URL as string
-    const response = await request
-      .get(probeUrl, { maxRedirects: 0 })
-      .catch(() => null)
+    const response = await request.get(probeUrl, { maxRedirects: 0 }).catch(() => null)
     if (response) {
       const status = response.status()
       expect([301, 302, 307, 308]).toContain(status)
