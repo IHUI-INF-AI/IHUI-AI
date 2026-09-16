@@ -210,6 +210,35 @@ class _FakeProc:
         self.terminated = True
 
 
+def test_close_session_removes_profile_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """关闭外部浏览器会话必须删掉临时 profile(含用户登录态副本),并终止浏览器进程。
+
+    2026-09-16 实测发现:terminate 异步 + rmtree(ignore_errors=True) 导致 27 份含 cookie
+    副本的临时目录残留在 %TEMP%;本测试锁定"关闭即删干净"。
+    """
+    from app.services.browser_hub import BrowserSession
+
+    profile_dir = tmp_path / "ihui-chrome-scan-fake"
+    (profile_dir / "Default" / "Network").mkdir(parents=True)
+    (profile_dir / "Default" / "Network" / "Cookies").write_bytes(b"SQLite format 3-fake")
+    proc = _FakeProc()
+
+    hub = BrowserHub()
+    hub._started = True
+    hub._playwright = _FakePlaywright()
+    session = BrowserSession("s-close", _FakeContext(), _FakePage(), hub._executor, None)  # type: ignore[arg-type]
+    hub._sessions["s-close"] = session
+    hub._external_procs["s-close"] = (proc, _FakeBrowser(), str(profile_dir))
+
+    try:
+        assert asyncio.run(hub.close_session("s-close")) is True
+    finally:
+        hub._executor.shutdown(wait=False)
+
+    assert proc.terminated is True
+    assert not profile_dir.exists()
+
+
 def test_launch_external_chrome_uses_user_browser_and_profile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
