@@ -107,6 +107,17 @@ vi.mock('../src/services/webhook-relay-notifier.js', () => ({
 vi.mock('../src/services/tiered-pricing-service.js', () => ({
   getCurrentTierMultiplier: vi.fn().mockResolvedValue({ multiplier: 1 }),
 }))
+// 2026-09-16:calculateCost/settlePreDeduction 接入分时倍率与订阅窗口后,
+// 两者会在热路径上额外发起 dbRead 查询。本套件用 mockReturnValueOnce 精确编排
+// select 序列,必须把这两个新依赖整体 mock 掉,避免消耗编排好的 mock 序列
+// (分时倍率按 1 处理、窗口校验按放行处理,与本套件"聚焦两段式"的范围一致)。
+vi.mock('../src/services/peak-pricing-service.js', () => ({
+  resolvePeakMultiplier: vi.fn().mockResolvedValue({ multiplier: 1, ruleId: null, ruleName: null }),
+}))
+vi.mock('../src/services/subscription-window-service.js', () => ({
+  checkSubscriptionWindowQuota: vi.fn().mockResolvedValue({ allowed: true }),
+  consumeSubscriptionWindowUsage: vi.fn().mockResolvedValue(false),
+}))
 vi.mock('../src/services/user-billing-group-service.js', () => ({
   getUserModelMultiplier: vi.fn().mockResolvedValue(1),
 }))
