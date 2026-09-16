@@ -40,6 +40,10 @@ import {
   checkSubscriptionWindowQuota,
   consumeSubscriptionWindowUsage,
 } from './subscription-window-service.js'
+// Key 级限流窗口 + IP ACL(B/C,2026-09-16 立)
+import { checkKeyRateWindows, incrKeyRateWindows } from './key-rate-window-service.js'
+// 余额不足邮件通知(E,2026-09-16 立)
+import { checkAndNotifyLowBalance } from './mail-relay-notifier.js'
 // Relay 返佣(2026-07-31 立,扣费后异步触发,失败不影响主链路)
 import { recordRelayCommission } from './relay-commission-service.js'
 import { getUserModelMultiplier } from './user-billing-group-service.js'
@@ -63,6 +67,9 @@ export interface CheckQuotaResult {
     | 'key_not_found'
     | 'key_revoked'
     | 'subscription_window_exceeded'
+    | 'ip_blocked'
+    | 'ip_not_allowed'
+    | 'key_rate_window_exceeded'
   apiKeyId: string
   userId: string
   tokenBalance: number
@@ -153,8 +160,8 @@ export interface CalculateCostResult {
   baseInputPricePer1k: number
   /** 基础输出单价(分/千 token) */
   baseOutputPricePer1k: number
-  /** 定价来源:'ai_pricing' | 'model_config' | 'default' */
-  source: 'ai_pricing' | 'model_config' | 'default'
+  /** 定价来源:'ai_pricing' | 'model_config' | 'default' | 'unavailable'(计费熔断降级) */
+  source: 'ai_pricing' | 'model_config' | 'default' | 'unavailable'
   /** 计费模式(2026-09-13):token | per_call | per_image | per_video(无定价时 'token') */
   billingMode: 'token' | 'per_call' | 'per_image' | 'per_video'
   /** 多模态计费单位数(张/次/秒;token 模式为 0) */
@@ -236,7 +243,11 @@ export function pickPerCallPrice(
  * 调用前检查 API Key 余额是否允许调用。
  * estimatedTokens 用于预估是否够用(允许传入 0 = 不预检 token,只检查 Key 状态)。
  */
-export async function checkQuota(apiKeyId: string, estimatedTokens = 0): Promise<CheckQuotaResult> {
+export async function checkQuota(
+  apiKeyId: string,
+  estimatedTokens = 0,
+  options?: { clientIp?: string },
+): Promise<CheckQuotaResult> {
   const [row] = await dbRead
     .select({
       id: developerApiKeys.id,
@@ -244,6 +255,12 @@ export async function checkQuota(apiKeyId: string, estimatedTokens = 0): Promise
       status: developerApiKeys.status,
       tokenBalance: developerApiKeys.tokenBalance,
       costBalanceCents: developerApiKeys.costBalanceCents,
+      // IP ACL + 限流窗口(B/C,2026-09-16 立)
+      allowedIps: developerApiKeys.allowedIps,
+      blockedIps: developerApiKeys.blockedIps,
+      rateLimit5h: developerApiKeys.rateLimit5h,
+      rateLimit1d: developerApiKeys.rateLimit1d,
+      rateLimit7d: developerApiKeys.rateLimit7d,
     })
     .from(developerApiKeys)
     .where(eq(developerApiKeys.id, apiKeyId))
@@ -263,6 +280,56 @@ export async function checkQuota(apiKeyId: string, estimatedTokens = 0): Promise
     return {
       allowed: false,
       reason: 'key_revoked',
+      apiKeyId: row.id,
+      userId: row.userId,
+      tokenBalance: row.tokenBalance,
+      costBalanceCents: row.costBalanceCents,
+    }
+  }
+
+  // === IP ACL 运行时校验(C,2026-09-16 立):此前 allowedIps 只存取不校验 ===
+  // 黑名单优先(命中 403);白名单存在且非空时,不在名单内即拒。
+  // 匹配:精确 IP 或 IPv4 前缀通配('192.168.*');CIDR 匹配留 TODO(需 ip-cidr 依赖)。
+  const clientIp = options?.clientIp
+  if (clientIp) {
+    const ipMatches = (rule: string): boolean =>
+      rule === clientIp || (rule.endsWith('.*') && clientIp.startsWith(rule.slice(0, -1)))
+    const blockedList = Array.isArray(row.blockedIps) ? (row.blockedIps as unknown[]) : []
+    if (blockedList.some((b) => typeof b === 'string' && ipMatches(b))) {
+      return {
+        allowed: false,
+        reason: 'ip_blocked',
+        apiKeyId: row.id,
+        userId: row.userId,
+        tokenBalance: row.tokenBalance,
+        costBalanceCents: row.costBalanceCents,
+      }
+    }
+    const allowedList = Array.isArray(row.allowedIps) ? (row.allowedIps as unknown[]) : []
+    if (allowedList.length > 0 && !allowedList.some((a) => typeof a === 'string' && ipMatches(a))) {
+      return {
+        allowed: false,
+        reason: 'ip_not_allowed',
+        apiKeyId: row.id,
+        userId: row.userId,
+        tokenBalance: row.tokenBalance,
+        costBalanceCents: row.costBalanceCents,
+      }
+    }
+  }
+
+  // === Key 级限流窗口(B,2026-09-16 立):5h/1d/7d 每窗口最大请求数(NULL 不限) ===
+  // 全 NULL(存量 Key)时 checkKeyRateWindows 直接放行,零额外查询。
+  const keyWindowLimits = {
+    '5h': row.rateLimit5h,
+    '1d': row.rateLimit1d,
+    '7d': row.rateLimit7d,
+  } as const
+  const keyWindowCheck = await checkKeyRateWindows(row.id, keyWindowLimits)
+  if (!keyWindowCheck.allowed) {
+    return {
+      allowed: false,
+      reason: 'key_rate_window_exceeded',
       apiKeyId: row.id,
       userId: row.userId,
       tokenBalance: row.tokenBalance,
@@ -409,19 +476,22 @@ function stripLiteLLMPrefix(model: string): string {
  *
  * 中转站倍率:从 aiModelConfigModels.relayPriceMultiplier 读取(默认 1.0)
  */
-export async function calculateCost(
-  model: string,
-  promptTokens: number,
-  completionTokens: number,
-  options?: CalculateCostCacheOptions,
-  userId?: string,
-): Promise<CalculateCostResult> {
-  // P0-5 修复(2026-07-30):去 LiteLLM 前缀(stepfun/agnes)再查 DB,
-  // 因为 DB ai_model_config_models.model_id 存的是不带前缀的原始 model 名。
-  // 2026-09-13:追加官方名归一,客户端任意大小写都能命中(计费漏损兜底)。
-  const dbModelId = normalizeModelId(stripLiteLLMPrefix(model))
+// ── 计费熔断(F,2026-09-16 立):定价查询缓存 + 降级标记,堵死免费敞口 ──
+// 背景:此前 calculateCost 的定价查询失败(如 DB 抖动)时异常上抛,部分调用方
+// catch 后降级放行;或两行查询均空 → basePrice=0 → 免费调用,形成
+// "DB 一抖 = 白嫖一轮"的资金敞口。修复三层:
+//   1. 查询成功写 5min 内存缓存;
+//   2. 查询失败用 stale 缓存兜底(计费不中断,不产生新敞口);
+//   3. 连缓存都没有 → source='unavailable',preDeductQuota 抛 BillingUnavailableError,
+//      v1 网关 fail-closed 返回 503 —— 宁拒一次调用,不放一轮免费。
+export class BillingUnavailableError extends Error {
+  constructor(message = 'pricing_unavailable') {
+    super(message)
+    this.name = 'BillingUnavailableError'
+  }
+}
 
-  // 1. 查 aiModelConfigModels 获取中转站倍率 + 兜底定价
+async function queryPricingRows(dbModelId: string) {
   const [modelRow] = await dbRead
     .select({
       id: aiModelConfigModels.id,
@@ -434,7 +504,6 @@ export async function calculateCost(
     .where(eq(aiModelConfigModels.modelId, dbModelId))
     .limit(1)
 
-  // 2. 查 aiPricing 获取全局定价(优先)
   const [pricingRow] = await dbRead
     .select({
       inputTokenPrice: aiPricing.inputTokenPrice,
@@ -443,6 +512,10 @@ export async function calculateCost(
       perUnitPrice: aiPricing.perUnitPrice,
       tieredCallPrices: aiPricing.tieredCallPrices,
       videoUnit: aiPricing.videoUnit,
+      // 长上下文加价 + 推理输出倍率(G,2026-09-16)
+      longContextMultiplier: aiPricing.longContextMultiplier,
+      longContextThresholdTokens: aiPricing.longContextThresholdTokens,
+      reasoningOutputMultiplier: aiPricing.reasoningOutputMultiplier,
     })
     .from(aiPricing)
     .where(
@@ -454,6 +527,56 @@ export async function calculateCost(
     )
     .orderBy(desc(aiPricing.effectiveAt))
     .limit(1)
+
+  return { modelRow, pricingRow }
+}
+
+interface PricingCacheEntry {
+  at: number
+  modelRow: Awaited<ReturnType<typeof queryPricingRows>>['modelRow']
+  pricingRow: Awaited<ReturnType<typeof queryPricingRows>>['pricingRow']
+}
+const pricingCache = new Map<string, PricingCacheEntry>()
+const PRICING_CACHE_TTL_MS = 5 * 60_000
+
+export async function calculateCost(
+  model: string,
+  promptTokens: number,
+  completionTokens: number,
+  options?: CalculateCostCacheOptions,
+  userId?: string,
+): Promise<CalculateCostResult> {
+  // P0-5 修复(2026-07-30):去 LiteLLM 前缀(stepfun/agnes)再查 DB,
+  // 因为 DB ai_model_config_models.model_id 存的是不带前缀的原始 model 名。
+  // 2026-09-13:追加官方名归一,客户端任意大小写都能命中(计费漏损兜底)。
+  const dbModelId = normalizeModelId(stripLiteLLMPrefix(model))
+
+  // 1+2. 定价查询(带 5min 内存缓存,计费熔断见上方 F 注释)
+  let modelRow: PricingCacheEntry['modelRow']
+  let pricingRow: PricingCacheEntry['pricingRow']
+  let pricingDegraded = false
+  try {
+    const fresh = await queryPricingRows(dbModelId)
+    modelRow = fresh.modelRow
+    pricingRow = fresh.pricingRow
+    pricingCache.set(dbModelId, { at: Date.now(), modelRow, pricingRow })
+  } catch (e) {
+    const cached = pricingCache.get(dbModelId)
+    if (cached && Date.now() - cached.at < PRICING_CACHE_TTL_MS) {
+      modelRow = cached.modelRow
+      pricingRow = cached.pricingRow
+      logger.warn('[billing] 定价查询失败,使用 5min 内缓存兜底(计费不中断)', {
+        model: dbModelId,
+        err: e instanceof Error ? e.message : String(e),
+      })
+    } else {
+      pricingDegraded = true
+      logger.error('[billing] 定价查询失败且无缓存,本次计费标记 unavailable(v1 侧 fail-closed)', {
+        model: dbModelId,
+        err: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
 
   // 解析倍率(字符串 numeric(10,4) → number,默认 1.0)
   let multiplier = modelRow?.relayPriceMultiplier
@@ -484,9 +607,21 @@ export async function calculateCost(
   const peakMultiplier = peak.multiplier
   multiplier *= peakMultiplier
 
+  // 长上下文加价(G,2026-09-16):promptTokens 超过阈值时倍率链再乘 longContextMultiplier。
+  // 未配置(NULL)视为不启用;阈值未配置默认 200K。作为倍率链第 5 环,与公示口径一致。
+  if (
+    pricingRow?.longContextMultiplier != null &&
+    Number(pricingRow.longContextMultiplier) > 1 &&
+    promptTokens > Number(pricingRow.longContextThresholdTokens ?? 200_000)
+  ) {
+    multiplier *= Number(pricingRow.longContextMultiplier)
+  }
+
   let baseInputPricePer1k = 0
   let baseOutputPricePer1k = 0
-  let source: CalculateCostResult['source'] = 'default'
+  // 计费熔断(F,2026-09-16):定价查询失败且无缓存时标记 unavailable,
+  // preDeductQuota 据此抛 BillingUnavailableError,v1 网关返回 503 宁拒不放。
+  let source: CalculateCostResult['source'] = pricingDegraded ? 'unavailable' : 'default'
   let billingMode: CalculateCostResult['billingMode'] = 'token'
   const callType = options?.callType ?? 'chat'
   const units = Math.max(0, Math.ceil(options?.units ?? 1))
@@ -597,10 +732,15 @@ export async function calculateCost(
   const rawCacheReadCost = (baseInputPricePer1k * cacheReadTokens * 0.1) / 1000
   const rawCacheCreationCost = (baseInputPricePer1k * cacheCreationTokens * 1.25) / 1000
   const rawOutputCost = (baseOutputPricePer1k * completionTokens) / 1000
+  // 推理输出倍率(G,2026-09-16):仅作用于 completionTokens 分量(推理模型输出上浮),
+  // 不影响输入/缓存分量;未配置或非法值一律按 1。
+  const reasoningRaw = Number(pricingRow?.reasoningOutputMultiplier ?? 1)
+  const reasoningOutputMultiplier =
+    Number.isFinite(reasoningRaw) && reasoningRaw > 0 ? reasoningRaw : 1
   const inputCostCents = roundCents(rawNormalInputCost * multiplier)
   const cacheReadCostCents = roundCents(rawCacheReadCost * multiplier)
   const cacheCreationCostCents = roundCents(rawCacheCreationCost * multiplier)
-  const outputCostCents = roundCents(rawOutputCost * multiplier)
+  const outputCostCents = roundCents(rawOutputCost * multiplier * reasoningOutputMultiplier)
   const totalCostCents =
     inputCostCents + cacheReadCostCents + cacheCreationCostCents + outputCostCents
 
@@ -871,7 +1011,7 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   // BYOK 模式:平台只收 platformFeeCents(上游原价 × 抽成率),不碰大厂成本 upstreamCostCents
   let costCentsToDeduct: number
   let multiplier = 1
-  let pricingSource: 'ai_pricing' | 'model_config' | 'default' = 'default'
+  let pricingSource: 'ai_pricing' | 'model_config' | 'default' | 'unavailable' = 'default'
   let upstreamCostCents: number | undefined
   let platformFeeCents: number | undefined
   let commissionRate: number | undefined
@@ -1023,6 +1163,10 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
         })
       })
     await settlePreDeduction(pre, input.totalTokens, costCentsToDeduct)
+    // Key 级限流窗口计数(B,2026-09-16):成功调用后窗口请求数 +1。
+    // fire-and-forget(不 await 不阻塞返回),内部自查限额配置,全 NULL 零写入;
+    // 失败静默(仅告警)——窗口是附加约束,余额/熔断已兜底,计数丢失只影响精度。
+    void incrKeyRateWindows(input.apiKeyId).catch(() => {})
     // 读取结算后余额供返回值/余额告警使用(组池优先)
     if (groupInfoForDeduct && groupInfoForDeduct.enabled) {
       const [g] = await dbRead
@@ -1171,6 +1315,17 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
           },
         }).catch(() => {
           // 余额告警通知失败不影响主链路
+        })
+        // 余额不足邮件通知(E,2026-09-16 立):webhook 之外补邮件通道,
+        // 防骚扰冷却(24h/用户)与 SMTP 缺失降级都在服务内部处理,fire-and-forget。
+        void checkAndNotifyLowBalance({
+          userId: input.userId,
+          keyId: input.apiKeyId,
+          keyName: input.model,
+          tokenBalance: newTokenBalance,
+          costBalanceCents: newCostBalanceCents,
+        }).catch(() => {
+          // 邮件通知失败不影响主链路
         })
       }
     })
@@ -1531,6 +1686,11 @@ export async function preDeductQuota(input: PreDeductInput): Promise<PreDeductio
       },
       input.userId,
     )
+    // 计费熔断(F,2026-09-16):定价不可用(查询失败且无缓存)时宁拒不预扣——
+    // 抛出后由 v1 网关转 503 fail-closed;否则 cost=0 会静默免费放行。
+    if (cost.source === 'unavailable') {
+      throw new BillingUnavailableError()
+    }
     const estCents = Math.max(0, cost.totalCostCents)
 
     const tokensToDeduct = row.tokenBalance === -1 ? 0 : Math.min(estTokens, row.tokenBalance)
@@ -1614,6 +1774,8 @@ export async function preDeductQuota(input: PreDeductInput): Promise<PreDeductio
     if (actualTokens <= 0 && actualCents <= 0) return null
     return { ...base, tokens: actualTokens, cents: actualCents }
   } catch (err) {
+    // 计费熔断(F):定价不可用必须向上穿透(fail-closed),不得降级为"无预扣"放行
+    if (err instanceof BillingUnavailableError) throw err
     logger.error('[billing] preDeductQuota failed(降级为无预扣)', {
       apiKeyId: input.apiKeyId,
       model: input.model,

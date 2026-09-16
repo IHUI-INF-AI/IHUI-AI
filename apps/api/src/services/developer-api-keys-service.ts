@@ -19,7 +19,7 @@
  *
  * 读写分离:写用 db,读用 dbRead(参照 developer.ts 现有模式)。
  */
-import { eq, desc, sql } from 'drizzle-orm'
+import { eq, desc, sql, and, inArray } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { developerApiKeys, apiLogs, apiKeyQuotas } from '@ihui/database'
 import type { DeveloperApiKey } from '@ihui/database'
@@ -128,6 +128,11 @@ export async function listKeys(userId: string): Promise<SafeApiKey[]> {
       maxTokensPerReq: developerApiKeys.maxTokensPerReq,
       // 多租户关联字段(与 schema 同步,保证 SafeApiKey 类型完整)
       tenantId: developerApiKeys.tenantId,
+      // 限流窗口 + IP 黑名单(B/C,2026-09-16,与 schema 同步)
+      blockedIps: developerApiKeys.blockedIps,
+      rateLimit5h: developerApiKeys.rateLimit5h,
+      rateLimit1d: developerApiKeys.rateLimit1d,
+      rateLimit7d: developerApiKeys.rateLimit7d,
       createdAt: developerApiKeys.createdAt,
       updatedAt: developerApiKeys.updatedAt,
     })
@@ -201,6 +206,46 @@ export async function deleteKey(id: string, userId: string): Promise<boolean> {
   if (!existing || existing.userId !== userId) return false
   await db.delete(developerApiKeys).where(eq(developerApiKeys.id, id))
   return true
+}
+
+/**
+ * Key 批量编辑(2026-09-16 立,深度对标补强 C,对标竞品 bulkEdit)。
+ *
+ * - 仅允许安全字段(限流/过期/IP 黑白名单/三窗口限额),ids 上限 100;
+ * - 归属校验:UPDATE 带 userId 条件,越权 id 自动落空(返回的 updated 为真实条数);
+ * - patch 中 undefined = 不改,显式 null = 清空该限制。
+ */
+export interface BulkUpdateKeysPatch {
+  rateLimit?: number | null
+  expiresAt?: string | null
+  allowedIps?: string[] | null
+  blockedIps?: string[] | null
+  rateLimit5h?: number | null
+  rateLimit1d?: number | null
+  rateLimit7d?: number | null
+}
+
+export async function bulkUpdateKeys(
+  userId: string,
+  ids: string[],
+  patch: BulkUpdateKeysPatch,
+): Promise<{ updated: number }> {
+  if (ids.length === 0 || ids.length > 100) return { updated: 0 }
+  const setData: Record<string, unknown> = { updatedAt: new Date() }
+  if (patch.rateLimit !== undefined) setData.rateLimit = patch.rateLimit
+  if (patch.expiresAt !== undefined)
+    setData.expiresAt = patch.expiresAt ? new Date(patch.expiresAt) : null
+  if (patch.allowedIps !== undefined) setData.allowedIps = patch.allowedIps
+  if (patch.blockedIps !== undefined) setData.blockedIps = patch.blockedIps
+  if (patch.rateLimit5h !== undefined) setData.rateLimit5h = patch.rateLimit5h
+  if (patch.rateLimit1d !== undefined) setData.rateLimit1d = patch.rateLimit1d
+  if (patch.rateLimit7d !== undefined) setData.rateLimit7d = patch.rateLimit7d
+  const rows = await db
+    .update(developerApiKeys)
+    .set(setData)
+    .where(and(eq(developerApiKeys.userId, userId), inArray(developerApiKeys.id, ids)))
+    .returning({ id: developerApiKeys.id })
+  return { updated: rows.length }
 }
 
 /**
