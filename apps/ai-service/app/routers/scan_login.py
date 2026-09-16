@@ -28,6 +28,7 @@ from ..services.scan_login import (
     _save_account_to_db,
     cancel_scan_task,
     detect_login_from_cdp_session,
+    detect_login_from_profile,
     get_qr_image,
     get_task,
     start_scan_task,
@@ -156,6 +157,32 @@ async def detect_from_cdp(body: DetectFromCdpRequest, request: Request) -> dict[
     """
     user_id = await get_current_user_id(request)
     result = await detect_login_from_cdp_session(body.session_id, body.platform, user_id)
+    return {"code": 0, "message": "ok", "data": result}
+
+
+# =============================================================================
+# 用户自己浏览器检测(2026-09-16 新增,外部模式 = "在你日常用的浏览器里登录")
+# =============================================================================
+class DetectFromProfileRequest(BaseModel):
+    platform: str = Field(..., description="平台 ID,如 zhihu / bilibili / xiaohongshu")
+
+
+@router.post("/detect-from-profile")
+async def detect_from_profile(body: DetectFromProfileRequest, request: Request) -> dict[str, Any]:
+    """从用户真实浏览器 profile 检测登录态 + 自动保存账号。
+
+    外部模式闭环(前端流程):
+    1. 前端用系统默认浏览器打开平台登录页——**用户日常那个浏览器**(真实 profile、
+       Google 账号与平台登录态都在),不需要重新登录;
+    2. 前端每 3s 调本端点 → 后端按平台域名读真实 profile 的 cookie 名判断是否已登录;
+    3. 命中 → 无窗口 headless Chrome 读同一 profile 快照的 cookie 值 → 加密入库;
+    4. 前端进入下一个平台。
+
+    这样"浏览器"始终是用户自己的,副本/新建 profile 会丢 Google 登录态(实测),
+    因此不再用托管浏览器承担外部模式。
+    """
+    user_id = await get_current_user_id(request)
+    result = await detect_login_from_profile(body.platform, user_id)
     return {"code": 0, "message": "ok", "data": result}
 
 

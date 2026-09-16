@@ -243,15 +243,29 @@ export async function detectLoginFromCdp(
 }
 
 /**
- * 外部浏览器扫码登录(2026-09-02 新增,2026-09-16 改为复用用户真实浏览器 profile)。
+ * 从**用户自己日常使用的浏览器**检测登录态 + 自动保存账号(2026-09-16 新增)。
  *
- * ai-service 定位用户本机默认 Chromium 浏览器(Chrome/Edge),复制其真实 profile 的
- * 登录态最小文件集到临时 profile 后启动该浏览器并打开平台登录页,再通过 CDP 附着。
- * 返回 session_id 后前端复用 detectLoginFromCdp 轮询:已登录的平台直接命中并自动保存账号,
- * 未登录的在窗口里正常扫码即可;前端 closeBrowserSession 会一并关闭该窗口(临时 profile 删除)。
+ * 外部模式闭环:前端先用 openExternalUrl 在系统默认浏览器打开平台登录页(用户真实 profile,
+ * Google 账号与平台登录态都在,不需要重新登录),再轮询本接口:
+ * 后端按平台域名读真实 profile 的 cookie 名判断是否已登录 → 命中后无窗口 headless Chrome
+ * 取同一 profile 快照的 cookie 值 → 加密入库。
  *
- * 返回值附加 `browser`(实际使用的浏览器名)/ `profile_used`(是否带上了用户登录态)/
- * `profile_name`(用户原 profile 目录名),供 UI 如实提示。
+ * 返回额外带 `profile_available`(是否成功读到用户 profile,供 UI 如实提示)。
+ */
+export async function detectLoginFromProfile(
+  platform: string,
+): Promise<ApiResult<CdpDetectResult & { profile_available?: boolean }>> {
+  return fetchApi<CdpDetectResult & { profile_available?: boolean }>(
+    '/api/publish/scan-login/detect-from-profile',
+    { method: 'POST', body: JSON.stringify({ platform }) },
+  )
+}
+
+/**
+ * 外部 Chrome 扫码登录(2026-09-02 新增,2026-09-16 改为复用用户真实浏览器 profile)。
+ *
+ * 注:批量扫码弹窗的"你自己的浏览器"模式已改用 detectLoginFromProfile(在用户真实浏览器里
+ * 登录)。本接口保留为"用复制的 profile 起一个托管浏览器"的能力,供调试/单平台场景使用。
  */
 export async function startExternalScanLogin(platform: string): Promise<
   ApiResult<{

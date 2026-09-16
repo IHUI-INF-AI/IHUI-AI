@@ -562,6 +562,12 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
     await proxyToAiService(request, reply, '/scan-login/detect-from-cdp')
   })
 
+  // 用户自己浏览器检测(2026-09-16 新增):外部模式 = 前端用系统默认浏览器打开平台登录页,
+  // 后端从用户真实 profile 读 cookie 名判断登录态,命中后 headless 取值入库。
+  server.post('/publish/scan-login/detect-from-profile', async (request, reply) => {
+    await proxyToAiService(request, reply, '/scan-login/detect-from-profile')
+  })
+
   // 外部 Chrome 扫码登录(2026-09-02 新增):带调试端口启动系统 Chrome + CDP 附着,
   // 前端拿到 session_id 后复用 detect-from-cdp 轮询,登录成功自动保存账号。
   server.post('/publish/scan-login/external-start', async (request, reply) => {
