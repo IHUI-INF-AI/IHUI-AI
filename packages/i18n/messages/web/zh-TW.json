@@ -14326,6 +14326,10 @@
   },
   "models": {
     "relay": {
+      "timeRules": "分時定價",
+      "timeRuleAllModels": "全部模型",
+      "timeRuleAllDays": "每天",
+      "timeRuleWeekdayNames": "日,一,二,三,四,五,六",
       "officialPrice": "官方價",
       "paidPrice": "實付價",
       "multiplier": "定價倍率",
