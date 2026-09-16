@@ -11,7 +11,7 @@ import { ModelsHeader } from './ModelsHeader'
 import { ModelsNav } from './ModelsNav'
 import { ModelsMarketplace } from './ModelsMarketplace'
 import { AiNewsStrip } from './AiNewsStrip'
-import { PROVIDERS, fetchModels } from './helpers'
+import { PROVIDERS, fetchModels, fetchRelayPeakWindows } from './helpers'
 import type { Provider } from './types'
 import { BackButton } from '@/components/common'
 
@@ -26,6 +26,13 @@ export default function ModelsPageClient() {
   const { data: MODELS = [], isError } = useQuery({
     queryKey: ['models'],
     queryFn: fetchModels,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // 分时(高峰/低谷)定价规则(2026-09-16 立):独立 queryKey,失败降级空数组不阻塞模型列表
+  const { data: peakWindows = [] } = useQuery({
+    queryKey: ['models', 'peak-windows'],
+    queryFn: fetchRelayPeakWindows,
     staleTime: 5 * 60 * 1000,
   })
 
@@ -60,7 +67,7 @@ export default function ModelsPageClient() {
       {/* 2026-08-05 接入:AI 资讯条带(数据源 /api/news/feed → ai_world_items 每日更新,news_articles 为空时自动兜底) */}
       <AiNewsStrip initialNews={[]} />
       <ModelsNav active={active} />
-      <ModelsMarketplace list={list} />
+      <ModelsMarketplace list={list} peakWindows={peakWindows} />
     </div>
   )
 }
