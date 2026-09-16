@@ -31,6 +31,12 @@ import {
   fsBridge,
 } from '../services/workspace-ai-service.js'
 import { detectWorkspaceIssues, repairWorkspaceIssue } from '../services/self-healing.js'
+import {
+  createAtomicCheckpoint,
+  listAtomicCheckpoints,
+  planAtomicRollback,
+  executeAtomicRollback,
+} from '../services/atomic-rollback.js'
 
 export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权：复用 workspace.ts 的模式
@@ -1633,6 +1639,109 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       return
     try {
       const result = await repairWorkspaceIssue(parsed.data)
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+
+  // ─── 全栈原子回滚(P3 #42,2026-09-17 立;dry-run 先行,execute 需 confirm)──
+
+  // POST /atomic-checkpoint — 创建原子快照
+  server.post('/atomic-checkpoint', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z
+      .object({
+        workspacePath: z.string().min(1),
+        description: z.string().max(500).default('手动快照'),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'atomic.checkpoint')))
+      return
+    try {
+      const result = await createAtomicCheckpoint(parsed.data.workspacePath, {
+        description: parsed.data.description,
+        tool: 'http',
+      })
+      return reply.send(
+        success({
+          id: result.meta.id,
+          files: result.meta.files.length,
+          skipped: result.meta.skipped.length,
+        }),
+      )
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+
+  // GET /atomic-checkpoints — 快照列表(仅元信息)
+  server.get('/atomic-checkpoints', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z.object({ workspacePath: z.string().min(1) }).safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'atomic.list')))
+      return
+    try {
+      return reply.send(
+        success({ checkpoints: await listAtomicCheckpoints(parsed.data.workspacePath) }),
+      )
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+
+  // POST /atomic-rollback/plan — 预演(零写入)
+  server.post('/atomic-rollback/plan', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z
+      .object({ workspacePath: z.string().min(1), checkpointId: z.string().min(1).max(64) })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'atomic.plan')))
+      return
+    try {
+      const plan = await planAtomicRollback(parsed.data.workspacePath, parsed.data.checkpointId)
+      if (!plan) return reply.status(404).send(error(404, '快照不存在'))
+      return reply.send(success(plan))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+
+  // POST /atomic-rollback/execute — 执行(confirm=true 才落刀,逐 step 审计)
+  server.post('/atomic-rollback/execute', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z
+      .object({
+        workspacePath: z.string().min(1),
+        checkpointId: z.string().min(1).max(64),
+        confirm: z.boolean().default(false),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'atomic.execute')))
+      return
+    try {
+      const result = await executeAtomicRollback(
+        parsed.data.workspacePath,
+        parsed.data.checkpointId,
+        { confirm: parsed.data.confirm },
+      )
+      if (!result) return reply.status(404).send(error(404, '快照不存在'))
       return reply.send(success(result))
     } catch (e) {
       return reply.status(500).send(error(500, (e as Error).message))
