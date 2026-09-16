@@ -22239,5 +22239,12 @@
     "estimateLine": "本次预计 ≈{tokens} tokens（约 ${cost}）",
     "fallbackPrice": "兜底价仅供参考",
     "actualLine": "实际 {actual} tokens（预估 {estimate}）"
+  },
+  "memoryGraph": {
+    "searchPlaceholder": "搜索记忆关键词…",
+    "searchBtn": "查询",
+    "empty": "输入关键词查询记忆子图",
+    "noHits": "无匹配记忆",
+    "legend": "命中 {hits} 条 · 全图 {total} 节点(点击节点查看全文)"
   }
 }
