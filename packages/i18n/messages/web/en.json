@@ -18333,7 +18333,21 @@
     "aiGenerated": "Zhihui AI Generated",
     "defaultModelName": "AI Smart Chat",
     "modelIconAlt": "Model icon",
-    "tokenCostLabel": "Zhihui tokens used: {cost}"
+    "tokenCostLabel": "Zhihui tokens used: {cost}",
+    "auditReportTitle": "Trace Audit Report",
+    "auditQuestion": "Task",
+    "auditExportedAt": "Exported at",
+    "auditStepCount": "Steps",
+    "auditColStep": "Step",
+    "auditColTool": "Tool",
+    "auditColStatus": "Status",
+    "auditColDuration": "Duration",
+    "auditExportBtn": "Export audit report",
+    "auditFooter": "Auto-generated from IHUI-AI trace",
+    "auditStatus_success": "ok",
+    "auditStatus_error": "failed",
+    "auditStatus_running": "running",
+    "auditStatus_cancelled": "cancelled"
   },
   "skills": {
     "market": {
