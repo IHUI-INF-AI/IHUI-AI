@@ -24,6 +24,11 @@ export interface SamplingParams {
   topK?: number
   maxTokens?: number
   systemPrompt?: string
+  /** P1 #26(2026-09-16 立):知识库默认注入开关(对标 Qoder Knowledge Engine)。
+   *  三态语义:undefined = 默认开(不落盘,后端默认 top-3 检索注入);
+   *  false = 显式关闭(streamChat 仅在 false 时透传,降级纯对话);
+   *  true 归一为 undefined(开关「打开」即回到默认,不产生覆盖记录)。 */
+  knowledgeContext?: boolean
 }
 
 /** 取值范围:与后端 zod(chatStreamSchema)/ Pydantic 校验保持一致,前端先拦一层 */
@@ -46,11 +51,12 @@ interface SamplingParamsState {
    *  空对象则整条移除,从而自然回落到 defaults(不会出现 undefined 遮蔽)。 */
   byConversation: Record<string, SamplingParams>
 
-  /** 写入参数:conversationId 为空(未建会话)时写 defaults,否则写会话覆盖 */
+  /** 写入参数:conversationId 为空(未建会话)时写 defaults,否则写会话覆盖。
+   *  值类型含 boolean(P1 #26 knowledgeContext 开关);true 归一为未设置(默认开不落盘)。 */
   setParam: (
     conversationId: string | null | undefined,
     key: SamplingParamKey,
-    value: number | string | undefined,
+    value: boolean | number | string | undefined,
   ) => void
   /** 把某个会话的当前参数提升为全局默认 */
   promoteToDefaults: (conversationId: string | null | undefined) => void
@@ -60,9 +66,13 @@ interface SamplingParamsState {
   resetDefaults: () => void
 }
 
-/** 归一化:undefined / 空串 / NaN 视为「未设置」(delete 该 key) */
-function normalizeValue(value: number | string | undefined): number | string | undefined {
+/** 归一化:undefined / null / 空串 / NaN 视为「未设置」(delete 该 key)。
+ *  P1 #26:boolean 开关 —— true 即默认开,归一为未设置(不落盘);false 显式关闭保留。 */
+function normalizeValue(
+  value: boolean | number | string | undefined,
+): boolean | number | string | undefined {
   if (value === undefined || value === null) return undefined
+  if (typeof value === 'boolean') return value ? undefined : false
   if (typeof value === 'string') {
     const trimmed = value
     return trimmed.length === 0 ? undefined : trimmed
@@ -75,7 +85,7 @@ function normalizeValue(value: number | string | undefined): number | string | u
 function applyParam(
   target: SamplingParams,
   key: SamplingParamKey,
-  value: number | string | undefined,
+  value: boolean | number | string | undefined,
 ): SamplingParams {
   const next: SamplingParams = { ...target }
   const normalized = normalizeValue(value)
