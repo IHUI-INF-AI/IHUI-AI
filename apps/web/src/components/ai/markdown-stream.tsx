@@ -32,6 +32,8 @@ import { applyCodeBlockToFile } from '@/lib/apply-code-block'
 import { useCodeBlockRun, isRunnableLanguage, type RunResult } from '@/components/ai/code-block-run'
 // P3 #35(2026-09-16 立):流式稳定段/活跃段切分——稳定前缀 memo 缓存跳过 parse
 import { splitMarkdownStable } from '@/lib/markdown-stable-split'
+// P3 #32(2026-09-16 立):PDF/CSV 消息内富预览(非流式时升级渲染)
+import { CsvPreview, PdfEmbed } from '@/components/media/message-file-preview'
 // 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
@@ -548,7 +550,16 @@ function isOfficeLink(href: string): boolean {
   return OFFICE_EXT.test(href)
 }
 
-function MarkdownLink({ href, children }: { href?: string; children?: React.ReactNode }) {
+function MarkdownLink({
+  href,
+  children,
+  isStreaming,
+}: {
+  href?: string
+  children?: React.ReactNode
+  /** P3 #32:流式中 PDF/CSV 仍渲染下载卡,完成后升级为富预览(避免 iframe 抖动) */
+  isStreaming?: boolean
+}) {
   const hrefStr = typeof href === 'string' ? href : undefined
   if (!hrefStr) {
     // 无 href 的链接:渲染为 span(避免 a11y 警告)
@@ -560,10 +571,19 @@ function MarkdownLink({ href, children }: { href?: string; children?: React.Reac
     return <span>{children}</span>
   }
 
-  // Office 文件:渲染为下载卡片
+  // Office/数据文件:渲染为下载卡片
   if (isOfficeLink(hrefStr)) {
     const fileName = hrefStr.split('/').pop()?.split('?')[0] ?? 'file'
     const ext = (fileName.match(/\.([^.]+)$/)?.[1] ?? '').toLowerCase()
+
+    // P3 #32:PDF/CSV 非流式时升级为消息内富预览(PDF 原生查看器 / CSV 表格化)
+    if (!isStreaming && ext === 'pdf') {
+      return <PdfEmbed src={hrefStr} />
+    }
+    if (!isStreaming && ext === 'csv') {
+      return <CsvPreview src={hrefStr} />
+    }
+
     return (
       <a
         href={hrefStr}
@@ -745,7 +765,11 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
         return <MarkdownVideo src={typeof src === 'string' ? src : undefined} />
       },
       a({ href, children }) {
-        return <MarkdownLink href={href}>{children}</MarkdownLink>
+        return (
+          <MarkdownLink href={href} isStreaming={isStreaming}>
+            {children}
+          </MarkdownLink>
+        )
       },
       // 表格:外层包 overflow-x-auto 容器,移动端可横向滚动
       // 2026-08-02:表格字号同步放大 14px → 15px
@@ -862,7 +886,8 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
     }),
     // 2026-08-16 修复:code 组件内部使用 collapseLines(透传给 ThemedCodeBlock),
     // 此前 deps 为空导致闭包捕获旧值,代码折叠行数变化不生效。
-    [collapseLines],
+    // P3 #32:a 组件透传 isStreaming(PDF/CSV 流式中渲染下载卡,完成后升级富预览)。
+    [collapseLines, isStreaming],
   )
 
   // P3 #35(2026-09-16 立):稳定段/活跃段切分。
