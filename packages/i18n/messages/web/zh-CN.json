@@ -6965,6 +6965,11 @@
       "citationBar": {
         "title": "引用来源"
       },
+      "memoryNoticeBar": {
+        "title": "已记住 {count} 条",
+        "manage": "管理",
+        "moreItems": "等 {count} 条"
+      },
       "thumbRail": {
         "title": "消息地图",
         "userNode": "提问",

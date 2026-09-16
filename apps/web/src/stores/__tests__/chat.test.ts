@@ -112,5 +112,57 @@ describe('useChatStore', () => {
     useChatStore.getState().setConversationId(null)
     expect(useChatStore.getState().conversationId).toBeNull()
   })
+
+  // ============ P1 #27 记忆更新可视化(2026-09-16 立)============
+
+  describe('appendMemoryNotice(done 事件 memoryUpdates 落地)', () => {
+    beforeEach(() => {
+      useChatStore.setState({ memoryUpdateNotices: [] })
+    })
+
+    it('首条写入:按 messageId 建立提示条', () => {
+      useChatStore.getState().appendMemoryNotice('msg-1', ['用户偏好 TypeScript'])
+      const notices = useChatStore.getState().memoryUpdateNotices
+      expect(notices).toHaveLength(1)
+      expect(notices[0]).toMatchObject({
+        messageId: 'msg-1',
+        items: ['用户偏好 TypeScript'],
+      })
+    })
+
+    it('同 messageId 追加:合并 items 并去重(不新增第二条)', () => {
+      const s = useChatStore.getState()
+      s.appendMemoryNotice('msg-1', ['A', 'B'])
+      s.appendMemoryNotice('msg-1', ['B', 'C'])
+      const notices = useChatStore.getState().memoryUpdateNotices
+      expect(notices).toHaveLength(1)
+      expect(notices[0]?.items).toEqual(['A', 'B', 'C'])
+    })
+
+    it('不同 messageId 各自独立一条', () => {
+      const s = useChatStore.getState()
+      s.appendMemoryNotice('msg-1', ['A'])
+      s.appendMemoryNotice('msg-2', ['B'])
+      expect(useChatStore.getState().memoryUpdateNotices).toHaveLength(2)
+    })
+
+    it('空 items 不写入(避免空提示条)', () => {
+      useChatStore.getState().appendMemoryNotice('msg-1', [])
+      expect(useChatStore.getState().memoryUpdateNotices).toHaveLength(0)
+    })
+
+    it('合并时过滤空字符串条目', () => {
+      const s = useChatStore.getState()
+      s.appendMemoryNotice('msg-1', ['A', ''])
+      s.appendMemoryNotice('msg-1', ['', 'B'])
+      expect(useChatStore.getState().memoryUpdateNotices[0]?.items).toEqual(['A', 'B'])
+    })
+
+    it('clearMessages 清空提示条', () => {
+      useChatStore.getState().appendMemoryNotice('msg-1', ['A'])
+      useChatStore.getState().clearMessages()
+      expect(useChatStore.getState().memoryUpdateNotices).toEqual([])
+    })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
