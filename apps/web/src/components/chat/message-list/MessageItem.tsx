@@ -40,6 +40,8 @@ import { TerminalSection } from '@/components/ai/progress-sections/terminal-sect
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
 import { CitationBar } from '@/components/ai/progress-sections/citation-bar'
 import { MemoryNoticeBar } from '@/components/ai/progress-sections/memory-notice-bar'
+// P3 #36(2026-09-16 立):消息流内 best-of 并排对比卡(按 meta.bestOfRunId 关联)
+import { BestOfCompare } from '@/components/ai/best-of-compare'
 import { plainTextForClipboard } from '@/components/ai/progress-sections/message-context-menu'
 import { MessageFileChips } from '@/components/chat/message-list/file-chips'
 import { TurnChangesCard } from '@/components/chat/message-list/turn-changes-card'
@@ -787,6 +789,21 @@ const MessageItem = React.memo(function MessageItem({
                 每轮限 1 条摘要 + 计数 + 管理入口。 */}
             {memoryNoticeItems && memoryNoticeItems.length > 0 && (
               <MemoryNoticeBar items={memoryNoticeItems} />
+            )}
+            {/* P3 #36 多模型并排对比(2026-09-16 立):/bestof 的 assistant 消息按
+                meta.bestOfRunId 关联结果,消息流内直接渲染并排对比卡(可改选/落盘),
+                不再只能切到工具面板查看;刷新后 store 映射仍在,历史消息可回看。 */}
+            {!isStreaming && typeof m.meta?.bestOfRunId === 'string' && (
+              <BestOfCompare
+                runId={m.meta.bestOfRunId}
+                onAdopt={(content) => {
+                  useChatStore.getState().addMessage({
+                    role: 'assistant',
+                    content,
+                    model: m.model,
+                  })
+                }}
+              />
             )}
             {/* #19 + #20 流结束后:turn 级变更汇总卡 + 文件引用 chip(先卡后 chips) */}
             {!isStreaming && (
