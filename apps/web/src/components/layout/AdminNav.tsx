@@ -245,6 +245,7 @@ interface AdminNavItem {
     | 'adminRelayAlertRules'
     | 'adminRelayCapacity'
     | 'adminRelayInsights'
+    | 'adminRelayEnterprise'
     | 'adminSkills'
     | 'adminSkillCategories'
     | 'adminSkillStats'
@@ -619,6 +620,8 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: '/admin/relay/alert-rules', labelKey: 'adminRelayAlertRules', icon: BellRing },
       { href: '/admin/relay/capacity', labelKey: 'adminRelayCapacity', icon: TrendingUp },
       { href: '/admin/relay/insights', labelKey: 'adminRelayInsights', icon: BrainCircuit },
+      // 企业合规(2026-09-17,补强 61,差异化:认证/发票/合同/对公结算)
+      { href: '/admin/relay/enterprise', labelKey: 'adminRelayEnterprise', icon: Building2 },
       // P0 中转站造血能力对标批次(2026-07-31 立):模型映射(渠道管理)
       { href: '/admin/relay/channels', labelKey: 'adminRelayModelMappings', icon: Shuffle },
       // P0-20b 参数覆盖规则(2026-08-01 立,转发层 applyParamOps 管理)
@@ -968,6 +971,7 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   adminRelayAlertRules: 'nav.adminRelayAlertRules',
   adminRelayCapacity: 'nav.adminRelayCapacity',
   adminRelayInsights: 'nav.adminRelayInsights',
+  adminRelayEnterprise: 'nav.adminRelayEnterprise',
   adminSkills: 'nav.adminSkills',
   adminSkillCategories: 'nav.adminSkillCategories',
   adminSkillStats: 'nav.adminSkillStats',
