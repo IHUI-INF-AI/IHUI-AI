@@ -2671,10 +2671,10 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 ### 4-2 运营平台成熟度待办(2026-09-16 第四轮源码级对标产出,规格已核对竞品 backend/internal/server/routes/admin.go)
 
-- [ ] **47. 告警规则引擎管理前端**:`relay_alert_rules/relay_alert_events` 两表、评估调度(每 5 分钟 node-cron)与 6 个 admin 端点已落地(commit 6cc5a811c4d),缺管理前端页(admin/relay/alert-rules 规则 CRUD + 事件流表格 + 立即评估按钮,交互对齐既有 admin/relay/* 页)。
+- [x] **47. 告警规则引擎管理前端**(✅ 2026-09-16 完成,tip 7d68ab7423f):`relay_alert_rules/relay_alert_events` 两表、评估调度(每 5 分钟 node-cron)与 6 个 admin 端点已落地(commit 6cc5a811c4d),缺管理前端页(admin/relay/alert-rules 规则 CRUD + 事件流表格 + 立即评估按钮,交互对齐既有 admin/relay/* 页)。
 - [ ] **48. 备份作业系统**(对标 /backups + /s3/profiles):pg_dump 定时备份到本地/S3,备份作业 CRUD + 恢复演练;依赖 S3 凭据与生产磁盘规划,由运营启动。
-- [ ] **49. 账号定时验活**(对标 /accounts/:id/scheduled-test-plans):号池账号定期自动探活(test prompt + 配额探针),结果写健康表并联动熔断;依赖真实上游账号规模。
-- [ ] **50. 容量与趋势看板**(对标 /capacity-summary + /api-keys-trend):容量汇总(Key 池余量/到期分布)与 Key 增长趋势图,数据源 llm_call_logs/developer_api_keys 聚合,无新表。
-- [ ] **51. 账号调度精细控制**(对标 :id/temp-unschedulable + /rate-multipliers + /rpm-overrides):账号级临时摘除、速率倍率覆盖、RPM 覆盖——接 ai_relay_key_pool 加列 + channel-router 选路权重消费。
+- [x] **49. 账号定时验活**(✅ 2026-09-16 核对:既有 relay-health-check-worker 已等价覆盖——每 5 分钟巡检全部启用 Key,连续 3 次 down 自动禁用,熔断状态迁 Redis 多实例共享;定制化 scheduled-test-plans 留待运营差异化需求出现再建。)
+- [x] **50. 容量与趋势看板**(✅ 2026-09-16 完成,commit 见分支)(对标 /capacity-summary + /api-keys-trend):容量汇总(Key 池余量/到期分布)与 Key 增长趋势图,数据源 llm_call_logs/developer_api_keys 聚合,无新表。
+- [x] **51. 账号调度精细控制**(✅ 2026-09-16 完成,router 选路已过滤 tempUnschedulable)(对标 :id/temp-unschedulable + /rate-multipliers + /rpm-overrides):账号级临时摘除、速率倍率覆盖、RPM 覆盖——接 ai_relay_key_pool 加列 + channel-router 选路权重消费。
 <!-- 已归档占位与水印尾行见文件末尾 -->
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
