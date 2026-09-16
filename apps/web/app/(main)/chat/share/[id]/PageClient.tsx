@@ -18,6 +18,8 @@ import { cn } from '@/lib/utils'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
 import { ToolCallCard } from '@/components/ai/tool-call-card'
+// P3 #39 阶段2(2026-09-16 立):执行轨迹回放
+import { TraceReplay } from '@/components/ai/trace-replay'
 import type { ToolCall } from '@/stores/chat'
 
 interface Message {
@@ -180,6 +182,10 @@ export default function ChatSharePage() {
                           iteration={tc.iteration}
                         />
                       ))}
+                    {/* P3 #39 阶段2(2026-09-16 立):执行轨迹回放(>=2 步时时序重演,与静态工具卡互补) */}
+                    {!isUser && msg.toolCalls && msg.toolCalls.length >= 2 && (
+                      <TraceReplay toolCalls={msg.toolCalls} />
+                    )}
                     <MarkdownStream content={msg.content} isStreaming={false} />
                   </div>
                 </CardContent>
