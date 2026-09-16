@@ -166,6 +166,10 @@ export type SSEEventPayload =
       usage?: Record<string, unknown>
       model?: string
       stub?: boolean
+      /** P1 #27(2026-09-16 立)记忆更新可视化:本轮新增写入长期记忆(LTM)的条目摘要。
+       *  由 llm.py 在 done 前同步提炼(超时/异常降级为空数组),经网关原样透传到前端,
+       *  MessageItem 据此渲染「已记住」提示条(MemoryNoticeBar)。空数组/缺省表示本轮无新记忆。 */
+      memoryUpdates?: string[]
     }>
   // 错误
   | SSEEventWithMeta<{
