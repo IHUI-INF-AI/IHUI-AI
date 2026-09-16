@@ -22253,7 +22253,11 @@
   "costGuard": {
     "estimateLine": "Est. ≈{tokens} tokens (~${cost})",
     "fallbackPrice": "fallback price, for reference only",
-    "actualLine": "Actual {actual} tokens (est. {estimate})"
+    "actualLine": "Actual {actual} tokens (est. {estimate})",
+    "negotiationLine": "Est. ≈{tokens} tokens (~${cost}), over budget threshold",
+    "negotiationFallback": "Estimated usage is over the budget threshold",
+    "confirmSend": "Send anyway",
+    "confirmCancel": "Cancel"
   },
   "memoryGraph": {
     "searchPlaceholder": "Search memory keywords…",
