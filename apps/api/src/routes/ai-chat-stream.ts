@@ -24,6 +24,17 @@ import {
 import { persistMessageArchive } from '../utils/conversation-archive.js'
 import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
 import { loadKnowledgeContext } from '../services/knowledge-chat-context.js'
+import {
+  createSession,
+  detachOnClose,
+  emitEvent,
+  emitUpstreamLine,
+  findSession,
+  finishSession,
+  getReplayEvents,
+  takeoverStream,
+} from '../utils/sse-stream-registry.js'
+import { isStreamActive } from '../utils/sse-replay-buffer.js'
 
 // P3-1 SSE 流式对话实时指标(admin 调试用,不直接进 Prometheus;Prometheus 抓取由 business-metrics.ts 负责)
 const sseMetrics = {
@@ -207,16 +218,61 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     }
     raw.writeHead(200, sseHeaders)
 
+    // #22(2026-09-16 立)SSE 事件 id + Last-Event-ID 标准重放:
+    // replayKey = `${conversationId}:${messageId}`(前端 streamChat metadata 均携带)。
+    // 断线重连带 Last-Event-ID 头时优先走接管/重放,避免重新调上游:
+    // 1) 原流仍在生成(15s 宽限窗口内)→ 重放缺失段 + 无缝接续原上游流;
+    // 2) 原流已中止但缓冲在 60s 保留窗口 → 仅重放缺失段后结束(前端 dedupe 降级);
+    // 3) 缓冲也过期/未知 key → 落到下方正常路径重新生成(前端 dedupe 前缀续写降级保留)。
+    const replayKey =
+      opts.metadata?.conversationId && opts.metadata?.messageId
+        ? `${opts.metadata.conversationId}:${opts.metadata.messageId}`
+        : null
+    const lastEventIdHeader = request.headers['last-event-id']
+    if (replayKey && typeof lastEventIdHeader === 'string' && lastEventIdHeader !== '') {
+      const lastSeq = Number.parseInt(lastEventIdHeader, 10)
+      if (Number.isFinite(lastSeq) && lastSeq >= 0) {
+        const liveSession = findSession(replayKey)
+        if (liveSession && !liveSession.finished) {
+          // 接管:重放缺失段(id > Last-Event-ID)后原转发循环继续向本连接实时写
+          const missed = takeoverStream(liveSession, lastSeq, raw)
+          for (const e of missed) raw.write(`id: ${e.id}\n${e.rawLine}\n\n`)
+          // 新连接断开同样走宽限 detach(重复断线/重连安全)
+          request.raw.on('close', () => detachOnClose(liveSession))
+          request.log.warn(
+            { replayKey, lastSeq, replayed: missed.length },
+            '[SSEReplay] stream takeover',
+          )
+          return
+        }
+        if (isStreamActive(replayKey)) {
+          // 原流已中止/完成但缓冲仍在 60s 保留窗口:重放缺失段后结束
+          const missed = getReplayEvents(replayKey, lastSeq)
+          for (const e of missed) raw.write(`id: ${e.id}\n${e.rawLine}\n\n`)
+          request.log.warn(
+            { replayKey, lastSeq, replayed: missed.length },
+            '[SSEReplay] replay-only (upstream gone)',
+          )
+          raw.end()
+          return
+        }
+        // 缓冲过期:正常路径重新生成(降级,与改造前行为一致)
+      }
+    }
+
+    // 正常路径:创建会话(启用事件编号 + replay buffer),断线进宽限而非立即 abort
+    const session = createSession(raw, new AbortController(), replayKey)
+
     // 首事件:修复通知 / 压缩通知 / resumed 通知等
     // 若该流绑定到某个 agent(opts.agentId),在 chunk 顶层注入 agentId,
     // 前端可据此把通知分流到对应 subagent 卡片;缺失时降级为单 agent 模式
     for (const evt of extraFirstEvents) {
       const chunk: Record<string, unknown> = { [evt.key]: evt.payload }
       if (opts.agentId) chunk.agentId = opts.agentId
-      raw.write(`data: ${JSON.stringify(chunk)}\n\n`)
+      emitEvent(session, JSON.stringify(chunk))
     }
 
-    const controller = new AbortController()
+    const controller = session.controller
     // 服务端超时兜底:防 ai-service 卡死时连接无限挂起(5 分钟,正常对话远小于此)
     // timedOut 标记用于区分"服务端超时 abort" vs "客户端主动断开 abort"
     let timedOut = false
@@ -225,7 +281,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       sseMetrics.timeouts++
       controller.abort()
     }, 5 * 60_000)
-    const onClose = () => controller.abort()
+    // 断线不再立即 abort 上游(#22):进 15s 宽限期等重连接管,超时才 abort
+    const onClose = () => detachOnClose(session)
     request.raw.on('close', onClose)
 
     try {
@@ -328,13 +385,13 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           errChunk = { error: `upstream ${resp.status}: ${errText.slice(0, 200)}` }
         }
         if (opts.agentId) errChunk.agentId = opts.agentId
-        raw.write(`data: ${JSON.stringify(errChunk)}\n\n`)
+        emitEvent(session, JSON.stringify(errChunk))
         return
       }
 
       // 逐行注入 agentId:ai-service 返回的 token chunk 默认不带 agentId,
       // 这里对 JSON 格式的 data: 行注入顶层 agentId,让前端能按 agentId 分流到 subagent 卡片。
-      // Vercel AI SDK `0:"token"` 格式无法注入(协议限制),透传原样。
+      // Vercel AI SDK `0:"token"` 格式同样经 emitUpstreamLine 编号+缓冲(#22),透传原样。
       const reader = resp.body.getReader()
       const decoder = new TextDecoder()
       let streamBuffer = ''
@@ -354,7 +411,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
                 const json = JSON.parse(data) as Record<string, unknown>
                 if (typeof json === 'object' && json !== null && !json.agentId) {
                   json.agentId = opts.agentId
-                  raw.write(`data: ${JSON.stringify(json)}\n`)
+                  emitUpstreamLine(session, `data: ${JSON.stringify(json)}`)
                   continue
                 }
               } catch {
@@ -362,10 +419,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
               }
             }
           }
-          raw.write(line + '\n')
+          emitUpstreamLine(session, line)
         }
       }
-      if (streamBuffer) raw.write(streamBuffer)
+      if (streamBuffer && session.raw) session.raw.write(streamBuffer)
     } catch (e) {
       const msg =
         (e as Error).name === 'AbortError'
@@ -375,11 +432,12 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           : (e as Error).message
       const errChunk: Record<string, unknown> = { error: msg }
       if (opts.agentId) errChunk.agentId = opts.agentId
-      raw.write(`data: ${JSON.stringify(errChunk)}\n\n`)
+      emitEvent(session, JSON.stringify(errChunk))
     } finally {
       request.raw.off('close', onClose)
       clearTimeout(serverTimeout)
-      raw.end()
+      finishSession(session)
+      ;(session.raw ?? raw).end()
     }
   }
 
