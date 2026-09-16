@@ -271,7 +271,10 @@
     "menu": "メニュー",
     "showPassword": "パスワードを表示",
     "hidePassword": "パスワードを隠す",
-    "uploadAvatar": "アバターをアップロード"
+    "uploadAvatar": "アバターをアップロード",
+    "streamAnnounceStart": "AI が返信を開始しました",
+    "streamAnnounceProgress": "AI が返信中、{n} 文字出力済み",
+    "streamAnnounceDone": "AI の返信が完了、合計 {n} 文字"
   },
   "about": {
     "ctaDesc": "登録で 1,000 クレジットを獲得、全モデル無料体験、クレジットカート不要。",
@@ -8608,6 +8611,11 @@
     "addMenuLabel": "追加",
     "artifactCode": "コード",
     "artifactPreview": "プレビュー",
+    "pdfOpenExternal": "新しいウィンドウで開く",
+    "csvPreviewMeta": "{rows} 行 × {cols} 列",
+    "csvExpand": "すべて表示",
+    "csvCollapse": "折りたたむ",
+    "csvLoading": "読み込み中…",
     "assistant": "AIアシスタント",
     "attachUploadFailed": "添付ファイルのアップロードに失敗しました。削除して再度追加してください",
     "attachUploading": "添付ファイルをアップロード中です。しばらくお待ちください",

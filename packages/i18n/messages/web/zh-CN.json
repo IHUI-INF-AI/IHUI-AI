@@ -271,7 +271,10 @@
     "menu": "菜单",
     "showPassword": "显示密码",
     "hidePassword": "隐藏密码",
-    "uploadAvatar": "上传头像"
+    "uploadAvatar": "上传头像",
+    "streamAnnounceStart": "AI 开始回复",
+    "streamAnnounceProgress": "AI 正在回复,已输出 {n} 字",
+    "streamAnnounceDone": "AI 回复完成,共 {n} 字"
   },
   "about": {
     "ctaDesc": "注册即得 1000 积分,全模型免费试用,无需信用卡。",
@@ -8608,6 +8611,11 @@
     "addMenuLabel": "添加",
     "artifactCode": "代码",
     "artifactPreview": "预览",
+    "pdfOpenExternal": "新窗口打开",
+    "csvPreviewMeta": "共 {rows} 行 × {cols} 列",
+    "csvExpand": "展开全部",
+    "csvCollapse": "收起",
+    "csvLoading": "加载中…",
     "assistant": "AI 助手",
     "attachUploadFailed": "附件上传失败,请移除后重新添加",
     "attachUploading": "附件上传中,请稍候",
