@@ -2650,6 +2650,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 - [ ] **38. 并行世界线(Parallel Worlds)**:同一问题 fork 2–4 条方案分支**并行**执行(各挂独立 checkpoint),对话流内并排对比结果、择优合并合并世界线。fork 已有,补「并行调度+并排对比+合并」三件套。竞品现状:四家全部单线执行,无方案级并行对比。
 - [ ] **39. 执行轨迹即文档(Trace as Document)**:agent 每轮全量轨迹录制(工具调用输入/输出/耗时/环境快照),产品化为可回放、可分享只读回放链接、可导出审计报告。竞品现状:Codex 有 session JSONL 但无产品化回放/分享。
+- [x] ✅(2026-09-16) **39-阶段1 轨迹时序重演**(零后端):轨迹数据天然存在于 assistant 消息 toolCalls(id/toolName/args/result/status/durationMs 齐全)。新建「lib/trace-replay.ts」纯函数(traceStepDuration 节奏加权:基础 550ms + 真实耗时 log 压缩,cap 1.8s——不按真实时长等比播放,30s 的工具不会让回放卡死半分钟,但保住「这步很重」的体感;initialPlayback/advancePlayback 状态机到末尾停住不越界)+ 「components/ai/trace-replay.tsx」(TraceReplay:播放/暂停/单步/重置,时间线按序高亮当前步,步号/工具名/耗时/状态徽章,toolCalls 变化自动重置);接入 MessageItem(toolCalls≥2 才显示——单步无重演意义);5 语言 i18n × 11 键(新顶层命名空间 traceReplay)。验证:TS 7 用例(节奏 3 + 状态机 4)全绿 + traceReplay 文件 typecheck 零错误 + 死 key 0(check-i18n-keys 余留 3 WARNING 为并发会话 aiNews 进行中改动,非本任务引入)。**阶段2(待做)**:分享快照 ShareAnswer 补 toolCalls(后端)+ 分享页接入回放 + 审计报告导出。
 - [ ] **40. 主动巡逻 Agent(Proactive Patrol)**:定时自动巡检(CI 失败/依赖漏洞/错误日志/死链),发现问题**主动发起对话**并附诊断与修复预案,用户一键授权执行。竞品现状:Codex 自动化只执行排程任务,不主动发起对话。
 - [ ] **41. 记忆图谱(Memory Graph)**:记忆条目升级为知识图谱(项目/人/决策/依赖为节点+边),对话内可视化查询,新会话自动注入相关子图。竞品现状:各家记忆全部平铺列表。
 - [ ] **42. 全栈原子回滚(Atomic Full-stack Rollback)**:checkpoint 从代码 diff 升级为「代码+DB 迁移+环境变量+依赖锁」原子快照,一键整栈回滚。竞品现状:仅代码级回滚。
