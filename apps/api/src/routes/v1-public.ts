@@ -60,8 +60,14 @@ import {
   isByokCall,
   modelToProviderCode,
   preDeductQuota,
+  BillingUnavailableError,
   type PreDeduction,
 } from '../services/relay-billing-service.js'
+// 用户级并发限制(H,2026-09-16 立)
+import {
+  tryAcquireUserConcurrency,
+  releaseUserConcurrency,
+} from '../services/user-concurrency-service.js'
 // 渠道直连转发器(2026-09-12 立):公开链路接通渠道路由 + 逐请求 failover
 import { forwardToChannel, pipeChannelStream } from '../services/relay-upstream-forwarder.js'
 import type { SelectedChannelKey } from '../services/relay-channel-router.js'
@@ -1296,15 +1302,25 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     const promptText = messages.map((m) => `${m.role}: ${m.content}`).join('\n')
     if (apiKey) {
       const estimatedTokens = messages.reduce((sum, m) => sum + Math.ceil(m.content.length / 4), 0)
-      const quotaCheck = await checkQuota(apiKey.id, estimatedTokens)
+      const quotaCheck = await checkQuota(apiKey.id, estimatedTokens, { clientIp: request.ip })
       if (!quotaCheck.allowed) {
         const reasonMap: Record<string, string> = {
           no_balance_token: 'Token 余额不足,请充值或联系管理员',
           no_balance_cost: '成本余额不足,请充值或联系管理员',
           key_not_found: 'API Key 不存在',
           key_revoked: 'API Key 已被吊销',
+          ip_blocked: '当前 IP 在该 Key 的黑名单中',
+          ip_not_allowed: '当前 IP 不在该 Key 的白名单中',
+          key_rate_window_exceeded: '已达到该 Key 的窗口请求数上限(5h/日/周),请稍后重试',
         }
-        const statusCode = quotaCheck.reason === 'key_not_found' ? 401 : 402
+        const statusCode =
+          quotaCheck.reason === 'key_not_found'
+            ? 401
+            : quotaCheck.reason === 'ip_blocked' || quotaCheck.reason === 'ip_not_allowed'
+              ? 403
+              : quotaCheck.reason === 'key_rate_window_exceeded'
+                ? 429
+                : 402
         return reply
           .status(statusCode)
           .send(error(statusCode, reasonMap[quotaCheck.reason ?? ''] ?? '额度不足'))
@@ -1358,15 +1374,48 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     // 两段式计费第一阶段(2026-09-12 立):预扣预估用量(封顶当前余额),
     // recordCall 收到凭证后自动结算(多退少补),敞口上限 = 单次预扣额。
     // 仅 relay 模式预扣;BYOK 只抽成不预扣;无限额度 Key preDeductQuota 返回 null。
+    // 用户级并发限制(H,2026-09-16 立):同一用户挂起请求数超上限直接 429
+    // (进程内计数,单实例正确;多实例需迁 Redis——见 user-concurrency-service)。
+    // 释放挂在 reply.raw 'close'(正常完成与客户端断开都触发),防漏释放。
+    if (apiKey?.userId) {
+      const slot = tryAcquireUserConcurrency(apiKey.userId)
+      if (!slot.ok) {
+        return reply.status(429).send({
+          error: {
+            message: `User concurrency limit reached (${slot.limit}). Close idle connections or retry later.`,
+            type: 'user_concurrency_limit',
+            code: 'user_concurrency_limit',
+          },
+        })
+      }
+      reply.raw.on('close', () => releaseUserConcurrency(apiKey.userId))
+    }
+
     let preDeduction: PreDeduction | null = null
     if (apiKey && mode === 'relay') {
-      preDeduction = await preDeductQuota({
-        apiKeyId: apiKey.id,
-        model: resolvedModel,
-        userId: apiKey.userId,
-        estimatedPromptTokens: Math.ceil(promptText.length / 4),
-        estimatedCompletionTokens: maxTokens ?? 1024,
-      })
+      try {
+        preDeduction = await preDeductQuota({
+          apiKeyId: apiKey.id,
+          model: resolvedModel,
+          userId: apiKey.userId,
+          estimatedPromptTokens: Math.ceil(promptText.length / 4),
+          estimatedCompletionTokens: maxTokens ?? 1024,
+        })
+      } catch (err) {
+        // 计费熔断(F,2026-09-16):定价不可用(查询失败且无缓存)时 fail-closed
+        // 返回 503 宁拒一次调用,不放一轮免费(OpenAI 错误格式,客户端可重试)。
+        if (err instanceof BillingUnavailableError) {
+          return reply.status(503).send({
+            error: {
+              message:
+                'Billing is temporarily unavailable (pricing store unreachable). Please retry shortly.',
+              type: 'billing_unavailable',
+              code: 'billing_unavailable',
+            },
+          })
+        }
+        throw err
+      }
     }
 
     if (stream) {

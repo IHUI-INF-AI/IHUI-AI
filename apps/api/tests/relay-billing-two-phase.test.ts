@@ -118,6 +118,16 @@ vi.mock('../src/services/subscription-window-service.js', () => ({
   checkSubscriptionWindowQuota: vi.fn().mockResolvedValue({ allowed: true }),
   consumeSubscriptionWindowUsage: vi.fn().mockResolvedValue(false),
 }))
+// 2026-09-16 深度补强:recordCall 成功路径新增 Key 窗口计数与余额邮件通知,
+// 两者都会额外发起 dbRead 查询,同样必须整体 mock 掉以保护 Once 序列。
+vi.mock('../src/services/key-rate-window-service.js', () => ({
+  checkKeyRateWindows: vi.fn().mockResolvedValue({ allowed: true }),
+  incrKeyRateWindows: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('../src/services/mail-relay-notifier.js', () => ({
+  checkAndNotifyLowBalance: vi.fn().mockResolvedValue(false),
+  sendLowBalanceMail: vi.fn().mockResolvedValue(false),
+}))
 vi.mock('../src/services/user-billing-group-service.js', () => ({
   getUserModelMultiplier: vi.fn().mockResolvedValue(1),
 }))

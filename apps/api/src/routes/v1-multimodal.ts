@@ -36,6 +36,8 @@
  * 19. POST   /v1/generation/enqueue        — 生成队列入队(generation:write)
  * 20. GET    /v1/generation/status/:id     — 生成队列状态(generation:write)
  * 21. POST   /v1/generation/cancel/:id     — 生成队列取消(generation:write)
+ * 22. POST   /v1/images/generations/async  — 异步文生图(任务编排骨架,202 + task id)(images:write)
+ * 23. GET    /v1/images/generations/async/:id — 异步图片任务状态轮询(images:read)
  */
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
@@ -57,6 +59,7 @@ import {
   requireApiKeyPermission,
   requireApiKeyQuota,
 } from '../plugins/api-key-auth.js'
+import type { Redis } from 'ioredis'
 import { error } from '../utils/response.js'
 import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
 import { recordCall, refundTaskCall } from '../services/relay-billing-service.js'
@@ -180,6 +183,18 @@ const imageGenerationsSchema = z.object({
   quality: z.string().optional(),
   style: z.string().optional(),
   vendor: z.string().optional(),
+})
+
+/**
+ * 异步图片生成任务(2026-09-16 立):入参 { model, prompt, n?, size? }。
+ * 与同步 /images/generations 解耦:此端点仅落地任务编排骨架(pending),
+ * 不真正调用上游生图(上游调用由既有同步端点 / 调用方体系负责,worker 消费任务后推进状态)。
+ */
+const imageAsyncGenerationsSchema = z.object({
+  model: z.string().min(1),
+  prompt: z.string().min(1),
+  n: z.number().int().positive().optional(),
+  size: z.string().optional(),
 })
 
 const imageEditsSchema = z.object({
@@ -428,10 +443,153 @@ async function pollInternalJob(
 }
 
 // =============================================================================
+// 异步图片生成任务编排(2026-09-16 立)
+// -----------------------------------------------------------------------------
+// 对标 OpenAI /images/generations/async + 轮询。本模块只落地任务编排骨架:
+//   POST /v1/images/generations/async    → 创建任务,返回 202 { id, status:'pending' }
+//   GET  /v1/images/generations/async/:id → 查询任务状态
+// 状态推进(worker 消费上游生图结果后置 succeeded/failed)由 completeImageTask /
+// failImageTask 提供 —— 本端点内部不自动推进状态。
+//
+// 存储:优先 Redis(key `imgtask:{id}`, JSON, TTL 24h);Redis 不可用(未连接 / 命令异常)
+// 降级进程内 Map(单进程内存,重启即丢,跨进程不可见 —— 仅作骨架降级,非生产多实例方案)。
+// 金额 / 计费不在本任务范围(OpenAI 异步图片的计费随既有同步链路 /images/generations 走)。
+// =============================================================================
+
+/** 任务状态(与 OpenAI images 异步约定一致)。 */
+type ImageTaskStatus = 'pending' | 'processing' | 'succeeded' | 'failed'
+
+/** 异步图片任务记录(Redis value / 内存结构一致)。 */
+interface ImageTask {
+  id: string
+  status: ImageTaskStatus
+  model: string
+  prompt: string
+  createdAt: string
+  /** 生图结果:图片 URL / base64 数组(仅 succeeded 时存在)。 */
+  result?: string[]
+  /** 失败原因(仅 failed 时存在)。 */
+  error?: string
+}
+
+const IMG_TASK_PREFIX = 'imgtask:'
+const IMG_TASK_TTL_SECONDS = 24 * 60 * 60
+
+/** Redis 客户端(插件注册时捕获);为 null 或命令异常时降级进程内 Map。 */
+let imageTaskRedis: Redis | null = null
+
+/** 进程内降级存储(Redis 不可用时的兜底)。 */
+const inMemoryImageTasks = new Map<string, ImageTask>()
+
+/** 解析 Redis 原始串为 ImageTask(结构非法返回 null)。 */
+function parseImageTask(raw: string | null): ImageTask | null {
+  if (!raw) return null
+  let obj: unknown
+  try {
+    obj = JSON.parse(raw)
+  } catch {
+    return null
+  }
+  if (!obj || typeof obj !== 'object') return null
+  const o = obj as Record<string, unknown>
+  if (typeof o.id !== 'string') return null
+  const status = o.status
+  if (
+    status !== 'pending' &&
+    status !== 'processing' &&
+    status !== 'succeeded' &&
+    status !== 'failed'
+  ) {
+    return null
+  }
+  const result = Array.isArray(o.result)
+    ? (o.result.filter((x): x is string => typeof x === 'string') as string[])
+    : undefined
+  return {
+    id: o.id,
+    status,
+    model: typeof o.model === 'string' ? o.model : '',
+    prompt: typeof o.prompt === 'string' ? o.prompt : '',
+    createdAt: typeof o.createdAt === 'string' ? o.createdAt : new Date().toISOString(),
+    ...(result && result.length > 0 ? { result } : {}),
+    ...(typeof o.error === 'string' ? { error: o.error } : {}),
+  }
+}
+
+/** 落盘任务(Redis 优先,失败降级进程内 Map)。 */
+async function saveImageTask(task: ImageTask): Promise<void> {
+  const key = `${IMG_TASK_PREFIX}${task.id}`
+  const value = JSON.stringify(task)
+  if (imageTaskRedis) {
+    try {
+      // ioredis SET key value EX seconds(覆盖写,天然续期 TTL)。
+      await imageTaskRedis.set(key, value, 'EX', IMG_TASK_TTL_SECONDS)
+      return
+    } catch {
+      // Redis 不可用 → 降级进程内 Map(注释:单进程内存,重启即丢)。
+    }
+  }
+  inMemoryImageTasks.set(task.id, task)
+}
+
+/** 查询任务(Redis 优先,异常/缺失降级进程内 Map)。 */
+async function getImageTask(id: string): Promise<ImageTask | null> {
+  const key = `${IMG_TASK_PREFIX}${id}`
+  if (imageTaskRedis) {
+    try {
+      const raw = await imageTaskRedis.get(key)
+      const parsed = parseImageTask(raw)
+      if (parsed) return parsed
+    } catch {
+      // Redis 不可用 → 试图从进程内 Map 取。
+    }
+  }
+  return inMemoryImageTasks.get(id) ?? null
+}
+
+/**
+ * 推进任务为 succeeded(供未来 worker 调用:消费上游生图结果后置)。
+ * 保留既有 model/prompt/createdAt;result 为图片 URL/base64 数组。
+ * 任务不存在时仍写入一条 succeeded 记录(id + result,model/prompt 留空)。
+ */
+export async function completeImageTask(id: string, result: string[]): Promise<void> {
+  const existing = await getImageTask(id)
+  const task: ImageTask = {
+    id,
+    status: 'succeeded',
+    model: existing?.model ?? '',
+    prompt: existing?.prompt ?? '',
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    result: Array.isArray(result) ? result : [],
+  }
+  await saveImageTask(task)
+}
+
+/**
+ * 推进任务为 failed(供未来 worker 调用:上游生图失败 / 超时后置)。
+ * 保留既有 model/prompt/createdAt,附 error 原因。
+ * 任务不存在时仍写入一条 failed 记录(id + error,model/prompt 留空)。
+ */
+export async function failImageTask(id: string, errMsg: string): Promise<void> {
+  const existing = await getImageTask(id)
+  const task: ImageTask = {
+    id,
+    status: 'failed',
+    model: existing?.model ?? '',
+    prompt: existing?.prompt ?? '',
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    error: typeof errMsg === 'string' ? errMsg : String(errMsg),
+  }
+  await saveImageTask(task)
+}
+
+// =============================================================================
 // 路由插件
 // =============================================================================
 
 const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
+  // 捕获 Redis 客户端供异步图片任务存储使用(为 null 时落到进程内 Map 降级)。
+  imageTaskRedis = server.redis
   // ===== 1. GET /audio/voices — 音色列表 =====
   server.get(
     '/audio/voices',
@@ -1874,6 +2032,127 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           }
         },
       )
+    },
+  )
+
+  // ===== 22. POST /images/generations/async — 异步文生图(任务编排骨架) =====
+  server.post(
+    '/images/generations/async',
+    {
+      schema: {
+        description: '异步文生图(创建任务,返回 202 + task id,供轮询)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            prompt: { type: 'string' },
+            n: { type: 'number' },
+            size: { type: 'string' },
+          },
+          required: ['model', 'prompt'],
+        },
+        response: {
+          202: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
+      preHandler: [
+        requireApiKeyAuth,
+        requireApiKeyPermission('images:write'),
+        requireApiKeyQuota(),
+      ],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const parsed = imageAsyncGenerationsSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { model, prompt } = parsed.data
+      // 计费不在本任务范围:OpenAI 异步图片的计费随既有同步链路 /images/generations 走。
+      // 这里只落地任务编排骨架,先置 pending(乐观计费 / failed 退款由同步链路负责)。
+      // n / size 已在 zod 中校验并接收,本骨架暂不持久化(预留给未来 worker 透传上游)。
+      const task: ImageTask = {
+        id: crypto.randomUUID(),
+        status: 'pending',
+        model,
+        prompt,
+        createdAt: new Date().toISOString(),
+      }
+      await saveImageTask(task)
+      // 扩展点:未来由 worker 消费上游生图(既有同步端点 / 调用方体系)后,
+      // 调用 completeImageTask(id, result) / failImageTask(id, error) 推进状态。
+      // 本端点内部不自动推进。
+      return reply.status(202).send({ id: task.id, status: task.status })
+    },
+  )
+
+  // ===== 23. GET /images/generations/async/:id — 异步任务状态查询 =====
+  server.get(
+    '/images/generations/async/:id',
+    {
+      schema: {
+        description: '异步文生图任务状态查询(轮询)',
+        tags: ['Multimodal'],
+        params: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+          },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              status: { type: 'string' },
+              model: { type: 'string' },
+              prompt: { type: 'string' },
+              createdAt: { type: 'string' },
+              result: { type: 'array', items: { type: 'string' } },
+              error: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
+      preHandler: [
+        requireApiKeyAuth,
+        requireApiKeyPermission('images:write'),
+        requireApiKeyQuota(),
+      ],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      const { id } = request.params as { id: string }
+      const task = await getImageTask(id)
+      if (!task) {
+        return reply.status(404).send(error(404, `Image generation task not found: ${id}`))
+      }
+      // 直接返回任务记录(状态 pending/processing/succeeded/failed);
+      // 不在本端点推进状态(result 仅 succeeded 时存在,error 仅 failed 时存在)。
+      return reply.send({
+        id: task.id,
+        status: task.status,
+        model: task.model,
+        prompt: task.prompt,
+        createdAt: task.createdAt,
+        ...(Array.isArray(task.result) ? { result: task.result } : {}),
+        ...(typeof task.error === 'string' ? { error: task.error } : {}),
+      })
     },
   )
 }

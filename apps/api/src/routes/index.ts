@@ -385,6 +385,10 @@ import relayLogsRoutes from './admin/relay-logs.js'
 import adminRelayStatsRoutes from './admin/relay-stats.js'
 import { relayPublicRoutes } from './relay-public.js'
 import developerRelayRoutes from './developer-relay.js'
+// developer 用户侧:API Key 一键接入配置生成器(2026-09-16,对标 Sub2API)
+import developerRelayBootstrapRoutes from './developer-relay-bootstrap.js'
+// developer 用户侧:Key 批量管理(2026-09-16,对标 bulkEdit)
+import developerRelayKeysAdminRoutes from './developer-relay-keys-admin.js'
 import developerApiKeyGroupsRoutes from './developer/api-key-groups.js'
 // P0-7 API Key 安全粒度管理(2026-07-31 立,admin 侧管理用户/租户 API Key + 过期/IP白名单/模型白名单/token上限)
 import relayApiKeysRoutes from './admin/relay-api-keys.js'
@@ -1094,6 +1098,10 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(relayPublicRoutes, { prefix: '/api/relay' })
   // developer 用户侧端点:API Key 列表(含余额)/ 用量明细 / 调用日志 / 充值
   server.register(developerRelayRoutes, { prefix: '/api' })
+  // developer 用户侧:API Key 一键接入配置生成器(2026-09-16,对标 Sub2API)
+  server.register(developerRelayBootstrapRoutes, { prefix: '/api' })
+  // developer 用户侧:Key 批量管理(2026-09-16,对标 bulkEdit)
+  server.register(developerRelayKeysAdminRoutes, { prefix: '/api' })
   // developer API Key 分组(2026-08-01 立,多 Key 共享额度池 + 子 Key 权限继承 + 组内用量排行)
   server.register(developerApiKeyGroupsRoutes, { prefix: '/api/developer' })
 
