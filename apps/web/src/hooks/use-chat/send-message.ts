@@ -26,6 +26,8 @@ import {
 import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/checkpoint-api'
 import { expandRuleToken } from '@/stores/memory'
 import { expandContextTokens } from '@/lib/context-token-expander'
+// P3 #30(2026-09-16 立):diff 评审意见 → agent 上下文注入
+import { appendDiffComments } from '@/lib/diff-comments'
 import { emitAgentHook } from '@/stores/agent-hooks'
 import { maybeAutoCaptureWiki } from '@/stores/repo-wiki'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
@@ -131,7 +133,16 @@ export function createSendMessage(
     // W25(2026-09-14):#Rule token 展开 —— 正文含 #Rule 时把规则 YAML 内联进发送文本,
     // 仅影响发给 LLM 的内容,store/持久化仍保留原始用户输入(避免展开块污染历史气泡)。
     // 四竞品对标 V2 #18(2026-09-15):#Codebase/#Terminal/#Docs/@目录:<路径> 语义源展开。
-    const llmText = await expandContextTokens(expandRuleToken(text))
+    const baseLlmText = await expandContextTokens(expandRuleToken(text))
+    // P3 #30(2026-09-16 立):diff 评审意见定向注入 —— 用户对上一轮代码改动的意见格式化为
+    // `<diff_review>` 块追加到发给 LLM 的文本尾部(同样只影响发给 LLM 的内容)。
+    // 重新生成模式跳过:该路径发送的是历史上下文,llmText 不参与请求,
+    // 若此处一并注入并在发起前清空,意见会白白丢失 → regenerate 时保留队列不动。
+    const pendingDiffComments = useChatStore.getState().pendingDiffComments
+    const llmText =
+      isRegenerate || pendingDiffComments.length === 0
+        ? baseLlmText
+        : appendDiffComments(baseLlmText, pendingDiffComments)
     const store = useChatStore.getState()
     if (store.isStreaming) return false
 
@@ -498,6 +509,13 @@ export function createSendMessage(
 
       // W28 Hooks 事件:message.send(用户消息即将发送给 LLM)
       emitAgentHook('message.send', { summary: llmText.slice(0, 80) })
+
+      // P3 #30:意见已进入本次请求的 messages payload,发起前清空队列(消费即清,避免重复注入)。
+      // 置于此处而非 llmText 构造处:中间有斜杠命令等提前 return 分支,过早清空会误丢意见。
+      // 请求失败时 streamChat 内部重试复用同一 messages,意见不会丢失。
+      if (!isRegenerate && pendingDiffComments.length > 0) {
+        useChatStore.getState().clearDiffComments()
+      }
 
       await streamChat({
         model: effectiveModel,

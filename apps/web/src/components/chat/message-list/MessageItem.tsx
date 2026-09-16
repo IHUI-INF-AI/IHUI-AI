@@ -714,6 +714,7 @@ const MessageItem = React.memo(function MessageItem({
                             duration={tc.duration ?? tc.durationMs}
                             error={tc.error}
                             iteration={tc.iteration}
+                            toolCallId={tc.id}
                             diffInfo={tc.diffInfo}
                             applyStatus={tc.applyStatus}
                             applyError={tc.applyError}

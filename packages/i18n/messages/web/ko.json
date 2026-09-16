@@ -6970,6 +6970,22 @@
         "manage": "관리",
         "moreItems": "외 {count}건"
       },
+      "diffComment": {
+        "action": "댓글",
+        "rowAction": "이 줄에 댓글",
+        "placeholderLine": "{line}번째 줄에 댓글…",
+        "placeholderFile": "이 변경에 댓글…",
+        "submit": "추가",
+        "hint": "Enter 전송, Shift+Enter 줄바꿈",
+        "remove": "이 댓글 삭제",
+        "lineLabel": "{line}번째 줄",
+        "fileLevel": "전체 파일",
+        "countBadge": "댓글 {count}개",
+        "targetLine": "{line}번째 줄에 댓글",
+        "targetFile": "이 변경에 댓글",
+        "close": "취소",
+        "pendingBanner": "코드 변경 댓글 {count}개 전송 대기 중"
+      },
       "thumbRail": {
         "title": "메시지 지도",
         "userNode": "질문",

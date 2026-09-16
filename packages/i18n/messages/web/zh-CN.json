@@ -6970,6 +6970,22 @@
         "manage": "管理",
         "moreItems": "等 {count} 条"
       },
+      "diffComment": {
+        "action": "评论",
+        "rowAction": "评论这一行",
+        "placeholderLine": "对第 {line} 行提意见…",
+        "placeholderFile": "对本次改动提意见…",
+        "submit": "添加",
+        "hint": "Enter 发送,Shift+Enter 换行",
+        "remove": "删除这条意见",
+        "lineLabel": "第 {line} 行",
+        "fileLevel": "整个文件",
+        "countBadge": "{count} 条意见",
+        "targetLine": "评论第 {line} 行",
+        "targetFile": "评论本次改动",
+        "close": "取消",
+        "pendingBanner": "有 {count} 条代码改动意见待发送"
+      },
       "thumbRail": {
         "title": "消息地图",
         "userNode": "提问",
