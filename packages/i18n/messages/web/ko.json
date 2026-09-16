@@ -22232,7 +22232,11 @@
   "costGuard": {
     "estimateLine": "이번 예상 ≈{tokens} 토큰 (약 ${cost})",
     "fallbackPrice": "대체 가격 참고용",
-    "actualLine": "실제 {actual} 토큰 (예상 {estimate})"
+    "actualLine": "실제 {actual} 토큰 (예상 {estimate})",
+    "negotiationLine": "이번 예상 ≈{tokens} 토큰 (약 ${cost}), 예산 임계값 초과",
+    "negotiationFallback": "예상 사용량이 예산 임계값을 초과했습니다",
+    "confirmSend": "그래도 보내기",
+    "confirmCancel": "취소"
   },
   "memoryGraph": {
     "searchPlaceholder": "메모리 키워드 검색…",
