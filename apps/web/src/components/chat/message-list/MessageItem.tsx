@@ -39,6 +39,7 @@ import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
 import { TerminalSection } from '@/components/ai/progress-sections/terminal-section'
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
 import { CitationBar } from '@/components/ai/progress-sections/citation-bar'
+import { MemoryNoticeBar } from '@/components/ai/progress-sections/memory-notice-bar'
 import { plainTextForClipboard } from '@/components/ai/progress-sections/message-context-menu'
 import { MessageFileChips } from '@/components/chat/message-list/file-chips'
 import { TurnChangesCard } from '@/components/chat/message-list/turn-changes-card'
@@ -117,6 +118,15 @@ const MessageItem = React.memo(function MessageItem({
   // 2026-09-12 立:Checkpoint 面板按会话维度的 session_id 查询,
   // 前端当前可用的会话标识即 chat store 的 conversationId(详见交付说明)。
   const conversationId = useChatStore((s) => s.conversationId)
+  // P1 #27 记忆更新可视化(2026-09-16 立):按 messageId 取本轮「已记住」条目。
+  // 用叶子布尔/数组选择器订阅(memoryUpdateNotices 引用仅在 appendMemoryNotice 时变更),
+  // 避免整棵树因无关 store 变更重渲染。
+  const memoryNoticeItems = useChatStore(
+    React.useCallback(
+      (s) => s.memoryUpdateNotices.find((n) => n.messageId === m.id)?.items ?? null,
+      [m.id],
+    ),
+  )
   // 2026-09-12 立:Checkpoint 回退弹窗开关
   const [rewindDialogOpen, setRewindDialogOpen] = React.useState(false)
   // #17:折叠中间步骤(工具卡 + plan 步骤)默认折叠,展开后显示完整内容
@@ -771,6 +781,12 @@ const MessageItem = React.memo(function MessageItem({
             />
             {/* #11 Citations 全链路(2026-09-13 立):引用溯源条 inline 到消息正文下方 */}
             {m.citations && m.citations.length > 0 && <CitationBar citations={m.citations} />}
+            {/* P1 #27 记忆更新可视化(2026-09-16 立):本轮新增长期记忆「已记住」提示条。
+                数据来自 done 事件 memoryUpdates(store 旁路,不落 ChatMessage 字段),
+                每轮限 1 条摘要 + 计数 + 管理入口。 */}
+            {memoryNoticeItems && memoryNoticeItems.length > 0 && (
+              <MemoryNoticeBar items={memoryNoticeItems} />
+            )}
             {/* #19 + #20 流结束后:turn 级变更汇总卡 + 文件引用 chip(先卡后 chips) */}
             {!isStreaming && (
               <>

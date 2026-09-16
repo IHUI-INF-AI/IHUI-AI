@@ -6965,6 +6965,11 @@
       "citationBar": {
         "title": "참조 출처"
       },
+      "memoryNoticeBar": {
+        "title": "{count}건 기억됨",
+        "manage": "관리",
+        "moreItems": "외 {count}건"
+      },
       "thumbRail": {
         "title": "메시지 지도",
         "userNode": "질문",
