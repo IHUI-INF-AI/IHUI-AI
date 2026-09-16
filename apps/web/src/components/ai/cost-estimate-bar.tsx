@@ -20,6 +20,52 @@ export function CostEstimateBar() {
   const t = useTranslations('costGuard')
   const estimate = useCostGuardStore((s) => s.estimate)
   const actualTokens = useCostGuardStore((s) => s.actualTokens)
+  // P3 #43 阶段2:阻塞协商确认条(pendingConfirm 非 null 时渲染发送/取消)
+  const pendingConfirm = useCostGuardStore((s) => s.pendingConfirm)
+  const setPendingConfirm = useCostGuardStore((s) => s.setPendingConfirm)
+
+  if (!estimate && !pendingConfirm) return null
+
+  if (pendingConfirm) {
+    return (
+      <div
+        className="mx-2 mb-1 flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] text-foreground"
+        data-testid="cost-negotiation-bar"
+      >
+        <Coins className="h-3 w-3 shrink-0 text-amber-500" aria-hidden />
+        <span className="min-w-0 flex-1">
+          {estimate
+            ? t('negotiationLine', {
+                tokens: (estimate.estimatedTokensIn + estimate.estimatedTokensOut).toLocaleString(),
+                cost: estimate.estimatedCostUsd.toFixed(4),
+              })
+            : t('negotiationFallback')}
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            pendingConfirm(true)
+            setPendingConfirm(null)
+          }}
+          data-testid="cost-confirm-send"
+          className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          {t('confirmSend')}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            pendingConfirm(false)
+            setPendingConfirm(null)
+          }}
+          data-testid="cost-confirm-cancel"
+          className="shrink-0 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {t('confirmCancel')}
+        </button>
+      </div>
+    )
+  }
 
   if (!estimate) return null
   const estTotal = estimate.estimatedTokensIn + estimate.estimatedTokensOut
