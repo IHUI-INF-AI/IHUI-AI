@@ -596,7 +596,12 @@ export async function selectChannelCandidates(
     })
     .from(aiRelayKeyPool)
     .where(
-      and(inArray(aiRelayKeyPool.providerCode, providerCodes), eq(aiRelayKeyPool.isEnabled, true)),
+      and(
+        inArray(aiRelayKeyPool.providerCode, providerCodes),
+        eq(aiRelayKeyPool.isEnabled, true),
+        // 调度精细控制(Y,2026-09-16):admin 手动摘除的 Key 跳过选路
+        eq(aiRelayKeyPool.tempUnschedulable, false),
+      ),
     )
   if (keys.length === 0) return []
 

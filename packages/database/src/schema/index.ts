@@ -258,6 +258,8 @@ export * from './relay-peak-pricing.js'
 export * from './key-rate-window-counts.js'
 // 中转站告警规则引擎(2026-09-16 立,自定义指标+阈值+冷却,评估调度每 5 分钟)
 export * from './relay-alert-rules.js'
+// 数据库备份作业系统(2026-09-16 立,补强 V,pg_dump|gzip+保留策略)
+export * from './backup-jobs.js'
 
 // F5 dead-migration 处置(2026-08-15):补 TS schema 定义,消除 drift 告警
 // 这些表由 apps/ai-service(Python)或 apps/api(TS)以 raw SQL 读写,属项目自有表
