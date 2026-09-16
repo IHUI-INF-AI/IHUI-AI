@@ -10205,6 +10205,39 @@
     "wrongLabel": "Wrong Answer"
   },
   "developer": {
+    "errorCodes": {
+      "title": "API Error Codes",
+      "subtitle": "A complete list of all API error codes, their corresponding HTTP status codes, and remediation suggestions.",
+      "relatedDocs": "Related Documentation",
+      "apiDocsDesc": "API Docs — Browse the open-platform endpoint references and call examples",
+      "apiKeysDesc": "API Key Management — Create, rotate, and manage your API keys"
+    },
+    "benefits": {
+      "title": "Subscription Benefits",
+      "subtitle": "Tiered pricing progress and coupons — the more you use, the cheaper it gets",
+      "tierTitle": "Tiered Pricing Progress",
+      "tierModel": "Model",
+      "tierCurrent": "Current multiplier",
+      "tierUsed": "Used this month",
+      "tierNext": "Next tier",
+      "tierEmpty": "No tiered pricing rules configured; billed at the base rate (1x)",
+      "tierMax": "Already at the highest tier",
+      "tierNextHint": "Spend {tokens} more tokens to reach the next tier",
+      "couponTitle": "Coupons",
+      "couponInput": "Enter coupon code",
+      "couponClaim": "Claim",
+      "couponClaiming": "Claiming...",
+      "couponList": "My coupons",
+      "couponEmpty": "No coupons yet — enter a code to claim one",
+      "couponClaimed": "Claimed successfully",
+      "couponTypeDiscount": "Discount",
+      "couponTypeDeduction": "Spend & save",
+      "couponTypeReferral": "Referral",
+      "couponStatusUnused": "Unused",
+      "couponStatusUsed": "Used",
+      "couponStatusExpired": "Expired",
+      "loading": "Loading..."
+    },
     "agreementHint": "Please read and accept the developer agreement",
     "apiKeys": "API Keys",
     "becomeDeveloper": "Become a Developer",
@@ -15463,6 +15496,9 @@
     "none": "None"
   },
   "nav": {
+    "developerErrorCodes": "API error codes",
+    "developerBenefits": "Benefits",
+    "invoices": "Invoices",
     "purchase": "Buy API",
     "availableChannels": "Available channels",
     "agentTeams": "Agent Teams",

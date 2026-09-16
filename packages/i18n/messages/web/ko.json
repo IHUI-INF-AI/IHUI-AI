@@ -10195,6 +10195,39 @@
     "wrongLabel": "오답"
   },
   "developer": {
+    "errorCodes": {
+      "title": "API 오류 코드",
+      "subtitle": "모든 API 오류 코드와 해당 HTTP 상태 코드, 그리고 해결 방법을 한눈에 정리한 목록입니다.",
+      "relatedDocs": "관련 문서",
+      "apiDocsDesc": "API 문서 — 오픈 플랫폼 엔드포인트 설명과 호출 예제 보기",
+      "apiKeysDesc": "API 키 관리 — API 키 생성, 교체 및 관리"
+    },
+    "benefits": {
+      "title": "구독 혜택",
+      "subtitle": "계단형 요금 진행 상황과 쿠폰, 많이 쓸수록 더 저렴합니다",
+      "tierTitle": "계단형 요금 진행 상황",
+      "tierModel": "모델",
+      "tierCurrent": "현재 배율",
+      "tierUsed": "이번 달 사용량",
+      "tierNext": "다음 단계",
+      "tierEmpty": "계단형 요금 규칙이 설정되지 않았습니다. 기본 요금(1배)으로 청구됩니다",
+      "tierMax": "최고 단계에 도달함",
+      "tierNextHint": "{tokens} 토큰을 더 사용하면 다음 단계로 진행됩니다",
+      "couponTitle": "쿠폰",
+      "couponInput": "쿠폰 코드 입력",
+      "couponClaim": "받기",
+      "couponClaiming": "받는 중...",
+      "couponList": "내 쿠폰",
+      "couponEmpty": "쿠폰이 없습니다. 코드를 입력해 받으세요",
+      "couponClaimed": "받기 완료",
+      "couponTypeDiscount": "할인권",
+      "couponTypeDeduction": "만감 쿠폰",
+      "couponTypeReferral": "추천 쿠폰",
+      "couponStatusUnused": "미사용",
+      "couponStatusUsed": "사용됨",
+      "couponStatusExpired": "만료됨",
+      "loading": "불러오는 중..."
+    },
     "agreementHint": "개발자 약관을 읽고 동의하세요",
     "apiKeys": "API 키",
     "becomeDeveloper": "개발자가 되기",
@@ -15448,6 +15481,9 @@
     "none": "없음"
   },
   "nav": {
+    "developerErrorCodes": "API 오류 코드",
+    "developerBenefits": "혜택 센터",
+    "invoices": "세금계산서",
     "purchase": "API 구매",
     "availableChannels": "사용 가능한 채널",
     "agentTeams": "에이전트 팀",
