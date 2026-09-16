@@ -5,11 +5,11 @@
 'use client'
 
 import * as React from 'react'
-import { BarChart3, Loader2, X } from 'lucide-react'
+import { BarChart3, Loader2 } from 'lucide-react'
 
 import { rulesApi } from './rules-api'
 import type { RuleGlobalStats } from './types'
-import { Button } from '@ihui/ui-react'
+import { Button, CloseButton } from '@ihui/ui-react'
 import { StatCard } from './RuleDetailCharts'
 
 interface RuleGlobalStatsDialogProps {
@@ -83,14 +83,7 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
             <BarChart3 className="mr-1 inline h-3.5 w-3.5" />
             全局统计
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="关闭"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton aria-label="关闭" onClick={onClose} />
         </div>
 
         {loading ? (

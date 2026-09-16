@@ -6,8 +6,8 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { X } from 'lucide-react'
 import {
+  CloseButton,
   Input,
   Label,
   Select,
@@ -75,13 +75,7 @@ export function PropertiesPanel({ node, onUpdate, onClose }: Props) {
         <span className="text-xs font-semibold uppercase text-muted-foreground">
           {t('editor.properties')}
         </span>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
+        <CloseButton aria-label="关闭" onClick={onClose} />
       </div>
       <div className="space-y-3 p-3">
         {/* 名称(所有非 trigger 节点) */}

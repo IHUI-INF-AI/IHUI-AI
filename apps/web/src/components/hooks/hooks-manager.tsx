@@ -8,7 +8,7 @@ import * as React from 'react'
 import { Loader2, Pencil, Play, Plus, ScrollText, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { Button, Card, Input, Switch } from '@ihui/ui-react'
+import { Button, Card, CloseButton, Input, Switch } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Empty } from '@/components/common/Empty'
 import { formatDate } from '@/lib/date-utils'
@@ -380,26 +380,7 @@ function HookEditor({
             </h3>
             <p className="text-xs text-muted-foreground">在事件触发时执行自定义动作</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label="关闭"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
+          <CloseButton aria-label="关闭" onClick={onClose} />
         </div>
 
         {/* 内容区(滚动) */}
@@ -657,26 +638,7 @@ function HookLogsDialog({ hookId, onClose }: { hookId: string; onClose: () => vo
             <h3 className="text-base font-semibold leading-none">Hook 执行日志</h3>
             <p className="text-xs text-muted-foreground">最近 100 条触发记录</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label="关闭"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
+          <CloseButton aria-label="关闭" onClick={onClose} />
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-3 thin-scroll">
           {isLoading ? (
