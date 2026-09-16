@@ -264,6 +264,8 @@ export * from './relay-alert-silences.js'
 export * from './relay-error-rules.js'
 // 提示词审计(2026-09-17 立,入站提示词风险检测)
 export * from './relay-prompt-audit.js'
+// 用户自定义属性(2026-09-17 立,KV 标签供分组/风控/运营筛选)
+export * from './relay-user-attributes.js'
 // 数据库备份作业系统(2026-09-16 立,补强 V,pg_dump|gzip+保留策略)
 export * from './backup-jobs.js'
 
