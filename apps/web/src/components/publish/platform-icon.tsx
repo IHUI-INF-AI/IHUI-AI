@@ -12,10 +12,9 @@ import { cn } from '@/lib/utils'
 /**
  * 平台图标 — 按 platformId 映射真实品牌图标(38 平台全覆盖)
  *
- * 图标来源:apps/web/public/footer/tuiguangpingtai/*(png/svg/ico)
- *  - png:原有单色剪影(facebook/github/google 等推广位资源)
- *  - svg:Iconify(logos/fa-brands/simple-icons/thesvg)与博客园官方 favicon
- *  - ico:官网 favicon(无现成矢量资源的平台)
+ * 图标来源:apps/web/public/publish-icons/*
+ * 全部为各平台官方真实图标(官网 favicon / Google s2 favicon / favicon.im 拉取),
+ * 严禁手绘或自造品牌图标(见 AGENTS.md §4 官方图标强制条款)。
  * 兜底:platformName 首字符(当前 38 平台已全覆盖,兜底保留以防新增平台未配图标)
  */
 
@@ -26,52 +25,53 @@ interface PngPlatformIcon {
   readonly invertInDark?: boolean
 }
 
-/** platformId → 图标文件(相对 /public 的路径,与 PLATFORM_SCHEMAS 38 平台一一对应) */
+/** platformId → 图标文件(相对 /public 的路径,与 PLATFORM_SCHEMAS 38 平台一一对应)
+ *  全部为官方真实 favicon,存放于 public/publish-icons/(与页脚 mono 剪影素材分离) */
 const PNG_ICONS: Record<string, PngPlatformIcon> = {
   // 国际平台
-  wordpress: { src: '/footer/tuiguangpingtai/wordpress.svg', alt: 'WordPress' },
-  medium: { src: '/footer/tuiguangpingtai/medium.svg', alt: 'Medium', invertInDark: true },
-  youtube: { src: '/footer/tuiguangpingtai/youtube.svg', alt: 'YouTube' },
+  wordpress: { src: '/publish-icons/wordpress.png', alt: 'WordPress', invertInDark: true },
+  medium: { src: '/publish-icons/medium.png', alt: 'Medium', invertInDark: true },
+  youtube: { src: '/publish-icons/youtube.png', alt: 'YouTube' },
   // 视频平台
-  bilibili: { src: '/footer/tuiguangpingtai/bilibili.svg', alt: '哔哩哔哩' },
-  douyin: { src: '/footer/tuiguangpingtai/douyin.svg', alt: '抖音', invertInDark: true },
-  kuaishou: { src: '/footer/tuiguangpingtai/kuaishou.svg', alt: '快手' },
-  xigua: { src: '/footer/tuiguangpingtai/xigua.svg', alt: '西瓜视频' },
-  haokan: { src: '/footer/tuiguangpingtai/baidu.svg', alt: '好看视频' },
-  shipinhao: { src: '/footer/tuiguangpingtai/shipinhao.svg', alt: '微信视频号' },
+  bilibili: { src: '/publish-icons/bilibili.ico', alt: '哔哩哔哩' },
+  douyin: { src: '/publish-icons/douyin.png', alt: '抖音', invertInDark: true },
+  kuaishou: { src: '/publish-icons/kuaishou.png', alt: '快手' },
+  xigua: { src: '/publish-icons/xigua.png', alt: '西瓜视频' },
+  haokan: { src: '/publish-icons/baidu.png', alt: '好看视频' },
+  shipinhao: { src: '/publish-icons/shipinhao.png', alt: '微信视频号' },
   // 图文社交
-  wechat: { src: '/footer/tuiguangpingtai/wechat.svg', alt: '微信公众号' },
-  toutiao: { src: '/footer/tuiguangpingtai/toutiao.svg', alt: '今日头条' },
-  weibo: { src: '/footer/tuiguangpingtai/weibo.svg', alt: '微博' },
-  xiaohongshu: { src: '/footer/tuiguangpingtai/xiaohongshu.svg', alt: '小红书' },
+  wechat: { src: '/publish-icons/wechat.png', alt: '微信公众号' },
+  toutiao: { src: '/publish-icons/toutiao.png', alt: '今日头条' },
+  weibo: { src: '/publish-icons/weibo.png', alt: '微博' },
+  xiaohongshu: { src: '/publish-icons/xiaohongshu.png', alt: '小红书' },
   // 技术社区
-  zhihu: { src: '/footer/tuiguangpingtai/zhihu.svg', alt: '知乎' },
-  csdn: { src: '/footer/tuiguangpingtai/csdn.svg', alt: 'CSDN' },
-  juejin: { src: '/footer/tuiguangpingtai/juejin.svg', alt: '掘金' },
-  cnblogs: { src: '/footer/tuiguangpingtai/cnblogs.svg', alt: '博客园' },
-  segmentfault: { src: '/footer/tuiguangpingtai/segmentfault.ico', alt: '思否' },
-  oschina: { src: '/footer/tuiguangpingtai/oschina.ico', alt: '开源中国' },
-  jianshu: { src: '/footer/tuiguangpingtai/jianshu.ico', alt: '简书' },
+  zhihu: { src: '/publish-icons/zhihu.png', alt: '知乎' },
+  csdn: { src: '/publish-icons/csdn.png', alt: 'CSDN' },
+  juejin: { src: '/publish-icons/juejin.png', alt: '掘金' },
+  cnblogs: { src: '/publish-icons/cnblogs.png', alt: '博客园' },
+  segmentfault: { src: '/publish-icons/segmentfault.ico', alt: '思否' },
+  oschina: { src: '/publish-icons/oschina.ico', alt: '开源中国' },
+  jianshu: { src: '/publish-icons/jianshu.ico', alt: '简书' },
   // 六大号
-  baijiahao: { src: '/footer/tuiguangpingtai/baidu.svg', alt: '百家号' },
-  qq: { src: '/footer/tuiguangpingtai/qq.svg', alt: '企鹅号' },
-  dayihao: { src: '/footer/tuiguangpingtai/dayihao.svg', alt: '大鱼号' },
-  netease: { src: '/footer/tuiguangpingtai/netease.svg', alt: '网易号' },
-  sohu: { src: '/footer/tuiguangpingtai/sohu.svg', alt: '搜狐号' },
-  sina: { src: '/footer/tuiguangpingtai/sina.svg', alt: '新浪看点' },
+  baijiahao: { src: '/publish-icons/baidu.png', alt: '百家号' },
+  qq: { src: '/publish-icons/qq.png', alt: '企鹅号' },
+  dayihao: { src: '/publish-icons/dayihao.png', alt: '大鱼号' },
+  netease: { src: '/publish-icons/netease.png', alt: '网易号' },
+  sohu: { src: '/publish-icons/sohu.png', alt: '搜狐号' },
+  sina: { src: '/publish-icons/sina.png', alt: '新浪看点' },
   // SEO/GEO 第二批
-  baidu_zhidao: { src: '/footer/tuiguangpingtai/baidu.svg', alt: '百度知道' },
-  baidu_tieba: { src: '/footer/tuiguangpingtai/baidu.svg', alt: '百度贴吧' },
-  douban: { src: '/footer/tuiguangpingtai/douban.svg', alt: '豆瓣' },
-  '36kr': { src: '/footer/tuiguangpingtai/36kr.ico', alt: '36氪' },
-  huxiu: { src: '/footer/tuiguangpingtai/huxiu.png', alt: '虎嗅网' },
-  tmtmedia: { src: '/footer/tuiguangpingtai/tmtmedia.ico', alt: '钛媒体' },
-  acfun: { src: '/footer/tuiguangpingtai/acfun.ico', alt: 'AcFun' },
-  lofter: { src: '/footer/tuiguangpingtai/lofter.svg', alt: 'LOFTER' },
-  zhihu_daily: { src: '/footer/tuiguangpingtai/zhihu_daily.svg', alt: '知乎日报' },
-  people: { src: '/footer/tuiguangpingtai/people.ico', alt: '人民网' },
-  china_news: { src: '/footer/tuiguangpingtai/china_news.ico', alt: '中国新闻网' },
-  hupu: { src: '/footer/tuiguangpingtai/hupu.png', alt: '虎扑社区' },
+  baidu_zhidao: { src: '/publish-icons/baidu.png', alt: '百度知道' },
+  baidu_tieba: { src: '/publish-icons/baidu.png', alt: '百度贴吧' },
+  douban: { src: '/publish-icons/douban.png', alt: '豆瓣' },
+  '36kr': { src: '/publish-icons/36kr.ico', alt: '36氪' },
+  huxiu: { src: '/publish-icons/huxiu.png', alt: '虎嗅网' },
+  tmtmedia: { src: '/publish-icons/tmtmedia.ico', alt: '钛媒体' },
+  acfun: { src: '/publish-icons/acfun.ico', alt: 'AcFun' },
+  lofter: { src: '/publish-icons/lofter.ico', alt: 'LOFTER' },
+  zhihu_daily: { src: '/publish-icons/zhihu_daily.png', alt: '知乎日报' },
+  people: { src: '/publish-icons/people.ico', alt: '人民网' },
+  china_news: { src: '/publish-icons/china_news.ico', alt: '中国新闻网' },
+  hupu: { src: '/publish-icons/hupu.png', alt: '虎扑社区' },
 }
 
 export interface PlatformIconProps {
