@@ -7111,6 +7111,7 @@
     },
     "swarmMonitor": {
       "agentStatus": "Agent Status",
+      "bottleneck": "bottleneck",
       "avgTime": "Avg Time",
       "avgTokens": "Avg Tokens",
       "completed": "Completed",
