@@ -18341,7 +18341,21 @@
     "aiGenerated": "Zhihui AI 生成",
     "defaultModelName": "AIスマート会話",
     "modelIconAlt": "モデルアイコン",
-    "tokenCostLabel": "Zhihui値消費：{cost}"
+    "tokenCostLabel": "Zhihui値消費：{cost}",
+    "auditReportTitle": "実行トレース監査レポート",
+    "auditQuestion": "タスク",
+    "auditExportedAt": "エクスポート時刻",
+    "auditStepCount": "ステップ数",
+    "auditColStep": "番号",
+    "auditColTool": "ツール",
+    "auditColStatus": "状態",
+    "auditColDuration": "所要時間",
+    "auditExportBtn": "監査レポートをエクスポート",
+    "auditFooter": "智汇AI実行トレースより自動生成",
+    "auditStatus_success": "成功",
+    "auditStatus_error": "失敗",
+    "auditStatus_running": "実行中",
+    "auditStatus_cancelled": "取消済"
   },
   "skills": {
     "market": {
