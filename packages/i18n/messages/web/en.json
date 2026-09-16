@@ -22209,5 +22209,18 @@
   "chatSearchBar": {
     "searchPlaceholder": "Search conversations…",
     "searchAriaLabel": "Search conversations"
+  },
+  "traceReplay": {
+    "title": "Trace replay",
+    "stepCounter": "step {current} / {total}",
+    "play": "Play",
+    "pause": "Pause",
+    "replay": "Replay",
+    "stepForward": "Step",
+    "reset": "Reset",
+    "status_success": "ok",
+    "status_error": "failed",
+    "status_running": "running",
+    "status_cancelled": "cancelled"
   }
 }
