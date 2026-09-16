@@ -95,6 +95,33 @@ export function isAIQuestionAnswered(
   return !!n && n.data?.type === 'chat_question_answered' && !!n.data?.questionId
 }
 
+/** 聊天消息多端同步推送载荷(V2 #23 多端同步)
+ *  - 由 api POST /conversations/:id/messages(chat.ts)与 ai-chat-stream 回答保存点推送
+ *  - 通过 server.pushNotification(WS chat_message 事件)广播到该用户全部连接/端
+ *  - web 端收到后:若为当前会话且非本端已渲染的消息,追加/校正到 ChatStore */
+export interface ChatMessageNotification {
+  type: 'chat_message'
+  conversationId: string
+  message: {
+    id: string
+    role: string
+    content: string
+    reasoning?: string | null
+    tokens?: number | null
+    metadata?: unknown
+    createdAt?: string
+  }
+}
+
+/** 类型守卫:WSNotification 是否为聊天消息同步 */
+export function isChatMessage(
+  n: WSNotification | null,
+): n is WSNotification & { data: ChatMessageNotification } {
+  if (!n || n.data?.type !== 'chat_message') return false
+  const msg = (n.data as { message?: { id?: unknown } }).message
+  return typeof msg?.id === 'string' && msg.id.length > 0
+}
+
 // ===================== 通知业务类型 =====================
 
 /** 通知列表项 */
