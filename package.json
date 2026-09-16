@@ -10,9 +10,11 @@
   "scripts": {
     "dev": "turbo run dev",
     "dev:safe": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1",
+    "dev:safe:fast": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Fast",
     "dev:safe:status": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Status",
     "dev:safe:stop": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Stop",
     "dev:safe:clean": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Clean -Force",
+    "dev:safe:clean:fast": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Clean -Force; pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Fast",
     "dev:safe:all": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -All",
     "warm:routes": "node scripts/warm-dev-routes.mjs",
     "warm:routes:all": "node scripts/warm-dev-routes.mjs --all",
