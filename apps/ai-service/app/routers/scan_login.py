@@ -10,6 +10,7 @@
 - GET  /publish/scan-login/{task_id}/qr      获取二维码截图 PNG
 - POST /publish/scan-login/{task_id}/cancel  取消任务
 - GET  /publish/scan-login/platforms         列出支持的平台
+- POST /publish/scan-login/import-cookies   手动导入 cookies 保存账号(2026-09-16 新增)
 """
 from __future__ import annotations
 
@@ -22,6 +23,9 @@ from pydantic import BaseModel, Field
 from ..core.jwt_auth import get_current_user_id
 from ..services.scan_login import (
     PLATFORM_SCAN_CONFIG,
+    _cookie_hits,
+    _parse_raw_cookies,
+    _save_account_to_db,
     cancel_scan_task,
     detect_login_from_cdp_session,
     get_qr_image,
@@ -185,5 +189,67 @@ async def external_start(body: ExternalStartRequest, request: Request) -> dict[s
         "code": 0,
         "message": "ok",
         "data": {"session_id": session.session_id, "platform": body.platform},
+    }
+
+
+# =============================================================================
+# 手动导入 cookies(2026-09-16 新增,系统默认浏览器登录模式)
+# =============================================================================
+class ImportCookiesRequest(BaseModel):
+    platform: str = Field(..., description="平台 ID,如 zhihu / bilibili / xiaohongshu")
+    cookies_raw: str = Field(..., min_length=1, description="手动粘贴的 Cookie 文本(JSON / cookies.txt / 请求头格式)")
+
+
+@router.post("/import-cookies")
+async def import_cookies(body: ImportCookiesRequest, request: Request) -> dict[str, Any]:
+    """手动粘贴 cookies 保存账号(系统默认浏览器登录闭环的最后一步)。
+
+    流程:前端用系统默认浏览器(Tauri shell|open)打开登录页 → 用户在日常浏览器
+    的已登录状态里完成登录 → 从 DevTools 复制 cookies 粘贴回弹窗 → 本端点
+    解析 → 校验平台关键字段 → 过滤统计类 cookie → 加密入库(与扫码登录同一张表)。
+
+    背景:用户日常浏览器的登录态受默认 profile / App-Bound Encryption 保护,
+    后端无法自动读取(Chrome 136+ 禁止默认 profile 开调试端口),只能手动导入。
+    """
+    user_id = await get_current_user_id(request)
+    config = PLATFORM_SCAN_CONFIG.get(body.platform)
+    if not config:
+        raise HTTPException(status_code=400, detail=f"不支持的平台: {body.platform}")
+
+    cookies = _parse_raw_cookies(body.cookies_raw)
+    if not cookies:
+        raise HTTPException(
+            status_code=400,
+            detail='未能从输入中解析出任何 Cookie,请确认格式:{"k":"v"} / k=v; k2=v2 / cookies.txt',
+        )
+
+    # 校验登录关键字段:一个都没命中说明用户还没登录成功/复制错了域名
+    hits = _cookie_hits(config, cookies)
+    if not hits:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"未检测到 {config['name']} 的登录 Cookie"
+                f"(应包含: {', '.join(config['success_cookies'])}),"
+                "请确认已在默认浏览器中登录成功后重新复制"
+            ),
+        )
+
+    # 与扫码登录一致:剔除统计类 cookie,并确保关键字段必含
+    relevant = {
+        k: v for k, v in cookies.items()
+        if not any(s in k.lower() for s in ["google", "baidu", "cnzz", "_ga", "hm.baidu"])
+    }
+    relevant.update({k: cookies[k] for k in hits})
+
+    account_id = await _save_account_to_db(user_id, body.platform, relevant, config["name"])
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "account_id": account_id,
+            "cookies_count": len(relevant),
+            "matched": hits,
+        },
     }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
