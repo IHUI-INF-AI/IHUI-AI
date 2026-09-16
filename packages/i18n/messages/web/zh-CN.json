@@ -15554,6 +15554,7 @@
     "none": "无"
   },
   "nav": {
+    "adminRelayCapacity": "容量与趋势",
     "adminRelayAlertRules": "告警规则",
     "developerErrorCodes": "API 错误码",
     "developerBenefits": "权益中心",
