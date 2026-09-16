@@ -10195,6 +10195,26 @@
     "wrongLabel": "오답"
   },
   "developer": {
+    "analytics": {
+      "title": "사용량 분석",
+      "subtitle": "비용, 캐시 히트, 지연 시간, 엔드포인트 다각 분석.",
+      "costCard": "비용",
+      "standardPrice": "공식 가격",
+      "actualPrice": "실제 가격",
+      "saved": "절감액",
+      "cacheCard": "캐시 히트",
+      "hitRate": "히트율",
+      "latencyCard": "지연 시간",
+      "avg": "평균",
+      "p50": "P50",
+      "p95": "P95",
+      "endpointsCard": "엔드포인트",
+      "modelsCard": "모델",
+      "dailyTrend": "최근 30일",
+      "exportCsv": "CSV 내보내기",
+      "exporting": "내보내는 중...",
+      "noData": "선택 기간에 데이터가 없습니다"
+    },
     "bootstrap": {
       "title": "원클릭 설정",
       "description": "\"{name}\"용 각 클라이언트 붙여넣기 설정 생성",
@@ -22285,5 +22305,20 @@
     "topupNote": "결제 완료 후 금액이 계정 잔액에 충전되며 모델 호출이나 요금제 구매에 사용할 수 있습니다.",
     "redeemHint": "교환 코드가 있으신가요?",
     "goRedeem": "교환하기"
+  },
+  "channelStatus": {
+    "title": "채널 상태",
+    "subtitle": "업스트림 채널별 가용 상태와 지연 시간, 1분마다 자동 갱신.",
+    "refresh": "새로고침",
+    "loading": "불러오는 중...",
+    "empty": "표시할 상태가 없습니다",
+    "operational": "정상",
+    "degraded": "저하",
+    "down": "장애",
+    "maintenance": "점검 중",
+    "avgLatency": "평균 지연",
+    "p95": "P95 지연",
+    "models": "모델 수",
+    "lastChecked": "마지막 확인"
   }
 }

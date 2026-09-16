@@ -10213,6 +10213,26 @@
     "wrongLabel": "誤答"
   },
   "developer": {
+    "analytics": {
+      "title": "利用状況分析",
+      "subtitle": "コスト・キャッシュヒット・レイテンシ・エンドポイントの多角的分析。",
+      "costCard": "コスト",
+      "standardPrice": "公式価格",
+      "actualPrice": "実売価格",
+      "saved": "削減額",
+      "cacheCard": "キャッシュヒット",
+      "hitRate": "ヒット率",
+      "latencyCard": "レイテンシ",
+      "avg": "平均",
+      "p50": "P50",
+      "p95": "P95",
+      "endpointsCard": "エンドポイント",
+      "modelsCard": "モデル",
+      "dailyTrend": "直近 30 日",
+      "exportCsv": "CSV 出力",
+      "exporting": "出力中...",
+      "noData": "選択範囲にデータがありません"
+    },
     "bootstrap": {
       "title": "ワンクリック設定",
       "description": "「{name}」の各クライアント用貼り付け設定を生成",
@@ -22314,5 +22334,20 @@
     "topupNote": "決済完了後、金額はアカウント残高に加算され、モデル呼び出しやプラン購入に利用できます。",
     "redeemHint": "引換コードをお持ちですか?",
     "goRedeem": "引換する"
+  },
+  "channelStatus": {
+    "title": "チャネル状態",
+    "subtitle": "各上流チャネルの可用性状態とレイテンシを毎分自動更新。",
+    "refresh": "再読み込み",
+    "loading": "読み込み中...",
+    "empty": "表示できる状態がありません",
+    "operational": "正常",
+    "degraded": "劣化",
+    "down": "障害",
+    "maintenance": "メンテナンス",
+    "avgLatency": "平均レイテンシ",
+    "p95": "P95 レイテンシ",
+    "models": "モデル数",
+    "lastChecked": "最終確認"
   }
 }
