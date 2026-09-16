@@ -11,6 +11,11 @@
  *
  * 2026-09-02:新增"外部 Chrome 自动闭环"——系统 Chrome 带 CDP 调试端口打开登录页,
  * 同样走 detect-from-cdp 轮询,登录成功自动保存账号并关闭外部 Chrome(见 startPolling 复用)。
+ *
+ * 2026-09-16:"默认浏览器 + 手动导入"模式——Chrome 136+ 禁止在默认 profile 上开 CDP 调试端口,
+ * 外部 Chrome 只能用独立临时 profile,拿不到用户日常浏览器里已登录的账号。
+ * 改为用 openExternalUrl 调系统默认浏览器(用户日常 profile,本来就已登录)打开登录页,
+ * 用户登录后从 DevTools 复制 Cookie 粘贴进来,后端 import-cookies 解析校验入库。
  */
 
 import * as React from 'react'
@@ -20,13 +25,14 @@ import {
   createBrowserSession,
   closeBrowserSession,
   detectLoginFromCdp,
+  importCookiesManually,
   listScanLoginPlatforms,
-  startExternalScanLogin,
   type ScanLoginPlatform,
 } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { useWorkPanelStore } from '@/stores/work-panel'
-import { openInGoogleChrome } from '@/lib/tauri-bridge'
+import { openExternalUrl } from '@/lib/tauri-bridge'
+import { Textarea } from '@/components/form/Textarea'
 import {
   Button,
   Dialog,
@@ -54,7 +60,7 @@ const POLL_INTERVAL_MS = 3000
 const TIMEOUT_MS = 5 * 60 * 1000
 const TIMEOUT_SECONDS = 300
 
-type Phase = 'idle' | 'starting' | 'polling' | 'success' | 'failed'
+type Phase = 'idle' | 'starting' | 'polling' | 'manual-import' | 'success' | 'failed'
 
 export function ScanLoginDialog({
   open,
@@ -72,6 +78,9 @@ export function ScanLoginDialog({
   const [sessionId, setSessionId] = React.useState<string>('')
   const [errorMsg, setErrorMsg] = React.useState<string>('')
   const [countdownSeconds, setCountdownSeconds] = React.useState<number>(TIMEOUT_SECONDS)
+  const [cookiesInput, setCookiesInput] = React.useState<string>('')
+  const [importError, setImportError] = React.useState<string>('')
+  const [importing, setImporting] = React.useState<boolean>(false)
   const startTimeRef = React.useRef<number>(0)
   const pollTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -199,6 +208,24 @@ export function ScanLoginDialog({
     setPhase('idle')
   }
 
+  /** 手动导入 cookies(2026-09-16):系统默认浏览器登录闭环的最后一步。 */
+  async function handleImportCookies() {
+    if (!cookiesInput.trim() || importing) return
+    setImporting(true)
+    setImportError('')
+    try {
+      const r = await importCookiesManually(platform, cookiesInput)
+      if (!r.success || !r.data?.account_id) throw new Error(r.error || '导入失败')
+      setPhase('success')
+      toast.success(`${t('accounts.importCookiesSuccess')} (${r.data.cookies_count} cookies)`)
+      onSuccess?.()
+    } catch (e) {
+      setImportError((e as Error).message)
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const platformName = platforms.find((p) => p.platform === platform)?.name ?? platform
   const isBusy = phase === 'starting'
 
@@ -254,34 +281,15 @@ export function ScanLoginDialog({
                 variant="outline"
                 className="w-full"
                 disabled={!platform || isBusy}
-                onClick={async () => {
-                  // 2026-09-02:外部 Chrome 自动闭环——ai-service 用系统 Chrome(带 CDP 调试端口
-                  // + 独立临时 profile)打开登录页并附着,复用 detect-from-cdp 轮询,
-                  // 登录成功自动保存账号 + 关闭外部 Chrome;失败降级为纯手动模式(旧行为)。
+                onClick={() => {
+                  // 2026-09-16:用系统默认浏览器打开(用户日常 profile,已有登录态),
+                  // Chrome 136+ 禁止默认 profile 开 CDP 端口,故走"手动粘贴 Cookie"闭环。
                   const plat = platforms.find((p) => p.platform === platform)
                   if (!plat?.login_url) return
-                  setPhase('starting')
-                  setErrorMsg('')
-                  try {
-                    const r = await startExternalScanLogin(platform)
-                    if (!r.success || !r.data?.session_id) {
-                      throw new Error(r.error || '启动外部 Chrome 失败')
-                    }
-                    const sid = r.data.session_id
-                    setSessionId(sid)
-                    startTimeRef.current = Date.now()
-                    setPhase('polling')
-                    onOpenChange(false)
-                    toast.success(`已用系统 Chrome 打开 ${plat.name} 登录页,登录成功后自动保存账号`)
-                    startPolling(sid, platform)
-                  } catch (e) {
-                    // 降级:ai-service 不可用/未装 Chrome → 旧手动模式(打开登录页,手动粘贴 Cookie)
-                    const fallbackErr = await openInGoogleChrome(plat.login_url)
-                    toast.error(`${(e as Error).message},已打开登录页;请登录后手动复制 Cookie 保存`)
-                    // openInGoogleChrome:成功返回 CDP 端口号(number),失败才是错误消息(string),web 端 null
-                    if (typeof fallbackErr === 'string') toast.error(fallbackErr)
-                    setPhase('idle')
-                  }
+                  void openExternalUrl(plat.login_url)
+                  setCookiesInput('')
+                  setImportError('')
+                  setPhase('manual-import')
                 }}
               >
                 <ExternalLink className="h-4 w-4" />
@@ -318,6 +326,22 @@ export function ScanLoginDialog({
             </div>
           )}
 
+          {phase === 'manual-import' && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {t('accounts.importCookiesHint', { platform: platformName })}
+              </p>
+              <Textarea
+                label={t('accounts.cookiesInputLabel')}
+                value={cookiesInput}
+                onChange={(e) => setCookiesInput(e.target.value)}
+                placeholder={t('accounts.cookiesInputPlaceholder')}
+                rows={6}
+                error={importError || undefined}
+              />
+            </div>
+          )}
+
           {phase === 'success' && (
             <div className="flex flex-col items-center gap-2 py-4 text-emerald-600">
               <CheckCircle2 className="h-12 w-12" />
@@ -344,6 +368,24 @@ export function ScanLoginDialog({
             <Button variant="outline" onClick={handleCancel}>
               {t('accounts.cancelScan')}
             </Button>
+          )}
+          {phase === 'manual-import' && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCookiesInput('')
+                  setImportError('')
+                  setPhase('idle')
+                }}
+              >
+                {t('accounts.back')}
+              </Button>
+              <Button onClick={handleImportCookies} disabled={!cookiesInput.trim() || importing}>
+                {importing && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t('accounts.saveCookies')}
+              </Button>
+            </>
           )}
           {(phase === 'success' || phase === 'failed') && (
             <Button
