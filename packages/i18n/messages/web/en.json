@@ -9366,9 +9366,50 @@
       "done": "Done",
       "triggerActive": "Sampling · {{count}} overrides",
       "trigger": "Sampling parameters",
-      "triggerAria": "Open sampling parameters"
+      "triggerAria": "Open sampling parameters",
+      "personalityCustom": "Custom"
     },
-    "editComingSoon": "Message editing is coming soon"
+    "editComingSoon": "Message editing is coming soon",
+    "personalityPresets": {
+      "default": {
+        "label": "Default assistant",
+        "description": "Balanced general-purpose helper",
+        "prompt": "You are a helpful, accurate and well-balanced AI assistant."
+      },
+      "concise": {
+        "label": "Concise",
+        "description": "Short answers that get to the point",
+        "prompt": "Answer as briefly as possible and get straight to the point. Do not add background or examples unless I ask."
+      },
+      "developer": {
+        "label": "Coding expert",
+        "description": "Code-first, runnable implementations",
+        "prompt": "You are a senior software engineer. Lead with code and give runnable implementations; keep explanations tight, calling out key trade-offs and edge cases."
+      },
+      "translator": {
+        "label": "Translator",
+        "description": "Faithful natural Chinese-English translation",
+        "prompt": "You are a professional translator. Translate my input between Chinese and English: Chinese to English, English to Chinese. Output only the translation, no explanations. Preserve meaning, tone and formatting; keep it natural."
+      },
+      "tutor": {
+        "label": "Patient tutor",
+        "description": "Step-by-step guided learning",
+        "prompt": "You are a patient tutor. Break complex ideas into small steps with analogies and examples; ask me questions at key points so I figure things out myself instead of handing me answers."
+      },
+      "creative": {
+        "label": "Creative writer",
+        "description": "Vivid, expressive writing",
+        "prompt": "You are a creative writer. Use vivid, imagery-rich language with strong rhythm and metaphor, staying useful while making the writing compelling."
+      }
+    },
+    "codeRun": {
+      "run": "Run",
+      "running": "Running…",
+      "failed": "Run failed",
+      "exit": "Exit code",
+      "title": "Run output",
+      "close": "Close"
+    }
   },
   "chatHistory": {
     "backToHistory": "Back to History",
