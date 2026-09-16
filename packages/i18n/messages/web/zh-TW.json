@@ -18328,7 +18328,7 @@
     "auditColStatus": "狀態",
     "auditColDuration": "耗時",
     "auditExportBtn": "匯出審計報告",
-    "auditFooter": "由智汇AI執行軌跡自動生成",
+    "auditFooter": "由智匯AI執行軌跡自動生成",
     "auditStatus_success": "成功",
     "auditStatus_error": "失敗",
     "auditStatus_running": "執行中",
@@ -19695,15 +19695,6 @@
       "webhook": "Webhook"
     },
     "instance": "工作流實例"
-  },
-  "worlds": {
-    "adopt": "採納",
-    "adopted": "已採納",
-    "branchRunning": "分支生成中…",
-    "empty": "暫無對比分支",
-    "emptyReply": "該分支暫無回覆",
-    "reset": "重置",
-    "running": "運行中"
   },
   "workspace": {
     "actions": "操作",
