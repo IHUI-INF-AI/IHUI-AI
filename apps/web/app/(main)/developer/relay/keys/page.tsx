@@ -24,6 +24,8 @@ import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
 import { useConfirm } from '@/hooks/use-confirm'
+// 一键接入配置生成器(2026-09-16,对标 Sub2API useKeyModal)
+import { KeyUseDialog } from '@/components/developer/KeyUseDialog'
 
 interface RelayKey {
   id: string
@@ -95,6 +97,9 @@ export default function RelayKeysPage() {
   } | null>(null)
   const [secretVisible, setSecretVisible] = React.useState(false)
   const [visible, setVisible] = React.useState<Record<string, boolean>>({})
+  // 一键接入配置生成器弹窗状态(2026-09-16)
+  const [useOpen, setUseOpen] = React.useState(false)
+  const [useTarget, setUseTarget] = React.useState<{ id: string; name: string } | null>(null)
   const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
 
   const { data, isLoading, error } = useQuery({
@@ -303,6 +308,17 @@ export default function RelayKeysPage() {
                       <Button
                         size="sm"
                         variant="outline"
+                        onClick={() => {
+                          setUseTarget({ id: k.id, name: k.name })
+                          setUseOpen(true)
+                        }}
+                      >
+                        <Key className="h-3.5 w-3.5" aria-hidden />
+                        <span>使用</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => resetMut.mutate(k.id)}
                         disabled={resetMut.isPending}
                       >
@@ -471,6 +487,12 @@ export default function RelayKeysPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <KeyUseDialog
+        open={useOpen}
+        onOpenChange={setUseOpen}
+        keyId={useTarget?.id ?? ''}
+        keyName={useTarget?.name ?? ''}
+      />
       <ConfirmDialogRenderer />
     </div>
   )
