@@ -10,8 +10,8 @@
 
 import { fetchApi } from '../client'
 
-/** 巡检类型:ci=持续集成;dependency=依赖漏洞;log=错误日志;deadlink=死链;custom=自定义 */
-export type PatrolType = 'ci' | 'dependency' | 'log' | 'deadlink' | 'custom'
+/** 巡检类型:ci=持续集成;dependency=依赖漏洞;log=错误日志;deadlink=死链;workspace=工作区健康;custom=自定义 */
+export type PatrolType = 'ci' | 'dependency' | 'log' | 'deadlink' | 'workspace' | 'custom'
 
 /** 巡检任务状态:active=启用中;paused=已暂停 */
 export type PatrolStatus = 'active' | 'paused'

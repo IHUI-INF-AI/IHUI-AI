@@ -30,8 +30,8 @@ import type { AgentStreamParams } from './agent-automation-scheduler.js'
 // 巡检类型模板 + prompt 构建(纯函数,可单测)
 // =============================================================================
 
-/** 巡检类型(与 schema patrolTasks.patrolType 一致) */
-export type PatrolType = 'ci' | 'dependency' | 'log' | 'deadlink' | 'custom'
+/** 巡检类型(与 schema patrolTasks.patrolType 一致);workspace=自愈工作区联动(#45 阶段3) */
+export type PatrolType = 'ci' | 'dependency' | 'log' | 'deadlink' | 'workspace' | 'custom'
 
 /** 各巡检类型的检查重点(注入 agent prompt) */
 export const PATROL_TYPE_FOCUS: Record<PatrolType, string> = {
@@ -39,6 +39,8 @@ export const PATROL_TYPE_FOCUS: Record<PatrolType, string> = {
   dependency: '依赖健康:检查依赖是否有已知安全漏洞(CVE)、过期版本与不兼容升级风险。',
   log: '错误日志:检查最近的错误/告警日志,关注高频异常、新增错误模式与堆栈线索。',
   deadlink: '死链检查:检查目标页面/资源链接的可访问性,关注 404/超时/证书失效。',
+  workspace:
+    '工作区健康(#45 自愈联动):优先调用 self_heal_detect 工具做四类探针检测(依赖损坏/索引过期/端口占用/磁盘不足);发现问题时输出探针结果与修复预案,提示可用 self_heal_repair(dryRun 先行)修复。',
   custom: '自定义巡检:按巡检目标与附加指令执行检查。',
 }
 

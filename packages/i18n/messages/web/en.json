@@ -22068,6 +22068,7 @@
     "typeLog": "Log Check",
     "typeDeadlink": "Dead Link Check",
     "typeCustom": "Custom Check",
+    "typeWorkspace": "Workspace Health",
     "nextRunAt": "Next run",
     "resultOk": "OK",
     "resultIssue": "Issue found",
