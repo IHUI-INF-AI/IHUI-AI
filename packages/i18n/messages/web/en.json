@@ -7644,10 +7644,12 @@
       "subtitle": "Subscribe to our daily AI briefing and join the IHUI AI community to stay ahead.",
       "title": "Never miss the next AI milestone"
     },
+    "close": "Close",
     "detailDialog": {
       "arenaScore": "Arena Score",
       "baseUrlCopied": "Base URL copied to clipboard",
       "capabilityRadar": "Capability Radar",
+      "close": "Close",
       "contextWindow": "Context Window",
       "copyAndImport": "Copy & Import",
       "copyBaseUrl": "Copy Base URL",
@@ -8014,7 +8016,8 @@
     },
     "applied": "Applied",
     "apply": "Apply",
-    "hint": "Available AI tools"
+    "hint": "Available AI tools",
+    "worldsAdopted": "Branch reply adopted"
   },
   "agentHooks": {
     "description": "Agent Hooks event system: 9 event types with configurable actions (log/toast/system notification); tool events support filtering by tool name",
@@ -8171,7 +8174,8 @@
     "empty": "No content",
     "dispatchSubagent": "Dispatch subagent",
     "bestOfAdopted": "Best of adopted",
-    "title": "Workspace"
+    "title": "Workspace",
+    "worldsAdopted": "Branch reply adopted"
   },
   "announcements": {
     "backToList": "Back to announcements",
@@ -19693,6 +19697,15 @@
     },
     "instance": "Workflow Instance"
   },
+  "worlds": {
+    "adopt": "Adopt",
+    "adopted": "Adopted",
+    "branchRunning": "Branch generating…",
+    "empty": "No comparison branches yet",
+    "emptyReply": "No reply from this branch yet",
+    "reset": "Reset",
+    "running": "Running"
+  },
   "workspace": {
     "actions": "Actions",
     "back": "Back",
@@ -22222,5 +22235,10 @@
     "status_error": "failed",
     "status_running": "running",
     "status_cancelled": "cancelled"
+  },
+  "costGuard": {
+    "estimateLine": "Est. ≈{tokens} tokens (~${cost})",
+    "fallbackPrice": "fallback price, for reference only",
+    "actualLine": "Actual {actual} tokens (est. {estimate})"
   }
 }
