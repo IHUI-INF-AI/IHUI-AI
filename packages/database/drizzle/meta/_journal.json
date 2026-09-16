@@ -1835,6 +1835,13 @@
       "when": 1722636800000,
       "tag": "20260916210000_key_rate_windows_and_ip_blacklist",
       "breakpoints": true
+    },
+    {
+      "idx": 263,
+      "version": "7",
+      "when": 1722723200000,
+      "tag": "20260916223000_relay_alert_rules_engine",
+      "breakpoints": true
     }
   ]
 }

@@ -23,6 +23,10 @@ import {
   stopPiiRetentionScheduler,
 } from './jobs/pii-retention-cleanup.js'
 import {
+  startRelayAlertEvaluationScheduler,
+  stopRelayAlertEvaluationScheduler,
+} from './jobs/relay-alert-rules-evaluation.js'
+import {
   startLiteLLMPriceSyncScheduler,
   stopLiteLLMPriceSyncScheduler,
 } from './services/litellm-price-sync.js'
@@ -129,6 +133,11 @@ async function start() {
     try {
       stopPiiRetentionScheduler()
     } catch (e) {
+      try {
+        stopRelayAlertEvaluationScheduler()
+      } catch (e) {
+        logger.warn('stopRelayAlertEvaluationScheduler failed', { err: e })
+      }
       logger.warn('stopPiiRetentionScheduler failed', { err: e })
     }
     try {
@@ -211,6 +220,11 @@ async function start() {
   // 默认开启,ENABLE_PII_RETENTION=false 禁用)
   if (process.env.ENABLE_PII_RETENTION !== 'false') {
     startPiiRetentionScheduler()
+  }
+
+  // 启动中转站告警规则评估(每 5 分钟,2026-09-16 立;ENABLE_RELAY_ALERT_EVALUATION=false 禁用)
+  if (process.env.ENABLE_RELAY_ALERT_EVALUATION !== 'false') {
+    startRelayAlertEvaluationScheduler()
   }
 
   // 启动 LiteLLM 真网 AI 价表同步(启动 30s 后首跑,之后每 24h 一次,
