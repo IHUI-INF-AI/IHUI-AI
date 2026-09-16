@@ -241,6 +241,7 @@ interface AdminNavItem {
     | 'imChannels'
     | 'topupConfig'
     | 'relayParamOps'
+    | 'adminRelayAlertRules'
     | 'adminSkills'
     | 'adminSkillCategories'
     | 'adminSkillStats'
@@ -612,6 +613,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: '/admin/relay/key-pool', labelKey: 'adminRelayKeyPool', icon: KeyRound },
       { href: '/admin/relay/discovery', labelKey: 'adminRelayDiscovery', icon: Activity },
       { href: '/admin/relay/logs', labelKey: 'adminRelayLogs', icon: Coins },
+      { href: '/admin/relay/alert-rules', labelKey: 'adminRelayAlertRules', icon: BellRing },
       // P0 中转站造血能力对标批次(2026-07-31 立):模型映射(渠道管理)
       { href: '/admin/relay/channels', labelKey: 'adminRelayModelMappings', icon: Shuffle },
       // P0-20b 参数覆盖规则(2026-08-01 立,转发层 applyParamOps 管理)
@@ -958,6 +960,7 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   imChannels: 'nav.imChannels',
   topupConfig: 'nav.topupConfig',
   relayParamOps: 'nav.relayParamOps',
+  adminRelayAlertRules: 'nav.adminRelayAlertRules',
   adminSkills: 'nav.adminSkills',
   adminSkillCategories: 'nav.adminSkillCategories',
   adminSkillStats: 'nav.adminSkillStats',

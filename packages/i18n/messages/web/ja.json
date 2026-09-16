@@ -15559,6 +15559,7 @@
     "none": "なし"
   },
   "nav": {
+    "adminRelayAlertRules": "アラートルール",
     "developerErrorCodes": "API エラーコード",
     "developerBenefits": "特典センター",
     "invoices": "請求書管理",
