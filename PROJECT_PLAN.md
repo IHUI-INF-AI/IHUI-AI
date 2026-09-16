@@ -2625,17 +2625,17 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 ### 第二梯队 P1:传输健壮性 + 智能可见性(一周内跟上)
 
-- [ ] **25. SSE 事件 schema 集中类型化(工程前置)**:事件契约单一事实源(Python TypedDict + TS 联合类型对齐),`check-agent-event-parity.mjs` 扩为全事件强制对账;为 22 铺路,先行。
+- [x] ✅(2026-09-16) **25. SSE 事件 schema 集中类型化(工程前置)**:事件契约单一事实源(Python TypedDict + TS 联合类型对齐),`check-agent-event-parity.mjs` 扩为全事件强制对账;为 22 铺路,先行。**落地**:两端契约集合(22 事件,含补录的 plan_updated/terminal_start/terminal_end 3 个漂移事件)收敛至 packages/shared/src/sse/contract.ts(SSE_EVENTS as const + 判别联合 SSEEventPayload + isSSEEventName 守卫)与 apps/ai-service/app/core/sse_contract.py(frozenset + SSEEventContract 清单);check-agent-event-parity.mjs 新增 3 路扫描/断言——①两端 SSE_EVENTS 集合一致(blocking)②llm.py 对话流 15 事件 ⊆ 契约(blocking,anthropic wire 桩/工具 schema 经排除表剔除)③TS 侧契约作为前端监听对账的声明契约兜底;附 PY 5 测试 + TS 9 测试。为 22 铺路完成。
 - [ ] **22. SSE 事件 id + Last-Event-ID 标准重放(对标:标准做法)**:每事件 `id:` seq + api 侧 ring buffer,断连携 Last-Event-ID 重放缺失段;resume 前缀续写降级保留。
 - [ ] **24. 消息游标分页**:`chat-queries.ts` offset → keyset(cursor),响应带 nextCursor,旧接口兼容一个版本。
 - [ ] **28. 代码块一键运行(对标:Codex/Trae 对话内运行)**:代码块「运行」→ 语言可执行判定 → 沙箱执行(复用审批链)→ TerminalSection 内联回显。
 - [ ] **26. RAG 默认注入主聊天(对标:Qoder Knowledge Engine)**:会话绑定工作区时默认 top-k 知识检索注入(阈值触发,设置可关),citations 渲染端已有。
 - [ ] **27. 记忆更新可视化(对标:WorkBuddy/Qoder)**:LTM 写入时对话流插轻提示「已记住:…(管理)」,每轮限 1 条,跳设置页。
-- [ ] **23. chat 多端/多标签实时同步**:chat-server 增 conversation 房间,消息落库广播 created/patched,他端增量拉取;先多标签后移动端。
+- [x] ✅(2026-09-16) **23. chat 多端/多标签实时同步**:chat-server 增 conversation 房间,消息落库广播 created/patched,他端增量拉取;先多标签后移动端。**落地**:chat_message WS 事件 web 消费链(types 守卫 isChatMessage+panel 分支按 id 去重/会话过滤+6 守卫单测+8 语义测试)。commit `58238fa7904`。
 
 ### 第三梯队 P2:拉开身位(竞品没有或很弱)
 
-- [ ] **29. AI 个性预设(对标:Codex /personality)**:2–3 内置个性 + `/personality` 斜杠命令,存会话偏好。
+- [x] ✅(2026-09-16) **29. AI 个性预设(对标:Codex /personality)**:2–3 内置个性 + `/personality` 斜杠命令,存会话偏好。**落地(跨端:仅 web,预设为纯前端本地行为,零 API 契约变更)**:6 个静态预设(default/concise/developer/translator/tutor/creative)prompt 文本 i18n key 化,sampling panel 选择→systemPrompt 经既有 setParam→extraBody 透传,8 单测 + 6 键×5 语言注入。commit `90d1953bb0c`。
 - [ ] **30. diff 评论驱动返工(对标:Codex diff 评论)**:InlineDiffCard 加评论入口,评论文本定向注入下一轮 agent 上下文。
 - [ ] **31. 全局任务看板(对标:Qoder My Quests 三列看板)**:后台任务卡片化(Running/Waiting/Completed 三列),点击跳对话。
 - [ ] **33. 思考分节标题化(对标:Codex reasoning sections)**:reasoning 切节加小标题。

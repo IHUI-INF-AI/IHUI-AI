@@ -26,6 +26,15 @@
  *        命名事件 (经 apps/api/src/routes/agent-runtime.ts 透传给前端)
  *      - apps/ai-service/app/services/langgraph_service.py: execute/stream 事件
  *        payload type (经 agents.py _format_sse 序列化后到达前端)
+ *      - apps/ai-service/app/routers/llm.py: AI 对话流 SSE 生产者(#25 纳入),
+   *        事件以 dict "type" 字面量写出(chunk/reasoning/tool 系列/
+   *        plan_updated/terminal 系列); anthropic wire 协议桩消息
+   *        (type: message_start/content_block_delta 等)与工具 JSON Schema
+   *        (type: function)经排除表剔除
+ *      - packages/shared/src/sse/contract.ts 与 apps/ai-service/app/core/
+ *        sse_contract.py 的 SSE_EVENTS(#25 契约单一事实源): 断言两端集合一致,
+ *        且 llm.py 全部对话流事件 ⊆ 契约; TS 侧契约同时作为前端监听对账的
+ *        「声明契约」兜底来源
  *   2. 扫描前端消费点:
  *      - apps/web/src 含 new EventSource 的文件: es.addEventListener('<名>')
  *        命名事件监听 + (data|evt).type === '<名>' 匿名 data 事件分支
@@ -311,11 +320,94 @@ const PY_DICT_RE = /\{\s*"type":\s*"([a-z_-]+)"/g;
   scanStats.pyDict = hits;
 }
 
+// —— 1g. 共享 SSE 契约 TS 侧(#25 单一事实源)——
+// 提取 contract.ts 的 SSE_EVENTS 事件名集合; 同时作为「声明契约」兜底来源
+// 参与前端监听对账(与 1c AgentSSEEvent 声明契约同语义)
+const TS_SHARED_CONTRACT_RE = /([A-Z][A-Z_0-9]+):\s*'([a-z_-]+)'/g;
+const declaredSharedEvents = new Map(); // 事件名 → 声明来源(仅兜底, 不计入生产警告)
+{
+  const contractFile = path.join(ROOT, 'packages/shared/src/sse/contract.ts');
+  if (!existsSync(contractFile)) {
+    errors.push('packages/shared/src/sse/contract.ts 缺失: #25 SSE 契约单一事实源被移动/删除, 请同步本守门');
+  } else {
+    const text = readFileSync(contractFile, 'utf-8');
+    const start = text.indexOf('export const SSE_EVENTS');
+    if (start === -1) {
+      errors.push('packages/shared/src/sse/contract.ts 未找到 export const SSE_EVENTS(契约被改名, 请同步本守门)');
+    } else {
+      const end = text.indexOf('} as const', start);
+      const body = end === -1 ? text.slice(start, start + 3000) : text.slice(start, end);
+      for (const m of body.matchAll(TS_SHARED_CONTRACT_RE)) {
+        declaredSharedEvents.set(m[2], rel(contractFile) + ' (声明契约)');
+      }
+    }
+  }
+  scanStats.tsSharedContract = declaredSharedEvents.size;
+}
+
+// —— 1h. 共享 SSE 契约 Python 侧(#25 单一事实源)——
+const PY_SHARED_CONTRACT_RE = /"([a-z_-]+)"/g;
+const pySharedContract = new Set();
+{
+  const contractFile = path.join(ROOT, 'apps/ai-service/app/core/sse_contract.py');
+  if (!existsSync(contractFile)) {
+    errors.push('apps/ai-service/app/core/sse_contract.py 缺失: #25 SSE 契约单一事实源被移动/删除, 请同步本守门');
+  } else {
+    const text = readFileSync(contractFile, 'utf-8');
+    const start = text.indexOf('SSE_EVENTS: FrozenSet[str] = frozenset(');
+    if (start === -1) {
+      errors.push('apps/ai-service/app/core/sse_contract.py 未找到 SSE_EVENTS frozenset(契约被改名, 请同步本守门)');
+    } else {
+      const end = text.indexOf(')', start);
+      const body = end === -1 ? text.slice(start, start + 2000) : text.slice(start, end);
+      for (const m of body.matchAll(PY_SHARED_CONTRACT_RE)) pySharedContract.add(m[1]);
+    }
+  }
+  scanStats.pySharedContract = pySharedContract.size;
+}
+
+// —— 1i. llm.py 对话流事件 dict(#25: 对话流生产者纳入全事件对账)——
+// 排除项: anthropic wire 协议适配器桩消息与工具 JSON Schema 的 "type" 字段(非 SSE 契约事件)
+const LLM_EVENT_DICT_EXCLUDE = new Set([
+  'function',             // 工具 JSON Schema: parameters={"type": "function"}
+  'message_start',        // anthropic wire 桩(协议适配器调试端点)
+  'message',
+  'content_block_start',
+  'text',
+  'content_block_delta',
+  'text_delta',
+  'content_block_stop',
+  'message_delta',
+  'message_stop',
+  'api_error',            // wire 桩 error 内嵌 error.type
+  'service_unavailable',
+  'invalid_request',
+]);
+const llmDialogEvents = new Set();
+{
+  const llmPy = path.join(ROOT, 'apps/ai-service/app/routers/llm.py');
+  if (!existsSync(llmPy)) {
+    errors.push('apps/ai-service/app/routers/llm.py 不存在: 对话流生产者被移动/删除, 请同步本守门');
+  } else {
+    const text = readFileSync(llmPy, 'utf-8');
+    for (const m of text.matchAll(PY_DICT_RE)) {
+      const name = m[1];
+      if (LLM_EVENT_DICT_EXCLUDE.has(name)) continue;
+      llmDialogEvents.add(name);
+      addEvent(backendEvents, name, rel(llmPy));
+    }
+  }
+  scanStats.llmDialog = llmDialogEvents.size;
+}
+
 console.log(
   `  TS 字面量命名事件命中 ${scanStats.tsLiteral} 处, broadcastSSEEvent 广播 ${scanStats.tsBroadcast} 处, AgentSSEEvent 契约声明 ${scanStats.tsContract ?? 0} 个`,
 );
 console.log(
   `  PY hook→SSE 映射 ${scanStats.pyMapping} 条, f-string 事件 ${scanStats.pyLiteral} 处, 事件 dict 字面量 ${scanStats.pyDict} 处`,
+);
+console.log(
+  `  共享契约(#25): TS 侧 ${scanStats.tsSharedContract ?? 0} 个 / PY 侧 ${scanStats.pySharedContract ?? 0} 个, llm.py 对话流事件 ${scanStats.llmDialog ?? 0} 个`,
 );
 
 // ============================================================================
@@ -385,6 +477,9 @@ const SANITY_MIN = [
   { key: 'tsContract', min: 8, label: 'AgentSSEEvent 契约声明(当前 10 个 type)' },
   { key: 'pyMapping', min: 5, label: 'PY hook→SSE 映射表(当前 7 条)' },
   { key: 'pyDict', min: 3, label: 'PY 事件 dict 字面量(start/done/error)' },
+  { key: 'tsSharedContract', min: 19, label: '共享 SSE 契约 TS 侧事件数(#25, 当前 22 个)' },
+  { key: 'pySharedContract', min: 19, label: '共享 SSE 契约 PY 侧事件数(#25, 当前 22 个)' },
+  { key: 'llmDialog', min: 10, label: 'llm.py 对话流事件数(#25 纳入对账, 当前 15 个)' },
   { key: 'eventSourceFiles', min: 2, label: '前端 EventSource 文件(use-agent-runtime/useAgentSSE/tool-approval-dialog)' },
   { key: 'namedListeners', min: 2, label: '前端命名监听(self-heal/tool-approval)' },
   { key: 'apiClientCases', min: 8, label: 'api-client 分发 case 分支' },
@@ -422,8 +517,49 @@ for (const [name, points] of [...frontendEvents.entries()].sort()) {
   console.log(`  ${C.dim}listen:${C.reset} ${name} ${C.dim}← ${[...points].join(', ')}${C.reset}`);
 }
 
-// —— 对账 1: 前端监听但后端不发 → 阻断(白名单外)——
-const frontendOnly = [...frontendEvents.keys()].filter((n) => !backendEvents.has(n));
+// —— 对账 0: #25 契约单一事实源 —— 两端 SSE_EVENTS 集合一致(阻断)——
+console.log(`\n${C.cyan}对账: 共享 SSE 契约两端集合一致(#25 单一事实源)${C.reset}`);
+if (declaredSharedEvents.size > 0 && pySharedContract.size > 0) {
+  const tsOnly = [...declaredSharedEvents.keys()].filter((n) => !pySharedContract.has(n));
+  const pyOnly = [...pySharedContract].filter((n) => !declaredSharedEvents.has(n));
+  if (tsOnly.length === 0 && pyOnly.length === 0) {
+    console.log(`  ${C.green}✓ TS(${declaredSharedEvents.size}) 与 PY(${pySharedContract.size}) 事件集合完全一致${C.reset}`);
+  } else {
+    for (const n of tsOnly) {
+      errors.push(`契约漂移: 事件 "${n}" 仅存在于 TS 侧契约(packages/shared/src/sse/contract.ts), Python 侧(sse_contract.py)缺失`);
+      console.log(`  ${C.red}✗ ${n}: 仅 TS 侧契约有${C.reset}`);
+    }
+    for (const n of pyOnly) {
+      errors.push(`契约漂移: 事件 "${n}" 仅存在于 Python 侧契约(apps/ai-service/app/core/sse_contract.py), TS 侧缺失`);
+      console.log(`  ${C.red}✗ ${n}: 仅 PY 侧契约有${C.reset}`);
+    }
+  }
+} else {
+  errors.push('共享契约集合为空: contract.ts / sse_contract.py 事件名提取失败, 扫描器需同步');
+}
+
+// —— 对账 0b: #25 全事件强制 —— llm.py 对话流生产事件 ⊆ 共享契约(阻断)——
+console.log(`\n${C.cyan}对账: llm.py 对话流事件 ⊆ 共享契约(#25 全事件强制)${C.reset}`);
+const llmOffContract = [...llmDialogEvents].filter((n) => !declaredSharedEvents.has(n));
+if (llmDialogEvents.size === 0) {
+  console.log(`  ${C.red}✗ llm.py 对话流事件提取为空, 扫描器失效${C.reset}`);
+  errors.push('llm.py 对话流事件提取为空(阈值防护见 [3/4]), 扫描器需同步');
+} else if (llmOffContract.length === 0) {
+  console.log(`  ${C.green}✓ 全部 ${llmDialogEvents.size} 个对话流事件均在契约内${C.reset}`);
+} else {
+  for (const n of llmOffContract) {
+    errors.push(
+      `契约漂移: llm.py 生产 SSE 事件 "${n}" 不在共享契约(SSE_EVENTS)中 — ` +
+        `请在 contract.ts + sse_contract.py 补入定义, 或确认非 SSE 契约事件后加入 LLM_EVENT_DICT_EXCLUDE(注释理由)`,
+    );
+    console.log(`  ${C.red}✗ ${n}: 对话流生产但契约未登记${C.reset}`);
+  }
+}
+
+// —— 对账 1: 前端监听但后端不发 → 阻断(白名单外; 共享契约声明兜底)——
+const frontendOnly = [...frontendEvents.keys()].filter(
+  (n) => !backendEvents.has(n) && !declaredSharedEvents.has(n),
+);
 const blocked = frontendOnly.filter((n) => !FRONTEND_LEGACY_SET.has(n));
 const legacyHit = frontendOnly.filter((n) => FRONTEND_LEGACY_SET.has(n));
 
@@ -446,7 +582,11 @@ if (frontendOnly.length === 0) {
 }
 
 // —— 对账 2: 后端发但前端完全无人监听 → 警告不阻断(白名单外)——
-const backendOnly = [...backendEvents.keys()].filter((n) => !frontendEvents.has(n));
+// 共享契约(#25)声明的事件豁免: 对话流事件由 chat 客户端 fetch reader 统一
+// 分发(非逐名 EventSource 监听, 不在本扫描范围), 契约本身即其声明生产面
+const backendOnly = [...backendEvents.keys()].filter(
+  (n) => !frontendEvents.has(n) && !declaredSharedEvents.has(n),
+);
 const unwarned = backendOnly.filter((n) => !WHITELIST_SET.has(n));
 const whitelistedHit = backendOnly.filter((n) => WHITELIST_SET.has(n));
 
