@@ -45,6 +45,8 @@ import { BestOfCompare } from '@/components/ai/best-of-compare'
 import { plainTextForClipboard } from '@/components/ai/progress-sections/message-context-menu'
 import { MessageFileChips } from '@/components/chat/message-list/file-chips'
 import { TurnChangesCard } from '@/components/chat/message-list/turn-changes-card'
+// P3 #39(2026-09-16 立):执行轨迹回放(toolCalls 时序重演)
+import { TraceReplay } from '@/components/ai/trace-replay'
 import { useChatStore } from '@/stores/chat'
 import { useTts } from '@/hooks/use-tts'
 import { fetchApi } from '@/lib/api'
@@ -808,6 +810,11 @@ const MessageItem = React.memo(function MessageItem({
             {/* #19 + #20 流结束后:turn 级变更汇总卡 + 文件引用 chip(先卡后 chips) */}
             {!isStreaming && (
               <>
+                {/* P3 #39 执行轨迹即文档(2026-09-16 立):toolCalls≥2 时提供时序重演回放
+                    (播放/单步/重置,每步停留按真实耗时温和加权),静态工具卡片之外的节奏视角 */}
+                {!isStreaming && m.toolCalls && m.toolCalls.length >= 2 && (
+                  <TraceReplay toolCalls={m.toolCalls} />
+                )}
                 <TurnChangesCard message={m} conversationId={conversationId} />
                 <MessageFileChips toolCalls={m.toolCalls} />
               </>

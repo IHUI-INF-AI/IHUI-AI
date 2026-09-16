@@ -22188,5 +22188,18 @@
   "chatSearchBar": {
     "searchPlaceholder": "대화 검색…",
     "searchAriaLabel": "대화 검색"
+  },
+  "traceReplay": {
+    "title": "실행 트레이스 재생",
+    "stepCounter": "{current} / {total} 단계",
+    "play": "재생",
+    "pause": "일시정지",
+    "replay": "다시 재생",
+    "stepForward": "한 단계",
+    "reset": "초기화",
+    "status_success": "성공",
+    "status_error": "실패",
+    "status_running": "실행 중",
+    "status_cancelled": "취소됨"
   }
 }
