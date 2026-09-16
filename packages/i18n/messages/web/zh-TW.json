@@ -7636,10 +7636,12 @@
       "subtitle": "訂閱每日 AI 資訊簡報,加入智匯 AI 社區與決策者一起把握 AI 時代脈搏。",
       "title": "不錯過下一個 AI 裡程碑"
     },
+    "close": "關閉",
     "detailDialog": {
       "arenaScore": "Arena 評分",
       "baseUrlCopied": "Base URL 已復制到剪貼板",
       "capabilityRadar": "能力雷達",
+      "close": "關閉",
       "contextWindow": "上下文窗口",
       "copyAndImport": "復制並導入",
       "copyBaseUrl": "復制 Base URL",
@@ -8006,7 +8008,8 @@
     },
     "applied": "已套用",
     "apply": "套用",
-    "hint": "可用 AI 工具"
+    "hint": "可用 AI 工具",
+    "worldsAdopted": "已採納該分支回覆"
   },
   "agentHooks": {
     "description": "Agent Hooks 事件系統:9 類事件可配置動作(記錄日誌/介面提示/系統通知),工具事件支援按工具名過濾",
@@ -8179,7 +8182,8 @@
     "empty": "暫無內容",
     "dispatchSubagent": "派發子代理",
     "bestOfAdopted": "已採納最佳方案",
-    "title": "工作區"
+    "title": "工作區",
+    "worldsAdopted": "已採納該分支回覆"
   },
   "announcements": {
     "backToList": "返回公告列表",
@@ -19678,6 +19682,15 @@
     },
     "instance": "工作流實例"
   },
+  "worlds": {
+    "adopt": "採納",
+    "adopted": "已採納",
+    "branchRunning": "分支生成中…",
+    "empty": "暫無對比分支",
+    "emptyReply": "該分支暫無回覆",
+    "reset": "重置",
+    "running": "運行中"
+  },
   "workspace": {
     "actions": "操作",
     "back": "返回",
@@ -22207,5 +22220,10 @@
     "status_error": "失敗",
     "status_running": "執行中",
     "status_cancelled": "已撤回"
+  },
+  "costGuard": {
+    "estimateLine": "本次預計 ≈{tokens} tokens（約 ${cost}）",
+    "fallbackPrice": "兜底價僅供參考",
+    "actualLine": "實際 {actual} tokens（預估 {estimate}）"
   }
 }
