@@ -14325,6 +14325,16 @@
     "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
   },
   "models": {
+    "relay": {
+      "officialPrice": "官方价",
+      "paidPrice": "实付价",
+      "multiplier": "定价倍率",
+      "peak": "高峰",
+      "offPeak": "低谷",
+      "cacheRead": "缓存读",
+      "cacheWrite": "缓存写",
+      "subscriptionOnly": "订阅专享"
+    },
     "aiNews": {
       "fallbackHint": "暂无最新资讯,显示 2026-07 真实新模型",
       "liveTag": "实时",
@@ -15452,6 +15462,8 @@
     "none": "无"
   },
   "nav": {
+    "purchase": "购买 API",
+    "availableChannels": "可用渠道",
     "agentTeams": "智能体团队",
     "about": "关于",
     "activities": "活动",
@@ -22158,5 +22170,51 @@
   "chatSearchBar": {
     "searchPlaceholder": "搜索对话…",
     "searchAriaLabel": "搜索对话"
+  },
+  "availableChannels": {
+    "title": "可用渠道公示",
+    "subtitle": "查看平台在售的上游渠道、已上架模型与定价区间。",
+    "refresh": "刷新",
+    "loading": "加载中...",
+    "empty": "暂无可公示的渠道",
+    "models": "模型",
+    "inputPrice": "输入价(元/百万)",
+    "outputPrice": "输出价(元/百万)",
+    "multiplier": "定价倍率",
+    "moreModels": "另有 {count} 个"
+  },
+  "purchase": {
+    "title": "购买 API 订阅与额度",
+    "subtitle": "一处完成订阅购买与账户充值,支持微信与支付宝。",
+    "tabSubscribe": "订阅套餐",
+    "tabTopup": "账户充值",
+    "currentSubscription": "当前订阅",
+    "expiresAt": "有效期至",
+    "remaining": "剩余额度",
+    "unlimited": "不限",
+    "dailyWindow": "每日额度",
+    "weeklyWindow": "每周额度",
+    "monthlyWindow": "每月额度",
+    "resetsIn": "距重置",
+    "noSubscription": "当前没有生效中的订阅,可选择下方套餐开通。",
+    "noPlans": "暂无可订阅套餐",
+    "validityDays": "有效期 {days} 天",
+    "modelWhitelist": "含 {count} 个专享模型",
+    "allModels": "全部已上架模型可用",
+    "currentPlan": "当前套餐",
+    "subscribeNow": "立即订阅",
+    "orderCreated": "已创建订单 {orderNo},正在跳转支付",
+    "loading": "加载中...",
+    "submitFailed": "提交失败,请稍后重试",
+    "amount": "充值金额(元)",
+    "amountRange": "充值金额需在 {min} - {max} 元之间",
+    "payMethod": "支付方式",
+    "wechat": "微信支付",
+    "alipay": "支付宝",
+    "payNow": "立即支付",
+    "creating": "创建订单中...",
+    "topupNote": "支付成功后金额将计入你的账户余额,可用于调用模型或购买套餐。",
+    "redeemHint": "有兑换码?",
+    "goRedeem": "前往兑换"
   }
 }

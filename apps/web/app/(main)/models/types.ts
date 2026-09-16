@@ -134,6 +134,27 @@ export interface Model {
   relayPriceMultiplier?: number
   /** 中转站展示名(为空时用 name/id) */
   relayDisplayName?: string
+  // --- 价格对比字段(2026-09-16 立,对标同类中转站的官方价/实付价对照) ---
+  /** 官方/上游参考输入价(分/千 token) */
+  relayOfficialInputPricePer1k?: number
+  /** 官方/上游参考输出价(分/千 token) */
+  relayOfficialOutputPricePer1k?: number
+  /** 中转站实付输入价(分/千 token,= 官价 × 倍率) */
+  relayInputPricePer1k?: number
+  /** 中转站实付输出价(分/千 token) */
+  relayOutputPricePer1k?: number
+  /** 缓存读实付价(分/千 token,= 官价 × 0.1 × 倍率) */
+  relayCacheReadPricePer1k?: number
+  /** 缓存写实付价(分/千 token,= 官价 × 1.25 × 倍率) */
+  relayCacheWritePricePer1k?: number
+  /** 当前生效的分时(高峰/低谷)倍率;1 = 无加价 */
+  relayPeakMultiplier?: number
+  /** 含分时倍率的实付输入价(分/千 token) */
+  relayEffectiveInputPricePer1k?: number
+  /** 含分时倍率的实付输出价(分/千 token) */
+  relayEffectiveOutputPricePer1k?: number
+  /** 包含本模型的订阅套餐名(空数组 = 非订阅专享) */
+  relaySubscriptionPlans?: string[]
   // --- 模型分类(2026-08-29 立,后端 model_catalog 产出)---
   /**
    * 用途分类:chat/vision/embedding/rerank/tts/asr/image/video/guard/ocr/other。

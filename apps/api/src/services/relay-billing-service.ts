@@ -33,6 +33,13 @@ import {
   tokenFlows,
 } from '@ihui/database'
 import { getCurrentTierMultiplier } from './tiered-pricing-service.js'
+// 分时(高峰/低谷)倍率(2026-09-16 立):命中规则时作为倍率链最后一环叠加,无规则 = 1
+import { resolvePeakMultiplier } from './peak-pricing-service.js'
+// API 订阅窗口配额(2026-09-16 立):订阅用户除 Key 余额外,还受日/周/月窗口额度约束
+import {
+  checkSubscriptionWindowQuota,
+  consumeSubscriptionWindowUsage,
+} from './subscription-window-service.js'
 // Relay 返佣(2026-07-31 立,扣费后异步触发,失败不影响主链路)
 import { recordRelayCommission } from './relay-commission-service.js'
 import { getUserModelMultiplier } from './user-billing-group-service.js'
@@ -50,7 +57,12 @@ import { apiKeyGroups } from '@ihui/database'
 
 export interface CheckQuotaResult {
   allowed: boolean
-  reason?: 'no_balance_token' | 'no_balance_cost' | 'key_not_found' | 'key_revoked'
+  reason?:
+    | 'no_balance_token'
+    | 'no_balance_cost'
+    | 'key_not_found'
+    | 'key_revoked'
+    | 'subscription_window_exceeded'
   apiKeyId: string
   userId: string
   tokenBalance: number
@@ -149,6 +161,12 @@ export interface CalculateCostResult {
   unitsApplied: number
   /** per_call 命中档位(仅 per_call 有值) */
   callTier?: 'le256k' | 'mid' | 'gt512k'
+  /**
+   * 分时(高峰/低谷)倍率(2026-09-16 立):命中规则时的倍率因子,未命中为 1。
+   * 注意 multiplier 字段是四段倍率连乘后的总值(中转站 × 分组 × 阶梯 × 分时),
+   * 本字段单独暴露分时段因子,便于日志与账单归因。
+   */
+  peakMultiplier?: number
 }
 
 /** calculateCost 第 4 个参数:cache 折扣计费选项 + 多模态计费选项(2026-09-13) */
@@ -245,6 +263,22 @@ export async function checkQuota(apiKeyId: string, estimatedTokens = 0): Promise
     return {
       allowed: false,
       reason: 'key_revoked',
+      apiKeyId: row.id,
+      userId: row.userId,
+      tokenBalance: row.tokenBalance,
+      costBalanceCents: row.costBalanceCents,
+    }
+  }
+
+  // === 订阅窗口配额检查(2026-09-16 立)===
+  // 订阅用户(存在活跃 api_subscriptions 且套餐配了日/周/月限额)除 Key 余额外,
+  // 还受窗口额度约束(如"包月:每月 200 万 token,每日 20 万 token")。
+  // 无活跃订阅或无窗口限额配置时直接放行 —— 存量用户与纯按量付费用户行为完全不变。
+  const windowCheck = await checkSubscriptionWindowQuota(row.userId, Math.max(0, estimatedTokens))
+  if (!windowCheck.allowed) {
+    return {
+      allowed: false,
+      reason: 'subscription_window_exceeded',
       apiKeyId: row.id,
       userId: row.userId,
       tokenBalance: row.tokenBalance,
@@ -443,6 +477,13 @@ export async function calculateCost(
     multiplier *= tier.multiplier
   }
 
+  // 分时(高峰/低谷)倍率(2026-09-16 立):按 UTC+8 星期 + 时段命中规则后叠加,命中即用不叠加。
+  // 作为倍率链最后一环(中转站 × 分组 × 阶梯 × 分时),与对外公示的高峰倍率口径一致。
+  // 无启用规则(或全部未命中)时恒为 1,既有账单金额完全不变;服务异常亦降级为 1。
+  const peak = await resolvePeakMultiplier(dbModelId)
+  const peakMultiplier = peak.multiplier
+  multiplier *= peakMultiplier
+
   let baseInputPricePer1k = 0
   let baseOutputPricePer1k = 0
   let source: CalculateCostResult['source'] = 'default'
@@ -475,6 +516,7 @@ export async function calculateCost(
         cacheReadCostCents: 0,
         cacheCreationCostCents: 0,
         multiplier,
+        peakMultiplier,
         baseInputPricePer1k: 0,
         baseOutputPricePer1k: 0,
         source,
@@ -495,6 +537,7 @@ export async function calculateCost(
         cacheReadCostCents: 0,
         cacheCreationCostCents: 0,
         multiplier,
+        peakMultiplier,
         baseInputPricePer1k: 0,
         baseOutputPricePer1k: 0,
         source,
@@ -516,6 +559,7 @@ export async function calculateCost(
           cacheReadCostCents: 0,
           cacheCreationCostCents: 0,
           multiplier,
+          peakMultiplier,
           baseInputPricePer1k: 0,
           baseOutputPricePer1k: 0,
           source,
@@ -567,6 +611,7 @@ export async function calculateCost(
     cacheReadCostCents,
     cacheCreationCostCents,
     multiplier,
+    peakMultiplier,
     baseInputPricePer1k,
     baseOutputPricePer1k,
     source,
@@ -1592,6 +1637,16 @@ export async function settlePreDeduction(
   actualCostCents: number,
 ): Promise<void> {
   try {
+    // 订阅窗口用量累加(2026-09-16 立):按本次调用的"实际用量"累加进日/周/月窗口。
+    // 必须置于下方 delta===0 提前 return 之前 —— 否则"预扣恰好等于实扣"的调用
+    // (deltaTokens/deltaCents 均为 0)会跳过窗口记账,导致窗口额度被无限透支。
+    // 无活跃订阅或无窗口限额配置时不产生任何写入;内部失败已自行吞掉,不影响结算。
+    await consumeSubscriptionWindowUsage(
+      pre.userId,
+      Math.max(0, actualTokens),
+      Math.max(0, actualCostCents),
+    )
+
     const deltaTokens = pre.tokens - Math.max(0, actualTokens)
     const deltaCents = pre.cents - Math.max(0, actualCostCents)
     if (deltaTokens === 0 && deltaCents === 0) return
