@@ -246,7 +246,32 @@
   "a11y": {
     "addAttachment": "Add attachment (image / video / file)",
     "breadcrumb": "Breadcrumb",
-    "searchOption": "Search options"
+    "searchOption": "Search options",
+    "deleteField": "Delete field",
+    "codeCopied": "Code copied",
+    "copyCode": "Copy code",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "more": "More",
+    "close": "Close",
+    "copy": "Copy",
+    "copyResponse": "Copy response",
+    "barChart": "Bar chart",
+    "heatmap": "Heatmap",
+    "lineChart": "Line chart",
+    "pieChart": "Pie chart",
+    "radarChart": "Radar chart",
+    "slashCommand": "Slash command",
+    "mentionFile": "Mention file",
+    "openCustomerService": "Open customer service",
+    "minimize": "Minimize",
+    "send": "Send",
+    "closeTag": "Close tag",
+    "closeAlert": "Close alert",
+    "menu": "Menu",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "uploadAvatar": "Upload avatar"
   },
   "about": {
     "ctaDesc": "Sign up and get 1,000 credits, free trial of all models, no credit card required.",
@@ -6759,7 +6784,11 @@
     "staticContent2": "We strictly protect your personal privacy and will not disclose it to third parties without your permission.",
     "staticContent3": "If you have any questions about this agreement, please contact customer service.",
     "title": "Agreements & Policies",
-    "subtitle": "Please read carefully and agree to the terms below before continuing"
+    "subtitle": "Please read carefully and agree to the terms below before continuing",
+    "privacyPolicy": "Privacy Policy",
+    "userAgreement": "User Agreement",
+    "loading": "Loading...",
+    "version": "Version"
   },
   "ai": {
     "agentManager": {
@@ -7103,7 +7132,20 @@
       "callingTool": "Calling tool {name}",
       "thinking": "Thinking: {preview}",
       "waitingResponse": "Waiting for model response…",
-      "toolCallStats": "Tool calls ({count})"
+      "toolCallStats": "Tool calls ({count})",
+      "sessionUsage": {
+        "promptTokens": "Prompt tokens",
+        "completionTokens": "Completion tokens",
+        "inputCost": "Input cost",
+        "outputCost": "Output cost",
+        "noPriceHint": "No pricing configured",
+        "pricingHint": "Billed per token usage"
+      },
+      "usageEstimated": "Usage estimated",
+      "messageUsage": {
+        "total": "Total usage",
+        "ariaLabel": "Message usage details"
+      }
     },
     "title": "AI Assistant",
     "thinking": "AI is generating…",
@@ -7940,7 +7982,10 @@
       "wiki": "Wiki",
       "integrations": "Integrations",
       "workspace": "Workspace"
-    }
+    },
+    "applied": "Applied",
+    "apply": "Apply",
+    "hint": "Available AI tools"
   },
   "agentHooks": {
     "description": "Agent Hooks event system: 9 event types with configurable actions (log/toast/system notification); tool events support filtering by tool name",
@@ -8091,7 +8136,13 @@
     "noFolders": "No folders yet",
     "apply": "Add #Folder reference to input",
     "applied": "#Folder reference added to input",
-    "hint": "Pick a workspace folder to tell the Agent to focus on that directory via #Folder reference"
+    "hint": "Pick a workspace folder to tell the Agent to focus on that directory via #Folder reference",
+    "checkpointRestored": "Checkpoint restored",
+    "restoreFailed": "Restore failed",
+    "empty": "No content",
+    "dispatchSubagent": "Dispatch subagent",
+    "bestOfAdopted": "Best of adopted",
+    "title": "Workspace"
   },
   "announcements": {
     "backToList": "Back to announcements",
@@ -8642,7 +8693,12 @@
       "compactSuccess": "Context compacted: {before} → {after} tokens (saved {saved})",
       "compactTooFew": "Too few messages to compact",
       "compactIncompressible": "Nothing left to compact in this context",
-      "compactFailed": "Compaction failed"
+      "compactFailed": "Compaction failed",
+      "compaction": {
+        "truncatedNotice": "The following content has been truncated",
+        "archiveTitle": "Archived conversations",
+        "viewArchived": "View archived"
+      }
     },
     "contextCompacted": "Context auto-compacted",
     "contextCompactedDesc": "{before} → {after} ({removed} history entries removed)",
@@ -9409,7 +9465,13 @@
       "exit": "Exit code",
       "title": "Run output",
       "close": "Close"
-    }
+    },
+    "archiveTitle": "Archived conversations",
+    "archiveLoading": "Loading archive...",
+    "archiveEmpty": "No archived conversations",
+    "viewArchived": "View archived",
+    "callingTool": "Calling tool...",
+    "waitingResponse": "Waiting for response..."
   },
   "chatHistory": {
     "backToHistory": "Back to History",
@@ -9849,7 +9911,17 @@
     "export": "Export",
     "add": "Add",
     "submit": "Submit",
-    "error": "Error"
+    "error": "Error",
+    "errorTitle": "Something went wrong",
+    "remark": "Remark",
+    "unknownError": "Unknown error",
+    "reply": "Reply",
+    "orderNoLabel": "Order No.",
+    "clear": "Clear",
+    "searchPlaceholder": "Type to search",
+    "followed": "Followed",
+    "follow": "Follow",
+    "logout": "Log out"
   },
   "contactPage": {
     "addressTitle": "Company address",
@@ -15685,7 +15757,8 @@
     "workspace": "Workspace",
     "courses": "Courses",
     "faq": "FAQ",
-    "home": "Home"
+    "home": "Home",
+    "settings": "Settings"
   },
   "news": {
     "allCategories": "All Categories",
@@ -16846,8 +16919,8 @@
       "batchScanModeLabel": "Batch scan mode",
       "batchScanModeInternal": "Built-in browser",
       "batchScanModeExternal": "Your own browser",
-      "batchScanWaitingHintExternal": "Login page opened in a browser window (your sign-in state could not be loaded); complete the sign-in there",
-      "batchScanWaitingHintExternalOwn": "Opened in {browser} with your sign-in state — already signed-in platforms are saved automatically, just scan for the rest",
+      "batchScanWaitingHintExternal": "Opened in your everyday browser — please finish signing in there (your sign-in state was not readable yet)",
+      "batchScanWaitingHintExternalOwn": "Opened in your everyday browser; already signed-in platforms are saved automatically, just sign in once for the rest",
       "batchScanStart": "Start batch scan",
       "batchScanWaitingHint": "Scan or log in on the built-in browser on the right. Each platform times out after 2 minutes and is skipped automatically; you can also skip manually.",
       "batchScanLoading": "Preparing platform queue...",
@@ -16865,6 +16938,8 @@
       "batchScanNoLoginUrl": "No login page configured for this platform",
       "batchScanStopped": "stopped",
       "batchScanStoppedToast": "Scan login queue stopped",
+      "batchScanPopupBlocked": "Your browser blocked the new tab: click the blocked-popup icon in the address bar to allow pop-ups for this site, then start again (or use the built-in browser mode).",
+      "batchScanPopupBlockedToast": "A new tab was blocked — queue stopped; allow pop-ups for this site and retry",
       "batchScanWindowClosedToast": "Browser window closed — queue stopped"
     },
     "ai": {
@@ -22036,7 +22111,19 @@
     "subtitle": "View your earnings details and settlement",
     "configureByok": "Configure BYOK",
     "configureByokDesc": "Use your own API keys (BYOK) to reduce costs and increase your quota.",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "byokTrend": "BYOK usage trend",
+    "byokTrendDesc": "BYOK API calls in the last 30 days",
+    "last30Days": "Last 30 days",
+    "conversionFunnel": "Conversion funnel",
+    "conversionFunnelDesc": "User journey from browse to paid",
+    "todayIncome": "Today's income",
+    "vsYesterday": "vs. yesterday",
+    "byokIncome": "BYOK income",
+    "referralCount": "Referral count",
+    "conversionRate": "Conversion rate",
+    "referralStats": "Referral stats",
+    "referralStatsDesc": "Last 30 days referral & conversion data"
   },
   "skillMarket": {
     "title": "Skill Market",

@@ -246,7 +246,32 @@
   "a11y": {
     "addAttachment": "添加附件（圖片/視頻/文件）",
     "breadcrumb": "麵包屑導航",
-    "searchOption": "搜索選項"
+    "searchOption": "搜索選項",
+    "deleteField": "刪除欄位",
+    "codeCopied": "代碼已複製",
+    "copyCode": "複製代碼",
+    "collapse": "收起",
+    "expand": "展開",
+    "more": "更多",
+    "close": "關閉",
+    "copy": "複製",
+    "copyResponse": "複製回覆",
+    "barChart": "柱狀圖",
+    "heatmap": "熱力圖",
+    "lineChart": "折線圖",
+    "pieChart": "餅圖",
+    "radarChart": "雷達圖",
+    "slashCommand": "斜線命令",
+    "mentionFile": "提及檔案",
+    "openCustomerService": "聯絡客服",
+    "minimize": "最小化",
+    "send": "發送",
+    "closeTag": "關閉標籤",
+    "closeAlert": "關閉提示",
+    "menu": "選單",
+    "showPassword": "顯示密碼",
+    "hidePassword": "隱藏密碼",
+    "uploadAvatar": "上傳頭像"
   },
   "about": {
     "ctaDesc": "注冊即得 1000 積分,全模型免費試用,無需信用卡。",
@@ -6759,7 +6784,11 @@
     "staticContent2": "我們嚴格保護您的個人隱私，未經您的許可不會向第三方披露。",
     "staticContent3": "如對本協議有任何疑問，請聯系客服。",
     "title": "協議與政策",
-    "subtitle": "請仔細閱讀並同意下列條款後繼續"
+    "subtitle": "請仔細閱讀並同意下列條款後繼續",
+    "privacyPolicy": "隱私權政策",
+    "userAgreement": "使用者協議",
+    "loading": "載入中...",
+    "version": "版本"
   },
   "ai": {
     "agentManager": {
@@ -7105,7 +7134,20 @@
       "callingTool": "正在呼叫工具 {name}",
       "thinking": "正在思考: {preview}",
       "waitingResponse": "正在等待模型回應…",
-      "toolCallStats": "工具調用 ({count} 次)"
+      "toolCallStats": "工具調用 ({count} 次)",
+      "sessionUsage": {
+        "promptTokens": "輸入 Token",
+        "completionTokens": "輸出 Token",
+        "inputCost": "輸入費用",
+        "outputCost": "輸出費用",
+        "noPriceHint": "未配置價格",
+        "pricingHint": "按 Token 用量計費"
+      },
+      "usageEstimated": "用量估算",
+      "messageUsage": {
+        "total": "總用量",
+        "ariaLabel": "訊息用量詳情"
+      }
     },
     "title": "AI 助手",
     "thinking": "AI 生成中…",
@@ -7932,7 +7974,10 @@
       "wiki": "知識庫",
       "integrations": "整合",
       "workspace": "工作區"
-    }
+    },
+    "applied": "已套用",
+    "apply": "套用",
+    "hint": "可用 AI 工具"
   },
   "agentHooks": {
     "description": "Agent Hooks 事件系統:9 類事件可配置動作(記錄日誌/介面提示/系統通知),工具事件支援按工具名過濾",
@@ -8099,7 +8144,13 @@
     "noFolders": "暫無資料夾",
     "apply": "加入 #Folder 引用到輸入框",
     "applied": "已把 #Folder 引用寫入輸入框",
-    "hint": "選取工作區資料夾後,以 #Folder 引用告知 Agent 聚焦該目錄"
+    "hint": "選取工作區資料夾後,以 #Folder 引用告知 Agent 聚焦該目錄",
+    "checkpointRestored": "檢查點已還原",
+    "restoreFailed": "還原失敗",
+    "empty": "暫無內容",
+    "dispatchSubagent": "派發子代理",
+    "bestOfAdopted": "已採納最佳方案",
+    "title": "工作區"
   },
   "announcements": {
     "backToList": "返回公告列表",
@@ -8650,7 +8701,12 @@
       "compactSuccess": "上下文已壓縮: {before} → {after} tokens(節省 {saved})",
       "compactTooFew": "對話訊息太少,無需壓縮",
       "compactIncompressible": "目前上下文已無可壓縮空間",
-      "compactFailed": "壓縮失敗"
+      "compactFailed": "壓縮失敗",
+      "compaction": {
+        "truncatedNotice": "以下內容已被截斷",
+        "archiveTitle": "已封存會話",
+        "viewArchived": "查看已封存"
+      }
     },
     "contextCompacted": "上下文已自動壓縮",
     "contextCompactedDesc": "{before} → {after}(移除 {removed} 條歷史)",
@@ -9417,7 +9473,13 @@
       "exit": "結束代碼",
       "title": "執行輸出",
       "close": "關閉"
-    }
+    },
+    "archiveTitle": "已封存會話",
+    "archiveLoading": "封存載入中...",
+    "archiveEmpty": "暫無封存會話",
+    "viewArchived": "查看已封存",
+    "callingTool": "正在呼叫工具...",
+    "waitingResponse": "等待回覆..."
   },
   "chatHistory": {
     "backToHistory": "返回任務列表",
@@ -9857,7 +9919,17 @@
     "export": "匯出",
     "add": "新增",
     "submit": "提交",
-    "error": "錯誤"
+    "error": "錯誤",
+    "errorTitle": "出錯了",
+    "remark": "備註",
+    "unknownError": "未知錯誤",
+    "reply": "回覆",
+    "orderNoLabel": "訂單編號",
+    "clear": "清空",
+    "searchPlaceholder": "請輸入搜尋內容",
+    "followed": "已關注",
+    "follow": "關注",
+    "logout": "登出"
   },
   "contactPage": {
     "addressTitle": "公司地址",
@@ -15688,7 +15760,8 @@
     "workspace": "工作空間",
     "courses": "課程",
     "faq": "常見問題",
-    "home": "首頁"
+    "home": "首頁",
+    "settings": "設定"
   },
   "news": {
     "allCategories": "全部分類",
@@ -16786,8 +16859,8 @@
       "batchScanModeLabel": "批量掃碼模式",
       "batchScanModeInternal": "內建瀏覽器",
       "batchScanModeExternal": "你自己的瀏覽器",
-      "batchScanWaitingHintExternal": "已在瀏覽器視窗開啟登入頁(未能讀取你的登入狀態);請在視窗中完成掃碼登入",
-      "batchScanWaitingHintExternalOwn": "已在 {browser} 中開啟(含你的登入狀態);已登入的平臺自動儲存,未登入的掃一下碼即可",
+      "batchScanWaitingHintExternal": "已在你日常使用的瀏覽器裡開啟該平臺,請在那裡完成登入(後端暫未讀到你的登入狀態)",
+      "batchScanWaitingHintExternalOwn": "已在你日常使用的瀏覽器裡開啟該平臺;已登入的自動儲存,未登入的登入一次即可",
       "batchScanStart": "開始批量掃碼",
       "batchScanWaitingHint": "請在右側內建瀏覽器完成該平臺掃碼/登入;逾時(2 分鐘)會自動跳過,也可手動跳過",
       "batchScanLoading": "正在準備平臺佇列...",
@@ -16805,6 +16878,8 @@
       "batchScanNoLoginUrl": "未找到該平臺登入頁配置",
       "batchScanStopped": "已停止",
       "batchScanStoppedToast": "已停止掃碼佇列",
+      "batchScanPopupBlocked": "瀏覽器攔截了新分頁:請點網址列右側的攔截圖示允許本站彈出視窗,然後重新開始(或改用內建瀏覽器模式)。",
+      "batchScanPopupBlockedToast": "瀏覽器攔截了新分頁,佇列已停止;請允許本站彈出視窗後重試",
       "batchScanWindowClosedToast": "偵測到瀏覽器視窗已關閉,已停止佇列",
       "cancelScan": "取消掃碼",
       "cookiesInputLabel": "Cookie 內容",
@@ -22021,7 +22096,19 @@
     "subtitle": "查看您的收益明細與結算情況",
     "configureByok": "設定 BYOK",
     "configureByokDesc": "使用您自己的 API 金鑰（BYOK）以降低成本並提升呼叫額度。",
-    "loading": "載入中..."
+    "loading": "載入中...",
+    "byokTrend": "BYOK 用量趨勢",
+    "byokTrendDesc": "近 30 天自帶 API Key 呼叫量",
+    "last30Days": "近 30 天",
+    "conversionFunnel": "轉化漏斗",
+    "conversionFunnelDesc": "使用者從瀏覽到付費的轉化路徑",
+    "todayIncome": "今日收入",
+    "vsYesterday": "較昨日",
+    "byokIncome": "BYOK 收入",
+    "referralCount": "推薦人數",
+    "conversionRate": "轉化率",
+    "referralStats": "推薦統計",
+    "referralStatsDesc": "近 30 天推薦使用者與轉化資料"
   },
   "skillMarket": {
     "title": "Skill 市場",
