@@ -19690,15 +19690,6 @@
     },
     "instance": "워크플로우 인스턴스"
   },
-  "worlds": {
-    "adopt": "채택",
-    "adopted": "채택됨",
-    "branchRunning": "브랜치 생성 중…",
-    "empty": "비교 브랜치가 없습니다",
-    "emptyReply": "이 브랜치의 응답이 아직 없습니다",
-    "reset": "재설정",
-    "running": "실행 중"
-  },
   "workspace": {
     "actions": "작업",
     "back": "뒤로",
