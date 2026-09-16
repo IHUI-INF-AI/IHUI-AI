@@ -22047,6 +22047,7 @@
     "typeLog": "로그 점검",
     "typeDeadlink": "죽은 링크 점검",
     "typeCustom": "사용자 정의 점검",
+    "typeWorkspace": "작업 공간 건강",
     "nextRunAt": "다음 실행",
     "resultOk": "정상",
     "resultIssue": "문제 발견",

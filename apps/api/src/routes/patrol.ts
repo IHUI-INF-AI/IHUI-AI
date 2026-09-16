@@ -32,7 +32,7 @@ import { executePatrol } from '../services/patrol-scheduler.js'
 
 const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
-const PATROL_TYPES = ['ci', 'dependency', 'log', 'deadlink', 'custom'] as const
+const PATROL_TYPES = ['ci', 'dependency', 'log', 'deadlink', 'workspace', 'custom'] as const
 
 const rruleSchema = z
   .string()
