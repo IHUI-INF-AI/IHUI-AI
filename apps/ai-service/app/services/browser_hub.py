@@ -272,10 +272,11 @@ def _resolve_browser_profile_name(user_data: Path) -> str:
     return "Default"
 
 
-def _cleanup_stale_scan_profiles(max_age_seconds: float = 24 * 3600) -> int:
-    """清理遗留的扫码临时 profile 目录(进程异常退出时残留,内含用户登录态的副本)。
+def _cleanup_stale_scan_profiles(max_age_seconds: float = 2 * 3600) -> int:
+    """清理遗留的扫码临时 profile 目录(内含用户登录态副本,不应长期留存)。
 
-    仅处理系统 temp 下前缀为 `ihui-chrome-scan-` 且闲置超过 24 小时的目录,
+    仅处理系统 temp 下前缀为 `ihui-chrome-scan-` 且闲置超过 2 小时的目录(浏览器在用的
+    profile 会被持续写入,不会呈现"闲置"状态;单平台排队上限 2 分钟,2 小时足够安全),
     不触碰其它任何路径;返回清理数量。
     """
     import glob
@@ -1057,12 +1058,22 @@ class BrowserHub:
                     ext_browser.close()  # connect_over_cdp 只断开连接,不杀浏览器
                 with contextlib.suppress(Exception):
                     proc.terminate()
+                # 2026-09-16:terminate 是异步的,Chrome 尚未释放文件句柄时 rmtree 会静默失败,
+                # 导致含用户 cookie 副本的临时目录残留在 %TEMP%(实测残留 27 份)。
+                # 改为「等进程退出 + 重试删除」,仍失败则告警(下次启动按 2h 规则兜底清理)。
                 with contextlib.suppress(Exception):
-                    import shutil
+                    proc.wait(timeout=5)
+                for _ in range(5):
                     shutil.rmtree(profile_dir, ignore_errors=True)
+                    if not os.path.exists(profile_dir):
+                        break
+                    time.sleep(0.4)
+                if os.path.exists(profile_dir):
+                    logger.warning(f"[browser_hub] 临时 profile 删除失败,待兜底清理: {profile_dir}")
 
-            if self._main_loop:
-                await self._main_loop.run_in_executor(self._executor, _sync_cleanup_external)
+            # 用当前 loop 调度清理(旧写法 `if self._main_loop:` 在未启动 / loop 未注入时
+            # 会把清理整段静默跳过,正是临时 profile 残留的原因之一)
+            await asyncio.get_running_loop().run_in_executor(self._executor, _sync_cleanup_external)
             logger.info(f"[browser_hub] 外部 Chrome session {session_id} 已关闭并清理")
         logger.info(f"[browser_hub] 关闭 session {session_id}")
         return True
