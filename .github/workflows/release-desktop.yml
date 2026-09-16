@@ -54,6 +54,23 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # 2026-09-16 构建提速:Rust target 缓存——release 全量编译 20-40 分钟是大头,
+      # 增量后仅重编变更 crate(实测可压缩到 5-10 分钟);key 按 Cargo.lock 哈希失效。
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          cache-all-crates: true
+
+      # 2026-09-16 构建提速:前端静态导出编译缓存(消除 "No build cache found" 全量冷编译)。
+      - name: Cache web static build
+        uses: actions/cache@v4
+        with:
+          path: apps/web/.next-static/cache
+          key: web-static-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            web-static-${{ runner.os }}-
+
       - name: Install Linux deps
         if: runner.os == 'Linux'
         run: |
