@@ -792,6 +792,10 @@ export interface StreamChatOptions {
    * 透传到后端用于注入 CLAUDE.md/AGENTS.md 项目记忆作为 system prompt。
    * 无绑定时为 undefined,后端使用默认 system prompt。 */
   workspacePath?: string
+  /** P1 #26(2026-09-16 立):知识库默认注入开关(对标 Qoder Knowledge Engine)。
+   *  默认 true(后端默认 top-3 知识检索注入 system_prompt,命中下发 citations 事件);
+   *  仅显式 false 时写入 body(关闭知识检索,降级纯对话),undefined 不传走后端默认开。 */
+  knowledgeContext?: boolean
   /** 浏览器端预加载的工作区文件内容(2026-08-02 立,阶段 1)。
    * web 非 Tauri 环境下,前端用 FileSystemDirectoryHandle 遍历读取工作区关键文件,
    * 把内容通过此字段传给后端,后端直接注入 system prompt(跳过从文件系统读取)。
@@ -1576,6 +1580,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   if (opts.stop !== undefined) body.stop = opts.stop
   if (opts.workspacePath) body.workspacePath = opts.workspacePath
   if (opts.workspaceContext) body.workspaceContext = opts.workspaceContext
+  // P1 #26:仅显式关闭时传 false(undefined/true 走后端默认开,不注入该 key 减小请求体积)
+  if (opts.knowledgeContext === false) body.knowledgeContext = false
   if (opts.contextLimit !== undefined) body.contextLimit = opts.contextLimit
   if (opts.agentId) body.agentId = opts.agentId
   if (opts.agentTools && opts.agentTools.length > 0) body.agentTools = opts.agentTools
@@ -2242,8 +2248,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         try {
           const json = JSON.parse(data) as Record<string, unknown>
           if (json?.type !== 'done' || !Array.isArray(json.memoryUpdates)) return
-          const items = (json.memoryUpdates as unknown[])
-            .filter((v): v is string => typeof v === 'string' && v.length > 0)
+          const items = (json.memoryUpdates as unknown[]).filter(
+            (v): v is string => typeof v === 'string' && v.length > 0,
+          )
           // 仅在有内容时回调(空数组不触发提示条)
           if (items.length > 0) opts.onMemoryUpdates!({ items })
         } catch {

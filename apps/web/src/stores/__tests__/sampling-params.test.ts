@@ -98,4 +98,52 @@ describe('useSamplingParamsStore (P1-7 高级参数)', () => {
     expect(resolveSamplingParams({ topK: 10 }, { c1: { topK: 99 } }, 'c1')).toEqual({ topK: 99 })
   })
 })
+
+describe('knowledgeContext 三态布尔(P1 #26 知识库注入开关)', () => {
+  beforeEach(() => {
+    useSamplingParamsStore.setState({ defaults: {}, byConversation: {} })
+  })
+
+  it('undefined = 默认开:不落盘,streamChat 不传该 key 走后端默认', () => {
+    expect(useSamplingParamsStore.getState().byConversation).toEqual({})
+    expect(getSamplingParams('c1').knowledgeContext).toBeUndefined()
+  })
+
+  it('显式 false 落盘(开关关闭,会话覆盖优先于默认开)', () => {
+    useSamplingParamsStore.getState().setParam('c1', 'knowledgeContext', false)
+    expect(useSamplingParamsStore.getState().byConversation.c1).toEqual({
+      knowledgeContext: false,
+    })
+    expect(getSamplingParams('c1').knowledgeContext).toBe(false)
+  })
+
+  it('true 归一为 undefined(开关打开 = 回到默认,覆盖记录整条移除不落盘)', () => {
+    useSamplingParamsStore.getState().setParam('c1', 'knowledgeContext', false)
+    useSamplingParamsStore.getState().setParam('c1', 'knowledgeContext', true)
+    expect(useSamplingParamsStore.getState().byConversation.c1).toBeUndefined()
+    expect(getSamplingParams('c1').knowledgeContext).toBeUndefined()
+  })
+
+  it('全局关闭 + 会话置 true:delete 覆盖后回落全局默认(不遮蔽,既有语义)', () => {
+    useSamplingParamsStore.getState().setParam(null, 'knowledgeContext', false)
+    useSamplingParamsStore.getState().setParam('c1', 'knowledgeContext', true)
+    expect(useSamplingParamsStore.getState().byConversation.c1).toBeUndefined()
+    expect(getSamplingParams('c1').knowledgeContext).toBe(false)
+    // 其他会话同样回落全局默认
+    expect(getSamplingParams('c2').knowledgeContext).toBe(false)
+  })
+
+  it('promoteToDefaults / clearConversation / resetDefaults 对 false 值行为正确', () => {
+    useSamplingParamsStore.getState().setParam('c1', 'knowledgeContext', false)
+    useSamplingParamsStore.getState().promoteToDefaults('c1')
+    expect(useSamplingParamsStore.getState().defaults).toEqual({ knowledgeContext: false })
+
+    useSamplingParamsStore.getState().setParam('c2', 'knowledgeContext', false)
+    useSamplingParamsStore.getState().clearConversation('c2')
+    expect(getSamplingParams('c2').knowledgeContext).toBe(false) // 回落全局默认(已提升)
+
+    useSamplingParamsStore.getState().resetDefaults()
+    expect(getSamplingParams('c2').knowledgeContext).toBeUndefined() // 回到默认开
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
