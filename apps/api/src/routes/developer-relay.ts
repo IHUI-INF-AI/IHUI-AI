@@ -30,7 +30,12 @@ import { rechargeApiKeyFromWallet } from '../services/relay-billing-service.js'
 import { createMapping, listMappings } from '../services/model-mapping-service.js'
 import { redeemCode } from '../services/redemption-code-service.js'
 import { idParamSchema } from './admin/_shared.js'
-import { createKey, updateKey, rotateSecret } from '../services/developer-api-keys-service.js'
+import {
+  createKey,
+  updateKey,
+  rotateSecret,
+  revokeKey,
+} from '../services/developer-api-keys-service.js'
 import { claimCoupon, listUserCoupons } from '../services/coupon-service.js'
 import { listUserCommissions } from '../services/relay-commission-service.js'
 import { getTieredProgress } from '../services/tiered-pricing-service.js'
@@ -258,6 +263,25 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '重置 API Key 失败'))
+    }
+  })
+
+  // ===== 1e. POST /developer/relay/keys/:id/revoke — 吊销 Key(软操作,2026-09-16 立) =====
+  // 与 PATCH status 的区别:吊销是显式业务动作,语义独立、幂等(重复吊销返回成功)、
+  // 只做 status='revoked' 单向迁移;恢复走 PATCH status='active'。
+  // 吊销后 checkQuota(status !== 'active')立即拒绝,llm_call_logs 关联记录保留。
+  server.post('/developer/relay/keys/:id/revoke', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      const okRevoked = await revokeKey(p.data.id, userId)
+      if (!okRevoked) return reply.status(404).send(error(404, 'API Key 不存在或无权操作'))
+      return reply.send(success({ revoked: true }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '吊销 API Key 失败'))
     }
   })
 

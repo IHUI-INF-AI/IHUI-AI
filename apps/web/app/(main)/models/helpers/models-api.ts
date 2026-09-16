@@ -146,4 +146,31 @@ export async function fetchModels(): Promise<Model[]> {
     return []
   }
 }
+
+/** 分时(高峰/低谷)定价规则(与 relay-public.ts 的 peakWindows 对齐,2026-09-16 立) */
+export interface RelayPeakWindow {
+  ruleName: string
+  modelId: string | null
+  daysOfWeek: number[]
+  startMinute: number
+  endMinute: number
+  multiplier: number
+}
+
+/**
+ * 拉取分时定价规则(公开数据)。
+ * 独立于 fetchModels:规则是全站级配置,失败降级空数组(不展示规则条),
+ * 不阻塞模型列表主流程,也不与其共用 queryKey(变更频率不同)。
+ */
+export async function fetchRelayPeakWindows(): Promise<RelayPeakWindow[]> {
+  try {
+    const r = await fetchApi<{ items: RelayPublicItem[]; peakWindows: RelayPeakWindow[] }>(
+      '/api/relay/models/public',
+    )
+    if (!r.success) return []
+    return Array.isArray(r.data?.peakWindows) ? r.data.peakWindows : []
+  } catch {
+    return []
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

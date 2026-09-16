@@ -125,14 +125,10 @@ export default function RelayKeysPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   })
-  // 2026-09-13 修复:原 DELETE /api/developer/keys/:id 端点不存在,
-  // 中转站吊销语义 = PATCH /api/developer/relay/keys/:id { status: 'revoked' }
+  // 2026-09-16 升级:改用专用吊销端点 POST /keys/:id/revoke(软操作/幂等/单向迁移,
+  // 服务端保留 Key 记录与调用日志);恢复仍走 PATCH status='active'。
   const revokeMut = useMutation({
-    mutationFn: (id: string) =>
-      api(`/api/developer/relay/keys/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'revoked' }),
-      }),
+    mutationFn: (id: string) => api(`/api/developer/relay/keys/${id}/revoke`, { method: 'POST' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
       toast.success('Key 已吊销')

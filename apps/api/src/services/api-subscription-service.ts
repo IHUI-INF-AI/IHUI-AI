@@ -22,7 +22,7 @@
  */
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import { plans, orders, developerApiKeys, tokenFlows } from '@ihui/database'
+import { plans, orders, developerApiKeys, tokenFlows, userBillingGroups } from '@ihui/database'
 import { generateApiKey, hashSecret } from '../utils/api-key-hash.js'
 import { logger } from '../utils/logger.js'
 // 窗口型订阅(2026-09-16 立):套餐配了日/周/月限额时,额外创建订阅实例
@@ -32,6 +32,8 @@ import {
   type SubscriptionWindowStatus,
   type SubscriptionWindowView,
 } from './subscription-window-service.js'
+// 分组售卖闭环(2026-09-16 立):套餐绑定计费分组时,订阅激活自动入组应用分组倍率
+import { assignUserToGroup } from './user-billing-group-service.js'
 
 // =============================================================================
 // 类型定义
@@ -321,6 +323,7 @@ export async function activateApiSubscription(
       dailyTokenLimit: plans.dailyTokenLimit,
       weeklyTokenLimit: plans.weeklyTokenLimit,
       monthlyTokenLimit: plans.monthlyTokenLimit,
+      billingGroupCode: plans.billingGroupCode,
     })
     .from(plans)
     .where(eq(plans.id, planId))
@@ -450,27 +453,62 @@ export async function activateApiSubscription(
     return { success: true, keyId, tokenQuota }
   })
 
-  // 5. 窗口型订阅:配额发放成功后创建订阅实例(有效期 + 窗口限额快照,2026-09-16 立)。
-  //    - 幂等:createSubscriptionForOrder 以 orderNo 去重,回调重试不会重复建实例。
+  // 5/6. 窗口型订阅实例 + 分组自动入组(两者相互独立,任一配置即执行,2026-09-16 立)。
+  //    - 幂等:createSubscriptionForOrder 以 orderNo 去重、assignUserToGroup 以 userId upsert,
+  //      回调重试不会重复建实例/重复入组。
   //    - 续费顺延:已有活跃订阅时,新实例从旧订阅到期时刻开始,叠加时长而非覆盖。
-  //    - 失败仅告警:降级为"仅 Key 余额"模式(仍受 token_balance 上限约束),不阻断到账。
-  if (result.success && hasWindowLimits) {
-    const sub = await createSubscriptionForOrder({
-      userId,
-      planId,
-      planName: planRow.name,
-      orderNo: orderNo ?? null,
-      validityDays: Number(planRow.validityDays ?? 30),
-      dailyTokenLimit: windowLimits.daily,
-      weeklyTokenLimit: windowLimits.weekly,
-      monthlyTokenLimit: windowLimits.monthly,
-    })
-    if (!sub) {
-      logger.warn('[api-subscription] 订阅实例创建失败,降级为仅余额模式', {
+  //    - 失败仅告警:实例创建失败降级为"仅 Key 余额"模式;入组失败不影响发放,均不阻断到账。
+  if (result.success && (hasWindowLimits || planRow.billingGroupCode)) {
+    let subEndAt: Date | undefined
+    if (hasWindowLimits) {
+      const sub = await createSubscriptionForOrder({
         userId,
         planId,
-        orderNo,
+        planName: planRow.name,
+        orderNo: orderNo ?? null,
+        validityDays: Number(planRow.validityDays ?? 30),
+        dailyTokenLimit: windowLimits.daily,
+        weeklyTokenLimit: windowLimits.weekly,
+        monthlyTokenLimit: windowLimits.monthly,
       })
+      if (sub) {
+        subEndAt = sub.endAt
+      } else {
+        logger.warn('[api-subscription] 订阅实例创建失败,降级为仅余额模式', {
+          userId,
+          planId,
+          orderNo,
+        })
+      }
+    }
+
+    // 6. 分组售卖闭环:套餐绑定计费分组时,激活即自动入组——用户立即应用分组倍率
+    //    与限流(买 Pro → vip 组,买 Enterprise → svip 组,这正是 user_billing_groups
+    //    表注释写明但一直未实现的设计意图)。按分组 name 软关联(billingGroupCode
+    //    存 name,该表以 name 唯一);members.expiresAt = 订阅 endAt,到期自动降级。
+    const groupName = planRow.billingGroupCode
+    if (groupName) {
+      try {
+        const [group] = await dbRead
+          .select({ id: userBillingGroups.id })
+          .from(userBillingGroups)
+          .where(and(eq(userBillingGroups.name, groupName), eq(userBillingGroups.enabled, true)))
+          .limit(1)
+        if (group) {
+          await assignUserToGroup(userId, group.id, 'subscription', subEndAt)
+        } else {
+          logger.warn('[api-subscription] 订阅分组不存在或未启用,跳过入组', {
+            userId,
+            groupName,
+          })
+        }
+      } catch (e) {
+        logger.warn('[api-subscription] 订阅入组失败(不影响到账)', {
+          userId,
+          groupName,
+          err: e instanceof Error ? e.message : String(e),
+        })
+      }
     }
   }
 
