@@ -272,4 +272,38 @@ jobs:
           echo "产物已同步到 apps/web/public/downloads/(desktop + extension)" >> $GITHUB_STEP_SUMMARY
           echo "桌面下载快照 desktop-feed.generated.ts 已刷新(版本/URL/大小自动解析)" >> $GITHUB_STEP_SUMMARY
 
+  # 2026-09-17:国内发行(Gitee)自动化——安装包+更新签名镜像到 Gitee release,
+  # latest.json(url 全部指向 Gitee 直链)更新 desktop-feed 分支 raw 直链。
+  # 更新器第一端点即该 raw 链接(薄壳化 exe 内嵌),GitHub feed 仅兜底。
+  sync-gitee:
+    name: Sync release to Gitee (国内发行)
+    needs: [build, publish-updater-json]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Sync bundles + updater feed to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITEE_OWNER: ${{ secrets.GITEE_OWNER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 .github/scripts/sync-gitee.py
+
+      - name: Summary
+        run: |
+          echo "### Gitee 国内发行同步完成" >> $GITHUB_STEP_SUMMARY
+          echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "安装包+签名已镜像 Gitee release;latest.json 已更新 desktop-feed 分支" >> $GITHUB_STEP_SUMMARY
+          echo "更新器端点(Gitee 优先): https://gitee.com/${{ secrets.GITEE_OWNER }}/IHUI-AI/raw/desktop-feed/latest.json" >> $GITHUB_STEP_SUMMARY
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
