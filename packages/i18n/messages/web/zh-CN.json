@@ -16855,7 +16855,8 @@
       "batchScanDetectError": "检测异常",
       "batchScanNoLoginUrl": "未找到该平台登录页配置",
       "batchScanStopped": "已停止",
-      "batchScanStoppedToast": "已停止扫码队列"
+      "batchScanStoppedToast": "已停止扫码队列",
+      "batchScanWindowClosedToast": "检测到浏览器窗口已关闭,已停止队列"
     },
     "ai": {
       "analyzeAll": "批量分析",

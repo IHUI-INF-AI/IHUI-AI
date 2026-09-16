@@ -16872,7 +16872,8 @@
       "batchScanDetectError": "検出エラー",
       "batchScanNoLoginUrl": "このプラットフォームのログインページ設定が見つかりません",
       "batchScanStopped": "停止済み",
-      "batchScanStoppedToast": "スキャンログインキューを停止しました"
+      "batchScanStoppedToast": "スキャンログインキューを停止しました",
+      "batchScanWindowClosedToast": "ブラウザウィンドウが閉じられたため、キューを停止しました"
     },
     "ai": {
       "analyzeAll": "一括分析",

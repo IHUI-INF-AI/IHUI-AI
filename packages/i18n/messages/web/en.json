@@ -16864,7 +16864,8 @@
       "batchScanDetectError": "detect error",
       "batchScanNoLoginUrl": "No login page configured for this platform",
       "batchScanStopped": "stopped",
-      "batchScanStoppedToast": "Scan login queue stopped"
+      "batchScanStoppedToast": "Scan login queue stopped",
+      "batchScanWindowClosedToast": "Browser window closed — queue stopped"
     },
     "ai": {
       "analyzeAll": "Batch Analysis",
