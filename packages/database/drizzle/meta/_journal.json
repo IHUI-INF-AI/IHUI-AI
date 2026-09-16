@@ -1856,6 +1856,13 @@
       "when": 1722896000000,
       "tag": "20260917000000_key_pool_scheduling_controls",
       "breakpoints": true
+    },
+    {
+      "idx": 266,
+      "version": "7",
+      "when": 1722982400000,
+      "tag": "20260917003000_relay_alert_silences",
+      "breakpoints": true
     }
   ]
 }
