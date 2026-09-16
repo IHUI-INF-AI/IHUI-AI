@@ -30,6 +30,8 @@ import { useWorkPanelStore } from '@/stores/work-panel'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { applyCodeBlockToFile } from '@/lib/apply-code-block'
 import { useCodeBlockRun, isRunnableLanguage, type RunResult } from '@/components/ai/code-block-run'
+// P3 #35(2026-09-16 立):流式稳定段/活跃段切分——稳定前缀 memo 缓存跳过 parse
+import { splitMarkdownStable } from '@/lib/markdown-stable-split'
 // 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
@@ -155,13 +157,7 @@ function InlineHtmlPreview({ code }: { code: string }) {
 
 // P1 #28(2026-09-16):代码块运行结果内联输出面板。
 // 样式与代码块一致(zinc-100 / dark:zinc-950),含命令、合并 stdout/stderr、exitCode 徽章、关闭按钮。
-function CodeRunOutput({
-  result,
-  onClose,
-}: {
-  result: RunResult
-  onClose: () => void
-}) {
+function CodeRunOutput({ result, onClose }: { result: RunResult; onClose: () => void }) {
   const t = useTranslations('chat')
   const isSuccess = result.status === 'success'
   const isRunning = result.status === 'running'
@@ -625,6 +621,25 @@ function hasUnclosedFence(content: string): boolean {
   return matches !== null && matches.length % 2 === 1
 }
 
+/** P3 #35:稳定段渲染组件——content 字符串不变时 memo 命中,整段跳过 react-markdown parse。 */
+const StableBlock = React.memo(function StableBlock({
+  content,
+  components,
+}: {
+  content: string
+  components: Components
+}) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
+      components={components}
+    >
+      {content}
+    </ReactMarkdown>
+  )
+})
+
 export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: MarkdownStreamProps) {
   // 自适应 throttle(leading + trailing)合并解析频率:
   // - 短内容(<2000 字符)用 50ms 保证跟手感
@@ -850,16 +865,39 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
     [collapseLines],
   )
 
+  // P3 #35(2026-09-16 立):稳定段/活跃段切分。
+  // 流式纯追加 → 前缀冻结:splitMarkdownStable 在最后一个安全块边界(围栏外空行、
+  // 非列表延续)切一刀;stable 用 memo 缓存跳过 parse,每 tick 只解析 active。
+  // 非流式(完成态)与短内容不切,走既有单 ReactMarkdown 全量路径(零行为差异)。
+  const { stable, active } = React.useMemo(
+    () => (isStreaming ? splitMarkdownStable(parseContent) : { stable: '', active: parseContent }),
+    [parseContent, isStreaming],
+  )
+
   return (
     // 2026-08-02:AI 对话正文 14px → 15px(text-[15px]),用户反馈"太大了 小点"
     <div className="!m-0 !p-0 !space-y-0 text-[15px]" data-testid="markdown-stream">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
-        components={components}
-      >
-        {parseContent}
-      </ReactMarkdown>
+      {stable ? (
+        <>
+          {/* 稳定前缀:内容冻结,memo 命中时零 parse */}
+          <StableBlock content={stable} components={components} />
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
+            components={components}
+          >
+            {active}
+          </ReactMarkdown>
+        </>
+      ) : (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
+          components={components}
+        >
+          {active}
+        </ReactMarkdown>
+      )}
       {isStreaming && (
         <span
           className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-primary align-middle"
