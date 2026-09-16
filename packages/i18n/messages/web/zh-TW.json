@@ -14325,6 +14325,16 @@
     "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
   },
   "models": {
+    "relay": {
+      "officialPrice": "官方價",
+      "paidPrice": "實付價",
+      "multiplier": "定價倍率",
+      "peak": "高峰",
+      "offPeak": "低谷",
+      "cacheRead": "快取讀",
+      "cacheWrite": "快取寫",
+      "subscriptionOnly": "訂閱專享"
+    },
     "aiNews": {
       "fallbackHint": "暫無最新資訊,顯示 2026-07 真實新模型",
       "liveTag": "實時",
@@ -15452,6 +15462,8 @@
     "none": "無"
   },
   "nav": {
+    "purchase": "購買 API",
+    "availableChannels": "可用渠道",
     "agentTeams": "智慧代理團隊",
     "about": "關於",
     "activities": "活動",
@@ -22158,5 +22170,51 @@
   "chatSearchBar": {
     "searchPlaceholder": "搜尋對話…",
     "searchAriaLabel": "搜尋對話"
+  },
+  "availableChannels": {
+    "title": "可用渠道公示",
+    "subtitle": "查看平臺在售的上游渠道、已上架模型與定價區間。",
+    "refresh": "重新整理",
+    "loading": "載入中...",
+    "empty": "暫無可公示的渠道",
+    "models": "模型",
+    "inputPrice": "輸入價(元/百萬)",
+    "outputPrice": "輸出價(元/百萬)",
+    "multiplier": "定價倍率",
+    "moreModels": "另有 {count} 個"
+  },
+  "purchase": {
+    "title": "購買 API 訂閱與額度",
+    "subtitle": "一處完成訂閱購買與帳戶儲值,支援微信與支付寶。",
+    "tabSubscribe": "訂閱方案",
+    "tabTopup": "帳戶儲值",
+    "currentSubscription": "目前訂閱",
+    "expiresAt": "有效期至",
+    "remaining": "剩餘額度",
+    "unlimited": "不限",
+    "dailyWindow": "每日額度",
+    "weeklyWindow": "每週額度",
+    "monthlyWindow": "每月額度",
+    "resetsIn": "距重置",
+    "noSubscription": "目前沒有生效中的訂閱,可選擇下方方案開通。",
+    "noPlans": "暫無可訂閱方案",
+    "validityDays": "有效期 {days} 天",
+    "modelWhitelist": "含 {count} 個專享模型",
+    "allModels": "全部已上架模型可用",
+    "currentPlan": "目前方案",
+    "subscribeNow": "立即訂閱",
+    "orderCreated": "已建立訂單 {orderNo},正在跳轉支付",
+    "loading": "載入中...",
+    "submitFailed": "提交失敗,請稍後重試",
+    "amount": "儲值金額(元)",
+    "amountRange": "儲值金額需在 {min} - {max} 元之間",
+    "payMethod": "支付方式",
+    "wechat": "微信支付",
+    "alipay": "支付寶",
+    "payNow": "立即支付",
+    "creating": "建立訂單中...",
+    "topupNote": "支付成功後金額將計入你的帳戶餘額,可用於呼叫模型或購買方案。",
+    "redeemHint": "有兌換碼?",
+    "goRedeem": "前往兌換"
   }
 }

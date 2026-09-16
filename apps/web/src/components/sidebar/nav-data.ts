@@ -147,6 +147,7 @@ const ADMIN_THEME_CHILDREN: NavItem[] = [
 const MODELS_CHILDREN: NavItem[] = [
   { href: '/models/overview', labelKey: 'modelsOverview', icon: LayoutDashboard },
   { href: '/models/channels', labelKey: 'modelsChannels', icon: Cable },
+  { href: '/available-channels', labelKey: 'availableChannels', icon: Cable },
   { href: '/models/keys', labelKey: 'modelsKeys', icon: Key },
   { href: '/models/logs', labelKey: 'modelsLogs', icon: FileText },
   { href: '/models/chats', labelKey: 'modelsChats', icon: MessagesSquare },
@@ -313,6 +314,7 @@ const DEVELOPER_TOOLS_CHILDREN: NavItem[] = [
   { href: '/developer/logs', labelKey: 'developerLogs', icon: FileText },
   { href: '/developer/versions', labelKey: 'developerVersions', icon: GitBranch },
   { href: '/developer/subscription', labelKey: 'developerSubscription', icon: CreditCard },
+  { href: '/purchase', labelKey: 'purchase', icon: CreditCard },
   { href: '/developer/notifications', labelKey: 'developerNotifications', icon: Bell },
   { href: '/developer/team', labelKey: 'developerTeam', icon: Users },
   { href: '/developer/billing', labelKey: 'developerBilling', icon: Receipt },
