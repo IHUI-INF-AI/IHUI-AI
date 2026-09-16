@@ -53,7 +53,11 @@ export const plans = pgTable('plans', {
   modelWhitelist: jsonb('model_whitelist').notNull().default([]),
   /** 是否在售(下架后不对外展示,但已购订阅不受影响) */
   isForSale: boolean('is_for_sale').default(true).notNull(),
-  /** 绑定的计费分组 code(软关联 user_billing_groups.code;空 = 不绑定分组) */
+  /**
+   * 绑定的计费分组名(软关联 user_billing_groups.name,该表以 name 唯一;空 = 不绑定分组)。
+   * 订阅激活时按此自动入组(assignedReason='subscription',expiresAt=订阅 endAt),
+   * 用户即应用分组倍率与限流;订阅到期随 members.expiresAt 自动降级回默认组。
+   */
   billingGroupCode: varchar('billing_group_code', { length: 64 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

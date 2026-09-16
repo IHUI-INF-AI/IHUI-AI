@@ -14308,6 +14308,10 @@
   },
   "models": {
     "relay": {
+      "timeRules": "시간대별 가격",
+      "timeRuleAllModels": "전체 모델",
+      "timeRuleAllDays": "매일",
+      "timeRuleWeekdayNames": "일,월,화,수,목,금,토",
       "officialPrice": "공식 가격",
       "paidPrice": "실제 가격",
       "multiplier": "배율",

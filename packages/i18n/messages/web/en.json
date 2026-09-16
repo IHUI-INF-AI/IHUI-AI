@@ -14318,6 +14318,10 @@
   },
   "models": {
     "relay": {
+      "timeRules": "Time-based pricing",
+      "timeRuleAllModels": "All models",
+      "timeRuleAllDays": "Every day",
+      "timeRuleWeekdayNames": "Sun,Mon,Tue,Wed,Thu,Fri,Sat",
       "officialPrice": "Official price",
       "paidPrice": "Your price",
       "multiplier": "Multiplier",

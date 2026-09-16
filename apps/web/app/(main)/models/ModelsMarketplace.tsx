@@ -25,8 +25,10 @@ import {
   Trophy,
   Zap,
   Cable,
+  Clock,
   History,
 } from 'lucide-react'
+import type { RelayPeakWindow } from './helpers'
 
 import {
   Button,
@@ -67,6 +69,8 @@ import type { Model, QuickFilter, SortKey, ViewMode } from './types'
 
 interface Props {
   list: Model[]
+  /** 分时(高峰/低谷)定价规则(2026-09-16 立);空数组 = 无启用规则,整条隐藏 */
+  peakWindows?: RelayPeakWindow[]
 }
 
 const QUICK_FILTERS: QuickFilter[] = [
@@ -106,7 +110,7 @@ const PAGE_SIZE_STEP = 12
  * - icon + 中文 span 父容器加 [&>span]:translate-y-[var(--text-vcenter-offset)] 视觉居中
  * - 输入框 focus 用 ring/20,无蓝光描边
  */
-export function ModelsMarketplace({ list }: Props) {
+export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
   const t = useTranslations('models')
   const router = useRouter()
   const openPanel = useAiPanelStore((s) => s.openPanel)
@@ -440,6 +444,9 @@ export function ModelsMarketplace({ list }: Props) {
           </>
         )}
       </div>
+
+      {/* 分时(高峰/低谷)定价规则条(2026-09-16 立):有启用规则才展示 */}
+      {peakWindows.length > 0 && <RelayPeakWindowsBar windows={peakWindows} />}
 
       {/* 卡片网格 / 列表 */}
       {visible.length === 0 ? (
@@ -1235,6 +1242,63 @@ function RelayPriceCompare({ model }: { model: Model }) {
           <span className="truncate pl-2 text-sky-700 dark:text-sky-400">{plans.join(' · ')}</span>
         </div>
       )}
+    </div>
+  )
+}
+
+/** 压缩连续星期为区间显示(如 [1,2,3,4,5] → "周一-周五");按语言取星期名,空 = 每天文本 */
+function peakDaysLabel(days: number[], weekdayNames: string[], allDaysText: string): string {
+  if (!days.length) return allDaysText
+  const sorted = [...days].sort((a, b) => a - b)
+  const parts: string[] = []
+  let start = sorted[0]!
+  let prev = start
+  for (let i = 1; i <= sorted.length; i++) {
+    const cur = sorted[i]
+    if (cur !== prev + 1) {
+      parts.push(
+        start === prev
+          ? (weekdayNames[start] ?? String(start))
+          : `${weekdayNames[start] ?? start}-${weekdayNames[prev] ?? prev}`,
+      )
+      start = cur!
+    }
+    prev = cur!
+  }
+  return parts.join('/')
+}
+
+/**
+ * 分时(高峰/低谷)定价规则条(2026-09-16 立)。
+ * 紧凑展示启用中的规则:规则名 / 适用范围 / 星期 / 时段 / 倍率。
+ * 数据源 /api/relay/models/public 的 peakWindows;接口失败降级空数组,整条隐藏。
+ */
+function RelayPeakWindowsBar({ windows }: { windows: RelayPeakWindow[] }) {
+  const t = useTranslations('models')
+  const weekdayNames = t('relay.timeRuleWeekdayNames').split(',')
+  const minuteLabel = (m: number) =>
+    `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+  return (
+    <div className="rounded-md border border-sky-500/25 bg-sky-500/5 px-3 py-2">
+      <p className="flex items-center gap-1.5 text-xs font-medium text-sky-700 dark:text-sky-400 [&>span]:translate-y-[var(--text-vcenter-offset)]">
+        <Clock className="h-3 w-3" aria-hidden />
+        <span>{t('relay.timeRules')}</span>
+      </p>
+      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+        {windows.map((w) => (
+          <span key={w.ruleName} className="inline-flex flex-wrap items-center gap-1">
+            <span className="font-medium text-foreground">{w.ruleName}</span>
+            <span>{w.modelId ?? t('relay.timeRuleAllModels')}</span>
+            <span>{peakDaysLabel(w.daysOfWeek, weekdayNames, t('relay.timeRuleAllDays'))}</span>
+            <span className="tabular-nums">
+              {minuteLabel(w.startMinute)}–{minuteLabel(w.endMinute === 1440 ? 1439 : w.endMinute)}
+            </span>
+            <span className="font-medium tabular-nums text-foreground">
+              ×{w.multiplier.toFixed(2)}
+            </span>
+          </span>
+        ))}
+      </div>
     </div>
   )
 }

@@ -14326,6 +14326,10 @@
   },
   "models": {
     "relay": {
+      "timeRules": "時間帯別料金",
+      "timeRuleAllModels": "全モデル",
+      "timeRuleAllDays": "毎日",
+      "timeRuleWeekdayNames": "日,月,火,水,木,金,土",
       "officialPrice": "公式価格",
       "paidPrice": "実売価格",
       "multiplier": "倍率",
