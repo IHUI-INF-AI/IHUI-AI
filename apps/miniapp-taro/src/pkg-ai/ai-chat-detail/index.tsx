@@ -30,7 +30,7 @@ import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { ChatScreenMessage, MessageInputFile } from '@ihui/types'
-import { chat, getChatHistory, type ChatMessage } from '@/api'
+import { chatStream, getChatHistory, type ChatMessage } from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -251,16 +251,34 @@ export default function AiChatDetail() {
         ...messages.map((m) => ({ role: m.role, content: m.content }) as ChatMessage),
         { role: 'user' as const, content: text },
       ]
-      const result = await chat(chatMessages, sessionId || undefined)
+      // #12 小程序 AI 增强(2026-09-16 立):阻塞式 chat() 切换为 chatStream 流式——
+      // onChunk 逐 token 更新最后一条 assistant 气泡(与主聊天页 ai/chat.tsx 同一传输层
+      // src/lib/sse.ts:enableChunked + 断点续传 + 指数退避重连),onMeta 取回 sessionId;
+      // 历史会话接口(getChatHistory)不动。
+      await chatStream(
+        chatMessages,
+        sessionId || '',
+        {},
+        (delta) => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === aiMsg.id ? { ...m, content: m.content + delta } : m)),
+          )
+          scrollToBottom()
+        },
+        undefined,
+        (meta) => {
+          if (meta.sessionId) setSessionId(meta.sessionId)
+        },
+      )
+      // 流结束兜底:零输出时显示占位(原阻塞式 result.reply 为空的等价场景)
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === aiMsg.id
-            ? { ...m, content: result?.reply || tt('aiChatDetail.noReply', '暂无回复') }
+          m.id === aiMsg.id && !m.content
+            ? { ...m, content: tt('aiChatDetail.noReply', '暂无回复') }
             : m,
         ),
       )
-      if (result?.sessionId) setSessionId(result.sessionId)
-      scrollToBottom()
+      if (!sessionId) scrollToBottom()
     } catch (e: unknown) {
       const err = e instanceof Error ? e : new Error(String(e))
       logger.error('unknown', '发送消息', err)
