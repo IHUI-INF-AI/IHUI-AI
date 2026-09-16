@@ -391,6 +391,10 @@ import developerRelayBootstrapRoutes from './developer-relay-bootstrap.js'
 import developerRelayKeysAdminRoutes from './developer-relay-keys-admin.js'
 // Usage 重度分析(2026-09-16,第三轮对标补强 K)
 import developerRelayUsageAnalyticsRoutes from './developer-relay-usage-analytics.js'
+// 备份作业系统(2026-09-16,补强 V)
+import adminBackupJobsRoutes from './admin/backup-jobs.js'
+// 号池调度精细控制(2026-09-16,补强 Y)
+import adminRelayKeySchedulingRoutes from './admin/relay-key-scheduling.js'
 // 渠道公开监控(2026-09-16,第三轮对标补强 O)
 import relayMonitorPublicRoutes from './relay-monitor-public.js'
 // 告警规则引擎管理(2026-09-16,补强 U)
@@ -1114,6 +1118,10 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(relayMonitorPublicRoutes, { prefix: '/api' })
   // 告警规则引擎 CRUD + 立即评估(2026-09-16,补强 U)
   server.register(adminRelayAlertRulesRoutes, { prefix: '/api/admin' })
+  // 备份作业系统(2026-09-16,补强 V)
+  server.register(adminBackupJobsRoutes, { prefix: '/api/admin' })
+  // 号池调度精细控制(2026-09-16,补强 Y)
+  server.register(adminRelayKeySchedulingRoutes, { prefix: '/api/admin' })
   // developer API Key 分组(2026-08-01 立,多 Key 共享额度池 + 子 Key 权限继承 + 组内用量排行)
   server.register(developerApiKeyGroupsRoutes, { prefix: '/api/developer' })
 
