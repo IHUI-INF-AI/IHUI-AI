@@ -570,7 +570,10 @@ export function createSendMessage(
           if (!currentConversationId) return
 
           try {
-            const result = await getMessages(currentConversationId, { pageSize: 100 })
+            const result = await getMessages(currentConversationId, {
+              direction: 'initial',
+              pageSize: 100,
+            })
             if (!result.success || !result.data) return
             const remoteMessages = result.data.messages
 
@@ -1058,7 +1061,7 @@ export async function editMessageAndRerun(
       if (cp) {
         await restoreCheckpoint(cp.checkpoint_id, conversationId, 'both')
         // 服务端历史已回滚到 checkpoint 时点(可能早于目标消息前一条),以服务端为准刷新前端
-        const snap = await getMessages(conversationId, { pageSize: 100 })
+        const snap = await getMessages(conversationId, { direction: 'initial', pageSize: 100 })
         if (snap.success && snap.data) {
           useChatStore.setState({
             messages: snap.data.messages.map((m) => ({
