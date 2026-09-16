@@ -15536,6 +15536,7 @@
     "none": "없음"
   },
   "nav": {
+    "adminRelayInsights": "인사이트",
     "adminRelayCapacity": "용량 및 추이",
     "adminRelayAlertRules": "알림 규칙",
     "developerErrorCodes": "API 오류 코드",
