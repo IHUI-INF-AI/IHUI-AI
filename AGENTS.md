@@ -133,6 +133,23 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **例外(不强制)**:文档 / 营销页正文里的装饰性 emoji(提示 💡、技术栈列表、章节叙述中的 emoji)属于内容文案,不在此限;但同一页面应风格统一,优先用图标库。
 - 守门:`scripts/check-no-emoji-icons.mjs` 扫描 UI 图标位 emoji(icon 字段 / JSX 渲染位 / 三元条件图标),豁免注释、i18n 参数、表情面板、`'★'.repeat` 评分字符串、表格布尔标记、docs/marketing 正文;guardian-runner 第 11h 项(pre-commit staged 模式阻塞 commit)。
 
+### 品牌/平台图标必须是官方真实图标(强制)
+
+- **展示第三方品牌 / 平台身份的图标(模型、推广平台、接入平台、社交渠道等),一律使用该品牌官方发布的真实图标,严禁手绘、自造、近似模仿或用字母占位图代替。** 手绘品牌图标属于品牌失真,被用户发现即为交付事故(2026-09 头条/WordPress/微博图标事故教训)。
+- **官方图标获取链路(按优先级)**:
+  1. 官网 favicon 直取:`https://<domain>/favicon.ico`;
+  2. Google favicon 服务:`https://www.google.com/s2/favicons?domain=<domain>&sz=128`;
+  3. 备源:`https://favicon.im/<domain>?larger=true`;
+  4. 品牌官方 CDN / 官网 press-kit 资源。
+     下载后必须人工目检(Read 工具查看图片)确认是官方真实图形,不是字母占位或第三方水印版。
+- **存放与引用分离**:
+  - 发布平台官方 favicon:`apps/web/public/publish-icons/`(引用方:`apps/web/src/components/publish/platform-icon.tsx` 的 `PNG_ICONS` 注册表);
+  - 页脚/跑马灯 mono 白色剪影素材:`apps/web/public/footer/tuiguangpingtai/`(引用方:`apps/web/src/components/marketing/footer-data.ts`,带 `mono: true` 反色适配)。
+    **两套素材禁止混用**:官方彩色 favicon 不得覆盖页脚 mono 剪影同名文件,反之亦然;新增图标先进 `publish-icons/`,不与 footer 素材重名。
+- **深色模式可见性**:黑色系官方图标在注册表中标 `invertInDark: true`(深色下反色为白);彩色官方 favicon 无需反色,靠 `bg-primary/10` 容器衬托。
+- **素材卫生**:被替代的旧图标文件必须同任务删除,不留孤儿资源;`.ico` 仅在拿不到 `.png/.svg` 时使用。
+- 违反本条 = 未完成:用户要求"官方图标"时,交付物必须逐个可溯源到官方域名,可附来源 URL 清单。
+
 ### 圆角容器内 absolute 子元素避让
 
 - 父容器 `rounded-xl` + `overflow-hidden` 时,贴边子元素**禁止** `h-full`/`w-full`,用 `top-<radius> bottom-<radius>`(纵向)或 `left-<radius> right-<radius>`(横向)替代。映射:`rounded-lg`→`top-2 bottom-2` / `rounded-xl`→`top-3 bottom-3` / `rounded-2xl`→`top-4 bottom-4`。
