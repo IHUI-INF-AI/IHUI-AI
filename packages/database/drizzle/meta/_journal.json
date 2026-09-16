@@ -1814,6 +1814,13 @@
       "when": 1722377600000,
       "tag": "20260913180000_llm_call_logs_provider_code_widen",
       "breakpoints": true
+    },
+    {
+      "idx": 260,
+      "version": "7",
+      "when": 1722464000000,
+      "tag": "20260916170000_api_subscription_windows_and_peak_pricing",
+      "breakpoints": true
     }
   ]
 }

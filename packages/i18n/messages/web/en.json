@@ -14317,6 +14317,16 @@
     "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
   },
   "models": {
+    "relay": {
+      "officialPrice": "Official price",
+      "paidPrice": "Your price",
+      "multiplier": "Multiplier",
+      "peak": "Peak",
+      "offPeak": "Off-peak",
+      "cacheRead": "Cache read",
+      "cacheWrite": "Cache write",
+      "subscriptionOnly": "Subscription only"
+    },
     "aiNews": {
       "fallbackHint": "No live feed — showing 2026-07 real new models",
       "liveTag": "Live",
@@ -15449,6 +15459,8 @@
     "none": "None"
   },
   "nav": {
+    "purchase": "Buy API",
+    "availableChannels": "Available channels",
     "agentTeams": "Agent Teams",
     "about": "About",
     "activities": "Activities",
@@ -22173,5 +22185,51 @@
   "chatSearchBar": {
     "searchPlaceholder": "Search conversations…",
     "searchAriaLabel": "Search conversations"
+  },
+  "availableChannels": {
+    "title": "Available channels",
+    "subtitle": "Browse upstream channels, listed models and price ranges.",
+    "refresh": "Refresh",
+    "loading": "Loading...",
+    "empty": "No channels to display",
+    "models": "Models",
+    "inputPrice": "Input (CNY / 1M)",
+    "outputPrice": "Output (CNY / 1M)",
+    "multiplier": "Multiplier",
+    "moreModels": "{count} more"
+  },
+  "purchase": {
+    "title": "Buy API subscription and credit",
+    "subtitle": "Subscribe or top up in one place. WeChat Pay and Alipay supported.",
+    "tabSubscribe": "Plans",
+    "tabTopup": "Top up",
+    "currentSubscription": "Current subscription",
+    "expiresAt": "Valid until",
+    "remaining": "Remaining",
+    "unlimited": "Unlimited",
+    "dailyWindow": "Daily quota",
+    "weeklyWindow": "Weekly quota",
+    "monthlyWindow": "Monthly quota",
+    "resetsIn": "Resets in",
+    "noSubscription": "No active subscription. Choose a plan below to get started.",
+    "noPlans": "No plans available",
+    "validityDays": "Valid for {days} days",
+    "modelWhitelist": "Includes {count} exclusive models",
+    "allModels": "All listed models included",
+    "currentPlan": "Current plan",
+    "subscribeNow": "Subscribe",
+    "orderCreated": "Order {orderNo} created, redirecting to payment",
+    "loading": "Loading...",
+    "submitFailed": "Submission failed, please try again",
+    "amount": "Amount (CNY)",
+    "amountRange": "Amount must be between {min} and {max} CNY",
+    "payMethod": "Payment method",
+    "wechat": "WeChat Pay",
+    "alipay": "Alipay",
+    "payNow": "Pay now",
+    "creating": "Creating order...",
+    "topupNote": "The amount is credited to your account balance after payment, usable for model calls or plans.",
+    "redeemHint": "Have a redeem code?",
+    "goRedeem": "Redeem"
   }
 }

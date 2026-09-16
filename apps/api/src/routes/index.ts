@@ -397,6 +397,8 @@ import adminRelayChannelsRoutes from './admin/relay-channels.js'
 import adminTieredPricingRoutes from './admin/tiered-pricing.js'
 import adminTopupConfigRoutes from './admin/topup-config.js'
 import adminRelayPricingRoutes from './admin/relay-pricing.js'
+// 分时(高峰/低谷)倍率规则管理(2026-09-16 立)
+import adminRelayPeakPricingRoutes from './admin/relay-peak-pricing.js'
 import adminUserBillingGroupsRoutes from './admin/user-billing-groups.js'
 import v1MessagesRoutes from './v1-messages.js'
 // P0 第二批次(2026-07-31 立):rerank/moderations + realtime + mcp-gateway + midjourney 4 个对外端点
@@ -1114,6 +1116,8 @@ export function registerRoutes(server: FastifyInstance) {
   // admin 价格历史 + 限时折扣调度 + 动态调价建议(7 端点):
   // GET/POST /api/admin/relay/pricing/history + GET/POST/PATCH/DELETE /api/admin/relay/pricing/discounts + GET /api/admin/relay/pricing/suggestions
   server.register(adminRelayPricingRoutes, { prefix: '/api/admin' })
+  // 分时(高峰/低谷)倍率规则 CRUD + 命中预览(2026-09-16 立)
+  server.register(adminRelayPeakPricingRoutes, { prefix: '/api/admin' })
   // Anthropic Messages 原生格式端点(POST /v1/anthropic/messages,内部转 OpenAI 格式走 relay 链路)
   // 注:用 /v1/anthropic 前缀而非 /v1,因 v1-knowledge-tools.ts:2380 已注册 POST /v1/messages(发布消息),
   // 同 method+path 会触发 FST_ERR_DUPLICATED_ROUTE 崩溃。Anthropic SDK 用户设

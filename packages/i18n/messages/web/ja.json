@@ -14325,6 +14325,16 @@
     "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
   },
   "models": {
+    "relay": {
+      "officialPrice": "公式価格",
+      "paidPrice": "実売価格",
+      "multiplier": "倍率",
+      "peak": "ピーク",
+      "offPeak": "オフピーク",
+      "cacheRead": "キャッシュ読取",
+      "cacheWrite": "キャッシュ書込",
+      "subscriptionOnly": "サブスク限定"
+    },
     "aiNews": {
       "fallbackHint": "最新ニュースなし — 2026-07 新モデルを表示中",
       "liveTag": "ライブ",
@@ -15457,6 +15467,8 @@
     "none": "なし"
   },
   "nav": {
+    "purchase": "API 購入",
+    "availableChannels": "利用可能なチャネル",
     "agentTeams": "エージェントチーム",
     "about": "概要",
     "activities": "アクティビティ",
@@ -22181,5 +22193,51 @@
   "chatSearchBar": {
     "searchPlaceholder": "会話を検索…",
     "searchAriaLabel": "会話を検索"
+  },
+  "availableChannels": {
+    "title": "利用可能なチャネル",
+    "subtitle": "提供中の中継チャネル、モデル、価格帯を確認できます。",
+    "refresh": "再読み込み",
+    "loading": "読み込み中...",
+    "empty": "表示できるチャネルがありません",
+    "models": "モデル",
+    "inputPrice": "入力価格(元/100万)",
+    "outputPrice": "出力価格(元/100万)",
+    "multiplier": "価格倍率",
+    "moreModels": "他 {count} 件"
+  },
+  "purchase": {
+    "title": "API サブスクと残高の購入",
+    "subtitle": "サブスク購入とチャージを 1 ページで。WeChat Pay と Alipay に対応。",
+    "tabSubscribe": "プラン",
+    "tabTopup": "チャージ",
+    "currentSubscription": "現在のサブスク",
+    "expiresAt": "有効期限",
+    "remaining": "残量",
+    "unlimited": "無制限",
+    "dailyWindow": "1 日の上限",
+    "weeklyWindow": "1 週間の上限",
+    "monthlyWindow": "1 か月の上限",
+    "resetsIn": "リセットまで",
+    "noSubscription": "有効なサブスクはありません。下記のプランから開始できます。",
+    "noPlans": "購入可能なプランがありません",
+    "validityDays": "有効期間 {days} 日",
+    "modelWhitelist": "専用モデル {count} 件を含む",
+    "allModels": "掲載中の全モデルが利用可能",
+    "currentPlan": "現在のプラン",
+    "subscribeNow": "購読する",
+    "orderCreated": "注文 {orderNo} を作成しました。決済へ移動します",
+    "loading": "読み込み中...",
+    "submitFailed": "送信に失敗しました。後でもう一度お試しください",
+    "amount": "チャージ金額(元)",
+    "amountRange": "金額は {min} 〜 {max} 元の範囲で入力してください",
+    "payMethod": "支払い方法",
+    "wechat": "WeChat Pay",
+    "alipay": "Alipay",
+    "payNow": "支払う",
+    "creating": "注文を作成中...",
+    "topupNote": "決済完了後、金額はアカウント残高に加算され、モデル呼び出しやプラン購入に利用できます。",
+    "redeemHint": "引換コードをお持ちですか?",
+    "goRedeem": "引換する"
   }
 }

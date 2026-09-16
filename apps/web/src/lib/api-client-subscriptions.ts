@@ -24,6 +24,42 @@ export interface PlanInfo {
   interval: string
   features: string[]
   billingPeriod: string
+  /** 划线原价(分);0 = 不展示原价(2026-09-16 立) */
+  originalPrice: number
+  /** 有效期(天);0 = 不过期 */
+  validityDays: number
+  /** 日窗口限额(token):-1 不限 / 0 未配置 / >0 上限 */
+  dailyTokenLimit: number
+  /** 周窗口限额(token) */
+  weeklyTokenLimit: number
+  /** 月窗口限额(token) */
+  monthlyTokenLimit: number
+  /** 套餐可用模型白名单(空数组 = 全部模型) */
+  modelWhitelist: string[]
+}
+
+/** 订阅窗口额度状态(2026-09-16 立)。 */
+export interface SubscriptionWindowStatus {
+  windowType: 'daily' | 'weekly' | 'monthly'
+  /** 限额 token:-1 不限 / 0 未配置 / >0 上限 */
+  limit: number
+  used: number
+  /** 剩余 token;limit<=0 时为 -1 */
+  remaining: number
+  windowStart: string
+  windowEnd: string
+  /** 距离窗口重置的秒数 */
+  resetsInSeconds: number
+}
+
+/** 当前订阅实例(含有效期)。 */
+export interface ActiveSubscription {
+  id: string
+  planId: string | null
+  planName: string
+  startAt: string
+  endAt: string
+  autoRenew: boolean
 }
 
 /** 订阅历史记录。 */
@@ -42,6 +78,10 @@ export interface UserSubscriptionStatus {
   activePlan: PlanInfo | null
   remainingTokens: number
   history: SubscriptionRecord[]
+  /** 当前订阅实例(含有效期);无活跃订阅为 null(2026-09-16 立) */
+  subscription: ActiveSubscription | null
+  /** 日/周/月窗口额度与重置倒计时;无活跃订阅为空数组(2026-09-16 立) */
+  windows: SubscriptionWindowStatus[]
 }
 
 /** 订阅页面 GET 返回结构。 */

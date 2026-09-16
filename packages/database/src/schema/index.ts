@@ -252,6 +252,8 @@ export * from './crash-reports.js'
 export * from './service-inquiries.js'
 // AI 教育管理新增表(2026-08-11 立,学期/班级/课程表/菜谱/学习计划 7 表)
 export * from './edu-ai-management.js'
+// 中转站分时(高峰/低谷)倍率规则表(2026-09-16 立,按星期+时段浮动定价,命中即用不叠加)
+export * from './relay-peak-pricing.js'
 
 // F5 dead-migration 处置(2026-08-15):补 TS schema 定义,消除 drift 告警
 // 这些表由 apps/ai-service(Python)或 apps/api(TS)以 raw SQL 读写,属项目自有表
