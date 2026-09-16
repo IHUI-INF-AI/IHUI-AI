@@ -180,6 +180,22 @@ export const aiPricing = pgTable(
     tieredCallPrices: jsonb('tiered_call_prices'),
     // per_video 计价单位:'call'(按次) | 'second'(按秒)
     videoUnit: varchar('video_unit', { length: 8 }),
+    // ── 长上下文加价 + 推理输出倍率(2026-09-16 立,对标 Sub2API maxReasoningMultiplier)──
+    // 长上下文加价:promptTokens 超过阈值时,倍率链额外乘 longContextMultiplier
+    // (上游对超长上下文的成本上浮转嫁,如 1.5 = 加价 50%)。
+    longContextMultiplier: numeric('long_context_multiplier', {
+      precision: 10,
+      scale: 4,
+      mode: 'number',
+    }),
+    /** 长上下文判定阈值(请求 promptTokens,默认 200K) */
+    longContextThresholdTokens: integer('long_context_threshold_tokens'),
+    /** 推理输出倍率:仅作用于 completionTokens 分量(推理模型输出成本上浮),1 = 同价 */
+    reasoningOutputMultiplier: numeric('reasoning_output_multiplier', {
+      precision: 10,
+      scale: 4,
+      mode: 'number',
+    }),
     regionPricing: jsonb('region_pricing').notNull().default({ cn: 1.0 }),
     discount: jsonb('discount'),
     currency: varchar('currency', { length: 8 }).default('CNY').notNull(),

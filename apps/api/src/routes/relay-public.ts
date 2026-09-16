@@ -73,6 +73,12 @@ interface PublicRelayModelItem {
   subscriptionPlans: string[]
   /** 中转站展示排序(越小越靠前) */
   relaySortOrder: number
+  /** 长上下文加价倍率(promptTokens 超阈值时乘);null = 未启用(2026-09-16 立) */
+  longContextMultiplier: number | null
+  /** 长上下文判定阈值(promptTokens);null = 未配置(默认按 200K) */
+  longContextThresholdTokens: number | null
+  /** 推理输出倍率(仅 completionTokens 分量);null = 未配置(= 同价) */
+  reasoningOutputMultiplier: number | null
   /** 计费模式(2026-09-13):token(默认)| per_call(按次三档)| per_image(按张)| per_video(按次/按秒) */
   billingMode: 'token' | 'per_call' | 'per_image' | 'per_video'
   /** 单位售价(分):per_image=分/张;per_video=分/次或分/秒(videoUnit);其余 0 */
@@ -149,6 +155,10 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
           perUnitPrice: aiPricing.perUnitPrice,
           tieredCallPrices: aiPricing.tieredCallPrices,
           videoUnit: aiPricing.videoUnit,
+          // 长上下文加价 + 推理输出倍率(G,2026-09-16):公示用,未配置为 null(不加价)
+          longContextMultiplier: aiPricing.longContextMultiplier,
+          longContextThresholdTokens: aiPricing.longContextThresholdTokens,
+          reasoningOutputMultiplier: aiPricing.reasoningOutputMultiplier,
         })
         .from(aiPricing)
         .where(
@@ -230,6 +240,13 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
           effectiveOutputPricePer1k: outputBase * multiplier * peakMultiplier,
           subscriptionPlans: subscriptionPlanMap.get(key) ?? [],
           relaySortOrder: toNumber(r.relaySortOrder, 0),
+          // 长上下文加价与推理输出倍率公示(G,2026-09-16):未配置为 null(= 不加价)
+          longContextMultiplier:
+            p?.longContextMultiplier != null ? Number(p.longContextMultiplier) : null,
+          longContextThresholdTokens:
+            p?.longContextThresholdTokens != null ? Number(p.longContextThresholdTokens) : null,
+          reasoningOutputMultiplier:
+            p?.reasoningOutputMultiplier != null ? Number(p.reasoningOutputMultiplier) : null,
           billingMode,
           relayPerUnitPriceCents:
             (billingMode === 'per_image' || billingMode === 'per_video') && perUnit > 0

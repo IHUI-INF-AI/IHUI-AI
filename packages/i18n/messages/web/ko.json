@@ -10195,6 +10195,41 @@
     "wrongLabel": "오답"
   },
   "developer": {
+    "bootstrap": {
+      "title": "원클릭 설정",
+      "description": "\"{name}\"용 각 클라이언트 붙여넣기 설정 생성",
+      "clientCodex": "Codex",
+      "clientCodexWs": "Codex (WS)",
+      "clientClaudeCode": "Claude Code",
+      "clientOpencode": "OpenCode",
+      "clientGemini": "Gemini CLI",
+      "clientGrok": "Grok CLI",
+      "copy": "복사",
+      "copied": "복사됨",
+      "copyFailed": "복사 실패",
+      "configPath": "설정 파일 경로",
+      "loading": "불러오는 중...",
+      "loadFailed": "설정 불러오기 실패. 다시 시도하세요."
+    },
+    "dashboard": {
+      "todayCost": "오늘 비용",
+      "actualCost": "실제 결제",
+      "todayCostHint": "오늘 플랫폼 요율로 청구된 실제 지출(회원 할인 포함). API에 별도 공식가 환산 필드가 없습니다.",
+      "balanceWindows": "잔액 창",
+      "dailyWindow": "일간",
+      "weeklyWindow": "주간",
+      "monthlyWindow": "월간",
+      "resetsIn": "{time} 후 초기화",
+      "unlimited": "무제한",
+      "quickActions": "빠른 작업",
+      "createKey": "키 만들기",
+      "createKeyDesc": "새 API 키 생성",
+      "buyCredit": "구매 / 충전",
+      "buyCreditDesc": "잔액 충전 또는 플랜 구독",
+      "viewUsage": "사용량 보기",
+      "viewUsageDesc": "모델 / 날짜별 상세",
+      "noSubscription": "활성 플랜 없음, 잔액 창 없음"
+    },
     "errorCodes": {
       "title": "API 오류 코드",
       "subtitle": "모든 API 오류 코드와 해당 HTTP 상태 코드, 그리고 해결 방법을 한눈에 정리한 목록입니다.",
