@@ -55,6 +55,8 @@ import {
 import { useMediaQuery } from '@/hooks/use-media-query'
 // P3 #34(2026-09-16 立):流式屏幕阅读器播报(aria-live)
 import { SrStreamAnnouncer } from '@/components/chat/sr-stream-announcer'
+// P3 #43(2026-09-16 立):成本预检/对比条
+import { CostEstimateBar } from '@/components/ai/cost-estimate-bar'
 
 /** 全局 AI docked 侧边面板(对齐旧架构 .ai-side-panel 设计)。
  * - 默认 display:none,由 useAiPanelStore.open 控制
@@ -1349,6 +1351,9 @@ export function AISidePanel() {
 
             {/* 压缩状态栏(2026-08-16 立):在输入框上方显示压缩进度和结果 */}
             <CompactionStatusBar />
+
+            {/* P3 #43 成本协商 v1(2026-09-16 立):发送前成本预检估算 + 流后实际对比 */}
+            <CostEstimateBar />
 
             {/* 输入区 */}
             <MessageInput
