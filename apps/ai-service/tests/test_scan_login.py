@@ -8,6 +8,7 @@
 - ScanTask.is_terminal: 终态判定(状态机)
 - ScanTask.snapshot: 可序列化状态(has_qr/cookies_count 计算)
 - 2026-09-16 补:_cookie_hits 前缀通配 + 平台配置完整性(38 平台与前端注册表对齐)
+- 2026-09-16 补:_parse_raw_cookies 手动导入 Cookie 三格式解析(JSON/cookies.txt/请求头)
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from app.services.scan_login import (
     PLATFORM_SCAN_CONFIG,
     ScanTask,
     _cookie_hits,
+    _parse_raw_cookies,
     _url_is_login_page,
 )
 
@@ -157,4 +159,42 @@ def test_url_is_login_page_for_new_platforms():
     assert not _url_is_login_page("https://mp.weixin.qq.com/cgi-bin/home?t=home")
     # wordpress.com/log-in 连字符不触发 login 判定(现有 _url_is_login_page 的已知边界,记录行为)
     assert not _url_is_login_page("https://wordpress.com/log-in")
+
+
+# --- _parse_raw_cookies(2026-09-16 新增:手动导入三格式解析) ---
+
+
+def test_parse_raw_cookies_json_object():
+    """JSON 对象(DevTools 扩展导出)→ k/v dict,空值剔除。"""
+    raw = '{"SESSDATA": "abc123", "buvid3": "xyz", "empty": ""}'
+    assert _parse_raw_cookies(raw) == {"SESSDATA": "abc123", "buvid3": "xyz"}
+
+
+def test_parse_raw_cookies_json_array():
+    """JSON 数组([{name, value}, ...])→ 按 name/value 提取。"""
+    raw = '[{"name": "SUB", "value": "1"}, {"name": "SUBP", "value": "2"}, {"bad": "x"}]'
+    assert _parse_raw_cookies(raw) == {"SUB": "1", "SUBP": "2"}
+
+
+def test_parse_raw_cookies_netscape_txt():
+    """Netscape cookies.txt(Tab 分列):注释行跳过,#HttpOnly_ 前缀剥掉后仍提取。"""
+    raw = (
+        "# Netscape HTTP Cookie File\n"
+        ".zhihu.com\tTRUE\t/\tTRUE\t1800000000\td_c0\tabc\n"
+        "#HttpOnly_.zhihu.com\tTRUE\t/\tTRUE\t1800000000\tz_c0\tdef\n"
+    )
+    assert _parse_raw_cookies(raw) == {"d_c0": "abc", "z_c0": "def"}
+
+
+def test_parse_raw_cookies_header_format():
+    """请求头格式 k=v; k2=v2,容忍换行分隔(DevTools 多行复制)。"""
+    raw = 'SESSDATA=abc; buvid3=xyz\n bili_ticket=tkt'
+    assert _parse_raw_cookies(raw) == {"SESSDATA": "abc", "buvid3": "xyz", "bili_ticket": "tkt"}
+
+
+def test_parse_raw_cookies_empty_and_invalid():
+    """空输入/无等号垃圾文本 → 空 dict(由路由层报 400)。"""
+    assert _parse_raw_cookies("") == {}
+    assert _parse_raw_cookies("   ") == {}
+    assert _parse_raw_cookies("这不是 cookie 文本") == {}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
