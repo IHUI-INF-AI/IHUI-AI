@@ -22261,7 +22261,12 @@
   "costGuard": {
     "estimateLine": "今回の予想 ≈{tokens} トークン（約 ${cost}）",
     "fallbackPrice": "フォールバック価格のため参考値",
-    "actualLine": "実際 {actual} トークン（予想 {estimate}）"
+    "actualLine": "実際 {actual} トークン（予想 {estimate}）",
+    "estimateLine": "",
+    "negotiationLine": "今回の予想 ≈{tokens} トークン（約 ${cost}）、予算しきい値超過",
+    "negotiationFallback": "推定消費が予算しきい値を超えています",
+    "confirmSend": "それでも送信",
+    "confirmCancel": "キャンセル"
   },
   "memoryGraph": {
     "searchPlaceholder": "記憶キーワードを検索…",
