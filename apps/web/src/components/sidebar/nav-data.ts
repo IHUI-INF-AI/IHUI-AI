@@ -318,6 +318,8 @@ const DEVELOPER_TOOLS_CHILDREN: NavItem[] = [
   { href: '/developer/notifications', labelKey: 'developerNotifications', icon: Bell },
   { href: '/developer/team', labelKey: 'developerTeam', icon: Users },
   { href: '/developer/billing', labelKey: 'developerBilling', icon: Receipt },
+  { href: '/developer/error-codes', labelKey: 'developerErrorCodes', icon: FileText },
+  { href: '/developer/relay/benefits', labelKey: 'developerBenefits', icon: Gift },
   { href: '/developer/settings', labelKey: 'developerSettings', icon: Settings },
 ]
 
@@ -544,6 +546,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/wallet', labelKey: 'wallet', icon: Wallet },
       { href: '/payment', labelKey: 'payment', icon: CreditCard },
       { href: '/orders', labelKey: 'orders', icon: ShoppingBag },
+      { href: '/invoices', labelKey: 'invoices', icon: Receipt },
       { href: '/activities', labelKey: 'activities', icon: Gift },
       { href: '/points', labelKey: 'points', icon: Star },
       { href: '/edu-points', labelKey: 'eduPoints', icon: Award },
