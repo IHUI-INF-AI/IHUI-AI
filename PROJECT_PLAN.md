@@ -2663,6 +2663,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 > 每项已拆好阶段与依赖,后续会话直接按设计开工,勿从零调研。
 
 - **#38 并行世界线**:阶段1 = 世界线状态机(store:branches[{id,label,content,status}],fork 复用既有 checkpoint API)+ 并行调度(后端已有 best-of-n 并行执行底座,扩展为分支容器);阶段2 = 对比视图复用 #36 BestOfCompare 的并排卡 + diff;阶段3 = 合并(择优落盘已有 onAdopt 模式)。依赖:#31/#36 已交付。验收:同问题 fork 2-4 分支并行出结果,对比后合并回主线。
+- **⏳ #38 状态(2026-09-16 21:35)**:并发会话已开工 worlds i18n(7 键已入其暂存批次),本会话检测到后**主动撤出避撞**(本会话的 worlds store/compare 实现备份于 G:/tmp-probe/worlds-*-mine.*,接线可参考:runBestOfN(task,1,model) per-branch Promise.all + worlds store 状态机 + 工具面板 worlds tab)。后续会话接手时先看并发会话已提交的部分再补差。
 - **#39 执行轨迹即文档**:阶段1 ✅(2026-09-16,a7b48a369d3)。阶段2 = 分享快照补 toolCalls——两条分享链路(chat/share/:token 会话分享 + content/aigc AIGC 分享)的创建侧快照加 toolCalls、share-content.ts 读侧透传规范化(仿既有 answer 字段模式)、ShareContent 类型补字段、分享页渲染 TraceReplay;阶段3 = 审计报告导出(前端把 toolCalls 序列化为 Markdown/JSON 下载,零后端)。
 - **#40 主动巡逻 Agent**:依赖后端调度器(NSSM 部署循环已有轮询先例)。阶段1 = 巡检任务表( patrol_tasks: 类型 CI/依赖/日志/死链 + cron + 目标)+ 巡检执行器(复用既有工具执行引擎);阶段2 = 发现问题→创建会话并注入诊断消息(后端主动建 conversation + 首条 assistant 消息);阶段3 = 一键授权执行(复用 #23 工具审批流)。
 - **#41 记忆图谱**:阶段1 = 后端记忆条目加实体/关系抽取(LLM 后处理,写 memory_edges 表);阶段2 = 图谱查询 API(给定会话上下文取相关子图);阶段3 = 前端可视化(力导向图,复用既有 MermaidDiagram 或引 reactflow)+ 新会话自动注入子图。
