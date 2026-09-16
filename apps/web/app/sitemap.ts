@@ -45,6 +45,7 @@ const PAGES: Array<{
   // 产品核心页
   { path: '/agents', changeFrequency: 'daily', priority: 0.9 },
   { path: '/models', changeFrequency: 'daily', priority: 0.9 },
+  { path: '/channel-status', changeFrequency: 'hourly', priority: 0.6 },
   { path: '/knowledge-base', changeFrequency: 'weekly', priority: 0.9 },
   { path: '/knowledge-rag', changeFrequency: 'weekly', priority: 0.8 },
   { path: '/workflows', changeFrequency: 'weekly', priority: 0.8 },
