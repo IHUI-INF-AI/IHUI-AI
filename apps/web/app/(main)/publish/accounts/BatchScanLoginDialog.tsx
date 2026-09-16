@@ -19,6 +19,8 @@
  *    并关闭当前浏览器窗口,不再出现"点了半天没反应"。
  * ③ 外部浏览器 = 用户自己的浏览器:ai-service 侧改为复制用户本机默认浏览器(Chrome/Edge)
  *    的真实 profile(带登录状态),已登录的平台直接识别保存,窗口本身就是用户日常浏览器。
+ * ④ 用户手动关掉浏览器窗口 = 结束队列:后端返回"浏览器已关闭"此前被当成普通检测异常,
+ *    队列会继续弹下一个平台(用户视角"我都关了怎么还在弹");现已识别该信号并停止队列。
  *
  * 2026-09-15:启动前支持选择"内置浏览器(CDP)"或"你自己的浏览器(系统默认浏览器)"。
  * 内置:createBrowserSession → openCdpSession → detectLoginFromCdp 轮询;
@@ -70,8 +72,8 @@ export interface BatchScanLoginDialogProps {
 }
 
 type ItemStatus = 'pending' | 'active' | 'success' | 'timeout' | 'error' | 'skipped'
-type PollOutcome = 'success' | 'timeout' | 'cancelled' | 'skipped' | 'error'
-/** 扫码打开方式:内置 CDP 视图 / 外部系统 Chrome(自动闭环) */
+type PollOutcome = 'success' | 'timeout' | 'cancelled' | 'skipped' | 'error' | 'closed'
+/** 扫码打开方式:内置 CDP 视图 / 用户自己的浏览器(本机真实 profile 副本) */
 type BrowserMode = 'internal' | 'external'
 
 interface QueueItem {
@@ -115,6 +117,19 @@ async function sleepCancelable(ms: number, isCancelled: () => boolean): Promise<
 interface ExternalBrowserInfo {
   browser: string
   profileUsed: boolean
+}
+
+/**
+ * 后端在"用户把浏览器窗口关掉了"时返回的提示(2026-09-16 实测:
+ * `浏览器已关闭,请重新发起扫码登录`;会话已被清理时是 `浏览器会话不存在或已关闭`)。
+ *
+ * 这类结果必须与普通检测异常区分:它是用户主动结束的信号,
+ * 否则队列会把它当作"本平台失败"继续弹下一个窗口 —— 正是用户反馈的
+ * "我关掉窗口了,怎么还在继续弹窗"。
+ */
+function isBrowserClosedError(msg: string | null | undefined): boolean {
+  if (!msg) return false
+  return msg.includes('浏览器已关闭') || msg.includes('浏览器会话不存在')
 }
 
 export function BatchScanLoginDialog({
@@ -236,7 +251,10 @@ export function BatchScanLoginDialog({
           // 2026-09-16:检测请求返回期间用户可能已点停止/关窗 → 立即退出,不再等下一轮
           if (cancelRef.current) return 'cancelled'
           if (r.success && r.data?.detected) return 'success'
-          if (r.success && r.data?.error) return 'error'
+          // 用户手动关掉浏览器窗口 → 视为"本人结束队列",不能当普通异常继续下一个
+          if (r.success && r.data?.error) {
+            return isBrowserClosedError(r.data.error) ? 'closed' : 'error'
+          }
         } catch {
           /* 网络错误静默,继续轮询 */
           if (cancelRef.current) return 'cancelled'
@@ -333,6 +351,13 @@ export function BatchScanLoginDialog({
         }
         if (outcome === 'cancelled') {
           markStoppedFrom(i)
+          break
+        }
+        if (outcome === 'closed') {
+          // 用户把浏览器窗口关掉了 = 结束队列(否则会一路把剩余平台逐个弹出来)
+          cancelRef.current = true
+          markStoppedFrom(i)
+          toast.info(t('accounts.batchScanWindowClosedToast'))
           break
         }
         updateItem(i, { status: 'error', msg: t('accounts.batchScanDetectError') })
