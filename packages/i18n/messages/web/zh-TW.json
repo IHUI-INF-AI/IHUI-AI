@@ -16805,6 +16805,7 @@
       "batchScanNoLoginUrl": "未找到該平臺登入頁配置",
       "batchScanStopped": "已停止",
       "batchScanStoppedToast": "已停止掃碼佇列",
+      "batchScanWindowClosedToast": "偵測到瀏覽器視窗已關閉,已停止佇列",
       "cancelScan": "取消掃碼",
       "cookiesInputLabel": "Cookie 內容",
       "cookiesInputPlaceholder": "貼上 Cookie:支援 JSON、cookies.txt 或 \"k=v; k2=v2\" 請求標頭格式",
