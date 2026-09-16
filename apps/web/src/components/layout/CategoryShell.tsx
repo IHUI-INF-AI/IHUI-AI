@@ -89,6 +89,14 @@ export function CategoryShell({
 }: CategoryShellProps) {
   const pathname = usePathname()
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false)
+  // 2026-09-16 根治静态导出预渲染崩溃:移动端抽屉(Sheet=Radix Dialog)是纯交互组件,
+  // React19 prerender 中 Radix 内部 context 断裂导致 SheetTrigger/DialogPortal 抛
+  // "must be used within Dialog"(CI 4 平台实证,run#42-44;/models 与 /developer/api-docs)。
+  // 该抽屉 <768px 显示且 open=false,SSR HTML 无 SEO/首屏价值——延迟到客户端挂载后渲染。
+  const [mounted, setMounted] = React.useState(false)
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // 路由变化时关闭移动端抽屉
   React.useEffect(() => {
@@ -149,24 +157,26 @@ export function CategoryShell({
       {/* 标题区(shrink-0 固定) */}
       <div className="shrink-0 px-4 pt-3 pb-2">
         <div className="flex items-center gap-2">
-          {/* 移动端抽屉触发器(<768px 显示) */}
-          <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-            <SheetTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground min-[768px]:hidden"
-                aria-label="打开导航菜单"
-              >
-                <Menu className="h-4 w-4" />
-              </button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-[90vw] p-3 min-[640px]:w-72">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-semibold">{title}</p>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto">{renderNavGroups()}</div>
-            </SheetContent>
-          </Sheet>
+          {/* 移动端抽屉触发器(<768px 显示;客户端挂载后才渲染,见上方 mounted 注释) */}
+          {mounted && (
+            <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+              <SheetTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground min-[768px]:hidden"
+                  aria-label="打开导航菜单"
+                >
+                  <Menu className="h-4 w-4" />
+                </button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[90vw] p-3 min-[640px]:w-72">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-semibold">{title}</p>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto">{renderNavGroups()}</div>
+              </SheetContent>
+            </Sheet>
+          )}
           <div className="min-w-0 flex-1">
             <h1 className="text-xl font-bold tracking-tight">{title}</h1>
             {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
