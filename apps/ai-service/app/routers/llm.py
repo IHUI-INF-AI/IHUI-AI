@@ -556,6 +556,12 @@ async def _extract_memory_updates(
         except Exception as e:
             logger.warning("memoryUpdates 写入 semantic 失败(降级,仍回传条目): %s", e)
 
+        # P3 #41 记忆图谱(2026-09-16 立):记忆写入后异步触发关系抽取(fire-and-forget,
+        # 失败不影响主流程;抽取结果写 agent_memory_edges,供子图查询/前端可视化)。
+        from ..services.memory_graph import fire_and_forget_extract
+
+        fire_and_forget_extract(owner_uuid)
+
         return [item][:MEMORY_ITEMS_MAX]
     except asyncio.TimeoutError:
         logger.warning(
