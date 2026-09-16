@@ -60,8 +60,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev
 
+      # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
+      # 全局装独立 CLI(约 10 秒)并显式指定 tauriScript
+      - name: Install Tauri CLI
+        run: npm i -g @tauri-apps/cli@^2
+
       - name: Build & Release
         uses: tauri-apps/tauri-action@v0
+        with:
+          tauriScript: tauri
         # 2026-09-05: tauri-action 的产物收集按预期路径 existsSync 过滤,非 ASCII productName
         # (智汇AI)在 Linux/macOS 上预期路径与磁盘文件失配→"No artifacts were found"假失败
         # (产物实际已构建+签名成功,CI 日志实证);容错后由下一步兜底上传
