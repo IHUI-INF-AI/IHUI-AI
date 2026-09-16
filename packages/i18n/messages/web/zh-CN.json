@@ -246,7 +246,32 @@
   "a11y": {
     "addAttachment": "添加附件（图片/视频/文件）",
     "breadcrumb": "面包屑导航",
-    "searchOption": "搜索选项"
+    "searchOption": "搜索选项",
+    "deleteField": "删除字段",
+    "codeCopied": "代码已复制",
+    "copyCode": "复制代码",
+    "collapse": "收起",
+    "expand": "展开",
+    "more": "更多",
+    "close": "关闭",
+    "copy": "复制",
+    "copyResponse": "复制回复",
+    "barChart": "柱状图",
+    "heatmap": "热力图",
+    "lineChart": "折线图",
+    "pieChart": "饼图",
+    "radarChart": "雷达图",
+    "slashCommand": "斜杠命令",
+    "mentionFile": "提及文件",
+    "openCustomerService": "联系客服",
+    "minimize": "最小化",
+    "send": "发送",
+    "closeTag": "关闭标签",
+    "closeAlert": "关闭提示",
+    "menu": "菜单",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码",
+    "uploadAvatar": "上传头像"
   },
   "about": {
     "ctaDesc": "注册即得 1000 积分,全模型免费试用,无需信用卡。",
@@ -6759,7 +6784,11 @@
     "staticContent2": "我们严格保护您的个人隐私，未经您的许可不会向第三方披露。",
     "staticContent3": "如对本协议有任何疑问，请联系客服。",
     "title": "协议与政策",
-    "subtitle": "请仔细阅读并同意以下条款后继续"
+    "subtitle": "请仔细阅读并同意以下条款后继续",
+    "privacyPolicy": "隐私政策",
+    "userAgreement": "用户协议",
+    "loading": "加载中...",
+    "version": "版本"
   },
   "ai": {
     "agentManager": {
@@ -7105,7 +7134,20 @@
       "callingTool": "正在调用工具 {name}",
       "thinking": "正在思考: {preview}",
       "waitingResponse": "正在等待模型响应…",
-      "toolCallStats": "工具调用 ({count} 次)"
+      "toolCallStats": "工具调用 ({count} 次)",
+      "sessionUsage": {
+        "promptTokens": "输入 Token",
+        "completionTokens": "输出 Token",
+        "inputCost": "输入费用",
+        "outputCost": "输出费用",
+        "noPriceHint": "未配置价格",
+        "pricingHint": "按 Token 用量计费"
+      },
+      "usageEstimated": "用量估算",
+      "messageUsage": {
+        "total": "总用量",
+        "ariaLabel": "消息用量详情"
+      }
     },
     "title": "AI 助手",
     "thinking": "AI 生成中…",
@@ -7932,7 +7974,10 @@
       "wiki": "知识库",
       "integrations": "集成",
       "workspace": "工作区"
-    }
+    },
+    "applied": "已应用",
+    "apply": "应用",
+    "hint": "可用 AI 工具"
   },
   "agentHooks": {
     "description": "Agent Hooks 事件系统:9 类事件可配置动作(记录日志/界面提示/系统通知),工具事件支持按工具名过滤",
@@ -8099,7 +8144,13 @@
     "noFolders": "暂无文件夹",
     "apply": "添加 #Folder 引用到输入框",
     "applied": "已把 #Folder 引用写入输入框",
-    "hint": "选中工作区文件夹后,以 #Folder 引用告知 Agent 聚焦该目录"
+    "hint": "选中工作区文件夹后,以 #Folder 引用告知 Agent 聚焦该目录",
+    "checkpointRestored": "检查点已恢复",
+    "restoreFailed": "恢复失败",
+    "empty": "暂无内容",
+    "dispatchSubagent": "派发子代理",
+    "bestOfAdopted": "已采纳最佳方案",
+    "title": "工作区"
   },
   "announcements": {
     "backToList": "返回公告列表",
@@ -8650,7 +8701,12 @@
       "compactSuccess": "上下文已压缩: {before} → {after} tokens(节省 {saved})",
       "compactTooFew": "对话消息太少,无需压缩",
       "compactIncompressible": "当前上下文已无可压缩空间",
-      "compactFailed": "压缩失败"
+      "compactFailed": "压缩失败",
+      "compaction": {
+        "truncatedNotice": "以下内容已被截断",
+        "archiveTitle": "已归档会话",
+        "viewArchived": "查看已归档"
+      }
     },
     "contextCompacted": "上下文已自动压缩",
     "contextCompactedDesc": "{before} → {after}(移除 {removed} 条历史)",
@@ -9417,7 +9473,13 @@
       "exit": "退出码",
       "title": "运行输出",
       "close": "关闭"
-    }
+    },
+    "archiveTitle": "已归档会话",
+    "archiveLoading": "归档加载中...",
+    "archiveEmpty": "暂无归档会话",
+    "viewArchived": "查看已归档",
+    "callingTool": "正在调用工具...",
+    "waitingResponse": "等待回复..."
   },
   "chatHistory": {
     "backToHistory": "返回任务列表",
@@ -9857,7 +9919,17 @@
     "export": "导出",
     "add": "新增",
     "submit": "提交",
-    "error": "错误"
+    "error": "错误",
+    "errorTitle": "出错了",
+    "remark": "备注",
+    "unknownError": "未知错误",
+    "reply": "回复",
+    "orderNoLabel": "订单号",
+    "clear": "清空",
+    "searchPlaceholder": "请输入搜索内容",
+    "followed": "已关注",
+    "follow": "关注",
+    "logout": "退出登录"
   },
   "contactPage": {
     "addressTitle": "公司地址",
@@ -15688,7 +15760,8 @@
     "workspace": "工作空间",
     "courses": "课程",
     "faq": "常见问题",
-    "home": "首页"
+    "home": "首页",
+    "settings": "设置"
   },
   "news": {
     "allCategories": "全部分类",
@@ -16837,8 +16910,8 @@
       "batchScanModeLabel": "批量扫码模式",
       "batchScanModeInternal": "内置浏览器",
       "batchScanModeExternal": "你自己的浏览器",
-      "batchScanWaitingHintExternal": "已在浏览器窗口打开登录页(未能读取你的登录状态);请在窗口中完成扫码登录",
-      "batchScanWaitingHintExternalOwn": "已在 {browser} 中打开(带你的登录状态);已登录的平台自动保存,未登录的扫一下码即可",
+      "batchScanWaitingHintExternal": "已在你日常使用的浏览器里打开该平台,请在那里完成登录(后端暂未读到你的登录态)",
+      "batchScanWaitingHintExternalOwn": "已在你日常使用的浏览器里打开该平台;已登录的会自动保存,未登录的登录一次即可",
       "batchScanStart": "开始批量扫码",
       "batchScanWaitingHint": "请在右侧内置浏览器完成该平台扫码/登录;超时(2 分钟)会自动跳过,也可手动跳过",
       "batchScanLoading": "正在准备平台队列...",
@@ -16856,6 +16929,8 @@
       "batchScanNoLoginUrl": "未找到该平台登录页配置",
       "batchScanStopped": "已停止",
       "batchScanStoppedToast": "已停止扫码队列",
+      "batchScanPopupBlocked": "浏览器拦截了新标签页:请点地址栏右侧的拦截图标允许本站弹出窗口,然后重新开始(或改用内置浏览器模式)。",
+      "batchScanPopupBlockedToast": "浏览器拦截了新标签页,队列已停止;请允许本站弹出窗口后重试",
       "batchScanWindowClosedToast": "检测到浏览器窗口已关闭,已停止队列"
     },
     "ai": {
@@ -22021,7 +22096,19 @@
     "subtitle": "查看您的收益明细与结算情况",
     "configureByok": "配置 BYOK",
     "configureByokDesc": "使用您自己的 API 密钥（BYOK）以降低成本并提升调用额度。",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "byokTrend": "BYOK 用量趋势",
+    "byokTrendDesc": "近 30 天自带 API Key 调用量",
+    "last30Days": "近 30 天",
+    "conversionFunnel": "转化漏斗",
+    "conversionFunnelDesc": "用户从浏览到付费的转化路径",
+    "todayIncome": "今日收入",
+    "vsYesterday": "较昨日",
+    "byokIncome": "BYOK 收入",
+    "referralCount": "推荐人数",
+    "conversionRate": "转化率",
+    "referralStats": "推荐统计",
+    "referralStatsDesc": "近 30 天推荐用户与转化数据"
   },
   "skillMarket": {
     "title": "Skill 市场",

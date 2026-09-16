@@ -246,7 +246,32 @@
   "a11y": {
     "addAttachment": "첨부 파일 추가(이미지/비디오/파일)",
     "breadcrumb": "빵 부스러기 탐색",
-    "searchOption": "옵션 검색"
+    "searchOption": "옵션 검색",
+    "deleteField": "필드 삭제",
+    "codeCopied": "코드 복사됨",
+    "copyCode": "코드 복사",
+    "collapse": "접기",
+    "expand": "펼치기",
+    "more": "더 보기",
+    "close": "닫기",
+    "copy": "복사",
+    "copyResponse": "응답 복사",
+    "barChart": "막대 차트",
+    "heatmap": "히트맵",
+    "lineChart": "선 차트",
+    "pieChart": "원형 차트",
+    "radarChart": "방사형 차트",
+    "slashCommand": "슬래시 명령",
+    "mentionFile": "파일 멘션",
+    "openCustomerService": "고객 지원 열기",
+    "minimize": "최소화",
+    "send": "보내기",
+    "closeTag": "태그 닫기",
+    "closeAlert": "알림 닫기",
+    "menu": "메뉴",
+    "showPassword": "비밀번호 표시",
+    "hidePassword": "비밀번호 숨기기",
+    "uploadAvatar": "아바타 업로드"
   },
   "about": {
     "ctaDesc": "가입 즉시 1,000 크레딧 제공, 모든 모델 무료 체험, 신용 카드 불필요.",
@@ -6759,7 +6784,11 @@
     "staticContent2": "개인 메시지 센터，의 개인정보 보호 정책에 동의합니다。",
     "staticContent3": "본 약관에 관한 문의 사항이 있으시면 플랫폼 고객 지원에 문의해 주십시오.",
     "title": "약관 및 정책",
-    "subtitle": "다음 약관을 주의 깊게 읽어 주십시오"
+    "subtitle": "다음 약관을 주의 깊게 읽어 주십시오",
+    "privacyPolicy": "개인정보 처리방침",
+    "userAgreement": "이용약관",
+    "loading": "로딩 중...",
+    "version": "버전"
   },
   "ai": {
     "agentManager": {
@@ -7103,7 +7132,20 @@
       "callingTool": "도구 {name} 호출 중",
       "thinking": "생각 중: {preview}",
       "waitingResponse": "모델 응답을 기다리는 중…",
-      "toolCallStats": "도구 호출 ({count}회)"
+      "toolCallStats": "도구 호출 ({count}회)",
+      "sessionUsage": {
+        "promptTokens": "입력 토큰",
+        "completionTokens": "출력 토큰",
+        "inputCost": "입력 비용",
+        "outputCost": "출력 비용",
+        "noPriceHint": "가격 미설정",
+        "pricingHint": "토큰 사용량 기준 청구"
+      },
+      "usageEstimated": "사용량 추정",
+      "messageUsage": {
+        "total": "총 사용량",
+        "ariaLabel": "메시지 사용량 세부 정보"
+      }
     },
     "title": "AI 어시스턴트",
     "thinking": "AI 생성 중…",
@@ -7930,7 +7972,10 @@
       "wiki": "위키",
       "integrations": "연동",
       "workspace": "워크스페이스"
-    }
+    },
+    "applied": "적용됨",
+    "apply": "적용",
+    "hint": "사용 가능한 AI 도구"
   },
   "agentHooks": {
     "description": "Agent Hooks 이벤트 시스템: 9가지 이벤트에 동작(로그/토스트/시스템 알림)을 설정할 수 있으며, 도구 이벤트는 도구명 필터를 지원합니다",
@@ -8081,7 +8126,13 @@
     "noFolders": "폴더가 없습니다",
     "apply": "#Folder 참조를 입력창에 추가",
     "applied": "#Folder 참조가 입력창에 추가되었습니다",
-    "hint": "워크스페이스 폴더를 선택하면 #Folder 참조로 Agent가 해당 디렉터리에 집중합니다"
+    "hint": "워크스페이스 폴더를 선택하면 #Folder 참조로 Agent가 해당 디렉터리에 집중합니다",
+    "checkpointRestored": "체크포인트 복원됨",
+    "restoreFailed": "복원 실패",
+    "empty": "콘텐츠 없음",
+    "dispatchSubagent": "서브 에이전트 디스패치",
+    "bestOfAdopted": "최적의方案 채택됨",
+    "title": "워크스페이스"
   },
   "announcements": {
     "backToList": "목록으로 돌아가기",
@@ -8632,7 +8683,12 @@
       "compactSuccess": "컨텍스트가 압축되었습니다: {before} → {after} 토큰({saved} 절약)",
       "compactTooFew": "메시지가 너무 적어 압축할 필요가 없습니다",
       "compactIncompressible": "더 이상 압축할 수 있는 컨텍스트가 없습니다",
-      "compactFailed": "압축에 실패했습니다"
+      "compactFailed": "압축에 실패했습니다",
+      "compaction": {
+        "truncatedNotice": "다음 내용이 잘렸습니다",
+        "archiveTitle": "보관된 대화",
+        "viewArchived": "보관함 보기"
+      }
     },
     "contextCompacted": "컨텍스트가 자동 압축되었습니다",
     "contextCompactedDesc": "{before} → {after}({removed}개 기록 제거)",
@@ -9399,7 +9455,13 @@
       "exit": "종료 코드",
       "title": "실행 출력",
       "close": "닫기"
-    }
+    },
+    "archiveTitle": "보관된 대화",
+    "archiveLoading": "보관함 불러오는 중...",
+    "archiveEmpty": "보관된 대화가 없습니다",
+    "viewArchived": "보관함 보기",
+    "callingTool": "도구 호출 중...",
+    "waitingResponse": "응답 대기 중..."
   },
   "chatHistory": {
     "backToHistory": "기록으로 돌아가기",
@@ -9839,7 +9901,17 @@
     "export": "내보내기",
     "add": "추가",
     "submit": "제출",
-    "error": "오류"
+    "error": "오류",
+    "errorTitle": "오류가 발생했습니다",
+    "remark": "비고",
+    "unknownError": "알 수 없는 오류",
+    "reply": "답장",
+    "orderNoLabel": "주문 번호",
+    "clear": "지우기",
+    "searchPlaceholder": "검색어를 입력하세요",
+    "followed": "팔로잉",
+    "follow": "팔로우",
+    "logout": "로그아웃"
   },
   "contactPage": {
     "addressTitle": "회사 주소",
@@ -15670,7 +15742,8 @@
     "workspace": "워크스페이스",
     "courses": "강의",
     "faq": "FAQ",
-    "home": "Home"
+    "home": "Home",
+    "settings": "설정"
   },
   "news": {
     "allCategories": "All categories",
@@ -16774,8 +16847,8 @@
       "batchScanModeLabel": "일괄 스캔 모드",
       "batchScanModeInternal": "내장 브라우저",
       "batchScanModeExternal": "내 브라우저",
-      "batchScanWaitingHintExternal": "브라우저 창에서 로그인 페이지를 열었습니다(로그인 상태를 읽지 못했습니다). 창에서 스캔 로그인을 완료하세요",
-      "batchScanWaitingHintExternalOwn": "내 {browser}로 열었습니다(로그인 상태 포함) — 이미 로그인된 플랫폼은 자동 저장되고, 나머지만 스캔하면 됩니다",
+      "batchScanWaitingHintExternal": "일상적으로 쓰는 브라우저에서 열었습니다. 그곳에서 로그인을 완료하세요(아직 로그인 상태를 읽지 못했습니다)",
+      "batchScanWaitingHintExternalOwn": "일상적으로 쓰는 브라우저에서 열었습니다. 로그인된 플랫폼은 자동 저장되고, 나머지는 한 번만 로그인하면 됩니다",
       "batchScanStart": "일괄 스캔 시작",
       "batchScanWaitingHint": "오른쪽 내장 브라우저에서 해당 플랫폼의 QR 스캔/로그인을 완료해 주세요. 시간 초과(2분) 시 자동으로 건너뛰며, 수동으로 건너뛸 수도 있습니다",
       "batchScanLoading": "플랫폼 대기열 준비 중...",
@@ -16793,6 +16866,8 @@
       "batchScanNoLoginUrl": "해당 플랫폼의 로그인 페이지 설정을 찾을 수 없습니다",
       "batchScanStopped": "중지됨",
       "batchScanStoppedToast": "스캔 로그인 대기열을 중지했습니다",
+      "batchScanPopupBlocked": "브라우저가 새 탭을 차단했습니다. 주소 표시줄 오른쪽 아이콘에서 이 사이트의 팝업을 허용한 뒤 다시 시작하세요(또는 내장 브라우저 모드 사용).",
+      "batchScanPopupBlockedToast": "새 탭이 차단되어 대기열을 중지했습니다. 팝업을 허용한 뒤 다시 시도하세요",
       "batchScanWindowClosedToast": "브라우저 창이 닫혀 대기열을 중지했습니다",
       "cancelScan": "스캔 취소",
       "cookiesInputLabel": "쿠키 내용",
@@ -22015,7 +22090,19 @@
     "subtitle": "수익 내역 및 정산 확인",
     "configureByok": "BYOK 설정",
     "configureByokDesc": "직접 보유한 API 키(BYOK)를 사용하여 비용을 절감하고 할당량을 늘리세요.",
-    "loading": "불러오는 중..."
+    "loading": "불러오는 중...",
+    "byokTrend": "BYOK 사용량 추이",
+    "byokTrendDesc": "최근 30일 BYOK API 호출 수",
+    "last30Days": "최근 30일",
+    "conversionFunnel": "전환 깔때기",
+    "conversionFunnelDesc": "浏览부터 결제까지의 사용자 여정",
+    "todayIncome": "오늘 수입",
+    "vsYesterday": "어제 대비",
+    "byokIncome": "BYOK 수입",
+    "referralCount": "추천 수",
+    "conversionRate": "전환율",
+    "referralStats": "추천 통계",
+    "referralStatsDesc": "최근 30일 추천 사용자 및 전환 데이터"
   },
   "skillMarket": {
     "title": "스킬 마켓",
