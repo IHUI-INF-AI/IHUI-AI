@@ -272,6 +272,78 @@ def _resolve_browser_profile_name(user_data: Path) -> str:
     return "Default"
 
 
+def _domain_suffix(login_url: str) -> str:
+    """从平台登录页 URL 推导用于过滤 cookie 的域名后缀(去掉最左子域)。
+
+    `https://passport.bilibili.com/login` → `bilibili.com`;
+    `https://www.people.com.cn/` → `people.com.cn`(复合公共后缀取三段)。
+    """
+    from urllib.parse import urlparse
+
+    host = (urlparse(login_url).hostname or "").lower()
+    parts = [p for p in host.split(".") if p]
+    if len(parts) <= 2:
+        return host
+    multi_suffix = {"com.cn", "net.cn", "org.cn", "gov.cn", "com.hk", "com.tw", "co.jp", "co.kr", "com.au"}
+    tail2 = ".".join(parts[-2:])
+    if tail2 in multi_suffix and len(parts) >= 3:
+        return ".".join(parts[-3:])
+    return tail2
+
+
+def read_profile_cookie_names(user_data: Path, domain_suffix: str = "") -> set[str] | None:
+    """只读"用户真实浏览器 profile"的 cookie 名集合(外部模式登录检测)。
+
+    返回 None 表示**没读到**(库缺失/被占用/损坏);返回空集合表示**读到了,但该域名下没有
+    cookie**(平台未登录)。两者语义不同:前者不能断言"用户没登录",UI 提示也不同。
+
+    cookie 名在 SQLite 里是明文,不需要解密(App-Bound Encryption 只加密 value),
+    因此可以在用户日常浏览器照常运行时安全读取:先把库文件复制到临时目录再读,
+    避开与浏览器的锁竞争;失败重试若干次,仍失败返回空集合(调用方按"未检测到"处理)。
+    """
+    import sqlite3
+
+    profile_name = _resolve_browser_profile_name(user_data)
+    src = user_data / profile_name / "Network" / "Cookies"
+    if not src.exists():
+        return None
+
+    tmpdir = Path(tempfile.mkdtemp(prefix="ihui-cookie-read-"))
+    names: set[str] = set()
+    try:
+        dst = tmpdir / "Cookies"
+        last_err: Exception | None = None
+        for _ in range(4):
+            try:
+                shutil.copy2(src, dst)
+                last_err = None
+                break
+            except Exception as e:  # noqa: BLE001 — 浏览器可能短暂占用文件
+                last_err = e
+                time.sleep(0.3)
+        if last_err is not None:
+            logger.warning(f"[browser_hub] 读取登录态失败(复制 cookie 库): {last_err}")
+            return None
+        con = sqlite3.connect(f"file:{dst}?mode=ro", uri=True)
+        try:
+            if domain_suffix:
+                rows = con.execute(
+                    "select distinct name from cookies where host_key like ?",
+                    (f"%{domain_suffix}",),
+                ).fetchall()
+            else:
+                rows = con.execute("select distinct name from cookies").fetchall()
+            names = {str(r[0]) for r in rows if r and r[0]}
+        finally:
+            con.close()
+    except Exception as e:  # noqa: BLE001 — 库结构变化/损坏时按"没读到"返回
+        logger.warning(f"[browser_hub] 读取登录态失败: {e}")
+        return None
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    return names
+
+
 def _cleanup_stale_scan_profiles(max_age_seconds: float = 2 * 3600) -> int:
     """清理遗留的扫码临时 profile 目录(内含用户登录态副本,不应长期留存)。
 
@@ -1028,9 +1100,96 @@ class BrowserHub:
         )
         return session, meta
 
+    async def read_profile_cookies(self, user_data: Path | None = None) -> dict[str, str]:
+        """无窗口读取"用户真实浏览器 profile 快照"的 cookie 值(外部模式取值用)。
+
+        外部模式的登录发生在**用户自己日常使用的浏览器**里(真实 profile,Google/平台登录态
+        都完整);后端只负责读登录态:
+        - 名称级检测:read_profile_cookie_names(明文名,不解密,可直读在跑的浏览器);
+        - 取值(本函数):复制一份 profile 快照 → 用同一个浏览器可执行文件以 --headless=new
+          启动 → CDP 读出 cookie 值 → 杀进程 + 删快照。headless 是为了不再给用户弹陌生窗口;
+          用同一 exe 启动使 cookie 解密(App-Bound Encryption)照常可用。
+
+        失败返回空字典(调用方按"未检测到"处理)。
+        """
+        import socket
+        import subprocess
+
+        browser = _find_external_browser()
+        if not browser:
+            logger.warning("[browser_hub] 读取登录态失败:未找到可用浏览器")
+            return {}
+        user_data = user_data or browser.user_data
+        if not self._started or not self._playwright:
+            await self.start()
+        if self._playwright is None:
+            return {}
+
+        profile_dir = tempfile.mkdtemp(prefix="ihui-chrome-scan-")
+        _cleanup_stale_scan_profiles()
+        info = _copy_browser_profile(user_data, Path(profile_dir))
+        if not info["profile_used"]:
+            logger.warning(f"[browser_hub] 读取登录态失败:profile 复制失败({info.get('error')})")
+            shutil.rmtree(profile_dir, ignore_errors=True)
+            return {}
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+
+        def _sync_read() -> dict[str, str]:
+            assert self._playwright is not None
+            proc = subprocess.Popen([
+                str(browser.exe),
+                "--headless=new",
+                "--disable-gpu",
+                "--no-first-run",
+                "--no-default-browser-check",
+                f"--remote-debugging-port={port}",
+                f"--user-data-dir={profile_dir}",
+                "about:blank",
+            ])
+            try:
+                ext = None
+                last_err: Exception | None = None
+                for _ in range(20):
+                    try:
+                        ext = self._playwright.chromium.connect_over_cdp(
+                            f"http://127.0.0.1:{port}", timeout=2000
+                        )
+                        break
+                    except Exception as e:  # noqa: PERF203
+                        last_err = e
+                        time.sleep(0.5)
+                if ext is None:
+                    raise RuntimeError(f"连接读取用 Chrome 失败: {last_err}")
+                context = ext.contexts[0] if ext.contexts else ext.new_context()
+                cookies = context.cookies()
+                with contextlib.suppress(Exception):
+                    ext.close()
+                return {c["name"]: c["value"] for c in cookies if c.get("value")}
+            finally:
+                with contextlib.suppress(Exception):
+                    proc.terminate()
+                with contextlib.suppress(Exception):
+                    proc.wait(timeout=5)
+
+        cookies: dict[str, str] = {}
+        try:
+            cookies = await asyncio.get_running_loop().run_in_executor(self._executor, _sync_read)
+            logger.info(f"[browser_hub] 已从用户浏览器读取 {len(cookies)} 条 cookie 值")
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[browser_hub] 读取登录态失败: {e}")
+        finally:
+            for _ in range(5):
+                shutil.rmtree(profile_dir, ignore_errors=True)
+                if not os.path.exists(profile_dir):
+                    break
+                time.sleep(0.4)
+        return cookies
+
     def list_sessions(self) -> list[str]:
         return list(self._sessions.keys())
-
     async def close_session(self, session_id: str) -> bool:
         async with self._lock:
             return await self._close_session_internal(session_id)
