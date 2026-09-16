@@ -10213,6 +10213,39 @@
     "wrongLabel": "錯誤答案"
   },
   "developer": {
+    "errorCodes": {
+      "title": "API 錯誤碼",
+      "subtitle": "所有 API 回傳的錯誤碼、對應 HTTP 狀態碼與修復建議一覽。",
+      "relatedDocs": "相關文件",
+      "apiDocsDesc": "API 文件 — 查閱開放平臺介面說明與呼叫範例",
+      "apiKeysDesc": "API 金鑰管理 — 建立、輪換與管理你的 API Key"
+    },
+    "benefits": {
+      "title": "訂閱權益中心",
+      "subtitle": "階梯計價進度與優惠券，用得越多越便宜",
+      "tierTitle": "階梯計價進度",
+      "tierModel": "模型",
+      "tierCurrent": "當前倍率",
+      "tierUsed": "本月已用",
+      "tierNext": "下一階梯",
+      "tierEmpty": "暫未配置階梯計價規則，按原價（1 倍）計費",
+      "tierMax": "已達最高階梯",
+      "tierNextHint": "再消耗 {tokens} token 進入下一階梯",
+      "couponTitle": "優惠券",
+      "couponInput": "輸入券碼",
+      "couponClaim": "領取",
+      "couponClaiming": "領取中...",
+      "couponList": "我的優惠券",
+      "couponEmpty": "暫無優惠券，輸入券碼即可領取",
+      "couponClaimed": "領取成功",
+      "couponTypeDiscount": "折扣券",
+      "couponTypeDeduction": "滿減券",
+      "couponTypeReferral": "裂變券",
+      "couponStatusUnused": "未使用",
+      "couponStatusUsed": "已使用",
+      "couponStatusExpired": "已過期",
+      "loading": "載入中..."
+    },
     "agreementHint": "請閱讀並同意開發者協議",
     "apiKeys": "API 金鑰",
     "becomeDeveloper": "成為開發者",
@@ -15466,6 +15499,9 @@
     "none": "無"
   },
   "nav": {
+    "developerErrorCodes": "API 錯誤碼",
+    "developerBenefits": "權益中心",
+    "invoices": "發票管理",
     "purchase": "購買 API",
     "availableChannels": "可用渠道",
     "agentTeams": "智慧代理團隊",
