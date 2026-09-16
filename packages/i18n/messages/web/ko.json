@@ -22046,7 +22046,14 @@
     "cancellingAll": "취소 중...",
     "cancelAllConfirm": "진행 중인 모든 작업을 취소하시겠습니까? 진행 중인 긴 작업이 종료됩니다.",
     "cancelAllResult": "진행 중인 작업 {count}건을 취소했습니다",
-    "cancelAllNone": "진행 중인 작업이 없습니다"
+    "cancelAllNone": "진행 중인 작업이 없습니다",
+    "viewList": "목록",
+    "viewBoard": "보드",
+    "colRunning": "진행 중",
+    "colWaiting": "대기 중",
+    "colCompleted": "완료",
+    "colEmpty": "작업 없음",
+    "jumpToChat": "대화 열기"
   },
   "voicesPage": {
     "playPreview": "미리듣기",
