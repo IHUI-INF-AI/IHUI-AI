@@ -13,8 +13,15 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { and, eq } from 'drizzle-orm'
 import { success, error } from '../utils/response.js'
 import { bulkUpdateKeys } from '../services/developer-api-keys-service.js'
+import { db, dbRead } from '../db/index.js'
+import { developerApiKeys, keyRateWindowCounts } from '@ihui/database'
+import {
+  getUserConcurrencyCurrent,
+  getUserConcurrencyLimit,
+} from '../services/user-concurrency-service.js'
 
 const bulkPatchSchema = z
   .object({
@@ -49,6 +56,43 @@ const developerRelayKeysAdminRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply.status(500).send(error(500, '批量编辑失败'))
     }
+  })
+
+  // 2. 重置 Key 的窗口用量计数(L,2026-09-16 立,对标竞品 resetRateLimitUsage)
+  //    客服场景:窗口计数异常/误触发上限时手动清零。归属校验 + 返回清除条数。
+  server.post('/developer/relay/keys/:id/reset-windows', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const id = (request.params as { id?: string }).id
+    if (!id) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      const [keyRow] = await dbRead
+        .select({ id: developerApiKeys.id })
+        .from(developerApiKeys)
+        .where(and(eq(developerApiKeys.id, id), eq(developerApiKeys.userId, userId)))
+        .limit(1)
+      if (!keyRow) return reply.status(404).send(error(404, 'API Key 不存在或无权操作'))
+      const cleared = await db
+        .delete(keyRateWindowCounts)
+        .where(eq(keyRateWindowCounts.keyId, id))
+        .returning({ id: keyRateWindowCounts.id })
+      return reply.send(success({ cleared: cleared.length }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '重置窗口用量失败'))
+    }
+  })
+
+  // 3. 当前用户实时并发查询(M,2026-09-16 立,对标竞品 currentConcurrency 展示)
+  server.get('/developer/relay/keys/concurrency', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    return reply.send(
+      success({
+        current: getUserConcurrencyCurrent(userId),
+        limit: getUserConcurrencyLimit(),
+      }),
+    )
   })
 }
 
