@@ -465,6 +465,8 @@ interface ImageTask {
   status: ImageTaskStatus
   model: string
   prompt: string
+  /** 发起任务的下游用户(异步 worker 调上游计费链路需要) */
+  userId?: string
   createdAt: string
   /** 生图结果:图片 URL / base64 数组(仅 succeeded 时存在)。 */
   result?: string[]
@@ -533,7 +535,7 @@ async function saveImageTask(task: ImageTask): Promise<void> {
 }
 
 /** 查询任务(Redis 优先,异常/缺失降级进程内 Map)。 */
-async function getImageTask(id: string): Promise<ImageTask | null> {
+export async function getImageTask(id: string): Promise<ImageTask | null> {
   const key = `${IMG_TASK_PREFIX}${id}`
   if (imageTaskRedis) {
     try {
@@ -581,6 +583,31 @@ export async function failImageTask(id: string, errMsg: string): Promise<void> {
     error: typeof errMsg === 'string' ? errMsg : String(errMsg),
   }
   await saveImageTask(task)
+}
+
+/**
+ * 扫描全部 pending 任务(worker 消费用)。
+ * Redis 优先:KEYS imgtask:* 后逐个解析;降级扫进程内 Map。
+ */
+export async function listPendingImageTasks(): Promise<ImageTask[]> {
+  const out: ImageTask[] = []
+  if (imageTaskRedis) {
+    try {
+      const keys = await imageTaskRedis.keys(IMG_TASK_PREFIX + '*')
+      for (const k of keys) {
+        const raw = await imageTaskRedis.get(k)
+        const t = parseImageTask(raw)
+        if (t && t.status === 'pending') out.push(t)
+      }
+      return out
+    } catch {
+      // 降级到 Map
+    }
+  }
+  for (const t of inMemoryImageTasks.values()) {
+    if (t.status === 'pending') out.push(t)
+  }
+  return out
 }
 
 // =============================================================================
@@ -2086,6 +2113,8 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         status: 'pending',
         model,
         prompt,
+        // 补强 60:记录发起用户,worker 消费时通过 forwardToChannel 传给选路/计费
+        userId,
         createdAt: new Date().toISOString(),
       }
       await saveImageTask(task)

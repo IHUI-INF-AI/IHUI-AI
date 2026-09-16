@@ -26,6 +26,7 @@ import {
   startRelayAlertEvaluationScheduler,
   stopRelayAlertEvaluationScheduler,
 } from './jobs/relay-alert-rules-evaluation.js'
+import { startImageTaskWorker, stopImageTaskWorker } from './workers/image-task-worker.js'
 import { startBackupCronScheduler, stopBackupCronScheduler } from './jobs/backup-jobs-cron.js'
 import {
   startLiteLLMPriceSyncScheduler,
@@ -142,6 +143,11 @@ async function start() {
       logger.warn('stopRelayAlertEvaluationScheduler failed', { err: e })
     }
     try {
+      stopImageTaskWorker()
+    } catch (e) {
+      logger.warn('stopImageTaskWorker failed', { err: e })
+    }
+    try {
       stopBackupCronScheduler()
     } catch (e) {
       logger.warn('stopBackupCronScheduler failed', { err: e })
@@ -235,6 +241,9 @@ async function start() {
 
   // 启动数据库备份定时调度(读 backup_settings;备份设置页可改,2026-09-16 立)
   void startBackupCronScheduler()
+
+  // 启动异步图片任务 worker(每 30 秒扫描 pending,2026-09-17 立)
+  startImageTaskWorker()
 
   // 启动 LiteLLM 真网 AI 价表同步(启动 30s 后首跑,之后每 24h 一次,
   // 默认开启,AI_LITELLM_PRICE_SYNC_ENABLED=false 禁用)
