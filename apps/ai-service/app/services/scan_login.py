@@ -343,6 +343,71 @@ def _cookie_hits(
     return hits
 
 
+def _parse_raw_cookies(raw: str) -> dict[str, str]:
+    """解析用户手动粘贴的 Cookie 文本(2026-09-16 新增,系统默认浏览器 + 手动导入模式)。
+
+    背景:用户日常浏览器的登录态受默认 profile / App-Bound Encryption 保护,
+    后端无法自动读取(Chrome 136+ 明确禁止),只能由用户从浏览器复制后手动粘贴。
+    支持三种常见格式(自动识别):
+    1. JSON 对象 {"name": "value", ...} 或数组 [{"name": ..., "value": ...}, ...]
+       (浏览器扩展 / DevTools 导出的格式)
+    2. Netscape cookies.txt:每行 Tab 分隔(域名的 HttpOnly cookie 也能带上)
+    3. 请求头格式:name1=value1; name2=value2(document.cookie / Copy as cURL)
+    """
+    raw = (raw or "").strip()
+    if not raw:
+        return {}
+
+    # 1. JSON(对象或数组)
+    if raw.startswith("{") or raw.startswith("["):
+        try:
+            obj = json.loads(raw)
+        except Exception:
+            obj = None
+        if isinstance(obj, dict):
+            return {
+                str(k): str(v)
+                for k, v in obj.items()
+                if v is not None and str(v).strip()
+            }
+        if isinstance(obj, list):
+            parsed: dict[str, str] = {}
+            for item in obj:
+                if isinstance(item, dict) and item.get("name") and item.get("value"):
+                    parsed[str(item["name"])] = str(item["value"])
+            if parsed:
+                return parsed
+
+    # 2. Netscape cookies.txt(Tab 分隔;以 # 开头的注释行跳过,#HttpOnly_ 前缀行剥掉前缀)
+    if "\t" in raw:
+        parsed = {}
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("#HttpOnly_"):
+                line = line[len("#HttpOnly_"):]
+            elif line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) >= 7 and parts[5].strip() and parts[6].strip():
+                parsed[parts[5].strip()] = parts[6].strip()
+        if parsed:
+            return parsed
+
+    # 3. 请求头格式(分号分隔的 k=v;换行也当分隔符,容忍用户从 DevTools 多行复制)
+    parsed = {}
+    for piece in raw.replace("\n", ";").split(";"):
+        piece = piece.strip()
+        if not piece or "=" not in piece:
+            continue
+        name, _, value = piece.partition("=")
+        name, value = name.strip(), value.strip()
+        if name and value:
+            parsed[name] = value
+    return parsed
+
+
 # ---------------------------------------------------------------------------
 # 任务状态
 # ---------------------------------------------------------------------------
