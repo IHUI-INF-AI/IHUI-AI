@@ -30,10 +30,18 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
+import os
+import shutil
+import sys
+import tempfile
 import threading
+import time
 import uuid
 from collections.abc import Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal, TypeVar, cast
 
 from playwright.sync_api import (
@@ -184,6 +192,178 @@ def _find_system_chrome() -> str | None:
         if p.exists():
             return str(p)
     return None
+
+
+# ---------------------------------------------------------------------------
+# 用户本机浏览器探测 + 真实 profile 复用(2026-09-16,"用你自己的浏览器"扫码登录)
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class SystemBrowser:
+    """用户本机的 Chromium 系浏览器(Google Chrome / Microsoft Edge)。"""
+
+    name: str
+    exe: Path
+    user_data: Path
+
+
+def _browser_specs() -> list[tuple[str, tuple[str, ...], list[Path], Path | None]]:
+    """返回 (显示名, 默认浏览器 ProgId 关键字, exe 候选, User Data 目录) 列表。"""
+    local = os.environ.get("LOCALAPPDATA")
+    roots = [Path(p) for p in (local, os.environ.get("PROGRAMFILES"), os.environ.get("PROGRAMFILES(X86)")) if p]
+    chrome_exes = [r / "Google" / "Chrome" / "Application" / "chrome.exe" for r in roots]
+    chrome_exes += [
+        Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
+        Path(r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"),
+    ]
+    edge_exes = [r / "Microsoft" / "Edge" / "Application" / "msedge.exe" for r in roots]
+    edge_exes += [
+        Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
+        Path(r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"),
+    ]
+    chrome_data = Path(local) / "Google" / "Chrome" / "User Data" if local else None
+    edge_data = Path(local) / "Microsoft" / "Edge" / "User Data" if local else None
+    return [
+        ("Google Chrome", ("chrome",), chrome_exes, chrome_data),
+        ("Microsoft Edge", ("msedge", "edge"), edge_exes, edge_data),
+    ]
+
+
+def _default_browser_progid() -> str:
+    """读注册表取系统默认浏览器的 ProgId(非 Windows / 读取失败返回空串)。"""
+    if sys.platform != "win32":
+        return ""
+    try:
+        import winreg
+
+        with winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice",
+        ) as key:
+            return str(winreg.QueryValueEx(key, "ProgId")[0])
+    except Exception:  # noqa: BLE001 — 注册表不可读时静默回退
+        return ""
+
+
+def _find_external_browser() -> SystemBrowser | None:
+    """定位"用户自己的浏览器":优先系统默认浏览器(Chromium 系),否则 Chrome → Edge。
+
+    默认浏览器是非 Chromium(如 Firefox)时,用 Chrome 兜底并照常复用其 profile。
+    """
+    progid = _default_browser_progid().lower()
+    specs = _browser_specs()
+    preferred = 1 if "edge" in progid else 0
+    for idx in (preferred, 1 - preferred):
+        name, _keywords, exes, user_data = specs[idx]
+        exe = next((p for p in exes if p.exists()), None)
+        if exe and user_data and user_data.exists():
+            return SystemBrowser(name=name, exe=exe, user_data=user_data)
+    return None
+
+
+def _resolve_browser_profile_name(user_data: Path) -> str:
+    """从 Local State 读 profile.last_used(用户真正在用的 profile),兜底 Default。"""
+    try:
+        state = json.loads((user_data / "Local State").read_text(encoding="utf-8"))
+        last_used = str(state.get("profile", {}).get("last_used") or "")
+        if last_used and (user_data / last_used).is_dir():
+            return last_used
+    except Exception:  # noqa: BLE001 — Local State 缺失/损坏时用 Default
+        pass
+    return "Default"
+
+
+def _cleanup_stale_scan_profiles(max_age_seconds: float = 24 * 3600) -> int:
+    """清理遗留的扫码临时 profile 目录(进程异常退出时残留,内含用户登录态的副本)。
+
+    仅处理系统 temp 下前缀为 `ihui-chrome-scan-` 且闲置超过 24 小时的目录,
+    不触碰其它任何路径;返回清理数量。
+    """
+    import glob
+
+    removed = 0
+    now = time.time()
+    for path in glob.glob(os.path.join(tempfile.gettempdir(), "ihui-chrome-scan-*")):
+        try:
+            if now - os.path.getmtime(path) < max_age_seconds:
+                continue
+            shutil.rmtree(path, ignore_errors=True)
+            removed += 1
+        except Exception:  # noqa: BLE001 — 清理失败不影响扫码主流程
+            continue
+    return removed
+
+
+def _copy_browser_profile(user_data: Path, dest: Path) -> dict[str, Any]:
+    """把用户真实浏览器 profile 的登录态最小文件集复制进临时 profile。
+
+    复制清单(实测约 760KB,只读用户原 profile,不改动其中任何文件):
+    - `Local State`:含 cookie 解密密钥,并把 `profile.last_used` 改写为 Default,
+      使临时目录无论原 profile 叫什么名字都能被浏览器直接采用;
+    - `<profile>/Preferences`:退出态修正为正常,避免"是否恢复页面"气泡;
+    - `<profile>/Network/Cookies`:登录态本体;Chrome 自己负责解密
+      (DPAPI + App-Bound Encryption 密钥随 Local State 一并复制,实测可正常解密)。
+
+    返回 `{"profile_used", "profile_name", "copied", "error"}`,失败时降级为空 profile
+    (仍能打开登录页,只是需要在该窗口内重新登录)。
+    """
+    info: dict[str, Any] = {"profile_used": False, "profile_name": "", "copied": [], "error": None}
+    profile_name = _resolve_browser_profile_name(user_data)
+    src_profile = user_data / profile_name
+    (dest / "Default" / "Network").mkdir(parents=True, exist_ok=True)
+
+    def _copy(src: Path, dst: Path) -> None:
+        last_err: Exception | None = None
+        for _ in range(3):
+            try:
+                shutil.copy2(src, dst)
+                return
+            except Exception as e:  # noqa: BLE001 — 日常浏览器可能短暂占用,重试后放弃
+                last_err = e
+                time.sleep(0.3)
+        raise last_err if last_err else RuntimeError(f"复制失败: {src}")
+
+    try:
+        try:
+            state = json.loads((user_data / "Local State").read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            state = {}
+        if isinstance(state, dict):
+            prof = state.setdefault("profile", {})
+            if isinstance(prof, dict):
+                prof["last_used"] = "Default"
+        (dest / "Local State").write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+        info["copied"].append("Local State")
+
+        prefs_src = src_profile / "Preferences"
+        if prefs_src.exists():
+            try:
+                prefs = json.loads(prefs_src.read_text(encoding="utf-8"))
+                if isinstance(prefs, dict):
+                    prof = prefs.setdefault("profile", {})
+                    if isinstance(prof, dict):
+                        prof["exit_type"] = "Normal"
+                        prof["exited_cleanly"] = True
+                (dest / "Default" / "Preferences").write_text(
+                    json.dumps(prefs, ensure_ascii=False), encoding="utf-8"
+                )
+                info["copied"].append("Preferences")
+            except Exception as e:  # noqa: BLE001 — Preferences 非必需
+                logger.debug(f"[browser_hub] 复制 Preferences 跳过: {e}")
+
+        for rel in ("Network/Cookies", "Network/Cookies-journal"):
+            src = src_profile / rel
+            if src.exists():
+                _copy(src, dest / "Default" / rel)
+                info["copied"].append(rel)
+        if "Network/Cookies" not in info["copied"]:
+            raise RuntimeError(f"未找到登录态数据库: {src_profile / 'Network' / 'Cookies'}")
+
+        info["profile_used"] = True
+        info["profile_name"] = profile_name
+    except Exception as e:  # noqa: BLE001 — 任何失败都降级为"空 profile 打开",不阻断扫码
+        info["error"] = str(e)
+        logger.warning(f"[browser_hub] 复用用户浏览器登录态失败,退回空 profile: {e}")
+    return info
 
 
 # ---------------------------------------------------------------------------
@@ -750,22 +930,31 @@ class BrowserHub:
     def get_session(self, session_id: str) -> BrowserSession | None:
         return self._sessions.get(session_id)
 
-    # ---- 外部 Chrome 扫码登录(2026-09-02 新增)----
-    async def launch_external_chrome(self, url: str) -> BrowserSession:
-        """用系统 Chrome 以 --app 模式打开 URL,并通过 CDP 附着,注册为 hub session。
+    # ---- 外部 Chrome 扫码登录(2026-09-02 新增,2026-09-16 改为复用用户真实 profile)----
+    async def launch_external_chrome(self, url: str) -> tuple[BrowserSession, dict[str, Any]]:
+        """用"用户自己的浏览器"打开 URL,并通过 CDP 附着,注册为 hub session。
 
-        - 必须用独立临时 --user-data-dir:① 避免与用户日常 Chrome 实例冲突
-          (同 profile 时 Chrome 只会往已有实例开新窗口,调试端口不生效);
-          ② Chrome 136+ 禁止在默认 profile 上开 --remote-debugging-port。
-        - 登录完成后 close_session 会终止该 Chrome 进程 + 清理临时 profile。
+        2026-09-16 重构(用户反馈"打开的不是我自己电脑上的浏览器"):
+        旧实现用系统 Chrome + 全新空 profile,窗口里既没有用户的书签/语言设置,也没有任何
+        已登录状态 → 用户看到"一个陌生的浏览器",且 19 个平台必须逐个重新扫码。
+        新实现:定位用户本机默认 Chromium 浏览器(Chrome/Edge)→ 复制其真实 profile 的
+        登录态最小文件集(Local State + Preferences + Network/Cookies,约 760KB)→ 以该
+        临时目录启动同一个浏览器可执行文件 → 窗口即用户自己的浏览器(已登录的平台直接命中,
+        CDP 轮询自动保存并切下一个,无需扫码)。
+
+        仍必须用独立 --user-data-dir:① Chrome 136+ 禁止在默认 profile 上开
+        --remote-debugging-port;② 默认 profile 被用户日常实例占用时调试端口不生效。
+        关闭会话时终止进程 + 删除临时 profile(含登录态副本),全程只读用户原 profile。
+
+        返回 `(session, meta)`,meta 含 `browser` / `profile_used` / `profile_name` / `error`,
+        供前端如实展示"用的是哪个浏览器、是否带上了登录态"。
         """
         import socket
         import subprocess
-        import tempfile
 
-        chrome_path = _find_system_chrome()
-        if not chrome_path:
-            raise RuntimeError("未找到 Google Chrome,请先安装 Chrome 浏览器")
+        browser = _find_external_browser()
+        if not browser:
+            raise RuntimeError("未找到可用浏览器,请先安装 Google Chrome 或 Microsoft Edge")
 
         # 挑空闲端口
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -773,43 +962,46 @@ class BrowserHub:
             port = s.getsockname()[1]
 
         profile_dir = tempfile.mkdtemp(prefix="ihui-chrome-scan-")
+        _cleanup_stale_scan_profiles()  # 清理上次异常退出遗留的登录态副本
+        profile_info = _copy_browser_profile(browser.user_data, Path(profile_dir))
         if not self._started or not self._playwright:
             await self.start()
         if self._playwright is None:
             raise RuntimeError("Playwright 初始化失败,无法连接外部 Chrome")
-        assert self._main_loop is not None
         self._main_loop = asyncio.get_running_loop()
 
         def _sync_launch() -> tuple[subprocess.Popen[Any], Any, BrowserContext, Page]:
             assert self._playwright is not None
+            # 普通窗口(而非 --app):保留地址栏/标签,已登录平台可直接切换,未登录可正常交互
             proc = subprocess.Popen([
-                chrome_path,
-                f"--app={url}",
+                str(browser.exe),
                 "--new-window",
+                url,
                 f"--remote-debugging-port={port}",
                 f"--user-data-dir={profile_dir}",
                 "--no-first-run",
                 "--no-default-browser-check",
+                "--hide-crash-restore-bubble",
             ])
             # 等待 CDP 端口就绪(Chrome 启动需要一点时间)
-            browser = None
+            ext_browser = None
             last_err: Exception | None = None
             for _ in range(30):
                 try:
-                    browser = self._playwright.chromium.connect_over_cdp(
+                    ext_browser = self._playwright.chromium.connect_over_cdp(
                         f"http://127.0.0.1:{port}", timeout=2000
                     )
                     break
                 except Exception as e:  # noqa: PERF203
                     last_err = e
-                    import time as _time
-                    _time.sleep(1.0)
-            if browser is None:
+                    time.sleep(1.0)
+            if ext_browser is None:
                 proc.terminate()
+                shutil.rmtree(profile_dir, ignore_errors=True)  # 不留含登录态副本的残留目录
                 raise RuntimeError(f"连接外部 Chrome CDP 失败: {last_err}")
-            context = browser.contexts[0] if browser.contexts else browser.new_context()
+            context = ext_browser.contexts[0] if ext_browser.contexts else ext_browser.new_context()
             page = context.pages[0] if context.pages else context.new_page()
-            return proc, browser, context, page
+            return proc, ext_browser, context, page
 
         proc, ext_browser, context, page = await self._main_loop.run_in_executor(
             self._executor, _sync_launch
@@ -822,10 +1014,18 @@ class BrowserHub:
         session = BrowserSession(session_id, context, page, self._executor, self._main_loop, ua)
         self._sessions[session_id] = session
         self._external_procs[session_id] = (proc, ext_browser, profile_dir)
+        meta: dict[str, Any] = {
+            "browser": browser.name,
+            "profile_used": profile_info["profile_used"],
+            "profile_name": profile_info.get("profile_name") or "",
+            "error": profile_info.get("error"),
+        }
         logger.info(
-            f"[browser_hub] 外部 Chrome session {session_id} 已附着 (url={url}, port={port})"
+            f"[browser_hub] 外部浏览器 session {session_id} 已附着 "
+            f"(browser={browser.name}, url={url}, port={port}, "
+            f"profile_used={meta['profile_used']})"
         )
-        return session
+        return session, meta
 
     def list_sessions(self) -> list[str]:
         return list(self._sessions.keys())
