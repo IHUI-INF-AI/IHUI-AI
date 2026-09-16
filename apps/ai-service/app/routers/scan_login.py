@@ -168,9 +168,10 @@ class ExternalStartRequest(BaseModel):
 
 @router.post("/external-start")
 async def external_start(body: ExternalStartRequest, request: Request) -> dict[str, Any]:
-    """用系统 Chrome(带 --remote-debugging-port + 独立临时 profile)打开平台登录页,
+    """用**用户自己的浏览器**(系统默认 Chromium 浏览器 + 其真实 profile 副本)打开平台登录页,
     并通过 CDP 附着注册为 hub session。返回 session_id,前端复用 detect-from-cdp 轮询,
-    登录成功后自动保存账号(与内置 CDP 扫码同一条闭环链路)。
+    已登录的平台直接命中自动保存账号(与内置 CDP 扫码同一条闭环链路),未登录的在该窗口里
+    正常扫码即可。响应同时带上 browser / profile_used,供前端如实提示用的是哪个浏览器。
     """
     # 鉴权(登录用户才能发起);user_id 本身不用于本端点
     await get_current_user_id(request)
@@ -180,15 +181,21 @@ async def external_start(body: ExternalStartRequest, request: Request) -> dict[s
 
     from ..services.browser_hub import hub
     try:
-        session = await hub.launch_external_chrome(config["login_url"])
+        session, meta = await hub.launch_external_chrome(config["login_url"])
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"启动外部 Chrome 失败: {e}") from e
+        raise HTTPException(status_code=502, detail=f"启动外部浏览器失败: {e}") from e
     return {
         "code": 0,
         "message": "ok",
-        "data": {"session_id": session.session_id, "platform": body.platform},
+        "data": {
+            "session_id": session.session_id,
+            "platform": body.platform,
+            "browser": meta.get("browser") or "",
+            "profile_used": bool(meta.get("profile_used")),
+            "profile_name": meta.get("profile_name") or "",
+        },
     }
 
 
