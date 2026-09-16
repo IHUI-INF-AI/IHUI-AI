@@ -246,7 +246,32 @@
   "a11y": {
     "addAttachment": "添付ファイルを追加(画像/動画/ファイル)",
     "breadcrumb": "パンくずナビ",
-    "searchOption": "オプションを検索"
+    "searchOption": "オプションを検索",
+    "deleteField": "フィールドを削除",
+    "codeCopied": "コードをコピーしました",
+    "copyCode": "コードをコピー",
+    "collapse": "折りたたむ",
+    "expand": "展開する",
+    "more": "その他",
+    "close": "閉じる",
+    "copy": "コピー",
+    "copyResponse": "返信をコピー",
+    "barChart": "棒グラフ",
+    "heatmap": "ヒートマップ",
+    "lineChart": "折れ線グラフ",
+    "pieChart": "円グラフ",
+    "radarChart": "レーダーチャート",
+    "slashCommand": "スラッシュコマンド",
+    "mentionFile": "ファイルをメンション",
+    "openCustomerService": "カスタマーサポートを開く",
+    "minimize": "最小化",
+    "send": "送信",
+    "closeTag": "タグを閉じる",
+    "closeAlert": "アラートを閉じる",
+    "menu": "メニュー",
+    "showPassword": "パスワードを表示",
+    "hidePassword": "パスワードを隠す",
+    "uploadAvatar": "アバターをアップロード"
   },
   "about": {
     "ctaDesc": "登録で 1,000 クレジットを獲得、全モデル無料体験、クレジットカート不要。",
@@ -6759,7 +6784,11 @@
     "staticContent2": "メッセージセンター，の個人情報保護方針に同意します。",
     "staticContent3": "本規約についてご不明な点があれば、プラットフォームのカスタマーサポートまでお問い合わせください。",
     "subtitle": "请仔细閲覧以下利用規約",
-    "title": "規約とポリシー"
+    "title": "規約とポリシー",
+    "privacyPolicy": "プライバシーポリシー",
+    "userAgreement": "利用規約",
+    "loading": "読み込み中...",
+    "version": "バージョン"
   },
   "ai": {
     "agentManager": {
@@ -7105,7 +7134,20 @@
       "callingTool": "ツール {name} を呼び出し中",
       "thinking": "考え中: {preview}",
       "waitingResponse": "モデルの応答を待っています…",
-      "toolCallStats": "ツール呼び出し ({count} 回)"
+      "toolCallStats": "ツール呼び出し ({count} 回)",
+      "sessionUsage": {
+        "promptTokens": "入力トークン",
+        "completionTokens": "出力トークン",
+        "inputCost": "入力費用",
+        "outputCost": "出力費用",
+        "noPriceHint": "価格設定なし",
+        "pricingHint": "トークン使用量で課金"
+      },
+      "usageEstimated": "使用量推定",
+      "messageUsage": {
+        "total": "合計使用量",
+        "ariaLabel": "メッセージ使用量詳細"
+      }
     },
     "title": "AI アシスタント",
     "thinking": "AI 生成中…",
@@ -7932,7 +7974,10 @@
       "wiki": "ナレッジ",
       "integrations": "連携",
       "workspace": "ワークスペース"
-    }
+    },
+    "applied": "適用済み",
+    "apply": "適用",
+    "hint": "利用可能な AI ツール"
   },
   "agentHooks": {
     "description": "Agent Hooks イベントシステム:9 種類のイベントに動作(ログ/トースト/システム通知)を設定可能。ツールイベントはツール名フィルター対応",
@@ -8099,7 +8144,13 @@
     "noFolders": "フォルダはありません",
     "apply": "#Folder 参照を入力欄に追加",
     "applied": "#Folder 参照を入力欄に追加しました",
-    "hint": "ワークスペースのフォルダを選ぶと #Folder 参照で Agent にそのディレクトリを focused させます"
+    "hint": "ワークスペースのフォルダを選ぶと #Folder 参照で Agent にそのディレクトリを focused させます",
+    "checkpointRestored": "チェックポイントを復元しました",
+    "restoreFailed": "復元に失敗しました",
+    "empty": "コンテンツなし",
+    "dispatchSubagent": "サブエージェントを派遣",
+    "bestOfAdopted": "最良案を採用",
+    "title": "ワークスペース"
   },
   "announcements": {
     "backToList": "るリスト",
@@ -8650,7 +8701,12 @@
       "compactSuccess": "コンテキストを圧縮しました: {before} → {after} トークン（{saved} 節約）",
       "compactTooFew": "メッセージが少ないため圧縮は不要です",
       "compactIncompressible": "圧縮できるコンテキストはもうありません",
-      "compactFailed": "圧縮に失敗しました"
+      "compactFailed": "圧縮に失敗しました",
+      "compaction": {
+        "truncatedNotice": "以下の内容は切り捨てられました",
+        "archiveTitle": "アーカイブ済み会話",
+        "viewArchived": "アーカイブを表示"
+      }
     },
     "contextCompacted": "コンテキストを自動圧縮しました",
     "contextCompactedDesc": "{before} → {after}({removed} 件の履歴を削除)",
@@ -9417,7 +9473,13 @@
       "exit": "終了コード",
       "title": "実行出力",
       "close": "閉じる"
-    }
+    },
+    "archiveTitle": "アーカイブ済み会話",
+    "archiveLoading": "アーカイブを読み込み中...",
+    "archiveEmpty": "アーカイブ済み会話はありません",
+    "viewArchived": "アーカイブを表示",
+    "callingTool": "ツールを呼び出し中...",
+    "waitingResponse": "返信を待機中..."
   },
   "chatHistory": {
     "backToHistory": "にる",
@@ -9857,7 +9919,17 @@
     "export": "エクスポート",
     "add": "追加",
     "submit": "送信",
-    "error": "エラー"
+    "error": "エラー",
+    "errorTitle": "エラーが発生しました",
+    "remark": "備考",
+    "unknownError": "不明なエラー",
+    "reply": "返信",
+    "orderNoLabel": "注文番号",
+    "clear": "クリア",
+    "searchPlaceholder": "検索キーワードを入力",
+    "followed": "フォロー中",
+    "follow": "フォロー",
+    "logout": "ログアウト"
   },
   "contactPage": {
     "addressTitle": "会社住所",
@@ -15693,7 +15765,8 @@
     "workspace": "ワークスペース",
     "courses": "コース",
     "faq": "常见问题",
-    "home": "首页"
+    "home": "首页",
+    "settings": "設定"
   },
   "news": {
     "allCategories": "All categories",
@@ -16854,8 +16927,8 @@
       "batchScanModeLabel": "一括スキャンモード",
       "batchScanModeInternal": "内蔵ブラウザ",
       "batchScanModeExternal": "お使いのブラウザ",
-      "batchScanWaitingHintExternal": "ブラウザウィンドウでログインページを開きました(ログイン状態を読み込めませんでした)。そこでスキャンログインを完了してください",
-      "batchScanWaitingHintExternalOwn": "お使いの {browser} で開きました(ログイン状態込み)— ログイン済みは自動保存、未ログインのみスキャンしてください",
+      "batchScanWaitingHintExternal": "お使いのブラウザで開きました。そこでログインを完了してください(まだログイン状態を読み取れていません)",
+      "batchScanWaitingHintExternalOwn": "お使いのブラウザで開きました。ログイン済みは自動保存、未ログインは一度ログインするだけです",
       "batchScanStart": "一括スキャン開始",
       "batchScanWaitingHint": "右側の内蔵ブラウザでスキャン/ログインしてください。2 分でタイムアウト自動スキップします(手動スキップも可能)。",
       "batchScanLoading": "プラットフォームキューを準備中...",
@@ -16873,6 +16946,8 @@
       "batchScanNoLoginUrl": "このプラットフォームのログインページ設定が見つかりません",
       "batchScanStopped": "停止済み",
       "batchScanStoppedToast": "スキャンログインキューを停止しました",
+      "batchScanPopupBlocked": "ブラウザが新しいタブをブロックしました。アドレスバー右側のアイコンからこのサイトのポップアップを許可して再開してください(または内蔵ブラウザモードをご利用ください)。",
+      "batchScanPopupBlockedToast": "新しいタブがブロックされたためキューを停止しました。ポップアップを許可して再試行してください",
       "batchScanWindowClosedToast": "ブラウザウィンドウが閉じられたため、キューを停止しました"
     },
     "ai": {
@@ -22044,7 +22119,19 @@
     "subtitle": "収益の明細と精算を確認",
     "configureByok": "BYOK を設定",
     "configureByokDesc": "独自の API キー（BYOK）を使用してコストを削減し、利用上限を引き上げます。",
-    "loading": "読み込み中..."
+    "loading": "読み込み中...",
+    "byokTrend": "BYOK 使用量推移",
+    "byokTrendDesc": "過去 30 日間の BYOK API 呼び出し数",
+    "last30Days": "過去 30 日間",
+    "conversionFunnel": "コンバージョンファネル",
+    "conversionFunnelDesc": "閲覧から支払いまでのユーザージャーニー",
+    "todayIncome": "本日の収入",
+    "vsYesterday": "昨日比",
+    "byokIncome": "BYOK 収入",
+    "referralCount": "紹介人数",
+    "conversionRate": "コンバージョン率",
+    "referralStats": "推薦統計",
+    "referralStatsDesc": "過去 30 日間の推薦ユーザーとコンバージョン"
   },
   "skillMarket": {
     "title": "Skill マーケット",
