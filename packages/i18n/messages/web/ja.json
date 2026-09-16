@@ -22262,5 +22262,12 @@
     "estimateLine": "今回の予想 ≈{tokens} トークン（約 ${cost}）",
     "fallbackPrice": "フォールバック価格のため参考値",
     "actualLine": "実際 {actual} トークン（予想 {estimate}）"
+  },
+  "memoryGraph": {
+    "searchPlaceholder": "記憶キーワードを検索…",
+    "searchBtn": "検索",
+    "empty": "キーワードで記憶サブグラフを照会",
+    "noHits": "一致する記憶なし",
+    "legend": "ヒット {hits} 件 · 全体 {total} ノード(ノードをクリックで全文)"
   }
 }
