@@ -18312,7 +18312,21 @@
     "aiGenerated": "Zhihui AI 생성",
     "defaultModelName": "AI 스마트 대화",
     "modelIconAlt": "모델 아이콘",
-    "tokenCostLabel": "Zhihui값 소모: {cost}"
+    "tokenCostLabel": "Zhihui값 소모: {cost}",
+    "auditReportTitle": "실행 트레이스 감사 보고서",
+    "auditQuestion": "작업",
+    "auditExportedAt": "내보낸 시각",
+    "auditStepCount": "단계 수",
+    "auditColStep": "단계",
+    "auditColTool": "도구",
+    "auditColStatus": "상태",
+    "auditColDuration": "소요 시간",
+    "auditExportBtn": "감사 보고서 내보내기",
+    "auditFooter": "智汇AI 실행 트레이스에서 자동 생성",
+    "auditStatus_success": "성공",
+    "auditStatus_error": "실패",
+    "auditStatus_running": "실행 중",
+    "auditStatus_cancelled": "취소됨"
   },
   "skills": {
     "market": {
