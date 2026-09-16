@@ -22075,7 +22075,14 @@
     "cancellingAll": "キャンセル中...",
     "cancelAllConfirm": "処理中のタスクをすべてキャンセルしますか?処理中の長いタスクは終了されます。",
     "cancelAllResult": "{count} 件の処理中タスクをキャンセルしました",
-    "cancelAllNone": "処理中のタスクはありません"
+    "cancelAllNone": "処理中のタスクはありません",
+    "viewList": "リスト",
+    "viewBoard": "ボード",
+    "colRunning": "実行中",
+    "colWaiting": "待機中",
+    "colCompleted": "完了",
+    "colEmpty": "タスクなし",
+    "jumpToChat": "会話を開く"
   },
   "voicesPage": {
     "playPreview": "試聴",

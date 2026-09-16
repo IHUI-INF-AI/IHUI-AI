@@ -2446,6 +2446,14 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         user_id=owner_uuid,
                                         # 2026-08-06 修复:传真实用户角色,否则 admin 调 run_command 等被 PERMISSION_DENIED
                                         user_role=user_role,
+                                        # P3 #31(2026-09-16 立):传 web 会话 id,媒体任务落库 media_tasks.chat_id,
+                                        # 全局任务看板"点击跳对话"深链(/chat?conversationId=)依赖此值;
+                                        # 历史上该参数未传 → chat_id 落空串,旧任务前端降级为不可跳转。
+                                        session_id=(
+                                            req.metadata.get("conversationId")
+                                            if isinstance(req.metadata, dict)
+                                            else None
+                                        ),
                                     )
                                 except Exception as e:
                                     logger.exception("Tool execution exception: %s", tool_name)

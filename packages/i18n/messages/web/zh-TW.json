@@ -22052,7 +22052,14 @@
     "cancellingAll": "取消中...",
     "cancelAllConfirm": "取消所有進行中的任務?進行中的長任務會被終止。",
     "cancelAllResult": "已取消 {count} 個進行中任務",
-    "cancelAllNone": "沒有進行中的任務"
+    "cancelAllNone": "沒有進行中的任務",
+    "viewList": "列表",
+    "viewBoard": "看板",
+    "colRunning": "進行中",
+    "colWaiting": "排隊中",
+    "colCompleted": "已完成",
+    "colEmpty": "暫無任務",
+    "jumpToChat": "開啟會話"
   },
   "voicesPage": {
     "playPreview": "試聽",
