@@ -6970,6 +6970,22 @@
         "manage": "Manage",
         "moreItems": "+{count} more"
       },
+      "diffComment": {
+        "action": "Comment",
+        "rowAction": "Comment on this line",
+        "placeholderLine": "Comment on line {line}…",
+        "placeholderFile": "Comment on this change…",
+        "submit": "Add",
+        "hint": "Enter to send, Shift+Enter for newline",
+        "remove": "Delete this comment",
+        "lineLabel": "Line {line}",
+        "fileLevel": "Whole file",
+        "countBadge": "{count} comments",
+        "targetLine": "Comment on line {line}",
+        "targetFile": "Comment on this change",
+        "close": "Cancel",
+        "pendingBanner": "{count} code review comments pending"
+      },
       "thumbRail": {
         "title": "Message map",
         "userNode": "Query",
