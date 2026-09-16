@@ -2669,6 +2669,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - **#41 记忆图谱**:阶段1 = 后端记忆条目加实体/关系抽取(LLM 后处理,写 memory_edges 表);阶段2 = 图谱查询 API(给定会话上下文取相关子图);阶段3 = 前端可视化(力导向图,复用既有 MermaidDiagram 或引 reactflow)+ 新会话自动注入子图。
 - **#42 全栈原子回滚**:阶段1 = checkpoint 表扩展(dbMigrationHash/envSnapshot/dependencyLock 字段);阶段2 = 回滚执行器(代码 diff revert 已有 + DB 迁移降级 + env 还原);阶段3 = UI 一键整栈回滚。风险最高,需 dry-run 预演模式先行。
 - **#43 成本协商代理**:阶段1 = 成本预测(历史 llm_call_logs 按任务类型回归,起点=简单 token 估算 × 模型单价);阶段2 = 预算协商(流开始前 SSE 事件 cost-estimate,前端弹「预计 X,继续/精简」);阶段3 = 流内实时消耗 vs 预测对比条(usage 事件已有)。
+- [x] ✅(2026-09-16) **43-阶段1(v1 知情闭环)**:后端新增「apps/ai-service/app/routers/cost_estimate.py」(POST /api/chat/cost-estimate——tokensIn=字符/3 中文近似、tokensOut=1.5x 经验比,费用走既有 core/model_pricing.estimate_cost_usd 口径,priced=False 标注仅兜底价;main.py 挂载)——复用现成计价服务零重复建设。前端「stores/cost-guard.ts」(独立 store,chat store 是并发热点刻意解耦)+ 「components/ai/cost-estimate-bar.tsx」(输入区上方细条:预检估算 + 流后实际 tokens 对比,priced=false 标注兜底价仅供参考)+ send-message 接线(effectiveModel 声明后 fire-and-forget 预检失败静默不阻塞聊天;onUsage 写实际 tokens)。i18n × 3 键 × 5 语言(顶层 costGuard ns)。**阶段2 待做**:阻塞式协商(超预算弹「继续/精简」)。验证:py_compile + web tsc 零错误 + parity OK。
 - **#44 Agent 团队作战室**:依赖多 agent 编排(subagent 已有)。阶段1 = 拓扑+消息流可视化(store 已有 subagent 事件);阶段2 = 瓶颈高亮(排队/长任务检测);阶段3 = 中途插话改派(向运行中 agent 注入用户消息,SSE 双向)。
 - **#45 自愈工作区**:阶段1 = 故障检测器(依赖损坏/索引过期/端口占用/磁盘满四类探针,复用部署循环的健康检查模式);阶段2 = 自动修复动作(依赖重装/索引重建/端口清理)全量进对话流(每步 toolCall 形式可审计);阶段3 = 巡逻联动(#40 发现→自动触发)。
 - **#46 实时语音协作**:依赖最大(双工语音基础设施)。阶段1 = 语音输入增强(既有语音模式→实时转写);阶段2 = TTS 流式播报(复用 #34 播报文案管线);阶段3 = 双工 + 截屏理解(小程序端截屏 API + 视觉模型),排最后。
