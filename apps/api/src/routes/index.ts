@@ -395,6 +395,8 @@ import developerRelayUsageAnalyticsRoutes from './developer-relay-usage-analytic
 import adminBackupJobsRoutes from './admin/backup-jobs.js'
 // 号池调度精细控制(2026-09-16,补强 Y)
 import adminRelayKeySchedulingRoutes from './admin/relay-key-scheduling.js'
+// 容量与趋势看板(2026-09-16,补强 X)
+import adminRelayCapacityRoutes from './admin/relay-capacity.js'
 // 渠道公开监控(2026-09-16,第三轮对标补强 O)
 import relayMonitorPublicRoutes from './relay-monitor-public.js'
 // 告警规则引擎管理(2026-09-16,补强 U)
@@ -1122,6 +1124,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminBackupJobsRoutes, { prefix: '/api/admin' })
   // 号池调度精细控制(2026-09-16,补强 Y)
   server.register(adminRelayKeySchedulingRoutes, { prefix: '/api/admin' })
+  // 容量与趋势看板(2026-09-16,补强 X)
+  server.register(adminRelayCapacityRoutes, { prefix: '/api/admin' })
   // developer API Key 分组(2026-08-01 立,多 Key 共享额度池 + 子 Key 权限继承 + 组内用量排行)
   server.register(developerApiKeyGroupsRoutes, { prefix: '/api/developer' })
 
