@@ -82,6 +82,8 @@ import {
   shouldSkipCache,
   type CacheableMessage,
 } from '../services/relay-response-cache.js'
+// 上游错误透传(2026-09-16 立,五轮补强):按 admin 规则翻译上游错误后返回下游
+import { resolveErrorPassthrough } from '../services/relay-error-rules-service.js'
 // OpenAI 协议扩展(stream_options.include_usage + response_format json_schema + seed)
 import {
   applyProtocolExtensions,
@@ -1048,7 +1050,11 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         }
 
         if (data.error) {
-          return reply.status(502).send(error(502, data.error_message ?? 'AI service error'))
+          // 上游错误透传(2026-09-16):按 admin 配置的规则翻译上游错误再返回给下游
+          const passthrough = await resolveErrorPassthrough(502, data.error_message)
+          return reply
+            .status(passthrough.status)
+            .send(error(passthrough.status, passthrough.message))
         }
 
         const result: V1AgentCallResponse = {
