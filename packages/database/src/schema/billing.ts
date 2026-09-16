@@ -7,12 +7,14 @@ import {
   uuid,
   varchar,
   integer,
+  bigint,
   numeric,
   timestamp,
   text,
   boolean,
   jsonb,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
@@ -34,6 +36,25 @@ export const plans = pgTable('plans', {
   billingPeriod: varchar('billing_period', { length: 20 }).default('month').notNull(),
   trialDays: integer('trial_days').default(0).notNull(),
   isRecurring: boolean('is_recurring').default(false).notNull(),
+  // ── 订阅套餐结构化限额(2026-09-16 立) ──
+  // 背景:原实现把 token 配额塞进 features 字符串数组(如 "500000 tokens/month"),
+  // 运行时用正则解析(parseTokenQuotaFromFeatures),无法表达"日/周/月窗口限额",
+  // 也无法承载原价、币种、在售状态与套餐模型白名单。此处改为结构化列,
+  // 旧的 features 字符串解析保留为兼容兜底(见 api-subscription-service)。
+  // 限额单位:token。-1 = 不限;0 = 未配置该维度(不约束);>0 = 窗口内可用上限。
+  dailyTokenLimit: bigint('daily_token_limit', { mode: 'number' }).default(0).notNull(),
+  weeklyTokenLimit: bigint('weekly_token_limit', { mode: 'number' }).default(0).notNull(),
+  monthlyTokenLimit: bigint('monthly_token_limit', { mode: 'number' }).default(0).notNull(),
+  /** 订阅有效期(天);0 = 不过期(长期有效) */
+  validityDays: integer('validity_days').default(30).notNull(),
+  /** 划线原价(分);0 = 不展示原价 */
+  originalPrice: integer('original_price').default(0).notNull(),
+  /** 套餐可用模型白名单(jsonb 字符串数组);空数组 = 全部已上架模型 */
+  modelWhitelist: jsonb('model_whitelist').notNull().default([]),
+  /** 是否在售(下架后不对外展示,但已购订阅不受影响) */
+  isForSale: boolean('is_for_sale').default(true).notNull(),
+  /** 绑定的计费分组 code(软关联 user_billing_groups.code;空 = 不绑定分组) */
+  billingGroupCode: varchar('billing_group_code', { length: 64 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
@@ -171,4 +192,95 @@ export const aiPricing = pgTable(
 
 export type AiPricing = typeof aiPricing.$inferSelect
 export type NewAiPricing = typeof aiPricing.$inferInsert
+
+/**
+ * API 订阅实例表(api_subscriptions,2026-09-16 立)。
+ *
+ * 背景:此前 API 订阅(N 号订阅)只把 plan 的 token 配额一次性累加进
+ * developer_api_keys.token_balance,既没有"有效期",也没有"窗口限额",
+ * 因此无法表达"包月每月 200 万 token、每日 20 万 token"这类商品形态。
+ *
+ * 本表记录每笔已支付订阅的有效期与限额快照(快照 = 下单时的 plan 配置,
+ * 后续改套餐不影响已购用户),窗口用量另见 api_subscription_window_usage。
+ *
+ * status: active | expired | cancelled。
+ * 限额快照单位 token:-1 = 不限;0 = 未配置该维度;>0 = 上限。
+ */
+export const apiSubscriptions = pgTable(
+  'api_subscriptions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    planId: uuid('plan_id').references(() => plans.id, { onDelete: 'set null' }),
+    orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
+    /** 触发本订阅的支付单号(幂等键,与 token_flows.related_order_no 同源) */
+    orderNo: varchar('order_no', { length: 64 }),
+    /** 下单时的方案名快照(方案改名/下架后仍可追溯) */
+    planName: varchar('plan_name', { length: 64 }).notNull(),
+    status: varchar('status', { length: 16 }).default('active').notNull(),
+    startAt: timestamp('start_at', { withTimezone: true }).defaultNow().notNull(),
+    endAt: timestamp('end_at', { withTimezone: true }).notNull(),
+    dailyTokenLimit: bigint('daily_token_limit', { mode: 'number' }).default(0).notNull(),
+    weeklyTokenLimit: bigint('weekly_token_limit', { mode: 'number' }).default(0).notNull(),
+    monthlyTokenLimit: bigint('monthly_token_limit', { mode: 'number' }).default(0).notNull(),
+    autoRenew: boolean('auto_renew').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userStatusIdx: index('api_subscriptions_user_status_idx').on(t.userId, t.status),
+    endIdx: index('api_subscriptions_end_at_idx').on(t.endAt),
+    orderNoIdx: index('api_subscriptions_order_no_idx').on(t.orderNo),
+  }),
+)
+
+/**
+ * 订阅窗口用量表(api_subscription_window_usage,2026-09-16 立)。
+ *
+ * 每个订阅 × 窗口类型 × 窗口起点 一行,记录该窗口内已消耗的 token 与成本。
+ * 窗口起点按 UTC+8 计算(与 tiered-pricing-service 的月度口径一致):
+ * - daily   → 当日 00:00:00
+ * - weekly  → 本周一 00:00:00
+ * - monthly → 当月 1 日 00:00:00
+ *
+ * 唯一索引 (subscription_id, window_type, window_start) 保证并发下同一窗口
+ * 只有一行,写入用 UPSERT 累加(见 subscription-window-service)。
+ */
+export const apiSubscriptionWindowUsage = pgTable(
+  'api_subscription_window_usage',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    subscriptionId: uuid('subscription_id')
+      .references(() => apiSubscriptions.id, { onDelete: 'cascade' })
+      .notNull(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    /** 窗口类型:daily | weekly | monthly */
+    windowType: varchar('window_type', { length: 8 }).notNull(),
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    windowEnd: timestamp('window_end', { withTimezone: true }).notNull(),
+    tokensUsed: bigint('tokens_used', { mode: 'number' }).default(0).notNull(),
+    costUsedCents: numeric('cost_used_cents', { precision: 18, scale: 6, mode: 'number' })
+      .default(0)
+      .notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    windowUniqIdx: uniqueIndex('api_subscription_window_usage_uniq_idx').on(
+      t.subscriptionId,
+      t.windowType,
+      t.windowStart,
+    ),
+    userWindowIdx: index('api_subscription_window_usage_user_idx').on(t.userId, t.windowType),
+  }),
+)
+
+export type ApiSubscription = typeof apiSubscriptions.$inferSelect
+export type NewApiSubscription = typeof apiSubscriptions.$inferInsert
+export type ApiSubscriptionWindowUsage = typeof apiSubscriptionWindowUsage.$inferSelect
+export type NewApiSubscriptionWindowUsage = typeof apiSubscriptionWindowUsage.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
