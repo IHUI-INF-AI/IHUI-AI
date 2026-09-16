@@ -15,6 +15,8 @@ import { cn } from '../lib/utils'
 // (游离/条件渲染分支缺失),降级为纯 children 渲染(无 Radix 行为但 HTML 一致,不会 hydration mismatch),
 // 而非抛错导致整页 prerender 失败。所有合法用法(Dialog 内 Trigger)行为完全不变。
 const InDialogContext = React.createContext(false)
+/** sheet.tsx / drawer.tsx 等 Dialog 家族共用同一 Radix 原语,需复用本 context 实现同款安全降级。 */
+export { InDialogContext }
 
 const Dialog = ({
   children,
