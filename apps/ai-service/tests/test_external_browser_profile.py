@@ -167,6 +167,124 @@ def test_copy_browser_profile_degrades_without_cookies(tmp_path: Path):
 # --- launch_external_chrome ---
 
 
+# --- 用户真实 profile 检测(detect_login_from_profile,2026-09-16) ---
+
+
+def test_domain_suffix_variants():
+    """域名后缀推导:去掉最左子域;复合公共后缀(com.cn 等)取三段。"""
+    from app.services.browser_hub import _domain_suffix
+
+    assert _domain_suffix("https://passport.bilibili.com/login") == "bilibili.com"
+    assert _domain_suffix("https://www.zhihu.com/signin") == "zhihu.com"
+    assert _domain_suffix("https://juejin.cn/login") == "juejin.cn"
+    assert _domain_suffix("https://www.people.com.cn/") == "people.com.cn"
+
+
+def _make_cookie_db(user_data: Path, profile: str, rows: list[tuple[str, str]]) -> None:
+    import sqlite3
+
+    net = user_data / profile / "Network"
+    net.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(net / "Cookies")
+    con.execute("create table cookies (name text, host_key text, value text)")
+    con.executemany("insert into cookies (name, host_key, value) values (?, ?, 'enc')", rows)
+    con.commit()
+    con.close()
+
+
+def test_read_profile_cookie_names_filters_by_domain(tmp_path: Path):
+    """名称级检测只读明文 cookie 名(不解密),并按平台域名过滤。"""
+    from app.services.browser_hub import read_profile_cookie_names
+
+    user_data = tmp_path / "ud"
+    _make_cookie_db(user_data, "Default", [
+        ("SESSDATA", ".bilibili.com"),
+        ("bili_jct", ".bilibili.com"),
+        ("z_c0", ".zhihu.com"),
+    ])
+    names = read_profile_cookie_names(user_data, "bilibili.com")
+    assert names == {"SESSDATA", "bili_jct"}
+    assert "z_c0" in read_profile_cookie_names(user_data, "zhihu.com")
+
+
+def test_read_profile_cookie_names_missing_db(tmp_path: Path):
+    """cookie 库不存在 → 返回 None(=没读到);读到了但该域名无 cookie → 空集合。"""
+    from app.services.browser_hub import read_profile_cookie_names
+
+    assert read_profile_cookie_names(tmp_path / "none", "bilibili.com") is None
+    user_data = tmp_path / "ud"
+    _make_cookie_db(user_data, "Default", [("z_c0", ".zhihu.com")])
+    assert read_profile_cookie_names(user_data, "segmentfault.com") == set()
+
+
+async def _fake_save(user_id: str, platform: str, creds: dict[str, str], name: str) -> int:
+    return 42
+
+
+def test_detect_login_from_profile_hit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """名称命中 → 无窗口取值 → 关键字段校验通过 → 入库并返回 detected=True。"""
+    from app.services import scan_login
+
+    user_data = _make_user_data(tmp_path / "ud")
+    exe = tmp_path / "chrome.exe"
+    exe.write_text("x", encoding="utf-8")
+    fake_browser = SystemBrowser(name="Google Chrome", exe=exe, user_data=user_data)
+
+    monkeypatch.setattr(browser_hub, "_find_external_browser", lambda: fake_browser)
+    monkeypatch.setattr(
+        browser_hub, "read_profile_cookie_names",
+        lambda user_data, domain="": {"SESSDATA", "bili_jct", "DedeUserID"},
+    )
+
+    async def _fake_read(_user_data=None) -> dict[str, str]:
+        return {"SESSDATA": "v1", "bili_jct": "v2", "DedeUserID": "v3", "_ga": "x"}
+
+    monkeypatch.setattr(browser_hub.hub, "read_profile_cookies", _fake_read)
+    monkeypatch.setattr(scan_login, "_save_account_to_db", _fake_save)
+
+    result = asyncio.run(scan_login.detect_login_from_profile("bilibili", "u1"))
+    assert result["detected"] is True
+    assert result["account_id"] == 42
+    assert result["profile_available"] is True
+    assert result["cookies_count"] == 3  # 统计类 _ga 被剔除
+
+
+def test_detect_login_from_profile_name_miss(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """名称级未命中 → 不取值、不入库,返回未检测到且 profile_available=True。"""
+    from app.services import scan_login
+
+    fake_browser = SystemBrowser(
+        name="Google Chrome", exe=tmp_path / "chrome.exe", user_data=_make_user_data(tmp_path / "ud")
+    )
+    monkeypatch.setattr(browser_hub, "_find_external_browser", lambda: fake_browser)
+    monkeypatch.setattr(
+        browser_hub, "read_profile_cookie_names", lambda user_data, domain="": {"z_c0"}
+    )  # 读到了,但没有 bilibili 的登录 cookie
+    called = {"read": False}
+
+    async def _fake_read(_user_data=None) -> dict[str, str]:
+        called["read"] = True
+        return {}
+
+    monkeypatch.setattr(browser_hub.hub, "read_profile_cookies", _fake_read)
+
+    result = asyncio.run(scan_login.detect_login_from_profile("bilibili", "u1"))
+    assert result["detected"] is False
+    assert result["profile_available"] is True
+    assert called["read"] is False  # 名称未命中就不该付出取值的代价
+
+
+def test_detect_login_from_profile_no_browser(monkeypatch: pytest.MonkeyPatch):
+    """未安装可用浏览器 → 明确报错(前端可如实提示),不静默失败。"""
+    from app.services import scan_login
+
+    monkeypatch.setattr(browser_hub, "_find_external_browser", lambda: None)
+    result = asyncio.run(scan_login.detect_login_from_profile("bilibili", "u1"))
+    assert result["detected"] is False
+    assert result["profile_available"] is False
+    assert "浏览器" in (result["error"] or "")
+
+
 class _FakeChromium:
     def __init__(self) -> None:
         self.cdp_url = ""
