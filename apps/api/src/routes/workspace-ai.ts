@@ -30,6 +30,7 @@ import {
   githubClient,
   fsBridge,
 } from '../services/workspace-ai-service.js'
+import { detectWorkspaceIssues, repairWorkspaceIssue } from '../services/self-healing.js'
 
 export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权：复用 workspace.ts 的模式
@@ -49,6 +50,21 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       ? (userId: string, payload: unknown) => server.pushNotification(userId, payload)
       : null
   if (pushFn) permissionManager.setPushFn(pushFn)
+
+  // 工作区路径权限校验 helper(自愈工作区端点复用);null → 放行
+  const isAllowedWorkspace = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    workspacePath: string,
+    tool: string,
+  ): Promise<boolean> => {
+    const denied = await assertWorkspacePermission(request, reply, {
+      workspacePath,
+      tool,
+      args: { workspacePath },
+    })
+    return denied === null
+  }
 
   // workspace_permissions 系统运行时拦截 helper
   // 返回 null → 放行;返回 Error → 拒绝(已写 403 响应)
@@ -1556,6 +1572,70 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(issues))
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
+    }
+  })
+
+  // ─── 自愈工作区(P3 #45,2026-09-17 立)──────────────────────────────
+
+  // POST /self-heal/detect — 四类探针健康检测(只读)
+  server.post('/self-heal/detect', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z
+      .object({
+        workspacePath: z.string().min(1),
+        port: z.number().int().min(1).max(65535).optional(),
+        minFreeMB: z
+          .number()
+          .int()
+          .min(1)
+          .max(1024 * 1024)
+          .optional(),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'self-heal.detect')))
+      return
+    try {
+      const result = await detectWorkspaceIssues(parsed.data)
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+
+  // POST /self-heal/repair — 自愈修复(默认 dryRun=true 只出计划;真实执行逐 step 审计)
+  server.post('/self-heal/repair', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z
+      .object({
+        workspacePath: z.string().min(1),
+        kind: z.enum(['dependency', 'index', 'port', 'disk']),
+        dryRun: z.boolean().default(true),
+        port: z.number().int().min(1).max(65535).optional(),
+        forceKillPid: z.number().int().min(1).optional(),
+        minFreeMB: z
+          .number()
+          .int()
+          .min(1)
+          .max(1024 * 1024)
+          .optional(),
+        detail: z.string().max(2000).optional(),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    if (!(await isAllowedWorkspace(request, reply, parsed.data.workspacePath, 'self-heal.repair')))
+      return
+    try {
+      const result = await repairWorkspaceIssue(parsed.data)
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
     }
   })
 }
