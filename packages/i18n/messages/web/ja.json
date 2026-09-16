@@ -6970,6 +6970,22 @@
         "manage": "管理",
         "moreItems": "他 {count} 件"
       },
+      "diffComment": {
+        "action": "コメント",
+        "rowAction": "この行にコメント",
+        "placeholderLine": "{line} 行目にコメント…",
+        "placeholderFile": "この変更にコメント…",
+        "submit": "追加",
+        "hint": "Enter で送信、Shift+Enter で改行",
+        "remove": "このコメントを削除",
+        "lineLabel": "{line} 行目",
+        "fileLevel": "ファイル全体",
+        "countBadge": "{count} 件のコメント",
+        "targetLine": "{line} 行目にコメント",
+        "targetFile": "この変更にコメント",
+        "close": "キャンセル",
+        "pendingBanner": "コード変更へのコメント {count} 件が未送信"
+      },
       "thumbRail": {
         "title": "メッセージマップ",
         "userNode": "質問",
