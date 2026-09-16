@@ -33,6 +33,9 @@ SSE_EVENTS: FrozenSet[str] = frozenset(
         "subagent_end",
         "plan-step",
         "thinking_delta",
+        "plan_updated",
+        "terminal_start",
+        "terminal_end",
         "done",
         "error",
         "compaction",
@@ -73,6 +76,12 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract("subagent_progress", ("payload",)),
     SSEEventContract("subagent_end", ("payload",)),
     SSEEventContract("plan-step", ("payload",)),
+    SSEEventContract("plan_updated", ("plan", "explanation", "timestamp", "messageId")),
+    SSEEventContract("terminal_start", ("terminalId", "command", "status", "startedAt", "messageId")),
+    SSEEventContract(
+        "terminal_end",
+        ("terminalId", "status", "endedAt", "durationMs", "output", "exitCode", "messageId"),
+    ),
     SSEEventContract("done", ("usage", "model", "stub")),
     SSEEventContract("error", ("message", "errorCode")),
     SSEEventContract(
