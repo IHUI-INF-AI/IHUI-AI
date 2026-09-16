@@ -29,7 +29,7 @@ export const legacyAskRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   // ========== D7: 问答分类/会员计数 (5端点) ==========
   fastify.get('/ask/categories', async () => {
     const rows = await db.execute(
-      sql`SELECT * FROM circle_categories WHERE status = 1 ORDER BY sort ASC`,
+      sql`SELECT * FROM ask_categories WHERE is_show = true ORDER BY sort_order ASC`,
     )
     return { list: rows as Record<string, unknown>[] }
   })
