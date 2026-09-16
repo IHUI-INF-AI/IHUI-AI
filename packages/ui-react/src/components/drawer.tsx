@@ -7,10 +7,28 @@
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { cva, type VariantProps } from 'class-variance-authority'
+import { CLOSE_BUTTON_BASE, CLOSE_BUTTON_ICON, CLOSE_BUTTON_POSITION } from '@ihui/design-tokens'
 import { cn } from '../lib/utils'
 
-const Drawer = DialogPrimitive.Root
-const DrawerTrigger = DialogPrimitive.Trigger
+// 2026-09-16:与 dialog.tsx 同款安全降级(见 dialog.tsx 注释),游离 DrawerTrigger 降级为纯 children。
+import { InDialogContext } from './dialog'
+
+const Drawer = ({
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root>) => (
+  <InDialogContext.Provider value={true}>
+    <DialogPrimitive.Root {...props}>{children}</DialogPrimitive.Root>
+  </InDialogContext.Provider>
+)
+const DrawerTrigger = ({
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Trigger>) => {
+  const inDialog = React.useContext(InDialogContext)
+  if (!inDialog) return <>{children}</>
+  return <DialogPrimitive.Trigger {...props}>{children}</DialogPrimitive.Trigger>
+}
 const DrawerClose = DialogPrimitive.Close
 
 const drawerSideVariants = cva(
@@ -50,7 +68,8 @@ const DrawerContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none">
+      {/* 2026-09-16:样式 token 化,单一来源 @ihui/design-tokens close-button.ts */}
+      <DialogPrimitive.Close className={cn(CLOSE_BUTTON_BASE, CLOSE_BUTTON_POSITION)}>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="16"
@@ -61,7 +80,7 @@ const DrawerContent = React.forwardRef<
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="h-4 w-4"
+          className={cn(CLOSE_BUTTON_ICON)}
         >
           <path d="M18 6 6 18" />
           <path d="m6 6 12 12" />
