@@ -343,6 +343,10 @@ export interface AgentTask {
   sessionId: string
   goal: string
   status: AgentTaskStatus
+  /** P3 #44 阶段1:running 起始时间(瓶颈高亮数据源);终态任务保留原值 */
+  startedAt: string
+  /** P3 #44 阶段3:中途插话队列(run 循环每轮开头消费) */
+  injections: string[]
   iterations: number
   steps: AgentStep[]
   result: string
@@ -360,6 +364,29 @@ interface ToolHandler {
 class AgentLoopRuntime {
   private tasks = new Map<string, AgentTask>()
   private tools = new Map<string, ToolHandler>()
+  private injections = new Map<string, string[]>()
+
+  /**
+   * P3 #44 阶段3 中途插话:向运行中的 task 注入用户消息,下一轮迭代
+   * 由 run 循环消费拼进 prompt(内存队列,终态任务拒绝)。
+   */
+  injectMessage(taskId: string, content: string): boolean {
+    const task = this.tasks.get(taskId)
+    if (!task || task.status !== 'running') return false
+    const trimmed = content.trim()
+    if (!trimmed) return false
+    const queue = this.injections.get(taskId) ?? []
+    queue.push(trimmed.slice(0, 2000))
+    this.injections.set(taskId, queue)
+    return true
+  }
+
+  private drainInjections(taskId: string): string[] {
+    const queue = this.injections.get(taskId)
+    if (!queue || queue.length === 0) return []
+    this.injections.set(taskId, [])
+    return queue
+  }
 
   registerTool(tool: ToolHandler): void {
     this.tools.set(tool.name, tool)
@@ -401,6 +428,8 @@ class AgentLoopRuntime {
       sessionId,
       goal: params.goal,
       status: 'running',
+      startedAt: nowIso(),
+      injections: [],
       iterations: 0,
       steps: [],
       result: '',
@@ -414,6 +443,17 @@ class AgentLoopRuntime {
       for (let i = 0; i < maxIter; i++) {
         if (task.status === 'canceled') break
         task.iterations = i + 1
+        // P3 #44 阶段3:消费中途插话,拼进本轮思考 prompt
+        const injected = this.drainInjections(taskId)
+        if (injected.length > 0) {
+          for (const msg of injected) {
+            task.steps.push({ iteration: i + 1, type: 'llm', content: `[用户中途插话] ${msg}` })
+          }
+        }
+        const injectionBlock =
+          injected.length > 0
+            ? `\n用户中途插话(请优先响应):\n${injected.map((m) => `- ${m}`).join('\n')}`
+            : ''
         // LLM 思考步骤 — 调用 ai-service 的 /llm/chat 端点
         let llmContent: string
         try {
@@ -425,7 +465,7 @@ class AgentLoopRuntime {
                 { role: 'system', content: `你是一个任务执行 Agent。目标: ${params.goal}` },
                 {
                   role: 'user',
-                  content: `第 ${i + 1} 轮迭代，请思考下一步行动。已完成步骤: ${task.steps.map((s) => s.content).join('; ') || '无'}`,
+                  content: `第 ${i + 1} 轮迭代，请思考下一步行动。已完成步骤: ${task.steps.map((s) => s.content).join('; ') || '无'}${injectionBlock}`,
                 },
               ],
               stream: false,
