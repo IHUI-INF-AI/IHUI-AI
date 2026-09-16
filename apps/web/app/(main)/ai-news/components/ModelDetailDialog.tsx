@@ -8,8 +8,9 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { X, TrendingUp, TrendingDown, Minus, ExternalLink, Zap, Copy } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, ExternalLink, Zap, Copy } from 'lucide-react'
 import { Tooltip } from '@/components/feedback'
+import { CloseButton } from '@ihui/ui-react'
 import type { LeaderboardEntry } from '@/lib/ai-news-api'
 import { CapabilityRadar } from './CapabilityRadar'
 import { getVendorPlatform, encodePrefill } from './vendor-platforms'
@@ -198,13 +199,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
               </div>
             ) : null}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton aria-label={t('close')} onClick={onClose} />
         </div>
 
         {/* 内容 */}
