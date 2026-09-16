@@ -425,7 +425,7 @@ export function MessageInput({
               saved: Math.max(0, res.data.originalTokens - res.data.compressedTokens),
             }),
           )
-          const result = await getMessages(id, { pageSize: 100 })
+          const result = await getMessages(id, { direction: 'initial', pageSize: 100 })
           if (result.success && result.data && useChatStore.getState().conversationId === id) {
             useChatStore.getState().setMessages(
               result.data.messages.map((m) => ({
