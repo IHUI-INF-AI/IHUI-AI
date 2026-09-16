@@ -232,7 +232,10 @@ export function createSendAnswer(
           if (!currentConversationId) return
 
           try {
-            const result = await getMessages(currentConversationId, { pageSize: 100 })
+            const result = await getMessages(currentConversationId, {
+              direction: 'initial',
+              pageSize: 100,
+            })
             if (!result.success || !result.data) return
             const remoteMessages = result.data.messages
 

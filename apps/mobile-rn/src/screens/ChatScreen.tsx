@@ -1698,7 +1698,7 @@ export function ChatScreen() {
   /** 加载历史对话消息并填入当前消息列表(对齐 Uniapp handleShowFullList) */
   const loadConversationMessages = useCallback(
     async (id: string): Promise<void> => {
-      const res = await getMessages(id, { page: 1, pageSize: 100 })
+      const res = await getMessages(id, { direction: 'initial', pageSize: 100 })
       if (res.success) {
         const loaded: ChatMessage[] = res.data.messages.map((m, idx) => ({
           id: `${m.id}-${idx}`,
@@ -1752,7 +1752,7 @@ export function ChatScreen() {
               saved: Math.max(0, res.data.originalTokens - res.data.compressedTokens),
             }),
           )
-          const msgRes = await getMessages(conversationId, { page: 1, pageSize: 100 })
+          const msgRes = await getMessages(conversationId, { direction: 'initial', pageSize: 100 })
           if (msgRes.success) {
             setMessages(
               msgRes.data.messages.map((m, idx) => ({
