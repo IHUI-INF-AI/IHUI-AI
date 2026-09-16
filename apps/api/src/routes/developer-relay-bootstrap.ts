@@ -24,7 +24,15 @@ import { requireAuth } from '../plugins/require-permission.js'
 import { idParamSchema } from './admin/_shared.js'
 
 const clientQuerySchema = z.object({
-  client: z.enum(['codex', 'codex-ws', 'claude-code', 'opencode', 'gemini-cli', 'grok-cli']),
+  client: z.enum([
+    'codex',
+    'codex-ws',
+    'claude-code',
+    'opencode',
+    'gemini-cli',
+    'grok-cli',
+    'ccswitch',
+  ]),
 })
 
 interface ConfigBlock {
@@ -196,7 +204,24 @@ export OPENAI_BASE_URL="${openaiBase}"
           language: 'bash',
           content: `# Legacy 兼容:旧版 Grok CLI 读取 OPENAI_API_BASE
 export OPENAI_API_KEY="${apiKey}"
-export OPENAI_API_BASE="${openaiBase}"
+export OPENAI_BASE_URL="${openaiBase}"
+`,
+        },
+      ]
+    case 'ccswitch':
+      // CC Switch（Claude Code Switch，国内主流 Claude 多供应商切换器）
+      // provider 条目片段,anthropic 兼容入口 /v1/anthropic
+      return [
+        {
+          title: 'Provider 配置片段（~/.cc-switch/config.json）',
+          filePath: '~/.cc-switch/config.json',
+          language: 'json',
+          content: `{
+  "name": "IHUI",
+  "baseUrl": "${anthropicBase}",
+  "apiKey": "${apiKey}",
+  "category": "custom"
+}
 `,
         },
       ]
