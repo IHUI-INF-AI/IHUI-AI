@@ -48,6 +48,10 @@ import {
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
+import {
+  PERSONALITY_PRESETS,
+  type PersonalityPresetId,
+} from '@/components/chat/personality-presets'
 import { useChatStore } from '@/stores/chat'
 import {
   SAMPLING_LIMITS,
@@ -154,6 +158,7 @@ export function SamplingParamsPanel({
   onOpenChange: (open: boolean) => void
 }) {
   const t = useTranslations('chat.sampling')
+  const tPresets = useTranslations('chat.personalityPresets')
   const conversationId = useChatStore((s) => s.conversationId)
   const defaults = useSamplingParamsStore((s) => s.defaults)
   const byConversation = useSamplingParamsStore((s) => s.byConversation)
@@ -173,6 +178,19 @@ export function SamplingParamsPanel({
   )
 
   const systemPrompt = params.systemPrompt ?? ''
+
+  // V2 #29:当前 systemPrompt 精确匹配哪个预设的 prompt 文本;自定义文本 → undefined
+  const activePreset = React.useMemo(
+    () => PERSONALITY_PRESETS.find((p) => tPresets(`${p.id}.prompt`) === systemPrompt)?.id,
+    [systemPrompt, tPresets],
+  )
+
+  const applyPreset = React.useCallback(
+    (id: PersonalityPresetId) => {
+      set('systemPrompt')(tPresets(`${id}.prompt`))
+    },
+    [set, tPresets],
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -253,6 +271,20 @@ export function SamplingParamsPanel({
                 {systemPrompt.length}/{SAMPLING_LIMITS.systemPromptMax}
               </span>
             </div>
+            {/* V2 #29:个性预设快捷选择(写入 systemPrompt,自定义文本仍可手改) */}
+            <select
+              data-testid="sampling-personality-preset"
+              value={activePreset ?? 'custom'}
+              onChange={(e) => applyPreset(e.target.value as PersonalityPresetId)}
+              className="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="custom">{t('personalityCustom')}</option>
+              {PERSONALITY_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {tPresets(`${p.id}.label`)}
+                </option>
+              ))}
+            </select>
             <textarea
               id="sampling-system-prompt"
               data-testid="sampling-system-prompt"

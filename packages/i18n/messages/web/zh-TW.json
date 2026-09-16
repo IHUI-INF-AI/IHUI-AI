@@ -9374,9 +9374,50 @@
       "done": "完成",
       "triggerActive": "取樣參數 · {{count}} 項已覆蓋",
       "trigger": "取樣參數",
-      "triggerAria": "開啟取樣參數設定"
+      "triggerAria": "開啟取樣參數設定",
+      "personalityCustom": "自訂"
     },
-    "editComingSoon": "訊息編輯即將上線,敬請期待"
+    "editComingSoon": "訊息編輯即將上線,敬請期待",
+    "personalityPresets": {
+      "default": {
+        "label": "預設助手",
+        "description": "通用均衡的助手風格",
+        "prompt": "你是一個樂於助人、回答準確均衡的 AI 助手。"
+      },
+      "concise": {
+        "label": "簡潔高效",
+        "description": "回答盡量短、直擊要點",
+        "prompt": "請用盡量簡短的語言回答，直擊要點，不要展開鋪墊。除非我要求，否則不要舉例和解釋背景。"
+      },
+      "developer": {
+        "label": "程式專家",
+        "description": "程式碼優先、可執行實作",
+        "prompt": "你是資深軟體工程師。回答以程式碼為先，給出可直接執行的實作；解釋保持精煉，指出關鍵取捨與邊界情況。"
+      },
+      "translator": {
+        "label": "翻譯官",
+        "description": "忠實自然的雙語互譯",
+        "prompt": "你是一名專業翻譯。把我的輸入在中文與英文之間互譯：中文譯成英文，英文譯成中文。只輸出譯文，不要解釋。保持原意、語氣與格式，譯文要自然流暢。"
+      },
+      "tutor": {
+        "label": "循循善誘的老師",
+        "description": "分步講解、引導思考",
+        "prompt": "你是一位耐心的老師。把複雜概念拆成小步驟講解，多用類比和例子；在關鍵節點向我提問，引導我自己想通，而不是直接給答案。"
+      },
+      "creative": {
+        "label": "創意寫手",
+        "description": "文采飛揚、擅長創作",
+        "prompt": "你是一位富有創意的寫作者。語言生動有畫面感，善用比喻和節奏；在保持實用的同時，讓表達更有感染力。"
+      }
+    },
+    "codeRun": {
+      "run": "執行",
+      "running": "執行中…",
+      "failed": "執行失敗",
+      "exit": "結束代碼",
+      "title": "執行輸出",
+      "close": "關閉"
+    }
   },
   "chatHistory": {
     "backToHistory": "返回任務列表",
