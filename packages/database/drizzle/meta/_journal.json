@@ -1821,6 +1821,13 @@
       "when": 1722464000000,
       "tag": "20260916220000_memory_edges",
       "breakpoints": true
+    },
+    {
+      "idx": 261,
+      "version": "7",
+      "when": 1722514800000,
+      "tag": "20260917003000_patrol",
+      "breakpoints": true
     }
   ]
 }
