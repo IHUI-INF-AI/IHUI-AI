@@ -237,6 +237,11 @@ if (dryRun) {
 // 保证多 agent 并行时其他 agent 的 typecheck/lint 错误不阻塞本任务 commit。
 // 修复前: 一律 --no-verify 跳过, 等于把质量守门全关(与"多层防线"设计矛盾)。
 log('info', 'Step 4/5: git commit -- <pathspec> — 首次尝试(含 pre-commit hook)')
+// 并发基线(2026-09-16 修):记录 commit 前的 HEAD,供 Step 5 精确定位"本次创建的提交"。
+// 原 Step 5 直接校验 `git show HEAD`,多 agent 并行时若其他 agent 在本脚本 commit 落地后、
+// Step 5 执行前抢先提交,HEAD 即前移 → 误判"污染事故"并误导 agent 执行 git reset HEAD~1
+// (会破坏他人提交)。改为基于 beforeSha..HEAD 区间定位本次提交后再校验。
+const beforeSha = (run('git rev-parse HEAD', { allowFail: true }) || '').trim()
 let commitResult = spawnSync(
   'git',
   ['commit', '-m', finalMessage, '--', ...expectedFiles],
@@ -274,11 +279,53 @@ if (commitResult.status !== 0) {
 }
 
 // ─── 5. 验证 commit 内容(双保险) ───────────────────────────
+// 2026-09-16 修(并发假警报):原实现校验 `git show HEAD`,但多 agent 并行时
+// HEAD 可能已被其他 agent 的提交前移,导致把**别人的文件**误报成本次 commit 的污染,
+// 并给出 `git reset HEAD~1` 这一会破坏他人提交的危险建议。
+// 现改为:在 beforeSha..HEAD 区间内按「文件集 ⊆ 预期集」定位本次提交,再校验其内容。
 log('info', 'Step 5/5: 验证 commit 内容只包含预期文件')
-const committedRaw = run('git show --name-only --pretty=format: HEAD', { allowFail: true })
-const committedFiles = committedRaw
-  ? committedRaw.split('\n').filter(Boolean).map(normalize)
-  : []
+
+/** 取指定提交的文件清单(已归一化)。 */
+const filesOfCommit = (sha) => {
+  const raw = run(`git show --name-only --pretty=format: ${sha}`, { allowFail: true })
+  return raw ? raw.split('\n').filter(Boolean).map(normalize) : []
+}
+
+// 本次提交候选:beforeSha 之后的全部新提交(正常情况下恰好 1 个)
+const newShas = (run(`git rev-list ${beforeSha}..HEAD`, { allowFail: true }) || '')
+  .split('\n')
+  .map((s) => s.trim())
+  .filter(Boolean)
+
+let committedFiles = []
+let committedSha = ''
+if (newShas.length === 0) {
+  // commit 命令返回成功但历史无变化(理论不可达:可能被 hook 撤销)
+  log('err', `${C.red}commit 成功但未见新提交${C.reset}(beforeSha=${beforeSha.slice(0, 9)})`)
+  process.exit(1)
+} else if (newShas.length === 1) {
+  committedSha = newShas[0]
+  committedFiles = filesOfCommit(committedSha)
+} else {
+  // 并发:其他 agent 也在本次 commit 前后提交。找出「文件集全部落在预期内」的那一个,
+  // 它就是本次提交(其他 agent 的提交必然含本脚本未声明的文件,除非文件集恰好相同)。
+  const mine = newShas.find((sha) => {
+    const files = filesOfCommit(sha)
+    return files.length > 0 && files.every((f) => expectedNorm.has(f))
+  })
+  if (!mine) {
+    log('err', `${C.red}并发场景下未能定位本次提交${C.reset}(beforeSha=${beforeSha.slice(0, 9)})`)
+    log('warn', `区间内 ${newShas.length} 个新提交均含非预期文件,请人工核对:`)
+    for (const sha of newShas) {
+      console.log(`     ${C.dim}${sha.slice(0, 9)}${C.reset} ${filesOfCommit(sha).join(', ')}`)
+    }
+    process.exit(1)
+  }
+  committedSha = mine
+  committedFiles = filesOfCommit(mine)
+  log('warn', `检测到 ${newShas.length - 1} 个并发提交,已定位本次提交 ${C.cyan}${committedSha.slice(0, 9)}${C.reset}`)
+}
+
 const committedUnexpected = committedFiles.filter((f) => !expectedNorm.has(f))
 if (committedUnexpected.length > 0) {
   log('err', `${C.red}严重!commit 包含非预期文件${C.reset}: ${committedUnexpected.join(', ')}`)
