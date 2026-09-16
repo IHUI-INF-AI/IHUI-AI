@@ -22238,7 +22238,11 @@
   "costGuard": {
     "estimateLine": "本次预计 ≈{tokens} tokens（约 ${cost}）",
     "fallbackPrice": "兜底价仅供参考",
-    "actualLine": "实际 {actual} tokens（预估 {estimate}）"
+    "actualLine": "实际 {actual} tokens（预估 {estimate}）",
+    "negotiationLine": "本次预计 ≈{tokens} tokens（约 ${cost}）,超过预算阈值",
+    "negotiationFallback": "本次消耗估算超过预算阈值",
+    "confirmSend": "仍然发送",
+    "confirmCancel": "取消"
   },
   "memoryGraph": {
     "searchPlaceholder": "搜索记忆关键词…",
