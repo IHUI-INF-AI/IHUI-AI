@@ -26,6 +26,9 @@ import {
   updateAlertRule,
   deleteAlertRule,
   listRecentAlertEvents,
+  listAlertSilences,
+  createAlertSilence,
+  deleteAlertSilence,
   validateAlertRuleInput,
   type AlertMetric,
 } from '../../services/relay-alert-rules-service.js'
@@ -42,6 +45,14 @@ const ruleBodySchema = z.object({
 })
 
 const rulePatchSchema = ruleBodySchema.partial()
+
+const silenceBodySchema = z.object({
+  scope: z.enum(['rule', 'all']),
+  ruleId: z.string().uuid().optional(),
+  reason: z.string().max(255).optional(),
+  endsAt: z.string().min(1),
+  createdBy: z.string().max(64).optional(),
+})
 
 const adminRelayAlertRulesRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
@@ -146,7 +157,55 @@ const adminRelayAlertRulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(500).send(error(500, '评估告警规则失败'))
     }
   })
-}
 
+  // 7. 告警静默(2026-09-16 立,对标竞品 /alert-silences):维护窗口/已知故障期抑制告警。
+  //    scope=all 抑制全部规则 / scope=rule 抑制指定规则;到期自动失效,评估触发前检查。
+  server.get('/relay/alert-silences', async (request, reply) => {
+    try {
+      const list = await listAlertSilences(false)
+      return reply.send(success({ list, total: list.length }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询告警静默失败'))
+    }
+  })
+
+  server.post('/relay/alert-silences', async (request, reply) => {
+    const parsed = silenceBodySchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数不合法'))
+    }
+    const d = parsed.data
+    if (d.scope === 'rule' && !d.ruleId) {
+      return reply.status(400).send(error(400, 'scope=rule 时必须指定 ruleId'))
+    }
+    try {
+      const row = await createAlertSilence({
+        scope: d.scope,
+        ruleId: d.ruleId ?? null,
+        reason: d.reason ?? null,
+        endsAt: new Date(d.endsAt),
+        createdBy: d.createdBy ?? null,
+      })
+      return reply.send(success(row))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '创建告警静默失败'))
+    }
+  })
+
+  server.delete('/relay/alert-silences/:id', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) return reply.status(400).send(error(400, '静默 id 不合法'))
+    try {
+      const okDeleted = await deleteAlertSilence(idParsed.data.id)
+      if (!okDeleted) return reply.status(404).send(error(404, '静默不存在'))
+      return reply.send(success({ deleted: true }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '删除告警静默失败'))
+    }
+  })
+}
 export default adminRelayAlertRulesRoutes
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
