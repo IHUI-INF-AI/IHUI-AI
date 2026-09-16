@@ -15559,6 +15559,7 @@
     "none": "なし"
   },
   "nav": {
+    "adminRelayInsights": "インサイト",
     "adminRelayCapacity": "キャパシティとトレンド",
     "adminRelayAlertRules": "アラートルール",
     "developerErrorCodes": "API エラーコード",
