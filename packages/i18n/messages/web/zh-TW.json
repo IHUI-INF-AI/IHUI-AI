@@ -15554,6 +15554,7 @@
     "none": "無"
   },
   "nav": {
+    "adminRelayInsights": "運營洞察",
     "adminRelayCapacity": "容量與趨勢",
     "adminRelayAlertRules": "告警規則",
     "developerErrorCodes": "API 錯誤碼",
