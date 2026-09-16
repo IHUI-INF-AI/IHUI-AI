@@ -26,6 +26,7 @@ import {
   startRelayAlertEvaluationScheduler,
   stopRelayAlertEvaluationScheduler,
 } from './jobs/relay-alert-rules-evaluation.js'
+import { startBackupCronScheduler, stopBackupCronScheduler } from './jobs/backup-jobs-cron.js'
 import {
   startLiteLLMPriceSyncScheduler,
   stopLiteLLMPriceSyncScheduler,
@@ -133,12 +134,17 @@ async function start() {
     try {
       stopPiiRetentionScheduler()
     } catch (e) {
-      try {
-        stopRelayAlertEvaluationScheduler()
-      } catch (e) {
-        logger.warn('stopRelayAlertEvaluationScheduler failed', { err: e })
-      }
       logger.warn('stopPiiRetentionScheduler failed', { err: e })
+    }
+    try {
+      stopRelayAlertEvaluationScheduler()
+    } catch (e) {
+      logger.warn('stopRelayAlertEvaluationScheduler failed', { err: e })
+    }
+    try {
+      stopBackupCronScheduler()
+    } catch (e) {
+      logger.warn('stopBackupCronScheduler failed', { err: e })
     }
     try {
       stopAgentAutomationScheduler()
@@ -226,6 +232,9 @@ async function start() {
   if (process.env.ENABLE_RELAY_ALERT_EVALUATION !== 'false') {
     startRelayAlertEvaluationScheduler()
   }
+
+  // 启动数据库备份定时调度(读 backup_settings;备份设置页可改,2026-09-16 立)
+  void startBackupCronScheduler()
 
   // 启动 LiteLLM 真网 AI 价表同步(启动 30s 后首跑,之后每 24h 一次,
   // 默认开启,AI_LITELLM_PRICE_SYNC_ENABLED=false 禁用)
