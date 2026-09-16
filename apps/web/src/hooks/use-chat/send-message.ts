@@ -228,7 +228,7 @@ export function createSendMessage(
     // 且需确保 conversationId 已创建后再持久化 user/assistant(原逻辑只 addMessage 不持久化,
     // 导致刷新或跨端同步时丢失斜杠命令结果)。
     const slashHit = !isRegenerate
-      ? await tryHandleSelfMediaSlash(text, (assistantContent) => {
+      ? await tryHandleSelfMediaSlash(text, (assistantContent, extra) => {
           const m = store.currentModel
           // 2026-08-31:未绑定工作区时读暂存模式,消息徽章透明性不丢失
           const st = useAiPanelStore.getState()
@@ -239,6 +239,8 @@ export function createSendMessage(
             content: assistantContent,
             model: m,
             permissionMode: slashMode,
+            // P3 #36(2026-09-16 立):/bestof 结果卡按 runId 关联,消息流内渲染并排对比
+            meta: extra?.bestOfRunId ? { bestOfRunId: extra.bestOfRunId } : undefined,
           })
         })
       : false
