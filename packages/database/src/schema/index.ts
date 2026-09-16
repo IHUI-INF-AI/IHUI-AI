@@ -258,6 +258,8 @@ export * from './relay-peak-pricing.js'
 export * from './key-rate-window-counts.js'
 // 中转站告警规则引擎(2026-09-16 立,自定义指标+阈值+冷却,评估调度每 5 分钟)
 export * from './relay-alert-rules.js'
+// 告警静默(2026-09-16 立,维护期抑制告警,防告警风暴)
+export * from './relay-alert-silences.js'
 // 数据库备份作业系统(2026-09-16 立,补强 V,pg_dump|gzip+保留策略)
 export * from './backup-jobs.js'
 
