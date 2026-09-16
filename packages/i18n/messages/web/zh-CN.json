@@ -18318,7 +18318,21 @@
     "aiGenerated": "智汇 AI 生成",
     "defaultModelName": "AI智能对话",
     "modelIconAlt": "模型图标",
-    "tokenCostLabel": "消耗智汇值：{cost}"
+    "tokenCostLabel": "消耗智汇值：{cost}",
+    "auditReportTitle": "执行轨迹审计报告",
+    "auditQuestion": "任务",
+    "auditExportedAt": "导出时间",
+    "auditStepCount": "步骤数",
+    "auditColStep": "序号",
+    "auditColTool": "工具",
+    "auditColStatus": "状态",
+    "auditColDuration": "耗时",
+    "auditExportBtn": "导出审计报告",
+    "auditFooter": "由智汇AI执行轨迹自动生成",
+    "auditStatus_success": "成功",
+    "auditStatus_error": "失败",
+    "auditStatus_running": "执行中",
+    "auditStatus_cancelled": "已撤回"
   },
   "skills": {
     "market": {

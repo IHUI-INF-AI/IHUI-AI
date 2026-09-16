@@ -18318,7 +18318,21 @@
     "aiGenerated": "智匯 AI 生成",
     "defaultModelName": "AI智能對話",
     "modelIconAlt": "模型圖標",
-    "tokenCostLabel": "消耗智匯值：{cost}"
+    "tokenCostLabel": "消耗智匯值：{cost}",
+    "auditReportTitle": "執行軌跡審計報告",
+    "auditQuestion": "任務",
+    "auditExportedAt": "匯出時間",
+    "auditStepCount": "步驟數",
+    "auditColStep": "序號",
+    "auditColTool": "工具",
+    "auditColStatus": "狀態",
+    "auditColDuration": "耗時",
+    "auditExportBtn": "匯出審計報告",
+    "auditFooter": "由智汇AI執行軌跡自動生成",
+    "auditStatus_success": "成功",
+    "auditStatus_error": "失敗",
+    "auditStatus_running": "執行中",
+    "auditStatus_cancelled": "已撤回"
   },
   "skills": {
     "market": {
