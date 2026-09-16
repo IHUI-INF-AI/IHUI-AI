@@ -403,6 +403,8 @@ import adminRelayErrorRulesRoutes from './admin/relay-error-rules.js'
 import adminRelayPromptAuditRoutes from './admin/relay-prompt-audit.js'
 // 用户自定义属性(2026-09-17,补强 55)
 import adminRelayUserAttributesRoutes from './admin/relay-user-attributes.js'
+// 数据管理(2026-09-17,补强 56)
+import adminRelayDataManagementRoutes from './admin/relay-data-management.js'
 // 渠道公开监控(2026-09-16,第三轮对标补强 O)
 import relayMonitorPublicRoutes from './relay-monitor-public.js'
 // 告警规则引擎管理(2026-09-16,补强 U)
@@ -1138,6 +1140,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminRelayPromptAuditRoutes, { prefix: '/api/admin' })
   // 用户自定义属性(2026-09-17,补强 55)
   server.register(adminRelayUserAttributesRoutes, { prefix: '/api/admin' })
+  // 数据管理(2026-09-17,补强 56)
+  server.register(adminRelayDataManagementRoutes, { prefix: '/api/admin' })
   // developer API Key 分组(2026-08-01 立,多 Key 共享额度池 + 子 Key 权限继承 + 组内用量排行)
   server.register(developerApiKeyGroupsRoutes, { prefix: '/api/developer' })
 
