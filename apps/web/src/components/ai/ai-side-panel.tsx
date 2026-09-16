@@ -20,6 +20,7 @@ import {
   isAIResponse,
   isAIQuestion,
   isAIQuestionAnswered,
+  isChatMessage,
 } from '@/hooks/use-websocket'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
@@ -290,10 +291,11 @@ export function AISidePanel() {
   // 改为下推到 <WorkspaceNameSync> 子组件,pathname 订阅只触发子组件(渲染 null,无开销)。
   // 父组件通过 setWorkspaceName callback 接收项目名,不订阅 pathname。
 
-  // WebSocket 多端同步:统一处理 ai_response / ai_question / chat_question_answered 三种事件
+  // WebSocket 多端同步:统一处理 ai_response / ai_question / chat_question_answered / chat_message 四种事件
   // - ai_response:其他端 AI 回复 → append/replace assistant 消息(原有逻辑)
   // - ai_question:其他端 AI 主动提问 → setPendingQuestion 弹窗(P2 新增)
   // - chat_question_answered:其他端用户已回答 → clearPendingQuestion 关闭弹窗(P2 新增)
+  // - chat_message:其他端聊天消息(用户消息/落盘回答)→ 按 id 去重追加(V2 #23 新增)
   React.useEffect(() => {
     if (!lastMessage || lastMessage === lastWsRef.current) return
     lastWsRef.current = lastMessage
@@ -322,6 +324,32 @@ export function AISidePanel() {
       if (pending && pending.questionId === questionId) {
         useChatStore.getState().clearPendingQuestion()
       }
+      return
+    }
+
+    // V2 #23 多端同步:聊天消息同步(其他端发送/保存的消息 → 本端追加或校正)
+    // - 用户消息:其他端发出的 user 消息 → 按 id 去重后追加(本端乐观渲染用的是
+    //   crypto.randomUUID 临时 id,与后端 DB id 必不相同,无重复风险)
+    // - assistant 消息:chat_question_answered 场景的落盘回答 → 按 id 去重追加
+    //   (流式中的占位由 ai_response 路径校正,这里只补「本端没流过」的持久化消息)
+    if (isChatMessage(lastMessage)) {
+      const { conversationId, message } = lastMessage.data
+      if (conversationId && currentConv && conversationId !== currentConv) return
+      if (!message?.id) return
+      const store = useChatStore.getState()
+      // id 已存在(本端已渲染)→ 零操作,防重复
+      if (store.messages.some((m) => m.id === message.id)) return
+      useChatStore.setState({
+        messages: [
+          ...store.messages,
+          {
+            id: message.id,
+            role: message.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+            content: message.content,
+            createdAt: message.createdAt ? new Date(message.createdAt).getTime() : Date.now(),
+          },
+        ],
+      })
       return
     }
 

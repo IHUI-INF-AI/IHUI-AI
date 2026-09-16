@@ -15,6 +15,7 @@ import type {
   AIResponseNotification,
   AIQuestionNotification,
   AIQuestionAnsweredNotification,
+  ChatMessageNotification,
 } from '@ihui/types'
 
 export type {
@@ -22,8 +23,9 @@ export type {
   AIResponseNotification,
   AIQuestionNotification,
   AIQuestionAnsweredNotification,
+  ChatMessageNotification,
 }
-export { isAIResponse, isAIQuestion, isAIQuestionAnswered } from '@ihui/types'
+export { isAIResponse, isAIQuestion, isAIQuestionAnswered, isChatMessage } from '@ihui/types'
 export type { UseWebSocketReturn }
 
 export function useWebSocket(): UseWebSocketReturn {
