@@ -10205,6 +10205,41 @@
     "wrongLabel": "Wrong Answer"
   },
   "developer": {
+    "bootstrap": {
+      "title": "One-click Setup",
+      "description": "Generate ready-to-paste configs for \"{name}\" across clients",
+      "clientCodex": "Codex",
+      "clientCodexWs": "Codex (WS)",
+      "clientClaudeCode": "Claude Code",
+      "clientOpencode": "OpenCode",
+      "clientGemini": "Gemini CLI",
+      "clientGrok": "Grok CLI",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyFailed": "Copy failed",
+      "configPath": "Config file path",
+      "loading": "Loading...",
+      "loadFailed": "Failed to load config. Please retry."
+    },
+    "dashboard": {
+      "todayCost": "Today's cost",
+      "actualCost": "Actual paid",
+      "todayCostHint": "Actual spend billed at platform rates today (member discounts included). The API exposes no separate official-price field.",
+      "balanceWindows": "Balance windows",
+      "dailyWindow": "Daily",
+      "weeklyWindow": "Weekly",
+      "monthlyWindow": "Monthly",
+      "resetsIn": "Resets in {time}",
+      "unlimited": "Unlimited",
+      "quickActions": "Quick actions",
+      "createKey": "Create key",
+      "createKeyDesc": "Generate a new API key",
+      "buyCredit": "Buy / Top up",
+      "buyCreditDesc": "Top up balance or subscribe to a plan",
+      "viewUsage": "View usage",
+      "viewUsageDesc": "Usage details by model / date",
+      "noSubscription": "No active plan, no balance windows"
+    },
     "errorCodes": {
       "title": "API Error Codes",
       "subtitle": "A complete list of all API error codes, their corresponding HTTP status codes, and remediation suggestions.",

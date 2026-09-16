@@ -10213,6 +10213,41 @@
     "wrongLabel": "誤答"
   },
   "developer": {
+    "bootstrap": {
+      "title": "ワンクリック設定",
+      "description": "「{name}」の各クライアント用貼り付け設定を生成",
+      "clientCodex": "Codex",
+      "clientCodexWs": "Codex (WS)",
+      "clientClaudeCode": "Claude Code",
+      "clientOpencode": "OpenCode",
+      "clientGemini": "Gemini CLI",
+      "clientGrok": "Grok CLI",
+      "copy": "コピー",
+      "copied": "コピーしました",
+      "copyFailed": "コピーに失敗しました",
+      "configPath": "設定ファイルのパス",
+      "loading": "読み込み中...",
+      "loadFailed": "設定の読み込みに失敗しました。再試行してください。"
+    },
+    "dashboard": {
+      "todayCost": "今日のコスト",
+      "actualCost": "実払い",
+      "todayCostHint": "本日の実際の支払額(会員割引込み、プラットフォームレートで課金)。公式価格相当の項目は API にありません。",
+      "balanceWindows": "残高ウィンドウ",
+      "dailyWindow": "日次",
+      "weeklyWindow": "週次",
+      "monthlyWindow": "月次",
+      "resetsIn": "{time}後にリセット",
+      "unlimited": "無制限",
+      "quickActions": "クイックアクション",
+      "createKey": "キーを作成",
+      "createKeyDesc": "新しい API キーを生成",
+      "buyCredit": "購入 / チャージ",
+      "buyCreditDesc": "残高をチャージまたはプランに登録",
+      "viewUsage": "利用状況を見る",
+      "viewUsageDesc": "モデル / 日付ごとの詳細",
+      "noSubscription": "有効なプランなし、残高ウィンドウなし"
+    },
     "errorCodes": {
       "title": "API エラーコード",
       "subtitle": "すべての API エラーコードと対応する HTTP ステータスコード、および対処法をまとめた一覧です。",

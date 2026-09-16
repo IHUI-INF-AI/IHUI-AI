@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import {
+  Activity,
   BarChart,
   Key,
   Webhook,
@@ -29,6 +30,7 @@ import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
+import { fetchUserSubscriptionStatus } from '@/lib/api-client-subscriptions'
 
 interface DevSummary {
   callCount?: number
@@ -46,6 +48,49 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
+/** 用量接口返回结构(复用 /api/developer/relay/usage)。 */
+interface DashboardUsage {
+  groupBy: 'model' | 'day'
+  mode: 'all' | 'relay' | 'byok'
+  rows: Array<Record<string, unknown>>
+  summary: {
+    totalCalls: number
+    totalTokens: number
+    totalCostCents: number
+    byokCallCount: number
+    relayCallCount: number
+    upstreamCostCents: number
+    platformFeeCents: number
+  }
+}
+
+// 本地复用 apps/web/app/(main)/purchase/helpers.ts 的纯格式化工具(2026-09-16 立)。
+// 因 tsconfig alias '@/*' -> './src/*',而 purchase/helpers.ts 位于 apps/web/app/(非 src),
+// '@/app/(main)/purchase/helpers' 无法解析,故就地复制三个函数并注明来源。
+function formatTokens(n: number): string {
+  const v = Number(n ?? 0)
+  if (v === -1) return '∞'
+  if (v <= 0) return '-'
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)}M`
+  if (v >= 1_000) return `${(v / 1_000).toFixed(v % 1_000 === 0 ? 0 : 1)}K`
+  return String(v)
+}
+
+function formatCountdown(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  if (h > 0) return `${h}小时${m}分`
+  if (m > 0) return `${m}分${sec}秒`
+  return `${sec}秒`
+}
+
+function windowPercent(used: number, limit: number): number {
+  if (!Number.isFinite(limit) || limit <= 0) return 0
+  return Math.min(100, Math.max(0, Math.round((used / limit) * 100)))
+}
+
 export default function DeveloperHomePageClient() {
   const t = useTranslations('developerHomePage')
   const tPricing = useTranslations('developerPricingPage')
@@ -59,6 +104,28 @@ export default function DeveloperHomePageClient() {
   const summary = summaryQ.data ?? {}
   const currencyFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' })
   const numFmt = new Intl.NumberFormat(locale)
+
+  const tDash = useTranslations('developer')
+
+  // 今日成本:复用 /api/developer/relay/usage(groupBy=day + startDate=今天)。
+  // 该接口仅返回 totalCostCents(实付/平台计费),无"官方价折算"字段,
+  // 故按任务规则展示实付单值 + 说明文案,不臆造字段。
+  const today = new Date().toISOString().slice(0, 10)
+  const todayUsageQ = useQuery({
+    queryKey: ['developer', 'dashboard', 'usage', 'today', today],
+    queryFn: () =>
+      api<DashboardUsage>(`/api/developer/relay/usage?groupBy=day&startDate=${today}`).catch(
+        () => null,
+      ),
+  })
+  const todayCostCents = todayUsageQ.data?.summary?.totalCostCents ?? 0
+
+  // 余额窗口:复用 /api/developer/relay/subscriptions 的 status.windows。
+  const subQ = useQuery({
+    queryKey: ['developer', 'dashboard', 'subscription'],
+    queryFn: () => fetchUserSubscriptionStatus().then((r) => (r.success ? r.data : null)),
+  })
+  const windows = subQ.data?.windows ?? []
 
   const stats = [
     {
@@ -172,6 +239,106 @@ export default function DeveloperHomePageClient() {
           </CardContent>
         </Card>
       )}
+
+      {/* 今日成本(实付价):复用用量接口;接口无官方价折算字段,展示实付单值 + 说明 */}
+      <Card>
+        <CardContent className="min-[640px]:p-3 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">{tDash('dashboard.todayCost')}</p>
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+              <Check className="h-3 w-3 shrink-0" aria-hidden />
+              {tDash('dashboard.actualCost')}
+            </span>
+          </div>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">
+            {todayUsageQ.isLoading ? '—' : `¥${(todayCostCents / 100).toFixed(2)}`}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{tDash('dashboard.todayCostHint')}</p>
+        </CardContent>
+      </Card>
+
+      {/* 余额窗口:日/周/月额度进度 + 重置倒计时,复用订阅接口 windows */}
+      <Card>
+        <CardContent className="min-[640px]:p-3 p-3">
+          <p className="mb-3 text-sm font-semibold">{tDash('dashboard.balanceWindows')}</p>
+          {windows.length === 0 ? (
+            <p className="text-xs text-muted-foreground">{tDash('dashboard.noSubscription')}</p>
+          ) : (
+            <div className="space-y-3">
+              {windows.map((w) => {
+                const isUnlimited = w.limit === -1
+                const pct = windowPercent(w.used, w.limit)
+                const labelKey =
+                  w.windowType === 'daily'
+                    ? 'dashboard.dailyWindow'
+                    : w.windowType === 'weekly'
+                      ? 'dashboard.weeklyWindow'
+                      : 'dashboard.monthlyWindow'
+                return (
+                  <div key={w.windowType}>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">{tDash(labelKey)}</span>
+                      <span className="tabular-nums">
+                        {isUnlimited
+                          ? tDash('dashboard.unlimited')
+                          : `${formatTokens(w.used)} / ${formatTokens(w.limit)}`}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-2 w-full overflow-hidden rounded-sm bg-muted">
+                      <div
+                        className="h-2 rounded-sm bg-primary transition-all"
+                        style={{ width: `${isUnlimited ? 100 : pct}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {tDash('dashboard.resetsIn', { time: formatCountdown(w.resetsInSeconds) })}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 快捷操作入口 */}
+      <Card>
+        <CardContent className="min-[640px]:p-3 p-3">
+          <p className="mb-3 text-sm font-semibold">{tDash('dashboard.quickActions')}</p>
+          <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">
+            <Link
+              href="/developer/relay/keys"
+              className="group flex flex-col gap-1 rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
+            >
+              <KeyRound className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+              <p className="mt-1 text-sm font-medium">{tDash('dashboard.createKey')}</p>
+              <p className="line-clamp-2 text-xs text-muted-foreground">
+                {tDash('dashboard.createKeyDesc')}
+              </p>
+            </Link>
+            <Link
+              href="/purchase"
+              className="group flex flex-col gap-1 rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
+            >
+              <Coins className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+              <p className="mt-1 text-sm font-medium">{tDash('dashboard.buyCredit')}</p>
+              <p className="line-clamp-2 text-xs text-muted-foreground">
+                {tDash('dashboard.buyCreditDesc')}
+              </p>
+            </Link>
+            <Link
+              href="/developer/relay/usage"
+              className="group flex flex-col gap-1 rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
+            >
+              <Activity className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+              <p className="mt-1 text-sm font-medium">{tDash('dashboard.viewUsage')}</p>
+              <p className="line-clamp-2 text-xs text-muted-foreground">
+                {tDash('dashboard.viewUsageDesc')}
+              </p>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">
