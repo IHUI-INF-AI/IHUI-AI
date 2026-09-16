@@ -63,37 +63,42 @@ interface SheetContentProps
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   SheetContentProps
->(({ side = 'right', className, children, ...props }, ref) => (
-  <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-white/80 dark:bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-(--duration-unified) ease-unified" />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(sheetSideVariants({ side }), 'rounded-lg', className)}
-      {...props}
-    >
-      {children}
-      {/* 2026-09-16:样式 token 化,单一来源 @ihui/design-tokens close-button.ts */}
-      <DialogPrimitive.Close className={cn(CLOSE_BUTTON_BASE, CLOSE_BUTTON_POSITION)}>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={cn(CLOSE_BUTTON_ICON)}
-        >
-          <path d="M18 6 6 18" />
-          <path d="m6 6 12 12" />
-        </svg>
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPrimitive.Portal>
-))
+>(({ side = 'right', className, children, ...props }, ref) => {
+  // 2026-09-16:无 Root 时渲染 null(同 dialog.tsx Content 降级,防 prerender 抛错)。
+  const inDialog = React.useContext(InDialogContext)
+  if (!inDialog) return null
+  return (
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-white/80 dark:bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-(--duration-unified) ease-unified" />
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(sheetSideVariants({ side }), 'rounded-lg', className)}
+        {...props}
+      >
+        {children}
+        {/* 2026-09-16:样式 token 化,单一来源 @ihui/design-tokens close-button.ts */}
+        <DialogPrimitive.Close className={cn(CLOSE_BUTTON_BASE, CLOSE_BUTTON_POSITION)}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={cn(CLOSE_BUTTON_ICON)}
+          >
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  )
+})
 SheetContent.displayName = DialogPrimitive.Content.displayName
 
 const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
