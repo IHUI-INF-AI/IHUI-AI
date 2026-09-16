@@ -60,6 +60,9 @@ export default function InsightsPage() {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
+    // 实时化(2026-09-17,补强 58):每 60s 自动重新分析并刷新界面,
+    // 替代手动刷新;后端另有 /relay/insights/stream SSE 端点可供 WS/SSE 客户端订阅。
+    refetchInterval: 60_000,
   })
 
   const insights = data?.insights ?? []
