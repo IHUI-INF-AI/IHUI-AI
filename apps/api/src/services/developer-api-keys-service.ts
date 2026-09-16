@@ -204,6 +204,33 @@ export async function deleteKey(id: string, userId: string): Promise<boolean> {
 }
 
 /**
+ * 吊销 API Key(2026-09-16 立,软操作)。
+ *
+ * 与 deleteKey(硬删除)的区别:吊销只把 status 置为 'revoked',保留 Key 记录
+ * 与全部调用日志(llm_call_logs 关联不丢失),用户可在管理端看到"已吊销"状态。
+ * checkQuota 对 status !== 'active' 一律拒绝,吊销立即生效。
+ * 幂等:已是 revoked 直接返回 true。
+ */
+export async function revokeKey(id: string, userId: string): Promise<boolean> {
+  const [existing] = await dbRead
+    .select({
+      id: developerApiKeys.id,
+      userId: developerApiKeys.userId,
+      status: developerApiKeys.status,
+    })
+    .from(developerApiKeys)
+    .where(eq(developerApiKeys.id, id))
+    .limit(1)
+  if (!existing || existing.userId !== userId) return false
+  if (existing.status === 'revoked') return true
+  await db
+    .update(developerApiKeys)
+    .set({ status: 'revoked', updatedAt: new Date() })
+    .where(eq(developerApiKeys.id, id))
+  return true
+}
+
+/**
  * 轮换 API Key 的 secret(带归属权校验)。
  * 生成新 secret + 哈希,旧 secret 失效。
  * @returns { apiKey: 完整行(含新哈希 secret), secret: 新明文(仅此一次返回) };不存在或不归属返回 null。
