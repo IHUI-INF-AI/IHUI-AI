@@ -158,4 +158,24 @@ describe('BatchScanLoginDialog 关闭/停止行为', () => {
     await new Promise((r) => setTimeout(r, 400))
     expect(startExternalScanLogin).toHaveBeenCalledTimes(1)
   })
+
+  it('用户手动关掉浏览器窗口后结束队列:不再拉起下一个平台', async () => {
+    // 后端在窗口被关闭后返回该错误(真机实测串);此前被当作普通异常 → 继续弹下一个窗口
+    detectLoginFromCdp.mockResolvedValue({
+      success: true,
+      data: {
+        detected: false,
+        cookies_count: 0,
+        account_id: null,
+        error: '浏览器已关闭,请重新发起扫码登录',
+      },
+    })
+    render(renderDialog(true))
+    await startQueue()
+
+    await waitFor(() => expect(closeBrowserSession).toHaveBeenCalledWith('s-zhihu'))
+    await new Promise((r) => setTimeout(r, 400))
+    expect(startExternalScanLogin).toHaveBeenCalledTimes(1)
+    expect(startExternalScanLogin).not.toHaveBeenCalledWith('bilibili')
+  })
 })
