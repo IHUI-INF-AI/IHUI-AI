@@ -22053,6 +22053,7 @@
     "typeLog": "日志巡检",
     "typeDeadlink": "死链巡检",
     "typeCustom": "自定义巡检",
+    "typeWorkspace": "工作区健康",
     "nextRunAt": "下次巡检",
     "resultOk": "正常",
     "resultIssue": "发现问题",
