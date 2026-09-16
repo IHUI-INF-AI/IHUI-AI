@@ -6,7 +6,7 @@
 
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Terminal, Key, FileText, Users, Code } from 'lucide-react'
+import { Terminal, Key, FileText, Users, Code, Building2 } from 'lucide-react'
 
 import { CategoryShell, type CategoryNavGroup } from '@/components/layout'
 
@@ -25,6 +25,7 @@ export default function DeveloperLayout({ children }: { children: React.ReactNod
         { href: '/developer/relay/keys', label: t('navApiKeys'), icon: Key },
         { href: '/developer/logs', label: t('navLogs'), icon: FileText },
         { href: '/developer/team', label: t('navTeam'), icon: Users },
+        { href: '/developer/enterprise', label: t('navEnterprise'), icon: Building2 },
       ],
     },
     {
