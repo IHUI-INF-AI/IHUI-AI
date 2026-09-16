@@ -22217,5 +22217,18 @@
   "chatSearchBar": {
     "searchPlaceholder": "会話を検索…",
     "searchAriaLabel": "会話を検索"
+  },
+  "traceReplay": {
+    "title": "実行トレース再生",
+    "stepCounter": "{current} / {total} ステップ",
+    "play": "再生",
+    "pause": "一時停止",
+    "replay": "再再生",
+    "stepForward": "ステップ",
+    "reset": "リセット",
+    "status_success": "成功",
+    "status_error": "失敗",
+    "status_running": "実行中",
+    "status_cancelled": "取消済"
   }
 }
