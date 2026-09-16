@@ -6,10 +6,33 @@
 
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { CLOSE_BUTTON_BASE, CLOSE_BUTTON_ICON, CLOSE_BUTTON_POSITION } from '@ihui/design-tokens'
 import { cn } from '../lib/utils'
 
-const Dialog = DialogPrimitive.Root
-const DialogTrigger = DialogPrimitive.Trigger
+// 2026-09-16 修复:静态导出预渲染偶发 "`DialogTrigger` must be used within `Dialog`"
+// (CI 实证:/models 与 /developer/api-docs 两页在 4-worker prerender 中触发,dev SSR 不复现)。
+// 方案:用自有 InDialogContext 跟踪 Root 包裹状态——Trigger 渲染时若不在 Dialog Root 内
+// (游离/条件渲染分支缺失),降级为纯 children 渲染(无 Radix 行为但 HTML 一致,不会 hydration mismatch),
+// 而非抛错导致整页 prerender 失败。所有合法用法(Dialog 内 Trigger)行为完全不变。
+const InDialogContext = React.createContext(false)
+
+const Dialog = ({
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root>) => (
+  <InDialogContext.Provider value={true}>
+    <DialogPrimitive.Root {...props}>{children}</DialogPrimitive.Root>
+  </InDialogContext.Provider>
+)
+
+const DialogTrigger = ({
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Trigger>) => {
+  const inDialog = React.useContext(InDialogContext)
+  if (!inDialog) return <>{children}</>
+  return <DialogPrimitive.Trigger {...props}>{children}</DialogPrimitive.Trigger>
+}
 const DialogClose = DialogPrimitive.Close
 
 const DialogContent = React.forwardRef<
@@ -56,7 +79,8 @@ const DialogContent = React.forwardRef<
     >
       {children}
       {!hideCloseButton && (
-        <DialogPrimitive.Close className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none">
+        // 2026-09-16:样式 token 化,单一来源 @ihui/design-tokens close-button.ts
+        <DialogPrimitive.Close className={cn(CLOSE_BUTTON_BASE, CLOSE_BUTTON_POSITION)}>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"
@@ -67,7 +91,7 @@ const DialogContent = React.forwardRef<
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="h-4 w-4"
+            className={cn(CLOSE_BUTTON_ICON)}
           >
             <path d="M18 6 6 18" />
             <path d="m6 6 12 12" />
@@ -82,7 +106,9 @@ DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex flex-col space-y-1.5 text-center min-[640px]:text-left', className)}
+    // pr-8(2026-09-16):给右上角关闭按钮(h-7 w-7 @ right-3 top-3)留出空间,
+    // 长标题不再延伸到按钮下方
+    className={cn('flex flex-col space-y-1.5 pr-8 text-center min-[640px]:text-left', className)}
     {...props}
   />
 )
