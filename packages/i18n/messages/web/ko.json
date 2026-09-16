@@ -271,7 +271,10 @@
     "menu": "메뉴",
     "showPassword": "비밀번호 표시",
     "hidePassword": "비밀번호 숨기기",
-    "uploadAvatar": "아바타 업로드"
+    "uploadAvatar": "아바타 업로드",
+    "streamAnnounceStart": "AI 가 답변을 시작했습니다",
+    "streamAnnounceProgress": "AI 답변 중, {n}자 출력됨",
+    "streamAnnounceDone": "AI 답변 완료, 총 {n}자"
   },
   "about": {
     "ctaDesc": "가입 즉시 1,000 크레딧 제공, 모든 모델 무료 체험, 신용 카드 불필요.",
@@ -8590,6 +8593,11 @@
     "addMenuLabel": "추가",
     "artifactCode": "코드",
     "artifactPreview": "미리보기",
+    "pdfOpenExternal": "새 창에서 열기",
+    "csvPreviewMeta": "{rows}행 × {cols}열",
+    "csvExpand": "모두 보기",
+    "csvCollapse": "접기",
+    "csvLoading": "로딩 중…",
     "assistant": "AI 어시스턴트",
     "attachUploadFailed": "첨부 파일 업로드에 실패했습니다. 삭제 후 다시 추가해 주세요",
     "attachUploading": "첨부 파일 업로드 중입니다. 잠시만 기다려 주세요",
