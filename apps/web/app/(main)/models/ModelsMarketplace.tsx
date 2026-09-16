@@ -683,6 +683,9 @@ function ModelCardGrid({
         </div>
       </div>
 
+      {/* 中转站价格对比(2026-09-16 立):官方价 vs 实付价 + 倍率 + 缓存读写价 */}
+      {model.relayPublic && <RelayPriceCompare model={model} />}
+
       {/* 上架时间 — 单独一行,无容器包裹(仅当存在 releasedAt) */}
       {model.releasedAt && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
@@ -1139,6 +1142,100 @@ function RelayBadge({
         {t('market.relayAvailable')}
       </span>
     </Tooltip>
+  )
+}
+
+/** 分/千 token → 元/百万 token 显示(换算 = 分/千 × 1000 ÷ 100 = ×10) */
+function toYuanPerMillion(centsPer1k: number): string {
+  const yuan = (Number(centsPer1k) || 0) * 10
+  if (yuan === 0) return '0'
+  return yuan >= 1 ? yuan.toFixed(2) : yuan.toFixed(4)
+}
+
+/**
+ * 中转站价格对比块(2026-09-16 立)。
+ *
+ * 对齐同类中转站的价格透明度:把"官方参考价 vs 中转站实付价"并排展示,
+ * 并给出定价倍率(含分时高峰)、缓存读/写价与订阅专享标记。
+ * 价格统一换算为「¥/百万 token」,与卡片上方既有价格行口径一致。
+ * 仅在模型已上架中转站(relayPublic)时渲染。
+ */
+function RelayPriceCompare({ model }: { model: Model }) {
+  const t = useTranslations('models')
+  const officialIn = model.relayOfficialInputPricePer1k ?? 0
+  const paidIn = model.relayEffectiveInputPricePer1k ?? model.relayInputPricePer1k ?? 0
+  const paidOut = model.relayEffectiveOutputPricePer1k ?? model.relayOutputPricePer1k ?? 0
+  const cacheRead = model.relayCacheReadPricePer1k ?? 0
+  const cacheWrite = model.relayCacheWritePricePer1k ?? 0
+  const peak = model.relayPeakMultiplier ?? 1
+  const plans = model.relaySubscriptionPlans ?? []
+  const isPeak = peak > 1.001
+  const isOffPeak = peak < 0.999
+  const cheaper = officialIn > 0 && paidIn > 0 && paidIn < officialIn
+
+  return (
+    <div className="space-y-1 rounded-md border border-sky-500/25 bg-sky-500/5 px-2 py-1.5 text-xs">
+      {officialIn > 0 && (
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">{t('relay.officialPrice')}</span>
+          <span className="tabular-nums text-muted-foreground">
+            ¥{toYuanPerMillion(officialIn)}
+            <span className="ml-0.5">{t('perMillion')}</span>
+          </span>
+        </div>
+      )}
+      <div className="flex items-center justify-between">
+        <span className="text-muted-foreground">{t('relay.paidPrice')}</span>
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 font-medium tabular-nums',
+            cheaper ? 'text-emerald-600' : 'text-foreground',
+          )}
+        >
+          ¥{toYuanPerMillion(paidIn)}
+          <span className="font-normal text-muted-foreground">{t('perMillion')}</span>
+        </span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-muted-foreground">{t('market.outputPrice')}</span>
+        <span className="tabular-nums">
+          ¥{toYuanPerMillion(paidOut)}
+          <span className="ml-0.5 text-muted-foreground">{t('perMillion')}</span>
+        </span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-muted-foreground">{t('relay.multiplier')}</span>
+        <span className="inline-flex items-center gap-1.5 tabular-nums">
+          <span>×{(model.relayPriceMultiplier ?? 1).toFixed(2)}</span>
+          {isPeak && (
+            <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+              {t('relay.peak')} ×{peak.toFixed(2)}
+            </span>
+          )}
+          {isOffPeak && (
+            <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+              {t('relay.offPeak')} ×{peak.toFixed(2)}
+            </span>
+          )}
+        </span>
+      </div>
+      {(cacheRead > 0 || cacheWrite > 0) && (
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <span>
+            {t('relay.cacheRead')} / {t('relay.cacheWrite')}
+          </span>
+          <span className="tabular-nums">
+            ¥{toYuanPerMillion(cacheRead)} / ¥{toYuanPerMillion(cacheWrite)}
+          </span>
+        </div>
+      )}
+      {plans.length > 0 && (
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-muted-foreground">{t('relay.subscriptionOnly')}</span>
+          <span className="truncate pl-2 text-sky-700 dark:text-sky-400">{plans.join(' · ')}</span>
+        </div>
+      )}
+    </div>
   )
 }
 

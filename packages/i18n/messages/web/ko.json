@@ -14307,6 +14307,16 @@
     "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
   },
   "models": {
+    "relay": {
+      "officialPrice": "공식 가격",
+      "paidPrice": "실제 가격",
+      "multiplier": "배율",
+      "peak": "피크",
+      "offPeak": "비피크",
+      "cacheRead": "캐시 읽기",
+      "cacheWrite": "캐시 쓰기",
+      "subscriptionOnly": "구독 전용"
+    },
     "aiNews": {
       "fallbackHint": "최신 뉴스 없음 — 2026-07 신모델을 표시 중",
       "liveTag": "실시간",
@@ -15434,6 +15444,8 @@
     "none": "없음"
   },
   "nav": {
+    "purchase": "API 구매",
+    "availableChannels": "사용 가능한 채널",
     "agentTeams": "에이전트 팀",
     "about": "소개",
     "activities": "활동",
@@ -22152,5 +22164,51 @@
   "chatSearchBar": {
     "searchPlaceholder": "대화 검색…",
     "searchAriaLabel": "대화 검색"
+  },
+  "availableChannels": {
+    "title": "사용 가능한 채널",
+    "subtitle": "판매 중인 업스트림 채널, 모델, 가격대를 확인하세요.",
+    "refresh": "새로고침",
+    "loading": "불러오는 중...",
+    "empty": "표시할 채널이 없습니다",
+    "models": "모델",
+    "inputPrice": "입력 가격(위안/100만)",
+    "outputPrice": "출력 가격(위안/100만)",
+    "multiplier": "가격 배율",
+    "moreModels": "{count}개 더"
+  },
+  "purchase": {
+    "title": "API 구독 및 잔액 구매",
+    "subtitle": "구독 구매와 충전을 한 곳에서. WeChat Pay와 Alipay를 지원합니다.",
+    "tabSubscribe": "요금제",
+    "tabTopup": "충전",
+    "currentSubscription": "현재 구독",
+    "expiresAt": "유효 기간",
+    "remaining": "남은 한도",
+    "unlimited": "무제한",
+    "dailyWindow": "일일 한도",
+    "weeklyWindow": "주간 한도",
+    "monthlyWindow": "월간 한도",
+    "resetsIn": "초기화까지",
+    "noSubscription": "활성 구독이 없습니다. 아래 요금제로 시작하세요.",
+    "noPlans": "구매 가능한 요금제가 없습니다",
+    "validityDays": "유효 기간 {days}일",
+    "modelWhitelist": "전용 모델 {count}개 포함",
+    "allModels": "등록된 모든 모델 사용 가능",
+    "currentPlan": "현재 요금제",
+    "subscribeNow": "구독하기",
+    "orderCreated": "주문 {orderNo} 생성됨, 결제로 이동합니다",
+    "loading": "불러오는 중...",
+    "submitFailed": "제출에 실패했습니다. 다시 시도해 주세요",
+    "amount": "충전 금액(위안)",
+    "amountRange": "금액은 {min} ~ {max} 위안 사이여야 합니다",
+    "payMethod": "결제 수단",
+    "wechat": "WeChat Pay",
+    "alipay": "Alipay",
+    "payNow": "결제하기",
+    "creating": "주문 생성 중...",
+    "topupNote": "결제 완료 후 금액이 계정 잔액에 충전되며 모델 호출이나 요금제 구매에 사용할 수 있습니다.",
+    "redeemHint": "교환 코드가 있으신가요?",
+    "goRedeem": "교환하기"
   }
 }

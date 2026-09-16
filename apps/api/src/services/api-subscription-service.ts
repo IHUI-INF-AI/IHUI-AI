@@ -24,6 +24,14 @@ import { eq, and, desc, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { plans, orders, developerApiKeys, tokenFlows } from '@ihui/database'
 import { generateApiKey, hashSecret } from '../utils/api-key-hash.js'
+import { logger } from '../utils/logger.js'
+// 窗口型订阅(2026-09-16 立):套餐配了日/周/月限额时,额外创建订阅实例
+import {
+  createSubscriptionForOrder,
+  getSubscriptionWindowView,
+  type SubscriptionWindowStatus,
+  type SubscriptionWindowView,
+} from './subscription-window-service.js'
 
 // =============================================================================
 // 类型定义
@@ -38,6 +46,19 @@ export interface PlanInfo {
   interval: string
   features: string[]
   billingPeriod: string
+  // ── 结构化商品字段(2026-09-16 立,对标同类中转站的套餐卡片) ──
+  /** 划线原价(分);0 = 不展示原价 */
+  originalPrice: number
+  /** 有效期(天);0 = 不过期 */
+  validityDays: number
+  /** 日窗口限额(token):-1 不限 / 0 未配置 / >0 上限 */
+  dailyTokenLimit: number
+  /** 周窗口限额(token) */
+  weeklyTokenLimit: number
+  /** 月窗口限额(token) */
+  monthlyTokenLimit: number
+  /** 套餐可用模型白名单(空数组 = 全部模型) */
+  modelWhitelist: string[]
 }
 
 /** 订阅历史记录。 */
@@ -56,6 +77,10 @@ export interface UserSubscriptionStatus {
   activePlan: PlanInfo | null
   remainingTokens: number
   history: SubscriptionRecord[]
+  /** 当前订阅实例(含有效期);无活跃订阅时为 null(2026-09-16 立) */
+  subscription: SubscriptionWindowView['subscription']
+  /** 日/周/月窗口额度与重置倒计时;无活跃订阅时为空数组(2026-09-16 立) */
+  windows: SubscriptionWindowStatus[]
 }
 
 /** 激活结果。 */
@@ -120,9 +145,18 @@ export async function listApiSubscriptionPlans(): Promise<PlanInfo[]> {
       features: plans.features,
       billingPeriod: plans.billingPeriod,
       sortOrder: plans.sortOrder,
+      originalPrice: plans.originalPrice,
+      validityDays: plans.validityDays,
+      dailyTokenLimit: plans.dailyTokenLimit,
+      weeklyTokenLimit: plans.weeklyTokenLimit,
+      monthlyTokenLimit: plans.monthlyTokenLimit,
+      modelWhitelist: plans.modelWhitelist,
     })
     .from(plans)
-    .where(and(eq(plans.isActive, true), sql`${plans.name} LIKE 'API %'`))
+    // isForSale(2026-09-16):管理端下架后不再对外展示,已购订阅不受影响
+    .where(
+      and(eq(plans.isActive, true), eq(plans.isForSale, true), sql`${plans.name} LIKE 'API %'`),
+    )
     .orderBy(plans.sortOrder)
   return rows.map((r) => ({
     id: r.id,
@@ -132,7 +166,52 @@ export async function listApiSubscriptionPlans(): Promise<PlanInfo[]> {
     interval: r.interval,
     features: normalizeFeatures(r.features),
     billingPeriod: r.billingPeriod,
+    originalPrice: Number(r.originalPrice ?? 0),
+    validityDays: Number(r.validityDays ?? 30),
+    dailyTokenLimit: Number(r.dailyTokenLimit ?? 0),
+    weeklyTokenLimit: Number(r.weeklyTokenLimit ?? 0),
+    monthlyTokenLimit: Number(r.monthlyTokenLimit ?? 0),
+    modelWhitelist: normalizeFeatures(r.modelWhitelist),
   }))
+}
+
+/** 按 id 取单个 API 订阅方案(含结构化字段);不存在返回 null。 */
+export async function getApiSubscriptionPlan(planId: string): Promise<PlanInfo | null> {
+  const [row] = await dbRead
+    .select({
+      id: plans.id,
+      name: plans.name,
+      description: plans.description,
+      price: plans.price,
+      interval: plans.interval,
+      features: plans.features,
+      billingPeriod: plans.billingPeriod,
+      originalPrice: plans.originalPrice,
+      validityDays: plans.validityDays,
+      dailyTokenLimit: plans.dailyTokenLimit,
+      weeklyTokenLimit: plans.weeklyTokenLimit,
+      monthlyTokenLimit: plans.monthlyTokenLimit,
+      modelWhitelist: plans.modelWhitelist,
+    })
+    .from(plans)
+    .where(eq(plans.id, planId))
+    .limit(1)
+  if (!row) return null
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    price: row.price,
+    interval: row.interval,
+    features: normalizeFeatures(row.features),
+    billingPeriod: row.billingPeriod,
+    originalPrice: Number(row.originalPrice ?? 0),
+    validityDays: Number(row.validityDays ?? 30),
+    dailyTokenLimit: Number(row.dailyTokenLimit ?? 0),
+    weeklyTokenLimit: Number(row.weeklyTokenLimit ?? 0),
+    monthlyTokenLimit: Number(row.monthlyTokenLimit ?? 0),
+    modelWhitelist: normalizeFeatures(row.modelWhitelist),
+  }
 }
 
 // =============================================================================
@@ -175,34 +254,10 @@ export async function getUserSubscriptionStatus(userId: string): Promise<UserSub
   }))
 
   // 2. activePlan:最近一笔 paid 订单关联的 plan
+  //    复用 getApiSubscriptionPlan,保证与套餐列表返回同构(含 2026-09-16 新增结构化字段),
+  //    避免两处 select 字段漂移导致前端拿到的套餐字段不一致。
   const paidOrder = orderRows.find((r) => r.status === 'paid' && r.planId)
-  let activePlan: PlanInfo | null = null
-  if (paidOrder?.planId) {
-    const [planRow] = await dbRead
-      .select({
-        id: plans.id,
-        name: plans.name,
-        description: plans.description,
-        price: plans.price,
-        interval: plans.interval,
-        features: plans.features,
-        billingPeriod: plans.billingPeriod,
-      })
-      .from(plans)
-      .where(eq(plans.id, paidOrder.planId!))
-      .limit(1)
-    if (planRow) {
-      activePlan = {
-        id: planRow.id,
-        name: planRow.name,
-        description: planRow.description,
-        price: planRow.price,
-        interval: planRow.interval,
-        features: normalizeFeatures(planRow.features),
-        billingPeriod: planRow.billingPeriod,
-      }
-    }
-  }
+  const activePlan = paidOrder?.planId ? await getApiSubscriptionPlan(paidOrder.planId) : null
 
   // 3. remainingTokens:用户所有 active Key 的 token_balance 之和
   const keyRows = await dbRead
@@ -214,7 +269,17 @@ export async function getUserSubscriptionStatus(userId: string): Promise<UserSub
     ? -1
     : keyRows.reduce((s, k) => s + Math.max(Number(k.tokenBalance), 0), 0)
 
-  return { activePlan, remainingTokens, history }
+  // 4. 订阅窗口额度(2026-09-16 立):日/周/月已用量与重置倒计时。
+  //    无活跃订阅(存量用户只有 token_balance)时返回空数组,前端据此隐藏窗口区块。
+  const windowView = await getSubscriptionWindowView(userId)
+
+  return {
+    activePlan,
+    remainingTokens,
+    history,
+    subscription: windowView.subscription,
+    windows: windowView.windows,
+  }
 }
 
 // =============================================================================
@@ -252,13 +317,36 @@ export async function activateApiSubscription(
       id: plans.id,
       name: plans.name,
       features: plans.features,
+      validityDays: plans.validityDays,
+      dailyTokenLimit: plans.dailyTokenLimit,
+      weeklyTokenLimit: plans.weeklyTokenLimit,
+      monthlyTokenLimit: plans.monthlyTokenLimit,
     })
     .from(plans)
     .where(eq(plans.id, planId))
     .limit(1)
   if (!planRow) return { success: false, reason: 'plan_not_found' }
 
-  const tokenQuota = parseTokenQuotaFromFeatures(planRow.features)
+  // 窗口限额配置(2026-09-16 立):任一维度非 0 即视为"窗口型订阅"。
+  // 语义:-1 = 不限;0 = 未配置该维度;>0 = 窗口上限(token)。
+  const windowLimits = {
+    daily: Number(planRow.dailyTokenLimit ?? 0),
+    weekly: Number(planRow.weeklyTokenLimit ?? 0),
+    monthly: Number(planRow.monthlyTokenLimit ?? 0),
+  }
+  const hasWindowLimits =
+    windowLimits.daily !== 0 || windowLimits.weekly !== 0 || windowLimits.monthly !== 0
+
+  // 配额(2026-09-16 调整):优先用 features 声明的配额(兼容存量方案);
+  // 若套餐只配了窗口限额而未在 features 里声明总量,则取窗口限额最大值作为
+  // Key 余额上限,避免"余额为 0 且未声明无限额度"导致订阅后仍被 checkQuota 拒绝。
+  const declaredQuota = parseTokenQuotaFromFeatures(planRow.features)
+  const tokenQuota =
+    declaredQuota !== 0
+      ? declaredQuota
+      : hasWindowLimits
+        ? Math.max(windowLimits.daily, windowLimits.weekly, windowLimits.monthly)
+        : 0
 
   // 2. 幂等:以订单 orderNo 为键,查该订单是否已发放过配额流水
   //    (op_type=6 = API 订阅配额发放;token_flows (related_order_no, op_type) 唯一索引兜底)
@@ -285,7 +373,7 @@ export async function activateApiSubscription(
     .limit(1)
 
   // 4. 事务内:写入配额 + 记录发放流水(流水唯一索引拦截并发重复回调)
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     // 4.1 事务内二次幂等检查(防 TOCTOU:查无流水 → 并发回调重复发放)
     if (orderNo) {
       const [existingFlow] = await tx
@@ -361,6 +449,32 @@ export async function activateApiSubscription(
 
     return { success: true, keyId, tokenQuota }
   })
+
+  // 5. 窗口型订阅:配额发放成功后创建订阅实例(有效期 + 窗口限额快照,2026-09-16 立)。
+  //    - 幂等:createSubscriptionForOrder 以 orderNo 去重,回调重试不会重复建实例。
+  //    - 续费顺延:已有活跃订阅时,新实例从旧订阅到期时刻开始,叠加时长而非覆盖。
+  //    - 失败仅告警:降级为"仅 Key 余额"模式(仍受 token_balance 上限约束),不阻断到账。
+  if (result.success && hasWindowLimits) {
+    const sub = await createSubscriptionForOrder({
+      userId,
+      planId,
+      planName: planRow.name,
+      orderNo: orderNo ?? null,
+      validityDays: Number(planRow.validityDays ?? 30),
+      dailyTokenLimit: windowLimits.daily,
+      weeklyTokenLimit: windowLimits.weekly,
+      monthlyTokenLimit: windowLimits.monthly,
+    })
+    if (!sub) {
+      logger.warn('[api-subscription] 订阅实例创建失败,降级为仅余额模式', {
+        userId,
+        planId,
+        orderNo,
+      })
+    }
+  }
+
+  return result
 }
 
 // =============================================================================
