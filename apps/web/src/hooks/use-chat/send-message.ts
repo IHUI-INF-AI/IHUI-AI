@@ -32,7 +32,11 @@ import { emitAgentHook } from '@/stores/agent-hooks'
 import { maybeAutoCaptureWiki } from '@/stores/repo-wiki'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 // P3 #43(2026-09-16 立):成本预检/对比状态
-import { useCostGuardStore } from '@/stores/cost-guard'
+import {
+  useCostGuardStore,
+  isCostNegotiationEnabled,
+  COST_NEGOTIATION_THRESHOLD_USD,
+} from '@/stores/cost-guard'
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
@@ -379,6 +383,49 @@ export function createSendMessage(
     // 仅首轮结束后自动生成会话标题;后续轮次/重新生成不触发。
     const isFirstAssistantTurn = !isRegenerate && !history.some((m) => m.role === 'assistant')
 
+    // P3 #43 阶段2(2026-09-16 立):阻塞式成本协商——位于 addMessage 副作用之前,
+    // 取消时零残留。开关 off(默认)= 静默预检(v1 知情);on 且估算超阈值 = 确认条。
+    const costGuardMessages = [...history, { role: 'user' as const, content: llmText }]
+    if (costGuardMessages.length > 0 && model) {
+      try {
+        const r = await fetchApi<{
+          estimatedTokensIn: number
+          estimatedTokensOut: number
+          estimatedCostUsd: number
+          priced: boolean
+        }>('/api/chat/cost-estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, messages: costGuardMessages }),
+        })
+        if (r.success && r.data) {
+          const estimate = {
+            estimatedTokensIn: r.data.estimatedTokensIn,
+            estimatedTokensOut: r.data.estimatedTokensOut,
+            estimatedCostUsd: r.data.estimatedCostUsd,
+            priced: r.data.priced,
+          }
+          useCostGuardStore.getState().setEstimate(estimate)
+          if (
+            isCostNegotiationEnabled() &&
+            estimate.estimatedCostUsd > COST_NEGOTIATION_THRESHOLD_USD
+          ) {
+            const okToSend = await new Promise<boolean>((resolve) => {
+              useCostGuardStore.getState().setPendingConfirm(resolve)
+            })
+            useCostGuardStore.getState().setPendingConfirm(null)
+            if (!okToSend) {
+              // 用户取消:解锁在途锁,静默返回(消息未入流,零残留)
+              sendInFlightRef.current = false
+              return true
+            }
+          }
+        }
+      } catch {
+        // 预检失败静默:不阻塞聊天(v1/阶段2 同一原则)
+      }
+    }
+
     // 重新生成模式跳过用户消息重复添加(历史已截断到该用户消息之前,store 已包含它)
     if (!isRegenerate) {
       store.addMessage({ role: 'user', content: text, model })
@@ -483,34 +530,6 @@ export function createSendMessage(
     // 现在把 'auto' 原样透传到 ai-service,由后端 llm_gateway._resolve_auto_model
     // 从 model_availability 全量可用模型池中跨厂商选最优(stepfun/agnes/cloudflare/nvidia_nim/gemini 等)。
     const effectiveModel = model
-
-    // P3 #43 成本协商 v1(2026-09-16 立):发送前成本预检(fire-and-forget,失败静默不阻塞聊天)。
-    // 估算法由后端 ai-service /api/chat/cost-estimate 提供(字符/3 中文近似 + 模型单价);
-    // v1 = 知情闭环(展示估算 + 流后实际对比),阻塞式协商为阶段2。
-    const costGuardMessages = [...history, { role: 'user' as const, content: llmText }]
-    if (costGuardMessages.length > 0 && effectiveModel) {
-      void fetchApi<{
-        estimatedTokensIn: number
-        estimatedTokensOut: number
-        estimatedCostUsd: number
-        priced: boolean
-      }>('/api/chat/cost-estimate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: effectiveModel, messages: costGuardMessages }),
-      })
-        .then((r) => {
-          if (r.success && r.data) {
-            useCostGuardStore.getState().setEstimate({
-              estimatedTokensIn: r.data.estimatedTokensIn,
-              estimatedTokensOut: r.data.estimatedTokensOut,
-              estimatedCostUsd: r.data.estimatedCostUsd,
-              priced: r.data.priced,
-            })
-          }
-        })
-        .catch(() => {})
-    }
 
     // 2026-08-07 修复:web 端无活跃工作区 / 无 workspace handle 时,fs 类工具静默失败,
     // 给用户一个一次性 toast 提示(整个 sendMessage 周期内只弹一次,避免刷屏)。
