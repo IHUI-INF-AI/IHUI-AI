@@ -44,6 +44,7 @@ import {
   DialogTitle,
   Input,
   Label,
+  Switch,
 } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
@@ -172,7 +173,7 @@ export function SamplingParamsPanel({
     [byConversation, conversationId, defaults],
   )
   const set = React.useCallback(
-    (key: SamplingParamKey) => (value: number | string | undefined) =>
+    (key: SamplingParamKey) => (value: boolean | number | string | undefined) =>
       setParam(conversationId, key, value),
     [conversationId, setParam],
   )
@@ -261,6 +262,25 @@ export function SamplingParamsPanel({
             step={SAMPLING_LIMITS.maxTokens.step}
             onChange={set('maxTokens')}
           />
+
+          {/* P1 #26(2026-09-16 立):知识库默认注入开关。checked = knowledgeContext !== false
+              (undefined/true 均为默认开);打开即回默认(不落盘),关闭显式存 false。 */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 space-y-1">
+              <Label htmlFor="sampling-knowledge-context" className="text-xs font-medium">
+                {t('knowledgeContext')}
+              </Label>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {t('knowledgeContextHint')}
+              </p>
+            </div>
+            <Switch
+              id="sampling-knowledge-context"
+              data-testid="sampling-knowledge-context"
+              checked={params.knowledgeContext !== false}
+              onCheckedChange={(checked) => set('knowledgeContext')(checked)}
+            />
+          </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">

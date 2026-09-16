@@ -23,7 +23,16 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { RotateCcw, SlidersHorizontal, X } from 'lucide-react'
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+  Switch,
+} from '@ihui/ui-react'
 
 import {
   SAMPLING_LIMITS,
@@ -128,7 +137,8 @@ export function SamplingParamsCard() {
   const resetDefaults = useSamplingParamsStore((s) => s.resetDefaults)
 
   const set = React.useCallback(
-    (key: SamplingParamKey) => (value: number | string | undefined) => setParam(null, key, value),
+    (key: SamplingParamKey) => (value: boolean | number | string | undefined) =>
+      setParam(null, key, value),
     [setParam],
   )
 
@@ -185,6 +195,25 @@ export function SamplingParamsCard() {
             max={SAMPLING_LIMITS.maxTokens.max}
             step={SAMPLING_LIMITS.maxTokens.step}
             onChange={set('maxTokens')}
+          />
+        </div>
+
+        {/* P1 #26(2026-09-16 立):知识库默认注入开关(全局默认,对所有会话生效)。
+            checked = knowledgeContext !== false(undefined/true 均为默认开)。 */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 space-y-1">
+            <Label htmlFor="settings-knowledge-context" className="text-xs font-medium">
+              {t('knowledgeContext')}
+            </Label>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              {t('knowledgeContextHint')}
+            </p>
+          </div>
+          <Switch
+            id="settings-knowledge-context"
+            data-testid="settings-knowledge-context"
+            checked={defaults.knowledgeContext !== false}
+            onCheckedChange={(checked) => set('knowledgeContext')(checked)}
           />
         </div>
 

@@ -510,6 +510,9 @@ export function createSendMessage(
         topP: samplingParams.topP,
         topK: samplingParams.topK,
         maxTokens: samplingParams.maxTokens,
+        // P1 #26(2026-09-16 立):知识库默认注入开关。
+        // undefined = 后端默认开(top-3 检索注入);false = 显式关闭(api-client 仅在 false 时写入 body)。
+        knowledgeContext: samplingParams.knowledgeContext,
         metadata: {
           conversationId,
           userId,
@@ -756,10 +759,19 @@ export function createSendMessage(
         // 后端 knowledge_lookup 工具执行后 done 前下发 citations 事件,
         // 写入 message.citations,MessageItem 渲染 CitationBar。
         // messageId 缺省时回退到本条 assistant 消息 ID(事件必然属于当前流)。
+        // P1 #26(2026-09-16 改):整替 → 追加合并(source+label 去重)。流首的 rag citations
+        // (#26 网关合成)与流中的工具 citations(#11 knowledge_lookup)共存时互不覆盖。
         onCitations: (evt) => {
           const targetId = evt.messageId ?? assistantId
           if (!targetId || !evt.citations?.length) return
-          useChatStore.getState().setMessageCitations(targetId, evt.citations)
+          const store = useChatStore.getState()
+          const existing =
+            store.messages
+              .find((m) => m.id === targetId)
+              ?.citations?.filter(
+                (c) => !evt.citations.some((n) => n.source === c.source && n.label === c.label),
+              ) ?? []
+          store.setMessageCitations(targetId, [...existing, ...evt.citations])
         },
         // P1 #27 记忆更新可视化(2026-09-16 立):后端 done 事件 payload 携带 memoryUpdates,
         // 写入 message 级提示条数据,MessageItem 在本条 assistant 消息下方渲染「已记住」提示条。
