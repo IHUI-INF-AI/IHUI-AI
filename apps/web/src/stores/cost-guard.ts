@@ -26,13 +26,31 @@ interface CostGuardState {
   estimate: CostEstimate | null
   /** 流结束后的实际 tokens(done/usage 事件) */
   actualTokens: number | null
+  /** P3 #43 阶段2(2026-09-16 立):阻塞协商——非 null 时输入区上方渲染确认条,
+   *  resolve(true)=继续发送 / resolve(false)=取消发送。 */
+  pendingConfirm: ((ok: boolean) => void) | null
   setEstimate: (e: CostEstimate | null) => void
   setActualTokens: (n: number | null) => void
+  setPendingConfirm: (p: ((ok: boolean) => void) | null) => void
+}
+
+/** 阻塞协商阈值(USD):估算超过此值且开关开启时弹确认条。 */
+export const COST_NEGOTIATION_THRESHOLD_USD = 0.5
+
+/** 用户偏好开关(localStorage 键):阻塞协商默认关闭(v1 知情为主,阶段2 显式开启)。 */
+export function isCostNegotiationEnabled(): boolean {
+  try {
+    return localStorage.getItem('ihui_cost_negotiation') === 'on'
+  } catch {
+    return false
+  }
 }
 
 export const useCostGuardStore = create<CostGuardState>((set) => ({
   estimate: null,
   actualTokens: null,
+  pendingConfirm: null,
   setEstimate: (estimate) => set({ estimate, actualTokens: null }),
   setActualTokens: (actualTokens) => set({ actualTokens }),
+  setPendingConfirm: (pendingConfirm) => set({ pendingConfirm }),
 }))
