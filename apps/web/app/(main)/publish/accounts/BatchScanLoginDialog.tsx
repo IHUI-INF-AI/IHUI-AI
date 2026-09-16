@@ -10,12 +10,20 @@
  * 一键扫码登录(批量串行队列,2026-09-15):
  * 自动逐个平台打开登录页,用户只需连续用手机扫码;
  * 每个平台检测到登录即自动保存凭据并切换下一个。单平台 2 分钟超时自动跳过,
- * 支持"跳过此平台"与"停止队列"。弹窗关闭后队列继续在后台运行,重新打开可查看进度。
+ * 支持"跳过此平台"与"停止队列"。
  *
- * 2026-09-15:启动前支持选择"内置浏览器(CDP)"或"外部浏览器(系统 Chrome 自动闭环)"。
+ * 2026-09-16 修复(用户反馈):
+ * ① 关闭弹窗 = 停止队列:此前关掉窗口后队列仍在后台跑,会不停弹出新浏览器窗口;
+ *    现在 open 变 false 立即取消队列并关闭当前浏览器会话。
+ * ② 停止按钮即时生效:轮询等待改为可中断(≤100ms 响应),点击后立刻置"正在停止"状态
+ *    并关闭当前浏览器窗口,不再出现"点了半天没反应"。
+ * ③ 外部浏览器 = 用户自己的浏览器:ai-service 侧改为复制用户本机默认浏览器(Chrome/Edge)
+ *    的真实 profile(带登录状态),已登录的平台直接识别保存,窗口本身就是用户日常浏览器。
+ *
+ * 2026-09-15:启动前支持选择"内置浏览器(CDP)"或"你自己的浏览器(系统默认浏览器)"。
  * 内置:createBrowserSession → openCdpSession → detectLoginFromCdp 轮询;
- * 外部:startExternalScanLogin(系统 Chrome 带 CDP 调试端口)→ 同一 detectLoginFromCdp 轮询,
- * 登录成功自动保存账号并关闭外部 Chrome。后端检测成功即自动加密入库,无需额外保存调用。
+ * 外部:startExternalScanLogin(用户本机浏览器 + 真实 profile 副本 + CDP 调试端口)→
+ * 同一 detectLoginFromCdp 轮询,登录成功自动保存账号并关闭该浏览器窗口。
  */
 
 import * as React from 'react'
@@ -74,6 +82,8 @@ interface QueueItem {
 }
 
 const POLL_INTERVAL_MS = 3000
+/** 取消标记轮询粒度:停止/关闭弹窗后最多 100ms 内让轮询退出 */
+const CANCEL_POLL_MS = 100
 /** 单平台超时:2 分钟(连续扫码场景下单个平台通常 30s 内完成) */
 const PER_PLATFORM_TIMEOUT_MS = 2 * 60 * 1000
 
@@ -90,6 +100,23 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
+/** 可中断等待:每 100ms 检查取消标记,停止队列/关闭弹窗时立即返回(不再傻等 3s 轮询间隔)。 */
+async function sleepCancelable(ms: number, isCancelled: () => boolean): Promise<void> {
+  let left = ms
+  while (left > 0) {
+    if (isCancelled()) return
+    const step = Math.min(CANCEL_POLL_MS, left)
+    await sleep(step)
+    left -= step
+  }
+}
+
+/** 外部模式实际使用的浏览器信息(由 ai-service 返回,用于如实提示"用的是你自己的哪个浏览器") */
+interface ExternalBrowserInfo {
+  browser: string
+  profileUsed: boolean
+}
+
 export function BatchScanLoginDialog({
   open,
   onOpenChange,
@@ -102,8 +129,12 @@ export function BatchScanLoginDialog({
 
   const [items, setItems] = React.useState<QueueItem[]>([])
   const [running, setRunning] = React.useState(false)
+  /** 已点击停止(队列正在收尾):按钮与进度区立即反馈,避免"点了没反应" */
+  const [stopping, setStopping] = React.useState(false)
   const [platMapReady, setPlatMapReady] = React.useState(false)
-  const [mode, setMode] = React.useState<BrowserMode>('internal')
+  // 2026-09-16:默认改为"你自己的浏览器"——带上用户日常登录态,已登录平台无需再扫码
+  const [mode, setMode] = React.useState<BrowserMode>('external')
+  const [extInfo, setExtInfo] = React.useState<ExternalBrowserInfo | null>(null)
 
   const itemsRef = React.useRef<QueueItem[]>([])
   const platMapRef = React.useRef<Map<string, ScanLoginPlatform>>(new Map())
@@ -112,8 +143,24 @@ export function BatchScanLoginDialog({
   const skipRef = React.useRef(false)
   const sessionRef = React.useRef('')
   const lastQueueKeyRef = React.useRef('')
-  const modeRef = React.useRef<BrowserMode>('internal')
+  const modeRef = React.useRef<BrowserMode>('external')
   const queueKey = queuePlatforms.join(',')
+
+  /**
+   * 立即取消整个队列(2026-09-16):
+   * 置取消标记 → 轮询/串行循环在 ≤100ms 内退出;同时立刻关闭当前浏览器会话,
+   * 点"停止队列"或关闭弹窗时用户能当场看到浏览器窗口关掉(不再"点了半天没反应")。
+   */
+  const cancelQueue = React.useCallback(() => {
+    cancelRef.current = true
+    skipRef.current = false
+    setStopping(true)
+    const sid = sessionRef.current
+    if (sid) {
+      sessionRef.current = ''
+      void closeBrowserSession(sid)
+    }
+  }, [])
 
   const updateItem = React.useCallback((idx: number, patch: Partial<QueueItem>) => {
     setItems((prev) => {
@@ -155,7 +202,17 @@ export function BatchScanLoginDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, queueKey])
 
-  // 2026-09-15:启动前先选择"内置浏览器/外部浏览器",由用户点"开始扫码"触发(不再自动开始)
+  // 2026-09-15:启动前先选择"内置浏览器/你自己的浏览器",由用户点"开始扫码"触发(不再自动开始)
+
+  // 2026-09-16:关闭弹窗(点 X / Esc / 点遮罩)= 停止队列。
+  // 此前设计为"弹窗关闭后队列继续后台运行",实际表现为关掉窗口后仍不断弹出新的浏览器窗口、
+  // 用户无法终止,故改为关闭即停:取消队列 + 关掉当前浏览器会话。
+  React.useEffect(() => {
+    if (open || !runningRef.current) return
+    cancelQueue()
+    toast.info(t('accounts.batchScanStoppedToast'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, cancelQueue])
 
   // 卸载兜底:关闭残留会话
   React.useEffect(() => {
@@ -176,12 +233,16 @@ export function BatchScanLoginDialog({
         if (Date.now() - start > PER_PLATFORM_TIMEOUT_MS) return 'timeout'
         try {
           const r = await detectLoginFromCdp(sid, platform)
+          // 2026-09-16:检测请求返回期间用户可能已点停止/关窗 → 立即退出,不再等下一轮
+          if (cancelRef.current) return 'cancelled'
           if (r.success && r.data?.detected) return 'success'
           if (r.success && r.data?.error) return 'error'
         } catch {
           /* 网络错误静默,继续轮询 */
+          if (cancelRef.current) return 'cancelled'
         }
-        await sleep(POLL_INTERVAL_MS)
+        // 可中断等待(停止后 ≤100ms 返回,不再傻等完整轮询间隔)
+        await sleepCancelable(POLL_INTERVAL_MS, () => cancelRef.current)
       }
     })()
   }
@@ -193,13 +254,19 @@ export function BatchScanLoginDialog({
     skipRef.current = false
     runningRef.current = true
     setRunning(true)
+    setStopping(false)
     const useExternal = modeRef.current === 'external'
     let successCount = 0
 
+    /** 取消时把第 idx 个及之后的条目统一标记为"已停止"(保证队列不留 pending 残影) */
+    function markStoppedFrom(idx: number) {
+      for (let j = idx; j < list.length; j++)
+        updateItem(j, { status: 'skipped', msg: t('accounts.batchScanStopped') })
+    }
+
     for (let i = 0; i < list.length; i++) {
       if (cancelRef.current) {
-        for (let j = i; j < list.length; j++)
-          updateItem(j, { status: 'skipped', msg: t('accounts.batchScanStopped') })
+        markStoppedFrom(i)
         break
       }
       const item = list[i]
@@ -213,11 +280,22 @@ export function BatchScanLoginDialog({
       try {
         let sid: string
         if (useExternal) {
-          // 外部模式:ai-service 用系统 Chrome(--app + CDP 调试端口 + 临时 profile)打开并附着,
-          // 登录成功自动保存账号,closeBrowserSession 时会一并关闭外部 Chrome 窗口
+          // 外部模式:ai-service 用**用户自己的浏览器**(系统默认 Chromium 浏览器 + 其真实
+          // profile 副本,带登录状态)打开登录页并附着 CDP。已登录的平台直接命中自动保存,
+          // 未登录的在该窗口里正常扫码;closeBrowserSession 会一并关闭该窗口。
           const r = await startExternalScanLogin(item.platform)
+          // 启动请求期间用户可能已点停止/关窗 → 关掉刚拉起的浏览器并立即收尾
+          if (cancelRef.current) {
+            if (r.success && r.data?.session_id) void closeBrowserSession(r.data.session_id)
+            markStoppedFrom(i)
+            break
+          }
           if (!r.success || !r.data?.session_id) throw new Error(r.error || '启动外部浏览器失败')
           sid = r.data.session_id
+          setExtInfo({
+            browser: r.data.browser ?? '',
+            profileUsed: !!r.data.profile_used,
+          })
         } else {
           // 内置模式:BrowserHub Playwright Chromium + WorkPanel CDP 截图流视图
           const r = await createBrowserSession({
@@ -225,6 +303,11 @@ export function BatchScanLoginDialog({
             viewport_width: 1024,
             viewport_height: 720,
           })
+          if (cancelRef.current) {
+            if (r.success && r.data?.session_id) void closeBrowserSession(r.data.session_id)
+            markStoppedFrom(i)
+            break
+          }
           if (!r.success || !r.data?.session_id) throw new Error(r.error || '创建浏览器会话失败')
           sid = r.data.session_id
           openCdpSession(plat.login_url, sid, plat.name)
@@ -249,9 +332,7 @@ export function BatchScanLoginDialog({
           continue
         }
         if (outcome === 'cancelled') {
-          updateItem(i, { status: 'skipped', msg: t('accounts.batchScanStopped') })
-          for (let j = i + 1; j < list.length; j++)
-            updateItem(j, { status: 'skipped', msg: t('accounts.batchScanStopped') })
+          markStoppedFrom(i)
           break
         }
         updateItem(i, { status: 'error', msg: t('accounts.batchScanDetectError') })
@@ -260,12 +341,17 @@ export function BatchScanLoginDialog({
           void closeBrowserSession(sessionRef.current)
           sessionRef.current = ''
         }
+        if (cancelRef.current) {
+          markStoppedFrom(i)
+          break
+        }
         updateItem(i, { status: 'error', msg: (e as Error).message })
       }
     }
 
     runningRef.current = false
     setRunning(false)
+    setStopping(false)
     if (successCount > 0) {
       toast.success(
         `${t('accounts.batchScanDone')} · ${t('accounts.batchScanSuccessCount', { count: successCount })}`,
@@ -275,10 +361,6 @@ export function BatchScanLoginDialog({
 
   function skipCurrent() {
     skipRef.current = true
-  }
-
-  function stopQueue() {
-    cancelRef.current = true
   }
 
   function restart() {
@@ -354,15 +436,21 @@ export function BatchScanLoginDialog({
             <div className="flex flex-col items-center gap-2 rounded-lg border bg-muted/30 p-3">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
               <p className="text-sm font-medium">
-                {t('accounts.batchScanProgress', {
-                  current: activeIdx + 1,
-                  total,
-                  name: activeItem.name,
-                })}
+                {stopping
+                  ? t('accounts.batchScanStopping')
+                  : t('accounts.batchScanProgress', {
+                      current: activeIdx + 1,
+                      total,
+                      name: activeItem.name,
+                    })}
               </p>
               <p className="text-center text-xs text-muted-foreground">
                 {mode === 'external'
-                  ? t('accounts.batchScanWaitingHintExternal')
+                  ? extInfo?.profileUsed
+                    ? t('accounts.batchScanWaitingHintExternalOwn', {
+                        browser: extInfo.browser || 'Chrome',
+                      })
+                    : t('accounts.batchScanWaitingHintExternal')
                   : t('accounts.batchScanWaitingHint')}
               </p>
             </div>
@@ -431,12 +519,13 @@ export function BatchScanLoginDialog({
           )}
           {running && (
             <>
-              <Button variant="outline" onClick={skipCurrent}>
+              <Button variant="outline" onClick={skipCurrent} disabled={stopping}>
                 <SkipForward className="h-4 w-4" />
                 {t('accounts.batchScanSkip')}
               </Button>
-              <Button variant="outline" onClick={stopQueue}>
-                {t('accounts.batchScanStop')}
+              <Button variant="outline" onClick={cancelQueue} disabled={stopping}>
+                {stopping && <Loader2 className="h-4 w-4 animate-spin" />}
+                {stopping ? t('accounts.batchScanStopping') : t('accounts.batchScanStop')}
               </Button>
             </>
           )}
