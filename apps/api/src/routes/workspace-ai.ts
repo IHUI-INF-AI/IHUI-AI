@@ -964,6 +964,23 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ canceled: true }))
   })
 
+  // POST /agent/tasks/:taskId/inject — 中途插话(P3 #44 阶段3,2026-09-17 立):
+  // 向运行中 agent 注入用户消息,下一轮迭代消费拼进 prompt(内存队列,终态拒绝)
+  server.post('/agent/tasks/:taskId/inject', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { taskId } = taskIdParam.parse(request.params)
+    const parsed = z
+      .object({ content: z.string().min(1, '插话内容不能为空').max(2000) })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const accepted = agentLoop.injectMessage(taskId, parsed.data.content)
+    if (!accepted) return reply.status(400).send(error(400, '任务不存在或已结束,无法插话'))
+    return reply.send(success({ taskId, accepted: true }))
+  })
+
   server.get('/agent/tools', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
