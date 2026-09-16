@@ -47,6 +47,13 @@ export const aiRelayKeyPool = pgTable(
     isEnabled: boolean('is_enabled').default(true).notNull(),
     /** 健康状态:unknown / healthy / degraded / down */
     healthStatus: varchar('health_status', { length: 16 }).default('unknown').notNull(),
+    // ── 调度精细控制(2026-09-16 立,深度对标补强 Y,对标竞品 temp-unschedulable 等)──
+    /** 临时不可调度(admin 手动摘除,区别于 isEnabled 永久停用;选路时跳过) */
+    tempUnschedulable: boolean('temp_unschedulable').default(false).notNull(),
+    /** 账号级速率倍率(乘进该 Key 的有效权重,0.5 = 半速;null = 用全局) */
+    rateMultiplier: numeric('rate_multiplier', { precision: 6, scale: 2 }),
+    /** 账号级 RPM 覆盖(null = 用 group/global 配置;0 = 暂停) */
+    rpmOverride: integer('rpm_override'),
     healthCheckedAt: timestamp('health_checked_at', { withTimezone: true }),
     lastErrorMessage: text('last_error_message'),
     /** 额度信息(可选,从上游拉取或 admin 手填,单位:分,-1=无限) */
