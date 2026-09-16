@@ -10205,6 +10205,26 @@
     "wrongLabel": "Wrong Answer"
   },
   "developer": {
+    "analytics": {
+      "title": "Usage analytics",
+      "subtitle": "Multi-dimension analysis of cost, cache hits, latency and endpoints.",
+      "costCard": "Cost",
+      "standardPrice": "Official price",
+      "actualPrice": "Your price",
+      "saved": "Saved",
+      "cacheCard": "Cache hits",
+      "hitRate": "Hit rate",
+      "latencyCard": "Latency",
+      "avg": "Avg",
+      "p50": "P50",
+      "p95": "P95",
+      "endpointsCard": "Endpoints",
+      "modelsCard": "Models",
+      "dailyTrend": "Last 30 days",
+      "exportCsv": "Export CSV",
+      "exporting": "Exporting...",
+      "noData": "No calls in the selected range"
+    },
     "bootstrap": {
       "title": "One-click Setup",
       "description": "Generate ready-to-paste configs for \"{name}\" across clients",
@@ -22306,5 +22326,20 @@
     "topupNote": "The amount is credited to your account balance after payment, usable for model calls or plans.",
     "redeemHint": "Have a redeem code?",
     "goRedeem": "Redeem"
+  },
+  "channelStatus": {
+    "title": "Channel status",
+    "subtitle": "Real-time upstream availability and latency, refreshed every minute.",
+    "refresh": "Refresh",
+    "loading": "Loading...",
+    "empty": "No channel status to display",
+    "operational": "Operational",
+    "degraded": "Degraded",
+    "down": "Down",
+    "maintenance": "Maintenance",
+    "avgLatency": "Avg latency",
+    "p95": "P95 latency",
+    "models": "Models",
+    "lastChecked": "Last checked"
   }
 }
