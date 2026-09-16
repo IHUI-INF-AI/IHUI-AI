@@ -447,6 +447,128 @@ def _format_citations_event(
     return f"event: citations\ndata: {json.dumps(evt, ensure_ascii=False)}\n\n"
 
 
+# =============================================================================
+# P1 #27(2026-09-16 立):记忆更新可视化 —— done 前同步提取本轮新增 LTM 条目
+# =============================================================================
+
+# 记忆提取最大等待时长(秒)。超时即降级为空数组,绝不拖住 done 事件下发;
+# 前端「已记住」提示条为增强信息,缺失不影响对话主链路。
+MEMORY_EXTRACT_TIMEOUT_S = 6.0
+# 提取出的摘要文本上限(与 memory_service 的 text[:2000] 对齐,避免事件体积膨胀)
+MEMORY_ITEM_MAX_CHARS = 200
+# 单轮最多回传条数(前端提示条只展示首条 + 计数,多传无收益)
+MEMORY_ITEMS_MAX = 5
+
+
+async def _extract_memory_updates(
+    *,
+    owner_uuid: str | None,
+    conversation_id: str | None,
+    user_messages: list[dict[str, Any]],
+    assistant_content: str,
+) -> list[str]:
+    """P1 #27:在 done 事件前同步提炼本轮对话的长期记忆条目,回传前端「已记住」提示条。
+
+    背景(时序矛盾):主聊天走 /llm/complete/stream,该通道此前无任何 LTM 写入
+    能力;LTM 提取仅存在于 agent 通道(agent_loop_v2._persist_memory_insights /
+    consolidate),且均为 done 之后的 fire-and-forget,故 done 时点必然拿不到数据。
+
+    方案:在本通道把「提炼」前移到 done 之前同步执行(带超时/异常双降级),产出与
+    agent 通道同源的记忆条目,既补齐主聊天的记忆能力,又让 done.memoryUpdates 有真实内容:
+
+    1. stub 模式(无 LLM key)→ 直接返回 [](零成本,不发起任何调用)
+    2. 用户隐私开关 autoMemory=false → 返回 [](与 consolidate 同一开关,尊重用户选择)
+    3. LLM 提炼 1-3 句长期记忆摘要 → 写入 semantic 层(与 consolidate 同路径)
+    4. 回传条目摘要给 done 事件 → 前端 MessageItem 渲染「已记住」提示条
+
+    全部异常 / 超时均降级为 [](logger.warning),不阻塞、不改变对话结果。
+    """
+    if not owner_uuid or not user_messages:
+        return []
+
+    try:
+        from ..core.llm_gateway import LLMGateway
+        from ..services.memory_service import memory_service
+
+        # 1. stub 模式零成本短路(与 consolidate 一致)
+        if LLMGateway._is_stub_mode():
+            return []
+        # 2. 用户隐私开关:autoMemory=false 时不记忆(与 consolidate 一致)
+        if not await memory_service._is_auto_memory_enabled(owner_uuid):
+            return []
+
+        # 3. 组装对话文本(user + assistant,截断 8000 与 consolidate 一致)
+        lines: list[str] = []
+        for m in user_messages:
+            role = str(m.get("role", ""))
+            content = str(m.get("content", "")).strip()
+            if role in ("user", "assistant") and content:
+                lines.append(f"{role}: {content}")
+        if assistant_content.strip():
+            lines.append(f"assistant: {assistant_content.strip()}")
+        conversation_text = "\n".join(lines)[-8000:]
+        if not conversation_text.strip():
+            return []
+
+        # 4. LLM 同步提炼(带超时;超时降级空数组,不拖住 done)
+        summarize_messages = [
+            {
+                "role": "system",
+                "content": (
+                    "你是记忆提炼助手。从对话中提炼值得长期记住的用户信息,包括:\n"
+                    "- 用户长期事实:职业、所在城市、技术栈、身份背景等\n"
+                    "- 用户偏好:喜欢/不喜欢的风格、工具、语言、使用习惯\n"
+                    "- 已完成事项:重要决策、项目结论、双方确认过的约定\n\n"
+                    "只提炼明确、可复用、有价值的信息,忽略一次性任务细节和临时上下文。\n"
+                    "用 1-3 句简洁中文概括,直接输出文本,不要 JSON,不要任何前缀。\n"
+                    "若本轮对话确实没有值得长期记住的信息,只输出:无"
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"对话内容:\n{conversation_text}\n\n请提炼长期记忆摘要:",
+            },
+        ]
+        result = await asyncio.wait_for(
+            memory_service._gateway.complete(
+                summarize_messages, model=settings.litellm_model
+            ),
+            timeout=MEMORY_EXTRACT_TIMEOUT_S,
+        )
+        summary = str(result.get("content", "")).strip()
+        if not summary or summary in ("无", "没有", "[]"):
+            return []
+
+        item = summary[:MEMORY_ITEM_MAX_CHARS]
+
+        # 5. 写入 semantic 层(与 consolidate 同路径;写入失败不阻塞,仍回传条目)
+        try:
+            await memory_service.add_semantic(
+                owner_uuid,
+                item,
+                importance_score=0.7,
+                metadata={
+                    "source": "chat_stream_sync",
+                    "layer": "episodic_to_semantic",
+                    **({"sessionId": conversation_id} if conversation_id else {}),
+                },
+            )
+        except Exception as e:
+            logger.warning("memoryUpdates 写入 semantic 失败(降级,仍回传条目): %s", e)
+
+        return [item][:MEMORY_ITEMS_MAX]
+    except asyncio.TimeoutError:
+        logger.warning(
+            "memoryUpdates 提取超时(>%ss,降级为空),user=%s",
+            MEMORY_EXTRACT_TIMEOUT_S,
+            owner_uuid,
+        )
+        return []
+    except Exception as e:
+        logger.warning("memoryUpdates 提取失败(降级为空): %s", e)
+        return []
+
+
 def _escape_xml_attr(value: str) -> str:
     """XML 属性转义(repo 标签属性防注入)。"""
     return (
@@ -1746,15 +1868,25 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     accumulated["content"] = _fallback
                                     _fallback_evt = {"type": "chunk", "content": _fallback}
                                     yield f"event: chunk\ndata: {json.dumps(_fallback_evt, ensure_ascii=False)}\n\n"
+                                # P1 #27(2026-09-16 立):done 前同步提炼本轮长期记忆,
+                                # 条目经 done.memoryUpdates 回传,前端渲染「已记住」提示条。
+                                # 超时/异常双降级为空数组,不阻塞 done 下发。
+                                _mem_updates = await _extract_memory_updates(
+                                    owner_uuid=owner_uuid,
+                                    conversation_id=(
+                                        req.metadata.get("conversationId")
+                                        if isinstance(req.metadata, dict)
+                                        else None
+                                    ),
+                                    user_messages=req.messages,
+                                    assistant_content=accumulated["content"],
+                                )
                                 done_event = {
                                     "type": "done",
                                     "model": accumulated["model"],
                                     "usage": accumulated["usage"],
                                     "stub": accumulated["stub"],
-                                    # P1 #27(2026-09-16 立):本轮新增记忆条目摘要(已记住提示条数据源)。
-                                    # LTM 提取为异步后台进程,done 时通常尚未写入,故默认空数组;
-                                    # 字段保留以便后续接入异步回传时不破坏前端契约。
-                                    "memoryUpdates": [],
+                                    "memoryUpdates": _mem_updates,
                                 }
                                 if req.metadata:
                                     done_event["metadata"] = req.metadata
@@ -1859,15 +1991,24 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 accumulated["model"] = complete_result.get("model", req.model)
                                 accumulated["usage"] = complete_result.get("usage", {})
                                 accumulated["stub"] = complete_result.get("stub", False)
+                                # P1 #27(2026-09-16 立):done 前同步提炼本轮长期记忆,
+                                # 条目经 done.memoryUpdates 回传,前端渲染「已记住」提示条。
+                                _mem_updates = await _extract_memory_updates(
+                                    owner_uuid=owner_uuid,
+                                    conversation_id=(
+                                        req.metadata.get("conversationId")
+                                        if isinstance(req.metadata, dict)
+                                        else None
+                                    ),
+                                    user_messages=req.messages,
+                                    assistant_content=accumulated["content"],
+                                )
                                 done_event = {
                                     "type": "done",
                                     "model": accumulated["model"],
                                     "usage": accumulated["usage"],
                                     "stub": accumulated["stub"],
-                                    # P1 #27(2026-09-16 立):本轮新增记忆条目摘要(已记住提示条数据源)。
-                                    # LTM 提取为异步后台进程,done 时通常尚未写入,故默认空数组;
-                                    # 字段保留以便后续接入异步回传时不破坏前端契约。
-                                    "memoryUpdates": [],
+                                    "memoryUpdates": _mem_updates,
                                 }
                                 if req.metadata:
                                     done_event["metadata"] = req.metadata
@@ -2458,15 +2599,24 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
                             accumulated["model"] = complete_result.get("model", req.model)
                             accumulated["usage"] = complete_result.get("usage", {})
+                            # P1 #27(2026-09-16 立):done 前同步提炼本轮长期记忆
+                            # (工具全失败收尾路径同款接线)。
+                            _mem_updates = await _extract_memory_updates(
+                                owner_uuid=owner_uuid,
+                                conversation_id=(
+                                    req.metadata.get("conversationId")
+                                    if isinstance(req.metadata, dict)
+                                    else None
+                                ),
+                                user_messages=req.messages,
+                                assistant_content=accumulated["content"],
+                            )
                             done_event = {
                                 "type": "done",
                                 "model": accumulated["model"],
                                 "usage": accumulated["usage"],
                                 "stub": accumulated.get("stub", False),
-                                # P1 #27(2026-09-16 立):本轮新增记忆条目摘要(已记住提示条数据源)。
-                                # LTM 提取为异步后台进程,done 时通常尚未写入,故默认空数组;
-                                # 字段保留以便后续接入异步回传时不破坏前端契约。
-                                "memoryUpdates": [],
+                                "memoryUpdates": _mem_updates,
                             }
                             if req.metadata:
                                 done_event["metadata"] = req.metadata
