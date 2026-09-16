@@ -21,9 +21,70 @@ env:
   NODE_VERSION: '22'
 
 jobs:
+  # 2026-09-17 深度提速:薄壳化后四平台的前端产物完全相同——
+  # 原 4 个平台 job 各自重复构建 909 页静态导出(每遍 6-15 分钟,纯浪费)。
+  # 现在:ubuntu(最快)构建一次 → artifact 共享 → 四平台只做各自的 Rust 编译/打包。
+  build-web:
+    name: Build web (shared, static export to apps/web/out)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      # 2026-09-16 构建提速:前端静态导出编译缓存(消除 "No build cache found" 全量冷编译)。
+      - name: Cache web static build
+        uses: actions/cache@v4
+        with:
+          path: apps/web/.next-static/cache
+          key: web-static-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            web-static-${{ runner.os }}-
+
+      - name: Configure npm registry (avoid npmjs.org 503)
+        run: pnpm config set registry https://registry.npmmirror.com
+
+      - name: Install pnpm deps
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build web (static export to apps/web/out)
+        env:
+          # 生产 API 基址:在 GitHub repo Settings → Secrets 配置 DESKTOP_API_URL
+          # 例如 https://api.ihui.ai(不带尾部斜杠)
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.DESKTOP_API_URL }}
+        run: pnpm --filter @ihui/web build:static
+
+      - name: Verify web output exists
+        run: |
+          if [ ! -d "apps/web/out" ]; then
+            echo "ERROR: apps/web/out not found after web build"
+            exit 1
+          fi
+          echo "apps/web/out exists, file count:"
+          find apps/web/out -type f | wc -l
+
+      - name: Upload web output artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-out
+          path: apps/web/out
+          retention-days: 3
+          include-hidden-files: true
+
   build:
     name: Build Desktop (${{ matrix.label }})
     runs-on: ${{ matrix.runner }}
+    needs: build-web
     strategy:
       fail-fast: false
       matrix:
@@ -39,6 +100,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Download shared web output (built once in build-web)
+        uses: actions/download-artifact@v4
+        with:
+          name: web-out
+          path: apps/web/out
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -62,15 +129,6 @@ jobs:
           workspaces: apps/desktop/src-tauri
           cache-all-crates: true
 
-      # 2026-09-16 构建提速:前端静态导出编译缓存(消除 "No build cache found" 全量冷编译)。
-      - name: Cache web static build
-        uses: actions/cache@v4
-        with:
-          path: apps/web/.next-static/cache
-          key: web-static-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            web-static-${{ runner.os }}-
-
       - name: Install Linux deps
         if: runner.os == 'Linux'
         run: |
@@ -83,18 +141,11 @@ jobs:
       - name: Install pnpm deps
         run: pnpm install --no-frozen-lockfile
 
-      - name: Build web (static export to apps/web/out)
-        env:
-          # 生产 API 基址:在 GitHub repo Settings → Secrets 配置 DESKTOP_API_URL
-          # 例如 https://api.ihui.ai(不带尾部斜杠)
-          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.DESKTOP_API_URL }}
-        run: pnpm --filter @ihui/web build:static
-
       - name: Verify web output exists
         shell: bash
         run: |
           if [ ! -d "apps/web/out" ]; then
-            echo "ERROR: apps/web/out not found after web build"
+            echo "ERROR: apps/web/out not found after artifact download"
             exit 1
           fi
           echo "apps/web/out exists, file count:"
