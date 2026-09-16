@@ -17,15 +17,17 @@
  *    现在 open 变 false 立即取消队列并关闭当前浏览器会话。
  * ② 停止按钮即时生效:轮询等待改为可中断(≤100ms 响应),点击后立刻置"正在停止"状态
  *    并关闭当前浏览器窗口,不再出现"点了半天没反应"。
- * ③ 外部浏览器 = 用户自己的浏览器:ai-service 侧改为复制用户本机默认浏览器(Chrome/Edge)
- *    的真实 profile(带登录状态),已登录的平台直接识别保存,窗口本身就是用户日常浏览器。
+ * ③ 外部模式 = 在**用户自己日常使用的浏览器**里打开:此前用"复制的 profile 起托管浏览器",
+ *    实测副本会丢 Google 登录态(还要求重新登录 Google)、且没有书签/扩展,用户感知"不是我的
+ *    浏览器"。现改为前端用系统默认浏览器打开平台登录页(真实 profile、登录态/Google 都在),
+ *    后端从真实 profile 读 cookie 名判断登录态,命中后用无窗口 headless 取值入库。
  * ④ 用户手动关掉浏览器窗口 = 结束队列:后端返回"浏览器已关闭"此前被当成普通检测异常,
  *    队列会继续弹下一个平台(用户视角"我都关了怎么还在弹");现已识别该信号并停止队列。
  *
  * 2026-09-15:启动前支持选择"内置浏览器(CDP)"或"你自己的浏览器(系统默认浏览器)"。
  * 内置:createBrowserSession → openCdpSession → detectLoginFromCdp 轮询;
- * 外部:startExternalScanLogin(用户本机浏览器 + 真实 profile 副本 + CDP 调试端口)→
- * 同一 detectLoginFromCdp 轮询,登录成功自动保存账号并关闭该浏览器窗口。
+ * 外部:openExternalUrl 在用户真实浏览器打开登录页 + detectLoginFromProfile 读真实 profile →
+ * 同一轮询语义,但检测走 detectLoginFromProfile(读用户真实 profile),不再托管浏览器会话。
  */
 
 import * as React from 'react'
@@ -46,12 +48,13 @@ import {
   createBrowserSession,
   closeBrowserSession,
   detectLoginFromCdp,
+  detectLoginFromProfile,
   listScanLoginPlatforms,
-  startExternalScanLogin,
   type ScanLoginPlatform,
 } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { openExternalUrl } from '@/lib/tauri-bridge'
 import {
   Button,
   Dialog,
@@ -73,7 +76,7 @@ export interface BatchScanLoginDialogProps {
 
 type ItemStatus = 'pending' | 'active' | 'success' | 'timeout' | 'error' | 'skipped'
 type PollOutcome = 'success' | 'timeout' | 'cancelled' | 'skipped' | 'error' | 'closed'
-/** 扫码打开方式:内置 CDP 视图 / 用户自己的浏览器(本机真实 profile 副本) */
+/** 扫码打开方式:内置 CDP 视图 / 用户自己日常使用的浏览器(真实 profile) */
 type BrowserMode = 'internal' | 'external'
 
 interface QueueItem {
@@ -113,11 +116,15 @@ async function sleepCancelable(ms: number, isCancelled: () => boolean): Promise<
   }
 }
 
-/** 外部模式实际使用的浏览器信息(由 ai-service 返回,用于如实提示"用的是你自己的哪个浏览器") */
-interface ExternalBrowserInfo {
-  browser: string
-  profileUsed: boolean
+/** 登录检测响应(CDP 与"用户真实 profile"两种检测共用字段) */
+interface DetectResult {
+  detected?: boolean
+  error?: string | null
+  cookies_count?: number
+  account_id?: number | null
+  profile_available?: boolean
 }
+type DetectFn = () => Promise<{ success: boolean; data?: DetectResult; error?: string }>
 
 /**
  * 后端在"用户把浏览器窗口关掉了"时返回的提示(2026-09-16 实测:
@@ -149,7 +156,10 @@ export function BatchScanLoginDialog({
   const [platMapReady, setPlatMapReady] = React.useState(false)
   // 2026-09-16:默认改为"你自己的浏览器"——带上用户日常登录态,已登录平台无需再扫码
   const [mode, setMode] = React.useState<BrowserMode>('external')
-  const [extInfo, setExtInfo] = React.useState<ExternalBrowserInfo | null>(null)
+  /** 是否成功读到用户浏览器的登录态(由检测响应回报,决定提示文案) */
+  const [profileAvailable, setProfileAvailable] = React.useState<boolean | null>(null)
+  /** 浏览器拦截了新标签页(外部模式在 web 端可能发生):需提示用户允许弹出窗口 */
+  const [popupBlocked, setPopupBlocked] = React.useState(false)
 
   const itemsRef = React.useRef<QueueItem[]>([])
   const platMapRef = React.useRef<Map<string, ScanLoginPlatform>>(new Map())
@@ -236,7 +246,7 @@ export function BatchScanLoginDialog({
     }
   }, [])
 
-  function pollPlatform(sid: string, platform: string): Promise<PollOutcome> {
+  function pollPlatform(detect: DetectFn): Promise<PollOutcome> {
     return (async () => {
       const start = Date.now()
       while (true) {
@@ -247,7 +257,9 @@ export function BatchScanLoginDialog({
         }
         if (Date.now() - start > PER_PLATFORM_TIMEOUT_MS) return 'timeout'
         try {
-          const r = await detectLoginFromCdp(sid, platform)
+          const r = await detect()
+          const pa = r.data?.profile_available
+          if (typeof pa === 'boolean') setProfileAvailable(pa)
           // 2026-09-16:检测请求返回期间用户可能已点停止/关窗 → 立即退出,不再等下一轮
           if (cancelRef.current) return 'cancelled'
           if (r.success && r.data?.detected) return 'success'
@@ -273,6 +285,7 @@ export function BatchScanLoginDialog({
     runningRef.current = true
     setRunning(true)
     setStopping(false)
+    setPopupBlocked(false)
     const useExternal = modeRef.current === 'external'
     let successCount = 0
 
@@ -296,24 +309,22 @@ export function BatchScanLoginDialog({
       }
       updateItem(i, { status: 'active', msg: undefined })
       try {
-        let sid: string
+        let sid = ''
         if (useExternal) {
-          // 外部模式:ai-service 用**用户自己的浏览器**(系统默认 Chromium 浏览器 + 其真实
-          // profile 副本,带登录状态)打开登录页并附着 CDP。已登录的平台直接命中自动保存,
-          // 未登录的在该窗口里正常扫码;closeBrowserSession 会一并关闭该窗口。
-          const r = await startExternalScanLogin(item.platform)
-          // 启动请求期间用户可能已点停止/关窗 → 关掉刚拉起的浏览器并立即收尾
-          if (cancelRef.current) {
-            if (r.success && r.data?.session_id) void closeBrowserSession(r.data.session_id)
+          // 外部模式:在**用户自己日常使用的浏览器**里打开该平台登录页(系统默认浏览器/新标签,
+          // 真实 profile —— 平台登录态与 Google 账号都在,不需要重新登录),随后由后端从真实
+          // profile 读登录态自动保存。本应用不再托管这个浏览器,所以没有会话要关。
+          // 复用同一个命名标签页:整个队列只用一个标签轮流导航(登录态在同一个 profile 内保持)
+          const opened = await openExternalUrl(plat.login_url, 'ihui-scan-login')
+          // 浏览器拦截了非用户手势打开的标签(队列里只有第 1 个平台在点击手势内)→
+          // 不能假装"已打开",立即停队列并提示用户允许本站弹出窗口
+          if (!opened) {
+            cancelRef.current = true
             markStoppedFrom(i)
+            setPopupBlocked(true)
+            toast.error(t('accounts.batchScanPopupBlockedToast'))
             break
           }
-          if (!r.success || !r.data?.session_id) throw new Error(r.error || '启动外部浏览器失败')
-          sid = r.data.session_id
-          setExtInfo({
-            browser: r.data.browser ?? '',
-            profileUsed: !!r.data.profile_used,
-          })
         } else {
           // 内置模式:BrowserHub Playwright Chromium + WorkPanel CDP 截图流视图
           const r = await createBrowserSession({
@@ -331,9 +342,13 @@ export function BatchScanLoginDialog({
           openCdpSession(plat.login_url, sid, plat.name)
         }
         sessionRef.current = sid
-        const outcome = await pollPlatform(sid, item.platform)
-        if (sessionRef.current === sid) sessionRef.current = ''
-        void closeBrowserSession(sid)
+        const outcome = await pollPlatform(
+          useExternal
+            ? () => detectLoginFromProfile(item.platform)
+            : () => detectLoginFromCdp(sid, item.platform),
+        )
+        if (sid && sessionRef.current === sid) sessionRef.current = ''
+        if (sid) void closeBrowserSession(sid)
         if (outcome === 'success') {
           successCount++
           updateItem(i, { status: 'success' })
@@ -424,6 +439,12 @@ export function BatchScanLoginDialog({
         </DialogHeader>
 
         <div className="space-y-3">
+          {popupBlocked && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+              {t('accounts.batchScanPopupBlocked')}
+            </div>
+          )}
+
           {/* 2026-09-15:浏览器选择(内置/外部),未运行时可切换 */}
           {!running && (
             <div className="space-y-2">
@@ -471,11 +492,9 @@ export function BatchScanLoginDialog({
               </p>
               <p className="text-center text-xs text-muted-foreground">
                 {mode === 'external'
-                  ? extInfo?.profileUsed
-                    ? t('accounts.batchScanWaitingHintExternalOwn', {
-                        browser: extInfo.browser || 'Chrome',
-                      })
-                    : t('accounts.batchScanWaitingHintExternal')
+                  ? profileAvailable === false
+                    ? t('accounts.batchScanWaitingHintExternal')
+                    : t('accounts.batchScanWaitingHintExternalOwn')
                   : t('accounts.batchScanWaitingHint')}
               </p>
             </div>

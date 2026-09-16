@@ -352,16 +352,19 @@ export async function getDesktopAppInfo(): Promise<DesktopAppInfo | null> {
  * Rust 端 tauri_plugin_shell 已在 lib.rs 注册,
  * capabilities/default.json 已授权 shell:allow-open。
  */
-export async function openExternalUrl(url: string): Promise<void> {
+export async function openExternalUrl(url: string, windowName = '_blank'): Promise<boolean> {
   if (!isTauri()) {
-    window.open(url, '_blank')
-    return
+    // 2026-09-16:① 返回是否真的打开 —— 浏览器会拦截"非用户手势"的 window.open,
+    // 调用方需据此给用户明确提示;② 支持传 windowName 复用同一标签(批量队列只用一个
+    // 标签轮流导航,既符合"排队扫码"的语义,也避开后续打开被拦截)。
+    return window.open(url, windowName) !== null
   }
   try {
     await invoke('plugin:shell|open', { url })
+    return true
   } catch (e) {
     console.warn('[shell] open failed:', e)
-    window.open(url, '_blank')
+    return window.open(url, '_blank') !== null
   }
 }
 
