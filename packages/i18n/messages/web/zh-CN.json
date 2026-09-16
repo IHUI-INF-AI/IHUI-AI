@@ -10213,6 +10213,41 @@
     "wrongLabel": "错误答案"
   },
   "developer": {
+    "bootstrap": {
+      "title": "一键接入配置",
+      "description": "为「{name}」生成各客户端即贴可用的接入配置",
+      "clientCodex": "Codex",
+      "clientCodexWs": "Codex (WS)",
+      "clientClaudeCode": "Claude Code",
+      "clientOpencode": "OpenCode",
+      "clientGemini": "Gemini CLI",
+      "clientGrok": "Grok CLI",
+      "copy": "复制",
+      "copied": "已复制",
+      "copyFailed": "复制失败",
+      "configPath": "配置文件路径",
+      "loading": "加载中...",
+      "loadFailed": "配置加载失败，请重试"
+    },
+    "dashboard": {
+      "todayCost": "今日成本",
+      "actualCost": "实付价",
+      "todayCostHint": "按本平台费率计费的今日实际支出(已含会员折扣),接口无单独官方价折算字段",
+      "balanceWindows": "余额窗口",
+      "dailyWindow": "日额度",
+      "weeklyWindow": "周额度",
+      "monthlyWindow": "月额度",
+      "resetsIn": "重置于 {time}",
+      "unlimited": "不限",
+      "quickActions": "快捷操作",
+      "createKey": "创建密钥",
+      "createKeyDesc": "生成新的 API Key",
+      "buyCredit": "购买 / 充值",
+      "buyCreditDesc": "充值余额或订阅套餐",
+      "viewUsage": "查看用量",
+      "viewUsageDesc": "按模型 / 日期查看明细",
+      "noSubscription": "未订阅套餐,暂无额度窗口"
+    },
     "errorCodes": {
       "title": "API 错误码",
       "subtitle": "所有 API 返回的错误码、对应 HTTP 状态码与修复建议一览。",
