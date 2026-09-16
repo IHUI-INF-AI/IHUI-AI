@@ -169,6 +169,18 @@ export default function RelayKeysPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   })
+  // 2026-09-16 新增:重置当前 Key 的限流窗口用量计数(清空窗口统计,非重置 secret)
+  const resetWindowsMut = useMutation({
+    mutationFn: (id: string) =>
+      api<{ cleared: number }>(`/api/developer/relay/keys/${id}/reset-windows`, {
+        method: 'POST',
+      }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
+      toast.success(`已清除 ${data.cleared} 条窗口计数`)
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
 
   function copyKey(k: string) {
     navigator.clipboard?.writeText(k).then(
@@ -315,6 +327,24 @@ export default function RelayKeysPage() {
                       >
                         <Key className="h-3.5 w-3.5" aria-hidden />
                         <span>使用</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          if (
+                            await confirm({
+                              title: '确认重置该 Key 的窗口用量?将清空当前限流窗口计数',
+                              variant: 'destructive',
+                            })
+                          ) {
+                            resetWindowsMut.mutate(k.id)
+                          }
+                        }}
+                        disabled={resetWindowsMut.isPending}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                        重置窗口
                       </Button>
                       <Button
                         size="sm"

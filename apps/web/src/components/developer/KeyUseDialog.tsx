@@ -49,6 +49,7 @@ const CLIENTS = [
   { value: 'opencode', labelKey: 'clientOpencode' },
   { value: 'gemini-cli', labelKey: 'clientGemini' },
   { value: 'grok-cli', labelKey: 'clientGrok' },
+  { value: 'ccswitch', labelKey: 'clientCcSwitch' },
 ] as const
 
 export function KeyUseDialog({ open, onOpenChange, keyId, keyName }: KeyUseDialogProps) {
