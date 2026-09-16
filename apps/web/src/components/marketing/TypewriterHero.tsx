@@ -8,8 +8,8 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
-import { Smartphone, MessageSquare, GraduationCap, X } from 'lucide-react'
-import { Button } from '@ihui/ui-react'
+import { Smartphone, MessageSquare, GraduationCap } from 'lucide-react'
+import { Button, CloseButton } from '@ihui/ui-react'
 import { useMounted } from '@/hooks/use-mounted'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
@@ -160,14 +160,7 @@ function MiniAppQrModal({ open, onClose }: { open: boolean; onClose: () => void 
       >
         <div className="flex items-center justify-between pb-3">
           <span className="text-sm font-semibold">{t('title')}</span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="close"
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton aria-label="close" onClick={onClose} />
         </div>
         <div className="flex flex-col items-center gap-3 pt-2">
           <Image
