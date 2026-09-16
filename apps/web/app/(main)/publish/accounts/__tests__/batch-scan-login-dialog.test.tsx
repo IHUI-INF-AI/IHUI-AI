@@ -5,16 +5,20 @@
 /**
  * 批量扫码弹窗行为测试(2026-09-16 立)。
  *
- * 锁定用户反馈的两个缺陷不再复发:
- * 1. 关闭弹窗后队列仍在后台跑,不停弹出新的浏览器窗口 → 关闭即停(取消队列 + 关闭当前会话);
- * 2. 点"停止队列"半天没反应 → 点击立即反馈(按钮转"正在停止")且当场关闭当前浏览器会话。
+ * 锁定用户反馈的缺陷不再复发:
+ * 1. 关闭弹窗后队列仍在后台跑,不停打开新平台 → 关闭即停;
+ * 2. 点"停止队列"半天没反应 → 点击立即停止且不再打开下一个平台;
+ * 3. 用户手动关掉浏览器窗口后仍继续打开下一个平台 → 视为结束队列;
+ * 4. 外部模式必须在**用户自己日常使用的浏览器**里打开(openExternalUrl),
+ *    而不是本应用托管的窗口(createBrowserSession)。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { BatchScanLoginDialog } from '../BatchScanLoginDialog'
 
-const startExternalScanLogin = vi.fn()
+const openExternalUrl = vi.fn()
+const detectLoginFromProfile = vi.fn()
 const closeBrowserSession = vi.fn()
 const createBrowserSession = vi.fn()
 const detectLoginFromCdp = vi.fn()
@@ -65,11 +69,16 @@ vi.mock('@ihui/ui-react', () => ({
 }))
 
 vi.mock('@ihui/api-client', () => ({
-  startExternalScanLogin: (platform: string) => startExternalScanLogin(platform),
+  detectLoginFromProfile: (platform: string) => detectLoginFromProfile(platform),
   createBrowserSession: (args: unknown) => createBrowserSession(args),
   detectLoginFromCdp: (sid: string, platform: string) => detectLoginFromCdp(sid, platform),
   closeBrowserSession: (sid: string) => closeBrowserSession(sid),
   listScanLoginPlatforms: () => listScanLoginPlatforms(),
+}))
+
+vi.mock('@/lib/tauri-bridge', () => ({
+  openExternalUrl: (url: string, name?: string) => openExternalUrl(url, name),
+  isTauri: () => false,
 }))
 
 vi.mock('@/hooks/use-toast', () => ({
@@ -87,11 +96,13 @@ function renderDialog(open: boolean) {
   return <BatchScanLoginDialog open={open} onOpenChange={() => {}} queuePlatforms={QUEUE} />
 }
 
-/** 启动队列:等待平台表就绪 → 点"开始批量扫码" → 等到第 1 个平台已拉起 */
+/** 启动队列:等待平台表就绪 → 点"开始批量扫码" → 等到第 1 个平台已在用户浏览器打开 */
 async function startQueue() {
   await waitFor(() => expect(screen.getByText('accounts.batchScanStart')).toBeTruthy())
   fireEvent.click(screen.getByText('accounts.batchScanStart'))
-  await waitFor(() => expect(startExternalScanLogin).toHaveBeenCalledWith('zhihu'))
+  await waitFor(() =>
+    expect(openExternalUrl).toHaveBeenCalledWith('https://www.zhihu.com/signin', 'ihui-scan-login'),
+  )
 }
 
 beforeEach(() => {
@@ -109,18 +120,14 @@ beforeEach(() => {
       ],
     },
   })
-  startExternalScanLogin.mockImplementation((platform: string) =>
-    Promise.resolve({
-      success: true,
-      data: { session_id: `s-${platform}`, platform, browser: 'Google Chrome', profile_used: true },
-    }),
-  )
-  // 检测始终"未登录",让队列停在轮询里,模拟用户扫码前的等待态
-  detectLoginFromCdp.mockResolvedValue({
+  // 检测始终"未登录",让队列停在轮询里,模拟用户登录前的等待态
+  detectLoginFromProfile.mockResolvedValue({
     success: true,
-    data: { detected: false, cookies_count: 0, account_id: null },
+    data: { detected: false, cookies_count: 0, account_id: null, profile_available: true },
   })
   closeBrowserSession.mockResolvedValue({ success: true })
+  // 默认"确实打开了"(真实浏览器/桌面端);弹窗被拦截的场景单独用一个用例覆盖
+  openExternalUrl.mockResolvedValue(true)
 })
 
 afterEach(() => {
@@ -128,40 +135,34 @@ afterEach(() => {
 })
 
 describe('BatchScanLoginDialog 关闭/停止行为', () => {
-  it('关闭弹窗立即停止队列:关掉当前会话且不再拉起下一个平台', async () => {
+  it('关闭弹窗立即停止队列:不再打开下一个平台', async () => {
     const { rerender } = render(renderDialog(true))
     await startQueue()
 
-    // 关闭弹窗(模拟点 X / Esc:父组件把 open 置 false)
     rerender(renderDialog(false))
 
-    await waitFor(() => expect(closeBrowserSession).toHaveBeenCalledWith('s-zhihu'))
-    // 队列已停:第 2 个平台永远不会被拉起
     await new Promise((r) => setTimeout(r, 400))
-    expect(startExternalScanLogin).toHaveBeenCalledTimes(1)
-    expect(startExternalScanLogin).not.toHaveBeenCalledWith('bilibili')
+    expect(openExternalUrl).toHaveBeenCalledTimes(1)
+    expect(openExternalUrl).not.toHaveBeenCalledWith('https://passport.bilibili.com/login')
   })
 
-  it('点"停止队列"立即反馈并当场关闭浏览器会话', async () => {
+  it('点"停止队列"立即反馈并停止后续平台', async () => {
     render(renderDialog(true))
     await startQueue()
 
     fireEvent.click(screen.getByText('accounts.batchScanStop'))
 
-    // 立即(不等轮询间隔)关闭当前会话
-    await waitFor(() => expect(closeBrowserSession).toHaveBeenCalledWith('s-zhihu'))
-    // 按钮/进度区立刻转为"正在停止",不再是"点了没反应"
     await waitFor(() =>
       expect(screen.getAllByText('accounts.batchScanStopping').length).toBeGreaterThan(0),
     )
-
     await new Promise((r) => setTimeout(r, 400))
-    expect(startExternalScanLogin).toHaveBeenCalledTimes(1)
+    expect(openExternalUrl).toHaveBeenCalledTimes(1)
+    expect(detectLoginFromProfile).toHaveBeenCalledWith('zhihu')
   })
 
-  it('用户手动关掉浏览器窗口后结束队列:不再拉起下一个平台', async () => {
-    // 后端在窗口被关闭后返回该错误(真机实测串);此前被当作普通异常 → 继续弹下一个窗口
-    detectLoginFromCdp.mockResolvedValue({
+  it('用户手动关掉浏览器窗口后结束队列:不再打开下一个平台', async () => {
+    // 后端在窗口被关闭后返回该错误(真机实测串);此前被当作普通异常 → 继续打开下一个窗口
+    detectLoginFromProfile.mockResolvedValue({
       success: true,
       data: {
         detected: false,
@@ -173,9 +174,32 @@ describe('BatchScanLoginDialog 关闭/停止行为', () => {
     render(renderDialog(true))
     await startQueue()
 
-    await waitFor(() => expect(closeBrowserSession).toHaveBeenCalledWith('s-zhihu'))
     await new Promise((r) => setTimeout(r, 400))
-    expect(startExternalScanLogin).toHaveBeenCalledTimes(1)
-    expect(startExternalScanLogin).not.toHaveBeenCalledWith('bilibili')
+    expect(openExternalUrl).toHaveBeenCalledTimes(1)
+    expect(openExternalUrl).not.toHaveBeenCalledWith('https://passport.bilibili.com/login')
+  })
+
+  it('浏览器拦截新标签页时:立即停止队列并如实提示(不假装已打开)', async () => {
+    openExternalUrl.mockResolvedValue(false) // 非用户手势的 window.open 被拦截
+    render(renderDialog(true))
+
+    await waitFor(() => expect(screen.getByText('accounts.batchScanStart')).toBeTruthy())
+    fireEvent.click(screen.getByText('accounts.batchScanStart'))
+
+    await waitFor(() => expect(screen.getByText('accounts.batchScanPopupBlocked')).toBeTruthy())
+    await new Promise((r) => setTimeout(r, 400))
+    expect(openExternalUrl).toHaveBeenCalledTimes(1)
+    expect(detectLoginFromProfile).not.toHaveBeenCalled()
+  })
+
+  it('外部模式不托管浏览器会话(不使用内置浏览器/会话关闭)', async () => {
+    render(renderDialog(true))
+    await startQueue()
+
+    await new Promise((r) => setTimeout(r, 300))
+    expect(createBrowserSession).not.toHaveBeenCalled()
+    expect(detectLoginFromCdp).not.toHaveBeenCalled()
+    expect(closeBrowserSession).not.toHaveBeenCalled()
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
