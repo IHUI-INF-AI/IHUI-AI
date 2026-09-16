@@ -7634,10 +7634,12 @@
       "subtitle": "매일 AI 뉴스 브리핑 구독, IHUI AI 커뮤니티 참여로 AI 시대를 함께하세요.",
       "title": "다음 AI 마일스톤을 놓치지 마세요"
     },
+    "close": "닫기",
     "detailDialog": {
       "arenaScore": "Arena 점수",
       "baseUrlCopied": "Base URL이 클립보드에 복사되었습니다",
       "capabilityRadar": "능력 레이더",
+      "close": "닫기",
       "contextWindow": "컨텍스트 윈도우",
       "copyAndImport": "복사 후 가져오기",
       "copyBaseUrl": "Base URL 복사",
@@ -8004,7 +8006,8 @@
     },
     "applied": "적용됨",
     "apply": "적용",
-    "hint": "사용 가능한 AI 도구"
+    "hint": "사용 가능한 AI 도구",
+    "worldsAdopted": "브랜치 응답을 채택했습니다"
   },
   "agentHooks": {
     "description": "Agent Hooks 이벤트 시스템: 9가지 이벤트에 동작(로그/토스트/시스템 알림)을 설정할 수 있으며, 도구 이벤트는 도구명 필터를 지원합니다",
@@ -8161,7 +8164,8 @@
     "empty": "콘텐츠 없음",
     "dispatchSubagent": "서브 에이전트 디스패치",
     "bestOfAdopted": "최적의方案 채택됨",
-    "title": "워크스페이스"
+    "title": "워크스페이스",
+    "worldsAdopted": "브랜치 응답을 채택했습니다"
   },
   "announcements": {
     "backToList": "목록으로 돌아가기",
@@ -19672,6 +19676,15 @@
     },
     "instance": "워크플로우 인스턴스"
   },
+  "worlds": {
+    "adopt": "채택",
+    "adopted": "채택됨",
+    "branchRunning": "브랜치 생성 중…",
+    "empty": "비교 브랜치가 없습니다",
+    "emptyReply": "이 브랜치의 응답이 아직 없습니다",
+    "reset": "재설정",
+    "running": "실행 중"
+  },
   "workspace": {
     "actions": "작업",
     "back": "뒤로",
@@ -22201,5 +22214,10 @@
     "status_error": "실패",
     "status_running": "실행 중",
     "status_cancelled": "취소됨"
+  },
+  "costGuard": {
+    "estimateLine": "이번 예상 ≈{tokens} 토큰 (약 ${cost})",
+    "fallbackPrice": "대체 가격 참고용",
+    "actualLine": "실제 {actual} 토큰 (예상 {estimate})"
   }
 }

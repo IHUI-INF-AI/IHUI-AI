@@ -7636,10 +7636,12 @@
       "subtitle": "毎日 AI ニュース概要を購読、IHUI AI コミュニティに参加して AI 時代の波に乗る。",
       "title": "次の AI マイルストーンを見逃さない"
     },
+    "close": "閉じる",
     "detailDialog": {
       "arenaScore": "Arena スコア",
       "baseUrlCopied": "Base URL をクリップボードにコピーしました",
       "capabilityRadar": "能力レーダー",
+      "close": "閉じる",
       "contextWindow": "コンテキストウィンドウ",
       "copyAndImport": "コピーしてインポート",
       "copyBaseUrl": "Base URL をコピー",
@@ -8006,7 +8008,8 @@
     },
     "applied": "適用済み",
     "apply": "適用",
-    "hint": "利用可能な AI ツール"
+    "hint": "利用可能な AI ツール",
+    "worldsAdopted": "ブランチの返信を採用しました"
   },
   "agentHooks": {
     "description": "Agent Hooks イベントシステム:9 種類のイベントに動作(ログ/トースト/システム通知)を設定可能。ツールイベントはツール名フィルター対応",
@@ -8179,7 +8182,8 @@
     "empty": "コンテンツなし",
     "dispatchSubagent": "サブエージェントを派遣",
     "bestOfAdopted": "最良案を採用",
-    "title": "ワークスペース"
+    "title": "ワークスペース",
+    "worldsAdopted": "ブランチの返信を採用しました"
   },
   "announcements": {
     "backToList": "るリスト",
@@ -19701,6 +19705,15 @@
     },
     "instance": "工作流实例"
   },
+  "worlds": {
+    "adopt": "採用",
+    "adopted": "採用済み",
+    "branchRunning": "ブランチ生成中…",
+    "empty": "比較ブランチがありません",
+    "emptyReply": "このブランチの返信はまだありません",
+    "reset": "リセット",
+    "running": "実行中"
+  },
   "workspace": {
     "actions": "操作",
     "back": "戻る",
@@ -22230,5 +22243,10 @@
     "status_error": "失敗",
     "status_running": "実行中",
     "status_cancelled": "取消済"
+  },
+  "costGuard": {
+    "estimateLine": "今回の予想 ≈{tokens} トークン（約 ${cost}）",
+    "fallbackPrice": "フォールバック価格のため参考値",
+    "actualLine": "実際 {actual} トークン（予想 {estimate}）"
   }
 }
