@@ -7111,6 +7111,7 @@
     },
     "swarmMonitor": {
       "agentStatus": "에이전트 상태",
+      "bottleneck": "병목",
       "avgTime": "평균 시간",
       "avgTokens": "평균 토큰",
       "completed": "완료됨",

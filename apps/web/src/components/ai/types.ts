@@ -128,6 +128,8 @@ export interface SwarmData {
     type: string
     status: AgentStatus
     currentStep?: string
+    /** P3 #44(2026-09-16 立):启动时间 ISO——瓶颈高亮用(运行中且最久者);缺省不显示 */
+    startedAt?: string
   }>
   results?: SwarmResult[]
 }
