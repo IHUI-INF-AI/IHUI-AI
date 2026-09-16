@@ -393,6 +393,8 @@ import developerRelayKeysAdminRoutes from './developer-relay-keys-admin.js'
 import developerRelayUsageAnalyticsRoutes from './developer-relay-usage-analytics.js'
 // 渠道公开监控(2026-09-16,第三轮对标补强 O)
 import relayMonitorPublicRoutes from './relay-monitor-public.js'
+// 告警规则引擎管理(2026-09-16,补强 U)
+import adminRelayAlertRulesRoutes from './admin/relay-alert-rules.js'
 import developerApiKeyGroupsRoutes from './developer/api-key-groups.js'
 // P0-7 API Key 安全粒度管理(2026-07-31 立,admin 侧管理用户/租户 API Key + 过期/IP白名单/模型白名单/token上限)
 import relayApiKeysRoutes from './admin/relay-api-keys.js'
@@ -1110,6 +1112,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(developerRelayUsageAnalyticsRoutes, { prefix: '/api' })
   // 渠道公开监控(2026-09-16,第三轮对标补强 O):脱敏状态页,无鉴权
   server.register(relayMonitorPublicRoutes, { prefix: '/api' })
+  // 告警规则引擎 CRUD + 立即评估(2026-09-16,补强 U)
+  server.register(adminRelayAlertRulesRoutes, { prefix: '/api/admin' })
   // developer API Key 分组(2026-08-01 立,多 Key 共享额度池 + 子 Key 权限继承 + 组内用量排行)
   server.register(developerApiKeyGroupsRoutes, { prefix: '/api/developer' })
 
