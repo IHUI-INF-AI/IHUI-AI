@@ -24,6 +24,9 @@ tauri-plugin-dialog = "2.7"
 tauri-plugin-fs = "2.5"
 tauri-plugin-http = { version = "2.5", features = ["unsafe-headers"] }
 tauri-plugin-notification = "2.3"
+# 2026-09-17 薄壳化配套:auto_refresh 模块(线上前端构建指纹轮询 + 断网健康检查)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", features = ["time"] }
 tauri-plugin-os = "2.3"
 tauri-plugin-shell = "2.3"
 tauri-plugin-store = "2.4"
