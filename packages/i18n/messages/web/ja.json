@@ -22076,6 +22076,7 @@
     "typeLog": "ログチェック",
     "typeDeadlink": "死リンクチェック",
     "typeCustom": "カスタムチェック",
+    "typeWorkspace": "ワークスペース健全性",
     "nextRunAt": "次回実行",
     "resultOk": "正常",
     "resultIssue": "問題を検知",
