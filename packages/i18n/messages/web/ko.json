@@ -15536,6 +15536,7 @@
     "none": "없음"
   },
   "nav": {
+    "adminRelayAlertRules": "알림 규칙",
     "developerErrorCodes": "API 오류 코드",
     "developerBenefits": "혜택 센터",
     "invoices": "세금계산서",

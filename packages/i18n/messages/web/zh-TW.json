@@ -15554,6 +15554,7 @@
     "none": "無"
   },
   "nav": {
+    "adminRelayAlertRules": "告警規則",
     "developerErrorCodes": "API 錯誤碼",
     "developerBenefits": "權益中心",
     "invoices": "發票管理",
