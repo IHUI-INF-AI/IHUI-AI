@@ -45,12 +45,13 @@ import { PatrolRunsDialog } from '@/components/patrol/patrol-runs-dialog'
 /** 巡检类型 → i18n 键(静态映射) */
 const TYPE_LABEL_KEYS: Record<
   PatrolType,
-  'typeCi' | 'typeDependency' | 'typeLog' | 'typeDeadlink' | 'typeCustom'
+  'typeCi' | 'typeDependency' | 'typeLog' | 'typeDeadlink' | 'typeWorkspace' | 'typeCustom'
 > = {
   ci: 'typeCi',
   dependency: 'typeDependency',
   log: 'typeLog',
   deadlink: 'typeDeadlink',
+  workspace: 'typeWorkspace',
   custom: 'typeCustom',
 }
 
