@@ -6965,6 +6965,11 @@
       "citationBar": {
         "title": "Citations"
       },
+      "memoryNoticeBar": {
+        "title": "Remembered {count}",
+        "manage": "Manage",
+        "moreItems": "+{count} more"
+      },
       "thumbRail": {
         "title": "Message map",
         "userNode": "Query",

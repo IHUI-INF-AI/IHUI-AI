@@ -6965,6 +6965,11 @@
       "citationBar": {
         "title": "参照元"
       },
+      "memoryNoticeBar": {
+        "title": "{count} 件を記憶しました",
+        "manage": "管理",
+        "moreItems": "他 {count} 件"
+      },
       "thumbRail": {
         "title": "メッセージマップ",
         "userNode": "質問",
