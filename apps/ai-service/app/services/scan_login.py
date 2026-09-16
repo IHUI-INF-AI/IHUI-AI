@@ -1040,6 +1040,102 @@ async def _save_account_async(task: ScanTask) -> None:
         _persist_task(task)
 
 
+async def detect_login_from_profile(platform: str, user_id: str) -> dict[str, Any]:
+    """从"用户自己日常使用的浏览器"检测登录态 + 保存账号(2026-09-16,外部模式)。
+
+    与 detect_login_from_cdp_session 的区别:后者检测的是本服务托管的 CDP 会话;
+    本函数检测的是**用户真实 profile**——前端用系统默认浏览器打开平台登录页,用户在自己
+    的浏览器里(已登录状态、Google 账号照常可用)完成或确认登录,后端只负责读:
+
+    1. 名称级检测:按平台域名读真实 profile 的 cookie 名(明文,不解密,浏览器照常运行也能读);
+    2. 命中后取值:无窗口 headless Chrome 读同一 profile 快照的 cookie 值;
+    3. 关键字段校验通过 → 加密入库(与扫码登录同一张表 / 同一套审计)。
+
+    返回结构对齐 CDP 检测:`{"detected", "cookies_count", "account_id", "error", ...}`,
+    额外带 `profile_available`(是否成功读到用户 profile,供前端如实提示)。
+    """
+    if platform not in PLATFORM_SCAN_CONFIG:
+        return {
+            "detected": False, "cookies_count": 0, "account_id": None,
+            "error": f"不支持的平台: {platform}", "profile_available": False,
+        }
+
+    from .browser_hub import _domain_suffix, _find_external_browser, hub, read_profile_cookie_names
+
+    config = PLATFORM_SCAN_CONFIG[platform]
+    browser = _find_external_browser()
+    if not browser:
+        return {
+            "detected": False, "cookies_count": 0, "account_id": None,
+            "error": "未找到可用浏览器(Chrome / Edge),无法读取你的登录状态",
+            "profile_available": False,
+        }
+
+    domain = _domain_suffix(config["login_url"])
+    loop = asyncio.get_running_loop()
+    try:
+        names = await loop.run_in_executor(
+            None, read_profile_cookie_names, browser.user_data, domain
+        )
+    except Exception as e:  # noqa: BLE001 — 读取失败按"没读到"处理,前端继续轮询
+        logger.warning(f"[scan_login] 读取用户浏览器登录态失败: {e}")
+        names = None
+    if names is None:
+        # 没读到(库缺失/被占用):不能断言"未登录",如实回报 profile_available=False
+        return {
+            "detected": False, "cookies_count": 0, "account_id": None, "error": None,
+            "profile_available": False, "cookie_names": [],
+            "success_cookies": config["success_cookies"],
+        }
+    if not names:
+        # 读到了,但该域名下没有 cookie → 该平台确实还没登录(profile 可用)
+        return {
+            "detected": False, "cookies_count": 0, "account_id": None, "error": None,
+            "profile_available": True, "cookie_names": [],
+            "success_cookies": config["success_cookies"],
+        }
+
+    # 名称级命中(只看存在性:min_len=0;真正取值走下面的 headless 读)
+    hit_by_name = _cookie_hits(config, dict.fromkeys(names, "1"), min_len=0)
+    if not hit_by_name:
+        return {
+            "detected": False, "cookies_count": 0, "account_id": None, "error": None,
+            "profile_available": True, "cookie_names": sorted(names),
+            "success_cookies": config["success_cookies"],
+        }
+
+    cookies = await hub.read_profile_cookies(browser.user_data)
+    cookies_dict = {k: v for k, v in cookies.items() if v}
+    # 名称级检测已通过,这里的值直接来自真实浏览器 → min_len=1 即可(不要求长度 ≥5)
+    hit = _cookie_hits(config, cookies_dict, min_len=1)
+    if not hit:
+        return {
+            "detected": False, "cookies_count": len(cookies_dict), "account_id": None,
+            "error": "读到登录态但关键 Cookie 值为空,请稍后重试", "profile_available": True,
+        }
+
+    all_relevant = {
+        k: v for k, v in cookies_dict.items()
+        if not any(s in k.lower() for s in ["google", "baidu", "cnzz", "_ga", "hm.baidu"])
+    }
+    try:
+        account_id = await _save_account_to_db(user_id, platform, all_relevant, config["name"])
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"[scan_login] 从用户浏览器保存账号失败:{e}")
+        return {
+            "detected": False, "cookies_count": len(cookies_dict), "account_id": None,
+            "error": f"保存账号失败: {e}", "profile_available": True,
+        }
+    logger.info(
+        f"[scan_login] 用户浏览器检测成功: platform={platform}, "
+        f"account_id={account_id}, cookies={len(all_relevant)}"
+    )
+    return {
+        "detected": True, "cookies_count": len(all_relevant), "account_id": account_id,
+        "error": None, "profile_available": True, "matched": hit,
+    }
+
+
 async def detect_login_from_cdp_session(
     session_id: str,
     platform: str,
