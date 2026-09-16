@@ -1863,6 +1863,13 @@
       "when": 1722982400000,
       "tag": "20260917003000_relay_alert_silences",
       "breakpoints": true
+    },
+    {
+      "idx": 267,
+      "version": "7",
+      "when": 1723068800000,
+      "tag": "20260917010000_relay_error_passthrough_rules",
+      "breakpoints": true
     }
   ]
 }
