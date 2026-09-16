@@ -243,20 +243,35 @@ export async function detectLoginFromCdp(
 }
 
 /**
- * 外部 Chrome 扫码登录(2026-09-02 新增,自动闭环模式)。
+ * 外部浏览器扫码登录(2026-09-02 新增,2026-09-16 改为复用用户真实浏览器 profile)。
  *
- * ai-service 用系统 Chrome(--app + --remote-debugging-port + 独立临时 profile)打开
- * 平台登录页并通过 CDP 附着。返回 session_id 后前端复用 detectLoginFromCdp 轮询:
- * 用户在外部 Chrome 里扫码/登录 → 检测到 success cookies → 自动保存账号 →
- * 前端 closeBrowserSession(同时关闭外部 Chrome 窗口)+ 提示成功。
+ * ai-service 定位用户本机默认 Chromium 浏览器(Chrome/Edge),复制其真实 profile 的
+ * 登录态最小文件集到临时 profile 后启动该浏览器并打开平台登录页,再通过 CDP 附着。
+ * 返回 session_id 后前端复用 detectLoginFromCdp 轮询:已登录的平台直接命中并自动保存账号,
+ * 未登录的在窗口里正常扫码即可;前端 closeBrowserSession 会一并关闭该窗口(临时 profile 删除)。
+ *
+ * 返回值附加 `browser`(实际使用的浏览器名)/ `profile_used`(是否带上了用户登录态)/
+ * `profile_name`(用户原 profile 目录名),供 UI 如实提示。
  */
-export async function startExternalScanLogin(
-  platform: string,
-): Promise<ApiResult<{ session_id: string; platform: string }>> {
-  return fetchApi<{ session_id: string; platform: string }>(
-    '/api/publish/scan-login/external-start',
-    { method: 'POST', body: JSON.stringify({ platform }) },
-  )
+export async function startExternalScanLogin(platform: string): Promise<
+  ApiResult<{
+    session_id: string
+    platform: string
+    browser?: string
+    profile_used?: boolean
+    profile_name?: string
+  }>
+> {
+  return fetchApi<{
+    session_id: string
+    platform: string
+    browser?: string
+    profile_used?: boolean
+    profile_name?: string
+  }>('/api/publish/scan-login/external-start', {
+    method: 'POST',
+    body: JSON.stringify({ platform }),
+  })
 }
 
 /**

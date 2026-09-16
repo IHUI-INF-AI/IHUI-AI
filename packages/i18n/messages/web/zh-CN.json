@@ -12813,6 +12813,7 @@
       "plus": "添加视图",
       "settings": "设置",
       "skill": "技能",
+      "skillsMarket": "Skill 市场",
       "terminal": "终端"
     },
     "viewSwitcher": {
@@ -16831,17 +16832,19 @@
       "cloudCredTip": "凭据已加密存储在服务器,任何电脑登录本站账号即可使用",
       "batchScanBtn": "一键扫码登录",
       "batchScanTitle": "一键扫码登录",
-      "batchScanDescription": "自动逐个打开待配置平台的登录页:保持手机扫码状态连续扫即可,每个平台登录成功后自动保存并切换下一个。",
+      "batchScanDescription": "自动逐个打开待配置平台的登录页:用你自己的浏览器(已登录的平台直接识别保存)或内置浏览器连续扫码,每个平台登录成功后自动保存并切换下一个。",
       "batchScanProgress": "第 {current}/{total} 个 · {name}",
       "batchScanModeLabel": "批量扫码模式",
       "batchScanModeInternal": "内置浏览器",
-      "batchScanModeExternal": "外部浏览器",
-      "batchScanWaitingHintExternal": "请在外部浏览器完成扫码登录",
+      "batchScanModeExternal": "你自己的浏览器",
+      "batchScanWaitingHintExternal": "已在浏览器窗口打开登录页(未能读取你的登录状态);请在窗口中完成扫码登录",
+      "batchScanWaitingHintExternalOwn": "已在 {browser} 中打开(带你的登录状态);已登录的平台自动保存,未登录的扫一下码即可",
       "batchScanStart": "开始批量扫码",
       "batchScanWaitingHint": "请在右侧内置浏览器完成该平台扫码/登录;超时(2 分钟)会自动跳过,也可手动跳过",
       "batchScanLoading": "正在准备平台队列...",
       "batchScanSkip": "跳过此平台",
       "batchScanStop": "停止队列",
+      "batchScanStopping": "正在停止…",
       "batchScanRestart": "重新开始",
       "batchScanClose": "关闭",
       "batchScanDone": "队列已结束",
@@ -16851,7 +16854,8 @@
       "batchScanItemSkipped": "手动跳过",
       "batchScanDetectError": "检测异常",
       "batchScanNoLoginUrl": "未找到该平台登录页配置",
-      "batchScanStopped": "已停止"
+      "batchScanStopped": "已停止",
+      "batchScanStoppedToast": "已停止扫码队列"
     },
     "ai": {
       "analyzeAll": "批量分析",
