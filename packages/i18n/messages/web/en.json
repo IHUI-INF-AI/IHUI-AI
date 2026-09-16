@@ -271,7 +271,10 @@
     "menu": "Menu",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
-    "uploadAvatar": "Upload avatar"
+    "uploadAvatar": "Upload avatar",
+    "streamAnnounceStart": "AI is replying",
+    "streamAnnounceProgress": "AI is replying, {n} characters so far",
+    "streamAnnounceDone": "AI reply complete, {n} characters in total"
   },
   "about": {
     "ctaDesc": "Sign up and get 1,000 credits, free trial of all models, no credit card required.",
@@ -8600,6 +8603,11 @@
     "addMenuLabel": "Add",
     "artifactCode": "Code",
     "artifactPreview": "Preview",
+    "pdfOpenExternal": "Open in new window",
+    "csvPreviewMeta": "{rows} rows × {cols} cols",
+    "csvExpand": "Show all",
+    "csvCollapse": "Collapse",
+    "csvLoading": "Loading…",
     "assistant": "AI Assistant",
     "attachUploadFailed": "Attachment upload failed, please remove and re-add it",
     "attachUploading": "Attachments are still uploading, please wait",
