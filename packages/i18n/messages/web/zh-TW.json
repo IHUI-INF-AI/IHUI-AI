@@ -7113,6 +7113,7 @@
     },
     "swarmMonitor": {
       "agentStatus": "Agent 狀態",
+      "bottleneck": "瓶頸",
       "avgTime": "平均耗時",
       "avgTokens": "平均 Token",
       "completed": "已完成",
