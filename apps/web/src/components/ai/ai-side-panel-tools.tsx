@@ -44,6 +44,8 @@ import { RoutinesPanel } from '@/components/ai/routines-panel'
 import { AgentTraceViewer } from '@/components/ai/AgentTraceViewer'
 import { CheckpointHistoryPanel } from '@/components/ai/checkpoint-history-panel'
 import { BestOfCompare } from '@/components/ai/best-of-compare'
+// P3 #41(2026-09-16 立):记忆图谱可视化
+import { MemoryGraphPanel } from '@/components/ai/memory-graph-panel'
 import { GoalCard } from '@/components/ai/goal-card'
 import { MemoryCards } from '@/components/ai/memory-cards'
 import { TokenUsagePanel } from '@/components/ai/token-usage-panel'
@@ -93,6 +95,7 @@ type ToolTabKey =
   | 'spec'
   | 'runtime'
   | 'bestof'
+  | 'memorygraph'
   | 'hooks'
   | 'wiki'
   | 'integrations'
@@ -115,6 +118,7 @@ const TAB_KEYS: ToolTabKey[] = [
   'spec',
   'runtime',
   'bestof',
+  'memorygraph',
   'hooks',
   'wiki',
   'integrations',
@@ -639,6 +643,9 @@ export function AiSidePanelTools() {
             }}
           />
         )
+      // P3 #41 记忆图谱(2026-09-16 立):子图可视化
+      case 'memorygraph':
+        return <MemoryGraphPanel />
       // W28 Hooks 事件系统配置面板(2026-09-14 立)
       case 'hooks':
         return <AgentHooksPanel />

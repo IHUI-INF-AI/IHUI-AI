@@ -22233,5 +22233,12 @@
     "estimateLine": "이번 예상 ≈{tokens} 토큰 (약 ${cost})",
     "fallbackPrice": "대체 가격 참고용",
     "actualLine": "실제 {actual} 토큰 (예상 {estimate})"
+  },
+  "memoryGraph": {
+    "searchPlaceholder": "메모리 키워드 검색…",
+    "searchBtn": "검색",
+    "empty": "키워드로 메모리 서브그래프 조회",
+    "noHits": "일치하는 메모리 없음",
+    "legend": "히트 {hits}건 · 전체 {total} 노드(노드 클릭 시 전문)"
   }
 }

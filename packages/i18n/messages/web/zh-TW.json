@@ -22239,5 +22239,12 @@
     "estimateLine": "本次預計 ≈{tokens} tokens（約 ${cost}）",
     "fallbackPrice": "兜底價僅供參考",
     "actualLine": "實際 {actual} tokens（預估 {estimate}）"
+  },
+  "memoryGraph": {
+    "searchPlaceholder": "搜尋記憶關鍵詞…",
+    "searchBtn": "查詢",
+    "empty": "輸入關鍵詞查詢記憶子圖",
+    "noHits": "無匹配記憶",
+    "legend": "命中 {hits} 條 · 全圖 {total} 節點(點擊節點查看全文)"
   }
 }

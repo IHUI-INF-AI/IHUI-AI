@@ -22254,5 +22254,12 @@
     "estimateLine": "Est. ≈{tokens} tokens (~${cost})",
     "fallbackPrice": "fallback price, for reference only",
     "actualLine": "Actual {actual} tokens (est. {estimate})"
+  },
+  "memoryGraph": {
+    "searchPlaceholder": "Search memory keywords…",
+    "searchBtn": "Search",
+    "empty": "Enter keywords to query the memory subgraph",
+    "noHits": "No matching memories",
+    "legend": "{hits} hits · {total} nodes (click a node for full text)"
   }
 }
