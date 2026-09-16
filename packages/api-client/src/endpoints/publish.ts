@@ -259,6 +259,24 @@ export async function startExternalScanLogin(
   )
 }
 
+/**
+ * 手动导入 cookies 保存账号(2026-09-16 新增,系统默认浏览器登录模式)。
+ *
+ * 用户日常浏览器的登录态受默认 profile / App-Bound Encryption 保护无法自动读取,
+ * 前端先 openExternalUrl 用系统默认浏览器打开登录页,用户登录(或本已登录)后
+ * 从 DevTools 复制 Cookie 粘贴回弹窗,调本接口:后端解析(JSON / cookies.txt /
+ * 请求头格式)→ 校验平台关键字段 → 加密入库(与扫码登录同一张表)。
+ */
+export async function importCookiesManually(
+  platform: string,
+  cookiesRaw: string,
+): Promise<ApiResult<{ account_id: number; cookies_count: number; matched: string[] }>> {
+  return fetchApi<{ account_id: number; cookies_count: number; matched: string[] }>(
+    '/api/publish/scan-login/import-cookies',
+    { method: 'POST', body: JSON.stringify({ platform, cookies_raw: cookiesRaw }) },
+  )
+}
+
 // =============================================================================
 // 账号分组管理(2026-08-01 新增)
 // =============================================================================
