@@ -20,6 +20,7 @@
 
 import { inArray } from 'drizzle-orm'
 import { knowledgeDoc } from '@ihui/database'
+import type { CitationEntry } from '@ihui/types'
 import { db } from '../db/index.js'
 import { knowledgeRagService } from './knowledge-rag-service.js'
 import { logger } from './clawdbot/logger.js'
@@ -42,6 +43,9 @@ export interface KnowledgeContextResult {
   block: string
   /** 命中条数 */
   hitCount: number
+  /** P1 #26(2026-09-16 立):结构化引用(按文档去重,source='rag')。
+   *  网关据此在流首合成 citations SSE 事件下发,前端 CitationBar 渲染知识库来源标签。 */
+  citations: CitationEntry[]
 }
 
 /**
@@ -87,8 +91,16 @@ export async function loadKnowledgeContext(
   }
 
   const parts: string[] = [KNOWLEDGE_HEADER]
+  // P1 #26:按文档去重构建结构化引用(同文档多条命中只展示一个来源标签),
+  // 供网关在流首合成 citations SSE 事件,前端 CitationBar 渲染 rag 来源。
+  const citations: CitationEntry[] = []
+  const seenDocIds = new Set<number>()
   hits.forEach((hit, i) => {
     const title = titleMap.get(hit.docId) ?? `条目 ${hit.id}`
+    if (!seenDocIds.has(hit.docId)) {
+      seenDocIds.add(hit.docId)
+      citations.push({ source: 'rag', label: title })
+    }
     const content =
       hit.content.length > KNOWLEDGE_CHUNK_MAX
         ? hit.content.slice(0, KNOWLEDGE_CHUNK_MAX) + CHUNK_TRUNCATED_HINT
@@ -98,6 +110,6 @@ export async function loadKnowledgeContext(
 
   let block = parts.join('\n\n')
   if (block.length > KNOWLEDGE_MAX_CHARS) block = block.slice(0, KNOWLEDGE_MAX_CHARS)
-  return { block, hitCount: hits.length }
+  return { block, hitCount: hits.length, citations }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
