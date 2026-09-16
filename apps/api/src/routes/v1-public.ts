@@ -84,6 +84,8 @@ import {
 } from '../services/relay-response-cache.js'
 // 上游错误透传(2026-09-16 立,五轮补强):按 admin 规则翻译上游错误后返回下游
 import { resolveErrorPassthrough } from '../services/relay-error-rules-service.js'
+// 提示词审计(2026-09-17 立,补强 54)
+import { auditPrompt } from '../services/relay-prompt-audit-service.js'
 // OpenAI 协议扩展(stream_options.include_usage + response_format json_schema + seed)
 import {
   applyProtocolExtensions,
@@ -1306,6 +1308,18 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
     const startTime = Date.now()
     const promptText = messages.map((m) => `${m.role}: ${m.content}`).join('\n')
+
+    // 提示词审计(2026-09-17 立,补强 54):入站提示词风险检测。
+    // block 规则直接拒绝;warn/log 仅记录(命中已落库),不阻断调用。
+    const promptAudit = await auditPrompt(promptText, {
+      userId: apiKey?.userId ?? null,
+      apiKeyId: apiKey?.id ?? null,
+      model,
+    })
+    if (promptAudit.action === 'block') {
+      return reply.status(400).send(error(400, '请求内容未通过平台安全策略,请调整后重试'))
+    }
+
     if (apiKey) {
       const estimatedTokens = messages.reduce((sum, m) => sum + Math.ceil(m.content.length / 4), 0)
       const quotaCheck = await checkQuota(apiKey.id, estimatedTokens, { clientIp: request.ip })

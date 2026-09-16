@@ -262,6 +262,8 @@ export * from './relay-alert-rules.js'
 export * from './relay-alert-silences.js'
 // 上游错误透传规则(2026-09-16 立,定义上游错误如何呈现给下游)
 export * from './relay-error-rules.js'
+// 提示词审计(2026-09-17 立,入站提示词风险检测)
+export * from './relay-prompt-audit.js'
 // 数据库备份作业系统(2026-09-16 立,补强 V,pg_dump|gzip+保留策略)
 export * from './backup-jobs.js'
 
