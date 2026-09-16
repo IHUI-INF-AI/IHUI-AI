@@ -6970,6 +6970,22 @@
         "manage": "管理",
         "moreItems": "等 {count} 條"
       },
+      "diffComment": {
+        "action": "評論",
+        "rowAction": "評論這一行",
+        "placeholderLine": "對第 {line} 行提意見…",
+        "placeholderFile": "對本次改動提意見…",
+        "submit": "新增",
+        "hint": "Enter 傳送,Shift+Enter 換行",
+        "remove": "刪除這條意見",
+        "lineLabel": "第 {line} 行",
+        "fileLevel": "整個檔案",
+        "countBadge": "{count} 條意見",
+        "targetLine": "評論第 {line} 行",
+        "targetFile": "評論本次改動",
+        "close": "取消",
+        "pendingBanner": "有 {count} 條程式碼改動意見待傳送"
+      },
       "thumbRail": {
         "title": "訊息地圖",
         "userNode": "提問",
