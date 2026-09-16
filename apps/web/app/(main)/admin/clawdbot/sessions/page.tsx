@@ -6,10 +6,10 @@
 
 import * as React from 'react'
 import { useLocale } from 'next-intl'
-import { MessageSquare, Loader2, Eye, X } from 'lucide-react'
+import { MessageSquare, Loader2, Eye } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Button } from '@ihui/ui-react'
+import { Button, CloseButton } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
 
@@ -131,9 +131,7 @@ export default function ClawdbotSessionsPage() {
           >
             <div className="flex items-center justify-between px-4 py-2.5">
               <p className="text-sm font-medium">会话详情 · {selected.id}</p>
-              <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>
-                <X className="h-4 w-4" />
-              </Button>
+              <CloseButton aria-label="关闭" onClick={() => setSelected(null)} />
             </div>
             <div className="max-h-[60vh] space-y-2 overflow-y-auto p-3">
               <div className="grid grid-cols-1 gap-2 text-xs min-[768px]:grid-cols-2">

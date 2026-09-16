@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, X, Loader2, Sparkles, AlertCircle } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 import { useInlineEditStore } from '@/stores/inline-edit'
 import { useInlineEdit } from '@/hooks/use-inline-edit'
 
@@ -103,13 +104,7 @@ export function InlineEditDialog() {
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           </button>
         ) : (
-          <button
-            onClick={() => closeInlineEdit()}
-            className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label={t('closeAriaLabel')}
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
+          <CloseButton onClick={() => closeInlineEdit()} aria-label={t('closeAriaLabel')} />
         )}
       </div>
 

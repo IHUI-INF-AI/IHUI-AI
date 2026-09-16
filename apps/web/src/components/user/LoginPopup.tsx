@@ -7,7 +7,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { X } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 export interface LoginPopupProps {
@@ -56,14 +56,8 @@ export default function LoginPopup({
           className,
         )}
       >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t('close')}
-          className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-        >
-          <X className="h-5 w-5" />
-        </button>
+        {/* 2026-09-16 全项目统一关闭按钮 token:CloseButton(ui-react),样式源自 @ihui/design-tokens */}
+        <CloseButton floating aria-label={t('close')} onClick={onClose} />
         <h2 className="mb-4 text-center text-lg font-semibold">{title}</h2>
         {children ? (
           children
