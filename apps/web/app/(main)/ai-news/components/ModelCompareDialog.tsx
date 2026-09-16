@@ -13,7 +13,7 @@ import {
   CHART_PINK,
   CHART_PURPLE,
 } from '@ihui/design-tokens'
-import { X } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 import type { LeaderboardEntry, ModelCapabilities } from '@/lib/ai-news-api'
 import { parseNumeric } from './text-utils'
 import { PriceChart } from './PriceChart'
@@ -208,13 +208,7 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
           <span className="text-[10px] text-muted-foreground">
             {t('compare.selected', { count: entries.length })}
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ml-auto rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton aria-label={t('close')} onClick={onClose} className="ml-auto" />
         </div>
 
         {/* side-by-side 对比表 */}

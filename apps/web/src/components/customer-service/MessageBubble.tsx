@@ -7,6 +7,7 @@
 import * as React from 'react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+import { CloseButton } from '@ihui/ui-react'
 import { getInitials } from '@/components/data/Avatar'
 import { formatTimeOnly } from '@/lib/date-utils'
 
@@ -84,6 +85,16 @@ export function MessageBubble({ message, isSelf }: Props) {
           role="button"
           tabIndex={0}
         >
+          {/* 2026-09-16 全项目统一关闭按钮 token:onDark + floating(此前遗漏,只能点背景/Esc 关闭) */}
+          <CloseButton
+            onDark
+            floating
+            aria-label="关闭"
+            onClick={(e) => {
+              e.stopPropagation()
+              setZoomed(false)
+            }}
+          />
           <Image
             src={message.content}
             alt="zoomed"

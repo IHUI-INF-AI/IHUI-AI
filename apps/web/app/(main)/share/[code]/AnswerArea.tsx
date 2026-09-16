@@ -8,7 +8,8 @@ import * as React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Image from 'next/image'
-import { ChevronDown, Pause, Play, Volume2, X, Lightbulb } from 'lucide-react'
+import { ChevronDown, Pause, Play, Volume2, Lightbulb } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { type ShareContent, type ShareListItem } from '@ihui/api-client'
@@ -164,13 +165,8 @@ function ImagePreview({
         }
       }}
     >
-      <button
-        onClick={onClose}
-        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/20"
-        aria-label={t('close')}
-      >
-        <X className="h-5 w-5" />
-      </button>
+      {/* 2026-09-16 全项目统一关闭按钮 token:onDark + floating(源自 @ihui/design-tokens) */}
+      <CloseButton onDark floating aria-label={t('close')} onClick={onClose} />
 
       <Image
         src={src}

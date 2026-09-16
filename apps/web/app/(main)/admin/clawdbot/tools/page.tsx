@@ -5,10 +5,10 @@
 'use client'
 
 import * as React from 'react'
-import { Wrench, Loader2, Play, X } from 'lucide-react'
+import { Wrench, Loader2, Play } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Button, Input, Label } from '@ihui/ui-react'
+import { Button, CloseButton, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
 
@@ -175,9 +175,7 @@ export default function ClawdbotToolsPage() {
           >
             <div className="flex items-center justify-between px-4 py-2.5">
               <p className="text-sm font-medium">执行结果</p>
-              <Button variant="ghost" size="sm" onClick={() => setResult(null)}>
-                <X className="h-4 w-4" />
-              </Button>
+              <CloseButton aria-label="关闭" onClick={() => setResult(null)} />
             </div>
             <div className="space-y-3 p-3 text-sm">
               <div className="flex items-center gap-2">
