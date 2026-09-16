@@ -19711,15 +19711,6 @@
     },
     "instance": "Workflow Instance"
   },
-  "worlds": {
-    "adopt": "Adopt",
-    "adopted": "Adopted",
-    "branchRunning": "Branch generating…",
-    "empty": "No comparison branches yet",
-    "emptyReply": "No reply from this branch yet",
-    "reset": "Reset",
-    "running": "Running"
-  },
   "workspace": {
     "actions": "Actions",
     "back": "Back",
