@@ -174,6 +174,9 @@ export function createSendAnswer(
         topP: samplingParams.topP,
         topK: samplingParams.topK,
         maxTokens: samplingParams.maxTokens,
+        // P1 #26(2026-09-16 立):知识库默认注入开关(与 sendMessage 对称;
+        // undefined = 后端默认开,false = 显式关闭)
+        knowledgeContext: samplingParams.knowledgeContext,
         extraBody: {
           // 2026-08-21 修复(C4):fromRetry 时 pending 为 null,用入口恢复的 questionId
           questionId,
