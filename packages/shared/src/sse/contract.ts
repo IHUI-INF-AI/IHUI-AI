@@ -40,6 +40,9 @@ export const SSE_EVENTS = {
   SUBAGENT_END: 'subagent_end',
   PLAN_STEP: 'plan-step',
   THINKING_DELTA: 'thinking_delta',
+  PLAN_UPDATED: 'plan_updated',
+  TERMINAL_START: 'terminal_start',
+  TERMINAL_END: 'terminal_end',
   DONE: 'done',
   ERROR: 'error',
   COMPACTION: 'compaction',
@@ -124,6 +127,38 @@ export type SSEEventPayload =
       type: 'plan-step'
       // 待收紧:plan[].status 等字段与 packages/types PlanUpdateEvent 对齐
       payload: Record<string, unknown>
+    }>
+  // 计划更新(对话流,与 plan-step 同源;字段与 llm.py L154-162 对齐)
+  | SSEEventWithMeta<{
+      type: 'plan_updated'
+      plan: Array<{
+        step: string
+        status: string
+        durationMs?: number
+      }>
+      explanation: string
+      timestamp: string
+      messageId?: string
+    }>
+  // 终端命令开始(对话流执行终端命令;与 llm.py L1951-1960 对齐)
+  | SSEEventWithMeta<{
+      type: 'terminal_start'
+      terminalId: string
+      command: string
+      status: 'running'
+      startedAt: string
+      messageId?: string
+    }>
+  // 终端命令结束(与 packages/types/src/ai.ts TerminalEndEvent 对齐,字段名为 terminalId)
+  | SSEEventWithMeta<{
+      type: 'terminal_end'
+      terminalId: string
+      status: 'completed' | 'failed'
+      endedAt: string
+      durationMs: number
+      output?: string
+      exitCode?: number
+      messageId?: string
     }>
   // 流结束(含 usage)
   | SSEEventWithMeta<{
