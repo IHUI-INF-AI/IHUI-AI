@@ -10213,6 +10213,39 @@
     "wrongLabel": "誤答"
   },
   "developer": {
+    "errorCodes": {
+      "title": "API エラーコード",
+      "subtitle": "すべての API エラーコードと対応する HTTP ステータスコード、および対処法をまとめた一覧です。",
+      "relatedDocs": "関連ドキュメント",
+      "apiDocsDesc": "API ドキュメント — オープンプラットフォームのエンドポイント説明と呼び出し例を見る",
+      "apiKeysDesc": "API キー管理 — API キーの作成・ローテーション・管理を行う"
+    },
+    "benefits": {
+      "title": "サブスクリプション特典",
+      "subtitle": "段階料金の進捗とクーポン。使えば使うほどお得になります",
+      "tierTitle": "段階料金の進捗",
+      "tierModel": "モデル",
+      "tierCurrent": "現在の倍率",
+      "tierUsed": "今月の使用量",
+      "tierNext": "次の階層",
+      "tierEmpty": "段階料金ルールが未設定です。基本料金（1倍）で請求されます",
+      "tierMax": "最高階層に到達済み",
+      "tierNextHint": "あと {tokens} トークンで次の階層に到達します",
+      "couponTitle": "クーポン",
+      "couponInput": "クーポンコードを入力",
+      "couponClaim": "受け取る",
+      "couponClaiming": "受け取り中...",
+      "couponList": "我的クーポン",
+      "couponEmpty": "クーポンはまだありません。コードを入力して受け取ります",
+      "couponClaimed": "受け取り完了",
+      "couponTypeDiscount": "割引券",
+      "couponTypeDeduction": "満減クーポン",
+      "couponTypeReferral": "紹介券",
+      "couponStatusUnused": "未使用",
+      "couponStatusUsed": "使用済み",
+      "couponStatusExpired": "期限切れ",
+      "loading": "読み込み中..."
+    },
     "agreementHint": "開発者規約を読み、同意してください",
     "apiKeys": "API キー",
     "becomeDeveloper": "開発者になる",
@@ -15471,6 +15504,9 @@
     "none": "なし"
   },
   "nav": {
+    "developerErrorCodes": "API エラーコード",
+    "developerBenefits": "特典センター",
+    "invoices": "請求書管理",
     "purchase": "API 購入",
     "availableChannels": "利用可能なチャネル",
     "agentTeams": "エージェントチーム",
