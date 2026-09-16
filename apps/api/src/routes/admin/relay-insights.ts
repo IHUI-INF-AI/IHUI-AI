@@ -25,6 +25,43 @@ const adminRelayInsightsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(500).send(error(500, '生成运营洞察失败'))
     }
   })
+
+  // 2. SSE 实时流(2026-09-17 立,补强 58:运营面板实时化——服务端每 60s 推送最新洞察,
+  //    替代前端轮询;连接关闭自动清理。语义与 WS 推送等价,SSE 实现更稳且单向足够。)
+  server.get('/relay/insights/stream', async (request, reply) => {
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    })
+    reply.raw.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`)
+
+    let closed = false
+    const push = async (): Promise<void> => {
+      if (closed) return
+      try {
+        const result = await generateInsights()
+        if (!closed) {
+          reply.raw.write(`event: insights\ndata: ${JSON.stringify(result)}\n\n`)
+        }
+      } catch (e) {
+        request.log.warn(e, '[insights-stream] 推送失败(跳过本次)')
+      }
+    }
+
+    // 立即推一次,然后每 60 秒
+    await push()
+    const timer = setInterval(() => {
+      void push()
+    }, 60_000)
+    request.raw.on('close', () => {
+      closed = true
+      clearInterval(timer)
+    })
+    // Fastify 需要 hijack 防止自动回复结束
+    reply.hijack()
+    return reply
+  })
 }
 
 export default adminRelayInsightsRoutes
