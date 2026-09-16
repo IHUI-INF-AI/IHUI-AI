@@ -1877,6 +1877,13 @@
       "when": 1723155200000,
       "tag": "20260917020000_relay_prompt_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 269,
+      "version": "7",
+      "when": 1723241600000,
+      "tag": "20260917030000_relay_user_attributes",
+      "breakpoints": true
     }
   ]
 }
