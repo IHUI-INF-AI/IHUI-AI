@@ -12805,6 +12805,7 @@
       "plus": "Add view",
       "settings": "Settings",
       "skill": "Skill",
+      "skillsMarket": "Skill Market",
       "terminal": "Terminal"
     },
     "viewSwitcher": {
@@ -16840,17 +16841,19 @@
       "cloudCredTip": "Credentials are encrypted on our server. Log in to your account on any computer to use them.",
       "batchScanBtn": "One-click Scan Login",
       "batchScanTitle": "One-click Scan Login",
-      "batchScanDescription": "Opens each pending platform's login page in turn. Just keep scanning with your phone — each successful login is saved automatically and the next platform opens.",
+      "batchScanDescription": "Opens each pending platform's login page in turn — your own browser (already signed-in platforms are detected and saved) or the built-in browser for continuous scanning. Each successful login is saved automatically and the next platform opens.",
       "batchScanProgress": "{current}/{total} · {name}",
       "batchScanModeLabel": "Batch scan mode",
       "batchScanModeInternal": "Built-in browser",
-      "batchScanModeExternal": "External browser",
-      "batchScanWaitingHintExternal": "Complete the scan login in an external browser",
+      "batchScanModeExternal": "Your own browser",
+      "batchScanWaitingHintExternal": "Login page opened in a browser window (your sign-in state could not be loaded); complete the sign-in there",
+      "batchScanWaitingHintExternalOwn": "Opened in {browser} with your sign-in state — already signed-in platforms are saved automatically, just scan for the rest",
       "batchScanStart": "Start batch scan",
       "batchScanWaitingHint": "Scan or log in on the built-in browser on the right. Each platform times out after 2 minutes and is skipped automatically; you can also skip manually.",
       "batchScanLoading": "Preparing platform queue...",
       "batchScanSkip": "Skip this platform",
       "batchScanStop": "Stop queue",
+      "batchScanStopping": "Stopping…",
       "batchScanRestart": "Restart",
       "batchScanClose": "Close",
       "batchScanDone": "Queue finished",
@@ -16860,7 +16863,8 @@
       "batchScanItemSkipped": "skipped",
       "batchScanDetectError": "detect error",
       "batchScanNoLoginUrl": "No login page configured for this platform",
-      "batchScanStopped": "stopped"
+      "batchScanStopped": "stopped",
+      "batchScanStoppedToast": "Scan login queue stopped"
     },
     "ai": {
       "analyzeAll": "Batch Analysis",

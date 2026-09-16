@@ -12813,6 +12813,7 @@
       "plus": "ビューを追加",
       "settings": "設定",
       "skill": "スキル",
+      "skillsMarket": "Skill マーケット",
       "terminal": "ターミナル"
     },
     "viewSwitcher": {
@@ -16848,17 +16849,19 @@
       "cloudCredTip": "認証情報はサーバー上で暗号化して保存されています。任意のパソコンからアカウントにログインすれば利用できます。",
       "batchScanBtn": "一括スキャンログイン",
       "batchScanTitle": "一括スキャンログイン",
-      "batchScanDescription": "未設定のプラットフォームのログインページを順番に開きます。スマホでスキャンを続けるだけで、ログイン成功ごとに自動保存され次のプラットフォームへ切り替わります。",
+      "batchScanDescription": "未設定のプラットフォームのログインページを順番に開きます — お使いのブラウザ(ログイン済みは自動検出して保存)または内蔵ブラウザでの連続スキャン。ログイン成功ごとに自動保存され次のプラットフォームへ切り替わります。",
       "batchScanProgress": "{current}/{total} · {name}",
       "batchScanModeLabel": "一括スキャンモード",
       "batchScanModeInternal": "内蔵ブラウザ",
-      "batchScanModeExternal": "外部ブラウザ",
-      "batchScanWaitingHintExternal": "外部ブラウザでスキャンログインを完了してください",
+      "batchScanModeExternal": "お使いのブラウザ",
+      "batchScanWaitingHintExternal": "ブラウザウィンドウでログインページを開きました(ログイン状態を読み込めませんでした)。そこでスキャンログインを完了してください",
+      "batchScanWaitingHintExternalOwn": "お使いの {browser} で開きました(ログイン状態込み)— ログイン済みは自動保存、未ログインのみスキャンしてください",
       "batchScanStart": "一括スキャン開始",
       "batchScanWaitingHint": "右側の内蔵ブラウザでスキャン/ログインしてください。2 分でタイムアウト自動スキップします(手動スキップも可能)。",
       "batchScanLoading": "プラットフォームキューを準備中...",
       "batchScanSkip": "このプラットフォームをスキップ",
       "batchScanStop": "キューを停止",
+      "batchScanStopping": "停止中…",
       "batchScanRestart": "再開",
       "batchScanClose": "閉じる",
       "batchScanDone": "キュー終了",
@@ -16868,7 +16871,8 @@
       "batchScanItemSkipped": "スキップ",
       "batchScanDetectError": "検出エラー",
       "batchScanNoLoginUrl": "このプラットフォームのログインページ設定が見つかりません",
-      "batchScanStopped": "停止済み"
+      "batchScanStopped": "停止済み",
+      "batchScanStoppedToast": "スキャンログインキューを停止しました"
     },
     "ai": {
       "analyzeAll": "一括分析",
