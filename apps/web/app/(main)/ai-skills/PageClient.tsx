@@ -18,13 +18,16 @@ import {
   FileText,
   ChevronRight,
   Upload,
+  BarChart3,
 } from 'lucide-react'
 
 import {
   listAiSkills,
   getAiSkillRecommendations,
+  getAiSkillStats,
   importAiSkill,
   type AiSkillMeta,
+  type PerSkillStats,
 } from '@ihui/api-client/endpoints/ai-skills'
 import { BackButton } from '@/components/common'
 import { Badge } from '@/components/data'
@@ -81,6 +84,8 @@ export default function AiSkillsPageClient() {
   const t = useTranslations('aiSkillsPage')
   const td = useTranslations('aiSkillDetail')
   const [activeTab, setActiveTab] = React.useState<TabKey>('all')
+  // P3 #37(2026-09-16 立):Skill 市场产品化——热度排序(stats.perSkill 调用数)
+  const [sortKey, setSortKey] = React.useState<'name' | 'hot'>('name')
   const [keyword, setKeyword] = React.useState('')
   const [importOpen, setImportOpen] = React.useState(false)
   const [importJson, setImportJson] = React.useState('')
@@ -90,6 +95,22 @@ export default function AiSkillsPageClient() {
     queryKey: ['ai-skills', 'list'],
     queryFn: fetchAll,
   })
+
+  // 使用热度(skillName → 调用数/成功率),卡片徽章 + 热度排序数据源
+  const statsQuery = useQuery({
+    queryKey: ['ai-skills', 'stats'],
+    queryFn: () => getAiSkillStats(),
+    staleTime: 60_000,
+  })
+  const statsMap = React.useMemo(() => {
+    const m = new Map<string, PerSkillStats>()
+    // ApiResult 判别联合:narrow success 后才可访问 data
+    const r = statsQuery.data
+    if (r?.success) {
+      for (const s of r.data.perSkill ?? []) m.set(s.skillName, s)
+    }
+    return m
+  }, [statsQuery.data])
 
   const handleImport = async () => {
     if (!importJson.trim()) {
@@ -150,11 +171,17 @@ export default function AiSkillsPageClient() {
         )
       })
       .sort((a, b) => {
-        // 已上线优先 + 同状态按 name 升序
+        // 已上线优先
         if (a.available !== b.available) return a.available ? -1 : 1
+        // P3 #37:热度排序 = stats 调用数降序(无数据排最后);默认按名称
+        if (sortKey === 'hot') {
+          const ca = statsMap.get(a.name)?.callCount ?? -1
+          const cb = statsMap.get(b.name)?.callCount ?? -1
+          if (ca !== cb) return cb - ca
+        }
         return a.name.localeCompare(b.name)
       })
-  }, [data, activeTab, keyword])
+  }, [data, activeTab, keyword, sortKey, statsMap])
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-4">
@@ -218,6 +245,31 @@ export default function AiSkillsPageClient() {
           placeholder={t('searchPlaceholder')}
           aria-label={t('searchPlaceholder')}
         />
+        {/* P3 #37:排序切换(名称 / 热度),热度=stats 调用数降序 */}
+        <div className="flex items-center gap-1 rounded-lg border bg-card p-1">
+          {(
+            [
+              { key: 'name', label: t('sortName') },
+              { key: 'hot', label: t('sortHot') },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => setSortKey(opt.key)}
+              aria-pressed={sortKey === opt.key}
+              data-testid={`skills-sort-${opt.key}`}
+              className={cn(
+                'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                sortKey === opt.key
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 列表区 */}
@@ -243,7 +295,7 @@ export default function AiSkillsPageClient() {
       {filtered.length > 0 && (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {filtered.map((skill) => (
-            <SkillCard key={skill.id} skill={skill} />
+            <SkillCard key={skill.id} skill={skill} stats={statsMap.get(skill.name)} />
           ))}
         </div>
       )}
@@ -301,9 +353,11 @@ export default function AiSkillsPageClient() {
 
 interface SkillCardProps {
   skill: AiSkillMeta
+  /** P3 #37:使用热度(stats.perSkill;有调用记录才显示徽章) */
+  stats?: PerSkillStats
 }
 
-function SkillCard({ skill }: SkillCardProps) {
+function SkillCard({ skill, stats }: SkillCardProps) {
   const t = useTranslations('aiSkillsPage')
   const td = useTranslations('aiSkillDetail')
   const Icon = CATEGORY_ICON[skill.category] ?? Wand2
@@ -330,6 +384,23 @@ function SkillCard({ skill }: SkillCardProps) {
             {t(CATEGORY_LABEL_KEY[skill.category] as 'categoryCode')}
           </div>
         </div>
+        {/* P3 #37:热度徽章(调用数/成功率;无调用记录不显示) */}
+        {stats && stats.callCount > 0 && (
+          <span
+            className="inline-flex shrink-0 flex-col items-end text-[10px] tabular-nums text-muted-foreground"
+            data-testid={`skill-hot-${skill.id}`}
+            title={t('hotBadgeTitle', {
+              calls: stats.callCount,
+              rate: Math.round(stats.successRate * 100),
+            })}
+          >
+            <span className="inline-flex items-center gap-0.5 font-medium text-foreground/80">
+              <BarChart3 className="h-3 w-3" />
+              {t('hotBadgeCalls', { calls: stats.callCount })}
+            </span>
+            <span>{t('hotBadgeRate', { rate: Math.round(stats.successRate * 100) })}</span>
+          </span>
+        )}
       </div>
 
       <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
