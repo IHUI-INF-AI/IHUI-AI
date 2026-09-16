@@ -8,12 +8,16 @@ import { base64UrlDecode } from '@ihui/shared/utils/jwt-utils'
 // 纯函数下沉到共享层(2026-08-01,AGENTS.md §3 共享层优先)
 // decodeUserFromToken / isAdmin / isAuthenticated / AuthTokenUser 现由 @ihui/shared/auth 提供,
 // 此处 re-export 保持现有调用方零改动(继续从 @/lib/auth-utils import)。
+//
+// 2026-09-16 修复 middleware 打包(Edge Runtime):
+// 不能从 barrel @ihui/shared/auth 导入(token-store.ts 会拖入 @ihui/api-client/@ihui/types),
+// 改为直接子路径 @ihui/shared/auth/auth-utils,只拉取纯 JS 函数(token-store 等含 Node 依赖的不进 Edge 束)。
 export {
   decodeUserFromToken,
   isAdmin,
   isAuthenticated,
   type AuthTokenUser,
-} from '@ihui/shared/auth'
+} from '@ihui/shared/auth/auth-utils'
 
 /**
  * 获取 redirect 查询参数。

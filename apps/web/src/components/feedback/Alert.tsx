@@ -6,7 +6,8 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react'
+import { CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 type AlertVariant = 'info' | 'success' | 'warning' | 'danger'
@@ -68,14 +69,7 @@ export function Alert({
         {action && <div className="mt-2">{action}</div>}
       </div>
       {closable && (
-        <button
-          type="button"
-          onClick={handleClose}
-          aria-label={t('closeAlert')}
-          className="shrink-0 rounded-sm opacity-70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <CloseButton aria-label={t('closeAlert')} onClick={handleClose} className="shrink-0" />
       )}
     </div>
   )
