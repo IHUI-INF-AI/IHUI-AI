@@ -251,7 +251,7 @@ export function AISidePanel() {
   const [workspaceName, setWorkspaceName] = React.useState<string | null>(null)
   // 分页状态(2026-07-25 立,#8 滚动到顶部加载更多历史)
   // - hasMoreHistory:当前会话是否还有更早的消息可加载
-  // - oldestCursor:下一页 before 游标(当前已加载消息中最旧一条的 id)
+  // - oldestCursor:下一页 keyset 复合游标(P1 #24,base64url {createdAt,id},服务端下发客户端透明回传)
   // - loadingMoreHistory:防止滚动到顶部重复触发
   const [hasMoreHistory, setHasMoreHistory] = React.useState(false)
   const oldestCursorRef = React.useRef<string | null>(null)
@@ -463,7 +463,8 @@ export function AISidePanel() {
           try {
             const [convRes, msgRes] = await Promise.all([
               getConversation(id),
-              getMessages(id, { pageSize: 50 }),
+              // P1 #24 keyset 复合游标:initial 取最新页,nextCursor 为 base64url 复合游标(透明回传)
+              getMessages(id, { direction: 'initial', pageSize: 50 }),
             ])
             if (cancelled) return
             if (convRes.success && msgRes.success) {
@@ -517,10 +518,10 @@ export function AISidePanel() {
       // 记录拉取前的 messages 引用,识别拉取期间本地是否被写入(见 isLocalMessagesChanged)
       const localBefore = useChatStore.getState().messages
       try {
-        // #8 分页加载:默认 page=1 返回最新 pageSize 条(后端 offset 模式按 desc + reverse)
+        // #8 分页加载:direction=initial 返回最新 pageSize 条(keyset 模式,按 desc + reverse)
         const [convRes, msgRes] = await Promise.all([
           getConversation(id),
-          getMessages(id, { pageSize: 50 }),
+          getMessages(id, { direction: 'initial', pageSize: 50 }),
         ])
         if (cancelled) return
         if (convRes.success && msgRes.success) {
@@ -688,7 +689,7 @@ export function AISidePanel() {
     cached.oldestCursor = oldestCursorRef.current
   }, [storeConversationId, messages, hasMoreHistory])
 
-  // #8 滚动到顶部加载更多历史消息(before 游标分页)
+  // #8 滚动到顶部加载更多历史消息(keyset 复合游标分页,P1 #24)
   // - 由 MessageList 在 scrollTop 接近 0 时触发
   // - 加载完成后 prepend 到 messages 头部,并保持视觉滚动位置(由 MessageList 内部处理)
   const handleLoadMoreHistory = React.useCallback(async () => {
@@ -697,7 +698,8 @@ export function AISidePanel() {
     if (!convId || !cursor || loadingMoreHistory || !hasMoreHistory) return
     setLoadingMoreHistory(true)
     try {
-      const res = await getMessages(convId, { before: cursor, pageSize: 50 })
+      // keyset 模式:cursor 为服务端下发的 base64url 复合游标,direction=older 向前翻更早消息
+      const res = await getMessages(convId, { cursor, direction: 'older', pageSize: 50 })
       if (!res.success) return
       const older = res.data.messages.map((m) => ({
         id: m.id,

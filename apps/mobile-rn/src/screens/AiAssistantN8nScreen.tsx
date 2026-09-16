@@ -776,7 +776,7 @@ export default function AiAssistantN8nScreen() {
 
   // ── 加载历史对话消息(对齐 ChatScreen loadConversationMessages) ──
   const loadConversationMessages = useCallback(async (id: string): Promise<void> => {
-    const res = await getMessages(id, { page: 1, pageSize: 100 })
+    const res = await getMessages(id, { direction: 'initial', pageSize: 100 })
     if (res.success) {
       const loaded: N8nMessage[] = res.data.messages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
