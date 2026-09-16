@@ -8,6 +8,7 @@ import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
+import { CLOSE_BUTTON_BASE, CLOSE_BUTTON_ICON, CLOSE_BUTTON_POSITION } from '@ihui/design-tokens'
 import { cn } from '@/lib/utils'
 
 interface ModalProps {
@@ -54,7 +55,7 @@ export function Modal({
           )}
         >
           {(title || description) && (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 pr-8">
               {title && (
                 <DialogPrimitive.Title className="text-lg font-semibold leading-none tracking-tight">
                   {title}
@@ -69,8 +70,9 @@ export function Modal({
           )}
           <div className="flex-1 min-w-0">{children}</div>
           {footer && <div className="flex justify-end gap-2">{footer}</div>}
-          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100">
-            <X className="h-4 w-4" />
+          {/* 2026-09-16 全项目统一关闭按钮 token:单一来源 @ihui/design-tokens close-button.ts */}
+          <DialogPrimitive.Close className={cn(CLOSE_BUTTON_BASE, CLOSE_BUTTON_POSITION)}>
+            <X className={cn(CLOSE_BUTTON_ICON)} />
             <span className="sr-only">{t('close')}</span>
           </DialogPrimitive.Close>
         </DialogPrimitive.Content>

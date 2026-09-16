@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, X } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { rulesApi } from './rules-api'
@@ -13,7 +13,7 @@ import type { RuleTemplate, RuleTemplatesResponse } from './types'
 import { matchTypeLabel, priorityVariant } from '@/stores/rules'
 import { useRules } from '@/hooks/use-rules'
 import type { RuleInput } from '@ihui/types'
-import { Badge, Button } from '@ihui/ui-react'
+import { Badge, Button, CloseButton } from '@ihui/ui-react'
 
 interface RuleTemplateDialogProps {
   onClose: () => void
@@ -78,14 +78,7 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
       <div className="flex max-h-[80vh] w-full max-w-lg flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">规则模板库</span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="关闭"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton aria-label="关闭" onClick={onClose} />
         </div>
 
         {loading ? (

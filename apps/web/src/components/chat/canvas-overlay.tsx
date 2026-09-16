@@ -9,7 +9,8 @@
 
 import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
-import { Check, Code2, Eye, History, X } from 'lucide-react'
+import { Check, Code2, Eye, History } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -184,14 +185,7 @@ export function CanvasOverlay() {
             </button>
           )}
           <Tooltip content={t('canvasExitFullscreen')}>
-            <button
-              type="button"
-              onClick={closeCanvas}
-              aria-label={t('canvasExitFullscreen')}
-              className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <CloseButton aria-label={t('canvasExitFullscreen')} onClick={closeCanvas} />
           </Tooltip>
         </div>
       </div>
