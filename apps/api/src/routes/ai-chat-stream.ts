@@ -302,9 +302,19 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         const knowledge = await loadKnowledgeContext(mergedMetadata.userId ?? null, queryText)
         knowledgeBlock = knowledge?.block ?? null
         if (knowledge) {
+          // P1 #26:命中即合成 citations SSE 事件下发(流首阶段,早于首 token;进 replay buffer,
+          // 断线重连自动重放)。复用 #11 前端链路(onCitations → setMessageCitations →
+          // CitationBar 渲染 rag 来源标签),前端零新增解析逻辑。
+          const citationChunk: Record<string, unknown> = {
+            type: 'citations',
+            citations: knowledge.citations,
+          }
+          if (mergedMetadata.messageId) citationChunk.messageId = mergedMetadata.messageId
+          emitEvent(session, JSON.stringify(citationChunk))
           console.warn('[KnowledgeContext] hit:', {
             conversationTail: mergedMetadata.conversationId?.slice(-4),
             hitCount: knowledge.hitCount,
+            citationCount: knowledge.citations.length,
             blockLength: knowledge.block.length,
           })
         }
