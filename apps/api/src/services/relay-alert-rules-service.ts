@@ -18,14 +18,16 @@
  *
  * 防风暴:cooldownMinutes(默认 30)内同规则不重复触发;评估失败单规则隔离,不影响其他规则。
  */
-import { and, eq, desc, gte, sql } from 'drizzle-orm'
+import { and, or, eq, desc, gte, lte, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import {
   relayAlertRules,
   relayAlertEvents,
+  relayAlertSilences,
   developerApiKeys,
   llmCallLogs,
   type RelayAlertRule,
+  type RelayAlertSilence,
 } from '@ihui/database'
 import { logger } from '../utils/logger.js'
 import { roundCents } from './relay-billing-service.js'
@@ -223,6 +225,74 @@ function hits(rule: RelayAlertRule, value: number): boolean {
 }
 
 /**
+ * 判断某规则当前是否被静默(2026-09-16 立,对标竞品 /alert-silences)。
+ * 命中条件:存在 scope=all 的生效静默,或 scope=rule 且 ruleId 匹配的生效静默。
+ * 异常时按"不静默"处理(保证告警不因查询失败被吞)。
+ */
+export async function isAlertSilenced(ruleId: string, now = new Date()): Promise<boolean> {
+  try {
+    const rows = await dbRead
+      .select({ id: relayAlertSilences.id })
+      .from(relayAlertSilences)
+      .where(
+        and(
+          or(
+            eq(relayAlertSilences.scope, 'all'),
+            and(eq(relayAlertSilences.scope, 'rule'), eq(relayAlertSilences.ruleId, ruleId)),
+          ),
+          lte(relayAlertSilences.startsAt, now),
+          gte(relayAlertSilences.endsAt, now),
+        ),
+      )
+      .limit(1)
+    return (rows[0]?.id ?? '') !== ''
+  } catch {
+    return false
+  }
+}
+
+/** 静默 CRUD(管理端维护窗口用)。 */
+export async function listAlertSilences(includeExpired = false): Promise<RelayAlertSilence[]> {
+  const rows = await dbRead
+    .select()
+    .from(relayAlertSilences)
+    .orderBy(desc(relayAlertSilences.createdAt))
+  return (
+    includeExpired ? rows : rows.filter((r) => r.endsAt.getTime() >= Date.now())
+  ) as RelayAlertSilence[]
+}
+
+export async function createAlertSilence(input: {
+  scope: 'rule' | 'all'
+  ruleId?: string | null
+  reason?: string | null
+  startsAt?: Date
+  endsAt: Date
+  createdBy?: string | null
+}): Promise<RelayAlertSilence> {
+  const [row] = await db
+    .insert(relayAlertSilences)
+    .values({
+      scope: input.scope,
+      ruleId: input.scope === 'rule' ? (input.ruleId ?? null) : null,
+      reason: input.reason ?? null,
+      startsAt: input.startsAt ?? new Date(),
+      endsAt: input.endsAt,
+      createdBy: input.createdBy ?? null,
+    })
+    .returning()
+  return row as RelayAlertSilence
+}
+
+export async function deleteAlertSilence(id: string): Promise<boolean> {
+  const rows = await db
+    .delete(relayAlertSilences)
+    .where(eq(relayAlertSilences.id, id))
+    .returning({ id: relayAlertSilences.id })
+  return rows.length > 0
+}
+
+/**
  * 评估全部启用规则。
  * 单规则异常隔离(try/catch per rule);触发走 pushAlert(既有推送通道)+ 事件落表。
  * 返回 { evaluated, triggered, skipped } 供管理端手动评估接口展示。
@@ -251,6 +321,14 @@ export async function evaluateAllAlertRules(now = new Date()): Promise<{
         )
         .limit(1)
       if (recent) {
+        skippedCooldown++
+        continue
+      }
+
+      // 静默检查(2026-09-16 立):维护窗口/已知故障期抑制告警。
+      // scope=all(全局静默)或 scope=rule 且指向本规则,且当前时间在 [startsAt, endsAt] 内 → 跳过。
+      const silenced = await isAlertSilenced(rule.id, now)
+      if (silenced) {
         skippedCooldown++
         continue
       }
