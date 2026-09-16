@@ -22194,5 +22194,18 @@
   "chatSearchBar": {
     "searchPlaceholder": "搜尋對話…",
     "searchAriaLabel": "搜尋對話"
+  },
+  "traceReplay": {
+    "title": "執行軌跡回放",
+    "stepCounter": "{current} / {total} 步",
+    "play": "播放",
+    "pause": "暫停",
+    "replay": "重播",
+    "stepForward": "單步",
+    "reset": "重置",
+    "status_success": "成功",
+    "status_error": "失敗",
+    "status_running": "執行中",
+    "status_cancelled": "已撤回"
   }
 }
