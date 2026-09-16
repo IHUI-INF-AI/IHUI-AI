@@ -22067,7 +22067,14 @@
     "cancellingAll": "Cancelling...",
     "cancelAllConfirm": "Cancel all in-progress tasks? In-progress long tasks will be terminated.",
     "cancelAllResult": "Cancelled {count} in-progress task(s)",
-    "cancelAllNone": "No in-progress tasks"
+    "cancelAllNone": "No in-progress tasks",
+    "viewList": "List",
+    "viewBoard": "Board",
+    "colRunning": "Running",
+    "colWaiting": "Waiting",
+    "colCompleted": "Completed",
+    "colEmpty": "No tasks",
+    "jumpToChat": "Open chat"
   },
   "voicesPage": {
     "playPreview": "Preview",
