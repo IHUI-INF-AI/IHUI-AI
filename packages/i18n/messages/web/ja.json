@@ -7113,6 +7113,7 @@
     },
     "swarmMonitor": {
       "agentStatus": "エージェント状態",
+      "bottleneck": "ボトルネック",
       "avgTime": "平均時間",
       "avgTokens": "平均トークン",
       "completed": "完了",
