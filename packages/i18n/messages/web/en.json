@@ -271,7 +271,10 @@
     "menu": "Menu",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
-    "uploadAvatar": "Upload avatar"
+    "uploadAvatar": "Upload avatar",
+    "streamAnnounceStart": "AI is replying",
+    "streamAnnounceProgress": "AI is replying, {n} characters so far",
+    "streamAnnounceDone": "AI reply complete, {n} characters in total"
   },
   "about": {
     "ctaDesc": "Sign up and get 1,000 credits, free trial of all models, no credit card required.",
@@ -7058,7 +7061,23 @@
         "title": "Tool Calls"
       },
       "unpin": "Unpin",
-      "waitingForPlan": "Waiting for AI to plan tasks..."
+      "waitingForPlan": "Waiting for AI to plan tasks...",
+      "diffComment": {
+        "action": "Comment",
+        "rowAction": "Comment on this line",
+        "placeholderLine": "Comment on line {line}…",
+        "placeholderFile": "Comment on this change…",
+        "submit": "Add",
+        "hint": "Enter to send, Shift+Enter for newline",
+        "remove": "Delete this comment",
+        "lineLabel": "Line {line}",
+        "fileLevel": "Whole file",
+        "countBadge": "{count} comments",
+        "targetLine": "Comment on line {line}",
+        "targetFile": "Comment on this change",
+        "close": "Cancel",
+        "pendingBanner": "{count} code review comments pending"
+      }
     },
     "permissionConfirm": {
       "allow": "Allow",
@@ -7113,7 +7132,8 @@
       "title": "Swarm Monitor",
       "toolResults": "Tool Results ({count})",
       "totalSteps": "Total Steps",
-      "type": "Type"
+      "type": "Type",
+      "bottleneck": "bottleneck"
     },
     "toolCall": {
       "chartGenerated": "Chart generated",
@@ -7650,7 +7670,8 @@
       "releaseDate": "Release Date",
       "stable": "Stable",
       "voteCount": "Votes",
-      "winRate": "Win Rate"
+      "winRate": "Win Rate",
+      "close": "Close"
     },
     "feed": {
       "categoryAll": "All",
@@ -7771,7 +7792,8 @@
       "stable": "Stable",
       "subtitle": "7/14 day hotness trend curve"
     },
-    "title": "AI News"
+    "title": "AI News",
+    "close": "Close"
   },
   "aiSkillDetail": {
     "addToAgent": "Add to Agent",
@@ -7882,7 +7904,12 @@
     "tabComingSoon": "Coming Soon",
     "title": "AI Skills TOP",
     "totalCount": "{total} skills total, {available} available",
-    "viewDetail": "View detail"
+    "viewDetail": "View detail",
+    "sortName": "By name",
+    "sortHot": "By usage",
+    "hotBadgeCalls": "{calls} runs",
+    "hotBadgeRate": "{rate}% ok",
+    "hotBadgeTitle": "{calls} runs, {rate}% success rate"
   },
   "aiWorld": {
     "admin": {
@@ -7986,11 +8013,13 @@
       "hooks": "Hooks",
       "wiki": "Wiki",
       "integrations": "Integrations",
-      "workspace": "Workspace"
+      "workspace": "Workspace",
+      "atomicrollback": "Full-stack Rollback"
     },
     "applied": "Applied",
     "apply": "Apply",
-    "hint": "Available AI tools"
+    "hint": "Available AI tools",
+    "worldsAdopted": "Branch reply adopted"
   },
   "agentHooks": {
     "description": "Agent Hooks event system: 9 event types with configurable actions (log/toast/system notification); tool events support filtering by tool name",
@@ -8147,7 +8176,8 @@
     "empty": "No content",
     "dispatchSubagent": "Dispatch subagent",
     "bestOfAdopted": "Best of adopted",
-    "title": "Workspace"
+    "title": "Workspace",
+    "worldsAdopted": "Branch reply adopted"
   },
   "announcements": {
     "backToList": "Back to announcements",
@@ -9478,7 +9508,17 @@
     "archiveEmpty": "No archived conversations",
     "viewArchived": "View archived",
     "callingTool": "Calling tool...",
-    "waitingResponse": "Waiting for response..."
+    "waitingResponse": "Waiting for response...",
+    "pdfOpenExternal": "Open in new window",
+    "csvPreviewMeta": "{rows} rows × {cols} cols",
+    "csvExpand": "Show all",
+    "csvCollapse": "Collapse",
+    "csvLoading": "Loading…",
+    "voiceInputPending": "Transcribing, {count} left",
+    "voicePlaybackOn": "Voice playback on",
+    "voicePlaybackOff": "Voice playback off",
+    "voiceHandsFreeOn": "Hands-free on (speak to send)",
+    "voiceHandsFreeOff": "Hands-free off"
   },
   "chatHistory": {
     "backToHistory": "Back to History",
@@ -18435,7 +18475,21 @@
     "aiGenerated": "Zhihui AI Generated",
     "defaultModelName": "AI Smart Chat",
     "modelIconAlt": "Model icon",
-    "tokenCostLabel": "Zhihui tokens used: {cost}"
+    "tokenCostLabel": "Zhihui tokens used: {cost}",
+    "auditReportTitle": "Trace Audit Report",
+    "auditQuestion": "Task",
+    "auditExportedAt": "Exported at",
+    "auditStepCount": "Steps",
+    "auditColStep": "Step",
+    "auditColTool": "Tool",
+    "auditColStatus": "Status",
+    "auditColDuration": "Duration",
+    "auditExportBtn": "Export audit report",
+    "auditFooter": "Auto-generated from IHUI-AI trace",
+    "auditStatus_success": "ok",
+    "auditStatus_error": "failed",
+    "auditStatus_running": "running",
+    "auditStatus_cancelled": "cancelled"
   },
   "skills": {
     "market": {
@@ -22186,7 +22240,14 @@
     "cancellingAll": "Cancelling...",
     "cancelAllConfirm": "Cancel all in-progress tasks? In-progress long tasks will be terminated.",
     "cancelAllResult": "Cancelled {count} in-progress task(s)",
-    "cancelAllNone": "No in-progress tasks"
+    "cancelAllNone": "No in-progress tasks",
+    "viewList": "List",
+    "viewBoard": "Board",
+    "colRunning": "Running",
+    "colWaiting": "Waiting",
+    "colCompleted": "Completed",
+    "colEmpty": "No tasks",
+    "jumpToChat": "Open chat"
   },
   "voicesPage": {
     "playPreview": "Preview",
@@ -22369,5 +22430,139 @@
     "p95": "P95 latency",
     "models": "Models",
     "lastChecked": "Last checked"
+  },
+  "patrol": {
+    "delete": "Delete",
+    "title": "Proactive Patrol",
+    "subtitle": "Scheduled checks for CI/dependencies/logs/dead links — starts a conversation when issues are found",
+    "create": "New Patrol",
+    "refresh": "Refresh",
+    "loading": "Loading…",
+    "empty": "No patrol tasks yet. Click \"New Patrol\" to create one",
+    "statusActive": "Active",
+    "statusPaused": "Paused",
+    "typeCi": "CI Check",
+    "typeDependency": "Dependency Check",
+    "typeLog": "Log Check",
+    "typeDeadlink": "Dead Link Check",
+    "typeCustom": "Custom Check",
+    "typeWorkspace": "Workspace Health",
+    "nextRunAt": "Next run",
+    "resultOk": "OK",
+    "resultIssue": "Issue found",
+    "resultError": "Failed",
+    "action": {
+      "runNow": "Run now",
+      "pause": "Pause",
+      "resume": "Resume",
+      "edit": "Edit",
+      "delete": "Delete",
+      "history": "History",
+      "openConversation": "Open conversation"
+    },
+    "deleteConfirm": {
+      "title": "Delete patrol task",
+      "content": "Delete \"{name}\"? Patrol history will be removed as well. This cannot be undone."
+    },
+    "weekdayMo": "Mon",
+    "weekdayTu": "Tue",
+    "weekdayWe": "Wed",
+    "weekdayTh": "Thu",
+    "weekdayFr": "Fri",
+    "weekdaySa": "Sat",
+    "weekdaySu": "Sun",
+    "form": {
+      "createTitle": "New Patrol Task",
+      "editTitle": "Edit Patrol Task",
+      "desc": "Set patrol type, target and schedule",
+      "name": "Name",
+      "namePlaceholder": "e.g. Daily CI patrol",
+      "patrolType": "Patrol type",
+      "target": "Target",
+      "targetPlaceholder": "e.g. repository URL / page URL / log scope",
+      "prompt": "Additional instructions",
+      "promptPlaceholder": "What to focus on (optional)…",
+      "frequency": "Frequency",
+      "freqHourly": "Hourly",
+      "freqDaily": "Daily",
+      "freqWeekly": "Weekly",
+      "time": "Time",
+      "weekdays": "Days of week",
+      "errName": "Please enter a name",
+      "errDays": "Please select at least one day"
+    },
+    "runs": {
+      "title": "Patrol history",
+      "empty": "No patrol runs yet",
+      "loading": "Loading…"
+    },
+    "toast": {
+      "created": "Created",
+      "updated": "Saved",
+      "saveFailed": "Save failed",
+      "loadFailed": "Load failed",
+      "runDone": "Patrol finished",
+      "runIssueFound": "Issue found — injected into the alert conversation",
+      "runFailed": "Patrol failed",
+      "paused": "Paused",
+      "resumed": "Resumed",
+      "updateFailed": "Update failed",
+      "deleted": "Deleted",
+      "deleteFailed": "Delete failed"
+    },
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "atomicRollback": {
+    "workspacePath": "Workspace path",
+    "workspacePlaceholder": "e.g. /workspaces/my-project",
+    "loadList": "Load snapshots",
+    "empty": "No atomic snapshots yet; snapshots are created with tasks or via the agent atomic_checkpoint tool",
+    "fileCount": "{count} files",
+    "plan": "Dry-run",
+    "planTitle": "Rollback plan (dry-run, nothing written)",
+    "restoreCount": "Restore {count} files",
+    "removeCount": "Delete {count} new files",
+    "unchangedCount": "{count} unchanged",
+    "migrationWarn": "Migration-like file changes detected ({files}): files restored only; database downgrade is not automated",
+    "uncoveredWarn": "{count} oversized files were skipped at snapshot time and are not covered by rollback",
+    "confirmLabel": "I confirm the rollback will overwrite the current workspace",
+    "execute": "Execute rollback",
+    "runOk": "Rollback finished",
+    "runFail": "Rollback partially failed, check audit steps",
+    "stepCount": "{count} audit steps",
+    "toastLoadFailed": "Failed to load snapshots",
+    "toastPlanFailed": "Dry-run failed",
+    "toastRunOk": "Rollback executed",
+    "toastRunFail": "Rollback failed"
+  },
+  "traceReplay": {
+    "title": "Trace replay",
+    "stepCounter": "step {current} / {total}",
+    "play": "Play",
+    "pause": "Pause",
+    "replay": "Replay",
+    "stepForward": "Step",
+    "reset": "Reset",
+    "status_success": "ok",
+    "status_error": "failed",
+    "status_running": "running",
+    "status_cancelled": "cancelled"
+  },
+  "costGuard": {
+    "estimateLine": "Est. ≈{tokens} tokens (~${cost})",
+    "fallbackPrice": "fallback price, for reference only",
+    "actualLine": "Actual {actual} tokens (est. {estimate})",
+    "negotiationLine": "Est. ≈{tokens} tokens (~${cost}), over budget threshold",
+    "negotiationFallback": "Estimated usage is over the budget threshold",
+    "confirmSend": "Send anyway",
+    "confirmCancel": "Cancel"
+  },
+  "memoryGraph": {
+    "searchPlaceholder": "Search memory keywords…",
+    "searchBtn": "Search",
+    "empty": "Enter keywords to query the memory subgraph",
+    "noHits": "No matching memories",
+    "legend": "{hits} hits · {total} nodes (click a node for full text)"
   }
 }
