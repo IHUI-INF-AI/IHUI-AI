@@ -21,8 +21,14 @@ env:
   NODE_VERSION: '22'
 
 jobs:
+  # 2026-09-17 终极薄壳化:frontendDist 改为 src-tauri/shell(几 KB 占位页),
+  # 桌面端不再内嵌/构建 909 页前端(线上 aizhs.top 才是真前端,更新零发版)。
+  # → 发版链 = 纯 Rust 编译+打包,web 构建步骤整体移除。
   build:
     name: Build Desktop (${{ matrix.label }})
+    # 2026-09-17:幽灵 run 防护——并行会话频繁 push main 会为 tags-only workflow
+    # 创建 0-job 空 run 并标 failure(GitHub 行为);此守卫使其变为 skipped。
+    if: startsWith(github.ref, 'refs/tags/desktop-v') || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -40,19 +46,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      # 2026-09-16 构建提速:Rust target 缓存——release 全量编译 20-40 分钟是大头,
+      # 增量后仅重编变更 crate(实测可压缩到 5-10 分钟);key 按 Cargo.lock 哈希失效。
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          cache-all-crates: true
 
       - name: Install Linux deps
         if: runner.os == 'Linux'
@@ -60,28 +63,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev
 
-      - name: Configure npm registry (avoid npmjs.org 503)
-        run: pnpm config set registry https://registry.npmmirror.com
-
-      - name: Install pnpm deps
-        run: pnpm install --no-frozen-lockfile
-
-      - name: Build web (static export to apps/web/out)
-        env:
-          # 生产 API 基址:在 GitHub repo Settings → Secrets 配置 DESKTOP_API_URL
-          # 例如 https://api.ihui.ai(不带尾部斜杠)
-          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.DESKTOP_API_URL }}
-        run: pnpm --filter @ihui/web build:static
-
-      - name: Verify web output exists
-        shell: bash
-        run: |
-          if [ ! -d "apps/web/out" ]; then
-            echo "ERROR: apps/web/out not found after web build"
-            exit 1
-          fi
-          echo "apps/web/out exists, file count:"
-          find apps/web/out -type f | wc -l
+      # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
+      # 全局装独立 CLI(约 10 秒)并显式指定 tauriScript
+      - name: Install Tauri CLI
+        run: npm i -g @tauri-apps/cli@^2
 
       - name: Build & Release
         uses: tauri-apps/tauri-action@v0
@@ -94,6 +79,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
         with:
+          # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
+          # 显式指定全局安装的 tauri CLI(见上一步 Install Tauri CLI)
+          tauriScript: tauri
           # 2026-09-05: 默认以仓库根为 CWD,导致 beforeBuildCommand `node scripts/ensure-web-out.mjs`
           # 解析到 <root>/scripts 找不到模块(CI 实证);指定 tauri 应用目录对齐本地行为
           projectPath: apps/desktop
@@ -254,5 +242,39 @@ jobs:
           echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "产物已同步到 apps/web/public/downloads/(desktop + extension)" >> $GITHUB_STEP_SUMMARY
           echo "桌面下载快照 desktop-feed.generated.ts 已刷新(版本/URL/大小自动解析)" >> $GITHUB_STEP_SUMMARY
+
+  # 2026-09-17:国内发行(Gitee)自动化——安装包+更新签名镜像到 Gitee release,
+  # latest.json(url 全部指向 Gitee 直链)更新 desktop-feed 分支 raw 直链。
+  # 更新器第一端点即该 raw 链接(薄壳化 exe 内嵌),GitHub feed 仅兜底。
+  sync-gitee:
+    name: Sync release to Gitee (国内发行)
+    needs: [build, publish-updater-json]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Sync bundles + updater feed to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITEE_OWNER: ${{ secrets.GITEE_OWNER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 .github/scripts/sync-gitee.py
+
+      - name: Summary
+        run: |
+          echo "### Gitee 国内发行同步完成" >> $GITHUB_STEP_SUMMARY
+          echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "安装包+签名已镜像 Gitee release;latest.json 已更新 desktop-feed 分支" >> $GITHUB_STEP_SUMMARY
+          echo "更新器端点(Gitee 优先): https://gitee.com/${{ secrets.GITEE_OWNER }}/IHUI-AI/raw/desktop-feed/latest.json" >> $GITHUB_STEP_SUMMARY
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

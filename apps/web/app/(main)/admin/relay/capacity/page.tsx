@@ -25,6 +25,7 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { BackButton } from '@/components/common'
+import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 
 interface CapacitySummary {
@@ -78,12 +79,12 @@ function BarChart({ points, valueKey }: { points: TrendPoint[]; valueKey: 'calls
         <p className="w-full text-center text-xs text-muted-foreground">暂无数据</p>
       ) : (
         points.map((p) => (
-          <div
-            key={p.date}
-            className="flex-1 rounded-sm bg-primary/70"
-            style={{ height: `${(Number(p[valueKey] ?? 0) / max) * 100}%` }}
-            title={`${p.date}: ${p[valueKey] ?? 0}`}
-          />
+          <Tooltip key={p.date} content={`${p.date}: ${p[valueKey] ?? 0}`}>
+            <div
+              className="flex-1 rounded-sm bg-primary/70"
+              style={{ height: `${(Number(p[valueKey] ?? 0) / max) * 100}%` }}
+            />
+          </Tooltip>
         ))
       )}
     </div>

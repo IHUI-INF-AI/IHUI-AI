@@ -271,7 +271,10 @@
     "menu": "메뉴",
     "showPassword": "비밀번호 표시",
     "hidePassword": "비밀번호 숨기기",
-    "uploadAvatar": "아바타 업로드"
+    "uploadAvatar": "아바타 업로드",
+    "streamAnnounceStart": "AI 가 답변을 시작했습니다",
+    "streamAnnounceProgress": "AI 답변 중, {n}자 출력됨",
+    "streamAnnounceDone": "AI 답변 완료, 총 {n}자"
   },
   "about": {
     "ctaDesc": "가입 즉시 1,000 크레딧 제공, 모든 모델 무료 체험, 신용 카드 불필요.",
@@ -7058,7 +7061,23 @@
         "title": "도구 호출"
       },
       "unpin": "고정 해제",
-      "waitingForPlan": "AI 작업 계획 대기 중..."
+      "waitingForPlan": "AI 작업 계획 대기 중...",
+      "diffComment": {
+        "action": "댓글",
+        "rowAction": "이 줄에 댓글",
+        "placeholderLine": "{line}번째 줄에 댓글…",
+        "placeholderFile": "이 변경에 댓글…",
+        "submit": "추가",
+        "hint": "Enter 전송, Shift+Enter 줄바꿈",
+        "remove": "이 댓글 삭제",
+        "lineLabel": "{line}번째 줄",
+        "fileLevel": "전체 파일",
+        "countBadge": "댓글 {count}개",
+        "targetLine": "{line}번째 줄에 댓글",
+        "targetFile": "이 변경에 댓글",
+        "close": "취소",
+        "pendingBanner": "코드 변경 댓글 {count}개 전송 대기 중"
+      }
     },
     "permissionConfirm": {
       "allow": "허용",
@@ -7113,7 +7132,8 @@
       "title": "군집 모니터",
       "toolResults": "도구 결과 ({count})",
       "totalSteps": "총 단계",
-      "type": "유형"
+      "type": "유형",
+      "bottleneck": "병목"
     },
     "toolCall": {
       "chartGenerated": "차트 생성됨",
@@ -7640,7 +7660,8 @@
       "releaseDate": "출시일",
       "stable": "안정",
       "voteCount": "투표수",
-      "winRate": "승률"
+      "winRate": "승률",
+      "close": "닫기"
     },
     "feed": {
       "categoryAll": "전체",
@@ -7761,7 +7782,8 @@
       "stable": "안정",
       "subtitle": "7/14일 인기 트렌드 곡선"
     },
-    "title": "AI 뉴스"
+    "title": "AI 뉴스",
+    "close": "닫기"
   },
   "aiSkillDetail": {
     "addToAgent": "Agent에 추가",
@@ -7872,7 +7894,12 @@
     "tabComingSoon": "곧 출시",
     "title": "AI Skills TOP",
     "totalCount": "총 {total}개 스킬, {available}개 출시됨",
-    "viewDetail": "상세 보기"
+    "viewDetail": "상세 보기",
+    "sortName": "이름순",
+    "sortHot": "인기순",
+    "hotBadgeCalls": "{calls}회",
+    "hotBadgeRate": "성공 {rate}%",
+    "hotBadgeTitle": "{calls}회 실행, 성공률 {rate}%"
   },
   "aiWorld": {
     "admin": {
@@ -7976,11 +8003,13 @@
       "hooks": "훅",
       "wiki": "위키",
       "integrations": "연동",
-      "workspace": "워크스페이스"
+      "workspace": "워크스페이스",
+      "atomicrollback": "전체 스택 롤백"
     },
     "applied": "적용됨",
     "apply": "적용",
-    "hint": "사용 가능한 AI 도구"
+    "hint": "사용 가능한 AI 도구",
+    "worldsAdopted": "브랜치 응답을 채택했습니다"
   },
   "agentHooks": {
     "description": "Agent Hooks 이벤트 시스템: 9가지 이벤트에 동작(로그/토스트/시스템 알림)을 설정할 수 있으며, 도구 이벤트는 도구명 필터를 지원합니다",
@@ -8137,7 +8166,8 @@
     "empty": "콘텐츠 없음",
     "dispatchSubagent": "서브 에이전트 디스패치",
     "bestOfAdopted": "최적의方案 채택됨",
-    "title": "워크스페이스"
+    "title": "워크스페이스",
+    "worldsAdopted": "브랜치 응답을 채택했습니다"
   },
   "announcements": {
     "backToList": "목록으로 돌아가기",
@@ -9468,7 +9498,17 @@
     "archiveEmpty": "보관된 대화가 없습니다",
     "viewArchived": "보관함 보기",
     "callingTool": "도구 호출 중...",
-    "waitingResponse": "응답 대기 중..."
+    "waitingResponse": "응답 대기 중...",
+    "pdfOpenExternal": "새 창에서 열기",
+    "csvPreviewMeta": "{rows}행 × {cols}열",
+    "csvExpand": "모두 보기",
+    "csvCollapse": "접기",
+    "csvLoading": "로딩 중…",
+    "voiceInputPending": "변환 중, {count}개 남음",
+    "voicePlaybackOn": "음성 재생 켜짐",
+    "voicePlaybackOff": "음성 재생 꺼짐",
+    "voiceHandsFreeOn": "연속 대화 켜짐（말하면 전송）",
+    "voiceHandsFreeOff": "연속 대화 꺼짐"
   },
   "chatHistory": {
     "backToHistory": "기록으로 돌아가기",
@@ -18414,7 +18454,21 @@
     "aiGenerated": "Zhihui AI 생성",
     "defaultModelName": "AI 스마트 대화",
     "modelIconAlt": "모델 아이콘",
-    "tokenCostLabel": "Zhihui값 소모: {cost}"
+    "tokenCostLabel": "Zhihui값 소모: {cost}",
+    "auditReportTitle": "실행 트레이스 감사 보고서",
+    "auditQuestion": "작업",
+    "auditExportedAt": "내보낸 시각",
+    "auditStepCount": "단계 수",
+    "auditColStep": "단계",
+    "auditColTool": "도구",
+    "auditColStatus": "상태",
+    "auditColDuration": "소요 시간",
+    "auditExportBtn": "감사 보고서 내보내기",
+    "auditFooter": "智汇AI 실행 트레이스에서 자동 생성",
+    "auditStatus_success": "성공",
+    "auditStatus_error": "실패",
+    "auditStatus_running": "실행 중",
+    "auditStatus_cancelled": "취소됨"
   },
   "skills": {
     "market": {
@@ -22165,7 +22219,14 @@
     "cancellingAll": "취소 중...",
     "cancelAllConfirm": "진행 중인 모든 작업을 취소하시겠습니까? 진행 중인 긴 작업이 종료됩니다.",
     "cancelAllResult": "진행 중인 작업 {count}건을 취소했습니다",
-    "cancelAllNone": "진행 중인 작업이 없습니다"
+    "cancelAllNone": "진행 중인 작업이 없습니다",
+    "viewList": "목록",
+    "viewBoard": "보드",
+    "colRunning": "진행 중",
+    "colWaiting": "대기 중",
+    "colCompleted": "완료",
+    "colEmpty": "작업 없음",
+    "jumpToChat": "대화 열기"
   },
   "voicesPage": {
     "playPreview": "미리듣기",
@@ -22348,5 +22409,139 @@
     "p95": "P95 지연",
     "models": "모델 수",
     "lastChecked": "마지막 확인"
+  },
+  "patrol": {
+    "delete": "삭제",
+    "title": "프로액티브 순찰",
+    "subtitle": "CI/의존성/로그/죽은 링크를 주기적으로 점검하고, 문제 발견 시 자동으로 대화를 시작합니다",
+    "create": "새 순찰",
+    "refresh": "새로고침",
+    "loading": "불러오는 중…",
+    "empty": "순찰 작업이 없습니다. \"새 순찰\"을 눌러 생성하세요",
+    "statusActive": "사용 중",
+    "statusPaused": "일시중지",
+    "typeCi": "CI 점검",
+    "typeDependency": "의존성 점검",
+    "typeLog": "로그 점검",
+    "typeDeadlink": "죽은 링크 점검",
+    "typeCustom": "사용자 정의 점검",
+    "typeWorkspace": "작업 공간 건강",
+    "nextRunAt": "다음 실행",
+    "resultOk": "정상",
+    "resultIssue": "문제 발견",
+    "resultError": "실행 실패",
+    "action": {
+      "runNow": "지금 실행",
+      "pause": "일시중지",
+      "resume": "재개",
+      "edit": "편집",
+      "delete": "삭제",
+      "history": "기록",
+      "openConversation": "대화 열기"
+    },
+    "deleteConfirm": {
+      "title": "순찰 작업 삭제",
+      "content": "\"{name}\"을(를) 삭제하시겠습니까? 순찰 기록도 함께 삭제되며 되돌릴 수 없습니다."
+    },
+    "weekdayMo": "월",
+    "weekdayTu": "화",
+    "weekdayWe": "수",
+    "weekdayTh": "목",
+    "weekdayFr": "금",
+    "weekdaySa": "토",
+    "weekdaySu": "일",
+    "form": {
+      "createTitle": "새 순찰 작업",
+      "editTitle": "순찰 작업 편집",
+      "desc": "순찰 유형, 대상, 일정을 설정합니다",
+      "name": "이름",
+      "namePlaceholder": "예: 매일 CI 순찰",
+      "patrolType": "순찰 유형",
+      "target": "순찰 대상",
+      "targetPlaceholder": "예: 저장소 URL / 페이지 URL / 로그 범위",
+      "prompt": "추가 점검 지시",
+      "promptPlaceholder": "중점적으로 확인할 내용(선택)…",
+      "frequency": "빈도",
+      "freqHourly": "매시",
+      "freqDaily": "매일",
+      "freqWeekly": "매주",
+      "time": "실행 시각",
+      "weekdays": "요일",
+      "errName": "이름을 입력하세요",
+      "errDays": "요일을 하나 이상 선택하세요"
+    },
+    "runs": {
+      "title": "순찰 기록",
+      "empty": "순찰 기록이 없습니다",
+      "loading": "불러오는 중…"
+    },
+    "toast": {
+      "created": "생성되었습니다",
+      "updated": "저장되었습니다",
+      "saveFailed": "저장에 실패했습니다",
+      "loadFailed": "불러오기에 실패했습니다",
+      "runDone": "순찰 완료",
+      "runIssueFound": "문제가 발견되어 알림 대화에 주입했습니다",
+      "runFailed": "순찰에 실패했습니다",
+      "paused": "일시중지되었습니다",
+      "resumed": "재개되었습니다",
+      "updateFailed": "업데이트에 실패했습니다",
+      "deleted": "삭제되었습니다",
+      "deleteFailed": "삭제에 실패했습니다"
+    },
+    "cancel": "취소",
+    "save": "저장"
+  },
+  "atomicRollback": {
+    "workspacePath": "작업 공간 경로",
+    "workspacePlaceholder": "예: /workspaces/my-project",
+    "loadList": "스냅샷 불러오기",
+    "empty": "아직 원자 스냅샷이 없습니다. 작업과 함께 생성되거나 agent의 atomic_checkpoint 도구로 생성됩니다",
+    "fileCount": "{count}개 파일",
+    "plan": "미리보기",
+    "planTitle": "롤백 계획(dry-run, 미기록)",
+    "restoreCount": "{count}개 파일 복원",
+    "removeCount": "신규 파일 {count}개 삭제",
+    "unchangedCount": "{count}개 변경 없음",
+    "migrationWarn": "마이그레이션 파일 차이 감지({files}):파일만 복원하며 데이터베이스 다운그레이드는 자동 실행하지 않습니다",
+    "uncoveredWarn": "스냅샷 시 크기 초과로 건너뛴 {count}개 파일은 롤백 대상에서 제외됩니다",
+    "confirmLabel": "롤백이 현재 작업 공간을 덮어쓸 것을 확인했습니다",
+    "execute": "롤백 실행",
+    "runOk": "롤백 완료",
+    "runFail": "롤백이 일부 실패했습니다. 감사 내역을 확인하세요",
+    "stepCount": "감사 기록 {count}건",
+    "toastLoadFailed": "스냅샷 목록 로드 실패",
+    "toastPlanFailed": "미리보기 실패",
+    "toastRunOk": "롤백이 실행되었습니다",
+    "toastRunFail": "롤백 실패"
+  },
+  "traceReplay": {
+    "title": "실행 트레이스 재생",
+    "stepCounter": "{current} / {total} 단계",
+    "play": "재생",
+    "pause": "일시정지",
+    "replay": "다시 재생",
+    "stepForward": "한 단계",
+    "reset": "초기화",
+    "status_success": "성공",
+    "status_error": "실패",
+    "status_running": "실행 중",
+    "status_cancelled": "취소됨"
+  },
+  "costGuard": {
+    "estimateLine": "이번 예상 ≈{tokens} 토큰 (약 ${cost})",
+    "fallbackPrice": "대체 가격 참고용",
+    "actualLine": "실제 {actual} 토큰 (예상 {estimate})",
+    "negotiationLine": "이번 예상 ≈{tokens} 토큰 (약 ${cost}), 예산 임계값 초과",
+    "negotiationFallback": "예상 사용량이 예산 임계값을 초과했습니다",
+    "confirmSend": "그래도 보내기",
+    "confirmCancel": "취소"
+  },
+  "memoryGraph": {
+    "searchPlaceholder": "메모리 키워드 검색…",
+    "searchBtn": "검색",
+    "empty": "키워드로 메모리 서브그래프 조회",
+    "noHits": "일치하는 메모리 없음",
+    "legend": "히트 {hits}건 · 전체 {total} 노드(노드 클릭 시 전문)"
   }
 }

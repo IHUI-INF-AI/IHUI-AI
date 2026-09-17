@@ -19,7 +19,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@ihui/ui-react'
-import { Alert } from '@/components/feedback'
+import { Alert, Tooltip } from '@/components/feedback'
 import { BackButton } from '@/components/common'
 
 // ===================== 既有基础用量展示(保留) =====================
@@ -596,18 +596,16 @@ export default function RelayUsagePage() {
               </h3>
               <div className="mt-3 flex h-16 items-end gap-0.5 overflow-x-auto">
                 {trendDays.map((d) => (
-                  <div
-                    key={d.date}
-                    className="flex min-w-[6px] flex-1 flex-col items-center justify-end"
-                    title={`${d.date} · ${num.format(d.calls)}`}
-                  >
-                    <div
-                      className="w-full bg-primary/70"
-                      style={{
-                        height: `${Math.max(2, (d.calls / maxDailyCalls) * 56)}px`,
-                      }}
-                    />
-                  </div>
+                  <Tooltip key={d.date} content={`${d.date} · ${num.format(d.calls)}`}>
+                    <div className="flex min-w-[6px] flex-1 flex-col items-center justify-end">
+                      <div
+                        className="w-full bg-primary/70"
+                        style={{
+                          height: `${Math.max(2, (d.calls / maxDailyCalls) * 56)}px`,
+                        }}
+                      />
+                    </div>
+                  </Tooltip>
                 ))}
               </div>
             </div>

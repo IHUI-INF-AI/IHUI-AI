@@ -79,15 +79,23 @@ function diffLines(
 export interface BestOfCompareProps {
   /** 落盘回调:宿主决定选中内容如何持久化(如写入会话 assistant 消息) */
   onAdopt?: (content: string, candidateId: number) => void
+  /** P3 #36(2026-09-16 立):按 runId 从 results 映射取数(消息流内对比卡用);
+   *  不传 = 读最近一次结果(工具面板单卡视图,既有行为)。runId 无匹配时回退。 */
+  runId?: string
 }
 
-export function BestOfCompare({ onAdopt }: BestOfCompareProps) {
+export function BestOfCompare({ onAdopt, runId }: BestOfCompareProps) {
   const t = useTranslations('bestOfCompare')
   const task = useBestOfStore((s) => s.task)
-  const result = useBestOfStore((s) => s.result)
+  const latestResult = useBestOfStore((s) => s.result)
   const selectedId = useBestOfStore((s) => s.selectedId)
   const setSelected = useBestOfStore((s) => s.setSelected)
   const clear = useBestOfStore((s) => s.clear)
+  // P3 #36:runId 指定时读映射(消息流卡与工具面板卡互不干扰),无匹配回退最近一次
+  const runTask = useBestOfStore((s) => (runId ? s.tasks[runId] : undefined))
+  const runResult = useBestOfStore((s) => (runId ? s.results[runId] : undefined))
+  const result = runId ? (runResult ?? latestResult) : latestResult
+  const displayTask = runId ? (runTask ?? task) : task
 
   const [diffMode, setDiffMode] = React.useState(false)
   const [adoptedId, setAdoptedId] = React.useState<number | null>(null)
@@ -154,7 +162,11 @@ export function BestOfCompare({ onAdopt }: BestOfCompareProps) {
           {t('clear')}
         </button>
       </div>
-      {task && <p className="line-clamp-2 text-xs text-muted-foreground">{t('task', { task })}</p>}
+      {displayTask && (
+        <p className="line-clamp-2 text-xs text-muted-foreground">
+          {t('task', { task: displayTask })}
+        </p>
+      )}
       {result.rationale && (
         <p className="rounded-md bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
           📌 {t('rationale')}: {result.rationale}

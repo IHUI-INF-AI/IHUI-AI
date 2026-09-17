@@ -5,6 +5,7 @@
 import { useNotificationStore } from '../../lib/notification-store'
 import { useI18n } from '../../src/i18n'
 import { fmtDate } from '../../lib/date-utils'
+import { CloseButton } from '@ihui/ui-react'
 
 export default function NotificationPanel() {
   const { t } = useI18n()
@@ -37,14 +38,8 @@ export default function NotificationPanel() {
             >
               {t('notification.clearAll')}
             </button>
-            <button
-              className="bg-transparent border-none text-base leading-none px-1.5 py-0.5 cursor-pointer text-inherit hover:bg-muted"
-              onClick={() => setVisible(false)}
-              type="button"
-              aria-label={t('notification.close')}
-            >
-              ×
-            </button>
+            {/* 2026-09-16 全项目统一关闭按钮 token(标题栏行内,不加 floating) */}
+            <CloseButton aria-label={t('notification.close')} onClick={() => setVisible(false)} />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-1.5">

@@ -5,12 +5,11 @@
 'use client'
 
 import * as React from 'react'
-import { X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useRules } from '@/hooks/use-rules'
 import { useRulesStore } from '@/stores/rules'
-import { Button } from '@ihui/ui-react'
+import { Button, CloseButton } from '@ihui/ui-react'
 
 function RuleTestDialog() {
   const {
@@ -44,14 +43,7 @@ function RuleTestDialog() {
       <div className="w-full max-w-md space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">测试规则:{testDialogRule.name}</span>
-          <button
-            type="button"
-            onClick={closeTestDialog}
-            aria-label="关闭"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton aria-label="关闭" onClick={closeTestDialog} />
         </div>
         <div className="space-y-1.5">
           <label htmlFor="rule-test-msg" className="text-xs text-muted-foreground">

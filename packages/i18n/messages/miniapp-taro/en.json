@@ -587,6 +587,7 @@
       "loading": "Loading…"
     },
     "fileSelected": "{count} file(s) selected",
+    "screenshotHint": "Screenshot detected — tap + to pick it from your album and ask the AI",
     "generating": "Generating rapidly",
     "history": {
       "clearConfirm": "Clear all chat history?",
