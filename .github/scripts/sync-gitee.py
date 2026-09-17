@@ -106,13 +106,13 @@ def main():
         sig = main + ".sig"
         need[plat] = (main, sig if sig in assets else None)
 
+    # 3a. 先下载全部所需文件到本地(feed 生成也需要 sig——即使 Gitee 已有同名资产)
     for plat, (main, sig) in need.items():
         for fname in [x for x in (main, sig) if x]:
-            if fname in gitee_assets:
-                print(f"[gitee] {fname} 已存在,跳过")
+            local = f"/tmp/{fname}"
+            if os.path.exists(local):
                 continue
             gh_url = assets[fname]["browser_download_url"]
-            local = f"/tmp/{fname}"
             for attempt in range(1, 4):
                 try:
                     req = urllib.request.Request(gh_url)
@@ -121,11 +121,18 @@ def main():
                     print(f"[gh→tmp] {fname}: {os.path.getsize(local)} 字节")
                     break
                 except Exception as e:
-                    print(f"[gh→tmp] 第{attempt}次失败: {e}")
+                    print(f"[gh→tmp] {fname} 第{attempt}次失败: {e}")
                     time.sleep(5)
             else:
                 sys.exit(f"资产下载失败: {fname}")
-            gitee_upload(rid, local, fname)
+
+    # 3b. 上传 Gitee 缺失的资产(幂等:已有同名跳过)
+    for plat, (main, sig) in need.items():
+        for fname in [x for x in (main, sig) if x]:
+            if fname in gitee_assets:
+                print(f"[gitee] {fname} 已存在,跳过上传")
+                continue
+            gitee_upload(rid, f"/tmp/{fname}", fname)
             gitee_assets.add(fname)
 
     # 4. 生成 latest.json(url → Gitee 直链)
