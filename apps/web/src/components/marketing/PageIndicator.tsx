@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { floatIndicatorRailCls, FloatIndicatorDot } from '@/components/ui/float-indicator'
 
 interface PageIndicatorProps {
   /** 当前页索引(0-based) */
@@ -80,7 +81,19 @@ interface PageIndicatorProps {
  *   - 容器加 rounded-md + bg-background/65 + backdrop-blur-md
  *   - 极轻 border-foreground/8 + shadow-sm
  *   - group/indicator 命名空间避免与按钮内 group 冲突
- */
+ *
+ * 2026-09-17 统一设计 token:用户要求"纯色不透明背景 + 全局设计 token 统一引用/统一修改管理"。
+ *   - v6 的 bg-background/65 + backdrop-blur-md 毛玻璃废除
+ *   - 改用 bg-float-indicator-bg(源自 design-tokens tokens.css 的 --color-float-indicator-bg,
+ *     亮色纯白 hsl(0 0% 100%) / 暗色 hsl(0 0% 11%),均不透明纯色)
+ *   - 与 query-thumb-rail、MessageList 跳转按钮、终端工具栏等全项目浮动指示条统一引用同一 token
+ * 2026-09-17 单一来源组件化:用户要求"要做到同一个 token 组件样式 共同统一引用 不然就会出现这种问题"
+ *   (此前 QueryThumbRail 未跟进 v10-v15 的选中拉伸体系,出现样式漂移)。
+ *   - 容器与节点样式整体迁移到共享组件 ui/float-indicator.tsx
+ *     (floatIndicatorRailCls / FloatIndicatorDot / INDICATOR_DOT_SIZE / INDICATOR_PILL_SIZE)
+ *   - QueryThumbRail 与本组件共同引用同一单一来源,今后改样式只动 float-indicator.tsx 一处
+ * 2026-09-17 去透明化:用户指出"怎么还有透明色" —— 共享组件层面废除节点 opacity-50/hover 0.8
+ *   与容器 border-foreground/8 半透明边框,全部改纯色实色(节点实色、border-border 实色) */
 export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
   const t = useTranslations('marketing.indicator')
   if (total <= 1) return null
@@ -103,64 +116,19 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
       // 2026-07-28 v9 根因修复:旧公式把左侧 sidebar/ai-panel 算进 right,
       //   实则工作区右边距 viewport 固定 8px(mr-2),与 sidebar/ai-panel 开关无关
       style={{ right: '12px' }}
-      // 2026-08-13 v12:左右内边距压缩 + 上下留白增大
-      //   根因(button w-6 24px):button 命中区与内容(active 8w / inactive 8w)宽度严重不匹配,
-      //     容器宽度 = 24 + 2*2 = 28px,但内容仅 8px → 左右各 8px 空白"漂浮",用户反馈"内边距那么大 上下都快贴上"
-      //   修复(button w-2.5 10px):
-      //     - 适配 active 8w 留 1px / inactive 8w 留 1px / hover 10w 填满(刚好命中)
-      //     - 容器宽度 = 10 + 2*2 = 14px(原 28px,减 50%)
-      //   同步修复容器 py-0.5 (2px) → py-1 (4px),首尾圆点离容器边缘有 4px 留白,不再"贴上"
-      //   gap 保持 gap-0,相邻点间距仍 16px(2x 非激活态直径,垂直节奏不变)
-      // 2026-08-27 v14:间距回调 — gap-1 (4px) → gap-4 (16px),用户反馈 4px 太挤
-      // 2026-08-27 v15:间距回调 — gap-4 (16px) → gap-2 (8px),用户反馈 16px 太大
-      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-2 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-0.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md min-[768px]:flex"
+      className={`fixed top-1/2 z-sticky hidden -translate-y-1/2 min-[768px]:flex ${floatIndicatorRailCls}`}
       aria-label={t('label')}
     >
-      {Array.from({ length: total }).map((_, idx) => {
-        const isActive = idx === current
-        return (
-          // 2026-07-21 v7:button 命中区 h-5 w-5 → h-4 w-4,缩窄但不损失点击
-          <button
-            key={idx}
-            type="button"
-            onClick={() => onClick(idx)}
-            aria-label={t('switchTo', { index: idx + 1 })}
-            aria-current={isActive ? 'true' : undefined}
-            // 2026-08-13 v10:button 命中区 h-4 w-4 (16x16) → h-6 w-6 (24x24),容下 24x8 激活态胶囊
-            //   正方形命中区让激活态(24x8)/非激活态(8x8)/hover态(10x10)都能在中心完美居中
-            // 2026-08-13 v12:button w-6 (24px) → w-2.5 (10px) — 与内容宽度适配
-            //   原因:button 24px 宽 vs 内容 8px → 容器左右 8px 空白"漂浮",视觉比例失衡
-            //   修复:button 10px 宽,active 8w (留 1px) / inactive 8w (留 1px) / hover 10w (填满)
-            //   容器宽度 28px → 14px (-50%),视觉紧凑
-            // 2026-08-13 v13:非激活态 button h-6 (24px) → h-2 (8px),只装 8x8 圆点,砍掉 16px 上空
-            //   激活态 button 保持 h-6 (24px) 容下 24x8 竖向胶囊
-            //   HTML 上 button 高度独立(active=24 / inactive=8),flex 容器自动按各自高度堆叠
-            //   视觉:激活态"竖向拉长棒" + 非激活态"小圆点"对比,高度差本身就是激活 vs 非激活视觉对比
-            className={
-              isActive
-                ? 'group flex h-6 w-2.5 items-stretch justify-center'
-                : 'group flex h-2.5 w-2.5 items-stretch justify-center'
-            }
-          >
-            <span
-              // 2026-07-21 v8:拆分 isActive 两套完整 className — 修 bug
-              // 旧实现模板字符串拼接导致 h-4 / h-2、w-1.5 / w-2 同元素冲突,Tailwind 源序后值获胜
-              // → 非激活态被拉成 16x8 竖向胶囊,所有点都成椭圆。修复后非激活 8x8 圆点、激活 16x8 胶囊(等宽)。
-              // 2026-08-13 v10:激活态改为 24x8 (h-6 w-2) 竖向胶囊,宽度=非激活态直径 8,高度=3x 直径放大
-              // 2026-07-21 v7:active 竖向胶囊 h-5 w-2 → h-4 w-2,激活态宽度对齐非激活态直径(8px)
-              // 2026-08-13 v13:hover 态实现调整 — 原 group-hover:h-2.5 w-2.5 改 transform scale-125
-              //   原因:非激活 button 高 8px 装不下 10x10 hover 态,改用 transform 让 8x8 圆点视觉上 10x10
-              //   scale 中心点默认 button 中心,溢出 ±1px 在 4px gap 内,不影响相邻
-              // 豁免 5b:竖向装饰指示器(width<=8px height>=12px rounded-full),分页指示器胶囊
-              className={
-                isActive
-                  ? 'block h-6 w-2.5 rounded-full bg-foreground transition-all duration-300'
-                  : 'block h-2.5 w-2.5 origin-center rounded-full bg-foreground/30 transition-all duration-300 group-hover:scale-125 group-hover:bg-foreground/60'
-              }
-            />
-          </button>
-        )
-      })}
+      {Array.from({ length: total }).map((_, idx) => (
+        <FloatIndicatorDot
+          key={idx}
+          active={idx === current}
+          colorCls="bg-foreground"
+          onClick={() => onClick(idx)}
+          aria-label={t('switchTo', { index: idx + 1 })}
+          aria-current={idx === current ? 'true' : undefined}
+        />
+      ))}
     </div>
   )
 }
