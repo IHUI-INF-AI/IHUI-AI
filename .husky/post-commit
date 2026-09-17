@@ -53,10 +53,18 @@ fi
 # ─── 5. Lost commit tag 自动同步(2026-07-26 立, AGENTS.md §22 + docs/lost-commit-archive.md) ──
 # 背景: 2026-07-26 真实事故: 本地 lost-commit/* tag 被 git gc 清理, 远端虽有但 fetch 失败。
 #       关键教训: tag 必须主动 push + 主动 fetch, 否则 git gc 14 天后丢失。
-# 机制: commit 后立即把本地所有 lost-commit/* + backup/* tag 推送到 origin(用 --atomic 原子性)。
+# 机制: commit 后把"远端缺失"的 lost-commit/* + backup/* tag 增量推送到 origin(分块 --atomic)。
 # 跳过: HUSKY_SKIP_TAG_SYNC=1(紧急场景)
 # 非阻塞: push 失败不阻断 commit(已由第 3 段 git-push-guard 处理)
+#
+# 2026-09-17 根治(用户反馈"推送早就完成了,终端却一直挂着等"):
+#   旧行为 = 每次 commit 后**全量**同步 `git push --atomic`(约 5000 个 tag),
+#   耗时 10~15 分钟,把 post-commit 阻塞成"假死";外层 shell 任务因此迟迟不退出。
+#   新行为 = ①脚本内部只推远端缺失项(通常 0~3 个,秒级)+ 限流标记;
+#            ②此处再加 `timeout 60` 硬上限 —— 无论远端多慢/网络多差,
+#              该段最多占用 60s 即结束,绝不阻塞提交与后续流程。
 cd "$(git rev-parse --show-toplevel)" || { printf '%s\n' "❌ 无法定位仓库根目录" >&2; exit 1; }
 if [ "${HUSKY_SKIP_TAG_SYNC:-0}" != "1" ]; then
-  node scripts/sync-lost-commit-tags.mjs --auto-push 2>/dev/null || printf '%s\n' "⚠️  tag 同步失败(非阻塞, commit 已落地并 push 到 branch)" >&2
+  timeout 60 node scripts/sync-lost-commit-tags.mjs --auto-push 2>/dev/null \
+    || printf '%s\n' "⚠️  tag 同步超时/失败(非阻塞, commit 已落地并 push 到 branch; 需补推时: node scripts/sync-lost-commit-tags.mjs --auto-push --force)" >&2
 fi
