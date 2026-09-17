@@ -97,7 +97,6 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   const transcriptRef = React.useRef('')
 
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null)
-  const chunksRef = React.useRef<Blob[]>([])
   const streamRef = React.useRef<MediaStream | null>(null)
 
   // 挂载时探测能力:本地转写(MediaRecorder→faster-whisper)优先;
@@ -186,67 +185,109 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // P3 #46 阶段1(2026-09-17 立):实时转写。
+  // 原实现:停止后把全部 chunks 合成一个整段才转写 → 说 30s 要等 30s 后才出字。
+  // 现实现:MediaRecorder.start(2500) 每 2.5s 产一个分段,串行队列逐段上传
+  // /api/voice/stt(保序),每段结果即追加到输入框(边说边出字)。
+  // 复用既有 faster-whisper 端点,零后端改动;段间边界词重复为分段转写固有的
+  // 权衡(换实时性);停止时等队列清空才回弹按钮,防丢尾段。
+  // ---------------------------------------------------------------------------
+  const SEGMENT_MS = 2500
+
+  const segQueueRef = React.useRef<{ seq: number; blob: Blob }[]>([])
+  const nextSeqRef = React.useRef(0)
+  const pumpingRef = React.useRef(false)
+  const flushStopRef = React.useRef(false)
+  const segDoneRef = React.useRef(0)
+  const segFailRef = React.useRef(0)
+  const [pendingSegments, setPendingSegments] = React.useState(0)
+
+  const syncPending = () => {
+    setPendingSegments(segQueueRef.current.length + (pumpingRef.current ? 1 : 0))
+  }
+
+  /** 串行泵:按 seq 顺序转写队列中的分段,全部完成后按需收尾 */
+  const pumpSegments = async () => {
+    if (pumpingRef.current) return
+    pumpingRef.current = true
+    syncPending()
+    try {
+      for (;;) {
+        const seg = segQueueRef.current[0]
+        if (!seg) break
+        segQueueRef.current.shift()
+        syncPending()
+        if (seg.blob.size === 0) {
+          segDoneRef.current++
+          continue
+        }
+        try {
+          const text = await voiceSttFromBlob({
+            blob: seg.blob,
+            filename: `voice-seg-${seg.seq}.webm`,
+            mimeType: 'audio/webm',
+            language: 'zh',
+            aiServiceUrl: STT_ENDPOINT,
+            token: accessToken ?? undefined,
+          })
+          segDoneRef.current++
+          if (text) {
+            setError(null)
+            onTranscriptRef.current(text)
+          }
+        } catch (e) {
+          segFailRef.current++
+          // 单段失败不中断整次输入;401/403 提示登录过期,其余静默续传
+          if (e instanceof VoiceSttHttpError && (e.status === 401 || e.status === 403)) {
+            setError(t('voiceInputUnauthorized') || '登录已过期,请刷新页面后重试')
+          }
+        }
+      }
+    } finally {
+      pumpingRef.current = false
+      syncPending()
+      // 停止指令已下且队列清空 → 收尾(释放麦克风/回弹按钮/空内容判定)
+      if (flushStopRef.current && segQueueRef.current.length === 0 && !pumpingRef.current) {
+        flushStopRef.current = false
+        streamRef.current?.getTracks().forEach((track) => track.stop())
+        streamRef.current = null
+        mediaRecorderRef.current = null
+        setRecording(false)
+        if (segDoneRef.current === 0 && segFailRef.current === 0) {
+          setError(t('voiceInputEmpty') || '未识别到语音内容,请靠近麦克风后重试')
+        } else if (segFailRef.current > 0 && segDoneRef.current === 0) {
+          setError(t('voiceInputSttFailed') || '转写失败,请稍后重试或检查本地语音服务')
+        }
+      }
+    }
+  }
+
   const startFallbackRecording = async () => {
     try {
       setError(null)
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
       const recorder = new MediaRecorder(stream)
-      chunksRef.current = []
+      segQueueRef.current = []
+      nextSeqRef.current = 0
+      segDoneRef.current = 0
+      segFailRef.current = 0
+      flushStopRef.current = false
       recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data)
+        if (e.data.size <= 0) return
+        // 忽略停止后迟到的分段(队列已收尾就不再追加)
+        if (flushStopRef.current && segQueueRef.current.length === 0 && !pumpingRef.current) return
+        const seq = nextSeqRef.current++
+        segQueueRef.current.push({ seq, blob: e.data })
+        void pumpSegments()
       }
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
-        streamRef.current?.getTracks().forEach((track) => track.stop())
-        streamRef.current = null
-        mediaRecorderRef.current = null
-
-        if (audioBlob.size === 0) {
-          setRecording(false)
-          return
-        }
-
-        // **2026-09-01 错误语义修复**:用 try/catch 区分三类失败原因,精准提示。
-        // 之前用 `audioBlob.size < 2000` 启发式猜"未识别到内容",
-        // 但环境噪音几 KB 经常 > 2000,会被误判成"转写失败"误导用户。
-        // 新策略:成功(200 OK)= true;HTTP 非 2xx → VoiceSttHttpError(带 status);
-        // 网络异常 → 普通 Error;成功但 text 为空 → "未识别到语音内容"。
-        let text: string
-        try {
-          text = await voiceSttFromBlob({
-            blob: audioBlob,
-            filename: 'voice.webm',
-            mimeType: 'audio/webm',
-            language: 'zh',
-            aiServiceUrl: STT_ENDPOINT,
-            token: accessToken ?? undefined,
-          })
-        } catch (e) {
-          if (e instanceof VoiceSttHttpError) {
-            if (e.status === 401 || e.status === 403) {
-              setError(t('voiceInputUnauthorized') || '登录已过期,请刷新页面后重试')
-            } else {
-              setError(t('voiceInputSttFailed') || '转写失败,请稍后重试或检查本地语音服务')
-            }
-          } else {
-            setError(t('voiceInputNetworkError') || '网络异常,请检查连接后重试')
-          }
-          setRecording(false)
-          return
-        }
-
-        if (text) {
-          onTranscriptRef.current(text)
-          setError(null)
-        } else {
-          // 成功响应但空文本 → 后端判"未识别到语音内容"(噪音/静音/太短均属此类)
-          // 不再用 audioBlob.size 启发式,改为看后端真实语义
-          setError(t('voiceInputEmpty') || '未识别到语音内容,请靠近麦克风后重试')
-        }
-        setRecording(false)
+      recorder.onstop = () => {
+        // 最后一个分段可能还在路上:标记 flush,pump 收尾;若队列已空直接收尾
+        flushStopRef.current = true
+        void pumpSegments()
       }
-      recorder.start()
+      recorder.start(SEGMENT_MS)
       mediaRecorderRef.current = recorder
       setRecording(true)
     } catch {
@@ -259,8 +300,8 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
     const recorder = mediaRecorderRef.current
     if (recorder && recorder.state !== 'inactive') {
       recorder.stop()
+      // onstop → flush 标记 → 队列清空后由 pumpSegments 收尾回弹
     }
-    // onstop 回调会处理后续转写
   }
 
   const toggle = () => {
@@ -288,6 +329,14 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
         }
       `}</style>
       <div className="flex shrink-0 items-center gap-1">
+        {pendingSegments > 0 && (
+          <span
+            className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+            data-testid="voice-live-pending"
+          >
+            {t('voiceInputPending', { count: pendingSegments })}
+          </span>
+        )}
         <Tooltip content={error ?? (recording ? t('voiceInputStop') : t('voiceInputStart'))}>
           <button
             type="button"
