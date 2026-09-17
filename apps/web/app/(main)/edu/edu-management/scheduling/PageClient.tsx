@@ -64,40 +64,59 @@ interface EduClass {
 
 interface SchedulingRule {
   id: string
+  termId: string
   classId: string
   subject: string
-  teacher: string
+  teacherId: string
   weekday: number
   startTime: string
   endTime: string
-  classroom: string
-  priority: number
+  classroom: string | null
+  weeksPerTerm: number | null
+  priority: number | null
+  isActive: boolean
   deletedAt: string | null
   createdAt: string
   updatedAt: string
 }
 
+interface EduTeacher {
+  id: string
+  name: string
+}
+
 interface TeacherSchedule {
   id: string
-  teacher: string
-  weekday: number
+  teacherId: string
+  termId: string
+  dayOfWeek: number
   startTime: string
   endTime: string
-  available: boolean
-  deletedAt: string | null
+  timeSlot: string | null
+  isAvailable: boolean
   createdAt: string
   updatedAt: string
 }
 
 interface ScheduleChange {
   id: string
-  courseName: string
-  originalTime: string
-  newTime: string
+  scheduleId: string
+  classId: string
+  subject: string
+  originalTeacher: string | null
+  newTeacher: string | null
+  originalWeekday: number | null
+  originalStartTime: string | null
+  originalEndTime: string | null
+  newWeekday: number | null
+  newStartTime: string | null
+  newEndTime: string | null
   reason: string
   status: 'pending' | 'approved' | 'rejected'
-  applicant: string
-  deletedAt: string | null
+  applicantId: string
+  approverId: string | null
+  approveRemark: string | null
+  approveAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -128,7 +147,7 @@ const SCHEDULE_CHANGE_COLOR_MAP = new Map(SCHEDULE_CHANGE_STATUS.map((s) => [s.v
 interface RuleFormData {
   classId: string
   subject: string
-  teacher: string
+  teacherId: string
   weekday: number
   startTime: string
   endTime: string
@@ -140,6 +159,7 @@ function RuleDialog({
   open,
   onOpenChange,
   classes,
+  teachers,
   initial,
   onSave,
   onDelete,
@@ -147,6 +167,7 @@ function RuleDialog({
   open: boolean
   onOpenChange: (v: boolean) => void
   classes: EduClass[]
+  teachers: EduTeacher[]
   initial: SchedulingRule | null
   onSave: (data: RuleFormData) => Promise<void>
   onDelete?: () => Promise<void>
@@ -154,7 +175,7 @@ function RuleDialog({
   const [form, setForm] = React.useState<RuleFormData>({
     classId: '',
     subject: '',
-    teacher: '',
+    teacherId: '',
     weekday: 1,
     startTime: '08:00',
     endTime: '09:00',
@@ -169,18 +190,18 @@ function RuleDialog({
       setForm({
         classId: initial.classId,
         subject: initial.subject,
-        teacher: initial.teacher,
+        teacherId: initial.teacherId,
         weekday: initial.weekday,
         startTime: initial.startTime,
         endTime: initial.endTime,
-        classroom: initial.classroom,
-        priority: initial.priority,
+        classroom: initial.classroom ?? '',
+        priority: initial.priority ?? 1,
       })
     } else {
       setForm({
         classId: classes[0]?.id ?? '',
         subject: '',
-        teacher: '',
+        teacherId: teachers[0]?.id ?? '',
         weekday: 1,
         startTime: '08:00',
         endTime: '09:00',
@@ -188,14 +209,14 @@ function RuleDialog({
         priority: 1,
       })
     }
-  }, [initial, classes, open])
+  }, [initial, classes, teachers, open])
 
   const update = (key: keyof RuleFormData, value: string | number) => {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
   const handleSave = async () => {
-    if (!form.subject.trim() || !form.teacher.trim()) return
+    if (!form.subject.trim() || !form.teacherId) return
     setSaving(true)
     try {
       await onSave(form)
@@ -249,11 +270,18 @@ function RuleDialog({
             </div>
             <div className="grid gap-1.5">
               <Label>教师</Label>
-              <Input
-                value={form.teacher}
-                onChange={(e) => update('teacher', e.target.value)}
-                placeholder="教师姓名"
-              />
+              <Select value={form.teacherId} onValueChange={(v) => update('teacherId', v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择教师" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teachers.map((tc) => (
+                    <SelectItem key={tc.id} value={tc.id}>
+                      {tc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="grid gap-1.5">
@@ -319,10 +347,7 @@ function RuleDialog({
               删除
             </Button>
           )}
-          <Button
-            onClick={handleSave}
-            disabled={saving || !form.subject.trim() || !form.teacher.trim()}
-          >
+          <Button onClick={handleSave} disabled={saving || !form.subject.trim() || !form.teacherId}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {initial ? '保存' : '添加'}
           </Button>
@@ -335,32 +360,34 @@ function RuleDialog({
 /* ─── Teacher Schedule Dialog ─── */
 
 interface TeacherScheduleFormData {
-  teacher: string
-  weekday: number
+  teacherId: string
+  dayOfWeek: number
   startTime: string
   endTime: string
-  available: boolean
+  isAvailable: boolean
 }
 
 function TeacherScheduleDialog({
   open,
   onOpenChange,
+  teachers,
   initial,
   onSave,
   onDelete,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
+  teachers: EduTeacher[]
   initial: TeacherSchedule | null
   onSave: (data: TeacherScheduleFormData) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
   const [form, setForm] = React.useState<TeacherScheduleFormData>({
-    teacher: '',
-    weekday: 1,
+    teacherId: '',
+    dayOfWeek: 1,
     startTime: '08:00',
     endTime: '18:00',
-    available: true,
+    isAvailable: true,
   })
   const [saving, setSaving] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
@@ -368,29 +395,29 @@ function TeacherScheduleDialog({
   React.useEffect(() => {
     if (initial) {
       setForm({
-        teacher: initial.teacher,
-        weekday: initial.weekday,
+        teacherId: initial.teacherId,
+        dayOfWeek: initial.dayOfWeek,
         startTime: initial.startTime,
         endTime: initial.endTime,
-        available: initial.available,
+        isAvailable: initial.isAvailable,
       })
     } else {
       setForm({
-        teacher: '',
-        weekday: 1,
+        teacherId: teachers[0]?.id ?? '',
+        dayOfWeek: 1,
         startTime: '08:00',
         endTime: '18:00',
-        available: true,
+        isAvailable: true,
       })
     }
-  }, [initial, open])
+  }, [initial, teachers, open])
 
   const update = (key: keyof TeacherScheduleFormData, value: string | number | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
   const handleSave = async () => {
-    if (!form.teacher.trim()) return
+    if (!form.teacherId) return
     setSaving(true)
     try {
       await onSave(form)
@@ -420,17 +447,24 @@ function TeacherScheduleDialog({
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
             <Label>教师</Label>
-            <Input
-              value={form.teacher}
-              onChange={(e) => update('teacher', e.target.value)}
-              placeholder="教师姓名"
-            />
+            <Select value={form.teacherId} onValueChange={(v) => update('teacherId', v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="选择教师" />
+              </SelectTrigger>
+              <SelectContent>
+                {teachers.map((tc) => (
+                  <SelectItem key={tc.id} value={tc.id}>
+                    {tc.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid gap-1.5">
             <Label>星期</Label>
             <Select
-              value={String(form.weekday)}
-              onValueChange={(v) => update('weekday', Number(v))}
+              value={String(form.dayOfWeek)}
+              onValueChange={(v) => update('dayOfWeek', Number(v))}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -466,8 +500,8 @@ function TeacherScheduleDialog({
             <input
               type="checkbox"
               className="h-4 w-4 rounded border-gray-300"
-              checked={form.available}
-              onChange={(e) => update('available', e.target.checked)}
+              checked={form.isAvailable}
+              onChange={(e) => update('isAvailable', e.target.checked)}
             />
             可用
           </label>
@@ -479,7 +513,7 @@ function TeacherScheduleDialog({
               删除
             </Button>
           )}
-          <Button onClick={handleSave} disabled={saving || !form.teacher.trim()}>
+          <Button onClick={handleSave} disabled={saving || !form.teacherId}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {initial ? '保存' : '添加'}
           </Button>
@@ -531,31 +565,37 @@ export default function SchedulingPage() {
     queryKey: ['edu-ai-management', 'scheduling', 'rule', selectedTermId],
     queryFn: () =>
       api<{ list: SchedulingRule[] }>(
-        `/api/edu-ai-management/scheduling/rule?termId=${selectedTermId}`,
+        `/api/edu-ai-management/scheduling-rule?termId=${selectedTermId}`,
       ),
     enabled: !!selectedTermId,
   })
-  const rules = (rulesData?.list ?? []).filter((r) => !r.deletedAt)
+  const rules = rulesData?.list ?? []
+
+  const { data: teachersData } = useQuery({
+    queryKey: ['edu-ai-management', 'teachers'],
+    queryFn: () => api<{ list: EduTeacher[] }>('/api/edu-ai-management/teachers'),
+  })
+  const teachers = React.useMemo(() => teachersData?.list ?? [], [teachersData])
 
   const { data: teacherSchedulesData, isLoading: teacherSchedulesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'teacher-schedule', selectedTermId],
     queryFn: () =>
       api<{ list: TeacherSchedule[] }>(
-        `/api/edu-ai-management/scheduling/teacher-schedule?termId=${selectedTermId}`,
+        `/api/edu-ai-management/teacher-schedule?termId=${selectedTermId}`,
       ),
     enabled: !!selectedTermId,
   })
-  const teacherSchedules = (teacherSchedulesData?.list ?? []).filter((s) => !s.deletedAt)
+  const teacherSchedules = teacherSchedulesData?.list ?? []
 
   const { data: changesData, isLoading: changesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'change', selectedTermId],
     queryFn: () =>
       api<{ list: ScheduleChange[] }>(
-        `/api/edu-ai-management/scheduling/change?termId=${selectedTermId}`,
+        `/api/edu-ai-management/schedule-change?termId=${selectedTermId}`,
       ),
     enabled: !!selectedTermId,
   })
-  const changes = (changesData?.list ?? []).filter((c) => !c.deletedAt)
+  const changes = changesData?.list ?? []
 
   /* ── Mutations ── */
   const invalidate = React.useCallback(() => {
@@ -564,7 +604,7 @@ export default function SchedulingPage() {
 
   const createRule = useMutation({
     mutationFn: (data: RuleFormData) =>
-      api('/api/edu-ai-management/scheduling/rule', {
+      api('/api/edu-ai-management/scheduling-rule', {
         method: 'POST',
         body: JSON.stringify({ ...data, termId: selectedTermId }),
       }),
@@ -573,7 +613,7 @@ export default function SchedulingPage() {
 
   const updateRule = useMutation({
     mutationFn: ({ id, data }: { id: string; data: RuleFormData }) =>
-      api(`/api/edu-ai-management/scheduling/rule/${id}`, {
+      api(`/api/edu-ai-management/scheduling-rule/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
@@ -582,7 +622,7 @@ export default function SchedulingPage() {
 
   const deleteRule = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/scheduling/rule/${id}`, { method: 'DELETE' }),
+      api(`/api/edu-ai-management/scheduling-rule/${id}`, { method: 'DELETE' }),
     onSuccess: invalidate,
   })
 
@@ -612,7 +652,7 @@ export default function SchedulingPage() {
 
   const createTeacherSchedule = useMutation({
     mutationFn: (data: TeacherScheduleFormData) =>
-      api('/api/edu-ai-management/scheduling/teacher-schedule', {
+      api('/api/edu-ai-management/teacher-schedule', {
         method: 'POST',
         body: JSON.stringify({ ...data, termId: selectedTermId }),
       }),
@@ -621,7 +661,7 @@ export default function SchedulingPage() {
 
   const updateTeacherSchedule = useMutation({
     mutationFn: ({ id, data }: { id: string; data: TeacherScheduleFormData }) =>
-      api(`/api/edu-ai-management/scheduling/teacher-schedule/${id}`, {
+      api(`/api/edu-ai-management/teacher-schedule/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
@@ -630,15 +670,15 @@ export default function SchedulingPage() {
 
   const deleteTeacherSchedule = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/scheduling/teacher-schedule/${id}`, { method: 'DELETE' }),
+      api(`/api/edu-ai-management/teacher-schedule/${id}`, { method: 'DELETE' }),
     onSuccess: invalidate,
   })
 
   const approveChange = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: 'approved' | 'rejected' }) =>
-      api(`/api/edu-ai-management/scheduling/change/${id}/approve`, {
+    mutationFn: ({ id, action }: { id: string; action: 'approve' | 'reject' }) =>
+      api(`/api/edu-ai-management/schedule-change/${id}/${action}`, {
         method: 'PUT',
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({}),
       }),
     onSuccess: invalidate,
   })
@@ -676,6 +716,16 @@ export default function SchedulingPage() {
     const map = new Map(classes.map((c) => [c.id, c.name]))
     return map
   }, [classes])
+
+  const teacherMap = React.useMemo(() => {
+    const map = new Map(teachers.map((tc) => [tc.id, tc.name]))
+    return map
+  }, [teachers])
+
+  const fmtTime = (weekday: number | null, start: string | null, end: string | null) => {
+    if (weekday === null || weekday === undefined || !start || !end) return '—'
+    return `${WEEKDAY_LABELS[weekday - 1] ?? weekday} ${start}-${end}`
+  }
 
   return (
     <div className="space-y-4">
@@ -827,13 +877,15 @@ export default function SchedulingPage() {
                             {classMap.get(r.classId) ?? r.classId}
                           </td>
                           <td className="px-4 py-3 text-xs font-medium">{r.subject}</td>
-                          <td className="px-4 py-3 text-xs">{r.teacher}</td>
+                          <td className="px-4 py-3 text-xs">
+                            {teacherMap.get(r.teacherId) ?? r.teacherId}
+                          </td>
                           <td className="px-4 py-3 text-xs">{WEEKDAY_LABELS[r.weekday - 1]}</td>
                           <td className="px-4 py-3 text-xs">
                             {r.startTime} - {r.endTime}
                           </td>
-                          <td className="px-4 py-3 text-xs">{r.classroom}</td>
-                          <td className="px-4 py-3 text-xs">{r.priority}</td>
+                          <td className="px-4 py-3 text-xs">{r.classroom ?? '—'}</td>
+                          <td className="px-4 py-3 text-xs">{r.priority ?? 0}</td>
                           <td className="px-4 py-3 text-right">
                             <Button
                               variant="ghost"
@@ -929,8 +981,10 @@ export default function SchedulingPage() {
                     <tbody>
                       {teacherSchedules.map((s) => (
                         <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-medium">{s.teacher}</td>
-                          <td className="px-4 py-3 text-xs">{WEEKDAY_LABELS[s.weekday - 1]}</td>
+                          <td className="px-4 py-3 text-xs font-medium">
+                            {teacherMap.get(s.teacherId) ?? s.teacherId}
+                          </td>
+                          <td className="px-4 py-3 text-xs">{WEEKDAY_LABELS[s.dayOfWeek - 1]}</td>
                           <td className="px-4 py-3 text-xs">
                             {s.startTime} - {s.endTime}
                           </td>
@@ -939,10 +993,10 @@ export default function SchedulingPage() {
                               variant="secondary"
                               className={cn(
                                 'text-[10px] text-white',
-                                s.available ? 'bg-green-500' : 'bg-red-500',
+                                s.isAvailable ? 'bg-green-500' : 'bg-red-500',
                               )}
                             >
-                              {s.available ? '可用' : '不可用'}
+                              {s.isAvailable ? '可用' : '不可用'}
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -1024,9 +1078,13 @@ export default function SchedulingPage() {
                     <tbody>
                       {changes.map((c) => (
                         <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-medium">{c.courseName}</td>
-                          <td className="px-4 py-3 text-xs">{c.originalTime}</td>
-                          <td className="px-4 py-3 text-xs">{c.newTime}</td>
+                          <td className="px-4 py-3 text-xs font-medium">{c.subject}</td>
+                          <td className="px-4 py-3 text-xs">
+                            {fmtTime(c.originalWeekday, c.originalStartTime, c.originalEndTime)}
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {fmtTime(c.newWeekday, c.newStartTime, c.newEndTime)}
+                          </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             <TruncatedText value={c.reason} className="max-w-[150px]" />
                           </td>
@@ -1041,7 +1099,9 @@ export default function SchedulingPage() {
                               {SCHEDULE_CHANGE_STATUS_MAP.get(c.status) ?? c.status}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-xs">{c.applicant}</td>
+                          <td className="px-4 py-3 text-xs">
+                            {c.originalTeacher ?? c.newTeacher ?? '—'}
+                          </td>
                           <td className="px-4 py-3 text-right">
                             {c.status === 'pending' && (
                               <div className="flex items-center justify-end gap-1">
@@ -1050,7 +1110,7 @@ export default function SchedulingPage() {
                                   size="xs"
                                   className="text-xs"
                                   onClick={() =>
-                                    approveChange.mutateAsync({ id: c.id, status: 'approved' })
+                                    approveChange.mutateAsync({ id: c.id, action: 'approve' })
                                   }
                                 >
                                   <CheckCircle2 className="mr-1 h-3 w-3 text-green-500" />
@@ -1061,7 +1121,7 @@ export default function SchedulingPage() {
                                   size="xs"
                                   className="text-xs"
                                   onClick={() =>
-                                    approveChange.mutateAsync({ id: c.id, status: 'rejected' })
+                                    approveChange.mutateAsync({ id: c.id, action: 'reject' })
                                   }
                                 >
                                   <XCircle className="mr-1 h-3 w-3 text-red-500" />
@@ -1086,6 +1146,7 @@ export default function SchedulingPage() {
         open={ruleOpen}
         onOpenChange={setRuleOpen}
         classes={classes}
+        teachers={teachers}
         initial={editingRule}
         onSave={handleSaveRule}
         onDelete={editingRule ? handleDeleteRule : undefined}
@@ -1095,6 +1156,7 @@ export default function SchedulingPage() {
       <TeacherScheduleDialog
         open={teacherScheduleOpen}
         onOpenChange={setTeacherScheduleOpen}
+        teachers={teachers}
         initial={editingTeacherSchedule}
         onSave={handleSaveTeacherSchedule}
         onDelete={editingTeacherSchedule ? handleDeleteTeacherSchedule : undefined}

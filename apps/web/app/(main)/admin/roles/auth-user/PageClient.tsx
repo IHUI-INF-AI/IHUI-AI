@@ -25,8 +25,8 @@ export default function AuthUserPage() {
   const sp = useSearchParams()
   const roleId = sp.get('roleId') ?? ''
   const qc = useQueryClient()
-  const [search, setSearch] = React.useState({ userName: '', phonenumber: '' })
-  const [applied, setApplied] = React.useState({ userName: '', phonenumber: '' })
+  const [search, setSearch] = React.useState({ username: '', phone: '' })
+  const [applied, setApplied] = React.useState({ username: '', phone: '' })
   const [page, setPage] = React.useState(1)
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
   const [selectOpen, setSelectOpen] = React.useState(false)
@@ -36,8 +36,8 @@ export default function AuthUserPage() {
     qs.set('roleId', roleId)
     qs.set('page', String(page))
     qs.set('pageSize', String(PAGE_SIZE))
-    if (applied.userName) qs.set('userName', applied.userName)
-    if (applied.phonenumber) qs.set('phonenumber', applied.phonenumber)
+    if (applied.username) qs.set('username', applied.username)
+    if (applied.phone) qs.set('phone', applied.phone)
     return qs.toString()
   }, [roleId, page, applied])
 
@@ -128,7 +128,7 @@ export default function AuthUserPage() {
         onToggleAll={toggleAll}
         onToggleOne={toggleOne}
         onCancel={(u) => {
-          if (confirm(`确认取消 ${u.userName} 的授权？`)) cancelMut.mutate(u.id)
+          if (confirm(`确认取消 ${u.username} 的授权？`)) cancelMut.mutate(u.id)
         }}
       />
 

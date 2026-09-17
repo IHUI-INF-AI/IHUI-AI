@@ -45,6 +45,8 @@ import {
   eduPaymentRecord,
   eduRefundRecord,
   users,
+  roles,
+  userRoles,
 } from '@ihui/database'
 // 2026-08-30 教师角色 RBAC 接入:教务管理端点由 requireAdmin 改为 requirePermission('edu:manage')
 // admin(users.roleId >= 1)在 requirePermission 内自动豁免,行为不变;
@@ -490,6 +492,11 @@ const createScheduleChangeSchema = z.object({
 
 const approveChangeSchema = z.object({
   approveRemark: z.string().optional(),
+})
+
+// 全学期冲突扫描 body(2026-09-17,4-4-13)
+const termConflictScanSchema = z.object({
+  termId: z.string().uuid(),
 })
 
 // =============================================================================
@@ -3055,6 +3062,23 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list }))
   })
 
+  // 教师列表(2026-09-17,4-4-13):RBAC teacher 角色 → 排课规则/教师时间表下拉选项
+  server.get('/teachers', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
+    const list = await db
+      .selectDistinct({
+        id: users.id,
+        name: sql<string>`coalesce(nullif(${users.nickname}, ''), ${users.username})`,
+      })
+      .from(users)
+      .innerJoin(userRoles, eq(userRoles.userId, users.id))
+      .innerJoin(roles, eq(roles.id, userRoles.roleId))
+      .where(eq(roles.name, 'teacher'))
+      .orderBy(sql`2`)
+    return reply.send(success({ list }))
+  })
+
   server.post('/teacher-schedule', async (request, reply) => {
     await requireEduManage(request, reply)
     if (reply.sent) return
@@ -4337,218 +4361,51 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ refundRecord: row }))
   })
 
-  // --- 排课规则:前端 /scheduling/rule ↔ 后端 /scheduling-rule ---
-  server.post('/scheduling/rule', async (request, reply) => {
-    await requireEduManage(request, reply)
-    if (reply.sent) return
-    const parsed = createSchedulingRuleSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [row] = await db.insert(eduSchedulingRule).values(parsed.data).returning()
-    return reply.status(201).send(success({ schedulingRule: row }))
-  })
-
-  server.put('/scheduling/rule/:id', async (request, reply) => {
-    await requireEduManage(request, reply)
-    if (reply.sent) return
-    const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success)
-      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    const parsed = updateSchedulingRuleSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db
-      .select()
-      .from(eduSchedulingRule)
-      .where(and(eq(eduSchedulingRule.id, idParsed.data.id), isNull(eduSchedulingRule.deletedAt)))
-      .limit(1)
-    if (!existing) return reply.status(404).send(error(404, '排课规则不存在'))
-    const [row] = await db
-      .update(eduSchedulingRule)
-      .set({ ...parsed.data, updatedAt: new Date() })
-      .where(eq(eduSchedulingRule.id, idParsed.data.id))
-      .returning()
-    return reply.send(success({ schedulingRule: row }))
-  })
-
-  server.delete('/scheduling/rule/:id', async (request, reply) => {
-    await requireEduManage(request, reply)
-    if (reply.sent) return
-    const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db
-      .select()
-      .from(eduSchedulingRule)
-      .where(and(eq(eduSchedulingRule.id, parsed.data.id), isNull(eduSchedulingRule.deletedAt)))
-      .limit(1)
-    if (!existing) return reply.status(404).send(error(404, '排课规则不存在'))
-    await db
-      .update(eduSchedulingRule)
-      .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(eq(eduSchedulingRule.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
-  })
-
-  // --- 冲突检测:前端 /scheduling/check-conflicts ↔ 后端 /scheduling/check-conflict ---
+  // --- 全学期冲突检测(2026-09-17,4-4-13 重写):前端传 {termId},返回人读冲突串 ---
+  // 说明:排课规则/教师时间表/调课审批的写端点统一走原生 hyphen 路径
+  // (POST/PUT/DELETE /scheduling-rule、/teacher-schedule、/schedule-change/:id/approve|reject),
+  // 此前的 slash 桥接副本(POST/PUT/DELETE /scheduling/rule 等)已删除,避免双路径漂移。
   server.post('/scheduling/check-conflicts', async (request, reply) => {
     await requireEduManage(request, reply)
     if (reply.sent) return
-    const parsed = checkConflictSchema.safeParse(request.body)
+    const parsed = termConflictScanSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
     try {
-      const { termId, weekday, startTime, endTime, classroom, teacherId, excludeScheduleId } =
-        parsed.data
-
-      const conds: SQL[] = [
-        eq(eduCourseSchedule.termId, termId),
-        eq(eduCourseSchedule.weekday, weekday),
-        isNull(eduCourseSchedule.deletedAt),
-      ]
-      conds.push(sql`${eduCourseSchedule.startTime} < ${endTime}`)
-      conds.push(sql`${eduCourseSchedule.endTime} > ${startTime}`)
-      if (excludeScheduleId) conds.push(sql`${eduCourseSchedule.id} != ${excludeScheduleId}::uuid`)
-
-      let teacherConflicts: Array<{ id: string; courseName: string; classroom: string | null }> = []
-      if (teacherId) {
-        const teacherConds = [...conds, eq(eduCourseSchedule.teacher, teacherId)]
-        teacherConflicts = await db
-          .select({
-            id: eduCourseSchedule.id,
-            courseName: eduCourseSchedule.courseName,
-            classroom: eduCourseSchedule.classroom,
-          })
-          .from(eduCourseSchedule)
-          .where(and(...teacherConds))
+      const rows = await db
+        .select()
+        .from(eduCourseSchedule)
+        .where(
+          and(
+            eq(eduCourseSchedule.termId, parsed.data.termId),
+            isNull(eduCourseSchedule.deletedAt),
+          ),
+        )
+      const WD = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']
+      const conflicts: string[] = []
+      for (let x = 0; x < rows.length; x++) {
+        for (let y = x + 1; y < rows.length; y++) {
+          const a = rows[x]!
+          const b = rows[y]!
+          if (a.weekday !== b.weekday) continue
+          if (!(a.startTime < b.endTime && b.startTime < a.endTime)) continue
+          const when = `${WD[a.weekday] ?? a.weekday} ${a.startTime}-${a.endTime}`
+          if (a.teacher && a.teacher === b.teacher) {
+            conflicts.push(
+              `教师时间冲突:${when}「${a.courseName}」与「${b.courseName}」(教师 ${a.teacher})`,
+            )
+          }
+          if (a.classroom && a.classroom === b.classroom) {
+            conflicts.push(
+              `教室占用冲突:${when}「${a.courseName}」与「${b.courseName}」(教室 ${a.classroom})`,
+            )
+          }
+        }
       }
-
-      let classroomConflicts: Array<{ id: string; courseName: string; teacher: string | null }> = []
-      if (classroom) {
-        const roomConds = [...conds, eq(eduCourseSchedule.classroom, classroom)]
-        classroomConflicts = await db
-          .select({
-            id: eduCourseSchedule.id,
-            courseName: eduCourseSchedule.courseName,
-            teacher: eduCourseSchedule.teacher,
-          })
-          .from(eduCourseSchedule)
-          .where(and(...roomConds))
-      }
-
-      return reply.send(success({ teacherConflicts, classroomConflicts }))
+      return reply.send(success({ conflicts }))
     } catch (_err) {
       return reply.status(500).send(error(500, '冲突检测失败'))
-    }
-  })
-
-  // --- 教师时间表:前端 /scheduling/teacher-schedule ↔ 后端 /teacher-schedule ---
-  server.post('/scheduling/teacher-schedule', async (request, reply) => {
-    await requireEduManage(request, reply)
-    if (reply.sent) return
-    const parsed = createTeacherScheduleSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [row] = await db.insert(eduTeacherSchedule).values(parsed.data).returning()
-    return reply.status(201).send(success({ teacherSchedule: row }))
-  })
-
-  server.put('/scheduling/teacher-schedule/:id', async (request, reply) => {
-    await requireEduManage(request, reply)
-    if (reply.sent) return
-    const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success)
-      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    const parsed = updateTeacherScheduleSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db
-      .select()
-      .from(eduTeacherSchedule)
-      .where(eq(eduTeacherSchedule.id, idParsed.data.id))
-      .limit(1)
-    if (!existing) return reply.status(404).send(error(404, '教师时间表不存在'))
-    const [row] = await db
-      .update(eduTeacherSchedule)
-      .set({ ...parsed.data, updatedAt: new Date() })
-      .where(eq(eduTeacherSchedule.id, idParsed.data.id))
-      .returning()
-    return reply.send(success({ teacherSchedule: row }))
-  })
-
-  server.delete('/scheduling/teacher-schedule/:id', async (request, reply) => {
-    await requireEduManage(request, reply)
-    if (reply.sent) return
-    const parsed = uuidParamSchema.safeParse(request.params)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db
-      .select()
-      .from(eduTeacherSchedule)
-      .where(eq(eduTeacherSchedule.id, parsed.data.id))
-      .limit(1)
-    if (!existing) return reply.status(404).send(error(404, '教师时间表不存在'))
-    await db.delete(eduTeacherSchedule).where(eq(eduTeacherSchedule.id, parsed.data.id))
-    return reply.send(success({ deleted: true }))
-  })
-
-  // --- 调课审批:前端 /scheduling/change/:id/approve ↔ 后端 /schedule-change/:id/approve ---
-  server.put('/scheduling/change/:id/approve', async (request, reply) => {
-    await requireEduManage(request, reply)
-    if (reply.sent) return
-    const idParsed = uuidParamSchema.safeParse(request.params)
-    if (!idParsed.success)
-      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    const parsed = approveChangeSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-
-    try {
-      const row = await db.transaction(async (tx) => {
-        const [existing] = await tx
-          .select()
-          .from(eduScheduleChange)
-          .where(eq(eduScheduleChange.id, idParsed.data.id))
-          .limit(1)
-        if (!existing) throw new Error('NOT_FOUND')
-        if (existing.status !== 'pending') throw new Error('NOT_PENDING')
-
-        const approverId = request.userId!
-        const [updated] = await tx
-          .update(eduScheduleChange)
-          .set({
-            status: 'approved',
-            approverId,
-            approveRemark: parsed.data.approveRemark,
-            approveAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(eduScheduleChange.id, idParsed.data.id))
-          .returning()
-        if (!updated) throw new Error('UPDATE_FAILED')
-
-        const scheduleUpdates: Record<string, unknown> = { updatedAt: new Date() }
-        if (existing.newTeacher) scheduleUpdates.teacher = existing.newTeacher
-        if (existing.newWeekday !== null) scheduleUpdates.weekday = existing.newWeekday
-        if (existing.newStartTime) scheduleUpdates.startTime = existing.newStartTime
-        if (existing.newEndTime) scheduleUpdates.endTime = existing.newEndTime
-
-        if (Object.keys(scheduleUpdates).length > 1) {
-          await tx
-            .update(eduCourseSchedule)
-            .set(scheduleUpdates)
-            .where(eq(eduCourseSchedule.id, existing.scheduleId))
-        }
-        return updated
-      })
-      return reply.send(success({ scheduleChange: row }))
-    } catch (err: unknown) {
-      if ((err as { message?: string }).message === 'NOT_FOUND')
-        return reply.status(404).send(error(404, '调课申请不存在'))
-      if ((err as { message?: string }).message === 'NOT_PENDING')
-        return reply.status(400).send(error(400, '仅待审批的申请可审批'))
-      return reply.status(500).send(error(500, '审批失败'))
     }
   })
 
