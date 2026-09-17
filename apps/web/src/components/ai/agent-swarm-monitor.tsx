@@ -53,6 +53,29 @@ export function AgentSwarmMonitor({
   const tAria = useTranslations('agentSwarm')
   const swarm = swarmData?.swarm
   const agentList = swarmData?.agentList ?? []
+
+  // P3 #44 瓶颈高亮(2026-09-16 立):运行中且 startedAt 最早(耗时最久)的 agent。
+  // startedAt 缺省的数据源不显示(向后兼容);30s 节流 tick 驱动 elapsed 刷新。
+  const [now, setNow] = React.useState(() => Date.now())
+  React.useEffect(() => {
+    const running = agentList.some((a) => a.status === 'running' && a.startedAt)
+    if (!running) return
+    const id = window.setInterval(() => setNow(Date.now()), 30_000)
+    return () => window.clearInterval(id)
+  }, [agentList])
+  const bottleneckName = React.useMemo(() => {
+    let worst: string | null = null
+    let worstStart = Infinity
+    for (const a of agentList) {
+      if (a.status !== 'running' || !a.startedAt) continue
+      const t = Date.parse(a.startedAt)
+      if (Number.isFinite(t) && t < worstStart) {
+        worstStart = t
+        worst = a.name
+      }
+    }
+    return worst
+  }, [agentList, now])
   const results = swarmData?.results ?? []
   // 视图切换:列表视图 / 拓扑视图(2026-07-22 立,对标 主流 AI IDE Subagent mesh 拓扑)
   const [viewMode, setViewMode] = React.useState<'list' | 'topology'>('list')
@@ -153,8 +176,27 @@ export function AgentSwarmMonitor({
                       </thead>
                       <tbody>
                         {agentList.map((a, idx) => (
-                          <tr key={`${a.name}-${idx}`} className="even:bg-muted/[0.03]">
-                            <td className="px-3 py-2 font-medium">{a.name}</td>
+                          <tr
+                            key={`${a.name}-${idx}`}
+                            className={cn(
+                              'even:bg-muted/[0.03]',
+                              a.name === bottleneckName &&
+                                a.status === 'running' &&
+                                'bg-amber-500/[0.07]',
+                            )}
+                            data-bottleneck={a.name === bottleneckName && a.status === 'running'}
+                          >
+                            <td className="px-3 py-2 font-medium">
+                              {a.name}
+                              {a.name === bottleneckName && a.status === 'running' && (
+                                <span
+                                  className="ml-1.5 rounded bg-amber-500/15 px-1 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400"
+                                  data-testid="swarm-bottleneck-badge"
+                                >
+                                  {t('bottleneck')}
+                                </span>
+                              )}
+                            </td>
                             <td className="px-3 py-2 text-muted-foreground">{a.type}</td>
                             <td className="px-3 py-2">
                               <span

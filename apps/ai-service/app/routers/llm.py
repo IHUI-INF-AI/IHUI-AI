@@ -556,6 +556,12 @@ async def _extract_memory_updates(
         except Exception as e:
             logger.warning("memoryUpdates 写入 semantic 失败(降级,仍回传条目): %s", e)
 
+        # P3 #41 记忆图谱(2026-09-16 立):记忆写入后异步触发关系抽取(fire-and-forget,
+        # 失败不影响主流程;抽取结果写 agent_memory_edges,供子图查询/前端可视化)。
+        from ..services.memory_graph import fire_and_forget_extract
+
+        fire_and_forget_extract(owner_uuid)
+
         return [item][:MEMORY_ITEMS_MAX]
     except asyncio.TimeoutError:
         logger.warning(
@@ -2446,6 +2452,14 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         user_id=owner_uuid,
                                         # 2026-08-06 修复:传真实用户角色,否则 admin 调 run_command 等被 PERMISSION_DENIED
                                         user_role=user_role,
+                                        # P3 #31(2026-09-16 立):传 web 会话 id,媒体任务落库 media_tasks.chat_id,
+                                        # 全局任务看板"点击跳对话"深链(/chat?conversationId=)依赖此值;
+                                        # 历史上该参数未传 → chat_id 落空串,旧任务前端降级为不可跳转。
+                                        session_id=(
+                                            req.metadata.get("conversationId")
+                                            if isinstance(req.metadata, dict)
+                                            else None
+                                        ),
                                     )
                                 except Exception as e:
                                     logger.exception("Tool execution exception: %s", tool_name)

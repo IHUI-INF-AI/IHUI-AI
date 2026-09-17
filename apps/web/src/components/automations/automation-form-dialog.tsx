@@ -37,8 +37,14 @@ import {
 } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import {
+  buildRruleFromParts,
+  rruleToParts,
+  DEFAULT_RRULE_PARTS,
+  type RruleFrequency,
+} from '@/lib/rrule-form'
 
-type Frequency = 'hourly' | 'daily' | 'weekly'
+type Frequency = RruleFrequency
 
 const DAY_CODES = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const
 
@@ -72,46 +78,17 @@ const EMPTY_FORM: FormState = {
   prompt: '',
   scheduleType: 'once',
   scheduledAt: '',
-  frequency: 'daily',
-  time: '09:00',
-  days: ['MO', 'TU', 'WE', 'TH', 'FR'],
+  ...DEFAULT_RRULE_PARTS,
 }
 
-/** 把 UI 表单态拼成 MVP rrule */
+/** 把 UI 表单态拼成 MVP rrule(委托共享工具) */
 function buildRrule(form: FormState): string {
-  const [h, m] = form.time.split(':')
-  const byHour = String(Number(h ?? '0'))
-  const byMinute = String(Number(m ?? '0'))
-  if (form.frequency === 'hourly') return 'FREQ=HOURLY'
-  if (form.frequency === 'daily') return `FREQ=DAILY;BYHOUR=${byHour};BYMINUTE=${byMinute}`
-  return `FREQ=WEEKLY;BYDAY=${form.days.join(',')};BYHOUR=${byHour};BYMINUTE=${byMinute}`
+  return buildRruleFromParts(form)
 }
 
-/** 把 rrule 拆解回 UI 表单态(解析失败回默认值) */
+/** 把 rrule 拆解回 UI 表单态(解析失败回默认值;委托共享工具) */
 function rruleToForm(rrule: string | null): Partial<FormState> {
-  if (!rrule) return {}
-  const parts: Record<string, string> = {}
-  for (const seg of rrule.split(';')) {
-    const idx = seg.indexOf('=')
-    if (idx > 0) parts[seg.slice(0, idx).trim().toUpperCase()] = seg.slice(idx + 1).trim()
-  }
-  const freq = parts.FREQ?.toUpperCase()
-  const time =
-    parts.BYHOUR !== undefined || parts.BYMINUTE !== undefined
-      ? `${String(Number(parts.BYHOUR ?? '0')).padStart(2, '0')}:${String(
-          Number(parts.BYMINUTE ?? '0'),
-        ).padStart(2, '0')}`
-      : undefined
-  if (freq === 'HOURLY') return { frequency: 'hourly', time: time ?? EMPTY_FORM.time }
-  if (freq === 'DAILY') return { frequency: 'daily', time: time ?? EMPTY_FORM.time }
-  if (freq === 'WEEKLY' && parts.BYDAY) {
-    return {
-      frequency: 'weekly',
-      time: time ?? EMPTY_FORM.time,
-      days: parts.BYDAY.split(',').map((d) => d.trim().toUpperCase()),
-    }
-  }
-  return {}
+  return rruleToParts(rrule) ?? {}
 }
 
 /** datetime-local 值 → ISO(含时区);空值返回 null */

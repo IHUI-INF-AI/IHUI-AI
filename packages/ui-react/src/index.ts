@@ -109,6 +109,9 @@ export type { WorkPanelProps, WorkPanelTabItem } from './components/work-panel'
 // AuthShell 统一登录弹窗外壳(2026-07-26 抽取到共享包,web + extension 共用)
 export { AuthShell, AuthShellCompact } from './components/auth-shell'
 export type { AuthShellProps } from './components/auth-shell'
+// CloseButton 全项目统一关闭按钮(2026-09-16 立,样式 token 来自 @ihui/design-tokens close-button.ts)
+export { CloseButton } from './components/close-button'
+export type { CloseButtonProps } from './components/close-button'
 // LoginForm 共享登录表单(2026-07-26 抽取到共享包,4 tab + 8 第三方登录 + 协议复选框 + 协议弹窗)
 export {
   LoginForm,

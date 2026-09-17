@@ -7,7 +7,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { X } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 export interface ApiLogDetail {
@@ -73,14 +73,7 @@ export default function LogDetailDialog({
       >
         <div className="flex items-center justify-between bg-muted/30 px-5 py-3">
           <h3 className="text-base font-medium">日志详情</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('close')}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <CloseButton aria-label={t('close')} onClick={onClose} />
         </div>
         <div className="flex-1 space-y-4 overflow-auto p-3 text-sm">
           <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">

@@ -5,12 +5,11 @@
 'use client'
 
 import * as React from 'react'
-import { X } from 'lucide-react'
 
 import { useRules } from '@/hooks/use-rules'
 import { useRulesStore } from '@/stores/rules'
 import type { RuleInput, RuleMatchType, RuleScope } from '@ihui/types'
-import { Button, Input } from '@ihui/ui-react'
+import { Button, CloseButton, Input } from '@ihui/ui-react'
 
 function RuleEditDialog() {
   const { editingRule, isCreating, closeEditor } = useRulesStore()
@@ -75,14 +74,7 @@ function RuleEditDialog() {
       <div className="w-full max-w-lg space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">{editingRule ? '编辑规则' : '新建规则'}</span>
-          <button
-            type="button"
-            onClick={closeEditor}
-            aria-label="关闭"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton aria-label="关闭" onClick={closeEditor} />
         </div>
         <div className="space-y-2">
           <label htmlFor="rule-name" className="text-xs text-muted-foreground">

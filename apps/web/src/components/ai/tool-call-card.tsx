@@ -47,6 +47,8 @@ interface ToolCallCardProps {
   onReject?: () => void
   /** 后端重复调用检测命中时标记(渲染"已跳过"徽章) */
   repeated?: boolean
+  /** P3 #30(2026-09-16 立):工具调用 id,随 diff 评审意见记录便于回溯哪次改动 */
+  toolCallId?: string
   /** 工具瞬时失败自动重试次数(L5-8,>0 时显示"重试N次"徽章) */
   retryCount?: number
   /** 失败错误分类(L5-8:timeout/connection/http_5xx/http_4xx/unknown,错误时显示徽章) */
@@ -810,6 +812,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   serverName,
   onApply,
   onReject,
+  toolCallId,
 }: ToolCallCardProps) {
   const [expanded, setExpanded] = React.useState(false)
   const t = useTranslations('ai.toolCall')
@@ -999,6 +1002,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
               applyError={applyError}
               onApply={onApply}
               onReject={onReject}
+              toolCallId={toolCallId}
             />
           )}
           {/* image_generation:渲染生成的图片(优先于 result) */}

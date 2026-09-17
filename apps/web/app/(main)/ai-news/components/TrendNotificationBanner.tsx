@@ -6,7 +6,8 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Flame, X, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import { Flame, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 import { fetchAiFeedNotifications, type TrendNotification } from '@/lib/ai-news-api'
 import { formatRelativeTime } from '@/lib/date-utils'
 
@@ -171,14 +172,11 @@ export function TrendNotificationBanner() {
         >
           {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
-        <button
-          type="button"
-          onClick={handleDismiss}
+        <CloseButton
           aria-label={t('feed.trendNotifyClose')}
-          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-orange-600 transition-colors hover:bg-orange-500/15 dark:text-orange-400"
-        >
-          <X className="h-3 w-3" />
-        </button>
+          onClick={handleDismiss}
+          className="text-orange-600 hover:bg-orange-500/15 dark:text-orange-400"
+        />
       </div>
 
       {/* 展开态:完整通知列表 */}

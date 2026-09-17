@@ -585,7 +585,9 @@ export function tryAutoDetectMode(text: string): void {
  *  耗时可达分钟级(N 副本同步执行 + 评审),timeoutMs 放大到 180s。 */
 export async function tryHandleBestOfSlash(
   text: string,
-  onResult: (assistantContent: string) => void,
+  // P3 #36(2026-09-16 立):onResult 增加可选 extra —— bestOfRunId 写入 assistant 消息
+  // meta,消息流内按 runId 渲染并排对比卡(数据源 best-of store.results 映射)
+  onResult: (assistantContent: string, extra?: { bestOfRunId?: string }) => void,
 ): Promise<boolean> {
   const trimmed = text.trim()
   if (
@@ -624,7 +626,7 @@ export async function tryHandleBestOfSlash(
       ),
     ]
     if (d.rationale) lines.push('', `📌 评审理由: ${d.rationale}`)
-    onResult(lines.join('\n'))
+    onResult(lines.join('\n'), { bestOfRunId: d.runId })
   } catch (e: unknown) {
     onResult(`❌ /bestof 调用失败: ${e instanceof Error ? e.message : String(e)}`)
   }
@@ -633,7 +635,8 @@ export async function tryHandleBestOfSlash(
 
 export async function tryHandleSelfMediaSlash(
   text: string,
-  onResult: (assistantContent: string) => void,
+  // P3 #36(2026-09-16 立):转发 tryHandleBestOfSlash 的 extra(含 bestOfRunId)给宿主
+  onResult: (assistantContent: string, extra?: { bestOfRunId?: string }) => void,
 ): Promise<boolean> {
   // 返回 true 表示命中斜杠命令(已调 skill),false 表示走原 chat 流程
   // 优先检查 /bestof(直调 REST 择优,2026-09-07)与 /auto-task(独立处理,因 endpoint 含路径参数)

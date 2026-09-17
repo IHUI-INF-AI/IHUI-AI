@@ -10,7 +10,8 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, Minus, PictureInPicture2, ChevronUp, SquareTerminal } from 'lucide-react'
+import { Minus, PictureInPicture2, ChevronUp, SquareTerminal } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
@@ -52,6 +53,11 @@ import {
   type PendingResume,
 } from '@/hooks/use-chat/resume-stream'
 import { useMediaQuery } from '@/hooks/use-media-query'
+// P3 #34(2026-09-16 立):流式屏幕阅读器播报(aria-live)
+import { SrStreamAnnouncer } from '@/components/chat/sr-stream-announcer'
+import { VoiceStreamSpeaker } from '@/components/chat/voice-stream-speaker'
+// P3 #43(2026-09-16 立):成本预检/对比条
+import { CostEstimateBar } from '@/components/ai/cost-estimate-bar'
 
 /** 全局 AI docked 侧边面板(对齐旧架构 .ai-side-panel 设计)。
  * - 默认 display:none,由 useAiPanelStore.open 控制
@@ -1070,6 +1076,9 @@ export function AISidePanel() {
     <TooltipProvider>
       <>
         {workspaceNameSync}
+        {/* P3 #34(2026-09-16 立):流式屏幕阅读器播报区(visually-hidden,aria-live=polite) */}
+        <SrStreamAnnouncer />
+        <VoiceStreamSpeaker />
         <div
           // AI 面板容器(最外层,DevTools 可选中)
           // - docked 模式:relative + shrink-0 + py-2,flex 流内布局,mr-1.5 固定 6px 间距
@@ -1288,14 +1297,7 @@ export function AISidePanel() {
                 </button>
               </Tooltip>
               <Tooltip content={tcommon('close')}>
-                <button
-                  type="button"
-                  onClick={closePanel}
-                  aria-label={tcommon('close')}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <CloseButton aria-label={tcommon('close')} onClick={closePanel} />
               </Tooltip>
             </header>
 
@@ -1351,6 +1353,9 @@ export function AISidePanel() {
 
             {/* 压缩状态栏(2026-08-16 立):在输入框上方显示压缩进度和结果 */}
             <CompactionStatusBar />
+
+            {/* P3 #43 成本协商 v1(2026-09-16 立):发送前成本预检估算 + 流后实际对比 */}
+            <CostEstimateBar />
 
             {/* 输入区 */}
             <MessageInput
