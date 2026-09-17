@@ -159,11 +159,10 @@
 
 ### P3 生态与长期领先(6-12 个月)
 
-- [ ] 3-1 中文编码基准发布
-- [ ] 3-2 8 端 Agent 一致性认证
-- [ ] 3-3 企业治理:审计、合规、权限继承
-- [ ] 3-4 新用户 10 分钟零 Key 体验
-- [ ] 3-5 技能市场与插件生态
+- [x] ✅(2026-09-17) **3-2 8 端 Agent 一致性认证(v1 执行器落地)**:新「scripts/run-8end-consistency-cert.mjs」——复用 14 项既有守门(i18n parity × 3 端/broken-en/重复 ns/死 key/SSE 事件 parity/design-tokens × 3 端/cross-end-tokens/miniapp tokens/store parity/adapter-style/multi-end sync 基线)按「维度 × 端」聚合执行,生成 outputs/8end-consistency-cert-<date>.md 认证报告(矩阵+汇总+FAIL 明细);exit 1 接 CI 周回归。**首跑即修复 1 处真实基线漂移**:cross-end-tokens 的「surface.inputBg ↔ --color-link-bg」配对语义已双侧漂移失效(rn 改中性输入框灰/css 改链接浅蓝),按 2026-09-06 indigo↔brand 先例移除并注释根因;design-tokens-sync 补 --target 参数拆分。2026-09-17 基线:**14 PASS / 1 WARN(multi-end-sync warn-only 基线)/ 0 FAIL**。重量级项(逐端 typecheck/全量测试)由 CI 职责覆盖。
+- [ ] 3-3 企业治理:审计、合规、权限继承(底座已就位;合规认证/权限继承树语义待专项设计——权限继承与既有 permission_modes 的关系需产品定义,不宜内联硬做)
+- [ ] 3-4 新用户 10 分钟零 Key 体验(依赖免费额度/中转策略等**外部商务决策**,非纯技术项)
+- [x] ✅(2026-09-17) **3-5 技能包格式规范 + 校验器(v1 落地)**:(a) 规范「docs/SKILL_PACKAGE_SPEC.md」——包结构(SKILL.md+references/scripts/assets)/frontmatter 字段表(对齐 SkillFrontmatter 类型:name/description 必填,version 语义化/license SPDX/tags·tools 数组/progressiveDisclosure/relatedSkills/source 枚举)/审核红线四条(密钥泄漏/描述不符/数据外传/引用缺失)/校验用法。(b) 校验器「scripts/lint-skill-package.mjs」——ERROR(name·description 必填/version 非语义化/source 非枚举/数组字段类型/正文为空/正文相对路径引用不存在)+WARNING(渐进式超 5k 字/license 缺失/未识别字段);支持单文件/单包/批量递归;退出码接 CI。验证:双向夹具(good PASS exit 0/bad 5 类 ERROR exit 1)全过。开发者生态(发布流程/评分展示)属平台侧既有市场闭环,后续按需扩展。
 
 > **P3 长期项底座评估(2026-09-12,6-12 个月路线图,均为专项立项不做内联)**
 >
