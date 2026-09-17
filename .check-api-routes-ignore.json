@@ -15,6 +15,66 @@
       "method": "DELETE",
       "pathPattern": "^/api/favorites/aiworld$",
       "reason": "分析器 params.id 误报:前端实际调用 /api/favorites/aiworld/${params.id}(PageClient.tsx:77),归一化丢失 :param;后端有 DELETE /api/favorites/:resourceType/:resourceId(social.ts:401)匹配,非真实 404。"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "^/api/admin/promotions/lottery$",
+      "reason": "后端模块未实装(如实登记,非已实现):前端 lottery 页为外部模板移植壳,数据库无 lottery 表(schema 全库检索零命中),抽奖业务需产品定义(奖品/概率/参与条件)。待产品化排期,见 PROJECT_PLAN §4-4-10。"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "^/api/admin/points/mall$",
+      "reason": "后端模块未实装(如实登记,非已实现):前端 points-mall 页为外部模板移植壳,数据库无积分商城商品表(仅有 user_points 用户积分表),商城需产品定义(商品/兑换/库存)。待产品化排期,见 PROJECT_PLAN §4-4-10。"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "^/api/admin/promotions/rules$",
+      "reason": "后端模块未实装(如实登记,非已实现):前端 promotion-rule 页为外部模板移植壳,数据库无通用促销规则表(promotions.ts 仅有 invitations/activities/coupons 三类具体模型)。待产品化排期,见 PROJECT_PLAN §4-4-10。"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "^/api/admin/roles/:param/users$",
+      "reason": "后端读端点未实装(如实登记,非已实现):前端 roles/auth-user 页为外部模板移植壳(请求参数 userName/phonenumber 为若依风格字段,users 表无 phonenumber 列);userRoles 表存在,补端点需先定义用户列表契约(字段映射+搜索)。待排期,见 PROJECT_PLAN §4-4-10。"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "^/api/admin/roles/:param/unallocated-users$",
+      "reason": "后端读端点未实装(如实登记,非已实现):同 /roles/:param/users,前端为若依风格移植壳,需先定义未分配用户查询契约。待排期,见 PROJECT_PLAN §4-4-10。"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "^/api/admin/security/sensitive-words$",
+      "reason": "契约不匹配,非简单缺端点(如实登记,非已实现):后端有 GET /admin/sensitive-words(admin-sensitive-words.ts:66)但模型为二态 status(0/1)+数字 level,前端移植壳期待四态 status(draft/pending/published/rejected)+level('low'|'medium'|'high')+word 搜索参数,直接加别名会得到显示错乱的半可用页面。需按 IHUI 模型重做前端或做映射适配层。见 PROJECT_PLAN §4-4-10。"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "^/api/admin/promotions/signin-rules$",
+      "reason": "契约不匹配,非简单缺端点(如实登记,非已实现):后端有 GET /admin/sign-in/rules(gamification-admin.ts:89,返回裸数组)但字段为 consecutiveDays 系,前端移植壳期待 {day,points,extra,status:'draft'|...}+keyword 搜索+{list,total} 分页,直接复用会显示错乱。需适配层。见 PROJECT_PLAN §4-4-10。"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "^/api/admin/billing/tax$",
+      "reason": "后端模块未实装(如实登记,非已实现):前端 tax 页为外部模板移植壳,数据库无税务配置表,税务口径需产品定义。待产品化排期,见 PROJECT_PLAN §4-4-10。"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "^/api/admin/stats/visit-trend$",
+      "reason": "后端聚合端点未实装(如实登记,非已实现):visit_logs 表存在,但前端移植壳期待 bounceRate/avgDuration/bySource/topPages 等 SaaS 模板指标,visit_logs 是否埋点了对应字段需先核实,再决定补聚合或重做页面。待排期,见 PROJECT_PLAN §4-4-10。"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "^/api/edu-ai-management/scheduling/rule$",
+      "reason": "契约不匹配,非简单缺端点(如实登记,非已实现):后端 GET /scheduling-rule(edu-ai-management.ts:3111)存在,但表字段 teacherId/dayOfWeek 系与前端移植壳类型(teacher/weekday/classroom)不一致,直接加别名会得到空列/NaN 的半可用页面。POST/PUT/DELETE 的 /scheduling/* 别名为先前批次所加(仅打通路径,字段契约从未校验)。需按 IHUI 模型重做前端。见 PROJECT_PLAN §4-4-10。"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "^/api/edu-ai-management/scheduling/teacher-schedule$",
+      "reason": "契约不匹配,非简单缺端点(如实登记,非已实现):表 edu_teacher_schedule 字段为 teacherId/dayOfWeek/isAvailable,前端移植壳类型为 teacher/weekday/available,连 POST 表单提交字段也不匹配(createTeacherScheduleSchema 会 400)。需重做前端或适配层。见 PROJECT_PLAN §4-4-10。"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "^/api/edu-ai-management/scheduling/change$",
+      "reason": "契约不匹配,非简单缺端点(如实登记,非已实现):后端 GET /schedule-change(edu-ai-management.ts:3346)存在,但表字段 subject/originalWeekday/originalStartTime 系与前端移植壳类型(courseName/originalTime/newTime/applicant)完全不同。需重做前端或适配层。见 PROJECT_PLAN §4-4-10。"
     }
   ]
 }

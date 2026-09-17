@@ -17,12 +17,14 @@
  *  - GET    /memory            查询当前用户记忆(可选 scope/sessionId/projectKey 筛选)
  *  - POST   /memory            写入一条记忆
  *  - DELETE /memory/:id        删除指定记忆条目
+ *  - GET    /memory/graph      记忆图谱子图(P3 #41 面板数据源;代理 ai-service 8803)
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { MemoryEntry, MemoryScope, MemoryEntryType } from '@ihui/types'
 import { checkAuthOrInternalService } from '../plugins/auth.js'
+import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { success, error } from '../utils/response.js'
 
 const SCOPES: MemoryScope[] = ['global', 'user', 'session', 'project']
@@ -50,6 +52,21 @@ const deleteQuerySchema = z.object({
   sessionId: z.string().optional(),
   projectKey: z.string().optional(),
 })
+
+/** 记忆图谱查询参数(P3 #41)。 */
+const graphQuerySchema = z.object({
+  query: z.string().trim().min(1, 'query 不能为空'),
+})
+
+/** ai-service 记忆图谱统一响应 {code, message, data}。 */
+interface MemoryGraphResp {
+  code?: number
+  message?: string
+  data?: {
+    nodes?: Array<{ id: string; content: string; importanceScore: string; hit: boolean }>
+    edges?: Array<{ source: string; target: string; relation: string; weight: string }>
+  }
+}
 
 /** Redis 不可用时的进程内降级存储 */
 const memFallback = new Map<string, MemoryEntry[]>()
@@ -179,6 +196,50 @@ export const memoryRoutes: FastifyPluginAsync = async (server) => {
     }
 
     return reply.status(404).send(error(404, '记忆条目不存在'))
+  })
+
+  // GET /memory/graph — 记忆图谱子图(P3 #41 阶段3 前端面板的数据源;代理 ai-service 8803)
+  //
+  // 2026-09-17 补齐:ai-service 侧实现早已存在(`app/routers/memory_graph.py`,
+  // prefix="/api" → GET /api/memory/graph,服务层 graph_service 已按
+  // {nodes:[{id,content,importanceScore,hit}], edges:[{source,target,relation,weight}]}
+  // 返回),web 端 `memory-graph-panel.tsx` 也在调它,但 **api 层从未注册该路由** →
+  // 生产 nginx `location /api/` 直连 api(8802,不经 Next rewrite)→ 线上恒 404,
+  // 记忆图谱面板永远空图。此处按 agent-canvas 的既有代理模式补通路。
+  //
+  // 身份:aiServiceFetch 透传用户 Authorization,ai-service 从 request.state.user_id 取值
+  // (与 /api/llm/* 同源;metadata.userId 不可信)。
+  server.get('/memory/graph', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!(await checkAuthOrInternalService(request, reply))) return
+    const parsed = graphQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/memory/graph?query=${encodeURIComponent(parsed.data.query)}`,
+      )
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '')
+        const status = resp.status === 400 ? 400 : 502
+        return reply
+          .status(status)
+          .send(
+            error(status, `ai-service memory graph failed: ${resp.status} ${text.slice(0, 200)}`),
+          )
+      }
+      const payload = (await resp.json()) as MemoryGraphResp
+      if (payload.code !== 0) {
+        return reply.status(502).send(error(502, payload.message ?? 'ai-service 响应异常'))
+      }
+      return reply.send(
+        success({ nodes: payload.data?.nodes ?? [], edges: payload.data?.edges ?? [] }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(502).send(error(502, '记忆图谱查询失败'))
+    }
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

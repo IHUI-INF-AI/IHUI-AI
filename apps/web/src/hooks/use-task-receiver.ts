@@ -191,7 +191,7 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
       try {
         const since = lastSeenTsRef.current
         const data = await apiData<{ tasks: TaskDispatch[] } | TaskDispatch[]>(
-          `/api/tasks?since=${since}`,
+          `/api/tasks?since=${since}`, // method: GET
         )
         if (cancelled || !data) return
         const list = Array.isArray(data) ? data : (data.tasks ?? [])
