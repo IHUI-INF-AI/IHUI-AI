@@ -22166,6 +22166,18 @@
     "adopt": "采纳为主线",
     "adopted": "已采纳"
   },
+  "agentTasks": {
+    "title": "Agent 运行任务",
+    "refresh": "刷新",
+    "empty": "暂无 agent 任务(由 /agent/run 或自动化创建)",
+    "iterations": "已迭代 {count} 轮",
+    "injectPlaceholder": "中途插话:补充指令/纠偏…",
+    "inject": "插话",
+    "toastLoadFailed": "任务列表加载失败",
+    "toastInjected": "插话已提交,下一轮迭代生效",
+    "toastInjectRejected": "任务已结束,无法插话",
+    "toastInjectFailed": "插话提交失败"
+  },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count} 个任务远端取消失败（已本地置为已取消）",
     "title": "媒体任务",
@@ -22365,6 +22377,8 @@
     "confirmCancel": "取消"
   },
   "memoryGraph": {
+    "layoutForce": "力导向",
+    "layoutRing": "环形",
     "searchPlaceholder": "搜索记忆关键词…",
     "searchBtn": "查询",
     "empty": "输入关键词查询记忆子图",

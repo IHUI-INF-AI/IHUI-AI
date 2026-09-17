@@ -22181,6 +22181,18 @@
     "adopt": "Adopt as mainline",
     "adopted": "Adopted"
   },
+  "agentTasks": {
+    "title": "Agent Tasks",
+    "refresh": "Refresh",
+    "empty": "No agent tasks (created via /agent/run or automations)",
+    "iterations": "{count} iterations",
+    "injectPlaceholder": "Interject: add instructions / correct course…",
+    "inject": "Interject",
+    "toastLoadFailed": "Failed to load tasks",
+    "toastInjected": "Interjection submitted, effective next iteration",
+    "toastInjectRejected": "Task has ended, cannot interject",
+    "toastInjectFailed": "Failed to submit interjection"
+  },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count} task(s) failed to cancel remotely (marked cancelled locally)",
     "title": "Media Tasks",
@@ -22380,6 +22392,8 @@
     "confirmCancel": "Cancel"
   },
   "memoryGraph": {
+    "layoutForce": "Force",
+    "layoutRing": "Ring",
     "searchPlaceholder": "Search memory keywords…",
     "searchBtn": "Search",
     "empty": "Enter keywords to query the memory subgraph",
