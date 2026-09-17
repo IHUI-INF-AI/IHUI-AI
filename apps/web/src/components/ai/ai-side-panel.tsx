@@ -975,7 +975,6 @@ export function AISidePanel() {
                         "进入浮窗模式"按钮(floatMode)区分,故用独立 key expandConversation */}
                     <Tooltip content={tc('expandConversation')}>
                       <IconButton
-                        size="sm"
                         onClick={() => setFloatCollapsed(false)}
                         aria-label={tc('expandConversation')}
                       >
@@ -984,7 +983,6 @@ export function AISidePanel() {
                     </Tooltip>
                     <Tooltip content={tc('dockPanel')}>
                       <IconButton
-                        size="sm"
                         onClick={() => {
                           setFloatMode(false)
                           setFloatCollapsed(false)
@@ -996,7 +994,6 @@ export function AISidePanel() {
                     </Tooltip>
                     <Tooltip content={tc('minimize')}>
                       <IconButton
-                        size="sm"
                         onClick={() => setFloatMinimized(true)}
                         aria-label={tc('minimize')}
                       >
