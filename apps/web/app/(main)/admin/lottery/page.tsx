@@ -1,15 +1,14 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Gift } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Gift, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button, SearchInput } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
-import type { Lottery, LotteryListData, LotteryStatus } from './types'
+import type { Lottery, LotteryStatus } from './types'
 import { BackButton } from '@/components/common'
+import { CrudFormDialog, useCrudResource, type CrudField } from '@/components/admin/crud-resource'
 
 const BADGE: Record<LotteryStatus, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -26,23 +25,32 @@ const STATUS_LABEL: Record<LotteryStatus, string> = {
 const c = 'px-4 py-3'
 const fmt = (v: string | null) => (v ? v.replace('T', ' ').slice(0, 16) : '—')
 
+const FORM_FIELDS: CrudField[] = [
+  { key: 'name', label: '活动名称', type: 'text', placeholder: '如:开门大吉抽奖' },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: [
+      { value: 'draft', label: '草稿' },
+      { value: 'active', label: '进行中' },
+      { value: 'finished', label: '已结束' },
+      { value: 'cancelled', label: '已取消' },
+    ],
+  },
+  { key: 'costPoints', label: '消耗积分/次', type: 'number' },
+  { key: 'freeQuota', label: '免费次数', type: 'number' },
+  { key: 'startTime', label: '开始时间', type: 'datetime' },
+  { key: 'endTime', label: '结束时间', type: 'datetime' },
+]
+
 export default function AdminLotteryPage() {
-  const [search, setSearch] = React.useState('')
-  const [page, setPage] = React.useState(1)
-  const { data, isLoading } = useQuery({
-    queryKey: ['admin', 'lottery', search, page],
-    queryFn: async () => {
-      const qs = new URLSearchParams({ page: String(page), pageSize: '10' })
-      if (search.trim()) qs.set('name', search.trim())
-      const r = await fetchApi<LotteryListData>(`/api/admin/promotions/lottery?${qs}`)
-      if (!r.success) throw new Error(r.error)
-      return r.data
-    },
+  const crud = useCrudResource<Lottery>({
+    basePath: '/api/admin/promotions/lottery',
+    queryKey: ['admin', 'lottery'],
   })
-  const list = data?.list ?? []
-  const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / 10))
-  const head = ['活动名称', '消耗积分', '参与/中奖', '奖品数', '状态', '时间']
+  const { list, total, totalPages } = crud
+  const head = ['活动名称', '消耗积分', '参与/中奖', '奖品数', '状态', '时间', '操作']
   return (
     <div className="space-y-4 px-4 py-4">
       <BackButton />
@@ -51,17 +59,19 @@ export default function AdminLotteryPage() {
           <Gift className="h-6 w-6 shrink-0 text-primary" />
           <span className="truncate">抽奖活动</span>
         </h1>
-        <SearchInput
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            setPage(1)
-          }}
-          placeholder="搜索活动名"
-          size="lg"
-          wrapperClassName="w-full"
-          className="shrink-0 sm:w-64"
-        />
+        <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
+          <SearchInput
+            value={crud.search}
+            onChange={(e) => crud.setSearch(e.target.value)}
+            placeholder="搜索活动名"
+            size="lg"
+            wrapperClassName="w-full sm:w-64"
+          />
+          <Button size="sm" onClick={crud.openCreate}>
+            <Plus className="h-4 w-4" />
+            <span>新增</span>
+          </Button>
+        </div>
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
@@ -78,8 +88,8 @@ export default function AdminLotteryPage() {
             <tbody>
               {!list.length ? (
                 <tr>
-                  <td colSpan={6} className={`${c} py-8 text-center text-muted-foreground`}>
-                    {isLoading ? '…' : '暂无活动'}
+                  <td colSpan={7} className={`${c} py-8 text-center text-muted-foreground`}>
+                    {crud.isLoading ? '…' : '暂无活动'}
                   </td>
                 </tr>
               ) : (
@@ -103,6 +113,20 @@ export default function AdminLotteryPage() {
                     <td className={`${c} text-xs text-muted-foreground`}>
                       {fmt(l.startTime)} ~ {fmt(l.endTime)}
                     </td>
+                    <td className={c}>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon-sm" onClick={() => crud.openEdit(l)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => void crud.remove(l.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-rose-500" />
+                        </Button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -116,27 +140,38 @@ export default function AdminLotteryPage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
+            disabled={crud.page <= 1}
+            onClick={() => crud.setPage(crud.page - 1)}
           >
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
           <span className="text-sm text-muted-foreground">
-            {page} / {totalPages}
+            {crud.page} / {totalPages}
           </span>
           <Button
             variant="outline"
             size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
+            disabled={crud.page >= totalPages}
+            onClick={() => crud.setPage(crud.page + 1)}
           >
             下一页
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
+      <CrudFormDialog
+        open={!!crud.dialog}
+        mode={crud.dialog?.mode ?? 'create'}
+        title={crud.dialog?.mode === 'edit' ? '编辑抽奖活动' : '新增抽奖活动'}
+        fields={FORM_FIELDS}
+        initial={crud.dialog?.row ?? null}
+        pending={crud.saving}
+        err={crud.err}
+        onSubmit={crud.save}
+        onClose={crud.closeDialog}
+      />
     </div>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
