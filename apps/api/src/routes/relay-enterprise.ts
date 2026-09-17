@@ -12,6 +12,7 @@ import {
   createInvoiceRequest,
   listInvoices,
   listInvoiceEligibleOrders,
+  listPendingOrders,
   listContracts,
   signContract,
   registerCorporatePayment,
@@ -100,7 +101,16 @@ const relayEnterpriseRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list }))
   })
 
-  // 4. 我的发票申请
+  // 4. 待支付订单(对公结算下拉)
+  // 2026-09-17 补齐:该端点此前**只写进本文件头注释、从未实现**(listPendingOrders
+  // 服务函数早已存在但零引用),导致企业页「待支付订单」下拉恒 404、对公打款凭证
+  // 无法登记(前端写死调 /developer/enterprise/pending-orders → 404)。补实现闭环。
+  server.get('/developer/enterprise/pending-orders', async (request, reply) => {
+    const list = await listPendingOrders(request.userId!)
+    return reply.send(success({ list }))
+  })
+
+  // 5. 我的发票申请
   server.get('/developer/enterprise/invoices', async (request, reply) => {
     const q = pageQuerySchema.safeParse(request.query ?? {})
     if (!q.success) return reply.status(400).send(error(400, '参数不合法'))
@@ -108,7 +118,7 @@ const relayEnterpriseRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page: q.data.page, pageSize: q.data.pageSize }))
   })
 
-  // 5. 提交开票申请
+  // 6. 提交开票申请
   server.post('/developer/enterprise/invoices', async (request, reply) => {
     const b = invoiceBodySchema.safeParse(request.body ?? {})
     if (!b.success) {
@@ -124,7 +134,7 @@ const relayEnterpriseRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 6. 我的合同
+  // 7. 我的合同
   server.get('/developer/enterprise/contracts', async (request, reply) => {
     const q = pageQuerySchema.safeParse(request.query ?? {})
     if (!q.success) return reply.status(400).send(error(400, '参数不合法'))
@@ -132,7 +142,7 @@ const relayEnterpriseRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page: q.data.page, pageSize: q.data.pageSize }))
   })
 
-  // 7. 确认签署合同
+  // 8. 确认签署合同
   server.post('/developer/enterprise/contracts/:id/sign', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数不合法'))
@@ -146,7 +156,7 @@ const relayEnterpriseRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 8. 我的对公打款凭证
+  // 9. 我的对公打款凭证
   server.get('/developer/enterprise/corporate-payments', async (request, reply) => {
     const q = pageQuerySchema.safeParse(request.query ?? {})
     if (!q.success) return reply.status(400).send(error(400, '参数不合法'))
@@ -154,7 +164,7 @@ const relayEnterpriseRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page: q.data.page, pageSize: q.data.pageSize }))
   })
 
-  // 9. 登记对公打款凭证
+  // 10. 登记对公打款凭证
   server.post('/developer/enterprise/corporate-payments', async (request, reply) => {
     const b = corporatePaymentBodySchema.safeParse(request.body ?? {})
     if (!b.success) {

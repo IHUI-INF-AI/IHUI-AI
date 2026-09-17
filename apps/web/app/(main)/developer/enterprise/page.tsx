@@ -308,6 +308,7 @@ export default function DeveloperEnterprisePage() {
             disabled={
               busy || !invoice.orderId || !invoice.title || !invoice.taxId || !invoice.email
             }
+            // method: POST (post() 为同文件 wrapper,路由脚本作用域推断会误判为 PUT)
             onClick={() => post('/api/developer/enterprise/invoices', invoice)}
           >
             <span>提交开票申请</span>
@@ -366,6 +367,7 @@ export default function DeveloperEnterprisePage() {
           <Button
             size="sm"
             disabled={busy || !voucher.orderNo || !voucher.payerCompany}
+            // method: POST (post() 为同文件 wrapper,路由脚本作用域推断会误判为 PUT)
             onClick={() => post('/api/developer/enterprise/corporate-payments', voucher)}
           >
             <span>登记打款凭证</span>
@@ -414,6 +416,7 @@ export default function DeveloperEnterprisePage() {
                 <Button
                   size="xs"
                   disabled={busy || c.status !== 'pending_sign'}
+                  // method: POST (post() 为同文件 wrapper,路由脚本作用域推断会误判为 PUT)
                   onClick={() => post(`/api/developer/enterprise/contracts/${c.id}/sign`, {})}
                 >
                   <span>确认签署</span>
