@@ -699,8 +699,14 @@ export function TerminalViewport({
         />
       )}
 
-      {/* 连接状态 + 字号状态 + 错误横幅 */}
-      <TerminalStatusIndicators connected={connected} wsError={wsError} fontSize={fontSize} />
+      {/* 连接状态 + 错误信息 + 重连/忽略 + 字号状态(统一底栏) */}
+      <TerminalStatusIndicators
+        connected={connected}
+        wsError={wsError}
+        fontSize={fontSize}
+        onReconnect={() => wsHandleRef.current?.reconnect()}
+        onDismissError={() => setWsError(null)}
+      />
 
       {/* 右键菜单 */}
       {contextMenu && (
