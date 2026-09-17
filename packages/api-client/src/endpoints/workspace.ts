@@ -583,6 +583,23 @@ export async function getWorkspacePermission(
   )
 }
 
+/** P3 3-3 权限继承:读取用户全局默认权限模式(未设置返回 null) */
+export async function getWorkspacePermissionDefault(): Promise<
+  ApiResult<{ mode: WorkspacePermissionMode | null }>
+> {
+  return fetchApi<{ mode: WorkspacePermissionMode | null }>('/api/workspace/permission-default')
+}
+
+/** P3 3-3 权限继承:设置用户全局默认权限模式(工作区未显式配置时回退生效) */
+export async function setWorkspacePermissionDefault(
+  mode: WorkspacePermissionMode,
+): Promise<ApiResult<{ mode: WorkspacePermissionMode }>> {
+  return fetchApi<{ mode: WorkspacePermissionMode }>('/api/workspace/permission-default', {
+    method: 'PUT',
+    body: JSON.stringify({ mode }),
+  })
+}
+
 /** 列出当前用户所有工作区权限 */
 export async function listAllWorkspacePermissions(): Promise<
   ApiResult<{ permissions: WorkspacePermission[] }>
