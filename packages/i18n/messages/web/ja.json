@@ -22189,6 +22189,18 @@
     "adopt": "本線に採用",
     "adopted": "採用済み"
   },
+  "agentTasks": {
+    "title": "Agent 実行タスク",
+    "refresh": "更新",
+    "empty": "Agent タスクはありません(/agent/run または自動化で作成)",
+    "iterations": "{count} イテレーション済み",
+    "injectPlaceholder": "途中割り込み:指示追加 / 軌道修正…",
+    "inject": "割り込み",
+    "toastLoadFailed": "タスク一覧の取得に失敗",
+    "toastInjected": "割り込みを送信しました。次イテレーションで反映",
+    "toastInjectRejected": "タスクは終了済みのため割り込みできません",
+    "toastInjectFailed": "割り込みの送信に失敗しました"
+  },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count}件のリモート取消に失敗しました（ローカルではキャンセル済み）",
     "title": "メディアタスク",
@@ -22388,6 +22400,8 @@
     "confirmCancel": "キャンセル"
   },
   "memoryGraph": {
+    "layoutForce": "力指向",
+    "layoutRing": "リング",
     "searchPlaceholder": "記憶キーワードを検索…",
     "searchBtn": "検索",
     "empty": "キーワードで記憶サブグラフを照会",
