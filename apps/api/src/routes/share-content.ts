@@ -55,7 +55,29 @@ export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // 规范化 answer 结构,匹配前端 ShareAnswer 接口 (thinking/text/images/video/audio/lists)
+    // P3 #39 阶段2(2026-09-16 立):answer.toolCalls 透传——执行轨迹回放数据通道。
+    // 隐私白名单:分享是公开只读的,args/result 一律剥离(可能含敏感内容),
+    // 只保留回放节奏所需的最小字段集。
     const rawAnswer = parsed.answer ?? { text: content.content ?? '' }
+    const rawToolCalls = Array.isArray(rawAnswer.toolCalls) ? rawAnswer.toolCalls : []
+    const toolCalls = rawToolCalls
+      .map((raw) => {
+        const c = raw as Record<string, unknown>
+        const toolName = typeof c.toolName === 'string' ? c.toolName : ''
+        const status = c.status
+        if (!toolName || typeof status !== 'string') return null
+        if (!['running', 'success', 'error', 'cancelled'].includes(status)) return null
+        const call: Record<string, unknown> = {
+          id: typeof c.id === 'string' ? c.id : '',
+          toolName,
+          status,
+        }
+        if (typeof c.isError === 'boolean') call.isError = c.isError
+        if (typeof c.iteration === 'number') call.iteration = c.iteration
+        if (typeof c.durationMs === 'number') call.durationMs = c.durationMs
+        return call
+      })
+      .filter((x): x is Record<string, unknown> => x !== null)
     const answer = {
       thinking: typeof rawAnswer.thinking === 'string' ? rawAnswer.thinking : undefined,
       text: typeof rawAnswer.text === 'string' ? rawAnswer.text : undefined,
@@ -73,6 +95,8 @@ export const shareContentRoutes: FastifyPluginAsync = async (fastify) => {
       lists: Array.isArray(rawAnswer.lists)
         ? (rawAnswer.lists as Array<{ type: string; content: string }>)
         : undefined,
+      // #39 阶段2:轨迹回放数据(白名单过滤后;空数组不透传,减少响应体积)
+      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
     }
 
     return reply.send(

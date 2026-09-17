@@ -271,7 +271,10 @@
     "menu": "メニュー",
     "showPassword": "パスワードを表示",
     "hidePassword": "パスワードを隠す",
-    "uploadAvatar": "アバターをアップロード"
+    "uploadAvatar": "アバターをアップロード",
+    "streamAnnounceStart": "AI が返信を開始しました",
+    "streamAnnounceProgress": "AI が返信中、{n} 文字出力済み",
+    "streamAnnounceDone": "AI の返信が完了、合計 {n} 文字"
   },
   "about": {
     "ctaDesc": "登録で 1,000 クレジットを獲得、全モデル無料体験、クレジットカート不要。",
@@ -7058,7 +7061,23 @@
         "title": "ツール呼び出し"
       },
       "unpin": "ピン解除",
-      "waitingForPlan": "AI のタスク計画待機中..."
+      "waitingForPlan": "AI のタスク計画待機中...",
+      "diffComment": {
+        "action": "コメント",
+        "rowAction": "この行にコメント",
+        "placeholderLine": "{line} 行目にコメント…",
+        "placeholderFile": "この変更にコメント…",
+        "submit": "追加",
+        "hint": "Enter で送信、Shift+Enter で改行",
+        "remove": "このコメントを削除",
+        "lineLabel": "{line} 行目",
+        "fileLevel": "ファイル全体",
+        "countBadge": "{count} 件のコメント",
+        "targetLine": "{line} 行目にコメント",
+        "targetFile": "この変更にコメント",
+        "close": "キャンセル",
+        "pendingBanner": "コード変更へのコメント {count} 件が未送信"
+      }
     },
     "permissionConfirm": {
       "allow": "許可",
@@ -7115,7 +7134,8 @@
       "title": "群監視",
       "toolResults": "ツール結果 ({count})",
       "totalSteps": "総ステップ",
-      "type": "タイプ"
+      "type": "タイプ",
+      "bottleneck": "ボトルネック"
     },
     "toolCall": {
       "chartGenerated": "グラフ生成済み",
@@ -7642,7 +7662,8 @@
       "releaseDate": "リリース日",
       "stable": "安定",
       "voteCount": "投票数",
-      "winRate": "勝率"
+      "winRate": "勝率",
+      "close": "閉じる"
     },
     "feed": {
       "categoryAll": "すべて",
@@ -7763,7 +7784,8 @@
       "stable": "安定",
       "subtitle": "7/14 日ホット度トレンド曲線"
     },
-    "title": "AI 资讯"
+    "title": "AI 资讯",
+    "close": "閉じる"
   },
   "aiSkillDetail": {
     "addToAgent": "Agentに追加",
@@ -7874,7 +7896,12 @@
     "tabComingSoon": "近日公開",
     "title": "AI Skills TOP",
     "totalCount": "全 {total} 件、{available} 件公開済み",
-    "viewDetail": "詳細を見る"
+    "viewDetail": "詳細を見る",
+    "sortName": "名前順",
+    "sortHot": "人気順",
+    "hotBadgeCalls": "{calls} 回",
+    "hotBadgeRate": "成功 {rate}%",
+    "hotBadgeTitle": "{calls} 回実行、成功率 {rate}%"
   },
   "aiWorld": {
     "admin": {
@@ -7978,11 +8005,13 @@
       "hooks": "フック",
       "wiki": "ナレッジ",
       "integrations": "連携",
-      "workspace": "ワークスペース"
+      "workspace": "ワークスペース",
+      "atomicrollback": "スタック全体ロールバック"
     },
     "applied": "適用済み",
     "apply": "適用",
-    "hint": "利用可能な AI ツール"
+    "hint": "利用可能な AI ツール",
+    "worldsAdopted": "ブランチの返信を採用しました"
   },
   "agentHooks": {
     "description": "Agent Hooks イベントシステム:9 種類のイベントに動作(ログ/トースト/システム通知)を設定可能。ツールイベントはツール名フィルター対応",
@@ -8155,7 +8184,8 @@
     "empty": "コンテンツなし",
     "dispatchSubagent": "サブエージェントを派遣",
     "bestOfAdopted": "最良案を採用",
-    "title": "ワークスペース"
+    "title": "ワークスペース",
+    "worldsAdopted": "ブランチの返信を採用しました"
   },
   "announcements": {
     "backToList": "るリスト",
@@ -9486,7 +9516,17 @@
     "archiveEmpty": "アーカイブ済み会話はありません",
     "viewArchived": "アーカイブを表示",
     "callingTool": "ツールを呼び出し中...",
-    "waitingResponse": "返信を待機中..."
+    "waitingResponse": "返信を待機中...",
+    "pdfOpenExternal": "新しいウィンドウで開く",
+    "csvPreviewMeta": "{rows} 行 × {cols} 列",
+    "csvExpand": "すべて表示",
+    "csvCollapse": "折りたたむ",
+    "csvLoading": "読み込み中…",
+    "voiceInputPending": "文字起こし中、残り {count} 件",
+    "voicePlaybackOn": "音声読み上げオン",
+    "voicePlaybackOff": "音声読み上げオフ",
+    "voiceHandsFreeOn": "連続会話オン（話して送信）",
+    "voiceHandsFreeOff": "連続会話オフ"
   },
   "chatHistory": {
     "backToHistory": "にる",
@@ -18443,7 +18483,21 @@
     "aiGenerated": "Zhihui AI 生成",
     "defaultModelName": "AIスマート会話",
     "modelIconAlt": "モデルアイコン",
-    "tokenCostLabel": "Zhihui値消費：{cost}"
+    "tokenCostLabel": "Zhihui値消費：{cost}",
+    "auditReportTitle": "実行トレース監査レポート",
+    "auditQuestion": "タスク",
+    "auditExportedAt": "エクスポート時刻",
+    "auditStepCount": "ステップ数",
+    "auditColStep": "番号",
+    "auditColTool": "ツール",
+    "auditColStatus": "状態",
+    "auditColDuration": "所要時間",
+    "auditExportBtn": "監査レポートをエクスポート",
+    "auditFooter": "智汇AI実行トレースより自動生成",
+    "auditStatus_success": "成功",
+    "auditStatus_error": "失敗",
+    "auditStatus_running": "実行中",
+    "auditStatus_cancelled": "取消済"
   },
   "skills": {
     "market": {
@@ -22194,7 +22248,14 @@
     "cancellingAll": "キャンセル中...",
     "cancelAllConfirm": "処理中のタスクをすべてキャンセルしますか?処理中の長いタスクは終了されます。",
     "cancelAllResult": "{count} 件の処理中タスクをキャンセルしました",
-    "cancelAllNone": "処理中のタスクはありません"
+    "cancelAllNone": "処理中のタスクはありません",
+    "viewList": "リスト",
+    "viewBoard": "ボード",
+    "colRunning": "実行中",
+    "colWaiting": "待機中",
+    "colCompleted": "完了",
+    "colEmpty": "タスクなし",
+    "jumpToChat": "会話を開く"
   },
   "voicesPage": {
     "playPreview": "試聴",
@@ -22377,5 +22438,139 @@
     "p95": "P95 レイテンシ",
     "models": "モデル数",
     "lastChecked": "最終確認"
+  },
+  "patrol": {
+    "delete": "削除",
+    "title": "プロアクティブパトロール",
+    "subtitle": "CI/依存関係/ログ/死リンクを定期巡検し、問題を検知すると自動で会話を開始",
+    "create": "新規パトロール",
+    "refresh": "更新",
+    "loading": "読み込み中…",
+    "empty": "パトロールタスクがありません。「新規パトロール」から作成してください",
+    "statusActive": "有効",
+    "statusPaused": "一時停止中",
+    "typeCi": "CI チェック",
+    "typeDependency": "依存関係チェック",
+    "typeLog": "ログチェック",
+    "typeDeadlink": "死リンクチェック",
+    "typeCustom": "カスタムチェック",
+    "typeWorkspace": "ワークスペース健全性",
+    "nextRunAt": "次回実行",
+    "resultOk": "正常",
+    "resultIssue": "問題を検知",
+    "resultError": "実行失敗",
+    "action": {
+      "runNow": "今すぐ実行",
+      "pause": "一時停止",
+      "resume": "再開",
+      "edit": "編集",
+      "delete": "削除",
+      "history": "履歴",
+      "openConversation": "会話を開く"
+    },
+    "deleteConfirm": {
+      "title": "パトロールタスクを削除",
+      "content": "「{name}」を削除しますか？巡検履歴も削除され、元に戻せません。"
+    },
+    "weekdayMo": "月",
+    "weekdayTu": "火",
+    "weekdayWe": "水",
+    "weekdayTh": "木",
+    "weekdayFr": "金",
+    "weekdaySa": "土",
+    "weekdaySu": "日",
+    "form": {
+      "createTitle": "新規パトロールタスク",
+      "editTitle": "パトロールタスクを編集",
+      "desc": "巡検タイプ・対象・スケジュールを設定",
+      "name": "名前",
+      "namePlaceholder": "例：毎日の CI パトロール",
+      "patrolType": "巡検タイプ",
+      "target": "巡検対象",
+      "targetPlaceholder": "例：リポジトリ URL / ページ URL / ログ範囲",
+      "prompt": "追加の巡検指示",
+      "promptPlaceholder": "重点的に確認する内容（任意）…",
+      "frequency": "頻度",
+      "freqHourly": "毎時",
+      "freqDaily": "毎日",
+      "freqWeekly": "毎週",
+      "time": "実行時刻",
+      "weekdays": "曜日",
+      "errName": "名前を入力してください",
+      "errDays": "曜日を 1 つ以上選択してください"
+    },
+    "runs": {
+      "title": "巡検履歴",
+      "empty": "巡検履歴はありません",
+      "loading": "読み込み中…"
+    },
+    "toast": {
+      "created": "作成しました",
+      "updated": "保存しました",
+      "saveFailed": "保存に失敗しました",
+      "loadFailed": "読み込みに失敗しました",
+      "runDone": "巡検が完了しました",
+      "runIssueFound": "問題を検知し、アラート会話に注入しました",
+      "runFailed": "巡検に失敗しました",
+      "paused": "一時停止しました",
+      "resumed": "再開しました",
+      "updateFailed": "更新に失敗しました",
+      "deleted": "削除しました",
+      "deleteFailed": "削除に失敗しました"
+    },
+    "cancel": "キャンセル",
+    "save": "保存"
+  },
+  "atomicRollback": {
+    "workspacePath": "ワークスペースパス",
+    "workspacePlaceholder": "例:/workspaces/my-project",
+    "loadList": "スナップショット取得",
+    "empty": "原子スナップショットはまだありません。タスクと同時に作成されるか、agent の atomic_checkpoint で生成されます",
+    "fileCount": "{count} ファイル",
+    "plan": "プレビュー",
+    "planTitle": "ロールバック計画(dry-run、未書き込み)",
+    "restoreCount": "{count} ファイルを復元",
+    "removeCount": "{count} 個の新規ファイルを削除",
+    "unchangedCount": "{count} 件は変更なし",
+    "migrationWarn": "マイグレーション系ファイルの差異を検出({files}):ファイル復元のみで、DB ダウングレードは自動実行しません",
+    "uncoveredWarn": "スナップショット時にサイズ超過でスキップした {count} ファイルはロールバック対象外です",
+    "confirmLabel": "ロールバックが現在のワークスペースを上書きすることを確認しました",
+    "execute": "ロールバック実行",
+    "runOk": "ロールバック完了",
+    "runFail": "ロールバックが一部失敗しました。監査明細を確認してください",
+    "stepCount": "{count} 件の監査ステップ",
+    "toastLoadFailed": "スナップショット一覧の取得に失敗",
+    "toastPlanFailed": "プレビューに失敗",
+    "toastRunOk": "ロールバックを実行しました",
+    "toastRunFail": "ロールバックに失敗しました"
+  },
+  "traceReplay": {
+    "title": "実行トレース再生",
+    "stepCounter": "{current} / {total} ステップ",
+    "play": "再生",
+    "pause": "一時停止",
+    "replay": "再再生",
+    "stepForward": "ステップ",
+    "reset": "リセット",
+    "status_success": "成功",
+    "status_error": "失敗",
+    "status_running": "実行中",
+    "status_cancelled": "取消済"
+  },
+  "costGuard": {
+    "estimateLine": "今回の予想 ≈{tokens} トークン（約 ${cost}）",
+    "fallbackPrice": "フォールバック価格のため参考値",
+    "actualLine": "実際 {actual} トークン（予想 {estimate}）",
+    "negotiationLine": "今回の予想 ≈{tokens} トークン（約 ${cost}）、予算しきい値超過",
+    "negotiationFallback": "推定消費が予算しきい値を超えています",
+    "confirmSend": "それでも送信",
+    "confirmCancel": "キャンセル"
+  },
+  "memoryGraph": {
+    "searchPlaceholder": "記憶キーワードを検索…",
+    "searchBtn": "検索",
+    "empty": "キーワードで記憶サブグラフを照会",
+    "noHits": "一致する記憶なし",
+    "legend": "ヒット {hits} 件 · 全体 {total} ノード(ノードをクリックで全文)"
   }
 }
