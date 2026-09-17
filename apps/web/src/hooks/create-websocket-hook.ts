@@ -15,8 +15,6 @@ export interface WebSocketHookOptions<TMessage> {
   maxReconnectDelay?: number
   /** 心跳消息工厂，默认发送 'ping' 字符串 */
   heartbeatMessage?: () => string
-  /** 2026-07-22 P0 Round 4:最大重连次数,默认 10 次,达到后停止重连 */
-  maxReconnectAttempts?: number
 }
 
 export interface WebSocketHookResult<TMessage> {
@@ -42,7 +40,6 @@ export function createWebSocketHook<TMessage>(options: WebSocketHookOptions<TMes
     heartbeatInterval = 30000,
     maxReconnectDelay = 30000,
     heartbeatMessage = () => 'ping',
-    maxReconnectAttempts = 10,
   } = options
 
   return function useWS(enabled = true): WebSocketHookResult<TMessage> {
@@ -96,6 +93,12 @@ export function createWebSocketHook<TMessage>(options: WebSocketHookOptions<TMes
         ws = new WebSocket(urlBuilder(token))
       } catch (e) {
         setError(e instanceof Error ? e.message : 'WebSocket 连接失败')
+        // 2026-09-17 根治:构造失败也纳入重连调度,不再彻底放弃
+        if (enabled && !closedByUnmount.current && token) {
+          const delay = Math.min(1000 * 2 ** reconnectAttempt.current, maxReconnectDelay)
+          reconnectAttempt.current += 1
+          reconnectTimer.current = setTimeout(connect, delay)
+        }
         return
       }
       wsRef.current = ws
@@ -131,35 +134,21 @@ export function createWebSocketHook<TMessage>(options: WebSocketHookOptions<TMes
         // 此时旧 ws 的 onclose 不应触发重连。正常网络断开时 wsRef.current === ws,照常重连。
         if (wsRef.current !== ws) return
         clearTimers()
-        // 2026-07-22 P0 Round 4:达到 maxReconnectAttempts 后停止重连,防无限重连
+        // 2026-09-17 根治:取消 10 次硬上限(原实现重连耗尽后永久放弃且无恢复手段,
+        // 服务恢复后永远连不上)。改为无限重连:指数退避封顶 maxReconnectDelay(默认 30s),
+        // 仅在 enabled=false / 登出(token 失效) / 组件卸载时停止。
         // 2026-08-02 Bug #17:enabled=false 时不重连(配合 enabled 切换关闭)
-        if (
-          enabled &&
-          !closedByUnmount.current &&
-          token &&
-          reconnectAttempt.current < maxReconnectAttempts
-        ) {
+        if (enabled && !closedByUnmount.current && token) {
           const delay = Math.min(1000 * 2 ** reconnectAttempt.current, maxReconnectDelay)
           reconnectAttempt.current += 1
           reconnectTimer.current = setTimeout(connect, delay)
-        } else if (reconnectAttempt.current >= maxReconnectAttempts) {
-          setError(`WebSocket 重连失败(已达最大次数 ${maxReconnectAttempts})`)
         }
       }
 
       ws.onerror = () => {
         setError('WebSocket 连接错误')
       }
-    }, [
-      enabled,
-      token,
-      urlBuilder,
-      messageGuard,
-      startHeartbeat,
-      clearTimers,
-      maxReconnectDelay,
-      maxReconnectAttempts,
-    ])
+    }, [enabled, token, urlBuilder, messageGuard, startHeartbeat, clearTimers, maxReconnectDelay])
 
     React.useEffect(() => {
       closedByUnmount.current = false
@@ -201,6 +190,30 @@ export function createWebSocketHook<TMessage>(options: WebSocketHookOptions<TMes
           wsRef.current = null
         }
         setConnected(false)
+      }
+    }, [enabled, token, connect, clearTimers])
+
+    // 2026-09-17 根治:网络恢复/页面回前台时立即重连(跳过剩余退避等待)
+    React.useEffect(() => {
+      const retryNow = () => {
+        if (!enabled || !token || closedByUnmount.current) return
+        const ws = wsRef.current
+        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+          return
+        }
+        clearTimers()
+        reconnectAttempt.current = 0
+        connect()
+      }
+      const onOnline = () => retryNow()
+      const onVisibility = () => {
+        if (document.visibilityState === 'visible') retryNow()
+      }
+      window.addEventListener('online', onOnline)
+      document.addEventListener('visibilitychange', onVisibility)
+      return () => {
+        window.removeEventListener('online', onOnline)
+        document.removeEventListener('visibilitychange', onVisibility)
       }
     }, [enabled, token, connect, clearTimers])
 
