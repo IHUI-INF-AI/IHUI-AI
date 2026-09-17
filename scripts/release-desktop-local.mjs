@@ -83,7 +83,7 @@ const giteeTok = existsSync(GITEE_KEY_FILE)
 if (!giteeTok) { console.error('ERROR: 无法获取 gitee.com token(密钥文件与环境变量均无)'); process.exit(1); }
 const gr = spawnSync('python', [giteeScript, '--tag', `desktop-v${version}`, '--exe', exePath, '--sig', sigPath, '--version', version], {
   stdio: 'inherit',
-  env: { ...process.env, GITEE_TOKEN: giteeTok, DESKTOP_FEED_OUT: path.join(ROOT, '.ihui-agent/desktop-feed/latest.json') },
+  env: { ...process.env, GITEE_TOKEN: giteeTok, DESKTOP_FEED_OUT: path.join(ROOT, '.ihui-agent/desktop-feed/latest.json') }, timeout: 120000,
 });
 if (gr.status !== 0) { console.error('ERROR: Gitee 发行阶段失败'); process.exit(1); }
 // feed 用 git 方式更新(contents API 行为不稳)——固定克隆强推
@@ -94,7 +94,7 @@ try {
   } else {
     sh('git fetch origin desktop-feed && git checkout -q -B desktop-feed origin/desktop-feed', { cwd: gfeedDir });
   }
-  sh('git add latest.json && git -c user.name="IHUI-AI" -c user.email="lizong@aizhs.top" commit -q -m "desktop updater feed ' + version + '" --allow-empty && git push -f origin desktop-feed', { cwd: gfeedDir });
+  sh('git add latest.json && git -c user.name="IHUI-AI" -c user.email="lizong@aizhs.top" commit -q -m "desktop updater feed ' + version + '" --allow-empty && git push -f origin desktop-feed', { cwd: gfeedDir, timeout: 120000 });
   console.log('[gitee] desktop-feed 已通过 git push 更新');
 } catch (e) {
   console.log(`⚠️ desktop-feed git 更新失败: ${e.message}(latest.json 已生成于 ${path.join(ROOT, '.ihui-agent/desktop-feed/latest.json')})`);
