@@ -23,6 +23,8 @@
 import type { SelectedChannelKey } from './relay-channel-router.js'
 export type { SelectedChannelKey }
 import { selectChannelCandidates, recordChannelResult } from './relay-channel-router.js'
+// 插件系统(2026-09-17,补强 59):upstream_header_inject 解释器接线(带 30s 缓存,失败降级不注入)
+import { getEnabledPlugins, applyUpstreamHeaderPlugins } from './relay-plugins-service.js'
 
 // =============================================================================
 // 类型
@@ -152,16 +154,20 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
   let lastError = 'no channel candidate succeeded'
   let lastHttpStatus: number | undefined
 
+  // 插件系统(2026-09-17,补强 59):启用插件一次性读取(30s 缓存),
+  // upstream_header_inject 在每个候选的请求头合并;读取失败降级为空集(不阻断转发)。
+  const plugins = await getEnabledPlugins().catch(() => [])
+
   for (const channel of candidates) {
     const startedAt = Date.now()
     try {
       const resp = await fetch(upstreamEndpointUrl(channel.baseUrl, endpoint), {
         method: 'POST',
-        headers: {
+        headers: applyUpstreamHeaderPlugins(plugins, {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${channel.apiKey}`,
           Accept: req.stream ? 'text/event-stream' : 'application/json',
-        },
+        }),
         body: JSON.stringify(body),
         signal: req.signal,
       })

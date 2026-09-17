@@ -15579,6 +15579,7 @@
   "nav": {
     "adminRelayInsights": "運營洞察",
     "adminRelayEnterprise": "企業合規",
+    "adminRelayPlugins": "插件系統",
     "adminRelayCapacity": "容量與趨勢",
     "adminRelayAlertRules": "告警規則",
     "developerErrorCodes": "API 錯誤碼",
