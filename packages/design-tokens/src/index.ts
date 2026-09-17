@@ -88,15 +88,14 @@ export {
   CLOSE_BUTTON_ON_DARK,
 } from './close-button'
 
-// 图标按钮统一样式 token(2026-09-17 立)— 全项目图标按钮尺寸单一真相源,
-// 两档(sm 28 / md 32),ui-react IconButton 组件 + 标题栏/工具栏散装图标按钮全部引用。
+// 图标按钮统一样式 token — 全项目图标按钮尺寸单一真相源,
+// 唯一尺寸(32×32),ui-react IconButton 组件 + 标题栏/工具栏散装图标按钮全部引用。
 export {
   ICON_BUTTON_SIZE,
   ICON_BUTTON_ICON_SIZE,
   ICON_BUTTON_BASE_CLASS,
   iconButtonClasses,
   iconButtonIconClasses,
-  type IconButtonSize,
 } from './icon-button'
 
 // 生成的文档(PDF/Email/落地页)配色唯一真相源。
