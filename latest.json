@@ -1,0 +1,11 @@
+{
+  "version": "0.1.27",
+  "notes": "并行世界线/主动巡逻/自愈工作区/原子回滚/作战室/实时语音等第四梯队全量更新",
+  "pub_date": "2026-09-17T08:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGJKMG93aVNBV2ljQml2eE9JMHJwejBiS1VYdzdSY1dFaEpaeU41VURkNk9HdUVMc2g5S3NDbHJwdDhZVVQ2blVwbTd4TXZtTk50U1lqVXRiMGdkdFF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NjMxNDQ5CWZpbGU65pm65rGHQUlfMC4xLjI3X3g2NC1zZXR1cC5leGUKb0k2SUZLc2d4OTYxTDRsUVFYSWE3dEdkRU5KMUNENDYzZjZwUWRLbTdDUS9HNXpscTVtVkJsUmxoR1JlSFdjVU14a1duZWIxOTdIZ2tVYlZHYVZpQWc9PQo=",
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/IHUI-AI_0.1.27_x64-setup.exe"
+    }
+  }
+}
