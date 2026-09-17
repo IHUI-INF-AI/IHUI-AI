@@ -47,6 +47,8 @@ import { BestOfCompare } from '@/components/ai/best-of-compare'
 // P3 #41(2026-09-16 立):记忆图谱可视化
 import { MemoryGraphPanel } from '@/components/ai/memory-graph-panel'
 import { AtomicRollbackPanel } from '@/components/ai/atomic-rollback-panel'
+import { WorldsCompare } from '@/components/ai/worlds-compare'
+import { AgentTasksPanel } from '@/components/ai/agent-tasks-panel'
 import { GoalCard } from '@/components/ai/goal-card'
 import { MemoryCards } from '@/components/ai/memory-cards'
 import { TokenUsagePanel } from '@/components/ai/token-usage-panel'
@@ -98,6 +100,8 @@ type ToolTabKey =
   | 'bestof'
   | 'memorygraph'
   | 'atomicrollback'
+  | 'worlds'
+  | 'agenttasks'
   | 'hooks'
   | 'wiki'
   | 'integrations'
@@ -122,6 +126,8 @@ const TAB_KEYS: ToolTabKey[] = [
   'bestof',
   'memorygraph',
   'atomicrollback',
+  'worlds',
+  'agenttasks',
   'hooks',
   'wiki',
   'integrations',
@@ -652,6 +658,25 @@ export function AiSidePanelTools() {
       // P3 #42 全栈原子回滚(2026-09-17 立):dry-run 预演 + confirm 执行
       case 'atomicrollback':
         return <AtomicRollbackPanel />
+      // P3 #38 并行世界线(2026-09-17 落地):fork 并行 + 并排对比 + 择优采纳
+      case 'worlds':
+        return (
+          <WorldsCompare
+            currentModel={currentModel ?? undefined}
+            onAdopt={(content, model) => {
+              // 复用 #36 落盘模式:采纳内容写入会话消息流
+              useChatStore.getState().addMessage({
+                role: 'assistant',
+                content,
+                model,
+              })
+              toast.success(t('worldsAdopted'))
+            }}
+          />
+        )
+      // P3 #44 阶段3 前端宿主(2026-09-17 立):agent 运行任务列表 + 中途插话
+      case 'agenttasks':
+        return <AgentTasksPanel />
       // W28 Hooks 事件系统配置面板(2026-09-14 立)
       case 'hooks':
         return <AgentHooksPanel />
