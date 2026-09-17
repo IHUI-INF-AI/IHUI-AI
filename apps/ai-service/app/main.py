@@ -55,12 +55,14 @@ from app.routers import (
     ai_skills,
     artifacts,
     connectors,
+    cost_estimate,
     fim,
     health,
     hooks,
     llm,
     mcp,
     mcp_official,
+    memory_graph,
     opencompass,
     orchestration,
     personas,
@@ -659,6 +661,10 @@ def create_app() -> FastAPI:
     # 注册路由(路由器自带 /llm /mcp /agents /a2a /tools 前缀,统一加 /api)
     app.include_router(health.router, tags=["health"])
     app.include_router(llm.router, prefix="/api", tags=["llm"])
+    # P3 #43 成本协商(2026-09-16 立):chat 流前成本预检
+    app.include_router(cost_estimate.router, prefix="/api", tags=["llm"])
+    # P3 #41 记忆图谱(2026-09-16 立):子图查询
+    app.include_router(memory_graph.router, prefix="/api", tags=["memory"])
     # FIM 代码补全(Monaco/CLI ghost-text 后端,2026-09-07 立,对标 Cursor Tab)
     app.include_router(fim.router, prefix="/api", tags=["llm-fim"])
     app.include_router(tools.router, prefix="/api", tags=["tools"])

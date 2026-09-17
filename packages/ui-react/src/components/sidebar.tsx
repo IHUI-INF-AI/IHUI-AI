@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { cn } from '../lib/utils'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip'
 
 const SidebarContext = React.createContext<boolean>(false)
 const useSidebarCollapsed = () => React.useContext(SidebarContext)
@@ -123,32 +124,35 @@ export const SidebarItem = React.forwardRef<HTMLElement, SidebarItemProps>(
     )
 
     if (collapsed) {
-      if (href) {
-        return (
-          <a
-            ref={(el) => setRef(ref, el)}
-            href={href}
-            onClick={onClick}
-            title={label}
-            aria-label={label}
-            aria-current={active ? 'page' : undefined}
-            className={baseClass}
-          >
-            {content}
-          </a>
-        )
-      }
-      return (
+      const trigger = href ? (
+        <a
+          ref={(el) => setRef(ref, el)}
+          href={href}
+          onClick={onClick}
+          aria-label={label}
+          aria-current={active ? 'page' : undefined}
+          className={baseClass}
+        >
+          {content}
+        </a>
+      ) : (
         <button
           ref={(el) => setRef(ref, el)}
           onClick={onClick}
-          title={label}
           aria-label={label}
           aria-current={active ? 'page' : undefined}
           className={baseClass}
         >
           {content}
         </button>
+      )
+      return (
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+            <TooltipContent side="right">{label}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )
     }
 

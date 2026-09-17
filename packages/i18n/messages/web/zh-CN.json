@@ -271,7 +271,10 @@
     "menu": "菜单",
     "showPassword": "显示密码",
     "hidePassword": "隐藏密码",
-    "uploadAvatar": "上传头像"
+    "uploadAvatar": "上传头像",
+    "streamAnnounceStart": "AI 开始回复",
+    "streamAnnounceProgress": "AI 正在回复,已输出 {n} 字",
+    "streamAnnounceDone": "AI 回复完成,共 {n} 字"
   },
   "about": {
     "ctaDesc": "注册即得 1000 积分,全模型免费试用,无需信用卡。",
@@ -7058,7 +7061,23 @@
         "title": "工具调用"
       },
       "unpin": "取消置顶",
-      "waitingForPlan": "等待 AI 规划任务..."
+      "waitingForPlan": "等待 AI 规划任务...",
+      "diffComment": {
+        "action": "评论",
+        "rowAction": "评论这一行",
+        "placeholderLine": "对第 {line} 行提意见…",
+        "placeholderFile": "对本次改动提意见…",
+        "submit": "添加",
+        "hint": "Enter 发送,Shift+Enter 换行",
+        "remove": "删除这条意见",
+        "lineLabel": "第 {line} 行",
+        "fileLevel": "整个文件",
+        "countBadge": "{count} 条意见",
+        "targetLine": "评论第 {line} 行",
+        "targetFile": "评论本次改动",
+        "close": "取消",
+        "pendingBanner": "有 {count} 条代码改动意见待发送"
+      }
     },
     "permissionConfirm": {
       "allow": "允许",
@@ -7115,7 +7134,8 @@
       "title": "群体监控",
       "toolResults": "工具结果 ({count})",
       "totalSteps": "总步骤",
-      "type": "类型"
+      "type": "类型",
+      "bottleneck": "瓶颈"
     },
     "toolCall": {
       "chartGenerated": "图表已生成",
@@ -7642,7 +7662,8 @@
       "releaseDate": "发布时间",
       "stable": "持平",
       "voteCount": "投票数",
-      "winRate": "胜率"
+      "winRate": "胜率",
+      "close": "关闭"
     },
     "feed": {
       "categoryAll": "全部",
@@ -7763,7 +7784,8 @@
       "stable": "平稳",
       "subtitle": "7/14 天热度趋势曲线"
     },
-    "title": "AI 资讯"
+    "title": "AI 资讯",
+    "close": "关闭"
   },
   "aiSkillDetail": {
     "addToAgent": "添加到Agent",
@@ -7874,7 +7896,12 @@
     "tabComingSoon": "即将上线",
     "title": "AI Skills",
     "totalCount": "共 {total} 个技能,{available} 个已上线",
-    "viewDetail": "查看详情"
+    "viewDetail": "查看详情",
+    "sortName": "按名称",
+    "sortHot": "按热度",
+    "hotBadgeCalls": "{calls} 次",
+    "hotBadgeRate": "成功 {rate}%",
+    "hotBadgeTitle": "已调用 {calls} 次,成功率 {rate}%"
   },
   "aiWorld": {
     "admin": {
@@ -7978,11 +8005,13 @@
       "hooks": "钩子",
       "wiki": "知识库",
       "integrations": "集成",
-      "workspace": "工作区"
+      "workspace": "工作区",
+      "atomicrollback": "整栈回滚"
     },
     "applied": "已应用",
     "apply": "应用",
-    "hint": "可用 AI 工具"
+    "hint": "可用 AI 工具",
+    "worldsAdopted": "已采纳该分支回复"
   },
   "agentHooks": {
     "description": "Agent Hooks 事件系统:9 类事件可配置动作(记录日志/界面提示/系统通知),工具事件支持按工具名过滤",
@@ -8155,7 +8184,8 @@
     "empty": "暂无内容",
     "dispatchSubagent": "派发子代理",
     "bestOfAdopted": "已采纳最佳方案",
-    "title": "工作区"
+    "title": "工作区",
+    "worldsAdopted": "已采纳该分支回复"
   },
   "announcements": {
     "backToList": "返回公告列表",
@@ -9486,7 +9516,17 @@
     "archiveEmpty": "暂无归档会话",
     "viewArchived": "查看已归档",
     "callingTool": "正在调用工具...",
-    "waitingResponse": "等待回复..."
+    "waitingResponse": "等待回复...",
+    "pdfOpenExternal": "新窗口打开",
+    "csvPreviewMeta": "共 {rows} 行 × {cols} 列",
+    "csvExpand": "展开全部",
+    "csvCollapse": "收起",
+    "csvLoading": "加载中…",
+    "voiceInputPending": "转写中，剩 {count} 段",
+    "voicePlaybackOn": "语音朗读已开启",
+    "voicePlaybackOff": "语音朗读已关闭",
+    "voiceHandsFreeOn": "连续对话已开启（说话即发送）",
+    "voiceHandsFreeOff": "连续对话已关闭"
   },
   "chatHistory": {
     "backToHistory": "返回任务列表",
@@ -18420,7 +18460,21 @@
     "aiGenerated": "智汇 AI 生成",
     "defaultModelName": "AI智能对话",
     "modelIconAlt": "模型图标",
-    "tokenCostLabel": "消耗智汇值：{cost}"
+    "tokenCostLabel": "消耗智汇值：{cost}",
+    "auditReportTitle": "执行轨迹审计报告",
+    "auditQuestion": "任务",
+    "auditExportedAt": "导出时间",
+    "auditStepCount": "步骤数",
+    "auditColStep": "序号",
+    "auditColTool": "工具",
+    "auditColStatus": "状态",
+    "auditColDuration": "耗时",
+    "auditExportBtn": "导出审计报告",
+    "auditFooter": "由智汇AI执行轨迹自动生成",
+    "auditStatus_success": "成功",
+    "auditStatus_error": "失败",
+    "auditStatus_running": "执行中",
+    "auditStatus_cancelled": "已撤回"
   },
   "skills": {
     "market": {
@@ -22171,7 +22225,14 @@
     "cancellingAll": "取消中...",
     "cancelAllConfirm": "取消所有进行中的任务?进行中的长任务会被终止。",
     "cancelAllResult": "已取消 {count} 个在途任务",
-    "cancelAllNone": "没有进行中的任务"
+    "cancelAllNone": "没有进行中的任务",
+    "viewList": "列表",
+    "viewBoard": "看板",
+    "colRunning": "进行中",
+    "colWaiting": "排队中",
+    "colCompleted": "已完成",
+    "colEmpty": "暂无任务",
+    "jumpToChat": "打开会话"
   },
   "voicesPage": {
     "playPreview": "试听",
@@ -22354,5 +22415,139 @@
     "p95": "P95 延迟",
     "models": "模型数",
     "lastChecked": "最近检查"
+  },
+  "patrol": {
+    "delete": "删除",
+    "title": "主动巡逻",
+    "subtitle": "定时巡检 CI/依赖/日志/死链，发现问题主动发起对话",
+    "create": "新建巡检",
+    "refresh": "刷新",
+    "loading": "加载中…",
+    "empty": "暂无巡检任务，点击“新建巡检”创建",
+    "statusActive": "启用中",
+    "statusPaused": "已暂停",
+    "typeCi": "CI 巡检",
+    "typeDependency": "依赖巡检",
+    "typeLog": "日志巡检",
+    "typeDeadlink": "死链巡检",
+    "typeCustom": "自定义巡检",
+    "typeWorkspace": "工作区健康",
+    "nextRunAt": "下次巡检",
+    "resultOk": "正常",
+    "resultIssue": "发现问题",
+    "resultError": "执行失败",
+    "action": {
+      "runNow": "立即巡检",
+      "pause": "暂停",
+      "resume": "恢复",
+      "edit": "编辑",
+      "delete": "删除",
+      "history": "历史",
+      "openConversation": "打开会话"
+    },
+    "deleteConfirm": {
+      "title": "删除巡检任务",
+      "content": "确定删除“{name}”吗？巡检历史将一并删除，此操作不可恢复。"
+    },
+    "weekdayMo": "周一",
+    "weekdayTu": "周二",
+    "weekdayWe": "周三",
+    "weekdayTh": "周四",
+    "weekdayFr": "周五",
+    "weekdaySa": "周六",
+    "weekdaySu": "周日",
+    "form": {
+      "createTitle": "新建巡检任务",
+      "editTitle": "编辑巡检任务",
+      "desc": "设置巡检类型、目标与巡检计划",
+      "name": "名称",
+      "namePlaceholder": "例如：每日 CI 巡检",
+      "patrolType": "巡检类型",
+      "target": "巡检目标",
+      "targetPlaceholder": "例如：仓库地址 / URL / 日志范围",
+      "prompt": "附加巡检指令",
+      "promptPlaceholder": "需要重点检查的内容（可选）…",
+      "frequency": "频率",
+      "freqHourly": "每小时",
+      "freqDaily": "每天",
+      "freqWeekly": "每周",
+      "time": "执行时刻",
+      "weekdays": "周几",
+      "errName": "请输入名称",
+      "errDays": "请至少选择一个周几"
+    },
+    "runs": {
+      "title": "巡检历史",
+      "empty": "暂无巡检记录",
+      "loading": "加载中…"
+    },
+    "toast": {
+      "created": "创建成功",
+      "updated": "已保存",
+      "saveFailed": "保存失败",
+      "loadFailed": "加载失败",
+      "runDone": "巡检完成",
+      "runIssueFound": "发现问题，已注入告警会话",
+      "runFailed": "巡检失败",
+      "paused": "已暂停",
+      "resumed": "已恢复",
+      "updateFailed": "更新失败",
+      "deleted": "已删除",
+      "deleteFailed": "删除失败"
+    },
+    "cancel": "取消",
+    "save": "保存"
+  },
+  "atomicRollback": {
+    "workspacePath": "工作区路径",
+    "workspacePlaceholder": "例如:/workspaces/my-project",
+    "loadList": "加载快照",
+    "empty": "暂无原子快照;快照随任务自动创建,或由 agent 调用 atomic_checkpoint 生成",
+    "fileCount": "{count} 个文件",
+    "plan": "预演",
+    "planTitle": "回滚预演(dry-run,未写入)",
+    "restoreCount": "恢复 {count} 个文件",
+    "removeCount": "删除 {count} 个新增文件",
+    "unchangedCount": "{count} 个未变",
+    "migrationWarn": "检测到迁移类文件差异({files}):仅还原文件,数据库降级不自动执行",
+    "uncoveredWarn": "快照时跳过了 {count} 个超限文件,不在回滚覆盖范围内",
+    "confirmLabel": "我已确认回滚将覆盖当前工作区状态",
+    "execute": "执行回滚",
+    "runOk": "回滚完成",
+    "runFail": "回滚未全部成功,查看审计明细",
+    "stepCount": "{count} 条审计记录",
+    "toastLoadFailed": "快照列表加载失败",
+    "toastPlanFailed": "预演失败",
+    "toastRunOk": "整栈回滚已执行",
+    "toastRunFail": "整栈回滚失败"
+  },
+  "traceReplay": {
+    "title": "执行轨迹回放",
+    "stepCounter": "{current} / {total} 步",
+    "play": "播放",
+    "pause": "暂停",
+    "replay": "重播",
+    "stepForward": "单步",
+    "reset": "重置",
+    "status_success": "成功",
+    "status_error": "失败",
+    "status_running": "执行中",
+    "status_cancelled": "已撤回"
+  },
+  "costGuard": {
+    "estimateLine": "本次预计 ≈{tokens} tokens（约 ${cost}）",
+    "fallbackPrice": "兜底价仅供参考",
+    "actualLine": "实际 {actual} tokens（预估 {estimate}）",
+    "negotiationLine": "本次预计 ≈{tokens} tokens（约 ${cost}）,超过预算阈值",
+    "negotiationFallback": "本次消耗估算超过预算阈值",
+    "confirmSend": "仍然发送",
+    "confirmCancel": "取消"
+  },
+  "memoryGraph": {
+    "searchPlaceholder": "搜索记忆关键词…",
+    "searchBtn": "查询",
+    "empty": "输入关键词查询记忆子图",
+    "noHits": "无匹配记忆",
+    "legend": "命中 {hits} 条 · 全图 {total} 节点(点击节点查看全文)"
   }
 }

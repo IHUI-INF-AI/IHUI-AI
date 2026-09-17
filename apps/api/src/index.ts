@@ -37,6 +37,7 @@ import {
   startAgentAutomationScheduler,
   stopAgentAutomationScheduler,
 } from './services/agent-automation-scheduler.js'
+import { startPatrolScheduler, stopPatrolScheduler } from './services/patrol-scheduler.js'
 import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
 import { routineManager } from './services/workspace-ai-service.js'
 import { stopScheduledWarmup } from './services/cache-warmup-service.js'
@@ -154,6 +155,7 @@ async function start() {
     }
     try {
       stopAgentAutomationScheduler()
+      stopPatrolScheduler()
     } catch (e) {
       logger.warn('stopAgentAutomationScheduler failed', { err: e })
     }
@@ -253,6 +255,9 @@ async function start() {
 
   // 启动用户侧 Agent 定时自动化调度器(60s tick,到点执行 active 的自动化任务)
   startAgentAutomationScheduler()
+
+  // 启动主动巡逻调度器(P3 #40,60s tick,到点执行 active 的巡检任务)
+  startPatrolScheduler()
 
   // 启动网信办「算法/模型备案」清单同步定时任务(每 6 小时刷新全网备案数据;
   // 默认开启,ENABLE_ALGORITHM_RECORD_SYNC=false 禁用)
