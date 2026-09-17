@@ -329,4 +329,136 @@ test('注释标注: 前一行 // method: POST → 方法推断为 POST + 命中�
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// ═══════════════════════════════════════════════════════════
+// 9. 内联查询串提取(2026-09-17 正则加固回归防护)
+// ═══════════════════════════════════════════════════════════
+
+// ─── 16. 内联查询串: '/api/users?q=abc' 应被提取,归一化去掉 ?... 后命中后端 ──
+// 加固前 pathRe 字符类不含 `?` → 这类调用整条不被提取,守门静默放行(实测漏检 288 条路径)。
+test('内联查询串: /api/users?q=abc 归一化后命中后端 GET /api/users → exit 0', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(dir, 'apps/api/src/routes/users.ts', `server.get('/api/users', async () => {})`)
+    writeFile(dir, 'apps/web/api.ts', `fetchApi('/api/users?q=abc')`)
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `内联查询串应被提取并命中\nstdout: ${r.out}`)
+    assert.match(r.out, /通过/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── 17. 盲区回归: 内联查询串调用无后端路由时必须报缺失(加固前会 exit 0) ──
+test('内联查询串盲区回归: /api/memory/graph?query=abc 无后端 → exit 1 + 报告缺失', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(dir, 'apps/web/api.ts', `fetchApi('/api/memory/graph?query=abc')`)
+    const r = runScript(dir)
+    assert.equal(r.status, 1, `内联查询串缺失应 exit 1\nstdout: ${r.out}`)
+    assert.match(r.out, /\/api\/memory\/graph/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════
+// 10. method 推断加固(2026-09-17):可选链归一化 / 调用收尾截断 / 跨行 options
+// ═══════════════════════════════════════════════════════════
+
+// ─── 18. 可选链: `${editing?.id}` 的 `?.` 不得被当成查询串清空 ──
+// 加固前 expr.includes('?') 命中 `${editing?.id}` → 整个插值被清空,
+// 路径退化为 /api/admin/exam/questions(丢掉 :param) → 与后端 /:id 比对必然误报缺失。
+test('可选链归一化: ${editing?.id} 保留 :param → 命中 PUT /api/admin/exam/questions/:id', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(
+      dir,
+      'apps/api/src/routes/exam.ts',
+      `server.put('/api/admin/exam/questions/:id', async () => {})`,
+    )
+    writeFile(
+      dir,
+      'apps/web/q.tsx',
+      "eduApi(`/api/admin/exam/questions/${editing?.id}`, {\n  method: 'PUT',\n})",
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `可选链应保留 :param 并命中\nstdout: ${r.out}`)
+    assert.match(r.out, /通过/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── 19. 调用收尾截断: GET 调用后紧邻另一个 POST 调用时不得误抓 ──
+// 加固前向后盲扫固定 4 行 → 跨出当前调用,抓到下一个 useMutation 的 method: 'POST',
+// 把 GET /api/circles/mine 误报成 POST(my-circles/page.tsx 实测)。
+test('调用收尾截断: queryFn GET 后紧跟 useMutation 的 POST → 判 GET 不误抓', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(
+      dir,
+      'apps/api/src/routes/circles.ts',
+      `server.get('/api/circles/mine', async () => {})\nserver.post('/api/circles/:id/leave', async () => {})`,
+    )
+    writeFile(
+      dir,
+      'apps/web/my-circles.tsx',
+      'async function api<T>(url: string, options?: RequestInit): Promise<T> {\n' +
+        '  const r = await fetchApi<T>(url, options)\n' +
+        '  return r.data\n' +
+        '}\n' +
+        'export default function P() {\n' +
+        '  const { data } = useQuery({\n' +
+        '    queryFn: () => api<D>(`/api/circles/mine?page=${page}`),\n' +
+        '  })\n' +
+        '  const delMut = useMutation({\n' +
+        "    mutationFn: (id: string) => api(`/api/circles/${id}/leave`, { method: 'POST' }),\n" +
+        '  })\n' +
+        '}\n',
+    )
+    const r = runScript(dir)
+    assert.equal(
+      r.status,
+      0,
+      `不应把下一个调用的 POST 误抓成 /api/circles/mine 的方法\nstdout: ${r.out}`,
+    )
+    assert.match(r.out, /通过/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── 20. 跨行 options: URL 与 `return api(url, { method: 'POST' })` 相隔 6 行 ──
+// refund 页形态:三元拼 URL(第 5/6 行) → body 构造 → 第 8 行才出现 method。
+// 加固前 4 行窗口够不到 → 误判 GET(实为 POST) → 与后端 POST /refunds/:id/audit 比对误报缺失。
+test('跨行 options: 三元 URL 后第 6 行的 method: POST 仍应被识别', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(
+      dir,
+      'apps/api/src/routes/refund.ts',
+      `server.post('/api/refunds/:id/audit', async () => {})\nserver.post('/api/refunds/:id/reject', async () => {})`,
+    )
+    writeFile(
+      dir,
+      'apps/web/refund.tsx',
+      'const mut = useMutation({\n' +
+        '  mutationFn: () => {\n' +
+        '    const url =\n' +
+        "      mode === 'audit'\n" +
+        '        ? `/api/refunds/${id}/audit`\n' +
+        '        : `/api/refunds/${id}/reject`\n' +
+        "    const body = mode === 'audit' ? { a: 1 } : { b: 2 }\n" +
+        "    return api(url, { method: 'POST', body: JSON.stringify(body) })\n" +
+        '  },\n' +
+        '})\n',
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `跨行 method 应被识别为 POST 并命中\nstdout: ${r.out}`)
+    assert.match(r.out, /通过/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
