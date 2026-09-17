@@ -144,6 +144,24 @@ pub fn start(app: tauri::AppHandle) {
                 // 远程页在窗口隐藏期间已开始加载,直接点亮
                 let _ = w.show();
                 log::info!("[auto-refresh] 启动探活成功 → 显示线上前端");
+                // 2026-09-17 薄壳核心假设自检:远程页是否可用 Tauri IPC。
+                // 机制:等页面稳定(8s) → JS 写 location.hash(#ipc-ok / #ipc-missing)→
+                // Rust 读窗口 URL(原生属性,不受页面 title/CSP 干扰)并落日志 → 清 hash。
+                let diag_win = w.clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(Duration::from_secs(8)).await;
+                    let _ = diag_win.eval(concat!(
+                        "try{location.hash=(typeof window.__TAURI_INTERNALS__!=='undefined')",
+                        "?'ipc-ok':'ipc-missing';}catch(e){}"
+                    ));
+                    tokio::time::sleep(Duration::from_secs(2)).await;
+                    if let Ok(u) = diag_win.url() {
+                        log::info!("[auto-refresh] 远程页 IPC 自检: {u}");
+                    }
+                    let _ = diag_win.eval(
+                        "try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}",
+                    );
+                });
             } else {
                 let _ = w.eval(&format!("location.href='{OFFLINE_URL}'"));
                 let _ = w.set_title(&format!(
