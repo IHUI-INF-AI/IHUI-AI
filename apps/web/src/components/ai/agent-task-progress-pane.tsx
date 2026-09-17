@@ -26,6 +26,7 @@ import {
   Ban,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { IconButton } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { TruncatedText } from '@/components/common'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
@@ -501,15 +502,14 @@ function MinimizedSummaryBar({
         />
       </div>
       <Tooltip content={t('expand')}>
-        <button
-          type="button"
+        <IconButton
           onClick={onExpand}
-          className="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
           aria-label={t('expand')}
           data-testid="pane-expand"
+          className="ml-auto rounded-sm hover:bg-accent/30 hover:text-foreground"
         >
-          <Maximize2 className="h-3 w-3" aria-hidden />
-        </button>
+          <Maximize2 aria-hidden />
+        </IconButton>
       </Tooltip>
     </div>
   )
