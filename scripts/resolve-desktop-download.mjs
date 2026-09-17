@@ -163,10 +163,74 @@ async function readLocalSnapshot() {
 }
 
 /**
+ * 从 Gitee API 解析最新 desktop release(2026-09-17 立:本机一键发版只发 Gitee,
+ * 下载页须能反映最新版本;Gitee 直链国内下载也快)。无匹配则返回 null 由 GitHub 兜底。
+ */
+async function resolveFromGitee() {
+  const owner = process.env.GITEE_OWNER || 'JLSLSSZWHYXGS_0'
+  const repo = process.env.GITEE_REPO || 'IHUI-AI'
+  let releases
+  try {
+    const res = await fetch(`https://gitee.com/api/v5/repos/${owner}/${repo}/releases?per_page=20`, {
+      headers: { Accept: 'application/json' },
+    })
+    if (!res.ok) return null
+    releases = await res.json()
+  } catch {
+    return null
+  }
+  const list = (Array.isArray(releases) ? releases : []).filter(
+    (r) => r.tag_name && r.tag_name.startsWith(RELEASE_PREFIX),
+  )
+  if (list.length === 0) return null
+  // 版本号最大者为准(避免依赖 API 排序)
+  const cmpVer = (a, b) => {
+    const pa = a.split('.').map(Number)
+    const pb = b.split('.').map(Number)
+    for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0)
+    return 0
+  }
+  list.sort((a, b) =>
+    cmpVer(a.tag_name.replace(RELEASE_PREFIX, ''), b.tag_name.replace(RELEASE_PREFIX, '')),
+  )
+  const release = list[list.length - 1]
+  const version = release.tag_name.replace(RELEASE_PREFIX, '')
+  const releaseDate = (release.created_at || release.published_at || '').slice(0, 10)
+  const assets = []
+  for (const asset of release.assets || []) {
+    const href = `https://gitee.com/${owner}/${repo}/releases/download/${release.tag_name}/${encodeURIComponent(asset.name)}`
+    // Gitee 列表 API 不返回 size → HEAD 取 content-length(302 后为真实文件大小)
+    let size = Number(asset.size || asset.file_size || 0)
+    if (!size) {
+      try {
+        const head = await fetch(href, { method: 'HEAD', redirect: 'follow' })
+        size = Number(head.headers.get('content-length') || 0)
+      } catch {
+        size = 0
+      }
+    }
+    const mapped = mapAsset({ name: asset.name, browser_download_url: href, size }, version)
+    if (mapped) assets.push(mapped)
+  }
+  if (assets.length === 0) return null
+  return { version, releaseDate, giteeReleasesUrl: `https://gitee.com/${owner}/${repo}/releases`, resolvedFromTag: release.tag_name, assets }
+}
+
+/**
  * 从 GitHub API 解析最新 desktop release 快照。
  * @returns {Promise<{ version: string; releaseDate: string; githubReleasesUrl: string; resolvedFromTag: string; resolvedAt: string; assets: Array<{ href: string; sizeBytes: number; format: string; arch?: string }> }>}
  */
 async function resolveOnline() {
+  // 2026-09-17:Gitee 优先(本机极速发版的版本仅存在于 Gitee;国内直链下载也更快)
+  const fromGitee = await resolveFromGitee()
+  if (fromGitee) {
+    console.log(`[resolve] Gitee 源命中: ${fromGitee.resolvedFromTag}(${fromGitee.assets.length} 个资产)`)
+    return {
+      ...fromGitee,
+      resolvedAt: new Date().toISOString(),
+      githubReleasesUrl: fromGitee.giteeReleasesUrl,
+    }
+  }
   const repo = process.env.GITHUB_REPOSITORY || DEFAULT_REPO
   const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
   const token = process.env.GITHUB_TOKEN
