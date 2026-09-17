@@ -48,6 +48,7 @@ import { BestOfCompare } from '@/components/ai/best-of-compare'
 import { MemoryGraphPanel } from '@/components/ai/memory-graph-panel'
 import { AtomicRollbackPanel } from '@/components/ai/atomic-rollback-panel'
 import { WorldsCompare } from '@/components/ai/worlds-compare'
+import { AgentTasksPanel } from '@/components/ai/agent-tasks-panel'
 import { GoalCard } from '@/components/ai/goal-card'
 import { MemoryCards } from '@/components/ai/memory-cards'
 import { TokenUsagePanel } from '@/components/ai/token-usage-panel'
@@ -100,6 +101,7 @@ type ToolTabKey =
   | 'memorygraph'
   | 'atomicrollback'
   | 'worlds'
+  | 'agenttasks'
   | 'hooks'
   | 'wiki'
   | 'integrations'
@@ -125,6 +127,7 @@ const TAB_KEYS: ToolTabKey[] = [
   'memorygraph',
   'atomicrollback',
   'worlds',
+  'agenttasks',
   'hooks',
   'wiki',
   'integrations',
@@ -671,6 +674,9 @@ export function AiSidePanelTools() {
             }}
           />
         )
+      // P3 #44 阶段3 前端宿主(2026-09-17 立):agent 运行任务列表 + 中途插话
+      case 'agenttasks':
+        return <AgentTasksPanel />
       // W28 Hooks 事件系统配置面板(2026-09-14 立)
       case 'hooks':
         return <AgentHooksPanel />

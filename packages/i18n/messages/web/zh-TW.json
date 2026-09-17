@@ -22166,6 +22166,18 @@
     "adopt": "採納為主線",
     "adopted": "已採納"
   },
+  "agentTasks": {
+    "title": "Agent 執行任務",
+    "refresh": "重新整理",
+    "empty": "暫無 agent 任務(由 /agent/run 或自動化建立)",
+    "iterations": "已迭代 {count} 輪",
+    "injectPlaceholder": "中途插話:補充指令/糾偏…",
+    "inject": "插話",
+    "toastLoadFailed": "任務列表載入失敗",
+    "toastInjected": "插話已提交,下一輪迭代生效",
+    "toastInjectRejected": "任務已結束,無法插話",
+    "toastInjectFailed": "插話提交失敗"
+  },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count} 個任務遠端取消失敗（已本地置為已取消）",
     "title": "媒體任務",
@@ -22365,6 +22377,8 @@
     "confirmCancel": "取消"
   },
   "memoryGraph": {
+    "layoutForce": "力導向",
+    "layoutRing": "環形",
     "searchPlaceholder": "搜尋記憶關鍵詞…",
     "searchBtn": "查詢",
     "empty": "輸入關鍵詞查詢記憶子圖",
