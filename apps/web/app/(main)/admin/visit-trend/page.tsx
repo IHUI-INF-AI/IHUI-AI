@@ -7,7 +7,16 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
-import { TrendingUp, Users, Eye, Timer, Globe, FileText, ArrowDownUp } from 'lucide-react'
+import {
+  TrendingUp,
+  Users,
+  UserPlus,
+  MapPin,
+  Eye,
+  Globe,
+  FileText,
+  ArrowDownUp,
+} from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { StatCard } from '@/components/data'
@@ -22,8 +31,8 @@ const FALLBACK: VisitTrendResponse = {
   range: { start: '', end: '' },
   totalPv: 0,
   totalUv: 0,
-  avgDuration: 0,
-  bounceRate: 0,
+  newUv: 0,
+  cityCount: 0,
   trend: [],
   bySource: [],
   topPages: [],
@@ -99,15 +108,15 @@ export default function VisitTrendPage() {
           loading={isLoading}
         />
         <StatCard
-          title="平均时长"
-          value={`${stats.avgDuration}s`}
-          icon={Timer}
+          title="新增访客"
+          value={numFmt.format(stats.newUv)}
+          icon={UserPlus}
           loading={isLoading}
         />
         <StatCard
-          title="跳出率"
-          value={`${stats.bounceRate}%`}
-          icon={ArrowDownUp}
+          title="覆盖城市"
+          value={numFmt.format(stats.cityCount)}
+          icon={MapPin}
           loading={isLoading}
         />
       </div>
@@ -214,7 +223,7 @@ export default function VisitTrendPage() {
                   </div>
                   <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground tabular-nums">
                     <span>{numFmt.format(p.pv)} PV</span>
-                    <span>{p.avgDuration}s</span>
+                    <span>{numFmt.format(p.uv)} UV</span>
                   </div>
                 </div>
               ))}
