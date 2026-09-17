@@ -268,6 +268,8 @@ export * from './relay-prompt-audit.js'
 export * from './relay-user-attributes.js'
 // 企业合规四表(2026-09-17 立,补强 61,认证/发票/合同/对公结算)
 export * from './relay-enterprise-compliance.js'
+// 插件注册表(2026-09-17 立,补强 59,声明式插件零代码执行)
+export * from './relay-plugins.js'
 // 数据库备份作业系统(2026-09-16 立,补强 V,pg_dump|gzip+保留策略)
 export * from './backup-jobs.js'
 
