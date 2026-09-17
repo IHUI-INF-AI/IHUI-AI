@@ -1,65 +1,82 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 'use client'
 import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ShoppingBag, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button, SearchInput } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
-import type { PointsProduct, PointsProductListData, PointsProductStatus } from './types'
 import { BackButton } from '@/components/common'
+import { CrudFormDialog, useCrudResource, type CrudField } from '@/components/admin/crud-resource'
+import type { PointsProduct, PointsProductStatus } from './types'
 
 const BADGE: Record<PointsProductStatus, string> = {
   on: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   off: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
   soldout: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
 }
-const CATEGORY_LABEL: Record<PointsProduct['category'], string> = {
-  virtual: '虚拟物品',
-  physical: '实物商品',
-  coupon: '优惠券',
-  vip: '会员权益',
+const STATUS_LABEL: Record<PointsProductStatus, string> = {
+  on: '上架',
+  off: '下架',
+  soldout: '售罄',
 }
 const c = 'px-4 py-3'
+const fmt = (v: string | null) => (v ? v.replace('T', ' ').slice(0, 16) : '—')
+
+const FORM_FIELDS: CrudField[] = [
+  { key: 'name', label: '商品名称', type: 'text', placeholder: '如:VIP 月卡' },
+  {
+    key: 'category',
+    label: '分类',
+    type: 'select',
+    options: [
+      { value: 'virtual', label: '虚拟' },
+      { value: 'physical', label: '实物' },
+      { value: 'coupon', label: '优惠券' },
+      { value: 'vip', label: '会员' },
+    ],
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: [
+      { value: 'on', label: '上架' },
+      { value: 'off', label: '下架' },
+      { value: 'soldout', label: '售罄' },
+    ],
+  },
+  { key: 'pointsCost', label: '兑换积分', type: 'number' },
+  { key: 'stock', label: '库存', type: 'number' },
+  { key: 'limitPerUser', label: '限购/人(0 不限)', type: 'number' },
+  { key: 'startTime', label: '上架时间', type: 'datetime' },
+  { key: 'endTime', label: '下架时间', type: 'datetime' },
+]
 
 export default function AdminPointsMallPage() {
-  const [search, setSearch] = React.useState('')
-  const [page, setPage] = React.useState(1)
-  const { data, isLoading } = useQuery({
-    queryKey: ['admin', 'points-mall', search, page],
-    queryFn: async () => {
-      const qs = new URLSearchParams({ page: String(page), pageSize: '10' })
-      if (search.trim()) qs.set('name', search.trim())
-      const r = await fetchApi<PointsProductListData>(`/api/admin/points/mall?${qs}`)
-      if (!r.success) throw new Error(r.error)
-      return r.data
-    },
+  const crud = useCrudResource<PointsProduct>({
+    basePath: '/api/admin/points/mall',
+    queryKey: ['admin', 'points-mall'],
   })
-  const list = data?.list ?? []
-  const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / 10))
-  const head = ['商品名称', '类型', '积分', '库存', '已兑/限兑', '状态']
+  const { list, total, totalPages } = crud
+  const head = ['商品名称', '分类', '积分', '库存/已售', '状态', '时间', '操作']
   return (
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
           <ShoppingBag className="h-6 w-6 shrink-0 text-primary" />
-          <span className="truncate">积分商城</span>
+          <span className="truncate">积分商城商品</span>
         </h1>
-        <SearchInput
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            setPage(1)
-          }}
-          placeholder="搜索商品名"
-          size="lg"
-          wrapperClassName="w-full"
-          className="shrink-0 sm:w-64"
-        />
+        <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
+          <SearchInput
+            value={crud.search}
+            onChange={(e) => crud.setSearch(e.target.value)}
+            placeholder="__PLACEHOLDER__"
+            size="lg"
+            wrapperClassName="w-full sm:w-64"
+          />
+          <Button size="sm" onClick={crud.openCreate}>
+            <Plus className="h-4 w-4" />
+            <span>新增</span>
+          </Button>
+        </div>
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
@@ -76,25 +93,44 @@ export default function AdminPointsMallPage() {
             <tbody>
               {!list.length ? (
                 <tr>
-                  <td colSpan={6} className={`${c} py-8 text-center text-muted-foreground`}>
-                    {isLoading ? '…' : '暂无商品'}
+                  <td
+                    colSpan={head.length}
+                    className={`${c} py-8 text-center text-muted-foreground`}
+                  >
+                    {crud.isLoading ? '…' : '暂无数据'}
                   </td>
                 </tr>
               ) : (
-                list.map((p: PointsProduct) => (
-                  <tr key={p.id}>
-                    <td className={`${c} font-medium`}>{p.name}</td>
-                    <td className={c}>{CATEGORY_LABEL[p.category]}</td>
-                    <td className={`${c} tabular-nums font-medium`}>{p.pointsCost}</td>
-                    <td className={`${c} tabular-nums`}>{p.stock}</td>
+                list.map((row: PointsProduct) => (
+                  <tr key={row.id}>
+                    <td className={`${c} font-medium`}>{row.name}</td>
+                    <td className={c}>{row.category}</td>
+                    <td className={`${c} tabular-nums`}>{row.pointsCost}</td>
                     <td className={`${c} tabular-nums`}>
-                      {p.sold}
-                      <span className="text-muted-foreground">/{p.limitPerUser}</span>
+                      {row.stock}
+                      <span className="text-muted-foreground">/{row.sold}</span>
                     </td>
                     <td className={c}>
-                      <span className={`rounded px-2 py-0.5 text-xs ${BADGE[p.status]}`}>
-                        {p.status === 'on' ? '上架' : p.status === 'off' ? '下架' : '售罄'}
+                      <span className={`rounded px-2 py-0.5 text-xs ${BADGE[row.status]}`}>
+                        {STATUS_LABEL[row.status]}
                       </span>
+                    </td>
+                    <td className={`${c} text-xs text-muted-foreground`}>
+                      {fmt(row.startTime)} ~ {fmt(row.endTime)}
+                    </td>
+                    <td className={c}>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon-sm" onClick={() => crud.openEdit(row)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => void crud.remove(row.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-rose-500" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -109,27 +145,37 @@ export default function AdminPointsMallPage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
+            disabled={crud.page <= 1}
+            onClick={() => crud.setPage(crud.page - 1)}
           >
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
           <span className="text-sm text-muted-foreground">
-            {page} / {totalPages}
+            {crud.page} / {totalPages}
           </span>
           <Button
             variant="outline"
             size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
+            disabled={crud.page >= totalPages}
+            onClick={() => crud.setPage(crud.page + 1)}
           >
             下一页
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
+      <CrudFormDialog
+        open={!!crud.dialog}
+        mode={crud.dialog?.mode ?? 'create'}
+        title={crud.dialog?.mode === 'edit' ? `编辑积分商城商品` : `新增积分商城商品`}
+        fields={FORM_FIELDS}
+        initial={crud.dialog?.row ?? null}
+        pending={crud.saving}
+        err={crud.err}
+        onSubmit={crud.save}
+        onClose={crud.closeDialog}
+      />
     </div>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,58 +1,68 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 'use client'
 import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Receipt } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileText, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button, SearchInput } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
-import type { TaxRule, TaxListData, TaxStatus } from './types'
 import { BackButton } from '@/components/common'
+import { CrudFormDialog, useCrudResource, type CrudField } from '@/components/admin/crud-resource'
+import type { TaxRule, TaxStatus } from './types'
 
 const BADGE: Record<TaxStatus, string> = {
   active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   disabled: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
 }
+const STATUS_LABEL: Record<TaxStatus, string> = {
+  active: '启用',
+  disabled: '停用',
+}
 const c = 'px-4 py-3'
+const fmt = (v: string | null) => (v ? v.replace('T', ' ').slice(0, 16) : '—')
+
+const FORM_FIELDS: CrudField[] = [
+  { key: 'name', label: '名称', type: 'text', placeholder: '如:增值税-一般纳税人' },
+  { key: 'category', label: '类别', type: 'text', placeholder: '如:default' },
+  { key: 'rate', label: '税率(%)', type: 'number' },
+  { key: 'threshold', label: '起征点(0 不限)', type: 'number' },
+  { key: 'description', label: '说明', type: 'text' },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    options: [
+      { value: 'active', label: '启用' },
+      { value: 'disabled', label: '停用' },
+    ],
+  },
+  { key: 'effectiveAt', label: '生效时间', type: 'datetime' },
+]
 
 export default function AdminTaxPage() {
-  const [search, setSearch] = React.useState('')
-  const [page, setPage] = React.useState(1)
-  const { data, isLoading } = useQuery({
-    queryKey: ['admin', 'tax', search, page],
-    queryFn: async () => {
-      const qs = new URLSearchParams({ page: String(page), pageSize: '10' })
-      if (search.trim()) qs.set('name', search.trim())
-      const r = await fetchApi<TaxListData>(`/api/admin/billing/tax?${qs}`)
-      if (!r.success) throw new Error(r.error)
-      return r.data
-    },
+  const crud = useCrudResource<TaxRule>({
+    basePath: '/api/admin/billing/tax',
+    queryKey: ['admin', 'tax'],
   })
-  const list = data?.list ?? []
-  const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / 10))
-  const head = ['规则名称', '类别', '税率', '起征额', '生效时间', '状态']
+  const { list, total, totalPages } = crud
+  const head = ['名称', '类别', '税率', '起征点', '状态', '生效时间', '操作']
   return (
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
-          <Receipt className="h-6 w-6 shrink-0 text-primary" />
-          <span className="truncate">税务规则</span>
+          <FileText className="h-6 w-6 shrink-0 text-primary" />
+          <span className="truncate">税率规则</span>
         </h1>
-        <SearchInput
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            setPage(1)
-          }}
-          placeholder="搜索规则名称"
-          size="lg"
-          wrapperClassName="w-full"
-          className="shrink-0 sm:w-64"
-        />
+        <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
+          <SearchInput
+            value={crud.search}
+            onChange={(e) => crud.setSearch(e.target.value)}
+            placeholder="__PLACEHOLDER__"
+            size="lg"
+            wrapperClassName="w-full sm:w-64"
+          />
+          <Button size="sm" onClick={crud.openCreate}>
+            <Plus className="h-4 w-4" />
+            <span>新增</span>
+          </Button>
+        </div>
       </div>
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
@@ -69,29 +79,39 @@ export default function AdminTaxPage() {
             <tbody>
               {!list.length ? (
                 <tr>
-                  <td colSpan={6} className={`${c} py-8 text-center text-muted-foreground`}>
-                    {isLoading ? '…' : '暂无规则'}
+                  <td
+                    colSpan={head.length}
+                    className={`${c} py-8 text-center text-muted-foreground`}
+                  >
+                    {crud.isLoading ? '…' : '暂无数据'}
                   </td>
                 </tr>
               ) : (
-                list.map((tx: TaxRule) => (
-                  <tr key={tx.id}>
+                list.map((row: TaxRule) => (
+                  <tr key={row.id}>
+                    <td className={`${c} font-medium`}>{row.name}</td>
+                    <td className={c}>{row.category}</td>
+                    <td className={`${c} tabular-nums`}>{row.rate}%</td>
+                    <td className={`${c} tabular-nums`}>{row.threshold}</td>
                     <td className={c}>
-                      <div className="font-medium">{tx.name}</div>
-                      <div className="text-xs text-muted-foreground">{tx.description ?? '—'}</div>
-                    </td>
-                    <td className={c}>{tx.category}</td>
-                    <td className={`${c} tabular-nums font-medium`}>{tx.rate}%</td>
-                    <td className={`${c} tabular-nums text-muted-foreground`}>
-                      ¥{tx.threshold.toFixed(2)}
-                    </td>
-                    <td className={`${c} text-xs text-muted-foreground`}>
-                      {tx.effectiveAt?.slice(0, 10) ?? '—'}
-                    </td>
-                    <td className={c}>
-                      <span className={`rounded px-2 py-0.5 text-xs ${BADGE[tx.status]}`}>
-                        {tx.status === 'active' ? '启用' : '停用'}
+                      <span className={`rounded px-2 py-0.5 text-xs ${BADGE[row.status]}`}>
+                        {STATUS_LABEL[row.status]}
                       </span>
+                    </td>
+                    <td className={`${c} text-xs text-muted-foreground`}>{fmt(row.effectiveAt)}</td>
+                    <td className={c}>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon-sm" onClick={() => crud.openEdit(row)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => void crud.remove(row.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-rose-500" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -106,27 +126,37 @@ export default function AdminTaxPage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
+            disabled={crud.page <= 1}
+            onClick={() => crud.setPage(crud.page - 1)}
           >
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
           <span className="text-sm text-muted-foreground">
-            {page} / {totalPages}
+            {crud.page} / {totalPages}
           </span>
           <Button
             variant="outline"
             size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
+            disabled={crud.page >= totalPages}
+            onClick={() => crud.setPage(crud.page + 1)}
           >
             下一页
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
+      <CrudFormDialog
+        open={!!crud.dialog}
+        mode={crud.dialog?.mode ?? 'create'}
+        title={crud.dialog?.mode === 'edit' ? `编辑税率规则` : `新增税率规则`}
+        fields={FORM_FIELDS}
+        initial={crud.dialog?.row ?? null}
+        pending={crud.saving}
+        err={crud.err}
+        onSubmit={crud.save}
+        onClose={crud.closeDialog}
+      />
     </div>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

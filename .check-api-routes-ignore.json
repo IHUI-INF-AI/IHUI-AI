@@ -18,21 +18,6 @@
     },
     {
       "method": "GET",
-      "pathPattern": "^/api/admin/promotions/lottery$",
-      "reason": "后端模块未实装(如实登记,非已实现):前端 lottery 页为外部模板移植壳,数据库无 lottery 表(schema 全库检索零命中),抽奖业务需产品定义(奖品/概率/参与条件)。待产品化排期,见 PROJECT_PLAN §4-4-10。"
-    },
-    {
-      "method": "GET",
-      "pathPattern": "^/api/admin/points/mall$",
-      "reason": "后端模块未实装(如实登记,非已实现):前端 points-mall 页为外部模板移植壳,数据库无积分商城商品表(仅有 user_points 用户积分表),商城需产品定义(商品/兑换/库存)。待产品化排期,见 PROJECT_PLAN §4-4-10。"
-    },
-    {
-      "method": "GET",
-      "pathPattern": "^/api/admin/promotions/rules$",
-      "reason": "后端模块未实装(如实登记,非已实现):前端 promotion-rule 页为外部模板移植壳,数据库无通用促销规则表(promotions.ts 仅有 invitations/activities/coupons 三类具体模型)。待产品化排期,见 PROJECT_PLAN §4-4-10。"
-    },
-    {
-      "method": "GET",
       "pathPattern": "^/api/admin/roles/:param/users$",
       "reason": "后端读端点未实装(如实登记,非已实现):前端 roles/auth-user 页为外部模板移植壳(请求参数 userName/phonenumber 为若依风格字段,users 表无 phonenumber 列);userRoles 表存在,补端点需先定义用户列表契约(字段映射+搜索)。待排期,见 PROJECT_PLAN §4-4-10。"
     },
@@ -50,11 +35,6 @@
       "method": "GET",
       "pathPattern": "^/api/admin/promotions/signin-rules$",
       "reason": "契约不匹配,非简单缺端点(如实登记,非已实现):后端有 GET /admin/sign-in/rules(gamification-admin.ts:89,返回裸数组)但字段为 consecutiveDays 系,前端移植壳期待 {day,points,extra,status:'draft'|...}+keyword 搜索+{list,total} 分页,直接复用会显示错乱。需适配层。见 PROJECT_PLAN §4-4-10。"
-    },
-    {
-      "method": "GET",
-      "pathPattern": "^/api/admin/billing/tax$",
-      "reason": "后端模块未实装(如实登记,非已实现):前端 tax 页为外部模板移植壳,数据库无税务配置表,税务口径需产品定义。待产品化排期,见 PROJECT_PLAN §4-4-10。"
     },
     {
       "method": "GET",
