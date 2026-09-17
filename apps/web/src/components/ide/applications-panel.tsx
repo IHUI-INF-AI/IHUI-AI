@@ -9,7 +9,8 @@ import { toast } from '@/components/common'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { runCommand } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
-import { Play, Plus, Terminal, Globe, Bug, X, Check, History } from 'lucide-react'
+import { Play, Plus, Terminal, Globe, Bug, Check, History } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 
 type ConfigType = 'node' | 'python' | 'web' | 'terminal'
 
@@ -167,13 +168,7 @@ export function ApplicationsPanel() {
             className="mb-1.5 w-full rounded border border-border bg-background px-1.5 py-1 text-xs focus:outline-none"
           />
           <div className="flex justify-end gap-1">
-            <button
-              onClick={() => setShowForm(false)}
-              className="rounded p-1 text-muted-foreground hover:bg-muted/50"
-              aria-label={t('applications.cancel')}
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            <CloseButton aria-label={t('applications.cancel')} onClick={() => setShowForm(false)} />
             <button
               onClick={submitForm}
               className="flex items-center gap-1 rounded bg-foreground px-2 py-1 text-xs text-background hover:bg-foreground/90"

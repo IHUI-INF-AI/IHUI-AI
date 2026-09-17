@@ -5,13 +5,13 @@
 'use client'
 
 import * as React from 'react'
-import { FlaskConical, X } from 'lucide-react'
+import { FlaskConical } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { rulesApi } from './rules-api'
 import type { RuleAbTestResult } from './types'
 import type { Rule } from '@ihui/types'
-import { Button } from '@ihui/ui-react'
+import { Button, CloseButton } from '@ihui/ui-react'
 
 interface RuleAbTestDialogProps {
   rules: Rule[]
@@ -88,14 +88,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
             <FlaskConical className="mr-1 inline h-3.5 w-3.5" />
             A/B 测试
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="关闭"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton aria-label="关闭" onClick={onClose} />
         </div>
 
         <div className="grid grid-cols-2 gap-2">
