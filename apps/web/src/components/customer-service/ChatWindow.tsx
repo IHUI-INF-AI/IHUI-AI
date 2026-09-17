@@ -6,7 +6,8 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { MessageCircle, Minus, X, Send, Loader2 } from 'lucide-react'
+import { MessageCircle, Minus, Send, Loader2 } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { MessageBubble, type CsMessage } from './MessageBubble'
@@ -150,16 +151,15 @@ export function ChatWindow({ roomId, onClose }: Props) {
           >
             <Minus className="h-4 w-4" />
           </button>
-          <button
+          {/* 关闭 = 收回悬浮窗(isOpen 内部态) + 通知父级回调;此前误删 setIsOpen 导致点关闭无反应 */}
+          <CloseButton
+            onDark
+            aria-label={t('close')}
             onClick={() => {
               setIsOpen(false)
               onClose?.()
             }}
-            className="rounded p-1 transition-colors hover:bg-white/10"
-            aria-label={t('close')}
-          >
-            <X className="h-4 w-4" />
-          </button>
+          />
         </div>
       </div>
 

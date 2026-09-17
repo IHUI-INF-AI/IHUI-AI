@@ -351,7 +351,6 @@ export default function ModelRecordPage() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 aria-label={t('modelRecordSource')}
-                                title={t('modelRecordSource')}
                                 className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
                               >
                                 <ExternalLink className="h-3.5 w-3.5" />

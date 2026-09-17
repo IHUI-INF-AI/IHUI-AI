@@ -5,7 +5,8 @@
 'use client'
 
 import * as React from 'react'
-import { RefreshCw, X } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface PWAUpdatePromptProps {
@@ -42,12 +43,7 @@ export function PWAUpdatePrompt({ onUpdate, className }: PWAUpdatePromptProps) {
       >
         更新
       </button>
-      <button
-        onClick={() => setVisible(false)}
-        className="text-muted-foreground hover:text-foreground"
-      >
-        <X className="h-4 w-4" />
-      </button>
+      <CloseButton aria-label="关闭" onClick={() => setVisible(false)} />
     </div>
   )
 }

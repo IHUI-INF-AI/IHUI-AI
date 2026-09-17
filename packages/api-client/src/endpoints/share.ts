@@ -26,6 +26,16 @@ export interface ShareAudio {
 }
 
 /** 分享回答内容 */
+/** P3 #39 阶段2(2026-09-16 立):分享快照中的轨迹调用(隐私白名单子集,无 args/result) */
+export interface ShareToolCall {
+  id: string
+  toolName: string
+  status: 'running' | 'success' | 'error' | 'cancelled'
+  isError?: boolean
+  iteration?: number
+  durationMs?: number
+}
+
 export interface ShareAnswer {
   thinking?: string
   text?: string
@@ -33,6 +43,8 @@ export interface ShareAnswer {
   video?: ShareVideo
   audio?: ShareAudio
   lists?: ShareListItem[]
+  /** #39 阶段2:执行轨迹(白名单字段;length>=2 时分享页可渲染时序回放) */
+  toolCalls?: ShareToolCall[]
 }
 
 /** 分享内容完整结构 */

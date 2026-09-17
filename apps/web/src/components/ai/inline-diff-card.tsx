@@ -5,10 +5,13 @@
 'use client'
 
 import * as React from 'react'
-import { Check, X, Loader2, AlertCircle, FileText } from 'lucide-react'
+import { Check, X, Loader2, AlertCircle, FileText, MessageSquarePlus } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@ihui/ui-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
+import { useChatStore } from '@/stores/chat'
+import { DiffCommentPanel } from './diff-comment-panel'
 import type { InlineDiffInfo } from './types'
 import type { DiffApplyStatus } from '@/stores/chat'
 
@@ -96,6 +99,8 @@ interface InlineDiffCardProps {
   onApply?: () => void
   /** 点击 Reject:仅本地标记为 rejected,无 API 调用 */
   onReject?: () => void
+  /** P3 #30(2026-09-16 立):来源工具调用 id,随评审意见记录便于回溯哪次改动 */
+  toolCallId?: string
 }
 
 /** 顶部状态徽章配置 */
@@ -116,7 +121,20 @@ export function InlineDiffCard({
   applyError,
   onApply,
   onReject,
+  toolCallId,
 }: InlineDiffCardProps) {
+  const t = useTranslations('ai.pane')
+  // P3 #30 diff 评论:commentTarget=null 表示评论面板关闭;{} 为文件级;带 line 为行级。
+  const [commentTarget, setCommentTarget] = React.useState<{
+    line?: number
+    lineText?: string
+  } | null>(null)
+  // 本文件已暂存的待发送意见数(订阅整体数组引用 + useMemo 过滤,避免 selector 返回新数组)
+  const allComments = useChatStore((s) => s.pendingDiffComments)
+  const fileCommentCount = React.useMemo(
+    () => allComments.filter((c) => c.filePath === diffInfo.file_path).length,
+    [allComments, diffInfo.file_path],
+  )
   const rows = React.useMemo(
     () => computeLcsDiff(diffInfo.old_content.split('\n'), diffInfo.new_content.split('\n')),
     [diffInfo.old_content, diffInfo.new_content],
@@ -132,6 +150,11 @@ export function InlineDiffCard({
     }
     return { added, removed }
   }, [rows])
+
+  /** P3 #30:行级评论触发(hover 行内图标 → 底部面板定位到该行) */
+  const handleRowComment = React.useCallback((line: number, lineText: string) => {
+    setCommentTarget({ line, lineText })
+  }, [])
 
   const badge = STATUS_BADGE[applyStatus] ?? STATUS_BADGE.pending
   const BadgeIcon = badge.icon
@@ -151,6 +174,15 @@ export function InlineDiffCard({
               </span>
             )}
           </CardTitle>
+          {/* P3 #30:本文件已有待发送意见数(让用户知道评论已暂存、将随下一条消息发给 AI) */}
+          {fileCommentCount > 0 && (
+            <span
+              className="shrink-0 rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[10px] tabular-nums text-amber-600"
+              data-testid="diff-comment-badge"
+            >
+              {t('diffComment.countBadge', { count: fileCommentCount })}
+            </span>
+          )}
           <span className="shrink-0 rounded-sm bg-green-500/15 px-1.5 py-0.5 text-[10px] tabular-nums text-green-600">
             +{stats.added}
           </span>
@@ -172,10 +204,45 @@ export function InlineDiffCard({
       <CardContent className="p-0">
         <div className="max-h-80 overflow-auto bg-zinc-950 font-mono text-xs">
           {rows.map((row, idx) => (
-            <DiffRow key={`row-${idx}`} row={row} />
+            <DiffRow
+              key={`row-${idx}`}
+              row={row}
+              activeLine={commentTarget?.line}
+              onComment={handleRowComment}
+              commentLabel={t('diffComment.rowAction')}
+            />
           ))}
         </div>
       </CardContent>
+
+      {/* P3 #30:评论输入面板(行级/文件级共用)。用带背景的独立容器,不加分割线(遵循无边框分隔规范) */}
+      {commentTarget !== null && (
+        <div className="mx-3 mb-2 rounded-sm bg-muted/30 p-2" data-testid="diff-comment-dock">
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <MessageSquarePlus className="h-3 w-3 shrink-0 text-muted-foreground/70" />
+            <span className="flex-1 text-[10px] text-muted-foreground">
+              {typeof commentTarget.line === 'number'
+                ? t('diffComment.targetLine', { line: commentTarget.line })
+                : t('diffComment.targetFile')}
+            </span>
+            <button
+              type="button"
+              onClick={() => setCommentTarget(null)}
+              className="shrink-0 rounded-sm px-1 py-0.5 text-[10px] text-muted-foreground/70 transition-colors hover:bg-accent/40 hover:text-foreground"
+              data-testid="diff-comment-close"
+            >
+              {t('diffComment.close')}
+            </button>
+          </div>
+          <DiffCommentPanel
+            filePath={diffInfo.file_path}
+            line={commentTarget.line}
+            lineText={commentTarget.lineText}
+            toolCallId={toolCallId}
+            onSubmitted={() => setCommentTarget(null)}
+          />
+        </div>
+      )}
 
       <CardFooter className="flex items-center gap-2 p-3">
         {isTerminal ? (
@@ -208,6 +275,20 @@ export function InlineDiffCard({
             </button>
           </>
         )}
+        {/* P3 #30:文件级评论入口(整体性意见,不绑定具体行)。已终止态下仍可评论(返工需求常在拒绝后提出) */}
+        {!isApplying && (
+          <button
+            type="button"
+            onClick={() =>
+              setCommentTarget((prev) => (prev && prev.line === undefined ? null : {}))
+            }
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+            data-testid="diff-comment-file-action"
+          >
+            <MessageSquarePlus className="h-3.5 w-3.5" />
+            <span>{t('diffComment.action')}</span>
+          </button>
+        )}
         {applyStatus === 'error' && applyError && (
           <Tooltip content={applyError}>
             <span className="ml-auto truncate text-xs text-red-600">{applyError}</span>
@@ -218,12 +299,33 @@ export function InlineDiffCard({
   )
 }
 
-/** 单行 diff 渲染 */
-function DiffRow({ row }: { row: DiffRow }) {
+/** 单行 diff 渲染(P3 #30:行号区右侧 hover 显示行级评论入口) */
+function DiffRow({
+  row,
+  activeLine,
+  onComment,
+  commentLabel,
+}: {
+  row: DiffRow
+  activeLine?: number
+  onComment?: (line: number, lineText: string) => void
+  commentLabel?: string
+}) {
   const isAdd = row.op === 'insert'
   const isDel = row.op === 'delete'
+  // 行级评论锚定新文件侧行号(返工针对的是新代码);纯删除行无新行号时退回旧行号
+  const lineNo = row.newNum ?? row.oldNum
+  const lineContent = (isAdd ? row.newLine : row.oldLine) ?? ''
+  const isActive = activeLine !== undefined && activeLine === lineNo
   return (
-    <div className={cn('flex', isAdd && 'bg-green-500/15', isDel && 'bg-red-500/15')}>
+    <div
+      className={cn(
+        'group flex',
+        isAdd && 'bg-green-500/15',
+        isDel && 'bg-red-500/15',
+        isActive && 'ring-1 ring-inset ring-primary/60',
+      )}
+    >
       <span className="w-10 shrink-0 select-none px-2 text-right text-zinc-600">
         {row.oldNum ?? ''}
       </span>
@@ -241,6 +343,17 @@ function DiffRow({ row }: { row: DiffRow }) {
         {isAdd ? '+' : isDel ? '-' : ''}
       </span>
       <span className="whitespace-pre pr-2 text-zinc-300">{isAdd ? row.newLine : row.oldLine}</span>
+      {onComment && lineNo !== undefined && (
+        <button
+          type="button"
+          onClick={() => onComment(lineNo, lineContent)}
+          aria-label={commentLabel}
+          className="ml-auto mr-1 shrink-0 self-center rounded-sm p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-white/10 hover:text-zinc-300 group-hover:opacity-100 focus-visible:opacity-100"
+          data-testid={`diff-row-comment-${lineNo}`}
+        >
+          <MessageSquarePlus className="h-3 w-3" />
+        </button>
+      )}
     </div>
   )
 }

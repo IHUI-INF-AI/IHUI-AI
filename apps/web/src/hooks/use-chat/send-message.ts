@@ -26,9 +26,17 @@ import {
 import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/checkpoint-api'
 import { expandRuleToken } from '@/stores/memory'
 import { expandContextTokens } from '@/lib/context-token-expander'
+// P3 #30(2026-09-16 立):diff 评审意见 → agent 上下文注入
+import { appendDiffComments } from '@/lib/diff-comments'
 import { emitAgentHook } from '@/stores/agent-hooks'
 import { maybeAutoCaptureWiki } from '@/stores/repo-wiki'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
+// P3 #43(2026-09-16 立):成本预检/对比状态
+import {
+  useCostGuardStore,
+  isCostNegotiationEnabled,
+  COST_NEGOTIATION_THRESHOLD_USD,
+} from '@/stores/cost-guard'
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
@@ -131,7 +139,16 @@ export function createSendMessage(
     // W25(2026-09-14):#Rule token 展开 —— 正文含 #Rule 时把规则 YAML 内联进发送文本,
     // 仅影响发给 LLM 的内容,store/持久化仍保留原始用户输入(避免展开块污染历史气泡)。
     // 四竞品对标 V2 #18(2026-09-15):#Codebase/#Terminal/#Docs/@目录:<路径> 语义源展开。
-    const llmText = await expandContextTokens(expandRuleToken(text))
+    const baseLlmText = await expandContextTokens(expandRuleToken(text))
+    // P3 #30(2026-09-16 立):diff 评审意见定向注入 —— 用户对上一轮代码改动的意见格式化为
+    // `<diff_review>` 块追加到发给 LLM 的文本尾部(同样只影响发给 LLM 的内容)。
+    // 重新生成模式跳过:该路径发送的是历史上下文,llmText 不参与请求,
+    // 若此处一并注入并在发起前清空,意见会白白丢失 → regenerate 时保留队列不动。
+    const pendingDiffComments = useChatStore.getState().pendingDiffComments
+    const llmText =
+      isRegenerate || pendingDiffComments.length === 0
+        ? baseLlmText
+        : appendDiffComments(baseLlmText, pendingDiffComments)
     const store = useChatStore.getState()
     if (store.isStreaming) return false
 
@@ -217,7 +234,7 @@ export function createSendMessage(
     // 且需确保 conversationId 已创建后再持久化 user/assistant(原逻辑只 addMessage 不持久化,
     // 导致刷新或跨端同步时丢失斜杠命令结果)。
     const slashHit = !isRegenerate
-      ? await tryHandleSelfMediaSlash(text, (assistantContent) => {
+      ? await tryHandleSelfMediaSlash(text, (assistantContent, extra) => {
           const m = store.currentModel
           // 2026-08-31:未绑定工作区时读暂存模式,消息徽章透明性不丢失
           const st = useAiPanelStore.getState()
@@ -228,6 +245,8 @@ export function createSendMessage(
             content: assistantContent,
             model: m,
             permissionMode: slashMode,
+            // P3 #36(2026-09-16 立):/bestof 结果卡按 runId 关联,消息流内渲染并排对比
+            meta: extra?.bestOfRunId ? { bestOfRunId: extra.bestOfRunId } : undefined,
           })
         })
       : false
@@ -364,6 +383,49 @@ export function createSendMessage(
     // 仅首轮结束后自动生成会话标题;后续轮次/重新生成不触发。
     const isFirstAssistantTurn = !isRegenerate && !history.some((m) => m.role === 'assistant')
 
+    // P3 #43 阶段2(2026-09-16 立):阻塞式成本协商——位于 addMessage 副作用之前,
+    // 取消时零残留。开关 off(默认)= 静默预检(v1 知情);on 且估算超阈值 = 确认条。
+    const costGuardMessages = [...history, { role: 'user' as const, content: llmText }]
+    if (costGuardMessages.length > 0 && model) {
+      try {
+        const r = await fetchApi<{
+          estimatedTokensIn: number
+          estimatedTokensOut: number
+          estimatedCostUsd: number
+          priced: boolean
+        }>('/api/chat/cost-estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, messages: costGuardMessages }),
+        })
+        if (r.success && r.data) {
+          const estimate = {
+            estimatedTokensIn: r.data.estimatedTokensIn,
+            estimatedTokensOut: r.data.estimatedTokensOut,
+            estimatedCostUsd: r.data.estimatedCostUsd,
+            priced: r.data.priced,
+          }
+          useCostGuardStore.getState().setEstimate(estimate)
+          if (
+            isCostNegotiationEnabled() &&
+            estimate.estimatedCostUsd > COST_NEGOTIATION_THRESHOLD_USD
+          ) {
+            const okToSend = await new Promise<boolean>((resolve) => {
+              useCostGuardStore.getState().setPendingConfirm(resolve)
+            })
+            useCostGuardStore.getState().setPendingConfirm(null)
+            if (!okToSend) {
+              // 用户取消:解锁在途锁,静默返回(消息未入流,零残留)
+              sendInFlightRef.current = false
+              return true
+            }
+          }
+        }
+      } catch {
+        // 预检失败静默:不阻塞聊天(v1/阶段2 同一原则)
+      }
+    }
+
     // 重新生成模式跳过用户消息重复添加(历史已截断到该用户消息之前,store 已包含它)
     if (!isRegenerate) {
       store.addMessage({ role: 'user', content: text, model })
@@ -468,6 +530,7 @@ export function createSendMessage(
     // 现在把 'auto' 原样透传到 ai-service,由后端 llm_gateway._resolve_auto_model
     // 从 model_availability 全量可用模型池中跨厂商选最优(stepfun/agnes/cloudflare/nvidia_nim/gemini 等)。
     const effectiveModel = model
+
     // 2026-08-07 修复:web 端无活跃工作区 / 无 workspace handle 时,fs 类工具静默失败,
     // 给用户一个一次性 toast 提示(整个 sendMessage 周期内只弹一次,避免刷屏)。
     let noWorkspaceNoticeShown = false
@@ -498,6 +561,13 @@ export function createSendMessage(
 
       // W28 Hooks 事件:message.send(用户消息即将发送给 LLM)
       emitAgentHook('message.send', { summary: llmText.slice(0, 80) })
+
+      // P3 #30:意见已进入本次请求的 messages payload,发起前清空队列(消费即清,避免重复注入)。
+      // 置于此处而非 llmText 构造处:中间有斜杠命令等提前 return 分支,过早清空会误丢意见。
+      // 请求失败时 streamChat 内部重试复用同一 messages,意见不会丢失。
+      if (!isRegenerate && pendingDiffComments.length > 0) {
+        useChatStore.getState().clearDiffComments()
+      }
 
       await streamChat({
         model: effectiveModel,
@@ -656,6 +726,10 @@ export function createSendMessage(
           // #21 权威值到达:置 finalUsageReceived 停止实时估算覆盖,确保最终展示权威数字。
           finalUsageReceived = true
           useChatStore.getState().updateMessageMeta(assistantId, { usage })
+          // P3 #43:实际 tokens 到达,供「实际 vs 预估」对比条展示
+          if (usage.totalTokens > 0) {
+            useCostGuardStore.getState().setActualTokens(usage.totalTokens)
+          }
         },
         onDelta: (delta) => {
           if (!firstContentTokenReceived) {

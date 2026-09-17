@@ -464,6 +464,7 @@
     "generating": "正在極速生成中",
     "thinkingTip": "Tips:您可以先點擊右上角三個點浮窗小程式,過一會兒再回來喲~",
     "fileSelected": "已選 {count} 個檔案",
+    "screenshotHint": "已偵測到截屏，可點輸入框左側 + 從相簿選擇圖片發給 AI 分析",
     "common": {
       "loading": "載入中…"
     },
