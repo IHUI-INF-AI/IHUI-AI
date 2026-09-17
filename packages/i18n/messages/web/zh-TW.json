@@ -22149,6 +22149,23 @@
     "toastRunOk": "整棧回滾已執行",
     "toastRunFail": "整棧回滾失敗"
   },
+  "worlds": {
+    "forkTitle": "並行世界線",
+    "taskLabel": "任務描述",
+    "taskPlaceholder": "要並行求解的問題…",
+    "modelsLabel": "模型列表(逗號分隔,至少 2 個)",
+    "modelsPlaceholder": "例如:gpt-4o, claude-sonnet, deepseek-v3",
+    "fork": "並行 Fork",
+    "errTask": "請輸入任務描述",
+    "errModels": "請至少填寫 2 個模型",
+    "empty": "暫無世界線;填寫任務並 Fork 即可並行對比多個模型的回答",
+    "running": "並行執行中",
+    "reset": "重設",
+    "branchRunning": "該世界線執行中…",
+    "emptyReply": "(空回覆)",
+    "adopt": "採納為主線",
+    "adopted": "已採納"
+  },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count} 個任務遠端取消失敗（已本地置為已取消）",
     "title": "媒體任務",
