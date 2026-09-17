@@ -56,12 +56,8 @@ agent 通过率 = verify.mjs 通过的任务数 / 总任务数（验收线 ≥80
 
 MIT(见 LICENSE)。任务集与判定脚本可自由用于评测与对比研究。
 
-## 独立发布(3-1,2026-09-17 拍板:GitHub 公开仓库)
+## 独立发布
 
-发布包已整理至 `outputs/ihui-bench-release/`(README + LICENSE + gen/run + tasks + 基线报告)。
-发布步骤(需一次性 `gh auth login`):
-
-```bash
-cd outputs/ihui-bench-release
-gh repo create ihui-bench --public --source . --push --description "中文编码 Agent 能力基准:35 个自动判定任务,零第三方依赖"
-```
+✅ 已发布:**https://github.com/IHUI-INF-AI/ihui-bench**(2026-09-17,公开仓库,
+本 README + LICENSE + gen/run + 35 tasks + 基线报告)。主仓内 benchmarks/ 为源,
+发布包随版本同步;独立仓库便于外部引用与 star 沉淀。
