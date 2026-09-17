@@ -22143,6 +22143,23 @@
     "toastRunOk": "롤백이 실행되었습니다",
     "toastRunFail": "롤백 실패"
   },
+  "worlds": {
+    "forkTitle": "병렬 월드",
+    "taskLabel": "작업 설명",
+    "taskPlaceholder": "병렬로 풀 문제…",
+    "modelsLabel": "모델 목록(쉼표 구분, 2개 이상)",
+    "modelsPlaceholder": "예: gpt-4o, claude-sonnet, deepseek-v3",
+    "fork": "병렬 Fork",
+    "errTask": "작업 설명을 입력하세요",
+    "errModels": "모델을 2개 이상 입력하세요",
+    "empty": "아직 월드가 없습니다. 작업을 입력하고 Fork 하면 여러 모델의 답변을 병렬 비교할 수 있습니다",
+    "running": "병렬 실행 중",
+    "reset": "초기화",
+    "branchRunning": "이 월드는 실행 중…",
+    "emptyReply": "(빈 응답)",
+    "adopt": "메인라인으로 채택",
+    "adopted": "채택됨"
+  },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count}개 작업의 원격 취소에 실패했습니다(로컬은 취소 처리됨)",
     "title": "미디어 작업",
