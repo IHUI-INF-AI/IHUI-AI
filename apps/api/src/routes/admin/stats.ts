@@ -33,8 +33,9 @@ import {
   orders,
   eduRefunds,
   visitLogs,
+  userRoles,
 } from '@ihui/database'
-import { eq, ilike, desc, sql, and, gte, lte, lt } from 'drizzle-orm'
+import { eq, ilike, desc, sql, and, gte, lte, lt, notInArray, inArray } from 'drizzle-orm'
 import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
@@ -998,6 +999,233 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
         },
       }),
     )
+  })
+
+  // ===========================================================================
+  // 11. 访问趋势(2026-09-17,4-4-14):基于 visit_logs 真实字段聚合
+  // 可算指标:PV/UV/新增访客(会话首访)/来源(referer 域名)/热门页面/覆盖城市。
+  // duration / bounceRate 数据源不存在,不做假指标。
+  // ===========================================================================
+  const visitTrendQuerySchema = z.object({
+    granularity: z.enum(['day', 'week', 'month']).default('day'),
+  })
+
+  server.get('/stats/visit-trend', async (request, reply) => {
+    const q = visitTrendQuerySchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const gran = q.data.granularity
+    const spanDays = gran === 'day' ? 30 : gran === 'week' ? 84 : 365
+    const start = new Date(Date.now() - spanDays * 86400000).toISOString().slice(0, 10)
+    const end = new Date().toISOString().slice(0, 10)
+    // 访客身份:登录用户 > 会话 > IP;日期列 visit_date(YYYY-MM-DD 字符串)缺失时回退 created_at
+    const bucketExpr =
+      gran === 'day'
+        ? sql`d`
+        : gran === 'week'
+          ? sql`to_char(date_trunc('week', d::date), 'YYYY-MM-DD')`
+          : sql`to_char(date_trunc('month', d::date), 'YYYY-MM-DD')`
+    const dateCol = sql`coalesce(visit_date, to_char(created_at, 'YYYY-MM-DD'))`
+    const visitorCol = sql`coalesce(user_id::text, session_id, ip, id::text)`
+    try {
+      const trendRows = (await db.execute(sql`
+        SELECT ${bucketExpr} AS bucket,
+               count(*)::int AS pv,
+               count(DISTINCT ${visitorCol})::int AS uv
+        FROM visit_logs WHERE ${dateCol} >= ${start}
+        GROUP BY 1 ORDER BY 1
+      `)) as Array<{ bucket: string; pv: number; uv: number }>
+      const newUvRows = (await db.execute(sql`
+        SELECT ${bucketExpr} AS bucket, count(*)::int AS uv FROM (
+          SELECT ${visitorCol} AS vid, min(${dateCol}) AS fd
+          FROM visit_logs WHERE ${dateCol} >= ${start}
+          GROUP BY 1
+        ) t GROUP BY 1 ORDER BY 1
+      `)) as Array<{ bucket: string; uv: number }>
+      const newUvMap = new Map(newUvRows.map((r) => [r.bucket, r.uv]))
+      const totalRows = (await db.execute(sql`
+        SELECT count(*)::int AS pv,
+               count(DISTINCT ${visitorCol})::int AS uv,
+               count(DISTINCT nullif(city, ''))::int AS cities
+        FROM visit_logs WHERE ${dateCol} >= ${start}
+      `)) as Array<{ pv: number; uv: number; cities: number }>
+      const sourceRows = (await db.execute(sql`
+        SELECT coalesce(nullif(substring(referer from '//([^/]+)'), ''), '直接访问') AS source,
+               count(*)::int AS pv,
+               count(DISTINCT ${visitorCol})::int AS uv
+        FROM visit_logs WHERE ${dateCol} >= ${start}
+        GROUP BY 1 ORDER BY pv DESC LIMIT 8
+      `)) as Array<{ source: string; pv: number; uv: number }>
+      const pageRows = (await db.execute(sql`
+        SELECT coalesce(nullif(url, ''), '/') AS path,
+               count(*)::int AS pv,
+               count(DISTINCT ${visitorCol})::int AS uv
+        FROM visit_logs WHERE ${dateCol} >= ${start}
+        GROUP BY 1 ORDER BY pv DESC LIMIT 8
+      `)) as Array<{ path: string; pv: number; uv: number }>
+      const total = totalRows[0] ?? { pv: 0, uv: 0, cities: 0 }
+      return reply.send(
+        success({
+          granularity: gran,
+          range: { start, end },
+          totalPv: total.pv,
+          totalUv: total.uv,
+          newUv: newUvRows.reduce((s, r) => s + r.uv, 0),
+          cityCount: total.cities,
+          trend: trendRows.map((r) => ({
+            date: r.bucket,
+            pv: r.pv,
+            uv: r.uv,
+            newUv: newUvMap.get(r.bucket) ?? 0,
+          })),
+          bySource: sourceRows,
+          topPages: pageRows,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '访问趋势查询失败'))
+    }
+  })
+
+  // ===========================================================================
+  // 12. 角色授权用户(2026-09-17,4-4-14):已授权/未分配用户列表 + 批量授权/取消
+  // 字段对齐 users 真实列:username/nickname/email/phone/status(0=禁用 1=正常 3=注销)
+  // ===========================================================================
+  const roleUsersQuerySchema = z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(15),
+    username: z.string().max(64).optional(),
+    phone: z.string().max(20).optional(),
+  })
+  const roleUsersBodySchema = z.object({ userIds: z.array(z.string().uuid()).min(1) })
+  const userCols = {
+    id: users.id,
+    username: users.username,
+    nickname: users.nickname,
+    email: users.email,
+    phone: users.phone,
+    status: users.status,
+    createdAt: users.createdAt,
+  }
+
+  server.get('/roles/:id/users', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const q = roleUsersQuerySchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, username, phone } = q.data
+    try {
+      const conds = [eq(userRoles.roleId, p.data.id)]
+      if (username) conds.push(ilike(users.username, `%${username}%`))
+      if (phone) conds.push(ilike(users.phone, `%${phone}%`))
+      const where = and(...conds)
+      const [list, totalRows] = await Promise.all([
+        db
+          .select(userCols)
+          .from(userRoles)
+          .innerJoin(users, eq(users.id, userRoles.userId))
+          .where(where)
+          .orderBy(desc(userRoles.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(userRoles)
+          .innerJoin(users, eq(users.id, userRoles.userId))
+          .where(where),
+      ])
+      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询授权用户失败'))
+    }
+  })
+
+  server.get('/roles/:id/unallocated-users', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const q = roleUsersQuerySchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, username, phone } = q.data
+    try {
+      const allocated = db
+        .select({ id: userRoles.userId })
+        .from(userRoles)
+        .where(eq(userRoles.roleId, p.data.id))
+      const conds = [notInArray(users.id, allocated)]
+      if (username) conds.push(ilike(users.username, `%${username}%`))
+      if (phone) conds.push(ilike(users.phone, `%${phone}%`))
+      const where = and(...conds)
+      const [list, totalRows] = await Promise.all([
+        db
+          .select(userCols)
+          .from(users)
+          .where(where)
+          .orderBy(desc(users.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(users)
+          .where(where),
+      ])
+      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询未授权用户失败'))
+    }
+  })
+
+  // POST /roles/:id/users — 批量授权 {userIds[]}(userRoles 有 (user_id, role_id) 联合唯一,幂等)
+  server.post('/roles/:id/users', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const b = roleUsersBodySchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      await db
+        .insert(userRoles)
+        .values(b.data.userIds.map((userId) => ({ userId, roleId: p.data.id })))
+        .onConflictDoNothing()
+      return reply.status(201).send(success({ authorized: b.data.userIds.length }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '授权失败'))
+    }
+  })
+
+  // DELETE /roles/:id/users — 批量取消授权 {userIds[]}
+  server.delete('/roles/:id/users', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    const b = roleUsersBodySchema.safeParse(request.body)
+    if (!b.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      await db
+        .delete(userRoles)
+        .where(and(eq(userRoles.roleId, p.data.id), inArray(userRoles.userId, b.data.userIds)))
+      return reply.send(success({ revoked: b.data.userIds.length }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '取消授权失败'))
+    }
+  })
+
+  // DELETE /roles/:id/users/:userId — 取消单个授权
+  server.delete('/roles/:id/users/:userId', async (request, reply) => {
+    const p = z
+      .object({ id: z.string().uuid('无效的 ID'), userId: z.string().uuid('无效的用户 ID') })
+      .safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      await db
+        .delete(userRoles)
+        .where(and(eq(userRoles.roleId, p.data.id), eq(userRoles.userId, p.data.userId)))
+      return reply.send(success({ revoked: 1 }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '取消授权失败'))
+    }
   })
 }
 

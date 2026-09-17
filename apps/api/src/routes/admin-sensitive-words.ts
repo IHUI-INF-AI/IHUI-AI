@@ -26,6 +26,7 @@ const listQuerySchema = z.object({
   pageSize: z
     .transform((v) => emptyToUndefined(v))
     .pipe(z.coerce.number().min(1).max(100).default(20)),
+  word: z.transform((v) => emptyToUndefined(v)).pipe(z.string().max(128).optional()),
   category: z.transform((v) => emptyToUndefined(v)).pipe(z.enum(CATEGORIES).optional()),
   status: z
     .transform((v) => emptyToUndefined(v))
