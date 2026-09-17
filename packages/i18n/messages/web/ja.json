@@ -15584,6 +15584,7 @@
   "nav": {
     "adminRelayInsights": "インサイト",
     "adminRelayEnterprise": "エンタープライズ",
+    "adminRelayPlugins": "プラグイン",
     "adminRelayCapacity": "キャパシティとトレンド",
     "adminRelayAlertRules": "アラートルール",
     "developerErrorCodes": "API エラーコード",

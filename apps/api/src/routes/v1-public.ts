@@ -84,6 +84,8 @@ import {
 } from '../services/relay-response-cache.js'
 // 上游错误透传(2026-09-16 立,五轮补强):按 admin 规则翻译上游错误后返回下游
 import { resolveErrorPassthrough } from '../services/relay-error-rules-service.js'
+// 插件系统(2026-09-17,补强 59):request_block 入口拦截(计费/审计前,命中 403)
+import { evaluateRequestBlockPlugins } from '../services/relay-plugins-service.js'
 // 提示词审计(2026-09-17 立,补强 54)
 import { auditPrompt } from '../services/relay-prompt-audit-service.js'
 // OpenAI 协议扩展(stream_options.include_usage + response_format json_schema + seed)
@@ -1003,6 +1005,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           },
           400: errorResponseSchema,
           401: errorResponseSchema,
+          403: errorResponseSchema,
           404: errorResponseSchema,
           502: errorResponseSchema,
           503: errorResponseSchema,
@@ -1160,6 +1163,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           400: errorResponseSchema,
           401: errorResponseSchema,
           402: errorResponseSchema,
+          403: errorResponseSchema,
           502: errorResponseSchema,
           503: errorResponseSchema,
         },
@@ -1228,6 +1232,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           400: errorResponseSchema,
           401: errorResponseSchema,
           402: errorResponseSchema,
+          403: errorResponseSchema,
           502: errorResponseSchema,
           503: errorResponseSchema,
         },
@@ -1318,6 +1323,13 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     })
     if (promptAudit.action === 'block') {
       return reply.status(400).send(error(400, '请求内容未通过平台安全策略,请调整后重试'))
+    }
+
+    // 插件系统(2026-09-17 立,补强 59):request_block 拦截(30s 缓存,评估异常降级不拦截)。
+    // 403 直接返回,不进渠道 failover(避免回落 ai-service 绕过拦截)。
+    const pluginBlockMessage = await evaluateRequestBlockPlugins({ model, clientIp: request.ip })
+    if (pluginBlockMessage) {
+      return reply.status(403).send(error(403, pluginBlockMessage))
     }
 
     if (apiKey) {
