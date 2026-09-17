@@ -86,19 +86,11 @@ const gr = spawnSync('python', [giteeScript, '--tag', `desktop-v${version}`, '--
   env: { ...process.env, GITEE_TOKEN: giteeTok, DESKTOP_FEED_OUT: path.join(ROOT, '.ihui-agent/desktop-feed/latest.json') }, timeout: 120000,
 });
 if (gr.status !== 0) { console.error('ERROR: Gitee 发行阶段失败'); process.exit(1); }
-// feed 用 git 方式更新(contents API 行为不稳)——固定克隆强推
-const gfeedDir = path.join(ROOT, '.ihui-agent/desktop-feed-clone');
-try {
-  if (!existsSync(path.join(gfeedDir, '.git'))) {
-    sh(`git clone --depth 5 --branch desktop-feed "https://${giteeTok}@gitee.com/${GITEE_OWNER}/${GITEE_REPO}.git" "${gfeedDir}"`);
-  } else {
-    sh('git fetch origin desktop-feed && git checkout -q -B desktop-feed origin/desktop-feed', { cwd: gfeedDir });
-  }
-  sh('git add latest.json && git -c user.name="IHUI-AI" -c user.email="lizong@aizhs.top" commit -q -m "desktop updater feed ' + version + '" --allow-empty && git push -f origin desktop-feed', { cwd: gfeedDir, timeout: 120000 });
-  console.log('[gitee] desktop-feed 已通过 git push 更新');
-} catch (e) {
-  console.log(`⚠️ desktop-feed git 更新失败: ${e.message}(latest.json 已生成于 ${path.join(ROOT, '.ihui-agent/desktop-feed/latest.json')})`);
-}
+// feed 已改为 release 附件 + 站点快照方案(2026-09-17):
+//   - GitHub/Gitee release desktop-updater-feed 附件由 gitee-release-attach.py 维护
+//   - 站点端点 https://aizhs.top/desktop-feed.json 由 resolve-desktop-download.mjs 刷新快照后部署生效
+//   - 不再需要任何 desktop-feed 分支 git 操作(该分支会被仓库单分支守门删除)
+
 // ── 4. 提交推送版本 bump ──
 if (!NO_PUSH) {
   const r = spawnSync(process.execPath, ['scripts/safe-commit.mjs', '-m', `chore(desktop): 版本 bump ${version}(本机一键发版)`, '--', 'apps/desktop/src-tauri/tauri.conf.json', 'apps/desktop/package.json'], { stdio: 'inherit' });
