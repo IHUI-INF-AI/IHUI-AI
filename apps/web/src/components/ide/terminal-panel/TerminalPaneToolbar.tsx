@@ -30,7 +30,7 @@ export function TerminalPaneToolbar({
   const t = useTranslations('ide')
   return (
     <div className="pointer-events-none absolute right-2 top-2 z-10 flex items-center gap-1">
-      <div className="pointer-events-auto flex items-center gap-0.5 rounded bg-background/80 p-0.5 backdrop-blur-sm">
+      <div className="pointer-events-auto flex items-center gap-0.5 rounded bg-float-indicator-bg p-0.5">
         {/* AI 建议按钮(2026-07-23 立,仅活跃 pane 显示) */}
         {isActive && (
           <Tooltip content={t('terminalPanel.aiSuggestTitle')}>

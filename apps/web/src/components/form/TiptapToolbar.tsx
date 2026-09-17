@@ -34,11 +34,9 @@ import {
   Rows3,
   Columns3,
 } from 'lucide-react'
+import { IconButton } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
-
-const TOOL_BTN =
-  'inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40'
 
 function ToolbarBtn({
   icon: Icon,
@@ -55,14 +53,9 @@ function ToolbarBtn({
 }) {
   return (
     <Tooltip content={title}>
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        className={cn(TOOL_BTN, active && 'bg-primary/10 text-primary')}
-      >
-        <Icon className="h-4 w-4" />
-      </button>
+      <IconButton className={cn(active && 'bg-primary/10 text-primary')} onClick={onClick} disabled={disabled}>
+        <Icon />
+      </IconButton>
     </Tooltip>
   )
 }

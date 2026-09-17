@@ -526,7 +526,7 @@ export function CdpBrowserView({
       )}
       {/* 2026-08-17:交互受限提示条 —— 诚实告知这是自动化截图视图,扫码用手机、完整操作走外部浏览器 */}
       {!hintDismissed && !error && (
-        <div className="absolute inset-x-2 bottom-2 z-10 flex items-center gap-2 rounded-md border border-border bg-background/95 px-2.5 py-1.5 shadow-sm">
+        <div className="absolute inset-x-2 bottom-2 z-10 flex items-center gap-2 rounded-md border border-border bg-float-indicator-bg px-2.5 py-1.5 shadow-sm">
           <span className="flex-1 text-[10px] leading-relaxed text-muted-foreground">
             此视图为自动化截图,交互受限 — 扫码请用手机扫;完整操作请在外部浏览器打开
           </span>
@@ -544,14 +544,14 @@ export function CdpBrowserView({
       <button
         type="button"
         onClick={() => setDevToolsOpen((o) => !o)}
-        className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-md border border-border bg-background/90 px-2 py-1 text-[10px] text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
+        className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-md border border-border bg-float-indicator-bg px-2 py-1 text-[10px] text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
         aria-label="开发者工具"
       >
         <span className="font-mono font-semibold">{'</>'}</span>
         开发者工具
       </button>
       {devToolsOpen && (
-        <div className="absolute inset-x-2 bottom-2 top-10 z-20 flex flex-col overflow-hidden rounded-md border border-border bg-background/95 shadow-lg">
+        <div className="absolute inset-x-2 bottom-2 top-10 z-20 flex flex-col overflow-hidden rounded-md border border-border bg-float-indicator-bg shadow-lg">
           <div className="flex items-center justify-between border-b border-border/60 px-2 py-1">
             <span className="text-[10px] font-semibold">开发者工具</span>
             <button
