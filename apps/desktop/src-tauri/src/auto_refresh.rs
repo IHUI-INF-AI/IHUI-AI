@@ -18,6 +18,7 @@ use std::time::Duration;
 
 use tauri::Manager;
 use tauri_plugin_notification::NotificationExt;
+use tauri_plugin_updater::UpdaterExt;
 
 const FRONTEND_URL: &str = "https://aizhs.top/agents";
 const HEALTH_URL: &str = "https://aizhs.top/api/health";
@@ -55,6 +56,34 @@ fn notify(app: &tauri::AppHandle, title: &str, body: &str) {
         .title(title)
         .body(body)
         .show();
+}
+
+/// 应用自更新检查(每小时一次):经 updater endpoints(Gitee raw 优先)检查新版,
+/// 有则下载+静默安装(安装器接管后应用退出,重启即新版)。
+async fn check_app_update(app: &tauri::AppHandle) {
+    let updater = match app.updater() {
+        Ok(u) => u,
+        Err(e) => {
+            log::warn!("[auto-refresh] updater 初始化失败: {e}");
+            return;
+        }
+    };
+    let Ok(Some(update)) = updater.check().await else {
+        return; // None=无新版 / Err=检查失败,均静默
+    };
+    let ver = update.version.clone();
+    log::info!("[auto-refresh] 发现应用新版 {ver} → 下载安装");
+    notify(app, "智汇AI", &format!("发现新版本 {ver},正在后台安装…"));
+    let app2 = app.clone();
+    let Ok(()) = update
+        .download_and_install(|_, _| {}, move || {
+            let _ = app2.restart();
+        })
+        .await
+    else {
+        log::warn!("[auto-refresh] 应用更新安装失败");
+        return;
+    };
 }
 
 /// 抓取线上 HTML 并维护指纹基线;检测到更新时返回 true(调用方决定是否 reload)。
@@ -214,6 +243,11 @@ pub fn start(app: tauri::AppHandle) {
                             }
                         }
                     }
+                }
+
+                // 应用自更新:每小时(round % 120)在线时检查一次,静默安装
+                if round > 0 && round % 120 == 0 {
+                    check_app_update(&app).await;
                 }
             }
             tokio::time::sleep(Duration::from_secs(HEALTH_SECS)).await;
