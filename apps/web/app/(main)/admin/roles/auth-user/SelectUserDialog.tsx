@@ -17,8 +17,8 @@ const PAGE_SIZE = 10
 
 export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose: () => void }) {
   const qc = useQueryClient()
-  const [search, setSearch] = React.useState({ userName: '', phonenumber: '' })
-  const [applied, setApplied] = React.useState({ userName: '', phonenumber: '' })
+  const [search, setSearch] = React.useState({ username: '', phone: '' })
+  const [applied, setApplied] = React.useState({ username: '', phone: '' })
   const [page, setPage] = React.useState(1)
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
 
@@ -27,8 +27,8 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
     qs.set('roleId', roleId)
     qs.set('page', String(page))
     qs.set('pageSize', String(PAGE_SIZE))
-    if (applied.userName) qs.set('userName', applied.userName)
-    if (applied.phonenumber) qs.set('phonenumber', applied.phonenumber)
+    if (applied.username) qs.set('username', applied.username)
+    if (applied.phone) qs.set('phone', applied.phone)
     return qs.toString()
   }, [roleId, page, applied])
 
@@ -64,8 +64,8 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
         <div className="space-y-1">
           <Label className="text-xs">用户名</Label>
           <Input
-            value={search.userName}
-            onChange={(e) => setSearch({ ...search, userName: e.target.value })}
+            value={search.username}
+            onChange={(e) => setSearch({ ...search, username: e.target.value })}
             placeholder="用户名"
             className={inputCls}
           />
@@ -73,8 +73,8 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
         <div className="space-y-1">
           <Label className="text-xs">手机号</Label>
           <Input
-            value={search.phonenumber}
-            onChange={(e) => setSearch({ ...search, phonenumber: e.target.value })}
+            value={search.phone}
+            onChange={(e) => setSearch({ ...search, phone: e.target.value })}
             placeholder="手机号"
             className={inputCls}
           />
@@ -139,11 +139,9 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
                         onCheckedChange={() => toggleOne(u.id)}
                       />
                     </td>
-                    <td className="px-3 py-2 font-medium">{u.userName}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{u.nickName}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {u.phonenumber || '-'}
-                    </td>
+                    <td className="px-3 py-2 font-medium">{u.username}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{u.nickname}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">{u.phone || '-'}</td>
                   </tr>
                 ))
               )}

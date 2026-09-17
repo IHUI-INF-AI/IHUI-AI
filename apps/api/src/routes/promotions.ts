@@ -4,7 +4,6 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
 import { authenticate, checkAuth } from '../plugins/auth.js'
 import {
   createInvitationCode,
@@ -25,8 +24,8 @@ import {
   verifyCoupon,
 } from '../db/promotion-queries.js'
 import { signInRules } from '@ihui/database'
-import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
+import { registerCrud, fields } from './admin/_shared.js'
 
 const ADMIN_ROLE_ID = 1
 const ACTIVITY_STATUS = ['draft', 'published', 'ended'] as const
@@ -120,15 +119,6 @@ const createCouponSchema = z
 const verifyCouponSchema = z.object({
   code: z.string().min(1).max(32),
   amount: z.number().int().min(0),
-})
-
-// 签到规则更新 body:status 为前端发布状态字符串(published→启用, 其他→禁用)
-const updateSigninRuleSchema = z.object({
-  status: z.enum(['draft', 'pending', 'published', 'rejected']).optional(),
-  name: z.string().min(1).max(128).optional(),
-  consecutiveDays: z.number().int().min(1).optional(),
-  rewardPoints: z.number().int().min(0).optional(),
-  extraReward: z.unknown().optional(),
 })
 
 // =============================================================================
@@ -558,33 +548,18 @@ export const adminPromotionRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // PUT /promotions/signin-rules/:id — 更新签到规则(adminPromotionRoutes 挂载于 /api/admin)
-  // body.status 为前端发布状态字符串;DB sign_in_rules.status 整数(1=启用 0=禁用)
-  server.put('/promotions/signin-rules/:id', async (request, reply) => {
-    const idParsed = idParamSchema.safeParse(request.params)
-    if (!idParsed.success) {
-      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const parsed = updateSigninRuleSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    // 字符串 status → DB 整数 status:published=1(启用) / 其他=0(禁用)
-    const set: Record<string, unknown> = { updatedAt: new Date() }
-    if (parsed.data.status !== undefined) {
-      set.status = parsed.data.status === 'published' ? 1 : 0
-    }
-    if (parsed.data.name !== undefined) set.name = parsed.data.name
-    if (parsed.data.consecutiveDays !== undefined) set.consecutiveDays = parsed.data.consecutiveDays
-    if (parsed.data.rewardPoints !== undefined) set.rewardPoints = parsed.data.rewardPoints
-    if (parsed.data.extraReward !== undefined) set.extraReward = parsed.data.extraReward
-    const [updated] = await db
-      .update(signInRules)
-      .set(set)
-      .where(eq(signInRules.id, idParsed.data.id))
-      .returning()
-    if (!updated) return reply.status(404).send(error(404, '签到规则不存在'))
-    return reply.send(success({}))
+  // 签到规则管理(2026-09-17,4-4-13):registerCrud 统一 CRUD
+  // GET list(search 按名称)/GET :id/POST/PUT :id/DELETE :id/DELETE batch
+  // DB sign_in_rules.status 整数(1=启用 0=禁用),前端表单直传 1|0
+  registerCrud(server, '/promotions/signin-rules', signInRules, {
+    searchField: signInRules.name,
+    map: fields({
+      name: 'string',
+      consecutiveDays: 'number',
+      rewardPoints: 'number',
+      extraReward: 'json',
+      status: 'number',
+    }),
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
