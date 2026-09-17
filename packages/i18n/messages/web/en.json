@@ -9411,6 +9411,8 @@
     "voiceInputPending": "Transcribing, {count} left",
     "voicePlaybackOn": "Voice playback on",
     "voicePlaybackOff": "Voice playback off",
+    "voiceHandsFreeOn": "Hands-free on (speak to send)",
+    "voiceHandsFreeOff": "Hands-free off",
     "voiceInputStop": "Stop Voice Input",
     "voiceInputSttFailed": "Transcription failed. Please retry later or check the local speech service",
     "voiceInputUnauthorized": "Login expired. Please refresh the page and try again",

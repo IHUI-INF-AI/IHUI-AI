@@ -9401,6 +9401,8 @@
     "voiceInputPending": "변환 중, {count}개 남음",
     "voicePlaybackOn": "음성 재생 켜짐",
     "voicePlaybackOff": "음성 재생 꺼짐",
+    "voiceHandsFreeOn": "연속 대화 켜짐（말하면 전송）",
+    "voiceHandsFreeOff": "연속 대화 꺼짐",
     "voiceInputStop": "음성 입력 중지",
     "voiceInputSttFailed": "받아쓰기에 실패했습니다. 나중에 다시 시도하거나 로컬 음성 서비스를 확인해 주세요",
     "voiceInputUnauthorized": "로그인이 만료되었습니다. 페이지를 새로고침하고 다시 시도해 주세요",
