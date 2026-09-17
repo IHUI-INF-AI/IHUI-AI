@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { Check, Copy } from 'lucide-react'
+import { IconButton } from './icon-button'
 import { cn } from '../lib/utils'
 
 /**
@@ -75,19 +76,14 @@ const CodeBlockImpl = ({
   const lang = (language ?? '').trim().toLowerCase()
 
   const copyButton = showCopy ? (
-    <button
-      type="button"
+    // 2026-09-17:统一样式 token 化 — IconButton md(32×32),尺寸/交互单一来源 icon-button.ts
+    <IconButton
       onClick={() => copy(code)}
       aria-label={copied ? '已复制' : '复制代码'}
-      className={cn(
-        'absolute right-2 top-2 inline-flex h-9 w-9 items-center justify-center rounded-md',
-        'text-muted-foreground transition-colors',
-        'hover:bg-accent hover:text-foreground',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-      )}
+      className="absolute right-2 top-2"
     >
-      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-    </button>
+      {copied ? <Check /> : <Copy />}
+    </IconButton>
   ) : null
 
   const preClassName = cn(
