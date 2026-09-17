@@ -25,6 +25,7 @@ import {
   Button,
   Card,
   CardContent,
+  IconButton,
   Input,
   Label,
   Dialog,
@@ -339,14 +340,13 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                                 {acc?.platform ?? ''}
                               </span>
                             </div>
-                            <button
-                              type="button"
-                              className="inline-flex h-9 w-9 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-destructive"
+                            <IconButton
+                              className="hover:text-destructive"
                               onClick={() => removeMember(aid)}
                               aria-label={t('groups.removeAccount')}
                             >
-                              <X className="h-3 w-3" />
-                            </button>
+                              <X />
+                            </IconButton>
                           </div>
                         )
                       })
