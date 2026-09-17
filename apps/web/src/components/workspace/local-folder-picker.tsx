@@ -22,6 +22,7 @@ import {
 
 import {
   Button,
+  IconButton,
   SearchInput,
   Tooltip,
   TooltipContent,
@@ -289,15 +290,14 @@ function PathNav({
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                type="button"
+              <IconButton
+                size="md"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={cancelInput}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 aria-label={t('cancel')}
               >
-                <X className="h-3.5 w-3.5" />
-              </button>
+                <X />
+              </IconButton>
             </TooltipTrigger>
             <TooltipContent>Esc</TooltipContent>
           </Tooltip>
@@ -312,19 +312,18 @@ function PathNav({
       <TooltipProvider delayDuration={200}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              type="button"
+            <IconButton
+              size="md"
               onClick={() => onNavigate('')}
               className={cn(
-                'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded transition-colors',
                 isAtRoot
                   ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
               aria-label={t('computer')}
             >
-              <HardDrive className="h-3.5 w-3.5" />
-            </button>
+              <HardDrive />
+            </IconButton>
           </TooltipTrigger>
           <TooltipContent>{t('computer')}</TooltipContent>
         </Tooltip>
@@ -373,14 +372,9 @@ function PathNav({
       <TooltipProvider delayDuration={200}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={() => setMode('input')}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label={t('advancedPath')}
-            >
-              <Keyboard className="h-3.5 w-3.5" />
-            </button>
+            <IconButton size="md" onClick={() => setMode('input')} aria-label={t('advancedPath')}>
+              <Keyboard />
+            </IconButton>
           </TooltipTrigger>
           <TooltipContent>{t('advancedPath')}</TooltipContent>
         </Tooltip>
@@ -390,15 +384,14 @@ function PathNav({
       <TooltipProvider delayDuration={200}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              type="button"
+            <IconButton
+              size="md"
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
               aria-label={t('refresh')}
             >
-              <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
-            </button>
+              <RefreshCw className={cn(isRefreshing && 'animate-spin')} />
+            </IconButton>
           </TooltipTrigger>
           <TooltipContent>{t('refresh')}</TooltipContent>
         </Tooltip>

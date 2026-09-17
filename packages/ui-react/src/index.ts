@@ -112,6 +112,11 @@ export type { AuthShellProps } from './components/auth-shell'
 // CloseButton 全项目统一关闭按钮(2026-09-16 立,样式 token 来自 @ihui/design-tokens close-button.ts)
 export { CloseButton } from './components/close-button'
 export type { CloseButtonProps } from './components/close-button'
+// IconButton 全项目统一图标按钮(2026-09-17 立,样式 token 来自 @ihui/design-tokens icon-button.ts)
+// 尺寸两档 sm(28×28)/ md(32×32,默认),标题栏/工具栏/面板控制图标按钮一律用本组件,
+// 禁止业务代码手写 h-7 w-7 / h-8 w-8 等散装尺寸。
+export { IconButton } from './components/icon-button'
+export type { IconButtonProps } from './components/icon-button'
 // LoginForm 共享登录表单(2026-07-26 抽取到共享包,4 tab + 8 第三方登录 + 协议复选框 + 协议弹窗)
 export {
   LoginForm,
