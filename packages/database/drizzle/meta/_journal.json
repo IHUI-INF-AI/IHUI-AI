@@ -1912,6 +1912,13 @@
       "when": 1723500800000,
       "tag": "20260917050000_relay_plugins",
       "breakpoints": true
+    },
+    {
+      "idx": 274,
+      "version": "7",
+      "when": 1723587200000,
+      "tag": "20260917100000_admin_console_modules",
+      "breakpoints": true
     }
   ]
 }
