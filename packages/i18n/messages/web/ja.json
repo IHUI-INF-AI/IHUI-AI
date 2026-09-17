@@ -9419,6 +9419,8 @@
     "voiceInputPending": "文字起こし中、残り {count} 件",
     "voicePlaybackOn": "音声読み上げオン",
     "voicePlaybackOff": "音声読み上げオフ",
+    "voiceHandsFreeOn": "連続会話オン（話して送信）",
+    "voiceHandsFreeOff": "連続会話オフ",
     "voiceInputStop": "音声入力を停止",
     "voiceInputSttFailed": "文字起こしに失敗しました。後でもう一度お試しいただくか、ローカル音声サービスをご確認ください",
     "voiceInputUnauthorized": "ログインの有効期限が切れました。ページを更新してもう一度お試しください",
