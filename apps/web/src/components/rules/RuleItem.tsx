@@ -85,13 +85,13 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
         {rule.enabled ? '启用' : '禁用'}
       </button>
       <div className="flex shrink-0 items-center gap-0.5">
-        <IconButton size="md" onClick={onShowDetail} aria-label="详情">
+        <IconButton onClick={onShowDetail} aria-label="详情">
           <BarChart3 />
         </IconButton>
-        <IconButton size="md" onClick={() => openTestDialog(rule)} aria-label="测试">
+        <IconButton onClick={() => openTestDialog(rule)} aria-label="测试">
           <FlaskConical />
         </IconButton>
-        <IconButton size="md" onClick={onEdit} aria-label="编辑">
+        <IconButton onClick={onEdit} aria-label="编辑">
           <Pencil />
         </IconButton>
         {confirmDel ? (
@@ -108,7 +108,6 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
           </button>
         ) : (
           <IconButton
-            size="md"
             onClick={() => setConfirmDel(true)}
             aria-label="删除"
             className="hover:bg-destructive/10 hover:text-destructive"
@@ -117,7 +116,7 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
           </IconButton>
         )}
         {confirmDel && (
-          <IconButton size="md" onClick={() => setConfirmDel(false)} aria-label="取消删除">
+          <IconButton onClick={() => setConfirmDel(false)} aria-label="取消删除">
             <X />
           </IconButton>
         )}
