@@ -144,7 +144,6 @@ function PopoverHeader({ onViewFull, t }: { onViewFull: () => void; t: EnvT }) {
       </span>
       <Tooltip content={t('viewFull')}>
         <IconButton
-          size="sm"
           onClick={onViewFull}
           aria-label={t('viewFull')}
           data-testid="env-info-view-full"
