@@ -44,6 +44,22 @@ const C = {
 /** 合法分支白名单(本地 main + 远程 main:origin/upstream/gitee/gitcode 镜像;gitee/gitcode 为项目 sanctioned 镜像远程,main 即 main) */
 const ALLOWED = new Set(['main', 'origin/main', 'upstream/main', 'gitee/main', 'gitcode/main', 'HEAD'])
 
+/**
+ * sanctioned 发布产物分支(非开发分支,不违反单分支原则)。
+ *
+ * desktop-feed(2026-09-17 立):桌面端 updater feed 的"真源分支"——GitHub 侧
+ * desktop-feed 分支承载 latest.json feed,Gitee/GitCode 镜像自动携带。属发布管线
+ * 数据通道,非功能开发分支;见 commit 359a782d3be(desktop-feed 真源化 GitHub),
+ * 其 updater 端点链为 Gitee raw → GitHub raw/desktop-feed → desktop-updater-feed release。
+ * 该分支由 CI/发版脚本写入,人工严禁在此分支做功能开发。
+ */
+const SANCTIONED_RELEASE_BRANCHES = new Set([
+  'desktop-feed',
+  'origin/desktop-feed',
+  'gitee/desktop-feed',
+  'gitcode/desktop-feed',
+])
+
 /** origin/HEAD -> origin/main 是 git 符号引用输出,非真实分支,需跳过 */
 function isSymbolicRef(branch) {
   return branch.includes('->')
@@ -107,6 +123,7 @@ const branches = listBranches()
 const worktreeBranches = getWorktreeBranches()
 const illegal = branches.filter((b) => {
   if (ALLOWED.has(b) || isSymbolicRef(b) || isActiveGoalBranch(b)) return false
+  if (SANCTIONED_RELEASE_BRANCHES.has(b)) return false
   if (worktreeBranches.has(b)) return false
   // 2026-09-16:worktree 分支的远程镜像豁免。sanctioned worktree 会话(AGENTS.md §12d)
   // push 备份后产生的 origin/<branch> 远程跟踪引用,是该 worktree 工作上下文的镜像,
