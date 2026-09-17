@@ -161,6 +161,17 @@ def main():
     if cur and cur.get("sha"):
         body["sha"] = cur["sha"]
     r = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/contents/latest.json", "PUT", body)
+    if not r:
+        # 分支可能被 Gitee 镜像同步删除(2026-09-17 实证)——重建分支后重试
+        print("[gitee] desktop-feed 分支缺失,尝试重建...")
+        created = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/branches", "POST",
+                            {"refs": "main", "branch_name": "desktop-feed"})
+        print(f"[gitee] 分支重建: {'OK' if created else 'FAIL/已存在'}")
+        cur = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/contents/latest.json?ref=desktop-feed")
+        body = {"access_token": GITEE_TOKEN, "content": content_b64, "branch": "desktop-feed"}
+        if cur and cur.get("sha"):
+            body["sha"] = cur["sha"]
+        r = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/contents/latest.json", "PUT", body)
     if r:
         print(f"[gitee] desktop-feed/latest.json 已更新 commit={r.get('commit', {}).get('sha', '')[:10]}")
     else:
