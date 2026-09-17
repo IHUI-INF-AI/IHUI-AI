@@ -44,11 +44,14 @@ jobs:
 
       # 2026-09-17 根治:actions/checkout 只创建触发分支的本地 ref(fetch-depth 只影响该分支历史),
       # 若不补齐,下方 "refs/heads/*" 实际只含 main → --prune 会把镜像侧的真源分支(如
-      # desktop-feed 更新器 feed)全部删除(今日三次实证)。此处拉取 GitHub 全部分支到本地 refs。
+      # desktop-feed 更新器 feed)全部删除(今日三次实证)。
+      # 注意:fetch 到 refs/heads/* 会被 git 拒绝(main 正被 checkout)→ 改走 remote-tracking,
+      # 推送时映射 refs/remotes/origin/*:refs/heads/*(目标 ref 合法,Gitee 接受)。
       - name: 拉取全部分支（保证镜像 refspec 完整）
         run: |
-          git fetch origin '+refs/heads/*:refs/heads/*' --prune
-          echo "本地分支列表:"; git branch --list | head -20
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*' --prune
+          git fetch origin '+refs/tags/*:refs/tags/*' --prune
+          echo "远端分支:"; git branch -r | head -20
 
       - name: 镜像到 Gitee
         id: gitee
@@ -66,7 +69,8 @@ jobs:
           REMOTE="https://${GITEE_OWNER}:${GITEE_TOKEN}@gitee.com/${GITEE_OWNER}/IHUI-AI.git"
           # 不用 --mirror:推 refs/remotes/origin/* 会被 Gitee 拒绝(deny hidden ref)
           # 改用 refspec:推 branches + tags,删除远端多余,不推 remote-tracking
-          GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*" 2>&1 | sed "s|${GITEE_TOKEN}|***|g"
+          # 源改为 remote-tracking(见上方"拉取全部分支"步骤):本地 refs/heads 只有触发分支
+          GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/remotes/origin/*:refs/heads/*" "refs/tags/*:refs/tags/*" 2>&1 | sed "s|${GITEE_TOKEN}|***|g"
           echo "✅ Gitee 镜像推送完成"
 
       - name: 镜像到 GitCode
