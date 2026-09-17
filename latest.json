@@ -1,0 +1,11 @@
+{
+  "version": "0.1.23",
+  "notes": "智汇AI 桌面端 0.1.23:极速薄壳、自动刷新+断网兜底。",
+  "pub_date": "2026-09-17T06:47:10Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdFlXdFJ5djlhYTRuQkxoZlY4dHNkRHkzcjBlZlVMM1pIbnA5TXJ3VGZsZnNNdFk2amhWWUZNWkJNd1FYTGJsTUNMNlRWMzN6MXd0WU5mSGVkeG9XYVE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NjI1MjkxCWZpbGU65pm65rGHQUlfMC4xLjIzX3g2NC1zZXR1cC5leGUKT2pPL3BvT01JYk1ramRsK0pnL1NWV0xMQ1RQTTlEYTZ1ZUZuNWMvV0xneFpodzU5OE9Nc29JTERPRk0zbWJSbTA2T3ZtdFRyNFd4OWQ1eDBJZG9mRGc9PQo=",
+      "url": "https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.23/智汇AI_0.1.23_x64-setup.exe"
+    }
+  }
+}
