@@ -125,7 +125,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ inputs.tag || github.ref_name }}"
+          # 2026-09-17:macOS Universal 产物在 target/universal-apple-darwin/release/bundle
           BUNDLE=apps/desktop/src-tauri/target/release/bundle
+          if [ -d "apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle" ]; then
+            BUNDLE=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle
+          fi
           # tauri-action existsSync 过滤丢产物的兜底:按磁盘真实文件名(含中文)直接上传
           FILES=$(find "$BUNDLE" -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
             -o -name '*.AppImage.tar.gz' -o -name '*.dmg' -o -name '*.exe' -o -name '*.msi' \
@@ -151,6 +155,8 @@ jobs:
             apps/desktop/src-tauri/target/release/bundle/deb/*.deb
             apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
             apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
           if-no-files-found: warn
           retention-days: 7
 
