@@ -22172,6 +22172,23 @@
     "toastRunOk": "ロールバックを実行しました",
     "toastRunFail": "ロールバックに失敗しました"
   },
+  "worlds": {
+    "forkTitle": "パラレルワールド",
+    "taskLabel": "タスク",
+    "taskPlaceholder": "並列で解く問題…",
+    "modelsLabel": "モデル一覧(カンマ区切り、2 つ以上)",
+    "modelsPlaceholder": "例:gpt-4o, claude-sonnet, deepseek-v3",
+    "fork": "並列 Fork",
+    "errTask": "タスクを入力してください",
+    "errModels": "モデルを 2 つ以上入力してください",
+    "empty": "ワールドはまだありません。タスクを入力して Fork すると複数モデルの回答を並列比較できます",
+    "running": "並列実行中",
+    "reset": "リセット",
+    "branchRunning": "このワールドは実行中…",
+    "emptyReply": "(空の返信)",
+    "adopt": "本線に採用",
+    "adopted": "採用済み"
+  },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count}件のリモート取消に失敗しました（ローカルではキャンセル済み）",
     "title": "メディアタスク",
