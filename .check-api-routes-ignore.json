@@ -15,26 +15,6 @@
       "method": "DELETE",
       "pathPattern": "^/api/favorites/aiworld$",
       "reason": "分析器 params.id 误报:前端实际调用 /api/favorites/aiworld/${params.id}(PageClient.tsx:77),归一化丢失 :param;后端有 DELETE /api/favorites/:resourceType/:resourceId(social.ts:401)匹配,非真实 404。"
-    },
-    {
-      "method": "GET",
-      "pathPattern": "^/api/developer/enterprise/pending-orders$",
-      "reason": "后端路由已实现:apps/api/src/routes/relay-enterprise.ts:28(GET /developer/enterprise/pending-orders),分析器未覆盖 relay-enterprise 路由文件导致误报。"
-    },
-    {
-      "method": "PUT",
-      "pathPattern": "^/api/developer/enterprise/invoices$",
-      "reason": "后端路由已实现:apps/api/src/routes/relay-enterprise.ts:30(POST /developer/enterprise/invoices),分析器将 POST 与 PUT 方法混淆导致误报。"
-    },
-    {
-      "method": "PUT",
-      "pathPattern": "^/api/developer/enterprise/corporate-payments$",
-      "reason": "后端路由已实现:apps/api/src/routes/relay-enterprise.ts:33(GET /developer/enterprise/corporate-payments),分析器将 GET 与 PUT 方法混淆导致误报。"
-    },
-    {
-      "method": "PUT",
-      "pathPattern": "^/api/developer/enterprise/contracts/:param/sign$",
-      "reason": "后端路由已实现:apps/api/src/routes/relay-enterprise.ts:32(POST /developer/enterprise/contracts/:id/sign),分析器将 POST 与 PUT 方法混淆且 params 归一化丢失导致误报。"
     }
   ]
 }
