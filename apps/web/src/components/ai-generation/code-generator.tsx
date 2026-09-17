@@ -11,6 +11,7 @@ import { useTranslations } from 'next-intl'
 import SyntaxHighlighter from '@/components/media/SyntaxHighlighter'
 // P2 中期增强:按主题切换语法高亮样式(dark → oneDark,其他 → oneLight)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { IconButton } from '@ihui/ui-react'
 
 import { GenerationFrame, PromptInput, OptionSelect, useGeneration } from './generation-base'
 
@@ -34,13 +35,12 @@ function CodeBlockImpl({
 }): React.ReactElement {
   return (
     <div className="relative">
-      <button
-        type="button"
+      <IconButton
         onClick={onCopy}
-        className="absolute right-2 top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md bg-background/80 text-foreground backdrop-blur-sm transition-colors hover:bg-muted"
+        className="absolute right-2 top-2 z-10 bg-float-indicator-bg text-foreground hover:bg-muted"
       >
-        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-      </button>
+        {copied ? <Check /> : <Copy />}
+      </IconButton>
       <SyntaxHighlighter
         language={language}
         style={syntaxStyle}

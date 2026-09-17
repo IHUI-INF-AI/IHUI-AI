@@ -42,6 +42,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      # 2026-09-17 根治:actions/checkout 只创建触发分支的本地 ref(fetch-depth 只影响该分支历史),
+      # 若不补齐,下方 "refs/heads/*" 实际只含 main → --prune 会把镜像侧的真源分支(如
+      # desktop-feed 更新器 feed)全部删除(今日三次实证)。此处拉取 GitHub 全部分支到本地 refs。
+      - name: 拉取全部分支（保证镜像 refspec 完整）
+        run: |
+          git fetch origin '+refs/heads/*:refs/heads/*' --prune
+          echo "本地分支列表:"; git branch --list | head -20
+
       - name: 镜像到 Gitee
         id: gitee
         env:

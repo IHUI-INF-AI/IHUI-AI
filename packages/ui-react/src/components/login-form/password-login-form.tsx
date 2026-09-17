@@ -8,6 +8,7 @@ import * as React from 'react'
 import { Loader2, RefreshCw, Eye, EyeOff, AlertTriangle } from 'lucide-react'
 
 import { Button } from '../button'
+import { IconButton } from '../icon-button'
 import { Input } from '../input'
 import { Label } from '../label'
 import { Checkbox } from '../checkbox'
@@ -300,19 +301,15 @@ export function PasswordLoginForm({
             disabled={submitting}
             data-testid="login-password-input"
           />
-          <button
-            type="button"
+          {/* 2026-09-17:统一样式 token 化 — IconButton md(32×32),尺寸/交互单一来源 icon-button.ts */}
+          <IconButton
             onClick={() => setShowPassword((s) => !s)}
             aria-label={showPassword ? t('a11y.hidePassword') : t('a11y.showPassword')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="absolute right-2 top-1/2 -translate-y-1/2"
             tabIndex={-1}
           >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <Eye className="h-4 w-4" aria-hidden="true" />
-            )}
-          </button>
+            {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+          </IconButton>
         </div>
       </div>
 
