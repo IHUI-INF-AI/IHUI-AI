@@ -17,7 +17,7 @@
  */
 
 import * as React from 'react'
-import { Volume2, VolumeX } from 'lucide-react'
+import { AudioLines, Volume2, VolumeX } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useChatStore } from '@/stores/chat'
 import { useWebAuthStore } from '@/stores/auth-store'
@@ -25,6 +25,15 @@ import { cn } from '@/lib/utils'
 
 export const VOICE_PLAYBACK_KEY = 'ihui_voice_playback'
 const VOICE_PLAYBACK_EVENT = 'ihui-voice-playback-changed'
+export const VOICE_HANDSFREE_KEY = 'ihui_voice_handsfree'
+const VOICE_HANDSFREE_EVENT = 'ihui-voice-handsfree-changed'
+
+/** 连续语音会话(P3 #46 阶段3-a):开 = 转写段落直接自动发送(免手,半双工:
+ *  说 → 自动发 → 自动朗读;流式期间录音按钮按现状禁用,回复完再点麦继续) */
+export function readHandsFree(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.localStorage.getItem(VOICE_HANDSFREE_KEY) === 'on'
+}
 /** 单次朗读上限(字符),超长回复截断(朗读是辅助通道,全文用户可阅读) */
 const SPEAK_MAX_CHARS = 3000
 
@@ -92,6 +101,49 @@ export function VoicePlaybackToggle({ disabled }: { disabled?: boolean }) {
       )}
     >
       {enabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+    </button>
+  )
+}
+
+/** 连续对话开关按钮(输入工具栏) */
+export function VoiceHandsFreeToggle({ disabled }: { disabled?: boolean }) {
+  const t = useTranslations('chat')
+  const [enabled, setEnabled] = React.useState(false)
+
+  React.useEffect(() => {
+    setEnabled(readHandsFree())
+    const sync = () => setEnabled(readHandsFree())
+    window.addEventListener(VOICE_HANDSFREE_EVENT, sync)
+    window.addEventListener('storage', sync)
+    return () => {
+      window.removeEventListener(VOICE_HANDSFREE_EVENT, sync)
+      window.removeEventListener('storage', sync)
+    }
+  }, [])
+
+  const toggle = () => {
+    const next = !readHandsFree()
+    window.localStorage.setItem(VOICE_HANDSFREE_KEY, next ? 'on' : 'off')
+    window.dispatchEvent(new Event(VOICE_HANDSFREE_EVENT))
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={disabled}
+      aria-pressed={enabled}
+      aria-label={enabled ? t('voiceHandsFreeOn') : t('voiceHandsFreeOff')}
+      title={enabled ? t('voiceHandsFreeOn') : t('voiceHandsFreeOff')}
+      data-testid="voice-handsfree-toggle"
+      className={cn(
+        'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        enabled
+          ? 'bg-primary/10 text-primary hover:bg-primary/20'
+          : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+      )}
+    >
+      <AudioLines className="h-4 w-4" />
     </button>
   )
 }

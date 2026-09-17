@@ -9419,6 +9419,8 @@
     "voiceInputPending": "转写中，剩 {count} 段",
     "voicePlaybackOn": "语音朗读已开启",
     "voicePlaybackOff": "语音朗读已关闭",
+    "voiceHandsFreeOn": "连续对话已开启（说话即发送）",
+    "voiceHandsFreeOff": "连续对话已关闭",
     "voiceInputStop": "停止语音输入",
     "voiceInputSttFailed": "转写失败，请稍后重试或检查本地语音服务",
     "voiceInputUnauthorized": "登录已过期，请刷新页面后重试",
