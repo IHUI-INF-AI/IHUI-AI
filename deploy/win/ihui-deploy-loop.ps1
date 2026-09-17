@@ -36,7 +36,7 @@
 # =============================================================================
 param(
     [switch]$Daemon,
-    [int]$IntervalSeconds = 360
+    [int]$IntervalSeconds = 60
 )
 
 $ErrorActionPreference = 'Continue'   # 本层不因下层退出码中断,交给日志判定
