@@ -49,6 +49,15 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # 2026-09-17 链接提速:.cargo/config.toml 指定 rust-lld 作为 Windows 链接器
+      # (实测增量构建 110s → 5.4s);rust-lld 在 toolchain 内不在 PATH,补入 GITHUB_PATH
+      - name: Expose rust-lld (Windows linker speedup)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $lldDir = Join-Path (rustc --print sysroot) 'lib/rustlib/x86_64-pc-windows-msvc/bin'
+          if (Test-Path $lldDir) { Add-Content -Path $env:GITHUB_PATH -Value $lldDir; Write-Host "rust-lld dir: $lldDir" }
+
       # 2026-09-16 构建提速:Rust target 缓存——release 全量编译 20-40 分钟是大头,
       # 增量后仅重编变更 crate(实测可压缩到 5-10 分钟);key 按 Cargo.lock 哈希失效。
       - name: Cache Rust build
