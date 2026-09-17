@@ -184,7 +184,6 @@ def main():
                 body = header.encode() + json.dumps(
                     latest, indent=2, ensure_ascii=False).encode() + (
                     "\r\n--%s--\r\n" % boundary).encode()
-                import urllib.request
                 req = urllib.request.Request(
                     f"https://gitee.com/api/v5/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/{rel['id']}/attach_files?access_token={GITEE_TOKEN}",
                     data=body, method="POST")
