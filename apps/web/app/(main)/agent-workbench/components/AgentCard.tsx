@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { Play, Square, Pause, Copy, Trash2 } from 'lucide-react'
-import { Card, CardContent, cn } from '@ihui/ui-react'
+import { Card, CardContent, IconButton, cn } from '@ihui/ui-react'
 
 export type AgentStatus = 'running' | 'paused' | 'stopped' | 'error'
 
@@ -141,24 +141,24 @@ export function AgentCard({ agent, selected, onSelect, onAction }: CardProps) {
           <div className="flex items-center gap-0.5">
             {agent.status !== 'running' && (
               <ActionButton label="启动" onClick={stop(() => onAction('start'))}>
-                <Play className="h-3.5 w-3.5" />
+                <Play />
               </ActionButton>
             )}
             {agent.status === 'running' && (
               <ActionButton label="暂停" onClick={stop(() => onAction('pause'))}>
-                <Pause className="h-3.5 w-3.5" />
+                <Pause />
               </ActionButton>
             )}
             {(agent.status === 'running' || agent.status === 'paused') && (
               <ActionButton label="停止" onClick={stop(() => onAction('stop'))}>
-                <Square className="h-3.5 w-3.5" />
+                <Square />
               </ActionButton>
             )}
             <ActionButton label="复制配置" onClick={stop(() => onAction('copy'))}>
-              <Copy className="h-3.5 w-3.5" />
+              <Copy />
             </ActionButton>
             <ActionButton label="删除" danger onClick={stop(() => onAction('delete'))}>
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 />
             </ActionButton>
           </div>
         </div>
@@ -222,17 +222,13 @@ interface ActionButtonProps {
 
 function ActionButton({ label, onClick, danger, children }: ActionButtonProps) {
   return (
-    <button
-      type="button"
+    <IconButton
       aria-label={label}
       onClick={onClick}
-      className={cn(
-        'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
-        danger && 'hover:bg-destructive/10 hover:text-destructive',
-      )}
+      className={cn(danger && 'hover:bg-destructive/10 hover:text-destructive')}
     >
       {children}
-    </button>
+    </IconButton>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

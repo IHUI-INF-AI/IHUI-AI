@@ -50,7 +50,7 @@ function SceneLoader() {
   const { progress } = useProgress()
   return (
     <Html center>
-      <div className="flex items-center gap-2 rounded-md bg-background/80 px-3 py-1.5 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 rounded-md bg-float-indicator-bg px-3 py-1.5 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
         <span>{Math.round(progress)}%</span>
       </div>
@@ -92,7 +92,7 @@ function ThreeDViewerImpl({ url, format = 'glb', className }: ThreeDViewerProps)
         <button
           onClick={() => setAutoRotate((v) => !v)}
           className={cn(
-            'absolute right-2 top-2 rounded-md border border-input bg-background/90 p-1.5 shadow-sm transition-colors hover:bg-accent',
+            'absolute right-2 top-2 rounded-md border border-input bg-float-indicator-bg p-1.5 shadow-sm transition-colors hover:bg-accent',
             autoRotate && 'text-primary',
           )}
         >

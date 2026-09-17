@@ -46,6 +46,12 @@
   --color-card-foreground: hsl(0 0% 3.9%);
   --color-popover: hsl(0 0% 100%);
   --color-popover-foreground: hsl(0 0% 3.9%);
+  /* 2026-09-17 立:浮动指示条统一背景(用户强制要求纯色不透明,禁止毛玻璃/半透明)。
+     适用:query-thumb-rail、PageIndicator、MessageList 跳转按钮、终端工具栏/状态条、
+     sticky 工具条等所有浮在滚动内容之上的指示条/工具栏组件。
+     组件统一引用 bg-float-indicator-bg 工具类(本 token 自动生成)。
+     亮色 100% 纯白(同 popover),暗色 11% L(见 .dark 覆盖),均为不透明纯色。 */
+  --color-float-indicator-bg: hsl(0 0% 100%);
   /* 按钮:亮色纯黑底 + 白字 (2026-07-24,用户要求消除绿色) */
   --color-primary: hsl(0 0% 0%);
   --color-primary-foreground: hsl(0 0% 100%);
@@ -591,6 +597,8 @@ select:-webkit-autofill:focus {
   --color-agent-name: #517bff;
   /* RN 屏幕画布暗色覆盖(bg-white ↔ dark:bg-neutral-900 #171717) */
   --color-screen-canvas: #171717;
+  /* 浮动指示条暗色覆盖(2026-09-17):11% L 不透明纯色,同 popover */
+  --color-float-indicator-bg: hsl(0 0% 11%);
 }
 
 /* ============ 全局基础变量(2026-07-27 上提自 web 本地 design-tokens.css) ============

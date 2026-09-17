@@ -278,7 +278,7 @@ export function CodeEditorPane() {
 
             {/* 字号控制:- / 当前 / + */}
             {!isLoadingContent && (
-              <div className="absolute bottom-2 right-3 z-10 flex items-center gap-0.5 rounded-md border border-border bg-background/95 px-1 py-0.5 shadow-sm">
+              <div className="absolute bottom-2 right-3 z-10 flex items-center gap-0.5 rounded-md border border-border bg-float-indicator-bg px-1 py-0.5 shadow-sm">
                 <button
                   onClick={() => setFontSize((s) => Math.max(MIN_FONT_SIZE, s - 1))}
                   className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
