@@ -106,7 +106,7 @@ if (!NO_PUSH) {
 }
 
 console.log(`\n=== ✅ desktop v${version} 本机发版完成(Windows) ===`);
-console.log(`    Gitee 直链: ${giteeUrl(exeName)}`);
+console.log(`    Gitee 直链: https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/desktop-v${version}/${exeName}`);
 console.log(`    全平台(macos/linux)如需发布: git tag desktop-v${version} && git push origin desktop-v${version} 触发 CI`);
 
 // ── 5. 本机静默自装 ──

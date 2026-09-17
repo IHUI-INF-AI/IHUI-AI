@@ -321,16 +321,23 @@ async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
     }
     use tauri::{WebviewUrl, WebviewWindowBuilder};
     let app_name = localized_app_name();
-    let _admin_window = WebviewWindowBuilder::new(&app, "admin", WebviewUrl::App("admin".into()))
-        .title(&format!("{} 管理后台", app_name))
-        .inner_size(1280.0, 820.0)
-        .min_inner_size(1200.0, 720.0)
-        .resizable(true)
-        .center()
-        .decorations(false)
-        .shadow(true)
-        .build()
-        .map_err(|e| e.to_string())?;
+    // 2026-09-17 薄壳化配套修复:admin 窗口原用 WebviewUrl::App("admin"),
+    // 薄壳后 frontendDist 改为 src-tauri/shell(仅占位页),App 路径会解析为不存在的
+    // shell/admin → 空白窗口。改为加载线上管理后台同源页面。
+    let admin_url = std::env::var("IHUI_ADMIN_URL")
+        .unwrap_or_else(|_| "https://aizhs.top/admin".to_string());
+    let _admin_window = WebviewWindowBuilder::new(&app, "admin", WebviewUrl::External(
+        admin_url.parse().map_err(|e| format!("admin url: {e}"))?,
+    ))
+    .title(&format!("{} 管理后台", app_name))
+    .inner_size(1280.0, 820.0)
+    .min_inner_size(1200.0, 720.0)
+    .resizable(true)
+    .center()
+    .decorations(false)
+    .shadow(true)
+    .build()
+    .map_err(|e| e.to_string())?;
     // 创建后恢复 admin 窗口上次位置/尺寸(若有保存)
     let _ = restore_window_state(Some("admin".to_string()), app.clone());
     Ok(())
