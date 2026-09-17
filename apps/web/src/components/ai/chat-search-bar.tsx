@@ -64,7 +64,7 @@ export function ChatSearchBar({
   if (!show) return null
 
   return (
-    <div className="bg-background/95 backdrop-blur">
+    <div className="bg-float-indicator-bg">
       {/* 全项目统一搜索框(共享 SearchInput 圆角输入井) */}
       <div className="px-3 py-2">
         <SearchInput

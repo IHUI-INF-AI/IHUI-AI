@@ -262,7 +262,7 @@ export function RankingTable() {
               </TableBody>
             </Table>
             {isFetching && (
-              <div className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-0.5 text-xs text-muted-foreground backdrop-blur-sm">
+              <div className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-md bg-float-indicator-bg px-2 py-0.5 text-xs text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" />
               </div>
             )}

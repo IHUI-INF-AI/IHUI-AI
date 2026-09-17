@@ -168,7 +168,7 @@ export default function AssetsPage() {
                   <button
                     type="button"
                     onClick={() => remove(a.id)}
-                    className="absolute right-1 top-1 rounded bg-background/80 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                    className="absolute right-1 top-1 rounded bg-float-indicator-bg p-1 opacity-0 transition-opacity group-hover:opacity-100"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
