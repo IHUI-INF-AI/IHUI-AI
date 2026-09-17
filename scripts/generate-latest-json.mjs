@@ -113,8 +113,13 @@ function inferPlatform(sigName) {
   // MSI 仅作为无 exe 时的 fallback(MSI 需管理员权限且 NSIS/MSI 安装类型混用有已知坑)。
   if (sigName.endsWith('.exe.sig')) return { platform: 'windows-x86_64', kind: 'exe' }
   if (sigName.endsWith('.msi.sig')) return { platform: 'windows-x86_64', kind: 'msi' }
-  // macOS: app.tar.gz.sig (aarch64 or x64)
+  // macOS: app.tar.gz.sig
+  // 2026-09-17:Universal 二进制(CI 用 --target universal-apple-darwin 交叉编译)同时覆盖
+  // Apple Silicon 与 Intel → 同一份签名/包写入 darwin-aarch64 与 darwin-x86_64 两个平台键。
   if (sigName.endsWith('.app.tar.gz.sig')) {
+    if (sigName.includes('universal')) {
+      return { platform: 'darwin-aarch64', kind: 'app', alsoPlatforms: ['darwin-x86_64'] }
+    }
     if (sigName.includes('aarch64') || sigName.includes('arm64')) return { platform: 'darwin-aarch64', kind: 'app' }
     return { platform: 'darwin-x86_64', kind: 'app' }
   }
@@ -176,7 +181,7 @@ async function main() {
       console.warn(`Skip unknown platform sig: ${asset.name}`)
       continue
     }
-    const { platform, kind } = inferred
+    const { platform, kind, alsoPlatforms } = inferred
     // 安装包文件名(去 .sig 后缀)中的版本号,用于版本匹配判断
     const pkgName = asset.name.replace(/\.sig$/, '')
     const assetVersion = extractVersion(pkgName)
@@ -204,13 +209,16 @@ async function main() {
       continue
     }
 
-    platforms[platform] = {
-      signature,
-      url: urlAsset.browser_download_url,
+    const allPlatforms = [platform, ...(alsoPlatforms || [])]
+    for (const pf of allPlatforms) {
+      platforms[pf] = {
+        signature,
+        url: urlAsset.browser_download_url,
+      }
+      platformKinds[pf] = kind
+      platformVerMatch[pf] = verMatch
+      console.log(`Added platform ${pf} (${kind}, verMatch=${verMatch}): ${urlAsset.name}`)
     }
-    platformKinds[platform] = kind
-    platformVerMatch[platform] = verMatch
-    console.log(`Added platform ${platform} (${kind}, verMatch=${verMatch}): ${urlAsset.name}`)
   }
 
   if (Object.keys(platforms).length === 0) {
