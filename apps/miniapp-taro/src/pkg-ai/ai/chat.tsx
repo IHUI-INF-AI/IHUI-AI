@@ -11,7 +11,7 @@ const floderInputIcon = aizhsUrl('remote-images/floder_input.png')
 const fileIcon = aizhsUrl('remote-images/file.png')
 // record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到 dist/static/ 而非打包进 common.js(对齐原项目 aigc/index.vue)
 const recordBackIcon = '/static/images/record_back.png'
-import Taro, { useRouter, useDidShow, useShareAppMessage } from '@tarojs/taro'
+import Taro, { useRouter, useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   chatStream,
@@ -266,9 +266,33 @@ export default function ChatPage() {
     }
   }, [activeAgentId, t])
 
+  const captureScreenHandlerRef = useRef<(() => void) | null>(null)
+
+  useDidHide(() => {
+    try {
+      if (captureScreenHandlerRef.current) {
+        Taro.offUserCaptureScreen(captureScreenHandlerRef.current)
+        captureScreenHandlerRef.current = null
+      }
+    } catch {
+      // ignore
+    }
+  })
+
   useDidShow(() => {
     if (routeAgentId) loadAgent()
     Taro.showShareMenu({ withShareTicket: true })
+    // P3 #46 阶段3-b 截屏理解引导(2026-09-17 立):微信平台不在截屏事件里
+    // 提供截图文件,标准做法是监听动作后引导用户从相册选择发送(聊天页已
+    // 支持图片选择走视觉模型链路);离开页面时解除监听防重复提示。
+    try {
+      captureScreenHandlerRef.current = () => {
+        Taro.showToast({ title: t('ai.screenshotHint'), icon: 'none', duration: 3000 })
+      }
+      Taro.onUserCaptureScreen(captureScreenHandlerRef.current)
+    } catch {
+      // 部分平台不支持截屏监听,静默跳过
+    }
     // 加载历史对话(对标原 ai_assistant.vue 加载历史)
     try {
       const savedHistory = Taro.getStorageSync(HISTORY_STORAGE_KEY)

@@ -13,6 +13,11 @@ import { cn } from '@/lib/utils'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceInput } from '@/components/ai/voice-input'
+import {
+  VoiceHandsFreeToggle,
+  VoicePlaybackToggle,
+  readHandsFree,
+} from '@/components/chat/voice-stream-speaker'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
@@ -31,6 +36,8 @@ import { ModeSwitcher } from '@/components/chat/mode-switcher'
 import { SamplingParamsButton } from '@/components/chat/sampling-params-panel'
 import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
 import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
+// P3 #30(2026-09-16 立):待发送 diff 评审意见提示条(输入框上方常驻提示 + 一键清空)
+import { DiffCommentsBar } from '@/components/chat/diff-comments-bar'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
 import { INPUT_ATTACHMENT_BAR_CLASS } from '@/lib/nav-styles'
 import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
@@ -389,6 +396,20 @@ export function MessageInput({
   }
 
   const handleVoiceTranscript = (text: string) => {
+    // P3 #46 阶段3-a 连续语音会话:免手模式开 → 转写段落直接自动发送
+    // (说→自动发→自动朗读;发送失败回填输入框由用户手动发)
+    if (readHandsFree()) {
+      void Promise.resolve(onSend(text)).then((sent) => {
+        if (!sent) {
+          setValue((prev) => {
+            const merged = prev && !prev.endsWith(' ') ? `${prev} ${text}` : `${prev}${text}`
+            return merged.slice(0, MAX_LENGTH)
+          })
+          requestAnimationFrame(() => inputCoreRef.current?.resize())
+        }
+      })
+      return
+    }
     setValue((prev) => {
       const merged = prev && !prev.endsWith(' ') ? `${prev} ${text}` : `${prev}${text}`
       return merged.slice(0, MAX_LENGTH)
@@ -506,6 +527,8 @@ export function MessageInput({
             - 内部消费 useAiPanelStore 计算 isHighRisk + useTranslations('chat')
             - autoRevert 由主组件透传(标题栏倒计时与横幅倒计时共享同一份 tick) */}
         <HighRiskWarningBanner autoRevert={autoRevert} />
+        {/* P3 #30:diff 待发送意见提示条(有意见时才渲染,无意见时返回 null 零占位) */}
+        <DiffCommentsBar />
         {allReferences.length > 0 && (
           <div className="mb-2">
             <ContextReferencePanel references={allReferences} onRemove={handleRemoveReference} />
@@ -889,6 +912,8 @@ export function MessageInput({
                 />
                 {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
                 <VoiceInput onTranscript={handleVoiceTranscript} disabled={isStreaming} />
+                <VoicePlaybackToggle disabled={isStreaming} />
+                <VoiceHandsFreeToggle disabled={isStreaming} />
                 {/* 发送/停止按钮(2026-07-30 用户规则:清除按钮已挪回 WebInputCore 内部 textarea 右上角悬浮呈现,
                     不再占用 toolbar 槽位)
                     - 流式中切 Stop(天蓝底 sky-500),否则 Send(主色,空输入/流式中禁用) */}

@@ -78,7 +78,7 @@ async function githubApi(path, init, attempt = 0) {
 const EXPECTED_MIN_ASSETS = 16
 const EXPECTED_MIN_SIGS = 7
 /** 等待 release assets 达到预期数量,防止竞态条件导致 sig 文件未上传完成 */
-async function waitForRelease(tag, expectedMinAssets = EXPECTED_MIN_ASSETS, maxRetries = 12, retryInterval = 10000) {
+async function waitForRelease(tag, expectedMinAssets = EXPECTED_MIN_ASSETS, maxRetries = 36, retryInterval = 15000) {
   for (let i = 0; i < maxRetries; i++) {
     const release = await githubApi(`/repos/${repo}/releases/tags/${tag}`)
     const sigCount = release.assets.filter(a => a.name.endsWith('.sig')).length
@@ -92,7 +92,12 @@ async function waitForRelease(tag, expectedMinAssets = EXPECTED_MIN_ASSETS, maxR
       await new Promise(resolve => setTimeout(resolve, retryInterval))
     }
   }
-  throw new Error(`Release assets not ready after ${maxRetries} retries. Expected >= ${expectedMinAssets} assets, got what was available.`)
+  // 超时:输出实际资产清单辅助诊断(2026-09-16:run#41 失败时无任何资产可见性,无法定位是上传慢还是上传缺)
+  const release = await githubApi(`/repos/${repo}/releases/tags/${tag}`).catch(() => null)
+  const names = release ? release.assets.map(a => a.name) : []
+  console.error(`[poll] Assets at timeout (${names.length}):`)
+  for (const n of names) console.error(`  - ${n}`)
+  throw new Error(`Release assets not ready after ${maxRetries} retries (waited ~${Math.round(maxRetries * retryInterval / 1000)}s). Expected >= ${expectedMinAssets} assets / ${EXPECTED_MIN_SIGS} sigs.`)
 }
 
 // 根据 .sig 文件名推断 Tauri updater 平台标识 + 产物类型(kind)。

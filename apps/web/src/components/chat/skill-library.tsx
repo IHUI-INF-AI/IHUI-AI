@@ -22,7 +22,7 @@ import {
   Wand2,
   X,
 } from 'lucide-react'
-import { SearchInput } from '@ihui/ui-react'
+import { CloseButton, SearchInput } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 import {
@@ -904,14 +904,7 @@ export function AiSkillInvokeDialog({
               {t('statusComingSoon')}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            aria-label={t('invokeClose')}
-            className="flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <X className="h-3 w-3" />
-          </button>
+          <CloseButton aria-label={t('invokeClose')} onClick={onCancel} />
         </div>
         <div className="text-[11px] text-muted-foreground">{skill.description}</div>
         <div className="rounded-sm bg-muted/50 px-2 py-1.5 text-[11px] text-muted-foreground">
@@ -980,14 +973,7 @@ export function AiSkillInvokeDialog({
             {t('statusAvailable')}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={onCancel}
-          aria-label={t('invokeClose')}
-          className="flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <X className="h-3 w-3" />
-        </button>
+        <CloseButton aria-label={t('invokeClose')} onClick={onCancel} />
       </div>
       <div className="text-[11px] text-muted-foreground">{skill.description}</div>
       {/* 动态渲染变量输入字段(基于 promptTemplate 解析的 {key}) */}
@@ -1129,14 +1115,7 @@ export function AiSkillResultDialog({
             {result.duration_ms}ms
           </span>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t('invokeClose')}
-          className="flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <X className="h-3 w-3" />
-        </button>
+        <CloseButton aria-label={t('invokeClose')} onClick={onClose} />
       </div>
       {result.contentType === 'html' ? (
         <iframe

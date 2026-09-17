@@ -12,6 +12,9 @@ import { BottomBar } from './BottomBar'
 import { formatTokens } from './helpers'
 import { formatDate } from '@/lib/date-utils'
 import { BackButton } from '@/components/common'
+// P3 #39 阶段2(2026-09-16 立):执行轨迹回放 + 审计报告导出
+import { TraceReplay } from '@/components/ai/trace-replay'
+import { ExportAuditReport } from './export-audit-report'
 import type { ShareContentProps } from './types'
 
 export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
@@ -53,6 +56,17 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
         {/* AI 回答 */}
         <div className="mt-5 w-full rounded-3xl border border-border bg-muted p-3">
           <AnswerArea answer={answer} />
+
+          {/* P3 #39 阶段2(2026-09-16 立):执行轨迹回放(快照含 toolCalls 且 >=2 步时渲染)。
+              ToolCall.args 必填而分享快照白名单剥离了 args——补空对象满足结构类型 */}
+          {answer.toolCalls && answer.toolCalls.length >= 2 && (
+            <TraceReplay toolCalls={answer.toolCalls.map((c) => ({ ...c, args: {} }))} />
+          )}
+
+          {/* P3 #39 阶段2:审计报告导出(轨迹序列化为 Markdown 下载,公开只读审计语义) */}
+          {answer.toolCalls && answer.toolCalls.length > 0 && (
+            <ExportAuditReport question={question} toolCalls={answer.toolCalls} />
+          )}
 
           {/* 底部信息 */}
           <div className="mt-4 flex items-center gap-4 mt-3 pt-3 text-xs text-muted-foreground/70">

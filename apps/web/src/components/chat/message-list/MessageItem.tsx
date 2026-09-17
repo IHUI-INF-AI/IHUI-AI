@@ -40,9 +40,13 @@ import { TerminalSection } from '@/components/ai/progress-sections/terminal-sect
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
 import { CitationBar } from '@/components/ai/progress-sections/citation-bar'
 import { MemoryNoticeBar } from '@/components/ai/progress-sections/memory-notice-bar'
+// P3 #36(2026-09-16 立):消息流内 best-of 并排对比卡(按 meta.bestOfRunId 关联)
+import { BestOfCompare } from '@/components/ai/best-of-compare'
 import { plainTextForClipboard } from '@/components/ai/progress-sections/message-context-menu'
 import { MessageFileChips } from '@/components/chat/message-list/file-chips'
 import { TurnChangesCard } from '@/components/chat/message-list/turn-changes-card'
+// P3 #39(2026-09-16 立):执行轨迹回放(toolCalls 时序重演)
+import { TraceReplay } from '@/components/ai/trace-replay'
 import { useChatStore } from '@/stores/chat'
 import { useTts } from '@/hooks/use-tts'
 import { fetchApi } from '@/lib/api'
@@ -714,6 +718,7 @@ const MessageItem = React.memo(function MessageItem({
                             duration={tc.duration ?? tc.durationMs}
                             error={tc.error}
                             iteration={tc.iteration}
+                            toolCallId={tc.id}
                             diffInfo={tc.diffInfo}
                             applyStatus={tc.applyStatus}
                             applyError={tc.applyError}
@@ -787,9 +792,29 @@ const MessageItem = React.memo(function MessageItem({
             {memoryNoticeItems && memoryNoticeItems.length > 0 && (
               <MemoryNoticeBar items={memoryNoticeItems} />
             )}
+            {/* P3 #36 多模型并排对比(2026-09-16 立):/bestof 的 assistant 消息按
+                meta.bestOfRunId 关联结果,消息流内直接渲染并排对比卡(可改选/落盘),
+                不再只能切到工具面板查看;刷新后 store 映射仍在,历史消息可回看。 */}
+            {!isStreaming && typeof m.meta?.bestOfRunId === 'string' && (
+              <BestOfCompare
+                runId={m.meta.bestOfRunId}
+                onAdopt={(content) => {
+                  useChatStore.getState().addMessage({
+                    role: 'assistant',
+                    content,
+                    model: m.model,
+                  })
+                }}
+              />
+            )}
             {/* #19 + #20 流结束后:turn 级变更汇总卡 + 文件引用 chip(先卡后 chips) */}
             {!isStreaming && (
               <>
+                {/* P3 #39 执行轨迹即文档(2026-09-16 立):toolCalls≥2 时提供时序重演回放
+                    (播放/单步/重置,每步停留按真实耗时温和加权),静态工具卡片之外的节奏视角 */}
+                {!isStreaming && m.toolCalls && m.toolCalls.length >= 2 && (
+                  <TraceReplay toolCalls={m.toolCalls} />
+                )}
                 <TurnChangesCard message={m} conversationId={conversationId} />
                 <MessageFileChips toolCalls={m.toolCalls} />
               </>

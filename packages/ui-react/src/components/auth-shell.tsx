@@ -30,6 +30,7 @@
  */
 import * as React from 'react'
 import { X } from 'lucide-react'
+import { CLOSE_BUTTON_BASE, CLOSE_BUTTON_ICON, CLOSE_BUTTON_POSITION } from '@ihui/design-tokens'
 import { cn } from '../lib/utils'
 
 export interface AuthShellProps {
@@ -87,13 +88,14 @@ export function AuthShell({
       )}
     >
       {onClose && !hideCloseButton && (
+        // 2026-09-16:样式 token 化,单一来源 @ihui/design-tokens close-button.ts
         <button
           type="button"
           onClick={onClose}
           aria-label={closeAriaLabel}
-          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className={cn(CLOSE_BUTTON_BASE, CLOSE_BUTTON_POSITION)}
         >
-          <X className="h-4 w-4" />
+          <X className={cn(CLOSE_BUTTON_ICON)} />
         </button>
       )}
 
@@ -103,7 +105,11 @@ export function AuthShell({
             - welcome h-[52px] w-auto 等比缩放(原 447×67 → h52 时 w≈347)
             - gap-3(12px)间距
             - 浅色 welcome.svg / 深色 baiwelcome.svg 由 .login-scope styles/auth-shell.css .welcome-img/.welcome-img-dark 切换 */}
-        <div className="flex items-center justify-center gap-3">
+        {/* 2026-09-16 关闭按钮避让 + 缩小(用户反馈:按钮偏大、与 WELCOME 文字重叠):
+            关闭按钮 h-7 w-7 @ absolute right-3 top-3(占 top 12~40px),welcome 行若紧贴
+            p-3 顶部(top 12~64px)会与之重叠。非 compact 模式给标题行加 pt-9,行体下移到
+            top 48~100px,与按钮完全错开,顶部留白更通透。compact 无 welcome 不需要。 */}
+        <div className={cn('flex items-center justify-center gap-3', !compact && 'pt-9')}>
           <img
             src={logoSrc}
             alt="IHUI AI"

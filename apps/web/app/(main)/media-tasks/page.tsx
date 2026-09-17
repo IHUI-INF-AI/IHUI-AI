@@ -13,10 +13,6 @@ import {
   Clapperboard,
   XCircle,
   PlayCircle,
-  ImageIcon,
-  Mic,
-  Film,
-  Music,
   Download,
   ChevronLeft,
   ChevronRight,
@@ -24,158 +20,32 @@ import {
   Eraser,
   Ban,
   BarChart3,
+  LayoutList,
+  Columns3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
+// P3 #31(2026-09-16 立):类型/徽章/状态集提取到共享模块(列表与看板双视图同源,防漂移)
+import {
+  PAGE_SIZE,
+  STATUS_IN_FLIGHT,
+  KIND_CLASS,
+  isInFlight,
+  MediaKindBadge,
+  MediaResultPreview,
+  MediaTaskStatusBadge,
+  resultUrl,
+  type MediaTask,
+  type MediaTaskStats,
+} from '@/components/media/task-parts'
+import { TaskKanban } from '@/components/media/task-kanban'
 
 /** 对话内媒体任务统一中心(2026-09-09 立,2026-09-09 E5 增下载/分页/i18n)。
  *  展示 /api/media/tasks 落库的 video/music/tts/image 任务,
- *  支持按状态/类型过滤、产物播放/预览/下载、在途任务取消与刷新、分页。 */
-
-interface MediaTaskResult {
-  image_url?: string | null
-  audio_url?: string | null
-  video_url?: string | null
-}
-
-interface MediaTask {
-  id: number
-  kind: string
-  tool: string
-  provider: string
-  task_id: string
-  status: string
-  message: string
-  result?: MediaTaskResult
-  created_at: string
-  updated_at: string
-}
-
-interface MediaTaskStats {
-  by_kind: Record<
-    string,
-    { total: number; succeeded: number; failed: number; cancelled: number; inflight: number }
-  >
-  total: number
-  inflight: number
-  succeeded: number
-  failed: number
-  cancelled: number
-}
-
-const PAGE_SIZE = 10
-
-/** 在途状态集(2026-09-09 收尾修复):与后端 _STATUS_IN_FLIGHT 保持一致,
- *  轮询/取消按钮/状态过滤统一按此判断,不再只认 processing。 */
-const STATUS_IN_FLIGHT: readonly string[] = ['processing', 'accepted', 'submitted', 'pending']
-
-const isInFlight = (status: string): boolean => STATUS_IN_FLIGHT.includes(status)
-
-const KIND_ICONS: Record<string, typeof Film> = {
-  video: Film,
-  music: Music,
-  tts: Mic,
-  image: ImageIcon,
-}
-
-const KIND_CLASS: Record<string, string> = {
-  video: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-  music: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  tts: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
-  image: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-}
-
-const STATUS_CLASS: Record<string, string> = {
-  processing: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  accepted: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  submitted: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  pending: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  succeeded: 'bg-green-500/10 text-green-600 dark:text-green-400',
-  failed: 'bg-red-500/10 text-red-600 dark:text-red-400',
-  cancelled: 'bg-muted text-muted-foreground',
-}
-
-const STATUS_LABEL_KEY: Record<string, string> = {
-  processing: 'statusBadgeProcessing',
-  accepted: 'statusBadgeProcessing',
-  submitted: 'statusBadgeProcessing',
-  pending: 'statusBadgeProcessing',
-  succeeded: 'statusBadgeSucceeded',
-  failed: 'statusBadgeFailed',
-  cancelled: 'statusBadgeCancelled',
-}
-
-function MediaTaskStatusBadge({ status, t }: { status: string; t: (key: string) => string }) {
-  const labelKey = STATUS_LABEL_KEY[status]
-  const label = labelKey ? t(labelKey) : status
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
-        STATUS_CLASS[status] ?? 'bg-muted text-muted-foreground',
-      )}
-    >
-      {label}
-    </span>
-  )
-}
-
-function MediaKindBadge({ kind, t }: { kind: string; t: (key: string) => string }) {
-  const labelKey = `kind${kind.charAt(0).toUpperCase()}${kind.slice(1)}`
-  const label = t(labelKey) === labelKey ? kind : t(labelKey)
-  const Icon = KIND_ICONS[kind] ?? PlayCircle
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
-        KIND_CLASS[kind] ?? 'bg-muted text-muted-foreground',
-      )}
-    >
-      <Icon className="h-3 w-3" />
-      {label}
-    </span>
-  )
-}
-
-function MediaResultPreview({ task }: { task: MediaTask }) {
-  const urls = task.result ?? {}
-  if (urls.video_url) {
-    return (
-      <video
-        controls
-        src={urls.video_url}
-        preload="metadata"
-        className="w-full max-w-md rounded-md border border-border"
-      >
-        <track kind="captions" />
-      </video>
-    )
-  }
-  if (urls.audio_url) {
-    return (
-      <audio controls src={urls.audio_url} preload="metadata" className="w-full max-w-md">
-        <track kind="captions" />
-      </audio>
-    )
-  }
-  if (urls.image_url) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- 动态远程图片降级用 img
-      <img
-        src={urls.image_url}
-        alt={task.message || 'media'}
-        className="w-full max-w-md rounded-md border border-border"
-      />
-    )
-  }
-  return null
-}
-
-function resultUrl(task: MediaTask): string | null {
-  const urls = task.result ?? {}
-  return urls.video_url || urls.audio_url || urls.image_url || null
-}
+ *  支持按状态/类型过滤、产物播放/预览/下载、在途任务取消与刷新、分页。
+ *  P3 #31(2026-09-16):增「看板」视图(Running/Waiting/Completed 三列,
+ *  卡片可深链跳回发起任务的对话 /chat?conversationId=)。 */
 
 async function api<T>(url: string, options: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
   const r = await fetchApi<T>(url, options)
@@ -187,6 +57,8 @@ export default function MediaTasksPage() {
   const t = useTranslations('mediaTasksPage')
   const locale = useLocale()
   const queryClient = useQueryClient()
+  // P3 #31(2026-09-16 立):列表(默认,保持既有形态)/看板(Running/Waiting/Completed 三列)双视图
+  const [viewMode, setViewMode] = React.useState<'list' | 'board'>('list')
   const [statusFilter, setStatusFilter] = React.useState('')
   const [kindFilter, setKindFilter] = React.useState('')
   const [page, setPage] = React.useState(1)
@@ -535,107 +407,156 @@ export default function MediaTasksPage() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-md border border-border/50 bg-card/50">
-        {listQuery.isLoading ? (
-          <div className="flex items-center justify-center py-10 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            {t('loading')}
-          </div>
-        ) : listQuery.error ? (
-          <div className="m-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-            {(listQuery.error as Error).message}
-          </div>
-        ) : tasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
-            <Clapperboard className="h-8 w-8 opacity-40" />
-            <p className="text-sm">{t('empty')}</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border/40">
-            {tasks.map((task) => {
-              const url = resultUrl(task)
-              const hasResult = !!url
-              return (
-                <div key={task.id} className="space-y-2 p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <MediaKindBadge kind={task.kind} t={t} />
-                    <MediaTaskStatusBadge status={task.status} t={t} />
-                    <span className="font-mono text-[11px] text-muted-foreground">{task.tool}</span>
-                    <span className="text-[11px] text-muted-foreground/60">
-                      {fmt(task.created_at)}
-                    </span>
-                    <div className="ml-auto flex items-center gap-1.5">
-                      {hasResult && (
-                        <>
-                          <span className="inline-flex items-center gap-1 text-[10px] text-green-600">
-                            <PlayCircle className="h-3 w-3" />
-                            {t('playable')}
-                          </span>
+      {/* P3 #31:视图切换(列表 / 三列看板)。看板模式沿用同一份数据与过滤条件 */}
+      <div className="flex items-center justify-end gap-1">
+        <button
+          type="button"
+          onClick={() => setViewMode('list')}
+          aria-pressed={viewMode === 'list'}
+          className={cn(
+            'inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-xs transition-colors',
+            viewMode === 'list'
+              ? 'border-primary/50 bg-primary/10 text-primary'
+              : 'border-border/50 text-muted-foreground hover:bg-muted/40',
+          )}
+          data-testid="view-toggle-list"
+        >
+          <LayoutList className="h-3.5 w-3.5" />
+          <span>{t('viewList')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode('board')}
+          aria-pressed={viewMode === 'board'}
+          className={cn(
+            'inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-xs transition-colors',
+            viewMode === 'board'
+              ? 'border-primary/50 bg-primary/10 text-primary'
+              : 'border-border/50 text-muted-foreground hover:bg-muted/40',
+          )}
+          data-testid="view-toggle-board"
+        >
+          <Columns3 className="h-3.5 w-3.5" />
+          <span>{t('viewBoard')}</span>
+        </button>
+      </div>
+
+      {viewMode === 'board' ? (
+        /* P3 #31:三列看板(Running/Waiting/Completed),卡片可跳回发起任务的对话 */
+        <TaskKanban
+          tasks={tasks}
+          loading={listQuery.isLoading}
+          error={(listQuery.error as Error) ?? null}
+          cancelling={cancelling}
+          deleting={deleting}
+          onCancel={cancelTask}
+          onDelete={deleteTask}
+        />
+      ) : (
+        <div className="overflow-hidden rounded-md border border-border/50 bg-card/50">
+          {listQuery.isLoading ? (
+            <div className="flex items-center justify-center py-10 text-muted-foreground">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              {t('loading')}
+            </div>
+          ) : listQuery.error ? (
+            <div className="m-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              {(listQuery.error as Error).message}
+            </div>
+          ) : tasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
+              <Clapperboard className="h-8 w-8 opacity-40" />
+              <p className="text-sm">{t('empty')}</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {tasks.map((task) => {
+                const url = resultUrl(task)
+                const hasResult = !!url
+                return (
+                  <div key={task.id} className="space-y-2 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <MediaKindBadge kind={task.kind} t={t} />
+                      <MediaTaskStatusBadge status={task.status} t={t} />
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {task.tool}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground/60">
+                        {fmt(task.created_at)}
+                      </span>
+                      <div className="ml-auto flex items-center gap-1.5">
+                        {hasResult && (
+                          <>
+                            <span className="inline-flex items-center gap-1 text-[10px] text-green-600">
+                              <PlayCircle className="h-3 w-3" />
+                              {t('playable')}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 px-1.5 text-[10px]"
+                              asChild
+                            >
+                              <a href={url} download target="_blank" rel="noreferrer">
+                                <Download className="mr-1 h-3 w-3" />
+                                {t('download')}
+                              </a>
+                            </Button>
+                          </>
+                        )}
+                        {isInFlight(task.status) && task.task_id && (
                           <Button
                             variant="outline"
                             size="sm"
                             className="h-6 px-1.5 text-[10px]"
-                            asChild
+                            disabled={cancelling === task.task_id}
+                            onClick={() => cancelTask(task.task_id)}
                           >
-                            <a href={url} download target="_blank" rel="noreferrer">
-                              <Download className="mr-1 h-3 w-3" />
-                              {t('download')}
-                            </a>
+                            {cancelling === task.task_id ? (
+                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            ) : (
+                              <XCircle className="mr-1 h-3 w-3" />
+                            )}
+                            {cancelling === task.task_id ? t('cancelling') : t('cancel')}
                           </Button>
-                        </>
-                      )}
-                      {isInFlight(task.status) && task.task_id && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-6 px-1.5 text-[10px]"
-                          disabled={cancelling === task.task_id}
-                          onClick={() => cancelTask(task.task_id)}
-                        >
-                          {cancelling === task.task_id ? (
-                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                          ) : (
-                            <XCircle className="mr-1 h-3 w-3" />
-                          )}
-                          {cancelling === task.task_id ? t('cancelling') : t('cancel')}
-                        </Button>
-                      )}
-                      {task.task_id && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-destructive"
-                          disabled={deleting === task.task_id}
-                          onClick={() => deleteTask(task.task_id)}
-                          aria-label={t('delete')}
-                        >
-                          {deleting === task.task_id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-3 w-3" />
-                          )}
-                          {deleting === task.task_id ? t('deleting') : t('delete')}
-                        </Button>
-                      )}
+                        )}
+                        {task.task_id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-destructive"
+                            disabled={deleting === task.task_id}
+                            onClick={() => deleteTask(task.task_id)}
+                            aria-label={t('delete')}
+                          >
+                            {deleting === task.task_id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3 w-3" />
+                            )}
+                            {deleting === task.task_id ? t('deleting') : t('delete')}
+                          </Button>
+                        )}
+                      </div>
                     </div>
+                    {task.message && (
+                      <p className="line-clamp-2 break-words text-xs text-muted-foreground">
+                        {task.message}
+                      </p>
+                    )}
+                    {task.task_id && (
+                      <code className="block truncate rounded-sm bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                        {t('taskId')}: {task.task_id}
+                      </code>
+                    )}
+                    {hasResult && <MediaResultPreview task={task} />}
                   </div>
-                  {task.message && (
-                    <p className="line-clamp-2 break-words text-xs text-muted-foreground">
-                      {task.message}
-                    </p>
-                  )}
-                  {task.task_id && (
-                    <code className="block truncate rounded-sm bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                      {t('taskId')}: {task.task_id}
-                    </code>
-                  )}
-                  {hasResult && <MediaResultPreview task={task} />}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 分页 */}
       {!listQuery.isLoading && !listQuery.error && pages > 1 && (

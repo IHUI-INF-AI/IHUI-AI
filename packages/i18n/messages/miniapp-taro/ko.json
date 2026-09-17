@@ -587,6 +587,7 @@
       "loading": "로딩 중…"
     },
     "fileSelected": "{count}개 파일 선택됨",
+    "screenshotHint": "스크린샷 감지 — + 를 눌러 앨범에서 이미지를 골라 AI에게 보내세요",
     "generating": "빠른 생성 중",
     "history": {
       "clearConfirm": "모든 대화 기록을 삭제하시겠습니까?",

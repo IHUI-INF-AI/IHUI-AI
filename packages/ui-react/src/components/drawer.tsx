@@ -7,10 +7,28 @@
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { cva, type VariantProps } from 'class-variance-authority'
+import { CLOSE_BUTTON_BASE, CLOSE_BUTTON_ICON, CLOSE_BUTTON_POSITION } from '@ihui/design-tokens'
 import { cn } from '../lib/utils'
 
-const Drawer = DialogPrimitive.Root
-const DrawerTrigger = DialogPrimitive.Trigger
+// 2026-09-16:与 dialog.tsx 同款安全降级(见 dialog.tsx 注释),游离 DrawerTrigger 降级为纯 children。
+import { InDialogContext } from './dialog'
+
+const Drawer = ({
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root>) => (
+  <InDialogContext.Provider value={true}>
+    <DialogPrimitive.Root {...props}>{children}</DialogPrimitive.Root>
+  </InDialogContext.Provider>
+)
+const DrawerTrigger = ({
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Trigger>) => {
+  const inDialog = React.useContext(InDialogContext)
+  if (!inDialog) return <>{children}</>
+  return <DialogPrimitive.Trigger {...props}>{children}</DialogPrimitive.Trigger>
+}
 const DrawerClose = DialogPrimitive.Close
 
 const drawerSideVariants = cva(
@@ -41,36 +59,42 @@ interface DrawerContentProps
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DrawerContentProps
->(({ side = 'right', className, children, ...props }, ref) => (
-  <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-(--duration-unified) data-[state=closed]:ease-unified" />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(drawerSideVariants({ side }), className)}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-4 w-4"
-        >
-          <path d="M18 6 6 18" />
-          <path d="m6 6 12 12" />
-        </svg>
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPrimitive.Portal>
-))
+>(({ side = 'right', className, children, ...props }, ref) => {
+  // 2026-09-16:无 Root 时渲染 null(同 dialog.tsx Content 降级,防 prerender 抛错)。
+  const inDialog = React.useContext(InDialogContext)
+  if (!inDialog) return null
+  return (
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-(--duration-unified) data-[state=closed]:ease-unified" />
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(drawerSideVariants({ side }), className)}
+        {...props}
+      >
+        {children}
+        {/* 2026-09-16:样式 token 化,单一来源 @ihui/design-tokens close-button.ts */}
+        <DialogPrimitive.Close className={cn(CLOSE_BUTTON_BASE, CLOSE_BUTTON_POSITION)}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={cn(CLOSE_BUTTON_ICON)}
+          >
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  )
+})
 DrawerContent.displayName = DialogPrimitive.Content.displayName
 
 const DrawerHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

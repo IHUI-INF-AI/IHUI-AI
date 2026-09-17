@@ -44,6 +44,9 @@ import { RoutinesPanel } from '@/components/ai/routines-panel'
 import { AgentTraceViewer } from '@/components/ai/AgentTraceViewer'
 import { CheckpointHistoryPanel } from '@/components/ai/checkpoint-history-panel'
 import { BestOfCompare } from '@/components/ai/best-of-compare'
+// P3 #41(2026-09-16 立):记忆图谱可视化
+import { MemoryGraphPanel } from '@/components/ai/memory-graph-panel'
+import { AtomicRollbackPanel } from '@/components/ai/atomic-rollback-panel'
 import { GoalCard } from '@/components/ai/goal-card'
 import { MemoryCards } from '@/components/ai/memory-cards'
 import { TokenUsagePanel } from '@/components/ai/token-usage-panel'
@@ -93,6 +96,8 @@ type ToolTabKey =
   | 'spec'
   | 'runtime'
   | 'bestof'
+  | 'memorygraph'
+  | 'atomicrollback'
   | 'hooks'
   | 'wiki'
   | 'integrations'
@@ -115,6 +120,8 @@ const TAB_KEYS: ToolTabKey[] = [
   'spec',
   'runtime',
   'bestof',
+  'memorygraph',
+  'atomicrollback',
   'hooks',
   'wiki',
   'integrations',
@@ -639,6 +646,12 @@ export function AiSidePanelTools() {
             }}
           />
         )
+      // P3 #41 记忆图谱(2026-09-16 立):子图可视化
+      case 'memorygraph':
+        return <MemoryGraphPanel />
+      // P3 #42 全栈原子回滚(2026-09-17 立):dry-run 预演 + confirm 执行
+      case 'atomicrollback':
+        return <AtomicRollbackPanel />
       // W28 Hooks 事件系统配置面板(2026-09-14 立)
       case 'hooks':
         return <AgentHooksPanel />

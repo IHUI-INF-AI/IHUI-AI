@@ -17,6 +17,29 @@ export type { ChatRole } from '@ihui/shared'
 /** Inline Diff Apply 状态:pending=待确认 / applying=应用中 / applied=已应用 / rejected=已拒绝 / error=应用失败 */
 export type DiffApplyStatus = 'pending' | 'applying' | 'applied' | 'rejected' | 'error'
 
+/**
+ * Diff 评审意见(P3 #30 diff 评论驱动返工,2026-09-16 立,对标 Codex diff 评论)。
+ *
+ * 用户在 InlineDiffCard 上对某文件/某行留下的评审意见,暂存于 store,
+ * 下一轮用户发消息时由 lib/diff-comments.ts 格式化为 `<diff_review>` 块
+ * 定向注入 agent 上下文(仅影响发给 LLM 的内容,不污染用户消息气泡)。
+ * 注入成功后清空(消费即清),避免重复注入同一批意见。
+ */
+export interface DiffComment {
+  id: string
+  /** 被评论文件路径(diff 卡片的 file_path) */
+  filePath: string
+  /** 关联的 diff 新文件侧行号;undefined = 文件级评论 */
+  line?: number
+  /** 被评论行的代码内容(截断后注入,给 agent 更精确的定位上下文) */
+  lineText?: string
+  /** 评审意见正文 */
+  comment: string
+  /** 来源工具调用 id(便于回溯是哪次改动) */
+  toolCallId?: string
+  createdAt: number
+}
+
 export interface ToolCall extends BaseToolCall {
   /** edit_file/write_file 工具调用关联的 Inline Diff 信息(供 InlineDiffCard 渲染) */
   diffInfo?: InlineDiffInfo
@@ -135,6 +158,10 @@ interface ChatState {
    *  键 messageId 对应 assistant 消息,items 为该消息触发的新增长期记忆条目摘要。
    *  done 事件携带 memoryUpdates 时由 appendMemoryNotice 写入;MessageItem 按 message.id 查找渲染。 */
   memoryUpdateNotices: { messageId: string; items: string[] }[]
+  /** P3 #30 diff 评论驱动返工(2026-09-16 立):用户在 diff 卡片上留下的待发送评审意见队列。
+   *  下一轮 sendMessage 时格式化为 `<diff_review>` 块定向注入 agent 上下文,注入后清空。
+   *  持久化:评论可能跨刷新保留(用户评论后切走再回来仍可发送),故纳入 partialize。 */
+  pendingDiffComments: DiffComment[]
 
   setModel: (model: string) => void
   /** 添加单个工具到已选;已存在则忽略 */
@@ -231,6 +258,13 @@ interface ChatState {
    *  由 send-message.ts onMemoryUpdates 回调调用,把本轮新增的长期记忆条目摘要挂到对应助手消息。
    *  存储为 store 级数组(键 messageId),MessageItem 按 message.id 过滤渲染「已记住」提示条。 */
   appendMemoryNotice: (messageId: string, items: string[]) => void
+  /** P3 #30 diff 评论驱动返工(2026-09-16 立):新增一条 diff 评审意见(入待发送队列)。
+   *  同 filePath+line+comment 完全重复时忽略(防重复提交)。 */
+  addDiffComment: (comment: Omit<DiffComment, 'id' | 'createdAt'>) => void
+  /** 按 id 删除单条 diff 评审意见(用户在评论列表点删除) */
+  removeDiffComment: (id: string) => void
+  /** 清空全部待发送 diff 评审意见(注入成功后消费即清,或用户手动清空) */
+  clearDiffComments: () => void
   /** P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
    *  前端 onUsage 回调调用此方法把 usage 写入 assistant 消息 meta.usage,UI 展示 token 计数。 */
   updateMessageMeta: (messageId: string, meta: Record<string, unknown>) => void
@@ -310,6 +344,7 @@ export const useChatStore = create<ChatState>()(
       compactionStatus: null,
       // P1 #27 记忆更新可视化(2026-09-16 立)
       memoryUpdateNotices: [],
+      pendingDiffComments: [],
       // #21 中断后追加指令继续(2026-09-13 立)
       interruptedMessageId: null,
       // W27 输入历史(2026-09-14 立):Esc+Esc 历史导航数据源
@@ -431,7 +466,14 @@ export const useChatStore = create<ChatState>()(
           return { messages: next }
         }),
 
-      clearMessages: () => set({ messages: [], error: null, memoryUpdateNotices: [] }),
+      clearMessages: () =>
+        set({
+          messages: [],
+          error: null,
+          memoryUpdateNotices: [],
+          // P3 #30:新建对话时 diff 卡片随消息消失,待发送评论一并清空避免悬空
+          pendingDiffComments: [],
+        }),
       /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
       setMessages: (messages: ChatMessage[]) => set({ messages }),
       /** 编辑用户消息内容(2026-09-12 立,四竞品对标 P0-1):
@@ -835,6 +877,33 @@ export const useChatStore = create<ChatState>()(
           return { memoryUpdateNotices: notices }
         }),
 
+      // P3 #30 diff 评论驱动返工(2026-09-16 立):待发送评审意见队列三 action。
+      // 队列由 send-message 在下一轮发送时消费(注入 <diff_review> 块后 clearDiffComments)。
+      addDiffComment: (input) =>
+        set((s) => {
+          const text = input.comment.trim()
+          if (!text) return s
+          // 完全重复(同文件 + 同行 + 同正文)时忽略,防重复点击提交
+          const dup = s.pendingDiffComments.some(
+            (c) => c.filePath === input.filePath && c.line === input.line && c.comment === text,
+          )
+          if (dup) return s
+          const entry: DiffComment = {
+            ...input,
+            comment: text,
+            id: `dc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            createdAt: Date.now(),
+          }
+          return { pendingDiffComments: [...s.pendingDiffComments, entry] }
+        }),
+
+      removeDiffComment: (id) =>
+        set((s) => ({
+          pendingDiffComments: s.pendingDiffComments.filter((c) => c.id !== id),
+        })),
+
+      clearDiffComments: () => set({ pendingDiffComments: [] }),
+
       // 2026-08-01 Phase 4a:消息级 terminal task append(terminal_start 事件)
       appendMessageTerminalTask: (messageId, task) =>
         set((s) => {
@@ -901,6 +970,9 @@ export const useChatStore = create<ChatState>()(
         draftInput: s.draftInput,
         // W27(2026-09-14):输入历史持久化 —— Esc+Esc 历史导航跨会话/刷新可用
         inputHistory: s.inputHistory,
+        // P3 #30(2026-09-16):diff 待发送评审意见持久化 —— 用户评论后刷新/切走再回来仍可发送。
+        // 上限 50 条(与 inputHistory 同量级),避免异常累积撑爆 localStorage 配额。
+        pendingDiffComments: s.pendingDiffComments.slice(-50),
         // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除
         // ChatMode 由 useModeStore 独立管理,持久化不重复存储
         // #12 store messages 持久化(2026-07-25 立):

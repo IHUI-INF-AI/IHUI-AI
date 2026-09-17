@@ -144,10 +144,17 @@ interface SseCapture {
 
 const CONTENT_TAIL_LIMIT = 2000
 
+/** agent 执行参数(SSE 流消费的通用入参,automations 与 patrol 共用) */
+export interface AgentStreamParams {
+  message: string
+  sessionId: string
+  botId: string
+}
+
 /** 消费 agent-runtime SSE 流直到结束,摘取最终摘要(失败不抛错,返回捕获信息)。 */
-async function consumeAgentStream(
+export async function consumeAgentStream(
   request: FastifyRequest | null,
-  automation: UserAutomation,
+  params: AgentStreamParams,
 ): Promise<SseCapture> {
   const capture: SseCapture = { summary: null, contentTail: '', errorMessage: null }
   const upstream = await aiServiceFetchStream(request, '/api/agent-runtime/execute/stream', {
@@ -157,10 +164,10 @@ async function consumeAgentStream(
       Accept: 'text/event-stream',
     },
     body: JSON.stringify({
-      message: automation.prompt,
+      message: params.message,
       mode: 'auto',
-      sessionId: `auto_${automation.id}`,
-      botId: automation.id,
+      sessionId: params.sessionId,
+      botId: params.botId,
     }),
   })
 
@@ -230,7 +237,11 @@ export async function executeAutomation(
 ): Promise<string | null> {
   const now = new Date()
   try {
-    const capture = await consumeAgentStream(request, automation)
+    const capture = await consumeAgentStream(request, {
+      message: automation.prompt,
+      sessionId: `auto_${automation.id}`,
+      botId: automation.id,
+    })
     const summary =
       capture.summary ??
       (capture.contentTail.trim() ? capture.contentTail.trim().slice(-500) : null) ??

@@ -582,6 +582,7 @@
       "loading": "加载中..."
     },
     "fileSelected": "已选择 {count} 个文件",
+    "screenshotHint": "已检测到截屏，可点输入框左侧 + 从相册选择图片发给 AI 分析",
     "generating": "AI 生成中...",
     "history": {
       "clearConfirm": "确定要清空历史记录吗?",

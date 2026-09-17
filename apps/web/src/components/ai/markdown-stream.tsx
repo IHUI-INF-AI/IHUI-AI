@@ -30,6 +30,10 @@ import { useWorkPanelStore } from '@/stores/work-panel'
 import { useCanvasStore } from '@/stores/canvas-store'
 import { applyCodeBlockToFile } from '@/lib/apply-code-block'
 import { useCodeBlockRun, isRunnableLanguage, type RunResult } from '@/components/ai/code-block-run'
+// P3 #35(2026-09-16 立):流式稳定段/活跃段切分——稳定前缀 memo 缓存跳过 parse
+import { splitMarkdownStable } from '@/lib/markdown-stable-split'
+// P3 #32(2026-09-16 立):PDF/CSV 消息内富预览(非流式时升级渲染)
+import { CsvPreview, PdfEmbed } from '@/components/media/message-file-preview'
 // 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
@@ -155,13 +159,7 @@ function InlineHtmlPreview({ code }: { code: string }) {
 
 // P1 #28(2026-09-16):代码块运行结果内联输出面板。
 // 样式与代码块一致(zinc-100 / dark:zinc-950),含命令、合并 stdout/stderr、exitCode 徽章、关闭按钮。
-function CodeRunOutput({
-  result,
-  onClose,
-}: {
-  result: RunResult
-  onClose: () => void
-}) {
+function CodeRunOutput({ result, onClose }: { result: RunResult; onClose: () => void }) {
   const t = useTranslations('chat')
   const isSuccess = result.status === 'success'
   const isRunning = result.status === 'running'
@@ -552,7 +550,16 @@ function isOfficeLink(href: string): boolean {
   return OFFICE_EXT.test(href)
 }
 
-function MarkdownLink({ href, children }: { href?: string; children?: React.ReactNode }) {
+function MarkdownLink({
+  href,
+  children,
+  isStreaming,
+}: {
+  href?: string
+  children?: React.ReactNode
+  /** P3 #32:流式中 PDF/CSV 仍渲染下载卡,完成后升级为富预览(避免 iframe 抖动) */
+  isStreaming?: boolean
+}) {
   const hrefStr = typeof href === 'string' ? href : undefined
   if (!hrefStr) {
     // 无 href 的链接:渲染为 span(避免 a11y 警告)
@@ -564,10 +571,19 @@ function MarkdownLink({ href, children }: { href?: string; children?: React.Reac
     return <span>{children}</span>
   }
 
-  // Office 文件:渲染为下载卡片
+  // Office/数据文件:渲染为下载卡片
   if (isOfficeLink(hrefStr)) {
     const fileName = hrefStr.split('/').pop()?.split('?')[0] ?? 'file'
     const ext = (fileName.match(/\.([^.]+)$/)?.[1] ?? '').toLowerCase()
+
+    // P3 #32:PDF/CSV 非流式时升级为消息内富预览(PDF 原生查看器 / CSV 表格化)
+    if (!isStreaming && ext === 'pdf') {
+      return <PdfEmbed src={hrefStr} />
+    }
+    if (!isStreaming && ext === 'csv') {
+      return <CsvPreview src={hrefStr} />
+    }
+
     return (
       <a
         href={hrefStr}
@@ -624,6 +640,25 @@ function hasUnclosedFence(content: string): boolean {
   const matches = content.match(/```/g)
   return matches !== null && matches.length % 2 === 1
 }
+
+/** P3 #35:稳定段渲染组件——content 字符串不变时 memo 命中,整段跳过 react-markdown parse。 */
+const StableBlock = React.memo(function StableBlock({
+  content,
+  components,
+}: {
+  content: string
+  components: Components
+}) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
+      components={components}
+    >
+      {content}
+    </ReactMarkdown>
+  )
+})
 
 export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: MarkdownStreamProps) {
   // 自适应 throttle(leading + trailing)合并解析频率:
@@ -730,7 +765,11 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
         return <MarkdownVideo src={typeof src === 'string' ? src : undefined} />
       },
       a({ href, children }) {
-        return <MarkdownLink href={href}>{children}</MarkdownLink>
+        return (
+          <MarkdownLink href={href} isStreaming={isStreaming}>
+            {children}
+          </MarkdownLink>
+        )
       },
       // 表格:外层包 overflow-x-auto 容器,移动端可横向滚动
       // 2026-08-02:表格字号同步放大 14px → 15px
@@ -847,19 +886,43 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
     }),
     // 2026-08-16 修复:code 组件内部使用 collapseLines(透传给 ThemedCodeBlock),
     // 此前 deps 为空导致闭包捕获旧值,代码折叠行数变化不生效。
-    [collapseLines],
+    // P3 #32:a 组件透传 isStreaming(PDF/CSV 流式中渲染下载卡,完成后升级富预览)。
+    [collapseLines, isStreaming],
+  )
+
+  // P3 #35(2026-09-16 立):稳定段/活跃段切分。
+  // 流式纯追加 → 前缀冻结:splitMarkdownStable 在最后一个安全块边界(围栏外空行、
+  // 非列表延续)切一刀;stable 用 memo 缓存跳过 parse,每 tick 只解析 active。
+  // 非流式(完成态)与短内容不切,走既有单 ReactMarkdown 全量路径(零行为差异)。
+  const { stable, active } = React.useMemo(
+    () => (isStreaming ? splitMarkdownStable(parseContent) : { stable: '', active: parseContent }),
+    [parseContent, isStreaming],
   )
 
   return (
     // 2026-08-02:AI 对话正文 14px → 15px(text-[15px]),用户反馈"太大了 小点"
     <div className="!m-0 !p-0 !space-y-0 text-[15px]" data-testid="markdown-stream">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
-        components={components}
-      >
-        {parseContent}
-      </ReactMarkdown>
+      {stable ? (
+        <>
+          {/* 稳定前缀:内容冻结,memo 命中时零 parse */}
+          <StableBlock content={stable} components={components} />
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
+            components={components}
+          >
+            {active}
+          </ReactMarkdown>
+        </>
+      ) : (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
+          components={components}
+        >
+          {active}
+        </ReactMarkdown>
+      )}
       {isStreaming && (
         <span
           className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-primary align-middle"

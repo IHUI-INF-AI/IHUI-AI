@@ -7,10 +7,10 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Loader2, Plus, AlertCircle, RefreshCw, X } from 'lucide-react'
+import { Loader2, Plus, AlertCircle, RefreshCw } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input, Label } from '@ihui/ui-react'
+import { Button, CloseButton, Input, Label } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import {
   Dialog,
@@ -198,14 +198,11 @@ export default function WorkspacePage() {
               <RefreshCw className="h-3.5 w-3.5" />
               {t('retry')}
             </Button>
-            <button
-              type="button"
-              onClick={() => setErrorDismissed(true)}
+            <CloseButton
               aria-label={t('dismiss')}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-destructive/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+              onClick={() => setErrorDismissed(true)}
+              className="text-destructive/70 hover:bg-destructive/10 hover:text-destructive"
+            />
           </div>
         </div>
       ) : data && data.length > 0 ? (
