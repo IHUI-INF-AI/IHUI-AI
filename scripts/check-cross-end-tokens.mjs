@@ -54,18 +54,11 @@ const MAPPINGS = [
     css: { light: '--color-vip-gold-end', dark: '--color-vip-gold-end' },
     basis: '同上(rn-tokens.ts L52 注释);tokens.css @theme L137,.dark 无覆盖',
   },
-  {
-    label: 'surface.inputBg (light) ↔ --color-link-bg (:root)',
-    rn: { light: ['rnLightTokens', 'surface', 'inputBg'] },
-    css: { light: '--color-link-bg' },
-    basis: 'rn-tokens.ts L70 注释「输入框背景对齐 miniapp 输入框底色(亮 #f0f7ff)」;tokens.css @theme L148 --color-link-bg: #f0f7ff',
-  },
-  {
-    label: 'surface.inputBg (dark) ↔ --color-link-bg (.dark)',
-    rn: { dark: ['rnDarkTokens', 'surface', 'inputBg'] },
-    css: { dark: '--color-link-bg' },
-    basis: 'rn-tokens.ts L245 rnDarkTokens surface.inputBg = rgba(78,163,245,0.15);tokens.css L410 .dark --color-link-bg: rgba(78, 163, 245, 0.15)(空白归一后相等)',
-  },
+  // 注(2026-09-17):原「surface.inputBg ↔ --color-link-bg」配对已移除。根因:两边语义均已漂移且
+  // 不再同源——rn surface.inputBg 已改为中性输入框底色(light #F5F5F5/dark #262626),
+  // tokens.css --color-link-bg 已改为链接背景浅蓝透明(light rgba(143,184,204,0.15)/dark
+  // rgba(163,196,214,0.14));「输入框背景」与「链接背景」语义不同,强行配对无意义,
+  // 与 2026-09-06 移除「indigo.DEFAULT ↔ --color-brand」同一处置模式。
   // 注(2026-09-06):原「indigo.DEFAULT ↔ --color-brand」配对已移除。根因:品牌"统一黑/白"后,
   // tokens.css --color-brand 已从 #6366f1 改为 #000000/#ffffff(对齐 RN brand.DEFAULT 纯黑纯白),
   // 而 RN indigo(强调色 #6366f1/#818cf8)是 RN 专属的 indigo 强调色,web 无 --color-brand 对应。
