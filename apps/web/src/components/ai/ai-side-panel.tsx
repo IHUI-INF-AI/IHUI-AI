@@ -1179,10 +1179,12 @@ export function AISidePanel() {
                     isStreaming={isStreaming}
                     model={currentModel}
                   />
-                  {/* W15(2026-09-13 立):会话级导出/分享菜单(MD/JSON/快照图/分享链接) */}
-                  <ChatExportMenu title={displayTitle} disabled={isStreaming} />
                 </span>
               </div>
+              {/* W15(2026-09-13 立):会话级导出/分享菜单(MD/JSON/快照图/分享链接)
+              2026-09-17 修复:原放在标题 overflow-hidden 容器内,标题占满宽度时按钮被裁半;
+              移出到右侧按钮组最左(浮窗/环境信息按钮之前),不再受标题容器裁切 */}
+              <ChatExportMenu title={displayTitle} disabled={isStreaming} />
               {/* Plan/Act 模式切换(2026-07-24 立,对标 AI 工作台 plan/act toggle + Codex)
               2026-07-28 移除:PlanActToggle 按钮与 sidebar ModeSwitcher 4 态(ChatMode build/plan/review/spec)
               语义重叠,统一用 ModeSwitcher 控制。当前 mode 视觉指示由 sidebar ModeSwitcher 高亮态承载,
