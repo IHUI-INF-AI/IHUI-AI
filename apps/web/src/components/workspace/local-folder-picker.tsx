@@ -291,7 +291,6 @@ function PathNav({
           <Tooltip>
             <TooltipTrigger asChild>
               <IconButton
-                size="md"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={cancelInput}
                 aria-label={t('cancel')}
@@ -313,7 +312,6 @@ function PathNav({
         <Tooltip>
           <TooltipTrigger asChild>
             <IconButton
-              size="md"
               onClick={() => onNavigate('')}
               className={cn(
                 isAtRoot
@@ -372,7 +370,7 @@ function PathNav({
       <TooltipProvider delayDuration={200}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <IconButton size="md" onClick={() => setMode('input')} aria-label={t('advancedPath')}>
+            <IconButton onClick={() => setMode('input')} aria-label={t('advancedPath')}>
               <Keyboard />
             </IconButton>
           </TooltipTrigger>
@@ -384,12 +382,7 @@ function PathNav({
       <TooltipProvider delayDuration={200}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <IconButton
-              size="md"
-              onClick={onRefresh}
-              disabled={isRefreshing}
-              aria-label={t('refresh')}
-            >
+            <IconButton onClick={onRefresh} disabled={isRefreshing} aria-label={t('refresh')}>
               <RefreshCw className={cn(isRefreshing && 'animate-spin')} />
             </IconButton>
           </TooltipTrigger>
