@@ -22160,6 +22160,18 @@
     "adopt": "메인라인으로 채택",
     "adopted": "채택됨"
   },
+  "agentTasks": {
+    "title": "Agent 실행 작업",
+    "refresh": "새로고침",
+    "empty": "Agent 작업이 없습니다(/agent/run 또는 자동화로 생성)",
+    "iterations": "{count}회 반복",
+    "injectPlaceholder": "중간 끼어들기:지시 추가 / 방향 수정…",
+    "inject": "끼어들기",
+    "toastLoadFailed": "작업 목록 로드 실패",
+    "toastInjected": "끼어들기 제출됨, 다음 반복에 적용",
+    "toastInjectRejected": "작업이 종료되어 끼어들 수 없습니다",
+    "toastInjectFailed": "끼어들기 제출 실패"
+  },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count}개 작업의 원격 취소에 실패했습니다(로컬은 취소 처리됨)",
     "title": "미디어 작업",
@@ -22359,6 +22371,8 @@
     "confirmCancel": "취소"
   },
   "memoryGraph": {
+    "layoutForce": "포스",
+    "layoutRing": "링",
     "searchPlaceholder": "메모리 키워드 검색…",
     "searchBtn": "검색",
     "empty": "키워드로 메모리 서브그래프 조회",
