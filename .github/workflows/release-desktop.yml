@@ -36,10 +36,11 @@ jobs:
         include:
           - label: windows-x64
             runner: windows-latest
-          - label: macos-arm64
+          # 2026-09-17 极致提速:macOS 由"arm64 + Intel 两个 job"合并为 **Universal 二进制**
+          # (arm64 runner 交叉编译 x86_64-apple-darwin,tauri --target universal-apple-darwin),
+          # 产物同时支持 Apple Silicon 与 Intel——直接砍掉最慢的 macos-15-intel job(实测 ~45min)。
+          - label: macos-universal
             runner: macos-latest
-          - label: macos-x64
-            runner: macos-15-intel # macos-13 已于 2025-12 退役,job 会永久排队;macos-15-intel 为官方 Intel 替代
           - label: linux-x64
             runner: ubuntu-latest
     steps:
@@ -48,6 +49,11 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      # macOS Universal:补装 x86_64 目标(arm64 已就位)
+      - name: Add macOS x86_64 target (universal build)
+        if: runner.os == 'macOS'
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
       # 2026-09-17 链接提速:.cargo/config.toml 指定 rust-lld 作为 Windows 链接器
       # (实测增量构建 110s → 5.4s);rust-lld 在 toolchain 内不在 PATH,补入 GITHUB_PATH
@@ -67,6 +73,14 @@ jobs:
           cache-all-crates: true
           # 2026-09-17:失败也保存缓存——失败 run 的编译成果不浪费,重跑时增量续编
           cache-on-failure: true
+
+      # 2026-09-17 编译缓存跨 run 共享:命中后依赖 crate 全跳过,只编业务代码
+      # (macOS/Linux 单 job 预期 8-10 分钟;首 run 为填充缓存,第二次起生效)
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Enable sccache
+        run: echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
 
       - name: Install Linux deps
         if: runner.os == 'Linux'
@@ -93,6 +107,8 @@ jobs:
           # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
           # 显式指定全局安装的 tauri CLI(见上一步 Install Tauri CLI)
           tauriScript: tauri
+          # macOS:Universal 二进制(同时覆盖 arm64 + Intel;配合 rustup target add)
+          args: ${{ runner.os == 'macOS' && '--target universal-apple-darwin' || '' }}
           # 2026-09-05: 默认以仓库根为 CWD,导致 beforeBuildCommand `node scripts/ensure-web-out.mjs`
           # 解析到 <root>/scripts 找不到模块(CI 实证);指定 tauri 应用目录对齐本地行为
           projectPath: apps/desktop
@@ -117,7 +133,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ inputs.tag || github.ref_name }}"
+          # 2026-09-17:macOS Universal 产物在 target/universal-apple-darwin/release/bundle
           BUNDLE=apps/desktop/src-tauri/target/release/bundle
+          if [ -d "apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle" ]; then
+            BUNDLE=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle
+          fi
           # tauri-action existsSync 过滤丢产物的兜底:按磁盘真实文件名(含中文)直接上传
           FILES=$(find "$BUNDLE" -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
             -o -name '*.AppImage.tar.gz' -o -name '*.dmg' -o -name '*.exe' -o -name '*.msi' \
@@ -143,6 +163,8 @@ jobs:
             apps/desktop/src-tauri/target/release/bundle/deb/*.deb
             apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
             apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
           if-no-files-found: warn
           retention-days: 7
 
@@ -227,6 +249,9 @@ jobs:
       # 资产(URL/大小/版本/发布日期),刷新 desktop-feed.generated.ts 入库快照。
       # 前端下载页构建期读快照,发版后零手动更新(脚本幂等:无变化不产生 diff)。
       - name: Resolve desktop download feed
+        env:
+          # release 可能仍处 draft(Publish 刚完成),无 token 的 API 看不到 → 必须带 token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/resolve-desktop-download.mjs
 
       - name: Check for changes
