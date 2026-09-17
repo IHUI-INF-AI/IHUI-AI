@@ -61,7 +61,12 @@ function extractFrontendCalls(src, file) {
   const lines = src.split('\n')
   // 匹配 fetchApi(`/api/...`) 或 fetch(`/api/...`) 或 xxxApi(`/api/admin/...`)
   // 捕获 method（从上下文推断）和路径
-  const pathRe = /['"`](\/api\/(?:admin\/)?[a-zA-Z0-9/_\-${}:.]+)['"`]/g
+  // 2026-09-17 加固:字符类补 `?&=%,+~#@!;` —— 原正则不含 `?`,导致「单行字面量内联查询串」的
+  // 调用(形如 `/api/memory/graph?query=${encodeURIComponent(q)}`)整条无法匹配、静默跳过,
+  // 形成守门结构盲区(实测漏检 288 条路径;其中 `/api/memory/graph` 后端从未实现 → 记忆图谱面板
+  // 线上恒 404 却一路绿灯)。刻意**不含 `*` 与括号**,避免把 next.config.ts 的 rewrite 源
+  // ('/api/:path*')与函数调用文本误当成调用点。
+  const pathRe = /['"`](\/api\/(?:admin\/)?[a-zA-Z0-9/_\-${}:.?&=%,+~#@!;]+)['"`]/g
   lines.forEach((line, idx) => {
     let m
     pathRe.lastIndex = 0
@@ -83,10 +88,21 @@ function extractFrontendCalls(src, file) {
         method = sameLineMatch[1].toUpperCase()
       } else {
         // 向后搜索 path 之后的第一个 method（同一 options 对象内，后 4 行）
+        // 2026-09-17 加固:遇到「调用收尾行」(仅由 ) ] } > , ; 与空白组成)即停止扫描。
+        // 原实现盲扫固定 4 行 → 会跨出当前调用、抓到**下一个不相关调用**的 method:
+        //   queryFn: () => api<CirclesData>(`/api/circles/mine?page=${page}`),  ← path(应 GET)
+        //   })                                                                   ← 收尾,应在此停止
+        //   const delMut = useMutation({
+        //     mutationFn: (id) => api(`/api/circles/${id}/leave`, { method: 'POST' }), ← 曾被误抓
+        // 注:判据刻意**只用「整行纯闭合」**而非「行内出现右括号」——后者会被
+        // `reason.trim()` / `JSON.stringify(x)` 之类实参里的括号误触发,反而漏掉真正的 method。
         let resolved = null
         for (let i = 1; i <= 4; i++) {
-          const afterLine = (lines[idx + i] || '').toLowerCase()
-          const afterMatch = afterLine.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
+          const afterLine = lines[idx + i] || ''
+          if (/^\s*[)\]}>;,]*\s*$/.test(afterLine)) break
+          const afterMatch = afterLine
+            .toLowerCase()
+            .match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
           if (afterMatch) {
             resolved = afterMatch[1].toUpperCase()
             break
@@ -112,8 +128,13 @@ function extractFrontendCalls(src, file) {
           const directFetchRe = /fetchApi\s*(<[^>]*>)?\s*\(\s*['"`]\/api\//i
           const isDirectFetch = directFetchRe.test(lines[idx] || '')
           if (!isDirectFetch) {
+            // 2026-09-17 加固:两处加 `(?:<[^<>()]*>\s*)?` 泛型参数支持。
+            // 原正则不认 `async function api<T>(url, options)` —— 这是本仓最常见的
+            // 「同文件 wrapper」写法(my-circles/page.tsx:41、meal/page.tsx:85、use-task-receiver.ts:92
+            // 的 apiData 等)。识别失败会让作用域搜索**越过 wrapper 继续向前**,抓到更早某个
+            // 函数的 `method: 'POST'`(如 join/leave 之类的写操作),把 wrapper 的 GET 调用误判成 POST。
             const funcStartRe =
-              /(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?\([^)]*\)\s*=>|function\s+\w+\s*\(|(?:const|let|var)\s+\w+\s*:\s*(?:async\s*)?\([^)]*\)\s*=>/
+              /(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?(?:<[^<>()]*>\s*)?\([^)]*\)\s*=>|function\s+\w+\s*(?:<[^<>()]*>\s*)?\(|(?:const|let|var)\s+\w+\s*:\s*(?:async\s*)?\([^)]*\)\s*=>/
             let funcStartLine = -1
             for (let i = idx - 1; i >= 0; i--) {
               if (funcStartRe.test(lines[i] || '')) {
@@ -172,8 +193,13 @@ function extractFrontendCalls(src, file) {
       // 模板字符串变量：查询字符串构建器直接去掉，其余替换为 :param
       const normalized = rawPath
         .replace(/\$\{([^}]+)\}/g, (_match, expr) => {
+          // 2026-09-17 加固:`?` 只在**非可选链**时才算查询字符串构建器。
+          // 原实现用 expr.includes('?') → `${editing?.id}` 这类可选链被误判为查询串、
+          // 整个插值被清空,路径退化为 `/api/admin/exam/questions`(丢掉 :param),
+          // 再与后端 `/admin/exam/questions/:id` 比对必然报缺失(误报)。
+          // 判据:`?` 之后紧跟 `.` 是可选链(值),否则是三元/查询串(应清空)。
           const isQueryStringBuilder =
-            expr.includes('?') ||
+            /\?(?!\.)/.test(expr) ||
             /(^|[^a-zA-Z0-9_])(qs|query|search|params|filter|filters|sort|pagination|listQs|pageQuery|searchParams|queryString|searchQuery)([^a-zA-Z0-9_]|$)/i.test(
               expr,
             )
