@@ -128,7 +128,31 @@ def main():
             r = urllib.request.urlopen(req, timeout=120)
             print(f"[gh] desktop-feed/latest.json: {r.status}(镜像自动同步 Gitee)")
         except urllib.error.HTTPError as e:
-            print(f"[gh] feed 更新失败: {e.code} {e.read().decode()[:150]}")
+            # 2026-09-17:desktop-feed 分支可能被外部操作删除 → 自愈重建后重试
+            print(f"[gh] feed PUT 失败({e.code}),尝试重建 desktop-feed 分支...")
+            try:
+                req = urllib.request.Request(
+                    f"https://api.github.com/repos/{gh_repo}/git/ref/heads/main")
+                req.headers.update(gh_h)
+                main_sha = json.loads(urllib.request.urlopen(req, timeout=60).read())["object"]["sha"]
+                req = urllib.request.Request(
+                    f"https://api.github.com/repos/{gh_repo}/git/refs", method="POST")
+                req.headers.update(gh_h)
+                req.data = json.dumps({"ref": "refs/heads/desktop-feed", "sha": main_sha}).encode()
+                urllib.request.urlopen(req, timeout=60)
+                print("[gh] desktop-feed 分支已重建")
+            except Exception as e2:
+                print(f"[gh] 分支重建: {e2}")
+            try:
+                req = urllib.request.Request(
+                    f"https://api.github.com/repos/{gh_repo}/contents/latest.json", method="PUT")
+                req.headers.update(gh_h)
+                req.data = json.dumps({"message": f"desktop updater feed {args.version}",
+                                       "content": latest_b64, "branch": "desktop-feed"}).encode()
+                r = urllib.request.urlopen(req, timeout=120)
+                print(f"[gh] desktop-feed/latest.json(重试): {r.status}")
+            except Exception as e3:
+                print(f"[gh] feed 重试仍失败: {e3}")
     else:
         print("[gh] 无 GH_TOKEN,跳过 GitHub 真源 feed 更新")
 
