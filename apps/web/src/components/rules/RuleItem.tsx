@@ -10,7 +10,7 @@ import { BarChart3, FlaskConical, Pencil, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { matchTypeLabel, priorityVariant, scopeLabel, useRulesStore } from '@/stores/rules'
 import type { Rule } from '@ihui/types'
-import { Badge } from '@ihui/ui-react'
+import { Badge, IconButton } from '@ihui/ui-react'
 
 interface RuleItemProps {
   rule: Rule
@@ -85,30 +85,15 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
         {rule.enabled ? '启用' : '禁用'}
       </button>
       <div className="flex shrink-0 items-center gap-0.5">
-        <button
-          type="button"
-          onClick={onShowDetail}
-          aria-label="详情"
-          className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <BarChart3 className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={() => openTestDialog(rule)}
-          aria-label="测试"
-          className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <FlaskConical className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={onEdit}
-          aria-label="编辑"
-          className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
+        <IconButton size="md" onClick={onShowDetail} aria-label="详情">
+          <BarChart3 />
+        </IconButton>
+        <IconButton size="md" onClick={() => openTestDialog(rule)} aria-label="测试">
+          <FlaskConical />
+        </IconButton>
+        <IconButton size="md" onClick={onEdit} aria-label="编辑">
+          <Pencil />
+        </IconButton>
         {confirmDel ? (
           <button
             type="button"
@@ -122,24 +107,19 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         ) : (
-          <button
-            type="button"
+          <IconButton
+            size="md"
             onClick={() => setConfirmDel(true)}
             aria-label="删除"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            className="hover:bg-destructive/10 hover:text-destructive"
           >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+            <Trash2 />
+          </IconButton>
         )}
         {confirmDel && (
-          <button
-            type="button"
-            onClick={() => setConfirmDel(false)}
-            aria-label="取消删除"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
+          <IconButton size="md" onClick={() => setConfirmDel(false)} aria-label="取消删除">
+            <X />
+          </IconButton>
         )}
       </div>
     </div>

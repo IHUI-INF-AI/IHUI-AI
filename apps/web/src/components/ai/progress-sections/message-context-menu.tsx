@@ -19,7 +19,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { SearchInput } from '@ihui/ui-react'
+import { CloseButton, IconButton, SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import type { ContextMenuAction, ContextMenuItem } from '@/hooks/use-context-menu'
@@ -319,7 +319,7 @@ export const MessageSearchBar = React.memo(function MessageSearchBar({
 
   return (
     <div
-      className="sticky top-0 z-30 flex shrink-0 items-center gap-1.5 bg-background/95 px-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+      className="sticky top-0 z-30 flex shrink-0 items-center gap-1.5 bg-float-indicator-bg px-3 py-1.5"
       data-testid="message-search-bar"
       role="search"
       aria-label={t('search')}
@@ -343,52 +343,39 @@ export const MessageSearchBar = React.memo(function MessageSearchBar({
         {resultLabel}
       </span>
       <Tooltip content={t('searchPrev')}>
-        <button
-          type="button"
+        <IconButton
           onClick={handlePrev}
           disabled={prevDisabled}
           aria-label={t('searchPrev')}
           data-testid="message-search-prev"
           className={cn(
-            'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
-            'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             prevDisabled &&
               'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
           )}
         >
-          <ChevronUp className="h-3.5 w-3.5" aria-hidden />
-        </button>
+          <ChevronUp aria-hidden />
+        </IconButton>
       </Tooltip>
       <Tooltip content={t('searchNext')}>
-        <button
-          type="button"
+        <IconButton
           onClick={handleNext}
           disabled={nextDisabled}
           aria-label={t('searchNext')}
           data-testid="message-search-next"
           className={cn(
-            'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
-            'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             nextDisabled &&
               'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground',
           )}
         >
-          <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-        </button>
+          <ChevronDown aria-hidden />
+        </IconButton>
       </Tooltip>
       <Tooltip content={t('searchClose')}>
-        <button
-          type="button"
+        <CloseButton
           onClick={onClose}
           aria-label={t('searchClose')}
           data-testid="message-search-close"
-          className={cn(
-            'inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors',
-            'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-          )}
-        >
-          ×
-        </button>
+        />
       </Tooltip>
     </div>
   )
