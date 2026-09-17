@@ -29,9 +29,9 @@ export interface UseTaskWebsocketReturn {
 }
 
 // 2026-07-22 P0 Round 4 鲁棒性加固:重连 + 心跳配置
+// 2026-09-17 根治:取消 MAX_RECONNECT_ATTEMPTS 硬上限,改为无限重连(退避封顶 30s)
 const HEARTBEAT_INTERVAL_MS = 30_000
 const MAX_RECONNECT_DELAY_MS = 30_000
-const MAX_RECONNECT_ATTEMPTS = 10
 
 /** 任务 WebSocket Hook，订阅后端任务进度推送(带重连 + 心跳) */
 export function useTaskWebsocket(): UseTaskWebsocketReturn {
@@ -85,6 +85,12 @@ export function useTaskWebsocket(): UseTaskWebsocketReturn {
         ws = new WebSocket(buildWsUrl(`/ws/tasks/${taskId}`, token))
       } catch (e) {
         setError(e instanceof Error ? e.message : 'WebSocket 连接失败')
+        // 2026-09-17 根治:构造失败也纳入重连调度,不再彻底放弃
+        if (!closedByUnmountRef.current && token && currentTaskIdRef.current === taskId) {
+          const delay = Math.min(1000 * 2 ** reconnectAttemptRef.current, MAX_RECONNECT_DELAY_MS)
+          reconnectAttemptRef.current += 1
+          reconnectTimerRef.current = setTimeout(() => connect(taskId), delay)
+        }
         return
       }
       wsRef.current = ws
@@ -111,15 +117,13 @@ export function useTaskWebsocket(): UseTaskWebsocketReturn {
       ws.onclose = () => {
         setConnected(false)
         clearTimers()
-        // 2026-07-22 P0 Round 4:断线指数退避重连,达 MAX_RECONNECT_ATTEMPTS 停止
+        // 2026-09-17 根治:取消 10 次硬上限(原实现重连耗尽后永久放弃且无恢复手段,
+        // 服务恢复后永远收不到任务进度)。改为无限重连:指数退避封顶 30s,
+        // 仅在登出(token 失效)/组件卸载/切换订阅任务时停止。
         if (!closedByUnmountRef.current && token && currentTaskIdRef.current === taskId) {
-          if (reconnectAttemptRef.current < MAX_RECONNECT_ATTEMPTS) {
-            const delay = Math.min(1000 * 2 ** reconnectAttemptRef.current, MAX_RECONNECT_DELAY_MS)
-            reconnectAttemptRef.current += 1
-            reconnectTimerRef.current = setTimeout(() => connect(taskId), delay)
-          } else {
-            setError(`WebSocket 重连失败(已达最大次数 ${MAX_RECONNECT_ATTEMPTS})`)
-          }
+          const delay = Math.min(1000 * 2 ** reconnectAttemptRef.current, MAX_RECONNECT_DELAY_MS)
+          reconnectAttemptRef.current += 1
+          reconnectTimerRef.current = setTimeout(() => connect(taskId), delay)
         }
       }
 
@@ -165,6 +169,31 @@ export function useTaskWebsocket(): UseTaskWebsocketReturn {
       wsRef.current?.close()
     }
   }, [clearTimers])
+
+  // 2026-09-17 根治:网络恢复/页面回前台时立即重连(跳过剩余退避等待)
+  React.useEffect(() => {
+    const retryNow = () => {
+      const taskId = currentTaskIdRef.current
+      if (!taskId || !token || closedByUnmountRef.current) return
+      const ws = wsRef.current
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return
+      }
+      clearTimers()
+      reconnectAttemptRef.current = 0
+      connect(taskId)
+    }
+    const onOnline = () => retryNow()
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') retryNow()
+    }
+    window.addEventListener('online', onOnline)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('online', onOnline)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [token, connect, clearTimers])
 
   const latest = messages.length > 0 ? (messages[messages.length - 1] ?? null) : null
 
