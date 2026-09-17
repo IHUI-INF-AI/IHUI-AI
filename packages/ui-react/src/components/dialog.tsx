@@ -6,10 +6,35 @@
 
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { CLOSE_BUTTON_BASE, CLOSE_BUTTON_ICON, CLOSE_BUTTON_POSITION } from '@ihui/design-tokens'
 import { cn } from '../lib/utils'
 
-const Dialog = DialogPrimitive.Root
-const DialogTrigger = DialogPrimitive.Trigger
+// 2026-09-16 修复:静态导出预渲染偶发 "`DialogTrigger` must be used within `Dialog`"
+// (CI 实证:/models 与 /developer/api-docs 两页在 4-worker prerender 中触发,dev SSR 不复现)。
+// 方案:用自有 InDialogContext 跟踪 Root 包裹状态——Trigger 渲染时若不在 Dialog Root 内
+// (游离/条件渲染分支缺失),降级为纯 children 渲染(无 Radix 行为但 HTML 一致,不会 hydration mismatch),
+// 而非抛错导致整页 prerender 失败。所有合法用法(Dialog 内 Trigger)行为完全不变。
+const InDialogContext = React.createContext(false)
+/** sheet.tsx / drawer.tsx 等 Dialog 家族共用同一 Radix 原语,需复用本 context 实现同款安全降级。 */
+export { InDialogContext }
+
+const Dialog = ({
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root>) => (
+  <InDialogContext.Provider value={true}>
+    <DialogPrimitive.Root {...props}>{children}</DialogPrimitive.Root>
+  </InDialogContext.Provider>
+)
+
+const DialogTrigger = ({
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Trigger>) => {
+  const inDialog = React.useContext(InDialogContext)
+  if (!inDialog) return <>{children}</>
+  return <DialogPrimitive.Trigger {...props}>{children}</DialogPrimitive.Trigger>
+}
 const DialogClose = DialogPrimitive.Close
 
 const DialogContent = React.forwardRef<
@@ -22,67 +47,76 @@ const DialogContent = React.forwardRef<
      */
     hideCloseButton?: boolean
   }
->(({ className, children, hideCloseButton, ...props }, ref) => (
-  // 强制 container=document.body(2026-07-28 立):
-  //   修复嵌套 Dialog(LoginDialog → LoginForm → AgreementNoticeDialog)时内层 Portal
-  //   被合并到外层 Portal 容器的问题;内层 Dialog 一旦渲染到外层容器,fixed 定位的包含块
-  //   就被外层 DialogContent 接管,叠加外层的 transform 残留 → 内层弹窗相对外层定位,
-  //   视觉上"飘到外层外面"(2026-07-28 用户反馈:协议弹窗出现在视口底部)。
-  //   显式传 document.body 强制内层独立到 body 末尾,fixed 始终相对 viewport 居中。
-  // 移除 zoom-in-95/zoom-out-95 动画(2026-07-28 立):
-  //   原 data-[state=open]:zoom-in-95 关键帧 to { transform: scale(1) } 在动画期间
-  //   覆盖了居中用的 translate-x-[-50%] translate-y-[-50%],动画结束后 transform 回到
-  //   translate(...) 居中正确——但 React 重渲染/嵌套 Context 等场景下 transform
-  //   偶尔残留 scale(1),导致弹窗跑到视口左上 50% 处(= 100% left+top 减去 0% translate),
-  //   LoginDialog 顶部 WELCOME 标题被推到视口顶部、协议弹窗被推到视口底部。
-  //   改为只保留 fade-in-0/fade-out-0(opacity 动画不影响 transform,居中永远稳)。
-  <DialogPrimitive.Portal container={typeof document !== 'undefined' ? document.body : undefined}>
-    {/* Overlay 无 fade-in 动画(2026-07-24 立):
+>(({ className, children, hideCloseButton, ...props }, ref) => {
+  // 2026-09-16:无 Root 时(React19 prerender context 断裂)渲染 null 而非抛错——
+  // 同 DialogTrigger 降级逻辑(见文件头),异常分支仅 SSR HTML 缺失,真实交互路径不受影响。
+  const inDialog = React.useContext(InDialogContext)
+  if (!inDialog) return null
+  return (
+    // 强制 container=document.body(2026-07-28 立):
+    //   修复嵌套 Dialog(LoginDialog → LoginForm → AgreementNoticeDialog)时内层 Portal
+    //   被合并到外层 Portal 容器的问题;内层 Dialog 一旦渲染到外层容器,fixed 定位的包含块
+    //   就被外层 DialogContent 接管,叠加外层的 transform 残留 → 内层弹窗相对外层定位,
+    //   视觉上"飘到外层外面"(2026-07-28 用户反馈:协议弹窗出现在视口底部)。
+    //   显式传 document.body 强制内层独立到 body 末尾,fixed 始终相对 viewport 居中。
+    // 移除 zoom-in-95/zoom-out-95 动画(2026-07-28 立):
+    //   原 data-[state=open]:zoom-in-95 关键帧 to { transform: scale(1) } 在动画期间
+    //   覆盖了居中用的 translate-x-[-50%] translate-y-[-50%],动画结束后 transform 回到
+    //   translate(...) 居中正确——但 React 重渲染/嵌套 Context 等场景下 transform
+    //   偶尔残留 scale(1),导致弹窗跑到视口左上 50% 处(= 100% left+top 减去 0% translate),
+    //   LoginDialog 顶部 WELCOME 标题被推到视口顶部、协议弹窗被推到视口底部。
+    //   改为只保留 fade-in-0/fade-out-0(opacity 动画不影响 transform,居中永远稳)。
+    <DialogPrimitive.Portal container={typeof document !== 'undefined' ? document.body : undefined}>
+      {/* Overlay 无 fade-in 动画(2026-07-24 立):
         原 fade-in-0 让遮罩从 opacity:0 渐显,在 150ms 动画期间 AI 面板(z-sticky=990)
         以全亮度暴露在遮罩之下,用户视觉感知为"AI 面板跟着登录窗一起发亮"。
         移除 open 态 animate-in + fade-in-0,遮罩瞬间出现,AI 面板从第一帧就被暗化。
         保留 closed 态 fade-out-0,关闭时仍有平滑淡出过渡。 */}
-    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-(--duration-unified) data-[state=closed]:ease-unified" />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        // 2026-07-31 移动端适配:padding/gap 按断点渐进放大
-        //   - 默认(移动端):p-3 gap-3,sm(≥375px)及以上:p-3 gap-4
-        //   - max-w-lg + w-full 在小屏会撑满视口减去边距,避免内容溢出
-        'fixed left-[50%] top-[50%] z-modal grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-3 border bg-background p-3 shadow-lg duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 min-[640px]:rounded-lg min-[640px]:gap-4',
-        className,
-      )}
-      {...props}
-    >
-      {children}
-      {!hideCloseButton && (
-        <DialogPrimitive.Close className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-4 w-4"
-          >
-            <path d="M18 6 6 18" />
-            <path d="m6 6 12 12" />
-          </svg>
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
-      )}
-    </DialogPrimitive.Content>
-  </DialogPrimitive.Portal>
-))
+      <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-(--duration-unified) data-[state=closed]:ease-unified" />
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(
+          // 2026-07-31 移动端适配:padding/gap 按断点渐进放大
+          //   - 默认(移动端):p-3 gap-3,sm(≥375px)及以上:p-3 gap-4
+          //   - max-w-lg + w-full 在小屏会撑满视口减去边距,避免内容溢出
+          'fixed left-[50%] top-[50%] z-modal grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-3 border bg-background p-3 shadow-lg duration-(--duration-unified) ease-unified data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 min-[640px]:rounded-lg min-[640px]:gap-4',
+          className,
+        )}
+        {...props}
+      >
+        {children}
+        {!hideCloseButton && (
+          // 2026-09-16:样式 token 化,单一来源 @ihui/design-tokens close-button.ts
+          <DialogPrimitive.Close className={cn(CLOSE_BUTTON_BASE, CLOSE_BUTTON_POSITION)}>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={cn(CLOSE_BUTTON_ICON)}
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        )}
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  )
+})
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex flex-col space-y-1.5 text-center min-[640px]:text-left', className)}
+    // pr-8(2026-09-16):给右上角关闭按钮(h-7 w-7 @ right-3 top-3)留出空间,
+    // 长标题不再延伸到按钮下方
+    className={cn('flex flex-col space-y-1.5 pr-8 text-center min-[640px]:text-left', className)}
     {...props}
   />
 )

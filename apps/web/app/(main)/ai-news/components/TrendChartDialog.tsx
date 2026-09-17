@@ -6,8 +6,9 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { TrendingUp, TrendingDown, Minus, X } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { fetchAiTrendChart, type TrendChartData } from '@/lib/ai-news-api'
+import { CloseButton } from '@ihui/ui-react'
 import { formatCompact, getLocale } from '@/lib/number-format'
 
 interface Props {
@@ -104,13 +105,7 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
             <h3 className="line-clamp-2 text-sm font-semibold leading-tight">{title}</h3>
             <p className="text-[10px] text-muted-foreground">{t('trendChart.subtitle')}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton aria-label={t('close')} onClick={onClose} />
         </div>
 
         {/* 窗口切换 */}

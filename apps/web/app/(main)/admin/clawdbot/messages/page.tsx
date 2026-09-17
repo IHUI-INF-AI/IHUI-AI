@@ -6,10 +6,10 @@
 
 import * as React from 'react'
 import { useLocale } from 'next-intl'
-import { Loader2, MessageSquare, X } from 'lucide-react'
+import { Loader2, MessageSquare } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Button, SearchInput } from '@ihui/ui-react'
+import { CloseButton, SearchInput } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
 
@@ -156,9 +156,7 @@ export default function ClawdbotMessagesPage() {
           >
             <div className="flex items-center justify-between px-4 py-2.5">
               <p className="text-sm font-medium">消息详情</p>
-              <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>
-                <X className="h-4 w-4" />
-              </Button>
+              <CloseButton aria-label="关闭" onClick={() => setSelected(null)} />
             </div>
             <div className="space-y-3 p-3 text-sm">
               <div>

@@ -254,3 +254,4 @@ export * from './endpoints/team-memory'
 
 // 用户侧 Agent 定时自动化端点(2026-09-07 新增)
 export * from './endpoints/automations'
+export * from './endpoints/patrol'

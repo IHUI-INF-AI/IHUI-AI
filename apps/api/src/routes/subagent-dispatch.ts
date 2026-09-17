@@ -174,6 +174,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
       type: string
       status: string
       currentStep?: string
+      startedAt?: string
     }>
     results?: Array<{
       step_id: string
@@ -374,6 +375,8 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
               type: task.status ?? 'pending',
               status: toAgentStatus(task.status ?? 'pending'),
               currentStep: task.description ?? undefined,
+              // P3 #44 阶段1:started_at 落进 agentList,瓶颈高亮有数据源
+              startedAt: task.startedAt ? task.startedAt.toISOString() : undefined,
             })),
             results: results.length > 0 ? results : undefined,
           }

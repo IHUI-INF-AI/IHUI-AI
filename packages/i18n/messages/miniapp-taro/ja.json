@@ -469,6 +469,7 @@
     "generating": "急速生成中",
     "thinkingTip": "Tips:まず右上の3点をクリックしてミニプログラムを浮窓し、しばらくしてから戻ってください~",
     "fileSelected": "{count}個のファイルを選択しました",
+    "screenshotHint": "スクリーンショットを検出しました。+ からアルバム画像を選んで AI に送れます",
     "common": {
       "loading": "読み込み中…"
     },

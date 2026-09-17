@@ -5,7 +5,8 @@
 'use client'
 
 import * as React from 'react'
-import { Download, X } from 'lucide-react'
+import { Download } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface PWAInstallPromptProps {
@@ -57,12 +58,7 @@ export function PWAInstallPrompt({ className, promptEvent }: PWAInstallPromptPro
       >
         安装
       </button>
-      <button
-        onClick={() => setVisible(false)}
-        className="text-muted-foreground hover:text-foreground"
-      >
-        <X className="h-4 w-4" />
-      </button>
+      <CloseButton aria-label="关闭" onClick={() => setVisible(false)} />
     </div>
   )
 }
