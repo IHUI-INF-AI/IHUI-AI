@@ -249,6 +249,9 @@ jobs:
       # 资产(URL/大小/版本/发布日期),刷新 desktop-feed.generated.ts 入库快照。
       # 前端下载页构建期读快照,发版后零手动更新(脚本幂等:无变化不产生 diff)。
       - name: Resolve desktop download feed
+        env:
+          # release 可能仍处 draft(Publish 刚完成),无 token 的 API 看不到 → 必须带 token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/resolve-desktop-download.mjs
 
       - name: Check for changes
