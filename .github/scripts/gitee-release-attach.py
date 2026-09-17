@@ -96,35 +96,49 @@ def main():
             "url": f"https://gitee.com/{OWNER}/{REPO}/releases/download/{tag}/{exe_name}",
         }},
     }
-    # 2026-09-17:Gitee contents API 的 PUT 行为不稳(sha 校验怪癖),改为写文件由调用方 git push
-    # (CI 在工作区直接提交;本机脚本在 gfeed 克隆里提交强推——两条路径都已实证)。
-    feed_out = os.environ.get("DESKTOP_FEED_OUT")
-    if feed_out:
-        os.makedirs(os.path.dirname(feed_out) or ".", exist_ok=True)
-        with open(feed_out, "w", encoding="utf-8") as f:
-            f.write(json.dumps(latest, indent=2, ensure_ascii=False))
-        print(f"[gitee] latest.json 已写出: {feed_out}(由调用方 git push 到 desktop-feed)")
+    latest_text = json.dumps(latest, indent=2, ensure_ascii=False)
+
+    # 4. [真源] GitHub desktop-feed 分支更新(2026-09-17 根治:Gitee 分支会被
+    #    mirror-to-cn 的 --prune 反复删除;真源放 GitHub,镜像自动携带,永不再删)
+    gh = os.environ.get("GH_TOKEN")
+    if gh:
+        gh_repo = os.environ.get("GITHUB_REPOSITORY", "IHUI-INF-AI/IHUI-AI")
+        gh_h = {"Authorization": f"Bearer {gh}", "Accept": "application/vnd.github+json",
+                "User-Agent": "ihui", "Content-Type": "application/json"}
+        latest_b64 = base64.b64encode(latest_text.encode()).decode()
+        try:
+            req = urllib.request.Request(
+                f"https://api.github.com/repos/{gh_repo}/contents/latest.json?ref=desktop-feed")
+            req.headers.update(gh_h)
+            cur = json.loads(urllib.request.urlopen(req, timeout=60).read())
+            put = {"message": f"desktop updater feed {args.version}",
+                   "content": latest_b64, "branch": "desktop-feed", "sha": cur["sha"]}
+        except Exception:
+            put = {"message": f"desktop updater feed {args.version}",
+                   "content": latest_b64, "branch": "desktop-feed"}
+        try:
+            req = urllib.request.Request(
+                f"https://api.github.com/repos/{gh_repo}/contents/latest.json", method="PUT")
+            req.headers.update(gh_h)
+            req.data = json.dumps(put).encode()
+            r = urllib.request.urlopen(req, timeout=120)
+            print(f"[gh] desktop-feed/latest.json: {r.status}(镜像自动同步 Gitee)")
+        except urllib.error.HTTPError as e:
+            print(f"[gh] feed 更新失败: {e.code} {e.read().decode()[:150]}")
     else:
-        content_b64 = base64.b64encode(
-            json.dumps(latest, indent=2, ensure_ascii=False).encode()).decode()
-        cur = api(f"/repos/{OWNER}/{REPO}/contents/latest.json?ref=desktop-feed")
-        body = {"access_token": TOKEN, "content": content_b64,
-                "branch": "desktop-feed", "message": f"desktop updater feed {args.version}"}
-        if cur and cur.get("sha"):
-            body["sha"] = cur["sha"]
-        r = api(f"/repos/{OWNER}/{REPO}/contents/latest.json", "PUT", body)
-        if not r:
-            print("[gitee] desktop-feed 缺失,重建...")
-            api(f"/repos/{OWNER}/{REPO}/branches", "POST",
-                {"refs": "main", "branch_name": "desktop-feed"})
-            cur = api(f"/repos/{OWNER}/{REPO}/contents/latest.json?ref=desktop-feed")
-            body = {"access_token": TOKEN, "content": content_b64,
-                    "branch": "desktop-feed", "message": f"desktop updater feed {args.version}"}
-            if cur and cur.get("sha"):
-                body["sha"] = cur["sha"]
-            r = api(f"/repos/{OWNER}/{REPO}/contents/latest.json", "PUT", body)
-        print("[gitee] desktop-feed/latest.json:", "OK" if r else "FAIL")
-    print(f"[done] https://gitee.com/{OWNER}/{REPO}/raw/desktop-feed/latest.json")
+        print("[gh] 无 GH_TOKEN,跳过 GitHub 真源 feed 更新")
+
+    # 5. Gitee feed(镜像自动同步;此处 contents PUT 仅作兜底,失败不影响真源)
+    content_b64 = base64.b64encode(latest_text.encode()).decode()
+    cur = api(f"/repos/{OWNER}/{REPO}/contents/latest.json?ref=desktop-feed")
+    body = {"access_token": TOKEN, "content": content_b64,
+            "branch": "desktop-feed", "message": f"desktop updater feed {args.version}"}
+    if cur and cur.get("sha"):
+        body["sha"] = cur["sha"]
+    r = api(f"/repos/{OWNER}/{REPO}/contents/latest.json", "PUT", body)
+    if not r:
+        print("[gitee] desktop-feed contents 更新失败(真源已在 GitHub,镜像稍后同步,忽略)")
+    print("[done] 端点: gitee raw/desktop-feed + github raw/desktop-feed")
 
 
 if __name__ == "__main__":
