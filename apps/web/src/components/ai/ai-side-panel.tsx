@@ -11,7 +11,7 @@ import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Minus, PictureInPicture2, ChevronUp, SquareTerminal } from 'lucide-react'
-import { CloseButton } from '@ihui/ui-react'
+import { CloseButton, IconButton } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
@@ -974,37 +974,34 @@ export function AISidePanel() {
                         2026-09-08 用户反馈:折叠态展开按钮文案应为"展开对话",与 docked 头部的
                         "进入浮窗模式"按钮(floatMode)区分,故用独立 key expandConversation */}
                     <Tooltip content={tc('expandConversation')}>
-                      <button
-                        type="button"
+                      <IconButton
+                        size="sm"
                         onClick={() => setFloatCollapsed(false)}
                         aria-label={tc('expandConversation')}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                       >
-                        <ChevronUp className="h-3.5 w-3.5" />
-                      </button>
+                        <ChevronUp />
+                      </IconButton>
                     </Tooltip>
                     <Tooltip content={tc('dockPanel')}>
-                      <button
-                        type="button"
+                      <IconButton
+                        size="sm"
                         onClick={() => {
                           setFloatMode(false)
                           setFloatCollapsed(false)
                         }}
                         aria-label={tc('dockPanel')}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                       >
-                        <PanelRightRounded className="h-3.5 w-3.5" />
-                      </button>
+                        <PanelRightRounded />
+                      </IconButton>
                     </Tooltip>
                     <Tooltip content={tc('minimize')}>
-                      <button
-                        type="button"
+                      <IconButton
+                        size="sm"
                         onClick={() => setFloatMinimized(true)}
                         aria-label={tc('minimize')}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                       >
-                        <Minus className="h-3.5 w-3.5" />
-                      </button>
+                        <Minus />
+                      </IconButton>
                     </Tooltip>
                   </>
                 }
@@ -1213,33 +1210,25 @@ export function AISidePanel() {
               {floatMode ? (
                 <>
                   <Tooltip content={tc('dockPanel')}>
-                    <button
-                      type="button"
+                    <IconButton
                       onClick={() => {
                         setFloatMode(false)
                         setFloatMinimized(false)
                       }}
                       aria-label={tc('dockPanel')}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                     >
-                      <PanelRightRounded left className="h-4 w-4" />
-                    </button>
+                      <PanelRightRounded left />
+                    </IconButton>
                   </Tooltip>
                   <Tooltip content={tc('minimize')}>
-                    <button
-                      type="button"
-                      onClick={() => setFloatMinimized(true)}
-                      aria-label={tc('minimize')}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </button>
+                    <IconButton onClick={() => setFloatMinimized(true)} aria-label={tc('minimize')}>
+                      <Minus />
+                    </IconButton>
                   </Tooltip>
                 </>
               ) : (
                 <Tooltip content={tc('floatMode')}>
-                  <button
-                    type="button"
+                  <IconButton
                     onClick={() => {
                       setFloatMode(true)
                       setFloatMinimized(false)
@@ -1247,10 +1236,9 @@ export function AISidePanel() {
                       openPanel()
                     }}
                     aria-label={tc('floatMode')}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                   >
-                    <PictureInPicture2 className="h-4 w-4" />
-                  </button>
+                    <PictureInPicture2 />
+                  </IconButton>
                 </Tooltip>
               )}
               {/* 2026-08-17 三按钮组(用户需求,对标 Cursor 右上角):
@@ -1258,43 +1246,31 @@ export function AISidePanel() {
                 ② 终端(打开底部 PowerShell 终端停靠面板 → AiTerminalDock)
                 ③ 工作展示区(折叠/展开整个右侧工作展示区,AI 面板占满) */}
               <Tooltip content={tc('envInfoButton')}>
-                <button
-                  type="button"
+                <IconButton
                   onClick={toggleEnvInfo}
                   aria-label={tc('envInfoButton')}
-                  className={cn(
-                    'inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
-                    envInfoOpen && 'bg-accent text-accent-foreground',
-                  )}
+                  className={cn(envInfoOpen && 'bg-accent text-accent-foreground')}
                 >
-                  <EnvInfoRounded checked={envInfoOpen} className="h-4 w-4" />
-                </button>
+                  <EnvInfoRounded checked={envInfoOpen} />
+                </IconButton>
               </Tooltip>
               <Tooltip content={tc('openTerminal')}>
-                <button
-                  type="button"
+                <IconButton
                   onClick={toggleTerminalDock}
                   aria-label={tc('openTerminal')}
-                  className={cn(
-                    'inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
-                    terminalDockOpen && 'bg-accent text-accent-foreground',
-                  )}
+                  className={cn(terminalDockOpen && 'bg-accent text-accent-foreground')}
                 >
-                  <SquareTerminal className="h-4 w-4" />
-                </button>
+                  <SquareTerminal />
+                </IconButton>
               </Tooltip>
               <Tooltip content={workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}>
-                <button
-                  type="button"
+                <IconButton
                   onClick={toggleWorkPanel}
                   aria-label={workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}
-                  className={cn(
-                    'inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
-                    workAreaCollapsed && 'bg-accent text-accent-foreground',
-                  )}
+                  className={cn(workAreaCollapsed && 'bg-accent text-accent-foreground')}
                 >
-                  <PanelRightRounded left={workAreaCollapsed} className="h-3.5 w-3.5" />
-                </button>
+                  <PanelRightRounded left={workAreaCollapsed} />
+                </IconButton>
               </Tooltip>
               <Tooltip content={tcommon('close')}>
                 <CloseButton aria-label={tcommon('close')} onClick={closePanel} />

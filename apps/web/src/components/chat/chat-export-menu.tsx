@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { FileDown, FileJson, Link2, Camera, Share2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { IconButton } from '@ihui/ui-react'
 import { toast } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
@@ -282,14 +283,13 @@ export function ChatExportMenu({ title, disabled }: ChatExportMenuProps) {
     <DropdownMenu>
       <Tooltip content={t('label')}>
         <DropdownMenuTrigger asChild disabled={disabled}>
-          <button
-            type="button"
+          <IconButton
             aria-label={t('label')}
             data-testid="chat-export-menu"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+            className="rounded-lg hover:bg-accent/60 hover:text-foreground"
           >
-            <Share2 className="h-4 w-4" aria-hidden />
-          </button>
+            <Share2 aria-hidden />
+          </IconButton>
         </DropdownMenuTrigger>
       </Tooltip>
       <DropdownMenuContent align="end" data-testid="chat-export-menu-content">
