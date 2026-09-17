@@ -152,7 +152,7 @@ describe('MarkdownStream - P2-1 流式 Markdown 增强', () => {
     expect(button?.className).toMatch(/hover:bg-/)
     expect(button?.className).not.toMatch(/hover:border-blue/)
     expect(button?.className).not.toMatch(/hover:border-black/)
-    // 按钮尺寸 h-8 w-8(2026-09-17 统一到 IconButton md 档),圆角 rounded-md
+    // 按钮尺寸 h-8 w-8(2026-09-17 用户指令:全项目图标按钮唯一尺寸 32×32),圆角 rounded-md
     expect(button?.className).toContain('h-8')
     expect(button?.className).toContain('w-8')
     expect(button?.className).toContain('rounded-md')
