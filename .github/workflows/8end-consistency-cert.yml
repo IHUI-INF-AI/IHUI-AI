@@ -2,9 +2,81 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-# 智汇AI (IHUI AI) 桌面端 — Cargo 全局配置 (src-tauri)
+name: 8-End Consistency Cert
+
+# =============================================================================
+# 8 端一致性认证周回归 workflow(P3 3-2 专项,2026-09-17 立)
 #
-# 历史背景:当年 lto=thin + codegen-units=1 时代链接期内存峰值高,曾用 jobs=1 防 OOM。
-# 2026-09-17 撤销 jobs=1:lto 已关(opt-level=s + codegen-units=256)、薄壳化后 crate 大幅
-# 缩小、64GB 内存充裕——恢复多核编译(本机 12 核,Rust 增量构建从 ~10 分钟压到 2-3 分钟)。
+# 执行器: scripts/run-8end-consistency-cert.mjs
+#   复用 14 项既有守门(i18n parity × 3 端 / SSE 事件 parity / design-tokens × 3 端 /
+#   cross-end-tokens / store parity / adapter-style / multi-end sync 基线)按
+#   「维度 × 端」聚合,生成 outputs/8end-consistency-cert-<date>.md 认证报告。
+# 退出码: 存在 FAIL → 1(本周基线漂移,需修复);全 PASS/WARN → 0
+# 触发: 每周一 02:00 UTC(北京时间周一 10:00)+ 手动 + 守门脚本自身变更时
+# 报告: 无论成败均上传 artifact(留存 8 周)
+#
+# 注: 重量级项(逐端 typecheck/全量测试)由 ci-monorepo 职责覆盖,本 workflow 只做
+#     轻量一致性守门聚合(全部脚本零第三方依赖,纯 Node)。
+# =============================================================================
+
+on:
+  schedule:
+    # 每周一 02:00 UTC = 北京时间周一 10:00
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/run-8end-consistency-cert.mjs'
+      - 'scripts/check-i18n-keys.mjs'
+      - 'scripts/check-i18n-parity.mjs'
+      - 'scripts/check-cli-i18n-parity.mjs'
+      - 'scripts/check-i18n-broken-en.mjs'
+      - 'scripts/check-i18n-duplicate-namespaces.mjs'
+      - 'scripts/scan-dead-i18n-keys.mjs'
+      - 'scripts/check-agent-event-parity.mjs'
+      - 'scripts/check-design-tokens-sync.mjs'
+      - 'scripts/check-cross-end-tokens.mjs'
+      - 'scripts/check-miniapp-tokens-sync.mjs'
+      - 'scripts/check-cross-store-parity.mjs'
+      - 'scripts/check-adapter-style-parity.mjs'
+      - 'scripts/check-multi-end-sync.mjs'
+      - '.github/workflows/8end-consistency-cert.yml'
+
+concurrency:
+  group: 8end-consistency-cert-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  consistency-cert:
+    name: 8 端一致性认证
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 运行 8 端一致性认证(FAIL 即红)
+        run: node scripts/run-8end-consistency-cert.mjs --out-dir outputs
+
+      - name: 上传认证报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 8end-consistency-cert
+          path: outputs/8end-consistency-cert-*.md
+          if-no-files-found: ignore
+          retention-days: 56
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { cn } from '@/lib/utils'
+import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { createPortal } from 'react-dom'
 import { useChatStore } from '@/stores/chat'
@@ -521,10 +522,9 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
   return (
     <div>
       <Tooltip content={triggerLabel} side="top">
-        <button
+        <IconButton
           ref={triggerRef}
           onClick={() => setIsOpen((prev) => !prev)}
-          type="button"
           // E2E 锚点(2026-09-14 补回):aria-label 是百分比动态插值,floating-panel-viewport
           // 等 e2e 需要稳定 testid 选中触发按钮
           data-testid="context-usage-trigger"
@@ -536,13 +536,9 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
           // 焦点环常驻(此文件未显式 triggerRef.focus 归还,但 click-outside 关闭后 trigger
           // 仍可能短暂持有焦点,加 data-state 是零成本防御)。
           data-state={isOpen ? 'open' : 'closed'}
-          className={cn(
-            'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
-            'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-          )}
         >
           <TriggerRing ratio={ratio} usedTokens={usedTokens} maxTokens={maxTokens} />
-        </button>
+        </IconButton>
       </Tooltip>
       {isOpen &&
         createPortal(

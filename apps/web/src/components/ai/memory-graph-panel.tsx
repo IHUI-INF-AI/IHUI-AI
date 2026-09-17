@@ -9,6 +9,7 @@ import * as React from 'react'
 import { Loader2, Network, Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 /**
  * MemoryGraphPanel — 记忆图谱可视化(P3 #41 阶段3 v1,2026-09-16 立)。
@@ -48,6 +49,94 @@ function clip(s: string, n = 40): string {
   return s.length > n ? s.slice(0, n) + '…' : s
 }
 
+export interface ForceLayoutEdge {
+  source: string
+  target: string
+}
+
+/**
+ * 力导向布局纯函数(P1 #41 增强,2026-09-17 立):确定性模拟(无随机数,
+ * 初始位置 = ringLayout),斥力(全对库仑)+ 边弹簧 + 向心力,固定迭代。
+ * 同输入两次调用结果必须逐位相同(单测断言)。
+ */
+export function forceLayout(
+  ids: string[],
+  edges: ForceLayoutEdge[],
+  width = 300,
+  height = 300,
+  iterations = 150,
+): Array<{ x: number; y: number }> {
+  const n = ids.length
+  if (n === 0) return []
+  const cx = width / 2
+  const cy = height / 2
+  const radius = Math.min(width, height) / 2 - 20
+  const pts = ringLayout(n, radius).map((p) => ({ x: p.x, y: p.y }))
+  const index = new Map<string, number>(ids.map((id, i) => [id, i]))
+  // 边映射为索引对(缺失端点忽略)
+  const links: Array<[number, number]> = []
+  for (const e of edges) {
+    const a = index.get(e.source)
+    const b = index.get(e.target)
+    if (a !== undefined && b !== undefined && a !== b) links.push([a, b])
+  }
+  const kRep = 4200 // 斥力系数
+  const kSpring = 0.06 // 弹簧系数
+  const restLen = 90 // 边理想长度
+  const kCenter = 0.015 // 向心系数
+  const maxStep = 18 // 单轮位移上限
+  for (let it = 0; it < iterations; it++) {
+    const fx = new Array(n).fill(0)
+    const fy = new Array(n).fill(0)
+    // 斥力(全对)
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        let dx = pts[i]!.x - pts[j]!.x
+        let dy = pts[i]!.y - pts[j]!.y
+        let d2 = dx * dx + dy * dy
+        if (d2 < 1) {
+          // 重合节点:按固定方向微推,保持确定性
+          dx = 0.01
+          dy = 0.01 * (i + 1)
+          d2 = dx * dx + dy * dy
+        }
+        const d = Math.sqrt(d2)
+        const f = kRep / d2
+        fx[i]! += (dx / d) * f
+        fy[i]! += (dy / d) * f
+        fx[j]! -= (dx / d) * f
+        fy[j]! -= (dy / d) * f
+      }
+    }
+    // 边弹簧
+    for (const [a, b] of links) {
+      const dx = pts[b]!.x - pts[a]!.x
+      const dy = pts[b]!.y - pts[a]!.y
+      const d = Math.sqrt(dx * dx + dy * dy) || 0.01
+      const f = kSpring * (d - restLen)
+      fx[a]! += (dx / d) * f
+      fy[a]! += (dy / d) * f
+      fx[b]! -= (dx / d) * f
+      fy[b]! -= (dy / d) * f
+    }
+    // 向心 + 限幅积分 + 边界 clamp
+    for (let i = 0; i < n; i++) {
+      fx[i] += (cx - pts[i]!.x) * kCenter
+      fy[i] += (cy - pts[i]!.y) * kCenter
+      let mx = fx[i]!
+      let my = fy[i]!
+      const mag = Math.sqrt(mx * mx + my * my)
+      if (mag > maxStep) {
+        mx = (mx / mag) * maxStep
+        my = (my / mag) * maxStep
+      }
+      pts[i]!.x = Math.min(width, Math.max(0, pts[i]!.x + mx))
+      pts[i]!.y = Math.min(height, Math.max(0, pts[i]!.y + my))
+    }
+  }
+  return pts.map((p) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 }))
+}
+
 export function MemoryGraphPanel() {
   const t = useTranslations('memoryGraph')
   const [query, setQuery] = React.useState('')
@@ -81,7 +170,14 @@ export function MemoryGraphPanel() {
   }
 
   const R = 130 // 布局半径(SVG 视口 300x300)
-  const positions = ringLayout(nodes?.length ?? 0, R)
+  const [layoutMode, setLayoutMode] = React.useState<'ring' | 'force'>('force')
+  const positions =
+    layoutMode === 'force'
+      ? forceLayout(
+          (nodes ?? []).map((n) => n.id),
+          edges.map((e) => ({ source: e.source, target: e.target })),
+        )
+      : ringLayout(nodes?.length ?? 0, R)
   const posById = React.useMemo(() => {
     const m = new Map<string, { x: number; y: number }>()
     ;(nodes ?? []).forEach((n, i) => {
@@ -117,6 +213,28 @@ export function MemoryGraphPanel() {
           {t('searchBtn')}
         </button>
       </div>
+
+      {/* 布局切换(P1 #41 增强:力导向 / 环形) */}
+      {nodes && nodes.length > 1 && (
+        <div className="flex items-center gap-1.5" data-testid="memory-graph-layout-toggle">
+          {(['force', 'ring'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              aria-pressed={layoutMode === mode}
+              onClick={() => setLayoutMode(mode)}
+              className={cn(
+                'rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
+                layoutMode === mode
+                  ? 'border-primary/60 bg-primary/10 text-primary'
+                  : 'border-border bg-card text-muted-foreground hover:bg-accent/40',
+              )}
+            >
+              {t(mode === 'force' ? 'layoutForce' : 'layoutRing')}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 空态 */}
       {nodes === null && (

@@ -10,7 +10,8 @@
  *   - accept-edits       白名单放行(预置安全模板 + 用户自定义)
  *   - bypass-permissions 完全访问(无任何确认)
  *
- * 11 个端点:
+ * 13 个端点(P3 3-3 权限继承,2026-09-17 立:用户全局默认 → 工作区显式 → 会话,
+ *   存储复用 user_preferences 表 group='agent' key='defaultPermissionMode',零迁移):
  *   GET    /templates                           获取预置安全模板
  *   GET    /permissions                          列出当前用户所有工作区权限
  *   GET    /permission                           获取指定工作区权限(query: workspacePath)
@@ -30,6 +31,7 @@ import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { permissionManager } from '../services/workspace-ai-service.js'
+import { findUserPreferences, upsertUserPreference } from '../db/user-preferences-queries.js'
 import {
   getPermission,
   listPermissionsByUser,
@@ -109,6 +111,39 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(statusCode).send(error(statusCode, message))
     }
   }
+
+  const PERMISSION_MODES = ['default', 'accept-edits', 'bypass-permissions'] as const
+
+  // GET /permission-default — 用户全局默认权限模式(继承链第一级;工作区未显式配置时回退)
+  server.get('/permission-default', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const { list } = await findUserPreferences(request.userId, 'agent')
+      const row = list.find((r) => r.key === 'defaultPermissionMode')
+      const mode =
+        row?.value && (PERMISSION_MODES as readonly string[]).includes(row.value) ? row.value : null
+      return reply.send(success({ mode }))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
+
+  // PUT /permission-default — 设置用户全局默认权限模式
+  server.put('/permission-default', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = z.object({ mode: z.enum(PERMISSION_MODES) }).safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      await upsertUserPreference(request.userId, 'agent', 'defaultPermissionMode', parsed.data.mode)
+      return reply.send(success({ mode: parsed.data.mode }))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
+  })
 
   // GET /templates — 获取预置安全模板
   server.get('/templates', async (request, reply) => {

@@ -5,11 +5,14 @@
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
+import { ICON_BUTTON_SIZE } from '@ihui/design-tokens'
 import { cn } from '../lib/utils'
 
 // 共享 variant/size 子集见 @ihui/design-tokens ButtonBaseVariant/ButtonBaseSize(default/destructive/outline/ghost + sm/lg)
 // ui-react 额外扩展 secondary/link/hero-cta/login 等 11 个 variant + default/icon size,故不继承 ButtonBaseProps(限制为共同子集会丢失类型支持)
 
+// 图标尺寸档(2026-09-17):容器尺寸单一来源 = @ihui/design-tokens icon-button.ts,
+// icon-xs=sm(28)/ icon-sm=icon=md(32),与 IconButton/CloseButton 同源,项目内不再有 36px 档
 const buttonVariants = cva(
   'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
@@ -45,9 +48,9 @@ const buttonVariants = cva(
         default: 'h-9 px-4 py-2',
         sm: 'h-8 rounded-md px-3 text-xs',
         lg: 'h-10 rounded-md px-8',
-        'icon-xs': 'h-7 w-7',
-        'icon-sm': 'h-8 w-8',
-        icon: 'h-9 w-9',
+        'icon-xs': ICON_BUTTON_SIZE.sm,
+        'icon-sm': ICON_BUTTON_SIZE.md,
+        icon: ICON_BUTTON_SIZE.md,
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },
