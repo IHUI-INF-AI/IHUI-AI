@@ -46,6 +46,7 @@ from ..services.mcp_server import (
     get_registered_tool_names,
 )
 from ..services.project_memory import build_system_prompt
+from ..services.user_quota import user_trial_quota
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -1235,6 +1236,15 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
         req.model = to_official_model_name(req.model)
     await _ensure_restricted_model_access(request, req.model)
     owner_uuid = _resolve_owner_uuid(request)
+    # P3 3-4-A(2026-09-17 拍板):新用户免费试用额度检查(env USER_TRIAL_DAILY_TOKENS,0=关闭)
+    trial = await user_trial_quota.check(owner_uuid)
+    if not trial["allowed"]:
+        return _error_json(
+            "今日免费额度已用完,明天自动恢复;可在模型设置中配置自己的 API Key 获得无限额度",
+            429,
+            errorCode="TRIAL_QUOTA_EXCEEDED",
+            usage=trial,
+        )
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
     messages = _inject_workspace_memory(req.messages, req.workspace_path, req.workspace_context)
     # P1-8(2026-09-13 立,Repo Wiki):项目百科独立注入(紧邻工作区记忆,互不影响)
@@ -1728,6 +1738,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
     await _ensure_restricted_model_access(request, req.model)
     owner_uuid = _resolve_owner_uuid(request)
+    # P3 3-4-A(2026-09-17 拍板):新用户免费试用额度检查(env USER_TRIAL_DAILY_TOKENS,0=关闭)
+    trial = await user_trial_quota.check(owner_uuid)
+    if not trial["allowed"]:
+        return _error_json(
+            "今日免费额度已用完,明天自动恢复;可在模型设置中配置自己的 API Key 获得无限额度",
+            429,
+            errorCode="TRIAL_QUOTA_EXCEEDED",
+            usage=trial,
+        )
     # 2026-08-06 修复:透传用户角色给 call_tool(权限矩阵),否则 admin 也按 role=0 拒绝
     user_role = _resolve_user_role(request)
     # ChatMode 模式注入(2026-09-13 矩阵 A #24):mode 优先于 legacy plan_mode。
@@ -2846,6 +2865,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
                     accumulated["model"] = event.get("model", req.model)
                     accumulated["usage"] = event.get("usage")
+                    # P3 3-4-A(2026-09-17 拍板):per-user 试用额度计量(done usage 到达即累加,
+                    # fire-and-forget;enable=env USER_TRIAL_DAILY_TOKENS>0)
+                    _usage_obj = event.get("usage")
+                    if isinstance(_usage_obj, dict) and owner_uuid:
+                        _trial_tokens = int(_usage_obj.get("total_tokens", 0) or 0)
+                        if _trial_tokens > 0:
+                            asyncio.create_task(
+                                user_trial_quota.consume(owner_uuid, _trial_tokens)
+                            )
                     accumulated["stub"] = event.get("stub", False)
                     # 在 done 事件中透传 metadata
                     if req.metadata:
