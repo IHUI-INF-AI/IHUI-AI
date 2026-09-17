@@ -74,22 +74,20 @@ export function AuthUserTable({
                     onCheckedChange={() => onToggleOne(u.id)}
                   />
                 </td>
-                <td className="px-4 py-2.5 font-medium">{u.userName}</td>
-                <td className="px-4 py-2.5 text-muted-foreground">{u.nickName}</td>
+                <td className="px-4 py-2.5 font-medium">{u.username}</td>
+                <td className="px-4 py-2.5 text-muted-foreground">{u.nickname}</td>
                 <td className="px-4 py-2.5 text-xs text-muted-foreground">{u.email || '-'}</td>
-                <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                  {u.phonenumber || '-'}
-                </td>
+                <td className="px-4 py-2.5 text-xs text-muted-foreground">{u.phone || '-'}</td>
                 <td className="px-4 py-2.5">
                   <span
                     className={cn(
                       'inline-flex rounded-md px-2 py-0.5 text-xs',
-                      u.status === 0
+                      u.status === 1
                         ? 'bg-emerald-500/10 text-emerald-600'
                         : 'bg-muted text-muted-foreground',
                     )}
                   >
-                    {u.status === 0 ? '正常' : '停用'}
+                    {u.status === 1 ? '正常' : u.status === 3 ? '已注销' : '停用'}
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">

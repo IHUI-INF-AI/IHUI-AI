@@ -10,8 +10,8 @@ import { Button, Input, Label } from '@ihui/ui-react'
 import { inputCls } from './helpers'
 
 interface AuthUserFilterProps {
-  search: { userName: string; phonenumber: string }
-  onSearchChange: (v: { userName: string; phonenumber: string }) => void
+  search: { username: string; phone: string }
+  onSearchChange: (v: { username: string; phone: string }) => void
   onSearch: () => void
 }
 
@@ -21,8 +21,8 @@ export function AuthUserFilter({ search, onSearchChange, onSearch }: AuthUserFil
       <div className="space-y-1.5">
         <Label className="text-xs">用户名</Label>
         <Input
-          value={search.userName}
-          onChange={(e) => onSearchChange({ ...search, userName: e.target.value })}
+          value={search.username}
+          onChange={(e) => onSearchChange({ ...search, username: e.target.value })}
           placeholder="用户名"
           className={inputCls}
         />
@@ -30,8 +30,8 @@ export function AuthUserFilter({ search, onSearchChange, onSearch }: AuthUserFil
       <div className="space-y-1.5">
         <Label className="text-xs">手机号</Label>
         <Input
-          value={search.phonenumber}
-          onChange={(e) => onSearchChange({ ...search, phonenumber: e.target.value })}
+          value={search.phone}
+          onChange={(e) => onSearchChange({ ...search, phone: e.target.value })}
           placeholder="手机号"
           className={inputCls}
         />
@@ -43,4 +43,3 @@ export function AuthUserFilter({ search, onSearchChange, onSearch }: AuthUserFil
     </div>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
