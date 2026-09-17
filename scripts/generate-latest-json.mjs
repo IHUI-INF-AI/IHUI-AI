@@ -75,8 +75,10 @@ async function githubApi(path, init, attempt = 0) {
 // 注意:历史 Release 可能累积旧版本残留文件(如 desktop-v0.1.14 同时含 0.1.13 残留共 29),
 // 阈值须基于「单版本干净产出」设定,勿按累积 Release 设高 ——否则干净的单版本发布会因
 // assets<阈值被误判未就绪而等待 12 次超时失败(2026-09-01 实证:0.1.15 单版本仅 17 assets 却卡死)
-const EXPECTED_MIN_ASSETS = 16
-const EXPECTED_MIN_SIGS = 7
+// 2026-09-17:矩阵 4→3 job(macOS Universal 合并 arm64+Intel)后单版本产出 = exe+sig(2) +
+// AppImage+deb+sig(3~4) + universal dmg+app.tar.gz+sig(3) ≈ 9~10 资产/3 签名。
+const EXPECTED_MIN_ASSETS = 8
+const EXPECTED_MIN_SIGS = 3
 /** 等待 release assets 达到预期数量,防止竞态条件导致 sig 文件未上传完成 */
 async function waitForRelease(tag, expectedMinAssets = EXPECTED_MIN_ASSETS, maxRetries = 36, retryInterval = 15000) {
   for (let i = 0; i < maxRetries; i++) {
@@ -113,8 +115,13 @@ function inferPlatform(sigName) {
   // MSI 仅作为无 exe 时的 fallback(MSI 需管理员权限且 NSIS/MSI 安装类型混用有已知坑)。
   if (sigName.endsWith('.exe.sig')) return { platform: 'windows-x86_64', kind: 'exe' }
   if (sigName.endsWith('.msi.sig')) return { platform: 'windows-x86_64', kind: 'msi' }
-  // macOS: app.tar.gz.sig (aarch64 or x64)
+  // macOS: app.tar.gz.sig
+  // 2026-09-17:Universal 二进制(CI 用 --target universal-apple-darwin 交叉编译)同时覆盖
+  // Apple Silicon 与 Intel → 同一份签名/包写入 darwin-aarch64 与 darwin-x86_64 两个平台键。
   if (sigName.endsWith('.app.tar.gz.sig')) {
+    if (sigName.includes('universal')) {
+      return { platform: 'darwin-aarch64', kind: 'app', alsoPlatforms: ['darwin-x86_64'] }
+    }
     if (sigName.includes('aarch64') || sigName.includes('arm64')) return { platform: 'darwin-aarch64', kind: 'app' }
     return { platform: 'darwin-x86_64', kind: 'app' }
   }
@@ -176,7 +183,7 @@ async function main() {
       console.warn(`Skip unknown platform sig: ${asset.name}`)
       continue
     }
-    const { platform, kind } = inferred
+    const { platform, kind, alsoPlatforms } = inferred
     // 安装包文件名(去 .sig 后缀)中的版本号,用于版本匹配判断
     const pkgName = asset.name.replace(/\.sig$/, '')
     const assetVersion = extractVersion(pkgName)
@@ -204,13 +211,16 @@ async function main() {
       continue
     }
 
-    platforms[platform] = {
-      signature,
-      url: urlAsset.browser_download_url,
+    const allPlatforms = [platform, ...(alsoPlatforms || [])]
+    for (const pf of allPlatforms) {
+      platforms[pf] = {
+        signature,
+        url: urlAsset.browser_download_url,
+      }
+      platformKinds[pf] = kind
+      platformVerMatch[pf] = verMatch
+      console.log(`Added platform ${pf} (${kind}, verMatch=${verMatch}): ${urlAsset.name}`)
     }
-    platformKinds[platform] = kind
-    platformVerMatch[platform] = verMatch
-    console.log(`Added platform ${platform} (${kind}, verMatch=${verMatch}): ${urlAsset.name}`)
   }
 
   if (Object.keys(platforms).length === 0) {
