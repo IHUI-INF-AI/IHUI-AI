@@ -79,6 +79,14 @@ const isAutoPush = args.has('--auto-push')
 const isDryRun = args.has('--dry-run')
 const isForce = args.has('--force')
 const isJson = args.has('--json')
+// 2026-09-17 根治:--auto-push 只推"远端缺失"的 tag(增量),不再每次全量推 5000 个。
+//   旧行为: 每次 commit 后同步 `git push --atomic`(全部 tag) → 10+ 分钟阻塞 post-commit,
+//   表现 = "推送早已完成但终端一直挂着等"。新行为: ls-remote 比对 → 只推缺失项(通常 0~3 个),
+//   0 缺失时秒级退出;并加限流标记 + 超时,任何情况都不得长时间阻塞。
+const PUSH_CHUNK_SIZE = 200
+const PUSH_TIMEOUT_MS = Number(process.env.IHUI_TAG_PUSH_TIMEOUT_MS || 90_000)
+// 限流:同一间隔内(默认 60s)重复调用直接跳过,避免连续 commit 反复 ls-remote
+const THROTTLE_MS = Number(process.env.IHUI_TAG_SYNC_THROTTLE_MS || 60_000)
 
 function run(cmd, opts = {}) {
   try {
@@ -340,6 +348,25 @@ function autoPushMode() {
     process.exit(0)
   }
 
+  // ── 限流:间隔内重复调用直接跳过(避免连续 commit 反复 ls-remote)──
+  // 注意: linked worktree 下 .git 是文件,须经 git rev-parse --git-dir 解析真实目录
+  const gitDir = run('git rev-parse --git-dir', { allowFail: true }) || '.git'
+  const marker = `${gitDir}/ihui-last-tag-sync`
+  const now = Date.now()
+  if (!isForce) {
+    try {
+      const last = Number(run(`cat ${marker}`, { allowFail: true }) || 0)
+      if (last && now - last < THROTTLE_MS) {
+        console.log(
+          `${C.dim}🏷️  tag 同步限流中(距上次 ${Math.round((now - last) / 1000)}s < ${Math.round(THROTTLE_MS / 1000)}s),跳过${C.reset}`,
+        )
+        process.exit(0)
+      }
+    } catch {
+      /* 标记缺失/损坏 → 继续执行 */
+    }
+  }
+
   const localLost = listLocalLostTags()
   const localBackup = listLocalBackupTags()
   const allLocal = [...localLost, ...localBackup]
@@ -349,35 +376,71 @@ function autoPushMode() {
     process.exit(0)
   }
 
-  console.log(`${C.cyan}${C.bold}📤 推送 ${allLocal.length} 个 lost-commit/backup tag 到 origin${isDryRun ? ' (dry-run)' : ''}${C.reset}`)
-  for (const tag of allLocal) {
-    console.log(`     ${C.cyan}${tag}${C.reset}`)
-  }
+  // ── 增量:只推远端缺失的 tag(2026-09-17 根治全量推 10+ 分钟阻塞)──
+  const remoteAll = new Set([...listRemoteLostTags(), ...listRemoteBackupTags()])
+  const missing = allLocal.filter((t) => !remoteAll.has(t))
 
-  let cmd
-  if (isDryRun) {
-    cmd = 'git push origin --dry-run --atomic refs/tags/lost-commit/* refs/tags/backup/*'
-  } else if (isForce) {
-    cmd = 'git push origin --force --atomic refs/tags/lost-commit/* refs/tags/backup/*'
-    console.log(`  ${C.yellow}⚠️  --force 模式,会覆盖远端同名 tag${C.reset}`)
-  } else {
-    cmd = 'git push origin --atomic refs/tags/lost-commit/* refs/tags/backup/*'
-  }
-
-  console.log(`  ${C.dim}$ ${cmd}${C.reset}`)
-  try {
-    const stdout = run(cmd)
-    if (stdout) console.log(stdout)
-    if (isDryRun) {
-      console.log(`\n${C.green}✅ dry-run 完成(未实际 push)${C.reset}`)
-    } else {
-      console.log(`\n${C.green}✅ push 完成,本地+远端 tag 已同步${C.reset}`)
-    }
+  if (missing.length === 0) {
+    run(`printf %s ${now} > ${marker}`, { allowFail: true })
+    console.log(
+      `${C.green}✅ 全部 ${allLocal.length} 个 tag 远端已存在,无需 push(增量同步,秒级完成)${C.reset}`,
+    )
     process.exit(0)
-  } catch (e) {
-    console.error(`${C.red}❌ push 失败:${C.reset}`, e?.message ?? e)
-    process.exit(1)
   }
+
+  console.log(
+    `${C.cyan}${C.bold}📤 增量推送 ${missing.length}/${allLocal.length} 个 tag 到 origin${isDryRun ? ' (dry-run)' : ''}${C.reset}`,
+  )
+  if (missing.length <= 20) {
+    for (const tag of missing) console.log(`     ${C.cyan}${tag}${C.reset}`)
+  } else {
+    for (const tag of missing.slice(0, 10)) console.log(`     ${C.cyan}${tag}${C.reset}`)
+    console.log(`     ${C.dim}…另有 ${missing.length - 10} 个${C.reset}`)
+  }
+
+  if (isDryRun) {
+    console.log(`
+${C.green}✅ dry-run 完成(未实际 push)${C.reset}`)
+    process.exit(0)
+  }
+
+  // 分块 push + 硬超时:任何单块绝不长时间挂起
+  let pushed = 0
+  const chunks = []
+  for (let i = 0; i < missing.length; i += PUSH_CHUNK_SIZE) {
+    chunks.push(missing.slice(i, i + PUSH_CHUNK_SIZE))
+  }
+
+  for (const [idx, chunk] of chunks.entries()) {
+    const refspecs = chunk.map((t) => `refs/tags/${t}`).join(' ')
+    const forceFlag = isForce ? '--force ' : ''
+    const cmd = `git push ${forceFlag}--atomic origin ${refspecs}`
+    console.log(
+      `  ${C.dim}[${idx + 1}/${chunks.length}] $ git push --atomic origin <${chunk.length} tags>${forceFlag ? ' (--force)' : ''}${C.reset}`,
+    )
+    try {
+      run(cmd, { timeout: PUSH_TIMEOUT_MS, stdio: ['pipe', 'pipe', 'pipe'] })
+      pushed += chunk.length
+    } catch (e) {
+      // 单块失败不阻断:标记未更新,下次提交会重试该块
+      const firstLine = String(e?.message ?? e).split(String.fromCharCode(10))[0]
+      console.error(
+        `${C.yellow}⚠️  第 ${idx + 1} 块 push 失败(${chunk.length} 个),下轮重试:${C.reset} ${firstLine}`,
+      )
+      break
+    }
+  }
+
+  if (pushed > 0) {
+    run(`printf %s ${Date.now()} > ${marker}`, { allowFail: true })
+    console.log(`
+${C.green}✅ tag 增量 push 完成:${pushed} 个已同步(本地+远端一致)${C.reset}`)
+    process.exit(0)
+  }
+
+  console.log(`
+${C.yellow}⚠️  无 tag 成功推送(已由限流/超时保护,不阻断 commit)${C.reset}`)
+  process.exit(0)
 }
 
 function main() {
