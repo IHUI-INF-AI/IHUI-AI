@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { X } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -145,13 +145,7 @@ export function Drawer({
               {title}
             </h2>
           )}
-          <button
-            onClick={onClose}
-            aria-label={t('close')}
-            className="ml-auto rounded-sm opacity-70 hover:opacity-100"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <CloseButton aria-label={t('close')} onClick={onClose} className="ml-auto" />
         </div>
         <div
           className="overflow-auto p-3"

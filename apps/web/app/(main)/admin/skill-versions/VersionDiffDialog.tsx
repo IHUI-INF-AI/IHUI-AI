@@ -5,8 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { X } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
 import { computeDiff } from './helpers'
 import type { SkillVersion, DiffLine } from './types'
 
@@ -40,10 +39,9 @@ export function VersionDiffDialog({
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>版本对比: {oldVersion.name}</DialogTitle>
-          <Button variant="ghost" size="icon" className="absolute right-4 top-4" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
         </DialogHeader>
+        {/* 2026-09-16 根治:删除自定义关闭按钮,DialogContent 内置 Close 已统一
+            视觉(h-7 w-7 @ right-3 top-3),此前自定义导致 DOM 中出现两个关闭按钮 */}
 
         <div className="flex items-center gap-4 border-b pb-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">

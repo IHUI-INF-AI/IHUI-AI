@@ -9,6 +9,7 @@ import { Brain, Loader2, Copy, Check } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import { formatDuration } from './foldable-section'
+import { splitReasoningSections } from '@/lib/reasoning-sections'
 
 // Phase 22: localStorage key(ihui: 命名空间)
 const STORAGE_KEY = 'ihui:thinking-expanded'
@@ -140,9 +141,14 @@ export const ThinkingSection = React.memo(function ThinkingSection({
     return trimmed.length > 60 ? `…${trimmed.slice(-60)}` : trimmed
   }, [content])
 
+  // P3 #33(2026-09-16 立):reasoning 分节(对标 Codex reasoning sections)。
+  // 按空行切段、显式 markdown 标题优先、隐式取首行截断;短内容退化为无标题单节。
+  const sections = React.useMemo(() => splitReasoningSections(content), [content])
+
   // v2: 复制状态
   const [copied, setCopied] = React.useState<boolean>(false)
-  const preRef = React.useRef<HTMLPreElement>(null)
+  // P3 #33:容器由 <pre> 改为分节 <div>,ref 同步换型(自动滚动用,scrollTop/scrollHeight 通用)
+  const preRef = React.useRef<HTMLDivElement>(null)
 
   // 流式输出时自动展开
   React.useEffect(() => {
@@ -258,28 +264,46 @@ export const ThinkingSection = React.memo(function ThinkingSection({
           </Tooltip>
         )}
       </button>
-      {/* v2: 展开态内容区(代码块样式) */}
+      {/* v2: 展开态内容区(代码块样式);P3 #33:按节渲染 + 小标题 */}
       {hasContent && expanded && (
         <div className="px-2 pb-1 pt-0.5" data-testid="thinking-content-wrapper">
           <div className="relative">
             {content && (
-              <pre
+              <div
                 ref={preRef}
-                className="max-h-28 overflow-y-auto whitespace-pre-wrap break-all rounded-sm bg-muted/20 p-1.5 pr-7 font-mono text-xs leading-relaxed text-foreground/70"
+                className="max-h-28 overflow-y-auto rounded-sm bg-muted/20 p-1.5 pr-7 font-mono text-xs leading-relaxed text-foreground/70"
                 aria-live={thinkingActive ? 'polite' : undefined}
                 aria-atomic={thinkingActive ? 'false' : undefined}
                 data-testid="thinking-content"
               >
-                {content}
-                {/* 2026-08-29:交错增长期同样显示脉冲光标(思考仍在输出) */}
-                {thinkingActive && (
-                  <span
-                    className="ml-0.5 inline-block w-0.5 animate-pulse bg-primary/50 align-middle"
-                    style={{ height: '10px' }}
-                    aria-hidden
-                  />
-                )}
-              </pre>
+                {sections.map((s, i) => (
+                  <div
+                    key={i}
+                    className={i > 0 ? 'mt-2' : ''}
+                    data-testid={`thinking-section-${i}`}
+                  >
+                    {s.title && (
+                      <div
+                        className="mb-0.5 font-sans text-[11px] font-medium text-foreground/85"
+                        data-testid={`thinking-section-title-${i}`}
+                      >
+                        {s.title}
+                      </div>
+                    )}
+                    <div className="whitespace-pre-wrap break-all">
+                      {s.body}
+                      {/* 2026-08-29:流式/交错增长期脉冲光标(思考仍在输出),内联在最后节正文末尾 */}
+                      {thinkingActive && i === sections.length - 1 && (
+                        <span
+                          className="ml-0.5 inline-block w-0.5 animate-pulse bg-primary/50 align-middle"
+                          style={{ height: '10px' }}
+                          aria-hidden
+                        />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
             {content && (
               <Tooltip content={copied ? t('copied') : t('copyThinking')}>

@@ -175,4 +175,46 @@ export type AgentMemorySemantic = typeof agentMemorySemantic.$inferSelect
 export type NewAgentMemorySemantic = typeof agentMemorySemantic.$inferInsert
 export type AgentMemoryProcedural = typeof agentMemoryProcedural.$inferSelect
 export type NewAgentMemoryProcedural = typeof agentMemoryProcedural.$inferInsert
+
+/**
+ * 记忆关系边表(P3 #41 记忆图谱阶段1a,2026-09-16 立)。
+ *
+ * 把 agent_memory_semantic 条目升级为知识图谱节点 + 有向关系边:
+ * - 关系来源:ai-service memory_graph.py 的 LLM 关系抽取(每轮记忆写入后异步触发)
+ * - 幂等:唯一约束 (user_id, source_id, target_id,relation) → ON CONFLICT DO NOTHING
+ * - 级联:semantic 条目删除时边自动清理,不留悬挂边
+ * 迁移:drizzle/20260916220000_memory_edges.sql
+ */
+export const agentMemoryEdges = pgTable(
+  'agent_memory_edges',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    sourceId: uuid('source_id')
+      .references(() => agentMemorySemantic.id, { onDelete: 'cascade' })
+      .notNull(),
+    targetId: uuid('target_id')
+      .references(() => agentMemorySemantic.id, { onDelete: 'cascade' })
+      .notNull(),
+    relation: varchar('relation', { length: 64 }).default('relates_to').notNull(),
+    weight: numeric('weight').default('1').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdIdx: index('ix_agent_memory_edges_user').on(t.userId),
+    sourceIdx: index('ix_agent_memory_edges_source').on(t.sourceId),
+    targetIdx: index('ix_agent_memory_edges_target').on(t.targetId),
+    uniqueEdge: uniqueIndex('ux_agent_memory_edges').on(
+      t.userId,
+      t.sourceId,
+      t.targetId,
+      t.relation,
+    ),
+  }),
+)
+
+export type AgentMemoryEdge = typeof agentMemoryEdges.$inferSelect
+export type NewAgentMemoryEdge = typeof agentMemoryEdges.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

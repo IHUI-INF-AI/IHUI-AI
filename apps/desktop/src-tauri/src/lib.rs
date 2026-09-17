@@ -2,6 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 2026-09-17 薄壳化配套:线上前端自动刷新 + 断网兜底守卫(详见模块文档)
+mod auto_refresh;
+
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent, TrayIconId};
@@ -1612,6 +1615,17 @@ pub fn run() {
                 .level(log::LevelFilter::Info)
                 .build(),
         )
+        // 2026-09-17 薄壳化配套:离线兜底页协议。断网时 auto_refresh 模块将 main 窗口
+        // 导航到 http://offline.localhost/index.html(此 handler 返回内嵌 HTML),
+        // 恢复后自动切回线上前端。Windows 自定义协议 URL 形如 http://<scheme>.localhost/。
+        .register_uri_scheme_protocol("offline", |_uri, _request| {
+            tauri::http::Response::builder()
+                .status(200)
+                .header("Content-Type", "text/html; charset=utf-8")
+                .header("Cache-Control", "no-store")
+                .body(include_str!("../offline/index.html").as_bytes().to_vec())
+                .expect("offline protocol: static html")
+        })
         // single-instance 必须在 plugin chain 最前,防止多开 + 唤起已有窗口
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -1728,6 +1742,8 @@ pub fn run() {
             // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
             // 2026-07-27 立:仅恢复 main 窗口,admin 窗口在 open_admin_window 时恢复
             let _ = restore_window_state(Some("main".to_string()), app.handle().clone());
+            // 2026-09-17 薄壳化配套:启动线上前端自动刷新(3min 构建指纹轮询)+ 断网兜底守卫(30s 健康检查)
+            auto_refresh::start(app.handle().clone());
             // 2026-08-16 修复:autostart 插件透传 --minimized(开机自启最小化到托盘),
             // 此前无任何 args 解析,开机自启会直接弹出主窗口。须在恢复窗口状态后执行。
             if std::env::args().any(|a| a == "--minimized") {
