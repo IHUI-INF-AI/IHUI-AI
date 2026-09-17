@@ -74,6 +74,14 @@ jobs:
           # 2026-09-17:失败也保存缓存——失败 run 的编译成果不浪费,重跑时增量续编
           cache-on-failure: true
 
+      # 2026-09-17 编译缓存跨 run 共享:命中后依赖 crate 全跳过,只编业务代码
+      # (macOS/Linux 单 job 预期 8-10 分钟;首 run 为填充缓存,第二次起生效)
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Enable sccache
+        run: echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+
       - name: Install Linux deps
         if: runner.os == 'Linux'
         run: |
