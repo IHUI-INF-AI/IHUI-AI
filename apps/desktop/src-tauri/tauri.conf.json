@@ -31,7 +31,8 @@
         "decorations": false,
         "titleBarStyle": "Overlay",
         "backgroundColor": "#242424",
-        "shadow": true
+        "shadow": true,
+        "visible": false
       }
     ],
     "security": {
