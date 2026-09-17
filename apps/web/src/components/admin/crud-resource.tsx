@@ -42,6 +42,12 @@ const PAGE_SIZE = 10
 export function useCrudResource<T extends { id: string }>(opts: {
   basePath: string
   queryKey: unknown[]
+  /** 列表搜索参数名(默认 search;后端如用 word/keyword 等在此指定) */
+  searchParam?: string
+  /** 提交前对表单值做转换(类型矫正/JSON 包装等) */
+  transform?: (values: Record<string, unknown>) => Record<string, unknown>
+  /** 保存成功回调(用于 toast,mode 区分新增/编辑) */
+  onSaved?: (mode: 'create' | 'edit') => void
 }) {
   const qc = useQueryClient()
   const [search, setSearch] = React.useState('')
@@ -53,7 +59,7 @@ export function useCrudResource<T extends { id: string }>(opts: {
     queryKey: [...opts.queryKey, 'list', search, page],
     queryFn: async () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
-      if (search.trim()) qs.set('search', search.trim())
+      if (search.trim()) qs.set(opts.searchParam ?? 'search', search.trim())
       const r = await fetchApi<CrudListResp<T>>(`${opts.basePath}?${qs}`)
       if (!r.success) throw new Error(r.error)
       return r.data
@@ -66,16 +72,19 @@ export function useCrudResource<T extends { id: string }>(opts: {
     mutationFn: async (values: Record<string, unknown>) => {
       const row = dialog?.mode === 'edit' ? dialog.row : null
       const url = row ? `${opts.basePath}/${row.id}` : opts.basePath
-      return fetchApi(url, { method: row ? 'PUT' : 'POST', body: JSON.stringify(values) })
+      const payload = opts.transform ? opts.transform(values) : values
+      return fetchApi(url, { method: row ? 'PUT' : 'POST', body: JSON.stringify(payload) })
     },
     onSuccess: (r) => {
       if (!r.success) {
         setErr(r.error)
         return
       }
+      const mode = dialog?.mode ?? 'create'
       setErr(null)
       setDialog(null)
       invalidate()
+      opts.onSaved?.(mode)
     },
     onError: (e: Error) => setErr(e.message),
   })
@@ -149,6 +158,10 @@ export function CrudFormDialog(props: {
         init[f.key] = v && d && !isNaN(d.getTime()) ? toLocalInput(d) : ''
       } else {
         init[f.key] = v === null || v === undefined ? '' : String(v)
+      }
+      // select 无值时默认选第一项,避免空字符串提交
+      if (f.type === 'select' && !init[f.key] && f.options?.length) {
+        init[f.key] = f.options[0]!.value
       }
     }
     setValues(init)
