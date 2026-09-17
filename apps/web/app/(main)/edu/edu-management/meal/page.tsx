@@ -911,7 +911,7 @@ export default function MealPage() {
           avgCalories: number
         }>
       }>(
-        `/api/edu-ai-management/meal/nutrition-summary?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
+        `/api/edu-ai-management/meal/nutrition-summary?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`, // method: GET
       ),
     enabled: false,
   })

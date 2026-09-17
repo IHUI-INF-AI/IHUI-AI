@@ -4672,6 +4672,42 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ binding: row }))
   })
 
+  // --- 成绩趋势(前端 GET /exam-score/trend/:studentId,2026-09-17 补)---
+  // grades/trend/[studentId] 面板按学生拉成绩时间线;此前只有 weakness/stats/ranking 有端点,
+  // trend 因前端调用含内联查询串(`?subject=`)落进守门正则盲区而从未暴露。
+  // 返回契约与 edu_exam_score 表字段一一对应(id/examName/subject/score/totalScore/examDate),
+  // 可选 subject 过滤,按考试日期升序(时间线)。
+  server.get('/exam-score/trend/:id', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
+    const idParsed = uuidParamSchema.safeParse(request.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const subjectParsed = z
+      .transform(emptyToUndefined)
+      .pipe(z.string().max(100).optional())
+      .safeParse((request.query as Record<string, unknown> | undefined)?.subject)
+    const conds: SQL[] = [
+      eq(eduExamScore.studentId, idParsed.data.id),
+      isNull(eduExamScore.deletedAt),
+    ]
+    if (subjectParsed.success && subjectParsed.data)
+      conds.push(eq(eduExamScore.subject, subjectParsed.data))
+    const list = await db
+      .select({
+        id: eduExamScore.id,
+        examName: eduExamScore.examName,
+        subject: eduExamScore.subject,
+        score: eduExamScore.score,
+        totalScore: eduExamScore.totalScore,
+        examDate: eduExamScore.examDate,
+      })
+      .from(eduExamScore)
+      .where(and(...conds))
+      .orderBy(eduExamScore.examDate, eduExamScore.subject)
+    return reply.send(success({ list }))
+  })
+
   // --- 成绩薄弱点分析(前端 GET /exam-score/weakness/:id,此前无对应端点)---
   server.get('/exam-score/weakness/:id', async (request, reply) => {
     await requireEduView(request, reply)

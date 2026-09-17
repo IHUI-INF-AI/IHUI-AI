@@ -77,8 +77,8 @@ function RefundList({
     mutationFn: () => {
       const url =
         action!.mode === 'audit'
-          ? `/api/refunds/${action!.refund.id}/audit`
-          : `/api/refunds/${action!.refund.id}/reject`
+          ? `/api/refunds/${action!.refund.id}/audit` // method: POST
+          : `/api/refunds/${action!.refund.id}/reject` // method: POST
       const body: Record<string, unknown> =
         action!.mode === 'audit'
           ? { action: 'reject', reason: reason.trim() || undefined }
