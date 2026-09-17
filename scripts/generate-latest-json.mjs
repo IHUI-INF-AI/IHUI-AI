@@ -75,8 +75,10 @@ async function githubApi(path, init, attempt = 0) {
 // 注意:历史 Release 可能累积旧版本残留文件(如 desktop-v0.1.14 同时含 0.1.13 残留共 29),
 // 阈值须基于「单版本干净产出」设定,勿按累积 Release 设高 ——否则干净的单版本发布会因
 // assets<阈值被误判未就绪而等待 12 次超时失败(2026-09-01 实证:0.1.15 单版本仅 17 assets 却卡死)
-const EXPECTED_MIN_ASSETS = 16
-const EXPECTED_MIN_SIGS = 7
+// 2026-09-17:矩阵 4→3 job(macOS Universal 合并 arm64+Intel)后单版本产出 = exe+sig(2) +
+// AppImage+deb+sig(3~4) + universal dmg+app.tar.gz+sig(3) ≈ 9~10 资产/3 签名。
+const EXPECTED_MIN_ASSETS = 8
+const EXPECTED_MIN_SIGS = 3
 /** 等待 release assets 达到预期数量,防止竞态条件导致 sig 文件未上传完成 */
 async function waitForRelease(tag, expectedMinAssets = EXPECTED_MIN_ASSETS, maxRetries = 36, retryInterval = 15000) {
   for (let i = 0; i < maxRetries; i++) {
