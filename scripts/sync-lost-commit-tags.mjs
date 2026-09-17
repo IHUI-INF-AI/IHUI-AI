@@ -83,8 +83,12 @@ const isJson = args.has('--json')
 //   旧行为: 每次 commit 后同步 `git push --atomic`(全部 tag) → 10+ 分钟阻塞 post-commit,
 //   表现 = "推送早已完成但终端一直挂着等"。新行为: ls-remote 比对 → 只推缺失项(通常 0~3 个),
 //   0 缺失时秒级退出;并加限流标记 + 超时,任何情况都不得长时间阻塞。
-const PUSH_CHUNK_SIZE = 200
-const PUSH_TIMEOUT_MS = Number(process.env.IHUI_TAG_PUSH_TIMEOUT_MS || 90_000)
+const PUSH_CHUNK_SIZE = Number(process.env.IHUI_TAG_PUSH_CHUNK || 20)
+const PUSH_TIMEOUT_MS = Number(process.env.IHUI_TAG_PUSH_TIMEOUT_MS || 300_000)
+// 2026-09-17 实测: 单个 tag 推送需连带上传其历史对象, 20 个 tag ≈ 10 分钟(网络瓶颈)。
+// 因此 auto 模式(钩子内调用)设积压上限: 超过则只记录不推, 交人工/后台慢速收敛,
+// 保证 commit 路径永远不受 tag 同步拖累。
+const AUTO_PUSH_MAX_BACKLOG = Number(process.env.IHUI_TAG_AUTO_MAX || 50)
 // 限流:同一间隔内(默认 60s)重复调用直接跳过,避免连续 commit 反复 ls-remote
 const THROTTLE_MS = Number(process.env.IHUI_TAG_SYNC_THROTTLE_MS || 60_000)
 
@@ -391,6 +395,27 @@ function autoPushMode() {
   console.log(
     `${C.cyan}${C.bold}📤 增量推送 ${missing.length}/${allLocal.length} 个 tag 到 origin${isDryRun ? ' (dry-run)' : ''}${C.reset}`,
   )
+
+  // ── 积压闸门(2026-09-17):超阈值只记录不推 ──
+  // 实测单 tag 推送需连带上传历史对象(20 个 ≈ 10 分钟),大积压推送在网络上不可行,
+  // 且会拖死 commit 路径。auto 模式直接跳过并留待办;人工补推用 --force 绕过此闸门。
+  if (!isForce && missing.length > AUTO_PUSH_MAX_BACKLOG) {
+    console.log(
+      `${C.yellow}⚠️  待推积压 ${missing.length} 个 > 阈值 ${AUTO_PUSH_MAX_BACKLOG}(单 tag 推送需上传历史对象, 速度约 30s/个)${C.reset}`,
+    )
+    console.log(
+      `${C.dim}   已跳过(不阻塞 commit)。需要远端备份时后台慢速补推:${C.reset}`,
+    )
+    console.log(
+      `${C.dim}   IHUI_TAG_PUSH_CHUNK=20 node scripts/sync-lost-commit-tags.mjs --auto-push --force${C.reset}`,
+    )
+    console.log(
+      `${C.dim}   注: 本地 tag 已足以防 git gc 修剪(标签即引用, gc 不会删可达对象); 远端备份仅防本机丢失。${C.reset}`,
+    )
+    // 写限流标记: 积压未变时后续 commit 直接跳过 ls-remote(再省 10s+)
+    run(`printf %s ${Date.now()} > ${marker}`, { allowFail: true })
+    process.exit(0)
+  }
   if (missing.length <= 20) {
     for (const tag of missing) console.log(`     ${C.cyan}${tag}${C.reset}`)
   } else {
