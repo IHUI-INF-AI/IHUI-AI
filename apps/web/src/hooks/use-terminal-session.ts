@@ -85,6 +85,8 @@ export interface TerminalWSHandle {
   send: (msg: unknown) => void
   /** 关闭连接 */
   close: () => void
+  /** 手动立即重连(跳过退避等待;自动重连停止后可由 UI 重试按钮调用) */
+  reconnect: () => void
   /** 连接状态 */
   readyState: number
 }
@@ -271,15 +273,69 @@ export function useTerminalSession() {
       },
     ): TerminalWSHandle => {
       if (!token) {
-        return { ws: null, send: () => {}, close: () => {}, readyState: WebSocket.CLOSED }
+        return {
+          ws: null,
+          send: () => {},
+          close: () => {},
+          reconnect: () => {},
+          readyState: WebSocket.CLOSED,
+        }
       }
 
       let ws: WebSocket | null = null
       // P0 自动重连(2026-07-23):网络抖动/服务重启后自动恢复终端连接
       let closedByUser = false
       let reconnectAttempt = 0
-      const maxReconnectAttempts = 5
       let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+      // 2026-09-17 根治:取消 5 次硬上限(原实现重连耗尽后永久放弃且无任何恢复手段,
+      // 导致 "已达最大重连次数" 死锁,服务恢复后终端永远连不上)。
+      // 改为无限重连(指数退避封顶 30s),仅在永久性失败(用户主动关闭/后端拒绝)时停止。
+      let permanentClosed = false
+
+      // 后端 terminal-ws.ts 永久性关闭码 — 重连无济于事,停止并给出明确原因:
+      //   1000=进程退出/客户端关闭  4001=JWT 鉴权失败  4003=无权访问  4004=会话不存在
+      const PERMANENT_CLOSE_REASONS: Record<number, string> = {
+        1000: '终端进程已退出',
+        4001: '登录状态已失效,请重新登录',
+        4003: '无权访问此终端会话',
+        4004: '终端会话不存在',
+      }
+
+      const clearReconnectTimer = () => {
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer)
+          reconnectTimer = null
+        }
+      }
+
+      const scheduleReconnect = () => {
+        if (closedByUser || permanentClosed) return
+        clearReconnectTimer()
+        // 首次调度时提示用户"正在自动重连"(重连成功后 onOpen 会清除该错误)
+        if (reconnectAttempt === 0) {
+          handlers.onError?.('连接已断开,正在自动重连…')
+        }
+        const delay = Math.min(1000 * 2 ** reconnectAttempt, 30000)
+        reconnectAttempt += 1
+        reconnectTimer = setTimeout(connect, delay)
+      }
+
+      // 网络恢复/页面回前台时立即重试(跳过剩余退避等待)
+      const tryImmediateReconnect = () => {
+        if (closedByUser || permanentClosed) return
+        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+          return
+        }
+        clearReconnectTimer()
+        reconnectAttempt = 0
+        connect()
+      }
+      const handleOnline = () => tryImmediateReconnect()
+      const handleVisibility = () => {
+        if (document.visibilityState === 'visible') tryImmediateReconnect()
+      }
+      window.addEventListener('online', handleOnline)
+      document.addEventListener('visibilitychange', handleVisibility)
 
       // 2026-08-02 修复:handle 在 connect 外部创建一次,避免重连时创建新 handle
       // 导致返回给调用方的 handle.ws 永远指向第一次(已关闭)的 WebSocket
@@ -292,13 +348,32 @@ export function useTerminalSession() {
         },
         close: () => {
           closedByUser = true
-          if (reconnectTimer) {
-            clearTimeout(reconnectTimer)
-            reconnectTimer = null
-          }
+          clearReconnectTimer()
+          window.removeEventListener('online', handleOnline)
+          document.removeEventListener('visibilitychange', handleVisibility)
           if (ws && ws.readyState !== WebSocket.CLOSED) {
             ws.close(1000, 'client disconnect')
           }
+        },
+        reconnect: () => {
+          // 手动重连:跳过退避等待并重置永久停止标记(用户明确要求重试)
+          if (closedByUser) return
+          clearReconnectTimer()
+          permanentClosed = false
+          reconnectAttempt = 0
+          if (ws && ws.readyState !== WebSocket.CLOSED) {
+            // 摘掉旧连接回调,避免其 onclose 再触发一次自动重连
+            ws.onclose = null
+            ws.onerror = null
+            ws.onmessage = null
+            ws.onopen = null
+            try {
+              ws.close()
+            } catch {
+              /* 忽略 */
+            }
+          }
+          connect()
         },
         readyState: WebSocket.CLOSED,
       }
@@ -310,6 +385,8 @@ export function useTerminalSession() {
           handle.ws = ws
         } catch (e) {
           handlers.onError?.((e as Error).message)
+          // 构造失败(无效 URL 等)也纳入重连调度,不再彻底放弃
+          scheduleReconnect()
           return
         }
 
@@ -328,31 +405,29 @@ export function useTerminalSession() {
           }
         }
 
-        ws.onclose = () => {
+        ws.onclose = (e) => {
           handle.readyState = WebSocket.CLOSED
           handlers.onClose?.()
-          // 自动重连(用户未主动关闭 + 未达最大重试次数)
-          if (!closedByUser && reconnectAttempt < maxReconnectAttempts) {
-            const delay = Math.min(1000 * 2 ** reconnectAttempt, 15000)
-            reconnectAttempt += 1
-            reconnectTimer = setTimeout(connect, delay)
+          if (closedByUser) return
+          // 永久性失败:重连无济于事,停止并给出明确原因(UI 可提供手动重连按钮)
+          const reason = PERMANENT_CLOSE_REASONS[e.code]
+          if (reason) {
+            permanentClosed = true
+            clearReconnectTimer()
+            handlers.onError?.(reason)
+            return
           }
+          // 非永久性失败(1006 网络抖动/1001 服务重启等):无限自动重连
+          scheduleReconnect()
         }
 
         ws.onerror = () => {
           handle.readyState = WebSocket.CLOSED
-          // 不直接 onError,等 onclose 触发重连
-          if (reconnectAttempt >= maxReconnectAttempts) {
-            handlers.onError?.('WebSocket 连接失败(已达最大重连次数)')
-          }
+          // 不直接 onError,统一由 onclose 调度重连或报告永久性失败
         }
       }
 
       connect()
-      if (!ws) {
-        return { ws: null, send: () => {}, close: () => {}, readyState: WebSocket.CLOSED }
-      }
-
       return handle
     },
     [token],
