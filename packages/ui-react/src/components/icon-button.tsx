@@ -2,42 +2,60 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+'use client'
+
 /**
- * 关闭按钮统一样式 token(2026-09-16 立;2026-09-17 与 icon-button.ts 尺寸档位对齐)—
- * 全项目弹窗/抽屉/浮层关闭按钮单一真相源
+ * IconButton — 全项目统一图标按钮(2026-09-17 立)
  *
- * 背景:此前各处关闭按钮样式漂移(dialog/drawer/sheet h-9 w-9 @ right-4 top-4、
- * Modal opacity-70 裸图标、LoginPopup h-5 裸图标…),且大按钮与弹窗标题重叠
- * (2026-09-16 用户反馈)。本文件为唯一规范,所有关闭按钮必须引用以下常量,
- * 禁止在业务代码中手写 right-4 top-4 / h-9 w-9 / opacity-70 等散装样式。
+ * 样式 token 单一来源 = @ihui/design-tokens 的 icon-button.ts
+ * (ICON_BUTTON_SIZE / ICON_BUTTON_ICON_SIZE / ICON_BUTTON_BASE_CLASS)。
  *
- * 规范值:
- * - 尺寸:h-7 w-7(28×28),图标 h-3.5 w-3.5(14×14)—— 精致不笨重,与 icon-button.ts sm 档一致
- * - 浮层定位:absolute right-3 top-3(贴近右上角,配合 DialogHeader pr-8 避让标题)
- * - 亮底:text-muted-foreground,hover 浅背景 bg-accent
- * - 深底(图片查看器/全屏遮罩):text-white/80,hover bg-white/10
+ * 用途:标题栏、工具栏、面板控制等一切"图标按钮"场景(非关闭,关闭用 CloseButton)。
+ * 业务代码禁止手写 h-8 w-8 / h-7 w-7 等散装图标按钮尺寸,一律用本组件;
+ * 尺寸档位与 @ihui/design-tokens icon-button.ts 对齐(两档: sm=28 / md=32)。
  *
- * 消费方式:
- * - React 组件:import { CloseButton } from '@ihui/ui-react'(优先,自带 X 图标)
- * - 仅要类名字符串(如 Radix DialogPrimitive.Close / SheetPrimitive.Close):
- *   import { CLOSE_BUTTON_BASE, CLOSE_BUTTON_ICON, CLOSE_BUTTON_POSITION, CLOSE_BUTTON_ON_DARK } from '@ihui/design-tokens'
+ * 默认渲染 <button type="button">,无背景,hover 高亮 bg-accent。
+ * 尺寸: size='md'(默认 32×32)/ size='sm'(28×28,与 CloseButton 对齐)。
  */
+import * as React from 'react'
+import { cn } from '../lib/utils'
+import { iconButtonClasses, iconButtonIconClasses, type IconButtonSize } from '@ihui/design-tokens'
 
-// 尺寸档从 icon-button.ts 复用,避免再开一套尺寸
-import { ICON_BUTTON_SIZE, ICON_BUTTON_ICON_SIZE } from './icon-button'
+export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  /** 尺寸档位(默认 md=32×32,sm=28×28) */
+  size?: IconButtonSize
+  /** 自定义图标类(覆盖默认图标尺寸类) */
+  iconClassName?: string
+  /** 图标替代插槽(默认 children;children 传图标节点,本组件自动套图标尺寸类) */
+  onDark?: boolean
+}
 
-/** 浮层(弹窗/抽屉)右上角定位。非浮层场景(标题栏行内)不加此类 */
-export const CLOSE_BUTTON_POSITION = 'absolute right-3 top-3'
-
-/** 按钮尺寸(关闭按钮固定 sm 档 28×28,与 icon-button sm 一致) */
-export const CLOSE_BUTTON_SIZE = ICON_BUTTON_SIZE.sm
-
-/** 图标尺寸(关闭按钮固定 sm 档图标 14×14) */
-export const CLOSE_BUTTON_ICON = ICON_BUTTON_ICON_SIZE.sm
-
-/** 亮底(默认)关闭按钮完整类名——浮层场景自行追加 CLOSE_BUTTON_POSITION */
-export const CLOSE_BUTTON_BASE = `inline-flex ${CLOSE_BUTTON_SIZE} shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none`
-
-/** 深底(全屏图片查看器/深色遮罩)关闭按钮完整类名——浮层场景自行追加 CLOSE_BUTTON_POSITION */
-export const CLOSE_BUTTON_ON_DARK = `inline-flex ${CLOSE_BUTTON_SIZE} shrink-0 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/50 disabled:pointer-events-none`
+export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
+  (
+    { size = 'md', iconClassName, onDark = false, className, children, type = 'button', ...props },
+    ref,
+  ) => (
+    <button
+      ref={ref}
+      type={type}
+      className={cn(
+        iconButtonClasses(size),
+        onDark && 'text-white/80 hover:bg-white/10 hover:text-white focus-visible:ring-white/50',
+        className,
+      )}
+      {...props}
+    >
+      {React.Children.map(children, (child) => {
+        if (React.isValidElement<{ className?: string }>(child)) {
+          const cls = child.props.className
+          return React.cloneElement(child as React.ReactElement<{ className?: string }>, {
+            className: cn(iconButtonIconClasses(size), iconClassName, cls),
+          })
+        }
+        return child
+      }) ?? null}
+    </button>
+  ),
+)
+IconButton.displayName = 'IconButton'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
