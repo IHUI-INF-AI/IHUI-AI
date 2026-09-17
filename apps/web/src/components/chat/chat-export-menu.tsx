@@ -283,11 +283,7 @@ export function ChatExportMenu({ title, disabled }: ChatExportMenuProps) {
     <DropdownMenu>
       <Tooltip content={t('label')}>
         <DropdownMenuTrigger asChild disabled={disabled}>
-          <IconButton
-            aria-label={t('label')}
-            data-testid="chat-export-menu"
-            className="rounded-lg hover:bg-accent/60 hover:text-foreground"
-          >
+          <IconButton aria-label={t('label')} data-testid="chat-export-menu">
             <Share2 aria-hidden />
           </IconButton>
         </DropdownMenuTrigger>
