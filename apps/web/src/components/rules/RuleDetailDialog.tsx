@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { Activity, History, Loader2, ThumbsDown, ThumbsUp, TrendingUp, X } from 'lucide-react'
+import { Activity, History, Loader2, ThumbsDown, ThumbsUp, TrendingUp } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { rulesApi } from './rules-api'
@@ -17,7 +17,7 @@ import type {
   RuleStats,
 } from './types'
 import type { Rule } from '@ihui/types'
-import { Button } from '@ihui/ui-react'
+import { Button, CloseButton } from '@ihui/ui-react'
 import { HitsBarChart, SatisfactionPie, StatCard } from './RuleDetailCharts'
 
 interface RuleDetailDialogProps {
@@ -155,14 +155,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
       <div className="flex max-h-[85vh] w-full max-w-2xl flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">规则详情:{rule.name}</span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="关闭"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton aria-label="关闭" onClick={onClose} />
         </div>
 
         <div className="flex items-center gap-1">

@@ -34,6 +34,7 @@ import {
   Switch,
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { TruncatedText } from '@/components/common'
 import { BackButton } from '@/components/common'
 import { useConfirm } from '@/hooks/use-confirm'
 
@@ -256,8 +257,8 @@ export default function AlertRulesPage() {
             ) : (
               (rulesQ.data ?? []).map((rule) => (
                 <tr key={rule.id} className="border-t border-border">
-                  <td className="truncate px-3 py-2" title={rule.remark ?? undefined}>
-                    {rule.name}
+                  <td className="px-3 py-2">
+                    <TruncatedText value={rule.name} />
                   </td>
                   <td className="px-3 py-2">{METRIC_LABEL[rule.metric] ?? rule.metric}</td>
                   <td className="px-3 py-2 tabular-nums">
@@ -325,8 +326,8 @@ export default function AlertRulesPage() {
               (eventsQ.data ?? []).map((ev) => (
                 <tr key={ev.id} className="border-t border-border">
                   <td className="truncate px-3 py-2 font-medium">{ev.ruleName}</td>
-                  <td className="truncate px-3 py-2" title={ev.message}>
-                    {ev.message}
+                  <td className="px-3 py-2">
+                    <TruncatedText value={ev.message} />
                   </td>
                   <td className="px-3 py-2 tabular-nums">
                     {Number(ev.observedValue)} / {Number(ev.threshold)}

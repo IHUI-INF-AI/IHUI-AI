@@ -105,9 +105,15 @@ function listBranches() {
 
 const branches = listBranches()
 const worktreeBranches = getWorktreeBranches()
-const illegal = branches.filter(
-  (b) => !ALLOWED.has(b) && !isSymbolicRef(b) && !isActiveGoalBranch(b) && !worktreeBranches.has(b),
-)
+const illegal = branches.filter((b) => {
+  if (ALLOWED.has(b) || isSymbolicRef(b) || isActiveGoalBranch(b)) return false
+  if (worktreeBranches.has(b)) return false
+  // 2026-09-16:worktree 分支的远程镜像豁免。sanctioned worktree 会话(AGENTS.md §12d)
+  // push 备份后产生的 origin/<branch> 远程跟踪引用,是该 worktree 工作上下文的镜像,
+  // 与本地分支同等豁免,不应被误判为 §9b 禁止的 feature 分支(否则并行会话互相阻塞)。
+  if (b.startsWith('origin/') && worktreeBranches.has(b.slice('origin/'.length))) return false
+  return true
+})
 
 if (illegal.length === 0) {
   console.log(`${C.green}✅ 单分支检查通过:仅存在 main(及 goal/ 合法豁免分支)${C.reset}`)
