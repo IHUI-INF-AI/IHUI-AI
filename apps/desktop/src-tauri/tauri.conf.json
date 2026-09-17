@@ -42,7 +42,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://aizhs.top/api/desktop-feed",
+        "https://aizhs.top/desktop-feed.json",
         "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI1RDdFNjdFQTJCMURCMDgKUldRSTI3R2lmdWJYdFJuYXhoQ1pQekNOcUNKOUplWWQ1QVJPK25OakFrL2NmS0ZrREZDbThwbEUK"
