@@ -5,13 +5,13 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, TrendingUp, X } from 'lucide-react'
+import { Loader2, TrendingUp } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { rulesApi } from './rules-api'
 import type { RuleKnowledgeGraph } from './types'
 import type { Rule } from '@ihui/types'
-import { Button } from '@ihui/ui-react'
+import { Button, CloseButton } from '@ihui/ui-react'
 
 interface RuleKnowledgeGraphDialogProps {
   rules: Rule[]
@@ -138,14 +138,7 @@ function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogPr
             <TrendingUp className="mr-1 inline h-3.5 w-3.5" />
             规则知识图谱
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="关闭"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <CloseButton aria-label="关闭" onClick={onClose} />
         </div>
 
         {loading ? (
