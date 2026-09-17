@@ -36,10 +36,11 @@ jobs:
         include:
           - label: windows-x64
             runner: windows-latest
-          - label: macos-arm64
+          # 2026-09-17 极致提速:macOS 由"arm64 + Intel 两个 job"合并为 **Universal 二进制**
+          # (arm64 runner 交叉编译 x86_64-apple-darwin,tauri --target universal-apple-darwin),
+          # 产物同时支持 Apple Silicon 与 Intel——直接砍掉最慢的 macos-15-intel job(实测 ~45min)。
+          - label: macos-universal
             runner: macos-latest
-          - label: macos-x64
-            runner: macos-15-intel # macos-13 已于 2025-12 退役,job 会永久排队;macos-15-intel 为官方 Intel 替代
           - label: linux-x64
             runner: ubuntu-latest
     steps:
@@ -48,6 +49,11 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      # macOS Universal:补装 x86_64 目标(arm64 已就位)
+      - name: Add macOS x86_64 target (universal build)
+        if: runner.os == 'macOS'
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
       # 2026-09-17 链接提速:.cargo/config.toml 指定 rust-lld 作为 Windows 链接器
       # (实测增量构建 110s → 5.4s);rust-lld 在 toolchain 内不在 PATH,补入 GITHUB_PATH
@@ -93,6 +99,8 @@ jobs:
           # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
           # 显式指定全局安装的 tauri CLI(见上一步 Install Tauri CLI)
           tauriScript: tauri
+          # macOS:Universal 二进制(同时覆盖 arm64 + Intel;配合 rustup target add)
+          args: ${{ runner.os == 'macOS' && '--target universal-apple-darwin' || '' }}
           # 2026-09-05: 默认以仓库根为 CWD,导致 beforeBuildCommand `node scripts/ensure-web-out.mjs`
           # 解析到 <root>/scripts 找不到模块(CI 实证);指定 tauri 应用目录对齐本地行为
           projectPath: apps/desktop
