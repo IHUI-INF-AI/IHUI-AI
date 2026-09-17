@@ -41,6 +41,7 @@ param(
   [switch]$Stop,
   [switch]$Clean,
   [switch]$Force,
+  [switch]$Fast,
   [switch]$Help
 )
 
@@ -237,7 +238,8 @@ function Start-ServiceProcess {
     [int]$Port,
     [string]$HealthUrl,
     [int]$TimeoutSec,
-    [bool]$IsForeground
+    [bool]$IsForeground,
+    [bool]$SkipHealth
   )
 
   Write-Hdr "启动 $Name"
@@ -322,6 +324,10 @@ function Start-ServiceProcess {
   Save-PidMap $map
 
   # 6. 健康检查(异步轮询,不阻塞其他服务启动)
+  if ($SkipHealth) {
+    Write-Info "$Name 跳过健康检查(由合并自检阶段统一探测)"
+    return $true
+  }
   if (Wait-Healthy $Name $Port $HealthUrl $TimeoutSec) {
     Write-Ok "$Name 健康(端口 $Port 监听中)"
   } else {
@@ -580,9 +586,12 @@ if ($toStart -contains 'desktop') {
   }
 }
 
-# 硬门禁:env 一致性(仅实际启动时执行,-Status/-Stop/-Clean 跳过)
-if (-not (Invoke-EnvConsistencyGate)) {
+# 硬门禁:env 一致性(仅实际启动时执行,-Status/-Stop/-Clean 跳过;-Fast 也跳过以省 ~2s)
+if (-not $Fast -and -not (Invoke-EnvConsistencyGate)) {
   exit 1
+}
+if ($Fast) {
+  Write-Info "[Fast] 已跳过 env 一致性门禁"
 }
 
 Write-Hdr "IHUI-AI dev 启动器(后台模式,SIGINT 免疫)"
@@ -590,18 +599,45 @@ Write-Info "启动服务:$($toStart -join ', ')"
 Write-Info "日志目录:  $LogDir"
 Write-Info "PID 注册表:$PidFile"
 Write-Info "前台模式:  $(if ($Foreground) { 'YES(不免疫)' } else { 'NO(免疫)' })"
+Write-Info "快速模式:  $(if ($Fast) { 'YES(并行启动+合并自检)' } else { 'NO(串行)' })"
 
-foreach ($name in $toStart) {
-  $svc = $registry.services.$name
-  Start-ServiceProcess `
-    -Name $name `
-    -Cmd $svc.cmd `
-    -ScriptArgs $svc.args `
-    -Cwd (Join-Path $RepoRoot $svc.cwd) `
-    -Port ([int]$svc.port) `
-    -HealthUrl $svc.health `
-    -TimeoutSec ([int]$svc.timeout_sec) `
-    -IsForeground:([bool]$Foreground)
+if ($Fast -and -not $Foreground) {
+  # ============================================================
+  # Fast 模式:并行发射所有服务,不做单服务阻塞式健康等待;
+  # 由后面统一的合并自检阶段一次性探活。
+  # 实测收益:三端 web+api+ai-service 启动耗时从串行 ~240s 上限
+  # 压缩到 max(单服务启动) + 合并自检 60s 上限。
+  # ============================================================
+  # SkipHealth:$true 让 Start-ServiceProcess 发射后立即返回,
+  # 串行 for 循环本身耗时已 <1s(仅 Start-Process + 写 pids.json)。
+  foreach ($name in $toStart) {
+    $svc = $registry.services.$name
+    $ok = Start-ServiceProcess `
+      -Name $name `
+      -Cmd $svc.cmd `
+      -ScriptArgs $svc.args `
+      -Cwd (Join-Path $RepoRoot $svc.cwd) `
+      -Port ([int]$svc.port) `
+      -HealthUrl $svc.health `
+      -TimeoutSec ([int]$svc.timeout_sec) `
+      -IsForeground:$false `
+      -SkipHealth:$true
+    if (-not $ok) { Write-Warn "$name 启动失败" }
+  }
+}
+else {
+  foreach ($name in $toStart) {
+    $svc = $registry.services.$name
+    Start-ServiceProcess `
+      -Name $name `
+      -Cmd $svc.cmd `
+      -ScriptArgs $svc.args `
+      -Cwd (Join-Path $RepoRoot $svc.cwd) `
+      -Port ([int]$svc.port) `
+      -HealthUrl $svc.health `
+      -TimeoutSec ([int]$svc.timeout_sec) `
+      -IsForeground:([bool]$Foreground)
+  }
 }
 
 Write-Hdr "完成"
@@ -624,27 +660,71 @@ Write-Host ''
 # 任一服务超时不响应 → 打印红色 FAIL + 日志提示,但仍保留进程排查。
 # ============================================================
 Write-Hdr "端到端自检(HTTP 实测,按服务独立等待)"
+
+# ============================================================
+# 自检阶段:
+#   - 默认(串行):每个服务独立窗口等待其 timeout_sec,慢服务给足时间
+#   - -Fast(合并并行):全部服务放进一个统一窗口(取最大 timeout_sec,
+#     上限 60s 以免拖慢日常启动),每轮循环并行探测所有未就绪服务,
+#     任一服务的 HTTP 探活耗时不再相加;全部 PASS 立即退出。
+# ============================================================
+$healthTargets = foreach ($name in $toStart) {
+  $svc = $registry.services.$name
+  if (-not $svc.health) { continue }
+  [pscustomobject]@{
+    Name    = $name
+    Port    = [int]$svc.port
+    Health  = $svc.health
+    Timeout = [int]$svc.timeout_sec
+    Ok      = $false
+  }
+}
+$skipTargets = @()
 foreach ($name in $toStart) {
   $svc = $registry.services.$name
-  $port = [int]$svc.port
   if (-not $svc.health) {
-    Write-Host "  {0,-15} port {1,-5} SKIP(无 HTTP 探针)" -f $name, $port -ForegroundColor DarkGray
-    continue
+    $skipTargets += [pscustomobject]@{ Name = $name; Port = [int]$svc.port }
   }
-  # 每个服务按自己的 timeout_sec 等待(web 60s / api 120s / ai-service 240s)
-  $svcDeadline = (Get-Date).AddSeconds([int]$svc.timeout_sec)
-  $ok = $false
-  while ((Get-Date) -lt $svcDeadline) {
-    if (Test-HealthUrl $svc.health 10) { $ok = $true; break }
-    Start-Sleep -Milliseconds 1000
+}
+foreach ($s in $skipTargets) {
+  Write-Host "  {0,-15} port {1,-5} SKIP(无 HTTP 探针)" -f $s.Name, $s.Port -ForegroundColor DarkGray
+}
+
+if ($Fast) {
+  # 合并窗口 90s 硬上限:日常冷启动三端 ~10-20s 就绪,90s 已足够宽裕;
+  # 超过视为异常直接 FAIL 出日志,比默认模式串行等 240s 更快发现异常。
+  $window = 90
+  $deadline = (Get-Date).AddSeconds($window)
+  while ((Get-Date) -lt $deadline) {
+    $pending = @($healthTargets | Where-Object { -not $_.Ok })
+    if ($pending.Count -eq 0) { break }
+    $probes = foreach ($p in $pending) {
+      $p.Name, (Test-HealthUrl $p.Health 5)
+    }
+    for ($i = 0; $i -lt $pending.Count; $i++) {
+      if ($probes[$i * 2 + 1]) { $pending[$i].Ok = $true }
+    }
+    Start-Sleep -Milliseconds 500
   }
-  if ($ok) {
-    $line = "  {0,-15} port {1,-5} PASS  {2}" -f $name, $port, $svc.health
+}
+else {
+  foreach ($t in $healthTargets) {
+    $svcDeadline = (Get-Date).AddSeconds($t.Timeout)
+    while ((Get-Date) -lt $svcDeadline) {
+      if (Test-HealthUrl $t.Health 10) { $t.Ok = $true; break }
+      Start-Sleep -Milliseconds 1000
+    }
+  }
+}
+
+foreach ($t in $healthTargets) {
+  if ($t.Ok) {
+    $line = "  {0,-15} port {1,-5} PASS  {2}" -f $t.Name, $t.Port, $t.Health
     Write-Host $line -ForegroundColor Green
   } else {
-    $line = "  {0,-15} port {1,-5} FAIL  {2}" -f $name, $port, $svc.health
+    $line = "  {0,-15} port {1,-5} FAIL  {2}" -f $t.Name, $t.Port, $t.Health
     Write-Host $line -ForegroundColor Red
-    Write-Host "          ↳ 请检查日志: $LogDir\$name.log(.err)" -ForegroundColor DarkGray
+    Write-Host "          ↳ 请检查日志: $LogDir\$($t.Name).log(.err)" -ForegroundColor DarkGray
   }
 }
 

@@ -6,7 +6,8 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { ZoomIn, ZoomOut, RotateCw, Maximize, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ZoomIn, ZoomOut, RotateCw, Maximize, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CloseButton } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface ImageViewerProps {
@@ -139,7 +140,7 @@ export function ImageViewer({
           <div
             role="button"
             tabIndex={0}
-            className="absolute top-4 right-4"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
@@ -150,12 +151,17 @@ export function ImageViewer({
           >
             {controls}
           </div>
-          <button
-            onClick={() => setFullscreen(false)}
-            className="absolute top-4 left-4 rounded-md bg-black/60 p-2 text-white hover:bg-black/80"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          {/* 2026-09-16 全项目统一关闭按钮 token:onDark + floating(右上角,与全项目规范一致;
+              控制条移到底部居中,与预览态布局统一) */}
+          <CloseButton
+            onDark
+            floating
+            aria-label="Close"
+            onClick={(e) => {
+              e.stopPropagation()
+              setFullscreen(false)
+            }}
+          />
         </div>
       )}
     </>

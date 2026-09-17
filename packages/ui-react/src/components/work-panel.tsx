@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Input } from './input'
+import { CloseButton } from './close-button'
 import { ResizableHandle } from './resizable'
 import { Tooltip, TooltipTrigger, TooltipContent } from './tooltip'
 
@@ -342,9 +343,8 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
               <ExternalLink className="h-4 w-4" />
             </ToolbarButton>
           )}
-          <ToolbarButton onClick={onClose} title={labels.closePanel}>
-            <X className="h-4 w-4" />
-          </ToolbarButton>
+          {/* 2026-09-16 全项目统一关闭按钮 token(标题栏行内,不加 POSITION) */}
+          <CloseButton aria-label={labels.closePanel} title={labels.closePanel} onClick={onClose} />
         </div>
 
         {/* P3+:收藏 + 历史 dropdown 面板 */}
