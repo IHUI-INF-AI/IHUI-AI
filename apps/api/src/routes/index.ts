@@ -398,6 +398,8 @@ import adminBackupJobsRoutes from './admin/backup-jobs.js'
 import adminRelayKeySchedulingRoutes from './admin/relay-key-scheduling.js'
 // 容量与趋势看板(2026-09-16,补强 X)
 import adminRelayCapacityRoutes from './admin/relay-capacity.js'
+// 运营控制台模块 CRUD(2026-09-17,4-4-12):lottery/points-mall/promotion-rules/tax
+import { consoleModulesRoutes as adminConsoleModulesRoutes } from './admin/console-modules.js'
 // 上游错误透传规则(2026-09-16,五轮补强)
 import adminRelayErrorRulesRoutes from './admin/relay-error-rules.js'
 // 提示词审计(2026-09-17,补强 54)
@@ -1142,6 +1144,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminRelayKeySchedulingRoutes, { prefix: '/api/admin' })
   // 容量与趋势看板(2026-09-16,补强 X)
   server.register(adminRelayCapacityRoutes, { prefix: '/api/admin' })
+  // 运营控制台模块 CRUD(2026-09-17,4-4-12)
+  server.register(adminConsoleModulesRoutes, { prefix: '/api/admin' })
   // 上游错误透传规则(2026-09-16,五轮补强)
   server.register(adminRelayErrorRulesRoutes, { prefix: '/api/admin' })
   // 提示词审计(2026-09-17,补强 54)
