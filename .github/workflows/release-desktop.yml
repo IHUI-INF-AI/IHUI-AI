@@ -70,8 +70,6 @@ jobs:
 
       - name: Build & Release
         uses: tauri-apps/tauri-action@v0
-        with:
-          tauriScript: tauri
         # 2026-09-05: tauri-action 的产物收集按预期路径 existsSync 过滤,非 ASCII productName
         # (智汇AI)在 Linux/macOS 上预期路径与磁盘文件失配→"No artifacts were found"假失败
         # (产物实际已构建+签名成功,CI 日志实证);容错后由下一步兜底上传
@@ -81,6 +79,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
         with:
+          # 2026-09-17:纯 Rust 化后无 node_modules,tauri-action 默认 `npm run tauri` 会失败——
+          # 显式指定全局安装的 tauri CLI(见上一步 Install Tauri CLI)
+          tauriScript: tauri
           # 2026-09-05: 默认以仓库根为 CWD,导致 beforeBuildCommand `node scripts/ensure-web-out.mjs`
           # 解析到 <root>/scripts 找不到模块(CI 实证);指定 tauri 应用目录对齐本地行为
           projectPath: apps/desktop
