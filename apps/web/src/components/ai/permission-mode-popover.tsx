@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Hand,
   Loader2,
+  Pin,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -24,6 +25,11 @@ import {
   setWorkspacePermission,
   type WorkspacePermissionMode,
 } from '@ihui/api-client/endpoints/workspace'
+
+import {
+  useSetWorkspacePermissionDefault,
+  useWorkspacePermissionDefault,
+} from '@/hooks/use-workspace-permissions'
 
 import { Tooltip } from '@/components/feedback'
 // 2026-09-15 治理:定位/portal/外点关闭逻辑统一收敛到 PortalPanel(此前手写一套
@@ -113,8 +119,10 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
 
   // 当前生效模式:已绑定 → activeWorkspace.mode;未绑定 → 暂存模式;都没有 → default
   // (2026-08-31 修复:以前未绑定工作区时永远显示"请求批准",切换后按钮文字/样式不变)
+  // P3 3-3 权限继承(2026-09-17 立):会话/暂存 → 用户全局默认 → 系统默认
+  const userDefaultMode = useWorkspacePermissionDefault()
   const currentMode: WorkspacePermissionMode =
-    activeWorkspace?.mode ?? pendingPermissionMode ?? 'default'
+    activeWorkspace?.mode ?? pendingPermissionMode ?? userDefaultMode ?? 'default'
 
   // 弹层开关状态(由自定义 portal 接管,不再使用 Popover)
   const [isOpen, setIsOpen] = React.useState(false)
@@ -175,6 +183,9 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
       // 注:activeWorkspace.mode 已在 onMutate 乐观更新,这里不需要再 setActiveWorkspace
     },
   })
+
+  // P3 3-3 权限继承:把当前模式设为用户全局默认(未显式配置的工作区将沿用)
+  const setDefault = useSetWorkspacePermissionDefault()
 
   /** 切换模式(核心逻辑,2026-07-25 深化)
    * 1. 同模式 → noop
@@ -544,6 +555,30 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
               {t('quickFullAccess')}
             </span>
             {currentMode === 'bypass-permissions' && <Check className="h-3 w-3 text-amber-500" />}
+          </button>
+
+          {/* P3 3-3 权限继承:把当前模式设为用户全局默认(未显式配置的工作区沿用) */}
+          <button
+            type="button"
+            onClick={() => {
+              setDefault.mutate(currentMode, {
+                onSuccess: () =>
+                  toast.success(t('setDefaultDone'), { duration: INFO_TOAST_DURATION }),
+                onError: () =>
+                  toast.error(t('setDefaultFailed'), { duration: INFO_TOAST_DURATION }),
+              })
+            }}
+            disabled={setDefault.isPending || activeWorkspace?.mode === currentMode}
+            title={t('setDefaultHint')}
+            data-testid="permission-set-default"
+            className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {setDefault.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Pin className="h-3 w-3 shrink-0" />
+            )}
+            {t('setAsDefault')}
           </button>
 
           {/* 键盘提示(2026-07-25 深化):底部小字,提醒用户可用 ↑/↓/Enter/1-3 键盘操作 */}
