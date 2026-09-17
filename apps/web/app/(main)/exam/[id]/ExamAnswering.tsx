@@ -40,7 +40,7 @@ export function ExamAnswering({
 
   return (
     <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
-      <div className="sticky top-0 z-20 flex items-center justify-between rounded-md border bg-background/95 px-4 py-2 backdrop-blur">
+      <div className="sticky top-0 z-20 flex items-center justify-between rounded-md border bg-float-indicator-bg px-4 py-2">
         <span className="text-sm font-medium">{paper.title}</span>
         <span
           className={cn(

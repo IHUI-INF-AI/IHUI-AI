@@ -392,7 +392,7 @@ export function MessageList({
           }}
           data-testid="message-list-jump-top"
           aria-label={t('jumpToTop') === 'jumpToTop' ? 'Jump to top' : t('jumpToTop')}
-          className="pointer-events-auto absolute top-4 left-1/2 z-20 -translate-x-1/2 inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border bg-background/95 shadow-md backdrop-blur transition-colors hover:bg-accent"
+          className="pointer-events-auto absolute top-4 left-1/2 z-20 -translate-x-1/2 inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border bg-float-indicator-bg shadow-md transition-colors hover:bg-accent"
         >
           <ArrowUp className="h-3.5 w-3.5" aria-hidden />
         </button>
@@ -406,7 +406,7 @@ export function MessageList({
           onClick={handleJumpToLatest}
           data-testid="message-list-jump-latest"
           aria-label={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
-          className="pointer-events-auto absolute bottom-4 left-1/2 z-20 -translate-x-1/2 inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border bg-background/95 shadow-md backdrop-blur transition-colors hover:bg-accent"
+          className="pointer-events-auto absolute bottom-4 left-1/2 z-20 -translate-x-1/2 inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border bg-float-indicator-bg shadow-md transition-colors hover:bg-accent"
         >
           <ArrowDown className="h-3.5 w-3.5" aria-hidden />
           {isStreaming && (

@@ -243,7 +243,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
         </div>
       )}
 
-      <footer className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-md bg-background/95 p-3 backdrop-blur">
+      <footer className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-md bg-float-indicator-bg p-3">
         <div className="flex gap-2">
           <button
             type="button"
