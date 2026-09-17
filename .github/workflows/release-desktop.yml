@@ -56,6 +56,8 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri
           cache-all-crates: true
+          # 2026-09-17:失败也保存缓存——失败 run 的编译成果不浪费,重跑时增量续编
+          cache-on-failure: true
 
       - name: Install Linux deps
         if: runner.os == 'Linux'
