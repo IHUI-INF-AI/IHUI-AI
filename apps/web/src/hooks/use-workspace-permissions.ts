@@ -8,8 +8,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   deleteWorkspacePermission,
   getWorkspacePermission,
+  getWorkspacePermissionDefault,
   listAllWorkspacePermissions,
   setWorkspacePermission,
+  setWorkspacePermissionDefault,
   type WorkspacePermission,
   type WorkspacePermissionMode,
 } from '@ihui/api-client/endpoints/workspace'
@@ -25,6 +27,35 @@ export function useWorkspacePermission(workspacePath: string | null) {
       return res.data.permission
     },
     enabled: !!workspacePath,
+  })
+}
+
+/** P3 3-3 权限继承:用户全局默认权限模式(工作区未显式配置时的回退值;未设置 = null) */
+export function useWorkspacePermissionDefault(): WorkspacePermissionMode | null {
+  const query = useQuery({
+    queryKey: ['workspace', 'permission-default'],
+    queryFn: async () => {
+      const res = await getWorkspacePermissionDefault()
+      if (!res.success) throw new Error(res.error)
+      return res.data.mode
+    },
+    staleTime: 60_000,
+  })
+  return query.data ?? null
+}
+
+/** P3 3-3 权限继承:设置用户全局默认权限模式 */
+export function useSetWorkspacePermissionDefault() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (mode: WorkspacePermissionMode) => {
+      const res = await setWorkspacePermissionDefault(mode)
+      if (!res.success) throw new Error(res.error)
+      return res.data.mode
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['workspace', 'permission-default'] })
+    },
   })
 }
 
