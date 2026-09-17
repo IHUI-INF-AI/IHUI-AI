@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, and, desc, sql, ilike } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
 import { sensitiveWords, type SensitiveWord, type NewSensitiveWord } from '@ihui/database'
 import { recordAuditLog } from '../services/audit-log-service.js'
@@ -15,6 +15,7 @@ export interface SensitiveWordListResult {
 export async function findSensitiveWords(params: {
   page?: number
   pageSize?: number
+  word?: string
   category?: string
   status?: number
 }): Promise<SensitiveWordListResult> {
@@ -23,6 +24,7 @@ export async function findSensitiveWords(params: {
   const offset = (page - 1) * pageSize
 
   const conditions = []
+  if (params.word) conditions.push(ilike(sensitiveWords.word, `%${params.word}%`))
   if (params.category) conditions.push(eq(sensitiveWords.category, params.category))
   if (params.status !== undefined) conditions.push(eq(sensitiveWords.status, params.status))
 
