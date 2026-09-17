@@ -96,6 +96,11 @@ import {
   Shuffle,
   TrendingUp,
   Download,
+  Clock,
+  ShieldAlert,
+  ScanSearch,
+  Tags,
+  HardDriveDownload,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -248,6 +253,13 @@ interface AdminNavItem {
     | 'adminRelayInsights'
     | 'adminRelayEnterprise'
     | 'adminRelayPlugins'
+    | 'adminRelayPeakPricing'
+    | 'adminRelayKeyScheduling'
+    | 'adminRelayErrorRules'
+    | 'adminRelayPromptAudit'
+    | 'adminRelayUserAttributes'
+    | 'adminRelayDataManagement'
+    | 'adminBackupJobs'
     | 'adminSkills'
     | 'adminSkillCategories'
     | 'adminSkillStats'
@@ -626,6 +638,40 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: '/admin/relay/enterprise', labelKey: 'adminRelayEnterprise', icon: Building2 },
       // 插件系统(2026-09-17,补强 59,声明式插件零代码执行)
       { href: '/admin/relay/plugins', labelKey: 'adminRelayPlugins', icon: Blocks },
+      // 分时高峰倍率(2026-09-17,4-1 条目 7 管理端补齐)
+      { href: '/admin/relay/peak-pricing', labelKey: 'adminRelayPeakPricing', icon: Clock },
+      // 号池调度精细控制(2026-09-17,4-2 条目 51 管理端补齐)
+      {
+        href: '/admin/relay/key-scheduling',
+        labelKey: 'adminRelayKeyScheduling',
+        icon: Gauge,
+      },
+      // 上游错误透传规则(2026-09-17,4-3 条目 53 管理端补齐)
+      {
+        href: '/admin/relay/error-rules',
+        labelKey: 'adminRelayErrorRules',
+        icon: ShieldAlert,
+      },
+      // 提示词审计(2026-09-17,4-3 条目 54 管理端补齐)
+      {
+        href: '/admin/relay/prompt-audit',
+        labelKey: 'adminRelayPromptAudit',
+        icon: ScanSearch,
+      },
+      // 用户自定义属性(2026-09-17,4-3 条目 55 管理端补齐)
+      {
+        href: '/admin/relay/user-attributes',
+        labelKey: 'adminRelayUserAttributes',
+        icon: Tags,
+      },
+      // 数据保留与清理(2026-09-17,4-3 条目 56 管理端补齐)
+      {
+        href: '/admin/relay/data-management',
+        labelKey: 'adminRelayDataManagement',
+        icon: Database,
+      },
+      // 数据库备份作业(2026-09-17,4-2 条目 48 管理端补齐)
+      { href: '/admin/backup-jobs', labelKey: 'adminBackupJobs', icon: HardDriveDownload },
       // P0 中转站造血能力对标批次(2026-07-31 立):模型映射(渠道管理)
       { href: '/admin/relay/channels', labelKey: 'adminRelayModelMappings', icon: Shuffle },
       // P0-20b 参数覆盖规则(2026-08-01 立,转发层 applyParamOps 管理)
@@ -977,6 +1023,13 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   adminRelayInsights: 'nav.adminRelayInsights',
   adminRelayEnterprise: 'nav.adminRelayEnterprise',
   adminRelayPlugins: 'nav.adminRelayPlugins',
+  adminRelayPeakPricing: 'nav.adminRelayPeakPricing',
+  adminRelayKeyScheduling: 'nav.adminRelayKeyScheduling',
+  adminRelayErrorRules: 'nav.adminRelayErrorRules',
+  adminRelayPromptAudit: 'nav.adminRelayPromptAudit',
+  adminRelayUserAttributes: 'nav.adminRelayUserAttributes',
+  adminRelayDataManagement: 'nav.adminRelayDataManagement',
+  adminBackupJobs: 'nav.adminBackupJobs',
   adminSkills: 'nav.adminSkills',
   adminSkillCategories: 'nav.adminSkillCategories',
   adminSkillStats: 'nav.adminSkillStats',
