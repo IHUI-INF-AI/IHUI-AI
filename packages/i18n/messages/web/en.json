@@ -22164,6 +22164,23 @@
     "toastRunOk": "Rollback executed",
     "toastRunFail": "Rollback failed"
   },
+  "worlds": {
+    "forkTitle": "Parallel Worlds",
+    "taskLabel": "Task",
+    "taskPlaceholder": "The question to solve in parallel…",
+    "modelsLabel": "Models (comma separated, at least 2)",
+    "modelsPlaceholder": "e.g. gpt-4o, claude-sonnet, deepseek-v3",
+    "fork": "Fork in parallel",
+    "errTask": "Please enter a task",
+    "errModels": "Please provide at least 2 models",
+    "empty": "No worlds yet. Enter a task and fork to compare multiple models in parallel",
+    "running": "Running in parallel",
+    "reset": "Reset",
+    "branchRunning": "This world is running…",
+    "emptyReply": "(empty reply)",
+    "adopt": "Adopt as mainline",
+    "adopted": "Adopted"
+  },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count} task(s) failed to cancel remotely (marked cancelled locally)",
     "title": "Media Tasks",

@@ -22149,6 +22149,23 @@
     "toastRunOk": "整栈回滚已执行",
     "toastRunFail": "整栈回滚失败"
   },
+  "worlds": {
+    "forkTitle": "并行世界线",
+    "taskLabel": "任务描述",
+    "taskPlaceholder": "要并行求解的问题…",
+    "modelsLabel": "模型列表(逗号分隔,至少 2 个)",
+    "modelsPlaceholder": "例如:gpt-4o, claude-sonnet, deepseek-v3",
+    "fork": "并行 Fork",
+    "errTask": "请输入任务描述",
+    "errModels": "请至少填写 2 个模型",
+    "empty": "暂无世界线;填写任务并 Fork 即可并行对比多个模型的回答",
+    "running": "并行执行中",
+    "reset": "重置",
+    "branchRunning": "该世界线执行中…",
+    "emptyReply": "(空回复)",
+    "adopt": "采纳为主线",
+    "adopted": "已采纳"
+  },
   "mediaTasksPage": {
     "cancelAllRemoteFailed": "{count} 个任务远端取消失败（已本地置为已取消）",
     "title": "媒体任务",
