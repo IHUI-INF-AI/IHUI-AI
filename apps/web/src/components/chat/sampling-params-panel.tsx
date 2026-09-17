@@ -42,6 +42,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  IconButton,
   Input,
   Label,
   Switch,
@@ -367,8 +368,7 @@ export function SamplingParamsButton({ disabled = false }: { disabled?: boolean 
         side="top"
       >
         <span className="inline-flex">
-          <button
-            type="button"
+          <IconButton
             data-testid="sampling-params-trigger"
             data-active={activeCount > 0 ? 'true' : 'false'}
             aria-label={t('triggerAria')}
@@ -376,20 +376,18 @@ export function SamplingParamsButton({ disabled = false }: { disabled?: boolean 
             disabled={disabled}
             onClick={() => setOpen(true)}
             className={cn(
-              'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-              'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-              'disabled:cursor-not-allowed disabled:opacity-50',
+              'relative bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
               activeCount > 0 && 'text-primary ring-1 ring-primary/40',
             )}
           >
-            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+            <SlidersHorizontal aria-hidden="true" />
             {activeCount > 0 && (
               <span
                 className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary"
                 aria-hidden="true"
               />
             )}
-          </button>
+          </IconButton>
         </span>
       </Tooltip>
       <SamplingParamsPanel open={open} onOpenChange={setOpen} />

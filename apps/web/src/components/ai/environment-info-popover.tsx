@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -142,15 +143,15 @@ function PopoverHeader({ onViewFull, t }: { onViewFull: () => void; t: EnvT }) {
         {t('title')}
       </span>
       <Tooltip content={t('viewFull')}>
-        <button
-          type="button"
+        <IconButton
+          size="sm"
           onClick={onViewFull}
           aria-label={t('viewFull')}
-          className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           data-testid="env-info-view-full"
+          className="rounded"
         >
-          <Plus className="h-4 w-4" aria-hidden />
-        </button>
+          <Plus aria-hidden />
+        </IconButton>
       </Tooltip>
     </div>
   )

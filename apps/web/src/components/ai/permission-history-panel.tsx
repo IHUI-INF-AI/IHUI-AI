@@ -37,6 +37,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { Tooltip } from '@/components/feedback'
+import { IconButton } from '@ihui/ui-react'
 // 浮层治理(2026-09-15):迁移到统一 PortalPanel(内置 portal/定位/clamp/翻转/外点与 Escape 关闭)
 import { PortalPanel } from '@/components/feedback/portal-panel'
 import { cn } from '@/lib/utils'
@@ -316,9 +317,8 @@ export function PermissionHistoryPanel() {
 
   return (
     <>
-      <button
+      <IconButton
         ref={triggerRef}
-        type="button"
         aria-label={t('historyOpenExternal')}
         data-testid="permission-history-trigger"
         // 与 Radix trigger 行为对齐(2026-09-02):本组件自写 popover 而非 Radix,
@@ -326,15 +326,11 @@ export function PermissionHistoryPanel() {
         // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制规则,
         // 否则面板关闭后 useEffect 把焦点归还到 trigger,焦点环会常驻显示。
         data-state={open ? 'open' : 'closed'}
-        className={cn(
-          'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
-          'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        )}
+        className="focus-visible:ring-2"
         onClick={() => setOpen(!open)}
       >
-        <Clock4 className="h-3.5 w-3.5" aria-hidden="true" />
-      </button>
+        <Clock4 aria-hidden="true" />
+      </IconButton>
       <PortalPanel
         open={open}
         anchorRef={triggerRef}

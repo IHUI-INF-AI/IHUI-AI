@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Sparkles, Loader2, Target, Zap, Lock, FileText } from 'lucide-react'
-import { SearchInput } from '@ihui/ui-react'
+import { IconButton, SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 // 2026-09-15 治理:定位/portal/Escape/外点关闭统一收敛到 PortalPanel(全项目浮层一套逻辑)
@@ -268,18 +268,17 @@ export function SlashCommandPalette({
        *  - 参数补全模式:返回按钮 + 标题 + 搜索框 + clear(键盘导航仍可用) */}
       <div className="relative flex items-center gap-2 bg-muted/30 px-3 py-2">
         {argMode && (
-          <button
-            type="button"
+          <IconButton
             onClick={() => {
               setArgMode(null)
               setQuery('')
               requestAnimationFrame(() => inputRef.current?.focus())
             }}
             aria-label={t('backAriaLabel')}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="rounded-sm"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
-          </button>
+            <ArrowLeft />
+          </IconButton>
         )}
         {argMode && (
           <span className="shrink-0 text-xs font-medium text-muted-foreground">
