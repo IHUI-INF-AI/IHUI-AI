@@ -25,6 +25,7 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
+import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useCanvasStore } from '@/stores/canvas-store'
@@ -314,41 +315,32 @@ const CodeBlockImpl = function CodeBlock({
 
   // 复制按钮(absolute 定位在 <pre> 右上角)
   // 2026-07-31 对标 主流 AI IDE + 与 code-generator.tsx 保持一致:
-  // 默认无背景色,hover 时显示 bg-muted,backdrop-blur-sm 确保按钮在任意代码块背景上都可读。
+  // 默认无背景色,hover 时显示 bg-muted(纯色),确保按钮在任意代码块背景上都可读。
   // 2026-09-12 P0-2:追加「应用到文件」「插入光标」(对标 CodeX/Trae/Qoder 代码块动作)。
-  const iconBtnClass = cn(
-    'inline-flex h-9 w-9 items-center justify-center rounded-md',
-    'text-foreground transition-colors',
-    'hover:bg-muted',
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-    'disabled:pointer-events-none disabled:opacity-50',
-  )
+  // 2026-09-17:折叠按钮背景统一 bg-float-indicator-bg(全局浮动指示条 token,不透明)。
+  // 2026-09-17:统一迁移到 IconButton(尺寸/圆角/focus ring 走 @ihui/design-tokens token),
+  // 代码块语境保留 text-foreground + hover:bg-muted 覆盖默认 ghost 样式。
+  const iconBtnClass = 'text-foreground hover:bg-muted'
   const copyButton = (
     <div className="absolute right-2 top-2 z-10 flex items-center gap-0.5">
       {/* 一键运行:仅非流式且语言在可运行集合内显示(对标 Codex/Trae 对话内运行) */}
       {showRunButton && (
         <Tooltip content={isRunning ? t('codeRun.running') : t('codeRun.run')}>
-          <button
-            type="button"
+          <IconButton
             onClick={handleRun}
             disabled={isRunning}
             data-testid="run-code-button"
             className={iconBtnClass}
             aria-label={isRunning ? t('codeRun.running') : t('codeRun.run')}
           >
-            {isRunning ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Play className="h-4 w-4" />
-            )}
-          </button>
+            {isRunning ? <Loader2 className="animate-spin" /> : <Play />}
+          </IconButton>
         </Tooltip>
       )}
       {/* 应用到工作区文件:仅非流式且有语言标记的代码块显示 */}
       {!isStreaming && (
         <Tooltip content={t('codeBlock.applyToFile')}>
-          <button
-            type="button"
+          <IconButton
             onClick={handleApplyToFile}
             disabled={applyState === 'applying'}
             data-testid="apply-to-file-button"
@@ -356,38 +348,36 @@ const CodeBlockImpl = function CodeBlock({
             aria-label={t('codeBlock.applyToFile')}
           >
             {applyState === 'done' ? (
-              <Check className="h-4 w-4 text-green-600" />
+              <Check className="text-green-600" />
             ) : applyState === 'applying' ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              <span className="animate-spin rounded-full border-2 border-current border-t-transparent" />
             ) : (
-              <FilePlus2 className="h-4 w-4" />
+              <FilePlus2 />
             )}
-          </button>
+          </IconButton>
         </Tooltip>
       )}
       {/* 插入到编辑器光标处:仅非流式显示 */}
       {!isStreaming && (
         <Tooltip content={t('codeBlock.insertAtCursor')}>
-          <button
-            type="button"
+          <IconButton
             onClick={handleInsertAtCursor}
             data-testid="insert-at-cursor-button"
             className={iconBtnClass}
             aria-label={t('codeBlock.insertAtCursor')}
           >
-            <TextCursorInput className="h-4 w-4" />
-          </button>
+            <TextCursorInput />
+          </IconButton>
         </Tooltip>
       )}
-      <button
-        type="button"
+      <IconButton
         onClick={() => copy(code)}
         data-testid="copy-button"
         className={iconBtnClass}
         aria-label={copied ? tA11y('codeCopied') : tA11y('copyCode')}
       >
-        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-      </button>
+        {copied ? <Check /> : <Copy />}
+      </IconButton>
     </div>
   )
 
@@ -407,7 +397,7 @@ const CodeBlockImpl = function CodeBlock({
     <button
       type="button"
       onClick={() => setCollapsed((prev) => !prev)}
-      className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-md border border-border/60 bg-white px-2 py-1 text-xs text-foreground backdrop-blur-sm transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-black"
+      className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-md border border-border/60 bg-float-indicator-bg px-2 py-1 text-xs text-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={collapsed ? '展开代码' : '收起代码'}
     >
       {collapsed ? `展开 (${codeLines.length} 行)` : '收起'}
