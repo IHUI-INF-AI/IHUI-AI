@@ -1169,9 +1169,6 @@ export function AISidePanel() {
               <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
                 <span className="flex min-w-0 items-center gap-1">
                   <span className="min-w-0 truncate text-sm font-semibold">{displayTitle}</span>
-                  {/* 工作区选择器(参考 主流 IDE 顶部 project selector):
-                  空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除 */}
-                  <WorkspaceSelector />
                   {/* 会话累计 Token / 费用徽章(2026-09-07 工作线 A;2026-09-12 W4 成本真网计价):
                   hover 展开输入/输出/请求数明细,按 currentModel 查真实价目表计费 */}
                   <SessionUsageBadge
@@ -1179,10 +1176,17 @@ export function AISidePanel() {
                     isStreaming={isStreaming}
                     model={currentModel}
                   />
-                  {/* W15(2026-09-13 立):会话级导出/分享菜单(MD/JSON/快照图/分享链接) */}
-                  <ChatExportMenu title={displayTitle} disabled={isStreaming} />
                 </span>
               </div>
+              {/* 工作区选择器(参考 主流 IDE 顶部 project selector):
+              空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除
+              2026-09-17 修复:原先放在 overflow-hidden 标题容器内,displayTitle 占满宽度时
+              IconButton 被裁半/遮挡;现移出到右侧按钮组最左,不再受 overflow-hidden 裁切 */}
+              <WorkspaceSelector />
+              {/* W15(2026-09-13 立):会话级导出/分享菜单(MD/JSON/快照图/分享链接)
+              2026-09-17 修复:原放在标题 overflow-hidden 容器内,标题占满宽度时按钮被裁半;
+              移出到右侧按钮组最左(浮窗/环境信息按钮之前),不再受标题容器裁切 */}
+              <ChatExportMenu title={displayTitle} disabled={isStreaming} />
               {/* Plan/Act 模式切换(2026-07-24 立,对标 AI 工作台 plan/act toggle + Codex)
               2026-07-28 移除:PlanActToggle 按钮与 sidebar ModeSwitcher 4 态(ChatMode build/plan/review/spec)
               语义重叠,统一用 ModeSwitcher 控制。当前 mode 视觉指示由 sidebar ModeSwitcher 高亮态承载,

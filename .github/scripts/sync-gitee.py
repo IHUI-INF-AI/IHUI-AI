@@ -157,33 +157,44 @@ def main():
     content_b64 = __import__("base64").b64encode(
         json.dumps(latest, indent=2, ensure_ascii=False).encode()).decode()
 
-    # 5. 更新 desktop-feed 分支的 latest.json(contents API,幂等)
-    path = f"/repos/{GITEE_OWNER}/{GITEE_REPO}/contents/latest.json?ref=desktop-feed"
-    cur = None
+    # 5. 更新器 feed(2026-09-17 终极:release 附件方案)
+    # 旧 desktop-feed 分支方案已废弃——仓库「单分支守门」会删该分支,且 Gitee contents API
+    # 的 PUT 行为不稳。改写 desktop-updater-feed release 的 latest.json 附件(幂等替换),
+    # 与 gitee-release-attach.py(本机发版路径)完全一致;失败不阻塞(更新器双端点,GH 兜底)。
     try:
-        cur = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/contents/latest.json?ref=desktop-feed")
-    except Exception:
-        pass
-    body = {"access_token": GITEE_TOKEN, "content": content_b64, "branch": "desktop-feed"}
-    if cur and cur.get("sha"):
-        body["sha"] = cur["sha"]
-    r = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/contents/latest.json", "PUT", body)
-    if not r:
-        # 分支可能被 Gitee 镜像同步删除(2026-09-17 实证)——重建分支后重试
-        print("[gitee] desktop-feed 分支缺失,尝试重建...")
-        created = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/branches", "POST",
-                            {"refs": "main", "branch_name": "desktop-feed"})
-        print(f"[gitee] 分支重建: {'OK' if created else 'FAIL/已存在'}")
-        cur = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/contents/latest.json?ref=desktop-feed")
-        body = {"access_token": GITEE_TOKEN, "content": content_b64, "branch": "desktop-feed"}
-        if cur and cur.get("sha"):
-            body["sha"] = cur["sha"]
-        r = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/contents/latest.json", "PUT", body)
-    if r:
-        print(f"[gitee] desktop-feed/latest.json 已更新 commit={r.get('commit', {}).get('sha', '')[:10]}")
-    else:
-        sys.exit("desktop-feed 更新失败")
-    print(f"[done] Gitee 更新器端点: https://gitee.com/{GITEE_OWNER}/{GITEE_REPO}/raw/desktop-feed/latest.json")
+        content_b64 = __import__("base64").b64encode(
+            json.dumps(latest, indent=2, ensure_ascii=False).encode()).decode()
+        FEED_TAG = "desktop-updater-feed"
+        rel = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/tags/{FEED_TAG}")
+        if rel and rel.get("id"):
+            print("[gitee] feed release 已存在(Gitee 侧 feed 由 GitHub 端点承担,跳过)")
+        else:
+            rel = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases", "POST", {
+                "tag_name": FEED_TAG, "name": "Desktop updater feed(更新 feed 固定端点)",
+                "body": "自动化维护:latest.json 随每次桌面端发版更新。请勿手动删除。",
+                "target_commitish": "main", "prerelease": False})
+            if rel and rel.get("id"):
+                boundary = "ihui" + str(int(__import__("time").time() * 1000))
+                # multipart 组装与 gitee-release-attach.py 的 upload() 同款(\r\n 转义)
+                header = (
+                    "--%s\r\nContent-Disposition: form-data; name=\"file\"; "
+                    "filename=\"latest.json\"\r\nContent-Type: application/json\r\n\r\n"
+                    % boundary
+                )
+                body = header.encode() + json.dumps(
+                    latest, indent=2, ensure_ascii=False).encode() + (
+                    "\r\n--%s--\r\n" % boundary).encode()
+                import urllib.request
+                req = urllib.request.Request(
+                    f"https://gitee.com/api/v5/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/{rel['id']}/attach_files?access_token={GITEE_TOKEN}",
+                    data=body, method="POST")
+                req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+                r = urllib.request.urlopen(req, timeout=300)
+                print(f"[gitee] feed release latest.json 更新: {r.status}")
+        print("[done] 端点: gitee/github releases/download/desktop-updater-feed/latest.json")
+    except Exception as e:
+        print(f"[gitee] feed 更新异常(不阻塞): {e}")
+    print("[done] Gitee 更新器端点: https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/latest.json")
 
 
 if __name__ == "__main__":
