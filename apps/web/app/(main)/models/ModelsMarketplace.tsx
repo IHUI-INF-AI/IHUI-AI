@@ -33,6 +33,7 @@ import type { RelayPeakWindow } from './helpers'
 import {
   Button,
   Card,
+  IconButton,
   Select,
   SelectContent,
   SelectItem,
@@ -338,32 +339,28 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
           </Select>
 
           <div className="flex items-center gap-0.5 rounded-md bg-muted/40 p-0.5">
-            <button
-              type="button"
+            <IconButton
               aria-label={t('view.grid')}
               onClick={() => setViewMode('grid')}
               className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-[6px] transition-colors',
                 viewMode === 'grid'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              <Grid2x2 className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
+              <Grid2x2 />
+            </IconButton>
+            <IconButton
               aria-label={t('view.list')}
               onClick={() => setViewMode('list')}
               className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-[6px] transition-colors',
                 viewMode === 'list'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              <List className="h-4 w-4" />
-            </button>
+              <List />
+            </IconButton>
           </div>
         </div>
       </div>
@@ -1004,25 +1001,18 @@ function FavoriteStar({
 }) {
   const t = useTranslations('models')
   return (
-    <button
-      type="button"
+    <IconButton
       aria-label={
         isFavorite ? t('market.ariaLabel.removeFavorite') : t('market.ariaLabel.addFavorite')
       }
       onClick={onClick}
       className={cn(
-        'flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent',
         isFavorite ? 'text-rose-500' : 'text-muted-foreground/60 hover:text-rose-500',
         className,
       )}
     >
-      <Heart
-        className={cn(
-          'h-3.5 w-3.5 transition-transform hover:scale-110',
-          isFavorite && 'fill-current',
-        )}
-      />
-    </button>
+      <Heart className={cn('transition-transform hover:scale-110', isFavorite && 'fill-current')} />
+    </IconButton>
   )
 }
 
