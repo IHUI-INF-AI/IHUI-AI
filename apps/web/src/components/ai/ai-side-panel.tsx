@@ -55,6 +55,7 @@ import {
 import { useMediaQuery } from '@/hooks/use-media-query'
 // P3 #34(2026-09-16 立):流式屏幕阅读器播报(aria-live)
 import { SrStreamAnnouncer } from '@/components/chat/sr-stream-announcer'
+import { VoiceStreamSpeaker } from '@/components/chat/voice-stream-speaker'
 // P3 #43(2026-09-16 立):成本预检/对比条
 import { CostEstimateBar } from '@/components/ai/cost-estimate-bar'
 
@@ -1077,6 +1078,7 @@ export function AISidePanel() {
         {workspaceNameSync}
         {/* P3 #34(2026-09-16 立):流式屏幕阅读器播报区(visually-hidden,aria-live=polite) */}
         <SrStreamAnnouncer />
+        <VoiceStreamSpeaker />
         <div
           // AI 面板容器(最外层,DevTools 可选中)
           // - docked 模式:relative + shrink-0 + py-2,flex 流内布局,mr-1.5 固定 6px 间距
