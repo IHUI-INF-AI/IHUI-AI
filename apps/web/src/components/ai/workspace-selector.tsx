@@ -17,6 +17,7 @@ import {
 } from '@ihui/api-client/endpoints/workspace'
 
 import { cn } from '@/lib/utils'
+import { IconButton } from '@ihui/ui-react'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { toast } from '@/components/common'
 import { isTauri } from '@/lib/tauri-bridge'
@@ -167,23 +168,18 @@ export function WorkspaceSelector() {
     <>
       <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenu.Trigger asChild>
-          <button
-            type="button"
+          <IconButton
             aria-label={triggerLabel}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className={cn(
-              'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
-              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-              'data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
-            )}
+            className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
           >
             {hasActive ? (
-              <Folder className="h-4 w-4 shrink-0 text-amber-500" />
+              <Folder className="shrink-0 text-amber-500" />
             ) : (
-              <FolderPlus className="h-4 w-4 shrink-0 text-primary" />
+              <FolderPlus className="shrink-0 text-primary" />
             )}
-          </button>
+          </IconButton>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content
