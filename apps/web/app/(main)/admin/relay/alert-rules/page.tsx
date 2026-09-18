@@ -34,6 +34,7 @@ import {
   Switch,
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { useRelayOpsWs } from '@/hooks/use-relay-ops-ws'
 import { TruncatedText } from '@/components/common'
 import { BackButton } from '@/components/common'
 import { useConfirm } from '@/hooks/use-confirm'
@@ -81,6 +82,7 @@ const emptyForm = {
 export default function AlertRulesPage() {
   const { confirm, ConfirmDialogRenderer } = useConfirm()
   const qc = useQueryClient()
+  const { snapshot, refresh } = useRelayOpsWs()
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<AlertRule | null>(null)
   const [form, setForm] = React.useState(emptyForm)
@@ -105,7 +107,21 @@ export default function AlertRulesPage() {
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['admin', 'relay', 'alert-rules'] })
     void qc.invalidateQueries({ queryKey: ['admin', 'relay', 'alert-events'] })
+    // WS 在线时让服务端立即推一帧新快照,消除下一周期(≤15s)内陈旧帧覆盖
+    refresh()
   }
+
+  // #58 WS 实时化:服务端 15s 推快照(规则+事件),形状与 REST 一致,直接热替换;
+  // WS 断连时页面仍可通过刷新按钮/失效重取获得数据(本页无固定轮询,维持原语义)。
+  React.useEffect(() => {
+    if (!snapshot) return
+    if (snapshot.alerts.rules.length > 0) {
+      qc.setQueryData(['admin', 'relay', 'alert-rules'], snapshot.alerts.rules)
+    }
+    if (snapshot.alerts.events.length > 0) {
+      qc.setQueryData(['admin', 'relay', 'alert-events'], snapshot.alerts.events)
+    }
+  }, [qc, snapshot])
 
   const saveMut = useMutation({
     mutationFn: async () => {
