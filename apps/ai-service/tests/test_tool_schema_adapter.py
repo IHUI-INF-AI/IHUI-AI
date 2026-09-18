@@ -275,26 +275,74 @@ def test_provider_convert_tools_delegates_to_adapter():
 
 
 def test_provider_build_payload_uses_anthropic_tools_format():
-    """请求组装点:_build_payload 的 tools 已是 Anthropic input_schema 格式。"""
+    """请求组装点:_build_payload 的 tools 已是 Anthropic input_schema 格式。
+
+    P0-①(2026-09-18):末项额外打 prompt-cache 断点(cache_control=ephemeral),
+    使稳定前缀(system+tools)命中缓存后按 0.1x 计价;**仅末项**打点
+    (Anthropic 断点上限 4,provider 只用 2:system 末块 + tools 末项)。
+    """
     p = AnthropicProvider(api_key="k")
-    tools = [{
-        "type": "function",
-        "function": {
-            "name": "search",
-            "description": "Search",
-            "parameters": {"type": "object", "properties": {"q": {"type": "string"}}},
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "search",
+                "description": "Search",
+                "parameters": {"type": "object", "properties": {"q": {"type": "string"}}},
+            },
         },
-    }]
+        {
+            "type": "function",
+            "function": {
+                "name": "fetch",
+                "description": "Fetch",
+                "parameters": {"type": "object", "properties": {"url": {"type": "string"}}},
+            },
+        },
+    ]
     payload = p._build_payload(
         [{"role": "user", "content": "hi"}], "claude-3", tools=tools, stream=False,
     )
-    assert payload["tools"] == [{
-        "name": "search",
-        "description": "Search",
-        "input_schema": {"type": "object", "properties": {"q": {"type": "string"}}},
-    }]
-    # 原 OpenAI 格式 tools 不被修改
+    assert payload["tools"] == [
+        {
+            "name": "search",
+            "description": "Search",
+            "input_schema": {"type": "object", "properties": {"q": {"type": "string"}}},
+        },
+        {
+            "name": "fetch",
+            "description": "Fetch",
+            "input_schema": {"type": "object", "properties": {"url": {"type": "string"}}},
+            "cache_control": {"type": "ephemeral"},
+        },
+    ]
+    # 原 OpenAI 格式 tools 不被修改(深拷贝)
     assert tools[0]["function"]["parameters"]["type"] == "object"
+    assert "cache_control" not in tools[1]["function"]
+
+
+def test_provider_build_payload_respects_caller_cache_control_on_native_tool():
+    """原生 tool block(非 function,深拷贝透传)自带 cache_control 时不被 provider 覆盖。
+
+    function 型 tool 的额外键在转换时被丢弃,故"尊重调用方断点"的实际路径是
+    Anthropic 原生 block 透传(如 computer use);此处断点位置完全由调用方决定。
+    """
+    p = AnthropicProvider(api_key="k")
+    native_tool = {
+        "type": "computer_20241022",
+        "name": "computer",
+        "display_width_px": 1024,
+        "display_height_px": 768,
+        "cache_control": {"type": "ephemeral"},
+    }
+    payload = p._build_payload(
+        [{"role": "user", "content": "hi"}],
+        "claude-3",
+        tools=[native_tool],
+        stream=False,
+    )
+    assert payload["tools"] == [native_tool]
+    assert payload["tools"][0]["cache_control"] == {"type": "ephemeral"}
 
 
 # ==================== tool_choice 格式转换(OpenAI → Anthropic)====================

@@ -338,4 +338,131 @@ async def test_canary_zero_percent_falls_back_to_legacy(monkeypatch):
     assert result.compaction_events == []
     # legacy(env 未设 AGENT_COMPACTION_ENABLED,默认 off)→ 原样消息
     assert seen_sizes[0] == len(_big_history_messages())
+# ---------------------------------------------------------------------------
+# P1-② 决策链保留接线(2026-09-18):压缩时把被移除轮次的推理蒸馏注入摘要消息
+# ---------------------------------------------------------------------------
+
+
+def _tool_history_messages() -> list[dict]:
+    """长历史 + 带工具调用的 assistant 轮次(决策链蒸馏的真实对象)。
+
+    8 对 (user, assistant+tool_call, tool) ≈ 12800 token,远超触发阈值
+    (8000 * 0.85 = 6800);keep_recent=2 时尾部保留 3 条,head 段含 7 个决策轮次。
+    """
+    filler = "历史上下文内容," * 100
+    msgs: list[dict] = [{"role": "system", "content": "你是天气助手,只回答天气。"}]
+    for i in range(8):
+        msgs.append({"role": "user", "content": f"第{i}轮提问 {filler}"})
+        msgs.append(
+            {
+                "role": "assistant",
+                "content": f"第{i}轮先查天气再决定是否带伞 {filler}",
+                "tool_calls": [
+                    {
+                        "id": f"tc{i}",
+                        "type": "function",
+                        "function": {"name": "get_weather", "arguments": '{"city": "北京"}'},
+                    }
+                ],
+            }
+        )
+        msgs.append(
+            {
+                "role": "tool",
+                "tool_call_id": f"tc{i}",
+                "content": '{"error": "上游 502"}' if i % 2 else '{"weather": "晴"}',
+            }
+        )
+    msgs.append({"role": "user", "content": "北京天气"})
+    return msgs
+
+
+async def test_compaction_injects_decision_chain(monkeypatch):
+    """压缩发生时:被移除轮次的推理被蒸馏成决策条目,随摘要消息一起进入下一轮 LLM 上下文。"""
+    import app.services.agent_loop_v2 as mod
+
+    seen: list[list[dict]] = []
+
+    async def mock_llm(messages, tools):
+        seen.append([dict(m) for m in messages])
+        return {"content": "北京晴", "tool_calls": None}
+
+    monkeypatch.setattr(mod, "DEFAULT_COMPACTION_KEEP_RECENT", 2)
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool()],
+        max_iterations=3,
+        compaction_enabled=True,
+        compaction_context_limit=8000,
+    )
+    result = await loop.run(_tool_history_messages())
+
+    assert result.success is True
+    assert len(result.compaction_events) == 1
+    entries = result.compaction_events[0]["decision_chain_entries"]
+    assert entries >= 1
+    blob = " ".join(str(m.get("content") or "") for m in seen[0])
+    # 决策链块随摘要消息进入 LLM 上下文,且保留了"为什么调工具"的推理与工具成败
+    assert mod.__dict__ and "[决策链保留" in blob
+    assert "get_weather" in blob
+    # 至少一条失败工具的报错进入决策链(最有价值的结论)
+    assert "上游 502" in blob
+
+
+async def test_compaction_decision_chain_disabled_zero_diff(monkeypatch):
+    """AGENT_DECISION_CHAIN_ENABLED=off:压缩照常发生,但产物不含决策链(逐零差异)。"""
+    import app.services.agent_loop_v2 as mod
+    import app.services.decision_chain as dc_mod
+
+    seen: list[list[dict]] = []
+
+    async def mock_llm(messages, tools):
+        seen.append([dict(m) for m in messages])
+        return {"content": "北京晴", "tool_calls": None}
+
+    monkeypatch.setattr(mod, "DEFAULT_COMPACTION_KEEP_RECENT", 2)
+    monkeypatch.setattr(dc_mod, "AGENT_DECISION_CHAIN_ENABLED", False)
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool()],
+        max_iterations=3,
+        compaction_enabled=True,
+        compaction_context_limit=8000,
+    )
+    result = await loop.run(_tool_history_messages())
+
+    assert result.success is True
+    assert len(result.compaction_events) == 1
+    assert result.compaction_events[0]["decision_chain_entries"] == 0
+    blob = " ".join(str(m.get("content") or "") for m in seen[0])
+    assert "[决策链保留" not in blob
+
+
+async def test_compaction_decision_chain_reasoning_retention_metric(monkeypatch):
+    """推理保留率进入压缩指标报告(P1-② 自证接线;注入后应显著高于未注入基线)。"""
+    import app.services.agent_loop_v2 as mod
+    from app.services.compaction_metrics import (
+        get_compaction_metrics_report,
+        reset_compaction_metrics,
+    )
+
+    async def mock_llm(messages, tools):
+        return {"content": "北京晴", "tool_calls": None}
+
+    reset_compaction_metrics()
+    monkeypatch.setattr(mod, "DEFAULT_COMPACTION_KEEP_RECENT", 2)
+    loop = AgentLoopV2(
+        mock_llm,
+        [_weather_tool()],
+        max_iterations=3,
+        compaction_enabled=True,
+        compaction_context_limit=8000,
+    )
+    await loop.run(_tool_history_messages())
+
+    report = get_compaction_metrics_report()
+    assert report["chain_injected_events"] == 1
+    assert report["avg_reasoning_retention_ratio"] == 1.0
+    assert report["avg_decision_chain_entries"] >= 1
+    reset_compaction_metrics()
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
