@@ -56,6 +56,9 @@ ENGINE_METHODS: tuple[str, ...] = (
     "thread.enqueue",
     "thread.goal",
     "thread.review",
+    "tools.search",
+    "tools.load",
+    "elicitation.respond",
     "agent.exec",
     "tools.list",
     "tools.register",
@@ -506,6 +509,30 @@ class Agent:
             params["focus"] = focus
         return dict(self._call("thread.review", params) or {})
 
+    def search_tools(self, query: str, limit: Optional[int] = None) -> dict[str, Any]:
+        """工具目录搜索(2026-09-18 第四批,对标 Codex tool_search 延迟装载)。"""
+        params: dict[str, Any] = {"query": query}
+        if self._thread_id:
+            params["threadId"] = self._thread_id
+        if limit is not None:
+            params["limit"] = limit
+        return dict(self._call("tools.search", params) or {})
+
+    def load_tool(self, name: str) -> dict[str, Any]:
+        """装载工具进线程(2026-09-18 第四批,对标 LoadableToolSpec materialize)。"""
+        return dict(
+            self._call("tools.load", {"threadId": self._thread_id, "name": name}) or {}
+        )
+
+    def respond_elicitation(self, elicitation_id: str, value: Any = None) -> dict[str, Any]:
+        """用户结构化提问回填(2026-09-18 第四批,对标 Codex elicitation)。"""
+        return dict(
+            self._call(
+                "elicitation.respond", {"elicitationId": elicitation_id, "value": value}
+            )
+            or {}
+        )
+
     def _run_stream(
         self,
         method: str,
@@ -759,6 +786,20 @@ class AsyncAgent:
     async def review(self, focus: Optional[str] = None) -> dict[str, Any]:
         """审查模式(2026-09-18 第三批,对标 Codex review:派生审查子代理)。"""
         return await asyncio.to_thread(self._agent.review, focus)
+
+    async def search_tools(self, query: str, limit: Optional[int] = None) -> dict[str, Any]:
+        """工具目录搜索(2026-09-18 第四批,对标 Codex tool_search 延迟装载)。"""
+        return await asyncio.to_thread(self._agent.search_tools, query, limit)
+
+    async def load_tool(self, name: str) -> dict[str, Any]:
+        """装载工具进线程(2026-09-18 第四批,对标 LoadableToolSpec materialize)。"""
+        return await asyncio.to_thread(self._agent.load_tool, name)
+
+    async def respond_elicitation(
+        self, elicitation_id: str, value: Any = None
+    ) -> dict[str, Any]:
+        """用户结构化提问回填(2026-09-18 第四批,对标 Codex elicitation)。"""
+        return await asyncio.to_thread(self._agent.respond_elicitation, elicitation_id, value)
 
     async def register_tool(
         self,
