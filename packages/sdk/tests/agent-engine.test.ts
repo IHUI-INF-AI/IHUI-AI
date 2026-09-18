@@ -687,6 +687,7 @@ describe('协议常量(与引擎 handler 表 parity)', () => {
       'thread.resume',
       'thread.state',
       'thread.close',
+      'agent.exec',
       'tools.list',
       'tools.register',
       'tools.result',
