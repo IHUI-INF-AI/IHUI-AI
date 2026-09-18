@@ -932,9 +932,11 @@ class AgentLoopV2:
         # **kwargs 透传 llm_complete_fn(承载层闭包再透传 llm_gateway→litellm)。
         # 空时调用签名与现状逐零差异(mock 友好)。
         model_params: dict[str, Any] | None = None,
+        # 可靠性：可选 trace_id 统一关联事件、LLM 与工具调用；不传时兼容旧调用。
+        trace_id: str | None = None,
         # 2026-09-18 第三批(Goals 对标):线程持久目标;非空时 run 入口注入 system。
         thread_goal: str | None = None,
-    ):
+    ): 
         """
         Args:
             llm_complete_fn: async (messages: list, tools: list[dict]) -> dict

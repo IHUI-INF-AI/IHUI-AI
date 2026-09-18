@@ -218,9 +218,15 @@ export function PricingContent(): React.JSX.Element {
                     variant={isPopular ? 'default' : 'outline'}
                     className="mt-5 w-full"
                   >
-                    <Link href="/vip">
+                    <Link
+                      href={
+                        isFree
+                          ? '/register'
+                          : `/vip/details?levelId=${encodeURIComponent(level.id)}`
+                      }
+                    >
                       <Crown className="mr-1 h-4 w-4" />
-                      立即订阅
+                      {isFree ? '免费开始' : '立即订阅'}
                     </Link>
                   </Button>
                 </CardContent>
