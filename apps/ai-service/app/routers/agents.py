@@ -855,6 +855,10 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                         "success": result.success,
                         "stop_reason": result.stop_reason,
                         "output": getattr(result, "final_response", ""),
+                        # W9#7(2026-09-18):done 回传 checkpoint_id —— 前端无需再
+                        # 二次查询 /checkpoints 即可定位可回滚点(paused/cancelled/
+                        # 异常中断时 AgentLoopResult 均携带;正常完成通常为 None)
+                        "checkpoint_id": getattr(result, "checkpoint_id", None),
                     }
                     eid3 = sse_buffer.append(task_id, result_evt)
                     yield _format_sse(eid3, result_evt)
