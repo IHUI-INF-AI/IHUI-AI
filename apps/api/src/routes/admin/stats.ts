@@ -35,7 +35,7 @@ import {
   visitLogs,
   userRoles,
 } from '@ihui/database'
-import { eq, ilike, desc, sql, and, gte, lte, lt, notInArray, inArray } from 'drizzle-orm'
+import { eq, ilike, desc, sql, and, gte, lte, lt, notInArray } from 'drizzle-orm'
 import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
@@ -1097,7 +1097,6 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
     username: z.string().max(64).optional(),
     phone: z.string().max(20).optional(),
   })
-  const roleUsersBodySchema = z.object({ userIds: z.array(z.string().uuid()).min(1) })
   const userCols = {
     id: users.id,
     username: users.username,
@@ -1176,57 +1175,10 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // POST /roles/:id/users — 批量授权 {userIds[]}(userRoles 有 (user_id, role_id) 联合唯一,幂等)
-  server.post('/roles/:id/users', async (request, reply) => {
-    const p = idParamSchema.safeParse(request.params)
-    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const b = roleUsersBodySchema.safeParse(request.body)
-    if (!b.success) return reply.status(400).send(error(400, '参数错误'))
-    try {
-      await db
-        .insert(userRoles)
-        .values(b.data.userIds.map((userId) => ({ userId, roleId: p.data.id })))
-        .onConflictDoNothing()
-      return reply.status(201).send(success({ authorized: b.data.userIds.length }))
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '授权失败'))
-    }
-  })
-
-  // DELETE /roles/:id/users — 批量取消授权 {userIds[]}
-  server.delete('/roles/:id/users', async (request, reply) => {
-    const p = idParamSchema.safeParse(request.params)
-    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const b = roleUsersBodySchema.safeParse(request.body)
-    if (!b.success) return reply.status(400).send(error(400, '参数错误'))
-    try {
-      await db
-        .delete(userRoles)
-        .where(and(eq(userRoles.roleId, p.data.id), inArray(userRoles.userId, b.data.userIds)))
-      return reply.send(success({ revoked: b.data.userIds.length }))
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '取消授权失败'))
-    }
-  })
-
-  // DELETE /roles/:id/users/:userId — 取消单个授权
-  server.delete('/roles/:id/users/:userId', async (request, reply) => {
-    const p = z
-      .object({ id: z.string().uuid('无效的 ID'), userId: z.string().uuid('无效的用户 ID') })
-      .safeParse(request.params)
-    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    try {
-      await db
-        .delete(userRoles)
-        .where(and(eq(userRoles.roleId, p.data.id), eq(userRoles.userId, p.data.userId)))
-      return reply.send(success({ revoked: 1 }))
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '取消授权失败'))
-    }
-  })
+  // POST /roles/:id/users(授权,兼容单个/批量)、DELETE /roles/:id/users/:userId(单个取消)、
+  // DELETE /roles/:id/users(批量取消)全部由 admin-extended/role-routes.ts 提供实现——
+  // 此处不得重复注册,否则 Fastify FST_ERR_DUPLICATED_ROUTE 会在启动时炸掉整个服务
+  // (2026-09-17 生产事故实证)。
 }
 
 export default statsRoutes

@@ -174,6 +174,12 @@ export async function buildServer(): Promise<FastifyInstance> {
           .filter(Boolean)
       : false,
     bodyLimit: 1048576 * 10,
+    // 2026-09-18:dev 冷启动插件超时治理。adminMissingRoutes 内部动态 import 十余个子路由,
+    // dev(tsx)下首次转译该 import 图在机器有负载时可能超过 avvio 默认 10s 插件超时 →
+    // AVV_ERR_PLUGIN_EXEC_TIMEOUT,进程不 listening 直接空转(本地冷启动实测复现)。
+    // 本仓测试对同一插件早已统一用 pluginTimeout: 120_000。生产跑编译后的 dist、注册很快,
+    // 故仅非生产放宽,避免掩盖真实的生产启动挂死。
+    ...(process.env.NODE_ENV === 'production' ? {} : { pluginTimeout: 120_000 }),
   })
 
   server.setErrorHandler(errorHandler)
