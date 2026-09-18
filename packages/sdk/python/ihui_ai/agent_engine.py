@@ -56,6 +56,9 @@ ENGINE_METHODS: tuple[str, ...] = (
     "thread.enqueue",
     "thread.goal",
     "thread.review",
+    "thread.list",
+    "thread.archive",
+    "thread.fork",
     "tools.search",
     "tools.load",
     "elicitation.respond",
@@ -508,6 +511,38 @@ class Agent:
         if focus is not None:
             params["focus"] = focus
         return dict(self._call("thread.review", params) or {})
+
+    def list_threads(
+        self,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        include_archived: bool = False,
+    ) -> dict[str, Any]:
+        """线程清单(2026-09-18 第七批,对标 Codex thread/list:分页+运行态合并)。"""
+        params: dict[str, Any] = {"includeArchived": include_archived}
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return dict(self._call("thread.list", params) or {})
+
+    def archive_thread(self, thread_id: str, archived: bool = True) -> dict[str, Any]:
+        """归档/恢复线程(2026-09-18 第七批,对标 Codex thread/archive)。"""
+        return dict(
+            self._call("thread.archive", {"threadId": thread_id, "archived": archived})
+            or {}
+        )
+
+    def fork_thread(
+        self, thread_id: Optional[str] = None, title: Optional[str] = None
+    ) -> dict[str, Any]:
+        """分叉线程(2026-09-18 第七批,对标 Codex thread/fork:深拷贝独立演进)。"""
+        params: dict[str, Any] = {
+            "threadId": thread_id or self._thread_id,
+        }
+        if title is not None:
+            params["title"] = title
+        return dict(self._call("thread.fork", params) or {})
 
     def search_tools(self, query: str, limit: Optional[int] = None) -> dict[str, Any]:
         """工具目录搜索(2026-09-18 第四批,对标 Codex tool_search 延迟装载)。"""
