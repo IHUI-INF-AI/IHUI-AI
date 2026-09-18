@@ -6853,7 +6853,20 @@
       "scopeLabel": "回退範圍",
       "scopeConversation": "對話",
       "scopeCode": "程式碼",
-      "scopeBoth": "兩者"
+      "scopeBoth": "兩者",
+      "rollbackConfirmTitle": "確認恢復此檢查點？",
+      "rollbackConfirmLoading": "正在計算影響範圍…",
+      "rollbackConfirmLoadFailed": "影響範圍載入失敗",
+      "rollbackConfirmDesc": "恢復將把以下檔案回退到檢查點狀態：",
+      "rollbackConfirmAdded": "+{count} 行",
+      "rollbackConfirmDeleted": "-{count} 行",
+      "rollbackConfirmViewDiff": "查看 diff",
+      "rollbackConfirmHideDiff": "收起 diff",
+      "rollbackConfirmContentTruncated": "內容過長已截斷",
+      "rollbackConfirmMoreFiles": "等 {count} 個檔案",
+      "rollbackConfirmNoFiles": "無檔案變更（僅恢復對話，共 {count} 條訊息）",
+      "rollbackConfirmCancel": "取消",
+      "rollbackConfirmConfirm": "確認恢復"
     },
     "pane": {
       "ariaLabel": "Agent 任務進度面板",
@@ -7214,7 +7227,14 @@
       "messageUsage": {
         "total": "總用量",
         "ariaLabel": "訊息用量詳情"
-      }
+      },
+      "retryBadge": "重試{count}次",
+      "retryBadgeAria": "工具瞬時失敗後自動重試 {count} 次"
+    },
+    "tokenUsage": {
+      "promptTokens": "提示詞",
+      "completionTokens": "補全",
+      "totalTokens": "總計"
     },
     "title": "AI 助手",
     "thinking": "AI 生成中…",
@@ -7222,7 +7242,20 @@
     "retry": "重試",
     "emptyContent": "暫無內容，請先輸入內文",
     "seoScore": "SEO 評分",
-    "generateTitles": "生成標題"
+    "generateTitles": "生成標題",
+    "message": {
+      "metrics": {
+        "tokens": "tokens",
+        "firstToken": "首 {s}",
+        "cost": "¥{cost}",
+        "detailTitle": "用量明細",
+        "reasoningTokens": "推理 tokens",
+        "firstTokenDetail": "首 token",
+        "durationDetail": "總耗時",
+        "modelDetail": "模型",
+        "costDetail": "成本"
+      }
+    }
   },
   "aiCareerPage": {
     "export": {
@@ -8783,7 +8816,10 @@
         "truncatedNotice": "以下內容已被截斷",
         "archiveTitle": "已封存會話",
         "viewArchived": "查看已封存"
-      }
+      },
+      "dividerTitle": "上方歷史已壓縮為摘要",
+      "dividerDescription": "上下文已從 {before} tokens 壓縮至 {after} tokens,更早的對話被折疊為摘要",
+      "dividerSaved": "節省 {ratio}%"
     },
     "contextCompacted": "上下文已自動壓縮",
     "contextCompactedDesc": "{before} → {after}(移除 {removed} 條歷史)",
@@ -8847,7 +8883,9 @@
       "shareFailed": "取得分享連結失敗",
       "shareLinkCopied": "分享連結已複製",
       "roleUser": "使用者",
-      "roleAssistant": "助理"
+      "roleAssistant": "助理",
+      "exportCard": "分享圖片卡",
+      "shareCardUser": "使用者"
     },
     "fallbackNotice": "已切換到備用模型 {backup}(原模型 {primary} 暫時不可用)",
     "feedbackRecorded": "已記錄反饋",
@@ -9134,10 +9172,13 @@
       "reasoningCopied": "推理過程已復制",
       "reasoningCopyFailed": "復制失敗",
       "statusCompleted": "已完成",
+      "statusFailed": "失敗",
       "statusInProgress": "正在",
       "statusPending": "待開始",
+      "statusSkipped": "已跳過",
       "stepAnswer": "回答",
       "stepError": "失敗",
+      "stepOf": "步驟{index}:{step}",
       "stepThinking": "思考",
       "summaryAllDone": "全部完成",
       "summaryErrorCount": "錯誤 {count}",
@@ -9326,6 +9367,12 @@
     "stepAnswer": "回答",
     "stepThinking": "思考",
     "stop": "停止生成",
+    "steer": "立即引導(當前工具完成後生效)",
+    "steerFailed": "引導失敗(佇列已滿或串流已結束),請稍後重試",
+    "steerNoticeBar": {
+      "title": "已引導 {count} 次",
+      "moreItems": "等 {count} 條"
+    },
     "streamingIndicator": "AI 正在生成中",
     "streamingIndicatorHint": "AI 正在生成中,可輸入下一條消息草稿",
     "historyNavPosition": "輸入歷史 {current}/{total}",
@@ -9574,7 +9621,10 @@
     "voiceHandsFreeOn": "連續對話已開啟（說話即發送）",
     "voiceHandsFreeOff": "連續對話已關閉",
     "voicePlayback": "朗讀",
-    "voiceHandsFree": "連續"
+    "voiceHandsFree": "連續",
+    "locator": {
+      "title": "對話定位導航"
+    }
   },
   "chatHistory": {
     "backToHistory": "返回任務列表",
@@ -10330,6 +10380,7 @@
       "clientOpencode": "OpenCode",
       "clientGemini": "Gemini CLI",
       "clientGrok": "Grok CLI",
+      "clientCcSwitch": "CC Switch",
       "copy": "複製",
       "copied": "已複製",
       "copyFailed": "複製失敗",
@@ -19379,7 +19430,6 @@
       "changePhoneFailed": "修改手機號失敗,請稍後重試",
       "changePhoneTitle": "修改手機號",
       "codePlaceholder": "請輸入 6 位驗證碼",
-      "completionTokens": "補全",
       "confirmChange": "確認修改",
       "cropCancel": "取消",
       "cropConfirm": "確認上傳",
@@ -19414,13 +19464,11 @@
       "oldCodeSent": "舊手機號驗證碼已發送",
       "oldPhone": "當前手機號",
       "phoneChanged": "手機號修改成功",
-      "promptTokens": "提示詞",
       "resend": "{seconds}s 後重試",
       "routines": "例行程序",
       "sendCodeFailed": "驗證碼發送失敗,請稍後重試",
       "sendNewCode": "獲取新驗證碼",
       "sendOldCode": "獲取舊驗證碼",
-      "totalTokens": "總計",
       "userId": "用戶 ID",
       "voiceRecord": "語音錄制",
       "title": "使用者個人資料"
