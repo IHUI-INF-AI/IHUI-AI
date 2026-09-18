@@ -30,6 +30,7 @@ import {
   queryOrder,
 } from '../services/wechat-pay.js'
 import { listUserBindings } from '../db/oauth-queries.js'
+import { isAlipayConfigured, buildSignedUrl, queryOrder as queryAlipayOrder } from '../services/alipay.js'
 
 // =============================================================================
 // system_configs JSON 存储辅助（用于无独立表的资源 CRUD，按 category 区分）
@@ -81,7 +82,7 @@ async function configList(
 
 type VipPayInfo = {
   mock: boolean
-  method: 'jsapi' | 'native' | 'h5'
+  method: 'jsapi' | 'native' | 'h5' | 'alipay'
   timeStamp?: string
   nonceStr?: string
   package?: string
@@ -89,6 +90,7 @@ type VipPayInfo = {
   paySign?: string
   codeUrl?: string
   h5Url?: string
+  payUrl?: string
   error?: string
 }
 
@@ -98,6 +100,20 @@ async function createVipPrepay(
   openId?: string,
   clientIp?: string,
 ): Promise<VipPayInfo> {
+  // 2026-09-18 修复:支付宝走独立的支付宝预下单,不再静默降级为微信
+  if (paymentMethod === 'alipay') {
+    if (!isAlipayConfigured()) return { mock: true, method: 'alipay' }
+    const bizContent: Record<string, unknown> = {
+      out_trade_no: order.orderNo,
+      total_amount: (order.amount / 100).toFixed(2),
+      subject: 'VIP 会员购买',
+      product_code: 'FAST_INSTANT_TRADE_PAY',
+    }
+    if (env.ALIPAY_NOTIFY_URL) bizContent.notify_url = env.ALIPAY_NOTIFY_URL
+    const payUrl = buildSignedUrl(bizContent, 'alipay.trade.page.pay')
+    return { mock: false, method: 'alipay', payUrl }
+  }
+
   const method: 'jsapi' | 'native' | 'h5' =
     paymentMethod === 'wechat_native' ? 'native' : paymentMethod === 'wechat_h5' ? 'h5' : 'jsapi'
 
@@ -221,8 +237,12 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
       },
       request.userId ?? null,
     )
-    // 开发环境直接激活方便测试，生产环境应等支付回调后激活
-    if (process.env.NODE_ENV === 'development') {
+    // 开发环境直接激活方便测试，生产环境应等支付回调后激活。
+    // 2026-09-18 收紧:须显式设置 PAYMENT_DEV_AUTO_ACTIVATE=1,防止环境标识误配导致未付款直发 VIP
+    if (
+      process.env.NODE_ENV === 'development' &&
+      process.env.PAYMENT_DEV_AUTO_ACTIVATE === '1'
+    ) {
       await purchaseVip({ userId: request.userId!, vipLevelId: level.id, orderId: order.id })
     }
     return reply.send(
@@ -324,6 +344,31 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
         if (tradeState === 'SUCCESS') {
           await updateOrderStatus(order.orderNo, 'paid', undefined, null)
           // 发卡(如果还没发过)
+          if (order.orderType === 2 && order.productId) {
+            try {
+              await purchaseVip({
+                userId: order.userId!,
+                vipLevelId: order.productId,
+                orderId: order.id,
+              })
+            } catch {
+              // 已发过卡会唯一约束冲突,忽略
+            }
+          }
+          return reply.send(success({ status: 'paid' }))
+        }
+      } catch {
+        // 查单失败(订单未支付/网络问题),继续返回 pending + payInfo
+      }
+    }
+
+    // 2026-09-18 补齐:支付宝订单同样主动查单(alipay.trade.query),不依赖回调
+    if (isAlipayConfigured() && order.paymentMethod?.startsWith('alipay')) {
+      try {
+        const aliResult = await queryAlipayOrder(order.orderNo)
+        const tradeStatus = aliResult.trade_status as string | undefined
+        if (tradeStatus === 'TRADE_SUCCESS' || tradeStatus === 'TRADE_FINISHED') {
+          await updateOrderStatus(order.orderNo, 'paid', undefined, null)
           if (order.orderType === 2 && order.productId) {
             try {
               await purchaseVip({
