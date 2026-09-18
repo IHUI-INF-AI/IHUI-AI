@@ -17,6 +17,7 @@
  */
 import * as React from 'react'
 import { AuthShell as SharedAuthShell } from '@ihui/ui-react'
+import { cn } from '@/lib/utils'
 
 interface AuthShellProps {
   title?: string
@@ -33,7 +34,7 @@ interface AuthShellProps {
  * 统一弹窗外壳(主站 LoginDialog + /sso/login + /sso/register)
  *
  * 视觉规范由共享包锁定:
- *   - 容器:rounded-xl border bg-card p-3
+ *   - 容器:rounded-xl border bg-card p-3(共享基类;web 侧叠加 px-6 pb-6 呼吸感覆盖,见实现处注释)
  *   - 阴影:subtle 双层 0_4px_24px + 0_1px_4px
  *   - 顶部:logo (31×31) + welcome.svg/baiwelcome.svg 浅/深主题并排
  *   - 关闭按钮(右上角,onClose 存在时):lucide-react X
@@ -41,7 +42,22 @@ interface AuthShellProps {
  *   - 标题/副标题 sr-only
  */
 export function AuthShell({ className, ...rest }: AuthShellProps) {
-  return <SharedAuthShell className={className ?? 'max-w-[460px]'} {...rest} />
+  return (
+    <SharedAuthShell
+      // 2026-09-18 呼吸感修复:共享基类 p-3(12px)导致登录卡片左右下三边过挤——
+      // 顶部已由 header pt-9 撑到 48px,而左右/下仅 12px,失衡 4:1
+      // (用户反馈"左右下三个边的呼吸感不够 很难受";2026-09-18 修订:pb 回 24px,
+      // 真正缺的是底部"没有账号?立即注册"行的独立呼吸,见 LoginForm 内该行的 mb)。
+      // px-6 pb-6:左右/下 24px,顶部保留 12px + header pt-9 不变。
+      // 不改共享基类的原因:扩展端 popup/sidepanel 在 AuthShell 外层各自包了
+      // p-3/p-4 补偿 padding,改基类会双层叠加;web 弹窗(登录框/SSO)裸用基类才显紧。
+      // 移动全屏形态(LoginDialog isMobile)自带 p-3/max-w-none className 覆盖,不受默认值影响。
+      // cn 合并而非 ??:调用方可叠加类(如 LoginDialog 的 animate-login-dialog-pop)而无需
+      // 重复默认值;冲突时调用方优先(twMerge 语义)。
+      className={cn('max-w-[460px] px-6 pb-6', className)}
+      {...rest}
+    />
+  )
 }
 
 /**
