@@ -290,6 +290,7 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     # 免费无 key provider(2026-07-30 P0-5p 补充)
     "pollinations/": "pollinations",
     "llm7/": "llm7",
+    "hf-qwen/": "hf_qwen",
     # 国际原厂
     "groq/": "groq",
     "gemini/": "gemini",
@@ -650,6 +651,8 @@ _FREE_PROVIDER_ENDPOINT_RESOLVERS: dict[str, tuple[str, str | None, bool, bool]]
     "nlpcloud/": ("nlp_cloud", "https://api.nlpcloud.io/v1", False, True),
     "scaleway/": ("scaleway", "https://api.scaleway.ai/ai-platform/v1", False, True),
     "alibaba-intl/": ("alibaba_intl", "https://bailian-intl.alibabacloud.com/compatible-mode/v1", False, True),
+    # 2026-09-18:HF Victor 免费公共端点(Qwen3.8-Flash-Next),免 key("none"),端点生命周期短(可能 paused)
+    "hf-qwen/": ("hf_qwen", "https://pnywsahxhac1qjbo.us-east-2.aws.endpoints.huggingface.cloud/v1", False, True),
 }
 
 
