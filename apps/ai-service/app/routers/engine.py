@@ -84,6 +84,8 @@ def _make_loop_factory() -> Any:
             approval_policies=spec.get("approval_policies"),
             # 2026-09-18 第二批:生成参数透传面(temperature/top_p/reasoning_effort/...)
             model_params=spec.get("model_params"),
+            # 2026-09-18 第三批(Goals 对标):线程目标注入 system 全程可见
+            thread_goal=spec.get("goal"),
         )
 
     return _factory

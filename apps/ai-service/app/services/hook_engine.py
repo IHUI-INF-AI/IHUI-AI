@@ -81,6 +81,10 @@ HOOK_EVENTS: tuple[str, ...] = (
     # 2026-09-18 第二批:LLM 调用重试/限流事件(_llm_call_with_retry 发出,对标
     # Codex StreamError;payload 含 attempt/error_type/rate_limited/backoff)
     "llm.retry",
+    # 2026-09-18 第三批:工具重试事件(_execute_single 瞬时失败重试时发出)与
+    # 模型改道事件(llm_gateway auto 路由改道时发出,对标 Codex ModelReroute)
+    "tool.retry",
+    "model.reroute",
 )
 
 HOOK_ACTION_TYPES: tuple[str, ...] = ("webhook", "script", "log", "notify")
