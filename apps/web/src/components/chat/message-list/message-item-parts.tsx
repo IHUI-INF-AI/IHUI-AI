@@ -5,6 +5,7 @@
 import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import type { ChatMessage } from '@/stores/chat'
+import { useChatStore } from '@/stores/chat'
 import { computeMessageCostCny, formatCompactTokens, useModelPriceCny } from './use-model-price'
 
 /** 2026-09-01 立,工具调用过程流式可视化:i18n 化等待态文案。
@@ -158,4 +159,124 @@ export function MessageUsageBadge({
 // _message-list.scss .message-actions: display:flex; gap:8px; opacity:1(始终显示)
 export const ACTION_BTN_CLASS =
   'inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-primary hover:bg-muted/60 transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+
+/** 近似展示汇率(USD→CNY):仅用于消息底部成本徽章的展示换算,权威成本以后端 costUsd 为准。
+ * 非实时汇率,不用于账单/扣费。 */
+const USD_TO_CNY = 7.2
+
+/** 毫秒 → 紧凑秒串(用于首 token / 总耗时):<1s 显示两位小数,>=1s 一位小数。 */
+function formatSeconds(ms: number): string {
+  if (ms < 1000) return `${(ms / 1000).toFixed(2)}s`
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
+/** 分隔点(列表项之间的视觉分隔,非文案,可直接硬编码)。 */
+const SEP = '·'
+
+/**
+ * D1 消息级计量徽章行(2026-09-19 立):AI 回复消息底部展示紧凑用量。
+ * 形如 `1.2k tok · 3.4s · 首 0.8s · deepseek-chat · ¥0.01`,各项条件性渲染:
+ *   - tokens:formatCompactTokens 千分位缩写(1.2k),totalTokens<=0 不渲染整行
+ *   - duration:总耗时(仅 durationMs>0)
+ *   - firstToken:首 token 延迟(仅 firstTokenMs>0)
+ *   - model:实际计费模型(仅非空)
+ *   - cost:costUsd→CNY(仅 costUsd 非 null);为 null 不显示
+ * 样式 text-xs muted;hover 用 Tooltip 展示完整明细(不用原生 title)。
+ * 仅对 usageByMessageId 有数据的消息渲染(无数据返回 null)。
+ */
+export function MessageUsageMetrics({
+  messageId,
+  fallbackModel,
+}: {
+  messageId: string
+  fallbackModel?: string
+}) {
+  const t = useTranslations('ai.message.metrics')
+  const tc = useTranslations('chat')
+  // zustand selector 返回既有对象引用(undefined 或 usage 对象),不构造新数组/对象,符合项目规则。
+  const usage = useChatStore((s) => s.usageByMessageId[messageId])
+  if (!usage || usage.totalTokens <= 0) return null
+
+  const model = usage.model || fallbackModel || ''
+  const costCny = usage.costUsd !== null ? usage.costUsd * USD_TO_CNY : null
+
+  // 明细(悬浮展示):复用 chat.messageUsage/sessionUsage 既有键 + ai.message.metrics.reasoningTokens
+  const detail = (
+    <div className="space-y-0.5 leading-4">
+      <div className="mb-0.5 font-medium">{t('detailTitle')}</div>
+      <div>
+        {tc('messageUsage.total')}: <span className="tabular-nums">{usage.totalTokens}</span>
+      </div>
+      <div>
+        {tc('sessionUsage.promptTokens')}:{' '}
+        <span className="tabular-nums">{usage.promptTokens}</span>
+      </div>
+      <div>
+        {tc('sessionUsage.completionTokens')}:{' '}
+        <span className="tabular-nums">{usage.completionTokens}</span>
+      </div>
+      {usage.reasoningTokens !== null && (
+        <div>
+          {t('reasoningTokens')}: <span className="tabular-nums">{usage.reasoningTokens}</span>
+        </div>
+      )}
+      {usage.firstTokenMs > 0 && (
+        <div>
+          {t('firstTokenDetail')}:{' '}
+          <span className="tabular-nums">{formatSeconds(usage.firstTokenMs)}</span>
+        </div>
+      )}
+      {usage.durationMs > 0 && (
+        <div>
+          {t('durationDetail')}:{' '}
+          <span className="tabular-nums">{formatSeconds(usage.durationMs)}</span>
+        </div>
+      )}
+      {model && (
+        <div>
+          {t('modelDetail')}: <span className="tabular-nums">{model}</span>
+        </div>
+      )}
+      {costCny !== null && (
+        <div>
+          {t('costDetail')}: <span className="tabular-nums">¥{costCny.toFixed(2)}</span>
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <Tooltip content={detail}>
+      <span
+        className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground"
+        data-testid={`message-usage-metrics-${messageId}`}
+        aria-label={tc('messageUsage.ariaLabel')}
+      >
+        <span data-testid="usage-total" className="tabular-nums">
+          {formatCompactTokens(usage.totalTokens)} {t('tokens')}
+        </span>
+        {usage.durationMs > 0 && (
+          <span data-testid="usage-duration" className="tabular-nums">
+            {SEP} {formatSeconds(usage.durationMs)}
+          </span>
+        )}
+        {usage.firstTokenMs > 0 && (
+          <span data-testid="usage-first-token" className="tabular-nums">
+            {SEP} {t('firstToken', { s: formatSeconds(usage.firstTokenMs) })}
+          </span>
+        )}
+        {model && (
+          <span data-testid="usage-model" className="tabular-nums">
+            {SEP} {model}
+          </span>
+        )}
+        {costCny !== null && (
+          <span data-testid="usage-cost" className="tabular-nums">
+            {SEP} {t('cost', { cost: costCny.toFixed(2) })}
+          </span>
+        )}
+      </span>
+    </Tooltip>
+  )
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
