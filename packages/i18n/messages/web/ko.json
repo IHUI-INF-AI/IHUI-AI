@@ -6847,6 +6847,18 @@
       "copy": "복사",
       "copyPlan": "계획 복사",
       "copyThinking": "사고 내용 복사",
+      "diffHunk": {
+        "acceptBlock": "이 변경 수락",
+        "accepted": "수락됨",
+        "applySelected": "선택 항목 적용({count})",
+        "applyingSelected": "적용 중",
+        "changeBlock": "변경 {index}/{total}",
+        "clearSelection": "모두 해제",
+        "rejectBlock": "이 변경 거부",
+        "rejected": "거부됨",
+        "resetSelection": "선택 초기화",
+        "selectedSummary": "{accepted}/{total} 선택됨"
+      },
       "dragHandle": "드래그하여 위치 조정",
       "elapsedTitle": "경과 {time}",
       "emptyHint": "대화 시작 후 작업 계획이 표시됩니다",
@@ -6985,8 +6997,10 @@
         "continueText": "계속"
       },
       "terminal": {
+        "clearLive": "지우기",
         "copyOutput": "터미널 출력 복사",
         "failed": "{n} 실패",
+        "live": "실시간 출력",
         "moreItems": "…{n}개 더",
         "output": "출력",
         "running": "{n} 실행 중",
