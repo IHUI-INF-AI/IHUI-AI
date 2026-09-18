@@ -1242,6 +1242,19 @@ class AgentLoopV2:
                     "decision_chain_entries": int(chain_meta.get("entries") or 0),
                 }
             )
+            # W9#5(2026-09-18):压缩发生即经 hook_engine 发 SSE 通知(此前压缩结果只进
+            # AgentLoopResult 与 compaction_metrics,前端在 agent 通道全程无感知)。
+            await self._events.emit(
+                "compaction",
+                {
+                    "session_id": self._ensure_session_id(),
+                    "iteration": self._current_iteration,
+                    "original_tokens": info.get("original_tokens"),
+                    "compressed_tokens": info.get("compressed_tokens"),
+                    "removed_count": info.get("removed_count"),
+                    "trigger": "llm" if info.get("llm_summary") else "deterministic",
+                },
+            )
             logger.warning(
                 "[agent-loop] 上下文压缩触发: %s -> %s tokens(移除 %s 条, iter %s)",
                 info.get("original_tokens"),
@@ -2676,6 +2689,12 @@ class AgentLoopV2:
         if checkpoint is None:
             raise ValueError(f"checkpoint {checkpoint_id} 不存在或已过期")
 
+        # W9#6(2026-09-18):恢复过渡事件(与 pausing/cancelling 对称)
+        await self._events.emit(
+            "agent.status",
+            {"session_id": self._ensure_session_id(), "status": "resuming"},
+        )
+
         if checkpoint.status == "completed":
             # 已完成的 checkpoint 无需续跑
             return AgentLoopResult(
@@ -2749,6 +2768,11 @@ class AgentLoopV2:
         Returns:
             checkpoint_id(若保存成功)或 None(无活动 loop 且无历史状态)
         """
+        # W9#6(2026-09-18):过渡事件先行 —— 前端在 done 落定前即可呈现"正在暂停"
+        await self._events.emit(
+            "agent.status",
+            {"session_id": self._ensure_session_id(), "status": "pausing"},
+        )
         self._pause_requested = True
         if self._messages is not None:
             return await self._save_checkpoint_safe(
@@ -2768,6 +2792,11 @@ class AgentLoopV2:
         Returns:
             checkpoint_id(若保存成功)或 None(无活动 loop 且无历史状态)
         """
+        # W9#6(2026-09-18):过渡事件先行 —— 前端在 done 落定前即可呈现"正在取消"
+        await self._events.emit(
+            "agent.status",
+            {"session_id": self._ensure_session_id(), "status": "cancelling"},
+        )
         self._cancel_requested = True
         if self._messages is not None:
             return await self._save_checkpoint_safe(
