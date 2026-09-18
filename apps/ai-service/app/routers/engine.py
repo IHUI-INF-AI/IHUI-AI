@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/engine", tags=["agent-engine"])
 
 # 需要流式回传的通知方法集合(其余方法单发即返)
-STREAMING_METHODS: frozenset[str] = frozenset({"thread.prompt", "thread.resume"})
+STREAMING_METHODS: frozenset[str] = frozenset({"thread.prompt", "thread.resume", "agent.exec"})
 # SSE 空闲轮询间隔(秒):空闲时发注释帧心跳,防中间代理按空闲断流
 SSE_POLL_SECONDS = 1.0
 
