@@ -19,15 +19,15 @@ export interface DesktopFeed {
 }
 
 export const DESKTOP_FEED: DesktopFeed = {
-  version: '0.1.38',
+  version: '0.1.39',
   releaseDate: '2026-09-18',
   githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
-  resolvedFromTag: 'desktop-v0.1.38',
-  resolvedAt: '2026-09-18T06:31:28.179Z',
+  resolvedFromTag: 'desktop-v0.1.39',
+  resolvedAt: '2026-09-18T07:19:08.127Z',
   assets: [
-    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.38/AI_0.1.38_x64-setup.exe', sizeBytes: 12012610, format: 'Windows NSIS exe', arch: 'x64', signature: 'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdFlFM1R1RVVQbU5XUGNDRkJvREI0VnNUVVVEaTF5YzRjVlp4dmQ1U3BTekVGdGlxS2ovV2VxK0dRUllCb1hQa1pBNDRjZzRlTE1HL3Y5bmh6eE8za1FnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NzEyODMzCWZpbGU65pm65rGHQUlfMC4xLjM4X3g2NC1zZXR1cC5leGUKaDd2YXkwd2dpRUpFeDFzTGFWZld0ZGowamcvNis2Tmt1YXJSVmQ5RVdQSjhqQ3cxdDk2ZEI3K0lXOW5Yd1dyZDVYQW1LYndwMThxTUJCLy9uSXIxQlE9PQo=' },
-    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.38/AI_0.1.38_universal.dmg', sizeBytes: 11062416, format: 'macOS DMG', arch: 'x64', signature: '' },
-    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.38/AI_0.1.38_amd64.AppImage', sizeBytes: 81246712, format: 'Linux AppImage', arch: 'amd64', signature: 'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGMzcU5IYmZpdDNZa1Uyc1FwOEUvTEk5cVZHNGMvVWxMSm96V3dncEQvcnpFbGZtcjNrQU9HWnNZaTVXT2tHM1Z2M2NLWHFSbTY5OWxYWmlXUFd2dHdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NzEyODQ3CWZpbGU65pm65rGHQUlfMC4xLjM4X2FtZDY0LkFwcEltYWdlCnptOFFrRG1ybk5SV3cwbEM2SzRsbE8yclV5V3NrdTd2VzFiVVdXcS9udTFnUEZLZmRJc2tJc1l0dGFVdE10U3FEMlg0UnRZRUh4QVllSDJLaU1sY0R3PT0K' },
-    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.38/AI_0.1.38_amd64.deb', sizeBytes: 6653058, format: 'Linux DEB', arch: 'amd64', signature: 'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdFJDNlBuUjBZV1V4TEVxb1ZHUnBLQ05JSjJnSk5LTzBBT1FmQlVrL3Y0elVWWWVmQ3o2cFNFODF4Ylc4K0RETzZTRmErbWdhR0crWDljbW9RdHk3THdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NzEyODQ3CWZpbGU65pm65rGHQUlfMC4xLjM4X2FtZDY0LmRlYgpJTzFzemZDcTMweHBPU2hjaFBBVWJUNHJvcjJqWTBwS0ZQTG5YWXV3V3dNODBhV0lOQmdGNjJaN0UyV2tCS1N5ZVloVzBrMGthWXpwZ1Z3Tzd4T0RCdz09Cg==' },
+    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.39/AI_0.1.39_x64-setup.exe', sizeBytes: 12012610, format: 'Windows NSIS exe', arch: 'x64', signature: 'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGNxckRlVmxSWmFiRjZDYVRCU2IvRXd5aE1GQ2VLcjBKZWY5aFgxN01JanNlS0xIOWVDWGxaa3RlUzdRNWpzajd2L1lOUlFDY0I5cGVYeGlVeHZMVFE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NzE1Njc2CWZpbGU65pm65rGHQUlfMC4xLjM5X3g2NC1zZXR1cC5leGUKblBSdG9XMEl1L3B4cGxMNEZxNUdoazB2azhkQUNheGczTElmSkVNbXFOalVXdFo4TE9nSE83NkxsdmRmZU9USzcwYWo4dGtJZ2laRXZpQUcxaVlhQnc9PQo=' },
+    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.39/AI_0.1.39_universal.dmg', sizeBytes: 11062414, format: 'macOS DMG', arch: 'x64', signature: '' },
+    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.39/AI_0.1.39_amd64.AppImage', sizeBytes: 81246712, format: 'Linux AppImage', arch: 'amd64', signature: 'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdFh4Y1hsRHdJMW5uMFV6N3NmNXVJNERPdVZRWVFlZWtFWXNEbTV0clhmd29QVXpiM0gxVzFPaXhDaDBLbGVHVEhUbVZZQTlQVldzZVZNNjROcEhyM2dVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NzE1NjU5CWZpbGU65pm65rGHQUlfMC4xLjM5X2FtZDY0LkFwcEltYWdlClpWbHB1bkhSdXVnVThYalB1L2twUk5yWStSaS9MMVYraUlvN3VzQjJvOGFFRkppNWZpZ09ReWM1TGpEUDY0Q3NuKzN5TmlVMklCS3RwSklYNS9BQUNBPT0K' },
+    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.39/AI_0.1.39_amd64.deb', sizeBytes: 6653062, format: 'Linux DEB', arch: 'amd64', signature: 'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGFPSU5nNmR2YlJuVWNvQm9CMXhLV1NETkFJK3pTZndaeUF1dGVOdFJvSi9TLzNsWHBKMGVDMVFHL3ZPdUFTSlIrRUJEcTBmN3l1RHh4Q040bXJESWdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NzE1NjU5CWZpbGU65pm65rGHQUlfMC4xLjM5X2FtZDY0LmRlYgo1QTY3SE1OR2RsSEpXYUF2Rml6ZnpaenYzUW00MDVjU1JDaG1GcDJIcSt4QWcvclkvMWIwQ1RqU3RFMVJrVjg1Um5HNzB0NGtVaWNhckhtZW5vVVFCQT09Cg==' },
   ],
 }
