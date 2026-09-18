@@ -30,11 +30,7 @@ import {
   queryOrder,
 } from '../services/wechat-pay.js'
 import { listUserBindings } from '../db/oauth-queries.js'
-import {
-  isAlipayConfigured,
-  buildSignedUrl,
-  queryOrder as queryAlipayOrder,
-} from '../services/alipay.js'
+import { isAlipayConfigured, buildSignedUrl, queryOrder as queryAlipayOrder } from '../services/alipay.js'
 
 // =============================================================================
 // system_configs JSON 存储辅助（用于无独立表的资源 CRUD，按 category 区分）
@@ -243,7 +239,10 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
     )
     // 开发环境直接激活方便测试，生产环境应等支付回调后激活。
     // 2026-09-18 收紧:须显式设置 PAYMENT_DEV_AUTO_ACTIVATE=1,防止环境标识误配导致未付款直发 VIP
-    if (process.env.NODE_ENV === 'development' && process.env.PAYMENT_DEV_AUTO_ACTIVATE === '1') {
+    if (
+      process.env.NODE_ENV === 'development' &&
+      process.env.PAYMENT_DEV_AUTO_ACTIVATE === '1'
+    ) {
       await purchaseVip({ userId: request.userId!, vipLevelId: level.id, orderId: order.id })
     }
     return reply.send(
