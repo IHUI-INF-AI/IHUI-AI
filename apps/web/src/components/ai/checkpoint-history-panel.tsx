@@ -12,6 +12,7 @@ import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 import type { CheckpointScope } from '@/api/checkpoint-api'
+import { CheckpointRollbackConfirm } from '@/components/ai/checkpoint-rollback-confirm'
 
 interface Checkpoint {
   id: string
@@ -22,13 +23,22 @@ interface Checkpoint {
 
 interface CheckpointHistoryPanelProps {
   checkpoints: Checkpoint[]
+  sessionId: string
   onRestore?: (id: string, scope: CheckpointScope) => void
 }
 
-export function CheckpointHistoryPanel({ checkpoints, onRestore }: CheckpointHistoryPanelProps) {
+export function CheckpointHistoryPanel({
+  checkpoints,
+  sessionId,
+  onRestore,
+}: CheckpointHistoryPanelProps) {
   const t = useTranslations('ai.checkpointHistory')
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
   const [scope, setScope] = React.useState<CheckpointScope>('both')
+  const [confirmTarget, setConfirmTarget] = React.useState<{
+    id: string
+    scope: CheckpointScope
+  } | null>(null)
 
   const toggle = (id: string) => {
     setExpanded((prev) => {
@@ -124,7 +134,7 @@ export function CheckpointHistoryPanel({ checkpoints, onRestore }: CheckpointHis
                         variant="ghost"
                         size="xs"
                         className="mt-1 px-2 text-xs text-muted-foreground hover:text-primary"
-                        onClick={() => onRestore(cp.id, scope)}
+                        onClick={() => setConfirmTarget({ id: cp.id, scope })}
                         data-testid={`checkpoint-restore-${cp.id}`}
                       >
                         <RotateCcw className="h-3 w-3" />
@@ -138,6 +148,23 @@ export function CheckpointHistoryPanel({ checkpoints, onRestore }: CheckpointHis
           </ol>
         )}
       </div>
+
+      <CheckpointRollbackConfirm
+        open={confirmTarget !== null}
+        checkpointId={confirmTarget?.id ?? ''}
+        sessionId={sessionId}
+        scope={confirmTarget?.scope ?? 'both'}
+        checkpointLabel={
+          confirmTarget ? (checkpoints.find((c) => c.id === confirmTarget.id)?.label ?? '') : ''
+        }
+        onConfirm={() => {
+          if (!confirmTarget) return
+          const target = confirmTarget
+          setConfirmTarget(null)
+          onRestore?.(target.id, target.scope)
+        }}
+        onClose={() => setConfirmTarget(null)}
+      />
     </div>
   )
 }

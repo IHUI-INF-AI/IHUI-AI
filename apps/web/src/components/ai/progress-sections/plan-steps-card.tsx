@@ -5,7 +5,17 @@
 'use client'
 
 import * as React from 'react'
-import { AlertCircle, Check, Clock, Copy, ListTodo, Loader2, ChevronDown } from 'lucide-react'
+import {
+  AlertCircle,
+  Check,
+  Clock,
+  Copy,
+  ListTodo,
+  Loader2,
+  ChevronDown,
+  X,
+  SkipForward,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ihui/ui-react'
 import { Tooltip as FeedbackTooltip } from '@/components/feedback'
@@ -28,6 +38,8 @@ const STATUS_ICON: Record<PlanStepStatus, React.ComponentType<{ className?: stri
   pending: Clock,
   in_progress: Loader2,
   completed: Check,
+  failed: X,
+  skipped: SkipForward,
 }
 
 /** 状态 → 图标颜色(精美化:in_progress 主色旋转,completed 翠绿,pending 柔灰) */
@@ -35,6 +47,8 @@ const STATUS_CLS: Record<PlanStepStatus, string> = {
   pending: 'text-muted-foreground/40',
   in_progress: 'text-primary',
   completed: 'text-emerald-500',
+  failed: 'text-red-500',
+  skipped: 'text-muted-foreground/60',
 }
 
 /** 状态 → 步骤点背景(时间线圆点) */
@@ -43,6 +57,8 @@ const STATUS_DOT_CLS: Record<PlanStepStatus, string> = {
   pending: 'bg-muted-foreground/25 ring-2 ring-muted-foreground/30',
   in_progress: 'bg-primary/15 ring-2 ring-ring/20',
   completed: 'bg-emerald-500/15',
+  failed: 'bg-red-500/15',
+  skipped: 'bg-muted-foreground/15',
 }
 
 /** 状态 → 分段进度条颜色(对标 折叠态摘要设计 状态色) */
@@ -53,6 +69,8 @@ const STATUS_BAR_CLS: Record<PlanStepStatus, string> = {
   pending: 'bg-muted-foreground/25 border border-dashed border-muted-foreground/40',
   in_progress: 'bg-primary/70',
   completed: 'bg-emerald-500/70',
+  failed: 'bg-red-500/70',
+  skipped: 'bg-muted-foreground/40',
 }
 
 /** 长 reasoning 阈值:超过此长度用 MarkdownViewer 渲染(支持代码块/列表) */
@@ -63,7 +81,7 @@ const LONG_REASONING_THRESHOLD = 120
  *
  * 2026-07-31 深度优化:
  * - 时间线风格:每个步骤左侧圆点 + 连接线,形成视觉流程
- * - 错误状态:error=true 时用 AlertCircle 图标 + 红色样式(独立视觉分支)
+ * - 错误状态:error=true 或 status=failed 时用 AlertCircle 图标 + 红色样式;skipped 删除线弱化(v2 五态)
  * - 分段进度条:每个步骤对应一段,直观显示每步状态
  * - 步骤分组:同 sourceMessageId 同组,组间视觉分隔
  * - 点击跳转:有 sourceMessageId 时点击跳转消息(ProgressJumpStore)
@@ -94,7 +112,8 @@ export function PlanStepsCard({
   if (steps.length === 0) return null
 
   const doneCount = steps.filter((s) => s.status === 'completed').length
-  const errorCount = steps.filter((s) => s.error).length
+  // 2026-09-19 v2:error 标记与显式 failed 状态均计入失败数(兼容归一化)
+  const errorCount = steps.filter((s) => s.error || s.status === 'failed').length
   const totalDurationMs = steps.reduce((sum, s) => sum + (s.durationMs ?? 0), 0)
   const progressPct = steps.length > 0 ? Math.round((doneCount / steps.length) * 100) : 0
 
@@ -207,13 +226,18 @@ function SegmentedProgressBar({
         aria-hidden
       >
         {steps.map((s) => {
+          // 2026-09-19 v2:五态标签(skipped/failed 独立文案,error 兼容归入 stepError)
           const statusLabel = s.error
             ? t('plan.stepError')
             : s.status === 'in_progress'
               ? t('plan.statusInProgress')
               : s.status === 'completed'
                 ? t('plan.statusCompleted')
-                : t('plan.statusPending')
+                : s.status === 'skipped'
+                  ? t('plan.statusSkipped')
+                  : s.status === 'failed'
+                    ? t('plan.statusFailed')
+                    : t('plan.statusPending')
           const durationText =
             s.durationMs !== undefined && s.durationMs > 0
               ? ` · ${formatDuration(s.durationMs)}`
@@ -299,8 +323,10 @@ function PlanStepItem({
   // 有 sourceMessageId 时整个 li 可点击跳转
   const isJumpable = !!s.sourceMessageId
 
+  // 2026-09-19 v2:failed 统一视觉(error=true 兼容归一化 / 显式 status=failed 均显示红色错误样式)
+  const isFailed = s.error === true || s.status === 'failed'
   // 错误状态优先用 AlertCircle 图标(替代原状态图标)
-  const Icon = s.error ? AlertCircle : STATUS_ICON[s.status]
+  const Icon = isFailed ? AlertCircle : STATUS_ICON[s.status]
 
   // 点击步骤:跳转消息(若有 sourceMessageId)
   const handleClickStep = React.useCallback(() => {
@@ -389,7 +415,7 @@ function PlanStepItem({
       <span
         className={cn(
           'relative z-10 mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full transition-all',
-          s.error ? 'bg-red-500/15 ring-2 ring-red-500/30' : STATUS_DOT_CLS[s.status],
+          isFailed ? 'bg-red-500/15 ring-2 ring-red-500/30' : STATUS_DOT_CLS[s.status],
           isJumpable && 'group-hover:scale-110',
         )}
         aria-hidden
@@ -397,7 +423,7 @@ function PlanStepItem({
         <Icon
           className={cn(
             'h-2.5 w-2.5 transition-colors',
-            s.error ? 'text-red-500' : STATUS_CLS[s.status],
+            isFailed ? 'text-red-500' : STATUS_CLS[s.status],
             s.status === 'in_progress' && !s.error && 'animate-spin',
           )}
         />
@@ -442,13 +468,16 @@ function PlanStepItem({
           <span
             className={cn(
               'flex-1 break-all transition-colors',
-              s.error
+              isFailed
                 ? 'font-medium text-red-600 dark:text-red-400'
                 : s.status === 'in_progress'
                   ? 'font-medium text-foreground'
                   : s.status === 'completed'
                     ? 'text-foreground/80'
-                    : 'text-muted-foreground/60',
+                    : // 2026-09-19 v2:skipped 删除线弱化显示
+                      s.status === 'skipped'
+                      ? 'text-muted-foreground/50 line-through'
+                      : 'text-muted-foreground/60',
             )}
           >
             {s.step}
