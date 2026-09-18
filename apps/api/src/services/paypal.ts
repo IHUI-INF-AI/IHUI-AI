@@ -286,7 +286,8 @@ export function isSubscribedEvent(eventType: string): boolean {
 
 /**
  * 验证 PayPal Webhook 签名。
- * - DEV 环境 + 未配置 PAYPAL_WEBHOOK_ID 时降级直接 parse(便于本地测试)
+ * - 未配置 PAYPAL_WEBHOOK_ID 时默认 fail-closed;仅当显式设置
+ *   ALLOW_INSECURE_WEBHOOKS=1(本地联调)才降级直接 parse。
  * - 生产环境:用 PayPal Verify-Webhook-Signature API 校验
  *   (完整 cert 验签需要 https 下载证书 + RSA 验签,Verify API 是官方推荐方案)
  *
@@ -299,7 +300,7 @@ export async function verifyWebhookSignature(
 ): Promise<PaypalWebhookEvent> {
   const webhookId = env.PAYPAL_WEBHOOK_ID
   if (!webhookId) {
-    if (env.NODE_ENV !== 'production') {
+    if (env.ALLOW_INSECURE_WEBHOOKS === '1' && env.NODE_ENV !== 'production') {
       return JSON.parse(payload) as PaypalWebhookEvent
     }
     throw new Error('PAYPAL_WEBHOOK_ID not configured')
