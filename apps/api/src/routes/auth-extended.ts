@@ -502,6 +502,20 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         roleId: 0,
         status: 1,
       })
+      // 欢迎邮件(异步入队,失败静默 — 绝不阻断注册主流程)
+      try {
+        const { queueWelcomeEmail } = await import('../services/email-service.js')
+        const maskedId = `${emailPrefix.slice(0, 2)}****${emailPrefix.slice(-2)}@${email.split('@')[1] ?? ''}`
+        await queueWelcomeEmail(
+          request.server,
+          user.email ?? email,
+          user.nickname ?? emailPrefix,
+          maskedId,
+          100,
+        )
+      } catch {
+        // 欢迎信失败不影响注册结果
+      }
       return reply.status(201).send(
         success({
           userId: user.id,
