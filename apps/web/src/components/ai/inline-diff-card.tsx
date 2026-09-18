@@ -11,7 +11,9 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { useChatStore } from '@/stores/chat'
+import { buildPartialContent, computeHunkDiff, type DiffRow as HunkDiffRow } from '@/lib/hunk-diff'
 import { DiffCommentPanel } from './diff-comment-panel'
+import { HunkHeader, HunkToolbar } from './diff-hunk-controls'
 import type { InlineDiffInfo } from './types'
 import type { DiffApplyStatus } from '@/stores/chat'
 
@@ -19,88 +21,23 @@ import type { DiffApplyStatus } from '@/stores/chat'
  * Inline Diff 卡片:edit_file/write_file 工具调用专用渲染。
  *
  * 2026-07-22 立 P3 深度层:聊天面板内直接查看代码 diff + Accept/Reject 应用改动。
- *
- * 注意:diff 算法与 `apps/web/src/components/ai/diff-preview.tsx` 的 `computeLcsDiff`
- * 完全一致(真正的 LCS 动态规划)。该函数未导出,且本组件受任务文件清单约束无法修改
- * diff-preview.tsx,故在此内联实现(算法本身是经典 LCS,无业务逻辑差异)。
+ * 2026-09-18 W5:新增 hunk 级接受/拒绝与「应用所选」部分落盘;行级 diff 与 hunk 切分
+ * 统一收敛到 `@/lib/hunk-diff`(LCS 同源、纯函数可单测),本文件不再自带内联实现。
  */
-
-type DiffOp = 'equal' | 'insert' | 'delete'
-
-interface DiffRow {
-  op: DiffOp
-  oldLine?: string
-  newLine?: string
-  oldNum?: number
-  newNum?: number
-}
-
-function computeLcsDiff(oldLines: string[], newLines: string[]): DiffRow[] {
-  const m = oldLines.length
-  const n = newLines.length
-  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0))
-
-  for (let i = m - 1; i >= 0; i--) {
-    const row = dp[i]
-    const nextRow = dp[i + 1]
-    if (!row || !nextRow) continue
-    for (let j = n - 1; j >= 0; j--) {
-      if ((oldLines[i] ?? '') === (newLines[j] ?? '')) {
-        row[j] = (nextRow[j + 1] ?? 0) + 1
-      } else {
-        row[j] = Math.max(nextRow[j] ?? 0, row[j + 1] ?? 0)
-      }
-    }
-  }
-
-  const rows: DiffRow[] = []
-  let i = 0
-  let j = 0
-  let oldNum = 0
-  let newNum = 0
-
-  while (i < m && j < n) {
-    if ((oldLines[i] ?? '') === (newLines[j] ?? '')) {
-      oldNum++
-      newNum++
-      rows.push({ op: 'equal', oldLine: oldLines[i], newLine: newLines[j], oldNum, newNum })
-      i++
-      j++
-    } else if ((dp[i + 1]?.[j] ?? 0) >= (dp[i]?.[j + 1] ?? 0)) {
-      oldNum++
-      rows.push({ op: 'delete', oldLine: oldLines[i], oldNum })
-      i++
-    } else {
-      newNum++
-      rows.push({ op: 'insert', newLine: newLines[j], newNum })
-      j++
-    }
-  }
-
-  while (i < m) {
-    oldNum++
-    rows.push({ op: 'delete', oldLine: oldLines[i], oldNum })
-    i++
-  }
-  while (j < n) {
-    newNum++
-    rows.push({ op: 'insert', newLine: newLines[j], newNum })
-    j++
-  }
-
-  return rows
-}
+type DiffRow = HunkDiffRow
 
 interface InlineDiffCardProps {
   diffInfo: InlineDiffInfo
   applyStatus?: DiffApplyStatus
   applyError?: string
-  /** 点击 Accept:由父组件触发 API 调用并更新 applyStatus */
+  /** 点击 Accept:由父组件触发 API 调用并更新 applyStatus(整卡全量应用) */
   onApply?: () => void
   /** 点击 Reject:仅本地标记为 rejected,无 API 调用 */
   onReject?: () => void
   /** P3 #30(2026-09-16 立):来源工具调用 id,随评审意见记录便于回溯哪次改动 */
   toolCallId?: string
+  /** W5(2026-09-18 立):部分应用 —— 只把「已接受」hunk 重组后的内容落盘 */
+  onApplyPartial?: (newContent: string) => Promise<void>
 }
 
 /** 顶部状态徽章配置 */
@@ -122,6 +59,7 @@ export function InlineDiffCard({
   onApply,
   onReject,
   toolCallId,
+  onApplyPartial,
 }: InlineDiffCardProps) {
   const t = useTranslations('ai.pane')
   // P3 #30 diff 评论:commentTarget=null 表示评论面板关闭;{} 为文件级;带 line 为行级。
@@ -129,16 +67,21 @@ export function InlineDiffCard({
     line?: number
     lineText?: string
   } | null>(null)
+  // W5:被「拒绝」的 hunk id 集合(默认空 = 全部接受,状态最小化)
+  const [rejectedHunks, setRejectedHunks] = React.useState<ReadonlySet<number>>(() => new Set())
+  const [partialBusy, setPartialBusy] = React.useState(false)
   // 本文件已暂存的待发送意见数(订阅整体数组引用 + useMemo 过滤,避免 selector 返回新数组)
   const allComments = useChatStore((s) => s.pendingDiffComments)
   const fileCommentCount = React.useMemo(
     () => allComments.filter((c) => c.filePath === diffInfo.file_path).length,
     [allComments, diffInfo.file_path],
   )
-  const rows = React.useMemo(
-    () => computeLcsDiff(diffInfo.old_content.split('\n'), diffInfo.new_content.split('\n')),
+  const diff = React.useMemo(
+    () => computeHunkDiff(diffInfo.old_content, diffInfo.new_content),
     [diffInfo.old_content, diffInfo.new_content],
   )
+  const rows = diff.rows
+  const hunks = diff.hunks
 
   // 统计 add/remove 行数
   const stats = React.useMemo(() => {
@@ -150,6 +93,32 @@ export function InlineDiffCard({
     }
     return { added, removed }
   }, [rows])
+
+  const acceptedCount = hunks.length - rejectedHunks.size
+  const acceptedIds = React.useMemo(() => {
+    const set = new Set<number>()
+    for (const h of hunks) if (!rejectedHunks.has(h.id)) set.add(h.id)
+    return set
+  }, [hunks, rejectedHunks])
+  // 「应用所选」落盘内容:以原文为基线只替换已接受 hunk(纯函数,可单测)
+  const selectedContent = React.useMemo(
+    () => buildPartialContent(diffInfo.old_content, hunks, acceptedIds),
+    [diffInfo.old_content, hunks, acceptedIds],
+  )
+
+  const toggleHunk = React.useCallback((hunkId: number) => {
+    setRejectedHunks((prev) => {
+      const next = new Set(prev)
+      if (next.has(hunkId)) next.delete(hunkId)
+      else next.add(hunkId)
+      return next
+    })
+  }, [])
+  const handleApplySelected = React.useCallback(() => {
+    if (!onApplyPartial) return
+    setPartialBusy(true)
+    void onApplyPartial(selectedContent).finally(() => setPartialBusy(false))
+  }, [onApplyPartial, selectedContent])
 
   /** P3 #30:行级评论触发(hover 行内图标 → 底部面板定位到该行) */
   const handleRowComment = React.useCallback((line: number, lineText: string) => {
@@ -203,17 +172,46 @@ export function InlineDiffCard({
 
       <CardContent className="p-0">
         <div className="max-h-80 overflow-auto bg-zinc-950 font-mono text-xs">
-          {rows.map((row, idx) => (
-            <DiffRow
-              key={`row-${idx}`}
-              row={row}
-              activeLine={commentTarget?.line}
-              onComment={handleRowComment}
-              commentLabel={t('diffComment.rowAction')}
-            />
-          ))}
+          {rows.map((row, idx) => {
+            const hunkId = diff.hunkIdByRow[idx] ?? null
+            const hunk = hunkId === null ? null : hunks[hunkId]
+            // hunk 首行前插入小标题(上一行不属于同一 hunk 即为首行)
+            const isHunkStart = hunk !== null && diff.hunkIdByRow[idx - 1] !== hunkId
+            return (
+              <React.Fragment key={`row-${idx}`}>
+                {isHunkStart && hunk && (
+                  <HunkHeader
+                    hunk={hunk}
+                    total={hunks.length}
+                    accepted={!rejectedHunks.has(hunk.id)}
+                    disabled={isApplying || partialBusy || isTerminal}
+                    onToggle={() => toggleHunk(hunk.id)}
+                  />
+                )}
+                <DiffRow
+                  row={row}
+                  activeLine={commentTarget?.line}
+                  onComment={handleRowComment}
+                  commentLabel={t('diffComment.rowAction')}
+                />
+              </React.Fragment>
+            )
+          })}
         </div>
       </CardContent>
+
+      {/* W5:hunk 选择工具条 —— 部分应用的唯一落盘入口(整卡 Accept/Reject 仍在 footer 保留) */}
+      {onApplyPartial && !isTerminal && hunks.length > 0 && (
+        <HunkToolbar
+          acceptedCount={acceptedCount}
+          total={hunks.length}
+          disabled={isApplying}
+          applying={partialBusy}
+          onApplySelected={handleApplySelected}
+          onClearSelection={() => setRejectedHunks(new Set(hunks.map((h) => h.id)))}
+          onReset={() => setRejectedHunks(new Set())}
+        />
+      )}
 
       {/* P3 #30:评论输入面板(行级/文件级共用)。用带背景的独立容器,不加分割线(遵循无边框分隔规范) */}
       {commentTarget !== null && (
@@ -315,7 +313,8 @@ function DiffRow({
   const isDel = row.op === 'delete'
   // 行级评论锚定新文件侧行号(返工针对的是新代码);纯删除行无新行号时退回旧行号
   const lineNo = row.newNum ?? row.oldNum
-  const lineContent = (isAdd ? row.newLine : row.oldLine) ?? ''
+  // W5:行内容改为携带行尾符的 DiffLine,渲染只取 text(行尾符仅供重组使用)
+  const lineText = (isAdd ? row.newLine?.text : row.oldLine?.text) ?? ''
   const isActive = activeLine !== undefined && activeLine === lineNo
   return (
     <div
@@ -342,11 +341,11 @@ function DiffRow({
       >
         {isAdd ? '+' : isDel ? '-' : ''}
       </span>
-      <span className="whitespace-pre pr-2 text-zinc-300">{isAdd ? row.newLine : row.oldLine}</span>
+      <span className="whitespace-pre pr-2 text-zinc-300">{lineText}</span>
       {onComment && lineNo !== undefined && (
         <button
           type="button"
-          onClick={() => onComment(lineNo, lineContent)}
+          onClick={() => onComment(lineNo, lineText)}
           aria-label={commentLabel}
           className="ml-auto mr-1 shrink-0 self-center rounded-sm p-0.5 text-zinc-600 opacity-0 transition-opacity hover:bg-white/10 hover:text-zinc-300 group-hover:opacity-100 focus-visible:opacity-100"
           data-testid={`diff-row-comment-${lineNo}`}

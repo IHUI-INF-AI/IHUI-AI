@@ -156,6 +156,10 @@ const mockChatStore = vi.hoisted(() => {
       conversationId: null as string | null,
       userScrolledUp: false,
       userScrolledToTop: false,
+      // 2026-09-18 补齐:真实 store 新增 memoryUpdateNotices(记忆更新提示,按 messageId
+      // 聚合),MessageItem 以叶子选择器订阅 `s.memoryUpdateNotices.find(...)`;
+      // 假 store 缺该字段会直接 TypeError,导致本文件 34 项全红。
+      memoryUpdateNotices: [] as { messageId: string; items: string[] }[],
     },
     listeners: new Set<() => void>(),
   }

@@ -25,9 +25,11 @@ import { persistMessageArchive } from '../utils/conversation-archive.js'
 import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
 import { loadKnowledgeContext } from '../services/knowledge-chat-context.js'
 import {
+  abortConversationStreams,
   createSession,
   detachOnClose,
   emitEvent,
+  emitNamedEvent,
   emitUpstreamLine,
   findSession,
   finishSession,
@@ -269,6 +271,14 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     for (const evt of extraFirstEvents) {
       const chunk: Record<string, unknown> = { [evt.key]: evt.payload }
       if (opts.agentId) chunk.agentId = opts.agentId
+      // 2026-09-18 立:compaction 升级为标准命名帧 —— `event: compaction` + data 带 type 字段,
+      // 与 chunk/done/tool-result 等既有事件同构(此前是 data-only 帧,前端需特判)。
+      // 原 `compaction` 键整体保留,既有前端消费路径零变化(纯增量字段 + 增量事件行)。
+      if (evt.key === 'compaction') {
+        chunk.type = 'compaction'
+        emitNamedEvent(session, 'compaction', JSON.stringify(chunk))
+        continue
+      }
       emitEvent(session, JSON.stringify(chunk))
     }
 
@@ -949,6 +959,36 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     }
 
     return reply.send(success({ ok: true, persisted: true }))
+  })
+
+  // POST /chat/abort — 主动中止进行中的对话流(2026-09-18 立)
+  // 前端「停止」按钮的服务端闭环:此前只断开 SSE 连接,网关侧上游 fetch 靠 15s
+  // 宽限期超时才 abort,期间 ai-service 的工具子进程仍在跑(浪费额度 + 脏状态)。
+  // 本端点按 conversationId(可选 messageId 精确匹配)中止对应上游流,并向流内
+  // 注入 {type:'cancelled'} 终止帧(多端同步场景下其它客户端可见)。
+  const abortSchema = z.object({
+    conversationId: z.string().min(1).optional(),
+    /** 兼容别名:部分调用方只有 ai-service sessionId;当前会话键即 conversationId */
+    sessionId: z.string().min(1).optional(),
+    messageId: z.string().min(1).optional(),
+  })
+
+  server.post('/chat/abort', async (request, reply) => {
+    const parsed = abortSchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const conversationId = parsed.data.conversationId ?? parsed.data.sessionId
+    if (!conversationId) {
+      return reply.status(400).send(error(400, 'conversationId 必填'))
+    }
+    const count = abortConversationStreams(conversationId, parsed.data.messageId)
+    request.log.info(
+      { conversationId, messageId: parsed.data.messageId, aborted: count },
+      '[ChatAbort] abort requested',
+    )
+    // 未命中不是错误(流可能刚好自然结束),仍返回 200 便于前端统一处理
+    return reply.send(success({ ok: true, aborted: count > 0, count }))
   })
 
   // POST /agent/approval-response — 工具审批响应代理(2026-08-30 立)
