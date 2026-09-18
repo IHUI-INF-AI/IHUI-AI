@@ -71,8 +71,11 @@ jobs:
 
       # 桌面端安装器回归守门(2026-09-18 立):防止"安装向导又变回英文 / 默认安装目录又变回
       # Program Files"的静默回退。校验 tauri.conf.json 配置不变量 + installer.nsi 定制块 +
-      # hooks.nsi 职责边界,并与 Tauri CLI 内置模板逐字节比对。
+      # hooks.nsi 职责边界,并与 Tauri CLI 内置模板逐字节比对(静态组 A/B/C 与平台无关,恒生效)。
       # --require-cli:此时 pnpm install 已就位,CLI 必可定位;不允许"找不到 CLI → 跳过 → 绿"。
+      # 注:NSIS 模板只内嵌在 **Windows** 版 Tauri CLI 二进制里,本 job 是 ubuntu-latest,
+      #     故"模板漂移"子项会**显式打印跳过原因**后放行(不是静默跳过);真正强制漂移校验的是
+      #     release-desktop.yml / desktop-build.yml 的 Windows leg + 本机 pre-commit(id 51)。
       - name: Desktop installer guard (wizard language + default install dir)
         run: node scripts/check-desktop-install-dir.mjs --template --require-cli
 
