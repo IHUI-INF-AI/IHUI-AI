@@ -71,8 +71,12 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
 
     async function generateAndPoll() {
       try {
+        // 2026-09-18 修复 App 扫码不出码:此接口无业务 body,但 fetchApi 无 body 的 POST
+        // 不带 Content-Type,经生产代理链路到达 Fastify 5 时被判为不支持媒体类型 → 415,
+        // 面板进入 error 态不渲染二维码。带空 JSON body 使请求携带 application/json 头。
         const genRes = await fetchApi<QrGenerateData>('/api/auth/qr/generate', {
           method: 'POST',
+          body: JSON.stringify({}),
         })
         if (cancelled) return
 
