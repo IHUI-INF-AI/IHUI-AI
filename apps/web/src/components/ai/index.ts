@@ -7,7 +7,6 @@
  *
  * 核心组件：MarkdownStream / DiffPreview / InlineDiffViewer
  * Agent 组件：AgentSwarmMonitor / BackgroundAgentsPanel / PermissionConfirmDialog / SubAgentActivityFeed
- * 语音组件：VoiceInput / VoiceRecord
  * 生成组件群：见 ./ai-generation
  * MCP 组件群：见 ./mcp
  */
@@ -31,9 +30,8 @@ export {
   TOOL_APPROVAL_EVENT,
 } from './tool-approval-dialog'
 
-// 语音组件
-export { VoiceInput } from './voice-input'
-export { VoiceRecord } from './voice-record'
+// 语音组件已整体迁移到 @/components/chat/(voice-input / voice-record / voice-stream-speaker / voice-toolbar),
+// 本 barrel 不再转发,避免跨目录双写。
 
 // 共享类型
 export type {
