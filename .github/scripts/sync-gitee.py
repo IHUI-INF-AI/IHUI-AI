@@ -38,7 +38,13 @@ def gh_api(path):
     req = urllib.request.Request(f"https://api.github.com{path}")
     req.add_header("Authorization", f"Bearer {GH_TOKEN}")
     req.add_header("Accept", "application/vnd.github+json")
-    return json.load(urllib.request.urlopen(req, timeout=60))
+    try:
+        return json.load(urllib.request.urlopen(req, timeout=60))
+    except urllib.error.HTTPError as e:
+        # 2026-09-18:TAG 传错(如 workflow_dispatch 下拿到分支名 main)时原实现直接
+        # 抛裸 HTTPError,只有一长串 urllib 堆栈、看不到请求了哪个路径。这里回显 path。
+        detail = e.read()[:300].decode("utf-8", errors="replace")
+        raise SystemExit(f"[gh] GET {path} -> HTTP {e.code}: {detail}") from e
 
 
 def gitee_api(path, method="GET", data=None):
