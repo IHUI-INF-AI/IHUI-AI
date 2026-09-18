@@ -331,11 +331,17 @@ def _make_loop_v2_llm(model: str | None) -> Any:
         tools: list[Any],
         *,
         on_chunk: Any = None,
+        **model_kwargs: Any,
     ) -> dict[str, Any]:
+        """model_kwargs(2026-09-18 第二批):AgentLoopV2 传入的生成参数透传面
+        (temperature/top_p/max_tokens/reasoning_effort/...),经 llm_gateway
+        的 **kwargs 直达 litellm;未配置时为空,签名与现状逐零差异。"""
         from ..core.llm_gateway import llm_gateway
 
         if on_chunk is None:
-            result = await llm_gateway.complete(messages, model=model)
+            result = await llm_gateway.complete(
+                messages, model=model, **model_kwargs
+            )
             return {
                 "content": result.get("content", ""),
                 "tool_calls": _convert_openai_tool_calls(result.get("tool_calls")),
@@ -351,7 +357,7 @@ def _make_loop_v2_llm(model: str | None) -> Any:
         raw_tool_calls: list[dict[str, Any]] = []
         usage: dict[str, Any] | None = None
         model_used = ""
-        async for evt in llm_gateway.astream(messages, model=model):
+        async for evt in llm_gateway.astream(messages, model=model, **model_kwargs):
             evt_type = evt.get("type")
             if evt_type == "chunk":
                 text = evt.get("content") or ""

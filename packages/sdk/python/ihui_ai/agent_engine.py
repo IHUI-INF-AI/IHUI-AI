@@ -50,6 +50,9 @@ ENGINE_METHODS: tuple[str, ...] = (
     "thread.resume",
     "thread.state",
     "thread.close",
+    "thread.compact",
+    "thread.export",
+    "thread.plan",
     "agent.exec",
     "tools.list",
     "tools.register",
@@ -695,6 +698,18 @@ class AsyncAgent:
     async def state(self) -> dict[str, Any]:
         """线程状态。"""
         return await asyncio.to_thread(self._agent.state)
+
+    async def compact(self, keep_recent: Optional[int] = None) -> dict[str, Any]:
+        """手动压缩线程历史(2026-09-18 第二批)。"""
+        return await asyncio.to_thread(self._agent.compact, keep_recent)
+
+    async def export_thread(self, path: Optional[str] = None) -> dict[str, Any]:
+        """导出线程为 JSONL(2026-09-18 第二批)。"""
+        return await asyncio.to_thread(self._agent.export_thread, path)
+
+    async def get_plan(self) -> dict[str, Any]:
+        """读取线程当前计划(update_plan 内置工具写入)。"""
+        return await asyncio.to_thread(self._agent.get_plan)
 
     async def register_tool(
         self,

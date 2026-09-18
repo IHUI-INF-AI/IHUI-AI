@@ -94,7 +94,10 @@ class TestConstants:
         # P0-B(2026-09-18):terminal.delta 加入白名单
         # (mcp_server run_command 逐行 stdout/stderr,agents.py SSE 订阅转发)
         assert "terminal.delta" in HOOK_EVENTS
-        assert len(HOOK_EVENTS) == 13
+        # 2026-09-18 第二批:llm.retry 加入白名单(对标 Codex StreamError,
+        # _llm_call_with_retry 重试/限流事件源)
+        assert "llm.retry" in HOOK_EVENTS
+        assert len(HOOK_EVENTS) == 17
 
     def test_action_types(self):
         assert "webhook" in HOOK_ACTION_TYPES
