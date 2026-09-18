@@ -10,14 +10,10 @@ import { db } from '../db/index.js'
 import type { FastifyInstance } from 'fastify'
 import type { EmailJobData } from '../plugins/queue.js'
 import {
-  DOC_BG,
-  DOC_BG_HOVER,
-  DOC_BORDER_HARD,
-  DOC_PAGE_BG,
-  DOC_TEXT_BODY,
-  DOC_TEXT_MUTED,
-  DOC_TEXT_STRONG,
-} from '@ihui/design-tokens'
+  renderVerificationEmail,
+  renderWelcomeEmail,
+  type VerificationScene,
+} from './email-templates.js'
 
 /**
  * 邮箱本地脱敏:user@example.com → u***@example.com
@@ -465,35 +461,7 @@ function hmacSha256Hex(key: string | Buffer, data: string): string {
 }
 
 /**
- * 渲染验证码邮件 HTML 模板。
- */
-function renderVerificationEmailHtml(
-  code: string,
-  scene: EmailCodeScene,
-  nickname?: string,
-): string {
-  const sceneText = scene === 'register' ? '注册账号' : scene === 'reset' ? '重置密码' : '登录账号'
-  const greeting = nickname ? `Hi ${nickname},` : 'Hi,'
-  return `<!DOCTYPE html>
-<html lang="zh-CN">
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:${DOC_PAGE_BG};padding:24px;margin:0;">
-  <div style="max-width:480px;margin:0 auto;background:${DOC_BG};border-radius:8px;padding:32px;">
-    <h2 style="margin:0 0 16px;color:${DOC_TEXT_STRONG};font-size:20px;">${greeting}</h2>
-    <p style="margin:0 0 8px;color:${DOC_TEXT_BODY};font-size:14px;">您的${sceneText}验证码是:</p>
-    <div style="margin:16px 0;text-align:center;">
-      <span style="display:inline-block;padding:12px 32px;background:${DOC_BG_HOVER};border-radius:6px;font-size:32px;font-weight:700;letter-spacing:8px;color:${DOC_TEXT_STRONG};">${code}</span>
-    </div>
-    <p style="margin:0 0 8px;color:${DOC_TEXT_BODY};font-size:13px;">验证码 5 分钟内有效,请勿告知他人。</p>
-    <p style="margin:0 0 24px;color:${DOC_TEXT_BODY};font-size:13px;">如非本人操作,请忽略此邮件。</p>
-    <hr style="border:none;border-top:1px solid ${DOC_BORDER_HARD};margin:24px 0;" />
-    <p style="margin:0;color:${DOC_TEXT_MUTED};font-size:12px;">IHUI AI 团队</p>
-  </div>
-</body>
-</html>`
-}
-
-/**
- * 发送验证码邮件(场景化)。
+ * 发送验证码邮件(场景化)。模板渲染见 email-templates.ts(机械风设计系统)。
  * 腾讯云 SES Template 模式下,code/nickname 通过 templateVariables 传给腾讯云模板,
  * 模板正文里用 {{code}} / {{nickname}} 占位符引用。
  */
@@ -503,21 +471,26 @@ export async function sendVerificationEmail(
   scene: EmailCodeScene = 'login',
   nickname?: string,
 ): Promise<SendEmailResult> {
-  const subjectMap: Record<EmailCodeScene, string> = {
-    register: '【IHUI AI】注册验证码',
-    login: '【IHUI AI】登录验证码',
-    reset: '【IHUI AI】重置密码验证码',
+  const sceneTextMap: Record<EmailCodeScene, string> = {
+    register: '注册',
+    login: '登录',
+    reset: '重置密码',
   }
-  const html = renderVerificationEmailHtml(code, scene, nickname)
+  const rendered = renderVerificationEmail(code, scene as VerificationScene, nickname)
+  const subjectMap: Record<EmailCodeScene, string> = {
+    register: '【智汇AI】注册验证码',
+    login: '【智汇AI】登录验证码',
+    reset: '【智汇AI】重置密码验证码',
+  }
   return sendEmail({
     to: email,
     subject: subjectMap[scene],
-    html,
-    text: `您的验证码是 ${code},5 分钟内有效。`,
+    html: rendered.html,
+    text: rendered.text,
     scene,
     templateSlug: 'verify_code',
     metadata: nickname ? { nickname } : undefined,
-    templateVariables: { code, nickname: nickname ?? '', scene },
+    templateVariables: { code, nickname: nickname ?? '', scene, sceneText: sceneTextMap[scene] },
   })
 }
 
@@ -550,6 +523,28 @@ export async function queueEmail(
       return { queued: false, error: (e2 as Error).message }
     }
   }
+}
+
+/**
+ * 渲染欢迎邮件并入队(注册成功后调用)。
+ * 失败静默降级 — 欢迎信绝不能阻断注册主流程。
+ */
+export async function queueWelcomeEmail(
+  server: FastifyInstance,
+  email: string,
+  nickname: string,
+  maskedId: string,
+  initCredits: number,
+): Promise<void> {
+  const rendered = renderWelcomeEmail({ nickname, maskedId, initCredits })
+  await queueEmail(server, {
+    to: email,
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+    scene: 'notification',
+    templateSlug: 'welcome_account',
+  })
 }
 
 /**
