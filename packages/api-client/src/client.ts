@@ -753,6 +753,24 @@ export interface MemoryUpdatesEvent {
   messageId?: string
 }
 
+/** 终端命令执行期间的实时输出增量事件(2026-09-18 立,消息级 terminal inline 实时回显)。
+ *  后端在命令执行期间逐块下发 `event: terminal_delta` + `data: {"type":"terminal_delta",...}`,
+ *  前端按 terminalId 累加到 store.terminalOutputs,供 TerminalSection 实时回显 stdout/stderr。 */
+export interface TerminalDeltaEvent {
+  /** 与 terminal_start 的 terminalId 一致,用于关联同一终端任务 */
+  terminalId: string
+  /** 原命令(与 terminal_start 的 command 一致,便于无 start 事件时兜底关联) */
+  command: string
+  /** 输出流类型:stdout / stderr */
+  stream: 'stdout' | 'stderr'
+  /** 增量文本 */
+  text: string
+  /** 当前迭代轮次 */
+  iteration: number
+  /** 关联 assistant 消息 ID(可选) */
+  messageId?: string
+}
+
 export interface StreamChatOptions {
   model: string
   // role 含 'tool':与 @ihui/context-compaction 的 ChatMessage 及 OpenAI 兼容协议对齐
@@ -846,6 +864,10 @@ export interface StreamChatOptions {
   onTerminalStart?: (event: TerminalStartEvent) => void
   /** 终端任务结束回调(2026-08-01 Phase 4a:消息级 terminal tasks inline 展示) */
   onTerminalEnd?: (event: TerminalEndEvent) => void
+  /** 终端实时输出增量回调(2026-09-18 立,消息级 terminal inline 实时回显)。
+   *  命令执行期间后端逐块下发 terminal_delta SSE 事件,前端按 terminalId 累加到 store.terminalOutputs,
+   *  与 onTerminalStart/End(任务级生命周期)互补:本回调负责命令执行中的流式文本。 */
+  onTerminalDelta?: (event: TerminalDeltaEvent) => void
   /** 自动重连最大次数(默认 3)。网络错误指数退避重连,业务错误(401/403/429)不重连 */
   maxRetries?: number
   /** 自动重连前回调(前端可显示"网络波动,正在重连…") */
@@ -1012,6 +1034,11 @@ export function parseStreamLine(line: string): string | null {
       throw attachErrorMeta(e, json)
     }
     if (json?.type === 'reasoning') return null
+    // 2026-09-18 立:thinking / terminal_delta / compaction 走专用通道,
+    // 绝不能回落成正文增量(parseStreamLine 对每行都会调用,必须在兜底抽取前拦截)。
+    if (json?.type === 'thinking') return null
+    if (json?.type === 'terminal_delta') return null
+    if (json?.type === 'compaction') return null
     const choice = json?.choices?.[0]
     const delta =
       choice?.delta?.content ??
@@ -1667,6 +1694,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const hasPlanUpdate = typeof opts.onPlanUpdate === 'function'
       const hasTerminal =
         typeof opts.onTerminalStart === 'function' && typeof opts.onTerminalEnd === 'function'
+      // 终端实时输出增量(2026-09-18 立):onTerminalDelta 存在时启用解析
+      const hasTerminalDelta = typeof opts.onTerminalDelta === 'function'
       // #11 Citations 全链路(2026-09-13 立):knowledge_lookup 工具执行后下发引用溯源
       const hasCitations = typeof opts.onCitations === 'function'
       // P1 #27(2026-09-16 立):done 事件携带 memoryUpdates(已记住提示条数据源)
@@ -2201,6 +2230,70 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /** 2026-09-18 立:解析 terminal_delta SSE 事件(命令执行期间 stdout/stderr 实时增量)。
+       *  - 后端逐块下发 `event: terminal_delta` + `data: {"type":"terminal_delta",...}`
+       *  - 按 terminalId 累加到 store.terminalOutputs(TerminalSection 实时回显),不落正文。
+       *  - 与 tryParseTerminal(任务级 start/end)互补:本函数只处理执行中的流式文本。 */
+      const tryParseTerminalDelta = (line: string): void => {
+        if (!hasTerminalDelta) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'terminal_delta') return
+          if (typeof json.terminalId !== 'string') return
+          const stream = json.stream === 'stderr' ? 'stderr' : 'stdout'
+          opts.onTerminalDelta!({
+            terminalId: json.terminalId,
+            command: typeof json.command === 'string' ? json.command : '',
+            stream,
+            text: typeof json.text === 'string' ? json.text : '',
+            iteration: typeof json.iteration === 'number' ? json.iteration : 0,
+            ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+          })
+        } catch {
+          /* 非 JSON 或非 terminal_delta 事件忽略 */
+        }
+      }
+
+      /** 2026-09-18 立:解析 thinking SSE 事件(agent 通道的 hook thinking.delta 映射)。
+       *  - 后端发 `event: thinking` + `data: {"type":"thinking","content":"..."}`
+       *  - 两种(reasoning / thinking)都走 reasoning 通道:本函数把 content 投递给 onReasoning。
+       *  - 若 onReasoning 未传则直接丢弃,绝不回落成正文(parseStreamLine 已有 type 拦截兜底)。 */
+      const tryParseThinking = (line: string): void => {
+        if (!hasReasoning) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'thinking') return
+          if (typeof json.content !== 'string') return
+          opts.onReasoning!(json.content)
+        } catch {
+          /* 非 JSON 或非 thinking 事件忽略 */
+        }
+      }
+
       /** #11(2026-09-13):解析 citations SSE 事件(knowledge_lookup 工具执行后下发的引用溯源)。 */
       const tryParseCitations = (line: string): void => {
         if (!hasCitations) return
@@ -2360,6 +2453,14 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
               return 'terminal'
             case 'citations':
               return 'citations'
+            // 2026-09-18 立:terminal_delta / thinking 走专用通道(与 reasoning 同理不落正文)
+            case 'terminal_delta':
+              return 'terminal_delta'
+            case 'thinking':
+              return 'thinking'
+            // 2026-09-18 立:补 type==='compaction' 这一路(原仅认 json.compaction 字段形态)
+            case 'compaction':
+              return 'compaction'
             default:
               return null
           }
@@ -2390,6 +2491,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseTerminal(line)
         } else if (route === 'citations') {
           tryParseCitations(line)
+        } else if (route === 'terminal_delta') {
+          tryParseTerminalDelta(line)
+        } else if (route === 'thinking') {
+          tryParseThinking(line)
         } else if (route === 'usage') {
           tryParseUsage(line)
         } else {
@@ -2407,6 +2512,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseCitations(line)
           tryParseUsage(line)
           tryParseMemoryUpdates(line)
+          tryParseTerminalDelta(line)
+          tryParseThinking(line)
         }
       }
 

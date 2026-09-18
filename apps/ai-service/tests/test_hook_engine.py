@@ -91,7 +91,10 @@ class TestConstants:
         # (agent_loop_v2 发出,agents.py /agents/tasks/stream 订阅转发)
         assert "thinking.delta" in HOOK_EVENTS
         assert "plan.step" in HOOK_EVENTS
-        assert len(HOOK_EVENTS) == 12
+        # P0-B(2026-09-18):terminal.delta 加入白名单
+        # (mcp_server run_command 逐行 stdout/stderr,agents.py SSE 订阅转发)
+        assert "terminal.delta" in HOOK_EVENTS
+        assert len(HOOK_EVENTS) == 13
 
     def test_action_types(self):
         assert "webhook" in HOOK_ACTION_TYPES
