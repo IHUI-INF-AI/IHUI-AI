@@ -245,7 +245,11 @@ export function LoginForm(props: LoginFormProps) {
 
       {/* 注册链接 */}
       {showRegisterLink && (onRegister || registerHref) && (
-        <p className="text-center text-sm text-muted-foreground">
+        // 2026-09-18 呼吸感:mt-3 让本行与上方(第三方图标网格/QrTab)的间距
+        // 从 16px 拉到 28px(16+12),与"登录按钮→第三方登录标题"的 28px 节奏对齐
+        // (用户反馈这行字憋得难受;Tailwind v4 space-y 用前元素 margin-block-end,
+        // 本行自身 mt 叠加不冲突)。qr tab 场景上一兄弟是 QrTab,同样受益。
+        <p className="mt-3 text-center text-sm text-muted-foreground">
           {t('auth.noAccount')}{' '}
           <button
             type="button"
