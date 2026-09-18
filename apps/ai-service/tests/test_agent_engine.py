@@ -643,7 +643,14 @@ async def test_events_are_forwarded_and_filtered_by_session():
         emit,
     )
     events = [m for m in notifications if m.get("method") == "thread/event"]
-    assert [e["params"]["event"] for e in events] == ["tool.before", "thinking.delta"]
+    # 2026-09-18 第二批:引擎自产 environment_context(prompt 前)与
+    # turn.usage(回合结束)同走 thread/event 通道,插入总线事件序列首尾。
+    assert [e["params"]["event"] for e in events] == [
+        "environment_context",
+        "tool.before",
+        "thinking.delta",
+        "turn.usage",
+    ]
     assert all(e["params"]["threadId"] == thread_id for e in events)
 
 
