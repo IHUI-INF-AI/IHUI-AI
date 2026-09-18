@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, SquareSlash, AtSign, Info, Camera } from 'lucide-react'
+import { Send, Square, Info } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -99,7 +99,6 @@ export function MessageInput({
   onFloatDragStart,
 }: MessageInputProps) {
   const t = useTranslations('chat')
-  const tA11y = useTranslations('a11y')
   // 2026-08-02 修复: Bug 3 — useRouter 替代 window.location.href,避免整页刷新丢失状态
   const router = useRouter()
   // 权限模式循环切换 hook(2026-07-29 提取自本文件,深度对标 Codex CLI Shift+Tab 循环):
@@ -420,6 +419,47 @@ export function MessageInput({
     fileInputRef.current?.click()
     toast.info(t('screenshotHint'))
   }, [isStreaming, t])
+
+  // 全局快捷键消费者(2026-09-18 用户规则:"这里这么多按钮都重合了 用快捷命令就能呼出使用"):
+  // 输入工具栏的 / / @ / 截图 三个独立按钮已移除,改用 use-global-shortcuts.ts 派发的
+  // 三个 window CustomEvent 触发等价行为(见 DEFAULT_SHORTCUTS 新增项):
+  //   · Ctrl+Shift+/  → open-slash  → 打开 SlashCommandPalette
+  //   · Ctrl+Shift+A  → mention-file → 末尾插入 @ 字符 + 打开 FileMentionPopover
+  //   · Ctrl+Shift+M  → screenshot  → 复用 handleScreenshot(file 选择器 + toast)
+  // 监听挂载在 window:整个 message-input 生命周期内始终可用,不受 textarea 是否聚焦影响
+  // (与 ai-side-panel 的 Alt+P 处理一致,均用 window.addEventListener 消费事件)。
+  React.useEffect(() => {
+    const onOpenSlash = () => {
+      if (isStreaming) return
+      setSlashOpen(true)
+    }
+    const onMentionFile = () => {
+      if (isStreaming) return
+      const next = (value.endsWith(' ') || value === '' ? `${value}@` : `${value} @`).slice(
+        0,
+        MAX_LENGTH,
+      )
+      setValue(next)
+      setMentionOpen(true)
+      requestAnimationFrame(() => {
+        inputCoreRef.current?.focus()
+        const pos = next.length
+        inputCoreRef.current?.setSelectionRange(pos, pos)
+        inputCoreRef.current?.resize()
+      })
+    }
+    const onScreenshot = () => {
+      handleScreenshot()
+    }
+    window.addEventListener('global-shortcut:open-slash', onOpenSlash)
+    window.addEventListener('global-shortcut:mention-file', onMentionFile)
+    window.addEventListener('global-shortcut:screenshot', onScreenshot)
+    return () => {
+      window.removeEventListener('global-shortcut:open-slash', onOpenSlash)
+      window.removeEventListener('global-shortcut:mention-file', onMentionFile)
+      window.removeEventListener('global-shortcut:screenshot', onScreenshot)
+    }
+  }, [isStreaming, value, handleScreenshot])
 
   // 手动压缩上下文(2026-09-02 立):点击触发 POST /api/chat/compact
   // - 请求进行中 loading + 禁用;compressed=true → 成功 toast + 重新拉取当前会话消息列表
@@ -807,79 +847,34 @@ export function MessageInput({
               {/* 附件入口已合并到上方"添加"下拉菜单第 4 项(2026-07-25 合并),此处不再保留独立按钮,
                   避免和"添加 → 添加附件"重复造成用户认知负担。
                   若需要触发 file input,在"添加"菜单中点击"添加附件"项即可(fileInputRef 共享)。 */}
-              {/* / 独立按钮:点击弹出 SlashCommandPalette(锚定按钮上方,无遮罩轻弹出) */}
+              {/* 斜杠 / @ / 截图 三个独立按钮已移除(2026-09-18 用户规则:"这里这么多按钮都重合了"):
+                  改用全局快捷键呼出(见 use-global-shortcuts.ts DEFAULT_SHORTCUTS):
+                    · Ctrl+Shift+/  → global-shortcut:open-slash  → 打开 SlashCommandPalette
+                    · Ctrl+Shift+A  → global-shortcut:mention-file → 插入 @ 并弹出 FileMentionPopover
+                    · Ctrl+Shift+M  → global-shortcut:screenshot  → 触发 fileInputRef + 提示 Ctrl+V
+                  SlashCommandPalette 仍挂载但换用隐藏 anchor:面板 PortalPanel 需要 anchor 定位,
+                  这里挂一个 0 尺寸的绝对定位 span 锚定在工具栏左上角,视觉不占位。 */}
               <SlashCommandPalette
                 commands={slashCommands}
                 onSelect={handleCommandSelect}
                 onSelectArgs={handleCommandArgsSelect}
                 open={slashOpen}
                 onOpenChange={setSlashOpen}
-                tooltip={tA11y('slashCommand')}
               >
-                <button
-                  type="button"
-                  disabled={isStreaming}
-                  aria-label={tA11y('slashCommand')}
-                  className={cn(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                    'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
-                >
-                  <SquareSlash className="h-4 w-4" />
-                </button>
+                <span
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: 0,
+                    height: 0,
+                    opacity: 0,
+                    pointerEvents: 'none',
+                  }}
+                />
               </SlashCommandPalette>
-              {/* @ 独立按钮:点击在 textarea 末尾插入 @ 字符并触发 FileMentionPopover */}
-              <Tooltip content={tA11y('mentionFile')}>
-                <span className="inline-flex">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isStreaming) return
-                      const next = (
-                        value.endsWith(' ') || value === '' ? `${value}@` : `${value} @`
-                      ).slice(0, MAX_LENGTH)
-                      setValue(next)
-                      setMentionOpen(true)
-                      requestAnimationFrame(() => {
-                        inputCoreRef.current?.focus()
-                        const pos = next.length
-                        inputCoreRef.current?.setSelectionRange(pos, pos)
-                        inputCoreRef.current?.resize()
-                      })
-                    }}
-                    disabled={isStreaming}
-                    aria-label={tA11y('mentionFile')}
-                    className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                      'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                      'disabled:cursor-not-allowed disabled:opacity-50',
-                    )}
-                  >
-                    <AtSign className="h-4 w-4" />
-                  </button>
-                </span>
-              </Tooltip>
-              {/* 截图入口:浏览器无系统截图 API(非 Electron/Tauri 截图命令),
-                  按钮走文件选择,并提示可直接粘贴剪贴板截图(handlePaste 已接管图片) */}
-              <Tooltip content={t('screenshot')} side="top">
-                <span className="inline-flex">
-                  <button
-                    type="button"
-                    onClick={handleScreenshot}
-                    disabled={isStreaming}
-                    data-testid="input-screenshot"
-                    aria-label={t('screenshot')}
-                    className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                      'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                      'disabled:cursor-not-allowed disabled:opacity-50',
-                    )}
-                  >
-                    <Camera className="h-4 w-4" />
-                  </button>
-                </span>
-              </Tooltip>
               {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
                   与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
               <ModeSwitcher disabled={isStreaming} />
