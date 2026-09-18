@@ -89,6 +89,7 @@ const result = spawnSync('pnpm -r run typecheck', {
   cwd: ROOT,
   stdio: 'inherit',
   shell: true,
+  windowsHide: true, // 根治:pnpm -r 给每个子包拉 cmd.exe,无此参数时控制台链断裂即弹可见窗口(实测一次 typecheck ~30 次闪窗)
 })
 
 if (result.status !== 0) {
@@ -116,6 +117,7 @@ if (existsSync(webE2eTsconfig)) {
       cwd: ROOT,
       stdio: 'inherit',
       shell: true,
+      windowsHide: true,
     })
 
     if (e2eResult.status !== 0) {
@@ -172,7 +174,7 @@ if (existsSync(aiServiceDir)) {
     if (!mypyExecutable) {
       // 回退:探测 PATH。仅当 `mypy --version` 真正成功(status 0)才认可,
       // 避免 shell:true 下 `command not found` 也返回非 0 被误当可用。
-      const probe = spawnSync('mypy', ['--version'], { shell: true, stdio: 'ignore' })
+      const probe = spawnSync('mypy', ['--version'], { shell: true, stdio: 'ignore', windowsHide: true })
       if (probe.status === 0) mypyExecutable = 'mypy'
     }
 
@@ -189,6 +191,7 @@ if (existsSync(aiServiceDir)) {
         cwd: aiServiceDir,
         stdio: 'inherit',
         shell: true,
+        windowsHide: true,
       })
 
       if (mypyResult.status !== 0) {
