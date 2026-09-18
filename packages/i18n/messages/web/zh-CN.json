@@ -6853,7 +6853,20 @@
       "scopeLabel": "回退范围",
       "scopeConversation": "对话",
       "scopeCode": "代码",
-      "scopeBoth": "两者"
+      "scopeBoth": "两者",
+      "rollbackConfirmTitle": "确认恢复此检查点？",
+      "rollbackConfirmLoading": "正在计算影响范围…",
+      "rollbackConfirmLoadFailed": "影响范围加载失败",
+      "rollbackConfirmDesc": "恢复将把以下文件回退到检查点状态：",
+      "rollbackConfirmAdded": "+{count} 行",
+      "rollbackConfirmDeleted": "-{count} 行",
+      "rollbackConfirmViewDiff": "查看 diff",
+      "rollbackConfirmHideDiff": "收起 diff",
+      "rollbackConfirmContentTruncated": "内容过长已截断",
+      "rollbackConfirmMoreFiles": "等 {count} 个文件",
+      "rollbackConfirmNoFiles": "无文件变更（仅恢复对话，共 {count} 条消息）",
+      "rollbackConfirmCancel": "取消",
+      "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
       "ariaLabel": "Agent 任务进度面板",
@@ -7214,7 +7227,14 @@
       "messageUsage": {
         "total": "总用量",
         "ariaLabel": "消息用量详情"
-      }
+      },
+      "retryBadge": "重试{count}次",
+      "retryBadgeAria": "工具瞬时失败后自动重试 {count} 次"
+    },
+    "tokenUsage": {
+      "promptTokens": "提示词",
+      "completionTokens": "补全",
+      "totalTokens": "总计"
     },
     "title": "AI 助手",
     "thinking": "AI 生成中…",
@@ -7222,7 +7242,20 @@
     "retry": "重试",
     "emptyContent": "暂无内容，请先输入正文",
     "seoScore": "SEO 评分",
-    "generateTitles": "生成标题"
+    "generateTitles": "生成标题",
+    "message": {
+      "metrics": {
+        "tokens": "tokens",
+        "firstToken": "首 {s}",
+        "cost": "¥{cost}",
+        "detailTitle": "用量明细",
+        "reasoningTokens": "推理 tokens",
+        "firstTokenDetail": "首 token",
+        "durationDetail": "总耗时",
+        "modelDetail": "模型",
+        "costDetail": "成本"
+      }
+    }
   },
   "aiCareerPage": {
     "export": {
@@ -8783,7 +8816,10 @@
         "truncatedNotice": "以下内容已被截断",
         "archiveTitle": "已归档会话",
         "viewArchived": "查看已归档"
-      }
+      },
+      "dividerTitle": "上方历史已压缩为摘要",
+      "dividerDescription": "上下文已从 {before} tokens 压缩至 {after} tokens,更早的对话被折叠为摘要",
+      "dividerSaved": "节省 {ratio}%"
     },
     "contextCompacted": "上下文已自动压缩",
     "contextCompactedDesc": "{before} → {after}(移除 {removed} 条历史)",
@@ -8847,7 +8883,9 @@
       "shareFailed": "获取分享链接失败",
       "shareLinkCopied": "分享链接已复制",
       "roleUser": "用户",
-      "roleAssistant": "助手"
+      "roleAssistant": "助手",
+      "exportCard": "分享图片卡",
+      "shareCardUser": "用户"
     },
     "fallbackNotice": "已切换到备用模型 {backup}(原模型 {primary} 暂时不可用)",
     "feedbackRecorded": "已记录反馈",
@@ -9134,10 +9172,13 @@
       "reasoningCopied": "推理过程已复制",
       "reasoningCopyFailed": "复制失败",
       "statusCompleted": "已完成",
+      "statusFailed": "失败",
       "statusInProgress": "正在",
       "statusPending": "待开始",
+      "statusSkipped": "已跳过",
       "stepAnswer": "回答",
       "stepError": "失败",
+      "stepOf": "步骤{index}:{step}",
       "stepThinking": "思考",
       "summaryAllDone": "全部完成",
       "summaryErrorCount": "错误 {count}",
@@ -9326,6 +9367,12 @@
     "stepAnswer": "回答",
     "stepThinking": "思考",
     "stop": "停止生成",
+    "steer": "立即引导(当前工具完成后生效)",
+    "steerFailed": "引导失败(队列已满或流已结束),请稍后重试",
+    "steerNoticeBar": {
+      "title": "已引导 {count} 次",
+      "moreItems": "等 {count} 条"
+    },
     "streamingIndicator": "AI 正在生成中",
     "streamingIndicatorHint": "AI 正在生成中,可输入下一条消息草稿",
     "historyNavPosition": "输入历史 {current}/{total}",
@@ -9574,7 +9621,10 @@
     "voiceHandsFreeOn": "连续对话已开启（说话即发送）",
     "voiceHandsFreeOff": "连续对话已关闭",
     "voicePlayback": "朗读",
-    "voiceHandsFree": "连续"
+    "voiceHandsFree": "连续",
+    "locator": {
+      "title": "对话定位导航"
+    }
   },
   "chatHistory": {
     "backToHistory": "返回任务列表",
@@ -10330,6 +10380,7 @@
       "clientOpencode": "OpenCode",
       "clientGemini": "Gemini CLI",
       "clientGrok": "Grok CLI",
+      "clientCcSwitch": "CC Switch",
       "copy": "复制",
       "copied": "已复制",
       "copyFailed": "复制失败",
@@ -19379,7 +19430,6 @@
       "changePhoneFailed": "修改手机号失败,请稍后重试",
       "changePhoneTitle": "修改手机号",
       "codePlaceholder": "请输入 6 位验证码",
-      "completionTokens": "补全",
       "confirmChange": "确认修改",
       "cropCancel": "取消",
       "cropConfirm": "确认上传",
@@ -19414,13 +19464,11 @@
       "oldCodeSent": "旧手机号验证码已发送",
       "oldPhone": "当前手机号",
       "phoneChanged": "手机号修改成功",
-      "promptTokens": "提示词",
       "resend": "{seconds}s 后重试",
       "routines": "例行程序",
       "sendCodeFailed": "验证码发送失败,请稍后重试",
       "sendNewCode": "获取新验证码",
       "sendOldCode": "获取旧验证码",
-      "totalTokens": "总计",
       "userId": "用户 ID",
       "voiceRecord": "语音录制",
       "title": "用户资料"
