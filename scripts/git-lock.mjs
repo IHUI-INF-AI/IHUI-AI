@@ -16,13 +16,18 @@
  *   node scripts/git-lock.mjs acquire [--unit <id>] [--timeout <ms>] [--stale <ms>]
  *   node scripts/git-lock.mjs release [--unit <id>]
  *   node scripts/git-lock.mjs check              # 只读:是否有锁,exit 0=无锁 1=有锁
+ *   node scripts/git-lock.mjs heartbeat --unit <id> [--interval <ms>] [--parent-pid <pid>]
  *
  * 锁语义:
  *   - 锁 = .git/ihui-git-write.lock 目录(mkdir 原子性)
  *   - 锁内 meta 文件记录 { unitId, pid, ts }
  *   - 可重入:同 unitId(同一写操作单元,如 safe-commit 及其 post-commit 子进程)
  *     再次 acquire 直接通过,避免嵌套死锁
- *   - stale 清理:锁年龄超过 staleMs(默认 300s)视为悬挂锁,强制抢占
+ *   - 心跳续期(2026-09-18 根治):持锁方 spawn heartbeat 子进程(随父进程死亡自动退出),
+ *     每 intervalMs 重写 meta.ts。根治事故:长流程(pre-commit 多分钟)期间 meta.ts 停留在
+ *     acquire 时刻,被并发方按"悬挂锁"误判强制抢占 → 两个进程同时写 .git(锁反而制造损坏)。
+ *   - stale 清理(2026-09-18 加固):锁年龄超过 staleMs(默认 300s)**且持有者 pid 已死**
+ *     才强制抢占;活进程的锁绝不被抢。另设 hardStale(默认 1800s)兜底 pid 复用假阳性。
  *   - 超时:acquire 等待 timeoutMs(默认 120s)后抛错
  *
  * 集成点(见 AGENTS.md 事故复盘):
@@ -84,11 +89,24 @@ function removeLock(dir) {
   }
 }
 
+/** 检测进程是否存活(signal 0 探测,跨平台;EPERM 视为存在) */
+function isPidAlive(pid) {
+  if (!pid || Number(pid) === process.pid) return true
+  try {
+    process.kill(Number(pid), 0)
+    return true
+  } catch (e) {
+    return e.code === 'EPERM'
+  }
+}
+
 /**
  * 获取锁。返回 true 表示获取成功;同 unitId 可重入直接成功。
- * 锁为悬挂(stale)时强制抢占。等待用异步 setTimeout(不依赖外部 sleep 命令)。
+ * stale 判定(2026-09-18 加固):年龄超 staleMs **且持有者 pid 已死** 才抢占——
+ * 活进程的锁(哪怕流程很长)绝不被抢,根治"长 commit 被误判悬挂 → 并发写损坏"。
+ * hardStale(默认 1800s)兜底:pid 复用等极端假阳性时最终能逃生。
  */
-async function acquire({ unitId, timeoutMs = 120_000, staleMs = 300_000 }) {
+async function acquire({ unitId, timeoutMs = 120_000, staleMs = 300_000, hardStaleMs = 1_800_000 }) {
   const dir = lockDir()
   const deadline = Date.now() + timeoutMs
   for (;;) {
@@ -103,15 +121,20 @@ async function acquire({ unitId, timeoutMs = 120_000, staleMs = 300_000 }) {
         // 同一写操作单元(如 safe-commit → post-commit 链路)可重入
         return true
       }
-      if (meta && Date.now() - (meta.ts ?? 0) > staleMs) {
-        // 悬挂锁(进程崩溃未释放):强制抢占
-        removeLock(dir)
-        continue
+      if (meta) {
+        const age = Date.now() - (meta.ts ?? 0)
+        const holderAlive = isPidAlive(meta.pid)
+        if (age > hardStaleMs || (age > staleMs && !holderAlive)) {
+          // 悬挂锁(持有者已崩溃退出):强制抢占
+          removeLock(dir)
+          continue
+        }
       }
       if (Date.now() > deadline) {
+        const alive = meta ? isPidAlive(meta.pid) : false
         throw new Error(
-          `git 写锁等待超时(${timeoutMs}ms)。当前持锁: ${meta ? `unit=${meta.unitId} pid=${meta.pid} 于 ${new Date(meta.ts).toLocaleTimeString()}` : '未知'}。` +
-            '若为残留锁(进程已退出),超过 stale 时间会自动抢占;紧急可删 .git/ihui-git-write.lock',
+          `git 写锁等待超时(${timeoutMs}ms)。当前持锁: ${meta ? `unit=${meta.unitId} pid=${meta.pid} 于 ${new Date(meta.ts).toLocaleTimeString()}(${alive ? '持有者仍在运行,请耐心等待或稍后重试' : '持有者已退出,等待 stale 抢占'})` : '未知'}。` +
+            '若确认为残留锁,超过 stale 时间会自动抢占;紧急可删 .git/ihui-git-write.lock',
         )
       }
       // 轮询等待(异步 setTimeout)
@@ -140,6 +163,31 @@ function check() {
   return 1
 }
 
+/**
+ * 心跳续期(2026-09-18 根治):每 intervalMs 重写 meta.ts,使长流程持锁永不误判悬挂。
+ * 退出条件(全部自动,无需清理动作):
+ *   - 锁目录消失(已释放)或 unitId 易主
+ *   - parentPid 指定的持锁父进程已退出(detached spawn 场景父死子亡)
+ */
+async function heartbeat({ unitId, intervalMs = 5_000, parentPid }) {
+  const dir = lockDir()
+  for (;;) {
+    const meta = readMeta(dir)
+    if (!meta || (unitId && meta.unitId !== unitId)) return
+    if (parentPid && !isPidAlive(parentPid)) return
+    try {
+      writeFileSync(
+        metaFile(dir),
+        JSON.stringify({ unitId: meta.unitId, pid: meta.pid, ts: Date.now() }),
+        'utf8',
+      )
+    } catch {
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2)
   const cmd = args[0]
@@ -161,10 +209,16 @@ async function main() {
       console.log('released')
     } else if (cmd === 'check') {
       process.exit(check())
+    } else if (cmd === 'heartbeat') {
+      await heartbeat({
+        unitId: getOpt('--unit') ?? '',
+        intervalMs: Number(getOpt('--interval') ?? 5_000),
+        parentPid: getOpt('--parent-pid') ? Number(getOpt('--parent-pid')) : undefined,
+      })
     } else if (cmd === 'git-dir') {
       console.log(gitDir())
     } else {
-      console.error('用法: git-lock.mjs acquire|release|check [--unit <id>] [--timeout <ms>] [--stale <ms>]')
+      console.error('用法: git-lock.mjs acquire|release|check|heartbeat [--unit <id>] [--timeout <ms>] [--stale <ms>] [--parent-pid <pid>]')
       process.exit(1)
     }
   } catch (e) {
