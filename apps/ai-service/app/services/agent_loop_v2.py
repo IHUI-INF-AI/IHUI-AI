@@ -891,6 +891,11 @@ class AgentLoopV2:
         # TOOL_APPROVAL_TIMEOUT 覆盖。传 None 使用 env 解析结果。
         approval_enabled: bool | None = None,
         approval_timeout: float | None = None,
+        # P3-工具级审批策略(2026-09-18 立,对标 Codex harness per-tool approval_policy):
+        # {tool_name: "never"|"on-request"|"always"}。显式配置优先于模式隐含逻辑与
+        # 高危清单:never 强制免审(高危清单也放行)、always 每次必审(auto 只读免审
+        # 也被覆盖)、on-request = 现状。非法值构造期即 raise(与 permission_mode 同款)。
+        approval_policies: dict[str, str] | None = None,
         # 权限三模式(2026-09-02 立,对标 Claude Code permission modes):
         # default=与现状完全一致(回归红线);plan=循环层强制只读;auto=只读工具免审批。
         # 默认 None 时取自 env AGENT_PERMISSION_MODE,再回退 "default";构造参数优先于 env。
@@ -1001,6 +1006,18 @@ class AgentLoopV2:
                 " 取值必须为 'default' / 'plan' / 'auto'"
             )
         self._permission_mode: str = _resolved_mode
+
+        # 工具级审批策略(构造期校验,非法值 fail-fast)
+        _VALID_APPROVAL_POLICIES = ("never", "on-request", "always")
+        self._approval_policies: dict[str, str] = {}
+        if approval_policies:
+            for _tool, _pol in approval_policies.items():
+                if _pol not in _VALID_APPROVAL_POLICIES:
+                    raise ValueError(
+                        f"非法 approval_policy: 工具 {_tool!r} 值 {_pol!r},"
+                        " 取值必须为 'never' / 'on-request' / 'always'"
+                    )
+            self._approval_policies = dict(approval_policies)
 
         # plan 模式:循环入口强制收窄工具集为「传入 tools ∩ READONLY_TOOLS」,
         # LLM schema 也仅暴露只读工具(双保险:既收窄可见工具,又在执行入口做防御性再校验)。
@@ -1423,6 +1440,7 @@ class AgentLoopV2:
 
         # 回滚护栏:补丁落盘前对目标文件拍快照(每文件首次,保留 pre-heal 内容)
         heal_snapshots: dict[str, str] = {}  # file_path -> version_id
+        patch_events: list[dict[str, Any]] = []  # PostApplyPatch 事件收集(闭包同步,async 层发)
 
         def _patch_adapter(task: Any, result: Any) -> dict[str, Any] | None:
             """heal patch_fn 契约 (task, result):生成补丁 → 落盘前快照 → 应用。"""
@@ -1459,6 +1477,17 @@ class AgentLoopV2:
                     logger.debug("[self_heal] 补丁前快照失败(%s): %s", file_path, e)
             applied, apply_info = apply_patch_descriptor(patch)
             patch = {**patch, "applied": applied}
+            # PostApplyPatch hook(2026-09-18 立,对标 Codex harness 事件词汇):
+            # 补丁应用结果先收集,由 _maybe_self_heal 的 async 层统一发 patch.applied
+            # (本闭包为同步函数,不能 await;hook_engine 白名单已收录该事件)。
+            patch_events.append(
+                {
+                    "session_id": self._session_id or "",
+                    "file_path": patch.get("file_path"),
+                    "applied": applied,
+                    "apply_info": apply_info if isinstance(apply_info, dict) else str(apply_info),
+                }
+            )
             if not applied:
                 patch["apply_error"] = apply_info
             return patch
@@ -1488,6 +1517,11 @@ class AgentLoopV2:
         except Exception as e:  # noqa: BLE001 - heal 失败不阻塞主循环
             logger.warning("[self_heal] heal 执行失败(降级,不阻塞主循环): %s", e)
             outcome_dict = {"ok": False, "error": str(e)}
+
+        # PostApplyPatch 事件统一发射(闭包内收集;失败降级不阻塞主循环)
+        for _pe in patch_events:
+            with contextlib.suppress(Exception):
+                await self._events.emit("patch.applied", _pe)
 
         # 回滚护栏:heal 未修复时,把所有被补丁文件回滚到 pre-heal 快照
         rollback_results: list[dict[str, Any]] = []
@@ -3355,6 +3389,23 @@ class AgentLoopV2:
                     "auto 模式:只读工具免审批直接执行",
                 )
             needs_approval = False
+
+        # 工具级审批策略覆盖(显式配置 > 模式隐含 > 高危清单,2026-09-18 立):
+        # always 强制每次必审(auto 只读免审也被覆盖);never 强制免审(高危清单也放行);
+        # on-request = 现状。覆盖决策记入 decision_hints(审计/元学习可见)。
+        _policy = self._approval_policies.get(tc.name)
+        if _policy == "always" and not needs_approval:
+            needs_approval = True
+            self._decision_hints[tc.id] = (
+                "approval_policy_always",
+                "工具级审批策略 always:该工具强制人工审批",
+            )
+        elif _policy == "never" and needs_approval:
+            needs_approval = False
+            self._decision_hints[tc.id] = (
+                "approval_policy_never",
+                "工具级审批策略 never:该工具免审批直接执行",
+            )
 
         if needs_approval:
             denial = await self._request_approval(tc)

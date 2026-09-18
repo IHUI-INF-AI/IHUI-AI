@@ -50,6 +50,7 @@ ENGINE_METHODS: tuple[str, ...] = (
     "thread.resume",
     "thread.state",
     "thread.close",
+    "agent.exec",
     "tools.list",
     "tools.register",
     "tools.result",
@@ -62,7 +63,7 @@ ENGINE_METHODS: tuple[str, ...] = (
 ENGINE_NOTIFICATIONS: tuple[str, ...] = ("thread/event", "tool/execute", "approval/request")
 
 #: 自动升级为 SSE 的流式方法。
-ENGINE_STREAMING_METHODS: tuple[str, ...] = ("thread.prompt", "thread.resume")
+ENGINE_STREAMING_METHODS: tuple[str, ...] = ("thread.prompt", "thread.resume", "agent.exec")
 
 #: 引擎错误码(与 agent_engine.py 常量一致)。
 ENGINE_ERROR_CODES: dict[str, int] = {
@@ -446,6 +447,20 @@ class Agent:
     def interrupt(self, mode: str = "cancel") -> dict[str, Any]:
         """中断当前轮次:``cancel``=取消 / ``pause``=暂停并落 checkpoint。"""
         return dict(self._call("thread.interrupt", {"threadId": self._thread_id, "mode": mode}) or {})
+
+    def exec_once(
+        self,
+        input: Any,
+        on_event: Optional[EventCallback] = None,
+        **params: Any,
+    ) -> dict[str, Any]:
+        """一次性非交互执行(2026-09-18 立,对标 Codex ``codex exec`` headless):
+        服务端临时线程跑单轮后即弃,返回结构化结果;过程事件经 ``on_event`` 流出。
+        额外 kwargs(model/systemPrompt/permissionMode/...)透传引擎。"""
+        for _ in self._run_stream("agent.exec", {"input": input, **params}, on_event):
+            pass
+        assert self._last_result is not None
+        return self._last_result
 
     def state(self) -> dict[str, Any]:
         """线程状态(状态机 + 迭代数 + checkpoint + 成本)。"""

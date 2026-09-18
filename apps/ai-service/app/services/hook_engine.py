@@ -54,6 +54,7 @@ HOOK_EVENTS: tuple[str, ...] = (
     "tool.before",
     "tool.after",
     "tool.approval",  # 2026-08-30:高危工具执行前请求用户审批(agent_loop_v2 审批门)
+    "patch.applied",  # 2026-09-18:PostApplyPatch——LLM 补丁应用结果(agent_loop_v2 自愈路径发出)
     "message.send",
     "message.receive",
     "session.start",
