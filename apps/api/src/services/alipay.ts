@@ -183,11 +183,14 @@ function signParams(params: Record<string, string>): string {
   return sign.sign(getPrivateKey(), 'base64')
 }
 
-/** 验证支付宝回调签名(证书模式从证书提取公钥,公钥模式用 ALIPAY_PUBLIC_KEY) */
+/** 验证支付宝回调签名(证书模式从证书提取公钥,公钥模式用 ALIPAY_PUBLIC_KEY)
+ *  P0 修复(2026-09-18):公钥未配置时一律 fail-closed——原实现在非 production 环境
+ *  直接放行(伪造 notify 即可免费完成任意订单),现改为拒绝并要求先完成支付宝配置。
+ */
 export function verifyNotify(params: Record<string, string>): boolean {
   const pub = getAlipayPublicKey()
   if (!pub) {
-    return env.NODE_ENV !== 'production'
+    return false
   }
   const sign = params.sign
   const signType = params.sign_type

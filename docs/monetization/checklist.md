@@ -206,7 +206,7 @@
 - [ ] `.env` 文件已配置:
   - [ ] `NEXT_PUBLIC_BTC_ADDRESS=`
   - [ ] `NEXT_PUBLIC_ETH_ADDRESS=`
-  - [ ] `NEXT_PUBLIC_USDT_TRC20_ADDRESS=`
+  - [ ] `USDT_TRC20_ADDRESS=`
   - [ ] `NEXT_PUBLIC_USDC_ADDRESS=`
 
 ### 测试
@@ -380,7 +380,7 @@
   - [ ] `ALIPAY_APP_ID=`
   - [ ] `ALIPAY_PRIVATE_KEY=`
   - [ ] `ALIPAY_PUBLIC_KEY=`
-  - [ ] `ALIPAY_GATEWAY_URL=https://openapi.alipay.com/gateway.do`
+  - [ ] `ALIPAY_GATEWAY=https://openapi.alipay.com/gateway.do`
   - [ ] `ALIPAY_NOTIFY_URL=https://aizhs.top/api/alipay/notify`
   - [ ] `ALIPAY_RETURN_URL=https://aizhs.top/sponsor/success`
 - [ ] `/sponsor` 页面已添加支付宝按钮
