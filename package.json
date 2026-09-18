@@ -92,6 +92,7 @@
     "desktop:nsis:check": "node scripts/desktop-nsis-template.mjs --check",
     "check:desktop-install-dir": "node scripts/check-desktop-install-dir.mjs",
     "check:desktop-install-dir:deep": "node scripts/check-desktop-install-dir.mjs --template --require-cli",
+    "test:desktop-install-dir": "node --test scripts/tests/check-desktop-install-dir.test.mjs",
     "assert:installer-strings": "node scripts/assert-installer-strings.mjs"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
