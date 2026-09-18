@@ -659,6 +659,19 @@ class SessionStore:
         t.last_seq = _row_opt_int(cnt, "m") if cnt else None
         return t
 
+    def set_thread_archived(self, thread_id: str, archived: bool) -> bool:
+        """设置线程归档标记(2026-09-18 第七批,对标 Codex thread/archive)。
+
+        Returns:
+            线程是否存在并被更新。
+        """
+        with self._lock, self._tx() as conn:
+            cur = conn.execute(
+                "UPDATE threads SET archived = ?, updated_at = ? WHERE thread_id = ?",
+                (1 if archived else 0, _now(), thread_id),
+            )
+            return cur.rowcount > 0
+
     def list_threads(
         self,
         *,
