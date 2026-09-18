@@ -2620,6 +2620,12 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 > 遗留(需用户侧动作):**生产蓝绿部署为 GitHub Actions 手动触发**(`blue-green-deploy.yml` 仅 `workflow_dispatch`),本轮修复已在 main(三仓对齐),但生产进程尚未重建,故线上小写 `minimax-m3` 仍 503。需在 GitHub Actions 手动跑一次 Blue-Green Deploy(environment=production),部署后小写 `minimax-m3` 应转为 200。补偿验证:apps/api tsc 0 error、mypy 4 文件 0 问题、ruff check 通过、eslint 0 error、prettier 通过、pytest 25/25、vitest 61/61。commit `e6d76acebe7`(第一批)+ 本轮。
 
+## P0 桌面端安装向导中文化修复(2026-09-18 立,平台独占:apps/desktop + apps/web)
+
+- [ ] 1. 根因修复:`apps/desktop/src-tauri/tauri.conf.json` 的 `bundle.windows.nsis.languages` 声明为 `["zh-CN"]`,NSIS 安装向导在中文 Windows 上默认使用简体中文,不再回落英文。
+- [ ] 2. 发版配套:桌面端版本 bump `0.1.34 -> 0.1.35`(package.json + tauri.conf.json),tag 触发 GitHub CI 重新构建;下载页快照同步为最新 Gitee release 数据。
+- [ ] 3. 验收:Release Desktop workflow 成功,Windows 安装包向导显示中文,下载页/更新 feed 指向 0.1.35。
+
 ## P0 四竞品深度对标第二轮 V2:对话流程显示细节 22 项增量补齐(2026-09-15 立,跨端:apps/web + apps/ai-service + apps/api + packages/api-client + packages/i18n,AGENTS.md §24 用户确认)
 
 > 触发:用户要求对 CodeX/Trae/Qoder/WorkBuddy 深度比对到所有细节,特别是 AI 对话流程显示的所有内容。2 路代码全链路摸排(前端渲染 10 维 + 后端链路 10 维)+ 4 路竞品调研完成,逐元素差距矩阵与方案见 `docs/AI_CHAT_BENCHMARK_ANALYSIS_V2.md`。编号续接 2026-09-12 第一轮(1–14),本轮 15–36。新病根:**智能在后台真实发生(RAG/记忆/turn 变更/usage),但对话流里看不见**。
