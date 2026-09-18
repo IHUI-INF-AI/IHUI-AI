@@ -10,6 +10,7 @@
 import chalk from 'chalk';
 import type { TodoItem } from '../tools/todo-write.js';
 import type { PlanStep } from '../plan/structured.js';
+import type { ChatMessage } from './session.js';
 
 /** 单次工具调用完整记录(/tool 命令回看用) */
 export interface ToolCallRecord {
@@ -123,5 +124,34 @@ export function renderPlanStepsCard(steps: PlanStep[]): string[] {
     out.push(`│  ${icon} ${chalk.dim(`[${s.action}]`)} ${s.title}${file}`);
   }
   out.push(chalk.cyan(`╰─ ${completed}/${steps.length} 完成`));
+  return out;
+}
+
+/** 快照预览:取最后一条 user 消息前 60 字符(无 user 消息时的降级标签) */
+function snapshotPreview(snapshot: ChatMessage[]): string {
+  for (let i = snapshot.length - 1; i >= 0; i--) {
+    const m = snapshot[i];
+    if (m && m.role === 'user') {
+      const text = m.content.replace(/\s+/g, ' ').trim();
+      return text.length > 60 ? `${text.slice(0, 60)}…` : text || '(空消息)';
+    }
+  }
+  return '(无 user 消息)';
+}
+
+/**
+ * W12 /rewind 可视化选择:rewindStack → 候选列表(最近优先)。
+ * steps 语义与 rewindHistory 一致:1 = 恢复最近一次快照。
+ */
+export function buildRewindChoices(stack: ChatMessage[][]): Array<{ steps: number; label: string }> {
+  const out: Array<{ steps: number; label: string }> = [];
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const snapshot = stack[i];
+    if (!snapshot) continue;
+    out.push({
+      steps: stack.length - i,
+      label: `${stack.length - i} 步前 · ${chalk.dim(snapshotPreview(snapshot))}`,
+    });
+  }
   return out;
 }
