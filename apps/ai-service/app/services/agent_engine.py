@@ -247,6 +247,16 @@ _CODE_DEFAULT_TIMEOUT_MS = 60_000
 _CODE_MAX_TIMEOUT_MS = 300_000
 # 单次 run 允许的嵌套工具调用上限(防失控,对标 CodeModeNestedToolCall 治理)
 _CODE_MAX_NESTED_TOOL_CALLS = 50
+
+
+def _apply_sandbox(proc: Any) -> dict[str, Any]:
+    """子进程 OS 级沙箱统一入口(第八批,对标 execpolicy 内核层;失败静默降级)。"""
+    try:
+        from app.core.proc_sandbox import apply_job_sandbox
+
+        return apply_job_sandbox(proc)
+    except Exception as e:  # noqa: BLE001 - 沙箱绝不阻塞主流程
+        return {"active": False, "reason": f"沙箱模块异常: {e}"}
 # 工作区文件监视(2026-09-18 第七批,对标 Codex file-watcher)
 _WATCH_INTERVAL = 2.0
 _WATCH_MAX_ENTRIES = 2000
@@ -527,6 +537,7 @@ BUILTIN_ENGINE_TOOLS: tuple[str, ...] = (
     "request_user_input",
     "apply_patch",
     "run_code",
+    "web_search",
 )
 # 子代理嵌套深度上限(spawn_subagent 防递归失控)
 _MAX_SUBAGENT_DEPTH = 2
@@ -1278,6 +1289,7 @@ class AgentEngine:
                 "codeMode": True,
                 "threadLifecycle": True,
                 "fileWatcher": True,
+                "procSandbox": True,
                 "mcp": self._tool_lister is not None,
                 "costLedger": self._cost_report is not None,
                 "modelRouting": self._model_lister is not None,
@@ -2434,6 +2446,7 @@ class AgentEngine:
             "request_user_input": self._request_user_input_tool,
             "apply_patch": self._apply_patch_tool,
             "run_code": self._run_code_tool,
+            "web_search": self._web_search_tool,
         }
         definitions: list[Any] = []
         for name in BUILTIN_ENGINE_TOOLS:
@@ -2857,11 +2870,15 @@ class AgentEngine:
                         stderr=asyncio.subprocess.DEVNULL,
                         cwd=thread.workspace or os.getcwd(),
                     )
+                    # OS 级沙箱(2026-09-18 第八批,对标 execpolicy 内核层):
+                    # kill-on-close + 内存/进程数上限 + UI 限制;失败降级不阻塞
+                    sandbox = _apply_sandbox(proc)
                 except OSError as e:
                     return {"error": f"代码会话进程创建失败: {e}"}
                 session = {
                     "id": new_id,
                     "proc": proc,
+                    "sandbox": sandbox,
                     "created_at": time.time(),
                     "last_active": time.time(),
                     "lock": asyncio.Lock(),
@@ -2960,6 +2977,58 @@ class AgentEngine:
                 "代码内用 tools.call('工具名', {参数}) 调用本线程全部可用工具"
                 "(宿主工具与内置工具);print 输出会被捕获返回;全局变量跨调用持久"
                 "(reset=true 清空)。注意:不要使用 input()/直接读 stdin。"
+            ),
+            parameters=parameters,
+            executor=_exec,
+        )
+
+    def _web_search_tool(self, thread: EngineThread) -> Any:
+        """web_search:引擎原生网页搜索(2026-09-18 第八批,对标 Codex
+        web_search 内置工具):DuckDuckGo Lite 零 key 搜索,无需 MCP 装载。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        async def _exec(args: dict[str, Any]) -> dict[str, Any]:
+            query = str(args.get("query") or "").strip()
+            if not query:
+                return {"error": "缺少 query 参数"}
+            try:
+                max_results = max(1, min(int(args.get("maxResults") or 5), 10))
+            except (TypeError, ValueError):
+                max_results = 5
+            try:
+                from .mcp_server import _tool_web_search
+
+                result = await _tool_web_search(
+                    {"query": query, "max_results": max_results}
+                )
+            except Exception as e:  # noqa: BLE001 - 搜索失败降级为错误返回
+                return {"error": f"搜索失败: {e}", "results": []}
+            return {
+                "query": query,
+                "results": result.get("results", []),
+                "total": result.get("total", 0),
+                "message": result.get("message", ""),
+            }
+
+        parameters = {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "搜索关键词(支持中英文)",
+                },
+                "maxResults": {
+                    "type": "integer",
+                    "description": "返回结果条数(1-10,默认 5)",
+                },
+            },
+            "required": ["query"],
+        }
+        return ToolDefinition(
+            name="web_search",
+            description=(
+                "网页搜索:按关键词检索公开网页并返回标题/摘要/链接列表"
+                "(1-10 条)。适合查最新资讯、文档、事实核验;结果无网络时为空。"
             ),
             parameters=parameters,
             executor=_exec,
@@ -3188,11 +3257,14 @@ class AgentEngine:
                     stdin=asyncio.subprocess.PIPE,
                     cwd=resolved_cwd,
                 )
+                # OS 级沙箱(第八批):交互 shell 同样收入 Job Object
+                sandbox = _apply_sandbox(proc)
             except OSError as e:
                 return {"error": f"进程创建失败: {e}"}
             new_session: dict[str, Any] = {
                 "id": new_id,
                 "proc": proc,
+                "sandbox": sandbox,
                 "buffer": "",
                 "cwd": resolved_cwd,
                 "created_at": time.time(),
