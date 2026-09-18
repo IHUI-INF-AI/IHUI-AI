@@ -41,6 +41,7 @@ export const ENGINE_METHODS = [
   'thread.resume',
   'thread.state',
   'thread.close',
+  'agent.exec',
   'tools.list',
   'tools.register',
   'tools.result',
@@ -53,7 +54,7 @@ export const ENGINE_METHODS = [
 export const ENGINE_NOTIFICATIONS = ['thread/event', 'tool/execute', 'approval/request'] as const
 
 /** 自动升级为 SSE 的流式方法。 */
-export const ENGINE_STREAMING_METHODS = ['thread.prompt', 'thread.resume'] as const
+export const ENGINE_STREAMING_METHODS = ['thread.prompt', 'thread.resume', 'agent.exec'] as const
 
 /** 引擎应用错误码(与 agent_engine.py 常量一致)。 */
 export const ENGINE_ERROR_CODES = {
@@ -442,6 +443,18 @@ class AgentEngineClient implements Agent {
   async run(input: unknown, options?: AgentRunOptions): Promise<AgentRunResult> {
     await this.start()
     return this.runMethod('thread.prompt', normalizeInput(input), options)
+  }
+
+  /** 一次性非交互执行(2026-09-18 立,对标 Codex `codex exec` headless):
+   * 服务端临时线程跑单轮后即弃,返回结构化结果;过程事件经 onEvent 流出。 */
+  async exec(
+    input: unknown,
+    options?: AgentRunOptions & { model?: string; systemPrompt?: string },
+  ): Promise<AgentRunResult> {
+    const params: Record<string, unknown> = { input }
+    if (options?.model) params.model = options.model
+    if (options?.systemPrompt) params.systemPrompt = options.systemPrompt
+    return this.runMethod('agent.exec', params, options, true)
   }
 
   async resume(checkpointId?: string, options?: AgentRunOptions): Promise<AgentRunResult> {
