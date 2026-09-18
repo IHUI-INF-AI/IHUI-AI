@@ -647,7 +647,58 @@ def _is_v4a_patch(patch_text: str) -> bool:
     return "*** Begin Patch" in patch_text
 
 
-def _parse_v4a_patch(patch_text: str) -> list[dict[str, Any]]:
+def _preclean_patch_text(patch_text: str) -> tuple[str, list[str]]:
+    """补丁文本宽松预处理(2026-09-18 第十四批:工程体验)。
+
+    模型实际输出几乎不可能干净——常见:markdown 围栏(```/```diff/```patch/
+    ~~~)、围栏前后的说明文字、"补丁如下:"之类前言、CRLF 混排、结尾缺
+    End Patch。Codex 对 gpt-4.1 也有专门的 lenient 模式(PARSE_IN_STRICT_MODE=
+    false),此处等价工程化:
+    - 剥掉围栏行(仅去围栏标记行本身,不动内容)
+    - 丢弃首个真实标记(Begin Patch / --- / diff --git)之前的散文行
+    - 统一 CRLF→LF
+    返回 (清洗后文本, notes),notes 记录做了哪些宽容处理(便于回执可观测)。
+    """
+    notes: list[str] = []
+    raw_lines = patch_text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+
+    def _is_fence(line: str) -> bool:
+        s = line.strip()
+        return s.startswith("```") or s.startswith("~~~")
+
+    cleaned: list[str] = []
+    fence_seen = False
+    for line in raw_lines:
+        if _is_fence(line):
+            fence_seen = True
+            continue
+        cleaned.append(line)
+    if fence_seen:
+        notes.append("已剥离 markdown 围栏")
+
+    # 丢弃首个真实标记之前的散文/说明行
+    start = 0
+    for idx, line in enumerate(cleaned):
+        s = line.strip()
+        if s == "*** Begin Patch" or s.startswith("--- ") or s.startswith("diff --git"):
+            start = idx
+            break
+    else:
+        start = 0
+    if start > 0:
+        notes.append(f"已忽略补丁前的 {start} 行说明文字")
+        cleaned = cleaned[start:]
+
+    while cleaned and not cleaned[0].strip():
+        cleaned.pop(0)
+    while cleaned and not cleaned[-1].strip():
+        cleaned.pop()
+    return "\n".join(cleaned), notes
+
+
+def _parse_v4a_patch(
+    patch_text: str, notes: list[str] | None = None
+) -> list[dict[str, Any]]:
     """解析 codex V4A 补丁(*** Begin Patch 语法,2026-09-18 第九批)。
 
     语法(Lark 文法,取自 codex-rs apply-patch/src/parser.rs):
@@ -656,14 +707,17 @@ def _parse_v4a_patch(patch_text: str) -> list[dict[str, Any]]:
     输出与 _parse_unified_patch 同构的文件段列表(便于共用落盘通道):
       hunks[i]["lines"] 元素为 (tag, text),tag ∈ {' ', '+', '-'}。
     """
-    raw_lines = patch_text.replace("\r\n", "\n").split("\n")
-    # 宽容解析:剥掉 shell 包装(apply_patch <<'EOF' ... EOF)
-    while raw_lines and not raw_lines[0].strip():
-        raw_lines.pop(0)
+    # 宽松预处理(围栏/前言/CRLF)+ shell 包装(apply_patch <<'EOF' ... EOF)
+    cleaned, clean_notes = _preclean_patch_text(patch_text)
+    if notes is not None:
+        notes.extend(clean_notes)
+    raw_lines = cleaned.split("\n")
     if raw_lines and raw_lines[0].strip().startswith("apply_patch"):
         raw_lines.pop(0)
         if raw_lines and raw_lines[-1].strip() == "EOF":
             raw_lines.pop()
+        if notes is not None:
+            notes.append("已剥离 apply_patch shell 包装")
 
     start_idx: int | None = None
     for i, line in enumerate(raw_lines):
@@ -761,7 +815,12 @@ def _parse_v4a_patch(patch_text: str) -> list[dict[str, Any]]:
         if current is None and stripped:
             raise ValueError(f"第 {lineno} 行: *** Begin Patch 后出现游离内容: {raw!r}")
     if not seen_end:
-        raise ValueError("V4A 补丁缺失 *** End Patch 结束标记")
+        # 未闭合 = 可能被截断,应用半截补丁会写坏文件:严格拒绝 + 可操作提示
+        # (对标 Codex 对 End Patch 的强校验;此处额外给出修复指引,属体验优化)
+        raise ValueError(
+            "V4A 补丁缺失 *** End Patch 结束标记(可能输出被截断),未做任何修改;"
+            "请重新生成完整补丁并确保以 '*** End Patch' 结尾"
+        )
     # 校验 + 归一化
     normalized: list[dict[str, Any]] = []
     for sec in sections:
@@ -817,6 +876,35 @@ def _aggregate_unified_diff(
     return "\n".join(parts)
 
 
+def _suggest_close(target: str, candidates: list[str], limit: int = 3) -> list[str]:
+    """近似候选推荐(did-you-mean),用于「未知方法/未知工具」的可纠错回执。
+
+    两级判定:
+    1) 标准化后精确命中 —— 大小写、`_`↔`.`、前导 `/` 差异(thread_start /
+       Thread.Start / /thread.start 都能命中 thread.start);
+    2) difflib 模糊匹配取 Top-N(阈值 0.6,避免给出误导性推荐)。
+
+    返回值不含 candidate 本身之外的任何猜测项:匹配不上即返回空列表,由调用方
+    决定是否回退为全量清单。
+    """
+    import difflib as _dl
+
+    def _norm(s: str) -> str:
+        return s.strip().lower().replace("_", ".").lstrip("/")
+
+    norm_t = _norm(target)
+    if not norm_t:
+        return []
+    norm_map = {_norm(c): c for c in candidates}
+    if norm_t in norm_map:
+        return [norm_map[norm_t]]
+    scored = sorted(
+        ((_dl.SequenceMatcher(None, norm_t, _norm(c)).ratio(), c) for c in candidates),
+        key=lambda x: (-x[0], x[1]),
+    )
+    return [c for ratio, c in scored[:limit] if ratio >= 0.6]
+
+
 def _v4a_seek(
     lines: list[str], pattern: list[str], start: int, eof: bool
 ) -> int:
@@ -834,6 +922,112 @@ def _v4a_seek(
     return -1
 
 
+class _PatchAlreadyApplied(Exception):
+    """补丁内容已存在于文件中(幂等重复应用)。
+
+    判定依据:期望的旧行序列在文件中不存在,而期望的新行序列已完整存在。
+    此时不应报「上下文失配」让模型反复重试同一补丁,而应明确告知已应用。
+    """
+
+
+def _diagnose_patch_mismatch(
+    lines: list[str],
+    pattern: list[str],
+    replacement: list[str] | None,
+    rel: str,
+    where: str,
+) -> str:
+    """补丁上下文失配时生成可自纠的诊断信息(体验优化)。
+
+    除「未找到」外额外给出:文件总行数、最接近位置(行号 + 相似度)、
+    首个差异行的期望/实际对照、以及常见成因提示(空白/缩进/已改动)。
+    """
+    import difflib as _dl
+
+    head = f"{rel}: {where}:上下文失配,期望行序列未找到(文件共 {len(lines)} 行)"
+    if not pattern:
+        return head
+    n = len(pattern)
+    best_i = -1
+    best_ratio = 0.0
+    step = max(1, len(lines) // 400)  # 大文件采样,避免 O(n·m) 卡顿
+
+    def _line_similarity(a: str, b: str) -> float:
+        """单行字符级相似度(整行相等比较会让「差几个字符」的近失配恒为 0)。"""
+        if a == b:
+            return 1.0
+        if not a or not b:
+            return 0.0
+        return _dl.SequenceMatcher(None, a, b).ratio()
+
+    for i in range(0, max(1, len(lines) - n + 1), step):
+        window = lines[i : i + n]
+        ratio = sum(_line_similarity(p, w) for p, w in zip(pattern, window)) / n
+        if ratio > best_ratio:
+            best_ratio, best_i = ratio, i
+    detail = ""
+    if best_i >= 0 and best_ratio >= 0.5:
+        actual = lines[best_i : best_i + n]
+        diff_line = ""
+        for k in range(n):
+            if k < len(actual) and actual[k] != pattern[k]:
+                diff_line = (
+                    f"\n  最接近处第 {best_i + k + 1} 行:"
+                    f"\n    期望: {pattern[k]!r}"
+                    f"\n    实际: {actual[k]!r}"
+                )
+                break
+        detail = (
+            f"\n  最接近位置:第 {best_i + 1} 行(相似度 {best_ratio:.2f})"
+            + diff_line
+        )
+    causes: list[str] = []
+    near = lines[best_i : best_i + n] if best_i >= 0 else []
+    if near and any(
+        p.strip() == a.strip() and p != a for p, a in zip(pattern, near)
+    ):
+        causes.append("仅行首/行尾空白不同(缩进或尾随空格被裁剪/多出)")
+    elif near and any(p.rstrip() == a.rstrip() for p, a in zip(pattern, near)):
+        causes.append("缩进层级不一致")
+    if replacement is not None and _v4a_seek(lines, replacement, 0, False) >= 0:
+        causes.append("目标内容已在文件中(可能本次改动早已应用)")
+    if not causes:
+        causes.append("文件这部分内容已被上一轮改动或人工编辑修改")
+    return (
+        head
+        + detail
+        + "\n  期望内容:\n    "
+        + "\n    ".join(repr(p) for p in pattern[:12])
+        + "\n  可能原因: "
+        + "、".join(causes[:3])
+        + "\n  建议: read_file 重读该文件最新内容后重新生成补丁"
+    )
+
+
+def _read_source_preserving(path: Any) -> tuple[str, str, bool]:
+    """读取源文件并保留换行风格与 BOM(Windows 仓库细节)。
+
+    返回 (规范化为 \\n 的文本, 原换行符, 是否有 UTF-8 BOM)。写回时按
+    原风格还原,避免给 CRLF 文件打补丁后整文件被悄悄改成 LF(或丢 BOM)。
+    """
+    raw = path.read_bytes()
+    bom = raw.startswith(b"\xef\xbb\xbf")
+    if bom:
+        raw = raw[3:]
+    text = raw.decode("utf-8", errors="replace")
+    newline = "\r\n" if "\r\n" in text else "\n"
+    return text.replace("\r\n", "\n"), newline, bom
+
+
+def _write_text_preserving(path: Any, text: str, newline: str, bom: bool) -> None:
+    """按原换行风格与 BOM 写回文件。"""
+    payload = text.replace("\n", newline) if newline == "\r\n" else text
+    data = payload.encode("utf-8")
+    if bom:
+        data = b"\xef\xbb\xbf" + data
+    path.write_bytes(data)
+
+
 def _apply_v4a_to_content(
     content: str, chunks: list[dict[str, Any]], rel: str
 ) -> str:
@@ -848,15 +1042,24 @@ def _apply_v4a_to_content(
     if trailing_newline:
         lines.pop()
     line_index = 0
+    applied_count = 0
+    already_count = 0
     for ci, chunk in enumerate(chunks, start=1):
         anchor = chunk.get("anchor")
         if anchor:
             found_anchor = _v4a_seek(lines, [anchor], line_index, False)
             if found_anchor < 0:
-                raise ValueError(
-                    f"文件 {rel} 第 {ci} 个代码块:@@ 上下文 '{anchor}' 未找到"
-                )
-            line_index = found_anchor + 1
+                # 锚点自身也可能因「已应用」而消失(锚点是被替换的旧行);
+                # 此时不急着报错,交给后续 old/new 序列判定
+                if _v4a_seek(lines, [anchor], 0, False) < 0:
+                    raise ValueError(
+                        _diagnose_patch_mismatch(
+                            lines, [anchor], None, rel, f"第 {ci} 个代码块 @@ 锚点"
+                        )
+                    )
+                line_index = 0
+            else:
+                line_index = found_anchor + 1
         old_lines = [t for tag, t in chunk["lines"] if tag in (" ", "-")]
         new_lines = [t for tag, t in chunk["lines"] if tag in (" ", "+")]
         if not old_lines:
@@ -876,28 +1079,52 @@ def _apply_v4a_to_content(
                 replacement.pop()
             found = _v4a_seek(lines, pattern, line_index, chunk.get("eof", False))
         if found < 0:
+            # 幂等:旧序列不在、新序列却已完整存在 → 该代码块本次之前已应用
+            if replacement and _v4a_seek(lines, replacement, 0, False) >= 0:
+                already_count += 1
+                hit = _v4a_seek(lines, replacement, 0, False)
+                line_index = hit + len(replacement)
+                continue
             raise ValueError(
-                f"文件 {rel} 第 {ci} 个代码块:期望行序列未找到:\n"
-                + "\n".join(old_lines[:20])
+                _diagnose_patch_mismatch(
+                    lines,
+                    pattern,
+                    replacement,
+                    rel,
+                    f"第 {ci} 个代码块",
+                )
             )
         lines[found : found + len(pattern)] = replacement
         line_index = found + len(replacement)
+        applied_count += 1
+    if applied_count == 0 and already_count > 0:
+        raise _PatchAlreadyApplied(
+            f"{rel}: 补丁内容已存在(幂等跳过,未重复修改)"
+        )
     result = "\n".join(lines)
     if trailing_newline:
         result += "\n"
     return result
 
 
-def _parse_unified_patch(patch_text: str) -> list[dict[str, Any]]:
+def _parse_unified_patch(
+    patch_text: str, notes: list[str] | None = None
+) -> list[dict[str, Any]]:
     """解析标准 unified diff(git diff 兼容)为文件段列表。
 
     支持:新增文件(--- /dev/null)/ 删除文件(+++ /dev/null)/ 多 hunk 更新
     (含上下文行 + 新增行 + 删除行)。返回 [{old_path, new_path, hunks: [
     {old_start, old_lines, lines: [(tag, text)]}]}];无合法文件段 → ValueError。
+
+    第十四批起:先经 _preclean_patch_text 宽松预处理(围栏/前言/CRLF),
+    notes 非空时由调用方回写宽容处理记录。
     """
     import re as _re
 
-    lines = patch_text.splitlines()
+    cleaned, clean_notes = _preclean_patch_text(patch_text)
+    if notes is not None:
+        notes.extend(clean_notes)
+    lines = cleaned.splitlines()
     sections: list[dict[str, Any]] = []
     i = 0
     n = len(lines)
@@ -994,6 +1221,8 @@ def _apply_hunks_to_content(
     src = content.split("\n")
     pos = 0  # 已消费的 src 行游标(0-based)
     out: list[str] = []
+    applied_count = 0
+    already_count = 0
     for idx, hunk in enumerate(hunks):
         expect_old: list[str] = []
         expect_new: list[str] = []
@@ -1020,14 +1249,34 @@ def _apply_hunks_to_content(
                     found = cand
                     break
         if found < 0:
+            # 幂等:期望的旧序列不在,但期望的新序列已完整存在 → 该 hunk 已应用
+            already_at = (
+                _v4a_seek(src, expect_new, 0, False) if expect_new else -1
+            )
+            if already_at >= 0:
+                already_count += 1
+                out.extend(src[pos:already_at])
+                out.extend(expect_new)
+                pos = already_at + len(expect_new)
+                continue
             raise ValueError(
-                f"{rel_path}: hunk #{idx + 1}(声明行 {hunk['old_start']})上下文失配"
-                ",补丁与文件内容不一致"
+                _diagnose_patch_mismatch(
+                    src,
+                    expect_old,
+                    expect_new,
+                    rel_path,
+                    f"hunk #{idx + 1}(声明行 {hunk['old_start']})",
+                )
             )
         out.extend(src[pos:found])
         out.extend(expect_new)
         pos = found + len(expect_old)
+        applied_count += 1
     out.extend(src[pos:])
+    if applied_count == 0 and already_count > 0:
+        raise _PatchAlreadyApplied(
+            f"{rel_path}: 补丁内容已存在(幂等跳过,未重复修改)"
+        )
     return "\n".join(out)
 
 
@@ -1267,9 +1516,19 @@ class AgentEngine:
             return _error_response(req_id, INVALID_PARAMS, "params 须为对象")
         handler = self._handlers.get(method)
         if handler is None:
+            # 可纠错回执(体验优化):先给最近似的方法名,再附全量清单兜底
+            supported = sorted(self._handlers)
+            suggestions = _suggest_close(method, supported)
+            message = f"未知方法: {method}"
+            if suggestions:
+                message += f"。是否想调用: {' / '.join(suggestions)}"
+            else:
+                message += f"。可用方法: {', '.join(supported)}"
             return _error_response(
-                req_id, METHOD_NOT_FOUND, f"未知方法: {method}",
-                {"supported": sorted(self._handlers)},
+                req_id,
+                METHOD_NOT_FOUND,
+                message,
+                {"supported": supported, "suggestions": suggestions},
             )
         is_notification = "id" not in msg
         try:
@@ -1788,6 +2047,12 @@ class AgentEngine:
         turn_started_at = time.time()
         thread.last_turn_timing = {"startedAt": turn_started_at}
         before_files = await self._workspace_dirty_files(thread)
+        # 非 git 工作区兜底:回合前 mtime 快照(第十四批,对标 Codex 在无 git
+        # 仓库下仍能给出回合变更清单;上限 2000 项,失败静默降级为空)
+        before_snapshot: dict[str, float] = {}
+        if thread.workspace:
+            with contextlib.suppress(Exception):
+                before_snapshot = self._scan_workspace(Path(thread.workspace))
         thread.messages.append({"role": "user", "content": text})
         # Turn Context 冻结:非 checkpoint 路径每轮刷新快照(客户端在轮间改配置,
         # 新一轮用新值;轮内 interrupt→resume 走 _handle_thread_resume 的冻结副本)
@@ -1896,6 +2161,53 @@ class AgentEngine:
                         "baselineSource": baseline_source,
                     },
                 )
+            elif before_snapshot and thread.workspace:
+                # 非 git 工作区:mtime 快照比对(新增/删除/修改),新增文件给
+                # difflib 全文 diff;修改文件无基线内容,如实标注不伪造 diff
+                after_snapshot = self._scan_workspace(Path(thread.workspace))
+                added = sorted(set(after_snapshot) - set(before_snapshot))[:50]
+                removed = sorted(set(before_snapshot) - set(after_snapshot))[:50]
+                modified = sorted(
+                    p
+                    for p in set(after_snapshot) & set(before_snapshot)
+                    if after_snapshot[p] != before_snapshot[p]
+                )[:50]
+                if added or removed or modified:
+                    fb_pairs: dict[str, tuple[str | None, str | None]] = {}
+                    for rel in added:
+                        try:
+                            fb_pairs[rel] = (
+                                None,
+                                (Path(thread.workspace) / rel).read_text(encoding="utf-8"),
+                            )
+                        except OSError:
+                            continue
+                    for rel in removed:
+                        fb_pairs[rel] = ("", None)
+                    parts = [_aggregate_unified_diff(fb_pairs)]
+                    for rel in modified:
+                        parts.append(
+                            f"--- a/{rel}\n+++ b/{rel}\n"
+                            "@@ 非 git 工作区:无基线内容,仅知文件已变更 @@"
+                        )
+                    changes = (
+                        [{"path": p, "status": "A"} for p in added]
+                        + [{"path": p, "status": "M"} for p in modified]
+                        + [{"path": p, "status": "D"} for p in removed]
+                    )
+                    await self._emit_engine_event(
+                        thread,
+                        emit,
+                        "turn.diff",
+                        {
+                            "files": added + modified + removed,
+                            "changes": changes,
+                            "truncated": False,
+                            "unifiedDiff": "\n".join(p for p in parts if p)[:32_000],
+                            "baselineSha": None,
+                            "baselineSource": "mtime-snapshot",
+                        },
+                    )
         # TurnComplete(2026-09-18 第十批,对标 Codex TurnComplete 事件)
         with contextlib.suppress(Exception):
             await self._emit_engine_event(
@@ -3138,16 +3450,29 @@ class AgentEngine:
                 else Path.cwd().resolve()
             )
             is_v4a = _is_v4a_patch(patch_text)
+            notes: list[str] = []
             try:
                 sections = (
-                    _parse_v4a_patch(patch_text)
+                    _parse_v4a_patch(patch_text, notes)
                     if is_v4a
-                    else _parse_unified_patch(patch_text)
+                    else _parse_unified_patch(patch_text, notes)
                 )
             except ValueError as e:
-                return {"error": str(e)}
+                return {
+                    "error": str(e),
+                    "hint": (
+                        "补丁未被应用(零修改)。建议:①重新 read_file 目标文件取最新内容;"
+                        "②V4A 上下文行务必带行首空格(缩进原样);"
+                        "③确认补丁以 *** End Patch 结尾"
+                        if is_v4a
+                        else "补丁未被应用(零修改)。建议:①用 git diff 生成标准 unified diff;"
+                        "②确认含 --- / +++ / @@ 头;③上下文行保留行首空格"
+                    ),
+                }
             # 第一遍:纯内存计算全部目标内容(原子性:任何失败即整包拒绝)
             plan: list[tuple[str, str, str | None]] = []  # (rel, action, new_content|None)
+            file_style: dict[str, tuple[str, bool]] = {}  # rel → (换行符, 是否 BOM)
+            already_applied: list[str] = []  # 幂等命中、本次无需再改的文件
             diff_pairs: dict[str, tuple[str | None, str | None]] = {}
             planned_files: list[str] = []
             for section in sections:
@@ -3180,9 +3505,11 @@ class AgentEngine:
                 if not source.is_file():
                     return {"error": f"目标文件不存在: {source_rel}"}
                 try:
-                    content = source.read_text(encoding="utf-8")
+                    # 保留原文件换行风格与 BOM:CRLF 仓库打补丁后不被悄悄改成 LF
+                    content, src_newline, src_bom = _read_source_preserving(source)
                 except OSError as e:
                     return {"error": f"文件读取失败 {source_rel}: {e}"}
+                file_style[target_rel] = (src_newline, src_bom)
                 if deleted:
                     plan.append((target_rel, "deleted", None))
                     diff_pairs[target_rel] = (content, None)
@@ -3197,8 +3524,20 @@ class AgentEngine:
                         new_content = _apply_hunks_to_content(
                             content, section["hunks"], target_rel
                         )
+                except _PatchAlreadyApplied as e:
+                    # 幂等:内容已存在,记入结果但不落盘(不让模型反复重试同一补丁)
+                    already_applied.append(target_rel)
+                    notes.append(str(e))
+                    continue
                 except ValueError as e:
-                    return {"error": str(e)}
+                    return {
+                        "error": str(e),
+                        "file": target_rel,
+                        "hint": (
+                            "上下文未命中(零修改)。请 read_file 该文件取最新内容后"
+                            "重新生成补丁;注意上下文行保留行首空格与原始缩进"
+                        ),
+                    }
                 # V4A Move to:新路径写新内容,旧路径删除(同一补丁内完成)
                 if old_rel != target_rel and old_rel != "/dev/null":
                     old_target = (base / old_rel).resolve()
@@ -3233,10 +3572,30 @@ class AgentEngine:
                     else:
                         assert target_content is not None
                         target.parent.mkdir(parents=True, exist_ok=True)
-                        target.write_text(target_content, encoding="utf-8")
+                        style = file_style.get(rel)
+                        if style is None:
+                            target.write_text(target_content, encoding="utf-8")
+                        else:
+                            _write_text_preserving(
+                                target, target_content, style[0], style[1]
+                            )
                 except OSError as e:
                     return {"error": f"落盘失败 {rel}({action}): {e}", "applied": False}
-                results.append({"path": rel, "action": action})
+                # 无变更标记(体验优化:补丁合法但结果同原文,明确告知而非冒充改动)
+                old_content, new_content_after = diff_pairs.get(rel, (None, target_content))
+                results.append(
+                    {
+                        "path": rel,
+                        "action": action,
+                        "changed": action != "updated"
+                        or old_content != new_content_after,
+                    }
+                )
+            for rel in already_applied:
+                results.append(
+                    {"path": rel, "action": "unchanged", "changed": False}
+                )
+            changed_files = [r for r in results if r.get("changed")]
             thread.touch()
             # 聚合 unified diff(对标 Codex TurnDiffTracker 净变更语义)
             unified_diff = _aggregate_unified_diff(diff_pairs)
@@ -3262,7 +3621,10 @@ class AgentEngine:
                 "applied": True,
                 "files": results,
                 "count": len(results),
+                "changedCount": len(changed_files),
+                "noChange": not changed_files,
                 "unifiedDiff": unified_diff[:32_000],
+                "notes": notes,  # 宽松解析做了哪些容错(可观测,便于定位模型输出质量问题)
             }
 
         return ToolDefinition(
