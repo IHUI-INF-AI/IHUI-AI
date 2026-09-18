@@ -247,6 +247,9 @@ _CODE_DEFAULT_TIMEOUT_MS = 60_000
 _CODE_MAX_TIMEOUT_MS = 300_000
 # 单次 run 允许的嵌套工具调用上限(防失控,对标 CodeModeNestedToolCall 治理)
 _CODE_MAX_NESTED_TOOL_CALLS = 50
+# 工作区文件监视(2026-09-18 第七批,对标 Codex file-watcher)
+_WATCH_INTERVAL = 2.0
+_WATCH_MAX_ENTRIES = 2000
 # 常驻子进程引导脚本:stdin/stdout 走 JSON 行协议;用户 print 被重定向捕获,
 # tools.call 经管道同步往返(子进程阻塞读 → 父进程结算)。
 _CODE_BOOTSTRAP = r'''
@@ -390,6 +393,9 @@ class EngineThread:
     last_shell_cwd: str | None = None
     # Turn Timing(2026-09-18 第四批,对标 Codex turn_timing):最近一轮起止
     last_turn_timing: dict[str, Any] | None = None
+    # 工作区文件监视(2026-09-18 第七批,对标 Codex file-watcher):
+    # 开启后扫描工作区变更并经 workspace.changed 事件推送(去抖聚合)
+    watch_workspace: bool = False
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -890,12 +896,16 @@ class AgentEngine:
         host_tool_timeout_ms: int = DEFAULT_HOST_TOOL_TIMEOUT_MS,
         store: SessionStore | None = None,
         locked_system_prompt: str | None = None,
+        # 2026-09-18 第七批(compact_remote 对标):LLM 摘要器,thread.compact
+        # strategy="llm" 时用;async (text: str) -> str。未注入时 llm 策略报错。
+        llm_summarizer: Callable[[str], Awaitable[str]] | None = None,
     ) -> None:
         self._loop_factory = loop_factory
         self._tool_lister = tool_lister
         self._cost_report = cost_report
         self._model_lister = model_lister
         self._injected_bus = hook_bus
+        self._llm_summarizer = llm_summarizer
         self._host_tool_timeout_ms = int(host_tool_timeout_ms)
         self._threads: dict[str, EngineThread] = {}
         # 服务端 system prompt 锁定(2026-09-18 立,对标 Codex harness server-delivered
@@ -916,6 +926,8 @@ class AgentEngine:
         self._exec_sessions: dict[str, dict[str, Any]] = {}
         # run_code 常驻代码会话(2026-09-18 第六批,对标 Codex code-mode cell)
         self._code_sessions: dict[str, dict[str, Any]] = {}
+        # 工作区文件监视器(2026-09-18 第七批,对标 Codex file-watcher)
+        self._workspace_watchers: dict[str, asyncio.Task[None]] = {}
         self._handlers: dict[str, Callable[[dict[str, Any], Emitter], Any]] = {
             "engine.initialize": self._handle_initialize,
             "engine.ping": self._handle_ping,
@@ -931,6 +943,9 @@ class AgentEngine:
             "thread.enqueue": self._handle_thread_enqueue,
             "thread.goal": self._handle_thread_goal,
             "thread.review": self._handle_thread_review,
+            "thread.list": self._handle_thread_list,
+            "thread.archive": self._handle_thread_archive,
+            "thread.fork": self._handle_thread_fork,
             "agent.exec": self._handle_agent_exec,
             "tools.list": self._handle_tools_list,
             "tools.register": self._handle_tools_register,
@@ -1261,6 +1276,8 @@ class AgentEngine:
                 "turnTiming": True,
                 "applyPatch": True,
                 "codeMode": True,
+                "threadLifecycle": True,
+                "fileWatcher": True,
                 "mcp": self._tool_lister is not None,
                 "costLedger": self._cost_report is not None,
                 "modelRouting": self._model_lister is not None,
@@ -1330,6 +1347,8 @@ class AgentEngine:
                 INVALID_PARAMS,
                 f"role 须为内置角色之一: {sorted(_AGENT_ROLE_TEMPLATES)}",
             )
+        # 文件监视(2026-09-18 第七批,对标 Codex file-watcher)
+        watch_workspace = bool(params.get("watchWorkspace"))
         # 角色模板追加进 system(对标 Codex agent-roles 全程可见语义)
         if role is not None:
             messages[0]["content"] = (
@@ -1359,12 +1378,18 @@ class AgentEngine:
             auto_compact_threshold=auto_compact_threshold,
             output_schema=output_schema,
             role=role,
+            watch_workspace=watch_workspace,
             messages=messages,
         )
         self._threads[thread_id] = thread
+        # 固化起始请求的出站通道:workspace watcher 等引擎自产事件在无活动
+        # prompt 时也有推送目标(prompt 轮内会被 _run_prompt_turn 刷新)。
+        thread.emit = emit
         # Turn Context 冻结:首份快照(此后每轮 prompt 刷新,resume 用冻结副本)
         thread.frozen_context = self._freeze_context(thread)
         self._persist_thread_created(thread)
+        if watch_workspace:
+            self._start_workspace_watcher(thread)
         logger.info("[engine] thread.start %s (model=%s)", thread_id, thread.model)
         return {
             "threadId": thread_id,
@@ -1381,6 +1406,7 @@ class AgentEngine:
             "outputSchema": thread.output_schema,
             "autoCompact": thread.auto_compact,
             "role": thread.role,
+            "watchWorkspace": thread.watch_workspace,
             "systemPromptSource": system_source,
             "status": thread.status,
         }
@@ -1836,6 +1862,8 @@ class AgentEngine:
         thread.pending.clear()
         thread.status = "closed"
         thread.touch()
+        # 关闭即摘除工作区监视器(第七批:防僵尸轮询任务泄漏)
+        self._stop_workspace_watcher(thread.thread_id)
         return {"threadId": thread.thread_id, "status": thread.status, "closed": True}
 
     # ------------------------------------------------------------------
@@ -1853,6 +1881,9 @@ class AgentEngine:
 
         复用主循环同款确定性压缩(core/context_compaction,零 LLM 额外成本);
         对话过短则原样返回 compressed=False。
+        2026-09-18 第七批:支持 remote compact 语义(strategy="llm_summary")——
+        摘要由承载层/客户端经 LLM 生成后经 summary 参数注入,替代规则分层摘要
+        (压缩器 custom_summary 通道,语义摘要优先级最高)。
         """
         thread = self._require_thread(params)
         if thread.status == "running":
@@ -1862,8 +1893,26 @@ class AgentEngine:
         except (TypeError, ValueError) as e:
             raise JsonRpcError(INVALID_PARAMS, "keepRecent 须为整数") from e
         keep_recent = max(2, min(keep_recent, 50))
+        strategy = params.get("strategy") or "deterministic"
+        if strategy not in ("deterministic", "llm_summary"):
+            raise JsonRpcError(
+                INVALID_PARAMS, "strategy 须为 deterministic 或 llm_summary"
+            )
+        summary = params.get("summary")
+        if strategy == "llm_summary" and not (
+            isinstance(summary, str) and summary.strip()
+        ):
+            raise JsonRpcError(
+                INVALID_PARAMS,
+                "strategy=llm_summary 须提供非空 summary(LLM 摘要文本)",
+            )
+        custom_summary = summary.strip() if isinstance(summary, str) else ""
         return await self._compact_thread(
-            thread, keep_recent=keep_recent, emit=emit, trigger="manual"
+            thread,
+            keep_recent=keep_recent,
+            emit=emit,
+            trigger="manual",
+            custom_summary=custom_summary,
         )
 
     async def _compact_thread(
@@ -1872,8 +1921,12 @@ class AgentEngine:
         keep_recent: int,
         emit: Emitter,
         trigger: str,
+        custom_summary: str = "",
     ) -> dict[str, Any]:
-        """确定性压缩核心(manual/auto 共用,对标 Codex CompactionTrigger 语义)。"""
+        """确定性压缩核心(manual/auto 共用,对标 Codex CompactionTrigger 语义)。
+
+        custom_summary 非空 = remote compact(LLM 语义摘要)通道,优先级最高。
+        """
         messages = thread.messages
         before = len(messages)
         from app.core.context_compaction import (
@@ -1889,7 +1942,20 @@ class AgentEngine:
             trigger_ratio=0.85,
             target_ratio=0.6,
             keep_recent=keep_recent,
+            custom_summary=custom_summary,
         )
+        # 压缩生命周期 hook(2026-09-18 第七批,对标 Codex PreCompactHook)
+        with contextlib.suppress(Exception):
+            await self._hook_bus().emit(
+                "context.pre_compact",
+                {
+                    "threadId": thread.thread_id,
+                    "sessionId": thread.session_id,
+                    "trigger": trigger,
+                    "beforeMessages": before,
+                    "estimatedTokens": est_tokens,
+                },
+            )
         result: dict[str, Any] = {
             "threadId": thread.thread_id,
             "compressed": bool(info.get("compressed")),
@@ -1899,11 +1965,25 @@ class AgentEngine:
             "compressedTokens": info.get("compressed_tokens"),
             "removedCount": info.get("removed_count"),
             "trigger": trigger,
+            "strategy": "llm_summary" if custom_summary else "deterministic",
         }
         if info.get("compressed"):
             thread.messages = list(compressed)
             thread.touch()
             self._persist_compaction_boundary(thread, info)
+            # 压缩完成 hook(对标 Codex PostCompactHook;失败不阻塞主流程)
+            with contextlib.suppress(Exception):
+                await self._hook_bus().emit(
+                    "context.post_compact",
+                    {
+                        "threadId": thread.thread_id,
+                        "sessionId": thread.session_id,
+                        "trigger": trigger,
+                        "beforeMessages": before,
+                        "afterMessages": len(compressed),
+                        "removedCount": info.get("removed_count"),
+                    },
+                )
             await self._emit_engine_event(
                 thread,
                 emit,
@@ -2084,6 +2164,231 @@ class AgentEngine:
             "success": result.get("success"),
             "usage": result.get("usage"),
         }
+
+    # ------------------------------------------------------------------
+    # 线程生命周期扩展(2026-09-18 第七批,对标 Codex app-server thread 面)
+    # ------------------------------------------------------------------
+
+    async def _handle_thread_list(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """线程清单(对标 Codex thread/list):store 分页 + 内存运行态合并。"""
+        try:
+            limit = max(1, min(int(params.get("limit") or 20), 100))
+            offset = max(0, int(params.get("offset") or 0))
+        except (TypeError, ValueError) as e:
+            raise JsonRpcError(INVALID_PARAMS, "limit/offset 须为整数") from e
+        include_archived = bool(params.get("includeArchived"))
+        store = self._persistence_store()
+        if store is None:
+            items = sorted(
+                (
+                    {
+                        "threadId": t.thread_id,
+                        "title": f"engine {t.thread_id}",
+                        "archived": False,
+                        "runtimeStatus": t.status,
+                        "model": t.model,
+                        "itemCount": len(t.messages),
+                        "createdAt": t.created_at,
+                        "updatedAt": t.updated_at,
+                    }
+                    for t in self._threads.values()
+                ),
+                key=lambda x: float(x["updatedAt"] or 0.0),
+                reverse=True,
+            )
+            total = len(items)
+            page = items[offset : offset + limit]
+            return {
+                "threads": page,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "hasMore": offset + len(page) < total,
+            }
+        page_obj = store.list_threads(
+            limit=limit, offset=offset, include_archived=include_archived
+        )
+        items = []
+        for t in page_obj.threads:
+            runtime = self._threads.get(t.thread_id)
+            md = t.metadata or {}
+            items.append(
+                {
+                    "threadId": t.thread_id,
+                    "title": t.title,
+                    "archived": t.archived,
+                    "itemCount": t.item_count,
+                    "lastSeq": t.last_seq,
+                    "createdAt": t.created_at,
+                    "updatedAt": t.updated_at,
+                    "runtimeStatus": runtime.status if runtime else "stored",
+                    "model": runtime.model if runtime else md.get("model"),
+                    "goal": runtime.goal if runtime else md.get("goal"),
+                }
+            )
+        return {
+            "threads": items,
+            "total": page_obj.total,
+            "limit": page_obj.limit,
+            "offset": page_obj.offset,
+            "hasMore": page_obj.has_more,
+        }
+
+    async def _handle_thread_archive(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """归档/恢复线程(对标 Codex thread/archive):store 标记 + 内存摘除。"""
+        thread_id = params.get("threadId")
+        if not isinstance(thread_id, str) or not thread_id:
+            raise JsonRpcError(INVALID_PARAMS, "缺少 threadId")
+        archived = bool(params.get("archived", True))
+        store = self._persistence_store()
+        if store is None:
+            raise JsonRpcError(
+                INVALID_PARAMS, "归档需要持久化存储(当前引擎未启用 SessionStore)"
+            )
+        updated = store.set_thread_archived(thread_id, archived)
+        runtime = self._threads.pop(thread_id, None)
+        if runtime is not None:
+            self._stop_workspace_watcher(thread_id)
+            if archived:
+                for future in runtime.pending.values():
+                    if not future.done():
+                        future.cancel()
+                runtime.pending.clear()
+                runtime.status = "closed"
+        if not updated and runtime is None:
+            raise JsonRpcError(THREAD_NOT_FOUND, f"线程不存在: {thread_id}")
+        return {"threadId": thread_id, "archived": archived, "updated": updated}
+
+    async def _handle_thread_fork(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """线程分叉(对标 Codex thread/fork):深拷贝消息 + 全部运行配置,
+        新线程独立演进;源线程不受影响。"""
+        from copy import deepcopy
+
+        thread = self._require_thread(params)
+        if thread.status == "running":
+            raise JsonRpcError(THREAD_BUSY, f"线程正在执行中: {thread.thread_id}")
+        title = params.get("title")
+        if title is not None and not (isinstance(title, str) and title.strip()):
+            raise JsonRpcError(INVALID_PARAMS, "title 须为非空字符串或省略")
+        new_id = f"thr_{uuid.uuid4().hex[:12]}"
+        clone = EngineThread(
+            thread_id=new_id,
+            session_id=new_id,
+            model=thread.model,
+            permission_mode=thread.permission_mode,
+            max_iterations=thread.max_iterations,
+            tool_names=list(thread.tool_names) if thread.tool_names else None,
+            workspace=thread.workspace,
+            user_id=thread.user_id,
+            conversation_id=thread.conversation_id,
+            messages=deepcopy(thread.messages),
+            approval_policies=dict(thread.approval_policies),
+            model_params=dict(thread.model_params),
+            reasoning=dict(thread.reasoning),
+            deny_tools=list(thread.deny_tools),
+            token_budget=thread.token_budget,
+            session_tokens_used=thread.session_tokens_used,
+            goal=thread.goal,
+            auto_compact=thread.auto_compact,
+            auto_compact_threshold=thread.auto_compact_threshold,
+            output_schema=deepcopy(thread.output_schema),
+            role=thread.role,
+            plan=deepcopy(thread.plan),
+        )
+        clone.host_tools = {
+            name: HostToolSpec(
+                name=spec.name,
+                description=spec.description,
+                parameters=deepcopy(spec.parameters),
+                timeout_ms=spec.timeout_ms,
+            )
+            for name, spec in thread.host_tools.items()
+        }
+        clone.frozen_context = self._freeze_context(clone)
+        self._threads[new_id] = clone
+        self._persist_thread_created(clone)
+        if clone.watch_workspace:
+            self._start_workspace_watcher(clone)
+        logger.info(
+            "[engine] thread.fork %s <- %s (%d messages)",
+            new_id,
+            thread.thread_id,
+            len(clone.messages),
+        )
+        return {
+            "threadId": new_id,
+            "forkedFrom": thread.thread_id,
+            "title": (title or f"Fork of {thread.thread_id}").strip(),
+            "messages": len(clone.messages),
+            "status": clone.status,
+        }
+
+    # ------------------------------------------------------------------
+    # 工作区文件监视(2026-09-18 第七批,对标 Codex file-watcher)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _scan_workspace(base: Path) -> dict[str, float]:
+        """工作区文件 mtime 快照(相对路径;上限 2000 项;跳过 .git/依赖目录)。"""
+        snapshot: dict[str, float] = {}
+        count = 0
+        skip_dirs = {"node_modules", "__pycache__", ".venv", "venv", "dist", "build"}
+        for root, dirs, files in os.walk(base):
+            dirs[:] = [
+                d for d in dirs if not d.startswith(".") and d not in skip_dirs
+            ]
+            for name in files:
+                if name.startswith("."):
+                    continue
+                p = Path(root) / name
+                try:
+                    rel = str(p.relative_to(base)).replace("\\", "/")
+                    snapshot[rel] = p.stat().st_mtime
+                except OSError:
+                    continue
+                count += 1
+                if count >= _WATCH_MAX_ENTRIES:
+                    return snapshot
+        return snapshot
+
+    def _start_workspace_watcher(self, thread: EngineThread) -> None:
+        if not thread.workspace or thread.thread_id in self._workspace_watchers:
+            return
+        base = Path(thread.workspace)
+
+        async def _watch() -> None:
+            prev = self._scan_workspace(base)
+            while thread.status != "closed":
+                await asyncio.sleep(_WATCH_INTERVAL)
+                curr = self._scan_workspace(base)
+                added = sorted(set(curr) - set(prev))[:100]
+                removed = sorted(set(prev) - set(curr))[:100]
+                changed = sorted(
+                    f for f in set(curr) & set(prev) if curr[f] != prev[f]
+                )[:100]
+                prev = curr
+                if not (added or removed or changed):
+                    continue
+                with contextlib.suppress(Exception):
+                    await self._emit_engine_event(
+                        thread,
+                        thread.emit,
+                        "workspace.changed",
+                        {"added": added, "removed": removed, "changed": changed},
+                    )
+
+        self._workspace_watchers[thread.thread_id] = asyncio.create_task(_watch())
+
+    def _stop_workspace_watcher(self, thread_id: str) -> None:
+        task = self._workspace_watchers.pop(thread_id, None)
+        if task is not None:
+            task.cancel()
 
     async def _emit_engine_event(
         self,
