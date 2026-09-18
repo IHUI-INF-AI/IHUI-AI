@@ -29,7 +29,7 @@
  *   1  校验失败(意外文件/缺文件/agent scope 越界)
  *   2  环境错误(非 git 仓库/无 origin 等)
  */
-import { execSync, spawnSync } from 'node:child_process'
+import { execSync, spawn, spawnSync } from 'node:child_process'
 
 const C = {
   red: '\x1b[31m',
@@ -124,11 +124,26 @@ if (!currentBranch) {
 const LOCK_UNIT = `safe-commit-${process.pid}-${Date.now()}`
 process.env.IHUI_GIT_LOCK_UNIT = LOCK_UNIT
 log('info', `Step 0/5: 获取 git 写锁(unit=${LOCK_UNIT})`)
+// 2026-09-18 根治锁竞争三件套:
+//   ① acquire 超时提到 15 分钟 —— 覆盖最长 pre-commit 守门流程,等待方不再因 120s 超时报错;
+//   ② acquire 后 spawn detached 心跳子进程(每 5s 续期 meta.ts)—— 长流程持锁永不误判悬挂;
+//   ③ 心跳以 parent-pid = 本进程 存活探测,本进程任意路径退出后心跳自动消亡(无残留)。
+//   事故背景:此前 meta.ts 只在 acquire 时写一次,pre-commit 跑超 300s 即被并发会话按
+//   "悬挂锁"强制抢占 → 两进程同时写 .git(锁反而制造损坏)。
 try {
-  run(`node ${repoRoot}/scripts/git-lock.mjs acquire --unit ${LOCK_UNIT}`)
+  run(`node ${repoRoot}/scripts/git-lock.mjs acquire --unit ${LOCK_UNIT} --timeout 900000`)
 } catch (e) {
   log('err', `获取 git 写锁失败: ${e.message}`)
   process.exit(2)
+}
+try {
+  spawn(
+    process.execPath,
+    [`${repoRoot}/scripts/git-lock.mjs`, 'heartbeat', '--unit', LOCK_UNIT, '--parent-pid', String(process.pid)],
+    { detached: true, stdio: 'ignore' },
+  ).unref()
+} catch {
+  /* 心跳失败不阻塞 commit(stale 判定仍按"pid 存活"兜底) */
 }
 process.on('exit', () => {
   try {
