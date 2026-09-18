@@ -119,37 +119,42 @@ async def test_first_round_streaming_no_tool_calls(client: AsyncClient, monkeypa
 # =============================================================================
 
 async def test_first_round_streaming_with_tool_calls(client: AsyncClient, monkeypatch):
-    """第一轮流式携带 tool_calls → 工具执行 → 后续轮 complete → done。"""
+    """第一轮流式携带 tool_calls → 工具执行 → 后续轮 astream 真流式回复 → done(W7 #10)。"""
     from app.routers import llm as llm_router
     from app.services.mcp_server import mcp_server as _mcp_inst
 
-    complete_call_count: list[int] = []
+    astream_call_count = {"n": 0}
 
     async def mock_astream(messages, model=None, owner_uuid=None, **kwargs):
-        """第一轮流式:先输出内容,再产出 tool_calls,最后 done。"""
-        yield {"type": "chunk", "content": "好的"}
-        yield {
-            "type": "tool_calls",
-            "tool_calls": [
-                {
-                    "index": 0,
-                    "id": "c1",
-                    "type": "function",
-                    "function": {"name": "web_search", "arguments": '{"q":"test"}'},
-                }
-            ],
-        }
-        yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
+        """状态化 mock:第一轮流式输出内容 + tool_calls;第二轮(工具结果回灌后)流式回复。"""
+        astream_call_count["n"] += 1
+        if astream_call_count["n"] == 1:
+            yield {"type": "chunk", "content": "好的"}
+            yield {
+                "type": "tool_calls",
+                "tool_calls": [
+                    {
+                        "index": 0,
+                        "id": "c1",
+                        "type": "function",
+                        "function": {"name": "web_search", "arguments": '{"q":"test"}'},
+                    }
+                ],
+            }
+            yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
+        else:
+            yield {"type": "chunk", "content": "已为您"}
+            yield {"type": "chunk", "content": "搜索完成"}
+            yield {
+                "type": "done",
+                "model": "test-model",
+                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                "stub": True,
+            }
 
     async def mock_complete(messages, model=None, owner_uuid=None, **kwargs):
-        """第二轮 complete:工具结果已回灌,LLM 直接回复(无 tool_calls)。"""
-        complete_call_count.append(1)
-        return {
-            "content": "已为您搜索完成",
-            "model": "test-model",
-            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            "stub": True,
-        }
+        """回归守卫:W7 #10 后任何轮次都不得再走非流式 complete()。"""
+        raise AssertionError("W7 #10:tool loop 后续轮次不得再调用非流式 complete()")
 
     async def mock_call_tool(name, arguments, **kwargs):
         """模拟 web_search 工具执行成功。"""
@@ -171,7 +176,7 @@ async def test_first_round_streaming_with_tool_calls(client: AsyncClient, monkey
     })
     events = _parse_sse_events(raw)
 
-    # 工具执行路径被触发
+    # 工具执行路径被触发(仅一次,不因后续轮重复 astream 而重复)
     tool_start_events = [e for e in events if e["event"] == "tool-call-start"]
     assert len(tool_start_events) == 1
     assert tool_start_events[0]["data"]["toolName"] == "web_search"
@@ -180,10 +185,10 @@ async def test_first_round_streaming_with_tool_calls(client: AsyncClient, monkey
     assert len(tool_result_events) == 1
     assert tool_result_events[0]["data"]["isError"] is False
 
-    # 第二轮走了 complete(工具结果回灌后 LLM 直接回复)
-    assert len(complete_call_count) == 1
+    # 第二轮走了 astream 真流式(W7 #10)
+    assert astream_call_count["n"] == 2
 
-    # 全部 chunk 拼接 = 第一轮流式内容 + 第二轮拆块内容
+    # 全部 chunk 拼接 = 第一轮流式内容 + 第二轮流式内容
     chunk_events = [e for e in events if e["event"] == "chunk"]
     chunk_text = "".join(e["data"].get("content", "") for e in chunk_events)
     assert chunk_text == "好的已为您搜索完成"
@@ -197,36 +202,47 @@ async def test_first_round_streaming_with_tool_calls(client: AsyncClient, monkey
 # 3. 后续轮次 complete 无工具调用 → 8 字符拆块流式兜底
 # =============================================================================
 
-async def test_subsequent_round_complete_chunked_fallback(client: AsyncClient, monkeypatch):
-    """后续轮次 complete 返回无 tool_calls 的长 content → 按 8 字符/块拆出 ≥2 个 chunk,内容完整。"""
+async def test_subsequent_round_astream_streaming(client: AsyncClient, monkeypatch):
+    """W7 #10(2026-09-18):后续轮次改 astream 真流式 — 第二轮 content 以多 chunk
+    逐 token 到达,8 字符打字机模拟与非流式 complete() 全部废除(回归守卫)。"""
     from app.routers import llm as llm_router
     from app.services.mcp_server import mcp_server as _mcp_inst
 
-    long_content = "这是一段用于验证拆块流式输出的较长的中文测试内容。"
+    long_content = "这是一段用于验证后续轮次真实流式输出的较长的中文测试内容。"
+    _mid = len(long_content) // 3
+    _parts = (long_content[:_mid], long_content[_mid:2 * _mid], long_content[2 * _mid:])
+
+    call_counter = {"n": 0}
 
     async def mock_astream(messages, model=None, owner_uuid=None, **kwargs):
-        """第一轮:仅产出 tool_calls(无 content),触发工具执行。"""
-        yield {
-            "type": "tool_calls",
-            "tool_calls": [
-                {
-                    "index": 0,
-                    "id": "c2",
-                    "type": "function",
-                    "function": {"name": "web_search", "arguments": '{"q":"代码"}'},
-                }
-            ],
-        }
-        yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
+        """状态化 mock:第一轮仅产出 tool_calls;第二轮分 3 块逐 token 流式 content。"""
+        call_counter["n"] += 1
+        if call_counter["n"] == 1:
+            yield {
+                "type": "tool_calls",
+                "tool_calls": [
+                    {
+                        "index": 0,
+                        "id": "c2",
+                        "type": "function",
+                        "function": {"name": "web_search", "arguments": '{"q":"代码"}'},
+                    }
+                ],
+            }
+            yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
+        else:
+            for seg in _parts:
+                yield {"type": "chunk", "content": seg}
+            yield {
+                "type": "done",
+                "model": "test-model",
+                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                "stub": True,
+            }
 
     async def mock_complete(messages, model=None, owner_uuid=None, **kwargs):
-        """第二轮 complete:返回长 content 且无 tool_calls → 应触发拆块兜底。"""
-        return {
-            "content": long_content,
-            "model": "test-model",
-            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            "stub": True,
-        }
+        """回归守卫:W7 #10 后任何轮次都不得再走非流式 complete()。"""
+        raise AssertionError("W7 #10:tool loop 后续轮次不得再调用非流式 complete()")
 
     async def mock_call_tool(name, arguments, **kwargs):
         return {"tool": name, "ok": True, "mock": True, "message": f"mock execution of {name}"}
@@ -246,21 +262,19 @@ async def test_subsequent_round_complete_chunked_fallback(client: AsyncClient, m
     tool_result_events = [e for e in events if e["event"] == "tool-result"]
     assert len(tool_result_events) == 1
 
-    # 关键断言:第二轮 content 被拆成多个 chunk(≥2),而非单个大块
+    # 关键断言 1:第二轮 content 以 ≥2 个 chunk 逐 token 到达(真流式,非单块大内容)
     chunk_events = [e for e in events if e["event"] == "chunk"]
-    assert len(chunk_events) >= 2, f"期望 ≥2 个 chunk(拆块兜底),实际 {len(chunk_events)}"
+    assert len(chunk_events) >= 2, f"期望 ≥2 个 chunk(真流式),实际 {len(chunk_events)}"
 
-    # 每个 chunk 不超过 8 字符(拆块大小)
-    for ce in chunk_events:
-        assert len(ce["data"].get("content", "")) <= 8
-
-    # 累计 content 完整
+    # 关键断言 2:累计 content 完整(流式不丢字)
     chunk_text = "".join(e["data"].get("content", "") for e in chunk_events)
     assert chunk_text == long_content
 
-    # 最终 done
+    # 流正常收尾
     done_events = [e for e in events if e["event"] == "done"]
     assert len(done_events) == 1
+    # astream 恰好被调用两轮
+    assert call_counter["n"] == 2
 
 
 # =============================================================================
@@ -378,29 +392,30 @@ async def test_subsequent_round_empty_content_no_fallback_after_tools(
     from app.routers import llm as llm_router
     from app.services.mcp_server import mcp_server as _mcp_inst
 
+    call_counter = {"n": 0}
+
     async def mock_astream(messages, model=None, owner_uuid=None, **kwargs):
-        """第一轮:仅产出 tool_calls(无 content),触发工具执行。"""
-        yield {
-            "type": "tool_calls",
-            "tool_calls": [
-                {
-                    "index": 0,
-                    "id": "c3",
-                    "type": "function",
-                    "function": {"name": "web_search", "arguments": '{"q":"空回复"}'},
-                }
-            ],
-        }
-        yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
+        """状态化 mock:第一轮仅产出 tool_calls;第二轮空流(仅 done,agent 场景正常形态)。"""
+        call_counter["n"] += 1
+        if call_counter["n"] == 1:
+            yield {
+                "type": "tool_calls",
+                "tool_calls": [
+                    {
+                        "index": 0,
+                        "id": "c3",
+                        "type": "function",
+                        "function": {"name": "web_search", "arguments": '{"q":"空回复"}'},
+                    }
+                ],
+            }
+            yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
+        else:
+            yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
 
     async def mock_complete(messages, model=None, owner_uuid=None, **kwargs):
-        """第二轮 complete:返回空 content(agent 场景正常形态)→ 不得插入假文案。"""
-        return {
-            "content": "",
-            "model": "test-model",
-            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            "stub": True,
-        }
+        """回归守卫:W7 #10 后任何轮次都不得再走非流式 complete()。"""
+        raise AssertionError("W7 #10:tool loop 后续轮次不得再调用非流式 complete()")
 
     async def mock_call_tool(name, arguments, **kwargs):
         return {"tool": name, "ok": True, "mock": True, "message": f"mock execution of {name}"}
