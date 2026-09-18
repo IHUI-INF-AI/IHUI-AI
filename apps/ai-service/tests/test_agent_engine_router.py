@@ -337,11 +337,15 @@ async def test_rpc_streaming_events_keep_arrival_order_and_drop_foreign_thread(m
     # 2026-09-18 第二批:引擎自产 environment_context(prompt 前)/ turn.usage
     # (回合结束)也走 thread/event 通道。本用例假循环无等待,总线事件在轮尾
     # 补扫才出,故 turn.usage 先于 tool.before/message.receive。
+    # 2026-09-18 第十/十二批:回合生命周期补全后再加 turn.started(prompt 入口)
+    # 与 turn.complete(回合收尾),均为 thread/event 通道的标准成员。
     assert events == [
         "environment_context",
+        "turn.started",
         "turn.usage",
         "tool.before",
         "message.receive",
+        "turn.complete",
     ]
     # 其它会话的事件不得泄漏到本线程的流
     payloads = [
