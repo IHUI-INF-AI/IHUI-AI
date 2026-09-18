@@ -97,7 +97,7 @@ const envSchema = z.object({
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
-  SMTP_FROM: z.string().default('noreply@aizhs.top'),
+  SMTP_FROM: z.string().default('智汇AI官方 <ihui-AI@aizhs.top>'),
   // P1 修复(2026-08-06):z.coerce.boolean() 把 "false"/"0" 解析为 true,
   // 导致 SMTP_ENABLED=false 实际开启,改为严格布尔解析。
   SMTP_ENABLED: booleanFromString(false),
