@@ -52,6 +52,7 @@ import { mergeAgentTools } from './tool-config'
 import {
   createToolCallHandler,
   createToolSummaryHandler,
+  createUsageHandler,
   createDeltaBatcher,
   createAgentDeltaBatcher,
 } from './stream-handlers'
@@ -726,6 +727,10 @@ export function createSendMessage(
           // #21 权威值到达:置 finalUsageReceived 停止实时估算覆盖,确保最终展示权威数字。
           finalUsageReceived = true
           useChatStore.getState().updateMessageMeta(assistantId, { usage })
+          // D1 消息级计量(2026-09-19 立):写入 store.usageByMessageId,驱动消息底部徽章行。
+          // 载荷即 api-client UsageEvent(扁平契约):messageId/timing/costUsd 缺失(null)时
+          // createUsageHandler 兜底(回退 assistantId / 0 / null)。
+          createUsageHandler(assistantId)(usage)
           // P3 #43:实际 tokens 到达,供「实际 vs 预估」对比条展示
           if (usage.totalTokens > 0) {
             useCostGuardStore.getState().setActualTokens(usage.totalTokens)

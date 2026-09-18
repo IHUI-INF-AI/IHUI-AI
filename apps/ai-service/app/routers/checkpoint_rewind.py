@@ -27,8 +27,10 @@
 
 from __future__ import annotations
 
+import difflib
 import logging
 import time
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -212,6 +214,127 @@ async def restore_checkpoint(
         message=f"已恢复到迭代 {restored['iteration']} 的 checkpoint"
         f"(消息 {restored['restored_message_count']} 条,文件变更 {file_changes} 项)",
     )
+
+
+# 影响预览单文件内容嵌入上限(防止巨型文件撑爆响应;行数统计仍按全文计算)
+_IMPACT_CONTENT_CAP = 4000
+# 影响文件清单默认截断上限(对标 Trae:列前 N 个 + "等 M 个文件")
+_IMPACT_FILE_LIMIT = 50
+
+
+def _count_diff_lines(old_content: str, new_content: str) -> tuple[int, int]:
+    """用 LCS 统计变更行数(增/删)。返回 (added, deleted)。"""
+    old_lines = old_content.splitlines()
+    new_lines = new_content.splitlines()
+    sm = difflib.SequenceMatcher(None, old_lines, new_lines)
+    added = deleted = 0
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag == "replace":
+            deleted += i2 - i1
+            added += j2 - j1
+        elif tag == "delete":
+            deleted += i2 - i1
+        elif tag == "insert":
+            added += j2 - j1
+    return added, deleted
+
+
+def _cap_content(content: str) -> tuple[str, bool]:
+    """截断嵌入内容并返回(截断后文本, 是否截断)。"""
+    if len(content) <= _IMPACT_CONTENT_CAP:
+        return content, False
+    return content[:_IMPACT_CONTENT_CAP], True
+
+
+class CheckpointImpactResponse(BaseModel):
+    """回退影响预览:影响文件清单 + 逐文件变更行数 + old/new 内容(供前端 diff 展示)。"""
+
+    checkpoint_id: str
+    session_id: str
+    scope: str
+    restored_message_count: int = 0
+    files: list[dict[str, Any]] = []
+    total: int = 0
+    truncated: bool = False
+
+
+@router.get("/{checkpoint_id}/impact", response_model=CheckpointImpactResponse)
+async def checkpoint_impact(
+    checkpoint_id: str,
+    request: Request,
+    session_id: str = Query(..., min_length=1, description="会话 id"),
+    scope: str = Query(
+        "both", pattern="^(conversation|code|both)$", description="回退范围"
+    ),
+) -> dict[str, Any]:
+    """回退前的影响预览(对标 Trae:恢复前展示影响文件 + 逐文件 diff 确认)。
+
+    - scope=conversation:仅恢复对话历史,无文件变更(files 为空)
+    - scope=code / both:按 checkpoint 记录的文件版本引用,逐个比对当前磁盘内容,
+      返回 old(当前)/new(快照)内容 + 增删行数;清单超过 50 个时截断并标记 truncated。
+    """
+    _authorize_session(request, session_id)
+    manager = get_agent_checkpoint_manager()
+    try:
+        restored = await manager.restore(session_id=session_id, checkpoint_id=checkpoint_id)
+    except CheckpointNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from None
+    except CheckpointSessionMismatchError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+
+    file_versions = restored.get("file_versions", []) or []
+    # conversation 范围不回滚文件,影响清单为空
+    if scope == "conversation":
+        return {
+            "checkpoint_id": restored["checkpoint_id"],
+            "session_id": restored["session_id"],
+            "scope": scope,
+            "restored_message_count": restored["restored_message_count"],
+            "files": [],
+            "total": 0,
+            "truncated": False,
+        }
+
+    all_files: list[dict[str, Any]] = []
+    for fv in file_versions:
+        path = fv.get("path")
+        version_id = fv.get("version_id")
+        if not path or not version_id:
+            continue
+        owner_session = fv.get("session_id", session_id)
+        # 当前磁盘内容(恢复前)
+        try:
+            disk = Path(path).read_text(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 - 文件缺失视为空(将显示为整文件新增/删除)
+            disk = ""
+        # 快照内容(恢复后)
+        snapshot = file_editor.get_file_version_content(owner_session, path, version_id) or ""
+        added, deleted = _count_diff_lines(disk, snapshot)
+        old_capped, old_trunc = _cap_content(disk)
+        new_capped, new_trunc = _cap_content(snapshot)
+        all_files.append(
+            {
+                "path": path,
+                "oldContent": old_capped,
+                "newContent": new_capped,
+                "added": added,
+                "deleted": deleted,
+                "contentTruncated": old_trunc or new_trunc,
+            }
+        )
+
+    total = len(all_files)
+    truncated = total > _IMPACT_FILE_LIMIT
+    display = all_files[:_IMPACT_FILE_LIMIT] if truncated else all_files
+    return {
+        "checkpoint_id": restored["checkpoint_id"],
+        "session_id": restored["session_id"],
+        "scope": scope,
+        "restored_message_count": restored["restored_message_count"],
+        "files": display,
+        "total": total,
+        "truncated": truncated,
+    }
 
 
 __all__ = ["router"]

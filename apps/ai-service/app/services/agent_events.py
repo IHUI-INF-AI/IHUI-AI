@@ -27,9 +27,24 @@ from __future__ import annotations
 SSE_CHUNK = "chunk"          # 逐 token 内容 {"content": "..."}
 SSE_DONE = "done"            # 完成 {"model", "usage", "stub", "metadata"}
 SSE_ERROR = "error"          # 错误 {"message", "errorCode"}(前端 attachErrorMeta)
+SSE_FALLBACK = "fallback"    # P4-2 模型降级通知(前端 client.ts onFallback 消费):
+                             # {"type":"fallback","primary_model":"失败主模型",
+                             #  "backup_model":"切换到的备用模型","reason":"降级原因"}
+                             # llm_gateway 主模型失败切换备用模型时 yield;
+                             # llm.py 各 astream 事件循环转发(tool loop 两处 +
+                             # 非 tool-loop 兜底 yield _sse(event_type, event))
+SSE_USAGE = "usage"          # 消息级计量帧(D7/D1 全链路,2026-09-19 立):
+                             # {"type":"usage","messageId","usage":{promptTokens,
+                             # completionTokens,totalTokens,reasoningTokens},
+                             # "timing":{firstTokenMs,durationMs},"model","costUsd"}
+                             # 流收尾处发出(优先于 done 之后),前端据此更新消息 meta.usage
 SSE_QUESTION = "question"    # 澄清问题 {"question": Question.to_dict()}
 SSE_REASONING = "reasoning"  # 推理增量 {"content": "..."}
 SSE_MESSAGE = "message"      # 底层 llm_gateway 透传的消息事件(event_type 别名)
+SSE_STEER = "steer"          # 中途引导注入确认(2026-09-19 立,前端 use-chat/MessageItem 消费):
+                             # {"type":"steer","phase":"injected","text":"用户引导文本",
+                             #  "timestamp":"ISO(入队时间)","messageId":"assistant 消息 ID"}
+                             # tool loop 每轮 LLM 调用前 drain 注入 messages 时发出
 
 # ---------------------------------------------------------------------------
 # 工具链事件(/llm/complete/stream 工具循环)

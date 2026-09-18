@@ -415,6 +415,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       const reader = resp.body.getReader()
       const decoder = new TextDecoder()
       let streamBuffer = ''
+      // D1(2026-09-19 立):命名事件配对缓冲 —— `event: usage` 行的事件名暂存,
+      // 下一行 `data:` 配对为编号命名帧(emitNamedEvent:编号 + 进回放缓冲)。
+      let pendingNamedEvent: string | null = null
       for (;;) {
         const { done, value } = await reader.read()
         if (done) break
@@ -423,6 +426,25 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         while ((nl = streamBuffer.indexOf('\n')) !== -1) {
           const line = streamBuffer.slice(0, nl).replace(/\r$/, '')
           streamBuffer = streamBuffer.slice(nl + 1)
+          // D1(2026-09-19 立):usage 命名帧透传 —— `event: usage` 已暂存事件名时,
+          // 将紧随的 `data:` 行配对为编号命名帧(emitNamedEvent:编号 + 进回放缓冲,
+          // 重放后仍是合法命名帧,与 compaction 首事件同源机制)。usage 来自主聊天链路,
+          // 不经过 agentId 注入分支(上方 continue 已跳过),避免污染计量帧。
+          if (pendingNamedEvent) {
+            const data = line.startsWith('data:') ? line.slice(5).replace(/^\s/, '') : null
+            if (data && data !== '[DONE]') {
+              emitNamedEvent(session, pendingNamedEvent, data)
+              pendingNamedEvent = null
+              continue
+            }
+            // data 行缺失(异常帧):回退为通用行透传,避免丢帧
+            pendingNamedEvent = null
+          }
+          const evMatch = /^event:\s*usage\s*$/.exec(line)
+          if (evMatch) {
+            pendingNamedEvent = 'usage'
+            continue
+          }
           if (opts.agentId && line.startsWith('data:') && !line.startsWith('data: [DONE]')) {
             const data = line.slice(5).replace(/^\s/, '')
             // 仅对 JSON 对象注入;Vercel AI SDK `0:"..."` / 纯文本透传

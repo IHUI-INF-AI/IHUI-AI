@@ -61,6 +61,7 @@ import { Checklist, type ChecklistItemData } from './progress-sections/checklist
 import { ResourceBudget } from './progress-sections/resource-budget'
 import { flattenToTimelineEvents } from './progress-sections/timeline-tab'
 import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
+import { NextStepsCard } from './progress-sections/next-steps-card'
 
 /**
  * AgentTaskProgressPane — AI 面板右上角的小 popover(2026-07-29 v18)
@@ -180,16 +181,20 @@ const SHORTCUT_GROUPS: ReadonlyArray<ShortcutGroup> = [
   },
 ]
 
-// ─── 状态图标映射 ────────────────────────────────────────────────────
+// ─── 状态图标映射(2026-09-19 v2 五态:skipped=Ban 灰 / failed=AlertCircle 红) ──
 const PLAN_ICON: Record<PlanStepStatus, React.ComponentType<{ className?: string }>> = {
   pending: Circle,
   in_progress: Loader2,
   completed: Check,
+  skipped: Ban,
+  failed: AlertCircle,
 }
 const PLAN_CLS: Record<PlanStepStatus, string> = {
   pending: 'text-muted-foreground/60',
   in_progress: 'text-primary',
   completed: 'text-emerald-500',
+  skipped: 'text-muted-foreground/40',
+  failed: 'text-red-500',
 }
 
 // ─── Preview 数据类型(传给 useHoverPreview 的 data) ──────────────────
@@ -343,12 +348,15 @@ const PlanStepItem = React.memo(function PlanStepItem({
     return relatedTools.slice(0, PREVIEW_TOOL_LIMIT).map<ChecklistItemData>((tool) => ({
       id: tool.id,
       label: tool.toolName,
+      // 2026-09-19 v2 语义修正:error → failed(原误映射 skipped),cancelled → skipped
       status:
         tool.status === 'success'
           ? 'completed'
           : tool.status === 'error'
-            ? 'skipped'
-            : 'in_progress',
+            ? 'failed'
+            : tool.status === 'cancelled'
+              ? 'skipped'
+              : 'in_progress',
       meta: tool.durationMs !== undefined ? formatDuration(tool.durationMs) : undefined,
     }))
   }, [relatedTools])
@@ -779,10 +787,24 @@ export function AgentTaskProgressPane() {
     }
   }, [open, threadId])
 
-  // Phase 19: 每个 plan step 关联的工具调用(时间窗 + 缓冲)
+  // Phase 19: 每个 plan step 关联的工具调用
+  // 2026-09-19 v2:优先 toolCallIds 精确匹配(plan_updated 事件携带,权威关联);
+  // 缺失时回退时间窗启发式(TOOL_TIME_WINDOW_* 缓冲兜底)
   const toolsByStep = React.useMemo(() => {
     const map = new Map<string, readonly AgentToolCall[]>()
+    // 工具 ID 索引(精确匹配用,避免每个步骤全量扫描)
+    const toolsById = new Map<string, AgentToolCall>()
+    tools.forEach((t) => toolsById.set(t.id, t))
     planSteps.forEach((step) => {
+      // 1) 精确匹配:后端下发的 toolCallIds
+      if (step.toolCallIds && step.toolCallIds.length > 0) {
+        const exact = step.toolCallIds
+          .map((id) => toolsById.get(id))
+          .filter((t): t is AgentToolCall => t !== undefined)
+        map.set(step.id, exact)
+        return
+      }
+      // 2) 时间窗兜底:startedAt/endedAt ± 缓冲
       const startMs = step.startedAt ? Date.parse(step.startedAt) : Number.NaN
       const endMs = step.endedAt ? Date.parse(step.endedAt) : Date.now()
       if (Number.isNaN(startMs)) {
@@ -1290,6 +1312,16 @@ export function AgentTaskProgressPane() {
           </div>
         )}
 
+        {/* v19: 对话终点「下一步推荐」卡片 — 流结束(isStreaming=false)且有消息时显示,
+            点击建议写入 chat store 草稿并自动发送;流式重启时组件内部重置 dismissed */}
+        <NextStepsCard
+          steps={planSteps}
+          tools={tools}
+          visible={!isStreaming && chatMessages.length > 0}
+          onDismiss={() => {}}
+          data-testid="pane-next-steps-card"
+        />
+
         {/* v15: 失败状态条 — 当有 failed subagent/tool/terminal 时显示,点击滚动到首个失败项 */}
         {failureCount > 0 && (
           <button
@@ -1533,7 +1565,8 @@ export function AgentTaskProgressPane() {
                     <TruncatedText value={currentTask.label} className="min-w-0 flex-1" />
                   </div>
                 )}
-                <ToolCallsSection tools={tools} />
+                {/* 2026-09-19 v2:传入 planSteps 供工具卡显示"所属步骤" chip */}
+                <ToolCallsSection tools={tools} planSteps={planSteps} />
                 {/* Phase 19: BatchHeader 包装 subagents(默认折叠,展开后展示 SubAgentTaskTree) */}
                 {subagents.length > 0 && (
                   <>
