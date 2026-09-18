@@ -93,7 +93,10 @@ export function LoginDialog() {
               // 必须显式 left-0 top-0 translate-x-0 translate-y-0 抵消 DialogContent 基类
               // 的 left-[50%] top-[50%] translate-x/y-[-50%] 居中,否则全屏盒被平移出屏只露左上角。
               'fixed left-0 top-0 translate-x-0 translate-y-0 h-dvh w-full max-w-none max-h-none overflow-y-auto gap-0 p-0 border-0 bg-background rounded-none shadow-none'
-            : // 桌面:保持原居中卡片
+            : // 桌面:保持原居中卡片。content 的 open/closed 淡入淡出实测为 animate-in/out 自带的
+              // 150ms(tw-animate-css 默认;基类 duration-(--duration-unified) 对 animation-duration
+              // 并不生效,勿再试图用 duration-* 同步),远快于卡片 500ms pop → 底座瞬间到位,
+              // 卡片弹出不受半透明拖累,视觉由 login-dialog-pop 主导,无需任何干预。
               'gap-0 p-0 max-w-[460px] w-[calc(100%-2rem)] max-h-[95vh] overflow-y-auto border-0 bg-transparent shadow-none'
         }
       >
@@ -123,7 +126,11 @@ export function LoginDialog() {
             </AuthShell>
           </div>
         ) : (
-          <AuthShell onClose={close}>
+          // 2026-09-18 卡片翻转入场:Y 轴 3D 全周翻转(360°)+ 弹性过冲
+          // (@keyframes login-dialog-flip,globals.css)。
+          // 加在内层卡片而非 DialogContent——Content 的居中 translate 不能被关键帧
+          // transform 碰(dialog.tsx 2026-07-28 残留 bug 教训)。移动全屏页/SSO 独立页不套用。
+          <AuthShell onClose={close} className="animate-login-dialog-flip">
             {showDesktopSso && mode === 'login' && (
               <div className="pb-3">
                 <Button

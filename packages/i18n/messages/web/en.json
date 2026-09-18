@@ -6847,6 +6847,18 @@
       "copy": "Copy",
       "copyPlan": "Copy plan",
       "copyThinking": "Copy thinking content",
+      "diffHunk": {
+        "acceptBlock": "Accept this change",
+        "accepted": "Accepted",
+        "applySelected": "Apply selected ({count})",
+        "applyingSelected": "Applying",
+        "changeBlock": "Change {index}/{total}",
+        "clearSelection": "Deselect all",
+        "rejectBlock": "Reject this change",
+        "rejected": "Rejected",
+        "resetSelection": "Reset selection",
+        "selectedSummary": "{accepted}/{total} selected"
+      },
       "dragHandle": "Drag to reposition",
       "elapsedTitle": "Elapsed {time}",
       "emptyHint": "The plan appears once a conversation starts.",
@@ -6985,8 +6997,10 @@
         "continueText": "Continue"
       },
       "terminal": {
+        "clearLive": "Clear",
         "copyOutput": "Copy terminal output",
         "failed": "{n} failed",
+        "live": "Live",
         "moreItems": "…{n} more",
         "output": "Output",
         "running": "{n} running",

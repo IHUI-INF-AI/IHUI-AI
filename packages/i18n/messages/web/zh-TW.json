@@ -6847,6 +6847,18 @@
       "copy": "復制",
       "copyPlan": "復制任務計劃",
       "copyThinking": "復制思考內容",
+      "diffHunk": {
+        "acceptBlock": "接受此改動塊",
+        "accepted": "已接受",
+        "applySelected": "套用所選({count})",
+        "applyingSelected": "套用中",
+        "changeBlock": "改動 {index}/{total}",
+        "clearSelection": "全不選",
+        "rejectBlock": "拒絕此改動塊",
+        "rejected": "已拒絕",
+        "resetSelection": "重設選擇",
+        "selectedSummary": "已選 {accepted}/{total}"
+      },
       "dragHandle": "拖動以調整面板位置",
       "elapsedTitle": "已耗時 {time}",
       "emptyHint": "開始對話後顯示任務計劃",
@@ -6985,8 +6997,10 @@
         "continueText": "繼續"
       },
       "terminal": {
+        "clearLive": "清空",
         "copyOutput": "復制終端輸出",
         "failed": "{n} 失敗",
+        "live": "即時輸出",
         "moreItems": "…還有 {n} 項",
         "output": "輸出",
         "running": "{n} 運行中",
