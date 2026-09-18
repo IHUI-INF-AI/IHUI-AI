@@ -164,6 +164,17 @@ function readPushState() {
   }
 }
 
+/** 检测进程是否存活(signal 0 探测;死 worker 的 running 状态应立即判失效) */
+function isPidAlive(pid) {
+  if (!pid || Number(pid) === process.pid) return true
+  try {
+    process.kill(Number(pid), 0)
+    return true
+  } catch (e) {
+    return e.code === 'EPERM'
+  }
+}
+
 function writePushState(status, headSha) {
   try {
     mkdirSync(resolve(process.cwd(), '.workbuddy'), { recursive: true })
@@ -177,11 +188,14 @@ function writePushState(status, headSha) {
 }
 
 const existingState = readPushState()
+// running 状态必须"未过期 **且** 持有者存活"才算在途——worker 被强杀(CTRL_C/宿主清树)
+// 时来不及写终态,死 pid 的 running 状态若照常采信,推送会永远卡 PUSHING。
 const workerActive =
   existingState &&
   existingState.status === 'running' &&
   existingState.headSha === localHead &&
-  Date.now() - existingState.ts < PUSH_STATE_STALE_MS
+  Date.now() - existingState.ts < PUSH_STATE_STALE_MS &&
+  isPidAlive(existingState.pid)
 
 if (isWorkerMode) {
   // worker:继续走下方同步推送流程,结束处写 done/failed
@@ -195,7 +209,8 @@ if (isWorkerMode) {
       prev.status !== 'running' ||
       prev.headSha === localHead || // 自己的状态(主模式写入)
       prev.pid === process.pid ||
-      Date.now() - prev.ts > PUSH_STATE_STALE_MS
+      Date.now() - prev.ts > PUSH_STATE_STALE_MS ||
+      !isPidAlive(prev.pid) // 持有者已死(被强杀未写终态)→ 不等,直接接管
     ) {
       break
     }
