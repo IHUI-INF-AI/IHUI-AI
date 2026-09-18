@@ -61,13 +61,12 @@ test.describe('浮动弹窗视口定位(斜杠/用量环弹窗)', () => {
 
     const before = await bodyScrollHeight(page)
 
-    // 点开斜杠按钮(aria-label 来自 a11y.slashCommand)
-    const slashBtn = page
-      .locator('button[aria-haspopup="dialog"]')
-      .filter({ has: page.locator('svg.lucide-square-slash') })
-      .first()
-    await expect(slashBtn).toBeVisible({ timeout: 20_000 })
-    await slashBtn.click()
+    // 斜杠按钮已移除(2026-09-18 用户规则:去按钮改快捷键 Ctrl+Shift+/),
+    // e2e 用等价通道:textarea 输入 / 作为首字符唤起面板(message-input handleChange)
+    const chatInput = page.locator('textarea').first()
+    await expect(chatInput).toBeVisible({ timeout: 20_000 })
+    await chatInput.click()
+    await chatInput.pressSequentially('/')
     await page.waitForTimeout(500)
 
     // 契约 3:body 不被撑开

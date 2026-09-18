@@ -76,6 +76,14 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   { key: 'Ctrl+4', description: '切换到规格模式', event: 'global-shortcut:mode-spec' },
   // Ctrl+5 → ask(2026-09-13 矩阵 A #24:ChatMode 扩为 5 态,补纯问答模式)
   { key: 'Ctrl+5', description: '切换到问答模式', event: 'global-shortcut:mode-ask' },
+  // 输入工具栏收敛(2026-09-18 用户规则:"这里这么多按钮都重合了"):
+  // - 斜杠命令面板:Ctrl+Shift+/ 触发(避开 Ctrl+/ 帮助,Ctrl+P 搜索,Ctrl+Shift+P 命令面板)
+  // - @ 提及文件:Ctrl+Shift+A(Ctrl+@ 字符歧义,匹配易失败,选 A 记 "At mention")
+  // - 截图:Ctrl+Shift+M(避开 Ctrl+Shift+D 短剧、Ctrl+Shift+N 新建、Ctrl+Shift+P 命令面板)
+  // 事件由 message-input.tsx 消费(setSlashOpen / setMentionOpen / fileInputRef.click)
+  { key: 'Ctrl+Shift+/', description: '斜杠命令面板', event: 'global-shortcut:open-slash' },
+  { key: 'Ctrl+Shift+A', description: '提及文件', event: 'global-shortcut:mention-file' },
+  { key: 'Ctrl+Shift+M', description: '截图', event: 'global-shortcut:screenshot' },
   // 2026-09-18 语音三件套快捷键(用户规则:"请为这些组件添加快捷键支持"):
   // Ctrl+Alt+V 录音 / Ctrl+Alt+B 自动朗读 / Ctrl+Alt+H 连续对话
   // 避开 Ctrl+P/Ctrl+K/Ctrl+Shift+* 等已占组合;Ctrl+Alt+P 因浏览器打印预览占用而弃用
