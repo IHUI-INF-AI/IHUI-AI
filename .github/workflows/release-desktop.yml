@@ -291,8 +291,22 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add apps/web/public/downloads/ apps/web/src/config/desktop-feed.generated.ts
-          git commit -m "chore(downloads): auto-sync downloads + desktop feed after release ${{ github.ref_name }}"
-          git push origin main
+          git commit -m "chore(downloads): auto-sync downloads + desktop feed after release ${{ inputs.tag || github.ref_name }}"
+          # 2026-09-18(实测):本 job 运行期间常有并发会话/其它 workflow 推进 main,
+          # 裸 `git push origin main` 被拒(rejected — fetch first) → 快照刷新整体失败
+          # (0.1.35 重跑实证)。改为「合并远端后重试」;快照是生成物,冲突时以本次
+          # 解析结果为准(-X ours),避免刚补上的 Windows 资产又被旧快照覆盖。
+          for i in 1 2 3; do
+            if git push origin main; then
+              echo "✓ 快照已推送到 main"
+              exit 0
+            fi
+            echo "push 被拒(第 $i 次),合并远端 main 后重试"
+            git fetch origin main
+            git merge -X ours --no-edit origin/main || { git merge --abort || true; exit 1; }
+          done
+          echo "::error::快照提交推送失败(main 被并发持续推进,已重试 3 次)"
+          exit 1
 
       - name: Summary
         run: |
@@ -324,14 +338,17 @@ jobs:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
           GITEE_OWNER: ${{ secrets.GITEE_OWNER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          # 2026-09-18(实测):workflow_dispatch 手动重跑时 github.ref_name 是分支名
+          # (main),sync-gitee.py 会去请求 /releases/tags/main → 必然 404 整步失败。
+          # 必须与 build job 的 tagName 一致:inputs.tag 优先。
+          TAG: ${{ inputs.tag || github.ref_name }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: python3 .github/scripts/sync-gitee.py
 
       - name: Summary
         run: |
           echo "### Gitee 国内发行同步完成" >> $GITHUB_STEP_SUMMARY
-          echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "tag: ${{ inputs.tag || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "安装包+签名已镜像 Gitee release;latest.json 已更新 desktop-feed 分支" >> $GITHUB_STEP_SUMMARY
           echo "更新器端点(Gitee 优先): https://gitee.com/${{ secrets.GITEE_OWNER }}/IHUI-AI/raw/desktop-feed/latest.json" >> $GITHUB_STEP_SUMMARY
 
