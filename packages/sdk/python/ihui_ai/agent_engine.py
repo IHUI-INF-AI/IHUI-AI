@@ -53,6 +53,9 @@ ENGINE_METHODS: tuple[str, ...] = (
     "thread.compact",
     "thread.export",
     "thread.plan",
+    "thread.enqueue",
+    "thread.goal",
+    "thread.review",
     "agent.exec",
     "tools.list",
     "tools.register",
@@ -81,6 +84,7 @@ ENGINE_ERROR_CODES: dict[str, int] = {
     "tool_not_found": -32004,
     "host_tool_failed": -32005,
     "thread_closed": -32006,
+    "budget_exhausted": -32007,
 }
 
 #: 默认引擎地址(ai-service)。
@@ -469,6 +473,39 @@ class Agent:
         """线程状态(状态机 + 迭代数 + checkpoint + 成本)。"""
         return dict(self._call("thread.state", {"threadId": self._thread_id}) or {})
 
+    def compact(self, keep_recent: Optional[int] = None) -> dict[str, Any]:
+        """手动压缩线程历史(2026-09-18 第二批,对标 Codex /compact)。"""
+        params: dict[str, Any] = {"threadId": self._thread_id}
+        if keep_recent is not None:
+            params["keepRecent"] = keep_recent
+        return dict(self._call("thread.compact", params) or {})
+
+    def export_thread(self, path: Optional[str] = None) -> dict[str, Any]:
+        """导出线程为 JSONL(2026-09-18 第二批,对标 Codex rollout 导出)。"""
+        params = {"threadId": self._thread_id}
+        if path is not None:
+            params["path"] = path
+        return dict(self._call("thread.export", params) or {})
+
+    def get_plan(self) -> dict[str, Any]:
+        """读取线程当前计划(update_plan 内置工具写入)。"""
+        return dict(self._call("thread.plan", {"threadId": self._thread_id}) or {})
+
+    def enqueue(self, input: Any) -> dict[str, Any]:
+        """消息入队(2026-09-18 第三批,对标 Codex Steer:轮中转向自动续跑)。"""
+        return dict(self._call("thread.enqueue", {"threadId": self._thread_id, "input": input}) or {})
+
+    def set_goal(self, goal: Optional[str]) -> dict[str, Any]:
+        """设置/清除线程持久目标(2026-09-18 第三批,对标 Codex Goals;None 清除)。"""
+        return dict(self._call("thread.goal", {"threadId": self._thread_id, "goal": goal}) or {})
+
+    def review(self, focus: Optional[str] = None) -> dict[str, Any]:
+        """审查模式(2026-09-18 第三批,对标 Codex review:派生审查子代理)。"""
+        params: dict[str, Any] = {"threadId": self._thread_id}
+        if focus is not None:
+            params["focus"] = focus
+        return dict(self._call("thread.review", params) or {})
+
     def _run_stream(
         self,
         method: str,
@@ -710,6 +747,18 @@ class AsyncAgent:
     async def get_plan(self) -> dict[str, Any]:
         """读取线程当前计划(update_plan 内置工具写入)。"""
         return await asyncio.to_thread(self._agent.get_plan)
+
+    async def enqueue(self, input: Any) -> dict[str, Any]:
+        """消息入队(2026-09-18 第三批,对标 Codex Steer:轮中转向自动续跑)。"""
+        return await asyncio.to_thread(self._agent.enqueue, input)
+
+    async def set_goal(self, goal: Optional[str]) -> dict[str, Any]:
+        """设置/清除线程持久目标(2026-09-18 第三批,对标 Codex Goals)。"""
+        return await asyncio.to_thread(self._agent.set_goal, goal)
+
+    async def review(self, focus: Optional[str] = None) -> dict[str, Any]:
+        """审查模式(2026-09-18 第三批,对标 Codex review:派生审查子代理)。"""
+        return await asyncio.to_thread(self._agent.review, focus)
 
     async def register_tool(
         self,
