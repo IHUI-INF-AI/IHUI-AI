@@ -1175,7 +1175,6 @@ function computeGateFingerprint() {
   }
 }
 
-let pushGateCacheHit = false
 if (pushGate && !cliArgs.includes('--no-cache') && process.env.HUSKY_SKIP_PUSHGATE_CACHE !== '1') {
   const cache = readPushGateCache()
   const fp = computeGateFingerprint()
@@ -1191,16 +1190,7 @@ if (pushGate && !cliArgs.includes('--no-cache') && process.env.HUSKY_SKIP_PUSHGA
       `${C.green}⚡ [push-gate] 命中缓存:类型相关内容指纹 ${String(fp).slice(0, 11)} 于 ${ageMin} 分钟前已通过全量门,跳过重复 typecheck${C.reset}`,
     )
     console.log(`${C.dim}   (内容一致复用结果;强制重跑:HUSKY_SKIP_PUSHGATE_CACHE=1)${C.reset}`)
-    pushGateCacheHit = true
     process.exit(0)
-  }
-}
-
-function execFileSyncSafe() {
-  try {
-    return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
-  } catch {
-    return null
   }
 }
 
