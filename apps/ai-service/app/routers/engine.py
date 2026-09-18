@@ -60,6 +60,11 @@ def _make_loop_factory() -> Any:
         from .agents import _build_loop_v2_tools, _make_loop_v2_llm
 
         tools = await _build_loop_v2_tools(spec.get("tool_names"))
+        # 负向工具过滤(2026-09-18 第二批,对标 Codex per-app omit_tools_from)
+        deny = spec.get("deny_tools") or []
+        if deny:
+            deny_set = {str(x) for x in deny}
+            tools = [t for t in tools if getattr(t, "name", "") not in deny_set]
         if host_tools:
             # 宿主注入工具与内置同名时以宿主为准(客户端显式覆盖内置实现)
             host_names = {getattr(t, "name", "") for t in host_tools}
@@ -74,6 +79,11 @@ def _make_loop_factory() -> Any:
             user_id=spec.get("user_id"),
             conversation_id=spec.get("conversation_id"),
             permission_mode=spec.get("permission_mode"),
+            # 2026-09-18 收尾修复:上一批 per-tool 审批策略只进了 spec,生产工厂
+            # 漏传导致产线链路被静默丢弃(测试工厂传了所以测试绿)——此处补接线。
+            approval_policies=spec.get("approval_policies"),
+            # 2026-09-18 第二批:生成参数透传面(temperature/top_p/reasoning_effort/...)
+            model_params=spec.get("model_params"),
         )
 
     return _factory
