@@ -622,6 +622,227 @@ def _validate_output_schema_payload(
 # ---------------------------------------------------------------------------
 
 
+def _is_v4a_patch(patch_text: str) -> bool:
+    """判别 codex V4A 补丁格式(*** Begin Patch)。"""
+    return "*** Begin Patch" in patch_text
+
+
+def _parse_v4a_patch(patch_text: str) -> list[dict[str, Any]]:
+    """解析 codex V4A 补丁(*** Begin Patch 语法,2026-09-18 第九批)。
+
+    语法(Lark 文法,取自 codex-rs apply-patch/src/parser.rs):
+      hunk: Add File / Delete File / Update File(+可选 Move to)
+      change: (@@ anchor)? (context ' ' | '+' | '-') 行;*** End of File 锚定 EOF
+    输出与 _parse_unified_patch 同构的文件段列表(便于共用落盘通道):
+      hunks[i]["lines"] 元素为 (tag, text),tag ∈ {' ', '+', '-'}。
+    """
+    raw_lines = patch_text.replace("\r\n", "\n").split("\n")
+    # 宽容解析:剥掉 shell 包装(apply_patch <<'EOF' ... EOF)
+    while raw_lines and not raw_lines[0].strip():
+        raw_lines.pop(0)
+    if raw_lines and raw_lines[0].strip().startswith("apply_patch"):
+        raw_lines.pop(0)
+        if raw_lines and raw_lines[-1].strip() == "EOF":
+            raw_lines.pop()
+
+    start_idx: int | None = None
+    for i, line in enumerate(raw_lines):
+        if line.strip() == "*** Begin Patch":
+            start_idx = i + 1
+            break
+    if start_idx is None:
+        raise ValueError("V4A 补丁首段缺失 *** Begin Patch")
+
+    sections: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    chunk: dict[str, Any] | None = None
+    seen_end = False
+    for lineno, raw in enumerate(raw_lines[start_idx:], start=start_idx + 1):
+        stripped = raw.strip()
+        if stripped == "*** End Patch":
+            seen_end = True
+            break
+        if raw == "":
+            continue  # 真·空行(含补丁尾随换行)宽容跳过;内容空行须显式 ' ' 前缀
+        if stripped.startswith("*** Add File: "):
+            current = {
+                "format": "v4a",
+                "old_path": "/dev/null",
+                "new_path": stripped[len("*** Add File: "):].strip(),
+                "hunks": [{"lines": [(" ", "")]}],
+                "add_lines": [],
+                "_lineno": lineno,
+            }
+            sections.append(current)
+            chunk = None
+            continue
+        if stripped.startswith("*** Delete File: "):
+            current = {
+                "format": "v4a",
+                "old_path": stripped[len("*** Delete File: "):].strip(),
+                "new_path": "/dev/null",
+                "hunks": [],
+                "_lineno": lineno,
+            }
+            sections.append(current)
+            chunk = None
+            continue
+        if stripped.startswith("*** Update File: "):
+            current = {
+                "format": "v4a",
+                "old_path": stripped[len("*** Update File: "):].strip(),
+                "new_path": None,  # Move to 决定;缺省同 old_path
+                "chunks": [],
+                "_lineno": lineno,
+            }
+            sections.append(current)
+            chunk = None
+            continue
+        if stripped.startswith("*** Move to: "):
+            if current is None or "chunks" not in current:
+                raise ValueError(f"第 {lineno} 行: *** Move to 必须跟随 Update File")
+            current["new_path"] = stripped[len("*** Move to: "):].strip()
+            continue
+        if stripped == "*** End of File":
+            if chunk is None:
+                raise ValueError(f"第 {lineno} 行: *** End of File 必须位于 Update File 块内")
+            chunk["eof"] = True
+            continue
+        if current is not None and "add_lines" in current:
+            # Add File 段:所有内容行以 '+' 前缀
+            if not stripped.startswith("+"):
+                raise ValueError(
+                    f"第 {lineno} 行: Add File 内容行须以 '+' 开头,得到: {raw!r}"
+                )
+            current["add_lines"].append(raw[1:])
+            continue
+        if current is not None and "chunks" in current:
+            if stripped.startswith("@@"):
+                chunk = {
+                    "anchor": stripped[2:].strip() or None,
+                    "lines": [],
+                    "eof": False,
+                }
+                current["chunks"].append(chunk)
+                continue
+            if raw[:1] in ("+", "-", " "):
+                # 内容行必须看原始行:上下文标记就是行首空格,strip 会吃掉
+                if chunk is None:
+                    chunk = {"anchor": None, "lines": [], "eof": False}
+                    current["chunks"].append(chunk)
+                chunk["lines"].append((raw[0], raw[1:]))
+                continue
+            if stripped == "":
+                continue  # 空行宽容跳过
+            raise ValueError(f"第 {lineno} 行: 无法识别的 V4A 行: {raw!r}")
+        if stripped.startswith("***"):
+            raise ValueError(f"第 {lineno} 行: 未知 V4A 标记: {stripped}")
+        # Add File 段之前的散行 → 非法
+        if current is None and stripped:
+            raise ValueError(f"第 {lineno} 行: *** Begin Patch 后出现游离内容: {raw!r}")
+    if not seen_end:
+        raise ValueError("V4A 补丁缺失 *** End Patch 结束标记")
+    # 校验 + 归一化
+    normalized: list[dict[str, Any]] = []
+    for sec in sections:
+        if sec["old_path"] == "/dev/null":
+            if not sec.get("add_lines"):
+                raise ValueError(
+                    f"第 {sec['_lineno']} 行: Add File 段至少需要一行 '+' 内容"
+                )
+            normalized.append(
+                {
+                    "old_path": "/dev/null",
+                    "new_path": sec["new_path"],
+                    "hunks": [{"lines": [("+", t) for t in sec["add_lines"]]}],
+                }
+            )
+        elif sec["new_path"] == "/dev/null":
+            normalized.append({"old_path": sec["old_path"], "new_path": "/dev/null", "hunks": []})
+        else:
+            if not sec.get("chunks"):
+                raise ValueError(f"第 {sec['_lineno']} 行: Update File 段内容为空")
+            normalized.append(
+                {
+                    "old_path": sec["old_path"],
+                    "new_path": sec["new_path"] or sec["old_path"],
+                    "hunks": sec["chunks"],
+                }
+            )
+    return normalized
+
+
+def _v4a_seek(
+    lines: list[str], pattern: list[str], start: int, eof: bool
+) -> int:
+    """codex seek_sequence 等价:从 start 向前查找 pattern;eof=True 时锚定文件尾。"""
+    n = len(pattern)
+    if n == 0:
+        return start
+    if eof:
+        if len(lines) >= n and lines[-n:] == pattern:
+            return len(lines) - n
+        return -1
+    for i in range(start, len(lines) - n + 1):
+        if lines[i : i + n] == pattern:
+            return i
+    return -1
+
+
+def _apply_v4a_to_content(
+    content: str, chunks: list[dict[str, Any]], rel: str
+) -> str:
+    """按 codex file_update.rs 语义把 V4A chunks 应用到文件内容。
+
+    顺序扫描(line_index 只前进):@@ anchor 先定位,再匹配 old_lines
+    (context + '-' 行);失配抛 ValueError 定位到 chunk 序号。
+    """
+    lines = content.split("\n")
+    # 末尾换行产生的空元素与 diff 语义对齐,移除后由写回时补回
+    trailing_newline = lines[-1] == "" if lines else False
+    if trailing_newline:
+        lines.pop()
+    line_index = 0
+    for ci, chunk in enumerate(chunks, start=1):
+        anchor = chunk.get("anchor")
+        if anchor:
+            found_anchor = _v4a_seek(lines, [anchor], line_index, False)
+            if found_anchor < 0:
+                raise ValueError(
+                    f"文件 {rel} 第 {ci} 个代码块:@@ 上下文 '{anchor}' 未找到"
+                )
+            line_index = found_anchor + 1
+        old_lines = [t for tag, t in chunk["lines"] if tag in (" ", "-")]
+        new_lines = [t for tag, t in chunk["lines"] if tag in (" ", "+")]
+        if not old_lines:
+            # 纯插入:扫描位之后插入(anchor 已让 line_index 越过锚点;
+            # eof 标记则插到文件尾)
+            insert_at = len(lines) if chunk.get("eof") else line_index
+            lines[insert_at:insert_at] = new_lines
+            line_index = insert_at + len(new_lines)
+            continue
+        pattern = list(old_lines)
+        replacement = list(new_lines)
+        found = _v4a_seek(lines, pattern, line_index, chunk.get("eof", False))
+        if found < 0 and pattern and pattern[-1] == "":
+            # codex 兼容:结尾空串是「被替换区终止换行」哨兵,重试剔除
+            pattern.pop()
+            if replacement and replacement[-1] == "":
+                replacement.pop()
+            found = _v4a_seek(lines, pattern, line_index, chunk.get("eof", False))
+        if found < 0:
+            raise ValueError(
+                f"文件 {rel} 第 {ci} 个代码块:期望行序列未找到:\n"
+                + "\n".join(old_lines[:20])
+            )
+        lines[found : found + len(pattern)] = replacement
+        line_index = found + len(replacement)
+    result = "\n".join(lines)
+    if trailing_newline:
+        result += "\n"
+    return result
+
+
 def _parse_unified_patch(patch_text: str) -> list[dict[str, Any]]:
     """解析标准 unified diff(git diff 兼容)为文件段列表。
 
@@ -2666,8 +2887,11 @@ class AgentEngine:
             "properties": {
                 "patch": {
                     "type": "string",
-                    "description": "标准 unified diff 文本(git diff 格式:--- / +++ / @@);"
-                    "支持新增文件(--- /dev/null)、删除文件(+++ /dev/null)、多 hunk 更新",
+                    "description": "补丁文本,自动识别两种格式:①codex V4A"
+                    "(*** Begin Patch / *** Add|Update|Delete File / @@ 上下文 /"
+                    " *** End Patch);②标准 unified diff(git diff 格式:"
+                    "--- / +++ / @@)。支持新增/更新/删除/移动与多代码块,"
+                    "任一上下文失配整包拒绝",
                 },
             },
             "required": ["patch"],
@@ -2676,14 +2900,19 @@ class AgentEngine:
         async def _exec(args: dict[str, Any]) -> Any:
             patch_text = args.get("patch")
             if not isinstance(patch_text, str) or not patch_text.strip():
-                return {"error": "apply_patch 需要非空 patch(unified diff 文本)"}
+                return {"error": "apply_patch 需要非空 patch(V4A 或 unified diff 文本)"}
             base = (
                 Path(thread.workspace).resolve()
                 if thread.workspace
                 else Path.cwd().resolve()
             )
+            is_v4a = _is_v4a_patch(patch_text)
             try:
-                sections = _parse_unified_patch(patch_text)
+                sections = (
+                    _parse_v4a_patch(patch_text)
+                    if is_v4a
+                    else _parse_unified_patch(patch_text)
+                )
             except ValueError as e:
                 return {"error": str(e)}
             # 第一遍:纯内存计算全部目标内容(原子性:任何失败即整包拒绝)
@@ -2709,21 +2938,40 @@ class AgentEngine:
                         return {"error": f"新增文件已存在: {target_rel}"}
                     plan.append((target_rel, "created", new_content))
                     continue
-                if not target.is_file():
+                if not target.is_file() and old_rel == target_rel:
                     return {"error": f"目标文件不存在: {target_rel}"}
+                source_rel = old_rel if old_rel != "/dev/null" else target_rel
+                source = (base / source_rel).resolve()
+                if not source.is_file():
+                    return {"error": f"目标文件不存在: {source_rel}"}
                 try:
-                    content = target.read_text(encoding="utf-8")
+                    content = source.read_text(encoding="utf-8")
                 except OSError as e:
-                    return {"error": f"文件读取失败 {target_rel}: {e}"}
+                    return {"error": f"文件读取失败 {source_rel}: {e}"}
                 if deleted:
                     plan.append((target_rel, "deleted", None))
                     continue
                 try:
-                    new_content = _apply_hunks_to_content(
-                        content, section["hunks"], target_rel
-                    )
+                    if is_v4a:
+                        new_content = _apply_v4a_to_content(
+                            content, section["hunks"], target_rel
+                        )
+                    else:
+                        new_content = _apply_hunks_to_content(
+                            content, section["hunks"], target_rel
+                        )
                 except ValueError as e:
                     return {"error": str(e)}
+                # V4A Move to:新路径写新内容,旧路径删除(同一补丁内完成)
+                if old_rel != target_rel and old_rel != "/dev/null":
+                    old_target = (base / old_rel).resolve()
+                    try:
+                        old_target.relative_to(base)
+                    except (OSError, ValueError):
+                        return {"error": f"路径越出工作区,拒绝应用: {old_rel}"}
+                    plan.append((target_rel, "updated", new_content))
+                    plan.append((old_rel, "deleted", None))
+                    continue
                 plan.append((target_rel, "updated", new_content))
             # 第二遍:全部通过后才落盘
             results: list[dict[str, Any]] = []
@@ -2752,8 +3000,9 @@ class AgentEngine:
         return ToolDefinition(
             name="apply_patch",
             description=(
-                "将标准 unified diff(git diff 格式)原子应用到工作区:支持新增/更新/"
-                "删除文件与多 hunk;任一上下文失配整包拒绝并给出失败定位,"
+                "将补丁原子应用到工作区,自动识别两种格式:codex V4A"
+                "(*** Begin Patch)与标准 unified diff(git diff)。支持新增/更新/"
+                "删除/移动文件与多代码块;任一上下文失配整包拒绝并给出失败定位,"
                 "绝不产生半应用状态。适合精确的结构化代码修改。"
             ),
             parameters=parameters,
@@ -2995,6 +3244,14 @@ class AgentEngine:
                 max_results = max(1, min(int(args.get("maxResults") or 5), 10))
             except (TypeError, ValueError):
                 max_results = 5
+            raw_domains = args.get("allowedDomains")
+            allowed_domains: list[str] = []
+            if isinstance(raw_domains, list):
+                allowed_domains = [
+                    str(d).strip().lower().lstrip(".")
+                    for d in raw_domains
+                    if str(d).strip()
+                ]
             try:
                 from .mcp_server import _tool_web_search
 
@@ -3003,10 +3260,21 @@ class AgentEngine:
                 )
             except Exception as e:  # noqa: BLE001 - 搜索失败降级为错误返回
                 return {"error": f"搜索失败: {e}", "results": []}
+            results = result.get("results", [])
+            if allowed_domains:
+
+                def _domain_allowed(item: dict[str, Any]) -> bool:
+                    url = str(item.get("url") or "").lower()
+                    host = url.split("://", 1)[-1].split("/", 1)[0]
+                    return any(
+                        host == d or host.endswith("." + d) for d in allowed_domains
+                    )
+
+                results = [r for r in results if _domain_allowed(r)]
             return {
                 "query": query,
-                "results": result.get("results", []),
-                "total": result.get("total", 0),
+                "results": results,
+                "total": len(results),
                 "message": result.get("message", ""),
             }
 
@@ -3020,6 +3288,12 @@ class AgentEngine:
                 "maxResults": {
                     "type": "integer",
                     "description": "返回结果条数(1-10,默认 5)",
+                },
+                "allowedDomains": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "可选:限定结果域名后缀白名单"
+                    "(如 [\"python.org\"],子域名自动匹配)",
                 },
             },
             "required": ["query"],
