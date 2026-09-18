@@ -227,11 +227,13 @@ export async function listAtomicCheckpoints(
   const root = snapshotRoot(workspacePath)
   if (!existsSync(root)) return []
   const out: AtomicCheckpointMeta[] = []
-  for (const name of (await readdir(root)).sort().reverse()) {
+  for (const name of await readdir(root)) {
     const meta = await loadMeta(workspacePath, name)
     if (meta) out.push(meta)
   }
-  return out
+  // 目录名是 `ac-<秒级时间戳>-<随机后缀>`,同一秒内创建的两个快照无法靠名字定序
+  // (随机后缀决定先后,顺序随机翻转)。必须按 meta.createdAt(毫秒)倒序才是真"新到旧"。
+  return out.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
 }
 
 // =============================================================================
