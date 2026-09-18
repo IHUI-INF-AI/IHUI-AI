@@ -932,6 +932,8 @@ class AgentLoopV2:
         # **kwargs 透传 llm_complete_fn(承载层闭包再透传 llm_gateway→litellm)。
         # 空时调用签名与现状逐零差异(mock 友好)。
         model_params: dict[str, Any] | None = None,
+        # 2026-09-18 第三批(Goals 对标):线程持久目标;非空时 run 入口注入 system。
+        thread_goal: str | None = None,
     ):
         """
         Args:
@@ -972,6 +974,8 @@ class AgentLoopV2:
         if model_params is not None and not isinstance(model_params, dict):
             raise ValueError("model_params 须为 dict")
         self._model_params: dict[str, Any] = dict(model_params or {})
+        # 2026-09-18 第三批(Goals 对标):线程持久目标,run 入口注入 system 全程可见。
+        self._thread_goal: str | None = thread_goal
         # P0-B(2026-09-18):检测 llm_complete_fn 是否支持 on_chunk 流式回调。
         # 支持(签名含 on_chunk 参数或 **kwargs)时,每轮 LLM 调用传入回调,
         # 逐 chunk 发射 thinking.delta(is_final=False),实现 token 级流式;
@@ -1649,6 +1653,20 @@ class AgentLoopV2:
             logger.warning(
                 "metacognition.build_system_prompt_snippet 失败(降级,不阻塞): %s", e
             )
+        # 2026-09-18 第三批(Goals 对标):线程持久目标注入 system,全程可见;失败降级。
+        if self._thread_goal:
+            try:
+                goal_line = f"[线程目标] {self._thread_goal}"
+                if (
+                    messages
+                    and isinstance(messages[0], dict)
+                    and messages[0].get("role") == "system"
+                ):
+                    messages[0]["content"] = f"{messages[0].get('content', '')}\n\n{goal_line}"
+                else:
+                    messages.insert(0, {"role": "system", "content": goal_line})
+            except Exception as e:
+                logger.warning("线程目标注入失败(降级): %s", e)
         result = await self._run_loop(
             messages=messages,
             start_iteration=1,
@@ -3567,6 +3585,20 @@ class AgentLoopV2:
                 except Exception:
                     pass
                 backoff = self.tool_retry_backoff * retry_count
+                # 2026-09-18 第三批:工具重试事件流出(客户端可感知瞬时失败正在重试)
+                with contextlib.suppress(Exception):
+                    await self._events.emit(
+                        "tool.retry",
+                        {
+                            "session_id": self._session_id,
+                            "tool": tc.name,
+                            "attempt": retry_count,
+                            "max_attempts": self.tool_retry_max,
+                            "error_type": error_type,
+                            "message": error_msg[:300],
+                            "backoff_seconds": round(backoff, 2),
+                        },
+                    )
                 logger.warning(
                     "工具 %s 执行失败[%s]: %s,%.1fs 后重试(%d/%d)",
                     tc.name,

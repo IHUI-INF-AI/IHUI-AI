@@ -163,6 +163,7 @@ const pyEngineCodes = (() => {
     toolNotFound: 'TOOL_NOT_FOUND',
     hostToolFailed: 'HOST_TOOL_FAILED',
     threadClosed: 'THREAD_CLOSED',
+    budgetExhausted: 'BUDGET_EXHAUSTED',
   }
   const out = {}
   for (const [sdkKey, engineName] of Object.entries(names)) {
