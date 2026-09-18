@@ -163,12 +163,12 @@
 ALIPAY_APP_ID=用户的APPID
 ALIPAY_PRIVATE_KEY=用户的应用私钥
 ALIPAY_PUBLIC_KEY=支付宝公钥
-ALIPAY_GATEWAY_URL=https://openapi.alipay.com/gateway.do
+ALIPAY_GATEWAY=https://openapi.alipay.com/gateway.do
 ALIPAY_NOTIFY_URL=https://aizhs.top/api/alipay/notify
 ALIPAY_RETURN_URL=https://aizhs.top/sponsor/success
 
 # Optional: Sandbox mode
-# ALIPAY_GATEWAY_URL=https://openapi-sandbox.dl.alipaydev.com/gateway.do
+# ALIPAY_GATEWAY=https://openapi-sandbox.dl.alipaydev.com/gateway.do
 ```
 
 ---

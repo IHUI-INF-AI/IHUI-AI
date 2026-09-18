@@ -633,7 +633,11 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const timestamp = request.headers['wechatpay-timestamp'] as string
       const nonce = request.headers['wechatpay-nonce'] as string
       const signature = request.headers['wechatpay-signature'] as string
-      if (!verifyCallbackSignature(timestamp, nonce, JSON.stringify(body), signature)) {
+      // P0 修复(2026-09-18):必须用原始请求体验签——JSON.stringify(body) 的重序列化
+      // 与微信原始报文存在转义/浮点差异,会导致真实回调验签失败、订单永远无法入账
+      const rawBody =
+        (request as FastifyRequest & { rawBody?: string }).rawBody ?? JSON.stringify(body)
+      if (!verifyCallbackSignature(timestamp, nonce, rawBody, signature)) {
         return reply.code(400).send({ code: 'FAIL', message: '签名验证失败' })
       }
       const resource = (
@@ -755,7 +759,11 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const timestamp = request.headers['wechatpay-timestamp'] as string
       const nonce = request.headers['wechatpay-nonce'] as string
       const signature = request.headers['wechatpay-signature'] as string
-      if (!verifyCallbackSignature(timestamp, nonce, JSON.stringify(body), signature)) {
+      // P0 修复(2026-09-18):必须用原始请求体验签——JSON.stringify(body) 的重序列化
+      // 与微信原始报文存在转义/浮点差异,会导致真实回调验签失败、订单永远无法入账
+      const rawBody =
+        (request as FastifyRequest & { rawBody?: string }).rawBody ?? JSON.stringify(body)
+      if (!verifyCallbackSignature(timestamp, nonce, rawBody, signature)) {
         return reply.code(400).send({ code: 'FAIL', message: '签名验证失败' })
       }
       const resource = (
@@ -829,7 +837,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: '微信退款',
-        description: '发起微信退款并本地退款(订单需为 paid 状态,管理员或归属人可操作)',
+        description: '发起微信退款并本地退款(订单需为 paid 状态,仅管理员可操作,仅支持整单退款)',
         tags: ['Payment'],
       }),
     },
@@ -838,12 +846,16 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const { outTradeNo, refundAmount: amount, reason } = wechatRefundQuery.parse(request.query)
       const order = await getOrder(outTradeNo)
       if (!order) return reply.status(404).send(error(404, '订单不存在'))
-      if (payload.roleId < ADMIN_ROLE_ID && order.userId !== request.userId) {
-        return reply.status(403).send(error(403, '无权操作此订单'))
+      // P0 修复(2026-09-18):退款仅限管理员——原"归属人可自助退款"叠加权益不回滚,
+      // 构成"付款买 VIP→自助退款→保留会员"套利链
+      if (payload.roleId < ADMIN_ROLE_ID) {
+        return reply.status(403).send(error(403, '仅管理员可操作退款'))
       }
       if (order.status !== 'paid') return reply.status(400).send(error(400, '订单状态不允许退款'))
-      // P0 资金安全修复(2026-09-06,防超退):退款金额须为正且不超过订单金额(单位:分)
+      // P0 修复(2026-09-18):仅允许整单退款——无累计退款台账前开放部分退款可被反复套现
       if (!amount || amount <= 0) return reply.status(400).send(error(400, '退款金额必须为正'))
+      if (amount < order.amount)
+        return reply.status(400).send(error(400, '当前仅支持整单退款,退款金额须等于订单金额'))
       if (amount > order.amount)
         return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
       // P0 资金安全修复(2026-09-06):退款入口接入风控引擎
@@ -1230,7 +1242,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: '支付宝退款',
-        description: '发起支付宝退款并本地退款(订单需为 paid 状态,金额单位:元)',
+        description: '发起支付宝退款并本地退款(订单需为 paid 状态,仅管理员可操作,仅支持整单退款,金额单位:元)',
         tags: ['Payment'],
       }),
     },
@@ -1243,13 +1255,17 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       } = alipayRefundQuery.parse(request.query)
       const order = await getOrder(outTradeNo)
       if (!order) return reply.status(404).send(error(404, '订单不存在'))
-      if (payload.roleId < ADMIN_ROLE_ID && order.userId !== request.userId) {
-        return reply.status(403).send(error(403, '无权操作此订单'))
+      // P0 修复(2026-09-18):退款仅限管理员(同微信退款端点)
+      if (payload.roleId < ADMIN_ROLE_ID) {
+        return reply.status(403).send(error(403, '仅管理员可操作退款'))
       }
       if (order.status !== 'paid') return reply.status(400).send(error(400, '订单状态不允许退款'))
-      // 2026-07-24 安全防护:退款金额不能超过订单金额(单位:元)
-      if (amountYuan * 100 > order.amount)
-        return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
+      // P0 修复(2026-09-18):仅允许整单退款 + 金额为正——原部分退款无条件整单置 refunded
+      // 且 amountYuan<=0 可通过,构成重复退款套现口子
+      if (!amountYuan || amountYuan <= 0)
+        return reply.status(400).send(error(400, '退款金额必须为正'))
+      if (amountYuan * 100 < order.amount)
+        return reply.status(400).send(error(400, '当前仅支持整单退款,退款金额须等于订单金额'))
       // P0 资金安全修复(2026-09-06):退款入口接入风控引擎
       const risk = server.riskEngine.evaluateRisk({
         userId: order.userId ?? undefined,
@@ -1544,7 +1560,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: 'Stripe 退款',
-        description: '发起 Stripe 退款并本地退款(订单需为 paid 状态,管理员或订单归属人可操作)',
+        description: '发起 Stripe 退款并本地退款(订单需为 paid 状态,仅管理员可操作,仅支持整单退款)',
         tags: ['Payment'],
       }),
     },
@@ -1555,12 +1571,15 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       )
       const order = await getOrder(outTradeNo)
       if (!order) return reply.status(404).send(error(404, '订单不存在'))
-      if (payload.roleId < ADMIN_ROLE_ID && order.userId !== request.userId) {
-        return reply.status(403).send(error(403, '无权操作此订单'))
+      // P0 修复(2026-09-18):退款仅限管理员(同微信退款端点)
+      if (payload.roleId < ADMIN_ROLE_ID) {
+        return reply.status(403).send(error(403, '仅管理员可操作退款'))
       }
       if (order.status !== 'paid') return reply.status(400).send(error(400, '订单状态不允许退款'))
-      // 退款金额默认全退,部分退款不能超过订单金额
+      // P0 修复(2026-09-18):仅允许整单退款——无累计退款台账前开放部分退款可被反复套现
       const refundCents = refundAmount ?? order.amount
+      if (refundCents < order.amount)
+        return reply.status(400).send(error(400, '当前仅支持整单退款,退款金额须等于订单金额'))
       if (refundCents > order.amount)
         return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
       // P0 资金安全修复(2026-09-06):退款入口接入风控引擎
@@ -2033,7 +2052,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: 'PayPal 退款',
-        description: '发起 PayPal 退款并本地退款(订单需为 paid 状态,管理员或订单归属人可操作)',
+        description: '发起 PayPal 退款并本地退款(订单需为 paid 状态,仅管理员可操作,仅支持整单退款)',
         tags: ['Payment'],
       }),
     },
@@ -2042,11 +2061,15 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const { outTradeNo, captureId, refundAmount, reason } = paypalRefundQuery.parse(request.query)
       const order = await getOrder(outTradeNo)
       if (!order) return reply.status(404).send(error(404, '订单不存在'))
-      if (payload.roleId < ADMIN_ROLE_ID && order.userId !== request.userId) {
-        return reply.status(403).send(error(403, '无权操作此订单'))
+      // P0 修复(2026-09-18):退款仅限管理员(同微信退款端点)
+      if (payload.roleId < ADMIN_ROLE_ID) {
+        return reply.status(403).send(error(403, '仅管理员可操作退款'))
       }
       if (order.status !== 'paid') return reply.status(400).send(error(400, '订单状态不允许退款'))
+      // P0 修复(2026-09-18):仅允许整单退款——无累计退款台账前开放部分退款可被反复套现
       const refundCents = refundAmount ?? order.amount
+      if (refundCents < order.amount)
+        return reply.status(400).send(error(400, '当前仅支持整单退款,退款金额须等于订单金额'))
       if (refundCents > order.amount)
         return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
       // P0 资金安全修复(2026-09-06):退款入口接入风控引擎
