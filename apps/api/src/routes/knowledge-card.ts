@@ -15,7 +15,12 @@
  * - DELETE /:id       删除卡片(仅本人)
  */
 
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type {
+  FastifyPluginAsync,
+  FastifyRequest,
+  FastifyReply,
+  preHandlerAsyncHookHandler,
+} from 'fastify'
 import { and, desc, eq, isNull, or, ilike, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { knowledgeCards } from '@ihui/database'
@@ -73,7 +78,7 @@ const idParamSchema = z.object({ id: z.uuid({ error: '无效的卡片 ID' }) })
 // =============================================================================
 
 /** 登录校验(authenticate 失败 → 401;成功后 request.userId 可用)。
- * 返回 false 表示已发送错误响应,调用方应直接 return。 */
+ * 返回 false 表示已发送错误响应,调用方应直接 return。(仅限 handler 内联调用) */
 async function requireLogin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
   try {
     await authenticate(request)
@@ -85,13 +90,22 @@ async function requireLogin(request: FastifyRequest, reply: FastifyReply): Promi
   }
 }
 
+/** preHandler 版登录校验。
+ * Fastify 对 async hook 返回假值(false/undefined)不会跳过 handler,
+ * 失败时必须 return reply 才能中断生命周期——否则 handler 二次 send,
+ * 触发 FST_ERR_REP_ALREADY_SENT + ERR_HTTP_HEADERS_SENT(2026-09-18 修复,
+ * 同 require-permission.ts requireAuth 的 P1 修复模式)。 */
+const requireLoginHook: preHandlerAsyncHookHandler = async (request, reply) => {
+  if (!(await requireLogin(request, reply))) return reply
+}
+
 // =============================================================================
 // 路由
 // =============================================================================
 
 export const knowledgeCardRoutes: FastifyPluginAsync = async (app) => {
   // GET / — 按仓库名列卡片(本人 + 全局,按创建时间倒序;kind/tag 可选过滤)
-  app.get('/', { preHandler: requireLogin }, async (request, reply) => {
+  app.get('/', { preHandler: requireLoginHook }, async (request, reply) => {
     const query = parseOrThrow(listQuerySchema, request.query)
     const userId = request.userId
     if (!userId) {
@@ -156,7 +170,7 @@ export const knowledgeCardRoutes: FastifyPluginAsync = async (app) => {
   })
 
   // GET /search — 关键词检索(title/content ILIKE;repoName 可选缩小范围)
-  app.get('/search', { preHandler: requireLogin }, async (request, reply) => {
+  app.get('/search', { preHandler: requireLoginHook }, async (request, reply) => {
     const query = parseOrThrow(searchQuerySchema, request.query)
     const userId = request.userId
     if (!userId) {
@@ -192,7 +206,7 @@ export const knowledgeCardRoutes: FastifyPluginAsync = async (app) => {
   })
 
   // GET /:id — 卡片详情(本人或全局可见)
-  app.get('/:id', { preHandler: requireLogin }, async (request, reply) => {
+  app.get('/:id', { preHandler: requireLoginHook }, async (request, reply) => {
     const params = parseOrThrow(idParamSchema, request.params)
     const userId = request.userId
     if (!userId) {
@@ -210,7 +224,7 @@ export const knowledgeCardRoutes: FastifyPluginAsync = async (app) => {
   })
 
   // PATCH /:id — 更新卡片(仅本人;markUsed=true 时自增 useCount 并刷新 lastUsedAt)
-  app.patch('/:id', { preHandler: requireLogin }, async (request, reply) => {
+  app.patch('/:id', { preHandler: requireLoginHook }, async (request, reply) => {
     const params = parseOrThrow(idParamSchema, request.params)
     const body = parseOrThrow(updateSchema, request.body)
     const userId = request.userId
@@ -253,7 +267,7 @@ export const knowledgeCardRoutes: FastifyPluginAsync = async (app) => {
   })
 
   // DELETE /:id — 删除卡片(仅本人)
-  app.delete('/:id', { preHandler: requireLogin }, async (request, reply) => {
+  app.delete('/:id', { preHandler: requireLoginHook }, async (request, reply) => {
     const params = parseOrThrow(idParamSchema, request.params)
     const userId = request.userId
     if (!userId) {
