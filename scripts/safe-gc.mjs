@@ -64,7 +64,8 @@ function main() {
       spawn(
         process.execPath,
         [`${repoRoot}/scripts/git-lock.mjs`, 'heartbeat', '--unit', unit, '--parent-pid', String(process.pid)],
-        { detached: true, stdio: 'ignore' },
+        // windowsHide 必须带:Windows 下 detached+控制台程序会弹新 cmd 窗口
+        { detached: true, windowsHide: true, stdio: 'ignore' },
       ).unref()
     } catch {
       /* 心跳失败不阻塞(stale 判定仍按"pid 存活"兜底) */
