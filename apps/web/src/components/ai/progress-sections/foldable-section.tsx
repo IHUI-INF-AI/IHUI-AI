@@ -24,6 +24,12 @@ interface FoldableSectionProps {
   /** 2026-07-31 借鉴 折叠态摘要设计:折叠态显示当前摘要(如"正在:回答"),
    *  让折叠态也有信息密度,无需展开即可知道当前进度 */
   summary?: string
+  /** 受控展开态(2026-09-19 立,D1 执行过程智能折叠):传 boolean 时为受控,
+   *  展开态完全由父组件驱动(用于"执行中保持展开、完成后自动折叠");
+   *  不传则走非受控(内部 state + defaultOpen)。 */
+  open?: boolean
+  /** 受控模式下的 toggle 回调 */
+  onOpenChange?: (open: boolean) => void
 }
 
 /** FoldableSection context:支持"展开全部/折叠全部"批量控制 */
@@ -107,12 +113,21 @@ export function FoldableSection({
   'aria-label': ariaLabel,
   headerExtra,
   summary,
+  open: controlledOpen,
+  onOpenChange,
 }: FoldableSectionProps) {
   const ctx = React.useContext(FoldableSectionContext)
   const [internalOpen, setInternalOpen] = React.useState(defaultOpen)
-  // ctx.expandAll 优先(null 时回退到 internalOpen)
-  const open = ctx?.expandAll ?? internalOpen
+  // 受控模式(2026-09-19,D1 智能折叠):传 open prop 时展开态完全由父组件驱动;
+  // ctx.expandAll 优先(null 时回退到受控值/内部 state)
+  const baseOpen = controlledOpen ?? internalOpen
+  const open = ctx?.expandAll ?? baseOpen
   const toggle = () => {
+    if (controlledOpen !== undefined) {
+      // 受控模式:通知父组件(用户手动展开/折叠后,父组件的自动策略让位)
+      onOpenChange?.(!open)
+      return
+    }
     setInternalOpen((v) => !v)
     // 用户手动操作后恢复独立控制
     ctx?.setExpandAll(null)
