@@ -280,15 +280,17 @@ describe('admin-missing-routes', () => {
 
     it('DELETE /api/admin/monitor/alerts/:id 删除返回成功', async () => {
       mockAdmin()
+      // monitor_alerts.id 为 uuid 主键(registerCrud 对非 UUID 直接 400),此处必须用真实 UUID 形态
+      const alertId = '00000000-0000-4000-8000-000000000456'
       const res = await server.inject({
         method: 'DELETE',
-        url: '/api/admin/monitor/alerts/456',
+        url: `/api/admin/monitor/alerts/${alertId}`,
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(200)
       const body = res.json()
       expect(body.data.deleted).toBe(true)
-      expect(body.data.id).toBe('456')
+      expect(body.data.id).toBe(alertId)
     })
 
     it('DELETE /api/admin/auth-veri-codes/:id 删除返回成功', async () => {
