@@ -463,7 +463,12 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
         aria-label={t('mainNav')}
         data-viewport-collapsed="true"
         className={cn(
-          'relative h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 flex z-popover',
+          // z-sticky(990) < z-modal(2000):登录弹窗等遮罩必须能盖住侧边栏,
+          // (2026-09-18 根因修复:原 z-popover=2001 > z-modal=2000,遮罩压不住侧栏,
+          //  侧栏以全亮度浮在暗化页面之上,表现为"登录框弹出侧栏高亮";
+          //  对齐 ai-side-panel/agent-task-progress-pane 的既有 z-sticky 做法。
+          //  侧栏内 Tooltip/PortalPanel 均 Portal 到 body 自带 z-popover,不依赖本层。)
+          'relative h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 flex z-sticky',
           effectiveCollapsed && 'w-[60px]',
         )}
         // 2026-07-22 修复首屏 width 闪烁:
