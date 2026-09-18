@@ -28,6 +28,9 @@
   thread.compact      手动压缩线程历史(确定性压缩,对标 Codex /compact)
   thread.export       导出线程为 JSONL(对标 Codex rollout 导出)
   thread.plan         读取线程当前计划(update_plan 工具写入)
+  thread.enqueue      消息入队(轮中转向,本轮结束自动续跑,对标 Steer)
+  thread.goal         设置/清除线程持久目标(注入 system,对标 Goals)
+  thread.review       审查模式(派生审查子代理输出结构化结论,对标 review)
   tools.list          MCP 超级工具池 + 宿主注入工具的合并清单
   tools.register      注入宿主自有工具(执行回传客户端,经 tool/execute 往返)
   tools.result        回传宿主工具执行结果(结算 tool/execute 请求)
@@ -92,6 +95,7 @@ WAIT_TIMEOUT = -32003
 TOOL_NOT_FOUND = -32004
 HOST_TOOL_FAILED = -32005
 THREAD_CLOSED = -32006
+BUDGET_EXHAUSTED = -32007
 
 # 订阅的 agent 循环事件名(与 agent_loop_v2.AgentEventStream 的全部 emit 点一一对应)
 AGENT_EVENTS: tuple[str, ...] = (
@@ -246,6 +250,15 @@ class EngineThread:
     plan: list[dict[str, Any]] | None = None
     # 子代理嵌套深度(spawn_subagent 防递归失控,上限 _MAX_SUBAGENT_DEPTH)
     depth: int = 0
+    # 消息队列(2026-09-18 第三批,对标 Codex Steer/ThreadQueueChanged):
+    # 轮中入队的输入在本轮结束后自动依序续跑
+    queue: list[dict[str, Any]] = field(default_factory=list)
+    # 线程持久目标(2026-09-18 第三批,对标 Codex Goals):注入 system 全程可见
+    goal: str | None = None
+    # token 预算(2026-09-18 第三批,对标 Codex TokenBudget/RolloutBudget):
+    # 跨回合累计 session_tokens_used,达到 token_budget 即拒起新轮
+    token_budget: int | None = None
+    session_tokens_used: int = 0
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -368,9 +381,24 @@ _IMAGE_MIME_TYPES: dict[str, str] = {
 }
 _MAX_VIEW_IMAGE_BYTES = 8 * 1024 * 1024
 # 引擎内置工具面(宿主同名工具可显式覆盖;denyTools / tools 白名单同样生效)
-BUILTIN_ENGINE_TOOLS: tuple[str, ...] = ("update_plan", "spawn_subagent", "view_image")
+BUILTIN_ENGINE_TOOLS: tuple[str, ...] = (
+    "update_plan",
+    "spawn_subagent",
+    "view_image",
+    "request_permissions",
+)
 # 子代理嵌套深度上限(spawn_subagent 防递归失控)
 _MAX_SUBAGENT_DEPTH = 2
+# 单次 prompt 自动消化队列消息上限(Steer 防失控)
+_MAX_QUEUE_DRAIN_PER_PROMPT = 5
+# request_permissions 审批请求默认超时(ms)
+_DEFAULT_PERMISSION_TIMEOUT_MS = 30_000
+_VALID_PERMISSION_SCOPES: tuple[str, ...] = (
+    "sandbox_full_access",
+    "network",
+    "elevated_exec",
+    "workspace_write",
+)
 
 
 def _parse_generation_config(params: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -460,6 +488,7 @@ def _spec(thread: EngineThread) -> dict[str, Any]:
         "model_params": ctx.get("model_params") or {},
         "reasoning": ctx.get("reasoning") or {},
         "deny_tools": ctx.get("deny_tools") or [],
+        "goal": thread.goal,
         "enable_checkpoint": True,
     }
 
@@ -532,6 +561,8 @@ class AgentEngine:
         )
         # 会话持久化(session_store 单例/注入;None=未初始化,False=不可用哨兵)
         self._store: SessionStore | None | bool = store
+        # request_permissions 工具的待决请求(requestId → Future;approval.respond 结算)
+        self._permission_requests: dict[str, asyncio.Future[Any]] = {}
         self._handlers: dict[str, Callable[[dict[str, Any], Emitter], Any]] = {
             "engine.initialize": self._handle_initialize,
             "engine.ping": self._handle_ping,
@@ -544,6 +575,9 @@ class AgentEngine:
             "thread.compact": self._handle_thread_compact,
             "thread.export": self._handle_thread_export,
             "thread.plan": self._handle_thread_plan,
+            "thread.enqueue": self._handle_thread_enqueue,
+            "thread.goal": self._handle_thread_goal,
+            "thread.review": self._handle_thread_review,
             "agent.exec": self._handle_agent_exec,
             "tools.list": self._handle_tools_list,
             "tools.register": self._handle_tools_register,
@@ -665,6 +699,8 @@ class AgentEngine:
                     "modelParams": thread.model_params or None,
                     "reasoning": thread.reasoning or None,
                     "denyTools": thread.deny_tools or None,
+                    "tokenBudget": thread.token_budget,
+                    "goal": thread.goal,
                     "systemPromptSource": (
                         "server-locked" if self._locked_system_prompt else "client-or-default"
                     ),
@@ -790,6 +826,10 @@ class AgentEngine:
                 thread.reasoning = dict(md["reasoning"])
             if isinstance(md.get("denyTools"), list):
                 thread.deny_tools = [str(x) for x in md["denyTools"] if isinstance(x, str)]
+            if isinstance(md.get("tokenBudget"), int) and md["tokenBudget"] > 0:
+                thread.token_budget = int(md["tokenBudget"])
+            if isinstance(md.get("goal"), str) and md["goal"].strip():
+                thread.goal = md["goal"].strip()
             self._threads[thread_id] = thread
             logger.info(
                 "[engine] thread restored from store %s (items=%s)", thread_id, t.item_count
@@ -836,6 +876,10 @@ class AgentEngine:
                 "viewImage": True,
                 "manualCompaction": True,
                 "export": True,
+                "messageQueue": True,
+                "goals": True,
+                "review": True,
+                "tokenBudget": True,
                 "mcp": self._tool_lister is not None,
                 "costLedger": self._cost_report is not None,
                 "modelRouting": self._model_lister is not None,
@@ -880,6 +924,14 @@ class AgentEngine:
         approval_policies = _parse_policy_config(params)
         model_params, reasoning = _parse_generation_config(params)
         deny_tools = _parse_deny_tools(params)
+        # token 预算(2026-09-18 第三批,对标 TokenBudget):正整数或省略
+        token_budget = params.get("tokenBudget")
+        if token_budget is not None:
+            if isinstance(token_budget, bool) or not isinstance(token_budget, int) or token_budget <= 0:
+                raise JsonRpcError(INVALID_PARAMS, "tokenBudget 须为正整数")
+        goal = params.get("goal")
+        if goal is not None and not (isinstance(goal, str) and goal.strip()):
+            raise JsonRpcError(INVALID_PARAMS, "goal 须为非空字符串或 null")
         thread = EngineThread(
             thread_id=thread_id,
             session_id=str(params.get("sessionId") or thread_id),
@@ -898,6 +950,8 @@ class AgentEngine:
             model_params=model_params,
             reasoning=reasoning,
             deny_tools=deny_tools,
+            token_budget=token_budget,
+            goal=goal.strip() if isinstance(goal, str) else None,
             messages=messages,
         )
         self._threads[thread_id] = thread
@@ -915,6 +969,8 @@ class AgentEngine:
             "modelParams": thread.model_params,
             "reasoning": thread.reasoning,
             "denyTools": thread.deny_tools,
+            "tokenBudget": thread.token_budget,
+            "goal": thread.goal,
             "systemPromptSource": system_source,
             "status": thread.status,
         }
@@ -972,11 +1028,49 @@ class AgentEngine:
     async def _handle_thread_prompt(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
-        """执行一轮:过程事件经 thread/event 通知回传,结束时返回结构化结果。"""
+        """执行一轮:过程事件经 thread/event 通知回传,结束时返回结构化结果。
+
+        2026-09-18 第三批(Steer/ThreadQueueChanged 对标):本轮结束后若队列
+        非空则依序自动续跑(单次 prompt 最多消化 5 条,防失控);轮中入队的
+        消息由 thread.enqueue 接住。
+        """
         thread = self._require_thread(params)
         if thread.status == "running":
             raise JsonRpcError(THREAD_BUSY, f"线程正在执行中: {thread.thread_id}")
         text = _coerce_input_text(params.get("input"))
+        result = await self._run_prompt_turn(thread, text, emit)
+        drained = 0
+        while (
+            thread.queue
+            and result.get("success")
+            and drained < _MAX_QUEUE_DRAIN_PER_PROMPT
+        ):
+            nxt = thread.queue.pop(0)
+            drained += 1
+            with contextlib.suppress(Exception):
+                await self._emit_engine_event(
+                    thread,
+                    emit,
+                    "thread.queue",
+                    {"queued": len(thread.queue), "action": "drained"},
+                )
+            result = await self._run_prompt_turn(
+                thread, str(nxt.get("input") or ""), emit
+            )
+        return result
+
+    async def _run_prompt_turn(
+        self, thread: EngineThread, text: str, emit: Emitter
+    ) -> dict[str, Any]:
+        """单轮执行(预算硬停 → 环境快照 → 跑 → 用量累计 → turn.diff)。"""
+        # token 预算硬停(2026-09-18 第三批,对标 TokenBudget/RolloutBudget):
+        # 跨回合累计用量达到预算即拒起新轮(进行中的轮不打断,由循环层 budget 治理)。
+        if thread.token_budget is not None and thread.session_tokens_used >= thread.token_budget:
+            raise JsonRpcError(
+                BUDGET_EXHAUSTED,
+                f"token 预算已耗尽(已用 {thread.session_tokens_used} / 预算 {thread.token_budget})",
+            )
+        before_files = await self._workspace_dirty_files(thread)
         thread.messages.append({"role": "user", "content": text})
         # Turn Context 冻结:非 checkpoint 路径每轮刷新快照(客户端在轮间改配置,
         # 新一轮用新值;轮内 interrupt→resume 走 _handle_thread_resume 的冻结副本)
@@ -1009,7 +1103,49 @@ class AgentEngine:
             self._persist_turn_error(thread, turn_id, e)
             raise
         self._persist_turn_end(thread, turn_id, result)
+        # 跨回合 token 用量累计(预算硬停的数据源;取不到精确值时为 0,不阻塞)
+        thread.session_tokens_used += int(
+            (result or {}).get("totalTokensUsed") or 0
+        )
+        # TurnDiff(2026-09-18 第三批,对标 Codex TurnDiff):本回合相对回合前
+        # 新增变脏的工作区文件(git 工作区才有;非 git/无变化静默)。
+        with contextlib.suppress(Exception):
+            after_files = await self._workspace_dirty_files(thread)
+            changed = sorted(after_files - before_files)
+            if changed:
+                await self._emit_engine_event(
+                    thread,
+                    emit,
+                    "turn.diff",
+                    {"files": changed[:50], "truncated": len(changed) > 50},
+                )
         return result
+
+    @staticmethod
+    async def _workspace_dirty_files(thread: EngineThread) -> set[str]:
+        """工作区 git 脏文件集合(非 git 目录/超时/任何失败 → 空集,静默降级)。"""
+        if not thread.workspace:
+            return set()
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "git",
+                "-C",
+                thread.workspace,
+                "status",
+                "--porcelain",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            out, _ = await asyncio.wait_for(proc.communicate(), timeout=5)
+        except Exception:
+            return set()
+        if proc.returncode != 0:
+            return set()
+        files: set[str] = set()
+        for line in out.decode("utf-8", errors="replace").splitlines():
+            if len(line) > 3:
+                files.add(line[3:].strip().strip('"'))
+        return files
 
     async def _run_thread(
         self, thread: EngineThread, emit: Emitter, *, from_checkpoint: str | None = None
@@ -1223,6 +1359,11 @@ class AgentEngine:
             "checkpointId": thread.checkpoint_id,
             "hostTools": sorted(thread.host_tools),
             "lastResult": thread.last_result,
+            # 2026-09-18 第三批:队列/目标/预算可观测
+            "queued": len(thread.queue),
+            "goal": thread.goal,
+            "tokenBudget": thread.token_budget,
+            "sessionTokensUsed": thread.session_tokens_used,
             "cost": self._thread_cost(thread),
         }
 
@@ -1378,6 +1519,106 @@ class AgentEngine:
         thread = self._require_thread(params)
         return {"threadId": thread.thread_id, "plan": thread.plan}
 
+    async def _handle_thread_enqueue(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """消息入队(2026-09-18 第三批,对标 Codex Steer/ThreadQueueChanged)。
+
+        轮中入队:本轮结束后自动依序续跑;空闲入队:立即返回,下次 prompt 前的
+        续跑同样消化。与直接 thread.prompt 的区别是绝不与在跑轮次并发冲突。
+        """
+        thread = self._require_thread(params)
+        text = _coerce_input_text(params.get("input"))
+        thread.queue.append({"input": text, "enqueuedAt": time.time()})
+        thread.touch()
+        await self._emit_engine_event(
+            thread,
+            emit,
+            "thread.queue",
+            {"queued": len(thread.queue), "action": "enqueued"},
+        )
+        return {
+            "threadId": thread.thread_id,
+            "queued": len(thread.queue),
+            "mode": "steer" if thread.status == "running" else "idle",
+        }
+
+    async def _handle_thread_goal(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """设置/清除线程持久目标(2026-09-18 第三批,对标 Codex Goals)。
+
+        goal 非空 → 设置并经 system 注入后续每轮;goal=null → 清除。
+        发 thread.goal 事件(ThreadGoalUpdated 对标)。
+        """
+        thread = self._require_thread(params)
+        goal = params.get("goal")
+        if goal is not None and not (isinstance(goal, str) and goal.strip()):
+            raise JsonRpcError(INVALID_PARAMS, "goal 须为非空字符串或 null(清除)")
+        thread.goal = goal.strip() if isinstance(goal, str) else None
+        thread.touch()
+        await self._emit_engine_event(
+            thread, emit, "thread.goal", {"goal": thread.goal}
+        )
+        return {"threadId": thread.thread_id, "goal": thread.goal}
+
+    async def _handle_thread_review(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """审查模式(2026-09-18 第三批,对标 Codex review / Guardian)。
+
+        派生一次性审查子代理,携带线程近期对话记录(+可选 focus)输出结构化
+        审查结论;审查线程跑完即弃(store 留痕)。
+        """
+        thread = self._require_thread(params)
+        if thread.status == "running":
+            raise JsonRpcError(THREAD_BUSY, f"线程正在执行中: {thread.thread_id}")
+        focus = params.get("focus")
+        if focus is not None and not (isinstance(focus, str) and focus.strip()):
+            raise JsonRpcError(INVALID_PARAMS, "focus 须为非空字符串")
+        transcript = [
+            m
+            for m in thread.messages
+            if isinstance(m, dict) and m.get("role") in ("user", "assistant", "tool")
+        ][-40:]
+        prompt = (
+            "你是严格的任务审查者。审查以下线程对话记录,输出结构化结论:\n"
+            "1) verdict: approve / revise\n"
+            "2) findings: 问题列表(每条含 severity: blocker/major/minor 与说明)\n"
+            "3) suggestions: 改进建议\n"
+            + (f"审查重点: {str(focus).strip()}\n" if focus else "")
+            + "\n对话记录(JSONL,最后 40 条):\n"
+            + "\n".join(
+                json.dumps(m, ensure_ascii=False, default=str) for m in transcript
+            )
+        )
+        sub_params: dict[str, Any] = {
+            "input": prompt,
+            "permissionMode": thread.permission_mode,
+            "maxIterations": 2,
+        }
+        if thread.model:
+            sub_params["model"] = thread.model
+        started = await self._handle_thread_start(sub_params, _noop_emitter)
+        sub = self._threads.get(started["threadId"])
+        if sub is not None:
+            sub.depth = thread.depth + 1
+        try:
+            result = await self._handle_thread_prompt(
+                {**sub_params, "threadId": started["threadId"]}, _noop_emitter
+            )
+        finally:
+            with contextlib.suppress(Exception):
+                obj = self._threads.pop(started["threadId"], None)
+                if obj is not None:
+                    obj.status = "closed"
+        return {
+            "reviewThreadId": started["threadId"],
+            "verdict": result.get("finalResponse"),
+            "success": result.get("success"),
+            "usage": result.get("usage"),
+        }
+
     async def _emit_engine_event(
         self,
         thread: EngineThread,
@@ -1417,6 +1658,7 @@ class AgentEngine:
             "update_plan": self._update_plan_tool,
             "spawn_subagent": self._spawn_subagent_tool,
             "view_image": self._view_image_tool,
+            "request_permissions": self._request_permissions_tool,
         }
         definitions: list[Any] = []
         for name in BUILTIN_ENGINE_TOOLS:
@@ -1612,6 +1854,91 @@ class AgentEngine:
             executor=_exec,
         )
 
+    def _request_permissions_tool(self, thread: EngineThread) -> Any:
+        """request_permissions:模型主动请求权限提升(对标 Codex RequestPermissionsTool)。
+
+        经 approval/request 通知(kind=permissions)发往客户端,approval.respond
+        结算(approve→granted / reject→denied / 超时→默认拒绝),结果结构化回模型。
+        """
+        from .agent_loop_v2 import ToolDefinition
+
+        parameters = {
+            "type": "object",
+            "properties": {
+                "permissions": {
+                    "type": "array",
+                    "description": "请求的权限范围",
+                    "items": {"type": "string", "enum": list(_VALID_PERMISSION_SCOPES)},
+                },
+                "reason": {"type": "string", "description": "为什么需要这些权限"},
+                "timeoutMs": {
+                    "type": "integer",
+                    "description": "等待用户决策的超时(默认 30000ms)",
+                },
+            },
+            "required": ["permissions", "reason"],
+        }
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            perms = args.get("permissions")
+            reason = args.get("reason")
+            if (
+                not isinstance(perms, list)
+                or not perms
+                or not all(p in _VALID_PERMISSION_SCOPES for p in perms)
+            ):
+                return {
+                    "granted": False,
+                    "reason": f"permissions 须为非空且取值合法的数组(允许: {list(_VALID_PERMISSION_SCOPES)})",
+                }
+            if not isinstance(reason, str) or not reason.strip():
+                return {"granted": False, "reason": "需要说明请求理由(reason)"}
+            try:
+                timeout_ms = int(args.get("timeoutMs") or _DEFAULT_PERMISSION_TIMEOUT_MS)
+            except (TypeError, ValueError):
+                timeout_ms = _DEFAULT_PERMISSION_TIMEOUT_MS
+            timeout_ms = max(1000, min(timeout_ms, 120_000))
+            request_id = f"req_{uuid.uuid4().hex[:12]}"
+            future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
+            self._permission_requests[request_id] = future
+            try:
+                await (thread.emit or _noop_emitter)(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "approval/request",
+                        "params": {
+                            "requestId": request_id,
+                            "threadId": thread.thread_id,
+                            "kind": "permissions",
+                            "permissions": list(perms),
+                            "reason": reason.strip(),
+                            "timeoutMs": timeout_ms,
+                        },
+                    }
+                )
+                decision = await asyncio.wait_for(future, timeout=timeout_ms / 1000.0)
+                granted = str(decision) == "approve"
+                return {
+                    "granted": granted,
+                    "permissions": list(perms) if granted else [],
+                    "decision": str(decision),
+                }
+            except TimeoutError:
+                return {"granted": False, "reason": "用户决策超时,默认拒绝"}
+            finally:
+                self._permission_requests.pop(request_id, None)
+
+        return ToolDefinition(
+            name="request_permissions",
+            description=(
+                "当现有权限不足以完成任务时,向用户请求提升权限"
+                "(sandbox_full_access/network/elevated_exec/workspace_write);"
+                "用户拒绝或超时将得到 granted=false,请改用现有权限完成任务。"
+            ),
+            parameters=parameters,
+            executor=_exec,
+        )
+
     async def _handle_tools_list(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
@@ -1791,6 +2118,11 @@ class AgentEngine:
         from .agent_loop_v2 import resolve_approval_response
 
         applied = bool(resolve_approval_response(approval_id, normalized))
+        # request_permissions 工具的待决请求同路结算(2026-09-18 第三批)
+        perm_future = self._permission_requests.get(approval_id)
+        if perm_future is not None and not perm_future.done():
+            perm_future.set_result(normalized)
+            applied = True
         return {
             "approvalId": approval_id,
             "decision": normalized,
