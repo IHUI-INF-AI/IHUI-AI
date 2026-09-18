@@ -26,7 +26,19 @@ param(
 $ErrorActionPreference = "Stop"
 
 # ----------------------------- 配置 ---------------------------------
-$Node22        = "C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2\node.exe"
+# Node 22 路径解析(2026-09-18 修复):WorkBuddy 管理版目录名可能带构建后缀
+# (22.22.2-3),旧脚本写死 22.22.2 导致生产 FATAL"Node 22.22.2 未找到"。
+# 按候选顺序取第一个存在的 node.exe。
+$Node22Candidates = @(
+    "C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2-3\node.exe",
+    "C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2\node.exe",
+    "D:\DevEnv\runtimes\node22\node.exe"
+)
+$Node22 = $Node22Candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $Node22) {
+    Write-Host "[FATAL] Node 22 未找到(候选: $($Node22Candidates -join '; '))" -ForegroundColor Red
+    exit 1
+}
 $Node22Dir     = Split-Path $Node22 -Parent
 $PnpmGlobal    = "D:\DevEnv\tools\npm-global"
 $WebDir        = "D:\IHUI-AI\apps\web"
@@ -51,11 +63,10 @@ Write-Host "  next build with Node 22.22.2" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 
-if (-not (Test-Path $Node22)) {
-    Write-Host "[FATAL] Node 22.22.2 未找到: $Node22" -ForegroundColor Red
+if (-not $Node22) {
+    Write-Host "[FATAL] Node 22 未找到(候选: $($Node22Candidates -join '; '))" -ForegroundColor Red
     exit 1
 }
-
 Write-Host "Node 路径 : $Node22"
 Write-Host "Node 版本 : $(& $Node22 --version)"
 Write-Host "Web 目录  : $WebDir"
