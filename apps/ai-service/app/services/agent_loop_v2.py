@@ -47,13 +47,14 @@ routers/agents.py 的固定 SSE 订阅列表(它只订阅 tool.before/after 等)
 
 import asyncio
 import contextlib
+import inspect
 import json
 import logging
 import os
 import random
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Optional, cast
@@ -63,6 +64,7 @@ from .agent_checkpoint import (
     AgentLoopCheckpoint,
     get_agent_checkpoint_manager,
 )
+from ..core.usage_cache import normalize_usage
 
 if TYPE_CHECKING:
     from .compaction_canary import CompactionDecision
@@ -99,6 +101,19 @@ _TOOL_RETRYABLE_ERRORS: frozenset[str] = frozenset(
 
 # 可观测录制:step 入参/结果摘要的截断上限(2026-09-03 立)
 _STEP_SUMMARY_LIMIT = 800
+
+
+class _LoopInterrupted(Exception):
+    """P0-B(2026-09-18):循环内 abort 信号(LLM 调用/工具执行期间被取消或暂停)。
+
+    由 _wait_interruptible 在检测到 _cancel_requested/_pause_requested 后抛出,
+    _run_loop 捕获并走「补 tool 结果 → 落 checkpoint → 返回 cancelled/paused」
+    优雅中断链路(与既有轮次边界中断的返回结构一致)。
+    """
+
+    def __init__(self, reason: str):
+        self.reason = reason  # "cancelled" | "paused"
+        super().__init__(f"用户{ '取消' if reason == 'cancelled' else '暂停' }(循环内中断)")
 
 
 def _summarize_step(value: Any) -> str:
@@ -708,20 +723,23 @@ class AgentEventStream:
         })
 
     async def emit_thinking_delta(
-        self, run_id: str, content: str, *, iteration: int
+        self, run_id: str, content: str, *, iteration: int, is_final: bool = True
     ) -> None:
-        """P0-5(2026-09-13):thinking 整段透出(workbench /agents/tasks/stream)。
+        """P0-5(2026-09-13):thinking 透出(workbench /agents/tasks/stream)。
 
-        阻塞式 LLM 调用拿到全量 reasoning 后一次性发射(is_final=True),不做
-        token 级流式(改造阻塞式调用风险大;前端 reasoningBatcher 做逐字动画,
-        语义上已是"流式可见")。调用方仅在 reasoning 非空时发射。
+        P0-B(2026-09-18)扩展增量语义:
+        - is_final=True(默认,与既有行为逐零差异):阻塞式路径,LLM 全量
+          reasoning 一次性发射;调用方仅在 reasoning 非空时发射。
+        - is_final=False:流式路径,llm_complete_fn 经 on_chunk 回调逐 chunk
+          发射增量,前端按增量拼接;结束后由调用方补发 is_final=True 结束帧
+          (content 传增量末值,前端若做替换语义也不会丢内容)。
         run_id 此处即 workbench session_id(SSE 消费方关联键)。
         """
         await self.emit("thinking.delta", {
             "run_id": run_id,
             "content": content,
             "iteration": iteration,
-            "is_final": True,
+            "is_final": is_final,
         })
 
     async def emit_plan_step(
@@ -940,6 +958,13 @@ class AgentLoopV2:
                 与现状逐零差异(不产生任何 step 记录)。注入后每次工具调用 append 一步。
         """
         self._llm_complete = llm_complete_fn
+        # P0-B(2026-09-18):检测 llm_complete_fn 是否支持 on_chunk 流式回调。
+        # 支持(签名含 on_chunk 参数或 **kwargs)时,每轮 LLM 调用传入回调,
+        # 逐 chunk 发射 thinking.delta(is_final=False),实现 token 级流式;
+        # 不支持(agent_plan 等既有闭包/测试 mock)时不传,行为与现状逐零差异。
+        self._llm_supports_on_chunk: bool = self._detect_on_chunk_support(
+            llm_complete_fn
+        )
         self._tools: dict[str, ToolDefinition] = {t.name: t for t in tools}
         self.max_iterations = max_iterations
         self.tool_timeout = tool_timeout
@@ -1951,18 +1976,96 @@ class AgentLoopV2:
         except Exception as e:
             logger.warning("Skill 自进化评估启动失败(降级,不阻塞): %s", e)
 
+    @staticmethod
+    def _detect_on_chunk_support(fn: Callable[..., Any]) -> bool:
+        """检测 llm_complete_fn 签名是否接受 on_chunk 关键字参数。
+
+        判定:显式 on_chunk 参数或 **kwargs 收集参数任一命中即支持;
+        签名不可内省(如 Mock 未设签名)按不支持处理(保守,回退非流式)。
+        """
+        try:
+            sig = inspect.signature(fn)
+        except (TypeError, ValueError):
+            return False
+        for p in sig.parameters.values():
+            if p.kind is inspect.Parameter.VAR_KEYWORD:
+                return True
+            if p.name == "on_chunk":
+                return True
+        return False
+
+    def _make_on_chunk(self, iteration: int) -> Callable[[str], Awaitable[None]]:
+        """构造本轮 LLM 流式 chunk 回调(逐 chunk 发 thinking.delta 增量)。
+
+        回调内部失败由 AgentEventStream.emit 降级吸收,不影响 LLM 流消费;
+        发射增量帧 is_final=False,结束后 _run_loop 补发 is_final=True 结束帧。
+        """
+        session_id = self._session_id or ""
+
+        async def _on_chunk(text: str) -> None:
+            if not text:
+                return
+            await self._events.emit_thinking_delta(
+                session_id, text, iteration=iteration, is_final=False
+            )
+
+        return _on_chunk
+
+    async def _wait_interruptible(self, coro: Any) -> Any:
+        """等待 coro 完成,期间周期轮询 cancel/pause 标志(0.25s 间隔)。
+
+        P0-B(2026-09-18):此前 cancel/pause 只在轮次边界生效,长 LLM 调用与
+        长工具执行(如 run_command 数分钟)期间无法中断。本包装将等待改为
+        轮询循环:标志命中 → cancel 内部 task(等待其真实退出,防悬挂)→
+        抛 _LoopInterrupted 交由 _run_loop 走优雅中断链路。
+        正常完成则原样返回结果;coro 自身异常原样传播(重试链路不受影响)。
+        """
+        task = asyncio.ensure_future(coro)
+        try:
+            while True:
+                done, _ = await asyncio.wait({task}, timeout=0.25)
+                if done:
+                    return task.result()
+                if self._cancel_requested or self._pause_requested:
+                    reason = "cancelled" if self._cancel_requested else "paused"
+                    task.cancel()
+                    with contextlib.suppress(BaseException):
+                        await task  # 等 task 真正退出(其 finally 链清理资源)
+                    raise _LoopInterrupted(reason)
+        finally:
+            # 外部取消路径(如 wait_for 超时取消本协程):内部 task 不可悬挂泄漏
+            if not task.done():
+                task.cancel()
+
     async def _llm_call_with_retry(
-        self, messages: list[dict[str, Any]], tools_schema: list[dict[str, Any]]
+        self, messages: list[dict[str, Any]], tools_schema: list[dict[str, Any]],
+        *, iteration: int = 0,
     ) -> dict[str, Any]:
         """LLM 调用带指数退避重试(错误恢复,2026-08-12 立)。
 
         网络抖动/5xx/超时等瞬时故障自动重试,指数退避 + 抖动避免同时失败风暴;
         重试耗尽后抛原始异常,由上层走 checkpoint(failed) 失败链路。
         asyncio.CancelledError 不重试(用户取消必须立即生效)。
+
+        P0-B(2026-09-18):首试(且 llm_complete_fn 支持 on_chunk)时传入流式
+        回调,逐 chunk 发 thinking.delta 增量,返回 dict 带内部标记 "_streamed":
+        True;重试轮次退化为非流式(避免部分产出后重试导致前端增量重复拼接)。
         """
         last_exc: BaseException | None = None
         for attempt in range(self.llm_retry_max + 1):
             try:
+                on_chunk: Callable[[str], Awaitable[None]] | None = None
+                if attempt == 0 and self._llm_supports_on_chunk:
+                    on_chunk = self._make_on_chunk(iteration)
+                if on_chunk is not None:
+                    result = cast(
+                        dict[str, Any],
+                        await self._llm_complete(
+                            messages, tools_schema, on_chunk=on_chunk
+                        ),
+                    )
+                    result["_streamed"] = True  # 内部标记:本轮已流式发射增量
+                    return result
                 return cast(dict[str, Any], await self._llm_complete(messages, tools_schema))
             except asyncio.CancelledError:
                 raise
@@ -2252,18 +2355,35 @@ class AgentLoopV2:
                 )
                 # 1. 调 LLM(带 tools,带指数退避重试);调用前按占用率自动压缩上下文(1-8)
                 messages = await self._maybe_compact_context(messages)
-                llm_response = await self._llm_call_with_retry(messages, tools_schema)
+                # P0-B(2026-09-18):_wait_interruptible 包裹——长 LLM 调用期间命中
+                # cancel/pause 标志也能立即中断(抛 _LoopInterrupted 走优雅中断链路);
+                # iteration=i 透传使流式 thinking 增量帧携带轮次号。
+                # P0-①(2026-09-18):llm_t0/llm_duration_ms 计量单次 LLM 调用耗时,
+                # 供 type=llm 步骤录制(区别于整轮 iteration 耗时)。
+                llm_t0 = time.monotonic()
+                llm_response = await self._wait_interruptible(
+                    self._llm_call_with_retry(messages, tools_schema, iteration=i)
+                )
+                llm_duration_ms = (time.monotonic() - llm_t0) * 1000
 
                 content = llm_response.get("content", "")
                 tool_calls_raw = llm_response.get("tool_calls")
+                # 内部标记取出后即消费,不随响应 dict 外泄(检查点/事件零差异)
+                streamed = bool(llm_response.pop("_streamed", False))
 
                 iteration.reasoning = content
 
-                # P0-5(2026-09-13):thinking 整段透出(仅非空时,is_final=True)。
-                # 阻塞式调用不做 token 级流式,前端 reasoningBatcher 做逐字动画。
-                if content:
+                # P0-B(2026-09-18):流式路径逐 chunk 已发 is_final=False 增量
+                # (_make_on_chunk),此处补发 is_final=True 结束帧(content 置空,
+                # 前端按增量拼接语义不会重复);非流式/重试降级路径维持整段
+                # 一次性发射(与既有行为一致)。
+                if content and not streamed:
                     await self._events.emit_thinking_delta(
                         self._session_id or "", content, iteration=i
+                    )
+                elif streamed:
+                    await self._events.emit_thinking_delta(
+                        self._session_id or "", "", iteration=i
                     )
 
                 # 估算 token(粗略)
@@ -2276,6 +2396,19 @@ class AgentLoopV2:
                         usage=llm_response.get("usage"),
                         model=llm_response.get("model", ""),
                     )
+
+                # P0-①(2026-09-18):主循环 LLM 调用录为 type=llm 步骤——
+                # 主链路 token/成本此前只入 budget governor(内存口径),recorder/
+                # cost_ledger 只见工具步,LLM 维度永远空账;录制含归一化 usage
+                # (prompt/completion/cached/cache_creation),使 sync_from_recorder
+                # 后账本能按缓存三段计价。无 recorder 时零差异。
+                self._maybe_record_llm_step(
+                    iteration=i,
+                    llm_response=llm_response,
+                    duration_ms=llm_duration_ms,
+                    messages_count=len(messages),
+                    tools_count=len(tools_schema) if tools_schema else 0,
+                )
 
                 # 2. 无 tool_calls → 循环完成
                 if not tool_calls_raw:
@@ -2391,6 +2524,36 @@ class AgentLoopV2:
                     iteration=i, messages=messages, status="running",
                 )
 
+            except _LoopInterrupted as e:
+                # P0-B(2026-09-18):循环内中断——长 LLM 调用/工具执行期间命中
+                # cancel/pause 标志(_wait_interruptible 抛出)。与轮次边界中断
+                # (循环头检查)同构:落对应状态 checkpoint,返回 cancelled/paused
+                # 结果;区别仅在触发时机(边界 vs 循环体内),返回结构逐字段一致。
+                reason = e.reason
+                logger.info(
+                    "Agent 循环第 %d 轮循环内中断(%s),session=%s",
+                    i, reason, self._session_id or "",
+                )
+                checkpoint_id = await self._save_checkpoint_safe(
+                    iteration=i - 1, messages=messages, status=reason,
+                )
+                return AgentLoopResult(
+                    compaction_events=self._compaction_events,
+                    success=False,
+                    final_response="",
+                    iterations=iterations,
+                    total_duration_ms=(
+                        (datetime.now(UTC) - start_time).total_seconds() * 1000
+                    ),
+                    total_tokens_used=total_tokens,
+                    stop_reason=reason,
+                    error=(
+                        f"用户取消(iteration {i},循环内中断)"
+                        if reason == "cancelled"
+                        else f"用户暂停(iteration {i},循环内中断),可凭 checkpoint_id 续跑"
+                    ),
+                    checkpoint_id=checkpoint_id,
+                )
             except Exception as e:
                 error_type = self._classify_error(e)
                 logger.error("Agent 循环第 %d 轮异常[%s]: %s", i, error_type, e)
@@ -2873,6 +3036,12 @@ class AgentLoopV2:
             # CancelledError(BaseException)不被 _execute_single 的 except Exception 捕获。
             tasks = [self._execute_single(tc) for tc in tool_calls]
             gathered_raw = await asyncio.gather(*tasks, return_exceptions=True)
+            # P0-B(2026-09-18):循环内中断信号优先传播——gather(return_exceptions=True)
+            # 会把 _LoopInterrupted 当普通异常吞掉转 ToolResult,导致并行工具批内
+            # 用户取消/暂停失效;命中即整体上抛,交 _run_loop 走优雅中断链路。
+            for item in gathered_raw:
+                if isinstance(item, _LoopInterrupted):
+                    raise item
             results: list[ToolResult] = []
             for idx, (tc, item) in enumerate(zip(tool_calls, gathered_raw, strict=False)):
                 if isinstance(item, BaseException):
@@ -2918,14 +3087,19 @@ class AgentLoopV2:
         结果透出为 llm_usage/llm_model。此处映射为 tokens_in/tokens_out/tokens/model,
         使 cost_ledger.sync_from_recorder 与 tool_cost_accounting 聚合时真正入账。
         此前 llm_usage 只透出在 result_summary 里,聚合侧 tokens 永远为 0(假闭环)。
+        P0-①(2026-09-18):改经 normalize_usage 统一归一化,透传厂商别名
+        (cached_tokens/prompt_cache_hit_tokens 等)为 recorder 缓存字段。
         """
         if not isinstance(result, dict):
             return {}
         usage = result.get("llm_usage")
         if not isinstance(usage, dict):
             return {}
-        tokens_in = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
-        tokens_out = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
+        normalized = normalize_usage(usage)
+        tokens_in = int(normalized.get("prompt_tokens") or 0)
+        tokens_out = int(normalized.get("completion_tokens") or 0)
+        cached = int(normalized.get("cached_tokens") or 0)
+        cache_write = int(normalized.get("cache_creation_tokens") or 0)
         if tokens_in <= 0 and tokens_out <= 0:
             return {}
         fields: dict[str, Any] = {
@@ -2933,10 +3107,64 @@ class AgentLoopV2:
             "tokens_out": tokens_out,
             "tokens": tokens_in + tokens_out,
         }
+        if cached > 0:
+            fields["cached_tokens"] = cached
+        if cache_write > 0:
+            fields["cache_creation_tokens"] = cache_write
         model = result.get("llm_model")
         if isinstance(model, str) and model:
             fields["model"] = model
         return fields
+
+    def _maybe_record_llm_step(
+        self,
+        *,
+        iteration: int,
+        llm_response: dict[str, Any],
+        duration_ms: float,
+        messages_count: int,
+        tools_count: int,
+    ) -> None:
+        """主循环 LLM 调用可观测录制(P0-①,2026-09-18 立):每轮 LLM 响应后 append 一步。
+
+        recorder 未注入时立即返回(默认路径零差异);录制失败仅 log warning 降级,
+        绝不阻塞主链路。usage 经 normalize_usage 归一化(Anthropic input_tokens/
+        OpenAI prompt_tokens/DeepSeek prompt_cache_hit_tokens 等别名统一),
+        tokens 全 0 时也保留该步(轮次与耗时仍有审计价值)。
+        """
+        rec = getattr(self, "_step_recorder", None)
+        if rec is None:
+            return
+        run_id = getattr(rec, "run_id", None) or self._session_id or ""
+        try:
+            usage = normalize_usage(llm_response.get("usage"))
+            tokens_in = int(usage.get("prompt_tokens") or 0)
+            tokens_out = int(usage.get("completion_tokens") or 0)
+            content = str(llm_response.get("content") or "")
+            rec.append_step(
+                run_id,
+                {
+                    "type": "llm",
+                    "tool_name": "llm",
+                    "model": str(llm_response.get("model") or ""),
+                    "input_summary": (
+                        f"iteration {iteration}, messages={messages_count}, "
+                        f"tools={tools_count}"
+                    ),
+                    "result_summary": content[:200],
+                    "status": "ok",
+                    "duration_ms": round(float(duration_ms or 0.0), 2),
+                    "tokens_in": tokens_in,
+                    "tokens_out": tokens_out,
+                    "tokens": tokens_in + tokens_out,
+                    "cached_tokens": int(usage.get("cached_tokens") or 0),
+                    "cache_creation_tokens": int(
+                        usage.get("cache_creation_tokens") or 0
+                    ),
+                },
+            )
+        except Exception as e:
+            logger.warning("agent LLM step 录制失败(降级,不阻塞): %s", e)
 
     def _maybe_record_step(self, tc: ToolCall, tr: ToolResult) -> None:
         """工具调用可观测录制(2026-09-03 立):每次工具执行后 append 一步。
@@ -3110,69 +3338,98 @@ class AgentLoopV2:
         # file_editor.rollback_file 真正回滚——打通「单 run 文件级回滚」死代码。
         self._snapshot_before_write(tc)
 
-        retry_count = 0
-        while True:
-            try:
-                result = await asyncio.wait_for(
-                    tool.executor(tc.args),
-                    timeout=self.tool_timeout,
-                )
-                # P0-3:exec_policy PROMPT 档转真实用户审批(命中时升级处理)。
-                tr_override = await self._resolve_exec_policy_approval(
-                    tc, tool, result, start, retry_count, gate_approved=gate_approved
-                )
-                if tr_override is not None:
-                    return tr_override
-                return ToolResult(
-                    tool_call_id=tc.id,
-                    name=tc.name,
-                    result=result,
-                    duration_ms=(time.time() - start) * 1000,
-                    retry_count=retry_count,
-                )
-            except TimeoutError:
-                error_msg = f"工具执行超时({self.tool_timeout}s)"
-                error_type = "timeout"
-            except Exception as e:
-                error_msg = str(e)
-                error_type = self._classify_error(e)
+        # P0-B(2026-09-18):终端流上下文注入——run_command 等工具执行期间经
+        # mcp_server 的 _spawn_terminal_delta 发 terminal.delta 实时输出,事件
+        # 按本 tc 归属(session/iteration/tool_call_id);finally 配对复位防跨工具
+        # 泄漏。工具直调(无注入)不受影响,事件端按空 session 透传。
+        terminal_ctx_token = None
+        try:
+            from .mcp_server import reset_terminal_stream_context, set_terminal_stream_context
 
-            if (
-                retry_count >= self.tool_retry_max
-                or error_type not in _TOOL_RETRYABLE_ERRORS
-            ):
-                # L5-3 错误恢复:工具失败结构化上报(2026-08-12 立)
-                self._report_tool_error(
-                    tc, error_msg, error_type, (time.time() - start) * 1000
-                )
-                return ToolResult(
-                    tool_call_id=tc.id,
-                    name=tc.name,
-                    result=None,
-                    error=error_msg,
-                    duration_ms=(time.time() - start) * 1000,
-                    retry_count=retry_count,
-                    error_type=error_type,
-                )
-
-            retry_count += 1
-            # L5-12(2026-08-12):工具重试指标埋点
-            try:
-                from ..middleware.agent_metrics import agent_loop_tool_retries_total
-                agent_loop_tool_retries_total.inc()
-            except Exception:
-                pass
-            backoff = self.tool_retry_backoff * retry_count
-            logger.warning(
-                "工具 %s 执行失败[%s]: %s,%.1fs 后重试(%d/%d)",
-                tc.name,
-                error_type,
-                error_msg,
-                backoff,
-                retry_count,
-                self.tool_retry_max,
+            terminal_ctx_token = set_terminal_stream_context(
+                session_id=self._session_id or "",
+                run_id=self._session_id or "",
+                iteration=self._current_iteration,
+                tool_call_id=tc.id,
             )
-            await asyncio.sleep(backoff)
+        except Exception:
+            logger.debug("终端流上下文注入失败(降级,terminal.delta 无归属): %s", tc.name)
+
+        # P0-B(2026-09-18):_wait_interruptible 包裹工具执行——长工具(如
+        # run_command 数分钟)期间命中 cancel/pause 标志立即中断;
+        # _LoopInterrupted 不进重试链(显式 raise 直通 _run_loop 优雅中断)。
+        retry_count = 0
+        try:
+            while True:
+                try:
+                    result = await asyncio.wait_for(
+                        self._wait_interruptible(tool.executor(tc.args)),
+                        timeout=self.tool_timeout,
+                    )
+                    # P0-3:exec_policy PROMPT 档转真实用户审批(命中时升级处理)。
+                    tr_override = await self._resolve_exec_policy_approval(
+                        tc, tool, result, start, retry_count, gate_approved=gate_approved
+                    )
+                    if tr_override is not None:
+                        return tr_override
+                    return ToolResult(
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                        result=result,
+                        duration_ms=(time.time() - start) * 1000,
+                        retry_count=retry_count,
+                    )
+                except _LoopInterrupted:
+                    raise
+                except TimeoutError:
+                    error_msg = f"工具执行超时({self.tool_timeout}s)"
+                    error_type = "timeout"
+                except Exception as e:
+                    error_msg = str(e)
+                    error_type = self._classify_error(e)
+
+                if (
+                    retry_count >= self.tool_retry_max
+                    or error_type not in _TOOL_RETRYABLE_ERRORS
+                ):
+                    # L5-3 错误恢复:工具失败结构化上报(2026-08-12 立)
+                    self._report_tool_error(
+                        tc, error_msg, error_type, (time.time() - start) * 1000
+                    )
+                    return ToolResult(
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                        result=None,
+                        error=error_msg,
+                        duration_ms=(time.time() - start) * 1000,
+                        retry_count=retry_count,
+                        error_type=error_type,
+                    )
+
+                retry_count += 1
+                # L5-12(2026-08-12):工具重试指标埋点
+                try:
+                    from ..middleware.agent_metrics import agent_loop_tool_retries_total
+                    agent_loop_tool_retries_total.inc()
+                except Exception:
+                    pass
+                backoff = self.tool_retry_backoff * retry_count
+                logger.warning(
+                    "工具 %s 执行失败[%s]: %s,%.1fs 后重试(%d/%d)",
+                    tc.name,
+                    error_type,
+                    error_msg,
+                    backoff,
+                    retry_count,
+                    self.tool_retry_max,
+                )
+                await asyncio.sleep(backoff)
+        finally:
+            if terminal_ctx_token is not None:
+                with contextlib.suppress(Exception):
+                    from .mcp_server import reset_terminal_stream_context
+
+                    reset_terminal_stream_context(terminal_ctx_token)
 
     def _build_tools_schema(self) -> list[dict[str, Any]]:
         """构建 tools schema(给 LLM 的 function calling 格式)。"""
