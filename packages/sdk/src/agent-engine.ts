@@ -47,6 +47,9 @@ export const ENGINE_METHODS = [
   'thread.enqueue',
   'thread.goal',
   'thread.review',
+  'tools.search',
+  'tools.load',
+  'elicitation.respond',
   'agent.exec',
   'tools.list',
   'tools.register',
@@ -714,6 +717,34 @@ class AgentEngineClient implements Agent {
     return this.call<Record<string, unknown>>('thread.review', {
       threadId: this.threadIdValue,
       ...(focus === undefined ? {} : { focus }),
+    })
+  }
+
+  /** 工具目录搜索(2026-09-18 第四批,对标 Codex tool_search 延迟装载)。 */
+  async searchTools(query: string, limit?: number): Promise<Record<string, unknown>> {
+    return this.call<Record<string, unknown>>('tools.search', {
+      ...(this.threadIdValue ? { threadId: this.threadIdValue } : {}),
+      query,
+      ...(limit === undefined ? {} : { limit }),
+    })
+  }
+
+  /** 装载工具进线程(2026-09-18 第四批,对标 LoadableToolSpec materialize)。 */
+  async loadTool(name: string): Promise<Record<string, unknown>> {
+    return this.call<Record<string, unknown>>('tools.load', {
+      threadId: this.threadIdValue,
+      name,
+    })
+  }
+
+  /** 用户结构化提问回填(2026-09-18 第四批,对标 Codex elicitation)。 */
+  async respondElicitation(
+    elicitationId: string,
+    value: unknown,
+  ): Promise<Record<string, unknown>> {
+    return this.call<Record<string, unknown>>('elicitation.respond', {
+      elicitationId,
+      value,
     })
   }
 
