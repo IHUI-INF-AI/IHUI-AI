@@ -111,7 +111,35 @@ describe('runToolLoop Plan Mode 阻断', () => {
     ).toBe(true)
   })
 
-  it('planFirst=true 且有 plan 块 → planApproved 置 true,本迭代跳过工具,下一迭代执行', async () => {
+  it('planFirst=true 且有 plan 块,无审批机制(autoApprovePlan 缺省,无回调) → fail-fast:plan_approval_required,工具不执行', async () => {
+    setStreamResponses([
+      '```plan\n1. 步骤\n```\n```tool_call\n{"name":"mock","arguments":{}}\n```',
+      '```tool_call\n{"name":"mock","arguments":{}}\n```',
+      '完成。',
+    ])
+    const onError = vi.fn()
+    const opts = {
+      modelId: 'test',
+      messages: [
+        { role: 'system' as const, content: 'sys' },
+        { role: 'user' as const, content: 'do task' },
+      ],
+      ctx: { workspacePath: '.' },
+      maxIterations: 5,
+      planFirst: true,
+      planApproved: false,
+      onError,
+    }
+    const result = await runToolLoop(opts)
+    // P0-C 审批门:机器不能自批自己 — planApproved 保持 false,stopReason 明示等待审批
+    expect(opts.planApproved).toBe(false)
+    expect(result.stopReason).toBe('plan_approval_required')
+    expect(toolCallCount).toBe(0)
+    expect(onError).toHaveBeenCalled()
+    expect(String(onError.mock.calls[0]?.[0])).toContain('Plan approval required')
+  })
+
+  it('planFirst=true 且有 plan 块,onPlanApproval 回调返回 true → 批准后下一迭代执行工具', async () => {
     setStreamResponses([
       '```plan\n1. 步骤\n```\n```tool_call\n{"name":"mock","arguments":{}}\n```',
       '```tool_call\n{"name":"mock","arguments":{}}\n```',
@@ -127,6 +155,56 @@ describe('runToolLoop Plan Mode 阻断', () => {
       maxIterations: 5,
       planFirst: true,
       planApproved: false,
+      onPlanApproval: async () => true,
+    }
+    await runToolLoop(opts)
+    expect(opts.planApproved).toBe(true)
+    expect(toolCallCount).toBe(1)
+  })
+
+  it('planFirst=true 且有 plan ,onPlanApproval 回调返回 false → 注入拒绝消息要求重新规划,工具不执行', async () => {
+    setStreamResponses([
+      '```plan\n1. 原方案\n```\n```tool_call\n{"name":"mock","arguments":{}}\n```',
+      '重新规划。',
+    ])
+    const opts = {
+      modelId: 'test',
+      messages: [
+        { role: 'system' as const, content: 'sys' },
+        { role: 'user' as const, content: 'do task' },
+      ],
+      ctx: { workspacePath: '.' },
+      maxIterations: 5,
+      planFirst: true,
+      planApproved: false,
+      onPlanApproval: async () => false,
+    }
+    const result = await runToolLoop(opts)
+    expect(opts.planApproved).toBe(false)
+    expect(toolCallCount).toBe(0)
+    expect(result.stopReason).toBe('end_turn')
+    expect(
+      opts.messages.some((m) => m.role === 'user' && m.content.includes('用户拒绝了该 plan')),
+    ).toBe(true)
+  })
+
+  it('planFirst=true 且有 plan 块,autoApprovePlan=true 显式自动批准 → 跳过审批直接执行', async () => {
+    setStreamResponses([
+      '```plan\n1. 步骤\n```\n```tool_call\n{"name":"mock","arguments":{}}\n```',
+      '```tool_call\n{"name":"mock","arguments":{}}\n```',
+      '完成。',
+    ])
+    const opts = {
+      modelId: 'test',
+      messages: [
+        { role: 'system' as const, content: 'sys' },
+        { role: 'user' as const, content: 'do task' },
+      ],
+      ctx: { workspacePath: '.' },
+      maxIterations: 5,
+      planFirst: true,
+      planApproved: false,
+      autoApprovePlan: true,
     }
     await runToolLoop(opts)
     expect(opts.planApproved).toBe(true)
