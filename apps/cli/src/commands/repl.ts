@@ -29,6 +29,14 @@ import { handleConfigCommand } from './config-cmd.js';
 import { renderStatusPanel, type StatusSnapshot } from './status-cmd.js';
 import { handleQuickstartCommand } from './quickstart.js';
 import { createMarkdownRenderer, type MarkdownRenderer } from './markdown-renderer.js';
+import {
+  colorizeDiffText,
+  formatToolResultForCard,
+  renderPlanStepsCard,
+  renderTodoChecklist,
+  type ToolCallRecord,
+} from './ui-tool-cards.js';
+import { StructuredPlanStore } from '../plan/structured.js';
 import { createWaitingSpinner, createToolSpinner, type Spinner } from './ui-spinner.js';
 import { renderErrorCard, renderBannerGradient } from './ui-banners.js';
 import type { PermissionRules, PermissionMode } from '../tools/permissions.js';
@@ -236,6 +244,8 @@ interface ReplState {
   aborted: boolean;
   /** P2-2 REPL Abort:当前 agent 运行的 AbortController,SIGINT handler 调用 .abort() */
   abortController: AbortController | null;
+  /** W10 工具调用完整记录环形缓冲(/tool 回看,保留最近 20 条) */
+  toolLog: ToolCallRecord[];
   /** P3-3 Prompt Queue:用户在 agent 运行时排队的提示词,agent 完成后自动 drain 顺序执行 */
   promptQueue: PromptQueue;
 }
@@ -573,6 +583,8 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     // P2-2 REPL Abort:初始化中止状态
     aborted: false,
     abortController: null,
+    // W10 工具调用记录(/tool 回看)
+    toolLog: [],
     // P3-3 Prompt Queue:初始化提示词队列
     promptQueue: new PromptQueue(),
   };
@@ -1082,33 +1094,38 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         if (todos.length === 0) {
           console.info(chalk.dim('暂无 todo(Agent 可通过 todo_write 工具创建)'));
         } else {
-          const inProgress = todos.filter((t) => t.status === 'in_progress').length;
-          const completed = todos.filter((t) => t.status === 'completed').length;
-          const pending = todos.length - inProgress - completed;
-          console.info(chalk.cyan(`\n╭─ Todo 清单 · ${todos.length} 项`));
-          console.info(chalk.dim(`│  ${pending} pending · ${inProgress} 进行 · ${completed} 完成`));
-          console.info(chalk.cyan('│'));
-          const statusIcon: Record<string, string> = {
-            pending: chalk.dim('○'),
-            in_progress: chalk.yellow('◐'),
-            completed: chalk.green('●'),
-          };
-          const priColor: Record<string, (s: string) => string> = {
-            high: chalk.red,
-            medium: chalk.yellow,
-            low: chalk.green,
-          };
-          for (const t of todos) {
-            const icon = statusIcon[t.status] ?? chalk.dim('○');
-            const pri = priColor[t.priority]?.(`[${t.priority}]`) ?? chalk.dim(`[${t.priority}]`);
-            console.info(`│  ${icon} ${pri} ${chalk.bold(`#${t.id}`)} ${t.content}`);
-          }
-          console.info(chalk.cyan('╰─'));
-          console.info('');
+          // W10 渲染抽到 ui-tool-cards(与 todo_write 常驻刷新共用单一事实源)
+          for (const line of renderTodoChecklist(todos)) console.info(line);
         }
       } else {
         console.info(chalk.yellow('用法: /todo [show|clear]'));
       }
+      break;
+    }
+
+    case 'tool': {
+      // W10 工具调用回看:显示最近第 N 次调用的完整参数与输出(diff 红绿着色)
+      const n = args[0] ? parseInt(args[0], 10) : 1;
+      if (!Number.isFinite(n) || n < 1) {
+        console.info(chalk.yellow('用法: /tool [倒数第N次,默认1]'));
+        break;
+      }
+      const rec = state.toolLog[state.toolLog.length - n];
+      if (!rec) {
+        console.info(chalk.dim('暂无工具调用记录(仅记录本次 REPL 会话)'));
+        break;
+      }
+      console.info(chalk.cyan(`\n╭─ 工具调用 #${rec.index} · ${chalk.bold(rec.name)} · ${rec.success ? chalk.green('成功') : chalk.red('失败')} ${chalk.dim(`${rec.durationMs}ms`)}`));
+      console.info(chalk.cyan(`│  ${chalk.dim('参数:')}`));
+      for (const line of rec.argsJson.split('\n')) console.info(`│  ${line}`);
+      console.info(chalk.cyan('│'));
+      console.info(chalk.cyan(`│  ${chalk.dim('输出(')}${rec.output.split('\n').length}${chalk.dim(' 行):')}`));
+      // 完整输出 + diff 红绿着色(整体判定 diff,逐行打印;仅超长兜底截断)
+      for (const line of colorizeDiffText(rec.output).split('\n')) {
+        console.info(`│  ${line.length > 500 ? `${line.slice(0, 500)}…` : line}`);
+      }
+      console.info(chalk.cyan('╰─'));
+      console.info('');
       break;
     }
 
@@ -2091,6 +2108,8 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     // 工具调用追踪:记录每个工具的起始时间,用于卡片显示耗时
     const toolStartTime = new Map<string, number>();
     let toolCallCount = 0;
+    // W10 当前工具调用参数(onToolCall 记录,onToolResult 写入 toolLog)
+    let currentToolArgsJson = '';
     // 当前工具运行中的 spinner(每个工具独立)
     let currentToolSpinner: Spinner | null = null;
 
@@ -2121,6 +2140,17 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         const planContent = plan.trim();
         for (const line of planContent.split('\n')) console.info(chalk.cyan(`│  ${line}`));
         console.info(chalk.cyan('╰─'));
+        // W10 结构化计划步骤卡:plan-<sessionId>.json 存在时渲染步骤视图(勾选状态一目了然)
+        if (state.session) {
+          try {
+            const structured = new StructuredPlanStore(state.opts.workspacePath).load(state.session.id);
+            if (structured && structured.steps.length > 0) {
+              for (const line of renderPlanStepsCard(structured.steps)) console.info(line);
+            }
+          } catch {
+            // 结构化计划读取失败不阻塞审批流程
+          }
+        }
         const { approve } = await inquirer.prompt([{
           type: 'confirm',
           name: 'approve',
@@ -2179,13 +2209,15 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         toolStartTime.set(callId, Date.now());
         const argStr = Object.keys(args).length > 0 ? JSON.stringify(args) : chalk.dim('(无参数)');
         const argDisplay = argStr.length > 100 ? `${argStr.slice(0, 100)}…` : argStr;
+        // W10 记录完整参数(/tool 回看用)
+        currentToolArgsJson = Object.keys(args).length > 0 ? JSON.stringify(args) : '(无参数)';
         console.info(chalk.cyan(`\n  ┌─ 🔧 ${chalk.bold(name)} ${chalk.dim(`#${toolCallCount}`)}`));
-        console.info(chalk.cyan(`  │  ${chalk.dim('参数:')} ${argDisplay}`));
+        console.info(chalk.cyan(`  │  ${chalk.dim('参数:')} ${argDisplay}${argStr.length > 100 ? chalk.dim(' (+字符 — /tool 查看)') : ''}`));
         // 启动工具运行 spinner(显示在卡片下方)
         currentToolSpinner = createToolSpinner(name, argDisplay);
         currentToolSpinner.start();
       },
-      onToolResult: (_name, success, output) => {
+      onToolResult: (name, success, output) => {
         // 停止工具运行 spinner
         if (currentToolSpinner) {
           currentToolSpinner.stop();
@@ -2197,9 +2229,24 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         const durationStr = durationMs > 0 ? chalk.dim(` ${durationMs}ms`) : '';
         const icon = success ? chalk.green('✓') : chalk.red('✗');
         const statusLabel = success ? chalk.green('成功') : chalk.red('失败');
-        const outDisplay = output.length > 200 ? `${output.slice(0, 200)}…` : output;
-        console.info(chalk.cyan(`  │  ${icon} ${chalk.dim('结果:')} ${outDisplay.replace(/\n/g, '\n  │  ')}`));
+        // W10 卡片显示:多行截断 + diff 红绿着色 + /tool 提示;完整输出进 toolLog
+        const card = formatToolResultForCard(output);
+        state.toolLog.push({
+          index: toolCallCount,
+          name,
+          argsJson: currentToolArgsJson,
+          output,
+          success,
+          durationMs,
+        });
+        if (state.toolLog.length > 20) state.toolLog.shift();
+        console.info(chalk.cyan(`  │  ${icon} ${chalk.dim('结果:')} ${card.text.replace(/\n/g, '\n  │  ')}`));
         console.info(chalk.cyan(`  └─ ${statusLabel}${durationStr} ${chalk.dim('────')}`));
+        // W10 todo 常驻渲染:todo_write 成功后即时刷新勾选列表
+        if (name === 'todo_write' && success) {
+          const todoCtx = state.ctx ?? { workspacePath: state.opts.workspacePath };
+          for (const line of renderTodoChecklist(readTodoList(todoCtx))) console.info(line);
+        }
       },
       onError: (err) => {
         // 错误卡片化:╭─ ERROR ╮ 边框 + 红色高亮
