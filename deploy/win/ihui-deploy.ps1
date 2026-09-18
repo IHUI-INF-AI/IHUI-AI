@@ -75,8 +75,50 @@ function Release-DeployLock {
 }
 
 function Log   { param([string]$m) Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $m" }
-function Fail  { param([string]$m) Log "FAIL  $m"; try { Release-DeployLock } catch {}; exit 1 }
 function Ok    { param([string]$m) Log "OK    $m" }
+
+# ── Server酱微信告警(2026-09-18 接入,AGENTS.md §5e):部署失败自动推送到微信。
+#    配额自保:免费版 5 条/天,自动告警每日上限 3 条(保留 2 条给人工),当日计数落盘;
+#    SendKey 优先环境变量,NSSM 服务上下文未继承时回读 HKCU 注册表;
+#    通知任何失败只记日志,绝不影响部署/回滚流程本身。
+$SctStateFile = "$Root\deploy\win\.sct-notify-state.json"
+function Get-SctSendKey {
+    if ($env:SERVERCHAN_SENDKEY) { return $env:SERVERCHAN_SENDKEY }
+    try {
+        $v = (Get-ItemProperty -Path 'HKCU:\Environment' -Name 'SERVERCHAN_SENDKEY' -ErrorAction Stop).SERVERCHAN_SENDKEY
+        if ($v) { return $v }
+    } catch {}
+    return $null
+}
+function Send-SctNotify {
+    param([string]$title,[string]$desp,[string]$short = '')
+    try {
+        $key = Get-SctSendKey
+        if (-not $key) { Log "SCT   跳过微信告警:SERVERCHAN_SENDKEY 未配置"; return }
+        $today = Get-Date -Format 'yyyy-MM-dd'
+        $count = 0
+        try {
+            $prev = Get-Content $SctStateFile -Raw -ErrorAction Stop | ConvertFrom-Json
+            if ($prev.date -eq $today) { $count = [int]$prev.count }
+        } catch {}
+        if ($count -ge 3) { Log "SCT   跳过微信告警:已达当日自动告警上限(3/天),保留额度给人工推送"; return }
+        $body = @{ title = $title; desp = $desp }
+        if ($short) { $body.short = $short }
+        Invoke-RestMethod -Uri "https://sctapi.ftqq.com/$key.send" -Method Post -Body $body -TimeoutSec 8 -ErrorAction Stop | Out-Null
+        Set-Content -Path $SctStateFile -Value (@{ date = $today; count = ($count + 1) } | ConvertTo-Json) -NoNewline
+        Log "SCT   微信告警已推送($($count + 1)/3)"
+    } catch { Log "SCT   微信告警发送失败(不影响部署流程): $($_.Exception.Message)" }
+}
+function Fail {
+    param([string]$m)
+    Log "FAIL  $m"
+    try {
+        Send-SctNotify -title "【生产环境】部署失败" -short $m `
+            -desp "**IHUI-AI 生产部署失败**`n`n- 原因: $m`n- 时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n- 处置: 已自动回滚或保持当前在线版本`n- 排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
+    } catch {}
+    try { Release-DeployLock } catch {}
+    exit 1
+}
 
 function Invoke-Step { param([string]$name,[scriptblock]$body)
     Log "── $name ──"
