@@ -162,7 +162,10 @@
       "ctrl2": "Switch to Plan mode",
       "ctrl3": "Switch to Review mode",
       "ctrl4": "Switch to Spec mode",
-      "ctrl5": "Switch to Ask mode"
+      "ctrl5": "Switch to Ask mode",
+      "ctrlAltV": "Voice: start/stop recording",
+      "ctrlAltB": "Voice: toggle playback",
+      "ctrlAltH": "Voice: toggle hands-free"
     }
   },
   "teamMemory": {
@@ -9558,6 +9561,8 @@
     "csvCollapse": "Collapse",
     "csvLoading": "Loading…",
     "voiceInputPending": "Transcribing, {count} left",
+    "voicePlayback": "Voice playback",
+    "voiceHandsFree": "Hands-free",
     "voicePlaybackOn": "Voice playback on",
     "voicePlaybackOff": "Voice playback off",
     "voiceHandsFreeOn": "Hands-free on (speak to send)",

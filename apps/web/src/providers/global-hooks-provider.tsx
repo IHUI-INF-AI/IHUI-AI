@@ -65,6 +65,11 @@ const SHORTCUT_DESC_KEYS: Record<string, string> = {
   'Ctrl+3': 'desc.ctrl3',
   'Ctrl+4': 'desc.ctrl4',
   'Ctrl+5': 'desc.ctrl5',
+  // 2026-09-18 语音三合一快捷键(与 DEFAULT_SHORTCUTS 一一对应):
+  //   Ctrl+Alt+V 录音开始/停止 · Ctrl+Alt+B 自动朗读 · Ctrl+Alt+H 连续对话
+  'Ctrl+Alt+V': 'desc.ctrlAltV',
+  'Ctrl+Alt+B': 'desc.ctrlAltB',
+  'Ctrl+Alt+H': 'desc.ctrlAltH',
 }
 
 /**
