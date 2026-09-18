@@ -41,6 +41,8 @@ const DEFAULT_YUAN = 100
 
 interface PaymentCreateData {
   outTradeNo: string
+  codeUrl?: string
+  payUrl?: string
   mock?: boolean
 }
 
@@ -75,16 +77,34 @@ export function TopupTab() {
     }
     setSubmitting(true)
     try {
-      const url =
+      // 2026-09-18 修复(与 /wallet/recharge 同源):微信金额单位为分、带 orderType=2 才入账、
+      // 微信走 native 扫码下单;支付凭据透传到结果页展示,不再"下单即成功"。
+      const r =
         method === 'wechat'
-          ? `/api/payments/wechat/create?amount=${amount}`
-          : `/api/payments/alipay/create?amount=${amount}`
-      const r = await fetchApi<PaymentCreateData>(url, { method: 'POST' })
+          ? await fetchApi<PaymentCreateData>(
+              `/api/payments/wechat/native?amount=${amount * 100}&orderType=2&description=${encodeURIComponent('余额充值')}`,
+              { method: 'POST' },
+            )
+          : await fetchApi<PaymentCreateData>(
+              `/api/payments/alipay/create?amount=${amount}&orderType=2&subject=${encodeURIComponent('余额充值')}`,
+              { method: 'POST' },
+            )
       if (!r.success) {
         toast.error(r.error)
         return
       }
-      router.push(`/wallet/recharge/success?orderNo=${r.data.outTradeNo}`)
+      if (r.data.mock || (!r.data.codeUrl && !r.data.payUrl)) {
+        toast.error('支付通道暂未开通（商户配置缺失），请联系管理员。')
+        return
+      }
+      const params = new URLSearchParams({
+        orderNo: r.data.outTradeNo,
+        amount: String(amount),
+        method,
+      })
+      if (r.data.codeUrl) params.set('codeUrl', r.data.codeUrl)
+      if (r.data.payUrl) params.set('payUrl', r.data.payUrl)
+      router.push(`/wallet/recharge/success?${params.toString()}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('submitFailed'))
     } finally {

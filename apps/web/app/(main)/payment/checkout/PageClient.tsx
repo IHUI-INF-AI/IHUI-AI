@@ -8,11 +8,11 @@ import * as React from 'react'
 import { Suspense, useEffect, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useTranslations } from 'next-intl'
-import { Check, Loader2, ArrowLeft, Tag } from 'lucide-react'
+import { QRCodeCanvas } from 'qrcode.react'
+import { Check, Loader2, ArrowLeft } from 'lucide-react'
 
-import { Button, Input } from '@ihui/ui-react'
+import { Button } from '@ihui/ui-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -37,11 +37,11 @@ const PLAN_NAME_KEY: Record<string, string> = {
   enterprise: 'plans.enterprise.name',
 }
 
+// 2026-09-18 修复:移除 stripe/usdc 假选项(后端 /vip/order 仅实现微信+支付宝,
+// 选择后会被静默当微信处理),仅保留真实可用的两种支付方式
 const METHODS = [
   { id: 'wechat_native', labelKey: 'checkout.wechat' },
   { id: 'alipay', labelKey: 'checkout.alipay' },
-  { id: 'stripe', labelKey: 'checkout.stripe' },
-  { id: 'usdc', labelKey: 'checkout.usdc' },
 ] as const
 
 function CheckoutContent() {
@@ -54,19 +54,15 @@ function CheckoutContent() {
 
   const { createOrder, queryOrder, paying, payMethod, setPayMethod } = useVipPayment()
   const toast = useToast()
-  const [coupon, setCoupon] = React.useState('')
-  const [discount, setDiscount] = React.useState(0)
   const [polling, setPolling] = React.useState(false)
   const [qrCodeUrl, setQrCodeUrl] = React.useState('')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const applyCoupon = () => {
-    setDiscount(coupon.trim().toUpperCase() === 'IHUI20' ? 0.2 : 0)
-  }
+  // 2026-09-18 修复:移除假优惠码(IHUI20 仅前端减价展示,下单金额不含折扣,
+  // UI 显示折后价、实际支付原价)——折扣展示必须以服务端计价为准
 
   const subtotal = plan.price
-  const discountAmount = subtotal * discount
-  const total = subtotal - discountAmount
+  const total = subtotal
 
   const stopPoll = () => {
     if (pollRef.current) {
@@ -84,20 +80,29 @@ function CheckoutContent() {
     const MAX = 30
     pollRef.current = setInterval(async () => {
       count++
-      const status = await queryOrder(orderNo)
-      if (status === 'paid') {
-        stopPoll()
-        setQrCodeUrl('')
-        toast.success(t('checkout.paySuccess'))
-        router.push('/payment')
-        return
-      }
-      if (status === 'cancelled' || status === 'closed' || status === 'refunded' || count >= MAX) {
-        stopPoll()
-        toast.error(
-          t('checkout.payIncomplete'),
-          count >= MAX ? t('checkout.payTimeout') : t('checkout.orderClosed'),
-        )
+      try {
+        const status = await queryOrder(orderNo)
+        if (status === 'paid') {
+          stopPoll()
+          setQrCodeUrl('')
+          toast.success(t('checkout.paySuccess'))
+          router.push('/vip')
+          return
+        }
+        if (
+          status === 'cancelled' ||
+          status === 'closed' ||
+          status === 'refunded' ||
+          count >= MAX
+        ) {
+          stopPoll()
+          toast.error(
+            t('checkout.payIncomplete'),
+            count >= MAX ? t('checkout.payTimeout') : t('checkout.orderClosed'),
+          )
+        }
+      } catch {
+        // 轮询异常忽略,下一轮继续
       }
     }, 2000)
   }
@@ -106,20 +111,29 @@ function CheckoutContent() {
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault()
-    const order = await createOrder(planId)
-    if (!order) return
-    const info = order.payInfo
-    if (info.mock && info.error) {
-      toast.error(t('checkout.payConfigNotReady'), t('checkout.contactAdmin'))
-    } else if (info.method === 'native' && info.codeUrl) {
-      setQrCodeUrl(info.codeUrl)
-    } else if (info.method === 'h5' && info.h5Url) {
-      window.location.href = info.h5Url
-      return
-    } else {
-      toast.error(t('checkout.methodNotSupported'))
+    try {
+      const order = await createOrder(planId)
+      if (!order) return
+      const info = order.payInfo
+      if (info.mock && info.error) {
+        toast.error(t('checkout.payConfigNotReady'), t('checkout.contactAdmin'))
+      } else if (info.mock) {
+        toast.error(t('checkout.payConfigNotReady'), t('checkout.contactAdmin'))
+      } else if (info.method === 'native' && info.codeUrl) {
+        setQrCodeUrl(info.codeUrl)
+      } else if (info.method === 'alipay' && info.payUrl) {
+        setQrCodeUrl(info.payUrl)
+      } else if (info.method === 'h5' && info.h5Url) {
+        window.location.href = info.h5Url
+        return
+      } else {
+        toast.error(t('checkout.methodNotSupported'))
+      }
+      startPolling(order.orderNo)
+    } catch (err) {
+      // 2026-09-18 修复:createOrder 网络异常此前成为未捕获 rejection
+      toast.error(err instanceof Error ? err.message : t('checkout.payIncomplete'))
     }
-    startPolling(order.orderNo)
   }
 
   return (
@@ -153,36 +167,10 @@ function CheckoutContent() {
                 <span className="text-muted-foreground">{t('checkout.subtotal')}</span>
                 <span>{formatCNY(subtotal)}</span>
               </div>
-              {discountAmount > 0 && (
-                <div className="flex items-center justify-between text-green-600">
-                  <span>{t('checkout.discount')}</span>
-                  <span>-{formatCNY(discountAmount)}</span>
-                </div>
-              )}
               <div className="flex items-center justify-between mt-3 pt-3 text-base font-semibold">
                 <span>{t('checkout.total')}</span>
                 <span>{formatCNY(total)}</span>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{t('checkout.coupon')}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex gap-2">
-              <div className="relative flex-1">
-                <Tag className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={coupon}
-                  onChange={(e) => setCoupon(e.target.value)}
-                  placeholder={t('checkout.couponPlaceholder')}
-                  className="pl-9"
-                />
-              </div>
-              <Button type="button" variant="outline" onClick={applyCoupon}>
-                {t('checkout.applyCoupon')}
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -232,17 +220,11 @@ function CheckoutContent() {
       <Dialog open={!!qrCodeUrl} onOpenChange={(o) => !o && setQrCodeUrl('')}>
         <DialogContent className="min-[640px]:max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('checkout.wechatScanTitle')}</DialogTitle>
-            <DialogDescription>{t('checkout.wechatScanDesc')}</DialogDescription>
+            <DialogTitle>扫码支付</DialogTitle>
+            <DialogDescription>请使用微信或支付宝扫描二维码完成支付</DialogDescription>
           </DialogHeader>
-          <div className="flex justify-center py-2">
-            <Image
-              src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrCodeUrl)}&size=240x240`}
-              alt={t('checkout.wechatQrAlt')}
-              width={240}
-              height={240}
-              className="h-60 w-60 rounded-lg border"
-            />
+          <div className="flex justify-center py-2 rounded-lg border border-border bg-white">
+            <QRCodeCanvas value={qrCodeUrl} size={240} level="M" />
           </div>
         </DialogContent>
       </Dialog>
