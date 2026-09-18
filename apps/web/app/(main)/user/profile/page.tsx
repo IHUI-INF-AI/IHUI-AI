@@ -15,7 +15,7 @@ import { useAuthStore } from '@/stores/auth'
 import { BackButton } from '@/components/common'
 import { TokenUsagePanel } from '@/components/ai/token-usage-panel'
 import { RoutinesPanel } from '@/components/ai/routines-panel'
-import { VoiceRecord } from '@/components/ai/voice-record'
+import { VoiceRecord } from '@/components/chat/voice-record'
 
 import { ProfileAvatar } from './ProfileAvatar'
 import { ProfileStatsCards } from './ProfileStatsCards'
