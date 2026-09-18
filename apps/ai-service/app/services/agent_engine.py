@@ -223,6 +223,13 @@ class EngineThread:
     emit: Emitter | None = None
     # 当前持久化轮次(session_store turn_id,用于结束后回写 AgentMessage/Error)
     current_turn_id: str | None = None
+    # 工具级审批策略(2026-09-18 立,对标 Codex per-tool approval_policy;
+    # "*" 为全局档,per-tool 显式值优先)
+    approval_policies: dict[str, str] = field(default_factory=dict)
+    # Turn Context 冻结(2026-09-18 立,对标 Codex harness TurnContext):每轮 prompt
+    # 开始时快照本轮生效配置;thread.resume(checkpoint 续跑)强制用冻结副本,防
+    # 「interrupt → 客户端改配置 → resume」状态串台。非 checkpoint 路径每轮刷新。
+    frozen_context: dict[str, Any] | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -230,18 +237,100 @@ class EngineThread:
         self.updated_at = time.time()
 
 
+_VALID_APPROVAL_POLICIES = ("never", "on-request", "always")
+
+
+def _normalize_policy_dict(raw: Any) -> dict[str, str]:
+    """校验 per-tool 审批策略 dict(值 ∈ never/on-request/always)。"""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise JsonRpcError(INVALID_PARAMS, "toolApprovalPolicies 须为 {tool: policy} 对象")
+    out: dict[str, str] = {}
+    for tool, pol in raw.items():
+        if pol not in _VALID_APPROVAL_POLICIES:
+            raise JsonRpcError(
+                INVALID_PARAMS,
+                f"非法 approval_policy: 工具 {tool!r} 值 {pol!r},"
+                " 取值必须为 'never' / 'on-request' / 'always'",
+            )
+        out[str(tool)] = str(pol)
+    return out
+
+
+def _parse_policy_config(params: dict[str, Any]) -> dict[str, str]:
+    """解析 thread.start/exec 的策略配置(2026-09-18 立,对标 Codex harness 结构化策略)。
+
+    支持三种形态,可叠加(后者覆盖前者):
+    - approvalPolicy: "never"|"on-request"|"always" → 全局档(作用于所有工具);
+    - toolApprovalPolicies: {tool_name: policy} → per-tool 显式配置;
+    - policyToml: TOML 文本 → 结构化解析(对标 Codex config.toml):
+        [tools.<name>]
+        approval_policy = "always"
+      也接受顶层 approval_policy = "..."。tomllib 解析失败/字段非法 → INVALID_PARAMS。
+    """
+    policies: dict[str, str] = {}
+    global_policy = params.get("approvalPolicy")
+    if global_policy is not None:
+        if global_policy not in _VALID_APPROVAL_POLICIES:
+            raise JsonRpcError(
+                INVALID_PARAMS,
+                f"非法 approvalPolicy: {global_policy!r},取值必须为 {_VALID_APPROVAL_POLICIES}",
+            )
+        # 全局档:作用于所有工具(以 "*" 通配表示,per-tool 显式值可覆盖)
+        policies["*"] = str(global_policy)
+    policies.update(_normalize_policy_dict(params.get("toolApprovalPolicies")))
+
+    policy_toml = params.get("policyToml")
+    if isinstance(policy_toml, str) and policy_toml.strip():
+        try:
+            import tomllib
+
+            doc = tomllib.loads(policy_toml)
+        except Exception as e:
+            raise JsonRpcError(INVALID_PARAMS, f"policyToml 解析失败: {e}") from e
+        top = doc.get("approval_policy")
+        if top is not None:
+            if top not in _VALID_APPROVAL_POLICIES:
+                raise JsonRpcError(INVALID_PARAMS, f"非法 approval_policy: {top!r}")
+            policies["*"] = str(top)
+        tools_section = doc.get("tools")
+        if tools_section is not None:
+            if not isinstance(tools_section, dict):
+                raise JsonRpcError(INVALID_PARAMS, "policyToml 的 [tools] 段须为表")
+            raw_map = {
+                name: (cfg.get("approval_policy") if isinstance(cfg, dict) else cfg)
+                for name, cfg in tools_section.items()
+            }
+            policies.update(_normalize_policy_dict(raw_map))
+    return policies
+
+
+def _resolve_approval_policy(policies: dict[str, str], tool_name: str) -> str | None:
+    """查工具的生效审批策略:per-tool 显式 > "*" 全局档;无配置返回 None。"""
+    pol = policies.get(tool_name)
+    if pol is not None:
+        return pol
+    return policies.get("*")
+
+
 def _spec(thread: EngineThread) -> dict[str, Any]:
-    """把线程配置转成主循环工厂的 spec(承载层据此构造 AgentLoopV2)。"""
+    """把线程配置转成主循环工厂的 spec(承载层据此构造 AgentLoopV2)。
+
+    Turn Context 冻结:frozen_context 存在时以冻结快照为准(resume 场景防串台)。
+    """
+    ctx = thread.frozen_context or {}
     return {
         "thread_id": thread.thread_id,
         "session_id": thread.session_id,
-        "model": thread.model,
-        "permission_mode": thread.permission_mode,
-        "max_iterations": thread.max_iterations,
-        "tool_names": thread.tool_names,
-        "workspace": thread.workspace,
+        "model": ctx.get("model", thread.model),
+        "permission_mode": ctx.get("permission_mode", thread.permission_mode),
+        "max_iterations": ctx.get("max_iterations", thread.max_iterations),
+        "tool_names": ctx.get("tool_names", thread.tool_names),
+        "workspace": ctx.get("workspace", thread.workspace),
         "user_id": thread.user_id,
         "conversation_id": thread.conversation_id,
+        "approval_policies": ctx.get("approval_policies"),
         "enable_checkpoint": True,
     }
 
@@ -295,6 +384,7 @@ class AgentEngine:
         hook_bus: Any | None = None,
         host_tool_timeout_ms: int = DEFAULT_HOST_TOOL_TIMEOUT_MS,
         store: SessionStore | None = None,
+        locked_system_prompt: str | None = None,
     ) -> None:
         self._loop_factory = loop_factory
         self._tool_lister = tool_lister
@@ -303,6 +393,14 @@ class AgentEngine:
         self._injected_bus = hook_bus
         self._host_tool_timeout_ms = int(host_tool_timeout_ms)
         self._threads: dict[str, EngineThread] = {}
+        # 服务端 system prompt 锁定(2026-09-18 立,对标 Codex harness server-delivered
+        # prompts):非空时 thread.start 的客户端 systemPrompt 被忽略,强制用服务端值
+        # (多租户合规:防客户端覆盖安全提示);回退 env AGENT_ENGINE_LOCKED_SYSTEM_PROMPT。
+        self._locked_system_prompt: str | None = (
+            locked_system_prompt
+            if locked_system_prompt is not None
+            else (os.getenv("AGENT_ENGINE_LOCKED_SYSTEM_PROMPT") or None)
+        )
         # 会话持久化(session_store 单例/注入;None=未初始化,False=不可用哨兵)
         self._store: SessionStore | None | bool = store
         self._handlers: dict[str, Callable[[dict[str, Any], Emitter], Any]] = {
@@ -314,6 +412,7 @@ class AgentEngine:
             "thread.resume": self._handle_thread_resume,
             "thread.state": self._handle_thread_state,
             "thread.close": self._handle_thread_close,
+            "agent.exec": self._handle_agent_exec,
             "tools.list": self._handle_tools_list,
             "tools.register": self._handle_tools_register,
             "tools.result": self._handle_tools_result,
@@ -430,6 +529,10 @@ class AgentEngine:
                     "workspace": thread.workspace,
                     "userId": thread.user_id,
                     "conversationId": thread.conversation_id,
+                    "approvalPolicies": thread.approval_policies or None,
+                    "systemPromptSource": (
+                        "server-locked" if self._locked_system_prompt else "client-or-default"
+                    ),
                     "systemPrompt": (
                         thread.messages[0].get("content", "")
                         if thread.messages and thread.messages[0].get("role") == "system"
@@ -612,13 +715,22 @@ class AgentEngine:
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
         thread_id = f"thr_{uuid.uuid4().hex[:12]}"
-        system_prompt = params.get("systemPrompt")
-        messages: list[dict[str, Any]] = []
-        if isinstance(system_prompt, str) and system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
+        # 服务端 prompt 锁定(2026-09-18 立):锁定值存在时忽略客户端 systemPrompt
+        # (多租户合规:防客户端覆盖安全提示),来源标注入持久化 metadata。
+        if self._locked_system_prompt:
+            system_prompt: str | None = self._locked_system_prompt
+            system_source = "server-locked"
+        elif isinstance(params.get("systemPrompt"), str) and params.get("systemPrompt"):
+            system_prompt = str(params["systemPrompt"])
+            system_source = "client"
         else:
-            messages.append({"role": "system", "content": "You are a helpful agent."})
+            system_prompt = None
+            system_source = "default"
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": system_prompt or "You are a helpful agent."}
+        ]
         tool_names = params.get("tools")
+        approval_policies = _parse_policy_config(params)
         thread = EngineThread(
             thread_id=thread_id,
             session_id=str(params.get("sessionId") or thread_id),
@@ -633,9 +745,12 @@ class AgentEngine:
             conversation_id=params.get("conversationId")
             if isinstance(params.get("conversationId"), str)
             else None,
+            approval_policies=approval_policies,
             messages=messages,
         )
         self._threads[thread_id] = thread
+        # Turn Context 冻结:首份快照(此后每轮 prompt 刷新,resume 用冻结副本)
+        thread.frozen_context = self._freeze_context(thread)
         self._persist_thread_created(thread)
         logger.info("[engine] thread.start %s (model=%s)", thread_id, thread.model)
         return {
@@ -644,7 +759,56 @@ class AgentEngine:
             "model": thread.model,
             "permissionMode": thread.permission_mode,
             "maxIterations": thread.max_iterations,
+            "approvalPolicies": thread.approval_policies,
+            "systemPromptSource": system_source,
             "status": thread.status,
+        }
+
+    def _freeze_context(self, thread: EngineThread) -> dict[str, Any]:
+        """快照本轮生效配置(Turn Context 冻结,对标 Codex TurnContext)。"""
+        return {
+            "model": thread.model,
+            "permission_mode": thread.permission_mode,
+            "max_iterations": thread.max_iterations,
+            "tool_names": list(thread.tool_names) if thread.tool_names else None,
+            "workspace": thread.workspace,
+            "approval_policies": dict(thread.approval_policies) or None,
+        }
+
+    async def _handle_agent_exec(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """一次性非交互执行(2026-09-18 立,对标 Codex `codex exec` headless 模式)。
+
+        params 与 thread.start/prompt 同构(input/model/permissionMode/tools/
+        approvalPolicy/toolApprovalPolicies/policyToml/systemPrompt/...)。
+        内部建临时线程执行单轮,返回结构化结果后线程出内存(跑完即弃);
+        过程事件经 emit 正常流出;持久化记录保留(审计),后续 threadId 仍可恢复。
+        """
+        input_text = params.get("input")
+        if input_text is None or (isinstance(input_text, str) and not input_text.strip()):
+            raise JsonRpcError(INVALID_PARAMS, "agent.exec 需要非空 input")
+        started = await self._handle_thread_start(params, emit)
+        tid = started["threadId"]
+        started_at = time.time()
+        try:
+            result = await self._handle_thread_prompt(params | {"threadId": tid}, emit)
+        finally:
+            # 跑完即弃(成功/异常都出内存;库中记录保留,按 threadId 仍可恢复续查)。
+            # 清理对齐 _handle_thread_close:取消未决 future(此线程无 in-flight loop)。
+            thread = self._threads.pop(tid, None)
+            if thread is not None:
+                for future in thread.pending.values():
+                    if not future.done():
+                        future.cancel()
+                thread.pending.clear()
+                thread.status = "closed"
+                thread.touch()
+        return {
+            **result,
+            "threadId": tid,
+            "headless": True,
+            "execDurationMs": round((time.time() - started_at) * 1000, 2),
         }
 
     async def _handle_thread_prompt(
@@ -656,6 +820,9 @@ class AgentEngine:
             raise JsonRpcError(THREAD_BUSY, f"线程正在执行中: {thread.thread_id}")
         text = _coerce_input_text(params.get("input"))
         thread.messages.append({"role": "user", "content": text})
+        # Turn Context 冻结:非 checkpoint 路径每轮刷新快照(客户端在轮间改配置,
+        # 新一轮用新值;轮内 interrupt→resume 走 _handle_thread_resume 的冻结副本)
+        thread.frozen_context = self._freeze_context(thread)
         turn_id = self._persist_turn_start(thread, text)
         try:
             result = await self._run_thread(thread, emit)
@@ -799,6 +966,17 @@ class AgentEngine:
             raise JsonRpcError(
                 INVALID_PARAMS, "缺少 checkpointId(且线程无最近 checkpoint)"
             )
+        # Turn Context 冻结(2026-09-18 立):checkpoint 续跑强制用冻结副本——
+        # interrupt 之后客户端改配置(model/permissionMode/tools)不生效,防串台;
+        # 无冻结快照(老线程/恢复线程)则按当前配置,行为与旧版一致。
+        if thread.frozen_context:
+            ctx = thread.frozen_context
+            thread.model = ctx.get("model", thread.model)
+            thread.permission_mode = ctx.get("permission_mode", thread.permission_mode)
+            thread.max_iterations = int(ctx.get("max_iterations") or thread.max_iterations)
+            thread.tool_names = ctx.get("tool_names", thread.tool_names)
+            thread.workspace = ctx.get("workspace", thread.workspace)
+            thread.approval_policies = dict(ctx.get("approval_policies") or {})
         try:
             return await self._run_thread(thread, emit, from_checkpoint=checkpoint_id)
         except ValueError as e:
