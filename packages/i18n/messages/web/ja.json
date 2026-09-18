@@ -6872,6 +6872,18 @@
       "copy": "コピー",
       "copyPlan": "計画をコピー",
       "copyThinking": "思考内容をコピー",
+      "diffHunk": {
+        "acceptBlock": "この変更を承認",
+        "accepted": "承認済み",
+        "applySelected": "選択分を適用({count})",
+        "applyingSelected": "適用中",
+        "changeBlock": "変更 {index}/{total}",
+        "clearSelection": "すべて解除",
+        "rejectBlock": "この変更を拒否",
+        "rejected": "拒否済み",
+        "resetSelection": "選択をリセット",
+        "selectedSummary": "{accepted}/{total} 選択中"
+      },
       "dragHandle": "ドラッグして位置を調整",
       "elapsedTitle": "経過 {time}",
       "emptyHint": "会話開始後にタスク計画が表示されます",
@@ -7010,8 +7022,10 @@
         "continueText": "続行"
       },
       "terminal": {
+        "clearLive": "クリア",
         "copyOutput": "ターミナル出力をコピー",
         "failed": "{n} 失敗",
+        "live": "ライブ出力",
         "moreItems": "…あと {n} 件",
         "output": "出力",
         "running": "{n} 実行中",

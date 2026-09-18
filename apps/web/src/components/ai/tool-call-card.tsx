@@ -45,6 +45,8 @@ interface ToolCallCardProps {
   onApply?: () => void
   /** Reject 回调(由父组件绑定 messageId + toolCallId) */
   onReject?: () => void
+  /** W5(2026-09-18 立):hunk 级部分应用回调,入参为已接受 hunk 重组后的最终内容 */
+  onApplyPartial?: (newContent: string) => Promise<void>
   /** 后端重复调用检测命中时标记(渲染"已跳过"徽章) */
   repeated?: boolean
   /** P3 #30(2026-09-16 立):工具调用 id,随 diff 评审意见记录便于回溯哪次改动 */
@@ -812,6 +814,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   serverName,
   onApply,
   onReject,
+  onApplyPartial,
   toolCallId,
 }: ToolCallCardProps) {
   const [expanded, setExpanded] = React.useState(false)
@@ -1002,6 +1005,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
               applyError={applyError}
               onApply={onApply}
               onReject={onReject}
+              onApplyPartial={onApplyPartial}
               toolCallId={toolCallId}
             />
           )}

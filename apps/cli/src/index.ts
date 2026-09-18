@@ -117,6 +117,7 @@ program
   .option('--mcp', '启用 MCP 工具(从 ~/.ihui/mcp.json 加载 MCP 服务器工具)')
   .option('--allow-dangerous', '允许危险工具(run_command/delete_file/git_commit)自动执行,无需确认(默认拒绝,REPL 模式下交互确认)')
   .option('--plan', '强制 Agent 先输出任务规划(plan 块)再执行工具(长任务推荐)')
+  .option('--auto-approve-plan', 'P0-C 自动批准 LLM 提出的 plan 块(危险:跳过用户审批门。默认关闭,需显式开启)')
   .option('--temperature <num>', 'LLM 温度(0-2,代码任务推荐 0.2,创意任务推荐 0.7)')
   .option('--max-tokens <num>', '最大生成 token 数')
   .option('--locale <locale>', '界面语言(zh-CN/en/ja/ko/zh-TW)', process.env.IHUI_LOCALE || '')
@@ -220,6 +221,7 @@ async function runAgentAndExit(
     cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
     cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
     cliPlan: opts.plan === true ? true : undefined,
+    cliAutoApprovePlan: opts.autoApprovePlan === true ? true : undefined,
     cliMcp: opts.mcp === true ? true : undefined,
     cliTemperature: typeof opts.temperature === 'string' ? opts.temperature : undefined,
     cliMaxTokens: typeof opts.maxTokens === 'string' ? opts.maxTokens : undefined,
@@ -275,6 +277,8 @@ async function runAgentAndExit(
         session,
         signal: abort.signal,
         planFirst: cfg.planFirst,
+        // P0-C:plan 审批门 — --auto-approve-plan / settings.autoApprovePlan 显式开启才放行(默认 fail-fast)
+        autoApprovePlan: cfg.autoApprovePlan,
         sampler: cfg.sampler,
         permissions: resolvePermissions(opts),
         permissionMode: cfg.permissionMode,
@@ -361,9 +365,10 @@ program
         cliModel: typeof opts.model === 'string' ? opts.model : undefined,
         cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
         cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
-    cliPlan: opts.plan === true ? true : undefined,
-    cliMcp: opts.mcp === true ? true : undefined,
-    cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
+        cliPlan: opts.plan === true ? true : undefined,
+        cliAutoApprovePlan: opts.autoApprovePlan === true ? true : undefined,
+        cliMcp: opts.mcp === true ? true : undefined,
+        cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
       });
       const session = resolveSession(opts);
       await startREPL({
@@ -377,6 +382,7 @@ program
         enableMcp: cfg.enableMcp,
         allowDangerous: cfg.allowDangerous,
         planFirst: cfg.planFirst,
+        autoApprovePlan: cfg.autoApprovePlan,
         permissions: resolvePermissions(opts),
         permissionMode: cfg.permissionMode,
       });
@@ -396,6 +402,8 @@ const chatCmd = program
       cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
       cliMaxTurns: typeof opts.maxTurns === 'string' ? opts.maxTurns : undefined,
       cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
+      cliPlan: opts.plan === true ? true : undefined,
+      cliAutoApprovePlan: opts.autoApprovePlan === true ? true : undefined,
       cliMcp: opts.mcp === true ? true : undefined,
       cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
     });
@@ -411,6 +419,7 @@ const chatCmd = program
       enableMcp: cfg.enableMcp,
       allowDangerous: cfg.allowDangerous,
       planFirst: cfg.planFirst,
+      autoApprovePlan: cfg.autoApprovePlan,
       permissionMode: cfg.permissionMode,
     });
   });
@@ -683,6 +692,8 @@ program
       cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
       cliMaxTurns: typeof opts.maxTurns === 'string' ? opts.maxTurns : undefined,
       cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
+      cliPlan: opts.plan === true ? true : undefined,
+      cliAutoApprovePlan: opts.autoApprovePlan === true ? true : undefined,
       cliMcp: opts.mcp === true ? true : undefined,
       cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
     });
@@ -694,6 +705,7 @@ program
       enableMcp: cfg.enableMcp,
       allowDangerous: cfg.allowDangerous,
       planFirst: cfg.planFirst,
+      autoApprovePlan: cfg.autoApprovePlan,
     });
     process.on('SIGINT', () => connection.close());
     process.on('SIGTERM', () => connection.close());

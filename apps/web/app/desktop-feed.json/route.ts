@@ -17,6 +17,16 @@ import { DESKTOP_FEED } from '@/config/desktop-feed.generated'
 
 export const dynamic = 'force-static'
 
+/**
+ * 读取快照资产的更新签名(2026-09-18)。
+ * 快照由 scripts/resolve-desktop-download.mjs 自动生成;历史版本在 release 未附 .sig
+ * 资产时**整个字段缺失**(而非空串),直接访问 `.signature` 会 typecheck 报 TS2339。
+ * 此处按可选字段读取并恒定降级为空串,使任何版本形态的快照都能编译与运行。
+ */
+function readSignature(asset: { signature?: string } | undefined): string {
+  return asset?.signature ?? ''
+}
+
 export function GET() {
   const winAsset = DESKTOP_FEED.assets.find((a) => /Windows/i.test(a.format))
   if (!winAsset) {
@@ -28,7 +38,7 @@ export function GET() {
     pub_date: new Date(`${DESKTOP_FEED.releaseDate}T00:00:00Z`).toISOString(),
     platforms: {
       'windows-x86_64': {
-        signature: winAsset.signature ?? '',
+        signature: readSignature(winAsset),
         url: winAsset.href,
       },
     },

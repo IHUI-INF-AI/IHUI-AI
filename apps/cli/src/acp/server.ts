@@ -38,6 +38,7 @@ import {
   type RewindPoint,
 } from '../commands/session.js';
 import { setupAgentTools, runToolLoop, type ToolContext } from '../commands/agent.js';
+import { PlanMachine } from '../plan/machine.js';
 import { CheckpointManager } from '../checkpoints/index.js';
 import {
   listManagedClients,
@@ -54,6 +55,8 @@ export interface AcpServerOptions {
   allowDangerous?: boolean;
   /** 强制 LLM 先输出 plan 块再执行工具 */
   planFirst?: boolean;
+  /** P0-C 显式自动批准 plan(危险,默认 false;关闭时经 request_permission 转 IDE 审批) */
+  autoApprovePlan?: boolean;
 }
 
 interface AcpSessionState {
@@ -63,6 +66,10 @@ interface AcpSessionState {
   systemPrompt: string | null;
   ctx: ToolContext | null;
   checkpoints: CheckpointManager | null;
+  /** P0-C plan 审批门:当前 plan 是否已批准(与 onPlanApproval 回调同步) */
+  planApproved: boolean;
+  /** P0-C plan 审批门:PlanMachine 实例(planFirst 开启时创建,gathering 期间写入硬阻断) */
+  planMachine: PlanMachine | undefined;
 }
 
 /** P0-2 `x.ai/session/repair` 请求参数 */
@@ -169,6 +176,8 @@ export class IhuiAcpAgent {
       systemPrompt: null,
       ctx: null,
       checkpoints,
+      planApproved: false,
+      planMachine: this.opts.planFirst ? new PlanMachine('gathering') : undefined,
     };
     this.sessions.set(session.id, state);
     return { sessionId: session.id };
@@ -193,6 +202,8 @@ export class IhuiAcpAgent {
       systemPrompt: null,
       ctx: null,
       checkpoints,
+      planApproved: false,
+      planMachine: this.opts.planFirst ? new PlanMachine('gathering') : undefined,
     };
     this.sessions.set(existing.id, state);
 
@@ -267,12 +278,76 @@ export class IhuiAcpAgent {
     ];
 
     try {
+      // tool_call ↔ tool_call_update 配对队列:onToolCall 入队、onToolResult 出队(FIFO,
+      // 因 runToolLoop 先对全部 tool 调 onToolCall 再对全部结果调 onToolResult,顺序一致)。
+      // 队列为空(异常 desync)时 onToolResult 跳过转发,宁缺勿假。
+      const toolCallIdQueue: string[] = [];
+
       const result = await runToolLoop({
         modelId: this.opts.modelId,
         messages,
         ctx: state.ctx!,
         maxIterations: this.opts.maxIterations,
         signal: abort.signal,
+        // P0-C plan 审批门:planFirst 开启时,LLM 提出 plan 块须经 IDE 审批才能执行工具
+        planFirst: this.opts.planFirst,
+        planApproved: state.planApproved,
+        planMachine: state.planMachine,
+        autoApprovePlan: this.opts.autoApprovePlan,
+        // P0-C ACP 审批通道:转发 session/request_permission 给编辑器(Zed/VSCode 原生审批 UI)
+        onPlanApproval: async (plan) => {
+          // 先把 plan 内容作为消息推给客户端展示(审批前用户需要看到 plan 全文)
+          await cx.notify(acp.methods.client.session.update, {
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: 'agent_message_chunk',
+              content: { type: 'text', text: `\n📋 Plan 提案(等待审批):\n${plan.trim()}\n` },
+            },
+          });
+          let response: acp.RequestPermissionResponse | null = null;
+          try {
+            response = await cx.request(acp.methods.client.session.requestPermission, {
+              sessionId: params.sessionId,
+              toolCall: {
+                toolCallId: `plan-approval-${Date.now()}`,
+                kind: 'other',
+                status: 'pending',
+                title: 'Plan 审批(Plan Mode)',
+                content: [{ type: 'content', content: { type: 'text', text: plan.trim() } }],
+              },
+              options: [
+                { optionId: 'approve', name: '批准 Plan 并执行', kind: 'allow_once' as const },
+                { optionId: 'reject', name: '拒绝并重新规划', kind: 'reject_once' as const },
+              ],
+            });
+          } catch (err) {
+            // 编辑器不支持 request_permission 或请求超时:安全降级为拒绝(不崩溃)
+            await cx.notify(acp.methods.client.session.update, {
+              sessionId: params.sessionId,
+              update: {
+                sessionUpdate: 'agent_message_chunk',
+                content: {
+                  type: 'text',
+                  text: `\n⚠ Plan 审批请求失败(${err instanceof Error ? err.message : String(err)}),默认拒绝。请升级编辑器 ACP 支持或改用 --auto-approve-plan。\n`,
+                },
+              },
+            });
+          }
+          const outcome = response?.outcome;
+          const approved =
+            outcome?.outcome === 'selected' && outcome.optionId === 'approve';
+          // 同步会话状态(与 REPL /plan approve|reject 语义一致)
+          state.planApproved = approved;
+          if (approved) {
+            if (state.planMachine?.canTransition('gather_complete')) {
+              state.planMachine.transition('gather_complete', { approved: true });
+            }
+          } else if (state.planMachine) {
+            state.planMachine.reset();
+            state.planMachine.transition('start');
+          }
+          return approved;
+        },
         onDelta: async (delta) => {
           await cx.notify(acp.methods.client.session.update, {
             sessionId: params.sessionId,
@@ -281,6 +356,64 @@ export class IhuiAcpAgent {
               content: { type: 'text', text: delta },
             },
           });
+        },
+        // 推理过程(reasoning/thinking)透传为 agent_thought_chunk(IDE 思考可视化)。
+        // 回调内异常吞掉:IDE 渲染失败不能中断 agent 执行。
+        onReasoning: async (delta) => {
+          try {
+            await cx.notify(acp.methods.client.session.update, {
+              sessionId: params.sessionId,
+              update: {
+                sessionUpdate: 'agent_thought_chunk',
+                content: { type: 'text', text: delta },
+              },
+            });
+          } catch {
+            // IDE 渲染失败不中断 agent
+          }
+        },
+        // 工具调用开始:发 tool_call(in_progress),并登记 toolCallId 供结果配对。
+        onToolCall: async (name, args) => {
+          try {
+            const toolCallId = randomUUID();
+            toolCallIdQueue.push(toolCallId);
+            await cx.notify(acp.methods.client.session.update, {
+              sessionId: params.sessionId,
+              update: {
+                sessionUpdate: 'tool_call',
+                toolCallId,
+                title: name,
+                kind: mapToolKind(name),
+                status: 'in_progress',
+                rawInput: args,
+                content: [],
+              },
+            });
+          } catch {
+            // IDE 渲染失败不中断 agent
+          }
+        },
+        // 工具结果:从队列取 toolCallId 配对,发 tool_call_update(completed/failed),
+        // 结果文本安全截断(≤8000 字符)。toolCallId 缺失/空串或队列排空时跳过转发。
+        onToolResult: async (name, success, output) => {
+          try {
+            const toolCallId = toolCallIdQueue.shift();
+            if (!toolCallId) return;
+            const text =
+              output.length > 8000 ? `${output.slice(0, 8000)}…(结果已截断)` : output;
+            await cx.notify(acp.methods.client.session.update, {
+              sessionId: params.sessionId,
+              update: {
+                sessionUpdate: 'tool_call_update',
+                toolCallId,
+                title: name,
+                status: success ? 'completed' : 'failed',
+                content: [{ type: 'content', content: { type: 'text', text } }],
+              },
+            });
+          } catch {
+            // IDE 渲染失败不中断 agent
+          }
         },
         onError: (err) => {
           throw new Error(typeof err === 'string' ? err : String(err));
@@ -306,7 +439,7 @@ export class IhuiAcpAgent {
         });
       }
       saveSession(state.session);
-      return { stopReason: 'end_turn' };
+      return { stopReason: toAcpStopReason(result.stopReason) };
     } catch (err) {
       if (abort.signal.aborted) {
         const lastAssistant = messages.filter((m) => m.role === 'assistant').pop();
@@ -454,6 +587,43 @@ function extractTextFromPrompt(prompt: acp.ContentBlock[] | undefined): string {
     .filter((block): block is { type: 'text'; text: string } => block.type === 'text')
     .map((block) => block.text)
     .join('\n');
+}
+
+/**
+ * 把 IHUI 内部工具名映射到 ACP ToolKind(供 IDE 选图标/UI 处理)。
+ * 纯前缀/关键字匹配,未命中落 'other'。不依赖外部 registry,零副作用。
+ */
+function mapToolKind(name: string): acp.ToolKind {
+  const n = name.toLowerCase();
+  if (n.includes('think') || n.includes('reason')) return 'think';
+  if (n.includes('read') || n.includes('list') || n.includes('view') || n.includes('cat')) return 'read';
+  if (n.includes('write') || n.includes('edit') || n.includes('create') || n.includes('patch') || n.includes('save')) return 'edit';
+  if (n.includes('delete') || n.includes('remove') || n.includes('rm')) return 'delete';
+  if (n.includes('move') || n.includes('rename') || n.includes('mv')) return 'move';
+  if (n.includes('search') || n.includes('grep') || n.includes('find') || n.includes('ls')) return 'search';
+  if (n.includes('fetch') || n.includes('web') || n.includes('http') || n.includes('download') || n.includes('curl')) return 'fetch';
+  if (n.includes('execute') || n.includes('run') || n.includes('command') || n.includes('shell') || n.includes('terminal') || n.includes('test') || n.includes('build')) return 'execute';
+  if (n.includes('switch') || n.includes('mode')) return 'switch_mode';
+  return 'other';
+}
+
+/**
+ * P0-C stopReason 映射:runToolLoop 的 AgentStopReason → ACP StopReason。
+ * ACP 规范只有 end_turn/max_tokens/max_turn_requests/refusal/cancelled 五种,
+ * budget_limited/doom_loop/plan_approval_required 等统一降级为 refusal
+ * (语义:agent 主动停止而非出错,细节经 agent_message_chunk 已推送给客户端)。
+ */
+function toAcpStopReason(reason: string): 'end_turn' | 'max_turn_requests' | 'refusal' | 'cancelled' {
+  switch (reason) {
+    case 'end_turn':
+      return 'end_turn';
+    case 'cancelled':
+      return 'cancelled';
+    case 'max_iterations':
+      return 'max_turn_requests';
+    default:
+      return 'refusal';
+  }
 }
 
 /**

@@ -17,6 +17,9 @@ export type { ChatRole } from '@ihui/shared'
 /** Inline Diff Apply 状态:pending=待确认 / applying=应用中 / applied=已应用 / rejected=已拒绝 / error=应用失败 */
 export type DiffApplyStatus = 'pending' | 'applying' | 'applied' | 'rejected' | 'error'
 
+/** 终端实时输出缓冲的键数上限(2026-09-18):超出按插入序淘汰最旧 terminalId,防长会话累积 */
+const TERMINAL_OUTPUT_MAX_KEYS = 20
+
 /**
  * Diff 评审意见(P3 #30 diff 评论驱动返工,2026-09-16 立,对标 Codex diff 评论)。
  *
@@ -162,6 +165,13 @@ interface ChatState {
    *  下一轮 sendMessage 时格式化为 `<diff_review>` 块定向注入 agent 上下文,注入后清空。
    *  持久化:评论可能跨刷新保留(用户评论后切走再回来仍可发送),故纳入 partialize。 */
   pendingDiffComments: DiffComment[]
+  /** 终端命令实时输出缓冲(2026-09-18 立,对标 Codex 实时 stdout 行流):
+   *  键 = terminalId(与 terminal_start/terminal_end 一致),值 = 命令执行期间累积的增量文本。
+   *  由 send-message.ts 的 onTerminalDelta 回调写入,ToolCallCard/TerminalSection 实时回显。
+   *  terminal_end 后**保留**该键:live 缓冲通常比 terminal_end.output(后端截 8000 字符)更完整,
+   *  终态渲染取更长者;内存以「单键 2 万字符 + 最多 20 个终端键(插入序淘汰最旧)」双重封顶,
+   *  新建对话时随 clearMessages 清空。不持久化(执行期瞬时态,刷新即失效)。 */
+  terminalOutputs: Record<string, string>
 
   setModel: (model: string) => void
   /** 添加单个工具到已选;已存在则忽略 */
@@ -265,6 +275,11 @@ interface ChatState {
   removeDiffComment: (id: string) => void
   /** 清空全部待发送 diff 评审意见(注入成功后消费即清,或用户手动清空) */
   clearDiffComments: () => void
+  /** 终端实时输出追加(2026-09-18 立):命令执行期间逐块追加 stdout/stderr 增量。
+   *  单键累计上限 20000 字符(超出保留尾部),避免长命令把 localStorage/内存撑爆。 */
+  appendTerminalOutput: (terminalId: string, text: string) => void
+  /** 清理指定终端任务的实时输出缓冲(terminal_end 到达时调用,终态交给 terminal.output) */
+  clearTerminalOutput: (terminalId: string) => void
   /** P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
    *  前端 onUsage 回调调用此方法把 usage 写入 assistant 消息 meta.usage,UI 展示 token 计数。 */
   updateMessageMeta: (messageId: string, meta: Record<string, unknown>) => void
@@ -345,6 +360,8 @@ export const useChatStore = create<ChatState>()(
       // P1 #27 记忆更新可视化(2026-09-16 立)
       memoryUpdateNotices: [],
       pendingDiffComments: [],
+      // 2026-09-18 终端实时输出缓冲(执行期瞬时态,不持久化)
+      terminalOutputs: {},
       // #21 中断后追加指令继续(2026-09-13 立)
       interruptedMessageId: null,
       // W27 输入历史(2026-09-14 立):Esc+Esc 历史导航数据源
@@ -473,6 +490,8 @@ export const useChatStore = create<ChatState>()(
           memoryUpdateNotices: [],
           // P3 #30:新建对话时 diff 卡片随消息消失,待发送评论一并清空避免悬空
           pendingDiffComments: [],
+          // 2026-09-18:终端实时输出属消息级瞬时态,新建对话一并清空
+          terminalOutputs: {},
         }),
       /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
       setMessages: (messages: ChatMessage[]) => set({ messages }),
@@ -903,6 +922,35 @@ export const useChatStore = create<ChatState>()(
         })),
 
       clearDiffComments: () => set({ pendingDiffComments: [] }),
+
+      // 2026-09-18 终端实时输出(对标 Codex bash 实时回显):
+      // 命令执行期间逐块追加,terminal_end 后保留供终态渲染取更完整文本。
+      // 双重封顶防内存膨胀:单键 2 万字符(保留尾部) + 最多 20 个终端键(插入序淘汰最旧)。
+      appendTerminalOutput: (terminalId, text) =>
+        set((s) => {
+          if (!terminalId || !text) return s
+          const prev = s.terminalOutputs[terminalId] ?? ''
+          const merged = prev + text
+          // 单键上限 20000 字符(保留尾部):长命令输出不撑爆内存与渲染
+          const capped = merged.length > 20000 ? merged.slice(-20000) : merged
+          const next: Record<string, string> = { ...s.terminalOutputs, [terminalId]: capped }
+          // 键数上限 20:对象字符串键保持插入序,超出即删最旧键(长会话不累积)
+          const keys = Object.keys(next)
+          if (keys.length > TERMINAL_OUTPUT_MAX_KEYS) {
+            for (const stale of keys.slice(0, keys.length - TERMINAL_OUTPUT_MAX_KEYS)) {
+              delete next[stale]
+            }
+          }
+          return { terminalOutputs: next }
+        }),
+
+      clearTerminalOutput: (terminalId) =>
+        set((s) => {
+          if (!(terminalId in s.terminalOutputs)) return s
+          const next = { ...s.terminalOutputs }
+          delete next[terminalId]
+          return { terminalOutputs: next }
+        }),
 
       // 2026-08-01 Phase 4a:消息级 terminal task append(terminal_start 事件)
       appendMessageTerminalTask: (messageId, task) =>
