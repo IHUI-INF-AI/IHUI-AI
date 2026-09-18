@@ -66,6 +66,7 @@ import itertools
 import json
 import logging
 import os
+import sys
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -232,6 +233,95 @@ _AGENT_ROLE_TEMPLATES: dict[str, str] = {
     "tester": "你是测试工程师:设计覆盖正常/边界/异常路径的用例并给出复现步骤。",
     "planner": "你是任务规划者:把目标拆解为可执行步骤,标注依赖顺序与验收标准。",
 }
+
+# ---------------------------------------------------------------------------
+# run_code 常量(2026-09-18 第六批,对标 Codex code-mode/V8 cell):
+# 模型写 Python 代码在常驻子进程中执行,tools.call(...) 桥接引擎工具,
+# 全局状态跨调用持久(cell 语义);进程隔离 + 超时击杀 + 输出有界。
+# ---------------------------------------------------------------------------
+_MAX_CODE_SESSIONS = 4
+_CODE_SESSION_TTL = 900.0
+_CODE_OUTPUT_HEAD = 4_000
+_CODE_OUTPUT_TAIL = 12_000
+_CODE_DEFAULT_TIMEOUT_MS = 60_000
+_CODE_MAX_TIMEOUT_MS = 300_000
+# 单次 run 允许的嵌套工具调用上限(防失控,对标 CodeModeNestedToolCall 治理)
+_CODE_MAX_NESTED_TOOL_CALLS = 50
+# 常驻子进程引导脚本:stdin/stdout 走 JSON 行协议;用户 print 被重定向捕获,
+# tools.call 经管道同步往返(子进程阻塞读 → 父进程结算)。
+_CODE_BOOTSTRAP = r'''
+import io
+import json
+import sys
+
+_proto_out = sys.stdout
+
+
+def _send(obj):
+    _proto_out.write(json.dumps(obj, ensure_ascii=False) + "\n")
+    _proto_out.flush()
+
+
+class _Tools:
+    """引擎工具桥:代码内 tools.call(name, args) → 引擎结算 → 返回结果。"""
+
+    def call(self, name, args=None):
+        _send({"type": "toolCall", "name": name, "args": args if args is not None else {}})
+        line = sys.__stdin__.readline()
+        if not line:
+            raise RuntimeError("code session 管道已关闭")
+        resp = json.loads(line)
+        if resp.get("ok"):
+            return resp.get("result")
+        raise RuntimeError("工具 {} 调用失败: {}".format(name, resp.get("error")))
+
+
+def _fresh_globals():
+    return {"__name__": "__code_cell__", "__builtins__": __builtins__, "tools": _Tools()}
+
+
+GLOBALS = _fresh_globals()
+
+while True:
+    line = sys.stdin.readline()
+    if not line:
+        break
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        req = json.loads(line)
+    except ValueError:
+        _send({"type": "done", "ok": False, "error": "协议帧非法"})
+        continue
+    op = req.get("op")
+    if op == "reset":
+        GLOBALS = _fresh_globals()
+    elif op != "run":
+        _send({"type": "done", "ok": False, "error": "未知 op: {}".format(op)})
+        continue
+    out_cap, err_cap = io.StringIO(), io.StringIO()
+    sys.stdout, sys.stderr = out_cap, err_cap
+    try:
+        exec(compile(req.get("code") or "", "<code-cell>", "exec"), GLOBALS)
+        ok, err = True, None
+    except SystemExit as e:
+        ok, err = True, None
+        out_cap.write("[SystemExit: {}]".format(e))
+    except BaseException as e:  # noqa: BLE001
+        import traceback
+
+        ok = False
+        err = "".join(traceback.format_exception_only(type(e), e)).strip()
+    sys.stdout, sys.stderr = sys.__stdout__, sys.__stderr__
+    text = out_cap.getvalue()
+    err_text = err_cap.getvalue()
+    if err_text:
+        text = text + "\n[stderr]\n" + err_text
+    if len(text) > 20000:
+        text = text[:4000] + "\n...[输出截断]...\n" + text[-12000:]
+    _send({"type": "done", "ok": ok, "error": err, "output": text, "reset": op == "reset"})
+'''
 
 
 @dataclass
@@ -430,6 +520,7 @@ BUILTIN_ENGINE_TOOLS: tuple[str, ...] = (
     "unified_exec",
     "request_user_input",
     "apply_patch",
+    "run_code",
 )
 # 子代理嵌套深度上限(spawn_subagent 防递归失控)
 _MAX_SUBAGENT_DEPTH = 2
@@ -823,6 +914,8 @@ class AgentEngine:
         self._elicitation_requests: dict[str, asyncio.Future[Any]] = {}
         # unified_exec 持久 shell 会话(2026-09-18 第四批,对标 Codex unified_exec)
         self._exec_sessions: dict[str, dict[str, Any]] = {}
+        # run_code 常驻代码会话(2026-09-18 第六批,对标 Codex code-mode cell)
+        self._code_sessions: dict[str, dict[str, Any]] = {}
         self._handlers: dict[str, Callable[[dict[str, Any], Emitter], Any]] = {
             "engine.initialize": self._handle_initialize,
             "engine.ping": self._handle_ping,
@@ -1167,6 +1260,7 @@ class AgentEngine:
                 "agentRoles": True,
                 "turnTiming": True,
                 "applyPatch": True,
+                "codeMode": True,
                 "mcp": self._tool_lister is not None,
                 "costLedger": self._cost_report is not None,
                 "modelRouting": self._model_lister is not None,
@@ -2034,6 +2128,7 @@ class AgentEngine:
             "unified_exec": self._unified_exec_tool,
             "request_user_input": self._request_user_input_tool,
             "apply_patch": self._apply_patch_tool,
+            "run_code": self._run_code_tool,
         }
         definitions: list[Any] = []
         for name in BUILTIN_ENGINE_TOOLS:
@@ -2342,6 +2437,224 @@ class AgentEngine:
                 "将标准 unified diff(git diff 格式)原子应用到工作区:支持新增/更新/"
                 "删除文件与多 hunk;任一上下文失配整包拒绝并给出失败定位,"
                 "绝不产生半应用状态。适合精确的结构化代码修改。"
+            ),
+            parameters=parameters,
+            executor=_exec,
+        )
+
+    def _prune_code_sessions(self) -> None:
+        now = time.time()
+        for sid in list(self._code_sessions):
+            session = self._code_sessions[sid]
+            if (
+                session["proc"].returncode is not None
+                and now - session["last_active"] > _CODE_SESSION_TTL
+            ):
+                self._code_sessions.pop(sid, None)
+
+    async def _invoke_tool_by_name(
+        self, thread: EngineThread, name: str, args: dict[str, Any]
+    ) -> Any:
+        """run_code 桥接的工具解析:宿主工具(含覆盖)+ 引擎内置,统一执行。"""
+        for definition in self._build_host_tool_definitions(thread):
+            if getattr(definition, "name", "") == name:
+                return await definition.executor(args)
+        for definition in self._builtin_tool_definitions(thread):
+            if getattr(definition, "name", "") == name:
+                return await definition.executor(args)
+        raise LookupError(f"工具未注册或已禁用: {name}")
+
+    def _run_code_tool(self, thread: EngineThread) -> Any:
+        """run_code:code-mode 常驻代码会话(2026-09-18 第六批,对标 Codex
+        code-mode/V8 cell):模型写 Python 代码,tools.call(name,args) 桥接
+        引擎工具,全局状态跨调用持久;进程隔离 + 超时击杀 + 输出有界。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        parameters = {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "要执行的 Python 代码(一个 cell);"
+                    "调用引擎工具用 tools.call(工具名, 参数dict)",
+                },
+                "sessionId": {
+                    "type": "string",
+                    "description": "可选,续用已有代码会话(全局状态跨调用持久)",
+                },
+                "reset": {
+                    "type": "boolean",
+                    "description": "可选,重置指定会话的全局状态",
+                },
+                "timeoutMs": {
+                    "type": "integer",
+                    "description": "可选,单次执行超时(默认 60000ms,上限 300000)",
+                },
+            },
+            "required": ["code"],
+        }
+
+        def _prune() -> None:
+            now = time.time()
+            for sid in list(self._code_sessions):
+                session = self._code_sessions[sid]
+                if (
+                    session["proc"].returncode is not None
+                    and now - session["last_active"] > _CODE_SESSION_TTL
+                ):
+                    self._code_sessions.pop(sid, None)
+
+        async def _kill(session: dict[str, Any]) -> None:
+            with contextlib.suppress(Exception):
+                session["proc"].kill()
+            self._code_sessions.pop(session["id"], None)
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            code = args.get("code")
+            if not isinstance(code, str) or not code.strip():
+                return {"error": "run_code 需要非空 code"}
+            reset = bool(args.get("reset"))
+            session_id = args.get("sessionId")
+            _prune()
+            try:
+                timeout_s = max(
+                    1.0,
+                    min(
+                        int(args.get("timeoutMs") or _CODE_DEFAULT_TIMEOUT_MS),
+                        _CODE_MAX_TIMEOUT_MS,
+                    )
+                    / 1000.0,
+                )
+            except (TypeError, ValueError):
+                timeout_s = _CODE_DEFAULT_TIMEOUT_MS / 1000.0
+            session: dict[str, Any] | None = None
+            if isinstance(session_id, str) and session_id:
+                session = self._code_sessions.get(session_id)
+                if session is None:
+                    return {"error": f"代码会话不存在或已回收: {session_id}"}
+            elif reset:
+                return {"error": "reset 需要同时提供 sessionId"}
+            if session is None:
+                if len(self._code_sessions) >= _MAX_CODE_SESSIONS:
+                    return {
+                        "error": f"代码会话数已达上限({_MAX_CODE_SESSIONS}),"
+                        "请复用 sessionId 或等待空闲回收"
+                    }
+                new_id = f"cdx_{uuid.uuid4().hex[:12]}"
+                try:
+                    proc = await asyncio.create_subprocess_exec(
+                        sys.executable,
+                        "-I",
+                        "-c",
+                        _CODE_BOOTSTRAP,
+                        stdin=asyncio.subprocess.PIPE,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.DEVNULL,
+                        cwd=thread.workspace or os.getcwd(),
+                    )
+                except OSError as e:
+                    return {"error": f"代码会话进程创建失败: {e}"}
+                session = {
+                    "id": new_id,
+                    "proc": proc,
+                    "created_at": time.time(),
+                    "last_active": time.time(),
+                    "lock": asyncio.Lock(),
+                }
+                self._code_sessions[new_id] = session
+            assert session is not None
+            async with session["lock"]:
+                proc = session["proc"]
+                session["last_active"] = time.time()
+                if proc.stdin is None or proc.stdout is None:
+                    await _kill(session)
+                    return {"error": "代码会话管道不可用,请重建会话"}
+                deadline = asyncio.get_running_loop().time() + timeout_s
+                try:
+                    proc.stdin.write(
+                        (json.dumps({"op": "reset" if reset else "run", "code": code}, ensure_ascii=False) + "\n").encode("utf-8")
+                    )
+                    await proc.stdin.drain()
+                except (OSError, RuntimeError) as e:
+                    await _kill(session)
+                    return {"error": f"代码会话写入失败(进程可能已退出): {e}"}
+                nested = 0
+                while True:
+                    remaining = deadline - asyncio.get_running_loop().time()
+                    if remaining <= 0:
+                        await _kill(session)
+                        return {
+                            "error": f"代码执行超时({timeout_s:.0f}s),会话已终止;"
+                            "长任务请拆分多次调用"
+                        }
+                    try:
+                        raw = await asyncio.wait_for(
+                            proc.stdout.readline(), timeout=remaining
+                        )
+                    except TimeoutError:
+                        await _kill(session)
+                        return {
+                            "error": f"代码执行超时({timeout_s:.0f}s),会话已终止;"
+                            "长任务请拆分多次调用"
+                        }
+                    if not raw:
+                        await _kill(session)
+                        return {"error": "代码会话进程已退出(可能是代码杀死了进程)"}
+                    try:
+                        frame = json.loads(raw.decode("utf-8", errors="replace"))
+                    except ValueError:
+                        continue  # 非协议行(理论不出现),跳过
+                    if frame.get("type") == "toolCall":
+                        nested += 1
+                        if nested > _CODE_MAX_NESTED_TOOL_CALLS:
+                            await _kill(session)
+                            return {
+                                "error": f"嵌套工具调用超过上限({_CODE_MAX_NESTED_TOOL_CALLS}),"
+                                "会话已终止"
+                            }
+                        name = str(frame.get("name") or "")
+                        call_args = (
+                            frame.get("args") if isinstance(frame.get("args"), dict) else {}
+                        )
+                        try:
+                            tool_result = await self._invoke_tool_by_name(
+                                thread, name, call_args
+                            )
+                            reply = {"ok": True, "result": tool_result}
+                        except LookupError as e:
+                            reply = {"ok": False, "error": str(e)}
+                        except Exception as e:  # noqa: BLE001 - 工具失败回传代码层自行处理
+                            reply = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+                        try:
+                            proc.stdin.write(
+                                (json.dumps(reply, ensure_ascii=False, default=str) + "\n").encode("utf-8")
+                            )
+                            await proc.stdin.drain()
+                        except (OSError, RuntimeError) as e:
+                            await _kill(session)
+                            return {"error": f"代码会话结算失败: {e}"}
+                        continue
+                    if frame.get("type") == "done":
+                        session["last_active"] = time.time()
+                        out: dict[str, Any] = {
+                            "sessionId": session["id"],
+                            "ok": bool(frame.get("ok")),
+                            "output": str(frame.get("output") or "(无输出)"),
+                        }
+                        if frame.get("error"):
+                            out["error"] = str(frame["error"])
+                        if frame.get("reset"):
+                            out["reset"] = True
+                        return out
+
+        return ToolDefinition(
+            name="run_code",
+            description=(
+                "在常驻 Python 代码会话中执行一段代码(cell),适合多步数据变换、"
+                "批量工具编排、需要中间状态的计算——比多次工具调用省往返。"
+                "代码内用 tools.call('工具名', {参数}) 调用本线程全部可用工具"
+                "(宿主工具与内置工具);print 输出会被捕获返回;全局变量跨调用持久"
+                "(reset=true 清空)。注意:不要使用 input()/直接读 stdin。"
             ),
             parameters=parameters,
             executor=_exec,
