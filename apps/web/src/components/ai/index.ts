@@ -31,9 +31,9 @@ export {
   TOOL_APPROVAL_EVENT,
 } from './tool-approval-dialog'
 
-// 语音组件
-export { VoiceInput } from './voice-input'
-export { VoiceRecord } from './voice-record'
+// 生成组件群：见 ../ai-generation
+// MCP 组件群：见 ../mcp
+// 语音组件群：见 ../chat/voice-toolbar / voice-input / voice-record
 
 // 共享类型
 export type {
