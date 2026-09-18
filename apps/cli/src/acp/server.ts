@@ -45,6 +45,60 @@ import {
   getManagedClient,
 } from '../tools/mcp-runtime.js';
 
+/** 审批选项入参(kind 收敛为 ACP PermissionOptionKind 子集) */
+export interface PermissionOptionInput {
+  optionId: string;
+  name: string;
+  kind: 'allow_once' | 'allow_always' | 'reject_once' | 'reject_always';
+}
+
+/**
+ * D5(2026-09-18)工具级审批统一通道:经 ACP `session/request_permission` 向编辑器
+ * 请求审批,plan 审批与危险工具审批共用同一实现(此前 confirmDangerous 静默返回 false,
+ * IDE 内危险操作无任何弹窗)。
+ *
+ * 返回选中的 optionId;编辑器不支持/超时/取消返回 null(调用方决定降级语义——
+ * 安全默认一律视为拒绝)。
+ */
+export async function requestPermissionFromEditor(
+  cx: acp.AgentContext,
+  sessionId: string,
+  input: {
+    toolCallId: string;
+    kind: acp.ToolKind;
+    title: string;
+    contentText?: string;
+    options: PermissionOptionInput[];
+  },
+): Promise<string | null> {
+  try {
+    const response: acp.RequestPermissionResponse | null = await cx.request(
+      acp.methods.client.session.requestPermission,
+      {
+        sessionId,
+        toolCall: {
+          toolCallId: input.toolCallId,
+          kind: input.kind,
+          status: 'pending' as const,
+          title: input.title,
+          ...(input.contentText
+            ? {
+                content: [
+                  { type: 'content' as const, content: { type: 'text' as const, text: input.contentText } },
+                ],
+              }
+            : {}),
+        },
+        options: input.options,
+      },
+    );
+    const outcome = response?.outcome;
+    return outcome?.outcome === 'selected' ? outcome.optionId : null;
+  } catch {
+    return null;
+  }
+}
+
 export interface AcpServerOptions {
   apiUrl: string;
   apiKey?: string;
@@ -252,9 +306,21 @@ export class IhuiAcpAgent {
           apiKey: this.opts.apiKey,
           allowDangerous: this.opts.allowDangerous,
         },
-        confirmDangerous: async () => {
+        // D5:危险工具审批接入 request_permission(此前静默 false,IDE 内无弹窗);
+        // 编辑器不支持/取消 → null → 拒绝(安全默认与旧行为一致)
+        confirmDangerous: async (tool, args) => {
           if (this.opts.allowDangerous) return true;
-          return false;
+          const selected = await requestPermissionFromEditor(cx, params.sessionId, {
+            toolCallId: `dangerous-${tool.name}-${Date.now()}`,
+            kind: 'execute',
+            title: `危险操作审批:${tool.name}`,
+            contentText: JSON.stringify(args).slice(0, 2000),
+            options: [
+              { optionId: 'allow', name: '允许本次执行', kind: 'allow_once' },
+              { optionId: 'deny', name: '拒绝', kind: 'reject_once' },
+            ],
+          });
+          return selected === 'allow';
         },
       });
       state.systemPrompt = result.systemPrompt;
@@ -304,38 +370,31 @@ export class IhuiAcpAgent {
               content: { type: 'text', text: `\n📋 Plan 提案(等待审批):\n${plan.trim()}\n` },
             },
           });
-          let response: acp.RequestPermissionResponse | null = null;
-          try {
-            response = await cx.request(acp.methods.client.session.requestPermission, {
-              sessionId: params.sessionId,
-              toolCall: {
-                toolCallId: `plan-approval-${Date.now()}`,
-                kind: 'other',
-                status: 'pending',
-                title: 'Plan 审批(Plan Mode)',
-                content: [{ type: 'content', content: { type: 'text', text: plan.trim() } }],
-              },
-              options: [
-                { optionId: 'approve', name: '批准 Plan 并执行', kind: 'allow_once' as const },
-                { optionId: 'reject', name: '拒绝并重新规划', kind: 'reject_once' as const },
-              ],
-            });
-          } catch (err) {
-            // 编辑器不支持 request_permission 或请求超时:安全降级为拒绝(不崩溃)
+          // D5:审批统一走 requestPermissionFromEditor(plan 与危险工具同一通道)
+          const selected = await requestPermissionFromEditor(cx, params.sessionId, {
+            toolCallId: `plan-approval-${Date.now()}`,
+            kind: 'other',
+            title: 'Plan 审批(Plan Mode)',
+            contentText: plan.trim(),
+            options: [
+              { optionId: 'approve', name: '批准 Plan 并执行', kind: 'allow_once' },
+              { optionId: 'reject', name: '拒绝并重新规划', kind: 'reject_once' },
+            ],
+          });
+          const approved = selected === 'approve';
+          if (selected === null) {
+            // 编辑器不支持 request_permission 或请求超时/取消:安全降级为拒绝(不崩溃)
             await cx.notify(acp.methods.client.session.update, {
               sessionId: params.sessionId,
               update: {
                 sessionUpdate: 'agent_message_chunk',
                 content: {
                   type: 'text',
-                  text: `\n⚠ Plan 审批请求失败(${err instanceof Error ? err.message : String(err)}),默认拒绝。请升级编辑器 ACP 支持或改用 --auto-approve-plan。\n`,
+                  text: `\n⚠ Plan 审批请求失败或被取消,默认拒绝。请升级编辑器 ACP 支持或改用 --auto-approve-plan。\n`,
                 },
               },
             });
           }
-          const outcome = response?.outcome;
-          const approved =
-            outcome?.outcome === 'selected' && outcome.optionId === 'approve';
           // 同步会话状态(与 REPL /plan approve|reject 语义一致)
           state.planApproved = approved;
           if (approved) {
