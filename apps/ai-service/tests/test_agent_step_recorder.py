@@ -222,13 +222,21 @@ async def test_loop_with_recorder_records_tool_steps(tmp_path):
     # recorder 未绑定 run_id → loop 以 session_id 作为运行标识
     got = loop._session_id
     run_steps = AgentStepRecorder(file_path=tmp_path / "c.json").replay(got)["steps"]
-    assert len(run_steps) == 1
-    s = run_steps[0]
-    assert s["type"] == "tool"
+    # P0-①:两轮 LLM 调用各录一步 type=llm,加 1 步工具
+    assert [s["type"] for s in run_steps] == ["llm", "tool", "llm"]
+    tool_steps = [s for s in run_steps if s["type"] == "tool"]
+    assert len(tool_steps) == 1
+    s = tool_steps[0]
     assert s["tool_name"] == "get_weather"
     assert "北京" in s["input_summary"]
     assert s["status"] == "ok"
     assert s["duration_ms"] >= 0
+    # LLM 步骤:轮次摘要 + 耗时 + 归一化 tokens(mock 无 usage → 0)
+    llm_steps = [s for s in run_steps if s["type"] == "llm"]
+    assert llm_steps[0]["input_summary"].startswith('"iteration 1')
+    assert llm_steps[0]["cached_tokens"] == 0
+    assert llm_steps[0]["cache_creation_tokens"] == 0
+    assert llm_steps[0]["duration_ms"] >= 0
 
 
 async def test_loop_recorder_run_id_fallback(tmp_path):
@@ -243,8 +251,10 @@ async def test_loop_recorder_run_id_fallback(tmp_path):
     )
     await loop.run([{"role": "user", "content": "北京天气"}])
     steps = rec.replay("cloud-run-42")["steps"]
-    assert len(steps) == 1
-    assert steps[0]["tool_name"] == "get_weather"
+    # P0-①:含 llm 步骤;工具步骤筛选后仍为 1
+    assert [s["type"] for s in steps].count("tool") == 1
+    tool_steps = [s for s in steps if s["type"] == "tool"]
+    assert tool_steps[0]["tool_name"] == "get_weather"
 
 
 async def test_loop_records_error_steps(tmp_path):
@@ -274,9 +284,11 @@ async def test_loop_records_error_steps(tmp_path):
     # 错误后循环继续到第 2 轮返回最终回复
     assert result.success is True
     run_steps = rec.replay(loop._session_id)["steps"]
-    assert len(run_steps) == 1
-    assert run_steps[0]["status"] == "error"
-    assert "boom" in run_steps[0]["result_summary"]
+    # P0-①:llm 步骤穿插录制;error 步骤筛选后仍为 1
+    tool_steps = [s for s in run_steps if s["type"] == "tool"]
+    assert len(tool_steps) == 1
+    assert tool_steps[0]["status"] == "error"
+    assert "boom" in tool_steps[0]["result_summary"]
 
 
 async def test_loop_without_recorder_zero_diff(tmp_path):
@@ -298,9 +310,10 @@ async def test_loop_without_recorder_zero_diff(tmp_path):
     assert len(base_result.iterations) == len(rec_result.iterations) == 2
 
     # 未注入 recorder 的实例不产生任何 step;注入的产生了
+    # (P0-①:2 llm + 1 tool = 3 步)
     fresh = AgentStepRecorder(file_path=tmp_path / "c.json")
     assert fresh.replay(base_loop._session_id)["total"] == 0
-    assert fresh.replay(rec_loop._session_id)["total"] == 1
+    assert fresh.replay(rec_loop._session_id)["total"] == 3
 
 
 async def test_loop_parallel_record_steps(tmp_path):
@@ -337,4 +350,67 @@ async def test_loop_parallel_record_steps(tmp_path):
     result = await loop.run([{"role": "user", "content": "y"}])
     assert result.success is True
     run_steps = rec.replay(loop._session_id)["steps"]
-    assert {s["tool_name"] for s in run_steps} == {"a", "b"}
+    # P0-①:并行工具步骤筛选后仍为 a/b 两个(llm 步骤 tool_name="llm" 不混入)
+    tool_steps = [s for s in run_steps if s["type"] == "tool"]
+    assert {s["tool_name"] for s in tool_steps} == {"a", "b"}
+
+
+async def test_loop_records_llm_steps_with_usage(tmp_path):
+    """P0-①:主循环 LLM 步骤录制归一化 usage(Anthropic 别名 + 缓存字段)。
+
+    mock LLM 返回 Anthropic 原生 usage 形态(input_tokens/output_tokens/
+    cache_read_input_tokens/cache_creation_input_tokens),验证 llm 步骤
+    透传为 tokens_in/out + cached_tokens/cache_creation_tokens。
+    """
+    call_count = 0
+
+    async def mock_llm(messages, tools):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "content": "查天气",
+                "tool_calls": [
+                    {"id": "c1", "name": "get_weather", "args": {"city": "北京"}}
+                ],
+                "model": "claude-sonnet-4-5",
+                "usage": {
+                    "input_tokens": 1000,
+                    "output_tokens": 200,
+                    "cache_read_input_tokens": 800,
+                    "cache_creation_input_tokens": 150,
+                },
+            }
+        return {
+            "content": "北京晴 25 度",
+            "tool_calls": None,
+            "model": "claude-sonnet-4-5",
+            "usage": {
+                "input_tokens": 900,
+                "output_tokens": 80,
+                "cache_read_input_tokens": 850,
+            },
+        }
+
+    rec = AgentStepRecorder(file_path=tmp_path / "c.json")
+    loop = AgentLoopV2(mock_llm, [_weather_tool()], max_iterations=5, recorder=rec)
+    result = await loop.run([{"role": "user", "content": "北京天气"}])
+    assert result.success is True
+
+    steps = rec.replay(loop._session_id)["steps"]
+    llm_steps = [s for s in steps if s["type"] == "llm"]
+    assert len(llm_steps) == 2
+    first = llm_steps[0]
+    assert first["model"] == "claude-sonnet-4-5"
+    assert first["tokens_in"] == 1000
+    assert first["tokens_out"] == 200
+    assert first["tokens"] == 1200
+    assert first["cached_tokens"] == 800
+    assert first["cache_creation_tokens"] == 150
+    # 第二次调用无 cache_creation → 归一化为 0
+    assert llm_steps[1]["cached_tokens"] == 850
+    assert llm_steps[1]["cache_creation_tokens"] == 0
+    # get_run_metrics 聚合含 llm 步骤 token
+    metrics = rec.get_run_metrics(loop._session_id)
+    assert metrics["total_tokens_in"] == 1000 + 900
+    assert metrics["total_tokens_out"] == 200 + 80
