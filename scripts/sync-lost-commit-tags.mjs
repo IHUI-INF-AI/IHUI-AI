@@ -32,12 +32,16 @@
  *   --auto-push   把本地 lost-commit/backup tag 推到 origin(用 --atomic 防止半失败)
  *   --dry-run     配合 --auto-push 用,只打印将要 push 的 tag 不实际 push
  *   --force       强制 push(覆盖远端),默认不允许
+ *   --newest N    配合 --auto-push 用,按提交时间倒序只推最近 N 个远端缺失 tag
+ *                 (2026-09-18 新增:大积压场景下唯一可行的离线备份方式,绕过积压闸门)
  *   --json        配合 --check 用,输出 JSON 格式结果(给 CI/上层调用方)
  *   --help        打印帮助并 exit 0
  *
  * 退出码:
- *   0 — 成功(所有 tag 本地+远端一致 + tag 对象可达)
- *   1 — 失败(任何不一致或不可达)
+ *   0 — 无 commit 丢失风险(「仅远端缺失」「tag 对象不可达」两项均通过;
+ *       「仅本地未 push」为**告警**不计失败 —— 依据同 blocking 守门 30a 的判定,
+ *       详见 checkMode 内 backlogCount 处注释)
+ *   1 — 失败(存在仅远端缺失 或 tag 对象不可达)
  *   2 — 异常(脚本执行错误,例如 git 命令找不到)
  *
  * 豁免:
@@ -57,7 +61,7 @@
  *   - 手动验证: git gc 后跑 --fetch 拉回 + --check 确认一致
  *   - 定时任务: 每周一检查 tag 完整性(见 docs/lost-commit-archive.md 防护机制)
  */
-import { execSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 
 const C = {
   red: '\x1b[31m',
@@ -79,6 +83,11 @@ const isAutoPush = args.has('--auto-push')
 const isDryRun = args.has('--dry-run')
 const isForce = args.has('--force')
 const isJson = args.has('--json')
+// --newest N(2026-09-18 新增):有界补推 —— 按提交时间倒序只推最近 N 个远端缺失 tag。
+// 用途:历史积压全量推送实测不可行(≥10s/个),但"最近丢失的 commit"必须有远端备份,
+// 否则备份机制在大积压下等于失效。带该参数时绕过积压闸门。
+const newestIdx = process.argv.indexOf('--newest')
+const newestLimit = newestIdx >= 0 ? Number(process.argv[newestIdx + 1]) || 0 : 0
 // 2026-09-17 根治:--auto-push 只推"远端缺失"的 tag(增量),不再每次全量推 5000 个。
 //   旧行为: 每次 commit 后同步 `git push --atomic`(全部 tag) → 10+ 分钟阻塞 post-commit,
 //   表现 = "推送早已完成但终端一直挂着等"。新行为: ls-remote 比对 → 只推缺失项(通常 0~3 个),
@@ -95,6 +104,26 @@ const THROTTLE_MS = Number(process.env.IHUI_TAG_SYNC_THROTTLE_MS || 60_000)
 function run(cmd, opts = {}) {
   try {
     return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], ...opts }).trim()
+  } catch (e) {
+    if (opts.allowFail) return ''
+    throw e
+  }
+}
+
+/**
+ * 无 shell 的 git 调用(2026-09-18)。
+ * `run()` 经 execSync → Windows 上是 cmd.exe,`for-each-ref --format=%(refname:short)`
+ * 这类参数含 `%(`,会被 cmd 当作 `%VAR%` 变量展开处理,且单引号不被剥离
+ * → 格式串被破坏。execFileSync 直接传 argv,不经 shell,彻底规避。
+ * 同时支持 `input`(cat-file --batch-check 大批量判存在性需要)。
+ */
+function runGit(args, opts = {}) {
+  try {
+    return execFileSync('git', args, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      ...opts,
+    }).trim()
   } catch (e) {
     if (opts.allowFail) return ''
     throw e
@@ -119,6 +148,8 @@ function printHelp() {
   console.log('标志:')
   console.log('  --dry-run     配合 --auto-push 用,只打印不实际 push')
   console.log('  --force       强制 push(覆盖远端),默认不允许')
+  console.log('  --newest N    配合 --auto-push 用,按提交时间倒序只推最近 N 个缺失 tag')
+  console.log('                (大积压场景的可行补推方式,绕过积压闸门)')
   console.log('  --json        配合 --check 用,输出 JSON 格式')
   console.log('  --help        打印本帮助')
   console.log('')
@@ -173,21 +204,78 @@ function diffTagSets(local, remote) {
   return { onlyLocal, onlyRemote, both }
 }
 
-function getTagCommitHash(tag) {
-  // 优先 peel ^{} 处理 annotated tag;lightweight tag 直接返回
-  const peeled = run(`git rev-parse --verify ${tag}^{} 2>/dev/null`, { allowFail: true })
-  if (peeled) return peeled
-  return run(`git rev-parse --verify ${tag}`, { allowFail: true })
+/**
+ * 批量可达性检查(2026-09-18 重写)。旧实现有两个缺陷:
+ *   1) 语义: `git cat-file -e <hash>` 成功时**无输出**、失败时 execSync 抛错并被
+ *      allowFail 吞成空串 → 两种结果都得到 `''`,判定恒为 ok:true,
+ *      **对象缺失永远检不出来**(假绿)。
+ *   2) 性能: 每个 tag 各起 2 个 git 进程,本地 5000+ tag ≈ 1 万次进程启动。
+ * 改为:1 次 for-each-ref 取 hash + 1 次 cat-file --batch-check 批量判存在性。
+ */
+function checkReachabilityBulk(tags) {
+  if (tags.length === 0) return []
+  const refOut = runGit(
+    [
+      'for-each-ref',
+      '--format=%(refname:short)|%(objectname)|%(*objectname)',
+      'refs/tags/lost-commit',
+      'refs/tags/backup',
+    ],
+    { allowFail: true },
+  )
+  const hashByTag = new Map()
+  for (const line of refOut.split('\n')) {
+    if (!line) continue
+    const [name, obj, peeled] = line.split('|')
+    if (name) hashByTag.set(name, peeled || obj || '')
+  }
+  const hashes = [...new Set([...hashByTag.values()].filter(Boolean))]
+  const checkOut =
+    hashes.length === 0
+      ? ''
+      : runGit(['cat-file', '--batch-check'], {
+          allowFail: true,
+          input: hashes.map((h) => `${h}\n`).join(''),
+          maxBuffer: 64 * 1024 * 1024,
+        })
+  const missing = new Set()
+  for (const line of checkOut.split('\n')) {
+    if (!line) continue
+    const [hash, type] = line.split(' ')
+    if (type === 'missing' || !type) missing.add(hash)
+  }
+  return tags.map((tag) => {
+    const hash = hashByTag.get(tag) ?? ''
+    if (!hash) return { tag, ok: false, hash: '', reason: 'tag 解析失败' }
+    if (missing.has(hash)) return { tag, ok: false, hash, reason: 'cat-file 失败' }
+    return { tag, ok: true, hash, reason: '' }
+  })
 }
 
-function isTagReachable(tag) {
-  const hash = getTagCommitHash(tag)
-  if (!hash) return { ok: false, hash: '', reason: 'tag 解析失败' }
-  const exists = run(`git cat-file -e ${hash} 2>&1`, { allowFail: true })
-  if (exists) {
-    return { ok: false, hash, reason: 'cat-file 失败' }
-  }
-  return { ok: true, hash, reason: '' }
+/**
+ * 按提交时间倒序排列 tag(2026-09-18)。
+ * auto-push 在大积压下改为"始终推最近的一批",必须按新近度排序 —— 否则推的是
+ * 字典序靠前的历史 tag,新丢的 commit 反而永远排不上队。
+ */
+function sortTagsByRecency(tags) {
+  if (tags.length === 0) return []
+  const ordered = runGit(
+    [
+      'for-each-ref',
+      '--sort=-creatordate',
+      '--format=%(refname:short)',
+      'refs/tags/lost-commit',
+      'refs/tags/backup',
+    ],
+    { allowFail: true },
+  )
+    .split('\n')
+    .filter(Boolean)
+  const rank = new Map(ordered.map((n, i) => [n, i]))
+  const unranked = Number.MAX_SAFE_INTEGER
+  return [...tags].sort(
+    (a, b) => (rank.get(a) ?? unranked) - (rank.get(b) ?? unranked),
+  )
 }
 
 function checkMode() {
@@ -207,9 +295,19 @@ function checkMode() {
   const lostDiff = diffTagSets(localLost, remoteLost)
   const backupDiff = diffTagSets(localBackup, remoteBackup)
 
-  // 可达性检查
+  // 可达性检查(批量,见 checkReachabilityBulk)
   const allLocalTags = [...localLost, ...localBackup]
-  const reachability = allLocalTags.map((tag) => ({ tag, ...isTagReachable(tag) }))
+  const reachability = checkReachabilityBulk(allLocalTags)
+  const unreachableTags = reachability.filter((r) => !r.ok)
+
+  // 2026-09-18:「仅本地(未 push)」降级为**告警**,不再判失败。两条依据:
+  //   ① blocking 守门 30a(check-commit-loss-guard.mjs --blocking)对同一不变量也只 warn
+  //      (源码注释「仅本地不阻塞,只 warn」)—— 两个脚本判同一件事必须一致,否则
+  //      手动 tag:sync 恒红而提交门恒绿,信号互相矛盾;
+  //   ② 历史积压全量推送实测不可行(≥10s/个 × 近 5000 个 ≈ 14 小时),把不可完成的
+  //      动作当失败项 → 本检查永久变红,反而失去告警价值。
+  // 仍判失败的只有「仅远端(本地缺失)」与「tag 对象不可达」—— 那才是真可能丢 commit。
+  const backlogCount = lostDiff.onlyLocal.length + backupDiff.onlyLocal.length
 
   if (isJson) {
     const result = {
@@ -224,42 +322,47 @@ function checkMode() {
       summary: {
         total: allLocalTags.length,
         reachable: reachability.filter((r) => r.ok).length,
-        unreachable: reachability.filter((r) => !r.ok).length,
+        unreachable: unreachableTags.length,
+        unpushedBacklog: backlogCount,
       },
     }
     const hasIssue =
-      lostDiff.onlyLocal.length > 0 ||
       lostDiff.onlyRemote.length > 0 ||
-      backupDiff.onlyLocal.length > 0 ||
       backupDiff.onlyRemote.length > 0 ||
-      reachability.some((r) => !r.ok)
+      unreachableTags.length > 0
     result.status = hasIssue ? 'fail' : 'ok'
     console.log(JSON.stringify(result, null, 2))
     process.exit(hasIssue ? 1 : 0)
   }
 
-  // ── 1. 本地 lost-commit tag ──
-  console.log(header('1. 本地 lost-commit/* tag'))
-  if (localLost.length === 0) {
-    console.log(`  ${C.dim}(无)${C.reset}`)
-  } else {
-    for (const tag of localLost) {
-      const r = isTagReachable(tag)
+  // 逐条明细上限:本地 5000+ tag 逐条打印会淹没终端(旧实现输出近 5000 行)
+  const DETAIL_LIMIT = 10
+  const reachByTag = new Map(reachability.map((r) => [r.tag, r]))
+  const printTagDetail = (tags) => {
+    for (const tag of tags.slice(0, DETAIL_LIMIT)) {
+      const r = reachByTag.get(tag) ?? { ok: true, hash: '', reason: '' }
       const icon = r.ok ? C.green + '✅' : C.red + '❌'
       console.log(`  ${icon} ${C.cyan}${tag}${C.reset} → ${C.dim}${r.hash.slice(0, 12) || '?'}${C.reset}${r.ok ? '' : `  (${r.reason})`}${C.reset}`)
+    }
+    if (tags.length > DETAIL_LIMIT) {
+      console.log(`  ${C.dim}…另有 ${tags.length - DETAIL_LIMIT} 个未逐一列出${C.reset}`)
     }
   }
 
+  // ── 1. 本地 lost-commit tag ──
+  console.log(header(`1. 本地 lost-commit/* tag(共 ${localLost.length} 个)`))
+  if (localLost.length === 0) {
+    console.log(`  ${C.dim}(无)${C.reset}`)
+  } else {
+    printTagDetail(localLost)
+  }
+
   // ── 2. 本地 backup tag ──
-  console.log(header('2. 本地 backup/* tag'))
+  console.log(header(`2. 本地 backup/* tag(共 ${localBackup.length} 个)`))
   if (localBackup.length === 0) {
     console.log(`  ${C.dim}(无)${C.reset}`)
   } else {
-    for (const tag of localBackup) {
-      const r = isTagReachable(tag)
-      const icon = r.ok ? C.green + '✅' : C.red + '❌'
-      console.log(`  ${icon} ${C.cyan}${tag}${C.reset} → ${C.dim}${r.hash.slice(0, 12) || '?'}${C.reset}${r.ok ? '' : `  (${r.reason})`}${C.reset}`)
-    }
+    printTagDetail(localBackup)
   }
 
   // ── 3. 远端 lost-commit tag ──
@@ -287,33 +390,48 @@ function checkMode() {
   // ── 5. 完整性判定 ──
   console.log(header('5. 完整性判定'))
   const issues = []
+  const warnings = []
   let ok = true
+  // 名称列表截断:本地 5000+ tag 时全量 join 会在一行打印近 5000 个名字(旧实现行为)
+  const brief = (arr) =>
+    arr.length <= 5 ? arr.join(', ') : `${arr.slice(0, 5).join(', ')} … 等 ${arr.length} 个`
 
-  if (lostDiff.onlyLocal.length > 0) {
-    issues.push(`${lostDiff.onlyLocal.length} 个 lost-commit tag 仅本地(未 push):${lostDiff.onlyLocal.join(', ')}`)
-    ok = false
-  }
   if (lostDiff.onlyRemote.length > 0) {
-    issues.push(`${lostDiff.onlyRemote.length} 个 lost-commit tag 仅远端(本地缺失):${lostDiff.onlyRemote.join(', ')} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`)
-    ok = false
-  }
-  if (backupDiff.onlyLocal.length > 0) {
-    issues.push(`${backupDiff.onlyLocal.length} 个 backup tag 仅本地(未 push):${backupDiff.onlyLocal.join(', ')}`)
+    issues.push(`${lostDiff.onlyRemote.length} 个 lost-commit tag 仅远端(本地缺失):${brief(lostDiff.onlyRemote)} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`)
     ok = false
   }
   if (backupDiff.onlyRemote.length > 0) {
-    issues.push(`${backupDiff.onlyRemote.length} 个 backup tag 仅远端(本地缺失):${backupDiff.onlyRemote.join(', ')} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`)
+    issues.push(`${backupDiff.onlyRemote.length} 个 backup tag 仅远端(本地缺失):${brief(backupDiff.onlyRemote)} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`)
     ok = false
   }
-  const unreachable = reachability.filter((r) => !r.ok)
-  if (unreachable.length > 0) {
-    issues.push(`${unreachable.length} 个 tag 对象不可达:${unreachable.map((r) => r.tag).join(', ')} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`)
+  if (unreachableTags.length > 0) {
+    issues.push(`${unreachableTags.length} 个 tag 对象不可达:${brief(unreachableTags.map((r) => r.tag))} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`)
     ok = false
+  }
+  // 「仅本地(未 push)」= 告警,不计失败 —— 依据见上方 backlogCount 处的注释
+  if (lostDiff.onlyLocal.length > 0) {
+    warnings.push(
+      `${lostDiff.onlyLocal.length} 个 lost-commit tag 仅本地(未 push):${brief(lostDiff.onlyLocal)}`,
+    )
+  }
+  if (backupDiff.onlyLocal.length > 0) {
+    warnings.push(
+      `${backupDiff.onlyLocal.length} 个 backup tag 仅本地(未 push):${brief(backupDiff.onlyLocal)}`,
+    )
   }
 
   if (ok) {
-    console.log(`  ${C.green}✅ 所有 lost-commit/backup tag 本地+远端一致,对象全部可达${C.reset}`)
-    console.log(`  ${C.dim}  本地: ${localLost.length + localBackup.length} 个 | 远端: ${remoteLost.length + remoteBackup.length} 个 | 可达: ${reachability.filter((r) => r.ok).length}/${reachability.length}${C.reset}`)
+    console.log(`  ${C.green}✅ 无 commit 丢失风险(仅远端缺失 / 对象不可达 两项均通过)${C.reset}`)
+    console.log(`  ${C.dim}  本地: ${localLost.length + localBackup.length} 个 | 远端: ${remoteLost.length + remoteBackup.length} 个 | 对象可达: ${reachability.filter((r) => r.ok).length}/${reachability.length}${C.reset}`)
+    if (warnings.length > 0) {
+      console.log(
+        `  ${C.yellow}⚠️  未 push 积压 ${backlogCount} 个(本地 tag 已足以防 git gc 修剪;远端备份仅防本机丢失)${C.reset}`,
+      )
+      for (const w of warnings) console.log(`  ${C.dim}   ${w}${C.reset}`)
+      console.log(
+        `  ${C.dim}   有界补推最近 N 个:node scripts/sync-lost-commit-tags.mjs --auto-push --newest 20${C.reset}`,
+      )
+    }
     process.exit(0)
   }
 
@@ -382,9 +500,9 @@ function autoPushMode() {
 
   // ── 增量:只推远端缺失的 tag(2026-09-17 根治全量推 10+ 分钟阻塞)──
   const remoteAll = new Set([...listRemoteLostTags(), ...listRemoteBackupTags()])
-  const missing = allLocal.filter((t) => !remoteAll.has(t))
+  const missingAll = allLocal.filter((t) => !remoteAll.has(t))
 
-  if (missing.length === 0) {
+  if (missingAll.length === 0) {
     run(`printf %s ${now} > ${marker}`, { allowFail: true })
     console.log(
       `${C.green}✅ 全部 ${allLocal.length} 个 tag 远端已存在,无需 push(增量同步,秒级完成)${C.reset}`,
@@ -392,22 +510,33 @@ function autoPushMode() {
     process.exit(0)
   }
 
+  // ── 有界补推(2026-09-18,--newest N)──
+  // 积压 4964 个属历史沉淀,永远不会自然降到阈值以下;原「超阈值整体跳过」使**新产生的
+  // tag 也永远拿不到远端备份** —— 备份机制在大积压下等于失效。--newest 提供唯一可行的
+  // 离线备份手段:按提交时间倒序取最近 N 个,单次耗时可控(≈10s/个),并绕过积压闸门。
+  const missing =
+    newestLimit > 0 ? sortTagsByRecency(missingAll).slice(0, newestLimit) : missingAll
+  const skippedBacklog = missingAll.length - missing.length
+
   console.log(
-    `${C.cyan}${C.bold}📤 增量推送 ${missing.length}/${allLocal.length} 个 tag 到 origin${isDryRun ? ' (dry-run)' : ''}${C.reset}`,
+    `${C.cyan}${C.bold}📤 增量推送 ${missing.length} 个 tag 到 origin${isDryRun ? ' (dry-run)' : ''}(远端缺失共 ${missingAll.length} 个)${C.reset}`,
   )
 
   // ── 积压闸门(2026-09-17):超阈值只记录不推 ──
   // 实测单 tag 推送需连带上传历史对象(20 个 ≈ 10 分钟),大积压推送在网络上不可行,
-  // 且会拖死 commit 路径。auto 模式直接跳过并留待办;人工补推用 --force 绕过此闸门。
-  if (!isForce && missing.length > AUTO_PUSH_MAX_BACKLOG) {
+  // 且会拖死 commit 路径。auto 模式直接跳过并留待办;人工补推用 --newest / --force 绕过。
+  if (!isForce && newestLimit === 0 && missing.length > AUTO_PUSH_MAX_BACKLOG) {
     console.log(
-      `${C.yellow}⚠️  待推积压 ${missing.length} 个 > 阈值 ${AUTO_PUSH_MAX_BACKLOG}(单 tag 推送需上传历史对象, 速度约 30s/个)${C.reset}`,
+      `${C.yellow}⚠️  待推积压 ${missing.length} 个 > 阈值 ${AUTO_PUSH_MAX_BACKLOG}(实测 ≥10s/个,全量约 ${Math.ceil((missing.length * 10) / 3600)} 小时)${C.reset}`,
     )
     console.log(
-      `${C.dim}   已跳过(不阻塞 commit)。需要远端备份时后台慢速补推:${C.reset}`,
+      `${C.dim}   已跳过(不阻塞 commit)。有界补推最近 20 个(推荐):${C.reset}`,
     )
     console.log(
-      `${C.dim}   IHUI_TAG_PUSH_CHUNK=20 node scripts/sync-lost-commit-tags.mjs --auto-push --force${C.reset}`,
+      `${C.dim}   node scripts/sync-lost-commit-tags.mjs --auto-push --newest 20${C.reset}`,
+    )
+    console.log(
+      `${C.dim}   全量补推(耗时极长):IHUI_TAG_PUSH_CHUNK=20 node scripts/sync-lost-commit-tags.mjs --auto-push --force${C.reset}`,
     )
     console.log(
       `${C.dim}   注: 本地 tag 已足以防 git gc 修剪(标签即引用, gc 不会删可达对象); 远端备份仅防本机丢失。${C.reset}`,
@@ -415,6 +544,11 @@ function autoPushMode() {
     // 写限流标记: 积压未变时后续 commit 直接跳过 ls-remote(再省 10s+)
     run(`printf %s ${Date.now()} > ${marker}`, { allowFail: true })
     process.exit(0)
+  }
+  if (skippedBacklog > 0) {
+    console.log(
+      `${C.dim}   (本次按新近度只取 ${missing.length} 个,历史积压 ${skippedBacklog} 个未推)${C.reset}`,
+    )
   }
   if (missing.length <= 20) {
     for (const tag of missing) console.log(`     ${C.cyan}${tag}${C.reset}`)
