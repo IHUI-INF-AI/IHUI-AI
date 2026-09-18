@@ -84,11 +84,22 @@ function readPushState() {
   }
 }
 const pushState = readPushState()
+// 在途判定 = running + 未过期 + 持有者存活(worker 被强杀时残留 running,死 pid 不算在途)
+function isPushStatePidAlive() {
+  if (!pushState?.pid) return false
+  try {
+    process.kill(Number(pushState.pid), 0)
+    return true
+  } catch (e) {
+    return e.code === 'EPERM'
+  }
+}
 const pushInProgress =
   pushState &&
   pushState.status === 'running' &&
   pushState.headSha === localHead &&
-  Date.now() - pushState.ts < 5 * 60 * 1000
+  Date.now() - pushState.ts < 5 * 60 * 1000 &&
+  isPushStatePidAlive()
 
 let hasFailure = false
 const results = []
