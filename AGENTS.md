@@ -455,7 +455,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
   - **已自动生效**:safe-commit.mjs 整个 commit 流程自带锁(`Step 0/5 获取 git 写锁`);post-commit 钩子自动处理直接 `git commit` 场景。**agent 无需额外操作**。
   - **手动 git 命令**必须遵守:执行 `git pull` / `git rebase` / `git fetch` / `git checkout` / `git stash` 等写操作前,先 `node scripts/git-lock.mjs check`(exit 0 = 无锁可执行;exit 1 = 有其他写操作进行中,等待后重试)。
   - **禁止手动 `git gc` / `git repack` / `git prune`**:需要时用 `node scripts/safe-gc.mjs`(自动检查无锁后执行)。autoGc 已禁用(`gc.auto=0` + `maintenance.auto=false`),无需也不应手动触发 gc。
-  - **锁异常处理**:锁等待超时会报错并提示;超过 300s 的悬挂锁会自动抢占;紧急可删 `.git/ihui-git-write.lock`(先确认无 git 写进程)。绕过:`IHUI_GIT_NO_LOCK=1`(仅应急,禁用后自行承担并发风险)。
+  - **锁异常处理(2026-09-18 心跳机制升级)**:持锁方 safe-commit/safe-gc 会 spawn 心跳子进程每 5s 续期 `meta.ts`——**活进程的锁绝不会被抢占**;仅当"锁年龄超 300s **且** 持有者 pid 已死"或超 1800s 硬上限(pid 复用兜底)才强制抢占。锁等待超时(safe-commit 15min / post-commit 3min)报错并提示持有者是否存活;紧急可删 `.git/ihui-git-write.lock`(先确认无 git 写进程)。绕过:`IHUI_GIT_NO_LOCK=1`(仅应急,禁用后自行承担并发风险)。
   - **新环境初始化**:重新 clone 后必须执行一次 `node scripts/git-hygiene-init.mjs`(恢复 gc.auto=0 / maintenance.auto=false 防护配置,这些是 local config,clone 不保留)。
 
 ### .git 整目录消失事故链根治(2026-09-10 立,当日 7 次事故复盘)
