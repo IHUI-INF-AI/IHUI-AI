@@ -16,9 +16,6 @@ apps/web/public/downloads/manifest.json
 # Desktop 安装包 ~230MB,超过 GitHub 单文件 100MB 限制,不能入库。
 # 下载按钮 href 已指向 GitHub Release 官方资产(downloads.config.ts),本地文件仅供 dev 预览。
 apps/web/public/downloads/desktop/
-# 仓库根 downloads/ = 本地手工取件目录(从 Release 下载的安装包 .exe/.sig + latest.json),
-# 纯本地验证用,不入库(约 12MB 二进制;CI 的正式落点是 apps/web/public/downloads/)。
-/downloads/
 # 图片 CDN 占位图骨架目录(deploy/generate-placeholders.js 生成,191 个 0 字节占位文件,
 # 不入库;新图标加入 remote-icons.ts 后重新生成)
 deploy/server-root/
@@ -441,3 +438,6 @@ output/
 
 # 构建产物不入库(2026-09-09 仓库瘦身):extension 下载包由 prebuild 经 sync-downloads.mjs 打包生成
 apps/web/public/downloads/extension/*.zip
+
+# Server酱部署告警当日计数(生产运行时生成,不入库)
+deploy/win/.sct-notify-state.json
