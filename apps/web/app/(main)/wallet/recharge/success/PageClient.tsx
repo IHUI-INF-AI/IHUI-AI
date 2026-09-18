@@ -158,7 +158,9 @@ function SuccessContent() {
           </p>
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
-            {status === 'timeout' ? '长时间未检测到支付,如已完成支付请刷新本页' : '等待支付确认中…'}
+            {status === 'timeout'
+              ? '长时间未检测到支付,如已完成支付请刷新本页'
+              : '等待支付确认中…'}
           </p>
           {orderNo && <p className="font-mono text-xs text-muted-foreground">订单号：{orderNo}</p>}
           <Link href="/wallet" className="w-full">
