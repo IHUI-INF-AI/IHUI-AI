@@ -45,9 +45,12 @@ jobs:
       # 2026-09-17 根治:actions/checkout 只创建触发分支的本地 ref(fetch-depth 只影响该分支历史),
       # 若不补齐,下方 "refs/heads/*" 实际只含 main → --prune 会把镜像侧的真源分支(如
       # desktop-feed 更新器 feed)全部删除(今日三次实证)。此处拉取 GitHub 全部分支到本地 refs。
+      # 2026-09-19 根治:--update-head-ok 必带——actions/checkout 把 main checkout 在工作区,
+      # 裸 fetch '+refs/heads/*:refs/heads/*' 会报 "refusing to fetch into branch checked out"
+      # (exit 128,连续 3 次 run 实证);镜像 CI 只消费 refs 不消费工作区,允许覆盖 checked-out ref 安全。
       - name: 拉取全部分支（保证镜像 refspec 完整）
         run: |
-          git fetch origin '+refs/heads/*:refs/heads/*' --prune
+          git fetch origin '+refs/heads/*:refs/heads/*' --prune --update-head-ok
           echo "本地分支列表:"; git branch --list | head -20
 
       - name: 镜像到 Gitee
