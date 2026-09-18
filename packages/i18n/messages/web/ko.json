@@ -162,7 +162,10 @@
       "ctrl2": "플랜 모드로 전환",
       "ctrl3": "리뷰 모드로 전환",
       "ctrl4": "스펙 모드로 전환",
-      "ctrl5": "질문 모드로 전환"
+      "ctrl5": "질문 모드로 전환",
+      "ctrlAltV": "음성: 녹음 시작/중지",
+      "ctrlAltB": "음성: 자동 재생 전환",
+      "ctrlAltH": "음성: 연속 대화 전환"
     }
   },
   "teamMemory": {
@@ -9548,6 +9551,8 @@
     "csvCollapse": "접기",
     "csvLoading": "로딩 중…",
     "voiceInputPending": "변환 중, {count}개 남음",
+    "voicePlayback": "음성 재생",
+    "voiceHandsFree": "연속 대화",
     "voicePlaybackOn": "음성 재생 켜짐",
     "voicePlaybackOff": "음성 재생 꺼짐",
     "voiceHandsFreeOn": "연속 대화 켜짐（말하면 전송）",
