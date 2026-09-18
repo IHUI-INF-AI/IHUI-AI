@@ -73,6 +73,12 @@ HOOK_EVENTS: tuple[str, ...] = (
     # P0-B(2026-09-18):终端实时输出事件(mcp_server run_command 逐行 stdout/stderr,
     # agents.py SSE 端点订阅并映射为 terminal-delta,供前端 TerminalSection 实时渲染)
     "terminal.delta",
+    # 2026-09-18 第十二批:对标 Codex hooks crate 的 SubagentStart/SubagentStop/
+    # Stop/Interrupt 四个生命周期事件(engine 侧发出;此前仅协议事件无钩子入口)
+    "subagent.start",
+    "subagent.stop",
+    "agent.stop",
+    "agent.interrupt",
     # W9(2026-09-18):压缩发生 + pause/cancel 过渡事件(agent_loop_v2 发出,
     # agents.py SSE 端点订阅并映射为 compaction/agent-status,前端可实时呈现
     # "上下文压缩中/正在暂停/正在取消"状态而非只有最终 done)
