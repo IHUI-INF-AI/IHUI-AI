@@ -209,30 +209,32 @@ const mode = process.argv.includes('--write') ? 'write' : 'check';
 const requireCli = process.argv.includes('--require-cli');
 
 // === 平台适用性门(2026-09-18 立,CI 实测教训)===
-// NSIS 模板是 Tauri **Windows** bundler 的资产,以 `include_str!` 内嵌在 Windows 版
-// `cli.win32-x64-msvc.node` 里。Linux / macOS 的 CLI 二进制**不含**它 ⇒ 在非 Windows 平台上
-// "抽取不到锚点"是**平台事实**,不是上游漂移。
-// 不做区分时,`ubuntu-latest` 上的 ci.yml 会把平台限制误报成回归 → 恒红假失败(2026-09-18 实测)。
-// 规则:
+// NSIS 模板是 Tauri **Windows** bundler 的资产,只内嵌在 Windows 版
+// `cli.win32-x64-msvc.node` 里。非 Windows 平台上**没有对照物**,而且抽取是"按可打印字符
+// 切片"的启发式 —— 在另一个平台的二进制里即使**找到锚点**,"成功"抽出来的也可能是**截断片段**,
+// 于是被误判成"上游模板漂移"。CI 实测:ubuntu 上这一步因此恒红,而同一份代码在 Windows 上全绿。
+//
+// 所以判据是**平台**,不是"抽取是否抛异常":
 //   · win32  :语义不变 —— 定位不到 CLI(且带 --require-cli)= 失败;抽取失败 / 漂移 = 失败。
-//   · 非 win32:--check 下**大声跳过**漂移校验并 exit 0(静态不变量 A/B/C 组仍由
-//              check-desktop-install-dir.mjs 在任意平台校验);--write 仍然失败(没有上游模板无法生成)。
+//   · 非 win32:`--check` **一律**显式打印跳过原因后 exit 0(不进入抽取与比对);
+//              `--write` 仍需真模板,故照常走下面的流程并在失败时 exit 1。
 // 漂移校验真正的强制点:① 本机 pre-commit(guardian-runner id 51,Windows);
 //   ② release-desktop.yml / desktop-build.yml 的 **Windows** leg(构建前,带 --require-cli)。
 const isWindows = process.platform === 'win32'
 const SKIP_LINUX =
-  '平台不适用:NSIS 模板只内嵌在 Windows 版 Tauri CLI 二进制里,本平台无上游模板可比 —— ' +
-  '此处**不是**漂移。漂移校验由 Windows 侧(pre-commit id 51 / 发版 Windows leg)强制。'
+  '平台不适用:NSIS 模板只内嵌在 Windows 版 Tauri CLI 二进制里,本平台无可比对象 —— ' +
+  '此处**不是**漂移。漂移校验由 Windows 侧强制(pre-commit id 51 / 发版与桌面构建的 Windows leg)。'
+
+if (mode === 'check' && !isWindows) {
+  console.error(`[desktop-nsis-template] 跳过漂移校验 —— ${SKIP_LINUX}`)
+  process.exit(0)
+}
 
 const bin = findCliBinary();
 if (!bin) {
   if (mode === 'write') {
     console.error('[desktop-nsis-template] 未找到 @tauri-apps/cli 原生模块,无法生成模板(请在已安装依赖的工作区执行)');
     process.exit(1);
-  }
-  if (!isWindows) {
-    console.error(`[desktop-nsis-template] 跳过漂移校验 —— ${SKIP_LINUX}`);
-    process.exit(0);
   }
   const hint =
     '已探测: 仓库 node_modules / pnpm 虚拟仓 / 全局 npm root -g / %APPDATA%/npm/node_modules。' +
@@ -251,11 +253,6 @@ let upstream;
 try {
   upstream = extractTemplate(bin);
 } catch (error) {
-  if (!isWindows && mode === 'check') {
-    console.error(`[desktop-nsis-template] 跳过漂移校验 —— ${SKIP_LINUX}`);
-    console.error(`  (本平台抽取失败原因:${error.message};二进制:${bin})`);
-    process.exit(0);
-  }
   console.error(`[desktop-nsis-template] 抽取模板失败:${error.message}`);
   process.exit(1);
 }
