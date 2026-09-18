@@ -119,7 +119,7 @@ export default function ManualBillingPage() {
           <div className="rounded-xl border bg-primary/5 p-3 ring-1 ring-primary/30">
             <p className="text-sm font-semibold">⭐ Pro</p>
             <p className="mt-1 text-2xl font-bold">¥49/月</p>
-            <p className="text-xs text-muted-foreground">年付 9 折 ¥529/年</p>
+            <p className="text-xs text-muted-foreground">按月订阅,随时取消</p>
             <ul className="mt-3 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
               <li>10,000 积分 / 月(用完可单独购买)</li>
               <li>优先队列(高峰期不排队)</li>

@@ -31,9 +31,10 @@ interface VipLevel {
 
 interface PayInfo {
   mock: boolean
-  method: 'jsapi' | 'native' | 'h5'
+  method: 'jsapi' | 'native' | 'h5' | 'alipay'
   codeUrl?: string
   h5Url?: string
+  payUrl?: string
   error?: string
 }
 
@@ -91,7 +92,10 @@ function DetailsContent() {
       api<OrderResult>('/api/vip/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vipLevelId, paymentMethod: 'wechat_native' }),
+        body: JSON.stringify({
+          vipLevelId,
+          paymentMethod: method === 'alipay' ? 'alipay' : 'wechat_native',
+        }),
       }),
     onSuccess: (data) => {
       setOrder(data)
@@ -160,17 +164,27 @@ function DetailsContent() {
     )
   }
 
-  if (order && order.payInfo?.codeUrl) {
+  if (order && (order.payInfo?.codeUrl || order.payInfo?.payUrl)) {
+    const isAlipay = Boolean(order.payInfo?.payUrl)
+    const qrValue = order.payInfo?.payUrl ?? order.payInfo?.codeUrl ?? ''
     return (
       <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">微信扫码支付</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {isAlipay ? '支付宝扫码支付' : '微信扫码支付'}
+        </h1>
         <p className="text-sm text-muted-foreground">
           金额：<span className="font-bold text-foreground">{formatCNY(order.amount)}</span>
         </p>
         <div className="flex justify-center rounded-lg border border-border bg-white p-3">
-          <QRCodeCanvas value={order.payInfo.codeUrl} size={240} level="M" />
+          <QRCodeCanvas value={qrValue} size={240} level="M" />
         </div>
-        <p className="text-xs text-muted-foreground">请用微信扫描二维码完成支付</p>
+        <p className="text-xs text-muted-foreground">
+          {isAlipay ? '请用支付宝扫描二维码完成支付' : '请用微信扫描二维码完成支付'}
+        </p>
+        <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          等待支付确认中,支付完成后本页自动更新
+        </p>
         <p className="text-xs text-muted-foreground">订单号：{order.orderNo}</p>
         <Button variant="outline" onClick={() => setOrder(null)}>
           {tc('back')}
@@ -182,13 +196,26 @@ function DetailsContent() {
   if (order && order.payInfo?.mock) {
     return (
       <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
-        <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-500" />
-        <h1 className="text-2xl font-bold tracking-tight">{t('purchaseSuccess')}</h1>
-        <p className="text-sm text-muted-foreground">
-          微信支付未配置，开发模式直接激活（订单号：{order.orderNo}）
-        </p>
+        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-700">
+          支付通道暂未开通（微信/支付宝商户配置缺失），订单已创建但无法支付。
+          <br />
+          订单号：{order.orderNo}。请联系管理员在服务端配置支付商户后重试。
+        </div>
         <Button asChild>
           <Link href="/vip">{tc('back')}</Link>
+        </Button>
+      </div>
+    )
+  }
+
+  if (order && order.payInfo?.error) {
+    return (
+      <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          下单失败：{order.payInfo.error}
+        </div>
+        <Button variant="outline" onClick={() => setOrder(null)}>
+          {tc('back')}
         </Button>
       </div>
     )
