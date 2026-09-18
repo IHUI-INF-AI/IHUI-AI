@@ -324,8 +324,16 @@ vi.mock('@/stores/chat', () => ({
     selector: (s: {
       conversationId: string | null
       messages: Array<{ id: string; role: 'user' | 'assistant' | 'system'; content: string }>
+      // 2026-09-18 补齐:TerminalSection 以叶子选择器订阅 s.terminalOutputs[term.id]
+      // (W1 终端实时输出新增字段),mock 缺该字段会直接 TypeError。
+      terminalOutputs: Record<string, string>
     }) => unknown,
-  ) => selector({ conversationId: mockChatStoreRefs.getConversationId(), messages: [] }),
+  ) =>
+    selector({
+      conversationId: mockChatStoreRefs.getConversationId(),
+      messages: [],
+      terminalOutputs: {},
+    }),
 }))
 
 // ─── v13:Mock useAgentProgress(允许测试中动态控制 planSteps 等数据) ───
