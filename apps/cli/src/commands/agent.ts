@@ -140,6 +140,12 @@ export interface AgentOptions {
   signal?: AbortSignal;
   /** 强制 LLM 先输出 plan 块再执行工具 */
   planFirst?: boolean;
+  /**
+   * P0-C(2026-09-17 立):自动批准 LLM 提出的 plan 块(危险)。
+   * 仅在 --auto-approve-plan 显式开启或 bypassPermissions 模式下生效;
+   * 默认 false — plan 必须经用户审批(onPlanApproval 回调)才能执行工具。
+   */
+  autoApprovePlan?: boolean;
   /** LLM 采样参数(透传到 streamChat) */
   sampler?: SamplerSettings;
   /** P0-7 Permission rules:白名单/黑名单控制(--tools/--disallowed-tools CLI flag 注入) */
@@ -148,7 +154,15 @@ export interface AgentOptions {
   permissionMode?: PermissionMode;
 }
 
-export type AgentStopReason = 'end_turn' | 'cancelled' | 'max_iterations' | 'budget_limited' | 'doom_loop' | 'error';
+export type AgentStopReason =
+  | 'end_turn'
+  | 'cancelled'
+  | 'max_iterations'
+  | 'budget_limited'
+  | 'doom_loop'
+  | 'error'
+  // P0-C(2026-09-17 立):plan 审批门修复 — LLM 提出 plan 但无可用审批机制(非交互、无回调、未显式 auto)时终止
+  | 'plan_approval_required';
 
 export interface AgentResult {
   stopReason: AgentStopReason;
@@ -375,12 +389,25 @@ export interface RunToolLoopOptions {
   onToolResult?: (name: string, success: boolean, output: string) => void | Promise<void>;
   onIteration?: (count: number, max: number) => void | Promise<void>;
   onError?: (message: string) => void | Promise<void>;
+  /** 模型推理过程增量(reasoning/thinking)回调 — 透传 api-client 的 onReasoning,未传时零开销 */
+  onReasoning?: (delta: string) => void | Promise<void>;
   /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认 128_000(与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致)。 */
   contextLimit?: number;
   /** 是否启用 plan 强制阻断(配合 planApproved 控制) */
   planFirst?: boolean;
-  /** plan 是否已被批准;true 时跳过阻断,允许工具执行。阻断逻辑会在 plan 块出现后自动置 true */
+  /** plan 是否已被批准;true 时跳过阻断,允许工具执行。P0-C 修复后仅由真实审批来源置 true */
   planApproved?: boolean;
+  /**
+   * P0-C(2026-09-17 立):plan 审批回调 — LLM 输出 plan 块时调用,返回 true=批准执行。
+   * REPL 传入 inquirer 交互确认;ACP 可转发 IDE 审批请求;返回 false 视为用户拒绝(要求 LLM 重新规划)。
+   */
+  onPlanApproval?: (plan: string) => boolean | Promise<boolean>;
+  /**
+   * P0-C(2026-09-17 立):显式自动批准 plan(危险,默认 false)。
+   * 为 true 时跳过审批门直接进入执行(bypassPermissions 权限模式等价于 true)。
+   * 非交互且无 onPlanApproval 回调时:默认 fail-fast,stopReason='plan_approval_required'。
+   */
+  autoApprovePlan?: boolean;
   /** LLM 采样参数(透传到 streamChat) */
   sampler?: SamplerSettings;
   /** 累计成本上限(美元)。超过后 stopReason='budget_limited'。与 AGENTS.md 第 9 节 goal 模式 budget 语义对齐 */
@@ -624,6 +651,8 @@ interface SampleWithRetryOptions {
   signal?: AbortSignal;
   onDelta: (delta: string) => void;
   sampler?: SamplerSettings;
+  /** 推理过程增量回调(reasoning/thinking)— 透传 api-client 的 onReasoning */
+  onReasoning?: (delta: string) => void;
   /** 原生 function calling:附加到请求体末尾的字段(如 { tools: [...] }) */
   extraBody?: Record<string, unknown>;
   /** 原生 function calling:SSE tool-call 事件回调 */
@@ -723,6 +752,7 @@ async function sampleWithRetry(
         onDelta: opts.onDelta,
         ...(opts.extraBody ? { extraBody: opts.extraBody } : {}),
         ...(opts.onToolCallEvent ? { onToolCall: opts.onToolCallEvent } : {}),
+        ...(opts.onReasoning ? { onReasoning: opts.onReasoning } : {}),
         ...(opts.sampler ?? {}),
         onError: (msg) => { streamErr = msg; },
       } as Parameters<typeof streamChat>[0]);
@@ -918,6 +948,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   const doomLoopDetector = new DoomLoopDetector();
   let consecutiveDoomAlerts = 0;
   let slidingWindowDoomDetected = false;
+  // P0-C(2026-09-17 立):plan 审批门 — 无可用审批机制时置 true,终止循环并返回 plan_approval_required
+  let planApprovalRequired = false;
 
   // P2-5 UsageLedger:使用调用方传入的账本(若无则内部创建临时实例,仅用于结果汇总)
   // 调用方传入时可通过 ledger.history / getChatState 获取详细使用情况
@@ -1017,6 +1049,10 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
               iterationText += delta;
               void opts.onDelta?.(delta);
             },
+            // 推理过程增量透传:未传 onReasoning 时零开销(opts.onReasoning 为 undefined 则不开 onReasoning)
+            ...(opts.onReasoning
+              ? { onReasoning: (delta: string) => { void opts.onReasoning?.(delta); } }
+              : {}),
             sampler: opts.sampler,
             ...(withTools && nativeExtraBody ? { extraBody: nativeExtraBody } : {}),
             ...(withTools
@@ -1175,20 +1211,53 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       }
 
       // Plan Mode 强制阻断:planFirst 开启且未批准时,要求 LLM 先输出 plan 块再执行工具
+      // P0-C(2026-09-17 立):审批门修复 — LLM 输出 plan 块后不再自动批准。
+      // 原实现"LLM 输出 plan 块即自动置 planApproved=true"使 PlanMachine 的
+      // approved===true 强校验形同虚设(机器自己批准自己),/plan approve 命令也被绕过。
+      // 新审批来源优先级:
+      //   1. autoApprovePlan===true 或 permissionMode==='bypassPermissions'(显式 auto,危险)
+      //   2. onPlanApproval 回调(REPL 交互确认 / ACP 转发 IDE 审批)
+      //   3. 都没有 → fail-fast:stopReason='plan_approval_required',提示 --auto-approve-plan
+      // 用户拒绝(回调返回 false)→ 注入拒绝消息要求 LLM 重新规划(与 /plan reject 语义一致)
       if (opts.planFirst && !opts.planApproved && toolCalls.length > 0) {
         const planBlock = parsePlanBlock(iterationText);
         if (planBlock) {
-          // LLM 输出了 plan 块,自动批准,本迭代跳过工具执行
-          opts.planApproved = true;
-          // PlanMachine 联动:gathering → executing(解除写入硬阻断)
-          // canTransition 守门:若 PlanMachine 已在 executing/done 等状态则跳过(避免抛错)
-          if (opts.planMachine?.canTransition('gather_complete')) {
-            opts.planMachine.transition('gather_complete', { approved: true });
+          const autoApproved =
+            opts.autoApprovePlan === true || opts.ctx.permissionMode === 'bypassPermissions';
+          let approved = false;
+          if (autoApproved) {
+            approved = true;
+          } else if (opts.onPlanApproval) {
+            approved = await opts.onPlanApproval(planBlock);
+          } else {
+            // 非交互无回调且未显式 auto:安全优先,不放行
+            approved = false;
+            planApprovalRequired = true;
+            void opts.onError?.(
+              'Plan approval required: LLM 已提出 plan,但无审批机制可用。' +
+                '请使用 --auto-approve-plan 显式开启自动批准,或在 REPL/ACP 交互模式下审批后重试。',
+            );
+            break;
           }
-          opts.messages.push({
-            role: 'user',
-            content: 'Plan 已记录,请按计划逐步执行工具。每完成一步简要说明进度。',
-          });
+          if (approved) {
+            // 用户(或显式 auto 模式)批准,本迭代跳过工具执行,下轮开始执行
+            opts.planApproved = true;
+            // PlanMachine 联动:gathering → executing(解除写入硬阻断)
+            // canTransition 守门:若 PlanMachine 已在 executing/done 等状态则跳过(避免抛错)
+            if (opts.planMachine?.canTransition('gather_complete')) {
+              opts.planMachine.transition('gather_complete', { approved: true });
+            }
+            opts.messages.push({
+              role: 'user',
+              content: 'Plan 已记录,请按计划逐步执行工具。每完成一步简要说明进度。',
+            });
+          } else {
+            // 用户拒绝当前 plan:注入拒绝消息,要求 LLM 重新规划(不执行任何工具)
+            opts.messages.push({
+              role: 'user',
+              content: '用户拒绝了该 plan,请重新规划任务步骤(输出 ```plan 代码块),不要执行工具。',
+            });
+          }
         } else {
           // LLM 没输出 plan 块就调用工具,拒绝执行
           opts.messages.push({
@@ -1415,6 +1484,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     stopReason = 'error';
   } else if (budgetLimited) {
     stopReason = 'budget_limited';
+  } else if (planApprovalRequired) {
+    // P0-C:plan 已提出但无审批机制(非交互、无回调、未显式 auto)— 需用户介入,非错误
+    stopReason = 'plan_approval_required';
   } else if (iterations >= opts.maxIterations) {
     stopReason = 'max_iterations';
   } else {
@@ -1440,6 +1512,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     runHook('notification', { ...hookCtx, notificationText: `Agent 达到最大迭代数 ${opts.maxIterations}` });
   } else if (stopReason === 'budget_limited') {
     runHook('notification', { ...hookCtx, notificationText: `Agent 因预算上限停止 (cost >= ${opts.maxCostUsd ?? 'N/A'})` });
+  } else if (stopReason === 'plan_approval_required') {
+    // P0-C:plan 待审批通知 — 提示用户用 --auto-approve-plan 或交互模式审批
+    runHook('notification', { ...hookCtx, notificationText: 'Agent 因 plan 待用户审批而暂停 (plan_approval_required)' });
   }
   runHook('stop', hookCtx);
 
@@ -1614,6 +1689,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       signal: opts.signal,
       sessionId: opts.session?.id,
       planFirst: opts.planFirst,
+      // P0-C:plan 审批门 — 透传显式 auto 标志(headless 非交互无回调时由 runToolLoop fail-fast)
+      autoApprovePlan: opts.autoApprovePlan,
       sampler: opts.sampler,
       plugins: pluginRegistry,
       fsEventSource,
@@ -1748,6 +1825,8 @@ export function stopReasonToExitCode(reason: AgentStopReason): number {
       return 1;
     case 'max_iterations':
     case 'doom_loop':
+    // P0-C:plan 待审批属于"部分完成/需用户介入",与 max_iterations 同级(exit code 2),非硬错误
+    case 'plan_approval_required':
       return 2;
     case 'cancelled':
       return 130;

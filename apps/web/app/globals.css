@@ -99,6 +99,78 @@
   background-color: hsl(0 0% 18%);
 }
 
+/* 登录弹窗卡片翻转入场动画 (2026-09-18 立,用户需求:像卡片翻转一样的进入动画;
+   2026-09-18 修订:用户追加"多翻转 360 度一下"→ 从 -360deg 完整一圈翻入;
+   2026-09-18 修订2:用户反馈"优化缓动曲线让动作更自然"→ 拆双轨动画 + 三档阻尼振荡)
+   设计:
+   【transform 轨】650ms,三段分段缓动模拟真实翻转物理——
+     0→80%  主翻转(368° 行程):cubic-bezier(.5,0,.2,1) 强 ease-in-out——
+            缓起(手拨卡片逐步加速)→ 中段惯性快转 → 过冲点缓停;
+            原全程 ease-out 的"起步瞬爆"是不自然感的根源,已移除。
+     80→90% 回摆(+10°→-4°):cubic-bezier(.45,0,.55,1) 对称缓动 ≈ 正弦换向,
+            过冲顶点速度归零再反向,无折角。
+     90→100% 落定(-4°→0°):cubic-bezier(.22,1,.36,1) 冲向目标减速吸附;
+            衰减比 10°:4°≈2.5:1 符合欠阻尼弹簧指数衰减,比单档过冲更"活"。
+   【opacity 轨】独立 @keyframes,35% 完成淡入(easeOutCubic)——
+     若与主翻转共用缓起曲线,前 80ms 淡入不足 5%,卡片转入背面(backface hidden
+     不可见)再转回时会出现"半透明→消失→突然全显"的跳跃感,故必须分轨快显。
+   两轨同元素逗号并行;transform 轨各帧自带 timing-function(覆盖简写占位值)。
+   perspective(800px) 内联在 transform 中——不依赖父容器 perspective 属性,
+     不碰 DialogContent 的居中 translate(dialog.tsx 2026-07-28 教训:
+     Content 的 transform 不能被关键帧覆盖,否则重渲染残留会把弹窗顶到视口左上;
+     卡片无居中 transform,3D 翻转完全隔离在内层,零残留风险)。
+   fill-mode backwards:动画结束后 transform/opacity 回到自然值,无残留。
+   transform-style 不设 preserve-3d:卡片是 2D 内容,只需单层 3D 旋转面,
+     preserve-3d 会让子元素(logo/welcome)被渲染到独立 3D 平面产生 z-fighting。
+   prefers-reduced-motion 由本文件全局规则(0.01ms)自动禁用,无需重复处理。
+   仅桌面弹窗使用(LoginDialog 桌面分支);移动全屏页/SSO 独立页不套用。 */
+@keyframes login-dialog-flip-transform {
+  0% {
+    transform: perspective(800px) rotateY(-360deg) scale(0.85);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.2, 1);
+  }
+  80% {
+    transform: perspective(800px) rotateY(10deg) scale(1.015);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  }
+  90% {
+    transform: perspective(800px) rotateY(-4deg) scale(0.998);
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  100% {
+    transform: perspective(800px) rotateY(0deg) scale(1);
+  }
+}
+
+@keyframes login-dialog-flip-fade {
+  0% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-login-dialog-flip {
+  animation:
+    login-dialog-flip-transform 650ms linear backwards,
+    login-dialog-flip-fade 650ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
+  /* 2026-09-18 残影+卡顿根治(用户反馈"动画过程中能看到额外的方形卡片背景 有残影"):
+     rotateY 转过 180° 时卡片背面朝向用户,backface-visibility 默认 visible 会渲染
+     背面镜像(bg-card 方块 + 左右翻转的内容)= 用户看到的"方形卡片残影";
+     且镜像文字/图片每帧重新光栅化 = 掉帧卡顿。hidden 让背面直接不渲染,
+     是标准翻牌(flip card)做法;转过背面区间时卡片短暂不可见属物理正确。
+     -webkit- 前缀:旧版 Safari/WebView(Tauri 旧 webview2 兼容)需要。 */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* 独立合成层:旋转全程 GPU 合成,卡片(460px 宽 + 大量文字/图片)不逐帧重光栅化,
+     消除动画起步掉帧;卡片随弹窗关闭即卸载,will-change 常驻无内存顾虑。 */
+  will-change: transform, opacity;
+}
+
 /* 顶栏内容左偏移(2026-08-01 立,根治移动端搜索按钮与工作区卡片 46px 错位):
    移动端(<768px):GlobalTopBar 内层 flex 第 0 个元素是移动端汉堡按钮(mobileMenu),
      占 ml-1.5(6px) + w-9(36px) + gap-1(4px) = 46px,把搜索按钮挤到 left=46px。
