@@ -55,11 +55,14 @@ import contextlib
 import itertools
 import json
 import logging
+import os
 import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
+
+from .session_store import SessionStore
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +221,8 @@ class EngineThread:
     pending: dict[str, asyncio.Future[Any]] = field(default_factory=dict)
     # 本轮承载连接的发射器(宿主工具/通知经它出站;多连接并存互不覆盖)
     emit: Emitter | None = None
+    # 当前持久化轮次(session_store turn_id,用于结束后回写 AgentMessage/Error)
+    current_turn_id: str | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -289,6 +294,7 @@ class AgentEngine:
         model_lister: Callable[[], list[dict[str, Any]]] | None = None,
         hook_bus: Any | None = None,
         host_tool_timeout_ms: int = DEFAULT_HOST_TOOL_TIMEOUT_MS,
+        store: SessionStore | None = None,
     ) -> None:
         self._loop_factory = loop_factory
         self._tool_lister = tool_lister
@@ -297,6 +303,8 @@ class AgentEngine:
         self._injected_bus = hook_bus
         self._host_tool_timeout_ms = int(host_tool_timeout_ms)
         self._threads: dict[str, EngineThread] = {}
+        # 会话持久化(session_store 单例/注入;None=未初始化,False=不可用哨兵)
+        self._store: SessionStore | None | bool = store
         self._handlers: dict[str, Callable[[dict[str, Any], Emitter], Any]] = {
             "engine.initialize": self._handle_initialize,
             "engine.ping": self._handle_ping,
@@ -373,11 +381,187 @@ class AgentEngine:
     # 线程查找/参数校验
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # 会话持久化(2026-09-18 立,对照 Codex harness Thread/Rollout 能力):
+    # engine 线程此前纯内存态,进程重启丢全部活跃会话。现接线 SessionStore:
+    # thread.start 落库 / prompt 每轮落 Turn+User/Agent/Error Item /
+    # _require_thread 未命中时按需从库恢复。全部失败降级为 log,不打断对话主链路。
+    # ------------------------------------------------------------------
+
+    def _persistence_store(self) -> SessionStore | None:
+        """惰性获取 SessionStore(默认复用 routers.sessions 的进程级单例)。
+
+        环境变量 AGENT_ENGINE_PERSIST=off 可整体关闭;初始化失败记哨兵不再重试。
+        """
+        if self._store is False:
+            return None
+        if self._store is not None:
+            # 已初始化(注入实例/单例;含测试替身,鸭子类型直接用)
+            return self._store  # type: ignore[return-value]
+        if str(os.getenv("AGENT_ENGINE_PERSIST", "on")).lower() in ("0", "off", "false"):
+            self._store = False
+            return None
+        try:
+            from app.routers.sessions import get_session_store
+
+            self._store = get_session_store()
+        except Exception as e:
+            logger.warning("[engine] SessionStore 不可用,线程不持久化: %s", e)
+            self._store = False
+        return self._store if isinstance(self._store, SessionStore) else None
+
+    def _persist_thread_created(self, thread: EngineThread) -> None:
+        """thread.start 落库(metadata 保存线程配置,供重启恢复还原)。"""
+        store = self._persistence_store()
+        if store is None:
+            return
+        try:
+            if store.get_thread(thread.thread_id) is not None:
+                return  # 恢复后重复 start 等场景,已有记录
+            store.create_thread(
+                title=f"engine {thread.thread_id}",
+                thread_id=thread.thread_id,
+                metadata={
+                    "sessionId": thread.session_id,
+                    "model": thread.model,
+                    "permissionMode": thread.permission_mode,
+                    "maxIterations": thread.max_iterations,
+                    "toolNames": thread.tool_names,
+                    "workspace": thread.workspace,
+                    "userId": thread.user_id,
+                    "conversationId": thread.conversation_id,
+                    "systemPrompt": (
+                        thread.messages[0].get("content", "")
+                        if thread.messages and thread.messages[0].get("role") == "system"
+                        else ""
+                    ),
+                },
+            )
+        except Exception as e:
+            logger.warning("[engine] thread.created 持久化失败 %s: %s", thread.thread_id, e)
+
+    def _persist_turn_start(self, thread: EngineThread, user_text: str) -> str | None:
+        """prompt 开轮:Turn + UserMessageItem。返回 turn_id(失败 None)。"""
+        store = self._persistence_store()
+        if store is None:
+            return None
+        try:
+            turn = store.start_turn(thread.thread_id, metadata={"model": thread.model})
+            from .session_store import UserMessageItem
+
+            store.append_item(
+                turn.turn_id, UserMessageItem(content=user_text), thread_id=thread.thread_id
+            )
+            thread.current_turn_id = turn.turn_id
+            return turn.turn_id
+        except Exception as e:
+            logger.warning("[engine] turn.start 持久化失败 %s: %s", thread.thread_id, e)
+            return None
+
+    def _persist_turn_end(
+        self, thread: EngineThread, turn_id: str | None, payload: dict[str, Any]
+    ) -> None:
+        """prompt 结束:AgentMessageItem(+ErrorItem)并关 Turn。"""
+        if not turn_id:
+            return
+        store = self._persistence_store()
+        if store is None:
+            return
+        try:
+            from .session_store import AgentMessageItem, ErrorItem
+
+            response = str(payload.get("finalResponse", "") or "")
+            if response:
+                store.append_item(
+                    turn_id,
+                    AgentMessageItem(content=response, model=thread.model),
+                    thread_id=thread.thread_id,
+                )
+            error = payload.get("error")
+            if error:
+                store.append_item(
+                    turn_id,
+                    ErrorItem(message=str(error), code=str(payload.get("stopReason", "") or "LLM_ERROR")),
+                    thread_id=thread.thread_id,
+                )
+            store.end_turn(turn_id, status="completed" if payload.get("success") else "failed")
+            thread.current_turn_id = None
+        except Exception as e:
+            logger.warning("[engine] turn.end 持久化失败 %s: %s", thread.thread_id, e)
+
+    def _persist_turn_error(self, thread: EngineThread, turn_id: str | None, exc: Exception) -> None:
+        """prompt 异常:ErrorItem + failed Turn(降级,不遮蔽原异常)。"""
+        if not turn_id:
+            return
+        store = self._persistence_store()
+        if store is None:
+            return
+        try:
+            from .session_store import ErrorItem
+
+            store.append_item(
+                turn_id, ErrorItem(message=str(exc), code="ENGINE_ERROR"), thread_id=thread.thread_id
+            )
+            store.end_turn(turn_id, status="failed", error=str(exc))
+            thread.current_turn_id = None
+        except Exception as e:
+            logger.warning("[engine] turn.error 持久化失败 %s: %s", thread.thread_id, e)
+
+    def _try_restore_thread(self, thread_id: str) -> EngineThread | None:
+        """进程重启后按需从 SessionStore 恢复线程(历史消息 + 配置元数据)。
+
+        运行时态(loop/checkpoint/pending/emit)本就属进程内,恢复为 idle 可续发 prompt。
+        """
+        store = self._persistence_store()
+        if store is None:
+            return None
+        try:
+            t = store.get_thread(thread_id)
+            if t is None or t.archived:
+                return None
+            md = dict(t.metadata or {})
+            from .session_store import LLMMessage
+
+            messages: list[dict[str, Any]] = [
+                {
+                    "role": "system",
+                    "content": str(md.get("systemPrompt") or "You are a helpful agent."),
+                }
+            ]
+            for m in store.resume(thread_id):
+                if isinstance(m, LLMMessage):
+                    messages.append({"role": m.role, "content": m.content})
+            thread = EngineThread(
+                thread_id=thread_id,
+                session_id=str(md.get("sessionId") or thread_id),
+                model=md.get("model") if isinstance(md.get("model"), str) else None,
+                permission_mode=str(md.get("permissionMode") or "default"),
+                max_iterations=int(md.get("maxIterations") or 8),
+                tool_names=list(md["toolNames"]) if isinstance(md.get("toolNames"), list) else None,
+                workspace=md.get("workspace") if isinstance(md.get("workspace"), str) else None,
+                user_id=md.get("userId") if isinstance(md.get("userId"), str) else None,
+                conversation_id=md.get("conversationId")
+                if isinstance(md.get("conversationId"), str)
+                else None,
+                messages=messages,
+            )
+            self._threads[thread_id] = thread
+            logger.info(
+                "[engine] thread restored from store %s (items=%s)", thread_id, t.item_count
+            )
+            return thread
+        except Exception as e:
+            logger.warning("[engine] thread restore 失败 %s: %s", thread_id, e)
+            return None
+
     def _require_thread(self, params: dict[str, Any]) -> EngineThread:
         thread_id = params.get("threadId")
         if not isinstance(thread_id, str) or not thread_id:
             raise JsonRpcError(INVALID_PARAMS, "缺少 threadId")
         thread = self._threads.get(thread_id)
+        if thread is None:
+            # 进程重启后内存无此线程 → 按需从 SessionStore 恢复(降级失败仍报不存在)
+            thread = self._try_restore_thread(thread_id)
         if thread is None:
             raise JsonRpcError(THREAD_NOT_FOUND, f"线程不存在: {thread_id}")
         if thread.status == "closed":
@@ -452,6 +636,7 @@ class AgentEngine:
             messages=messages,
         )
         self._threads[thread_id] = thread
+        self._persist_thread_created(thread)
         logger.info("[engine] thread.start %s (model=%s)", thread_id, thread.model)
         return {
             "threadId": thread_id,
@@ -471,7 +656,14 @@ class AgentEngine:
             raise JsonRpcError(THREAD_BUSY, f"线程正在执行中: {thread.thread_id}")
         text = _coerce_input_text(params.get("input"))
         thread.messages.append({"role": "user", "content": text})
-        return await self._run_thread(thread, emit)
+        turn_id = self._persist_turn_start(thread, text)
+        try:
+            result = await self._run_thread(thread, emit)
+        except Exception as e:
+            self._persist_turn_error(thread, turn_id, e)
+            raise
+        self._persist_turn_end(thread, turn_id, result)
+        return result
 
     async def _run_thread(
         self, thread: EngineThread, emit: Emitter, *, from_checkpoint: str | None = None
