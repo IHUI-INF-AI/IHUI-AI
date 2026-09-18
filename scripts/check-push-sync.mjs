@@ -158,7 +158,14 @@ if (ahead === 0) {
 const PUSH_STATE_STALE_MS = 5 * 60 * 1000
 try {
   const st = JSON.parse(readFileSync(resolve(repoRoot, '.workbuddy/push-state.json'), 'utf8'))
-  if (st.status === 'running' && Date.now() - st.ts < PUSH_STATE_STALE_MS) {
+  // 在途判定 = running + 未过期 + 持有者存活(死 worker 的残留状态不算在途)
+  let alive = true
+  try {
+    process.kill(Number(st.pid), 0)
+  } catch (e) {
+    alive = e.code === 'EPERM'
+  }
+  if (st.status === 'running' && Date.now() - st.ts < PUSH_STATE_STALE_MS && alive) {
     console.log(
       `⏭  后台推送进行中(HEAD ${String(st.headSha).slice(0, 7)},pid ${st.pid}),不阻塞本次 commit;新提交将由 post-commit 随新 worker 重推`,
     )
