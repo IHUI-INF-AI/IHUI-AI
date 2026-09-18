@@ -18,7 +18,7 @@
  *
  * 注意:gc 前建议确认无其他 agent 正在写(锁会排队等待,超时则放弃)。
  */
-import { execSync } from 'node:child_process'
+import { execSync, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -59,6 +59,16 @@ function main() {
   const unit = `safe-gc-${process.pid}-${Date.now()}`
   try {
     run(`node ${repoRoot}/scripts/git-lock.mjs acquire --unit ${unit} --timeout 60000`)
+    // 2026-09-18:gc repack 可达数分钟,spawn 心跳续期防长流程被误判悬挂锁抢占
+    try {
+      spawn(
+        process.execPath,
+        [`${repoRoot}/scripts/git-lock.mjs`, 'heartbeat', '--unit', unit, '--parent-pid', String(process.pid)],
+        { detached: true, stdio: 'ignore' },
+      ).unref()
+    } catch {
+      /* 心跳失败不阻塞(stale 判定仍按"pid 存活"兜底) */
+    }
     console.log('🔒 已获取写锁,执行 git gc(可能耗时,请勿并行 git 操作)')
     const out = run('git gc --prune=now', true) ?? ''
     console.log(out || '✅ git gc 完成')
