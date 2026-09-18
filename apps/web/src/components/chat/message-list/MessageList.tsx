@@ -19,6 +19,9 @@ import { useChatStore } from '@/stores/chat'
 
 import { MessageItem } from './MessageItem'
 import { QueryThumbRail } from './query-thumb-rail'
+import { StreamingSkeleton, shouldShowStreamingSkeleton } from './streaming-skeleton'
+import { ConversationLocatorRail } from './conversation-locator-rail'
+import { ScrollJumpButtons } from './scroll-jump-buttons'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
 import { EmptyState } from './EmptyState'
 import { FallbackBanner } from './FallbackBanner'
@@ -122,7 +125,12 @@ export function MessageList({
     userScrolledToTop,
     setUserScrolledToTop,
     focusedIndex,
+    isFarFromTop,
+    isFarFromBottom,
   } = scroll
+
+  // D2(2026-09-18 立):流式骨架屏显隐 —— 该轮尚无任何 AI 首帧时显示,首帧到达即卸载
+  const showSkeleton = shouldShowStreamingSkeleton(messages, isStreaming)
 
   useMessageListDerivations({ messages, isStreaming, subAgentActivitiesProp, t })
 
@@ -368,6 +376,8 @@ export function MessageList({
             data-testid="virtual-scroll-padding-bottom"
           />
         )}
+        {/* D2(2026-09-18 立):流式骨架屏占位 —— 用户发消息后、AI 首帧到达前显示,首帧到达即卸载 */}
+        {showSkeleton && <StreamingSkeleton />}
         {/* 2026-07-31 立,AI 对话可视化深度接入:TimelineTab inline 到对话底部
           - 显示完整时间线事件流(plan/subagent/tool/thinking/question/reference)
           - 实时刷新(useTimelineStore 响应式)
@@ -409,6 +419,21 @@ export function MessageList({
       {inlinePanelNode}
       {/* #18 对话流缩略导航(2026-09-13 立):右侧 Query 刻度条,点击跳转任一提问 */}
       <QueryThumbRail messages={messages} />
+      {/* D3(2026-09-18 立):对话快速定位器(右侧细轨,按用户消息分节,点击跳转到对应消息) */}
+      <ConversationLocatorRail messages={messages} containerRef={containerRef} />
+      {/* D3(2026-09-18 立):右下角浮动跳顶/跳底按钮,距顶/距底 >800px 时渐显 */}
+      <ScrollJumpButtons
+        isFarFromTop={isFarFromTop}
+        isFarFromBottom={isFarFromBottom}
+        onJumpTop={() => {
+          const el = containerRef.current
+          if (el) el.scrollTo({ top: 0, behavior: 'smooth' })
+        }}
+        onJumpBottom={() => {
+          const el = bottomRef.current
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+        }}
+      />
       {userScrolledUp && messages.length > 0 && (
         <button
           type="button"

@@ -19,7 +19,8 @@ import socket
 import time
 from collections.abc import AsyncIterator
 from collections.abc import AsyncIterator as AsyncIteratorType
-from contextlib import asynccontextmanager, suppress as _ctx_suppress
+from contextlib import asynccontextmanager
+from contextlib import suppress as _ctx_suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 

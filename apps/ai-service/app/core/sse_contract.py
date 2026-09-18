@@ -12,12 +12,10 @@
 """
 
 from dataclasses import dataclass, field
-from typing import FrozenSet
-
 
 # SSE 事件名集合(单一事实源)。值即实际 wire 上的事件判别名。
 # 顺序无关,frozenset 用于不可变 + 集合运算。
-SSE_EVENTS: FrozenSet[str] = frozenset(
+SSE_EVENTS: frozenset[str] = frozenset(
     {
         "chunk",
         "token",
@@ -38,9 +36,12 @@ SSE_EVENTS: FrozenSet[str] = frozenset(
         "terminal_end",
         "done",
         "error",
+        "fallback",
+        "usage",
         "compaction",
         "repair",
         "resumed",
+        "steer",
     }
 )
 
@@ -83,12 +84,22 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
         ("terminalId", "status", "endedAt", "durationMs", "output", "exitCode", "messageId"),
     ),
     SSEEventContract("done", ("usage", "model", "stub")),
+    # 消息级计量帧(D7/D1 全链路,2026-09-19 立):llm.py 流结束前发出
+    SSEEventContract(
+        "usage",
+        ("messageId", "usage", "timing", "model", "costUsd"),
+    ),
     SSEEventContract("error", ("message", "errorCode")),
+    # 模型降级通知(P4-2,2026-09-19 入契约):llm_gateway 主模型失败切换备用模型时
+    # yield,llm.py tool loop 两处 astream 循环 + 非 tool-loop 兜底路径转发
+    SSEEventContract("fallback", ("primary_model", "backup_model", "reason")),
     SSEEventContract(
         "compaction",
         ("triggered", "tokensBefore", "tokensAfter", "removedCount", "usageRatio"),
     ),
     SSEEventContract("repair", ("removed",)),
     SSEEventContract("resumed", ("payload",)),
+    # 中途引导注入确认(Steer,2026-09-19 立):llm.py tool loop 注入用户引导文本时发出
+    SSEEventContract("steer", ("phase", "text", "timestamp", "messageId")),
 )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
