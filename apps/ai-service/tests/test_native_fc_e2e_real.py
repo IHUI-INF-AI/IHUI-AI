@@ -63,7 +63,7 @@ _PREFIX_TO_PROVIDER = {
 _ALL_OPENAI_COMPAT_CANDIDATES = [
     ("openrouter/deepseek/deepseek-chat", "openrouter"),
     ("gemini/gemini-3.6-flash", "gemini"),
-    ("ihui/MiniMax-M2.7", "ihui_relay"),
+    ("ihui/glm-5.3-flash", "ihui_relay"),
     ("stepfun/step-3.7-flash", "stepfun"),
 ]
 _FORCED_E2E_MODEL = os.environ.get("NATIVE_FC_E2E_OPENAI_COMPAT_MODEL", "").strip()
