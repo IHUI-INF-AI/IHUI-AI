@@ -248,15 +248,16 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
 
   // ==========================================================================
   // 2. PUT /api/admin/promotions/signin-rules/:id
-  //    实现:apps/api/src/routes/promotions.ts L595
-  //    前端:apps/web/app/(main)/admin/signin-rule/page.tsx L53
+  //    实现:apps/api/src/routes/promotions.ts L554(registerCrud 统一 CRUD)
+  //    前端:apps/web/app/(main)/admin/signin-rule/page.tsx(status 直传 0|1,
+  //    select 提交字符串 '1'/'0' 由 fields() Number() 强转,非数值拒绝 400)
   // ==========================================================================
   describe('PUT /api/admin/promotions/signin-rules/:id', () => {
     it('未登录返回 401', async () => {
       const res = await server.inject({
         method: 'PUT',
         url: `/api/admin/promotions/signin-rules/${UUID}`,
-        body: { status: 'published' },
+        body: { status: 1 },
       })
       expect(res.statusCode).toBe(401)
     })
@@ -266,44 +267,44 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       const res = await server.inject({
         method: 'PUT',
         url: `/api/admin/promotions/signin-rules/${UUID}`,
-        body: { status: 'published' },
+        body: { status: 1 },
         headers: { authorization: USER_TOKEN },
       })
       expect(res.statusCode).toBe(403)
     })
 
-    it('admin 切换为 published 成功(DB status=1)', async () => {
+    it('admin 启用成功(status=1,兼容字符串强转)', async () => {
       mockAdmin()
       mockUpdateReturning.mockResolvedValueOnce([{ id: UUID, status: 1 }])
       const res = await server.inject({
         method: 'PUT',
         url: `/api/admin/promotions/signin-rules/${UUID}`,
-        body: { status: 'published' },
+        body: { status: '1' },
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(200)
       expect(res.json().code).toBe(0)
     })
 
-    it('admin 切换为 draft 成功(DB status=0)', async () => {
+    it('admin 禁用成功(status=0)', async () => {
       mockAdmin()
       mockUpdateReturning.mockResolvedValueOnce([{ id: UUID, status: 0 }])
       const res = await server.inject({
         method: 'PUT',
         url: `/api/admin/promotions/signin-rules/${UUID}`,
-        body: { status: 'draft' },
+        body: { status: 0 },
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(200)
     })
 
-    it('admin 切换为 pending/rejected 成功(均映射 DB status=0)', async () => {
+    it('admin 更新业务字段成功(name+数值字段)', async () => {
       mockAdmin()
-      mockUpdateReturning.mockResolvedValueOnce([{ id: UUID, status: 0 }])
+      mockUpdateReturning.mockResolvedValueOnce([{ id: UUID, name: '连续签到3天', status: 0 }])
       const res = await server.inject({
         method: 'PUT',
         url: `/api/admin/promotions/signin-rules/${UUID}`,
-        body: { status: 'rejected' },
+        body: { name: '连续签到3天', consecutiveDays: 3, rewardPoints: 50, status: 0 },
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(200)
@@ -325,7 +326,8 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       const res = await server.inject({
         method: 'PUT',
         url: '/api/admin/promotions/signin-rules/not-a-uuid',
-        body: { status: 'published' },
+        // body 必须全部合法,否则会被 NaN 校验先拦成 400,测不到 id 的 UUID 校验
+        body: { status: 1 },
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(400)
@@ -337,7 +339,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       const res = await server.inject({
         method: 'PUT',
         url: `/api/admin/promotions/signin-rules/${UUID}`,
-        body: { status: 'published' },
+        body: { status: 1 },
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(404)
@@ -624,7 +626,7 @@ describe('admin-ops routes — 5 个 admin 运营管理后端路由', () => {
       const res = await server.inject({
         method: 'PUT',
         url: `/api/admin/promotions/signin-rules/${UUID}`,
-        body: { status: 'published' },
+        body: { status: 1 },
         headers: { authorization: ADMIN_TOKEN },
       })
       const body = res.json()

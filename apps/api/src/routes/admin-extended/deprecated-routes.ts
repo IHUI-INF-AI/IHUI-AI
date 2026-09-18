@@ -49,7 +49,8 @@ export const deprecatedRoutes: FastifyPluginAsync = async (server) => {
   server.put('/admin/live/categories', { preHandler: requireAdmin }, gone)
   server.put('/admin/members/:id', { preHandler: requireAdmin }, gone)
   server.patch('/admin/oss/drivers', { preHandler: requireAdmin }, gone)
-  server.delete('/admin/roles/:id/users', { preHandler: requireAdmin }, gone)
+  // DELETE /admin/roles/:id/users 原为 no-callsite 410 stub,2026-09-18 起
+  // 由 role-routes.ts 提供批量取消授权真实实现(前端角色授权页 cancelAllMut 调用)。
   server.patch('/admin/shop/products', { preHandler: requireAdmin }, gone)
   server.put('/admin/shop/withdrawals', { preHandler: requireAdmin }, gone)
 }
