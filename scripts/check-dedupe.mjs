@@ -58,7 +58,7 @@ console.log('[check:dedupe] 检查依赖版本碎片化（pnpm dedupe --check）
 const result = spawnSync('pnpm dedupe --check', {
   cwd: ROOT,
   stdio: 'inherit',
-  shell: true,
+  shell: true,  windowsHide: true, // 防 Windows 弹可见 cmd 窗口
 })
 
 if (result.status === 0) {
