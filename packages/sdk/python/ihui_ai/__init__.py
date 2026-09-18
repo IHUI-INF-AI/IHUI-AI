@@ -29,6 +29,22 @@ from __future__ import annotations
 __version__ = "0.1.0"
 
 from .async_client import AsyncIhuiClient, create_async_client
+from .agent_engine import (
+    DEFAULT_BASE_URL as AGENT_ENGINE_BASE_URL,
+    ENGINE_ERROR_CODES,
+    ENGINE_METHODS,
+    ENGINE_NOTIFICATIONS,
+    ENGINE_STREAMING_METHODS,
+    Agent,
+    AgentApprovalRequest,
+    AgentConfig,
+    AgentEngineError,
+    AgentEngineEvent,
+    AgentToolContext,
+    AsyncAgent,
+    create_agent,
+    create_agent_async,
+)
 from .base import BaseClient, SdkConfig
 from .async_base import AsyncBaseClient
 from .client import IhuiClient, create_client
@@ -72,5 +88,20 @@ __all__ = [
     "parse_agent_stream_sync",
     "parse_chat_stream_async",
     "parse_agent_stream_async",
+    # Agent Engine 编程编排层(P2-④)
+    "create_agent",
+    "create_agent_async",
+    "Agent",
+    "AsyncAgent",
+    "AgentConfig",
+    "AgentEngineError",
+    "AgentEngineEvent",
+    "AgentToolContext",
+    "AgentApprovalRequest",
+    "ENGINE_METHODS",
+    "ENGINE_NOTIFICATIONS",
+    "ENGINE_STREAMING_METHODS",
+    "ENGINE_ERROR_CODES",
+    "AGENT_ENGINE_BASE_URL",
 ]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
