@@ -92,6 +92,8 @@ HOOK_SELF_HEAL = "self_heal"
 HOOK_THINKING_DELTA = "thinking.delta"
 HOOK_PLAN_STEP = "plan.step"
 HOOK_TERMINAL_DELTA = "terminal.delta"  # P0-B(2026-09-18):run_command 逐行 stdout/stderr
+HOOK_COMPACTION = "compaction"  # W9#5(2026-09-18):AgentLoopV2 上下文压缩发生(实时通知前端)
+HOOK_AGENT_STATUS = "agent.status"  # W9#6(2026-09-18):pause/cancel 过渡事件(pausing/cancelling/resuming)
 
 # ---------------------------------------------------------------------------
 # hook 事件 → SSE 事件映射
@@ -115,6 +117,8 @@ HOOK_EVENT_TO_SSE: dict[str, str] = {
     HOOK_THINKING_DELTA: "thinking",
     HOOK_PLAN_STEP: "plan-step",
     HOOK_TERMINAL_DELTA: "terminal-delta",
+    HOOK_COMPACTION: "compaction",
+    HOOK_AGENT_STATUS: "agent-status",
 }
 
 
@@ -146,4 +150,6 @@ AGENT_SUBSCRIBE_EVENTS: tuple[str, ...] = (
     HOOK_THINKING_DELTA,
     HOOK_PLAN_STEP,
     HOOK_TERMINAL_DELTA,
+    HOOK_COMPACTION,
+    HOOK_AGENT_STATUS,
 )

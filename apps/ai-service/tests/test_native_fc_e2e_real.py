@@ -11,7 +11,8 @@ routers/llm.py generic 路径透传 tools/tool_choice → llm_gateway.astream �
 SSE tool-call-start 事件(ToolCallEvent 契约:type/toolCallId/toolName/args)。
 
 可用性探测(模块导入时快照,conftest autouse fixture 会按测试清空环境):
-- OpenAI 兼容 provider:llm_providers JSON 的 stepfun 条目(国内直连,免代理);
+- OpenAI 兼容 provider:候选链按序回退(ihui 中转 → stepfun;llm_providers JSON 有 key 才入围,
+  上游配额/鉴权类拒绝运行时自动换下一个,全部失败才 fail);
 - Anthropic:os.environ ANTHROPIC_API_KEY 或 llm_providers JSON anthropic 条目。
 无 key 的测试用 pytest.mark.skipif 自动跳过,不在无 key 环境产生误报。
 
@@ -49,13 +50,39 @@ def _real_providers_json() -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-# OpenAI 兼容 provider:stepfun(国内直连;key 在 llm_providers JSON 中)
-_OPENAI_COMPAT_MODEL = os.environ.get(
-    "NATIVE_FC_E2E_OPENAI_COMPAT_MODEL", "stepfun/step-3.7-flash"
-)
-_HAS_OPENAI_COMPAT_KEY = bool(
-    (_real_providers_json().get("stepfun") or {}).get("api_key")
-)
+# OpenAI 兼容 provider 候选链(2026-09-18 立):单一上游配额耗尽(如 stepfun 402)不再拖死全量。
+# 顺序 = 自家 ihui 中转优先(产品自有链路,MiniMax-M2.7 原生 FC,配额自控),其次 stepfun。
+# 环境变量 NATIVE_FC_E2E_OPENAI_COMPAT_MODEL 仍可强制指定单个模型(优先级最高)。
+_PREFIX_TO_PROVIDER = {
+    "ihui": "ihui_relay",
+    "stepfun": "stepfun",
+    "openrouter": "openrouter",
+    "nvidia": "nvidia",
+    "gemini": "gemini",
+}
+_ALL_OPENAI_COMPAT_CANDIDATES = [
+    ("openrouter/deepseek/deepseek-chat", "openrouter"),
+    ("gemini/gemini-3.6-flash", "gemini"),
+    ("ihui/glm-5.3-flash", "ihui_relay"),
+    ("stepfun/step-3.7-flash", "stepfun"),
+]
+_FORCED_E2E_MODEL = os.environ.get("NATIVE_FC_E2E_OPENAI_COMPAT_MODEL", "").strip()
+if _FORCED_E2E_MODEL:
+    _OPENAI_COMPAT_CANDIDATES = [
+        (
+            _FORCED_E2E_MODEL,
+            _PREFIX_TO_PROVIDER.get(_FORCED_E2E_MODEL.split("/", 1)[0].lower(), ""),
+        )
+    ]
+else:
+    _OPENAI_COMPAT_CANDIDATES = _ALL_OPENAI_COMPAT_CANDIDATES
+# 仅保留 llm_providers JSON 里确有 key 的候选(无 key 的候选不参与,避免必失败重试)
+_OPENAI_COMPAT_MODELS = [
+    model
+    for model, provider_entry in _OPENAI_COMPAT_CANDIDATES
+    if provider_entry and (_real_providers_json().get(provider_entry) or {}).get("api_key")
+]
+_HAS_OPENAI_COMPAT_KEY = bool(_OPENAI_COMPAT_MODELS)
 
 # Anthropic:官方 key(os.environ)或 llm_providers JSON anthropic 条目
 _ANTHROPIC_MODEL = os.environ.get(
@@ -68,7 +95,7 @@ _HAS_ANTHROPIC_KEY = bool(
 
 requires_openai_compat_key = pytest.mark.skipif(
     not _HAS_OPENAI_COMPAT_KEY,
-    reason="未配置 OpenAI 兼容 provider key(llm_providers JSON 无 stepfun 条目),跳过真实 e2e",
+    reason="未配置任何 OpenAI 兼容 provider key(llm_providers JSON 候选链均无 key),跳过真实 e2e",
 )
 requires_anthropic_key = pytest.mark.skipif(
     not _HAS_ANTHROPIC_KEY,
@@ -197,26 +224,67 @@ def _assert_tool_call_start(events: list[dict[str, Any]], provider_desc: str) ->
 # =============================================================================
 
 
+def _is_upstream_rejection(events: list[dict[str, Any]]) -> bool:
+    """SSE 流内 error 是否为「上游配额/鉴权类拒绝」(402/401/429/quota/billing)。
+
+    这类错误换一个候选上游即可恢复,属可回退失败;真正的协议/转换缺陷不在此列。
+    """
+    for e in events:
+        if e.get("event") != "error":
+            continue
+        text = str(e.get("data") or "").lower()
+        if any(
+            marker in text
+            for marker in (
+                "402", "401", "403", "429", "quota", "billing", "insufficient",
+                "unauthorized", "api key", "subscription", "no active",
+            )
+        ):
+            return True
+    return False
+
+
 @requires_openai_compat_key
 async def test_openai_compat_provider_real_native_fc(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """OpenAI 兼容 provider(stepfun/*)真实全链路:
+    """OpenAI 兼容 provider 真实全链路(候选链按序回退,2026-09-18 改):
 
     HTTP tools/tool_choice → router 透传 → llm_gateway.astream(tools 存在 →
-    StepfunProvider 厂商原生流式)→ 流式 tool_calls 分片累积 →
-    SSE tool-call-start(toolName=get_weather,args 含 location=上海)。
+    厂商原生流式)→ 流式 tool_calls 分片累积 → SSE tool-call-start
+    (toolName=get_weather,args 含 location=上海)。
+
+    候选按 _OPENAI_COMPAT_MODELS 顺序尝试:上游配额/鉴权类拒绝(402/401/429/quota)
+    记录后换下一个;全部候选失败才 pytest.fail(带各候选失败原因,不静默跳过)。
     """
     _restore_real_llm_env(monkeypatch)
 
-    raw = await _stream_chat(client, {
+    body: dict[str, Any] = {
         "messages": _FORCE_TOOL_MESSAGES,
-        "model": _OPENAI_COMPAT_MODEL,
         "tools": _WEATHER_TOOLS,
         "tool_choice": "auto",
-    })
-    events = _parse_sse_events(raw)
-    _assert_tool_call_start(events, f"[{_OPENAI_COMPAT_MODEL}] OpenAI 兼容真实链路")
+        # 收紧 max_tokens(2026-09-18):默认 16000 会把低余额账户直接顶到 402
+        # (openrouter 实测 "can only afford 94");单轮工具调用 512 足够。
+        "max_tokens": 512,
+    }
+    failures: list[str] = []
+    for model in _OPENAI_COMPAT_MODELS:
+        body["model"] = model
+        try:
+            raw = await _stream_chat(client, body)
+        except (asyncio.TimeoutError, TimeoutError) as e:
+            failures.append(f"[{model}] 请求超时: {e!r}")
+            continue
+        events = _parse_sse_events(raw)
+        if _is_upstream_rejection(events):
+            err = next(e for e in events if e["event"] == "error")
+            failures.append(f"[{model}] 上游拒绝: {str(err.get('data'))[:200]}")
+            continue
+        _assert_tool_call_start(events, f"[{model}] OpenAI 兼容真实链路")
+        return
+    pytest.fail(
+        "全部 OpenAI 兼容候选上游均不可用(配额/鉴权类):\n" + "\n".join(failures)
+    )
 
 
 # =============================================================================
