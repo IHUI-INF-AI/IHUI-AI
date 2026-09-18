@@ -48,7 +48,12 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
       'prefer-const': 'error',
-      eqeqeq: ['error', 'always'],
+      // null: 'ignore' —— 保留 `x != null` 惯用法(2026-09-18)。
+      // 理由:`x != null` 是**同时**判 null 与 undefined 的唯一简洁写法(ESLint 官方文档与
+      // airbnb 配置均采用该选项)。对 `number | null | undefined` 这类字段,若硬改成 `!== null`,
+      // **undefined 会被放行** → 下游 `Number(undefined)` 得到 NaN,是真实行为缺陷,不是风格问题。
+      // 其余比较一律仍要求 `===` / `!==`。
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
       'react/react-in-jsx-scope': 'off',
       'react-hooks/rules-of-hooks': 'error',
       // zod 4 防回归：禁止已废弃 API，防止迁移后再次引入
