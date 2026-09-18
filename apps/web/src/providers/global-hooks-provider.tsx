@@ -65,6 +65,9 @@ const SHORTCUT_DESC_KEYS: Record<string, string> = {
   'Ctrl+3': 'desc.ctrl3',
   'Ctrl+4': 'desc.ctrl4',
   'Ctrl+5': 'desc.ctrl5',
+  'Ctrl+Alt+V': 'desc.ctrlAltV',
+  'Ctrl+Alt+B': 'desc.ctrlAltB',
+  'Ctrl+Alt+H': 'desc.ctrlAltH',
 }
 
 /**
