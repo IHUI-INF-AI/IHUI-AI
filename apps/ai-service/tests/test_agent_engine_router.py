@@ -334,7 +334,15 @@ async def test_rpc_streaming_events_keep_arrival_order_and_drop_foreign_thread(m
         for f in _sse_frames(resp.text)
         if f.get("method") == "thread/event"
     ]
-    assert events == ["tool.before", "message.receive"]
+    # 2026-09-18 第二批:引擎自产 environment_context(prompt 前)/ turn.usage
+    # (回合结束)也走 thread/event 通道。本用例假循环无等待,总线事件在轮尾
+    # 补扫才出,故 turn.usage 先于 tool.before/message.receive。
+    assert events == [
+        "environment_context",
+        "turn.usage",
+        "tool.before",
+        "message.receive",
+    ]
     # 其它会话的事件不得泄漏到本线程的流
     payloads = [
         f["params"]["payload"]["tool"]
@@ -463,7 +471,11 @@ def test_ws_long_prompt_does_not_block_followup_frames(monkeypatch):
             ws.send_json(_rpc("thread.prompt", {"threadId": thread_id, "input": "长跑"}, rid=2))
             # 主循环仍在跑(0.6s),立即发 ping:必须在 prompt 结束前拿到 pong
             ws.send_json(_rpc("engine.ping", rid=3))
+            # 2026-09-18 第二批起 prompt 会先推 environment_context 等通知帧,
+            # 跳过通知直到拿到 ping 响应(若通知先到恰好证明帧未阻塞)。
             early = ws.receive_json()
+            while "id" not in early:
+                early = ws.receive_json()
             assert early["id"] == 3, f"ping 被长跑帧阻塞,先收到 {early}"
             while True:
                 msg = ws.receive_json()
