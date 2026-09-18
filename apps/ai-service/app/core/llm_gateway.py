@@ -19,7 +19,7 @@ import socket
 import time
 from collections.abc import AsyncIterator
 from collections.abc import AsyncIterator as AsyncIteratorType
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress as _ctx_suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -1476,6 +1476,25 @@ class LLMGateway:
                 logger.warning("LLM_TOKEN_COMPACTION_FAILURE 指标记录失败(忽略): %s", metric_err)
             return messages, None
 
+    async def _emit_model_reroute(
+        self, requested: str | None, resolved: str
+    ) -> None:
+        """ModelReroute 事件(2026-09-18 第三批,对标 Codex ModelReroute)。
+
+        auto / ihui/auto-model 路由把请求模型改道到实际模型时发出,客户端与
+        审计侧可感知"实际用了哪个模型";失败降级绝不影响主链路。
+        """
+        try:
+            from ..services.hook_engine import hook_engine
+
+            with _ctx_suppress(Exception):
+                await hook_engine.emit(
+                    "model.reroute",
+                    {"requested": requested, "resolved": resolved},
+                )
+        except Exception:  # noqa: BLE001 - 事件发射绝不阻塞推理主链路
+            pass
+
     async def complete(
         self,
         messages: list[dict[str, Any]],
@@ -1509,10 +1528,13 @@ class LLMGateway:
                 has_tools=bool(kwargs.get("tools")),
                 messages=messages,
             )
+            # ModelReroute:改道可观测(2026-09-18 第三批)
+            await self._emit_model_reroute(model, used_model)
         elif model.lower() == "ihui/auto-model":
             # 2026-08-31 立:智汇 Auto-Model 服务端随机(成本可控版),
             # 不透传给极速随机,避免随机到 1:5~1:10 高成本模型压缩利润
             used_model = _resolve_ihui_auto_model()
+            await self._emit_model_reroute(model, used_model)
         else:
             used_model = model
         # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)

@@ -97,7 +97,11 @@ class TestConstants:
         # 2026-09-18 第二批:llm.retry 加入白名单(对标 Codex StreamError,
         # _llm_call_with_retry 重试/限流事件源)
         assert "llm.retry" in HOOK_EVENTS
-        assert len(HOOK_EVENTS) == 17
+        # 2026-09-18 第三批:tool.retry(工具重试事件,agent_loop_v2)
+        # + model.reroute(模型改道事件,llm_gateway auto 路由)
+        assert "tool.retry" in HOOK_EVENTS
+        assert "model.reroute" in HOOK_EVENTS
+        assert len(HOOK_EVENTS) == 19
 
     def test_action_types(self):
         assert "webhook" in HOOK_ACTION_TYPES
