@@ -303,6 +303,16 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写
 
 ---
 
+## 5e. Server酱微信推送通知(2026-09-18 接入)
+
+- skill:`serverchan`(easychen/serverchan-skill,自包含),已装于开发机与生产机 `~/.workbuddy/skills/serverchan` + `~/.agents/skills/serverchan`;SendKey 走用户环境变量 `SERVERCHAN_SENDKEY`(两台机 HKCU 均已写入,密钥备份在 `F:/BaiduSyncdisk/密钥/Server酱SendKey.txt`,**绝不入仓/入日志/回显**)。
+- 用途:长任务完成/阻塞待决策、生产告警、部署失败等需要用户手机知道的事件。调用方式:读 skill 后按内联 curl 发送,或直接 `POST https://sctapi.ftqq.com/$SERVERCHAN_SENDKEY.send`(title 必填,desp 支持 Markdown)。
+- 标题规约:开发机以 `【开发环境】`、生产机以 `【生产环境】` 开头,便于区分来源。
+- **免费额度仅 5 条/天**:只推真正需要立即知晓的事件,批量任务合并为一条,禁止逐文件/逐步骤刷推送;测试推送消耗额度需节制。
+- SendKey 前缀 `SCT`=Turbo 端点(sctapi.ftqq.com);若将来换 `sctp` 前缀=SC3 端点,skill 自动识别。
+
+---
+
 ## 6. 验证命令
 
 ```bash
