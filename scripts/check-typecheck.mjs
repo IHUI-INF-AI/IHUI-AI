@@ -81,8 +81,34 @@ function getScopeFiles() {
   if (fromPush.length > 0) return { files: fromPush, source: 'push-scope' }
 
   const staged = getStagedFiles()
+  // 第三兜底(2026-09-18):push-scope 为空 + 暂存区为空/不可用时,用 origin/main..HEAD
+  // 差集推断本次推送范围。场景:后台 refspec 推送不产生暂存区,且 pre-push 侧
+  // PUSH_SCOPE_FILES 因异常算出空集(实测日志 4 例"无可判定改动范围,无降级"),
+  // 此时他人工作区噪音会硬拦推送。安全性:head-diff 只含已提交文件;合并收敛场景
+  // 可能比真实推送范围宽(含他人已提交文件),方向是"更易降级"而非"漏拦"——
+  // 本会话自身提交必在 HEAD 祖先链里,落在其上的报错仍会维持阻塞。
+  if (staged === null || staged.length === 0) {
+    const headDiff = getHeadDiffFiles()
+    if (headDiff && headDiff.length > 0) return { files: headDiff, source: 'head-diff' }
+  }
   if (staged === null) return { files: null, source: 'unavailable' }
   return { files: staged, source: 'staged' }
+}
+
+/** origin/main..HEAD 已提交差集(仓库根相对路径,统一 /);git 失败返回 null */
+function getHeadDiffFiles() {
+  try {
+    const out = execFileSync('git', ['-C', ROOT, 'diff', '--name-only', 'origin/main', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    return out
+      .split(/\r?\n/)
+      .map((l) => l.trim().replaceAll('\\', '/'))
+      .filter(Boolean)
+  } catch {
+    return null
+  }
 }
 
 /** 从 tsc/mypy 错误输出中提取报错文件路径(tsc 为 package 相对路径,mypy 可能为绝对路径),去重 */
@@ -230,7 +256,9 @@ const scopeLabel =
     ? 'push-scope(本次推送改动范围)'
     : scope.source === 'staged'
       ? 'staged-scope(暂存区)'
-      : '不可用(git 故障)'
+      : scope.source === 'head-diff'
+        ? 'head-diff(origin/main..HEAD 推断兜底)'
+        : '不可用(git 故障)'
 
 if (DRY_RUN) {
   console.log('[check-typecheck] --dry-run 干跑:不实际运行 typecheck')
@@ -274,6 +302,17 @@ child.on('close', (code) => {
   if (code === 0) {
     console.log('[check-typecheck] ✅ 全量 typecheck 验证通过')
     process.exit(0)
+  }
+
+  // 2026-09-18 中断分类:进程被外部杀死(CTRL_C 注入/宿主清树/管道中断)≠ 类型检查结论。
+  // 实测日志 39 次 exit 3221225786(0xC000013A)被误打印成"❌ 全量 typecheck 失败,推送已阻止",
+  // 随后 guard 按"其他 agent 代码失败"规则 --no-verify 绕过真实门禁重推。现以 75(临时失败)
+  // 退出,guardian-runner/hook/guard 全链路据此带 hook 重试,拿到真实类型检查结论。
+  const INTERRUPT_EXIT_CODES = new Set([130, 137, 141, 143, 3221225786])
+  if (INTERRUPT_EXIT_CODES.has(code)) {
+    console.error(`[check-typecheck] ⚠️ typecheck 进程被中断(exit ${code},CTRL_C/管道中断),非类型检查结论`)
+    console.error('[check-typecheck] ⏭️ 按临时失败处理(exit 75)—— push 侧将带 hook 重试以获取真实结论')
+    process.exit(75)
   }
 
   // 2026-08-31:staged-scope 降级判定(改动原因见文件头注释)

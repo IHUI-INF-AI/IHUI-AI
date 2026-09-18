@@ -1223,8 +1223,14 @@ for (const check of effectiveChecks) {
     if (showTiming) {
       console.log(`  ${C.dim}⏱  ${Date.now() - checkStart}ms${C.reset}`)
     }
-  } catch {
+  } catch (e) {
     const elapsed = Date.now() - checkStart
+    // 2026-09-18 中断传播:子检查以 exit 75(临时失败/被中断)退出 ≠ 检查结论失败,
+    // 必须原样向上传播(hook → push guard 据此带 hook 重试),不得收敛成 1。
+    if (check.mode === 'blocking' && e && e.status === 75) {
+      console.error(`⏭️ [${check.id}] ${check.label} 被中断(exit 75 临时失败)—— 非检查结论,以 75 向上传播`)
+      process.exit(75)
+    }
     // 2026-08-19 立:catch {} 同时覆盖三种情况 — 脚本 exit 1 / 脚本崩溃 / 脚本不存在
     // stdio:inherit 已把 stderr/stdout 透传给上游,无需额外 silent-skip 检测。
     // (执行 stdio:inherit 后,子进程任何 stdout/stderr 都会立即打印,
