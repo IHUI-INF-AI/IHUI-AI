@@ -60,6 +60,12 @@ export interface SearchInputProps extends Omit<React.ComponentProps<'input'>, 's
   clearAriaLabel?: string
   /** 外层容器附加类(用于宽度约束,如 max-w-xs / w-full) */
   wrapperClassName?: string
+  /**
+   * 清空按钮的 data-testid(2026-09-18)。
+   * 清空按钮由本组件内部渲染,调用方无法通过 props 透传 testid(顶层 data-testid 会落到
+   * <input> 上),导致下游单测无法稳定定位该按钮。需要断言的调用方用本属性显式指定。
+   */
+  clearTestId?: string
 }
 
 const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
@@ -68,6 +74,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
       size = 'md',
       clearable = false,
       clearAriaLabel,
+      clearTestId,
       wrapperClassName,
       className,
       value,
@@ -103,6 +110,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
                 onChange?.(target)
               }}
               aria-label={clearAriaLabel}
+              data-testid={clearTestId}
               className={cn(
                 'inline-flex shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
                 s.clear,

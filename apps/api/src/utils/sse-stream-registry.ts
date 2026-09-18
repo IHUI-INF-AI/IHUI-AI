@@ -171,4 +171,66 @@ export function emitUpstreamLine(session: StreamSession, line: string): void {
 export function emitEvent(session: StreamSession, payloadJson: string): void {
   emitUpstreamLine(session, `data: ${payloadJson}`)
 }
+
+/**
+ * 写出一个**带事件名**的完整帧(2026-09-18 立):`event: <name>` + `data: <json>`。
+ *
+ * 动机:compaction 等首事件此前是 data-only 帧,与 chunk/done 等命名帧协议不统一。
+ * 与 emitEvent 同样编号 + 进回放缓冲(rawLine 存两行,pushEvent 的
+ * `id: N\n${rawLine}\n\n` 组帧方式天然兼容多行 rawLine),重放后仍是合法命名帧。
+ */
+export function emitNamedEvent(
+  session: StreamSession,
+  eventName: string,
+  payloadJson: string,
+): void {
+  const frame = `event: ${eventName}\ndata: ${payloadJson}`
+  const canBuffer = session.replayKey !== null && payloadJson !== '' && payloadJson !== '[DONE]'
+  if (canBuffer) {
+    session.seq += 1
+    write(session, `id: ${session.seq}\n${frame}\n\n`)
+    pushEvent(session.replayKey!, { id: session.seq, rawLine: frame })
+    return
+  }
+  write(session, `${frame}\n\n`)
+}
+
+/**
+ * 主动中止某会话正在进行的流(2026-09-18 立,「停止」按钮的服务端闭环)。
+ *
+ * 背景:此前前端点停止只断开 SSE 连接,网关侧的上游 fetch 仍靠 15s 宽限期
+ * 超时才 abort —— ai-service 的工具子进程/浏览器操作会继续跑完,浪费额度
+ * 且留下脏状态。本函数提供显式中止通道给 `POST /api/ai/chat/abort` 调用。
+ *
+ * 语义:
+ * - 会话键为 replayKey = `${conversationId}:${messageId}`;给 messageId 时精确匹配,
+ *   否则中止该 conversationId 下所有未结束的流(切会话/多消息并发场景)。
+ * - 中止前先写一帧 `{type:'cancelled', reason:'user_abort'}`(进缓冲可重放),
+ *   让多端同步场景下的其它客户端也能收到终止标记。
+ * - 幂等:已结束(finished)的流跳过;重复调用返回 0,不抛错。
+ *
+ * 限制:注册表为**进程内**结构,多副本部署时需会话粘性路由才能保证命中
+ * (本项目当前单副本部署,AP 层无横向扩展)。
+ */
+export function abortConversationStreams(conversationId: string, messageId?: string): number {
+  if (!conversationId) return 0
+  const exact = messageId ? `${conversationId}:${messageId}` : null
+  const prefix = `${conversationId}:`
+  let aborted = 0
+  for (const [key, session] of sessions) {
+    if (session.finished) continue
+    if (exact ? key !== exact : !key.startsWith(prefix)) continue
+    try {
+      emitEvent(
+        session,
+        JSON.stringify({ type: 'cancelled', reason: 'user_abort', messageId: messageId ?? null }),
+      )
+    } catch {
+      /* 终止帧写出失败不阻塞中止动作 */
+    }
+    session.controller.abort()
+    aborted++
+  }
+  return aborted
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
