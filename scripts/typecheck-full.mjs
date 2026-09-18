@@ -72,6 +72,63 @@ function cleanTsbuildinfo(dir, removed = []) {
   return removed
 }
 
+// ─── 全局串行锁(2026-09-18 晚根治):杜绝多会话并行全量 typecheck ──
+// 事故实证(WMI 取证):20:58/20:59 两棵 pnpm -r typecheck 树并行,CPU 打满且
+// 各拉 ~30 个 cmd.exe 子进程。mkdir 原子锁 + 持有者 pid 存活检测(死进程残留锁
+// 立即接管,stale 20min 兜底),与 git 写锁同款模式。
+import { mkdirSync as _mkLock, readFileSync as _rdLock, writeFileSync as _wrLock, rmSync as _rmLock } from 'node:fs'
+const _lockDir = resolve(ROOT, '.workbuddy/typecheck.lock')
+const _lockMeta = join(_lockDir, 'meta.json')
+const _LOCK_STALE_MS = 20 * 60 * 1000
+
+// ─── 再入守卫(2026-09-18 深夜根治递归进程树洪水) ─────────────────────
+// 根包 package.json "typecheck" = 本脚本(供 `pnpm typecheck` 直跑全量门)。
+// 一旦 pnpm -r 把根包纳入执行(实测 ZOIMas 任务:根包被跑 → 本脚本再起 pnpm -r
+// → 根包又被跑 → 指数级 node/pnpm/cmd 进程树,26 分钟进程洪水,CPU 打满且
+// 派生链拉爆控制台),必须立即终止再入层:父层已在跑同一全量门,子层 exit 0 即可。
+if (process.env.IHUI_TYPECHECK_FULL_CHILD === '1') {
+  console.log('[typecheck:full] 检测到再入(父层全量门已在跑),根包层跳过(exit 0)')
+  process.exit(0)
+}
+process.env.IHUI_TYPECHECK_FULL_CHILD = '1' // 传给 pnpm -r 子进程链
+function _pidAlive(pid) {
+  if (!pid) return true
+  try {
+    process.kill(Number(pid), 0)
+    return true
+  } catch (e) {
+    return e.code === 'EPERM'
+  }
+}
+for (;;) {
+  try {
+    _mkLock(_lockDir, { recursive: false })
+    _wrLock(_lockMeta, JSON.stringify({ pid: process.pid, ts: Date.now() }))
+    break
+  } catch {
+    let meta = null
+    try {
+      meta = JSON.parse(_rdLock(_lockMeta, 'utf8'))
+    } catch {
+      /* meta 缺失按未知处理 */
+    }
+    const stale = !meta || Date.now() - (meta.ts ?? 0) > _LOCK_STALE_MS || !_pidAlive(meta.pid)
+    if (stale) {
+      _rmLock(_lockDir, { recursive: true, force: true })
+      continue
+    }
+    console.log(`[typecheck:full] 另一全量 typecheck 进行中(pid ${meta.pid}),串行等待...`)
+    spawnSync(process.execPath, ['-e', 'setTimeout(()=>{},5000)'], { stdio: 'ignore', windowsHide: true })
+  }
+}
+process.on('exit', () => {
+  try {
+    _rmLock(_lockDir, { recursive: true, force: true })
+  } catch {
+    /* 忽略 */
+  }
+})
+
 console.log('[typecheck:full] 清除 .tsbuildinfo 增量缓存...')
 const removed = cleanTsbuildinfo(ROOT)
 if (removed.length === 0) {
