@@ -510,4 +510,26 @@ if (process.env.HUSKY_SKIP_PWSH_VERSION_GUARD !== '1') {
   console.log('⏭  PowerShell 版本声明守门(HUSKY_SKIP_PWSH_VERSION_GUARD=1, 跳过)')
 }
 
+// 🔌 Agent Engine 协议 parity 守门(2026-09-18 立,blocking)
+// 背景:P2-③ JSON-RPC 编排引擎的方法名/通知名/错误码同时存在于三处 —— 引擎 handler 表
+//      (apps/ai-service/app/services/agent_engine.py)+ TS 编程编排层(packages/sdk/src/
+//      agent-engine.ts)+ Python 编程编排层(packages/sdk/python/ihui_ai/agent_engine.py)。
+//      单边改名会让第三方调用方到运行时才炸,故三方静态对齐后才允许提交。
+// 跳过方法(紧急):HUSKY_SKIP_AGENT_ENGINE_PARITY=1 git commit ...
+if (process.env.HUSKY_SKIP_AGENT_ENGINE_PARITY !== '1') {
+  if (
+    !run(
+      '🔌 Agent Engine 协议 parity 守门(引擎 handler 表 ↔ TS ↔ Python)...',
+      'node scripts/check-agent-engine-parity.mjs --quiet',
+    )
+  ) {
+    console.error('❌ Agent Engine 协议 parity 守门失败,提交已阻止')
+    console.error('   修复:三方同步改动 engine handler 表 / TS 常量 / Python 常量')
+    console.error('   紧急跳过:HUSKY_SKIP_AGENT_ENGINE_PARITY=1 git commit ...')
+    process.exit(1)
+  }
+} else {
+  console.log('⏭  Agent Engine 协议 parity 守门(HUSKY_SKIP_AGENT_ENGINE_PARITY=1, 跳过)')
+}
+
 console.log('✅ Pre-commit 检查通过')

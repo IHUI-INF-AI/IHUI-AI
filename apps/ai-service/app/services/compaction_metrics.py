@@ -74,6 +74,21 @@ context_recall_queries_total = Counter(
     ["hit"],
 )
 
+# 推理保留率分布(P1-②,2026-09-18):决策链保留接线前后最直接的对照指标 ——
+# 0 = 每轮决策的推理都被压缩吃掉,1 = 全部保留。仅在实际注入决策链时观测。
+compaction_reasoning_retention = Histogram(
+    "ihui_compaction_reasoning_retention",
+    "Reasoning retention ratio of compaction (retained decision turns / total turns)",
+    buckets=(0.0, 0.2, 0.4, 0.5, 0.6, 0.8, 0.9, 0.95, 1.0),
+)
+
+# 决策链注入条数分布(0 = 未注入/无可蒸馏项)
+compaction_decision_chain_entries = Histogram(
+    "ihui_compaction_decision_chain_entries",
+    "Number of distilled decision-chain entries injected into the summary",
+    buckets=(0, 1, 2, 3, 5, 8, 12, 20),
+)
+
 # =============================================================================
 # 进程内结构化存储(有界,线程安全)
 # =============================================================================
@@ -140,6 +155,21 @@ def record_compaction_event(
                 raw = report.get("retention_ratio")
                 if isinstance(raw, int | float):
                     retention = round(float(raw), 4)
+        # P1-②(2026-09-18):决策链保留的两个观测维度 —— 注入条数 + 推理保留率。
+        # 推理保留率来自决策链注入后的自证(compaction_quality.assess_reasoning_retention),
+        # 仅在真正注入时携带;缺失一律记 None(不虚报 0,避免与"推理全丢"混淆)。
+        chain_entries = 0
+        chain = info.get("decision_chain")
+        if isinstance(chain, dict):
+            raw_entries = chain.get("entries")
+            if isinstance(raw_entries, int | float):
+                chain_entries = int(raw_entries)
+        reasoning_retention = None
+        rr = info.get("reasoning_retention")
+        if isinstance(rr, dict):
+            raw_rr = rr.get("retention_ratio")
+            if isinstance(raw_rr, int | float):
+                reasoning_retention = round(float(raw_rr), 4)
         metric: dict[str, Any] = {
             "event_id": f"cme-{uuid.uuid4().hex[:12]}",
             "session_id": session_id,
@@ -152,6 +182,8 @@ def record_compaction_event(
             "ratio": ratio,
             "duration_ms": round(float(duration_ms), 3),
             "retention_ratio": retention,
+            "decision_chain_entries": chain_entries,
+            "reasoning_retention_ratio": reasoning_retention,
             "recorded_at": time.time(),
         }
         # Prometheus 通道
@@ -159,6 +191,10 @@ def record_compaction_event(
         if original_tokens > 0:
             compaction_ratio.observe(ratio)
         compaction_duration_seconds.observe(max(0.0, float(duration_ms)) / 1000.0)
+        if chain_entries > 0:
+            compaction_decision_chain_entries.observe(chain_entries)
+        if reasoning_retention is not None:
+            compaction_reasoning_retention.observe(reasoning_retention)
         # 进程内通道
         with _lock:
             _events.append(metric)
@@ -238,6 +274,7 @@ def get_compaction_metrics_report(limit: int = 50) -> dict[str, Any]:
 
     Returns:
         {events_total, avg_ratio, avg_duration_ms, avg_retention_ratio,
+         avg_reasoning_retention_ratio, chain_injected_events, avg_decision_chain_entries,
          by_trigger, recall: {queries, hits, hit_rate},
          runs: {total, success, success_rate},
          recent_events(最新 limit 条)}。
@@ -255,6 +292,18 @@ def get_compaction_metrics_report(limit: int = 50) -> dict[str, Any]:
         for e in events
         if isinstance(e.get("retention_ratio"), int | float)
     ]
+    # P1-②(2026-09-18):推理保留率 / 决策链注入量单列汇总(仅统计真正注入的事件)
+    reasoning_retentions = [
+        e["reasoning_retention_ratio"]
+        for e in events
+        if isinstance(e.get("reasoning_retention_ratio"), int | float)
+    ]
+    chain_entries = [
+        e["decision_chain_entries"]
+        for e in events
+        if isinstance(e.get("decision_chain_entries"), int | float)
+        and int(e["decision_chain_entries"]) > 0
+    ]
     by_trigger: dict[str, int] = {}
     for e in events:
         by_trigger[str(e.get("trigger", "unknown"))] = (
@@ -269,6 +318,12 @@ def get_compaction_metrics_report(limit: int = 50) -> dict[str, Any]:
         "avg_ratio": _avg(ratios),
         "avg_duration_ms": _avg(durations),
         "avg_retention_ratio": _avg(retentions),
+        # 决策链保留(P1-②):avg_reasoning_retention_ratio = 平均推理保留率(仅注入过的事件),
+        # chain_injected_events = 发生过决策链注入的压缩事件数,
+        # avg_decision_chain_entries = 平均注入决策条数。
+        "avg_reasoning_retention_ratio": _avg(reasoning_retentions),
+        "chain_injected_events": len(reasoning_retentions),
+        "avg_decision_chain_entries": _avg(chain_entries),
         "by_trigger": by_trigger,
         "recall": {
             "queries": queries,
