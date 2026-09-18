@@ -1,0 +1,44 @@
+{
+  "generated_at": "2026-09-18T03:46:01.006Z",
+  "repository": "IHUI-INF-AI/IHUI-AI",
+  "tag": "desktop-v0.1.34",
+  "windows_installer_available": true,
+  "notes": [
+    "v0.1.34 is the latest release with a Windows NSIS installer.",
+    "v0.1.35 has Linux/macOS assets only and no Windows installer on GitHub or Gitee.",
+    "latest.json is downloaded from desktop-v0.1.35 for reference and contains no windows-x86_64 platform.",
+    "No local v0.1.35 Windows installer build residue was found."
+  ],
+  "files": [
+    {
+      "filename": "AI_0.1.34_x64-setup.exe",
+      "version": "0.1.34",
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.34/AI_0.1.34_x64-setup.exe",
+      "sha256": "7c3c0fddc305e85c6b119fab95b9c7c072b0698f494ac01a1726fd7c3f999899",
+      "size_bytes": 12017966,
+      "format": "Windows NSIS installer",
+      "source": "github",
+      "download_at": "2026-09-18T03:46:01.006Z"
+    },
+    {
+      "filename": "AI_0.1.34_x64-setup.exe.sig",
+      "version": "0.1.34",
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.34/AI_0.1.34_x64-setup.exe.sig",
+      "sha256": "192a79abdd54bbd3146e4796af89f677799abf96f970262c2560b8b343590e4b",
+      "size_bytes": 420,
+      "format": "Tauri updater signature",
+      "source": "github",
+      "download_at": "2026-09-18T03:46:01.006Z"
+    },
+    {
+      "filename": "latest.json",
+      "version": "0.1.35",
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.35/latest.json",
+      "sha256": "8aeae470f566dadfdee8d376947ce614702645319763dd2f88c8551772bed24f",
+      "size_bytes": 1899,
+      "format": "Updater metadata JSON",
+      "source": "github",
+      "download_at": "2026-09-18T03:46:01.006Z"
+    }
+  ]
+}

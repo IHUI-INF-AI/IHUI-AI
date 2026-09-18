@@ -1,0 +1,19 @@
+{
+  "version": "0.1.35",
+  "notes": "桌面端安装包(Tauri 2 + Rust + React)。详见 CHANGELOG。",
+  "pub_date": "2026-09-18T03:10:02.044Z",
+  "platforms": {
+    "linux-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdFpJOGZDTWtxRTJOYitTU3JmT2lqbWoySnlDcjkrK284YlB6RkZ4LzA1N01VemxrcGkwYmg4bXZtSGJwdEY4TmVzWFZUNys3TWhDN1hjZFZHOHNTa3cwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NzAwNjE4CWZpbGU65pm65rGHQUlfMC4xLjM1X2FtZDY0LkFwcEltYWdlCkI1VXJmaGNEUkUvZmNHazgzclQ5S2NIV1NYRitmVjN1cGFRT05ocnNPSzZycFZvZkVVeFFIRFcvOCtyUXhIb2czUTV1WUtWYWNzM2VhbzdleVFCbEN3PT0K",
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.35/AI_0.1.35_amd64.AppImage"
+    },
+    "darwin-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGJWb1ZpVmtITVlEZzBsaUx1U1JXZUlnNWhuUmRGY25uZmM5QllzMTZNQ213RzFVeU82U1hvd2VwZmxjUHF3RFpXVmRJTzlDWmdWRnJYNU8vZmJ6R0FFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NzAwOTE0CWZpbGU65pm65rGHQUkuYXBwLnRhci5negoyK2dHQnhCdmFndFBNNTZ3amtYU2tMY0FGektzdU0zSmRUb3A1REw4ek9ZZ2JWQ1JHMlR4azlsTkIwWXl5N2lIUHdUOEovQVFFNmQ5ZXJzc21lWGlDdz09Cg==",
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.35/AI_universal.app.tar.gz"
+    },
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdGJWb1ZpVmtITVlEZzBsaUx1U1JXZUlnNWhuUmRGY25uZmM5QllzMTZNQ213RzFVeU82U1hvd2VwZmxjUHF3RFpXVmRJTzlDWmdWRnJYNU8vZmJ6R0FFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NzAwOTE0CWZpbGU65pm65rGHQUkuYXBwLnRhci5negoyK2dHQnhCdmFndFBNNTZ3amtYU2tMY0FGektzdU0zSmRUb3A1REw4ek9ZZ2JWQ1JHMlR4azlsTkIwWXl5N2lIUHdUOEovQVFFNmQ5ZXJzc21lWGlDdz09Cg==",
+      "url": "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.35/AI_universal.app.tar.gz"
+    }
+  }
+}
