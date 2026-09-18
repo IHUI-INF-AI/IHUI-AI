@@ -76,6 +76,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.output_cleaning import strip_ansi as _strip_ansi
+
 from .session_store import SessionStore
 
 logger = logging.getLogger(__name__)
@@ -1882,6 +1883,17 @@ class AgentEngine:
                     "totalTokensUsed": int((result or {}).get("totalTokensUsed") or 0),
                 },
             )
+        # Stop(第十二批,对标 Codex Stop 钩子):本轮代理工作结束
+        await self._emit_hook(
+            "agent.stop",
+            {
+                "threadId": thread.thread_id,
+                "sessionId": thread.session_id,
+                "turnId": turn_id,
+                "success": bool((result or {}).get("success")),
+                "durationMs": thread.last_turn_timing.get("durationMs"),
+            },
+        )
         # auto-compact(2026-09-18 第四批,对标 Codex compact_token_budget
         # inline auto-compaction):估算 token 超阈值即确定性压缩,零 LLM 成本。
         if thread.auto_compact:
@@ -2093,6 +2105,16 @@ class AgentEngine:
             await loop.cancel() if mode == "cancel" else await loop.pause()
         )
         thread.checkpoint_id = checkpoint_id or thread.checkpoint_id
+        # Interrupt(第十二批,对标 Codex Interrupt 钩子)
+        await self._emit_hook(
+            "agent.interrupt",
+            {
+                "threadId": thread.thread_id,
+                "sessionId": thread.session_id,
+                "mode": mode,
+                "checkpointId": thread.checkpoint_id,
+            },
+        )
         return {
             "threadId": thread.thread_id,
             "interrupted": True,
@@ -2704,6 +2726,11 @@ class AgentEngine:
         if task is not None:
             task.cancel()
 
+    async def _emit_hook(self, event: str, context: dict[str, Any]) -> None:
+        """钩子事件统一发射(对标 Codex hooks 分发;总线异常吞掉不影响主流程)。"""
+        with contextlib.suppress(Exception):
+            await self._hook_bus().emit(event, context)
+
     async def _emit_engine_event(
         self,
         thread: EngineThread,
@@ -2735,7 +2762,6 @@ class AgentEngine:
 
     def _builtin_tool_definitions(self, thread: EngineThread) -> list[Any]:
         """构造引擎内置工具定义(宿主同名覆盖 / denyTools / tools 白名单生效)。"""
-        from .agent_loop_v2 import ToolDefinition
 
         whitelist = thread.tool_names
         host_names = set(thread.host_tools)
@@ -2869,6 +2895,16 @@ class AgentEngine:
                 sub_params["model"] = thread.model
             # 一次性子线程:headless 语义跑完即弃内存(store 留痕);事件经 noop
             # 发射器静默,不污染父线程事件流,结果结构化回传。
+            # SubagentStart(第十二批,对标 Codex SubagentStart 钩子)
+            await self._emit_hook(
+                "subagent.start",
+                {
+                    "threadId": thread.thread_id,
+                    "sessionId": thread.session_id,
+                    "role": role,
+                    "promptChars": len(sub_params["input"]),
+                },
+            )
             started = await self._handle_thread_start(sub_params, _noop_emitter)
             sub_thread = self._threads.get(started["threadId"])
             if sub_thread is not None:
@@ -2880,6 +2916,17 @@ class AgentEngine:
                 thread_obj = self._threads.pop(started["threadId"], None)
                 if thread_obj is not None:
                     thread_obj.status = "closed"
+            # SubagentStop(第十二批,对标 Codex SubagentStop 钩子)
+            await self._emit_hook(
+                "subagent.stop",
+                {
+                    "threadId": thread.thread_id,
+                    "sessionId": thread.session_id,
+                    "subThreadId": started["threadId"],
+                    "role": role,
+                    "success": result.get("success"),
+                },
+            )
             return {
                 "threadId": started["threadId"],
                 "role": role,
