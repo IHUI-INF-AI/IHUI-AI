@@ -38,6 +38,9 @@ type RechargeValues = z.infer<typeof rechargeSchema>
 
 interface PaymentCreateData {
   outTradeNo: string
+  amount?: number
+  codeUrl?: string
+  payUrl?: string
   mock?: boolean
 }
 
@@ -64,20 +67,38 @@ export default function RechargePage() {
     setServerError(null)
     setSubmitting(true)
     try {
-      const url =
+      // 2026-09-18 修复:
+      // 1) 微信端点金额单位是"分",此前直接传元导致充 100 元实际只下 1 元订单;
+      // 2) 必须带 orderType=2(token 充值订单),否则支付成功后回调不充值入账;
+      // 3) 微信改用 native 下单返回 code_url(PC 扫码),原 jsapi 需微信内 openId,PC 网页根本付不了。
+      const r =
         values.method === 'wechat'
-          ? `/api/payments/wechat/create?amount=${values.amount}`
-          : `/api/payments/alipay/create?amount=${values.amount}`
-      const r = await fetchApi<PaymentCreateData>(url, { method: 'POST' })
-      if (r.success) {
-        router.push(`/wallet/recharge/success?orderNo=${r.data.outTradeNo}`)
-      } else {
+          ? await fetchApi<PaymentCreateData>(
+              `/api/payments/wechat/native?amount=${values.amount * 100}&orderType=2&description=${encodeURIComponent('余额充值')}`,
+              { method: 'POST' },
+            )
+          : await fetchApi<PaymentCreateData>(
+              `/api/payments/alipay/create?amount=${values.amount}&orderType=2&subject=${encodeURIComponent('余额充值')}`,
+              { method: 'POST' },
+            )
+      if (!r.success) {
         setServerError(r.error)
-        router.push('/wallet/recharge/fail?orderNo=')
+        return
       }
+      if (r.data.mock || (!r.data.codeUrl && !r.data.payUrl)) {
+        setServerError('支付通道暂未开通（商户配置缺失），订单未创建。请联系管理员配置支付商户。')
+        return
+      }
+      const params = new URLSearchParams({
+        orderNo: r.data.outTradeNo,
+        amount: String(values.amount),
+        method: values.method,
+      })
+      if (r.data.codeUrl) params.set('codeUrl', r.data.codeUrl)
+      if (r.data.payUrl) params.set('payUrl', r.data.payUrl)
+      router.push(`/wallet/recharge/success?${params.toString()}`)
     } catch (err) {
       setServerError(err instanceof Error ? err.message : t('rechargeFailDesc'))
-      router.push('/wallet/recharge/fail?orderNo=')
     } finally {
       setSubmitting(false)
     }

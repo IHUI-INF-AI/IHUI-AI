@@ -186,13 +186,14 @@ export interface StripeEvent {
 
 /**
  * 验证 Stripe Webhook 签名并解析事件。
- * - DEV 环境 + 未配置 STRIPE_WEBHOOK_SECRET 时降级直接 parse(便于本地测试)
+ * - 未配置 STRIPE_WEBHOOK_SECRET 时默认 fail-closed;仅当显式设置
+ *   ALLOW_INSECURE_WEBHOOKS=1(本地联调)才降级直接 parse。
  * - 生产环境强制验签 + 时间戳防重放(5 分钟窗口)
  */
 export function verifyWebhookSignature(payload: string, signature: string): StripeEvent {
   const secret = env.STRIPE_WEBHOOK_SECRET
   if (!secret) {
-    if (env.NODE_ENV !== 'production') {
+    if (env.ALLOW_INSECURE_WEBHOOKS === '1' && env.NODE_ENV !== 'production') {
       return JSON.parse(payload) as StripeEvent
     }
     throw new Error('STRIPE_WEBHOOK_SECRET not configured')
