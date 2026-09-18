@@ -351,7 +351,10 @@ export default function AgentDetailPage() {
               <AgentSwarmMonitor swarmId={agent.agentId} swarmData={runtime?.swarmData ?? null} />
             </TabsContent>
             <TabsContent value="checkpoint" className="mt-3 space-y-4">
-              <CheckpointHistoryPanel checkpoints={runtime?.checkpoints ?? []} />
+              <CheckpointHistoryPanel
+                checkpoints={runtime?.checkpoints ?? []}
+                sessionId={agent.agentId}
+              />
             </TabsContent>
             <TabsContent value="plan" className="mt-3 space-y-4">
               <PlanReviewPanel plan={runtime?.plan ?? { steps: [] }} />

@@ -40,6 +40,8 @@ import { TerminalSection } from '@/components/ai/progress-sections/terminal-sect
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
 import { CitationBar } from '@/components/ai/progress-sections/citation-bar'
 import { MemoryNoticeBar } from '@/components/ai/progress-sections/memory-notice-bar'
+// 2026-09-19 立:上下文压缩分隔线(compaction 命名帧 → onCompaction → store setMessageCompaction)
+import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
 // P3 #36(2026-09-16 立):消息流内 best-of 并排对比卡(按 meta.bestOfRunId 关联)
 import { BestOfCompare } from '@/components/ai/best-of-compare'
 import { plainTextForClipboard } from '@/components/ai/progress-sections/message-context-menu'
@@ -58,6 +60,7 @@ import {
   TypingIndicator,
   formatMessageTimestamp,
   MessageUsageBadge,
+  MessageUsageMetrics,
   UsageBreakdown,
   ACTION_BTN_CLASS,
 } from './message-item-parts'
@@ -556,6 +559,10 @@ const MessageItem = React.memo(function MessageItem({
               !contentVisible && 'max-h-20 overflow-hidden',
             )}
           >
+            {/* 2026-09-19 立:上下文压缩分隔线 — 本消息生成前发生了上下文压缩
+                (compaction 命名帧 → onCompaction → store setMessageCompaction 写入),
+                置于消息内容区顶部(思考区之前),提示"上方历史已压缩为摘要"。 */}
+            {m.compaction && <CompressionDivider compaction={m.compaction} />}
             {m.reasoning && (
               <ThinkingSection
                 content={m.reasoning}
@@ -731,6 +738,7 @@ const MessageItem = React.memo(function MessageItem({
                             applyStatus={tc.applyStatus}
                             applyError={tc.applyError}
                             repeated={tc.repeated}
+                            retryCount={tc.retryCount}
                             imageUrl={effectiveImageUrl}
                             audioUrl={effectiveAudioUrl}
                             videoUrl={effectiveVideoUrl}
@@ -836,6 +844,8 @@ const MessageItem = React.memo(function MessageItem({
           </div>
         )}
       </div>
+      {/* D1 消息级计量徽章行(2026-09-19 立):AI 回复底部紧凑用量,无 usage 数据不渲染 */}
+      {!isUser && <MessageUsageMetrics messageId={m.id} fallbackModel={m.model} />}
       {/* 2026-08-02:消息交互按钮区(完全复用原项目 AIChat.vue 9 按钮 + _message-list.scss 样式)
           - 2026-08-06 修正:从气泡容器内挪到气泡外(与气泡容器同级,作为消息项子节点)
             避免被 bg-primary 包裹导致按钮显示在气泡内部

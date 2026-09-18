@@ -5,13 +5,19 @@
 'use client'
 
 import * as React from 'react'
-import { FileDown, FileJson, Link2, Camera, Share2 } from 'lucide-react'
+import { FileDown, FileJson, Link2, Camera, Share2, Image as ImageIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { IconButton } from '@ihui/ui-react'
 import { toast } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
+import {
+  buildShareCardSvg,
+  SHARE_CARD_WIDTH,
+  SHARE_CARD_HEIGHT,
+  SHARE_CARD_BRAND_COLOR,
+} from '@/components/chat/share-card-svg'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -277,6 +283,59 @@ export function ChatExportMenu({ title, disabled }: ChatExportMenuProps) {
     }
   }, [t])
 
+  const handleShareCard = React.useCallback(() => {
+    const messages = useChatStore.getState().messages.filter(isExportableMessage)
+    if (messages.length === 0) return
+    const firstUser = messages.find((m) => m.role === 'user')
+    const firstAi = messages.find((m) => m.role === 'assistant')
+    const svg = buildShareCardSvg({
+      title: safeTitle,
+      firstUser: (firstUser?.content ?? '').slice(0, 80),
+      firstAi: (firstAi?.content ?? '').slice(0, 200),
+      time: new Date().toLocaleString(),
+      model: firstAi?.model ?? 'IHUI AI',
+      brandColor: SHARE_CARD_BRAND_COLOR,
+      userLabel: t('shareCardUser'),
+    })
+    const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = SHARE_CARD_WIDTH
+      canvas.height = SHARE_CARD_HEIGHT
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        URL.revokeObjectURL(url)
+        toast.error(t('snapshotFailed'))
+        return
+      }
+      ctx.drawImage(img, 0, 0)
+      canvas.toBlob((png) => {
+        if (!png) {
+          URL.revokeObjectURL(url)
+          toast.error(t('snapshotFailed'))
+          return
+        }
+        const pngUrl = URL.createObjectURL(png)
+        const a = document.createElement('a')
+        a.href = pngUrl
+        a.download = `${fileBase}.png`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(pngUrl)
+        URL.revokeObjectURL(url)
+        toast.success(t('exportStarted'))
+      }, 'image/png')
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      toast.error(t('snapshotFailed'))
+    }
+    img.src = url
+  }, [safeTitle, fileBase, t])
+
   const itemCls = 'gap-2'
 
   return (
@@ -308,6 +367,14 @@ export function ChatExportMenu({ title, disabled }: ChatExportMenuProps) {
         >
           <Camera className="h-4 w-4" aria-hidden />
           {t('snapshot')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className={itemCls}
+          onClick={handleShareCard}
+          data-testid="chat-export-card"
+        >
+          <ImageIcon className="h-4 w-4" aria-hidden />
+          {t('exportCard')}
         </DropdownMenuItem>
         <DropdownMenuItem
           className={itemCls}

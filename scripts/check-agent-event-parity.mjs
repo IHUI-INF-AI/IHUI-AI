@@ -114,7 +114,6 @@ const WHITELIST = [
   // 消费模式: packages/api-client executeAgentStream 的 dispatchSSEEvent
   // onEvent 兜底统一分发(default 分支注释明确列出这些 type),
   // 属任务约定的「SSE 客户端库统一分发」合法场景。
-  { name: 'start', reason: 'execute/stream 起始事件(resume_from 重连锚点),api-client onEvent 兜底统一分发' },
   { name: 'status', reason: 'langgraph 状态流转事件,api-client onEvent 兜底统一分发' },
   // P0-5(2026-09-13):agents.py /agents/tasks/stream 新增 "thinking.delta"→"thinking"
   // 映射,与 langgraph 同名 SSE 事件共用本条目;前端 workbench 逐名消费接线后复核
@@ -258,20 +257,32 @@ const TS_CONTRACT_RE = /'([a-z_]+)'/g;
   }
 }
 
-// —— 1d. Python hook 事件 → SSE 映射表(agents.py, /agents/tasks/stream 命名事件)——
-// _map_hook_event_to_sse 的**值侧**即 SSE event: 名(订阅的 7 个 hook 事件全部命中映射)
-const PY_MAPPING_RE = /"[a-z_.]+":\s*"([a-z_.-]+)"/g;
+// —— 1d. Python hook 事件 → SSE 映射表(agent_events.py, /agents/tasks/stream 命名事件)——
+// 映射表已迁移到 services/agent_events.py;值侧即 SSE event 名。
+// 只扫描真实映射表,避免把路由器中的普通字典误识别为 SSE 事件。
+const PY_MAPPING_RE = "(?:^|\\n)\\s*[A-Za-z_][\\w.]*\\s*:\\s*['\\\"]([a-z_.-]+)['\\\"]";
 {
+  const mappingFile = path.join(ROOT, 'apps/ai-service/app/services/agent_events.py');
   const agentsPy = path.join(ROOT, 'apps/ai-service/app/routers/agents.py');
-  const text = readFileSync(agentsPy, 'utf-8');
-  const start = text.indexOf('def _map_hook_event_to_sse');
-  if (start === -1) {
-    errors.push('apps/ai-service/app/routers/agents.py 未找到 _map_hook_event_to_sse(SSE 命名映射被移动/改名,请同步本守门)');
+  const text = readFileSync(mappingFile, 'utf-8');
+  const start = text.indexOf('HOOK_EVENT_TO_SSE: dict');
+  const end = text.indexOf('\n}', start);
+  if (start === -1 || end === -1) {
+    errors.push('apps/ai-service/app/services/agent_events.py 未找到 HOOK_EVENT_TO_SSE 映射表(SSE 命名映射被移动/改名,请同步本守门)');
     scanStats.pyMapping = 0;
   } else {
-    const end = text.indexOf('\ndef ', start);
-    const body = end === -1 ? text.slice(start, start + 2000) : text.slice(start, end);
-    scanStats.pyMapping = forMatch(backendEvents, PY_MAPPING_RE, body, rel(agentsPy));
+    const body = text.slice(start, end);
+    scanStats.pyMapping = forMatch(
+      backendEvents,
+      new RegExp(PY_MAPPING_RE, 'gm'),
+      body,
+      rel(mappingFile),
+    );
+  }
+  // 保留对旧兼容别名的存在性校验,防止迁移时破坏既有调用方。
+  const agentsText = readFileSync(agentsPy, 'utf-8');
+  if (!agentsText.includes('_map_hook_event_to_sse = map_hook_event_to_sse')) {
+    warnings.push('apps/ai-service/app/routers/agents.py 未找到 _map_hook_event_to_sse 兼容别名');
   }
 }
 
@@ -354,7 +365,9 @@ const pySharedContract = new Set();
     errors.push('apps/ai-service/app/core/sse_contract.py 缺失: #25 SSE 契约单一事实源被移动/删除, 请同步本守门');
   } else {
     const text = readFileSync(contractFile, 'utf-8');
-    const start = text.indexOf('SSE_EVENTS: FrozenSet[str] = frozenset(');
+    // 兼容 typing.FrozenSet[str] 与内置 frozenset[str] 两种注解写法(2026-09-19 同步)
+    const contractHead = text.match(/SSE_EVENTS:\s*(?:FrozenSet|frozenset)\[str\]\s*=\s*frozenset\(/);
+    const start = contractHead === null ? -1 : contractHead.index;
     if (start === -1) {
       errors.push('apps/ai-service/app/core/sse_contract.py 未找到 SSE_EVENTS frozenset(契约被改名, 请同步本守门)');
     } else {

@@ -32,6 +32,7 @@ import { mergeAgentTools } from './tool-config'
 import {
   createToolCallHandler,
   createToolSummaryHandler,
+  createUsageHandler,
   createDeltaBatcher,
   createAgentDeltaBatcher,
 } from './stream-handlers'
@@ -291,6 +292,8 @@ export function createSendAnswer(
           // P1 token 用量写入消息 meta(2026-08-15 立,与 sendMessage 对称):sendAnswer 续流同样收到 usage chunk,
           // 前端收到后更新 assistant 消息 meta.usage,UI 展示 token 计数。
           useChatStore.getState().updateMessageMeta(assistantId, { usage })
+          // D1 消息级计量(2026-09-19 立):写入 store.usageByMessageId,驱动消息底部徽章行。
+          createUsageHandler(assistantId)(usage)
         },
         onDelta: (delta) => {
           if (!firstContentTokenReceived) {
