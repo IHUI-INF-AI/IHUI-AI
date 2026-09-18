@@ -1218,12 +1218,12 @@ _TERMINAL_DELTA_BATCH_LINES = 4
 _terminal_delta_tasks: set[asyncio.Task[None]] = set()
 
 
-def set_terminal_stream_context(**ctx: Any) -> contextvars.Token:
+def set_terminal_stream_context(**ctx: Any) -> contextvars.Token[dict[str, Any] | None]:
     """注入终端输出事件上下文(session_id/iteration/tool_call_id 等)。"""
     return _terminal_stream_ctx.set(dict(ctx))
 
 
-def reset_terminal_stream_context(token: contextvars.Token) -> None:
+def reset_terminal_stream_context(token: contextvars.Token[dict[str, Any] | None]) -> None:
     """恢复终端输出事件上下文(与 set 配对使用,防跨工具泄漏)。"""
     _terminal_stream_ctx.reset(token)
 
@@ -1675,7 +1675,7 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
         # P0-B(2026-09-18):外部取消(agent 循环内 abort)时 kill 进程防泄漏,
         # 再原样传播 CancelledError(交由上层中断链路处理)
         with contextlib.suppress(ProcessLookupError, OSError):
-            proc.kill()  # type: ignore[union-attr]
+            proc.kill()
         raise
     except Exception as e:
         return {
