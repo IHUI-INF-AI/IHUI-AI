@@ -373,7 +373,7 @@ function runPackageTypecheck(pkg, files) {
       cwd: ROOT,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
-      shell: true,
+      shell: true,      windowsHide: true, // 防 Windows 弹可见 cmd 窗口
     })
     const raw = (result.stderr || '') + (result.stdout || '')
     const filtered = filterTscOutputForStagedFiles(raw, pkg, files)

@@ -57,7 +57,7 @@ const buildEnv = {
   TAURI_SIGNING_PRIVATE_KEY: key,
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: pwd,
 };
-const build = spawnSync('pnpm', ['exec', 'tauri', 'build'], { cwd: DESKTOP, stdio: 'inherit', env: buildEnv, shell: true });
+const build = spawnSync('pnpm', ['exec', 'tauri', 'build'], { cwd: DESKTOP, stdio: 'inherit', env: buildEnv, shell: true, windowsHide: true });
 if (build.status !== 0) {
   console.error('ERROR: tauri build 失败');
   process.exit(1);
