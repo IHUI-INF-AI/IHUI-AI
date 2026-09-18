@@ -1844,30 +1844,56 @@ class AgentEngine:
         # 第十批升级:补齐 Codex TurnDiffEvent{unified_diff} 的 diff 正文语义。
         with contextlib.suppress(Exception):
             after_files = await self._workspace_dirty_files(thread)
+            after_status = await self._workspace_file_status(thread)
             changed = sorted(after_files - before_files)
             if changed:
+                tracked = [f for f in changed if after_status.get(f) != "A"]
+                added = [f for f in changed if after_status.get(f) == "A"]
                 unified_diff = ""
-                if thread.workspace:
+                if thread.workspace and tracked:
                     proc = await asyncio.create_subprocess_exec(
                         "git",
                         "-C",
                         thread.workspace,
                         "diff",
                         "--",
-                        *changed[:50],
+                        *tracked[:50],
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.DEVNULL,
                     )
                     out, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
                     unified_diff = out.decode("utf-8", errors="replace")
+                # 未跟踪新增文件:不用 git add -N(避免污染 index),difflib 合成
+                if added and thread.workspace:
+                    pairs: dict[str, tuple[str | None, str | None]] = {}
+                    for rel in added[:50]:
+                        try:
+                            pairs[rel] = (
+                                None,
+                                (Path(thread.workspace) / rel).read_text(encoding="utf-8"),
+                            )
+                        except OSError:
+                            continue
+                    extra = _aggregate_unified_diff(pairs)
+                    if extra:
+                        unified_diff = (
+                            unified_diff + ("\n" if unified_diff else "") + extra
+                        )
+                baseline_sha, baseline_source = await self._git_baseline(thread.workspace)
                 await self._emit_engine_event(
                     thread,
                     emit,
                     "turn.diff",
                     {
                         "files": changed[:50],
+                        "changes": [
+                            {"path": p, "status": after_status.get(p, "M")}
+                            for p in changed[:50]
+                        ],
                         "truncated": len(changed) > 50,
                         "unifiedDiff": unified_diff[:32_000],
+                        "baselineSha": baseline_sha,
+                        "baselineSource": baseline_source,
                     },
                 )
         # TurnComplete(2026-09-18 第十批,对标 Codex TurnComplete 事件)
@@ -1946,6 +1972,76 @@ class AgentEngine:
             if len(line) > 3:
                 files.add(line[3:].strip().strip('"'))
         return files
+
+    @staticmethod
+    async def _workspace_file_status(thread: EngineThread) -> dict[str, str]:
+        """工作区文件 git 状态映射 path → 'A'|'M'|'D'(2026-09-18 第十三条,
+        对标 codex git-utils GitBaselineChangeStatus 的 git 风格状态标签)。
+
+        解析 porcelain 的 XY 两列:'??'→新增(A)、'D'→删除(D)、其余→修改(M);
+        非 git 目录/超时/失败 → 空字典静默降级。
+        """
+        if not thread.workspace:
+            return {}
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "git",
+                "-C",
+                thread.workspace,
+                "status",
+                "--porcelain",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            out, _ = await asyncio.wait_for(proc.communicate(), timeout=5)
+        except Exception:
+            return {}
+        if proc.returncode != 0:
+            return {}
+        status_map: dict[str, str] = {}
+        for line in out.decode("utf-8", errors="replace").splitlines():
+            if len(line) <= 3:
+                continue
+            xy = line[:2]
+            path = line[3:].strip().strip('"')
+            if xy == "??":
+                status_map[path] = "A"
+            elif "D" in xy:
+                status_map[path] = "D"
+            else:
+                status_map[path] = "M"
+        return status_map
+
+    @staticmethod
+    async def _git_baseline(workspace: str | None) -> tuple[str | None, str]:
+        """回合基线 commit(对标 codex git-utils merge_base_with_head)。
+
+        优先取 HEAD 与上游分支的 merge-base(未推送改动也纳入 diff 范围),
+        上游缺失或无 HEAD 时退化为 HEAD;任何失败返回 (None, 'none')。
+        """
+        if not workspace:
+            return None, "none"
+        for args, source in (
+            (["merge-base", "HEAD", "@{upstream}"], "merge-base"),
+            (["rev-parse", "HEAD"], "head"),
+        ):
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    "git",
+                    "-C",
+                    workspace,
+                    *args,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.DEVNULL,
+                )
+                out, _ = await asyncio.wait_for(proc.communicate(), timeout=5)
+            except Exception:
+                continue
+            if proc.returncode == 0:
+                sha = out.decode("utf-8", errors="replace").strip()
+                if sha:
+                    return sha[:40], source
+        return None, "none"
 
     async def _run_thread(
         self, thread: EngineThread, emit: Emitter, *, from_checkpoint: str | None = None
