@@ -70,8 +70,6 @@ const BENEFIT_ROWS: Array<{ key: keyof VipBenefits; label: string; suffix?: stri
 ]
 
 export function PricingContent(): React.JSX.Element {
-  const [yearly, setYearly] = React.useState(false)
-
   const { data, isLoading, error } = useQuery({
     queryKey: ['pricing-vip-levels'],
     queryFn: fetchVipLevels,
@@ -97,40 +95,13 @@ export function PricingContent(): React.JSX.Element {
           选择适合你的方案
         </h1>
         <p className="mx-auto max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
-          4 档 VIP 会员,从免费到企业级,满足不同使用场景。年付享 2 个月免费。
+          4 档 VIP 会员,从免费到企业级,满足不同使用场景。
         </p>
       </section>
 
       <SocialProof />
 
-      {/* 月付/年付切换 */}
-      <section className="mt-8 flex items-center justify-center gap-2">
-        <button
-          type="button"
-          onClick={() => setYearly(false)}
-          className={cn(
-            'rounded-md px-4 py-1.5 text-sm transition-colors',
-            !yearly
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          月付
-        </button>
-        <button
-          type="button"
-          onClick={() => setYearly(true)}
-          className={cn(
-            'rounded-md px-4 py-1.5 text-sm transition-colors',
-            yearly
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          年付
-          <span className="ml-1 text-xs text-emerald-600">省 2 个月</span>
-        </button>
-      </section>
+      {/* 2026-09-18:移除月付/年付切换——后端无年付商品,年价展示与实付金额不符 */}
 
       {/* 4 档对比卡片 */}
       <section className="mt-8 grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4 min-[1024px]:items-start">
@@ -152,7 +123,7 @@ export function PricingContent(): React.JSX.Element {
             const isPopular = idx === popularIdx
             const isFree = level.levelValue === 0
             const monthlyPrice = level.price
-            const displayPrice = isFree ? 0 : yearly ? monthlyPrice * 10 : monthlyPrice
+            const displayPrice = isFree ? 0 : monthlyPrice
             const benefits = level.benefits ?? {}
             const whitelistCount = benefits.modelWhitelist?.length ?? 0
 
@@ -182,11 +153,7 @@ export function PricingContent(): React.JSX.Element {
                     <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl text-primary">
                       {isFree ? '免费' : formatCNY(displayPrice)}
                     </span>
-                    {!isFree && (
-                      <span className="text-sm text-muted-foreground">
-                        / {yearly ? '年' : '月'}
-                      </span>
-                    )}
+                    {!isFree && <span className="text-sm text-muted-foreground">/ 月</span>}
                   </div>
 
                   <ul className="mt-5 flex-1 min-w-0 space-y-2 text-sm">
@@ -218,9 +185,15 @@ export function PricingContent(): React.JSX.Element {
                     variant={isPopular ? 'default' : 'outline'}
                     className="mt-5 w-full"
                   >
-                    <Link href="/vip">
+                    <Link
+                      href={
+                        isFree
+                          ? '/register'
+                          : `/vip/details?levelId=${encodeURIComponent(level.id)}`
+                      }
+                    >
                       <Crown className="mr-1 h-4 w-4" />
-                      立即订阅
+                      {isFree ? '免费开始' : '立即订阅'}
                     </Link>
                   </Button>
                 </CardContent>

@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast'
 
 export interface VipPayInfo {
   mock: boolean
-  method: 'jsapi' | 'native' | 'h5'
+  method: 'jsapi' | 'native' | 'h5' | 'alipay'
   timeStamp?: string
   nonceStr?: string
   package?: string
@@ -19,6 +19,7 @@ export interface VipPayInfo {
   paySign?: string
   codeUrl?: string
   h5Url?: string
+  payUrl?: string
   error?: string
 }
 
