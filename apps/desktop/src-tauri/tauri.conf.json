@@ -70,7 +70,7 @@
     "windows": {
       "nsis": {
         "installerHooks": "windows/hooks.nsi",
-        "languages": ["zh-CN"],
+        "languages": ["SimpChinese"],
         "compression": "none"
       }
     }

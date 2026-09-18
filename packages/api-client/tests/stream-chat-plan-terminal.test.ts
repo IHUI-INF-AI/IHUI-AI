@@ -189,4 +189,165 @@ describe('W1 streamChat:plan_updated / terminal_start / terminal_end 解析', ()
     expect(onTerminalEnd).not.toHaveBeenCalled()
   })
 })
+
+/**
+ * W4(2026-09-18)terminal_delta / thinking 分流单测。
+ *
+ * 锁定三条不可回归的契约:
+ *  1. `terminal_delta` → onTerminalDelta(终端实时输出),字段与后端契约一致
+ *  2. `thinking` → onReasoning(与 reasoning 同走推理通道)
+ *  3. **两者都绝不能落进正文 onDelta**(历史坑:未知 type 的 JSON 只要带 content 字段
+ *     就会被兜底分支当作正文增量,把终端输出/思考过程喷进聊天正文)
+ */
+describe('W4 streamChat:terminal_delta / thinking 分流', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    setBaseUrl('http://localhost:8803')
+    setStreamBaseUrl('http://localhost:8803')
+    fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  /** 后端契约帧:终端增量 + 思考增量 + 正常正文 chunk */
+  const DELTA_BODY = [
+    `event: terminal_delta\ndata: ${JSON.stringify({
+      type: 'terminal_delta',
+      terminalId: 'term-w4-1',
+      command: 'npm run build',
+      stream: 'stdout',
+      text: 'compiling...',
+      iteration: 2,
+      messageId: MID,
+    })}\n\n`,
+    `event: thinking\ndata: ${JSON.stringify({
+      type: 'thinking',
+      content: '先看看依赖树',
+    })}\n\n`,
+    `event: reasoning\ndata: ${JSON.stringify({
+      type: 'reasoning',
+      content: '推理增量',
+    })}\n\n`,
+    'event: chunk\ndata: {"content":"正文"}\n\n',
+    'event: done\ndata: {"content":"正文"}\n\n',
+  ].join('')
+
+  it('terminal_delta 走 onTerminalDelta 且字段与契约一致', async () => {
+    fetchMock.mockResolvedValue(sseResponse([DELTA_BODY]))
+    const onTerminalDelta = vi.fn()
+    const onDelta = vi.fn()
+
+    await expect(
+      streamChat({ ...baseOpts, onTerminalDelta, onDelta }),
+    ).resolves.toBeUndefined()
+
+    expect(onTerminalDelta).toHaveBeenCalledTimes(1)
+    const evt = onTerminalDelta.mock.calls[0][0]
+    expect(evt.terminalId).toBe('term-w4-1')
+    expect(evt.command).toBe('npm run build')
+    expect(evt.stream).toBe('stdout')
+    expect(evt.text).toBe('compiling...')
+    expect(evt.iteration).toBe(2)
+    expect(evt.messageId).toBe(MID)
+  })
+
+  it('thinking → onReasoning;reasoning 也 → onReasoning(同通道)', async () => {
+    fetchMock.mockResolvedValue(sseResponse([DELTA_BODY]))
+    const onReasoning = vi.fn()
+
+    await expect(streamChat({ ...baseOpts, onReasoning })).resolves.toBeUndefined()
+    expect(onReasoning).toHaveBeenCalledTimes(2)
+    const texts = onReasoning.mock.calls.map((c) => c[0])
+    expect(texts).toContain('先看看依赖树')
+    expect(texts).toContain('推理增量')
+  })
+
+  it('terminal_delta / thinking 绝不落进正文 onDelta(核心守护)', async () => {
+    fetchMock.mockResolvedValue(sseResponse([DELTA_BODY]))
+    const onDelta = vi.fn()
+    const onTerminalDelta = vi.fn()
+    const onReasoning = vi.fn()
+
+    await expect(
+      streamChat({ ...baseOpts, onDelta, onTerminalDelta, onReasoning }),
+    ).resolves.toBeUndefined()
+
+    const joined = onDelta.mock.calls.map((c) => String(c[0])).join('')
+    expect(joined).toContain('正文')
+    expect(joined).not.toContain('compiling...')
+    expect(joined).not.toContain('先看看依赖树')
+    expect(joined).not.toContain('推理增量')
+  })
+
+  it('未传 onTerminalDelta / onReasoning 时静默丢弃,不回落正文', async () => {
+    fetchMock.mockResolvedValue(sseResponse([DELTA_BODY]))
+    const onDelta = vi.fn()
+
+    await expect(streamChat({ ...baseOpts, onDelta })).resolves.toBeUndefined()
+
+    const joined = onDelta.mock.calls.map((c) => String(c[0])).join('')
+    expect(joined).not.toContain('compiling...')
+    expect(joined).not.toContain('先看看依赖树')
+  })
+
+  it('terminal_delta 缺 terminalId → 不触发回调(守护分支)', async () => {
+    fetchMock.mockResolvedValue(
+      sseResponse([
+        `event: terminal_delta\ndata: ${JSON.stringify({
+          type: 'terminal_delta',
+          text: 'orphan',
+          stream: 'stdout',
+        })}\n\n`,
+      ]),
+    )
+    const onTerminalDelta = vi.fn()
+    const onDelta = vi.fn()
+
+    await expect(
+      streamChat({ ...baseOpts, onTerminalDelta, onDelta }),
+    ).resolves.toBeUndefined()
+
+    expect(onTerminalDelta).not.toHaveBeenCalled()
+    expect(onDelta.mock.calls.map((c) => String(c[0])).join('')).not.toContain('orphan')
+  })
+
+  it('compaction 标准命名帧(event: compaction + type 字段)仍走 compaction 通道', async () => {
+    fetchMock.mockResolvedValue(
+      sseResponse([
+        `event: compaction\ndata: ${JSON.stringify({
+          type: 'compaction',
+          compaction: {
+            triggered: true,
+            tokensBefore: 100,
+            tokensAfter: 40,
+            removedCount: 3,
+            usageRatio: 0.9,
+            trigger: 'ratio',
+          },
+        })}\n\n`,
+      ]),
+    )
+    const onCompaction = vi.fn()
+    const onDelta = vi.fn()
+
+    await expect(
+      streamChat({ ...baseOpts, onCompaction, onDelta }),
+    ).resolves.toBeUndefined()
+
+    // 新增的 type 字段不破坏既有 compaction 键的消费路径
+    expect(onCompaction).toHaveBeenCalledTimes(1)
+    expect(onCompaction.mock.calls[0][0]).toMatchObject({
+      tokensBefore: 100,
+      tokensAfter: 40,
+      removedCount: 3,
+      usageRatio: 0.9,
+      trigger: 'ratio',
+    })
+    expect(onDelta.mock.calls.map((c) => String(c[0])).join('')).toBe('')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

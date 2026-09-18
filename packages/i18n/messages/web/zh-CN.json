@@ -6872,6 +6872,18 @@
       "copy": "复制",
       "copyPlan": "复制任务计划",
       "copyThinking": "复制思考内容",
+      "diffHunk": {
+        "acceptBlock": "接受此改动块",
+        "accepted": "已接受",
+        "applySelected": "应用所选({count})",
+        "applyingSelected": "应用中",
+        "changeBlock": "改动 {index}/{total}",
+        "clearSelection": "全不选",
+        "rejectBlock": "拒绝此改动块",
+        "rejected": "已拒绝",
+        "resetSelection": "重置选择",
+        "selectedSummary": "已选 {accepted}/{total}"
+      },
       "dragHandle": "拖动以调整面板位置",
       "elapsedTitle": "已耗时 {time}",
       "emptyHint": "开始对话后显示任务计划",
@@ -7010,8 +7022,10 @@
         "continueText": "继续"
       },
       "terminal": {
+        "clearLive": "清空",
         "copyOutput": "复制终端输出",
         "failed": "{n} 失败",
+        "live": "实时输出",
         "moreItems": "…还有 {n} 项",
         "output": "输出",
         "running": "{n} 运行中",

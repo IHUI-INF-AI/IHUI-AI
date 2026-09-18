@@ -204,6 +204,13 @@ export function AISidePanel() {
     stop,
     clearMessages,
     setModel,
+    // W5(2026-09-18 立):diff 应用工作流必须在面板处继续向 MessageList 透传,
+    // 否则 InlineDiffCard 的 onApply/onReject 恒为 undefined,按钮点了没反应(死链修复)
+    applyDiff,
+    rejectDiff,
+    applyAllDiffs,
+    rejectAllDiffs,
+    applyDiffSelection,
   } = useChat()
   const subAgentActivities = useChatStore((s) => s.subAgentActivities)
   // ChatMode 4 态(2026-07-28 移除独立 PlanActToggle):订阅 currentMode 用于动态切换输入框 placeholder
@@ -1291,6 +1298,13 @@ export function AISidePanel() {
                 hasMoreHistory={hasMoreHistory}
                 loadingMoreHistory={loadingMoreHistory}
                 onLoadMoreHistory={handleLoadMoreHistory}
+                // W5 死链修复(2026-09-18):Inline Diff 卡的 Accept/Reject/批量/hunk 级回调
+                // 此前在面板处断链(props 恒 undefined → 按钮不渲染),此处接通 useApplyDiff 通道
+                onApplyDiff={applyDiff}
+                onRejectDiff={rejectDiff}
+                onApplyAllDiffs={applyAllDiffs}
+                onRejectAllDiffs={rejectAllDiffs}
+                onApplyPartialDiff={applyDiffSelection}
                 onTemplateSelect={(content) => {
                   useChatStore.setState({ draftInput: content })
                 }}

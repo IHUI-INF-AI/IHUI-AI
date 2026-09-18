@@ -178,6 +178,17 @@
 
 - [x] 0-1 沙箱默认禁网 ✅(2026-09-07):见本轮 commit/工作区;Windows/Linux/macOS 策略回归通过
 
+### 对话链路对标 Codex/Trae/Qoder 补洞 W1-W5 ✅(2026-09-18,跨端:ai-service + api + web + cli + api-client)
+
+> 触发:`E:\桌面\AI功能深度对标分析计划.md` 深度对标分析;5 个并行子代理因模型频率上限(429)全部中断,由主代理接续实现到底。
+
+- [x] **W1 终端实时输出(terminal_delta)全链路**:① 后端 `agent_events.py` 新增 `SSE_TERMINAL_DELTA="terminal_delta"`;② `mcp_server._emit_terminal_delta` L1231 支持**进程内直投**(contextvar 注入同步 `push` callable 时优先走 push 并跳过 hook_engine,agent 通道零回归);③ `llm.py` L2578 主聊天流在终端类工具执行前注入 `push=asyncio.Queue.put_nowait`,以 `asyncio.wait({task}, timeout=0.15)` 边等边排水 yield 出帧,任务结束后再排空,`finally` 恢复 contextvar(异常路径同样恢复);④ `api-client` 新增 `TerminalDeltaEvent` + `onTerminalDelta`;⑤ web store 新增 `terminalOutputs` 缓冲(单键 2 万字符 + 最多 20 键插入序淘汰)+ `TerminalSection` 实时面板(自动滚动/实时徽章/清空)。
+- [x] **W2 Node 网关:/chat/abort 端点 + compaction 标准帧**:`sse-stream-registry` 新增 `abortConversationStreams`(会话键 `conversationId:messageId`,注入 `{type:'cancelled'}` 终止帧后 abort 上游 controller,幂等)与 `emitNamedEvent`(`event: <name>` + `data:`,与 emitEvent 同样编号进回放缓冲);`POST /api/ai/chat/abort` 端点(三参数至少一个、缺参 400、未命中仍 200 + `aborted:false`);前端 `useChat.stop` 改为先调 abort 端点再断开本地流。
+- [x] **W3 CLI/ACP 事件透明**:`agent.ts` 新增 `onReasoning` 透出;`acp/server.ts` 补齐 `agent_thought_chunk` / `tool_call`(toolCallId+mapToolKind+rawInput) / `tool_call_update`(FIFO 配对、结果 ≤8000 字符截断);回调内异常全吞(IDE 渲染失败不中断 agent);配对失败宁缺勿假。
+- [x] **W4 Web 事件消费层**:`client.ts` 增 `terminal_delta` / `thinking` / `compaction(type)` 三条专用路由,**拦截在「未知 type 兜底→当正文增量」之前**(历史坑:带 content 的未知帧会喷进聊天正文);`thinking` 与 `reasoning` 同走 `onReasoning`。
+- [x] **W5 hunk 级 diff 接受/拒绝 + 死链修复**:① **真实死链修复**——`ai-side-panel.tsx` 的 `<MessageList/>` 此前未透传 `onApplyDiff/onRejectDiff/onApplyAllDiffs/onRejectAllDiffs`,导致 InlineDiffCard 的 Accept/Reject 恒不渲染(点了没反应),现已接通;② 新增纯函数模块 `apps/web/src/lib/hunk-diff.ts`(`splitLinesWithEol` / `detectEol` / `computeHunkDiff` / `buildPartialContent`,`MAX_LCS_CELLS=400 万` 降级为单 hunk);③ `diff-hunk-controls.tsx` hunk 小标题 + 选择工具条(「先选择、再一次应用」模型,避免逐 hunk 写盘使后续基线失效);④ `use-apply-diff.applyDiffSelection` 走既有 `/api/v1/ai/apply-diff` 通道,**全拒绝短路为纯前端标记不写盘**(防清空文件)。
+- **验收**:ai-service `test_mcp_tool_guards` 33 passed(新增 3 项 push 直投/广播回归/空 text 用例);api-client 新增 6 项分流用例(**含「绝不落进正文 onDelta」核心守护**)→ 单文件 10 passed、全量 155 passed;cli 新增 `tests/acp-events.test.ts` 7 passed + 全量 2316 passed;apps/api 全量 397 文件 / 6431 tests 全绿;四端 typecheck(web / api / cli / api-client)0 错 + 定向 eslint 0 错 + i18n 5 语言 parity OK(新增 `ai.pane.diffHunk` 10 键 / `ai.pane.terminal` 2 键)+ 死 key 0 + Button 高度守门 0 违规。**已知外部依赖失败(非本改动)**:ai-service `test_native_fc_e2e_real::test_openai_compat_provider_real_native_fc` 因 StepFun 上游配额 402 失败;web media `task-kanban` 等 4 文件失败属既有基线(与本轮改动文件无交集)。
+
 > 📌 **2026-07-26 状态**:所有历史任务已完成并归档(109 个标准格式 + 6 个非标准格式执行报告)。本文件目前**无活跃任务**。所有归档内容在 `.ihui-agent/archive/PROJECT_PLAN_2026-07-26_auto-archive.md` 等归档文件中,可通过 `git log` 或归档目录检索。下方为已归档任务的 HTML 占位注释(按 AGENTS.md §1 规则保留,不可删除)。
 >
 > 💡 **2026-08-08 goal 模式完成**:全量扫描修复项目所有 bug/问题/未开发项/未对接项。结果:19/19 typecheck/lint/test 全绿,唯一真实 501 stub(monitor-routes.ts 监控漏斗)已修复为真实实现,order.ts FIXME 已清理。无任何未完成项。

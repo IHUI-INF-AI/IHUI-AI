@@ -66,3 +66,30 @@ AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS = int(
         str(AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS_DEFAULT),
     )
 )
+
+# ==================== 杀手锏常量段 5:P1-② 决策链保留(压缩时保留推理链) ====================
+# 背景:压缩会把 head 段 assistant 的推理(reasoning,即"为什么调这个工具")摘要化,
+# 规则摘要仅留 120-200 字符、LLM 语义摘要可能整段遗漏,后续轮次 LLM 失去决策依据。
+# 决策链蒸馏(head → 结构化决策条目 → 注入摘要消息)纯确定性、零 LLM 调用、零额外
+# 成本,默认开启;AGENT_DECISION_CHAIN_ENABLED=off 一键回滚(关闭时压缩产物与现状
+# 逐零差异)。属 ai-service 内部增强(TS 共享包压缩无此层),不入 KILLER_CONSTANTS
+# parity 集;DEFAULT 标量供测试与报告引用。
+AGENT_DECISION_CHAIN_ENABLED = os.environ.get(
+    "AGENT_DECISION_CHAIN_ENABLED", "true"
+).strip().lower() in ("1", "true", "yes", "on")
+# 决策链最大条数(超出丢最旧:近期决策权重高,远期决策由摘要正文兜底)
+AGENT_DECISION_CHAIN_MAX_ENTRIES_DEFAULT = 12
+# 单条决策保留的推理字符数(超出截断;工具名与结果状态标记不计入)
+AGENT_DECISION_CHAIN_REASONING_CHARS_DEFAULT = 160
+AGENT_DECISION_CHAIN_MAX_ENTRIES = int(
+    os.environ.get(
+        "AGENT_DECISION_CHAIN_MAX_ENTRIES",
+        str(AGENT_DECISION_CHAIN_MAX_ENTRIES_DEFAULT),
+    )
+)
+AGENT_DECISION_CHAIN_REASONING_CHARS = int(
+    os.environ.get(
+        "AGENT_DECISION_CHAIN_REASONING_CHARS",
+        str(AGENT_DECISION_CHAIN_REASONING_CHARS_DEFAULT),
+    )
+)

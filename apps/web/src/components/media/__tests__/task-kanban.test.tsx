@@ -5,7 +5,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import React from 'react'
-import { render, cleanup, screen, fireEvent } from '@testing-library/react'
+import { render as rtlRender, cleanup, screen, fireEvent } from '@testing-library/react'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => {
@@ -36,6 +36,16 @@ vi.mock('next-intl', () => ({
 
 import { TaskKanban, groupTasksByColumn } from '../task-kanban'
 import type { MediaTask } from '../task-parts'
+import { TooltipProvider } from '@ihui/ui-react'
+
+/**
+ * 2026-09-18:TaskKanban 内部用 <Tooltip>(列头/状态徽章),真实应用由根布局统一提供
+ * TooltipProvider;单测独立渲染时缺 Provider → Radix 抛
+ * "`Tooltip` must be used within `TooltipProvider`",6 项用例全红。
+ * 这里用 render wrapper 自备 Provider(测试脚手架补环境,不改组件去自嵌套)。
+ */
+const renderKanban = (ui: React.ReactElement) =>
+  rtlRender(ui, { wrapper: ({ children }) => <TooltipProvider>{children}</TooltipProvider> })
 
 function makeTask(over: Partial<MediaTask> = {}): MediaTask {
   return {
@@ -98,7 +108,7 @@ describe('TaskKanban(组件)', () => {
   const noop = () => {}
 
   it('加载态显示 loading', () => {
-    render(
+    renderKanban(
       <TaskKanban
         tasks={[]}
         loading
@@ -113,7 +123,7 @@ describe('TaskKanban(组件)', () => {
   })
 
   it('三列渲染 + 计数正确;空列显示「暂无任务」', () => {
-    render(
+    renderKanban(
       <TaskKanban
         tasks={[
           makeTask({ task_id: 'r1', status: 'processing' }),
@@ -138,7 +148,7 @@ describe('TaskKanban(组件)', () => {
   })
 
   it('某列为空时显示「暂无任务」占位', () => {
-    render(
+    renderKanban(
       <TaskKanban
         tasks={[makeTask({ task_id: 'only', status: 'processing' })]}
         loading={false}
@@ -155,7 +165,7 @@ describe('TaskKanban(组件)', () => {
 
   it('点取消按钮触发 onCancel(传 task_id)', () => {
     const onCancel = vi.fn()
-    render(
+    renderKanban(
       <TaskKanban
         tasks={[makeTask({ task_id: 'flight', status: 'processing' })]}
         loading={false}
@@ -171,7 +181,7 @@ describe('TaskKanban(组件)', () => {
   })
 
   it('终态任务不渲染取消按钮(仅可删除)', () => {
-    render(
+    renderKanban(
       <TaskKanban
         tasks={[makeTask({ task_id: 'done', status: 'succeeded' })]}
         loading={false}
@@ -187,7 +197,7 @@ describe('TaskKanban(组件)', () => {
   })
 
   it('chat_id 有值 → 渲染「打开会话」深链;空值 → 不渲染(历史任务降级)', () => {
-    const { unmount } = render(
+    const { unmount } = renderKanban(
       <TaskKanban
         tasks={[makeTask({ task_id: 'linked', status: 'succeeded', chat_id: 'conv-123' })]}
         loading={false}
@@ -202,7 +212,7 @@ describe('TaskKanban(组件)', () => {
     expect(link.getAttribute('href')).toBe('/chat?conversationId=conv-123')
     unmount()
 
-    render(
+    renderKanban(
       <TaskKanban
         tasks={[makeTask({ task_id: 'legacy', status: 'succeeded', chat_id: '' })]}
         loading={false}
@@ -218,7 +228,7 @@ describe('TaskKanban(组件)', () => {
 
   it('点删除按钮触发 onDelete', () => {
     const onDelete = vi.fn()
-    render(
+    renderKanban(
       <TaskKanban
         tasks={[makeTask({ task_id: 'del', status: 'failed' })]}
         loading={false}

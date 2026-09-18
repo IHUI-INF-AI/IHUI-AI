@@ -11,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { FallbackEvent } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
 import { useApplyDiff } from '@/hooks/use-apply-diff'
+import { fetchApi } from '@/lib/api'
 import { createSendMessage } from './use-chat/send-message'
 import { createSendAnswer } from './use-chat/send-answer'
 import type { UseChatReturn, ChatActionContext } from './use-chat/types'
@@ -91,6 +92,20 @@ export function useChat(): UseChatReturn {
     const st = useChatStore.getState()
     const streaming = st.messages.find((m) => m.role === 'assistant' && m.streamCompleted === false)
     st.setInterruptedMessage(streaming?.id ?? null)
+    // 2026-09-18 立:停止动作的服务端闭环 —— 本地 abort 只断开 SSE 连接,网关侧上游
+    // fetch 原要等 15s 宽限期超时才中止,期间 ai-service 的工具子进程/浏览器操作仍
+    // 继续执行(浪费额度 + 留下脏状态)。这里同步通知网关中止该会话的上游流。
+    // fire-and-forget:失败静默降级,绝不阻塞本地停止(体验优先)。
+    if (st.conversationId) {
+      void fetchApi('/api/ai/chat/abort', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: st.conversationId,
+          ...(streaming?.id ? { messageId: streaming.id } : {}),
+        }),
+      }).catch(() => {})
+    }
     abortRef.current?.abort()
   }, [])
 
@@ -114,7 +129,7 @@ export function useChat(): UseChatReturn {
 
   // P3 Inline Diff Apply 工作流:Accept 调 API 写入文件,Reject 纯前端标记
   // #14 批量:applyAllDiffs/rejectAllDiffs 面向消息内全部待决 diff 卡(2026-09-13 立)
-  const { applyDiff, rejectDiff, applyAllDiffs, rejectAllDiffs } = useApplyDiff()
+  const { applyDiff, rejectDiff, applyAllDiffs, rejectAllDiffs, applyDiffSelection } = useApplyDiff()
 
   return {
     messages,
@@ -134,6 +149,7 @@ export function useChat(): UseChatReturn {
     rejectDiff,
     applyAllDiffs,
     rejectAllDiffs,
+    applyDiffSelection,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

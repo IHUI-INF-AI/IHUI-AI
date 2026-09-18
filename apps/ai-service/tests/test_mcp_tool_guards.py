@@ -130,7 +130,9 @@ async def test_run_command_echo_allowed(monkeypatch):
     )
 
     # mock 流式读取:把固定行写入 stdout_lines
-    async def _fake_drain(stream, lines):
+    # P0-B(2026-09-18):_drain_stream 签名新增 on_line/batch_lines(terminal.delta
+    # 实时输出回调),mock 需吞掉新 kwargs 保持兼容。
+    async def _fake_drain(stream, lines, *args, **kwargs):
         lines.append("hello\n")
 
     monkeypatch.setattr(mcp_server_mod, "_drain_stream", _fake_drain)
@@ -194,3 +196,94 @@ async def test_subagent_nesting_depth_exceeded(monkeypatch):
         assert result["errorCode"] == "NESTING_DEPTH_EXCEEDED"
     finally:
         _subagent_depth.reset(token)
+
+
+# =============================================================================
+# W1(2026-09-18)terminal.delta 进程内直投(push)路径
+# =============================================================================
+
+
+async def test_terminal_delta_push_direct_injection(monkeypatch):
+    """contextvar 注入 push 时:走直投,payload 契约与 SSE 帧一致,且不再经 hook_engine。
+
+    这是 web 主聊天流实时回显终端输出的关键路径 —— 一旦回归成 hook_engine 广播,
+    llm.py 的 generator 收不到帧,前端终端区块会退化为"执行完才一次性显示"。
+    """
+    emitted: list[tuple[str, dict]] = []
+
+    async def _fake_emit(event: str, payload: dict) -> None:
+        emitted.append((event, payload))
+
+    from app.services.hook_engine import hook_engine
+
+    monkeypatch.setattr(hook_engine, "emit", _fake_emit)
+
+    frames: list[dict] = []
+    token = mcp_server_mod.set_terminal_stream_context(
+        session_id="sess-1",
+        iteration=3,
+        tool_call_id="toolu_abc",
+        messageId="msg-1",
+        push=frames.append,  # 同步 callable = asyncio.Queue.put_nowait 的替身
+    )
+    try:
+        await mcp_server_mod._emit_terminal_delta("npm run build", "stdout", "compiling...")
+    finally:
+        mcp_server_mod.reset_terminal_stream_context(token)
+
+    assert len(frames) == 1
+    payload = frames[0]
+    assert payload["type"] == "terminal_delta"
+    assert payload["terminalId"] == "toolu_abc"
+    assert payload["command"] == "npm run build"
+    assert payload["stream"] == "stdout"
+    assert payload["text"] == "compiling..."
+    assert payload["iteration"] == 3
+    assert payload["messageId"] == "msg-1"
+    # 直投命中即返回,不得再广播(hook_engine 零调用 → agent 通道无重复帧)
+    assert emitted == []
+
+
+async def test_terminal_delta_without_push_broadcasts(monkeypatch):
+    """无 push(agent_loop_v2 等订阅方)时:维持 hook_engine.emit 广播,agent 通道零回归。"""
+    emitted: list[tuple[str, dict]] = []
+
+    async def _fake_emit(event: str, payload: dict) -> None:
+        emitted.append((event, payload))
+
+    from app.services.hook_engine import hook_engine
+
+    monkeypatch.setattr(hook_engine, "emit", _fake_emit)
+
+    token = mcp_server_mod.set_terminal_stream_context(
+        session_id="sess-2", iteration=1, tool_call_id="toolu_x"
+    )
+    try:
+        await mcp_server_mod._emit_terminal_delta("echo hi", "stderr", "warn")
+    finally:
+        mcp_server_mod.reset_terminal_stream_context(token)
+
+    assert len(emitted) == 1
+    event, payload = emitted[0]
+    assert event == "terminal.delta"
+    assert payload["session_id"] == "sess-2"
+    assert payload["run_id"] == "sess-2"
+    assert payload["stream"] == "stderr"
+    assert payload["text"] == "warn"
+
+
+async def test_terminal_delta_empty_text_and_missing_cid(monkeypatch):
+    """空 text 不发射;缺 tool_call_id 时 terminalId 回落空串且不塞空 messageId。"""
+    frames: list[dict] = []
+    token = mcp_server_mod.set_terminal_stream_context(push=frames.append)
+    try:
+        await mcp_server_mod._emit_terminal_delta("cmd", "stdout", "")
+        assert frames == []
+        await mcp_server_mod._emit_terminal_delta("cmd", "stdout", "x")
+    finally:
+        mcp_server_mod.reset_terminal_stream_context(token)
+
+    assert len(frames) == 1
+    assert frames[0]["terminalId"] == ""
+    assert frames[0]["iteration"] is None
+    assert "messageId" not in frames[0]
