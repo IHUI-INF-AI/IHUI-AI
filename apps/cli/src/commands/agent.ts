@@ -56,6 +56,7 @@ import { CODEGRAPH_TOOLS, enableCodegraphIncremental, persistCodegraphCache } fr
 import { createSubagentTool } from '../tools/subagent.js';
 import { CLIPBOARD_TOOLS } from '../tools/clipboard.js';
 import { checkPermission, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
+import { createMarkdownRenderer } from './markdown-renderer.js';
 import { resolveProvider, streamOpenAiCompatible, type ChatCompletionMessage } from '../provider/local.js';
 import { resolveSandboxOptions } from '../sandbox/index.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
@@ -1680,6 +1681,29 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
   const sessionStartTime = Date.now();
   let sessionResult: AgentResult | undefined;
 
+  // W10 非交互 markdown 渲染:text 模式(非 json/markdown/yaml 结构化输出)复用 REPL 的
+  // 流式 markdown 渲染器,`ihui "任务"` 输出不再是无高亮裸文本。结构化模式保持原样。
+  const mdStream = isStructured ? null : createMarkdownRenderer();
+  let pendingMdLine = '';
+  const pushMdDelta = (delta: string): void => {
+    if (!mdStream) return;
+    pendingMdLine += delta;
+    let nl: number;
+    while ((nl = pendingMdLine.indexOf('\n')) !== -1) {
+      const line = pendingMdLine.slice(0, nl);
+      pendingMdLine = pendingMdLine.slice(nl + 1);
+      for (const r of mdStream.pushLine(line)) console.info(r);
+    }
+  };
+  const flushMdStream = (): void => {
+    if (!mdStream) return;
+    if (pendingMdLine) {
+      for (const r of mdStream.pushLine(pendingMdLine)) console.info(r);
+      pendingMdLine = '';
+    }
+    for (const r of mdStream.flush()) console.info(r);
+  };
+
   try {
     const result = await runToolLoop({
       modelId: opts.modelId,
@@ -1698,7 +1722,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
         if (isStructured) emit({ type: 'message_delta', text: delta });
         else {
           if (spinner?.isSpinning) spinner.stop();
-          process.stdout.write(delta);
+          pushMdDelta(delta);
         }
       },
       onToolCall: (name, args) => {
@@ -1732,6 +1756,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     sessionResult = result;
 
     if (spinner?.isSpinning) spinner.stop();
+    // W10 flush 残留 markdown(未闭合代码块/无换行残片)
+    flushMdStream();
 
     if (!isStructured) {
       console.info(chalk.green(`\n✨ 完成 (${result.iterations} 轮迭代, ${result.stopReason})`));
@@ -1771,6 +1797,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
 
     return result;
   } finally {
+    // W10 异常路径也 flush 残留 markdown(重复调用幂等:pending 清空后 flush 返回空)
+    flushMdStream();
     runSessionEndHooks(hooksConfig, sessionHookCtx);
     // P1-6 Codegraph 增量索引:退出时持久化缓存(供下次启动加载)
     if (codegraphSettings.codegraphIncremental?.enabled === true) {
