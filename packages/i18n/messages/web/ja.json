@@ -162,7 +162,10 @@
       "ctrl2": "プランモードへ切替",
       "ctrl3": "レビューモードへ切替",
       "ctrl4": "スペックモードへ切替",
-      "ctrl5": "質問モードへ切替"
+      "ctrl5": "質問モードへ切替",
+      "ctrlAltV": "音声:録音の開始/停止",
+      "ctrlAltB": "音声:自動読み上げ切替",
+      "ctrlAltH": "音声:連続会話切替"
     }
   },
   "teamMemory": {
@@ -9566,6 +9569,8 @@
     "csvCollapse": "折りたたむ",
     "csvLoading": "読み込み中…",
     "voiceInputPending": "文字起こし中、残り {count} 件",
+    "voicePlayback": "音声読み上げ",
+    "voiceHandsFree": "連続会話",
     "voicePlaybackOn": "音声読み上げオン",
     "voicePlaybackOff": "音声読み上げオフ",
     "voiceHandsFreeOn": "連続会話オン（話して送信）",
