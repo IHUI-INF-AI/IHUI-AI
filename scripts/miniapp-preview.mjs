@@ -14,7 +14,7 @@ console.log('[miniapp-preview] 启动小程序 H5 预览服务器...')
 
 const child = spawn('pnpm', ['--filter', '@ihui/miniapp', 'dev:h5'], {
   stdio: 'inherit',
-  shell: true,
+  shell: true,  windowsHide: true, // 防 Windows 弹可见 cmd 窗口
 })
 
 child.on('error', (err) => {

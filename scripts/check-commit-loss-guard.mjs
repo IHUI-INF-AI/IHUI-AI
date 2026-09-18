@@ -277,7 +277,7 @@ function listRemoteLostCommitTags() {
   let out
   try {
     out = run('git ls-remote origin "refs/tags/lost-commit/[^ ]*"', {
-      shell: true,
+      shell: true,      windowsHide: true, // 防 Windows 弹可见 cmd 窗口
       timeout: REMOTE_TIMEOUT_MS,
     })
   } catch {
@@ -291,7 +291,7 @@ function listRemoteBackups() {
   let out
   try {
     out = run('git ls-remote origin "refs/tags/backup/[^ ]*"', {
-      shell: true,
+      shell: true,      windowsHide: true, // 防 Windows 弹可见 cmd 窗口
       timeout: REMOTE_TIMEOUT_MS,
     })
   } catch {

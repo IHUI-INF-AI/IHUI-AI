@@ -162,7 +162,7 @@ function mypyRunnable(bin) {
     execSync(`${bin} --version`, {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
-      shell: true,
+      shell: true,      windowsHide: true, // 防 Windows 弹可见 cmd 窗口
       timeout: 60000,
     })
     return true
@@ -193,7 +193,7 @@ try {
     cwd: AI_SERVICE_DIR,
     stdio: ['pipe', 'pipe', 'pipe'],
     maxBuffer: 10 * 1024 * 1024,
-    shell: true,
+    shell: true,    windowsHide: true, // 防 Windows 弹可见 cmd 窗口
   })
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
 
