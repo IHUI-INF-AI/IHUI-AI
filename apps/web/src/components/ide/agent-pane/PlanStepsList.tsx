@@ -8,7 +8,7 @@
 // (不复用 agent-task-progress-pane 的 PlanStepItem,它耦合 ProgressJumpStore)
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { ListTodo, Circle, Loader2, Check } from 'lucide-react'
+import { ListTodo, Circle, Loader2, Check, X, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PlanStep, PlanStepStatus } from '@/hooks/use-agent-progress'
 import { formatDuration } from '@/components/ai/progress-sections/foldable-section'
@@ -18,11 +18,15 @@ const PLAN_ICON: Record<PlanStepStatus, React.ComponentType<{ className?: string
   pending: Circle,
   in_progress: Loader2,
   completed: Check,
+  failed: X,
+  skipped: SkipForward,
 }
 const PLAN_CLS: Record<PlanStepStatus, string> = {
   pending: 'text-muted-foreground/60',
   in_progress: 'text-primary',
   completed: 'text-emerald-500',
+  failed: 'text-red-500',
+  skipped: 'text-muted-foreground/60',
 }
 
 export function PlanStepsList({ steps }: { steps: PlanStep[] }) {

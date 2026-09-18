@@ -4,7 +4,11 @@
 
 """LangGraph 工作流服务。
 
-完整实现:plan(规划) → execute(执行) → summarize(总结)
+DEPRECATED(2026-09-19,D6 第 1 步后端栈归一):已被 agent_loop_v2 取代,
+本文件已无运行时消费方(routers/agents.py 与 a2a_service 的 fallback 均已摘除);
+仅保留供 routers/langgraph.py 图编排过渡参考,禁止新增调用方。
+
+历史实现:plan(规划) → execute(执行) → summarize(总结)
 - 真正使用 langgraph.graph.StateGraph 构建图调度
 - 条件边:plan 后判断是否需要执行,execute 后判断是否完成
 - 错误处理:任何节点失败转到 error 节点
