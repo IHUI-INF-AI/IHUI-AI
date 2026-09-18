@@ -699,6 +699,7 @@ def test_protocol_constants_match_engine_contract() -> None:
         "thread.resume",
         "thread.state",
         "thread.close",
+        "agent.exec",
         "tools.list",
         "tools.register",
         "tools.result",
