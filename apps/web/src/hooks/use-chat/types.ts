@@ -58,6 +58,16 @@ export interface UseChatReturn {
   applyAllDiffs: (messageId: string) => Promise<void>
   /** #14 批量 Reject(2026-09-13 立):消息内全部待决 diff 卡整体标记 rejected,纯前端 */
   rejectAllDiffs: (messageId: string) => void
+  /**
+   * W5 hunk 级部分应用(2026-09-18 立):`newContent` 由 `buildPartialContent` 以原文为基线
+   * 重组(只含已接受 hunk)。全拒绝(与原文逐字节一致)时短路为纯前端 rejected,不写盘。
+   */
+  applyDiffSelection: (
+    messageId: string,
+    toolCallId: string,
+    diffInfo: InlineDiffInfo,
+    newContent: string,
+  ) => Promise<void>
 }
 
 export interface ChatActionContext {

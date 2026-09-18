@@ -10,6 +10,7 @@ import { toast } from '@/components/common'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { fetchApi } from '@/lib/api'
+import { isUnchangedPartial } from '@/lib/hunk-diff'
 import type { InlineDiffInfo } from '@/components/ai/types'
 
 /**
@@ -57,6 +58,17 @@ export interface UseApplyDiffReturn {
   applyAllDiffs: (messageId: string) => Promise<void>
   /** #14 全部拒绝:纯前端批量标记 rejected,无 API 调用 */
   rejectAllDiffs: (messageId: string) => void
+  /**
+   * W5(2026-09-18 立):hunk 级部分应用 —— `newContent` 由调用方用 `buildPartialContent`
+   * 以原文为基线重组(只含已接受 hunk)。若重组结果与原文逐字节一致(全拒绝),则退化为
+   * **纯前端标记 rejected,不写盘**,避免写出空内容文件。
+   */
+  applyDiffSelection: (
+    messageId: string,
+    toolCallId: string,
+    diffInfo: InlineDiffInfo,
+    newContent: string,
+  ) => Promise<void>
 }
 
 export function useApplyDiff(): UseApplyDiffReturn {
@@ -109,6 +121,57 @@ export function useApplyDiff(): UseApplyDiffReturn {
   const rejectDiff = React.useCallback((messageId: string, toolCallId: string) => {
     useChatStore.getState().setToolCallApplyStatus(messageId, toolCallId, 'rejected')
   }, [])
+
+  // W5 hunk 级部分应用(2026-09-18 立):与整卡 applyDiff 走同一条 /api/v1/ai/apply-diff 通道,
+  // 区别只在 newContent 已由 buildPartialContent 按「已接受 hunk」重组。全拒绝短路为纯前端标记,
+  // 绝不把空内容写盘(那会清空用户文件)。
+  const applyDiffSelection = React.useCallback(
+    async (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo, newContent: string) => {
+      const store = useChatStore.getState()
+      const tc = store.messages
+        .find((m) => m.id === messageId)
+        ?.toolCalls?.find((t) => t.id === toolCallId)
+      if (!tc) return
+      if (tc.applyStatus === 'applied' || tc.applyStatus === 'applying') return
+
+      if (isUnchangedPartial(diffInfo.old_content, newContent)) {
+        store.setToolCallApplyStatus(messageId, toolCallId, 'rejected')
+        toast.success('已忽略本次改动', { description: diffInfo.file_path })
+        return
+      }
+
+      const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
+      if (!workspacePath) {
+        toast.error('未绑定工作区', {
+          description: '请先在 AI 面板选择本地工作区,Apply 才能写入文件',
+        })
+        store.setToolCallApplyStatus(messageId, toolCallId, 'error', '未绑定工作区')
+        return
+      }
+
+      store.setToolCallApplyStatus(messageId, toolCallId, 'applying')
+      try {
+        const result = await callApplyDiffApi({
+          path: diffInfo.file_path,
+          oldContent: diffInfo.old_content,
+          newContent,
+          workspacePath,
+        })
+        if (result.ok) {
+          store.setToolCallApplyStatus(messageId, toolCallId, 'applied')
+          toast.success('已应用所选改动块', { description: diffInfo.file_path })
+        } else {
+          store.setToolCallApplyStatus(messageId, toolCallId, 'error', result.error)
+          toast.error('应用失败', { description: result.error })
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        store.setToolCallApplyStatus(messageId, toolCallId, 'error', msg)
+        toast.error('应用失败', { description: msg })
+      }
+    },
+    [],
+  )
 
   // #14 全部接受(2026-09-13 立):收集消息内所有待决 diff 卡,逐个调 API(best-effort),
   // 后端 /api/v1/ai/apply-diff 为单文件原子写,批量语义=逐文件顺序应用,失败不回滚已成功项。
@@ -171,7 +234,7 @@ export function useApplyDiff(): UseApplyDiffReturn {
     useChatStore.getState().setAllDiffApplyStatus(messageId, 'rejected')
   }, [])
 
-  return { applyDiff, rejectDiff, applyAllDiffs, rejectAllDiffs }
+  return { applyDiff, rejectDiff, applyAllDiffs, rejectAllDiffs, applyDiffSelection }
 }
 
 export default useApplyDiff

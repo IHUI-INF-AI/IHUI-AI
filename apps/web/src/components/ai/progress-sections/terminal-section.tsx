@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
 import { CopyButton } from './copy-button'
+import { useChatStore } from '@/stores/chat'
 import type { TerminalTask } from '@/hooks/use-agent-progress'
 
 interface TerminalSectionProps {
@@ -43,7 +44,31 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
   const t = useTranslations('ai.pane')
   const [expanded, setExpanded] = React.useState(false)
   const Icon = TERMINAL_STATUS_ICON[term.status]
-  const hasOutput = !!term.output
+  // 2026-09-18 立(对标 Codex/Trae 实时 stdout 行流):命令执行期间后端逐块下发
+  // terminal_delta,由 send-message.ts 写入 store.terminalOutputs(键 = terminalId)。
+  // 这里按 id 精确订阅(返回原始字符串,引用稳定,zustand selector 安全)。
+  const liveOutput = useChatStore((s) => s.terminalOutputs[term.id])
+  const clearTerminalOutput = useChatStore((s) => s.clearTerminalOutput)
+  // 权威输出:live 缓冲通常比 terminal_end.output(后端截 8000 字符)更长 → 取更长者,
+  // 保证构建日志尾部不被截掉;两者皆空时无输出可展开。
+  const effectiveOutput =
+    liveOutput && liveOutput.length > (term.output?.length ?? 0) ? liveOutput : term.output
+  const hasOutput = !!effectiveOutput
+  const isRunning = term.status === 'running'
+  const preRef = React.useRef<HTMLPreElement | null>(null)
+
+  // 运行中默认展开(实时可见是本次改造的目的),结束后回到手动展开
+  React.useEffect(() => {
+    if (isRunning && liveOutput) setExpanded(true)
+  }, [isRunning, liveOutput])
+
+  // 新内容到达时贴底滚动(命令输出的关注点永远在最后几行)
+  React.useEffect(() => {
+    if (!expanded || !isRunning) return
+    const el = preRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [liveOutput, expanded, isRunning])
+
   const toggleExpand = () => {
     if (hasOutput) setExpanded((v) => !v)
   }
@@ -103,13 +128,34 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
             <div className="space-y-1 px-3 pb-1 pt-0.5 text-[10px] leading-relaxed">
               <div className="flex items-center gap-1">
                 <span className="font-medium text-muted-foreground/60">{t('terminal.output')}</span>
+                {isRunning && liveOutput && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] text-primary">
+                    <span className="h-1 w-1 animate-pulse rounded-full bg-primary" />
+                    <span>{t('terminal.live')}</span>
+                  </span>
+                )}
                 <CopyButton
-                  text={term.output ?? ''}
+                  text={effectiveOutput ?? ''}
                   aria-label={t('terminal.copyOutput')}
                   data-testid={`terminal-copy-output-${term.id}`}
                 />
+                {liveOutput && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      clearTerminalOutput(term.id)
+                    }}
+                    className="rounded-sm px-1 text-[10px] text-muted-foreground/60 transition-colors hover:bg-accent/60 hover:text-foreground"
+                    aria-label={t('terminal.clearLive')}
+                    data-testid={`terminal-clear-live-${term.id}`}
+                  >
+                    {t('terminal.clearLive')}
+                  </button>
+                )}
               </div>
               <pre
+                ref={preRef}
                 className={cn(
                   'mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm p-1 font-mono text-[10px]',
                   term.status === 'failed'
@@ -117,10 +163,13 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
                     : 'bg-muted/60 text-muted-foreground/90',
                 )}
               >
-                {truncateOutput(
-                  term.output ?? '',
-                  t('terminal.truncated', { total: (term.output ?? '').length }),
-                )}
+                {isRunning
+                  ? // 运行中:显示实时增量(可能超 500 字符,截尾部保留最新输出)
+                    (liveOutput ?? '').slice(-2000)
+                  : truncateOutput(
+                      effectiveOutput ?? '',
+                      t('terminal.truncated', { total: (effectiveOutput ?? '').length }),
+                    )}
               </pre>
             </div>
           </div>
