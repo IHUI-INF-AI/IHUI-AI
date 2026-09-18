@@ -1,11 +1,18 @@
 #!/usr/bin/env node
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /* eslint-disable no-console -- CLI 工具需 console 输出 */
 /**
- * git-push-converge.mjs — 多仓幂等推送收敛(2026-09-18 立,#58 收尾事故根治)
+ * git-push-converge.mjs — 多仓推送状态判定/收敛(2026-09-18 立,#58 收尾事故根治)
+ *
+ * 定位(AGENTS.md「提交/推送」节 2026-09-18 规则):**只读核验工具 + 应急通道**。
+ * 常规推送链完全自动,agent 不得手写 git push:
+ *   - origin:post-commit 钩子 git-push-guard.mjs(ahead 检测+推送+回读验证,幂等)
+ *   - Gitee/GitCode:mirror-to-cn.yml CI(push 触发+每日 2 次兜底)
+ * agent 收尾核验同步状态 = 跑本脚本(默认零推送:ALREADY/SKIP/BEHIND/DIVERGED
+ * 均不产生写网络动作);仅在 guard/CI 双失效的应急场景人工推。
  *
  * 背景(两次实锤事故):
  *   post-commit 已由 git-push-guard 自动推 origin,agent 收尾时再手动
@@ -26,10 +33,14 @@
  *   1 — 存在推送失败或分叉(需人工)
  *
  * 用法:
- *   node scripts/git-push-converge.mjs                         # 默认 origin,gitee,gitcode
- *   node scripts/git-push-converge.mjs --remotes=origin,gitee  # 指定仓
+ *   node scripts/git-push-converge.mjs                         # 默认仅核验 origin(镜像归 CI,见下)
+ *   node scripts/git-push-converge.mjs --remotes=origin,gitee  # 显式指定仓(镜像仓仅在应急时使用)
  *   node scripts/git-push-converge.mjs --branch=dev            # 指定分支(默认 main)
  *   node scripts/git-push-converge.mjs --force-with-lease      # 分叉时允许 lease 强推(慎用)
+ *
+ * ⚠️ 默认 remotes=origin(2026-09-18 收紧):Gitee/GitCode 的同步归 mirror-to-cn.yml CI
+ *    (push 触发+每日兜底),本地手推镜像仓违反架构且每次 push 触发仓库级 pre-push
+ *    全量 typecheck(数分钟)。核验镜像仓请显式 --remotes=origin,gitee,gitcode。
  */
 import { execFileSync } from 'node:child_process'
 
@@ -40,7 +51,7 @@ const getArg = (name, def) => {
   return hit ? hit.split('=').slice(1).join('=') : def
 }
 const hasFlag = (name) => args.includes(`--${name}`)
-const remotes = getArg('remotes', 'origin,gitee,gitcode').split(',').map((s) => s.trim()).filter(Boolean)
+const remotes = getArg('remotes', 'origin').split(',').map((s) => s.trim()).filter(Boolean)
 const branch = getArg('branch', 'main')
 const allowLease = hasFlag('force-with-lease')
 const TIMEOUT_MS = Number(getArg('timeout', '180000'))
@@ -126,3 +137,4 @@ for (const remote of remotes) {
 const summary = results.map((r) => `${r.remote}=${r.status}`).join(' ')
 console.log(`\n收敛结果: ${summary}`)
 process.exit(hasFailure ? 1 : 0)
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
