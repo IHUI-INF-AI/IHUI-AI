@@ -25,6 +25,9 @@
   thread.resume       从 checkpoint 断点续跑
   thread.state        线程状态(状态机 + 迭代数 + checkpoint + 成本)
   thread.close        关闭线程(释放事件订阅与状态)
+  thread.compact      手动压缩线程历史(确定性压缩,对标 Codex /compact)
+  thread.export       导出线程为 JSONL(对标 Codex rollout 导出)
+  thread.plan         读取线程当前计划(update_plan 工具写入)
   tools.list          MCP 超级工具池 + 宿主注入工具的合并清单
   tools.register      注入宿主自有工具(执行回传客户端,经 tool/execute 往返)
   tools.result        回传宿主工具执行结果(结算 tool/execute 请求)
@@ -51,6 +54,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import itertools
 import json
@@ -60,6 +64,7 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from .session_store import SessionStore
@@ -99,6 +104,7 @@ AGENT_EVENTS: tuple[str, ...] = (
     "tool.approval",
     "permission.mode",
     "plan.step",
+    "llm.retry",
     "self_heal",
     "error",
 )
@@ -230,6 +236,16 @@ class EngineThread:
     # 开始时快照本轮生效配置;thread.resume(checkpoint 续跑)强制用冻结副本,防
     # 「interrupt → 客户端改配置 → resume」状态串台。非 checkpoint 路径每轮刷新。
     frozen_context: dict[str, Any] | None = None
+    # 生成参数 / 推理配置(2026-09-18 第二批,对标 Codex model_reasoning 配置面):
+    # 随 frozen_context 冻结,resume 时同样还原,防轮间配置漂移。
+    model_params: dict[str, Any] = field(default_factory=dict)
+    reasoning: dict[str, Any] = field(default_factory=dict)
+    # 负向工具过滤(对标 Codex per-app omit_tools_from):构造循环工具后剔除
+    deny_tools: list[str] = field(default_factory=list)
+    # 模型可见计划(update_plan 内置工具写入,对标 Codex PlanUpdate/plan tool)
+    plan: list[dict[str, Any]] | None = None
+    # 子代理嵌套深度(spawn_subagent 防递归失控,上限 _MAX_SUBAGENT_DEPTH)
+    depth: int = 0
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -314,6 +330,116 @@ def _resolve_approval_policy(policies: dict[str, str], tool_name: str) -> str | 
     return policies.get("*")
 
 
+# ---------------------------------------------------------------------------
+# 生成参数 / 推理配置 / 负向工具过滤(2026-09-18 第二批,对标 Codex model_reasoning
+# 与 per-app omit_tools_from 配置面):thread.start 可带 modelParams(白名单键 +
+# camelCase 别名)/ reasoning {effort, summary} / denyTools。
+# ---------------------------------------------------------------------------
+
+_MODEL_PARAM_NUMERIC: tuple[str, ...] = (
+    "temperature",
+    "top_p",
+    "presence_penalty",
+    "frequency_penalty",
+)
+_MODEL_PARAM_INTEGRAL: tuple[str, ...] = ("max_tokens", "max_completion_tokens", "seed")
+_MODEL_PARAM_ALIASES: dict[str, str] = {
+    "maxTokens": "max_tokens",
+    "maxCompletionTokens": "max_completion_tokens",
+    "topP": "top_p",
+    "presencePenalty": "presence_penalty",
+    "frequencyPenalty": "frequency_penalty",
+}
+_VALID_MODEL_PARAM_KEYS: frozenset[str] = frozenset(
+    {*_MODEL_PARAM_NUMERIC, *_MODEL_PARAM_INTEGRAL, "stop"}
+)
+_REASONING_EFFORTS: tuple[str, ...] = ("minimal", "low", "medium", "high")
+_REASONING_SUMMARIES: tuple[str, ...] = ("auto", "concise", "detailed")
+_VALID_PLAN_STATUSES: tuple[str, ...] = ("pending", "in_progress", "completed")
+
+# view_image 工具(对标 Codex view_image):工作区内的图片读取
+_IMAGE_MIME_TYPES: dict[str, str] = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+}
+_MAX_VIEW_IMAGE_BYTES = 8 * 1024 * 1024
+# 引擎内置工具面(宿主同名工具可显式覆盖;denyTools / tools 白名单同样生效)
+BUILTIN_ENGINE_TOOLS: tuple[str, ...] = ("update_plan", "spawn_subagent", "view_image")
+# 子代理嵌套深度上限(spawn_subagent 防递归失控)
+_MAX_SUBAGENT_DEPTH = 2
+
+
+def _parse_generation_config(params: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """解析 modelParams + reasoning(2026-09-18 第二批)。
+
+    - modelParams:白名单键(accept camelCase 别名)→ 值类型校验,非法 → INVALID_PARAMS。
+      值最终透传 llm_gateway → litellm(temperature/top_p/max_tokens/...)。
+    - reasoning: {effort, summary};effort 注入 model_params["reasoning_effort"]
+      (litellm 通道命名),summary 随 spec 保留(供应商差异面,不强转)。
+    返回 (model_params, reasoning)。
+    """
+    raw = params.get("modelParams")
+    model_params: dict[str, Any] = {}
+    if raw is not None:
+        if not isinstance(raw, dict):
+            raise JsonRpcError(INVALID_PARAMS, "modelParams 须为对象")
+        for key, value in raw.items():
+            key = _MODEL_PARAM_ALIASES.get(str(key), str(key))
+            if key not in _VALID_MODEL_PARAM_KEYS:
+                raise JsonRpcError(
+                    INVALID_PARAMS,
+                    f"modelParams 不支持键: {key}(允许: {sorted(_VALID_MODEL_PARAM_KEYS)})",
+                )
+            if key in _MODEL_PARAM_NUMERIC:
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    raise JsonRpcError(INVALID_PARAMS, f"modelParams.{key} 须为数值")
+            elif key in _MODEL_PARAM_INTEGRAL:
+                if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                    raise JsonRpcError(INVALID_PARAMS, f"modelParams.{key} 须为正整数")
+            elif not (
+                isinstance(value, str)
+                or (isinstance(value, list) and all(isinstance(v, str) for v in value))
+            ):
+                raise JsonRpcError(INVALID_PARAMS, "modelParams.stop 须为字符串或字符串数组")
+            model_params[key] = value
+    raw_reasoning = params.get("reasoning")
+    reasoning: dict[str, Any] = {}
+    if raw_reasoning is not None:
+        if not isinstance(raw_reasoning, dict):
+            raise JsonRpcError(INVALID_PARAMS, "reasoning 须为对象")
+        effort = raw_reasoning.get("effort")
+        if effort is not None:
+            if effort not in _REASONING_EFFORTS:
+                raise JsonRpcError(
+                    INVALID_PARAMS, f"reasoning.effort 非法: {effort!r}(取值 {_REASONING_EFFORTS})"
+                )
+            reasoning["effort"] = str(effort)
+            model_params.setdefault("reasoning_effort", str(effort))
+        summary = raw_reasoning.get("summary")
+        if summary is not None:
+            if summary not in _REASONING_SUMMARIES:
+                raise JsonRpcError(
+                    INVALID_PARAMS,
+                    f"reasoning.summary 非法: {summary!r}(取值 {_REASONING_SUMMARIES})",
+                )
+            reasoning["summary"] = str(summary)
+    return model_params, reasoning
+
+
+def _parse_deny_tools(params: dict[str, Any]) -> list[str]:
+    """解析 denyTools(对标 Codex per-app omit_tools_from 的负向过滤)。"""
+    deny = params.get("denyTools")
+    if deny is None:
+        return []
+    if not isinstance(deny, list) or not all(isinstance(x, str) and x for x in deny):
+        raise JsonRpcError(INVALID_PARAMS, "denyTools 须为非空字符串数组")
+    return list(dict.fromkeys(deny))
+
+
 def _spec(thread: EngineThread) -> dict[str, Any]:
     """把线程配置转成主循环工厂的 spec(承载层据此构造 AgentLoopV2)。
 
@@ -331,6 +457,9 @@ def _spec(thread: EngineThread) -> dict[str, Any]:
         "user_id": thread.user_id,
         "conversation_id": thread.conversation_id,
         "approval_policies": ctx.get("approval_policies"),
+        "model_params": ctx.get("model_params") or {},
+        "reasoning": ctx.get("reasoning") or {},
+        "deny_tools": ctx.get("deny_tools") or [],
         "enable_checkpoint": True,
     }
 
@@ -412,6 +541,9 @@ class AgentEngine:
             "thread.resume": self._handle_thread_resume,
             "thread.state": self._handle_thread_state,
             "thread.close": self._handle_thread_close,
+            "thread.compact": self._handle_thread_compact,
+            "thread.export": self._handle_thread_export,
+            "thread.plan": self._handle_thread_plan,
             "agent.exec": self._handle_agent_exec,
             "tools.list": self._handle_tools_list,
             "tools.register": self._handle_tools_register,
@@ -530,6 +662,9 @@ class AgentEngine:
                     "userId": thread.user_id,
                     "conversationId": thread.conversation_id,
                     "approvalPolicies": thread.approval_policies or None,
+                    "modelParams": thread.model_params or None,
+                    "reasoning": thread.reasoning or None,
+                    "denyTools": thread.deny_tools or None,
                     "systemPromptSource": (
                         "server-locked" if self._locked_system_prompt else "client-or-default"
                     ),
@@ -648,6 +783,13 @@ class AgentEngine:
                 else None,
                 messages=messages,
             )
+            # 第二批配置面还原(失败降级为缺省,不影响对话续跑)
+            if isinstance(md.get("modelParams"), dict):
+                thread.model_params = dict(md["modelParams"])
+            if isinstance(md.get("reasoning"), dict):
+                thread.reasoning = dict(md["reasoning"])
+            if isinstance(md.get("denyTools"), list):
+                thread.deny_tools = [str(x) for x in md["denyTools"] if isinstance(x, str)]
             self._threads[thread_id] = thread
             logger.info(
                 "[engine] thread restored from store %s (items=%s)", thread_id, t.item_count
@@ -689,6 +831,11 @@ class AgentEngine:
                 "checkpoint": True,
                 "hostTools": True,
                 "approval": True,
+                "planTool": True,
+                "subagent": True,
+                "viewImage": True,
+                "manualCompaction": True,
+                "export": True,
                 "mcp": self._tool_lister is not None,
                 "costLedger": self._cost_report is not None,
                 "modelRouting": self._model_lister is not None,
@@ -731,6 +878,8 @@ class AgentEngine:
         ]
         tool_names = params.get("tools")
         approval_policies = _parse_policy_config(params)
+        model_params, reasoning = _parse_generation_config(params)
+        deny_tools = _parse_deny_tools(params)
         thread = EngineThread(
             thread_id=thread_id,
             session_id=str(params.get("sessionId") or thread_id),
@@ -746,6 +895,9 @@ class AgentEngine:
             if isinstance(params.get("conversationId"), str)
             else None,
             approval_policies=approval_policies,
+            model_params=model_params,
+            reasoning=reasoning,
+            deny_tools=deny_tools,
             messages=messages,
         )
         self._threads[thread_id] = thread
@@ -760,6 +912,9 @@ class AgentEngine:
             "permissionMode": thread.permission_mode,
             "maxIterations": thread.max_iterations,
             "approvalPolicies": thread.approval_policies,
+            "modelParams": thread.model_params,
+            "reasoning": thread.reasoning,
+            "denyTools": thread.deny_tools,
             "systemPromptSource": system_source,
             "status": thread.status,
         }
@@ -773,6 +928,9 @@ class AgentEngine:
             "tool_names": list(thread.tool_names) if thread.tool_names else None,
             "workspace": thread.workspace,
             "approval_policies": dict(thread.approval_policies) or None,
+            "model_params": dict(thread.model_params) or None,
+            "reasoning": dict(thread.reasoning) or None,
+            "deny_tools": list(thread.deny_tools) or None,
         }
 
     async def _handle_agent_exec(
@@ -823,6 +981,27 @@ class AgentEngine:
         # Turn Context 冻结:非 checkpoint 路径每轮刷新快照(客户端在轮间改配置,
         # 新一轮用新值;轮内 interrupt→resume 走 _handle_thread_resume 的冻结副本)
         thread.frozen_context = self._freeze_context(thread)
+        # 环境快照事件(2026-09-18 第二批,对标 Codex EnvironmentSnapshot/环境上下文):
+        # 客户端每轮可感知 cwd/workspace/生成参数,排查"模型看到了什么环境"不再靠猜。
+        with contextlib.suppress(Exception):
+            await emit(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "thread/event",
+                    "params": {
+                        "threadId": thread.thread_id,
+                        "event": "environment_context",
+                        "payload": {
+                            "session_id": thread.session_id,
+                            "cwd": os.getcwd(),
+                            "workspace": thread.workspace,
+                            "model": thread.model,
+                            "modelParams": thread.frozen_context.get("model_params"),
+                            "timestamp": time.time(),
+                        },
+                    },
+                }
+            )
         turn_id = self._persist_turn_start(thread, text)
         try:
             result = await self._run_thread(thread, emit)
@@ -840,6 +1019,9 @@ class AgentEngine:
         thread.emit = emit
         thread.touch()
         host_tools = self._build_host_tool_definitions(thread)
+        # 引擎内置工具(update_plan/spawn_subagent/view_image,2026-09-18 第二批,
+        # 对标 Codex plan/collab/view_image 工具面):宿主同名工具显式覆盖。
+        host_tools = host_tools + self._builtin_tool_definitions(thread)
         # 先同步订阅再开跑:主循环可能在首个 await 之前就发事件(如 session.start),
         # 若订阅晚于执行,这些事件会永久丢失(队列尚不存在,放不进去)。
         queues = self._subscribe_events()
@@ -860,6 +1042,12 @@ class AgentEngine:
             payload = self._result_payload(thread, result)
             thread.last_result = payload
             thread.prompts += 1
+            # turn.usage 事件(2026-09-18 第二批,对标 Codex TokenCount):
+            # 回合级用量经通知流出,客户端无需解析循环内部结构。
+            with contextlib.suppress(Exception):
+                await self._emit_engine_event(
+                    thread, emit, "turn.usage", dict(payload.get("usage") or {})
+                )
             return payload
         finally:
             elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
@@ -916,11 +1104,44 @@ class AgentEngine:
                 float(getattr(result, "total_duration_ms", 0.0) or 0.0), 2
             ),
             "totalTokensUsed": int(getattr(result, "total_tokens_used", 0) or 0),
+            "usage": self._turn_usage(result),
             "checkpointId": getattr(result, "checkpoint_id", None),
             "error": getattr(result, "error", None),
             "budget": getattr(result, "budget", None),
             "compactionEvents": compaction,
         }
+
+    @staticmethod
+    def _turn_usage(result: Any) -> dict[str, Any]:
+        """回合 token 用量(2026-09-18 第二批,对标 Codex TokenCount 事件)。
+
+        总量取自 AgentLoopResult.total_tokens_used;逐迭代分项(有精确 usage 时)
+        尽力透出,无则只回总量+迭代数(不伪造分项)。
+        """
+        iterations = getattr(result, "iterations", []) or []
+        per_iteration: list[dict[str, Any]] = []
+        for it in iterations:
+            usage = getattr(it, "usage", None)
+            if isinstance(usage, dict) and usage:
+                per_iteration.append(
+                    {
+                        k: usage[k]
+                        for k in (
+                            "input_tokens",
+                            "output_tokens",
+                            "cached_tokens",
+                            "total_tokens",
+                        )
+                        if k in usage
+                    }
+                )
+        out: dict[str, Any] = {
+            "totalTokens": int(getattr(result, "total_tokens_used", 0) or 0),
+            "iterations": len(iterations),
+        }
+        if per_iteration:
+            out["perIteration"] = per_iteration
+        return out
 
     async def _handle_thread_interrupt(
         self, params: dict[str, Any], emit: Emitter
@@ -977,6 +1198,10 @@ class AgentEngine:
             thread.tool_names = ctx.get("tool_names", thread.tool_names)
             thread.workspace = ctx.get("workspace", thread.workspace)
             thread.approval_policies = dict(ctx.get("approval_policies") or {})
+            # 第二批配置面同样冻结还原(生成参数/推理配置/负向过滤)
+            thread.model_params = dict(ctx.get("model_params") or {})
+            thread.reasoning = dict(ctx.get("reasoning") or {})
+            thread.deny_tools = list(ctx.get("deny_tools") or [])
         try:
             return await self._run_thread(thread, emit, from_checkpoint=checkpoint_id)
         except ValueError as e:
@@ -1021,6 +1246,371 @@ class AgentEngine:
     # ------------------------------------------------------------------
     # tools.*
     # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # thread.compact / thread.export / thread.plan(2026-09-18 第二批)
+    # ------------------------------------------------------------------
+
+    async def _handle_thread_compact(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """手动压缩线程历史(2026-09-18 第二批,对标 Codex /compact + ContextCompacted)。
+
+        复用主循环同款确定性压缩(core/context_compaction,零 LLM 额外成本):
+        以当前估算 token 为 limit 使占用率 ≥ 触发线,强制触发压缩;压缩产物落
+        CompactionBoundaryItem(resume 时只回放边界后内容),并发 context.compacted
+        通知。对话过短则原样返回 compressed=False。
+        """
+        thread = self._require_thread(params)
+        if thread.status == "running":
+            raise JsonRpcError(THREAD_BUSY, f"线程正在执行中: {thread.thread_id}")
+        try:
+            keep_recent = int(params.get("keepRecent") or 8)
+        except (TypeError, ValueError) as e:
+            raise JsonRpcError(INVALID_PARAMS, "keepRecent 须为整数") from e
+        keep_recent = max(2, min(keep_recent, 50))
+        messages = thread.messages
+        before = len(messages)
+        from app.core.context_compaction import (
+            compress_messages_if_needed,
+            estimate_messages_tokens,
+        )
+
+        # 以压缩器自身的 token 估算值为 limit → 占用率恒 1.0,必过触发线(强制压缩)
+        est_tokens = max(1, estimate_messages_tokens(messages))
+        compressed, info = compress_messages_if_needed(
+            messages,
+            est_tokens,
+            trigger_ratio=0.85,
+            target_ratio=0.6,
+            keep_recent=keep_recent,
+        )
+        result: dict[str, Any] = {
+            "threadId": thread.thread_id,
+            "compressed": bool(info.get("compressed")),
+            "beforeMessages": before,
+            "afterMessages": len(compressed),
+            "originalTokens": info.get("original_tokens"),
+            "compressedTokens": info.get("compressed_tokens"),
+            "removedCount": info.get("removed_count"),
+        }
+        if info.get("compressed"):
+            thread.messages = list(compressed)
+            thread.touch()
+            self._persist_compaction_boundary(thread, info)
+            await self._emit_engine_event(
+                thread,
+                emit,
+                "context.compacted",
+                {
+                    "compressed": True,
+                    "beforeMessages": before,
+                    "afterMessages": len(compressed),
+                    "removedCount": info.get("removed_count"),
+                },
+            )
+        return result
+
+    def _persist_compaction_boundary(self, thread: EngineThread, info: dict[str, Any]) -> None:
+        """压缩边界落库(resume 回放语义对齐循环内压缩;失败降级不影响内存态)。"""
+        store = self._persistence_store()
+        if store is None:
+            return
+        try:
+            from .session_store import CompactionBoundaryItem
+
+            store.compact(
+                thread.thread_id,
+                CompactionBoundaryItem(
+                    summary=str(info.get("summary") or "manual compact via thread.compact"),
+                    tokens_before=int(info.get("original_tokens") or 0),
+                    tokens_after=int(info.get("compressed_tokens") or 0),
+                ),
+            )
+        except Exception as e:
+            logger.warning("[engine] 压缩边界落库失败 %s: %s", thread.thread_id, e)
+
+    async def _handle_thread_export(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """导出线程为 JSONL(2026-09-18 第二批,对标 Codex rollout 导出)。
+
+        优先 SessionStore items(pydantic 全量 dump,含 seq/时间戳/类型),
+        无库或为空时回退线程内存消息;path 给出时落盘(utf-8),始终返回 lines
+        便于传输层直接消费。
+        """
+        thread = self._require_thread(params)
+        lines: list[str] = []
+        store = self._persistence_store()
+        if store is not None:
+            try:
+                for item in store.list_items(thread.thread_id):
+                    lines.append(
+                        json.dumps(item.model_dump(mode="json"), ensure_ascii=False)
+                    )
+            except Exception as e:
+                logger.warning("[engine] thread.export 库导出失败(回退内存消息): %s", e)
+                lines = []
+        if not lines:
+            for m in thread.messages:
+                lines.append(
+                    json.dumps({"type": "message", **m}, ensure_ascii=False, default=str)
+                )
+        path = params.get("path")
+        written: str | None = None
+        if isinstance(path, str) and path.strip():
+            target = Path(path.strip())
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            written = str(target)
+        return {
+            "threadId": thread.thread_id,
+            "format": "jsonl",
+            "count": len(lines),
+            "path": written,
+            "lines": lines,
+        }
+
+    async def _handle_thread_plan(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """读取线程当前计划(update_plan 内置工具写入;对标 Codex PlanUpdate 查询面)。"""
+        thread = self._require_thread(params)
+        return {"threadId": thread.thread_id, "plan": thread.plan}
+
+    async def _emit_engine_event(
+        self,
+        thread: EngineThread,
+        emit: Emitter | None,
+        event: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """引擎侧事件的统一出站格式(与 _drain_events 的 thread/event 封装一致)。
+
+        引擎自产事件(environment_context / turn.usage / plan.update /
+        context.compacted)不经 hook 总线,直接走承载层通知,格式与循环事件
+        完全同构,客户端一套解析逻辑即可。
+        """
+        await (emit or _noop_emitter)(
+            {
+                "jsonrpc": "2.0",
+                "method": "thread/event",
+                "params": {
+                    "threadId": thread.thread_id,
+                    "event": event,
+                    "payload": {"session_id": thread.session_id, **payload},
+                },
+            }
+        )
+
+    # ------------------------------------------------------------------
+    # 引擎内置工具(2026-09-18 第二批,对标 Codex plan/collab/view_image 工具面)
+    # ------------------------------------------------------------------
+
+    def _builtin_tool_definitions(self, thread: EngineThread) -> list[Any]:
+        """构造引擎内置工具定义(宿主同名覆盖 / denyTools / tools 白名单生效)。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        whitelist = thread.tool_names
+        host_names = set(thread.host_tools)
+        builders = {
+            "update_plan": self._update_plan_tool,
+            "spawn_subagent": self._spawn_subagent_tool,
+            "view_image": self._view_image_tool,
+        }
+        definitions: list[Any] = []
+        for name in BUILTIN_ENGINE_TOOLS:
+            if name in host_names or name in thread.deny_tools:
+                continue
+            if whitelist is not None and name not in whitelist:
+                continue
+            definitions.append(builders[name](thread))
+        return definitions
+
+    def _update_plan_tool(self, thread: EngineThread) -> Any:
+        """update_plan:模型可见执行计划(对标 Codex plan tool / PlanUpdate 事件)。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        parameters = {
+            "type": "object",
+            "properties": {
+                "plan": {
+                    "type": "array",
+                    "description": "完整计划步骤列表(全量覆盖写入)",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "step": {"type": "string"},
+                            "status": {
+                                "type": "string",
+                                "enum": list(_VALID_PLAN_STATUSES),
+                            },
+                        },
+                        "required": ["step"],
+                    },
+                },
+                "explanation": {"type": "string", "description": "一句话说明计划变更原因"},
+            },
+            "required": ["plan"],
+        }
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            plan_raw = args.get("plan")
+            if not isinstance(plan_raw, list) or not plan_raw:
+                raise JsonRpcError(INVALID_PARAMS, "update_plan 需要 plan 数组")
+            plan: list[dict[str, Any]] = []
+            for idx, item in enumerate(plan_raw):
+                if not isinstance(item, dict) or not str(item.get("step") or "").strip():
+                    raise JsonRpcError(INVALID_PARAMS, f"plan[{idx}] 须为含 step 的对象")
+                status = str(item.get("status") or "pending")
+                if status not in _VALID_PLAN_STATUSES:
+                    raise JsonRpcError(
+                        INVALID_PARAMS, f"plan[{idx}].status 非法: {status!r}"
+                    )
+                plan.append({"step": str(item["step"]).strip(), "status": status})
+            thread.plan = plan
+            thread.touch()
+            await self._emit_engine_event(
+                thread,
+                thread.emit,
+                "plan.update",
+                {"plan": plan, "explanation": args.get("explanation")},
+            )
+            return {"plan": plan, "saved": True}
+
+        return ToolDefinition(
+            name="update_plan",
+            description=(
+                "维护当前任务的可见执行计划:开始多步任务前先列出全部步骤,"
+                "推进时更新对应步骤状态(pending/in_progress/completed)。"
+            ),
+            parameters=parameters,
+            executor=_exec,
+        )
+
+    def _spawn_subagent_tool(self, thread: EngineThread) -> Any:
+        """spawn_subagent:派生一次性子代理(对标 Codex collab 多代理工具面)。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        parameters = {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "子代理要独立完成的任务"},
+                "model": {"type": "string", "description": "可选,子代理模型(默认继承)"},
+                "maxIterations": {
+                    "type": "integer",
+                    "description": "可选,子代理最大迭代(默认 6,上限 12)",
+                },
+            },
+            "required": ["prompt"],
+        }
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            prompt = args.get("prompt")
+            if not isinstance(prompt, str) or not prompt.strip():
+                return {"error": "spawn_subagent 需要非空 prompt"}
+            if thread.depth >= _MAX_SUBAGENT_DEPTH:
+                return {
+                    "error": f"子代理嵌套深度已达上限({_MAX_SUBAGENT_DEPTH}),拒绝继续派生"
+                }
+            sub_params: dict[str, Any] = {
+                "input": prompt.strip(),
+                "permissionMode": thread.permission_mode,
+                "maxIterations": max(1, min(int(args.get("maxIterations") or 6), 12)),
+            }
+            model = args.get("model")
+            if isinstance(model, str) and model.strip():
+                sub_params["model"] = model.strip()
+            elif thread.model:
+                sub_params["model"] = thread.model
+            # 一次性子线程:headless 语义跑完即弃内存(store 留痕);事件经 noop
+            # 发射器静默,不污染父线程事件流,结果结构化回传。
+            started = await self._handle_thread_start(sub_params, _noop_emitter)
+            sub_thread = self._threads.get(started["threadId"])
+            if sub_thread is not None:
+                sub_thread.depth = thread.depth + 1
+            result = await self._handle_thread_prompt(
+                {**sub_params, "threadId": started["threadId"]}, _noop_emitter
+            )
+            with contextlib.suppress(Exception):
+                thread_obj = self._threads.pop(started["threadId"], None)
+                if thread_obj is not None:
+                    thread_obj.status = "closed"
+            return {
+                "threadId": started["threadId"],
+                "success": result.get("success"),
+                "response": result.get("finalResponse"),
+                "iterations": result.get("iterations"),
+                "usage": result.get("usage"),
+            }
+
+        return ToolDefinition(
+            name="spawn_subagent",
+            description=(
+                "派生一个一次性子代理独立完成任务并返回其最终答复"
+                "(适合需要隔离上下文的子任务);嵌套深度有上限。"
+            ),
+            parameters=parameters,
+            executor=_exec,
+        )
+
+    def _view_image_tool(self, thread: EngineThread) -> Any:
+        """view_image:工作区内图片读取(对标 Codex view_image;越界路径拒绝)。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        parameters = {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "图片路径(相对工作区或绝对路径,须落在工作区内)",
+                },
+            },
+            "required": ["path"],
+        }
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            raw = args.get("path")
+            if not isinstance(raw, str) or not raw.strip():
+                return {"error": "view_image 需要非空 path"}
+            base = Path(thread.workspace).resolve() if thread.workspace else Path.cwd().resolve()
+            target = Path(raw)
+            if not target.is_absolute():
+                target = base / target
+            try:
+                target = target.resolve()
+                target.relative_to(base)
+            except (OSError, ValueError):
+                return {"error": "path 越出工作区,拒绝读取"}
+            if not target.is_file():
+                return {"error": f"文件不存在: {raw}"}
+            mime = _IMAGE_MIME_TYPES.get(target.suffix.lower())
+            if mime is None:
+                return {"error": f"不支持的图片类型: {target.suffix or '(无后缀)'}"}
+            size = target.stat().st_size
+            if size > _MAX_VIEW_IMAGE_BYTES:
+                return {"error": f"图片超过大小上限({_MAX_VIEW_IMAGE_BYTES} 字节)"}
+            try:
+                data = base64.b64encode(target.read_bytes()).decode("ascii")
+            except OSError as e:
+                return {"error": f"图片读取失败: {e}"}
+            return {
+                "path": str(target),
+                "mimeType": mime,
+                "sizeBytes": size,
+                "dataUrl": f"data:{mime};base64,{data}",
+                "note": "图像经 dataUrl 内嵌返回;纯文本 LLM 通道下模型不可直接看见,客户端可据此渲染",
+            }
+
+        return ToolDefinition(
+            name="view_image",
+            description=(
+                "读取工作区内的图片文件,返回 base64 dataUrl 供客户端渲染"
+                "(png/jpg/jpeg/gif/webp/bmp);越出工作区的路径会被拒绝。"
+            ),
+            parameters=parameters,
+            executor=_exec,
+        )
 
     async def _handle_tools_list(
         self, params: dict[str, Any], emit: Emitter
