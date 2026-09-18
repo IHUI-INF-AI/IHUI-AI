@@ -311,7 +311,7 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写
 - 用途:长任务完成/阻塞待决策、生产告警、部署失败等需要用户手机知道的事件。调用方式:读 skill 后按内联 curl 发送,或直接 `POST https://sctapi.ftqq.com/$SERVERCHAN_SENDKEY.send`(title 必填,desp 支持 Markdown)。
 - 标题规约:开发机以 `【开发环境】`、生产机以 `【生产环境】` 开头,便于区分来源。
 - **免费额度仅 5 条/天**:只推真正需要立即知晓的事件,批量任务合并为一条,禁止逐文件/逐步骤刷推送;测试推送消耗额度需节制。
-- **邮件兜底(2026-09-18 加)**:Server酱发送失败/超额时自动改发邮件 `502319984@qq.com`(Resend,发件人 `IHUI AI <noreply@aizhs.top>`,API key 在 apps/api/.env 的 `RESEND_API_KEY` 与 `F:/BaiduSyncdisk/密钥/resend apikey.txt`)。生产部署脚本 Fail 钩子已内置该兜底(每日微信 3 条 + 邮件 10 封上限);agent 侧遇到 SCT code=40001(超额)也应改走邮件通道。
+- **邮件兜底(2026-09-18 加)**:Server酱发送失败/超额时自动改发邮件 `502319984@qq.com`(Resend,发件人统一 `智汇AI官方 <IHUI-AI@aizhs.top>`(2026-09-18 aa9c19cbe4 立定,严禁回退旧前缀 noreply@aizhs.top),API key 在 apps/api/.env 的 `RESEND_API_KEY` 与 `F:/BaiduSyncdisk/密钥/resend apikey.txt`)。生产部署脚本 Fail 钩子已内置该兜底(每日微信 3 条 + 邮件 10 封上限);agent 侧遇到 SCT code=40001(超额)也应改走邮件通道。
 - SendKey 前缀 `SCT`=Turbo 端点(sctapi.ftqq.com);若将来换 `sctp` 前缀=SC3 端点,skill 自动识别。
 
 ---
