@@ -86,6 +86,18 @@ function formatBytes(bytes) {
 }
 
 /** 从安装包文件名提取 SemVer 版本号("IHUI.AI_0.1.14_x64-setup.exe" → "0.1.14") */
+/**
+ * 比较两个 SemVer 版本号(a>b 返回正数)。Gitee/GitHub 两条解析路径共用。
+ * 两处都必须"取版本最大者"而非依赖 API 返回顺序 —— GitHub /releases 会把 draft
+ * 排在最前,曾导致快照被 draft 的 desktop-v0.1.16 覆盖(2026-09-18 实测)。
+ */
+function cmpVer(a, b) {
+  const pa = String(a).split('.').map(Number)
+  const pb = String(b).split('.').map(Number)
+  for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0)
+  return 0
+}
+
 function extractVersion(assetName) {
   const m = assetName.match(/(\d+\.\d+\.\d+)/)
   return m ? m[1] : null
@@ -197,16 +209,10 @@ async function resolveFromGitee() {
     return null
   }
   const list = (Array.isArray(releases) ? releases : []).filter(
-    (r) => r.tag_name && r.tag_name.startsWith(RELEASE_PREFIX),
+    (r) => r.tag_name && r.tag_name.startsWith(RELEASE_PREFIX) && !r.draft,
   )
   if (list.length === 0) return null
-  // 版本号最大者为准(避免依赖 API 排序)
-  const cmpVer = (a, b) => {
-    const pa = a.split('.').map(Number)
-    const pb = b.split('.').map(Number)
-    for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0)
-    return 0
-  }
+  // 版本号最大者为准(避免依赖 API 排序;cmpVer 见模块级定义)
   list.sort((a, b) =>
     cmpVer(a.tag_name.replace(RELEASE_PREFIX, ''), b.tag_name.replace(RELEASE_PREFIX, '')),
   )
@@ -257,14 +263,24 @@ async function resolveOnline() {
   const token = process.env.GITHUB_TOKEN
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const res = await fetch(`https://api.github.com/repos/${repo}/releases?per_page=10`, { headers })
+  const res = await fetch(`https://api.github.com/repos/${repo}/releases?per_page=30`, { headers })
   if (!res.ok) {
     throw new Error(`GitHub Releases API failed: ${res.status} ${res.statusText}`)
   }
   const releases = await res.json()
-  const release = (releases || []).find((r) => r.tag_name && r.tag_name.startsWith(RELEASE_PREFIX))
+  // 2026-09-18(实测):GitHub /releases 把 draft 排在列表**最前**,仓库里存有一个
+  // draft 的 desktop-v0.1.16(2026-09-05 遗留草稿,17 个资产)。裸 find() 会命中它,
+  // 生成指向草稿 untagged-* 资产 URL 的快照 → 下载页版本从 0.1.35 掉回 0.1.16 死链。
+  // 此处显式排除 draft/prerelease,并在全部候选中按 SemVer 取最高,不再依赖 API 顺序。
+  const candidates = (releases || []).filter(
+    (r) => r.tag_name && r.tag_name.startsWith(RELEASE_PREFIX) && !r.draft && !r.prerelease,
+  )
+  candidates.sort((a, b) =>
+    cmpVer(b.tag_name.replace(RELEASE_PREFIX, ''), a.tag_name.replace(RELEASE_PREFIX, '')),
+  )
+  const release = candidates[0]
   if (!release) {
-    throw new Error(`No release matching ${RELEASE_PREFIX}* found in ${repo}`)
+    throw new Error(`No published (non-draft) release matching ${RELEASE_PREFIX}* found in ${repo}`)
   }
 
   const version = release.tag_name.replace(new RegExp(`^${RELEASE_PREFIX}`), '')
