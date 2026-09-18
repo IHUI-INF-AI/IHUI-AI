@@ -927,6 +927,11 @@ class AgentLoopV2:
         # recorder=AgentStepRecorder 实例(等价接口即可)可选注入。None 时本循环
         # 不接入录制,默认路径与现状逐零差异;注入后每次工具调用 append 一步。
         recorder: Any | None = None,
+        # 2026-09-18 第二批(对标 Codex model_reasoning 配置面):生成参数透传面
+        # {temperature/top_p/max_tokens/reasoning_effort/...},每次 LLM 调用经
+        # **kwargs 透传 llm_complete_fn(承载层闭包再透传 llm_gateway→litellm)。
+        # 空时调用签名与现状逐零差异(mock 友好)。
+        model_params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -963,6 +968,10 @@ class AgentLoopV2:
                 与现状逐零差异(不产生任何 step 记录)。注入后每次工具调用 append 一步。
         """
         self._llm_complete = llm_complete_fn
+        # 2026-09-18 第二批:生成参数透传面(对标 Codex model_reasoning 配置面)。
+        if model_params is not None and not isinstance(model_params, dict):
+            raise ValueError("model_params 须为 dict")
+        self._model_params: dict[str, Any] = dict(model_params or {})
         # P0-B(2026-09-18):检测 llm_complete_fn 是否支持 on_chunk 流式回调。
         # 支持(签名含 on_chunk 参数或 **kwargs)时,每轮 LLM 调用传入回调,
         # 逐 chunk 发射 thinking.delta(is_final=False),实现 token 级流式;
@@ -2142,6 +2151,8 @@ class AgentLoopV2:
         True;重试轮次退化为非流式(避免部分产出后重试导致前端增量重复拼接)。
         """
         last_exc: BaseException | None = None
+        # 2026-09-18 第二批:生成参数透传(空 dict 时不加 kwargs,签名与现状逐零差异)
+        extra_params: dict[str, Any] = self._model_params or {}
         for attempt in range(self.llm_retry_max + 1):
             try:
                 on_chunk: Callable[[str], Awaitable[None]] | None = None
@@ -2151,12 +2162,15 @@ class AgentLoopV2:
                     result = cast(
                         dict[str, Any],
                         await self._llm_complete(
-                            messages, tools_schema, on_chunk=on_chunk
+                            messages, tools_schema, on_chunk=on_chunk, **extra_params
                         ),
                     )
                     result["_streamed"] = True  # 内部标记:本轮已流式发射增量
                     return result
-                return cast(dict[str, Any], await self._llm_complete(messages, tools_schema))
+                return cast(
+                    dict[str, Any],
+                    await self._llm_complete(messages, tools_schema, **extra_params),
+                )
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -2174,6 +2188,22 @@ class AgentLoopV2:
                 backoff = self.llm_retry_backoff * (2**attempt) * (
                     0.5 + random.random() * 0.5
                 )
+                # 2026-09-18 第二批(对标 Codex StreamError):重试/限流事件流出,
+                # 客户端可实时感知"模型流断了正在重试",429 标注 rate_limited。
+                with contextlib.suppress(Exception):
+                    await self._events.emit(
+                        "llm.retry",
+                        {
+                            "session_id": self._session_id,
+                            "attempt": attempt + 1,
+                            "max_attempts": self.llm_retry_max,
+                            "error_type": self._classify_error(e),
+                            "message": str(e)[:300],
+                            "backoff_seconds": round(backoff, 2),
+                            "rate_limited": "429" in str(e)
+                            or "rate limit" in str(e).lower(),
+                        },
+                    )
                 logger.warning(
                     "LLM 调用第 %d 次失败(%s: %s),%.1fs 后重试(共 %d 次)",
                     attempt + 1,
