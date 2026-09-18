@@ -185,6 +185,24 @@ const workerActive =
 
 if (isWorkerMode) {
   // worker:继续走下方同步推送流程,结束处写 done/failed
+  // 2026-09-18 晚(串行化):若另一 worker 仍在途(不同 HEAD 的 running 状态),
+  // 先等它落定再跑本 worker 的全量门——否则多会话快速连发 commit 时 3-4 个
+  // 270s typecheck 并行,CPU 打满且推送互相 non-FF。
+  for (;;) {
+    const prev = readPushState()
+    if (
+      !prev ||
+      prev.status !== 'running' ||
+      prev.headSha === localHead || // 自己的状态(主模式写入)
+      prev.pid === process.pid ||
+      Date.now() - prev.ts > PUSH_STATE_STALE_MS
+    ) {
+      break
+    }
+    log('info', `另一后台推送在途(HEAD ${String(prev.headSha).slice(0, 7)}),等待其落定后串行执行...`)
+    await new Promise((r) => setTimeout(r, 10_000))
+  }
+  writePushState('running', localHead)
 } else if (workerActive) {
   log('ok', `已有后台推送进行中(HEAD ${localShort},PID ${existingState.pid}),不重复触发`)
   process.exit(0)
@@ -203,7 +221,8 @@ if (isWorkerMode) {
     const child = spawn(
       process.execPath,
       [resolve(process.cwd(), 'scripts/git-push-guard.mjs'), `--branch=${branch}`, '--worker'],
-      { detached: true, stdio: ['ignore', out, out], env: { ...process.env, GUARD_WORKER: '1' } },
+      // windowsHide 必须带:Windows 下 detached+控制台程序会弹新 cmd 窗口(用户实测"莫名弹窗"根因)
+      { detached: true, windowsHide: true, stdio: ['ignore', out, out], env: { ...process.env, GUARD_WORKER: '1' } },
     )
     child.unref()
     try {

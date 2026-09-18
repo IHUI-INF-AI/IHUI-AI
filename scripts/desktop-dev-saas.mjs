@@ -140,6 +140,7 @@ const dev = spawn(process.execPath, [nextBin, 'dev', '--turbopack', '-p', String
   cwd: webDir,
   env: { ...process.env, ...devEnv },
   detached: true,
+  windowsHide: true, // Windows 下 detached+控制台程序会弹新 cmd 窗口
   stdio: 'ignore',
 })
 dev.unref()
