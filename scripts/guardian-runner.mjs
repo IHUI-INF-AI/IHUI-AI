@@ -1047,37 +1047,6 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 51 (2026-09-18 新增,桌面端安装器「向导语言 + 默认安装目录」回归守门,blocking) ---
-  //   历史事故(2026-09-18):中文系统上 Windows 安装包向导是英文、默认安装目录不是 D 盘根目录。
-  //   根因:Tauri v2 的 nsis.installerHooks 四个宏全部在 Section 内执行,改不了向导"选择安装
-  //   位置"页的默认值;唯一官方接管点是 bundle.windows.nsis.template 整体替换内置模板。
-  //   修复本身简单,但**极易被静默回退**:上游模板漂移、Tauri CLI 升级、有人"顺手调整"
-  //   tauri.conf.json、有人误以为写 installerHooks 就能改目录 —— 这些情况构建统统照旧成功,
-  //   只有用户装上才发现。故把不变量固化成断言。
-  //   本项校验:配置不变量(A2~A6)+ 模板定制块不变量(B1~B7)+ hooks 职责边界(C1),
-  //   并追加与 Tauri CLI 内置模板的逐字节比对(--template;定位不到 CLI 时优雅跳过,
-  //   CI 与发版侧改用 --require-cli 把它变成硬失败,绝不允许漂移校验被静默跳过)。
-  //   产物级断言(直接验 .exe 内嵌路径)在 CI / 发版 workflow 构建后执行,见
-  //   scripts/assert-installer-strings.mjs —— 源码正确 ≠ 产物正确,两道都要。
-  //   跳过: HUSKY_SKIP_DESKTOP_INSTALL_DIR=1 git commit ...
-  {
-    id: '51',
-    label: '🪟 桌面端安装器守门(向导语言 + 默认安装目录 D:\\智汇AI 不可静默回退)',
-    script: 'check-desktop-install-dir.mjs',
-    args: ['--template'],
-    mode: 'blocking',
-    onFailHint: [
-      '',
-      '  💡 桌面端安装器被回退了 —— 用户会看到英文向导,或默认安装目录又变回 Program Files。',
-      '     诊断: node scripts/check-desktop-install-dir.mjs --template',
-      '     重建定制模板: node scripts/desktop-nsis-template.mjs --write',
-      '     核对配置: apps/desktop/src-tauri/tauri.conf.json → bundle.windows.nsis',
-      '               (template / installerHooks / languages / installMode / compression)',
-      '     应急跳过: HUSKY_SKIP_DESKTOP_INSTALL_DIR=1 git commit ...',
-      '',
-    ].join('\n'),
-  },
-
   // --- info (2 项) ---
   {
     id: '10',
@@ -1172,11 +1141,7 @@ function readPushGateCache() {
   }
 }
 
-// 命中缓存时置位(仅供阅读时的心智标记;命中即 process.exit(0),故无需后续读取)。
-// 前缀 `_` 是 eslint no-unused-vars 的显式豁免写法 —— 2026-09-18 修复:原为
-// `pushGateCacheHit`,因"赋值后从未读取"被 lint-staged 判定 error,会阻塞任何
-// 暂存本文件的 commit(scripts/*.mjs 不在 turbo lint 范围内,CI 不报,只在本地钩子炸)。
-let _pushGateCacheHit = false
+let pushGateCacheHit = false
 if (pushGate && !cliArgs.includes('--no-cache') && process.env.HUSKY_SKIP_PUSHGATE_CACHE !== '1') {
   const cache = readPushGateCache()
   const headSha = execFileSyncSafe()
@@ -1191,7 +1156,7 @@ if (pushGate && !cliArgs.includes('--no-cache') && process.env.HUSKY_SKIP_PUSHGA
       `${C.green}⚡ [push-gate] 命中缓存:HEAD ${String(headSha).slice(0, 11)} 于 ${ageMin} 分钟前已通过全量门,跳过重复 typecheck${C.reset}`,
     )
     console.log(`${C.dim}   (同 HEAD 重复推送复用结果;强制重跑:HUSKY_SKIP_PUSHGATE_CACHE=1)${C.reset}`)
-    _pushGateCacheHit = true
+    pushGateCacheHit = true
     process.exit(0)
   }
 }

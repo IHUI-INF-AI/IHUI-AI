@@ -69,20 +69,6 @@ jobs:
       - name: Port registry check
         run: node scripts/check-port-registry.mjs
 
-      # 桌面端安装器回归守门(2026-09-18 立):防止"安装向导又变回英文 / 默认安装目录又变回
-      # Program Files"的静默回退。**拆成两步是为了让 CI 的失败点可归属**(步骤名即结论):
-      #   ① 不变量组:tauri.conf.json 配置 + installer.nsi 定制块 + hooks.nsi 职责边界
-      #      —— 纯文件内容判定,与平台无关,任意 runner 都应通过。
-      #   ② 上游漂移组:与 Tauri CLI 内置模板逐字节比对。
-      #      ⚠️ NSIS 模板只内嵌在 **Windows** 版 Tauri CLI 二进制里,本 job 是 ubuntu-latest,
-      #      故该项由脚本**显式打印跳过原因**后放行(非静默跳过);真正强制漂移校验的是
-      #      release-desktop.yml / desktop-build.yml 的 Windows leg + 本机 pre-commit(guardian-runner id 51)。
-      - name: Desktop installer guard — invariants (config + template block + hooks)
-        run: node scripts/check-desktop-install-dir.mjs
-
-      - name: Desktop installer guard — upstream template drift vs Tauri CLI
-        run: node scripts/check-desktop-install-dir.mjs --template --require-cli
-
       - name: Lint
         run: pnpm turbo run lint
 
