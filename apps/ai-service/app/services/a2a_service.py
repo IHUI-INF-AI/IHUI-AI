@@ -27,7 +27,6 @@ from typing import Any
 
 from ..core.config import settings
 from .agent_loop import agent_executor
-from .langgraph_service import langgraph_service
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +287,7 @@ class A2AServer:
         """执行任务:优先按 agent.endpoint 跨服务 HTTP 派发,fallback 到本地执行。
 
         - agent.endpoint 非空时:POST `${endpoint}/tasks/{task_id}/execute` 跨服务派发
-        - endpoint 为空或请求失败时:fallback 到本地 langgraph_service / agent_executor
+        - endpoint 为空或请求失败时:fallback 到本地 agent_executor(langgraph 已退役,D6 第 1 步)
         """
         task = self._tasks.get(task_id)
         if not task:
@@ -320,17 +319,11 @@ class A2AServer:
             goal = task.input.get("goal") or task.input.get("message") or task.name
             session_id = f"a2a-{task.id}"
 
-            if langgraph_service.available:
-                try:
-                    result = await langgraph_service.run_graph(goal=goal, session_id=session_id)
-                except Exception as e:
-                    logger.warning(
-                        "a2a_service._execute_task langgraph 降级 agent_executor 失败: %s",
-                        e, exc_info=True,
-                    )
-                    result = await agent_executor.run(goal=goal, session_id=session_id)
-            else:
-                result = await agent_executor.run(goal=goal, session_id=session_id)
+            # D6 第 1 步(2026-09-19 立):后端栈归一——langgraph fallback 已删除。
+            # langgraph_service 退役(最后运行时消费点即此处);a2a 回退统一走
+            # agent_executor;agent_loop_v2 全面接管(含本 fallback)为第 1.5 步
+            # (需先下沉 _make_loop_v2_llm 到 services 层避免 routers 循环导入)。
+            result = await agent_executor.run(goal=goal, session_id=session_id)
 
             task.result = result if isinstance(result, dict) else {"output": str(result)}
             task.status = "completed"

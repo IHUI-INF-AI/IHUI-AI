@@ -23,10 +23,12 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
 import { CopyButton } from './copy-button'
-import type { AgentToolCall } from '@/hooks/use-agent-progress'
+import type { AgentToolCall, PlanStep } from '@/hooks/use-agent-progress'
 
 interface ToolCallsSectionProps {
   tools: AgentToolCall[]
+  /** 2026-09-19 v2:计划步骤列表(含 toolCallIds 时工具卡显示"所属步骤" chip,可选向后兼容) */
+  planSteps?: PlanStep[]
 }
 
 type ToolCategory = 'read' | 'search' | 'write' | 'exec' | 'other'
@@ -145,7 +147,14 @@ function truncateForDisplay(s: string, max = 500): string {
  *
  * v10 Phase 5:导出供 SubagentSection 嵌套展示复用
  */
-export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: AgentToolCall }) {
+export const ToolCallItem = React.memo(function ToolCallItem({
+  tool,
+  stepLabel,
+}: {
+  tool: AgentToolCall
+  /** 2026-09-19 v2:所属步骤标签(由 ToolCallsSection 反向匹配 planSteps.toolCallIds 生成,可选) */
+  stepLabel?: string
+}) {
   const t = useTranslations('ai.pane')
   const [expanded, setExpanded] = React.useState(false)
   const cat = categorize(tool.toolName)
@@ -206,6 +215,17 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
         <code className="shrink-0 font-mono text-[11px] text-muted-foreground">
           {tool.toolName}
         </code>
+        {/* 2026-09-19 v2:所属步骤 chip(planSteps.toolCallIds 精确匹配,超长截断由 Tooltip 兜底) */}
+        {stepLabel && (
+          <Tooltip content={stepLabel}>
+            <span
+              className="max-w-28 shrink-0 truncate rounded-sm bg-primary/5 px-1 text-[10px] text-primary/80"
+              data-testid={`tool-step-${tool.id}`}
+            >
+              {stepLabel}
+            </span>
+          </Tooltip>
+        )}
         {argPreview && (
           <Tooltip content={argPreview}>
             <span className="flex-1 truncate font-mono text-[11px] text-muted-foreground/70">
@@ -328,12 +348,30 @@ const STATUS_FILTER_TKEY: Record<ToolStatusFilter, string> = {
  */
 export const ToolCallsSection = React.memo(function ToolCallsSection({
   tools,
+  planSteps,
 }: ToolCallsSectionProps) {
   const t = useTranslations('ai.pane')
+  // 2026-09-19 v2:所属步骤 chip 文案(chat.plan.stepOf 命名空间)
+  const tPlan = useTranslations('chat.plan')
   // v9: 搜索过滤(hooks 必须在条件返回之前调用)
   const [searchQuery, setSearchQuery] = React.useState('')
   // v11: 状态过滤
   const [statusFilter, setStatusFilter] = React.useState<ToolStatusFilter>('all')
+
+  // 2026-09-19 v2:工具 ID → 所属步骤标签(反向遍历 planSteps.toolCallIds 精确匹配;
+  // 同一工具只归属第一个命中的步骤)
+  const stepLabelByToolId = React.useMemo(() => {
+    const m = new Map<string, string>()
+    if (!planSteps || planSteps.length === 0) return m
+    planSteps.forEach((step, idx) => {
+      if (!step.toolCallIds || step.toolCallIds.length === 0) return
+      const label = tPlan('stepOf', { index: idx + 1, step: step.step })
+      for (const toolId of step.toolCallIds) {
+        if (!m.has(toolId)) m.set(toolId, label)
+      }
+    })
+    return m
+  }, [planSteps, tPlan])
 
   const statusCounts = React.useMemo(() => {
     const counts = { all: tools.length, running: 0, success: 0, error: 0, cancelled: 0 }
@@ -382,7 +420,18 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
     }
   }, [tools, filteredTools, t])
 
+  // G-5 智能折叠(2026-09-19 立,对标 Trae SOLO):执行中保持展开,全部结束后自动折叠为摘要行。
+  // 用户手动展开/折叠(onOpenChange)后由用户接管;新一轮工具开始执行时重置回自动策略。
+  // 注意:hooks 必须在条件早返回之前调用(React 规则)。
+  const anyRunning = tools.some((tool) => tool.status === 'running')
+  const [userOpenOverride, setUserOpenOverride] = React.useState<boolean | null>(null)
+  React.useEffect(() => {
+    if (anyRunning) setUserOpenOverride(null)
+  }, [anyRunning])
+
   if (tools.length === 0) return null
+
+  const autoOpen = anyRunning ? true : (userOpenOverride ?? false)
 
   const showStatusFilter = statusCounts.error > 0 || statusCounts.running > 0
 
@@ -392,6 +441,9 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
       count={tools.length}
       icon={Wrench}
       data-testid="tool-calls-section"
+      open={autoOpen}
+      onOpenChange={setUserOpenOverride}
+      summary={summary || undefined}
     >
       <div className="space-y-0.5 text-xs leading-relaxed">
         {summary && <div className="text-[11px] text-muted-foreground/60">{summary}</div>}
@@ -433,7 +485,7 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
           />
         )}
         {recentTools.map((tool) => (
-          <ToolCallItem key={tool.id} tool={tool} />
+          <ToolCallItem key={tool.id} tool={tool} stepLabel={stepLabelByToolId.get(tool.id)} />
         ))}
         {filteredTools.length > 10 && (
           <div className="text-[11px] text-muted-foreground/60">
