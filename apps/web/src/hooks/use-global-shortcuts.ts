@@ -76,6 +76,12 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   { key: 'Ctrl+4', description: '切换到规格模式', event: 'global-shortcut:mode-spec' },
   // Ctrl+5 → ask(2026-09-13 矩阵 A #24:ChatMode 扩为 5 态,补纯问答模式)
   { key: 'Ctrl+5', description: '切换到问答模式', event: 'global-shortcut:mode-ask' },
+  // 2026-09-18 语音三件套快捷键(用户规则:"请为这些组件添加快捷键支持"):
+  // Ctrl+Alt+V 录音 / Ctrl+Alt+B 自动朗读 / Ctrl+Alt+H 连续对话
+  // 避开 Ctrl+P/Ctrl+K/Ctrl+Shift+* 等已占组合;Ctrl+Alt+P 因浏览器打印预览占用而弃用
+  { key: 'Ctrl+Alt+V', description: '语音:开始/停止录音', event: 'global-shortcut:voice-input' },
+  { key: 'Ctrl+Alt+B', description: '语音:自动朗读开关', event: 'global-shortcut:voice-playback' },
+  { key: 'Ctrl+Alt+H', description: '语音:连续对话开关', event: 'global-shortcut:voice-handsfree' },
 ]
 
 // ============================================================================
