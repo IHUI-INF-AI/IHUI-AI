@@ -837,6 +837,12 @@ def create_app() -> FastAPI:
 
     app.include_router(engine_router.router, prefix="/api", tags=["agent-engine"])
 
+    # P2-③ 第六批(2026-09-18):语音↔引擎回合式会话(对标 Codex realtime-webrtc
+    # 的会话语义):音频 → faster-whisper 本地 STT → AgentEngine 线程 → edge-tts → 音频。
+    from app.routers import engine_voice as engine_voice_router
+
+    app.include_router(engine_voice_router.router, prefix="/api", tags=["voice", "agent-engine"])
+
     # IHUI 作为 MCP Server 对外开放(2026-09-03 立,逆向杀手锏只做客户端的对标产品)
     # 由 ENABLE_MCP_EXPORT 环境变量控制开关,默认关闭(避免影响现有服务,不启动额外 listener)。
     # 开启后暴露两种 transport:
