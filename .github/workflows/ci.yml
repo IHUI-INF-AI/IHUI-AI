@@ -15,6 +15,45 @@ permissions:
   contents: read
 
 jobs:
+  # ============================================================================
+  # 桌面端安装器回归守门(独立 job,2026-09-18 立;同日二次加固:从 lint-typecheck-test
+  # **搬出来独立成 job**)。
+  #
+  # ## 为什么必须独立成一个 job
+  # GitHub 的 job 内一旦某步失败,**后续步骤全部 skipped**。原先这两步排在
+  # `lint-typecheck-test` 的第 15~17 位(在 pnpm install / 3 个包构建 / typecheck /
+  # schema drift / migration bookkeeping / api routes / port registry **之后**),
+  # 任何一处无关失败都会让安装器守门**根本不执行、连结论都没有**。
+  # 2026-09-18 实证:`Lint` 步骤就是这样被前面的红挡了整整 6 个 run(skipped),直到
+  # 守门修好才第一次真正跑起来 —— 而历史事故 0.1.35 正是"错误被 CI 静默吞掉,
+  # 直到用户装上才发现(记为无任何 Windows 资产)"。
+  # 所以「向导语言 + 默认安装目录」的守门必须**永不被其他步骤掩蔽**,独立 job 才有独立结论。
+  #
+  # ## 为什么可以不装依赖
+  # 下面两步只用仓库里的文件(JSON + NSIS 文本 + node:test),不需要 node_modules,
+  # 秒级完成。上游模板漂移比对需要 @tauri-apps/cli,故**不在此处**,见下方
+  # `lint-typecheck-test` 里 install 之后的 drift 步骤;其真正的强制点是
+  # release-desktop.yml / desktop-build.yml 的 **Windows leg** + 本机 pre-commit(id 51)。
+  # ============================================================================
+  desktop-installer-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # ① 静态不变量:tauri.conf.json 配置(A2~A6)+ installer.nsi 定制块(B1~B7)
+      #    + hooks.nsi 职责边界(C1)。纯文件内容判定,任意平台都必须通过。
+      - name: Desktop installer guard — invariants (config + template block + hooks)
+        run: node scripts/check-desktop-install-dir.mjs
+
+      # ② 守门的守门:对抗性自测 —— 逐条注入真实回退场景,断言守门**确实拦得住**
+      #    且命中预期断言 id;另含平台门 4 例。守门被改弱 = 防线归零,所以它也要被钉住。
+      - name: Desktop installer guard — adversarial self test
+        run: node --test scripts/tests/check-desktop-install-dir.test.mjs
+
   lint-typecheck-test:
     runs-on: ubuntu-latest
     steps:
@@ -35,6 +74,14 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # 桌面端安装器守门 · 上游漂移组(与 Tauri CLI 内置模板逐字节比对)。
+      # 紧跟 install:本步需要能定位 @tauri-apps/cli,前置步骤越少越不容易被无关失败挡掉。
+      # ⚠️ NSIS 模板只内嵌在 **Windows** 版 Tauri CLI 二进制里,本 job 是 ubuntu-latest,
+      #    故该子项由脚本**显式打印跳过原因**后放行(非静默跳过,已由平台门测试钉住);
+      #    真正强制漂移校验的是 release-desktop.yml / desktop-build.yml 的 Windows leg。
+      - name: Desktop installer guard — upstream template drift vs Tauri CLI
+        run: node scripts/check-desktop-install-dir.mjs --template --require-cli
 
       - name: Build database package
         run: pnpm --filter @ihui/database build
@@ -69,25 +116,9 @@ jobs:
       - name: Port registry check
         run: node scripts/check-port-registry.mjs
 
-      # 桌面端安装器回归守门(2026-09-18 立):防止"安装向导又变回英文 / 默认安装目录又变回
-      # Program Files"的静默回退。**拆成两步是为了让 CI 的失败点可归属**(步骤名即结论):
-      #   ① 不变量组:tauri.conf.json 配置 + installer.nsi 定制块 + hooks.nsi 职责边界
-      #      —— 纯文件内容判定,与平台无关,任意 runner 都应通过。
-      #   ② 上游漂移组:与 Tauri CLI 内置模板逐字节比对。
-      #      ⚠️ NSIS 模板只内嵌在 **Windows** 版 Tauri CLI 二进制里,本 job 是 ubuntu-latest,
-      #      故该项由脚本**显式打印跳过原因**后放行(非静默跳过);真正强制漂移校验的是
-      #      release-desktop.yml / desktop-build.yml 的 Windows leg + 本机 pre-commit(guardian-runner id 51)。
-      - name: Desktop installer guard — invariants (config + template block + hooks)
-        run: node scripts/check-desktop-install-dir.mjs
-
-      - name: Desktop installer guard — upstream template drift vs Tauri CLI
-        run: node scripts/check-desktop-install-dir.mjs --template --require-cli
-
-      # 守门的守门:对抗性自测(逐条注入回退场景,断言守门"确实拦得住"且命中预期断言 id;
-      # 另含平台门 4 例)。守门本身被改弱 = 防线归零,所以它也要被测试钉住。
-      - name: Desktop installer guard — adversarial self test
-        run: node --test scripts/tests/check-desktop-install-dir.test.mjs
-
+      # 桌面端安装器守门不在此处:源码不变量 + 对抗自测已独立成 job `desktop-installer-guard`,
+      # 上游漂移比对已上移到本 job 的 install 之后 —— 目的都是让它**不被无关失败掩蔽**
+      # (job 内前面任一步失败,后面全部 skipped,守门会连结论都不产生)。
       - name: Lint
         run: pnpm turbo run lint
 
