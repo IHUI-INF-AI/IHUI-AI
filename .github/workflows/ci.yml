@@ -83,6 +83,11 @@ jobs:
       - name: Desktop installer guard — upstream template drift vs Tauri CLI
         run: node scripts/check-desktop-install-dir.mjs --template --require-cli
 
+      # 守门的守门:对抗性自测(逐条注入回退场景,断言守门"确实拦得住"且命中预期断言 id;
+      # 另含平台门 4 例)。守门本身被改弱 = 防线归零,所以它也要被测试钉住。
+      - name: Desktop installer guard — adversarial self test
+        run: node --test scripts/tests/check-desktop-install-dir.test.mjs
+
       - name: Lint
         run: pnpm turbo run lint
 
