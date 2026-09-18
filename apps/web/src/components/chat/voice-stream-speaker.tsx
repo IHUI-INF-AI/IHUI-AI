@@ -29,6 +29,12 @@ const VOICE_PLAYBACK_EVENT = 'ihui-voice-playback-changed'
 export const VOICE_HANDSFREE_KEY = 'ihui_voice_handsfree'
 const VOICE_HANDSFREE_EVENT = 'ihui-voice-handsfree-changed'
 
+/** 写入 localStorage 并广播变更(供 VoiceToolbar 等外部消费者直接翻转状态) */
+export function writeHandsFree(next: boolean): void {
+  window.localStorage.setItem(VOICE_HANDSFREE_KEY, next ? 'on' : 'off')
+  window.dispatchEvent(new Event(VOICE_HANDSFREE_EVENT))
+}
+
 /** 连续语音会话(P3 #46 阶段3-a):开 = 转写段落直接自动发送(免手,半双工:
  *  说 → 自动发 → 自动朗读;流式期间录音按钮按现状禁用,回复完再点麦继续) */
 export function readHandsFree(): boolean {
