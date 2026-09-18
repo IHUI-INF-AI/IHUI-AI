@@ -242,7 +242,14 @@ async def test_complete_real_mode_no_usage(monkeypatch):
 
     result = await gw.complete([{"role": "user", "content": "test"}])
     assert result["stub"] is False
-    assert result["usage"] == {}
+    # P0-①:usage=None 也归一化为全 0 五键(下游消费方无需判空)
+    assert result["usage"] == {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "cached_tokens": 0,
+        "cache_creation_tokens": 0,
+    }
     assert result["content"] == "回复"
 
 

@@ -64,8 +64,14 @@ export function LoginDialog() {
   const handleLoginSuccess = React.useCallback(() => {
     const redirectUrl = useLoginDialogStore.getState().redirectUrl
     close()
+    // 2026-09-18:路由跳转推迟到弹窗遮罩淡出(~150ms)结束后(250ms 余量),
+    // 根治"登录成功后灰→亮渐渐显示且卡顿"(用户反馈):router.push 触发的
+    // RSC 拉取 + 新页面树渲染是主线程长任务,原实现与遮罩淡出同窗口执行,
+    // 淡出动画逐帧掉队。token 写入与弹窗关闭不受影响,仅延后跳转本身。
     if (redirectUrl && redirectUrl !== window.location.pathname + window.location.search) {
-      router.push(redirectUrl)
+      setTimeout(() => {
+        router.push(redirectUrl)
+      }, 250)
     }
   }, [close, router])
 
@@ -97,7 +103,13 @@ export function LoginDialog() {
               // 150ms(tw-animate-css 默认;基类 duration-(--duration-unified) 对 animation-duration
               // 并不生效,勿再试图用 duration-* 同步),远快于卡片 500ms pop → 底座瞬间到位,
               // 卡片弹出不受半透明拖累,视觉由 login-dialog-pop 主导,无需任何干预。
-              'gap-0 p-0 max-w-[460px] w-[calc(100%-2rem)] max-h-[95vh] overflow-y-auto border-0 bg-transparent shadow-none'
+              /* 2026-09-18:overflow-y-auto → overflow-visible(用户反馈"翻转的时候卡片超出容器后被裁剪了边缘"):
+                 翻转动画中卡片绕 Y 轴旋转,perspective(800px) 会放大转出屏幕方向的边缘,
+                 投影宽度超过 460px 容器,overflow-y-auto(隐含 overflow-x 也 auto)把超出部分裁掉。
+                 放开 overflow 后静止卡片(460×~647px)在正常视口完全容纳;
+                 极矮窗口(<~700px 高)下内容超高不再出滚动条,属可接受取舍——
+                 移动分支(全屏页,无翻转动画)仍保留 overflow-y-auto。 */
+              'gap-0 p-0 max-w-[460px] w-[calc(100%-2rem)] max-h-[95vh] overflow-visible border-0 bg-transparent shadow-none'
         }
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
