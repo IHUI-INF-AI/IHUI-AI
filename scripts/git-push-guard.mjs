@@ -31,7 +31,9 @@
  *   - .husky/post-commit  自动触发(commit 后立即 push)
  *   - 手动收尾验证       agent 交付前自验
  */
-import { execSync, spawnSync } from 'node:child_process'
+import { execSync, spawnSync, spawn } from 'node:child_process'
+import { readFileSync, writeFileSync, mkdirSync, openSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 const C = {
   red: '\x1b[31m',
@@ -68,6 +70,8 @@ function getArg(name) {
 // 解析参数
 const targetBranch = getArg('branch') || 'main'
 const skipPush = process.env.HUSKY_SKIP_PUSH === '1'
+// --worker:后台推送 worker 模式(由主模式 detached spawn;真正执行推送+验证+写状态)
+const isWorkerMode = process.argv.includes('--worker') || process.env.GUARD_WORKER === '1'
 
 log('info', `git-push-guard 启动 → 分支: ${C.bold}${targetBranch}${C.reset} | 模式: ${skipPush ? C.yellow + '仅检测' : C.green + '检测+自动推送'}` + C.reset)
 
@@ -137,7 +141,78 @@ log('info', `远端 HEAD  : ${C.cyan}${remoteShort}${C.reset}`)
 // ─── 3. 对比 + 决定是否 push ────────────────────────────────
 if (localHead === remoteHead) {
   log('ok', `本地与 origin/${branch} 已同步,无需 push`)
+  writePushState('done', localHead)
   process.exit(0)
+}
+
+// ─── 3.0 异步推送分叉(2026-09-18 立,"已推完还在等"根治最终刀) ──
+// 背景:pre-push 全量 typecheck 实测单遍 216.8s,post-commit 里同步推送把
+//      每次 commit 命令拖住 3-4 分钟,多会话收尾全部跟着干等。
+// 方案:主模式检测到 ahead → 写 running 状态 + spawn detached worker 后立即
+//      返回(commit 秒回);worker 在后台执行真正推送(质量门不降级,pre-push
+//      照跑),结束写 done/failed 状态。失败由下一次 guard 调用自动重试。
+// 状态:.workbuddy/push-state.json {status,headSha,ts,pid},converge 脚本读取。
+const pushStateFile = resolve(process.cwd(), '.workbuddy/push-state.json')
+const GUARD_ASYNC = process.env.GUARD_ASYNC !== '0' // 默认开;GUARD_ASYNC=0 强制同步
+const PUSH_STATE_STALE_MS = 5 * 60 * 1000
+
+function readPushState() {
+  try {
+    return JSON.parse(readFileSync(pushStateFile, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+function writePushState(status, headSha) {
+  try {
+    mkdirSync(resolve(process.cwd(), '.workbuddy'), { recursive: true })
+    writeFileSync(
+      pushStateFile,
+      JSON.stringify({ status, headSha, ts: Date.now(), pid: process.pid }),
+    )
+  } catch {
+    /* 状态写失败不影响主流程 */
+  }
+}
+
+const existingState = readPushState()
+const workerActive =
+  existingState &&
+  existingState.status === 'running' &&
+  existingState.headSha === localHead &&
+  Date.now() - existingState.ts < PUSH_STATE_STALE_MS
+
+if (isWorkerMode) {
+  // worker:继续走下方同步推送流程,结束处写 done/failed
+} else if (workerActive) {
+  log('ok', `已有后台推送进行中(HEAD ${localShort},PID ${existingState.pid}),不重复触发`)
+  process.exit(0)
+} else if (GUARD_ASYNC) {
+  if (existingState && existingState.status === 'failed' && existingState.headSha !== localHead) {
+    log('warn', `上次后台推送失败(HEAD ${String(existingState.headSha).slice(0, 7)}),本次随新提交一并重推`)
+  }
+  writePushState('running', localHead)
+  const logFile = resolve(process.cwd(), '.workbuddy/git-push-guard-async.log')
+  let spawned = false
+  try {
+    const out = openSync(logFile, 'a')
+    const child = spawn(
+      process.execPath,
+      [resolve(process.cwd(), 'scripts/git-push-guard.mjs'), `--branch=${branch}`, '--worker'],
+      { detached: true, stdio: ['ignore', out, out], env: { ...process.env, GUARD_WORKER: '1' } },
+    )
+    child.unref()
+    out.close()
+    spawned = true
+  } catch (e) {
+    log('warn', `后台 spawn 失败(${e instanceof Error ? e.message : e}),回退同步推送`)
+  }
+  if (spawned) {
+    log('ok', `推送已转入后台(HEAD ${localShort});核验: node scripts/git-push-converge.mjs`)
+    process.exit(0)
+  }
+  // spawn 失败 → 不退出,继续走下方同步推送(此时状态已是 running,推送完写 done/failed)
 }
 
 // 检查 ahead/behind
@@ -289,6 +364,7 @@ if (pushResult.status !== 0) {
 
 if (pushResult.status !== 0) {
   log('err', `git push 最终失败(exit code: ${pushResult.status},即使 --no-verify 也无法推送)`)
+  writePushState('failed', localHead)
   console.log(`${C.dim}   可能原因: (a) 远端有更新的 commit,需先同步 —— git fetch origin main && git merge --ff-only FETCH_HEAD(本机禁用 pull --rebase);(b) 分支保护规则需 PR;(c) 凭据失效;(d) 网络问题${C.reset}`)
   process.exit(1)
 }
@@ -304,15 +380,18 @@ const verifiedRemote = newRemoteLs
 
 if (!verifiedRemote) {
   log('err', 'push 后无法验证远端状态(请手动检查)')
+  writePushState('failed', localHead)
   process.exit(1)
 }
 
 if (newLocalHead === verifiedRemote) {
   log('ok', `push 成功 + 验证通过!local HEAD === origin/${branch} HEAD`)
+  writePushState('done', localHead)
   log('ok', `commit: ${C.green}${newLocalHead.substring(0, 7)}${C.reset} ${C.dim}(local == remote,已落地)${C.reset}`)
   process.exit(0)
 } else {
   log('err', `push 报告成功但验证失败:local=${newLocalHead?.substring(0, 7)} vs remote=${verifiedRemote.substring(0, 7)}`)
+  writePushState('failed', localHead)
   process.exit(1)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
