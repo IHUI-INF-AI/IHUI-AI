@@ -78,10 +78,14 @@ function Log   { param([string]$m) Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 
 function Ok    { param([string]$m) Log "OK    $m" }
 
 # ── Server酱微信告警(2026-09-18 接入,AGENTS.md §5e):部署失败自动推送到微信。
-#    配额自保:免费版 5 条/天,自动告警每日上限 3 条(保留 2 条给人工),当日计数落盘;
+#    配额自保:免费版 5 条/天,自动告警每日上限 3 条(保留 2 条给人工);
 #    SendKey 优先环境变量,NSSM 服务上下文未继承时回读 HKCU 注册表;
 #    通知任何失败只记日志,绝不影响部署/回滚流程本身。
+#    邮件兜底(2026-09-18 加):Server酱发送失败/超额时,自动改发邮件到 502319984@qq.com
+#    (Resend,发件人 智汇AI官方 <noreply@aizhs.top>,密钥读 apps/api\.env 的 RESEND_API_KEY),每日上限 10 封。
+#    状态唯一写入点:Invoke-FailNotify(当日计数 date/count/emailCount 落盘)。
 $SctStateFile = "$Root\deploy\win\.sct-notify-state.json"
+$NotifyEmailTo = '502319984@qq.com'
 function Get-SctSendKey {
     if ($env:SERVERCHAN_SENDKEY) { return $env:SERVERCHAN_SENDKEY }
     try {
@@ -91,31 +95,85 @@ function Get-SctSendKey {
     return $null
 }
 function Send-SctNotify {
+    # 纯发送,不碰计数。返回 $true=已送达;$false=失败/未配置。
     param([string]$title,[string]$desp,[string]$short = '')
     try {
         $key = Get-SctSendKey
-        if (-not $key) { Log "SCT   跳过微信告警:SERVERCHAN_SENDKEY 未配置"; return }
-        $today = Get-Date -Format 'yyyy-MM-dd'
-        $count = 0
-        try {
-            $prev = Get-Content $SctStateFile -Raw -ErrorAction Stop | ConvertFrom-Json
-            if ($prev.date -eq $today) { $count = [int]$prev.count }
-        } catch {}
-        if ($count -ge 3) { Log "SCT   跳过微信告警:已达当日自动告警上限(3/天),保留额度给人工推送"; return }
+        if (-not $key) { Log "SCT   跳过微信告警:SERVERCHAN_SENDKEY 未配置"; return $false }
         $body = @{ title = $title; desp = $desp }
         if ($short) { $body.short = $short }
         Invoke-RestMethod -Uri "https://sctapi.ftqq.com/$key.send" -Method Post -Body $body -TimeoutSec 8 -ErrorAction Stop | Out-Null
-        Set-Content -Path $SctStateFile -Value (@{ date = $today; count = ($count + 1) } | ConvertTo-Json) -NoNewline
-        Log "SCT   微信告警已推送($($count + 1)/3)"
-    } catch { Log "SCT   微信告警发送失败(不影响部署流程): $($_.Exception.Message)" }
+        Log "SCT   微信告警已推送"
+        return $true
+    } catch {
+        Log "SCT   微信告警发送失败: $($_.Exception.Message)"
+        return $false
+    }
+}
+function Get-ResendApiKey {
+    if ($env:RESEND_API_KEY) { return $env:RESEND_API_KEY }
+    try {
+        $found = $null
+        Get-Content "$ApiDir\.env" -ErrorAction Stop | ForEach-Object {
+            if ($_ -match '^RESEND_API_KEY=(.+?)\s*$') { $found = $Matches[1] }
+        }
+        if ($found) { return $found }
+    } catch {}
+    return $null
+}
+function Send-EmailNotify {
+    # 纯发送,不碰计数。返回 $true=已发送。
+    param([string]$subject,[string]$text)
+    try {
+        $key = Get-ResendApiKey
+        if (-not $key) { Log "MAIL  跳过邮件兜底:RESEND_API_KEY 未配置"; return $false }
+        $payload = @{ from = '智汇AI官方 <noreply@aizhs.top>'; to = @($NotifyEmailTo); subject = $subject; text = $text } | ConvertTo-Json
+        Invoke-RestMethod -Uri 'https://api.resend.com/emails' -Method Post -Body $payload -ContentType 'application/json' -TimeoutSec 10 -ErrorAction Stop | Out-Null
+        Log "MAIL  邮件告警已发送至 $NotifyEmailTo"
+        return $true
+    } catch {
+        Log "MAIL  邮件告警发送失败: $($_.Exception.Message)"
+        return $false
+    }
+}
+function Invoke-FailNotify {
+    param([string]$m)
+    $today = Get-Date -Format 'yyyy-MM-dd'
+    $sctCount = 0; $emailCount = 0
+    try {
+        $prev = Get-Content $SctStateFile -Raw -ErrorAction Stop | ConvertFrom-Json
+        if ($prev.date -eq $today) { $sctCount = [int]$prev.count; $emailCount = [int]$prev.emailCount }
+    } catch {}
+    $sent = $false
+    if ($sctCount -ge 3) {
+        Log "SCT   跳过微信告警:已达当日自动告警上限(3/天),保留额度给人工推送"
+    } else {
+        try {
+            $sent = Send-SctNotify -title "【生产环境】部署失败" -short $m `
+                -desp "**IHUI-AI 生产部署失败**`n`n- 原因: $m`n- 时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n- 处置: 已自动回滚或保持当前在线版本`n- 排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
+        } catch { $sent = $false }
+        if ($sent) { $sctCount++ }
+    }
+    if (-not $sent) {
+        if ($emailCount -ge 10) {
+            Log "MAIL  跳过邮件兜底:已达当日上限(10 封)"
+        } else {
+            $mailOk = $false
+            try {
+                $mailOk = Send-EmailNotify -subject "【生产环境】部署失败" `
+                    -text "IHUI-AI 生产部署失败(微信通道未送达,邮件兜底)`n`n原因: $m`n时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n处置: 已自动回滚或保持当前在线版本`n排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
+            } catch { $mailOk = $false }
+            if ($mailOk) { $emailCount++ }
+        }
+    }
+    try {
+        Set-Content -Path $SctStateFile -Value (@{ date = $today; count = $sctCount; emailCount = $emailCount } | ConvertTo-Json) -NoNewline
+    } catch {}
 }
 function Fail {
     param([string]$m)
     Log "FAIL  $m"
-    try {
-        Send-SctNotify -title "【生产环境】部署失败" -short $m `
-            -desp "**IHUI-AI 生产部署失败**`n`n- 原因: $m`n- 时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n- 处置: 已自动回滚或保持当前在线版本`n- 排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
-    } catch {}
+    try { Invoke-FailNotify -m $m } catch {}
     try { Release-DeployLock } catch {}
     exit 1
 }

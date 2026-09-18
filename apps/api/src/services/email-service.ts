@@ -281,7 +281,7 @@ async function sendViaResend(options: SendEmailOptions): Promise<SendEmailResult
   if (!config.RESEND_API_KEY) {
     return { sent: false, stub: false, provider: 'resend', error: 'resend not configured' }
   }
-  const from = config.RESEND_FROM || 'IHUI AI <noreply@aizhs.top>'
+  const from = config.RESEND_FROM || '智汇AI官方 <noreply@aizhs.top>'
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
