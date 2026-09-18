@@ -44,6 +44,9 @@ export const ENGINE_METHODS = [
   'thread.compact',
   'thread.export',
   'thread.plan',
+  'thread.enqueue',
+  'thread.goal',
+  'thread.review',
   'agent.exec',
   'tools.list',
   'tools.register',
@@ -72,6 +75,7 @@ export const ENGINE_ERROR_CODES = {
   toolNotFound: -32004,
   hostToolFailed: -32005,
   threadClosed: -32006,
+  budgetExhausted: -32007,
 } as const
 
 /** JSON-RPC 2.0 响应报文。 */
@@ -690,6 +694,27 @@ class AgentEngineClient implements Agent {
   /** 读取线程当前计划(update_plan 内置工具写入;对标 Codex PlanUpdate 查询面)。 */
   async getPlan(): Promise<{ plan: Array<Record<string, unknown>> | null }> {
     return this.call('thread.plan', { threadId: this.threadIdValue })
+  }
+
+  /** 消息入队(2026-09-18 第三批,对标 Codex Steer:轮中转向,本轮结束自动续跑)。 */
+  async enqueue(input: unknown): Promise<Record<string, unknown>> {
+    return this.call<Record<string, unknown>>('thread.enqueue', {
+      threadId: this.threadIdValue,
+      input,
+    })
+  }
+
+  /** 设置/清除线程持久目标(2026-09-18 第三批,对标 Codex Goals;null 清除)。 */
+  async setGoal(goal: string | null): Promise<{ goal: string | null }> {
+    return this.call('thread.goal', { threadId: this.threadIdValue, goal })
+  }
+
+  /** 审查模式(2026-09-18 第三批,对标 Codex review:派生审查子代理)。 */
+  async review(focus?: string): Promise<Record<string, unknown>> {
+    return this.call<Record<string, unknown>>('thread.review', {
+      threadId: this.threadIdValue,
+      ...(focus === undefined ? {} : { focus }),
+    })
   }
 
   async close(): Promise<void> {
