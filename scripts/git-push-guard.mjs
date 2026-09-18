@@ -187,6 +187,21 @@ function writePushState(status, headSha) {
   }
 }
 
+/** push 门中断标记(2026-09-18):pre-push 在门被中断(exit 75)时写入。
+ * 供 worker 区分「门被杀(临时失败,应带 hook 重试拿真实结论)」与
+ * 「真实类型检查失败(按用户规则 --no-verify 兜底)」。15 分钟内的标记才采信。 */
+const pushGateMarkerFile = resolve(process.cwd(), '.workbuddy/push-gate-last-result.json')
+function readPushGateMarker() {
+  try {
+    const m = JSON.parse(readFileSync(pushGateMarkerFile, 'utf8'))
+    if (!m || typeof m.ts !== 'number' || m.code !== 75) return null
+    if (Date.now() - m.ts > 15 * 60 * 1000) return null
+    return m
+  } catch {
+    return null
+  }
+}
+
 const existingState = readPushState()
 // running 状态必须"未过期 **且** 持有者存活"才算在途——worker 被强杀(CTRL_C/宿主清树)
 // 时来不及写终态,死 pid 的 running 状态若照常采信,推送会永远卡 PUSHING。
@@ -196,6 +211,13 @@ const workerActive =
   existingState.headSha === localHead &&
   Date.now() - existingState.ts < PUSH_STATE_STALE_MS &&
   isPidAlive(existingState.pid)
+
+// 2026-09-18 自愈:死 worker 残留 running 状态(被强杀来不及写终态)→ 启动时顺手改写为
+// failed 终态,消费端(converge/check-push-sync)不再依赖 pid 推断,状态文件保持真实。
+if (existingState && existingState.status === 'running' && !isPidAlive(existingState.pid)) {
+  log('warn', `发现死 worker 残留 running 状态(pid ${existingState.pid}),自愈为 failed`)
+  writePushState('failed', existingState.headSha)
+}
 
 if (isWorkerMode) {
   // worker:继续走下方同步推送流程,结束处写 done/failed
@@ -385,21 +407,41 @@ let pushResult = spawnSync('git', ['push', 'origin', branch], {
   env: process.env,
 })
 
-// 首次 push 失败时(如 pre-push typecheck 因其他 agent 未完成代码失败),
-// 按用户规则"hook 失败因其他 agent 代码 → 直接 --no-verify 跳过"重试一次
+// 首次 push 失败时分流(2026-09-18 中断分类):
+//   a) push 门被中断(exit 75 标记)→ 先带 hook 重试一次,拿真实类型检查结论;
+//   b) 真实类型检查失败/其他 hook 失败 → 按用户规则"hook 失败因其他 agent 代码 →
+//      --no-verify 跳过"重试一次。
+// 此前不分类,被杀的 typecheck(exit 3221225786,实测 39 次)被当成"他人代码失败"
+// 直接 --no-verify 绕过,真实门禁白跑 2×5 分钟还绕过了结论。
 if (pushResult.status !== 0) {
   log('warn', `git push 首次失败(exit ${pushResult.status}),可能是 pre-push typecheck 阻塞`)
-  log('info', `按用户规则"hook 失败因其他 agent 代码 → --no-verify 跳过"重试...`)
 
-  pushResult = spawnSync('git', ['push', '--no-verify', 'origin', branch], {
-    stdio: 'inherit',
-    cwd: repoRoot,
-    env: process.env,
-  })
+  const gateMarker = readPushGateMarker()
+  if (gateMarker) {
+    log('info', '检测到 push 门「被中断(exit 75)」标记(非类型检查结论),先带 hook 重试...')
+    pushResult = spawnSync('git', ['push', 'origin', branch], {
+      stdio: 'inherit',
+      cwd: repoRoot,
+      env: process.env,
+    })
+    if (pushResult.status === 0) {
+      log('ok', 'push 门重试通过(真实类型检查结论),推送成功')
+    }
+  }
 
-  if (pushResult.status === 0) {
-    log('warn', `⚠️  首次 push 因 pre-push hook 失败,已用 --no-verify 重试成功`)
-    log('warn', `   本任务代码已自验通过 typecheck,其他 agent 的代码 hook 失败不阻塞本任务 push`)
+  if (pushResult.status !== 0) {
+    log('info', `按用户规则"hook 失败因其他 agent 代码 → --no-verify 跳过"重试...`)
+
+    pushResult = spawnSync('git', ['push', '--no-verify', 'origin', branch], {
+      stdio: 'inherit',
+      cwd: repoRoot,
+      env: process.env,
+    })
+
+    if (pushResult.status === 0) {
+      log('warn', `⚠️  首次 push 因 pre-push hook 失败,已用 --no-verify 重试成功`)
+      log('warn', `   本任务代码已自验通过 typecheck,其他 agent 的代码 hook 失败不阻塞本任务 push`)
+    }
   }
 }
 
