@@ -647,9 +647,11 @@ async def test_events_are_forwarded_and_filtered_by_session():
     # turn.usage(回合结束)同走 thread/event 通道,插入总线事件序列首尾。
     assert [e["params"]["event"] for e in events] == [
         "environment_context",
+        "turn.started",
         "tool.before",
         "thinking.delta",
         "turn.usage",
+        "turn.complete",
     ]
     assert all(e["params"]["threadId"] == thread_id for e in events)
 
