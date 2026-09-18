@@ -5,11 +5,12 @@
 'use client'
 
 import * as React from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Activity, Coins, AlertTriangle, Timer, ArrowUp, ArrowDown } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useRelayOpsWs } from '@/hooks/use-relay-ops-ws'
 import {
   CHART_INDIGO,
   CHART_GREEN,
@@ -143,6 +144,15 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
   const [range, setRange] = React.useState<Range>('today')
   const trendDays = range === 'today' ? 1 : range === '7d' ? 7 : 30
   const numFmt = new Intl.NumberFormat(locale)
+  const qc = useQueryClient()
+  const { realtimeConnected, snapshot } = useRelayOpsWs()
+
+  // #58 WS 实时化:快照 usage.overview 与 REST /stats/overview 同形状,直接热替换;
+  // WS 断连时回落下方 30s 轮询。
+  React.useEffect(() => {
+    if (!snapshot?.usage.overview) return
+    qc.setQueryData(['admin', 'relay', 'stats', 'overview'], snapshot.usage.overview)
+  }, [qc, snapshot])
 
   const overviewQ = useQuery({
     queryKey: ['admin', 'relay', 'stats', 'overview'],
@@ -151,7 +161,7 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
       if (!r.success) throw new Error(r.error)
       return r.data
     },
-    refetchInterval: 30_000,
+    refetchInterval: realtimeConnected ? false : 30_000,
   })
   const distQ = useQuery({
     queryKey: ['admin', 'relay', 'stats', 'model-distribution'],
