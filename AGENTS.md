@@ -242,6 +242,8 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **禁止**手工 `git init` 抢修`:git` 消失 —— 先等守护(≤2 分钟;急可 `schtasks /run /tn "IHUI-AI git-guardian"` 立即触发),再查 `.workbuddy/git-guardian.log`(健康时**不写行**,别把「无日志」当没跑)。
 - git 调用**不得依赖环境**:脚本一律 `execFileSync(<绝对路径 git>, ['-c','safe.directory=*', ...])`;服务账户(LocalSystem)与交互账户的 `safe.directory` 互不相通。
 - **提交/推送**:`origin`(GitHub,唯一权威源)已固化为 `ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git` + 仓库级 `core.sshCommand`(部署私钥),本地 `git push origin main` 直连可用、无需代理。⚠️ `~/.git-credentials` 在本机**并不存在**,不要按它取 token(HTTPS 走的是凭据管理器)。本机**不直推 Gitee/GitCode**,交给 `mirror-to-cn.yml` 镜像收敛。自 2026-09-12 15:30 起 gitdir 已移出工作区(仅剩 28 字节指针),本地 git 写操作不再暴露给宿主批量删除层。
+  - **🚫 agent 禁止手写 `git push`(2026-09-18 立,"已推完还在等"事故根治)**:①origin 的推送由 post-commit 钩子 `git-push-guard.mjs` 自动完成(内置 ahead 检测+推送+回读验证,幂等)——commit 落地即已推送,**手动盲推必撞 already-pushed 非快进报错**并诱发后台反复干等;②Gitee/GitCode 由 `mirror-to-cn.yml` CI 在 push 后自动镜像(+每日 2 次兜底),**本地手推镜像仓=违反架构**且制造 DIVERGED 竞态。③收尾核验同步状态**只允许** `node scripts/git-push-converge.mjs`(只读判定,六态 ALREADY/PUSHING/PUSHED/SKIP/BEHIND/DIVERGED,不做任何非必要推送);仅在 guard/CI 均失效的应急场景才人工推,且必须先跑该脚本确认状态。多会话并发期:本会话交付已被远端包含(merge-base --is-ancestor 验证)即为完成,本地 HEAD 落后不追、不与并发会话抢 reset/ff。
+  - **⚡ 推送异步化(2026-09-18 立,根治第二段)**:guard 检测到 ahead 时默认 spawn 后台 worker 推送(pre-push 质量门不降级,实测单遍 216.8s)并立即返回——**commit 命令秒回,不再被推送拖住**;状态在 `.workbuddy/push-state.json`(running/done/failed,失败由下次 guard 自动重试),converge 读该状态显示 PUSHING;核验若见 PUSHING=正在推,等 1-2 分钟再查即可,勿手动干预。强制同步推送:GUARD_ASYNC=0。push-gate 另有 HEAD 缓存(同 HEAD 十分钟内免重跑全量门,实测 216.8s→0.18s;强制重跑 HUSKY_SKIP_PUSHGATE_CACHE=1)。
 - **禁止 `git pull --rebase`**:2026-09-12 15:2x 一次 rebase 崩溃导致真 gitdir 目录被原生删除。同步一律用 `git fetch <remote> main` + `git merge --ff-only FETCH_HEAD`。
 
 **诊断**:
