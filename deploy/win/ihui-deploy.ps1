@@ -82,7 +82,7 @@ function Ok    { param([string]$m) Log "OK    $m" }
 #    SendKey 优先环境变量,NSSM 服务上下文未继承时回读 HKCU 注册表;
 #    通知任何失败只记日志,绝不影响部署/回滚流程本身。
 #    邮件兜底(2026-09-18 加):Server酱发送失败/超额时,自动改发邮件到 502319984@qq.com
-#    (Resend,发件人 智汇AI官方 <IHUI-AI@aizhs.top>,密钥读 apps/api\.env 的 RESEND_API_KEY),每日上限 10 封。
+#    (邮件兜底优先 SMTP(如腾讯企业邮,收件无"代发"标注),未配置时回落 Resend,发件人 智汇AI官方 <IHUI-AI@aizhs.top>,密钥读 apps/api\.env 的 RESEND_API_KEY),每日上限 10 封。
 #    状态唯一写入点:Invoke-FailNotify(当日计数 date/count/emailCount 落盘)。
 $SctStateFile = "$Root\deploy\win\.sct-notify-state.json"
 $NotifyEmailTo = '502319984@qq.com'
@@ -121,15 +121,48 @@ function Get-ResendApiKey {
     } catch {}
     return $null
 }
+function Get-SmtpConfig {
+    # SMTP 配置读取:环境变量优先,其次 apps/api\.env。返回 $null 表示未配置。
+    $cfg = @{ Host=''; Port=587; User=''; Pass=''; From='智汇AI官方 <IHUI-AI@aizhs.top>' }
+    $sources = @(@{}, @{})
+    if ($env:SMTP_HOST) { $sources[0]['SMTP_HOST'] = $env:SMTP_HOST; $sources[0]['SMTP_PORT'] = $env:SMTP_PORT; $sources[0]['SMTP_USER'] = $env:SMTP_USER; $sources[0]['SMTP_PASS'] = $env:SMTP_PASS; $sources[0]['SMTP_FROM'] = $env:SMTP_FROM }
+    try {
+        Get-Content "$ApiDir\.env" -ErrorAction Stop | ForEach-Object {
+            if ($_ -match '^(SMTP_[A-Z]+)=(.*?)\s*$') { $sources[1][$Matches[1]] = $Matches[2] }
+        }
+    } catch {}
+    foreach ($s in $sources) {
+        foreach ($k in @('Host','Port','User','Pass','From')) {
+            if (-not $cfg[$k] -or ($k -eq 'Port' -and $cfg.Port -eq 587 -and $s['SMTP_PORT'])) {
+                $v = $s["SMTP_$k"]
+                if ($v) { $cfg[$k] = $v }
+            }
+        }
+    }
+    if (-not $cfg.Host -or -not $cfg.User -or -not $cfg.Pass) { return $null }
+    return $cfg
+}
 function Send-EmailNotify {
-    # 纯发送,不碰计数。返回 $true=已发送。
+    # 纯发送,不碰计数。返回 $true=已发送。优先 SMTP(主域回信路径,QQ 等收件方无"由 xx 代发"标注),失败回落 Resend。
     param([string]$subject,[string]$text)
     try {
+        $smtp = Get-SmtpConfig
+        if ($smtp) {
+            $cred = New-Object System.Management.Automation.PSCredential($smtp.User,(ConvertTo-SecureString $smtp.Pass -AsPlainText -Force))
+            Send-MailMessage -SmtpServer $smtp.Host -Port ([int]$smtp.Port) -UseSsl -Credential $cred `
+                -From $smtp.From -To $NotifyEmailTo -Subject $subject -Body $text -Encoding UTF8 -ErrorAction Stop
+            Log "MAIL  邮件告警已发送至 $NotifyEmailTo (SMTP $($smtp.Host))"
+            return $true
+        }
+    } catch {
+        Log "MAIL  SMTP 告警发送失败,转 Resend 兜底: $($_.Exception.Message)"
+    }
+    try {
         $key = Get-ResendApiKey
-        if (-not $key) { Log "MAIL  跳过邮件兜底:RESEND_API_KEY 未配置"; return $false }
+        if (-not $key) { Log "MAIL  跳过邮件兜底:SMTP 与 RESEND_API_KEY 均未配置"; return $false }
         $payload = @{ from = '智汇AI官方 <IHUI-AI@aizhs.top>'; to = @($NotifyEmailTo); subject = $subject; text = $text } | ConvertTo-Json
         Invoke-RestMethod -Uri 'https://api.resend.com/emails' -Method Post -Body $payload -ContentType 'application/json' -TimeoutSec 10 -ErrorAction Stop | Out-Null
-        Log "MAIL  邮件告警已发送至 $NotifyEmailTo"
+        Log "MAIL  邮件告警已发送至 $NotifyEmailTo (Resend)"
         return $true
     } catch {
         Log "MAIL  邮件告警发送失败: $($_.Exception.Message)"
