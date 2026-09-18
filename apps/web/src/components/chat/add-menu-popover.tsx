@@ -13,7 +13,7 @@ import { Tooltip } from '@/components/feedback'
 import { createPortal } from 'react-dom'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { SkillLibrary } from '@/components/chat/skill-library'
-import { VoiceRecord } from '@/components/ai/voice-record'
+import { VoiceRecord } from '@/components/chat/voice-record'
 import type { PromptTemplate } from '@/hooks/use-slash-action'
 
 /**
