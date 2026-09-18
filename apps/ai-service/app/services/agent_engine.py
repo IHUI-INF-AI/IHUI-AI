@@ -33,8 +33,11 @@
   thread.review       审查模式(派生审查子代理输出结构化结论,对标 review)
   tools.list          MCP 超级工具池 + 宿主注入工具的合并清单
   tools.register      注入宿主自有工具(执行回传客户端,经 tool/execute 往返)
+  tools.search        工具目录模糊搜索(对标 tool_search,超量工具面延迟装载)
+  tools.load          装载搜索到的工具进线程(对标 LoadableToolSpec materialize)
   tools.result        回传宿主工具执行结果(结算 tool/execute 请求)
   approval.respond    审批决策回填(与主循环 _approval_registry 打通)
+  elicitation.respond 用户结构化提问回填(对标 elicitation;request_user_input 等待)
   cost.report         成本账本汇总(含缓存命中三段计价)
   models.list         模型路由 + 单价 + 缓存乘数清单
 
@@ -206,6 +209,31 @@ class HostToolSpec:
     timeout_ms: int = DEFAULT_HOST_TOOL_TIMEOUT_MS
 
 
+# ---------------------------------------------------------------------------
+# 第四批常量(2026-09-18,榨干 Codex harness 剩余可学面)
+# ---------------------------------------------------------------------------
+# unified_exec 会话并发上限(对标 Codex unified_exec process_manager)
+_MAX_EXEC_SESSIONS = 8
+# unified_exec 单会话输出缓冲上限(字符;保留 head+tail,中间截断标注)
+_EXEC_BUFFER_HEAD = 4_000
+_EXEC_BUFFER_TAIL = 16_000
+# unified_exec 会话空闲回收(秒;超时且进程已退出才真正移除)
+_EXEC_SESSION_TTL = 600.0
+# elicitation 用户提问默认超时(ms)(对标 Codex elicitation)
+_DEFAULT_ELICITATION_TIMEOUT_MS = 30_000
+# auto-compact 默认触发阈值(估算 token;对标 Codex compact_token_budget)
+_AUTOCOMPACT_DEFAULT_THRESHOLD = 60_000
+# 角色模板(对标 Codex agent-roles / collaboration-mode-templates):
+# spawn_subagent / thread.start 指定 role 后,模板指令追加进 system 全程可见。
+_AGENT_ROLE_TEMPLATES: dict[str, str] = {
+    "implementer": "你是资深实现工程师:优先写出可运行的最小改动,显式列出改动文件与理由。",
+    "reviewer": "你是严格的代码审查者:逐条给出 blocker/major/minor 发现,不泛泛而谈。",
+    "researcher": "你是研究分析者:多源交叉核对事实,输出带依据与置信度的结论。",
+    "tester": "你是测试工程师:设计覆盖正常/边界/异常路径的用例并给出复现步骤。",
+    "planner": "你是任务规划者:把目标拆解为可执行步骤,标注依赖顺序与验收标准。",
+}
+
+
 @dataclass
 class EngineThread:
     """引擎线程 = 持久会话(对话历史 + 状态机 + 待回填请求)。"""
@@ -259,6 +287,19 @@ class EngineThread:
     # 跨回合累计 session_tokens_used,达到 token_budget 即拒起新轮
     token_budget: int | None = None
     session_tokens_used: int = 0
+    # 自动压缩(2026-09-18 第四批,对标 Codex compact_token_budget):
+    # 每轮结束后估算 token 超阈值即确定性压缩(发 context.compacted, trigger=auto)
+    auto_compact: bool = False
+    auto_compact_threshold: int = _AUTOCOMPACT_DEFAULT_THRESHOLD
+    # 结构化终答(2026-09-18 第四批,对标 Codex output_schema):轮末校验 finalResponse
+    output_schema: dict[str, Any] | None = None
+    # 角色模板(2026-09-18 第四批,对标 Codex agent-roles):追加进 system
+    role: str | None = None
+    # shell 快照(2026-09-18 第四批,对标 Codex shell_snapshot):
+    # unified_exec 最近一次会话 cwd,跨轮供模型感知工作目录漂移
+    last_shell_cwd: str | None = None
+    # Turn Timing(2026-09-18 第四批,对标 Codex turn_timing):最近一轮起止
+    last_turn_timing: dict[str, Any] | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -386,6 +427,8 @@ BUILTIN_ENGINE_TOOLS: tuple[str, ...] = (
     "spawn_subagent",
     "view_image",
     "request_permissions",
+    "unified_exec",
+    "request_user_input",
 )
 # 子代理嵌套深度上限(spawn_subagent 防递归失控)
 _MAX_SUBAGENT_DEPTH = 2
@@ -399,6 +442,70 @@ _VALID_PERMISSION_SCOPES: tuple[str, ...] = (
     "elevated_exec",
     "workspace_write",
 )
+
+
+def _parse_output_schema(raw: Any) -> dict[str, Any] | None:
+    """解析 outputSchema(2026-09-18 第四批,对标 Codex output_schema)。
+
+    须为 JSON Schema 子集:{"type": "object", "properties": {...},
+    "required"?: [str]}。非法 → INVALID_PARAMS(构造期 fail-fast)。
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise JsonRpcError(INVALID_PARAMS, "outputSchema 须为 JSON Schema 对象")
+    if raw.get("type") != "object" or not isinstance(raw.get("properties"), dict):
+        raise JsonRpcError(
+            INVALID_PARAMS, 'outputSchema 须为 {"type": "object", "properties": {...}} 形态'
+        )
+    required = raw.get("required")
+    if required is not None and (
+        not isinstance(required, list)
+        or not all(isinstance(x, str) for x in required)
+    ):
+        raise JsonRpcError(INVALID_PARAMS, "outputSchema.required 须为字符串数组")
+    return raw
+
+
+def _validate_output_schema_payload(
+    schema: dict[str, Any], text: str
+) -> dict[str, Any]:
+    """对最终答复做 outputSchema 宽松校验(零新增依赖,对标 Codex structured output)。
+
+    finalResponse 须为合法 JSON 且满足:type=object / required 全在 /
+    properties 声明的基本类型一致(string/number/boolean/array/object/null)。
+    返回 {valid, errors}。
+    """
+    errors: list[str] = []
+    parsed: Any = None
+    try:
+        parsed = json.loads(text)
+    except (TypeError, ValueError) as e:
+        errors.append(f"finalResponse 不是合法 JSON: {e}")
+        return {"valid": False, "errors": errors}
+    if not isinstance(parsed, dict):
+        errors.append("顶层须为 JSON object")
+        return {"valid": False, "errors": errors}
+    required = schema.get("required") or []
+    for key in required:
+        if key not in parsed:
+            errors.append(f"缺少 required 字段: {key}")
+    type_map: dict[str, tuple[type, ...]] = {
+        "string": (str,),
+        "number": (int, float),
+        "boolean": (bool,),
+        "array": (list,),
+        "object": (dict,),
+        "null": (type(None),),
+    }
+    for prop, spec in (schema.get("properties") or {}).items():
+        if prop not in parsed or not isinstance(spec, dict):
+            continue
+        expected = spec.get("type")
+        allowed = type_map.get(str(expected))
+        if allowed and not isinstance(parsed[prop], allowed):
+            errors.append(f"字段 {prop} 类型须为 {expected}")
+    return {"valid": not errors, "errors": errors}
 
 
 def _parse_generation_config(params: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -563,6 +670,10 @@ class AgentEngine:
         self._store: SessionStore | None | bool = store
         # request_permissions 工具的待决请求(requestId → Future;approval.respond 结算)
         self._permission_requests: dict[str, asyncio.Future[Any]] = {}
+        # elicitation 中轮提问的待决请求(2026-09-18 第四批,对标 Codex elicitation)
+        self._elicitation_requests: dict[str, asyncio.Future[Any]] = {}
+        # unified_exec 持久 shell 会话(2026-09-18 第四批,对标 Codex unified_exec)
+        self._exec_sessions: dict[str, dict[str, Any]] = {}
         self._handlers: dict[str, Callable[[dict[str, Any], Emitter], Any]] = {
             "engine.initialize": self._handle_initialize,
             "engine.ping": self._handle_ping,
@@ -581,8 +692,11 @@ class AgentEngine:
             "agent.exec": self._handle_agent_exec,
             "tools.list": self._handle_tools_list,
             "tools.register": self._handle_tools_register,
+            "tools.search": self._handle_tools_search,
+            "tools.load": self._handle_tools_load,
             "tools.result": self._handle_tools_result,
             "approval.respond": self._handle_approval_respond,
+            "elicitation.respond": self._handle_elicitation_respond,
             "cost.report": self._handle_cost_report,
             "models.list": self._handle_models_list,
         }
@@ -701,6 +815,10 @@ class AgentEngine:
                     "denyTools": thread.deny_tools or None,
                     "tokenBudget": thread.token_budget,
                     "goal": thread.goal,
+                    "outputSchema": thread.output_schema,
+                    "autoCompact": thread.auto_compact,
+                    "autoCompactThreshold": thread.auto_compact_threshold,
+                    "role": thread.role,
                     "systemPromptSource": (
                         "server-locked" if self._locked_system_prompt else "client-or-default"
                     ),
@@ -830,6 +948,18 @@ class AgentEngine:
                 thread.token_budget = int(md["tokenBudget"])
             if isinstance(md.get("goal"), str) and md["goal"].strip():
                 thread.goal = md["goal"].strip()
+            # 第四批配置还原(失败降级为缺省,不影响对话续跑)
+            if isinstance(md.get("outputSchema"), dict):
+                thread.output_schema = dict(md["outputSchema"])
+            if md.get("autoCompact") is True:
+                thread.auto_compact = True
+            if (
+                isinstance(md.get("autoCompactThreshold"), int)
+                and md["autoCompactThreshold"] > 0
+            ):
+                thread.auto_compact_threshold = int(md["autoCompactThreshold"])
+            if md.get("role") in _AGENT_ROLE_TEMPLATES:
+                thread.role = str(md["role"])
             self._threads[thread_id] = thread
             logger.info(
                 "[engine] thread restored from store %s (items=%s)", thread_id, t.item_count
@@ -880,6 +1010,13 @@ class AgentEngine:
                 "goals": True,
                 "review": True,
                 "tokenBudget": True,
+                "toolSearch": True,
+                "elicitation": True,
+                "unifiedExec": True,
+                "outputSchema": True,
+                "autoCompact": True,
+                "agentRoles": True,
+                "turnTiming": True,
                 "mcp": self._tool_lister is not None,
                 "costLedger": self._cost_report is not None,
                 "modelRouting": self._model_lister is not None,
@@ -932,6 +1069,28 @@ class AgentEngine:
         goal = params.get("goal")
         if goal is not None and not (isinstance(goal, str) and goal.strip()):
             raise JsonRpcError(INVALID_PARAMS, "goal 须为非空字符串或 null")
+        # 第四批(2026-09-18):outputSchema / autoCompact / role
+        output_schema = _parse_output_schema(params.get("outputSchema"))
+        auto_compact = bool(params.get("autoCompact"))
+        try:
+            auto_compact_threshold = int(
+                params.get("autoCompactThreshold") or _AUTOCOMPACT_DEFAULT_THRESHOLD
+            )
+        except (TypeError, ValueError) as e:
+            raise JsonRpcError(INVALID_PARAMS, "autoCompactThreshold 须为整数") from e
+        if auto_compact_threshold <= 0:
+            raise JsonRpcError(INVALID_PARAMS, "autoCompactThreshold 须为正整数")
+        role = params.get("role")
+        if role is not None and role not in _AGENT_ROLE_TEMPLATES:
+            raise JsonRpcError(
+                INVALID_PARAMS,
+                f"role 须为内置角色之一: {sorted(_AGENT_ROLE_TEMPLATES)}",
+            )
+        # 角色模板追加进 system(对标 Codex agent-roles 全程可见语义)
+        if role is not None:
+            messages[0]["content"] = (
+                f"{messages[0]['content']}\n\n[角色模板] {_AGENT_ROLE_TEMPLATES[role]}"
+            )
         thread = EngineThread(
             thread_id=thread_id,
             session_id=str(params.get("sessionId") or thread_id),
@@ -952,6 +1111,10 @@ class AgentEngine:
             deny_tools=deny_tools,
             token_budget=token_budget,
             goal=goal.strip() if isinstance(goal, str) else None,
+            auto_compact=auto_compact,
+            auto_compact_threshold=auto_compact_threshold,
+            output_schema=output_schema,
+            role=role,
             messages=messages,
         )
         self._threads[thread_id] = thread
@@ -971,6 +1134,9 @@ class AgentEngine:
             "denyTools": thread.deny_tools,
             "tokenBudget": thread.token_budget,
             "goal": thread.goal,
+            "outputSchema": thread.output_schema,
+            "autoCompact": thread.auto_compact,
+            "role": thread.role,
             "systemPromptSource": system_source,
             "status": thread.status,
         }
@@ -1070,6 +1236,9 @@ class AgentEngine:
                 BUDGET_EXHAUSTED,
                 f"token 预算已耗尽(已用 {thread.session_tokens_used} / 预算 {thread.token_budget})",
             )
+        # Turn Timing(2026-09-18 第四批,对标 Codex turn_timing)
+        turn_started_at = time.time()
+        thread.last_turn_timing = {"startedAt": turn_started_at}
         before_files = await self._workspace_dirty_files(thread)
         thread.messages.append({"role": "user", "content": text})
         # Turn Context 冻结:非 checkpoint 路径每轮刷新快照(客户端在轮间改配置,
@@ -1103,6 +1272,16 @@ class AgentEngine:
             self._persist_turn_error(thread, turn_id, e)
             raise
         self._persist_turn_end(thread, turn_id, result)
+        # Turn Timing 补完(endedAt + durationMs;随返回体 turnTiming 下发)
+        turn_ended_at = time.time()
+        thread.last_turn_timing = {
+            "startedAt": turn_started_at,
+            "endedAt": turn_ended_at,
+            "durationMs": round((turn_ended_at - turn_started_at) * 1000, 2),
+        }
+        # payload 在 _run_thread 内构建(那时只有 startedAt),此处回填完整计时
+        if isinstance(result, dict):
+            result["turnTiming"] = thread.last_turn_timing
         # 跨回合 token 用量累计(预算硬停的数据源;取不到精确值时为 0,不阻塞)
         thread.session_tokens_used += int(
             (result or {}).get("totalTokensUsed") or 0
@@ -1119,6 +1298,31 @@ class AgentEngine:
                     "turn.diff",
                     {"files": changed[:50], "truncated": len(changed) > 50},
                 )
+        # auto-compact(2026-09-18 第四批,对标 Codex compact_token_budget
+        # inline auto-compaction):估算 token 超阈值即确定性压缩,零 LLM 成本。
+        if thread.auto_compact:
+            with contextlib.suppress(Exception):
+                from app.core.context_compaction import estimate_messages_tokens
+
+                if (
+                    estimate_messages_tokens(thread.messages)
+                    >= thread.auto_compact_threshold
+                ):
+                    await self._compact_thread(
+                        thread, keep_recent=8, emit=emit, trigger="auto"
+                    )
+        # outputSchema 结构化终答校验(2026-09-18 第四批,对标 Codex output_schema):
+        # fail-open 观测语义——校验结果随返回体下发,违例另发事件,不硬拒答。
+        if thread.output_schema is not None and isinstance(result, dict):
+            validation = _validate_output_schema_payload(
+                thread.output_schema, str(result.get("finalResponse") or "")
+            )
+            result["outputSchemaValidation"] = validation
+            if not validation["valid"]:
+                with contextlib.suppress(Exception):
+                    await self._emit_engine_event(
+                        thread, emit, "output_schema.violation", validation
+                    )
         return result
 
     @staticmethod
@@ -1245,6 +1449,7 @@ class AgentEngine:
             "error": getattr(result, "error", None),
             "budget": getattr(result, "budget", None),
             "compactionEvents": compaction,
+            "turnTiming": thread.last_turn_timing,
         }
 
     @staticmethod
@@ -1364,6 +1569,11 @@ class AgentEngine:
             "goal": thread.goal,
             "tokenBudget": thread.token_budget,
             "sessionTokensUsed": thread.session_tokens_used,
+            "autoCompact": thread.auto_compact,
+            "role": thread.role,
+            "lastShellCwd": thread.last_shell_cwd,
+            "turnTiming": thread.last_turn_timing,
+            "execSessions": len(self._exec_sessions),
             "cost": self._thread_cost(thread),
         }
 
@@ -1397,10 +1607,8 @@ class AgentEngine:
     ) -> dict[str, Any]:
         """手动压缩线程历史(2026-09-18 第二批,对标 Codex /compact + ContextCompacted)。
 
-        复用主循环同款确定性压缩(core/context_compaction,零 LLM 额外成本):
-        以当前估算 token 为 limit 使占用率 ≥ 触发线,强制触发压缩;压缩产物落
-        CompactionBoundaryItem(resume 时只回放边界后内容),并发 context.compacted
-        通知。对话过短则原样返回 compressed=False。
+        复用主循环同款确定性压缩(core/context_compaction,零 LLM 额外成本);
+        对话过短则原样返回 compressed=False。
         """
         thread = self._require_thread(params)
         if thread.status == "running":
@@ -1410,6 +1618,18 @@ class AgentEngine:
         except (TypeError, ValueError) as e:
             raise JsonRpcError(INVALID_PARAMS, "keepRecent 须为整数") from e
         keep_recent = max(2, min(keep_recent, 50))
+        return await self._compact_thread(
+            thread, keep_recent=keep_recent, emit=emit, trigger="manual"
+        )
+
+    async def _compact_thread(
+        self,
+        thread: EngineThread,
+        keep_recent: int,
+        emit: Emitter,
+        trigger: str,
+    ) -> dict[str, Any]:
+        """确定性压缩核心(manual/auto 共用,对标 Codex CompactionTrigger 语义)。"""
         messages = thread.messages
         before = len(messages)
         from app.core.context_compaction import (
@@ -1434,6 +1654,7 @@ class AgentEngine:
             "originalTokens": info.get("original_tokens"),
             "compressedTokens": info.get("compressed_tokens"),
             "removedCount": info.get("removed_count"),
+            "trigger": trigger,
         }
         if info.get("compressed"):
             thread.messages = list(compressed)
@@ -1448,6 +1669,7 @@ class AgentEngine:
                     "beforeMessages": before,
                     "afterMessages": len(compressed),
                     "removedCount": info.get("removed_count"),
+                    "trigger": trigger,
                 },
             )
         return result
@@ -1659,6 +1881,8 @@ class AgentEngine:
             "spawn_subagent": self._spawn_subagent_tool,
             "view_image": self._view_image_tool,
             "request_permissions": self._request_permissions_tool,
+            "unified_exec": self._unified_exec_tool,
+            "request_user_input": self._request_user_input_tool,
         }
         definitions: list[Any] = []
         for name in BUILTIN_ENGINE_TOOLS:
@@ -1739,6 +1963,11 @@ class AgentEngine:
             "properties": {
                 "prompt": {"type": "string", "description": "子代理要独立完成的任务"},
                 "model": {"type": "string", "description": "可选,子代理模型(默认继承)"},
+                "role": {
+                    "type": "string",
+                    "description": f"可选,子代理角色模板({sorted(_AGENT_ROLE_TEMPLATES)}),模板指令注入 system",
+                    "enum": sorted(_AGENT_ROLE_TEMPLATES),
+                },
                 "maxIterations": {
                     "type": "integer",
                     "description": "可选,子代理最大迭代(默认 6,上限 12)",
@@ -1755,11 +1984,18 @@ class AgentEngine:
                 return {
                     "error": f"子代理嵌套深度已达上限({_MAX_SUBAGENT_DEPTH}),拒绝继续派生"
                 }
+            role = args.get("role")
+            if role is not None and role not in _AGENT_ROLE_TEMPLATES:
+                return {
+                    "error": f"role 非法: {role!r},须为 {sorted(_AGENT_ROLE_TEMPLATES)} 之一"
+                }
             sub_params: dict[str, Any] = {
                 "input": prompt.strip(),
                 "permissionMode": thread.permission_mode,
                 "maxIterations": max(1, min(int(args.get("maxIterations") or 6), 12)),
             }
+            if role is not None:
+                sub_params["role"] = role
             model = args.get("model")
             if isinstance(model, str) and model.strip():
                 sub_params["model"] = model.strip()
@@ -1780,6 +2016,7 @@ class AgentEngine:
                     thread_obj.status = "closed"
             return {
                 "threadId": started["threadId"],
+                "role": role,
                 "success": result.get("success"),
                 "response": result.get("finalResponse"),
                 "iterations": result.get("iterations"),
@@ -1790,7 +2027,8 @@ class AgentEngine:
             name="spawn_subagent",
             description=(
                 "派生一个一次性子代理独立完成任务并返回其最终答复"
-                "(适合需要隔离上下文的子任务);嵌套深度有上限。"
+                "(适合需要隔离上下文的子任务);可用 role 指定内置角色模板"
+                "(implementer/reviewer/researcher/tester/planner);嵌套深度有上限。"
             ),
             parameters=parameters,
             executor=_exec,
@@ -1939,6 +2177,248 @@ class AgentEngine:
             executor=_exec,
         )
 
+    def _unified_exec_tool(self, thread: EngineThread) -> Any:
+        """unified_exec:持久 shell 会话(2026-09-18 第四批,对标 Codex unified_exec)。
+
+        首次调用新建持久进程会话(输出 head+tail 有界缓冲);后续按 sessionId
+        续写 stdin 并只回传增量输出。会话上限/空闲 TTL/工具级审批策略照常生效。
+        """
+        from .agent_loop_v2 import ToolDefinition
+
+        parameters = {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string",
+                    "description": "要执行的命令;已有 sessionId 时作为该会话 stdin 的新输入",
+                },
+                "sessionId": {
+                    "type": "string",
+                    "description": "可选,续用已存在的持久会话(首次调用勿传)",
+                },
+                "cwd": {
+                    "type": "string",
+                    "description": "可选,新建会话的工作目录(默认线程 workspace)",
+                },
+                "timeoutMs": {
+                    "type": "integer",
+                    "description": "可选,等待输出/退出的时长(默认 30000ms)",
+                },
+            },
+            "required": ["command"],
+        }
+
+        def _append_output(session: dict[str, Any], chunk: str) -> None:
+            buf = session["buffer"] + chunk
+            if len(buf) > _EXEC_BUFFER_HEAD + _EXEC_BUFFER_TAIL:
+                dropped = len(buf) - _EXEC_BUFFER_HEAD - _EXEC_BUFFER_TAIL
+                buf = (
+                    buf[:_EXEC_BUFFER_HEAD]
+                    + f"\n...[中间截断 {dropped} 字符]...\n"
+                    + buf[-_EXEC_BUFFER_TAIL:]
+                )
+            session["buffer"] = buf
+
+        async def _reader(session: dict[str, Any]) -> None:
+            proc = session["proc"]
+            assert proc.stdout is not None
+            while True:
+                chunk = await proc.stdout.read(4096)
+                if not chunk:
+                    break
+                _append_output(session, chunk.decode("utf-8", errors="replace"))
+
+        def _prune_sessions() -> None:
+            now = time.time()
+            for sid in list(self._exec_sessions):
+                session = self._exec_sessions[sid]
+                proc = session["proc"]
+                if (
+                    proc.returncode is not None
+                    and now - session["last_active"] > _EXEC_SESSION_TTL
+                ):
+                    self._exec_sessions.pop(sid, None)
+
+        async def _wait_settled(
+            session: dict[str, Any], before: int, timeout_s: float
+        ) -> dict[str, Any]:
+            """等待输出稳定(连续 300ms 无新增)或超时,回传增量。
+
+            常驻 shell 会话无法从进程退出判断命令完成(对标 Codex interactive
+            session 语义),以输出静默作为 settle 启发式;status 恒 running,
+            由模型按输出内容自行判断命令是否结束。
+            """
+            deadline = time.time() + timeout_s
+            quiet_since: float | None = None
+            while time.time() < deadline:
+                await asyncio.sleep(0.05)
+                grown = len(session["buffer"]) > before
+                if not grown and quiet_since is not None and time.time() - quiet_since >= 0.3:
+                    break
+                quiet_since = None if grown else (quiet_since or time.time())
+            new_output = session["buffer"][before:]
+            proc = session["proc"]
+            return {
+                "sessionId": session["id"],
+                "status": "running" if proc.returncode is None else "completed",
+                "exitCode": proc.returncode,
+                "output": new_output or "(无新增输出)",
+                "cwd": session["cwd"],
+            }
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            command = args.get("command")
+            if not isinstance(command, str) or not command.strip():
+                return {"error": "unified_exec 需要非空 command"}
+            _prune_sessions()
+            session_id = args.get("sessionId")
+            try:
+                timeout_s = max(1.0, min(int(args.get("timeoutMs") or 30_000), 120_000) / 1000.0)
+            except (TypeError, ValueError):
+                timeout_s = 30.0
+            # 续用既有会话:写 stdin,只回传增量
+            if isinstance(session_id, str) and session_id:
+                existing = self._exec_sessions.get(session_id)
+                if existing is None:
+                    return {"error": f"会话不存在或已回收: {session_id}"}
+                existing["last_active"] = time.time()
+                proc_stdin = existing["proc"].stdin
+                if proc_stdin is not None and proc_stdin.is_closing() is False:
+                    before = len(existing["buffer"])
+                    proc_stdin.write((command + "\n").encode("utf-8"))
+                    with contextlib.suppress(Exception):
+                        await proc_stdin.drain()
+                    return await _wait_settled(existing, before, timeout_s)
+                return {"error": f"会话 stdin 已关闭(进程退出): {session_id}"}
+            # 新建常驻 shell 会话(命令经 stdin 逐条注入,对标 Codex unified_exec
+            # interactive session;Windows 用 cmd /Q /K,POSIX 用 bash)
+            if len(self._exec_sessions) >= _MAX_EXEC_SESSIONS:
+                return {
+                    "error": f"持久会话数已达上限({_MAX_EXEC_SESSIONS}),"
+                    "请复用 sessionId 或等待空闲回收"
+                }
+            cwd = args.get("cwd")
+            resolved_cwd = (
+                cwd if isinstance(cwd, str) and cwd.strip() else thread.workspace
+            ) or os.getcwd()
+            new_id = f"shx_{uuid.uuid4().hex[:12]}"
+            shell_argv = (
+                ["cmd.exe", "/Q", "/K"]
+                if os.name == "nt"
+                else ["bash", "--noprofile", "--norc"]
+            )
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *shell_argv,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.STDOUT,
+                    stdin=asyncio.subprocess.PIPE,
+                    cwd=resolved_cwd,
+                )
+            except OSError as e:
+                return {"error": f"进程创建失败: {e}"}
+            new_session: dict[str, Any] = {
+                "id": new_id,
+                "proc": proc,
+                "buffer": "",
+                "cwd": resolved_cwd,
+                "created_at": time.time(),
+                "last_active": time.time(),
+            }
+            self._exec_sessions[new_id] = new_session
+            new_session["reader"] = asyncio.create_task(_reader(new_session))
+            thread.last_shell_cwd = resolved_cwd
+            thread.touch()
+            before = len(new_session["buffer"])
+            if proc.stdin is not None:
+                proc.stdin.write((command + "\n").encode("utf-8"))
+                with contextlib.suppress(Exception):
+                    await proc.stdin.drain()
+            return await _wait_settled(new_session, before, timeout_s)
+
+        return ToolDefinition(
+            name="unified_exec",
+            description=(
+                "持久 shell 会话执行:首次调用启动常驻 shell 并注入命令"
+                "(返回 sessionId + 截至当前的输出,输出静默即回传);"
+                "后续传同一 sessionId 续写 stdin、只回传增量输出。"
+                "适合交互式进程(REPL/dev server/多步安装);"
+                "status 恒为 running 直到会话退出,请按输出自行判断命令完成。"
+                "受线程工具审批策略约束;会话空闲超时自动回收。"
+            ),
+            parameters=parameters,
+            executor=_exec,
+        )
+
+    def _request_user_input_tool(self, thread: EngineThread) -> Any:
+        """request_user_input:中轮向用户要结构化输入(2026-09-18 第四批,
+        对标 Codex elicitation):elicitation/request 通知 + elicitation.respond
+        结算,超时 fail-closed。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        parameters = {
+            "type": "object",
+            "properties": {
+                "question": {"type": "string", "description": "要问用户的问题"},
+                "schema": {
+                    "type": "object",
+                    "description": "可选,期望回答满足的 JSON Schema",
+                },
+                "timeoutMs": {
+                    "type": "integer",
+                    "description": "可选,等待用户回答的超时(默认 30000ms)",
+                },
+            },
+            "required": ["question"],
+        }
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            question = args.get("question")
+            if not isinstance(question, str) or not question.strip():
+                return {"error": "request_user_input 需要非空 question"}
+            schema = args.get("schema") if isinstance(args.get("schema"), dict) else None
+            try:
+                timeout_ms = int(
+                    args.get("timeoutMs") or _DEFAULT_ELICITATION_TIMEOUT_MS
+                )
+            except (TypeError, ValueError):
+                timeout_ms = _DEFAULT_ELICITATION_TIMEOUT_MS
+            timeout_ms = max(1000, min(timeout_ms, 120_000))
+            elicitation_id = f"eli_{uuid.uuid4().hex[:12]}"
+            future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
+            self._elicitation_requests[elicitation_id] = future
+            try:
+                await (thread.emit or _noop_emitter)(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "elicitation/request",
+                        "params": {
+                            "elicitationId": elicitation_id,
+                            "threadId": thread.thread_id,
+                            "question": question.strip(),
+                            "schema": schema,
+                            "timeoutMs": timeout_ms,
+                        },
+                    }
+                )
+                value = await asyncio.wait_for(future, timeout=timeout_ms / 1000.0)
+                return {"responded": True, "value": value}
+            except TimeoutError:
+                return {"responded": False, "reason": "用户回答超时,按未提供处理"}
+            finally:
+                self._elicitation_requests.pop(elicitation_id, None)
+
+        return ToolDefinition(
+            name="request_user_input",
+            description=(
+                "向用户请求结构化输入(选项确认/表单补全):经 elicitation/request "
+                "通知发往客户端,用户回答经 elicitation.respond 回填;超时将得到 "
+                "responded=false,请基于现有信息继续。"
+            ),
+            parameters=parameters,
+            executor=_exec,
+        )
+
     async def _handle_tools_list(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
@@ -2006,6 +2486,169 @@ class AgentEngine:
             "availableFrom": "next_prompt",
             "hostTools": sorted(thread.host_tools),
         }
+
+    async def _tool_catalog(self, thread: EngineThread | None) -> list[dict[str, Any]]:
+        """合并工具目录快照(2026-09-18 第四批,对标 Codex tool_search 目录面):
+        内置工具 + 线程宿主工具 + MCP 超级工具池(承载体注入)。"""
+        catalog: list[dict[str, Any]] = [
+            {"name": name, "source": "builtin", "description": ""}
+            for name in BUILTIN_ENGINE_TOOLS
+        ]
+        if thread is not None:
+            catalog.extend(
+                {
+                    "name": spec.name,
+                    "source": "host",
+                    "description": spec.description,
+                    "parameters": spec.parameters,
+                    "timeoutMs": spec.timeout_ms,
+                }
+                for spec in thread.host_tools.values()
+            )
+        if self._tool_lister is not None:
+            try:
+                pool = await self._tool_lister()
+                if isinstance(pool, list):
+                    catalog.extend(
+                        {
+                            "name": str(t.get("name") or ""),
+                            "source": "mcp",
+                            "description": str(t.get("description") or ""),
+                            "parameters": t.get("parameters")
+                            if isinstance(t.get("parameters"), dict)
+                            else {"type": "object"},
+                        }
+                        for t in pool
+                        if isinstance(t, dict) and t.get("name")
+                    )
+            except Exception as e:  # noqa: BLE001 - 目录查询失败降级为部分结果
+                logger.warning("[engine] tools 目录查询失败(降级): %s", e)
+        return catalog
+
+    async def _handle_tools_search(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """工具搜索(2026-09-18 第四批,对标 Codex tool_search/LoadableToolSpec):
+
+        超量工具面下按 query 模糊匹配 name+description,返回可装载条目;
+        客户端择要 tools.load 装载进线程,避免全量 schema 撑爆上下文。
+        """
+        thread: EngineThread | None = None
+        thread_id = params.get("threadId")
+        if isinstance(thread_id, str) and thread_id in self._threads:
+            thread = self._threads[thread_id]
+        query = str(params.get("query") or "").strip().lower()
+        if not query:
+            raise JsonRpcError(INVALID_PARAMS, "缺少 query")
+        try:
+            limit = max(1, min(int(params.get("limit") or 10), 50))
+        except (TypeError, ValueError) as e:
+            raise JsonRpcError(INVALID_PARAMS, "limit 须为整数") from e
+        catalog = await self._tool_catalog(thread)
+        results = [
+            entry
+            for entry in catalog
+            if query in entry["name"].lower()
+            or query in entry["description"].lower()
+        ][:limit]
+        thread.touch() if thread is not None else None
+        return {
+            "query": params.get("query"),
+            "results": results,
+            "total": len(results),
+            "catalogSize": len(catalog),
+        }
+
+    async def _handle_tools_load(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """装载搜索到的工具进线程(2026-09-18 第四批,对标 LoadableToolSpec
+        materialize 语义):描述/schema 可省略,缺省从目录快照回填。"""
+        thread = self._require_thread(params)
+        name = params.get("name")
+        if not isinstance(name, str) or not name:
+            raise JsonRpcError(INVALID_PARAMS, "缺少工具 name")
+        if name in thread.host_tools:
+            return {
+                "threadId": thread.thread_id,
+                "name": name,
+                "loaded": True,
+                "alreadyLoaded": True,
+                "hostTools": sorted(thread.host_tools),
+            }
+        spec: dict[str, Any] | None = None
+        for entry in await self._tool_catalog(thread):
+            if entry["name"] == name and entry.get("parameters") is not None:
+                spec = entry
+                break
+        if spec is None and name in BUILTIN_ENGINE_TOOLS:
+            raise JsonRpcError(
+                INVALID_PARAMS, f"{name} 为引擎内置工具,无需装载"
+            )
+        description = params.get("description")
+        parameters = params.get("parameters")
+        timeout_ms = params.get("timeoutMs")
+        resolved_description = (
+            description
+            if isinstance(description, str) and description
+            else (
+                str(spec.get("description"))
+                if spec and isinstance(spec.get("description"), str)
+                else name
+            )
+        )
+        resolved_parameters = (
+            parameters
+            if isinstance(parameters, dict)
+            else (
+                spec["parameters"]
+                if spec and isinstance(spec.get("parameters"), dict)
+                else {"type": "object"}
+            )
+        )
+        try:
+            resolved_timeout = (
+                int(timeout_ms)
+                if timeout_ms is not None
+                else (
+                    int(spec["timeoutMs"])
+                    if spec and isinstance(spec.get("timeoutMs"), int)
+                    else self._host_tool_timeout_ms
+                )
+            )
+        except (TypeError, ValueError) as e:
+            raise JsonRpcError(INVALID_PARAMS, "timeoutMs 须为整数") from e
+        thread.host_tools[name] = HostToolSpec(
+            name=name,
+            description=resolved_description,
+            parameters=resolved_parameters,
+            timeout_ms=max(1, int(resolved_timeout)),
+        )
+        thread.touch()
+        return {
+            "threadId": thread.thread_id,
+            "name": name,
+            "loaded": True,
+            "alreadyLoaded": False,
+            "availableFrom": "next_prompt",
+            "hostTools": sorted(thread.host_tools),
+        }
+
+    async def _handle_elicitation_respond(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """elicitation 决策回填(2026-09-18 第四批,对标 Codex elicitation):
+        唤醒等待中的 request_user_input 工具执行。"""
+        elicitation_id = params.get("elicitationId") or params.get("requestId")
+        if not isinstance(elicitation_id, str) or not elicitation_id:
+            raise JsonRpcError(INVALID_PARAMS, "缺少 elicitationId")
+        future = self._elicitation_requests.get(elicitation_id)
+        if future is None:
+            return {"elicitationId": elicitation_id, "applied": False, "reason": "unknown"}
+        if future.done():
+            return {"elicitationId": elicitation_id, "applied": False, "reason": "already_settled"}
+        future.set_result(params.get("value"))
+        return {"elicitationId": elicitation_id, "applied": True}
 
     def _build_host_tool_definitions(self, thread: EngineThread) -> list[Any]:
         """把宿主工具规格转成主循环的 ToolDefinition(执行体回调客户端)。"""
