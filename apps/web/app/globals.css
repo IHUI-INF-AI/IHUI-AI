@@ -166,9 +166,22 @@
      -webkit- 前缀:旧版 Safari/WebView(Tauri 旧 webview2 兼容)需要。 */
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  /* 独立合成层:旋转全程 GPU 合成,卡片(460px 宽 + 大量文字/图片)不逐帧重光栅化,
-     消除动画起步掉帧;卡片随弹窗关闭即卸载,will-change 常驻无内存顾虑。 */
-  will-change: transform, opacity;
+  /* 2026-09-18 移除常驻 will-change(用户反馈"登录框逐步消失的过程卡顿"):
+     running animation 本身就会让浏览器自动提升合成层(动画期间 GPU 合成、
+     结束后自动回收),常驻 will-change 反而让卡片层在 Content 关闭淡出期间
+     持续参与逐帧嵌套合成、卸载时多一次合成层销毁,加剧淡出掉帧。 */
+}
+
+/* 2026-09-18 关闭淡出提速(用户反馈"登录框逐步消失墨迹/卡顿"):
+   实测 Content 关闭动画为 tailwindcss-animate 硬编码 150ms(基类
+   duration-(--duration-unified) 对 animation-duration 不生效),且关闭瞬间
+   store 通知 + 全局订阅组件重渲染会吃掉部分帧。压到 100ms 并用快启动曲线
+   (前 30% 时间完成大部分透明度变化)——即使掉帧也是"干脆消失",不再有
+   "拖泥带水逐步消失"感。仅作用于登录框 Content(data-testid 精确命中),
+   其他 Dialog 关闭节奏不变;遮罩保持 150ms 在背景多留 50ms 柔和淡出,无突兀。 */
+[data-testid='login-dialog'][data-state='closed'] {
+  animation-duration: 100ms;
+  animation-timing-function: cubic-bezier(0.7, 0, 1, 1);
 }
 
 /* 顶栏内容左偏移(2026-08-01 立,根治移动端搜索按钮与工作区卡片 46px 错位):
