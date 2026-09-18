@@ -6,7 +6,7 @@
 if [ -z "${IHUI_GIT_LOCK_UNIT:-}" ]; then
   ROOT_DIR="$(git rev-parse --show-toplevel)" || exit 1
   UNIT="post-commit-$$-$(date +%s)"
-  node "$ROOT_DIR/scripts/git-lock.mjs" acquire --unit "$UNIT" >/dev/null 2>&1 || {
+  node "$ROOT_DIR/scripts/git-lock.mjs" acquire --unit "$UNIT" --timeout 180000 >/dev/null 2>&1 || {
     printf '%s\n' "❌ 获取 git 写锁失败(有其他写操作进行中,稍后重试或检查 .git/ihui-git-write.lock)" >&2
     exit 1
   }
