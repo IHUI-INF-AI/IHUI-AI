@@ -28,9 +28,29 @@
  * 只读核验(不写任何东西)仍用 git-push-converge.mjs。
  */
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 const C = { green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', dim: '\x1b[2m', reset: '\x1b[0m' }
 const log = (color, msg) => console.log(`${color}${msg}${C.reset}`)
+
+/** 轮询 push-state.json 至 done/failed(guard 异步推送是后台跑的,须等落定再决策) */
+function waitForPushState(headSha, timeoutMs = 8 * 60 * 1000) {
+  const stateFile = resolve(process.cwd(), '.workbuddy/push-state.json')
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    try {
+      const s = JSON.parse(readFileSync(stateFile, 'utf8'))
+      if (s.headSha === headSha && (s.status === 'done' || s.status === 'failed')) return s.status
+      // state 已被更新 HEAD 的其他推送覆盖 → 视为本 HEAD 推送已无意义
+      if (s.headSha !== headSha) return 'superseded'
+    } catch {
+      /* 无状态文件 */
+    }
+    if (Date.now() > deadline) return 'timeout'
+    execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},3000)'], { stdio: 'ignore' })
+  }
+}
 
 function git(args, { allowFail = false } = {}) {
   try {
@@ -112,20 +132,32 @@ for (let round = 1; round <= maxRounds; round++) {
   git(['update-ref', `refs/heads/${branch}`, mergeSha])
   log(C.dim, `  合并提交 ${mergeSha.slice(0, 11)} 已推进本地 ${branch}`)
 
-  // 官方通道推送(含 push 门与 --no-verify 降级重试)
-  const pushExit = execFileSync('node', ['scripts/git-push-guard.mjs'], {
+  // 官方通道推送(guard 异步化:命令秒回,推送在后台 worker 执行)
+  execFileSync('node', ['scripts/git-push-guard.mjs'], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: repoRoot,
   })
-  log(C.dim, (pushExit || '').split('\n').slice(-3).join('\n'))
+
+  // 等待后台推送落定再决策(2026-09-18 晚修复:此前立即查远端,推送还在 270s 门里
+  // 未完成即误判"远端又前移",3 轮全空转)
+  const myHead = git(['rev-parse', 'HEAD'])
+  const result = waitForPushState(myHead)
+  log(C.dim, `  后台推送结果: ${result}`)
+  if (result === 'done') {
+    log(C.green, `✅ 推送收敛成功:${myHead.slice(0, 11)}`)
+    process.exit(0)
+  }
+  if (result === 'superseded') {
+    log(C.yellow, '  推送状态已被更新的 HEAD 覆盖(并发会话推进了本地),继续下一轮')
+  }
 
   const nowRemote = git(['rev-parse', `origin/${branch}`])
-  if (nowRemote === mergeSha || nowRemote === git(['rev-parse', 'HEAD'])) {
+  if (nowRemote === git(['rev-parse', 'HEAD'])) {
     log(C.green, `✅ 推送收敛成功:${nowRemote.slice(0, 11)}`)
     process.exit(0)
   }
-  log(C.yellow, `  第 ${round} 轮推送后远端又前移(${nowRemote.slice(0, 11)}),继续下一轮`)
+  log(C.yellow, `  第 ${round} 轮未落地(远端 ${nowRemote.slice(0, 11)}),继续下一轮`)
 }
 
 log(C.red, `❌ ${maxRounds} 轮未收敛(并发推力过大),稍后重跑: node scripts/git-sync-converge.mjs`)
