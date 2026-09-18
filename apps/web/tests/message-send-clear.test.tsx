@@ -168,7 +168,7 @@ vi.mock('@/components/chat/high-risk-warning-banner', () => ({
 vi.mock('@/components/chat/add-menu-popover', () => ({
   AddMenuPopover: () => null,
 }))
-vi.mock('@/components/ai/voice-input', () => ({
+vi.mock('@/components/chat/voice-input', () => ({
   VoiceInput: () => null,
 }))
 vi.mock('@/components/chat/model-selector', () => ({

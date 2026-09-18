@@ -162,7 +162,10 @@
       "ctrl2": "切换到计划模式",
       "ctrl3": "切换到审查模式",
       "ctrl4": "切换到规格模式",
-      "ctrl5": "切换到问答模式"
+      "ctrl5": "切换到问答模式",
+      "ctrlAltV": "语音:开始/停止录音",
+      "ctrlAltB": "语音:自动朗读开关",
+      "ctrlAltH": "语音:连续对话开关"
     }
   },
   "teamMemory": {
@@ -9566,6 +9569,8 @@
     "csvCollapse": "收起",
     "csvLoading": "加载中…",
     "voiceInputPending": "转写中，剩 {count} 段",
+    "voicePlayback": "语音朗读",
+    "voiceHandsFree": "连续对话",
     "voicePlaybackOn": "语音朗读已开启",
     "voicePlaybackOff": "语音朗读已关闭",
     "voiceHandsFreeOn": "连续对话已开启（说话即发送）",
