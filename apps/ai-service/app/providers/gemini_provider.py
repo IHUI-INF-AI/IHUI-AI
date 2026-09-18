@@ -45,7 +45,26 @@ class GeminiProvider(BaseProvider):
 
     def __init__(self, api_key: str, api_base: str | None = None, timeout: float = 60.0):
         super().__init__(api_key, api_base, timeout)
-        self.base_url = (api_base or "https://generativelanguage.googleapis.com").rstrip("/")
+        self.base_url = self._normalize_base_url(api_base)
+
+    @staticmethod
+    def _normalize_base_url(api_base: str | None) -> str:
+        """归一化 base_url:剥掉 OpenAI 兼容层后缀(2026-09-18 404 根治)。
+
+        api_base 可能被配成 OpenAI 兼容端点(.env 实配
+        ``https://generativelanguage.googleapis.com/v1beta/openai``,LiteLLM 路径
+        需要它);而本适配器是原生协议,自己拼 ``/v1beta/models/...``,若不剥掉
+        ``/v1beta/openai`` 后缀会拼出 ``/v1beta/openai/v1beta/models/...`` → 404
+        (空响应体,实测)。原生协议永远落回官方域名根。
+        """
+        base = (api_base or "https://generativelanguage.googleapis.com").rstrip("/")
+        for suffix in ("/v1beta/openai", "/openai"):
+            if base.endswith(suffix):
+                base = base[: -len(suffix)]
+                break
+        if not base:
+            base = "https://generativelanguage.googleapis.com"
+        return base.rstrip("/")
 
     def _convert_messages(
         self,

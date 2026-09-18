@@ -52,6 +52,7 @@ import { wsChat } from './plugins/ws-chat.js'
 import { wsCustomerService } from './plugins/ws-customer-service.js'
 import wsPayment from './plugins/ws-payment.js'
 import { wsBroadcast } from './plugins/ws-broadcast.js'
+import { wsRelayOps } from './plugins/ws-relay-ops.js'
 import { wsMessages } from './plugins/ws-messages.js'
 import { wsTasks } from './plugins/ws-tasks.js'
 import otelPlugin from './plugins/otel.js'
@@ -483,6 +484,8 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(wsPayment)
   // WebSocket 公共广播推送:/ws/broadcast + server.broadcastToUser 装饰器
   await server.register(wsBroadcast)
+  // WebSocket 运营面板实时推送:/ws/relay/ops (#58,告警/渠道状态/用量快照,仅管理员)
+  await server.register(wsRelayOps)
   // WebSocket IM 消息推送:/ws/messages (Redis Pub/Sub 多实例,频道 im:user:{userId})
   await server.register(wsMessages)
   // WebSocket 任务进度推送:/ws/tasks/:taskId (Redis Pub/Sub 多实例,频道 task:{taskId})

@@ -132,6 +132,17 @@ def _detect_ihui_relay_base() -> str:
     logger.info("[llm_gateway] ihui_relay 自动检测 api_base=%s (region=%s)", base, region)
     return base
 
+def _is_stream_timeout_guard(chunk: Any) -> bool:
+    """识别极速API(x5m5x)上游流式降级的超时占位 chunk。
+
+    特征(2026-09-18 实测):上游「流式+工具调用」模式整体降级时,约 45s 后仅回
+    id="chatcmpl-timeout-guard" 的占位 chunk(delta.content 形如
+    "[req_xxx] [model]\\n**Request exceeded ...**"),随后直接 [DONE];
+    同参数非流式请求完全正常。命中后由 astream 自动回退非流式重试。
+    """
+    return getattr(chunk, "id", None) == "chatcmpl-timeout-guard"
+
+
 # LLM 出站代理(2026-07-30 立):settings.llm_proxy_url 非空时写入 os.environ,
 # litellm 底层 httpx 自动读取 HTTP_PROXY/HTTPS_PROXY,无需在每个调用处传 proxy 参数
 # 国内服务器访问 OpenAI/Anthropic/OpenRouter 等境外 provider 时必须配置
@@ -172,12 +183,24 @@ def get_http_client() -> httpx.AsyncClient:
 
 
 async def close_http_client() -> None:
-    """关闭全局 httpx.AsyncClient(main.py shutdown 调用)。"""
+    """关闭全局 httpx.AsyncClient(main.py shutdown 调用)。
+
+    先置空引用再关闭(2026-09-18 顺序相关 flake 根治):跨事件循环场景下
+    (测试每个用例新建 loop,前一用例在旧 loop 里创建的全局 client 归属已
+    关闭的 loop)``aclose()`` 会抛 RuntimeError("Event loop is closed");
+    旧实现先 await 再置空,异常会让引用残留,后续 get_http_client() 拿到
+    坏 client(实测 test_native_fc_e2e_real → test_tls_stealth 顺序复现)。
+    关闭失败只降级告警:client 本体随旧 loop 销毁,不影响下次重建。
+    """
     global _http_client
-    if _http_client is not None:
-        await _http_client.aclose()
-        _http_client = None
+    client, _http_client = _http_client, None
+    if client is None:
+        return
+    try:
+        await client.aclose()
         logger.info("global httpx.AsyncClient closed")
+    except Exception as e:  # noqa: BLE001 - 关闭失败降级,不影响调用方
+        logger.warning("httpx.AsyncClient 关闭异常(跨 loop 场景可忽略): %s", e)
 
 
 # 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
@@ -2211,8 +2234,18 @@ class LLMGateway:
             # 2026-08-29 修复:litellm 流式 tool_calls 分片累积器(带 tools 的 astream 用),
             # 循环内累积 delta.tool_calls,流结束前统一以 tool_calls 事件产出。
             litellm_tool_acc: dict[int, dict[str, Any]] = {}
+            _guard_fallback = False
             try:
                 async for chunk in response:
+                    if _is_stream_timeout_guard(chunk):
+                        # 极速API 流式+tools 降级:45s 后仅回超时占位块。
+                        # 放弃该流(下方 finally 关闭底层连接),改走非流式回退。
+                        _guard_fallback = True
+                        logger.warning(
+                            "[llm_gateway] %s 流式返回 timeout-guard 占位(上游流式降级),自动回退非流式",
+                            used_model,
+                        )
+                        break
                     if hasattr(chunk, "choices") and chunk.choices:
                         delta = chunk.choices[0].delta
                         token = getattr(delta, "content", None)
@@ -2261,6 +2294,48 @@ class LLMGateway:
                             close()
                 except Exception:
                     pass  # 已关闭或关闭失败不阻塞
+            if _guard_fallback:
+                # 流式降级回退(2026-09-18 立):同一参数改非流式重试(上游非流式路径
+                # 正常),结果包装成等价事件流(content 分片/reasoning/tool_calls/
+                # usage),复用下方统一的 tool_calls 产出、usage 兜底与 done 事件逻辑。
+                fb_kwargs = {
+                    k: v for k, v in call_kwargs.items() if k not in ("stream", "stream_usage")
+                }
+                fb_kwargs["stream"] = False
+                async with _openrouter_proxy_context(used_model):
+                    fb_resp = await litellm.acompletion(**fb_kwargs)
+                fb_msg = fb_resp.choices[0].message
+                fb_content = getattr(fb_msg, "content", None) or ""
+                _FB_CHUNK_SIZE = 64
+                for i in range(0, len(fb_content), _FB_CHUNK_SIZE):
+                    seg = fb_content[i : i + _FB_CHUNK_SIZE]
+                    accumulated_content += seg
+                    yield {"type": "chunk", "content": seg}
+                fb_reasoning = getattr(fb_msg, "reasoning_content", None)
+                if fb_reasoning:
+                    accumulated_reasoning += fb_reasoning
+                    yield {"type": "reasoning", "content": fb_reasoning}
+                fb_tools = getattr(fb_msg, "tool_calls", None)
+                if fb_tools:
+                    # 非流式完整 tool_calls 对象无 index,累积器自动分配递增序号
+                    self._accumulate_tool_calls(litellm_tool_acc, fb_tools)
+                if getattr(fb_resp, "usage", None):
+                    try:
+                        final_usage = (
+                            fb_resp.usage.model_dump()
+                            if hasattr(fb_resp.usage, "model_dump")
+                            else dict(fb_resp.usage)
+                        )
+                    except Exception as e:
+                        logger.debug("回退 usage 序列化失败: %s", e)
+                if getattr(fb_resp, "model", None):
+                    final_model = fb_resp.model
+                logger.info(
+                    "[llm_gateway] %s 非流式回退完成(content=%d chars, tools=%d)",
+                    used_model,
+                    len(fb_content),
+                    len(fb_tools) if fb_tools else 0,
+                )
             # 2026-08-29 修复:tool_calls 分片累积完成后,在 done 事件之前统一产出完整列表
             if litellm_tool_acc:
                 yield {
