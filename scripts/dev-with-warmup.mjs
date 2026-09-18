@@ -59,7 +59,7 @@ const log = (...m) => console.log(`[dev-warmup ${new Date().toISOString().slice(
 const dev = spawn(`next dev --turbopack -p ${PORT}`, {
   cwd: WEB_DIR,
   stdio: 'inherit',
-  shell: true,
+  shell: true,  windowsHide: true, // 防 Windows 弹可见 cmd 窗口
 })
 dev.on('error', (e) => {
   console.error(`[dev-warmup] 启动 next dev 失败: ${e.message}`)
