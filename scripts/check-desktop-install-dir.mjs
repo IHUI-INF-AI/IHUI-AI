@@ -423,15 +423,23 @@ if (wantTemplate) {
   if (requireCli) args.push('--require-cli')
   try {
     const out = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
-    infos.push(`模板漂移校验: ${out.trim().split('\n').pop()}`)
+    // 子脚本会打印多行;优先挑"最说明问题"的那行(跳过原因 / OK / DRIFT)
+    const lines = out.trim().split('\n').filter(Boolean)
+    const pick =
+      lines.find((l) => l.includes('跳过漂移校验')) ??
+      lines.find((l) => l.includes('OK:')) ??
+      lines[lines.length - 1]
+    infos.push(`模板漂移校验: ${pick}`)
   } catch (error) {
     const out = `${error.stdout ?? ''}${error.stderr ?? ''}`.trim()
     fail(
       'D1',
-      'installer.nsi 与 Tauri CLI 内置模板不一致(上游漂移)',
+      'installer.nsi 与 Tauri CLI 内置模板不一致(上游漂移 / CLI 定位失败)',
       out || error.message,
-      '查看 diff 后决定:若上游只是无害改动 → node scripts/desktop-nsis-template.mjs --write 重建' +
-        '(会自动套回 IHUI 定制块);若上游改了"默认安装目录"段落 → 需人工复核 IHUI_BLOCK 后再 --write。',
+      '先看证据首行区分两种情况:① 上游模板变了 → diff 后 node scripts/desktop-nsis-template.mjs --write 重建' +
+        '(会自动套回 IHUI 定制块);若上游改了"默认安装目录"段落 → 需人工复核 IHUI_BLOCK 后再 --write。' +
+        '② 只是 CLI 定位失败 → 检查依赖是否装好(本平台需装 @tauri-apps/cli;注意 NSIS 模板只在 Windows 版二进制里,' +
+        '非 Windows 平台本脚本会自动跳过漂移校验而不会走到这里)。',
     )
   }
 }
