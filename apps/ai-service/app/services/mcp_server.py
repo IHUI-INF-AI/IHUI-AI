@@ -15,6 +15,7 @@ import functools
 import json
 import os
 import re
+import shlex
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -1277,9 +1278,19 @@ async def _emit_terminal_delta(command: str, stream_name: str, text: str) -> Non
 
 
 def _spawn_terminal_delta(command: str, stream_name: str, text: str) -> None:
-    """fire-and-forget 包装:drain 循环内同步回调,实际 emit 后台执行。"""
+    """fire-and-forget 包装:drain 循环内同步回调,实际 emit 后台执行。
+
+    出库脱敏(2026-09-18 第十五批):实时 delta 早于汇总结果发出,若只脱敏
+    汇总输出,逐行流会先于脱敏把密钥送到 SSE —— 故在此唯一咽喉点统一盖。
+    """
     if not text:
         return
+    try:
+        from app.core.output_cleaning import redact_secrets as _redact_secrets
+
+        text = _redact_secrets(text)
+    except Exception:  # noqa: BLE001 - 脱敏失败绝不阻塞实时输出
+        pass
     try:
         task = asyncio.ensure_future(
             _emit_terminal_delta(command, stream_name, text)
@@ -1419,6 +1430,67 @@ def _consume_exec_approval(command: str) -> bool:
     return False
 
 
+# =====================================================================
+# 第十六批(2026-09-18,对标 Codex execpolicy::blocking_append_allow_prefix_rule):
+# 「前缀放行规则」登记表。用户选择"这类命令以后都允许"时登记前 N 个 token,
+# 后续同前缀命令直接放行,不再逐次弹审批 —— 一次性放行只解决一次,前缀规则
+# 解决一类(git push / pnpm install / pytest 这类高频重复命令)。
+# 与一次性放行同规格:仅服务端代码可写(LLM 无法经工具入参伪造),仅跳过
+# PROMPT 分支,危险命令硬门 / DENY 硬红线 / 黑白名单一律不受影响。
+# =====================================================================
+_EXEC_ALLOWED_PREFIXES_MAX = 256
+_exec_allowed_prefixes: set[tuple[str, ...]] = set()
+
+
+def _command_tokens(command: str) -> list[str]:
+    """命令切词(Windows 用非 posix 模式,保留引号以贴合 cmd 语义)。"""
+    try:
+        return shlex.split(command, posix=os.name != "nt")
+    except ValueError:  # 引号不闭合等
+        return command.split()
+
+
+def approve_exec_prefix(command: str, tokens: int = 2) -> tuple[str, ...] | None:
+    """登记前缀放行规则;返回登记的前缀(命令为空时返回 None)。
+
+    tokens=2 是默认值:`git push --force` → ("git", "push"),即"允许所有
+    git push",但不含 `git` 全部子命令(避免过度放行)。
+    """
+    parts = _command_tokens(command)
+    if not parts:
+        return None
+    prefix = tuple(parts[: max(1, tokens)])
+    if len(_exec_allowed_prefixes) >= _EXEC_ALLOWED_PREFIXES_MAX:
+        _exec_allowed_prefixes.clear()  # 容量上限:整体清空而非逐条淘汰(与一次性放行同策略)
+    _exec_allowed_prefixes.add(prefix)
+    return prefix
+
+
+def _matches_exec_prefix(command: str) -> bool:
+    """命令是否命中任一已登记的前缀放行规则(不消费,规则长期有效)。"""
+    if not _exec_allowed_prefixes:
+        return False
+    parts = _command_tokens(command)
+    if not parts:
+        return False
+    return any(
+        parts[: len(prefix)] == list(prefix) for prefix in _exec_allowed_prefixes
+    )
+
+
+def list_exec_prefix_rules() -> list[list[str]]:
+    """当前生效的前缀放行规则(可观测:设置页/审计用)。"""
+    return [list(p) for p in sorted(_exec_allowed_prefixes)]
+
+
+def revoke_exec_prefix(prefix: list[str]) -> bool:
+    """撤销一条前缀放行规则;返回该规则此前是否存在。"""
+    key = tuple(prefix)
+    existed = key in _exec_allowed_prefixes
+    _exec_allowed_prefixes.discard(key)
+    return existed
+
+
 async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
     """run_command: 运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,长命令不超时)。
 
@@ -1478,7 +1550,9 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
     # audit   = PROMPT 仅记录后放行(观察期);DENY 硬红线仍拒绝,不降级;
     # off     = 跳过评估(危险命令硬门/黑白名单等其他防线不受影响)。
     _exec_mode = get_security_config().exec_policy_mode
-    _exec_approved = _consume_exec_approval(command)
+    # 一次性放行 或 长期前缀放行规则命中 → 跳过 PROMPT 分支
+    # (第十六批:前缀规则不消费,长期有效;仅服务端可登记,LLM 无法伪造)
+    _exec_approved = _consume_exec_approval(command) or _matches_exec_prefix(command)
     if _exec_mode != "off" and not _exec_approved:
         _exec_decision: PolicyDecision = exec_policy_evaluate(command, cwd=cwd)
         if _exec_decision.action == RuleDecision.DENY:
@@ -1549,11 +1623,14 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
             command, backend=sandbox_backend, timeout=timeout, workdir=cwd,
             docker_image=docker_image, ssh_host=ssh_host, ssh_user=ssh_user,
         )
+        # 与本地路径一致:沙箱后端输出同样出库脱敏(docker/ssh/modal 等)
+        from app.core.output_cleaning import redact_secrets as _redact_secrets
+
         return {
             "tool": "run_command", "command": command,
             "backend": sandbox_backend,
-            "exit_code": result.exit_code, "stdout": result.stdout,
-            "stderr": result.stderr, "duration_ms": result.duration_ms,
+            "exit_code": result.exit_code, "stdout": _redact_secrets(result.stdout),
+            "stderr": _redact_secrets(result.stderr), "duration_ms": result.duration_ms,
             "timed_out": result.timed_out, "ok": result.exit_code == 0,
             "streamed": False,
             "message": f"backend={sandbox_backend} exit_code={result.exit_code}",
@@ -1645,6 +1722,13 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
             stdout = stdout[:max_output] + f"\n...(已截断,共 {len(stdout)} 字符)"
         if len(stderr) > max_output:
             stderr = stderr[:max_output] + f"\n...(已截断,共 {len(stderr)} 字符)"
+        # 出库脱敏(2026-09-18 第十五批,对标 Codex secrets::redact_secrets):
+        # 命令输出是密钥外泄的主要通道(cat .env / env / printenv / 日志抓取),
+        # 截断之后、回传之前统一盖掉已知凭据形态。
+        from app.core.output_cleaning import redact_secrets as _redact_secrets
+
+        stdout = _redact_secrets(stdout)
+        stderr = _redact_secrets(stderr)
 
         if timed_out:
             return {
