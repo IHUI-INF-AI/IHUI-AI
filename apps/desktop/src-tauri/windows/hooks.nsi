@@ -1,17 +1,13 @@
 ; 智汇AI (IHUI AI) — NSIS 安装器自定义 Hooks
-; 需求:默认安装到 D:\<语言化产品名> 并预创建目录。
-;   中文系统 -> D:\智汇AI；其他系统 -> D:\IHUI AI。
 ; 由 tauri.conf.json 的 bundle.windows.nsis.installerHooks 引用。
-; 官方约定:文件开头调用宏,宏体在此定义(不会与模板 .onInit 冲突)。
+;
+; 注意职责边界:本文件定义的宏都在 Section 内执行(模板 !ifmacrodef 选择性插入),
+; **改不了安装向导的默认目录** —— 向导默认目录在 .onInit 就已确定并展示。
+; 默认安装目录(D:\智汇AI / D:\IHUI AI)由 windows/installer.nsi 模板的 .onInit 决定,
+; 见 scripts/desktop-nsis-template.mjs。这里只做安装落盘阶段的兜底。
 
-; 在文件安装开始前把默认安装目录强制为 D:\<语言化产品名>，并确保目录存在。
+; 文件复制前确保 $INSTDIR 存在(向导"选择安装位置"页用户改过的路径同样覆盖)。
+; 正常路径下 NSIS 会由 SetOutPath 自动建目录,这里显式创建以便路径被占用/异常时更早暴露。
 !macro NSIS_HOOK_PREINSTALL
-  ; 模板在同一 section 内先执行了 SetOutPath $INSTDIR，因此改完 $INSTDIR 后必须再次 SetOutPath。
-  StrCpy $R0 'zh-CN'
-  StrCmp $R0 'zh-CN' +2
-  StrCpy $INSTDIR 'D:\IHUI AI'
-  StrCpy $INSTDIR 'D:\智汇AI'
   CreateDirectory $INSTDIR
-  SetOutPath $INSTDIR
-  WriteRegStr SHCTX "Software\IHUI-INSTALL-DEBUG" "" "$INSTDIR"
 !macroend
