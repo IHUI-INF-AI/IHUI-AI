@@ -38,6 +38,7 @@ import os
 import re
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -361,13 +362,22 @@ class HookEngine:
 
     # ---------- L5-9 SSE 实时订阅器(2026-08-12 立) ----------
 
-    def subscribe(self, event: str) -> asyncio.Queue[Any]:
+    def subscribe(
+        self, event: str, queue_factory: Callable[[], Any] | None = None
+    ) -> asyncio.Queue[Any]:
         """订阅事件,返回 Queue(SSE 端点消费)。
 
         单进程内存实现(多实例需换 Redis pub/sub)。emit() 时向订阅者
         广播 context 载荷,队列满时丢弃最旧(防慢消费者阻塞)。
+
+        queue_factory(2026-09-18 立,可选):自定义订阅队列工厂;不传时行为与
+        历史完全一致(asyncio.Queue,500 上限)。Agent Engine 借它注入带全局
+        入队序号的队列代理 —— 广播路径只依赖 full/put_nowait/get_nowait
+        三个方法,故无需在广播里加分支。
         """
-        q: asyncio.Queue[Any] = asyncio.Queue(maxsize=500)
+        q: Any = (
+            queue_factory() if queue_factory is not None else asyncio.Queue(maxsize=500)
+        )
         self._subscribers.setdefault(event, []).append(q)
         return q
 
