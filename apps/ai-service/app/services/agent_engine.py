@@ -429,6 +429,7 @@ BUILTIN_ENGINE_TOOLS: tuple[str, ...] = (
     "request_permissions",
     "unified_exec",
     "request_user_input",
+    "apply_patch",
 )
 # 子代理嵌套深度上限(spawn_subagent 防递归失控)
 _MAX_SUBAGENT_DEPTH = 2
@@ -506,6 +507,154 @@ def _validate_output_schema_payload(
         if allowed and not isinstance(parsed[prop], allowed):
             errors.append(f"字段 {prop} 类型须为 {expected}")
     return {"valid": not errors, "errors": errors}
+
+
+# ---------------------------------------------------------------------------
+# apply_patch:unified diff 结构化补丁(2026-09-18 第五批,对标 Codex apply-patch)
+# ---------------------------------------------------------------------------
+
+
+def _parse_unified_patch(patch_text: str) -> list[dict[str, Any]]:
+    """解析标准 unified diff(git diff 兼容)为文件段列表。
+
+    支持:新增文件(--- /dev/null)/ 删除文件(+++ /dev/null)/ 多 hunk 更新
+    (含上下文行 + 新增行 + 删除行)。返回 [{old_path, new_path, hunks: [
+    {old_start, old_lines, lines: [(tag, text)]}]}];无合法文件段 → ValueError。
+    """
+    import re as _re
+
+    lines = patch_text.splitlines()
+    sections: list[dict[str, Any]] = []
+    i = 0
+    n = len(lines)
+    header_re = _re.compile(r"^--- (?P<p>.+)$")
+    new_re = _re.compile(r"^\+\+\+ (?P<p>.+)$")
+    hunk_re = _re.compile(
+        r"^@@ -(?P<os>\d+)(?:,(?P<ol>\d+))? \+(?P<ns>\d+)(?:,(?P<nl>\d+))? @@"
+    )
+    while i < n:
+        line = lines[i]
+        if line.startswith("diff --git") or line.startswith("index ") or line.startswith(
+            ("new file mode", "deleted file mode", "old mode", "new mode", "similarity ")
+        ):
+            i += 1
+            continue
+        m = header_re.match(line)
+        if m is None:
+            i += 1
+            continue
+        old_path = m.group("p").strip()
+        # 紧随其后必须是 +++ 行(允许中间空行/新文件标记)
+        j = i + 1
+        new_path: str | None = None
+        while j < n and new_path is None:
+            nm = new_re.match(lines[j])
+            if nm is not None:
+                new_path = nm.group("p").strip()
+                j += 1
+                break
+            if lines[j].startswith(("new file mode", "deleted file mode", "index ")):
+                j += 1
+                continue
+            break
+        if new_path is None:
+            i += 1
+            continue
+        hunks: list[dict[str, Any]] = []
+        while j < n:
+            hm = hunk_re.match(lines[j])
+            if hm is None:
+                break
+            old_start = int(hm.group("os"))
+            hunk_lines: list[tuple[str, str]] = []
+            j += 1
+            while j < n:
+                raw = lines[j]
+                if raw.startswith("\\"):  # "\ No newline at end of file"
+                    j += 1
+                    continue
+                # 下一文件段的 "--- path" 后随 "+++ path" → hunk 结束(防吞成删除行)
+                if raw.startswith("--- ") and j + 1 < n and lines[j + 1].startswith("+++ "):
+                    break
+                if raw.startswith((" ", "+", "-")):
+                    hunk_lines.append((raw[0], raw[1:]))
+                    j += 1
+                    continue
+                break
+            hunks.append(
+                {
+                    "old_start": old_start,
+                    "old_count": int(hm.group("ol") or 1),
+                    "lines": hunk_lines,
+                }
+            )
+        sections.append(
+            {"old_path": old_path, "new_path": new_path, "hunks": hunks}
+        )
+        i = j
+    if not sections:
+        raise ValueError(
+            "补丁中未找到合法的 unified diff 文件段(需要 --- / +++ / @@ 头)"
+        )
+    return sections
+
+
+def _strip_diff_prefix(path: str) -> str:
+    """去掉 diff 路径的 a/ b/ 前缀与首尾空白(/dev/null 原样保留)。"""
+    p = path.strip()
+    if p == "/dev/null":
+        return p
+    if p.startswith(("a/", "b/")):
+        p = p[2:]
+    return p.lstrip("/")
+
+
+def _apply_hunks_to_content(
+    content: str, hunks: list[dict[str, Any]], rel_path: str
+) -> str:
+    """把单个文件的 hunks 应用到文件内容(原子:任一 hunk 上下文失配即抛错)。
+
+    上下文匹配:从 hunk 声明行号附近开始窗口搜索(± 25 行),精确匹配
+    「上下文+删除行」序列;找不到 → ValueError(带失败 hunk 定位)。
+    """
+    src = content.split("\n")
+    pos = 0  # 已消费的 src 行游标(0-based)
+    out: list[str] = []
+    for idx, hunk in enumerate(hunks):
+        expect_old: list[str] = []
+        expect_new: list[str] = []
+        for tag, text in hunk["lines"]:
+            if tag in (" ", "-"):
+                expect_old.append(text)
+            if tag in (" ", "+"):
+                expect_new.append(text)
+        # 窗口搜索:以声明行(夹取到文件范围)为中心 ± 25 行;失配再全文兜底扫描
+        center = min(max(hunk["old_start"] - 1, pos), max(pos, len(src) - 1))
+        found = -1
+        for delta in range(0, 26):
+            for cand in (center + delta, center - delta if delta else -1):
+                if cand < pos or cand + len(expect_old) > len(src):
+                    continue
+                if src[cand : cand + len(expect_old)] == expect_old:
+                    found = cand
+                    break
+            if found >= 0:
+                break
+        if found < 0:
+            for cand in range(pos, len(src) - len(expect_old) + 1):
+                if src[cand : cand + len(expect_old)] == expect_old:
+                    found = cand
+                    break
+        if found < 0:
+            raise ValueError(
+                f"{rel_path}: hunk #{idx + 1}(声明行 {hunk['old_start']})上下文失配"
+                ",补丁与文件内容不一致"
+            )
+        out.extend(src[pos:found])
+        out.extend(expect_new)
+        pos = found + len(expect_old)
+    out.extend(src[pos:])
+    return "\n".join(out)
 
 
 def _parse_generation_config(params: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -1017,6 +1166,7 @@ class AgentEngine:
                 "autoCompact": True,
                 "agentRoles": True,
                 "turnTiming": True,
+                "applyPatch": True,
                 "mcp": self._tool_lister is not None,
                 "costLedger": self._cost_report is not None,
                 "modelRouting": self._model_lister is not None,
@@ -1883,6 +2033,7 @@ class AgentEngine:
             "request_permissions": self._request_permissions_tool,
             "unified_exec": self._unified_exec_tool,
             "request_user_input": self._request_user_input_tool,
+            "apply_patch": self._apply_patch_tool,
         }
         definitions: list[Any] = []
         for name in BUILTIN_ENGINE_TOOLS:
@@ -2087,6 +2238,110 @@ class AgentEngine:
             description=(
                 "读取工作区内的图片文件,返回 base64 dataUrl 供客户端渲染"
                 "(png/jpg/jpeg/gif/webp/bmp);越出工作区的路径会被拒绝。"
+            ),
+            parameters=parameters,
+            executor=_exec,
+        )
+
+    def _apply_patch_tool(self, thread: EngineThread) -> Any:
+        """apply_patch:unified diff 结构化补丁(2026-09-18 第五批,对标 Codex
+        apply-patch/V4A):多文件原子应用,任一 hunk 失配整包拒绝。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        parameters = {
+            "type": "object",
+            "properties": {
+                "patch": {
+                    "type": "string",
+                    "description": "标准 unified diff 文本(git diff 格式:--- / +++ / @@);"
+                    "支持新增文件(--- /dev/null)、删除文件(+++ /dev/null)、多 hunk 更新",
+                },
+            },
+            "required": ["patch"],
+        }
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            patch_text = args.get("patch")
+            if not isinstance(patch_text, str) or not patch_text.strip():
+                return {"error": "apply_patch 需要非空 patch(unified diff 文本)"}
+            base = (
+                Path(thread.workspace).resolve()
+                if thread.workspace
+                else Path.cwd().resolve()
+            )
+            try:
+                sections = _parse_unified_patch(patch_text)
+            except ValueError as e:
+                return {"error": str(e)}
+            # 第一遍:纯内存计算全部目标内容(原子性:任何失败即整包拒绝)
+            plan: list[tuple[str, str, str | None]] = []  # (rel, action, new_content|None)
+            for section in sections:
+                old_rel = _strip_diff_prefix(section["old_path"])
+                new_rel = _strip_diff_prefix(section["new_path"])
+                target_rel = new_rel if new_rel != "/dev/null" else old_rel
+                if target_rel == "/dev/null" or not target_rel:
+                    return {"error": f"补丁段路径非法: {section['old_path']} → {section['new_path']}"}
+                target = (base / target_rel).resolve()
+                try:
+                    target.relative_to(base)
+                except (OSError, ValueError):
+                    return {"error": f"路径越出工作区,拒绝应用: {target_rel}"}
+                created = section["old_path"].strip() == "/dev/null"
+                deleted = section["new_path"].strip() == "/dev/null"
+                if created:
+                    new_content = "\n".join(
+                        text for tag, text in section["hunks"][0]["lines"] if tag == "+"
+                    )
+                    if target.exists():
+                        return {"error": f"新增文件已存在: {target_rel}"}
+                    plan.append((target_rel, "created", new_content))
+                    continue
+                if not target.is_file():
+                    return {"error": f"目标文件不存在: {target_rel}"}
+                try:
+                    content = target.read_text(encoding="utf-8")
+                except OSError as e:
+                    return {"error": f"文件读取失败 {target_rel}: {e}"}
+                if deleted:
+                    plan.append((target_rel, "deleted", None))
+                    continue
+                try:
+                    new_content = _apply_hunks_to_content(
+                        content, section["hunks"], target_rel
+                    )
+                except ValueError as e:
+                    return {"error": str(e)}
+                plan.append((target_rel, "updated", new_content))
+            # 第二遍:全部通过后才落盘
+            results: list[dict[str, Any]] = []
+            for rel, action, target_content in plan:
+                target = (base / rel).resolve()
+                try:
+                    if action == "deleted":
+                        target.unlink()
+                    else:
+                        assert target_content is not None
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        target.write_text(target_content, encoding="utf-8")
+                except OSError as e:
+                    return {"error": f"落盘失败 {rel}({action}): {e}", "applied": False}
+                results.append({"path": rel, "action": action})
+            thread.touch()
+            with contextlib.suppress(Exception):
+                await self._emit_engine_event(
+                    thread,
+                    thread.emit,
+                    "patch.applied",
+                    {"files": [r["path"] for r in results], "count": len(results)},
+                )
+            return {"applied": True, "files": results, "count": len(results)}
+
+        return ToolDefinition(
+            name="apply_patch",
+            description=(
+                "将标准 unified diff(git diff 格式)原子应用到工作区:支持新增/更新/"
+                "删除文件与多 hunk;任一上下文失配整包拒绝并给出失败定位,"
+                "绝不产生半应用状态。适合精确的结构化代码修改。"
             ),
             parameters=parameters,
             executor=_exec,
