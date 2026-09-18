@@ -1242,8 +1242,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: '支付宝退款',
-        description:
-          '发起支付宝退款并本地退款(订单需为 paid 状态,仅管理员可操作,仅支持整单退款,金额单位:元)',
+        description: '发起支付宝退款并本地退款(订单需为 paid 状态,仅管理员可操作,仅支持整单退款,金额单位:元)',
         tags: ['Payment'],
       }),
     },
