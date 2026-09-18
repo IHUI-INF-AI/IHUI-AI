@@ -1900,6 +1900,8 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
     支持:
     - pattern: 文件名 glob 匹配(默认 *)
     - query: 文件内容关键词搜索(为空则仅按文件名匹配)
+    - fuzzy: true 时 query 作为文件名模糊子序列模式,按 fzf 风格相关度
+      排序返回(对标 Codex file-search/nucleo;忽略内容搜索)
     - path: 搜索根目录(默认当前目录)
     - max_results: 最大返回数(默认 50)
     - 忽略常见忽略目录(node_modules/.git/__pycache__/.venv/venv/dist/build)
@@ -1909,6 +1911,7 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
     path = arguments.get("path", ".")
     pattern = arguments.get("pattern", "*")
     max_results = int(arguments.get("max_results", 50))
+    fuzzy = bool(arguments.get("fuzzy", False))
 
     # 忽略目录(常见依赖/构建/缓存)
     _IGNORED_DIRS = {
@@ -1950,6 +1953,47 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 "matches": [],
                 "message": f"路径不是目录: {path}",
                 "ok": False,
+            }
+
+        # 模糊文件名搜索(2026-09-18 第十一批,对标 Codex file-search/nucleo):
+        # query 作为子序列模式对相对路径评分排序(fzf 语义:连续命中/词首加分)
+        if fuzzy and query:
+            from app.core.output_cleaning import fuzzy_score
+
+            scored: list[tuple[int, str, str]] = []
+            for dirpath, dirnames, filenames in os.walk(root):
+                dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
+                for fname in filenames:
+                    ext = os.path.splitext(fname)[1].lower()
+                    if ext in _IGNORED_EXTS:
+                        continue
+                    rel_path = os.path.relpath(
+                        os.path.join(dirpath, fname), root
+                    ).replace("\\", "/")
+                    score = fuzzy_score(query, rel_path)
+                    if score is None:
+                        name_score = fuzzy_score(query, fname)
+                        if name_score is not None:
+                            score = name_score - 20  # 仅文件名命中降权
+                    if score is not None:
+                        scored.append((score, rel_path, fname))
+            scored.sort(key=lambda x: (-x[0], x[1]))
+            matches = [
+                {"path": rp, "file": fn, "score": sc}
+                for sc, rp, fn in scored[:max_results]
+            ]
+            return {
+                "tool": "file_search",
+                "query": query,
+                "path": path,
+                "fuzzy": True,
+                "matches": matches,
+                "total": len(matches),
+                "candidates": len(scored),
+                "truncated": len(scored) > max_results,
+                "message": f"模糊匹配 {len(scored)} 个候选,返回前 {len(matches)}"
+                "(按相关度排序)",
+                "ok": True,
             }
 
         query_lower = query.lower() if query else None
