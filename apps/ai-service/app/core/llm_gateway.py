@@ -172,12 +172,24 @@ def get_http_client() -> httpx.AsyncClient:
 
 
 async def close_http_client() -> None:
-    """关闭全局 httpx.AsyncClient(main.py shutdown 调用)。"""
+    """关闭全局 httpx.AsyncClient(main.py shutdown 调用)。
+
+    先置空引用再关闭(2026-09-18 顺序相关 flake 根治):跨事件循环场景下
+    (测试每个用例新建 loop,前一用例在旧 loop 里创建的全局 client 归属已
+    关闭的 loop)``aclose()`` 会抛 RuntimeError("Event loop is closed");
+    旧实现先 await 再置空,异常会让引用残留,后续 get_http_client() 拿到
+    坏 client(实测 test_native_fc_e2e_real → test_tls_stealth 顺序复现)。
+    关闭失败只降级告警:client 本体随旧 loop 销毁,不影响下次重建。
+    """
     global _http_client
-    if _http_client is not None:
-        await _http_client.aclose()
-        _http_client = None
+    client, _http_client = _http_client, None
+    if client is None:
+        return
+    try:
+        await client.aclose()
         logger.info("global httpx.AsyncClient closed")
+    except Exception as e:  # noqa: BLE001 - 关闭失败降级,不影响调用方
+        logger.warning("httpx.AsyncClient 关闭异常(跨 loop 场景可忽略): %s", e)
 
 
 # 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
