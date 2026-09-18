@@ -240,6 +240,18 @@ async function resolveFromGitee() {
     }
   }
   if (assets.length === 0) return null
+  // 2026-09-18(实测):Gitee 同步失败/部分完成时该 release 可能只有个别资产
+  // (desktop-v0.1.36 实测只有 1 个 Windows 条目),而无条件采纳会把下载页降级成
+  // 「单平台」—— macOS/Linux 下载项整体消失且无任何告警。此处要求三平台齐全才
+  // 采纳 Gitee 源,否则返回 null 由 GitHub 源兜底(完整四平台)。
+  const families = new Set(assets.map((a) => String(a.format).split(' ')[0]))
+  const complete = families.has('Windows') && families.has('macOS') && families.has('Linux')
+  if (!complete) {
+    console.warn(
+      `[resolve] Gitee ${release.tag_name} 资产不完整(${assets.length} 个:${[...families].join('/')}),回退 GitHub 源`,
+    )
+    return null
+  }
   return { version, releaseDate, giteeReleasesUrl: `https://gitee.com/${owner}/${repo}/releases`, resolvedFromTag: release.tag_name, assets }
 }
 
