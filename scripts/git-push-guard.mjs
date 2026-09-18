@@ -32,7 +32,7 @@
  *   - 手动收尾验证       agent 交付前自验
  */
 import { execSync, spawnSync, spawn } from 'node:child_process'
-import { readFileSync, writeFileSync, mkdirSync, openSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, openSync, closeSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const C = {
@@ -197,13 +197,20 @@ if (isWorkerMode) {
   let spawned = false
   try {
     const out = openSync(logFile, 'a')
+    // 注意:openSync 返回 fd 整数,必须用 closeSync 关闭——此前误用 out.close()
+    // 必抛 TypeError → 误判"spawn 失败"回退同步推送(commit 被推送+270s typecheck
+    // 死阻塞),且此时 detached 子进程已 spawn,造成后台+同步双重推送竞态。
     const child = spawn(
       process.execPath,
       [resolve(process.cwd(), 'scripts/git-push-guard.mjs'), `--branch=${branch}`, '--worker'],
       { detached: true, stdio: ['ignore', out, out], env: { ...process.env, GUARD_WORKER: '1' } },
     )
     child.unref()
-    out.close()
+    try {
+      closeSync(out)
+    } catch {
+      /* fd 由父进程退出兜底回收 */
+    }
     spawned = true
   } catch (e) {
     log('warn', `后台 spawn 失败(${e instanceof Error ? e.message : e}),回退同步推送`)
