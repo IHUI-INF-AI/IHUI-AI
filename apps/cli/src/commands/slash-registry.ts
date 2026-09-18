@@ -42,6 +42,7 @@ export const SLASH_COMMANDS: readonly SlashCommandMeta[] = [
   { name: 'skill', description: '查看 skill 内容', usage: '/skill <name>', category: 'session' },
   { name: 'memory', description: '管理跨会话记忆', usage: '/memory [on|off|show|add|clear|search]', category: 'session' },
   { name: 'todo', description: '管理任务清单(显示/清除)', usage: '/todo [clear]', category: 'session' },
+  { name: 'tool', description: '回看最近工具调用完整输出(diff 着色)', usage: '/tool [倒数第N次]', category: 'session' },
   { name: 'plan', description: 'Plan Mode 控制', usage: '/plan [on|off|approve|reject|edit|show]', category: 'session' },
   { name: 'context', description: '显示当前会话 token 用量', usage: '/context', category: 'session' },
   { name: 'compact', description: '立即手动压缩当前对话上下文(无视 88% 自动阈值)', usage: '/compact', category: 'session' },
