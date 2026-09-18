@@ -295,10 +295,35 @@ export async function addUserRole(
 }
 
 /**
+ * 批量给用户赋予角色（已存在则忽略，幂等）。
+ */
+export async function addUserRoleBatch(userIds: string[], roleId: string): Promise<number> {
+  if (userIds.length === 0) return 0
+  const rows = await db
+    .insert(userRoles)
+    .values(userIds.map((userId) => ({ userId, roleId, scopeResourceId: null })))
+    .onConflictDoNothing()
+    .returning()
+  return rows.length
+}
+
+/**
  * 移除用户的某角色。
  */
 export async function removeUserRole(userId: string, roleId: string): Promise<void> {
   await db.delete(userRoles).where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)))
+}
+
+/**
+ * 批量移除用户的某角色，返回实际删除行数。
+ */
+export async function removeUserRoleBatch(userIds: string[], roleId: string): Promise<number> {
+  if (userIds.length === 0) return 0
+  const rows = await db
+    .delete(userRoles)
+    .where(and(eq(userRoles.roleId, roleId), inArray(userRoles.userId, userIds)))
+    .returning()
+  return rows.length
 }
 
 // =============================================================================
