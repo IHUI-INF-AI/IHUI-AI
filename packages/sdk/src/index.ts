@@ -24,6 +24,26 @@ export {
   type ChatStreamChunk,
   type AgentStreamEvent,
 } from './streaming.js'
+// Agent Engine 编程编排层(P2-④):模型无关的应用内 agent 编排
+export {
+  createAgent,
+  AgentEngineError,
+  ENGINE_METHODS,
+  ENGINE_NOTIFICATIONS,
+  ENGINE_STREAMING_METHODS,
+  ENGINE_ERROR_CODES,
+  type Agent,
+  type AgentApprovalDecision,
+  type AgentApprovalHandler,
+  type AgentApprovalRequest,
+  type AgentEngineEvent,
+  type AgentRunOptions,
+  type AgentRunResult,
+  type AgentThreadState,
+  type AgentToolContext,
+  type AgentToolHandler,
+  type CreateAgentOptions,
+} from './agent-engine.js'
 
 // 模块接口类型导出(供消费者按需引用)
 export type { AiModule } from './ai.js'

@@ -13,9 +13,13 @@ token / 耗时 / 成本 / 成败统计。默认不接入任何 agent 执行器(�
 未注入时 agent 主循环行为与现状逐零差异。
 
 Step 结构(append_step 入参缺省字段由 recorder 归一化):
-    step_index / type(tool|message|plan) / tool_name / input_summary /
+    step_index / type(tool|message|plan|llm) / tool_name / input_summary /
     result_summary / status(ok|error) / tokens / tokens_in / tokens_out /
     duration_ms / cost / http_summary / at
+Prompt 缓存计量(P0-①,2026-09-18 立,对标 Codex Harness 的缓存可观测):
+    cached_tokens(缓存读命中)/ cache_creation_tokens(缓存写,Anthropic 5min TTL)
+    —— 主循环 LLM 步骤(type=llm)与工具内嵌 LLM 用量均透传此二字段,
+    供 cost_ledger 缓存感知计价与命中统计。
 可解释性证据字段(1-5,2026-09-08 立,缺省回填,原样保留供回放审计):
     input(原始入参,None=未提供) / decision / reason /
     diff / test / rollback(均为 None=未推导)
@@ -45,7 +49,7 @@ SUMMARY_LIMIT = 1000
 # 分页 page_size 上限
 PAGE_SIZE_MAX = 200
 
-_VALID_TYPES = ("tool", "message", "plan")
+_VALID_TYPES = ("tool", "message", "plan", "llm")
 _VALID_STATUS = ("ok", "error")
 
 # JSON 持久化文件(ai-service 根下的 data/step_records.json)
@@ -96,6 +100,12 @@ def _normalize_step(step: dict[str, Any], idx: int) -> dict[str, Any]:
         "tokens": int(_to_num(step.get("tokens"), 0)),
         "tokens_in": int(_to_num(step.get("tokens_in"), 0)),
         "tokens_out": int(_to_num(step.get("tokens_out"), 0)),
+        # P0-①(2026-09-18):Prompt 缓存读/写 token 透传(0=无缓存信息),
+        # 归一化钳到非负,供 cost_ledger 缓存感知计价
+        "cached_tokens": max(0, int(_to_num(step.get("cached_tokens"), 0))),
+        "cache_creation_tokens": max(
+            0, int(_to_num(step.get("cache_creation_tokens"), 0))
+        ),
         # model(2026-09-09 立):此前归一化时被丢弃,导致 sync_from_recorder 的
         # s.get("model") 永远为空 —— 工具内嵌 LLM 用量(如 extract_web)入账无模型可归
         "model": str(step.get("model") or ""),

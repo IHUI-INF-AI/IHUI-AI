@@ -829,6 +829,14 @@ def create_app() -> FastAPI:
 
     killer_extras.register(app)
 
+    # P2-③(2026-09-18 立):Agent Engine —— JSON-RPC 2.0 编排引擎传输层。
+    # 对标 Codex app-server 的"任意应用嵌入 agent 循环"能力,接口直接暴露我方差异化:
+    # MCP 超级工具池(tools.list)/ 多模型路由(models.list)/ 成本账本(cost.report)。
+    # 端点:POST /api/engine/rpc(流式方法自动升级 SSE)+ WS /api/engine/ws。
+    from app.routers import engine as engine_router
+
+    app.include_router(engine_router.router, prefix="/api", tags=["agent-engine"])
+
     # IHUI 作为 MCP Server 对外开放(2026-09-03 立,逆向杀手锏只做客户端的对标产品)
     # 由 ENABLE_MCP_EXPORT 环境变量控制开关,默认关闭(避免影响现有服务,不启动额外 listener)。
     # 开启后暴露两种 transport:

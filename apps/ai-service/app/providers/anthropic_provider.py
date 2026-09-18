@@ -8,6 +8,13 @@
 - tool_use 格式:tools 用 input_schema(而非 JSON schema),响应为 content blocks
 - system prompt 独立参数(不放在 messages 里)
 - max_tokens 必填(Anthropic API 强制要求)
+
+P0-① Prompt 缓存(2026-09-18 立,对标 Codex Harness 的 prompt-cache 组装):
+- system 走 block 数组形态,末块打 ephemeral 断点;tools 末项再打一个断点
+  (共 2 个,远低于 Anthropic 上限 4)→ 前缀稳定部分(system+tools)命中缓存后
+  按 0.1x 计价,agent 长会话输入成本降一个数量级(官方数据输出 token 省 6 倍)。
+- usage 归一化:cache_read/cache_creation 字段经 core.usage_cache 统一为
+  cached_tokens/cache_creation_tokens,流式路径从 message_start/message_delta 采集。
 """
 
 from __future__ import annotations
@@ -19,6 +26,7 @@ from typing import Any
 import httpx
 
 from ..core.llm_gateway import get_http_client
+from ..core.usage_cache import normalize_usage
 from ..services.tool_schema_adapter import (
     anthropic_response_to_openai,
     anthropic_tool_choice_from_openai,
@@ -88,9 +96,24 @@ class AnthropicProvider(BaseProvider):
             "max_tokens": kwargs.pop("max_tokens", max_tokens),
         }
         if system:
-            payload["system"] = system
+            # P0-① Prompt 缓存:system 走 block 数组形态并在末块打 ephemeral 断点。
+            # 断点之前的前缀(此处即全部 system)命中缓存后按 0.1x 计价;
+            # block 形态与纯字符串形态等价,API 均接受。
+            payload["system"] = [
+                {
+                    "type": "text",
+                    "text": system,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
         converted_tools = self._convert_tools(tools)
         if converted_tools:
+            # P0-① Prompt 缓存:tools 末项(紧跟 system 的稳定前缀)再打一个断点,
+            # 使工具定义也进缓存;_convert_tools 深拷贝返回,此处改写不影响入参。
+            # 调用方已显式传 cache_control 时尊重之,不覆盖。
+            last_tool = converted_tools[-1]
+            if isinstance(last_tool, dict) and "cache_control" not in last_tool:
+                last_tool["cache_control"] = {"type": "ephemeral"}
             payload["tools"] = converted_tools
             if "tool_choice" in kwargs:
                 # OpenAI 字符串("auto"/"none"/"required")会被 Anthropic 400,
@@ -130,7 +153,9 @@ class AnthropicProvider(BaseProvider):
         result: dict[str, Any] = {
             "content": text,
             "model": data.get("model", model),
-            "usage": data.get("usage", {}),
+            # P0-①:cache_read_input_tokens/cache_creation_input_tokens 经
+            # normalize_usage 统一为 cached_tokens/cache_creation_tokens(原生字段保留)
+            "usage": normalize_usage(data.get("usage", {})),
             "stub": False,
         }
         if tool_calls:
@@ -163,6 +188,11 @@ class AnthropicProvider(BaseProvider):
                 # content_block_stop 时以 OpenAI tool_calls 形态产出完整 tool_call 事件
                 # (供 llm_gateway._accumulate_tool_calls 归并 → SSE tool_calls 事件)。
                 pending_tool_blocks: dict[int, dict[str, Any]] = {}
+                # P0-① 流式 usage 采集:Anthropic 的 usage 拆在两个事件里——
+                # message_start 携带 input_tokens(+缓存字段),message_delta 携带
+                # 累计 output_tokens;message_stop 时合并归一化随 done 事件透出
+                # (此前 done 恒 {"usage": {}},流式路径缓存计量完全丢失)。
+                stream_usage: dict[str, Any] = {}
                 async for line in resp.aiter_lines():
                     if not line.startswith("data: "):
                         continue
@@ -171,7 +201,16 @@ class AnthropicProvider(BaseProvider):
                     except json.JSONDecodeError:
                         continue
                     etype = event.get("type")
-                    if etype == "content_block_start":
+                    if etype == "message_start":
+                        start_msg = event.get("message") or {}
+                        start_usage = start_msg.get("usage")
+                        if isinstance(start_usage, dict):
+                            stream_usage.update(start_usage)
+                    elif etype == "message_delta":
+                        delta_usage = event.get("usage")
+                        if isinstance(delta_usage, dict):
+                            stream_usage.update(delta_usage)
+                    elif etype == "content_block_start":
                         block = event.get("content_block", {}) or {}
                         if block.get("type") == "tool_use":
                             pending_tool_blocks[event.get("index", 0)] = {
@@ -203,7 +242,12 @@ class AnthropicProvider(BaseProvider):
                                 },
                             }]}
                     elif etype == "message_stop":
-                        yield {"type": "done", "model": model, "usage": {}, "stub": False}
+                        yield {
+                            "type": "done",
+                            "model": model,
+                            "usage": normalize_usage(stream_usage),
+                            "stub": False,
+                        }
         except httpx.HTTPError as e:
             yield {"type": "error", "message": f"Anthropic 流式网络异常: {e}"}
         except ProviderError as e:

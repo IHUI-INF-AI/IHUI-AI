@@ -47,6 +47,13 @@ from typing import Any
 from ..core.context_compaction import (
     estimate_messages_tokens,
 )
+from .decision_chain import (
+    DROPPED_SAMPLE_LIMIT,
+    REASONING_COVERAGE_THRESHOLD,
+    content_tokens,
+    messages_blob,
+    reasoning_turns,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -641,6 +648,72 @@ def assess_compaction(
     }
 
 
+def assess_reasoning_retention(
+    original_messages: list[dict[str, Any]],
+    compressed_messages: list[dict[str, Any]],
+    *,
+    threshold: float = REASONING_COVERAGE_THRESHOLD,
+) -> dict[str, Any]:
+    """推理保留率评估 —— 质量自证的第二维度(2026-09-18 立,P1-② 配套)。
+
+    与 :func:`evaluate_retention` 的 key-fact 保留率互补:后者度量"事实有没有留下",
+    本函数度量"每轮决策的推理有没有留下"。分母 = 带工具调用的 assistant 轮次数,
+    分子 = 该轮推理的内容 token 在压缩产物中覆盖率 ≥ threshold 的轮次数。
+
+    确定性、零外部依赖、零 LLM 调用;token 覆盖是"下限证明"(覆盖率高不代表语义等价,
+    但覆盖率低一定意味着推理被丢了),用于回归时发现"压缩把推理吃掉"的退化。
+
+    Returns:
+        {
+          "turns_total": int,          # 带工具调用的 assistant 轮次数
+          "turns_retained": int,       # 推理被保留的轮次数
+          "retention_ratio": float,    # 保留率(无轮次时为 1.0,不虚报低质)
+          "threshold": float,          # 判定阈值(便于跨版本对齐口径)
+          "dropped": [{"turn","coverage","excerpt"}, ...]  # 最多 5 条丢弃样本
+        }
+
+    设计约束:绝不对输入做任何修改;compressed 传注入决策链之后的产物,才能反映
+    "保留推理"接线是否真的生效(接线前后该比值差异即接线效果的直接证据)。
+    """
+    turns = reasoning_turns(original_messages)
+    total = len(turns)
+    if total == 0:
+        return {
+            "turns_total": 0,
+            "turns_retained": 0,
+            "retention_ratio": 1.0,
+            "threshold": threshold,
+            "dropped": [],
+        }
+    blob = content_tokens(messages_blob(compressed_messages))
+    retained = 0
+    dropped: list[dict[str, Any]] = []
+    for index, turn in enumerate(turns, start=1):
+        tokens = content_tokens(turn)
+        if not tokens:
+            # 该轮本就没有推理文本(未输出显式推理)→ 无可丢失项,不计为丢弃
+            retained += 1
+            continue
+        coverage = len(tokens & blob) / len(tokens)
+        if coverage >= threshold:
+            retained += 1
+        else:
+            dropped.append(
+                {
+                    "turn": index,
+                    "coverage": round(coverage, 4),
+                    "excerpt": turn[:80],
+                }
+            )
+    return {
+        "turns_total": total,
+        "turns_retained": retained,
+        "retention_ratio": round(retained / total, 4),
+        "threshold": threshold,
+        "dropped": dropped[:DROPPED_SAMPLE_LIMIT],
+    }
+
+
 __all__ = [
     "DEFAULT_RETENTION_THRESHOLD",
     "CompactionQualityGate",
@@ -648,6 +721,7 @@ __all__ = [
     "QualityReport",
     "apply_report_policy",
     "assess_compaction",
+    "assess_reasoning_retention",
     "default_quality_gate",
     "evaluate_outcome",
     "evaluate_retention",

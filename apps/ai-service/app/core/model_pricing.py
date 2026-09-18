@@ -136,6 +136,28 @@ PROVIDER_PRICES_PER_1M: dict[str, dict[str, float]] = {
 # 全局默认(模型与厂商均未命中)
 DEFAULT_PRICE_PER_1M: dict[str, float] = {"input": 1.00, "output": 3.00}
 
+# ---------------------------------------------------------------------------
+# Prompt 缓存计价(P0-①,2026-09-18 立,对标 Codex Harness 的 prompt-cache 成本口径)
+#
+# 缓存读/写相对 input 单价的乘数(公开定价口径,2025 下半年-2026):
+#   anthropic: cache read 0.1x / cache write(5min TTL)1.25x
+#   openai:    cached input 0.5x(隐式缓存,无写入费)
+#   deepseek:  cache hit 0.1x / cache miss 1x(写入免费)
+# 未列厂商走默认(read 0.1x / write 1.0x,与多数"缓存读约一折"的公开牌价一致);
+# 数值仅用于成本估算,精确计费以厂商账单为准(与本模块既有口径一致)。
+# ---------------------------------------------------------------------------
+CACHE_READ_MULTIPLIER_BY_PROVIDER: dict[str, float] = {
+    "anthropic": 0.1,
+    "openai": 0.5,
+    "deepseek": 0.1,
+    "openrouter": 0.5,  # OpenRouter 透传 OpenAI 形态 cached_tokens,折扣按 0.5x 保守估
+}
+CACHE_READ_MULTIPLIER_DEFAULT = 0.1
+CACHE_WRITE_MULTIPLIER_BY_PROVIDER: dict[str, float] = {
+    "anthropic": 1.25,
+}
+CACHE_WRITE_MULTIPLIER_DEFAULT = 1.0
+
 # 按键长度降序排列(前缀匹配特异性优先)
 _SORTED_MODEL_KEYS: list[str] = sorted(_MODEL_PRICES_PER_1M, key=len, reverse=True)
 
@@ -190,6 +212,22 @@ def is_model_price_known(model: str) -> bool:
     return False
 
 
+def list_known_model_prices() -> dict[str, dict[str, float]]:
+    """模型级价目表快照(含运行时覆盖,叠加在静态表之上)。
+
+    P2-③(2026-09-18 立):供 Agent Engine 的 models.list 只读清单消费 ——
+    把"多模型路由"从实现细节变成可被第三方编排程序读取的能力清单。
+    返回的是拷贝(调用方可安全修改),字段为 per-1M tokens 的 USD 单价。
+    """
+    with _LOCK:
+        snapshot: dict[str, dict[str, float]] = {
+            model: dict(price) for model, price in _MODEL_PRICES_PER_1M.items()
+        }
+        for model, price in _OVERRIDES.items():
+            snapshot[model] = dict(price)
+    return snapshot
+
+
 def cost_micro_usd(
     model: str, tokens_in: int, tokens_out: int, provider: str | None = None
 ) -> int:
@@ -204,6 +242,52 @@ def cost_micro_usd(
     return cost_micro_usd_from_per_1m(
         rates["input"], rates["output"], tokens_in, tokens_out
     )
+
+
+def cache_multipliers(provider: str | None = None) -> tuple[float, float]:
+    """按厂商解析 (缓存读乘数, 缓存写乘数),未列厂商用默认值。
+
+    乘数相对 input 单价:cached × in × read_mult,write × in × write_mult。
+    """
+    key = _normalize(provider or "")
+    read = CACHE_READ_MULTIPLIER_BY_PROVIDER.get(key, CACHE_READ_MULTIPLIER_DEFAULT)
+    write = CACHE_WRITE_MULTIPLIER_BY_PROVIDER.get(key, CACHE_WRITE_MULTIPLIER_DEFAULT)
+    return read, write
+
+
+def cost_micro_usd_with_cache(
+    model: str,
+    tokens_in: int,
+    tokens_out: int,
+    cached_tokens: int = 0,
+    cache_write_tokens: int = 0,
+    provider: str | None = None,
+) -> int:
+    """缓存感知计价(微美元整数,Decimal 精确,舍入口径与 cost_micro_usd 一致)。
+
+    口径(Anthropic/OpenAI/DeepSeek 一致):tokens_in 为输入总量,已含缓存读
+    (cached_tokens)与缓存写(cache_write_tokens),计费时拆三段:
+
+      uncached = tokens_in - cached - write(下限 0)
+      cost = uncached×in + cached×in×read_mult + write×in×write_mult + out×out
+
+    防御:cached/write 负数或超出 tokens_in 时截断到 [0, 剩余量],保证
+    uncached ≥ 0、总输入计费量恒 ≤ tokens_in(不产生负成本或双计)。
+    """
+    rates = resolve_model_pricing_per_1m(model, provider)
+    read_mult, write_mult = cache_multipliers(provider)
+    t_in = max(int(tokens_in), 0)
+    cached = min(max(int(cached_tokens), 0), t_in)
+    write = min(max(int(cache_write_tokens), 0), t_in - cached)
+    uncached = t_in - cached - write
+    rate_in = Decimal(str(rates["input"]))
+    micro = (
+        Decimal(uncached) * rate_in
+        + Decimal(cached) * rate_in * Decimal(str(read_mult))
+        + Decimal(write) * rate_in * Decimal(str(write_mult))
+        + Decimal(int(tokens_out)) * Decimal(str(rates["output"]))
+    )
+    return int(micro.to_integral_value(rounding=ROUND_HALF_UP))
 
 
 def cost_micro_usd_from_per_1m(

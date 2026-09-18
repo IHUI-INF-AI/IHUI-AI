@@ -218,7 +218,7 @@ def test_build_payload_custom_max_tokens_via_kwargs():
 
 
 def test_build_payload_includes_system_when_present():
-    """有 system 时 payload['system'] 被设置。"""
+    """有 system 时走 block 数组形态,末块打 ephemeral 缓存断点(P0-①)。"""
     p = AnthropicProvider(api_key="k")
     payload = p._build_payload(
         [{"role": "system", "content": "rule"}, {"role": "user", "content": "hi"}],
@@ -226,7 +226,9 @@ def test_build_payload_includes_system_when_present():
         tools=None,
         stream=False,
     )
-    assert payload["system"] == "rule"
+    assert payload["system"] == [
+        {"type": "text", "text": "rule", "cache_control": {"type": "ephemeral"}}
+    ]
     assert len(payload["messages"]) == 1
 
 
@@ -350,7 +352,15 @@ async def test_complete_success_returns_text_and_tool_calls():
 
     assert result["content"] == "hi"
     assert result["model"] == "claude-3"
-    assert result["usage"] == {"input_tokens": 5, "output_tokens": 10}
+    # P0-①:usage 经 normalize_usage 归一化(原生键保留 + 统一五键)
+    usage = result["usage"]
+    assert usage["input_tokens"] == 5
+    assert usage["output_tokens"] == 10
+    assert usage["prompt_tokens"] == 5
+    assert usage["completion_tokens"] == 10
+    assert usage["total_tokens"] == 15
+    assert usage["cached_tokens"] == 0
+    assert usage["cache_creation_tokens"] == 0
     assert result["stub"] is False
     assert len(result["tool_calls"]) == 1
 

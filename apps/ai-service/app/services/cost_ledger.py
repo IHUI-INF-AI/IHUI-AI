@@ -25,6 +25,9 @@
 - 持久化:每次变更把全量条目写回 data/cost_ledger.json(ai-service 数据目录),进程重启可恢复;
   文件缺失/损坏时静默降级为空账本。并发用 threading.Lock 保护原子性。
 - 全部确定性:cost/金额一律 round 6 位,与 recorder/tool_cost_accounting 口径一致。
+- 缓存感知(P0-①,2026-09-18):条目携带 cached_tokens/cache_creation_tokens
+  (含在 tokens_in 内),缺省 cost 走三段计价(uncached + 读×0.1x 等 + 写×1.25x 等,
+  乘数按厂商查 cache_multipliers);aggregate 输出缓存命中统计。
 """
 
 from __future__ import annotations
@@ -38,8 +41,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ..core.model_pricing import cost_micro_usd_from_per_1k, micro_usd_to_usd
-from ..core.model_pricing import estimate_cost_usd as estimate_cost_usd_core
+from ..core.model_pricing import (
+    cache_multipliers,
+    cost_micro_usd_from_per_1k,
+    cost_micro_usd_with_cache,
+    is_model_price_known,
+    micro_usd_to_usd,
+)
 from .agent_step_recorder import AgentStepRecorder, agent_step_recorder
 
 logger = logging.getLogger(__name__)
@@ -74,6 +82,38 @@ def _to_num(value: Any, default: float = 0.0) -> float:
         return default
 
 
+# P0-①(2026-09-18):模型名 → 厂商推断(缓存乘数解析用)。
+# 覆盖有显式缓存折扣差异的三家(anthropic 0.1x/1.25x、openai 0.5x、deepseek
+# 0.1x/免费写);未命中返回空串 → 走默认乘数(读 0.1x/写 1.0x,保守一致)。
+_MODEL_PROVIDER_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("claude", "anthropic"),
+    ("gpt-", "openai"),
+    ("gpt", "openai"),
+    ("o1", "openai"),
+    ("o3", "openai"),
+    ("o4", "openai"),
+    ("deepseek", "deepseek"),
+)
+
+
+def _infer_provider(model: str, provider: str | None = None) -> str:
+    """解析厂商名:显式 provider 优先,否则 LiteLLM 'provider/model' 前缀 → 模型名前缀。"""
+    explicit = str(provider or "").strip().lower()
+    if explicit:
+        return explicit
+    name = str(model or "").strip().lower()
+    if not name:
+        return ""
+    if "/" in name:
+        head = name.split("/", 1)[0]
+        if head:
+            return head
+    for prefix, vendor in _MODEL_PROVIDER_PREFIXES:
+        if name.startswith(prefix):
+            return vendor
+    return ""
+
+
 def _parse_at(value: Any) -> datetime | None:
     """把 ISO 时间戳解析为 aware datetime;失败返回 None。"""
     if not value:
@@ -100,6 +140,11 @@ class LedgerEntry:
     tokens_in: int = 0
     tokens_out: int = 0
     total_tokens: int = 0
+    # P0-①(2026-09-18):Prompt 缓存计量(含在 tokens_in 内,计价时拆三段:
+    # uncached + cached×读乘数 + cache_creation×写乘数),0=无缓存信息
+    cached_tokens: int = 0
+    cache_creation_tokens: int = 0
+    provider: str = ""         # 厂商名(缓存乘数解析;空则从 model 名推断)
     cost_usd: float = 0.0       # USD,round 6 位(与 recorder/tool_cost_accounting 口径一致)
     duration_ms: float = 0.0
     status: str = "ok"          # ok / error
@@ -173,10 +218,17 @@ class CostLedger:
         """把传入条目(或 LedgerEntry)归一化为标准结构,缺省字段回填。
 
         cost_usd 缺省/为 None 时走估算(estimate_cost_usd),并标记 estimated。
+        P0-①(2026-09-18):cached/cache_creation 钳到 [0, tokens_in] 内不重叠
+        (读优先),估算改走缓存感知三段计价(uncached/cached×读乘数/write×写乘数)。
         """
         e = entry.to_dict() if isinstance(entry, LedgerEntry) else dict(entry or {})
         tokens_in = int(_to_num(e.get("tokens_in"), 0))
         tokens_out = int(_to_num(e.get("tokens_out"), 0))
+        # 缓存读/写钳制:非负、不超 tokens_in、读+写不超 tokens_in(防双计负成本)
+        cached = min(max(int(_to_num(e.get("cached_tokens"), 0)), 0), tokens_in)
+        cache_write = min(
+            max(int(_to_num(e.get("cache_creation_tokens"), 0)), 0), tokens_in - cached
+        )
         raw_total = e.get("total_tokens")
         if raw_total is None or _to_num(raw_total) <= 0:
             # 未显式提供(或为 0 的占位)→ 回填 in+out(LedgerEntry 默认 total_tokens=0)
@@ -184,10 +236,18 @@ class CostLedger:
         else:
             total_tokens = int(_to_num(raw_total))
         model = str(e.get("model") or "")
+        provider = _infer_provider(model, e.get("provider"))
 
         raw_cost = e.get("cost_usd")
         if raw_cost is None:
-            est = self.estimate_cost_usd(model, tokens_in, tokens_out)
+            est = self.estimate_cost_usd(
+                model,
+                tokens_in,
+                tokens_out,
+                cached_tokens=cached,
+                cache_creation_tokens=cache_write,
+                provider=provider,
+            )
             cost_usd = est["cost_usd"]
             estimated = est["estimated"]
         else:
@@ -206,6 +266,9 @@ class CostLedger:
             "tokens_in": tokens_in,
             "tokens_out": tokens_out,
             "total_tokens": total_tokens,
+            "cached_tokens": cached,
+            "cache_creation_tokens": cache_write,
+            "provider": provider,
             "cost_usd": cost_usd,
             "duration_ms": round(_to_num(e.get("duration_ms")), 2),
             "status": status,
@@ -287,6 +350,9 @@ class CostLedger:
                 "tokens_in": s.get("tokens_in"),
                 "tokens_out": s.get("tokens_out"),
                 "total_tokens": s.get("tokens"),
+                # P0-①:recorder 步骤的缓存读/写 token 透传入账(含 llm 步骤)
+                "cached_tokens": s.get("cached_tokens"),
+                "cache_creation_tokens": s.get("cache_creation_tokens"),
                 "cost_usd": s.get("cost"),
                 "duration_ms": s.get("duration_ms"),
                 "status": s.get("status") or "ok",
@@ -318,6 +384,8 @@ class CostLedger:
 
         返回 totals:tokens_in/out、总数/成败/估算计数、cost、duration、steps、
         by_tool / by_model、窗口边界(start/end)。
+        P0-①(2026-09-18):新增缓存统计 —— total_cached_tokens /
+        total_cache_creation_tokens / cache_hit_count(cached>0 的条目数)。
         """
         entries = self._filtered(filter)
         n = len(entries)
@@ -326,6 +394,11 @@ class CostLedger:
         total = sum(int(e.get("total_tokens") or 0) for e in entries)
         ok_count = sum(1 for e in entries if e.get("status") == "ok")
         estimated_count = sum(1 for e in entries if e.get("estimated"))
+        total_cached = sum(int(e.get("cached_tokens") or 0) for e in entries)
+        total_cache_write = sum(
+            int(e.get("cache_creation_tokens") or 0) for e in entries
+        )
+        cache_hit_count = sum(1 for e in entries if int(e.get("cached_tokens") or 0) > 0)
 
         by_tool: dict[str, dict[str, Any]] = {}
         by_model: dict[str, dict[str, Any]] = {}
@@ -356,6 +429,9 @@ class CostLedger:
             "total_tokens_in": total_in,
             "total_tokens_out": total_out,
             "total_tokens": total,
+            "total_cached_tokens": total_cached,
+            "total_cache_creation_tokens": total_cache_write,
+            "cache_hit_count": cache_hit_count,
             "total_cost": round(
                 sum(float(e.get("cost_usd") or 0.0) for e in entries), 6
             ),
@@ -439,7 +515,14 @@ class CostLedger:
         }
 
     def estimate_cost_usd(
-        self, model: str, tokens_in: int, tokens_out: int
+        self,
+        model: str,
+        tokens_in: int,
+        tokens_out: int,
+        *,
+        cached_tokens: int = 0,
+        cache_creation_tokens: int = 0,
+        provider: str | None = None,
     ) -> dict[str, Any]:
         """按模型估算成本(USD,round 6 位)。
 
@@ -449,15 +532,40 @@ class CostLedger:
         仅当录入时没带 cost 才走估算。
         2026-09-12 精度改造(2-6):两条路径均改走 Decimal 微元整数计价,
         对外契约(USD float / round 6 位 / estimated 标志)不变。
+        P0-①(2026-09-18):透传 cached/cache_creation/provider 走缓存感知
+        三段计价;实例级覆盖表是 per-1K 原始价(不含缓存折扣),命中覆盖时
+        缓存量按乘数折算到等效计费 token 后再乘 per-1K 单价,口径与
+        cost_micro_usd_with_cache 一致(读 0.1x 等效折扣走 cache_multipliers)。
         """
         model = str(model or "").strip()
+        vendor = _infer_provider(model, provider)
         if model and model in self._pricing:
             rates = self._pricing[model]
+            read_mult, write_mult = cache_multipliers(vendor)
+            # 等效计费 token:uncached + cached×read + write×write(per-1K 单价乘)
+            t_in = max(int(tokens_in), 0)
+            cached = min(max(int(cached_tokens), 0), t_in)
+            write = min(max(int(cache_creation_tokens), 0), t_in - cached)
+            effective_in = t_in - cached - write + round(
+                cached * read_mult + write * write_mult
+            )
             micro = cost_micro_usd_from_per_1k(
-                rates["per_in"], rates["per_out"], tokens_in, tokens_out
+                rates["per_in"], rates["per_out"], effective_in, tokens_out
             )
             return {"cost_usd": micro_usd_to_usd(micro), "estimated": model == "default"}
-        return estimate_cost_usd_core(model, tokens_in, tokens_out)
+        return {
+            "cost_usd": micro_usd_to_usd(
+                cost_micro_usd_with_cache(
+                    model,
+                    tokens_in,
+                    tokens_out,
+                    cached_tokens=cached_tokens,
+                    cache_write_tokens=cache_creation_tokens,
+                    provider=vendor,
+                )
+            ),
+            "estimated": not is_model_price_known(model),
+        }
 
 
 # 全局单例(router 与 agent 埋点共用)

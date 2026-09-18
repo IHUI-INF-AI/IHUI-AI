@@ -34,6 +34,7 @@ from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.llm_gateway import llm_gateway, moa_router
 from ..core.model_naming import to_official_model_name
+from ..services.decision_chain import apply_decision_chain
 from ..core.provider_caps import (
     cap_to_dict,
     cap_with_max_context,
@@ -1290,6 +1291,20 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
         original_messages = messages
         _compact_started = time.perf_counter()
         messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        # P1-②(2026-09-18)决策链保留:把被压缩 head 段每轮 assistant 推理蒸馏为结构化
+        # 决策条目注入摘要消息(纯确定性、零 LLM 调用;开关 AGENT_DECISION_CHAIN_ENABLED
+        # 关闭 / 无摘要消息 / 无 head / 异常 → 产物与现状逐零差异),并自证推理保留率。
+        if compaction_info.get("compressed"):
+            messages, _chain_meta = apply_decision_chain(messages, original_messages)
+            if _chain_meta.get("injected"):
+                compaction_info["decision_chain"] = {
+                    "entries": _chain_meta.get("entries"),
+                    "fresh": _chain_meta.get("fresh"),
+                    "carried": _chain_meta.get("carried"),
+                }
+                compaction_info["reasoning_retention"] = (
+                    _chain_meta.get("reasoning_retention") or {}
+                )
         _compact_duration_ms = (time.perf_counter() - _compact_started) * 1000
         if compaction_info["compressed"]:
             logger.info(
@@ -1805,6 +1820,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         original_messages = messages
         _compact_started = time.perf_counter()
         messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        # P1-②(2026-09-18)决策链保留:同 /v1/chat 主路径 —— 蒸馏 head 段推理注入摘要消息
+        # (纯确定性、零 LLM;任何不适用/异常场景都退化为与现状逐零差异),并自证推理保留率。
+        if compaction_info.get("compressed"):
+            messages, _chain_meta = apply_decision_chain(messages, original_messages)
+            if _chain_meta.get("injected"):
+                compaction_info["decision_chain"] = {
+                    "entries": _chain_meta.get("entries"),
+                    "fresh": _chain_meta.get("fresh"),
+                    "carried": _chain_meta.get("carried"),
+                }
+                compaction_info["reasoning_retention"] = (
+                    _chain_meta.get("reasoning_retention") or {}
+                )
         _compact_duration_ms = (time.perf_counter() - _compact_started) * 1000
         if compaction_info.get("compressed"):
             # 压缩回捞:把被移除旧消息异步快照入向量库(不阻塞主链路)
