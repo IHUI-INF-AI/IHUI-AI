@@ -162,7 +162,10 @@
       "ctrl2": "切換到計畫模式",
       "ctrl3": "切換到審查模式",
       "ctrl4": "切換到規格模式",
-      "ctrl5": "切換到問答模式"
+      "ctrl5": "切換到問答模式",
+      "ctrlAltV": "語音:開始/停止錄音",
+      "ctrlAltB": "語音:自動朗讀開關",
+      "ctrlAltH": "語音:連續對話開關"
     }
   },
   "teamMemory": {
@@ -9569,7 +9572,9 @@
     "voicePlaybackOn": "語音朗讀已開啟",
     "voicePlaybackOff": "語音朗讀已關閉",
     "voiceHandsFreeOn": "連續對話已開啟（說話即發送）",
-    "voiceHandsFreeOff": "連續對話已關閉"
+    "voiceHandsFreeOff": "連續對話已關閉",
+    "voicePlayback": "朗讀",
+    "voiceHandsFree": "連續"
   },
   "chatHistory": {
     "backToHistory": "返回任務列表",
