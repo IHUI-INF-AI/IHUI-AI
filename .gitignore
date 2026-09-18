@@ -74,6 +74,9 @@ __pycache__/
 .next.old/
 # 2026-09-05 静态导出隔离 distDir(修复与常驻 8801 dev/start 共享 .next 的构建死锁)
 .next-static/
+# 2026-09-18 静默补齐:.next-static-* 变体(r2 等)此前未被任何模式覆盖,
+# 967MB 构建产物以未跟踪状态常驻,既污染 status 也可能被误提交。
+.next-static-*/
 # 2026-08-05 生产排障:next build 备份目录(.next-bak-*/.next-failrec-*)
 # 必须忽略!Tailwind 4 扫描这些目录(每个 4.7GB,含 1GB+ webpack cache pack)
 # 导致内存爆炸 137GB,SWC 30GB 分配失败(0xC0000409)。
