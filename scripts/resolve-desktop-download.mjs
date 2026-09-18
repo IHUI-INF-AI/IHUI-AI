@@ -234,7 +234,7 @@ async function resolveFromGitee() {
     }
     const mapped = mapAsset({ name: asset.name, browser_download_url: href, size }, version)
     if (mapped) {
-      // 2026-09-17:同步抓取 .sig 签名内容(几 KB)→ 供 /api/desktop-feed 输出 updater 格式
+      // 2026-09-17:同步抓取 .sig 签名内容(几 KB)→ 供 /desktop-feed.json 输出 updater 格式
       mapped.signature = await fetchSignature(`${href}.sig`)
       assets.push(mapped)
     }
@@ -302,7 +302,7 @@ async function resolveOnline() {
   const releaseDate = (release.published_at || '').slice(0, 10)
 
   // 2026-09-18:签名抓取此前只存在于 Gitee 分支 → GitHub 源快照恒无 signature,
-  // 既让 /api/desktop-feed 输出空签名(Tauri 更新器判定无效、拒绝自动更新),
+  // 既让 /desktop-feed.json 输出空签名(Tauri 更新器判定无效、拒绝自动更新),
   // 又使快照字段形状在两个数据源之间漂移(下游 TS 访问 .signature 报错)。
   // 此处按 release 资产清单精确配对 `<安装包名>.sig`,缺失即空串(形状恒定)。
   const sigUrlByName = new Map(
