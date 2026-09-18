@@ -418,6 +418,7 @@ export const TimelineTab = React.memo(function TimelineTab({
             size="sm"
             clearable
             clearAriaLabel={safeT(t, 'timelineSearchClear', 'Clear search')}
+            clearTestId="timeline-search-clear"
             className="pr-8"
             wrapperClassName="w-full"
             data-testid="timeline-search-input"
