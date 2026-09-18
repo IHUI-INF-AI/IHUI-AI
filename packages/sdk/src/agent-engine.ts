@@ -41,6 +41,9 @@ export const ENGINE_METHODS = [
   'thread.resume',
   'thread.state',
   'thread.close',
+  'thread.compact',
+  'thread.export',
+  'thread.plan',
   'agent.exec',
   'tools.list',
   'tools.register',
@@ -666,6 +669,27 @@ class AgentEngineClient implements Agent {
 
   async state(): Promise<AgentThreadState> {
     return this.call<AgentThreadState>('thread.state', { threadId: this.threadIdValue })
+  }
+
+  /** 手动压缩线程历史(2026-09-18 第二批,对标 Codex /compact;确定性压缩零 LLM 成本)。 */
+  async compact(keepRecent?: number): Promise<Record<string, unknown>> {
+    return this.call<Record<string, unknown>>('thread.compact', {
+      threadId: this.threadIdValue,
+      ...(keepRecent === undefined ? {} : { keepRecent }),
+    })
+  }
+
+  /** 导出线程为 JSONL(2026-09-18 第二批,对标 Codex rollout 导出;path 可选落盘)。 */
+  async exportThread(path?: string): Promise<Record<string, unknown>> {
+    return this.call<Record<string, unknown>>('thread.export', {
+      threadId: this.threadIdValue,
+      ...(path === undefined ? {} : { path }),
+    })
+  }
+
+  /** 读取线程当前计划(update_plan 内置工具写入;对标 Codex PlanUpdate 查询面)。 */
+  async getPlan(): Promise<{ plan: Array<Record<string, unknown>> | null }> {
+    return this.call('thread.plan', { threadId: this.threadIdValue })
   }
 
   async close(): Promise<void> {

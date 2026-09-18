@@ -78,6 +78,9 @@ HOOK_EVENTS: tuple[str, ...] = (
     # "上下文压缩中/正在暂停/正在取消"状态而非只有最终 done)
     "compaction",
     "agent.status",
+    # 2026-09-18 第二批:LLM 调用重试/限流事件(_llm_call_with_retry 发出,对标
+    # Codex StreamError;payload 含 attempt/error_type/rate_limited/backoff)
+    "llm.retry",
 )
 
 HOOK_ACTION_TYPES: tuple[str, ...] = ("webhook", "script", "log", "notify")
