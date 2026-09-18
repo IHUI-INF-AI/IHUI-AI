@@ -2608,5 +2608,101 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 > 遗留(需用户侧动作):**生产蓝绿部署为 GitHub Actions 手动触发**(`blue-green-deploy.yml` 仅 `workflow_dispatch`),本轮修复已在 main(三仓对齐),但生产进程尚未重建,故线上小写 `minimax-m3` 仍 503。需在 GitHub Actions 手动跑一次 Blue-Green Deploy(environment=production),部署后小写 `minimax-m3` 应转为 200。补偿验证:apps/api tsc 0 error、mypy 4 文件 0 问题、ruff check 通过、eslint 0 error、prettier 通过、pytest 25/25、vitest 61/61。commit `e6d76acebe7`(第一批)+ 本轮。
 
+## P1 CI format:check 恒红根治 + 14 屏迁移收尾(2026-09-15 立并完成 ✅,提交 `971662343` + `8db015815`,平台独占:仓库工程治理)
+
+> 起因:上一批会话把 14 个 RN 屏迁到共享层 `@ihui/rn-app`(`3dd793937` / `72a77cae8`)后,`CI (Monorepo)` 的 lint 作业在 `pnpm run format:check` 恒红,收尾受阻。
+
+- [x] ✅(2026-09-15) **1. 根因定位**:prettier 全仓 glob 扫出 148 项违规,其中**仅 20 项为 git 跟踪文件**,其余 128 项是未跟踪构建产物 `apps/mobile-rn/android/app/.cxx/**`(CI 全新检出不存在;该路径已被 `apps/mobile-rn/.gitignore` 的 `/android` 规则忽略)。即 format:check 恒红源于 20 个**历史未格式化文件**,非本次改动引入。
+- [x] ✅(2026-09-15) **2. 修复(commit `971662343`)**:13 个文件 `prettier --write` + 2 项入 `.prettierignore`(`packages/database/drizzle/meta/` 生成物、`PROJECT_PLAN.md` 活文档)。
+- [x] ✅(2026-09-15) **3. 修复(commit `8db015815`)**:`packages/i18n/messages/miniapp-taro/{en,ja,ko,zh-CN,zh-TW}.json` 5 文件格式化(JSON 语义不变)。→ 本地复跑:跟踪文件违规 **20 → 0**。
+- [x] ✅(2026-09-15) **4. 历史遗留钉死**:比对改动前 `4fd1fd7c1` 与本次两笔提交的 CI 结论,失败集合完全一致(CI / CI (Monorepo) / Knip / Build Android APK / Build Docker / e2e)→ typecheck、Ruff、ai-service schema_check、Knip 棘轮、Android SDK Setup、Build Docker 均为历史恒红,不归本任务。
+- [x] ✅(2026-09-15) **5. lost-commit 引用补齐**:三个远端 tag(`393baf97192e` / `4c3a67d86580` / `abd4ddd3a59f`)本地 object 缺失致 `git log --all` fatal,已 `git fetch` 补回并 `git pack-refs --all` 固化进 `packed-refs`。
+
+> ⚠️ 原「未决:112 个 modified 文件归属待确认」**已结案** —— 见下方「origin main 跨谱系回退事故取证与修复」：经 blob 溯源,确认全部为 `72a77cae8` 精确快照(落后 4 个提交),无新工作,已同步到 HEAD。
+
+## P0 origin main「跨谱系回退」事故取证与修复(2026-09-15 立,平台独占:全仓治理)
+
+> 起因:清理工作区未提交变更时深度取证,发现 origin main 存在**双向内容丢失**(既回退了父提交内容,又混入了另一谱系的内容)。
+
+### 一、113 个未提交变更的定性:全是落后版本,无新工作
+
+- **blob 全量溯源**:107 M + 6 D + 1 ??,其中 **102 个文件的内容 = `72a77cae8`(65ecb9dd9 的父提交)的精确快照**,5 个 = `65ecb9dd9` 版,17 个 = 其它历史版本;用 `git cat-file --batch-all-objects` 全对象库校验,**113 个内容全部已入库,无任何"未提交的新工作"**。
+- **排除"陈旧指针错位"**:工作树 mtime 为 09-15 12:44 且内容与 `72a77cae8` 逐字节一致 → 是**落后 4 个提交的旧状态**,不是 index/worktree 错位。
+- **处置**:全部同步到 HEAD(`git checkout HEAD -- .`),**零信息损失**(内容 100% 可从 git 取回);另删除孤儿 `admin/member-groups/MembersDialog.tsx`(HEAD 零引用、已被 `MemberGroupDialog.tsx` 取代)。唯一例外 = 本文件(记录)。
+
+### 二、发现:origin main 双向内容丢失(65ecb9dd9 为跨谱系混合提交)
+
+`65ecb9dd9`「chore(multi): 接管并行会话收尾批次(gitdir 灾难后完整重建)」相对其父 `72a77cae8`:**107 文件 / +3302 / -3385**,其中 **37 个文件净删除 2296 行**、42 个文件净新增 2213 行。
+
+- **回退方向(删掉父提交内容)**:被删符号在 HEAD **仍有消费者或测试引用**,实现却消失 → 功能断裂。确证案例:
+  - `apps/api/src/routes/chat.ts`:`POST /conversations/:id/edit-rerun` 消失,而 `packages/api-client` 的 `editAndRerunConversation` 仍在调用 → **前端必然 404**
+  - `apps/api/src/routes/skills.ts`:`/skills/enabled` 消失,而 `skills-market/PageClient.tsx` 仍在调用
+  - `apps/web/src/hooks/use-chat/send-message.ts`:**205 行接线被删** —— `/goal`、`/btw`、`/commit` 三个斜杠命令、checkpoint(`listCheckpoints`/`restoreCheckpoint`)、Repo Wiki(`maybeAutoCaptureWiki`)、agent hooks(`emitAgentHook`)、`#Rule` 展开(`expandRuleToken`)的**调用方全没了**,而依赖模块在 HEAD 一应俱全(已逐个 grep 验证存在)
+  - `apps/ai-service/app/services/publish/scheduler.py`:`_survival_watch_zhihu`(09-15 `7c4b841d4` **当天刚引入**)被删
+  - `apps/ai-service/app/routers/llm.py`:7 个流式事件/引用函数被删,HEAD 的 `tests/test_complete_stream_question.py` 仍在引用(**这是 test-python CI 恒红的真实成因之一**)
+- **新增方向(来自另一谱系)**:`sampling-params-panel.tsx`、`chat-search-bar.tsx`、`packages/shared/src/hooks/use-chat.ts` 等文件的 `--diff-filter=A` **同时命中** `65ecb9dd9` 与更早的 `158c17dd7`(09-13)/`efc126ed5`(07-22)/`239627487`(07-25) → 说明 65ecb9dd9 从另一条谱系带入了内容,与 72a77cae8 的内容**逐文件来源不同**。
+
+### 三、处置:只做零风险确证修复,不做整文件替换
+
+- **已修 10 项**:**以 typecheck 断裂依赖链为判据迭代收敛**出的**最小必要恢复集** —— 只恢复"被回退且导致类型断裂"的文件,不碰与另一谱系冲突的部分。清单:
+  1. `apps/api/src/routes/chat.ts` —— `POST /conversations/:id/edit-rerun`(api-client 的 `editAndRerunConversation` 仍在调用,原先前端必然 404)。**手工合并**:保留 HEAD 的 `aiServiceFetch`(JWT 透传,替代裸 fetch 的 401 债务),只补回 import + `editRerunSchema` + 路由
+  2. `apps/api/src/routes/skills.ts` —— `GET /skills/enabled`(web skills-market 页调用)
+  3. `apps/ai-service/app/services/publish/scheduler.py` —— `_survival_watch_zhihu`(09-15 当天 `7c4b841d4` 刚引入即被删)
+  4. `apps/web/src/hooks/use-chat/send-message.ts` —— 205 行接线(`/goal`、`/btw`、`/commit` 斜杠命令 + checkpoint + Repo Wiki + agent hooks + `#Rule` 展开)
+  5. `packages/api-client/src/index.ts` + `client.ts` —— `CitationsEvent` 导出(`shared/sse-parse.ts` 依赖)
+  6. `apps/miniapp-taro/src/api/index.ts` —— `ChatMessage.aiCards` 类型(miniapp `ChatMessageItem.tsx` 仍在用)
+  7. `apps/web/src/stores/chat.ts` —— `setInterruptedMessage` / `setMessageCitations` / `revokePendingToolCalls` / `truncateMessagesFromAfter`
+  8. `apps/web/src/components/chat/message-list/{MessageList,MessageItem}.tsx` —— props 契约
+- **验证**:全仓 `pnpm run typecheck`(packages 12 个 + apps 8 个)✅ **全绿**;prettier 全部 unchanged ✅。
+- **为何不用整文件批量替换**:试做 36 文件整体恢复后,`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx` 报 `Property 'aiCards' does not exist on type 'ChatMessage'` —— 铁证 65ecb9dd9 在部分文件上带入了**另一谱系的正当新功能**(如 `sampling-params-panel` 经 `158c17dd7` 09-13 引入),整文件替换会误删它们。
+- ⚠️ **遗留待人工三方合并(原记 22 个文件 → 2026-09-15 二次取证后修正为 91 个)**:37 个"净删除"文件中,扣除本批已修 10 个后的其余;清单见 `tmp/regressed.txt`。取证工具 `tmp/blob-map.mjs`(blob 溯源)、`tmp/dangling.mjs`(悬空引用)、`tmp/feature-diff.mjs`(符号差集)、`tmp/merge-audit{,2,3,4}.mjs`(祖先溯源 + 逐文件方向判定,4 号为最终口径,输出 `tmp/restore-list.txt` / `tmp/rm-list.txt`);工作树原件已存 `tmp/wt-backup-20260915/worktree-versions.tgz`。这批文件两侧都有真实内容,**必须逐文件内容级合并,不能整文件替换**。
+
+### 四、⚠️ 方向纠偏(2026-09-15 二次取证):整批还原被证伪,已回滚
+
+> 起因:清理完未提交变更后,尝试把 `72a77cae8` 的 107 个文件版本整批还原(当时的理由"HEAD 持有的都是历史旧态 ⇒ 父提交更新"),**实测被证伪,已 100% 回滚**,结论是**两个方向都不能整批走**。
+
+**决定性反证——守门内容在 HEAD 侧才是"更全"的一方**(逐提交实测):
+
+| 提交 | 时间 | `ci.yml` 迁移记账守门 | `pre-commit` 凭据前缀守门 | `knip.jsonc` ignore | `package.json` 3 个守门脚本 |
+| --- | --- | --- | --- | --- | --- |
+| `a9a0ee346` | 09-13 17:58 | ✅ | — | ✅ | — |
+| `0eabb1578` | 09-14 20:15 | ❌ | ❌ | ❌ | ❌ |
+| `3dd793937` / `72a77cae8` | 09-15 12:44 | ❌ | ❌ | ❌ | ❌ |
+| **`65ecb9dd9`** | 09-15 13:14 | ✅ | ✅ | ✅ | ✅ |
+| `bf0f1a441`(当前 HEAD) | 09-15 14:33 | ✅ | ✅ | ✅ | ✅ |
+
+- 关键推论:守门脚本 `scripts/check-migration-bookkeeping.mjs`、`scripts/check-api-credential-prefix.mjs` **实体都在仓内**(mtime 09-14 13:47),而 `0eabb1578`(09-14 20:15)起把它们的注册/调用**丢了**,`65ecb9dd9` 又把它们**找回** —— 即 **`65ecb9dd9` 同时是"找回方",不是单纯"回退方"**。`next.config.ts` 同构:HEAD 侧多出 09-13 的 `IHUI_API_PROXY_TARGET`/`IHUI_AI_PROXY_TARGET` e2e 隔离改造。
+- 整批还原会在这些文件上把**守门重新删掉**(staged 后反向验证:`ci.yml -6`、`.husky/pre-commit -22`、`package.json` 少 3 个脚本、`knip.jsonc -4`),属明确回归 ⇒ 已 `git reset` + `git checkout HEAD -- <全部受影响文件>` 回滚,工作区恢复为 HEAD 状态。
+- **正确结论(替代原标题与"22 文件"表述)**:`65ecb9dd9` 是**方向逐文件不一的混合重建** —— 91 个文件双方各有真实内容:A 侧有回退方向的丢失(如 `apps/ai-service/tests/test_model_catalog.py +55`、`apps/api/src/routes/chat-resume.ts +11`),HEAD 侧有找回方向的守门(如上表),**只能逐文件内容级三方合并**。
+- **方法论教训(此后判方向必须遵守)**:不能用"该内容是否曾在祖先历史出现"判定新旧 —— `git log --find-object` 只证明**曾存在**,不证明**更新**(删除提交也会命中,`sampling-params-panel.tsx` 等即被 `0eabb1578`「孤儿组件归零」主动删除)。判方向必须看**内容是否更全 / 守门是否齐备 / 是否被仓内其它文件与脚本佐证**。
+- 本轮**未提交任何代码文件**;`bf0f1a441` 的 10 项修复不受影响(其判据是 HEAD 内部"消费者存在、实现缺失"的自相矛盾,且该提交的守门状态实测 ✅ 齐全)。
+
+### 五、处置结果(2026-09-15 完成 ✅):91 → 14 收敛,恢复 16 文件
+
+> 方法:「机器归一化 triage(去空白/分号/逗号的逐行集合差)」**先收敛噪声**,再派 **5 片只读并行取证审计**(base=`0eabb1578`,current=HEAD,other=`72a77cae8`)**逐文件读真实 diff** 定性,最后由主 agent 精确落地。
+
+- **收敛过程**:91 个「HEAD 与 A 有实质差异」文件 → `tmp/m13.json` 归一化 triage 剔除格式化噪声(prettier `semi:false` 导致的"有/无分号""单行/拆行"属纯格式)→ 真正可疑约 60 个 → 逐文件读 diff 后**仅 14 个需裁决**,其余为「后端对齐重构 / 文档前缀 `sk-`→`ihui_` 迁移 / 测试随组件重构同步改写 / 向 `isExcludedDirName`·`normalizeModelId` 的能力增强」。
+- **5 片审计结论**:**web 页面片 = 35 KEEP_HEAD + 1 DELETE_CONFIRMED(`MembersDialog.tsx`,随 `member_groups` 表 `type`/`memberCount` 删除的有意收敛)· 0 RESTORE**;**scripts 片 = 1 RESTORE(`scripts/watermark.mjs`)+ 1 DELETE_CONFIRMED(`regen-icons.ps1`,已被 `tauri icon` 替代)+ 44 KEEP_HEAD**;**i18n 片 = 全误报**(HEAD 的 i18n 键比 A 多 31 个,5 语言 parity 由 `check-i18n-keys` 实测通过)。
+- **恢复清单(16 文件,逐段移植不整文件替换)**:
+  1. `apps/ai-service/app/routers/llm.py` —— tool-loop 流式事件链路(`_TERMINAL_TOOL_NAMES`/`_resolve_message_id`/`_format_plan_updated_event`/`_format_terminal_end_event`/`_CHAT_MODE_PROMPTS`/`_resolve_chat_mode`/`_inject_system_prefix` + `terminal_start`/`plan_updated`/`terminal_end` 发射点)。**判据**:HEAD 自带 `tests/test_complete_stream_question.py:285-287` 断言这三个事件,而实现侧 `git grep` 命中 **0** → 该测试此前恒红。同时保留 HEAD 自己的 `_inject_repo_wiki` 增强。
+  2. `apps/ai-service/tests/conftest.py` —— `_isolate_model_sync_db` 测试库隔离 fixture。
+  3. `apps/api/src/routes/ai-chat-stream.ts` —— ChatMode 5 态 `mode` 透传(zod schema + type + body),前端 `use-chat/send-message.ts:475` 一直在发 `mode` 却被 zod 静默 strip。
+  4. `apps/api/src/routes/chat.ts` —— `FALLBACK_MODEL` 常量(去硬编码 `stepfun/step-3.7-flash`)。
+  5. `apps/web/src/hooks/use-message-send.ts` —— W27 输入 FIFO 队列(单条 `pendingMessage` → `pendingMessages` + `removePendingMessage`)+ 矩阵 A #19 图片压缩守卫 + 超长粘贴(>4000 字)转文本引用。
+  6. `apps/web/src/components/chat/message-input.tsx` —— W20 `#` 上下文选择器接线 + W27 按会话草稿隔离(`draftKey`)+ FIFO 队列 UI + `VoiceRecord` 接线。
+  7. `apps/web/src/components/ai/context-usage-ring.tsx` —— token 分类明细(`computeTokenBreakdown`/`extractAttachmentBlocks`/`BREAKDOWN_*`)。
+  8. `apps/web/src/components/chat/session-usage-badge.tsx` —— 余额 / 价目表展示(`getTokenBalance`/`getModelPriceCny`)。
+  9. `apps/web/src/components/ai/markdown-stream.tsx` —— 代码块「应用到文件 / 插入光标」动作(`handleApplyToFile`/`handleInsertAtCursor`)。
+  10. `apps/web/src/components/chat/mode-switcher.tsx` —— 工具面板入口(`menu-tools-panel`),`<AiSidePanelTools />` 的唯一开关。
+  11. `apps/web/src/components/chat/add-menu-popover.tsx` —— `voice` 子面板 + `onVoiceRecordComplete`。
+  12. `apps/web/src/components/ai/ai-side-panel.tsx` —— `<AiSidePanelTools />` / `<ChatExportMenu />` 接线。
+  13. `apps/web/src/lib/command-registry.ts` —— `modeAsk` + `skillsMarket` 命令项(改用 `ChatMode` 5 态)。
+  14. `apps/web/src/providers/global-hooks-provider.tsx` —— `mode-ask` 快捷键映射。
+  15. `apps/miniapp-taro/src/pkg-ai/ai/chat.tsx` —— #12 工具卡片接线(`aiCards` / `upsertCard`)。
+  16. `scripts/watermark.mjs` —— 水印三形态检测(2026-09-14 修复的「注释前缀裸载荷」漏网形态③)。
+- **验证(全部实测)**:`pnpm run typecheck:full` ✅ 全绿(packages 12 + apps 8 + web/e2e);`eslint` 改动文件 0 问题;`prettier --check` 全部 unchanged;Python 侧 `ast.parse` 语法通过(`llm.py` / `conftest.py`);守门 `check-agent-event-parity` ✅ · `check-api-credential-prefix` ✅ · `check-migration-bookkeeping` ✅ · `check-button-height` ✅(0 违规)· `check-i18n-keys` ✅(5 语言 parity)。`check-rounded-full`/`check-no-divider`/`check-no-emoji-icons` 仅报既有测试文件告警,非本次改动。
+- **未做整批还原**:`0eabb1578` 之后的 81 个文件实为「A 相对 D 无改动」,HEAD 版本本即正确;整批替换会把 HEAD 侧更全的守门(见四)重新删掉。
+- **遗留(不属本任务)**:`apps/api` 侧 `/api/webhooks`、`/api/ai-pricing`、`/api/admin/dict/type` 等新端点的落地一致性(审计片建议顺手复核,前端已重指);`scripts/check-next-env-dist.mjs` 等并行会话在途编辑不在本批。
+
 <!-- 已归档占位与水印尾行见文件末尾 -->
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
