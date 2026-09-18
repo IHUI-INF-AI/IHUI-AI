@@ -30,6 +30,7 @@ import { renderStatusPanel, type StatusSnapshot } from './status-cmd.js';
 import { handleQuickstartCommand } from './quickstart.js';
 import { createMarkdownRenderer, type MarkdownRenderer } from './markdown-renderer.js';
 import {
+  buildRewindChoices,
   colorizeDiffText,
   formatToolResultForCard,
   renderPlanStepsCard,
@@ -1286,8 +1287,23 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
     }
 
     case 'rewind': {
-      const raw = args[0] ? Number(args[0]) : 1;
-      const steps = Number.isFinite(raw) ? raw : 1;
+      // W12 可视化选择:不带参数时弹出快照候选列表(最近优先),带 N 保持旧行为
+      let steps: number;
+      if (args[0]) {
+        const raw = Number(args[0]);
+        steps = Number.isFinite(raw) ? raw : 1;
+      } else if (state.rewindStack.length > 0) {
+        const choices = buildRewindChoices(state.rewindStack);
+        const { pick } = await inquirer.prompt([{
+          type: 'list',
+          name: 'pick',
+          message: `选择回退到哪个快照(共 ${choices.length} 个)?`,
+          choices: choices.map((c) => ({ name: c.label, value: c.steps })),
+        }]);
+        steps = pick;
+      } else {
+        steps = 1;
+      }
       const result = rewindHistory(state.history, state.rewindStack, steps);
       state.history = result.history;
       state.rewindStack = result.stack;
@@ -1370,7 +1386,7 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
     case 'background': {
       const sub = args[0] ?? '';
       if (!sub) {
-        console.info(chalk.dim('用法:/bg <cmd> | /bg list | /bg out <id> [N] | /bg wait <id> [ms] | /bg kill <id>'));
+        console.info(chalk.dim('用法:/bg <cmd> | /bg list | /bg live <id> | /bg out <id> [N] | /bg wait <id> [ms] | /bg kill <id>'));
         break;
       }
       if (sub === 'list') {
@@ -1389,6 +1405,32 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
           }
           console.info(chalk.cyan('╰─ /bg out <id> 查看输出 · /bg wait <id> 等待 · /bg kill <id> 终止'));
           console.info('');
+        }
+      } else if (sub === 'live') {
+        // W11 后台任务 live tail:增量跟随输出直至退出(对标 Claude Code 后台任务实时流)
+        const id = args[1] ?? '';
+        if (!id) { console.info(chalk.red('缺少 task_id')); break; }
+        if (!getTaskOutput(id)) { console.info(chalk.red(`任务 ${id} 不存在`)); break; }
+        console.info(chalk.cyan(`\n╭─ live tail ${id}${chalk.dim('(随任务结束自动停止,上限 5 分钟)')}`));
+        let printedOut = 0;
+        let printedErr = 0;
+        const deadline = Date.now() + 300_000;
+        for (;;) {
+          const snap = getTaskOutput(id);
+          if (!snap) break; // 任务被清理
+          if (snap.stdout.length > printedOut) {
+            process.stdout.write(colorizeDiffText(snap.stdout.slice(printedOut)));
+            printedOut = snap.stdout.length;
+          }
+          if (snap.stderr.length > printedErr) {
+            process.stdout.write(chalk.yellow(snap.stderr.slice(printedErr)));
+            printedErr = snap.stderr.length;
+          }
+          if (snap.status !== 'running' || Date.now() > deadline) {
+            console.info(chalk.cyan(`\n╰─ ${snap.status} · exit=${snap.exitCode ?? '-'}`));
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 500));
         }
       } else if (sub === 'out') {
         const id = args[1] ?? '';
