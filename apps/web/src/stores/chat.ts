@@ -57,6 +57,29 @@ export interface ToolCall extends BaseToolCall {
     artifacts?: Array<{ type: string; path: string; created_at?: string }>
     tool_calls_summary?: { total: number; by_tool: Record<string, number> }
   }
+  /** L5-8 工具瞬时失败自动重试次数(>0 时 ToolCallCard 渲染"重试N次"徽章)。
+   * 数据源:后端 tool-call-start/result 事件携带则透传;暂未下发时恒 undefined,徽章不显示。 */
+  retryCount?: number
+}
+
+/** 消息级 Token 用量与计时/计费(D1 消息级计量徽章,2026-09-19 立)。
+ * 由 SSE usage 帧经 onUsage 回调写入(后端 streamChat 流末尾下发,或并发会话落地的
+ * event:usage 帧)。独立于 message.meta.usage(旧 hover 徽章),承载更丰富的
+ * 首 token 计时 / 总耗时 / 推理 token / 成本字段,驱动消息底部徽章行渲染。 */
+export interface MessageUsage {
+  totalTokens: number
+  promptTokens: number
+  completionTokens: number
+  /** 推理 token( reasoning 模型才有;非推理模型后端给 null) */
+  reasoningTokens: number | null
+  /** 首 token 延迟(ms):从请求发出到首个内容 token 到达 */
+  firstTokenMs: number
+  /** 总生成耗时(ms):从请求发出到流结束 */
+  durationMs: number
+  /** 实际计费模型标识(可能区别于前端选的 'auto') */
+  model: string
+  /** 本次消息成本(USD);后端未计费给 null */
+  costUsd: number | null
 }
 
 /** AI 主动提问的选项 */
@@ -74,6 +97,21 @@ export interface PendingQuestion {
   allowMultiple: boolean
   /** 关联的 assistant 消息 ID,用户回答后追加到该消息上下文 */
   assistantMessageId?: string
+}
+
+/** 消息级上下文压缩信息(2026-09-19 立,协议清理/孤儿组件接线)。
+ * 上下文压缩发生时(AgentLoopV2 hook 总线 → 网关 compaction 命名帧 →
+ * client.ts onCompaction 回调),send-message 把压缩统计挂到当前 assistant 消息,
+ * MessageItem 渲染 CompressionDivider("上方历史已被压缩"分隔线)。 */
+export interface MessageCompaction {
+  /** 压缩前上下文 token 数 */
+  originalTokens: number
+  /** 压缩后上下文 token 数 */
+  compressedTokens: number
+  /** 被压缩(折叠为摘要)的历史消息条数 */
+  removedCount?: number
+  /** 压缩触发方式(ratio/absolute/truncated/incompressible) */
+  trigger?: string
 }
 
 /**
@@ -102,6 +140,10 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'createdAt' | 'toolCa
   /** P1-6 断点续传(2026-09-13 立):该助手消息的流是否已完整结束。
    *  false = 中断未完成(刷新页面后可自动续接);true/undefined = 已完成,不续接。 */
   streamCompleted?: boolean
+  /** 2026-09-19 立:该消息生成前发生的上下文压缩统计(结构见 MessageCompaction)。
+   *  compaction 命名帧 → onCompaction 回调写入;MessageItem 在消息内容区顶部
+   *  渲染 CompressionDivider,提示"本消息之前的上下文已压缩为摘要"。 */
+  compaction?: MessageCompaction
 }
 
 /** 自动压缩上下文状态(2026-08-16 立)
@@ -172,6 +214,11 @@ interface ChatState {
    *  终态渲染取更长者;内存以「单键 2 万字符 + 最多 20 个终端键(插入序淘汰最旧)」双重封顶,
    *  新建对话时随 clearMessages 清空。不持久化(执行期瞬时态,刷新即失效)。 */
   terminalOutputs: Record<string, string>
+
+  /** D1 消息级计量(2026-09-19 立):按 messageId 索引的 Token 用量/计时/成本。
+   * 由 onUsage 回调写入,驱动消息底部徽章行(1.2k tok · 3.4s · 首 0.8s · model · ¥0.01)。
+   * 不持久化(每轮流式重新计算,刷新后失效)。 */
+  usageByMessageId: Record<string, MessageUsage>
 
   setModel: (model: string) => void
   /** 添加单个工具到已选;已存在则忽略 */
@@ -264,6 +311,9 @@ interface ChatState {
    *  - 后端 knowledge_lookup 工具执行后 done 前下发,前端整体替换 message.citations
    *  - 用于消息气泡内 inline CitationBar(来源标签 + 可点击 URL) */
   setMessageCitations: (messageId: string, citations: CitationEntry[]) => void
+  /** 2026-09-19 立:写入消息级上下文压缩信息(compaction 命名帧 → onCompaction 回调)。
+   *  压缩发生时把统计挂到指定 assistant 消息,MessageItem 渲染 CompressionDivider。 */
+  setMessageCompaction: (messageId: string, compaction: ChatMessage['compaction']) => void
   /** P1 #27 记忆更新可视化(2026-09-16 立):后端 done 事件 payload 携带 memoryUpdates,
    *  由 send-message.ts onMemoryUpdates 回调调用,把本轮新增的长期记忆条目摘要挂到对应助手消息。
    *  存储为 store 级数组(键 messageId),MessageItem 按 message.id 过滤渲染「已记住」提示条。 */
@@ -280,6 +330,9 @@ interface ChatState {
   appendTerminalOutput: (terminalId: string, text: string) => void
   /** 清理指定终端任务的实时输出缓冲(terminal_end 到达时调用,终态交给 terminal.output) */
   clearTerminalOutput: (terminalId: string) => void
+  /** D1 消息级计量(2026-09-19 立):写入某条助手消息的 usage 数据(onUsage 回调触发)。
+   * messageId 为空时调用方已回退到当前流式消息 id。同名 id 直接覆盖(流末只到达一次)。 */
+  setMessageUsage: (messageId: string, usage: MessageUsage) => void
   /** P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
    *  前端 onUsage 回调调用此方法把 usage 写入 assistant 消息 meta.usage,UI 展示 token 计数。 */
   updateMessageMeta: (messageId: string, meta: Record<string, unknown>) => void
@@ -362,6 +415,8 @@ export const useChatStore = create<ChatState>()(
       pendingDiffComments: [],
       // 2026-09-18 终端实时输出缓冲(执行期瞬时态,不持久化)
       terminalOutputs: {},
+      // D1 消息级计量(执行期瞬时态,不持久化)
+      usageByMessageId: {},
       // #21 中断后追加指令继续(2026-09-13 立)
       interruptedMessageId: null,
       // W27 输入历史(2026-09-14 立):Esc+Esc 历史导航数据源
@@ -492,6 +547,8 @@ export const useChatStore = create<ChatState>()(
           pendingDiffComments: [],
           // 2026-09-18:终端实时输出属消息级瞬时态,新建对话一并清空
           terminalOutputs: {},
+          // D1 消息级计量:新建对话一并清空
+          usageByMessageId: {},
         }),
       /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
       setMessages: (messages: ChatMessage[]) => set({ messages }),
@@ -875,6 +932,20 @@ export const useChatStore = create<ChatState>()(
           return { messages: next }
         }),
 
+      // 2026-09-19 立:写入消息级上下文压缩统计(compaction 命名帧 → onCompaction
+      // 回调 → send-message 映射为 MessageCompaction),整体替换;MessageItem 在
+      // 消息内容区顶部渲染 CompressionDivider。
+      setMessageCompaction: (messageId, compaction) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const next = s.messages.slice()
+          next[idx] = { ...target, compaction }
+          return { messages: next }
+        }),
+
       // P1 #27 记忆更新可视化(2026-09-16 立):done 事件 memoryUpdates 落地。
       // 按 messageId 写入/追加到 memoryUpdateNotices;同 messageId 已存在则合并 items(去重)。
       // 每条助手消息限一条提示条(本轮),故以 messageId 为键整体替换而非堆叠多个。
@@ -951,6 +1022,12 @@ export const useChatStore = create<ChatState>()(
           delete next[terminalId]
           return { terminalOutputs: next }
         }),
+
+      // D1 消息级计量(2026-09-19 立):onUsage 回调写入,按 messageId 索引(同名覆盖)。
+      setMessageUsage: (messageId, usage) =>
+        set((s) => ({
+          usageByMessageId: { ...s.usageByMessageId, [messageId]: usage },
+        })),
 
       // 2026-08-01 Phase 4a:消息级 terminal task append(terminal_start 事件)
       appendMessageTerminalTask: (messageId, task) =>

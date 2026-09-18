@@ -23,7 +23,6 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-import contextvars
 
 import httpx
 from fastapi import APIRouter, Body, HTTPException, Request
@@ -34,7 +33,6 @@ from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.llm_gateway import llm_gateway, moa_router
 from ..core.model_naming import to_official_model_name
-from ..services.decision_chain import apply_decision_chain
 from ..core.provider_caps import (
     cap_to_dict,
     cap_with_max_context,
@@ -48,22 +46,26 @@ from ..services.agent_events import (
     SSE_CONTENT_BLOCK_STOP,
     SSE_DONE,
     SSE_ERROR,
+    SSE_FALLBACK,
     SSE_MESSAGE_DELTA,
     SSE_MESSAGE_START,
     SSE_MESSAGE_STOP,
     SSE_QUESTION,
     SSE_REASONING,
+    SSE_STEER,
     SSE_SUBAGENT_END,
     SSE_SUBAGENT_PROGRESS,
     SSE_SUBAGENT_SPAWN,
-    SSE_TERMINAL_END,
     SSE_TERMINAL_DELTA,
+    SSE_TERMINAL_END,
     SSE_TERMINAL_START,
     SSE_TOOL_CALL_START,
     SSE_TOOL_DELEGATE,
     SSE_TOOL_RESULT,
+    SSE_USAGE,
 )
 from ..services.context_recall import context_recall
+from ..services.decision_chain import apply_decision_chain
 from ..services.mcp_server import (
     _tool_dispatch_subagent,
     _tool_vision_analyze,
@@ -89,6 +91,14 @@ _pending_compaction_snapshots: set[asyncio.Task[Any]] = set()
 # 前端通过 POST /llm/complete/stream/{session_id}/tool-result 回传结果。
 _delegate_sessions: dict[str, dict[str, Any]] = {}
 _DELEGATE_TIMEOUT = 60  # 秒
+
+# Steer(中途引导,2026-09-19 立)session 队列:
+# 流式对话进行期间,用户经 POST /llm/complete/stream/{session_id}/steer 提交引导文本,
+# 入队本 dict;tool loop 每轮 LLM 调用前 drain 注入 messages(不打断当前工具执行),
+# 并发 event: steer(phase=injected) 通知前端换 badge。每项 {text, queuedAt ISO};
+# 流结束(gen 的 finally)统一清理,与 _delegate_sessions 生命周期一致。
+_steer_sessions: dict[str, list[dict[str, Any]]] = {}
+_STEER_QUEUE_LIMIT = 8  # 单流引导队列上限,超限 steer 端点返回 429(防刷)
 
 # fs 类工具集合(依赖本地文件系统,浏览器端需委托前端执行)
 # 2026-08-06:list_files 移出本集合 —— 只读目录列表已由 mcp_server 本地实现
@@ -142,13 +152,22 @@ def _format_plan_updated_event(
     链路 A(普通对话 /api/ai/chat/stream)此前没有任何 plan 生产者,
     前端只能基于 reasoning/toolCalls/content 伪派生步骤
     (apps/web/src/components/chat/message-list/use-message-list-derivations.ts)。
-    本函数把 tool loop 的每次工具调用作为权威计划快照发出:
+    本函数把 tool loop 的每次工具调用作为权威计划快照发出。
 
+    协议升级(2026-09-19):与 packages/types/src/ai.ts 的 PlanUpdateEvent 对齐,
+    plan[] 每步在 step/status/durationMs 之外新增可选字段:
+
+    - id: 步骤唯一 ID,优先取记录的 toolCallId(strip 处理与 tool-call-start
+      事件一致),缺失时回退 f"step-{i}"(i 为序号)
+    - toolCallIds: 关联工具调用 ID 数组(仅当 toolCallId 存在时携带)
+    - startedAt / endedAt: ISO 8601 起止时间戳(仅当记录中存在时携带)
+    - error: 布尔失败标记,仅失败步骤携带("error": true)
+
+    status 五态判定(plan[].status 允许 pending / in_progress / completed /
+    skipped / failed,本函数产出 in_progress / completed / failed 三态):
     - result 为 None → in_progress(工具执行中)
-    - 已写回 result → completed
-
-    字段与 packages/types/src/ai.ts 的 PlanUpdateEvent 严格对齐(plan[].status
-    仅允许 pending / in_progress / completed)。
+    - result 存在且记录 isError → failed(附 "error": true)
+    - result 存在无 error → completed
 
     空历史返回空串:调用点可无条件 yield(空串不产生 SSE 输出),
     同时避免发出空 plan 数组把前端 message.planSteps 清空。
@@ -156,8 +175,9 @@ def _format_plan_updated_event(
     if not tool_calls_history:
         return ""
     _steps: list[dict[str, Any]] = []
-    for _rec in tool_calls_history:
+    for _i, _rec in enumerate(tool_calls_history):
         _done = _rec.get("result") is not None
+        _failed = _done and bool(_rec.get("isError"))
         _name = str(_rec.get("toolName") or "tool")
         # 步骤标签:工具名 + 关键参数摘要(命令/查询/路径等),便于用户辨识这一步在做什么
         _label = _name
@@ -168,10 +188,33 @@ def _format_plan_updated_event(
                 if isinstance(_v, str) and _v.strip():
                     _label = f"{_name}: {_v.strip()[:80]}"
                     break
+        # 步骤唯一 ID:优先 toolCallId(strip 与 tool-call-start 事件一致),缺失回退 step-{i}
+        _tc_id = str(_rec.get("toolCallId") or "").strip()
+        _step_id = _tc_id or f"step-{_i}"
+        if _failed:
+            _status = "failed"
+        elif _done:
+            _status = "completed"
+        else:
+            _status = "in_progress"
         _step: dict[str, Any] = {
             "step": _label,
-            "status": "completed" if _done else "in_progress",
+            "id": _step_id,
+            "status": _status,
         }
+        # 关联工具调用 ID 数组(仅当 toolCallId 存在)
+        if _tc_id:
+            _step["toolCallIds"] = [_tc_id]
+        # 失败步骤显式携带 error: true(前端 PlanStepsCard 渲染失败态)
+        if _failed:
+            _step["error"] = True
+        # ISO 8601 起止时间戳透传(仅当记录中存在)
+        _started_at = _rec.get("startedAt")
+        if isinstance(_started_at, str) and _started_at:
+            _step["startedAt"] = _started_at
+        _ended_at = _rec.get("endedAt")
+        if isinstance(_ended_at, str) and _ended_at:
+            _step["endedAt"] = _ended_at
         if _done:
             _dur = _rec.get("durationMs")
             if isinstance(_dur, int) and _dur >= 0:
@@ -595,7 +638,7 @@ async def _extract_memory_updates(
         fire_and_forget_extract(owner_uuid)
 
         return [item][:MEMORY_ITEMS_MAX]
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning(
             "memoryUpdates 提取超时(>%ss,降级为空),user=%s",
             MEMORY_EXTRACT_TIMEOUT_S,
@@ -1065,6 +1108,19 @@ class LLMCompleteRequest(BaseModel):
     # plan_mode='plan' 时前置注入 Plan Mode system prompt,LLM 只制定计划不调用工具;
     # 'act' 或 None = 正常 tool loop 执行(默认)
     plan_mode: str | None = Field(None, description="Plan/Act 模式:'plan'=只制定计划,'act'=正常执行(默认)")
+    # D7(2026-09-19 立):主聊天自动语义检索注入开关。
+    # 默认 True(开启);显式 false 关闭 @codebase 风格的首答前代码库检索注入。
+    # 环境变量 IHUI_AUTO_CONTEXT_DISABLE=1 为全局硬开关(在 auto_context 模块内生效)。
+    autoContext: bool | None = Field(
+        None, description="自动语义检索注入开关:true/false,默认开启(None 视为开启)"
+    )
+    # Steer(2026-09-19 立):调用方(API 网关)为本流预生成的会话 ID。
+    # 网关把它同时存进 StreamSession.upstreamSessionId,用户中途引导时凭
+    # conversationId/messageId 找回并转发到 /llm/complete/stream/{session_id}/steer。
+    # 优先级高于 workspace_context 模式的自生成 id(两者同为每流唯一 uuid)。
+    streamSessionId: str | None = Field(
+        None, description="调用方预生成的流会话 ID,steer(中途引导)入队寻址用"
+    )
 
 
 # =============================================================================
@@ -1814,6 +1870,34 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     )
     # P1-7(2026-09-13 立):会话级自定义 system prompt,叠加在工作区记忆之上(置顶优先级最高)
     messages = _inject_custom_system_prompt(messages, req.system_prompt)
+    # D7(2026-09-19 立):主聊天自动语义检索注入(对标 Cursor @codebase 自动注入)。
+    # 普通对话且工作区路径存在、索引可用时,首答前自动检索 top-k 代码块注入 system。
+    # 开关:autoContext=false 关闭;IHUI_AUTO_CONTEXT_DISABLE=1 全局禁用(auto_context 模块内生效)。
+    # 防重复:同一会话同一 query 60s 内不重复检索(auto_context 模块内 LRU)。
+    # 全 try/except 静默降级:检索失败/异常绝不阻塞主聊天。
+    if (req.autoContext is not False) and req.workspace_path:
+        try:
+            from ..core.auto_context import auto_retrieve as _ac_retrieve
+            from ..core.auto_context import format_auto_context_block as _ac_format
+            _ac_query = _last_user_text(messages)
+            if _ac_query:
+                _ac_session_id = (
+                    req.metadata.get("conversationId")
+                    if isinstance(req.metadata, dict)
+                    else None
+                )
+                _ac_chunks = await _ac_retrieve(_ac_query, req.workspace_path, session_id=_ac_session_id)
+                _ac_block = _ac_format(_ac_chunks) if _ac_chunks else None
+                if _ac_block:
+                    if messages and messages[0].get("role") == "system":
+                        messages[0] = {
+                            **messages[0],
+                            "content": f"{messages[0]['content']}\n\n{_ac_block}",
+                        }
+                    else:
+                        messages.insert(0, {"role": "system", "content": _ac_block})
+        except Exception as _ac_err:  # 静默降级,绝不阻塞主聊天
+            logger.warning("auto_context inject skipped: %s", _ac_err)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:
@@ -1898,10 +1982,32 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # W1(2026-09-12 立):前端 assistant 消息 ID。plan_updated / terminal_* 事件必须携带,
         # 否则前端 onPlanUpdate/onTerminalStart/onTerminalEnd 回调的 messageId 守卫会丢弃事件。
         message_id = _resolve_message_id(req.metadata)
+        # D1(2026-09-19 立):消息级 usage 计量帧计时。
+        # _stream_started:gen 起始(请求起始);_first_token_ts:首个正文(chunk)增量时间戳。
+        # 流收尾(finally)处据此计算 firstTokenMs / durationMs 并发出一帧 event: usage。
+        _stream_started = time.perf_counter()
+        _first_token_ts: float | None = None
+
+        def _mark_first_token() -> None:
+            """记录首个正文(chunk)增量时间戳(幂等,仅首次调用生效)。"""
+            nonlocal _first_token_ts
+            if _first_token_ts is None:
+                _first_token_ts = time.perf_counter()
+
         # 阶段 2:浏览器端工具委托 session_id(workspace_context 模式下生成)
         session_id: str | None = None
-        if req.workspace_context:
+        if req.streamSessionId:
+            # Steer(2026-09-19 立):优先使用调用方(网关)预生成的流会话 ID ——
+            # 网关已把它存进 StreamSession.upstreamSessionId,中途引导请求凭
+            # replayKey(conversationId:messageId)在网关侧找回并转发到本流。
+            session_id = req.streamSessionId
+        elif req.workspace_context:
             session_id = str(uuid.uuid4())
+        # Steer(2026-09-19 立):注册引导队列(空列表即"流活跃"标记)。
+        # gen() 首次被 StreamingResponse 迭代即执行,先于任何工具调用;
+        # steer 端点据此区分 200(流活跃,入队)/404(流不存在或已结束)。
+        if session_id:
+            _steer_sessions[session_id] = []
         # 2026-08-31 原生 function calling:标记服务端 agent tool loop 是否执行。
         # 执行过则 messages 已归一化且工具循环结束,generic astream 不再带 tools;
         # 未执行(generic 路径)则透传请求体的 tools/tool_choice 给 astream。
@@ -1962,7 +2068,35 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # 每次 /llm/complete/stream 请求独立(集合在 tool loop 进入时初始化为空)
                     executed_tool_keys: set[str] = set()
                     injected_warning_keys: set[str] = set()
-                    for _tool_iter in range(max_iterations):
+                    # Steer(2026-09-19 立):迭代预算动态化(原 for-range 不可延长)。
+                    # 每注入一条引导消息延长一轮,防止引导恰好落在最后一轮工具执行期间
+                    # 被 max_iterations 截断(前端"排队中"badge 永远等不到"已注入")。
+                    _iter_budget = max_iterations
+                    _tool_iter = 0
+                    while _tool_iter < _iter_budget:
+                        # ===== Steer(中途引导)注入点:每轮 LLM 调用前 drain =====
+                        # 把流期间用户提交的引导消息注入 messages 尾部(上一轮工具结果之后,
+                        # OpenAI 协议合法:user 可跟在 tool 结果后),不打断当前工具执行;
+                        # 每条发一帧 event: steer(phase=injected) 通知前端换 badge。
+                        if session_id and _steer_sessions.get(session_id):
+                            _drained_steers = _steer_sessions[session_id]
+                            _steer_sessions[session_id] = []
+                            for _st in _drained_steers:
+                                _steer_text = str(_st.get("text", "")).strip()
+                                if not _steer_text:
+                                    continue
+                                messages.append({"role": "user", "content": _steer_text})
+                                _steer_evt: dict[str, Any] = {
+                                    "type": SSE_STEER,
+                                    "phase": "injected",
+                                    "text": _steer_text,
+                                }
+                                if _st.get("queuedAt"):
+                                    _steer_evt["timestamp"] = _st["queuedAt"]
+                                if message_id:
+                                    _steer_evt["messageId"] = message_id
+                                yield _sse(SSE_STEER, _steer_evt)
+                                _iter_budget += 1
                         # ===== 第一轮:流式化(2026-08-29 修复)=====
                         # 根因:tool loop 第一轮此前用非流式 complete(),LLM 无 tool_calls
                         # 直接回复时一次性 yield 整个 content → 前端"内容一下全出"而非打字机。
@@ -1984,6 +2118,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     if clean_text:
                                         accumulated["content"] += clean_text
                                         chunk_event = {"type": "chunk", "content": clean_text}
+                                        _mark_first_token()
                                         yield _sse(SSE_CHUNK, chunk_event)
                                 elif _evt_type == "reasoning":
                                     # 思考过程逐 token 透传(与 1129-1130 行格式一致)
@@ -1999,6 +2134,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     accumulated["model"] = evt.get("model", req.model)
                                     accumulated["usage"] = evt.get("usage")
                                     accumulated["stub"] = evt.get("stub", False)
+                                elif _evt_type == "fallback":
+                                    # P4-2(2026-09-19 修复):llm_gateway 主模型失败切换备用
+                                    # 模型时 yield {"type":"fallback",...};此前本循环只认
+                                    # chunk/reasoning/tool_calls/done/error 五类,事件被静默
+                                    # 丢弃,前端 onFallback 永不触发。原样转发(与非 tool-loop
+                                    # 路径的兜底 yield _sse(event_type, event) 行为对齐)。
+                                    yield _sse(SSE_FALLBACK, evt)
                                 elif _evt_type == "error":
                                     # 流式错误(与 1113-1119 行一致)
                                     err_evt = {
@@ -2108,6 +2250,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         accumulated["content"] += clean_text
                                         _round_content_parts.append(clean_text)
                                         chunk_event = {"type": "chunk", "content": clean_text}
+                                        _mark_first_token()
                                         yield _sse(SSE_CHUNK, chunk_event)
                                 elif _evt_type == "reasoning":
                                     # 思考过程逐 token 透传(与第一轮一致)
@@ -2125,6 +2268,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "usage": evt.get("usage"),
                                         "stub": evt.get("stub", False),
                                     }
+                                elif _evt_type == "fallback":
+                                    # P4-2(2026-09-19 修复):同第一轮 —— 此前后续轮次的
+                                    # fallback 事件同样被静默丢弃,原样转发给前端。
+                                    yield _sse(SSE_FALLBACK, evt)
                                 elif _evt_type == "error":
                                     # 流式错误(与第一轮一致)
                                     err_evt = {
@@ -2244,6 +2391,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             }
                             yield _sse(SSE_TOOL_CALL_START, tc_start)
                             # 记录到 tool_calls_history(tool-summary 聚合统计用)
+                            # 协议升级(2026-09-19):startedAt 为 ISO 8601 起始时间戳,
+                            # endedAt 由各结果回写点补写;isError 即失败标记(plan 步骤 error)
                             tool_calls_history.append({
                                 "toolCallId": tc.get("id", ""),
                                 "toolName": tool_name,
@@ -2253,6 +2402,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "serverId": _sid,
                                 "serverName": _sname,
                                 "startTimeMs": _tc_start_ts * 1000.0,
+                                "startedAt": datetime.now(UTC).isoformat(),
                                 "durationMs": 0,
                                 "isError": False,
                                 "result": None,
@@ -2353,6 +2503,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "result": exec_result,
                                     "isError": False,
                                     "durationMs": int((time.time() - _tc_start_ts) * 1000),
+                                    "endedAt": datetime.now(UTC).isoformat(),
                                 })
                                 # W1(2026-09-12 立):终端类工具收尾(去重跳过分支视为已完成)
                                 if _is_terminal_tool:
@@ -2448,6 +2599,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             "result": exec_result,
                                             "isError": True,
                                             "durationMs": int((time.time() - _tc_start_ts) * 1000),
+                                            "endedAt": datetime.now(UTC).isoformat(),
                                         })
                                     # W1(2026-09-12 立):委托超时收尾(该步记 failed,plan 快照同步)
                                     if _is_terminal_tool:
@@ -2521,6 +2673,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "result": exec_result,
                                     "isError": not ok,
                                     "durationMs": int((time.time() - _tc_start_ts) * 1000),
+                                    "endedAt": datetime.now(UTC).isoformat(),
                                 })
                                 # W1(2026-09-12 立):委托结束收尾(终端类发 terminal_end,plan 快照同步)
                                 if _is_terminal_tool:
@@ -2718,6 +2871,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "result": exec_result,
                                     "isError": not ok,
                                     "durationMs": int((time.time() - _tc_start_ts) * 1000),
+                                    "endedAt": datetime.now(UTC).isoformat(),
                                 })
 
                             # W1(2026-09-12 立):工具执行收尾。
@@ -2866,6 +3020,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
 
                         # 有成功的 tool:继续下一轮循环(下一轮 complete 会带 tools,让 LLM 决定是否需要更多操作)
                         # 注意:不在这里归一化 messages,因为下一轮 complete() 需要原生 tool 角色
+                        _tool_iter += 1  # Steer:while 形态下的步进(原 for-range 自增)
 
                     # 循环结束(无 tool_calls 或达到 max_iterations)
                     # 归一化 messages:把 tool 角色消息转为 user 消息(避免被 astream 内部 repair_messages 过滤)
@@ -2934,6 +3089,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         yield _sse(SSE_QUESTION, q_event)
                     # 仅当有纯文本时才推送 chunk(避免空 chunk)
                     if clean_text:
+                        _mark_first_token()
                         yield _sse(event_type, event)
                     continue
                 elif event_type == "reasoning":
@@ -3037,9 +3193,48 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             yield _sse(SSE_ERROR, err)
             return
         finally:
-            # 阶段 2:清理委托 session
+            # 阶段 2:清理委托 session(始终执行,先于计量帧)
             if session_id and session_id in _delegate_sessions:
                 del _delegate_sessions[session_id]
+            # Steer(2026-09-19 立):清理引导队列(始终执行;未消费的引导随流结束丢弃,
+            # 端点此后对本 session 返回 404)
+            if session_id:
+                _steer_sessions.pop(session_id, None)
+            # D1(2026-09-19 立):流收尾处发出消息级 usage 计量帧(event: usage)。
+            # 覆盖所有收尾路径(正常 done / 异常 error / 客户端断开),确保每条回复结束都能拿到
+            # 本条消息的 token 用量与耗时。独立 try:计量帧失败/生成器关闭绝不影响主链路。
+            try:
+                _u = accumulated.get("usage") or {}
+                _u = _u if isinstance(_u, dict) else {}
+                _prompt = _u.get("prompt_tokens") or _u.get("promptTokens")
+                _completion = _u.get("completion_tokens") or _u.get("completionTokens")
+                _total = _u.get("total_tokens") or _u.get("totalTokens")
+                _reasoning = _u.get("reasoning_tokens") or _u.get("reasoningTokens")
+                if _total is None and _prompt is not None and _completion is not None:
+                    _total = _prompt + _completion
+                _first_ms = (
+                    int((_first_token_ts - _stream_started) * 1000) if _first_token_ts else None
+                )
+                _duration_ms = int((time.perf_counter() - _stream_started) * 1000)
+                _usage_frame: dict[str, Any] = {
+                    "type": "usage",
+                    "messageId": message_id,
+                    "usage": {
+                        "promptTokens": _prompt,
+                        "completionTokens": _completion,
+                        "totalTokens": _total,
+                        "reasoningTokens": _reasoning,
+                    },
+                    "timing": {"firstTokenMs": _first_ms, "durationMs": _duration_ms},
+                    "model": accumulated.get("model"),
+                    "costUsd": None,
+                }
+                yield _sse(SSE_USAGE, _usage_frame)
+            except GeneratorExit:
+                # 客户端断开/取消:放弃计量帧,保持生成器关闭语义(不吞没 GeneratorExit)
+                raise
+            except Exception as _usage_err:  # 计量帧绝不影响主链路
+                logger.warning("usage frame emit failed: %s", _usage_err)
 
         # 流结束后异步回调(仅当 metadata 含关联键且无错误时)
         # 客户端已断开则不触发 callback(避免 POST 到已废弃 URL)
@@ -3081,6 +3276,38 @@ async def post_delegated_tool_result(session_id: str, body: dict[str, Any] = Bod
     if event and isinstance(event, asyncio.Event):
         event.set()
     return {"ok": True}
+
+
+@router.post("/llm/complete/stream/{session_id}/steer", response_model=None)
+async def post_steer_message(session_id: str, body: dict[str, Any] = Body(...)) -> Any:
+    """Steer(中途引导,2026-09-19 立):流式对话期间提交引导文本。
+
+    文本入队 _steer_sessions[session_id];tool loop 每轮 LLM 调用前 drain 注入
+    messages 并发 event: steer(phase=injected),不打断当前工具执行。
+    状态码:422 text 缺失/为空;404 流不存在或已结束;429 队列满;200 入队成功。
+    """
+    text = str(body.get("text", "")).strip()
+    if not text:
+        return JSONResponse(
+            status_code=422,
+            content={"ok": False, "error": "text required"},
+        )
+    queue = _steer_sessions.get(session_id)
+    if queue is None:
+        return JSONResponse(
+            status_code=404,
+            content={"ok": False, "error": "session not found or expired"},
+        )
+    if len(queue) >= _STEER_QUEUE_LIMIT:
+        return JSONResponse(
+            status_code=429,
+            content={"ok": False, "error": "steer queue full"},
+        )
+    queue.append({
+        "text": text[:4000],  # 截断防超长注入撑爆上下文
+        "queuedAt": datetime.now(UTC).isoformat(),
+    })
+    return {"ok": True, "queued": len(queue)}
 
 
 async def _fire_callback(url: str, payload: dict[str, Any], metadata: dict[str, Any] | None) -> None:

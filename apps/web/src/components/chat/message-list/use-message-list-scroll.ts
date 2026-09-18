@@ -38,6 +38,8 @@ export interface MessageListScrollResult {
   userScrolledToTop: boolean
   setUserScrolledToTop: (v: boolean) => void
   focusedIndex: number
+  isFarFromTop: boolean
+  isFarFromBottom: boolean
 }
 
 export function useMessageListScroll({
@@ -81,6 +83,14 @@ export function useMessageListScroll({
   // - ↑/↓ 切换时设置,Enter 展开/折叠 reasoning,Esc 取消聚焦
   // - focused 消息添加 ring 视觉 + data-message-focused 属性
   const [focusedIndex, setFocusedIndex] = React.useState<number>(-1)
+  // D3(2026-09-18 立):跳顶/跳底按钮显隐所需"距顶/距底是否够远"状态。
+  // - 阈值 800px(与 ScrollJumpButtons.JUMP_FAR_THRESHOLD 对齐)
+  // - ref 镜像 + 仅在跨阈值时 setState,避免高频 scroll 触发整树重渲染
+  const FAR_THRESHOLD = 800
+  const isFarFromTopRef = React.useRef(false)
+  const isFarFromBottomRef = React.useRef(false)
+  const [isFarFromTop, setIsFarFromTop] = React.useState(false)
+  const [isFarFromBottom, setIsFarFromBottom] = React.useState(false)
   // 镜像 ref(2026-07-28 立):解决键盘事件连续触发时的 stale closure 问题
   // - useEffect 重装 listener 之前可能多次 keyboard event 排队(测试 act 批量 / 用户狂按)
   // - ref 在键盘 handler 内同步更新,避免 ↑/↓ 后的 Enter/Escape 看不到新 focusedIndex
@@ -176,6 +186,19 @@ export function useMessageListScroll({
     userScrolledToTopRef.current = scrolledAwayFromTop
     if (scrolledAwayFromTop !== userScrolledToTop) {
       safeSetUserScrolledToTop(scrolledAwayFromTop)
+    }
+
+    // D3(2026-09-18 立):跳顶/跳底按钮显隐阈值(距顶/距底 > 800px)。
+    // 用 ref 镜像比对,仅在跨阈值时 setState(避免每次 scroll 都重渲染)
+    const farTop = el.scrollTop > FAR_THRESHOLD
+    const farBottom = distanceFromBottom > FAR_THRESHOLD
+    if (farTop !== isFarFromTopRef.current) {
+      isFarFromTopRef.current = farTop
+      setIsFarFromTop(farTop)
+    }
+    if (farBottom !== isFarFromBottomRef.current) {
+      isFarFromBottomRef.current = farBottom
+      setIsFarFromBottom(farBottom)
     }
 
     // #8 滚动到顶部触发加载更多历史
@@ -360,6 +383,10 @@ export function useMessageListScroll({
       safeSetUserScrolledToTop(false)
       userScrolledUpRef.current = false
       safeSetUserScrolledUp(false)
+      isFarFromTopRef.current = false
+      isFarFromBottomRef.current = false
+      setIsFarFromTop(false)
+      setIsFarFromBottom(false)
     } else if (messages.length <= VIRTUAL_THRESHOLD) {
       setVisibleRange({ start: 0, end: messages.length - 1 })
     }
@@ -496,6 +523,8 @@ export function useMessageListScroll({
     userScrolledToTop,
     setUserScrolledToTop,
     focusedIndex,
+    isFarFromTop,
+    isFarFromBottom,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -771,6 +771,28 @@ export interface TerminalDeltaEvent {
   messageId?: string
 }
 
+/** 消息级 token 用量计量事件(D1,2026-09-19 立)。
+ *
+ * 后端在每条回复流收尾处发出命名帧 `event: usage` / `type:'usage'`,
+ * 携带本条消息的 token 用量、首 token 与总耗时、模型与(可选)成本。
+ * 同时向后兼容 OpenAI 协议:`json.usage` 字段(prompt_tokens/completion_tokens/total_tokens)。
+ * reasoningTokens / timing / model / messageId / costUsd 为新增字段,可选以兼容旧链路。 */
+export interface UsageEvent {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  /** 推理 token 数(部分模型/思考模式,缺失为 null) */
+  reasoningTokens?: number | null
+  /** 关联 assistant 消息 ID(取不到为 null) */
+  messageId?: string | null
+  /** 耗时:{ firstTokenMs: 首个正文增量耗时(ms,缺失为 null); durationMs: 总耗时(ms) } */
+  timing?: { firstTokenMs: number | null; durationMs: number } | null
+  /** 实际模型 id */
+  model?: string | null
+  /** 本次调用估算成本(USD,暂未计费为 null) */
+  costUsd?: number | null
+}
+
 export interface StreamChatOptions {
   model: string
   // role 含 'tool':与 @ihui/context-compaction 的 ChatMessage 及 OpenAI 兼容协议对齐
@@ -884,9 +906,17 @@ export interface StreamChatOptions {
    *  ai-service 在 done 事件 payload 携带 memoryUpdates: string[](本轮 LTM 新增条目摘要),
    *  前端据此在对应助手消息下方渲染「已记住:N 条」提示条。空数组表示本轮无新记忆。 */
   onMemoryUpdates?: (event: MemoryUpdatesEvent) => void
-  /** Token 用量回调(2026-08-15 立):后端在 SSE 流末尾发送 usage chunk 时触发,
-   *  前端据此更新消息 meta.usage,UI 展示 promptTokens/completionTokens/totalTokens。 */
-  onUsage?: (usage: { promptTokens: number; completionTokens: number; totalTokens: number }) => void
+  /** Token 用量回调:后端在 SSE 流末尾发送 usage 事件时触发,
+   *  前端据此更新消息 meta.usage(UI 展示 token 数 / 耗时 / 模型)。
+   *
+   *  D1(2026-09-19 立)升级:事件契约从「OpenAI 协议 usage chunk」扩展为
+   *  「命名帧 event: usage / type:'usage'」,新增 reasoningTokens / 耗时 / 模型 /
+   *  消息 id / 成本字段。旧 OpenAI 协议(json.usage 字段)仍兼容(见 tryParseUsage)。 */
+  onUsage?: (usage: UsageEvent) => void
+  /** Steer(中途引导,2026-09-19 立):流式对话期间用户提交的引导文本被 tool loop
+   *  注入 messages 时触发(每条引导一次)。前端据此把消息 badge 从「排队中」换成
+   *  「引导已生效」,用户确认引导已被 AI 下一轮看到。 */
+  onSteer?: (event: SteerEvent) => void
   /** 2026-08-15 立:显式声明流式模式,默认 true。
    *  后端 detectStreamUsage 依赖 request.stream===true 才启用 usage chunk 注入,
    *  不传或传 false 会导致 usage 缺失,token 显示为 0。 */
@@ -1039,6 +1069,14 @@ export function parseStreamLine(line: string): string | null {
     if (json?.type === 'thinking') return null
     if (json?.type === 'terminal_delta') return null
     if (json?.type === 'compaction') return null
+    // D1(2026-09-19 立):usage 命名帧走专用通道(tryParseUsage),
+    // 同样不可回落成正文增量(历史坑:带 content 的未知帧曾喷进正文;
+    // 本帧不含 content,但仍显式分流,绝不落入 onDelta)。
+    if (json?.type === 'usage') return null
+    // Steer(2026-09-19 立):中途引导注入确认帧走专用通道(tryParseSteer)。
+    // 本帧带 text 字段,不拦截会被下方兜底抽取链(json?.text)喷进正文增量
+    // (与上方 usage 帧同一坑位,必须在兜底抽取前拦截)。
+    if (json?.type === 'steer') return null
     const choice = json?.choices?.[0]
     const delta =
       choice?.delta?.content ??
@@ -1107,6 +1145,28 @@ export interface FallbackEvent {
   backupModel: string
   /** 切换原因(timeout/rate_limit/api_error/unknown) */
   reason: string
+}
+
+/**
+ * Steer(中途引导,2026-09-19 立):流式对话期间用户经 steer 端点提交引导文本,
+ * ai-service tool loop 每轮 LLM 调用前 drain 注入 messages 时下发注入确认事件。
+ *
+ * SSE 事件格式(契约见 packages/shared/src/sse/contract.ts):
+ *   event: steer
+ *   data: {"type":"steer","phase":"injected","text":"用户引导文本",
+ *          "timestamp":"ISO(入队时间)","messageId":"assistant 消息 ID"}
+ *
+ * 前端 onSteer 据此把消息从「排队中」换成「引导已生效」badge。
+ */
+export interface SteerEvent {
+  /** 当前仅 "injected"(已注入 messages);预留扩展 */
+  phase: 'injected'
+  /** 用户引导文本(注入 messages 的原文,≤4000 字符) */
+  text: string
+  /** 入队时间(ISO,来自 steer 端点) */
+  timestamp?: string
+  /** 所属 assistant 消息 ID(流启动即确定,便于前端挂 badge) */
+  messageId?: string
 }
 
 /**
@@ -1701,6 +1761,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       // P1 #27(2026-09-16 立):done 事件携带 memoryUpdates(已记住提示条数据源)
       const hasMemoryUpdates = typeof opts.onMemoryUpdates === 'function'
       const hasUsage = typeof opts.onUsage === 'function'
+      // Steer(中途引导,2026-09-19 立):onSteer 存在时启用解析
+      const hasSteer = typeof opts.onSteer === 'function'
       // hasCitations 被 tryParseCitations 的守护读取(消除 TS6133:声明未使用)
       void hasCitations
 
@@ -2351,9 +2413,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
-      /** 解析 OpenAI 协议 usage chunk(stream_options.include_usage=true 时后端发送)。
-       *  格式:data: {..., usage: { prompt_tokens, completion_tokens, total_tokens }}
-       *  触发 onUsage 回调,前端据此更新消息 meta.usage。 */
+      /** 解析 usage 帧(D1,2026-09-19 升级):
+       *  ① 命名帧 event: usage → data: { type:'usage', messageId, usage:{promptTokens,...},
+       *     timing:{firstTokenMs,durationMs}, model, costUsd }(ai-service 流收尾下发);
+       *  ② 旧 OpenAI 协议 usage chunk(stream_options.include_usage=true):
+       *     data: {..., usage: { prompt_tokens, completion_tokens, total_tokens }}。
+       *  两路统一触发 onUsage 回调;命名帧额外携带计时/模型/成本字段(缺失为 null)。 */
       const tryParseUsage = (line: string): void => {
         if (!hasUsage) return
         if (!line || line.startsWith(':')) return
@@ -2375,15 +2440,80 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           const promptTokens = Number(usage.prompt_tokens ?? usage.promptTokens ?? 0)
           const completionTokens = Number(usage.completion_tokens ?? usage.completionTokens ?? 0)
           const totalTokens = Number(usage.total_tokens ?? usage.totalTokens ?? 0)
-          if (promptTokens > 0 || completionTokens > 0 || totalTokens > 0) {
-            opts.onUsage!({
-              promptTokens: Number.isFinite(promptTokens) ? promptTokens : 0,
-              completionTokens: Number.isFinite(completionTokens) ? completionTokens : 0,
-              totalTokens: Number.isFinite(totalTokens) ? totalTokens : 0,
-            })
-          }
+          if (promptTokens <= 0 && completionTokens <= 0 && totalTokens <= 0) return
+          // D1:命名帧(type:'usage')透传扩展字段;旧 OpenAI 协议路径置 null(前端徽章相应分段不渲染)
+          const isNamedFrame = json?.type === 'usage'
+          const rawTiming = isNamedFrame
+            ? (json?.timing as Record<string, unknown> | null | undefined)
+            : undefined
+          const reasoningRaw = isNamedFrame
+            ? (usage.reasoning_tokens ?? usage.reasoningTokens)
+            : undefined
+          opts.onUsage!({
+            promptTokens: Number.isFinite(promptTokens) ? promptTokens : 0,
+            completionTokens: Number.isFinite(completionTokens) ? completionTokens : 0,
+            totalTokens: Number.isFinite(totalTokens) ? totalTokens : 0,
+            reasoningTokens:
+              typeof reasoningRaw === 'number' && Number.isFinite(reasoningRaw)
+                ? reasoningRaw
+                : null,
+            messageId: isNamedFrame && typeof json.messageId === 'string' ? json.messageId : null,
+            timing:
+              rawTiming && typeof rawTiming === 'object'
+                ? {
+                    firstTokenMs:
+                      typeof rawTiming.firstTokenMs === 'number' &&
+                      Number.isFinite(rawTiming.firstTokenMs)
+                        ? rawTiming.firstTokenMs
+                        : null,
+                    durationMs:
+                      typeof rawTiming.durationMs === 'number' &&
+                      Number.isFinite(rawTiming.durationMs)
+                        ? rawTiming.durationMs
+                        : 0,
+                  }
+                : null,
+            model: isNamedFrame && typeof json.model === 'string' ? json.model : null,
+            costUsd:
+              isNamedFrame && typeof json.costUsd === 'number' && Number.isFinite(json.costUsd)
+                ? json.costUsd
+                : null,
+          })
         } catch {
           /* 非 JSON 或非 usage 事件忽略 */
+        }
+      }
+
+      /**
+       * Steer(中途引导,2026-09-19 立):流式对话期间用户经 steer 端点提交引导文本,
+       * ai-service tool loop 每轮 LLM 调用前 drain 注入 messages 时下发注入确认:
+       *   event: steer → data: { type:'steer', phase:'injected', text, timestamp?, messageId? }
+       * 前端 onSteer 据此把消息 badge 从「排队中」换成「引导已生效」。 */
+      const tryParseSteer = (line: string): void => {
+        if (!hasSteer) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'steer' || typeof json?.text !== 'string') return
+          opts.onSteer!({
+            phase: 'injected',
+            text: json.text,
+            timestamp: typeof json.timestamp === 'string' ? json.timestamp : undefined,
+            messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
+          })
+        } catch {
+          /* 非 JSON 或非 steer 事件忽略 */
         }
       }
 
@@ -2407,6 +2537,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
        *  - plan_updated / plan:tryParsePlanUpdate(W1 2026-09-12 立)
        *  - terminal_start / terminal_end:tryParseTerminal(W1 2026-09-12 立)
        *  - usage:tryParseUsage(OpenAI 协议 usage chunk,基于 json.usage 字段,非 type)
+       *  - steer:tryParseSteer(Steer 2026-09-19 立)
        */
       const routeLineByType = (line: string): string | null => {
         if (!line || line.startsWith(':')) return null
@@ -2461,6 +2592,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             // 2026-09-18 立:补 type==='compaction' 这一路(原仅认 json.compaction 字段形态)
             case 'compaction':
               return 'compaction'
+            // Steer(2026-09-19 立):中途引导注入确认帧
+            case 'steer':
+              return 'steer'
             default:
               return null
           }
@@ -2497,6 +2631,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseThinking(line)
         } else if (route === 'usage') {
           tryParseUsage(line)
+        } else if (route === 'steer') {
+          tryParseSteer(line)
         } else {
           // fallback:无 type / 未知 type / 注释 / event:/id:/retry: / 非 JSON token 行。
           // 各 tryParse 内部第一道守护(`if (!hasXxx) return` + line 前缀检查)对非匹配行立即 return,
@@ -2514,6 +2650,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseMemoryUpdates(line)
           tryParseTerminalDelta(line)
           tryParseThinking(line)
+          tryParseSteer(line)
         }
       }
 

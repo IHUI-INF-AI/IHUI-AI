@@ -241,10 +241,11 @@ export interface SubagentProgressEvent {
   messageId?: string
 }
 
-/** Plan 步骤状态(Codex 风格三状态,2026-07-27 重构对齐)。
- *  注意:与 packages/shared/src/plan/index.ts 的 PlanStepStatus(五状态)不同,
- *  本类型用于 AI 对话可视化 Phase 2 消息级 plan steps(Codex 协议对齐)。 */
-export type PlanStepStatus = 'pending' | 'in_progress' | 'completed'
+/** Plan 步骤状态(2026-09-18 v2 五状态,对齐 packages/shared/src/plan/index.ts 与前端 Checklist)。
+ *  v2 变更:新增 skipped(步骤被跳过)与 failed(工具执行失败的显式状态);
+ *  兼容规则:后端旧事件仍用三态 + error 布尔,前端渲染时 error=true 视同 failed。
+ *  本类型用于 AI 对话可视化消息级 plan steps(Codex 协议对齐)。 */
+export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed'
 
 /** Plan 步骤(消息级展示,对应 Codex PlanItemArg + explanation)。
  *  字段与 apps/web/src/hooks/use-agent-progress.ts 的 PlanStep 对齐,主 agent 后续统一引用。 */
@@ -265,8 +266,10 @@ export interface PlanStep {
   durationMs?: number
   /** Codex:step 累计 token 消耗(可选,由 status 事件更新) */
   tokenUsage?: number
-  /** 错误标记(toolCalls error 时为 true,PlanStepsCard 显示红色错误样式) */
+  /** 错误标记(toolCalls error 时为 true,PlanStepsCard 显示红色错误样式;v2 后端可直接发 failed 状态,本字段保留向后兼容) */
   error?: boolean
+  /** 2026-09-18 v2:关联的工具调用 ID 列表(plan_updated 事件携带 toolCallIds,用于步骤↔工具卡精确关联;为空时前端回退时间窗启发式匹配) */
+  toolCallIds?: string[]
   /** 关联消息 ID(用于点击步骤跳转消息 + hover 联动,apps/web 已有字段) */
   sourceMessageId?: string
   /** 步骤分组编号(同一条 assistant 消息的步骤同组,组间视觉分隔) */
@@ -288,10 +291,17 @@ export interface PlanUpdateEvent {
   plan: Array<{
     step: string
     status: PlanStepStatus
+    /** 2026-09-18 v2:步骤唯一 ID(= 关联 toolCallId,后端必发;前端据此稳定更新与步骤↔工具卡精确关联) */
+    id?: string
+    /** 2026-09-18 v2:关联的工具调用 ID 列表(精确关联,替代前端时间窗启发式) */
+    toolCallIds?: string[]
+    /** 2026-09-18 v2:步骤开始时间(ISO 8601) */
     startedAt?: string
     endedAt?: string
     durationMs?: number
     tokenUsage?: number
+    /** 2026-09-18 v2:步骤错误标记(与 status:failed 等价表达,旧事件兼容) */
+    error?: boolean
   }>
   /** 事件时间戳(ISO 8601) */
   timestamp?: string

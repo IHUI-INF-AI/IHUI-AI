@@ -5,7 +5,7 @@
 import { useChatStore, type ToolCall } from '@/stores/chat'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { emitAgentHook } from '@/stores/agent-hooks'
-import type { ToolSummaryEvent } from '@ihui/api-client'
+import type { ToolSummaryEvent, UsageEvent } from '@ihui/api-client'
 import { BROWSER_TOOL_NAMES, extractToolUrl } from './tool-config'
 
 export function createToolCallHandler(assistantMessageId: string) {
@@ -33,6 +33,8 @@ export function createToolCallHandler(assistantMessageId: string) {
     audio_url?: string
     video_url?: string
     task_id?: string
+    // L5-8 工具瞬时失败自动重试次数(后端 tool-call-start/result 透传;未下发则 undefined)
+    retryCount?: number
   }) => {
     if (event.type === 'tool-call-start') {
       // W28 Hooks 事件:tool.before(工具开始调用)
@@ -84,6 +86,8 @@ export function createToolCallHandler(assistantMessageId: string) {
       if (event.audio_url !== undefined) updates.audio_url = event.audio_url
       if (event.video_url !== undefined) updates.video_url = event.video_url
       if (event.task_id !== undefined) updates.task_id = event.task_id
+      // L5-8 重试次数透传(后端下发时写入,ToolCallCard 渲染"重试N次"徽章)
+      if (event.retryCount !== undefined) updates.retryCount = event.retryCount
       useChatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, updates)
 
       // tool-result 含 URL:延迟打开(仅当之前 args 没 url 时,result 含 url 的场景)
@@ -104,6 +108,35 @@ export function createToolCallHandler(assistantMessageId: string) {
 export function createToolSummaryHandler(assistantMessageId: string) {
   return (summary: ToolSummaryEvent) => {
     useChatStore.getState().setMessageToolSummary(assistantMessageId, summary)
+  }
+}
+
+/** D1 消息级计量(2026-09-19 立):onUsage 回调载荷 = api-client 的 UsageEvent(扁平契约)。
+ * 与 packages/api-client/src/client.ts 的 tryParseUsage 对齐:
+ *   { promptTokens, completionTokens, totalTokens, reasoningTokens?, messageId?,
+ *     timing?:{ firstTokenMs,durationMs }|null, model?, costUsd? }
+ * 旧 OpenAI 协议 usage chunk 路径 messageId/timing/model/costUsd 为 null(徽章相应分段不渲染)。 */
+export type MessageUsagePayload = UsageEvent
+
+/**
+ * D1 消息级计量(2026-09-19 立):onUsage 消费工厂。
+ * 绑定 assistantMessageId,把 usage 帧写入 store.usageByMessageId(驱动消息底部徽章行)。
+ * - messageId 为空(旧 OpenAI 协议 usage chunk 不带 messageId)→ 回退到当前流式消息 id
+ * - timing / costUsd 缺失(null)→ 存 0 / null,徽章对应分段条件性不渲染
+ * 旧 meta.usage 写入(updateMessageMeta)由 send-message.ts 保留,本工厂只负责新索引。 */
+export function createUsageHandler(assistantMessageId: string) {
+  return (payload: MessageUsagePayload) => {
+    const messageId = payload.messageId || assistantMessageId
+    useChatStore.getState().setMessageUsage(messageId, {
+      totalTokens: Number(payload.totalTokens) || 0,
+      promptTokens: Number(payload.promptTokens) || 0,
+      completionTokens: Number(payload.completionTokens) || 0,
+      reasoningTokens: payload.reasoningTokens !== null ? Number(payload.reasoningTokens) : null,
+      firstTokenMs: Number(payload.timing?.firstTokenMs) || 0,
+      durationMs: Number(payload.timing?.durationMs) || 0,
+      model: payload.model ?? '',
+      costUsd: payload.costUsd !== null ? Number(payload.costUsd) : null,
+    })
   }
 }
 

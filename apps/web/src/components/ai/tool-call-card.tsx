@@ -957,10 +957,10 @@ export const ToolCallCard = React.memo(function ToolCallCard({
         )}
         {retryCount !== undefined && retryCount > 0 && (
           <span
-            aria-label={`工具瞬时失败后自动重试 ${retryCount} 次`}
+            aria-label={t('retryBadgeAria', { count: retryCount })}
             className="shrink-0 rounded-sm border border-border/50 bg-amber-500/10 px-1 py-0.5 text-[9px] text-amber-600"
           >
-            重试{retryCount}次
+            {t('retryBadge', { count: retryCount })}
           </span>
         )}
         {status === 'error' && errorType && (

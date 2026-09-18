@@ -53,6 +53,27 @@ export interface CheckpointRestoreResult {
   message: string
 }
 
+/** 影响预览中单个文件的变更信息 */
+export interface CheckpointImpactFile {
+  path: string
+  oldContent: string
+  newContent: string
+  added: number
+  deleted: number
+  contentTruncated?: boolean
+}
+
+/** GET /api/checkpoints/{checkpoint_id}/impact 响应(回退前影响预览) */
+export interface CheckpointImpactResult {
+  checkpoint_id: string
+  session_id: string
+  scope: CheckpointScope
+  restored_message_count: number
+  files: CheckpointImpactFile[]
+  total: number
+  truncated: boolean
+}
+
 /** 列出指定会话可回滚的 checkpoint */
 export async function listCheckpoints(sessionId: string): Promise<CheckpointListResult> {
   const r = await fetchApi<CheckpointListResult>(
@@ -77,6 +98,21 @@ export async function restoreCheckpoint(
     },
   )
   if (!r.success) throw new Error(r.error || '恢复 checkpoint 失败')
+  return r.data
+}
+
+/** 回退前的影响预览:影响文件清单 + 逐文件 diff 数据。
+ *  scope 决定统计范围(conversation=仅对话无文件变更;code/both=含文件回滚)。 */
+export async function getCheckpointImpact(
+  checkpointId: string,
+  sessionId: string,
+  scope: CheckpointScope = 'both',
+): Promise<CheckpointImpactResult> {
+  const r = await fetchApi<CheckpointImpactResult>(
+    `/api/checkpoints/${encodeURIComponent(checkpointId)}/impact` +
+      `?session_id=${encodeURIComponent(sessionId)}&scope=${encodeURIComponent(scope)}`,
+  )
+  if (!r.success) throw new Error(r.error || '加载影响预览失败')
   return r.data
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
