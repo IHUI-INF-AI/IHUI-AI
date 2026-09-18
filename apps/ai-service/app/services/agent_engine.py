@@ -75,6 +75,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from app.core.output_cleaning import strip_ansi as _strip_ansi
 from .session_store import SessionStore
 
 logger = logging.getLogger(__name__)
@@ -258,6 +259,23 @@ def _apply_sandbox(proc: Any) -> dict[str, Any]:
         return apply_job_sandbox(proc)
     except Exception as e:  # noqa: BLE001 - 沙箱绝不阻塞主流程
         return {"active": False, "reason": f"沙箱模块异常: {e}"}
+
+
+# 危险环境变量前缀(对标 Codex process-hardening:剥离 LD_PRELOAD/DYLD_* 等
+# 注入型变量,防子进程被环境劫持;Windows 生产为 no-op 但跨平台语义正确)
+_DANGEROUS_ENV_PREFIXES = ("LD_PRELOAD", "LD_AUDIT", "DYLD_")
+
+
+def _sanitized_child_env() -> dict[str, str]:
+    """子进程环境消毒:剔除注入型危险变量(第十一批,对标 process-hardening)。"""
+    env = dict(os.environ)
+    for key in [
+        k
+        for k in env
+        if any(k.upper().startswith(p) for p in _DANGEROUS_ENV_PREFIXES)
+    ]:
+        env.pop(key, None)
+    return env
 # 工作区文件监视(2026-09-18 第七批,对标 Codex file-watcher)
 _WATCH_INTERVAL = 2.0
 _WATCH_MAX_ENTRIES = 2000
@@ -3225,6 +3243,7 @@ class AgentEngine:
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.DEVNULL,
                         cwd=thread.workspace or os.getcwd(),
+                        env=_sanitized_child_env(),
                     )
                     # OS 级沙箱(2026-09-18 第八批,对标 execpolicy 内核层):
                     # kill-on-close + 内存/进程数上限 + UI 限制;失败降级不阻塞
@@ -3555,6 +3574,9 @@ class AgentEngine:
         }
 
         def _append_output(session: dict[str, Any], chunk: str) -> None:
+            # ANSI 清洗(第十一批,对标 Codex ansi-escape):剥离颜色/控制序列,
+            # 防止 cmd/PowerShell 输出污染模型上下文
+            chunk = _strip_ansi(chunk)
             buf = session["buffer"] + chunk
             if len(buf) > _EXEC_BUFFER_HEAD + _EXEC_BUFFER_TAIL:
                 dropped = len(buf) - _EXEC_BUFFER_HEAD - _EXEC_BUFFER_TAIL
@@ -3660,6 +3682,7 @@ class AgentEngine:
                     stderr=asyncio.subprocess.STDOUT,
                     stdin=asyncio.subprocess.PIPE,
                     cwd=resolved_cwd,
+                    env=_sanitized_child_env(),
                 )
                 # OS 级沙箱(第八批):交互 shell 同样收入 Job Object
                 sandbox = _apply_sandbox(proc)
