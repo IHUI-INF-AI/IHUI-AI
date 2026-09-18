@@ -91,7 +91,10 @@ function DetailsContent() {
       api<OrderResult>('/api/vip/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vipLevelId, paymentMethod: 'wechat_native' }),
+        body: JSON.stringify({
+          vipLevelId,
+          paymentMethod: method === 'alipay' ? 'alipay' : 'wechat_native',
+        }),
       }),
     onSuccess: (data) => {
       setOrder(data)

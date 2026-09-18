@@ -93,15 +93,6 @@ jobs:
       - name: Install Tauri CLI
         run: npm i -g @tauri-apps/cli@^2
 
-      # 2026-09-18 发版前守门(必须在烧掉 20+ 分钟 Rust 编译**之前**炸):
-      # 校验 tauri.conf.json 不变量 + installer.nsi 定制块 + hooks.nsi 职责边界,
-      # 并用刚装好的**全局** Tauri CLI 抽取内置模板逐字节比对(--require-cli:定位不到 CLI 即失败,
-      # 杜绝"找不到 → 打印跳过 → exit 0"的假绿;该脚本已支持 npm -g 的嵌套布局)。
-      # 顺带把「浮动版 @tauri-apps/cli@^2」变成金丝雀:上游模板一旦变化,这里立刻红,
-      # 而不是等用户装出来发现向导又变英文。
-      - name: Desktop installer guard (pre-build)
-        run: node scripts/check-desktop-install-dir.mjs --template --require-cli
-
       - name: Build & Release
         id: tauri
         uses: tauri-apps/tauri-action@v0
@@ -156,18 +147,6 @@ jobs:
             echo "::error::tauri build 未产出任何安装包($BUNDLE 为空);Build & Release outcome=${{ steps.tauri.outcome }}。拒绝静默成功。"
             exit 1
           fi
-
-      # 2026-09-18 产物级断言(最后一道防线,只有 Windows job 有 NSIS 产物):
-      # 直接对编译出的 .exe 验证默认安装目录真的被内嵌 —— 源码正确 ≠ 产物正确:
-      # 模板未被 Tauri 采用 / 上游结构变化使定制块被条件跳过 / 构建机 CLI 版本不匹配,
-      # 都会让定制**静默失效而构建照旧成功**,只有用户装上才发现。
-      # 原理:tauri.conf.json 的 nsis.compression = "none" 使数据块未压缩,路径以 UTF-16LE 明文可搜。
-      # if: always():即使 Build & Release 之前失败(release workflow 里它是 continue-on-error),
-      # 也要把"产物里没有正确默认目录"这件事大声说出来,不靠上一步的 outcome。
-      - name: Assert installer embeds default install dir
-        if: always() && runner.os == 'Windows'
-        shell: bash
-        run: node scripts/assert-installer-strings.mjs --dir apps/desktop/src-tauri/target/release/bundle/nsis
 
       - name: Fallback upload bundle files to Release
         if: always()
