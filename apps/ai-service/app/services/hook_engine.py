@@ -85,6 +85,10 @@ HOOK_EVENTS: tuple[str, ...] = (
     # 模型改道事件(llm_gateway auto 路由改道时发出,对标 Codex ModelReroute)
     "tool.retry",
     "model.reroute",
+    # 2026-09-18 第七批:压缩生命周期事件(_compact_thread 前后发出,对标
+    # Codex PreCompactHook/PostCompactHook;payload 含 trigger/strategy)
+    "context.pre_compact",
+    "context.post_compact",
 )
 
 HOOK_ACTION_TYPES: tuple[str, ...] = ("webhook", "script", "log", "notify")
