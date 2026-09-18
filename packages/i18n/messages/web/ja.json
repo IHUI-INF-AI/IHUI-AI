@@ -6853,7 +6853,20 @@
       "scopeLabel": "ロールバック範囲",
       "scopeConversation": "会話",
       "scopeCode": "コード",
-      "scopeBoth": "両方"
+      "scopeBoth": "両方",
+      "rollbackConfirmTitle": "このチェックポイントを復元しますか？",
+      "rollbackConfirmLoading": "影響範囲を計算中…",
+      "rollbackConfirmLoadFailed": "影響範囲の読み込みに失敗しました",
+      "rollbackConfirmDesc": "復元すると、次のファイルがチェックポイント時点の状態に戻ります：",
+      "rollbackConfirmAdded": "+{count} 行",
+      "rollbackConfirmDeleted": "-{count} 行",
+      "rollbackConfirmViewDiff": "diff を表示",
+      "rollbackConfirmHideDiff": "diff を隠す",
+      "rollbackConfirmContentTruncated": "内容が長すぎるため切断されました",
+      "rollbackConfirmMoreFiles": "ほか {count} 件のファイル",
+      "rollbackConfirmNoFiles": "ファイル変更なし（会話のみ復元、{count} 件のメッセージ）",
+      "rollbackConfirmCancel": "キャンセル",
+      "rollbackConfirmConfirm": "復元"
     },
     "pane": {
       "ariaLabel": "Agent タスク進行パネル",
@@ -7214,7 +7227,14 @@
       "messageUsage": {
         "total": "合計使用量",
         "ariaLabel": "メッセージ使用量詳細"
-      }
+      },
+      "retryBadge": "再試行{count}回",
+      "retryBadgeAria": "一時的な失敗後に{count}回自動再試行"
+    },
+    "tokenUsage": {
+      "promptTokens": "プロンプト",
+      "completionTokens": "補完",
+      "totalTokens": "合計"
     },
     "title": "AI アシスタント",
     "thinking": "AI 生成中…",
@@ -7222,7 +7242,20 @@
     "retry": "再試行",
     "emptyContent": "内容がありません。まず本文を入力してください",
     "seoScore": "SEO スコア",
-    "generateTitles": "タイトルを生成"
+    "generateTitles": "タイトルを生成",
+    "message": {
+      "metrics": {
+        "tokens": "tokens",
+        "firstToken": "初回 {s}",
+        "cost": "¥{cost}",
+        "detailTitle": "使用量の詳細",
+        "reasoningTokens": "推論トークン",
+        "firstTokenDetail": "最初のトークン",
+        "durationDetail": "合計時間",
+        "modelDetail": "モデル",
+        "costDetail": "コスト"
+      }
+    }
   },
   "aiCareerPage": {
     "export": {
@@ -8783,7 +8816,10 @@
         "truncatedNotice": "以下の内容は切り捨てられました",
         "archiveTitle": "アーカイブ済み会話",
         "viewArchived": "アーカイブを表示"
-      }
+      },
+      "dividerTitle": "これより前の履歴は要約に圧縮されました",
+      "dividerDescription": "コンテキストを {before} トークンから {after} トークンに圧縮しました。以前の会話は要約に折りたたまれています",
+      "dividerSaved": "{ratio}% 削減"
     },
     "contextCompacted": "コンテキストを自動圧縮しました",
     "contextCompactedDesc": "{before} → {after}({removed} 件の履歴を削除)",
@@ -8847,7 +8883,9 @@
       "shareFailed": "共有リンクの取得に失敗しました",
       "shareLinkCopied": "共有リンクをコピーしました",
       "roleUser": "ユーザー",
-      "roleAssistant": "アシスタント"
+      "roleAssistant": "アシスタント",
+      "exportCard": "画像カードを共有",
+      "shareCardUser": "ユーザー"
     },
     "fallbackNotice": "バックアップモデル {backup} に切り替えました(元モデル {primary} は一時的に利用不可)",
     "feedbackRecorded": "フィードバックを記録しました",
@@ -9134,10 +9172,13 @@
       "reasoningCopied": "推論をコピーしました",
       "reasoningCopyFailed": "コピーに失敗しました",
       "statusCompleted": "完了",
+      "statusFailed": "失敗",
       "statusInProgress": "進行中",
       "statusPending": "待機中",
+      "statusSkipped": "スキップ",
       "stepAnswer": "回答",
       "stepError": "失败",
+      "stepOf": "ステップ{index}:{step}",
       "stepThinking": "思考",
       "summaryAllDone": "すべて完了",
       "summaryErrorCount": "エラー {count}",
@@ -9326,6 +9367,12 @@
     "stepAnswer": "回答",
     "stepThinking": "思考",
     "stop": "を",
+    "steer": "今すぐ誘導(現在のツール完了後に反映)",
+    "steerFailed": "誘導に失敗しました(キュー満杯またはストリーム終了)。後でもう一度お試しください",
+    "steerNoticeBar": {
+      "title": "{count} 回誘導済み",
+      "moreItems": "他 {count} 件"
+    },
     "streamingIndicator": "AI が生成中",
     "streamingIndicatorHint": "AI が生成中です。次のメッセージを入力できます",
     "historyNavPosition": "入力履歴 {current}/{total}",
@@ -9574,7 +9621,10 @@
     "voiceHandsFreeOn": "連続会話オン（話して送信）",
     "voiceHandsFreeOff": "連続会話オフ",
     "voicePlayback": "再生",
-    "voiceHandsFree": "ハンズフリー"
+    "voiceHandsFree": "ハンズフリー",
+    "locator": {
+      "title": "会話ロケーター"
+    }
   },
   "chatHistory": {
     "backToHistory": "にる",
@@ -10330,6 +10380,7 @@
       "clientOpencode": "OpenCode",
       "clientGemini": "Gemini CLI",
       "clientGrok": "Grok CLI",
+      "clientCcSwitch": "CC Switch",
       "copy": "コピー",
       "copied": "コピーしました",
       "copyFailed": "コピーに失敗しました",
@@ -19402,7 +19453,6 @@
       "changePhoneFailed": "電話番号変更失敗、後で再試行してください",
       "changePhoneTitle": "電話番号変更",
       "codePlaceholder": "6桁の認証コードを入力",
-      "completionTokens": "補完",
       "confirmChange": "変更確認",
       "cropCancel": "キャンセル",
       "cropConfirm": "アップロード確認",
@@ -19437,13 +19487,11 @@
       "oldCodeSent": "旧電話番号認証コードを送信しました",
       "oldPhone": "現在の電話番号",
       "phoneChanged": "電話番号変更成功",
-      "promptTokens": "プロンプト",
       "resend": "{seconds}秒後に再試行",
       "routines": "ルーティン",
       "sendCodeFailed": "認証コード送信失敗、後で再試行してください",
       "sendNewCode": "新コード取得",
       "sendOldCode": "旧コード取得",
-      "totalTokens": "合計",
       "userId": "ユーザー ID",
       "voiceRecord": "音声録音",
       "title": "プロフィール"

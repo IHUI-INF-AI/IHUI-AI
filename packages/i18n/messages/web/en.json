@@ -6853,7 +6853,20 @@
       "scopeLabel": "Rollback scope",
       "scopeConversation": "Conversation",
       "scopeCode": "Code",
-      "scopeBoth": "Both"
+      "scopeBoth": "Both",
+      "rollbackConfirmTitle": "Restore this checkpoint?",
+      "rollbackConfirmLoading": "Computing impact…",
+      "rollbackConfirmLoadFailed": "Failed to load impact",
+      "rollbackConfirmDesc": "Restoring will revert these files to the checkpoint state:",
+      "rollbackConfirmAdded": "+{count} lines",
+      "rollbackConfirmDeleted": "-{count} lines",
+      "rollbackConfirmViewDiff": "View diff",
+      "rollbackConfirmHideDiff": "Hide diff",
+      "rollbackConfirmContentTruncated": "Content truncated",
+      "rollbackConfirmMoreFiles": "and {count} more files",
+      "rollbackConfirmNoFiles": "No file changes (conversation only, {count} messages)",
+      "rollbackConfirmCancel": "Cancel",
+      "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
       "ariaLabel": "Agent Task Progress Panel",
@@ -7212,7 +7225,14 @@
       "messageUsage": {
         "total": "Total usage",
         "ariaLabel": "Message usage details"
-      }
+      },
+      "retryBadge": "Retried {count}×",
+      "retryBadgeAria": "Auto-retried {count} time(s) after transient failure"
+    },
+    "tokenUsage": {
+      "promptTokens": "Prompt",
+      "completionTokens": "Completion",
+      "totalTokens": "Total"
     },
     "title": "AI Assistant",
     "thinking": "AI is generating…",
@@ -7220,7 +7240,20 @@
     "retry": "Retry",
     "emptyContent": "No content yet, please enter your text first",
     "seoScore": "SEO Score",
-    "generateTitles": "Generate titles"
+    "generateTitles": "Generate titles",
+    "message": {
+      "metrics": {
+        "tokens": "tokens",
+        "firstToken": "first {s}",
+        "cost": "¥{cost}",
+        "detailTitle": "Usage details",
+        "reasoningTokens": "Reasoning tokens",
+        "firstTokenDetail": "First token",
+        "durationDetail": "Duration",
+        "modelDetail": "Model",
+        "costDetail": "Cost"
+      }
+    }
   },
   "aiCareerPage": {
     "export": {
@@ -8775,7 +8808,10 @@
         "truncatedNotice": "The following content has been truncated",
         "archiveTitle": "Archived conversations",
         "viewArchived": "View archived"
-      }
+      },
+      "dividerTitle": "Earlier history compressed to summary",
+      "dividerDescription": "Context compressed from {before} to {after} tokens; earlier messages were folded into a summary",
+      "dividerSaved": "{ratio}% saved"
     },
     "contextCompacted": "Context auto-compacted",
     "contextCompactedDesc": "{before} → {after} ({removed} history entries removed)",
@@ -8839,7 +8875,9 @@
       "shareFailed": "Failed to get share link",
       "shareLinkCopied": "Share link copied",
       "roleUser": "User",
-      "roleAssistant": "Assistant"
+      "roleAssistant": "Assistant",
+      "exportCard": "Share as image card",
+      "shareCardUser": "User"
     },
     "fallbackNotice": "Switched to backup model {backup} (primary model {primary} temporarily unavailable)",
     "feedbackRecorded": "Feedback recorded",
@@ -9126,10 +9164,13 @@
       "reasoningCopied": "Reasoning copied",
       "reasoningCopyFailed": "Copy failed",
       "statusCompleted": "Completed",
+      "statusFailed": "Failed",
       "statusInProgress": "In progress",
       "statusPending": "Pending",
+      "statusSkipped": "Skipped",
       "stepAnswer": "Answer",
       "stepError": "Failed",
+      "stepOf": "Step {index}: {step}",
       "stepThinking": "Thinking",
       "summaryAllDone": "All completed",
       "summaryErrorCount": "Error {count}",
@@ -9318,6 +9359,12 @@
     "stepAnswer": "Answer",
     "stepThinking": "Thinking",
     "stop": "Stop generating",
+    "steer": "Steer now (applies after current tool finishes)",
+    "steerFailed": "Steering failed (queue full or stream ended), please try again later",
+    "steerNoticeBar": {
+      "title": "Steered {count} times",
+      "moreItems": "{count} more"
+    },
     "streamingIndicator": "AI is generating",
     "streamingIndicatorHint": "AI is generating, you can type the next message",
     "historyNavPosition": "Input history {current}/{total}",
@@ -9566,7 +9613,10 @@
     "voiceHandsFreeOn": "Hands-free on (speak to send)",
     "voiceHandsFreeOff": "Hands-free off",
     "voicePlayback": "Playback",
-    "voiceHandsFree": "Hands-free"
+    "voiceHandsFree": "Hands-free",
+    "locator": {
+      "title": "Conversation locator"
+    }
   },
   "chatHistory": {
     "backToHistory": "Back to History",
@@ -10322,6 +10372,7 @@
       "clientOpencode": "OpenCode",
       "clientGemini": "Gemini CLI",
       "clientGrok": "Grok CLI",
+      "clientCcSwitch": "CC Switch",
       "copy": "Copy",
       "copied": "Copied",
       "copyFailed": "Copy failed",
@@ -19394,7 +19445,6 @@
       "changePhoneFailed": "Failed to change phone number, please try again later",
       "changePhoneTitle": "Change Phone Number",
       "codePlaceholder": "Enter 6-digit code",
-      "completionTokens": "Completion",
       "confirmChange": "Confirm Change",
       "cropCancel": "Cancel",
       "cropConfirm": "Upload",
@@ -19429,13 +19479,11 @@
       "oldCodeSent": "Old phone code sent",
       "oldPhone": "Current Phone",
       "phoneChanged": "Phone number changed successfully",
-      "promptTokens": "Prompt",
       "resend": "Retry in {seconds}s",
       "routines": "Routines",
       "sendCodeFailed": "Failed to send code, please try again later",
       "sendNewCode": "Get New Code",
       "sendOldCode": "Get Old Code",
-      "totalTokens": "Total",
       "userId": "User ID",
       "voiceRecord": "Voice Recording",
       "title": "User Profile"
