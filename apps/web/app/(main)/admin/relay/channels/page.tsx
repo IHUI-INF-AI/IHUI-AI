@@ -23,6 +23,7 @@ import {
   Power,
 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
+import { useRelayOpsWs } from '@/hooks/use-relay-ops-ws'
 import {
   Card,
   CardHeader,
@@ -111,6 +112,7 @@ const EMPTY_FORM = { name: '', description: '', strategy: 'weight' as Strategy, 
 
 export default function AdminRelayChannelsPage() {
   const qc = useQueryClient()
+  const { realtimeConnected, snapshot } = useRelayOpsWs()
   const [expanded, setExpanded] = React.useState<string | null>(null)
   const [createOpen, setCreateOpen] = React.useState(false)
   const [form, setForm] = React.useState(EMPTY_FORM)
@@ -144,8 +146,18 @@ export default function AdminRelayChannelsPage() {
       )
       return { groups, stats: statsRes }
     },
-    refetchInterval: 30_000,
+    refetchInterval: realtimeConnected ? false : 30_000,
   })
+
+  // #58 WS 实时化:服务端 15s 推快照,形状与 REST 一致,直接热替换缓存;
+  // WS 断连时回落上方 30s 轮询(realtimeConnected=false)。
+  React.useEffect(() => {
+    if (!snapshot) return
+    qc.setQueryData(['admin', 'relay', 'channels'], {
+      groups: snapshot.channels.groups,
+      stats: snapshot.channels.stats,
+    })
+  }, [qc, snapshot])
 
   const groups = data?.groups ?? []
   const stats = data?.stats ?? []

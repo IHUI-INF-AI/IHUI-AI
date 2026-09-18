@@ -2083,59 +2083,73 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "stub": accumulated.get("stub", False),
                             }
                         else:
-                            # ===== 后续轮次:保持非流式 complete() =====
-                            complete_result = await llm_gateway.complete(
+                            # ===== 后续轮次:统一流式(W7 #10 修复,2026-09-18)=====
+                            # 原实现:非流式 complete() + 8 字符/块打字机模拟 + reasoning 整段补发。
+                            # 现在与第一轮同构走 astream:content/reasoning 逐 token 真流式,
+                            # tool_calls 仍在流末由 llm_gateway._accumulate_tool_calls 统一产出。
+                            _round_tool_calls: list[dict[str, Any]] = []
+                            _round_content_parts: list[str] = []
+                            complete_result = {
+                                "model": req.model,
+                                "usage": {},
+                                "stub": False,
+                            }
+                            async for evt in llm_gateway.astream(
                                 messages, model=req.model, owner_uuid=owner_uuid,
                                 tools=openai_tools, tool_choice="auto",
-                            )
-                            # complete() 错误检查
-                            if complete_result.get("error"):
-                                err_evt = {
-                                    "type": "error",
-                                    "message": complete_result.get("error_message", "LLM 调用失败"),
-                                    "errorCode": complete_result.get("errorCode", "LLM_ERROR"),
-                                }
-                                yield _sse(SSE_ERROR, err_evt)
-                                return
-
-                            # 2026-08-07 修复:complete() 是非流式,LLM 一次性返回完整 reasoning_content
-                            # 但不 emit reasoning SSE 事件,导致 tool loop 阶段前端 m.reasoning 永远为空,
-                            # 思考过程区只显示一个加载点(ThinkingSection 收到空 content + isStreaming=true)。
-                            # 修复:在 tool_calls_raw 处理之前,先把 complete() 返回的 reasoning 增量 emit 出去,
-                            # 累加到 accumulated 并推送到前端,与 astream() 行为对齐。
-                            _reasoning_content = complete_result.get("reasoning") or ""
-                            if _reasoning_content:
-                                accumulated["reasoning"] += _reasoning_content
-                                _reasoning_evt = {"type": "reasoning", "content": _reasoning_content}
-                                yield _sse(SSE_REASONING, _reasoning_evt)
-
-                            tool_calls_raw = complete_result.get("tool_calls") or []
-
-                            # 无 tool_calls:LLM 不再需要工具
-                            if not tool_calls_raw:
-                                # 2026-08-29 修复:原 1186 行 break 改为拆块流式兜底 ——
-                                # 之前这里 break 后走归一化 + astream(多一次 LLM 往返),
-                                # 且 complete() 一次性返回的 content 未经流式,前端仍可能收到单块大内容。
-                                # 现在按 8 字符/块拆出打字机效果,且不再进入归一化 + astream。
-                                content = complete_result.get("content", "") or ""
-                                clean_text, questions = question_parser.feed(content)
-                                for q in questions:
-                                    q_event = {"type": "question", "question": q.to_dict()}
-                                    yield _sse(SSE_QUESTION, q_event)
-                                if clean_text:
-                                    for i in range(0, len(clean_text), 8):
-                                        seg = clean_text[i:i + 8]
-                                        accumulated["content"] += seg
-                                        chunk_event = {"type": "chunk", "content": seg}
+                            ):
+                                _evt_type = evt.get("type", "")
+                                if _evt_type == "chunk":
+                                    clean_text, questions = question_parser.feed(evt.get("content", ""))
+                                    for q in questions:
+                                        q_event = {"type": "question", "question": q.to_dict()}
+                                        yield _sse(SSE_QUESTION, q_event)
+                                    if clean_text:
+                                        accumulated["content"] += clean_text
+                                        _round_content_parts.append(clean_text)
+                                        chunk_event = {"type": "chunk", "content": clean_text}
                                         yield _sse(SSE_CHUNK, chunk_event)
-                                leftover, leftover_qs = question_parser.flush()
-                                if leftover:
-                                    chunk_event = {"type": "chunk", "content": leftover}
-                                    accumulated["content"] += leftover
-                                    yield _sse(SSE_CHUNK, chunk_event)
-                                for q in leftover_qs:
-                                    q_event = {"type": "question", "question": q.to_dict()}
-                                    yield _sse(SSE_QUESTION, q_event)
+                                elif _evt_type == "reasoning":
+                                    # 思考过程逐 token 透传(与第一轮一致)
+                                    _reasoning_token = evt.get("content", "")
+                                    accumulated["reasoning"] += _reasoning_token
+                                    _reasoning_evt = {"type": "reasoning", "content": _reasoning_token}
+                                    yield _sse(SSE_REASONING, _reasoning_evt)
+                                elif _evt_type == "tool_calls":
+                                    # astream 统一在流结束前 yield 累积后的完整 tool_calls
+                                    _round_tool_calls = evt.get("tool_calls") or []
+                                elif _evt_type == "done":
+                                    # 记录 model/usage/stub(与第一轮一致)
+                                    complete_result = {
+                                        "model": evt.get("model", req.model),
+                                        "usage": evt.get("usage"),
+                                        "stub": evt.get("stub", False),
+                                    }
+                                elif _evt_type == "error":
+                                    # 流式错误(与第一轮一致)
+                                    err_evt = {
+                                        "type": "error",
+                                        "message": evt.get("message", "LLM 调用失败"),
+                                        "errorCode": evt.get("errorCode", "LLM_ERROR"),
+                                    }
+                                    yield _sse(SSE_ERROR, err_evt)
+                                    return
+                            # 流结束:flush 提问解析器残留(与第一轮一致)
+                            leftover, leftover_qs = question_parser.flush()
+                            if leftover:
+                                accumulated["content"] += leftover
+                                _round_content_parts.append(leftover)
+                                chunk_event = {"type": "chunk", "content": leftover}
+                                yield _sse(SSE_CHUNK, chunk_event)
+                            for q in leftover_qs:
+                                q_event = {"type": "question", "question": q.to_dict()}
+                                yield _sse(SSE_QUESTION, q_event)
+
+                            tool_calls_raw = _round_tool_calls
+
+                            # 无 tool_calls:LLM 不再需要工具(W7 #10:content 已逐 token
+                            # 流式输出,删除原 8 字符/块打字机模拟;仅保留空回复兜底)
+                            if not tool_calls_raw:
                                 if not accumulated["content"]:
                                     # 2026-08-06 修复:空回复兜底(step_plan 等模型可能返回空 content,
                                     # 不能给用户一条空消息)
@@ -2192,9 +2206,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 return
 
                             # 有 tool_calls:执行工具 + 回灌结果(下方的代码会继续处理)
+                            # (W7 #10:content 取本轮流式产出,不能回灌整个 accumulated——
+                            #  否则会把前几轮 content 重复并入对话上下文)
                             messages.append({
                                 "role": "assistant",
-                                "content": complete_result.get("content", "") or "",
+                                "content": "".join(_round_content_parts),
                                 "tool_calls": tool_calls_raw,
                             })
 

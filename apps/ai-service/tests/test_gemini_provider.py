@@ -60,6 +60,24 @@ def test_init_custom_api_base():
     assert p.base_url == "https://gateway.example.com"
 
 
+def test_init_strips_openai_compat_base_suffix():
+    """api_base 为 OpenAI 兼容端点时剥掉兼容层后缀(2026-09-18 404 根治锁定)。
+
+    .env 实配 api_base=https://generativelanguage.googleapis.com/v1beta/openai
+    (LiteLLM 路径需要);原生适配器自己拼 /v1beta/models/...,不剥后缀会拼出
+    /v1beta/openai/v1beta/models/... → 404(空响应体)。
+    """
+    p1 = GeminiProvider(
+        api_key="k", api_base="https://generativelanguage.googleapis.com/v1beta/openai"
+    )
+    assert p1.base_url == "https://generativelanguage.googleapis.com"
+    p2 = GeminiProvider(api_key="k", api_base="https://proxy.example.com/openai")
+    assert p2.base_url == "https://proxy.example.com"
+    # 原生形态 base 不受影响
+    p3 = GeminiProvider(api_key="k", api_base="https://generativelanguage.googleapis.com")
+    assert p3.base_url == "https://generativelanguage.googleapis.com"
+
+
 def test_init_timeout_default_60():
     """timeout 默认 60.0。"""
     p = GeminiProvider(api_key="k")
