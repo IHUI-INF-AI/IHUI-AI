@@ -819,6 +819,14 @@ export function createSendMessage(
           }
           useChatStore.getState().appendMessageTerminalTask(evt.messageId, task)
         },
+        // 2026-09-18 立(对标 Codex/Trae 的 bash 实时回显):终端命令执行期间后端逐块下发
+        // terminal_delta(4 行/批),此处累加到 store.terminalOutputs(terminalId 为键),
+        // 由终端实时面板边执行边滚动渲染。刻意不要求 messageId(事件只保证 terminalId),
+        // 缺失时按 terminalId 关联即可;缓冲上限由 store 侧裁剪(20000 字符/键)。
+        onTerminalDelta: (evt) => {
+          if (!evt.terminalId || !evt.text) return
+          useChatStore.getState().appendTerminalOutput(evt.terminalId, evt.text)
+        },
         onTerminalEnd: (evt) => {
           if (!evt.messageId) return
           useChatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {

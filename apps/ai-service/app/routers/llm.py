@@ -39,11 +39,35 @@ from ..core.provider_caps import (
     get_provider_cap,
 )
 from ..core.question_parser import QuestionStreamParser
+from ..services.agent_events import (
+    SSE_CHUNK,
+    SSE_CONTENT_BLOCK_DELTA,
+    SSE_CONTENT_BLOCK_START,
+    SSE_CONTENT_BLOCK_STOP,
+    SSE_DONE,
+    SSE_ERROR,
+    SSE_MESSAGE_DELTA,
+    SSE_MESSAGE_START,
+    SSE_MESSAGE_STOP,
+    SSE_QUESTION,
+    SSE_REASONING,
+    SSE_SUBAGENT_END,
+    SSE_SUBAGENT_PROGRESS,
+    SSE_SUBAGENT_SPAWN,
+    SSE_TERMINAL_END,
+    SSE_TERMINAL_DELTA,
+    SSE_TERMINAL_START,
+    SSE_TOOL_CALL_START,
+    SSE_TOOL_DELEGATE,
+    SSE_TOOL_RESULT,
+)
 from ..services.context_recall import context_recall
 from ..services.mcp_server import (
     _tool_dispatch_subagent,
     _tool_vision_analyze,
     get_registered_tool_names,
+    reset_terminal_stream_context,
+    set_terminal_stream_context,
 )
 from ..services.project_memory import build_system_prompt
 from ..services.user_quota import user_trial_quota
@@ -163,6 +187,11 @@ def _format_plan_updated_event(
     return f"event: plan_updated\ndata: {json.dumps(_evt, ensure_ascii=False)}\n\n"
 
 
+def _sse(evt: str, payload: Any) -> str:
+    """SSE 帧构造(事件契约 agent_events.SSE_* 单一事实源)。"""
+    return f"event: {evt}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
 def _format_terminal_end_event(
     terminal_id: str,
     exec_result: Any,
@@ -209,7 +238,7 @@ def _format_terminal_end_event(
         _evt["exitCode"] = _exit_code
     if message_id:
         _evt["messageId"] = message_id
-    return f"event: terminal_end\ndata: {json.dumps(_evt, ensure_ascii=False)}\n\n"
+    return _sse(SSE_TERMINAL_END, _evt)
 
 
 def _wrap_ok(data: Any, message: str = "ok") -> dict[str, Any]:
@@ -1922,17 +1951,17 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     clean_text, questions = question_parser.feed(evt.get("content", ""))
                                     for q in questions:
                                         q_event = {"type": "question", "question": q.to_dict()}
-                                        yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                                        yield _sse(SSE_QUESTION, q_event)
                                     if clean_text:
                                         accumulated["content"] += clean_text
                                         chunk_event = {"type": "chunk", "content": clean_text}
-                                        yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                                        yield _sse(SSE_CHUNK, chunk_event)
                                 elif _evt_type == "reasoning":
                                     # 思考过程逐 token 透传(与 1129-1130 行格式一致)
                                     _reasoning_token = evt.get("content", "")
                                     accumulated["reasoning"] += _reasoning_token
                                     _reasoning_evt = {"type": "reasoning", "content": _reasoning_token}
-                                    yield f"event: reasoning\ndata: {json.dumps(_reasoning_evt, ensure_ascii=False)}\n\n"
+                                    yield _sse(SSE_REASONING, _reasoning_evt)
                                 elif _evt_type == "tool_calls":
                                     # astream 统一在流结束前 yield 累积后的完整 tool_calls
                                     first_round_tool_calls = evt.get("tool_calls") or []
@@ -1948,17 +1977,17 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "message": evt.get("message", "LLM 调用失败"),
                                         "errorCode": evt.get("errorCode", "LLM_ERROR"),
                                     }
-                                    yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
+                                    yield _sse(SSE_ERROR, err_evt)
                                     return
                             # 流结束:flush 提问解析器残留(与 1154-1161 行一致)
                             leftover, leftover_qs = question_parser.flush()
                             if leftover:
                                 chunk_event = {"type": "chunk", "content": leftover}
                                 accumulated["content"] += leftover
-                                yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_CHUNK, chunk_event)
                             for q in leftover_qs:
                                 q_event = {"type": "question", "question": q.to_dict()}
-                                yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_QUESTION, q_event)
 
                             tool_calls_raw = first_round_tool_calls
                             if not tool_calls_raw:
@@ -1969,7 +1998,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     _fallback = "抱歉,未能生成有效回复,请换个说法重试一下。"
                                     accumulated["content"] = _fallback
                                     _fallback_evt = {"type": "chunk", "content": _fallback}
-                                    yield f"event: chunk\ndata: {json.dumps(_fallback_evt, ensure_ascii=False)}\n\n"
+                                    yield _sse(SSE_CHUNK, _fallback_evt)
                                 # P1 #27(2026-09-16 立):done 前同步提炼本轮长期记忆,
                                 # 条目经 done.memoryUpdates 回传,前端渲染「已记住」提示条。
                                 # 超时/异常双降级为空数组,不阻塞 done 下发。
@@ -2002,7 +2031,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 _ts_str = _format_tool_summary_event(tool_calls_history)
                                 if _ts_str:
                                     yield _ts_str
-                                yield f"event: done\ndata: {json.dumps(done_event, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_DONE, done_event)
                                 has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
                                 if has_association and not accumulated.get("error") and not await request.is_disconnected():
                                     url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
@@ -2037,7 +2066,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "message": complete_result.get("error_message", "LLM 调用失败"),
                                     "errorCode": complete_result.get("errorCode", "LLM_ERROR"),
                                 }
-                                yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_ERROR, err_evt)
                                 return
 
                             # 2026-08-07 修复:complete() 是非流式,LLM 一次性返回完整 reasoning_content
@@ -2049,7 +2078,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             if _reasoning_content:
                                 accumulated["reasoning"] += _reasoning_content
                                 _reasoning_evt = {"type": "reasoning", "content": _reasoning_content}
-                                yield f"event: reasoning\ndata: {json.dumps(_reasoning_evt, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_REASONING, _reasoning_evt)
 
                             tool_calls_raw = complete_result.get("tool_calls") or []
 
@@ -2063,21 +2092,21 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 clean_text, questions = question_parser.feed(content)
                                 for q in questions:
                                     q_event = {"type": "question", "question": q.to_dict()}
-                                    yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                                    yield _sse(SSE_QUESTION, q_event)
                                 if clean_text:
                                     for i in range(0, len(clean_text), 8):
                                         seg = clean_text[i:i + 8]
                                         accumulated["content"] += seg
                                         chunk_event = {"type": "chunk", "content": seg}
-                                        yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                                        yield _sse(SSE_CHUNK, chunk_event)
                                 leftover, leftover_qs = question_parser.flush()
                                 if leftover:
                                     chunk_event = {"type": "chunk", "content": leftover}
                                     accumulated["content"] += leftover
-                                    yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                                    yield _sse(SSE_CHUNK, chunk_event)
                                 for q in leftover_qs:
                                     q_event = {"type": "question", "question": q.to_dict()}
-                                    yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                                    yield _sse(SSE_QUESTION, q_event)
                                 if not accumulated["content"]:
                                     # 2026-08-06 修复:空回复兜底(step_plan 等模型可能返回空 content,
                                     # 不能给用户一条空消息)
@@ -2089,7 +2118,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         _fallback = "抱歉,未能生成有效回复,请换个说法重试一下。"
                                         accumulated["content"] = _fallback
                                         _fallback_evt = {"type": "chunk", "content": _fallback}
-                                        yield f"event: chunk\ndata: {json.dumps(_fallback_evt, ensure_ascii=False)}\n\n"
+                                        yield _sse(SSE_CHUNK, _fallback_evt)
                                 accumulated["model"] = complete_result.get("model", req.model)
                                 accumulated["usage"] = complete_result.get("usage", {})
                                 accumulated["stub"] = complete_result.get("stub", False)
@@ -2124,7 +2153,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 _ts_str = _format_tool_summary_event(tool_calls_history)
                                 if _ts_str:
                                     yield _ts_str
-                                yield f"event: done\ndata: {json.dumps(done_event, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_DONE, done_event)
                                 has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
                                 if has_association and not accumulated.get("error") and not await request.is_disconnected():
                                     url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
@@ -2168,7 +2197,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "serverId": _sid,
                                 "serverName": _sname,
                             }
-                            yield f"event: tool-call-start\ndata: {json.dumps(tc_start, ensure_ascii=False)}\n\n"
+                            yield _sse(SSE_TOOL_CALL_START, tc_start)
                             # 记录到 tool_calls_history(tool-summary 聚合统计用)
                             tool_calls_history.append({
                                 "toolCallId": tc.get("id", ""),
@@ -2200,7 +2229,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 }
                                 if message_id:
                                     _term_start_evt["messageId"] = message_id
-                                yield f"event: terminal_start\ndata: {json.dumps(_term_start_evt, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_TERMINAL_START, _term_start_evt)
 
                             # W1(2026-09-12 立)plan_updated 权威快照(本轮工具开始执行 → in_progress)。
                             # 前端 onPlanUpdate → chatStore.setMessagePlanSteps → PlanStepsCard 实时更新。
@@ -2235,7 +2264,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "task": _sa_task["task"],
                                         "timestamp": _spawn_now,
                                     }
-                                    yield f"event: subagent_spawn\ndata: {json.dumps(_spawn_evt, ensure_ascii=False)}\n\n"
+                                    yield _sse(SSE_SUBAGENT_SPAWN, _spawn_evt)
 
                             # 重复调用检测(2026-07-24 立,修复 stepfun/step-router-v1 在 tool loop 中重复调用
                             # search_codebase(query="config") 8 次耗尽 max_iterations 的问题):
@@ -2271,7 +2300,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "serverId": _r_sid,
                                     "serverName": _r_sname,
                                 }
-                                yield f"event: tool-result\ndata: {json.dumps(tc_result_evt, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_TOOL_RESULT, tc_result_evt)
                                 # 更新 tool_calls_history 中对应记录(去重分支:durationMs≈0)
                                 _hist_idx = len(tool_calls_history) - 1
                                 if _hist_idx >= 0 and tool_calls_history[_hist_idx].get("toolCallId") == tc.get("id", ""):
@@ -2338,7 +2367,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 _ev = asyncio.Event()
                                 _delegate_sessions.setdefault(session_id, {})["pending_" + tool_call_id] = _ev
                                 # 发送 tool-delegate SSE 事件
-                                yield f"event: tool-delegate\ndata: {json.dumps(delegate_event_obj, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_TOOL_DELEGATE, delegate_event_obj)
                                 # 等待前端回传结果(超时 60 秒)
                                 try:
                                     await asyncio.wait_for(_ev.wait(), timeout=_DELEGATE_TIMEOUT)
@@ -2367,7 +2396,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "serverId": _r_sid,
                                         "serverName": _r_sname,
                                     }
-                                    yield f"event: tool-result\ndata: {json.dumps(tc_result_evt, ensure_ascii=False)}\n\n"
+                                    yield _sse(SSE_TOOL_RESULT, tc_result_evt)
                                     _hist_idx = len(tool_calls_history) - 1
                                     if _hist_idx >= 0 and tool_calls_history[_hist_idx].get("toolCallId") == tool_call_id:
                                         tool_calls_history[_hist_idx].update({
@@ -2439,7 +2468,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "serverId": _r_sid,
                                     "serverName": _r_sname,
                                 }
-                                yield f"event: tool-result\ndata: {json.dumps(tc_result_evt, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_TOOL_RESULT, tc_result_evt)
                                 # 更新 tool_calls_history
                                 _hist_idx = len(tool_calls_history) - 1
                                 if _hist_idx >= 0 and tool_calls_history[_hist_idx].get("toolCallId") == tool_call_id:
@@ -2523,14 +2552,14 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         try:
                                             _pevt = await asyncio.wait_for(_progress_queue.get(), timeout=0.05)
                                             if _pevt:
-                                                yield f"event: subagent_progress\ndata: {json.dumps(_pevt, ensure_ascii=False)}\n\n"
+                                                yield _sse(SSE_SUBAGENT_PROGRESS, _pevt)
                                         except TimeoutError:
                                             continue
                                     # 排水剩余事件
                                     while not _progress_queue.empty():
                                         _pevt = _progress_queue.get_nowait()
                                         if _pevt:
-                                            yield f"event: subagent_progress\ndata: {json.dumps(_pevt, ensure_ascii=False)}\n\n"
+                                            yield _sse(SSE_SUBAGENT_PROGRESS, _pevt)
                                     exec_result = await _dispatch_task
                                 except Exception as e:
                                     logger.exception("dispatch_subagent execution exception")
@@ -2543,20 +2572,61 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     }
                             else:
                                 try:
-                                    exec_result = await _mcp.call_tool(
-                                        tool_name, args,
-                                        user_id=owner_uuid,
-                                        # 2026-08-06 修复:传真实用户角色,否则 admin 调 run_command 等被 PERMISSION_DENIED
-                                        user_role=user_role,
-                                        # P3 #31(2026-09-16 立):传 web 会话 id,媒体任务落库 media_tasks.chat_id,
-                                        # 全局任务看板"点击跳对话"深链(/chat?conversationId=)依赖此值;
-                                        # 历史上该参数未传 → chat_id 落空串,旧任务前端降级为不可跳转。
-                                        session_id=(
-                                            req.metadata.get("conversationId")
-                                            if isinstance(req.metadata, dict)
-                                            else None
-                                        ),
-                                    )
+                                    # 终端类工具:启用进程内 delta 直投,实时下发 terminal_delta 帧。
+                                    # 注入 contextvar(push=Queue.put_nowait),工具执行期间同步回调把增量
+                                    # 帧塞入队列;主生成器边等任务边排水转发,不阻塞工具执行、不改 SSE 顺序。
+                                    _term_token = None
+                                    if _is_terminal_tool and _terminal_id:
+                                        _delta_queue = asyncio.Queue()
+                                        _term_token = set_terminal_stream_context(
+                                            session_id=session_id or "",
+                                            iteration=_tool_iter + 1,
+                                            tool_call_id=_terminal_id,
+                                            push=_delta_queue.put_nowait,
+                                        )
+                                    if _term_token is not None:
+                                        try:
+                                            _call_task = asyncio.ensure_future(
+                                                _mcp.call_tool(
+                                                    tool_name, args,
+                                                    user_id=owner_uuid,
+                                                    user_role=user_role,
+                                                    session_id=(
+                                                        req.metadata.get("conversationId")
+                                                        if isinstance(req.metadata, dict)
+                                                        else None
+                                                    ),
+                                                )
+                                            )
+                                            # 等待期间实时排水 delta 帧(超时探测,不阻塞工具主链路)
+                                            while not _call_task.done():
+                                                try:
+                                                    await asyncio.wait_for(_delta_queue.get(), timeout=0.15)
+                                                except TimeoutError:
+                                                    continue
+                                                while not _delta_queue.empty():
+                                                    _d = _delta_queue.get_nowait()
+                                                    if _d and _d.get("text"):
+                                                        yield _sse(SSE_TERMINAL_DELTA, _d)
+                                            # 任务结束后排空残余 delta 帧
+                                            while not _delta_queue.empty():
+                                                _d = _delta_queue.get_nowait()
+                                                if _d and _d.get("text"):
+                                                    yield _sse(SSE_TERMINAL_DELTA, _d)
+                                            exec_result = _call_task.result()
+                                        finally:
+                                            reset_terminal_stream_context(_term_token)
+                                    else:
+                                        exec_result = await _mcp.call_tool(
+                                            tool_name, args,
+                                            user_id=owner_uuid,
+                                            user_role=user_role,
+                                            session_id=(
+                                                req.metadata.get("conversationId")
+                                                if isinstance(req.metadata, dict)
+                                                else None
+                                            ),
+                                        )
                                 except Exception as e:
                                     logger.exception("Tool execution exception: %s", tool_name)
                                     exec_result = {
@@ -2595,7 +2665,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     _mv = exec_result.get(_mf)
                                     if isinstance(_mv, str) and _mv and not _mv.startswith("data:"):
                                         tc_result_evt[_mf] = _mv
-                            yield f"event: tool-result\ndata: {json.dumps(tc_result_evt, ensure_ascii=False)}\n\n"
+                            yield _sse(SSE_TOOL_RESULT, tc_result_evt)
                             # 更新 tool_calls_history 中对应记录(正常分支:含真实 durationMs)
                             _hist_idx = len(tool_calls_history) - 1
                             if _hist_idx >= 0 and tool_calls_history[_hist_idx].get("toolCallId") == tc.get("id", ""):
@@ -2641,7 +2711,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     }
                                     if _sa_error_msg:
                                         _end_evt["failureReason"] = str(_sa_error_msg)[:500]
-                                    yield f"event: subagent_end\ndata: {json.dumps(_end_evt, ensure_ascii=False)}\n\n"
+                                    yield _sse(SSE_SUBAGENT_END, _end_evt)
 
                             # 回灌工具结果(失败时显式标注,防止 LLM 幻觉"已完成")
                             result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
@@ -2694,19 +2764,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             clean_text, questions = question_parser.feed(fail_text)
                             for q in questions:
                                 q_event = {"type": "question", "question": q.to_dict()}
-                                yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_QUESTION, q_event)
                             if clean_text:
                                 chunk_event = {"type": "chunk", "content": clean_text}
                                 accumulated["content"] += clean_text
-                                yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_CHUNK, chunk_event)
                             leftover, leftover_qs = question_parser.flush()
                             if leftover:
                                 chunk_event = {"type": "chunk", "content": leftover}
                                 accumulated["content"] += leftover
-                                yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_CHUNK, chunk_event)
                             for q in leftover_qs:
                                 q_event = {"type": "question", "question": q.to_dict()}
-                                yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                                yield _sse(SSE_QUESTION, q_event)
                             accumulated["model"] = complete_result.get("model", req.model)
                             accumulated["usage"] = complete_result.get("usage", {})
                             # P1 #27(2026-09-16 立):done 前同步提炼本轮长期记忆
@@ -2740,7 +2810,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             _ts_str = _format_tool_summary_event(tool_calls_history)
                             if _ts_str:
                                 yield _ts_str
-                            yield f"event: done\ndata: {json.dumps(done_event, ensure_ascii=False)}\n\n"
+                            yield _sse(SSE_DONE, done_event)
                             has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
                             if has_association and not accumulated.get("error") and not await request.is_disconnected():
                                 url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
@@ -2816,10 +2886,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # 先推送可能存在的提问事件(在 chunk 之前,让 UI 提前弹窗)
                     for q in questions:
                         q_event = {"type": "question", "question": q.to_dict()}
-                        yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                        yield _sse(SSE_QUESTION, q_event)
                     # 仅当有纯文本时才推送 chunk(避免空 chunk)
                     if clean_text:
-                        yield f"event: {event_type}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+                        yield _sse(event_type, event)
                     continue
                 elif event_type == "reasoning":
                     accumulated["reasoning"] += event.get("content", "")
@@ -2850,7 +2920,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             "toolName": _fn.get("name") or "",
                             "args": _args,
                         }
-                        yield f"event: tool-call-start\ndata: {json.dumps(_tc_start, ensure_ascii=False)}\n\n"
+                        yield _sse(SSE_TOOL_CALL_START, _tc_start)
                     continue
                 elif event_type == "done":
                     # 流结束前 flush 解析器残留(不完整标记作为普通文本输出,不吞内容)
@@ -2859,10 +2929,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         # 残留文本作为最后一个 chunk 推送
                         chunk_event = {"type": "chunk", "content": leftover}
                         accumulated["content"] += leftover
-                        yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                        yield _sse(SSE_CHUNK, chunk_event)
                     for q in leftover_qs:
                         q_event = {"type": "question", "question": q.to_dict()}
-                        yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                        yield _sse(SSE_QUESTION, q_event)
                     accumulated["model"] = event.get("model", req.model)
                     accumulated["usage"] = event.get("usage")
                     # P3 3-4-A(2026-09-17 拍板):per-user 试用额度计量(done usage 到达即累加,
@@ -2900,8 +2970,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             _fallback = "抱歉,未能生成有效回复。请换个说法重试一下。"
                             accumulated["content"] = _fallback
                             _fallback_evt = {"type": "chunk", "content": _fallback}
-                            yield f"event: chunk\ndata: {json.dumps(_fallback_evt, ensure_ascii=False)}\n\n"
-                yield f"event: {event_type}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+                            yield _sse(SSE_CHUNK, _fallback_evt)
+                yield _sse(event_type, event)
         except asyncio.CancelledError:
             logger.info("SSE generator cancelled by client disconnect")
             raise
@@ -2919,7 +2989,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 "stream gen error: model=%s code=%s msg=%s",
                 req.model, err_code, err_msg,
             )
-            yield f"event: error\ndata: {json.dumps(err, ensure_ascii=False)}\n\n"
+            yield _sse(SSE_ERROR, err)
             return
         finally:
             # 阶段 2:清理委托 session
@@ -3219,7 +3289,7 @@ def _anthropic_streaming_response(
                 "usage": {"input_tokens": 0, "output_tokens": 0},
             },
         }
-        yield f"event: message_start\ndata: {json.dumps(msg_start, ensure_ascii=False)}\n\n"
+        yield _sse(SSE_MESSAGE_START, msg_start)
 
         # 2. content_block_start
         block_start = {
@@ -3227,7 +3297,7 @@ def _anthropic_streaming_response(
             "index": 0,
             "content_block": {"type": "text", "text": ""},
         }
-        yield f"event: content_block_start\ndata: {json.dumps(block_start, ensure_ascii=False)}\n\n"
+        yield _sse(SSE_CONTENT_BLOCK_START, block_start)
 
         # 3. content_block_delta(逐 token)
         final_usage: dict[str, Any] = {}
@@ -3246,7 +3316,7 @@ def _anthropic_streaming_response(
                             "index": 0,
                             "delta": {"type": "text_delta", "text": text},
                         }
-                        yield f"event: content_block_delta\ndata: {json.dumps(delta, ensure_ascii=False)}\n\n"
+                        yield _sse(SSE_CONTENT_BLOCK_DELTA, delta)
                 elif event_type == "done":
                     final_usage = event.get("usage", {})
                 elif event_type == "error":
@@ -3254,19 +3324,19 @@ def _anthropic_streaming_response(
                         "type": "error",
                         "error": {"type": "api_error", "message": event.get("message", "LLM 流式调用失败")},
                     }
-                    yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
+                    yield _sse(SSE_ERROR, err_evt)
                     return
         except Exception as e:
             err_evt = {
                 "type": "error",
                 "error": {"type": "api_error", "message": str(e)[:500]},
             }
-            yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
+            yield _sse(SSE_ERROR, err_evt)
             return
 
         # 4. content_block_stop
         block_stop = {"type": "content_block_stop", "index": 0}
-        yield f"event: content_block_stop\ndata: {json.dumps(block_stop, ensure_ascii=False)}\n\n"
+        yield _sse(SSE_CONTENT_BLOCK_STOP, block_stop)
 
         # 5. message_delta(stop_reason + usage)
         usage = final_usage or {}
@@ -3276,11 +3346,11 @@ def _anthropic_streaming_response(
             "delta": {"stop_reason": "end_turn"},
             "usage": {"output_tokens": out_tokens},
         }
-        yield f"event: message_delta\ndata: {json.dumps(msg_delta, ensure_ascii=False)}\n\n"
+        yield _sse(SSE_MESSAGE_DELTA, msg_delta)
 
         # 6. message_stop
         msg_stop = {"type": "message_stop"}
-        yield f"event: message_stop\ndata: {json.dumps(msg_stop, ensure_ascii=False)}\n\n"
+        yield _sse(SSE_MESSAGE_STOP, msg_stop)
 
     return StreamingResponse(
         gen(),
