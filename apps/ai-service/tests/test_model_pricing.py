@@ -96,6 +96,83 @@ def test_estimate_zero_tokens_zero_cost():
 
 
 # =============================================================================
+# P0-①(2026-09-18):Prompt 缓存计价
+# =============================================================================
+
+
+def test_cache_multipliers_by_provider():
+    """按厂商解析缓存读/写乘数;未列厂商走默认(0.1 / 1.0)。"""
+    assert model_pricing.cache_multipliers("anthropic") == (0.1, 1.25)
+    assert model_pricing.cache_multipliers("openai") == (0.5, 1.0)
+    assert model_pricing.cache_multipliers("deepseek") == (0.1, 1.0)
+    assert model_pricing.cache_multipliers("unknown-vendor") == (0.1, 1.0)
+    assert model_pricing.cache_multipliers(None) == (0.1, 1.0)
+    # 大小写归一
+    assert model_pricing.cache_multipliers("Anthropic") == (0.1, 1.25)
+
+
+def test_cost_micro_usd_with_cache_anthropic():
+    """Anthropic 三段:uncached×1 + cached×0.1 + write×1.25。"""
+    # claude-sonnet-4-5 价目按表内解析;此处用显式构造:gpt-4o in=2.50/1M
+    micro = model_pricing.cost_micro_usd_with_cache(
+        "gpt-4o", tokens_in=1_000_000, tokens_out=0,
+        cached_tokens=500_000, cache_write_tokens=200_000, provider="anthropic",
+    )
+    # 单位口径 USD/1M:uncached 300k×2.50/1M + cached 500k×2.50/1M×0.1
+    #                  + write 200k×2.50/1M×1.25 = 0.75+0.125+0.625 = 1.50 USD
+    assert micro == 1_500_000
+
+
+def test_cost_micro_usd_with_cache_openai_implicit():
+    """OpenAI 隐式缓存:cached×0.5,无写费(write 按 1.0x 即原价)。"""
+    micro = model_pricing.cost_micro_usd_with_cache(
+        "gpt-4o", tokens_in=1_000_000, tokens_out=0,
+        cached_tokens=500_000, cache_write_tokens=0, provider="openai",
+    )
+    # uncached 500k×2.50/1M + cached 500k×2.50/1M×0.5 = 1.25+0.625 = 1.875 USD
+    assert micro == 1_875_000
+
+
+def test_cost_micro_usd_with_cache_no_cache_matches_plain():
+    """无缓存量时与 cost_micro_usd 完全一致(回归红线)。"""
+    plain = model_pricing.cost_micro_usd("gpt-4o", 123_456, 7_890)
+    cached = model_pricing.cost_micro_usd_with_cache("gpt-4o", 123_456, 7_890)
+    assert cached == plain
+
+
+def test_cost_micro_usd_with_cache_defensive_clamping():
+    """负数/超量缓存钳制:不产生负成本、不双计。"""
+    full = model_pricing.cost_micro_usd_with_cache("gpt-4o", 1000, 100)
+    # 负 cached/write → 视为 0,等价无缓存
+    assert model_pricing.cost_micro_usd_with_cache(
+        "gpt-4o", 1000, 100, cached_tokens=-50, cache_write_tokens=-10
+    ) == full
+    # cached 超 tokens_in → 全额按缓存读计(≤ 未缓存价,不为负)
+    over = model_pricing.cost_micro_usd_with_cache(
+        "gpt-4o", 1000, 100, cached_tokens=5000
+    )
+    assert 0 <= over <= full
+    # cached+write 超 tokens_in → write 截断到剩余量,uncached 恒 ≥ 0
+    both = model_pricing.cost_micro_usd_with_cache(
+        "gpt-4o", 1000, 100, cached_tokens=800, cache_write_tokens=800
+    )
+    assert both >= 0
+
+
+def test_cost_micro_usd_with_cache_discount_saves():
+    """缓存读命中单价低于未命中(Anthropic 0.1x 显著省钱)。"""
+    no_cache = model_pricing.cost_micro_usd_with_cache(
+        "claude-sonnet-4-5", 1_000_000, 0, provider="anthropic"
+    )
+    all_cached = model_pricing.cost_micro_usd_with_cache(
+        "claude-sonnet-4-5", 1_000_000, 0,
+        cached_tokens=1_000_000, provider="anthropic",
+    )
+    assert all_cached < no_cache
+    assert all_cached == int(no_cache * 0.1)
+
+
+# =============================================================================
 # get_overrides / snapshot / router
 # =============================================================================
 

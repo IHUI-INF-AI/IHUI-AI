@@ -30,7 +30,6 @@ from collections.abc import Callable
 from typing import Any
 
 from ..core.context_compaction import (
-    _split_pair_groups,
     compress_messages_if_needed,
     estimate_messages_tokens,
     estimate_tokens,
@@ -40,11 +39,11 @@ from ..core.tunables import (
     AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS,
     AGENT_COMPACTION_QUALITY_THRESHOLD,
     DEFAULT_KEEP_RECENT,
-    DEFAULT_MIN_MESSAGES,
     DEFAULT_TARGET_RATIO,
     DEFAULT_TRIGGER_RATIO,
 )
 from .compaction_quality import assess_compaction
+from .decision_chain import extract_head_messages
 
 logger = logging.getLogger(__name__)
 
@@ -104,29 +103,14 @@ def _truncate_to_budget(text: str, budget_tokens: int) -> str:
 def _extract_head(
     messages: list[dict[str, Any]], keep_recent: int
 ) -> list[dict[str, Any]] | None:
-    """复用 context_compaction 的配对组切分逻辑,取出应被压缩的 head 段。
+    """复用配对组切分逻辑取出应被压缩的 head 段(实现见 decision_chain)。
 
-    与 compress_messages_if_needed 内部切分逐语义一致(首条 system + 尾部 keepRecent
-    条按组对齐保留,其余为 head)。返回 None 表示无 head 可压缩(消息过少 / 全部落入尾部),
-    此时不应发起无谓的 LLM 摘要调用。
+    P1-②(2026-09-18):head 切分被两处复用 —— 本模块的 LLM 语义摘要选段,以及
+    decision_chain 的决策链蒸馏选段。切分规则必须逐语义一致(否则摘要覆盖的消息
+    与蒸馏覆盖的消息错位,决策链会出现"摘要里没有、推理里也没有"的空洞),
+    故下沉为 decision_chain.extract_head_messages 单一实现,此处仅保留薄包装。
     """
-    if len(messages) < DEFAULT_MIN_MESSAGES:
-        return None
-    non_system = messages[1:] if messages and messages[0].get("role") == "system" else messages
-    if len(non_system) <= keep_recent:
-        return None
-    groups = _split_pair_groups(non_system)
-    tail_groups: list[list[dict[str, object]]] = []
-    tail_count = 0
-    for group in reversed(groups):
-        tail_groups.insert(0, group)
-        tail_count += len(group)
-        if tail_count >= keep_recent:
-            break
-    head_groups = groups[: len(groups) - len(tail_groups)]
-    if not head_groups:
-        return None
-    return [msg for group in head_groups for msg in group]
+    return extract_head_messages(messages, keep_recent)
 
 
 async def _summarize_head(

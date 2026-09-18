@@ -41,6 +41,7 @@ from .config import settings
 from .context_compaction import estimate_messages_tokens
 from .db_pool import get_shared_pool
 from .provider_caps import filter_call_kwargs, get_provider_cap
+from .usage_cache import normalize_usage
 
 # Combo 多级 fallback 路由器(2026-07-30 立,P0-1 Combo 接入 LLM 调用链)
 # 延迟导入避免循环依赖(combo_router.py 内部反向 import llm_gateway)
@@ -1590,6 +1591,10 @@ class LLMGateway:
                 usage_dict = (
                     usage.model_dump() if hasattr(usage, "model_dump") else dict(usage)
                 )
+            # P0-①(2026-09-18):LiteLLM 路径 usage 归一化——各厂商缓存字段
+            # (OpenAI prompt_tokens_details.cached_tokens / Anthropic cache_read_*)
+            # 统一为 cached_tokens/cache_creation_tokens,供 cost_ledger 缓存计价。
+            usage_dict = normalize_usage(usage_dict)
             result: dict[str, Any] = {
                 "content": response.choices[0].message.content,
                 "model": response.model or used_model,
@@ -2139,6 +2144,12 @@ class LLMGateway:
                 chunk_size = 10
                 for i in range(0, len(content), chunk_size):
                     yield {"type": "chunk", "content": content[i : i + chunk_size]}
+                # P0-B(2026-09-18):stub 兜底转发 complete 的 tool_calls(此前只转发
+                # content,function calling 场景经 astream 会静默丢工具调用,与
+                # complete() 契约不一致;对齐原生适配器/litellm 路径的聚合 tool_calls
+                # 事件形状)。
+                if result.get("tool_calls"):
+                    yield {"type": "tool_calls", "tool_calls": result["tool_calls"]}
                 yield {
                     "type": "done",
                     "model": result.get("model", used_model),
