@@ -161,8 +161,11 @@
       "ctrl1": "빌드 모드로 전환",
       "ctrl2": "플랜 모드로 전환",
       "ctrl3": "리뷰 모드로 전환",
-      "ctrl4": "스펙 모드로 전환",
-      "ctrl5": "질문 모드로 전환"
+      "ctrl4": "규격 모드로 전환",
+      "ctrl5": "질문 모드로 전환",
+      "ctrlAltV": "음성: 녹음 시작/ 중지",
+      "ctrlAltB": "음성: 자동 재생 토글",
+      "ctrlAltH": "음성: 핸즈프리 토글"
     }
   },
   "teamMemory": {
@@ -9551,7 +9554,9 @@
     "voicePlaybackOn": "음성 재생 켜짐",
     "voicePlaybackOff": "음성 재생 꺼짐",
     "voiceHandsFreeOn": "연속 대화 켜짐（말하면 전송）",
-    "voiceHandsFreeOff": "연속 대화 꺼짐"
+    "voiceHandsFreeOff": "연속 대화 꺼짐",
+    "voicePlayback": "재생",
+    "voiceHandsFree": "핸즈프리"
   },
   "chatHistory": {
     "backToHistory": "기록으로 돌아가기",
