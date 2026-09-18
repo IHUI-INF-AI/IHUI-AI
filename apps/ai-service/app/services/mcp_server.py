@@ -2057,6 +2057,17 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             if count >= max_results:
                 break
 
+        message = (
+            f"在 {path} 下找到 {len(matches)} 个匹配文件"
+            + ("(已截断)" if count >= max_results else "")
+        )
+        if not matches:
+            # 零结果给可操作指引(第十四批:体验优化,避免模型盲目重试)
+            message += (
+                ";建议:①放宽 pattern(如 '*.py' 或 '*');"
+                "②改用 fuzzy=true 做文件名模糊搜索;"
+                "③确认 path 是否为期望根目录"
+            )
         return {
             "tool": "file_search",
             "query": query,
@@ -2065,8 +2076,7 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             "matches": matches,
             "total": len(matches),
             "truncated": count >= max_results,
-            "message": f"在 {path} 下找到 {len(matches)} 个匹配文件"
-                       + ("(已截断)" if count >= max_results else ""),
+            "message": message,
             "ok": True,
         }
     except Exception as e:
@@ -7608,6 +7618,30 @@ _TOOL_ALIASES: dict[str, str] = {
 }
 
 
+def _suggest_close_tool(name: str, limit: int = 3) -> list[str]:
+    """未知工具的近似候选推荐(did-you-mean):别名/大小写/分隔符差异 + 模糊匹配。
+
+    工具清单上百个时直接铺全清单=信息淹没,这里只回 Top-N 真正可能被误写的名字。
+    """
+    import difflib as _dl
+
+    def _norm(s: str) -> str:
+        return _normalize_tool_name(s.strip()).lower().replace("-", "_")
+
+    candidates = sorted(_TOOL_HANDLERS.keys())
+    norm_t = _norm(name)
+    if not norm_t:
+        return []
+    norm_map = {_norm(c): c for c in candidates}
+    if norm_t in norm_map:
+        return [norm_map[norm_t]]
+    scored = sorted(
+        ((_dl.SequenceMatcher(None, norm_t, _norm(c)).ratio(), c) for c in candidates),
+        key=lambda x: (-x[0], x[1]),
+    )
+    return [c for ratio, c in scored[:limit] if ratio >= 0.62]
+
+
 def _normalize_tool_name(name: str) -> str:
     """工具名归一化:优先映射别名,否则原样返回。"""
     return _TOOL_ALIASES.get(name, name)
@@ -7974,8 +8008,20 @@ class MCPServer:
                 handler = _TOOL_HANDLERS.get(normalized)
                 name = normalized
         if not handler:
-            available = ", ".join(_TOOL_HANDLERS.keys())
-            return {"ok": False, "error": f"未知工具: {name}。可用: {available}"}
+            # 可纠错回执(体验优化):工具清单很长,直接铺全会淹没真正有用的信息,
+            # 先给最近似的几个候选;匹配不上才回退全量清单。
+            suggestions = _suggest_close_tool(name)
+            message = f"未知工具: {name}"
+            if suggestions:
+                message += f"。是否想调用: {' / '.join(suggestions)}"
+            else:
+                message += f"。可用: {', '.join(sorted(_TOOL_HANDLERS.keys()))}"
+            return {
+                "ok": False,
+                "error": message,
+                "suggestions": suggestions,
+                "available": sorted(_TOOL_HANDLERS.keys()),
+            }
         # 权限矩阵:admin 专属工具(write_file/run_command/db_query/computer_* 等)
         # 普通用户(user_role < 1)调用 → 直接拒绝,不执行 handler
         if name in _ADMIN_ONLY_TOOLS and user_role < 1:
