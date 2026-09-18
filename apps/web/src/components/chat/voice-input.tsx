@@ -16,6 +16,21 @@ import { useWebAuthStore } from '@/stores/auth-store'
 interface VoiceInputProps {
   onTranscript: (text: string) => void
   disabled?: boolean
+  /** 2026-09-18 整合:VoiceToolbar 接管录音按钮 UI 后,VoiceInput 只需保留识别
+   *  逻辑;传 true 则不渲染任何按钮/徽章,只通过 forwardRef 暴露 recording/pending/toggle。 */
+  hidden?: boolean
+}
+
+/**
+ * 暴露给 VoiceToolbar 消费的接口(2026-09-18 整合):
+ * 三个语音按钮(录音 / 自动朗读 / 连续对话)已合并为单一 dropdown,
+ * VoiceToolbar 需要读 recording 状态显示主按钮 UI,需要读 pendingSegments 显示转写中徽章,
+ * 需要调用 toggleRecording 触发录音开始/停止。
+ */
+export interface VoiceInputHandle {
+  readonly recording: boolean
+  readonly pendingSegments: number
+  toggleRecording: () => void
 }
 
 interface SpeechRecognitionLike {
@@ -82,7 +97,16 @@ type VoiceMode = 'native' | 'fallback' | 'unsupported'
  *
  * 两条路径最终都调用 onTranscript(text),由父组件决定如何处理(通常追加到 textarea)。
  */
-export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
+/**
+ * VoiceInput — 语音输入组件(零成本混合策略)。
+ *
+ * 2026-09-18 整合:通过 React.forwardRef 暴露 VoiceInputHandle 供 VoiceToolbar 桥接
+ * recording/pending/toggle;传 hidden 可关闭渲染只保留识别逻辑。
+ */
+function VoiceInputBase(
+  { onTranscript, disabled, hidden }: VoiceInputProps,
+  ref: React.ForwardedRef<VoiceInputHandle | null>,
+) {
   const t = useTranslations('chat')
   const accessToken = useWebAuthStore((s) => s.token)
   const [mode, setMode] = React.useState<VoiceMode>('native')
@@ -318,7 +342,37 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
     }
   }
 
-  if (mode === 'unsupported') return null
+  // 2026-09-18 整合:VoiceToolbar 通过 forwardRef 读取 recording/pending 状态并调用 toggle。
+  // 用 ref 镜像最新值,避免 toggle 未 useCallback 时 deps 每轮变化;hook 顺序稳定(在 return 之前)。
+  const handleRef = React.useRef<{
+    recording: boolean
+    pendingSegments: number
+    toggle: () => void
+  }>({
+    recording: false,
+    pendingSegments: 0,
+    toggle: () => {},
+  })
+  handleRef.current.recording = recording
+  handleRef.current.pendingSegments = pendingSegments
+  handleRef.current.toggle = toggle
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      get recording() {
+        return handleRef.current.recording
+      },
+      get pendingSegments() {
+        return handleRef.current.pendingSegments
+      },
+      toggleRecording: () => {
+        handleRef.current.toggle()
+      },
+    }),
+    [],
+  )
+
+  if (mode === 'unsupported' || hidden) return null
 
   return (
     <>
@@ -378,6 +432,16 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
     </>
   )
 }
+
+/**
+ * forwardRef 包装:让 VoiceInput 作为 <VoiceInput ref={...}> 使用时可接收 ref 并桥接 VoiceInputHandle。
+ */
+export const VoiceInput = React.forwardRef(
+  VoiceInputBase as React.ForwardRefExoticComponent<
+    VoiceInputProps & React.RefAttributes<VoiceInputHandle | null>
+  >,
+)
+VoiceInput.displayName = 'VoiceInput'
 
 export default VoiceInput
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

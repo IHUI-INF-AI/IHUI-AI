@@ -76,6 +76,23 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   { key: 'Ctrl+4', description: '切换到规格模式', event: 'global-shortcut:mode-spec' },
   // Ctrl+5 → ask(2026-09-13 矩阵 A #24:ChatMode 扩为 5 态,补纯问答模式)
   { key: 'Ctrl+5', description: '切换到问答模式', event: 'global-shortcut:mode-ask' },
+  // 输入工具栏收敛(2026-09-18 用户规则:"这里这么多按钮都重合了"):
+  // - 斜杠命令面板:Ctrl+Shift+/ 触发(避开 Ctrl+/ 帮助,Ctrl+P 搜索,Ctrl+Shift+P 命令面板)
+  // - @ 提及文件:Ctrl+Shift+A(Ctrl+@ 字符歧义,匹配易失败,选 A 记 "At mention")
+  // - 截图:Ctrl+Shift+M(避开 Ctrl+Shift+D 短剧、Ctrl+Shift+N 新建、Ctrl+Shift+P 命令面板)
+  // 事件由 message-input.tsx 消费(setSlashOpen / setMentionOpen / fileInputRef.click)
+  { key: 'Ctrl+Shift+/', description: '斜杠命令面板', event: 'global-shortcut:open-slash' },
+  { key: 'Ctrl+Shift+A', description: '提及文件', event: 'global-shortcut:mention-file' },
+  { key: 'Ctrl+Shift+M', description: '截图', event: 'global-shortcut:screenshot' },
+  // 语音三合一快捷键(2026-09-18 用户规则:"请为这些组件添加快捷键支持"):
+  // VoiceToolbar 合并了 VoiceInput / VoicePlayback / VoiceHandsFree 三项,统一 Ctrl+Alt+V* 前缀:
+  //   · Ctrl+Alt+V → 录音 开始/停止(与主按钮等价)
+  //   · Ctrl+Alt+B → 自动朗读(B = Bot/Playback,避开 Ctrl+Alt+P 已被浏览器的"打印预览"占用的常见组合)
+  //   · Ctrl+Alt+H → 连续对话(H = Hands-free)
+  // 事件由 VoiceToolbar 内部消费;disabled(流式中)由组件内自行忽略。
+  { key: 'Ctrl+Alt+V', description: '语音:开始/停止录音', event: 'global-shortcut:voice-input' },
+  { key: 'Ctrl+Alt+B', description: '语音:自动朗读开关', event: 'global-shortcut:voice-playback' },
+  { key: 'Ctrl+Alt+H', description: '语音:连续对话开关', event: 'global-shortcut:voice-handsfree' },
 ]
 
 // ============================================================================
