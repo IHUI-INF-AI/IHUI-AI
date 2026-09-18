@@ -43,6 +43,8 @@
  *    全量 typecheck(数分钟)。核验镜像仓请显式 --remotes=origin,gitee,gitcode。
  */
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 // ─── 参数 ───
 const args = process.argv.slice(2)
@@ -71,6 +73,22 @@ if (!localHead) {
   process.exit(1)
 }
 console.log(`本地 HEAD: ${localHead.slice(0, 11)} (branch=${branch})`)
+
+// 后台推送状态识别(guard 异步化配套,#58 收尾根治):
+// push-state=running 且 headSha=本地 HEAD → 显示 PUSHING,不算失败(后台 worker 正在推)
+function readPushState() {
+  try {
+    return JSON.parse(readFileSync(resolve(process.cwd(), '.workbuddy/push-state.json'), 'utf8'))
+  } catch {
+    return null
+  }
+}
+const pushState = readPushState()
+const pushInProgress =
+  pushState &&
+  pushState.status === 'running' &&
+  pushState.headSha === localHead &&
+  Date.now() - pushState.ts < 5 * 60 * 1000
 
 let hasFailure = false
 const results = []
@@ -106,6 +124,12 @@ for (const remote of remotes) {
     continue
   }
   if (remoteIsAncestor && !localIsAncestor) {
+    // 本地领先:若后台推送正在进行(guard 异步化),显示 PUSHING 而非重复触发
+    if (pushInProgress) {
+      results.push({ remote, status: 'PUSHING' })
+      console.log(`${label} ⏳ PUSHING(后台推送进行中,HEAD ${localHead.slice(0, 11)})`)
+      continue
+    }
     // 本地领先 → 推
     const pushArgs = ['push', remote, `HEAD:refs/heads/${branch}`]
     const out = git(pushArgs)
