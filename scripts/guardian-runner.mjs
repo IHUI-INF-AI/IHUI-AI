@@ -26,7 +26,9 @@
  *   warn      失败 → 打印警告,继续执行(不阻塞 commit)
  *   info      始终继续,只打印信息
  */
-import { execSync } from 'node:child_process'
+import { execSync, execFileSync } from 'node:child_process'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 // === 颜色 ===
 const C = {
@@ -1121,6 +1123,52 @@ guardian-runner.mjs — 守门脚本批量执行器
 
 // === 执行 ===
 
+// ─── push-gate 结果缓存(2026-09-18 立,"已推完还在等"根治第二刀) ───
+// 背景:pre-push 钩子是仓库级——同一批 commit 推 N 个仓就清缓存全量 tsc+mypy N 遍,
+//      单遍数分钟,多会话收尾动辄干等 8-13 分钟。而同一 HEAD 的代码内容完全相同,
+//      短窗口内重复跑门是纯浪费。
+// 策略:HEAD sha 为键 + 10 分钟 TTL,只缓存"全部通过"结果;HEAD 一变立即失效。
+//      工作区脏文件噪音由 push-gate 既有 staged-scope 降级兜底(AGENTS.md §12d)。
+// 跳过:HUSKY_SKIP_PUSHGATE_CACHE=1(需要强制重跑全量门时使用)。
+const PUSHGATE_CACHE_TTL_MS = 10 * 60 * 1000
+const pushGateCacheFile = resolve(process.cwd(), '.workbuddy/push-gate-cache.json')
+
+function readPushGateCache() {
+  try {
+    return JSON.parse(readFileSync(pushGateCacheFile, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+let pushGateCacheHit = false
+if (pushGate && !cliArgs.includes('--no-cache') && process.env.HUSKY_SKIP_PUSHGATE_CACHE !== '1') {
+  const cache = readPushGateCache()
+  const headSha = execFileSyncSafe()
+  if (
+    cache &&
+    cache.passed === true &&
+    cache.headSha === headSha &&
+    Date.now() - cache.ts < PUSHGATE_CACHE_TTL_MS
+  ) {
+    const ageMin = ((Date.now() - cache.ts) / 60000).toFixed(1)
+    console.log(
+      `${C.green}⚡ [push-gate] 命中缓存:HEAD ${String(headSha).slice(0, 11)} 于 ${ageMin} 分钟前已通过全量门,跳过重复 typecheck${C.reset}`,
+    )
+    console.log(`${C.dim}   (同 HEAD 重复推送复用结果;强制重跑:HUSKY_SKIP_PUSHGATE_CACHE=1)${C.reset}`)
+    pushGateCacheHit = true
+    process.exit(0)
+  }
+}
+
+function execFileSyncSafe() {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+  } catch {
+    return null
+  }
+}
+
 let passed = 0
 let warned = 0
 let failed = 0
@@ -1188,6 +1236,20 @@ console.log(`  ${C.green}通过: ${passed}${C.reset}`)
 console.log(`  ${C.yellow}警告: ${warned}${C.reset}`)
 console.log(`  ${C.red}失败: ${failed}${C.reset}`)
 console.log(`  总耗时: ${totalTime}s`)
+
+// push-gate 全部通过 → 写缓存(同 HEAD 短窗口内重复 push 复用,见执行段注释)
+if (pushGate && failed === 0) {
+  try {
+    mkdirSync(resolve(process.cwd(), '.workbuddy'), { recursive: true })
+    writeFileSync(
+      pushGateCacheFile,
+      JSON.stringify({ headSha: execFileSyncSafe(), passed: true, ts: Date.now() }),
+    )
+    console.log(`${C.dim}⚡ [push-gate] 结果已缓存(同 HEAD 10 分钟内重复推送免重跑)${C.reset}`)
+  } catch {
+    /* 缓存写失败不影响放行 */
+  }
+}
 
 process.exit(0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
