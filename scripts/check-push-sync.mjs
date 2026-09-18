@@ -46,6 +46,8 @@
  *   - 手动收尾验证
  */
 import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 const C = {
   red: '\x1b[31m',
@@ -148,7 +150,24 @@ if (ahead === 0) {
   process.exit(0)
 }
 
-// ─── 5. 有未 push 的 commit → 阻塞 ─────────────────────────
+// ─── 5. 有未 push 的 commit → 检查后台推送状态 ──────────────
+// 2026-09-18 晚(异步推送适配):推送已后台化(全量门约 270s),"本地有未 push commit"
+// 在每次 commit 后数分钟内是**常态**。此检查若照旧阻塞,会导致 pre-commit 首跑必败
+// → --no-verify 重试 → 80 项守门全跳过(实测今日每次 commit 都如此)。
+// 故:后台推送在途(running 且未过期)→ 放行;仅"无在途推送且 ahead>0"(真忘记 push)才阻塞。
+const PUSH_STATE_STALE_MS = 5 * 60 * 1000
+try {
+  const st = JSON.parse(readFileSync(resolve(repoRoot, '.workbuddy/push-state.json'), 'utf8'))
+  if (st.status === 'running' && Date.now() - st.ts < PUSH_STATE_STALE_MS) {
+    console.log(
+      `⏭  后台推送进行中(HEAD ${String(st.headSha).slice(0, 7)},pid ${st.pid}),不阻塞本次 commit;新提交将由 post-commit 随新 worker 重推`,
+    )
+    process.exit(0)
+  }
+} catch {
+  /* 无状态文件 → 按原逻辑继续 */
+}
+
 const localShort = localHead.substring(0, 7)
 const remoteShort = remoteHead.substring(0, 7)
 
