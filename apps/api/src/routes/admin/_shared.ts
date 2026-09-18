@@ -49,6 +49,10 @@ export const videoLogQuerySchema = paginationSchema.extend({
 
 export const idParamSchema = z.object({ id: z.string() })
 
+// registerCrud 专用 id 校验:走该工厂的表 id 均为 uuid 主键,
+// 非 UUID 提前 400(否则打到 PG uuid 列报错会变 500)。
+const crudIdParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
+
 // --- 11 条升级路由的 body 校验 schema ---
 export const updateAuthInfoSchema = z.object({
   phone: z.string().nullable().optional(),
@@ -267,8 +271,8 @@ export function registerCrud(
   })
   server.get(`${basePath}/:id`, async (request, reply) => {
     try {
-      const p = idParamSchema.safeParse(request.params)
-      if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+      const p = crudIdParamSchema.safeParse(request.params)
+      if (!p.success) return reply.status(400).send(error(400, '无效的 ID'))
       const [row] = await db.select().from(table).where(eq(table.id, p.data.id))
       if (!row) return reply.status(404).send(error(404, '记录不存在'))
       return reply.send(success(row))
@@ -280,7 +284,13 @@ export function registerCrud(
   server.post(basePath, async (request, reply) => {
     try {
       const body = request.body as Record<string, unknown>
-      const [row] = await db.insert(table).values(opts.map(body)).returning()
+      const mapped = opts.map(body)
+      // fields() 的 Number() 强转对非法值(如 status:'abc')产出 NaN,
+      // 必须拦截——NaN 写 PG 数值列会抛错变 500 而非干净 400。
+      if (Object.values(mapped).some((v) => Number.isNaN(v))) {
+        return reply.status(400).send(error(400, '参数错误'))
+      }
+      const [row] = await db.insert(table).values(mapped).returning()
       return reply.status(201).send(success(row))
     } catch (err) {
       server.log.error({ err }, 'registerCrud operation failed')
@@ -289,10 +299,14 @@ export function registerCrud(
   })
   server.put(`${basePath}/:id`, async (request, reply) => {
     try {
-      const p = idParamSchema.safeParse(request.params)
-      if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+      const p = crudIdParamSchema.safeParse(request.params)
+      if (!p.success) return reply.status(400).send(error(400, '无效的 ID'))
       const body = request.body as Record<string, unknown>
       const set: Record<string, unknown> = { ...opts.map(body) }
+      // 同 POST:非法数值强转出的 NaN 拦截为 400
+      if (Object.values(set).some((v) => Number.isNaN(v))) {
+        return reply.status(400).send(error(400, '参数错误'))
+      }
       if (hasUpdatedAt) set.updatedAt = new Date()
       const [row] = await db.update(table).set(set).where(eq(table.id, p.data.id)).returning()
       if (!row) return reply.status(404).send(error(404, '记录不存在'))
@@ -304,8 +318,8 @@ export function registerCrud(
   })
   server.delete(`${basePath}/:id`, async (request, reply) => {
     try {
-      const p = idParamSchema.safeParse(request.params)
-      if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+      const p = crudIdParamSchema.safeParse(request.params)
+      if (!p.success) return reply.status(400).send(error(400, '无效的 ID'))
       await db.delete(table).where(eq(table.id, p.data.id))
       return reply.send(success({ id: p.data.id, deleted: true }))
     } catch (err) {
@@ -320,7 +334,10 @@ export function registerCrud(
         .safeParse(request.body ?? {})
       if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
       const idList = parsed.data.ids.split(',').filter(Boolean)
-      if (idList.length === 0) return reply.status(400).send(error(400, '参数错误'))
+      // 批量 id 同样逐个验 UUID,防止非 UUID 打到 PG uuid 列变 500
+      if (idList.length === 0 || idList.some((x) => !z.uuid().safeParse(x).success)) {
+        return reply.status(400).send(error(400, '无效的 ID'))
+      }
       await db.delete(table).where(inArray(table.id, idList))
       return reply.send(success({ deleted: idList.length }))
     } catch (err) {
