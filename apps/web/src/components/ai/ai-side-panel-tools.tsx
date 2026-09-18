@@ -617,6 +617,7 @@ export function AiSidePanelTools() {
               label: `#${c.iteration} · ${c.message_count} msgs`,
               timestamp: new Date(c.created_at).toISOString(),
             }))}
+            sessionId={conversationId ?? ''}
             onRestore={(id, scope) => void handleRestoreCheckpoint(id, scope)}
           />
         ) : (

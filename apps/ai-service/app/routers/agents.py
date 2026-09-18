@@ -44,7 +44,6 @@ from ..services.agent_events import (
 )
 from ..services.agent_loop import agent_executor
 from ..services.agent_orchestrator import AgentOrchestrator, agent_orchestrator
-from ..services.langgraph_service import langgraph_service
 from ..services.memory import memory_store
 from ..services.skills import skill_evolution_service
 from ..services.vector_memory import vector_memory
@@ -763,12 +762,10 @@ def _format_sse(event_id: str, event: dict[str, Any]) -> str:
 async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> StreamingResponse:
     """流式执行 agent,通过 SSE 返回增量结果,支持断线重连重放。
 
-    执行器选择顺序(Phase 0 W1 默认翻转为 v2):
-    1. AgentLoopV2(_is_loop_v2_enabled() 为 True 时,env 缺省即默认)——
-       真流式(后台 run task + hook_engine 订阅转发),含完整 ReAct + checkpoint;
-    2. LangGraph 工作流(plan → execute → summarize);
-    3. v1 agent_executor.run_stream —— last-resort 兜底(仅单轮,详见其 deprecation 注释),
-       仅当 LangGraph 工作流异常时触发。
+    执行器(D6 第 1 步 2026-09-19 归一):AgentLoopV2 为唯一执行事实源——
+    真流式(后台 run task + hook_engine 订阅转发),含完整 ReAct + checkpoint。
+    原「LangGraph 工作流 → v1 run_stream」双兜底死分支已删除;显式关闭 v2
+    (env AGENT_EXECUTOR≠loop_v2)时返回 EXECUTOR_DISABLED 错误帧,不再静默降级。
 
     断线重连机制:
     - 每个事件携带 id 字段,客户端重连时发送 Last-Event-ID header
@@ -873,34 +870,21 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                         hook_engine.unsubscribe(evt, q)
                 return
 
-            # 优先用 LangGraph 工作流(完整 plan→execute→summarize)
-            try:
-                async for event in langgraph_service.run_graph_stream(
-                    goal=req.goal,
-                    session_id=req.session_id,
-                    model=req.model,
-                ):
-                    # G9: 客户端断连则停止 LLM 生成,避免 token + buffer 浪费
-                    if await request.is_disconnected():
-                        break
-                    eid = sse_buffer.append(task_id, event)
-                    yield _format_sse(eid, event)
-            except Exception:
-                # last-resort 兜底:仅当 LangGraph 工作流异常时降级为 v1 run_stream
-                # (v1 run_stream 为单轮假流式,能力受限,详见 agent_loop.py 的 deprecation 注释;
-                # 正常路径不应到达此分支)。
-                async for event in agent_executor.run_stream(
-                    goal=req.goal,
-                    session_id=req.session_id,
-                    model=req.model,
-                    max_iterations=req.max_iterations,
-                    tools=req.tools,
-                ):
-                    # G9: 客户端断连则停止 LLM 生成
-                    if await request.is_disconnected():
-                        break
-                    eid = sse_buffer.append(task_id, event)
-                    yield _format_sse(eid, event)
+            # D6 第 1 步(2026-09-19 立):后端栈归一——langgraph fallback 与 v1 兜底已删除。
+            # agent_loop_v2 为唯一执行事实源(审计报告 outputs/AI能力深度对标分析报告-2026-09-19.md):
+            # 原「LangGraph 工作流 → v1 run_stream 降级」双兜底为死分支(langgraph_service 仅剩
+            # 此处与 a2a_service 两处运行时消费),统一收敛到 AgentLoopV2。
+            # 显式关闭 v2(env AGENT_EXECUTOR≠loop_v2)时返回错误帧,不再静默降级到旧引擎
+            # (SSE 事件序列契约不变:错误帧与 done/error 语义一致,Last-Event-ID 重放兼容)。
+            else:
+                err_event = {
+                    "type": SSE_ERROR,
+                    "task_id": task_id,
+                    "message": "agent executor disabled: AgentLoopV2 is the only supported executor (set AGENT_EXECUTOR=loop_v2)",
+                    "errorCode": "EXECUTOR_DISABLED",
+                }
+                eid = sse_buffer.append(task_id, err_event)
+                yield _format_sse(eid, err_event)
 
             # 发送结束事件
             done_event = {"type": SSE_DONE, "task_id": task_id}

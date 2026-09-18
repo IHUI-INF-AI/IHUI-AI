@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import type { SSEEvent } from '@ihui/types'
+import type { PlanStepStatus as ContractPlanStepStatus, SSEEvent } from '@ihui/types'
 import { useAgentStream } from './use-agent-stream'
 import type { InlineDiffInfo } from '@/components/ai/types'
 
@@ -13,7 +13,7 @@ import type { InlineDiffInfo } from '@/components/ai/types'
  * use-agent-progress — Codex 风格 Agent 进度聚合 hook(2026-07-27 重构,Codex 对齐)
  *
  * Codex 权威契约对齐:
- * - Plan 步骤三状态:pending / in_progress / completed(非 running/done/error)
+ * - Plan 步骤五状态:pending / in_progress / completed / skipped / failed(2026-09-19 v2,非 running/done/error)
  * - 可选 explanation 字段(Codex UpdatePlanArgs.explanation)
  * - 硬规则:At most one step can be in_progress at a time(冗余校验,违反时自动降级为 pending)
  * - 子代理(Subagent):昵称 + @handle + dead agents 可见
@@ -24,8 +24,26 @@ import type { InlineDiffInfo } from '@/components/ai/types'
  *     → useMemo 聚合 → { planSteps, subagents, terminals, tools, changes, overview }
  */
 
-/** Codex 对齐:Plan 步骤状态(三状态) */
-export type PlanStepStatus = 'pending' | 'in_progress' | 'completed'
+/** Codex 对齐:Plan 步骤状态(2026-09-19 v2 五状态,直接复用 @ihui/types 契约)。
+ *  新增 skipped(被跳过)/failed(执行失败);旧事件无 failed 时以 error=true 表达,
+ *  在 extractPlanFromEvents 中归一化为 failed。 */
+export type PlanStepStatus = ContractPlanStepStatus
+
+/** plan 快照中单个步骤的原始字段(2026-09-19 v2:透传 id/toolCallIds/error) */
+interface RawPlanStep {
+  step: string
+  status: PlanStepStatus
+  /** 2026-09-19 v2:步骤唯一 ID(= 关联 toolCallId,后端必发) */
+  id?: string
+  /** 2026-09-19 v2:关联的工具调用 ID 列表(步骤↔工具卡精确关联) */
+  toolCallIds?: string[]
+  startedAt?: string
+  endedAt?: string
+  durationMs?: number
+  tokenUsage?: number
+  /** 2026-09-19 v2:错误标记(与 status:failed 等价表达,旧事件兼容) */
+  error?: boolean
+}
 
 /** Codex 对齐:Plan 步骤(对应 Codex PlanItemArg + explanation) */
 export interface PlanStep {
@@ -39,6 +57,9 @@ export interface PlanStep {
   durationMs?: number
   /** Codex:step 累计 token 消耗(可选,由 status 事件更新) */
   tokenUsage?: number
+  /** 2026-09-19 v2:关联的工具调用 ID 列表(plan_updated 事件携带,用于步骤↔工具卡精确关联;
+   *  为空时下游回退时间窗启发式匹配) */
+  toolCallIds?: string[]
   /** 2026-07-31 深度优化:错误标记(toolCalls error 时为 true,PlanStepsCard 显示红色错误样式) */
   error?: boolean
   /** 2026-07-31 深度优化:关联消息 ID(用于点击步骤跳转消息 + hover 联动) */
@@ -302,48 +323,18 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
     const data = lastSnapshot.data as
       | {
           explanation?: string
-          plan?: Array<{
-            step: string
-            status: PlanStepStatus
-            startedAt?: string
-            endedAt?: string
-            durationMs?: number
-            tokenUsage?: number
-          }>
+          plan?: RawPlanStep[]
           update?: {
-            plan?: Array<{
-              step: string
-              status: PlanStepStatus
-              startedAt?: string
-              endedAt?: string
-              durationMs?: number
-              tokenUsage?: number
-            }>
+            plan?: RawPlanStep[]
           }
         }
-      | Array<{
-          step: string
-          status: PlanStepStatus
-          startedAt?: string
-          endedAt?: string
-          durationMs?: number
-          tokenUsage?: number
-        }>
+      | Array<string | RawPlanStep>
       | undefined
     // 兼容多种后端格式:
     // 1) data.plan 数组(标准格式)
     // 2) data.update.plan 数组(某些后端包装在 update 字段中)
     // 3) data 本身就是数组(极简格式)
-    let rawPlan:
-      | Array<{
-          step: string
-          status: PlanStepStatus
-          startedAt?: string
-          endedAt?: string
-          durationMs?: number
-          tokenUsage?: number
-        }>
-      | undefined
+    let rawPlan: RawPlanStep[] | undefined
     let explanation: string | undefined
     if (Array.isArray(data)) {
       // 极简格式:data 本身就是数组(可能是 list[str] 或 list[PlanStep])
@@ -351,7 +342,7 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
         if (typeof item === 'string') {
           return { step: item, status: 'pending' as PlanStepStatus }
         }
-        return item as { step: string; status: PlanStepStatus }
+        return item
       })
     } else if (data && typeof data === 'object') {
       rawPlan = data.plan ?? data.update?.plan
@@ -371,11 +362,16 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
     if (rawPlan && Array.isArray(rawPlan)) {
       const steps: PlanStep[] = rawPlan.map((item, idx) => {
         const step: PlanStep = {
-          id: `plan-${idx}`,
+          // 2026-09-19 v2:优先使用后端下发的步骤 ID(= 关联 toolCallId),缺失时回退本地索引
+          id: item.id ?? `plan-${idx}`,
           step: item.step,
-          status: item.status,
+          // 兼容归一化:旧事件 error=true 视同 failed
+          status: item.error === true ? 'failed' : item.status,
           explanation,
         }
+        // 2026-09-19 v2:透传 toolCallIds(步骤↔工具卡精确关联)与 error 标记
+        if (item.toolCallIds) step.toolCallIds = item.toolCallIds
+        if (item.error !== undefined) step.error = item.error
         // Codex:从 plan_updated 快照中提取时间戳(若上游提供)
         if (item.startedAt) step.startedAt = item.startedAt
         if (item.endedAt) step.endedAt = item.endedAt
@@ -424,22 +420,8 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
     )
     if (update && typeof update === 'object') {
       const updateObj = update as {
-        plan?: Array<{
-          step: string
-          status: PlanStepStatus
-          startedAt?: string
-          endedAt?: string
-          durationMs?: number
-          tokenUsage?: number
-        }>
-        steps?: Array<{
-          step: string
-          status: PlanStepStatus
-          startedAt?: string
-          endedAt?: string
-          durationMs?: number
-          tokenUsage?: number
-        }>
+        plan?: RawPlanStep[]
+        steps?: RawPlanStep[]
       }
       const rawPlan = updateObj.plan ?? updateObj.steps
       // 兼容 list[str] 格式(后端某些实现返回字符串数组而非对象数组)
@@ -487,10 +469,15 @@ function extractPlanFromEvents(events: SSEEvent[]): PlanStep[] {
       if (rawPlan && Array.isArray(rawPlan)) {
         const steps: PlanStep[] = rawPlan.map((item, idx) => {
           const step: PlanStep = {
-            id: `plan-${idx}`,
+            // 2026-09-19 v2:优先使用后端下发的步骤 ID,缺失时回退本地索引
+            id: item.id ?? `plan-${idx}`,
             step: item.step,
-            status: item.status,
+            // 兼容归一化:旧事件 error=true 视同 failed
+            status: item.error === true ? 'failed' : item.status,
           }
+          // 2026-09-19 v2:透传 toolCallIds 与 error 标记
+          if (item.toolCallIds) step.toolCallIds = item.toolCallIds
+          if (item.error !== undefined) step.error = item.error
           if (item.startedAt) step.startedAt = item.startedAt
           if (item.endedAt) step.endedAt = item.endedAt
           if (item.durationMs !== undefined) step.durationMs = item.durationMs
