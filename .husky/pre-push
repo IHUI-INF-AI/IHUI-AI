@@ -83,7 +83,20 @@ else
   fi
   export PUSH_SCOPE_FILES
 
-  node scripts/guardian-runner.mjs --push-gate || { printf '%s\n' "❌ push 门校验失败,推送已阻止" >&2; exit 1; }
+  node scripts/guardian-runner.mjs --push-gate
+  _gate_rc=$?
+  if [ "$_gate_rc" -eq 75 ]; then
+    # 2026-09-18 中断分类:typecheck 进程被外部中断(CTRL_C 注入/宿主清树/管道中断,
+    # 实测 39 次 exit 3221225786)≠ 类型检查结论。以 75 + 标记文件通知 push guard
+    # 「临时失败,带 hook 重试」,避免被误判为"其他 agent 代码失败"而 --no-verify 绕过真实门禁。
+    printf '%s\n' "⏭️ push 门被中断(exit 75,临时失败)—— 已标记可重试,本次推送中止" >&2
+    node -e "require('fs').writeFileSync('.workbuddy/push-gate-last-result.json', JSON.stringify({ts:Date.now(),code:75}))" 2>/dev/null || true
+    exit 75
+  fi
+  if [ "$_gate_rc" -ne 0 ]; then
+    printf '%s\n' "❌ push 门校验失败,推送已阻止" >&2
+    exit 1
+  fi
   printf '%s\n' "✅ push 门校验通过(push-scope/staged-scope 降级已启用)" >&2
 fi
 
