@@ -24,9 +24,9 @@ import type { Redis } from 'ioredis'
 import { and, desc, eq, gte } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { notifications, securityLogs, type RelayWebhookEvent } from '@ihui/database'
-import { DOC_TEXT_BODY } from '@ihui/design-tokens'
-import { logger } from '../utils/logger.js'
 import { sendEmail } from './email-service.js'
+import { renderSecurityLoginEmail } from './email-templates.js'
+import { logger } from '../utils/logger.js'
 import { notifyRelayEvent } from './webhook-relay-notifier.js'
 
 /* -------------------------------------------------------------------------- */
@@ -343,7 +343,7 @@ async function sendInAppNotification(
   }
 }
 
-/** 邮件:若用户提供邮箱,复用 sendEmail。 */
+/** 邮件:若用户提供邮箱,走机械风安全告警模板(真实锁定按钮)。 */
 async function sendEmailNotification(
   input: LoginAnomalyInput,
   title: string,
@@ -351,10 +351,18 @@ async function sendEmailNotification(
 ): Promise<void> {
   if (!input.userEmail) return
   try {
+    const rendered = renderSecurityLoginEmail({
+      device: input.deviceFingerprint || input.eventType,
+      ip: input.ip || '未知',
+      location: input.location || '未知',
+      time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
+      riskLevel: 'LOW',
+    })
     await sendEmail({
       to: input.userEmail,
       subject: title,
-      html: `<div style="font-family:sans-serif;line-height:1.6"><h2>${escapeHtml(title)}</h2><pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(content)}</pre><p style="color:${DOC_TEXT_BODY};font-size:12px">若非本人操作,请立即修改密码并检查登录设备。</p></div>`,
+      html: rendered.html,
+      text: `${content}\n\n${rendered.text}`,
       scene: 'notification',
       userId: input.userId,
     })
@@ -437,24 +445,4 @@ function buildNotificationContent(input: LoginAnomalyInput): string {
 
   parts.push('若非本人操作,请立即修改密码并检查账号安全设置。')
   return parts.join('\n')
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[<>&'"]/g, (ch) => {
-    switch (ch) {
-      case '<':
-        return '&lt;'
-      case '>':
-        return '&gt;'
-      case '&':
-        return '&amp;'
-      case "'":
-        return '&apos;'
-      case '"':
-        return '&quot;'
-      default:
-        return ch
-    }
-  })
-}
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+} // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
