@@ -62,6 +62,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import contextlib
+import difflib
 import itertools
 import json
 import logging
@@ -770,6 +771,31 @@ def _parse_v4a_patch(patch_text: str) -> list[dict[str, Any]]:
                 }
             )
     return normalized
+
+
+def _aggregate_unified_diff(
+    diff_pairs: dict[str, tuple[str | None, str | None]],
+) -> str:
+    """按路径聚合 unified diff(对标 Codex TurnDiffTracker 的 unified_diff 输出)。
+
+    diff_pairs: rel → (旧内容|None=新增, 新内容|None=删除)。
+    """
+    parts: list[str] = []
+    for rel in sorted(diff_pairs):
+        old, new = diff_pairs[rel]
+        old_lines = (old or "").splitlines(keepends=True)
+        new_lines = (new or "").splitlines(keepends=True)
+        diff = "".join(
+            difflib.unified_diff(
+                old_lines,
+                new_lines,
+                fromfile=f"a/{rel}",
+                tofile=f"b/{rel}",
+            )
+        )
+        if diff:
+            parts.append(diff)
+    return "\n".join(parts)
 
 
 def _v4a_seek(
@@ -1769,6 +1795,11 @@ class AgentEngine:
                 }
             )
         turn_id = self._persist_turn_start(thread, text)
+        # TurnStarted(2026-09-18 第十批,对标 Codex TurnStarted 事件)
+        with contextlib.suppress(Exception):
+            await self._emit_engine_event(
+                thread, emit, "turn.started", {"turnId": turn_id, "inputChars": len(text)}
+            )
         try:
             result = await self._run_thread(thread, emit)
         except Exception as e:
@@ -1791,16 +1822,48 @@ class AgentEngine:
         )
         # TurnDiff(2026-09-18 第三批,对标 Codex TurnDiff):本回合相对回合前
         # 新增变脏的工作区文件(git 工作区才有;非 git/无变化静默)。
+        # 第十批升级:补齐 Codex TurnDiffEvent{unified_diff} 的 diff 正文语义。
         with contextlib.suppress(Exception):
             after_files = await self._workspace_dirty_files(thread)
             changed = sorted(after_files - before_files)
             if changed:
+                unified_diff = ""
+                if thread.workspace:
+                    proc = await asyncio.create_subprocess_exec(
+                        "git",
+                        "-C",
+                        thread.workspace,
+                        "diff",
+                        "--",
+                        *changed[:50],
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.DEVNULL,
+                    )
+                    out, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
+                    unified_diff = out.decode("utf-8", errors="replace")
                 await self._emit_engine_event(
                     thread,
                     emit,
                     "turn.diff",
-                    {"files": changed[:50], "truncated": len(changed) > 50},
+                    {
+                        "files": changed[:50],
+                        "truncated": len(changed) > 50,
+                        "unifiedDiff": unified_diff[:32_000],
+                    },
                 )
+        # TurnComplete(2026-09-18 第十批,对标 Codex TurnComplete 事件)
+        with contextlib.suppress(Exception):
+            await self._emit_engine_event(
+                thread,
+                emit,
+                "turn.complete",
+                {
+                    "turnId": turn_id,
+                    "success": bool((result or {}).get("success")),
+                    "durationMs": thread.last_turn_timing.get("durationMs"),
+                    "totalTokensUsed": int((result or {}).get("totalTokensUsed") or 0),
+                },
+            )
         # auto-compact(2026-09-18 第四批,对标 Codex compact_token_budget
         # inline auto-compaction):估算 token 超阈值即确定性压缩,零 LLM 成本。
         if thread.auto_compact:
@@ -2859,6 +2922,13 @@ class AgentEngine:
                 data = base64.b64encode(target.read_bytes()).decode("ascii")
             except OSError as e:
                 return {"error": f"图片读取失败: {e}"}
+            with contextlib.suppress(Exception):
+                await self._emit_engine_event(
+                    thread,
+                    thread.emit,
+                    "view_image.tool_call",
+                    {"path": str(target), "mimeType": mime, "sizeBytes": size},
+                )
             return {
                 "path": str(target),
                 "mimeType": mime,
@@ -2917,6 +2987,8 @@ class AgentEngine:
                 return {"error": str(e)}
             # 第一遍:纯内存计算全部目标内容(原子性:任何失败即整包拒绝)
             plan: list[tuple[str, str, str | None]] = []  # (rel, action, new_content|None)
+            diff_pairs: dict[str, tuple[str | None, str | None]] = {}
+            planned_files: list[str] = []
             for section in sections:
                 old_rel = _strip_diff_prefix(section["old_path"])
                 new_rel = _strip_diff_prefix(section["new_path"])
@@ -2937,6 +3009,8 @@ class AgentEngine:
                     if target.exists():
                         return {"error": f"新增文件已存在: {target_rel}"}
                     plan.append((target_rel, "created", new_content))
+                    diff_pairs[target_rel] = (None, new_content)
+                    planned_files.append(target_rel)
                     continue
                 if not target.is_file() and old_rel == target_rel:
                     return {"error": f"目标文件不存在: {target_rel}"}
@@ -2950,6 +3024,8 @@ class AgentEngine:
                     return {"error": f"文件读取失败 {source_rel}: {e}"}
                 if deleted:
                     plan.append((target_rel, "deleted", None))
+                    diff_pairs[target_rel] = (content, None)
+                    planned_files.append(target_rel)
                     continue
                 try:
                     if is_v4a:
@@ -2969,10 +3045,23 @@ class AgentEngine:
                         old_target.relative_to(base)
                     except (OSError, ValueError):
                         return {"error": f"路径越出工作区,拒绝应用: {old_rel}"}
+                    diff_pairs[old_rel] = (content, None)
+                    diff_pairs[target_rel] = (None, new_content)
+                    planned_files.extend([target_rel, old_rel])
                     plan.append((target_rel, "updated", new_content))
                     plan.append((old_rel, "deleted", None))
                     continue
+                diff_pairs[target_rel] = (content, new_content)
+                planned_files.append(target_rel)
                 plan.append((target_rel, "updated", new_content))
+            # PatchApplyBegin(2026-09-18 第十批,对标 Codex PatchApplyBegin)
+            with contextlib.suppress(Exception):
+                await self._emit_engine_event(
+                    thread,
+                    thread.emit,
+                    "patch.apply.begin",
+                    {"files": planned_files, "format": "v4a" if is_v4a else "unified"},
+                )
             # 第二遍:全部通过后才落盘
             results: list[dict[str, Any]] = []
             for rel, action, target_content in plan:
@@ -2988,6 +3077,19 @@ class AgentEngine:
                     return {"error": f"落盘失败 {rel}({action}): {e}", "applied": False}
                 results.append({"path": rel, "action": action})
             thread.touch()
+            # 聚合 unified diff(对标 Codex TurnDiffTracker 净变更语义)
+            unified_diff = _aggregate_unified_diff(diff_pairs)
+            with contextlib.suppress(Exception):
+                await self._emit_engine_event(
+                    thread,
+                    thread.emit,
+                    "patch.apply.end",
+                    {
+                        "success": True,
+                        "files": [r["path"] for r in results],
+                        "unifiedDiff": unified_diff[:32_000],
+                    },
+                )
             with contextlib.suppress(Exception):
                 await self._emit_engine_event(
                     thread,
@@ -2995,7 +3097,12 @@ class AgentEngine:
                     "patch.applied",
                     {"files": [r["path"] for r in results], "count": len(results)},
                 )
-            return {"applied": True, "files": results, "count": len(results)}
+            return {
+                "applied": True,
+                "files": results,
+                "count": len(results),
+                "unifiedDiff": unified_diff[:32_000],
+            }
 
         return ToolDefinition(
             name="apply_patch",
@@ -3252,6 +3359,11 @@ class AgentEngine:
                     for d in raw_domains
                     if str(d).strip()
                 ]
+            # WebSearchBegin/End(2026-09-18 第十批,对标 Codex WebSearch 事件对)
+            with contextlib.suppress(Exception):
+                await self._emit_engine_event(
+                    thread, thread.emit, "web_search.begin", {"query": query}
+                )
             try:
                 from .mcp_server import _tool_web_search
 
@@ -3259,6 +3371,13 @@ class AgentEngine:
                     {"query": query, "max_results": max_results}
                 )
             except Exception as e:  # noqa: BLE001 - 搜索失败降级为错误返回
+                with contextlib.suppress(Exception):
+                    await self._emit_engine_event(
+                        thread,
+                        thread.emit,
+                        "web_search.end",
+                        {"query": query, "success": False, "error": str(e)},
+                    )
                 return {"error": f"搜索失败: {e}", "results": []}
             results = result.get("results", [])
             if allowed_domains:
@@ -3271,6 +3390,17 @@ class AgentEngine:
                     )
 
                 results = [r for r in results if _domain_allowed(r)]
+            with contextlib.suppress(Exception):
+                await self._emit_engine_event(
+                    thread,
+                    thread.emit,
+                    "web_search.end",
+                    {
+                        "query": query,
+                        "success": True,
+                        "resultCount": len(results),
+                    },
+                )
             return {
                 "query": query,
                 "results": results,
