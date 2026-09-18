@@ -82,7 +82,7 @@ function Ok    { param([string]$m) Log "OK    $m" }
 #    SendKey 优先环境变量,NSSM 服务上下文未继承时回读 HKCU 注册表;
 #    通知任何失败只记日志,绝不影响部署/回滚流程本身。
 #    邮件兜底(2026-09-18 加):Server酱发送失败/超额时,自动改发邮件到 502319984@qq.com
-#    (Resend,发件人 智汇AI官方 <ihui-AI@aizhs.top>,密钥读 apps/api\.env 的 RESEND_API_KEY),每日上限 10 封。
+#    (Resend,发件人 智汇AI官方 <IHUI-AI@aizhs.top>,密钥读 apps/api\.env 的 RESEND_API_KEY),每日上限 10 封。
 #    状态唯一写入点:Invoke-FailNotify(当日计数 date/count/emailCount 落盘)。
 $SctStateFile = "$Root\deploy\win\.sct-notify-state.json"
 $NotifyEmailTo = '502319984@qq.com'
@@ -127,7 +127,7 @@ function Send-EmailNotify {
     try {
         $key = Get-ResendApiKey
         if (-not $key) { Log "MAIL  跳过邮件兜底:RESEND_API_KEY 未配置"; return $false }
-        $payload = @{ from = '智汇AI官方 <ihui-AI@aizhs.top>'; to = @($NotifyEmailTo); subject = $subject; text = $text } | ConvertTo-Json
+        $payload = @{ from = '智汇AI官方 <IHUI-AI@aizhs.top>'; to = @($NotifyEmailTo); subject = $subject; text = $text } | ConvertTo-Json
         Invoke-RestMethod -Uri 'https://api.resend.com/emails' -Method Post -Body $payload -ContentType 'application/json' -TimeoutSec 10 -ErrorAction Stop | Out-Null
         Log "MAIL  邮件告警已发送至 $NotifyEmailTo"
         return $true
