@@ -162,7 +162,10 @@
       "ctrl2": "プランモードへ切替",
       "ctrl3": "レビューモードへ切替",
       "ctrl4": "スペックモードへ切替",
-      "ctrl5": "質問モードへ切替"
+      "ctrl5": "質問モードへ切替",
+      "ctrlAltV": "音声:録音開始/停止",
+      "ctrlAltB": "音声:自動再生オン/オフ",
+      "ctrlAltH": "音声:ハンズフリーオン/オフ"
     }
   },
   "teamMemory": {
@@ -9569,7 +9572,9 @@
     "voicePlaybackOn": "音声読み上げオン",
     "voicePlaybackOff": "音声読み上げオフ",
     "voiceHandsFreeOn": "連続会話オン（話して送信）",
-    "voiceHandsFreeOff": "連続会話オフ"
+    "voiceHandsFreeOff": "連続会話オフ",
+    "voicePlayback": "再生",
+    "voiceHandsFree": "ハンズフリー"
   },
   "chatHistory": {
     "backToHistory": "にる",

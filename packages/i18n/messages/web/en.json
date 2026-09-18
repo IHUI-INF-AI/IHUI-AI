@@ -161,8 +161,11 @@
       "ctrl1": "Switch to Build mode",
       "ctrl2": "Switch to Plan mode",
       "ctrl3": "Switch to Review mode",
-      "ctrl4": "Switch to Spec mode",
-      "ctrl5": "Switch to Ask mode"
+      "ctrl4": "Switch to spec mode",
+      "ctrl5": "Switch to ask mode",
+      "ctrlAltV": "Voice: start/stop recording",
+      "ctrlAltB": "Voice: auto-playback toggle",
+      "ctrlAltH": "Voice: hands-free toggle"
     }
   },
   "teamMemory": {
@@ -9561,7 +9564,9 @@
     "voicePlaybackOn": "Voice playback on",
     "voicePlaybackOff": "Voice playback off",
     "voiceHandsFreeOn": "Hands-free on (speak to send)",
-    "voiceHandsFreeOff": "Hands-free off"
+    "voiceHandsFreeOff": "Hands-free off",
+    "voicePlayback": "Playback",
+    "voiceHandsFree": "Hands-free"
   },
   "chatHistory": {
     "backToHistory": "Back to History",
