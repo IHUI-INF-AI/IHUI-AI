@@ -305,6 +305,20 @@ async function registerPlugins(server: FastifyInstance) {
       }
     },
   )
+  // 2026-09-18 修复:无 Content-Type 的 POST(前端 fetchApi 无 body 写操作,如
+  // POST /auth/qr/generate App 扫码出码)经代理链路到达时被 Fastify 5 判为
+  // Unsupported Media Type → 415,面板进入错误态(App 扫码不出码根因)。
+  // 注册通配解析器兜底:未匹配任何已注册 Content-Type 的请求体按空 body 处理,
+  // handler 不依赖 body 时正常执行。application/json、text/plain、
+  // form-urlencoded 及各路由自定义 parser 均精确匹配优先,不受影响。
+  server.addContentTypeParser(
+    '*',
+    { parseAs: 'buffer', bodyLimit: 64 * 1024 },
+    (_req, _body, done) => {
+      done(null, Buffer.alloc(0))
+    },
+  )
+
   // OpenTelemetry 追踪（最先注册，最大化 instrument 覆盖；OTEL_ENABLED=false 时自动跳过）
   await server.register(otelPlugin)
   // 2026-08-14 P0 修复:@fastify/cookie 必须在主作用域注册,否则子作用域注册
