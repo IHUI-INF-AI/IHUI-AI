@@ -47,6 +47,9 @@ export const ENGINE_METHODS = [
   'thread.enqueue',
   'thread.goal',
   'thread.review',
+  'thread.list',
+  'thread.archive',
+  'thread.fork',
   'tools.search',
   'tools.load',
   'elicitation.respond',
@@ -717,6 +720,34 @@ class AgentEngineClient implements Agent {
     return this.call<Record<string, unknown>>('thread.review', {
       threadId: this.threadIdValue,
       ...(focus === undefined ? {} : { focus }),
+    })
+  }
+
+  /** 线程清单(2026-09-18 第七批,对标 Codex thread/list:分页 + 运行态合并)。 */
+  async listThreads(options?: {
+    limit?: number
+    offset?: number
+    includeArchived?: boolean
+  }): Promise<Record<string, unknown>> {
+    return this.call<Record<string, unknown>>('thread.list', { ...options })
+  }
+
+  /** 归档/恢复线程(2026-09-18 第七批,对标 Codex thread/archive;默认归档)。 */
+  async archiveThread(threadId: string, archived = true): Promise<Record<string, unknown>> {
+    return this.call<Record<string, unknown>>('thread.archive', {
+      threadId,
+      archived,
+    })
+  }
+
+  /** 分叉线程(2026-09-18 第七批,对标 Codex thread/fork:深拷贝独立演进)。 */
+  async forkThread(options?: {
+    threadId?: string
+    title?: string
+  }): Promise<Record<string, unknown>> {
+    return this.call<Record<string, unknown>>('thread.fork', {
+      ...(this.threadIdValue && !options?.threadId ? { threadId: this.threadIdValue } : {}),
+      ...options,
     })
   }
 
