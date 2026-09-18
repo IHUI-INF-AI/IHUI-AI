@@ -16,6 +16,9 @@ import * as readline from 'node:readline';
 import chalk from 'chalk';
 import type { AgentEvent } from '../server/agent-core.js';
 import { tryParseJson, isRecord } from '../util/json.js';
+// W13 远程渲染增强:复用 REPL 同源 markdown 渲染器与工具卡片着色(单一事实源)
+import { createMarkdownRenderer } from '../commands/markdown-renderer.js';
+import { formatToolResultForCard } from '../commands/ui-tool-cards.js';
 
 const dynamicRequire = createRequire(import.meta.url);
 
@@ -118,19 +121,42 @@ export async function startTuiInteractive(opts: TuiClientOptions): Promise<void>
     output: process.stdout,
   });
 
+  // W13:流式 markdown 渲染器(与 REPL 同源)+ 残片缓冲
+  const mdRenderer = createMarkdownRenderer();
+  let mdPending = '';
+
   client.on('event', (event) => {
     switch (event.type) {
-      case 'token':
-        process.stdout.write(event.text);
+      case 'token': {
+        // W13:token 流经 markdown 渲染器(与 REPL 同源,五色语法高亮/代码块/表格)
+        mdPending += event.text;
+        let nl: number;
+        while ((nl = mdPending.indexOf('\n')) !== -1) {
+          const line = mdPending.slice(0, nl);
+          mdPending = mdPending.slice(nl + 1);
+          for (const r of mdRenderer.pushLine(line)) console.info(r);
+        }
         break;
-      case 'tool_call':
-        process.stdout.write(chalk.cyan(`\n  🔧 ${event.name} ${JSON.stringify(event.args)}\n`));
+      }
+      case 'tool_call': {
+        // flush 残留 markdown 行,避免代码块未闭合进入工具卡片
+        if (mdPending) {
+          for (const r of mdRenderer.pushLine(mdPending)) console.info(r);
+          mdPending = '';
+        }
+        const argsJson = JSON.stringify(event.args);
+        const argDisplay = argsJson.length > 100 ? `${argsJson.slice(0, 100)}…` : argsJson;
+        console.info(chalk.cyan(`\n  ┌─ 🔧 ${chalk.bold(event.name)}`));
+        console.info(chalk.cyan(`  │  ${chalk.dim('参数:')} ${argDisplay}`));
         break;
-      case 'tool_result':
-        process.stdout.write(
-          chalk.dim(`  ${event.success ? '✓' : '✗'} ${event.output.slice(0, 200)}\n`),
-        );
+      }
+      case 'tool_result': {
+        const card = formatToolResultForCard(event.output);
+        const icon = event.success ? chalk.green('✓') : chalk.red('✗');
+        console.info(chalk.cyan(`  │  ${icon} ${chalk.dim('结果:')} ${card.text.replace(/\n/g, '\n  │  ')}`));
+        console.info(chalk.cyan(`  └─ ${event.success ? chalk.green('成功') : chalk.red('失败')}`));
         break;
+      }
       case 'iteration':
         process.stdout.write(chalk.dim(`\n  [轮次 ${event.count}/${event.max}]\n`));
         break;
@@ -138,6 +164,9 @@ export async function startTuiInteractive(opts: TuiClientOptions): Promise<void>
         process.stdout.write(chalk.red(`\n❌ ${event.message}\n`));
         break;
       case 'done':
+        // flush 渲染器残留(未闭合代码块等)后收尾
+        for (const r of mdRenderer.flush()) console.info(r);
+        mdPending = '';
         process.stdout.write(
           chalk.green(`\n✨ 完成 (${event.iterations} 轮, ${event.stopReason})\n`),
         );
