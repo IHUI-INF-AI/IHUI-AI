@@ -65,9 +65,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 2026-09-18 桌面端安装器守门(构建前):防止"向导又变回英文 / 默认安装目录又变回
+      # Program Files"的静默回退。详见 scripts/check-desktop-install-dir.mjs 文件头。
+      # --require-cli:依赖已装好,CLI 必可定位;不允许漂移校验被静默跳过。
+      - name: Desktop installer guard (pre-build)
+        run: node scripts/check-desktop-install-dir.mjs --template --require-cli
+
       - name: Build desktop bundle (tauri build)
         working-directory: apps/desktop
         run: pnpm build
+
+      # 2026-09-18 产物级断言(Windows 专有,最后一道防线):直接对 .exe 验证默认安装目录
+      # 真的被内嵌进去了。源码正确 ≠ 产物正确,理由见 scripts/assert-installer-strings.mjs。
+      - name: Assert installer embeds default install dir
+        if: matrix.os == 'windows-latest'
+        run: node scripts/assert-installer-strings.mjs --dir apps/desktop/src-tauri/target/release/bundle/nsis
 
       - name: Upload Linux artifacts (deb + AppImage)
         if: matrix.os == 'ubuntu-latest'

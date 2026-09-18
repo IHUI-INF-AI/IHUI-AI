@@ -60,9 +60,18 @@ const SANCTIONED_RELEASE_BRANCHES = new Set([
   'gitcode/desktop-feed',
 ])
 
-/** origin/HEAD -> origin/main 是 git 符号引用输出,非真实分支,需跳过 */
+/**
+ * origin/HEAD -> origin/main 是 git 符号引用输出,非真实分支,需跳过。
+ *
+ * 2026-09-18 加固:本机(宿主对 refs 的处理异常,详见 MEMORY「本机 git 环境缺陷」)会把
+ * refs/remotes/<remote>/HEAD 落成**普通引用文件**而非符号引用。此时 `git branch -a`
+ * 输出的是 `remotes/origin/HEAD`(**不带 `->`**),旧判据(只查 `->`)失效 →
+ * origin/HEAD 被当成非法分支 → 本地一切提交被阻塞(2026-09-18 实测)。
+ * 改为双重判据:① 仍识别 `->`;② 任何 `<remote>/HEAD` 形式的引用一律视为符号引用
+ * (HEAD 是 git 的保留名,不可能是分支名;裸 `HEAD` 本就在 ALLOWED 白名单里)。
+ */
 function isSymbolicRef(branch) {
-  return branch.includes('->')
+  return branch.includes('->') || /(^|\/)HEAD$/.test(branch)
 }
 
 /**
