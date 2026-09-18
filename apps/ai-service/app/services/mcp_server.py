@@ -1197,10 +1197,111 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# =====================================================================
+# P0-B(2026-09-18):终端实时输出事件(terminal.delta)。
+# run_command 执行期间逐行 stdout/stderr 经 hook_engine 广播,SSE 订阅端
+# (agents.py /agents/tasks/stream 等,经 AGENT_SUBSCRIBE_EVENTS)映射为
+# terminal-delta 推送前端 TerminalSection 实时渲染。会话上下文经
+# contextvar 注入(agent_loop_v2._execute_single 调工具前 set),工具直调
+# (无上下文)时 session_id 为空串,订阅端按既有约定对空 session 透传。
+# 发射 fire-and-forget(不阻塞 drain 读取循环);失败降级不阻塞命令执行。
+# =====================================================================
+
+_terminal_stream_ctx: contextvars.ContextVar[dict[str, Any] | None] = (
+    contextvars.ContextVar("ihui_terminal_stream_ctx", default=None)
+)
+
+# terminal.delta 帧聚合节流:每 N 行合为一帧(防高频行输出刷屏 SSE)
+_TERMINAL_DELTA_BATCH_LINES = 4
+
+# fire-and-forget 任务引用集合(防 CPython GC 提前回收,与其他 _pending 集合同模式)
+_terminal_delta_tasks: set[asyncio.Task[None]] = set()
+
+
+def set_terminal_stream_context(**ctx: Any) -> contextvars.Token:
+    """注入终端输出事件上下文(session_id/iteration/tool_call_id 等)。"""
+    return _terminal_stream_ctx.set(dict(ctx))
+
+
+def reset_terminal_stream_context(token: contextvars.Token) -> None:
+    """恢复终端输出事件上下文(与 set 配对使用,防跨工具泄漏)。"""
+    _terminal_stream_ctx.reset(token)
+
+
+async def _emit_terminal_delta(command: str, stream_name: str, text: str) -> None:
+    """发射 terminal.delta 事件(失败降级不阻塞命令执行)。
+
+    进程内直投:llm.py 主聊天流在调用终端工具前经 contextvar 注入可调用的
+    `push`(同步 callable,通常为 asyncio.Queue.put_nowait)。命中时优先走
+    push(payload) 并跳过 hook_engine.emit —— 增量帧由调用方直接 yield 成 SSE,
+    不阻塞命令主链路、不改变既有 SSE 顺序语义。无 push(agent_loop_v2 等)
+    时维持原 hook_engine 广播行为,agent 通道零回归。
+    """
+    if not text:
+        return
+    try:
+        ctx = _terminal_stream_ctx.get() or {}
+        # 进程内直投:优先走 push,不再经 hook_engine(前端 SSE 由调用方直接 yield)
+        push = ctx.get("push")
+        if callable(push):
+            _payload: dict[str, Any] = {
+                "type": "terminal_delta",
+                "terminalId": ctx.get("tool_call_id") or "",
+                "command": command,
+                "stream": stream_name,  # stdout / stderr
+                "text": text,
+                "iteration": ctx.get("iteration"),
+            }
+            _msg_id = ctx.get("messageId")
+            if _msg_id:  # 上下文带 messageId 时才带上(与 terminal_start 对齐)
+                _payload["messageId"] = _msg_id
+            push(_payload)
+            return
+        from .hook_engine import hook_engine
+
+        session_id = str(ctx.get("session_id") or "")
+        await hook_engine.emit(
+            "terminal.delta",
+            {
+                "session_id": session_id,
+                "run_id": session_id,  # workbench session 关联键(与 thinking.delta 同约定)
+                "command": command,
+                "stream": stream_name,  # stdout / stderr
+                "text": text,
+                "iteration": ctx.get("iteration"),
+                "tool_call_id": ctx.get("tool_call_id"),
+            },
+        )
+    except Exception:  # noqa: BLE001 - 事件发射失败绝不阻塞工具主链路
+        pass
+
+
+def _spawn_terminal_delta(command: str, stream_name: str, text: str) -> None:
+    """fire-and-forget 包装:drain 循环内同步回调,实际 emit 后台执行。"""
+    if not text:
+        return
+    try:
+        task = asyncio.ensure_future(
+            _emit_terminal_delta(command, stream_name, text)
+        )
+    except RuntimeError:  # 无事件循环(理论不可达,防御)
+        return
+    _terminal_delta_tasks.add(task)
+    task.add_done_callback(_terminal_delta_tasks.discard)
+
+
 async def _drain_stream(
-    stream: Any, lines_list: list[str], max_output: int = 10000
+    stream: Any,
+    lines_list: list[str],
+    max_output: int = 10000,
+    *,
+    on_line: Callable[[str], None] | None = None,
+    batch_lines: int = _TERMINAL_DELTA_BATCH_LINES,
 ) -> None:
     """逐行读取 asyncio subprocess stream,累积到 lines_list(防长命令一次性读阻塞)。
+
+    P0-B(2026-09-18):on_line 提供时,每读一行(按 batch_lines 聚合节流)同步回调
+    (供 terminal.delta 实时事件发射,回调自身 fire-and-forget 不阻塞读取)。
 
     P1 修复(mcp_server _tool_run_command 大输出全量累积后截断):
     原实现无大小上限,GB 级 stdout/stderr 会全量加载到内存 list,再在
@@ -1210,6 +1311,13 @@ async def _drain_stream(
     """
     total_size = 0
     size_limit = max_output * 2  # 2 倍 max_output 作为硬上限
+    pending: list[str] = []
+
+    def _flush_pending() -> None:
+        if pending and on_line is not None:
+            on_line("\n".join(pending) + "\n")
+        pending.clear()
+
     while True:
         line_bytes = await stream.readline()
         if not line_bytes:
@@ -1217,9 +1325,14 @@ async def _drain_stream(
         decoded = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
         lines_list.append(decoded)
         total_size += len(decoded)
+        if on_line is not None:
+            pending.append(decoded)
+            if len(pending) >= batch_lines:
+                _flush_pending()
         if total_size > size_limit:
             lines_list.append(f"\n...(输出超过 {size_limit} 字符,已截断)")
             break
+    _flush_pending()  # 尾部残余帧
 
 
 def _build_subprocess_env(user_env: dict[str, Any] | None) -> dict[str, str]:
@@ -1498,11 +1611,15 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
             )
 
         # 流式逐行读取 stdout/stderr(并发 drain,防长输出阻塞)
+        # P0-B(2026-09-18):逐行经 terminal.delta 实时透出(4 行/帧节流,
+        # fire-and-forget 不阻塞读取;上下文经 contextvar 由 agent_loop 注入)
         stdout_lines: list[str] = []
         stderr_lines: list[str] = []
+        on_stdout_line = functools.partial(_spawn_terminal_delta, command, "stdout")
+        on_stderr_line = functools.partial(_spawn_terminal_delta, command, "stderr")
         drain = asyncio.gather(
-            _drain_stream(proc.stdout, stdout_lines),
-            _drain_stream(proc.stderr, stderr_lines),
+            _drain_stream(proc.stdout, stdout_lines, on_line=on_stdout_line),
+            _drain_stream(proc.stderr, stderr_lines, on_line=on_stderr_line),
         )
         try:
             await asyncio.wait_for(drain, timeout=timeout)
@@ -1554,6 +1671,12 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
             "ok": False, "streamed": True,
             "message": f"命令未找到: {first_token}",
         }
+    except asyncio.CancelledError:
+        # P0-B(2026-09-18):外部取消(agent 循环内 abort)时 kill 进程防泄漏,
+        # 再原样传播 CancelledError(交由上层中断链路处理)
+        with contextlib.suppress(ProcessLookupError, OSError):
+            proc.kill()  # type: ignore[union-attr]
+        raise
     except Exception as e:
         return {
             "tool": "run_command", "command": command,

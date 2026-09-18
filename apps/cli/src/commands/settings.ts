@@ -65,6 +65,8 @@ export interface Settings {
   nativeFunctionCalling?: boolean | 'auto';
   /** 强制 plan-first 模式 */
   planFirst?: boolean;
+  /** P0-C 显式自动批准 LLM 提出的 plan 块(危险,默认 false — 经用户审批门) */
+  autoApprovePlan?: boolean;
   /** 启用 MCP 工具 */
   enableMcp?: boolean;
   /** LLM 采样参数 */
@@ -390,6 +392,7 @@ export function saveSettingsTemplate(overwrite = false): boolean {
     auditEnabled: true,
     allowDangerous: false,
     planFirst: false,
+    autoApprovePlan: false,
     enableMcp: false,
     sandbox: { profile: 'trusted' },
     sampler: {
@@ -486,6 +489,7 @@ export function resolveEffectiveConfig(args: {
   cliMaxTurns?: string;
   cliAllowDangerous?: boolean;
   cliPlan?: boolean;
+  cliAutoApprovePlan?: boolean;
   cliMcp?: boolean;
   cliTemperature?: string;
   cliMaxTokens?: string;
@@ -497,6 +501,7 @@ export function resolveEffectiveConfig(args: {
   maxIterations: number;
   allowDangerous: boolean;
   planFirst: boolean;
+  autoApprovePlan: boolean;
   enableMcp: boolean;
   auditEnabled: boolean;
   sandboxAllowedPaths: string[];
@@ -540,6 +545,9 @@ export function resolveEffectiveConfig(args: {
 
   const planFirst = args.cliPlan ?? settings.planFirst ?? false;
 
+  // P0-C 审批门:仅显式 true 才自动批准(settings/CLI 均 tri-state,默认 false)
+  const autoApprovePlan = args.cliAutoApprovePlan ?? settings.autoApprovePlan ?? false;
+
   const enableMcp = args.cliMcp ?? settings.enableMcp ?? false;
 
   const auditEnabled = settings.auditEnabled ?? true;
@@ -574,6 +582,7 @@ export function resolveEffectiveConfig(args: {
     maxIterations,
     allowDangerous,
     planFirst,
+    autoApprovePlan,
     enableMcp,
     auditEnabled,
     sandboxAllowedPaths,
@@ -608,6 +617,7 @@ export function loadSettingsV2(args: {
   cliMaxTurns?: string;
   cliAllowDangerous?: boolean;
   cliPlan?: boolean;
+  cliAutoApprovePlan?: boolean;
   cliMcp?: boolean;
   cliTemperature?: string;
   cliMaxTokens?: string;
@@ -631,6 +641,7 @@ export function loadSettingsV2(args: {
     }
     if (args.cliAllowDangerous !== undefined) cliOverrides.allowDangerous = args.cliAllowDangerous;
     if (args.cliPlan !== undefined) cliOverrides.planFirst = args.cliPlan;
+    if (args.cliAutoApprovePlan !== undefined) cliOverrides.autoApprovePlan = args.cliAutoApprovePlan;
     if (args.cliMcp !== undefined) cliOverrides.enableMcp = args.cliMcp;
     if (args.cliTemperature) {
       const t = parseFloat(args.cliTemperature);

@@ -200,6 +200,8 @@ export interface ReplOptions {
   allowDangerous?: boolean;
   /** 强制 LLM 先输出 plan 块再执行工具 */
   planFirst?: boolean;
+  /** P0-C 显式自动批准 plan(危险,默认 false — REPL 下默认走 onPlanApproval inquirer 审批) */
+  autoApprovePlan?: boolean;
   /** P0-7 Permission rules:白名单/黑名单(--tools/--disallowed-tools) */
   permissions?: PermissionRules;
   /** 权限模式:default|acceptEdits|bypassPermissions|plan|manual */
@@ -2102,8 +2104,45 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       planFirst: state.opts.planFirst,
       planApproved: state.planApproved,
       planMachine: state.planMachine,
+      autoApprovePlan: state.opts.autoApprovePlan,
       plugins: state.pluginRegistry,
       drainInterjections,
+      // P0-C(2026-09-17) 审批门接线:REPL 交互审批回调 — LLM 提出 plan 块时弹 inquirer 确认,
+      // 通过则同步 state.planApproved + PlanMachine→executing,拒绝则要求 LLM 重新规划。
+      // 与 /plan approve|reject 命令共享同一状态源,避免双轨。
+      onPlanApproval: async (plan) => {
+        // flush 残留 markdown 行,确保 plan 展示不被代码块渲染污染
+        if (pendingLine) {
+          const rendered = mdRenderer.pushLine(pendingLine);
+          for (const r of rendered) console.info(r);
+          pendingLine = '';
+        }
+        console.info(chalk.cyan('\n╭─ Plan 提案(等待审批)'));
+        const planContent = plan.trim();
+        for (const line of planContent.split('\n')) console.info(chalk.cyan(`│  ${line}`));
+        console.info(chalk.cyan('╰─'));
+        const { approve } = await inquirer.prompt([{
+          type: 'confirm',
+          name: 'approve',
+          message: '是否批准该 plan 并允许执行工具?',
+          default: false,
+        }]);
+        if (approve) {
+          state.planApproved = true;
+          if (state.planMachine && state.planMachine.canTransition('gather_complete')) {
+            state.planMachine.transition('gather_complete', { approved: true });
+          }
+          console.info(chalk.green('✓ Plan 已批准,开始执行(PlanMachine: executing)'));
+        } else {
+          state.planApproved = false;
+          if (state.planMachine) {
+            state.planMachine.reset();
+            state.planMachine.transition('start');
+          }
+          console.info(chalk.yellow('✕ Plan 已拒绝,将要求 LLM 重新规划(PlanMachine: gathering)'));
+        }
+        return approve;
+      },
       onDelta: (delta) => {
         // 首 token 到达,停止等待 spinner
         if (!firstTokenReceived) {

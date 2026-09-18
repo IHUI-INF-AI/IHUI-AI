@@ -79,6 +79,13 @@ interface MessageItemProps {
   assistantLabel: string
   onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
   onRejectDiff?: (messageId: string, toolCallId: string) => void
+  /** W5(2026-09-18 立):hunk 级部分应用回调,newContent 为已接受 hunk 重组后的最终内容 */
+  onApplyPartialDiff?: (
+    messageId: string,
+    toolCallId: string,
+    diffInfo: InlineDiffInfo,
+    newContent: string,
+  ) => Promise<void>
   /** #14 批量 Accept 回调(2026-09-13 立):消息内全部待决 diff 卡逐文件顺序应用 */
   onApplyAllDiffs?: (messageId: string) => Promise<void>
   /** #14 批量 Reject 回调(2026-09-13 立):消息内全部待决 diff 卡整体标记 rejected */
@@ -102,6 +109,7 @@ const MessageItem = React.memo(function MessageItem({
   isStreaming,
   onApplyDiff,
   onRejectDiff,
+  onApplyPartialDiff,
   onApplyAllDiffs,
   onRejectAllDiffs,
   isHighlighted = false,
@@ -738,6 +746,12 @@ const MessageItem = React.memo(function MessageItem({
                             }
                             onReject={
                               hasDiff && onRejectDiff ? () => onRejectDiff(m.id, tc.id) : undefined
+                            }
+                            onApplyPartial={
+                              hasDiff && onApplyPartialDiff
+                                ? (newContent) =>
+                                    onApplyPartialDiff(m.id, tc.id, effectiveDiffInfo!, newContent)
+                                : undefined
                             }
                           />
                           {/* 内联 content 型 artifact:HTML 走沙箱 iframe 预览,代码型走代码视图 */}

@@ -23,6 +23,25 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..core.sse_buffer import sse_buffer
+from ..services.agent_events import (
+    AGENT_SUBSCRIBE_EVENTS,
+    HOOK_ERROR,
+    HOOK_MESSAGE_RECEIVE,
+    HOOK_PERMISSION_MODE,
+    HOOK_PLAN_STEP,
+    HOOK_SELF_HEAL,
+    HOOK_SESSION_END,
+    HOOK_SESSION_START,
+    HOOK_THINKING_DELTA,
+    HOOK_TOOL_AFTER,
+    HOOK_TOOL_APPROVAL,
+    HOOK_TOOL_BEFORE,
+    SSE_DONE,
+    SSE_ERROR,
+    SSE_MESSAGE,
+    SSE_START,
+    map_hook_event_to_sse,
+)
 from ..services.agent_loop import agent_executor
 from ..services.agent_orchestrator import AgentOrchestrator, agent_orchestrator
 from ..services.langgraph_service import langgraph_service
@@ -299,15 +318,56 @@ async def _build_loop_v2_tools(tool_names: list[str] | None) -> list[Any]:
 
 
 def _make_loop_v2_llm(model: str | None) -> Any:
-    """构造 AgentLoopV2 的 llm_complete_fn(包装 llm_gateway.complete)。"""
+    """构造 AgentLoopV2 的 llm_complete_fn(包装 llm_gateway.complete/astream)。
 
-    async def _llm(messages: list[dict[str, Any]], tools: list[Any]) -> dict[str, Any]:
+    P0-B(2026-09-18):签名新增 on_chunk 关键字参数——AgentLoopV2 经签名探测
+    (_detect_on_chunk_support)判定支持后,首试传入流式回调走 astream 通道:
+    逐 chunk 回调(→ thinking.delta 增量),流结束聚合 content/usage/model 一次性
+    返回;on_chunk 未传(重试降级轮)维持 complete 阻塞调用,行为与旧闭包一致。
+    """
+
+    async def _llm(
+        messages: list[dict[str, Any]],
+        tools: list[Any],
+        *,
+        on_chunk: Any = None,
+    ) -> dict[str, Any]:
         from ..core.llm_gateway import llm_gateway
 
-        result = await llm_gateway.complete(messages, model=model)
+        if on_chunk is None:
+            result = await llm_gateway.complete(messages, model=model)
+            return {
+                "content": result.get("content", ""),
+                "tool_calls": _convert_openai_tool_calls(result.get("tool_calls")),
+                "usage": result.get("usage"),
+                "model": result.get("model", ""),
+            }
+
+        # 流式通道:chunk 事件逐个回调;astream 已把分片 tool_calls 聚合为
+        # tool_calls 事件、done 事件带 usage/model,结束一次性返回。
+        # astream 异常原样上抛,由 AgentLoopV2._llm_call_with_retry 统一重试
+        # (重试轮自动退化非流式,防增量重复拼接)。
+        content_parts: list[str] = []
+        raw_tool_calls: list[dict[str, Any]] = []
+        usage: dict[str, Any] | None = None
+        model_used = ""
+        async for evt in llm_gateway.astream(messages, model=model):
+            evt_type = evt.get("type")
+            if evt_type == "chunk":
+                text = evt.get("content") or ""
+                if text:
+                    content_parts.append(text)
+                    await on_chunk(text)
+            elif evt_type == "tool_calls":
+                raw_tool_calls = evt.get("tool_calls") or []
+            elif evt_type == "done":
+                usage = evt.get("usage")
+                model_used = evt.get("model", "")
         return {
-            "content": result.get("content", ""),
-            "tool_calls": _convert_openai_tool_calls(result.get("tool_calls")),
+            "content": "".join(content_parts),
+            "tool_calls": _convert_openai_tool_calls(raw_tool_calls),
+            "usage": usage,
+            "model": model_used,
         }
 
     return _llm
@@ -332,19 +392,10 @@ def _is_loop_v2_enabled() -> bool:
     return val.strip().lower() in ("loop_v2", "v2")
 
 
-def _map_hook_event_to_sse(event: str) -> str:
-    """hook_engine 事件 → SSE event 类型(前端 use-agent-runtime 对齐)。"""
-    return {
-        "session.start": "session",
-        "tool.before": "tool_call",
-        "tool.after": "tool_result",
-        "tool.approval": "tool-approval",  # 2026-08-30:高危工具审批请求(前端弹窗订阅)
-        "self_heal": "self-heal",  # 2-3(2026-09-12):自愈触发/完成事件
-        "thinking.delta": "thinking",  # P0-5(2026-09-13):reasoning 整段透出(前端逐字动画)
-        "plan.step": "plan-step",  # P0-5(2026-09-13):工具步骤 started/completed
-        "error": "error",
-        "message.receive": "message",
-    }.get(event, event)
+# 单一事实源迁移(2026-09-17):映射表移至 services/agent_events.HOOK_EVENT_TO_SSE
+# (补齐 session.end/permission.mode/message.send 映射),此处保留别名供既有
+# 调用点与 tests/test_agents.py 引用。
+_map_hook_event_to_sse = map_hook_event_to_sse
 
 
 @router.get("/agents/tasks/stream")
@@ -360,11 +411,9 @@ async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingRe
         from ..services.hook_engine import hook_engine
 
         subs: dict[str, asyncio.Queue[Any]] = {}
-        for evt in (
-            "session.start", "tool.before", "tool.after", "error",
-            "tool.approval", "self_heal",
-            "thinking.delta", "plan.step",  # P0-5(2026-09-13):工作台 thinking/plan-step
-        ):
+        # 统一订阅集合(2026-09-17):services/agent_events.AGENT_SUBSCRIBE_EVENTS,
+        # 补齐 message.receive/session.end/permission.mode(与另两个 SSE 端点一致)。
+        for evt in AGENT_SUBSCRIBE_EVENTS:
             subs[evt] = hook_engine.subscribe(evt)
         try:
             # 心跳保活(30s) + 事件转发
@@ -386,7 +435,7 @@ async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingRe
                     ) not in (agentId, ""):
                         continue
                     sse_evt = {
-                        "type": _map_hook_event_to_sse(evt),
+                        "type": map_hook_event_to_sse(evt),
                         "payload": payload,
                     }
                     yield f"event: {sse_evt['type']}\ndata: {json.dumps(sse_evt, ensure_ascii=False)}\n\n"
@@ -420,7 +469,9 @@ async def stream_agent_logs(request: Request, agent_id: str) -> StreamingRespons
         from ..services.hook_engine import hook_engine
 
         subs: dict[str, asyncio.Queue[Any]] = {}
-        for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive", "tool.approval", "self_heal"):
+        # 统一订阅集合(2026-09-17):补齐 thinking.delta/plan.step/session.end/
+        # permission.mode(与 tasks/stream、execute/stream 一致)。
+        for evt in AGENT_SUBSCRIBE_EVENTS:
             subs[evt] = hook_engine.subscribe(evt)
         try:
             last_beat = asyncio.get_running_loop().time()
@@ -434,7 +485,8 @@ async def stream_agent_logs(request: Request, agent_id: str) -> StreamingRespons
                     except asyncio.QueueEmpty:
                         continue
                     got = True
-                    if payload.get("session_id") not in (agent_id, ""):
+                    # thinking.delta/plan.step 以 run_id(=session_id)承载,无 session_id 键
+                    if (payload.get("session_id") or payload.get("run_id")) not in (agent_id, ""):
                         continue
                     entry = _map_hook_event_to_log_entry(evt, payload)
                     if entry is None:
@@ -462,18 +514,25 @@ def _map_hook_event_to_log_entry(event: str, payload: dict[str, Any]) -> dict[st
     ts = now if isinstance(now, str) else ""
     content = ""
     success: bool | None = None
-    if event == "session.start":
+    if event == HOOK_SESSION_START:
         content = f"session {payload.get('session_id', '')} started"
-    elif event == "tool.approval":
+    elif event == HOOK_SESSION_END:
+        # 统一订阅补齐(2026-09-17):session 结束(success/stop_reason/迭代数)
+        content = (
+            f"session {payload.get('session_id', '')} ended"
+            f"(success={payload.get('success')}, stop_reason={payload.get('stop_reason', '')})"
+        )
+        success = bool(payload.get("success"))
+    elif event == HOOK_TOOL_APPROVAL:
         content = (
             f"工具 {payload.get('tool_name', '')} 请求审批"
             f"(danger={payload.get('danger_level', 'high')})"
         )
         success = None
-    elif event == "tool.before":
+    elif event == HOOK_TOOL_BEFORE:
         tools_count = payload.get("tools_count", "")
         content = f"LLM 推理完成,准备调用工具(tools_count={tools_count})"
-    elif event == "tool.after":
+    elif event == HOOK_TOOL_AFTER:
         results = payload.get("tool_results") or []
         if results:
             # 每个工具结果一行(含重试/错误分类明细)
@@ -501,10 +560,10 @@ def _map_hook_event_to_log_entry(event: str, payload: dict[str, Any]) -> dict[st
         else:
             content = "工具执行完成"
             success = None
-    elif event == "message.receive":
+    elif event == HOOK_MESSAGE_RECEIVE:
         content = f"回复完成(content_length={payload.get('content_length', '')})"
         success = True
-    elif event == "self_heal":
+    elif event == HOOK_SELF_HEAL:
         # 2-3(2026-09-12):自愈触发/完成(heal 引擎内联集成事件)
         if payload.get("phase") == "started":
             content = f"self-heal 触发: {str(payload.get('command', ''))[:120]}"
@@ -515,12 +574,30 @@ def _map_hook_event_to_log_entry(event: str, payload: dict[str, Any]) -> dict[st
                 f"attempts={payload.get('attempts')})"
             )
             success = bool(payload.get("ok"))
-    elif event == "error":
+    elif event == HOOK_PERMISSION_MODE:
+        # 统一订阅补齐(2026-09-17):权限模式决策(auto-deny/allow 等)
+        content = (
+            f"权限 {payload.get('mode', '')} → {payload.get('decision', '')}"
+            f"(tool={payload.get('tool', '')})"
+        )
+        success = None
+    elif event == HOOK_THINKING_DELTA:
+        # 统一订阅补齐(2026-09-17):reasoning 整段透出(截断预览,正文走 thinking 事件)
+        content = f"thinking: {str(payload.get('content', ''))[:120]}"
+        success = None
+    elif event == HOOK_PLAN_STEP:
+        # 统一订阅补齐(2026-09-17):工具步骤时间线(started/completed)
+        content = (
+            f"plan step {payload.get('step_index', '')} "
+            f"{payload.get('tool_name', '')} -> {payload.get('status', '')}"
+        )
+        success = payload.get("status") == "completed"
+    elif event == HOOK_ERROR:
         content = f"error[{payload.get('error_type', 'unknown')}]: {str(payload.get('message', payload.get('error', '')))[:300]}"
         success = False
     else:
         return None
-    return {"type": _map_hook_event_to_sse(event), "content": content, "ts": ts, "success": success}
+    return {"type": map_hook_event_to_sse(event), "content": content, "ts": ts, "success": success}
 
 # ---------------------------------------------------------------------------
 # Trace 存储(进程内 LRU,供 agent 执行轨迹可视化)
@@ -672,7 +749,7 @@ def _format_sse(event_id: str, event: dict[str, Any]) -> str:
 
     event 字段取自 payload 的 type,客户端可用 addEventListener 分发。
     """
-    event_type = event.get("type", "message")
+    event_type = event.get("type", SSE_MESSAGE)
     return f"id: {event_id}\nevent: {event_type}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
 
 
@@ -707,12 +784,12 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
             for item in missed:
                 yield _format_sse(item["id"], item["event"])
             # 如果有重放事件且最后一个事件是 done/error,直接结束
-            if missed and missed[-1]["event"].get("type") in ("done", "error"):
+            if missed and missed[-1]["event"].get("type") in (SSE_DONE, SSE_ERROR):
                 return
 
         try:
             # 发送开始事件(携带 resume_from 供客户端判断是否为重连)
-            start_event = {"type": "start", "task_id": task_id, "session_id": req.session_id, "resume_from": last_event_id}
+            start_event = {"type": SSE_START, "task_id": task_id, "session_id": req.session_id, "resume_from": last_event_id}
             eid = sse_buffer.append(task_id, start_event)
             yield _format_sse(eid, start_event)
 
@@ -730,9 +807,11 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                     max_iterations=req.max_iterations or 8,
                     enable_checkpoint=True,
                 )
-                # 订阅事件 → SSE(只转发本 session 的 tool/error/session 事件)
+                # 订阅事件 → SSE(统一订阅集合 agent_events.AGENT_SUBSCRIBE_EVENTS,
+                # 补齐 thinking.delta/plan.step/session.end/permission.mode,
+                # 只转发本 session 的 hook 事件)
                 subs: dict[str, asyncio.Queue[Any]] = {}
-                for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive", "tool.approval", "self_heal"):
+                for evt in AGENT_SUBSCRIBE_EVENTS:
                     subs[evt] = hook_engine.subscribe(evt)
                 try:
                     # L5-10 打磨(2026-08-12):run() 与事件转发并发——
@@ -751,10 +830,11 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                             except asyncio.QueueEmpty:
                                 continue
                             drained = True
-                            if payload.get("session_id") not in (session_id, ""):
+                            # thinking.delta/plan.step 以 run_id(=session_id)承载,无 session_id 键
+                            if (payload.get("session_id") or payload.get("run_id")) not in (session_id, ""):
                                 continue
                             sse_evt = {
-                                "type": _map_hook_event_to_sse(evt),
+                                "type": map_hook_event_to_sse(evt),
                                 "session_id": session_id,
                                 "payload": payload,
                             }
@@ -766,13 +846,15 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                             await asyncio.sleep(0.05)
                     result = run_task.result()
                     # 结果事件(唯一 done,含 success/stop_reason/output)
+                    # 2026-09-17 修复:去掉 [:2000] 截断——长回复被静默截断,
+                    # 前端拿不到完整 final_response;SSE 行大小由网关层保证。
                     result_evt = {
-                        "type": "done",
+                        "type": SSE_DONE,
                         "task_id": task_id,
                         "session_id": session_id,
                         "success": result.success,
                         "stop_reason": result.stop_reason,
-                        "output": getattr(result, "final_response", "")[:2000],
+                        "output": getattr(result, "final_response", ""),
                     }
                     eid3 = sse_buffer.append(task_id, result_evt)
                     yield _format_sse(eid3, result_evt)
@@ -811,11 +893,11 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                     yield _format_sse(eid, event)
 
             # 发送结束事件
-            done_event = {"type": "done", "task_id": task_id}
+            done_event = {"type": SSE_DONE, "task_id": task_id}
             eid = sse_buffer.append(task_id, done_event)
             yield _format_sse(eid, done_event)
         except Exception as e:
-            err_event = {"type": "error", "message": str(e)}
+            err_event = {"type": SSE_ERROR, "message": str(e)}
             eid = sse_buffer.append(task_id, err_event)
             yield _format_sse(eid, err_event)
         finally:

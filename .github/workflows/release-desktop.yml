@@ -94,6 +94,7 @@ jobs:
         run: npm i -g @tauri-apps/cli@^2
 
       - name: Build & Release
+        id: tauri
         uses: tauri-apps/tauri-action@v0
         # 2026-09-05: tauri-action 的产物收集按预期路径 existsSync 过滤,非 ASCII productName
         # (智汇AI)在 Linux/macOS 上预期路径与磁盘文件失配→"No artifacts were found"假失败
@@ -125,6 +126,27 @@ jobs:
           # updater endpoint 配置在 tauri.conf.json 指向固定 feed(避免 releases/latest 被其他 release 漂移):
           # https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/latest.json
           updaterJsonPreferNsis: true
+
+      # 2026-09-18 兜底断言:此前 Build & Release 是 continue-on-error(为绕过非 ASCII
+      # productName 的 tauri-action 产物收集假失败),导致 **Windows NSIS 打包真实失败
+      # (makensis 语言文件缺失)被静默吞掉** —— job 报 success、release 缺 exe/sig,
+      # 直接造成 0.1.35 无 Windows 资产(下载页与 Tauri 更新 feed 双断)。
+      # 这里改成「无论如何都断言磁盘上真有产物」:产物为空即硬失败,不再允许静默成功。
+      - name: Verify bundle produced (fail loudly)
+        if: always()
+        shell: bash
+        run: |
+          BUNDLE=apps/desktop/src-tauri/target/release/bundle
+          if [ -d "apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle" ]; then
+            BUNDLE=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle
+          fi
+          COUNT=$(find "$BUNDLE" -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
+            -o -name '*.dmg' -o -name '*.exe' -o -name '*.msi' -o -name '*.app.tar.gz' \) 2>/dev/null | wc -l | tr -d ' ')
+          echo "tauri build 产物数量: $COUNT (Build & Release outcome: ${{ steps.tauri.outcome }})"
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::tauri build 未产出任何安装包($BUNDLE 为空);Build & Release outcome=${{ steps.tauri.outcome }}。拒绝静默成功。"
+            exit 1
+          fi
 
       - name: Fallback upload bundle files to Release
         if: always()
