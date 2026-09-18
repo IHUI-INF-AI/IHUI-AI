@@ -245,6 +245,8 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
   - **🚫 agent 禁止手写 `git push`(2026-09-18 立,"已推完还在等"事故根治)**:①origin 的推送由 post-commit 钩子 `git-push-guard.mjs` 自动完成(内置 ahead 检测+推送+回读验证,幂等)——commit 落地即已推送,**手动盲推必撞 already-pushed 非快进报错**并诱发后台反复干等;②Gitee/GitCode 由 `mirror-to-cn.yml` CI 在 push 后自动镜像(+每日 2 次兜底),**本地手推镜像仓=违反架构**且制造 DIVERGED 竞态。③收尾核验同步状态**只允许** `node scripts/git-push-converge.mjs`(只读判定,六态 ALREADY/PUSHING/PUSHED/SKIP/BEHIND/DIVERGED,不做任何非必要推送);仅在 guard/CI 均失效的应急场景才人工推,且必须先跑该脚本确认状态。多会话并发期:本会话交付已被远端包含(merge-base --is-ancestor 验证)即为完成,本地 HEAD 落后不追、不与并发会话抢 reset/ff。
   - **⚡ 推送异步化(2026-09-18 立,根治第二段)**:guard 检测到 ahead 时默认 spawn 后台 worker 推送(pre-push 质量门不降级,实测单遍 216.8s)并立即返回——**commit 命令秒回,不再被推送拖住**;状态在 `.workbuddy/push-state.json`(running/done/failed,失败由下次 guard 自动重试),converge 读该状态显示 PUSHING;核验若见 PUSHING=正在推,等 1-2 分钟再查即可,勿手动干预。强制同步推送:GUARD_ASYNC=0。(2026-09-18 晚修复:异步 spawn 的 fd 误用 `out.close()` 必抛 TypeError→静默回退同步推送+双重推送竞态,已改 `closeSync`;push-gate 缓存改**内容指纹键控**(HEAD:apps/HEAD:packages 子树+脏文件内容 hash),合并/文档提交不再重跑全量门。)
   - **🔄 主动收敛(2026-09-18 晚立,根治第三段)**:推送遇 non-FF(并发会话推力)时**禁止手工 fetch/merge/push 循环**(实测 3 轮 25 分钟),统一跑 `node scripts/git-sync-converge.mjs`(默认 3 轮:fetch→祖先判定→`merge-tree --write-tree` 索引层合并(**零触碰他人未提交文件**)+commit-tree+update-ref→guard 推送,直至收敛;冲突才需人工)。只读核验仍用 `git-push-converge.mjs`。
+  - **🪟 后台进程禁弹窗(2026-09-18 晚立)**:Windows 下 `spawn(detached:true)` + 控制台程序**必弹新 cmd 窗口**——所有 detached spawn 必须带 `windowsHide: true`(guard worker/锁心跳/desktop-dev-saas 已全量修复,仓库既有正例 dev-with-warmup.mjs)。新增后台进程遗漏此参数=用户桌面反复弹窗事故。
+  - **🔗 异步推送配套适配(2026-09-18 晚)**:①check-push-sync(pre-commit #29)遇 push-state running(未过期)放行——否则每次 commit 后 270s 窗口内的下一次 commit 必被 #29 阻塞→--no-verify→80 项守门全跳过;②guard worker 串行化:在途 worker 未落定时新 worker 先等后跑,杜绝多个 270s typecheck 并行打满 CPU。
 - **禁止 `git pull --rebase`**:2026-09-12 15:2x 一次 rebase 崩溃导致真 gitdir 目录被原生删除。同步一律用 `git fetch <remote> main` + `git merge --ff-only FETCH_HEAD`。
 
 **诊断**:
@@ -300,6 +302,16 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写
 - 多候选消歧:同一源文件出现多把 key 时(如 AGNES 曾有两把),`--verify` 会逐把请求厂商官方 `/models` 端点,取**真能鉴权通过**的那把 —— 不靠猜测、不靠索引。
 - 判读规则:`网络不可达` **不等于** key 无效(本机访问不到 Google,`GEMINI_API_KEY` 探测必然超时);只有 `鉴权通过` 才是有效判据。
 - 换机器 / 重装后若 ai-service 静默降级,首选动作就是跑一次本脚本巡检。
+
+---
+
+## 5e. Server酱微信推送通知(2026-09-18 接入)
+
+- skill:`serverchan`(easychen/serverchan-skill,自包含),已装于开发机与生产机 `~/.workbuddy/skills/serverchan` + `~/.agents/skills/serverchan`;SendKey 走用户环境变量 `SERVERCHAN_SENDKEY`(两台机 HKCU 均已写入,密钥备份在 `F:/BaiduSyncdisk/密钥/Server酱SendKey.txt`,**绝不入仓/入日志/回显**)。
+- 用途:长任务完成/阻塞待决策、生产告警、部署失败等需要用户手机知道的事件。调用方式:读 skill 后按内联 curl 发送,或直接 `POST https://sctapi.ftqq.com/$SERVERCHAN_SENDKEY.send`(title 必填,desp 支持 Markdown)。
+- 标题规约:开发机以 `【开发环境】`、生产机以 `【生产环境】` 开头,便于区分来源。
+- **免费额度仅 5 条/天**:只推真正需要立即知晓的事件,批量任务合并为一条,禁止逐文件/逐步骤刷推送;测试推送消耗额度需节制。
+- SendKey 前缀 `SCT`=Turbo 端点(sctapi.ftqq.com);若将来换 `sctp` 前缀=SC3 端点,skill 自动识别。
 
 ---
 
