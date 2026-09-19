@@ -2928,6 +2928,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     provider: string
     userId: string | null
     createdAt: string
+    /** 发起登录的前端源(CORS_ORIGIN 白名单校验后存入;callback 按它回跳) */
+    webOrigin: string | null
   }
 
   // 常量时间字符串比对(长度不等直接失败,避免 timing 攻击泄露比对进度)
@@ -2936,6 +2938,42 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const bb = Buffer.from(b)
     if (ab.length !== bb.length) return false
     return timingSafeEqual(ab, bb)
+  }
+
+  /** CORS_ORIGIN 白名单集合(回跳源校验;每次调用解析,兼容运行期 env 变化) */
+  function getAllowedWebOrigins(): string[] {
+    return config.CORS_ORIGIN.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  }
+
+  function isAllowedWebOrigin(origin: string): boolean {
+    return getAllowedWebOrigins().includes(origin)
+  }
+
+  /**
+   * 从请求头提取发起登录的前端源:Origin 头优先(跨源导航/POST 才发),
+   * 回退 Referer(同源顶级导航必带,如 bsm.aizhs.top/api 反代场景)。
+   * 经 CORS_ORIGIN 白名单校验后返回;无头/头值非法/不在白名单 → null。
+   * 注:custom scheme(如 tauri://localhost)须用 protocol//host 手工拼接,
+   * WHATWG URL.origin 对非特殊 scheme 返回字符串 "null"。
+   */
+  function deriveWebOrigin(request: FastifyRequest): string | null {
+    const header = (name: string): string | undefined => {
+      const v = request.headers[name]
+      return Array.isArray(v) ? v[0] : v
+    }
+    for (const raw of [header('origin'), header('referer')]) {
+      if (!raw) continue
+      try {
+        const u = new URL(raw)
+        const origin = `${u.protocol}//${u.host}`
+        if (isAllowedWebOrigin(origin)) return origin
+      } catch {
+        // 非法头值(如 Origin: null)忽略,继续下一个候选
+      }
+    }
+    return null
   }
 
   // state 持久化:Redis 优先(SET EX 10min);Redis 不可用/写入失败时降级 httpOnly cookie
@@ -2950,6 +2988,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       provider,
       userId: request.userId ?? null,
       createdAt: new Date().toISOString(),
+      // 记录发起源(白名单内才存):callback 按它回跳,修复 bsm.aizhs.top 发起的
+      // 企业 SSO 登录被硬编码回 CORS_ORIGIN 首项(aizhs.top)导致跨域丢上下文(2026-09-19)
+      webOrigin: deriveWebOrigin(request),
     }
     const redis = getRedis()
     if (redis) {
@@ -2979,7 +3020,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     request: FastifyRequest,
     provider: string,
     state: string,
-  ): Promise<{ ok: boolean; reason?: string }> {
+  ): Promise<{ ok: boolean; reason?: string; webOrigin?: string | null }> {
     const redis = getRedis()
     if (redis) {
       try {
@@ -2997,7 +3038,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           if (!payload.provider || !safeEqual(payload.provider, provider)) {
             return { ok: false, reason: `state provider 不匹配(期望 ${provider})` }
           }
-          return { ok: true }
+          // Redis 路径携带发起源;cookie 降级路径只有裸 state,webOrigin 缺失 → 回退默认源
+          return { ok: true, webOrigin: payload.webOrigin ?? null }
         }
         // Redis 未命中 → 继续尝试 cookie 兜底(覆盖降级签发后 Redis 恢复的边缘场景)
       } catch (e) {
@@ -3019,17 +3061,20 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     reply: FastifyReply,
     provider: string,
     state: string | undefined,
-  ): Promise<FastifyReply | null> {
+  ): Promise<{ denied: FastifyReply | null; webOrigin: string | null }> {
     if (state === undefined) {
       request.log.warn({ provider }, '[oauth-state] 回调缺少 state,走存量兼容路径放行')
-      return null
+      return { denied: null, webOrigin: null }
     }
     const check = await verifyOAuthState(request, provider, state)
     if (!check.ok) {
       request.log.warn({ provider, reason: check.reason }, '[oauth-state] CSRF 校验失败,拒绝回调')
-      return reply.status(401).send(error(401, 'OAuth state 校验失败,请重新发起登录'))
+      return {
+        denied: reply.status(401).send(error(401, 'OAuth state 校验失败,请重新发起登录')),
+        webOrigin: null,
+      }
     }
-    return null
+    return { denied: null, webOrigin: check.webOrigin ?? null }
   }
 
   // GET /auth/oauth/:provider/redirect — 统一重定向入口
@@ -3096,8 +3141,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     if (!isOidcConfigured()) return reply.status(400).send(error(400, 'OIDC 未配置'))
     // state CSRF 校验(新流程强制;存量无 state 回调兼容放行)
-    const denied = await enforceOAuthState(request, reply, 'oidc', parsed.data.state)
-    if (denied) return denied
+    const stateCheck = await enforceOAuthState(request, reply, 'oidc', parsed.data.state)
+    if (stateCheck.denied) return stateCheck.denied
     try {
       const provider = createOidcProvider({
         issuer: process.env.OIDC_ISSUER!,
@@ -3122,7 +3167,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         { accessToken: result.accessToken, refreshToken: result.refreshToken },
         true,
       )
-      const webOrigin = config.CORS_ORIGIN.split(',')[0]?.trim() ?? ''
+      // 回跳源:优先 state 里记录的发起源(签发时已过白名单,此处二次校验防
+      // CORS_ORIGIN 在 10min state 有效期内变更),未记录/已失效回退 CORS_ORIGIN 首项。
+      // 修复:bsm.aizhs.top 发起的登录不再被硬编码丢到 aizhs.top(2026-09-19)。
+      const fallbackOrigin = config.CORS_ORIGIN.split(',')[0]?.trim() ?? ''
+      const webOrigin =
+        stateCheck.webOrigin && isAllowedWebOrigin(stateCheck.webOrigin)
+          ? stateCheck.webOrigin
+          : fallbackOrigin
       // sso=oidc 标记:前端 /sso/login 检测到后,已登录态自动跳转 redirect(关闭登录弹窗),
       // 避免 OIDC 回跳后停留在授权卡片需要手动点击(2026-09-19 SSO 闭环体验修复)
       return reply.redirect(`${webOrigin}/sso/login?sso=oidc`)
