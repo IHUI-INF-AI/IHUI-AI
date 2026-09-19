@@ -162,6 +162,7 @@ function getStagedAddedLines() {
       cwd: ROOT,
       maxBuffer: 50 * 1024 * 1024,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
   } catch {
     return result
@@ -212,6 +213,7 @@ function getStagedFiles() {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return output
       .split('\n')

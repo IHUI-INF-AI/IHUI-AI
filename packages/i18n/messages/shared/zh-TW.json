@@ -249,6 +249,7 @@
     "username": "用戶名稱",
     "usernamePlaceholder": "請輸入用戶名稱",
     "wechatLogin": "微信",
+    "oidcLogin": "企業 SSO",
     "login": "登入",
     "captchaRefresh": "重新整理驗證碼"
   },

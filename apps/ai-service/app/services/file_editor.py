@@ -613,4 +613,27 @@ def rollback_file(
             "path": target["path"],
         }
     return {"ok": True, "path": target["path"], "version_id": target["version_id"]}
+
+
+def get_file_version_content(
+    session_id: str, file_path: str, version_id: str
+) -> str | None:
+    """读取某会话下指定文件版本的内容(供 checkpoint 回退影响预览的 diff 计算)。
+
+    Args:
+        session_id: 版本归属会话(跨会话隔离)
+        file_path: 目标文件路径
+        version_id: 精确版本 id
+
+    Returns:
+        该版本的快照内容字符串;版本不存在/已被配额淘汰返回 None。
+    """
+    versions = _versions_for(
+        _file_version_key(session_id, file_path),
+        _redis_versions_key(session_id, os.path.abspath(file_path)),
+    ) or []
+    target = next((v for v in versions if v.get("version_id") == version_id), None)
+    if target is None:
+        return None
+    return target.get("content")
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

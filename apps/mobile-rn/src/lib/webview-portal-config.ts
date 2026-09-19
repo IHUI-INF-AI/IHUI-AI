@@ -137,6 +137,13 @@ export const WEB_PORTAL_SECTIONS = [
         domain: 'edu',
       },
       {
+        // 2026-09-19 食堂采购记账(AI 拍照识别小票→三轮核对→台账/供应商/统计),复用 web 端实现
+        key: 'edu-canteen-procurement',
+        titleKey: 'webViewPortal.eduManagement.canteenProcurement',
+        path: '/edu/edu-management/procurement',
+        domain: 'edu',
+      },
+      {
         key: 'edu-parent',
         titleKey: 'webViewPortal.eduParent',
         path: '/edu/parent',

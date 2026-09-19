@@ -106,6 +106,7 @@ export function PlatformIcon({ platform, platformName, size = 28, className }: P
         aria-hidden="true"
       >
         {/* 图标加载失败时回落首字符,避免出现空框 */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- 平台图标 URL 来自运行时配置,组件需支持 onError 回退 */}
         <img
           src={icon.src}
           alt=""

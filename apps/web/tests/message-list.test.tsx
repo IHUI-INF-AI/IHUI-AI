@@ -160,6 +160,14 @@ const mockChatStore = vi.hoisted(() => {
       // 聚合),MessageItem 以叶子选择器订阅 `s.memoryUpdateNotices.find(...)`;
       // 假 store 缺该字段会直接 TypeError,导致本文件 34 项全红。
       memoryUpdateNotices: [] as { messageId: string; items: string[] }[],
+      // 2026-09-19 补齐:Steer(中途引导)新增 steerNoticesByMessageId(按 messageId
+      // 聚合),MessageItem 以叶子选择器订阅 `s.steerNoticesByMessageId[m.id] ?? null`;
+      // 假 store 缺该字段会直接 TypeError(同上款炸法)。
+      steerNoticesByMessageId: {} as Record<string, unknown[]>,
+      // 2026-09-19 补齐:D1 usage 计量帧新增 usageByMessageId(usage 对象按 messageId
+      // 聚合),message-item-parts.tsx 以叶子选择器订阅 `s.usageByMessageId[messageId]`;
+      // 假 store 缺该字段会直接 TypeError(同上款炸法)。
+      usageByMessageId: {} as Record<string, unknown>,
     },
     listeners: new Set<() => void>(),
   }
