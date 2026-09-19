@@ -104,7 +104,6 @@ const uuidParamSchema = z.object({
 const integrationProviderSchema = z.enum([
   'wechat',
   'alipay',
-  'stripe',
   'github',
   'google',
   'apple',
@@ -203,8 +202,6 @@ async function testIntegrationConnectivity(
         return await testGithubIntegration(credentials)
       case 'google':
         return await testGoogleIntegration(credentials)
-      case 'stripe':
-        return await testStripeIntegration(credentials)
       case 'email':
       case 'smtp':
         return await testSmtpIntegration(credentials, config)
@@ -257,22 +254,6 @@ async function testGoogleIntegration(credentials: unknown): Promise<Connectivity
     return { success: true, message: 'Google OpenID 配置可达,clientId 已配置' }
   }
   return { success: false, message: `Google 配置端点不可达: ${res.status}` }
-}
-
-async function testStripeIntegration(credentials: unknown): Promise<ConnectivityResult> {
-  const creds = credentials as { secretKey?: string; publishableKey?: string } | null
-  const key = creds?.secretKey
-  if (!key) return { success: false, message: 'Stripe 凭证缺少 secretKey' }
-
-  // Stripe Balance API(轻量级验证)
-  const res = await fetch('https://api.stripe.com/v1/balance', {
-    headers: { Authorization: `Bearer ${key}` },
-    signal: AbortSignal.timeout(5000),
-  })
-  if (res.ok) {
-    return { success: true, message: 'Stripe 连通成功,API 密钥有效' }
-  }
-  return { success: false, message: `Stripe 认证失败: ${res.status} ${res.statusText}` }
 }
 
 async function testSmtpIntegration(

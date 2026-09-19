@@ -182,7 +182,7 @@ export default function ManualBillingPage() {
                 <li>100,000 积分 ¥699(70 折,最划算)</li>
               </ul>
             </li>
-            <li>支付方式:支付宝 / 微信 / 公对公转账 / Stripe(海外)</li>
+            <li>支付方式:支付宝 / 微信 / PayPal / USDT / 公对公转账</li>
             <li>支付成功后积分实时到账</li>
           </ol>
           <p className="rounded bg-muted/60 p-3 text-xs">
