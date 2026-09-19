@@ -1,8 +1,4 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
-# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 批41水印占位
 # 批 41 实战接线测试 — 审批缓存键规范化接线 + 回合 diff 跟踪器接线
 import sys, os
@@ -131,7 +127,7 @@ def test_get_context_remaining_builtin():
 
     # 2) 未启用 rollout 预算 → tokens_left=None(未知语义,对标 codex unknown)
     tc = ToolCall(id="t1", name="get_context_remaining", args={})
-    r = asyncio.get_event_loop().run_until_complete(loop._execute_single(tc))
+    r = asyncio.run(loop._execute_single(tc))
     assert isinstance(r, ToolResult)
     assert r.result == {"tokens_left": None}
     assert r.error is None
@@ -144,7 +140,7 @@ def test_get_context_remaining_builtin():
     rb.record_usage({"input_tokens": 30_000, "output_tokens": 0, "cached_input_tokens": 0})
     loop._rollout_budget = rb
     tc2 = ToolCall(id="t2", name="get_context_remaining", args={})
-    r2 = asyncio.get_event_loop().run_until_complete(loop._execute_single(tc2))
+    r2 = asyncio.run(loop._execute_single(tc2))
     assert r2.result == {"tokens_left": 70_000}
 
     # 4) plan 模式白名单含 get_context_remaining(规划期可感知预算)
@@ -180,7 +176,7 @@ def test_vision_analyze_downsamples_oversize_image(monkeypatch, tmp_path):
 
     import asyncio
 
-    r = asyncio.get_event_loop().run_until_complete(
+    r = asyncio.run(
         mcp_server._tool_vision_analyze({"image_base64": data_url.split(",", 1)[1], "task": "描述图片"})
     )
     assert r["ok"] is True
@@ -221,7 +217,7 @@ def test_vision_analyze_small_image_untouched(monkeypatch, tmp_path):
 
     import asyncio
 
-    r = asyncio.get_event_loop().run_until_complete(
+    r = asyncio.run(
         mcp_server._tool_vision_analyze({"image_base64": data_url.split(",", 1)[1], "task": "t"})
     )
     assert r["ok"] is True
@@ -320,4 +316,3 @@ def test_user_shell_command_wiring_in_loop():
     assert "<user_shell_command>" in messages[0]["content"][0]["text"]
     assert "echo hi" in messages[0]["content"][0]["text"]
     assert loop._approved_command_call_ids == set()  # 消费后清空
-# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
