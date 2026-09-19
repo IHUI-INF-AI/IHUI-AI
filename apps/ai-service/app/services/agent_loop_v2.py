@@ -1371,6 +1371,13 @@ class AgentLoopV2:
             )
             # 1-3 压缩生产指标(Prometheus + 进程内报告通道)
             self._record_compaction_metric(info, duration_ms)
+            # 批 40 接线:压缩后环境片段重置(对标 codex 压缩窗口语义——压缩产物
+            # 可能不含早前 environment_context,重置 tracker 让下轮推理强制重注入,
+            # 模型重新拿到 cwd/日期;失败隔离不影响压缩主链路)。
+            try:
+                self._env_tracker.reset()
+            except Exception:  # noqa: BLE001 - 重置失败仅影响去重精度
+                pass
             return compressed
         except Exception as e:
             # 压缩失败降级:原样返回继续执行(宁可硬停也不因压缩引入新故障)
