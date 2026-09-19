@@ -68,6 +68,7 @@ import itertools
 import json
 import logging
 import os
+import shlex
 import sys
 import time
 import uuid
@@ -77,6 +78,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.output_cleaning import strip_ansi as _strip_ansi
+from app.core.command_safety import dangerous_command_match as _dangerous_command_match
 
 from .session_store import SessionStore
 
@@ -4233,6 +4235,24 @@ class AgentEngine:
             command = args.get("command")
             if not isinstance(command, str) or not command.strip():
                 return {"error": "unified_exec 需要非空 command"}
+            # 危险命令硬门(2026-09-19 第二十一批,对标 codex command_safety):
+            # 新建会话的首条命令经分类器判定;命中即拦截并回执分级说明,
+            # 模型须向用户明确确认后才允许重试(升级审批,不静默放行)
+            try:
+                _tokens = shlex.split(command)
+            except ValueError:
+                _tokens = command.split()
+            _hit = _dangerous_command_match(_tokens)
+            if _hit is not None:
+                label = "强制删除(rm 系 force 旗标)" if _hit == "forced_rm" else "高危操作"
+                return {
+                    "error": (
+                        f"命令被安全分类器拦截:判定为{label}({_hit})。"
+                        "如确属用户明确要求的操作,请先向用户复述风险并获得确认,"
+                        "再由用户在宿主审批后以等效但明确的方式执行。"
+                    ),
+                    "safety": {"classification": _hit},
+                }
             _prune_sessions()
             session_id = args.get("sessionId")
             try:
