@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * PayPal 支付集成(裸 fetch 模式,对齐 stripe.ts / alipay.ts / wechat-pay.ts)
+ * PayPal 支付集成(裸 fetch 模式,对齐 alipay.ts / wechat-pay.ts)
  *
  * 环境变量(从 node:process.env 读取):
  * - PAYPAL_CLIENT_ID       REST App client id
@@ -141,7 +141,7 @@ interface PaypalAmount {
 
 /**
  * 创建 PayPal Order(用户需在 PayPal 批准后才能 capture)
- * - intent: 'CAPTURE' 一次性付款(对齐 Stripe Checkout 一次完成模式)
+ * - intent: 'CAPTURE' 一次性付款(对齐支付宝/微信一次完成模式)
  * - approve link(rel='approve')是 PayPal 托管支付页 URL
  */
 export async function createOrder(params: CreateOrderParams): Promise<CreateOrderResult> {
