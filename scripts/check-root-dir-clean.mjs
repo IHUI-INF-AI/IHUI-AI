@@ -158,6 +158,7 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   '.turbo',
   '.vscode',
   '.workbuddy',
+  '.kc-tools', // 2026-09-19:并行会话 KC 工具脚本目录(根目录整洁守门白名单)
   '.deploy.lock',
   // 2026-08-19 立:React Native C++ native 模块编译 staging 产物
   // (expo-modules-core / react-native-reanimated / react-native-screens 构建自动生成,
