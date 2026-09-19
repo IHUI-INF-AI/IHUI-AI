@@ -33,6 +33,26 @@ export type ModelTier =
   | 'standard' // 可用但非最新 —— 折叠区
   | 'legacy' // 已过时 —— 折叠区,排在最后
 
+/** 模型语义能力键(D23 2026-09-19 立),与后端 derive_capabilities 四键一一对应 */
+export type ModelCapabilityKey = 'vision' | 'reasoning' | 'tools' | 'fim'
+
+/**
+ * 语义能力四布尔(2026-09-19 D23 立)。
+ * 由后端 `model_catalog.py` 的 `derive_capabilities` 派生(annotate_models 第三趟,
+ * 显式预设覆盖同名键),消费方:`ModelRouter._to_capability`(auto 路由按能力匹配)
+ * 与前端模型选择器(按能力过滤 + 能力徽章)。可选:老后端 / 缓存数据可能缺失。
+ */
+export interface ModelCapabilities {
+  /** 视觉理解(多模态图片输入) */
+  vision?: boolean
+  /** 深度推理(推理系命名或 latest 对话模型) */
+  reasoning?: boolean
+  /** 工具调用(对话类且非 legacy) */
+  tools?: boolean
+  /** FIM(fill-in-the-middle)代码补全 */
+  fim?: boolean
+}
+
 /** 后端附加在模型上的分类字段(全部可选,老后端 / 缓存数据可能缺失) */
 export interface ModelCatalogFields {
   category?: ModelUsageCategory
@@ -46,5 +66,11 @@ export interface ModelCatalogFields {
    * 单独用布尔正交标记,避免影响「默认展示 vs 折叠」既有语义。
    */
   fim?: boolean
+  /**
+   * 语义能力四布尔(2026-09-19 D23 立,`derive_capabilities` 产出)。
+   * 与顶层 `fim` 同口径(fim 键复用 `is_fim_model` 判定);保留顶层 `fim`
+   * 是 P1-9 既有消费方的兼容字段,新消费方一律读 `capabilities`。
+   */
+  capabilities?: ModelCapabilities
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
