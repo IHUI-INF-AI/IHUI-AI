@@ -297,7 +297,7 @@ function main() {
   // 原因:reorderToBase 重排 5 语言时,如果 base 顺序变更,4 语言整段 reorder 会产生大量 diff
   // 仅警告,不阻断;--strict 标志可升级为 blocking
   try {
-    const diffStat = execSync('git diff --stat -- packages/i18n/messages/', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+    const diffStat = execSync('git diff --stat -- packages/i18n/messages/', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
     const totalLine = diffStat.split('\n').slice(-2, -1)[0] || ''
     const m = totalLine.match(/(\d+)\s+insertions?\(\+\)/)
     const insertions = m ? parseInt(m[1], 10) : 0

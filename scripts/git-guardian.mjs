@@ -201,11 +201,12 @@ function healEnv() {
         const cur = execFileSync(bin, ['config', scope, '--get-all', 'safe.directory'], {
           encoding: 'utf8',
           stdio: ['pipe', 'pipe', 'pipe'],
-        }).trim()
+        windowsHide: true,        }).trim()
         const list = cur.split(/\r?\n/).filter(Boolean)
         if (list.includes(p) || list.includes('*')) continue
         execFileSync(bin, ['config', scope, '--add', 'safe.directory', p], {
           stdio: ['pipe', 'pipe', 'pipe'],
+          windowsHide: true,
         })
         log(`环境修复: ${scope} safe.directory += ${p}`)
       } catch {

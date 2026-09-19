@@ -105,6 +105,7 @@ function getStagedFiles() {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return output
       .split('\n')
@@ -123,6 +124,7 @@ function getWorkingTreeFiles() {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return output
       .split('\n')
@@ -165,6 +167,7 @@ function expandGlob(pattern) {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return output
       .split('\n')

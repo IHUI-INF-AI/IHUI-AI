@@ -6,12 +6,14 @@
 
 import * as React from 'react'
 import { AlertCircle, Check, Circle, Loader2, Minus } from 'lucide-react'
+import type { PlanStepStatus } from '@ihui/types'
 import { cn } from '@/lib/utils'
 
 export interface ChecklistItemData {
   id: string
   label: string
-  status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed'
+  // 五态复用契约类型,与 @ihui/types PlanStepStatus 保持一致
+  status: PlanStepStatus
   meta?: React.ReactNode
   description?: React.ReactNode
 }

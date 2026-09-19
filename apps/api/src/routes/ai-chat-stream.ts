@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { repairMessages } from '@ihui/types'
 import {
@@ -133,20 +134,57 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     if (!(await checkAuth(request, reply))) return
   })
 
-  // Token 预算前置校验:调用 aiCost.checkBudget 检查用户日 token 预算。
-  // 实际签名 checkBudget(scope, scopeKey, model?) 与期望的 ({userId, model, estimatedTokens}) 不一致,
-  // 用 try/catch 兜底:checkBudget 不可用或异常时降级为只 log warning 不阻塞主链路。
-  // 返回 true 放行;返回 false 表示超预算(已通过 reply 返回 429,调用方应直接 return)。
+  // Token 预算三态分档决策结果(2026-09-19 立, 替代原一刀切 429):
+  // - allow    放行, 不发任何事件
+  // - warning  放行, 流首命名帧 budget {level:'warning', ...} 软提醒
+  // - critical 放行, 流首命名帧 budget {level:'critical', ...} 硬预警
+  // - block    HTTP 429 硬中断(本函数内已发响应, 调用方直接 return)
+  interface BudgetGateResult {
+    decision: 'allow' | 'warning' | 'critical' | 'block'
+    percent?: number
+    usedTokens?: number
+    limitTokens?: number
+    tier?: string
+    resetAt?: string
+  }
+
+  // 计算东八区次日 0 点的 ISO 时间串(budget 事件 resetAt 字段)。
+  // 东八区无夏令时, 固定 UTC+8: 当前时刻 +8h 得"东八区墙上时钟", 归零到当日 0 点
+  // 再 +24h 即东八区次日 0 点, 回退 8h 转回真实 UTC 时刻后 toISOString。
+  function nextShanghaiMidnightISO(): string {
+    const OFFSET_MS = 8 * 3600 * 1000
+    const shanghaiWall = new Date(Date.now() + OFFSET_MS)
+    shanghaiWall.setUTCHours(0, 0, 0, 0)
+    return new Date(shanghaiWall.getTime() + 24 * 3600 * 1000 - OFFSET_MS).toISOString()
+  }
+
+  // Token 预算前置校验: 三态分档显式策略(替代原「超限即 429」一刀切)。
+  // 分档语义(判定用 used/limit 比值而非 percent*100, 规避 0.95*100=94.999… 浮点陷阱;
+  // percent 仅作展示, 向下取整到 0.1, 保证展示值与档位判定一致):
+  //   percent < 80        → allow    放行, 不发事件
+  //   80 ≤ percent < 95   → warning  放行, 流首命名帧 budget {level:'warning', ...}
+  //   95 ≤ percent < 100  → critical 放行, 流首命名帧 budget {level:'critical', ...}
+  //   percent ≥ 100       → block    HTTP 429 硬中断, 响应体顶层 errorCode='BUDGET_EXHAUSTED'
+  // 六点边界推演: 79.9→allow 无事件 / 80→warning / 94.9→warning / 95→critical /
+  //              99.9→critical / 100→block(判定式 ratio≥1 ⟺ used≥limit)
+  // block 判定沿用 checkBudget 同口径 used >= limit(含 limit=0 时恒 block 的既有语义)。
+  // 用量查询走 aiCost.getUserBudgetUsage, 异常时降级 allow(与原实现兜底一致)。
   async function checkTokenBudget(
     request: FastifyRequest,
     reply: FastifyReply,
     userId: string | undefined,
     model: string | undefined,
-  ): Promise<boolean> {
-    if (!userId) return true // 无 userId 无法校验,放行
+  ): Promise<BudgetGateResult> {
+    if (!userId) return { decision: 'allow' } // 无 userId 无法校验, 放行
     try {
-      const result = await server.aiCost.checkBudget('user', userId, model)
-      if (!result.allowed) {
+      const usage = await server.aiCost.getUserBudgetUsage(userId, model)
+      if (!usage) return { decision: 'allow' } // 无预算记录, 放行不参与分档
+
+      const { usedTokens, limitTokens, tier } = usage
+      const resetAt = nextShanghaiMidnightISO()
+
+      // block: 与 checkBudget 同口径 used >= limit(limit=0 时恒成立, 保持既有语义)
+      if (usedTokens >= limitTokens) {
         // P2-2 日预算超限:下发 Retry-After(60s)让客户端按协商重试,而非无脑指数退避
         sseMetrics.budgetRejects++
         sseMetrics.retryAfterSent++
@@ -154,15 +192,37 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         reply.code(429).send({
           code: 429,
           message: '预算超限',
-          data: { reason: 'budget_exceeded', detail: result.reason },
+          errorCode: 'BUDGET_EXHAUSTED',
+          percent: limitTokens > 0 ? Math.floor((usedTokens / limitTokens) * 1000) / 10 : 100,
+          usedTokens,
+          limitTokens,
+          resetAt,
+          data: { reason: 'budget_exceeded', detail: '日 token 预算已用尽' },
         })
-        return false
+        return {
+          decision: 'block',
+          percent: limitTokens > 0 ? Math.floor((usedTokens / limitTokens) * 1000) / 10 : 100,
+          usedTokens,
+          limitTokens,
+          tier,
+          resetAt,
+        }
       }
-      return true
+
+      // 未 block 时必有 limit > 0(used >= limit 不成立且 used ≥ 0), 比值安全
+      const ratio = usedTokens / limitTokens
+      const percent = Math.floor(ratio * 1000) / 10
+      if (ratio >= 0.95) {
+        return { decision: 'critical', percent, usedTokens, limitTokens, tier, resetAt }
+      }
+      if (ratio >= 0.8) {
+        return { decision: 'warning', percent, usedTokens, limitTokens, tier, resetAt }
+      }
+      return { decision: 'allow' }
     } catch (e) {
-      // checkBudget 不可用或异常:降级为只 log warning 不阻塞主链路
-      request.log.warn({ err: e, userId, model }, 'checkBudget failed, degrade to allow')
-      return true
+      // getUserBudgetUsage 不可用或异常:降级为只 log warning 不阻塞主链路
+      request.log.warn({ err: e, userId, model }, 'budget gate failed, degrade to allow')
+      return { decision: 'allow' }
     }
   }
 
@@ -263,9 +323,15 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 正常路径:创建会话(启用事件编号 + replay buffer),断线进宽限而非立即 abort
-    const session = createSession(raw, new AbortController(), replayKey)
+    // Steer(2026-09-19 立):replayKey 存在(主聊天链路带 metadata)时预生成流会话 ID,
+    // 同时下发到 ai-service(请求体 streamSessionId 字段)与本地 session(upstreamSessionId
+    // 字段)。POST /chat/steer 凭 replayKey = `conversationId:messageId` 找回 session,
+    // 取此 ID 拼 ai-service `/llm/complete/stream/{session_id}/steer` 转发地址。
+    // 降级流(缺 metadata)不启用:steer 端点无法寻址,注册队列无意义。
+    const upstreamSessionId = replayKey ? randomUUID() : null
+    const session = createSession(raw, new AbortController(), replayKey, upstreamSessionId)
 
-    // 首事件:修复通知 / 压缩通知 / resumed 通知等
+    // 首事件:压缩通知等
     // 若该流绑定到某个 agent(opts.agentId),在 chunk 顶层注入 agentId,
     // 前端可据此把通知分流到对应 subagent 卡片;缺失时降级为单 agent 模式
     for (const evt of extraFirstEvents) {
@@ -277,6 +343,14 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       if (evt.key === 'compaction') {
         chunk.type = 'compaction'
         emitNamedEvent(session, 'compaction', JSON.stringify(chunk))
+        continue
+      }
+      // 2026-09-19 立:budget 用量提醒命名帧 —— payload 即完整 data(顶层平铺,
+      // 与契约 SSEEventPayload budget 成员对齐: {type,level,percent,usedTokens,limitTokens,tier?,resetAt?})。
+      // 不注入 agentId(用户级提醒,与 subagent 分流无关);emitNamedEvent 编号进 replay buffer,
+      // 断线重连走接管/重放路径时随缓冲一并下发。
+      if (evt.key === 'budget') {
+        emitNamedEvent(session, 'budget', JSON.stringify(evt.payload))
         continue
       }
       emitEvent(session, JSON.stringify(chunk))
@@ -353,6 +427,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         body: JSON.stringify({
           messages: finalMessages,
           sessionId: opts.sessionId,
+          // Steer(2026-09-19 立):流会话 ID 透传,ai-service 以此为键注册 steer 队列
+          // (_steer_sessions[session_id],优先于 workspace_context 自生成 id);
+          // 工具循环每轮 LLM 调用前 drain 注入。null 时省略不注入(降级流)。
+          streamSessionId: upstreamSessionId ?? undefined,
           model: opts.resolvedModel,
           agentId: opts.agentId,
           materialContent: opts.materialContent,
@@ -440,9 +518,16 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
             // data 行缺失(异常帧):回退为通用行透传,避免丢帧
             pendingNamedEvent = null
           }
-          const evMatch = /^event:\s*usage\s*$/.exec(line)
+          // D1(2026-09-19 立):命名帧配对缓冲 —— `event:` 行暂存事件名,下一行 `data:`
+          // 配对为编号命名帧(emitNamedEvent:两行整体进回放缓冲,重放保留事件名)。
+          // 2026-09-19 扩展:usage + steer/fallback(本任务新增契约事件,与 usage 同为
+          // _sse() 构造形态),断线重连重放需同等保真 —— 否则 steer 引导记录与
+          // fallback 降级通知在重放后丢事件名,前端 onSteer/onFallback 不触发。
+          // 其余命名帧(plan_updated/tool-summary/citations)维持原样透传:其 data
+          // 行需走下方 agentId 注入分支(绑 agent 对话的 subagent 分流),通用化捕获会跳过。
+          const evMatch = /^event:\s*(usage|steer|fallback)\s*$/.exec(line)
           if (evMatch) {
-            pendingNamedEvent = 'usage'
+            pendingNamedEvent = evMatch[1] ?? null
             continue
           }
           if (opts.agentId && line.startsWith('data:') && !line.startsWith('data: [DONE]')) {
@@ -528,7 +613,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       // P38 跨端同步:修复 messages 结构异常(非法 role/空 content/连续重复/开头 assistant/末尾无响应 user)
       // 共享函数 @ihui/types/message-repair,与 CLI repairSessionHistory / ai-service repair_messages 同源
       // keepTrailingUser: 末尾 user 是本次发送的输入,必须保留(否则模型只能看到旧上下文)
-      const { repaired: messages, removed: repairRemoved } = repairMessages(rawMessages, {
+      const { repaired: messages } = repairMessages(rawMessages, {
         keepTrailingUser: true,
       })
 
@@ -536,9 +621,6 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       // CLI / API / ai-service 共用同一套规则,前端传 contextLimit 触发,压缩结果通过 SSE 通知前端
       let finalMessages: ChatMessage[] = messages
       const extraFirstEvents: Array<{ key: string; payload: unknown }> = []
-      if (repairRemoved > 0) {
-        extraFirstEvents.push({ key: 'repair', payload: { removed: repairRemoved } })
-      }
 
       if (contextLimit && contextLimit > 0) {
         const tokensBeforeCompress = Math.floor(estimateMessagesTokens(messages))
@@ -633,11 +715,31 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
-      // Token 预算前置校验:超预算直接返回 429,不进入流式(避免无效消耗 ai-service 配额)
-      if (
-        !(await checkTokenBudget(request, reply, metadata?.userId ?? request.userId, resolvedModel))
-      ) {
+      // Token 预算三态分档(2026-09-19 立):block 时 checkTokenBudget 已发 429 直接返回;
+      // warning/critical 放行,经流首 budget 命名帧软提醒用量进度;allow 无动作。
+      const budgetGate = await checkTokenBudget(
+        request,
+        reply,
+        metadata?.userId ?? request.userId,
+        resolvedModel,
+      )
+      if (budgetGate.decision === 'block') {
         return
+      }
+      if (budgetGate.decision === 'warning' || budgetGate.decision === 'critical') {
+        // undefined 字段(tier/resetAt 缺失时)JSON.stringify 自动省略,与契约可选字段对齐
+        extraFirstEvents.push({
+          key: 'budget',
+          payload: {
+            type: 'budget',
+            level: budgetGate.decision,
+            percent: budgetGate.percent,
+            usedTokens: budgetGate.usedTokens,
+            limitTokens: budgetGate.limitTokens,
+            tier: budgetGate.tier,
+            resetAt: budgetGate.resetAt,
+          },
+        })
       }
 
       return streamToClient(
@@ -785,18 +887,12 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       const messagesWithAnswer = [...rawMessages, { role: 'user' as const, content: answer }]
 
       // keepTrailingUser: 末尾 user 是用户对 question 的回答,必须保留(否则模型答非所问)
-      const { repaired: messages, removed: repairRemoved } = repairMessages(messagesWithAnswer, {
+      const { repaired: messages } = repairMessages(messagesWithAnswer, {
         keepTrailingUser: true,
       })
 
       let finalMessages: ChatMessage[] = messages
-      const extraFirstEvents: Array<{ key: string; payload: unknown }> = [
-        // 首事件通知前端:这是 question 已回答后的续流(前端可据此关闭弹窗)
-        { key: 'resumed', payload: { questionId, resumed: true } },
-      ]
-      if (repairRemoved > 0) {
-        extraFirstEvents.push({ key: 'repair', payload: { removed: repairRemoved } })
-      }
+      const extraFirstEvents: Array<{ key: string; payload: unknown }> = []
 
       if (contextLimit && contextLimit > 0) {
         const tokensBeforeCompress = Math.floor(estimateMessagesTokens(messages))
@@ -884,9 +980,26 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
-      // Token 预算前置校验:超预算直接返回 429,不进入流式(避免无效消耗 ai-service 配额)
-      if (!(await checkTokenBudget(request, reply, userId, resolvedModel))) {
+      // Token 预算三态分档(2026-09-19 立):block 时 checkTokenBudget 已发 429 直接返回;
+      // warning/critical 放行,经流首 budget 命名帧软提醒用量进度;allow 无动作。
+      const budgetGate = await checkTokenBudget(request, reply, userId, resolvedModel)
+      if (budgetGate.decision === 'block') {
         return
+      }
+      if (budgetGate.decision === 'warning' || budgetGate.decision === 'critical') {
+        // undefined 字段(tier/resetAt 缺失时)JSON.stringify 自动省略,与契约可选字段对齐
+        extraFirstEvents.push({
+          key: 'budget',
+          payload: {
+            type: 'budget',
+            level: budgetGate.decision,
+            percent: budgetGate.percent,
+            usedTokens: budgetGate.usedTokens,
+            limitTokens: budgetGate.limitTokens,
+            tier: budgetGate.tier,
+            resetAt: budgetGate.resetAt,
+          },
+        })
       }
 
       return streamToClient(
@@ -1011,6 +1124,62 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     )
     // 未命中不是错误(流可能刚好自然结束),仍返回 200 便于前端统一处理
     return reply.send(success({ ok: true, aborted: count > 0, count }))
+  })
+
+  // POST /chat/steer — 中途引导进行中的对话流(Steer,2026-09-19 立)
+  // 流式对话期间用户点闪电按钮提交引导文本:不打断当前工具执行,经网关转发到
+  // ai-service `/llm/complete/stream/{session_id}/steer` 入队;tool loop 每轮
+  // LLM 调用前 drain 注入 messages 并回发 event: steer(phase=injected)。
+  // 寻址:replayKey = `${conversationId}:${messageId}`(与 abort 同键),取
+  // streamToClient 预生成并存入 StreamSession.upstreamSessionId 的流会话 ID。
+  // 状态码透传:200 入队成功 / 422 text 缺失 / 404 流不存在或已结束 / 429 队列满。
+  const steerSchema = z.object({
+    conversationId: z.string().min(1),
+    messageId: z.string().min(1),
+    /** 引导文本;上限与 ai-service 端截断(4000 字符)对齐 */
+    text: z.string().min(1).max(4000),
+  })
+
+  server.post('/chat/steer', async (request, reply) => {
+    const parsed = steerSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { conversationId, messageId, text } = parsed.data
+    const session = findSession(`${conversationId}:${messageId}`)
+    if (!session || session.finished || !session.upstreamSessionId) {
+      // 流不存在/已结束/未启用 steer(缺 metadata 的降级流):透传 ai-service 同义 404,
+      // 前端 toast「引导失败(队列已满或流已结束)」统一处理
+      request.log.info({ conversationId, messageId }, '[ChatSteer] stream not found or finished')
+      return reply.status(404).send(error(404, '流不存在或已结束'))
+    }
+    try {
+      const resp = await aiServiceFetch(
+        request,
+        `/api/llm/complete/stream/${session.upstreamSessionId}/steer`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: request.headers.authorization ?? '',
+          },
+          body: JSON.stringify({ text }),
+        },
+      )
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) {
+        // 透传 ai-service 状态码(422/404/429),前端据 429 提示队列已满
+        return reply.status(resp.status).send(data)
+      }
+      request.log.info(
+        { conversationId, messageId, status: resp.status },
+        '[ChatSteer] steer enqueued',
+      )
+      return reply.status(resp.status).send(data)
+    } catch (e) {
+      request.log.error({ err: e, conversationId, messageId }, 'steer proxy failed')
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
   })
 
   // POST /agent/approval-response — 工具审批响应代理(2026-08-30 立)

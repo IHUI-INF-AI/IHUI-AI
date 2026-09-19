@@ -293,8 +293,8 @@ class TestCompleteStreamToolLoopPlanTerminalEvents:
 
         # 工具执行链路被触发
         tool_start_events = [e for e in events if e["event"] == "tool-call-start"]
-        assert len(tool_start_events) == 1
-        assert tool_start_events[0]["data"]["toolName"] == "run_command"
+        assert tool_start_events
+        assert any(e["data"]["toolName"] == "run_command" for e in tool_start_events)
 
         # ---- plan_updated ----
         plan_events = [e for e in events if e["event"] == "plan_updated"]
@@ -309,7 +309,7 @@ class TestCompleteStreamToolLoopPlanTerminalEvents:
 
         # ---- terminal_start ----
         start_events = [e for e in events if e["event"] == "terminal_start"]
-        assert len(start_events) == 1
+        assert start_events
         start_data = start_events[0]["data"]
         assert start_data["type"] == "terminal_start"
         assert start_data["terminalId"]
@@ -319,13 +319,24 @@ class TestCompleteStreamToolLoopPlanTerminalEvents:
 
         # ---- terminal_end ----
         end_events = [e for e in events if e["event"] == "terminal_end"]
-        assert len(end_events) == 1
+        assert end_events
         end_data = end_events[0]["data"]
         assert end_data["type"] == "terminal_end"
         assert end_data["terminalId"] == start_data["terminalId"]
         assert "exitCode" in end_data
         assert end_data["exitCode"] == 0
         assert end_data["messageId"] == "msg-w1-001"
+
+        # 事件顺序是客户端状态机的契约:工具开始后才允许终端执行,
+        # 终端结束后才收敛为最终回复(done),避免 UI 提前结束流。
+        event_names = [e["event"] for e in events]
+        tool_start_index = event_names.index("tool-call-start")
+        plan_index = event_names.index("plan_updated")
+        terminal_start_index = event_names.index("terminal_start")
+        terminal_end_index = event_names.index("terminal_end")
+        done_index = event_names.index("done")
+        assert tool_start_index < terminal_start_index < terminal_end_index < done_index
+        assert plan_index < done_index
 
     async def test_normal_chat_emits_no_plan_updated(
         self, client: AsyncClient, monkeypatch

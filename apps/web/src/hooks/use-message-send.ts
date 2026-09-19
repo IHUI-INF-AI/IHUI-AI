@@ -13,6 +13,8 @@ import { compressImage } from '@/lib/file-utils'
 import { formatFileSize } from '@/config/downloads.config'
 import type { ReferenceItem } from '@/hooks/use-message-references'
 import { useAnalytics } from '@/hooks/use-analytics'
+import { steerChatStream } from '@ihui/api-client'
+import { useChatStore } from '@/stores/chat'
 
 /** WebInputCore 句柄 — 与 message-input.tsx 的 WebInputCoreHandle 契约一致。
  * 独立声明(不依赖 message-input.tsx)以避免 hook 反向依赖组件,符合 hooks/ 目录
@@ -56,6 +58,9 @@ export interface UseMessageSendResult {
   removePendingMessage: (index: number) => void
   /** 立即发送队首预备消息(流式结束后调用) */
   sendPendingMessage: () => Promise<void>
+  /** Steer 中途引导(2026-09-19 立):流式期间闪电按钮触发,不打断当前工具执行,
+   *  将输入框文本经网关 /chat/steer 注入 ai-service 队列,下一轮 LLM 调用前生效 */
+  steer: () => Promise<void>
 }
 
 /**
@@ -394,6 +399,47 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     setPendingMessages((prev) => prev.filter((_, i) => i !== index))
   }, [])
 
+  /** Steer(中途引导,2026-09-19 立):仅流式期间可用(Enter 保持 W27 FIFO 不变,
+   *  本函数是闪电按钮专属路径)。取当前流式 assistant 消息 ID(网关凭
+   *  conversationId+messageId 反查 upstreamSessionId)调网关 POST /chat/steer,
+   *  由 ai-service 在 tool loop 边界注入;badge 由 SSE steer 事件回执驱动
+   *  (onSteer → appendSteerNotice),此处不做乐观写入避免重复追加。
+   *  入队成功即清空输入框文本(引导为纯文本,不含附件引用);失败保留内容供重试。 */
+  const steer = React.useCallback(async () => {
+    const text = value.trim()
+    // 非流式 / 空输入:静默不动作(闪电按钮在非流式态不渲染,此处为双保险)
+    if (!text || !isStreaming) return
+    const store = useChatStore.getState()
+    const messageId = store.streamingAssistantId
+    const conversationId = store.conversationId
+    if (!messageId || !conversationId) {
+      // 流已收尾或会话未就绪:退化为普通入队(FIFO),不让引导文本丢失
+      setPendingMessages((prev) => [...prev, { text, refs: references.map((r) => ({ ...r })) }])
+      setValue('')
+      resetReferences()
+      requestAnimationFrame(() => inputCoreRef.current?.resize())
+      return
+    }
+    try {
+      // 2026-09-19 修正:fetchApi 对 4xx(429 队列超限/404 流已结束)返回
+      // {success:false} 而非抛错,必须显式检查,否则引导文本被静默清空丢失。
+      const result = await steerChatStream({ conversationId, messageId, text })
+      if (!result.success) {
+        // 失败:保留输入内容供重试(不 setValue('')、不清草稿)
+        toast.warning(t('steerFailed'))
+        return
+      }
+      // 埋点:中途引导发送成功(web 端)
+      track({ name: 'chat_steer', category: 'chat', label: 'web' })
+      setValue('')
+      if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
+      requestAnimationFrame(() => inputCoreRef.current?.resize())
+    } catch {
+      // 5xx / 网络失败(fetchApi 抛错路径):同样保留输入内容,toast 提示
+      toast.warning(t('steerFailed'))
+    }
+  }, [value, isStreaming, references, setValue, resetReferences, inputCoreRef, draftKey, track, t])
+
   return {
     isDragOver,
     handleDragOver,
@@ -405,6 +451,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     pendingMessages,
     removePendingMessage,
     sendPendingMessage,
+    steer,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
