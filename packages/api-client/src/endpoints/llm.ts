@@ -15,6 +15,12 @@ export interface LlmModelCaps {
   default_timeout?: number
   max_context?: number
   protocol?: string
+  /** 第十七批:provider 级 HTTP 失败重试次数(排队型 provider 更高,低延迟型更低) */
+  request_max_retries?: number
+  /** 第十七批:流式响应空闲超时秒数(长排队/长思考链 provider 放宽) */
+  stream_idle_timeout_s?: number
+  // 注意:服务端的 extra_headers / env_headers 属出站请求头配置(可能承载凭据),
+  // 由 cap_to_dict 显式剔除,永不出现在客户端可见的 schema 中。
 }
 
 export interface LlmModel {
