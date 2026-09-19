@@ -4,6 +4,7 @@
 
 import type { FastifyRequest, FastifyReply, preHandlerAsyncHookHandler } from 'fastify'
 import { authenticate } from './auth.js'
+import { checkInternalServiceToken, hasInternalServiceToken } from './internal-service-token.js'
 import { checkAnyPermission } from '../db/rbac-queries.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 
@@ -34,8 +35,13 @@ export function requirePermission(permission: string): preHandlerAsyncHookHandle
  *
  * 行为（与 requirePermission 完全一致，仅权限校验改为"任一命中即放行"）：
  *  1. 调用 authenticate 校验 JWT，失败返回 401
+ *  1b. (2026-09-19) JWT 失败且请求携带 X-Internal-Service-Token 时降级 internal token
+ *      鉴权（ai-service 代真实用户调用 edu 路由，无用户 JWT）：校验 token + X-User-Id
+ *      并注入 request.userId；失败返回 401/400/403
  *  2. 系统管理员（jwtPayload.roleId >= ADMIN_ROLE_ID）直接放行
  *  3. 其余用户通过 RBAC 表查询是否持有任一指定权限点，均未命中则返回 403
+ *     （internal token 请求 jwtPayload 为空 → roleId 视为 0 → 权限由 RBAC 对
+ *     X-User-Id 指向的真实聊天用户兜底校验）
  *
  * 用法：
  *   server.get('/term', { preHandler: requireAnyPermission(['edu:view', 'edu:manage']) }, handler)
@@ -45,10 +51,16 @@ export function requireAnyPermission(permissions: string[]): preHandlerAsyncHook
     try {
       await authenticate(request)
     } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      return reply
-        .status(statusCode)
-        .send({ code: statusCode, message: toUserFriendlyMessage(e) || 'Authentication required' })
+      if (hasInternalServiceToken(request)) {
+        // internal service 降级：校验通过则注入 request.userId 继续走 RBAC，失败时 reply 已发送
+        const ok = await checkInternalServiceToken(request, reply)
+        if (!ok) return
+      } else {
+        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+        return reply
+          .status(statusCode)
+          .send({ code: statusCode, message: toUserFriendlyMessage(e) || 'Authentication required' })
+      }
     }
 
     // 系统管理员放行
