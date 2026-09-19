@@ -283,6 +283,7 @@ USER_CONTEXTUAL_PREFIXES: frozenset[str] = frozenset(
         "<turn_aborted>",
         "<subagent_notification>",
         "<user_verification_notice>",
+        "<environment_context>",
     }
 )
 
