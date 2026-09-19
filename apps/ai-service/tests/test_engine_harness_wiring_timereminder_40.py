@@ -174,8 +174,50 @@ def test_prefix_set_extended():
         TURN_ABORTED_OPEN_TAG,
         "<subagent_notification>",
         "<user_verification_notice>",
+        "<environment_context>",
     ):
         assert tag in USER_CONTEXTUAL_PREFIXES
+
+
+def test_environment_context_fragment_and_tracker():
+    """环境片段形态 + 变化检测(变化才注入,不变返回 None)。"""
+    from app.core.environment_context import (
+        ENVIRONMENT_CONTEXT_CLOSE_TAG,
+        ENVIRONMENT_CONTEXT_OPEN_TAG,
+        EnvironmentStateTracker,
+        format_local_date,
+        is_environment_context_fragment,
+    )
+
+    ENV_OPEN = ENVIRONMENT_CONTEXT_OPEN_TAG
+    ENV_CLOSE = ENVIRONMENT_CONTEXT_CLOSE_TAG
+    NL_BODY = "\n  <cwd>G:/x</cwd>\n  <current_date>2026-09-19</current_date>\n"
+
+    frag = {
+        "type": "message",
+        "role": "user",
+        "content": [{"type": "input_text", "text": ENV_OPEN + NL_BODY + ENV_CLOSE}],
+    }
+    assert frag["role"] == "user"
+    assert is_environment_context_fragment(frag["content"][0]["text"])
+    assert is_contextual_user_fragment(frag["content"][0])
+
+    tracker = EnvironmentStateTracker()
+    first = tracker.maybe_fragment(cwd="G:/x", current_date="2026-09-19")
+    assert first is not None
+    text = first["content"][0]["text"]
+    assert text.startswith(ENVIRONMENT_CONTEXT_OPEN_TAG)
+    assert text.endswith(ENVIRONMENT_CONTEXT_CLOSE_TAG)
+    assert "<cwd>G:/x</cwd>" in text and "<current_date>2026-09-19</current_date>" in text
+    # 同状态 → 不重复注入
+    assert tracker.maybe_fragment(cwd="G:/x", current_date="2026-09-19") is None
+    # cwd 变化 → 注入
+    changed = tracker.maybe_fragment(cwd="G:/y", current_date="2026-09-19")
+    assert changed is not None and "G:/y" in changed["content"][0]["text"]
+    # xml 转义:特殊字符不破坏结构
+    esc = tracker.maybe_fragment(cwd="G:/a<b>&c", current_date="2026-09-20")
+    assert esc is not None and "a&lt;b&gt;&amp;c" in esc["content"][0]["text"]
+    assert format_local_date().count("-") == 2
 
 
 def test_loop_wiring_time_provider_and_resume_injection():
