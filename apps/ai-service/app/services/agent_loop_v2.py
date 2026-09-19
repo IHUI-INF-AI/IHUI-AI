@@ -242,6 +242,18 @@ def _agent_budget_enabled_from_env() -> bool:
     )
 
 
+def _rollout_budget_limit_from_env() -> int:
+    """批 40 接线:会话树加权 token 预算(env AGENT_ROLLOUT_BUDGET_TOKENS)。
+
+    >0 时启用 RolloutBudget 记账 + 阈值提醒投递(默认 off,零行为变化);
+    提醒阈值默认 (10000, 2000)(剩余 token 两档)。
+    """
+    try:
+        return int(os.environ.get("AGENT_ROLLOUT_BUDGET_TOKENS", "0") or 0)
+    except ValueError:
+        return 0
+
+
 def _agent_budget_pillar_from_env() -> str:
     """Agent 主循环预算支柱(env AGENT_BUDGET_PILLAR)。
 
@@ -1085,6 +1097,24 @@ class AgentLoopV2:
         self._time_reminder_state = _CurrentTimeReminderState()
         self._time_provider = time_provider
         self._env_tracker = _EnvironmentStateTracker()
+        # 批 40 接线:rollout_budget 记账 + 阈值提醒(批 26 移植模块首次接线;
+        # env AGENT_ROLLOUT_BUDGET_TOKENS>0 启用,默认 off 零行为变化)。
+        self._rollout_budget = None
+        _rb_limit = _rollout_budget_limit_from_env()
+        if _rb_limit > 0:
+            try:
+                from ..core.rollout_budget import RolloutBudget, RolloutBudgetConfig
+
+                _rb = RolloutBudget()
+                _rb.configure(
+                    RolloutBudgetConfig(
+                        limit_tokens=_rb_limit,
+                        reminder_at_remaining_tokens=(10000, 2000),
+                    )
+                )
+                self._rollout_budget = _rb
+            except Exception as e:  # noqa: BLE001 - 配置失败降级为不启用
+                logger.warning("rollout_budget 初始化失败(降级不启用): %s", e)
 
         # plan 模式:循环入口强制收窄工具集为「传入 tools ∩ READONLY_TOOLS」,
         # LLM schema 也仅暴露只读工具(双保险:既收窄可见工具,又在执行入口做防御性再校验)。
@@ -2656,6 +2686,37 @@ class AgentLoopV2:
                         usage=llm_response.get("usage"),
                         model=llm_response.get("model", ""),
                     )
+                # 批 40 接线:rollout_budget 记账 + 阈值提醒投递(对标 codex
+                # maybe_record_current_time_reminder 的兄弟链路 record_rollout_budget)。
+                # 用 usage 归一化记账;剩余量跌破阈值时把 <rollout_budget> developer
+                # 片段追加进历史(同窗口同级别只投一次,由 pending_reminder 状态机管)。
+                if self._rollout_budget is not None:
+                    try:
+                        from ..core.rollout_budget import (
+                            build_rollout_budget_fragment,
+                            normalize_rollout_usage,
+                        )
+
+                        _usage = normalize_rollout_usage(llm_response.get("usage") or {})
+                        if _usage:
+                            self._rollout_budget.record_usage(_usage)
+                        _budget_reminder = self._rollout_budget.pending_reminder(
+                            thread_id=self._session_id or "",
+                            window_id=self._session_id or "",
+                        )
+                        if _budget_reminder is not None:
+                            messages.append(
+                                build_rollout_budget_fragment(
+                                    _budget_reminder.remaining_tokens
+                                )
+                            )
+                            self._rollout_budget.mark_reminder_delivered(
+                                thread_id=self._session_id or "",
+                                window_id=self._session_id or "",
+                                reminder=_budget_reminder,
+                            )
+                    except Exception as e:  # noqa: BLE001 - 预算提醒失败隔离
+                        logger.warning("rollout_budget 记账/提醒失败(降级跳过): %s", e)
 
                 # P0-①(2026-09-18):主循环 LLM 调用录为 type=llm 步骤——
                 # 主链路 token/成本此前只入 budget governor(内存口径),recorder/
