@@ -204,6 +204,9 @@ function ThirdPartyGrid({
             <Button
               type="button"
               variant="outline"
+              // 多列窄格走 sm 档(h-8,32px);常规列保持 default 档(h-9)——
+              // 高度必须走 size 档位,禁 className h-8 直写(守门 [Button 高度档位])
+              size={columns > 3 ? 'sm' : 'default'}
               disabled={disabled}
               onClick={() => onLogin(p.key)}
               className={cn(
@@ -214,9 +217,9 @@ function ThirdPartyGrid({
                 // justify-items: stretch 拉伸到列宽,但内层 inline-flex 按钮默认
                 // 不自动 grow,文本长短不一导致按钮宽度不一致)
                 'w-full',
-                // 多列窄格(2026-09-19 紧凑化):h-8 + text-xs + px-2,
-                // 2 行网格再降 8px,且"企业微信"等 4 字标签在窄列内不溢出
-                columns > 3 && 'h-8 px-2 text-xs',
+                // 多列窄格(2026-09-19 紧凑化):size=sm 已含 h-8+text-xs,此处仅补
+                // px-2 再压缩水平留白,"企业微信"等 4 字标签在窄列内不溢出
+                columns > 3 && 'px-2',
                 p.forceDisabled && 'grayscale opacity-50',
               )}
               data-testid={`third-party-${p.key}`}
