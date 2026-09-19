@@ -440,6 +440,9 @@ class EngineThread:
     # 工作区文件监视(2026-09-18 第七批,对标 Codex file-watcher):
     # 开启后扫描工作区变更并经 workspace.changed 事件推送(去抖聚合)
     watch_workspace: bool = False
+    # 回合净 diff 跟踪器(2026-09-19 第四十一批接线,对标 Codex TurnDiffTracker):
+    # 补丁提交时累计净变更,inexact 即整体失效;turn.diff 优先取净 diff
+    turn_diff_tracker: Any = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -2195,6 +2198,13 @@ class AgentEngine:
                             unified_diff + ("\n" if unified_diff else "") + extra
                         )
                 baseline_sha, baseline_source = await self._git_baseline(thread.workspace)
+                # 批 41 接线:回合净 diff 优先取 tracker 累计值(跨多补丁净结果,
+                # "中途新建又删除"不出现在 diff 中;inexact 已整体失效 → 回退 git 路径)
+                _tracked_diff: str | None = None
+                _tracker = thread.turn_diff_tracker
+                if _tracker is not None and _tracker.valid():
+                    with contextlib.suppress(Exception):
+                        _tracked_diff = _tracker.get_unified_diff()
                 await self._emit_engine_event(
                     thread,
                     emit,
@@ -2206,9 +2216,10 @@ class AgentEngine:
                             for p in changed[:50]
                         ],
                         "truncated": len(changed) > 50,
-                        "unifiedDiff": unified_diff[:32_000],
+                        "unifiedDiff": (_tracked_diff or unified_diff)[:32_000],
                         "baselineSha": baseline_sha,
                         "baselineSource": baseline_source,
+                        "diffSource": "turn_tracker" if _tracked_diff else "git",
                     },
                 )
             elif before_snapshot and thread.workspace:
@@ -2256,6 +2267,7 @@ class AgentEngine:
                             "unifiedDiff": "\n".join(p for p in parts if p)[:32_000],
                             "baselineSha": None,
                             "baselineSource": "mtime-snapshot",
+                            "diffSource": "mtime-snapshot",
                         },
                     )
         # TurnComplete(2026-09-18 第十批,对标 Codex TurnComplete 事件)
@@ -3759,6 +3771,38 @@ class AgentEngine:
                 )
             changed_files = [r for r in results if r.get("changed")]
             thread.touch()
+            # 批 41 接线:补丁提交进回合净 diff 跟踪器(对标 Codex TurnDiffTracker;
+            # tracker 初始化/记录失败降级跳过,不影响补丁主链路)。
+            try:
+                from ..core.turn_diff_tracker import FileChange, PatchDelta, TurnDiffTracker
+
+                if thread.turn_diff_tracker is None:
+                    thread.turn_diff_tracker = TurnDiffTracker()
+                _fc: list[Any] = []
+                for rel, (old, new) in diff_pairs.items():
+                    if old is None:
+                        _fc.append(
+                            FileChange(kind="add", path=rel, content=new or "")
+                        )
+                    elif new is None:
+                        _fc.append(
+                            FileChange(kind="delete", path=rel, content=old)
+                        )
+                    else:
+                        _fc.append(
+                            FileChange(
+                                kind="update",
+                                path=rel,
+                                content=new,
+                                old_content=old,
+                            )
+                        )
+                if _fc:
+                    thread.turn_diff_tracker.track_delta(
+                        PatchDelta(environment_id="workspace", changes=_fc, exact=True)
+                    )
+            except Exception as _td_err:  # noqa: BLE001 - 记录失败不影响补丁应用
+                logger.warning("turn_diff_tracker 记录失败(降级跳过): %s", _td_err)
             # 聚合 unified diff(对标 Codex TurnDiffTracker 净变更语义)
             unified_diff = _aggregate_unified_diff(diff_pairs)
             with contextlib.suppress(Exception):
