@@ -24,6 +24,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import logging
 from collections.abc import Callable
@@ -290,5 +291,57 @@ async def compact_with_llm(
             info.get("removed_count", 0),
         )
     return compressed, info
+
+
+# ----------------------------------------------------------------------
+# 模型回退判定(2026-09-19 第二十六批,对标 Codex compact_model_fallback.rs)
+# ----------------------------------------------------------------------
+# 不可回退的错误类别(Codex:TurnAborted/Interrupted/SessionBudgetExceeded):
+# 用户中断/回合作废/预算耗尽时,换当前模型重试摘要既不尊重用户意图也不经济。
+_NON_RETRYABLE_COMPACT_ERROR_MARKERS = (
+    "turnaborted",
+    "interrupted",
+    "cancelled",
+    "canceled",
+    "budgetexceeded",
+    "budget_exhausted",
+)
+
+
+def should_retry_compact_with_current_model(error: BaseException | str | None) -> bool:
+    """摘要压缩失败后,是否值得用当前模型重试(而非直接放弃语义压缩)。
+
+    对标 Codex ``should_retry_with_current_model``:中止类错误返回 False,
+    其余(网络抖动、上游 5xx、超时等)返回 True。
+    """
+    if error is None:
+        return True
+    if isinstance(error, BaseException):
+        if isinstance(error, (KeyboardInterrupt, asyncio.CancelledError)):
+            return False
+        text = f"{type(error).__name__} {error}"
+    else:
+        text = str(error)
+    lowered = text.replace("_", "").replace("-", "").lower()
+    return not any(marker in lowered for marker in _NON_RETRYABLE_COMPACT_ERROR_MARKERS)
+
+
+def compact_model_fallback_tags(
+    reason: str,
+    implementation: str,
+    outcome: str,
+) -> dict[str, str]:
+    """构造回退事件的结构化标签(Codex record_model_fallback 的 counter 维度)。
+
+    Args:
+        reason: user_requested | context_limit | model_downshift | comp_hash_changed
+        implementation: responses | responses_compaction_v2(保留 Codex 原值便于跨系统对账)
+        outcome: succeeded | failed
+    """
+    return {
+        "reason": reason,
+        "implementation": implementation,
+        "outcome": outcome,
+    }
 # ⁠​‌​
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

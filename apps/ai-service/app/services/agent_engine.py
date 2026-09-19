@@ -271,7 +271,13 @@ _DANGEROUS_ENV_PREFIXES = ("LD_PRELOAD", "LD_AUDIT", "DYLD_")
 
 
 def _sanitized_child_env() -> dict[str, str]:
-    """子进程环境消毒:剔除注入型危险变量(第十一批,对标 process-hardening)。"""
+    """子进程环境消毒:剔除注入型危险变量(第十一批,对标 process-hardening)。
+
+    第二十六批升级:再剥离 exec_env.NON_INHERITABLE_ENV_VARS(管理凭据/
+    身份令牌类,如 IHUI_ADMIN_PASSWORD),模型可达子进程绝不继承。
+    """
+    from app.core.exec_env import scrub_non_inheritable_env_vars
+
     env = dict(os.environ)
     for key in [
         k
@@ -279,7 +285,7 @@ def _sanitized_child_env() -> dict[str, str]:
         if any(k.upper().startswith(p) for p in _DANGEROUS_ENV_PREFIXES)
     ]:
         env.pop(key, None)
-    return env
+    return scrub_non_inheritable_env_vars(env)
 # 工作区文件监视(2026-09-18 第七批,对标 Codex file-watcher)
 _WATCH_INTERVAL = 2.0
 _WATCH_MAX_ENTRIES = 2000
