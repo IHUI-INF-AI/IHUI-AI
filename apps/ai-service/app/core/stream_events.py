@@ -269,8 +269,8 @@ CONTEXTUAL_DEVELOPER_PREFIXES: frozenset[str] = frozenset(
     }
 )
 
-# 用户消息中可识别为上下文片段的前缀集(本地化精简;原 is_contextual_user_fragment
-# 来自 context.rs,超出本次移植范围,此处给出等价子集)
+# 用户消息中可识别为上下文片段的前缀集(对标 codex CONTEXTUAL_USER_FRAGMENT_MATCHERS
+# 中带文本标记的片段;2026-09-19 第四十批补齐 current_time_reminder/turn_aborted)
 USER_CONTEXTUAL_PREFIXES: frozenset[str] = frozenset(
     {
         "<permissions instructions>",
@@ -279,6 +279,10 @@ USER_CONTEXTUAL_PREFIXES: frozenset[str] = frozenset(
         "<persistent_mode>",
         "<context_window>",
         "<context_window_guidance>",
+        "<current_time_reminder>",
+        "<turn_aborted>",
+        "<subagent_notification>",
+        "<user_verification_notice>",
     }
 )
 
