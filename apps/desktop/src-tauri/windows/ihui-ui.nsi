@@ -528,47 +528,33 @@ FunctionEnd
 Function IHUIInstShow
   StrCpy $IHUIFINMODE 0
   !insertmacro IHUI_HIDE_ALL
-  ; ---- 原生按钮 1/2/3 不隐藏不销毁(会破坏核心完成时的自动推进),移到屏外
-  ;      (y+2000)。品牌视觉由叠加位图按钮提供,点击经 BM_CLICK 转发原生按钮。
+  ; ---- 原生按钮 1/2/3 移到品牌 CTA 行并改文案(6835 已验证推进链)。
+  ;      R58 bisect 实锤:移屏外方案会被核心完成时的位置恢复破坏(核心恢复到
+  ;      MUI 默认位=CTA 行,但满幅背景 STATIC 在其上吞掉点击 → 永远无法推进)。
+  ;      CTA 行方案:核心恢复位置=SHOW 设置位置,坐标一致,点击直达推进。
   !insertmacro IHUI_PX $2 64
-  !insertmacro IHUI_PX $3 2500
+  !insertmacro IHUI_PX $3 500
   !insertmacro IHUI_PX $4 96
   !insertmacro IHUI_PX $5 40
   GetDlgItem $0 $HWNDPARENT 3
   System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
+  System::Call "user32::SendMessageW(p $0, i 0x0030, p $IHUIFONT, p 0)"
+  System::Call "user32::SetWindowTextW(p $0, w `取消`)"
   ShowWindow $0 1
   !insertmacro IHUI_PX $2 672
+  !insertmacro IHUI_PX $4 144
   GetDlgItem $0 $HWNDPARENT 1
   System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
+  System::Call "user32::SendMessageW(p $0, i 0x0030, p $IHUIFONT, p 0)"
+  System::Call "user32::SetWindowTextW(p $0, w `下一步 ›`)"
   ShowWindow $0 1
   !insertmacro IHUI_PX $2 176
+  !insertmacro IHUI_PX $4 96
   GetDlgItem $0 $HWNDPARENT 2
   System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
+  System::Call "user32::SendMessageW(p $0, i 0x0030, p $IHUIFONT, p 0)"
+  System::Call "user32::SetWindowTextW(p $0, w `取消`)"
   ShowWindow $0 1
-  ; 品牌按钮叠加(逻辑坐标与 BMP 烧入行一致): 左取消 / 右下一步›
-  ; ⚠️ instfiles 是原生页面,禁止用 IHUI_BTN(内部 nsDialogs::CreateControl 只在
-  ; 自定义页有效,在原生页调用会直接崩退——R46 实锤)。这里用 CreateWindowExW
-  ; 创建 BS_BITMAP 真 BUTTON,控件 ID 复用原生 1/2: BUTTON 点击按 ID 向父窗口
-  ; 发 WM_COMMAND,NSIS 主对话框按 ID 路由推进,零回调零转发,与原生点击等价。
-  !insertmacro IHUI_PX $2 672
-  !insertmacro IHUI_PX $3 500
-  !insertmacro IHUI_PX $4 144
-  !insertmacro IHUI_PX $5 40
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-continue.bmp`, i 0, i 0, i 0x2010) p .r0"
-  System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r2, i r3, i r4, i r5, p $HWNDPARENT, p 1, p 0, p 0) p .s"
-  Pop $IHUINXT
-  SendMessage $IHUINXT 0x00F7 0 $0
-  !insertmacro IHUI_PX $2 64
-  !insertmacro IHUI_PX $4 96
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-cancel.bmp`, i 0, i 0, i 0x2010) p .r0"
-  System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r2, i r3, i r4, i r5, p $HWNDPARENT, p 2, p 0, p 0) p .s"
-  Pop $IHUICNC
-  SendMessage $IHUICNC 0x00F7 0 $0
-  ; ---- 临时诊断(R48b): 写品牌控件句柄与父句柄到诊断文件 ----
-  FileOpen $8 "$PLUGINSDIR\ihui-diag.txt" w
-  FileWrite $8 "nxt=$IHUINXT cnc=$IHUICNC parent=$HWNDPARENT$\r$\n"
-  FileClose $8
-  ; ---- end diagnostics ----
   ; details 日志框/进度文本等挂在内层 dialog(非 HWNDPARENT),1016..1033 连续段隐藏
   FindWindow $1 "#32770" "" $HWNDPARENT
   StrCpy $2 1016
@@ -615,31 +601,30 @@ FunctionEnd
 ; 推进会被静默破坏 —— R7 起 finish 页从未出现的历史根因。
 ; 对策:LEAVE 一律纯透传(不销毁任何控件),背景/控件的生命周期交由 finish 页接管。
 Function IHUIInstLeave
-  ; 完成时刻核心会恢复原生控件并重排 Z 序。统一终裁:原生 1/2/3 移回屏外
-  ; (y=2500)并保持可见,保证核心自动推进链完好;品牌位图按钮不受影响。
+  ; 完成时刻核心会恢复原生控件并重排 Z 序,可能在满幅 BMP 之上/之下不确定。
+  ; 统一终裁:1/2/3 重新提顶并确保可见(位置仍是 SHOW 设的 CTA 行,核心恢复
+  ; 同一位置,坐标一致 → 用户/自动化点击直达推进,6835 已验证)。
   StrCpy $IHUIFINMODE 1
-  !insertmacro IHUI_PX $2 64
-  !insertmacro IHUI_PX $3 2500
-  !insertmacro IHUI_PX $4 96
-  !insertmacro IHUI_PX $5 40
   GetDlgItem $0 $HWNDPARENT 3
-  System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
   ShowWindow $0 1
-  !insertmacro IHUI_PX $2 672
-  !insertmacro IHUI_PX $4 144
-  GetDlgItem $0 $HWNDPARENT 1
-  System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
-  ShowWindow $0 1
-  !insertmacro IHUI_PX $2 176
-  !insertmacro IHUI_PX $4 96
+  System::Call "user32::SetWindowPos(p $0, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
   GetDlgItem $0 $HWNDPARENT 2
-  System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
   ShowWindow $0 1
-  ; 核心完成时会重新显示子标题(「已完成」白条),再隐藏
-  GetDlgItem $0 $HWNDPARENT 1037
-  ShowWindow $0 0
-  GetDlgItem $0 $HWNDPARENT 1036
-  ShowWindow $0 0
+  System::Call "user32::SetWindowPos(p $0, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  GetDlgItem $0 $HWNDPARENT 1
+  ShowWindow $0 1
+  System::Call "user32::SetWindowPos(p $0, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  ; 核心完成时会重新显示子标题(「已完成」白条),再隐藏。
+  ; ⚠️ 1036/1037 挂在内层 #32770(非 HWNDPARENT),R48 探针实证:必须从内层取。
+  FindWindow $1 "#32770" "" $HWNDPARENT
+  GetDlgItem $0 $1 1037
+  ${If} $0 <> 0
+    ShowWindow $0 0
+  ${EndIf}
+  GetDlgItem $0 $1 1036
+  ${If} $0 <> 0
+    ShowWindow $0 0
+  ${EndIf}
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
 FunctionEnd
 
