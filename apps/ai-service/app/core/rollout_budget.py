@@ -191,4 +191,63 @@ class RolloutBudget:
             self._state.deliveries[thread_id] = _ThreadBudgetDelivery(
                 window_id=window_id, reminder_index=reminder.reminder_index
             )
+
+
+# ===========================================================================
+# 批 40 接线补充:usage 归一化 + 提醒片段构造(对标 RolloutBudgetContext 渲染)
+# ===========================================================================
+
+ROLLOUT_BUDGET_OPEN_TAG = "<rollout_budget>"
+ROLLOUT_BUDGET_CLOSE_TAG = "</rollout_budget>"
+
+
+def normalize_rollout_usage(usage: dict[str, Any]) -> dict[str, Any]:
+    """把 LLM 响应 usage 归一化为 record_usage 可消费形态。
+
+    - input_tokens / prompt_tokens → input_tokens
+    - output_tokens / completion_tokens → output_tokens
+    - cached_input_tokens / prompt_tokens_details.cached_tokens → cached_input_tokens
+    无法解析时返回空 dict(调用方跳过记账)。
+    """
+    if not isinstance(usage, dict):
+        return {}
+    out: dict[str, Any] = {}
+    inp = usage.get("input_tokens", usage.get("prompt_tokens"))
+    if isinstance(inp, (int, float)):
+        out["input_tokens"] = int(inp)
+    outp = usage.get("output_tokens", usage.get("completion_tokens"))
+    if isinstance(outp, (int, float)):
+        out["output_tokens"] = int(outp)
+    cached = usage.get("cached_input_tokens")
+    if not isinstance(cached, (int, float)):
+        details = usage.get("prompt_tokens_details")
+        if isinstance(details, dict):
+            cached = details.get("cached_tokens")
+    if isinstance(cached, (int, float)):
+        out["cached_input_tokens"] = int(cached)
+    units = usage.get("codex_rollout_budget_units")
+    if isinstance(units, (int, float)) and units >= 0:
+        out["codex_rollout_budget_units"] = units
+    return out
+
+
+def build_rollout_budget_fragment(remaining_tokens: int) -> dict[str, Any]:
+    """构造预算提醒片段(对标 RolloutBudgetContext → ResponseItem)。
+
+    developer 角色、<rollout_budget> 标记、文案逐字对齐 codex。
+    """
+    body = (
+        f"You have {max(0, int(remaining_tokens))} weighted tokens left "
+        "in the shared session token budget."
+    )
+    return {
+        "type": "message",
+        "role": "developer",
+        "content": [
+            {
+                "type": "input_text",
+                "text": f"{ROLLOUT_BUDGET_OPEN_TAG}\n{body}\n{ROLLOUT_BUDGET_CLOSE_TAG}",
+            }
+        ],
+    }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
