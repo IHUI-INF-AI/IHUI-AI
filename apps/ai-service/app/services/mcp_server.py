@@ -2702,6 +2702,96 @@ async def _tool_screenshot_url(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+# ===== D11 浏览器自检截图(2026-09)=====
+async def _tool_browser_selfcheck_screenshot(arguments: dict[str, Any]) -> dict[str, Any]:
+    """对 URL 截图自检,返回 base64 PNG + 视口尺寸 + console 错误(playwright headless)。
+
+    复用 app.tools.browser_selfcheck.capture_screenshot(全链路异常已收敛为 {ok:False})。
+    """
+    url = arguments.get("url")
+    if not url or not isinstance(url, str):
+        return {"tool": "browser_selfcheck_screenshot", "ok": False, "error": "缺少 url 参数"}
+
+    viewport = arguments.get("viewport")
+    if viewport is not None and not isinstance(viewport, dict):
+        viewport = None
+    full_page = bool(arguments.get("full_page", False))
+    try:
+        wait_ms = int(arguments.get("wait_ms", 1500))
+    except (TypeError, ValueError):
+        wait_ms = 1500
+
+    try:
+        from ..tools.browser_selfcheck import capture_screenshot
+
+        result = await capture_screenshot(url, viewport=viewport, full_page=full_page, wait_ms=wait_ms)
+    except Exception as e:  # noqa: BLE001 - 双重保险,绝不上抛 agent 循环
+        return {
+            "tool": "browser_selfcheck_screenshot",
+            "ok": False,
+            "url": url,
+            "error": f"{type(e).__name__}: {str(e)[:200]}",
+            "errorCode": "TOOL_FAILED",
+        }
+
+    return {
+        "tool": "browser_selfcheck_screenshot",
+        "ok": result.get("ok", False),
+        "url": result.get("finalUrl", url),
+        "title": result.get("title", ""),
+        "finalUrl": result.get("finalUrl", url),
+        "width": result.get("width", 0),
+        "height": result.get("height", 0),
+        "consoleErrors": result.get("consoleErrors", []),
+        "imageBase64": result.get("imageBase64"),
+        "error": result.get("error"),
+        "errorCode": result.get("errorCode"),
+    }
+
+
+async def _tool_browser_selfcheck(arguments: dict[str, Any]) -> dict[str, Any]:
+    """截图 + 视觉 LLM 逐项判定检查点 pass/fail(复用 browser_selfcheck.selfcheck_report)。"""
+    url = arguments.get("url")
+    if not url or not isinstance(url, str):
+        return {"tool": "browser_selfcheck", "ok": False, "error": "缺少 url 参数"}
+
+    checks = arguments.get("checks") or []
+    if not isinstance(checks, list):
+        checks = [str(checks)]
+    checks = [str(c) for c in checks if str(c).strip()]
+
+    try:
+        from ..tools.browser_selfcheck import selfcheck_report
+
+        result = await selfcheck_report(url, checks)
+    except Exception as e:  # noqa: BLE001 - 双重保险,绝不上抛 agent 循环
+        return {
+            "tool": "browser_selfcheck",
+            "ok": False,
+            "url": url,
+            "checks": [],
+            "error": f"{type(e).__name__}: {str(e)[:200]}",
+            "errorCode": "TOOL_FAILED",
+        }
+
+    return {
+        "tool": "browser_selfcheck",
+        "ok": result.get("ok", False),
+        "url": result.get("url", url),
+        "title": result.get("title", ""),
+        "finalUrl": result.get("finalUrl", url),
+        "consoleErrors": result.get("consoleErrors", []),
+        "screenshot_length": result.get("screenshot_length", 0),
+        "visionChecked": result.get("visionChecked", False),
+        "visionModel": result.get("visionModel", ""),
+        "checks": result.get("checks", []),
+        "visionError": result.get("visionError"),
+        "note": result.get("note"),
+        "error": result.get("error"),
+        "errorCode": result.get("errorCode"),
+    }
+
+
 # 自动化任务配置缓存(2026-07-24 立,configure_automation_task 配置记录 + 执行结果)
 # key=config_id(uuid hex),value={task_id, action, execute, arguments, config_response}
 _AUTOMATION_CONFIGS: dict[str, dict[str, Any]] = {}
@@ -7680,6 +7770,72 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
+    # ===== D11 浏览器自检截图(2026-09)=====
+    # 注意:本名刻意避开已存在的 extension 端 browser_screenshot(由 agent-control
+    # handler 转发浏览器扩展执行),避免覆盖既有 12 个浏览器控制工具。
+    MCPTool(
+        name="browser_selfcheck_screenshot",
+        description=(
+            "D11 浏览器自检截图:用 headless Chromium 对指定 URL 截图,返回 base64 PNG、"
+            "视口宽高、页面 console 错误列表、页面标题与最终 URL。agent 完成前端/UI 任务后"
+            "用于自主截图自检(对标 Codex/Trae 的 completion verification)。"
+            "仅允许 http/https,禁止 file:// 等非常规协议。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "目标页面 URL(http/https,必填)",
+                },
+                "viewport": {
+                    "type": "object",
+                    "description": "视口尺寸(可选),如 {\"width\":1280,\"height\":720}",
+                    "properties": {
+                        "width": {"type": "integer"},
+                        "height": {"type": "integer"},
+                    },
+                },
+                "full_page": {
+                    "type": "boolean",
+                    "description": "是否截取整页(默认 false=仅视口)",
+                    "default": False,
+                },
+                "wait_ms": {
+                    "type": "integer",
+                    "description": "截图前等待渲染的毫秒数(默认 1500,给前端组件挂载留时间)",
+                    "default": 1500,
+                },
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="browser_selfcheck",
+        description=(
+            "D11 浏览器自检报告:对 URL 截图后,把给定检查点(如『提交按钮可见』『无白屏』"
+            "『标题含登录』)交给视觉 LLM 逐项判定 pass/fail 并给理由;LLM/视觉不可用时"
+            "降级为仅返回截图 + console 错误,不报错。agent 完成前端任务后做闭环自检。"
+            "仅允许 http/https,禁止 file:// 等非常规协议。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "目标页面 URL(http/https,必填)",
+                },
+                "checks": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "检查点列表,如 [\"提交按钮可见\",\"无白屏\",\"标题含『登录』\"]",
+                },
+            },
+            "required": ["url", "checks"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
@@ -7883,6 +8039,9 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "bg_task_status": _tool_bg_task_status,
     # ===== 补丁冲突处理(1-2 · 2026-09-08):3-way merge 局部拒绝 =====
     "resolve_conflict": _tool_resolve_conflict,
+    # ===== D11 浏览器自检截图(2026-09)=====
+    "browser_selfcheck_screenshot": _tool_browser_selfcheck_screenshot,
+    "browser_selfcheck": _tool_browser_selfcheck,
 }
 
 
