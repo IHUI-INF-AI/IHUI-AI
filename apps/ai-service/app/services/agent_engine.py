@@ -85,7 +85,7 @@ from app.core.image_preparation import (
 )
 from app.core.sandbox_policy import PROTECTED_METADATA_PATH_NAMES as _PROTECTED_METADATA_PATH_NAMES
 
-from .session_store import SessionStore
+from .session_store import ItemBase, SessionStore
 
 logger = logging.getLogger(__name__)
 
@@ -423,6 +423,9 @@ class EngineThread:
     queue: list[dict[str, Any]] = field(default_factory=list)
     # 线程持久目标(2026-09-18 第三批,对标 Codex Goals):注入 system 全程可见
     goal: str | None = None
+    # 线程元数据(2026-09-20 批 47,对标 codex ThreadMetadataPatch):自由 KV,
+    # thread/metadata patch 更新;store 持久化同字段(merge=False 整写)
+    metadata: dict[str, Any] = field(default_factory=dict)
     # token 预算(2026-09-18 第三批,对标 Codex TokenBudget/RolloutBudget):
     # 跨回合累计 session_tokens_used,达到 token_budget 即拒起新轮
     token_budget: int | None = None
@@ -1522,6 +1525,11 @@ class AgentEngine:
             "thread.queue.list": self._handle_thread_queue_list,
             "thread.queue.delete": self._handle_thread_queue_delete,
             "thread.queue.reorder": self._handle_thread_queue_reorder,
+            "thread.search": self._handle_thread_search,
+            "thread.items.list": self._handle_thread_items_list,
+            "thread.turns.list": self._handle_thread_turns_list,
+            "thread.read": self._handle_thread_read,
+            "thread.metadata": self._handle_thread_metadata,
             "agent.exec": self._handle_agent_exec,
             "tools.list": self._handle_tools_list,
             "tools.register": self._handle_tools_register,
@@ -3177,6 +3185,219 @@ class AgentEngine:
             "queued": len(thread.queue),
             "order": [q.get("id") for q in thread.queue],
         }
+
+    # ------------------------------------------------------------------
+    # thread 只读查询面(批 46,对标 OpenAI codex app-server-protocol
+    # thread/search、thread/items/list、thread/turns/list、thread/read)
+    # ==================================================================
+    # 设计要点:查询面**不**强制内存线程存在——内存没有但 SessionStore 有
+    # 的线程也必须可查(进程重启后历史线程只读可回溯)。故直接走
+    # _persistence_store() 而非 _require_thread();未启用持久化时按方法
+    # 语义返回错误或空结果(查询面无需发 thread/event)。
+    # ------------------------------------------------------------------
+
+    async def _handle_thread_search(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """全文检索(对标 codex thread/search)。
+
+        params: query(必填非空) / threadId(可选过滤) / limit(默认20)。
+        未启用持久化 → INVALID_PARAMS("搜索需要持久化存储")。
+        """
+        query = params.get("query")
+        if not isinstance(query, str) or not query.strip():
+            raise JsonRpcError(INVALID_PARAMS, "query 须为非空字符串")
+        store = self._persistence_store()
+        if store is None:
+            raise JsonRpcError(INVALID_PARAMS, "搜索需要持久化存储")
+        thread_id = params.get("threadId")
+        if thread_id is not None and not isinstance(thread_id, str):
+            raise JsonRpcError(INVALID_PARAMS, "threadId 须为字符串")
+        limit = params.get("limit", 20)
+        if not isinstance(limit, int) or limit <= 0:
+            limit = 20
+        hits = store.full_text_search(query, thread_id=thread_id or None, limit=limit)
+        return {
+            "query": query,
+            "hits": [
+                {
+                    "threadId": h.thread_id,
+                    "itemType": h.item_type,
+                    "seq": h.seq,
+                    "snippet": h.snippet,
+                    "score": h.score,
+                }
+                for h in hits
+            ],
+        }
+
+    async def _handle_thread_items_list(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """列出线程 items(对标 codex thread/items/list)。
+
+        params: threadId(必填) / afterSeq(可选,游标) / limit(默认100)。
+        序列化与 thread.export 一致:body_payload() 展开 + type/seq +
+        信封字段(全量 model_dump 的精简版);store 无此线程 → 空列表。
+        未启用持久化 → INVALID_PARAMS。
+        """
+        thread_id = params.get("threadId")
+        if not isinstance(thread_id, str) or not thread_id:
+            raise JsonRpcError(INVALID_PARAMS, "缺少 threadId")
+        store = self._persistence_store()
+        if store is None:
+            raise JsonRpcError(INVALID_PARAMS, "items.list 需要持久化存储")
+        after_seq = params.get("afterSeq")
+        if after_seq is not None and not isinstance(after_seq, int):
+            raise JsonRpcError(INVALID_PARAMS, "afterSeq 须为整数")
+        limit = params.get("limit", 100)
+        if not isinstance(limit, int) or limit <= 0:
+            limit = 100
+        items = store.list_items(thread_id, after_seq=after_seq)
+        if limit < len(items):
+            items = items[:limit]
+        return {
+            "threadId": thread_id,
+            "items": [self._serialize_item(it) for it in items],
+        }
+
+    async def _handle_thread_turns_list(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """列出线程 turns(对标 codex thread/turns/list)。
+
+        params: threadId(必填)。store 无此线程 → 空列表。
+        未启用持久化 → INVALID_PARAMS。
+        """
+        thread_id = params.get("threadId")
+        if not isinstance(thread_id, str) or not thread_id:
+            raise JsonRpcError(INVALID_PARAMS, "缺少 threadId")
+        store = self._persistence_store()
+        if store is None:
+            raise JsonRpcError(INVALID_PARAMS, "turns.list 需要持久化存储")
+        turns = store.list_turns(thread_id)
+        return {
+            "threadId": thread_id,
+            "turns": [
+                {
+                    "turnId": t.turn_id,
+                    "threadId": t.thread_id,
+                    "turnSeq": t.turn_seq,
+                    "status": t.status,
+                    "startedAt": t.started_at,
+                    "endedAt": t.ended_at,
+                    "error": t.error,
+                    "metadata": t.metadata,
+                }
+                for t in turns
+            ],
+        }
+
+    async def _handle_thread_read(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """读取线程摘要(对标 codex thread/read)。
+
+        params: threadId(必填)。返回 thread 元数据 camelCase 摘要 +
+        首条 user 消息 preview;线程不存在 → THREAD_NOT_FOUND。
+        未启用持久化 → INVALID_PARAMS。
+        """
+        thread_id = params.get("threadId")
+        if not isinstance(thread_id, str) or not thread_id:
+            raise JsonRpcError(INVALID_PARAMS, "缺少 threadId")
+        store = self._persistence_store()
+        if store is None:
+            raise JsonRpcError(INVALID_PARAMS, "read 需要持久化存储")
+        thread = store.get_thread(thread_id)
+        if thread is None:
+            raise JsonRpcError(THREAD_NOT_FOUND, f"线程不存在: {thread_id}")
+        preview: str | None = None
+        try:
+            from .session_store import UserMessageItem
+
+            for it in store.list_items(thread_id):
+                if isinstance(it, UserMessageItem) and it.content:
+                    preview = it.content[:200]
+                    break
+        except Exception:  # noqa: BLE001 - preview 为可选增强,失败不影响主结果
+            preview = None
+        return {
+            "threadId": thread.thread_id,
+            "title": thread.title,
+            "createdAt": thread.created_at,
+            "updatedAt": thread.updated_at,
+            "metadata": thread.metadata,
+            "itemCount": thread.item_count,
+            "lastSeq": thread.last_seq,
+            "preview": preview,
+        }
+
+    async def _handle_thread_metadata(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """线程元数据 patch(2026-09-20 批 47,对标 codex thread/metadata/update
+        + thread-store update_thread_metadata / ThreadMetadataPatch)。
+
+        patch 值为 None 的键 = 删除该 metadata 键(codex ClearableField 语义);
+        merge=False 整体替换。内存线程与 store 同步;store 未启用时仅改内存。
+        发 thread.metadata.updated 事件。
+        """
+        thread = self._require_thread(params)
+        patch = params.get("patch")
+        if not isinstance(patch, dict):
+            raise JsonRpcError(INVALID_PARAMS, "patch 须为对象")
+        merge = params.get("merge", True)
+        if merge:
+            merged = dict(thread.metadata)
+            for key, value in patch.items():
+                if value is None:
+                    merged.pop(key, None)
+                elif isinstance(value, dict) and isinstance(merged.get(key), dict):
+                    merged[key] = {**merged[key], **value}
+                else:
+                    merged[key] = value
+            thread.metadata = merged
+        else:
+            thread.metadata = {k: v for k, v in patch.items() if v is not None}
+        thread.touch()
+        persisted = False
+        store = self._persistence_store()
+        if store is not None and callable(
+            getattr(store, "update_thread_metadata", None)
+        ):
+            updated = store.update_thread_metadata(
+                thread.thread_id, thread.metadata, merge=False
+            )
+            persisted = updated is not None
+        await self._emit_engine_event(
+            thread,
+            emit,
+            "thread.metadata.updated",
+            {"metadata": thread.metadata},
+        )
+        return {
+            "threadId": thread.thread_id,
+            "metadata": thread.metadata,
+            "persisted": persisted,
+        }
+
+    def _serialize_item(self, item: ItemBase) -> dict[str, Any]:
+        """item → 可传输 dict(body_payload 展开 + type/seq + 信封)。
+
+        与 thread.export 的 item.model_dump(mode="json") 一致(保留全部
+        信封字段),另加显式 type/seq 便于客户端定位。
+        """
+        out: dict[str, Any] = {
+            "seq": item.seq,
+            "type": item.item_type,
+            "threadId": item.thread_id,
+            "turnId": item.turn_id,
+            "parentSeq": item.parent_seq,
+            "createdAt": item.created_at,
+            "clientItemId": item.client_item_id,
+        }
+        out.update(item.body_payload())
+        return out
 
     async def _handle_thread_goal(
         self, params: dict[str, Any], emit: Emitter
