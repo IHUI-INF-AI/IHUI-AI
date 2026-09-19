@@ -6925,6 +6925,12 @@
       "minimizedSubagents": "サブエージェント",
       "minimizedTools": "ツール呼び出し",
       "moreItems": "…他 {n} 件",
+      "nextStepsCommit": "コード変更をコミット",
+      "nextStepsContinue": "残り {n} ステップを実行",
+      "nextStepsDismiss": "閉じる",
+      "nextStepsRunTests": "テストを実行して変更を検証",
+      "nextStepsSummarize": "この会話の進捗をまとめる",
+      "nextStepsTitle": "次のステップ",
       "overview": {
         "active": "アクティブ",
         "changes": "変更",
@@ -7132,7 +7138,15 @@
         "targetFile": "この変更にコメント",
         "close": "キャンセル",
         "pendingBanner": "コード変更へのコメント {count} 件が未送信"
-      }
+      },
+      "runtimeStatusResuming": "実行を再開しています…",
+      "runtimeStatusPausing": "一時停止しています…",
+      "runtimeStatusCancelling": "キャンセルしています…",
+      "runtimePermissionMode": "権限モード {mode} · {tool} · {decision}",
+      "runtimeMessageSend": "第 {iteration} ラウンドのリクエスト送信済み · {count} 件のメッセージ",
+      "runtimeSessionEndSuccess": "セッション完了 · {iterations} ラウンド · 所要時間 {duration}",
+      "runtimeSessionEndFailed": "セッションが異常終了 · {iterations} ラウンド · 所要時間 {duration}",
+      "runtimeTerminalOutput": "ランタイム出力"
     },
     "permissionConfirm": {
       "allow": "許可",
@@ -8081,6 +8095,7 @@
       "wiki": "ナレッジ",
       "integrations": "連携",
       "workspace": "ワークスペース",
+      "kanban": "タスクボード",
       "atomicrollback": "スタック全体ロールバック"
     },
     "applied": "適用済み",
@@ -15933,6 +15948,7 @@
     "eduScheduleMgr": "時間割管理",
     "eduSchedulingMgr": "スマート時間割",
     "eduStudyPlanMgr": "学習計画",
+    "eduCanteenProcurement": "食堂調達",
     "enterprise": "エンタープライズ",
     "exam": "試験",
     "expand": "展開",
@@ -22699,6 +22715,7 @@
     "adopted": "採用済み"
   },
   "agentTasks": {
+    "ephemeralBadge": "メモリ内(一時)",
     "title": "Agent 実行タスク",
     "refresh": "更新",
     "empty": "Agent タスクはありません(/agent/run または自動化で作成)",
