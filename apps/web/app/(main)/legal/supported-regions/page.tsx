@@ -36,12 +36,7 @@ const RESTRICTED_REGIONS: readonly string[] = [
   'restrictedLuhansk',
 ]
 
-const PAYMENTS: readonly string[] = [
-  'paymentWechat',
-  'paymentAlipay',
-  'paymentStripe',
-  'paymentPaypal',
-]
+const PAYMENTS: readonly string[] = ['paymentWechat', 'paymentAlipay', 'paymentPaypal']
 
 const LANGUAGES: readonly string[] = [
   'languageZhCN',
