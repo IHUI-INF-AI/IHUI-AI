@@ -163,6 +163,10 @@ class CompactionBoundaryItem(ItemBase):
     first_seq: int = 0
     tokens_before: int = 0
     tokens_after: int = 0
+    # 生成该摘要的模型标识(2026-09-19 第十八批,对标 Codex history::
+    # CompactionCheckpoint 的 model_hash)。换模型继续用旧摘要会引入语义漂移,
+    # 引擎据此判定兼容性(见 agent_engine._compaction_compatible)。
+    model: str = ""
 
     def search_text(self) -> str:
         return self.summary
