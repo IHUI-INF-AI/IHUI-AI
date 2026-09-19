@@ -758,15 +758,15 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
         }),
       ]
       render(<MessageList {...baseProps} messages={msgs} />)
-      // 2026-09-13 起(#17)plan 步骤折叠进「查看 N 个中间步骤」Collapsible 且默认收起,
-      // CollapsibleContent 关闭时不渲染子树 → 须先点击展开触发器再断言卡片存在
+      // D21(2026-09-19 立):初始折叠态由折叠策略驱动 — 本例为轻查询(短正文+无工具+零耗时),
+      // auto 口径下默认展开,卡片无需点击即可见;再点击触发器验证可收起
       const trigger = document.querySelector(
         '[data-testid="message-steps-collapsible-a1"] button',
       ) as HTMLElement
       expect(trigger).toBeTruthy()
+      expect(screen.queryByTestId('message-plan-steps-a1')).toBeTruthy()
       fireEvent.click(trigger)
-      const card = screen.queryByTestId('message-plan-steps-a1')
-      expect(card).toBeTruthy()
+      expect(screen.queryByTestId('message-plan-steps-a1')).toBeNull()
     })
 
     it('纯文本对话(无 planSteps):不渲染 PlanStepsCard', () => {

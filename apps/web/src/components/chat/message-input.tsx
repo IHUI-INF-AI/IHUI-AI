@@ -6,13 +6,21 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, Info, Zap } from 'lucide-react'
+import { Send, Square, Info, Zap, FoldVertical, Check } from 'lucide-react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceToolbar } from './voice-toolbar'
+// D21(2026-09-19 立):中间步骤折叠策略配置读写(localStorage + 事件广播)
+import {
+  readFoldPolicyMode,
+  writeFoldPolicyMode,
+  FOLD_POLICY_EVENT,
+  type FoldPolicyMode,
+} from './message-list/fold-policy'
 import { readHandsFree } from '@/components/chat/voice-stream-speaker'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
@@ -65,6 +73,85 @@ import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoi
 // 已提取到 useSlashAction hook(2026-07-29),组件内不再持有模板常量。
 // DANGEROUS_PATTERN_KEY 已提取到 useMessageSend hook(2026-07-30)。
 // mimeToLabel / useMentionFiles / useAiSkills 已提取到 use-lazy-resource-hooks(2026-07-30)。
+
+// D21(2026-09-19 立):折叠策略三选一项 — 竞品默认口径已分化
+// (Trae 默认折叠 vs Qoder 0.2.1 默认展开),故不强制默认,auto 为初始自适应口径。
+const FOLD_POLICY_ITEMS: { mode: FoldPolicyMode; labelKey: string; descKey: string }[] = [
+  { mode: 'auto', labelKey: 'foldPolicy.auto', descKey: 'foldPolicy.autoDesc' },
+  { mode: 'collapsed', labelKey: 'foldPolicy.collapsed', descKey: 'foldPolicy.collapsedDesc' },
+  { mode: 'expanded', labelKey: 'foldPolicy.expanded', descKey: 'foldPolicy.expandedDesc' },
+]
+
+/**
+ * 折叠策略开关(D21):工具栏内联图标按钮 + 下拉三选一(自适应/始终折叠/始终展开)。
+ * 选择写入 localStorage 并广播事件,MessageItem 实时按新策略重解析
+ * (未被用户显式操作过的消息才跟随,操作过的保持用户选择)。
+ */
+export function FoldPolicyButton() {
+  const t = useTranslations('chat')
+  const [mode, setMode] = React.useState<FoldPolicyMode>('auto')
+  const [menuOpen, setMenuOpen] = React.useState(false)
+  React.useEffect(() => {
+    const sync = () => setMode(readFoldPolicyMode())
+    sync()
+    window.addEventListener(FOLD_POLICY_EVENT, sync)
+    return () => window.removeEventListener(FOLD_POLICY_EVENT, sync)
+  }, [])
+  return (
+    <DropdownMenu.Root modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
+      <DropdownMenu.Trigger asChild>
+        <Tooltip content={t('foldPolicy.title')} side="top">
+          <button
+            type="button"
+            aria-label={t('foldPolicy.title')}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            data-testid="fold-policy-button"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <FoldVertical className="h-4 w-4" />
+          </button>
+        </Tooltip>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="end"
+          sideOffset={6}
+          className="z-popover w-64 rounded-lg border bg-card p-1 text-card-foreground shadow-md"
+        >
+          <div
+            className="px-2 py-1.5 text-xs font-medium text-muted-foreground"
+            data-testid="fold-policy-current"
+          >
+            {t('foldPolicy.current', { mode: t(`foldPolicy.${mode}`) })}
+          </div>
+          <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+          {FOLD_POLICY_ITEMS.map((item) => (
+            <DropdownMenu.Item
+              key={item.mode}
+              onSelect={() => writeFoldPolicyMode(item.mode)}
+              className="flex cursor-pointer select-none items-start gap-2 rounded-md px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
+              data-testid={`fold-policy-item-${item.mode}`}
+            >
+              <Check
+                className={cn(
+                  'mt-0.5 h-4 w-4 shrink-0',
+                  mode === item.mode ? 'text-primary' : 'opacity-0',
+                )}
+              />
+              <span className="min-w-0">
+                <span className="block font-medium">{t(item.labelKey)}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {t(item.descKey)}
+                </span>
+              </span>
+            </DropdownMenu.Item>
+          ))}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  )
+}
 
 interface MessageInputProps {
   /** onSend 返回 true=已提交可清空输入框,false=未发送需保留输入内容(如未登录/创建会话失败) */
@@ -879,6 +966,8 @@ export function MessageInput({
               {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
                   与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
               <ModeSwitcher disabled={isStreaming} />
+              {/* D21:中间步骤折叠策略开关(自适应/始终折叠/始终展开),旁挂模式切换器 */}
+              <FoldPolicyButton />
               {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
                   自定义 system prompt,会话级持久化,随请求下发 LLM 网关 */}
               <SamplingParamsButton disabled={isStreaming} />

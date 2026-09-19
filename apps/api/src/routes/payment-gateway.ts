@@ -61,6 +61,7 @@ import { db } from '../db/index.js'
 import { zhsCourseVideo, vipLevels, developerPricing } from '@ihui/database'
 import { eq, sql, and } from 'drizzle-orm'
 import { calculateTopupBonus } from '../services/topup-discount-service.js'
+import { getWechatMiniOpenId } from '../services/wechat-subscribe-message.js'
 
 const notifyUrl = (type?: string): string => {
   if (type === 'course') return env.WX_PAY_COURSE_NOTIFY_URL ?? env.WX_PAY_NOTIFY_URL ?? ''
@@ -176,7 +177,8 @@ const billDateQuery = z.object({ billDate: z.string().optional() })
 
 const wechatCreateQuery = z.object({
   amount: z.coerce.number(),
-  openId: z.string(),
+  // 2026-09-19:改为可选,未传时按 userId 反查小程序绑定 openid(微信 JSAPI 必需)
+  openId: z.string().optional(),
   orderType: z.coerce.number().optional().default(0),
   productId: z.string().optional(),
   description: z.string().optional().default('Purchase'),
@@ -324,7 +326,11 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       } = wechatCreateQuery.parse(request.query)
       let amountCents = amountCentsInitial
       const userId = request.userId!
-      const resolvedOpenId = openId || userId
+      // 2026-09-19:openid 反查兜底 —— 客户端未传 openId 时按 userId 反查 user_third_party_accounts
+      // (小程序绑定),学费账单页等新入口无需自行获取/存储 openid
+      const resolvedOpenId = openId || (await getWechatMiniOpenId(userId))
+      if (!resolvedOpenId)
+        return reply.status(400).send(error(400, '当前账号未绑定微信,无法发起支付'))
       if (!amountCents || amountCents <= 0)
         return reply.status(400).send(error(400, '金额必须为正'))
       if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
