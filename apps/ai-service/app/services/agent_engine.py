@@ -63,6 +63,7 @@ import asyncio
 import base64
 import contextlib
 import difflib
+import hashlib
 import itertools
 import json
 import logging
@@ -1198,6 +1199,29 @@ def _parse_unified_patch(
             "补丁中未找到合法的 unified diff 文件段(需要 --- / +++ / @@ 头)"
         )
     return sections
+
+
+def _model_hash(model: str | None) -> str:
+    """模型标识的稳定短哈希(对标 Codex CompactionCheckpoint 的 model_hash)。
+
+    空模型名返回空串(表示"来源未知",判定时按兼容处理而非阻断)。
+    """
+    if not model:
+        return ""
+    return hashlib.sha1(model.strip().lower().encode("utf-8")).hexdigest()[:16]
+
+
+def _compaction_compatible(summary_model: str | None, current_model: str | None) -> bool:
+    """压缩摘要与当前模型是否兼容(第十八批,对标 Codex is_compatible_with)。
+
+    - 任一侧缺失(旧数据没有 model 字段 / 当前模型未知)→ 视为兼容:保守
+      处理,不因为信息缺失而阻断 resume;
+    - 两侧都有:要求 hash 相等。摘要由前一个模型生成,换模型继续复用会把
+      前模型的表述与隐含假设带进新模型的上下文(语义漂移)。
+    """
+    if not summary_model or not current_model:
+        return True
+    return _model_hash(summary_model) == _model_hash(current_model)
 
 
 def _strip_diff_prefix(path: str) -> str:
@@ -2557,10 +2581,46 @@ class AgentEngine:
             thread.model_params = dict(ctx.get("model_params") or {})
             thread.reasoning = dict(ctx.get("reasoning") or {})
             thread.deny_tools = list(ctx.get("deny_tools") or [])
+        # 第十八批(对标 Codex history::CompactionCheckpoint):换模型后旧压缩
+        # 摘要不兼容 —— 摘要是前一个模型生成的文本,继续喂给新模型会引入语义
+        # 漂移。默认只标记 + 发钩子事件;客户端可显式要求就地重压缩。
+        mismatch = await self._compaction_model_mismatch(thread)
+        if mismatch is not None:
+            recompact = bool(params.get("recompactIfModelChanged"))
+            await self._emit_hook(
+                "compaction",
+                {
+                    "threadId": thread.thread_id,
+                    "trigger": "resume_model_mismatch",
+                    "summaryModel": mismatch["summaryModel"],
+                    "currentModel": mismatch["currentModel"],
+                    "action": "recompacted" if recompact else "flagged",
+                },
+            )
+            if recompact:
+                with contextlib.suppress(Exception):
+                    await self._compact_thread(
+                        thread,
+                        keep_recent=int(params.get("keepRecent") or 20),
+                        emit=emit,
+                        trigger="resume_model_mismatch",
+                    )
+                mismatch = None  # 已用当前模型重压,兼容性恢复
+            else:
+                logger.warning(
+                    "[engine] 压缩摘要与当前模型不兼容 thread=%s summary_model=%r current=%r"
+                    "(可用 recompactIfModelChanged=true 触发重压缩)",
+                    thread.thread_id,
+                    mismatch["summaryModel"],
+                    mismatch["currentModel"],
+                )
         try:
-            return await self._run_thread(thread, emit, from_checkpoint=checkpoint_id)
+            result = await self._run_thread(thread, emit, from_checkpoint=checkpoint_id)
         except ValueError as e:
             raise JsonRpcError(THREAD_NOT_FOUND, f"checkpoint 不存在或已过期: {e}") from e
+        if mismatch is not None:
+            result = {**result, "compactionModelMismatch": mismatch}
+        return result
 
     async def _handle_thread_state(
         self, params: dict[str, Any], emit: Emitter
@@ -2756,10 +2816,40 @@ class AgentEngine:
                     summary=str(info.get("summary") or "manual compact via thread.compact"),
                     tokens_before=int(info.get("original_tokens") or 0),
                     tokens_after=int(info.get("compressed_tokens") or 0),
+                    model=str(thread.model or ""),
                 ),
             )
         except Exception as e:
             logger.warning("[engine] 压缩边界落库失败 %s: %s", thread.thread_id, e)
+
+    def _latest_compaction_boundary(self, store: Any, thread_id: str) -> Any | None:
+        """取该线程最近一条压缩边界(第十八批;无库/无边界返回 None)。"""
+        try:
+            latest: Any | None = None
+            for item in store.list_items(thread_id):
+                if getattr(item, "item_type", None) == "compaction_boundary":
+                    latest = item
+            return latest
+        except Exception as e:  # noqa: BLE001 - 判定失败绝不阻断 resume
+            logger.warning("[engine] 读取压缩边界失败 %s: %s", thread_id, e)
+            return None
+
+    async def _compaction_model_mismatch(self, thread: EngineThread) -> dict[str, Any] | None:
+        """检测最近压缩摘要是否与当前线程模型不兼容;兼容返回 None。
+
+        返回 {"summaryModel", "currentModel"}(都给原始模型名,便于展示)。
+        无持久层 / 无压缩边界 / 兼容 → None。
+        """
+        store = self._persistence_store()
+        if store is None:
+            return None
+        boundary = self._latest_compaction_boundary(store, thread.thread_id)
+        if boundary is None:
+            return None
+        summary_model = str(getattr(boundary, "model", "") or "")
+        if _compaction_compatible(summary_model, thread.model):
+            return None
+        return {"summaryModel": summary_model, "currentModel": str(thread.model or "")}
 
     async def _handle_thread_export(
         self, params: dict[str, Any], emit: Emitter
