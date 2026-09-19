@@ -198,6 +198,57 @@ _WEB_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
     ),
 }
 
+# ---- 2026-09-19 教育管理(edu_*)对话自动路由 ----
+# 强信号正则:催费/欠费/缴费/退费/账单/学员等教育业务意图 → 无条件注入对应 edu 工具。
+# 写操作同样进路由(LLM 侧有二次确认规范,api 侧 RBAC 兜底权限)。
+_EDU_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    "edu_list_students": (
+        re.compile(r"(学员|学生)(名单|列表|花名册|都在|有哪些|多少人|有几个)"),
+        re.compile(r"(查一下|查询|看看|列出|找出)(在读|所有|全部)?(学员|学生)"),
+    ),
+    "edu_list_arrears": (
+        re.compile(r"欠费|欠款|欠缴|未缴费|没缴费|还没交费|哪些人?没交"),
+    ),
+    "edu_list_fee_reminders": (
+        re.compile(r"(催费|催缴|提醒)(记录|历史|情况|了哪些|发过)"),
+    ),
+    "edu_list_payment_records": (
+        re.compile(r"(缴费|收款|支付)(记录|历史|流水|明细)"),
+    ),
+    "edu_payment_summary": (
+        re.compile(r"(缴费|收款|学费|收入)(汇总|统计|情况|得怎么样)"),
+    ),
+    "edu_list_refunds": (
+        re.compile(r"(退费|退款)(记录|历史|申请|列表|有哪些)"),
+    ),
+    "edu_list_tuition_fees": (
+        re.compile(r"学费(标准|设置|价格|多少|收费)|收费标准|收费方案"),
+    ),
+    "edu_my_bills": (
+        re.compile(r"我的(账单|缴费|欠费|学费)"),
+    ),
+    "edu_send_fee_reminder": (
+        re.compile(r"(发|发送)(个|一条|一下)?(催费|催缴|缴费提醒)"),
+        re.compile(r"给.{0,16}(发)?(催费|催缴|缴费提醒)"),
+        re.compile(r"(提醒|通知)(家长|学员|学生)(缴费|交费)"),
+    ),
+    "edu_send_fee_reminder_batch": (
+        re.compile(r"(批量|全部|一键|统一)(催费|催缴|提醒缴费)"),
+    ),
+    "edu_create_payment_record": (
+        re.compile(r"(登记|录入|补录|记)(一?笔)?(缴费|收款|学费)"),
+    ),
+    "edu_create_refund": (
+        re.compile(r"(办|办理|申请|发起|登记)(一?笔)?(退费|退款)"),
+    ),
+    "edu_approve_refund": (
+        re.compile(r"(批准|同意|通过)(该|这笔|这个|那笔)?(退费|退款)"),
+    ),
+    "edu_reject_refund": (
+        re.compile(r"(驳回|拒绝|否决)(该|这笔|这个|那笔)?(退费|退款)"),
+    ),
+}
+
 # 网页工具结果呈现规范:注入 system,让 LLM 把抓取到的正文/链接/结构化结果以可读方式呈现。
 _WEB_RENDER_PROMPT = (
     "网页抓取工具结果呈现规范(务必遵守):\n"
@@ -208,21 +259,39 @@ _WEB_RENDER_PROMPT = (
     "- ok=false 时如实告知失败原因(SSRF_BLOCKED/FETCH_FAILED 等),不要编造网页内容"
 )
 
+# 教育管理工具(edu_*)使用规范(2026-09-19):读操作汇报要点,写操作必须二次确认。
+_EDU_RENDER_PROMPT = (
+    "教育管理工具(edu_*)使用规范:\n"
+    "- 查询类(edu_list_*/edu_payment_summary/edu_my_bills):用表格或要点汇报关键数字"
+    "(人数/金额,金额单位一律是元,不要换算单位),超长列表只摘前几条并说明总数\n"
+    "- 写操作(edu_send_fee_reminder*/edu_create_*/edu_approve_refund/edu_reject_refund):"
+    "调用前必须向用户复述将执行的操作与关键参数(给谁/金额/日期),得到确认后再调用;"
+    "参数缺失时先向用户询问,或先用查询工具查得 ID,禁止凭空编造 ID/金额\n"
+    "- ok=false 时如实告知失败原因(权限不足/参数错误等),禁止谎报成功"
+)
+
 
 async def _execute_tool_call(
-    tool_name: str, args: dict[str, Any]
+    tool_name: str,
+    args: dict[str, Any],
+    user_id: str | None = None,
+    session_id: str | None = None,
 ) -> tuple[dict[str, Any], float]:
     """执行单个工具调用,返回 (result, duration_ms)。
 
     - 幂等只读工具首次失败时重试 1 次(写操作工具不重试)。
     - 异常归一化为 {"ok": False} 不向外抛 —— 保证并行批次中单工具失败
       不中断整体(asyncio.gather(return_exceptions=True) 兜底)。
+    - user_id/session_id 透传给 mcp_server.call_tool(2026-09-19):
+      edu_* 等需要真实聊天用户身份的工具依赖 __user_id 注入。
     """
 
     async def _once() -> tuple[dict[str, Any], float]:
         t1 = time.monotonic()
         try:
-            result = await mcp_server.call_tool(tool_name, args)
+            result = await mcp_server.call_tool(
+                tool_name, args, user_id=user_id, session_id=session_id
+            )
         except Exception as e:
             result = {"ok": False, "error": f"工具 {tool_name} 执行失败: {e}"}
         return result, round((time.monotonic() - t1) * 1000, 2)
@@ -442,6 +511,21 @@ class ConversationService:
             "token6688_cancel_task": ["取消任务", "取消生成", "停止生成", "撤销任务", "别做了", "cancel", "stop task"],
             # 模型价目(2026-09-09 深度适配二):说"生成视频多少钱"时查价目/参数
             "token6688_model_info": ["多少钱", "什么价", "价格", "费用", "怎么收费", "参数有哪些", "模型参数", "pricing", "how much"],
+            # 教育管理(2026-09-19):催费/欠费/学费/缴费/退费/账单 → edu 工具(internal token 调 api,身份来自聊天用户)
+            "edu_list_students": ["学员", "学生名单", "学生列表", "花名册", "学员名单", "在读学生", "students"],
+            "edu_list_arrears": ["欠费", "欠款", "未缴费", "欠缴", "催缴名单", "arrears"],
+            "edu_list_fee_reminders": ["催费记录", "催缴记录", "提醒记录", "催费历史"],
+            "edu_list_payment_records": ["缴费记录", "收款记录", "支付记录", "payment record"],
+            "edu_payment_summary": ["缴费汇总", "收款汇总", "缴费统计", "学费统计", "收入统计", "营收"],
+            "edu_list_refunds": ["退费记录", "退款记录", "refund list"],
+            "edu_list_tuition_fees": ["学费", "学费单", "收费标准", "学费设置", "tuition"],
+            "edu_my_bills": ["我的账单", "我的缴费", "查我的账单", "my bills"],
+            "edu_send_fee_reminder": ["发催费", "催费", "催缴", "提醒缴费", "发提醒"],
+            "edu_send_fee_reminder_batch": ["批量催费", "批量催缴", "批量提醒缴费", "一键催费"],
+            "edu_create_payment_record": ["登记缴费", "缴费登记", "登记收款", "录入缴费", "记一笔缴费"],
+            "edu_create_refund": ["办退费", "申请退费", "发起退费", "登记退费", "给学生退费"],
+            "edu_approve_refund": ["批准退费", "同意退费", "通过退费", "审批退费"],
+            "edu_reject_refund": ["驳回退费", "拒绝退费", "否决退费"],
         }
 
     # =========================================================================
@@ -500,6 +584,7 @@ class ConversationService:
             tools: list[dict[str, Any]] = []
             media_tools: list[str] = []
             web_tools: list[str] = []
+            edu_tools: list[str] = []
             if allowed_tools is not None:
                 tools = self._filter_tools(allowed_tools)
             elif intent.needs_tool and intent.suggested_tools:
@@ -514,14 +599,20 @@ class ConversationService:
                 media_tools = self._media_intent_tools(user_input)
                 # Firecrawl web 自动路由(2026-09-09 极致融合补齐):URL 抓取/整站/结构化意图
                 web_tools = self._web_intent_tools(user_input)
-                if media_tools or web_tools:
-                    tools = self._filter_tools(media_tools + web_tools)
-            # intent 已选工具时补并媒体/web 预路由命中项(去重),防 LLM 分类漏判
-            if allowed_tools is None and not (media_tools or web_tools):
+                # 教育管理自动路由(2026-09-19):催费/欠费/缴费/退费/账单强信号
+                edu_tools = self._edu_intent_tools(user_input)
+                if media_tools or web_tools or edu_tools:
+                    tools = self._filter_tools(media_tools + web_tools + edu_tools)
+            # intent 已选工具时补并媒体/web/edu 预路由命中项(去重),防 LLM 分类漏判
+            if allowed_tools is None and not (media_tools or web_tools or edu_tools):
                 media_tools = self._media_intent_tools(user_input)
                 web_tools = self._web_intent_tools(user_input)
+                edu_tools = self._edu_intent_tools(user_input)
                 existing = {t.get("function", {}).get("name") for t in tools}
-                extra = [m for m in media_tools + web_tools if m not in existing]
+                extra = [
+                    m for m in media_tools + web_tools + edu_tools
+                    if m not in existing
+                ]
                 if extra:
                     tools.extend(self._filter_tools(extra))
             trace.append({
@@ -531,6 +622,7 @@ class ConversationService:
                 "tool_names": [t.get("function", {}).get("name") for t in tools],
                 **({"media_routed": media_tools} if media_tools else {}),
                 **({"web_routed": web_tools} if web_tools else {}),
+                **({"edu_routed": edu_tools} if edu_tools else {}),
             })
 
             # 4. 加载历史上下文
@@ -555,6 +647,10 @@ class ConversationService:
                 _web_set = set(_WEB_INTENT_PATTERNS)
                 if any(t.get("function", {}).get("name") in _web_set for t in tools):
                     guidance += "\n\n" + _WEB_RENDER_PROMPT
+                # 教育管理工具在场 → 追加 edu 使用规范(2026-09-19:写操作二次确认+金额单位元)
+                _edu_set = set(_EDU_INTENT_PATTERNS)
+                if any(t.get("function", {}).get("name") in _edu_set for t in tools):
+                    guidance += "\n\n" + _EDU_RENDER_PROMPT
                 messages.append({"role": "system", "content": guidance})
             # P0:用户画像 + 跨会话记忆注入(孤岛能力打通,与 v2 的 L1-1 记忆闭环一致;
             # 失败/拿不到 user_id 均降级不阻塞对话)
@@ -690,7 +786,12 @@ class ConversationService:
                 for i in range(0, len(parsed_calls), MAX_PARALLEL_TOOL_CALLS):
                     batch = parsed_calls[i:i + MAX_PARALLEL_TOOL_CALLS]
                     outcomes = await asyncio.gather(
-                        *(_execute_tool_call(name, args) for _, name, args in batch),
+                        *(
+                            _execute_tool_call(
+                                name, args, user_id=user_id, session_id=sid
+                            )
+                            for _, name, args in batch
+                        ),
                         return_exceptions=True,
                     )
                     for (tc, tool_name, args), outcome in zip(batch, outcomes, strict=True):
@@ -1025,6 +1126,20 @@ class ConversationService:
         """
         out: list[str] = []
         for tool, patterns in _WEB_INTENT_PATTERNS.items():
+            if any(p.search(text) for p in patterns):
+                out.append(tool)
+        return out
+
+    @staticmethod
+    def _edu_intent_tools(text: str) -> list[str]:
+        """教育管理意图预路由(2026-09-19):催费/欠费/缴费/退费/账单等强信号 → 对应 edu 工具。
+
+        与 _media_intent_tools/_web_intent_tools 同语义:命中即无条件并入 tool loop
+        工具集,不受 LLM 意图分类质量影响。写操作同样进路由 —— LLM 侧 _EDU_RENDER_PROMPT
+        要求二次确认,api 侧 RBAC 兜底权限。
+        """
+        out: list[str] = []
+        for tool, patterns in _EDU_INTENT_PATTERNS.items():
             if any(p.search(text) for p in patterns):
                 out.append(tool)
         return out

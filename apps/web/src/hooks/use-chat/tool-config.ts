@@ -343,6 +343,56 @@ export function mergeAgentTools(): string[] {
   return [...new Set([...AGENT_TOOLS, ...extra])]
 }
 
+/**
+ * 按消息内容检测教育管理意图,返回需要条件携带的 edu 工具名(2026-09-19 立)。
+ *
+ * 与 ai-service 侧 conversation._EDU_INTENT_PATTERNS 预路由同源(双保险):
+ * 前端在用户消息含教育业务关键词(催费/欠费/学费/缴费/退费/账单等)时,
+ * 把对应 edu_* 工具名合并进 agentTools;普通问答返回空数组不携带,
+ * 保住"无工具 → 打字机逐 token"的流式效果(2026-08-29 先例)。
+ *
+ * 策略:读操作关键词即触发;写操作要求出现明确动作词(登记/催费/批准等),
+ * 且顺带携带关联读工具(如催费前常需先查欠费名单拿 enrollmentId)。
+ * LLM 侧另有 _EDU_RENDER_PROMPT 强制写操作二次确认,api 侧 RBAC 兜底权限。
+ */
+export function eduToolsFor(content: string): string[] {
+  if (!content) return []
+  const text = content.toLowerCase()
+  const has = (...kws: string[]) => kws.some((kw) => text.includes(kw))
+  const out = new Set<string>()
+  // ---- 读操作 ----
+  if (has('学员', '学生名单', '学生列表', '花名册', '在读学生', 'students'))
+    out.add('edu_list_students')
+  if (has('欠费', '欠款', '未缴费', '欠缴', '催缴名单', 'arrears'))
+    out.add('edu_list_arrears')
+  if (has('催费记录', '催缴记录', '提醒记录', '催费历史'))
+    out.add('edu_list_fee_reminders')
+  if (has('缴费记录', '收款记录', '支付记录', 'payment record'))
+    out.add('edu_list_payment_records')
+  if (has('缴费汇总', '收款汇总', '缴费统计', '学费统计', '收入统计', '营收'))
+    out.add('edu_payment_summary')
+  if (has('学费', '收费标准', 'tuition')) out.add('edu_list_tuition_fees')
+  if (has('我的账单', '我的缴费', 'my bills')) out.add('edu_my_bills')
+  // ---- 退费类:读记录 + 写动词区分 ----
+  if (has('退费', '退款', 'refund')) {
+    out.add('edu_list_refunds')
+    out.add('edu_create_refund')
+  }
+  if (has('批准退费', '同意退费', '通过退费', '审批退费')) out.add('edu_approve_refund')
+  if (has('驳回退费', '拒绝退费', '否决退费')) out.add('edu_reject_refund')
+  // ---- 催费类:写动词触发,顺带带欠费名单(查 enrollmentId 用)----
+  if (has('催费', '催缴', '提醒缴费', '发提醒')) {
+    out.add('edu_send_fee_reminder')
+    out.add('edu_list_arrears')
+  }
+  if (has('批量催费', '批量催缴', '一键催费', '全部催费', '批量提醒'))
+    out.add('edu_send_fee_reminder_batch')
+  // ---- 缴费登记 ----
+  if (has('登记缴费', '缴费登记', '登记收款', '录入缴费', '记一笔缴费'))
+    out.add('edu_create_payment_record')
+  return [...out]
+}
+
 /** 浏览器类工具:命中即自动在右侧 WorkPanel 打开 URL(2026-07-22 立,P2 联动) */
 export const BROWSER_TOOL_NAMES = new Set([
   'browser_navigate',
