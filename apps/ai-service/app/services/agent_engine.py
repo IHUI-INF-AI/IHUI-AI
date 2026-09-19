@@ -1506,6 +1506,9 @@ class AgentEngine:
         self._code_sessions: dict[str, dict[str, Any]] = {}
         # 工作区文件监视器(2026-09-18 第七批,对标 Codex file-watcher)
         self._workspace_watchers: dict[str, asyncio.Task[None]] = {}
+        # 连接级文件监视订阅(2026-09-20 批 50,对标 codex fs/watch):
+        # watchId → 扫描任务,与线程级 _workspace_watchers 互不相干
+        self._fs_watchers: dict[str, asyncio.Task[None]] = {}
         self._handlers: dict[str, Callable[[dict[str, Any], Emitter], Any]] = {
             "engine.initialize": self._handle_initialize,
             "engine.ping": self._handle_ping,
@@ -1538,6 +1541,8 @@ class AgentEngine:
             "thread.metadata": self._handle_thread_metadata,
             "memory.status": self._handle_memory_status,
             "memory.reset": self._handle_memory_reset,
+            "fs.watch": self._handle_fs_watch,
+            "fs.unwatch": self._handle_fs_unwatch,
             "thread.settings": self._handle_thread_settings,
             "turn.settings": self._handle_turn_settings,
             "thread.loaded.list": self._handle_thread_loaded_list,
@@ -3587,6 +3592,75 @@ class AgentEngine:
             thread, emit, "thread.unsubscribed", {"threadId": thread.thread_id}
         )
         return {"threadId": thread.thread_id, "unsubscribed": True}
+
+    async def _handle_fs_watch(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """文件监视订阅(2026-09-20 批 50,对标 codex fs/watch + FsWatchParams)。
+
+        watch_id 连接级标识(客户端自定义,重复注册幂等覆盖);path 须为存在
+        的绝对目录;扫描式变更检测复用 _scan_workspace;变更经 fs.changed
+        通知流出(对标 FsChangedNotification,带 watchId)。线程无关,纯连接级。
+        """
+        watch_id = params.get("watchId")
+        path_raw = params.get("path")
+        if not isinstance(watch_id, str) or not watch_id:
+            raise JsonRpcError(INVALID_PARAMS, "watchId 须为非空字符串")
+        if not isinstance(path_raw, str) or not path_raw:
+            raise JsonRpcError(INVALID_PARAMS, "path 须为非空字符串")
+        base = Path(path_raw)
+        if not base.is_absolute() or not base.is_dir():
+            raise JsonRpcError(INVALID_PARAMS, f"path 须为存在的绝对目录: {path_raw}")
+        emit_fn: Emitter = emit if emit is not None else _noop_emitter
+
+        old_task = self._fs_watchers.get(watch_id)
+        if old_task is not None:
+            old_task.cancel()
+
+        async def _watch() -> None:
+            prev = self._scan_workspace(base)
+            while True:
+                await asyncio.sleep(_WATCH_INTERVAL)
+                try:
+                    curr = self._scan_workspace(base)
+                except Exception:  # noqa: BLE001 - 目录被删等,跳过本轮
+                    continue
+                added = sorted(set(curr) - set(prev))[:100]
+                removed = sorted(set(prev) - set(curr))[:100]
+                changed = sorted(
+                    f for f in set(curr) & set(prev) if curr[f] != prev[f]
+                )[:100]
+                prev = curr
+                if not (added or removed or changed):
+                    continue
+                with contextlib.suppress(Exception):
+                    await emit_fn(
+                        {
+                            "jsonrpc": "2.0",
+                            "method": "fs.changed",
+                            "params": {
+                                "watchId": watch_id,
+                                "path": str(base),
+                                "added": added,
+                                "removed": removed,
+                                "changed": changed,
+                            },
+                        }
+                    )
+
+        self._fs_watchers[watch_id] = asyncio.create_task(_watch())
+        return {"watchId": watch_id, "path": str(base)}
+    async def _handle_fs_unwatch(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """取消文件监视订阅(2026-09-20 批 50,对标 codex fs/unwatch)。幂等。"""
+        watch_id = params.get("watchId")
+        if not isinstance(watch_id, str) or not watch_id:
+            raise JsonRpcError(INVALID_PARAMS, "watchId 须为非空字符串")
+        task = self._fs_watchers.pop(watch_id, None)
+        if task is not None:
+            task.cancel()
+        return {"watchId": watch_id, "stopped": task is not None}
 
     def _serialize_item(self, item: ItemBase) -> dict[str, Any]:
         """item → 可传输 dict(body_payload 展开 + type/seq + 信封)。
