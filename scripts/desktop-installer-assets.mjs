@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /* eslint-disable no-console -- 资产生成脚本为 CLI 工具,需 console 输出诊断信息 */
 // 桌面端 NSIS 安装器品牌视觉资产生成器。
@@ -154,7 +154,7 @@ ${ghostNumeral('02')}
 ${kicker(64, 176, 'STEP 01 — 安装位置')}
 <text x="64" y="240" font-family="${FONT}" font-size="38" font-weight="700" fill="${C.ink}">选择安装位置</text>
 <text x="64" y="276" font-family="${FONT}" font-size="15" fill="${C.muted}">默认安装到 D:\\智汇AI,你也可以更改为其他目录。</text>
-<rect x="64" y="324" width="752" height="44" rx="${RADIUS}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
+<rect x="64" y="312" width="752" height="40" rx="${RADIUS}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
 <text x="64" y="416" font-family="${FONT}" font-size="12" fill="${C.muted}">体积轻巧 · 数据云端存储 · 卸载不留残余</text>
 `);
 }
@@ -167,7 +167,7 @@ ${kicker(64, 176, 'STEP 02 — 正在安装')}
 <text x="64" y="240" font-family="${FONT}" font-size="38" font-weight="700" fill="${C.ink}">正在安装</text>
 <text x="64" y="276" font-family="${FONT}" font-size="15" fill="${C.muted}">智汇AI 正在写入你的电脑,请稍候…</text>
 <text x="64" y="408" font-family="${FONT}" font-size="9" fill="${C.muted}" letter-spacing="3">INSTALL PROGRESS</text>
-<rect x="62" y="425" width="756" height="24" rx="${RADIUS}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
+; 进度条无 BMP 外框: 原生进度条运行时以 SetWindowRgn 胶囊圆角化(轨道即 BMP 底色留白区 y=425 h=8)
 <text x="64" y="480" font-family="${FONT}" font-size="12" fill="${C.muted}">安装完成后可直接启动,你的数据始终保存在云端</text>
 `);
 }
@@ -235,9 +235,16 @@ function buttonScene(kind, text, w, h, labelSize) {
 <text x="${w / 2}" y="${h / 2 + labelSize * 0.36}" font-family="${FONT}" font-size="${labelSize}" fill="${C.ink}" text-anchor="middle">${esc(text)}</text>
 </svg>`;
     case 'browse':
+      // 裸文字按钮:无描边;底填容器同色(BMP 无透明通道,须与容器色一致才能视觉隐形)
       return `${common}
-<rect x="0.75" y="0.75" width="${w - 1.5}" height="${h - 1.5}" rx="${r}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
-<text x="${w / 2}" y="${h / 2 + labelSize * 0.36}" font-family="${FONT}" font-size="${labelSize}" fill="${C.ink}" text-anchor="middle">${esc(text)}</text>
+<rect width="${w}" height="${h}" fill="${C.card}"/><text x="${w / 2}" y="${h / 2 + labelSize * 0.36}" font-family="${FONT}" font-size="${labelSize}" fill="${C.ink}" text-anchor="middle">${esc(text)}</text>
+</svg>`;
+    case 'close':
+      // 窗口关闭钮: 圆形幽灵底(背景色底+细描边),悬停语义由系统 X 字形承担;
+      // BMP 无透明通道 → 底填页面背景色 C.bg 融入页头。
+      return `${common}
+<circle cx="${w / 2}" cy="${h / 2}" r="${w / 2 - 1}" fill="${C.bg}" stroke="${C.btnStroke}" stroke-width="1.2"/>
+<text x="${w / 2}" y="${h / 2 + labelSize * 0.36}" font-family="${FONT}" font-size="${labelSize}" fill="${C.muted}" text-anchor="middle">${esc(text)}</text>
 </svg>`;
     case 'toggle-on':
       // Switch 圆角守门豁免项(AGENTS.md §4):胶囊形容器合法
@@ -305,6 +312,7 @@ const BUTTONS = [
   ['btn-browse', 'browse', '浏览…', 112, 40, 14],
   ['btn-toggle-on', 'toggle-on', '', 56, 28, 12],
   ['btn-toggle-off', 'toggle-off', '', 56, 28, 12],
+  ['btn-close', 'close', '✕', 36, 36, 12],
 ];
 
 // 5 档 DPI 对应 Windows 标准系统缩放(100%/125%/150%/175%/200%);
@@ -364,3 +372,4 @@ const perScale = count / SCALES.length;
 console.log(`[desktop-installer-assets] 完成:${count} 个资产(${SCALES.length} 档 DPI × ${perScale}/档),版本 v${VERSION}`);
 if (mode === 'write') console.log(`[desktop-installer-assets] 已生成 windows/ihui-assets-path.nsh → ${ASSETS}`);
 if (mode === 'previews') console.log(`[desktop-installer-assets] PNG 预览已输出到 ${PREVIEWS}`);
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
