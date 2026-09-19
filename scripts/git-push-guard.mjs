@@ -78,6 +78,15 @@ function getArg(name) {
 // 解析参数
 const targetBranch = getArg('branch') || 'main'
 const skipPush = process.env.HUSKY_SKIP_PUSH === '1'
+
+// 2026-09-19:推送前清理 stale 锁(根治 index.lock 卡死)。
+// post-commit 已持锁(IHUI_GIT_LOCK_UNIT)时 acquire 会清理;直接调用 push-guard
+// 的场景(agent 手动收尾)无锁保护,在此显式清理 index.lock/ihui-git-write.lock(死 PID)。
+try {
+  execSync('node scripts/git-lock.mjs clean', { stdio: 'inherit', cwd: process.cwd() })
+} catch {
+  /* 清理失败不阻塞 push */
+}
 // --worker:后台推送 worker 模式(由主模式 detached spawn;真正执行推送+验证+写状态)
 const isWorkerMode = process.argv.includes('--worker') || process.env.GUARD_WORKER === '1'
 

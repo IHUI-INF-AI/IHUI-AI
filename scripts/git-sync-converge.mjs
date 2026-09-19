@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌‌‌​‍‍​‌​‌‌‌‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 
 /* eslint-disable no-console -- CLI 工具,需 console 输出诊断信息 */
@@ -87,6 +87,18 @@ if (!repoRoot) {
   process.exit(2)
 }
 
+// 2026-09-19:收敛前清理 stale 锁(根治 index.lock 卡死)。
+// 收敛器做 fetch/merge-tree/commit-tree/update-ref 等写操作,stale index.lock 会全挂。
+try {
+  execFileSync('node', ['scripts/git-lock.mjs', 'clean'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: repoRoot,
+  })
+} catch {
+  /* 清理失败不阻塞收敛 */
+}
+
 for (let round = 1; round <= maxRounds; round++) {
   log(C.dim, `── 第 ${round}/${maxRounds} 轮 ──`)
   git(['fetch', 'origin', branch])
@@ -103,34 +115,38 @@ for (let round = 1; round <= maxRounds; round++) {
     process.exit(0)
   }
   if (isAncestor(remoteHead, localHead)) {
-    log(C.yellow, `本地领先远端,直接走 guard 推送(${localHead.slice(0, 11)})`)
+    // 本地纯领先(可 fast-forward):直接 guard 推送,禁止 merge-tree——
+    // 否则会造出冗余合并提交(历史噪音 + 新 headSha 使 push-gate 内容缓存失效)。
+    log(C.yellow, `本地领先远端(FF 可达),跳过合并直接推送(${localHead.slice(0, 11)})`)
+    if (dryRun) {
+      log(C.dim, '  --dry-run:到此为止,不推送')
+      process.exit(0)
+    }
   } else {
     log(C.yellow, `分叉:本地 ${localHead.slice(0, 11)} / 远端 ${remoteHead.slice(0, 11)} → 索引层合并(不触碰工作区)`)
-  }
+    if (dryRun) {
+      log(C.dim, '  --dry-run:到此为止,不合并不推送')
+      process.exit(0)
+    }
+    // 索引层合并树(worktree-preserving):冲突时 merge-tree 输出含冲突信息,tree 为 null 段
+    let tree
+    try {
+      const out = execFileSync('git', ['merge-tree', '--write-tree', 'HEAD', `origin/${branch}`], {
+        encoding: 'utf8',
+      })
+      tree = out.trim().split('\n')[0].trim()
+      if (!/^[0-9a-f]{40}$/.test(tree)) throw new Error(out)
+    } catch (e) {
+      log(C.red, `❌ 合并冲突或 merge-tree 失败,需人工介入:\n${e.stdout ?? e.message}`)
+      process.exit(1)
+    }
+    log(C.dim, `  合并树 ${tree.slice(0, 11)}(无冲突)`)
 
-  if (dryRun) {
-    log(C.dim, '  --dry-run:到此为止,不合并不推送')
-    process.exit(0)
+    const mergeMsg = `Merge origin/${branch} (worktree-preserving sync via git-sync-converge) round${round}`
+    const mergeSha = git(['commit-tree', tree, '-p', 'HEAD', '-p', `origin/${branch}`, '-m', mergeMsg])
+    git(['update-ref', `refs/heads/${branch}`, mergeSha])
+    log(C.dim, `  合并提交 ${mergeSha.slice(0, 11)} 已推进本地 ${branch}`)
   }
-
-  // 索引层合并树(worktree-preserving):冲突时 merge-tree 输出含冲突信息,tree 为 null 段
-  let tree
-  try {
-    const out = execFileSync('git', ['merge-tree', '--write-tree', 'HEAD', `origin/${branch}`], {
-      encoding: 'utf8',
-    })
-    tree = out.trim().split('\n')[0].trim()
-    if (!/^[0-9a-f]{40}$/.test(tree)) throw new Error(out)
-  } catch (e) {
-    log(C.red, `❌ 合并冲突或 merge-tree 失败,需人工介入:\n${e.stdout ?? e.message}`)
-    process.exit(1)
-  }
-  log(C.dim, `  合并树 ${tree.slice(0, 11)}(无冲突)`)
-
-  const mergeMsg = `Merge origin/${branch} (worktree-preserving sync via git-sync-converge) round${round}`
-  const mergeSha = git(['commit-tree', tree, '-p', 'HEAD', '-p', `origin/${branch}`, '-m', mergeMsg])
-  git(['update-ref', `refs/heads/${branch}`, mergeSha])
-  log(C.dim, `  合并提交 ${mergeSha.slice(0, 11)} 已推进本地 ${branch}`)
 
   // 官方通道推送(guard 异步化:命令秒回,推送在后台 worker 执行)
   execFileSync('node', ['scripts/git-push-guard.mjs'], {
@@ -162,4 +178,4 @@ for (let round = 1; round <= maxRounds; round++) {
 
 log(C.red, `❌ ${maxRounds} 轮未收敛(并发推力过大),稍后重跑: node scripts/git-sync-converge.mjs`)
 process.exit(1)
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌‌‌​‍‍​‌​‌‌‌‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
