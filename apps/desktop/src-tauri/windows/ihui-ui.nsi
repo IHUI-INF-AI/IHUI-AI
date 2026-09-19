@@ -554,13 +554,13 @@ Function IHUIInstShow
   !insertmacro IHUI_PX $3 500
   !insertmacro IHUI_PX $4 144
   !insertmacro IHUI_PX $5 40
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-continue.bmp`, i 0, i 0, i 0x2010) p .r0"
+  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-continue.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
   System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r2, i r3, i r4, i r5, p $HWNDPARENT, p 1, p 0, p 0) p .s"
   Pop $IHUINXT
   SendMessage $IHUINXT 0x00F7 0 $0
   !insertmacro IHUI_PX $2 64
   !insertmacro IHUI_PX $4 96
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-cancel.bmp`, i 0, i 0, i 0x2010) p .r0"
+  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-cancel.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
   System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r2, i r3, i r4, i r5, p $HWNDPARENT, p 2, p 0, p 0) p .s"
   Pop $IHUICNC
   SendMessage $IHUICNC 0x00F7 0 $0
@@ -635,11 +635,17 @@ Function IHUIInstLeave
   GetDlgItem $0 $HWNDPARENT 2
   System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
   ShowWindow $0 1
-  ; 核心完成时会重新显示子标题(「已完成」白条),再隐藏
-  GetDlgItem $0 $HWNDPARENT 1037
-  ShowWindow $0 0
-  GetDlgItem $0 $HWNDPARENT 1036
-  ShowWindow $0 0
+  ; 核心完成时会重新显示子标题(「已完成」白条),再隐藏。
+  ; ⚠️ 1036/1037 挂在内层 #32770(非 HWNDPARENT),R48 探针实证:必须从内层取。
+  FindWindow $1 "#32770" "" $HWNDPARENT
+  GetDlgItem $0 $1 1037
+  ${If} $0 <> 0
+    ShowWindow $0 0
+  ${EndIf}
+  GetDlgItem $0 $1 1036
+  ${If} $0 <> 0
+    ShowWindow $0 0
+  ${EndIf}
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
 FunctionEnd
 

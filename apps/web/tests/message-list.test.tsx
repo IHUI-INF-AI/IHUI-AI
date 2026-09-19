@@ -35,6 +35,10 @@ const { mockT, toastMock, IconSpan } = vi.hoisted(() => {
     copied: 'Copied',
     copyFailed: 'Copy failed',
     retry: 'Retry',
+    // D22(2026-09-19 立):error 独立消息类型 + 圈选引用按钮 i18n 键
+    errorCardTitle: 'Request failed',
+    quoteSelection: 'Quote selection',
+    quoteSelectionAdded: 'Added to references',
     jumpToLatest: 'Jump to latest',
     latest: 'Latest',
     // ai.toolCall 命名空间:2026-09-01 TypingIndicator i18n 化后用 useTranslations('ai.toolCall'),
@@ -758,15 +762,15 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
         }),
       ]
       render(<MessageList {...baseProps} messages={msgs} />)
-      // 2026-09-13 起(#17)plan 步骤折叠进「查看 N 个中间步骤」Collapsible 且默认收起,
-      // CollapsibleContent 关闭时不渲染子树 → 须先点击展开触发器再断言卡片存在
+      // D21(2026-09-19 立):初始折叠态由折叠策略驱动 — 本例为轻查询(短正文+无工具+零耗时),
+      // auto 口径下默认展开,卡片无需点击即可见;再点击触发器验证可收起
       const trigger = document.querySelector(
         '[data-testid="message-steps-collapsible-a1"] button',
       ) as HTMLElement
       expect(trigger).toBeTruthy()
+      expect(screen.queryByTestId('message-plan-steps-a1')).toBeTruthy()
       fireEvent.click(trigger)
-      const card = screen.queryByTestId('message-plan-steps-a1')
-      expect(card).toBeTruthy()
+      expect(screen.queryByTestId('message-plan-steps-a1')).toBeNull()
     })
 
     it('纯文本对话(无 planSteps):不渲染 PlanStepsCard', () => {
@@ -895,6 +899,103 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
       )
       expect(screen.getByTestId('thinking-section').getAttribute('data-thinking-expanded')).toBe(
         'true',
+      )
+    })
+  })
+
+  // ─── 10. D22:error 独立消息类型 / system 角色分支 / 圈选引用(2026-09-19 立)──
+  describe('D22 消息类型与引用交互', () => {
+    afterEach(() => {
+      // 恢复本 describe 内的 getSelection 等 spy,避免泄漏到其他 describe
+      vi.restoreAllMocks()
+    })
+
+    it('system 消息:居中提示条渲染,无 copy/retry/圈选等任何操作按钮', () => {
+      const msgs = [
+        {
+          id: 'm-sys',
+          role: 'system',
+          content: '上下文已注入项目规则',
+          createdAt: Date.now(),
+          model: 'test-model',
+        } as ChatMessage,
+      ]
+      render(<MessageList {...baseProps} messages={msgs} />)
+      const sys = screen.getByTestId('message-system-m-sys')
+      expect(sys).toBeTruthy()
+      expect(sys.getAttribute('data-role')).toBe('system')
+      expect(sys.textContent).toContain('上下文已注入项目规则')
+      // system 条目不提供任何操作(防上下文注入通道,请求侧已同步拒绝)
+      expect(screen.queryByTestId('message-copy-m-sys')).toBeNull()
+      expect(screen.queryByTestId('message-retry-m-sys')).toBeNull()
+      expect(screen.queryByTestId('message-quote-selection-m-sys')).toBeNull()
+    })
+
+    it('error 消息:红色错误卡片(独立标题头 + 正文剥离 ⚠ 前缀)', () => {
+      // 内聚 retry 按钮的点击行为已由上方「错误重试按钮」describe 覆盖(testid
+      // message-retry-m-err 保留在卡片内,向后兼容),此处只验证卡片新结构。
+      const msgs = [makeAssistantMsg('m-err', '⚠ 余额不足', { error: true })]
+      render(<MessageList {...baseProps} messages={msgs} />)
+      const card = screen.getByTestId('message-error-card-m-err')
+      expect(card).toBeTruthy()
+      // 独立标题头(errorCardTitle 译文)
+      expect(screen.getByText('Request failed')).toBeTruthy()
+      // 正文剥离 shared 层附加的 ⚠ 前缀,只展示纯错误文案
+      expect(screen.getByText('余额不足')).toBeTruthy()
+      // retry 按钮内聚卡片底部
+      expect(screen.getByTestId('message-retry-m-err')).toBeTruthy()
+    })
+
+    it('assistant 消息无选区:不显示「引用选中」按钮', () => {
+      const msgs = [makeAssistantMsg('a-nosel', '无选区内容')]
+      render(<MessageList {...baseProps} messages={msgs} />)
+      expect(screen.queryByTestId('message-quote-selection-a-nosel')).toBeNull()
+    })
+
+    it('error 消息即使有选区也不显示圈选按钮(error 卡片不可圈选)', () => {
+      const msgs = [makeAssistantMsg('a-errsel', '⚠ 出错内容', { error: true })]
+      render(<MessageList {...baseProps} messages={msgs} />)
+      const anchorNode = screen.getByTestId('message-error-card-a-errsel').firstChild
+      vi.spyOn(window, 'getSelection').mockReturnValue({
+        anchorNode,
+        isCollapsed: false,
+        toString: () => '出错内容',
+        removeAllRanges: vi.fn(),
+      } as unknown as Selection)
+      fireEvent(document, new Event('selectionchange'))
+      expect(screen.queryByTestId('message-quote-selection-a-errsel')).toBeNull()
+    })
+
+    it('圈选 AI 回复文本:尾部浮现「引用选中」按钮,点击派发 ihui:add-text-reference 并清除选区', async () => {
+      const msgs = [makeAssistantMsg('a-sel', '可圈选的回答内容')]
+      render(<MessageList {...baseProps} messages={msgs} />)
+      // 锚点须真实落在消息内容区(markdown-stream 由 mock 渲染,是 contentAreaRef 子孙)
+      const anchorNode = document.querySelector('[data-testid="markdown-stream"]')!.firstChild
+      const removeAllRanges = vi.fn()
+      vi.spyOn(window, 'getSelection').mockReturnValue({
+        anchorNode,
+        isCollapsed: false,
+        toString: () => '可圈选的回答',
+        removeAllRanges,
+      } as unknown as Selection)
+      fireEvent(document, new Event('selectionchange'))
+      const btn = await screen.findByTestId('message-quote-selection-a-sel')
+      expect(btn.textContent).toContain('Quote selection')
+      const handler = vi.fn()
+      window.addEventListener('ihui:add-text-reference', handler)
+      try {
+        fireEvent.click(btn)
+        expect(handler).toHaveBeenCalledTimes(1)
+        const evt = handler.mock.calls[0]?.[0] as CustomEvent | undefined
+        expect(evt?.detail?.text).toBe('可圈选的回答')
+      } finally {
+        window.removeEventListener('ihui:add-text-reference', handler)
+      }
+      // 点击后:清除原生选区 + toast + 组件内选区态复位(按钮消失)
+      expect(removeAllRanges).toHaveBeenCalled()
+      expect(toastMock.success).toHaveBeenCalledWith('Added to references')
+      await waitFor(() =>
+        expect(screen.queryByTestId('message-quote-selection-a-sel')).toBeNull(),
       )
     })
   })

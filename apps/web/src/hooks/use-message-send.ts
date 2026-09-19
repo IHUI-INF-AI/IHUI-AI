@@ -272,8 +272,22 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         })
         .join('\n')
       const finalContent = attachmentMarkdown ? `${text}\n\n${attachmentMarkdown}` : text
-      const ok = await onSend(finalContent)
+      // D22 引用回复(2026-09-19 立,对标 Qoder 0.2.x):quotedMessage 非空时把被引用
+      // 消息快照以 markdown 引用块附加到正文(用户/AI 分别标注),发送成功后清除;
+      // 发送失败保留引用,便于用户重试时仍带上下文。
+      const quoted = useChatStore.getState().quotedMessage
+      let contentWithQuote = finalContent
+      if (quoted) {
+        const roleLabel = quoted.role === 'user' ? t('quotedReplyUser') : t('quotedReplyAssistant')
+        const quotedBlock = [
+          `> 💬 ${roleLabel}:`,
+          ...quoted.content.split('\n').map((line) => `> ${line}`),
+        ].join('\n')
+        contentWithQuote = contentWithQuote ? `${contentWithQuote}\n\n${quotedBlock}` : quotedBlock
+      }
+      const ok = await onSend(contentWithQuote)
       if (!ok) return false
+      if (quoted) useChatStore.getState().setQuotedMessage(null)
       // 埋点:聊天消息发送成功(web 端)
       track({ name: 'chat_send', category: 'chat', label: 'web' })
       // 释放所有 objectURL

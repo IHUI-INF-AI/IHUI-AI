@@ -328,5 +328,30 @@ describe('useChatStore', () => {
       expect(useChatStore.getState().pendingDiffComments[0]?.toolCallId).toBe('tc-9')
     })
   })
+
+  // ============ D22 引用回复 + 网页搜索开关(2026-09-19 立)============
+
+  describe('D22 quotedMessage / webSearchEnabled', () => {
+    beforeEach(() => {
+      useChatStore.setState({ quotedMessage: null, webSearchEnabled: false })
+    })
+
+    it('setQuotedMessage 设置引用目标(null 语义为清除,输入区 chip 数据源)', () => {
+      const q = { id: 'msg-1', role: 'assistant' as const, content: '被引用的回答' }
+      useChatStore.getState().setQuotedMessage(q)
+      expect(useChatStore.getState().quotedMessage).toEqual(q)
+      useChatStore.getState().setQuotedMessage(null)
+      expect(useChatStore.getState().quotedMessage).toBeNull()
+    })
+
+    it('setWebSearchEnabled 切换开关并回写 localStorage(用户偏好跨刷新保留)', () => {
+      useChatStore.getState().setWebSearchEnabled(true)
+      expect(useChatStore.getState().webSearchEnabled).toBe(true)
+      expect(localStorage.getItem('ihui_web_search_enabled')).toBe('1')
+      useChatStore.getState().setWebSearchEnabled(false)
+      expect(useChatStore.getState().webSearchEnabled).toBe(false)
+      expect(localStorage.getItem('ihui_web_search_enabled')).toBe('0')
+    })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
