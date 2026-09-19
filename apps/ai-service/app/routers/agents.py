@@ -241,6 +241,7 @@ def _supertool_tools_from_pool(
                     description=short + _TOOL_DEFERRAL_SUFFIX,
                     parameters={"type": "object"},
                     executor=_exec,
+                    mcp_annotations=pt.annotations,
                 )
             )
         else:
@@ -250,6 +251,7 @@ def _supertool_tools_from_pool(
                     description=pt.description,
                     parameters=pt.schema,
                     executor=_exec,
+                    mcp_annotations=pt.annotations,
                 )
             )
     return tools
