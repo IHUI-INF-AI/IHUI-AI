@@ -88,14 +88,12 @@ vi.mock('@ihui/auth', () => ({
   createFamilyId: vi.fn().mockReturnValue('mock-family-id'),
   ACCESS_TOKEN_TTL_SECONDS: 900,
   REFRESH_TOKEN_TTL_SECONDS: 30 * 24 * 60 * 60,
-  // OAuth state 测试涉及的 4 个 provider 工厂/探测函数
+  // OAuth state 测试涉及的 3 个 provider 工厂/探测函数
   createOidcProvider: vi.fn(),
   createDiscordProvider: vi.fn(),
-  createLinuxdoProvider: vi.fn(),
   createTelegramProvider: vi.fn(),
   isOidcConfigured: vi.fn().mockReturnValue(true),
   isDiscordConfigured: vi.fn().mockReturnValue(false),
-  isLinuxdoConfigured: vi.fn().mockReturnValue(false),
   isTelegramConfigured: vi.fn().mockReturnValue(false),
   buildOidcAuthorizationUrl: vi
     .fn()
