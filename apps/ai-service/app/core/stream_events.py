@@ -284,6 +284,7 @@ USER_CONTEXTUAL_PREFIXES: frozenset[str] = frozenset(
         "<subagent_notification>",
         "<user_verification_notice>",
         "<environment_context>",
+        "<user_shell_command>",
     }
 )
 
