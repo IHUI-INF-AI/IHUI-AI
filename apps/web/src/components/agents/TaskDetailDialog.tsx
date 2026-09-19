@@ -262,7 +262,7 @@ export function TaskDetailDialog({
             )}
             {task.errorMessage && (
               <div className="col-span-2">
-                <dt className="text-destructive">Error</dt>
+                <dt className="text-destructive">{t('error')}</dt>
                 <dd className="text-destructive/80">{task.errorMessage}</dd>
               </div>
             )}

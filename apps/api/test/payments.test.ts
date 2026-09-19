@@ -504,8 +504,21 @@ describe('payment gateway routes', () => {
   })
 
   describe('POST /api/payments/wechat/refund', () => {
-    it('订单状态非 paid 返回 400(业务规则)', async () => {
+    // 2026-09-18 P0 修复:退款仅限管理员(防"自助退款保留会员"套利)
+    it('非管理员返回 403', async () => {
       authAs()
+      mockGetOrder.mockResolvedValueOnce(makeOrder({ status: 'paid', userId: 'user-001' }))
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/payments/wechat/refund?outTradeNo=EDU001&refundAmount=10000',
+        headers: { authorization: 'Bearer t' },
+      })
+      expect(res.statusCode).toBe(403)
+      expect(res.json().message).toContain('仅管理员')
+    })
+
+    it('订单状态非 paid 返回 400(业务规则)', async () => {
+      authAsAdmin()
       mockGetOrder.mockResolvedValueOnce(makeOrder({ status: 'pending', userId: 'user-001' }))
       const res = await app.inject({
         method: 'POST',
@@ -517,7 +530,7 @@ describe('payment gateway routes', () => {
     })
 
     it('paid 订单退款成功返回 200', async () => {
-      authAs()
+      authAsAdmin()
       mockIsWechatPayConfigured.mockReturnValue(true)
       mockGetOrder.mockResolvedValueOnce(
         makeOrder({ status: 'paid', userId: 'user-001', amount: 10000 }),
@@ -649,8 +662,21 @@ describe('payment gateway routes', () => {
   })
 
   describe('POST /api/payments/alipay/refund', () => {
-    it('订单状态非 paid 返回 400', async () => {
+    // 2026-09-18 P0 修复:退款仅限管理员(同微信退款端点)
+    it('非管理员返回 403', async () => {
       authAs()
+      mockGetOrder.mockResolvedValueOnce(makeOrder({ status: 'paid', userId: 'user-001' }))
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/payments/alipay/refund?outTradeNo=EDU001&refundAmount=100.00',
+        headers: { authorization: 'Bearer t' },
+      })
+      expect(res.statusCode).toBe(403)
+      expect(res.json().message).toContain('仅管理员')
+    })
+
+    it('订单状态非 paid 返回 400', async () => {
+      authAsAdmin()
       mockGetOrder.mockResolvedValueOnce(makeOrder({ status: 'pending', userId: 'user-001' }))
       const res = await app.inject({
         method: 'POST',
@@ -661,27 +687,27 @@ describe('payment gateway routes', () => {
     })
 
     it('退款失败返回 500', async () => {
-      authAs()
+      authAsAdmin()
       mockIsAlipayConfigured.mockReturnValue(true)
       mockGetOrder.mockResolvedValueOnce(makeOrder({ status: 'paid', userId: 'user-001' }))
       mockAliRefundOrder.mockResolvedValueOnce({ success: false })
       const res = await app.inject({
         method: 'POST',
-        url: '/api/payments/alipay/refund?outTradeNo=EDU001&refundAmount=10.00',
+        url: '/api/payments/alipay/refund?outTradeNo=EDU001&refundAmount=100.00',
         headers: { authorization: 'Bearer t' },
       })
       expect(res.statusCode).toBe(500)
     })
 
     it('退款成功返回 200', async () => {
-      authAs()
+      authAsAdmin()
       mockIsAlipayConfigured.mockReturnValue(true)
       mockGetOrder.mockResolvedValueOnce(makeOrder({ status: 'paid', userId: 'user-001' }))
       mockAliRefundOrder.mockResolvedValueOnce({ success: true })
       mockRefundOrder.mockResolvedValueOnce({ success: true })
       const res = await app.inject({
         method: 'POST',
-        url: '/api/payments/alipay/refund?outTradeNo=EDU001&refundAmount=10.00',
+        url: '/api/payments/alipay/refund?outTradeNo=EDU001&refundAmount=100.00',
         headers: { authorization: 'Bearer t' },
       })
       expect(res.statusCode).toBe(200)

@@ -80,8 +80,23 @@
  *   - focus 时 border-color + box-shadow 柔和过渡(1s ease),不瞬间跳变
  * 作用域:.login-scope(主站 LoginDialog + SSO 页面 + LoginPopup + 扩展端 AuthShell),
  * 覆盖登录/注册/找回密码三大场景所有输入框(账号/密码/邮箱/手机号/验证码)。 */
+/* ===== 5. 关闭按钮 hover 背景(2026-09-19 立) =====
+ * M-70(§1)把 .login-scope 内 --color-accent 提为纯白后,关闭按钮
+ * (CLOSE_BUTTON_BASE 的 hover:bg-accent)在白色 bg-card 上"白上白",
+ * hover 完全没有背景反馈(用户反馈 2026-09-19)。给带 .auth-shell-close
+ * 标记类的关闭按钮单独一个浅灰 hover 背景;暗色模式 accent=22% 本就可见,
+ * 显式对齐同值保持一致。非 layer 样式优先级高于 Tailwind utilities 层,可覆盖 hover:bg-accent。 */
+.login-scope .auth-shell-close:hover {
+  background-color: hsl(0 0% 93%);
+}
+:where(.dark) .login-scope .auth-shell-close:hover {
+  background-color: hsl(0 0% 22%);
+}
+
 .login-scope input {
-  transition: border-color 1s ease, box-shadow 1s ease;
+  transition:
+    border-color 1s ease,
+    box-shadow 1s ease;
 }
 .login-scope input:focus-visible {
   outline: none;

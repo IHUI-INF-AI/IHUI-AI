@@ -145,8 +145,8 @@ def map_hook_event_to_sse(event: str) -> str:
 # ---------------------------------------------------------------------------
 # agents.py 三个 SSE 端点统一订阅的 hook 事件集合
 #
-# = agent_loop_v2 实际发射的全集(11 种,hook_engine 白名单元组中仅
-# message.send 当前无发射源,暂不订阅)。此前三端点各自订阅 7-8 种且集合
+# = agent_loop_v2 实际发射的全集(2026-09-19 message.send 发射源已在主循环
+# LLM 调用前接线,15 种全订阅,无遗留缺口)。此前三端点各自订阅 7-8 种且集合
 # 互有缺口(execute/stream 缺 thinking.delta/plan.step/session.end,
 # tasks/stream 缺 message.receive/session.end/permission.mode 等),
 # 2026-09-17 统一为同一份,新增发射源时在此处补一行即可。
@@ -159,6 +159,7 @@ AGENT_SUBSCRIBE_EVENTS: tuple[str, ...] = (
     HOOK_TOOL_AFTER,
     HOOK_TOOL_APPROVAL,
     HOOK_MESSAGE_RECEIVE,
+    HOOK_MESSAGE_SEND,
     HOOK_ERROR,
     HOOK_PERMISSION_MODE,
     HOOK_SELF_HEAL,

@@ -48,13 +48,15 @@ export function AuthShell({ className, ...rest }: AuthShellProps) {
       // 顶部已由 header pt-9 撑到 48px,而左右/下仅 12px,失衡 4:1
       // (用户反馈"左右下三个边的呼吸感不够 很难受";2026-09-18 修订:pb 回 24px,
       // 真正缺的是底部"没有账号?立即注册"行的独立呼吸,见 LoginForm 内该行的 mb)。
-      // px-6 pb-6:左右/下 24px,顶部保留 12px + header pt-9 不变。
+      // 2026-09-19 第二轮(用户要求"禁止滚动、内容完整显示"):px-6 pb-6→px-5 pb-3,
+      // 呼吸感让位于总高硬约束;共享 AuthShell 头部同步紧凑化(welcome 52→32px、pt-9→pt-2、
+      // children mt-6→mt-3),顶部比例重新平衡。
       // 不改共享基类的原因:扩展端 popup/sidepanel 在 AuthShell 外层各自包了
       // p-3/p-4 补偿 padding,改基类会双层叠加;web 弹窗(登录框/SSO)裸用基类才显紧。
       // 移动全屏形态(LoginDialog isMobile)自带 p-3/max-w-none className 覆盖,不受默认值影响。
       // cn 合并而非 ??:调用方可叠加类(如 LoginDialog 的 animate-login-dialog-pop)而无需
       // 重复默认值;冲突时调用方优先(twMerge 语义)。
-      className={cn('max-w-[460px] px-6 pb-6', className)}
+      className={cn('max-w-[460px] px-5 pb-2 pt-2', className)}
       {...rest}
     />
   )

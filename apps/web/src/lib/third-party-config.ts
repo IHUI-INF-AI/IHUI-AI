@@ -57,6 +57,7 @@ const ENV_DIRECT_ACCESS: Record<string, string | undefined> = {
   NEXT_PUBLIC_ALIPAY_APP_ID: process.env.NEXT_PUBLIC_ALIPAY_APP_ID,
   NEXT_PUBLIC_ALIPAY_REDIRECT_URI: process.env.NEXT_PUBLIC_ALIPAY_REDIRECT_URI,
   NEXT_PUBLIC_ALIPAY_SCOPE: process.env.NEXT_PUBLIC_ALIPAY_SCOPE,
+  NEXT_PUBLIC_OIDC_ENABLED: process.env.NEXT_PUBLIC_OIDC_ENABLED,
 }
 
 /**
@@ -227,11 +228,28 @@ export const ALIPAY_CONFIG: ThirdPartyPlatformConfig = {
   authUrl: 'https://openauth.alipay.com/oauth2/publicAppAuthorize.htm',
 }
 
-/** 本站 App 扫码登录配置(非 OAuth,走 /api/auth/qr/* 端点) */
+/**
+ * 本站 App 扫码登录配置(非 OAuth,走 /api/auth/qr/* 端点) */
 export const APP_CONFIG: ThirdPartyPlatformConfig = {
   enabled: true,
   redirectUri: '',
   proxyPath: '/api/auth/qr/generate', // method: POST
+}
+
+/**
+ * 企业 OIDC SSO 配置(后端代理模式)
+ *
+ * 与国内平台不同,OIDC 采用"后端代理"闭环:
+ *   - 前端不配置 clientId/authUrl 等机密,点击时经 useThirdPartyAuth.startLogin('oidc')
+ *     命中 canDirectRedirect=false → 跳转 `${proxyPath}`(后端 /api/auth/oauth/oidc/redirect)
+ *   - 后端自己 generateState + 302 到 IdP;回调由 IdP 直接打到后端 callback 端点,
+ *     后端 exchangeCode → 写 httpOnly cookie → redirect 回前端,浏览器自带闭环
+ *   因此本配置仅需 enabled + 后端代理入口即可。
+ */
+export const OIDC_CONFIG: ThirdPartyPlatformConfig = {
+  enabled: getEnvBool('NEXT_PUBLIC_OIDC_ENABLED', false),
+  redirectUri: '',
+  proxyPath: '/api/auth/oauth/oidc/redirect',
 }
 
 /** 平台 → 配置映射 */
@@ -244,6 +262,7 @@ const PLATFORM_CONFIGS: Record<ThirdPartyPlatform, ThirdPartyPlatformConfig> = {
   github: GITHUB_CONFIG,
   feishu: FEISHU_CONFIG,
   alipay: ALIPAY_CONFIG,
+  oidc: OIDC_CONFIG,
   app: APP_CONFIG,
 }
 

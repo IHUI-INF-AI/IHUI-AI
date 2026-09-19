@@ -2299,7 +2299,8 @@
       "schedule": "排课管理",
       "attendance": "考勤管理",
       "grades": "成绩管理",
-      "homework": "作业管理"
+      "homework": "作业管理",
+      "canteenProcurement": "食堂采购记账"
     },
     "eduParent": "家长端",
     "eduSchedule": "课表",

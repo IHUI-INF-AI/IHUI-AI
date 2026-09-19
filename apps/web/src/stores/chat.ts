@@ -20,6 +20,10 @@ export type DiffApplyStatus = 'pending' | 'applying' | 'applied' | 'rejected' | 
 /** 终端实时输出缓冲的键数上限(2026-09-18):超出按插入序淘汰最旧 terminalId,防长会话累积 */
 const TERMINAL_OUTPUT_MAX_KEYS = 20
 
+/** Steer(中途引导)单消息注入确认上限(2026-09-19):对齐 ai-service llm.py 的
+ * _STEER_QUEUE_LIMIT(8 条/流),后端队列拒绝在前,此为前端展示侧双保险。 */
+const STEER_NOTICE_MAX_PER_MESSAGE = 8
+
 /**
  * Diff 评审意见(P3 #30 diff 评论驱动返工,2026-09-16 立,对标 Codex diff 评论)。
  *
@@ -112,6 +116,17 @@ export interface MessageCompaction {
   removedCount?: number
   /** 压缩触发方式(ratio/absolute/truncated/incompressible) */
   trigger?: string
+}
+
+/** Steer(中途引导)注入确认记录(2026-09-19 立)。
+ * 流式期间用户点闪电按钮 → steerChatStream 端点入队 → ai-service tool loop
+ * 每轮 LLM 调用前 drain 注入 messages 时经 SSE steer 事件回传确认,
+ * 由 onSteer 回调写入 store,MessageItem 渲染「⚡ 引导已生效」badge。 */
+export interface SteerNotice {
+  /** 用户引导文本(注入 messages 的原文,≤4000 字符) */
+  text: string
+  /** 入队时间(ISO,来自 steer 端点) */
+  timestamp?: string
 }
 
 /**
@@ -219,6 +234,15 @@ interface ChatState {
    * 由 onUsage 回调写入,驱动消息底部徽章行(1.2k tok · 3.4s · 首 0.8s · model · ¥0.01)。
    * 不持久化(每轮流式重新计算,刷新后失效)。 */
   usageByMessageId: Record<string, MessageUsage>
+
+  /** Steer(中途引导,2026-09-19 立):按 messageId 索引的引导注入确认记录。
+   * SSE steer 事件(injected)由 onSteer 回调经 appendSteerNotice 累积写入,
+   * MessageItem 按 message.id 订阅渲染「⚡ 引导已生效」badge。
+   * 单消息上限对齐后端 _STEER_QUEUE_LIMIT(8 条);不持久化(执行期瞬时态)。 */
+  steerNoticesByMessageId: Record<string, SteerNotice[]>
+  /** Steer(中途引导):当前流式 assistant 消息 ID(steer 端点凭 conversationId+messageId
+   *  在网关定位 upstream 会话)。流开始由 send-message/send-answer 写入,收尾清空。 */
+  streamingAssistantId: string | null
 
   setModel: (model: string) => void
   /** 添加单个工具到已选;已存在则忽略 */
@@ -333,6 +357,11 @@ interface ChatState {
   /** D1 消息级计量(2026-09-19 立):写入某条助手消息的 usage 数据(onUsage 回调触发)。
    * messageId 为空时调用方已回退到当前流式消息 id。同名 id 直接覆盖(流末只到达一次)。 */
   setMessageUsage: (messageId: string, usage: MessageUsage) => void
+  /** Steer(中途引导,2026-09-19 立):追加某条助手消息的引导注入确认(SSE steer 事件触发)。
+   * 单消息上限 8 条(对齐后端 _STEER_QUEUE_LIMIT),超出静默丢弃。 */
+  appendSteerNotice: (messageId: string, notice: SteerNotice) => void
+  /** Steer(中途引导):登记/清空当前流式 assistant 消息 ID(流开始写入,收尾清空) */
+  setStreamingAssistantId: (id: string | null) => void
   /** P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
    *  前端 onUsage 回调调用此方法把 usage 写入 assistant 消息 meta.usage,UI 展示 token 计数。 */
   updateMessageMeta: (messageId: string, meta: Record<string, unknown>) => void
@@ -417,6 +446,9 @@ export const useChatStore = create<ChatState>()(
       terminalOutputs: {},
       // D1 消息级计量(执行期瞬时态,不持久化)
       usageByMessageId: {},
+      // Steer(中途引导)注入确认 + 当前流式 assistant 消息 ID(执行期瞬时态,不持久化)
+      steerNoticesByMessageId: {},
+      streamingAssistantId: null,
       // #21 中断后追加指令继续(2026-09-13 立)
       interruptedMessageId: null,
       // W27 输入历史(2026-09-14 立):Esc+Esc 历史导航数据源
@@ -549,6 +581,9 @@ export const useChatStore = create<ChatState>()(
           terminalOutputs: {},
           // D1 消息级计量:新建对话一并清空
           usageByMessageId: {},
+          // Steer(中途引导):新建对话一并清空,流式目标消息同步失效
+          steerNoticesByMessageId: {},
+          streamingAssistantId: null,
         }),
       /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
       setMessages: (messages: ChatMessage[]) => set({ messages }),
@@ -1028,6 +1063,25 @@ export const useChatStore = create<ChatState>()(
         set((s) => ({
           usageByMessageId: { ...s.usageByMessageId, [messageId]: usage },
         })),
+
+      // Steer(中途引导,2026-09-19 立):SSE steer 事件确认注入后按 messageId 累积。
+      // 单消息上限 8 条对齐后端 _STEER_QUEUE_LIMIT(超限后端已拒绝入队,双保险),
+      // 引导未生效或空文本由调用方(onSteer 回调)过滤,此处只管落库。
+      appendSteerNotice: (messageId, notice) =>
+        set((s) => {
+          if (!messageId || !notice?.text) return s
+          const existing = s.steerNoticesByMessageId[messageId] ?? []
+          if (existing.length >= STEER_NOTICE_MAX_PER_MESSAGE) return s
+          return {
+            steerNoticesByMessageId: {
+              ...s.steerNoticesByMessageId,
+              [messageId]: [...existing, notice],
+            },
+          }
+        }),
+
+      // Steer:登记/清空当前流式 assistant 消息 ID(闪电按钮 steer 端点的定位键)
+      setStreamingAssistantId: (id) => set({ streamingAssistantId: id }),
 
       // 2026-08-01 Phase 4a:消息级 terminal task append(terminal_start 事件)
       appendMessageTerminalTask: (messageId, task) =>

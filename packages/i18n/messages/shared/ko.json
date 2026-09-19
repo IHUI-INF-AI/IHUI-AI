@@ -249,6 +249,7 @@
     "username": "사용자명",
     "usernamePlaceholder": "사용자명을 입력해 주십시오",
     "wechatLogin": "WeChat",
+    "oidcLogin": "기업 SSO",
     "login": "로그인",
     "captchaRefresh": "인증 코드 새로고침"
   },

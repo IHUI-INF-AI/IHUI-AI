@@ -14,12 +14,11 @@
 """
 
 import asyncio
-import json
 from typing import Any
 
 import pytest
 
-from app.services.agent_engine import AgentEngine, INVALID_PARAMS
+from app.services.agent_engine import INVALID_PARAMS, AgentEngine
 from app.services.agent_loop_v2 import (
     AgentLoopV2,
     ToolCall,

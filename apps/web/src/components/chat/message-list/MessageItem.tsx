@@ -40,6 +40,8 @@ import { TerminalSection } from '@/components/ai/progress-sections/terminal-sect
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
 import { CitationBar } from '@/components/ai/progress-sections/citation-bar'
 import { MemoryNoticeBar } from '@/components/ai/progress-sections/memory-notice-bar'
+// Steer(中途引导,2026-09-19 立):消息级「已引导」提示条(store 旁路 steerNoticesByMessageId)
+import { SteerNoticeBar } from '@/components/ai/progress-sections/steer-notice-bar'
 // 2026-09-19 立:上下文压缩分隔线(compaction 命名帧 → onCompaction → store setMessageCompaction)
 import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
 // P3 #36(2026-09-16 立):消息流内 best-of 并排对比卡(按 meta.bestOfRunId 关联)
@@ -141,6 +143,12 @@ const MessageItem = React.memo(function MessageItem({
       (s) => s.memoryUpdateNotices.find((n) => n.messageId === m.id)?.items ?? null,
       [m.id],
     ),
+  )
+  // Steer(中途引导,2026-09-19 立):按 messageId 取本轮已注入的引导记录。
+  // 叶子数组选择器订阅(steerNoticesByMessageId 引用仅在 appendSteerNotice 时变更),
+  // 与 memoryNoticeItems 同款模式,避免无关 store 变更触发重渲染。
+  const steerNotices = useChatStore(
+    React.useCallback((s) => s.steerNoticesByMessageId[m.id] ?? null, [m.id]),
   )
   // 2026-09-12 立:Checkpoint 回退弹窗开关
   const [rewindDialogOpen, setRewindDialogOpen] = React.useState(false)
@@ -814,6 +822,10 @@ const MessageItem = React.memo(function MessageItem({
             {memoryNoticeItems && memoryNoticeItems.length > 0 && (
               <MemoryNoticeBar items={memoryNoticeItems} />
             )}
+            {/* Steer(中途引导,2026-09-19 立):流式期间用户注入的引导记录提示条。
+                数据来自 SSE steer 事件回执(tool loop 边界已生效确认,store 旁路,
+                不落 ChatMessage 字段),展开可回看每条引导文本预览。 */}
+            {steerNotices && steerNotices.length > 0 && <SteerNoticeBar notices={steerNotices} />}
             {/* P3 #36 多模型并排对比(2026-09-16 立):/bestof 的 assistant 消息按
                 meta.bestOfRunId 关联结果,消息流内直接渲染并排对比卡(可改选/落盘),
                 不再只能切到工具面板查看;刷新后 store 映射仍在,历史消息可回看。 */}

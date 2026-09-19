@@ -30,6 +30,8 @@ const { mockT } = vi.hoisted(() => {
     stepInProgress: '步骤 {n}: {step} (进行中)',
     stepCompleted: '步骤 {n}: {step} (已完成)',
     stepPending: '步骤 {n}: {step} (待执行)',
+    // 2026-09-19 v2:工具卡步骤归属 chip 文案(chat.plan.stepOf 命名空间)
+    stepOf: '步骤 {index}: {step}',
     toolCallsCount: '{n} 次工具调用',
     sectionsToolbarLabel: '折叠子区工具栏',
     copy: '复制',
@@ -342,7 +344,10 @@ vi.mock('@/stores/chat', () => ({
 type MockPlanStep = {
   id: string
   step: string
-  status: 'pending' | 'in_progress' | 'completed'
+  // 2026-09-19 v2:五态对齐契约 PlanStepStatus
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed'
+  // 2026-09-19 v2:后端下发的精确工具关联 ID 列表(toolsByStep 优先精确匹配)
+  toolCallIds?: string[]
   startedAt?: string
   endedAt?: string
   durationMs?: number
@@ -459,6 +464,8 @@ import type {
   AgentChange,
   TerminalTask,
   AgentOverview,
+  // 2026-09-19 v2:工具卡步骤归属 chip 测试用(ToolCallsSection planSteps prop)
+  PlanStep,
 } from '../src/hooks/use-agent-progress'
 
 describe('AgentProgressPane Store — v6.1 popover 简化', () => {
@@ -2541,6 +2548,202 @@ describe('AgentTaskProgressPane — v15 UX 增强(5 大优化)', () => {
     const item = container.querySelector('[data-testid="tool-item-t-status-1"]')
     expect(item).toBeTruthy()
     expect(item?.getAttribute('data-status')).toBe('error')
+  })
+})
+
+// ─── 2026-09-19 v2:toolsByStep 步骤↔工具精确关联(精确匹配优先 + 时间窗回退) ───
+describe('AgentTaskProgressPane — v2 toolsByStep 步骤-工具关联', () => {
+  beforeEach(() => {
+    useAgentProgressPaneStore.getState().reset()
+    mockAgentProgressRefs.resetState()
+    mockChatStoreRefs.setConversationId(null)
+  })
+
+  afterEach(() => {
+    cleanup()
+    mockChatStoreRefs.setConversationId(null)
+  })
+
+  /** 设置 threadId(同时通过 conversationId 让 useEffect 不会覆盖) */
+  const setTestThreadId = (id: string) => {
+    mockChatStoreRefs.setConversationId(id)
+    useAgentProgressPaneStore.getState().setThreadId(id)
+  }
+
+  // ── 1. 精确匹配优先 ──
+
+  it('toolCallIds 精确匹配:带 toolCallIds 的步骤关联指定工具(即使其时间戳在时间窗外)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-tool-exact')
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-exact',
+        toolName: 'read_file',
+        args: { file_path: 'src/a.ts' },
+        status: 'success',
+        // 00:00:30 超出步骤窗口 endedAt(00:00:10)+5s 缓冲,时间窗兜底不会命中
+        startedAt: '2026-01-01T00:00:30Z',
+        durationMs: 100,
+      },
+    ]
+    mockAgentProgressRefs.setState({
+      planSteps: [
+        {
+          id: 'p-exact',
+          step: '精确关联步骤',
+          status: 'in_progress',
+          // 精确关联 t-exact(权威 ID 匹配,不受时间窗限制)
+          toolCallIds: ['t-exact'],
+          startedAt: '2026-01-01T00:00:00Z',
+          endedAt: '2026-01-01T00:00:10Z',
+        },
+      ],
+      tools,
+      isStreaming: true,
+    })
+
+    const { container } = render(<AgentTaskProgressPane />)
+    // in_progress 步骤渲染关联工具 Checklist(plan-step-tools-{stepId})
+    const checklist = container.querySelector('[data-testid="plan-step-tools-p-exact"]')
+    expect(checklist).toBeTruthy()
+    // 精确 ID 匹配命中(时间窗外的工具仍被关联)
+    expect(checklist?.textContent).toContain('read_file')
+  })
+
+  // ── 2. 时间窗回退 ──
+
+  it('时间窗回退:无 toolCallIds 的步骤按 startedAt/endedAt±缓冲关联窗口内工具', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-tool-window')
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-in-window',
+        toolName: 'search',
+        args: { query: 'foo' },
+        status: 'success',
+        startedAt: '2026-01-01T00:00:30Z', // 窗口内
+      },
+      {
+        id: 't-out-window',
+        toolName: 'bash',
+        args: { command: 'ls' },
+        status: 'success',
+        startedAt: '2026-01-01T00:10:00Z', // 超出 endedAt+5s → 窗口外
+      },
+    ]
+    mockAgentProgressRefs.setState({
+      planSteps: [
+        {
+          id: 'p-window',
+          step: '时间窗步骤',
+          status: 'in_progress',
+          startedAt: '2026-01-01T00:00:00Z',
+          endedAt: '2026-01-01T00:01:00Z',
+        },
+      ],
+      tools,
+      isStreaming: true,
+    })
+
+    const { container } = render(<AgentTaskProgressPane />)
+    const checklist = container.querySelector('[data-testid="plan-step-tools-p-window"]')
+    expect(checklist).toBeTruthy()
+    // 窗口内工具被关联
+    expect(checklist?.textContent).toContain('search')
+    // 窗口外工具不被关联
+    expect(checklist?.textContent).not.toContain('bash')
+  })
+
+  // ── 3. 优先级:精确匹配短路,不回退时间窗 ──
+
+  it('精确优先于时间窗:有 toolCallIds 时只关联精确命中的工具(排除窗口内未列出的工具)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    setTestThreadId('thread-tool-priority')
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-a',
+        toolName: 'read_file',
+        args: { file_path: 'src/a.ts' },
+        status: 'success',
+        startedAt: '2026-01-01T00:00:02Z',
+      },
+      {
+        id: 't-b',
+        toolName: 'search',
+        args: { query: 'bar' },
+        status: 'success',
+        startedAt: '2026-01-01T00:00:05Z', // 在步骤时间窗内但不在 toolCallIds
+      },
+    ]
+    mockAgentProgressRefs.setState({
+      planSteps: [
+        {
+          id: 'p-prio',
+          step: '优先级步骤',
+          status: 'in_progress',
+          // 只精确关联 t-a;时间窗同时覆盖 t-a 与 t-b
+          toolCallIds: ['t-a'],
+          startedAt: '2026-01-01T00:00:00Z',
+          endedAt: '2026-01-01T00:00:10Z',
+        },
+      ],
+      tools,
+      isStreaming: true,
+    })
+
+    const { container } = render(<AgentTaskProgressPane />)
+    const checklist = container.querySelector('[data-testid="plan-step-tools-p-prio"]')
+    expect(checklist).toBeTruthy()
+    // 只包含精确匹配的 t-a
+    expect(checklist?.textContent).toContain('read_file')
+    // 窗口内的 t-b 被排除(精确匹配命中即短路,不做时间窗兜底)
+    expect(checklist?.textContent).not.toContain('search')
+  })
+
+  // ── 4. 工具卡步骤归属 chip(chat.plan.stepOf) ──
+
+  it('工具卡步骤归属 chip:toolCallIds 命中的工具渲染 stepOf 标签(归属首个命中步骤)', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-chip-1',
+        toolName: 'read_file',
+        args: { file_path: 'src/c.ts' },
+        status: 'success',
+        startedAt: '2026-01-01T00:00:00Z',
+      },
+    ]
+    // 两个步骤都声明关联 t-chip-1 → chip 归属第一个命中的步骤
+    const planSteps: PlanStep[] = [
+      { id: 'p1', step: '分析需求', status: 'completed', toolCallIds: ['t-chip-1'] },
+      { id: 'p2', step: '编写代码', status: 'pending', toolCallIds: ['t-chip-1'] },
+    ]
+    const { container } = render(<ToolCallsSection tools={tools} planSteps={planSteps} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    // chip 渲染且归属第一个命中步骤(步骤 1:分析需求)
+    const chip = container.querySelector('[data-testid="tool-step-t-chip-1"]')
+    expect(chip).toBeTruthy()
+    expect(chip?.textContent).toContain('步骤 1')
+    expect(chip?.textContent).toContain('分析需求')
+    expect(container.querySelectorAll('[data-testid^="tool-step-"]')).toHaveLength(1)
+  })
+
+  it('工具卡步骤归属 chip:步骤无 toolCallIds 时不渲染(chip 仅精确匹配,不做时间窗兜底)', () => {
+    const tools: AgentToolCall[] = [
+      {
+        id: 't-chip-2',
+        toolName: 'read_file',
+        args: { file_path: 'src/d.ts' },
+        status: 'success',
+        startedAt: '2026-01-01T00:00:00Z',
+      },
+    ]
+    // 旧协议步骤无 toolCallIds(即使时间戳落在步骤时间窗内也不渲染 chip)
+    const planSteps: PlanStep[] = [{ id: 'p1', step: '旧协议步骤', status: 'in_progress' }]
+    const { container } = render(<ToolCallsSection tools={tools} planSteps={planSteps} />)
+    const foldBtn = container.querySelector('button')!
+    fireEvent.click(foldBtn)
+    expect(container.querySelector('[data-testid="tool-step-t-chip-2"]')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

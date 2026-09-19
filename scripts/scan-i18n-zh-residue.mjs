@@ -123,6 +123,7 @@ function isFileStaged(relPath) {
     const staged = execSync('git diff --cached --name-only', {
       cwd: process.cwd(),
       encoding: 'utf8',
+      windowsHide: true,
     })
     return staged.split('\n').some((l) => l.trim() === relPath)
   } catch {

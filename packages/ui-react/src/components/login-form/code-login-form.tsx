@@ -199,7 +199,7 @@ export function CodeLoginForm({
           e.currentTarget.requestSubmit()
         }
       }}
-      className="space-y-4 pt-2"
+      className="space-y-3"
       noValidate
     >
       {error && <ErrorAlert message={error} />}

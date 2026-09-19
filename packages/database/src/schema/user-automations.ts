@@ -37,6 +37,8 @@ export const userAutomations = pgTable(
      *  非空时自动化执行会注入该会话近期消息作为上下文,并把产出落库到同一会话(线程接力)。 */
     conversationId: uuid('conversation_id'),
     lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+    /** recurring 下次执行时间(调度器每次执行后重算) */
+    nextRunAt: timestamp('next_run_at', { withTimezone: true }),
     lastResult: jsonb('last_result').$type<AutomationLastResult>(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

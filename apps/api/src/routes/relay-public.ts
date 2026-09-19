@@ -242,11 +242,17 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
           relaySortOrder: toNumber(r.relaySortOrder, 0),
           // 长上下文加价与推理输出倍率公示(G,2026-09-16):未配置为 null(= 不加价)
           longContextMultiplier:
-            p?.longContextMultiplier != null ? Number(p.longContextMultiplier) : null,
+            p?.longContextMultiplier !== null && p?.longContextMultiplier !== undefined
+              ? Number(p.longContextMultiplier)
+              : null,
           longContextThresholdTokens:
-            p?.longContextThresholdTokens != null ? Number(p.longContextThresholdTokens) : null,
+            p?.longContextThresholdTokens !== null && p?.longContextThresholdTokens !== undefined
+              ? Number(p.longContextThresholdTokens)
+              : null,
           reasoningOutputMultiplier:
-            p?.reasoningOutputMultiplier != null ? Number(p.reasoningOutputMultiplier) : null,
+            p?.reasoningOutputMultiplier !== null && p?.reasoningOutputMultiplier !== undefined
+              ? Number(p.reasoningOutputMultiplier)
+              : null,
           billingMode,
           relayPerUnitPriceCents:
             (billingMode === 'per_image' || billingMode === 'per_video') && perUnit > 0

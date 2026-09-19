@@ -27,6 +27,12 @@ export interface ThirdPartyLoginButtonsProps {
   featuredPlatform?: ThirdPartyPlatform
   /** 主推大按钮背景色(品牌色,如 OAUTH_BRAND_COLORS.wechat) */
   featuredBackground?: string
+  /**
+   * 图标网格列数(默认 3)。2026-09-19 立:web 主站登录弹窗为满足"内容在视口内
+   * 完整显示、禁止滚动"传 4(8 平台 3 行→2 行);列数 >3 时按钮自动切 text-xs + px-2
+   * 保证"企业微信"等长标签在窄列内不溢出。扩展端不传维持 3 列。
+   */
+  columns?: number
 }
 
 /**
@@ -60,6 +66,7 @@ export function ThirdPartyLoginButtons({
   className,
   featuredPlatform,
   featuredBackground,
+  columns = 3,
 }: ThirdPartyLoginButtonsProps) {
   const { providers, currentPlatform, onLogin } = config
   const isLoading = currentPlatform !== null
@@ -94,14 +101,15 @@ export function ThirdPartyLoginButtons({
                 providers={restProviders}
                 currentPlatform={currentPlatform}
                 onLogin={onLogin}
+                columns={columns}
               />
             </>
           )}
         </div>
       ) : (
         <>
-          {/* 标题:居中文本 + 间距 */}
-          <div className="mt-3 mb-4 flex justify-center text-xs uppercase">
+          {/* 标题:居中文本 + 间距(2026-09-19 紧凑化:mt-3 mb-4→mt-2 mb-1) */}
+          <div className="mt-2 mb-1 flex justify-center text-xs uppercase">
             <span className="text-muted-foreground">{t('auth.thirdPartyLogin')}</span>
           </div>
           <ThirdPartyGrid
@@ -109,6 +117,7 @@ export function ThirdPartyLoginButtons({
             providers={providers}
             currentPlatform={currentPlatform}
             onLogin={onLogin}
+            columns={columns}
           />
         </>
       )}
@@ -157,21 +166,28 @@ function FeaturedPlatformButton({
   )
 }
 
-/** 3 列图标网格(主推模式与普通模式的公共渲染) */
+/** 图标网格(主推模式与普通模式的公共渲染);columns 见 ThirdPartyLoginButtonsProps */
 function ThirdPartyGrid({
   t,
   providers,
   currentPlatform,
   onLogin,
+  columns = 3,
 }: {
   t: (key: string, params?: Record<string, string | number>) => string
   providers: ThirdPartyProvider[]
   currentPlatform: ThirdPartyPlatform | null
   onLogin: (platform: ThirdPartyPlatform) => void
+  columns?: number
 }) {
   const isLoading = currentPlatform !== null
   return (
-    <div className="grid grid-cols-3 gap-2">
+    // 2026-09-19:grid-cols-3 → 内联 gridTemplateColumns(支持 columns 可调),
+    // minmax(0,1fr) 防长标签撑破列宽(与 TabsList 网格同策略)
+    <div
+      className="grid gap-2"
+      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+    >
       <TooltipProvider delayDuration={200}>
         {providers.map((p) => {
           const disabled = p.forceDisabled || !p.enabled || isLoading
@@ -198,6 +214,9 @@ function ThirdPartyGrid({
                 // justify-items: stretch 拉伸到列宽,但内层 inline-flex 按钮默认
                 // 不自动 grow,文本长短不一导致按钮宽度不一致)
                 'w-full',
+                // 多列窄格(2026-09-19 紧凑化):h-8 + text-xs + px-2,
+                // 2 行网格再降 8px,且"企业微信"等 4 字标签在窄列内不溢出
+                columns > 3 && 'h-8 px-2 text-xs',
                 p.forceDisabled && 'grayscale opacity-50',
               )}
               data-testid={`third-party-${p.key}`}

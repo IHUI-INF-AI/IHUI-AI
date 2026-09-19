@@ -2299,7 +2299,8 @@
       "schedule": "Scheduling",
       "attendance": "Attendance",
       "grades": "Grades",
-      "homework": "Homework"
+      "homework": "Homework",
+      "canteenProcurement": "Canteen Procurement"
     },
     "eduParent": "Parent Portal",
     "eduSchedule": "Timetable",
