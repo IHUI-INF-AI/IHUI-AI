@@ -19,7 +19,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { userAutomations } from '@ihui/database'
+import { userAutomations, chatConversations } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { parseNextRun, executeAutomation } from '../services/agent-automation-scheduler.js'
@@ -44,6 +44,8 @@ const createSchema = z
     rrule: z.string().max(500).optional(),
     scheduledAt: z.iso.datetime({ offset: true }).optional(),
     timezone: z.string().max(64).optional(),
+    /** D12:可选绑定聊天会话(执行复用该线程;须为当前用户自己的会话) */
+    conversationId: z.string().uuid().nullable().optional(),
   })
   .refine((v) => (v.scheduleType === 'once' ? v.scheduledAt !== undefined : true), {
     message: '一次性计划必须提供 scheduledAt',
@@ -60,6 +62,8 @@ const updateSchema = z
     scheduledAt: z.iso.datetime({ offset: true }).nullable().optional(),
     timezone: z.string().max(64).optional(),
     status: z.enum(['active', 'paused']).optional(),
+    /** D12:可选绑定/解绑聊天会话(null 解绑;须为当前用户自己的会话) */
+    conversationId: z.string().uuid().nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: '至少提供一个更新字段' })
 
@@ -75,6 +79,8 @@ interface CreateInput {
   rrule?: string
   scheduledAt?: string
   timezone?: string
+  /** D12:可选绑定聊天会话 */
+  conversationId?: string | null
 }
 
 /** 按计划类型计算 nextRunAt:once=scheduledAt;recurring=parseNextRun。 */
@@ -99,6 +105,20 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
     await authenticate(request)
   })
 
+  /** D12:校验 conversationId 归属当前用户(防跨会话上下文泄露);null/undefined 放行 */
+  const assertConversationOwnership = async (
+    userId: string,
+    conversationId: string | null | undefined,
+  ): Promise<boolean> => {
+    if (conversationId === null || conversationId === undefined) return true
+    const [conv] = await db
+      .select({ id: chatConversations.id })
+      .from(chatConversations)
+      .where(and(eq(chatConversations.id, conversationId), eq(chatConversations.userId, userId)))
+      .limit(1)
+    return conv !== undefined
+  }
+
   // POST / — 创建
   server.post('/', async (request, reply) => {
     const userId = request.userId
@@ -109,6 +129,10 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const input = parsed.data as CreateInput
+
+    if (!(await assertConversationOwnership(userId, input.conversationId))) {
+      return reply.status(400).send(error(400, '会话不存在或无权绑定'))
+    }
 
     const nextRunAt = computeNextRunAt(input)
     if (input.scheduleType === 'recurring' && !nextRunAt) {
@@ -127,6 +151,7 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
         timezone: input.timezone ?? 'Asia/Shanghai',
         status: 'active',
         nextRunAt,
+        ...(input.conversationId !== undefined ? { conversationId: input.conversationId } : {}),
       })
       .returning()
     return reply.status(201).send(success(row))
@@ -193,6 +218,11 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '自动化不存在'))
 
+    // D12:绑定/解绑会话时校验归属
+    if (!(await assertConversationOwnership(userId, input.conversationId))) {
+      return reply.status(400).send(error(400, '会话不存在或无权绑定'))
+    }
+
     // 合并更新后的完整计划态再重算 nextRunAt
     const scheduleType = existing.scheduleType
     const rrule = input.rrule !== undefined ? input.rrule : existing.rrule
@@ -218,6 +248,7 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
           : {}),
         ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
+        ...(input.conversationId !== undefined ? { conversationId: input.conversationId } : {}),
         ...(nextRunAt ? { nextRunAt } : {}),
         updatedAt: new Date(),
       })
