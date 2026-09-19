@@ -313,6 +313,27 @@ class VectorMemoryStore:
         self._vectors[entry_id] = embedding
         self._dirty = True
         await self._persist_async()
+        # D8(2026-09-19 立):pgvector 一级镜像(失败静默,内存索引仍为事实源兜底)
+        await self._pg_mirror_upsert(entry_id, entry, embedding)
+
+    async def _pg_mirror_upsert(self, entry_id: str, entry: dict[str, Any], embedding: list[float]) -> None:
+        """把条目镜像到 pgvector(写放大可接受:向量检索优先走 PG,内存为降级兜底)。"""
+        try:
+            from .pgvector_store import upsert_chunk
+
+            await asyncio.wait_for(
+                upsert_chunk(
+                    "vector_memory",
+                    "entries",
+                    entry_id,
+                    json.dumps(entry, ensure_ascii=False),
+                    embedding,
+                    dict(entry),
+                ),
+                timeout=5,
+            )
+        except Exception as e:  # noqa: BLE001 - 降级路径,绝不阻塞主链路
+            logger.debug("pgvector 镜像写入失败(忽略): %s", e)
 
     async def search(
         self,
@@ -320,9 +341,24 @@ class VectorMemoryStore:
         top_k: int = 10,
         threshold: float = 0.7,
     ) -> list[tuple[str, dict[str, Any], float]]:
-        """向量检索:返回 [(entry_id, entry, similarity)],按相似度降序。"""
+        """向量检索:返回 [(entry_id, entry, similarity)],按相似度降序。
+
+        D8(2026-09-19 立):优先 pgvector 余弦检索(专业 ANN,跨进程持久);
+        不可用/0 命中时回落进程内 hash cosine 检索。
+        """
         if not query_embedding:
             return []
+        try:
+            from .pgvector_store import search_chunks
+
+            pg_results = await asyncio.wait_for(
+                search_chunks("vector_memory", query_embedding, top_k, threshold),
+                timeout=5,
+            )
+            if pg_results:
+                return pg_results
+        except Exception as e:  # noqa: BLE001 - 降级路径
+            logger.debug("pgvector 检索失败,回落内存索引: %s", e)
         scored: list[tuple[str, dict[str, Any], float]] = []
         for eid, vec in self._vectors.items():
             sim = _cosine_similarity(query_embedding, vec)
@@ -342,6 +378,8 @@ class VectorMemoryStore:
             self._vectors[entry_id] = embedding
             self._dirty = True
             await self._persist_async()
+            # D8: 同步 pgvector 镜像
+            await self._pg_mirror_upsert(entry_id, self._entries[entry_id], embedding)
 
     async def delete(self, entry_id: str) -> None:
         """删除记忆 + 向量,并触发异步持久化。"""
@@ -349,6 +387,13 @@ class VectorMemoryStore:
         self._vectors.pop(entry_id, None)
         self._dirty = True
         await self._persist_async()
+        # D8: pgvector 镜像删除(失败静默)
+        try:
+            from .pgvector_store import delete_chunk
+
+            await asyncio.wait_for(delete_chunk("vector_memory", "entries", entry_id), timeout=5)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("pgvector 镜像删除失败(忽略): %s", e)
 
     async def clear(self, session_id: str | None = None) -> None:
         """清空记忆(可选按 session_id 过滤,未匹配 session_id 时清空全部)。
@@ -369,6 +414,13 @@ class VectorMemoryStore:
                 self._vectors.pop(eid, None)
         self._dirty = True
         await self._persist_async()
+        # D8: pgvector 镜像清空(失败静默)
+        try:
+            from .pgvector_store import clear_chunks
+
+            await asyncio.wait_for(clear_chunks("vector_memory", session_id), timeout=8)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("pgvector 镜像清空失败(忽略): %s", e)
 
     # ==================================================================
     # 辅助方法

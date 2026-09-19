@@ -85,6 +85,42 @@ _pending_callbacks: set[asyncio.Task[None]] = set()
 # 持有压缩回捞快照的 fire-and-forget task 引用(防止 GC 回收未持有 task)
 _pending_compaction_snapshots: set[asyncio.Task[Any]] = set()
 
+
+class _InflightToolTasks:
+    """MCP 工具调用取消闭环(2026-09-19 立):按流追踪 in-flight 工具任务。
+
+    背景:tool loop 中 dispatch_subagent / call_tool 以独立 asyncio.Task 执行
+    (生成器边排水进度/delta 帧边等任务),客户端断开(网关 abort fetch)取消
+    生成器时,这些任务无人 cancel 即成孤儿继续跑完,浪费额度且留下脏状态
+    (浏览器会话/子进程)。每条 SSE 流(gen)实例化一份,创建工具任务时 track
+    登记(完成回调自动 discard 防泄漏),流收尾 finally 统一 cancel_all。
+    仅同一 event loop 内操作,无跨线程并发问题。
+    """
+
+    def __init__(self) -> None:
+        self._tasks: set[asyncio.Task[Any]] = set()
+
+    def track(self, task: asyncio.Task[Any]) -> asyncio.Task[Any]:
+        """登记 in-flight 工具任务;完成时自动移出集合。返回原 task 便于就地赋值。"""
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+        return task
+
+    def cancel_all(self) -> int:
+        """统一 cancel 仍 in-flight 的工具任务,返回实际取消数;空集 no-op 不报错。
+
+        仅请求取消不 await 回收:收尾路径可能已处于取消作用域内,await 会再次
+        招致 CancelledError;被 cancel 的任务由事件循环正常回收,其 CancelledError
+        不会外溢为 "exception was never retrieved" 告警。
+        """
+        cancelled = 0
+        for task in list(self._tasks):
+            if not task.done():
+                task.cancel()
+                cancelled += 1
+        self._tasks.clear()
+        return cancelled
+
 # 浏览器端工具委托 session 管理(2026-08-02 立,阶段 2)
 # 每个 /llm/complete/stream 请求(workspace_context 模式)生成一个 session_id,
 # tool loop 遇到 fs 类工具时,通过 SSE 发 tool-delegate 事件委托前端执行,
@@ -788,6 +824,54 @@ def _inject_workspace_memory(
     return new_messages
 
 
+# D9(2026-09-19 立):Repo Wiki 自动 wiki 化 + 增量同步 + 常驻注入。
+# 与 _inject_repo_wiki(手动 wiki_context 路径)并列,互不影响:两者 marker 不同,
+# 手动路径用 <!-- repo_wiki:{repo} -->,自动路径用 <!-- repo-wiki-auto -->。
+def _inject_repo_wiki_auto(
+    messages: list[dict[str, Any]],
+    wiki_text: str,
+    label: str | None = None,
+) -> list[dict[str, Any]]:
+    """把自动生成的[repo-wiki]项目百科注入 system message(带去重 marker)。
+
+    全同步、零 LLM;调用方需先拿到 wiki_text(经 repo_wiki_engine.ensure_wiki)。
+    """
+    if not wiki_text or not str(wiki_text).strip():
+        return messages
+    marker = "<!-- repo-wiki-auto -->"
+    body = "[repo-wiki] 项目百科（自动生成，增量同步）：\n" f"{wiki_text}"
+    new_messages = list(messages)
+    if new_messages and new_messages[0].get("role") == "system":
+        existing = new_messages[0].get("content", "")
+        if marker in str(existing):
+            return messages
+        merged = f"{existing}\n\n{marker}\n{body}" if existing else f"{marker}\n{body}"
+        new_messages[0] = {**new_messages[0], "content": merged}
+    else:
+        new_messages.insert(0, {"role": "system", "content": f"{marker}\n{body}"})
+    return new_messages
+
+
+async def _maybe_inject_auto_repo_wiki(
+    messages: list[dict[str, Any]],
+    req: "LLMCompleteRequest",
+) -> list[dict[str, Any]]:
+    """D9 自动项目百科注入挂载点(并行作业热路径)。
+
+    仅当 wikiContext 未显式关闭 且 workspace_path 存在时,调用 ensure_wiki 生成/增量同步
+    项目百科并注入 system prompt。全 try/except 静默降级:任何异常/禁用/无文本一律原样返回。
+    """
+    if req.wikiContext is not False and req.workspace_path:
+        try:
+            from ..services.repo_wiki_engine import ensure_wiki as _wiki_ensure
+            _wiki_text = await _wiki_ensure(req.workspace_path, req.workspace_path)
+            if _wiki_text:
+                messages = _inject_repo_wiki_auto(messages, _wiki_text, req.workspace_path)
+        except Exception as _wiki_err:  # 静默降级,绝不阻塞主聊天
+            logger.warning("repo_wiki auto inject skipped: %s", _wiki_err)
+    return messages
+
+
 # P1 #41 阶段3 增强(2026-09-17 立):新会话自动注入相关记忆子图。
 # 挂载点 = 主聊天 complete_stream 的 system 注入链(workspace memory 之后);
 # 查询词 = 最后一条 user 消息;命中空/查询异常/无登录态一律原样返回,零主链路影响。
@@ -1089,6 +1173,12 @@ class LLMCompleteRequest(BaseModel):
     wiki_repo: str | None = Field(
         None, description="项目百科对应仓库名(用于去重 marker 与 <repo_wiki repo> 标签标注)"
     )
+    # D9(2026-09-19 立):Repo Wiki 自动 wiki 化 + 增量同步 + 常驻注入 开关。
+    # 默认 None(视为开启)。显式 false 关闭后端自动扫描工作区 markdown 生成的[repo-wiki]项目百科。
+    # 环境变量 IHUI_WIKI_DISABLE=1 为全局硬开关(在 repo_wiki_engine 内生效)。
+    wikiContext: bool | None = Field(
+        None, description="Repo Wiki 自动项目百科注入开关:true/false,默认开启(None 视为开启)"
+    )
     # 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一,Python 端兜底)
     context_limit: int | None = Field(
         None, description="模型上下文窗口大小(tokens),达 88% 阈值自动压缩。0 或 None = 不压缩"
@@ -1336,6 +1426,8 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     messages = _inject_workspace_memory(req.messages, req.workspace_path, req.workspace_context)
     # P1-8(2026-09-13 立,Repo Wiki):项目百科独立注入(紧邻工作区记忆,互不影响)
     messages = _inject_repo_wiki(messages, req.wiki_context, req.wiki_repo)
+    # D9(2026-09-19 立):Repo Wiki 自动 wiki 化注入(紧邻手动 wiki 路径,互不影响)
+    messages = await _maybe_inject_auto_repo_wiki(messages, req)
     # P1 #41 阶段3 增强(2026-09-17 立):相关记忆子图自动注入(全降级,零主链路影响)
     messages = await _inject_memory_graph(
         messages, _last_user_text(messages), _resolve_owner_uuid(request)
@@ -1848,6 +1940,18 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             errorCode="TRIAL_QUOTA_EXCEEDED",
             usage=trial,
         )
+    # D10(2026-09-19 立):跨会话记忆自动沉淀。每 N 轮用户消息后台触发一次,
+    # 抽取会话近期消息写入长期记忆。fire-and-forget,失败静默,零主链路影响。
+    try:
+        from ..services.memory_sedimenter import maybe_sediment
+
+        await maybe_sediment(
+            str((req.metadata or {}).get("conversationId") or owner_uuid or ""),
+            owner_uuid,
+            recent_messages=req.messages,
+        )
+    except Exception as e:  # 防御:沉淀入口绝不阻塞主聊天
+        logger.warning("memory_sedimenter 入口异常(已忽略): %s", e)
     # 2026-08-06 修复:透传用户角色给 call_tool(权限矩阵),否则 admin 也按 role=0 拒绝
     user_role = _resolve_user_role(request)
     # ChatMode 模式注入(2026-09-13 矩阵 A #24):mode 优先于 legacy plan_mode。
@@ -1864,6 +1968,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     messages = _inject_workspace_memory(messages, req.workspace_path, req.workspace_context)
     # P1-8(2026-09-13 立,Repo Wiki):项目百科独立注入(紧邻工作区记忆,互不影响)
     messages = _inject_repo_wiki(messages, req.wiki_context, req.wiki_repo)
+    # D9(2026-09-19 立):Repo Wiki 自动 wiki 化注入(紧邻手动 wiki 路径,互不影响)
+    messages = await _maybe_inject_auto_repo_wiki(messages, req)
     # P1 #41 阶段3 增强(2026-09-17 立):相关记忆子图自动注入(全降级,零主链路影响)
     messages = await _inject_memory_graph(
         messages, _last_user_text(messages), _resolve_owner_uuid(request)
@@ -1993,6 +2099,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             nonlocal _first_token_ts
             if _first_token_ts is None:
                 _first_token_ts = time.perf_counter()
+
+        # MCP 工具调用取消闭环(2026-09-19 立):本流 in-flight 工具任务追踪器。
+        # dispatch_subagent / call_tool 等工具任务创建时登记,流收尾(finally,
+        # 覆盖正常 done / error / 客户端断开取消 / GeneratorExit)统一 cancel,
+        # 防孤儿工具任务在客户端已断开后继续跑完(浪费额度/留脏状态)。
+        _inflight_tool_tasks = _InflightToolTasks()
 
         # 阶段 2:浏览器端工具委托 session_id(workspace_context 模式下生成)
         session_id: str | None = None
@@ -2742,9 +2854,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     _progress_queue.put_nowait(_sse_evt)
 
                                 try:
-                                    _dispatch_task = asyncio.create_task(
+                                    # MCP 工具调用取消闭环:登记到本流追踪器,
+                                    # 客户端断开/请求取消时 finally 统一 cancel
+                                    _dispatch_task = _inflight_tool_tasks.track(asyncio.create_task(
                                         _tool_dispatch_subagent(args, progress_callback=_progress_cb)
-                                    )
+                                    ))
                                     # 排水进度事件,直到 dispatch 任务完成
                                     while not _dispatch_task.done():
                                         try:
@@ -2784,7 +2898,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         )
                                     if _term_token is not None:
                                         try:
-                                            _call_task = asyncio.ensure_future(
+                                            # MCP 工具调用取消闭环:登记到本流追踪器,
+                                            # 客户端断开/请求取消时 finally 统一 cancel
+                                            _call_task = _inflight_tool_tasks.track(asyncio.ensure_future(
                                                 _mcp.call_tool(
                                                     tool_name, args,
                                                     user_id=owner_uuid,
@@ -2795,7 +2911,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                                         else None
                                                     ),
                                                 )
-                                            )
+                                            ))
                                             # 等待期间实时排水 delta 帧(超时探测,不阻塞工具主链路)
                                             while not _call_task.done():
                                                 try:
@@ -3193,6 +3309,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             yield _sse(SSE_ERROR, err)
             return
         finally:
+            # MCP 工具调用取消闭环:流收尾(正常 done / error / 客户端断开取消
+            # /GeneratorExit)统一 cancel 本流仍 in-flight 的工具任务,切断孤儿链路。
+            # 正常完成路径任务已被 await 且经完成回调移出集合,此处天然 no-op;
+            # 取消仅 fire 不 await(避免在取消作用域内二次招致 CancelledError)。
+            _inflight_tool_tasks.cancel_all()
             # 阶段 2:清理委托 session(始终执行,先于计量帧)
             if session_id and session_id in _delegate_sessions:
                 del _delegate_sessions[session_id]

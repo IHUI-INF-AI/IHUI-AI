@@ -13,6 +13,7 @@ from .chart_tools import generate_chart
 from .document_asset_tools import document_tables, extract_document_assets
 from .document_tools import parse_document
 from .web_crawl_tools import crawl_site, extract_web, fetch_readable, map_site
+from .browser_selfcheck import capture_screenshot, selfcheck_report
 
 __all__ = [
     "generate_chart",
@@ -23,4 +24,6 @@ __all__ = [
     "map_site",
     "crawl_site",
     "extract_web",
+    "capture_screenshot",
+    "selfcheck_report",
 ]
