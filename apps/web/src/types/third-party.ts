@@ -194,6 +194,7 @@ export type ThirdPartyPlatform =
   | 'github'
   | 'feishu'
   | 'alipay'
+  | 'oidc'
   | 'app'
 
 /** 第三方登录状态机 */

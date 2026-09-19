@@ -10,7 +10,16 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 import { Brain, Search, Plus, Trash2, Loader2, MessageSquareText } from 'lucide-react'
 
-import { Button, Input, SearchInput, Label, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import {
+  Button,
+  Input,
+  SearchInput,
+  Label,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@ihui/ui-react'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@ihui/ui-react'
 import {
   searchMemory,

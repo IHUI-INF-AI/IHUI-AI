@@ -61,7 +61,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
-import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C, createLogger } from './lib/logger.mjs'
 
 const ROOT = resolve(process.cwd())
@@ -75,21 +75,6 @@ const isJson = argv.includes('--json')
 // ── 扫描配置 ──────────────────────────────────────────────────────────────
 const SCAN_ROOT = join(ROOT, 'apps', 'miniapp-taro', 'src')
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']
-
-// 排除目录(基于共享 EXCLUDE_DIRS,追加 miniapp-taro 特有归档目录)
-const EXCLUDE_DIRS = withExcludes([
-  '__tests__',
-  'tests',
-  'e2e',
-  'migration-2025-12-i18n',
-  'migration-2026-01-i18n',
-  'migration-2026-02-i18n',
-  'migration-2026-03-i18n',
-  'migration-2026-04-i18n',
-  'migration-2026-05-i18n',
-  'migration-2026-06-i18n',
-  'migration-2026-07-i18n',
-])
 
 // ── 命中规则(3 模式) ─────────────────────────────────────────────────────
 const HIT_PATTERNS = [
@@ -155,6 +140,7 @@ function getStagedFiles() {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return output
       .split('\n')
@@ -184,6 +170,7 @@ function getStagedAddedLines(files) {
       cwd: ROOT,
       maxBuffer: 50 * 1024 * 1024,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
   } catch {
     return result

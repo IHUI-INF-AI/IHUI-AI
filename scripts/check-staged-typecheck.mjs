@@ -162,6 +162,7 @@ function getStagedFiles() {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return out
       .split('\n')

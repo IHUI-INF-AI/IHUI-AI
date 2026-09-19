@@ -37,6 +37,7 @@ if (isStaged) {
       cwd: ROOT,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'ignore'],
+      windowsHide: true,
     })
   } catch {
     // 非 git 环境或无暂存文件，跳过

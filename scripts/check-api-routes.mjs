@@ -421,6 +421,7 @@ function getStagedFiles() {
     const out = execFileSync('git', ['-C', ROOT, 'diff', '--cached', '--name-only'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
     })
     // git 输出为仓库根相对路径(POSIX 斜杠);Windows 下 relative() 产生反斜杠,统一为 /
     return out

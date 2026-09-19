@@ -156,6 +156,21 @@ export interface StreamRunnerCallbacks {
   onDone: () => void
   /** 上下文压缩通知(各端按需实现,如 miniapp-taro 用 Taro.showToast) */
   onCompaction?: (info: { tokensBefore: number; tokensAfter: number; removedCount: number }) => void
+  /** 中途引导注入确认(2026-09-19 立,Steer 全链路):
+   *  用户经 steer 端点中途注入引导文本,ai-service 在 tool loop 边界将其注入
+   *  messages 后下发 steer SSE 事件,api-client streamChat 解析为 onSteer 回调。
+   *  载荷形状与 @ihui/api-client 的 SteerEvent 严格对齐(此处内联定义,
+   *  避免 @ihui/types → @ihui/api-client 反向依赖)。 */
+  onSteer?: (event: {
+    /** 当前仅 "injected"(已注入 messages);预留扩展 */
+    phase: 'injected'
+    /** 用户引导文本(注入 messages 的原文) */
+    text: string
+    /** 入队时间(ISO,来自 steer 端点) */
+    timestamp?: string
+    /** 所属 assistant 消息 ID(便于前端挂 badge) */
+    messageId?: string
+  }) => void
 }
 
 /**

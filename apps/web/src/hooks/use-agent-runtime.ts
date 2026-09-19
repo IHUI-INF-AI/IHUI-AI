@@ -6,6 +6,26 @@
 
 import * as React from 'react'
 import { fetchApi } from '@/lib/api'
+import {
+  AGENT_TASK_EVENTS,
+  parseSelfHealEvent,
+  parseThinkingEvent,
+  parsePlanStepEvent,
+  parseSessionEndEvent,
+  parsePermissionModeEvent,
+  parseTerminalDeltaEvent,
+  parseAgentStatusEvent,
+  parseMessageSendEvent,
+} from '@ihui/shared'
+import type {
+  SelfHealEvent,
+  AgentPlanStepEvent,
+  AgentSessionEndEvent,
+  AgentPermissionModeEvent,
+  AgentTerminalDeltaEvent,
+  AgentTransientStatusEvent,
+  AgentMessageSendEvent,
+} from '@ihui/shared'
 
 export interface AgentSession {
   id: string
@@ -32,37 +52,19 @@ export interface ToolCallEvent {
   errorType?: string
 }
 
-/**
- * 自愈事件(2-3 第四批 2026-09-12):agent_loop_v2._maybe_self_heal 经
- * /api/agents/tasks/stream 的 `event: self-heal` SSE 事件推送。
- * phase=started(检测到失败 pytest,heal 启动)/ finished(ok=修复结果)。
- */
-export interface SelfHealEvent {
-  id: string
-  sessionId: string
-  iteration: number | null
-  phase: 'started' | 'finished'
-  command: string
-  failed: number | null
-  ok: boolean | null
-  attempts: number | null
-  rollbackCount: number
-  ts: number
-}
-
-/**
- * P0-5(2026-09-13):plan 步骤事件(agent_loop_v2.emit_plan_step 经
- * /api/agents/tasks/stream 的 `event: plan-step` SSE 推送)。
- * status=started/completed;blocked 由拦截/审批路径承载(本层不发射,契约保留)。
- */
-export interface AgentPlanStepEvent {
-  runId: string
-  stepIndex: number
-  toolName: string
-  status: 'started' | 'completed' | 'blocked'
-  decision: string | null
-  reason: string | null
-  ts: number
+// t4 runtime 收敛(2026-09-19):以下 Agent 任务流事件视图类型已迁移至
+// @ihui/shared 的 agent-events 单源(事件名常量 + wire/视图双层类型 +
+// 逐事件解析器),此处 re-export 维持既有导入面(agent-task-progress-pane 等)不变。
+// wire 解析(JSON.parse + 守卫 + snake→camel)由共享 parse* 函数承载,
+// 本 hook 仅保留状态组织(FIFO/单值覆盖)职责。
+export type {
+  SelfHealEvent,
+  AgentPlanStepEvent,
+  AgentSessionEndEvent,
+  AgentPermissionModeEvent,
+  AgentTerminalDeltaEvent,
+  AgentTransientStatusEvent,
+  AgentMessageSendEvent,
 }
 
 export interface UseAgentRuntimeReturn {
@@ -75,29 +77,35 @@ export interface UseAgentRuntimeReturn {
   thinkingContent: string
   /** P0-5:plan 步骤时间线(step_index 幂等 upsert) */
   planSteps: AgentPlanStepEvent[]
+  /** P1(2026-09-19):session 结束摘要(最后一次 session_end 事件) */
+  sessionEnd: AgentSessionEndEvent | null
+  /** P1(2026-09-19):权限模式切换(最后一次 permission-mode 事件) */
+  permissionMode: AgentPermissionModeEvent | null
+  /** P1(2026-09-19):运行时终端增量输出 FIFO(terminal-delta) */
+  terminalDeltas: AgentTerminalDeltaEvent[]
+  /** P1(2026-09-19):agent 瞬态状态(resuming/pausing/cancelling) */
+  agentStatus: AgentTransientStatusEvent | null
+  /** P1(2026-09-19):最近一轮 LLM 请求发出通知(message_send) */
+  lastMessageSend: AgentMessageSendEvent | null
   connected: boolean
 }
 
-const MAX_TOKENS = 1000
 /** 自愈事件 FIFO 上限(单 run 事件量小,50 条足够覆盖长会话) */
 const MAX_HEAL_EVENTS = 50
 /** plan 步骤 FIFO 上限(长任务步骤数有限,100 条兜底) */
 const MAX_PLAN_STEPS = 100
+/** terminal-delta FIFO 上限(4 行/帧,200 帧 ≈ 800 行输出,防长命令刷爆内存) */
+const MAX_TERMINAL_DELTAS = 200
 
-type SsePayload =
-  | ({ id: string; timestamp: number } & TokenEvent)
-  | ({
-      id: string
-      tool: string
-      args: Record<string, unknown>
-      status: ToolCallEvent['status']
-      result?: unknown
-    } & { type: 'tool_call' | 'tool_result' })
-
-function appendFifo(prev: TokenEvent[], evt: TokenEvent): TokenEvent[] {
-  const next = [...prev, evt]
-  return next.length > MAX_TOKENS ? next.slice(next.length - MAX_TOKENS) : next
-}
+// 2026-09-19:content 匿名形态已删除(/agents/tasks/stream 全部为命名事件,
+// onmessage 运行时不可达),SsePayload 仅保留守门认可的 tool_call/tool_result 分支形态。
+type SsePayload = {
+  id: string
+  tool: string
+  args: Record<string, unknown>
+  status: ToolCallEvent['status']
+  result?: unknown
+} & { type: typeof AGENT_TASK_EVENTS.TOOL_CALL | typeof AGENT_TASK_EVENTS.TOOL_RESULT }
 
 function appendHealFifo(prev: SelfHealEvent[], evt: SelfHealEvent): SelfHealEvent[] {
   const next = [...prev, evt]
@@ -116,6 +124,16 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
   const [thinkingContent, setThinkingContent] = React.useState('')
   /** P0-5(2026-09-13):plan 步骤时间线(命名 SSE 事件 plan-step) */
   const [planSteps, setPlanSteps] = React.useState<AgentPlanStepEvent[]>([])
+  /** P1(2026-09-19):session 结束摘要(命名 SSE 事件 session_end,单值覆盖) */
+  const [sessionEnd, setSessionEnd] = React.useState<AgentSessionEndEvent | null>(null)
+  /** P1(2026-09-19):权限模式切换(命名 SSE 事件 permission-mode,单值覆盖) */
+  const [permissionMode, setPermissionMode] = React.useState<AgentPermissionModeEvent | null>(null)
+  /** P1(2026-09-19):运行时终端增量输出(命名 SSE 事件 terminal-delta,FIFO) */
+  const [terminalDeltas, setTerminalDeltas] = React.useState<AgentTerminalDeltaEvent[]>([])
+  /** P1(2026-09-19):agent 瞬态状态(命名 SSE 事件 agent-status,单值覆盖) */
+  const [agentStatus, setAgentStatus] = React.useState<AgentTransientStatusEvent | null>(null)
+  /** P1(2026-09-19):最近一轮 LLM 请求发出(命名 SSE 事件 message_send,单值覆盖) */
+  const [lastMessageSend, setLastMessageSend] = React.useState<AgentMessageSendEvent | null>(null)
   const [connected, setConnected] = React.useState(false)
   const esRef = React.useRef<EventSource | null>(null)
 
@@ -153,6 +171,11 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       setHealEvents([])
       setThinkingContent('')
       setPlanSteps([])
+      setSessionEnd(null)
+      setPermissionMode(null)
+      setTerminalDeltas([])
+      setAgentStatus(null)
+      setLastMessageSend(null)
       setConnected(false)
       return
     }
@@ -169,16 +192,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     es.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data) as SsePayload
-        if (data.type === 'content') {
-          setTokenStream((prev) =>
-            appendFifo(prev, {
-              id: data.id,
-              type: 'content',
-              value: (data as TokenEvent).value,
-              timestamp: data.timestamp,
-            }),
-          )
-        } else if (data.type === 'tool_call') {
+        if (data.type === AGENT_TASK_EVENTS.TOOL_CALL) {
           const d = data as ToolCallEvent & { type: 'tool_call' }
           setToolCallChain((prev) => [
             ...prev,
@@ -192,7 +206,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
               errorType: d.errorType,
             },
           ])
-        } else if (data.type === 'tool_result') {
+        } else if (data.type === AGENT_TASK_EVENTS.TOOL_RESULT) {
           const d = data as {
             id: string
             result?: unknown
@@ -221,108 +235,83 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
 
     // 2-3 第四批(2026-09-12):self-heal 是命名 SSE 事件(带 `event: self-heal` 行),
     // 不触发 onmessage,必须 addEventListener(参照 tool-approval-dialog 模式)。
-    // 后端 agents.py 输出 {"type":"self-heal","payload":{session_id,iteration,phase,command,failed,ok,attempts,rollbacks,checkpoint_id}}
-    es.addEventListener('self-heal', (e) => {
-      try {
-        const data = JSON.parse(e.data) as {
-          type?: string
-          payload?: {
-            session_id?: string
-            iteration?: number | null
-            phase?: 'started' | 'finished'
-            command?: string
-            failed?: number | null
-            ok?: boolean | null
-            attempts?: number | null
-            rollbacks?: number
-          }
-        }
-        const p = data.payload
-        const phase = p?.phase
-        if (!p || (phase !== 'started' && phase !== 'finished')) return
-        setHealEvents((prev) =>
-          appendHealFifo(prev, {
-            id: `${p.session_id ?? 'unknown'}-${phase}-${p.iteration ?? 0}-${Date.now()}`,
-            sessionId: p.session_id ?? '',
-            iteration: p.iteration ?? null,
-            phase,
-            command: p.command ?? '',
-            failed: phase === 'started' ? (p.failed ?? null) : null,
-            ok: phase === 'finished' ? (p.ok ?? null) : null,
-            attempts: phase === 'finished' ? (p.attempts ?? null) : null,
-            rollbackCount: p.rollbacks ?? 0,
-            ts: Date.now(),
-          }),
-        )
-      } catch {
-        /* 忽略非 JSON 事件 */
-      }
+    // t4(2026-09-19):wire 解析迁移至共享 parseSelfHealEvent,此处仅保留 FIFO 状态组织。
+    es.addEventListener(AGENT_TASK_EVENTS.SELF_HEAL, (e) => {
+      const evt = parseSelfHealEvent(e.data)
+      if (evt) setHealEvents((prev) => appendHealFifo(prev, evt))
     })
 
-    // P0-5(2026-09-13):thinking 是命名 SSE 事件(agents.py "thinking.delta"→"thinking"),
-    // payload {run_id, content, iteration, is_final}。reasoning 整段一次性到达,
-    // 同一 run 多次事件拼接累积;is_final 收尾(当前实现整段透传,追加即可)。
-    es.addEventListener('thinking', (e) => {
-      try {
-        const data = JSON.parse(e.data) as {
-          type?: string
-          payload?: {
-            run_id?: string
-            content?: string
-            iteration?: number | null
-            is_final?: boolean
-          }
-        }
-        const p = data.payload
-        if (!p || typeof p.content !== 'string' || p.content.length === 0) return
-        setThinkingContent((prev) => (prev.length > 0 ? `${prev}\n\n${p.content}` : p.content!))
-      } catch {
-        /* 忽略非 JSON 事件 */
-      }
+    // P0-5(2026-09-13):thinking 是命名 SSE 事件(agents.py "thinking.delta"→"thinking")。
+    // reasoning 整段一次性到达,同一 run 多次事件拼接累积;is_final 收尾(当前实现整段透传,追加即可)。
+    // t4(2026-09-19):wire 解析迁移至共享 parseThinkingEvent,此处仅保留拼接策略。
+    es.addEventListener(AGENT_TASK_EVENTS.THINKING, (e) => {
+      const evt = parseThinkingEvent(e.data)
+      if (!evt) return
+      setThinkingContent((prev) => (prev.length > 0 ? `${prev}\n\n${evt.content}` : evt.content))
     })
 
-    // P0-5(2026-09-13):plan-step 是命名 SSE 事件(agents.py "plan.step"→"plan-step"),
-    // payload {run_id, step_index, tool_name, status, decision, reason}。
+    // P0-5(2026-09-13):plan-step 是命名 SSE 事件(agents.py "plan.step"→"plan-step")。
     // started upsert 条目,completed/blocked 更新状态;同 step_index 幂等。
-    es.addEventListener('plan-step', (e) => {
-      try {
-        const data = JSON.parse(e.data) as {
-          type?: string
-          payload?: {
-            run_id?: string
-            step_index?: number
-            tool_name?: string
-            status?: string
-            decision?: string | null
-            reason?: string | null
-          }
+    // t4(2026-09-19):wire 解析迁移至共享 parsePlanStepEvent,此处仅保留幂等 upsert。
+    es.addEventListener(AGENT_TASK_EVENTS.PLAN_STEP, (e) => {
+      const evt = parsePlanStepEvent(e.data)
+      if (!evt) return
+      setPlanSteps((prev) => {
+        const idx = prev.findIndex((s) => s.stepIndex === evt.stepIndex)
+        if (idx === -1) {
+          const next = [...prev, evt]
+          return next.length > MAX_PLAN_STEPS ? next.slice(next.length - MAX_PLAN_STEPS) : next
         }
-        const p = data.payload
-        const status = p?.status
-        if (!p || typeof p.step_index !== 'number' || typeof p.tool_name !== 'string') return
-        if (status !== 'started' && status !== 'completed' && status !== 'blocked') return
-        const evt: AgentPlanStepEvent = {
-          runId: p.run_id ?? '',
-          stepIndex: p.step_index,
-          toolName: p.tool_name,
-          status,
-          decision: typeof p.decision === 'string' ? p.decision : null,
-          reason: typeof p.reason === 'string' ? p.reason : null,
-          ts: Date.now(),
-        }
-        setPlanSteps((prev) => {
-          const idx = prev.findIndex((s) => s.stepIndex === evt.stepIndex)
-          if (idx === -1) {
-            const next = [...prev, evt]
-            return next.length > MAX_PLAN_STEPS ? next.slice(next.length - MAX_PLAN_STEPS) : next
-          }
-          const next = [...prev]
-          next[idx] = { ...next[idx]!, ...evt }
-          return next
-        })
-      } catch {
-        /* 忽略非 JSON 事件 */
-      }
+        const next = [...prev]
+        next[idx] = { ...next[idx]!, ...evt }
+        return next
+      })
+    })
+
+    // P1(2026-09-19):session_end 是命名 SSE 事件(hook "session.end"→"session_end"),
+    // payload {session_id,user_id,success,stop_reason,total_iterations,total_duration_ms}。
+    // t4(2026-09-19):wire 解析迁移至共享 parseSessionEndEvent,此处仅保留单值覆盖。
+    es.addEventListener(AGENT_TASK_EVENTS.SESSION_END, (e) => {
+      const evt = parseSessionEndEvent(e.data)
+      if (evt) setSessionEnd(evt)
+    })
+
+    // P1(2026-09-19):permission-mode(hook "permission.mode"→"permission-mode"),
+    // 高危工具审批门模式/决策变化,单值覆盖。
+    // t4(2026-09-19):wire 解析迁移至共享 parsePermissionModeEvent。
+    es.addEventListener(AGENT_TASK_EVENTS.PERMISSION_MODE, (e) => {
+      const evt = parsePermissionModeEvent(e.data)
+      if (evt) setPermissionMode(evt)
+    })
+
+    // P1(2026-09-19):terminal-delta(hook "terminal.delta"→"terminal-delta"),
+    // run_command 逐行 stdout/stderr(4 行/帧节流);FIFO 上限 MAX_TERMINAL_DELTAS。
+    // t4(2026-09-19):wire 解析迁移至共享 parseTerminalDeltaEvent,此处仅保留 FIFO。
+    es.addEventListener(AGENT_TASK_EVENTS.TERMINAL_DELTA, (e) => {
+      const evt = parseTerminalDeltaEvent(e.data)
+      if (!evt) return
+      setTerminalDeltas((prev) => {
+        const next = [...prev, evt]
+        return next.length > MAX_TERMINAL_DELTAS
+          ? next.slice(next.length - MAX_TERMINAL_DELTAS)
+          : next
+      })
+    })
+
+    // P1(2026-09-19):agent-status(hook "agent.status"→"agent-status"),
+    // pause/cancel 过渡(resuming/pausing/cancelling),单值覆盖。
+    // t4(2026-09-19):wire 解析迁移至共享 parseAgentStatusEvent。
+    es.addEventListener(AGENT_TASK_EVENTS.AGENT_STATUS, (e) => {
+      const evt = parseAgentStatusEvent(e.data)
+      if (evt) setAgentStatus(evt)
+    })
+
+    // P1(2026-09-19):message_send(hook "message.send"→"message_send"),
+    // 本轮 LLM 请求即将发出,单值覆盖。
+    // t4(2026-09-19):wire 解析迁移至共享 parseMessageSendEvent。
+    es.addEventListener(AGENT_TASK_EVENTS.MESSAGE_SEND, (e) => {
+      const evt = parseMessageSendEvent(e.data)
+      if (evt) setLastMessageSend(evt)
     })
 
     return () => {
@@ -331,6 +320,11 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       setConnected(false)
       setThinkingContent('')
       setPlanSteps([])
+      setSessionEnd(null)
+      setPermissionMode(null)
+      setTerminalDeltas([])
+      setAgentStatus(null)
+      setLastMessageSend(null)
     }
   }, [agentId])
 
@@ -342,6 +336,11 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     healEvents,
     thinkingContent,
     planSteps,
+    sessionEnd,
+    permissionMode,
+    terminalDeltas,
+    agentStatus,
+    lastMessageSend,
     connected,
   }
 }

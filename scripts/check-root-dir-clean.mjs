@@ -191,6 +191,7 @@ function getIgnoredEntries(names) {
       input: names.join('\0'),
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'ignore'],
+      windowsHide: true,
     })
     return new Set(out.split('\0').filter(Boolean))
   } catch {
@@ -205,6 +206,7 @@ function getWorktreeDirNames() {
     const out = execFileSync('git', ['-C', ROOT, 'worktree', 'list', '--porcelain'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
     })
     const rootPosix = ROOT.split('\\').join('/')
     const names = new Set()

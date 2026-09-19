@@ -22,7 +22,6 @@ from app.services.agent_events import (
 )
 from app.services.hook_engine import HOOK_EVENTS, hook_engine
 
-
 # ---------------------------------------------------------------------------
 # 1. 事件契约
 # ---------------------------------------------------------------------------
@@ -72,7 +71,7 @@ async def test_pause_emits_agent_status_pausing(monkeypatch):
         await loop.pause()
         try:
             await asyncio.wait_for(run_task, timeout=5)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             run_task.cancel()
         # 过渡事件必须出现(队列可能还有 session 等其他载荷,逐个取直到命中或超时)
         statuses: list[str] = []
@@ -110,7 +109,7 @@ async def test_cancel_emits_agent_status_cancelling(monkeypatch):
         await loop.cancel()
         try:
             await asyncio.wait_for(run_task, timeout=5)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             run_task.cancel()
         statuses: list[str] = []
         while not q.empty():
