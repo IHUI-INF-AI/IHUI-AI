@@ -9,6 +9,16 @@ const {
   auditStagingFiles,
 } = require('../scripts/lib/staging-snapshot.js')
 
+// 0. stale 锁清理(2026-09-19 立,根治 index.lock 卡死多 agent)
+// 在任何 git 操作前清理可能残留的 index.lock(崩溃 git 进程)+ ihui-git-write.lock(死 PID)。
+// 活进程持有的锁不会被误删(clean 内判据:index.lock>60s 或无 git 进程;ihui 锁需 PID 死亡)。
+// 清理失败不阻塞 commit(try/catch 兜底)。
+try {
+  execSync('node scripts/git-lock.mjs clean', { stdio: 'inherit', cwd: process.cwd() })
+} catch {
+  /* 清理失败不阻塞 commit */
+}
+
 // 0. staged 文件数预检(2026-07-30 立,防污染事故快速告警)
 // 背景:多 agent 并行 + IDE 自动 stage / lint-staged 副作用曾导致 commit 包含非本任务文件。
 // 现有 staging-snapshot 机制在 hook 退出前自动 unstage 新增文件,本步骤作为"显式文件数预检"
