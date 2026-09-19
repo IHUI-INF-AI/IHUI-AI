@@ -6,6 +6,7 @@ model.list(别名)。假件复刻 test_engine_harness_lifecycle_45 模式,并将
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 from typing import Any
@@ -299,3 +300,83 @@ async def test_model_list_alias_same_as_models_list():
     r_alias = await _rpc(engine, "model.list", {})
     assert r_models == r_alias
     assert r_models["available"] is True and r_models["total"] == 2
+
+
+# =============================================================================
+# 批 50(主会话补):fs/watch + fs/unwatch 连接级文件监视订阅
+# =============================================================================
+
+
+async def test_fs_watch_requires_valid_path(tmp_path):
+    """watchId/path 校验:缺参、相对路径、不存在目录均拒绝。"""
+    engine, _store = _engine_with_store(tmp_path)
+
+    for params in (
+        {},
+        {"watchId": "w1"},
+        {"watchId": "w1", "path": "relative/dir"},
+        {"watchId": "w1", "path": str(tmp_path / "nope")},
+    ):
+        response = await engine.handle_message(
+            {"jsonrpc": "2.0", "id": 1, "method": "fs.watch", "params": params}
+        )
+        assert response is not None and "error" in response, params
+        assert response["error"]["code"] == INVALID_PARAMS, params
+
+
+
+async def test_fs_watch_registers_and_unwatch_stops(tmp_path):
+    """fs/watch 注册任务 + fs/unwatch 取消;unwatch 未知 id 幂等 stopped=false。"""
+    engine, _store = _engine_with_store(tmp_path)
+    watch_dir = tmp_path / "wdir"
+    watch_dir.mkdir()
+
+    r = await _rpc(
+        engine,
+        "fs.watch",
+        {"watchId": "w1", "path": str(watch_dir)},
+    )
+    assert r["watchId"] == "w1" and r["path"] == str(watch_dir)
+    assert "w1" in engine._fs_watchers
+
+    # 重复注册幂等覆盖(旧任务被取消,不抛)
+    r2 = await _rpc(engine, "fs.watch", {"watchId": "w1", "path": str(watch_dir)})
+    assert r2["watchId"] == "w1"
+    assert engine._fs_watchers["w1"] is not None
+
+    r3 = await _rpc(engine, "fs.unwatch", {"watchId": "w1"})
+    assert r3["stopped"] is True
+    assert "w1" not in engine._fs_watchers
+
+    r4 = await _rpc(engine, "fs.unwatch", {"watchId": "w1"})
+    assert r4["stopped"] is False  # 幂等
+
+
+
+async def test_fs_watch_emits_changed_notification(tmp_path):
+    """watch 目录内落新文件 → fs.changed 通知带 watchId 与 added 列表。"""
+    engine, _store = _engine_with_store(tmp_path)
+    watch_dir = tmp_path / "wdir2"
+    watch_dir.mkdir()
+    events: list[dict] = []
+
+    async def _emit(message):
+        events.append(message.get("params") or {})
+
+    await _rpc(engine, "fs.watch", {"watchId": "w2", "path": str(watch_dir)}, emit=_emit)
+    # 等 watcher 建立首帧快照
+    await asyncio.sleep(0.3)
+    (watch_dir / "new_file.txt").write_text("hello", encoding="utf-8")
+    # 等扫描间隔(_WATCH_INTERVAL)
+    deadline = 10.0
+    waited = 0.0
+    while waited < deadline:
+        await asyncio.sleep(0.3)
+        waited += 0.3
+        if any(p.get("watchId") == "w2" for p in events if p.get("added")):
+            break
+    await _rpc(engine, "fs.unwatch", {"watchId": "w2"})
+
+    changed = [p for p in events if p.get("watchId") == "w2" and p.get("added")]
+    assert changed, f"未收到 fs.changed 通知: {events}"
+    assert "new_file.txt" in changed[0]["added"]
