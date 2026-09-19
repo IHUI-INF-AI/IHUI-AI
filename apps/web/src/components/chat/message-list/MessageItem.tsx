@@ -66,6 +66,14 @@ import {
   UsageBreakdown,
   ACTION_BTN_CLASS,
 } from './message-item-parts'
+// D21(2026-09-19 立):中间步骤折叠策略 — 自适应(字数/工具数/耗时)+ 用户可配置
+// (auto/collapsed/expanded,localStorage + 事件广播,复用 voice-toolbar 模板)
+import {
+  readFoldPolicyMode,
+  resolveInitialStepsOpen,
+  FOLD_POLICY_EVENT,
+  type FoldPolicyMode,
+} from './fold-policy'
 
 // W16(2026-09-13):文件修改类工具集合(与 tool-call-summary-card 口径一致,前后端并集)。
 // 用于编辑重跑 Dialog 判断"该消息之后是否产生了文件改动",决定是否展示文件回滚勾选项。
@@ -152,8 +160,56 @@ const MessageItem = React.memo(function MessageItem({
   )
   // 2026-09-12 立:Checkpoint 回退弹窗开关
   const [rewindDialogOpen, setRewindDialogOpen] = React.useState(false)
-  // #17:折叠中间步骤(工具卡 + plan 步骤)默认折叠,展开后显示完整内容
-  const [showSteps, setShowSteps] = React.useState(false)
+  // #17:折叠中间步骤(工具卡 + plan 步骤)。D21(2026-09-19 立):初始态改由折叠策略驱动 —
+  // 用户配置 auto(自适应:字数/工具数/耗时)/ collapsed(强制折叠)/ expanded(强制展开,
+  // 参考 Qoder 0.2.1);竞品默认口径已分化故不强制。用户显式展开/收起后 stepsOverrideRef
+  // 锁定,策略与配置变更不再覆盖用户选择;FoldPolicyButton 切换配置经事件广播实时同步。
+  const stepsOverrideRef = React.useRef<boolean | null>(null)
+  const [foldPolicyMode, setFoldPolicyMode] = React.useState<FoldPolicyMode>(() =>
+    readFoldPolicyMode(),
+  )
+  // 自适应三维输入:正文字数(正文未到时用 reasoning 字数兜底,覆盖"先想后答"场景)/
+  // 工具调用数/工具耗时求和(BaseToolCall.durationMs)
+  const stepDims = React.useMemo(
+    () => ({
+      contentChars: isUser ? 0 : m.content.length || (m.reasoning?.length ?? 0),
+      toolCallCount: m.toolCalls?.length ?? 0,
+      durationMs: (m.toolCalls ?? []).reduce((sum, tc) => sum + (tc.durationMs ?? 0), 0),
+    }),
+    [isUser, m.content.length, m.reasoning, m.toolCalls],
+  )
+  const [showSteps, setShowStepsState] = React.useState<boolean>(() =>
+    resolveInitialStepsOpen(foldPolicyMode, stepDims),
+  )
+  // 统一 set 入口:任何显式展开/收起都登记 override(含 onOpenChange 的函数式更新)
+  const setShowSteps = React.useCallback(
+    (action: boolean | ((prev: boolean) => boolean)) => {
+      if (typeof action === 'function') {
+        setShowStepsState((prev) => {
+          const next = action(prev)
+          stepsOverrideRef.current = next
+          return next
+        })
+      } else {
+        stepsOverrideRef.current = action
+        setShowStepsState(action)
+      }
+    },
+    [],
+  )
+  // D21:监听配置变更事件(FoldPolicyButton 写入 localStorage + 广播)→
+  // 未被用户显式操作过的消息按新策略重解析;操作过的保持用户选择不被覆盖
+  React.useEffect(() => {
+    const sync = () => {
+      const mode = readFoldPolicyMode()
+      setFoldPolicyMode(mode)
+      if (stepsOverrideRef.current === null) {
+        setShowStepsState(resolveInitialStepsOpen(mode, stepDims))
+      }
+    }
+    window.addEventListener(FOLD_POLICY_EVENT, sync)
+    return () => window.removeEventListener(FOLD_POLICY_EVENT, sync)
+  }, [stepDims])
   // Copy 按钮短暂"已复制"状态(2026-07-28 立),1.5s 后自动隐藏
   const [copied, setCopied] = React.useState(false)
   const copyTimerRef = React.useRef<number | null>(null)
@@ -173,6 +229,11 @@ const MessageItem = React.memo(function MessageItem({
     (m.planSteps?.length ?? 0) +
     (m.terminalTasks?.length ?? 0) +
     (m.subagentActivities?.length ?? 0)
+
+  // D21:hover 预览文本(2026-09-19 立):折叠态悬停时轻量呈现最后一段中间步骤摘要
+  // (工具名优先,plan 步骤标题次之),免点击展开即可感知内容(对标 Trae 折叠摘要体验)
+  const lastToolCall = m.toolCalls?.[m.toolCalls.length - 1]
+  const lastStepPreview = lastToolCall?.toolName ?? m.planSteps?.[m.planSteps.length - 1]?.step ?? ''
 
   // #14 批量 Accept/Reject 派生统计(2026-09-13 立):
   // 统计消息内 diff 卡(hasDiffCard)的 applyStatus 分布,驱动消息级批量按钮条与聚合徽章
@@ -585,16 +646,21 @@ const MessageItem = React.memo(function MessageItem({
               />
             )}
             {/* 2026-09-13 批次 2 #17:折叠中间步骤(工具卡 + plan 步骤 + 终端任务)
-                默认折叠,点击"查看 N 个中间步骤"展开后显示完整内容
-                2026-09-14 修正:gate 由"仅 toolCalls"改为四类区段总数(见 stepSectionsCount) */}
+                初始态由折叠策略驱动(D21,2026-09-19 立),点击"查看 N 个中间步骤"展开后显示完整内容
+                2026-09-14 修正:gate 由"仅 toolCalls"改为四类区段总数(见 stepSectionsCount)
+                D21:key={foldPolicyMode} — 配置变更时重挂载,动画状态与新初始态一致 */}
             {stepSectionsCount > 0 && (
               <Collapsible
                 open={showSteps}
                 onOpenChange={setShowSteps}
-                className="rounded-lg border bg-muted/50"
+                key={foldPolicyMode}
+                className="group/steps rounded-lg border bg-muted/50"
                 data-testid={`message-steps-collapsible-${m.id}`}
               >
-                <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/50">
+                <CollapsibleTrigger
+                  title={t('stepsHoverPreview')}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/50 focus-visible:group-hover/steps:bg-accent/50"
+                >
                   <ChevronDown
                     className={cn(
                       'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
@@ -606,6 +672,15 @@ const MessageItem = React.memo(function MessageItem({
                       count: stepSectionsCount,
                     })}
                   </span>
+                  {/* D21:hover 预览:折叠态悬停折叠条时在行尾轻量展示末段摘要 */}
+                  {!showSteps && lastStepPreview !== '' && (
+                    <span
+                      aria-hidden="true"
+                      className="hidden max-w-[40%] truncate text-xs text-muted-foreground group-hover/steps:inline"
+                    >
+                      {lastStepPreview}
+                    </span>
+                  )}
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="space-y-2 px-3 pb-3">
