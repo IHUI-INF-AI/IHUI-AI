@@ -33,9 +33,10 @@ export const userAutomations = pgTable(
     timezone: varchar('timezone', { length: 64 }).default('Asia/Shanghai').notNull(),
     /** 'active' | 'paused'(调度器解析 rrule 失败时自动置 paused 防死循环) */
     status: varchar('status', { length: 20 }).default('active').notNull(),
+    /** D12(2026-09-19 立):绑定的聊天会话 ID(chat_conversations.id)。
+     *  非空时自动化执行会注入该会话近期消息作为上下文,并把产出落库到同一会话(线程接力)。 */
+    conversationId: uuid('conversation_id'),
     lastRunAt: timestamp('last_run_at', { withTimezone: true }),
-    /** recurring 下次执行时间(调度器每次执行后重算) */
-    nextRunAt: timestamp('next_run_at', { withTimezone: true }),
     lastResult: jsonb('last_result').$type<AutomationLastResult>(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
