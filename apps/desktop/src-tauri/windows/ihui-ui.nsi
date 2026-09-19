@@ -61,6 +61,9 @@ Var IHUIFIN        ; 完成页"完成"按钮
 Var IHUIPB         ; 安装页进度条句柄
 Var IHUIFINMODE    ; instfiles 完成页原地转换守卫(0=安装中 1=已转换)
 Var IHUIRCTA       ; 重装页"继续"CTA 按钮
+Var IHUICLS        ; 页头右上角品牌关闭钮(X)
+Var IHUINXT        ; 安装页品牌"下一步›"按钮(点击转发原生 1)
+Var IHUICNC        ; 安装页品牌"取消"按钮(点击转发原生 2)
 Var IHUIHOST       ; 内层 nsDialogs dialog 句柄(自绘控件宿主)
 Var IHUIDPIW       ; 窗口 DPI(换算中间量)
 Var IHUIPassive    ; 模板 PassiveMode 别名(本文件先于模板 Var 声明被编译,不能直接引用)
@@ -153,6 +156,12 @@ Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
   System::Call "user32::SendMessageW(p ${HANDLE}, i 0x0030, p $IHUIFONT, p 0)"
 !macroend
 
+; ---- 页头右上角品牌关闭钮(自定义页专用,IHUI_BTN 同款 STATIC 机制) ----
+; 点击转发 WM_CLOSE 给主窗口(走 NSIS 的正常退出询问/回滚链,与 Alt+F4 等价)。
+!macro IHUI_CLOSEBTN
+  !insertmacro IHUI_BTN $IHUICLS btn-close.bmp 820 20 36 36 IHUIOnClose
+!macroend
+
 ; ---- 页面 Z 序统一重排:背景压底 + 控件提顶 ----
 ; 参数: 控件句柄列表(最多 6 个; 传 0 跳过)
 !macro IHUI_ZORDER H1 H2 H3 H4 H5 H6
@@ -198,7 +207,7 @@ Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
 ; ---- 页面控件销毁(实参可为字面量 0 占位,跳过) ----
 ; 不做句柄复位:StrCpy 目标必须是变量,字面量占位会编译报错;
 ; 且每个句柄在使用前都会被 Pop 覆盖,复位无必要。
-!macro IHUI_DESTROY H1 H2 H3 H4 H5
+!macro IHUI_DESTROY H1 H2 H3 H4 H5 H6
   ${If} ${H1} <> 0
     System::Call "user32::DestroyWindow(p ${H1})"
   ${EndIf}
@@ -213,6 +222,9 @@ Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
   ${EndIf}
   ${If} ${H5} <> 0
     System::Call "user32::DestroyWindow(p ${H5})"
+  ${EndIf}
+  ${If} ${H6} <> 0
+    System::Call "user32::DestroyWindow(p ${H6})"
   ${EndIf}
 !macroend
 
@@ -284,6 +296,9 @@ Function IHUIGuiInit
   ; 剥离标题栏/边框/最大最小化框(保留 WS_POPUP 基础上的可见裁剪位)
   System::Call "user32::GetWindowLongW(p $HWNDPARENT, i -16) p .R0"
   IntOp $R0 $R0 & -12869633
+  ; 或上 WS_SYSMENU(0x80000): WS_POPUP 无标题栏时仅提供 Alt+F4 与任务栏
+  ; 「关闭」菜单,不渲染可见标题条 —— 无边框品牌窗口的关闭通路保底。
+  IntOp $R0 $R0 | 0x80000
   System::Call "user32::SetWindowLongW(p $HWNDPARENT, i -16, p rR0)"
   ; 窗口 DPI 与资产档位(两段式,见宏注释)
   System::Call "*(i 0, i 0, i 0, i 0) p .R4"
@@ -396,6 +411,7 @@ FunctionEnd
   File "/oname=$PLUGINSDIR\btn-finish.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\btn-finish.bmp"
   File "/oname=$PLUGINSDIR\btn-toggle-on.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\btn-toggle-on.bmp"
   File "/oname=$PLUGINSDIR\btn-toggle-off.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\btn-toggle-off.bmp"
+  File "/oname=$PLUGINSDIR\btn-close.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\btn-close.bmp"
 !macroend
 
 ; 包装宏:TIERVAR 为运行时变量名($IHUITIER / $IHUIWTIER),按其值选档解压
@@ -435,12 +451,13 @@ Function IHUIWelcomePage
   ; CTA 高度档 lg h-10=40px(禁 48 自造档),行基线 y=500..540(页脚 hairline y=548 上方 8px)
   !insertmacro IHUI_BTN $IHUISTART btn-start.bmp 672 500 144 40 IHUIOnNext
   !insertmacro IHUI_BTN $IHUICANCEL btn-cancel.bmp 64 500 96 40 IHUIOnCancel
-  !insertmacro IHUI_ZORDER $IHUISTART $IHUICANCEL 0 0 0 0
+  !insertmacro IHUI_CLOSEBTN
+  !insertmacro IHUI_ZORDER $IHUISTART $IHUICANCEL $IHUICLS 0 0 0
   !insertmacro IHUI_PAGE_SHOW
 FunctionEnd
 
 Function IHUIWelcomeLeave
-  !insertmacro IHUI_DESTROY $IHUISTART $IHUICANCEL $IHUIBG 0 0
+  !insertmacro IHUI_DESTROY $IHUISTART $IHUICANCEL $IHUICLS $IHUIBG 0 0
 FunctionEnd
 
 ; =====================================================================
@@ -456,21 +473,22 @@ Function IHUIDirPage
   ${EndIf}
   !insertmacro IHUI_PAGE_PRE
   !insertmacro IHUI_PAGEBG dir.bmp
-  ; 输入框(挂内层宿主; BMP 圆角容器面板 y=324 h=44,中心 y=346;
-  ;  输入框 sm 档 h-8=32px 垂直居中: y=330..362 中心 346; 宽 594 → 右缘 672, 给浏览按钮 684..796 让位)
+  ; 输入框(挂内层宿主; BMP 圆角容器面板 y=312 h=40,中心 y=332;
+  ;  输入框 sm 档 h-8=32px 垂直居中: y=316..348 中心 332; 宽 594 → 右缘 672, 给浏览按钮 684..796 让位)
   !insertmacro IHUI_PX $2 78
-  !insertmacro IHUI_PX $3 330
+  !insertmacro IHUI_PX $3 316
   !insertmacro IHUI_PX $4 594
   !insertmacro IHUI_PX $5 32
   System::Call "user32::CreateWindowExW(p 0, w 'EDIT', w `$INSTDIR`, i 0x50010080, i r2, i r3, i r4, i r5, p $IHUIHOST, p 0, p 0, p 0) p .s"
   Pop $IHUIDIR
   SetCtlColors $IHUIDIR FAFAFA 1A1A1A
   !insertmacro IHUI_SETFONT $IHUIDIR
-  ; 浏览按钮 lg h-10=40px, 与容器面板同中心: y=326..366 中心 346
-  !insertmacro IHUI_BTN $IHUIBROWSE btn-browse.bmp 684 326 112 40 IHUIOnBrowse
+  ; 浏览按钮 lg h-10=40px(裸文字位图,无填充无描边), 与容器面板同中心: y=312..352 中心 332
+  !insertmacro IHUI_BTN $IHUIBROWSE btn-browse.bmp 684 312 112 40 IHUIOnBrowse
   !insertmacro IHUI_BTN $IHUISTART btn-start.bmp 672 500 144 40 IHUIOnNext
   !insertmacro IHUI_BTN $IHUICANCEL btn-cancel.bmp 64 500 96 40 IHUIOnCancel
-  !insertmacro IHUI_ZORDER $IHUIDIR $IHUIBROWSE $IHUISTART $IHUICANCEL 0 0
+  !insertmacro IHUI_CLOSEBTN
+  !insertmacro IHUI_ZORDER $IHUIDIR $IHUIBROWSE $IHUISTART $IHUICANCEL $IHUICLS 0
   !insertmacro IHUI_PAGE_SHOW
 FunctionEnd
 
@@ -484,7 +502,7 @@ Function IHUIDirLeave
   ${If} $1 != ""
     StrCpy $INSTDIR $1
   ${EndIf}
-  !insertmacro IHUI_DESTROY $IHUIDIR $IHUIBROWSE $IHUISTART $IHUICANCEL $IHUIBG
+  !insertmacro IHUI_DESTROY $IHUIDIR $IHUIBROWSE $IHUISTART $IHUICANCEL $IHUICLS $IHUIBG
 FunctionEnd
 
 Function IHUIOnBrowse
@@ -510,31 +528,47 @@ FunctionEnd
 Function IHUIInstShow
   StrCpy $IHUIFINMODE 0
   !insertmacro IHUI_HIDE_ALL
-  ; ---- 原生按钮 1/2/3 不隐藏(隐藏会破坏核心完成时的自动推进),改为移到品牌
-  ;      CTA 行并改文案;经典渲染深底白字。核心完成时模拟点击它们推进到完成页。
+  ; ---- 原生按钮 1/2/3 不隐藏不销毁(会破坏核心完成时的自动推进),移到屏外
+  ;      (y+2000)。品牌视觉由叠加位图按钮提供,点击经 BM_CLICK 转发原生按钮。
   !insertmacro IHUI_PX $2 64
-  !insertmacro IHUI_PX $3 500
+  !insertmacro IHUI_PX $3 2500
   !insertmacro IHUI_PX $4 96
   !insertmacro IHUI_PX $5 40
   GetDlgItem $0 $HWNDPARENT 3
   System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
-  System::Call "user32::SendMessageW(p $0, i 0x0030, p $IHUIFONT, p 0)"
-  System::Call "user32::SetWindowTextW(p $0, w `取消`)"
   ShowWindow $0 1
   !insertmacro IHUI_PX $2 672
-  !insertmacro IHUI_PX $4 144
   GetDlgItem $0 $HWNDPARENT 1
   System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
-  System::Call "user32::SendMessageW(p $0, i 0x0030, p $IHUIFONT, p 0)"
-  System::Call "user32::SetWindowTextW(p $0, w `下一步 ›`)"
   ShowWindow $0 1
   !insertmacro IHUI_PX $2 176
-  !insertmacro IHUI_PX $4 96
   GetDlgItem $0 $HWNDPARENT 2
   System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
-  System::Call "user32::SendMessageW(p $0, i 0x0030, p $IHUIFONT, p 0)"
-  System::Call "user32::SetWindowTextW(p $0, w `取消`)"
   ShowWindow $0 1
+  ; 品牌按钮叠加(逻辑坐标与 BMP 烧入行一致): 左取消 / 右下一步›
+  ; ⚠️ instfiles 是原生页面,禁止用 IHUI_BTN(内部 nsDialogs::CreateControl 只在
+  ; 自定义页有效,在原生页调用会直接崩退——R46 实锤)。这里用 CreateWindowExW
+  ; 创建 BS_BITMAP 真 BUTTON,控件 ID 复用原生 1/2: BUTTON 点击按 ID 向父窗口
+  ; 发 WM_COMMAND,NSIS 主对话框按 ID 路由推进,零回调零转发,与原生点击等价。
+  !insertmacro IHUI_PX $2 672
+  !insertmacro IHUI_PX $3 500
+  !insertmacro IHUI_PX $4 144
+  !insertmacro IHUI_PX $5 40
+  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-continue.bmp`, i 0, i 0, i 0x2010) p .r0"
+  System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r2, i r3, i r4, i r5, p $HWNDPARENT, p 1, p 0, p 0) p .s"
+  Pop $IHUINXT
+  SendMessage $IHUINXT 0x00F7 0 $0
+  !insertmacro IHUI_PX $2 64
+  !insertmacro IHUI_PX $4 96
+  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-cancel.bmp`, i 0, i 0, i 0x2010) p .r0"
+  System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r2, i r3, i r4, i r5, p $HWNDPARENT, p 2, p 0, p 0) p .s"
+  Pop $IHUICNC
+  SendMessage $IHUICNC 0x00F7 0 $0
+  ; ---- 临时诊断(R48b): 写品牌控件句柄与父句柄到诊断文件 ----
+  FileOpen $8 "$PLUGINSDIR\ihui-diag.txt" w
+  FileWrite $8 "nxt=$IHUINXT cnc=$IHUICNC parent=$HWNDPARENT$\r$\n"
+  FileClose $8
+  ; ---- end diagnostics ----
   ; details 日志框/进度文本等挂在内层 dialog(非 HWNDPARENT),1016..1033 连续段隐藏
   FindWindow $1 "#32770" "" $HWNDPARENT
   StrCpy $2 1016
@@ -553,18 +587,22 @@ Function IHUIInstShow
   Pop $IHUIBG
   SetCtlColors $IHUIBG FAFAFA 242424
   SendMessage $IHUIBG 0x0172 0 $0
-  ; 进度条: 去主题 + 平滑 + 品牌配色(暗色: 轨道 #333333 / 填充纯白) + 落 BMP 圆角外框内
-  ; (外框 x=62 y=425 w=756 h=24 rx=8, 内条 y=430 h=14 居中: 425+5=430, 449-5=444)
+  ; 进度条: 去主题 + 平滑 + 品牌配色(暗色: 轨道 #333333 / 填充纯白)。
+  ; 无 BMP 外框,原生进度条整体胶囊圆角化(SetWindowRgn, 圆角 token 8px→h=16 时 r=8 恰为半高):
+  ; 轨道垫由 BMP 内衬色区块提供视觉底,进度条本体 y=424 h=16 圆角胶囊。
   GetDlgItem $IHUIPB $1 1004
   System::Call "uxtheme::SetWindowTheme(p $IHUIPB, w ``, w ``)"
   System::Call "user32::SetWindowLongW(p $IHUIPB, i -16, p 0x50000001)"
   SendMessage $IHUIPB 0x0401 0 0x00333333
   SendMessage $IHUIPB 0x0409 0 0x00FFFFFF
   !insertmacro IHUI_PX $2 64
-  !insertmacro IHUI_PX $3 430
+  !insertmacro IHUI_PX $3 424
   !insertmacro IHUI_PX $4 752
-  !insertmacro IHUI_PX $5 14
+  !insertmacro IHUI_PX $5 16
   System::Call "user32::MoveWindow(p $IHUIPB, i r2, i r3, i r4, i r5, i 1)"
+  ; 胶囊圆角 region: 圆角 8 = h/2(半高椭圆端点,与 rx=8 token 一致); 两参数为 w,h 物理值
+  System::Call "gdi32::CreateRoundRectRgn(i 0, i 0, i r4, i r5, i 8, i 8) p .r0"
+  System::Call "user32::SetWindowRgn(p $IHUIPB, p r0, i 1)"
   System::Call "user32::SetWindowPos(p $IHUIPB, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
   ; 背景压底(必须最后压, 保证位于进度条之下)
   System::Call "user32::SetWindowPos(p $IHUIBG, p 1, i 0, i 0, i 0, i 0, i 0x0003)"
@@ -577,19 +615,31 @@ FunctionEnd
 ; 推进会被静默破坏 —— R7 起 finish 页从未出现的历史根因。
 ; 对策:LEAVE 一律纯透传(不销毁任何控件),背景/控件的生命周期交由 finish 页接管。
 Function IHUIInstLeave
-  ; 完成时刻核心会恢复原生控件并重排 Z 序,可能在满幅 BMP 之上/之下不确定。
-  ; 此处统一终裁:1/2/3(上一步/取消/下一步)重新提顶并确保可见,
-  ; 保证完成态用户(和自动化)点「下一步」能命中原生按钮推进到完成页。
+  ; 完成时刻核心会恢复原生控件并重排 Z 序。统一终裁:原生 1/2/3 移回屏外
+  ; (y=2500)并保持可见,保证核心自动推进链完好;品牌位图按钮不受影响。
   StrCpy $IHUIFINMODE 1
+  !insertmacro IHUI_PX $2 64
+  !insertmacro IHUI_PX $3 2500
+  !insertmacro IHUI_PX $4 96
+  !insertmacro IHUI_PX $5 40
   GetDlgItem $0 $HWNDPARENT 3
+  System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
   ShowWindow $0 1
-  System::Call "user32::SetWindowPos(p $0, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
-  GetDlgItem $0 $HWNDPARENT 2
-  ShowWindow $0 1
-  System::Call "user32::SetWindowPos(p $0, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  !insertmacro IHUI_PX $2 672
+  !insertmacro IHUI_PX $4 144
   GetDlgItem $0 $HWNDPARENT 1
+  System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
   ShowWindow $0 1
-  System::Call "user32::SetWindowPos(p $0, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  !insertmacro IHUI_PX $2 176
+  !insertmacro IHUI_PX $4 96
+  GetDlgItem $0 $HWNDPARENT 2
+  System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
+  ShowWindow $0 1
+  ; 核心完成时会重新显示子标题(「已完成」白条),再隐藏
+  GetDlgItem $0 $HWNDPARENT 1037
+  ShowWindow $0 0
+  GetDlgItem $0 $HWNDPARENT 1036
+  ShowWindow $0 0
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
 FunctionEnd
 
@@ -626,12 +676,13 @@ Function IHUIFinishPage
     StrCpy $IHUISC 0
   ${EndIf}
   !insertmacro IHUI_BTN $IHUIFIN btn-finish.bmp 696 500 120 40 IHUIOnFinish
-  !insertmacro IHUI_ZORDER $IHUIOTG $IHUIATG $IHUISCT $IHUIFIN 0 0
+  !insertmacro IHUI_CLOSEBTN
+  !insertmacro IHUI_ZORDER $IHUIOTG $IHUIATG $IHUISCT $IHUIFIN $IHUICLS 0
   !insertmacro IHUI_PAGE_SHOW
 FunctionEnd
 
 Function IHUIFinishLeave
-  !insertmacro IHUI_DESTROY $IHUIOTG $IHUIATG $IHUISCT $IHUIFIN $IHUIBG
+  !insertmacro IHUI_DESTROY $IHUIOTG $IHUIATG $IHUISCT $IHUIFIN $IHUICLS $IHUIBG
 FunctionEnd
 
 ; ---- 开关点击:翻转状态并换位图(三行共用同一对两态位图) ----
@@ -686,6 +737,11 @@ FunctionEnd
 Function IHUIOnCancel
   GetDlgItem $0 $HWNDPARENT 2
   SendMessage $0 0x00F5 0 0
+FunctionEnd
+
+Function IHUIOnClose
+  ; 品牌关闭钮 → WM_CLOSE: 与 Alt+F4 同链路(NSIS 内置退出确认逻辑接管)
+  SendMessage $HWNDPARENT 0x0010 0 0
 FunctionEnd
 
 ; =====================================================================
