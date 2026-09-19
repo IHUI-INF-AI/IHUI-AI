@@ -1516,6 +1516,7 @@ class AgentEngine:
             "thread.archive": self._handle_thread_archive,
             "thread.fork": self._handle_thread_fork,
             "thread.revert": self._handle_thread_revert,
+            "turn.steer": self._handle_turn_steer,
             "agent.exec": self._handle_agent_exec,
             "tools.list": self._handle_tools_list,
             "tools.register": self._handle_tools_register,
@@ -2464,6 +2465,16 @@ class AgentEngine:
             return payload
         finally:
             elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+            # 批 44 steer 竞态兜底:提交时回合在 running 但主循环已过最后注入点
+            # (或异常中断),未被消费的 steer 回收转 thread.queue 语义——下一
+            # 回合消化,不丢消息。loop 已置空前的最后取用点。
+            with contextlib.suppress(Exception):
+                _leftover = getattr(thread.loop, "take_leftover_steers", None)
+                if _leftover is not None:
+                    for _txt in _leftover():
+                        thread.queue.append(
+                            {"input": _txt, "enqueuedAt": time.time(), "via": "steer"}
+                        )
             # 结束前补扫事件队列(见 _drain_events):防尾部事件被转发任务取消吞掉
             with contextlib.suppress(Exception):
                 await self._drain_events(thread, emit, queues)
@@ -2966,6 +2977,42 @@ class AgentEngine:
             "threadId": thread.thread_id,
             "queued": len(thread.queue),
             "mode": "steer" if thread.status == "running" else "idle",
+        }
+
+    async def _handle_turn_steer(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """运行中转向(2026-09-19 批 44,对标 codex turn/steer + TurnSteerParams)。
+
+        running → thread.loop.steer(text) 真注入:主循环下一次 LLM 调用前把
+        文本追加进消息历史,同一回合继续推理(非排队新回合)。
+        非 running → submitted=false(no_active_turn),客户端降级 turn/start,
+        对标 codex SteerSubmission::NotSubmitted。
+        """
+        thread = self._require_thread(params)
+        text = _coerce_input_text(params.get("input"))
+        expected_turn_id = params.get("expectedTurnId")
+        loop = thread.loop
+        accepted = (
+            thread.status == "running"
+            and loop is not None
+            and callable(getattr(loop, "steer", None))
+            and loop.steer(text)
+        )
+        thread.touch()
+        if accepted:
+            await self._emit_engine_event(
+                thread,
+                emit,
+                "turn.steered",
+                {"turnId": thread.current_turn_id, "inputChars": len(text)},
+            )
+        return {
+            "threadId": thread.thread_id,
+            "submitted": bool(accepted),
+            "reason": None if accepted else "no_active_turn",
+            "expectedTurnIdMatched": expected_turn_id is None
+            or expected_turn_id == thread.current_turn_id,
         }
 
     async def _handle_thread_goal(
