@@ -49,9 +49,11 @@
 
 /* ===== 4. .login-form-scope TabsContent 顶部间距 =====
  * Radix TabsContent 自身有 mt-2,但 web 端原本用 space-y-4 父容器已处理。
- * 在共享包里显式加 padding-top,确保 4 tab 切换时内容位置稳定。 */
+ * 在共享包里显式加 padding-top,确保 4 tab 切换时内容位置稳定。
+ * 2026-09-19 紧凑化:0.5rem→0(登录弹窗总高压到 95vh 内;TabsContent 的
+ * className="mt-1" 已提供 4px 顶距,双叠加纯冗余)。 */
 .login-form-scope [role='tabpanel'] {
-  padding-top: 0.5rem;
+  padding-top: 0;
   outline: none;
 }
 

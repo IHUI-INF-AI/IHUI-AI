@@ -59,7 +59,7 @@ export function DingtalkQrPanel({ refreshKey }: DingtalkQrPanelProps) {
             {
               id: containerId,
               width: 280,
-              height: 280,
+              height: 260,
             },
             {
               client_id: clientId,
@@ -121,7 +121,7 @@ export function DingtalkQrPanel({ refreshKey }: DingtalkQrPanelProps) {
   // React 18 严格模式 + 第三方 SDK DOM 操作冲突修复(2026-07-22)
   // 详见 WechatQrPanel.tsx 同名注释
   return (
-    <div className="relative mx-auto flex h-[280px] w-full max-w-[280px] items-center justify-center overflow-hidden rounded-md border bg-card">
+    <div className="relative mx-auto flex h-[260px] w-full max-w-[280px] items-center justify-center overflow-hidden rounded-md border bg-card">
       <div ref={containerRef} id={containerId} className="absolute inset-0" />
       {status === 'loading' && (
         <Loader2 className="relative h-6 w-6 animate-spin text-muted-foreground" />
