@@ -42,6 +42,7 @@ const LABEL_KEYS: Record<ThirdPartyPlatform, string> = {
   enterpriseWechat: 'auth.enterpriseWechat',
   alipay: 'auth.alipayLogin',
   apple: 'auth.appleLogin',
+  oidc: 'auth.oidcLogin',
   app: 'auth.appLogin',
 }
 
