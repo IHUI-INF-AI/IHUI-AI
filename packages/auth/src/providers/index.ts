@@ -3,9 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 4 个社交登录 Provider(OIDC + Discord + LinuxDO + Telegram)。
+ * 3 个社交登录 Provider(OIDC + Discord + Telegram)。
  *
- * 设计目标:补齐 New API 已有但 IHUI-AI 缺失的 4 种登录方式,与现有 8 平台
+ * 设计目标:补齐 New API 已有但 IHUI-AI 缺失的 3 种登录方式,与现有 8 平台
  * (google/apple/dingtalk/enterpriseWechat/wechat/feishu/github/alipay)并列。
  *
  * 后端集成位置:apps/api/src/routes/auth-extended.ts
@@ -38,7 +38,7 @@ export interface OAuthUserInfo {
 }
 
 /**
- * 统一 OAuth2 Provider 接口(OIDC/Discord/LinuxDO 实现)。
+ * 统一 OAuth2 Provider 接口(OIDC/Discord 实现)。
  * Telegram 走 Bot 模式,不实现此接口(见 TelegramBotProvider)。
  */
 export interface OAuthProvider {
