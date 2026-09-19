@@ -441,5 +441,15 @@ describe('综合场景', () => {
     )
     assert.ok(hasUnknownProviderError, 'strict 模式应将未知 provider 升级为 error')
   })
+
+  test('安全回归:诊断输出严禁回显 api_key 明文(只输出结构摘要)', () => {
+    const fakeKey = 'sk-AAAABBBBCCCCDDDDeeeeFFFF00001111'
+    writeEnv(`LLM_PROVIDERS_JSON={"openai":{"api_key":"${fakeKey}","enabled":true}}`)
+    const { exitCode, stdout } = runCli()
+    assert.equal(exitCode, 0)
+    assert.ok(!stdout.includes(fakeKey), 'stdout 不得包含 api_key 原值')
+    assert.doesNotMatch(stdout, /sk-[A-Za-z0-9_-]{10,}/, 'stdout 不得包含任何 sk- 长 token')
+    assert.match(stdout, /providers: openai/, '摘要应显示 provider 名称而非值')
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
