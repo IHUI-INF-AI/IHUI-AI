@@ -59,6 +59,7 @@ Var IHUIAUTO       ; 开机自动启动(1=开 0=关,默认关)
 Var IHUISC         ; 桌面快捷方式开关状态(1=创建 0=不创建,默认创建)
 Var IHUIFIN        ; 完成页"完成"按钮
 Var IHUIPB         ; 安装页进度条句柄
+Var IHUIFINMODE    ; instfiles 完成页原地转换守卫(0=安装中 1=已转换)
 Var IHUIRCTA       ; 重装页"继续"CTA 按钮
 Var IHUIHOST       ; 内层 nsDialogs dialog 句柄(自绘控件宿主)
 Var IHUIDPIW       ; 窗口 DPI(换算中间量)
@@ -68,7 +69,7 @@ Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
 ; 主程序名:模板 !define MAINBINARYNAME 在本 include 之后展开,此处需本地兜底
 ; (与 tauri.conf.json productName 一致;改名须同步)
 !ifndef IHUI_MAINBIN
-  !define IHUI_MAINBIN "智汇AI"
+  !define IHUI_MAINBIN "ihui-desktop"
 !endif
 ; 开机自启注册表值名(卸载侧 hooks.nsi NSIS_HOOK_POSTUNINSTALL 同名清理)
 !define IHUI_RUNVALUE "IHUI-AI-Desktop"
@@ -181,14 +182,6 @@ Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
   System::Call "user32::UpdateWindow(p $HWNDPARENT)"
   nsDialogs::Show
-!macroend
-
-; ---- 诊断 trace(定位 finish 页不出现; 定位后整体移除) ----
-; FileOpen 合法 openmode 为 r|w|a 字符串(数字非法); a=追加。
-!macro IHUI_TRACE TAG
-  FileOpen $R8 "$TEMP\ihui-trace-${TAG}.txt" w
-  FileWrite $R8 "${TAG}"
-  FileClose $R8
 !macroend
 
 ; ---- 自定义页前置: 内层 dialog 满幅可见 + 黑底白字(自绘控件宿主) ----
@@ -507,10 +500,41 @@ FunctionEnd
 ; =====================================================================
 ; 安装页(SHOW 回调: 深色化 + 进度条重着色)
 ; (SHOW/LEAVE 回调由模板补丁 P3 在 MUI_PAGE_INSTFILES 前接线,本文件不写 define)
+;
+; ⚠️ LEAVE 回调禁止销毁子控件(2026-09-20 实锤): instfiles 完成时核心触发 LEAVE
+; 并自动推进到完成页;旧版 LEAVE 内 DestroyWindow(背景 STATIC) 与页面切换竞态,
+; 推进被静默破坏 —— R7 起 finish 页从未出现的历史根因。背景与控件生命周期
+; 一律交由 finish 页的 PAGE_PRE/LEAVE 接管。
 ; =====================================================================
 
 Function IHUIInstShow
+  StrCpy $IHUIFINMODE 0
   !insertmacro IHUI_HIDE_ALL
+  ; ---- 原生按钮 1/2/3 不隐藏(隐藏会破坏核心完成时的自动推进),改为移到品牌
+  ;      CTA 行并改文案;经典渲染深底白字。核心完成时模拟点击它们推进到完成页。
+  !insertmacro IHUI_PX $2 64
+  !insertmacro IHUI_PX $3 500
+  !insertmacro IHUI_PX $4 96
+  !insertmacro IHUI_PX $5 40
+  GetDlgItem $0 $HWNDPARENT 3
+  System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
+  System::Call "user32::SendMessageW(p $0, i 0x0030, p $IHUIFONT, p 0)"
+  System::Call "user32::SetWindowTextW(p $0, w `取消`)"
+  ShowWindow $0 1
+  !insertmacro IHUI_PX $2 672
+  !insertmacro IHUI_PX $4 144
+  GetDlgItem $0 $HWNDPARENT 1
+  System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
+  System::Call "user32::SendMessageW(p $0, i 0x0030, p $IHUIFONT, p 0)"
+  System::Call "user32::SetWindowTextW(p $0, w `下一步 ›`)"
+  ShowWindow $0 1
+  !insertmacro IHUI_PX $2 176
+  !insertmacro IHUI_PX $4 96
+  GetDlgItem $0 $HWNDPARENT 2
+  System::Call "user32::MoveWindow(p $0, i r2, i r3, i r4, i r5, i 1)"
+  System::Call "user32::SendMessageW(p $0, i 0x0030, p $IHUIFONT, p 0)"
+  System::Call "user32::SetWindowTextW(p $0, w `取消`)"
+  ShowWindow $0 1
   ; details 日志框/进度文本等挂在内层 dialog(非 HWNDPARENT),1016..1033 连续段隐藏
   FindWindow $1 "#32770" "" $HWNDPARENT
   StrCpy $2 1016
@@ -548,33 +572,46 @@ Function IHUIInstShow
   System::Call "user32::UpdateWindow(p r1)"
 FunctionEnd
 
+; ⚠️ 完成时刻推进竞态(2026-09-20 R20 实锤): instfiles 完成时核心触发 LEAVE 回调并推进
+; 到下一自定义页;但 LEAVE 内若 DestroyWindow 页面子控件(旧版销毁背景 STATIC),
+; 推进会被静默破坏 —— R7 起 finish 页从未出现的历史根因。
+; 对策:LEAVE 一律纯透传(不销毁任何控件),背景/控件的生命周期交由 finish 页接管。
 Function IHUIInstLeave
-  !insertmacro IHUI_TRACE "inst-leave"
-  ${If} $IHUIBG <> 0
-    System::Call "user32::DestroyWindow(p $IHUIBG)"
-    StrCpy $IHUIBG 0
-  ${EndIf}
+  ; 完成时刻核心会恢复原生控件并重排 Z 序,可能在满幅 BMP 之上/之下不确定。
+  ; 此处统一终裁:1/2/3(上一步/取消/下一步)重新提顶并确保可见,
+  ; 保证完成态用户(和自动化)点「下一步」能命中原生按钮推进到完成页。
+  StrCpy $IHUIFINMODE 1
+  GetDlgItem $0 $HWNDPARENT 3
+  ShowWindow $0 1
+  System::Call "user32::SetWindowPos(p $0, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  GetDlgItem $0 $HWNDPARENT 2
+  ShowWindow $0 1
+  System::Call "user32::SetWindowPos(p $0, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  GetDlgItem $0 $HWNDPARENT 1
+  ShowWindow $0 1
+  System::Call "user32::SetWindowPos(p $0, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
 FunctionEnd
 
 ; =====================================================================
 ; 完成页(页面声明由模板补丁 P4 提供)
 ; =====================================================================
 
+; =====================================================================
+; 完成页声明(模板补丁 P4):instfiles 完成后核心自动推进到本页
+; (前提:LEAVE 回调不得销毁任何子控件,见 IHUIInstLeave 处竞态说明)
+; =====================================================================
+
 Function IHUIFinishPage
-  !insertmacro IHUI_TRACE "enter"
   ${If} $IHUIPassive = 1
-    !insertmacro IHUI_TRACE "abort-passive"
     Abort
   ${EndIf}
   ${If} ${Silent}
-    !insertmacro IHUI_TRACE "abort-silent"
     Abort
   ${EndIf}
-  !insertmacro IHUI_TRACE "pre-begin"
+  !insertmacro IHUI_HIDE_ALL
   !insertmacro IHUI_PAGE_PRE
-  !insertmacro IHUI_TRACE "pre-done"
   !insertmacro IHUI_PAGEBG finish.bmp
-  !insertmacro IHUI_TRACE "bg-done"
   ; 三个开关行(h-7=28px 胶囊,行 y=396/440/484 与 finish.bmp 烧入标签一一对应):
   ;   行1 完成后立即打开智汇AI(默认开) · 行2 开机自动启动(默认关) · 行3 创建桌面快捷方式(默认开)
   !insertmacro IHUI_BTN $IHUIOTG btn-toggle-on.bmp 64 396 56 28 IHUIOnToggleOpen
@@ -589,10 +626,8 @@ Function IHUIFinishPage
     StrCpy $IHUISC 0
   ${EndIf}
   !insertmacro IHUI_BTN $IHUIFIN btn-finish.bmp 696 500 120 40 IHUIOnFinish
-  !insertmacro IHUI_TRACE "btns-done"
   !insertmacro IHUI_ZORDER $IHUIOTG $IHUIATG $IHUISCT $IHUIFIN 0 0
   !insertmacro IHUI_PAGE_SHOW
-  !insertmacro IHUI_TRACE "show-done"
 FunctionEnd
 
 Function IHUIFinishLeave
@@ -624,8 +659,9 @@ Function IHUIOnToggleSC
   !insertmacro IHUI_TOGGLE_FLIP $IHUISCT $IHUISC
 FunctionEnd
 
-; ---- 完成:按开关状态落地三项功能后结束向导 ----
+; ---- 完成:按开关状态落地三项功能后直接结束安装器 ----
 ; 开机自启 = HKCU Run 键(用户级,无需提权; 卸载侧 hooks.nsi 同名清理)
+; 退出用 Quit:3.11 推进链失效,不依赖原生 Next(BM_CLICK 已实测无效)
 Function IHUIOnFinish
   ${If} $IHUIOPEN = 1
     Call RunMainBinary
@@ -636,8 +672,7 @@ Function IHUIOnFinish
   ${If} $IHUISC = 1
     Call CreateOrUpdateDesktopShortcut
   ${EndIf}
-  GetDlgItem $0 $HWNDPARENT 1
-  SendMessage $0 0x00F5 0 0
+  Quit
 FunctionEnd
 
 ; =====================================================================
