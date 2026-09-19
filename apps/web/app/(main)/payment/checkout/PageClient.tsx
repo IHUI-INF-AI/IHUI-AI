@@ -37,7 +37,7 @@ const PLAN_NAME_KEY: Record<string, string> = {
   enterprise: 'plans.enterprise.name',
 }
 
-// 2026-09-18 修复:移除 stripe/usdc 假选项(后端 /vip/order 仅实现微信+支付宝,
+// 2026-09-18 修复:移除 usdc 假选项(后端 /vip/order 仅实现微信+支付宝,
 // 选择后会被静默当微信处理),仅保留真实可用的两种支付方式
 const METHODS = [
   { id: 'wechat_native', labelKey: 'checkout.wechat' },

@@ -213,7 +213,7 @@ const ordersExportQuerySchema = z.object({
     .pipe(z.enum(['pending', 'paid', 'cancelled', 'refunded']).optional()),
   paymentMethod: z
     .transform(emptyToUndefined)
-    .pipe(z.enum(['wechat', 'alipay', 'stripe', 'paypal', 'usdc']).optional()),
+    .pipe(z.enum(['wechat', 'alipay', 'paypal', 'usdc']).optional()),
 })
 
 /** 复用 relay-logs.ts 的 13 个筛选维度 */

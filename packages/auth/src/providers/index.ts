@@ -121,11 +121,6 @@ export {
   type DiscordProviderConfig,
 } from './discord.js'
 export {
-  createLinuxdoProvider,
-  isLinuxdoConfigured,
-  type LinuxdoProviderConfig,
-} from './linuxdo.js'
-export {
   createTelegramProvider,
   isTelegramConfigured,
   generateTelegramAuthToken,
