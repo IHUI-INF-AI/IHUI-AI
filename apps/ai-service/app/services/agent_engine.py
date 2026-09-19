@@ -1923,6 +1923,19 @@ class AgentEngine:
             messages[0]["content"] = (
                 f"{messages[0]['content']}\n\n[角色模板] {_AGENT_ROLE_TEMPLATES[role]}"
             )
+        # 项目文档注入(2026-09-19 第二十八批,对标 Codex agents_md.rs discovery):
+        # workspace 内从项目根(.git 标记)到 cwd 逐层收集 AGENTS.md 拼入 system;
+        # AGENTS.override.md 优先;32KiB 字节预算截断;失败静默降级不阻塞开线程。
+        _agents_workspace = params.get("workspace")
+        if isinstance(_agents_workspace, str) and _agents_workspace.strip():
+            with contextlib.suppress(Exception):
+                from app.core.agents_md import load_project_instructions
+
+                _agents_md = load_project_instructions(_agents_workspace)
+                if not _agents_md.is_empty():
+                    messages[0]["content"] = (
+                        f"{messages[0]['content']}\n\n[项目文档 AGENTS.md]\n{_agents_md.content}"
+                    )
         thread = EngineThread(
             thread_id=thread_id,
             session_id=str(params.get("sessionId") or thread_id),
