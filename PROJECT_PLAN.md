@@ -12,7 +12,62 @@
 
 ---
 
-## P0 2026-09-07 AI 产品深度超越计划:P0-P3 全链路闭环(2026-09-07 立,跨端:ai-service + web + cli + packages,目标:真正远超对标数年)
+## P0 2026-09-19 AI 能力二轮深度对标(Codex/Trae/Qoder/WorkBuddy)开发计划(2026-09-19 立,跨端:web + api + ai-service + desktop/miniapp/mobile-rn)
+
+> 依据:`outputs/AI能力深度对标分析报告-2026-09-19.md`(27 项差距 G-1~G-27 逐项明细 + 四产品能力矩阵)。衔接 2026-09-18 W1-W5 补洞,本轮聚焦显示细节/上下文工程/运行形态三层。
+
+### P0 立即执行(1-2 周,对话流显示细节)
+
+- [x] ✅(2026-09-19 晚,V2 复核) D1 消息级计量徽章:后端 usage 逐帧透出(tokens/耗时/首包延迟/模型/费用)→ MessageItem 底部徽章行(G-1)。证据:MessageItem.tsx「D1 消息级计量徽章行」+ MessageUsageMetrics/UsageBreakdown;usage 帧 firstTokenMs/durationMs/costUsd(ai-chat-stream.ts)
+- [x] ✅(2026-09-19 晚,V2 复核·部分转出) D2 骨架屏等待占位 ✅(streaming-skeleton.tsx+test);**自适应折叠策略未收口→转入本轮 D21**(G-2/G-5)
+- [x] ✅(2026-09-19 晚,V2 复核) D3 对话快速定位器(侧轨 anchor 导航)+ 跳顶/跳底浮动钮(G-3/G-4)。证据:conversation-locator-rail.tsx+scroll-jump-buttons.tsx 均带测试
+- [x] ✅(2026-09-19 晚,V2 复核) D4 回退影响预览流:checkpoint/rollback 恢复前列影响文件+diff 确认(对标 Trae)(G-6)。证据:checkpoint-impact.ts+checkpoint-rollback-confirm.tsx
+- [x] ✅(2026-09-19 晚,V2 复核) D5 工具调用卡补耗时/重试元数据;导出图片分享卡(G-8/G-9)。证据:ToolCallCard duration/retry;share-card-svg.ts
+- [ ] D6 多 agent 栈收敛(agents-kanban/swarm/orchestration/tasks 四套→AgentLoopV2 单一事实源)方案评审并启动(G-22)。⏳(2026-09-19)四面板实现在库,终项确认待并行批次恢复后给出;产品化看板缺口另立 D25
+
+### P1 深度打磨(1 个月,上下文工程+运行闭环)
+
+- [x] ✅(2026-09-19 晚,V2 复核) D7 主聊天自动语义检索注入(首答前自动 codebase 检索 top-k)(G-13)。证据:llm.py:1201-1206 auto_context 开关
+- [x] ✅(2026-09-19 晚,V2 复核) D8 pgvector 向量 RAG(会话/文档/代码 embedding+检索工具+自动注入)(G-14)。证据:pgvector_store.py+vector_memory.py+迁移 090000(rag_chunks),pytest 11 passed,commit e3c22f9dff
+- [x] ✅(2026-09-19 晚,V2 复核) D9 Repo Wiki 自动 wiki 化+增量同步+常驻上下文(G-15)。证据:repo_wiki_engine.py+llm.py wikiContext 注入,commit e3c22f9dff
+- [x] ✅(2026-09-19 晚,V2 复核) D10 跨会话记忆自动沉淀闭环(会话结束提炼→下次注入→可视化管理)(G-16)。证据:memory_sedimenter.py+test,commit e3c22f9dff
+- [x] ✅(2026-09-19 晚,V2 复核) D11 浏览器自检闭环(前端任务完成→agent 截图自检→截图入回复,对标 Codex)(G-18)。证据:tools/browser_selfcheck.py+mcp_server 注册,commit e3c22f9dff
+- [x] ✅(2026-09-19 晚,V2 复核) D12 automations 复用会话线程+定时唤醒续跑(G-19)。证据:automation_thread.py+api automations.ts 接线(agent-runtime 按 sessionId 延续),commit ea3751ca5e
+- [ ] D13 逐消息上下文可解释视图(G-10)。V2 深化口径(2026-09-19 晚):须含 auto_context codebase 命中/RAG chunk/Wiki 片段/记忆卡四类注入明细,对标 Qoder Summary 可点击链接
+
+### P2 广度产品化(3 个月,运行形态+生态)
+
+- [ ] D14 云端沙箱 agent(容器隔离+任务队列+镜像缓存+跨项目并行看板,对标 Qoder My Quests)(G-17)
+- [ ] D15 GitHub App(webhook 自动 PR review+@机器人触发)(G-20)
+- [ ] D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21)
+- [ ] D17 专家包/技能市场/连接器授权中心统一入口(对标 WorkBuddy 生态)(G-25/G-26)
+- [ ] D18 Agent SDK 对外开放(G-23)
+- [ ] D19 desktop/miniapp/mobile-rn 对话流 parity(terminal_delta/hunk diff/审批流全量对齐)(G-27)
+- [ ] D20 会话文件夹/标签/置顶+导出 PDF(G-11)。**TTS 朗读已存在**(2026-09-19 晚 V2 复核:voice-stream-speaker.tsx+MessageItem TTS 朗读按钮),从本项剔除
+
+### P0 2026-09-19 晚 第三轮元素级对标新增任务(V2 报告产出,D21-D32,依据 outputs/AI能力深度对标分析报告V2-2026-09-19.md 新增差距 G-28~G-38)
+
+#### P0 立即执行(1 周内,显示收口+持久化补课)
+
+- [ ] D21 对话流自适应折叠摘要策略收口(按字数/工具数/耗时自适应折叠+悬停展开,对标 Trae 节点自动折叠/Codex auto recap)(G-28;承接 D2 遗留)
+- [ ] D22 输入区与消息类型四残留打包:网页搜索 UI 开关/引用回复 UI 闭环/error 独立消息类型/system 角色渲染分支(G-38)
+- [ ] D23 模型目录能力布尔标志(vision/reasoning/tools/fim)→模型选择器按能力过滤+auto 路由按能力匹配(G-30)
+- [ ] D24 工具调用与终端输出独立持久化(chat_tool_calls 表或 metadata 强制落库)→恢复会话/回放/审计后工具卡与终端区完整还原,对标 Codex TUI 历史完整 patch(G-31)
+
+#### P1 深度打磨(1 个月,运行时与交付审查)
+
+- [ ] D25 统一任务运行时看板:收敛 background-agents/agents-kanban/agent-swarm-monitor/orchestration-hub 四面板→单 dashboard(本地+后台+云端任务 搜索/启动/改名/停止)+@任务引用跨任务发消息,对标 Codex 0.149 agents dashboard+Qoder Quest 看板(G-32;与 D6 收敛协同)
+- [ ] D26 LangGraph 双轨收敛:langgraph_checkpoint/HITL interrupt 与 agent_loop_v2 手工循环合一,checkpoint 只挂主链路(G-33)
+- [ ] D27 交付审查视图:任务完成 Summary 交付清单(Spec/变更/引用的 Wiki·Memory·Skills·MCP 可点击链接,对标 Qoder)+代码变更独立 tab(跨 15 会话回溯+步骤级追溯,对标 Trae)(G-29)
+
+#### P2 广度产品化(3 个月,生态与形态)
+
+- [ ] D28 /side 快速侧问(排队输入+斜杠)+外部会话导入(Claude Code/Codex/Cursor/Aider 迁入即用),对标 Codex 0.122/0.128(G-34)
+- [ ] D29 团队级知识引擎:记忆/Repo Wiki/知识卡云端共享+成员修正+过程审计(对标 Qoder 1.0,官方实证输入 token -40%)(G-35)
+- [ ] D30 无人值守修复闭环:GitHub issue/代码扫描告警/失败测试→automations 定时认领修复→PR 回帖(对标 QoderWake;与 D14/D15 协同)(G-36)
+- [ ] D31 设计稿转码:Figma Frame/组件→可运行前端代码(对标 Trae 设计还原)(G-37)
+
+### P0 2026-09-07 AI 产品深度超越计划:P0-P3 全链路闭环(2026-09-07 立,跨端:ai-service + web + cli + packages,目标:真正远超对标数年)
 
 > 目标判定:不以“功能存在”为完成,以**黄金 E2E 成功率、首响应延迟、补全接受率、LSP 可用性、默认安全、审计可逆性、8 端一致性**量化验收。用户已要求“完整彻底、毫无遗漏,并开始深度开发”。
 
@@ -2772,9 +2827,5 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 **2026-09-17 生产只读核验(本轮闭环 2-8/2-10 的证据)**:
 - **2-8 nginx 已生效**:公网 `https://aizhs.top/v1/models`、`/v1beta/models` 均返回 **401**(应用鉴权层应答,而非 nginx 404)→ 2-8 新增的三个 location(`/v1`、`/v1beta`、`/ws`)早已部署生效,「部署机 `nginx -t && nginx -s reload`」不再有待办。`/ws` 返回 404 但响应头为 `Content-Type: application/json` + `X-Api-Version` + `Traceparent`(Fastify helmet 特征)= **API 自身 404**,说明 nginx 已把 `/ws` 转发进 API;该 404 是「58 运营面板 WS 未实现」的应用层表现,与 nginx 无关。
 - **2-10 已由自动部署循环覆盖(但当日同时暴露循环自身曾卡死)**:生产工作树为 `D:\IHUI-AI`(`.git` 指向 `D:/IHUI-AI-git-repo`);SSH 只读核实生产 git HEAD = `88bd8b2fea4` = 核验时刻 `origin/main`,`D:\IHUI-AI\apps\web\.next\IHUI_BUILD_SHA` 同为 `88bd8b2fea4`、构建清单 mtime = 18:09(北京时)→ 构建与 main 同步,「生产进程尚未重建、需在 GitHub Actions 手动触发 Blue-Green」的记载已过期,自动部署循环才是本项目唯一部署通道。**同日 18:30 另发现**:该循环此前卡死 30+ 小时(NSSM 显示 SERVICE_RUNNING 但内部轮询停摆,构建时间停在 09-16),已 `nssm restart IHUI-DEPLOYLOOP` 恢复。**判据/口径修正**:①「生产是否最新」**不能只看 git HEAD**,权威判据 = `apps/web/.next/IHUI_BUILD_SHA` + `app-path-routes-manifest.json` 路由清单;②**生产机器本地时区为 UTC**(比北京时慢 8 小时),读生产文件时间戳与日志必须换算,否则会误判构建新鲜度。小写模型名归一兜底代码位于 main(`apps/api/src/routes/v1-public.ts:339`,2026-09-13 立),随构建刷新即生效。
-- [x] ✅(2026-09-18) **桌面端安装包「向导语言 + 默认安装目录」修复 + 四层回归守门**(用户要求「防止以后回退」):现象 = 中文系统上 Windows 安装包向导是英文、默认安装目录不是 D 盘根目录。**根因** = Tauri v2 的 `nsis.installerHooks` 四个宏全部在 `Section` 内执行,**改不了向导「选择安装位置」页的默认值**(该页在 `.onInit` 之后、`Section` 之前展示,那时 `$INSTDIR` 已定稿);唯一官方接管点是 `bundle.windows.nsis.template` 整体替换内置模板。**修复** = `scripts/desktop-nsis-template.mjs` 从 `cli.win32-x64-msvc.node`(模板以 `include_str!` 内嵌)提取上游 installer.nsi,只替换 `.onInit` 的默认目录分支 → `apps/desktop/src-tauri/windows/installer.nsi`(上游 978 行 + 一处 IHUI 块);`$LANGUAGE == 2052` → `D:\智汇AI`,否则 `D:\IHUI AI`;**上游那句无条件 `Call RestorePreviousInstallLocation` 必须保留**(重装 / `/UPDATE` 沿用既有位置,否则老用户产生第二份安装)。`languages` 只能用合法 MUI 语言名(`SimpChinese`/`English`)——曾填 `zh-CN` → makensis 报「语言文件缺失」且被 CI 静默吞掉 → 0.1.35 无 Windows 资产(已固化为断言 A4)。
-  **四层守门**:① `scripts/check-desktop-install-dir.mjs` 源码不变量(配置 A2~A6 + 模板块 B1~B7 + hooks C1),pre-commit guardian-runner **id 51**(blocking)+ 三个 workflow 都跑;② `scripts/assert-installer-strings.mjs` 产物断言(直接搜 `.exe` 内 UTF-16LE 的两个路径,前提 `nsis.compression="none"`,E1~E4);③ `.github/workflows/ci.yml`(拆两个具名步骤:invariants / upstream drift);④ `release-desktop.yml` / `desktop-build.yml` 构建**前**守门 + 构建后 Windows 产物断言(`if: always()`)。
-  **验证**:静态对抗 **29/29 PASS**(逐条注入回退场景,断言 exit 1 **且命中预期 id**;含 `languages:['zh-CN']` 复现 0.1.35 事故、`installMode:'both'` 静默击穿、`2052→2051`、删 `${Else}`、删 `RestorePreviousInstallLocation`、`hooks.nsi` 私写 `$INSTDIR`)、产物对抗 **5/5 PASS**、平台门 **5/5 PASS**、Linux 忠实复现两场景 exit 0、win32 真漂移比对 OK、eslint 0。
-  **踩坑(已入库)**:① **漂移校验的平台门必须下在「抽取之前」**——NSIS 模板只内嵌在 Windows 版 CLI 二进制里,而 `extractTemplate()` 是「按可打印字符切片」的启发式,在 Linux 二进制里**可能"成功"抽出截断片段**,既不进 `!bin` 也不进 `catch` → 被误判成"上游漂移" → ubuntu CI 恒红(两版才修对);② 平台门测试**必须隔离 `APPDATA` / `PATH`**,否则命中本机全局 `@tauri-apps/cli`,「无 CLI」用例假通过;③ `.mjs` 不在 `format:check` / lint-staged 的 prettier glob 内,prettier warn 无影响,勿顺手 `--write`。提交:`b58fbe4e1`(修复)+ `768fcae2d` / `8864fdf46`(守门)+ `288255ed3` / `8039a14e3`(平台门两版);tag `desktop-v0.1.40`,Release CI 6/6 全绿。详见 skill `ihui-desktop-installer-release`。
 <!-- 已归档占位与水印尾行见文件末尾 -->
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
