@@ -3057,32 +3057,6 @@ async def _tool_vision_analyze(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "vision_analyze", "ok": False, "error": "task is required"}
 
     # 构造 OpenAI vision 格式消息(text + image_url content block)
-    # 批 42 接线:data URL 先经 image_preparation 按提示图像预算降采样
-    # (对标 codex load_data_url_for_prompt;此前原图原样上传,超大图打爆
-    # vision 请求或被服务端拒绝;远程 URL 保持原样交由上游拉取)。降采样
-    # 失败安全:回退原图,行为与历史一致,不阻塞分析。
-    vision_note = ""
-    if image_url_value.startswith("data:"):
-        try:
-            from ..core.image_preparation import (
-                detail_limits as _vl,
-                load_data_url_for_prompt as _vload,
-            )
-
-            _detail, _limits = _vl("high")
-            _prepared = _vload(image_url_value, _limits)
-            if (_prepared.width, _prepared.height) != (
-                _prepared.source_width,
-                _prepared.source_height,
-            ):
-                image_url_value = _prepared.into_data_url()
-                vision_note = (
-                    f"image resized from {_prepared.source_width}x"
-                    f"{_prepared.source_height} to {_prepared.width}x"
-                    f"{_prepared.height} pixels to fit the prompt image budget"
-                )
-        except Exception:  # noqa: BLE001 - 降采样失败回退原图
-            vision_note = ""
     messages = [
         {
             "role": "user",
@@ -3103,8 +3077,6 @@ async def _tool_vision_analyze(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": result.get("error_message"),
             "source": source,
         }
-        if vision_note:
-            ret["resized"] = vision_note
         if file_path:
             ret["file_path"] = file_path
         return ret
