@@ -10,7 +10,7 @@
 import { execSync, spawnSync } from 'node:child_process'
 
 const GIT_BIN = (() => {
-  const w = execSync('where git', { encoding: 'utf8' })
+  const w = execSync('where git', { encoding: 'utf8', windowsHide: true })
   for (const raw of w.split('\n')) {
     const p = raw.trim()
     if (/\\cmd\\git\.exe$/i.test(p)) return p

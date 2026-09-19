@@ -2255,7 +2255,8 @@
       "schedule": "排課管理",
       "attendance": "考勤管理",
       "grades": "成績管理",
-      "homework": "作業管理"
+      "homework": "作業管理",
+      "canteenProcurement": "食堂採購記帳"
     },
     "eduParent": "家長端",
     "eduSchedule": "課表",

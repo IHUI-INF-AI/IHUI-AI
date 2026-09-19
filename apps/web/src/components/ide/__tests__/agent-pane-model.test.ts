@@ -47,11 +47,12 @@ describe('agent-pane-model', () => {
   })
 
   it('guards plan and terminal status values', () => {
-    for (const value of ['pending', 'in_progress', 'completed'])
+    // 计划步骤契约五态全部通过守卫
+    for (const value of ['pending', 'in_progress', 'completed', 'skipped', 'failed'])
       expect(isPlanStepStatus(value)).toBe(true)
     for (const value of ['running', 'completed', 'failed'])
       expect(isTerminalStatus(value)).toBe(true)
-    expect(isPlanStepStatus('failed')).toBe(false)
+    expect(isPlanStepStatus('cancelled')).toBe(false)
     expect(isTerminalStatus('pending')).toBe(false)
   })
 

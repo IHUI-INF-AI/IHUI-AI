@@ -34,7 +34,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -63,21 +63,6 @@ check-no-divider.mjs — 分割线守门(divide-y / divide-x)
 `)
   process.exit(0)
 }
-
-// 排除目录:共享 EXCLUDE_DIRS + 脚本特有(构建产物/测试/注释无害目录)
-const EXCLUDE_DIRS = withExcludes([
-  '.ihui-agent',
-  'tests',
-  '__tests__',
-  'e2e',
-  'out',
-  'node_modules',
-  'dist',
-  'build',
-  '.next',
-  'public',
-  'coverage',
-])
 
 // 只扫源码(divide-y/divide-x 是 className 工具类,不会出现在纯 CSS 生成产物之外)
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']
@@ -178,6 +163,7 @@ function getStagedAddedLines() {
       cwd: ROOT,
       maxBuffer: 50 * 1024 * 1024,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
   } catch {
     return result
@@ -224,6 +210,7 @@ function getStagedFiles() {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return output
       .split('\n')

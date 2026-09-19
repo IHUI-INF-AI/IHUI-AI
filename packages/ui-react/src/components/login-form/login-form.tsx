@@ -81,6 +81,7 @@ export function LoginForm(props: LoginFormProps) {
     thirdPartyFeaturedPlatform,
     thirdPartyFeaturedBackground,
     phoneDefaultAccount,
+    thirdPartyColumns,
   } = props
 
   const enabledTabs: LoginTab[] = tabs ?? ['email', 'phone', 'password', 'qr']
@@ -144,8 +145,9 @@ export function LoginForm(props: LoginFormProps) {
   return (
     <div className={cn('login-form-scope space-y-4', className)}>
       <Tabs value={tab} onValueChange={handleTabChange}>
+        {/* 2026-09-19 紧凑化:h-9→h-8(登录弹窗总高压到 95vh 内,用户要求禁滚动) */}
         <TabsList
-          className="grid w-full"
+          className="grid h-8 w-full"
           style={{ gridTemplateColumns: `repeat(${enabledTabs.length}, minmax(0, 1fr))` }}
         >
           {enabledTabs.includes('email') && (
@@ -183,19 +185,20 @@ export function LoginForm(props: LoginFormProps) {
         </TabsList>
 
         {enabledTabs.includes('email') && (
-          <TabsContent value="email">
+          // 2026-09-19 紧凑化:mt-2→mt-1(覆盖 TabsContent 全局默认)
+          <TabsContent value="email" className="mt-1">
             <EmailCodeLoginForm {...formBaseProps} />
           </TabsContent>
         )}
 
         {enabledTabs.includes('phone') && (
-          <TabsContent value="phone">
+          <TabsContent value="phone" className="mt-1">
             <PhoneCodeLoginForm {...formBaseProps} defaultAccount={phoneDefaultAccount} />
           </TabsContent>
         )}
 
         {enabledTabs.includes('password') && (
-          <TabsContent value="password">
+          <TabsContent value="password" className="mt-1">
             <PasswordLoginForm
               {...formBaseProps}
               captchaEnabled={captchaEnabled}
@@ -207,7 +210,7 @@ export function LoginForm(props: LoginFormProps) {
         )}
 
         {enabledTabs.includes('qr') && (
-          <TabsContent value="qr">
+          <TabsContent value="qr" className="mt-1">
             <QrTab
               t={t}
               QrComponent={qrComponent}
@@ -240,6 +243,7 @@ export function LoginForm(props: LoginFormProps) {
           config={thirdParty}
           featuredPlatform={thirdPartyFeaturedPlatform}
           featuredBackground={thirdPartyFeaturedBackground}
+          columns={thirdPartyColumns}
         />
       )}
 
@@ -249,7 +253,8 @@ export function LoginForm(props: LoginFormProps) {
         // 从 16px 拉到 28px(16+12),与"登录按钮→第三方登录标题"的 28px 节奏对齐
         // (用户反馈这行字憋得难受;Tailwind v4 space-y 用前元素 margin-block-end,
         // 本行自身 mt 叠加不冲突)。qr tab 场景上一兄弟是 QrTab,同样受益。
-        <p className="mt-3 text-center text-sm text-muted-foreground">
+        // 2026-09-19 紧凑化:mt-3→mt-2(整体高度让位于"视口内完整显示"硬需求)
+        <p className="mt-1 text-center text-sm text-muted-foreground">
           {t('auth.noAccount')}{' '}
           <button
             type="button"

@@ -444,7 +444,8 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
 
   describe('POST /api/payments/alipay/refund 退款金额校验', () => {
     it('退款金额超过订单金额返回 400', async () => {
-      authAs()
+      // 2026-09-18 P0 修复:退款仅限管理员,金额校验用管理员身份触达
+      authAsAdmin()
       // 订单金额 10000 分(100 元),退款 200 元(>100 元)
       mockGetOrder.mockResolvedValueOnce(
         makeOrder({ status: 'paid', userId: 'user-001', amount: 10000 }),
@@ -459,7 +460,7 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
     })
 
     it('退款金额等于订单金额通过校验', async () => {
-      authAs()
+      authAsAdmin()
       mockIsAlipayConfigured.mockReturnValue(true)
       mockGetOrder.mockResolvedValueOnce(
         makeOrder({ status: 'paid', userId: 'user-001', amount: 10000 }),

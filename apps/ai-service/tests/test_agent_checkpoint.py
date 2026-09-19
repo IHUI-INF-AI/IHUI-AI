@@ -231,11 +231,15 @@ async def test_ttl_expiry():
 
 
 async def test_cleanup_expired():
-    """cleanup_expired 清理过期 checkpoint 并返回数量。"""
-    mgr = _make_manager(ttl_seconds=1)
+    """cleanup_expired 清理过期 checkpoint 并返回数量。
+
+    ttl 取 2s(而非 1s):全量回归高负载下 save s3 与 cleanup 之间
+    可能被调度延迟 1s+,余量过小会把 s3 误判过期导致 flaky。
+    """
+    mgr = _make_manager(ttl_seconds=2)
     await mgr.save_checkpoint("s1", 1, _sample_messages(), {}, "running")
     await mgr.save_checkpoint("s2", 1, _sample_messages(), {}, "running")
-    await asyncio.sleep(1.1)
+    await asyncio.sleep(2.1)
     # 再加一个未过期的
     await mgr.save_checkpoint("s3", 1, _sample_messages(), {}, "running")
     cleaned = await mgr.cleanup_expired()

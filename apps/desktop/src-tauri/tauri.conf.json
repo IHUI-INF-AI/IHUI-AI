@@ -72,7 +72,7 @@
         "template": "windows/installer.nsi",
         "installerHooks": "windows/hooks.nsi",
         "languages": ["SimpChinese", "English"],
-        "compression": "none"
+        "compression": "lzma"
       }
     }
   }

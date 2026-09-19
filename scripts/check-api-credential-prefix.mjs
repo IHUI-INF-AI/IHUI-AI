@@ -131,7 +131,7 @@ function walk(target, out = []) {
 
 function listStagedFiles() {
   try {
-    const out = execSync('git diff --cached --name-only --diff-filter=ACM', { encoding: 'utf8' })
+    const out = execSync('git diff --cached --name-only --diff-filter=ACM', { encoding: 'utf8', windowsHide: true })
     return out
       .split('\n')
       .map((f) => f.trim().replace(/\\/g, '/'))

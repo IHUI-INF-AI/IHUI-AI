@@ -104,7 +104,7 @@ function run(cmd, opts = {}) {
 const GIT_BIN = (() => {
   if (process.platform !== 'win32') return 'git'
   try {
-    const whereOut = execSync('where git', { encoding: 'utf8' })
+    const whereOut = execSync('where git', { encoding: 'utf8', windowsHide: true })
     for (const raw of whereOut.split('\n')) {
       const p = raw.trim()
       if (/\\cmd\\git\.exe$/i.test(p)) return p

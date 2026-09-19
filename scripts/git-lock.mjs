@@ -41,7 +41,7 @@ import { join } from 'node:path'
 
 function run(cmd, allowFail = false) {
   try {
-    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim()
+    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }).trim()
   } catch (e) {
     if (allowFail) return null
     throw e
@@ -142,7 +142,8 @@ function cleanStaleIndexLocks() {
     const out = execSync('tasklist /FI "IMAGENAME eq git.exe" /NH', {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
-    })
+        windowsHide: true,
+      })
     hasGitProcess = /git\.exe/i.test(out)
   } catch {
     /* tasklist 失败,保守假设无 git 进程(允许清理) */
