@@ -932,6 +932,10 @@ class AgentLoopV2:
         # 高危清单:never 强制免审(高危清单也放行)、always 每次必审(auto 只读免审
         # 也被覆盖)、on-request = 现状。非法值构造期即 raise(与 permission_mode 同款)。
         approval_policies: dict[str, str] | None = None,
+        # 批 39 接线:生命周期钩子运行时(批 30 移植,可选注入;None = 不启用,
+        # 行为零变化)。接线点:PRE_TOOL_USE(pre_tool_use deny 即拒绝)与
+        # USER_PROMPT_SUBMIT / STOP(additional_context 注入 / stop 联动)。
+        hook_runtime: Any | None = None,
         # 权限三模式(2026-09-02 立,对标 Claude Code permission modes):
         # default=与现状完全一致(回归红线);plan=循环层强制只读;auto=只读工具免审批。
         # 默认 None 时取自 env AGENT_PERMISSION_MODE,再回退 "default";构造参数优先于 env。
@@ -1069,6 +1073,9 @@ class AgentLoopV2:
                         " 取值必须为 'never' / 'on-request' / 'always'"
                     )
             self._approval_policies = dict(approval_policies)
+
+        # 批 39 接线:生命周期钩子运行时(可选注入;None = 不启用零行为变化)。
+        self._hook_runtime = hook_runtime
 
         # plan 模式:循环入口强制收窄工具集为「传入 tools ∩ READONLY_TOOLS」,
         # LLM schema 也仅暴露只读工具(双保险:既收窄可见工具,又在执行入口做防御性再校验)。
@@ -3595,6 +3602,30 @@ class AgentLoopV2:
                 duration_ms=0,
                 error_type="unknown",
             )
+
+        # 批 39 接线:PRE_TOOL_USE 生命周期钩子(批 30 移植,可选注入)。
+        # 任一钩子 decision=deny 即拒绝(denial_reason 带原因),不执行、
+        # error_type=hook_denied;钩子未注册时 outcome 空 = 零行为变化;
+        # 失败隔离/超时由 HookRuntime 内部处理,运行时异常降级放行不阻塞。
+        if self._hook_runtime is not None:
+            try:
+                from ..core.hook_runtime import HookKind as _HookKind
+
+                _hk_outcome = await self._hook_runtime.run(
+                    _HookKind.PRE_TOOL_USE,
+                    {"tool_name": tc.name, "tool_call_id": tc.id, "args": tc.args},
+                )
+                if _hk_outcome.denial_reason is not None:
+                    return ToolResult(
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                        result={"blocked": True, "reason": _hk_outcome.denial_reason},
+                        error=f"工具被 pre_tool_use 钩子拒绝: {_hk_outcome.denial_reason}",
+                        duration_ms=(time.time() - start) * 1000,
+                        error_type="hook_denied",
+                    )
+            except Exception as e:  # noqa: BLE001 - 钩子运行时异常隔离,不阻塞主链路
+                logger.warning("pre_tool_use 钩子运行时异常(降级放行): %s", e)
 
         # P0-3(2026-09-12):guarded_pipeline 前置守卫——prompt 注入探测 +
         # 危险入参扫描(fail-closed),作为所有工具执行的默认包装层。
