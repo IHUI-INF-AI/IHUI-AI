@@ -88,6 +88,10 @@ class EnvironmentStateTracker:
     def __init__(self) -> None:
         self._last_rendered: str | None = None
 
+    def reset(self) -> None:
+        """重置记忆(压缩发生后调用:产物可能已不含早前片段,强制下次重注入)。"""
+        self._last_rendered = None
+
     def maybe_fragment(
         self,
         cwd: str,
