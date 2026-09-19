@@ -220,13 +220,29 @@ function validateJsonField(rawValue, fieldName, isStrict, seenProviderNames) {
 }
 
 // ── 输出格式化 ────────────────────────────────────────────────────────────
+/**
+ * 从 LLM_PROVIDERS / LLM_PROVIDERS_JSON 值中提取 provider 名称列表(仅名称)。
+ * 安全约束:诊断输出严禁回显 .env 原值或任何值片段——值内含 api_key 明文,
+ * 且密钥格式不可枚举(正则脱敏必有漏网),因此只输出结构摘要,不输出值。
+ */
+function providerNames(v) {
+  try {
+    const parsed = JSON.parse(v)
+    if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return Object.keys(parsed).slice(0, 12)
+    }
+  } catch { /* 非 JSON:不输出任何内容片段,解析错误由 issues 区报告 */ }
+  return []
+}
+
 function outputHuman(envFile, envVars, allIssues) {
   const relPath = relative(resolve(process.cwd()), resolve(envFile))
   console.log(`${C.cyan}${C.bold}🔍 LLM Provider Schema 守门 — ${relPath}${C.reset}`)
   for (const f of ['LLM_PROVIDERS_JSON', 'LLM_PROVIDERS']) {
     const v = envVars[f]?.value ?? ''
-    const display = v === '' ? `${C.dim}<empty>${C.reset}`
-      : `${C.dim}${v.length > 80 ? v.slice(0, 80) + '…' : v}${C.reset}`
+    const display = v === ''
+      ? `${C.dim}<empty>${C.reset}`
+      : `${C.dim}非空(${v.length} 字符,providers: ${providerNames(v).join(', ') || '解析失败'})${C.reset}`
     console.log(`📋 ${f}: ${display}`)
   }
   console.log()
