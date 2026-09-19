@@ -81,6 +81,7 @@ from .llm_budget_governor import (
     llm_budget_governor,
 )
 from ..core.current_time_reminder import CurrentTimeReminderState as _CurrentTimeReminderState
+from ..core.environment_context import EnvironmentStateTracker as _EnvironmentStateTracker
 from .plan_mode import READONLY_TOOLS, is_readonly_tool
 from .security_config import get_security_config
 from ..core.mcp_tool_approval import (
@@ -1083,6 +1084,7 @@ class AgentLoopV2:
         # 可选注入 time_provider,默认 None = 不启用零行为变化)。
         self._time_reminder_state = _CurrentTimeReminderState()
         self._time_provider = time_provider
+        self._env_tracker = _EnvironmentStateTracker()
 
         # plan 模式:循环入口强制收窄工具集为「传入 tools ∩ READONLY_TOOLS」,
         # LLM schema 也仅暴露只读工具(双保险:既收窄可见工具,又在执行入口做防御性再校验)。
@@ -2590,6 +2592,22 @@ class AgentLoopV2:
                             messages.append(_reminder)
                     except Exception as e:  # noqa: BLE001 - 提醒失败隔离,不阻塞主链路
                         logger.warning("current_time_reminder 投递异常(降级跳过): %s", e)
+                # 批 40 接线:环境上下文片段(对标 codex world_state/environment.rs)。
+                # cwd/当前日期注入 user 片段,变化才注入(EnvironmentStateTracker
+                # 逐字节比较);环境采集失败隔离,不阻塞回合。未启用 time_provider
+                # 的旧构造路径同样零行为变化(与时间提醒共用启用开关)。
+                if self._time_provider is not None:
+                    try:
+                        from ..core.environment_context import format_local_date
+
+                        _env_frag = self._env_tracker.maybe_fragment(
+                            cwd=os.getcwd(),
+                            current_date=format_local_date(),
+                        )
+                        if _env_frag is not None:
+                            messages.append(_env_frag)
+                    except Exception as e:  # noqa: BLE001 - 环境采集失败隔离
+                        logger.warning("environment_context 注入异常(降级跳过): %s", e)
                 # P0-B(2026-09-18):_wait_interruptible 包裹——长 LLM 调用期间命中
                 # cancel/pause 标志也能立即中断(抛 _LoopInterrupted 走优雅中断链路);
                 # iteration=i 透传使流式 thinking 增量帧携带轮次号。
