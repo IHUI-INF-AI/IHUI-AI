@@ -106,9 +106,11 @@ export function LoginDialog() {
               /* 2026-09-18:overflow-y-auto → overflow-visible(用户反馈"翻转的时候卡片超出容器后被裁剪了边缘"):
                  翻转动画中卡片绕 Y 轴旋转,perspective(800px) 会放大转出屏幕方向的边缘,
                  投影宽度超过 460px 容器,overflow-y-auto(隐含 overflow-x 也 auto)把超出部分裁掉。
-                 放开 overflow 后静止卡片(460×~647px)在正常视口完全容纳;
-                 极矮窗口(<~700px 高)下内容超高不再出滚动条,属可接受取舍——
-                 移动分支(全屏页,无翻转动画)仍保留 overflow-y-auto。 */
+                 2026-09-19:恢复滚动能力但挪到内层 AuthShell 卡片自身(用户反馈"账号分类登录页上下都超出屏幕")——
+                 账号登录 tab(桌面 SSO 按钮 + 8 个第三方登录)高度超 95vh,DialogContent overflow-visible
+                 且居中定位导致超出部分从上下两端溢出屏幕且无滚动条。滚动放在 AuthShell 上:
+                 元素自身 overflow 不裁自身的翻转投影(外层 DialogContent 仍 overflow-visible),
+                 9-18 的翻转动效裁边修复不受影响;内容超高时卡片内部出滚动条,静止态完全容纳。 */
               'gap-0 p-0 max-w-[460px] w-[calc(100%-2rem)] max-h-[95vh] overflow-visible border-0 bg-transparent shadow-none'
         }
       >
@@ -142,7 +144,14 @@ export function LoginDialog() {
           // (@keyframes login-dialog-flip,globals.css)。
           // 加在内层卡片而非 DialogContent——Content 的居中 translate 不能被关键帧
           // transform 碰(dialog.tsx 2026-07-28 残留 bug 教训)。移动全屏页/SSO 独立页不套用。
-          <AuthShell onClose={close} className="animate-login-dialog-flip">
+          // 2026-09-19:max-h-[inherit](继承 DialogContent 的 max-h-[95vh])+ overflow-y-auto
+          // ——滚动放卡片自身,超高内容在卡片内滚动,不再上下溢出屏幕(见上方 DialogContent 注释);
+          // 元素自身 overflow 裁子内容、不裁自身投影,翻转动画放大出的边缘仍由外层
+          // overflow-visible 放行,9-18 裁边修复不受影响。
+          <AuthShell
+            onClose={close}
+            className="max-h-[inherit] animate-login-dialog-flip overflow-y-auto"
+          >
             {showDesktopSso && mode === 'login' && (
               <div className="pb-3">
                 <Button
