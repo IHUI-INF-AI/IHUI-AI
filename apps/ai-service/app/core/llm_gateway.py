@@ -41,7 +41,12 @@ from ..services.tls_stealth import create_stealth_client
 from .config import settings
 from .context_compaction import estimate_messages_tokens
 from .db_pool import get_shared_pool
-from .provider_caps import filter_call_kwargs, get_provider_cap
+from .provider_caps import (
+    apply_provider_headers,
+    apply_provider_overrides,
+    filter_call_kwargs,
+    get_provider_cap,
+)
 from .usage_cache import normalize_usage
 
 # Combo 多级 fallback 路由器(2026-07-30 立,P0-1 Combo 接入 LLM 调用链)
@@ -1626,8 +1631,14 @@ class LLMGateway:
             provider_code = _model_to_provider_code(used_model)
             cap = get_provider_cap(provider_code)
             call_kwargs["timeout"] = cap.default_timeout
-            call_kwargs["num_retries"] = 2
+            # 第十七批(对标 Codex ModelProviderInfo):provider 级韧性参数取代
+            # 全局硬编码 num_retries=2 —— 排队型与低延迟 provider 不再同档。
+            # 只补调用方没显式给的键,显式值永远优先。
+            apply_provider_overrides(call_kwargs, provider_code)
             call_kwargs.update(kwargs)
+            # 表头必须在调用方 kwargs 合并之后再合,否则会被调用方的
+            # extra_headers 整个覆盖掉(env_headers 的值只存在于服务端环境变量)
+            apply_provider_headers(call_kwargs, provider_code)
             # 按 capability 过滤不支持的参数(stream_usage/tools/response_format/temperature)
             filter_call_kwargs(call_kwargs, provider_code, used_model)
             # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
