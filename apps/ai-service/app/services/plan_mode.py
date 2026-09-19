@@ -63,9 +63,6 @@ from ..core.llm_gateway import llm_gateway
 #       注入点击/输入,产生副作用(与 agent_loop_v2 高危工具清单一致,故排除)
 READONLY_TOOLS: frozenset[str] = frozenset(
     {
-        # 内置元工具(批 42 接线,对标 codex get_context_remaining):查询上下文
-        # 剩余 token,纯只读无副作用;plan 模式同样暴露(模型规划时可感知预算)。
-        "get_context_remaining",
         # 文件读
         "read_file",
         "list_files",

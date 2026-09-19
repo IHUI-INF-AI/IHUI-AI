@@ -1097,8 +1097,6 @@ class AgentLoopV2:
         self._time_reminder_state = _CurrentTimeReminderState()
         self._time_provider = time_provider
         self._env_tracker = _EnvironmentStateTracker()
-        # 批 42:本回合内"用户批准后重执行"的工具调用 id 集合(回填 user_shell 片段)
-        self._approved_command_call_ids: set[str] = set()
         # 批 40 接线:rollout_budget 记账 + 阈值提醒(批 26 移植模块首次接线;
         # env AGENT_ROLLOUT_BUDGET_TOKENS>0 启用,默认 off 零行为变化)。
         self._rollout_budget = None
@@ -2823,30 +2821,6 @@ class AgentLoopV2:
                             ),
                         }
                     )
-                # 批 42 接线:user_shell_command 片段(对标 context/user_shell_command.rs)——
-                # 用户批准后重执行的 run_command,其结构化结果以 <user_shell_command>
-                # user 片段回填(与普通 tool 消息并列;带批准语义上下文,失败安全)。
-                if self._approved_command_call_ids:
-                    _tc_args_map = {t.id: t.args for t in tool_calls}
-                    for tr in tool_results:
-                        if (
-                            tr.name != "run_command"
-                            or tr.error
-                            or not isinstance(tr.result, dict)
-                            or tr.tool_call_id not in self._approved_command_call_ids
-                        ):
-                            continue
-                        _cmd = str((_tc_args_map.get(tr.tool_call_id) or {}).get("command", ""))
-                        if not _cmd:
-                            continue
-                        try:
-                            from ..core.user_shell_command import build_user_shell_command_fragment
-
-                            messages.append(build_user_shell_command_fragment(_cmd, tr.result))
-                        except Exception as e:  # noqa: BLE001 - 片段失败隔离,不阻塞主链路
-                            logger.warning("user_shell_command 片段构造失败(跳过): %s", e)
-                    self._approved_command_call_ids.clear()
-
                 # 批 40 接线:工具输出 boundary 记账(对标 note_recorded_items——
                 # AfterUserOrToolOutput 模式下,下次推理允许时间提醒投递)
                 if self._time_provider is not None:
@@ -3362,8 +3336,6 @@ class AgentLoopV2:
             "exec_policy_approved",
             "命令命中策略引擎 PROMPT 规则,经用户批准后执行",
         )
-        # 批 42:记录本 tc 为"用户批准后执行的命令"(工具结果回填 user_shell 片段用)
-        self._approved_command_call_ids.add(tc.id)
         try:
             new_result = await asyncio.wait_for(
                 tool.executor(tc.args),
@@ -3748,19 +3720,6 @@ class AgentLoopV2:
             # 审批门已批准(本 tc 一次会话内不再二次弹窗)
             gate_approved = True
 
-        # 批 42 接线:内置 get_context_remaining(对标 codex tools/handlers/
-        # get_context_remaining.rs)——模型可主动查询当前上下文窗口剩余 token,
-        # 用于自主判断何时收敛/收尾。注册在 self._tools 之外的循环内置快捷路径:
-        # 无需 executor、免审批(纯只读)、不经钩子。tokens_left 基于最近一次
-        # LLM usage 记账的 rollout 剩余量(无记账/未启用时返回 None = 未知)。
-        if tc.name == "get_context_remaining":
-            return ToolResult(
-                tool_call_id=tc.id,
-                name=tc.name,
-                result={"tokens_left": self._context_tokens_left()},
-                duration_ms=(time.time() - start) * 1000,
-            )
-
         tool = self._tools.get(tc.name)
         if not tool:
             return ToolResult(
@@ -3917,7 +3876,7 @@ class AgentLoopV2:
 
     def _build_tools_schema(self) -> list[dict[str, Any]]:
         """构建 tools schema(给 LLM 的 function calling 格式)。"""
-        schemas = [
+        return [
             {
                 "type": "function",
                 "function": {
@@ -3928,28 +3887,4 @@ class AgentLoopV2:
             }
             for t in self._tools.values()
         ]
-        # 批 42 接线:暴露 get_context_remaining(对标 codex get_context_remaining_spec.rs)。
-        # 零参工具,模型可主动查询上下文窗口剩余 token 以自主决定收敛时机。
-        schemas.append(
-            {
-                "type": "function",
-                "function": {
-                    "name": "get_context_remaining",
-                    "description": (
-                        "Get the remaining tokens in the current context window."
-                    ),
-                    "parameters": {"type": "object", "properties": {}},
-                },
-            }
-        )
-        return schemas
-
-    def _context_tokens_left(self) -> int | None:
-        """get_context_remaining 后端:rollout 剩余量,未知时 None。"""
-        try:
-            if self._rollout_budget is not None:
-                return self._rollout_budget.tokens_left()
-        except Exception:  # noqa: BLE001 - 查询失败降级为未知
-            pass
-        return None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
