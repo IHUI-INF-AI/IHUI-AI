@@ -693,6 +693,40 @@ class SessionStore:
             )
             return cur.rowcount > 0
 
+    def update_thread_metadata(
+        self,
+        thread_id: str,
+        patch: dict[str, Any],
+        *,
+        merge: bool = True,
+    ) -> dict[str, Any] | None:
+        """线程元数据 patch 更新(2026-09-20 批 47,对标 OpenAI codex
+        thread-store update_thread_metadata + ThreadMetadataPatch)。
+
+        merge=True:把 patch 深合并进既有 threads.metadata(dict 递归合并,
+        标量覆盖;patch 值为 None 的键=删除该键,对标 codex ClearableField
+        语义);merge=False:整体替换为 patch。顺带更新 threads.updated_at。
+        线程不存在返回 None。
+
+        Returns:
+            更新后的完整 metadata dict;线程不存在返回 None。
+        """
+        with self._lock, self._tx() as conn:
+            row = conn.execute(
+                "SELECT metadata FROM threads WHERE thread_id = ?", (thread_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            current = _json_dict(_row_str(row, "metadata"))
+            new_meta = (
+                self._deep_merge_metadata(current, patch) if merge else dict(patch)
+            )
+            conn.execute(
+                "UPDATE threads SET metadata = ?, updated_at = ? WHERE thread_id = ?",
+                (json.dumps(new_meta, ensure_ascii=False), _now(), thread_id),
+            )
+        return new_meta
+
     def delete_thread(self, thread_id: str) -> int:
         """删除线程(2026-09-20 批 45,对标 Codex thread/delete + thread_store
         delete_thread 事务级联)。
@@ -1339,6 +1373,23 @@ class SessionStore:
         }
 
     # ==================== 内部 ====================
+
+    def _deep_merge_metadata(
+        self, base: dict[str, Any], patch: dict[str, Any]
+    ) -> dict[str, Any]:
+        """深合并 patch 进 base(2026-09-20 批 47,对标 codex
+        ThreadMetadataPatch:dict 递归合并,标量覆盖;patch 值为 None 的键从
+        base 删除,对标 ClearableField)。"""
+        result: dict[str, Any] = dict(base)
+        for key, value in patch.items():
+            if value is None:
+                result.pop(key, None)
+                continue
+            if isinstance(value, dict) and isinstance(result.get(key), dict):
+                result[key] = self._deep_merge_metadata(result[key], value)
+            else:
+                result[key] = value
+        return result
 
     def _next_seq(self, conn: sqlite3.Connection) -> int:
         conn.execute(
