@@ -47,6 +47,7 @@ function downloadVideos() {
     try {
       execSync(`yt-dlp -o "${join(categoryDir, '%(title)s.%(ext)s')}" "${url}"`, {
         stdio: 'inherit',
+        windowsHide: true,
       })
     } catch {
       console.error(`[download] 失败: ${url}`)
@@ -72,6 +73,7 @@ function uploadToOss() {
     try {
       execSync(`aliyun oss cp "${file}" oss://${bucket}/courses/${key} -f`, {
         stdio: 'inherit',
+        windowsHide: true,
       })
     } catch {
       console.error(`[upload] 失败: ${file}`)

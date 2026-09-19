@@ -31,7 +31,7 @@ import { execSync } from 'node:child_process'
 
 function run(cmd, allowFail = false) {
   try {
-    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim()
+    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }).trim()
   } catch (e) {
     if (allowFail) return null
     throw e

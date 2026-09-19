@@ -45,7 +45,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -79,9 +79,6 @@ check-rounded-overflow.mjs — 圆角溢出守门
 `)
   process.exit(0)
 }
-
-// 排除目录:基于共享 EXCLUDE_DIRS,追加脚本特有
-const EXCLUDE_DIRS = withExcludes(['.ihui-agent', 'tests', '__tests__', 'e2e'])
 
 // 只扫描 .tsx / .jsx(JSX 才有 className)
 const SCAN_EXTS = ['.tsx', '.jsx']
@@ -189,10 +186,12 @@ function extractClassName(lines, startIdx) {
     const clsMatch = combined.match(/className\s*=\s*("([^"]*)"|'([^']*)'|`([^`]*)`|\{([^}]+)\})/)
     if (clsMatch) {
       // 提取引号/大括号内的内容;cn()/clsx() 表达式与模板字符串需解析出字面量 className
+      // 注意:regex 非参与捕获组在 match 结果中是 undefined 而非 null,
+      // 必须用 !== undefined 判断(旧代码 !== null 恒真 → resolveTemplateClassName(undefined) 崩溃)
       const value =
-        clsMatch[4] !== null
+        clsMatch[4] !== undefined
           ? resolveTemplateClassName(clsMatch[4])
-          : clsMatch[5] !== null
+          : clsMatch[5] !== undefined
             ? resolveExprClassName(clsMatch[5])
             : (clsMatch[2] ?? clsMatch[3] ?? '')
       // 计算 endLine:找 className= 在 combined 中的位置,数换行
@@ -282,6 +281,7 @@ function getStagedAddedLines() {
       cwd: ROOT,
       maxBuffer: 50 * 1024 * 1024,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
   } catch {
     return result
@@ -328,6 +328,7 @@ function getStagedFiles() {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return output
       .split('\n')

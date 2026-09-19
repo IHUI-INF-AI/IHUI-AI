@@ -52,6 +52,7 @@ describe('paypal service', () => {
       'PAYPAL_API_BASE',
       'PAYPAL_RETURN_URL',
       'PAYPAL_CANCEL_URL',
+      'ALLOW_INSECURE_WEBHOOKS',
       'NODE_ENV',
     ]) {
       if (k in originalEnv) {
@@ -163,31 +164,23 @@ describe('paypal service', () => {
       authAlgo: 'SHA256withRSA',
     }
 
-    it('DEV 环境无 PAYPAL_WEBHOOK_ID 时降级直接 parse payload', async () => {
+    // 2026-09-18 fail-closed 修复后:无 PAYPAL_WEBHOOK_ID 默认抛错,
+    // 仅显式 ALLOW_INSECURE_WEBHOOKS=1 且非生产环境才降级 parse
+
+    it('DEV 环境无 PAYPAL_WEBHOOK_ID 时抛错(默认 fail-closed)', async () => {
       process.env.NODE_ENV = 'development'
-      const payload = JSON.stringify({
-        id: 'evt-1',
-        event_type: 'PAYMENT.CAPTURE.COMPLETED',
-        resource_type: 'capture',
-        resource: { id: 'cap-1', custom_id: 'PP20260728' },
-      })
-      const event = await verifyWebhookSignature(payload, validHeaders)
-      expect(event.id).toBe('evt-1')
-      expect(event.event_type).toBe('PAYMENT.CAPTURE.COMPLETED')
-      expect(event.resource).toEqual({ id: 'cap-1', custom_id: 'PP20260728' })
+      const payload = JSON.stringify({ id: 'evt-1', event_type: 'PAYMENT.CAPTURE.COMPLETED' })
+      await expect(verifyWebhookSignature(payload, validHeaders)).rejects.toThrow(
+        'PAYPAL_WEBHOOK_ID not configured',
+      )
     })
 
-    it('test 环境无 PAYPAL_WEBHOOK_ID 时也降级 parse', async () => {
-      // vitest 默认 NODE_ENV=test,不等于 production
-      const payload = JSON.stringify({
-        id: 'evt-2',
-        event_type: 'CHECKOUT.ORDER.APPROVED',
-        resource_type: 'checkout-order',
-        resource: {},
-      })
-      const event = await verifyWebhookSignature(payload, validHeaders)
-      expect(event.id).toBe('evt-2')
-      expect(event.event_type).toBe('CHECKOUT.ORDER.APPROVED')
+    it('test 环境无 PAYPAL_WEBHOOK_ID 时也抛错(fail-closed 不分环境)', async () => {
+      // vitest 默认 NODE_ENV=test
+      const payload = JSON.stringify({ id: 'evt-2', event_type: 'CHECKOUT.ORDER.APPROVED' })
+      await expect(verifyWebhookSignature(payload, validHeaders)).rejects.toThrow(
+        'PAYPAL_WEBHOOK_ID not configured',
+      )
     })
 
     it('生产环境无 PAYPAL_WEBHOOK_ID 时抛错(拒绝未验签事件)', async () => {
@@ -198,8 +191,33 @@ describe('paypal service', () => {
       )
     })
 
-    it('DEV 环境无 PAYPAL_WEBHOOK_ID 时即使 event_type 未订阅也直接 parse(验签不等于事件过滤)', async () => {
+    it('DEV 环境显式 ALLOW_INSECURE_WEBHOOKS=1 时降级直接 parse(本地联调)', async () => {
       process.env.NODE_ENV = 'development'
+      process.env.ALLOW_INSECURE_WEBHOOKS = '1'
+      const payload = JSON.stringify({
+        id: 'evt-1b',
+        event_type: 'PAYMENT.CAPTURE.COMPLETED',
+        resource_type: 'capture',
+        resource: { id: 'cap-1', custom_id: 'PP20260728' },
+      })
+      const event = await verifyWebhookSignature(payload, validHeaders)
+      expect(event.id).toBe('evt-1b')
+      expect(event.event_type).toBe('PAYMENT.CAPTURE.COMPLETED')
+      expect(event.resource).toEqual({ id: 'cap-1', custom_id: 'PP20260728' })
+    })
+
+    it('ALLOW_INSECURE_WEBHOOKS=1 但生产环境仍抛错(降级不覆盖生产)', async () => {
+      process.env.NODE_ENV = 'production'
+      process.env.ALLOW_INSECURE_WEBHOOKS = '1'
+      const payload = JSON.stringify({ id: 'evt-3b', event_type: 'x' })
+      await expect(verifyWebhookSignature(payload, validHeaders)).rejects.toThrow(
+        'PAYPAL_WEBHOOK_ID not configured',
+      )
+    })
+
+    it('ALLOW_INSECURE_WEBHOOKS=1 时即使 event_type 未订阅也直接 parse(验签不等于事件过滤)', async () => {
+      process.env.NODE_ENV = 'development'
+      process.env.ALLOW_INSECURE_WEBHOOKS = '1'
       const payload = JSON.stringify({
         id: 'evt-4',
         event_type: 'UNKNOWN.EVENT',

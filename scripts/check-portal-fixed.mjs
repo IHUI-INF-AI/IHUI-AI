@@ -28,12 +28,11 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
-const EXCLUDE_DIRS = withExcludes(['.ihui-agent', 'tests', '__tests__', 'e2e'])
 const SCAN_EXTS = ['.tsx', '.jsx']
 
 function walk(dir, out = []) {
@@ -54,6 +53,7 @@ function listStagedFiles() {
   try {
     const out = execSync('git diff --cached --name-only --diff-filter=ACM', {
       encoding: 'utf8',
+      windowsHide: true,
     })
     return out.split('\n').filter((f) => f && SCAN_EXTS.some((e) => f.endsWith(e)))
   } catch {

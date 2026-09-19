@@ -174,8 +174,8 @@ if (existsSync(webE2eTsconfig)) {
       cwd: ROOT,
       stdio: 'inherit',
       shell: true,
-      windowsHide: true,
-    })
+        windowsHide: true,
+      })
 
     if (e2eResult.status !== 0) {
       console.error(
@@ -248,8 +248,8 @@ if (existsSync(aiServiceDir)) {
         cwd: aiServiceDir,
         stdio: 'inherit',
         shell: true,
-        windowsHide: true,
-      })
+          windowsHide: true,
+        })
 
       if (mypyResult.status !== 0) {
         console.error(

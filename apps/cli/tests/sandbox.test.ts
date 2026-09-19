@@ -51,7 +51,13 @@ beforeAll(() => {
 
 afterAll(() => {
   // 2026-09-14:maxRetries+retryDelay 根治 Windows 机器级文件锁的 EBUSY 瞬时失败
-  fs.rmSync(wsRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  // 2026-09-19:超时强杀(taskkill)后子进程句柄释放是异步的,高负载下 EPERM 可持续
+  // 超过重试窗口——teardown 清理属 best-effort,残留目录由系统 TEMP 收割,不应炸套件
+  try {
+    fs.rmSync(wsRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+  } catch (err) {
+    console.warn(`[sandbox.test] 临时目录清理失败(忽略,不影响测试判定): ${String(err)}`);
+  }
 });
 
 /** 基础合法策略(各测试按需覆盖字段) */

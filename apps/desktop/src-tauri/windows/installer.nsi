@@ -1,12 +1,14 @@
 ; ⚠️ 本文件是 Tauri v2 NSIS 安装器模板的定制副本,上游版权归 tauri-apps/tauri(MIT / Apache-2.0)。
 ; 来源:tauri-bundler · crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi(tauri-cli 内置,include_str!)
 ;
-; IHUI 定制范围(仅一处逻辑改动,其余与上游逐字节一致):
-;   模板 .onInit 的"默认安装目录"分支被替换为 —— 安装语言为简体中文($LANGUAGE = 2052)→ D:\智汇AI,
-;   其余语言 → D:\IHUI AI。上游紧跟其后的 Call RestorePreviousInstallLocation 原样保留,
-;   因此"已装过则沿用既有安装位置"(重装不产生第二份安装、/UPDATE 静默升级回原位置)的语义不变。
-;   目的是让安装向导"选择安装位置"页的**首屏默认值**即为该路径。
-;   (旧实现用 NSIS_HOOK_PREINSTALL 改 $INSTDIR,时机过晚:只影响落盘,不影响向导显示。)
+; IHUI 定制范围(补丁集 P0-P6,由 scripts/desktop-nsis-template.mjs 维护,其余与上游逐字节一致):
+;   P0 .onInit 默认安装目录:安装语言为简体中文($LANGUAGE = 2052)→ D:\智汇AI,其余 → D:\IHUI AI。
+;      上游紧跟其后的 Call RestorePreviousInstallLocation 原样保留,
+;      因此"已装过则沿用既有安装位置"(重装不产生第二份安装、/UPDATE 静默升级回原位置)的语义不变。
+;      目的是让安装向导"选择安装位置"页的首屏默认值即为该路径。
+;   P1-P4,P6 安装向导全面品牌化(无边框深色窗口/每页满幅品牌位图/位图按钮/进度条重着色/
+;      AdvSplash 多帧开屏),实现见 windows/ihui-ui.nsi(经 hooks.nsi include 接线)。
+;   P5 重装/升级确认页深色主题宏。
 ;
 ; ⚠️ 升级 Tauri CLI 后必须执行:node scripts/desktop-nsis-template.mjs --check
 ;   禁止手工编辑本文件的非定制段落;要改定制逻辑请改本脚本内的常量后重新 --write。
@@ -178,9 +180,8 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 !define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
 
 ; Installer pages, must be ordered as they appear
-; 1. Welcome Page
-!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
-!insertmacro MUI_PAGE_WELCOME
+; 1. Welcome Page(IHUI 自定义品牌页,见 windows/ihui-ui.nsi;passive/静默在页内 Abort 跳过)
+Page custom IHUIWelcomePage IHUIWelcomeLeave
 
 ; 2. License Page (if defined)
 !if "${LICENSE}" != ""
@@ -309,6 +310,8 @@ Function PageReinstall
     ${EndIf}
 
     ${NSD_SetFocus} $R2
+    ; IHUI:重装/升级确认页深色主题(只读 $R1/$R2/$R3/$R4,见 windows/ihui-ui.nsi)
+    !insertmacro IHUI_REINSTALLTHEME
     nsDialogs::Show
   ${EndIf}
 FunctionEnd
@@ -397,9 +400,8 @@ Function PageLeaveReinstall
   reinst_done:
 FunctionEnd
 
-; 5. Choose install directory page
-!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
-!insertmacro MUI_PAGE_DIRECTORY
+; 5. Choose install directory page(IHUI 自定义品牌页,见 windows/ihui-ui.nsi)
+Page custom IHUIDirPage IHUIDirLeave
 
 ; 6. Start menu shortcut page
 Var AppStartMenuFolder
@@ -411,23 +413,15 @@ Var AppStartMenuFolder
 !endif
 !insertmacro MUI_PAGE_STARTMENU Application $AppStartMenuFolder
 
-; 7. Installation page
+; 7. Installation page(IHUI 深色化:SHOW/LEAVE 回调见 windows/ihui-ui.nsi)
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW IHUIInstShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE IHUIInstLeave
 !insertmacro MUI_PAGE_INSTFILES
 
-; 8. Finish page
-;
-; Don't auto jump to finish page after installation page,
-; because the installation page has useful info that can be used debug any issues with the installer.
-!define MUI_FINISHPAGE_NOAUTOCLOSE
-; Use show readme button in the finish page as a button create a desktop shortcut
-!define MUI_FINISHPAGE_SHOWREADME
-!define MUI_FINISHPAGE_SHOWREADME_TEXT "$(createDesktop)"
-!define MUI_FINISHPAGE_SHOWREADME_FUNCTION CreateOrUpdateDesktopShortcut
-; Show run app after installation.
-!define MUI_FINISHPAGE_RUN
-!define MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary
-!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
-!insertmacro MUI_PAGE_FINISH
+; 8. Finish page(IHUI 自定义品牌页,见 windows/ihui-ui.nsi)
+; 上游 MUI_FINISHPAGE_* 已移除:instfiles 完成后自动进入品牌完成页;
+; 快捷方式创建/启动应用逻辑移入 IHUIOnFinish/IHUIOnLaunch(Call 模板函数,语义不变)。
+Page custom IHUIFinishPage IHUIFinishLeave
 
 Function RunMainBinary
   nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" ""
@@ -527,6 +521,8 @@ Function .onInit
     ; ==== IHUI 定制结束 ====
   ${EndIf}
 
+  ; IHUI:多帧品牌开屏动画 + 页面资产预解压(passive/静默/升级模式跳过,见 windows/ihui-ui.nsi)
+  !insertmacro IHUI_INITSPLASH
 
   !if "${INSTALLMODE}" == "both"
     !insertmacro MULTIUSER_INIT

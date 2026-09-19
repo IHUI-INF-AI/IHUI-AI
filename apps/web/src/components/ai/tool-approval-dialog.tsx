@@ -22,6 +22,7 @@ import { useTranslations } from 'next-intl'
 import { AlertTriangle, Check, Loader2, ShieldAlert } from 'lucide-react'
 import { sendToolApprovalResponse } from '@ihui/api-client'
 import type { ToolApprovalRequest } from '@ihui/types'
+import { AGENT_TASK_EVENTS, parseToolApprovalEvent } from '@ihui/shared'
 import { Modal } from '@/components/feedback'
 
 /** 全局审批请求事件名(executeAgentStream 等消费方收到 SSE tool-approval 后可派发)。 */
@@ -85,28 +86,15 @@ export function ToolApprovalDialog() {
   React.useEffect(() => {
     if (typeof window === 'undefined' || !('EventSource' in window)) return
     const es = new EventSource('/api/agents/tasks/stream')
+    // t4(2026-09-19):wire 解析迁移至共享 parseToolApprovalEvent(type 守卫 + session_id
+    // 顶层优先/payload 内兜底 + danger_level 缺省 high),此处仅保留入队去重职责。
     const onApproval = (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(e.data as string) as {
-          type?: string
-          session_id?: string
-          payload?: Record<string, unknown>
-        }
-        if (data.type !== 'tool-approval' || !data.payload) return
-        const p = data.payload
-        enqueue({
-          approvalId: String(p.approval_id ?? ''),
-          toolName: String(p.tool_name ?? ''),
-          toolCallId: String(p.tool_call_id ?? ''),
-          argsPreview: String(p.args_preview ?? ''),
-          dangerLevel: (p.danger_level as ToolApprovalRequest['dangerLevel']) ?? 'high',
-          sessionId: String(data.session_id ?? p.session_id ?? ''),
-        })
-      } catch {
-        /* 忽略非 JSON 事件 */
-      }
+      const evt = parseToolApprovalEvent(e.data)
+      if (!evt) return
+      // 视图形态字段与 @ihui/types ToolApprovalRequest 一一对应,仅 dangerLevel 收窄
+      enqueue({ ...evt, dangerLevel: evt.dangerLevel as ToolApprovalRequest['dangerLevel'] })
     }
-    es.addEventListener('tool-approval', onApproval)
+    es.addEventListener(AGENT_TASK_EVENTS.TOOL_APPROVAL, onApproval)
     // 网络错误不 close,让 EventSource 内置自动重连生效(与 use-agent-runtime 同模式)
     return () => {
       es.close()

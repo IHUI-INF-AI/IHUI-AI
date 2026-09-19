@@ -58,6 +58,8 @@ vi.mock('lucide-react', async (importOriginal) => {
     ChevronDown: make('ChevronDown'),
     AlertCircle: make('AlertCircle'),
     Copy: make('Copy'),
+    X: make('X'),
+    SkipForward: make('SkipForward'),
   }
 })
 
@@ -70,6 +72,8 @@ const I18N_MAP: Record<string, string> = {
   'plan.statusInProgress': '正在',
   'plan.statusCompleted': '已完成',
   'plan.statusPending': '待开始',
+  'plan.statusSkipped': '已跳过',
+  'plan.statusFailed': '失败',
   'plan.stepError': '失败',
   'plan.progressPercent': '{percent}%',
   'plan.summaryAllDone': '全部完成',
@@ -321,6 +325,108 @@ describe('PlanStepsCard', () => {
     expect(icon?.className).toContain('text-red-500')
     // data-status 仍为 completed(类型不破坏)
     expect(li?.getAttribute('data-status')).toBe('completed')
+  })
+
+  // ─── 五态渲染(2026-09-19 v2:skipped/failed 独立状态) ────────────
+
+  it('skipped 状态:SkipForward 图标 + 删除线 + data-status="skipped"', () => {
+    const { container } = render(
+      <PlanStepsCard steps={[makeStep({ id: 's1', step: '跳过的步骤', status: 'skipped' })]} />,
+    )
+    const li = container.querySelector('[data-status="skipped"]')
+    expect(li).toBeTruthy()
+    // skipped 用 SkipForward 图标 + 弱化灰色
+    const icon = li?.querySelector('[data-testid="icon-SkipForward"]')
+    expect(icon).toBeTruthy()
+    expect(icon?.className).toContain('text-muted-foreground/60')
+    // 步骤名删除线弱化显示
+    const label = li?.querySelector('span.flex-1')
+    expect(label?.className).toContain('line-through')
+    // skipped 不带 error 标记
+    expect(li?.getAttribute('data-error')).toBe(null)
+  })
+
+  it('failed 状态(显式):AlertCircle 图标 + 红色 + data-status="failed"', () => {
+    const { container } = render(
+      <PlanStepsCard steps={[makeStep({ id: 's1', step: '失败的步骤', status: 'failed' })]} />,
+    )
+    const li = container.querySelector('[data-status="failed"]')
+    expect(li).toBeTruthy()
+    // isFailed 统一视觉:显式 failed 也用 AlertCircle + 红色
+    const icon = li?.querySelector('[data-testid="icon-AlertCircle"]')
+    expect(icon).toBeTruthy()
+    expect(icon?.className).toContain('text-red-500')
+    // 步骤名红色(浅色 text-red-600 / 深色 text-red-400)
+    const label = li?.querySelector('span.flex-1')
+    expect(label?.className).toContain('text-red-600')
+    // 无 error 标记时 data-error 属性不渲染
+    expect(li?.getAttribute('data-error')).toBe(null)
+  })
+
+  it('failed 统一视觉:completed+error=true(旧协议)与显式 failed(新协议)均红色 AlertCircle', () => {
+    const { container } = render(
+      <PlanStepsCard
+        steps={[
+          makeStep({ id: 's1', step: '旧协议失败', status: 'completed', error: true }),
+          makeStep({ id: 's2', step: '新协议失败', status: 'failed' }),
+        ]}
+      />,
+    )
+    // 两种来源(isFailed 归一化)均渲染 AlertCircle 红色图标
+    const icons = container.querySelectorAll('[data-testid="icon-AlertCircle"]')
+    expect(icons).toHaveLength(2)
+    icons.forEach((icon) => expect(icon.className).toContain('text-red-500'))
+    // s1 旧协议带 data-error 标记;s2 新协议无(仅显式 failed)
+    const item1 = container.querySelector('[data-testid="plan-steps-card-item-s1"]')
+    const item2 = container.querySelector('[data-testid="plan-steps-card-item-s2"]')
+    expect(item1?.getAttribute('data-error')).toBe('true')
+    expect(item2?.getAttribute('data-error')).toBe(null)
+  })
+
+  it('五态并存:pending/in_progress/completed/skipped/failed 各自图标渲染', () => {
+    const steps = [
+      makeStep({ id: 's1', step: '待开始', status: 'pending' }),
+      makeStep({ id: 's2', step: '进行中', status: 'in_progress' }),
+      makeStep({ id: 's3', step: '已完成', status: 'completed' }),
+      makeStep({ id: 's4', step: '已跳过', status: 'skipped' }),
+      makeStep({ id: 's5', step: '已失败', status: 'failed' }),
+    ]
+    render(<PlanStepsCard steps={steps} />)
+    // 时间线图标:failed 走 isFailed 统一视觉用 AlertCircle,skipped 用 SkipForward
+    expect(screen.getAllByTestId('icon-Clock')).toHaveLength(1)
+    expect(screen.getAllByTestId('icon-Loader2')).toHaveLength(1)
+    expect(screen.getAllByTestId('icon-Check')).toHaveLength(1)
+    expect(screen.getAllByTestId('icon-SkipForward')).toHaveLength(1)
+    expect(screen.getAllByTestId('icon-AlertCircle')).toHaveLength(1)
+  })
+
+  it('分段进度条五态:skipped/failed 段颜色独立 + Tooltip 状态文案', () => {
+    const steps = [
+      makeStep({ id: 's1', step: '跳过段', status: 'skipped' }),
+      makeStep({ id: 's2', step: '失败段', status: 'failed' }),
+    ]
+    const { container } = render(<PlanStepsCard steps={steps} />)
+    // skipped 段弱化灰,failed 段红色
+    const seg1 = container.querySelector('[data-testid="plan-steps-card-segment-s1"]')
+    const seg2 = container.querySelector('[data-testid="plan-steps-card-segment-s2"]')
+    expect(seg1?.className).toContain('bg-muted-foreground/40')
+    expect(seg2?.className).toContain('bg-red-500/70')
+    // Tooltip 文案使用 statusSkipped / statusFailed key
+    const contents = screen.getAllByTestId('tooltip-content')
+    expect(contents).toHaveLength(2)
+    expect(contents[0]!.textContent).toContain('已跳过')
+    expect(contents[1]!.textContent).toContain('失败')
+  })
+
+  it('折叠态摘要:显式 failed 状态计入错误计数(与 error=true 归一化)', () => {
+    const steps = [
+      makeStep({ id: 's1', status: 'completed', step: '步骤一' }),
+      makeStep({ id: 's2', status: 'failed', step: '步骤二' }),
+    ]
+    render(<PlanStepsCard steps={steps} />)
+    const summary = screen.getByTestId('plan-steps-card-summary')
+    expect(summary.textContent).toContain('错误')
+    expect(summary.textContent).toContain('1')
   })
 
   it('分段进度条渲染:每个步骤一段 + 百分比文字', () => {

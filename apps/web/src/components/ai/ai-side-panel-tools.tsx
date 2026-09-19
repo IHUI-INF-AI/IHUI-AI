@@ -49,6 +49,8 @@ import { MemoryGraphPanel } from '@/components/ai/memory-graph-panel'
 import { AtomicRollbackPanel } from '@/components/ai/atomic-rollback-panel'
 import { WorldsCompare } from '@/components/ai/worlds-compare'
 import { AgentTasksPanel } from '@/components/ai/agent-tasks-panel'
+// D6 #2(2026-09-19 立):挂载 DB 持久化 + SSE 的 KanbanBoard,作为统一 agent 任务数据层
+import { KanbanBoard } from '@/components/agents/KanbanBoard'
 import { GoalCard } from '@/components/ai/goal-card'
 import { MemoryCards } from '@/components/ai/memory-cards'
 import { TokenUsagePanel } from '@/components/ai/token-usage-panel'
@@ -102,6 +104,7 @@ type ToolTabKey =
   | 'atomicrollback'
   | 'worlds'
   | 'agenttasks'
+  | 'kanban'
   | 'hooks'
   | 'wiki'
   | 'integrations'
@@ -128,6 +131,7 @@ const TAB_KEYS: ToolTabKey[] = [
   'atomicrollback',
   'worlds',
   'agenttasks',
+  'kanban',
   'hooks',
   'wiki',
   'integrations',
@@ -585,6 +589,10 @@ export function AiSidePanelTools() {
         ) : (
           emptyHint
         )
+      // D6 第 2 步(half-merge 占位):swarm 入口收敛说明。
+      // 完整归并目标:把 AgentSwarmMonitor + SwarmTopologyView 并入 OrchestrationHubPanel
+      // 的 subagents tab(统一多 agent 拓扑视图)。但因 agent-swarm-monitor.tsx 本轮被占用
+      // 禁改,此处仅保留 swarm tab 入口 + 收敛注释,完整归并待占用解除后由主会话执行。
       case 'swarm':
         return swarmData ? (
           <AgentSwarmMonitor
@@ -678,6 +686,9 @@ export function AiSidePanelTools() {
       // P3 #44 阶段3 前端宿主(2026-09-17 立):agent 运行任务列表 + 中途插话
       case 'agenttasks':
         return <AgentTasksPanel />
+      // D6 第 2 步(2026-09-19 立):挂载 DB 持久化 + SSE 的 KanbanBoard,作为统一 agent 任务数据层
+      case 'kanban':
+        return <KanbanBoard />
       // W28 Hooks 事件系统配置面板(2026-09-14 立)
       case 'hooks':
         return <AgentHooksPanel />

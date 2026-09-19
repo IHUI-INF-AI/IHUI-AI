@@ -45,6 +45,17 @@ vi.mock('../src/context/ThemeContext', () => ({
 vi.mock('@ihui/rn-app', async () => {
   const { createElement: h } = await import('react')
   return {
+    SearchInput: ({
+      value,
+      onChangeText,
+    }: {
+      value?: string
+      onChangeText?: (value: string) => void
+    }) =>
+      h('input', {
+        value,
+        onChange: (event: { target: { value: string } }) => onChangeText?.(event.target.value),
+      }),
     MessageCenterScreen: ({
       conversations,
       onPressConversation,

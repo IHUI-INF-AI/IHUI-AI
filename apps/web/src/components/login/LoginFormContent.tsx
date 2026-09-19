@@ -352,6 +352,13 @@ export function LoginFormContent({ onSuccess, tabs }: LoginFormContentProps) {
         thirdPartyFeaturedPlatform={isMobileLayout ? 'wechat' : undefined}
         thirdPartyFeaturedBackground={isMobileLayout ? OAUTH_BRAND_COLORS.wechat : undefined}
         phoneDefaultAccount={isMobileLayout ? recentPhone : undefined}
+        // 2026-09-19 紧凑化(用户要求登录弹窗内容在视口内完整显示、禁止滚动):
+        // 表单纵向间距 16→12 / 输入框与提交钮 h-10→h-9 / 第三方网格 3→4 列
+        // (8 平台 3 行→2 行)。仅桌面弹窗与移动全屏页共用本组件,twMerge 覆盖共享默认。
+        className="space-y-3"
+        inputClassName="h-9"
+        buttonClassName="h-9"
+        thirdPartyColumns={4}
       />
       {pending2fa && (
         // 2FA 验证面板覆盖层:登录响应 twoFactorRequired 时弹出

@@ -59,12 +59,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Optional, cast
 
+from ..core.usage_cache import normalize_usage
 from .agent_checkpoint import (
     AgentCheckpointManager,
     AgentLoopCheckpoint,
     get_agent_checkpoint_manager,
 )
-from ..core.usage_cache import normalize_usage
 
 if TYPE_CHECKING:
     from .compaction_canary import CompactionDecision
@@ -568,10 +568,23 @@ class AgentEventStream:
     - tool.after 的 evidence 推导失败同样跳过该次事件(与拆层前一致)。
     """
 
+    def __init__(self) -> None:
+        # 可靠性:可选 trace_id(2026-09-18 立)。经 bind_trace 注入后,emit 对未携带
+        # trace_id 键的 payload 自动注入,统一关联事件链路;None 时行为与现状逐零差异。
+        self._trace_id: str | None = None
+
+    def bind_trace(self, trace_id: str | None) -> None:
+        """绑定(或解绑)trace_id:此后 emit 对无 trace_id 键的 payload 自动注入。"""
+        self._trace_id = trace_id
+
     async def emit(
         self, event: str, payload: dict[str, Any], *, silent: bool = False
     ) -> None:
         """发射任意事件;失败降级不抛(silent=True 时连 warning 也不记)。"""
+        # 可靠性:已绑定 trace_id 且 payload 未显式携带时注入(不覆盖显式传入值;
+        # 拷贝注入,不改调用方原 dict)。
+        if self._trace_id and "trace_id" not in payload:
+            payload = {**payload, "trace_id": self._trace_id}
         try:
             await hook_engine.emit(event, payload)
         except Exception as e:
@@ -612,6 +625,20 @@ class AgentEventStream:
             "stop_reason": stop_reason,
             "total_iterations": total_iterations,
             "total_duration_ms": total_duration_ms,
+        })
+
+    async def message_send(
+        self,
+        *,
+        session_id: str,
+        iteration: int,
+        messages_count: int,
+    ) -> None:
+        """message.send:本轮 LLM 请求即将发出(前端 message_send 命名事件源)。"""
+        await self.emit("message.send", {
+            "session_id": session_id,
+            "iteration": iteration,
+            "messages_count": messages_count,
         })
 
     async def tool_before(
@@ -932,6 +959,8 @@ class AgentLoopV2:
         # **kwargs 透传 llm_complete_fn(承载层闭包再透传 llm_gateway→litellm)。
         # 空时调用签名与现状逐零差异(mock 友好)。
         model_params: dict[str, Any] | None = None,
+        # 可靠性：可选 trace_id 统一关联事件、LLM 与工具调用；不传时兼容旧调用。
+        trace_id: str | None = None,
         # 2026-09-18 第三批(Goals 对标):线程持久目标;非空时 run 入口注入 system。
         thread_goal: str | None = None,
     ):
@@ -1133,6 +1162,14 @@ class AgentLoopV2:
         # (去重防烧 token;每次 run 重置,见 _reset_run_state)。
         self._self_heal_runs: int = 0
         self._self_heal_commands: set[str] = set()
+        # 可靠性:可选 trace_id(2026-09-18 立)统一关联事件、LLM 与工具调用。
+        # None = 未显式传入,每次 run 由 _reset_run_state 生成新 uuid(一次 run 一个
+        # trace);显式传入则跨 run 固定不变,便于按业务 id 检索全链路。
+        self._trace_id: str | None = trace_id
+        # 记录是否构造期显式传入:决定 _reset_run_state 是否逐 run 重新生成
+        self._trace_id_explicit: bool = trace_id is not None
+        # 构造期即绑定到事件流:此后所有 emit 的 payload 自动注入该 trace_id
+        self._events.bind_trace(self._trace_id)
 
     def _ensure_session_id(self) -> str:
         """获取或自动生成 session_id。"""
@@ -1156,6 +1193,21 @@ class AgentLoopV2:
         # 2-3 自愈集成:每次 run 重置 heal 计数与命令去重集合
         self._self_heal_runs = 0
         self._self_heal_commands = set()
+        # 可靠性:每次 run 重置 trace_id(2026-09-18 立)——未显式传入时逐 run 生成
+        # 新 uuid(一次 run 一个 trace);显式传入的保持不变。随后重新绑定到事件流,
+        # 本次 run 的全部事件 payload 自动携带该 trace_id。
+        if not self._trace_id_explicit:
+            self._trace_id = uuid.uuid4().hex
+        self._events.bind_trace(self._trace_id)
+
+    @property
+    def trace_id(self) -> str | None:
+        """本次(或下次)run 的 trace_id 只读视图。
+
+        显式传入时跨 run 恒定;未显式传入时,每次 run 开始(_reset_run_state)后
+        为该 run 新生成的 uuid.hex,逐 run 变化。
+        """
+        return self._trace_id
 
     def _effective_compaction_settings(self) -> tuple[bool, bool]:
         """解析本次 run 生效的 (enabled, llm_enabled) 压缩配置。
@@ -2490,6 +2542,13 @@ class AgentLoopV2:
                     iteration=i,
                     messages_count=len(messages),
                     tools_count=len(tools_schema) if tools_schema else 0,
+                )
+                # P1(2026-09-19):message.send 接线——LLM 调用前通知前端本轮
+                # 请求已发出,消除 SSE 契约 message_send 无生产源的 parity 警告。
+                await self._events.message_send(
+                    session_id=self._session_id or "",
+                    iteration=i,
+                    messages_count=len(messages),
                 )
                 # 1. 调 LLM(带 tools,带指数退避重试);调用前按占用率自动压缩上下文(1-8)
                 messages = await self._maybe_compact_context(messages)

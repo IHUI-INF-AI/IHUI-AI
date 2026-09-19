@@ -130,7 +130,10 @@ function TurnstileEnabledShell({
 
   return (
     <TurnstileContext.Provider value={contextValue}>
-      <div onSubmitCapture={handleSubmitCapture} className="px-4 py-4 space-y-4">
+      {/* 2026-09-19 紧凑化:px-4 py-4 space-y-4 → px-4。原 space-y-4 对 0 高 TurnstileWidget
+          仍会产生 16px 幽灵 margin(滚动容器 scrollHeight 虚增);纵向节奏由表单自身
+          space-y/pt 控制,此处不再叠加。 */}
+      <div onSubmitCapture={handleSubmitCapture} className="px-4">
         {children}
         <TurnstileWidget onVerify={handleVerify} onExpire={handleExpire} onError={handleError} />
       </div>

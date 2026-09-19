@@ -249,6 +249,7 @@
     "username": "Username",
     "usernamePlaceholder": "Please enter your username",
     "wechatLogin": "WeChat",
+    "oidcLogin": "Enterprise SSO",
     "login": "Log in",
     "captchaRefresh": "Refresh captcha"
   },

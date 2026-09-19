@@ -24,6 +24,8 @@ import {
   Timer,
   AlertCircle,
   Ban,
+  ShieldCheck,
+  TerminalSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { IconButton } from '@ihui/ui-react'
@@ -621,9 +623,18 @@ export function AgentTaskProgressPane() {
   // P0-5(2026-09-13):workbench 运行时链路(/agents/tasks/stream 命名事件)。
   // - runtimeThinking:loop_v2 reasoning 整段(多次事件拼接),chat 流无内容时兜底展示
   // - runtimePlanSteps:工具步骤 started/completed 时间线(step_index 幂等)
-  const { thinkingContent: runtimeThinking, planSteps: runtimePlanSteps } = useAgentRuntime(
-    open && threadId ? threadId : null,
-  )
+  // P1(2026-09-19):workbench 运行时新状态(session_end/permission-mode/
+  // terminal-delta/agent-status/message_send)。注意 hook 可能尚未下发这些字段
+  // (另一位开发者并行开发中),运行时为 undefined,渲染侧一律真值守卫。
+  const {
+    thinkingContent: runtimeThinking,
+    planSteps: runtimePlanSteps,
+    sessionEnd: runtimeSessionEnd,
+    permissionMode: runtimePermissionMode,
+    terminalDeltas: runtimeTerminalDeltas,
+    agentStatus: runtimeAgentStatus,
+    lastMessageSend: runtimeLastMessageSend,
+  } = useAgentRuntime(open && threadId ? threadId : null)
 
   // v15: 实时计时器 — 仅在 streaming 或 sessionStart 存在时每秒 tick,空闲时停止
   // elapsed 派生:基于 sessionStart + 累计 tick 秒数,避免依赖当前 Date.now()(避免重渲染后时间跳变)
@@ -1337,6 +1348,25 @@ export function AgentTaskProgressPane() {
           </button>
         )}
 
+        {/* P1(2026-09-19):agent 瞬态状态横幅 — pause/cancel/resume 过渡提示 */}
+        {runtimeAgentStatus && (
+          <div
+            className="flex shrink-0 items-center gap-1.5 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-300"
+            role="status"
+            aria-live="polite"
+            data-testid="pane-runtime-agent-status"
+          >
+            <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
+            <span className="flex-1 truncate">
+              {runtimeAgentStatus.status === 'resuming'
+                ? t('runtimeStatusResuming')
+                : runtimeAgentStatus.status === 'pausing'
+                  ? t('runtimeStatusPausing')
+                  : t('runtimeStatusCancelling')}
+            </span>
+          </div>
+        )}
+
         {/* v13: 键盘快捷键帮助面板(VSCode 风格,按 ? 弹出,Esc 关闭) */}
         {showHelp && (
           <div
@@ -1533,6 +1563,97 @@ export function AgentTaskProgressPane() {
               {runtimePlanSteps.map((step) => (
                 <RuntimeStepRow key={`${step.runId}-${step.stepIndex}`} step={step} />
               ))}
+            </div>
+          )}
+
+          {/* P1(2026-09-19):workbench 运行时新状态 — permission-mode / message_send /
+              terminal-delta / session_end;全部条件渲染,null/空数组不出 DOM。
+              TerminalSection 有自己的数据源(chat store),运行时增量输出单独成区。 */}
+          {runtimePermissionMode && (
+            <div
+              className="mx-2 mt-1.5 flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-foreground/80"
+              data-testid="pane-runtime-permission-mode"
+            >
+              <ShieldCheck className="h-3 w-3 shrink-0 text-primary" aria-hidden />
+              <span className="min-w-0 flex-1 truncate">
+                {t('runtimePermissionMode', {
+                  mode: runtimePermissionMode.mode,
+                  tool: runtimePermissionMode.tool,
+                  decision: runtimePermissionMode.decision,
+                })}
+              </span>
+            </div>
+          )}
+
+          {runtimeLastMessageSend && (
+            <div
+              className="mx-2 mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground"
+              data-testid="pane-runtime-message-send"
+            >
+              <Sparkles className="h-3 w-3 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1 truncate tabular-nums">
+                {t('runtimeMessageSend', {
+                  iteration: runtimeLastMessageSend.iteration,
+                  count: runtimeLastMessageSend.messagesCount,
+                })}
+              </span>
+            </div>
+          )}
+
+          {runtimeTerminalDeltas && runtimeTerminalDeltas.length > 0 && (
+            <div className="mx-2 mt-1.5" data-testid="pane-runtime-terminal-deltas">
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <TerminalSquare className="h-3 w-3 shrink-0" aria-hidden />
+                <span>{t('runtimeTerminalOutput')}</span>
+                <span className="min-w-0 truncate font-mono opacity-70">
+                  {runtimeTerminalDeltas[runtimeTerminalDeltas.length - 1]?.command}
+                </span>
+              </div>
+              <div className="mt-0.5 max-h-24 space-y-0.5 overflow-y-auto font-mono text-[10px] leading-4">
+                {runtimeTerminalDeltas.map((delta) => (
+                  <div
+                    key={delta.id}
+                    className={cn(
+                      'break-all',
+                      delta.stream === 'stderr' ? 'text-red-500' : 'text-foreground/80',
+                    )}
+                  >
+                    {delta.text}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {runtimeSessionEnd && (
+            <div
+              className={cn(
+                'mx-2 mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px]',
+                runtimeSessionEnd.success
+                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-destructive/10 text-destructive',
+              )}
+              data-testid="pane-runtime-session-end"
+            >
+              {runtimeSessionEnd.success ? (
+                <Check className="h-3 w-3 shrink-0" aria-hidden />
+              ) : (
+                <AlertCircle className="h-3 w-3 shrink-0" aria-hidden />
+              )}
+              <span className="min-w-0 flex-1 truncate tabular-nums">
+                {runtimeSessionEnd.success
+                  ? t('runtimeSessionEndSuccess', {
+                      iterations: runtimeSessionEnd.totalIterations,
+                      duration: formatDuration(runtimeSessionEnd.totalDurationMs),
+                    })
+                  : t('runtimeSessionEndFailed', {
+                      iterations: runtimeSessionEnd.totalIterations,
+                      duration: formatDuration(runtimeSessionEnd.totalDurationMs),
+                    })}
+              </span>
+              <span className="shrink-0 font-mono text-[10px] opacity-80">
+                {runtimeSessionEnd.stopReason}
+              </span>
             </div>
           )}
 

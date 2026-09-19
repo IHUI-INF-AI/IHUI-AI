@@ -100,6 +100,7 @@ if (isStaged) {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
   } catch {
     // 非 git 环境,降级跑全量

@@ -249,6 +249,7 @@
     "username": "ユーザー名",
     "usernamePlaceholder": "ユーザー名を入力してください",
     "wechatLogin": "WeChat",
+    "oidcLogin": "エンタープライズSSO",
     "login": "ログイン",
     "captchaRefresh": "認証コードを更新"
   },

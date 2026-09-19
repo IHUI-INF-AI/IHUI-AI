@@ -94,7 +94,7 @@ async def extract_and_store_edges(owner_uuid: str) -> int:
                 except Exception as e:  # 单条失败不影响其余
                     logger.warning("memory_graph: 单条边写入失败: %s", e)
         return inserted
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("memory_graph: 关系抽取超时(>%ss)", EXTRACT_TIMEOUT_S)
     except Exception as e:
         logger.warning("memory_graph: 关系抽取失败(降级): %s", e)

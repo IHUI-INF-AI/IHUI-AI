@@ -20,7 +20,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -158,7 +157,7 @@ async def test_negative_summary_returns_empty() -> None:
 @pytest.mark.asyncio
 async def test_timeout_degrades_to_empty() -> None:
     """LLM 超时 → 降级空数组(绝不拖住 done 下发)。"""
-    fake_svc = _patch_deps(complete_side_effect=asyncio.TimeoutError())
+    fake_svc = _patch_deps(complete_side_effect=TimeoutError())
     with (
         patch("app.services.memory_service.memory_service", fake_svc),
         patch("app.core.llm_gateway.LLMGateway._is_stub_mode", return_value=False),

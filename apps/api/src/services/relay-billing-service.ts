@@ -610,7 +610,8 @@ export async function calculateCost(
   // 长上下文加价(G,2026-09-16):promptTokens 超过阈值时倍率链再乘 longContextMultiplier。
   // 未配置(NULL)视为不启用;阈值未配置默认 200K。作为倍率链第 5 环,与公示口径一致。
   if (
-    pricingRow?.longContextMultiplier != null &&
+    pricingRow?.longContextMultiplier !== null &&
+    pricingRow?.longContextMultiplier !== undefined &&
     Number(pricingRow.longContextMultiplier) > 1 &&
     promptTokens > Number(pricingRow.longContextThresholdTokens ?? 200_000)
   ) {

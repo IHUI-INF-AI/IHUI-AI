@@ -407,6 +407,36 @@ export function compactConversation(conversationId: string) {
   })
 }
 
+/** Steer(中途引导)入队结果:ai-service 原样转发的 ok/queued 计数 */
+export interface SteerChatStreamResult {
+  ok: boolean
+  /** 入队后队列长度(仅 ok=true 时有意义) */
+  queued?: number
+}
+
+/**
+ * Steer(中途引导,2026-09-19 立):流式 AI 对话期间立即引导,不打断当前工具执行。
+ *
+ * 前端闪电按钮触发 → 网关凭 conversationId+messageId(replayKey)在 SSE 流注册表
+ * 找回 upstreamSessionId → 转发 ai-service POST /llm/complete/stream/{session_id}/steer
+ * → tool loop 每轮 LLM 调用前 drain 注入 messages,注入时经 SSE steer 事件回执。
+ *
+ * 与 Enter 的 FIFO 排队互不影响:本端点仅由闪电按钮显式触发。
+ */
+export function steerChatStream(input: {
+  conversationId: string
+  messageId: string
+  text: string
+}) {
+  // 2026-09-19 修正:网关 aiChatStreamRoutes 插件 prefix=/api/ai,端点实际注册于
+  // /api/ai/chat/steer(与 use-chat.ts 的 /api/ai/chat/abort 同前缀),此前写
+  // /api/chat/steer 会 404(normalizeUrl 对 /api/ 开头路径原样透传,不重写)。
+  return fetchApi<SteerChatStreamResult>('/api/ai/chat/steer', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
 /**
  * AI 对话选项(跨端共享,从 miniapp-taro 下沉)
  *

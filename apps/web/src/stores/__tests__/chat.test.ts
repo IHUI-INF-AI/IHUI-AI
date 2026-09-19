@@ -165,6 +165,72 @@ describe('useChatStore', () => {
     })
   })
 
+  // ============ Steer 中途引导(2026-09-19 立)============
+
+  describe('appendSteerNotice(SSE steer 事件落地)', () => {
+    beforeEach(() => {
+      useChatStore.setState({ steerNoticesByMessageId: {}, streamingAssistantId: null })
+    })
+
+    it('首条写入:按 messageId 建立引导记录', () => {
+      useChatStore.getState().appendSteerNotice('msg-1', { text: '换一个思路' })
+      const notices = useChatStore.getState().steerNoticesByMessageId
+      expect(notices['msg-1']).toHaveLength(1)
+      expect(notices['msg-1']?.[0]).toMatchObject({ text: '换一个思路' })
+    })
+
+    it('同 messageId 追加:累计多条(时序保留,不去重)', () => {
+      const s = useChatStore.getState()
+      s.appendSteerNotice('msg-1', { text: '第一次引导' })
+      s.appendSteerNotice('msg-1', { text: '第二次引导' })
+      const notices = useChatStore.getState().steerNoticesByMessageId
+      expect(notices['msg-1']).toHaveLength(2)
+      expect(notices['msg-1']?.map((n) => n.text)).toEqual(['第一次引导', '第二次引导'])
+    })
+
+    it('不同 messageId 各自独立', () => {
+      const s = useChatStore.getState()
+      s.appendSteerNotice('msg-1', { text: 'A' })
+      s.appendSteerNotice('msg-2', { text: 'B' })
+      const notices = useChatStore.getState().steerNoticesByMessageId
+      expect(notices['msg-1']).toHaveLength(1)
+      expect(notices['msg-2']).toHaveLength(1)
+    })
+
+    it('空 messageId 或空 text 不写入', () => {
+      const s = useChatStore.getState()
+      s.appendSteerNotice('', { text: 'A' })
+      s.appendSteerNotice('msg-1', { text: '' })
+      expect(useChatStore.getState().steerNoticesByMessageId).toEqual({})
+    })
+
+    it('单消息上限 8 条:超限静默丢弃(与 ai-service 队列上限对齐)', () => {
+      const s = useChatStore.getState()
+      for (let i = 0; i < 10; i++) s.appendSteerNotice('msg-1', { text: `引导${i}` })
+      const notices = useChatStore.getState().steerNoticesByMessageId
+      expect(notices['msg-1']).toHaveLength(8)
+      expect(notices['msg-1']?.[0]?.text).toBe('引导0')
+    })
+
+    it('setStreamingAssistantId 登记/清空流式目标消息', () => {
+      const s = useChatStore.getState()
+      s.setStreamingAssistantId('msg-9')
+      expect(useChatStore.getState().streamingAssistantId).toBe('msg-9')
+      s.setStreamingAssistantId(null)
+      expect(useChatStore.getState().streamingAssistantId).toBeNull()
+    })
+
+    it('clearMessages 清空引导记录与流式目标', () => {
+      const s = useChatStore.getState()
+      s.appendSteerNotice('msg-1', { text: 'A' })
+      s.setStreamingAssistantId('msg-1')
+      s.clearMessages()
+      const after = useChatStore.getState()
+      expect(after.steerNoticesByMessageId).toEqual({})
+      expect(after.streamingAssistantId).toBeNull()
+    })
+  })
+
   // ============ P3 #30 diff 评论驱动返工(2026-09-16 立)============
 
   describe('diff 评审意见队列', () => {
@@ -173,14 +239,12 @@ describe('useChatStore', () => {
     })
 
     it('addDiffComment 新增一条(自动补 id 与 createdAt)', () => {
-      useChatStore
-        .getState()
-        .addDiffComment({
-          filePath: 'src/a.ts',
-          line: 12,
-          lineText: 'const x = 1',
-          comment: '用 let',
-        })
+      useChatStore.getState().addDiffComment({
+        filePath: 'src/a.ts',
+        line: 12,
+        lineText: 'const x = 1',
+        comment: '用 let',
+      })
       const list = useChatStore.getState().pendingDiffComments
       expect(list).toHaveLength(1)
       expect(list[0]).toMatchObject({

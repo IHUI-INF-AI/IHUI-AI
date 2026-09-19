@@ -6584,7 +6584,9 @@
       "noTeam": "팀 없음",
       "priority": "우선순위",
       "team": "팀",
-      "workspace": "워크스페이스"
+      "workspace": "워크스페이스",
+      "agentIdRequired": "에이전트를 선택해 주세요",
+      "workspacePlaceholder": "비워 두면 기본 워크스페이스를 사용합니다"
     },
     "loading": "로딩 중...",
     "marketSubtitle": "우수한 에이전트를 발견하고 사용",
@@ -6771,7 +6773,8 @@
       "workspace": "워크스페이스",
       "low": "낮음",
       "medium": "보통",
-      "high": "높음"
+      "high": "높음",
+      "error": "오류"
     }
   },
   "agentsCategoriesPage": {
