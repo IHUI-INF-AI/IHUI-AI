@@ -79,6 +79,10 @@ from typing import Any
 
 from app.core.output_cleaning import strip_ansi as _strip_ansi
 from app.core.command_safety import dangerous_command_match as _dangerous_command_match
+from app.core.image_preparation import (
+    detail_limits as _image_detail_limits,
+    load_data_url_for_prompt as _load_data_url_for_prompt,
+)
 from app.core.sandbox_policy import PROTECTED_METADATA_PATH_NAMES as _PROTECTED_METADATA_PATH_NAMES
 
 from .session_store import SessionStore
@@ -3507,6 +3511,27 @@ class AgentEngine:
                 data = base64.b64encode(target.read_bytes()).decode("ascii")
             except OSError as e:
                 return {"error": f"图片读取失败: {e}"}
+            raw_data_url = f"data:{mime};base64,{data}"
+            # 批 38 接线:经 image_preparation 按提示图像预算降采样
+            # (对标 codex-rs load_data_url_for_prompt,high 档 2048px/2500 patch)。
+            # 失败安全:任何准备失败一律回退原始 dataUrl,保持既有行为不变。
+            data_url = raw_data_url
+            prepared_note = ""
+            try:
+                _detail, _limits = _image_detail_limits("high")
+                prepared = _load_data_url_for_prompt(raw_data_url, _limits)
+                if (prepared.width, prepared.height) != (
+                    prepared.source_width,
+                    prepared.source_height,
+                ):
+                    data_url = prepared.into_data_url()
+                    prepared_note = (
+                        ";已按提示图像预算降采样 "
+                        f"{prepared.source_width}x{prepared.source_height}"
+                        f"->{prepared.width}x{prepared.height}"
+                    )
+            except Exception:
+                prepared_note = ""
             with contextlib.suppress(Exception):
                 await self._emit_engine_event(
                     thread,
@@ -3518,8 +3543,9 @@ class AgentEngine:
                 "path": str(target),
                 "mimeType": mime,
                 "sizeBytes": size,
-                "dataUrl": f"data:{mime};base64,{data}",
-                "note": "图像经 dataUrl 内嵌返回;纯文本 LLM 通道下模型不可直接看见,客户端可据此渲染",
+                "dataUrl": data_url,
+                "note": "图像经 dataUrl 内嵌返回;纯文本 LLM 通道下模型不可直接看见,客户端可据此渲染"
+                + prepared_note,
             }
 
         return ToolDefinition(
