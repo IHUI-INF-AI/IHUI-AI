@@ -231,15 +231,26 @@ export async function consumeAgentStream(
  * @param request 当前 Fastify request(trace 透传);后台调度传 null
  * @returns 执行摘要(供 run-now 返回给前端);失败返回 null
  */
+/** D12:解析 automation 执行会话——绑定会话优先,否则 auto_<id> 独立线程(旧行为) */
+export function resolveAutomationSessionId(automation: {
+  id: string
+  conversationId?: string | null
+}): string {
+  return automation.conversationId ?? `auto_${automation.id}`
+}
+
 export async function executeAutomation(
   automation: UserAutomation,
   request: FastifyRequest | null = null,
 ): Promise<string | null> {
   const now = new Date()
   try {
+    // D12(2026-09-19 立):绑定了聊天会话的 automation 复用该线程执行——
+    // 聊天管线按 sessionId 加载历史并落库,产出自然在同一会话"接力";
+    // 未绑定时保持旧行为(auto_<id> 独立线程)。
     const capture = await consumeAgentStream(request, {
       message: automation.prompt,
-      sessionId: `auto_${automation.id}`,
+      sessionId: resolveAutomationSessionId(automation),
       botId: automation.id,
     })
     const summary =
