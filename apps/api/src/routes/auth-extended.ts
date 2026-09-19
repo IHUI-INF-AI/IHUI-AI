@@ -214,15 +214,24 @@ async function loginWithOAuthAccount(params: {
     if (existing.status !== 1) throw new Error('账号已被禁用')
     user = existing
   } else {
-    user = await createUser({
-      email,
-      nickname: nickname ?? `用户${openId.slice(-6)}`,
-      avatar,
-      roleId: 0,
-      status: 1,
-    })
-    isNewUser = true
-    await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
+    // 同邮箱已注册用户 → 自动关联绑定(对齐邮箱验证码登录的既有语义,
+    // 避免 users_email_unique 唯一约束冲突导致 SSO 首登 500)
+    const existingByEmail = email ? await findUserByEmail(email) : undefined
+    if (existingByEmail) {
+      if (existingByEmail.status !== 1) throw new Error('账号已被禁用')
+      user = existingByEmail
+      await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
+    } else {
+      user = await createUser({
+        email,
+        nickname: nickname ?? `用户${openId.slice(-6)}`,
+        avatar,
+        roleId: 0,
+        status: 1,
+      })
+      isNewUser = true
+      await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
+    }
   }
   const tokens = await buildTokenPair(user)
   return {
