@@ -20,6 +20,7 @@ import { BrainCircuit, Loader2, RefreshCw } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { BackButton } from '@/components/common'
+import { ADMIN_INSIGHTS_QUERY_KEY, useAdminInsightsStream } from '@/hooks/use-admin-insights-stream'
 import { cn } from '@/lib/utils'
 
 type Severity = 'critical' | 'warning' | 'info'
@@ -57,16 +58,17 @@ const SEV_STYLE: Record<Severity, { badge: string; border: string; label: string
 }
 
 export default function InsightsPage() {
+  // 实时化升级(2026-09-19):60s 前端轮询 → SSE 推送(use-admin-insights-stream
+  // 订阅 /relay/insights/stream,服务端每 60s 推一次并直写 react-query 缓存);
+  // 保留"重新分析"手动刷新作为 SSE 断连/降级兜底。
+  const { live } = useAdminInsightsStream()
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['admin', 'relay', 'insights'],
+    queryKey: ADMIN_INSIGHTS_QUERY_KEY,
     queryFn: async () => {
       const r = await fetchApi<InsightsResult>('/api/admin/relay/insights')
       if (!r.success) throw new Error(r.error)
       return r.data
     },
-    // 实时化(2026-09-17,补强 58):每 60s 自动重新分析并刷新界面,
-    // 替代手动刷新;后端另有 /relay/insights/stream SSE 端点可供 WS/SSE 客户端订阅。
-    refetchInterval: 60_000,
   })
 
   const insights = data?.insights ?? []
@@ -80,6 +82,15 @@ export default function InsightsPage() {
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <BrainCircuit className="h-5 w-5" aria-hidden />
             运营洞察
+            {live && (
+              <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-normal text-emerald-600 dark:text-emerald-400">
+                <span
+                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"
+                  aria-hidden
+                />
+                实时
+              </span>
+            )}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             基于实测数据自动诊断:错误突增、成本异常、容量预警、慢调用与免费敞口。
