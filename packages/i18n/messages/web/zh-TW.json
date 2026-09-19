@@ -6925,6 +6925,12 @@
       "minimizedSubagents": "子智能體",
       "minimizedTools": "工具調用",
       "moreItems": "…還有 {n} 項",
+      "nextStepsCommit": "提交程式碼變更",
+      "nextStepsContinue": "繼續執行剩餘 {n} 步",
+      "nextStepsDismiss": "關閉",
+      "nextStepsRunTests": "執行測試驗證變更",
+      "nextStepsSummarize": "總結本次對話進展",
+      "nextStepsTitle": "下一步推薦",
       "overview": {
         "active": "活躍",
         "changes": "變更",
@@ -7132,7 +7138,15 @@
         "targetFile": "評論本次改動",
         "close": "取消",
         "pendingBanner": "有 {count} 條程式碼改動意見待傳送"
-      }
+      },
+      "runtimeStatusResuming": "正在恢復執行…",
+      "runtimeStatusPausing": "正在暫停…",
+      "runtimeStatusCancelling": "正在取消…",
+      "runtimePermissionMode": "權限模式 {mode} · {tool} · {decision}",
+      "runtimeMessageSend": "第 {iteration} 輪請求已發出 · {count} 則訊息",
+      "runtimeSessionEndSuccess": "會話已完成 · {iterations} 輪 · 耗時 {duration}",
+      "runtimeSessionEndFailed": "會話異常結束 · {iterations} 輪 · 耗時 {duration}",
+      "runtimeTerminalOutput": "執行時輸出"
     },
     "permissionConfirm": {
       "allow": "允許",
@@ -8081,6 +8095,7 @@
       "wiki": "知識庫",
       "integrations": "整合",
       "workspace": "工作區",
+      "kanban": "任務看板",
       "atomicrollback": "整棧回滾"
     },
     "applied": "已套用",
@@ -15928,6 +15943,7 @@
     "eduScheduleMgr": "課程表管理",
     "eduSchedulingMgr": "智能排課",
     "eduStudyPlanMgr": "學習計劃管理",
+    "eduCanteenProcurement": "食堂採購",
     "enterprise": "企業服務",
     "exam": "考試",
     "expand": "展開",
@@ -22676,6 +22692,7 @@
     "adopted": "已採納"
   },
   "agentTasks": {
+    "ephemeralBadge": "記憶體內(暫時)",
     "title": "Agent 執行任務",
     "refresh": "重新整理",
     "empty": "暫無 agent 任務(由 /agent/run 或自動化建立)",
