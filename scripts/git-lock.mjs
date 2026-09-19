@@ -36,7 +36,7 @@
  *   - scripts/safe-gc.mjs:手动 gc 前必须 acquire(杜绝 gc 与写操作并发)
  */
 import { execSync } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync, existsSync, readdirSync, statSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
 function run(cmd, allowFail = false) {
@@ -101,12 +101,84 @@ function isPidAlive(pid) {
 }
 
 /**
+ * 清理 git 原生 index.lock(2026-09-19 立,根治 index.lock 卡死多 agent)。
+ *
+ * 根因:git 写操作(index/refs)被中断(kill/崩溃/宿主清树)时,index.lock 残留,
+ * 后续所有 git add/commit 都报 "Unable to create '.git/index.lock': File exists"。
+ * 多 agent 并行时,一个 agent 的 git 崩溃会卡死所有人。
+ *
+ * 安全策略:
+ *   - 扫描 .git/index.lock + .git/worktrees/ 下各 worktree 的 index.lock
+ *   - 锁龄 > INDEX_LOCK_STALE_MS(默认 60s)即删除——git 单次 index 写入正常 < 5s,
+ *     超过 60s 必定是崩溃残留(活进程持锁时文件会被持续刷新/占用,但 Windows 下
+ *     文件时间戳不会更新,故用"年龄 + 无对应 git 进程"双判据)。
+ *   - 双判据:优先检测是否有 git 进程在运行;无 git 进程时直接删;有 git 进程时
+ *     年龄 > 60s 才删(兜底,因无法精确匹配哪个 git 持有哪个 index.lock)。
+ */
+const INDEX_LOCK_STALE_MS = 60_000
+
+function cleanStaleIndexLocks() {
+  const cleaned = []
+  const base = gitDir()
+  const candidates = [join(base, 'index.lock')]
+  // worktrees 的 index.lock
+  try {
+    const wtDir = join(base, 'worktrees')
+    if (existsSync(wtDir)) {
+      for (const wt of readdirSync(wtDir)) {
+        const wtIndexLock = join(wtDir, wt, 'index.lock')
+        if (existsSync(wtIndexLock)) candidates.push(wtIndexLock)
+      }
+    }
+  } catch {
+    /* worktrees 目录不存在或不可读,跳过 */
+  }
+  // maintenance.lock(git gc/repack 崩溃残留,会阻塞后续 gc)
+  const maintenanceLock = join(base, 'objects', 'maintenance.lock')
+  if (existsSync(maintenanceLock)) candidates.push(maintenanceLock)
+  // 是否有 git 进程在运行(粗略判据:tasklist 有 git.exe)
+  let hasGitProcess = false
+  try {
+    const out = execSync('tasklist /FI "IMAGENAME eq git.exe" /NH', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    hasGitProcess = /git\.exe/i.test(out)
+  } catch {
+    /* tasklist 失败,保守假设无 git 进程(允许清理) */
+  }
+  for (const lockPath of candidates) {
+    try {
+      const st = statSync(lockPath)
+      const age = Date.now() - st.mtimeMs
+      // 无 git 进程 → 必是残留;有 git 进程 → 年龄超阈值才删
+      if (!hasGitProcess || age > INDEX_LOCK_STALE_MS) {
+        unlinkSync(lockPath)
+        cleaned.push(lockPath)
+      }
+    } catch {
+      /* 文件正在被占用(活 git 持有)或已消失,跳过 */
+    }
+  }
+  return cleaned
+}
+
+/**
  * 获取锁。返回 true 表示获取成功;同 unitId 可重入直接成功。
  * stale 判定(2026-09-18 加固):年龄超 staleMs **且持有者 pid 已死** 才抢占——
  * 活进程的锁(哪怕流程很长)绝不被抢,根治"长 commit 被误判悬挂 → 并发写损坏"。
  * hardStale(默认 1800s)兜底:pid 复用等极端假阳性时最终能逃生。
+ *
+ * 2026-09-19 修复(根治 index.lock 卡死):
+ *   - 死 PID 立即抢占:持有者进程已退出时,不再等 staleMs(300s),直接抢占。
+ *     此前死锁场景:agent 崩溃后锁残留,其他 agent 等 5 分钟才能继续,期间若绕过
+ *     锁直接 git 操作 → index.lock 冲突 → 全员卡死。
+ *   - acquire 前自动清理 stale index.lock:杜绝 git 原生锁残留阻塞。
  */
 async function acquire({ unitId, timeoutMs = 120_000, staleMs = 300_000, hardStaleMs = 1_800_000 }) {
+  // 先清理可能存在的 stale index.lock(死 git 进程残留),否则后续 git 操作全卡死
+  cleanStaleIndexLocks()
+
   const dir = lockDir()
   const deadline = Date.now() + timeoutMs
   for (;;) {
@@ -124,8 +196,9 @@ async function acquire({ unitId, timeoutMs = 120_000, staleMs = 300_000, hardSta
       if (meta) {
         const age = Date.now() - (meta.ts ?? 0)
         const holderAlive = isPidAlive(meta.pid)
-        if (age > hardStaleMs || (age > staleMs && !holderAlive)) {
-          // 悬挂锁(持有者已崩溃退出):强制抢占
+        // 2026-09-19:死 PID 立即抢占(不等 staleMs);活进程才走 staleMs/hardStaleMs
+        if (!holderAlive || age > hardStaleMs || age > staleMs) {
+          // 悬挂锁(持有者已崩溃退出,或超 hardStale 兜底):强制抢占
           removeLock(dir)
           continue
         }
@@ -217,8 +290,40 @@ async function main() {
       })
     } else if (cmd === 'git-dir') {
       console.log(gitDir())
+    } else if (cmd === 'clean') {
+      // 2026-09-19:手动清理所有 stale 锁(ihui-git-write.lock 死 PID + index.lock 残留)
+      // 用法: node scripts/git-lock.mjs clean
+      const dir = lockDir()
+      const removed = []
+      // 1. 清理死 PID 的 ihui-git-write.lock
+      if (existsSync(dir)) {
+        const meta = readMeta(dir)
+        if (meta) {
+          const holderAlive = isPidAlive(meta.pid)
+          const age = Date.now() - (meta.ts ?? 0)
+          if (!holderAlive || age > 1_800_000) {
+            removeLock(dir)
+            removed.push(`ihui-git-write.lock(unit=${meta.unitId} pid=${meta.pid} ${holderAlive ? 'hardStale' : 'dead'})`)
+          } else {
+            console.log(`保留 ihui-git-write.lock(持有者 pid=${meta.pid} 仍存活,age=${Math.round(age / 1000)}s)`)
+          }
+        } else {
+          // 无 meta.json 的残留锁目录,直接删
+          removeLock(dir)
+          removed.push('ihui-git-write.lock(无 meta.json)')
+        }
+      }
+      // 2. 清理 stale index.lock
+      const indexLocks = cleanStaleIndexLocks()
+      removed.push(...indexLocks.map((p) => `index.lock:${p}`))
+      if (removed.length === 0) {
+        console.log('✅ 无 stale 锁需清理')
+      } else {
+        console.log(`🧹 已清理 ${removed.length} 个 stale 锁:`)
+        for (const r of removed) console.log(`   - ${r}`)
+      }
     } else {
-      console.error('用法: git-lock.mjs acquire|release|check|heartbeat [--unit <id>] [--timeout <ms>] [--stale <ms>] [--parent-pid <pid>]')
+      console.error('用法: git-lock.mjs acquire|release|check|heartbeat|clean [--unit <id>] [--timeout <ms>] [--stale <ms>] [--parent-pid <pid>]')
       process.exit(1)
     }
   } catch (e) {
