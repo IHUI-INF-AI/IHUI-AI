@@ -244,6 +244,22 @@ interface ChatState {
    *  在网关定位 upstream 会话)。流开始由 send-message/send-answer 写入,收尾清空。 */
   streamingAssistantId: string | null
 
+  /** D22 引用回复(2026-09-19 立,对标 Qoder 0.2.x):待引用回复的消息快照。
+   *  MessageItem Reply 按钮 → ihui:reply-message → MessageList 监听写入;
+   *  MessageInput 渲染引用 chip,doSend 发送时把引用摘要注入正文,成功后 clearQuotedMessage。
+   *  不持久化(执行期瞬时态,刷新后需重新点 Reply)。 */
+  quotedMessage: { id: string; role: ChatMessage['role']; content: string } | null
+
+  /** D22 网页搜索 UI 开关(2026-09-19 立):开启后普通问答(未选插件工具)也携带
+   *  web_search 最小工具集,mergeAgentTools() 消费;与 selectedTools 互不替代。
+   *  持久化(用户偏好,跨刷新保留)。 */
+  webSearchEnabled: boolean
+
+  /** 设置引用回复目标(null=清除,输入区引用 chip 随之消失) */
+  setQuotedMessage: (q: { id: string; role: ChatMessage['role']; content: string } | null) => void
+  /** 设置网页搜索开关(同步 localStorage 'ihui_web_search_enabled' 供 SSR 前恢复) */
+  setWebSearchEnabled: (v: boolean) => void
+
   setModel: (model: string) => void
   /** 添加单个工具到已选;已存在则忽略 */
   addSelectedTool: (pluginId: string) => void
@@ -449,6 +465,12 @@ export const useChatStore = create<ChatState>()(
       // Steer(中途引导)注入确认 + 当前流式 assistant 消息 ID(执行期瞬时态,不持久化)
       steerNoticesByMessageId: {},
       streamingAssistantId: null,
+      // D22 引用回复(执行期瞬时态,不持久化)
+      quotedMessage: null,
+      // D22 网页搜索开关:SSR 安全惰性读取(服务端恒 false;客户端 store 创建早于组件 hydration,
+      // 首渲染即恢复用户偏好,与 partialize 持久化路径互为双保险)
+      webSearchEnabled:
+        typeof window !== 'undefined' && localStorage.getItem('ihui_web_search_enabled') === '1',
       // #21 中断后追加指令继续(2026-09-13 立)
       interruptedMessageId: null,
       // W27 输入历史(2026-09-14 立):Esc+Esc 历史导航数据源
@@ -632,6 +654,17 @@ export const useChatStore = create<ChatState>()(
       clearDraftInput: () => set({ draftInput: null }),
 
       clearDraftAutoSend: () => set({ draftAutoSend: false }),
+
+      // D22 引用回复:写入/清除引用目标(输入区 chip 由 MessageInput 订阅渲染)
+      setQuotedMessage: (q) => set({ quotedMessage: q }),
+
+      // D22 网页搜索开关:同步 localStorage(初始 state 惰性读取的回写路径)
+      setWebSearchEnabled: (v) => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('ihui_web_search_enabled', v ? '1' : '0')
+        }
+        set({ webSearchEnabled: v })
+      },
 
       setPendingQuestion: (q) => set({ pendingQuestion: q }),
 
@@ -1152,6 +1185,8 @@ export const useChatStore = create<ChatState>()(
         // P3 #30(2026-09-16):diff 待发送评审意见持久化 —— 用户评论后刷新/切走再回来仍可发送。
         // 上限 50 条(与 inputHistory 同量级),避免异常累积撑爆 localStorage 配额。
         pendingDiffComments: s.pendingDiffComments.slice(-50),
+        // D22(2026-09-19):网页搜索开关用户偏好持久化(初始 state 已有 localStorage 双保险)
+        webSearchEnabled: s.webSearchEnabled,
         // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除
         // ChatMode 由 useModeStore 独立管理,持久化不重复存储
         // #12 store messages 持久化(2026-07-25 立):

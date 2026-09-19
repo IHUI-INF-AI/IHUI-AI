@@ -28,7 +28,7 @@ import {
   mapEndToTimelineUpdate,
 } from '@/lib/subagent-timeline-mapper'
 import { loadBrowserWorkspaceContext } from './workspace'
-import { mergeAgentTools } from './tool-config'
+import { eduToolsFor, mergeAgentTools } from './tool-config'
 import {
   createToolCallHandler,
   createToolSummaryHandler,

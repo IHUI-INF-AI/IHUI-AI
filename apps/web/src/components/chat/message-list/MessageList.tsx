@@ -213,6 +213,8 @@ export function MessageList({
   // 2026-08-30 立:重新生成 / 分支事件监听(MessageItem 按钮 + 右键菜单派发)。
   // 2026-09-12 立:编辑重跑事件监听(四竞品对标 P0-1,MessageItem 编辑 Dialog 派发)。
   // 完整闭环在 send-message.ts 的 regenerateMessage / branchMessage / editMessageAndRerun(复用既有流式发送逻辑)。
+  // D22(2026-09-19 立):引用回复事件监听(MessageItem Reply 按钮派发)——
+  // 从 store 查找目标消息快照写入 quotedMessage,MessageInput 渲染引用 chip,doSend 附加正文。
   React.useEffect(() => {
     const onRegenerate = (e: Event) => {
       const detail = (e as CustomEvent<{ messageId: string }>).detail
@@ -236,13 +238,29 @@ export function MessageList({
       if (!detail?.messageId || !detail.content) return
       void editMessageAndRerun(detail.messageId, detail.content, detail.rollbackFiles === true)
     }
+    const onReply = (e: Event) => {
+      const detail = (e as CustomEvent<{ messageId: string }>).detail
+      if (!detail?.messageId) return
+      const target = useChatStore
+        .getState()
+        .messages.find((mm) => mm.id === detail.messageId)
+      if (!target) return
+      // 引用快照截断到 500 字符:超长 AI 回复只取开头摘要,完整正文 AI 上下文里本就有
+      useChatStore.getState().setQuotedMessage({
+        id: target.id,
+        role: target.role,
+        content: target.content.length > 500 ? `${target.content.slice(0, 500)}…` : target.content,
+      })
+    }
     window.addEventListener('ihui:regenerate-message', onRegenerate as EventListener)
     window.addEventListener('ihui:branch-message', onBranch as EventListener)
     window.addEventListener('ihui:edit-message', onEdit as EventListener)
+    window.addEventListener('ihui:reply-message', onReply as EventListener)
     return () => {
       window.removeEventListener('ihui:regenerate-message', onRegenerate as EventListener)
       window.removeEventListener('ihui:branch-message', onBranch as EventListener)
       window.removeEventListener('ihui:edit-message', onEdit as EventListener)
+      window.removeEventListener('ihui:reply-message', onReply as EventListener)
     }
   }, [])
 

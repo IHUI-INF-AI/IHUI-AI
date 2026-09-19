@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { fetchApi } from '../client'
-import type { ModelUsageCategory, ModelTier } from '@ihui/types'
+import type { ModelCapabilities, ModelUsageCategory, ModelTier } from '@ihui/types'
 
 /** 模型能力位(Phase C+D:后端 /llm/models 返回的 caps 字段,可选,旧端点无此字段时缺失) */
 export interface LlmModelCaps {
@@ -43,6 +43,12 @@ export interface LlmModel {
   model_tier?: ModelTier
   /** 系列名(如 `deepseek-v` / `claude-opus`),代次比较用,调试与分组时可参考 */
   family?: string
+  /**
+   * 语义能力四布尔(2026-09-19 D23 立,ai-service model_catalog.derive_capabilities 产出,
+   * annotate_models 第三趟写入、显式预设可覆盖)。可选:老后端 / 缓存数据可能没有,
+   * 消费方必须能容忍缺失(缺字段时按"未知"处理,不做能力过滤/徽章)。
+   */
+  capabilities?: ModelCapabilities
 }
 
 export interface FetchModelsResult {
