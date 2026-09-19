@@ -22,7 +22,7 @@ from __future__ import annotations
 import math
 import threading
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 
 class RolloutBudgetError(Exception):
@@ -68,7 +68,7 @@ class _BudgetState:
     deliveries: dict[str, _ThreadBudgetDelivery] = field(default_factory=dict)
 
 
-def _non_cached_input(usage: dict) -> int:
+def _non_cached_input(usage: dict[str, Any]) -> int:
     """非缓存输入 token = input_tokens - cached_input_tokens(下限 0)。
 
     兼容多种字段命名:input_tokens/inputTokens、cached_input_tokens/
@@ -116,7 +116,7 @@ class RolloutBudget:
             return self._configured
 
     # ------------------------------------------------------------------
-    def record_usage(self, usage: dict) -> bool:
+    def record_usage(self, usage: dict[str, Any]) -> bool:
         """记账一次用量;返回预算是否已穷尽(此后恒真)。
 
         ``usage`` 支持两种形态:
