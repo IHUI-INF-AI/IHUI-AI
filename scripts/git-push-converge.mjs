@@ -23,7 +23,8 @@
  * 行为(对每个 remote 幂等):
  *   1. ls-remote 取远端 main SHA(一次网络往返,不做全量 fetch)
  *   2. 远端 === 本地 HEAD → ALREADY(跳过推送,零网络写)
- *   3. 远端是本地祖先(本地领先) → push
+ *   3. 远端是本地祖先(本地领先) → push(origin 走 guard 同步通道自愈,
+ *      2026-09-19;镜像仓直推 600s 上限)
  *   4. 本地是远端祖先(本地落后) → SKIP(远端有并发新提交,由 ff 流程处理,不强推)
  *   5. 分叉 → DIVERGED(不强推,交人工/合并流程;除非 --force-with-lease)
  *   每仓独立超时(默认 180s),单仓网络卡死不拖垮其他仓。
@@ -101,6 +102,27 @@ const pushInProgress =
   Date.now() - pushState.ts < 5 * 60 * 1000 &&
   isPushStatePidAlive()
 
+// 2026-09-19 根治(猝死第三刀):origin 推送统一委托 guard 同步通道。
+// GUARD_ASYNC=0 强制 guard 走同步推送(门禁不降级,75 中断重试 + no-verify
+// 兜底齐全),600s 上限远超 270s 全量门。返回 true=成功。
+function healViaGuard() {
+  try {
+    execFileSync(
+      process.execPath,
+      ['scripts/git-push-guard.mjs', `--branch=${branch}`],
+      {
+        encoding: 'utf8',
+        timeout: 600_000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: { ...process.env, GUARD_ASYNC: '0', GUARD_WORKER: '' },
+      },
+    )
+    return true
+  } catch {
+    return false
+  }
+}
+
 let hasFailure = false
 const results = []
 
@@ -141,9 +163,25 @@ for (const remote of remotes) {
       console.log(`${label} ⏳ PUSHING(后台推送进行中,HEAD ${localHead.slice(0, 11)})`)
       continue
     }
-    // 本地领先 → 推
+    if (remote === 'origin') {
+      // 2026-09-19 根治:origin 推送委托 guard 同步通道(此前直推必败——
+      // push 会跑 pre-push 全量门 ~270s,而本脚本 git() 超时只有 180s,一推
+      // 就被自己 kill 成 PUSH_FAILED)。guard 通道自带:75 中断重试/门失败
+      // no-verify 兜底/终态兜底/心跳,委托即获得全部根治能力(--heal 同路径)。
+      const healRes = healViaGuard()
+      if (healRes) {
+        results.push({ remote, status: 'PUSHED' })
+        console.log(`${label} 🚀 PUSHED(${localHead.slice(0, 11)},经 guard 同步通道)`)
+      } else {
+        results.push({ remote, status: 'PUSH_FAILED' })
+        console.log(`${label} ❌ PUSH_FAILED(本地领先但 guard 通道推送失败,需人工)`)
+        hasFailure = true
+      }
+      continue
+    }
+    // 本地领先 → 推(镜像仓:直推但放宽超时,门禁由 CI 承担)
     const pushArgs = ['push', remote, `HEAD:refs/heads/${branch}`]
-    const out = git(pushArgs)
+    const out = git(pushArgs, { timeout: 600_000 })
     if (out === null) {
       results.push({ remote, status: 'PUSH_FAILED' })
       console.log(`${label} ❌ PUSH_FAILED(本地领先但推送失败,需人工)`)
