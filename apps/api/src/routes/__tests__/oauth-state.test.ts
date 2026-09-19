@@ -233,10 +233,12 @@ describe('OAuth state CSRF 校验 — /auth/oauth/oidc/*(Redis 可用)', () => {
       method: 'GET',
       url: `/api/auth/oauth/oidc/callback?code=valid-code&state=${state}`,
     })
-    expect(res.statusCode).toBe(200)
-    const body = res.json()
-    expect(body.code).toBe(0)
-    expect(body.data.token).toBe('mock-access-token')
+    // 浏览器闭环(2026-09-19):后端代理写 httpOnly cookie 并 302 回前端,不再返回 JSON
+    expect(res.statusCode).toBe(302)
+    expect(res.headers.location).toContain('/sso/login')
+    expect(toCookieList(res.headers['set-cookie']).join('\n')).toContain(
+      'auth_token=mock-access-token',
+    )
     // 一次性消费:GET 命中后立即 DEL
     expect(redisMock.get).toHaveBeenCalledWith(OAUTH_STATE_KEY_PREFIX + state)
     expect(redisMock.del).toHaveBeenCalledWith(OAUTH_STATE_KEY_PREFIX + state)
@@ -251,7 +253,8 @@ describe('OAuth state CSRF 校验 — /auth/oauth/oidc/*(Redis 可用)', () => {
       method: 'GET',
       url: `/api/auth/oauth/oidc/callback?code=valid-code&state=${state}`,
     })
-    expect(first.statusCode).toBe(200)
+    // 浏览器闭环:首次回调 302 回前端(带 httpOnly cookie)
+    expect(first.statusCode).toBe(302)
 
     // 第二次:Redis 已 DEL → GET 返回 null(默认 mock) → 拒绝
     const second = await app.inject({
@@ -303,13 +306,16 @@ describe('OAuth state CSRF 校验 — /auth/oauth/oidc/*(Redis 可用)', () => {
     expect(redisMock.set).toHaveBeenCalledTimes(1)
   })
 
-  it('向后兼容:回调不带 state(存量链路)走原逻辑放行,返回 200', async () => {
+  it('向后兼容:回调不带 state(存量链路)走原逻辑放行,返回 302 闭环', async () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/auth/oauth/oidc/callback?code=legacy-code',
     })
-    expect(res.statusCode).toBe(200)
-    expect(res.json().data.token).toBe('mock-access-token')
+    // 浏览器闭环:存量无 state 链路同样走 302 + httpOnly cookie
+    expect(res.statusCode).toBe(302)
+    expect(toCookieList(res.headers['set-cookie']).join('\n')).toContain(
+      'auth_token=mock-access-token',
+    )
     // 存量路径不触碰 Redis state 校验
     expect(redisMock.get).not.toHaveBeenCalled()
   })
@@ -355,8 +361,11 @@ describe('OAuth state CSRF 校验 — /auth/oauth/oidc/*(Redis 不可用降级)'
       url: `/api/auth/oauth/oidc/callback?code=valid-code&state=${state}`,
       headers: { cookie: `oauth_state_oidc=${state}` },
     })
-    expect(res.statusCode).toBe(200)
-    expect(res.json().data.token).toBe('mock-access-token')
+    // 浏览器闭环:302 回前端 + httpOnly auth cookie
+    expect(res.statusCode).toBe(302)
+    expect(toCookieList(res.headers['set-cookie']).join('\n')).toContain(
+      'auth_token=mock-access-token',
+    )
   })
 
   it('Redis 不可用:cookie 与 state 参数不一致 → 401', async () => {
