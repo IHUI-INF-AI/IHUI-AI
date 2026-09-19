@@ -6925,6 +6925,12 @@
       "minimizedSubagents": "子智能体",
       "minimizedTools": "工具调用",
       "moreItems": "…还有 {n} 项",
+      "nextStepsCommit": "提交代码变更",
+      "nextStepsContinue": "继续执行剩余 {n} 步",
+      "nextStepsDismiss": "关闭",
+      "nextStepsRunTests": "运行测试验证变更",
+      "nextStepsSummarize": "总结本次对话进展",
+      "nextStepsTitle": "下一步推荐",
       "overview": {
         "active": "活跃",
         "changes": "变更",
@@ -7132,7 +7138,15 @@
         "targetFile": "评论本次改动",
         "close": "取消",
         "pendingBanner": "有 {count} 条代码改动意见待发送"
-      }
+      },
+      "runtimeStatusResuming": "正在恢复执行…",
+      "runtimeStatusPausing": "正在暂停…",
+      "runtimeStatusCancelling": "正在取消…",
+      "runtimePermissionMode": "权限模式 {mode} · {tool} · {decision}",
+      "runtimeMessageSend": "第 {iteration} 轮请求已发出 · {count} 条消息",
+      "runtimeSessionEndSuccess": "会话已完成 · {iterations} 轮 · 用时 {duration}",
+      "runtimeSessionEndFailed": "会话异常结束 · {iterations} 轮 · 用时 {duration}",
+      "runtimeTerminalOutput": "运行时输出"
     },
     "permissionConfirm": {
       "allow": "允许",
@@ -8081,6 +8095,7 @@
       "wiki": "知识库",
       "integrations": "集成",
       "workspace": "工作区",
+      "kanban": "任务看板",
       "atomicrollback": "整栈回滚"
     },
     "applied": "已应用",
@@ -15928,6 +15943,7 @@
     "eduScheduleMgr": "课程表管理",
     "eduSchedulingMgr": "智能排课",
     "eduStudyPlanMgr": "学习计划管理",
+    "eduCanteenProcurement": "食堂采购",
     "enterprise": "企业服务",
     "exam": "考试",
     "expand": "展开",
@@ -22676,6 +22692,7 @@
     "adopted": "已采纳"
   },
   "agentTasks": {
+    "ephemeralBadge": "内存态(临时)",
     "title": "Agent 运行任务",
     "refresh": "刷新",
     "empty": "暂无 agent 任务(由 /agent/run 或自动化创建)",

@@ -6925,6 +6925,12 @@
       "minimizedSubagents": "서브에이전트",
       "minimizedTools": "도구 호출",
       "moreItems": "…외 {n}개",
+      "nextStepsCommit": "코드 변경 커밋",
+      "nextStepsContinue": "남은 {n}단계 계속 실행",
+      "nextStepsDismiss": "닫기",
+      "nextStepsRunTests": "테스트 실행으로 변경 검증",
+      "nextStepsSummarize": "이 대화 진행 상황 요약",
+      "nextStepsTitle": "다음 단계",
       "overview": {
         "active": "활성",
         "changes": "변경",
@@ -7132,7 +7138,15 @@
         "targetFile": "이 변경에 댓글",
         "close": "취소",
         "pendingBanner": "코드 변경 댓글 {count}개 전송 대기 중"
-      }
+      },
+      "runtimeStatusResuming": "실행 재개 중…",
+      "runtimeStatusPausing": "일시 중지 중…",
+      "runtimeStatusCancelling": "취소 중…",
+      "runtimePermissionMode": "권한 모드 {mode} · {tool} · {decision}",
+      "runtimeMessageSend": "{iteration}라운드 요청 전송됨 · 메시지 {count}개",
+      "runtimeSessionEndSuccess": "세션 완료 · {iterations}라운드 · 소요 시간 {duration}",
+      "runtimeSessionEndFailed": "세션 비정상 종료 · {iterations}라운드 · 소요 시간 {duration}",
+      "runtimeTerminalOutput": "런타임 출력"
     },
     "permissionConfirm": {
       "allow": "허용",
@@ -8079,6 +8093,7 @@
       "wiki": "위키",
       "integrations": "연동",
       "workspace": "워크스페이스",
+      "kanban": "작업 보드",
       "atomicrollback": "전체 스택 롤백"
     },
     "applied": "적용됨",
@@ -15910,6 +15925,7 @@
     "eduScheduleMgr": "시간표 관리",
     "eduSchedulingMgr": "스마트 시간표",
     "eduStudyPlanMgr": "학습 계획",
+    "eduCanteenProcurement": "식당 구매",
     "enterprise": "엔터프라이즈",
     "exam": "시험",
     "expand": "펼치기",
@@ -22670,6 +22686,7 @@
     "adopted": "채택됨"
   },
   "agentTasks": {
+    "ephemeralBadge": "메모리 내(임시)",
     "title": "Agent 실행 작업",
     "refresh": "새로고침",
     "empty": "Agent 작업이 없습니다(/agent/run 또는 자동화로 생성)",
