@@ -95,7 +95,7 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
   // React cleanup 试图 removeChild 时节点已不存在 → "Failed to execute 'removeChild' on 'Node'"
   // 修复:SDK 挂载点(sdkContainerRef)与 React 子节点(Loader2)分层渲染,互不干扰
   return (
-    <div className="relative mx-auto flex h-[280px] w-full max-w-[280px] items-center justify-center overflow-hidden rounded-md border bg-card">
+    <div className="relative mx-auto flex h-[260px] w-full max-w-[280px] items-center justify-center overflow-hidden rounded-md border bg-card">
       <div
         ref={containerRef}
         id={containerId}
@@ -111,7 +111,7 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
 export function UnconfiguredState({ platform }: { platform: string }) {
   const t = useTranslations('auth')
   return (
-    <div className="mx-auto flex h-[280px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-md border bg-muted/30 px-4 text-center">
+    <div className="mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-md border bg-muted/30 px-4 text-center">
       <p className="text-sm text-muted-foreground">{t('qrNotConfigured', { platform })}</p>
     </div>
   )
@@ -120,7 +120,7 @@ export function UnconfiguredState({ platform }: { platform: string }) {
 export function ErrorState({ message }: { message: string }) {
   const t = useTranslations('auth')
   return (
-    <div className="mx-auto flex h-[280px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-4 text-center">
+    <div className="mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-4 text-center">
       <p className="text-sm text-destructive">{t('qrSdkLoadFailed')}</p>
       <p className="text-xs text-muted-foreground">{message}</p>
     </div>
