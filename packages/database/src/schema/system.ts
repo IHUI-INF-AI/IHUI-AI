@@ -34,7 +34,7 @@ export const systemConfigs = pgTable('system_configs', {
 
 /**
  * 集成配置表。
- * 管理第三方服务（微信/支付宝/Stripe/GitHub/Google/Apple/邮件/SMS）的接入配置。
+ * 管理第三方服务（微信/支付宝/GitHub/Google/Apple/邮件/SMS）的接入配置。
  * credentials 以 jsonb 存储（使用 AES-256-GCM 加密存储，查询时自动解密）。
  */
 export const integrationConfigs = pgTable('integration_configs', {
@@ -95,7 +95,7 @@ export type NewSystemEvent = typeof systemEvents.$inferInsert
 /**
  * 支付配置表 (payment_configs)。
  * 存储各支付渠道(微信/支付宝等)的配置键值对。
- * provider: wechat(微信) / alipay(支付宝) / stripe / other。
+ * provider: wechat(微信) / alipay(支付宝) / other。
  * environment: production(生产) / sandbox(沙箱) / test(测试)。
  */
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
