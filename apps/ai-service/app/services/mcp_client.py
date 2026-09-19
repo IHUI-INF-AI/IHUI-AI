@@ -54,6 +54,10 @@ class MCPClientTool:
     description: str
     input_schema: dict[str, Any]
     server_name: str = ""
+    # 批 39 接线:MCP 工具注解原样透传(tools/list 返回的 annotations 对象,
+    # 含 readOnlyHint/destructiveHint/openWorldHint;None = server 未提供)。
+    # 语义判定交给 app/core/mcp_tool_approval(批 31 移植的 Codex 保守内核)。
+    annotations: dict[str, Any] | None = None
 
 
 @dataclass
@@ -220,6 +224,7 @@ class MCPClient:
                     description=t.get("description", ""),
                     input_schema=t.get("inputSchema", t.get("input_schema", {})),
                     server_name=self._config.name,
+                    annotations=t.get("annotations"),
                 )
                 for t in tools_raw
             ]
