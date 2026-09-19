@@ -39,7 +39,8 @@ try {
     encoding: 'utf8',
     cwd: ROOT,
     stdio: ['pipe', 'pipe', 'pipe'],
-  })
+      windowsHide: true,
+    })
   stagedCssFiles = output
     .split('\n')
     .filter(Boolean)

@@ -52,6 +52,7 @@ function getStagedFiles() {
     const out = execFileSync('git', ['-C', ROOT, 'diff', '--cached', '--name-only'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
     })
     return out
       .split(/\r?\n/)
@@ -101,6 +102,7 @@ function getHeadDiffFiles() {
     const out = execFileSync('git', ['-C', ROOT, 'diff', '--name-only', 'origin/main', 'HEAD'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
     })
     return out
       .split(/\r?\n/)

@@ -148,7 +148,7 @@ export function KanbanBoard() {
       return
     }
     if (!createAgentId.trim()) {
-      setCreateError('Agent ID is required')
+      setCreateError(t('kanban.agentIdRequired'))
       return
     }
     createMutation.mutate()
@@ -290,7 +290,7 @@ export function KanbanBoard() {
                     value={createWorkspace}
                     onChange={(e) => setCreateWorkspace(e.target.value)}
                     maxLength={512}
-                    placeholder="/workspaces/demo"
+                    placeholder={t('kanban.workspacePlaceholder')}
                   />
                 </div>
 

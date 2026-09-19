@@ -15,8 +15,8 @@
  *
  * 已知编码差异(待后续收敛,不阻塞本次契约):
  *  - ai-service 以 `type` 字段判别事件:`{"type":"chunk","content":"..."}`
- *  - apps/api 网关 extraFirstEvents 以顶层 key 判别:`{"repair":{...}}` / `{"compaction":{...}}` /
- *    `{"resumed":{...}}`(chat-resume.ts 用 `{"resume":{...}}`)。
+ *  - apps/api 网关 extraFirstEvents 以顶层 key 判别:`{"compaction":{...}}`
+ *    (chat-resume.ts 用 `{"resume":{...}}`)。
  *  本契约以 `type` 判别联合为规范形态,网关侧顶层 key 编码为历史遗留,逐步统一。
  *
  * agentId 顶层注入:当流绑定到某 agent 时,网关在每条 data JSON 注入 `agentId` 顶层字段
@@ -39,15 +39,17 @@ export const SSE_EVENTS = {
   SUBAGENT_PROGRESS: 'subagent_progress',
   SUBAGENT_END: 'subagent_end',
   PLAN_STEP: 'plan-step',
-  THINKING_DELTA: 'thinking_delta',
+  THINKING: 'thinking',
   PLAN_UPDATED: 'plan_updated',
   TERMINAL_START: 'terminal_start',
   TERMINAL_END: 'terminal_end',
   DONE: 'done',
   ERROR: 'error',
+  FALLBACK: 'fallback',
+  USAGE: 'usage',
   COMPACTION: 'compaction',
-  REPAIR: 'repair',
-  RESUMED: 'resumed',
+  STEER: 'steer',
+  BUDGET: 'budget',
 } as const
 
 /** 全部 SSE 事件名的联合类型。 */
@@ -73,7 +75,7 @@ export type SSEEventPayload =
   // 思维链增量
   | SSEEventWithMeta<{ type: 'reasoning'; content: string }>
   // 思考增量(部分模型/适配器)
-  | SSEEventWithMeta<{ type: 'thinking_delta'; content?: string }>
+  | SSEEventWithMeta<{ type: 'thinking'; content?: string }>
   // 工具调用开始
   | SSEEventWithMeta<{
       type: 'tool-call-start'
@@ -177,6 +179,18 @@ export type SSEEventPayload =
       message: string
       errorCode?: string
     }>
+  // 模型降级通知(P4-2,2026-09-19 入契约):主模型失败切换备用模型时,
+  // llm_gateway 在 chunk 产出前 yield,llm.py 各 astream 循环转发
+  // (字段与 client.ts FallbackEvent / llm_gateway.py 三处 yield 严格对齐)。
+  | SSEEventWithMeta<{
+      type: 'fallback'
+      /** 失败的主模型 */
+      primary_model: string
+      /** 切换到的备用模型 */
+      backup_model: string
+      /** 切换原因(timeout/rate_limit/api_error/unknown) */
+      reason: string
+    }>
   // 上下文压缩通知(88% 阈值自动压缩)
   | SSEEventWithMeta<{
       type: 'compaction'
@@ -186,16 +200,38 @@ export type SSEEventPayload =
       removedCount?: number
       usageRatio?: number
     }>
-  // 消息修复通知(P38 跨端消息结构修复)
+  // 中途引导注入确认(Steer,2026-09-19 立):
+  // 流式对话期间用户经 steer 端点提交引导文本,tool loop 每轮 LLM 调用前
+  // drain 注入 messages 时由 llm.py 发出;前端 MessageItem 据此换 badge 展示。
   | SSEEventWithMeta<{
-      type: 'repair'
-      removed: number
+      type: 'steer'
+      /** 当前仅 "injected"(已注入 messages);预留扩展。 */
+      phase: 'injected'
+      /** 用户引导文本(注入 messages 的原文,≤4000 字符)。 */
+      text: string
+      /** 入队时间(ISO,来自 steer 端点)。 */
+      timestamp?: string
+      /** 所属 assistant 消息 ID(流启动即确定,便于前端挂 badge)。 */
+      messageId?: string
     }>
-  // 续流/断点续传通知
+  // 预算档位提醒(2026-09-19 立,网关发):流开始前网关按用户当日 AI 用量分档,
+  // 80%~95% 发 level:warning、95%~100% 发 level:critical(均放行,流首命名帧,
+  // 前端 toast 提示用量进度,不中断流);≥100% 为 HTTP 429 硬中断
+  // (errorCode: BUDGET_EXHAUSTED,不走本事件)。
   | SSEEventWithMeta<{
-      type: 'resumed'
-      // 待收紧:questionId / fromReplay 等续流上下文字段
-      payload?: Record<string, unknown>
+      type: 'budget'
+      /** 档位:warning(80%~95%)| critical(95%~100%) */
+      level: 'warning' | 'critical'
+      /** 当日已用占限额百分比(0~100) */
+      percent?: number
+      /** 当日已用 tokens */
+      usedTokens?: number
+      /** 当日限额 tokens */
+      limitTokens?: number
+      /** 用户预算档位名(如 VIP 等级名,可选) */
+      tier?: string
+      /** 限额重置时间(ISO,次日 0 点,可选) */
+      resetAt?: string
     }>
 
 /** 事件名数组(去重,用于契约对账/测试)。 */

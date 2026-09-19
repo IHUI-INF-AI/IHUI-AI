@@ -134,6 +134,48 @@ describe('email-templates — 更新日志', () => {
   })
 })
 
+describe('email-templates — 新品上线', () => {
+  it('产品名/版本/特性条注入 + CTA 指向站内真实路径', () => {
+    const r = renderLaunchEmail({
+      productName: '工作流引擎',
+      version: '1.0.0',
+      features: [
+        { title: '多步编排', desc: '拖拽连线' },
+        { title: '模板市场', desc: '一键复用' },
+      ],
+      ctaPath: '/workflows',
+    })
+    expect(r.subject).toContain('工作流引擎')
+    expect(r.subject).toContain('v1.0.0')
+    expect(r.html).toContain('01')
+    expect(r.html).toContain('多步编排')
+    expect(r.html).toContain('href="http://localhost:8801/workflows"')
+    expect(r.html).not.toContain('/console')
+    expect(r.text).toContain('多步编排 / 模板市场')
+  })
+
+  it('ctaPath 缺失前导斜杠时自动补全', () => {
+    const r = renderLaunchEmail({
+      productName: 'x',
+      version: '1.0.0',
+      features: [{ title: 't', desc: 'd' }],
+      ctaPath: 'workflows',
+    })
+    expect(r.html).toContain('href="http://localhost:8801/workflows"')
+  })
+
+  it('特性标题被转义(XSS 防护)', () => {
+    const r = renderLaunchEmail({
+      productName: 'x',
+      version: '1.0.0',
+      features: [{ title: '<script>alert(1)</script>', desc: 'd' }],
+      ctaPath: '/workflows',
+    })
+    expect(r.html).not.toContain('<script>')
+    expect(r.html).toContain('&lt;script&gt;')
+  })
+})
+
 describe('email-templates — resolveWebOrigin 与转义', () => {
   it('CORS_ORIGIN 为空串时回退到 aizhs.top', () => {
     mockConfig.CORS_ORIGIN = ''

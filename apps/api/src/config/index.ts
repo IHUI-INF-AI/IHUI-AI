@@ -186,6 +186,11 @@ const envSchema = z.object({
   SECURITY_PROXY_CIDRS: z.string().optional().default(''),
   SECURITY_DATACENTER_CIDRS: z.string().optional().default(''),
   SECURITY_MALICIOUS_ASNS: z.string().optional().default(''),
+
+  // SSE 流注册表状态后端(2026-09-19 立,多副本就绪):memory=进程内(默认,单副本行为
+  // 与历史完全一致);redis=回放帧旁路复制 + 会话元数据跨副本可见 + abort 跨副本广播
+  // (连接绑定层 raw/controller 永远留在本进程,Redis 只共享可序列化状态)
+  SSE_REGISTRY_BACKEND: z.enum(['memory', 'redis']).default('memory'),
 })
 
 const parsed = envSchema.safeParse(process.env)

@@ -21,16 +21,18 @@
  * 保序说明:接管为同步单 tick 操作(取缺失段 + 换绑),期间原转发循环必然挂起在
  * await reader.read() 上,不存在并发写入窗口;断线期间上游新事件不再直写客户端
  * (已断连,写入丢弃),但均已进 replay buffer,重连时经缺失段重放找回。
+ *
+ * 两层架构(2026-09-19 立,多副本就绪):本文件为连接绑定层,持 raw socket /
+ * AbortController / 宽限定时器等不可序列化资源,永远留在本进程;可序列化状态
+ * (回放帧旁路复制 / 会话元数据 / abort 广播)委托 sse-state-store.ts 状态层,
+ * 由 config.SSE_REGISTRY_BACKEND 选择 memory|redis(默认 memory,行为与单副本
+ * 改造前完全一致)。同副本热路径读(takeover/getReplayEvents)仍直读本地镜像
+ * (sse-replay-buffer)保证同步零延迟;跨副本异步读由状态层 fetch* 方法提供。
  */
 
 import type { FastifyReply } from 'fastify'
-import {
-  pushEvent,
-  getEventsAfter,
-  registerStream,
-  releaseStream,
-  type ReplayEvent,
-} from './sse-replay-buffer.js'
+import { getEventsAfter, type ReplayEvent } from './sse-replay-buffer.js'
+import { getSseStateStore, SSE_REPLICA_ID } from './sse-state-store.js'
 
 /** 断线宽限期:此窗口内上游继续生成等重连接管,超时才 abort(省 token 与上游资源)。 */
 export const SSE_GRACE_PERIOD_MS = 15_000
@@ -38,6 +40,12 @@ export const SSE_GRACE_PERIOD_MS = 15_000
 export interface StreamSession {
   /** replayKey = `${conversationId}:${messageId}`;null = 不启用编号/缓冲(原样透传) */
   replayKey: string | null
+  /** Steer(2026-09-19 立):网关为本流预生成的会话 ID(uuid),随请求体
+   *  streamSessionId 字段下发到 ai-service(优先于其 workspace_context 自生成 id)。
+   *  POST /chat/steer 端点凭 replayKey 找回 session 后取此 ID,拼出
+   *  ai-service `/llm/complete/stream/{session_id}/steer` 转发地址。
+   *  null = 本流未启用 steer(非主聊天链路或缺 metadata 的降级流)。 */
+  upstreamSessionId: string | null
   /** 中止上游 ai-service fetch(宽限期超时/服务端超时/正常完成清理) */
   controller: AbortController
   /** 自增序号,写入 SSE `id:` 行;客户端 Last-Event-ID 即此值 */
@@ -63,9 +71,12 @@ export function createSession(
   raw: FastifyReply['raw'],
   controller: AbortController,
   replayKey: string | null,
+  /** Steer(2026-09-19 立):随请求体 streamSessionId 下发的预生成 ID,默认 null */
+  upstreamSessionId: string | null = null,
 ): StreamSession {
   const session: StreamSession = {
     replayKey,
+    upstreamSessionId,
     controller,
     seq: 0,
     raw,
@@ -76,7 +87,15 @@ export function createSession(
     const old = sessions.get(replayKey)
     if (old && !old.finished) old.controller.abort()
     sessions.set(replayKey, session)
-    registerStream(replayKey) // 清旧缓冲 + 取消其待释放定时器
+    const store = getSseStateStore()
+    store.registerStream(replayKey) // 清旧缓冲 + 取消其待释放定时器(redis 下远端 DEL)
+    // 跨副本可见的会话元数据(归属副本 + 上游会话 ID,steer 转发等场景)
+    store.upsertSessionMeta({
+      replayKey,
+      replicaId: SSE_REPLICA_ID,
+      upstreamSessionId,
+      createdAt: Date.now(),
+    })
   }
   return session
 }
@@ -99,7 +118,7 @@ export function detachOnClose(session: StreamSession): void {
     session.graceTimer = null
     if (session.finished) return
     session.controller.abort()
-    releaseStream(key)
+    getSseStateStore().releaseStream(key)
   }, SSE_GRACE_PERIOD_MS)
 }
 
@@ -116,6 +135,7 @@ export function takeoverStream(
     clearTimeout(session.graceTimer)
     session.graceTimer = null
   }
+  // 同副本热路径:直读本地镜像(同步零延迟;跨副本异步读走状态层 fetchReplayEvents)
   const missed = session.replayKey ? getEventsAfter(session.replayKey, lastSeq) : []
   session.raw = raw
   return missed
@@ -140,7 +160,9 @@ export function finishSession(session: StreamSession): void {
   }
   if (session.replayKey) {
     if (sessions.get(session.replayKey) === session) sessions.delete(session.replayKey)
-    releaseStream(session.replayKey)
+    const store = getSseStateStore()
+    store.releaseStream(session.replayKey)
+    store.deleteSessionMeta(session.replayKey)
   }
 }
 
@@ -159,7 +181,10 @@ export function emitUpstreamLine(session: StreamSession, line: string): void {
   if (canBuffer) {
     session.seq += 1
     write(session, `id: ${session.seq}\ndata: ${dataContent}\n\n`)
-    pushEvent(session.replayKey!, { id: session.seq, rawLine: `data: ${dataContent}` })
+    getSseStateStore().appendReplayEvent(session.replayKey!, {
+      id: session.seq,
+      rawLine: `data: ${dataContent}`,
+    })
     return
   }
   if (dataContent === null) write(session, line + '\n')
@@ -189,7 +214,7 @@ export function emitNamedEvent(
   if (canBuffer) {
     session.seq += 1
     write(session, `id: ${session.seq}\n${frame}\n\n`)
-    pushEvent(session.replayKey!, { id: session.seq, rawLine: frame })
+    getSseStateStore().appendReplayEvent(session.replayKey!, { id: session.seq, rawLine: frame })
     return
   }
   write(session, `${frame}\n\n`)
@@ -209,10 +234,30 @@ export function emitNamedEvent(
  *   让多端同步场景下的其它客户端也能收到终止标记。
  * - 幂等:已结束(finished)的流跳过;重复调用返回 0,不抛错。
  *
- * 限制:注册表为**进程内**结构,多副本部署时需会话粘性路由才能保证命中
- * (本项目当前单副本部署,AP 层无横向扩展)。
+ * 多副本(2026-09-19 立):本进程命中由 abortLocalStreams 完成,同时经状态层
+ * publishAbort 广播到其它副本(redis backend;memory 为 no-op,等价单副本);
+ * 其它副本经 plugins/sse-registry 的 Pub/Sub 订阅回调执行同一 abortLocalStreams。
  */
 export function abortConversationStreams(conversationId: string, messageId?: string): number {
+  if (!conversationId) return 0
+  const targetMessageId = messageId ?? null
+  const aborted = abortLocalStreams(conversationId, targetMessageId)
+  // 跨副本广播(接收方按 fromReplicaId 跳过发起方,自回环由订阅侧判定)
+  getSseStateStore().publishAbort({
+    conversationId,
+    messageId: targetMessageId,
+    fromReplicaId: SSE_REPLICA_ID,
+  })
+  return aborted
+}
+
+/**
+ * 本进程内执行中止(遍历本地 sessions,不发广播):既服务本副本的 abort 端点调用
+ * (经 abortConversationStreams),也作为远端 abort 广播(Pub/Sub)的订阅回调
+ * 落地动作(plugins/sse-registry 注入)。语义与改造前完全一致:幂等,已结束
+ * (finished)的流跳过,重复调用返回 0,不抛错。
+ */
+export function abortLocalStreams(conversationId: string, messageId: string | null): number {
   if (!conversationId) return 0
   const exact = messageId ? `${conversationId}:${messageId}` : null
   const prefix = `${conversationId}:`
@@ -221,10 +266,7 @@ export function abortConversationStreams(conversationId: string, messageId?: str
     if (session.finished) continue
     if (exact ? key !== exact : !key.startsWith(prefix)) continue
     try {
-      emitEvent(
-        session,
-        JSON.stringify({ type: 'cancelled', reason: 'user_abort', messageId: messageId ?? null }),
-      )
+      emitEvent(session, JSON.stringify({ type: 'cancelled', reason: 'user_abort', messageId }))
     } catch {
       /* 终止帧写出失败不阻塞中止动作 */
     }

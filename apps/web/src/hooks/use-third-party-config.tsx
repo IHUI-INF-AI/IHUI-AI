@@ -48,6 +48,7 @@ const PROVIDER_DEFS: ReadonlyArray<{
     mono: true,
     forceDisabled: true,
   },
+  { key: 'oidc', labelKey: 'oidcLogin', icon: '/images/oauth-providers/oidc.svg' },
 ]
 
 /** URL 回调识别的 8 平台列表(与 useThirdPartyAuth.handleCallback 入参对齐) */

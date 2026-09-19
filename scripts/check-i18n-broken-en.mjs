@@ -178,7 +178,7 @@ function walk(obj, pathStr, results) {
 
 function getStagedChanges(relPath) {
   try {
-    const out = execSync(`git diff --cached --name-only -- ${relPath}`, { encoding: 'utf8' })
+    const out = execSync(`git diff --cached --name-only -- ${relPath}`, { encoding: 'utf8', windowsHide: true })
     return out.trim().split('\n').filter(Boolean)
   } catch {
     return []

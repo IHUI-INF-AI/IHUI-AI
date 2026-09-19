@@ -102,6 +102,7 @@ vi.mock('react-native', async () => {
     TextInput: mk('input'),
     PanResponder: () => ({ panHandlers: {} }),
     Platform: { OS: 'web' as const },
+    useColorScheme: () => 'light' as const,
     Animated: {
       View: mk('div'),
       Text: mk('span'),

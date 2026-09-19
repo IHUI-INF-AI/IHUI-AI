@@ -30,9 +30,11 @@
  *       model: opts.model,
  *       messages: opts.apiMessages,
  *       signal: opts.signal,
- *       onDelta: opts.onDelta,
- *       onError: opts.onError,
- *       onDone: opts.onDone,
+ *       onDelta: opts.callbacks.onDelta,
+ *       onError: opts.callbacks.onError,
+ *       onDone: opts.callbacks.onDone,
+ *       // Steer(2026-09-19 立):中途引导注入确认(可选,透传自 useChat options.onSteer)
+ *       onSteer: opts.callbacks.onSteer,
  *     })
  *   },
  *   formatError: (err) => formatSSEError(err).message,
@@ -166,6 +168,18 @@ export interface StreamRunnerCallbacks {
   onDone: () => void
   /** 上下文压缩通知(各端按需实现,如 miniapp-taro 用 Taro.showToast) */
   onCompaction?: (info: { tokensBefore: number; tokensAfter: number; removedCount: number }) => void
+  /** 中途引导注入确认(2026-09-19 立,Steer 全链路;形状与 @ihui/api-client SteerEvent
+   *  严格对齐,此处内联定义避免反向依赖;详见 @ihui/types/chat 同名字段注释) */
+  onSteer?: (event: {
+    /** 当前仅 "injected"(已注入 messages);预留扩展 */
+    phase: 'injected'
+    /** 用户引导文本(注入 messages 的原文) */
+    text: string
+    /** 入队时间(ISO,来自 steer 端点) */
+    timestamp?: string
+    /** 所属 assistant 消息 ID(便于前端挂 badge) */
+    messageId?: string
+  }) => void
 }
 
 /**
@@ -193,6 +207,14 @@ export interface UseChatOptions {
   formatError?: (err: unknown) => string
   /** 是否在 onError 时自动清空 assistant 占位消息(默认 false,保留占位 + 填充错误信息) */
   clearAssistantOnError?: boolean
+  /** 中途引导注入确认回调(2026-09-19 立,可选;透传给 streamRunner 的 callbacks.onSteer,
+   *  各端桥接到 streamChat 的 onSteer;载荷形状见 StreamRunnerCallbacks.onSteer) */
+  onSteer?: (event: {
+    phase: 'injected'
+    text: string
+    timestamp?: string
+    messageId?: string
+  }) => void
 }
 
 /**
@@ -227,6 +249,7 @@ export function useChat<TMessage extends ChatMessage = ChatMessage>(
     streamRunner,
     formatError = (err) => String(err),
     clearAssistantOnError = false,
+    onSteer,
   } = options
 
   const [messages, setMessages] = React.useState<TMessage[]>([])
@@ -342,14 +365,16 @@ export function useChat<TMessage extends ChatMessage = ChatMessage>(
           apiMessages,
           signal: controller.signal,
           contextLimit,
-          callbacks: { onDelta, onError, onDone },
+          // Steer(2026-09-19 立):中途引导注入确认透传给各端注入的 streamRunner,
+          // 桥接到 streamChat 的 onSteer(undefined = 本轮未注册,直接传不报错)。
+          callbacks: { onDelta, onError, onDone, onSteer },
         })
       } catch (err) {
         // streamRunner 抛异常(非 SSE 内部错误,如网络断开)
         onError(err)
       }
     },
-    [messages, isStreaming, streamRunner, formatError, clearAssistantOnError, nextId],
+    [messages, isStreaming, streamRunner, formatError, clearAssistantOnError, nextId, onSteer],
   )
 
   const stopStreaming = React.useCallback(() => {

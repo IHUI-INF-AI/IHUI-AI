@@ -52,17 +52,10 @@ export function AgentSwarmMonitor({
   const ts = useTranslations('ai.status')
   const tAria = useTranslations('agentSwarm')
   const swarm = swarmData?.swarm
-  const agentList = swarmData?.agentList ?? []
+  const agentList = React.useMemo(() => swarmData?.agentList ?? [], [swarmData?.agentList])
 
   // P3 #44 瓶颈高亮(2026-09-16 立):运行中且 startedAt 最早(耗时最久)的 agent。
-  // startedAt 缺省的数据源不显示(向后兼容);30s 节流 tick 驱动 elapsed 刷新。
-  const [now, setNow] = React.useState(() => Date.now())
-  React.useEffect(() => {
-    const running = agentList.some((a) => a.status === 'running' && a.startedAt)
-    if (!running) return
-    const id = window.setInterval(() => setNow(Date.now()), 30_000)
-    return () => window.clearInterval(id)
-  }, [agentList])
+  // startedAt 缺省的数据源不显示(向后兼容)。
   const bottleneckName = React.useMemo(() => {
     let worst: string | null = null
     let worstStart = Infinity
@@ -75,7 +68,7 @@ export function AgentSwarmMonitor({
       }
     }
     return worst
-  }, [agentList, now])
+  }, [agentList])
   const results = swarmData?.results ?? []
   // 视图切换:列表视图 / 拓扑视图(2026-07-22 立,对标 主流 AI IDE Subagent mesh 拓扑)
   const [viewMode, setViewMode] = React.useState<'list' | 'topology'>('list')

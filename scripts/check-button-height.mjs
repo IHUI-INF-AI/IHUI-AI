@@ -41,7 +41,7 @@ let stagedOnly = process.argv.includes('--staged')
 let stagedSet = null
 if (stagedOnly) {
   try {
-    const out = execSync('git diff --cached --name-only --diff-filter=ACMR', { encoding: 'utf8' })
+    const out = execSync('git diff --cached --name-only --diff-filter=ACMR', { encoding: 'utf8', windowsHide: true })
     stagedSet = new Set(out.split('\n').filter(Boolean).map((f) => f.replaceAll('\\', '/')))
   } catch {
     stagedOnly = false

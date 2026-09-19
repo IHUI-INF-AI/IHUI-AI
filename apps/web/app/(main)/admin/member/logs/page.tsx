@@ -9,13 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2, ScrollText } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@ihui/ui-react'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import {
   SearchInput,
   Table,

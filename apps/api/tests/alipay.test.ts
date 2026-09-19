@@ -47,14 +47,16 @@ describe('alipay — 支付宝支付服务', () => {
   })
 
   describe('verifyNotify', () => {
-    it('DEV 环境无公钥跳过验签返回 true', () => {
+    // 2026-09-18 fail-closed 修复后:无公钥一律返回 false,
+    // 不再因 NODE_ENV=development/test 放行(伪造 notify 可免费完成任意订单)
+    it('DEV 环境无公钥也返回 false(fail-closed)', () => {
       vi.stubEnv('NODE_ENV', 'development')
-      expect(verifyNotify({ trade_no: '123' })).toBe(true)
+      expect(verifyNotify({ trade_no: '123' })).toBe(false)
     })
 
-    it('test 环境无公钥跳过验签返回 true', () => {
+    it('test 环境无公钥也返回 false(fail-closed)', () => {
       vi.stubEnv('NODE_ENV', 'test')
-      expect(verifyNotify({ trade_no: '123' })).toBe(true)
+      expect(verifyNotify({ trade_no: '123' })).toBe(false)
     })
 
     it('生产环境无公钥返回 false', () => {

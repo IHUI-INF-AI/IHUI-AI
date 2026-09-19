@@ -98,7 +98,7 @@ function killTree(signal) {
   killing = true
   console.log(`\n[dev-web] received ${signal}, killing process tree (PID ${child.pid})...`)
   try {
-    execSync(`taskkill /F /T /PID ${child.pid}`, { stdio: 'inherit' })
+    execSync(`taskkill /F /T /PID ${child.pid}`, { stdio: 'inherit', windowsHide: true })
     console.log('[dev-web] process tree killed')
   } catch (e) {
     console.log(`[dev-web] taskkill warning: ${e.message.split('\n')[0]}`)

@@ -198,6 +198,7 @@ function getStagedFiles() {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return output
       .split('\n')
@@ -221,6 +222,7 @@ function getAddedLineNumbers(filePath) {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     const addedLines = new Set()
     for (const line of output.split('\n')) {

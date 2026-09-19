@@ -123,6 +123,7 @@ function listStagedPsiFiles() {
       cwd: ROOT,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
     })
   } catch {
     return null

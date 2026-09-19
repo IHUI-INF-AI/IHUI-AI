@@ -110,7 +110,11 @@ export function LoginDialog() {
                  账号登录 tab(桌面 SSO 按钮 + 8 个第三方登录)高度超 95vh,DialogContent overflow-visible
                  且居中定位导致超出部分从上下两端溢出屏幕且无滚动条。滚动放在 AuthShell 上:
                  元素自身 overflow 不裁自身的翻转投影(外层 DialogContent 仍 overflow-visible),
-                 9-18 的翻转动效裁边修复不受影响;内容超高时卡片内部出滚动条,静止态完全容纳。 */
+                 9-18 的翻转动效裁边修复不受影响;内容超高时卡片内部出滚动条,静止态完全容纳。
+                 同日第二轮(用户要求"禁止滚动、内容必须完整显示"):配合 AuthShell/LoginForm
+                 紧凑化(卡片 padding pb-6→pb-3、welcome 32px、表单 space-y-3、第三方 4 列),
+                 账号 tab 总高 732→约 515px,常规视口(≥540px 高)完全容纳不出滚动条;
+                 overflow-y-auto 降级为极端矮窗的安全兜底。 */
               'gap-0 p-0 max-w-[460px] w-[calc(100%-2rem)] max-h-[95vh] overflow-visible border-0 bg-transparent shadow-none'
         }
       >

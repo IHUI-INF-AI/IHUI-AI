@@ -30,7 +30,7 @@ function killTree(signal) {
   killing = true
   if (child.pid) {
     try {
-      execSync(`taskkill /F /T /PID ${child.pid}`, { stdio: 'ignore' })
+      execSync(`taskkill /F /T /PID ${child.pid}`, { stdio: 'ignore', windowsHide: true })
     } catch {
       /* ignore — 子进程可能已退出 */
     }

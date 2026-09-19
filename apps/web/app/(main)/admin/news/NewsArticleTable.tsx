@@ -4,7 +4,16 @@
 
 'use client'
 
-import { ChevronLeft, ChevronRight, Download, Edit, Loader2, Newspaper, Plus, Trash2 } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Edit,
+  Loader2,
+  Newspaper,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'

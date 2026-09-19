@@ -35,7 +35,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -72,24 +72,6 @@ check-no-emoji-icons.mjs — emoji 图标守门(UI 图标位置禁 emoji)
 
 // 排除目录:共享 EXCLUDE_DIRS + 构建产物/测试
 // 2026-09-15 补:.next-static / .next-e2e* 为 Next 构建产物目录(并行会话构建时生成),
-// 之前未排除导致 minified chunk 里的 emoji 字面量被误判为 UI 图标违规,blocking 全体 commit。
-const EXCLUDE_DIRS = withExcludes([
-  '.ihui-agent',
-  'tests',
-  '__tests__',
-  'e2e',
-  'out',
-  'node_modules',
-  'dist',
-  'build',
-  '.next',
-  '.next-static',
-  '.next-e2e',
-  'public',
-  'coverage',
-  'output',
-])
-
 /**
  * 扫描根目录:仅前端 UI 端(界面图标规范适用域)。
  * 排除:apps/api / apps/ai-service / apps/cli / sdks(后端数据、终端输出、服务端模板,
@@ -211,6 +193,7 @@ function getStagedAddedLines() {
       cwd: ROOT,
       maxBuffer: 50 * 1024 * 1024,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
   } catch {
     return result
@@ -257,6 +240,7 @@ function getStagedFiles() {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return output
       .split('\n')

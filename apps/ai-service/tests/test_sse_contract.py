@@ -5,7 +5,8 @@
 """SSE 事件契约单一事实源测试(#25,2026-09-16 立)。
 
 覆盖:
-- SSE_EVENTS 事件名集合完整性(22 个)与无重复
+- SSE_EVENTS 事件名集合完整性(24 个:2026-09-19 补录 fallback/usage/steer/budget、
+  删 repair/resumed 孤儿事件)与无重复
 - SSE_EVENT_CONTRACTS 清单与 SSE_EVENTS 集合严格对齐
 - #25 补录的 3 个对话流漂移事件(plan_updated/terminal_start/terminal_end)
 
@@ -15,13 +16,18 @@ scripts/check-agent-event-parity.mjs 守门断言, 本文件不重复。
 
 from __future__ import annotations
 
-from app.core.sse_contract import SSE_EVENTS, SSE_EVENT_CONTRACTS
+from app.core.sse_contract import SSE_EVENT_CONTRACTS, SSE_EVENTS
 
 
 def test_sse_events_completeness() -> None:
-    """事件名集合共 22 个且无重复。"""
-    assert len(SSE_EVENTS) == 22
-    assert len(set(SSE_EVENTS)) == 22
+    """事件名集合共 24 个且无重复。"""
+    assert len(SSE_EVENTS) == 24
+    assert len(set(SSE_EVENTS)) == 24
+
+
+def test_sse_events_p4_d1_steer_members() -> None:
+    """2026-09-19 入契约的 4 个事件在位(P4-2 降级/D1 计量帧/Steer 引导注入/预算分档提醒)。"""
+    assert {"fallback", "usage", "steer", "budget"} <= SSE_EVENTS
 
 
 def test_sse_events_contains_dialog_drift_events() -> None:
@@ -34,6 +40,7 @@ def test_sse_events_core_members() -> None:
     assert {
         "chunk",
         "reasoning",
+        "thinking",
         "tool-call-start",
         "tool-result",
         "subagent_spawn",
@@ -41,8 +48,6 @@ def test_sse_events_core_members() -> None:
         "done",
         "error",
         "compaction",
-        "repair",
-        "resumed",
     } <= SSE_EVENTS
 
 

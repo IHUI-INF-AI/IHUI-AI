@@ -5,70 +5,68 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import type { MessageCompaction } from '@/stores/chat'
 
 interface CompressionDividerProps {
-  count: number
-  expandable?: boolean
-  onExpand?: () => void
-  label?: string
+  /** 消息级压缩统计(chat store setMessageCompaction 写入)。 */
+  compaction: MessageCompaction
   className?: string
   'data-testid'?: string
 }
 
+/**
+ * CompressionDivider — 消息级「上方历史已被压缩」分隔线(2026-09-19 立,孤儿组件接线)。
+ *
+ * 链路:后端 AgentLoopV2 触发上下文压缩 → 网关 compaction 命名帧 →
+ * api-client onCompaction 回调 → send-message 映射为 MessageCompaction →
+ * chat store setMessageCompaction(messageId, compaction) →
+ * MessageItem 在消息内容区顶部(ThinkingSection 之前)渲染本组件。
+ *
+ * 展示策略:单行低调分隔线(标题 + 节省比例),完整 token 前后对比挂在
+ * title/aria-label 上供读屏与悬停查看,不额外占据视觉空间。
+ *
+ * memo:compaction 对象引用稳定时跳过重渲染。
+ */
 export const CompressionDivider = React.memo(function CompressionDivider({
-  count,
-  expandable = true,
-  onExpand,
-  label,
+  compaction,
   className,
   'data-testid': testId,
 }: CompressionDividerProps) {
-  if (count <= 0) return null
-  const text = label ?? `${count} 条已折叠`
+  const t = useTranslations('chat')
 
-  if (!expandable || !onExpand) {
-    return (
-      <div
-        className={cn(
-          'flex items-center justify-center gap-1.5 py-2 text-[10px] text-muted-foreground/50',
-          className,
-        )}
-        data-testid={testId ?? 'compression-divider'}
-        role="separator"
-        aria-label={text}
-      >
-        <span className="h-px flex-1 bg-border/50" aria-hidden />
-        <span>{text}</span>
-        <span className="h-px flex-1 bg-border/50" aria-hidden />
-      </div>
-    )
-  }
+  // 仅当压缩确实减少了 token 时才计算节省比例(压缩后须严格小于压缩前)
+  const savedRatio =
+    compaction.originalTokens > 0 && compaction.compressedTokens < compaction.originalTokens
+      ? Math.round((1 - compaction.compressedTokens / compaction.originalTokens) * 100)
+      : 0
+
+  // 完整描述(token 前后对比),挂在 aria-label 供读屏;原生 title 被守门 [18] 禁用
+  const description = t('compaction.dividerDescription', {
+    before: compaction.originalTokens,
+    after: compaction.compressedTokens,
+  })
 
   return (
-    <button
-      type="button"
-      onClick={onExpand}
+    <div
       className={cn(
-        'group flex w-full items-center justify-center gap-1.5 py-2 text-[10px] text-muted-foreground/60 transition-colors hover:text-foreground',
+        'flex items-center justify-center gap-1.5 py-2 text-[10px] text-muted-foreground/50',
         className,
       )}
       data-testid={testId ?? 'compression-divider'}
-      aria-label={`${text},点击展开`}
+      role="separator"
+      aria-label={description}
     >
-      <span
-        className="h-px flex-1 bg-border/50 transition-colors group-hover:bg-border"
-        aria-hidden
-      />
-      <span className="shrink-0 font-medium">{text}</span>
-      <span className="shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-y-0.5">
-        ▼
-      </span>
-      <span
-        className="h-px flex-1 bg-border/50 transition-colors group-hover:bg-border"
-        aria-hidden
-      />
-    </button>
+      <span className="h-px flex-1 bg-border/50" aria-hidden />
+      <span className="shrink-0 font-medium">{t('compaction.dividerTitle')}</span>
+      {savedRatio > 0 ? (
+        <span className="shrink-0 text-muted-foreground/40">
+          {t('compaction.dividerSaved', { ratio: savedRatio })}
+        </span>
+      ) : null}
+      <span className="h-px flex-1 bg-border/50" aria-hidden />
+    </div>
   )
 })
 

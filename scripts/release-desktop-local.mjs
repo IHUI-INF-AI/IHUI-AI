@@ -93,7 +93,7 @@ if (gr.status !== 0) { console.error('ERROR: Gitee 发行阶段失败'); process
 
 // ── 4. 提交推送版本 bump ──
 if (!NO_PUSH) {
-  const r = spawnSync(process.execPath, ['scripts/safe-commit.mjs', '-m', `chore(desktop): 版本 bump ${version}(本机一键发版)`, '--', 'apps/desktop/src-tauri/tauri.conf.json', 'apps/desktop/package.json'], { stdio: 'inherit' });
+  const r = spawnSync(process.execPath, ['scripts/safe-commit.mjs', '-m', `chore(desktop): 版本 bump ${version}(本机一键发版)`, '--', 'apps/desktop/src-tauri/tauri.conf.json', 'apps/desktop/package.json'], { stdio: 'inherit', windowsHide: true });
   if (r.status !== 0) console.log('⚠️ 版本 bump 提交受阻(可能并行会话竞争),不影响已发布的 Gitee 资产');
 }
 

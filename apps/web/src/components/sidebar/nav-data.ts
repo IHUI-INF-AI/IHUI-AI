@@ -265,6 +265,13 @@ const EDU_ITEMS: NavItem[] = [
     icon: ClipboardList,
     permission: 'edu:manage',
   },
+  // 2026-09-19 食堂采购记账(AI 拍照识别小票→三轮核对→台账/供应商/统计)
+  {
+    href: '/edu/edu-management/procurement',
+    labelKey: 'eduCanteenProcurement',
+    icon: Receipt,
+    permission: 'edu:manage',
+  },
   // 学习工具
   { href: '/edu/notes', labelKey: 'eduNotes', icon: NotebookPen },
   { href: '/edu/qa', labelKey: 'eduQa', icon: HelpCircle },

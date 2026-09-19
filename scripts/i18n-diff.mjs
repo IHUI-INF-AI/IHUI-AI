@@ -118,6 +118,7 @@ const stagedI18nFiles = (() => {
     const out = execSync(`git diff --cached --name-only -- "${TARGET_CFG.dir}"`, {
       cwd: ROOT,
       encoding: 'utf8',
+      windowsHide: true,
     })
     return new Set(out.split('\n').filter(Boolean))
   } catch {

@@ -89,11 +89,13 @@ export function AuthShell({
     >
       {onClose && !hideCloseButton && (
         // 2026-09-16:样式 token 化,单一来源 @ihui/design-tokens close-button.ts
+        // 2026-09-19:加 auth-shell-close 标记类——M-70 把 .login-scope 内 --color-accent
+        // 提为纯白后,本按钮 hover:bg-accent 在白色卡片上白上白不可见(auth-shell.css §5 修复)
         <button
           type="button"
           onClick={onClose}
           aria-label={closeAriaLabel}
-          className={cn(CLOSE_BUTTON_BASE, CLOSE_BUTTON_POSITION)}
+          className={cn('auth-shell-close', CLOSE_BUTTON_BASE, CLOSE_BUTTON_POSITION)}
         >
           <X className={cn(CLOSE_BUTTON_ICON)} />
         </button>
@@ -102,14 +104,12 @@ export function AuthShell({
       <div className="flex flex-col items-center text-center">
         {/* 顶部 logo + welcome 左右并排(复用 M-66/M-68/M-69 视觉方案,2026-07-20 恢复;2026-07-20 修 w-full 塌陷 + logo 统一 + logo 高度对齐 welcome 文字)
             - logo 31×31 rounded-md object-contain + inline style translateY(2px),统一用 /images/logo.png(共享包默认)
-            - welcome h-[52px] w-auto 等比缩放(原 447×67 → h52 时 w≈347)
-            - gap-3(12px)间距
+            - 2026-09-19 紧凑化(用户要求登录弹窗内容在视口内完整显示、禁止滚动):
+              welcome h-[52px]→h-8(32px,w≈214),标题行 pt-9→pt-2,children mt-6→mt-3。
+              关闭按钮避让复核:welcome w≈214 居中后左右留白 >87px,与右上角
+              关闭按钮(right-3 横向 344..376)零重叠,原 pt-9 避让前提不再需要。
             - 浅色 welcome.svg / 深色 baiwelcome.svg 由 .login-scope styles/auth-shell.css .welcome-img/.welcome-img-dark 切换 */}
-        {/* 2026-09-16 关闭按钮避让 + 缩小(用户反馈:按钮偏大、与 WELCOME 文字重叠):
-            关闭按钮 h-7 w-7 @ absolute right-3 top-3(占 top 12~40px),welcome 行若紧贴
-            p-3 顶部(top 12~64px)会与之重叠。非 compact 模式给标题行加 pt-9,行体下移到
-            top 48~100px,与按钮完全错开,顶部留白更通透。compact 无 welcome 不需要。 */}
-        <div className={cn('flex items-center justify-center gap-3', !compact && 'pt-9')}>
+        <div className={cn('flex items-center justify-center gap-3', !compact && 'pt-2')}>
           <img
             src={logoSrc}
             alt="IHUI AI"
@@ -122,8 +122,9 @@ export function AuthShell({
           {!compact && (
             // 2026-09-05 移动端修复:原 w-[340px] shrink-0 固定宽在小屏(min-content≈441px)撑破
             // 登录弹窗容器(DialogContent w-[calc(100%-2rem)]=358px),卡片横向溢出被裁切。
-            // 改为 min(340px, calc(100vw-10rem)):桌面/平板仍 340px,手机(<768px)收缩到视口内。
-            <div className="relative h-[52px] w-[min(340px,calc(100vw-10rem))] shrink-0">
+            // 改为 min(宽度, calc(100vw-10rem)):桌面/平板固定宽,手机(<768px)收缩到视口内。
+            // 2026-09-19 紧凑化:340→214(等比 h-8=32px,447×67 比例)。
+            <div className="relative h-8 w-[min(214px,calc(100vw-10rem))] shrink-0">
               <img
                 src={welcomeLightSrc}
                 alt="Welcome to IHUI AI"
@@ -148,7 +149,8 @@ export function AuthShell({
         {subtitle && <p className="sr-only">{subtitle}</p>}
       </div>
 
-      <div className={cn(compact ? 'mt-4' : 'mt-6')}>{children}</div>
+      {/* 2026-09-19 紧凑化:mt-6→mt-3→mt-2(登录弹窗整体高度压到 95vh 内,用户要求禁滚动) */}
+      <div className={cn(compact ? 'mt-4' : 'mt-2')}>{children}</div>
 
       {footer && <div className="mt-5 text-center text-xs text-muted-foreground">{footer}</div>}
     </div>

@@ -45,6 +45,7 @@ const PLATFORM_DISPLAY_NAMES: Record<ThirdPartyPlatform, string> = {
   github: 'GitHub',
   feishu: '飞书',
   alipay: '支付宝',
+  oidc: '企业 SSO',
   app: '本站 App',
 }
 

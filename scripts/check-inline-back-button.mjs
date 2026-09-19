@@ -38,6 +38,7 @@ function readdirSafe(p) {
   try {
     return execSync(`node -e "console.log(require('fs').readdirSync(process.argv[1]).join('\\n'))" "${p}"`, {
       encoding: 'utf8',
+      windowsHide: true,
     })
       .trim()
       .split('\n')

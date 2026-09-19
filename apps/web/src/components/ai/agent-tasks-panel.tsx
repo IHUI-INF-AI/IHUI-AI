@@ -92,7 +92,13 @@ export function AgentTasksPanel() {
   return (
     <div className="space-y-3 px-1 py-2" data-testid="agent-tasks-panel">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">{t('title')}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium">{t('title')}</span>
+          {/* D6 第 2 步(2026-09-19 立):标注内存态来源——持久化任务看板见 kanban tab */}
+          <Badge className="border-transparent bg-amber-500/15 text-amber-600 hover:bg-amber-500/15">
+            {t('ephemeralBadge')}
+          </Badge>
+        </div>
         <Button variant="outline" size="xs" onClick={() => void load()} disabled={loading}>
           <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
           {t('refresh')}

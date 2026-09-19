@@ -179,6 +179,7 @@ const stagedI18nFiles = (() => {
     const out = execSync(`git diff --cached --name-only -- "${MESSAGES_DIR}" "${SHARED_DIR}"`, {
       cwd: REPO_ROOT,
       encoding: 'utf8',
+      windowsHide: true,
     })
     return new Set(out.split('\n').filter(Boolean))
   } catch {

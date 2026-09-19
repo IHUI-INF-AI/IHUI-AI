@@ -7,15 +7,7 @@
 import { useTranslations } from 'next-intl'
 
 import * as React from 'react'
-import {
-  Loader2,
-  Plus,
-  RefreshCw,
-  Sparkles,
-  AlertCircle,
-  GitBranch,
-  Activity,
-} from 'lucide-react'
+import { Loader2, Plus, RefreshCw, Sparkles, AlertCircle, GitBranch, Activity } from 'lucide-react'
 import {
   Button,
   Card,

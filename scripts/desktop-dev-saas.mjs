@@ -33,7 +33,6 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const webDir = path.join(repoRoot, 'apps', 'web')
-const desktopDir = path.join(repoRoot, 'apps', 'desktop')
 const DEV_PORT = 8801
 const DESKTOP_EXE = 'ihui-desktop.exe'
 const nextBin = path.join(webDir, 'node_modules', 'next', 'dist', 'bin', 'next')
@@ -60,7 +59,7 @@ const log = (msg) => console.log(`[desktop-dev-saas] ${msg}`)
 /** 查询监听指定端口的 PID 列表(Windows netstat;Linux/macOS 用 lsof 兜底) */
 function listenersOfPort(port) {
   if (process.platform === 'win32') {
-    const r = spawnSync('netstat', ['-ano', '-p', 'TCP'], { encoding: 'utf8' })
+    const r = spawnSync('netstat', ['-ano', '-p', 'TCP'], { encoding: 'utf8', windowsHide: true })
     if (r.status !== 0 || !r.stdout) return []
     return [
       ...new Set(
@@ -72,7 +71,7 @@ function listenersOfPort(port) {
       ),
     ]
   }
-  const r = spawnSync('lsof', ['-ti', `tcp:${port}`], { encoding: 'utf8' })
+  const r = spawnSync('lsof', ['-ti', `tcp:${port}`], { encoding: 'utf8', windowsHide: true })
   return r.status === 0 && r.stdout ? r.stdout.split('\n').filter(Boolean) : []
 }
 
@@ -85,20 +84,20 @@ function freePort(port) {
   }
   log(`端口 ${port} 被占用(pid=${pids.join(',')}),停止以注入线上后端地址...`)
   for (const pid of pids) {
-    spawnSync('taskkill', ['/PID', pid, '/F'], { stdio: 'ignore' })
+    spawnSync('taskkill', ['/PID', pid, '/F'], { stdio: 'ignore', windowsHide: true })
   }
 }
 
 /** 停止残留的桌面端实例(否则 cargo 链接阶段删不掉 exe → os error 5) */
 function stopRunningDesktop() {
   if (process.platform !== 'win32') return
-  const r = spawnSync('tasklist', ['/FI', `IMAGENAME eq ${DESKTOP_EXE}`], { encoding: 'utf8' })
+  const r = spawnSync('tasklist', ['/FI', `IMAGENAME eq ${DESKTOP_EXE}`], { encoding: 'utf8', windowsHide: true })
   if (!r.stdout || !r.stdout.includes(DESKTOP_EXE)) {
     log('无残留桌面端实例')
     return
   }
   log(`检测到运行中的 ${DESKTOP_EXE},先停止(避免 cargo 链接失败)...`)
-  spawnSync('taskkill', ['/IM', DESKTOP_EXE, '/F'], { stdio: 'ignore' })
+  spawnSync('taskkill', ['/IM', DESKTOP_EXE, '/F'], { stdio: 'ignore', windowsHide: true })
 }
 
 /** 轮询等待端口可连接 */
@@ -129,7 +128,7 @@ if (!keepDevServer) freePort(DEV_PORT)
 stopRunningDesktop()
 
 // detached 常驻:脱离本脚本/会话生命周期,关闭终端后桌面端仍可正常使用
-const nextBinExists = spawnSync(process.execPath, ['-e', `require('node:fs').accessSync(${JSON.stringify(nextBin)})`], { stdio: 'ignore' })
+const nextBinExists = spawnSync(process.execPath, ['-e', `require('node:fs').accessSync(${JSON.stringify(nextBin)})`], { stdio: 'ignore', windowsHide: true })
 if (nextBinExists.status !== 0) {
   console.error(`[desktop-dev-saas] 未找到 next 二进制: ${nextBin}\n请先执行 pnpm install`)
   process.exit(1)

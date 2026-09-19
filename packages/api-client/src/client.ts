@@ -917,6 +917,10 @@ export interface StreamChatOptions {
    *  注入 messages 时触发(每条引导一次)。前端据此把消息 badge 从「排队中」换成
    *  「引导已生效」,用户确认引导已被 AI 下一轮看到。 */
   onSteer?: (event: SteerEvent) => void
+  /** Budget 用量分档提醒(2026-09-19 立,网关发):流首网关按用户当日 AI 用量分档
+   *  下发 warning(80%~95%)/critical(95%~100%)提醒帧,前端 toast 提示用量进度;
+   *  ≥100% 为 HTTP 429 硬中断(errorCode 'BUDGET_EXHAUSTED'),走 onError 路径。 */
+  onBudget?: (event: BudgetEvent) => void
   /** 2026-08-15 立:显式声明流式模式,默认 true。
    *  后端 detectStreamUsage 依赖 request.stream===true 才启用 usage chunk 注入,
    *  不传或传 false 会导致 usage 缺失,token 显示为 0。 */
@@ -1077,6 +1081,9 @@ export function parseStreamLine(line: string): string | null {
     // 本帧带 text 字段,不拦截会被下方兜底抽取链(json?.text)喷进正文增量
     // (与上方 usage 帧同一坑位,必须在兜底抽取前拦截)。
     if (json?.type === 'steer') return null
+    // Budget(2026-09-19 立):网关用量分档提醒帧走专用通道(tryParseBudget)。
+    // 不拦截同样会被下方兜底抽取链喷进正文增量(与 steer 同一坑位,必须在兜底前拦截)
+    if (json?.type === 'budget') return null
     const choice = json?.choices?.[0]
     const delta =
       choice?.delta?.content ??
@@ -1167,6 +1174,32 @@ export interface SteerEvent {
   timestamp?: string
   /** 所属 assistant 消息 ID(流启动即确定,便于前端挂 badge) */
   messageId?: string
+}
+
+/**
+ * Budget 用量分档提醒事件(2026-09-19 立,网关发):流开始前网关按用户当日 AI 用量
+ * 三态分档,80%~95% 发 level:'warning'(软提醒)、95%~100% 发 level:'critical'(硬预警),
+ * 均为流首命名帧不中断流(≥100% 为 HTTP 429 硬中断,不走本事件,走 onError +
+ * errorCode 'BUDGET_EXHAUSTED')。前端 onBudget 据此 toast 提示用量进度。
+ *
+ * wire 格式(命名帧):
+ *   event: budget
+ *   data: {"type":"budget","level":"warning","percent":85.3,"usedTokens":85300,
+ *          "limitTokens":100000,"tier":"个人版","resetAt":"2026-09-20T16:00:00.000Z"}
+ */
+export interface BudgetEvent {
+  /** 档位:warning(80%~95%)| critical(95%~100%) */
+  level: 'warning' | 'critical'
+  /** 当日已用占限额百分比(0~100) */
+  percent?: number
+  /** 当日已用 tokens */
+  usedTokens?: number
+  /** 当日限额 tokens */
+  limitTokens?: number
+  /** 用户预算档位名(如 VIP 等级名,可选) */
+  tier?: string
+  /** 限额重置时间(ISO,东八区次日 0 点,可选) */
+  resetAt?: string
 }
 
 /**
@@ -1763,6 +1796,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const hasUsage = typeof opts.onUsage === 'function'
       // Steer(中途引导,2026-09-19 立):onSteer 存在时启用解析
       const hasSteer = typeof opts.onSteer === 'function'
+      // Budget(用量分档提醒,2026-09-19 立):onBudget 存在时启用解析
+      const hasBudget = typeof opts.onBudget === 'function'
       // hasCitations 被 tryParseCitations 的守护读取(消除 TS6133:声明未使用)
       void hasCitations
 
@@ -2224,6 +2259,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             .map((p) => ({
               step: p.step as string,
               status: p.status as PlanStep['status'],
+              // 2026-09-18 v2:透传步骤 id(= toolCallId)与 toolCallIds(步骤↔工具卡精确关联)
+              ...(typeof p.id === 'string' ? { id: p.id } : {}),
+              ...(Array.isArray(p.toolCallIds) ? { toolCallIds: p.toolCallIds as string[] } : {}),
+              ...(p.error === true ? { error: true } : {}),
               ...(typeof p.startedAt === 'string' ? { startedAt: p.startedAt } : {}),
               ...(typeof p.endedAt === 'string' ? { endedAt: p.endedAt } : {}),
               ...(typeof p.durationMs === 'number' ? { durationMs: p.durationMs } : {}),
@@ -2518,6 +2557,43 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
 
       /**
+       * Budget(用量分档提醒,2026-09-19 立,网关发):流首网关按用户当日 AI 用量
+       * 三态分档下发提醒帧(80%~95% warning / 95%~100% critical,均放行不中断流):
+       *   event: budget → data: { type:'budget', level:'warning'|'critical', percent?,
+       *                            usedTokens?, limitTokens?, tier?, resetAt? }
+       * 前端 onBudget 据此 toast 提示用量进度。 */
+      const tryParseBudget = (line: string): void => {
+        if (!hasBudget) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'budget') return
+          if (json?.level !== 'warning' && json?.level !== 'critical') return
+          opts.onBudget!({
+            level: json.level,
+            percent: typeof json.percent === 'number' ? json.percent : undefined,
+            usedTokens: typeof json.usedTokens === 'number' ? json.usedTokens : undefined,
+            limitTokens: typeof json.limitTokens === 'number' ? json.limitTokens : undefined,
+            tier: typeof json.tier === 'string' ? json.tier : undefined,
+            resetAt: typeof json.resetAt === 'string' ? json.resetAt : undefined,
+          })
+        } catch {
+          /* 非 JSON 或非 budget 事件忽略 */
+        }
+      }
+
+      /**
        * 优化(问题 4-4):基于 SSE 行的 type 字段快速路由到对应 tryParse,
        * 避免每行最多 6 次 tryParse 全量 JSON.parse 尝试。
        *
@@ -2538,6 +2614,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
        *  - terminal_start / terminal_end:tryParseTerminal(W1 2026-09-12 立)
        *  - usage:tryParseUsage(OpenAI 协议 usage chunk,基于 json.usage 字段,非 type)
        *  - steer:tryParseSteer(Steer 2026-09-19 立)
+       *  - budget:tryParseBudget(Budget 用量分档提醒 2026-09-19 立,网关发)
        */
       const routeLineByType = (line: string): string | null => {
         if (!line || line.startsWith(':')) return null
@@ -2595,6 +2672,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             // Steer(2026-09-19 立):中途引导注入确认帧
             case 'steer':
               return 'steer'
+            // Budget(2026-09-19 立):网关用量分档提醒帧
+            case 'budget':
+              return 'budget'
             default:
               return null
           }
@@ -2633,6 +2713,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseUsage(line)
         } else if (route === 'steer') {
           tryParseSteer(line)
+        } else if (route === 'budget') {
+          tryParseBudget(line)
         } else {
           // fallback:无 type / 未知 type / 注释 / event:/id:/retry: / 非 JSON token 行。
           // 各 tryParse 内部第一道守护(`if (!hasXxx) return` + line 前缀检查)对非匹配行立即 return,
@@ -2651,6 +2733,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseTerminalDelta(line)
           tryParseThinking(line)
           tryParseSteer(line)
+          tryParseBudget(line)
         }
       }
 

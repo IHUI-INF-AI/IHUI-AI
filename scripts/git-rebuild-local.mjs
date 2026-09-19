@@ -34,7 +34,7 @@ import { join } from 'node:path'
 
 function run(cmd, allowFail = false) {
   try {
-    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim()
+    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }).trim()
   } catch (e) {
     if (allowFail) return null
     throw e
@@ -182,7 +182,7 @@ function main() {
   if (existsSync(targetGitDir)) {
     console.log(`   ⓪ 归档现有 gitdir → ${archiveDir}`)
     try {
-      execSync(`cp -r "${targetGitDir}" "${archiveDir}"`, { stdio: 'ignore' })
+      execSync(`cp -r "${targetGitDir}" "${archiveDir}"`, { stdio: 'ignore', windowsHide: true })
     } catch (e) {
       console.error(`❌ 归档现有 gitdir 失败: ${String(e.message ?? e)}`)
       console.error('   放弃破坏性重建,仓库保持原状。请排查磁盘/权限后重试。')
@@ -204,7 +204,7 @@ function main() {
 
   // 2. 把克隆出的 .git 落到真 gitdir;工作区 .git 指针形态保持不变
   console.log('   ② 落盘到真 gitdir(工作区 .git 指针不变)')
-  execSync(`mv "${join(cloneDir, '.git')}" "${targetGitDir}"`, { stdio: 'ignore' })
+  execSync(`mv "${join(cloneDir, '.git')}" "${targetGitDir}"`, { stdio: 'ignore', windowsHide: true })
   if (isSeparate) {
     // 确保工作区 .git 仍是指针文件(指向外部 gitdir),而非 544MB 目录
     writeFileSync(dotGit, `gitdir: ${targetGitDir}\n`)

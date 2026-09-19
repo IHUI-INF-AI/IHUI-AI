@@ -15,9 +15,14 @@ import { idParamSchema } from './_shared.js'
 
 const addRoleUserSchema = z
   .object({ userId: z.uuid().optional(), userIds: z.array(z.uuid()).min(1).optional() })
-  .refine((b) => b.userId != null || b.userIds != null, {
-    message: 'userId 或 userIds 必填其一',
-  })
+  .refine(
+    (b) =>
+      (b.userId !== null && b.userId !== undefined) ||
+      (b.userIds !== null && b.userIds !== undefined),
+    {
+      message: 'userId 或 userIds 必填其一',
+    },
+  )
 
 const revokeRoleUsersSchema = z.object({ userIds: z.array(z.uuid()).min(1) })
 

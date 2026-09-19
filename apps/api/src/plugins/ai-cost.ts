@@ -264,6 +264,66 @@ export async function checkBudget(
   return { allowed: true }
 }
 
+/**
+ * 查询用户当日 token 预算用量(网关三态分档决策数据源, 2026-09-19 立)。
+ *
+ * 与 checkBudget 的差异: checkBudget 只返回布尔(一刀切 429), 本函数返回用量明细,
+ * 供 ai-chat-stream 网关按 80%/95%/100% 三档分流(放行/软提醒/硬中断)。
+ * - 预算查询条件与 checkBudget 完全同型, 保证三态判定与既有 allow/block 语义一致;
+ * - 无预算记录返回 null(调用方视为放行, 不参与分档);
+ * - tier 取用户当前生效 VIP 档位名(vipLevels.levelName), 查询失败/无 VIP 时省略, 不阻塞主链路。
+ */
+export async function getUserBudgetUsage(
+  userId: string,
+  model?: string,
+): Promise<{ usedTokens: number; limitTokens: number; tier?: string } | null> {
+  const conditions = [eq(aiBudgets.scope, 'user'), eq(aiBudgets.scopeKey, userId)]
+  if (model) conditions.push(eq(aiBudgets.model, model))
+
+  const [budget] = await db
+    .select()
+    .from(aiBudgets)
+    .where(and(...conditions))
+    .limit(1)
+
+  if (!budget) return null
+
+  // 今日 0 点起算(与 checkBudget 同口径)
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+
+  const [used] = await db
+    .select({ total: sum(aiCostRecords.totalTokens) })
+    .from(aiCostRecords)
+    .where(and(gte(aiCostRecords.createdAt, todayStart), eq(aiCostRecords.userId, userId)))
+  const usedTokens = Number(used?.total ?? 0)
+
+  // VIP 档位名: 取 status=1 且 endTime > now 的生效订阅中最高档, 按 levelValue 匹配 vipLevels
+  let tier: string | undefined
+  try {
+    const now = new Date()
+    const [vip] = await db
+      .select({ levelName: vipLevels.levelName })
+      .from(userVips)
+      .innerJoin(vipLevels, eq(vipLevels.levelValue, userVips.levelValue))
+      .where(
+        and(
+          eq(userVips.userId, userId),
+          eq(userVips.status, 1),
+          gte(userVips.endTime, now),
+          eq(vipLevels.status, 1),
+        ),
+      )
+      .orderBy(desc(userVips.levelValue))
+      .limit(1)
+    tier = vip?.levelName
+  } catch {
+    tier = undefined
+  }
+
+  return { usedTokens, limitTokens: budget.dailyTokenLimit, tier }
+}
+
 // =============================================================================
 // AI 成本记录
 // =============================================================================
@@ -356,6 +416,8 @@ declare module 'fastify' {
   interface FastifyInstance {
     aiCost: {
       checkBudget: typeof checkBudget
+      /** 查用户当日 token 预算用量(三态分档数据源) */
+      getUserBudgetUsage: typeof getUserBudgetUsage
       record: typeof recordAiCost
       /** 仅查 L1 内存(同步, 向后兼容) */
       getCached: typeof getCachedPrompt
@@ -380,6 +442,7 @@ const aiCostPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   server.decorate('aiCost', {
     checkBudget,
+    getUserBudgetUsage,
     record: recordAiCost,
     getCached: getCachedPrompt,
     getCachedAsync: getCachedPromptAsync,
