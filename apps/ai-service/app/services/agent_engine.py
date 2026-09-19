@@ -74,11 +74,12 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from app.core.output_cleaning import strip_ansi as _strip_ansi
 from app.core.command_safety import dangerous_command_match as _dangerous_command_match
+from app.core.sandbox_policy import PROTECTED_METADATA_PATH_NAMES as _PROTECTED_METADATA_PATH_NAMES
 
 from .session_store import SessionStore
 
@@ -3597,6 +3598,21 @@ class AgentEngine:
                     target.relative_to(base)
                 except (OSError, ValueError):
                     return {"error": f"路径越出工作区,拒绝应用: {target_rel}"}
+                # 受保护元数据防提权(2026-09-19 第三十六批,对标 Codex WritableRoot
+                # .is_path_writable):工作区内首段为 .git/.agents/.codex 的路径不可被
+                # 补丁改写——.git/hooks 等可被用于提权,须走受保护审批而非静默写入。
+                _first_component = PurePosixPath(
+                    target_rel.replace("\\", "/")
+                ).parts[0] if target_rel else ""
+                if _first_component in _PROTECTED_METADATA_PATH_NAMES:
+                    return {
+                        "error": (
+                            f"受保护路径不可被补丁修改: {target_rel}"
+                            f"(首段 {_first_component} 属元数据目录,存在提权风险;"
+                            "如确需修改请走受保护审批通道)"
+                        ),
+                        "protected": _first_component,
+                    }
                 created = section["old_path"].strip() == "/dev/null"
                 deleted = section["new_path"].strip() == "/dev/null"
                 if created:
@@ -3656,6 +3672,15 @@ class AgentEngine:
                         old_target.relative_to(base)
                     except (OSError, ValueError):
                         return {"error": f"路径越出工作区,拒绝应用: {old_rel}"}
+                    _old_first = PurePosixPath(old_rel.replace("\\", "/")).parts[0] if old_rel else ""
+                    if _old_first in _PROTECTED_METADATA_PATH_NAMES:
+                        return {
+                            "error": (
+                                f"受保护路径不可被补丁修改: {old_rel}"
+                                f"(首段 {_old_first} 属元数据目录,存在提权风险)"
+                            ),
+                            "protected": _old_first,
+                        }
                     diff_pairs[old_rel] = (content, None)
                     diff_pairs[target_rel] = (None, new_content)
                     planned_files.extend([target_rel, old_rel])
