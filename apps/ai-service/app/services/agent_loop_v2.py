@@ -1203,6 +1203,10 @@ class AgentLoopV2:
         self._tool_state: dict[str, Any] = {}
         self._pause_requested: bool = False
         self._cancel_requested: bool = False
+        # 批 44(turn/steer 对标,2026-09-19):运行中用户转向输入队列。
+        # steer(text) 由引擎层在回合 running 时调用;主循环每次 LLM 调用前消费,
+        # 把 steer 文本追加进消息历史 → 同一回合继续推理(非排队新回合)。
+        self._pending_steers: list[str] = []
         # 1-5:最新 checkpoint id(rollback 证据引用;每次 run 重置)
         self._last_checkpoint_id: str | None = None
         # 1-1 可解释性:工具级决策提示(1-1 立,2026-09-08)。
@@ -1239,6 +1243,8 @@ class AgentLoopV2:
         self._pause_requested = False
         self._cancel_requested = False
         self._current_iteration = 0
+        # 批 44:steer 队列跨 run 清空(running 时才可 steer,run 间不应残留)
+        self._pending_steers = []
         # 1-5:rollback 证据引用的 checkpoint id 跨 run 不复用
         self._last_checkpoint_id = None
         # 1-8 上下文压缩:每次 run 重置事件列表(避免跨 run 残留)
@@ -2614,6 +2620,19 @@ class AgentLoopV2:
                     iteration=i,
                     messages_count=len(messages),
                 )
+                # 批 44:turn/steer 消费(对标 codex inject_if_running)——
+                # 每次迭代 LLM 调用前把运行中注入的用户文本追加进历史,同一
+                # 回合继续推理。可能触发立即再跑一轮 LLM(用户"补充指令"场景);
+                # 多条 steer 按提交顺序全部追加。注入在压缩前,保证 steer 内容
+                # 不会被本次压缩裁掉。
+                drained_steers = self._drain_steers()
+                for steer_text in drained_steers:
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": f"[steer] {steer_text}",
+                        }
+                    )
                 # 1. 调 LLM(带 tools,带指数退避重试);调用前按占用率自动压缩上下文(1-8)
                 messages = await self._maybe_compact_context(messages)
                 # 批 40 接线:当前时间提醒(对标 codex maybe_record_current_time_reminder)。
@@ -3116,6 +3135,43 @@ class AgentLoopV2:
                 status="cancelled",
             )
         return None
+
+    # ------------------------------------------------------------------
+    # 批 44:turn/steer 运行中转向(2026-09-19,对标 codex TurnSteerParams /
+    # steer_turn / inject_if_running)—— 有活跃回合时把用户输入注入当前回合。
+    # ------------------------------------------------------------------
+
+    def steer(self, text: str) -> bool:
+        """运行中转向:把用户文本注入当前活跃回合。
+
+        语义对标 codex:仅当回合**正在运行**时接受,追加进 _pending_steers;
+        主循环在下一次 LLM 调用前消费(迭代边界),追加 user 消息后继续同一
+        回合推理——与 thread.enqueue(回合结束后才消化)的本质区别就在这里。
+
+        Returns:
+            True = 已接受注入;False = 无活跃回合(caller 应降级为起新回合,
+            对应 codex SteerSubmission::NotSubmitted)。
+        """
+        if self._messages is None:
+            return False  # run() 未启动 → 无活跃回合
+        self._pending_steers.append(text)
+        return True
+
+    def _drain_steers(self) -> list[str]:
+        """取出全部待注入的 steer 文本(主循环 LLM 调用前调用)。"""
+        if not self._pending_steers:
+            return []
+        drained = list(self._pending_steers)
+        self._pending_steers.clear()
+        return drained
+
+    def take_leftover_steers(self) -> list[str]:
+        """run 结束后回收未被消费的 steer(竞态兜底)。
+
+        steer 提交时回合还在 running 但主循环已进入最终 LLM 调用,注入窗口
+        已关闭——引擎层回收后转 thread.enqueue 语义(下一回合消化),不丢消息。
+        """
+        return self._drain_steers()
 
     # ------------------------------------------------------------------
     # 工具调用审批流(2026-08-30 立,对标 Codex 三档审批 + Claude Auto mode)
