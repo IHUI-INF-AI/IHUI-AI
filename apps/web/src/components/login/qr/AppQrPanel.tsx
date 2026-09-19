@@ -36,7 +36,7 @@ interface QrStatusData {
 
 const POLL_INTERVAL_MS = 2000
 const SUCCESS_CLOSE_DELAY_MS = 800
-const QR_SIZE = 200
+const QR_SIZE = 184
 
 /**
  * 本站 App 扫码登录面板。
@@ -169,7 +169,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
 
   if (status === 'loading') {
     return (
-      <div className="mx-auto flex h-[280px] w-full max-w-[280px] items-center justify-center rounded-md border bg-card">
+      <div className="mx-auto flex h-[260px] w-full max-w-[280px] items-center justify-center rounded-md border bg-card">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
@@ -177,7 +177,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
 
   if (status === 'confirmed') {
     return (
-      <div className="mx-auto flex h-[280px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-md border bg-card">
+      <div className="mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-md border bg-card">
         <CheckCircle2 className="h-12 w-12 text-green-500" />
         <p className="text-sm text-muted-foreground">{t('loginSuccess')}</p>
       </div>
@@ -186,7 +186,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
 
   if (status === 'error') {
     return (
-      <div className="mx-auto flex h-[280px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-4 text-center">
+      <div className="mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-4 text-center">
         <XCircle className="h-8 w-8 text-destructive" />
         <p className="text-sm text-destructive">{t('appQrFailed')}</p>
         {errorMsg && <p className="text-xs text-muted-foreground">{errorMsg}</p>}
@@ -205,7 +205,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
   // status === 'pending' | 'expired' → 渲染二维码
   const isExpired = status === 'expired'
   return (
-    <div className="mx-auto flex h-[280px] w-full max-w-[280px] flex-col items-center justify-center gap-3 rounded-md border bg-card px-4">
+    <div className="mx-auto flex h-[260px] w-full max-w-[280px] flex-col items-center justify-center gap-3 rounded-md border bg-card px-4">
       <div
         className={`relative rounded-lg border border-border bg-popover p-3${isExpired ? ' opacity-30' : ''}`}
       >
