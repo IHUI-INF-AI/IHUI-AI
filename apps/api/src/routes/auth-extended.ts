@@ -3123,7 +3123,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         true,
       )
       const webOrigin = config.CORS_ORIGIN.split(',')[0]?.trim() ?? ''
-      return reply.redirect(`${webOrigin}/sso/login`)
+      // sso=oidc 标记:前端 /sso/login 检测到后,已登录态自动跳转 redirect(关闭登录弹窗),
+      // 避免 OIDC 回跳后停留在授权卡片需要手动点击(2026-09-19 SSO 闭环体验修复)
+      return reply.redirect(`${webOrigin}/sso/login?sso=oidc`)
     } catch (e) {
       request.log.error(e)
       return reply
