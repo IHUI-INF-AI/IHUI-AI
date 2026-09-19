@@ -6925,6 +6925,12 @@
       "minimizedSubagents": "subagents",
       "minimizedTools": "tools",
       "moreItems": "...and {n} more",
+      "nextStepsCommit": "Commit code changes",
+      "nextStepsContinue": "Continue remaining {n} steps",
+      "nextStepsDismiss": "Dismiss",
+      "nextStepsRunTests": "Run tests to verify changes",
+      "nextStepsSummarize": "Summarize this conversation",
+      "nextStepsTitle": "Next steps",
       "overview": {
         "active": "active",
         "changes": "Changes",
@@ -7132,7 +7138,15 @@
         "targetFile": "Comment on this change",
         "close": "Cancel",
         "pendingBanner": "{count} code review comments pending"
-      }
+      },
+      "runtimeStatusResuming": "Resuming…",
+      "runtimeStatusPausing": "Pausing…",
+      "runtimeStatusCancelling": "Cancelling…",
+      "runtimePermissionMode": "Permission mode {mode} · {tool} · {decision}",
+      "runtimeMessageSend": "Round {iteration} request sent · {count} messages",
+      "runtimeSessionEndSuccess": "Session completed · {iterations} rounds · {duration}",
+      "runtimeSessionEndFailed": "Session ended with errors · {iterations} rounds · {duration}",
+      "runtimeTerminalOutput": "Runtime output"
     },
     "permissionConfirm": {
       "allow": "Allow",
@@ -8089,6 +8103,7 @@
       "wiki": "Wiki",
       "integrations": "Integrations",
       "workspace": "Workspace",
+      "kanban": "Tasks Board",
       "atomicrollback": "Full-stack Rollback"
     },
     "applied": "Applied",
@@ -15925,6 +15940,7 @@
     "eduScheduleMgr": "Schedule Manager",
     "eduSchedulingMgr": "Schedule",
     "eduStudyPlanMgr": "Study Plan",
+    "eduCanteenProcurement": "Canteen Procurement",
     "enterprise": "Enterprise",
     "exam": "Exam",
     "expand": "Expand",
@@ -22691,6 +22707,7 @@
     "adopted": "Adopted"
   },
   "agentTasks": {
+    "ephemeralBadge": "In-memory (temporary)",
     "title": "Agent Tasks",
     "refresh": "Refresh",
     "empty": "No agent tasks (created via /agent/run or automations)",
