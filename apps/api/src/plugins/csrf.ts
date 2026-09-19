@@ -41,14 +41,12 @@ const PUBLIC_PREFIXES = [
   // 支付服务端回调（P2 修复 2026-08-06:豁免最小化,仅保留纯回调路径,且入口均有签名/密钥验签）:
   // - wechat/notify + wechat/notify/refund:verifyCallbackSignature 微信平台证书验签
   // - alipay/notify:verifyNotify 支付宝 RSA 验签
-  // - stripe/webhook:verifyStripeWebhook 签名验签
   // - paypal/webhook:verifyPaypalWebhook 签名验签
   // - withdrawal/notify + recurring/wechat-notify:verifyCallbackSignature 验签(生产强制)
   // 其余 /api/payments/* 写端点(下单/查询/关单/退款/提现等)均已从豁免名单移除,
   // 它们走 Bearer JWT / auth_token cookie 豁免,未认证请求应返回 401/403 而非绕过 CSRF。
   '/api/payments/wechat/notify',
   '/api/payments/alipay/notify',
-  '/api/payments/stripe/webhook',
   '/api/payments/paypal/webhook',
   '/api/payments/withdrawal/notify',
   '/api/payments/recurring/wechat-notify',
