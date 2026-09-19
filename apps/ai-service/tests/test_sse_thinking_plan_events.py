@@ -17,7 +17,7 @@ mock 策略:patch agent_loop_v2 命名空间的 hook_engine(与 test_agent_event
 from __future__ import annotations
 
 import logging
-from unittest.mock import AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, patch
 
 from app.services.agent_loop_v2 import (
     AgentEventStream,
@@ -174,11 +174,13 @@ async def test_thinking_delta_emitted_when_reasoning_nonempty():
     emits = _thinking_emits(mock_he)
     assert len(emits) == 1
     payload = emits[0][1]
+    # trace_id(2026-09-18):run 级 uuid 由 emit 自动注入,断言用 ANY 占位
     assert payload == {
         "run_id": "s-p05",
         "content": "思考过程与最终回复",
         "iteration": 1,
         "is_final": True,
+        "trace_id": ANY,
     }
 
 

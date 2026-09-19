@@ -2255,7 +2255,8 @@
       "schedule": "시간표 관리",
       "attendance": "출결 관리",
       "grades": "성적 관리",
-      "homework": "숙제 관리"
+      "homework": "숙제 관리",
+      "canteenProcurement": "식당 구매 장부"
     },
     "eduParent": "학부모 포털",
     "eduSchedule": "시간표",

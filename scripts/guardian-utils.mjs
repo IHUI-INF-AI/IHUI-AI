@@ -72,6 +72,7 @@ export function getStagedFiles() {
     const output = execSync('git diff --cached --name-only', {
       encoding: 'utf8',
       cwd: process.cwd(),
+      windowsHide: true,
     })
     return output.split('\n').filter(Boolean)
   } catch {
@@ -89,6 +90,7 @@ export function getStagedFilesFiltered(filter = 'ACMR') {
     const output = execSync(`git diff --cached --name-only --diff-filter=${filter}`, {
       encoding: 'utf8',
       cwd: process.cwd(),
+      windowsHide: true,
     })
     return output.split('\n').filter(Boolean)
   } catch {

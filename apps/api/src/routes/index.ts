@@ -165,6 +165,8 @@ import aiFeedRoutes from './ai-feed.js'
 import leaderboardRoutes from './leaderboard.js'
 import aiEducationRoutes from './ai-education.js'
 import eduAiManagementRoutes from './edu-ai-management.js'
+// 教育食堂采购记账(2026-09-19 立):AI 小票三轮核对 + 台账/供应商/统计/导出
+import eduCanteenRoutes from './edu-canteen.js'
 // F3 真实缺口补齐(2026-08-15):技能分类管理 + 元学习闭环路由
 import skillCategoriesRoutes from './skill-categories.js'
 import metaLearnerRoutes from './meta-learner.js'
@@ -807,6 +809,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(aiEducationRoutes, { prefix: '/api/ai-education' })
   // AI 教育管理：学期/班级/课程表/菜谱/学习计划 7 表 CRUD（2026-08-11 立）
   server.register(eduAiManagementRoutes, { prefix: '/api/edu-ai-management' })
+  // 教育食堂采购记账：AI 小票三轮核对 + 台账/供应商/统计/导出（2026-09-19 立）
+  server.register(eduCanteenRoutes, { prefix: '/api/edu-canteen' })
 
   // 文件版本管理：版本创建/列表/详情/回滚/删除/对比
   server.register(fileVersionRoutes, { prefix: '/api' })

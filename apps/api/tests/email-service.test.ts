@@ -687,6 +687,7 @@ describe('email-service — 腾讯云 SES Template 模式 + Simple base64 修复
       code: '654321',
       nickname: '李四',
       scene: 'login',
+      sceneText: '登录',
     })
   })
 

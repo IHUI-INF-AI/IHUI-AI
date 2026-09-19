@@ -26,3 +26,21 @@ packages/database/drizzle/meta/
 # 非源码;prettier 每次要求补空行的格式化噪声会与并行会话追加动作持续冲突。
 # 与已忽略的 docs/ 同策略,不纳入源码格式门禁。
 PROJECT_PLAN.md
+# Rust 构建产物(apps/desktop/src-tauri/target,.fingerprint 数千机器生成 JSON)
+apps/desktop/src-tauri/target/
+# Tauri 自动生成 schema(构建时刷新)
+apps/desktop/src-tauri/gen/
+# Capacitor 打包的 web 构建产物(Next 静态导出 chunk)
+apps/mobile-cap/www/
+# Capacitor cap sync 复制进 android assets 的配置副本(由根配置同步生成)
+apps/mobile-cap/android/app/src/main/assets/
+# Android NDK/CMake 构建产物(mobile-rn android .cxx,数千机器生成 JSON)
+apps/mobile-rn/android/app/.cxx/
+# ai-service 运行时数据目录(服务自写,非源码)
+apps/ai-service/data/
+# Firebase 服务账号凭证(敏感文件,禁止格式化改写)
+apps/api/firebase-service-account.json
+# Playwright 登录态存储(e2e 运行时自动写入,含凭证)
+apps/web/e2e/.auth/
+# Next.js 自动生成声明文件
+**/next-env.d.ts

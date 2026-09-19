@@ -31,6 +31,7 @@ import { success, error } from '../utils/response.js'
 import { setAuthCookies } from '../utils/auth-cookies.js'
 import { encryptJSON, decryptJSON } from '../utils/crypto.js'
 import { db } from '../db/index.js'
+import { config } from '../config/index.js'
 import { users } from '@ihui/database'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { publicUser, resolveUserPermissions } from './auth.js'
@@ -3105,7 +3106,15 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         avatar: info.avatar,
         email: info.email,
       })
-      return reply.send(buildOAuthCallbackResponse(result))
+      // 浏览器闭环(2026-09-19 立):OIDC 由后端代理,回调落在浏览器会话,
+      // 必须写 httpOnly cookie 并 302 回前端登录页/首页,否则浏览器停留在 API JSON 页。
+      setAuthCookies(
+        reply,
+        { accessToken: result.accessToken, refreshToken: result.refreshToken },
+        true,
+      )
+      const webOrigin = config.CORS_ORIGIN.split(',')[0]?.trim() ?? ''
+      return reply.redirect(`${webOrigin}/sso/login`)
     } catch (e) {
       request.log.error(e)
       return reply

@@ -101,7 +101,21 @@ class TestConstants:
         # + model.reroute(模型改道事件,llm_gateway auto 路由)
         assert "tool.retry" in HOOK_EVENTS
         assert "model.reroute" in HOOK_EVENTS
-        assert len(HOOK_EVENTS) == 19
+        # 2026-09-18 后续批次补录:patch.applied(PostApplyPatch 自愈结果)、
+        # 第十二批生命周期四事件(subagent.start/stop、agent.stop/interrupt,
+        # 对标 Codex hooks crate)、W9 过渡事件(compaction/agent.status)、
+        # 第七批压缩生命周期(context.pre_compact/post_compact)
+        assert "patch.applied" in HOOK_EVENTS
+        assert "subagent.start" in HOOK_EVENTS
+        assert "subagent.stop" in HOOK_EVENTS
+        assert "agent.stop" in HOOK_EVENTS
+        assert "agent.interrupt" in HOOK_EVENTS
+        assert "compaction" in HOOK_EVENTS
+        assert "agent.status" in HOOK_EVENTS
+        assert "context.pre_compact" in HOOK_EVENTS
+        assert "context.post_compact" in HOOK_EVENTS
+        # 25 个事件(2026-09-19 同步:上述批次入列后本断言未同步)
+        assert len(HOOK_EVENTS) == 25
 
     def test_action_types(self):
         assert "webhook" in HOOK_ACTION_TYPES

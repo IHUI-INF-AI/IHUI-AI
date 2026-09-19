@@ -27,7 +27,6 @@ from app.services.agent_engine import (
 )
 from app.services.agent_loop_v2 import AgentLoopV2, ToolDefinition
 
-
 # =============================================================================
 # 夹具(与 test_engine_harness_fine 同款模式,自包含)
 # =============================================================================

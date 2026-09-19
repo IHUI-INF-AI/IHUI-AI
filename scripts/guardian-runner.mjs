@@ -1149,11 +1149,12 @@ function readPushGateCache() {
 /** 计算门检查输入的内容指纹:HEAD 类型相关子树 + 工作区脏状态(含脏文件内容) */
 function computeGateFingerprint() {
   try {
-    const trees = execFileSync('git', ['rev-parse', 'HEAD:apps', 'HEAD:packages'], { encoding: 'utf8' }).trim()
+    const trees = execFileSync('git', ['rev-parse', 'HEAD:apps', 'HEAD:packages'], { encoding: 'utf8', windowsHide: true }).trim()
     // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段
     const statusRaw = execFileSync('git', ['status', '--porcelain', '-z', '--', 'apps', 'packages'], {
       encoding: 'utf8',
-    })
+        windowsHide: true,
+      })
     const h = createHash('sha1')
     h.update(trees)
     h.update(statusRaw)
@@ -1208,7 +1209,7 @@ for (const check of effectiveChecks) {
   const checkStart = Date.now()
 
   try {
-    execSync(cmd, { stdio: 'inherit', cwd: process.cwd() })
+    execSync(cmd, { stdio: 'inherit', cwd: process.cwd(), windowsHide: true })
     passed++
     if (showTiming) {
       console.log(`  ${C.dim}⏱  ${Date.now() - checkStart}ms${C.reset}`)

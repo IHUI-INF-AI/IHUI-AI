@@ -54,12 +54,14 @@ function isWebDevServerRunning() {
       const out = execSync(`netstat -ano | findstr :${WEB_PORT} | findstr LISTENING`, {
         encoding: 'utf-8',
         stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
       })
       return out.trim().length > 0
     } else {
       const out = execSync(`lsof -i :${WEB_PORT} -sTCP:LISTEN -P -n 2>/dev/null || true`, {
         encoding: 'utf-8',
         stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
       })
       return out.trim().length > 0
     }

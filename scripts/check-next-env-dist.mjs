@@ -52,6 +52,7 @@ function isStaged() {
       cwd: ROOT,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
     })
     return out
       .split('\n')

@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import ANY, AsyncMock, patch
 
 from app.services.agent_loop_v2 import AgentLoopV2, ToolDefinition
 
@@ -84,11 +84,13 @@ async def test_session_start_end_emitted():
     assert result.success is True
 
     # session.start:此时 _session_id 尚未生成,传空字符串
+    # trace_id(2026-09-18):run 级 uuid 由 emit 自动注入,断言用 ANY 占位
     mock_emit.assert_any_call("session.start", {
         "session_id": "",
         "user_id": "",
         "conversation_id": "",
         "max_iterations": 5,
+        "trace_id": ANY,
     })
 
     # session.end:_session_id 已生成
@@ -99,6 +101,7 @@ async def test_session_start_end_emitted():
         "stop_reason": "completed",
         "total_iterations": 2,
         "total_duration_ms": result.total_duration_ms,
+        "trace_id": ANY,
     })
 
     # 至少 4 次:session.start + tool.before + tool.after + session.end
@@ -184,6 +187,7 @@ async def test_message_receive_emitted():
         "iteration": 1,
         "content_length": len("直接回复,无需工具"),
         "stop_reason": "completed",
+        "trace_id": ANY,
     })
 
 
@@ -212,13 +216,14 @@ async def test_error_emitted_on_exception():
 
     assert result.success is False
     assert result.stop_reason == "error"
-    # 源码 emit 契约(2026-08-12 演进):error 事件含 4 键,error_type 由
-    # _classify_error(ValueError) 分类为 "unknown"(无 http/timeout 关键字)。
+    # 源码 emit 契约(2026-08-12 演进;2026-09-18 注入 trace_id 后含 5 键):
+    # error_type 由 _classify_error(ValueError) 分类为 "unknown"(无 http/timeout 关键字)。
     mock_emit.assert_any_call("error", {
         "session_id": loop._session_id or "",
         "iteration": 1,
         "error": "LLM API 调用失败",
         "error_type": "unknown",
+        "trace_id": ANY,
     })
     # 异常时也应有 session.end
     assert any(c[0][0] == "session.end" for c in mock_emit.call_args_list)

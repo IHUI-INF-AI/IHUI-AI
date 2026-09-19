@@ -20,10 +20,9 @@ from typing import Any
 
 import pytest
 
-from app.services.agent_engine import AgentEngine, INVALID_PARAMS
-from app.services.agent_loop_v2 import AgentLoopV2, ToolDefinition
+from app.services.agent_engine import INVALID_PARAMS, AgentEngine
+from app.services.agent_loop_v2 import AgentLoopV2
 from app.services.session_store import SessionStore
-
 
 # =============================================================================
 # 夹具(与 test_engine_harness_policies 同款模式,自包含)

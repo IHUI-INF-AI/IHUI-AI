@@ -6,11 +6,13 @@
  * SSE 事件契约单一事实源测试(#25,2026-09-16 立)
  *
  * 覆盖:
- * 1. SSE_EVENTS 事件名集合完整性(22 个)与无重复
+ * 1. SSE_EVENTS 事件名集合完整性(24 个:2026-09-19 补录 fallback/usage/steer/budget、
+ *    删 repair/resumed 孤儿事件)与无重复
  * 2. SSE_EVENT_NAMES 派生一致性
  * 3. isSSEEventName 类型守卫
  * 4. 判别联合 SSEEventPayload 与事件名映射的全量对齐(编译期穷尽性 + 运行时抽样)
  * 5. #25 补录的 3 个漂移事件(plan_updated/terminal_start/terminal_end)
+ * 6. 2026-09-19 补录 3 个:usage(D1 消息级计量)/ steer(中途引导)/ fallback(模型降级)
  */
 
 import { describe, it, expect } from 'vitest'
@@ -25,9 +27,9 @@ import {
 // ============ 1. 事件名集合完整性 ============
 
 describe('SSE_EVENTS 事件名集合', () => {
-  it('包含全部 22 个契约事件', () => {
-    expect(Object.keys(SSE_EVENTS)).toHaveLength(22)
-    expect(SSE_EVENT_NAMES).toHaveLength(22)
+  it('包含全部 24 个契约事件', () => {
+    expect(Object.keys(SSE_EVENTS)).toHaveLength(24)
+    expect(SSE_EVENT_NAMES).toHaveLength(24)
   })
 
   it('值无重复(事件判别名唯一)', () => {
@@ -41,6 +43,10 @@ describe('SSE_EVENTS 事件名集合', () => {
     expect(SSE_EVENTS.TERMINAL_END).toBe('terminal_end')
   })
 
+  it('包含 2026-09-19 新增的 budget(网关预算档位提醒)', () => {
+    expect(SSE_EVENTS.BUDGET).toBe('budget')
+  })
+
   it('核心流式事件在位', () => {
     expect(SSE_EVENTS.CHUNK).toBe('chunk')
     expect(SSE_EVENTS.REASONING).toBe('reasoning')
@@ -51,8 +57,7 @@ describe('SSE_EVENTS 事件名集合', () => {
     expect(SSE_EVENTS.DONE).toBe('done')
     expect(SSE_EVENTS.ERROR).toBe('error')
     expect(SSE_EVENTS.COMPACTION).toBe('compaction')
-    expect(SSE_EVENTS.REPAIR).toBe('repair')
-    expect(SSE_EVENTS.RESUMED).toBe('resumed')
+    expect(SSE_EVENTS.THINKING).toBe('thinking')
   })
 })
 
@@ -100,15 +105,20 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   SUBAGENT_PROGRESS: 'subagent_progress',
   SUBAGENT_END: 'subagent_end',
   PLAN_STEP: 'plan-step',
-  THINKING_DELTA: 'thinking_delta',
+  THINKING: 'thinking',
   PLAN_UPDATED: 'plan_updated',
   TERMINAL_START: 'terminal_start',
   TERMINAL_END: 'terminal_end',
   DONE: 'done',
   ERROR: 'error',
   COMPACTION: 'compaction',
-  REPAIR: 'repair',
-  RESUMED: 'resumed',
+  // 2026-09-19 补录 3 个(此前入契约未同步本映射,编译期穷尽性检查已拦截):
+  // usage(D1 消息级计量)/ steer(中途引导注入确认)/ fallback(模型降级通知)
+  USAGE: 'usage',
+  STEER: 'steer',
+  FALLBACK: 'fallback',
+  // 2026-09-19 立:网关预算档位提醒(流首软提醒,80%~95% warning / 95%~100% critical)
+  BUDGET: 'budget',
 }
 
 describe('SSEEventPayload 判别联合对齐', () => {
@@ -146,8 +156,17 @@ describe('SSEEventPayload 判别联合对齐', () => {
       { type: 'error', message: 'boom', errorCode: 'E1' },
       // P1 #27(2026-09-16 立):done 事件携带 memoryUpdates(已记住提示条数据源)
       { type: 'done', model: 'm', stub: false, memoryUpdates: ['用户偏好 TypeScript'] },
+      // Steer(2026-09-19 立):中途引导注入确认(tool loop 边界注入 messages 后下发)
+      { type: 'steer', phase: 'injected', text: '换个思路,先看配置文件' },
+      // Fallback(P4-2,2026-09-19 入契约):主模型失败切换备用模型通知
+      {
+        type: 'fallback',
+        primary_model: 'gemini-2.0',
+        backup_model: 'step-router-v1',
+        reason: 'timeout',
+      },
     ]
-    expect(samples).toHaveLength(6)
+    expect(samples).toHaveLength(8)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

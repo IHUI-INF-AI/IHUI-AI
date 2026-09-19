@@ -92,6 +92,8 @@ export function createSendAnswer(
     store.resetSubAgentActivities()
     // P4-2: 清除上一轮 fallback 通知(与 sendMessage 对称)
     setFallbackNotice(null)
+    // Steer(中途引导,2026-09-19 立,与 sendMessage 对称):记录当前流式 assistant 消息 ID
+    store.setStreamingAssistantId(assistantId)
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -269,6 +271,16 @@ export function createSendAnswer(
         },
         // P4-2: 后端 fallback 触发时设置通知状态(与 sendMessage 对称)
         onFallback: (event) => setFallbackNotice(event),
+        // Steer(中途引导,2026-09-19 立,与 sendMessage 对称):tool loop 边界注入确认
+        // 写入消息级引导徽章数据,messageId 缺省回退本条 assistant 消息 ID。
+        onSteer: (evt) => {
+          const targetId = evt.messageId ?? assistantId
+          if (!targetId || !evt.text) return
+          useChatStore.getState().appendSteerNotice(targetId, {
+            text: evt.text,
+            timestamp: evt.timestamp,
+          })
+        },
         // P1 重连提示(2026-08-02 立,与 sendMessage 对称):streamChat 自动重连时 toast 通知用户
         onReconnect: (attempt: number, delay: number) => {
           const reconnectingMsg =
@@ -519,6 +531,8 @@ export function createSendAnswer(
       if (streamGenerationRef.current === streamGeneration) {
         abortRef.current = null
         useChatStore.getState().setStreaming(false)
+        // Steer(中途引导,2026-09-19 立,与 sendMessage 对称):流收尾清除流式消息 ID
+        useChatStore.getState().setStreamingAssistantId(null)
         useChatStore.getState().markAllAgentStreamsDone()
       }
       // P1-6:流已收尾(正常/报错/超时/主动 stop)→ 标记完成,刷新后不再续接。

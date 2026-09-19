@@ -66,6 +66,7 @@ function runOne(dim) {
       encoding: 'utf-8',
       timeout: 300_000,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return { status: 'PASS', output: out.trim().split('\n').slice(-8).join('\n') }
   } catch (e) {
