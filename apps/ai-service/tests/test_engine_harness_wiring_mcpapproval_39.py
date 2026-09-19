@@ -157,3 +157,72 @@ def test_aggregator_missing_annotations_stays_none() -> None:
     entry = pool.lookup("plain")
     assert entry is not None
     assert entry.annotations is None
+
+
+# =============================================================================
+# hook_runtime PRE_TOOL_USE 接线(批 30 模块 × 审批门)
+# =============================================================================
+
+
+def _hook_runtime_with(func):  # noqa: ANN001, ANN202
+    from app.core.hook_runtime import HookKind, HookRuntime
+
+    rt = HookRuntime()
+    rt.register(HookKind.PRE_TOOL_USE, func)
+    return rt
+
+
+async def test_hook_deny_blocks_tool_execution() -> None:
+    """pre_tool_use 钩子 deny → 工具不执行,error_type=hook_denied。"""
+    calls: list[dict] = []
+
+    async def deny_hook(payload: dict) -> dict:
+        assert payload["tool_name"] == "ext_search"
+        return {"decision": "deny", "reason": "合规策略禁止"}
+
+    tool = _ann_tool("ext_search", {"read_only_hint": True}, calls)
+    loop = _make_loop([tool])
+    loop._hook_runtime = _hook_runtime_with(deny_hook)
+    tr = await loop._execute_single(ToolCall(id="h1", name="ext_search", args={}))
+    assert tr.error_type == "hook_denied"
+    assert tr.result == {"blocked": True, "reason": "合规策略禁止"}
+    assert calls == []  # 工具未执行
+
+
+async def test_hook_passthrough_allows_execution() -> None:
+    """钩子返回 None(passthrough)→ 正常执行,零行为变化。"""
+    calls: list[dict] = []
+    tool = _ann_tool("ext_search", {"read_only_hint": True}, calls)
+    loop = _make_loop([tool])
+    loop._hook_runtime = _hook_runtime_with(lambda payload: None)
+    tr = await loop._execute_single(ToolCall(id="h2", name="ext_search", args={}))
+    assert tr.error is None
+    assert tr.result == {"ok": True, "tool": "ext_search"}
+    assert len(calls) == 1
+
+
+async def test_no_hook_runtime_zero_behavior_change() -> None:
+    """未注入 hook_runtime(默认 None)→ 行为与接线前完全一致(回归红线)。"""
+    calls: list[dict] = []
+    tool = _ann_tool("ext_search", {"read_only_hint": True}, calls)
+    loop = _make_loop([tool])
+    assert loop._hook_runtime is None
+    tr = await loop._execute_single(ToolCall(id="h3", name="ext_search", args={}))
+    assert tr.error is None
+    assert len(calls) == 1
+
+
+async def test_hook_runtime_crash_fails_open() -> None:
+    """钩子运行时自身崩溃 → 降级放行(异常隔离,不阻塞工具执行)。"""
+    calls: list[dict] = []
+
+    class _BrokenRT:
+        async def run(self, *_a, **_kw):  # noqa: ANN002, ANN003, ANN202
+            raise RuntimeError("hook runtime exploded")
+
+    tool = _ann_tool("ext_search", {"read_only_hint": True}, calls)
+    loop = _make_loop([tool])
+    loop._hook_runtime = _BrokenRT()
+    tr = await loop._execute_single(ToolCall(id="h4", name="ext_search", args={}))
+    assert tr.error is None
+    assert len(calls) == 1
