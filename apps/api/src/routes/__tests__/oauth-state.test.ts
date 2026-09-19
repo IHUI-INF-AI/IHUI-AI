@@ -26,6 +26,8 @@ vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
   process.env.REDIS_URL ??= 'redis://localhost:6379/0'
+  // 回跳源白名单(2026-09-19 按发起源返回):首项即默认回退源,bsm 用于发起源用例
+  process.env.CORS_ORIGIN ??= 'http://localhost:8801,https://aizhs.top,https://bsm.aizhs.top'
 })
 
 vi.mock('../../db/oauth-queries.js', () => ({
@@ -221,6 +223,8 @@ describe('OAuth state CSRF 校验 — /auth/oauth/oidc/*(Redis 可用)', () => {
     expect(payload.userId).toBeNull()
     expect(typeof payload.createdAt).toBe('string')
     expect(new Date(payload.createdAt).getTime()).toBeGreaterThan(0)
+    // 未携带 Origin/Referer 头 → 发起源不记录,回跳走默认源
+    expect(payload.webOrigin).toBeNull()
   })
 
   it('正常消费:回调携带有效 state 通过校验,并一次性删除(DEL)', async () => {
@@ -235,13 +239,68 @@ describe('OAuth state CSRF 校验 — /auth/oauth/oidc/*(Redis 可用)', () => {
     })
     // 浏览器闭环(2026-09-19):后端代理写 httpOnly cookie 并 302 回前端,不再返回 JSON
     expect(res.statusCode).toBe(302)
-    expect(res.headers.location).toContain('/sso/login')
+    // 无发起源记录 → 回退 CORS_ORIGIN 首项
+    expect(res.headers.location).toBe('http://localhost:8801/sso/login?sso=oidc')
     expect(toCookieList(res.headers['set-cookie']).join('\n')).toContain(
       'auth_token=mock-access-token',
     )
     // 一次性消费:GET 命中后立即 DEL
     expect(redisMock.get).toHaveBeenCalledWith(OAUTH_STATE_KEY_PREFIX + state)
     expect(redisMock.del).toHaveBeenCalledWith(OAUTH_STATE_KEY_PREFIX + state)
+  })
+
+  it('回跳按发起源:redirect 从白名单内 Referer 记录 webOrigin,callback 302 回发起源', async () => {
+    await app.inject({
+      method: 'GET',
+      url: '/api/auth/oauth/oidc/redirect',
+      headers: { referer: 'https://bsm.aizhs.top/login-page' },
+    })
+    const { state, stored } = captureIssuedState()
+    // Referer 取 origin 部分记入 state payload(白名单内)
+    expect(JSON.parse(stored).webOrigin).toBe('https://bsm.aizhs.top')
+    redisMock.get.mockResolvedValueOnce(stored)
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/auth/oauth/oidc/callback?code=valid-code&state=${state}`,
+    })
+    // 按发起源回跳,而非 CORS_ORIGIN 首项(2026-09-19 修复 bsm 发起被丢到默认源)
+    expect(res.statusCode).toBe(302)
+    expect(res.headers.location).toBe('https://bsm.aizhs.top/sso/login?sso=oidc')
+    expect(toCookieList(res.headers['set-cookie']).join('\n')).toContain(
+      'auth_token=mock-access-token',
+    )
+  })
+
+  it('防开放重定向:Referer 不在白名单 → webOrigin 不记录,回跳回退默认源', async () => {
+    await app.inject({
+      method: 'GET',
+      url: '/api/auth/oauth/oidc/redirect',
+      headers: { referer: 'https://evil.example.com/phish' },
+    })
+    const { state, stored } = captureIssuedState()
+    expect(JSON.parse(stored).webOrigin).toBeNull()
+    redisMock.get.mockResolvedValueOnce(stored)
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/auth/oauth/oidc/callback?code=valid-code&state=${state}`,
+    })
+    expect(res.statusCode).toBe(302)
+    expect(res.headers.location).toBe('http://localhost:8801/sso/login?sso=oidc')
+  })
+
+  it('Origin 头优先于 Referer(白名单内 Origin 命中即用)', async () => {
+    await app.inject({
+      method: 'GET',
+      url: '/api/auth/oauth/oidc/redirect',
+      headers: {
+        origin: 'https://aizhs.top',
+        referer: 'https://evil.example.com/phish',
+      },
+    })
+    const { stored } = captureIssuedState()
+    expect(JSON.parse(stored).webOrigin).toBe('https://aizhs.top')
   })
 
   it('重放拒绝:同一 state 二次回调(第二次 GET 未命中)返回 401', async () => {
@@ -351,7 +410,7 @@ describe('OAuth state CSRF 校验 — /auth/oauth/oidc/*(Redis 不可用降级)'
     expect(joined).toContain('Max-Age=600')
   })
 
-  it('Redis 不可用:回调 cookie 与 state 参数一致(timingSafeEqual)→ 200', async () => {
+  it('Redis 不可用:回调 cookie 与 state 参数一致(timingSafeEqual)→ 302 闭环', async () => {
     const redirect = await app.inject({ method: 'GET', url: '/api/auth/oauth/oidc/redirect' })
     const state = extractCookieState(redirect.headers['set-cookie'])
     expect(state).toBeTruthy()
