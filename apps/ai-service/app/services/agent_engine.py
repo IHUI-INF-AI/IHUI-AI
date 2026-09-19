@@ -1517,6 +1517,11 @@ class AgentEngine:
             "thread.fork": self._handle_thread_fork,
             "thread.revert": self._handle_thread_revert,
             "turn.steer": self._handle_turn_steer,
+            "thread.name": self._handle_thread_name,
+            "thread.delete": self._handle_thread_delete,
+            "thread.queue.list": self._handle_thread_queue_list,
+            "thread.queue.delete": self._handle_thread_queue_delete,
+            "thread.queue.reorder": self._handle_thread_queue_reorder,
             "agent.exec": self._handle_agent_exec,
             "tools.list": self._handle_tools_list,
             "tools.register": self._handle_tools_register,
@@ -2965,7 +2970,15 @@ class AgentEngine:
         """
         thread = self._require_thread(params)
         text = _coerce_input_text(params.get("input"))
-        thread.queue.append({"input": text, "enqueuedAt": time.time()})
+        # 批 45:队列项带 id(对标 codex QueuedItem{id,input},供 queue.list/
+        # delete/reorder 管理面按 id 操作)
+        thread.queue.append(
+            {
+                "id": f"q_{uuid.uuid4().hex[:12]}",
+                "input": text,
+                "enqueuedAt": time.time(),
+            }
+        )
         thread.touch()
         await self._emit_engine_event(
             thread,
@@ -2975,6 +2988,7 @@ class AgentEngine:
         )
         return {
             "threadId": thread.thread_id,
+            "id": thread.queue[-1]["id"],
             "queued": len(thread.queue),
             "mode": "steer" if thread.status == "running" else "idle",
         }
@@ -3013,6 +3027,155 @@ class AgentEngine:
             "reason": None if accepted else "no_active_turn",
             "expectedTurnIdMatched": expected_turn_id is None
             or expected_turn_id == thread.current_turn_id,
+        }
+
+    async def _handle_thread_name(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """线程改名(2026-09-20 批 45,对标 codex thread/name/set +
+        ThreadNameUpdatedNotification)。
+
+        name 空白拒绝(对标 normalize_thread_name 返回 None 即 invalid_request);
+        store 层写 title;内存线程同步;发 thread.name.updated 事件。
+        无持久化时仅改内存并仍发事件(纯内存线程可改名)。
+        """
+        thread = self._require_thread(params)
+        name = params.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise JsonRpcError(INVALID_PARAMS, "name 须为非空字符串")
+        name = name.strip()
+        store = self._persistence_store()
+        updated = False
+        if store is not None:
+            updated = store.set_thread_name(thread.thread_id, name)
+        thread.touch()
+        await self._emit_engine_event(
+            thread, emit, "thread.name.updated", {"name": name}
+        )
+        return {"threadId": thread.thread_id, "name": name, "persisted": updated}
+
+    async def _handle_thread_delete(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """删除线程(2026-09-20 批 45,对标 codex thread/delete)。
+
+        running 拒绝(THREAD_BUSY;codex 是 shutdown 等待后删,我方简化为
+        忙时拒绝更安全);store 级联删除(items→turns→threads + fork 子线程);
+        内存线程摘除(停 watcher/取消 pending);发 thread.deleted 事件。
+        线程不存在也发 deleted 事件并返回 deleted=False(幂等,对标
+        delete_threads 对 ThreadNotFound 静默)。
+        """
+        thread_id = params.get("threadId")
+        if not isinstance(thread_id, str) or not thread_id:
+            raise JsonRpcError(INVALID_PARAMS, "缺少 threadId")
+        runtime = self._threads.get(thread_id)
+        if runtime is not None and runtime.status == "running":
+            raise JsonRpcError(THREAD_BUSY, f"线程正在执行中: {thread_id}")
+        store = self._persistence_store()
+        deleted = False
+        if store is not None:
+            deleted = store.delete_thread(thread_id) > 0
+        if runtime is not None:
+            self._threads.pop(thread_id, None)
+            self._stop_workspace_watcher(thread_id)
+            for future in runtime.pending.values():
+                if not future.done():
+                    future.cancel()
+            runtime.pending.clear()
+            runtime.status = "closed"
+        with contextlib.suppress(Exception):
+            if runtime is not None:
+                await self._emit_engine_event(
+                    runtime,
+                    emit,
+                    "thread.deleted",
+                    {"deleted": deleted},
+                )
+            else:
+                # 纯 store 线程(无内存运行时):直接构造报文出站
+                emit_fn: Emitter = emit if emit is not None else _noop_emitter
+                await emit_fn(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "thread/event",
+                        "params": {
+                            "threadId": thread_id,
+                            "event": "thread.deleted",
+                            "payload": {"deleted": deleted},
+                        },
+                    }
+                )
+        return {"threadId": thread_id, "deleted": deleted}
+
+    async def _handle_thread_queue_list(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """列队列(2026-09-20 批 45,对标 codex thread/queue/list 分页语义)。"""
+        thread = self._require_thread(params)
+        offset = max(0, int(params.get("offset") or 0))
+        limit = max(1, int(params.get("limit") or 50))
+        page = thread.queue[offset : offset + limit]
+        return {
+            "threadId": thread.thread_id,
+            "items": [dict(q) for q in page],
+            "total": len(thread.queue),
+            "offset": offset,
+            "limit": limit,
+            "hasMore": offset + len(page) < len(thread.queue),
+        }
+
+    async def _handle_thread_queue_delete(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """删队列项(2026-09-20 批 45,对标 codex thread/queue/delete)。"""
+        thread = self._require_thread(params)
+        qid = params.get("queuedSubmissionId")
+        if not isinstance(qid, str) or not qid:
+            raise JsonRpcError(INVALID_PARAMS, "缺少 queuedSubmissionId")
+        before = len(thread.queue)
+        thread.queue = [q for q in thread.queue if q.get("id") != qid]
+        deleted = len(thread.queue) < before
+        if deleted:
+            thread.touch()
+            with contextlib.suppress(Exception):
+                await self._emit_engine_event(
+                    thread,
+                    emit,
+                    "thread.queue",
+                    {"queued": len(thread.queue), "action": "deleted"},
+                )
+        return {"threadId": thread.thread_id, "deleted": deleted}
+
+    async def _handle_thread_queue_reorder(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """重排队列(2026-09-20 批 45,对标 codex thread/queue/reorder)。
+
+        按传入 id 顺序重排;未列出的 id 保持相对顺序追加在尾部(稳定排序,
+        对标 codex reorder 仅要求列出的项按给定顺序)。
+        """
+        thread = self._require_thread(params)
+        ids = params.get("queuedSubmissionIds")
+        if not isinstance(ids, list) or not all(isinstance(x, str) for x in ids):
+            raise JsonRpcError(INVALID_PARAMS, "queuedSubmissionIds 须为字符串数组")
+        rank: dict[str, int] = {}
+        for idx, qid in enumerate(ids):
+            rank.setdefault(qid, idx)
+        thread.queue.sort(
+            key=lambda q: (rank.get(q.get("id", ""), len(ids)),)
+        )
+        thread.touch()
+        with contextlib.suppress(Exception):
+            await self._emit_engine_event(
+                thread,
+                emit,
+                "thread.queue",
+                {"queued": len(thread.queue), "action": "reordered"},
+            )
+        return {
+            "threadId": thread.thread_id,
+            "queued": len(thread.queue),
+            "order": [q.get("id") for q in thread.queue],
         }
 
     async def _handle_thread_goal(

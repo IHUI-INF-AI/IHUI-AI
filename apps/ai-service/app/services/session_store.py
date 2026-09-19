@@ -676,6 +676,55 @@ class SessionStore:
             )
             return cur.rowcount > 0
 
+    def set_thread_name(self, thread_id: str, name: str) -> bool:
+        """设置线程名称(2026-09-20 批 45,对标 Codex thread/name/set +
+        update_thread_metadata name patch)。
+
+        写 threads.title(用户可见名);调用方负责空名校验(对标
+        normalize_thread_name 返回 None 即拒)。
+
+        Returns:
+            线程是否存在并被更新。
+        """
+        with self._lock, self._tx() as conn:
+            cur = conn.execute(
+                "UPDATE threads SET title = ?, updated_at = ? WHERE thread_id = ?",
+                (name, _now(), thread_id),
+            )
+            return cur.rowcount > 0
+
+    def delete_thread(self, thread_id: str) -> int:
+        """删除线程(2026-09-20 批 45,对标 Codex thread/delete + thread_store
+        delete_thread 事务级联)。
+
+        items → turns → threads 依序删除(外键引用方向),单事务保证原子;
+        不存在时返回 0(幂等,对标 delete_threads 对 ThreadNotFound 静默)。
+        子线程(fork 派生)按 parent_thread_id 一并级联(对标 codex
+        validate_root_thread_delete 拒绝删有活跃派生的根线程 —— 我方简化为
+        级联同删,派生数据随根消亡)。
+
+        Returns:
+            被删除的线程数(0 或 1)。
+        """
+        with self._lock, self._tx() as conn:
+            ids = [r["thread_id"] for r in conn.execute(
+                "SELECT thread_id FROM threads WHERE thread_id = ? OR parent_thread_id = ?",
+                (thread_id, thread_id),
+            ).fetchall()]
+            if not ids:
+                return 0
+            placeholders = ",".join("?" for _ in ids)
+            conn.execute(
+                f"DELETE FROM items WHERE thread_id IN ({placeholders})", ids
+            )
+            conn.execute(
+                f"DELETE FROM turns WHERE thread_id IN ({placeholders})", ids
+            )
+            conn.execute(
+                f"DELETE FROM threads WHERE thread_id IN ({placeholders})", ids
+            )
+            return 1
+
     def list_threads(
         self,
         *,
