@@ -1415,17 +1415,44 @@ _EXEC_APPROVED_MAX = 128
 _exec_approved_commands: set[str] = set()
 
 
+def _canonical_approval_key(command: str) -> str:
+    """批 41 接线:审批缓存键规范化(对标 command_canonicalization.rs)。
+
+    同一条命令经不同 shell 包装(bash -lc 'git status' vs 直接 git status)
+    到达时归一为同一键,避免"换个包装就要再批一次"的体验损耗;
+    复杂脚本归一为固定前缀形态,保证复杂脚本间不误互相命中。
+    规范化失败(理论上不抛,防御性兜底)回退原始命令字符串。
+    """
+    try:
+        from ..core.command_canonicalization import canonicalize_command_for_approval
+
+        # posix=True 切词:剥离外层引号,使 bash -lc 'git status' 与 git status
+        # 得到同形 argv(审批键空间一致);Windows 的 cmd 语义保留引号形态仅在
+        # 原始执行路径使用,审批键统一用规范化形态
+        argv = _approval_tokens(command)
+        if not argv:
+            return command
+        canonical = canonicalize_command_for_approval(argv)
+        try:
+            return shlex.join(canonical)
+        except ValueError:  # Windows 路径反斜杠等 shlex.join 限制 → 空格拼接兜底
+            return " ".join(canonical)
+    except Exception:  # noqa: BLE001 - 规范化失败回退原键,绝不放松审批
+        return command
+
+
 def approve_exec_command(command: str) -> None:
     """登记一次性 exec_policy 审批放行(由 agent_loop_v2 在用户批准后调用)。"""
     if len(_exec_approved_commands) >= _EXEC_APPROVED_MAX:
         _exec_approved_commands.clear()
-    _exec_approved_commands.add(command)
+    _exec_approved_commands.add(_canonical_approval_key(command))
 
 
 def _consume_exec_approval(command: str) -> bool:
-    """消费一次性放行(命中即移除并返回 True)。"""
-    if command in _exec_approved_commands:
-        _exec_approved_commands.discard(command)
+    """消费一次性放行(命中即移除并返回 True;批 41 起走规范化键)。"""
+    key = _canonical_approval_key(command)
+    if key in _exec_approved_commands:
+        _exec_approved_commands.discard(key)
         return True
     return False
 
@@ -1450,15 +1477,34 @@ def _command_tokens(command: str) -> list[str]:
         return command.split()
 
 
+def _approval_tokens(command: str) -> list[str]:
+    """批 41 接线:审批键空间统一切词(posix=True 剥外层引号)。
+
+    bash -lc 'git status' 与 git status 在键空间同形;切词失败回退
+    _command_tokens(cmd 语义),绝不放松审批。
+    """
+    try:
+        return shlex.split(command, posix=True)
+    except ValueError:
+        return _command_tokens(command)
+
+
 def approve_exec_prefix(command: str, tokens: int = 2) -> tuple[str, ...] | None:
     """登记前缀放行规则;返回登记的前缀(命令为空时返回 None)。
 
     tokens=2 是默认值:`git push --force` → ("git", "push"),即"允许所有
     git push",但不含 `git` 全部子命令(避免过度放行)。
     """
-    parts = _command_tokens(command)
+    parts = _approval_tokens(command)
     if not parts:
         return None
+    # 批 41 接线:登记前同样规范化,保证登记与匹配键空间一致
+    try:
+        from ..core.command_canonicalization import canonicalize_command_for_approval
+
+        parts = canonicalize_command_for_approval(parts)
+    except Exception:  # noqa: BLE001 - 失败回退原切词
+        pass
     prefix = tuple(parts[: max(1, tokens)])
     if len(_exec_allowed_prefixes) >= _EXEC_ALLOWED_PREFIXES_MAX:
         _exec_allowed_prefixes.clear()  # 容量上限:整体清空而非逐条淘汰(与一次性放行同策略)
@@ -1467,10 +1513,15 @@ def approve_exec_prefix(command: str, tokens: int = 2) -> tuple[str, ...] | None
 
 
 def _matches_exec_prefix(command: str) -> bool:
-    """命令是否命中任一已登记的前缀放行规则(不消费,规则长期有效)。"""
+    """命令是否命中任一已登记的前缀放行规则(不消费,规则长期有效;批 41 起走规范化键)。"""
     if not _exec_allowed_prefixes:
         return False
-    parts = _command_tokens(command)
+    try:
+        from ..core.command_canonicalization import canonicalize_command_for_approval
+
+        parts = canonicalize_command_for_approval(_approval_tokens(command))
+    except Exception:  # noqa: BLE001 - 规范化失败回退原切词,绝不放松审批
+        parts = _command_tokens(command)
     if not parts:
         return False
     return any(
