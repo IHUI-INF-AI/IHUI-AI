@@ -112,12 +112,15 @@ export function QrTab({
   }
 
   return (
-    <div className={cn('flex flex-col items-center gap-3 pt-2 pb-0', className)}>
-      {/* 平台切换 Tab */}
+    // 2026-09-19 紧凑化(用户要求登录弹窗禁滚动):gap-3→gap-2、pt-2→0;
+    // 面板包裹层 py-3→py-1。厂商 SDK 二维码面板高度(280px)不动,只压本组件自身 chrome。
+    <div className={cn('flex flex-col items-center gap-2', className)}>
+      {/* 平台切换 Tab:列数跟随平台数(5 平台单行排布,修复第 5 项掉行) */}
       <div
         role="tablist"
         aria-label={t('auth.qrLogin')}
-        className="grid w-full grid-cols-4 gap-1.5 rounded-md border bg-muted/40 p-1"
+        className="grid w-full gap-1 rounded-md border bg-muted/40 p-1"
+        style={{ gridTemplateColumns: `repeat(${list.length}, minmax(0, 1fr))` }}
       >
         {list.map((tab) => {
           const active = tab.key === platform
@@ -130,7 +133,9 @@ export function QrTab({
               data-testid={`qr-tab-${tab.key}`}
               onClick={() => setPlatform(tab.key)}
               className={cn(
-                'flex items-center justify-center gap-1.5 rounded-[4px] px-2 py-1.5 text-xs transition-colors',
+                // 2026-09-19 竖排(图标上/文字下):5 平台单行网格列宽 ~71px,
+                // 横排 icon+文字会让"App 扫码/企业微信"换行挤压,竖排永不换行
+                'flex flex-col items-center justify-center gap-1 rounded-[4px] px-1 py-1.5 text-[11px] leading-none transition-colors',
                 active
                   ? 'bg-card text-foreground shadow-sm'
                   : 'text-muted-foreground hover:bg-card/60 hover:text-foreground',
@@ -150,7 +155,7 @@ export function QrTab({
       </div>
 
       {/* 当前平台的二维码面板 */}
-      <div className="flex w-full flex-col items-center gap-3 py-3">
+      <div className="flex w-full flex-col items-center gap-2 py-1">
         {QrComponent ? (
           <QrComponent platform={platform} refreshKey={refreshKey} />
         ) : (
