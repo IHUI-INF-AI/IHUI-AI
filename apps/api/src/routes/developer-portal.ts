@@ -41,7 +41,7 @@ export const developerPortalRoutes: FastifyPluginAsync = async (server) => {
             enterprise: { qps: 200, dailyTokens: 10_000_000, concurrency: 200 },
           },
           // 支持的支付方式
-          payments: ['wechat_pay', 'alipay', 'stripe'],
+          payments: ['wechat_pay', 'alipay'],
           // 支持的模型厂商(可调用)
           providers: [
             'OpenAI',

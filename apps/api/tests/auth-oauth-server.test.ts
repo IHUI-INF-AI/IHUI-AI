@@ -108,7 +108,6 @@ vi.mock('@ihui/auth', () => ({
   REFRESH_TOKEN_TTL_SECONDS: 2592000,
   isOidcConfigured: () => false,
   isDiscordConfigured: () => false,
-  isLinuxdoConfigured: () => false,
   isTelegramConfigured: () => false,
 }))
 

@@ -235,7 +235,7 @@ export default function TeamDocsPage() {
             <li><strong>配额管控</strong>:可给每个成员 / 部门设月度配额(超限禁用 / 告警)</li>
             <li><strong>成本分摊</strong>:按实际消耗自动出账,可导出 CSV 报销</li>
             <li><strong>预警机制</strong>:余额低于阈值自动邮件 / 飞书通知 Admin</li>
-            <li><strong>多支付方式</strong>:支付宝 / 微信 / 公对公转账 / Stripe(海外)</li>
+            <li><strong>多支付方式</strong>:支付宝 / 微信 / PayPal / USDT / 公对公转账</li>
           </ul>
           <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
             <code>{`# Admin 配额配置示例
