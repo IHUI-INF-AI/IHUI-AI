@@ -80,6 +80,7 @@ from .llm_budget_governor import (
     BudgetExceededError,
     llm_budget_governor,
 )
+from ..core.current_time_reminder import CurrentTimeReminderState as _CurrentTimeReminderState
 from .plan_mode import READONLY_TOOLS, is_readonly_tool
 from .security_config import get_security_config
 from ..core.mcp_tool_approval import (
@@ -932,6 +933,7 @@ class AgentLoopV2:
         # 高危清单:never 强制免审(高危清单也放行)、always 每次必审(auto 只读免审
         # 也被覆盖)、on-request = 现状。非法值构造期即 raise(与 permission_mode 同款)。
         approval_policies: dict[str, str] | None = None,
+        time_provider: Callable[[], datetime] | None = None,
         # 批 39 接线:生命周期钩子运行时(批 30 移植,可选注入;None = 不启用,
         # 行为零变化)。接线点:PRE_TOOL_USE(pre_tool_use deny 即拒绝)与
         # USER_PROMPT_SUBMIT / STOP(additional_context 注入 / stop 联动)。
@@ -1076,6 +1078,11 @@ class AgentLoopV2:
 
         # 批 39 接线:生命周期钩子运行时(可选注入;None = 不启用零行为变化)。
         self._hook_runtime = hook_runtime
+
+        # 批 40 接线:当前时间提醒节流状态机(对标 codex session/time_reminder.rs;
+        # 可选注入 time_provider,默认 None = 不启用零行为变化)。
+        self._time_reminder_state = _CurrentTimeReminderState()
+        self._time_provider = time_provider
 
         # plan 模式:循环入口强制收窄工具集为「传入 tools ∩ READONLY_TOOLS」,
         # LLM schema 也仅暴露只读工具(双保险:既收窄可见工具,又在执行入口做防御性再校验)。
@@ -2568,6 +2575,21 @@ class AgentLoopV2:
                 )
                 # 1. 调 LLM(带 tools,带指数退避重试);调用前按占用率自动压缩上下文(1-8)
                 messages = await self._maybe_compact_context(messages)
+                # 批 40 接线:当前时间提醒(对标 codex maybe_record_current_time_reminder)。
+                # 每次推理前按节流状态机判定;投递则把 developer 片段追加进历史。
+                # time_provider 未注入 = 功能关闭,零行为变化;时钟失败降级注入
+                # 不可用片段(同窗口去重),绝不抛错阻塞回合。
+                if self._time_provider is not None:
+                    try:
+                        _reminder = self._time_reminder_state.take_reminder(
+                            window_id=f"{self._session_id or ''}:{id(messages)}",
+                            turn_id=f"{self._session_id or ''}:iter{i}",
+                            time_provider=self._time_provider,
+                        )
+                        if _reminder is not None:
+                            messages.append(_reminder)
+                    except Exception as e:  # noqa: BLE001 - 提醒失败隔离,不阻塞主链路
+                        logger.warning("current_time_reminder 投递异常(降级跳过): %s", e)
                 # P0-B(2026-09-18):_wait_interruptible 包裹——长 LLM 调用期间命中
                 # cancel/pause 标志也能立即中断(抛 _LoopInterrupted 走优雅中断链路);
                 # iteration=i 透传使流式 thinking 增量帧携带轮次号。
@@ -2713,6 +2735,10 @@ class AgentLoopV2:
                             ),
                         }
                     )
+                # 批 40 接线:工具输出 boundary 记账(对标 note_recorded_items——
+                # AfterUserOrToolOutput 模式下,下次推理允许时间提醒投递)
+                if self._time_provider is not None:
+                    self._time_reminder_state.pending_user_or_tool_output_boundary = True
 
                 # 7. 2-3 自愈集成(2026-09-12):本轮出现失败 pytest 信号时触发
                 #    heal(默认 off,fail-open;结果以 user 消息注入,LLM 感知后继续)
@@ -2879,6 +2905,22 @@ class AgentLoopV2:
         self._messages = messages
         self._tool_state = json.loads(json.dumps(checkpoint.tool_state, ensure_ascii=False))
         self._reset_run_state()
+
+        # 批 40 接线:TurnAborted 中断指导(对标 codex context/turn_aborted.rs)。
+        # 被取消/暂停后显式 resume 时,把持久化中断片段追加进历史尾部——LLM 感知
+        # 「用户故意中断了上一轮,后台进程可能仍在跑,被中止的命令可能已部分执行」,
+        # 避免续跑时静默假设上一轮工具全部成功/全部未执行。completed 无需续跑不注入;
+        # 运行时异常隔离(注入失败只降级)。
+        if checkpoint.status in ("cancelled", "paused"):
+            try:
+                from ..core.current_time_reminder import build_turn_aborted_fragment
+
+                _fragment = build_turn_aborted_fragment(checkpoint.status)
+                messages.append(_fragment)
+                # boundary 记账:该片段即用户轮次边界(节流状态机语义)
+                self._time_reminder_state.note_recorded_items(messages[-1:])
+            except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞续跑
+                logger.warning("turn_aborted 指导注入失败(降级续跑): %s", e)
 
         start_iteration = checkpoint.iteration + 1
         if start_iteration > self.max_iterations:
