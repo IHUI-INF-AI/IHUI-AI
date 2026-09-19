@@ -48,13 +48,13 @@ function waitForPushState(headSha, timeoutMs = 8 * 60 * 1000) {
       /* 无状态文件 */
     }
     if (Date.now() > deadline) return 'timeout'
-    execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},3000)'], { stdio: 'ignore' })
+    execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},3000)'], { stdio: 'ignore', windowsHide: true })
   }
 }
 
 function git(args, { allowFail = false } = {}) {
   try {
-    return execFileSync('git', args, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim()
+    return execFileSync('git', args, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }).trim()
   } catch (e) {
     if (allowFail) return null
     throw e
@@ -64,7 +64,7 @@ function git(args, { allowFail = false } = {}) {
 /** a 是否为 b 的祖先(merge-base --is-ancestor 靠 exit code 判定) */
 function isAncestor(a, b) {
   try {
-    execFileSync('git', ['merge-base', '--is-ancestor', a, b], { stdio: 'ignore' })
+    execFileSync('git', ['merge-base', '--is-ancestor', a, b], { stdio: 'ignore', windowsHide: true })
     return true
   } catch {
     return false
@@ -133,6 +133,7 @@ for (let round = 1; round <= maxRounds; round++) {
     try {
       const out = execFileSync('git', ['merge-tree', '--write-tree', 'HEAD', `origin/${branch}`], {
         encoding: 'utf8',
+        windowsHide: true,
       })
       tree = out.trim().split('\n')[0].trim()
       if (!/^[0-9a-f]{40}$/.test(tree)) throw new Error(out)

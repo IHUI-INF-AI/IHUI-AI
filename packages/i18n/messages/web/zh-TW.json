@@ -6584,7 +6584,9 @@
       "noTeam": "不指定團隊",
       "priority": "優先級",
       "team": "團隊",
-      "workspace": "工作區"
+      "workspace": "工作區",
+      "agentIdRequired": "請先選擇智慧體",
+      "workspacePlaceholder": "留空使用預設工作區"
     },
     "loading": "加載中...",
     "marketSubtitle": "發現和使用優秀的智能體",
@@ -6771,7 +6773,8 @@
       "workspace": "工作區",
       "low": "低",
       "medium": "中",
-      "high": "高"
+      "high": "高",
+      "error": "錯誤"
     }
   },
   "agentsCategoriesPage": {

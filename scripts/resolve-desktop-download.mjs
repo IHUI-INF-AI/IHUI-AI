@@ -38,7 +38,6 @@
  */
 import { readFile, writeFile } from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
-import { spawnSync } from 'node:child_process'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -86,7 +85,6 @@ function formatBytes(bytes) {
     : `${value.toFixed(1)} ${units[unitIndex]}`
 }
 
-/** 从安装包文件名提取 SemVer 版本号("IHUI.AI_0.1.14_x64-setup.exe" → "0.1.14") */
 /**
  * 比较两个 SemVer 版本号(a>b 返回正数)。Gitee/GitHub 两条解析路径共用。
  * 两处都必须"取版本最大者"而非依赖 API 返回顺序 —— GitHub /releases 会把 draft
@@ -176,21 +174,12 @@ async function readLocalSnapshot() {
   if (!existsSync(SNAPSHOT_PATH)) return null
   try {
     const src = await readFile(SNAPSHOT_PATH, 'utf-8')
-    // 2026-09-18 修复:本脚本自己产出的声明是**带类型标注**的
-    // `export const DESKTOP_FEED: DesktopFeed = {`,而旧 marker 写死为
-    // `export const DESKTOP_FEED = `(无类型标注)→ indexOf 恒为 -1,
-    // readLocalSnapshot() 恒返回 null → 「线上 vs 本地快照」的差异判定彻底失效
-    // (--check 恒报有差异;写模式每次盲写)。改为锚定声明名,再定位其后的第一个 `= `。
-    const decl = 'export const DESKTOP_FEED'
-    const at = src.indexOf(decl)
-    if (at === -1) return null
-    const eq = src.indexOf('= ', at + decl.length)
-    if (eq === -1) return null
-    // 自产格式:声明之后即对象字面量(无尾分号),整体 eval 解析。
-    // 只截到最后一个 `}` —— 文件首尾都带溯源水印(尾部是行尾不可见载荷注释),
-    // 若把尾注释一起拼进表达式,收尾括号会被 `//` 注释掉而抛 SyntaxError。
-    const body = src.slice(eq + 2)
-    return Function(`"use strict"; return (${body.slice(0, body.lastIndexOf('}') + 1)})`)()
+    const marker = 'export const DESKTOP_FEED = '
+    const start = src.indexOf(marker)
+    if (start === -1) return null
+    // 自产格式:marker 之后即对象字面量(无尾分号),整体 eval 解析
+    const body = src.slice(start + marker.length)
+    return Function(`"use strict"; return (${body})`)()
   } catch {
     return null
   }
@@ -350,26 +339,6 @@ async function resolveOnline() {
 }
 
 /** 序列化快照为 TS 文件内容(prettier 兼容格式:单引号 + 2 空格 + 尾逗号) */
-// ─── 生成物溯源水印 ──────────────────────────────────────────
-// 本脚本每次发版都会**重写**已跟踪的 apps/web/src/config/desktop-feed.generated.ts,
-// 并由 CI 机器人(add/commit/push)直接提交回 main。CI 的 checkout 里没有 husky 钩子,
-// pre-commit 的自愈式水印门禁不会运行 → 生成物只要不带水印,ci.yml 的
-// `Provenance watermark check`(严格模式,只判不修)必红。这是已复现多次的回归
-// (release desktop-v0.1.40 的 auto-sync 提交即为此类)。
-// 这里显式复用权威注入器,而不是在本脚本里重复实现水印版式 —— 保证与 verify 判定同源。
-// 幂等性:readLocalSnapshot() 只取 `export const DESKTOP_FEED` 之后的第一个 `{` 到最后一个 `}`,
-// 首尾横幅/行尾载荷注释都不参与比较,故注入水印不会造成「每次刷新都有 diff」。
-function applyWatermark(absPath) {
-  const injector = join(__dirname, 'watermark.mjs')
-  const r = spawnSync(process.execPath, [injector, 'inject', absPath], { stdio: 'inherit' })
-  if (r.status !== 0) {
-    throw new Error(
-      `溯源水印注入失败(退出码 ${r.status}): ${absPath} —— ` +
-        'CI 的 Provenance watermark check 会因此失败,拒绝落盘无水印的生成物',
-    )
-  }
-}
-
 function serializeSnapshot(data) {
   const assetLines = data.assets
     .map((a) => {
@@ -522,9 +491,8 @@ async function main() {
   }
 
   await writeFile(SNAPSHOT_PATH, serializeSnapshot(online), 'utf-8')
-  applyWatermark(SNAPSHOT_PATH)
   printSnapshot('已写入快照', online)
-  log('ok', `快照已更新 → ${SNAPSHOT_PATH}(已注入溯源水印)`)
+  log('ok', `快照已更新 → ${SNAPSHOT_PATH}`)
 }
 
 main().catch((err) => {

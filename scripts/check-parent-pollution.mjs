@@ -190,7 +190,7 @@ function getRealDesktopPaths() {
       encoding: 'utf8',
       timeout: 3000,
       stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim()
+    windowsHide: true,    }).trim()
     if (out) paths.add(resolve(out))
   } catch {
     // PowerShell 失败(非 Windows / 超时),走兜底

@@ -60,7 +60,14 @@ export function parsePlanData(event: AgentStreamEvent): PlanEventData {
 }
 
 export function isPlanStepStatus(value: unknown): value is PlanStepStatus {
-  return value === 'pending' || value === 'in_progress' || value === 'completed'
+  // 契约五态:pending/in_progress/completed/skipped/failed
+  return (
+    value === 'pending' ||
+    value === 'in_progress' ||
+    value === 'completed' ||
+    value === 'skipped' ||
+    value === 'failed'
+  )
 }
 
 export function isTerminalStatus(value: unknown): value is TerminalTask['status'] {

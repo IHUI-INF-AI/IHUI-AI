@@ -10,7 +10,7 @@
  *
  * 全部使用临时目录(os.tmpdir() + fs.mkdtempSync),测试后清理。
  */
-import { describe, expect, it, beforeEach, afterEach } from 'vitest'
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -37,6 +37,10 @@ import {
   getDefaultWorktreeRoot,
   cleanupWorktree,
 } from '../src/tools/worktree.js'
+
+// 全文件均为真实 git 子进程 + 临时目录操作,并行全量跑时受机器负载影响大,
+// 15s 全局默认易误伤(实测孤儿检测用例高负载下超时重试 2 次仍失败)→ 文件级提升到 60s。
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
 
 const VALID_KINDS: readonly CowKind[] = ['ficlone', 'clonefile', 'refs', 'none']
 

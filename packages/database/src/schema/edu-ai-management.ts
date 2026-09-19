@@ -38,6 +38,7 @@ export const eduTerm = pgTable(
 /**
  * 班级管理表 (edu_class)。
  * 与学期关联，每个学期下可有多个班级。
+ * businessLine 业务线(2026-09-19):托管/幼儿园/文化课/AI课等,机构按线管理班级与学生。
  */
 export const eduClass = pgTable(
   'edu_class',
@@ -48,11 +49,14 @@ export const eduClass = pgTable(
       .references(() => eduTerm.id, { onDelete: 'cascade' }),
     name: varchar('name', { length: 100 }).notNull(),
     grade: varchar('grade', { length: 50 }),
+    /** 业务线: after_school_care(托管)/kindergarten(幼儿园)/academic(文化课)/ai_course(AI课)/other(其他) */
+    businessLine: varchar('business_line', { length: 30 }).default('other').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     termIdx: index('ix_edu_class_term').on(t.termId),
+    businessIdx: index('ix_edu_class_business').on(t.businessLine),
   }),
 )
 
@@ -746,6 +750,39 @@ export const eduRefundRecord = pgTable(
   }),
 )
 
+/**
+ * 催费记录表 (edu_fee_reminder,2026-09-19 立)。
+ * 对欠费学生发起催缴的每次动作留痕;同时写站内信通知学生/家长。
+ * channel: in_app(站内信)/sms(短信)/wechat(微信)
+ * status: sent(已发送)/failed(发送失败)
+ * dueAmount 为催费时的欠费快照(totalFee - paidAmount),后续缴费不回写本表。
+ */
+export const eduFeeReminder = pgTable(
+  'edu_fee_reminder',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    enrollmentId: uuid('enrollment_id').references(() => eduEnrollment.id, {
+      onDelete: 'set null',
+    }),
+    classId: uuid('class_id').references(() => eduClass.id, { onDelete: 'set null' }),
+    dueAmount: integer('due_amount').default(0).notNull(),
+    channel: varchar('channel', { length: 30 }).default('in_app').notNull(),
+    status: varchar('status', { length: 20 }).default('sent').notNull(),
+    message: text('message'),
+    operatorId: uuid('operator_id').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    studentIdx: index('ix_edu_reminder_student').on(t.studentId),
+    enrollmentIdx: index('ix_edu_reminder_enrollment').on(t.enrollmentId),
+    createdAtIdx: index('ix_edu_reminder_created').on(t.createdAt),
+  }),
+)
+
 export type NewEduTeacherSchedule = typeof eduTeacherSchedule.$inferInsert
 export type EduTeacherSchedule = typeof eduTeacherSchedule.$inferSelect
 export type NewEduSchedulingRule = typeof eduSchedulingRule.$inferInsert
@@ -766,4 +803,6 @@ export type NewEduPaymentRecord = typeof eduPaymentRecord.$inferInsert
 export type EduPaymentRecord = typeof eduPaymentRecord.$inferSelect
 export type NewEduRefundRecord = typeof eduRefundRecord.$inferInsert
 export type EduRefundRecord = typeof eduRefundRecord.$inferSelect
+export type NewEduFeeReminder = typeof eduFeeReminder.$inferInsert
+export type EduFeeReminder = typeof eduFeeReminder.$inferSelect
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

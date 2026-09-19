@@ -76,6 +76,7 @@ function getStagedFiles() {
     const out = execSync('git diff --cached --name-only --diff-filter=ACM', {
       cwd: ROOT,
       encoding: 'utf8',
+      windowsHide: true,
     })
     return out.split('\n').filter(Boolean)
   } catch {

@@ -33,7 +33,9 @@ export function TokenUsagePanel({
   cost,
   model,
 }: TokenUsagePanelProps) {
-  const t = useTranslations('user.profile')
+  // 2026-09-19 立:i18n 卫生 — 原误挂在 user.profile 命名空间(用户资料页并无 token 语义),
+  // 迁至 ai.tokenUsage 子树,译文沿用原 user.profile 现值,原死键已删除
+  const t = useTranslations('ai.tokenUsage')
   return (
     <div className="rounded-lg border bg-card p-3 text-card-foreground">
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-3">

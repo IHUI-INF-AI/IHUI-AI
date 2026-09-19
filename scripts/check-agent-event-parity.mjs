@@ -37,7 +37,9 @@
  *        「声明契约」兜底来源
  *   2. 扫描前端消费点:
  *      - apps/web/src 含 new EventSource 的文件: es.addEventListener('<名>')
- *        命名事件监听 + (data|evt).type === '<名>' 匿名 data 事件分支
+ *        命名事件监听 + (data|evt).type === '<名>' 匿名 data 事件分支;
+ *        t4(2026-09-19) 后 Agent 任务流消费点改用 AGENT_TASK_EVENTS.* 常量
+ *        形态, 由 1j 提取的常量映射解析回事件名后并列对账
  *      - packages/api-client/src/endpoints/agent-runtime.ts: SSE 客户端库统一分发
  *        (dispatchSSEEvent / parseAgentRuntimeSSEBlock 的 case 分支)
  *   3. 对账规则:
@@ -115,9 +117,6 @@ const WHITELIST = [
   // onEvent 兜底统一分发(default 分支注释明确列出这些 type),
   // 属任务约定的「SSE 客户端库统一分发」合法场景。
   { name: 'status', reason: 'langgraph 状态流转事件,api-client onEvent 兜底统一分发' },
-  // P0-5(2026-09-13):agents.py /agents/tasks/stream 新增 "thinking.delta"→"thinking"
-  // 映射,与 langgraph 同名 SSE 事件共用本条目;前端 workbench 逐名消费接线后复核
-  { name: 'thinking', reason: 'langgraph 思考提示事件,api-client onEvent 兜底统一分发' },
   // P0-5(2026-09-13):agents.py "plan.step"→"plan-step" 新映射,后端已生产,
   // 前端 use-agent-runtime 消费点由 P0-5 web 端任务接线 —— P0-5 web 端接线后移除本条目
   // P0-5(2026-09-13):plan-step 待消费豁免已移除 —— use-agent-runtime 已接线逐名消费,
@@ -131,19 +130,11 @@ const WHITELIST = [
 
 /**
  * 前端存在监听/分支但后端已无对应 SSE 生产的**历史遗留分支**(阻断豁免)。
- * 这些不是误报, 是真实的历史契约残迹 —— 是否清理或恢复后端生产由业务侧
- * (主会话)决策, 守门只负责让它显式可见、防止无意识扩张。
+ * 2026-09-19:最后两条历史遗留分支已清理 —— use-agent-runtime onmessage 的
+ * content 死分支与 api-client dispatchSSEEvent 的 permission_request 兼容
+ * 分支均已删除,本数组清空;后续如再现前端孤儿监听,在此登记并写明理由。
  */
-const FRONTEND_LEGACY_EVENTS = [
-  {
-    name: 'content',
-    reason: 'use-agent-runtime.ts onmessage 的历史契约分支:现 /agents/tasks/stream 仅发命名事件(agents.py 全部带 event: 字段,匿名分支运行时不可达);是否清理分支或补发 content 事件由业务侧决策',
-  },
-  {
-    name: 'permission_request',
-    reason: 'api-client dispatchSSEEvent 兼容分支:现行审批契约为 hook tool.approval → SSE tool-approval,后端已无 permission_request 命名事件生产,保留分支仅为旧调用方兼容',
-  },
-];
+const FRONTEND_LEGACY_EVENTS = [];
 
 const WHITELIST_SET = new Set(WHITELIST.map((w) => w.name));
 const FRONTEND_LEGACY_SET = new Set(FRONTEND_LEGACY_EVENTS.map((w) => w.name));
@@ -413,6 +404,33 @@ const llmDialogEvents = new Set();
   scanStats.llmDialog = llmDialogEvents.size;
 }
 
+// —— 1j. Agent 任务流单源常量(agent-events.ts, t4 收敛单一事实源)——
+// 提取 AGENT_TASK_EVENTS 常量名→wire 事件值映射, 供 2a 常量形态监听解析回
+// 事件名; 值集合同时参与对账 0c(单源声明值 ⊆ 后端生产面)。
+const TS_AGENT_EVENTS_RE = /([A-Z][A-Z_0-9]+):\s*'([a-z_-]+)'/g;
+const agentTaskEventConstants = new Map(); // 常量名 → wire 事件值
+const agentTaskEventValues = new Set();    // wire 事件值集合(对账 0c 用)
+{
+  const srcFile = path.join(ROOT, 'packages/shared/src/sse/agent-events.ts');
+  if (!existsSync(srcFile)) {
+    errors.push('packages/shared/src/sse/agent-events.ts 缺失: t4 Agent 任务流单源被移动/删除, 请同步本守门');
+  } else {
+    const text = readFileSync(srcFile, 'utf-8');
+    const start = text.indexOf('export const AGENT_TASK_EVENTS');
+    if (start === -1) {
+      errors.push('packages/shared/src/sse/agent-events.ts 未找到 export const AGENT_TASK_EVENTS(单源被改名, 请同步本守门)');
+    } else {
+      const end = text.indexOf('} as const', start);
+      const body = end === -1 ? text.slice(start, start + 3000) : text.slice(start, end);
+      for (const m of body.matchAll(TS_AGENT_EVENTS_RE)) {
+        agentTaskEventConstants.set(m[1], m[2]);
+        agentTaskEventValues.add(m[2]);
+      }
+    }
+  }
+  scanStats.agentEventConstants = agentTaskEventConstants.size;
+}
+
 console.log(
   `  TS 字面量命名事件命中 ${scanStats.tsLiteral} 处, broadcastSSEEvent 广播 ${scanStats.tsBroadcast} 处, AgentSSEEvent 契约声明 ${scanStats.tsContract ?? 0} 个`,
 );
@@ -421,6 +439,9 @@ console.log(
 );
 console.log(
   `  共享契约(#25): TS 侧 ${scanStats.tsSharedContract ?? 0} 个 / PY 侧 ${scanStats.pySharedContract ?? 0} 个, llm.py 对话流事件 ${scanStats.llmDialog ?? 0} 个`,
+);
+console.log(
+  `  Agent 任务流单源(t4): AGENT_TASK_EVENTS 常量 ${scanStats.agentEventConstants ?? 0} 个`,
 );
 
 // ============================================================================
@@ -432,15 +453,22 @@ console.log(`\n${C.cyan}[2/4] 前端 SSE 事件消费点扫描${C.reset}`);
 const feStats = {};
 
 // —— 2a. apps/web EventSource 文件: 命名监听 + 匿名 data 事件分支 ——
+// t4(2026-09-19): Agent 任务流消费点改用 AGENT_TASK_EVENTS.* 常量形态, 增加
+// ES_NAMED_CONST_RE / ES_UNNAMED_CONST_RE 两种常量形态匹配, 命中后经 1j 的
+// agentTaskEventConstants 映射解析回 wire 事件名, 与字符串形态并列对账
 const ES_NAMED_RE = /([A-Za-z_$][\w$]*)\.addEventListener\(\s*'([a-z][\w-]*)'/g;
+const ES_NAMED_CONST_RE = /([A-Za-z_$][\w$]*)\.addEventListener\(\s*AGENT_TASK_EVENTS\.([A-Z][A-Z_0-9]*)/g;
 const ES_UNNAMED_RE = /\b(data|evt|parsed|event)\.type\s*={2,3}\s*'([a-z_-]+)'/g;
+const ES_UNNAMED_CONST_RE = /\b(data|evt|parsed|event)\.type\s*={2,3}\s*AGENT_TASK_EVENTS\.([A-Z][A-Z_0-9]*)/g;
 {
   const files = walk(path.join(ROOT, 'apps/web/src'), ['.ts', '.tsx']).filter((f) =>
     readFileSync(f, 'utf-8').includes('new EventSource'),
   );
   feStats.eventSourceFiles = files.length;
   let namedHits = 0;
+  let namedConstHits = 0;
   let unnamedHits = 0;
+  let unnamedConstHits = 0;
   for (const f of files) {
     const text = readFileSync(f, 'utf-8');
     for (const m of text.matchAll(ES_NAMED_RE)) {
@@ -451,13 +479,33 @@ const ES_UNNAMED_RE = /\b(data|evt|parsed|event)\.type\s*={2,3}\s*'([a-z_-]+)'/g
       addEvent(frontendEvents, name, `${rel(f)} (addEventListener)`);
       namedHits++;
     }
+    for (const m of text.matchAll(ES_NAMED_CONST_RE)) {
+      const receiver = m[1];
+      if (receiver === 'window' || receiver === 'document') continue;
+      const name = agentTaskEventConstants.get(m[2]);
+      if (!name) {
+        errors.push(`${rel(f)} 引用 AGENT_TASK_EVENTS.${m[2]} 但单源(agent-events.ts)未定义该常量 — 常量拼写漂移或单源缺失`);
+        continue;
+      }
+      addEvent(frontendEvents, name, `${rel(f)} (addEventListener 常量)`);
+      namedConstHits++;
+    }
     for (const m of text.matchAll(ES_UNNAMED_RE)) {
       addEvent(frontendEvents, m[2], `${rel(f)} (onmessage type 分支)`);
       unnamedHits++;
     }
+    for (const m of text.matchAll(ES_UNNAMED_CONST_RE)) {
+      const name = agentTaskEventConstants.get(m[2]);
+      if (!name) {
+        errors.push(`${rel(f)} 引用 AGENT_TASK_EVENTS.${m[2]} 但单源(agent-events.ts)未定义该常量 — 常量拼写漂移或单源缺失`);
+        continue;
+      }
+      addEvent(frontendEvents, name, `${rel(f)} (onmessage type 常量分支)`);
+      unnamedConstHits++;
+    }
   }
-  feStats.namedListeners = namedHits;
-  feStats.unnamedBranches = unnamedHits;
+  feStats.namedListeners = namedHits + namedConstHits;
+  feStats.unnamedBranches = unnamedHits + unnamedConstHits;
 }
 
 // —— 2b. api-client SSE 分发器(executeAgentStream / executeAgentRuntimeStream)——
@@ -490,11 +538,12 @@ const SANITY_MIN = [
   { key: 'tsContract', min: 8, label: 'AgentSSEEvent 契约声明(当前 10 个 type)' },
   { key: 'pyMapping', min: 5, label: 'PY hook→SSE 映射表(当前 7 条)' },
   { key: 'pyDict', min: 3, label: 'PY 事件 dict 字面量(start/done/error)' },
-  { key: 'tsSharedContract', min: 19, label: '共享 SSE 契约 TS 侧事件数(#25, 当前 22 个)' },
-  { key: 'pySharedContract', min: 19, label: '共享 SSE 契约 PY 侧事件数(#25, 当前 22 个)' },
+  { key: 'tsSharedContract', min: 19, label: '共享 SSE 契约 TS 侧事件数(#25, 当前 24 个)' },
+  { key: 'pySharedContract', min: 19, label: '共享 SSE 契约 PY 侧事件数(#25, 当前 24 个)' },
   { key: 'llmDialog', min: 10, label: 'llm.py 对话流事件数(#25 纳入对账, 当前 15 个)' },
+  { key: 'agentEventConstants', min: 14, label: 'Agent 任务流单源常量(t4 agent-events.ts, 当前 15 个)' },
   { key: 'eventSourceFiles', min: 2, label: '前端 EventSource 文件(use-agent-runtime/useAgentSSE/tool-approval-dialog)' },
-  { key: 'namedListeners', min: 2, label: '前端命名监听(self-heal/tool-approval)' },
+  { key: 'namedListeners', min: 2, label: '前端命名监听(字符串 + AGENT_TASK_EVENTS 常量形态, self-heal/tool-approval)' },
   { key: 'apiClientCases', min: 8, label: 'api-client 分发 case 分支' },
 ];
 for (const { key, min, label } of SANITY_MIN) {
@@ -566,6 +615,29 @@ if (llmDialogEvents.size === 0) {
         `请在 contract.ts + sse_contract.py 补入定义, 或确认非 SSE 契约事件后加入 LLM_EVENT_DICT_EXCLUDE(注释理由)`,
     );
     console.log(`  ${C.red}✗ ${n}: 对话流生产但契约未登记${C.reset}`);
+  }
+}
+
+// —— 对账 0c: t4 单源声明 —— AGENT_TASK_EVENTS 值集合 ⊆ 后端生产面(阻断)——
+// 防止前端单源与 Python 侧 agent_events.py HOOK_EVENT_TO_SSE 映射漂移
+// (注意 HOOK_ERROR: SSE_ERROR 为常量引用形态, 不进 1d 扫描, 'error' 依赖
+// agent-runtime.ts / llm.py 等其他生产段兜底)
+console.log(`\n${C.cyan}对账: Agent 任务流单源值 ⊆ 后端生产面(t4 收敛)${C.reset}`);
+if (agentTaskEventValues.size === 0) {
+  console.log(`  ${C.red}✗ AGENT_TASK_EVENTS 常量提取为空, 扫描器失效${C.reset}`);
+  errors.push('AGENT_TASK_EVENTS 常量提取为空(阈值防护见 [3/4]), 扫描器需同步');
+} else {
+  const orphanConstants = [...agentTaskEventValues].filter((n) => !backendEvents.has(n));
+  if (orphanConstants.length === 0) {
+    console.log(`  ${C.green}✓ 全部 ${agentTaskEventValues.size} 个单源事件名均有后端生产点${C.reset}`);
+  } else {
+    for (const n of orphanConstants) {
+      errors.push(
+        `契约漂移: AGENT_TASK_EVENTS 声明事件 "${n}" 后端无任何生产点 — ` +
+          `单源(agent-events.ts)与 agent_events.py HOOK_EVENT_TO_SSE 映射漂移, 请同步两端`,
+      );
+      console.log(`  ${C.red}✗ ${n}: 单源声明但后端无生产${C.reset}`);
+    }
   }
 }
 
