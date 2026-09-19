@@ -32,6 +32,14 @@ function isSecure(request: FastifyReply['request']): boolean {
   return request.protocol === 'https'
 }
 
+/**
+ * Cookie 域(可选):生产配置 COOKIE_DOMAIN=.aizhs.top 后 auth cookie 在所有子域共享,
+ * 使 OIDC 回跳(api.aizhs.top 域设置的 httpOnly cookie)能被前端同源反代
+ * (bsm.aizhs.top/api)的请求自动携带 → bootstrap 静默刷新恢复登录态。
+ * 未配置(本地 dev localhost)时维持 host-only cookie,行为不变。
+ */
+const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN?.trim() || undefined
+
 function buildCookie(
   name: string,
   value: string,
@@ -44,6 +52,7 @@ function buildCookie(
     httpOnly: true,
   }
   if (secure) options.secure = true
+  if (COOKIE_DOMAIN) options.domain = COOKIE_DOMAIN
   if (maxAge !== undefined && maxAge >= 0) options.maxAge = maxAge
   return { name, value, options }
 }
@@ -81,6 +90,7 @@ export function clearAuthCookies(reply: FastifyReply): void {
     sameSite: 'lax',
     httpOnly: true,
     secure,
+    ...(COOKIE_DOMAIN ? { domain: COOKIE_DOMAIN } : {}),
     maxAge: 0,
   })
   reply.setCookie(REFRESH_TOKEN_COOKIE, '', {
@@ -88,6 +98,7 @@ export function clearAuthCookies(reply: FastifyReply): void {
     sameSite: 'lax',
     httpOnly: true,
     secure,
+    ...(COOKIE_DOMAIN ? { domain: COOKIE_DOMAIN } : {}),
     maxAge: 0,
   })
 }

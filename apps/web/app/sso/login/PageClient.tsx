@@ -105,6 +105,16 @@ export default function SsoLoginPage() {
     void generateCodeAndRedirect()
   }, [generateCodeAndRedirect])
 
+  // OIDC 回跳自动闭环(2026-09-19):企业 SSO 认证完成后后端 302 回本页并带 sso=oidc 标记,
+  // bootstrap 经共享域 httpOnly cookie 恢复登录态后自动跳转 redirect(默认首页),
+  // 避免用户刚完成 SSO 登录却停在授权卡片/登录表单需再手动操作。
+  const fromOidc = searchParams.get('sso') === 'oidc'
+  React.useEffect(() => {
+    if (fromOidc && token && user) {
+      router.push(redirectUrl)
+    }
+  }, [fromOidc, token, user, redirectUrl, router])
+
   // 已登录分支:授权跳转卡片
   if (token && user) {
     return (
