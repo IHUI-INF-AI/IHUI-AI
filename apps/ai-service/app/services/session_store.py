@@ -779,6 +779,52 @@ class SessionStore:
             ).fetchone()
         return _row_to_turn(row) if row else None
 
+    def revert_thread(
+        self,
+        thread_id: str,
+        before_turn_id: str,
+    ) -> int:
+        """把线程持久历史截断到 before_turn_id 之前(对标 codex thread-store
+        revert_thread):该 turn 及其后的全部 turns 连同其 items 一并删除,
+        线程元数据保持不变。返回被删除的 turn 数;turn 不属于该线程时抛
+        TurnMismatchError,线程/turn 不存在时抛 ThreadNotFoundError /
+        TurnNotFoundError。调用方须先确认线程无在跑轮次(对标 codex
+        'close the thread's live writer first' 语义)。"""
+        with self._tx() as conn:
+            if conn.execute(
+                "SELECT 1 FROM threads WHERE thread_id = ?", (thread_id,)
+            ).fetchone() is None:
+                raise ThreadNotFoundError(thread_id)
+            trow = conn.execute(
+                "SELECT thread_id, turn_seq FROM turns WHERE turn_id = ?",
+                (before_turn_id,),
+            ).fetchone()
+            if trow is None:
+                raise TurnNotFoundError(before_turn_id)
+            owner = _row_str(cast(sqlite3.Row, trow), "thread_id")
+            if owner != thread_id:
+                raise TurnMismatchError(
+                    f"turn {before_turn_id} 不属于 thread {thread_id}"
+                )
+            cutoff = _row_int(cast(sqlite3.Row, trow), "turn_seq")
+            # 该 turn 及其后的 items(turn_id 关联)先删,再删 turns 本身
+            cur = conn.execute(
+                "DELETE FROM items WHERE thread_id = ? AND turn_id IN ("
+                "SELECT turn_id FROM turns WHERE thread_id = ? AND turn_seq >= ?)",
+                (thread_id, thread_id, cutoff),
+            )
+            _ = cur.rowcount
+            cur = conn.execute(
+                "DELETE FROM turns WHERE thread_id = ? AND turn_seq >= ?",
+                (thread_id, cutoff),
+            )
+            deleted = cur.rowcount
+            conn.execute(
+                "UPDATE threads SET updated_at = ? WHERE thread_id = ?",
+                (_now(), thread_id),
+            )
+        return deleted
+
     def list_turns(
         self,
         thread_id: str,

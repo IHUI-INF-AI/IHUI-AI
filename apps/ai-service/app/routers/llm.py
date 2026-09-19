@@ -273,17 +273,11 @@ def _sse(evt: str, payload: Any) -> str:
     return f"event: {evt}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
-def _format_terminal_end_event(
-    terminal_id: str,
-    exec_result: Any,
-    ok: bool,
-    started_ms: float,
-    message_id: str | None,
-) -> str:
-    """W1(2026-09-12 立):把 run_command 类工具的执行结果格式化为 terminal_end SSE 事件。
+def _extract_terminal_output(exec_result: Any) -> tuple[str, int | None]:
+    """D24(2026-09-19 立):从 run_command 类执行结果提取 (output, exit_code)。
 
-    字段与 packages/types/src/ai.ts 的 TerminalEndEvent 严格对齐
-    (注意契约字段是 `terminalId`,不是 `id`)。
+    原 _format_terminal_end_event 的内联提取逻辑抽为独立函数,
+    供 SSE 事件构造与持久化记录构造(_build_terminal_task)共用(单一事实源)。
     run_command handler 返回 {exit_code, stdout, stderr, output?},此处合并为 output。
     """
     _output = ""
@@ -304,6 +298,23 @@ def _format_terminal_end_event(
         _ec = exec_result.get("exit_code", exec_result.get("exitCode"))
         if isinstance(_ec, int):
             _exit_code = _ec
+    return _output, _exit_code
+
+
+def _format_terminal_end_event(
+    terminal_id: str,
+    exec_result: Any,
+    ok: bool,
+    started_ms: float,
+    message_id: str | None,
+) -> str:
+    """W1(2026-09-12 立):把 run_command 类工具的执行结果格式化为 terminal_end SSE 事件。
+
+    字段与 packages/types/src/ai.ts 的 TerminalEndEvent 严格对齐
+    (注意契约字段是 `terminalId`,不是 `id`)。
+    提取逻辑复用 _extract_terminal_output(D24 抽取,与持久化记录同源)。
+    """
+    _output, _exit_code = _extract_terminal_output(exec_result)
 
     _evt: dict[str, Any] = {
         "type": "terminal_end",
@@ -320,6 +331,37 @@ def _format_terminal_end_event(
     if message_id:
         _evt["messageId"] = message_id
     return _sse(SSE_TERMINAL_END, _evt)
+
+
+def _build_terminal_task(
+    terminal_id: str,
+    exec_result: Any,
+    ok: bool,
+    started_ts: float,
+    command: str,
+) -> dict[str, Any]:
+    """D24(2026-09-19 立):构造可持久化的终端任务记录(terminalTasks 数组元素)。
+
+    结构与 packages/types/src/ai.ts 的 TerminalTask 对齐
+    (id/command/status/output/startedAt/endedAt/durationMs/exitCode)。
+    在各 terminal_end SSE 产出点同步收集,随 _fire_callback 落库到
+    chat_messages.metadata.terminalTasks,恢复会话/回放/审计时还原终端区。
+    output 沿用 SSE 事件的 8000 字符截断,防 metadata 体积膨胀。
+    """
+    _output, _exit_code = _extract_terminal_output(exec_result)
+    _rec: dict[str, Any] = {
+        "id": terminal_id,
+        "command": str(command or ""),
+        "status": "completed" if ok else "failed",
+        "startedAt": datetime.fromtimestamp(started_ts, tz=UTC).isoformat(),
+        "endedAt": datetime.now(UTC).isoformat(),
+        "durationMs": int((time.time() - started_ts) * 1000),
+    }
+    if _output:
+        _rec["output"] = _output[:8000]
+    if _exit_code is not None:
+        _rec["exitCode"] = _exit_code
+    return _rec
 
 
 def _wrap_ok(data: Any, message: str = "ok") -> dict[str, Any]:
@@ -2085,6 +2127,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # 每次 tool-call-start 事件发出时 append 一条记录,tool-result 事件到达时更新 result/durationMs/isError。
         # 在 SSE 流末尾(每个 done 事件之前)聚合统计,发出 tool-summary 事件。
         tool_calls_history: list[dict[str, Any]] = []
+        # D24(2026-09-19 立):终端任务持久化收集器。
+        # 各 terminal_end SSE 产出点同步 append(_build_terminal_task 构造,
+        # 与 SSE 事件同源同截断),流收尾随 _fire_callback 落库到 metadata.terminalTasks。
+        terminal_tasks_history: list[dict[str, Any]] = []
         # W1(2026-09-12 立):前端 assistant 消息 ID。plan_updated / terminal_* 事件必须携带,
         # 否则前端 onPlanUpdate/onTerminalStart/onTerminalEnd 回调的 messageId 守卫会丢弃事件。
         message_id = _resolve_message_id(req.metadata)
@@ -2318,7 +2364,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
                                 if has_association and not accumulated.get("error") and not await request.is_disconnected():
                                     url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
-                                    task = asyncio.create_task(_fire_callback(url, accumulated, req.metadata))
+                                    # D24(2026-09-19 立):携带工具调用/终端任务历史,回调落库供恢复/回放/审计
+                                    task = asyncio.create_task(_fire_callback(
+                                        url, accumulated, req.metadata,
+                                        tool_calls_history=tool_calls_history,
+                                        terminal_tasks_history=terminal_tasks_history,
+                                    ))
                                     _pending_callbacks.add(task)
                                     task.add_done_callback(_pending_callbacks.discard)
                                 return
@@ -2459,7 +2510,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
                                 if has_association and not accumulated.get("error") and not await request.is_disconnected():
                                     url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
-                                    task = asyncio.create_task(_fire_callback(url, accumulated, req.metadata))
+                                    # D24(2026-09-19 立):携带工具调用/终端任务历史,回调落库供恢复/回放/审计
+                                    task = asyncio.create_task(_fire_callback(
+                                        url, accumulated, req.metadata,
+                                        tool_calls_history=tool_calls_history,
+                                        terminal_tasks_history=terminal_tasks_history,
+                                    ))
                                     _pending_callbacks.add(task)
                                     task.add_done_callback(_pending_callbacks.discard)
                                 return
@@ -2622,6 +2678,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     yield _format_terminal_end_event(
                                         _terminal_id, exec_result, ok, _tc_start_ts, message_id
                                     )
+                                    # D24(2026-09-19 立):同步收集终端任务记录,回调落库(恢复/回放/审计)
+                                    terminal_tasks_history.append(_build_terminal_task(
+                                        _terminal_id, exec_result, ok, _tc_start_ts,
+                                        str((args if isinstance(args, dict) else {}).get("command", "") or ""),
+                                    ))
                                 # W1(2026-09-12 立):plan 快照收尾(result 已写回 → 该步转 completed)
                                 yield _format_plan_updated_event(
                                     tool_calls_history,
@@ -2718,6 +2779,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         yield _format_terminal_end_event(
                                             _terminal_id, exec_result, ok, _tc_start_ts, message_id
                                         )
+                                        # D24(2026-09-19 立):同步收集终端任务记录,回调落库(恢复/回放/审计)
+                                        terminal_tasks_history.append(_build_terminal_task(
+                                            _terminal_id, exec_result, ok, _tc_start_ts,
+                                            str((args if isinstance(args, dict) else {}).get("command", "") or ""),
+                                        ))
                                     yield _format_plan_updated_event(
                                         tool_calls_history,
                                         explanation=f"工具 {tool_name} 委托超时",
@@ -2792,6 +2858,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     yield _format_terminal_end_event(
                                         _terminal_id, exec_result, ok, _tc_start_ts, message_id
                                     )
+                                    # D24(2026-09-19 立):同步收集终端任务记录,回调落库(恢复/回放/审计)
+                                    terminal_tasks_history.append(_build_terminal_task(
+                                        _terminal_id, exec_result, ok, _tc_start_ts,
+                                        str((args if isinstance(args, dict) else {}).get("command", "") or ""),
+                                    ))
                                 yield _format_plan_updated_event(
                                     tool_calls_history,
                                     explanation=f"工具 {tool_name} 已{'完成' if ok else '失败'}",
@@ -2998,6 +3069,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 yield _format_terminal_end_event(
                                     _terminal_id, exec_result, ok, _tc_start_ts, message_id
                                 )
+                                # D24(2026-09-19 立):同步收集终端任务记录,回调落库(恢复/回放/审计)
+                                terminal_tasks_history.append(_build_terminal_task(
+                                    _terminal_id, exec_result, ok, _tc_start_ts,
+                                    str((args if isinstance(args, dict) else {}).get("command", "") or ""),
+                                ))
                             yield _format_plan_updated_event(
                                 tool_calls_history,
                                 explanation=f"工具 {tool_name} 已{'完成' if ok else '失败'}",
@@ -3129,7 +3205,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
                             if has_association and not accumulated.get("error") and not await request.is_disconnected():
                                 url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
-                                task = asyncio.create_task(_fire_callback(url, accumulated, req.metadata))
+                                # D24(2026-09-19 立):携带工具调用/终端任务历史,回调落库供恢复/回放/审计
+                                task = asyncio.create_task(_fire_callback(
+                                    url, accumulated, req.metadata,
+                                    tool_calls_history=tool_calls_history,
+                                    terminal_tasks_history=terminal_tasks_history,
+                                ))
                                 _pending_callbacks.add(task)
                                 task.add_done_callback(_pending_callbacks.discard)
                             return
@@ -3362,7 +3443,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
         if has_association and not accumulated.get("error") and not await request.is_disconnected():
             url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
-            task = asyncio.create_task(_fire_callback(url, accumulated, req.metadata))
+            # D24(2026-09-19 立):携带工具调用/终端任务历史,回调落库供恢复/回放/审计
+            task = asyncio.create_task(_fire_callback(
+                url, accumulated, req.metadata,
+                tool_calls_history=tool_calls_history,
+                terminal_tasks_history=terminal_tasks_history,
+            ))
             _pending_callbacks.add(task)
             task.add_done_callback(_pending_callbacks.discard)
 
@@ -3431,11 +3517,104 @@ async def post_steer_message(session_id: str, body: dict[str, Any] = Body(...)) 
     return {"ok": True, "queued": len(queue)}
 
 
-async def _fire_callback(url: str, payload: dict[str, Any], metadata: dict[str, Any] | None) -> None:
+# D24(2026-09-19 立):工具调用/终端任务持久化 —— metadata 体积护栏。
+# chat_messages.metadata 为 jsonb 列,工具 result 可能是整文件内容/长命令输出,
+# 不截断会把 metadata 撑到 MB 级拖垮会话列表查询。量级与 SSE 事件对齐:
+# args 2000 / result 8000(与 terminal output 截断同量级),超长退化为截断文本。
+_TOOL_ARGS_PERSIST_LIMIT = 2000
+_TOOL_RESULT_PERSIST_LIMIT = 8000
+
+
+def _truncate_persist_value(value: Any, limit: int) -> Any:
+    """D24(2026-09-19 立):持久化值截断 —— 序列化超 limit 时退化为截断文本。
+
+    体积在限内原样返回(保持结构,前端 ToolCallCard 按 dict 渲染);
+    超限返回带标注的截断字符串(截断后的 JSON 无法安全反序列化,退化为文本
+    是明确可预期的展示形态,前端 result 展示区按文本渲染)。
+    """
+    try:
+        _s = json.dumps(value, ensure_ascii=False)
+    except (TypeError, ValueError):
+        _s = str(value)
+    if len(_s) <= limit:
+        return value
+    return f"{_s[:limit]}...[truncated {len(_s) - limit} chars]"
+
+
+def _build_persisted_tool_calls(
+    tool_calls_history: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """D24(2026-09-19 立):把 tool loop 的工具调用历史构造为可持久化数组。
+
+    随 _fire_callback 落库到 chat_messages.metadata.toolCalls,恢复会话/
+    回放/审计时还原工具卡(对标 Codex TUI 历史完整 patch G-31)。
+
+    结构与 packages/types/src/ai.ts 的 BaseToolCall 对齐:
+    id/toolName/status/isError/iteration/durationMs/repeated/serverSource/
+    serverId/serverName/startedAt/endedAt/args/result。
+    status 三态推导(BaseToolCall.status 必填):result 缺失 → running;
+    isError → error;其余 → success。
+    体积护栏:args/result 经 _truncate_persist_value 截断(2000/8000 字符),
+    与 share-content.ts 分享回放的隐私剥离不同 —— 本处是用户私有会话恢复,
+    本人可见,保留内容用于完整还原,仅限体积。
+    """
+    out: list[dict[str, Any]] = []
+    for rec in tool_calls_history:
+        if not isinstance(rec, dict):
+            continue
+        _tc_id = str(rec.get("toolCallId") or "")
+        _name = str(rec.get("toolName") or "")
+        if not _tc_id and not _name:
+            continue
+        _has_result = rec.get("result") is not None
+        _is_err = bool(rec.get("isError"))
+        item: dict[str, Any] = {
+            "id": _tc_id,
+            "toolName": _name,
+            "status": "error" if _is_err else ("success" if _has_result else "running"),
+        }
+        if _is_err:
+            item["isError"] = True
+        args = rec.get("args")
+        if isinstance(args, dict) and args:
+            item["args"] = _truncate_persist_value(args, _TOOL_ARGS_PERSIST_LIMIT)
+        if _has_result:
+            item["result"] = _truncate_persist_value(
+                rec.get("result"), _TOOL_RESULT_PERSIST_LIMIT
+            )
+        # 透传展示/审计字段(值存在才写,保持 metadata 精简)
+        for k in (
+            "iteration", "repeated", "serverSource", "serverId", "serverName",
+            "startedAt", "endedAt",
+        ):
+            v = rec.get(k)
+            if v is not None and v != "":
+                item[k] = v
+        dur = rec.get("durationMs")
+        if isinstance(dur, (int, float)) and dur >= 0:
+            item["durationMs"] = int(dur)
+        out.append(item)
+    return out
+
+
+async def _fire_callback(
+    url: str,
+    payload: dict[str, Any],
+    metadata: dict[str, Any] | None,
+    *,
+    tool_calls_history: list[dict[str, Any]] | None = None,
+    terminal_tasks_history: list[dict[str, Any]] | None = None,
+) -> None:
     """异步 POST 推理结果到 callback_url。
 
     失败静默(只记日志),不阻塞主流程。
     由 API 侧的 /api/ai/callback 端点接收并入队 aiCallback 处理。
+
+    D24(2026-09-19 立):tool_calls_history / terminal_tasks_history 非空时,
+    经 _build_persisted_tool_calls 构造后附加到回调 body 的 toolCalls /
+    terminalTasks 字段,API 侧落库到 chat_messages.metadata,恢复会话/
+    回放/审计时还原工具卡与终端区。非流式端点(/llm/complete)无 tool loop,
+    不传即缺省 None(不带字段,向后兼容)。
 
     健壮性:
     - 若配置 ai_callback_secret,携带 X-Internal-Secret 头(与后端共享密钥校验)
@@ -3454,6 +3633,13 @@ async def _fire_callback(url: str, payload: dict[str, Any], metadata: dict[str, 
     }
     if payload.get("reasoning"):
         body["reasoning"] = payload["reasoning"]
+    # D24(2026-09-19 立):工具调用与终端任务持久化通道(空历史不写字段,
+    # 与"无工具调用"语义区分,也避免 API 侧收到空数组)
+    _persist_calls = _build_persisted_tool_calls(tool_calls_history or [])
+    if _persist_calls:
+        body["toolCalls"] = _persist_calls
+    if terminal_tasks_history:
+        body["terminalTasks"] = terminal_tasks_history
     # 2026-08-06 修复(配套):API 侧 /api/ai/callback 已改为 fail-closed
     # (未配置 AI_CALLBACK_SECRET 直接 401 拒绝)。此处未配置 ai_callback_secret
     # 时回调必然被拒,跳过发送并记录明确错误,避免无效网络请求 + 静默丢回调。

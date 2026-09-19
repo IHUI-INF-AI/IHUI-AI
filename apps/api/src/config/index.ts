@@ -120,6 +120,9 @@ const envSchema = z.object({
   WX_API_BASE: optionalUrl('https://api.mch.weixin.qq.com'),
   WX_MINI_APPID: z.string().optional().default(''),
   WX_MINI_SECRET: z.string().optional().default(''),
+  // 小程序订阅消息模板 ID(微信公众平台 → 订阅消息 中申请,形如 "AbC123...")。
+  // 配置后催费提醒走真实订阅消息外发;未配置则仅站内信兜底。
+  WX_MINI_REMIND_TMPL_ID: z.string().optional().default(''),
   WX_APP_APPID: z.string().optional().default(''),
   WX_SHOP_ID: z.string().optional().default(''),
   WX_PAY_V3_KEY: z.string().optional().default(''),
