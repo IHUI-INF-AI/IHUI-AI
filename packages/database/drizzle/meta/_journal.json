@@ -1919,6 +1919,27 @@
       "when": 1723587200000,
       "tag": "20260917100000_admin_console_modules",
       "breakpoints": true
+    },
+    {
+      "idx": 275,
+      "version": "7",
+      "when": 1789781360777,
+      "tag": "20260919090000_automation_thread_and_pgvector",
+      "breakpoints": true
+    },
+    {
+      "idx": 276,
+      "version": "7",
+      "when": 1789781361777,
+      "tag": "20260919100000_edu_canteen",
+      "breakpoints": true
+    },
+    {
+      "idx": 277,
+      "version": "7",
+      "when": 1789784961777,
+      "tag": "20260917110000_automation_conversation_link",
+      "breakpoints": true
     }
   ]
 }
