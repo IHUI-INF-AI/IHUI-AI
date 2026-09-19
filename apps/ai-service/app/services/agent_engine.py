@@ -398,6 +398,9 @@ class EngineThread:
     emit: Emitter | None = None
     # 当前持久化轮次(session_store turn_id,用于结束后回写 AgentMessage/Error)
     current_turn_id: str | None = None
+    # 回合标记(2026-09-19 批 43 接线,对标 codex thread/revert):user 消息索引
+    # → turn_id 映射,thread.revert 据此精确裁剪内存消息(持久层同步截断)
+    turn_markers: dict[int, str] = field(default_factory=dict)
     # 工具级审批策略(2026-09-18 立,对标 Codex per-tool approval_policy;
     # "*" 为全局档,per-tool 显式值优先)
     approval_policies: dict[str, str] = field(default_factory=dict)
@@ -1512,6 +1515,7 @@ class AgentEngine:
             "thread.list": self._handle_thread_list,
             "thread.archive": self._handle_thread_archive,
             "thread.fork": self._handle_thread_fork,
+            "thread.revert": self._handle_thread_revert,
             "agent.exec": self._handle_agent_exec,
             "tools.list": self._handle_tools_list,
             "tools.register": self._handle_tools_register,
@@ -2132,6 +2136,9 @@ class AgentEngine:
                 }
             )
         turn_id = self._persist_turn_start(thread, text)
+        if turn_id is not None:
+            # 批 43:记录 user 消息索引 → turn_id 映射(thread.revert 裁剪依据)
+            thread.turn_markers[len(thread.messages) - 1] = turn_id
         # TurnStarted(2026-09-18 第十批,对标 Codex TurnStarted 事件)
         with contextlib.suppress(Exception):
             await self._emit_engine_event(
@@ -3172,6 +3179,7 @@ class AgentEngine:
             output_schema=deepcopy(thread.output_schema),
             role=thread.role,
             plan=deepcopy(thread.plan),
+            turn_markers=dict(thread.turn_markers),
         )
         clone.host_tools = {
             name: HostToolSpec(
@@ -3199,6 +3207,61 @@ class AgentEngine:
             "title": (title or f"Fork of {thread.thread_id}").strip(),
             "messages": len(clone.messages),
             "status": clone.status,
+        }
+
+    async def _handle_thread_revert(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """线程回退(对标 Codex thread/revert + thread-store revert_thread):
+        把持久历史截断到 beforeTurnId 之前(该 turn 及其后的 turns+items 删除),
+        内存消息同步裁剪,并广播 thread.reverted 通知。线程在跑时拒绝。"""
+        thread = self._require_thread(params)
+        if thread.status == "running":
+            raise JsonRpcError(THREAD_BUSY, f"线程正在执行中: {thread.thread_id}")
+        before_turn_id = params.get("beforeTurnId")
+        if not isinstance(before_turn_id, str) or not before_turn_id:
+            raise JsonRpcError(INVALID_PARAMS, "缺少 beforeTurnId")
+        store = self._persistence_store()
+        deleted_turns = 0
+        if store is not None:
+            # 校验 turn 归属;store 不可用时退化为仅内存裁剪
+            turn = store.get_turn(before_turn_id)
+            if turn is None:
+                raise JsonRpcError(INVALID_PARAMS, f"turn 不存在: {before_turn_id}")
+            if turn.thread_id != thread.thread_id:
+                raise JsonRpcError(INVALID_PARAMS, "turn 不属于该线程")
+            cutoff_seq = turn.turn_seq
+            # 截断前先反查:turn_markers 中 turn_seq >= cutoff 的 user 消息索引
+            # (revert 后被删 turns 查不到了,必须先收集)
+            doomed = [
+                idx
+                for idx, tid in thread.turn_markers.items()
+                if (t := store.get_turn(tid)) is not None and t.turn_seq >= cutoff_seq
+            ]
+            deleted_turns = store.revert_thread(thread.thread_id, before_turn_id)
+            # 内存消息裁剪:从最早的被删 turn 对应消息索引处整段截断——工具链
+            # assistant/tool 消息都在该 user 消息之后,整段删除保证配对完整
+            # (对标 codex 'reverts so it ends immediately before before_turn_id')
+            if deleted_turns > 0 and doomed:
+                cut = min(doomed)
+                thread.messages = thread.messages[:cut]
+                thread.turn_markers = {
+                    i: t for i, t in thread.turn_markers.items() if i < cut
+                }
+        thread.touch()
+        await self._emit_engine_event(
+            thread, emit, "thread.reverted", {"deletedTurns": deleted_turns}
+        )
+        logger.info(
+            "[engine] thread.revert %s before %s (deleted %d turns)",
+            thread.thread_id,
+            before_turn_id,
+            deleted_turns,
+        )
+        return {
+            "threadId": thread.thread_id,
+            "deletedTurns": deleted_turns,
+            "status": thread.status,
         }
 
     # ------------------------------------------------------------------
