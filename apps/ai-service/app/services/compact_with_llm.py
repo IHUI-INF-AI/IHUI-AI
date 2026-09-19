@@ -31,9 +31,14 @@ from collections.abc import Callable
 from typing import Any
 
 from ..core.context_compaction import (
+    SUMMARY_MARKER,
     compress_messages_if_needed,
     estimate_messages_tokens,
     estimate_tokens,
+)
+from ..core.local_compact import (
+    SUMMARY_PREFIX as CODEX_SUMMARY_PREFIX,
+    is_summary_message as codex_is_summary_message,
 )
 from ..core.tunables import (
     AGENT_COMPACTION_QUALITY_ENABLED,
@@ -47,6 +52,31 @@ from .compaction_quality import assess_compaction
 from .decision_chain import extract_head_messages
 
 logger = logging.getLogger(__name__)
+
+# 摘要消息识别桥(2026-09-19 第三十七批接线,对标 Codex is_summary_message):
+# ① 本仓历史摘要消息以 SUMMARY_MARKER("[上下文摘要")开头(context_compaction 体系);
+# ② Codex 语义摘要以 SUMMARY_PREFIX + "\n" 开头(local_compact 规范源)。
+# 两体系并列判定,供摘要防嵌套与下游检测使用。
+def is_compaction_summary(message: str) -> bool:
+    """判定一条文本是否为压缩摘要消息(本仓 SUMMARY_MARKER 或 Codex SUMMARY_PREFIX)。"""
+    if not message:
+        return False
+    return message.startswith(SUMMARY_MARKER) or codex_is_summary_message(message)
+
+
+def _message_plain_text(msg: dict[str, Any]) -> str:
+    """提取 OpenAI 消息的纯文本内容(str 内容原样;list 内容拼接 text 项)。"""
+    content = msg.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = [
+            str(item.get("text", ""))
+            for item in content
+            if isinstance(item, dict) and item.get("type") in ("input_text", "output_text", "text")
+        ]
+        return "\n".join(p for p in parts if p)
+    return ""
 
 # 摘要 token 预算:占总目标上下文(target_ratio*context_limit)的份额,
 # 防止 LLM 生成的摘要过大导致"压缩后仍超阈值 → 循环压缩失败"
@@ -138,10 +168,15 @@ async def _summarize_head(
     兼容单参数 async (messages)->str|dict 与 agent_loop_v2 双参数
     (messages, tools)->dict 两种 llm_complete_fn;返回 str 或 dict 均提取 content。
     失败(异常/空/超预算截断后为空)一律返回空串,由调用方降级为规则压缩。
+    防嵌套(2026-09-19 第三十七批接线,判定=is_compaction_summary):head 段中
+    已是压缩摘要的消息不重复送入 LLM(其正文已收敛,重复送入浪费预算且污染交接)。
     """
+    filtered_head = [
+        m for m in head if not is_compaction_summary(_message_plain_text(m))
+    ]
     prompt = [
         {"role": "system", "content": compact_instruction},
-        *head,
+        *filtered_head,
     ]
     try:
         maybe_await = llm_complete_fn(prompt)
@@ -171,8 +206,9 @@ async def compact_with_llm(
     *,
     trigger_ratio: float = DEFAULT_TRIGGER_RATIO,
     target_ratio: float = DEFAULT_TARGET_RATIO,
-    keep_recent: int = DEFAULT_KEEP_RECENT,
-    compact_instruction: str = DEFAULT_COMPACT_INSTRUCTION,
+        keep_recent: int = DEFAULT_KEEP_RECENT,
+        compact_instruction: str = DEFAULT_COMPACT_INSTRUCTION,
+        prepend_codex_prefix: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """上下文超阈值时自动调 LLM 生成语义摘要再压缩。
 
@@ -184,6 +220,10 @@ async def compact_with_llm(
             返回 dict 时取其 content 字段(带 error 视为失败)
         trigger_ratio / target_ratio / keep_recent: 与 context_compaction 阈值参数一致
         compact_instruction: 摘要压缩指令(中文)
+        prepend_codex_prefix: True 时在 LLM 摘要正文前加 Codex 规范交接前缀
+            (app.core.local_compact.SUMMARY_PREFIX,英文),使下游可用
+            is_compaction_summary/codex_is_summary_message 识别摘要消息;
+            默认 False 保持既有纯中文行为(前缀 tokens 计入摘要预算)
 
     Returns:
         (compressed_messages, info),与 compress_messages_if_needed 契约一致:
@@ -204,6 +244,12 @@ async def compact_with_llm(
                 MIN_SUMMARY_BUDGET_TOKENS,
                 int(context_limit * target_ratio * SUMMARY_BUDGET_RATIO),
             )
+            if prepend_codex_prefix:
+                # Codex 语义前缀占用预算,先扣减再生成(2026-09-19 第三十七批)
+                prefix_cost = estimate_tokens(CODEX_SUMMARY_PREFIX)
+                summary_budget_tokens = max(
+                    MIN_SUMMARY_BUDGET_TOKENS, summary_budget_tokens - prefix_cost
+                )
             try:
                 custom_summary = await _summarize_head(
                     head,
@@ -218,6 +264,9 @@ async def compact_with_llm(
 
         # 3) LLM 摘要成功 → 带 custom_summary 调规则压缩(最高优先级摘要正文)
         if custom_summary:
+            if prepend_codex_prefix and not codex_is_summary_message(custom_summary):
+                # Codex 规范交接前缀(可选):下游以 is_summary_message 识别摘要消息
+                custom_summary = CODEX_SUMMARY_PREFIX + "\n" + custom_summary
             compressed, info = compress_messages_if_needed(
                 messages,
                 context_limit,
