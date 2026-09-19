@@ -46,7 +46,8 @@ try {
   const out = execSync('git diff --cached --name-only', {
     encoding: 'utf-8',
     cwd: process.cwd(),
-  })
+      windowsHide: true,
+    })
   staged = out.split('\n').filter(Boolean)
 } catch {
   // git 命令失败(非 git 环境),不阻塞 commit

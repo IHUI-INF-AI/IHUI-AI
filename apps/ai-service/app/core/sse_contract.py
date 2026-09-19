@@ -30,7 +30,7 @@ SSE_EVENTS: frozenset[str] = frozenset(
         "subagent_progress",
         "subagent_end",
         "plan-step",
-        "thinking_delta",
+        "thinking",
         "plan_updated",
         "terminal_start",
         "terminal_end",
@@ -39,9 +39,8 @@ SSE_EVENTS: frozenset[str] = frozenset(
         "fallback",
         "usage",
         "compaction",
-        "repair",
-        "resumed",
         "steer",
+        "budget",
     }
 )
 
@@ -66,7 +65,7 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract("chunk", ("content",)),
     SSEEventContract("token", ("content",)),
     SSEEventContract("reasoning", ("content",)),
-    SSEEventContract("thinking_delta", ("content",)),
+    SSEEventContract("thinking", ("content",)),
     SSEEventContract("tool-call-start", ("toolCallId", "name", "args")),
     SSEEventContract("tool-result", ("toolCallId", "result")),
     SSEEventContract("tool-delegate", ("payload",)),
@@ -97,9 +96,11 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
         "compaction",
         ("triggered", "tokensBefore", "tokensAfter", "removedCount", "usageRatio"),
     ),
-    SSEEventContract("repair", ("removed",)),
-    SSEEventContract("resumed", ("payload",)),
     # 中途引导注入确认(Steer,2026-09-19 立):llm.py tool loop 注入用户引导文本时发出
     SSEEventContract("steer", ("phase", "text", "timestamp", "messageId")),
+    # 预算档位提醒(2026-09-19 立,网关发):流首按当日用量分档软提醒
+    # (80%~95% warning / 95%~100% critical);>=100% 走 HTTP 429
+    # errorCode=BUDGET_EXHAUSTED 硬中断
+    SSEEventContract("budget", ("level", "percent", "usedTokens", "limitTokens", "tier", "resetAt")),
 )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

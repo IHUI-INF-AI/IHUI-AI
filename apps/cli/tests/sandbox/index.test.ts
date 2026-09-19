@@ -13,9 +13,12 @@ import {
   runSandboxedAsync,
 } from '../../src/sandbox/index.js';
 
-const CWD = path.resolve(os.tmpdir(), 'sandbox-test-cwd');
+// 唯一临时目录:与本文件同源的 tests/sandbox-index.test.ts 曾共用固定路径,
+// vitest 并行 worker 下 afterAll rmSync 与真实执行用例竞争句柄 → EPERM;mkdtemp 隔离根治
+let CWD = '';
 
 beforeAll(() => {
+  CWD = fs.mkdtempSync(path.join(os.tmpdir(), 'sandbox-test-cwd-'));
   fs.mkdirSync(path.join(CWD, 'src'), { recursive: true });
   fs.writeFileSync(path.join(CWD, 'src', 'a.txt'), 'ok');
 });
@@ -23,7 +26,13 @@ beforeAll(() => {
 afterAll(() => {
   // 2026-09-14:maxRetries+retryDelay 根治 Windows 机器级文件锁(杀毒/索引/同步盘
   // 短暂持有句柄)导致的 EBUSY 套件级失败——rmSync 默认 0 重试,瞬时锁即炸整个套件
-  fs.rmSync(CWD, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  // 2026-09-19:强杀/高负载下句柄释放可超过重试窗口(EPERM 持续 >1s),清理属
+  // best-effort——残留目录由系统 TEMP 收割,不应让 teardown 炸掉全绿的套件
+  try {
+    fs.rmSync(CWD, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+  } catch (err) {
+    console.warn(`[sandbox/index.test] 临时目录清理失败(忽略,不影响测试判定): ${String(err)}`);
+  }
 });
 
 describe('isPathAllowedWithRealpath(symlink 逃逸防护)', () => {

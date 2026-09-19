@@ -272,7 +272,7 @@ async def test_openai_compat_provider_real_native_fc(
         body["model"] = model
         try:
             raw = await _stream_chat(client, body)
-        except (asyncio.TimeoutError, TimeoutError) as e:
+        except TimeoutError as e:
             failures.append(f"[{model}] 请求超时: {e!r}")
             continue
         events = _parse_sse_events(raw)

@@ -41,6 +41,7 @@ import logSanitizerPlugin from './plugins/log-sanitizer.js'
 import { metricsPlugin } from './plugins/metrics.js'
 import { tracePlugin } from './plugins/trace.js'
 import { redis } from './plugins/redis.js'
+import { sseRegistry } from './plugins/sse-registry.js'
 import { queue } from './plugins/queue.js'
 import { scheduler } from './plugins/scheduler.js'
 import { distributedRateLimit } from './plugins/distributed-rate-limit.js'
@@ -437,6 +438,11 @@ async function registerPlugins(server: FastifyInstance) {
 
   // Redis 客户端：server.redis + server.redisForQueue 装饰器（供 BullMQ / Pub/Sub 使用）
   await server.register(redis)
+
+  // SSE 流注册表状态层：server.sseRegistry 装饰器（#22 多副本就绪，
+  // config.SSE_REGISTRY_BACKEND 选择 memory|redis；redis 时启用回放帧旁路复制
+  // + 会话元数据跨副本可见 + abort 跨副本 Pub/Sub 广播）
+  await server.register(sseRegistry)
 
   // BullMQ 队列：server.emailQueue / notificationQueue / aiCallbackQueue 装饰器
   await server.register(queue)

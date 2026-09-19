@@ -116,12 +116,6 @@ export interface AgentStreamEvent {
   [key: string]: unknown
 }
 
-export interface PermissionRequest {
-  tool_name: string
-  args: Record<string, unknown>
-  request_id: string
-}
-
 export interface PlanProposal {
   steps: string[]
   rationale?: string
@@ -153,7 +147,6 @@ export interface AgentPlanStepEvent {
 export interface AgentStreamCallbacks {
   onDelta?: (delta: string) => void
   onToolCall?: (toolCall: ToolCallInfo) => void
-  onPermissionRequest?: (req: PermissionRequest) => void
   /** 高危工具审批请求(2026-08-30 立):AgentLoopV2 审批门发起 tool-approval SSE 事件时触发。
    *  前端据此弹窗请求用户批准/拒绝,再调 sendToolApprovalResponse 回传决策。 */
   onApprovalRequest?: (req: ToolApprovalRequest) => void
@@ -504,13 +497,6 @@ function dispatchSSEEvent(event: AgentStreamEvent, callbacks: AgentStreamCallbac
       callbacks.onToolCall?.({
         name: typeof event.name === 'string' ? event.name : String(event.name ?? ''),
         args: (event.args as Record<string, unknown>) ?? {},
-      })
-      break
-    case 'permission_request':
-      callbacks.onPermissionRequest?.({
-        tool_name: typeof event.tool_name === 'string' ? event.tool_name : '',
-        args: (event.args as Record<string, unknown>) ?? {},
-        request_id: typeof event.request_id === 'string' ? event.request_id : '',
       })
       break
     case 'tool-approval':

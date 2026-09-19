@@ -28,7 +28,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -55,20 +55,6 @@ check-no-native-dialog.mjs — 原生弹窗守门(alert/confirm/prompt)
 `)
   process.exit(0)
 }
-
-const EXCLUDE_DIRS = withExcludes([
-  'node_modules',
-  'out',
-  'dist',
-  'build',
-  '.next',
-  'public',
-  'coverage',
-  'tests',
-  '__tests__',
-  'e2e',
-  '.ihui-agent',
-])
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']
 
@@ -152,6 +138,7 @@ function getStagedAddedLines() {
       cwd: ROOT,
       maxBuffer: 50 * 1024 * 1024,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
   } catch {
     return result
@@ -198,6 +185,7 @@ function getStagedFiles() {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return output
       .split('\n')

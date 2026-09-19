@@ -94,6 +94,9 @@ from app.routers import workflow as workflow_router
 # AI 批改(AI 自动评分练习答案,2026-08-07 立)
 from app.routers.ai_marking import router as ai_marking_router
 
+# 教育食堂采购小票 AI 三轮核对(抽取/交叉核对/仲裁,2026-09-19 立)
+from app.routers.edu_canteen_receipt import router as edu_canteen_receipt_router
+
 # P3 深度层:AI 教育引擎(AI 助教)+ LangGraph 升级(PostgresSaver + interrupt HITL + streaming)
 from app.routers.ai_tutor import router as ai_tutor_router
 
@@ -760,6 +763,8 @@ def create_app() -> FastAPI:
     app.include_router(ai_tutor_router)
     # AI 批改(学科讲解/提示/出题之外新增评分能力)
     app.include_router(ai_marking_router)
+    # 教育食堂采购小票 AI 三轮核对(extract/verify/arbitrate)
+    app.include_router(edu_canteen_receipt_router)
     app.include_router(langgraph_router)
     # L4 自进化 admin 端点(meta_learner 状态/lessons/history + 手动触发聚类,2026-07-25 立)
     app.include_router(meta_learning_router)

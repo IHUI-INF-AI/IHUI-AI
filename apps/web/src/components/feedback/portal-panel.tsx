@@ -104,7 +104,7 @@ export function PortalPanel({
       document.removeEventListener('mousedown', onPointer)
       document.removeEventListener('touchstart', onPointer)
     }
-  }, [open, onClose, anchorRef])
+  }, [open, onClose, anchorRef, panelRef])
 
   if (!open || typeof document === 'undefined') return null
 

@@ -22,6 +22,8 @@ import {
   branchConversation,
   type ToolDelegateEvent,
   type WorkspacePermissionMode,
+  // Budget 用量分档提醒事件(2026-09-19 立,网关发,流首 toast 提示用量进度)
+  type BudgetEvent,
 } from '@ihui/api-client'
 import { listCheckpoints, restoreCheckpoint, type CheckpointMeta } from '@/api/checkpoint-api'
 import { expandRuleToken } from '@/stores/memory'
@@ -458,6 +460,10 @@ export function createSendMessage(
     store.setMessageStreamCompleted(assistantId, false)
     // P4-2: 清除上一轮 fallback 通知,避免旧横幅残留到新对话轮次
     setFallbackNotice(null)
+    // Steer(中途引导,2026-09-19 立):记录当前流式 assistant 消息 ID。
+    // 闪电按钮触发 steer 端点时凭 conversationId+messageId 反查 upstreamSessionId,
+    // 流收尾(finally 代际守卫)时同步置回 null。
+    store.setStreamingAssistantId(assistantId)
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -618,6 +624,17 @@ export function createSendMessage(
             removedCount: info.removedCount,
             trigger: info.trigger,
           })
+          // 2026-09-18 v2:压缩元信息同步挂到当前 assistant 消息
+          // (MessageItem 渲染 CompressionDivider"上方历史已压缩"分隔线;压缩重写消息列表时
+          //  active assistant 消息(lastLocal)被保留,setMessageCompaction 按 id 定位不受影响)
+          if (assistantId) {
+            useChatStore.getState().setMessageCompaction(assistantId, {
+              originalTokens: info.tokensBefore,
+              compressedTokens: info.tokensAfter,
+              removedCount: info.removedCount,
+              trigger: info.trigger,
+            })
+          }
 
           // 优先使用 SSE 携带的 compressedMessages 直接更新前端,避免再调 getMessages 拿旧数据
           const compressedMessages = info.compressedMessages as
@@ -801,14 +818,18 @@ export function createSendMessage(
         onPlanUpdate: (evt) => {
           if (!evt.messageId) return
           const steps: PlanStep[] = evt.plan.map((item, i) => ({
-            id: `plan-${i}-${item.step.slice(0, 16)}`,
+            // 2026-09-18 v2:优先用后端步骤 id(= toolCallId,支持步骤↔工具卡精确关联),旧事件回退本地生成
+            id: item.id ?? `plan-${i}-${item.step.slice(0, 16)}`,
             step: item.step,
-            status: item.status,
+            // v2 五态契约:后端可直接发 failed;旧事件 error=true 归一化为 failed
+            status: item.status === 'failed' || item.error === true ? 'failed' : item.status,
             explanation: evt.explanation,
             startedAt: item.startedAt,
             endedAt: item.endedAt,
             durationMs: item.durationMs,
             tokenUsage: item.tokenUsage,
+            ...(Array.isArray(item.toolCallIds) ? { toolCallIds: item.toolCallIds } : {}),
+            ...(item.error === true ? { error: true } : {}),
             messageId: evt.messageId,
           }))
           useChatStore.getState().setMessagePlanSteps(evt.messageId, steps)
@@ -868,6 +889,41 @@ export function createSendMessage(
           if (!targetId || !evt.items?.length) return
           useChatStore.getState().appendMemoryNotice(targetId, evt.items)
         },
+        // Steer(中途引导,2026-09-19 立):ai-service 在 tool loop 边界注入用户引导后
+        // 下发 steer 事件(phase='injected')确认,写入消息级引导徽章数据,
+        // MessageItem 在本条 assistant 消息下方渲染「已引导」徽章。
+        // messageId 缺省时回退到本条 assistant 消息 ID(事件必然属于当前流)。
+        onSteer: (evt) => {
+          const targetId = evt.messageId ?? assistantId
+          if (!targetId || !evt.text) return
+          useChatStore.getState().appendSteerNotice(targetId, {
+            text: evt.text,
+            timestamp: evt.timestamp,
+          })
+        },
+        // Budget 用量分档提醒(2026-09-19 立):网关 checkTokenBudget 三态决策,流放行前在
+        // 流首下发 budget 命名帧——80%≤用量<95% 为 level='warning'、95%≤用量<100% 为
+        // level='critical',本条消息照常生成不受影响,仅 toast 提示用量进度;用量≥100% 则
+        // 429 硬中断,走 onError 的 BUDGET_EXHAUSTED 分支(见下)。
+        onBudget: (evt: BudgetEvent) => {
+          // token 数格式化:≥1 万用「X.X 万」缩写,否则原样展示
+          const fmtTokens = (n: number | undefined) =>
+            n === undefined ? '?' : n >= 10000 ? `${Math.floor(n / 1000) / 10} 万` : `${n}`
+          const parts: string[] = []
+          if (evt.usedTokens !== undefined && evt.limitTokens !== undefined) {
+            parts.push(`已用 ${fmtTokens(evt.usedTokens)} / ${fmtTokens(evt.limitTokens)} tokens`)
+          }
+          if (evt.percent !== undefined) parts.push(`${evt.percent}%`)
+          parts.push('明日 0 点重置')
+          if (evt.tier) parts.push(`(${evt.tier} 档)`)
+          if (evt.level === 'critical') {
+            // 95%~100% 临界档:强提醒,本条仍会正常完成
+            toast.warning('今日 AI 用量即将耗尽', { description: parts.join(',') })
+          } else {
+            // 80%~95% 提醒档:信息级提示,不打断阅读
+            toast.info('今日 AI 用量较高', { description: parts.join(',') })
+          }
+        },
         // 阶段 2:浏览器端工具执行代理(2026-08-02 立)
         // ai-service 在远程服务器无法访问本地文件,LLM 调用 fs 类工具时通过 SSE
         // tool-delegate 事件委托前端用 FileSystemDirectoryHandle 执行,通过 postToolResult 回传
@@ -910,8 +966,15 @@ export function createSendMessage(
           // W28 Hooks 事件:error(SSE 流式错误)
           emitAgentHook('error', { summary: errMsg?.slice(0, 120) })
           const formatted = formatSSEError(errMsg, info)
-          useChatStore.getState().setMessageError(assistantId, formatted.message)
-          useChatStore.getState().setError(formatted.message)
+          // Budget 三态·硬中断档(2026-09-19 立):网关判定日用量 ≥100% 时返回 429 +
+          // errorCode='BUDGET_EXHAUSTED'(响应体含 percent/usedTokens/limitTokens/resetAt)。
+          // 与普通限频区分:预算要到次日 0 点才重置,通用「频率超限,60 秒后重试」文案会误导。
+          const isBudgetBlock = info?.errorCode === 'BUDGET_EXHAUSTED'
+          const budgetBlockMessage = '今日 token 预算已用尽,明日 0 点重置后可继续对话'
+          useChatStore
+            .getState()
+            .setMessageError(assistantId, isBudgetBlock ? budgetBlockMessage : formatted.message)
+          useChatStore.getState().setError(isBudgetBlock ? budgetBlockMessage : formatted.message)
           if (formatted.severity === 'auth') {
             useLoginDialogStore.getState().open('login')
           }
@@ -924,7 +987,12 @@ export function createSendMessage(
               : ec
                 ? `[${ec}] ${formatted.rawMessage}`
                 : formatted.rawMessage
-          if (formatted.severity === 'ratelimit') {
+          if (isBudgetBlock) {
+            // Budget 硬中断档 toast:预算次日 0 点才重置,立即重试必然再 429,故不给 retry 按钮
+            toast.error('今日 AI 用量已达上限', {
+              description: budgetBlockMessage,
+            })
+          } else if (formatted.severity === 'ratelimit') {
             toast.warning(formatted.title, { description: toastDesc })
           } else if (formatted.severity === 'safety') {
             // 内容被 AI 厂商安全策略拦截,用 warning 级别提示用户调整提问方式
@@ -1010,6 +1078,9 @@ export function createSendMessage(
       if (streamGenerationRef.current === streamGeneration) {
         abortRef.current = null
         useChatStore.getState().setStreaming(false)
+        // Steer(中途引导,2026-09-19 立):流收尾同步清除流式消息 ID。
+        // 代际守卫内清理,防止被「切换会话」abort 的旧流清掉新流的指向。
+        useChatStore.getState().setStreamingAssistantId(null)
         useChatStore.getState().markAllAgentStreamsDone()
         // #23 撤回未执行工具卡(2026-09-13 立):流收尾时把仍处 running 的工具卡置为
         // cancelled(报错/中断/超时路径下后端不会再返回 tool-result)。

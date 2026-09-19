@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, Info } from 'lucide-react'
+import { Send, Square, Info, Zap } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -203,6 +203,7 @@ export function MessageInput({
     pendingMessages,
     removePendingMessage,
     sendPendingMessage,
+    steer,
   } = useMessageSend({
     value,
     setValue,
@@ -907,16 +908,40 @@ export function MessageInput({
                     不再占用 toolbar 槽位)
                     - 流式中切 Stop(天蓝底 sky-500),否则 Send(主色,空输入/流式中禁用) */}
                 {isStreaming ? (
-                  <Tooltip content={stopLabel ?? t('stop')}>
-                    <button
-                      type="button"
-                      onClick={onStop}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-sky-500 text-white hover:bg-sky-600"
-                      aria-label={stopLabel ?? t('stop')}
-                    >
-                      <Square className="h-3.5 w-3.5" fill="currentColor" />
-                    </button>
-                  </Tooltip>
+                  <>
+                    {/* Steer 中途引导(2026-09-19 立):流式期间闪电按钮,不打断当前工具执行,
+                        将输入框文本经 /chat/steer 注入 ai-service 队列,下一轮 LLM 调用前生效。
+                        Enter 仍走 W27 FIFO 排队(两者互不影响);空输入禁用。 */}
+                    <Tooltip content={t('steer')}>
+                      <span className="inline-flex">
+                        <button
+                          type="button"
+                          onClick={() => void steer()}
+                          disabled={!value.trim()}
+                          className={cn(
+                            'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+                            value.trim()
+                              ? 'bg-amber-500 text-white hover:bg-amber-600'
+                              : 'cursor-not-allowed bg-muted text-muted-foreground/50',
+                          )}
+                          aria-label={t('steer')}
+                          data-testid="steer-button"
+                        >
+                          <Zap className="h-3.5 w-3.5" />
+                        </button>
+                      </span>
+                    </Tooltip>
+                    <Tooltip content={stopLabel ?? t('stop')}>
+                      <button
+                        type="button"
+                        onClick={onStop}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-sky-500 text-white hover:bg-sky-600"
+                        aria-label={stopLabel ?? t('stop')}
+                      >
+                        <Square className="h-3.5 w-3.5" fill="currentColor" />
+                      </button>
+                    </Tooltip>
+                  </>
                 ) : (
                   <Tooltip content={sendLabel ?? t('send')}>
                     <span className="inline-flex">

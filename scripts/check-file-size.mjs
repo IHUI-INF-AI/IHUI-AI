@@ -38,7 +38,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
@@ -80,20 +80,6 @@ staged 模式:仅 git 新增文件(Added)超阈值才阻塞,不惩罚存量文�
 `)
   process.exit(0)
 }
-
-const EXCLUDE_DIRS = withExcludes([
-  'node_modules',
-  'out',
-  'dist',
-  'build',
-  '.next',
-  'public',
-  'coverage',
-  'tests',
-  '__tests__',
-  'e2e',
-  '.ihui-agent',
-])
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']
 
@@ -146,6 +132,7 @@ function getStagedAddedFiles() {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return output
       .split('\n')

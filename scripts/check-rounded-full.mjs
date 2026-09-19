@@ -28,14 +28,11 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
-
-// EXCLUDE_DIRS:基于共享 EXCLUDE_DIRS,追加脚本特有(.ihui-agent / tests / __tests__ / e2e)
-const EXCLUDE_DIRS = withExcludes(['.ihui-agent', 'tests', '__tests__', 'e2e'])
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.css', '.scss']
 
@@ -275,6 +272,7 @@ function getStagedAddedLines() {
       cwd: ROOT,
       maxBuffer: 50 * 1024 * 1024,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
   } catch {
     return result
@@ -324,6 +322,7 @@ function getStagedFiles() {
       encoding: 'utf8',
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     return output
       .split('\n')
